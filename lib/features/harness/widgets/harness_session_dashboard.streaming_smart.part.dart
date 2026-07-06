@@ -307,7 +307,7 @@ class _HeStreamingSmartViewState extends State<_HeStreamingSmartView>
               ),
               const SizedBox(width: 8),
               Text(
-                _heHarnessText(
+                openHandLocalizedText(
                   context,
                   zh: '正在输出…',
                   zhHant: '正在輸出…',

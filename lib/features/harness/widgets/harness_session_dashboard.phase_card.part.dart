@@ -120,7 +120,7 @@ class _HePhaseCardState extends State<_HePhaseCard> {
     // Completed reviewing phases with FAIL verdict show distinct text.
     if (widget.log.status == HarnessPhaseStatus.completed &&
         widget.log.reviewVerdictFail) {
-      return _heHarnessText(
+      return openHandLocalizedText(
         context,
         zh: '验收未通过',
         zhHant: '驗收未通過',
@@ -131,7 +131,7 @@ class _HePhaseCardState extends State<_HePhaseCard> {
       );
     }
     return switch (widget.log.status) {
-      HarnessPhaseStatus.pending => _heHarnessText(
+      HarnessPhaseStatus.pending => openHandLocalizedText(
         context,
         zh: '等待中',
         zhHant: '等待中',
@@ -140,7 +140,7 @@ class _HePhaseCardState extends State<_HePhaseCard> {
         de: 'Ausstehend',
         ja: '待機中',
       ),
-      HarnessPhaseStatus.paused => _heHarnessText(
+      HarnessPhaseStatus.paused => openHandLocalizedText(
         context,
         zh: '暂停中',
         zhHant: '暫停中',
@@ -149,7 +149,7 @@ class _HePhaseCardState extends State<_HePhaseCard> {
         de: 'Pausiert',
         ja: '一時停止中',
       ),
-      HarnessPhaseStatus.running => _heHarnessText(
+      HarnessPhaseStatus.running => openHandLocalizedText(
         context,
         zh: '运行中',
         zhHant: '執行中',
@@ -158,7 +158,7 @@ class _HePhaseCardState extends State<_HePhaseCard> {
         de: 'Wird ausgeführt',
         ja: '実行中',
       ),
-      HarnessPhaseStatus.completed => _heHarnessText(
+      HarnessPhaseStatus.completed => openHandLocalizedText(
         context,
         zh: '执行完成',
         zhHant: '執行完成',
@@ -167,7 +167,7 @@ class _HePhaseCardState extends State<_HePhaseCard> {
         de: 'Abgeschlossen',
         ja: '完了',
       ),
-      HarnessPhaseStatus.failed => _heHarnessText(
+      HarnessPhaseStatus.failed => openHandLocalizedText(
         context,
         zh: '执行失败',
         zhHant: '執行失敗',
@@ -176,7 +176,7 @@ class _HePhaseCardState extends State<_HePhaseCard> {
         de: 'Fehlgeschlagen',
         ja: '失敗',
       ),
-      HarnessPhaseStatus.cancelled => _heHarnessText(
+      HarnessPhaseStatus.cancelled => openHandLocalizedText(
         context,
         zh: '执行中止',
         zhHant: '執行中止',
@@ -185,7 +185,7 @@ class _HePhaseCardState extends State<_HePhaseCard> {
         de: 'Abgebrochen',
         ja: '中止',
       ),
-      HarnessPhaseStatus.skipped => _heHarnessText(
+      HarnessPhaseStatus.skipped => openHandLocalizedText(
         context,
         zh: '已跳过',
         zhHant: '已跳過',
@@ -228,7 +228,7 @@ class _HePhaseCardState extends State<_HePhaseCard> {
     final phaseName = _heHarnessPhaseLabel(context, log.phase);
     final roleConfig = _roleConfig();
     final collapsedPreviewLine = _collapsedPreviewLine(log.lines);
-    final exitCodeLabel = _heHarnessText(
+    final exitCodeLabel = openHandLocalizedText(
       context,
       zh: '退出码',
       zhHant: '結束碼',
@@ -329,7 +329,7 @@ class _HePhaseCardState extends State<_HePhaseCard> {
                   if (log.savedLogPath != null)
                     _HeChip(
                       icon: Icons.save_outlined,
-                      label: _heHarnessText(
+                      label: openHandLocalizedText(
                         context,
                         zh: '已保存日志',
                         zhHant: '已儲存日誌',
@@ -342,7 +342,7 @@ class _HePhaseCardState extends State<_HePhaseCard> {
                   if (log.changedFiles.isNotEmpty)
                     _HeChip(
                       icon: Icons.difference_rounded,
-                      label: _heHarnessText(
+                      label: openHandLocalizedText(
                         context,
                         zh: '${log.changedFiles.length} 个文件变动',
                         zhHant: '${log.changedFiles.length} 個檔案變更',
@@ -502,7 +502,7 @@ class _HePhaseExpandedBody extends StatelessWidget {
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
-                  _heHarnessText(
+                  openHandLocalizedText(
                     context,
                     zh: '本阶段执行失败，请检查上方日志以了解详情。',
                     zhHant: '本階段執行失敗，請檢查上方日誌了解詳情。',
@@ -557,7 +557,7 @@ class _HePhaseActionBar extends StatelessWidget {
           style: buttonStyle,
           icon: const Icon(Icons.content_copy_outlined, size: 16),
           label: Text(
-            _heHarnessText(
+            openHandLocalizedText(
               context,
               zh: '复制',
               zhHant: '複製',
@@ -573,7 +573,7 @@ class _HePhaseActionBar extends StatelessWidget {
           style: buttonStyle,
           icon: const Icon(Icons.replay_rounded, size: 16),
           label: Text(
-            _heHarnessText(
+            openHandLocalizedText(
               context,
               zh: '重新执行',
               zhHant: '重新執行',
@@ -589,7 +589,7 @@ class _HePhaseActionBar extends StatelessWidget {
           style: buttonStyle,
           icon: const Icon(Icons.delete_outline_rounded, size: 16),
           label: Text(
-            _heHarnessText(
+            openHandLocalizedText(
               context,
               zh: '删除',
               zhHant: '刪除',

@@ -180,7 +180,11 @@ class _DataCleanupSectionState extends State<_DataCleanupSection> {
       context: navigatorContext,
       title: _categoryTitle(navigatorContext, category),
       message: _categoryConfirmBody(navigatorContext, category),
-      confirmLabel: _localizedText(navigatorContext, zh: '清理', en: 'Clean'),
+      confirmLabel: openHandLocalizedText(
+        navigatorContext,
+        zh: '清理',
+        en: 'Clean',
+      ),
       cancelLabel: l10n.commonCancel,
       destructive: true,
       maxWidth: 520,
@@ -197,20 +201,20 @@ class _DataCleanupSectionState extends State<_DataCleanupSection> {
     });
     // 提前在 await 前抓取本地化文案，避免 use_build_context_synchronously
     // 警告（清理任务跨越异步边界，跨越后再用 context 拿 l10n 不安全）。
-    final partialFailureTemplate = _localizedText(
+    final partialFailureTemplate = openHandLocalizedText(
       context,
       zh: '部分数据清理失败（{count} 个分类），剩余项已保留。',
       en:
           'Some data could not be cleaned ({count} categories). '
           'Remaining items were preserved.',
     );
-    final genericFailureTemplate = _localizedText(
+    final genericFailureTemplate = openHandLocalizedText(
       context,
       zh: '清理失败：{error}',
       en: 'Clean failed: {error}',
     );
     final categoryTitle = _categoryTitle(context, category);
-    final successText = _localizedText(
+    final successText = openHandLocalizedText(
       context,
       zh: '已清理：$categoryTitle',
       en: 'Cleaned: $categoryTitle',
@@ -291,21 +295,21 @@ class _DataCleanupSectionState extends State<_DataCleanupSection> {
     required String enLabel,
   }) {
     if (bytes == null) {
-      return _localizedText(
+      return openHandLocalizedText(
         context,
         zh: '其中 $zhLabel 缓存：测算中…',
         en: '$enLabel cache: measuring…',
       );
     }
     if (bytes <= 0) {
-      return _localizedText(
+      return openHandLocalizedText(
         context,
         zh: '其中 $zhLabel 缓存：0 B',
         en: '$enLabel cache: 0 B',
       );
     }
     final human = formatHumanBytes(bytes);
-    return _localizedText(
+    return openHandLocalizedText(
       context,
       zh: '其中 $zhLabel 缓存：$human',
       en: '$enLabel cache: $human',
@@ -340,8 +344,8 @@ class _DataCleanupSectionState extends State<_DataCleanupSection> {
   @override
   Widget build(BuildContext context) {
     return _SettingsSubsectionCard(
-      title: _localizedText(context, zh: '数据清理', en: 'Data Cleanup'),
-      description: _localizedText(
+      title: openHandLocalizedText(context, zh: '数据清理', en: 'Data Cleanup'),
+      description: openHandLocalizedText(
         context,
         zh:
             '所有体积测算与文件删除都在后台 worker 线程中执行，不会阻塞主线程；'
@@ -386,7 +390,7 @@ class _DataCleanupSectionState extends State<_DataCleanupSection> {
               onPressed: _measuringCategories.isNotEmpty ? null : _measureAll,
               icon: const Icon(Icons.refresh_outlined),
               label: Text(
-                _localizedText(context, zh: '重新测算', en: 'Recalculate'),
+                openHandLocalizedText(context, zh: '重新测算', en: 'Recalculate'),
               ),
             ),
           ),
@@ -425,13 +429,13 @@ class _DataCleanupRow extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final sizeText = isMeasuring || report == null
-        ? _localizedText(context, zh: '测算中…', en: 'Measuring…')
+        ? openHandLocalizedText(context, zh: '测算中…', en: 'Measuring…')
         : formatHumanBytes(report!.bytes);
     final itemCount = report?.itemCount;
     final detailText = (isMeasuring || report == null)
         ? null
         : (itemCount != null && itemCount > 0
-              ? _localizedText(
+              ? openHandLocalizedText(
                   context,
                   zh: '$itemCount 项',
                   en: '$itemCount item${itemCount == 1 ? '' : 's'}',
@@ -582,8 +586,8 @@ class _DataCleanupRow extends StatelessWidget {
               );
         final cleanLabel = Text(
           isDestructive
-              ? _localizedText(context, zh: '一键清空', en: 'Wipe All')
-              : _localizedText(context, zh: '清理', en: 'Clean'),
+              ? openHandLocalizedText(context, zh: '一键清空', en: 'Wipe All')
+              : openHandLocalizedText(context, zh: '清理', en: 'Clean'),
           maxLines: 1,
           softWrap: false,
           overflow: TextOverflow.fade,
@@ -660,38 +664,46 @@ IconData _categoryIcon(DataCleanupCategory category) {
 String _categoryTitle(BuildContext context, DataCleanupCategory category) {
   switch (category) {
     case DataCleanupCategory.multimedia:
-      return _localizedText(context, zh: '多媒体数据', en: 'Multimedia Data');
+      return openHandLocalizedText(context, zh: '多媒体数据', en: 'Multimedia Data');
     case DataCleanupCategory.sessions:
-      return _localizedText(context, zh: '会话数据', en: 'Sessions');
+      return openHandLocalizedText(context, zh: '会话数据', en: 'Sessions');
     case DataCleanupCategory.appCache:
-      return _localizedText(context, zh: '应用缓存', en: 'App Cache');
+      return openHandLocalizedText(context, zh: '应用缓存', en: 'App Cache');
     case DataCleanupCategory.logs:
-      return _localizedText(context, zh: '日志数据', en: 'Logs');
+      return openHandLocalizedText(context, zh: '日志数据', en: 'Logs');
     case DataCleanupCategory.userMemory:
-      return _localizedText(context, zh: '用户记忆', en: 'User Memory');
+      return openHandLocalizedText(context, zh: '用户记忆', en: 'User Memory');
     case DataCleanupCategory.mcpConfig:
-      return _localizedText(context, zh: 'MCP 配置', en: 'MCP Config');
+      return openHandLocalizedText(context, zh: 'MCP 配置', en: 'MCP Config');
     case DataCleanupCategory.hooks:
-      return _localizedText(context, zh: 'Hooks 配置', en: 'Hooks');
+      return openHandLocalizedText(context, zh: 'Hooks 配置', en: 'Hooks');
     case DataCleanupCategory.crons:
-      return _localizedText(context, zh: '定时任务', en: 'Cron Jobs');
+      return openHandLocalizedText(context, zh: '定时任务', en: 'Cron Jobs');
     case DataCleanupCategory.instructions:
-      return _localizedText(context, zh: '用户指令', en: 'Instructions');
+      return openHandLocalizedText(context, zh: '用户指令', en: 'Instructions');
     case DataCleanupCategory.skillsDirectory:
-      return _localizedText(context, zh: '技能目录', en: 'Skills Directory');
+      return openHandLocalizedText(context, zh: '技能目录', en: 'Skills Directory');
     case DataCleanupCategory.lspDirectory:
-      return _localizedText(context, zh: 'LSP 安装目录', en: 'LSP Install Dir');
+      return openHandLocalizedText(
+        context,
+        zh: 'LSP 安装目录',
+        en: 'LSP Install Dir',
+      );
     case DataCleanupCategory.fileMutationLedger:
-      return _localizedText(context, zh: '文件变动历史', en: 'File Mutation Ledger');
+      return openHandLocalizedText(
+        context,
+        zh: '文件变动历史',
+        en: 'File Mutation Ledger',
+      );
     case DataCleanupCategory.wipeAll:
-      return _localizedText(context, zh: '全部数据', en: 'All Data');
+      return openHandLocalizedText(context, zh: '全部数据', en: 'All Data');
   }
 }
 
 String _categorySubtitle(BuildContext context, DataCleanupCategory category) {
   switch (category) {
     case DataCleanupCategory.multimedia:
-      return _localizedText(
+      return openHandLocalizedText(
         context,
         zh:
             '会话附件、旧临时生成媒体与 ~/.openhand/cache/media/ 网络多媒体缓存。'
@@ -703,7 +715,7 @@ String _categorySubtitle(BuildContext context, DataCleanupCategory category) {
             'again on next load.',
       );
     case DataCleanupCategory.sessions:
-      return _localizedText(
+      return openHandLocalizedText(
         context,
         zh: '所有 AI 会话与消息（含旧版 JSON）。清理后会话列表会被清空。',
         en:
@@ -711,7 +723,7 @@ String _categorySubtitle(BuildContext context, DataCleanupCategory category) {
             'session list will be empty after cleanup.',
       );
     case DataCleanupCategory.appCache:
-      return _localizedText(
+      return openHandLocalizedText(
         context,
         zh: '~/.openhand/cache/ 下的临时缓存文件，不包含由“多媒体数据”单独管理的媒体缓存。',
         en:
@@ -719,13 +731,13 @@ String _categorySubtitle(BuildContext context, DataCleanupCategory category) {
             'cache managed by "Multimedia Data".',
       );
     case DataCleanupCategory.logs:
-      return _localizedText(
+      return openHandLocalizedText(
         context,
         zh: 'cron 执行历史 + ~/.openhand/logs/ 目录。',
         en: 'Cron execution history + the ~/.openhand/logs/ directory.',
       );
     case DataCleanupCategory.userMemory:
-      return _localizedText(
+      return openHandLocalizedText(
         context,
         zh: '用户画像与所有用户记忆条目。清理后自学习子 Agent 会重新累积。',
         en:
@@ -733,7 +745,7 @@ String _categorySubtitle(BuildContext context, DataCleanupCategory category) {
             'sub-agent will gradually rebuild them.',
       );
     case DataCleanupCategory.mcpConfig:
-      return _localizedText(
+      return openHandLocalizedText(
         context,
         zh: '已配置的 MCP Server 列表（JSON 文件）。清理后 MCP 列表会变空。',
         en:
@@ -741,7 +753,7 @@ String _categorySubtitle(BuildContext context, DataCleanupCategory category) {
             'empty after cleanup.',
       );
     case DataCleanupCategory.hooks:
-      return _localizedText(
+      return openHandLocalizedText(
         context,
         zh: '全局设置 → Hooks 中配置的钩子脚本（sqlite hooks 表）。清理后 Hooks 列表会变空。',
         en:
@@ -749,7 +761,7 @@ String _categorySubtitle(BuildContext context, DataCleanupCategory category) {
             'table). The Hooks list will be empty after cleanup.',
       );
     case DataCleanupCategory.crons:
-      return _localizedText(
+      return openHandLocalizedText(
         context,
         zh: '用户创建的定时任务（不含 Hermes Talker 自主学习、MCP 关键词索引等系统内置任务）。清理后用户任务列表会变空，执行历史在「日志数据」中独立清理。',
         en:
@@ -758,7 +770,7 @@ String _categorySubtitle(BuildContext context, DataCleanupCategory category) {
             'history is cleaned separately under "Logs".',
       );
     case DataCleanupCategory.instructions:
-      return _localizedText(
+      return openHandLocalizedText(
         context,
         zh: '全局设置 → 指令中用户自定义的指令条目（sqlite user_instructions 表）。清理后指令列表会变空。',
         en:
@@ -767,7 +779,7 @@ String _categorySubtitle(BuildContext context, DataCleanupCategory category) {
             'after cleanup.',
       );
     case DataCleanupCategory.skillsDirectory:
-      return _localizedText(
+      return openHandLocalizedText(
         context,
         zh: '当前技能目录下的全部文件。包含用户自定义的技能内容，请谨慎操作。',
         en:
@@ -775,7 +787,7 @@ String _categorySubtitle(BuildContext context, DataCleanupCategory category) {
             'skills are included; proceed with caution.',
       );
     case DataCleanupCategory.lspDirectory:
-      return _localizedText(
+      return openHandLocalizedText(
         context,
         zh: '~/.openhand/lsp/ 目录下托管下载的 LSP 二进制。下次需要时会自动重装。',
         en:
@@ -783,7 +795,7 @@ String _categorySubtitle(BuildContext context, DataCleanupCategory category) {
             'reinstalled on next use.',
       );
     case DataCleanupCategory.fileMutationLedger:
-      return _localizedText(
+      return openHandLocalizedText(
         context,
         zh:
             '~/.openhand/file_history/ 下的文件变动 ledger（before/after 快照 + jsonl '
@@ -794,7 +806,7 @@ String _categorySubtitle(BuildContext context, DataCleanupCategory category) {
             'longer expose undo controls.',
       );
     case DataCleanupCategory.wipeAll:
-      return _localizedText(
+      return openHandLocalizedText(
         context,
         zh:
             '一次性清理上述所有分类的数据。不会删除 sqlite 数据库文件本身或'
@@ -813,7 +825,7 @@ String _categoryConfirmBody(
   DataCleanupCategory category,
 ) {
   final detail = _categorySubtitle(context, category);
-  return _localizedText(
+  return openHandLocalizedText(
     context,
     zh: '确认清理「${_categoryTitle(context, category)}」？\n\n$detail\n\n该操作无法撤销。',
     en:
@@ -880,7 +892,7 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
           context,
           OpenHandSnackBar.success(
             context,
-            _localizedText(
+            openHandLocalizedText(
               context,
               zh:
                   '已清理 · 释放 ${gc.removed} 个 blob · '
@@ -907,7 +919,7 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
 
   // ───────────────────────── 跨会话搜索 / 导出 / 导入 ─────────────────────────
   Future<void> _exportLedgerToClipboard() async {
-    final pendingText = _localizedText(
+    final pendingText = openHandLocalizedText(
       context,
       zh: '正在导出全部 ledger…',
       en: 'Exporting all ledger…',
@@ -930,7 +942,7 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
         context,
         OpenHandSnackBar.success(
           context,
-          _localizedText(
+          openHandLocalizedText(
             context,
             zh: '已复制 ledger bundle · ${formatHumanBytes(bytes)}',
             en: 'Copied ledger bundle · ${formatHumanBytes(bytes)}',
@@ -944,7 +956,7 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
         context,
         OpenHandSnackBar.error(
           context,
-          _localizedText(
+          openHandLocalizedText(
             context,
             zh: '导出失败：$error',
             en: 'Export failed: $error',
@@ -963,19 +975,19 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
         context,
         OpenHandSnackBar.info(
           context,
-          _localizedText(context, zh: '剪贴板为空', en: 'Clipboard is empty'),
+          openHandLocalizedText(context, zh: '剪贴板为空', en: 'Clipboard is empty'),
         ),
       );
       return;
     }
     final confirmed = await showOpenHandConfirmDialog(
       context: context,
-      title: _localizedText(
+      title: openHandLocalizedText(
         context,
         zh: '从剪贴板导入 ledger',
         en: 'Import ledger from clipboard',
       ),
-      message: _localizedText(
+      message: openHandLocalizedText(
         context,
         zh:
             '将合并剪贴板中的 ledger bundle 到当前 file_history 目录。'
@@ -985,7 +997,7 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
             'current file_history. Records with duplicate ids are '
             'skipped. This cannot be undone.',
       ),
-      confirmLabel: _localizedText(context, zh: '导入', en: 'Import'),
+      confirmLabel: openHandLocalizedText(context, zh: '导入', en: 'Import'),
       cancelLabel: AppLocalizations.of(context)!.commonCancel,
       maxWidth: 520,
       icon: Icon(
@@ -1004,7 +1016,7 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
         context,
         OpenHandSnackBar.success(
           context,
-          _localizedText(
+          openHandLocalizedText(
             context,
             zh: '已导入 $imported 条新记录',
             en: 'Imported $imported new record(s)',
@@ -1018,7 +1030,7 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
         context,
         OpenHandSnackBar.error(
           context,
-          _localizedText(
+          openHandLocalizedText(
             context,
             zh: '导入失败：$error',
             en: 'Import failed: $error',
@@ -1078,7 +1090,7 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
                   Icon(Icons.tune_rounded, size: 16, color: cs.primary),
                   const SizedBox(width: 8),
                   Text(
-                    _localizedText(
+                    openHandLocalizedText(
                       context,
                       zh: '文件变动历史 — 高级控制',
                       en: 'File Mutation Ledger — Advanced',
@@ -1090,7 +1102,7 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
                   const Spacer(),
                   if (_stats != null)
                     Text(
-                      _localizedText(
+                      openHandLocalizedText(
                         context,
                         zh:
                             '${_stats!.sessionCount} 会话 · '
@@ -1109,13 +1121,13 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
               ),
               const SizedBox(height: 6),
               _SliderRow(
-                label: _localizedText(
+                label: openHandLocalizedText(
                   context,
                   zh: '每文件最多保留 N 条历史',
                   en: 'Max versions per file',
                 ),
                 valueText: config.maxVersionsPerFile == 0
-                    ? _localizedText(context, zh: '不限制', en: 'Unlimited')
+                    ? openHandLocalizedText(context, zh: '不限制', en: 'Unlimited')
                     : '${config.maxVersionsPerFile}',
                 value: config.maxVersionsPerFile.toDouble(),
                 min: LedgerConfig.minMaxVersionsPerFile.toDouble(),
@@ -1126,14 +1138,14 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
                 ),
               ),
               _SliderRow(
-                label: _localizedText(
+                label: openHandLocalizedText(
                   context,
                   zh: 'N 天前的历史自动清理（启动时）',
                   en: 'Auto-cleanup older than N days (on launch)',
                 ),
                 valueText: config.autoCleanupDays == 0
-                    ? _localizedText(context, zh: '关闭', en: 'Disabled')
-                    : _localizedText(
+                    ? openHandLocalizedText(context, zh: '关闭', en: 'Disabled')
+                    : openHandLocalizedText(
                         context,
                         zh: '${config.autoCleanupDays} 天',
                         en: '${config.autoCleanupDays} days',
@@ -1147,13 +1159,13 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
               ),
               // mini-diff 阈值（KiB）：在 (阈值, 256 KiB] 区间仅保留 +/- 行。
               _SliderRow(
-                label: _localizedText(
+                label: openHandLocalizedText(
                   context,
                   zh: 'Mini-diff 阈值（超过则仅保留 +/- 行）',
                   en: 'Mini-diff threshold (drop context above)',
                 ),
                 valueText: config.miniDiffMaxBytes == 0
-                    ? _localizedText(context, zh: '禁用', en: 'Disabled')
+                    ? openHandLocalizedText(context, zh: '禁用', en: 'Disabled')
                     : '${(config.miniDiffMaxBytes / 1024).round()} KiB',
                 value: config.miniDiffMaxBytes.toDouble(),
                 min: LedgerConfig.minMiniDiffMaxBytes.toDouble(),
@@ -1186,7 +1198,11 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
                         color: cs.primary,
                       ),
                       label: Text(
-                        _localizedText(context, zh: '搜索…', en: 'Search…'),
+                        openHandLocalizedText(
+                          context,
+                          zh: '搜索…',
+                          en: 'Search…',
+                        ),
                       ),
                     ),
                     TextButton.icon(
@@ -1197,7 +1213,11 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
                         color: cs.primary,
                       ),
                       label: Text(
-                        _localizedText(context, zh: '导出全部', en: 'Export all'),
+                        openHandLocalizedText(
+                          context,
+                          zh: '导出全部',
+                          en: 'Export all',
+                        ),
                       ),
                     ),
                     TextButton.icon(
@@ -1208,7 +1228,7 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
                         color: cs.primary,
                       ),
                       label: Text(
-                        _localizedText(
+                        openHandLocalizedText(
                           context,
                           zh: '从剪贴板导入',
                           en: 'Import from clipboard',
@@ -1232,7 +1252,11 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
                               color: cs.primary,
                             ),
                       label: Text(
-                        _localizedText(context, zh: '立即清理超期', en: 'Prune now'),
+                        openHandLocalizedText(
+                          context,
+                          zh: '立即清理超期',
+                          en: 'Prune now',
+                        ),
                       ),
                     ),
                   ],
@@ -1243,7 +1267,7 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
                 Align(
                   alignment: Alignment.centerRight,
                   child: Text(
-                    _localizedText(
+                    openHandLocalizedText(
                       context,
                       zh: '上次 GC 释放 ${_lastGcStats!.removed} 个 blob · ${formatHumanBytes(_lastGcStats!.bytesFreed)}',
                       en: 'Last GC freed ${_lastGcStats!.removed} blob(s) · ${formatHumanBytes(_lastGcStats!.bytesFreed)}',
@@ -1398,7 +1422,7 @@ class _LedgerSearchDialogState extends State<_LedgerSearchDialog> {
       context,
       OpenHandSnackBar.success(
         context,
-        _localizedText(
+        openHandLocalizedText(
           context,
           zh: '已复制 ${_results.length} 条结果到剪贴板',
           en: 'Copied ${_results.length} record(s) to clipboard',
@@ -1421,7 +1445,7 @@ class _LedgerSearchDialogState extends State<_LedgerSearchDialog> {
         context,
         OpenHandSnackBar.success(
           context,
-          _localizedText(
+          openHandLocalizedText(
             context,
             zh: '已导出 ${_results.length} 条筛选结果（含 blob）到剪贴板',
             en: 'Exported ${_results.length} filtered record(s) (with blobs)',
@@ -1435,7 +1459,7 @@ class _LedgerSearchDialogState extends State<_LedgerSearchDialog> {
         context,
         OpenHandSnackBar.error(
           context,
-          _localizedText(
+          openHandLocalizedText(
             context,
             zh: '导出失败：$error',
             en: 'Export failed: $error',
@@ -1475,7 +1499,7 @@ class _LedgerSearchDialogState extends State<_LedgerSearchDialog> {
                     Icon(Icons.search_rounded, color: cs.primary, size: 18),
                     const SizedBox(width: 8),
                     Text(
-                      _localizedText(
+                      openHandLocalizedText(
                         context,
                         zh: '搜索文件变动 ledger',
                         en: 'Search file mutation ledger',
@@ -1486,7 +1510,11 @@ class _LedgerSearchDialogState extends State<_LedgerSearchDialog> {
                     ),
                     const Spacer(),
                     IconButton(
-                      tooltip: _localizedText(context, zh: '关闭', en: 'Close'),
+                      tooltip: openHandLocalizedText(
+                        context,
+                        zh: '关闭',
+                        en: 'Close',
+                      ),
                       onPressed: () => Navigator.of(context).pop(),
                       icon: const Icon(Icons.close_rounded, size: 18),
                     ),
@@ -1499,7 +1527,7 @@ class _LedgerSearchDialogState extends State<_LedgerSearchDialog> {
                   decoration: InputDecoration(
                     isDense: true,
                     prefixIcon: const Icon(Icons.folder_outlined, size: 16),
-                    hintText: _localizedText(
+                    hintText: openHandLocalizedText(
                       context,
                       zh: '路径包含（如 lib/features/...）',
                       en: 'Path contains (e.g. lib/features/...)',
@@ -1513,7 +1541,7 @@ class _LedgerSearchDialogState extends State<_LedgerSearchDialog> {
                   decoration: InputDecoration(
                     isDense: true,
                     prefixIcon: const Icon(Icons.build_rounded, size: 16),
-                    hintText: _localizedText(
+                    hintText: openHandLocalizedText(
                       context,
                       zh: '工具名（逗号或空格分隔，如 Edit, Write）',
                       en: 'Tool names (comma/space separated, e.g. Edit, Write)',
@@ -1576,7 +1604,7 @@ class _LedgerSearchDialogState extends State<_LedgerSearchDialog> {
                       : _results.isEmpty
                       ? Center(
                           child: Text(
-                            _localizedText(
+                            openHandLocalizedText(
                               context,
                               zh: '没有匹配的记录。',
                               en: 'No matching records.',
@@ -1671,7 +1699,7 @@ class _LedgerSearchDialogState extends State<_LedgerSearchDialog> {
                 Row(
                   children: [
                     Text(
-                      _localizedText(
+                      openHandLocalizedText(
                         context,
                         zh: '${_results.length} 条结果',
                         en: '${_results.length} result(s)',
@@ -1687,7 +1715,7 @@ class _LedgerSearchDialogState extends State<_LedgerSearchDialog> {
                           : _exportFilteredAsBundle,
                       icon: const Icon(Icons.archive_outlined, size: 16),
                       label: Text(
-                        _localizedText(
+                        openHandLocalizedText(
                           context,
                           zh: '导出筛选结果（含 blob）',
                           en: 'Export filtered (with blobs)',
@@ -1699,7 +1727,7 @@ class _LedgerSearchDialogState extends State<_LedgerSearchDialog> {
                       onPressed: _results.isEmpty ? null : _copyResults,
                       icon: const Icon(Icons.copy_all_rounded, size: 16),
                       label: Text(
-                        _localizedText(
+                        openHandLocalizedText(
                           context,
                           zh: '复制结果 JSON',
                           en: 'Copy results JSON',
@@ -1795,13 +1823,13 @@ enum _LedgerTimeRange {
   String label(BuildContext context) {
     switch (this) {
       case _LedgerTimeRange.all:
-        return _localizedText(context, zh: '全部', en: 'All time');
+        return openHandLocalizedText(context, zh: '全部', en: 'All time');
       case _LedgerTimeRange.today:
-        return _localizedText(context, zh: '今日', en: 'Today');
+        return openHandLocalizedText(context, zh: '今日', en: 'Today');
       case _LedgerTimeRange.last7d:
-        return _localizedText(context, zh: '近 7 天', en: 'Last 7 days');
+        return openHandLocalizedText(context, zh: '近 7 天', en: 'Last 7 days');
       case _LedgerTimeRange.last30d:
-        return _localizedText(context, zh: '近 30 天', en: 'Last 30 days');
+        return openHandLocalizedText(context, zh: '近 30 天', en: 'Last 30 days');
     }
   }
 

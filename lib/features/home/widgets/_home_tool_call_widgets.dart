@@ -336,12 +336,12 @@ class _ToolCallBodyState extends State<_ToolCallBody>
                             ? Icons.lock_outline_rounded
                             : Icons.security_rounded,
                         label: message.metadata['sandbox_blocked'] == true
-                            ? _localizedText(
+                            ? openHandLocalizedText(
                                 context,
                                 zh: '沙盒拦截',
                                 en: 'Sandbox blocked',
                               )
-                            : '${_localizedText(context, zh: '沙盒', en: 'Sandbox')}${'${message.metadata['sandbox_backend'] ?? ''}'.trim().isEmpty ? '' : ' · ${message.metadata['sandbox_backend']}'}',
+                            : '${openHandLocalizedText(context, zh: '沙盒', en: 'Sandbox')}${'${message.metadata['sandbox_backend'] ?? ''}'.trim().isEmpty ? '' : ' · ${message.metadata['sandbox_backend']}'}',
                       ),
                     ),
                   if (message.metadata['sandbox_proxy_enabled'] == true)
@@ -350,7 +350,7 @@ class _ToolCallBodyState extends State<_ToolCallBody>
                           'HTTP ${message.metadata['sandbox_proxy_http_port'] ?? '-'}${message.metadata['sandbox_proxy_socks_port'] == null ? '' : ' · SOCKS ${message.metadata['sandbox_proxy_socks_port']}'}',
                       child: _ToolExecutionChip(
                         icon: Icons.hub_outlined,
-                        label: _localizedText(
+                        label: openHandLocalizedText(
                           context,
                           zh: '沙盒代理',
                           en: 'Sandbox proxy',
@@ -4765,7 +4765,7 @@ String _friendlyFileDiffError(BuildContext context, Object error) {
   final raw = error.toString();
   if (raw.startsWith('PathNotFoundException') ||
       raw.contains('No such file or directory')) {
-    return _localizedText(
+    return openHandLocalizedText(
       context,
       zh: '文件已不存在或路径已被移动。\n原始错误：$raw',
       zhHant: '檔案已不存在或路徑已被移動。\n原始錯誤：$raw',
@@ -4776,7 +4776,7 @@ String _friendlyFileDiffError(BuildContext context, Object error) {
     );
   }
   if (raw.startsWith('FileSystemException')) {
-    return _localizedText(
+    return openHandLocalizedText(
       context,
       zh: '文件系统操作失败 (可能是权限不足 / 磁盘已满 / 路径被占用)。\n原始错误：$raw',
       zhHant: '檔案系統操作失敗 (可能是權限不足 / 磁碟已滿 / 路徑被占用)。\n原始錯誤：$raw',

@@ -703,7 +703,7 @@ class _InlineCodexDiffPanelState extends State<_InlineCodexDiffPanel> {
       messenger,
       SnackBar(
         content: Text(
-          _localizedText(context, zh: 'Diff 内容已复制。', en: 'Diff copied.'),
+          openHandLocalizedText(context, zh: 'Diff 内容已复制。', en: 'Diff copied.'),
         ),
       ),
     );
@@ -729,7 +729,7 @@ class _InlineCodexDiffPanelState extends State<_InlineCodexDiffPanel> {
         messenger,
         SnackBar(
           content: Text(
-            _localizedText(
+            openHandLocalizedText(
               context,
               zh: '复制 Diff 失败。',
               en: 'Failed to copy diff.',
@@ -767,7 +767,7 @@ class _InlineCodexDiffPanelState extends State<_InlineCodexDiffPanel> {
         messenger,
         SnackBar(
           content: Text(
-            _localizedText(
+            openHandLocalizedText(
               context,
               zh: 'Diff 已下载为 ${p.basename(selectedPath)}',
               en: 'Diff downloaded as ${p.basename(selectedPath)}',
@@ -789,7 +789,11 @@ class _InlineCodexDiffPanelState extends State<_InlineCodexDiffPanel> {
         messenger,
         SnackBar(
           content: Text(
-            _localizedText(context, zh: '下载 Diff 失败。', en: 'Download failed.'),
+            openHandLocalizedText(
+              context,
+              zh: '下载 Diff 失败。',
+              en: 'Download failed.',
+            ),
           ),
         ),
       );
@@ -831,7 +835,7 @@ class _InlineCodexDiffHeader extends StatelessWidget {
             ),
             const Spacer(),
             _InlineDiffPill(
-              label: _localizedText(
+              label: openHandLocalizedText(
                 context,
                 zh: copied ? '已复制' : '复制',
                 en: copied ? 'Copied' : 'Copy',
@@ -843,7 +847,7 @@ class _InlineCodexDiffHeader extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             _InlineDiffPill(
-              label: _localizedText(
+              label: openHandLocalizedText(
                 context,
                 zh: downloaded ? '已下载' : '下载',
                 en: downloaded ? 'Downloaded' : 'Download',
@@ -1057,20 +1061,20 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
       _cachedPaletteSignature = paletteSignature;
     }
     final palette = _cachedPalette!;
-    final copyLabel = _localizedText(
+    final copyLabel = openHandLocalizedText(
       context,
       zh: _copied ? '已复制' : '复制',
       en: _copied ? 'Copied' : 'Copy',
     );
-    final downloadLabel = _localizedText(
+    final downloadLabel = openHandLocalizedText(
       context,
       zh: _downloaded ? '已下载' : '下载',
       en: _downloaded ? 'Downloaded' : 'Download',
     );
-    final runLabel = _localizedText(context, zh: '运行', en: 'Run');
+    final runLabel = openHandLocalizedText(context, zh: '运行', en: 'Run');
     final isHtmlLanguage = _isHtmlLanguage(effectiveLanguage);
     final isMermaidLanguage = _isMermaidLanguage(effectiveLanguage);
-    final viewLabel = _localizedText(
+    final viewLabel = openHandLocalizedText(
       context,
       zh: _mermaidViewActive ? '代码' : '视图',
       en: _mermaidViewActive ? 'Code' : 'View',
@@ -1445,7 +1449,7 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
       messenger,
       SnackBar(
         content: Text(
-          _localizedText(context, zh: '代码块内容已复制。', en: 'Code copied.'),
+          openHandLocalizedText(context, zh: '代码块内容已复制。', en: 'Code copied.'),
         ),
       ),
     );
@@ -1479,7 +1483,11 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
         messenger,
         SnackBar(
           content: Text(
-            _localizedText(context, zh: '复制代码块失败。', en: 'Failed to copy code.'),
+            openHandLocalizedText(
+              context,
+              zh: '复制代码块失败。',
+              en: 'Failed to copy code.',
+            ),
           ),
         ),
       );
@@ -1517,7 +1525,7 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
         messenger,
         SnackBar(
           content: Text(
-            _localizedText(
+            openHandLocalizedText(
               context,
               zh: '代码已下载为 ${p.basename(selectedPath)}',
               en: 'Code downloaded as ${p.basename(selectedPath)}',
@@ -1545,7 +1553,7 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
         messenger,
         SnackBar(
           content: Text(
-            _localizedText(context, zh: '下载失败。', en: 'Download failed.'),
+            openHandLocalizedText(context, zh: '下载失败。', en: 'Download failed.'),
           ),
         ),
       );
@@ -3216,7 +3224,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
         // 单一信号到达意味着 WebView 至少部分可用，再写超时会把可用链路标坏。
         if (!_isReady && !_bridgeReady) {
           setState(() {
-            _loadError ??= _localizedText(
+            _loadError ??= openHandLocalizedText(
               context,
               zh: 'Mermaid 加载超时',
               en: 'Mermaid load timed out',
@@ -3397,7 +3405,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
           child: Row(
             children: [
               _buildToolPill(
-                label: _localizedText(context, zh: '适配', en: 'Fit'),
+                label: openHandLocalizedText(context, zh: '适配', en: 'Fit'),
                 icon: Icons.fit_screen_rounded,
                 backgroundColor: widget.palette.actionColor,
                 foregroundColor: widget.palette.actionTextColor,
@@ -3405,7 +3413,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
               ),
               const SizedBox(width: 8),
               _buildToolPill(
-                label: _localizedText(context, zh: '重置', en: 'Reset'),
+                label: openHandLocalizedText(context, zh: '重置', en: 'Reset'),
                 icon: Icons.center_focus_strong_rounded,
                 backgroundColor: widget.palette.actionColor,
                 foregroundColor: widget.palette.actionTextColor,
@@ -3413,7 +3421,11 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
               ),
               const SizedBox(width: 8),
               _buildToolPill(
-                label: _localizedText(context, zh: '复制 SVG', en: 'Copy SVG'),
+                label: openHandLocalizedText(
+                  context,
+                  zh: '复制 SVG',
+                  en: 'Copy SVG',
+                ),
                 icon: Icons.copy_all_rounded,
                 backgroundColor: widget.palette.actionColor,
                 foregroundColor: widget.palette.actionTextColor,
@@ -3423,7 +3435,11 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
               ),
               const SizedBox(width: 8),
               _buildToolPill(
-                label: _localizedText(context, zh: '复制图像', en: 'Copy Image'),
+                label: openHandLocalizedText(
+                  context,
+                  zh: '复制图像',
+                  en: 'Copy Image',
+                ),
                 icon: Icons.image_outlined,
                 backgroundColor: widget.palette.actionColor,
                 foregroundColor: widget.palette.actionTextColor,
@@ -3431,7 +3447,11 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
               ),
               const SizedBox(width: 8),
               _buildToolPill(
-                label: _localizedText(context, zh: '导出 SVG', en: 'Export SVG'),
+                label: openHandLocalizedText(
+                  context,
+                  zh: '导出 SVG',
+                  en: 'Export SVG',
+                ),
                 icon: Icons.download_rounded,
                 backgroundColor: widget.palette.actionColor,
                 foregroundColor: widget.palette.actionTextColor,
@@ -3439,7 +3459,11 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
               ),
               const SizedBox(width: 8),
               _buildToolPill(
-                label: _localizedText(context, zh: '导出 PNG', en: 'Export PNG'),
+                label: openHandLocalizedText(
+                  context,
+                  zh: '导出 PNG',
+                  en: 'Export PNG',
+                ),
                 icon: Icons.image_rounded,
                 backgroundColor: widget.palette.actionColor,
                 foregroundColor: widget.palette.actionTextColor,
@@ -3530,7 +3554,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
         messenger,
         SnackBar(
           content: Text(
-            _localizedText(context, zh: '正在复制 SVG…', en: 'Copying SVG…'),
+            openHandLocalizedText(context, zh: '正在复制 SVG…', en: 'Copying SVG…'),
           ),
           duration: const Duration(milliseconds: 700),
         ),
@@ -3654,7 +3678,11 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
     OpenHandSnackBar.hideCurrentOn(messenger);
     final pathHint =
         savedPath ??
-        _localizedText(context, zh: '临时文件写入失败', en: 'temp file write failed');
+        openHandLocalizedText(
+          context,
+          zh: '临时文件写入失败',
+          en: 'temp file write failed',
+        );
     if (writeOk && verification.osLayerOk) {
       showOpenHandSnackBarOn(
         context,
@@ -3662,7 +3690,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
         SnackBar(
           duration: const Duration(seconds: 6),
           content: Text(
-            _localizedText(
+            openHandLocalizedText(
               context,
               zh: 'SVG 已复制（${svgBytes.length} 字节，方法=$writeMethod）。如粘贴异常，可打开文件: $pathHint',
               en: 'SVG copied (${svgBytes.length}B, method=$writeMethod). If paste fails, file at: $pathHint',
@@ -3678,7 +3706,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
         SnackBar(
           duration: const Duration(seconds: 8),
           content: Text(
-            _localizedText(
+            openHandLocalizedText(
               context,
               zh: '剪贴板不可信：写 ${svgBytes.length}B, pbpaste 读 ${verification.pbpasteLen}B。SVG 已存到文件: $pathHint，请打开后复制。',
               en: 'Clipboard unreliable: wrote ${svgBytes.length}B, pbpaste read ${verification.pbpasteLen}B. SVG saved to: $pathHint. Open and copy.',
@@ -3688,7 +3716,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
           action: savedPath == null
               ? null
               : SnackBarAction(
-                  label: _localizedText(context, zh: '打开', en: 'Open'),
+                  label: openHandLocalizedText(context, zh: '打开', en: 'Open'),
                   onPressed: () {
                     unawaited(_openSavedSvgFile(savedPath!));
                   },
@@ -3775,7 +3803,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
       messenger,
       SnackBar(
         content: Text(
-          _localizedText(
+          openHandLocalizedText(
             context,
             zh: 'SVG 还未生成，请稍后再试。',
             en: 'SVG is not ready yet. Please try again.',
@@ -3798,7 +3826,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
           ScaffoldMessenger.of(context),
           SnackBar(
             content: Text(
-              _localizedText(context, zh: '已复制图像。', en: 'Image copied.'),
+              openHandLocalizedText(context, zh: '已复制图像。', en: 'Image copied.'),
             ),
           ),
         );
@@ -3822,7 +3850,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
         ScaffoldMessenger.of(context),
         SnackBar(
           content: Text(
-            _localizedText(
+            openHandLocalizedText(
               context,
               zh: 'PNG 复制失败，已回退复制 SVG 图像。',
               en: 'PNG copy failed; copied SVG image instead.',
@@ -3864,7 +3892,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
         ScaffoldMessenger.of(context),
         SnackBar(
           content: Text(
-            _localizedText(context, zh: 'SVG 已导出。', en: 'SVG exported.'),
+            openHandLocalizedText(context, zh: 'SVG 已导出。', en: 'SVG exported.'),
           ),
         ),
       );
@@ -3882,7 +3910,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
         ScaffoldMessenger.of(context),
         SnackBar(
           content: Text(
-            _localizedText(
+            openHandLocalizedText(
               context,
               zh: 'PNG 仍未就绪，请稍后重试。',
               en: 'PNG is not ready yet. Please try again.',
@@ -3912,7 +3940,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
         ScaffoldMessenger.of(context),
         SnackBar(
           content: Text(
-            _localizedText(context, zh: 'PNG 已导出。', en: 'PNG exported.'),
+            openHandLocalizedText(context, zh: 'PNG 已导出。', en: 'PNG exported.'),
           ),
         ),
       );

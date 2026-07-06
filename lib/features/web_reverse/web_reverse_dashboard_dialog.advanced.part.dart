@@ -5,16 +5,6 @@ part of 'web_reverse_dashboard_dialog.dart';
 const int _kWebcrackMaxInputChars = 2 * 1024 * 1024;
 const int _kWebcrackMaxOutputBytes = 8 * 1024 * 1024;
 
-String _advancedText(
-  BuildContext context, {
-  required String zh,
-  required String en,
-  String? zhHant,
-  String? fr,
-  String? de,
-  String? ja,
-}) => _wrText(context, zh: zh, zhHant: zhHant, en: en, fr: fr, de: de, ja: ja);
-
 String _advancedTextForLocale(
   Locale locale, {
   required String zh,
@@ -50,7 +40,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
       String? fr,
       String? de,
       String? ja,
-    }) => _wrText(
+    }) => openHandLocalizedText(
       context,
       zh: zh,
       zhHant: zhHant,
@@ -1447,7 +1437,7 @@ Future<void> _showExtraHeadersDialog(
   try {
     final ok = await showOpenHandFormDialog<bool>(
       context: context,
-      title: _advancedText(
+      title: openHandLocalizedText(
         context,
         zh: '持久注入 Headers',
         zhHant: '持久注入 Headers',
@@ -1456,7 +1446,7 @@ Future<void> _showExtraHeadersDialog(
         de: 'Persistente Header',
         ja: '永続 Headers 注入',
       ),
-      submitLabel: _advancedText(
+      submitLabel: openHandLocalizedText(
         context,
         zh: '保存',
         zhHant: '儲存',
@@ -1465,7 +1455,7 @@ Future<void> _showExtraHeadersDialog(
         de: 'Speichern',
         ja: '保存',
       ),
-      cancelLabel: _advancedText(
+      cancelLabel: openHandLocalizedText(
         context,
         zh: '取消',
         zhHant: '取消',
@@ -1483,7 +1473,7 @@ Future<void> _showExtraHeadersDialog(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              _advancedText(
+              openHandLocalizedText(
                 context,
                 zh: '每行一个 Key: Value；保存后所有请求自动附带，留空则清空。',
                 zhHant: '每行一個 Key: Value；儲存後所有請求自動附帶，留空則清空。',
@@ -1514,7 +1504,7 @@ Future<void> _showExtraHeadersDialog(
       OpenHandSnackBar.showSuccessOn(
         context,
         messenger,
-        _advancedText(
+        openHandLocalizedText(
           context,
           zh: '已注入 ${headers.length} 个 Header',
           zhHant: '已注入 ${headers.length} 個 Header',
@@ -1528,7 +1518,7 @@ Future<void> _showExtraHeadersDialog(
       OpenHandSnackBar.showErrorOn(
         context,
         messenger,
-        _advancedText(
+        openHandLocalizedText(
           context,
           zh: '保存失败',
           zhHant: '儲存失敗',
@@ -1558,7 +1548,7 @@ Future<void> _showCdpPaletteDialog(
       context: context,
       builder: (dialogContext) => buildOpenHandAlertDialog(
         title: Text(
-          _advancedText(
+          openHandLocalizedText(
             dialogContext,
             zh: 'CDP 命令面板',
             zhHant: 'CDP 命令面板',
@@ -1608,7 +1598,7 @@ Future<void> _showCdpPaletteDialog(
                     contentPadding: EdgeInsets.zero,
                     dense: true,
                     title: Text(
-                      _advancedText(
+                      openHandLocalizedText(
                         dialogContext,
                         zh: '在当前 Page 会话内执行（关掉则用 Browser 根 session）',
                         zhHant: '在目前 Page 會話內執行（關掉則用 Browser 根 session）',
@@ -1659,7 +1649,7 @@ Future<void> _showCdpPaletteDialog(
         actions: [
           OpenHandDialogActionButton.secondary(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            label: _advancedText(
+            label: openHandLocalizedText(
               dialogContext,
               zh: '关闭',
               zhHant: '關閉',
@@ -1691,7 +1681,7 @@ Future<void> _showCdpPaletteDialog(
                   stack,
                 );
                 if (!dialogContext.mounted) return;
-                result.value = _advancedText(
+                result.value = openHandLocalizedText(
                   dialogContext,
                   zh: '执行失败：$error',
                   zhHant: '執行失敗：$error',
@@ -1702,7 +1692,7 @@ Future<void> _showCdpPaletteDialog(
                 );
               }
             },
-            label: _advancedText(
+            label: openHandLocalizedText(
               dialogContext,
               zh: '执行',
               zhHant: '執行',
@@ -1733,7 +1723,7 @@ Future<void> _copyRecentRequestsForAi(
     OpenHandSnackBar.showInfoOn(
       context,
       messenger,
-      _advancedText(
+      openHandLocalizedText(
         context,
         zh: '当前无请求可分析',
         zhHant: '目前沒有請求可分析',
@@ -1748,7 +1738,7 @@ Future<void> _copyRecentRequestsForAi(
   }
   final buf = StringBuffer()
     ..writeln(
-      _advancedText(
+      openHandLocalizedText(
         context,
         zh: '请帮我分析这 ${entries.length} 条请求里哪些是关键加密参数（sign / token / encrypt 等），并指出可能的算法与种子。',
         zhHant:
@@ -1794,7 +1784,7 @@ Future<void> _copyRecentRequestsForAi(
     messenger,
     webReverseClipboardSnackMessage(
       context: context,
-      base: _advancedText(
+      base: openHandLocalizedText(
         context,
         zh: '请求摘要已复制，回到会话粘贴即可让 AI 分析',
         zhHant: '請求摘要已複製，回到會話貼上即可讓 AI 分析',
@@ -1817,7 +1807,7 @@ Future<void> _showDiffPicker(
   if (all.length < 2) {
     OpenHandSnackBar.showInfo(
       context,
-      _advancedText(
+      openHandLocalizedText(
         context,
         zh: '请求数不足，无法对比',
         zhHant: '請求數不足，無法對比',
@@ -1836,7 +1826,7 @@ Future<void> _showDiffPicker(
     context: context,
     builder: (dialogContext, setState) => buildOpenHandAlertDialog(
       title: Text(
-        _advancedText(
+        openHandLocalizedText(
           dialogContext,
           zh: '选择两个请求对比',
           zhHant: '選擇兩個請求對比',
@@ -1905,7 +1895,7 @@ Future<void> _showDiffPicker(
       actions: [
         OpenHandDialogActionButton.secondary(
           onPressed: () => Navigator.of(dialogContext).pop(),
-          label: _advancedText(
+          label: openHandLocalizedText(
             dialogContext,
             zh: '取消',
             zhHant: '取消',
@@ -1925,7 +1915,7 @@ Future<void> _showDiffPicker(
                     builder: (_) => _DiffViewerDialog(a: a!, b: b!),
                   );
                 },
-          label: _advancedText(
+          label: openHandLocalizedText(
             dialogContext,
             zh: '对比',
             zhHant: '對比',
@@ -1974,7 +1964,7 @@ class _DiffViewerDialog extends StatelessWidget {
             Text('status=${e.statusCode ?? '-'} mime=${e.mimeType ?? '-'}'),
             const Divider(),
             Text(
-              _advancedText(
+              openHandLocalizedText(
                 context,
                 zh: '请求 Headers:',
                 zhHant: '請求 Headers:',
@@ -2038,7 +2028,7 @@ Future<void> _showServiceWorkersDialog(
     context: context,
     builder: (dialogContext) => buildOpenHandAlertDialog(
       title: Text(
-        _advancedText(
+        openHandLocalizedText(
           dialogContext,
           zh: 'Service Workers',
           zhHant: 'Service Workers',
@@ -2052,7 +2042,7 @@ Future<void> _showServiceWorkersDialog(
         width: 560,
         child: list.isEmpty
             ? Text(
-                _advancedText(
+                openHandLocalizedText(
                   dialogContext,
                   zh: '当前 origin 无 SW 注册',
                   zhHant: '目前 origin 無 SW 註冊',
@@ -2087,7 +2077,7 @@ Future<void> _showServiceWorkersDialog(
       actions: [
         OpenHandDialogActionButton.secondary(
           onPressed: () => Navigator.of(dialogContext).pop(),
-          label: _advancedText(
+          label: openHandLocalizedText(
             dialogContext,
             zh: '关闭',
             zhHant: '關閉',
@@ -2110,7 +2100,7 @@ Future<void> _showServiceWorkersDialog(
                 OpenHandSnackBar.showErrorOn(
                   context,
                   messenger,
-                  _advancedText(
+                  openHandLocalizedText(
                     context,
                     zh: '反注册失败',
                     zhHant: '反註冊失敗',
@@ -2125,7 +2115,7 @@ Future<void> _showServiceWorkersDialog(
                 OpenHandSnackBar.showSuccessOn(
                   context,
                   messenger,
-                  _advancedText(
+                  openHandLocalizedText(
                     context,
                     zh: '已反注册 $r 个 SW',
                     zhHant: '已反註冊 $r 個 SW',
@@ -2137,7 +2127,7 @@ Future<void> _showServiceWorkersDialog(
                 );
               }
             },
-            label: _advancedText(
+            label: openHandLocalizedText(
               dialogContext,
               zh: '全部反注册',
               zhHant: '全部反註冊',
@@ -2164,7 +2154,7 @@ Future<void> _toggleHarReplayServer(
     OpenHandSnackBar.showInfoOn(
       context,
       messenger,
-      _advancedText(
+      openHandLocalizedText(
         context,
         zh: '已停止 HAR 重放服务器',
         zhHant: '已停止 HAR 重放伺服器',
@@ -2183,7 +2173,7 @@ Future<void> _toggleHarReplayServer(
     OpenHandSnackBar.showErrorOn(
       context,
       messenger,
-      _advancedText(
+      openHandLocalizedText(
         context,
         zh: '启动失败：HAR 不可用或端口被占',
         zhHant: '啟動失敗：HAR 不可用或連接埠被占用',
@@ -2201,7 +2191,7 @@ Future<void> _toggleHarReplayServer(
     messenger,
     OpenHandSnackBar.info(
       context,
-      _advancedText(
+      openHandLocalizedText(
         context,
         zh: 'HAR 重放服务器已启动：http://127.0.0.1:${r.port}/  · 已加载 ${r.entryCount} 条',
         zhHant:
@@ -2213,7 +2203,7 @@ Future<void> _toggleHarReplayServer(
       ),
       duration: const Duration(seconds: 6),
       action: SnackBarAction(
-        label: _advancedText(
+        label: openHandLocalizedText(
           context,
           zh: '复制端口',
           zhHant: '複製連接埠',
@@ -2239,7 +2229,7 @@ Future<void> _toggleMitmproxyBridge(
     OpenHandSnackBar.showInfoOn(
       context,
       messenger,
-      _advancedText(
+      openHandLocalizedText(
         context,
         zh: '已停止 mitmproxy 桥接',
         zhHant: '已停止 mitmproxy 橋接',
@@ -2258,7 +2248,7 @@ Future<void> _toggleMitmproxyBridge(
     if (!context.mounted) return;
     await showOpenHandInfoDialog(
       context: context,
-      title: _advancedText(
+      title: openHandLocalizedText(
         context,
         zh: '未检测到 mitmdump',
         zhHant: '未偵測到 mitmdump',
@@ -2267,7 +2257,7 @@ Future<void> _toggleMitmproxyBridge(
         de: 'mitmdump nicht gefunden',
         ja: 'mitmdump が見つかりません',
       ),
-      closeLabel: _advancedText(
+      closeLabel: openHandLocalizedText(
         context,
         zh: '关闭',
         zhHant: '關閉',
@@ -2276,7 +2266,7 @@ Future<void> _toggleMitmproxyBridge(
         de: 'Schliessen',
         ja: '閉じる',
       ),
-      message: _advancedText(
+      message: openHandLocalizedText(
         context,
         zh:
             '请先安装 mitmproxy（macOS：brew install mitmproxy；Linux：sudo apt install mitmproxy；Windows：从 https://mitmproxy.org 下载），'
@@ -2306,7 +2296,7 @@ Future<void> _toggleMitmproxyBridge(
   if (!context.mounted) return;
   final go = await showOpenHandConfirmDialog(
     context: context,
-    title: _advancedText(
+    title: openHandLocalizedText(
       context,
       zh: '即将启动 mitmproxy 桥接',
       zhHant: '即將啟動 mitmproxy 橋接',
@@ -2315,7 +2305,7 @@ Future<void> _toggleMitmproxyBridge(
       de: 'mitmproxy-Bridge starten',
       ja: 'mitmproxy ブリッジを起動',
     ),
-    message: _advancedText(
+    message: openHandLocalizedText(
       context,
       zh: '将以 mitmdump -p 8080 启动；启动后请把目标客户端代理指向 127.0.0.1:8080。\n\n首次使用须信任根证书：访问 http://mitm.it 按平台说明安装。\n\n所有抓到的请求会以 mitmproxy 资源类型出现在 Network 列表。',
       zhHant:
@@ -2325,7 +2315,7 @@ Future<void> _toggleMitmproxyBridge(
       de: 'Startet mitmdump -p 8080; richten Sie den Client-Proxy auf 127.0.0.1:8080.\n\nZum ersten Mal? CA uber http://mitm.it vertrauen.\n\nErfasster Traffic erscheint als mitmproxy-Ressource in Network.',
       ja: 'mitmdump -p 8080 で起動します。起動後、対象クライアントのプロキシを 127.0.0.1:8080 に向けてください。\n\n初回は http://mitm.it で CA を信頼してください。\n\n取得した通信は Network リストに mitmproxy リソースとして表示されます。',
     ),
-    cancelLabel: _advancedText(
+    cancelLabel: openHandLocalizedText(
       context,
       zh: '取消',
       zhHant: '取消',
@@ -2334,7 +2324,7 @@ Future<void> _toggleMitmproxyBridge(
       de: 'Abbrechen',
       ja: 'キャンセル',
     ),
-    confirmLabel: _advancedText(
+    confirmLabel: openHandLocalizedText(
       context,
       zh: '启动',
       zhHant: '啟動',
@@ -2351,7 +2341,7 @@ Future<void> _toggleMitmproxyBridge(
     OpenHandSnackBar.showErrorOn(
       context,
       messenger,
-      _advancedText(
+      openHandLocalizedText(
         context,
         zh: '启动失败（端口 8080 可能已被占）',
         zhHant: '啟動失敗（連接埠 8080 可能已被占用）',
@@ -2367,7 +2357,7 @@ Future<void> _toggleMitmproxyBridge(
   OpenHandSnackBar.showSuccessOn(
     context,
     messenger,
-    _advancedText(
+    openHandLocalizedText(
       context,
       zh: 'mitmproxy 桥接已启动：客户端代理 127.0.0.1:${r.mitmPort}（回调 :${r.callbackPort}）',
       zhHant:
@@ -2392,7 +2382,7 @@ Future<void> _toggleWebRtcCapture(
     OpenHandSnackBar.showErrorOn(
       context,
       messenger,
-      _advancedText(
+      openHandLocalizedText(
         context,
         zh: '注入失败（page 可能尚未就绪）',
         zhHant: '注入失敗（page 可能尚未就緒）',
@@ -2570,7 +2560,7 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
       OpenHandSnackBar.showSuccessOn(
         context,
         messenger,
-        _advancedText(
+        openHandLocalizedText(
           context,
           zh: 'CSV 已保存',
           zhHant: 'CSV 已儲存',
@@ -2586,7 +2576,7 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
       OpenHandSnackBar.showErrorOn(
         context,
         messenger,
-        _advancedText(
+        openHandLocalizedText(
           context,
           zh: '保存失败',
           zhHant: '儲存失敗',
@@ -2614,7 +2604,7 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
           buildOpenHandToolDialogHeader(
             context: context,
             icon: Icons.video_camera_back_rounded,
-            title: _advancedText(
+            title: openHandLocalizedText(
               context,
               zh: 'WebRTC 实时面板',
               zhHant: 'WebRTC 即時面板',
@@ -2631,7 +2621,7 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  _advancedText(
+                  openHandLocalizedText(
                     context,
                     zh: '${_series.length} 连接 · 1s 采样',
                     zhHant: '${_series.length} 連線 · 1s 採樣',
@@ -2650,7 +2640,7 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
             child: Row(
               children: [
                 _RtcTab(
-                  label: _advancedText(
+                  label: openHandLocalizedText(
                     context,
                     zh: '实时图表',
                     zhHant: '即時圖表',
@@ -2664,7 +2654,7 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
                 ),
                 const SizedBox(width: 8),
                 _RtcTab(
-                  label: _advancedText(
+                  label: openHandLocalizedText(
                     context,
                     zh: 'ICE 拓扑',
                     zhHant: 'ICE 拓撲',
@@ -2678,7 +2668,7 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
                 ),
                 const SizedBox(width: 8),
                 _RtcTab(
-                  label: _advancedText(
+                  label: openHandLocalizedText(
                     context,
                     zh: 'SDP Diff',
                     zhHant: 'SDP Diff',
@@ -2692,7 +2682,7 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
                 ),
                 const SizedBox(width: 8),
                 _RtcTab(
-                  label: _advancedText(
+                  label: openHandLocalizedText(
                     context,
                     zh: '事件流',
                     zhHant: '事件流',
@@ -2710,7 +2700,7 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
                     onPressed: _exportSeriesCsv,
                     icon: const Icon(Icons.download_rounded, size: 16),
                     label: Text(
-                      _advancedText(
+                      openHandLocalizedText(
                         context,
                         zh: '导出 CSV',
                         zhHant: '匯出 CSV',
@@ -2734,7 +2724,7 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
                         messenger,
                         webReverseClipboardSnackMessage(
                           context: context,
-                          base: _advancedText(
+                          base: openHandLocalizedText(
                             context,
                             zh: '已复制',
                             zhHant: '已複製',
@@ -2750,7 +2740,7 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
                     },
                     icon: const Icon(Icons.copy_all_rounded, size: 16),
                     label: Text(
-                      _advancedText(
+                      openHandLocalizedText(
                         context,
                         zh: '复制事件',
                         zhHant: '複製事件',
@@ -2790,7 +2780,7 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
         padding: const EdgeInsets.all(36),
         child: Center(
           child: Text(
-            _advancedText(
+            openHandLocalizedText(
               context,
               zh: '当前页面尚未发起 WebRTC。\n触发音视频通话或 datachannel 后会自动出现采样曲线。',
               zhHant: '目前頁面尚未發起 WebRTC。\n觸發音視訊通話或 datachannel 後會自動出現採樣曲線。',
@@ -2835,7 +2825,7 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
             runSpacing: 6,
             children: [
               _RtcStatChip(
-                label: _advancedText(
+                label: openHandLocalizedText(
                   context,
                   zh: '已发送',
                   zhHant: '已傳送',
@@ -2848,7 +2838,7 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
                 color: cs.primary,
               ),
               _RtcStatChip(
-                label: _advancedText(
+                label: openHandLocalizedText(
                   context,
                   zh: '已接收',
                   zhHant: '已接收',
@@ -2861,7 +2851,7 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
                 color: cs.tertiary,
               ),
               _RtcStatChip(
-                label: _advancedText(
+                label: openHandLocalizedText(
                   context,
                   zh: '丢包',
                   zhHant: '遺失封包',
@@ -2919,7 +2909,7 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
         padding: const EdgeInsets.all(36),
         child: Center(
           child: Text(
-            _advancedText(
+            openHandLocalizedText(
               context,
               zh: '暂无 ICE 事件',
               zhHant: '暫無 ICE 事件',
@@ -2964,7 +2954,7 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
                     value: false,
                     icon: const Icon(Icons.list_rounded, size: 14),
                     label: Text(
-                      _advancedText(
+                      openHandLocalizedText(
                         context,
                         zh: '时序',
                         zhHant: '時序',
@@ -2979,7 +2969,7 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
                     value: true,
                     icon: const Icon(Icons.hub_rounded, size: 14),
                     label: Text(
-                      _advancedText(
+                      openHandLocalizedText(
                         context,
                         zh: '图',
                         zhHant: '圖',
@@ -3105,7 +3095,7 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
         padding: const EdgeInsets.all(36),
         child: Center(
           child: Text(
-            _advancedText(
+            openHandLocalizedText(
               context,
               zh: '暂无 SDP。\n触发 setLocalDescription / setRemoteDescription 后会出现。',
               zhHant:
@@ -3150,7 +3140,7 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
               children: [
                 Expanded(
                   child: _SdpDiffColumn(
-                    title: _advancedText(
+                    title: openHandLocalizedText(
                       context,
                       zh: '本地 SDP',
                       zhHant: '本地 SDP',
@@ -3166,7 +3156,7 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: _SdpDiffColumn(
-                    title: _advancedText(
+                    title: openHandLocalizedText(
                       context,
                       zh: '远端 SDP',
                       zhHant: '遠端 SDP',
@@ -3195,7 +3185,7 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
         padding: const EdgeInsets.all(36),
         child: Center(
           child: Text(
-            _advancedText(
+            openHandLocalizedText(
               context,
               zh: '暂无事件',
               zhHant: '暫無事件',
@@ -3480,7 +3470,7 @@ Future<void> _showWebcrackDialog(BuildContext context) async {
       context: context,
       builder: (dialogContext) => buildOpenHandAlertDialog(
         title: Text(
-          _advancedText(
+          openHandLocalizedText(
             dialogContext,
             zh: 'JS 反混淆（webcrack）',
             zhHant: 'JS 反混淆（webcrack）',
@@ -3496,7 +3486,7 @@ Future<void> _showWebcrackDialog(BuildContext context) async {
           child: Column(
             children: [
               Text(
-                _advancedText(
+                openHandLocalizedText(
                   dialogContext,
                   zh: '把混淆后的 JS 粘到这里 → 点"反混淆"将自动写到 /tmp 并跑 npx webcrack。需要本机已装 Node.js 与 npm。',
                   zhHant:
@@ -3544,7 +3534,7 @@ Future<void> _showWebcrackDialog(BuildContext context) async {
                     child: SingleChildScrollView(
                       child: SelectableText(
                         v ??
-                            _advancedText(
+                            openHandLocalizedText(
                               dialogContext,
                               zh: '反混淆结果会显示在这里。',
                               zhHant: '反混淆結果會顯示在這裡。',
@@ -3568,7 +3558,7 @@ Future<void> _showWebcrackDialog(BuildContext context) async {
         actions: [
           OpenHandDialogActionButton.secondary(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            label: _advancedText(
+            label: openHandLocalizedText(
               dialogContext,
               zh: '关闭',
               zhHant: '關閉',
@@ -3595,7 +3585,7 @@ Future<void> _showWebcrackDialog(BuildContext context) async {
                       output.value = result;
                     },
               label: busy
-                  ? _advancedText(
+                  ? openHandLocalizedText(
                       dialogContext,
                       zh: '处理中…',
                       zhHant: '處理中…',
@@ -3604,7 +3594,7 @@ Future<void> _showWebcrackDialog(BuildContext context) async {
                       de: 'Wird verarbeitet…',
                       ja: '処理中…',
                     )
-                  : _advancedText(
+                  : openHandLocalizedText(
                       dialogContext,
                       zh: '反混淆',
                       zhHant: '反混淆',
@@ -3821,7 +3811,7 @@ class _InterceptRulesDialogState extends State<_InterceptRulesDialog> {
           buildOpenHandToolDialogHeader(
             context: context,
             icon: Icons.alt_route_rounded,
-            title: _advancedText(
+            title: openHandLocalizedText(
               context,
               zh: '网络拦截规则',
               zhHant: '網路攔截規則',
@@ -3835,7 +3825,7 @@ class _InterceptRulesDialogState extends State<_InterceptRulesDialog> {
                 onPressed: () => _editRule(null),
                 icon: const Icon(Icons.add_rounded, size: 16),
                 label: Text(
-                  _advancedText(
+                  openHandLocalizedText(
                     context,
                     zh: '新增规则',
                     zhHant: '新增規則',
@@ -3854,7 +3844,7 @@ class _InterceptRulesDialogState extends State<_InterceptRulesDialog> {
                 ? Padding(
                     padding: const EdgeInsets.all(24),
                     child: Text(
-                      _advancedText(
+                      openHandLocalizedText(
                         context,
                         zh: '无规则。点「新增规则」开始：URL 通配 → block / 改写。\n命中规则的请求会自动放行/改写，不再走拦截队列。',
                         zhHant:
@@ -3893,7 +3883,7 @@ class _InterceptRulesDialogState extends State<_InterceptRulesDialog> {
                         ),
                         subtitle: Text(
                           r.block
-                              ? _advancedText(
+                              ? openHandLocalizedText(
                                   context,
                                   zh: '动作: 屏蔽',
                                   zhHant: '動作: 屏蔽',
@@ -3903,7 +3893,7 @@ class _InterceptRulesDialogState extends State<_InterceptRulesDialog> {
                                   ja: 'アクション: ブロック',
                                 )
                               : r.replaceUrl != null && r.replaceUrl!.isNotEmpty
-                              ? _advancedText(
+                              ? openHandLocalizedText(
                                   context,
                                   zh: '动作: 重定向到 ${r.replaceUrl}',
                                   zhHant: '動作: 重新導向到 ${r.replaceUrl}',
@@ -3913,7 +3903,7 @@ class _InterceptRulesDialogState extends State<_InterceptRulesDialog> {
                                   ja: 'アクション: リダイレクト → ${r.replaceUrl}',
                                 )
                               : r.headerOverrides.isEmpty
-                              ? _advancedText(
+                              ? openHandLocalizedText(
                                   context,
                                   zh: '动作: 仅标记',
                                   zhHant: '動作: 僅標記',
@@ -3922,7 +3912,7 @@ class _InterceptRulesDialogState extends State<_InterceptRulesDialog> {
                                   de: 'Aktion: nur markieren',
                                   ja: 'アクション: タグのみ',
                                 )
-                              : _advancedText(
+                              : openHandLocalizedText(
                                   context,
                                   zh: '动作: 注入 ${r.headerOverrides.length} 个 header',
                                   zhHant:
@@ -3937,7 +3927,7 @@ class _InterceptRulesDialogState extends State<_InterceptRulesDialog> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             IconButton(
-                              tooltip: _advancedText(
+                              tooltip: openHandLocalizedText(
                                 context,
                                 zh: '编辑',
                                 zhHant: '編輯',
@@ -3958,7 +3948,7 @@ class _InterceptRulesDialogState extends State<_InterceptRulesDialog> {
                             ),
                             const SizedBox(width: 4),
                             IconButton(
-                              tooltip: _advancedText(
+                              tooltip: openHandLocalizedText(
                                 context,
                                 zh: '删除',
                                 zhHant: '刪除',
@@ -3996,7 +3986,7 @@ class _InterceptRulesDialogState extends State<_InterceptRulesDialog> {
               children: [
                 OpenHandDialogActionButton.secondary(
                   onPressed: () => Navigator.of(context).pop(),
-                  label: _advancedText(
+                  label: openHandLocalizedText(
                     context,
                     zh: '取消',
                     zhHant: '取消',
@@ -4009,7 +3999,7 @@ class _InterceptRulesDialogState extends State<_InterceptRulesDialog> {
                 const SizedBox(width: 8),
                 OpenHandDialogActionButton.primary(
                   onPressed: _save,
-                  label: _advancedText(
+                  label: openHandLocalizedText(
                     context,
                     zh: '保存',
                     zhHant: '儲存',
@@ -4067,7 +4057,7 @@ class _InterceptRuleEditorState extends State<_InterceptRuleEditor> {
   Widget build(BuildContext context) {
     return buildOpenHandAlertDialog(
       title: Text(
-        _advancedText(
+        openHandLocalizedText(
           context,
           zh: '编辑规则',
           zhHant: '編輯規則',
@@ -4086,7 +4076,7 @@ class _InterceptRuleEditorState extends State<_InterceptRuleEditor> {
               TextField(
                 controller: _patternCtrl,
                 decoration: InputDecoration(
-                  labelText: _advancedText(
+                  labelText: openHandLocalizedText(
                     context,
                     zh: 'URL 通配（* / ?）',
                     zhHant: 'URL 通配（* / ?）',
@@ -4100,7 +4090,7 @@ class _InterceptRuleEditorState extends State<_InterceptRuleEditor> {
               ),
               SwitchListTile(
                 title: Text(
-                  _advancedText(
+                  openHandLocalizedText(
                     context,
                     zh: '启用',
                     zhHant: '啟用',
@@ -4115,7 +4105,7 @@ class _InterceptRuleEditorState extends State<_InterceptRuleEditor> {
               ),
               SwitchListTile(
                 title: Text(
-                  _advancedText(
+                  openHandLocalizedText(
                     context,
                     zh: '屏蔽请求 (Block)',
                     zhHant: '屏蔽請求 (Block)',
@@ -4132,7 +4122,7 @@ class _InterceptRuleEditorState extends State<_InterceptRuleEditor> {
               TextField(
                 controller: _replaceCtrl,
                 decoration: InputDecoration(
-                  labelText: _advancedText(
+                  labelText: openHandLocalizedText(
                     context,
                     zh: '重写 URL（可选）',
                     zhHant: '重寫 URL（可選）',
@@ -4149,7 +4139,7 @@ class _InterceptRuleEditorState extends State<_InterceptRuleEditor> {
                 controller: _headersCtrl,
                 maxLines: 5,
                 decoration: InputDecoration(
-                  labelText: _advancedText(
+                  labelText: openHandLocalizedText(
                     context,
                     zh: 'Header 覆盖（每行 Key: Value）',
                     zhHant: 'Header 覆寫（每行 Key: Value）',
@@ -4168,7 +4158,7 @@ class _InterceptRuleEditorState extends State<_InterceptRuleEditor> {
       actions: [
         OpenHandDialogActionButton.secondary(
           onPressed: () => Navigator.of(context).pop(),
-          label: _advancedText(
+          label: openHandLocalizedText(
             context,
             zh: '取消',
             zhHant: '取消',
@@ -4192,7 +4182,7 @@ class _InterceptRuleEditorState extends State<_InterceptRuleEditor> {
               ),
             );
           },
-          label: _advancedText(
+          label: openHandLocalizedText(
             context,
             zh: '保存',
             zhHant: '儲存',

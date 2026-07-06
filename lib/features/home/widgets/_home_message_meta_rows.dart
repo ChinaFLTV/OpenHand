@@ -126,7 +126,7 @@ class _ReasoningMetaRowState extends State<_ReasoningMetaRow>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final labelText = _localizedText(context, zh: '思考', en: 'Reasoning');
+    final labelText = openHandLocalizedText(context, zh: '思考', en: 'Reasoning');
     final fixedElapsedMs = _reasoningFixedElapsedMs(widget.message);
     final elapsedMs = widget.showSweep
         ? _reasoningElapsedMs(widget.message)
@@ -249,7 +249,7 @@ class _ResponseMetaRowState extends State<_ResponseMetaRow>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final labelText = _localizedText(context, zh: '响应', en: 'Response');
+    final labelText = openHandLocalizedText(context, zh: '响应', en: 'Response');
     final elapsedText = widget.showSweep
         ? ' (${formatCompactDurationMs(_reasoningElapsedMs(widget.message))})'
         : '';

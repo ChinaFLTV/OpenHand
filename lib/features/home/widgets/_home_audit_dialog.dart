@@ -996,7 +996,7 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
                         ),
                       if (sendPreflightElapsedMs != null)
                         _AuditKvRow(
-                          label: _localizedText(
+                          label: openHandLocalizedText(
                             context,
                             zh: '发送前耗时 (ms)',
                             zhHant: '送出前耗時 (ms)',
@@ -1009,7 +1009,7 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
                         ),
                       if (preRequestElapsedMs != null)
                         _AuditKvRow(
-                          label: _localizedText(
+                          label: openHandLocalizedText(
                             context,
                             zh: '请求前耗时 (ms)',
                             zhHant: '請求前耗時 (ms)',
@@ -1024,7 +1024,7 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
                           sendPreflightTimings.isNotEmpty) ...[
                         const SizedBox(height: 10),
                         _AuditJsonBlock(
-                          label: _localizedText(
+                          label: openHandLocalizedText(
                             context,
                             zh: '发送前阶段耗时',
                             zhHant: '送出前階段耗時',
@@ -1040,7 +1040,7 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
                           preRequestTimings.isNotEmpty) ...[
                         const SizedBox(height: 10),
                         _AuditJsonBlock(
-                          label: _localizedText(
+                          label: openHandLocalizedText(
                             context,
                             zh: '请求前阶段耗时',
                             zhHant: '請求前階段耗時',
@@ -1169,7 +1169,7 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
                           prefixDriftSuspected ||
                           automaticProviderMissSuspected)
                         _AuditJsonBlock(
-                          label: _localizedText(
+                          label: openHandLocalizedText(
                             context,
                             zh: '缓存诊断',
                             zhHant: '快取診斷',

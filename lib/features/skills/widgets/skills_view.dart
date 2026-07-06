@@ -162,7 +162,7 @@ class _SkillsViewState extends State<SkillsView> {
           onPressed: () => _showSkillMarket(context),
           icon: const Icon(Icons.storefront_rounded),
           label: Text(
-            _localizedSkillsText(
+            openHandLocalizedText(
               context,
               zh: '技能市场',
               zhHant: '技能市場',
@@ -576,28 +576,6 @@ class _SkillsViewState extends State<SkillsView> {
   }) {
     OpenHandSnackBar.flash(context, message, kind: kind, postFrame: true);
   }
-}
-
-String _localizedSkillsText(
-  BuildContext context, {
-  required String zh,
-  required String en,
-  String? zhHans,
-  String? zhHant,
-  String? fr,
-  String? de,
-  String? ja,
-}) {
-  return openHandLocalizedText(
-    context,
-    zh: zh,
-    en: en,
-    zhHans: zhHans,
-    zhHant: zhHant,
-    fr: fr,
-    de: de,
-    ja: ja,
-  );
 }
 
 class _EditSkillDialog extends StatefulWidget {

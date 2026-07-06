@@ -22,28 +22,6 @@ const double _kVectorPopoverMaxWidth = 342;
 const double _kVectorPopoverScenePadding = 12;
 const double _kVectorPopoverAnchorGap = 14;
 
-String _vectorText(
-  BuildContext context, {
-  required String zh,
-  required String en,
-  String? zhHans,
-  String? zhHant,
-  String? fr,
-  String? de,
-  String? ja,
-}) {
-  return openHandLocalizedText(
-    context,
-    zh: zh,
-    en: en,
-    zhHans: zhHans,
-    zhHant: zhHant,
-    fr: fr,
-    de: de,
-    ja: ja,
-  );
-}
-
 class KnowledgeVectorDistributionView extends StatefulWidget {
   const KnowledgeVectorDistributionView({
     super.key,
@@ -108,7 +86,7 @@ class _KnowledgeVectorDistributionViewState
         alignment: Alignment.center,
         decoration: _sceneDecoration(context),
         child: Text(
-          _vectorText(
+          openHandLocalizedText(
             context,
             zh: '没有可展示的向量点。',
             zhHant: '沒有可展示的向量點。',
@@ -356,7 +334,7 @@ class _VectorSceneStats extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final text = _vectorText(
+    final text = openHandLocalizedText(
       context,
       zh: '投影 ${distribution.points.length} 点 · ${distribution.originalDimensions} 维',
       zhHant:
@@ -378,7 +356,7 @@ class _VectorSceneStats extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
         child: Text(
           distribution.hasMore
-              ? '$text · ${_vectorText(context, zh: '已采样', zhHant: '已取樣', en: 'sampled', fr: 'échantillonné', de: 'abgetastet', ja: 'サンプル済み')}'
+              ? '$text · ${openHandLocalizedText(context, zh: '已采样', zhHant: '已取樣', en: 'sampled', fr: 'échantillonné', de: 'abgetastet', ja: 'サンプル済み')}'
               : text,
           style: theme.textTheme.labelSmall?.copyWith(
             color: colorScheme.onSurfaceVariant,
@@ -402,7 +380,7 @@ class _VectorLegend extends StatelessWidget {
       (
         kind: KnowledgeVectorPointKind.corpus,
         color: _KnowledgeVectorSceneColors.corpus,
-        label: _vectorText(
+        label: openHandLocalizedText(
           context,
           zh: '全量',
           zhHant: '全量',
@@ -415,7 +393,7 @@ class _VectorLegend extends StatelessWidget {
       (
         kind: KnowledgeVectorPointKind.match,
         color: _KnowledgeVectorSceneColors.match,
-        label: _vectorText(
+        label: openHandLocalizedText(
           context,
           zh: '匹配',
           zhHant: '匹配',
@@ -428,7 +406,7 @@ class _VectorLegend extends StatelessWidget {
       (
         kind: KnowledgeVectorPointKind.query,
         color: _KnowledgeVectorSceneColors.query,
-        label: _vectorText(
+        label: openHandLocalizedText(
           context,
           zh: '查询',
           zhHant: '查詢',
@@ -525,7 +503,7 @@ class _VectorViewportControls extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             _VectorViewportIconButton(
-              tooltip: _vectorText(
+              tooltip: openHandLocalizedText(
                 context,
                 zh: '缩小',
                 zhHant: '縮小',
@@ -541,7 +519,7 @@ class _VectorViewportControls extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 4),
               child: Text(
-                '${(zoom * 100).round()}% · ${_vectorText(context, zh: '刻度', zhHant: '刻度', en: 'tick', fr: 'pas', de: 'Tick', ja: '目盛り')} ${_formatAxisValue(tickStep)}',
+                '${(zoom * 100).round()}% · ${openHandLocalizedText(context, zh: '刻度', zhHant: '刻度', en: 'tick', fr: 'pas', de: 'Tick', ja: '目盛り')} ${_formatAxisValue(tickStep)}',
                 style: theme.textTheme.labelSmall?.copyWith(
                   color: colorScheme.onSurfaceVariant,
                   fontWeight: FontWeight.w800,
@@ -551,7 +529,7 @@ class _VectorViewportControls extends StatelessWidget {
             ),
             const SizedBox(width: 4),
             _VectorViewportIconButton(
-              tooltip: _vectorText(
+              tooltip: openHandLocalizedText(
                 context,
                 zh: '放大',
                 zhHant: '放大',
@@ -565,7 +543,7 @@ class _VectorViewportControls extends StatelessWidget {
             ),
             const SizedBox(width: 4),
             _VectorViewportIconButton(
-              tooltip: _vectorText(
+              tooltip: openHandLocalizedText(
                 context,
                 zh: '重置视角',
                 zhHant: '重置視角',
@@ -725,7 +703,7 @@ class _VectorPointPopover extends StatelessWidget {
                                     _VectorPopoverPill(
                                       color: colorScheme.outline,
                                       label:
-                                          '${_vectorText(context, zh: '投影深度', zhHant: '投影深度', en: 'depth', fr: 'profondeur', de: 'Tiefe', ja: '投影深度')} ${_formatCoordinate(projection.depth)}',
+                                          '${openHandLocalizedText(context, zh: '投影深度', zhHant: '投影深度', en: 'depth', fr: 'profondeur', de: 'Tiefe', ja: '投影深度')} ${_formatCoordinate(projection.depth)}',
                                     ),
                                   ],
                                 ),
@@ -733,7 +711,7 @@ class _VectorPointPopover extends StatelessWidget {
                             ),
                           ),
                           Tooltip(
-                            message: _vectorText(
+                            message: openHandLocalizedText(
                               context,
                               zh: '关闭详情',
                               zhHant: '關閉詳情',
@@ -757,7 +735,7 @@ class _VectorPointPopover extends StatelessWidget {
                       ),
                       const SizedBox(height: 12),
                       _VectorPopoverSection(
-                        title: _vectorText(
+                        title: openHandLocalizedText(
                           context,
                           zh: '空间坐标',
                           zhHant: '空間座標',
@@ -797,7 +775,7 @@ class _VectorPointPopover extends StatelessWidget {
                       if (score != null || rerankScore != null) ...[
                         const SizedBox(height: 10),
                         _VectorPopoverSection(
-                          title: _vectorText(
+                          title: openHandLocalizedText(
                             context,
                             zh: '检索指标',
                             zhHant: '檢索指標',
@@ -811,7 +789,7 @@ class _VectorPointPopover extends StatelessWidget {
                               if (score != null)
                                 Expanded(
                                   child: _VectorMetricTile(
-                                    label: _vectorText(
+                                    label: openHandLocalizedText(
                                       context,
                                       zh: '召回',
                                       zhHant: '召回',
@@ -829,7 +807,7 @@ class _VectorPointPopover extends StatelessWidget {
                               if (rerankScore != null)
                                 Expanded(
                                   child: _VectorMetricTile(
-                                    label: _vectorText(
+                                    label: openHandLocalizedText(
                                       context,
                                       zh: '重排',
                                       zhHant: '重排',
@@ -849,7 +827,7 @@ class _VectorPointPopover extends StatelessWidget {
                       if (projection.point.preview.isNotEmpty) ...[
                         const SizedBox(height: 10),
                         _VectorPopoverSection(
-                          title: _vectorText(
+                          title: openHandLocalizedText(
                             context,
                             zh: '内容预览',
                             zhHant: '內容預覽',
@@ -871,7 +849,7 @@ class _VectorPointPopover extends StatelessWidget {
                       ],
                       const SizedBox(height: 10),
                       _VectorPopoverSection(
-                        title: _vectorText(
+                        title: openHandLocalizedText(
                           context,
                           zh: '向量标识',
                           zhHant: '向量識別',
@@ -1724,7 +1702,7 @@ String _formatScore(double value) {
 
 String _vectorKindLabel(BuildContext context, String kind) {
   return switch (kind) {
-    KnowledgeVectorPointKind.query => _vectorText(
+    KnowledgeVectorPointKind.query => openHandLocalizedText(
       context,
       zh: '查询向量',
       zhHant: '查詢向量',
@@ -1733,7 +1711,7 @@ String _vectorKindLabel(BuildContext context, String kind) {
       de: 'Abfragevektor',
       ja: 'クエリベクトル',
     ),
-    KnowledgeVectorPointKind.match => _vectorText(
+    KnowledgeVectorPointKind.match => openHandLocalizedText(
       context,
       zh: '命中结果',
       zhHant: '命中結果',
@@ -1742,7 +1720,7 @@ String _vectorKindLabel(BuildContext context, String kind) {
       de: 'Trefferabschnitt',
       ja: 'ヒットチャンク',
     ),
-    KnowledgeVectorPointKind.corpus => _vectorText(
+    KnowledgeVectorPointKind.corpus => openHandLocalizedText(
       context,
       zh: '全量采样',
       zhHant: '全量取樣',
@@ -1753,7 +1731,7 @@ String _vectorKindLabel(BuildContext context, String kind) {
     ),
     _ =>
       kind.trim().isEmpty
-          ? _vectorText(
+          ? openHandLocalizedText(
               context,
               zh: '向量点',
               zhHant: '向量點',

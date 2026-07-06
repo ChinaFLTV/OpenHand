@@ -409,7 +409,7 @@ class _CronsBodyState extends State<_CronsBody> {
     String? de,
     String? ja,
   }) {
-    return _wrText(
+    return openHandLocalizedText(
       context,
       zh: zh,
       zhHant: zhHant,

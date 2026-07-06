@@ -49,7 +49,7 @@ class _HeLogSectionState extends State<_HeLogSection> {
                 ),
                 const SizedBox(width: 6),
                 Text(
-                  _heHarnessText(
+                  openHandLocalizedText(
                     context,
                     zh: '执行输出',
                     zhHant: '執行輸出',
@@ -70,7 +70,7 @@ class _HeLogSectionState extends State<_HeLogSection> {
                         ? Icons.auto_awesome_rounded
                         : Icons.code_rounded,
                     label: _showRaw
-                        ? _heHarnessText(
+                        ? openHandLocalizedText(
                             context,
                             zh: '渲染',
                             zhHant: '渲染',
@@ -79,7 +79,7 @@ class _HeLogSectionState extends State<_HeLogSection> {
                             de: 'Gerendert',
                             ja: 'レンダリング',
                           )
-                        : _heHarnessText(
+                        : openHandLocalizedText(
                             context,
                             zh: '原始',
                             zhHant: '原始',
@@ -94,7 +94,7 @@ class _HeLogSectionState extends State<_HeLogSection> {
                 ],
                 _HeSmallPill(
                   icon: Icons.copy_rounded,
-                  label: _heHarnessText(
+                  label: openHandLocalizedText(
                     context,
                     zh: '复制',
                     zhHant: '複製',
@@ -164,7 +164,7 @@ class _HeEmptyOutputPlaceholder extends StatelessWidget {
           ),
           const SizedBox(width: 10),
           Text(
-            _heHarnessText(
+            openHandLocalizedText(
               context,
               zh: '等待输出…',
               zhHant: '等待輸出…',
@@ -251,7 +251,7 @@ class _HeRawFullViewState extends State<_HeRawFullView> {
                     ),
                     const SizedBox(width: 6),
                     Text(
-                      _heHarnessText(
+                      openHandLocalizedText(
                         context,
                         zh: '显示全部 ${lines.length} 行',
                         zhHant: '顯示全部 ${lines.length} 行',
@@ -355,7 +355,7 @@ class _HeSmartViewState extends State<_HeSmartView> {
             ),
             const SizedBox(width: 10),
             Text(
-              _heHarnessText(
+              openHandLocalizedText(
                 context,
                 zh: '正在处理…',
                 zhHant: '正在處理…',
@@ -393,7 +393,7 @@ class _HeSmartViewState extends State<_HeSmartView> {
           )
         else
           Text(
-            _heHarnessText(
+            openHandLocalizedText(
               context,
               zh: '（无文本输出）',
               zhHant: '（無文字輸出）',
@@ -507,7 +507,7 @@ class _HeSubConversationViewState extends State<_HeSubConversationView> {
             ),
             const SizedBox(width: 10),
             Text(
-              _heHarnessText(
+              openHandLocalizedText(
                 context,
                 zh: '正在处理…',
                 zhHant: '正在處理…',
@@ -528,7 +528,7 @@ class _HeSubConversationViewState extends State<_HeSubConversationView> {
 
     if (segments.isEmpty) {
       return Text(
-        _heHarnessText(
+        openHandLocalizedText(
           context,
           zh: '（无文本输出）',
           zhHant: '（無文字輸出）',
@@ -581,7 +581,7 @@ class _HeSubConversationViewState extends State<_HeSubConversationView> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          _heHarnessText(
+                          openHandLocalizedText(
                             context,
                             zh: '展开更早的 $hiddenCount 条子消息',
                             zhHant: '展開更早的 $hiddenCount 則子訊息',

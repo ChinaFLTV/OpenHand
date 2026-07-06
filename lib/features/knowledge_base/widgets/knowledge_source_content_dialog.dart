@@ -28,28 +28,6 @@ const int _kMaxFilePreviewBytes = 2 * kBytesPerMiB;
 const int _kKnowledgeEditorHistoryLimit = 160;
 const double _kKnowledgeEditorInlineControlSize = 48;
 
-String _kbContentText(
-  BuildContext context, {
-  required String zh,
-  required String en,
-  String? zhHans,
-  String? zhHant,
-  String? fr,
-  String? de,
-  String? ja,
-}) {
-  return openHandLocalizedText(
-    context,
-    zh: zh,
-    en: en,
-    zhHans: zhHans,
-    zhHant: zhHant,
-    fr: fr,
-    de: de,
-    ja: ja,
-  );
-}
-
 Future<void> showKnowledgeSourceContentDialog(
   BuildContext context,
   String sourceId,
@@ -193,7 +171,7 @@ class _KnowledgeSourceContentDialogState
     if (snapshot == null || path == null) {
       OpenHandSnackBar.showError(
         context,
-        _kbContentText(
+        openHandLocalizedText(
           context,
           zh: '当前内容不可写入文件。',
           zhHant: '目前內容不可寫入檔案。',
@@ -220,7 +198,7 @@ class _KnowledgeSourceContentDialogState
       });
       OpenHandSnackBar.showSuccess(
         context,
-        _kbContentText(
+        openHandLocalizedText(
           context,
           zh: '文件已保存。',
           zhHant: '檔案已儲存。',
@@ -234,7 +212,7 @@ class _KnowledgeSourceContentDialogState
       if (!mounted) return;
       OpenHandSnackBar.showError(
         context,
-        _kbContentText(
+        openHandLocalizedText(
           context,
           zh: '文件保存失败：$error',
           zhHant: '檔案儲存失敗：$error',
@@ -259,7 +237,7 @@ class _KnowledgeSourceContentDialogState
     );
     OpenHandSnackBar.showInfo(
       context,
-      _kbContentText(
+      openHandLocalizedText(
         context,
         zh: '已舍弃未保存修改。',
         zhHant: '已捨棄未儲存修改。',
@@ -476,7 +454,7 @@ class _KnowledgeSourceContentDialogState
     final snapshot = _snapshot;
     return buildOpenHandAlertDialog(
       title: Text(
-        _kbContentText(
+        openHandLocalizedText(
           context,
           zh: '查看知识库文档',
           zhHant: '查看知識庫文件',
@@ -494,7 +472,7 @@ class _KnowledgeSourceContentDialogState
             : _loadError != null
             ? KnowledgeDialogNotice(
                 icon: Icons.error_outline_rounded,
-                message: _kbContentText(
+                message: openHandLocalizedText(
                   context,
                   zh: '文档内容加载失败：$_loadError',
                   zhHant: '文件內容載入失敗：$_loadError',
@@ -508,7 +486,7 @@ class _KnowledgeSourceContentDialogState
             : snapshot?.source == null
             ? KnowledgeDialogNotice(
                 icon: Icons.info_outline_rounded,
-                message: _kbContentText(
+                message: openHandLocalizedText(
                   context,
                   zh: '来源不存在。',
                   zhHant: '來源不存在。',
@@ -532,7 +510,7 @@ class _KnowledgeSourceContentDialogState
           OpenHandDialogActionButton.secondary(
             onPressed: _saving || !_dirty ? null : _discardSourceChanges,
             icon: Icons.undo_rounded,
-            label: _kbContentText(
+            label: openHandLocalizedText(
               context,
               zh: '舍弃修改',
               zhHant: '捨棄修改',
@@ -547,7 +525,7 @@ class _KnowledgeSourceContentDialogState
             onPressed: _saving || !_dirty ? null : _saveSource,
             icon: Icons.save_rounded,
             busy: _saving,
-            label: _kbContentText(
+            label: openHandLocalizedText(
               context,
               zh: '保存文件',
               zhHant: '儲存檔案',
@@ -566,7 +544,7 @@ class _KnowledgeSourceContentDialogState
                   );
                   OpenHandSnackBar.showSuccess(
                     context,
-                    _kbContentText(
+                    openHandLocalizedText(
                       context,
                       zh: '路径已复制。',
                       zhHant: '路徑已複製。',
@@ -578,7 +556,7 @@ class _KnowledgeSourceContentDialogState
                   );
                 },
           icon: Icons.copy_rounded,
-          label: _kbContentText(
+          label: openHandLocalizedText(
             context,
             zh: '复制路径',
             zhHant: '複製路徑',
@@ -590,7 +568,7 @@ class _KnowledgeSourceContentDialogState
         ),
         OpenHandDialogActionButton.primary(
           onPressed: () => Navigator.of(context).pop(),
-          label: _kbContentText(
+          label: openHandLocalizedText(
             context,
             zh: '关闭',
             zhHant: '關閉',
@@ -682,7 +660,7 @@ class _KnowledgeModeToggle extends StatelessWidget {
           _KnowledgeModeToggleButton(
             selected: preview,
             icon: Icons.visibility_outlined,
-            label: _kbContentText(
+            label: openHandLocalizedText(
               context,
               zh: '预览',
               zhHant: '預覽',
@@ -697,7 +675,7 @@ class _KnowledgeModeToggle extends StatelessWidget {
           _KnowledgeModeToggleButton(
             selected: !preview,
             icon: Icons.code_rounded,
-            label: _kbContentText(
+            label: openHandLocalizedText(
               context,
               zh: '源码',
               zhHant: '原始碼',
@@ -776,7 +754,7 @@ class _KnowledgeEditorToolbar extends StatelessWidget {
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         _KnowledgeEditorToolButton(
-          tooltip: _kbContentText(
+          tooltip: openHandLocalizedText(
             context,
             zh: '撤销',
             zhHant: '復原',
@@ -789,7 +767,7 @@ class _KnowledgeEditorToolbar extends StatelessWidget {
           onPressed: controls.canUndo ? controls.onUndo : null,
         ),
         _KnowledgeEditorToolButton(
-          tooltip: _kbContentText(
+          tooltip: openHandLocalizedText(
             context,
             zh: '重做',
             zhHant: '重做',
@@ -802,7 +780,7 @@ class _KnowledgeEditorToolbar extends StatelessWidget {
           onPressed: controls.canRedo ? controls.onRedo : null,
         ),
         _KnowledgeEditorToolButton(
-          tooltip: _kbContentText(
+          tooltip: openHandLocalizedText(
             context,
             zh: '查找',
             zhHant: '尋找',
@@ -815,7 +793,7 @@ class _KnowledgeEditorToolbar extends StatelessWidget {
           onPressed: controls.onShowFind,
         ),
         _KnowledgeEditorToolButton(
-          tooltip: _kbContentText(
+          tooltip: openHandLocalizedText(
             context,
             zh: '查找并替换',
             zhHant: '尋找並取代',
@@ -844,7 +822,7 @@ class _KnowledgeFindReplaceBar extends StatelessWidget {
         : '${controls.currentMatchIndex + 1}/${controls.matchCount}';
     final findActions = <Widget>[
       _KnowledgeEditorToolButton(
-        tooltip: _kbContentText(
+        tooltip: openHandLocalizedText(
           context,
           zh: '上一个匹配项',
           zhHant: '上一個符合項',
@@ -857,7 +835,7 @@ class _KnowledgeFindReplaceBar extends StatelessWidget {
         onPressed: controls.matchCount <= 0 ? null : controls.onFindPrevious,
       ),
       _KnowledgeEditorToolButton(
-        tooltip: _kbContentText(
+        tooltip: openHandLocalizedText(
           context,
           zh: '下一个匹配项',
           zhHant: '下一個符合項',
@@ -870,7 +848,7 @@ class _KnowledgeFindReplaceBar extends StatelessWidget {
         onPressed: controls.matchCount <= 0 ? null : controls.onFindNext,
       ),
       _KnowledgeEditorToolButton(
-        tooltip: _kbContentText(
+        tooltip: openHandLocalizedText(
           context,
           zh: '区分大小写',
           zhHant: '區分大小寫',
@@ -885,7 +863,7 @@ class _KnowledgeFindReplaceBar extends StatelessWidget {
       ),
       if (!controls.replaceVisible)
         _KnowledgeEditorToolButton(
-          tooltip: _kbContentText(
+          tooltip: openHandLocalizedText(
             context,
             zh: '显示替换',
             zhHant: '顯示取代',
@@ -898,7 +876,7 @@ class _KnowledgeFindReplaceBar extends StatelessWidget {
           onPressed: controls.editable ? controls.onShowReplace : null,
         ),
       _KnowledgeEditorToolButton(
-        tooltip: _kbContentText(
+        tooltip: openHandLocalizedText(
           context,
           zh: '关闭查找',
           zhHant: '關閉尋找',
@@ -920,7 +898,7 @@ class _KnowledgeFindReplaceBar extends StatelessWidget {
               child: _KnowledgeFindTextField(
                 controller: controls.findController,
                 focusNode: controls.findFocusNode,
-                hintText: _kbContentText(
+                hintText: openHandLocalizedText(
                   context,
                   zh: '查找',
                   zhHant: '尋找',
@@ -954,7 +932,7 @@ class _KnowledgeFindReplaceBar extends StatelessWidget {
               Expanded(
                 child: _KnowledgeFindTextField(
                   controller: controls.replaceController,
-                  hintText: _kbContentText(
+                  hintText: openHandLocalizedText(
                     context,
                     zh: '替换为',
                     zhHant: '取代為',
@@ -970,7 +948,7 @@ class _KnowledgeFindReplaceBar extends StatelessWidget {
               _KnowledgeEditorToolButtonGroup(
                 children: [
                   _KnowledgeEditorToolButton(
-                    tooltip: _kbContentText(
+                    tooltip: openHandLocalizedText(
                       context,
                       zh: '替换当前项',
                       zhHant: '取代目前項',
@@ -985,7 +963,7 @@ class _KnowledgeFindReplaceBar extends StatelessWidget {
                         : null,
                   ),
                   _KnowledgeEditorToolButton(
-                    tooltip: _kbContentText(
+                    tooltip: openHandLocalizedText(
                       context,
                       zh: '全部替换',
                       zhHant: '全部取代',
@@ -1219,7 +1197,7 @@ class _KnowledgeSourceContentBody extends StatelessWidget {
                         ? Icons.insert_drive_file_outlined
                         : Icons.view_agenda_outlined,
                     label: snapshot.loadedFromFile
-                        ? _kbContentText(
+                        ? openHandLocalizedText(
                             context,
                             zh: '原文',
                             zhHant: '原文',
@@ -1228,7 +1206,7 @@ class _KnowledgeSourceContentBody extends StatelessWidget {
                             de: 'Original',
                             ja: '原文',
                           )
-                        : _kbContentText(
+                        : openHandLocalizedText(
                             context,
                             zh: '索引内容',
                             zhHant: '索引內容',
@@ -1282,7 +1260,7 @@ class _KnowledgeSourceContentBody extends StatelessWidget {
                                 Clipboard.setData(ClipboardData(text: text));
                                 OpenHandSnackBar.showSuccess(
                                   context,
-                                  _kbContentText(
+                                  openHandLocalizedText(
                                     context,
                                     zh: '内容已复制。',
                                     zhHant: '內容已複製。',
@@ -1295,7 +1273,7 @@ class _KnowledgeSourceContentBody extends StatelessWidget {
                               },
                         icon: const Icon(Icons.copy_all_rounded),
                         label: Text(
-                          _kbContentText(
+                          openHandLocalizedText(
                             context,
                             zh: '复制内容',
                             zhHant: '複製內容',
@@ -1319,7 +1297,7 @@ class _KnowledgeSourceContentBody extends StatelessWidget {
                       child: Align(
                         alignment: Alignment.centerRight,
                         child: Text(
-                          _kbContentText(
+                          openHandLocalizedText(
                             context,
                             zh: '$lineCount 行 · ${formatByteSize(byteCount)}',
                             zhHant:
@@ -1368,7 +1346,7 @@ class _KnowledgeSourceContentBody extends StatelessWidget {
                     controller: contentController,
                     focusNode: editorControls.editorFocusNode,
                     editable: editable,
-                    emptyText: _kbContentText(
+                    emptyText: openHandLocalizedText(
                       context,
                       zh: '暂无可浏览内容。',
                       zhHant: '暫無可瀏覽內容。',
@@ -1776,7 +1754,7 @@ String _localizedNotice(
   BuildContext context,
 ) {
   return switch (notice) {
-    _KnowledgeSourceContentNotice.largeFileTruncated => _kbContentText(
+    _KnowledgeSourceContentNotice.largeFileTruncated => openHandLocalizedText(
       context,
       zh: '文件较大，当前仅预览前 ${formatByteSize(_kMaxFilePreviewBytes)}。',
       zhHant: '檔案較大，目前僅預覽前 ${formatByteSize(_kMaxFilePreviewBytes)}。',
@@ -1785,7 +1763,7 @@ String _localizedNotice(
       de: 'Die Datei ist groß. Es werden nur die ersten ${formatByteSize(_kMaxFilePreviewBytes)} angezeigt.',
       ja: 'ファイルが大きいため、先頭 ${formatByteSize(_kMaxFilePreviewBytes)} のみ表示しています。',
     ),
-    _KnowledgeSourceContentNotice.indexedFallback => _kbContentText(
+    _KnowledgeSourceContentNotice.indexedFallback => openHandLocalizedText(
       context,
       zh: '当前展示已索引的分块内容；原文件不可直接作为文本浏览。',
       zhHant: '目前顯示已索引的分塊內容；原始檔案無法直接以文字瀏覽。',
@@ -1794,7 +1772,7 @@ String _localizedNotice(
       de: 'Indexierte Abschnitte werden angezeigt, da die Originaldatei nicht direkt als Text angezeigt werden kann.',
       ja: '元ファイルをテキストとして直接表示できないため、インデックス済みチャンクを表示しています。',
     ),
-    _KnowledgeSourceContentNotice.empty => _kbContentText(
+    _KnowledgeSourceContentNotice.empty => openHandLocalizedText(
       context,
       zh: '没有可浏览的原文或索引内容。',
       zhHant: '沒有可瀏覽的原文或索引內容。',
@@ -1830,7 +1808,7 @@ IconData _iconForKind(String kind) {
 String _localizedKind(String kind, BuildContext context) {
   final normalized = kind.trim().toLowerCase();
   return switch (normalized) {
-    'markdown' => _kbContentText(
+    'markdown' => openHandLocalizedText(
       context,
       zh: 'Markdown 文档',
       zhHant: 'Markdown 文件',
@@ -1839,7 +1817,7 @@ String _localizedKind(String kind, BuildContext context) {
       de: 'Markdown',
       ja: 'Markdown',
     ),
-    'text' => _kbContentText(
+    'text' => openHandLocalizedText(
       context,
       zh: '文本',
       zhHant: '文字',
@@ -1848,7 +1826,7 @@ String _localizedKind(String kind, BuildContext context) {
       de: 'Text',
       ja: 'テキスト',
     ),
-    'code' => _kbContentText(
+    'code' => openHandLocalizedText(
       context,
       zh: '代码',
       zhHant: '程式碼',
@@ -1858,7 +1836,7 @@ String _localizedKind(String kind, BuildContext context) {
       ja: 'コード',
     ),
     'pdf' => 'PDF',
-    'html' => _kbContentText(
+    'html' => openHandLocalizedText(
       context,
       zh: '网页 HTML',
       zhHant: '網頁 HTML',
@@ -1867,7 +1845,7 @@ String _localizedKind(String kind, BuildContext context) {
       de: 'HTML',
       ja: 'HTML',
     ),
-    'docx' => _kbContentText(
+    'docx' => openHandLocalizedText(
       context,
       zh: 'Word 文档',
       zhHant: 'Word 文件',
@@ -1876,7 +1854,7 @@ String _localizedKind(String kind, BuildContext context) {
       de: 'Word-Dokument',
       ja: 'Word 文書',
     ),
-    'spreadsheet' => _kbContentText(
+    'spreadsheet' => openHandLocalizedText(
       context,
       zh: '电子表格',
       zhHant: '試算表',
@@ -1885,7 +1863,7 @@ String _localizedKind(String kind, BuildContext context) {
       de: 'Tabellenkalkulation',
       ja: 'スプレッドシート',
     ),
-    'presentation' => _kbContentText(
+    'presentation' => openHandLocalizedText(
       context,
       zh: '演示文稿',
       zhHant: '簡報',
@@ -1894,7 +1872,7 @@ String _localizedKind(String kind, BuildContext context) {
       de: 'Präsentation',
       ja: 'プレゼンテーション',
     ),
-    'table' => _kbContentText(
+    'table' => openHandLocalizedText(
       context,
       zh: '表格数据',
       zhHant: '表格資料',
@@ -1903,7 +1881,7 @@ String _localizedKind(String kind, BuildContext context) {
       de: 'Tabellendaten',
       ja: '表データ',
     ),
-    'structured' => _kbContentText(
+    'structured' => openHandLocalizedText(
       context,
       zh: '结构化数据',
       zhHant: '結構化資料',
@@ -1912,7 +1890,7 @@ String _localizedKind(String kind, BuildContext context) {
       de: 'Strukturierte Daten',
       ja: '構造化データ',
     ),
-    'note' => _kbContentText(
+    'note' => openHandLocalizedText(
       context,
       zh: '笔记',
       zhHant: '筆記',

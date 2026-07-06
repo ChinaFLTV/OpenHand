@@ -636,7 +636,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  _localizedText(
+                  openHandLocalizedText(
                     context,
                     zh: '自动补全 Base URL',
                     en: 'Auto-complete Base URL',
@@ -646,12 +646,12 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                 const SizedBox(height: 4),
                 Text(
                   _autoCompleteBaseUrl
-                      ? _localizedText(
+                      ? openHandLocalizedText(
                           context,
                           zh: '开启时按协议补默认版本路径，例如 OpenAI 兼容接口会追加 v1。',
                           en: 'Adds the protocol default version path, such as v1 for OpenAI-compatible endpoints.',
                         )
-                      : _localizedText(
+                      : openHandLocalizedText(
                           context,
                           zh: '关闭时严格使用你填写的 Base URL，只继续拼接资源路径。',
                           en: 'Uses the Base URL exactly, then appends only the resource path.',
@@ -672,7 +672,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                           key: ValueKey<String>(previewUrl),
                           padding: const EdgeInsets.only(top: 6),
                           child: Text(
-                            _localizedText(
+                            openHandLocalizedText(
                               context,
                               zh: '预览：$previewUrl',
                               en: 'Preview: $previewUrl',
@@ -747,7 +747,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          _localizedText(
+                          openHandLocalizedText(
                             context,
                             zh: '启用 Claude 显式提示词缓存点',
                             zhHant: '啟用 Claude 顯式提示詞快取點',
@@ -761,7 +761,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                         const SizedBox(height: 4),
                         Text(
                           globalInputCacheEnabled
-                              ? _localizedText(
+                              ? openHandLocalizedText(
                                   context,
                                   zh: '开启后，Claude native 请求会按成本控制设置插入 cache_control 断点。',
                                   zhHant:
@@ -771,7 +771,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                   de: 'Aktiviert fügen Claude-native Anfragen cache_control-Punkte gemäß Kostensteuerung ein.',
                                   ja: '有効にすると、Claude native リクエストにコスト制御設定に基づく cache_control ブレークポイントを挿入します。',
                                 )
-                              : _localizedText(
+                              : openHandLocalizedText(
                                   context,
                                   zh: '全局输入缓存已关闭；此开关会保存偏好，但当前不会生效。',
                                   zhHant: '全域輸入快取已關閉；此開關會保存偏好，但目前不會生效。',
@@ -839,14 +839,18 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
       return InputDecorator(
         decoration: InputDecoration(
           labelText: label,
-          helperText: _localizedText(
+          helperText: openHandLocalizedText(
             context,
             zh: '请先扫描模型或手动添加模型 ID。',
             en: 'Scan models or add a model ID first.',
           ),
         ),
         child: Text(
-          _localizedText(context, zh: '暂无可选模型', en: 'No models available'),
+          openHandLocalizedText(
+            context,
+            zh: '暂无可选模型',
+            en: 'No models available',
+          ),
           style: theme.textTheme.bodyMedium?.copyWith(
             color: colorScheme.onSurfaceVariant,
           ),
@@ -874,7 +878,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
           DropdownMenuItem<String>(
             value: '',
             child: Text(
-              _localizedText(context, zh: '不设置', en: 'Not set'),
+              openHandLocalizedText(context, zh: '不设置', en: 'Not set'),
               overflow: TextOverflow.ellipsis,
             ),
           ),
@@ -1319,12 +1323,12 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                             ),
                             const SizedBox(height: 16),
                             _buildModelIdDropdown(
-                              label: _localizedText(
+                              label: openHandLocalizedText(
                                 context,
                                 zh: '默认标题生成模型 ID',
                                 en: 'Default Title Model ID',
                               ),
-                              helperText: _localizedText(
+                              helperText: openHandLocalizedText(
                                 context,
                                 zh: '当前线程模型不适合生成文本标题时，会优先回退到这里选择的同提供商模型。',
                                 en: 'When the thread model is not suitable for text titles, title generation falls back to this sibling provider model first.',
@@ -1551,7 +1555,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                             ),
                             const SizedBox(height: 20),
                             Text(
-                              _localizedText(
+                              openHandLocalizedText(
                                 context,
                                 zh: '高级接口配置',
                                 zhHant: '進階介面設定',
@@ -1570,7 +1574,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                     DropdownButtonFormField<AiApiDialect>(
                                       initialValue: _apiDialect,
                                       decoration: InputDecoration(
-                                        labelText: _localizedText(
+                                        labelText: openHandLocalizedText(
                                           context,
                                           zh: 'API 方言',
                                           zhHant: 'API 方言',
@@ -1604,7 +1608,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                     DropdownButtonFormField<AiProviderKind>(
                                       initialValue: _providerKind,
                                       decoration: InputDecoration(
-                                        labelText: _localizedText(
+                                        labelText: openHandLocalizedText(
                                           context,
                                           zh: '服务商类型',
                                           zhHant: '服務商類型',
@@ -1661,7 +1665,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                               controller: _responsesModelIdController,
                               enabled: !_isSaving,
                               decoration: InputDecoration(
-                                labelText: _localizedText(
+                                labelText: openHandLocalizedText(
                                   context,
                                   zh: 'Responses 模型 ID（可选）',
                                   zhHant: 'Responses 模型 ID（選填）',
@@ -1677,7 +1681,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                               controller: _embeddingModelIdController,
                               enabled: !_isSaving,
                               decoration: InputDecoration(
-                                labelText: _localizedText(
+                                labelText: openHandLocalizedText(
                                   context,
                                   zh: 'Embeddings 模型 ID（可选）',
                                   zhHant: 'Embeddings 模型 ID（選填）',
@@ -1696,7 +1700,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                   controller: _moderationModelIdController,
                                   enabled: !_isSaving,
                                   decoration: InputDecoration(
-                                    labelText: _localizedText(
+                                    labelText: openHandLocalizedText(
                                       context,
                                       zh: 'Moderations 模型 ID（可选）',
                                       zhHant: 'Moderations 模型 ID（選填）',
@@ -1711,7 +1715,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                   controller: _rerankModelIdController,
                                   enabled: !_isSaving,
                                   decoration: InputDecoration(
-                                    labelText: _localizedText(
+                                    labelText: openHandLocalizedText(
                                       context,
                                       zh: 'Rerank 模型 ID（可选）',
                                       zhHant: 'Rerank 模型 ID（選填）',
@@ -1750,7 +1754,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                   controller: _imageModelIdController,
                                   enabled: !_isSaving,
                                   decoration: InputDecoration(
-                                    labelText: _localizedText(
+                                    labelText: openHandLocalizedText(
                                       context,
                                       zh: '图像模型 ID（可选）',
                                       zhHant: '影像模型 ID（選填）',
@@ -1765,7 +1769,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                   controller: _videoModelIdController,
                                   enabled: !_isSaving,
                                   decoration: InputDecoration(
-                                    labelText: _localizedText(
+                                    labelText: openHandLocalizedText(
                                       context,
                                       zh: '视频模型 ID（可选）',
                                       zhHant: '影片模型 ID（選填）',
@@ -1804,7 +1808,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                   controller: _speechModelIdController,
                                   enabled: !_isSaving,
                                   decoration: InputDecoration(
-                                    labelText: _localizedText(
+                                    labelText: openHandLocalizedText(
                                       context,
                                       zh: '语音模型 ID（可选）',
                                       zhHant: '語音模型 ID（選填）',
@@ -1819,7 +1823,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                   controller: _defaultVoiceController,
                                   enabled: !_isSaving,
                                   decoration: InputDecoration(
-                                    labelText: _localizedText(
+                                    labelText: openHandLocalizedText(
                                       context,
                                       zh: '默认 Voice（可选）',
                                       zhHant: '預設 Voice（選填）',
@@ -1858,7 +1862,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                   controller: _transcriptionModelIdController,
                                   enabled: !_isSaving,
                                   decoration: InputDecoration(
-                                    labelText: _localizedText(
+                                    labelText: openHandLocalizedText(
                                       context,
                                       zh: 'Transcription 模型 ID（可选）',
                                       zhHant: 'Transcription 模型 ID（選填）',
@@ -1873,7 +1877,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                   controller: _translationModelIdController,
                                   enabled: !_isSaving,
                                   decoration: InputDecoration(
-                                    labelText: _localizedText(
+                                    labelText: openHandLocalizedText(
                                       context,
                                       zh: 'Translation 模型 ID（可选）',
                                       zhHant: 'Translation 模型 ID（選填）',
@@ -1912,7 +1916,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                   controller: _realtimeTransportController,
                                   enabled: !_isSaving,
                                   decoration: InputDecoration(
-                                    labelText: _localizedText(
+                                    labelText: openHandLocalizedText(
                                       context,
                                       zh: 'Realtime Transport（可选）',
                                       zhHant: 'Realtime Transport（選填）',
@@ -1927,7 +1931,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                   controller: _realtimeUrlOverrideController,
                                   enabled: !_isSaving,
                                   decoration: InputDecoration(
-                                    labelText: _localizedText(
+                                    labelText: openHandLocalizedText(
                                       context,
                                       zh: 'Realtime URL Override（可选）',
                                       zhHant: 'Realtime URL Override（選填）',
@@ -1942,7 +1946,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                   controller: _realtimeModelIdController,
                                   enabled: !_isSaving,
                                   decoration: InputDecoration(
-                                    labelText: _localizedText(
+                                    labelText: openHandLocalizedText(
                                       context,
                                       zh: 'Realtime 模型 ID（可选）',
                                       zhHant: 'Realtime 模型 ID（選填）',
@@ -1988,7 +1992,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                               minLines: 4,
                               maxLines: 8,
                               decoration: InputDecoration(
-                                labelText: _localizedText(
+                                labelText: openHandLocalizedText(
                                   context,
                                   zh: 'Endpoint Overrides JSON（可选）',
                                   zhHant: 'Endpoint Overrides JSON（選填）',
@@ -1997,7 +2001,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                   de: 'Endpoint-Overrides JSON (optional)',
                                   ja: 'Endpoint Overrides JSON（任意）',
                                 ),
-                                helperText: _localizedText(
+                                helperText: openHandLocalizedText(
                                   context,
                                   zh: '按 family 自定义 path/url/method/transport/headers/query_defaults。',
                                   zhHant:
@@ -2016,7 +2020,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                               minLines: 4,
                               maxLines: 8,
                               decoration: InputDecoration(
-                                labelText: _localizedText(
+                                labelText: openHandLocalizedText(
                                   context,
                                   zh: 'Operation Extras JSON（可选）',
                                   zhHant: 'Operation Extras JSON（選填）',
@@ -2025,7 +2029,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                   de: 'Operation-Extras JSON (optional)',
                                   ja: 'Operation Extras JSON（任意）',
                                 ),
-                                helperText: _localizedText(
+                                helperText: openHandLocalizedText(
                                   context,
                                   zh: '放置 responses/realtime/视频等操作的 provider-specific 扩展参数。',
                                   zhHant:
@@ -2070,7 +2074,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                 }
 
                                 final realtimeDropdown = dropdown(
-                                  label: _localizedText(
+                                  label: openHandLocalizedText(
                                     context,
                                     zh: 'Realtime 能力状态',
                                     zhHant: 'Realtime 能力狀態',
@@ -2088,7 +2092,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                   },
                                 );
                                 final filesDropdown = dropdown(
-                                  label: _localizedText(
+                                  label: openHandLocalizedText(
                                     context,
                                     zh: 'Files 能力状态',
                                     zhHant: 'Files 能力狀態',
@@ -2106,7 +2110,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                   },
                                 );
                                 final fineTunesDropdown = dropdown(
-                                  label: _localizedText(
+                                  label: openHandLocalizedText(
                                     context,
                                     zh: 'Fine-tunes 能力状态',
                                     zhHant: 'Fine-tunes 能力狀態',
@@ -3193,7 +3197,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
     final modelId = _modelIdController.text.trim();
     if (modelId.isEmpty) {
       setState(() {
-        _profileErrorMessage = _localizedText(
+        _profileErrorMessage = openHandLocalizedText(
           context,
           zh: '模型 ID 不能为空。',
           zhHant: '模型 ID 不能為空。',
@@ -3209,7 +3213,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
         _reservedModelIds.contains(modelId) && modelId != widget.modelId;
     if (conflicts) {
       setState(() {
-        _profileErrorMessage = _localizedText(
+        _profileErrorMessage = openHandLocalizedText(
           context,
           zh: '模型 ID 已存在，请换一个唯一 ID。',
           zhHant: '模型 ID 已存在，請換一個唯一 ID。',
@@ -3230,7 +3234,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
       defaultParameters = _parseJsonObject(_defaultParametersController.text);
     } on FormatException {
       setState(() {
-        _profileErrorMessage = _localizedText(
+        _profileErrorMessage = openHandLocalizedText(
           context,
           zh: 'default_parameters 必须是合法的 JSON 对象。',
           zhHant: 'default_parameters 必須是合法的 JSON 物件。',
@@ -3254,7 +3258,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
         _thinkingEnabled && _reasoningEffortControlEnabled;
     if (reasoningEffortOptionsSnapshot.hasIncompleteRow) {
       setState(() {
-        _profileErrorMessage = _localizedText(
+        _profileErrorMessage = openHandLocalizedText(
           context,
           zh: '推理强度档位的原生值不能为空。',
           zhHant: '推理強度檔位的原生值不能為空。',
@@ -3270,7 +3274,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
         reasoningEffortOptionsSnapshot.duplicateValue;
     if (duplicateReasoningEffort != null) {
       setState(() {
-        _profileErrorMessage = _localizedText(
+        _profileErrorMessage = openHandLocalizedText(
           context,
           zh: '推理强度原生值不能重复：$duplicateReasoningEffort',
           zhHant: '推理強度原生值不能重複：$duplicateReasoningEffort',
@@ -3299,7 +3303,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
     }
     if (reasoningEffortControlEnabled && normalizedReasoningEffort == null) {
       setState(() {
-        _profileErrorMessage = _localizedText(
+        _profileErrorMessage = openHandLocalizedText(
           context,
           zh: '启用推理强度控制时至少需要一个已启用的有效档位。',
           zhHant: '啟用推理強度控制時至少需要一個已啟用的有效檔位。',
@@ -3314,7 +3318,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
     if (_capabilities.contains(AiModelCapability.readerConversion) &&
         (_readerSourceTypes.isEmpty || _readerTargetTypes.isEmpty)) {
       setState(() {
-        _profileErrorMessage = _localizedText(
+        _profileErrorMessage = openHandLocalizedText(
           context,
           zh: '读取转换模型至少需要选择一个源文件类型和一个目标文件类型。',
           zhHant: '讀取轉換模型至少需要選擇一個來源檔案類型和一個目標檔案類型。',
@@ -3502,7 +3506,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
     }
     OpenHandSnackBar.showSuccess(
       context,
-      _localizedText(
+      openHandLocalizedText(
         context,
         zh: '已复制模型：$copyModelId',
         zhHant: '已複製模型：$copyModelId',
@@ -3583,7 +3587,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                _localizedText(
+                openHandLocalizedText(
                   context,
                   zh: '全局默认标题生成模型',
                   zhHant: '全域預設標題生成模型',
@@ -3596,7 +3600,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
               ),
               const SizedBox(height: 4),
               Text(
-                _localizedText(
+                openHandLocalizedText(
                   context,
                   zh: '开启后，该模型会作为所有线程标题生成的全局兜底；请选择可生成文本标题的模型，保存时其他模型的同名开关会自动关闭。',
                   zhHant:
@@ -3634,7 +3638,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
       const Duration(milliseconds: 180),
     );
     final helperText = _oneMillionContextEnabled
-        ? _localizedText(
+        ? openHandLocalizedText(
             context,
             zh: '已锁定上下文长度为 ${_OneMillionContextPolicy.contextTokensText}，保存时模型 ID 会保持 ${_OneMillionContextPolicy.modelIdSuffix} 后缀。',
             zhHant:
@@ -3644,7 +3648,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
             de: 'Sperrt die Kontextlänge auf ${_OneMillionContextPolicy.contextTokensText}; die Modell-ID behält das Suffix ${_OneMillionContextPolicy.modelIdSuffix}.',
             ja: 'コンテキスト長を ${_OneMillionContextPolicy.contextTokensText} に固定し、保存時にモデル ID の ${_OneMillionContextPolicy.modelIdSuffix} 接尾辞を維持します。',
           )
-        : _localizedText(
+        : openHandLocalizedText(
             context,
             zh: '开启后会自动写入 ${_OneMillionContextPolicy.contextTokensText}，并为模型 ID 补齐 ${_OneMillionContextPolicy.modelIdSuffix} 后缀。',
             zhHant:
@@ -3662,7 +3666,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                _localizedText(
+                openHandLocalizedText(
                   context,
                   zh: '启用 1M 上下文',
                   zhHant: '啟用 1M 上下文',
@@ -3708,7 +3712,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
       const Duration(milliseconds: 180),
     );
     final helperText = _thinkingEnabled
-        ? _localizedText(
+        ? openHandLocalizedText(
             context,
             zh: '请求时会按该模型所属厂商注入思考/推理开关；不兼容网关会自动降级重试。',
             zhHant: '請求時會依該模型所屬廠商注入思考/推理開關；不相容閘道會自動降級重試。',
@@ -3717,7 +3721,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
             de: 'Anfragen enthalten den anbieterspezifischen Thinking-Schalter; inkompatible Gateways versuchen es automatisch ohne ihn erneut.',
             ja: 'リクエストにプロバイダー別の思考スイッチを含めます。非対応ゲートウェイは自動的に降級して再試行します。',
           )
-        : _localizedText(
+        : openHandLocalizedText(
             context,
             zh: '请求时会尽量关闭思考模式；固定推理模型可能仍由服务端保持推理行为。',
             zhHant: '請求時會盡量關閉思考模式；固定推理模型可能仍由服務端保持推理行為。',
@@ -3734,7 +3738,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                _localizedText(
+                openHandLocalizedText(
                   context,
                   zh: '开启思考',
                   zhHant: '開啟思考',
@@ -3787,7 +3791,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
       const Duration(milliseconds: 180),
     );
     final helperText = !_thinkingEnabled
-        ? _localizedText(
+        ? openHandLocalizedText(
             context,
             zh: '开启思考后才会发送推理强度；关闭思考时该项不会参与请求。',
             zhHant: '開啟思考後才會送出推理強度；關閉思考時此項不參與請求。',
@@ -3797,7 +3801,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
             ja: '推論強度は思考が有効な場合のみ送信されます。',
           )
         : _reasoningEffortControlEnabled
-        ? _localizedText(
+        ? openHandLocalizedText(
             context,
             zh: '请求时会把所选原生档位转换为当前厂商的推理强度字段。',
             zhHant: '請求時會將所選原生檔位轉為目前廠商的推理強度欄位。',
@@ -3806,7 +3810,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
             de: 'Anfragen ordnen den nativen Wert dem Reasoning-Effort-Feld des Anbieters zu.',
             ja: '選択したネイティブ値をプロバイダーの推論強度フィールドにマッピングします。',
           )
-        : _localizedText(
+        : openHandLocalizedText(
             context,
             zh: '未确认支持推理强度的模型默认关闭；打开后可选择或自定义档位。',
             zhHant: '未確認支援推理強度的模型預設關閉；開啟後可選擇或自訂檔位。',
@@ -3826,7 +3830,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    _localizedText(
+                    openHandLocalizedText(
                       context,
                       zh: '启用推理强度控制',
                       zhHant: '啟用推理強度控制',
@@ -3932,7 +3936,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
               })
               .toList(growable: false),
           decoration: InputDecoration(
-            labelText: _localizedText(
+            labelText: openHandLocalizedText(
               context,
               zh: '推理强度',
               zhHant: '推理強度',
@@ -3941,7 +3945,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
               de: 'Reasoning Effort',
               ja: '推論強度',
             ),
-            helperText: _localizedText(
+            helperText: openHandLocalizedText(
               context,
               zh: '这里保存并发送服务商 API 的原生取值。',
               zhHant: '這裡保存並送出服務商 API 的原生取值。',
@@ -3961,7 +3965,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
           children: [
             Expanded(
               child: Text(
-                _localizedText(
+                openHandLocalizedText(
                   context,
                   zh: '推理强度档位',
                   zhHant: '推理強度檔位',
@@ -3980,7 +3984,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
               onPressed: _addReasoningEffortOptionDraft,
               icon: const Icon(Icons.add_rounded),
               label: Text(
-                _localizedText(
+                openHandLocalizedText(
                   context,
                   zh: '新增',
                   zhHant: '新增',
@@ -4003,7 +4007,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
         if (options.isEmpty) ...[
           const SizedBox(height: 8),
           Text(
-            _localizedText(
+            openHandLocalizedText(
               context,
               zh: '至少启用一个有效档位，或关闭推理强度控制。',
               zhHant: '至少啟用一個有效檔位，或關閉推理強度控制。',
@@ -4039,7 +4043,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
         child: _reasoningEffortOptionDrafts.isEmpty
             ? Center(
                 child: Text(
-                  _localizedText(
+                  openHandLocalizedText(
                     context,
                     zh: '暂无档位，点击新增开始配置。',
                     zhHant: '暫無檔位，點擊新增開始設定。',
@@ -4102,7 +4106,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final localeName = Localizations.localeOf(context).toLanguageTag();
-    final fallbackTitle = _localizedText(
+    final fallbackTitle = openHandLocalizedText(
       context,
       zh: '档位 ${index + 1}',
       zhHant: '檔位 ${index + 1}',
@@ -4165,7 +4169,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                     const SizedBox(height: 5),
                     Text(
                       nativeValue ??
-                          _localizedText(
+                          openHandLocalizedText(
                             context,
                             zh: '未填写原生值',
                             zhHant: '未填寫原生值',
@@ -4193,7 +4197,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                 children: [
                   _buildReasoningEffortRoundActionButton(
                     tooltip: draft.expanded
-                        ? _localizedText(
+                        ? openHandLocalizedText(
                             context,
                             zh: '折叠档位',
                             zhHant: '摺疊檔位',
@@ -4202,7 +4206,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                             de: 'Option einklappen',
                             ja: 'オプションを折りたたむ',
                           )
-                        : _localizedText(
+                        : openHandLocalizedText(
                             context,
                             zh: '展开档位',
                             zhHant: '展開檔位',
@@ -4224,7 +4228,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                         _toggleReasoningEffortOptionExpanded(draft),
                   ),
                   _buildReasoningEffortRoundActionButton(
-                    tooltip: _localizedText(
+                    tooltip: openHandLocalizedText(
                       context,
                       zh: '删除档位',
                       zhHant: '刪除檔位',
@@ -4282,7 +4286,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
             _buildReasoningEffortDraftTextField(
               width: fieldWidth,
               controller: draft.valueController,
-              label: _localizedText(
+              label: openHandLocalizedText(
                 context,
                 zh: '原生值',
                 zhHant: '原生值',
@@ -4298,7 +4302,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
             _buildReasoningEffortDraftTextField(
               width: fieldWidth,
               controller: draft.labelZhHansController,
-              label: _localizedText(
+              label: openHandLocalizedText(
                 context,
                 zh: '简体中文',
                 zhHant: '簡體中文',
@@ -4316,7 +4320,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
             _buildReasoningEffortDraftTextField(
               width: fieldWidth,
               controller: draft.labelZhHantController,
-              label: _localizedText(
+              label: openHandLocalizedText(
                 context,
                 zh: '繁体中文',
                 zhHant: '繁體中文',
@@ -4437,7 +4441,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
               },
               icon: const Icon(Icons.done_all_rounded, size: 16),
               label: Text(
-                _localizedText(
+                openHandLocalizedText(
                   context,
                   zh: '全选',
                   zhHant: '全選',
@@ -4452,7 +4456,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
               onPressed: () => onChanged(<String>{}),
               icon: const Icon(Icons.clear_all_rounded, size: 16),
               label: Text(
-                _localizedText(
+                openHandLocalizedText(
                   context,
                   zh: '清空',
                   zhHant: '清空',
@@ -4496,7 +4500,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         Text(
-          _localizedText(
+          openHandLocalizedText(
             context,
             zh: '输出向量已归一化',
             zhHant: '輸出向量已正規化',
@@ -4514,7 +4518,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
           children: <Widget>[
             ChoiceChip(
               label: Text(
-                _localizedText(
+                openHandLocalizedText(
                   context,
                   zh: '未知/自动',
                   zhHant: '未知/自動',
@@ -4570,7 +4574,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
               TextField(
                 controller: _modelIdController,
                 decoration: InputDecoration(
-                  labelText: _localizedText(
+                  labelText: openHandLocalizedText(
                     context,
                     zh: '模型 ID',
                     zhHant: '模型 ID',
@@ -4580,7 +4584,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                     ja: 'モデル ID',
                   ),
                   hintText: 'gpt-4o-mini',
-                  helperText: _localizedText(
+                  helperText: openHandLocalizedText(
                     context,
                     zh: '用于请求接口的真实模型标识，必须在当前提供商内唯一。',
                     zhHant: '用於請求介面的真實模型識別，必須在目前提供商內唯一。',
@@ -4811,16 +4815,17 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                         AiModelCapability.pptGeneration => AppLocalizations.of(
                           context,
                         )!.mdlEdPpt,
-                        AiModelCapability.embeddingGeneration => _localizedText(
-                          context,
-                          zh: '嵌入生成',
-                          zhHant: '嵌入生成',
-                          en: 'Embeddings',
-                          fr: 'Embeddings',
-                          de: 'Embeddings',
-                          ja: '埋め込み生成',
-                        ),
-                        AiModelCapability.rerank => _localizedText(
+                        AiModelCapability.embeddingGeneration =>
+                          openHandLocalizedText(
+                            context,
+                            zh: '嵌入生成',
+                            zhHant: '嵌入生成',
+                            en: 'Embeddings',
+                            fr: 'Embeddings',
+                            de: 'Embeddings',
+                            ja: '埋め込み生成',
+                          ),
+                        AiModelCapability.rerank => openHandLocalizedText(
                           context,
                           zh: '重排序',
                           zhHant: '重排序',
@@ -4829,15 +4834,16 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                           de: 'Rerank',
                           ja: '再ランキング',
                         ),
-                        AiModelCapability.readerConversion => _localizedText(
-                          context,
-                          zh: '读取转换',
-                          zhHant: '讀取轉換',
-                          en: 'Read Convert',
-                          fr: 'Conversion de lecture',
-                          de: 'Lesekonvertierung',
-                          ja: '読み取り変換',
-                        ),
+                        AiModelCapability.readerConversion =>
+                          openHandLocalizedText(
+                            context,
+                            zh: '读取转换',
+                            zhHant: '讀取轉換',
+                            en: 'Read Convert',
+                            fr: 'Conversion de lecture',
+                            de: 'Lesekonvertierung',
+                            ja: '読み取り変換',
+                          ),
                       };
                       return FilterChip(
                         label: Text(label),
@@ -4868,7 +4874,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                 AiModelCapability.readerConversion,
               )) ...[
                 _buildSectionHeader(
-                  _localizedText(
+                  openHandLocalizedText(
                     context,
                     zh: '读取转换配置',
                     zhHant: '讀取轉換設定',
@@ -4880,7 +4886,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  _localizedText(
+                  openHandLocalizedText(
                     context,
                     zh: '配置该模型可读取的源文件类型，以及可转换输出的目标类型。知识库模型解析会按这里的能力筛选模型。',
                     zhHant: '設定該模型可讀取的來源檔案類型，以及可轉換輸出的目標類型。知識庫模型解析會依這裡的能力篩選模型。',
@@ -4895,7 +4901,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                 ),
                 const SizedBox(height: 10),
                 _buildReaderTypeChips(
-                  title: _localizedText(
+                  title: openHandLocalizedText(
                     context,
                     zh: '源文件类型',
                     zhHant: '來源檔案類型',
@@ -4911,7 +4917,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                 ),
                 const SizedBox(height: 12),
                 _buildReaderTypeChips(
-                  title: _localizedText(
+                  title: openHandLocalizedText(
                     context,
                     zh: '目标文件类型',
                     zhHant: '目標檔案類型',
@@ -4932,7 +4938,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                 AiModelCapability.embeddingGeneration,
               )) ...[
                 _buildSectionHeader(
-                  _localizedText(
+                  openHandLocalizedText(
                     context,
                     zh: '嵌入生成配置',
                     zhHant: '嵌入生成設定',
@@ -4949,7 +4955,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                       child: _buildCompactTextField(
                         controller: _embeddingDimensionsController,
                         keyboardType: TextInputType.number,
-                        label: _localizedText(
+                        label: openHandLocalizedText(
                           context,
                           zh: '默认维度',
                           zhHant: '預設維度',
@@ -4965,7 +4971,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                       child: _buildCompactTextField(
                         controller: _embeddingMaxInputTokensController,
                         keyboardType: TextInputType.number,
-                        label: _localizedText(
+                        label: openHandLocalizedText(
                           context,
                           zh: '单条最大输入 tokens',
                           zhHant: '單筆最大輸入 tokens',
@@ -4984,7 +4990,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                     Expanded(
                       child: _buildCompactTextField(
                         controller: _embeddingEndpointPathController,
-                        label: _localizedText(
+                        label: openHandLocalizedText(
                           context,
                           zh: '嵌入 endpoint path',
                           zhHant: '嵌入 endpoint path',
@@ -5001,7 +5007,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                       child: _buildCompactTextField(
                         controller: _embeddingBatchSizeController,
                         keyboardType: TextInputType.number,
-                        label: _localizedText(
+                        label: openHandLocalizedText(
                           context,
                           zh: '建议 batch size',
                           zhHant: '建議 batch size',
@@ -5020,7 +5026,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                     Expanded(
                       child: _buildCompactTextField(
                         controller: _embeddingQueryModelIdController,
-                        label: _localizedText(
+                        label: openHandLocalizedText(
                           context,
                           zh: 'Query 模型 ID',
                           zhHant: 'Query 模型 ID',
@@ -5036,7 +5042,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                     Expanded(
                       child: _buildCompactTextField(
                         controller: _embeddingDocumentModelIdController,
-                        label: _localizedText(
+                        label: openHandLocalizedText(
                           context,
                           zh: 'Document 模型 ID',
                           zhHant: 'Document 模型 ID',
@@ -5057,7 +5063,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                       child: _buildCompactTextField(
                         controller: _embeddingMinDimensionsController,
                         keyboardType: TextInputType.number,
-                        label: _localizedText(
+                        label: openHandLocalizedText(
                           context,
                           zh: '最小可选维度',
                           zhHant: '最小可選維度',
@@ -5073,7 +5079,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                       child: _buildCompactTextField(
                         controller: _embeddingMaxDimensionsController,
                         keyboardType: TextInputType.number,
-                        label: _localizedText(
+                        label: openHandLocalizedText(
                           context,
                           zh: '最大可选维度',
                           zhHant: '最大可選維度',
@@ -5092,7 +5098,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                     Expanded(
                       child: _buildCompactTextField(
                         controller: _embeddingInputTypesController,
-                        label: _localizedText(
+                        label: openHandLocalizedText(
                           context,
                           zh: '输入类型（逗号分隔）',
                           zhHant: '輸入類型（逗號分隔）',
@@ -5108,7 +5114,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                     Expanded(
                       child: _buildCompactTextField(
                         controller: _embeddingSupportedTaskTypesController,
-                        label: _localizedText(
+                        label: openHandLocalizedText(
                           context,
                           zh: '任务类型（逗号分隔）',
                           zhHant: '任務類型（逗號分隔）',
@@ -5128,7 +5134,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                     Expanded(
                       child: _buildCompactTextField(
                         controller: _embeddingDefaultInputTypeController,
-                        label: _localizedText(
+                        label: openHandLocalizedText(
                           context,
                           zh: '默认输入类型',
                           zhHant: '預設輸入類型',
@@ -5144,7 +5150,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                     Expanded(
                       child: _buildCompactTextField(
                         controller: _embeddingQueryInputTypeController,
-                        label: _localizedText(
+                        label: openHandLocalizedText(
                           context,
                           zh: 'Query 输入类型',
                           zhHant: 'Query 輸入類型',
@@ -5161,7 +5167,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                 const SizedBox(height: 12),
                 _buildCompactTextField(
                   controller: _embeddingDocumentInputTypeController,
-                  label: _localizedText(
+                  label: openHandLocalizedText(
                     context,
                     zh: 'Document 输入类型',
                     zhHant: 'Document 輸入類型',
@@ -5178,7 +5184,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                     Expanded(
                       child: _buildCompactTextField(
                         controller: _embeddingDefaultTaskTypeController,
-                        label: _localizedText(
+                        label: openHandLocalizedText(
                           context,
                           zh: '默认任务类型',
                           zhHant: '預設任務類型',
@@ -5194,7 +5200,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                     Expanded(
                       child: _buildCompactTextField(
                         controller: _embeddingSimilarityMetricController,
-                        label: _localizedText(
+                        label: openHandLocalizedText(
                           context,
                           zh: '相似度/距离类型',
                           zhHant: '相似度/距離類型',
@@ -5214,7 +5220,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                     Expanded(
                       child: _buildCompactTextField(
                         controller: _embeddingDefaultQueryTaskTypeController,
-                        label: _localizedText(
+                        label: openHandLocalizedText(
                           context,
                           zh: 'Query 任务类型',
                           zhHant: 'Query 任務類型',
@@ -5230,7 +5236,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                     Expanded(
                       child: _buildCompactTextField(
                         controller: _embeddingDefaultDocumentTaskTypeController,
-                        label: _localizedText(
+                        label: openHandLocalizedText(
                           context,
                           zh: 'Document 任务类型',
                           zhHant: 'Document 任務類型',
@@ -5250,7 +5256,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                     Expanded(
                       child: _buildCompactTextField(
                         controller: _embeddingQueryTextPrefixController,
-                        label: _localizedText(
+                        label: openHandLocalizedText(
                           context,
                           zh: 'Query 文本前缀',
                           zhHant: 'Query 文字前綴',
@@ -5266,7 +5272,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                     Expanded(
                       child: _buildCompactTextField(
                         controller: _embeddingDocumentTextPrefixController,
-                        label: _localizedText(
+                        label: openHandLocalizedText(
                           context,
                           zh: 'Document 文本前缀',
                           zhHant: 'Document 文字前綴',
@@ -5286,7 +5292,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                     Expanded(
                       child: _buildCompactTextField(
                         controller: _embeddingEncodingFormatsController,
-                        label: _localizedText(
+                        label: openHandLocalizedText(
                           context,
                           zh: '编码格式（逗号分隔）',
                           zhHant: '編碼格式（逗號分隔）',
@@ -5302,7 +5308,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                     Expanded(
                       child: _buildCompactTextField(
                         controller: _embeddingDefaultEncodingFormatController,
-                        label: _localizedText(
+                        label: openHandLocalizedText(
                           context,
                           zh: '默认编码格式',
                           zhHant: '預設編碼格式',
@@ -5319,7 +5325,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                 const SizedBox(height: 12),
                 _buildCompactTextField(
                   controller: _embeddingDefaultTruncationController,
-                  label: _localizedText(
+                  label: openHandLocalizedText(
                     context,
                     zh: '默认截断策略',
                     zhHant: '預設截斷策略',
@@ -5336,7 +5342,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                     Expanded(
                       child: _buildCompactTextField(
                         controller: _embeddingOutputDTypesController,
-                        label: _localizedText(
+                        label: openHandLocalizedText(
                           context,
                           zh: '输出 dtype（逗号分隔）',
                           zhHant: '輸出 dtype（逗號分隔）',
@@ -5352,7 +5358,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                     Expanded(
                       child: _buildCompactTextField(
                         controller: _embeddingDefaultOutputDTypeController,
-                        label: _localizedText(
+                        label: openHandLocalizedText(
                           context,
                           zh: '默认输出 dtype',
                           zhHant: '預設輸出 dtype',
@@ -5373,7 +5379,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                       child: _buildCompactTextField(
                         controller: _embeddingMaxInputsPerBatchController,
                         keyboardType: TextInputType.number,
-                        label: _localizedText(
+                        label: openHandLocalizedText(
                           context,
                           zh: '每批最大输入数',
                           zhHant: '每批最大輸入數',
@@ -5389,7 +5395,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                       child: _buildCompactTextField(
                         controller: _embeddingMaxTokensPerBatchController,
                         keyboardType: TextInputType.number,
-                        label: _localizedText(
+                        label: openHandLocalizedText(
                           context,
                           zh: '每批最大 tokens',
                           zhHant: '每批最大 tokens',
@@ -5407,7 +5413,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                   dense: true,
                   contentPadding: EdgeInsets.zero,
                   title: Text(
-                    _localizedText(
+                    openHandLocalizedText(
                       context,
                       zh: '支持自定义 dimensions / output dimensionality',
                       zhHant: '支援自訂 dimensions / output dimensionality',
@@ -5426,7 +5432,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                   dense: true,
                   contentPadding: EdgeInsets.zero,
                   title: Text(
-                    _localizedText(
+                    openHandLocalizedText(
                       context,
                       zh: '需要特殊 request body 字段',
                       zhHant: '需要特殊 request body 欄位',
@@ -5444,7 +5450,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                   dense: true,
                   contentPadding: EdgeInsets.zero,
                   title: Text(
-                    _localizedText(
+                    openHandLocalizedText(
                       context,
                       zh: '支持服务端自动截断',
                       zhHant: '支援服務端自動截斷',

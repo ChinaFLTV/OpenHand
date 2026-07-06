@@ -47,40 +47,22 @@ _editorLspLanguageOptions = [
   (id: 'markdown', labelZh: 'Markdown', labelEn: 'Markdown'),
 ];
 
-String _localizedText(
-  BuildContext context, {
-  required String zh,
-  required String en,
-  String? zhHans,
-  String? zhHant,
-  String? fr,
-  String? de,
-  String? ja,
-}) {
-  return openHandLocalizedText(
-    context,
-    zh: zh,
-    en: en,
-    zhHans: zhHans,
-    zhHant: zhHant,
-    fr: fr,
-    de: de,
-    ja: ja,
-  );
-}
-
 String _editorLspLanguageLabel(BuildContext context, String language) {
   final normalized = normalizeAiLspLanguage(language);
   for (final option in _editorLspLanguageOptions) {
     if (option.id == normalized) {
-      return _localizedText(context, zh: option.labelZh, en: option.labelEn);
+      return openHandLocalizedText(
+        context,
+        zh: option.labelZh,
+        en: option.labelEn,
+      );
     }
   }
   return normalized.toUpperCase();
 }
 
 String _editorIndentSpacesLabel(BuildContext context, int spaces) {
-  return _localizedText(
+  return openHandLocalizedText(
     context,
     zh: '$spaces 个空格',
     en: spaces == 1 ? '1 space' : '$spaces spaces',
@@ -93,7 +75,7 @@ String _editorCodeThemeLabel(
   bool darkSurface,
 ) {
   return switch (theme) {
-    EditorCodeTheme.materialYou => _localizedText(
+    EditorCodeTheme.materialYou => openHandLocalizedText(
       context,
       zh: 'Material You（默认）',
       zhHant: 'Material You（預設）',
@@ -134,15 +116,15 @@ extension on _SettingsViewState {
       children: [
         // Word Wrap Toggle
         _SettingsSubsectionCard(
-          title: _localizedText(context, zh: '文本布局', en: 'Text Layout'),
-          description: _localizedText(
+          title: openHandLocalizedText(context, zh: '文本布局', en: 'Text Layout'),
+          description: openHandLocalizedText(
             context,
             zh: '控制编辑器中代码文本的布局方式，例如是否自动换行。',
             en: 'Controls how code text is laid out in the editor, such as word wrapping.',
           ),
           child: _ResponsiveSettingRow(
-            title: _localizedText(context, zh: '自动换行', en: 'Word Wrap'),
-            subtitle: _localizedText(
+            title: openHandLocalizedText(context, zh: '自动换行', en: 'Word Wrap'),
+            subtitle: openHandLocalizedText(
               context,
               zh: '启用时，超出编辑器宽度的代码行将自动折行显示；禁用时，需要水平滚动查看长代码行。',
               en: 'When enabled, lines exceeding editor width wrap automatically; when disabled, horizontal scrolling is needed for long lines.',
@@ -157,15 +139,19 @@ extension on _SettingsViewState {
         ),
         const SizedBox(height: 16),
         _SettingsSubsectionCard(
-          title: _localizedText(context, zh: '缩进', en: 'Indentation'),
-          description: _localizedText(
+          title: openHandLocalizedText(context, zh: '缩进', en: 'Indentation'),
+          description: openHandLocalizedText(
             context,
             zh: '控制编辑器在按下 Tab 时使用的空格数量。默认是 4 个空格；Shift+Tab 会按同样的宽度反向减少缩进。',
             en: 'Controls how many spaces the editor uses when Tab is pressed. The default is 4 spaces; Shift+Tab removes indentation by the same width.',
           ),
           child: _ResponsiveSettingRow(
-            title: _localizedText(context, zh: 'Tab 等效空格数', en: 'Tab Size'),
-            subtitle: _localizedText(
+            title: openHandLocalizedText(
+              context,
+              zh: 'Tab 等效空格数',
+              en: 'Tab Size',
+            ),
+            subtitle: openHandLocalizedText(
               context,
               zh: '代码编辑器会把 Tab 转换为空格，并按这个宽度进行整行缩进或反向缩进。',
               en: 'The code editor converts Tab into spaces and uses this width for both indentation and outdent operations.',
@@ -193,15 +179,19 @@ extension on _SettingsViewState {
         const SizedBox(height: 16),
         // Code Theme
         _SettingsSubsectionCard(
-          title: _localizedText(context, zh: '代码主题', en: 'Code Theme'),
-          description: _localizedText(
+          title: openHandLocalizedText(context, zh: '代码主题', en: 'Code Theme'),
+          description: openHandLocalizedText(
             context,
             zh: '选择编辑器中代码的配色方案。',
             en: 'Choose a color scheme for code in the editor.',
           ),
           child: _ResponsiveSettingRow(
-            title: _localizedText(context, zh: '配色方案', en: 'Color Scheme'),
-            subtitle: _localizedText(
+            title: openHandLocalizedText(
+              context,
+              zh: '配色方案',
+              en: 'Color Scheme',
+            ),
+            subtitle: openHandLocalizedText(
               context,
               zh: '切换代码编辑器的语法高亮配色主题。',
               en: 'Switch the syntax highlighting color theme of the code editor.',
@@ -238,12 +228,12 @@ extension on _SettingsViewState {
         const SizedBox(height: 16),
         // Language Server Mappings
         _SettingsSubsectionCard(
-          title: _localizedText(
+          title: openHandLocalizedText(
             context,
             zh: '语言服务器映射',
             en: 'Language Server Mappings',
           ),
-          description: _localizedText(
+          description: openHandLocalizedText(
             context,
             zh: '为每种语言指定首选 LSP、SDK 目录、LSP 根路径以及下载入口。列表高度已限制，点击条目会以弹窗方式配置。',
             en: 'Choose a preferred LSP, SDK directory, LSP root path, and install entry for each language. The list is height-limited and each row opens a configuration dialog.',
@@ -285,8 +275,12 @@ extension on _SettingsViewState {
     final bindings = settingsController.editorShortcutBindings;
     const actions = EditorShortcutAction.values;
     return _SettingsSubsectionCard(
-      title: _localizedText(context, zh: '编辑器快捷键', en: 'Editor Shortcuts'),
-      description: _localizedText(
+      title: openHandLocalizedText(
+        context,
+        zh: '编辑器快捷键',
+        en: 'Editor Shortcuts',
+      ),
+      description: openHandLocalizedText(
         context,
         zh: '这些绑定仅在代码编辑器获得焦点时生效，用于补全、签名提示、导航和常见符号操作。再次按下同一个面板类快捷键会关闭对应工具面板。',
         en: 'These bindings apply only while the code editor is focused. They control completion, signature help, navigation, and common symbol actions. Pressing the same panel shortcut again closes the corresponding tool panel.',
@@ -375,7 +369,7 @@ extension on _SettingsViewState {
         : AiLspManagedInstallService.readManifest(normalizedRoot);
 
     if (settings.isEmpty) {
-      return _localizedText(
+      return openHandLocalizedText(
         context,
         zh: '当前使用默认自动探测、系统 SDK 与 PATH 解析。',
         en: 'Currently using default auto-detection, system SDKs, and PATH resolution.',
@@ -384,22 +378,26 @@ extension on _SettingsViewState {
 
     final segments = <String>[
       backend?.displayName ??
-          _localizedText(context, zh: '未指定后端', en: 'No backend'),
+          openHandLocalizedText(context, zh: '未指定后端', en: 'No backend'),
       if (settings.sdkPath.trim().isNotEmpty)
-        _localizedText(
+        openHandLocalizedText(
           context,
           zh: 'SDK：${OpenHandPaths.shortenHomePath(settings.sdkPath)}',
           en: 'SDK: ${OpenHandPaths.shortenHomePath(settings.sdkPath)}',
         ),
       if (settings.rootPath.trim().isNotEmpty)
-        _localizedText(
+        openHandLocalizedText(
           context,
           zh: 'LSP：${OpenHandPaths.shortenHomePath(settings.rootPath)}',
           en: 'LSP: ${OpenHandPaths.shortenHomePath(settings.rootPath)}',
         ),
       if (settings.version.trim().isNotEmpty) 'v${settings.version.trim()}',
       if (managedInstallManifest != null)
-        _localizedText(context, zh: 'OpenHand 托管安装', en: 'Managed by OpenHand'),
+        openHandLocalizedText(
+          context,
+          zh: 'OpenHand 托管安装',
+          en: 'Managed by OpenHand',
+        ),
     ];
     return segments.join('  •  ');
   }
@@ -464,7 +462,7 @@ extension on _SettingsViewState {
       if (installBackend == null) {
         _showSnackBar(
           context,
-          _localizedText(
+          openHandLocalizedText(
             context,
             zh: '当前后端信息无效，无法开始安装。',
             en: 'The selected backend is invalid, so installation cannot start.',
@@ -481,7 +479,7 @@ extension on _SettingsViewState {
       if (validationMessage != null) {
         _showSnackBar(
           context,
-          _localizedText(
+          openHandLocalizedText(
             context,
             zh: '无法开始安装：$validationMessage',
             en: validationMessage,
@@ -507,7 +505,7 @@ extension on _SettingsViewState {
     if (!startInstall) {
       _showSnackBar(
         context,
-        _localizedText(
+        openHandLocalizedText(
           context,
           zh: '${_editorLspLanguageLabel(context, language)} 的编辑器工具链配置已保存。',
           en: 'Saved the editor toolchain settings for ${_editorLspLanguageLabel(context, language)}.',
@@ -521,7 +519,7 @@ extension on _SettingsViewState {
         !AiLspManagedInstallService.supportsManagedInstall(installBackend)) {
       _showSnackBar(
         context,
-        _localizedText(
+        openHandLocalizedText(
           context,
           zh: '当前后端在本平台下暂不支持托管安装。',
           en: 'This backend does not support managed installation on the current platform yet.',
@@ -537,7 +535,7 @@ extension on _SettingsViewState {
     if (installPlan == null) {
       _showSnackBar(
         context,
-        _localizedText(
+        openHandLocalizedText(
           context,
           zh: '当前 LSP 暂不支持自动安装。',
           en: 'Automatic installation is not available for this LSP yet.',
@@ -572,7 +570,7 @@ extension on _SettingsViewState {
         }
         _showSnackBar(
           context,
-          _localizedText(
+          openHandLocalizedText(
             context,
             zh: 'LSP 已安装，但写入卸载元数据失败：$error',
             en: 'Installed the LSP, but failed to record cleanup metadata: $error',
@@ -586,7 +584,7 @@ extension on _SettingsViewState {
       }
       _showSnackBar(
         context,
-        _localizedText(
+        openHandLocalizedText(
           context,
           zh: '${installBackend.displayName} 已安装到 ${OpenHandPaths.shortenHomePath(installPlan.installRootPath)}。',
           en: 'Installed ${installBackend.displayName} into ${OpenHandPaths.shortenHomePath(installPlan.installRootPath)}.',
@@ -598,7 +596,7 @@ extension on _SettingsViewState {
 
     _showSnackBar(
       context,
-      _localizedText(
+      openHandLocalizedText(
         context,
         zh: 'LSP 安装未完成，请检查日志输出。',
         en: 'The LSP installation did not finish successfully. Check the log output.',
@@ -624,7 +622,7 @@ extension on _SettingsViewState {
 
     _showSnackBar(
       context,
-      _localizedText(
+      openHandLocalizedText(
         context,
         zh: '${_editorLspLanguageLabel(context, language)} 已恢复为自动探测。',
         en: '${_editorLspLanguageLabel(context, language)} has been reset to auto detection.',
@@ -647,7 +645,7 @@ extension on _SettingsViewState {
     if (manifest == null) {
       _showSnackBar(
         context,
-        _localizedText(
+        openHandLocalizedText(
           context,
           zh: '当前路径不是 OpenHand 托管安装目录，无法执行自动清理。',
           en: 'The current path is not an OpenHand-managed install root, so automatic cleanup is unavailable.',
@@ -659,18 +657,18 @@ extension on _SettingsViewState {
 
     final confirmed = await showOpenHandConfirmDialog(
       context: context,
-      title: _localizedText(
+      title: openHandLocalizedText(
         context,
         zh: '卸载 ${manifest.backendId}',
         en: 'Uninstall ${manifest.backendId}',
       ),
-      message: _localizedText(
+      message: openHandLocalizedText(
         context,
         zh: '将删除 ${OpenHandPaths.shortenHomePath(normalizedRoot)} 下的托管安装文件。若当前语言正在使用该路径，还会同步清空已保存的 LSP 路径与版本。这个操作不可撤销。',
         en: 'This deletes the managed install under ${OpenHandPaths.shortenHomePath(normalizedRoot)}. If the current language is using that folder, the saved LSP path and version are cleared as well. This cannot be undone.',
       ),
       cancelLabel: AppLocalizations.of(context)!.commonCancel,
-      confirmLabel: _localizedText(
+      confirmLabel: openHandLocalizedText(
         context,
         zh: '确认卸载',
         en: 'Confirm Uninstall',
@@ -689,7 +687,7 @@ extension on _SettingsViewState {
       }
       _showSnackBar(
         context,
-        _localizedText(
+        openHandLocalizedText(
           context,
           zh: '卸载失败：$error',
           en: 'Uninstall failed: $error',
@@ -720,7 +718,7 @@ extension on _SettingsViewState {
 
     _showSnackBar(
       context,
-      _localizedText(
+      openHandLocalizedText(
         context,
         zh: '${_editorLspLanguageLabel(context, language)} 的托管安装已卸载并清理。',
         en: 'Removed the managed install for ${_editorLspLanguageLabel(context, language)}.',
@@ -838,7 +836,7 @@ class _EditorLspLanguageRowState extends State<_EditorLspLanguageRow> {
                                     borderRadius: BorderRadius.circular(999),
                                   ),
                                   child: Text(
-                                    _localizedText(
+                                    openHandLocalizedText(
                                       context,
                                       zh: '托管安装',
                                       en: 'Managed',
@@ -864,7 +862,7 @@ class _EditorLspLanguageRowState extends State<_EditorLspLanguageRow> {
                           if (widget.supportsManagedInstall) ...[
                             const SizedBox(height: 8),
                             Text(
-                              _localizedText(
+                              openHandLocalizedText(
                                 context,
                                 zh: '支持托管下载，路径可在弹窗中保存、重置或卸载。',
                                 en: 'Managed download is available. Save, reset, or uninstall from the dialog.',
@@ -1638,7 +1636,7 @@ class _EditorLspConfigDialogState extends State<_EditorLspConfigDialog> {
     var sdkVersionNoticeIcon = Icons.info_outline_rounded;
     if (normalizedSdkPath.isNotEmpty) {
       if (_sdkVersionDetecting) {
-        sdkVersionNoticeText = _localizedText(
+        sdkVersionNoticeText = openHandLocalizedText(
           context,
           zh: '正在根据当前 SDK 目录解析工具链版本…',
           zhHant: '正在根據目前 SDK 目錄解析工具鏈版本…',
@@ -1656,7 +1654,7 @@ class _EditorLspConfigDialogState extends State<_EditorLspConfigDialog> {
         sdkVersionNoticeIcon = Icons.verified_rounded;
         if (canMirrorDetectedSdkVersion) {
           sdkVersionNoticeText = _sdkVersionAppliedToLspVersion
-              ? _localizedText(
+              ? openHandLocalizedText(
                   context,
                   zh: '已自动解析 SDK 版本：${_detectedSdkVersion!.display}，并同步填入下方的 LSP 版本字段。',
                   zhHant:
@@ -1666,7 +1664,7 @@ class _EditorLspConfigDialogState extends State<_EditorLspConfigDialog> {
                   de: 'SDK-Version automatisch erkannt: ${_detectedSdkVersion!.display}. Sie wurde in das LSP-Versionsfeld unten übernommen.',
                   ja: 'SDK バージョン ${_detectedSdkVersion!.display} を自動検出し、下の LSP バージョン欄に同期しました。',
                 )
-              : _localizedText(
+              : openHandLocalizedText(
                   context,
                   zh: '已自动解析 SDK 版本：${_detectedSdkVersion!.display}。当前 LSP 版本字段已由你手动接管，因此本次没有自动覆盖。',
                   zhHant:
@@ -1677,7 +1675,7 @@ class _EditorLspConfigDialogState extends State<_EditorLspConfigDialog> {
                   ja: 'SDK バージョン ${_detectedSdkVersion!.display} を自動検出しました。LSP バージョン欄は手動管理中のため上書きしていません。',
                 );
         } else {
-          sdkVersionNoticeText = _localizedText(
+          sdkVersionNoticeText = openHandLocalizedText(
             context,
             zh: '已自动解析 SDK 版本：${_detectedSdkVersion!.display}。为避免把托管安装装到错误的 LSP 版本，下方的 LSP 版本字段保持独立。',
             zhHant:
@@ -1689,7 +1687,7 @@ class _EditorLspConfigDialogState extends State<_EditorLspConfigDialog> {
           );
         }
       } else if (_sdkVersionDetectionFailed) {
-        sdkVersionNoticeText = _localizedText(
+        sdkVersionNoticeText = openHandLocalizedText(
           context,
           zh: '当前 SDK 目录还没有解析出版本，请确认它指向真实的工具链根目录。',
           zhHant: '目前 SDK 目錄尚未解析出版本，請確認它指向真實的工具鏈根目錄。',
@@ -1705,7 +1703,7 @@ class _EditorLspConfigDialogState extends State<_EditorLspConfigDialog> {
 
     return buildOpenHandAlertDialog(
       title: Text(
-        _localizedText(
+        openHandLocalizedText(
           context,
           zh: '配置 $languageLabel 的工具链',
           zhHant: '設定 $languageLabel 的工具鏈',
@@ -1723,7 +1721,7 @@ class _EditorLspConfigDialogState extends State<_EditorLspConfigDialog> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                _localizedText(
+                openHandLocalizedText(
                   context,
                   zh: '在这里为当前语言统一管理 LSP 后端、SDK 目录、LSP 根路径与安装方式。保存后立即生效；如后端支持托管安装，也可以直接在当前弹窗中下载并安装。',
                   zhHant:
@@ -1741,7 +1739,7 @@ class _EditorLspConfigDialogState extends State<_EditorLspConfigDialog> {
               DropdownButtonFormField<String>(
                 initialValue: _selectedBackendId,
                 decoration: InputDecoration(
-                  labelText: _localizedText(
+                  labelText: openHandLocalizedText(
                     context,
                     zh: 'LSP 后端',
                     zhHant: 'LSP 後端',
@@ -1777,7 +1775,7 @@ class _EditorLspConfigDialogState extends State<_EditorLspConfigDialog> {
               const SizedBox(height: 14),
               _EditorLspDirectoryField(
                 controller: _sdkController,
-                label: _localizedText(
+                label: openHandLocalizedText(
                   context,
                   zh: 'SDK 目录',
                   zhHant: 'SDK 目錄',
@@ -1786,7 +1784,7 @@ class _EditorLspConfigDialogState extends State<_EditorLspConfigDialog> {
                   de: 'SDK-Ordner',
                   ja: 'SDK ディレクトリ',
                 ),
-                hint: _localizedText(
+                hint: openHandLocalizedText(
                   context,
                   zh: '可选，不配置则沿用系统默认',
                   zhHant: '可選，不設定則沿用系統預設',
@@ -1795,7 +1793,7 @@ class _EditorLspConfigDialogState extends State<_EditorLspConfigDialog> {
                   de: 'Optional, leer bedeutet Systemstandard',
                   ja: '任意。空の場合はシステム既定を使用',
                 ),
-                helperText: _localizedText(
+                helperText: openHandLocalizedText(
                   context,
                   zh: '用于记录当前语言 SDK 的位置，并作为项目级配置的默认值。',
                   zhHant: '用於記錄目前語言 SDK 的位置，並作為專案級設定的預設值。',
@@ -1804,7 +1802,7 @@ class _EditorLspConfigDialogState extends State<_EditorLspConfigDialog> {
                   de: 'Speichert den Ort des SDKs dieser Sprache und nutzt ihn als Projektstandard.',
                   ja: 'この言語の SDK の場所を記録し、プロジェクト単位の既定値として使います。',
                 ),
-                browseTooltip: _localizedText(
+                browseTooltip: openHandLocalizedText(
                   context,
                   zh: '浏览文件夹',
                   zhHant: '瀏覽資料夾',
@@ -1827,7 +1825,7 @@ class _EditorLspConfigDialogState extends State<_EditorLspConfigDialog> {
               TextField(
                 controller: _versionController,
                 decoration: InputDecoration(
-                  labelText: _localizedText(
+                  labelText: openHandLocalizedText(
                     context,
                     zh: 'LSP 版本',
                     zhHant: 'LSP 版本',
@@ -1837,7 +1835,7 @@ class _EditorLspConfigDialogState extends State<_EditorLspConfigDialog> {
                     ja: 'LSP バージョン',
                   ),
                   hintText: 'latest',
-                  helperText: _localizedText(
+                  helperText: openHandLocalizedText(
                     context,
                     zh: '这是 LSP / 安装版本，不一定等同于 SDK 版本；留空或填写 latest 表示使用最新版本。',
                     zhHant:
@@ -1852,7 +1850,7 @@ class _EditorLspConfigDialogState extends State<_EditorLspConfigDialog> {
               const SizedBox(height: 14),
               _EditorLspDirectoryField(
                 controller: _pathController,
-                label: _localizedText(
+                label: openHandLocalizedText(
                   context,
                   zh: 'LSP 根路径',
                   zhHant: 'LSP 根路徑',
@@ -1862,7 +1860,7 @@ class _EditorLspConfigDialogState extends State<_EditorLspConfigDialog> {
                   ja: 'LSP ルートパス',
                 ),
                 hint: defaultRootLabel,
-                helperText: _localizedText(
+                helperText: openHandLocalizedText(
                   context,
                   zh: '为空时继续从 PATH 自动探测；点击“下载并安装”时会自动回落到默认安装目录。',
                   zhHant: '留空時繼續從 PATH 自動偵測；點擊「下載並安裝」時會自動回落到預設安裝目錄。',
@@ -1871,7 +1869,7 @@ class _EditorLspConfigDialogState extends State<_EditorLspConfigDialog> {
                   de: 'Leer lassen, um die PATH-Erkennung beizubehalten. Herunterladen und installieren nutzt automatisch die Standardwurzel.',
                   ja: '空欄にすると PATH ベースの自動検出を続けます。「ダウンロードしてインストール」は既定のインストール先に自動で戻ります。',
                 ),
-                browseTooltip: _localizedText(
+                browseTooltip: openHandLocalizedText(
                   context,
                   zh: '浏览文件夹',
                   zhHant: '瀏覽資料夾',
@@ -1890,7 +1888,7 @@ class _EditorLspConfigDialogState extends State<_EditorLspConfigDialog> {
                   if (showDefaultRootShortcut)
                     ActionChip(
                       label: Text(
-                        _localizedText(
+                        openHandLocalizedText(
                           context,
                           zh: '使用默认目录 $defaultRootLabel',
                           zhHant: '使用預設目錄 $defaultRootLabel',
@@ -1907,7 +1905,7 @@ class _EditorLspConfigDialogState extends State<_EditorLspConfigDialog> {
                   if (showClearRootShortcut)
                     ActionChip(
                       label: Text(
-                        _localizedText(
+                        openHandLocalizedText(
                           context,
                           zh: '清空并回退到 PATH',
                           zhHant: '清空並回退到 PATH',
@@ -1924,7 +1922,7 @@ class _EditorLspConfigDialogState extends State<_EditorLspConfigDialog> {
                   if (showLatestVersionShortcut)
                     ActionChip(
                       label: Text(
-                        _localizedText(
+                        openHandLocalizedText(
                           context,
                           zh: '版本设为 latest',
                           zhHant: '版本設為 latest',
@@ -1945,7 +1943,7 @@ class _EditorLspConfigDialogState extends State<_EditorLspConfigDialog> {
                 _EditorLspInlineNotice(
                   icon: Icons.warning_amber_rounded,
                   color: colorScheme.error,
-                  text: _localizedText(
+                  text: openHandLocalizedText(
                     context,
                     zh: '当前安装目录边界检查未通过：$installValidationMessage\n如仅保存配置而不做托管安装，可以改为清空路径并继续使用 PATH 自动探测。',
                     zhHant:
@@ -1966,7 +1964,7 @@ class _EditorLspConfigDialogState extends State<_EditorLspConfigDialog> {
                       : colorScheme.tertiary,
                   text: supportsManagedInstall
                       ? (normalizedRoot.isEmpty
-                            ? _localizedText(
+                            ? openHandLocalizedText(
                                 context,
                                 zh: '当前未显式填写 LSP 根路径。点击“下载并安装”时会自动使用默认目录 $defaultRootLabel；若只保存配置，则继续沿用 PATH 自动探测。',
                                 zhHant:
@@ -1976,7 +1974,7 @@ class _EditorLspConfigDialogState extends State<_EditorLspConfigDialog> {
                                 de: 'Es ist noch keine LSP-Wurzel gesetzt. Herunterladen und installieren nutzt automatisch $defaultRootLabel; Nur speichern verwendet weiter die PATH-Erkennung.',
                                 ja: '明示的な LSP ルートは未設定です。「ダウンロードしてインストール」は既定ディレクトリ $defaultRootLabel を使い、「保存のみ」は PATH 自動検出を続けます。',
                               )
-                            : _localizedText(
+                            : openHandLocalizedText(
                                 context,
                                 zh: '当前目录通过了托管安装边界检查。后续下载会写入 ${OpenHandPaths.shortenHomePath(effectiveInstallRoot)}，并保留对应卸载元数据。',
                                 zhHant:
@@ -1987,7 +1985,7 @@ class _EditorLspConfigDialogState extends State<_EditorLspConfigDialog> {
                                 ja: '現在のディレクトリは管理インストールの安全チェックに合格しました。今後のダウンロードは ${OpenHandPaths.shortenHomePath(effectiveInstallRoot)} に書き込み、アンインストール用メタデータを保持します。',
                               ))
                       : (normalizedRoot.isEmpty
-                            ? _localizedText(
+                            ? openHandLocalizedText(
                                 context,
                                 zh: '当前不会为这个语言保存自定义 LSP 根路径，编辑器会继续从 PATH 自动解析后端命令。',
                                 zhHant:
@@ -1997,7 +1995,7 @@ class _EditorLspConfigDialogState extends State<_EditorLspConfigDialog> {
                                 de: 'Für diese Sprache wird keine benutzerdefinierte LSP-Wurzel gespeichert; der Editor löst das Backend weiter über PATH auf.',
                                 ja: 'この言語にはカスタム LSP ルートを保存しません。エディタは引き続き PATH からバックエンドを解決します。',
                               )
-                            : _localizedText(
+                            : openHandLocalizedText(
                                 context,
                                 zh: '当前仅保存一个现成的本地 LSP 根路径，不会触发托管下载。',
                                 zhHant: '目前只會儲存既有的本機 LSP 根路徑，不會觸發托管下載。',
@@ -2023,7 +2021,7 @@ class _EditorLspConfigDialogState extends State<_EditorLspConfigDialog> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        _localizedText(
+                        openHandLocalizedText(
                           context,
                           zh: '当前目录已检测到托管安装',
                           zhHant: '目前目錄已偵測到托管安裝',
@@ -2039,7 +2037,7 @@ class _EditorLspConfigDialogState extends State<_EditorLspConfigDialog> {
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        _localizedText(
+                        openHandLocalizedText(
                           context,
                           zh: '后端：${managedInstallManifest.backendId}\n目录：${OpenHandPaths.shortenHomePath(managedInstallManifest.installRootPath)}\n版本：${managedInstallManifest.version}',
                           zhHant:
@@ -2061,7 +2059,7 @@ class _EditorLspConfigDialogState extends State<_EditorLspConfigDialog> {
               const SizedBox(height: 12),
               Text(
                 supportsManagedInstall
-                    ? _localizedText(
+                    ? openHandLocalizedText(
                         context,
                         zh: '当前后端支持托管安装。开始安装前会校验目录安全性，避免覆盖非 OpenHand 管理的现有文件。',
                         zhHant:
@@ -2071,7 +2069,7 @@ class _EditorLspConfigDialogState extends State<_EditorLspConfigDialog> {
                         de: 'Dieses Backend unterstützt verwaltete Installation. Der gewählte Ordner wird zuerst geprüft, damit OpenHand keine fremden Dateien überschreibt.',
                         ja: 'このバックエンドは管理インストールに対応しています。開始前にフォルダの安全性を検証し、OpenHand 管理外の既存ファイルを上書きしないようにします。',
                       )
-                    : _localizedText(
+                    : openHandLocalizedText(
                         context,
                         zh: '当前后端在当前平台下暂不提供可托管安装包。你仍然可以仅保存一个已经存在的本地 LSP 路径。',
                         zhHant: '目前後端在目前平台下暫不提供可托管安裝包。你仍然可以只儲存既有的本機 LSP 路徑。',
@@ -2096,7 +2094,7 @@ class _EditorLspConfigDialogState extends State<_EditorLspConfigDialog> {
         if (managedInstallManifest != null)
           OpenHandDialogActionButton.secondary(
             onPressed: () => _submit(_EditorLspConfigAction.uninstall),
-            label: _localizedText(
+            label: openHandLocalizedText(
               context,
               zh: '卸载并清理',
               zhHant: '解除安裝並清理',
@@ -2108,7 +2106,7 @@ class _EditorLspConfigDialogState extends State<_EditorLspConfigDialog> {
           ),
         OpenHandDialogActionButton.secondary(
           onPressed: () => _submit(_EditorLspConfigAction.reset),
-          label: _localizedText(
+          label: openHandLocalizedText(
             context,
             zh: '恢复自动探测',
             zhHant: '恢復自動偵測',
@@ -2120,7 +2118,7 @@ class _EditorLspConfigDialogState extends State<_EditorLspConfigDialog> {
         ),
         OpenHandDialogActionButton.secondary(
           onPressed: () => _submit(_EditorLspConfigAction.save),
-          label: _localizedText(
+          label: openHandLocalizedText(
             context,
             zh: '仅保存',
             zhHant: '僅儲存',
@@ -2134,7 +2132,7 @@ class _EditorLspConfigDialogState extends State<_EditorLspConfigDialog> {
           onPressed: supportsManagedInstall
               ? () => _submit(_EditorLspConfigAction.install)
               : null,
-          label: _localizedText(
+          label: openHandLocalizedText(
             context,
             zh: '下载并安装',
             zhHant: '下載並安裝',
@@ -2314,7 +2312,7 @@ class _EditorLspInstallRunnerDialogState
 
     return buildOpenHandAlertDialog(
       title: Text(
-        _localizedText(
+        openHandLocalizedText(
           context,
           zh: '安装 ${widget.backend.displayName}',
           zhHant: '安裝 ${widget.backend.displayName}',
@@ -2331,7 +2329,7 @@ class _EditorLspInstallRunnerDialogState
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              _localizedText(
+              openHandLocalizedText(
                 context,
                 zh: '语言：$languageLabel\n安装目录：$installRoot',
                 zhHant: '語言：$languageLabel\n安裝目錄：$installRoot',

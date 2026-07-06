@@ -12,28 +12,6 @@ import '../model/knowledge_source.dart';
 import 'knowledge_chunk_detail_dialog.dart';
 import 'knowledge_dialog_widgets.dart';
 
-String _kbDetailText(
-  BuildContext context, {
-  required String zh,
-  required String en,
-  String? zhHans,
-  String? zhHant,
-  String? fr,
-  String? de,
-  String? ja,
-}) {
-  return openHandLocalizedText(
-    context,
-    zh: zh,
-    en: en,
-    zhHans: zhHans,
-    zhHant: zhHant,
-    fr: fr,
-    de: de,
-    ja: ja,
-  );
-}
-
 Future<void> showKnowledgeSourceDetailDialog(
   BuildContext context,
   String sourceId,
@@ -63,7 +41,7 @@ class KnowledgeSourceDetailDialog extends StatelessWidget {
         final chunks = snapshot.data?.$2 ?? const <KnowledgeChunk>[];
         return buildOpenHandAlertDialog(
           title: Text(
-            _kbDetailText(
+            openHandLocalizedText(
               context,
               zh: '知识库来源详情',
               zhHant: '知識庫來源詳情',
@@ -84,7 +62,7 @@ class KnowledgeSourceDetailDialog extends StatelessWidget {
                 : source == null
                 ? KnowledgeDialogNotice(
                     icon: Icons.info_outline_rounded,
-                    message: _kbDetailText(
+                    message: openHandLocalizedText(
                       context,
                       zh: '来源不存在。',
                       zhHant: '來源不存在。',
@@ -102,7 +80,7 @@ class KnowledgeSourceDetailDialog extends StatelessWidget {
                 onPressed: () =>
                     Clipboard.setData(ClipboardData(text: source.originalPath)),
                 icon: Icons.copy_rounded,
-                label: _kbDetailText(
+                label: openHandLocalizedText(
                   context,
                   zh: '复制路径',
                   zhHant: '複製路徑',
@@ -114,7 +92,7 @@ class KnowledgeSourceDetailDialog extends StatelessWidget {
               ),
             OpenHandDialogActionButton.primary(
               onPressed: () => Navigator.of(context).pop(),
-              label: _kbDetailText(
+              label: openHandLocalizedText(
                 context,
                 zh: '关闭',
                 zhHant: '關閉',
@@ -144,7 +122,7 @@ class _SourceDetailBody extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           KnowledgeDialogSection(
-            title: _kbDetailText(
+            title: openHandLocalizedText(
               context,
               zh: '来源信息',
               zhHant: '來源資訊',
@@ -157,7 +135,7 @@ class _SourceDetailBody extends StatelessWidget {
             child: KnowledgeDialogKeyValueList(
               labelWidth: openHandIsChineseLocale(context) ? 120 : 128,
               rows: {
-                _kbDetailText(
+                openHandLocalizedText(
                   context,
                   zh: '标题',
                   zhHant: '標題',
@@ -166,7 +144,7 @@ class _SourceDetailBody extends StatelessWidget {
                   de: 'Titel',
                   ja: 'タイトル',
                 ): source.title,
-                _kbDetailText(
+                openHandLocalizedText(
                   context,
                   zh: '类型',
                   zhHant: '類型',
@@ -178,7 +156,7 @@ class _SourceDetailBody extends StatelessWidget {
                   source.kind,
                   context,
                 ),
-                _kbDetailText(
+                openHandLocalizedText(
                   context,
                   zh: '状态',
                   zhHant: '狀態',
@@ -190,7 +168,7 @@ class _SourceDetailBody extends StatelessWidget {
                   source.status,
                   context,
                 ),
-                _kbDetailText(
+                openHandLocalizedText(
                   context,
                   zh: '原始路径',
                   zhHant: '原始路徑',
@@ -199,7 +177,7 @@ class _SourceDetailBody extends StatelessWidget {
                   de: 'Ursprungspfad',
                   ja: '元のパス',
                 ): source.originalPath,
-                _kbDetailText(
+                openHandLocalizedText(
                   context,
                   zh: '存储路径',
                   zhHant: '儲存路徑',
@@ -208,7 +186,7 @@ class _SourceDetailBody extends StatelessWidget {
                   de: 'Gespeicherter Pfad',
                   ja: '保存パス',
                 ): source.storedPath,
-                _kbDetailText(
+                openHandLocalizedText(
                   context,
                   zh: '文档时间',
                   zhHant: '文件時間',
@@ -219,7 +197,7 @@ class _SourceDetailBody extends StatelessWidget {
                 ): _date(
                   source.documentTime,
                 ),
-                _kbDetailText(
+                openHandLocalizedText(
                   context,
                   zh: '导入时间',
                   zhHant: '匯入時間',
@@ -230,7 +208,7 @@ class _SourceDetailBody extends StatelessWidget {
                 ): _date(
                   source.importedAt,
                 ),
-                _kbDetailText(
+                openHandLocalizedText(
                   context,
                   zh: '索引时间',
                   zhHant: '索引時間',
@@ -242,7 +220,7 @@ class _SourceDetailBody extends StatelessWidget {
                   source.indexedAt,
                 ),
                 if (source.errorMessage.trim().isNotEmpty)
-                  _kbDetailText(
+                  openHandLocalizedText(
                     context,
                     zh: '错误',
                     zhHant: '錯誤',
@@ -255,7 +233,7 @@ class _SourceDetailBody extends StatelessWidget {
             ),
           ),
           KnowledgeDialogSection(
-            title: _kbDetailText(
+            title: openHandLocalizedText(
               context,
               zh: '分块 (${chunks.length})',
               zhHant: '分塊 (${chunks.length})',
@@ -269,7 +247,7 @@ class _SourceDetailBody extends StatelessWidget {
             child: chunks.isEmpty
                 ? KnowledgeDialogNotice(
                     icon: Icons.info_outline_rounded,
-                    message: _kbDetailText(
+                    message: openHandLocalizedText(
                       context,
                       zh: '暂无 chunk。',
                       zhHant: '暫無 chunk。',
@@ -293,7 +271,7 @@ class _SourceDetailBody extends StatelessWidget {
 
   String _localizedKind(String kind, BuildContext context) {
     return switch (kind) {
-      'markdown' => _kbDetailText(
+      'markdown' => openHandLocalizedText(
         context,
         zh: 'Markdown 文档',
         zhHant: 'Markdown 文件',
@@ -302,7 +280,7 @@ class _SourceDetailBody extends StatelessWidget {
         de: 'Markdown',
         ja: 'Markdown',
       ),
-      'text' => _kbDetailText(
+      'text' => openHandLocalizedText(
         context,
         zh: '文本',
         zhHant: '文字',
@@ -311,7 +289,7 @@ class _SourceDetailBody extends StatelessWidget {
         de: 'Text',
         ja: 'テキスト',
       ),
-      'code' => _kbDetailText(
+      'code' => openHandLocalizedText(
         context,
         zh: '代码',
         zhHant: '程式碼',
@@ -321,7 +299,7 @@ class _SourceDetailBody extends StatelessWidget {
         ja: 'コード',
       ),
       'pdf' => 'PDF',
-      'html' => _kbDetailText(
+      'html' => openHandLocalizedText(
         context,
         zh: '网页 HTML',
         zhHant: '網頁 HTML',
@@ -330,7 +308,7 @@ class _SourceDetailBody extends StatelessWidget {
         de: 'HTML',
         ja: 'HTML',
       ),
-      'docx' => _kbDetailText(
+      'docx' => openHandLocalizedText(
         context,
         zh: 'Word 文档',
         zhHant: 'Word 文件',
@@ -339,7 +317,7 @@ class _SourceDetailBody extends StatelessWidget {
         de: 'Word-Dokument',
         ja: 'Word ドキュメント',
       ),
-      'spreadsheet' => _kbDetailText(
+      'spreadsheet' => openHandLocalizedText(
         context,
         zh: '电子表格',
         zhHant: '試算表',
@@ -348,7 +326,7 @@ class _SourceDetailBody extends StatelessWidget {
         de: 'Tabelle',
         ja: 'スプレッドシート',
       ),
-      'presentation' => _kbDetailText(
+      'presentation' => openHandLocalizedText(
         context,
         zh: '演示文稿',
         zhHant: '簡報',
@@ -357,7 +335,7 @@ class _SourceDetailBody extends StatelessWidget {
         de: 'Präsentation',
         ja: 'プレゼンテーション',
       ),
-      'table' => _kbDetailText(
+      'table' => openHandLocalizedText(
         context,
         zh: '表格数据',
         zhHant: '表格資料',
@@ -366,7 +344,7 @@ class _SourceDetailBody extends StatelessWidget {
         de: 'Tabellendaten',
         ja: '表データ',
       ),
-      'structured' => _kbDetailText(
+      'structured' => openHandLocalizedText(
         context,
         zh: '结构化数据',
         zhHant: '結構化資料',
@@ -375,7 +353,7 @@ class _SourceDetailBody extends StatelessWidget {
         de: 'Strukturierte Daten',
         ja: '構造化データ',
       ),
-      'note' => _kbDetailText(
+      'note' => openHandLocalizedText(
         context,
         zh: '笔记',
         zhHant: '筆記',
@@ -390,7 +368,7 @@ class _SourceDetailBody extends StatelessWidget {
 
   String _localizedStatus(String status, BuildContext context) {
     return switch (status) {
-      'indexed' => _kbDetailText(
+      'indexed' => openHandLocalizedText(
         context,
         zh: '已索引',
         zhHant: '已索引',
@@ -399,7 +377,7 @@ class _SourceDetailBody extends StatelessWidget {
         de: 'Indexiert',
         ja: 'インデックス済み',
       ),
-      'failed' => _kbDetailText(
+      'failed' => openHandLocalizedText(
         context,
         zh: '失败',
         zhHant: '失敗',
@@ -408,7 +386,7 @@ class _SourceDetailBody extends StatelessWidget {
         de: 'Fehlgeschlagen',
         ja: '失敗',
       ),
-      'indexing' => _kbDetailText(
+      'indexing' => openHandLocalizedText(
         context,
         zh: '索引中',
         zhHant: '索引中',
@@ -417,7 +395,7 @@ class _SourceDetailBody extends StatelessWidget {
         de: 'Wird indexiert',
         ja: 'インデックス中',
       ),
-      'pending' => _kbDetailText(
+      'pending' => openHandLocalizedText(
         context,
         zh: '待处理',
         zhHant: '待處理',
@@ -426,7 +404,7 @@ class _SourceDetailBody extends StatelessWidget {
         de: 'Ausstehend',
         ja: '保留中',
       ),
-      'cancelled' => _kbDetailText(
+      'cancelled' => openHandLocalizedText(
         context,
         zh: '已停止',
         zhHant: '已停止',
@@ -494,7 +472,7 @@ class _ChunkTile extends StatelessWidget {
                     ),
                     KnowledgeDialogChip(
                       icon: Icons.numbers_rounded,
-                      label: _kbDetailText(
+                      label: openHandLocalizedText(
                         context,
                         zh: '${chunk.tokenEstimate} token',
                         zhHant: '${chunk.tokenEstimate} token',

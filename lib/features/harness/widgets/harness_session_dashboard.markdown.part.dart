@@ -384,7 +384,7 @@ class _HeMarkdownContentState extends State<_HeMarkdownContent>
                   ),
                   const SizedBox(width: 6),
                   Text(
-                    _heHarnessText(
+                    openHandLocalizedText(
                       context,
                       zh: '展开全部内容',
                       zhHant: '展開全部內容',
@@ -806,7 +806,7 @@ class _HeHighlightedCodePanelState extends State<_HeHighlightedCodePanel> {
             context,
             SnackBar(
               content: Text(
-                _heHarnessText(
+                openHandLocalizedText(
                   context,
                   zh: '代码已复制',
                   zhHant: '程式碼已複製',
@@ -827,7 +827,7 @@ class _HeHighlightedCodePanelState extends State<_HeHighlightedCodePanel> {
             context,
             SnackBar(
               content: Text(
-                _heHarnessText(
+                openHandLocalizedText(
                   context,
                   zh: '复制失败',
                   zhHant: '複製失敗',
@@ -958,7 +958,7 @@ class _HeHighlightedCodePanelState extends State<_HeHighlightedCodePanel> {
                             const SizedBox(width: 5),
                             Text(
                               _copied
-                                  ? _heHarnessText(
+                                  ? openHandLocalizedText(
                                       context,
                                       zh: '已复制',
                                       zhHant: '已複製',
@@ -967,7 +967,7 @@ class _HeHighlightedCodePanelState extends State<_HeHighlightedCodePanel> {
                                       de: 'Kopiert',
                                       ja: 'コピー済み',
                                     )
-                                  : _heHarnessText(
+                                  : openHandLocalizedText(
                                       context,
                                       zh: '复制',
                                       zhHant: '複製',
@@ -1236,7 +1236,7 @@ class _HeOutputLinesDial extends StatelessWidget {
           ),
           const SizedBox(width: 6),
           Text(
-            _heHarnessText(
+            openHandLocalizedText(
               context,
               zh: '行',
               zhHant: '行',
@@ -1305,7 +1305,7 @@ class _HeReadyPlaceholder extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           Text(
-            _heHarnessText(
+            openHandLocalizedText(
               context,
               zh: '就绪，点击下方按钮以启动本次会话',
               zhHant: '已就緒，點擊下方按鈕以啟動本次會話',
@@ -1321,7 +1321,7 @@ class _HeReadyPlaceholder extends StatelessWidget {
             onPressed: onStart,
             icon: const Icon(Icons.play_arrow_rounded),
             label: Text(
-              _heHarnessText(
+              openHandLocalizedText(
                 context,
                 zh: '开始执行',
                 zhHant: '開始執行',
@@ -1361,7 +1361,7 @@ class _InitializingPlaceholder extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           Text(
-            _heHarnessText(
+            openHandLocalizedText(
               context,
               zh: '初始化中...',
               zhHant: '初始化中...',
@@ -1395,7 +1395,7 @@ class _HeRestoredSessionPlaceholder extends StatelessWidget {
     final (icon, title) = switch (status) {
       HarnessOrchestratorStatus.completed => (
         Icons.check_circle_rounded,
-        _heHarnessText(
+        openHandLocalizedText(
           context,
           zh: '历史会话已恢复',
           zhHant: '歷史會話已恢復',
@@ -1407,7 +1407,7 @@ class _HeRestoredSessionPlaceholder extends StatelessWidget {
       ),
       HarnessOrchestratorStatus.failed => (
         Icons.error_rounded,
-        _heHarnessText(
+        openHandLocalizedText(
           context,
           zh: '历史失败会话已恢复',
           zhHant: '歷史失敗會話已恢復',
@@ -1419,7 +1419,7 @@ class _HeRestoredSessionPlaceholder extends StatelessWidget {
       ),
       HarnessOrchestratorStatus.cancelled => (
         Icons.cancel_rounded,
-        _heHarnessText(
+        openHandLocalizedText(
           context,
           zh: '历史中止会话已恢复',
           zhHant: '歷史中止會話已恢復',
@@ -1431,7 +1431,7 @@ class _HeRestoredSessionPlaceholder extends StatelessWidget {
       ),
       _ => (
         Icons.history_rounded,
-        _heHarnessText(
+        openHandLocalizedText(
           context,
           zh: '历史会话已恢复',
           zhHant: '歷史會話已恢復',
@@ -1464,7 +1464,7 @@ class _HeRestoredSessionPlaceholder extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              _heHarnessText(
+              openHandLocalizedText(
                 context,
                 zh: '该会话来自旧版持久化数据，未保存可回放的阶段日志，因此无法还原阶段卡片。',
                 zhHant: '該會話來自舊版持久化資料，未保存可回放的階段日誌，因此無法還原階段卡片。',
@@ -1484,7 +1484,7 @@ class _HeRestoredSessionPlaceholder extends StatelessWidget {
               onPressed: onRestart,
               icon: const Icon(Icons.restart_alt_rounded),
               label: Text(
-                _heHarnessText(
+                openHandLocalizedText(
                   context,
                   zh: '重新执行',
                   zhHant: '重新執行',

@@ -26,28 +26,6 @@ const int _kJsonFuzzMinSafeInteger = -_kJsonFuzzMaxSafeInteger;
 const String _kJsonFuzzUnsafeIntegerText = '9007199254740993';
 final String _jsonFuzzLongString = 'A' * 1024;
 
-String _wsText(
-  BuildContext context, {
-  required String zh,
-  required String en,
-  String? zhHans,
-  String? zhHant,
-  String? fr,
-  String? de,
-  String? ja,
-}) {
-  return openHandLocalizedText(
-    context,
-    zh: zh,
-    en: en,
-    zhHans: zhHans,
-    zhHant: zhHant,
-    fr: fr,
-    de: de,
-    ja: ja,
-  );
-}
-
 Future<void> showWebReverseWebSocketDialog(
   BuildContext context, {
   required WebReverseSessionController controller,
@@ -108,7 +86,7 @@ class _WsDialogState extends State<_WsDialog> {
           m,
           webReverseClipboardSnackMessage(
             context: context,
-            base: _wsText(
+            base: openHandLocalizedText(
               context,
               zh: '帧 JSON 已复制',
               zhHant: '影格 JSON 已複製',
@@ -135,7 +113,7 @@ class _WsDialogState extends State<_WsDialog> {
         .toList();
     if (sentFrames.isEmpty) {
       setState(
-        () => _status = _wsText(
+        () => _status = openHandLocalizedText(
           context,
           zh: '该连接没有发送帧可重放',
           zhHant: '此連線沒有可重放的送出影格',
@@ -149,7 +127,7 @@ class _WsDialogState extends State<_WsDialog> {
     }
     setState(() {
       _busy = true;
-      _status = _wsText(
+      _status = openHandLocalizedText(
         context,
         zh: '在页面打开新 WS 并按序重放...',
         zhHant: '正在頁面開啟新 WS 並依序重放...',
@@ -224,7 +202,7 @@ class _WsDialogState extends State<_WsDialog> {
         if (!mounted) return;
         setState(() {
           _busy = false;
-          _status = _wsText(
+          _status = openHandLocalizedText(
             context,
             zh: '重放返回值异常',
             zhHant: '重放回傳值異常',
@@ -243,7 +221,7 @@ class _WsDialogState extends State<_WsDialog> {
       setState(() {
         _busy = false;
         _status = ok
-            ? _wsText(
+            ? openHandLocalizedText(
                 context,
                 zh: '完成：已发送 $sent 条，收到 ${received.length} 条',
                 zhHant: '完成：已送出 $sent 條，收到 ${received.length} 條',
@@ -252,7 +230,7 @@ class _WsDialogState extends State<_WsDialog> {
                 de: 'Fertig: $sent gesendet, ${received.length} empfangen',
                 ja: '完了: $sent 件送信、${received.length} 件受信',
               )
-            : _wsText(
+            : openHandLocalizedText(
                 context,
                 zh: '失败：sent=$sent err=${res['error']}',
                 zhHant: '失敗：sent=$sent err=${res['error']}',
@@ -367,7 +345,7 @@ class _WsDialogState extends State<_WsDialog> {
     if (edited == null) return;
     setState(() {
       _busy = true;
-      _status = _wsText(
+      _status = openHandLocalizedText(
         context,
         zh: '发送单帧...',
         zhHant: '正在傳送單一影格...',
@@ -383,7 +361,7 @@ class _WsDialogState extends State<_WsDialog> {
       if (res == null) {
         setState(() {
           _busy = false;
-          _status = _wsText(
+          _status = openHandLocalizedText(
             context,
             zh: '发送失败：返回值异常',
             zhHant: '傳送失敗：回傳值異常',
@@ -400,7 +378,7 @@ class _WsDialogState extends State<_WsDialog> {
       setState(() {
         _busy = false;
         _status = ok
-            ? _wsText(
+            ? openHandLocalizedText(
                 context,
                 zh: '已发送 1 条，收到 $recv 条',
                 zhHant: '已送出 1 條，收到 $recv 條',
@@ -409,7 +387,7 @@ class _WsDialogState extends State<_WsDialog> {
                 de: '1 gesendet, $recv empfangen',
                 ja: '1 件送信、$recv 件受信',
               )
-            : _wsText(
+            : openHandLocalizedText(
                 context,
                 zh: '失败：${res['error']}',
                 zhHant: '失敗：${res['error']}',
@@ -441,7 +419,7 @@ class _WsDialogState extends State<_WsDialog> {
     }
     setState(() {
       _busy = true;
-      _status = _wsText(
+      _status = openHandLocalizedText(
         context,
         zh: 'Fuzz 中：发送 ${cfg.count} 条变异帧...',
         zhHant: 'Fuzz 中：傳送 ${cfg.count} 條變異影格...',
@@ -462,7 +440,7 @@ class _WsDialogState extends State<_WsDialog> {
       if (res == null) {
         setState(() {
           _busy = false;
-          _status = _wsText(
+          _status = openHandLocalizedText(
             context,
             zh: 'Fuzz 失败：返回值异常',
             zhHant: 'Fuzz 失敗：回傳值異常',
@@ -480,7 +458,7 @@ class _WsDialogState extends State<_WsDialog> {
       setState(() {
         _busy = false;
         _status = ok
-            ? _wsText(
+            ? openHandLocalizedText(
                 context,
                 zh: 'Fuzz 完成：发送 $sent 条，收到 $recv 条',
                 zhHant: 'Fuzz 完成：送出 $sent 條，收到 $recv 條',
@@ -489,7 +467,7 @@ class _WsDialogState extends State<_WsDialog> {
                 de: 'Fuzz fertig: $sent gesendet, $recv empfangen',
                 ja: 'Fuzz 完了: $sent 件送信、$recv 件受信',
               )
-            : _wsText(
+            : openHandLocalizedText(
                 context,
                 zh: 'Fuzz 失败：sent=$sent err=${res['error']}',
                 zhHant: 'Fuzz 失敗：sent=$sent err=${res['error']}',
@@ -621,7 +599,7 @@ class _WsDialogState extends State<_WsDialog> {
               buildOpenHandToolDialogHeader(
                 context: ctx,
                 icon: Icons.edit_note_rounded,
-                title: _wsText(
+                title: openHandLocalizedText(
                   ctx,
                   zh: '编辑单帧再发送',
                   zhHant: '編輯單一影格後傳送',
@@ -645,7 +623,7 @@ class _WsDialogState extends State<_WsDialog> {
                       fontSize: 12,
                     ),
                     decoration: InputDecoration(
-                      hintText: _wsText(
+                      hintText: openHandLocalizedText(
                         ctx,
                         zh: '在这里修改 payload，然后点发送',
                         zhHant: '在這裡修改 payload，然後點傳送',
@@ -668,7 +646,7 @@ class _WsDialogState extends State<_WsDialog> {
                   children: [
                     Expanded(
                       child: OpenHandDialogActionButton.secondary(
-                        label: _wsText(
+                        label: openHandLocalizedText(
                           ctx,
                           zh: '取消',
                           zhHant: '取消',
@@ -684,7 +662,7 @@ class _WsDialogState extends State<_WsDialog> {
                     Expanded(
                       child: OpenHandDialogActionButton.primary(
                         icon: Icons.send_rounded,
-                        label: _wsText(
+                        label: openHandLocalizedText(
                           ctx,
                           zh: '发送',
                           zhHant: '傳送',
@@ -724,7 +702,7 @@ class _WsDialogState extends State<_WsDialog> {
                 context: ctx,
                 icon: Icons.bug_report_rounded,
                 iconColor: cs.tertiary,
-                title: _wsText(
+                title: openHandLocalizedText(
                   ctx,
                   zh: 'Fuzz 帧（按 JSON 叶子或字节变异）',
                   zhHant: 'Fuzz 影格（依 JSON 葉節點或位元組變異）',
@@ -741,7 +719,7 @@ class _WsDialogState extends State<_WsDialog> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      _wsText(
+                      openHandLocalizedText(
                         ctx,
                         zh: '基准 payload 长度：${basePayload.length} 字符',
                         zhHant: '基準 payload 長度：${basePayload.length} 字元',
@@ -759,7 +737,7 @@ class _WsDialogState extends State<_WsDialog> {
                           child: TextField(
                             controller: countCtrl,
                             decoration: InputDecoration(
-                              labelText: _wsText(
+                              labelText: openHandLocalizedText(
                                 ctx,
                                 zh: '发送次数 (1-200)',
                                 zhHant: '傳送次數 (1-200)',
@@ -779,7 +757,7 @@ class _WsDialogState extends State<_WsDialog> {
                           child: TextField(
                             controller: delayCtrl,
                             decoration: InputDecoration(
-                              labelText: _wsText(
+                              labelText: openHandLocalizedText(
                                 ctx,
                                 zh: '间隔 ms (10-1000)',
                                 zhHant: '間隔 ms (10-1000)',
@@ -798,7 +776,7 @@ class _WsDialogState extends State<_WsDialog> {
                     ),
                     const SizedBox(height: 14),
                     Text(
-                      _wsText(
+                      openHandLocalizedText(
                         ctx,
                         zh: '变异强度',
                         zhHant: '變異強度',
@@ -827,7 +805,7 @@ class _WsDialogState extends State<_WsDialog> {
                   children: [
                     Expanded(
                       child: OpenHandDialogActionButton.secondary(
-                        label: _wsText(
+                        label: openHandLocalizedText(
                           ctx,
                           zh: '取消',
                           zhHant: '取消',
@@ -843,7 +821,7 @@ class _WsDialogState extends State<_WsDialog> {
                     Expanded(
                       child: OpenHandDialogActionButton.primary(
                         icon: Icons.play_arrow_rounded,
-                        label: _wsText(
+                        label: openHandLocalizedText(
                           ctx,
                           zh: '开始 Fuzz',
                           zhHant: '開始 Fuzz',
@@ -901,7 +879,7 @@ class _WsDialogState extends State<_WsDialog> {
           buildOpenHandToolDialogHeader(
             context: context,
             icon: Icons.swap_horiz_rounded,
-            title: _wsText(
+            title: openHandLocalizedText(
               context,
               zh: 'WebSocket 帧录制 / 重放',
               zhHant: 'WebSocket 影格錄製 / 重放',
@@ -910,7 +888,7 @@ class _WsDialogState extends State<_WsDialog> {
               de: 'WebSocket-Frames',
               ja: 'WebSocket フレーム',
             ),
-            subtitle: _wsText(
+            subtitle: openHandLocalizedText(
               context,
               zh: '查看帧 · 重放 sent 帧到新连接',
               zhHant: '查看影格 · 將 sent 影格重放到新連線',
@@ -923,7 +901,7 @@ class _WsDialogState extends State<_WsDialog> {
               IconButton(
                 onPressed: cur == null ? null : _copyFramesJson,
                 icon: const Icon(Icons.copy_rounded),
-                tooltip: _wsText(
+                tooltip: openHandLocalizedText(
                   context,
                   zh: '复制帧 JSON',
                   zhHant: '複製影格 JSON',
@@ -940,7 +918,7 @@ class _WsDialogState extends State<_WsDialog> {
             child: conns.isEmpty
                 ? Center(
                     child: Text(
-                      _wsText(
+                      openHandLocalizedText(
                         context,
                         zh: '当前会话没有 WebSocket / EventSource 连接',
                         zhHant: '目前會話沒有 WebSocket / EventSource 連線',
@@ -999,7 +977,7 @@ class _WsDialogState extends State<_WsDialog> {
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
-                                      _wsText(
+                                      openHandLocalizedText(
                                         context,
                                         zh: '${c.wsFrames.length} 帧',
                                         zhHant: '${c.wsFrames.length} 影格',
@@ -1045,7 +1023,7 @@ class _WsDialogState extends State<_WsDialog> {
                                           onPressed: _busy ? null : _replaySent,
                                           icon: const Icon(Icons.send_rounded),
                                           label: Text(
-                                            _wsText(
+                                            openHandLocalizedText(
                                               context,
                                               zh: '重放 sent 帧',
                                               zhHant: '重放 sent 影格',
@@ -1182,15 +1160,16 @@ class _WsDialogState extends State<_WsDialog> {
                                                       _MiniFrameAction(
                                                         icon: Icons
                                                             .replay_rounded,
-                                                        tooltip: _wsText(
-                                                          context,
-                                                          zh: '重发此帧',
-                                                          zhHant: '重送此影格',
-                                                          en: 'Resend',
-                                                          fr: 'Renvoyer',
-                                                          de: 'Erneut senden',
-                                                          ja: '再送信',
-                                                        ),
+                                                        tooltip:
+                                                            openHandLocalizedText(
+                                                              context,
+                                                              zh: '重发此帧',
+                                                              zhHant: '重送此影格',
+                                                              en: 'Resend',
+                                                              fr: 'Renvoyer',
+                                                              de: 'Erneut senden',
+                                                              ja: '再送信',
+                                                            ),
                                                         onTap: _busy
                                                             ? null
                                                             : () =>
@@ -1204,7 +1183,7 @@ class _WsDialogState extends State<_WsDialog> {
                                                       _MiniFrameAction(
                                                         icon:
                                                             Icons.edit_rounded,
-                                                        tooltip: _wsText(
+                                                        tooltip: openHandLocalizedText(
                                                           context,
                                                           zh: '编辑并发送',
                                                           zhHant: '編輯並傳送',
@@ -1224,15 +1203,17 @@ class _WsDialogState extends State<_WsDialog> {
                                                       _MiniFrameAction(
                                                         icon: Icons
                                                             .bug_report_rounded,
-                                                        tooltip: _wsText(
-                                                          context,
-                                                          zh: 'Fuzz 此帧',
-                                                          zhHant: 'Fuzz 此影格',
-                                                          en: 'Fuzz',
-                                                          fr: 'Fuzzer',
-                                                          de: 'Fuzzen',
-                                                          ja: 'Fuzz',
-                                                        ),
+                                                        tooltip:
+                                                            openHandLocalizedText(
+                                                              context,
+                                                              zh: 'Fuzz 此帧',
+                                                              zhHant:
+                                                                  'Fuzz 此影格',
+                                                              en: 'Fuzz',
+                                                              fr: 'Fuzzer',
+                                                              de: 'Fuzzen',
+                                                              ja: 'Fuzz',
+                                                            ),
                                                         onTap: _busy
                                                             ? null
                                                             : () => _fuzz(
@@ -1260,7 +1241,7 @@ class _WsDialogState extends State<_WsDialog> {
             child: SizedBox(
               width: double.infinity,
               child: OpenHandDialogActionButton.primary(
-                label: _wsText(
+                label: openHandLocalizedText(
                   context,
                   zh: '关闭',
                   zhHant: '關閉',

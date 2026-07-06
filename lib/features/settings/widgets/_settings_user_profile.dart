@@ -28,7 +28,7 @@ class _UserProfileSettingsButtonState
     final motionEnabled = _settingsMotionEnabled(context);
     final preview = hasProfile
         ? _previewContent(profile.content)
-        : _localizedText(
+        : openHandLocalizedText(
             context,
             zh: '未设置 — 点击建立你的全局用户画像',
             en: 'Not set — click to build your global profile',
@@ -87,7 +87,7 @@ class _UserProfileSettingsButtonState
                           Row(
                             children: [
                               Text(
-                                _localizedText(
+                                openHandLocalizedText(
                                   context,
                                   zh: hasProfile ? '查看 / 更新用户画像' : '建立用户画像',
                                   en: hasProfile
@@ -110,7 +110,7 @@ class _UserProfileSettingsButtonState
                                     borderRadius: BorderRadius.circular(999),
                                   ),
                                   child: Text(
-                                    _localizedText(
+                                    openHandLocalizedText(
                                       context,
                                       zh: '已配置',
                                       en: 'Configured',
@@ -244,7 +244,7 @@ class _UserProfileEditorDialogState extends State<_UserProfileEditorDialog> {
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(
-                          _localizedText(
+                          openHandLocalizedText(
                             context,
                             zh: '用户画像 · User Profile',
                             en: 'User Profile',
@@ -256,7 +256,7 @@ class _UserProfileEditorDialogState extends State<_UserProfileEditorDialog> {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    _localizedText(
+                    openHandLocalizedText(
                       context,
                       zh: '用一段话描述你希望 AI 长期记住的偏好、关注领域与交流风格。该画像将作为系统提示词的固定上下文模块，跨所有线程模板自动生效；自我学习也会基于本字段做增量优化。',
                       en: 'Describe in one paragraph the long-term preferences, focus areas and communication style you want the AI to remember. The profile is injected as a fixed system-prompt module across all thread templates; self-learning incrementally refines it.',
@@ -275,13 +275,13 @@ class _UserProfileEditorDialogState extends State<_UserProfileEditorDialog> {
                       maxLines: null,
                       textAlignVertical: TextAlignVertical.top,
                       decoration: InputDecoration(
-                        labelText: _localizedText(
+                        labelText: openHandLocalizedText(
                           context,
                           zh: '画像内容',
                           en: 'Profile Content',
                         ),
                         alignLabelWithHint: true,
-                        hintText: _localizedText(
+                        hintText: openHandLocalizedText(
                           context,
                           zh: '示例：语言风格轻松可爱；关注娱乐圈明星、技术新闻；偏好亲切自然、不啰嗦的回复…',
                           en: 'e.g. casual & warm tone; loves entertainment industry & tech news; prefers concise replies…',
@@ -317,7 +317,7 @@ class _UserProfileEditorDialogState extends State<_UserProfileEditorDialog> {
                           OpenHandDialogActionButton.destructive(
                             onPressed: _isSaving ? null : _handleClear,
                             icon: Icons.delete_outline_rounded,
-                            label: _localizedText(
+                            label: openHandLocalizedText(
                               context,
                               zh: '清空画像',
                               en: 'Clear',
@@ -327,7 +327,7 @@ class _UserProfileEditorDialogState extends State<_UserProfileEditorDialog> {
                           onPressed: _isSaving
                               ? null
                               : () => Navigator.of(context).pop(false),
-                          label: _localizedText(
+                          label: openHandLocalizedText(
                             context,
                             zh: '取消',
                             en: 'Cancel',
@@ -337,7 +337,11 @@ class _UserProfileEditorDialogState extends State<_UserProfileEditorDialog> {
                           onPressed: _isSaving ? null : _handleSave,
                           icon: Icons.save_outlined,
                           busy: _isSaving,
-                          label: _localizedText(context, zh: '保存', en: 'Save'),
+                          label: openHandLocalizedText(
+                            context,
+                            zh: '保存',
+                            en: 'Save',
+                          ),
                         ),
                       ],
                     ),
@@ -366,7 +370,7 @@ class _UserProfileEditorDialogState extends State<_UserProfileEditorDialog> {
     final content = _contentController.text;
     if (content.trim().isEmpty) {
       setState(() {
-        _errorMessage = _localizedText(
+        _errorMessage = openHandLocalizedText(
           context,
           zh: '画像内容不能为空，若要清空请使用左侧"清空画像"。',
           en: 'Profile content cannot be empty. Use "Clear" to remove it.',

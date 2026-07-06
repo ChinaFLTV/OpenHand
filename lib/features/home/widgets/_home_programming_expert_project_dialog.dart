@@ -92,7 +92,7 @@ String _programmingLanguageOptionLabel(
   if (option.id != 'mixed') {
     return option.labelEn;
   }
-  return _localizedText(
+  return openHandLocalizedText(
     context,
     zh: option.labelZh,
     zhHant: '混合 (Monorepo)',
@@ -444,7 +444,7 @@ class _ProgrammingExpertProjectDialogState
         .sdkPath
         .trim();
     if (globalValue.isNotEmpty) {
-      return _localizedText(
+      return openHandLocalizedText(
         context,
         zh: '全局设置',
         zhHant: '全域設定',
@@ -457,7 +457,7 @@ class _ProgrammingExpertProjectDialogState
     if ((widget.recentPathCache.sdkPathsByLanguage[language] ??
             const <String>[])
         .isNotEmpty) {
-      return _localizedText(
+      return openHandLocalizedText(
         context,
         zh: '最近记录',
         zhHant: '最近記錄',
@@ -467,7 +467,7 @@ class _ProgrammingExpertProjectDialogState
         ja: '最近の履歴',
       );
     }
-    return _localizedText(
+    return openHandLocalizedText(
       context,
       zh: '系统默认',
       zhHant: '系統預設',
@@ -484,7 +484,7 @@ class _ProgrammingExpertProjectDialogState
         .rootPath
         .trim();
     if (globalValue.isNotEmpty) {
-      return _localizedText(
+      return openHandLocalizedText(
         context,
         zh: '全局设置',
         zhHant: '全域設定',
@@ -497,7 +497,7 @@ class _ProgrammingExpertProjectDialogState
     if ((widget.recentPathCache.lspPathsByLanguage[language] ??
             const <String>[])
         .isNotEmpty) {
-      return _localizedText(
+      return openHandLocalizedText(
         context,
         zh: '最近记录',
         zhHant: '最近記錄',
@@ -507,7 +507,7 @@ class _ProgrammingExpertProjectDialogState
         ja: '最近の履歴',
       );
     }
-    return _localizedText(
+    return openHandLocalizedText(
       context,
       zh: 'PATH / 自动探测',
       zhHant: 'PATH / 自動偵測',
@@ -694,7 +694,7 @@ class _ProgrammingExpertProjectDialogState
       String? de,
       String? ja,
     }) {
-      return _localizedText(
+      return openHandLocalizedText(
         context,
         zh: zh,
         zhHant: zhHant,

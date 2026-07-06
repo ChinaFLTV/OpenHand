@@ -199,7 +199,7 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
     if (!mounted) return;
     OpenHandSnackBar.showInfo(
       context,
-      _wrText(
+      openHandLocalizedText(
         context,
         zh: '控制台全文已复制',
         zhHant: '主控台全文已複製',
@@ -319,7 +319,7 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
                 const SizedBox(width: 10),
                 Text(
                   expanded
-                      ? _wrText(
+                      ? openHandLocalizedText(
                           context,
                           zh: '收起',
                           zhHant: '收合',
@@ -328,7 +328,7 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
                           de: 'Einklappen',
                           ja: '折りたたむ',
                         )
-                      : _wrText(
+                      : openHandLocalizedText(
                           context,
                           zh: '展开全文',
                           zhHant: '展開全文',
@@ -348,7 +348,7 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
               const Icon(Icons.copy_rounded, size: 18),
               const SizedBox(width: 10),
               Text(
-                _wrText(
+                openHandLocalizedText(
                   context,
                   zh: '复制全文',
                   zhHant: '複製全文',
@@ -663,7 +663,7 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
               const SizedBox(width: 8),
               Tooltip(
                 message: _autoFollowConsole
-                    ? _wrText(
+                    ? openHandLocalizedText(
                         context,
                         zh: '自动跟随已开启',
                         zhHant: '自動跟隨已開啟',
@@ -672,7 +672,7 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
                         de: 'Automatisches Folgen ein',
                         ja: '自動追従オン',
                       )
-                    : _wrText(
+                    : openHandLocalizedText(
                         context,
                         zh: '自动跟随已关闭',
                         zhHant: '自動跟隨已關閉',

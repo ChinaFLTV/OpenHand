@@ -8,26 +8,6 @@ const double _kNetworkTypeColumnWidth = 88;
 const Duration _kReplaySnackBarDuration = Duration(seconds: 2);
 const Duration _kReplayCopySnackBarDuration = Duration(seconds: 1);
 
-String _networkText(
-  BuildContext context, {
-  required String zh,
-  required String en,
-  String? zhHant,
-  String? fr,
-  String? de,
-  String? ja,
-}) {
-  return _wrText(
-    context,
-    zh: zh,
-    zhHant: zhHant,
-    en: en,
-    fr: fr,
-    de: de,
-    ja: ja,
-  );
-}
-
 /// Network 资源类型过滤——对标 Chrome DevTools 顶部的 All / Fetch+XHR / JS / CSS
 /// / Img / Media / Manifest / WS / Wasm / Doc / Other 按钮组。
 ///
@@ -48,7 +28,7 @@ enum _ResourceFilter {
   other;
 
   String label(BuildContext context) => switch (this) {
-    _ResourceFilter.all => _networkText(
+    _ResourceFilter.all => openHandLocalizedText(
       context,
       zh: '全部',
       zhHant: '全部',
@@ -58,7 +38,7 @@ enum _ResourceFilter {
       ja: 'すべて',
     ),
     _ResourceFilter.fetchXhr => 'Fetch/XHR',
-    _ResourceFilter.doc => _networkText(
+    _ResourceFilter.doc => openHandLocalizedText(
       context,
       zh: '文档',
       zhHant: '文件',
@@ -69,7 +49,7 @@ enum _ResourceFilter {
     ),
     _ResourceFilter.css => 'CSS',
     _ResourceFilter.js => 'JS',
-    _ResourceFilter.font => _networkText(
+    _ResourceFilter.font => openHandLocalizedText(
       context,
       zh: '字体',
       zhHant: '字型',
@@ -78,7 +58,7 @@ enum _ResourceFilter {
       de: 'Font',
       ja: 'フォント',
     ),
-    _ResourceFilter.img => _networkText(
+    _ResourceFilter.img => openHandLocalizedText(
       context,
       zh: '图片',
       zhHant: '圖片',
@@ -87,7 +67,7 @@ enum _ResourceFilter {
       de: 'Bild',
       ja: '画像',
     ),
-    _ResourceFilter.media => _networkText(
+    _ResourceFilter.media => openHandLocalizedText(
       context,
       zh: '媒体',
       zhHant: '媒體',
@@ -99,7 +79,7 @@ enum _ResourceFilter {
     _ResourceFilter.manifest => 'Manifest',
     _ResourceFilter.ws => 'WS',
     _ResourceFilter.wasm => 'Wasm',
-    _ResourceFilter.other => _networkText(
+    _ResourceFilter.other => openHandLocalizedText(
       context,
       zh: '其他',
       zhHant: '其他',
@@ -275,7 +255,7 @@ class _NetworkBody extends StatelessWidget {
       context,
       webReverseClipboardSnackMessage(
         context: context,
-        base: _networkText(
+        base: openHandLocalizedText(
           context,
           zh: '已复制 URL',
           zhHant: '已複製 URL',
@@ -398,7 +378,7 @@ class _NetworkList extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.all(32),
           child: Text(
-            _networkText(
+            openHandLocalizedText(
               context,
               zh: '暂无网络请求。在浏览器中操作页面后此处会实时刷新。',
               zhHant: '暫無網路請求。在瀏覽器中操作頁面後此處會即時更新。',
@@ -630,7 +610,7 @@ class _NetworkRow extends StatelessWidget {
                 Padding(
                   padding: const EdgeInsets.only(left: 6),
                   child: Tooltip(
-                    message: _networkText(
+                    message: openHandLocalizedText(
                       context,
                       zh: '已屏蔽',
                       zhHant: '已封鎖',
@@ -678,7 +658,7 @@ class _NetworkRow extends StatelessWidget {
               const Icon(Icons.link_rounded, size: 16),
               const SizedBox(width: 8),
               Text(
-                _networkText(
+                openHandLocalizedText(
                   context,
                   zh: '复制 URL',
                   zhHant: '複製 URL',
@@ -698,7 +678,7 @@ class _NetworkRow extends StatelessWidget {
               const Icon(Icons.terminal_rounded, size: 16),
               const SizedBox(width: 8),
               Text(
-                _networkText(
+                openHandLocalizedText(
                   context,
                   zh: '复制为 cURL',
                   zhHant: '複製為 cURL',
@@ -718,7 +698,7 @@ class _NetworkRow extends StatelessWidget {
               const Icon(Icons.code_rounded, size: 16),
               const SizedBox(width: 8),
               Text(
-                _networkText(
+                openHandLocalizedText(
                   context,
                   zh: '复制为 fetch',
                   zhHant: '複製為 fetch',
@@ -739,7 +719,7 @@ class _NetworkRow extends StatelessWidget {
               const Icon(Icons.replay_rounded, size: 16),
               const SizedBox(width: 8),
               Text(
-                _networkText(
+                openHandLocalizedText(
                   context,
                   zh: '重放此请求',
                   zhHant: '重放此請求',
@@ -759,7 +739,7 @@ class _NetworkRow extends StatelessWidget {
               const Icon(Icons.edit_note_rounded, size: 16),
               const SizedBox(width: 8),
               Text(
-                _networkText(
+                openHandLocalizedText(
                   context,
                   zh: '编辑后重放（改 URL / Header）',
                   zhHant: '編輯後重放（改 URL / Header）',
@@ -781,7 +761,7 @@ class _NetworkRow extends StatelessWidget {
                 const Icon(Icons.lock_open_rounded, size: 16),
                 const SizedBox(width: 8),
                 Text(
-                  _networkText(
+                  openHandLocalizedText(
                     context,
                     zh: '取消屏蔽该 URL',
                     zhHant: '取消封鎖該 URL',
@@ -802,7 +782,7 @@ class _NetworkRow extends StatelessWidget {
                 const Icon(Icons.block_rounded, size: 16),
                 const SizedBox(width: 8),
                 Text(
-                  _networkText(
+                  openHandLocalizedText(
                     context,
                     zh: '屏蔽此 URL',
                     zhHant: '封鎖此 URL',
@@ -827,7 +807,7 @@ class _NetworkRow extends StatelessWidget {
           messenger,
           webReverseClipboardSnackMessage(
             context: context,
-            base: _networkText(
+            base: openHandLocalizedText(
               context,
               zh: '已复制 URL',
               zhHant: '已複製 URL',
@@ -850,7 +830,7 @@ class _NetworkRow extends StatelessWidget {
           messenger,
           webReverseClipboardSnackMessage(
             context: context,
-            base: _networkText(
+            base: openHandLocalizedText(
               context,
               zh: '已复制 cURL',
               zhHant: '已複製 cURL',
@@ -873,7 +853,7 @@ class _NetworkRow extends StatelessWidget {
           messenger,
           webReverseClipboardSnackMessage(
             context: context,
-            base: _networkText(
+            base: openHandLocalizedText(
               context,
               zh: '已复制 fetch',
               zhHant: '已複製 fetch',
@@ -892,7 +872,7 @@ class _NetworkRow extends StatelessWidget {
         OpenHandSnackBar.showInfoOn(
           context,
           messenger,
-          _networkText(
+          openHandLocalizedText(
             context,
             zh: '已屏蔽该 URL',
             zhHant: '已封鎖該 URL',
@@ -909,7 +889,7 @@ class _NetworkRow extends StatelessWidget {
         OpenHandSnackBar.showInfoOn(
           context,
           messenger,
-          _networkText(
+          openHandLocalizedText(
             context,
             zh: '已取消屏蔽',
             zhHant: '已取消封鎖',
@@ -965,7 +945,7 @@ class _NetworkRow extends StatelessWidget {
       OpenHandSnackBar.showErrorOn(
         context,
         messenger,
-        _networkText(
+        openHandLocalizedText(
           context,
           zh: '重放失败',
           zhHant: '重放失敗',
@@ -990,7 +970,7 @@ class _NetworkRow extends StatelessWidget {
     unawaited(
       showOpenHandLoadingDialog(
         context: context,
-        message: _networkText(
+        message: openHandLocalizedText(
           context,
           zh: '重放中...',
           zhHant: '重放中...',
@@ -1029,7 +1009,7 @@ class _NetworkRow extends StatelessWidget {
   ) {
     final body = result.body;
     final bodyText = body.isEmpty
-        ? _networkText(
+        ? openHandLocalizedText(
             context,
             zh: '(响应体为空)',
             zhHant: '(回應體為空)',
@@ -1043,7 +1023,7 @@ class _NetworkRow extends StatelessWidget {
       context: context,
       builder: (dialogContext) => buildOpenHandAlertDialog(
         title: Text(
-          _networkText(
+          openHandLocalizedText(
             dialogContext,
             zh: '重放结果（HTTP ${result.status}）',
             zhHant: '重放結果（HTTP ${result.status}）',
@@ -1073,7 +1053,7 @@ class _NetworkRow extends StatelessWidget {
                 messenger,
                 webReverseClipboardSnackMessage(
                   context: dialogContext,
-                  base: _networkText(
+                  base: openHandLocalizedText(
                     dialogContext,
                     zh: '响应体已复制',
                     zhHant: '已複製回應體',
@@ -1087,7 +1067,7 @@ class _NetworkRow extends StatelessWidget {
                 duration: _kReplayCopySnackBarDuration,
               );
             },
-            label: _networkText(
+            label: openHandLocalizedText(
               dialogContext,
               zh: '复制响应体',
               zhHant: '複製回應體',
@@ -1099,7 +1079,7 @@ class _NetworkRow extends StatelessWidget {
           ),
           OpenHandDialogActionButton.primary(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            label: _networkText(
+            label: openHandLocalizedText(
               dialogContext,
               zh: '关闭',
               zhHant: '關閉',
@@ -1232,7 +1212,7 @@ class _PendingFetchBanner extends StatelessWidget {
           const SizedBox(width: 6),
           Expanded(
             child: Text(
-              _networkText(
+              openHandLocalizedText(
                 context,
                 zh: '请求拦截已启用：${pending.length} 个请求待决策（点击下方继续/中止）。',
                 zhHant: '請求攔截已啟用：${pending.length} 個請求待決策（點擊下方繼續/中止）。',
@@ -1255,7 +1235,7 @@ class _PendingFetchBanner extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 10),
               ),
               child: Text(
-                _networkText(
+                openHandLocalizedText(
                   context,
                   zh: '全部放行',
                   zhHant: '全部放行',
@@ -1268,7 +1248,7 @@ class _PendingFetchBanner extends StatelessWidget {
             ),
             const SizedBox(width: 6),
             AnimatedPopupMenuButton<String>(
-              tooltip: _networkText(
+              tooltip: openHandLocalizedText(
                 context,
                 zh: '查看待决策请求',
                 zhHant: '查看待決策請求',
@@ -1311,7 +1291,7 @@ class _PendingFetchBanner extends StatelessWidget {
         context: context,
         builder: (dialogContext) => buildOpenHandAlertDialog(
           title: Text(
-            _networkText(
+            openHandLocalizedText(
               dialogContext,
               zh: '处理拦截请求',
               zhHant: '處理攔截請求',
@@ -1337,7 +1317,7 @@ class _PendingFetchBanner extends StatelessWidget {
           actions: [
             OpenHandDialogActionButton.secondary(
               onPressed: () => Navigator.of(dialogContext).pop('Aborted'),
-              label: _networkText(
+              label: openHandLocalizedText(
                 dialogContext,
                 zh: '中止',
                 zhHant: '中止',
@@ -1357,7 +1337,7 @@ class _PendingFetchBanner extends StatelessWidget {
             ),
             OpenHandDialogActionButton.secondary(
               onPressed: () => Navigator.of(dialogContext).pop('edit'),
-              label: _networkText(
+              label: openHandLocalizedText(
                 dialogContext,
                 zh: '修改放行',
                 zhHant: '修改後放行',
@@ -1369,7 +1349,7 @@ class _PendingFetchBanner extends StatelessWidget {
             ),
             OpenHandDialogActionButton.primary(
               onPressed: () => Navigator.of(dialogContext).pop('continue'),
-              label: _networkText(
+              label: openHandLocalizedText(
                 dialogContext,
                 zh: '继续',
                 zhHant: '繼續',
@@ -1404,7 +1384,7 @@ class _PendingFetchBanner extends StatelessWidget {
     try {
       final result = await showOpenHandFormDialog<bool>(
         context: context,
-        title: _networkText(
+        title: openHandLocalizedText(
           context,
           zh: '修改请求后放行',
           zhHant: '修改請求後放行',
@@ -1413,7 +1393,7 @@ class _PendingFetchBanner extends StatelessWidget {
           de: 'Ändern und fortsetzen',
           ja: '変更して続行',
         ),
-        submitLabel: _networkText(
+        submitLabel: openHandLocalizedText(
           context,
           zh: '放行',
           zhHant: '放行',
@@ -1422,7 +1402,7 @@ class _PendingFetchBanner extends StatelessWidget {
           de: 'Senden',
           ja: '送信',
         ),
-        cancelLabel: _networkText(
+        cancelLabel: openHandLocalizedText(
           context,
           zh: '取消',
           zhHant: '取消',
@@ -1456,7 +1436,7 @@ class _PendingFetchBanner extends StatelessWidget {
                   maxLines: 6,
                   minLines: 3,
                   decoration: InputDecoration(
-                    labelText: _networkText(
+                    labelText: openHandLocalizedText(
                       context,
                       zh: 'Headers（每行 Key: Value，留空则保持原样）',
                       zhHant: 'Headers（每行 Key: Value，留空則保持原樣）',
@@ -1474,7 +1454,7 @@ class _PendingFetchBanner extends StatelessWidget {
                   maxLines: 6,
                   minLines: 3,
                   decoration: InputDecoration(
-                    labelText: _networkText(
+                    labelText: openHandLocalizedText(
                       context,
                       zh: 'Body（留空则保持原样）',
                       zhHant: 'Body（留空則保持原樣）',
@@ -1548,7 +1528,7 @@ class _ReplayOverrideEditorState extends State<_ReplayOverrideEditor> {
   Widget build(BuildContext context) {
     return buildOpenHandDialogFormShell(
       context: context,
-      title: _networkText(
+      title: openHandLocalizedText(
         context,
         zh: '编辑后重放',
         zhHant: '編輯後重放',
@@ -1565,7 +1545,7 @@ class _ReplayOverrideEditorState extends State<_ReplayOverrideEditor> {
             TextField(
               controller: _urlCtrl,
               decoration: InputDecoration(
-                labelText: _networkText(
+                labelText: openHandLocalizedText(
                   context,
                   zh: '重放 URL',
                   zhHant: '重放 URL',
@@ -1582,7 +1562,7 @@ class _ReplayOverrideEditorState extends State<_ReplayOverrideEditor> {
               maxLines: 8,
               minLines: 4,
               decoration: InputDecoration(
-                labelText: _networkText(
+                labelText: openHandLocalizedText(
                   context,
                   zh: 'Request Headers（每行 Key: Value，留空保留原值）',
                   zhHant: 'Request Headers（每行 Key: Value，留空保留原值）',
@@ -1599,7 +1579,7 @@ class _ReplayOverrideEditorState extends State<_ReplayOverrideEditor> {
       actions: [
         OpenHandDialogActionButton.secondary(
           onPressed: () => Navigator.of(context).pop(),
-          label: _networkText(
+          label: openHandLocalizedText(
             context,
             zh: '取消',
             zhHant: '取消',
@@ -1616,7 +1596,7 @@ class _ReplayOverrideEditorState extends State<_ReplayOverrideEditor> {
               headers: _parseHeaderLines(_headersCtrl.text),
             ));
           },
-          label: _networkText(
+          label: openHandLocalizedText(
             context,
             zh: '重放',
             zhHant: '重放',

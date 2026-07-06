@@ -5,7 +5,7 @@ String _commandRuleMatchModeLabel(
   AiDenyCommandMatchMode matchMode,
 ) {
   return switch (matchMode) {
-    AiDenyCommandMatchMode.simple => _localizedText(
+    AiDenyCommandMatchMode.simple => openHandLocalizedText(
       context,
       zh: '简单匹配',
       zhHant: '簡單匹配',
@@ -14,7 +14,7 @@ String _commandRuleMatchModeLabel(
       de: 'Einfache Übereinstimmung',
       ja: '単純一致',
     ),
-    AiDenyCommandMatchMode.regex => _localizedText(
+    AiDenyCommandMatchMode.regex => openHandLocalizedText(
       context,
       zh: '正则匹配',
       zhHant: '正則匹配',
@@ -405,7 +405,7 @@ class _CommandRuleEditorDialogState<T>
                   TextFormField(
                     controller: _patternController,
                     decoration: InputDecoration(
-                      labelText: _localizedText(
+                      labelText: openHandLocalizedText(
                         context,
                         zh: '匹配表达式',
                         zhHant: '匹配表達式',
@@ -427,7 +427,7 @@ class _CommandRuleEditorDialogState<T>
                   DropdownButtonFormField<AiDenyCommandMatchMode>(
                     initialValue: _matchMode,
                     decoration: InputDecoration(
-                      labelText: _localizedText(
+                      labelText: openHandLocalizedText(
                         context,
                         zh: '匹配模式',
                         zhHant: '匹配模式',
@@ -470,7 +470,7 @@ class _CommandRuleEditorDialogState<T>
                   TextFormField(
                     controller: _noteController,
                     decoration: InputDecoration(
-                      labelText: _localizedText(
+                      labelText: openHandLocalizedText(
                         context,
                         zh: '备注',
                         zhHant: '備註',
@@ -568,7 +568,7 @@ class _LocalizedCommandRuleText {
   final String? ja;
 
   String resolve(BuildContext context) {
-    return _localizedText(
+    return openHandLocalizedText(
       context,
       zh: zh,
       zhHant: zhHant,

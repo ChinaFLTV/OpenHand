@@ -43,7 +43,7 @@ class _HePaneHeader extends StatelessWidget {
   String _effectiveTitle(BuildContext context) =>
       (sessionTitle?.trim().isNotEmpty == true)
       ? sessionTitle!
-      : _heHarnessText(
+      : openHandLocalizedText(
           context,
           zh: 'Harness Engineering 会话',
           zhHant: 'Harness Engineering 會話',
@@ -62,7 +62,7 @@ class _HePaneHeader extends StatelessWidget {
       final idx = logs.indexWhere((l) => l.phase == awaitingApproval);
       final pos = idx >= 0 ? idx + 1 : total;
       final name = _heHarnessPhaseLabel(context, awaitingApproval);
-      return _heHarnessText(
+      return openHandLocalizedText(
         context,
         zh: '$name $pos/$total · 待批准',
         zhHant: '$name $pos/$total · 待核准',
@@ -86,7 +86,7 @@ class _HePaneHeader extends StatelessWidget {
         .where((l) => l.status == HarnessPhaseStatus.failed)
         .length;
     if (total == 0) {
-      return _heHarnessText(
+      return openHandLocalizedText(
         context,
         zh: '待开始',
         zhHant: '尚未開始',
@@ -97,7 +97,7 @@ class _HePaneHeader extends StatelessWidget {
       );
     }
     if (failed > 0) {
-      return _heHarnessText(
+      return openHandLocalizedText(
         context,
         zh: '阶段失败 $failed/$total',
         zhHant: '階段失敗 $failed/$total',
@@ -108,7 +108,7 @@ class _HePaneHeader extends StatelessWidget {
       );
     }
     if (completed == total) {
-      return _heHarnessText(
+      return openHandLocalizedText(
         context,
         zh: '全部完成 $total',
         zhHant: '全部完成 $total',
@@ -118,7 +118,7 @@ class _HePaneHeader extends StatelessWidget {
         ja: '$total 件完了',
       );
     }
-    return _heHarnessText(
+    return openHandLocalizedText(
       context,
       zh: '完成 $completed/$total',
       zhHant: '完成 $completed/$total',
@@ -268,7 +268,7 @@ class _HePaneHeader extends StatelessWidget {
                           // ── Review retry counter ──
                           OhPill(
                             icon: Icons.replay_rounded,
-                            label: _heHarnessText(
+                            label: openHandLocalizedText(
                               context,
                               zh: '重试 $reviewRetries/3',
                               zhHant: '重試 $reviewRetries/3',
@@ -289,7 +289,7 @@ class _HePaneHeader extends StatelessWidget {
                         const SizedBox(width: 8),
                         OhPill(
                           icon: Icons.data_object_rounded,
-                          label: _heHarnessText(
+                          label: openHandLocalizedText(
                             context,
                             zh: '会话元数据',
                             zhHant: '會話中繼資料',
@@ -303,7 +303,7 @@ class _HePaneHeader extends StatelessWidget {
                         const SizedBox(width: 8),
                         OhPill(
                           icon: Icons.folder_special_rounded,
-                          label: _heHarnessText(
+                          label: openHandLocalizedText(
                             context,
                             zh: '资产文件',
                             zhHant: '資產檔案',
@@ -325,7 +325,7 @@ class _HePaneHeader extends StatelessWidget {
                           const SizedBox(width: 8),
                           OhPill(
                             icon: Icons.stop_circle_outlined,
-                            label: _heHarnessText(
+                            label: openHandLocalizedText(
                               context,
                               zh: '中止',
                               zhHant: '中止',
@@ -349,7 +349,7 @@ class _HePaneHeader extends StatelessWidget {
                             label:
                                 orchestrator.status ==
                                     HarnessOrchestratorStatus.failed
-                                ? _heHarnessText(
+                                ? openHandLocalizedText(
                                     context,
                                     zh: '重试失败阶段',
                                     zhHant: '重試失敗階段',
@@ -358,7 +358,7 @@ class _HePaneHeader extends StatelessWidget {
                                     de: 'Fehlgeschlagene Phase wiederholen',
                                     ja: '失敗したフェーズを再試行',
                                   )
-                                : _heHarnessText(
+                                : openHandLocalizedText(
                                     context,
                                     zh: '重新开始',
                                     zhHant: '重新開始',
@@ -428,7 +428,7 @@ class _HeSessionMetadataDialog extends StatelessWidget {
 
   String _statusLabel(BuildContext context, HarnessOrchestratorStatus s) =>
       switch (s) {
-        HarnessOrchestratorStatus.idle => _heHarnessText(
+        HarnessOrchestratorStatus.idle => openHandLocalizedText(
           context,
           zh: '准备中',
           zhHant: '準備中',
@@ -437,7 +437,7 @@ class _HeSessionMetadataDialog extends StatelessWidget {
           de: 'Bereit',
           ja: '待機中',
         ),
-        HarnessOrchestratorStatus.running => _heHarnessText(
+        HarnessOrchestratorStatus.running => openHandLocalizedText(
           context,
           zh: '运行中',
           zhHant: '執行中',
@@ -446,7 +446,7 @@ class _HeSessionMetadataDialog extends StatelessWidget {
           de: 'Wird ausgeführt',
           ja: '実行中',
         ),
-        HarnessOrchestratorStatus.completed => _heHarnessText(
+        HarnessOrchestratorStatus.completed => openHandLocalizedText(
           context,
           zh: '已完成',
           zhHant: '已完成',
@@ -455,7 +455,7 @@ class _HeSessionMetadataDialog extends StatelessWidget {
           de: 'Abgeschlossen',
           ja: '完了',
         ),
-        HarnessOrchestratorStatus.failed => _heHarnessText(
+        HarnessOrchestratorStatus.failed => openHandLocalizedText(
           context,
           zh: '失败',
           zhHant: '失敗',
@@ -464,7 +464,7 @@ class _HeSessionMetadataDialog extends StatelessWidget {
           de: 'Fehlgeschlagen',
           ja: '失敗',
         ),
-        HarnessOrchestratorStatus.cancelled => _heHarnessText(
+        HarnessOrchestratorStatus.cancelled => openHandLocalizedText(
           context,
           zh: '已中止',
           zhHant: '已中止',
@@ -477,7 +477,7 @@ class _HeSessionMetadataDialog extends StatelessWidget {
 
   String _phaseStatusLabel(BuildContext context, HarnessPhaseStatus s) =>
       switch (s) {
-        HarnessPhaseStatus.pending => _heHarnessText(
+        HarnessPhaseStatus.pending => openHandLocalizedText(
           context,
           zh: '等待中',
           zhHant: '等待中',
@@ -486,7 +486,7 @@ class _HeSessionMetadataDialog extends StatelessWidget {
           de: 'Ausstehend',
           ja: '待機中',
         ),
-        HarnessPhaseStatus.paused => _heHarnessText(
+        HarnessPhaseStatus.paused => openHandLocalizedText(
           context,
           zh: '暂停中',
           zhHant: '暫停中',
@@ -495,7 +495,7 @@ class _HeSessionMetadataDialog extends StatelessWidget {
           de: 'Pausiert',
           ja: '一時停止中',
         ),
-        HarnessPhaseStatus.running => _heHarnessText(
+        HarnessPhaseStatus.running => openHandLocalizedText(
           context,
           zh: '运行中',
           zhHant: '執行中',
@@ -504,7 +504,7 @@ class _HeSessionMetadataDialog extends StatelessWidget {
           de: 'Wird ausgeführt',
           ja: '実行中',
         ),
-        HarnessPhaseStatus.completed => _heHarnessText(
+        HarnessPhaseStatus.completed => openHandLocalizedText(
           context,
           zh: '已完成',
           zhHant: '已完成',
@@ -513,7 +513,7 @@ class _HeSessionMetadataDialog extends StatelessWidget {
           de: 'Abgeschlossen',
           ja: '完了',
         ),
-        HarnessPhaseStatus.failed => _heHarnessText(
+        HarnessPhaseStatus.failed => openHandLocalizedText(
           context,
           zh: '失败',
           zhHant: '失敗',
@@ -522,7 +522,7 @@ class _HeSessionMetadataDialog extends StatelessWidget {
           de: 'Fehlgeschlagen',
           ja: '失敗',
         ),
-        HarnessPhaseStatus.cancelled => _heHarnessText(
+        HarnessPhaseStatus.cancelled => openHandLocalizedText(
           context,
           zh: '已中止',
           zhHant: '已中止',
@@ -531,7 +531,7 @@ class _HeSessionMetadataDialog extends StatelessWidget {
           de: 'Abgebrochen',
           ja: '中止済み',
         ),
-        HarnessPhaseStatus.skipped => _heHarnessText(
+        HarnessPhaseStatus.skipped => openHandLocalizedText(
           context,
           zh: '已跳过',
           zhHant: '已跳過',
@@ -564,7 +564,7 @@ class _HeSessionMetadataDialog extends StatelessWidget {
 
     final summaryBlocks = <Widget>[
       _HeSummaryTile(
-        label: _heHarnessText(
+        label: openHandLocalizedText(
           context,
           zh: '阶段总数',
           zhHant: '階段總數',
@@ -576,7 +576,7 @@ class _HeSessionMetadataDialog extends StatelessWidget {
         value: '$totalPhases',
       ),
       _HeSummaryTile(
-        label: _heHarnessText(
+        label: openHandLocalizedText(
           context,
           zh: '已完成阶段',
           zhHant: '已完成階段',
@@ -588,7 +588,7 @@ class _HeSessionMetadataDialog extends StatelessWidget {
         value: '$completedPhases',
       ),
       _HeSummaryTile(
-        label: _heHarnessText(
+        label: openHandLocalizedText(
           context,
           zh: '失败阶段',
           zhHant: '失敗階段',
@@ -600,7 +600,7 @@ class _HeSessionMetadataDialog extends StatelessWidget {
         value: '$failedPhases',
       ),
       _HeSummaryTile(
-        label: _heHarnessText(
+        label: openHandLocalizedText(
           context,
           zh: '日志总行数',
           zhHant: '日誌總行數',
@@ -612,7 +612,7 @@ class _HeSessionMetadataDialog extends StatelessWidget {
         value: '$totalLogLines',
       ),
       _HeSummaryTile(
-        label: _heHarnessText(
+        label: openHandLocalizedText(
           context,
           zh: '执行状态',
           zhHant: '執行狀態',
@@ -624,7 +624,7 @@ class _HeSessionMetadataDialog extends StatelessWidget {
         value: _statusLabel(context, orchestrator.status),
       ),
       _HeSummaryTile(
-        label: _heHarnessText(
+        label: openHandLocalizedText(
           context,
           zh: '当前阶段',
           zhHant: '目前階段',
@@ -641,7 +641,7 @@ class _HeSessionMetadataDialog extends StatelessWidget {
 
     final roleConfigs = <(String, HarnessRoleConfig)>[
       (
-        _heHarnessText(
+        openHandLocalizedText(
           context,
           zh: '探档者 (Profiler)',
           zhHant: '探檔者 (Profiler)',
@@ -653,7 +653,7 @@ class _HeSessionMetadataDialog extends StatelessWidget {
         config.profilerConfig,
       ),
       (
-        _heHarnessText(
+        openHandLocalizedText(
           context,
           zh: '调查者 (Reader)',
           zhHant: '調查者 (Reader)',
@@ -665,7 +665,7 @@ class _HeSessionMetadataDialog extends StatelessWidget {
         config.readerConfig,
       ),
       (
-        _heHarnessText(
+        openHandLocalizedText(
           context,
           zh: '规划者 (Planner)',
           zhHant: '規劃者 (Planner)',
@@ -677,7 +677,7 @@ class _HeSessionMetadataDialog extends StatelessWidget {
         config.plannerConfig,
       ),
       (
-        _heHarnessText(
+        openHandLocalizedText(
           context,
           zh: '实施者 (Implementer)',
           zhHant: '實施者 (Implementer)',
@@ -689,7 +689,7 @@ class _HeSessionMetadataDialog extends StatelessWidget {
         config.implementerConfig,
       ),
       (
-        _heHarnessText(
+        openHandLocalizedText(
           context,
           zh: '验收者 (Reviewer)',
           zhHant: '驗收者 (Reviewer)',
@@ -722,7 +722,7 @@ class _HeSessionMetadataDialog extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        _heHarnessText(
+                        openHandLocalizedText(
                           context,
                           zh: '当前会话元数据',
                           zhHant: '目前會話中繼資料',
@@ -765,7 +765,7 @@ class _HeSessionMetadataDialog extends StatelessWidget {
 
                     // ── Session overview ──
                     _HeMetadataSection(
-                      title: _heHarnessText(
+                      title: openHandLocalizedText(
                         context,
                         zh: '会话概览',
                         zhHant: '會話概覽',
@@ -776,7 +776,7 @@ class _HeSessionMetadataDialog extends StatelessWidget {
                       ),
                       children: [
                         _HeMetadataEntryRow(
-                          label: _heHarnessText(
+                          label: openHandLocalizedText(
                             context,
                             zh: '会话 ID',
                             zhHant: '會話 ID',
@@ -788,7 +788,7 @@ class _HeSessionMetadataDialog extends StatelessWidget {
                           value: sessionId ?? '--',
                         ),
                         _HeMetadataEntryRow(
-                          label: _heHarnessText(
+                          label: openHandLocalizedText(
                             context,
                             zh: '模板',
                             zhHant: '範本',
@@ -800,7 +800,7 @@ class _HeSessionMetadataDialog extends StatelessWidget {
                           value: 'Harness Engineering',
                         ),
                         _HeMetadataEntryRow(
-                          label: _heHarnessText(
+                          label: openHandLocalizedText(
                             context,
                             zh: '创建时间',
                             zhHant: '建立時間',
@@ -812,7 +812,7 @@ class _HeSessionMetadataDialog extends StatelessWidget {
                           value: createdAtLabel ?? '--',
                         ),
                         _HeMetadataEntryRow(
-                          label: _heHarnessText(
+                          label: openHandLocalizedText(
                             context,
                             zh: '更新时间',
                             zhHant: '更新時間',
@@ -824,7 +824,7 @@ class _HeSessionMetadataDialog extends StatelessWidget {
                           value: updatedAtLabel ?? '--',
                         ),
                         _HeMetadataEntryRow(
-                          label: _heHarnessText(
+                          label: openHandLocalizedText(
                             context,
                             zh: '执行状态',
                             zhHant: '執行狀態',
@@ -837,7 +837,7 @@ class _HeSessionMetadataDialog extends StatelessWidget {
                         ),
                         if (orchestrator.errorMessage?.isNotEmpty == true)
                           _HeMetadataEntryRow(
-                            label: _heHarnessText(
+                            label: openHandLocalizedText(
                               context,
                               zh: '错误信息',
                               zhHant: '錯誤資訊',
@@ -854,7 +854,7 @@ class _HeSessionMetadataDialog extends StatelessWidget {
 
                     // ── Task config ──
                     _HeMetadataSection(
-                      title: _heHarnessText(
+                      title: openHandLocalizedText(
                         context,
                         zh: '任务配置',
                         zhHant: '任務設定',
@@ -865,7 +865,7 @@ class _HeSessionMetadataDialog extends StatelessWidget {
                       ),
                       children: [
                         _HeMetadataEntryRow(
-                          label: _heHarnessText(
+                          label: openHandLocalizedText(
                             context,
                             zh: '任务描述',
                             zhHant: '任務描述',
@@ -877,7 +877,7 @@ class _HeSessionMetadataDialog extends StatelessWidget {
                           value: config.task.isEmpty ? '-' : config.task,
                         ),
                         _HeMetadataEntryRow(
-                          label: _heHarnessText(
+                          label: openHandLocalizedText(
                             context,
                             zh: '工作目录',
                             zhHant: '工作目錄',
@@ -891,7 +891,7 @@ class _HeSessionMetadataDialog extends StatelessWidget {
                               : config.workingDirectory,
                         ),
                         _HeMetadataEntryRow(
-                          label: _heHarnessText(
+                          label: openHandLocalizedText(
                             context,
                             zh: '持久化目录',
                             zhHant: '持久化目錄',
@@ -910,7 +910,7 @@ class _HeSessionMetadataDialog extends StatelessWidget {
 
                     // ── Role configs ──
                     _HeMetadataSection(
-                      title: _heHarnessText(
+                      title: openHandLocalizedText(
                         context,
                         zh: '角色配置',
                         zhHant: '角色設定',
@@ -935,7 +935,7 @@ class _HeSessionMetadataDialog extends StatelessWidget {
 
                     // ── Phase status ──
                     _HeMetadataSection(
-                      title: _heHarnessText(
+                      title: openHandLocalizedText(
                         context,
                         zh: '阶段状态',
                         zhHant: '階段狀態',
@@ -954,15 +954,15 @@ class _HeSessionMetadataDialog extends StatelessWidget {
                               ];
                               if (log.exitCode != null) {
                                 parts.add(
-                                  '${_heHarnessText(context, zh: '退出码', zhHant: '結束碼', en: 'Exit code', fr: 'Code de sortie', de: 'Exit-Code', ja: '終了コード')}: ${log.exitCode}',
+                                  '${openHandLocalizedText(context, zh: '退出码', zhHant: '結束碼', en: 'Exit code', fr: 'Code de sortie', de: 'Exit-Code', ja: '終了コード')}: ${log.exitCode}',
                                 );
                               }
                               parts.add(
-                                '${_heHarnessText(context, zh: '日志行数', zhHant: '日誌行數', en: 'Log lines', fr: 'Lignes de journal', de: 'Logzeilen', ja: 'ログ行数')}: ${log.lines.length}',
+                                '${openHandLocalizedText(context, zh: '日志行数', zhHant: '日誌行數', en: 'Log lines', fr: 'Lignes de journal', de: 'Logzeilen', ja: 'ログ行数')}: ${log.lines.length}',
                               );
                               if (log.savedLogPath?.isNotEmpty == true) {
                                 parts.add(
-                                  '${_heHarnessText(context, zh: '日志文件', zhHant: '日誌檔案', en: 'Log file', fr: 'Fichier journal', de: 'Logdatei', ja: 'ログファイル')}: ${log.savedLogPath}',
+                                  '${openHandLocalizedText(context, zh: '日志文件', zhHant: '日誌檔案', en: 'Log file', fr: 'Fichier journal', de: 'Logdatei', ja: 'ログファイル')}: ${log.savedLogPath}',
                                 );
                               }
                               return parts.join(' · ');
@@ -983,7 +983,7 @@ class _HeSessionMetadataDialog extends StatelessWidget {
               children: [
                 OpenHandDialogActionButton.secondary(
                   onPressed: () => Navigator.of(context).pop(),
-                  label: _heHarnessText(
+                  label: openHandLocalizedText(
                     context,
                     zh: '关闭',
                     zhHant: '關閉',

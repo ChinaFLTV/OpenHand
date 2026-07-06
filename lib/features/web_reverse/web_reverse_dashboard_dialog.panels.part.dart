@@ -1,15 +1,5 @@
 part of 'web_reverse_dashboard_dialog.dart';
 
-String _panelsText(
-  BuildContext context, {
-  required String zh,
-  required String en,
-  String? zhHant,
-  String? fr,
-  String? de,
-  String? ja,
-}) => _wrText(context, zh: zh, zhHant: zhHant, en: en, fr: fr, de: de, ja: ja);
-
 // ─────────────────────────────────────────────────────────────────────────
 // Performance：实时 Performance.getMetrics 卡片 + Tracing 录制（导出 trace.json）
 // ─────────────────────────────────────────────────────────────────────────
@@ -206,7 +196,7 @@ class _PerformancePanelState extends State<_PerformancePanel> {
       OpenHandSnackBar.showSuccessOn(
         context,
         messenger,
-        _panelsText(
+        openHandLocalizedText(
           context,
           zh: '已保存到 ${location.path}',
           zhHant: '已儲存到 ${location.path}',
@@ -227,7 +217,7 @@ class _PerformancePanelState extends State<_PerformancePanel> {
       OpenHandSnackBar.showErrorOn(
         context,
         messenger,
-        _panelsText(
+        openHandLocalizedText(
           context,
           zh: '保存失败',
           zhHant: '儲存失敗',
@@ -266,7 +256,7 @@ class _PerformancePanelState extends State<_PerformancePanel> {
       OpenHandSnackBar.showErrorOn(
         context,
         messenger,
-        _panelsText(
+        openHandLocalizedText(
           context,
           zh: 'Trace 录制失败',
           zhHant: 'Trace 錄製失敗',
@@ -324,7 +314,7 @@ class _PerformancePanelState extends State<_PerformancePanel> {
       OpenHandSnackBar.showSuccessOn(
         context,
         messenger,
-        _panelsText(
+        openHandLocalizedText(
           context,
           zh: 'Trace 已保存到 ${location.path}',
           zhHant: 'Trace 已儲存到 ${location.path}',
@@ -340,7 +330,7 @@ class _PerformancePanelState extends State<_PerformancePanel> {
       OpenHandSnackBar.showErrorOn(
         context,
         messenger,
-        _panelsText(
+        openHandLocalizedText(
           context,
           zh: 'Trace 保存失败',
           zhHant: 'Trace 儲存失敗',
@@ -376,7 +366,7 @@ class _PerformancePanelState extends State<_PerformancePanel> {
           Row(
             children: [
               Text(
-                _panelsText(
+                openHandLocalizedText(
                   context,
                   zh: '实时性能指标（每 2s 刷新）',
                   zhHant: '即時效能指標（每 2s 重新整理）',
@@ -394,7 +384,7 @@ class _PerformancePanelState extends State<_PerformancePanel> {
                 value: _traceDuration,
                 dense: true,
                 minWidth: 84,
-                tooltip: _panelsText(
+                tooltip: openHandLocalizedText(
                   context,
                   zh: '选择 Trace 时长',
                   zhHant: '選擇 Trace 時長',
@@ -440,7 +430,7 @@ class _PerformancePanelState extends State<_PerformancePanel> {
                         },
                   icon: const Icon(Icons.stop_rounded, size: 18),
                   label: Text(
-                    _panelsText(
+                    openHandLocalizedText(
                       context,
                       zh: '停止录制',
                       zhHant: '停止錄製',
@@ -456,7 +446,7 @@ class _PerformancePanelState extends State<_PerformancePanel> {
                   onPressed: _record,
                   icon: const Icon(Icons.play_arrow_rounded, size: 18),
                   label: Text(
-                    _panelsText(
+                    openHandLocalizedText(
                       context,
                       zh: '录制 Trace',
                       zhHant: '錄製 Trace',
@@ -474,7 +464,7 @@ class _PerformancePanelState extends State<_PerformancePanel> {
                     : _exportCsv,
                 icon: const Icon(Icons.table_view_rounded, size: 18),
                 label: Text(
-                  _panelsText(
+                  openHandLocalizedText(
                     context,
                     zh: '导出 CSV',
                     zhHant: '匯出 CSV',
@@ -490,7 +480,7 @@ class _PerformancePanelState extends State<_PerformancePanel> {
                 onPressed: _lastTraceJson == null ? null : _showFlameGraph,
                 icon: const Icon(Icons.local_fire_department_rounded, size: 18),
                 label: Text(
-                  _panelsText(
+                  openHandLocalizedText(
                     context,
                     zh: '火焰图',
                     zhHant: '火焰圖',
@@ -583,7 +573,7 @@ class _PerformancePanelState extends State<_PerformancePanel> {
                   child: _metrics.isEmpty
                       ? Center(
                           child: Text(
-                            _panelsText(
+                            openHandLocalizedText(
                               context,
                               zh: '尚无指标数据。',
                               zhHant: '尚無指標資料。',
@@ -695,7 +685,7 @@ String _localizedMetricName(BuildContext context, String cdpName) {
   switch (cdpName) {
     // 生命周期 / 时间
     case 'Timestamp':
-      return _panelsText(
+      return openHandLocalizedText(
         context,
         zh: '时间戳',
         zhHant: '時間戳',
@@ -705,7 +695,7 @@ String _localizedMetricName(BuildContext context, String cdpName) {
         ja: 'タイムスタンプ',
       );
     case 'AudioHandlers':
-      return _panelsText(
+      return openHandLocalizedText(
         context,
         zh: '音频处理器',
         zhHant: '音訊處理器',
@@ -715,7 +705,7 @@ String _localizedMetricName(BuildContext context, String cdpName) {
         ja: 'オーディオハンドラ',
       );
     case 'AudioWorkletProcessors':
-      return _panelsText(
+      return openHandLocalizedText(
         context,
         zh: '音频 Worklet 处理器',
         zhHant: '音訊 Worklet 處理器',
@@ -725,7 +715,7 @@ String _localizedMetricName(BuildContext context, String cdpName) {
         ja: 'Audio Worklet プロセッサ',
       );
     case 'Documents':
-      return _panelsText(
+      return openHandLocalizedText(
         context,
         zh: 'Document 数',
         zhHant: 'Document 數',
@@ -735,7 +725,7 @@ String _localizedMetricName(BuildContext context, String cdpName) {
         ja: 'Document 数',
       );
     case 'Frames':
-      return _panelsText(
+      return openHandLocalizedText(
         context,
         zh: 'Frame 数',
         zhHant: 'Frame 數',
@@ -745,7 +735,7 @@ String _localizedMetricName(BuildContext context, String cdpName) {
         ja: 'Frame 数',
       );
     case 'JSEventListeners':
-      return _panelsText(
+      return openHandLocalizedText(
         context,
         zh: 'JS 事件监听器',
         zhHant: 'JS 事件監聽器',
@@ -755,7 +745,7 @@ String _localizedMetricName(BuildContext context, String cdpName) {
         ja: 'JS イベントリスナー',
       );
     case 'Nodes':
-      return _panelsText(
+      return openHandLocalizedText(
         context,
         zh: 'DOM 节点数',
         zhHant: 'DOM 節點數',
@@ -765,7 +755,7 @@ String _localizedMetricName(BuildContext context, String cdpName) {
         ja: 'DOM ノード数',
       );
     case 'LayoutCount':
-      return _panelsText(
+      return openHandLocalizedText(
         context,
         zh: '布局次数',
         zhHant: '版面配置次數',
@@ -775,7 +765,7 @@ String _localizedMetricName(BuildContext context, String cdpName) {
         ja: 'レイアウト回数',
       );
     case 'RecalcStyleCount':
-      return _panelsText(
+      return openHandLocalizedText(
         context,
         zh: '样式重算次数',
         zhHant: '樣式重算次數',
@@ -785,7 +775,7 @@ String _localizedMetricName(BuildContext context, String cdpName) {
         ja: 'スタイル再計算回数',
       );
     case 'LayoutDuration':
-      return _panelsText(
+      return openHandLocalizedText(
         context,
         zh: '布局耗时',
         zhHant: '版面配置耗時',
@@ -795,7 +785,7 @@ String _localizedMetricName(BuildContext context, String cdpName) {
         ja: 'レイアウト時間',
       );
     case 'RecalcStyleDuration':
-      return _panelsText(
+      return openHandLocalizedText(
         context,
         zh: '样式重算耗时',
         zhHant: '樣式重算耗時',
@@ -805,7 +795,7 @@ String _localizedMetricName(BuildContext context, String cdpName) {
         ja: 'スタイル再計算時間',
       );
     case 'DevToolsCommandDuration':
-      return _panelsText(
+      return openHandLocalizedText(
         context,
         zh: 'DevTools 命令耗时',
         zhHant: 'DevTools 命令耗時',
@@ -815,7 +805,7 @@ String _localizedMetricName(BuildContext context, String cdpName) {
         ja: 'DevTools コマンド時間',
       );
     case 'ScriptDuration':
-      return _panelsText(
+      return openHandLocalizedText(
         context,
         zh: '脚本耗时',
         zhHant: '腳本耗時',
@@ -825,7 +815,7 @@ String _localizedMetricName(BuildContext context, String cdpName) {
         ja: 'スクリプト時間',
       );
     case 'V8CompileDuration':
-      return _panelsText(
+      return openHandLocalizedText(
         context,
         zh: 'V8 编译耗时',
         zhHant: 'V8 編譯耗時',
@@ -835,7 +825,7 @@ String _localizedMetricName(BuildContext context, String cdpName) {
         ja: 'V8 コンパイル時間',
       );
     case 'TaskDuration':
-      return _panelsText(
+      return openHandLocalizedText(
         context,
         zh: '任务耗时',
         zhHant: '任務耗時',
@@ -845,7 +835,7 @@ String _localizedMetricName(BuildContext context, String cdpName) {
         ja: 'タスク時間',
       );
     case 'TaskOtherDuration':
-      return _panelsText(
+      return openHandLocalizedText(
         context,
         zh: '其他任务耗时',
         zhHant: '其他任務耗時',
@@ -855,7 +845,7 @@ String _localizedMetricName(BuildContext context, String cdpName) {
         ja: 'その他タスク時間',
       );
     case 'ThreadTime':
-      return _panelsText(
+      return openHandLocalizedText(
         context,
         zh: '线程时间',
         zhHant: '執行緒時間',
@@ -865,7 +855,7 @@ String _localizedMetricName(BuildContext context, String cdpName) {
         ja: 'スレッド時間',
       );
     case 'ProcessTime':
-      return _panelsText(
+      return openHandLocalizedText(
         context,
         zh: '进程时间',
         zhHant: '行程時間',
@@ -875,7 +865,7 @@ String _localizedMetricName(BuildContext context, String cdpName) {
         ja: 'プロセス時間',
       );
     case 'JSHeapUsedSize':
-      return _panelsText(
+      return openHandLocalizedText(
         context,
         zh: 'JS 堆已用',
         zhHant: 'JS 堆已用',
@@ -885,7 +875,7 @@ String _localizedMetricName(BuildContext context, String cdpName) {
         ja: 'JS Heap 使用済み',
       );
     case 'JSHeapTotalSize':
-      return _panelsText(
+      return openHandLocalizedText(
         context,
         zh: 'JS 堆总量',
         zhHant: 'JS 堆總量',
@@ -895,7 +885,7 @@ String _localizedMetricName(BuildContext context, String cdpName) {
         ja: 'JS Heap 合計',
       );
     case 'FirstMeaningfulPaint':
-      return _panelsText(
+      return openHandLocalizedText(
         context,
         zh: '首次有意义绘制',
         zhHant: '首次有意義繪製',
@@ -907,7 +897,7 @@ String _localizedMetricName(BuildContext context, String cdpName) {
     case 'DomContentLoaded':
       return 'DOMContentLoaded';
     case 'NavigationStart':
-      return _panelsText(
+      return openHandLocalizedText(
         context,
         zh: '导航开始',
         zhHant: '導覽開始',
@@ -917,7 +907,7 @@ String _localizedMetricName(BuildContext context, String cdpName) {
         ja: 'ナビゲーション開始',
       );
     case 'AdSubframes':
-      return _panelsText(
+      return openHandLocalizedText(
         context,
         zh: '广告子框架',
         zhHant: '廣告子框架',
@@ -927,7 +917,7 @@ String _localizedMetricName(BuildContext context, String cdpName) {
         ja: '広告サブフレーム',
       );
     case 'ArrayBufferContents':
-      return _panelsText(
+      return openHandLocalizedText(
         context,
         zh: 'ArrayBuffer 内容',
         zhHant: 'ArrayBuffer 內容',
@@ -937,7 +927,7 @@ String _localizedMetricName(BuildContext context, String cdpName) {
         ja: 'ArrayBuffer 内容',
       );
     case 'Resources':
-      return _panelsText(
+      return openHandLocalizedText(
         context,
         zh: '资源数',
         zhHant: '資源數',
@@ -947,7 +937,7 @@ String _localizedMetricName(BuildContext context, String cdpName) {
         ja: 'リソース数',
       );
     case 'ContextLifecycleStateObservers':
-      return _panelsText(
+      return openHandLocalizedText(
         context,
         zh: '上下文生命周期观察者',
         zhHant: '上下文生命週期觀察者',
@@ -957,7 +947,7 @@ String _localizedMetricName(BuildContext context, String cdpName) {
         ja: 'コンテキストライフサイクル監視',
       );
     case 'V8PerContextDatas':
-      return _panelsText(
+      return openHandLocalizedText(
         context,
         zh: 'V8 上下文数据',
         zhHant: 'V8 上下文資料',
@@ -967,7 +957,7 @@ String _localizedMetricName(BuildContext context, String cdpName) {
         ja: 'V8 コンテキストデータ',
       );
     case 'WorkerGlobalScopes':
-      return _panelsText(
+      return openHandLocalizedText(
         context,
         zh: 'Worker 全局作用域',
         zhHant: 'Worker 全域作用域',
@@ -977,7 +967,7 @@ String _localizedMetricName(BuildContext context, String cdpName) {
         ja: 'Worker グローバルスコープ',
       );
     case 'UACSSResources':
-      return _panelsText(
+      return openHandLocalizedText(
         context,
         zh: 'UA CSS 资源',
         zhHant: 'UA CSS 資源',
@@ -987,7 +977,7 @@ String _localizedMetricName(BuildContext context, String cdpName) {
         ja: 'UA CSS リソース',
       );
     case 'RTCPeerConnections':
-      return _panelsText(
+      return openHandLocalizedText(
         context,
         zh: 'WebRTC 连接',
         zhHant: 'WebRTC 連線',
@@ -997,7 +987,7 @@ String _localizedMetricName(BuildContext context, String cdpName) {
         ja: 'WebRTC 接続',
       );
     case 'ResourceFetchers':
-      return _panelsText(
+      return openHandLocalizedText(
         context,
         zh: '资源 Fetcher',
         zhHant: '資源 Fetcher',
@@ -1007,7 +997,7 @@ String _localizedMetricName(BuildContext context, String cdpName) {
         ja: 'リソース Fetcher',
       );
     case 'AdSubframesEvictions':
-      return _panelsText(
+      return openHandLocalizedText(
         context,
         zh: '广告子框架淘汰',
         zhHant: '廣告子框架淘汰',
@@ -1017,7 +1007,7 @@ String _localizedMetricName(BuildContext context, String cdpName) {
         ja: '広告サブフレーム削除',
       );
     case 'NumberOfDocuments':
-      return _panelsText(
+      return openHandLocalizedText(
         context,
         zh: 'Document 数（细分）',
         zhHant: 'Document 數（細分）',
@@ -1027,7 +1017,7 @@ String _localizedMetricName(BuildContext context, String cdpName) {
         ja: 'Document 数（詳細）',
       );
     case 'NumberOfActiveAndInactiveAnimations':
-      return _panelsText(
+      return openHandLocalizedText(
         context,
         zh: '活动/休眠动画数',
         zhHant: '活動/休眠動畫數',
@@ -1037,7 +1027,7 @@ String _localizedMetricName(BuildContext context, String cdpName) {
         ja: 'アクティブ/非アクティブアニメーション数',
       );
     case 'NumberOfMediaContexts':
-      return _panelsText(
+      return openHandLocalizedText(
         context,
         zh: '媒体上下文数',
         zhHant: '媒體上下文數',
@@ -1047,7 +1037,7 @@ String _localizedMetricName(BuildContext context, String cdpName) {
         ja: 'メディアコンテキスト数',
       );
     case 'AdFrameSubframes':
-      return _panelsText(
+      return openHandLocalizedText(
         context,
         zh: '广告子框架（嵌套）',
         zhHant: '廣告子框架（巢狀）',
@@ -1057,7 +1047,7 @@ String _localizedMetricName(BuildContext context, String cdpName) {
         ja: '広告サブフレーム（ネスト）',
       );
     case 'AnimationCallbackPropertyTreeBuildersTime':
-      return _panelsText(
+      return openHandLocalizedText(
         context,
         zh: '动画属性树构建耗时',
         zhHant: '動畫屬性樹建構耗時',
@@ -1067,7 +1057,7 @@ String _localizedMetricName(BuildContext context, String cdpName) {
         ja: 'アニメーションプロパティツリー構築時間',
       );
     case 'PaintingTime':
-      return _panelsText(
+      return openHandLocalizedText(
         context,
         zh: '绘制耗时',
         zhHant: '繪製耗時',
@@ -1077,7 +1067,7 @@ String _localizedMetricName(BuildContext context, String cdpName) {
         ja: '描画時間',
       );
     case 'CompositingTime':
-      return _panelsText(
+      return openHandLocalizedText(
         context,
         zh: '合成耗时',
         zhHant: '合成耗時',
@@ -1087,7 +1077,7 @@ String _localizedMetricName(BuildContext context, String cdpName) {
         ja: '合成時間',
       );
     case 'CSSStyleSheets':
-      return _panelsText(
+      return openHandLocalizedText(
         context,
         zh: 'CSS 样式表',
         zhHant: 'CSS 樣式表',
@@ -1097,7 +1087,7 @@ String _localizedMetricName(BuildContext context, String cdpName) {
         ja: 'CSS スタイルシート',
       );
     case 'ImageHolders':
-      return _panelsText(
+      return openHandLocalizedText(
         context,
         zh: '图片占位符',
         zhHant: '圖片占位符',
@@ -1107,7 +1097,7 @@ String _localizedMetricName(BuildContext context, String cdpName) {
         ja: '画像ホルダー',
       );
     case 'CompositorVisibleRectChange':
-      return _panelsText(
+      return openHandLocalizedText(
         context,
         zh: '合成器可见矩形变更',
         zhHant: '合成器可見矩形變更',
@@ -1251,7 +1241,7 @@ class _LongTasksPane extends StatelessWidget {
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    _panelsText(
+                    openHandLocalizedText(
                       context,
                       zh: '长任务（≥50ms 主线程阻塞）',
                       zhHant: '長任務（≥50ms 主執行緒阻塞）',
@@ -1292,7 +1282,7 @@ class _LongTasksPane extends StatelessWidget {
                     child: Padding(
                       padding: const EdgeInsets.all(16),
                       child: Text(
-                        _panelsText(
+                        openHandLocalizedText(
                           context,
                           zh: '暂无长任务。\n刷新页面或交互后此处会实时刷新。',
                           zhHant: '暫無長任務。\n重新整理頁面或互動後此處會即時更新。',
@@ -1560,7 +1550,7 @@ class _MemoryPanelState extends State<_MemoryPanel> {
         if (mounted) {
           OpenHandSnackBar.showError(
             context,
-            _panelsText(
+            openHandLocalizedText(
               context,
               zh: 'V8 堆已用 ${usedMb.toStringAsFixed(1)} MB，超过阈值 ${_heapWarnThresholdMb.toStringAsFixed(0)} MB',
               zhHant:
@@ -1587,7 +1577,7 @@ class _MemoryPanelState extends State<_MemoryPanel> {
         OpenHandSnackBar.showErrorOn(
           context,
           messenger,
-          _panelsText(
+          openHandLocalizedText(
             context,
             zh: '采样收尾失败',
             zhHant: '採樣收尾失敗',
@@ -1606,7 +1596,7 @@ class _MemoryPanelState extends State<_MemoryPanel> {
         OpenHandSnackBar.showErrorOn(
           context,
           messenger,
-          _panelsText(
+          openHandLocalizedText(
             context,
             zh: '采样启动失败',
             zhHant: '採樣啟動失敗',
@@ -1654,7 +1644,7 @@ class _MemoryPanelState extends State<_MemoryPanel> {
       OpenHandSnackBar.showErrorOn(
         context,
         messenger,
-        _panelsText(
+        openHandLocalizedText(
           context,
           zh: '快照采集失败',
           zhHant: '快照採集失敗',
@@ -1677,7 +1667,7 @@ class _MemoryPanelState extends State<_MemoryPanel> {
     if (a == null || b == null) {
       OpenHandSnackBar.showInfo(
         context,
-        _panelsText(
+        openHandLocalizedText(
           context,
           zh: '需要至少两次快照才能比较',
           zhHant: '需要至少兩次快照才能比較',
@@ -1744,7 +1734,7 @@ class _MemoryPanelState extends State<_MemoryPanel> {
       OpenHandSnackBar.showSuccessOn(
         context,
         messenger,
-        _panelsText(
+        openHandLocalizedText(
           context,
           zh: '已保存到 ${location.path}',
           zhHant: '已儲存到 ${location.path}',
@@ -1760,7 +1750,7 @@ class _MemoryPanelState extends State<_MemoryPanel> {
       OpenHandSnackBar.showErrorOn(
         context,
         messenger,
-        _panelsText(
+        openHandLocalizedText(
           context,
           zh: '保存失败',
           zhHant: '儲存失敗',
@@ -1807,7 +1797,7 @@ class _MemoryPanelState extends State<_MemoryPanel> {
           Row(
             children: [
               Text(
-                _panelsText(
+                openHandLocalizedText(
                   context,
                   zh: 'V8 堆快照',
                   zhHant: 'V8 堆快照',
@@ -1831,7 +1821,7 @@ class _MemoryPanelState extends State<_MemoryPanel> {
                 ),
                 label: Text(
                   _capturing
-                      ? _panelsText(
+                      ? openHandLocalizedText(
                           context,
                           zh: '采集中…',
                           zhHant: '採集中…',
@@ -1840,7 +1830,7 @@ class _MemoryPanelState extends State<_MemoryPanel> {
                           de: 'Erfassen…',
                           ja: '取得中…',
                         )
-                      : _panelsText(
+                      : openHandLocalizedText(
                           context,
                           zh: '采集快照',
                           zhHant: '採集快照',
@@ -1858,7 +1848,7 @@ class _MemoryPanelState extends State<_MemoryPanel> {
                     : null,
                 icon: const Icon(Icons.compare_arrows_rounded, size: 18),
                 label: Text(
-                  _panelsText(
+                  openHandLocalizedText(
                     context,
                     zh: '比较快照',
                     zhHant: '比較快照',
@@ -1874,7 +1864,7 @@ class _MemoryPanelState extends State<_MemoryPanel> {
                 onPressed: _last == null ? null : _save,
                 icon: const Icon(Icons.save_alt_rounded, size: 18),
                 label: Text(
-                  _panelsText(
+                  openHandLocalizedText(
                     context,
                     zh: '保存到文件',
                     zhHant: '儲存到檔案',
@@ -1902,7 +1892,7 @@ class _MemoryPanelState extends State<_MemoryPanel> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    _panelsText(
+                    openHandLocalizedText(
                       context,
                       zh: '最近一次快照',
                       zhHant: '最近一次快照',
@@ -1917,7 +1907,7 @@ class _MemoryPanelState extends State<_MemoryPanel> {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    _panelsText(
+                    openHandLocalizedText(
                       context,
                       zh: '原始大小约 ${(_last!.bytes / 1024 / 1024).toStringAsFixed(2)} MB · 可保存为 .heapsnapshot 后在 Chrome DevTools → Memory → Load 里打开重放。',
                       zhHant:
@@ -1937,7 +1927,7 @@ class _MemoryPanelState extends State<_MemoryPanel> {
             )
           else
             Text(
-              _panelsText(
+              openHandLocalizedText(
                 context,
                 zh: '点击「采集快照」拉一次 V8 堆快照；或「开始采样」做分配采样直到停止后看 Top-N。',
                 zhHant: '點擊「採集快照」拉一次 V8 堆快照；或「開始採樣」做分配採樣直到停止後看 Top-N。',
@@ -2009,7 +1999,7 @@ class _V8HeapLiveCard extends StatelessWidget {
                 Row(
                   children: [
                     Text(
-                      _panelsText(
+                      openHandLocalizedText(
                         context,
                         zh: 'V8 堆（实时，1.5s 间隔）',
                         zhHant: 'V8 堆（即時，1.5s 間隔）',
@@ -2034,14 +2024,14 @@ class _V8HeapLiveCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '${_panelsText(context, zh: "已用", zhHant: "已用", en: "Used", fr: "Utilise", de: "Genutzt", ja: "使用済み")}: ${_fmt(lastUsed)}',
+                  '${openHandLocalizedText(context, zh: "已用", zhHant: "已用", en: "Used", fr: "Utilise", de: "Genutzt", ja: "使用済み")}: ${_fmt(lastUsed)}',
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w800,
                     color: usedColor,
                   ),
                 ),
                 Text(
-                  '${_panelsText(context, zh: "总量", zhHant: "總量", en: "Total", fr: "Total", de: "Gesamt", ja: "合計")}: ${_fmt(lastTotal)}',
+                  '${openHandLocalizedText(context, zh: "总量", zhHant: "總量", en: "Total", fr: "Total", de: "Gesamt", ja: "合計")}: ${_fmt(lastTotal)}',
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: cs.onSurfaceVariant,
                   ),
@@ -2078,7 +2068,7 @@ class _V8HeapLiveCard extends StatelessWidget {
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        _panelsText(
+                        openHandLocalizedText(
                           context,
                           zh: '阈值告警',
                           zhHant: '閾值告警',
@@ -2379,7 +2369,7 @@ class _HeapSamplingSwitchCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      _panelsText(
+                      openHandLocalizedText(
                         context,
                         zh: '堆分配采样',
                         zhHant: '堆分配採樣',
@@ -2398,7 +2388,7 @@ class _HeapSamplingSwitchCard extends StatelessWidget {
                 const SizedBox(height: 6),
                 Text(
                   isSampling
-                      ? _panelsText(
+                      ? openHandLocalizedText(
                           context,
                           zh: '采样中…',
                           zhHant: '採樣中…',
@@ -2408,7 +2398,7 @@ class _HeapSamplingSwitchCard extends StatelessWidget {
                           ja: 'サンプリング中…',
                         )
                       : (deltas.isEmpty
-                            ? _panelsText(
+                            ? openHandLocalizedText(
                                 context,
                                 zh: '未开启',
                                 zhHant: '未啟用',
@@ -2417,7 +2407,7 @@ class _HeapSamplingSwitchCard extends StatelessWidget {
                                 de: 'Aus',
                                 ja: 'オフ',
                               )
-                            : _panelsText(
+                            : openHandLocalizedText(
                                 context,
                                 zh: '已停止',
                                 zhHant: '已停止',
@@ -2433,7 +2423,7 @@ class _HeapSamplingSwitchCard extends StatelessWidget {
                 ),
                 if (deltas.isNotEmpty)
                   Text(
-                    _panelsText(
+                    openHandLocalizedText(
                       context,
                       zh: '峰值 ${_fmtBytes(peak)} · 累计 ${_fmtBytes(total)}',
                       zhHant: '峰值 ${_fmtBytes(peak)} · 累計 ${_fmtBytes(total)}',
@@ -2457,7 +2447,7 @@ class _HeapSamplingSwitchCard extends StatelessWidget {
                 child: deltas.isEmpty
                     ? Center(
                         child: Text(
-                          _panelsText(
+                          openHandLocalizedText(
                             context,
                             zh: '开启后每 1.5s 记录一次分配增量',
                             zhHant: '啟用後每 1.5s 記錄一次分配增量',
@@ -2484,7 +2474,7 @@ class _HeapSamplingSwitchCard extends StatelessWidget {
           ),
           Tooltip(
             message: isSampling
-                ? _panelsText(
+                ? openHandLocalizedText(
                     context,
                     zh: '关闭后保留窗口柱条',
                     zhHant: '關閉後保留窗口柱條',
@@ -2493,7 +2483,7 @@ class _HeapSamplingSwitchCard extends StatelessWidget {
                     de: 'Aus behalt Balken',
                     ja: 'オフ後もバーを保持',
                   )
-                : _panelsText(
+                : openHandLocalizedText(
                     context,
                     zh: '开启堆分配采样',
                     zhHant: '啟用堆分配採樣',
@@ -2586,7 +2576,7 @@ class _SamplingTopList extends StatelessWidget {
           Row(
             children: [
               Text(
-                _panelsText(
+                openHandLocalizedText(
                   context,
                   zh: '采样 Top-N（按 selfSize）',
                   zhHant: '採樣 Top-N（按 selfSize）',
@@ -2601,7 +2591,7 @@ class _SamplingTopList extends StatelessWidget {
               ),
               const Spacer(),
               Text(
-                _panelsText(
+                openHandLocalizedText(
                   context,
                   zh: '总分配 ${(result.totalSize / 1024).toStringAsFixed(1)} KB',
                   zhHant:
@@ -2712,7 +2702,7 @@ class _SamplingTopList extends StatelessWidget {
       builder: (dialogContext) {
         return buildOpenHandAlertDialog(
           title: Text(
-            _panelsText(
+            openHandLocalizedText(
               dialogContext,
               zh: '调用栈：${row.label}',
               zhHant: '呼叫堆疊：${row.label}',
@@ -2728,7 +2718,7 @@ class _SamplingTopList extends StatelessWidget {
             child: row.stack.isEmpty
                 ? Center(
                     child: Text(
-                      _panelsText(
+                      openHandLocalizedText(
                         dialogContext,
                         zh: '(此节点无父级链)',
                         zhHant: '(此節點無父級鏈)',
@@ -2793,7 +2783,7 @@ class _SamplingTopList extends StatelessWidget {
                   context,
                   webReverseClipboardSnackMessage(
                     context: context,
-                    base: _panelsText(
+                    base: openHandLocalizedText(
                       context,
                       zh: '已复制',
                       zhHant: '已複製',
@@ -2807,7 +2797,7 @@ class _SamplingTopList extends StatelessWidget {
                   duration: const Duration(seconds: 1),
                 );
               },
-              label: _panelsText(
+              label: openHandLocalizedText(
                 dialogContext,
                 zh: '复制',
                 zhHant: '複製',
@@ -2819,7 +2809,7 @@ class _SamplingTopList extends StatelessWidget {
             ),
             OpenHandDialogActionButton.primary(
               onPressed: () => Navigator.of(dialogContext).pop(),
-              label: _panelsText(
+              label: openHandLocalizedText(
                 dialogContext,
                 zh: '关闭',
                 zhHant: '關閉',
@@ -2969,7 +2959,7 @@ class _ApplicationPanelState extends State<_ApplicationPanel> {
                   ),
                 ),
               IconButton(
-                tooltip: _panelsText(
+                tooltip: openHandLocalizedText(
                   context,
                   zh: '刷新',
                   zhHant: '重新整理',
@@ -3135,7 +3125,7 @@ class _CookiesTableState extends State<_CookiesTable> {
     if (widget.cookies.isEmpty) return;
     final ok = await showOpenHandConfirmDialog(
       context: context,
-      title: _panelsText(
+      title: openHandLocalizedText(
         context,
         zh: '清空全部 cookie？',
         zhHant: '清空全部 cookie？',
@@ -3144,7 +3134,7 @@ class _CookiesTableState extends State<_CookiesTable> {
         de: 'Alle Cookies löschen?',
         ja: 'すべての cookie をクリアしますか？',
       ),
-      message: _panelsText(
+      message: openHandLocalizedText(
         context,
         zh: '将删除当前页可见的 ${widget.cookies.length} 条 cookie，无法撤销。',
         zhHant: '將刪除目前頁面可見的 ${widget.cookies.length} 筆 cookie，無法復原。',
@@ -3153,7 +3143,7 @@ class _CookiesTableState extends State<_CookiesTable> {
         de: 'Löscht ${widget.cookies.length} Cookies. Dies kann nicht rückgängig gemacht werden.',
         ja: '${widget.cookies.length} 件の cookie を削除します。元に戻せません。',
       ),
-      cancelLabel: _panelsText(
+      cancelLabel: openHandLocalizedText(
         context,
         zh: '取消',
         zhHant: '取消',
@@ -3162,7 +3152,7 @@ class _CookiesTableState extends State<_CookiesTable> {
         de: 'Abbrechen',
         ja: 'キャンセル',
       ),
-      confirmLabel: _panelsText(
+      confirmLabel: openHandLocalizedText(
         context,
         zh: '清空',
         zhHant: '清空',
@@ -3192,7 +3182,7 @@ class _CookiesTableState extends State<_CookiesTable> {
       context,
       webReverseClipboardSnackMessage(
         context: context,
-        base: _panelsText(
+        base: openHandLocalizedText(
           context,
           zh: '已复制 ${widget.cookies.length} 条 cookie 到剪贴板',
           zhHant: '已複製 ${widget.cookies.length} 筆 cookie 到剪貼簿',
@@ -3219,7 +3209,7 @@ class _CookiesTableState extends State<_CookiesTable> {
               onPressed: _addCookie,
               icon: const Icon(Icons.add_rounded, size: 16),
               label: Text(
-                _panelsText(
+                openHandLocalizedText(
                   context,
                   zh: '新增 cookie',
                   zhHant: '新增 cookie',
@@ -3235,7 +3225,7 @@ class _CookiesTableState extends State<_CookiesTable> {
               onPressed: cookies.isEmpty ? null : _exportJson,
               icon: const Icon(Icons.copy_all_rounded, size: 16),
               label: Text(
-                _panelsText(
+                openHandLocalizedText(
                   context,
                   zh: '导出 JSON',
                   zhHant: '匯出 JSON',
@@ -3252,7 +3242,7 @@ class _CookiesTableState extends State<_CookiesTable> {
               onPressed: cookies.isEmpty ? null : _clearAll,
               icon: const Icon(Icons.delete_sweep_rounded, size: 16),
               label: Text(
-                _panelsText(
+                openHandLocalizedText(
                   context,
                   zh: '清空',
                   zhHant: '清空',
@@ -3269,7 +3259,7 @@ class _CookiesTableState extends State<_CookiesTable> {
           child: cookies.isEmpty
               ? Center(
                   child: Text(
-                    _panelsText(
+                    openHandLocalizedText(
                       context,
                       zh: '（空）',
                       zhHant: '（空）',
@@ -3330,7 +3320,7 @@ class _CookiesTableState extends State<_CookiesTable> {
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       IconButton(
-                                        tooltip: _panelsText(
+                                        tooltip: openHandLocalizedText(
                                           context,
                                           zh: '编辑',
                                           zhHant: '編輯',
@@ -3351,7 +3341,7 @@ class _CookiesTableState extends State<_CookiesTable> {
                                       ),
                                       const SizedBox(width: 4),
                                       IconButton(
-                                        tooltip: _panelsText(
+                                        tooltip: openHandLocalizedText(
                                           context,
                                           zh: '删除',
                                           zhHant: '刪除',
@@ -3413,7 +3403,7 @@ Future<Map<String, Object?>?> _showCookieEditor(
     return await showOpenHandFormDialog<Map<String, Object?>>(
       context: context,
       title: initial.isEmpty
-          ? _panelsText(
+          ? openHandLocalizedText(
               context,
               zh: '新增 cookie',
               zhHant: '新增 cookie',
@@ -3422,7 +3412,7 @@ Future<Map<String, Object?>?> _showCookieEditor(
               de: 'Cookie hinzufügen',
               ja: 'cookie を追加',
             )
-          : _panelsText(
+          : openHandLocalizedText(
               context,
               zh: '编辑 cookie',
               zhHant: '編輯 cookie',
@@ -3431,7 +3421,7 @@ Future<Map<String, Object?>?> _showCookieEditor(
               de: 'Cookie bearbeiten',
               ja: 'cookie を編集',
             ),
-      submitLabel: _panelsText(
+      submitLabel: openHandLocalizedText(
         context,
         zh: '保存',
         zhHant: '儲存',
@@ -3440,7 +3430,7 @@ Future<Map<String, Object?>?> _showCookieEditor(
         de: 'Speichern',
         ja: '保存',
       ),
-      cancelLabel: _panelsText(
+      cancelLabel: openHandLocalizedText(
         context,
         zh: '取消',
         zhHant: '取消',
@@ -3576,7 +3566,7 @@ class _StorageTableState extends State<_StorageTable> {
         : 'sessionStorage';
     final ok = await showOpenHandConfirmDialog(
       context: context,
-      title: _panelsText(
+      title: openHandLocalizedText(
         context,
         zh: '清空全部条目？',
         zhHant: '清空全部項目？',
@@ -3585,7 +3575,7 @@ class _StorageTableState extends State<_StorageTable> {
         de: 'Alle Einträge leeren?',
         ja: 'すべてのエントリをクリアしますか？',
       ),
-      message: _panelsText(
+      message: openHandLocalizedText(
         context,
         zh: '将删除 ${widget.rows.length} 条 $storageKind 条目，无法撤销。',
         zhHant: '將刪除 ${widget.rows.length} 筆 $storageKind 項目，無法復原。',
@@ -3594,7 +3584,7 @@ class _StorageTableState extends State<_StorageTable> {
         de: 'Löscht ${widget.rows.length} Einträge. Dies kann nicht rückgängig gemacht werden.',
         ja: '${widget.rows.length} 件のエントリを削除します。元に戻せません。',
       ),
-      cancelLabel: _panelsText(
+      cancelLabel: openHandLocalizedText(
         context,
         zh: '取消',
         zhHant: '取消',
@@ -3603,7 +3593,7 @@ class _StorageTableState extends State<_StorageTable> {
         de: 'Abbrechen',
         ja: 'キャンセル',
       ),
-      confirmLabel: _panelsText(
+      confirmLabel: openHandLocalizedText(
         context,
         zh: '清空',
         zhHant: '清空',
@@ -3634,7 +3624,7 @@ class _StorageTableState extends State<_StorageTable> {
       context,
       webReverseClipboardSnackMessage(
         context: context,
-        base: _panelsText(
+        base: openHandLocalizedText(
           context,
           zh: '已复制 ${widget.rows.length} 条到剪贴板',
           zhHant: '已複製 ${widget.rows.length} 筆到剪貼簿',
@@ -3662,7 +3652,7 @@ class _StorageTableState extends State<_StorageTable> {
               onPressed: !originOk ? null : _add,
               icon: const Icon(Icons.add_rounded, size: 16),
               label: Text(
-                _panelsText(
+                openHandLocalizedText(
                   context,
                   zh: '新增条目',
                   zhHant: '新增項目',
@@ -3678,7 +3668,7 @@ class _StorageTableState extends State<_StorageTable> {
               onPressed: rows.isEmpty ? null : _exportJson,
               icon: const Icon(Icons.copy_all_rounded, size: 16),
               label: Text(
-                _panelsText(
+                openHandLocalizedText(
                   context,
                   zh: '导出 JSON',
                   zhHant: '匯出 JSON',
@@ -3695,7 +3685,7 @@ class _StorageTableState extends State<_StorageTable> {
               onPressed: rows.isEmpty || !originOk ? null : _clearAll,
               icon: const Icon(Icons.delete_sweep_rounded, size: 16),
               label: Text(
-                _panelsText(
+                openHandLocalizedText(
                   context,
                   zh: '清空',
                   zhHant: '清空',
@@ -3712,7 +3702,7 @@ class _StorageTableState extends State<_StorageTable> {
           child: rows.isEmpty
               ? Center(
                   child: Text(
-                    _panelsText(
+                    openHandLocalizedText(
                       context,
                       zh: '（空）',
                       zhHant: '（空）',
@@ -3762,7 +3752,7 @@ class _StorageTableState extends State<_StorageTable> {
                             ),
                           ),
                           IconButton(
-                            tooltip: _panelsText(
+                            tooltip: openHandLocalizedText(
                               context,
                               zh: '编辑',
                               zhHant: '編輯',
@@ -3783,7 +3773,7 @@ class _StorageTableState extends State<_StorageTable> {
                           ),
                           const SizedBox(width: 4),
                           IconButton(
-                            tooltip: _panelsText(
+                            tooltip: openHandLocalizedText(
                               context,
                               zh: '删除',
                               zhHant: '刪除',
@@ -3826,7 +3816,7 @@ Future<({String key, String value})?> _showStorageEditor(
   try {
     return await showOpenHandFormDialog<({String key, String value})>(
       context: context,
-      title: _panelsText(
+      title: openHandLocalizedText(
         context,
         zh: '存储条目',
         zhHant: '儲存項目',
@@ -3835,7 +3825,7 @@ Future<({String key, String value})?> _showStorageEditor(
         de: 'Speichereintrag',
         ja: 'ストレージ項目',
       ),
-      submitLabel: _panelsText(
+      submitLabel: openHandLocalizedText(
         context,
         zh: '保存',
         zhHant: '儲存',
@@ -3844,7 +3834,7 @@ Future<({String key, String value})?> _showStorageEditor(
         de: 'Speichern',
         ja: '保存',
       ),
-      cancelLabel: _panelsText(
+      cancelLabel: openHandLocalizedText(
         context,
         zh: '取消',
         zhHant: '取消',
@@ -3971,7 +3961,7 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
   }) {
     return showOpenHandConfirmDialog(
       context: context,
-      title: _panelsText(
+      title: openHandLocalizedText(
         context,
         zh: titleZh,
         zhHant: titleZhHant,
@@ -3980,7 +3970,7 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
         de: titleDe,
         ja: titleJa,
       ),
-      message: _panelsText(
+      message: openHandLocalizedText(
         context,
         zh: messageZh,
         zhHant: messageZhHant,
@@ -3989,7 +3979,7 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
         de: messageDe,
         ja: messageJa,
       ),
-      cancelLabel: _panelsText(
+      cancelLabel: openHandLocalizedText(
         context,
         zh: '取消',
         zhHant: '取消',
@@ -3998,7 +3988,7 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
         de: 'Abbrechen',
         ja: 'キャンセル',
       ),
-      confirmLabel: _panelsText(
+      confirmLabel: openHandLocalizedText(
         context,
         zh: confirmZh,
         zhHant: confirmZhHant,
@@ -4051,7 +4041,7 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
       OpenHandSnackBar.showSuccessOn(
         context,
         messenger,
-        _panelsText(
+        openHandLocalizedText(
           context,
           zh: '已删除 $dbName',
           zhHant: '已刪除 $dbName',
@@ -4066,7 +4056,7 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
       OpenHandSnackBar.showErrorOn(
         context,
         messenger,
-        _panelsText(
+        openHandLocalizedText(
           context,
           zh: '删除失败',
           zhHant: '刪除失敗',
@@ -4118,7 +4108,7 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
         OpenHandSnackBar.showSuccessOn(
           context,
           messenger,
-          _panelsText(
+          openHandLocalizedText(
             context,
             zh: '已清空',
             zhHant: '已清空',
@@ -4133,7 +4123,7 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
       OpenHandSnackBar.showErrorOn(
         context,
         messenger,
-        _panelsText(
+        openHandLocalizedText(
           context,
           zh: '清空失败',
           zhHant: '清空失敗',
@@ -4156,7 +4146,7 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
       OpenHandSnackBar.showErrorOn(
         context,
         ScaffoldMessenger.of(context),
-        _panelsText(
+        openHandLocalizedText(
           context,
           zh: '不支持的 key 类型',
           zhHant: '不支援的 key 類型',
@@ -4203,7 +4193,7 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
         OpenHandSnackBar.showSuccessOn(
           context,
           messenger,
-          _panelsText(
+          openHandLocalizedText(
             context,
             zh: '已删除',
             zhHant: '已刪除',
@@ -4218,7 +4208,7 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
       OpenHandSnackBar.showErrorOn(
         context,
         messenger,
-        _panelsText(
+        openHandLocalizedText(
           context,
           zh: '删除失败',
           zhHant: '刪除失敗',
@@ -4258,7 +4248,7 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
     if (widget.names.isEmpty) {
       return Center(
         child: Text(
-          _panelsText(
+          openHandLocalizedText(
             context,
             zh: '（空）',
             zhHant: '（空）',
@@ -4322,7 +4312,7 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
                               ),
                             ),
                           IconButton(
-                            tooltip: _panelsText(
+                            tooltip: openHandLocalizedText(
                               context,
                               zh: '删除数据库',
                               zhHant: '刪除資料庫',
@@ -4400,7 +4390,7 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
           child: selected == null
               ? Center(
                   child: Text(
-                    _panelsText(
+                    openHandLocalizedText(
                       context,
                       zh: '点击左侧 store 查看记录',
                       zhHant: '點選左側 store 查看記錄',
@@ -4446,7 +4436,7 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
                                 size: 16,
                               ),
                               label: Text(
-                                _panelsText(
+                                openHandLocalizedText(
                                   context,
                                   zh: '加载更多',
                                   zhHant: '載入更多',
@@ -4458,7 +4448,7 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
                               ),
                             ),
                           IconButton(
-                            tooltip: _panelsText(
+                            tooltip: openHandLocalizedText(
                               context,
                               zh: '清空当前 store',
                               zhHant: '清空目前 store',
@@ -4482,7 +4472,7 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
                       child: _entries.isEmpty && !_loading
                           ? Center(
                               child: Text(
-                                _panelsText(
+                                openHandLocalizedText(
                                   context,
                                   zh: '（空）',
                                   zhHant: '（空）',
@@ -4597,7 +4587,7 @@ class _IndexedDbEntryRowState extends State<_IndexedDbEntryRow> {
                   ),
                 ),
                 IconButton(
-                  tooltip: _panelsText(
+                  tooltip: openHandLocalizedText(
                     context,
                     zh: '删除记录',
                     zhHant: '刪除記錄',
@@ -4655,7 +4645,7 @@ class _NameListPanel extends StatelessWidget {
     if (names.isEmpty) {
       return Center(
         child: Text(
-          _panelsText(
+          openHandLocalizedText(
             context,
             zh: '（空）',
             zhHant: '（空）',
@@ -4704,7 +4694,7 @@ class _ServiceWorkersTable extends StatelessWidget {
   Future<void> _registerNew(BuildContext context) async {
     final ok = await showOpenHandTextInputDialog(
       context: context,
-      title: _panelsText(
+      title: openHandLocalizedText(
         context,
         zh: '注册 Service Worker',
         zhHant: '註冊 Service Worker',
@@ -4714,7 +4704,7 @@ class _ServiceWorkersTable extends StatelessWidget {
         ja: 'SW を登録',
       ),
       hintText: 'scopeURL',
-      cancelLabel: _panelsText(
+      cancelLabel: openHandLocalizedText(
         context,
         zh: '取消',
         zhHant: '取消',
@@ -4723,7 +4713,7 @@ class _ServiceWorkersTable extends StatelessWidget {
         de: 'Abbrechen',
         ja: 'キャンセル',
       ),
-      confirmLabel: _panelsText(
+      confirmLabel: openHandLocalizedText(
         context,
         zh: '注册',
         zhHant: '註冊',
@@ -4751,7 +4741,7 @@ class _ServiceWorkersTable extends StatelessWidget {
             onPressed: () => _registerNew(context),
             icon: const Icon(Icons.add_rounded, size: 16),
             label: Text(
-              _panelsText(
+              openHandLocalizedText(
                 context,
                 zh: '注册新 SW',
                 zhHant: '註冊新 SW',
@@ -4767,7 +4757,7 @@ class _ServiceWorkersTable extends StatelessWidget {
           child: versions.isEmpty
               ? Center(
                   child: Text(
-                    _panelsText(
+                    openHandLocalizedText(
                       context,
                       zh: '（空）',
                       zhHant: '（空）',
@@ -4833,7 +4823,7 @@ class _ServiceWorkersTable extends StatelessWidget {
                                 ),
                               ),
                               IconButton(
-                                tooltip: _panelsText(
+                                tooltip: openHandLocalizedText(
                                   context,
                                   zh: '更新',
                                   zhHant: '更新',
@@ -4861,7 +4851,7 @@ class _ServiceWorkersTable extends StatelessWidget {
                               ),
                               const SizedBox(width: 4),
                               IconButton(
-                                tooltip: _panelsText(
+                                tooltip: openHandLocalizedText(
                                   context,
                                   zh: '卸载',
                                   zhHant: '解除註冊',
@@ -4956,7 +4946,7 @@ class _SecurityPanelState extends State<_SecurityPanel> {
               ),
               const SizedBox(width: 8),
               Text(
-                _panelsText(
+                openHandLocalizedText(
                   context,
                   zh: '当前安全状态：',
                   zhHant: '目前安全狀態：',
@@ -4969,7 +4959,7 @@ class _SecurityPanelState extends State<_SecurityPanel> {
               ),
               Text(
                 state ??
-                    _panelsText(
+                    openHandLocalizedText(
                       context,
                       zh: '（尚未上报）',
                       zhHant: '（尚未回報）',
@@ -4998,7 +4988,7 @@ class _SecurityPanelState extends State<_SecurityPanel> {
               child: SingleChildScrollView(
                 child: SelectableText(
                   widget.controller.securityExplanationsJson ??
-                      _panelsText(
+                      openHandLocalizedText(
                         context,
                         zh: '尚未收到 explanations。访问任意 https 页面后会自动刷新。',
                         zhHant: '尚未收到 explanations。造訪任一 https 頁面後會自動更新。',
@@ -5058,7 +5048,7 @@ class _RecorderPanelState extends State<_RecorderPanel> {
     super.dispose();
   }
 
-  String _savedToFileMessage(String path) => _panelsText(
+  String _savedToFileMessage(String path) => openHandLocalizedText(
     context,
     zh: '已保存到 $path',
     zhHant: '已儲存到 $path',
@@ -5068,7 +5058,7 @@ class _RecorderPanelState extends State<_RecorderPanel> {
     ja: '$path に保存しました',
   );
 
-  String get _saveFailedMessage => _panelsText(
+  String get _saveFailedMessage => openHandLocalizedText(
     context,
     zh: '保存失败',
     zhHant: '儲存失敗',
@@ -5078,7 +5068,7 @@ class _RecorderPanelState extends State<_RecorderPanel> {
     ja: '保存に失敗しました',
   );
 
-  String _scriptExportHeader(String generatedAt) => _panelsText(
+  String _scriptExportHeader(String generatedAt) => openHandLocalizedText(
     context,
     zh: '由 OpenHand Web 逆向 Recorder 自动导出（$generatedAt）',
     zhHant: '由 OpenHand Web 逆向 Recorder 自動匯出（$generatedAt）',
@@ -5173,7 +5163,7 @@ class _RecorderPanelState extends State<_RecorderPanel> {
       OpenHandSnackBar.showSuccessOn(
         context,
         messenger,
-        _panelsText(
+        openHandLocalizedText(
           context,
           zh: '已导入 ${steps.length} 步',
           zhHant: '已匯入 ${steps.length} 步',
@@ -5194,7 +5184,7 @@ class _RecorderPanelState extends State<_RecorderPanel> {
       OpenHandSnackBar.showErrorOn(
         context,
         messenger,
-        _panelsText(
+        openHandLocalizedText(
           context,
           zh: '导入失败：JSON 格式不合法',
           zhHant: '匯入失敗：JSON 格式不合法',
@@ -5217,7 +5207,7 @@ class _RecorderPanelState extends State<_RecorderPanel> {
     OpenHandSnackBar.showInfoOn(
       context,
       messenger,
-      _panelsText(
+      openHandLocalizedText(
         context,
         zh: '重放完成：${result.executed} 步成功，${result.failed} 步失败',
         zhHant: '重放完成：${result.executed} 步成功，${result.failed} 步失敗',
@@ -5413,7 +5403,7 @@ class _RecorderPanelState extends State<_RecorderPanel> {
       final result = await showOpenHandFormDialog<bool>(
         context: context,
         title: kind == 'assertText'
-            ? _panelsText(
+            ? openHandLocalizedText(
                 context,
                 zh: '断言：元素文本包含',
                 zhHant: '斷言：元素文字包含',
@@ -5422,7 +5412,7 @@ class _RecorderPanelState extends State<_RecorderPanel> {
                 de: 'Assert: Elementtext enthält',
                 ja: 'アサート: 要素テキストを含む',
               )
-            : _panelsText(
+            : openHandLocalizedText(
                 context,
                 zh: '断言：元素可见',
                 zhHant: '斷言：元素可見',
@@ -5431,7 +5421,7 @@ class _RecorderPanelState extends State<_RecorderPanel> {
                 de: 'Assert: Element sichtbar',
                 ja: 'アサート: 要素が表示される',
               ),
-        submitLabel: _panelsText(
+        submitLabel: openHandLocalizedText(
           context,
           zh: '添加',
           zhHant: '新增',
@@ -5440,7 +5430,7 @@ class _RecorderPanelState extends State<_RecorderPanel> {
           de: 'Hinzufügen',
           ja: '追加',
         ),
-        cancelLabel: _panelsText(
+        cancelLabel: openHandLocalizedText(
           context,
           zh: '取消',
           zhHant: '取消',
@@ -5460,7 +5450,7 @@ class _RecorderPanelState extends State<_RecorderPanel> {
                 controller: selectorCtrl,
                 autofocus: true,
                 decoration: InputDecoration(
-                  labelText: _panelsText(
+                  labelText: openHandLocalizedText(
                     context,
                     zh: 'CSS 选择器',
                     zhHant: 'CSS 選擇器',
@@ -5477,7 +5467,7 @@ class _RecorderPanelState extends State<_RecorderPanel> {
                 TextField(
                   controller: expectedCtrl,
                   decoration: InputDecoration(
-                    labelText: _panelsText(
+                    labelText: openHandLocalizedText(
                       context,
                       zh: '期望包含的文本',
                       zhHant: '預期包含的文字',
@@ -5533,7 +5523,7 @@ class _RecorderPanelState extends State<_RecorderPanel> {
                 ),
                 label: Text(
                   ctrl.isRecording
-                      ? _panelsText(
+                      ? openHandLocalizedText(
                           context,
                           zh: '停止录制',
                           zhHant: '停止錄製',
@@ -5542,7 +5532,7 @@ class _RecorderPanelState extends State<_RecorderPanel> {
                           de: 'Aufnahme stoppen',
                           ja: '録画を停止',
                         )
-                      : _panelsText(
+                      : openHandLocalizedText(
                           context,
                           zh: '开始录制',
                           zhHant: '開始錄製',
@@ -5566,7 +5556,7 @@ class _RecorderPanelState extends State<_RecorderPanel> {
                 ),
                 label: Text(
                   _replaying
-                      ? _panelsText(
+                      ? openHandLocalizedText(
                           context,
                           zh: '重放中…',
                           zhHant: '重放中…',
@@ -5575,7 +5565,7 @@ class _RecorderPanelState extends State<_RecorderPanel> {
                           de: 'Replay läuft…',
                           ja: 'リプレイ中…',
                         )
-                      : _panelsText(
+                      : openHandLocalizedText(
                           context,
                           zh: '重放',
                           zhHant: '重放',
@@ -5591,7 +5581,7 @@ class _RecorderPanelState extends State<_RecorderPanel> {
                 onPressed: steps.isEmpty ? null : _save,
                 icon: const Icon(Icons.save_alt_rounded, size: 18),
                 label: Text(
-                  _panelsText(
+                  openHandLocalizedText(
                     context,
                     zh: '导出 JSON',
                     zhHant: '匯出 JSON',
@@ -5604,7 +5594,7 @@ class _RecorderPanelState extends State<_RecorderPanel> {
               ),
               const SizedBox(width: 8),
               AnimatedPopupMenuButton<String>(
-                tooltip: _panelsText(
+                tooltip: openHandLocalizedText(
                   context,
                   zh: '导出为代码',
                   zhHant: '匯出為程式碼',
@@ -5630,7 +5620,7 @@ class _RecorderPanelState extends State<_RecorderPanel> {
                   onPressed: null,
                   icon: const Icon(Icons.code_rounded, size: 18),
                   label: Text(
-                    _panelsText(
+                    openHandLocalizedText(
                       context,
                       zh: '导出为代码',
                       zhHant: '匯出為程式碼',
@@ -5647,7 +5637,7 @@ class _RecorderPanelState extends State<_RecorderPanel> {
                 onPressed: ctrl.isRecording ? null : _import,
                 icon: const Icon(Icons.upload_file_rounded, size: 18),
                 label: Text(
-                  _panelsText(
+                  openHandLocalizedText(
                     context,
                     zh: '导入 JSON',
                     zhHant: '匯入 JSON',
@@ -5660,7 +5650,7 @@ class _RecorderPanelState extends State<_RecorderPanel> {
               ),
               const SizedBox(width: 8),
               AnimatedPopupMenuButton<String>(
-                tooltip: _panelsText(
+                tooltip: openHandLocalizedText(
                   context,
                   zh: '添加断言',
                   zhHant: '新增斷言',
@@ -5674,7 +5664,7 @@ class _RecorderPanelState extends State<_RecorderPanel> {
                   PopupMenuItem(
                     value: 'assertText',
                     child: Text(
-                      _panelsText(
+                      openHandLocalizedText(
                         context,
                         zh: '断言文本（assertText）',
                         zhHant: '斷言文字（assertText）',
@@ -5688,7 +5678,7 @@ class _RecorderPanelState extends State<_RecorderPanel> {
                   PopupMenuItem(
                     value: 'assertVisible',
                     child: Text(
-                      _panelsText(
+                      openHandLocalizedText(
                         context,
                         zh: '断言可见（assertVisible）',
                         zhHant: '斷言可見（assertVisible）',
@@ -5704,7 +5694,7 @@ class _RecorderPanelState extends State<_RecorderPanel> {
                   onPressed: null,
                   icon: const Icon(Icons.rule_rounded, size: 18),
                   label: Text(
-                    _panelsText(
+                    openHandLocalizedText(
                       context,
                       zh: '添加断言',
                       zhHant: '新增斷言',
@@ -5718,7 +5708,7 @@ class _RecorderPanelState extends State<_RecorderPanel> {
               ),
               const SizedBox(width: 8),
               IconButton(
-                tooltip: _panelsText(
+                tooltip: openHandLocalizedText(
                   context,
                   zh: '清空',
                   zhHant: '清空',
@@ -5734,7 +5724,7 @@ class _RecorderPanelState extends State<_RecorderPanel> {
               ),
               const Spacer(),
               Text(
-                _panelsText(
+                openHandLocalizedText(
                   context,
                   zh: '${steps.length} 步',
                   zhHant: '${steps.length} 步',
@@ -5754,7 +5744,7 @@ class _RecorderPanelState extends State<_RecorderPanel> {
             child: steps.isEmpty
                 ? Center(
                     child: Text(
-                      _panelsText(
+                      openHandLocalizedText(
                         context,
                         zh: '点击「开始录制」后在浏览器中操作页面，事件会按时间序记录。',
                         zhHant: '點選「開始錄製」後在瀏覽器中操作頁面，事件會依時間記錄。',
@@ -5980,7 +5970,7 @@ class _FlameGraphDialogState extends State<_FlameGraphDialog> {
   void _showEventDetail(_FlameEvent e) {
     showOpenHandInfoDialog(
       context: context,
-      title: _panelsText(
+      title: openHandLocalizedText(
         context,
         zh: '事件详情',
         zhHant: '事件詳情',
@@ -5989,7 +5979,7 @@ class _FlameGraphDialogState extends State<_FlameGraphDialog> {
         de: 'Ereignisdetails',
         ja: 'イベント詳細',
       ),
-      closeLabel: _panelsText(
+      closeLabel: openHandLocalizedText(
         context,
         zh: '关闭',
         zhHant: '關閉',
@@ -6031,7 +6021,7 @@ class _FlameGraphDialogState extends State<_FlameGraphDialog> {
           buildOpenHandToolDialogHeader(
             context: context,
             icon: Icons.local_fire_department_rounded,
-            title: _panelsText(
+            title: openHandLocalizedText(
               context,
               zh: '火焰图（${_events.length} 事件 · ${((_maxTs - _minTs) / 1000).toStringAsFixed(2)} ms）',
               zhHant:
@@ -6048,7 +6038,7 @@ class _FlameGraphDialogState extends State<_FlameGraphDialog> {
                 ? Padding(
                     padding: const EdgeInsets.all(24),
                     child: Text(
-                      _panelsText(
+                      openHandLocalizedText(
                         context,
                         zh: '没有可视化的完整事件（trace 内可能只含 metadata）。',
                         zhHant: '沒有可視化的完整事件（trace 內可能只含 metadata）。',
@@ -6109,7 +6099,7 @@ class _FlameGraphDialogState extends State<_FlameGraphDialog> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                _panelsText(
+                                openHandLocalizedText(
                                   context,
                                   zh: '按耗时排序 Top 30',
                                   zhHant: '依耗時排序 Top 30',
@@ -6619,7 +6609,7 @@ class _SnapshotDiffDialogState extends State<_SnapshotDiffDialog> {
           buildOpenHandToolDialogHeader(
             context: context,
             icon: Icons.compare_arrows_rounded,
-            title: _panelsText(
+            title: openHandLocalizedText(
               context,
               zh: '堆快照对比',
               zhHant: '堆快照對比',
@@ -6645,7 +6635,7 @@ class _SnapshotDiffDialogState extends State<_SnapshotDiffDialog> {
                 ),
                 const SizedBox(height: 10),
                 _DiffRow(
-                  label: _panelsText(
+                  label: openHandLocalizedText(
                     context,
                     zh: '原始字节',
                     zhHant: '原始位元組',
@@ -6659,7 +6649,7 @@ class _SnapshotDiffDialogState extends State<_SnapshotDiffDialog> {
                   delta: dBytes,
                 ),
                 _DiffRow(
-                  label: _panelsText(
+                  label: openHandLocalizedText(
                     context,
                     zh: '节点数',
                     zhHant: '節點數',
@@ -6673,7 +6663,7 @@ class _SnapshotDiffDialogState extends State<_SnapshotDiffDialog> {
                   delta: dNodes,
                 ),
                 _DiffRow(
-                  label: _panelsText(
+                  label: openHandLocalizedText(
                     context,
                     zh: '自有大小',
                     zhHant: '自身大小',
@@ -6695,7 +6685,7 @@ class _SnapshotDiffDialogState extends State<_SnapshotDiffDialog> {
             child: Row(
               children: [
                 Text(
-                  _panelsText(
+                  openHandLocalizedText(
                     context,
                     zh: '构造器增长 Top 40',
                     zhHant: '建構子增長 Top 40',
@@ -6710,7 +6700,7 @@ class _SnapshotDiffDialogState extends State<_SnapshotDiffDialog> {
                 ),
                 const SizedBox(width: 10),
                 Text(
-                  _panelsText(
+                  openHandLocalizedText(
                     context,
                     zh: '点击任一行 → 右侧显示保持者链',
                     zhHant: '點選任一列 → 右側顯示保持者鏈',
@@ -6726,7 +6716,7 @@ class _SnapshotDiffDialogState extends State<_SnapshotDiffDialog> {
                 const Spacer(),
                 if (result.error != null)
                   Text(
-                    _panelsText(
+                    openHandLocalizedText(
                       context,
                       zh: '解析失败：${result.error}',
                       zhHant: '解析失敗：${result.error}',
@@ -6745,7 +6735,7 @@ class _SnapshotDiffDialogState extends State<_SnapshotDiffDialog> {
                 ? Padding(
                     padding: const EdgeInsets.all(24),
                     child: Text(
-                      _panelsText(
+                      openHandLocalizedText(
                         context,
                         zh: '无可见增长',
                         zhHant: '無可見增長',
@@ -6780,7 +6770,7 @@ class _SnapshotDiffDialogState extends State<_SnapshotDiffDialog> {
                                 columns: [
                                   DataColumn(
                                     label: Text(
-                                      _panelsText(
+                                      openHandLocalizedText(
                                         context,
                                         zh: '构造器',
                                         zhHant: '建構子',
@@ -6793,7 +6783,7 @@ class _SnapshotDiffDialogState extends State<_SnapshotDiffDialog> {
                                   ),
                                   DataColumn(
                                     label: Text(
-                                      _panelsText(
+                                      openHandLocalizedText(
                                         context,
                                         zh: '字节增量',
                                         zhHant: '位元組增量',
@@ -6807,7 +6797,7 @@ class _SnapshotDiffDialogState extends State<_SnapshotDiffDialog> {
                                   ),
                                   DataColumn(
                                     label: Text(
-                                      _panelsText(
+                                      openHandLocalizedText(
                                         context,
                                         zh: '节点增量',
                                         zhHant: '節點增量',
@@ -6821,7 +6811,7 @@ class _SnapshotDiffDialogState extends State<_SnapshotDiffDialog> {
                                   ),
                                   DataColumn(
                                     label: Text(
-                                      _panelsText(
+                                      openHandLocalizedText(
                                         context,
                                         zh: 'A 字节',
                                         zhHant: 'A 位元組',
@@ -6835,7 +6825,7 @@ class _SnapshotDiffDialogState extends State<_SnapshotDiffDialog> {
                                   ),
                                   DataColumn(
                                     label: Text(
-                                      _panelsText(
+                                      openHandLocalizedText(
                                         context,
                                         zh: 'B 字节',
                                         zhHant: 'B 位元組',
@@ -7161,7 +7151,7 @@ class _RetainerSidePanel extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            _panelsText(
+            openHandLocalizedText(
               context,
               zh: '保持者链',
               zhHant: '保持者鏈',
@@ -7187,7 +7177,7 @@ class _RetainerSidePanel extends StatelessWidget {
             )
           else if (result == null)
             Text(
-              _panelsText(
+              openHandLocalizedText(
                 context,
                 zh: '尚未分析',
                 zhHant: '尚未分析',
@@ -7202,7 +7192,7 @@ class _RetainerSidePanel extends StatelessWidget {
             )
           else if (result!.error != null)
             Text(
-              _panelsText(
+              openHandLocalizedText(
                 context,
                 zh: '解析失败：${result!.error}',
                 zhHant: '解析失敗：${result!.error}',
@@ -7215,7 +7205,7 @@ class _RetainerSidePanel extends StatelessWidget {
             )
           else if (!result!.found)
             Text(
-              _panelsText(
+              openHandLocalizedText(
                 context,
                 zh: '快照中未找到该构造器实例',
                 zhHant: '快照中找不到該建構子實例',
@@ -7230,7 +7220,7 @@ class _RetainerSidePanel extends StatelessWidget {
             )
           else ...[
             Text(
-              _panelsText(
+              openHandLocalizedText(
                 context,
                 zh: '找到 ${result!.totalInstances} 个实例 · 取自有大小最大的代表',
                 zhHant: '找到 ${result!.totalInstances} 個實例 · 取自身大小最大的代表',
@@ -7262,7 +7252,7 @@ class _RetainerSidePanel extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            _panelsText(
+                            openHandLocalizedText(
                               context,
                               zh: 'chain · ${chain.hops} 跳',
                               zhHant: 'chain · ${chain.hops} 跳',
@@ -7500,7 +7490,7 @@ class _TraceLanesInlineState extends State<_TraceLanesInline> {
               Icon(Icons.timeline_rounded, size: 16, color: cs.primary),
               const SizedBox(width: 6),
               Text(
-                _panelsText(
+                openHandLocalizedText(
                   context,
                   zh: 'Trace 时间线（${widget.events.length} 事件 · ${total.toStringAsFixed(1)} ms）',
                   zhHant:
@@ -7527,7 +7517,7 @@ class _TraceLanesInlineState extends State<_TraceLanesInline> {
                 ),
                 const SizedBox(width: 4),
                 Text(
-                  _panelsText(
+                  openHandLocalizedText(
                     context,
                     zh: entry.value.zh,
                     zhHant: entry.value.zhHant,

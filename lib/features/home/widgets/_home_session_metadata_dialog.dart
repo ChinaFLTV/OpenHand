@@ -181,8 +181,8 @@ class _SessionMetadataDialog extends StatelessWidget {
                             'auto_title_acquired',
                           ),
                           value: session.autoTitleAcquired
-                              ? '✓ ${_localizedText(context, zh: '已获取', en: 'Acquired')}'
-                              : '✗ ${_localizedText(context, zh: '未获取', en: 'Not acquired')}',
+                              ? '✓ ${openHandLocalizedText(context, zh: '已获取', en: 'Acquired')}'
+                              : '✗ ${openHandLocalizedText(context, zh: '未获取', en: 'Not acquired')}',
                         ),
                         _MetadataEntryRow(
                           label: _localizedMetadataField(
@@ -953,11 +953,15 @@ class _SessionMetadataDialog extends StatelessWidget {
       _ => colorScheme.outline,
     };
     final statusLabel = switch (status) {
-      'critical' => _localizedText(context, zh: '危险', en: 'Critical'),
-      'auto_compact' => _localizedText(context, zh: '需压缩', en: 'Compact'),
-      'warning' => _localizedText(context, zh: '偏高', en: 'High'),
-      'ok' => _localizedText(context, zh: '正常', en: 'OK'),
-      _ => _localizedText(context, zh: '未知', en: 'Unknown'),
+      'critical' => openHandLocalizedText(context, zh: '危险', en: 'Critical'),
+      'auto_compact' => openHandLocalizedText(
+        context,
+        zh: '需压缩',
+        en: 'Compact',
+      ),
+      'warning' => openHandLocalizedText(context, zh: '偏高', en: 'High'),
+      'ok' => openHandLocalizedText(context, zh: '正常', en: 'OK'),
+      _ => openHandLocalizedText(context, zh: '未知', en: 'Unknown'),
     };
     final usageValue = maxTokens > 0
         ? (usagePercent / 100).clamp(0.0, 1.0)
@@ -966,7 +970,11 @@ class _SessionMetadataDialog extends StatelessWidget {
     return <Widget>[
       const SizedBox(height: 16),
       _MetadataSection(
-        title: _localizedText(context, zh: '上下文预算', en: 'Context Budget'),
+        title: openHandLocalizedText(
+          context,
+          zh: '上下文预算',
+          en: 'Context Budget',
+        ),
         children: [
           if (estimatedTokens > 0) ...[
             Row(
@@ -1064,12 +1072,12 @@ class _SessionMetadataDialog extends StatelessWidget {
     final restoredFromSidecar =
         checkpoint?.metadata['restored_from_compact_memory_sidecar'] == true;
     final sidecarStatus = checkpoint == null
-        ? _localizedText(context, zh: '未生成', en: 'Not Generated')
+        ? openHandLocalizedText(context, zh: '未生成', en: 'Not Generated')
         : restoredFromSidecar
-        ? _localizedText(context, zh: '已恢复', en: 'Restored')
+        ? openHandLocalizedText(context, zh: '已恢复', en: 'Restored')
         : sidecarPresent
-        ? _localizedText(context, zh: '已登记', en: 'Registered')
-        : _localizedText(
+        ? openHandLocalizedText(context, zh: '已登记', en: 'Registered')
+        : openHandLocalizedText(
             context,
             zh: '等待下次 Prompt 刷新',
             en: 'Pending Prompt Refresh',
@@ -1078,7 +1086,7 @@ class _SessionMetadataDialog extends StatelessWidget {
     return <Widget>[
       const SizedBox(height: 16),
       _MetadataSection(
-        title: _localizedText(
+        title: openHandLocalizedText(
           context,
           zh: '压缩记忆 Sidecar',
           en: 'Compact Memory Sidecar',
@@ -1111,8 +1119,8 @@ class _SessionMetadataDialog extends StatelessWidget {
               'compact_memory_restored_from_sidecar',
             ),
             value: restoredFromSidecar
-                ? _localizedText(context, zh: '是', en: 'Yes')
-                : _localizedText(context, zh: '否', en: 'No'),
+                ? openHandLocalizedText(context, zh: '是', en: 'Yes')
+                : openHandLocalizedText(context, zh: '否', en: 'No'),
           ),
           _MetadataEntryRow(
             label: _localizedMetadataField(
@@ -1164,7 +1172,7 @@ class _SessionMetadataDialog extends StatelessWidget {
     return <Widget>[
       const SizedBox(height: 16),
       _MetadataSection(
-        title: _localizedText(
+        title: openHandLocalizedText(
           context,
           zh: '压缩后上下文恢复',
           en: 'Post-Compact Rehydration',
@@ -1173,8 +1181,8 @@ class _SessionMetadataDialog extends StatelessWidget {
           _MetadataEntryRow(
             label: _localizedMetadataField(context, 'post_compact_active'),
             value: active
-                ? _localizedText(context, zh: '启用', en: 'Active')
-                : _localizedText(context, zh: '未启用', en: 'Inactive'),
+                ? openHandLocalizedText(context, zh: '启用', en: 'Active')
+                : openHandLocalizedText(context, zh: '未启用', en: 'Inactive'),
           ),
           _MetadataEntryRow(
             label: _localizedMetadataField(context, 'checkpoint_message_id'),
@@ -1196,7 +1204,7 @@ class _SessionMetadataDialog extends StatelessWidget {
           ),
           const SizedBox(height: 2),
           Text(
-            _localizedText(context, zh: '恢复通道', en: 'Restored Channels'),
+            openHandLocalizedText(context, zh: '恢复通道', en: 'Restored Channels'),
             style: Theme.of(
               context,
             ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w800),
@@ -1204,7 +1212,7 @@ class _SessionMetadataDialog extends StatelessWidget {
           const SizedBox(height: 10),
           if (channels.isEmpty)
             Text(
-              _localizedText(context, zh: '暂无恢复通道。', en: 'No channels.'),
+              openHandLocalizedText(context, zh: '暂无恢复通道。', en: 'No channels.'),
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
@@ -1270,7 +1278,7 @@ Widget _buildMachineTerminalMetadataSection(
   final colorScheme = Theme.of(context).colorScheme;
 
   return _MetadataSection(
-    title: _localizedText(
+    title: openHandLocalizedText(
       context,
       zh: '机器终端元数据',
       zhHant: '機器終端中繼資料',
@@ -1283,25 +1291,29 @@ Widget _buildMachineTerminalMetadataSection(
         children: [
           _MetadataInfoTile(
             icon: Icons.terminal_rounded,
-            label: _localizedText(context, zh: '运行状态', en: 'Status'),
+            label: openHandLocalizedText(context, zh: '运行状态', en: 'Status'),
             value: _machineTerminalStatusLabel(context, status),
             color: _machineTerminalStatusColor(colorScheme, status),
           ),
           _MetadataInfoTile(
             icon: Icons.tab_rounded,
-            label: _localizedText(context, zh: '终端数量', en: 'Terminals'),
+            label: openHandLocalizedText(context, zh: '终端数量', en: 'Terminals'),
             value: terminalCount > 0 ? '$terminalCount' : '${terminals.length}',
             color: colorScheme.primary,
           ),
           _MetadataInfoTile(
             icon: Icons.developer_board_rounded,
-            label: _localizedText(context, zh: '当前终端', en: 'Active Terminal'),
+            label: openHandLocalizedText(
+              context,
+              zh: '当前终端',
+              en: 'Active Terminal',
+            ),
             value: activeTerminalId ?? '-',
             color: colorScheme.tertiary,
           ),
           _MetadataInfoTile(
             icon: Icons.aspect_ratio_rounded,
-            label: _localizedText(context, zh: '终端尺寸', en: 'Size'),
+            label: openHandLocalizedText(context, zh: '终端尺寸', en: 'Size'),
             value: activeSize,
             color: colorScheme.secondary,
           ),
@@ -1309,44 +1321,52 @@ Widget _buildMachineTerminalMetadataSection(
       ),
       const SizedBox(height: 14),
       _MetadataEntryRow(
-        label: _localizedText(context, zh: '工作流', en: 'Workflow'),
+        label: openHandLocalizedText(context, zh: '工作流', en: 'Workflow'),
         value: _metadataDisplayValue(metadata['workflow']),
       ),
       _MetadataEntryRow(
-        label: _localizedText(context, zh: '渲染面板', en: 'Surface'),
+        label: openHandLocalizedText(context, zh: '渲染面板', en: 'Surface'),
         value: _metadataDisplayValue(metadata['surface']),
       ),
       _MetadataEntryRow(
-        label: _localizedText(context, zh: '工作区 ID', en: 'Workspace ID'),
+        label: openHandLocalizedText(context, zh: '工作区 ID', en: 'Workspace ID'),
         value: _metadataDisplayValue(metadata['terminal_workspace_id']),
       ),
       _MetadataEntryRow(
-        label: _localizedText(context, zh: '默认工作目录', en: 'Default CWD'),
+        label: openHandLocalizedText(context, zh: '默认工作目录', en: 'Default CWD'),
         value: _metadataDisplayValue(metadata['default_working_directory']),
       ),
       _MetadataEntryRow(
-        label: _localizedText(context, zh: '创建时间', en: 'Created At'),
+        label: openHandLocalizedText(context, zh: '创建时间', en: 'Created At'),
         value: _metadataDisplayValue(metadata['created_at']),
       ),
       _MetadataEntryRow(
-        label: _localizedText(context, zh: '更新时间', en: 'Updated At'),
+        label: openHandLocalizedText(context, zh: '更新时间', en: 'Updated At'),
         value: _metadataDisplayValue(metadata['updated_at']),
       ),
       if (activeTerminal.isNotEmpty)
         _MetadataStructuredValue(
-          label: _localizedText(context, zh: '当前终端状态', en: 'Active Terminal'),
+          label: openHandLocalizedText(
+            context,
+            zh: '当前终端状态',
+            en: 'Active Terminal',
+          ),
           value: activeTerminal,
         ),
       if (defaults.isNotEmpty)
         _MetadataStructuredValue(
-          label: _localizedText(context, zh: '终端默认参数', en: 'Terminal Defaults'),
+          label: openHandLocalizedText(
+            context,
+            zh: '终端默认参数',
+            en: 'Terminal Defaults',
+          ),
           value: defaults,
         ),
       if (capabilities.isNotEmpty) ...[
         const SizedBox(height: 4),
         _MetadataGroupLabel(
-          label: _localizedText(context, zh: '终端能力', en: 'Capabilities'),
-          detail: _localizedText(
+          label: openHandLocalizedText(context, zh: '终端能力', en: 'Capabilities'),
+          detail: openHandLocalizedText(
             context,
             zh: 'AI 与用户在机器专家线程内可用的终端能力',
             en: 'Terminal capabilities available in this template',
@@ -1368,14 +1388,18 @@ Widget _buildMachineTerminalMetadataSection(
       ],
       if (ui.isNotEmpty)
         _MetadataStructuredValue(
-          label: _localizedText(context, zh: '界面特性', en: 'UI Features'),
+          label: openHandLocalizedText(context, zh: '界面特性', en: 'UI Features'),
           value: ui,
         ),
       if (toolNames.isNotEmpty) ...[
         const SizedBox(height: 12),
         _MetadataGroupLabel(
-          label: _localizedText(context, zh: '内建终端工具', en: 'Built-in Tools'),
-          detail: _localizedText(
+          label: openHandLocalizedText(
+            context,
+            zh: '内建终端工具',
+            en: 'Built-in Tools',
+          ),
+          detail: openHandLocalizedText(
             context,
             zh: '仅机器专家模板开放',
             en: 'Scoped to the machine expert template',
@@ -1393,8 +1417,12 @@ Widget _buildMachineTerminalMetadataSection(
       if (terminals.isNotEmpty) ...[
         const SizedBox(height: 12),
         _MetadataGroupLabel(
-          label: _localizedText(context, zh: '运行中终端', en: 'Runtime Terminals'),
-          detail: _localizedText(
+          label: openHandLocalizedText(
+            context,
+            zh: '运行中终端',
+            en: 'Runtime Terminals',
+          ),
+          detail: openHandLocalizedText(
             context,
             zh: '轻量状态摘要，不包含终端输出正文',
             en: 'Lightweight status summaries without terminal output',
@@ -1529,12 +1557,12 @@ String _terminalSizeText(Map<String, Object?> terminal) {
 
 String _machineTerminalStatusLabel(BuildContext context, String? status) {
   return switch (status) {
-    'running' => _localizedText(context, zh: '运行中', en: 'Running'),
-    'starting' => _localizedText(context, zh: '启动中', en: 'Starting'),
-    'stopped' => _localizedText(context, zh: '已停止', en: 'Stopped'),
-    'failed' => _localizedText(context, zh: '异常', en: 'Failed'),
-    'idle' => _localizedText(context, zh: '空闲', en: 'Idle'),
-    _ => _localizedText(context, zh: '未知', en: 'Unknown'),
+    'running' => openHandLocalizedText(context, zh: '运行中', en: 'Running'),
+    'starting' => openHandLocalizedText(context, zh: '启动中', en: 'Starting'),
+    'stopped' => openHandLocalizedText(context, zh: '已停止', en: 'Stopped'),
+    'failed' => openHandLocalizedText(context, zh: '异常', en: 'Failed'),
+    'idle' => openHandLocalizedText(context, zh: '空闲', en: 'Idle'),
+    _ => openHandLocalizedText(context, zh: '未知', en: 'Unknown'),
   };
 }
 
@@ -1692,7 +1720,7 @@ Widget _buildMetadataStructuredNode(
         }),
         if (value.length > visibleItems.length)
           Text(
-            _localizedText(
+            openHandLocalizedText(
               context,
               zh: '还有 ${value.length - visibleItems.length} 项未展示，请复制完整元数据查看。',
               en: '${value.length - visibleItems.length} more items are hidden. Copy full metadata to inspect them.',
@@ -2088,7 +2116,7 @@ class _MachineTerminalMetadataCard extends StatelessWidget {
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               Text(
-                '${_localizedText(context, zh: '终端', en: 'Terminal')} #$index',
+                '${openHandLocalizedText(context, zh: '终端', en: 'Terminal')} #$index',
                 style: theme.textTheme.titleSmall?.copyWith(
                   fontWeight: FontWeight.w900,
                 ),
@@ -2118,12 +2146,12 @@ class _MachineTerminalMetadataCard extends StatelessWidget {
               _MetadataChip(label: identity),
               _MetadataChip(
                 label: size == '-'
-                    ? _localizedText(context, zh: '尺寸 -', en: 'Size -')
+                    ? openHandLocalizedText(context, zh: '尺寸 -', en: 'Size -')
                     : size,
               ),
               _MetadataChip(
                 label:
-                    '${_localizedText(context, zh: '输出', en: 'Output')} $outputCharacters ${_localizedText(context, zh: '字符', en: 'chars')}',
+                    '${openHandLocalizedText(context, zh: '输出', en: 'Output')} $outputCharacters ${openHandLocalizedText(context, zh: '字符', en: 'chars')}',
               ),
             ],
           ),
@@ -2774,9 +2802,13 @@ class _CacheHitTrendChartState extends State<_CacheHitTrendChart> {
         : l10n.sessMetaCacheHitFormulaClaude;
 
     final altColor = colorScheme.tertiary;
-    final ttlLabel = _localizedText(context, zh: 'TTL', en: 'TTL');
-    final driftLabel = _localizedText(context, zh: '前缀漂移', en: 'Prefix drift');
-    final automaticProviderMissLabel = _localizedText(
+    final ttlLabel = openHandLocalizedText(context, zh: 'TTL', en: 'TTL');
+    final driftLabel = openHandLocalizedText(
+      context,
+      zh: '前缀漂移',
+      en: 'Prefix drift',
+    );
+    final automaticProviderMissLabel = openHandLocalizedText(
       context,
       zh: '自动缓存低命中',
       en: 'Automatic cache miss',

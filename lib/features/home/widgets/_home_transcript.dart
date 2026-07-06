@@ -1372,7 +1372,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         context,
         SnackBar(
           content: Text(
-            _localizedText(
+            openHandLocalizedText(
               context,
               zh: '翻译失败：${_friendlyTranslationUiError(error)}',
               en: 'Translation failed: ${_friendlyTranslationUiError(error)}',
@@ -2832,7 +2832,7 @@ class _TranscriptLoadEarlierButtonState
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final loading = widget.loading || _pressing;
-    final label = _localizedText(
+    final label = openHandLocalizedText(
       context,
       zh: loading ? '加载更早消息中...' : '加载更早消息（${widget.hiddenMessageCount}）',
       en: loading
@@ -2867,7 +2867,7 @@ class _TranscriptHydratingPlaceholder extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final label = _localizedText(
+    final label = openHandLocalizedText(
       context,
       zh: '加载消息中…',
       en: 'Loading messages…',
@@ -3404,7 +3404,7 @@ class _PendingCreationPlaceholderCardState
       ),
       AiCreationMode.none => (Icons.hourglass_bottom_rounded, '', ''),
     };
-    final label = _localizedText(context, zh: labelZh, en: labelEn);
+    final label = openHandLocalizedText(context, zh: labelZh, en: labelEn);
     final motionEnabled = openHandTickerMotionEnabled(context);
     final cardRadius = BorderRadius.circular(26);
     final content = Center(
@@ -3875,7 +3875,7 @@ class _CreationFailureCardState extends State<_CreationFailureCard>
         'Generation failed',
       ),
     };
-    final title = _localizedText(context, zh: titleZh, en: titleEn);
+    final title = openHandLocalizedText(context, zh: titleZh, en: titleEn);
     final card = Align(
       alignment: Alignment.centerLeft,
       child: ConstrainedBox(
@@ -3921,7 +3921,11 @@ class _CreationFailureCardState extends State<_CreationFailureCard>
                   'creation-failure-dismiss-${widget.error.id}',
                 ),
                 onPressed: _handleDismiss,
-                tooltip: _localizedText(context, zh: '关闭', en: 'Dismiss'),
+                tooltip: openHandLocalizedText(
+                  context,
+                  zh: '关闭',
+                  en: 'Dismiss',
+                ),
                 visualDensity: VisualDensity.compact,
                 icon: Icon(
                   Icons.close_rounded,

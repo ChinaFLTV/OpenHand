@@ -62,7 +62,7 @@ class _HeComposer extends StatelessWidget {
     final disabledBg = colorScheme.surfaceContainerHighest.withValues(
       alpha: 0.78,
     );
-    final defaultAccessLabel = _heHarnessText(
+    final defaultAccessLabel = openHandLocalizedText(
       context,
       zh: '默认权限',
       zhHant: '預設權限',
@@ -71,7 +71,7 @@ class _HeComposer extends StatelessWidget {
       de: 'Standardzugriff',
       ja: 'デフォルト権限',
     );
-    final fullAccessLabel = _heHarnessText(
+    final fullAccessLabel = openHandLocalizedText(
       context,
       zh: '完全访问权限',
       zhHant: '完整存取權限',
@@ -333,7 +333,7 @@ class _HeComposer extends StatelessWidget {
           : Align(
               alignment: Alignment.topLeft,
               child: Text(
-                _heHarnessText(
+                openHandLocalizedText(
                   context,
                   zh: 'Harness Engineering 使用自动化流水线，不支持手动输入',
                   zhHant: 'Harness Engineering 使用自動化流水線，不支援手動輸入',
@@ -358,7 +358,7 @@ class _HeComposer extends StatelessWidget {
                 const SizedBox(width: 10),
                 disabledOutlinedButton(
                   icon: Icons.attach_file_rounded,
-                  label: _heHarnessText(
+                  label: openHandLocalizedText(
                     context,
                     zh: '附件',
                     zhHant: '附件',
@@ -373,7 +373,7 @@ class _HeComposer extends StatelessWidget {
                 const SizedBox(width: 10),
                 disabledOutlinedButton(
                   icon: Icons.chat_bubble_outline_rounded,
-                  label: _heHarnessText(
+                  label: openHandLocalizedText(
                     context,
                     zh: '聊天模式',
                     zhHant: '聊天模式',
@@ -390,7 +390,7 @@ class _HeComposer extends StatelessWidget {
         ),
         Tooltip(
           message: isCollapsed
-              ? _heHarnessText(
+              ? openHandLocalizedText(
                   context,
                   zh: '展开输入框',
                   zhHant: '展開輸入框',
@@ -399,7 +399,7 @@ class _HeComposer extends StatelessWidget {
                   de: 'Eingabebereich erweitern',
                   ja: '入力欄を展開',
                 )
-              : _heHarnessText(
+              : openHandLocalizedText(
                   context,
                   zh: '折叠输入框',
                   zhHant: '摺疊輸入框',
@@ -475,7 +475,7 @@ class _HeComposer extends StatelessWidget {
               ),
               label: Text(
                 reviewSubmitting
-                    ? _heHarnessText(
+                    ? openHandLocalizedText(
                         context,
                         zh: '提交中',
                         zhHant: '提交中',
@@ -484,7 +484,7 @@ class _HeComposer extends StatelessWidget {
                         de: 'Wird gesendet',
                         ja: '送信中',
                       )
-                    : _heHarnessText(
+                    : openHandLocalizedText(
                         context,
                         zh: '验收不通过',
                         zhHant: '驗收不通過',
@@ -521,7 +521,7 @@ class _HeComposer extends StatelessWidget {
               ),
               label: Text(
                 reviewSubmitting
-                    ? _heHarnessText(
+                    ? openHandLocalizedText(
                         context,
                         zh: '提交中',
                         zhHant: '提交中',
@@ -530,7 +530,7 @@ class _HeComposer extends StatelessWidget {
                         de: 'Wird gesendet',
                         ja: '送信中',
                       )
-                    : _heHarnessText(
+                    : openHandLocalizedText(
                         context,
                         zh: '验收通过',
                         zhHant: '驗收通過',
@@ -666,7 +666,7 @@ class _HePhaseApprovalBanner extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  _heHarnessText(
+                  openHandLocalizedText(
                     context,
                     zh: '即将推进到下一阶段：$phaseName',
                     zhHant: '即將推進到下一階段：$phaseName',
@@ -685,7 +685,7 @@ class _HePhaseApprovalBanner extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            _heHarnessText(
+            openHandLocalizedText(
               context,
               zh: '请确认是否继续执行，或中止流水线。',
               zhHant: '請確認是否繼續執行，或中止流水線。',
@@ -854,7 +854,7 @@ class _HePhaseApprovalBanner extends StatelessWidget {
                     ),
                   ),
                   child: Text(
-                    _heHarnessText(
+                    openHandLocalizedText(
                       context,
                       zh: '中止',
                       zhHant: '中止',
@@ -873,7 +873,7 @@ class _HePhaseApprovalBanner extends StatelessWidget {
                   onPressed: onApprove,
                   icon: const Icon(Icons.play_arrow_rounded, size: 18),
                   label: Text(
-                    _heHarnessText(
+                    openHandLocalizedText(
                       context,
                       zh: '继续',
                       zhHant: '繼續',
@@ -941,7 +941,7 @@ class _HePendingPhaseEditor extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            _heHarnessText(
+            openHandLocalizedText(
               context,
               zh: '更改执行配置',
               zhHant: '變更執行設定',

@@ -101,7 +101,7 @@ class _HeSteeringAssetsDialogState extends State<_HeSteeringAssetsDialog> {
 
   String? _directoryDescription(BuildContext context, String name) {
     return switch (name) {
-      'meta' => _heHarnessText(
+      'meta' => openHandLocalizedText(
         context,
         zh: '元信息 - 架构、约定、配置',
         zhHant: '元資訊 - 架構、慣例、設定',
@@ -110,7 +110,7 @@ class _HeSteeringAssetsDialogState extends State<_HeSteeringAssetsDialog> {
         de: 'Meta - Architektur, Konventionen, Konfiguration',
         ja: 'メタ - アーキテクチャ、規約、設定',
       ),
-      'plan' => _heHarnessText(
+      'plan' => openHandLocalizedText(
         context,
         zh: '规划 - 阶段计划文件',
         zhHant: '規劃 - 階段計畫檔案',
@@ -119,7 +119,7 @@ class _HeSteeringAssetsDialogState extends State<_HeSteeringAssetsDialog> {
         de: 'Pläne - Phasenplanungsdateien',
         ja: '計画 - フェーズ計画ファイル',
       ),
-      'feedback' => _heHarnessText(
+      'feedback' => openHandLocalizedText(
         context,
         zh: '反馈 - 验收与审查反馈',
         zhHant: '回饋 - 驗收與審查回饋',
@@ -128,7 +128,7 @@ class _HeSteeringAssetsDialogState extends State<_HeSteeringAssetsDialog> {
         de: 'Feedback - Abnahme und Prüfung',
         ja: 'フィードバック - 受け入れとレビュー',
       ),
-      'handoff' => _heHarnessText(
+      'handoff' => openHandLocalizedText(
         context,
         zh: '交接 - 阶段间交接文件',
         zhHant: '交接 - 階段間交接檔案',
@@ -137,7 +137,7 @@ class _HeSteeringAssetsDialogState extends State<_HeSteeringAssetsDialog> {
         de: 'Übergabe - Dateien zwischen Phasen',
         ja: '引き継ぎ - フェーズ間ファイル',
       ),
-      'lesson' => _heHarnessText(
+      'lesson' => openHandLocalizedText(
         context,
         zh: '记忆 - 经验教训文件',
         zhHant: '記憶 - 經驗教訓檔案',
@@ -146,7 +146,7 @@ class _HeSteeringAssetsDialogState extends State<_HeSteeringAssetsDialog> {
         de: 'Lessons - Erfahrungsdateien',
         ja: '学び - 教訓ファイル',
       ),
-      'log' => _heHarnessText(
+      'log' => openHandLocalizedText(
         context,
         zh: '日志 - 运行日志',
         zhHant: '日誌 - 執行日誌',
@@ -186,7 +186,7 @@ class _HeSteeringAssetsDialogState extends State<_HeSteeringAssetsDialog> {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    _heHarnessText(
+                    openHandLocalizedText(
                       context,
                       zh: '资产文件浏览器',
                       zhHant: '資產檔案瀏覽器',
@@ -231,7 +231,7 @@ class _HeSteeringAssetsDialogState extends State<_HeSteeringAssetsDialog> {
                     ? Center(
                         key: const ValueKey<String>('empty'),
                         child: Text(
-                          _heHarnessText(
+                          openHandLocalizedText(
                             context,
                             zh: '此目录为空',
                             zhHant: '此目錄為空',
@@ -559,7 +559,7 @@ class _HeSteeringFileEditorDialogState
       final isFs = raw.startsWith('FileSystemException');
       String friendly;
       if (isMissing) {
-        friendly = _heHarnessText(
+        friendly = openHandLocalizedText(
           context,
           zh: '文件已不存在或路径已被移动。\n原始错误：$raw',
           zhHant: '檔案已不存在或路徑已移動。\n原始錯誤：$raw',
@@ -569,7 +569,7 @@ class _HeSteeringFileEditorDialogState
           ja: 'ファイルが存在しないか移動されています。\nRaw: $raw',
         );
       } else if (isFs) {
-        friendly = _heHarnessText(
+        friendly = openHandLocalizedText(
           context,
           zh: '读取文件失败 (可能是权限不足 / 编码异常 / 磁盘错误)。\n原始错误：$raw',
           zhHant: '讀取檔案失敗 (可能是權限不足 / 編碼異常 / 磁碟錯誤)。\n原始錯誤：$raw',
@@ -608,7 +608,7 @@ class _HeSteeringFileEditorDialogState
         context,
         SnackBar(
           content: Text(
-            _heHarnessText(
+            openHandLocalizedText(
               context,
               zh: '文件已保存',
               zhHant: '檔案已儲存',
@@ -627,7 +627,7 @@ class _HeSteeringFileEditorDialogState
       showFriendlyErrorSnackBar(
         context,
         message: '$e',
-        fallback: _heHarnessText(
+        fallback: openHandLocalizedText(
           context,
           zh: '保存失败',
           zhHant: '儲存失敗',
@@ -644,7 +644,7 @@ class _HeSteeringFileEditorDialogState
     if (!_dirty) return Future<bool>.value(true);
     return showOpenHandConfirmDialog(
       context: context,
-      title: _heHarnessText(
+      title: openHandLocalizedText(
         context,
         zh: '放弃更改？',
         zhHant: '放棄變更？',
@@ -653,7 +653,7 @@ class _HeSteeringFileEditorDialogState
         de: 'Änderungen verwerfen?',
         ja: '変更を破棄しますか？',
       ),
-      message: _heHarnessText(
+      message: openHandLocalizedText(
         context,
         zh: '你有未保存的更改，确定要放弃吗？',
         zhHant: '你有未儲存的變更，確定要放棄嗎？',
@@ -662,7 +662,7 @@ class _HeSteeringFileEditorDialogState
         de: 'Es gibt ungespeicherte Änderungen. Verwerfen?',
         ja: '未保存の変更があります。破棄しますか？',
       ),
-      cancelLabel: _heHarnessText(
+      cancelLabel: openHandLocalizedText(
         context,
         zh: '取消',
         zhHant: '取消',
@@ -671,7 +671,7 @@ class _HeSteeringFileEditorDialogState
         de: 'Abbrechen',
         ja: 'キャンセル',
       ),
-      confirmLabel: _heHarnessText(
+      confirmLabel: openHandLocalizedText(
         context,
         zh: '放弃',
         zhHant: '放棄',
@@ -892,7 +892,7 @@ class _HeSteeringFileEditorDialogState
                   if (isMarkdown)
                     IconButton(
                       tooltip: _showPreview
-                          ? _heHarnessText(
+                          ? openHandLocalizedText(
                               context,
                               zh: '隐藏预览',
                               zhHant: '隱藏預覽',
@@ -901,7 +901,7 @@ class _HeSteeringFileEditorDialogState
                               de: 'Vorschau ausblenden',
                               ja: 'プレビューを非表示',
                             )
-                          : _heHarnessText(
+                          : openHandLocalizedText(
                               context,
                               zh: '显示预览',
                               zhHant: '顯示預覽',
@@ -1014,7 +1014,7 @@ class _HeSteeringFileEditorDialogState
                                   .where((w) => w.isNotEmpty)
                                   .length;
                         return Text(
-                          _heHarnessText(
+                          openHandLocalizedText(
                             context,
                             zh: '${t.length} 字符  $words 词',
                             zhHant: '${t.length} 字元  $words 詞',
@@ -1034,7 +1034,7 @@ class _HeSteeringFileEditorDialogState
                     Padding(
                       padding: const EdgeInsets.only(right: 12),
                       child: Text(
-                        _heHarnessText(
+                        openHandLocalizedText(
                           context,
                           zh: '有未保存的更改',
                           zhHant: '有未儲存的變更',
@@ -1055,7 +1055,7 @@ class _HeSteeringFileEditorDialogState
                         if (context.mounted) Navigator.of(context).pop();
                       }
                     },
-                    label: _heHarnessText(
+                    label: openHandLocalizedText(
                       context,
                       zh: '关闭',
                       zhHant: '關閉',
@@ -1070,7 +1070,7 @@ class _HeSteeringFileEditorDialogState
                     onPressed: _dirty && !_saving ? _save : null,
                     icon: Icons.save_rounded,
                     busy: _saving,
-                    label: _heHarnessText(
+                    label: openHandLocalizedText(
                       context,
                       zh: '保存',
                       zhHant: '儲存',
@@ -1115,7 +1115,7 @@ class _HeSteeringFileEditorDialogState
             // Headings
             _MdToolbarBtn(
               label: 'H₁',
-              tooltip: _heHarnessText(
+              tooltip: openHandLocalizedText(
                 context,
                 zh: '一级标题',
                 zhHant: '一級標題',
@@ -1128,7 +1128,7 @@ class _HeSteeringFileEditorDialogState
             ),
             _MdToolbarBtn(
               label: 'H₂',
-              tooltip: _heHarnessText(
+              tooltip: openHandLocalizedText(
                 context,
                 zh: '二级标题',
                 zhHant: '二級標題',
@@ -1141,7 +1141,7 @@ class _HeSteeringFileEditorDialogState
             ),
             _MdToolbarBtn(
               label: 'H₃',
-              tooltip: _heHarnessText(
+              tooltip: openHandLocalizedText(
                 context,
                 zh: '三级标题',
                 zhHant: '三級標題',
@@ -1156,7 +1156,7 @@ class _HeSteeringFileEditorDialogState
             // Inline styles
             _MdToolbarBtn(
               icon: Icons.format_bold,
-              tooltip: _heHarnessText(
+              tooltip: openHandLocalizedText(
                 context,
                 zh: '粗体 **text**',
                 zhHant: '粗體 **text**',
@@ -1169,7 +1169,7 @@ class _HeSteeringFileEditorDialogState
             ),
             _MdToolbarBtn(
               icon: Icons.format_italic,
-              tooltip: _heHarnessText(
+              tooltip: openHandLocalizedText(
                 context,
                 zh: '斜体 *text*',
                 zhHant: '斜體 *text*',
@@ -1182,7 +1182,7 @@ class _HeSteeringFileEditorDialogState
             ),
             _MdToolbarBtn(
               icon: Icons.format_strikethrough,
-              tooltip: _heHarnessText(
+              tooltip: openHandLocalizedText(
                 context,
                 zh: '删除线 ~~text~~',
                 zhHant: '刪除線 ~~text~~',
@@ -1195,7 +1195,7 @@ class _HeSteeringFileEditorDialogState
             ),
             _MdToolbarBtn(
               icon: Icons.code,
-              tooltip: _heHarnessText(
+              tooltip: openHandLocalizedText(
                 context,
                 zh: '内联代码 `code`',
                 zhHant: '行內程式碼 `code`',
@@ -1210,7 +1210,7 @@ class _HeSteeringFileEditorDialogState
             // Block
             _MdToolbarBtn(
               icon: Icons.data_object_rounded,
-              tooltip: _heHarnessText(
+              tooltip: openHandLocalizedText(
                 context,
                 zh: '代码块',
                 zhHant: '程式碼區塊',
@@ -1223,7 +1223,7 @@ class _HeSteeringFileEditorDialogState
             ),
             _MdToolbarBtn(
               icon: Icons.format_quote_rounded,
-              tooltip: _heHarnessText(
+              tooltip: openHandLocalizedText(
                 context,
                 zh: '引用块 > text',
                 zhHant: '引用區塊 > text',
@@ -1238,7 +1238,7 @@ class _HeSteeringFileEditorDialogState
             // Lists
             _MdToolbarBtn(
               icon: Icons.format_list_bulleted,
-              tooltip: _heHarnessText(
+              tooltip: openHandLocalizedText(
                 context,
                 zh: '无序列表 - item',
                 zhHant: '無序列表 - item',
@@ -1251,7 +1251,7 @@ class _HeSteeringFileEditorDialogState
             ),
             _MdToolbarBtn(
               icon: Icons.format_list_numbered,
-              tooltip: _heHarnessText(
+              tooltip: openHandLocalizedText(
                 context,
                 zh: '有序列表 1. item',
                 zhHant: '有序列表 1. item',
@@ -1266,7 +1266,7 @@ class _HeSteeringFileEditorDialogState
             // Misc
             _MdToolbarBtn(
               icon: Icons.link_rounded,
-              tooltip: _heHarnessText(
+              tooltip: openHandLocalizedText(
                 context,
                 zh: '插入链接 [text](url)',
                 zhHant: '插入連結 [text](url)',
@@ -1279,7 +1279,7 @@ class _HeSteeringFileEditorDialogState
             ),
             _MdToolbarBtn(
               icon: Icons.horizontal_rule_rounded,
-              tooltip: _heHarnessText(
+              tooltip: openHandLocalizedText(
                 context,
                 zh: '分隔线 ---',
                 zhHant: '分隔線 ---',
@@ -1333,7 +1333,7 @@ class _HeSteeringFileEditorDialogState
           filled: true,
           fillColor: Colors.transparent,
           contentPadding: const EdgeInsets.all(14),
-          hintText: _heHarnessText(
+          hintText: openHandLocalizedText(
             context,
             zh: '在此编辑文件内容…',
             zhHant: '在此編輯檔案內容…',
@@ -1369,7 +1369,7 @@ class _HeSteeringFileEditorDialogState
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
             color: colorScheme.surfaceContainerHigh,
             child: Text(
-              _heHarnessText(
+              openHandLocalizedText(
                 context,
                 zh: '预览',
                 zhHant: '預覽',

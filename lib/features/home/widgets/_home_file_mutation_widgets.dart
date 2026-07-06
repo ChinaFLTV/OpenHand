@@ -2327,7 +2327,7 @@ class _FileDiffDialogState extends State<_FileDiffDialog> {
         } else {
           if (!mounted) return;
           setState(() {
-            _error = _localizedText(
+            _error = openHandLocalizedText(
               context,
               zh: '没有保存的版本历史',
               zhHant: '沒有儲存的版本歷史',
@@ -2412,7 +2412,7 @@ class _FileDiffDialogState extends State<_FileDiffDialog> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          _localizedText(
+                          openHandLocalizedText(
                             context,
                             zh: '文件变更对比',
                             zhHant: '檔案變更對比',
@@ -2441,7 +2441,7 @@ class _FileDiffDialogState extends State<_FileDiffDialog> {
                   IconButton(
                     onPressed: () => Navigator.of(context).pop(),
                     icon: const Icon(Icons.close_rounded),
-                    tooltip: _localizedText(
+                    tooltip: openHandLocalizedText(
                       context,
                       zh: '关闭',
                       zhHant: '關閉',
@@ -2937,7 +2937,7 @@ class _InspectorEntryRow extends StatelessWidget {
               const Icon(Icons.data_object_rounded, size: 16),
               const SizedBox(width: 8),
               Text(
-                _localizedText(
+                openHandLocalizedText(
                   context,
                   zh: '复制此条记录 JSON',
                   zhHant: '複製此筆記錄 JSON',
@@ -2957,7 +2957,7 @@ class _InspectorEntryRow extends StatelessWidget {
               const Icon(Icons.tag_rounded, size: 16),
               const SizedBox(width: 8),
               Text(
-                _localizedText(
+                openHandLocalizedText(
                   context,
                   zh: '复制 record ID',
                   zhHant: '複製 record ID',
@@ -2982,7 +2982,7 @@ class _InspectorEntryRow extends StatelessWidget {
           SnackBar(
             duration: const Duration(seconds: 2),
             content: Text(
-              _localizedText(
+              openHandLocalizedText(
                 context,
                 zh: '已复制 record JSON',
                 zhHant: '已複製 record JSON',
@@ -3003,7 +3003,7 @@ class _InspectorEntryRow extends StatelessWidget {
           SnackBar(
             duration: const Duration(seconds: 2),
             content: Text(
-              _localizedText(
+              openHandLocalizedText(
                 context,
                 zh: '已复制 record ID',
                 zhHant: '已複製 record ID',

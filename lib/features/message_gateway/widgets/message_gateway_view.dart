@@ -33,30 +33,8 @@ import '../message_gateway_controller.dart';
 import '../model/web_message_platform_config.dart';
 import '../service/web_message_platform_service.dart';
 
-String _gatewayText(
-  BuildContext context, {
-  required String zh,
-  required String en,
-  String? zhHans,
-  String? zhHant,
-  String? fr,
-  String? de,
-  String? ja,
-}) {
-  return openHandLocalizedText(
-    context,
-    zh: zh,
-    en: en,
-    zhHans: zhHans,
-    zhHant: zhHant,
-    fr: fr,
-    de: de,
-    ja: ja,
-  );
-}
-
 String _gatewayEmptyMeansAllLabel(BuildContext context, String label) {
-  final suffix = _gatewayText(
+  final suffix = openHandLocalizedText(
     context,
     zh: '空=全部',
     zhHant: '空=全部',
@@ -76,7 +54,7 @@ String _gatewayListSeparator(BuildContext context) {
 }
 
 String _gatewayUnavailable(BuildContext context) {
-  return _gatewayText(
+  return openHandLocalizedText(
     context,
     zh: '不可用',
     zhHant: '不可用',
@@ -88,7 +66,7 @@ String _gatewayUnavailable(BuildContext context) {
 }
 
 String _gatewayScopeAll(BuildContext context) {
-  return _gatewayText(
+  return openHandLocalizedText(
     context,
     zh: '全部条目',
     zhHant: '全部項目',
@@ -100,7 +78,7 @@ String _gatewayScopeAll(BuildContext context) {
 }
 
 String _gatewaySelectedCount(BuildContext context, int selected, int total) {
-  return _gatewayText(
+  return openHandLocalizedText(
     context,
     zh: '已选 $selected/$total',
     zhHant: '已選 $selected/$total',
@@ -148,7 +126,7 @@ class _MessageGatewayViewState extends State<MessageGatewayView> {
       return FeatureStateCard.centered(
         icon: Icons.error_outline_rounded,
         tone: FeatureStateTone.error,
-        title: _gatewayText(
+        title: openHandLocalizedText(
           context,
           zh: '消息网关加载失败',
           zhHant: '訊息閘道載入失敗',
@@ -258,7 +236,7 @@ class _WebPlatformServiceCard extends StatelessWidget {
                   children: [
                     _FeatureIconButton(
                       tooltip: config.loggingEnabled
-                          ? _gatewayText(
+                          ? openHandLocalizedText(
                               context,
                               zh: '查看 Web 服务日志',
                               zhHant: '查看 Web 服務日誌',
@@ -267,7 +245,7 @@ class _WebPlatformServiceCard extends StatelessWidget {
                               de: 'Webdienste-Protokolle anzeigen',
                               ja: 'Webサービスログを表示',
                             )
-                          : _gatewayText(
+                          : openHandLocalizedText(
                               context,
                               zh: '开启日志后可查看日志',
                               zhHant: '開啟日誌後可查看日誌',
@@ -282,7 +260,7 @@ class _WebPlatformServiceCard extends StatelessWidget {
                     ),
                     _FeatureIconButton(
                       tooltip: isRunning
-                          ? _gatewayText(
+                          ? openHandLocalizedText(
                               context,
                               zh: '端口连通性测试',
                               zhHant: '連接埠連通性測試',
@@ -291,7 +269,7 @@ class _WebPlatformServiceCard extends StatelessWidget {
                               de: 'Port-Konnektivitätstest',
                               ja: 'ポート接続テスト',
                             )
-                          : _gatewayText(
+                          : openHandLocalizedText(
                               context,
                               zh: '服务运行后可测试端口',
                               zhHant: '服務執行後可測試連接埠',
@@ -307,7 +285,7 @@ class _WebPlatformServiceCard extends StatelessWidget {
                     ),
                     _FeatureIconButton(
                       tooltip: config.healthCheck.enabled
-                          ? _gatewayText(
+                          ? openHandLocalizedText(
                               context,
                               zh: '健康检测',
                               zhHant: '健康檢測',
@@ -316,7 +294,7 @@ class _WebPlatformServiceCard extends StatelessWidget {
                               de: 'Integritätsprüfung',
                               ja: 'ヘルスチェック',
                             )
-                          : _gatewayText(
+                          : openHandLocalizedText(
                               context,
                               zh: '开启健康检查后可使用',
                               zhHant: '開啟健康檢查後可使用',
@@ -331,7 +309,7 @@ class _WebPlatformServiceCard extends StatelessWidget {
                     ),
                     _FeatureIconButton(
                       tooltip: config.opsEnabled
-                          ? _gatewayText(
+                          ? openHandLocalizedText(
                               context,
                               zh: '运维面板',
                               zhHant: '維運面板',
@@ -340,7 +318,7 @@ class _WebPlatformServiceCard extends StatelessWidget {
                               de: 'Betriebsbereich',
                               ja: '運用パネル',
                             )
-                          : _gatewayText(
+                          : openHandLocalizedText(
                               context,
                               zh: '开启运维后可查看',
                               zhHant: '開啟維運後可查看',
@@ -354,7 +332,7 @@ class _WebPlatformServiceCard extends StatelessWidget {
                       onPressed: () => _showOps(context, controller),
                     ),
                     IconButton.filledTonal(
-                      tooltip: _gatewayText(
+                      tooltip: openHandLocalizedText(
                         context,
                         zh: '编辑配置',
                         zhHant: '編輯設定',
@@ -368,7 +346,7 @@ class _WebPlatformServiceCard extends StatelessWidget {
                     ),
                     IconButton.filled(
                       tooltip: isRunning
-                          ? _gatewayText(
+                          ? openHandLocalizedText(
                               context,
                               zh: '停止',
                               zhHant: '停止',
@@ -377,7 +355,7 @@ class _WebPlatformServiceCard extends StatelessWidget {
                               de: 'Stoppen',
                               ja: '停止',
                             )
-                          : _gatewayText(
+                          : openHandLocalizedText(
                               context,
                               zh: '启动',
                               zhHant: '啟動',
@@ -431,7 +409,7 @@ class _WebPlatformServiceCard extends StatelessWidget {
                 _InfoChip(
                   icon: Icons.power_settings_new_rounded,
                   label: config.enabled
-                      ? _gatewayText(
+                      ? openHandLocalizedText(
                           context,
                           zh: '已启用',
                           zhHant: '已啟用',
@@ -440,7 +418,7 @@ class _WebPlatformServiceCard extends StatelessWidget {
                           de: 'Aktiviert',
                           ja: '有効',
                         )
-                      : _gatewayText(
+                      : openHandLocalizedText(
                           context,
                           zh: '未启用',
                           zhHant: '未啟用',
@@ -453,7 +431,7 @@ class _WebPlatformServiceCard extends StatelessWidget {
                 _InfoChip(
                   icon: Icons.rocket_launch_outlined,
                   label: config.autoStartOnLaunch
-                      ? _gatewayText(
+                      ? openHandLocalizedText(
                           context,
                           zh: '冷启动自启',
                           zhHant: '冷啟動自啟',
@@ -462,7 +440,7 @@ class _WebPlatformServiceCard extends StatelessWidget {
                           de: 'Autostart beim Start',
                           ja: '起動時に自動開始',
                         )
-                      : _gatewayText(
+                      : openHandLocalizedText(
                           context,
                           zh: '冷启动不干预',
                           zhHant: '冷啟動不干預',
@@ -475,7 +453,7 @@ class _WebPlatformServiceCard extends StatelessWidget {
                 _InfoChip(
                   icon: Icons.sync_rounded,
                   label: config.autoReloadOnChange
-                      ? _gatewayText(
+                      ? openHandLocalizedText(
                           context,
                           zh: '配置自动重载',
                           zhHant: '設定自動重載',
@@ -484,7 +462,7 @@ class _WebPlatformServiceCard extends StatelessWidget {
                           de: 'Konfiguration automatisch neu laden',
                           ja: '設定を自動再読み込み',
                         )
-                      : _gatewayText(
+                      : openHandLocalizedText(
                           context,
                           zh: '配置重启生效',
                           zhHant: '設定重啟生效',
@@ -497,7 +475,7 @@ class _WebPlatformServiceCard extends StatelessWidget {
                 if (controller.hasPendingRuntimeConfig)
                   _InfoChip(
                     icon: Icons.pending_actions_rounded,
-                    label: _gatewayText(
+                    label: openHandLocalizedText(
                       context,
                       zh: '待重启生效',
                       zhHant: '待重啟生效',
@@ -516,7 +494,7 @@ class _WebPlatformServiceCard extends StatelessWidget {
                 if (usingFallbackPort)
                   _InfoChip(
                     icon: Icons.warning_amber_rounded,
-                    label: _gatewayText(
+                    label: openHandLocalizedText(
                       context,
                       zh: '${config.listenPort} 被占用，临时端口 $boundPort',
                       zhHant: '${config.listenPort} 已被占用，臨時連接埠 $boundPort',
@@ -529,7 +507,7 @@ class _WebPlatformServiceCard extends StatelessWidget {
                 _InfoChip(
                   icon: Icons.lock_outline_rounded,
                   label: config.authEnabled
-                      ? _gatewayText(
+                      ? openHandLocalizedText(
                           context,
                           zh: '鉴权开启',
                           zhHant: '鑑權開啟',
@@ -538,7 +516,7 @@ class _WebPlatformServiceCard extends StatelessWidget {
                           de: 'Auth aktiviert',
                           ja: '認証有効',
                         )
-                      : _gatewayText(
+                      : openHandLocalizedText(
                           context,
                           zh: '免鉴权',
                           zhHant: '免鑑權',
@@ -551,7 +529,7 @@ class _WebPlatformServiceCard extends StatelessWidget {
                 _InfoChip(
                   icon: Icons.analytics_outlined,
                   label: config.telemetryEnabled
-                      ? _gatewayText(
+                      ? openHandLocalizedText(
                           context,
                           zh: '遥测开启',
                           zhHant: '遙測開啟',
@@ -560,7 +538,7 @@ class _WebPlatformServiceCard extends StatelessWidget {
                           de: 'Telemetrie aktiviert',
                           ja: 'テレメトリ有効',
                         )
-                      : _gatewayText(
+                      : openHandLocalizedText(
                           context,
                           zh: '遥测关闭',
                           zhHant: '遙測關閉',
@@ -573,7 +551,7 @@ class _WebPlatformServiceCard extends StatelessWidget {
                 _InfoChip(
                   icon: Icons.article_outlined,
                   label: config.loggingEnabled
-                      ? _gatewayText(
+                      ? openHandLocalizedText(
                           context,
                           zh: '日志开启',
                           zhHant: '日誌開啟',
@@ -582,7 +560,7 @@ class _WebPlatformServiceCard extends StatelessWidget {
                           de: 'Protokolle aktiviert',
                           ja: 'ログ有効',
                         )
-                      : _gatewayText(
+                      : openHandLocalizedText(
                           context,
                           zh: '日志关闭',
                           zhHant: '日誌關閉',
@@ -594,7 +572,7 @@ class _WebPlatformServiceCard extends StatelessWidget {
                 ),
                 _InfoChip(
                   icon: Icons.security_rounded,
-                  label: _gatewayText(
+                  label: openHandLocalizedText(
                     context,
                     zh: '并发 ${config.maxConcurrentRequests}',
                     zhHant: '並發 ${config.maxConcurrentRequests}',
@@ -606,7 +584,7 @@ class _WebPlatformServiceCard extends StatelessWidget {
                 ),
                 _InfoChip(
                   icon: Icons.chat_bubble_outline_rounded,
-                  label: _gatewayText(
+                  label: openHandLocalizedText(
                     context,
                     zh: '单消息 ${config.singleMessageTokenLimit} tokens',
                     zhHant: '單訊息 ${config.singleMessageTokenLimit} tokens',
@@ -618,7 +596,7 @@ class _WebPlatformServiceCard extends StatelessWidget {
                 ),
                 _InfoChip(
                   icon: Icons.forum_outlined,
-                  label: _gatewayText(
+                  label: openHandLocalizedText(
                     context,
                     zh: '单会话 ${config.maxMessagesPerSession} 条',
                     zhHant: '單會話 ${config.maxMessagesPerSession} 則',
@@ -631,7 +609,7 @@ class _WebPlatformServiceCard extends StatelessWidget {
                 _InfoChip(
                   icon: Icons.manage_accounts_outlined,
                   label: config.sessionManagementEnabled
-                      ? _gatewayText(
+                      ? openHandLocalizedText(
                           context,
                           zh: '会话可管理',
                           zhHant: '會話可管理',
@@ -640,7 +618,7 @@ class _WebPlatformServiceCard extends StatelessWidget {
                           de: 'Sitzungen verwaltbar',
                           ja: 'セッション管理可',
                         )
-                      : _gatewayText(
+                      : openHandLocalizedText(
                           context,
                           zh: '会话只读',
                           zhHant: '會話唯讀',
@@ -653,7 +631,7 @@ class _WebPlatformServiceCard extends StatelessWidget {
                 _InfoChip(
                   icon: Icons.library_books_outlined,
                   label: config.knowledgeBaseEnabled
-                      ? _gatewayText(
+                      ? openHandLocalizedText(
                           context,
                           zh: '知识库开启',
                           zhHant: '知識庫開啟',
@@ -662,7 +640,7 @@ class _WebPlatformServiceCard extends StatelessWidget {
                           de: 'Wissensdatenbank aktiviert',
                           ja: 'ナレッジベース有効',
                         )
-                      : _gatewayText(
+                      : openHandLocalizedText(
                           context,
                           zh: '知识库关闭',
                           zhHant: '知識庫關閉',
@@ -675,7 +653,7 @@ class _WebPlatformServiceCard extends StatelessWidget {
                 _InfoChip(
                   icon: Icons.folder_open_rounded,
                   label: config.workspaceFileWriteEnabled
-                      ? _gatewayText(
+                      ? openHandLocalizedText(
                           context,
                           zh: '文件浏览 / 可操作',
                           zhHant: '檔案瀏覽 / 可操作',
@@ -684,7 +662,7 @@ class _WebPlatformServiceCard extends StatelessWidget {
                           de: 'Dateien durchsuchbar / schreibbar',
                           ja: 'ファイル閲覧 / 操作可',
                         )
-                      : _gatewayText(
+                      : openHandLocalizedText(
                           context,
                           zh: '文件浏览 / 只读',
                           zhHant: '檔案瀏覽 / 唯讀',
@@ -716,7 +694,7 @@ class _WebPlatformServiceCard extends StatelessWidget {
                   physics: const NeverScrollableScrollPhysics(),
                   children: [
                     _MetricTile(
-                      label: _gatewayText(
+                      label: openHandLocalizedText(
                         context,
                         zh: '状态',
                         zhHant: '狀態',
@@ -728,7 +706,7 @@ class _WebPlatformServiceCard extends StatelessWidget {
                       value: _runtimeStateLabel(context, runtime.state),
                     ),
                     _MetricTile(
-                      label: _gatewayText(
+                      label: openHandLocalizedText(
                         context,
                         zh: '请求数',
                         zhHant: '請求數',
@@ -740,7 +718,7 @@ class _WebPlatformServiceCard extends StatelessWidget {
                       value: '${runtime.totalRequests}',
                     ),
                     _MetricTile(
-                      label: _gatewayText(
+                      label: openHandLocalizedText(
                         context,
                         zh: '错误数',
                         zhHant: '錯誤數',
@@ -752,7 +730,7 @@ class _WebPlatformServiceCard extends StatelessWidget {
                       value: '${runtime.totalErrors}',
                     ),
                     _MetricTile(
-                      label: _gatewayText(
+                      label: openHandLocalizedText(
                         context,
                         zh: '运行时长',
                         zhHant: '執行時間',
@@ -1081,7 +1059,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        _gatewayText(
+                        openHandLocalizedText(
                           context,
                           zh: '配置 Web 端可见能力、访问边界与运行保护策略',
                           zhHant: '設定 Web 端可見能力、存取邊界與執行保護策略',
@@ -1101,7 +1079,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                 ),
                 const SizedBox(width: 10),
                 IconButton.filledTonal(
-                  tooltip: _gatewayText(
+                  tooltip: openHandLocalizedText(
                     context,
                     zh: '关闭',
                     zhHant: '關閉',
@@ -1132,7 +1110,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                         twoColumns: twoColumns,
                         children: [
                           _SwitchTile(
-                            label: _gatewayText(
+                            label: openHandLocalizedText(
                               context,
                               zh: '是否启用',
                               zhHant: '是否啟用',
@@ -1145,7 +1123,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                             onChanged: (v) => setState(() => _enabled = v),
                           ),
                           _SwitchTile(
-                            label: _gatewayText(
+                            label: openHandLocalizedText(
                               context,
                               zh: '冷启动自动启动',
                               zhHant: '冷啟動自動啟動',
@@ -1159,7 +1137,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                                 setState(() => _autoStartOnLaunch = value),
                           ),
                           _SwitchTile(
-                            label: _gatewayText(
+                            label: openHandLocalizedText(
                               context,
                               zh: '配置变更自动重载',
                               zhHant: '設定變更自動重載',
@@ -1173,7 +1151,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                                 setState(() => _autoReloadOnChange = value),
                           ),
                           _SwitchTile(
-                            label: _gatewayText(
+                            label: openHandLocalizedText(
                               context,
                               zh: '是否开启鉴权',
                               zhHant: '是否開啟鑑權',
@@ -1186,7 +1164,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                             onChanged: (v) => setState(() => _authEnabled = v),
                           ),
                           _SwitchTile(
-                            label: _gatewayText(
+                            label: openHandLocalizedText(
                               context,
                               zh: '是否启用遥测',
                               zhHant: '是否啟用遙測',
@@ -1200,7 +1178,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                                 setState(() => _telemetryEnabled = v),
                           ),
                           _SwitchTile(
-                            label: _gatewayText(
+                            label: openHandLocalizedText(
                               context,
                               zh: '是否记录日志',
                               zhHant: '是否記錄日誌',
@@ -1214,7 +1192,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                                 setState(() => _loggingEnabled = v),
                           ),
                           _SwitchTile(
-                            label: _gatewayText(
+                            label: openHandLocalizedText(
                               context,
                               zh: '是否支持运维',
                               zhHant: '是否支援維運',
@@ -1227,7 +1205,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                             onChanged: (v) => setState(() => _opsEnabled = v),
                           ),
                           _SwitchTile(
-                            label: _gatewayText(
+                            label: openHandLocalizedText(
                               context,
                               zh: '是否开启健康检查',
                               zhHant: '是否開啟健康檢查',
@@ -1241,7 +1219,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                                 setState(() => _healthEnabled = v),
                           ),
                           _SwitchTile(
-                            label: _gatewayText(
+                            label: openHandLocalizedText(
                               context,
                               zh: '是否支持计划模式',
                               zhHant: '是否支援計劃模式',
@@ -1255,7 +1233,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                                 setState(() => _planModeEnabled = v),
                           ),
                           _SwitchTile(
-                            label: _gatewayText(
+                            label: openHandLocalizedText(
                               context,
                               zh: '是否开启智能体',
                               zhHant: '是否開啟智能體',
@@ -1269,7 +1247,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                                 setState(() => _agentsEnabled = v),
                           ),
                           _SwitchTile(
-                            label: _gatewayText(
+                            label: openHandLocalizedText(
                               context,
                               zh: '是否开启知识库',
                               zhHant: '是否開啟知識庫',
@@ -1282,7 +1260,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                             onChanged: _setKnowledgeBaseEnabled,
                           ),
                           _SwitchTile(
-                            label: _gatewayText(
+                            label: openHandLocalizedText(
                               context,
                               zh: '是否启用朗读功能',
                               zhHant: '是否啟用朗讀功能',
@@ -1296,7 +1274,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                                 setState(() => _readAloudEnabled = v),
                           ),
                           _SwitchTile(
-                            label: _gatewayText(
+                            label: openHandLocalizedText(
                               context,
                               zh: '是否启用翻译功能',
                               zhHant: '是否啟用翻譯功能',
@@ -1310,7 +1288,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                                 setState(() => _translationEnabled = v),
                           ),
                           _SwitchTile(
-                            label: _gatewayText(
+                            label: openHandLocalizedText(
                               context,
                               zh: '是否启用点赞功能',
                               zhHant: '是否啟用按讚功能',
@@ -1324,7 +1302,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                                 setState(() => _feedbackEnabled = v),
                           ),
                           _SwitchTile(
-                            label: _gatewayText(
+                            label: openHandLocalizedText(
                               context,
                               zh: '是否启用重新生成功能',
                               zhHant: '是否啟用重新生成功能',
@@ -1338,7 +1316,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                                 setState(() => _regenerationEnabled = v),
                           ),
                           _SwitchTile(
-                            label: _gatewayText(
+                            label: openHandLocalizedText(
                               context,
                               zh: '是否允许 Web 会话管理',
                               zhHant: '是否允許 Web 會話管理',
@@ -1352,7 +1330,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                                 setState(() => _sessionManagementEnabled = v),
                           ),
                           _SwitchTile(
-                            label: _gatewayText(
+                            label: openHandLocalizedText(
                               context,
                               zh: '是否支持操作文件',
                               zhHant: '是否支援操作檔案',
@@ -1381,7 +1359,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                                 padding: const EdgeInsets.only(top: 10),
                                 child: _EditorNotice(
                                   icon: Icons.restart_alt_rounded,
-                                  title: _gatewayText(
+                                  title: openHandLocalizedText(
                                     context,
                                     zh: '配置将等待重启生效',
                                     zhHant: '設定將等待重啟生效',
@@ -1390,7 +1368,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                                     de: 'Konfiguration wird nach Neustart wirksam',
                                     ja: '設定は再起動後に反映されます',
                                   ),
-                                  body: _gatewayText(
+                                  body: openHandLocalizedText(
                                     context,
                                     zh: '自动重载关闭后，本次保存只写入配置文件；运行中的 Web 服务会继续使用旧配置，直到手动重启服务或应用冷启动。',
                                     zhHant:
@@ -1424,7 +1402,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                       ),
                       const SizedBox(height: 18),
                       _SectionTitle(
-                        _gatewayText(
+                        openHandLocalizedText(
                           context,
                           zh: '基础信息',
                           zhHant: '基礎資訊',
@@ -1436,7 +1414,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                         icon: Icons.info_outline_rounded,
                       ),
                       _TextArea(
-                        label: _gatewayText(
+                        label: openHandLocalizedText(
                           context,
                           zh: '介绍',
                           zhHant: '介紹',
@@ -1451,7 +1429,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                         twoColumns: twoColumns,
                         children: [
                           _TextFieldSpec(
-                            label: _gatewayText(
+                            label: openHandLocalizedText(
                               context,
                               zh: '监听 IP 地址',
                               zhHant: '監聽 IP 位址',
@@ -1463,7 +1441,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                             controller: _hostController,
                           ),
                           _TextFieldSpec(
-                            label: _gatewayText(
+                            label: openHandLocalizedText(
                               context,
                               zh: '监听端口',
                               zhHant: '監聽連接埠',
@@ -1476,7 +1454,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                             keyboardType: TextInputType.number,
                           ),
                           _TextFieldSpec(
-                            label: _gatewayText(
+                            label: openHandLocalizedText(
                               context,
                               zh: '可接受并发数',
                               zhHant: '可接受並發數',
@@ -1489,7 +1467,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                             keyboardType: TextInputType.number,
                           ),
                           _TextFieldSpec(
-                            label: _gatewayText(
+                            label: openHandLocalizedText(
                               context,
                               zh: '单消息大小(tokens)',
                               zhHant: '單訊息大小(tokens)',
@@ -1502,7 +1480,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                             keyboardType: TextInputType.number,
                           ),
                           _TextFieldSpec(
-                            label: _gatewayText(
+                            label: openHandLocalizedText(
                               context,
                               zh: '单会话最大消息数',
                               zhHant: '單會話最大訊息數',
@@ -1519,7 +1497,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                       if (_authEnabled) ...[
                         const SizedBox(height: 18),
                         _SectionTitle(
-                          _gatewayText(
+                          openHandLocalizedText(
                             context,
                             zh: '鉴权',
                             zhHant: '鑑權',
@@ -1534,7 +1512,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                           twoColumns: twoColumns,
                           children: [
                             _TextFieldSpec(
-                              label: _gatewayText(
+                              label: openHandLocalizedText(
                                 context,
                                 zh: '用户名',
                                 zhHant: '使用者名稱',
@@ -1546,7 +1524,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                               controller: _usernameController,
                             ),
                             _TextFieldSpec(
-                              label: _gatewayText(
+                              label: openHandLocalizedText(
                                 context,
                                 zh: '密码',
                                 zhHant: '密碼',
@@ -1563,7 +1541,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                       ],
                       const SizedBox(height: 18),
                       _SectionTitle(
-                        _gatewayText(
+                        openHandLocalizedText(
                           context,
                           zh: '安全控制',
                           zhHant: '安全控制',
@@ -1575,7 +1553,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                         icon: Icons.shield_outlined,
                       ),
                       _MultiSelectDropdown<String>(
-                        label: _gatewayText(
+                        label: openHandLocalizedText(
                           context,
                           zh: '可新建的线程模板类型',
                           zhHant: '可新建的執行緒模板類型',
@@ -1594,7 +1572,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                         onChanged: (next) => setState(() => _templates = next),
                       ),
                       _MultiSelectDropdown<String>(
-                        label: _gatewayText(
+                        label: openHandLocalizedText(
                           context,
                           zh: '可用的技能',
                           zhHant: '可用的技能',
@@ -1613,7 +1591,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                         onChanged: (next) => setState(() => _skills = next),
                       ),
                       _MultiSelectDropdown<String>(
-                        label: _gatewayText(
+                        label: openHandLocalizedText(
                           context,
                           zh: '可用的 MCP',
                           zhHant: '可用的 MCP',
@@ -1632,7 +1610,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                         onChanged: (next) => setState(() => _mcpServers = next),
                       ),
                       _MultiSelectDropdown<String>(
-                        label: _gatewayText(
+                        label: openHandLocalizedText(
                           context,
                           zh: '可用的记忆',
                           zhHant: '可用的記憶',
@@ -1651,7 +1629,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                         onChanged: (next) => setState(() => _memories = next),
                       ),
                       _MultiSelectDropdown<String>(
-                        label: _gatewayText(
+                        label: openHandLocalizedText(
                           context,
                           zh: '可用的内建工具',
                           zhHant: '可用的內建工具',
@@ -1670,7 +1648,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                         onChanged: (next) => setState(() => _tools = next),
                       ),
                       _MultiSelectDropdown<String>(
-                        label: _gatewayText(
+                        label: openHandLocalizedText(
                           context,
                           zh: '可用的用户指令',
                           zhHant: '可用的使用者指令',
@@ -1688,7 +1666,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                               value: option.id,
                               label: option.enabled
                                   ? option.label
-                                  : '${option.label}（${_gatewayText(context, zh: '已禁用', zhHant: '已停用', en: 'disabled', fr: 'désactivé', de: 'deaktiviert', ja: '無効')}）',
+                                  : '${option.label}（${openHandLocalizedText(context, zh: '已禁用', zhHant: '已停用', en: 'disabled', fr: 'désactivé', de: 'deaktiviert', ja: '無効')}）',
                             ),
                         ],
                         selected: _instructions,
@@ -1696,7 +1674,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                             setState(() => _instructions = next),
                       ),
                       _EnumMultiSelectDropdown<WebGatewayMessageType>(
-                        label: _gatewayText(
+                        label: openHandLocalizedText(
                           context,
                           zh: '可发送的消息类型',
                           zhHant: '可傳送的訊息類型',
@@ -1712,7 +1690,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                             setState(() => _messageTypes = next),
                       ),
                       _EnumMultiSelectDropdown<WebGatewayConversationMode>(
-                        label: _gatewayText(
+                        label: openHandLocalizedText(
                           context,
                           zh: '可使用的对话模式',
                           zhHant: '可使用的對話模式',
@@ -1727,7 +1705,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                         onChanged: (next) => setState(() => _modes = next),
                       ),
                       _ModelMultiSelectField(
-                        label: _gatewayText(
+                        label: openHandLocalizedText(
                           context,
                           zh: '可使用的模型',
                           zhHant: '可使用的模型',
@@ -1743,7 +1721,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                       ),
                       const SizedBox(height: 18),
                       _SectionTitle(
-                        _gatewayText(
+                        openHandLocalizedText(
                           context,
                           zh: '项目文件',
                           zhHant: '專案檔案',
@@ -1758,7 +1736,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                         twoColumns: twoColumns,
                         children: [
                           _TextFieldSpec(
-                            label: _gatewayText(
+                            label: openHandLocalizedText(
                               context,
                               zh: '单文件最大(MB)',
                               zhHant: '單檔最大(MB)',
@@ -1771,7 +1749,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                             keyboardType: TextInputType.number,
                           ),
                           _TextFieldSpec(
-                            label: _gatewayText(
+                            label: openHandLocalizedText(
                               context,
                               zh: '允许扩展名(空=全部文本)',
                               zhHant: '允許副檔名(空=全部文字)',
@@ -1783,7 +1761,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                             controller: _workspaceFileExtensionsController,
                           ),
                           _TextFieldSpec(
-                            label: _gatewayText(
+                            label: openHandLocalizedText(
                               context,
                               zh: '上传缓存保留天数',
                               zhHant: '上傳快取保留天數',
@@ -1796,7 +1774,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                             keyboardType: TextInputType.number,
                           ),
                           _TextFieldSpec(
-                            label: _gatewayText(
+                            label: openHandLocalizedText(
                               context,
                               zh: '上传缓存上限(MB)',
                               zhHant: '上傳快取上限(MB)',
@@ -1812,7 +1790,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                       ),
                       const SizedBox(height: 18),
                       _SectionTitle(
-                        _gatewayText(
+                        openHandLocalizedText(
                           context,
                           zh: '健康检查',
                           zhHant: '健康檢查',
@@ -1824,7 +1802,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                         icon: Icons.monitor_heart_outlined,
                       ),
                       _SwitchTile(
-                        label: _gatewayText(
+                        label: openHandLocalizedText(
                           context,
                           zh: '是否跟随重定向',
                           zhHant: '是否跟隨重新導向',
@@ -1842,7 +1820,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                         twoColumns: twoColumns,
                         children: [
                           _TextFieldSpec(
-                            label: _gatewayText(
+                            label: openHandLocalizedText(
                               context,
                               zh: '请求 URL',
                               zhHant: '請求 URL',
@@ -1854,7 +1832,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                             controller: _healthPathController,
                           ),
                           _TextFieldSpec(
-                            label: _gatewayText(
+                            label: openHandLocalizedText(
                               context,
                               zh: '请求方式',
                               zhHant: '請求方式',
@@ -1866,7 +1844,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                             controller: _healthMethodController,
                           ),
                           _TextFieldSpec(
-                            label: _gatewayText(
+                            label: openHandLocalizedText(
                               context,
                               zh: '超时时间(ms)',
                               zhHant: '逾時時間(ms)',
@@ -1879,7 +1857,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                             keyboardType: TextInputType.number,
                           ),
                           _TextFieldSpec(
-                            label: _gatewayText(
+                            label: openHandLocalizedText(
                               context,
                               zh: '期望状态码',
                               zhHant: '期望狀態碼',
@@ -1892,7 +1870,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                             keyboardType: TextInputType.number,
                           ),
                           _TextFieldSpec(
-                            label: _gatewayText(
+                            label: openHandLocalizedText(
                               context,
                               zh: '响应断言包含',
                               zhHant: '回應斷言包含',
@@ -1904,7 +1882,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                             controller: _healthContainsController,
                           ),
                           _TextFieldSpec(
-                            label: _gatewayText(
+                            label: openHandLocalizedText(
                               context,
                               zh: '查询参数(k=v&k2=v2)',
                               zhHant: '查詢參數(k=v&k2=v2)',
@@ -1919,7 +1897,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                       ),
                       const SizedBox(height: 18),
                       _SectionTitle(
-                        _gatewayText(
+                        openHandLocalizedText(
                           context,
                           zh: '日志轮转',
                           zhHant: '日誌輪轉',
@@ -1934,7 +1912,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                         twoColumns: twoColumns,
                         children: [
                           _TextFieldSpec(
-                            label: _gatewayText(
+                            label: openHandLocalizedText(
                               context,
                               zh: '单日志最大(MB)',
                               zhHant: '單日誌最大(MB)',
@@ -1947,7 +1925,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                             keyboardType: TextInputType.number,
                           ),
                           _TextFieldSpec(
-                            label: _gatewayText(
+                            label: openHandLocalizedText(
                               context,
                               zh: '轮转天数',
                               zhHant: '輪轉天數',
@@ -1960,7 +1938,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                             keyboardType: TextInputType.number,
                           ),
                           _TextFieldSpec(
-                            label: _gatewayText(
+                            label: openHandLocalizedText(
                               context,
                               zh: '最多日志文件数',
                               zhHant: '最多日誌檔案數',
@@ -2002,7 +1980,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                           padding: const EdgeInsets.only(bottom: 12),
                           child: _EditorNotice(
                             icon: Icons.error_outline_rounded,
-                            title: _gatewayText(
+                            title: openHandLocalizedText(
                               context,
                               zh: '保存失败',
                               zhHant: '儲存失敗',
@@ -2020,7 +1998,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     OpenHandDialogActionButton.secondary(
-                      label: _gatewayText(
+                      label: openHandLocalizedText(
                         context,
                         zh: '取消',
                         zhHant: '取消',
@@ -2036,7 +2014,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                     const SizedBox(width: 12),
                     OpenHandDialogActionButton.primary(
                       label: _saving
-                          ? _gatewayText(
+                          ? openHandLocalizedText(
                               context,
                               zh: '保存中',
                               zhHant: '儲存中',
@@ -2045,7 +2023,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                               de: 'Speichern',
                               ja: '保存中',
                             )
-                          : _gatewayText(
+                          : openHandLocalizedText(
                               context,
                               zh: '保存配置',
                               zhHant: '儲存設定',
@@ -2237,7 +2215,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
         context,
         OpenHandSnackBar.error(
           context,
-          _gatewayText(
+          openHandLocalizedText(
             context,
             zh: '保存失败: $error',
             zhHant: '儲存失敗: $error',
@@ -2440,7 +2418,7 @@ class _AgentExposurePanel extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      _gatewayText(
+                      openHandLocalizedText(
                         context,
                         zh: '可暴露给 Web 的智能体',
                         zhHant: '可暴露給 Web 的智能體',
@@ -2458,7 +2436,7 @@ class _AgentExposurePanel extends StatelessWidget {
                     const SizedBox(height: 2),
                     Text(
                       options.isEmpty
-                          ? _gatewayText(
+                          ? openHandLocalizedText(
                               context,
                               zh: '暂无可用智能体',
                               zhHant: '暫無可用智能體',
@@ -2483,7 +2461,7 @@ class _AgentExposurePanel extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               _GatewayRoundIconActionButton(
-                tooltip: _gatewayText(
+                tooltip: openHandLocalizedText(
                   context,
                   zh: '全选',
                   zhHant: '全選',
@@ -2497,7 +2475,7 @@ class _AgentExposurePanel extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               _GatewayRoundIconActionButton(
-                tooltip: _gatewayText(
+                tooltip: openHandLocalizedText(
                   context,
                   zh: '全不选',
                   zhHant: '全不選',
@@ -2696,7 +2674,7 @@ class _WebGatewayConnectivityDialogState
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        _gatewayText(
+                        openHandLocalizedText(
                           context,
                           zh: '端口连通性测试',
                           zhHant: '連接埠連通性測試',
@@ -2709,7 +2687,7 @@ class _WebGatewayConnectivityDialogState
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        _gatewayText(
+                        openHandLocalizedText(
                           context,
                           zh: '逐一探测当前可用 IP + 端口入口的 /api/health',
                           zhHant: '逐一探測目前可用 IP + 連接埠入口的 /api/health',
@@ -2730,7 +2708,7 @@ class _WebGatewayConnectivityDialogState
                   runSpacing: 8,
                   children: [
                     IconButton.filledTonal(
-                      tooltip: _gatewayText(
+                      tooltip: openHandLocalizedText(
                         context,
                         zh: '复制结果 JSON',
                         zhHant: '複製結果 JSON',
@@ -2745,7 +2723,7 @@ class _WebGatewayConnectivityDialogState
                       icon: const Icon(Icons.content_copy_rounded),
                     ),
                     IconButton.filledTonal(
-                      tooltip: _gatewayText(
+                      tooltip: openHandLocalizedText(
                         context,
                         zh: '重新测试',
                         zhHant: '重新測試',
@@ -2763,7 +2741,7 @@ class _WebGatewayConnectivityDialogState
                           : const Icon(Icons.refresh_rounded),
                     ),
                     IconButton.filledTonal(
-                      tooltip: _gatewayText(
+                      tooltip: openHandLocalizedText(
                         context,
                         zh: '关闭',
                         zhHant: '關閉',
@@ -2808,7 +2786,7 @@ class _WebGatewayConnectivityDialogState
       context,
       OpenHandSnackBar.success(
         context,
-        _gatewayText(
+        openHandLocalizedText(
           context,
           zh: '连通性测试结果已复制',
           zhHant: '連通性測試結果已複製',
@@ -2836,7 +2814,7 @@ class _ConnectivityLoadingView extends StatelessWidget {
           const CircularProgressIndicator(),
           const SizedBox(height: 16),
           Text(
-            _gatewayText(
+            openHandLocalizedText(
               context,
               zh: '正在检测全部可访问入口',
               zhHant: '正在檢測全部可存取入口',
@@ -2849,7 +2827,7 @@ class _ConnectivityLoadingView extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            _gatewayText(
+            openHandLocalizedText(
               context,
               zh: '会按当前运行时 URL 顺序逐个探测并汇总结果',
               zhHant: '會依目前執行時 URL 順序逐個探測並彙總結果',
@@ -2880,7 +2858,7 @@ class _ConnectivityErrorView extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Text(
-          _gatewayText(
+          openHandLocalizedText(
             context,
             zh: '测试启动失败: $error',
             zhHant: '測試啟動失敗: $error',
@@ -2943,7 +2921,7 @@ class _ConnectivityResultView extends StatelessWidget {
                       Text(result.summary, style: theme.textTheme.titleMedium),
                       const SizedBox(height: 4),
                       Text(
-                        _gatewayText(
+                        openHandLocalizedText(
                           context,
                           zh: '${formatYearMonthDayHms(result.startedAt.toLocal())} · 总耗时 ${result.durationMs}ms',
                           zhHant:
@@ -2976,7 +2954,7 @@ class _ConnectivityResultView extends StatelessWidget {
                 physics: const NeverScrollableScrollPhysics(),
                 children: [
                   _MetricTile(
-                    label: _gatewayText(
+                    label: openHandLocalizedText(
                       context,
                       zh: '入口总数',
                       zhHant: '入口總數',
@@ -2988,7 +2966,7 @@ class _ConnectivityResultView extends StatelessWidget {
                     value: '${result.targets.length}',
                   ),
                   _MetricTile(
-                    label: _gatewayText(
+                    label: openHandLocalizedText(
                       context,
                       zh: '连通',
                       zhHant: '連通',
@@ -3000,7 +2978,7 @@ class _ConnectivityResultView extends StatelessWidget {
                     value: '${result.successCount}',
                   ),
                   _MetricTile(
-                    label: _gatewayText(
+                    label: openHandLocalizedText(
                       context,
                       zh: '失败',
                       zhHant: '失敗',
@@ -3012,7 +2990,7 @@ class _ConnectivityResultView extends StatelessWidget {
                     value: '${result.failureCount}',
                   ),
                   _MetricTile(
-                    label: _gatewayText(
+                    label: openHandLocalizedText(
                       context,
                       zh: '总耗时',
                       zhHant: '總耗時',
@@ -3029,7 +3007,7 @@ class _ConnectivityResultView extends StatelessWidget {
           ),
           const SizedBox(height: 18),
           _SectionTitle(
-            _gatewayText(
+            openHandLocalizedText(
               context,
               zh: '入口探测结果',
               zhHant: '入口探測結果',
@@ -3042,7 +3020,7 @@ class _ConnectivityResultView extends StatelessWidget {
           ),
           if (result.targets.isEmpty)
             Text(
-              _gatewayText(
+              openHandLocalizedText(
                 context,
                 zh: '当前服务没有可测试入口。请先启动 Web 通用消息平台服务。',
                 zhHant: '目前服務沒有可測試入口。請先啟動 Web 通用訊息平台服務。',
@@ -3063,7 +3041,7 @@ class _ConnectivityResultView extends StatelessWidget {
               ),
           const SizedBox(height: 18),
           _SectionTitle(
-            _gatewayText(
+            openHandLocalizedText(
               context,
               zh: '测试流程日志',
               zhHant: '測試流程日誌',
@@ -3084,7 +3062,7 @@ class _ConnectivityResultView extends StatelessWidget {
             ),
             child: SelectableText(
               result.logs.isEmpty
-                  ? _gatewayText(
+                  ? openHandLocalizedText(
                       context,
                       zh: '暂无流程日志',
                       zhHant: '暫無流程日誌',
@@ -3248,7 +3226,7 @@ class _StructuredResponsePreview extends StatelessWidget {
               ),
               const SizedBox(width: 6),
               Text(
-                _gatewayText(
+                openHandLocalizedText(
                   context,
                   zh: '响应数据',
                   zhHant: '回應資料',
@@ -3412,7 +3390,7 @@ class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog> {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    _gatewayText(
+                    openHandLocalizedText(
                       context,
                       zh: 'Web 服务日志',
                       zhHant: 'Web 服務日誌',
@@ -3429,7 +3407,7 @@ class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog> {
                   runSpacing: 8,
                   children: [
                     IconButton(
-                      tooltip: _gatewayText(
+                      tooltip: openHandLocalizedText(
                         context,
                         zh: '加载历史更多',
                         zhHant: '載入更多歷史',
@@ -3444,7 +3422,7 @@ class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog> {
                       icon: const Icon(Icons.history_rounded),
                     ),
                     IconButton(
-                      tooltip: _gatewayText(
+                      tooltip: openHandLocalizedText(
                         context,
                         zh: '加载最新日志',
                         zhHant: '載入最新日誌',
@@ -3458,7 +3436,7 @@ class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog> {
                     ),
                     IconButton(
                       tooltip: _follow
-                          ? _gatewayText(
+                          ? openHandLocalizedText(
                               context,
                               zh: '取消跟随',
                               zhHant: '取消跟隨',
@@ -3467,7 +3445,7 @@ class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog> {
                               de: 'Folgen beenden',
                               ja: '追従を停止',
                             )
-                          : _gatewayText(
+                          : openHandLocalizedText(
                               context,
                               zh: '跟随日志',
                               zhHant: '跟隨日誌',
@@ -3484,7 +3462,7 @@ class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog> {
                       ),
                     ),
                     IconButton(
-                      tooltip: _gatewayText(
+                      tooltip: openHandLocalizedText(
                         context,
                         zh: '保存日志到剪贴板',
                         zhHant: '儲存日誌到剪貼簿',
@@ -3497,7 +3475,7 @@ class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog> {
                       icon: const Icon(Icons.content_copy_rounded),
                     ),
                     IconButton(
-                      tooltip: _gatewayText(
+                      tooltip: openHandLocalizedText(
                         context,
                         zh: '导出当前日志',
                         zhHant: '匯出目前日誌',
@@ -3517,7 +3495,7 @@ class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog> {
                     // 清空终端：仅清除当前弹窗内的渲染项，
                     // 底层服务的日志环形缓冲与磁盘文件保持不变（类似 shell `clear`）。
                     IconButton(
-                      tooltip: _gatewayText(
+                      tooltip: openHandLocalizedText(
                         context,
                         zh: '清空终端（仅清除显示，不删除日志文件）',
                         zhHant: '清空終端（僅清除顯示，不刪除日誌檔案）',
@@ -3532,7 +3510,7 @@ class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog> {
                     // 日志级别多选菜单：取代原来顶部的 FilterChip 条，并走
                     // OpenHand 共用菜单转场，让 App / Web 服务面板的进退场手感一致。
                     AnimatedPopupMenuButton<WebGatewayLogLevel>(
-                      tooltip: _gatewayText(
+                      tooltip: openHandLocalizedText(
                         context,
                         zh: '日志级别筛选',
                         zhHant: '日誌級別篩選',
@@ -3558,7 +3536,7 @@ class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog> {
                           .toList(growable: false),
                     ),
                     IconButton(
-                      tooltip: _gatewayText(
+                      tooltip: openHandLocalizedText(
                         context,
                         zh: '关闭',
                         zhHant: '關閉',
@@ -3630,7 +3608,7 @@ class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog> {
       context,
       OpenHandSnackBar.success(
         context,
-        _gatewayText(
+        openHandLocalizedText(
           context,
           zh: '终端显示已清空，底层日志文件保持不变',
           zhHant: '終端顯示已清空，底層日誌檔案保持不變',
@@ -3753,7 +3731,7 @@ class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog> {
       context,
       OpenHandSnackBar.success(
         context,
-        _gatewayText(
+        openHandLocalizedText(
           context,
           zh: '日志已保存到剪贴板',
           zhHant: '日誌已儲存到剪貼簿',
@@ -3789,7 +3767,7 @@ class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog> {
         context,
         OpenHandSnackBar.success(
           context,
-          _gatewayText(
+          openHandLocalizedText(
             context,
             zh: '当前日志已导出到 ${location.path}',
             zhHant: '目前日誌已匯出到 ${location.path}',
@@ -3807,7 +3785,7 @@ class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog> {
         context,
         OpenHandSnackBar.error(
           context,
-          _gatewayText(
+          openHandLocalizedText(
             context,
             zh: '当前日志导出失败: $error',
             zhHant: '目前日誌匯出失敗: $error',
@@ -3920,7 +3898,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
         snapshot.state == WebGatewayRuntimeState.starting ||
         snapshot.state == WebGatewayRuntimeState.stopping;
     final serviceControlsDisabled = _isServiceActing || isTransitioning;
-    final startLabel = _gatewayText(
+    final startLabel = openHandLocalizedText(
       context,
       zh: '开启',
       zhHant: '開啟',
@@ -3929,7 +3907,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
       de: 'Starten',
       ja: '起動',
     );
-    final stopLabel = _gatewayText(
+    final stopLabel = openHandLocalizedText(
       context,
       zh: '关机',
       zhHant: '關機',
@@ -3938,7 +3916,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
       de: 'Stoppen',
       ja: '停止',
     );
-    final restartLabel = _gatewayText(
+    final restartLabel = openHandLocalizedText(
       context,
       zh: '重启',
       zhHant: '重啟',
@@ -3947,7 +3925,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
       de: 'Neustarten',
       ja: '再起動',
     );
-    final reloadLabel = _gatewayText(
+    final reloadLabel = openHandLocalizedText(
       context,
       zh: '配置重载',
       zhHant: '設定重載',
@@ -3956,7 +3934,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
       de: 'Konfiguration neu laden',
       ja: '設定を再読み込み',
     );
-    final hotFixLabel = _gatewayText(
+    final hotFixLabel = openHandLocalizedText(
       context,
       zh: '热修复',
       zhHant: '熱修復',
@@ -3965,7 +3943,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
       de: 'Hotfix',
       ja: 'ホットフィックス',
     );
-    final healthLabel = _gatewayText(
+    final healthLabel = openHandLocalizedText(
       context,
       zh: '健康诊断',
       zhHant: '健康診斷',
@@ -3974,7 +3952,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
       de: 'Integritätsdiagnose',
       ja: 'ヘルス診断',
     );
-    final expiredResourcesLabel = _gatewayText(
+    final expiredResourcesLabel = openHandLocalizedText(
       context,
       zh: '过期资源',
       zhHant: '過期資源',
@@ -3983,7 +3961,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
       de: 'Abgelaufene Ressourcen',
       ja: '期限切れリソース',
     );
-    final logsLabel = _gatewayText(
+    final logsLabel = openHandLocalizedText(
       context,
       zh: '日志',
       zhHant: '日誌',
@@ -3992,7 +3970,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
       de: 'Protokolle',
       ja: 'ログ',
     );
-    final uploadCacheLabel = _gatewayText(
+    final uploadCacheLabel = openHandLocalizedText(
       context,
       zh: '上传缓存',
       zhHant: '上傳快取',
@@ -4016,7 +3994,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    _gatewayText(
+                    openHandLocalizedText(
                       context,
                       zh: 'Web 服务运维',
                       zhHant: 'Web 服務維運',
@@ -4029,7 +4007,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                   ),
                 ),
                 IconButton(
-                  tooltip: _gatewayText(
+                  tooltip: openHandLocalizedText(
                     context,
                     zh: '关闭',
                     zhHant: '關閉',
@@ -4139,7 +4117,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                                   ),
                             icon: const Icon(Icons.cleaning_services_outlined),
                             label: Text(
-                              _gatewayText(
+                              openHandLocalizedText(
                                 context,
                                 zh: '清理过期',
                                 zhHant: '清理過期',
@@ -4154,7 +4132,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                             onPressed: _isCleaning
                                 ? null
                                 : () => _confirmAndCleanup(
-                                    title: _gatewayText(
+                                    title: openHandLocalizedText(
                                       context,
                                       zh: '清空日志',
                                       zhHant: '清空日誌',
@@ -4163,7 +4141,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                                       de: 'Protokolle leeren',
                                       ja: 'ログをクリア',
                                     ),
-                                    message: _gatewayText(
+                                    message: openHandLocalizedText(
                                       context,
                                       zh: '会清空内存日志和 Web 服务磁盘日志，保留策略不会保留当前内容。',
                                       zhHant:
@@ -4178,7 +4156,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                                   ),
                             icon: const Icon(Icons.delete_sweep_outlined),
                             label: Text(
-                              _gatewayText(
+                              openHandLocalizedText(
                                 context,
                                 zh: '清空日志',
                                 zhHant: '清空日誌',
@@ -4193,7 +4171,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                             onPressed: _isCleaning
                                 ? null
                                 : () => _confirmAndCleanup(
-                                    title: _gatewayText(
+                                    title: openHandLocalizedText(
                                       context,
                                       zh: '清空上传缓存',
                                       zhHant: '清空上傳快取',
@@ -4202,7 +4180,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                                       de: 'Upload-Cache leeren',
                                       ja: 'アップロードキャッシュをクリア',
                                     ),
-                                    message: _gatewayText(
+                                    message: openHandLocalizedText(
                                       context,
                                       zh: '会删除 Web 消息附件落盘缓存，不影响已经写入会话的消息记录。',
                                       zhHant: '會刪除 Web 訊息附件落盤快取，不影響已寫入會話的訊息記錄。',
@@ -4217,7 +4195,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                                   ),
                             icon: const Icon(Icons.folder_delete_outlined),
                             label: Text(
-                              _gatewayText(
+                              openHandLocalizedText(
                                 context,
                                 zh: '清空缓存',
                                 zhHant: '清空快取',
@@ -4244,7 +4222,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                           physics: const NeverScrollableScrollPhysics(),
                           children: [
                             _MetricTile(
-                              label: _gatewayText(
+                              label: openHandLocalizedText(
                                 context,
                                 zh: '运行状态',
                                 zhHant: '執行狀態',
@@ -4259,7 +4237,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                               ),
                             ),
                             _MetricTile(
-                              label: _gatewayText(
+                              label: openHandLocalizedText(
                                 context,
                                 zh: '运行时间',
                                 zhHant: '執行時間',
@@ -4277,7 +4255,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                                   : '${snapshot.cpuPercent!.toStringAsFixed(1)}%',
                             ),
                             _MetricTile(
-                              label: _gatewayText(
+                              label: openHandLocalizedText(
                                 context,
                                 zh: '线程数',
                                 zhHant: '執行緒數',
@@ -4291,7 +4269,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                                   _gatewayUnavailable(context),
                             ),
                             _MetricTile(
-                              label: _gatewayText(
+                              label: openHandLocalizedText(
                                 context,
                                 zh: '文件句柄',
                                 zhHant: '檔案句柄',
@@ -4311,7 +4289,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                                   : _bytes(snapshot.swapBytes!),
                             ),
                             _MetricTile(
-                              label: _gatewayText(
+                              label: openHandLocalizedText(
                                 context,
                                 zh: '内存',
                                 zhHant: '記憶體',
@@ -4323,7 +4301,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                               value: _bytes(snapshot.currentRssBytes),
                             ),
                             _MetricTile(
-                              label: _gatewayText(
+                              label: openHandLocalizedText(
                                 context,
                                 zh: '最大内存',
                                 zhHant: '最大記憶體',
@@ -4335,7 +4313,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                               value: _bytes(snapshot.maxRssBytes),
                             ),
                             _MetricTile(
-                              label: _gatewayText(
+                              label: openHandLocalizedText(
                                 context,
                                 zh: '日志磁盘',
                                 zhHant: '日誌磁碟',
@@ -4347,7 +4325,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                               value: _bytes(snapshot.logBytes),
                             ),
                             _MetricTile(
-                              label: _gatewayText(
+                              label: openHandLocalizedText(
                                 context,
                                 zh: '活动请求',
                                 zhHant: '活動請求',
@@ -4359,7 +4337,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                               value: '${snapshot.activeRequests}',
                             ),
                             _MetricTile(
-                              label: _gatewayText(
+                              label: openHandLocalizedText(
                                 context,
                                 zh: 'SSE 长连接',
                                 zhHant: 'SSE 長連線',
@@ -4371,7 +4349,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                               value: '${snapshot.activeSseSubscriptions}',
                             ),
                             _MetricTile(
-                              label: _gatewayText(
+                              label: openHandLocalizedText(
                                 context,
                                 zh: '总请求',
                                 zhHant: '總請求',
@@ -4383,7 +4361,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                               value: '${snapshot.totalRequests}',
                             ),
                             _MetricTile(
-                              label: _gatewayText(
+                              label: openHandLocalizedText(
                                 context,
                                 zh: '请求/min',
                                 zhHant: '請求/min',
@@ -4395,7 +4373,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                               value: _rate(snapshot.requestsPerMinute),
                             ),
                             _MetricTile(
-                              label: _gatewayText(
+                              label: openHandLocalizedText(
                                 context,
                                 zh: '错误数',
                                 zhHant: '錯誤數',
@@ -4407,7 +4385,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                               value: '${snapshot.totalErrors}',
                             ),
                             _MetricTile(
-                              label: _gatewayText(
+                              label: openHandLocalizedText(
                                 context,
                                 zh: '错误/min',
                                 zhHant: '錯誤/min',
@@ -4419,7 +4397,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                               value: _rate(snapshot.errorsPerMinute),
                             ),
                             _MetricTile(
-                              label: _gatewayText(
+                              label: openHandLocalizedText(
                                 context,
                                 zh: '入流量/min',
                                 zhHant: '入流量/min',
@@ -4431,7 +4409,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                               value: _bytes(snapshot.bytesInPerMinute.round()),
                             ),
                             _MetricTile(
-                              label: _gatewayText(
+                              label: openHandLocalizedText(
                                 context,
                                 zh: '出流量/min',
                                 zhHant: '出流量/min',
@@ -4443,7 +4421,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                               value: _bytes(snapshot.bytesOutPerMinute.round()),
                             ),
                             _MetricTile(
-                              label: _gatewayText(
+                              label: openHandLocalizedText(
                                 context,
                                 zh: '延迟 P95',
                                 zhHant: '延遲 P95',
@@ -4455,7 +4433,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                               value: '${snapshot.latencyStats.p95Ms}ms',
                             ),
                             _MetricTile(
-                              label: _gatewayText(
+                              label: openHandLocalizedText(
                                 context,
                                 zh: '延迟 P50',
                                 zhHant: '延遲 P50',
@@ -4467,7 +4445,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                               value: '${snapshot.latencyStats.p50Ms}ms',
                             ),
                             _MetricTile(
-                              label: _gatewayText(
+                              label: openHandLocalizedText(
                                 context,
                                 zh: '延迟 P99',
                                 zhHant: '延遲 P99',
@@ -4479,7 +4457,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                               value: '${snapshot.latencyStats.p99Ms}ms',
                             ),
                             _MetricTile(
-                              label: _gatewayText(
+                              label: openHandLocalizedText(
                                 context,
                                 zh: '延迟 MAX',
                                 zhHant: '延遲 MAX',
@@ -4491,7 +4469,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                               value: '${snapshot.latencyStats.maxMs}ms',
                             ),
                             _MetricTile(
-                              label: _gatewayText(
+                              label: openHandLocalizedText(
                                 context,
                                 zh: '延迟样本',
                                 zhHant: '延遲樣本',
@@ -4503,7 +4481,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                               value: '${snapshot.latencyStats.sampleCount}',
                             ),
                             _MetricTile(
-                              label: _gatewayText(
+                              label: openHandLocalizedText(
                                 context,
                                 zh: '累计入流量',
                                 zhHant: '累計入流量',
@@ -4515,7 +4493,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                               value: _bytes(snapshot.totalBytesIn),
                             ),
                             _MetricTile(
-                              label: _gatewayText(
+                              label: openHandLocalizedText(
                                 context,
                                 zh: '累计出流量',
                                 zhHant: '累計出流量',
@@ -4527,7 +4505,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                               value: _bytes(snapshot.totalBytesOut),
                             ),
                             _MetricTile(
-                              label: _gatewayText(
+                              label: openHandLocalizedText(
                                 context,
                                 zh: '崩溃数',
                                 zhHant: '崩潰數',
@@ -4539,7 +4517,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                               value: '${snapshot.crashCount}',
                             ),
                             _MetricTile(
-                              label: _gatewayText(
+                              label: openHandLocalizedText(
                                 context,
                                 zh: '重启数',
                                 zhHant: '重啟數',
@@ -4551,7 +4529,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                               value: '${snapshot.restartCount}',
                             ),
                             _MetricTile(
-                              label: _gatewayText(
+                              label: openHandLocalizedText(
                                 context,
                                 zh: '线程会话',
                                 zhHant: '執行緒會話',
@@ -4563,7 +4541,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                               value: '${snapshot.openSessionCount}',
                             ),
                             _MetricTile(
-                              label: _gatewayText(
+                              label: openHandLocalizedText(
                                 context,
                                 zh: '并发水位',
                                 zhHant: '並發水位',
@@ -4589,7 +4567,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                       maxColumns: 2,
                       children: [
                         _OpsBreakdownCard(
-                          title: _gatewayText(
+                          title: openHandLocalizedText(
                             context,
                             zh: 'HTTP 状态码分布',
                             zhHant: 'HTTP 狀態碼分布',
@@ -4601,7 +4579,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                           values: snapshot.statusCodeBreakdown,
                         ),
                         _OpsBreakdownCard(
-                          title: _gatewayText(
+                          title: openHandLocalizedText(
                             context,
                             zh: 'HTTP Method 分布',
                             zhHant: 'HTTP Method 分布',
@@ -4613,7 +4591,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                           values: snapshot.methodBreakdown,
                         ),
                         _OpsBreakdownCard(
-                          title: _gatewayText(
+                          title: openHandLocalizedText(
                             context,
                             zh: '延迟桶',
                             zhHant: '延遲桶',
@@ -4625,7 +4603,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                           values: snapshot.latencyBuckets,
                         ),
                         _OpsBreakdownCard(
-                          title: _gatewayText(
+                          title: openHandLocalizedText(
                             context,
                             zh: '发送阶段分布',
                             zhHant: '傳送階段分布',
@@ -4647,7 +4625,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                         _TopRoutesCard(routes: snapshot.topRoutes),
                         _RecentErrorsCard(errors: snapshot.recentErrors),
                         _OpsBreakdownCard(
-                          title: _gatewayText(
+                          title: openHandLocalizedText(
                             context,
                             zh: '日志级别分布',
                             zhHant: '日誌級別分布',
@@ -4657,7 +4635,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                             ja: 'ログレベル分布',
                           ),
                           values: snapshot.logLevelBreakdown,
-                          footer: _gatewayText(
+                          footer: openHandLocalizedText(
                             context,
                             zh: '${snapshot.memoryLogCount} 条内存日志',
                             zhHant: '${snapshot.memoryLogCount} 則記憶體日誌',
@@ -4672,7 +4650,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                     ),
                     const SizedBox(height: 18),
                     _SectionTitle(
-                      _gatewayText(
+                      openHandLocalizedText(
                         context,
                         zh: '吞吐趋势',
                         zhHant: '吞吐趨勢',
@@ -4695,7 +4673,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                           physics: const NeverScrollableScrollPhysics(),
                           children: [
                             _TrendLineChart(
-                              title: _gatewayText(
+                              title: openHandLocalizedText(
                                 context,
                                 zh: '请求/秒',
                                 zhHant: '請求/秒',
@@ -4712,7 +4690,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                                   value.toStringAsFixed(0),
                             ),
                             _TrendLineChart(
-                              title: _gatewayText(
+                              title: openHandLocalizedText(
                                 context,
                                 zh: '错误/秒',
                                 zhHant: '錯誤/秒',
@@ -4729,7 +4707,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                                   value.toStringAsFixed(0),
                             ),
                             _TrendLineChart(
-                              title: _gatewayText(
+                              title: openHandLocalizedText(
                                 context,
                                 zh: '活动请求',
                                 zhHant: '活動請求',
@@ -4747,7 +4725,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                                   value.toStringAsFixed(0),
                             ),
                             _TrendLineChart(
-                              title: _gatewayText(
+                              title: openHandLocalizedText(
                                 context,
                                 zh: 'P95 延迟',
                                 zhHant: 'P95 延遲',
@@ -4770,7 +4748,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                     ),
                     const SizedBox(height: 18),
                     _SectionTitle(
-                      _gatewayText(
+                      openHandLocalizedText(
                         context,
                         zh: '资源趋势',
                         zhHant: '資源趨勢',
@@ -4802,7 +4780,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                                   '${value.toStringAsFixed(1)}%',
                             ),
                             _TrendLineChart(
-                              title: _gatewayText(
+                              title: openHandLocalizedText(
                                 context,
                                 zh: '内存 RSS',
                                 zhHant: '記憶體 RSS',
@@ -4819,7 +4797,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                               valueFormatter: (value) => _bytes(value.round()),
                             ),
                             _TrendLineChart(
-                              title: _gatewayText(
+                              title: openHandLocalizedText(
                                 context,
                                 zh: '日志磁盘',
                                 zhHant: '日誌磁碟',
@@ -4835,7 +4813,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                               valueFormatter: (value) => _bytes(value.round()),
                             ),
                             _TrendLineChart(
-                              title: _gatewayText(
+                              title: openHandLocalizedText(
                                 context,
                                 zh: '线程数',
                                 zhHant: '執行緒數',
@@ -4852,7 +4830,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                                   value.toStringAsFixed(0),
                             ),
                             _TrendLineChart(
-                              title: _gatewayText(
+                              title: openHandLocalizedText(
                                 context,
                                 zh: '会话数',
                                 zhHant: '會話數',
@@ -4870,7 +4848,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                                   value.toStringAsFixed(0),
                             ),
                             _TrendLineChart(
-                              title: _gatewayText(
+                              title: openHandLocalizedText(
                                 context,
                                 zh: '入流量/min',
                                 zhHant: '入流量/min',
@@ -4892,7 +4870,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                     if (cleanupHistory.isNotEmpty) ...[
                       const SizedBox(height: 18),
                       _SectionTitle(
-                        _gatewayText(
+                        openHandLocalizedText(
                           context,
                           zh: '清理历史',
                           zhHant: '清理歷史',
@@ -4910,7 +4888,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                     if (snapshot.lastError.isNotEmpty) ...[
                       const SizedBox(height: 18),
                       _SectionTitle(
-                        _gatewayText(
+                        openHandLocalizedText(
                           context,
                           zh: '最近错误',
                           zhHant: '最近錯誤',
@@ -4943,7 +4921,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
       context: context,
       title: title,
       message: message,
-      cancelLabel: _gatewayText(
+      cancelLabel: openHandLocalizedText(
         context,
         zh: '取消',
         zhHant: '取消',
@@ -4952,7 +4930,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
         de: 'Abbrechen',
         ja: 'キャンセル',
       ),
-      confirmLabel: _gatewayText(
+      confirmLabel: openHandLocalizedText(
         context,
         zh: '确认清理',
         zhHant: '確認清理',
@@ -4981,7 +4959,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
         context,
         OpenHandSnackBar.success(
           context,
-          _gatewayText(
+          openHandLocalizedText(
             context,
             zh: '$label 已完成',
             zhHant: '$label 已完成',
@@ -4999,7 +4977,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
         context,
         OpenHandSnackBar.error(
           context,
-          _gatewayText(
+          openHandLocalizedText(
             context,
             zh: '$label 失败: $error',
             zhHant: '$label 失敗: $error',
@@ -5043,7 +5021,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
         context,
         OpenHandSnackBar.error(
           context,
-          _gatewayText(
+          openHandLocalizedText(
             context,
             zh: '健康诊断失败: $error',
             zhHant: '健康診斷失敗: $error',
@@ -5073,7 +5051,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
         context,
         OpenHandSnackBar.success(
           context,
-          _gatewayText(
+          openHandLocalizedText(
             context,
             zh: '$label清理完成，释放 ${_bytes(result.bytesFreed)}，删除 ${result.deletedFiles} 个文件',
             zhHant:
@@ -5092,7 +5070,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
         context,
         OpenHandSnackBar.error(
           context,
-          _gatewayText(
+          openHandLocalizedText(
             context,
             zh: '$label清理失败: $error',
             zhHant: '$label 清理失敗: $error',
@@ -5200,7 +5178,7 @@ class _AccessibleUrlsBar extends StatelessWidget {
       context,
       OpenHandSnackBar.success(
         context,
-        _gatewayText(
+        openHandLocalizedText(
           context,
           zh: '已复制 $url',
           zhHant: '已複製 $url',
@@ -5225,7 +5203,7 @@ class _AccessibleUrlsBar extends StatelessWidget {
           context,
           OpenHandSnackBar.error(
             context,
-            _gatewayText(
+            openHandLocalizedText(
               context,
               zh: '打开失败: $url',
               zhHant: '開啟失敗: $url',
@@ -5242,7 +5220,7 @@ class _AccessibleUrlsBar extends StatelessWidget {
         context,
         OpenHandSnackBar.info(
           context,
-          _gatewayText(
+          openHandLocalizedText(
             context,
             zh: '正在打开 $url',
             zhHant: '正在開啟 $url',
@@ -5260,7 +5238,7 @@ class _AccessibleUrlsBar extends StatelessWidget {
         context,
         OpenHandSnackBar.error(
           context,
-          _gatewayText(
+          openHandLocalizedText(
             context,
             zh: '打开失败: $error',
             zhHant: '開啟失敗: $error',
@@ -5286,7 +5264,7 @@ class _AccessibleUrlsBar extends StatelessWidget {
             Icon(Icons.lan_outlined, size: 16, color: cs.onSurfaceVariant),
             const SizedBox(width: 6),
             Text(
-              _gatewayText(
+              openHandLocalizedText(
                 context,
                 zh: '可访问 URL（复制 / 访问）',
                 zhHant: '可存取 URL（複製 / 存取）',
@@ -5348,7 +5326,7 @@ class _AccessibleUrlPill extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Tooltip(
-            message: _gatewayText(
+            message: openHandLocalizedText(
               context,
               zh: '复制地址',
               zhHant: '複製位址',
@@ -5386,7 +5364,7 @@ class _AccessibleUrlPill extends StatelessWidget {
             ),
           ),
           Tooltip(
-            message: _gatewayText(
+            message: openHandLocalizedText(
               context,
               zh: '浏览器访问',
               zhHant: '瀏覽器存取',
@@ -5582,7 +5560,7 @@ class _OpsHealthCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      _gatewayText(
+                      openHandLocalizedText(
                         context,
                         zh: '运行健康度',
                         zhHant: '執行健康度',
@@ -5636,7 +5614,7 @@ class _OpsHealthCard extends StatelessWidget {
           const SizedBox(height: 12),
           ...diagnosis.recommendations.map(
             (item) => _OpsKeyValue(
-              _gatewayText(
+              openHandLocalizedText(
                 context,
                 zh: '建议',
                 zhHant: '建議',
@@ -5650,7 +5628,7 @@ class _OpsHealthCard extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            _gatewayText(
+            openHandLocalizedText(
               context,
               zh: '阈值告警',
               zhHant: '閾值告警',
@@ -5666,7 +5644,7 @@ class _OpsHealthCard extends StatelessWidget {
           const SizedBox(height: 8),
           if (diagnosis.alerts.isEmpty)
             Text(
-              _gatewayText(
+              openHandLocalizedText(
                 context,
                 zh: '暂无触发阈值',
                 zhHant: '暫無觸發閾值',
@@ -5737,7 +5715,7 @@ class _OpsDiagnosis {
     final p99 = snapshot.latencyStats.p99Ms;
     final saturation = snapshot.activeRequestRatio;
     final logErrors = snapshot.logLevelBreakdown['error'] ?? 0;
-    final serviceStateLabel = _gatewayText(
+    final serviceStateLabel = openHandLocalizedText(
       context,
       zh: '服务状态',
       zhHant: '服務狀態',
@@ -5746,7 +5724,7 @@ class _OpsDiagnosis {
       de: 'Dienststatus',
       ja: 'サービス状態',
     );
-    final errorRateLabel = _gatewayText(
+    final errorRateLabel = openHandLocalizedText(
       context,
       zh: '错误率',
       zhHant: '錯誤率',
@@ -5755,7 +5733,7 @@ class _OpsDiagnosis {
       de: 'Fehlerrate',
       ja: 'エラー率',
     );
-    final errorsPerMinuteLabel = _gatewayText(
+    final errorsPerMinuteLabel = openHandLocalizedText(
       context,
       zh: '错误/min',
       zhHant: '錯誤/min',
@@ -5764,7 +5742,7 @@ class _OpsDiagnosis {
       de: 'Fehler/min',
       ja: 'エラー/min',
     );
-    final concurrencyLabel = _gatewayText(
+    final concurrencyLabel = openHandLocalizedText(
       context,
       zh: '并发水位',
       zhHant: '並發水位',
@@ -5773,7 +5751,7 @@ class _OpsDiagnosis {
       de: 'Parallelitätsniveau',
       ja: '同時実行水位',
     );
-    final p95LatencyLabel = _gatewayText(
+    final p95LatencyLabel = openHandLocalizedText(
       context,
       zh: 'P95 延迟',
       zhHant: 'P95 延遲',
@@ -5789,7 +5767,7 @@ class _OpsDiagnosis {
         _OpsDiagnosisAlert(serviceStateLabel, 'running', snapshot.state.name),
       );
       recommendations.add(
-        _gatewayText(
+        openHandLocalizedText(
           context,
           zh: '服务处于 crashed，优先查看最近错误和内存日志并重启服务。',
           zhHant: '服務處於 crashed，優先查看最近錯誤和記憶體日誌並重啟服務。',
@@ -5805,7 +5783,7 @@ class _OpsDiagnosis {
         _OpsDiagnosisAlert(serviceStateLabel, 'running', snapshot.state.name),
       );
       recommendations.add(
-        _gatewayText(
+        openHandLocalizedText(
           context,
           zh: '服务未处于 running，确认监听端口、鉴权配置和启动日志。',
           zhHant: '服務未處於 running，請確認監聽連接埠、鑑權設定和啟動日誌。',
@@ -5822,7 +5800,7 @@ class _OpsDiagnosis {
         _OpsDiagnosisAlert(errorRateLabel, '>= 5%', _percent(errorRate)),
       );
       recommendations.add(
-        _gatewayText(
+        openHandLocalizedText(
           context,
           zh: '错误率超过 5%，优先按最近错误路径定位 4xx/5xx 来源。',
           zhHant: '錯誤率超過 5%，優先按最近錯誤路徑定位 4xx/5xx 來源。',
@@ -5838,7 +5816,7 @@ class _OpsDiagnosis {
         _OpsDiagnosisAlert(errorRateLabel, '>= 1%', _percent(errorRate)),
       );
       recommendations.add(
-        _gatewayText(
+        openHandLocalizedText(
           context,
           zh: '错误率超过 1%，建议核对请求来源、模型服务和文件权限。',
           zhHant: '錯誤率超過 1%，建議核對請求來源、模型服務和檔案權限。',
@@ -5859,7 +5837,7 @@ class _OpsDiagnosis {
         ),
       );
       recommendations.add(
-        _gatewayText(
+        openHandLocalizedText(
           context,
           zh: '最近 1 分钟仍有错误增长，观察错误是否持续并检查对应路由。',
           zhHant: '最近 1 分鐘仍有錯誤增長，觀察錯誤是否持續並檢查對應路由。',
@@ -5876,7 +5854,7 @@ class _OpsDiagnosis {
         _OpsDiagnosisAlert(concurrencyLabel, '>= 85%', _percent(saturation)),
       );
       recommendations.add(
-        _gatewayText(
+        openHandLocalizedText(
           context,
           zh: '并发水位接近上限，建议降低长连接/轮询压力或提高并发限制。',
           zhHant: '並發水位接近上限，建議降低長連線/輪詢壓力或提高並發限制。',
@@ -5892,7 +5870,7 @@ class _OpsDiagnosis {
         _OpsDiagnosisAlert(concurrencyLabel, '>= 60%', _percent(saturation)),
       );
       recommendations.add(
-        _gatewayText(
+        openHandLocalizedText(
           context,
           zh: '并发水位偏高，继续观察请求排队和 SSE 连接数。',
           zhHant: '並發水位偏高，繼續觀察請求排隊和 SSE 連線數。',
@@ -5907,7 +5885,7 @@ class _OpsDiagnosis {
       score -= 15;
       alerts.add(_OpsDiagnosisAlert(p95LatencyLabel, '>= 3000ms', '${p95}ms'));
       recommendations.add(
-        _gatewayText(
+        openHandLocalizedText(
           context,
           zh: 'P95 延迟超过 3s，建议检查慢路由、上游模型和文件 IO。',
           zhHant: 'P95 延遲超過 3s，建議檢查慢路由、上游模型和檔案 IO。',
@@ -5921,7 +5899,7 @@ class _OpsDiagnosis {
       score -= 8;
       alerts.add(_OpsDiagnosisAlert(p95LatencyLabel, '>= 1000ms', '${p95}ms'));
       recommendations.add(
-        _gatewayText(
+        openHandLocalizedText(
           context,
           zh: 'P95 延迟超过 1s，可结合 Top Routes 排查热点路径。',
           zhHant: 'P95 延遲超過 1s，可結合 Top Routes 排查熱點路徑。',
@@ -5939,7 +5917,7 @@ class _OpsDiagnosis {
       );
       alerts.add(
         _OpsDiagnosisAlert(
-          _gatewayText(
+          openHandLocalizedText(
             context,
             zh: '崩溃/重启',
             zhHant: '崩潰/重啟',
@@ -5957,7 +5935,7 @@ class _OpsDiagnosis {
       score -= math.min(10, logErrors);
       alerts.add(
         _OpsDiagnosisAlert(
-          _gatewayText(
+          openHandLocalizedText(
             context,
             zh: '错误日志',
             zhHant: '錯誤日誌',
@@ -5973,7 +5951,7 @@ class _OpsDiagnosis {
     }
     if (recommendations.isEmpty) {
       recommendations.add(
-        _gatewayText(
+        openHandLocalizedText(
           context,
           zh: '当前核心信号平稳，保持自动刷新并关注错误率、P95 延迟和并发水位。',
           zhHant: '目前核心信號平穩，保持自動刷新並關注錯誤率、P95 延遲和並發水位。',
@@ -5991,7 +5969,7 @@ class _OpsDiagnosis {
         ? _OpsDiagnosisTone.warn
         : _OpsDiagnosisTone.error;
     final label = switch (tone) {
-      _OpsDiagnosisTone.ok => _gatewayText(
+      _OpsDiagnosisTone.ok => openHandLocalizedText(
         context,
         zh: '健康',
         zhHant: '健康',
@@ -6000,7 +5978,7 @@ class _OpsDiagnosis {
         de: 'Gesund',
         ja: '正常',
       ),
-      _OpsDiagnosisTone.warn => _gatewayText(
+      _OpsDiagnosisTone.warn => openHandLocalizedText(
         context,
         zh: '需关注',
         zhHant: '需關注',
@@ -6009,7 +5987,7 @@ class _OpsDiagnosis {
         de: 'Beobachten',
         ja: '要注意',
       ),
-      _OpsDiagnosisTone.error => _gatewayText(
+      _OpsDiagnosisTone.error => openHandLocalizedText(
         context,
         zh: '异常',
         zhHant: '異常',
@@ -6067,7 +6045,7 @@ class _OpsSummaryCard extends StatelessWidget {
               const Icon(Icons.monitor_heart_outlined, size: 18),
               const SizedBox(width: 8),
               Text(
-                _gatewayText(
+                openHandLocalizedText(
                   context,
                   zh: '核心信号',
                   zhHant: '核心信號',
@@ -6086,7 +6064,7 @@ class _OpsSummaryCard extends StatelessWidget {
             runSpacing: 8,
             children: [
               _OpsPill(
-                _gatewayText(
+                openHandLocalizedText(
                   context,
                   zh: '流量',
                   zhHant: '流量',
@@ -6095,7 +6073,7 @@ class _OpsSummaryCard extends StatelessWidget {
                   de: 'Traffic',
                   ja: 'トラフィック',
                 ),
-                _gatewayText(
+                openHandLocalizedText(
                   context,
                   zh: '${_rate(snapshot.requestsPerMinute)} 请求/min',
                   zhHant: '${_rate(snapshot.requestsPerMinute)} 請求/min',
@@ -6106,7 +6084,7 @@ class _OpsSummaryCard extends StatelessWidget {
                 ),
               ),
               _OpsPill(
-                _gatewayText(
+                openHandLocalizedText(
                   context,
                   zh: '错误',
                   zhHant: '錯誤',
@@ -6115,7 +6093,7 @@ class _OpsSummaryCard extends StatelessWidget {
                   de: 'Fehler',
                   ja: 'エラー',
                 ),
-                _gatewayText(
+                openHandLocalizedText(
                   context,
                   zh: '${_rate(snapshot.errorsPerMinute)} 错误/min',
                   zhHant: '${_rate(snapshot.errorsPerMinute)} 錯誤/min',
@@ -6126,7 +6104,7 @@ class _OpsSummaryCard extends StatelessWidget {
                 ),
               ),
               _OpsPill(
-                _gatewayText(
+                openHandLocalizedText(
                   context,
                   zh: '延迟',
                   zhHant: '延遲',
@@ -6135,7 +6113,7 @@ class _OpsSummaryCard extends StatelessWidget {
                   de: 'Latenz',
                   ja: 'レイテンシ',
                 ),
-                _gatewayText(
+                openHandLocalizedText(
                   context,
                   zh: '平均 ${snapshot.latencyStats.avgMs}ms / p95 ${snapshot.latencyStats.p95Ms}ms / p99 ${snapshot.latencyStats.p99Ms}ms',
                   zhHant:
@@ -6147,7 +6125,7 @@ class _OpsSummaryCard extends StatelessWidget {
                 ),
               ),
               _OpsPill(
-                _gatewayText(
+                openHandLocalizedText(
                   context,
                   zh: '饱和度',
                   zhHant: '飽和度',
@@ -6156,7 +6134,7 @@ class _OpsSummaryCard extends StatelessWidget {
                   de: 'Sättigung',
                   ja: '飽和度',
                 ),
-                _gatewayText(
+                openHandLocalizedText(
                   context,
                   zh: '${snapshot.activeRequests}/${snapshot.maxConcurrentRequests} 活动 · ${_percent(snapshot.activeRequestRatio)}',
                   zhHant:
@@ -6171,7 +6149,7 @@ class _OpsSummaryCard extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           _OpsKeyValue(
-            _gatewayText(
+            openHandLocalizedText(
               context,
               zh: '绑定地址',
               zhHant: '綁定位址',
@@ -6181,7 +6159,7 @@ class _OpsSummaryCard extends StatelessWidget {
               ja: 'バインドアドレス',
             ),
             snapshot.boundUrl.isEmpty
-                ? _gatewayText(
+                ? openHandLocalizedText(
                     context,
                     zh: '未监听',
                     zhHant: '未監聽',
@@ -6193,7 +6171,7 @@ class _OpsSummaryCard extends StatelessWidget {
                 : snapshot.boundUrl,
           ),
           _OpsKeyValue(
-            _gatewayText(
+            openHandLocalizedText(
               context,
               zh: '可访问 URL',
               zhHant: '可存取 URL',
@@ -6203,7 +6181,7 @@ class _OpsSummaryCard extends StatelessWidget {
               ja: 'アクセス可能なURL',
             ),
             snapshot.accessibleUrls.isEmpty
-                ? _gatewayText(
+                ? openHandLocalizedText(
                     context,
                     zh: '暂无',
                     zhHant: '暫無',
@@ -6215,7 +6193,7 @@ class _OpsSummaryCard extends StatelessWidget {
                 : snapshot.accessibleUrls.join(' / '),
           ),
           _OpsKeyValue(
-            _gatewayText(
+            openHandLocalizedText(
               context,
               zh: '主机 / Dart',
               zhHant: '主機 / Dart',
@@ -6228,7 +6206,7 @@ class _OpsSummaryCard extends StatelessWidget {
           ),
           if (slow != null)
             _OpsKeyValue(
-              _gatewayText(
+              openHandLocalizedText(
                 context,
                 zh: '近期最慢请求',
                 zhHant: '近期最慢請求',
@@ -6272,7 +6250,7 @@ class _OpsBreakdownCard extends StatelessWidget {
           const SizedBox(height: 10),
           if (entries.isEmpty)
             Text(
-              _gatewayText(
+              openHandLocalizedText(
                 context,
                 zh: '暂无样本',
                 zhHant: '暫無樣本',
@@ -6370,7 +6348,7 @@ class _TopRoutesCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            _gatewayText(
+            openHandLocalizedText(
               context,
               zh: '高频路由',
               zhHant: '高頻路由',
@@ -6384,7 +6362,7 @@ class _TopRoutesCard extends StatelessWidget {
           const SizedBox(height: 10),
           if (routes.isEmpty)
             Text(
-              _gatewayText(
+              openHandLocalizedText(
                 context,
                 zh: '暂无路由样本',
                 zhHant: '暫無路由樣本',
@@ -6403,7 +6381,7 @@ class _TopRoutesCard extends StatelessWidget {
                 .map(
                   (entry) => _OpsKeyValue(
                     entry.key,
-                    _gatewayText(
+                    openHandLocalizedText(
                       context,
                       zh: '${entry.value} 次',
                       zhHant: '${entry.value} 次',
@@ -6435,7 +6413,7 @@ class _RecentErrorsCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            _gatewayText(
+            openHandLocalizedText(
               context,
               zh: '近期错误请求',
               zhHant: '近期錯誤請求',
@@ -6449,7 +6427,7 @@ class _RecentErrorsCard extends StatelessWidget {
           const SizedBox(height: 10),
           if (errors.isEmpty)
             Text(
-              _gatewayText(
+              openHandLocalizedText(
                 context,
                 zh: '暂无 4xx/5xx 请求',
                 zhHant: '暫無 4xx/5xx 請求',
@@ -6491,7 +6469,7 @@ class _ResourceInventoryCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            _gatewayText(
+            openHandLocalizedText(
               context,
               zh: 'Web 可见资源',
               zhHant: 'Web 可見資源',
@@ -6508,7 +6486,7 @@ class _ResourceInventoryCard extends StatelessWidget {
             runSpacing: 8,
             children: [
               _OpsPill(
-                _gatewayText(
+                openHandLocalizedText(
                   context,
                   zh: '模型',
                   zhHant: '模型',
@@ -6520,7 +6498,7 @@ class _ResourceInventoryCard extends StatelessWidget {
                 '${snapshot.allowedModelCount}',
               ),
               _OpsPill(
-                _gatewayText(
+                openHandLocalizedText(
                   context,
                   zh: '供应商',
                   zhHant: '供應商',
@@ -6532,7 +6510,7 @@ class _ResourceInventoryCard extends StatelessWidget {
                 '${snapshot.modelProviderCount}',
               ),
               _OpsPill(
-                _gatewayText(
+                openHandLocalizedText(
                   context,
                   zh: '模板',
                   zhHant: '模板',
@@ -6544,7 +6522,7 @@ class _ResourceInventoryCard extends StatelessWidget {
                 '${snapshot.templateCount}',
               ),
               _OpsPill(
-                _gatewayText(
+                openHandLocalizedText(
                   context,
                   zh: '定时任务',
                   zhHant: '定時任務',
@@ -6556,7 +6534,7 @@ class _ResourceInventoryCard extends StatelessWidget {
                 '${snapshot.cronEnabledCount}/${snapshot.cronTotalCount}',
               ),
               _OpsPill(
-                _gatewayText(
+                openHandLocalizedText(
                   context,
                   zh: '记忆',
                   zhHant: '記憶',
@@ -6573,7 +6551,7 @@ class _ResourceInventoryCard extends StatelessWidget {
               ),
               _OpsPill('SSE', '${snapshot.activeSseSubscriptions}'),
               _OpsPill(
-                _gatewayText(
+                openHandLocalizedText(
                   context,
                   zh: '会话',
                   zhHant: '會話',
@@ -6898,7 +6876,7 @@ class _MultiSelectDropdownState<T> extends State<_MultiSelectDropdown<T>> {
 
   String _summary(BuildContext context) {
     if (_isExplicitNone(widget.selected, widget.noneValue)) {
-      return _gatewayText(
+      return openHandLocalizedText(
         context,
         zh: '全部不可用',
         zhHant: '全部不可用',
@@ -6909,7 +6887,7 @@ class _MultiSelectDropdownState<T> extends State<_MultiSelectDropdown<T>> {
       );
     }
     if (widget.emptyMeansAll && widget.selected.isEmpty) {
-      return _gatewayText(
+      return openHandLocalizedText(
         context,
         zh: '全部可用',
         zhHant: '全部可用',
@@ -6920,7 +6898,7 @@ class _MultiSelectDropdownState<T> extends State<_MultiSelectDropdown<T>> {
       );
     }
     if (widget.selected.isEmpty) {
-      return _gatewayText(
+      return openHandLocalizedText(
         context,
         zh: '未选择',
         zhHant: '未選擇',
@@ -6936,7 +6914,7 @@ class _MultiSelectDropdownState<T> extends State<_MultiSelectDropdown<T>> {
         .toList(growable: false);
     final separator = _gatewayListSeparator(context);
     if (labels.length <= 2) return labels.join(separator);
-    return _gatewayText(
+    return openHandLocalizedText(
       context,
       zh: '${labels.take(2).join(separator)} 等 ${labels.length} 项',
       zhHant: '${labels.take(2).join(separator)} 等 ${labels.length} 項',
@@ -7039,7 +7017,7 @@ class _MultiSelectDropdownMenuState<T>
     final selectedCount = effectiveSelected.length;
     final scopeText = query.isEmpty
         ? _gatewayScopeAll(context)
-        : _gatewayText(
+        : openHandLocalizedText(
             context,
             zh: '当前筛选 ${filtered.length} 项',
             zhHant: '目前篩選 ${filtered.length} 項',
@@ -7120,7 +7098,7 @@ class _MultiSelectDropdownMenuState<T>
                       const SizedBox(width: 8),
                       _GatewayRoundIconActionButton(
                         tooltip: query.isEmpty
-                            ? _gatewayText(
+                            ? openHandLocalizedText(
                                 context,
                                 zh: '全选',
                                 zhHant: '全選',
@@ -7129,7 +7107,7 @@ class _MultiSelectDropdownMenuState<T>
                                 de: 'Alle auswählen',
                                 ja: 'すべて選択',
                               )
-                            : _gatewayText(
+                            : openHandLocalizedText(
                                 context,
                                 zh: '当前筛选全选',
                                 zhHant: '目前篩選全選',
@@ -7146,7 +7124,7 @@ class _MultiSelectDropdownMenuState<T>
                       const SizedBox(width: 8),
                       _GatewayRoundIconActionButton(
                         tooltip: query.isEmpty
-                            ? _gatewayText(
+                            ? openHandLocalizedText(
                                 context,
                                 zh: '全不选',
                                 zhHant: '全不選',
@@ -7155,7 +7133,7 @@ class _MultiSelectDropdownMenuState<T>
                                 de: 'Alle abwählen',
                                 ja: 'すべて解除',
                               )
-                            : _gatewayText(
+                            : openHandLocalizedText(
                                 context,
                                 zh: '当前筛选全不选',
                                 zhHant: '目前篩選全不選',
@@ -7183,7 +7161,7 @@ class _MultiSelectDropdownMenuState<T>
                         alpha: 0.58,
                       ),
                       prefixIcon: const Icon(Icons.search_rounded, size: 18),
-                      hintText: _gatewayText(
+                      hintText: openHandLocalizedText(
                         context,
                         zh: '搜索',
                         zhHant: '搜尋',
@@ -7209,7 +7187,7 @@ class _MultiSelectDropdownMenuState<T>
                       suffixIcon: _searchController.text.isEmpty
                           ? null
                           : IconButton(
-                              tooltip: _gatewayText(
+                              tooltip: openHandLocalizedText(
                                 context,
                                 zh: '清空搜索',
                                 zhHant: '清空搜尋',
@@ -7229,7 +7207,7 @@ class _MultiSelectDropdownMenuState<T>
                   child: filtered.isEmpty
                       ? Center(
                           child: Text(
-                            _gatewayText(
+                            openHandLocalizedText(
                               context,
                               zh: '没有匹配项',
                               zhHant: '沒有符合項目',
@@ -7291,7 +7269,7 @@ class _MultiSelectDropdownMenuState<T>
                       Expanded(
                         child: Text(
                           query.isEmpty
-                              ? _gatewayText(
+                              ? openHandLocalizedText(
                                   context,
                                   zh: '对全部条目生效',
                                   zhHant: '對全部項目生效',
@@ -7300,7 +7278,7 @@ class _MultiSelectDropdownMenuState<T>
                                   de: 'Gilt für alle Einträge',
                                   ja: 'すべての項目に適用',
                                 )
-                              : _gatewayText(
+                              : openHandLocalizedText(
                                   context,
                                   zh: '仅对当前筛选结果生效',
                                   zhHant: '僅對目前篩選結果生效',
@@ -7318,7 +7296,7 @@ class _MultiSelectDropdownMenuState<T>
                         onPressed: _applyAndClose,
                         icon: const Icon(Icons.check_rounded, size: 18),
                         label: Text(
-                          _gatewayText(
+                          openHandLocalizedText(
                             context,
                             zh: '完成',
                             zhHant: '完成',
@@ -7411,10 +7389,10 @@ class _MultiSelectDropdownMenuState<T>
     String scope,
   ) {
     if (_isExplicitNone(_selected, widget.noneValue)) {
-      return '$scope · ${_gatewayText(context, zh: '全部不可用', zhHant: '全部不可用', en: 'All unavailable', fr: 'Tout indisponible', de: 'Alle nicht verfügbar', ja: 'すべて利用不可')}';
+      return '$scope · ${openHandLocalizedText(context, zh: '全部不可用', zhHant: '全部不可用', en: 'All unavailable', fr: 'Tout indisponible', de: 'Alle nicht verfügbar', ja: 'すべて利用不可')}';
     }
     if (widget.emptyMeansAll && _selected.isEmpty) {
-      return '$scope · ${_gatewayText(context, zh: '全部可用', zhHant: '全部可用', en: 'All available', fr: 'Tout disponible', de: 'Alle verfügbar', ja: 'すべて利用可能')}';
+      return '$scope · ${openHandLocalizedText(context, zh: '全部可用', zhHant: '全部可用', en: 'All available', fr: 'Tout disponible', de: 'Alle verfügbar', ja: 'すべて利用可能')}';
     }
     return '$scope · ${_gatewaySelectedCount(context, selectedCount, totalCount)}';
   }
@@ -7654,7 +7632,7 @@ class _ModelMultiSelectDialogState extends State<_ModelMultiSelectDialog> {
     final totalKeys = _allModelKeys();
     final effectiveSelected = _effectiveSelectedModelKeys();
     final scopeText = query.isEmpty
-        ? _gatewayText(
+        ? openHandLocalizedText(
             context,
             zh: '全部模型',
             zhHant: '全部模型',
@@ -7663,7 +7641,7 @@ class _ModelMultiSelectDialogState extends State<_ModelMultiSelectDialog> {
             de: 'Alle Modelle',
             ja: 'すべてのモデル',
           )
-        : _gatewayText(
+        : openHandLocalizedText(
             context,
             zh: '当前筛选 ${filtered.length} 个模型',
             zhHant: '目前篩選 ${filtered.length} 個模型',
@@ -7704,7 +7682,7 @@ class _ModelMultiSelectDialogState extends State<_ModelMultiSelectDialog> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        _gatewayText(
+                        openHandLocalizedText(
                           context,
                           zh: '选择可用模型',
                           zhHant: '選擇可用模型',
@@ -7730,7 +7708,7 @@ class _ModelMultiSelectDialogState extends State<_ModelMultiSelectDialog> {
                 const SizedBox(width: 8),
                 _GatewayRoundIconActionButton(
                   tooltip: query.isEmpty
-                      ? _gatewayText(
+                      ? openHandLocalizedText(
                           context,
                           zh: '全选',
                           zhHant: '全選',
@@ -7739,7 +7717,7 @@ class _ModelMultiSelectDialogState extends State<_ModelMultiSelectDialog> {
                           de: 'Alle auswählen',
                           ja: 'すべて選択',
                         )
-                      : _gatewayText(
+                      : openHandLocalizedText(
                           context,
                           zh: '当前筛选全选',
                           zhHant: '目前篩選全選',
@@ -7756,7 +7734,7 @@ class _ModelMultiSelectDialogState extends State<_ModelMultiSelectDialog> {
                 const SizedBox(width: 8),
                 _GatewayRoundIconActionButton(
                   tooltip: query.isEmpty
-                      ? _gatewayText(
+                      ? openHandLocalizedText(
                           context,
                           zh: '全不选',
                           zhHant: '全不選',
@@ -7765,7 +7743,7 @@ class _ModelMultiSelectDialogState extends State<_ModelMultiSelectDialog> {
                           de: 'Alle abwählen',
                           ja: 'すべて解除',
                         )
-                      : _gatewayText(
+                      : openHandLocalizedText(
                           context,
                           zh: '当前筛选全不选',
                           zhHant: '目前篩選全不選',
@@ -7781,7 +7759,7 @@ class _ModelMultiSelectDialogState extends State<_ModelMultiSelectDialog> {
                 ),
                 const SizedBox(width: 8),
                 IconButton(
-                  tooltip: _gatewayText(
+                  tooltip: openHandLocalizedText(
                     context,
                     zh: '关闭',
                     zhHant: '關閉',
@@ -7807,7 +7785,7 @@ class _ModelMultiSelectDialogState extends State<_ModelMultiSelectDialog> {
                   alpha: 0.58,
                 ),
                 prefixIcon: const Icon(Icons.search_rounded),
-                hintText: _gatewayText(
+                hintText: openHandLocalizedText(
                   context,
                   zh: '搜索模型',
                   zhHant: '搜尋模型',
@@ -7828,7 +7806,7 @@ class _ModelMultiSelectDialogState extends State<_ModelMultiSelectDialog> {
                 suffixIcon: _searchController.text.isEmpty
                     ? null
                     : IconButton(
-                        tooltip: _gatewayText(
+                        tooltip: openHandLocalizedText(
                           context,
                           zh: '清空搜索',
                           zhHant: '清空搜尋',
@@ -7848,7 +7826,7 @@ class _ModelMultiSelectDialogState extends State<_ModelMultiSelectDialog> {
             child: filtered.isEmpty
                 ? Center(
                     child: Text(
-                      _gatewayText(
+                      openHandLocalizedText(
                         context,
                         zh: '没有匹配的模型',
                         zhHant: '沒有符合的模型',
@@ -7898,7 +7876,7 @@ class _ModelMultiSelectDialogState extends State<_ModelMultiSelectDialog> {
                               ),
                               const SizedBox(width: 10),
                               _GatewayRoundIconActionButton(
-                                tooltip: _gatewayText(
+                                tooltip: openHandLocalizedText(
                                   context,
                                   zh: '本服务商全选',
                                   zhHant: '本供應商全選',
@@ -7914,7 +7892,7 @@ class _ModelMultiSelectDialogState extends State<_ModelMultiSelectDialog> {
                               ),
                               const SizedBox(width: 8),
                               _GatewayRoundIconActionButton(
-                                tooltip: _gatewayText(
+                                tooltip: openHandLocalizedText(
                                   context,
                                   zh: '本服务商全不选',
                                   zhHant: '本供應商全不選',
@@ -7979,7 +7957,7 @@ class _ModelMultiSelectDialogState extends State<_ModelMultiSelectDialog> {
                 ),
                 const SizedBox(width: 12),
                 OpenHandDialogActionButton.primary(
-                  label: _gatewayText(
+                  label: openHandLocalizedText(
                     context,
                     zh: '完成',
                     zhHant: '完成',
@@ -8059,7 +8037,7 @@ class _ModelMultiSelectDialogState extends State<_ModelMultiSelectDialog> {
     int totalCount,
   ) {
     if (_selected.contains(webGatewayDenyAllSelectionMarker)) {
-      return _gatewayText(
+      return openHandLocalizedText(
         context,
         zh: '全部不可用',
         zhHant: '全部不可用',
@@ -8070,7 +8048,7 @@ class _ModelMultiSelectDialogState extends State<_ModelMultiSelectDialog> {
       );
     }
     if (widget.emptyMeansAll && _selected.isEmpty) {
-      return _gatewayText(
+      return openHandLocalizedText(
         context,
         zh: '全部可用',
         zhHant: '全部可用',
@@ -8195,14 +8173,14 @@ class _CleanupHistoryLine extends StatelessWidget {
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              '${_cleanupTargetLabel(context, entry.target)} · ${entry.expiredOnly ? _gatewayText(context, zh: '保留策略', zhHant: '保留策略', en: 'Retention policy', fr: 'Politique de rétention', de: 'Aufbewahrungsregel', ja: '保持ポリシー') : _gatewayText(context, zh: '手动清理', zhHant: '手動清理', en: 'Manual cleanup', fr: 'Nettoyage manuel', de: 'Manuelle Bereinigung', ja: '手動クリーンアップ')} · ${formatYearMonthDayHms(entry.timestamp.toLocal())}',
+              '${_cleanupTargetLabel(context, entry.target)} · ${entry.expiredOnly ? openHandLocalizedText(context, zh: '保留策略', zhHant: '保留策略', en: 'Retention policy', fr: 'Politique de rétention', de: 'Aufbewahrungsregel', ja: '保持ポリシー') : openHandLocalizedText(context, zh: '手动清理', zhHant: '手動清理', en: 'Manual cleanup', fr: 'Nettoyage manuel', de: 'Manuelle Bereinigung', ja: '手動クリーンアップ')} · ${formatYearMonthDayHms(entry.timestamp.toLocal())}',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
           ),
           const SizedBox(width: 10),
           Text(
-            _gatewayText(
+            openHandLocalizedText(
               context,
               zh: '${entry.deletedFiles} 文件 / ${_bytes(entry.bytesFreed)}',
               zhHant: '${entry.deletedFiles} 個檔案 / ${_bytes(entry.bytesFreed)}',
@@ -8289,7 +8267,7 @@ class _TrendLineChartState extends State<_TrendLineChart> {
                 ),
                 Text(
                   headerValues.isEmpty
-                      ? _gatewayText(
+                      ? openHandLocalizedText(
                           context,
                           zh: '暂无数据',
                           zhHant: '暫無資料',
@@ -8506,7 +8484,7 @@ class _TrendLinePainter extends CustomPainter {
 
 String _messageTypeLabel(BuildContext context, WebGatewayMessageType type) {
   return switch (type) {
-    WebGatewayMessageType.text => _gatewayText(
+    WebGatewayMessageType.text => openHandLocalizedText(
       context,
       zh: '纯文本',
       zhHant: '純文字',
@@ -8515,7 +8493,7 @@ String _messageTypeLabel(BuildContext context, WebGatewayMessageType type) {
       de: 'Nur Text',
       ja: 'プレーンテキスト',
     ),
-    WebGatewayMessageType.attachment => _gatewayText(
+    WebGatewayMessageType.attachment => openHandLocalizedText(
       context,
       zh: '带附件',
       zhHant: '含附件',
@@ -8529,7 +8507,7 @@ String _messageTypeLabel(BuildContext context, WebGatewayMessageType type) {
 
 String _modeLabel(BuildContext context, WebGatewayConversationMode mode) {
   return switch (mode) {
-    WebGatewayConversationMode.normal => _gatewayText(
+    WebGatewayConversationMode.normal => openHandLocalizedText(
       context,
       zh: '普通',
       zhHant: '普通',
@@ -8538,7 +8516,7 @@ String _modeLabel(BuildContext context, WebGatewayConversationMode mode) {
       de: 'Normal',
       ja: '通常',
     ),
-    WebGatewayConversationMode.image => _gatewayText(
+    WebGatewayConversationMode.image => openHandLocalizedText(
       context,
       zh: '生成图片',
       zhHant: '生成圖片',
@@ -8547,7 +8525,7 @@ String _modeLabel(BuildContext context, WebGatewayConversationMode mode) {
       de: 'Bild erzeugen',
       ja: '画像生成',
     ),
-    WebGatewayConversationMode.video => _gatewayText(
+    WebGatewayConversationMode.video => openHandLocalizedText(
       context,
       zh: '生成视频',
       zhHant: '生成影片',
@@ -8556,7 +8534,7 @@ String _modeLabel(BuildContext context, WebGatewayConversationMode mode) {
       de: 'Video erzeugen',
       ja: '動画生成',
     ),
-    WebGatewayConversationMode.audio => _gatewayText(
+    WebGatewayConversationMode.audio => openHandLocalizedText(
       context,
       zh: '生成音频',
       zhHant: '生成音訊',
@@ -8565,7 +8543,7 @@ String _modeLabel(BuildContext context, WebGatewayConversationMode mode) {
       de: 'Audio erzeugen',
       ja: '音声生成',
     ),
-    WebGatewayConversationMode.deepResearch => _gatewayText(
+    WebGatewayConversationMode.deepResearch => openHandLocalizedText(
       context,
       zh: '深度研究',
       zhHant: '深度研究',
@@ -8584,7 +8562,7 @@ String _modelSummary(
   bool emptyMeansAll,
 ) {
   if (selected.contains(webGatewayDenyAllSelectionMarker)) {
-    return _gatewayText(
+    return openHandLocalizedText(
       context,
       zh: '全部模型不可用',
       zhHant: '全部模型不可用',
@@ -8595,7 +8573,7 @@ String _modelSummary(
     );
   }
   if (emptyMeansAll && selected.isEmpty) {
-    return _gatewayText(
+    return openHandLocalizedText(
       context,
       zh: '全部模型可用',
       zhHant: '全部模型可用',
@@ -8606,7 +8584,7 @@ String _modelSummary(
     );
   }
   if (selected.isEmpty) {
-    return _gatewayText(
+    return openHandLocalizedText(
       context,
       zh: '未选择模型',
       zhHant: '未選擇模型',
@@ -8622,7 +8600,7 @@ String _modelSummary(
       .toList(growable: false);
   final separator = _gatewayListSeparator(context);
   if (labels.length <= 2) return labels.join(separator);
-  return _gatewayText(
+  return openHandLocalizedText(
     context,
     zh: '${labels.take(2).join(separator)} 等 ${labels.length} 个模型',
     zhHant: '${labels.take(2).join(separator)} 等 ${labels.length} 個模型',
@@ -8635,7 +8613,7 @@ String _modelSummary(
 
 String _runtimeStateLabel(BuildContext context, WebGatewayRuntimeState state) {
   return switch (state) {
-    WebGatewayRuntimeState.stopped => _gatewayText(
+    WebGatewayRuntimeState.stopped => openHandLocalizedText(
       context,
       zh: '已停止',
       zhHant: '已停止',
@@ -8644,7 +8622,7 @@ String _runtimeStateLabel(BuildContext context, WebGatewayRuntimeState state) {
       de: 'Gestoppt',
       ja: '停止済み',
     ),
-    WebGatewayRuntimeState.starting => _gatewayText(
+    WebGatewayRuntimeState.starting => openHandLocalizedText(
       context,
       zh: '启动中',
       zhHant: '啟動中',
@@ -8653,7 +8631,7 @@ String _runtimeStateLabel(BuildContext context, WebGatewayRuntimeState state) {
       de: 'Startet',
       ja: '起動中',
     ),
-    WebGatewayRuntimeState.running => _gatewayText(
+    WebGatewayRuntimeState.running => openHandLocalizedText(
       context,
       zh: '运行中',
       zhHant: '執行中',
@@ -8662,7 +8640,7 @@ String _runtimeStateLabel(BuildContext context, WebGatewayRuntimeState state) {
       de: 'Läuft',
       ja: '実行中',
     ),
-    WebGatewayRuntimeState.stopping => _gatewayText(
+    WebGatewayRuntimeState.stopping => openHandLocalizedText(
       context,
       zh: '停止中',
       zhHant: '停止中',
@@ -8671,7 +8649,7 @@ String _runtimeStateLabel(BuildContext context, WebGatewayRuntimeState state) {
       de: 'Stoppt',
       ja: '停止中',
     ),
-    WebGatewayRuntimeState.crashed => _gatewayText(
+    WebGatewayRuntimeState.crashed => openHandLocalizedText(
       context,
       zh: '已崩溃',
       zhHant: '已崩潰',
@@ -8780,7 +8758,7 @@ String _percent(double value) =>
 
 String _cleanupTargetLabel(BuildContext context, String target) {
   return switch (target) {
-    'logs' => _gatewayText(
+    'logs' => openHandLocalizedText(
       context,
       zh: '日志',
       zhHant: '日誌',
@@ -8789,7 +8767,7 @@ String _cleanupTargetLabel(BuildContext context, String target) {
       de: 'Protokolle',
       ja: 'ログ',
     ),
-    'uploads' => _gatewayText(
+    'uploads' => openHandLocalizedText(
       context,
       zh: '上传缓存',
       zhHant: '上傳快取',
@@ -8798,7 +8776,7 @@ String _cleanupTargetLabel(BuildContext context, String target) {
       de: 'Upload-Cache',
       ja: 'アップロードキャッシュ',
     ),
-    'all' => _gatewayText(
+    'all' => openHandLocalizedText(
       context,
       zh: '全部资源',
       zhHant: '全部資源',

@@ -1,25 +1,5 @@
 part of 'web_reverse_dashboard_dialog.dart';
 
-String _sourcesText(
-  BuildContext context, {
-  required String zh,
-  required String en,
-  String? zhHant,
-  String? fr,
-  String? de,
-  String? ja,
-}) {
-  return _wrText(
-    context,
-    zh: zh,
-    zhHant: zhHant,
-    en: en,
-    fr: fr,
-    de: de,
-    ja: ja,
-  );
-}
-
 String _sourcesStatusLabel(
   BuildContext context, {
   required int lineCount,
@@ -27,7 +7,7 @@ String _sourcesStatusLabel(
   required bool prettified,
 }) {
   final view = viewingOriginal
-      ? _sourcesText(
+      ? openHandLocalizedText(
           context,
           zh: '原始源',
           zhHant: '原始源',
@@ -37,7 +17,7 @@ String _sourcesStatusLabel(
           ja: '元ソース',
         )
       : prettified
-      ? _sourcesText(
+      ? openHandLocalizedText(
           context,
           zh: '已美化',
           zhHant: '已美化',
@@ -46,7 +26,7 @@ String _sourcesStatusLabel(
           de: 'formatiert',
           ja: '整形済み',
         )
-      : _sourcesText(
+      : openHandLocalizedText(
           context,
           zh: '原样',
           zhHant: '原樣',
@@ -55,7 +35,7 @@ String _sourcesStatusLabel(
           de: 'roh',
           ja: 'そのまま',
         );
-  return _sourcesText(
+  return openHandLocalizedText(
     context,
     zh: '$lineCount 行 | $view | JavaScript',
     zhHant: '$lineCount 行 | $view | JavaScript',
@@ -226,7 +206,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
     if (scripts.isEmpty) {
       OpenHandSnackBar.showInfo(
         context,
-        _sourcesText(
+        openHandLocalizedText(
           context,
           zh: '尚未捕获脚本',
           zhHant: '尚未捕獲腳本',
@@ -295,7 +275,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
           raw.toLowerCase().contains('not found') ||
           raw.toLowerCase().contains('no such file');
       final friendly = isMissing
-          ? _sourcesText(
+          ? openHandLocalizedText(
               context,
               zh: '未检测到 typescript-language-server。请先 `npm i -g typescript typescript-language-server`，或在「LSP 设置」里换成本机已装的 LSP（如 deno-lsp、pyright、vtsls）。',
               zhHant:
@@ -305,7 +285,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
               de: 'typescript-language-server nicht gefunden. Führen Sie `npm i -g typescript typescript-language-server` aus oder wählen Sie einen anderen LSP.',
               ja: 'typescript-language-server が見つかりません。`npm i -g typescript typescript-language-server` を実行するか、LSP 設定で別の LSP を選んでください。',
             )
-          : _sourcesText(
+          : openHandLocalizedText(
               context,
               zh: 'LSP 启动失败：$raw',
               zhHant: 'LSP 啟動失敗：$raw',
@@ -325,7 +305,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
     OpenHandSnackBar.showSuccessOn(
       context,
       messenger,
-      _sourcesText(
+      openHandLocalizedText(
         context,
         zh: 'LSP 已就绪',
         zhHant: 'LSP 已就緒',
@@ -394,7 +374,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
         context: context,
         builder: (dialogContext) => buildOpenHandAlertDialog(
           title: Text(
-            _sourcesText(
+            openHandLocalizedText(
               dialogContext,
               zh: 'LSP 设置',
               zhHant: 'LSP 設定',
@@ -411,7 +391,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  _sourcesText(
+                  openHandLocalizedText(
                     dialogContext,
                     zh: '选择 LSP 服务器命令；命令需在本机 PATH 中可执行。常见预设：',
                     zhHant: '選擇 LSP 伺服器命令；命令需在本機 PATH 中可執行。常見預設：',
@@ -447,7 +427,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                   controller: cmdCtrl,
                   decoration: InputDecoration(
                     isDense: true,
-                    labelText: _sourcesText(
+                    labelText: openHandLocalizedText(
                       dialogContext,
                       zh: '命令',
                       zhHant: '命令',
@@ -465,7 +445,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                   controller: argsCtrl,
                   decoration: InputDecoration(
                     isDense: true,
-                    labelText: _sourcesText(
+                    labelText: openHandLocalizedText(
                       dialogContext,
                       zh: '参数（空格分隔）',
                       zhHant: '參數（以空格分隔）',
@@ -480,7 +460,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  _sourcesText(
+                  openHandLocalizedText(
                     dialogContext,
                     zh:
                         '保存后会自动重启当前 LSP 会话。安装方法（按需）：\n'
@@ -528,7 +508,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
           ),
           actions: [
             OpenHandDialogActionButton.secondary(
-              label: _sourcesText(
+              label: openHandLocalizedText(
                 dialogContext,
                 zh: '取消',
                 zhHant: '取消',
@@ -540,7 +520,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
               onPressed: () => Navigator.of(dialogContext).pop(false),
             ),
             OpenHandDialogActionButton.primary(
-              label: _sourcesText(
+              label: openHandLocalizedText(
                 dialogContext,
                 zh: '保存',
                 zhHant: '儲存',
@@ -571,7 +551,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
         if (mounted) {
           OpenHandSnackBar.showInfo(
             context,
-            _sourcesText(
+            openHandLocalizedText(
               context,
               zh: '已保存。点击 LSP 胶囊以新命令重启。',
               zhHant: '已儲存。點擊 LSP 膠囊以新命令重啟。',
@@ -695,7 +675,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
         PopupMenuItem(
           value: 'hover',
           child: Text(
-            _sourcesText(
+            openHandLocalizedText(
               context,
               zh: '查看 hover',
               zhHant: '查看 hover',
@@ -709,7 +689,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
         PopupMenuItem(
           value: 'def',
           child: Text(
-            _sourcesText(
+            openHandLocalizedText(
               context,
               zh: '跳转定义',
               zhHant: '跳轉定義',
@@ -723,7 +703,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
         PopupMenuItem(
           value: 'rename',
           child: Text(
-            _sourcesText(
+            openHandLocalizedText(
               context,
               zh: '重命名…',
               zhHant: '重新命名…',
@@ -758,7 +738,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
       OpenHandSnackBar.showInfoOn(
         context,
         messenger,
-        _sourcesText(
+        openHandLocalizedText(
           context,
           zh: '该位置无 hover 信息',
           zhHant: '該位置沒有 hover 資訊',
@@ -774,7 +754,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
     showOpenHandInfoDialog(
       context: context,
       title: 'LSP Hover',
-      closeLabel: _sourcesText(
+      closeLabel: openHandLocalizedText(
         context,
         zh: '关闭',
         zhHant: '關閉',
@@ -804,7 +784,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
       OpenHandSnackBar.showInfoOn(
         context,
         messenger,
-        _sourcesText(
+        openHandLocalizedText(
           context,
           zh: '未找到定义',
           zhHant: '未找到定義',
@@ -826,7 +806,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
       OpenHandSnackBar.showInfoOn(
         context,
         messenger,
-        _sourcesText(
+        openHandLocalizedText(
           context,
           zh: '定义位置：${r.uri} 第 ${r.line + 1} 行',
           zhHant: '定義位置：${r.uri} 第 ${r.line + 1} 行',
@@ -848,7 +828,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
     if (!mounted) return;
     final newName = await showOpenHandTextInputDialog(
       context: context,
-      title: _sourcesText(
+      title: openHandLocalizedText(
         context,
         zh: '重命名为',
         zhHant: '重新命名為',
@@ -857,7 +837,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
         de: 'Umbenennen in',
         ja: '新しい名前',
       ),
-      cancelLabel: _sourcesText(
+      cancelLabel: openHandLocalizedText(
         context,
         zh: '取消',
         zhHant: '取消',
@@ -866,7 +846,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
         de: 'Abbrechen',
         ja: 'キャンセル',
       ),
-      confirmLabel: _sourcesText(
+      confirmLabel: openHandLocalizedText(
         context,
         zh: '确定',
         zhHant: '確定',
@@ -884,7 +864,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
       OpenHandSnackBar.showErrorOn(
         context,
         messenger,
-        _sourcesText(
+        openHandLocalizedText(
           context,
           zh: '重命名失败（LSP 未返回 edit）',
           zhHant: '重新命名失敗（LSP 未返回 edit）',
@@ -904,7 +884,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
         : (docChanges is List ? '${docChanges.length} changes' : 'edit');
     showOpenHandInfoDialog(
       context: context,
-      title: _sourcesText(
+      title: openHandLocalizedText(
         context,
         zh: '重命名结果（仅查看）',
         zhHant: '重新命名結果（僅查看）',
@@ -913,7 +893,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
         de: 'Umbenennen-Ergebnis (schreibgeschützt)',
         ja: '名前変更結果（読み取り専用）',
       ),
-      closeLabel: _sourcesText(
+      closeLabel: openHandLocalizedText(
         context,
         zh: '关闭',
         zhHant: '關閉',
@@ -925,7 +905,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
       content: SizedBox(
         width: 600,
         child: SelectableText(
-          _sourcesText(
+          openHandLocalizedText(
             context,
             zh: '收到 LSP edit：$summary\n\n（当前面板只展示分析结果，未自动改源码；如需落盘请走外部 IDE。）\n\n${const JsonEncoder.withIndent('  ').convert(edit)}',
             zhHant:
@@ -1001,7 +981,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
       OpenHandSnackBar.showInfoOn(
         context,
         messenger,
-        _sourcesText(
+        openHandLocalizedText(
           context,
           zh: '未找到对应脚本：$url',
           zhHant: '未找到對應腳本：$url',
@@ -1035,7 +1015,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
         OpenHandSnackBar.showInfoOn(
           context,
           messenger,
-          _sourcesText(
+          openHandLocalizedText(
             context,
             zh: '原始源视图暂不支持下断点，请先返回压缩源',
             zhHant: '原始源視圖暫不支援設定斷點，請先返回壓縮源',
@@ -1065,7 +1045,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
         OpenHandSnackBar.showErrorOn(
           context,
           messenger,
-          _sourcesText(
+          openHandLocalizedText(
             context,
             zh: '取消断点失败',
             zhHant: '取消斷點失敗',
@@ -1091,7 +1071,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
         OpenHandSnackBar.showSuccessOn(
           context,
           messenger,
-          _sourcesText(
+          openHandLocalizedText(
             context,
             zh: '已下断点',
             zhHant: '已設定斷點',
@@ -1106,7 +1086,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
         OpenHandSnackBar.showErrorOn(
           context,
           messenger,
-          _sourcesText(
+          openHandLocalizedText(
             context,
             zh: '下断点失败（可能 url 不可达）',
             zhHant: '設定斷點失敗（可能 URL 不可達）',
@@ -1171,7 +1151,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                         child: TextField(
                           decoration: InputDecoration(
                             isDense: true,
-                            hintText: _sourcesText(
+                            hintText: openHandLocalizedText(
                               context,
                               zh: '搜索脚本 URL…',
                               zhHant: '搜尋腳本 URL…',
@@ -1202,7 +1182,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                         width: 38,
                         height: 38,
                         child: IconButton(
-                          tooltip: _sourcesText(
+                          tooltip: openHandLocalizedText(
                             context,
                             zh: '跨脚本搜索代码',
                             zhHant: '跨腳本搜尋程式碼',
@@ -1239,7 +1219,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                           child: Padding(
                             padding: const EdgeInsets.all(20),
                             child: Text(
-                              _sourcesText(
+                              openHandLocalizedText(
                                 context,
                                 zh: '尚未捕获脚本。\n刷新页面或交互后此处会更新。',
                                 zhHant: '尚未捕獲腳本。\n重新整理頁面或互動後此處會更新。',
@@ -1301,7 +1281,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                   child: Padding(
                     padding: const EdgeInsets.all(24),
                     child: Text(
-                      _sourcesText(
+                      openHandLocalizedText(
                         context,
                         zh: '从左侧选择脚本查看源码 / 下断点。\n\n点击任意行的左侧行号即可下断点；命中后浏览器会自动暂停，可在原生 DevTools 中调试。',
                         zhHant:
@@ -1330,7 +1310,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
   Widget _buildSourceMapChip(ThemeData theme, ColorScheme cs) {
     final sm = _sourceMap!;
     return AnimatedPopupMenuButton<int>(
-      tooltip: _sourcesText(
+      tooltip: openHandLocalizedText(
         context,
         zh: '切到原始源',
         zhHant: '切到原始源',
@@ -1346,7 +1326,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
           PopupMenuItem<int>(
             enabled: false,
             child: Text(
-              _sourcesText(
+              openHandLocalizedText(
                 context,
                 zh: '映射来源：${sm.mapUrl.isEmpty ? '<unknown>' : sm.mapUrl}',
                 zhHant: '映射來源：${sm.mapUrl.isEmpty ? '<unknown>' : sm.mapUrl}',
@@ -1427,7 +1407,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
       originalLabel = sm.resolveSource(idx);
       source =
           body ??
-          _sourcesText(
+          openHandLocalizedText(
             context,
             zh: '// 该原始源未内联到 sourcesContent 中。\n// 可以在终端单独 fetch ${sm.mapUrl} 下载完整映射，\n// 或在浏览器 DevTools Sources 里手动展开。',
             zhHant:
@@ -1761,7 +1741,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                       size: 16,
                     ),
                     label: Text(
-                      _sourcesText(
+                      openHandLocalizedText(
                         context,
                         zh: '返回压缩',
                         zhHant: '返回壓縮',
@@ -1788,7 +1768,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                 child: FilterChip(
                   label: Text(
                     _prettify
-                        ? _sourcesText(
+                        ? openHandLocalizedText(
                             context,
                             zh: '已美化',
                             zhHant: '已美化',
@@ -1797,7 +1777,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                             de: 'Formatiert',
                             ja: '整形済み',
                           )
-                        : _sourcesText(
+                        : openHandLocalizedText(
                             context,
                             zh: '原样',
                             zhHant: '原樣',
@@ -1835,7 +1815,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                   ),
                   label: Text(
                     _lspEnabled
-                        ? _sourcesText(
+                        ? openHandLocalizedText(
                             context,
                             zh: 'LSP 已开',
                             zhHant: 'LSP 已開',
@@ -1857,7 +1837,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                 width: 32,
                 height: 32,
                 child: IconButton(
-                  tooltip: _sourcesText(
+                  tooltip: openHandLocalizedText(
                     context,
                     zh: 'LSP 设置',
                     zhHant: 'LSP 設定',
@@ -1886,7 +1866,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                       messenger,
                       webReverseClipboardSnackMessage(
                         context: context,
-                        base: _sourcesText(
+                        base: openHandLocalizedText(
                           context,
                           zh: '已复制',
                           zhHant: '已複製',
@@ -1902,7 +1882,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                   },
                   icon: const Icon(Icons.copy_rounded, size: 16),
                   label: Text(
-                    _sourcesText(
+                    openHandLocalizedText(
                       context,
                       zh: '复制源码',
                       zhHant: '複製源碼',
@@ -1927,7 +1907,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                   onPressed: widget.controller.resumeDebugger,
                   icon: const Icon(Icons.play_arrow_rounded, size: 16),
                   label: Text(
-                    _sourcesText(
+                    openHandLocalizedText(
                       context,
                       zh: '继续运行',
                       zhHant: '繼續執行',
@@ -2062,7 +2042,7 @@ class _SourcesGlobalSearchDialogState
                     autofocus: true,
                     onSubmitted: (_) => _run(),
                     decoration: InputDecoration(
-                      hintText: _sourcesText(
+                      hintText: openHandLocalizedText(
                         context,
                         zh: '在所有已加载脚本里搜索…',
                         zhHant: '在所有已載入腳本裡搜尋…',
@@ -2087,7 +2067,7 @@ class _SourcesGlobalSearchDialogState
                   ),
                   label: Text(
                     _searching
-                        ? _sourcesText(
+                        ? openHandLocalizedText(
                             context,
                             zh: '搜索中…',
                             zhHant: '搜尋中…',
@@ -2096,7 +2076,7 @@ class _SourcesGlobalSearchDialogState
                             de: 'Suche…',
                             ja: '検索中…',
                           )
-                        : _sourcesText(
+                        : openHandLocalizedText(
                             context,
                             zh: '搜索',
                             zhHant: '搜尋',
@@ -2117,7 +2097,7 @@ class _SourcesGlobalSearchDialogState
                     padding: const EdgeInsets.all(24),
                     child: Text(
                       _searching
-                          ? _sourcesText(
+                          ? openHandLocalizedText(
                               context,
                               zh: '搜索中…',
                               zhHant: '搜尋中…',
@@ -2126,7 +2106,7 @@ class _SourcesGlobalSearchDialogState
                               de: 'Suche…',
                               ja: '検索中…',
                             )
-                          : _sourcesText(
+                          : openHandLocalizedText(
                               context,
                               zh: '输入关键字后按回车或点击搜索；命中按行展示，点击即跳转。',
                               zhHant: '輸入關鍵字後按 Enter 或點擊搜尋；命中按行展示，點擊即跳轉。',
@@ -2177,7 +2157,7 @@ class _SourcesGlobalSearchDialogState
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  _sourcesText(
+                  openHandLocalizedText(
                     context,
                     zh: '命中 ${_hits.length} 条（上限 200）',
                     zhHant: '命中 ${_hits.length} 條（上限 200）',
@@ -2192,7 +2172,7 @@ class _SourcesGlobalSearchDialogState
                 ),
                 OpenHandDialogActionButton.secondary(
                   onPressed: () => Navigator.of(context).pop(),
-                  label: _sourcesText(
+                  label: openHandLocalizedText(
                     context,
                     zh: '关闭',
                     zhHant: '關閉',
@@ -2314,7 +2294,7 @@ class _DebuggerSideRailState extends State<_DebuggerSideRail> {
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
-                        _sourcesText(
+                        openHandLocalizedText(
                           context,
                           zh: '已暂停 · ${paused.reason}',
                           zhHant: '已暫停 · ${paused.reason}',
@@ -2329,7 +2309,7 @@ class _DebuggerSideRailState extends State<_DebuggerSideRail> {
                       ),
                     ),
                     IconButton(
-                      tooltip: _sourcesText(
+                      tooltip: openHandLocalizedText(
                         context,
                         zh: '继续',
                         zhHant: '繼續',
@@ -2343,7 +2323,7 @@ class _DebuggerSideRailState extends State<_DebuggerSideRail> {
                       icon: const Icon(Icons.play_arrow_rounded),
                     ),
                     IconButton(
-                      tooltip: _sourcesText(
+                      tooltip: openHandLocalizedText(
                         context,
                         zh: '单步跳过',
                         zhHant: '單步跳過',
@@ -2357,7 +2337,7 @@ class _DebuggerSideRailState extends State<_DebuggerSideRail> {
                       icon: const Icon(Icons.redo_rounded),
                     ),
                     IconButton(
-                      tooltip: _sourcesText(
+                      tooltip: openHandLocalizedText(
                         context,
                         zh: '单步进入',
                         zhHant: '單步進入',
@@ -2371,7 +2351,7 @@ class _DebuggerSideRailState extends State<_DebuggerSideRail> {
                       icon: const Icon(Icons.subdirectory_arrow_right_rounded),
                     ),
                     IconButton(
-                      tooltip: _sourcesText(
+                      tooltip: openHandLocalizedText(
                         context,
                         zh: '单步跳出',
                         zhHant: '單步跳出',
@@ -2390,7 +2370,7 @@ class _DebuggerSideRailState extends State<_DebuggerSideRail> {
             if (paused != null) ...[
               const SizedBox(height: 10),
               _RailCard(
-                title: _sourcesText(
+                title: openHandLocalizedText(
                   context,
                   zh: '调用栈',
                   zhHant: '呼叫堆疊',
@@ -2456,7 +2436,7 @@ class _DebuggerSideRailState extends State<_DebuggerSideRail> {
               ),
               const SizedBox(height: 10),
               _RailCard(
-                title: _sourcesText(
+                title: openHandLocalizedText(
                   context,
                   zh: '作用域',
                   zhHant: '作用域',
@@ -2480,7 +2460,7 @@ class _DebuggerSideRailState extends State<_DebuggerSideRail> {
             ],
             const SizedBox(height: 10),
             _RailCard(
-              title: _sourcesText(
+              title: openHandLocalizedText(
                 context,
                 zh: '观察',
                 zhHant: '觀察',
@@ -2491,7 +2471,7 @@ class _DebuggerSideRailState extends State<_DebuggerSideRail> {
               ),
               icon: Icons.visibility_outlined,
               trailing: IconButton(
-                tooltip: _sourcesText(
+                tooltip: openHandLocalizedText(
                   context,
                   zh: '全部重算',
                   zhHant: '全部重算',
@@ -2515,7 +2495,7 @@ class _DebuggerSideRailState extends State<_DebuggerSideRail> {
                           decoration: InputDecoration(
                             isDense: true,
                             border: const OutlineInputBorder(),
-                            hintText: _sourcesText(
+                            hintText: openHandLocalizedText(
                               context,
                               zh: '表达式（回车添加）',
                               zhHant: '表達式（Enter 新增）',
@@ -2596,7 +2576,7 @@ class _DebuggerSideRailState extends State<_DebuggerSideRail> {
             ),
             const SizedBox(height: 10),
             Text(
-              _sourcesText(
+              openHandLocalizedText(
                 context,
                 zh: '更多断点（XHR / EventListener / DOM / CSP / 全局监听器）请打开「Breakpoints」标签页。',
                 zhHant:
@@ -3004,7 +2984,7 @@ class _SourcesQuickOpenDialogState extends State<_SourcesQuickOpenDialog> {
                 autofocus: true,
                 decoration: InputDecoration(
                   isDense: true,
-                  hintText: _sourcesText(
+                  hintText: openHandLocalizedText(
                     context,
                     zh: '快速打开脚本… 末尾加 :42 可跳到指定行',
                     zhHant: '快速打開腳本… 末尾加 :42 可跳到指定行',
@@ -3033,7 +3013,7 @@ class _SourcesQuickOpenDialogState extends State<_SourcesQuickOpenDialog> {
                   vertical: 4,
                 ),
                 child: Text(
-                  _sourcesText(
+                  openHandLocalizedText(
                     context,
                     zh: '将跳到第 $_gotoLine 行',
                     zhHant: '將跳到第 $_gotoLine 行',
@@ -3050,7 +3030,7 @@ class _SourcesQuickOpenDialogState extends State<_SourcesQuickOpenDialog> {
               child: _filtered.isEmpty
                   ? Center(
                       child: Text(
-                        _sourcesText(
+                        openHandLocalizedText(
                           context,
                           zh: '无匹配脚本',
                           zhHant: '無匹配腳本',
@@ -3134,7 +3114,7 @@ class _SourcesQuickOpenDialogState extends State<_SourcesQuickOpenDialog> {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
               child: Text(
-                _sourcesText(
+                openHandLocalizedText(
                   context,
                   zh: '↑/↓ 选择 · Enter 打开 · Esc 关闭',
                   zhHant: '↑/↓ 選擇 · Enter 開啟 · Esc 關閉',

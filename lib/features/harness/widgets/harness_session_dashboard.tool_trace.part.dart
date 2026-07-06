@@ -469,7 +469,7 @@ class _HeStructuredToolTraceCardState
                   _HeChip(
                     icon: Icons.folder_outlined,
                     label:
-                        '${_heHarnessText(context, zh: '目录', zhHant: '目錄', en: 'Dir', fr: 'Dossier', de: 'Verzeichnis', ja: 'ディレクトリ')}: ${data.workingDirectory}',
+                        '${openHandLocalizedText(context, zh: '目录', zhHant: '目錄', en: 'Dir', fr: 'Dossier', de: 'Verzeichnis', ja: 'ディレクトリ')}: ${data.workingDirectory}',
                   ),
                 if (data.outcomeLabel.isNotEmpty)
                   _HeChip(icon: data.statusIcon, label: data.outcomeLabel),
@@ -477,20 +477,20 @@ class _HeStructuredToolTraceCardState
                   _HeChip(
                     icon: Icons.timer_outlined,
                     label:
-                        '${_heHarnessText(context, zh: '耗时', zhHant: '耗時', en: 'Elapsed', fr: 'Durée', de: 'Dauer', ja: '経過')}: ${_heFormatToolDuration(data.durationMs)}',
+                        '${openHandLocalizedText(context, zh: '耗时', zhHant: '耗時', en: 'Elapsed', fr: 'Durée', de: 'Dauer', ja: '経過')}: ${_heFormatToolDuration(data.durationMs)}',
                   ),
                 if (data.exitCode != null)
                   _HeChip(
                     icon: Icons.flag_outlined,
                     label:
-                        '${_heHarnessText(context, zh: '退出码', zhHant: '退出碼', en: 'Exit', fr: 'Code de sortie', de: 'Exitcode', ja: '終了コード')}: ${data.exitCode}',
+                        '${openHandLocalizedText(context, zh: '退出码', zhHant: '退出碼', en: 'Exit', fr: 'Code de sortie', de: 'Exitcode', ja: '終了コード')}: ${data.exitCode}',
                   ),
               ],
             ),
             if (data.hasInputSection) ...[
               const SizedBox(height: 10),
               _HeStructuredToolSection(
-                title: _heHarnessText(
+                title: openHandLocalizedText(
                   context,
                   zh: '工具入参',
                   zhHant: '工具輸入',
@@ -533,7 +533,7 @@ class _HeStructuredToolTraceCardState
             if (data.hasOutputSection) ...[
               const SizedBox(height: 10),
               _HeStructuredToolSection(
-                title: _heHarnessText(
+                title: openHandLocalizedText(
                   context,
                   zh: '结果输出',
                   zhHant: '結果輸出',
@@ -586,7 +586,7 @@ class _HeStructuredToolTraceCardState
                         data.stderr.isEmpty &&
                         data.resultText.isEmpty)
                       Text(
-                        _heHarnessText(
+                        openHandLocalizedText(
                           context,
                           zh: '当前还没有工具输出。',
                           zhHant: '目前還沒有工具輸出。',
@@ -750,7 +750,7 @@ class _HeToolTextPanelState extends State<_HeToolTextPanel> {
     final lines = const LineSplitter().convert(normalized);
     final isLong = normalized.length > 900 || lines.length > 18;
     final displayText = isLong && !_expanded
-        ? '${lines.take(15).join('\n')}\n\n... [${_heHarnessText(context, zh: '已折叠，点击右上角展开完整内容', zhHant: '已摺疊，點擊右上角展開完整內容', en: 'collapsed, expand to view the full content', fr: 'replié, développez pour voir le contenu complet', de: 'eingeklappt, zum vollständigen Inhalt erweitern', ja: '折りたたみ済み、右上から全文を展開')}]'
+        ? '${lines.take(15).join('\n')}\n\n... [${openHandLocalizedText(context, zh: '已折叠，点击右上角展开完整内容', zhHant: '已摺疊，點擊右上角展開完整內容', en: 'collapsed, expand to view the full content', fr: 'replié, développez pour voir le contenu complet', de: 'eingeklappt, zum vollständigen Inhalt erweitern', ja: '折りたたみ済み、右上から全文を展開')}]'
         : normalized;
     final accentColor = widget.isError
         ? widget.colorScheme.error
@@ -795,7 +795,7 @@ class _HeToolTextPanelState extends State<_HeToolTextPanel> {
                     : () {
                         Clipboard.setData(ClipboardData(text: normalized));
                       },
-                tooltip: _heHarnessText(
+                tooltip: openHandLocalizedText(
                   context,
                   zh: '复制',
                   zhHant: '複製',
@@ -819,7 +819,7 @@ class _HeToolTextPanelState extends State<_HeToolTextPanel> {
                     });
                   },
                   tooltip: _expanded
-                      ? _heHarnessText(
+                      ? openHandLocalizedText(
                           context,
                           zh: '收起',
                           zhHant: '收起',
@@ -828,7 +828,7 @@ class _HeToolTextPanelState extends State<_HeToolTextPanel> {
                           de: 'Einklappen',
                           ja: '折りたたむ',
                         )
-                      : _heHarnessText(
+                      : openHandLocalizedText(
                           context,
                           zh: '展开全部',
                           zhHant: '展開全部',
@@ -953,7 +953,7 @@ _HeToolPresentation _heToolPresentationForSegment(
   }
   if (role == 'write' || role == 'writefile' || role == 'write_file') {
     return _HeToolPresentation(
-      label: _heHarnessText(
+      label: openHandLocalizedText(
         context,
         zh: '写入',
         zhHant: '寫入',
@@ -968,7 +968,7 @@ _HeToolPresentation _heToolPresentationForSegment(
   }
   if (role == 'edit' || role == 'editfile' || role == 'edit_file') {
     return _HeToolPresentation(
-      label: _heHarnessText(
+      label: openHandLocalizedText(
         context,
         zh: '编辑',
         zhHant: '編輯',
@@ -992,7 +992,7 @@ _HeToolPresentation _heToolPresentationForSegment(
       role == 'semanticsearch' ||
       role == 'semantic_search') {
     return _HeToolPresentation(
-      label: _heHarnessText(
+      label: openHandLocalizedText(
         context,
         zh: '语义搜索',
         zhHant: '語意搜尋',
@@ -1007,7 +1007,7 @@ _HeToolPresentation _heToolPresentationForSegment(
   }
   if (segment.kind == _HeSegmentKind.toolResult || role == 'tool') {
     return _HeToolPresentation(
-      label: _heHarnessText(
+      label: openHandLocalizedText(
         context,
         zh: '工具结果',
         zhHant: '工具結果',
@@ -1022,7 +1022,7 @@ _HeToolPresentation _heToolPresentationForSegment(
   }
   if (role == 'function') {
     return _HeToolPresentation(
-      label: _heHarnessText(
+      label: openHandLocalizedText(
         context,
         zh: '工具',
         zhHant: '工具',
@@ -1044,7 +1044,7 @@ _HeToolPresentation _heToolPresentationForSegment(
     );
   }
   return _HeToolPresentation(
-    label: _heHarnessText(
+    label: openHandLocalizedText(
       context,
       zh: '工具',
       zhHant: '工具',
@@ -1115,7 +1115,7 @@ String _heBuildStructuredToolOutputPreview({
     return 'result · $resultLine';
   }
   if (status == 'running' || status.isEmpty) {
-    return _heHarnessText(
+    return openHandLocalizedText(
       context,
       zh: '工具运行中，等待新的输出...',
       zhHant: '工具執行中，等待新的輸出...',
@@ -1125,7 +1125,7 @@ String _heBuildStructuredToolOutputPreview({
       ja: 'ツール実行中。出力を待機しています...',
     );
   }
-  return _heHarnessText(
+  return openHandLocalizedText(
     context,
     zh: '点击展开查看工具输出',
     zhHant: '點擊展開查看工具輸出',
@@ -1170,7 +1170,7 @@ String _heToolActionLabel({
   switch (status) {
     case 'running':
       return isCommandLike
-          ? _heHarnessText(
+          ? openHandLocalizedText(
               context,
               zh: '执行中',
               zhHant: '執行中',
@@ -1179,7 +1179,7 @@ String _heToolActionLabel({
               de: 'Wird ausgeführt',
               ja: '実行中',
             )
-          : _heHarnessText(
+          : openHandLocalizedText(
               context,
               zh: '调用中',
               zhHant: '呼叫中',
@@ -1190,7 +1190,7 @@ String _heToolActionLabel({
             );
     case 'success':
       return isCommandLike
-          ? _heHarnessText(
+          ? openHandLocalizedText(
               context,
               zh: '执行完成',
               zhHant: '執行完成',
@@ -1199,7 +1199,7 @@ String _heToolActionLabel({
               de: 'Ausgeführt',
               ja: '実行完了',
             )
-          : _heHarnessText(
+          : openHandLocalizedText(
               context,
               zh: '调用完成',
               zhHant: '呼叫完成',
@@ -1209,7 +1209,7 @@ String _heToolActionLabel({
               ja: '呼び出し完了',
             );
     case 'cancelled':
-      return _heHarnessText(
+      return openHandLocalizedText(
         context,
         zh: '已停止',
         zhHant: '已停止',
@@ -1219,7 +1219,7 @@ String _heToolActionLabel({
         ja: '停止済み',
       );
     case 'denied':
-      return _heHarnessText(
+      return openHandLocalizedText(
         context,
         zh: '已拦截',
         zhHant: '已攔截',
@@ -1229,7 +1229,7 @@ String _heToolActionLabel({
         ja: 'ブロック済み',
       );
     case 'rejected':
-      return _heHarnessText(
+      return openHandLocalizedText(
         context,
         zh: '已拒绝',
         zhHant: '已拒絕',
@@ -1240,7 +1240,7 @@ String _heToolActionLabel({
       );
     case 'timed_out':
       return isCommandLike
-          ? _heHarnessText(
+          ? openHandLocalizedText(
               context,
               zh: '执行超时',
               zhHant: '執行逾時',
@@ -1249,7 +1249,7 @@ String _heToolActionLabel({
               de: 'Zeitüberschreitung',
               ja: '実行タイムアウト',
             )
-          : _heHarnessText(
+          : openHandLocalizedText(
               context,
               zh: '调用超时',
               zhHant: '呼叫逾時',
@@ -1260,7 +1260,7 @@ String _heToolActionLabel({
             );
     case 'failed':
       return isCommandLike
-          ? _heHarnessText(
+          ? openHandLocalizedText(
               context,
               zh: '执行失败',
               zhHant: '執行失敗',
@@ -1269,7 +1269,7 @@ String _heToolActionLabel({
               de: 'Fehlgeschlagen',
               ja: '実行失敗',
             )
-          : _heHarnessText(
+          : openHandLocalizedText(
               context,
               zh: '调用失败',
               zhHant: '呼叫失敗',
@@ -1280,7 +1280,7 @@ String _heToolActionLabel({
             );
     default:
       return isCommandLike
-          ? _heHarnessText(
+          ? openHandLocalizedText(
               context,
               zh: '准备执行',
               zhHant: '準備執行',
@@ -1289,7 +1289,7 @@ String _heToolActionLabel({
               de: 'Vorbereitung',
               ja: '実行準備中',
             )
-          : _heHarnessText(
+          : openHandLocalizedText(
               context,
               zh: '工具调用',
               zhHant: '工具呼叫',
@@ -1307,7 +1307,7 @@ String _heToolOutcomeLabel({
 }) {
   switch (status) {
     case 'running':
-      return _heHarnessText(
+      return openHandLocalizedText(
         context,
         zh: '运行中',
         zhHant: '執行中',
@@ -1317,7 +1317,7 @@ String _heToolOutcomeLabel({
         ja: '実行中',
       );
     case 'success':
-      return _heHarnessText(
+      return openHandLocalizedText(
         context,
         zh: '执行成功',
         zhHant: '執行成功',
@@ -1327,7 +1327,7 @@ String _heToolOutcomeLabel({
         ja: '成功',
       );
     case 'cancelled':
-      return _heHarnessText(
+      return openHandLocalizedText(
         context,
         zh: '已停止',
         zhHant: '已停止',
@@ -1337,7 +1337,7 @@ String _heToolOutcomeLabel({
         ja: '停止済み',
       );
     case 'denied':
-      return _heHarnessText(
+      return openHandLocalizedText(
         context,
         zh: '已被禁止',
         zhHant: '已被禁止',
@@ -1347,7 +1347,7 @@ String _heToolOutcomeLabel({
         ja: '拒否',
       );
     case 'rejected':
-      return _heHarnessText(
+      return openHandLocalizedText(
         context,
         zh: '用户拒绝',
         zhHant: '使用者拒絕',
@@ -1357,7 +1357,7 @@ String _heToolOutcomeLabel({
         ja: 'ユーザーが拒否',
       );
     case 'timed_out':
-      return _heHarnessText(
+      return openHandLocalizedText(
         context,
         zh: '执行超时',
         zhHant: '執行逾時',
@@ -1367,7 +1367,7 @@ String _heToolOutcomeLabel({
         ja: 'タイムアウト',
       );
     case 'failed':
-      return _heHarnessText(
+      return openHandLocalizedText(
         context,
         zh: '执行失败',
         zhHant: '執行失敗',

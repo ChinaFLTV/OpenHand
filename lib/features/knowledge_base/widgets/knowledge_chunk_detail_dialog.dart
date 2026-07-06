@@ -10,28 +10,6 @@ import '../model/knowledge_chunk.dart';
 import '../model/knowledge_source.dart';
 import 'knowledge_dialog_widgets.dart';
 
-String _kbChunkText(
-  BuildContext context, {
-  required String zh,
-  required String en,
-  String? zhHans,
-  String? zhHant,
-  String? fr,
-  String? de,
-  String? ja,
-}) {
-  return openHandLocalizedText(
-    context,
-    zh: zh,
-    en: en,
-    zhHans: zhHans,
-    zhHant: zhHant,
-    fr: fr,
-    de: de,
-    ja: ja,
-  );
-}
-
 Future<void> showKnowledgeChunkDetailDialog(
   BuildContext context, {
   required KnowledgeSource source,
@@ -66,7 +44,7 @@ class KnowledgeChunkDetailDialog extends StatelessWidget {
     final metadata = chunk.metadata;
     return buildOpenHandAlertDialog(
       title: Text(
-        _kbChunkText(
+        openHandLocalizedText(
           context,
           zh: '分块详情',
           zhHant: '分塊詳情',
@@ -85,7 +63,7 @@ class KnowledgeChunkDetailDialog extends StatelessWidget {
             children: [
               if (retrievalHit != null)
                 KnowledgeDialogSection(
-                  title: _kbChunkText(
+                  title: openHandLocalizedText(
                     context,
                     zh: '检索命中',
                     zhHant: '檢索命中',
@@ -101,7 +79,7 @@ class KnowledgeChunkDetailDialog extends StatelessWidget {
                   ),
                 ),
               KnowledgeDialogSection(
-                title: _kbChunkText(
+                title: openHandLocalizedText(
                   context,
                   zh: '基础信息',
                   zhHant: '基本資訊',
@@ -114,7 +92,7 @@ class KnowledgeChunkDetailDialog extends StatelessWidget {
                 child: KnowledgeDialogKeyValueList(
                   labelWidth: isZh ? 112 : 132,
                   rows: {
-                    _kbChunkText(
+                    openHandLocalizedText(
                       context,
                       zh: '分块 ID',
                       zhHant: '分塊 ID',
@@ -123,7 +101,7 @@ class KnowledgeChunkDetailDialog extends StatelessWidget {
                       de: 'Abschnitts-ID',
                       ja: 'チャンク ID',
                     ): chunk.id,
-                    _kbChunkText(
+                    openHandLocalizedText(
                       context,
                       zh: '来源 ID',
                       zhHant: '來源 ID',
@@ -132,7 +110,7 @@ class KnowledgeChunkDetailDialog extends StatelessWidget {
                       de: 'Quellen-ID',
                       ja: 'ソース ID',
                     ): source.id,
-                    _kbChunkText(
+                    openHandLocalizedText(
                       context,
                       zh: '来源标题',
                       zhHant: '來源標題',
@@ -141,7 +119,7 @@ class KnowledgeChunkDetailDialog extends StatelessWidget {
                       de: 'Quellentitel',
                       ja: 'ソースタイトル',
                     ): source.title,
-                    _kbChunkText(
+                    openHandLocalizedText(
                       context,
                       zh: '序号',
                       zhHant: '序號',
@@ -151,7 +129,7 @@ class KnowledgeChunkDetailDialog extends StatelessWidget {
                       ja: 'インデックス',
                     ): chunk.chunkIndex,
                     if (_notBlank(chunk.parentChunkId))
-                      _kbChunkText(
+                      openHandLocalizedText(
                         context,
                         zh: '父分块 ID',
                         zhHant: '父分塊 ID',
@@ -160,7 +138,7 @@ class KnowledgeChunkDetailDialog extends StatelessWidget {
                         de: 'Übergeordnete Abschnitts-ID',
                         ja: '親チャンク ID',
                       ): chunk.parentChunkId,
-                    _kbChunkText(
+                    openHandLocalizedText(
                       context,
                       zh: '标题',
                       zhHant: '標題',
@@ -169,7 +147,7 @@ class KnowledgeChunkDetailDialog extends StatelessWidget {
                       de: 'Titel',
                       ja: 'タイトル',
                     ): chunk.title,
-                    _kbChunkText(
+                    openHandLocalizedText(
                       context,
                       zh: '层级路径',
                       zhHant: '標題路徑',
@@ -178,7 +156,7 @@ class KnowledgeChunkDetailDialog extends StatelessWidget {
                       de: 'Überschriftenpfad',
                       ja: '見出しパス',
                     ): chunk.headingPath,
-                    _kbChunkText(
+                    openHandLocalizedText(
                       context,
                       zh: '内容哈希',
                       zhHant: '內容雜湊',
@@ -191,7 +169,7 @@ class KnowledgeChunkDetailDialog extends StatelessWidget {
                 ),
               ),
               KnowledgeDialogSection(
-                title: _kbChunkText(
+                title: openHandLocalizedText(
                   context,
                   zh: '统计与定位',
                   zhHant: '統計與位置',
@@ -204,7 +182,7 @@ class KnowledgeChunkDetailDialog extends StatelessWidget {
                 child: KnowledgeDialogKeyValueList(
                   labelWidth: isZh ? 112 : 132,
                   rows: {
-                    _kbChunkText(
+                    openHandLocalizedText(
                       context,
                       zh: '字符数',
                       zhHant: '字元數',
@@ -213,7 +191,7 @@ class KnowledgeChunkDetailDialog extends StatelessWidget {
                       de: 'Zeichen',
                       ja: '文字数',
                     ): chunk.charCount,
-                    _kbChunkText(
+                    openHandLocalizedText(
                       context,
                       zh: '预估 token',
                       zhHant: '預估 token',
@@ -223,7 +201,7 @@ class KnowledgeChunkDetailDialog extends StatelessWidget {
                       ja: '推定トークン',
                     ): chunk.tokenEstimate,
                     if (chunk.startOffset != null)
-                      _kbChunkText(
+                      openHandLocalizedText(
                         context,
                         zh: '起始偏移',
                         zhHant: '起始偏移',
@@ -233,7 +211,7 @@ class KnowledgeChunkDetailDialog extends StatelessWidget {
                         ja: '開始オフセット',
                       ): chunk.startOffset,
                     if (chunk.endOffset != null)
-                      _kbChunkText(
+                      openHandLocalizedText(
                         context,
                         zh: '结束偏移',
                         zhHant: '結束偏移',
@@ -243,7 +221,7 @@ class KnowledgeChunkDetailDialog extends StatelessWidget {
                         ja: '終了オフセット',
                       ): chunk.endOffset,
                     if (chunk.pageNumber != null)
-                      _kbChunkText(
+                      openHandLocalizedText(
                         context,
                         zh: '页码',
                         zhHant: '頁碼',
@@ -252,7 +230,7 @@ class KnowledgeChunkDetailDialog extends StatelessWidget {
                         de: 'Seite',
                         ja: 'ページ',
                       ): chunk.pageNumber,
-                    _kbChunkText(
+                    openHandLocalizedText(
                       context,
                       zh: '文档时间',
                       zhHant: '文件時間',
@@ -263,7 +241,7 @@ class KnowledgeChunkDetailDialog extends StatelessWidget {
                     ): _date(
                       chunk.documentTime,
                     ),
-                    _kbChunkText(
+                    openHandLocalizedText(
                       context,
                       zh: '创建时间',
                       zhHant: '建立時間',
@@ -274,7 +252,7 @@ class KnowledgeChunkDetailDialog extends StatelessWidget {
                     ): _date(
                       chunk.createdAt,
                     ),
-                    _kbChunkText(
+                    openHandLocalizedText(
                       context,
                       zh: '更新时间',
                       zhHant: '更新時間',
@@ -289,7 +267,7 @@ class KnowledgeChunkDetailDialog extends StatelessWidget {
                 ),
               ),
               KnowledgeDialogSection(
-                title: _kbChunkText(
+                title: openHandLocalizedText(
                   context,
                   zh: '标签',
                   zhHant: '標籤',
@@ -302,7 +280,7 @@ class KnowledgeChunkDetailDialog extends StatelessWidget {
                 child: chunk.tags.isEmpty
                     ? KnowledgeDialogNotice(
                         icon: Icons.info_outline_rounded,
-                        message: _kbChunkText(
+                        message: openHandLocalizedText(
                           context,
                           zh: '该分块没有标签。',
                           zhHant: '此分塊沒有標籤。',
@@ -325,7 +303,7 @@ class KnowledgeChunkDetailDialog extends StatelessWidget {
                       ),
               ),
               KnowledgeDialogSection(
-                title: _kbChunkText(
+                title: openHandLocalizedText(
                   context,
                   zh: '元数据',
                   zhHant: '元資料',
@@ -338,7 +316,7 @@ class KnowledgeChunkDetailDialog extends StatelessWidget {
                 child: metadata.isEmpty
                     ? KnowledgeDialogNotice(
                         icon: Icons.info_outline_rounded,
-                        message: _kbChunkText(
+                        message: openHandLocalizedText(
                           context,
                           zh: '该分块没有额外元数据。',
                           zhHant: '此分塊沒有額外元資料。',
@@ -351,7 +329,7 @@ class KnowledgeChunkDetailDialog extends StatelessWidget {
                     : KnowledgeDialogJsonBox(value: metadata, maxHeight: 260),
               ),
               KnowledgeDialogSection(
-                title: _kbChunkText(
+                title: openHandLocalizedText(
                   context,
                   zh: '完整内容',
                   zhHant: '完整內容',
@@ -365,7 +343,7 @@ class KnowledgeChunkDetailDialog extends StatelessWidget {
                 child: KnowledgeDialogTextBox(
                   text: chunk.content,
                   maxHeight: 360,
-                  emptyText: _kbChunkText(
+                  emptyText: openHandLocalizedText(
                     context,
                     zh: '分块内容为空。',
                     zhHant: '分塊內容為空。',
@@ -385,7 +363,7 @@ class KnowledgeChunkDetailDialog extends StatelessWidget {
           onPressed: () => _copyText(
             context,
             chunk.id,
-            _kbChunkText(
+            openHandLocalizedText(
               context,
               zh: '已复制分块 ID。',
               zhHant: '已複製分塊 ID。',
@@ -396,7 +374,7 @@ class KnowledgeChunkDetailDialog extends StatelessWidget {
             ),
           ),
           icon: Icons.fingerprint_rounded,
-          label: _kbChunkText(
+          label: openHandLocalizedText(
             context,
             zh: '复制 ID',
             zhHant: '複製 ID',
@@ -410,7 +388,7 @@ class KnowledgeChunkDetailDialog extends StatelessWidget {
           onPressed: () => _copyText(
             context,
             chunk.content,
-            _kbChunkText(
+            openHandLocalizedText(
               context,
               zh: '已复制分块内容。',
               zhHant: '已複製分塊內容。',
@@ -421,7 +399,7 @@ class KnowledgeChunkDetailDialog extends StatelessWidget {
             ),
           ),
           icon: Icons.copy_all_rounded,
-          label: _kbChunkText(
+          label: openHandLocalizedText(
             context,
             zh: '复制内容',
             zhHant: '複製內容',
@@ -433,7 +411,7 @@ class KnowledgeChunkDetailDialog extends StatelessWidget {
         ),
         OpenHandDialogActionButton.primary(
           onPressed: () => Navigator.of(context).pop(),
-          label: _kbChunkText(
+          label: openHandLocalizedText(
             context,
             zh: '关闭',
             zhHant: '關閉',
@@ -453,7 +431,7 @@ class KnowledgeChunkDetailDialog extends StatelessWidget {
   ) {
     return {
       if (_hasValue(hit['score']))
-        _kbChunkText(
+        openHandLocalizedText(
           context,
           zh: '召回分数',
           zhHant: '召回分數',
@@ -463,7 +441,7 @@ class KnowledgeChunkDetailDialog extends StatelessWidget {
           ja: 'スコア',
         ): hit['score'],
       if (_hasValue(hit['rerank_score']))
-        _kbChunkText(
+        openHandLocalizedText(
           context,
           zh: '重排分数',
           zhHant: '重排分數',
@@ -473,7 +451,7 @@ class KnowledgeChunkDetailDialog extends StatelessWidget {
           ja: '再ランクスコア',
         ): hit['rerank_score'],
       if (_hasValue(hit['final_score']))
-        _kbChunkText(
+        openHandLocalizedText(
           context,
           zh: '最终分数',
           zhHant: '最終分數',
@@ -483,7 +461,7 @@ class KnowledgeChunkDetailDialog extends StatelessWidget {
           ja: '最終スコア',
         ): hit['final_score'],
       if (_hasValue(hit['time_field']))
-        _kbChunkText(
+        openHandLocalizedText(
           context,
           zh: '时间字段',
           zhHant: '時間欄位',
@@ -493,7 +471,7 @@ class KnowledgeChunkDetailDialog extends StatelessWidget {
           ja: '時間フィールド',
         ): hit['time_field'],
       if (_hasValue(hit['path']))
-        _kbChunkText(
+        openHandLocalizedText(
           context,
           zh: '来源路径',
           zhHant: '來源路徑',
@@ -503,7 +481,7 @@ class KnowledgeChunkDetailDialog extends StatelessWidget {
           ja: 'パス',
         ): hit['path'],
       if (_hasValue(hit['document_time']))
-        _kbChunkText(
+        openHandLocalizedText(
           context,
           zh: '文档时间',
           zhHant: '文件時間',
@@ -513,7 +491,7 @@ class KnowledgeChunkDetailDialog extends StatelessWidget {
           ja: 'ドキュメント日時',
         ): hit['document_time'],
       if (_hasValue(hit['updated_at']))
-        _kbChunkText(
+        openHandLocalizedText(
           context,
           zh: '更新时间',
           zhHant: '更新時間',

@@ -11,28 +11,6 @@ import '../../../shared/util/localized_text.dart';
 import '../knowledge_base_controller.dart';
 import 'knowledge_dialog_widgets.dart';
 
-String _qdrantAdminText(
-  BuildContext context, {
-  required String zh,
-  required String en,
-  String? zhHans,
-  String? zhHant,
-  String? fr,
-  String? de,
-  String? ja,
-}) {
-  return openHandLocalizedText(
-    context,
-    zh: zh,
-    en: en,
-    zhHans: zhHans,
-    zhHant: zhHant,
-    fr: fr,
-    de: de,
-    ja: ja,
-  );
-}
-
 Future<void> showQdrantAdminDialog(BuildContext context) {
   return showAnimatedDialog<void>(
     context: context,
@@ -110,7 +88,7 @@ class _QdrantAdminDialogState extends State<QdrantAdminDialog> {
     if (!controller.settings.enableDangerousAdminOperations) {
       OpenHandSnackBar.showError(
         context,
-        _qdrantAdminText(
+        openHandLocalizedText(
           context,
           zh: '请先在知识库配置中启用危险管理操作。',
           zhHant: '請先在知識庫設定中啟用危險管理操作。',
@@ -124,7 +102,7 @@ class _QdrantAdminDialogState extends State<QdrantAdminDialog> {
     }
     final confirmed = await showOpenHandConfirmDialog(
       context: context,
-      title: _qdrantAdminText(
+      title: openHandLocalizedText(
         context,
         zh: '删除 Qdrant collection？',
         zhHant: '刪除 Qdrant collection？',
@@ -133,7 +111,7 @@ class _QdrantAdminDialogState extends State<QdrantAdminDialog> {
         de: 'Qdrant-Collection löschen?',
         ja: 'Qdrant collection を削除しますか？',
       ),
-      message: _qdrantAdminText(
+      message: openHandLocalizedText(
         context,
         zh: '将删除 collection "$collection" 及其中所有 points。此操作不可撤销。',
         zhHant: '將刪除 collection "$collection" 及其中所有 points。此操作無法復原。',
@@ -142,7 +120,7 @@ class _QdrantAdminDialogState extends State<QdrantAdminDialog> {
         de: 'Löscht die Collection "$collection" und alle enthaltenen Points. Dies kann nicht rückgängig gemacht werden.',
         ja: 'collection "$collection" とそのすべての points を削除します。この操作は元に戻せません。',
       ),
-      confirmLabel: _qdrantAdminText(
+      confirmLabel: openHandLocalizedText(
         context,
         zh: '删除 Collection',
         zhHant: '刪除 Collection',
@@ -160,7 +138,7 @@ class _QdrantAdminDialogState extends State<QdrantAdminDialog> {
       if (!mounted) return;
       OpenHandSnackBar.showSuccess(
         context,
-        _qdrantAdminText(
+        openHandLocalizedText(
           context,
           zh: 'Collection 已删除。',
           zhHant: 'Collection 已刪除。',
@@ -184,7 +162,7 @@ class _QdrantAdminDialogState extends State<QdrantAdminDialog> {
     final isChineseLayout = openHandIsChineseLocale(context);
     return buildOpenHandAlertDialog(
       title: Text(
-        _qdrantAdminText(
+        openHandLocalizedText(
           context,
           zh: 'Qdrant 管理',
           zhHant: 'Qdrant 管理',
@@ -211,7 +189,7 @@ class _QdrantAdminDialogState extends State<QdrantAdminDialog> {
                   ),
                 ),
               KnowledgeDialogSection(
-                title: _qdrantAdminText(
+                title: openHandLocalizedText(
                   context,
                   zh: 'Collections 列表',
                   zhHant: 'Collections 清單',
@@ -235,7 +213,7 @@ class _QdrantAdminDialogState extends State<QdrantAdminDialog> {
                     if (collections.isEmpty) {
                       return KnowledgeDialogNotice(
                         icon: Icons.info_outline_rounded,
-                        message: _qdrantAdminText(
+                        message: openHandLocalizedText(
                           context,
                           zh: '没有 collection 或 Qdrant 不可用。',
                           zhHant: '沒有 collection 或 Qdrant 不可用。',
@@ -262,7 +240,7 @@ class _QdrantAdminDialogState extends State<QdrantAdminDialog> {
                 ),
               ),
               KnowledgeDialogSection(
-                title: _qdrantAdminText(
+                title: openHandLocalizedText(
                   context,
                   zh: 'Points / 搜索 / 滚动读取',
                   zhHant: 'Points / 搜尋 / 捲動讀取',
@@ -277,7 +255,7 @@ class _QdrantAdminDialogState extends State<QdrantAdminDialog> {
                   children: [
                     KnowledgeDialogKeyValueList(
                       rows: {
-                        _qdrantAdminText(
+                        openHandLocalizedText(
                           context,
                           zh: '当前 collection',
                           zhHant: '目前 collection',
@@ -294,7 +272,7 @@ class _QdrantAdminDialogState extends State<QdrantAdminDialog> {
                       onPressed: _busy ? null : _scroll,
                       icon: const Icon(Icons.list_alt_rounded),
                       label: Text(
-                        _qdrantAdminText(
+                        openHandLocalizedText(
                           context,
                           zh: '滚动读取前 20 个 points',
                           zhHant: '捲動讀取前 20 個 points',
@@ -314,7 +292,7 @@ class _QdrantAdminDialogState extends State<QdrantAdminDialog> {
               ),
               if (_collectionInfo case final collectionInfo?)
                 KnowledgeDialogSection(
-                  title: _qdrantAdminText(
+                  title: openHandLocalizedText(
                     context,
                     zh: 'Collection 结构 / 配置',
                     zhHant: 'Collection 結構 / 設定',
@@ -327,7 +305,7 @@ class _QdrantAdminDialogState extends State<QdrantAdminDialog> {
                   child: KnowledgeDialogJsonBox(value: collectionInfo),
                 ),
               KnowledgeDialogSection(
-                title: _qdrantAdminText(
+                title: openHandLocalizedText(
                   context,
                   zh: '操作日志',
                   zhHant: '操作日誌',
@@ -341,7 +319,7 @@ class _QdrantAdminDialogState extends State<QdrantAdminDialog> {
                 child: controller.qdrantAdminLogs.isEmpty
                     ? KnowledgeDialogNotice(
                         icon: Icons.history_toggle_off_rounded,
-                        message: _qdrantAdminText(
+                        message: openHandLocalizedText(
                           context,
                           zh: '暂无操作。',
                           zhHant: '暫無操作。',
@@ -372,7 +350,7 @@ class _QdrantAdminDialogState extends State<QdrantAdminDialog> {
         OpenHandDialogActionButton.secondary(
           onPressed: _refresh,
           icon: Icons.refresh_rounded,
-          label: _qdrantAdminText(
+          label: openHandLocalizedText(
             context,
             zh: '刷新',
             zhHant: '重新整理',
@@ -384,7 +362,7 @@ class _QdrantAdminDialogState extends State<QdrantAdminDialog> {
         ),
         OpenHandDialogActionButton.primary(
           onPressed: _busy ? null : () => Navigator.of(context).pop(),
-          label: _qdrantAdminText(
+          label: openHandLocalizedText(
             context,
             zh: '关闭',
             zhHant: '關閉',
@@ -452,7 +430,7 @@ class _CollectionTile extends StatelessWidget {
             ),
           ),
           IconButton(
-            tooltip: _qdrantAdminText(
+            tooltip: openHandLocalizedText(
               context,
               zh: '查看配置',
               zhHant: '查看設定',
@@ -466,7 +444,7 @@ class _CollectionTile extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           IconButton(
-            tooltip: _qdrantAdminText(
+            tooltip: openHandLocalizedText(
               context,
               zh: '删除',
               zhHant: '刪除',

@@ -191,7 +191,7 @@ Widget _buildProgrammingExpertConfigSection(
 ) {
   final theme = Theme.of(context);
   final colorScheme = theme.colorScheme;
-  final sectionTitle = _localizedText(
+  final sectionTitle = openHandLocalizedText(
     context,
     zh: '编程专家配置',
     zhHant: '程式專家設定',
@@ -209,7 +209,7 @@ Widget _buildProgrammingExpertConfigSection(
       title: sectionTitle,
       children: [
         Text(
-          _localizedText(
+          openHandLocalizedText(
             context,
             zh: '配置数据尚未写入会话元数据。',
             zhHant: '設定資料尚未寫入會話中繼資料。',
@@ -238,7 +238,7 @@ Widget _buildProgrammingExpertConfigSection(
     title: sectionTitle,
     children: [
       _MetadataEntryRow(
-        label: _localizedText(
+        label: openHandLocalizedText(
           context,
           zh: '项目根目录',
           zhHant: '專案根目錄',
@@ -250,7 +250,7 @@ Widget _buildProgrammingExpertConfigSection(
         value: projectRoot.isEmpty ? '-' : projectRoot,
       ),
       _MetadataEntryRow(
-        label: _localizedText(
+        label: openHandLocalizedText(
           context,
           zh: '项目语言',
           zhHant: '專案語言',
@@ -262,7 +262,7 @@ Widget _buildProgrammingExpertConfigSection(
         value: _programmingLanguageLabel(context, language),
       ),
       _MetadataEntryRow(
-        label: _localizedText(
+        label: openHandLocalizedText(
           context,
           zh: 'SDK 路径',
           zhHant: 'SDK 路徑',
@@ -274,7 +274,7 @@ Widget _buildProgrammingExpertConfigSection(
         value: sdkPath.isEmpty ? '-' : OpenHandPaths.shortenHomePath(sdkPath),
       ),
       _MetadataEntryRow(
-        label: _localizedText(
+        label: openHandLocalizedText(
           context,
           zh: 'LSP 路径',
           zhHant: 'LSP 路徑',
@@ -292,7 +292,7 @@ Widget _buildProgrammingExpertConfigSection(
 Widget _buildHarnessConfigSection(BuildContext context, AiSession session) {
   final theme = Theme.of(context);
   final colorScheme = theme.colorScheme;
-  final sectionTitle = _localizedText(
+  final sectionTitle = openHandLocalizedText(
     context,
     zh: 'Harness Engineering 配置',
     zhHant: 'Harness Engineering 設定',
@@ -307,7 +307,7 @@ Widget _buildHarnessConfigSection(BuildContext context, AiSession session) {
       title: sectionTitle,
       children: [
         Text(
-          _localizedText(
+          openHandLocalizedText(
             context,
             zh: '配置数据尚未写入会话元数据（该会话可能创建于功能推出之前）。',
             zhHant: '設定資料尚未寫入會話中繼資料（此會話可能早於此功能）。',
@@ -341,7 +341,7 @@ Widget _buildHarnessConfigSection(BuildContext context, AiSession session) {
 
   final roleConfigs = <(String, HarnessRoleConfig?)>[
     (
-      _localizedText(
+      openHandLocalizedText(
         context,
         zh: '探档者 (Profiler)',
         zhHant: '探檔者 (Profiler)',
@@ -353,7 +353,7 @@ Widget _buildHarnessConfigSection(BuildContext context, AiSession session) {
       parseRole('profiler'),
     ),
     (
-      _localizedText(
+      openHandLocalizedText(
         context,
         zh: '调查者 (Reader)',
         zhHant: '調查者 (Reader)',
@@ -365,7 +365,7 @@ Widget _buildHarnessConfigSection(BuildContext context, AiSession session) {
       parseRole('reader'),
     ),
     (
-      _localizedText(
+      openHandLocalizedText(
         context,
         zh: '规划者 (Planner)',
         zhHant: '規劃者 (Planner)',
@@ -377,7 +377,7 @@ Widget _buildHarnessConfigSection(BuildContext context, AiSession session) {
       parseRole('planner'),
     ),
     (
-      _localizedText(
+      openHandLocalizedText(
         context,
         zh: '实施者 (Implementer)',
         zhHant: '實作者 (Implementer)',
@@ -389,7 +389,7 @@ Widget _buildHarnessConfigSection(BuildContext context, AiSession session) {
       parseRole('implementer'),
     ),
     (
-      _localizedText(
+      openHandLocalizedText(
         context,
         zh: '验收者 (Reviewer)',
         zhHant: '驗收者 (Reviewer)',
@@ -407,7 +407,7 @@ Widget _buildHarnessConfigSection(BuildContext context, AiSession session) {
     children: [
       if (task.isNotEmpty)
         _MetadataEntryRow(
-          label: _localizedText(
+          label: openHandLocalizedText(
             context,
             zh: '任务描述',
             zhHant: '任務描述',
@@ -419,7 +419,7 @@ Widget _buildHarnessConfigSection(BuildContext context, AiSession session) {
           value: task,
         ),
       _MetadataEntryRow(
-        label: _localizedText(
+        label: openHandLocalizedText(
           context,
           zh: '工作目录',
           zhHant: '工作目錄',
@@ -431,7 +431,7 @@ Widget _buildHarnessConfigSection(BuildContext context, AiSession session) {
         value: workingDirectory.isEmpty ? '-' : workingDirectory,
       ),
       _MetadataEntryRow(
-        label: _localizedText(
+        label: openHandLocalizedText(
           context,
           zh: '持久化目录',
           zhHant: '持久化目錄',
@@ -444,7 +444,7 @@ Widget _buildHarnessConfigSection(BuildContext context, AiSession session) {
       ),
       if (firstRunRaw != null)
         _MetadataEntryRow(
-          label: _localizedText(
+          label: openHandLocalizedText(
             context,
             zh: '首次运行',
             zhHant: '首次執行',
@@ -454,7 +454,7 @@ Widget _buildHarnessConfigSection(BuildContext context, AiSession session) {
             ja: '初回実行',
           ),
           value: firstRunRaw == true
-              ? _localizedText(
+              ? openHandLocalizedText(
                   context,
                   zh: '是（含探档阶段）',
                   zhHant: '是（含探檔階段）',
@@ -463,7 +463,7 @@ Widget _buildHarnessConfigSection(BuildContext context, AiSession session) {
                   de: 'Ja (Profiler-Phase enthalten)',
                   ja: 'はい（Profiler フェーズを含む）',
                 )
-              : _localizedText(
+              : openHandLocalizedText(
                   context,
                   zh: '否（增量运行）',
                   zhHant: '否（增量執行）',
@@ -475,7 +475,7 @@ Widget _buildHarnessConfigSection(BuildContext context, AiSession session) {
         ),
       const SizedBox(height: 12),
       Text(
-        _localizedText(
+        openHandLocalizedText(
           context,
           zh: '角色配置',
           zhHant: '角色設定',
@@ -495,7 +495,7 @@ Widget _buildHarnessConfigSection(BuildContext context, AiSession session) {
           value: () {
             final rc = entry.$2;
             if (rc == null || !rc.isConfigured) {
-              return _localizedText(
+              return openHandLocalizedText(
                 context,
                 zh: '未配置',
                 zhHant: '未設定',
@@ -520,30 +520,10 @@ Map<String, Object?>? _threadTemplateMetadataMap(
   return rawValue is Map ? stringKeyedMapFromValue(rawValue) : null;
 }
 
-String _localizedText(
-  BuildContext context, {
-  required String zh,
-  required String en,
-  String? zhHant,
-  String? fr,
-  String? de,
-  String? ja,
-}) {
-  return openHandLocalizedText(
-    context,
-    zh: zh,
-    zhHant: zhHant,
-    en: en,
-    fr: fr,
-    de: de,
-    ja: ja,
-  );
-}
-
 Widget _buildWebReverseConfigSection(BuildContext context, AiSession session) {
   final theme = Theme.of(context);
   final colorScheme = theme.colorScheme;
-  final sectionTitle = _localizedText(
+  final sectionTitle = openHandLocalizedText(
     context,
     zh: 'Web 逆向配置',
     zhHant: 'Web 逆向設定',
@@ -560,7 +540,7 @@ Widget _buildWebReverseConfigSection(BuildContext context, AiSession session) {
       title: sectionTitle,
       children: [
         Text(
-          _localizedText(
+          openHandLocalizedText(
             context,
             zh: '配置数据尚未写入会话元数据。',
             zhHant: '設定資料尚未寫入會話中繼資料。',
@@ -580,7 +560,7 @@ Widget _buildWebReverseConfigSection(BuildContext context, AiSession session) {
     title: sectionTitle,
     children: [
       _MetadataEntryRow(
-        label: _localizedText(
+        label: openHandLocalizedText(
           context,
           zh: '目标 URL',
           zhHant: '目標 URL',
@@ -592,7 +572,7 @@ Widget _buildWebReverseConfigSection(BuildContext context, AiSession session) {
         value: config.targetUrl,
       ),
       _MetadataEntryRow(
-        label: _localizedText(
+        label: openHandLocalizedText(
           context,
           zh: '逆向目标',
           zhHant: '逆向目標',
@@ -604,7 +584,7 @@ Widget _buildWebReverseConfigSection(BuildContext context, AiSession session) {
         value: config.objective,
       ),
       _MetadataEntryRow(
-        label: _localizedText(
+        label: openHandLocalizedText(
           context,
           zh: '浏览器',
           zhHant: '瀏覽器',
@@ -617,7 +597,7 @@ Widget _buildWebReverseConfigSection(BuildContext context, AiSession session) {
       ),
       _MetadataEntryRow(label: 'CDP Port', value: '${config.cdpPort}'),
       _MetadataEntryRow(
-        label: _localizedText(
+        label: openHandLocalizedText(
           context,
           zh: 'AI 侧 CDP MCP',
           zhHant: 'AI 側 CDP MCP',
@@ -627,7 +607,7 @@ Widget _buildWebReverseConfigSection(BuildContext context, AiSession session) {
           ja: 'AI側 CDP MCP',
         ),
         value: config.cdpMcpEnabled
-            ? _localizedText(
+            ? openHandLocalizedText(
                 context,
                 zh: '已启用',
                 zhHant: '已啟用',
@@ -636,7 +616,7 @@ Widget _buildWebReverseConfigSection(BuildContext context, AiSession session) {
                 de: 'Aktiviert',
                 ja: '有効',
               )
-            : _localizedText(
+            : openHandLocalizedText(
                 context,
                 zh: '未启用',
                 zhHant: '未啟用',
@@ -647,7 +627,7 @@ Widget _buildWebReverseConfigSection(BuildContext context, AiSession session) {
               ),
       ),
       _MetadataEntryRow(
-        label: _localizedText(
+        label: openHandLocalizedText(
           context,
           zh: '登录态',
           zhHant: '登入狀態',
@@ -660,7 +640,7 @@ Widget _buildWebReverseConfigSection(BuildContext context, AiSession session) {
       ),
       if (config.proxy != null && config.proxy!.isNotEmpty)
         _MetadataEntryRow(
-          label: _localizedText(
+          label: openHandLocalizedText(
             context,
             zh: '代理',
             zhHant: '代理',
@@ -673,7 +653,7 @@ Widget _buildWebReverseConfigSection(BuildContext context, AiSession session) {
         ),
       if (config.keywords.isNotEmpty)
         _MetadataEntryRow(
-          label: _localizedText(
+          label: openHandLocalizedText(
             context,
             zh: '关键字',
             zhHant: '關鍵字',
@@ -686,7 +666,7 @@ Widget _buildWebReverseConfigSection(BuildContext context, AiSession session) {
         ),
       if (config.triggerActions != null && config.triggerActions!.isNotEmpty)
         _MetadataEntryRow(
-          label: _localizedText(
+          label: openHandLocalizedText(
             context,
             zh: '触发动作',
             zhHant: '觸發動作',
@@ -698,7 +678,7 @@ Widget _buildWebReverseConfigSection(BuildContext context, AiSession session) {
           value: config.triggerActions!,
         ),
       _MetadataEntryRow(
-        label: _localizedText(
+        label: openHandLocalizedText(
           context,
           zh: 'Profile 目录',
           zhHant: 'Profile 目錄',
@@ -718,7 +698,7 @@ String _webReverseLoginModeLabel(
   WebReverseLoginMode mode,
 ) {
   return switch (mode) {
-    WebReverseLoginMode.none => _localizedText(
+    WebReverseLoginMode.none => openHandLocalizedText(
       context,
       zh: '无需登录',
       zhHant: '無需登入',
@@ -727,7 +707,7 @@ String _webReverseLoginModeLabel(
       de: 'Keine',
       ja: '不要',
     ),
-    WebReverseLoginMode.manual => _localizedText(
+    WebReverseLoginMode.manual => openHandLocalizedText(
       context,
       zh: '手动登录',
       zhHant: '手動登入',
@@ -736,7 +716,7 @@ String _webReverseLoginModeLabel(
       de: 'Manuell',
       ja: '手動',
     ),
-    WebReverseLoginMode.storageState => _localizedText(
+    WebReverseLoginMode.storageState => openHandLocalizedText(
       context,
       zh: '已有状态',
       zhHant: '既有狀態',
@@ -752,7 +732,7 @@ Future<String?> _showEditQueuedMessageDialog(
   BuildContext context,
   String currentText,
 ) async {
-  final hint = _localizedText(
+  final hint = openHandLocalizedText(
     context,
     zh: '输入消息内容…',
     zhHant: '輸入訊息內容…',
@@ -763,7 +743,7 @@ Future<String?> _showEditQueuedMessageDialog(
   );
   return showOpenHandTextInputDialog(
     context: context,
-    title: _localizedText(
+    title: openHandLocalizedText(
       context,
       zh: '编辑等待消息',
       zhHant: '編輯等待訊息',
@@ -774,7 +754,7 @@ Future<String?> _showEditQueuedMessageDialog(
     ),
     initialValue: currentText,
     hintText: hint,
-    cancelLabel: _localizedText(
+    cancelLabel: openHandLocalizedText(
       context,
       zh: '取消',
       zhHant: '取消',
@@ -783,7 +763,7 @@ Future<String?> _showEditQueuedMessageDialog(
       de: 'Abbrechen',
       ja: 'キャンセル',
     ),
-    confirmLabel: _localizedText(
+    confirmLabel: openHandLocalizedText(
       context,
       zh: '保存',
       zhHant: '儲存',
@@ -805,161 +785,189 @@ Future<String?> _showEditQueuedMessageDialog(
 
 String _localizedMetadataField(BuildContext context, String field) {
   return switch (field) {
-    'session_id' => _localizedText(context, zh: '会话 ID', en: 'Session ID'),
-    'template' => _localizedText(context, zh: '模板', en: 'Template'),
-    'created_at' => _localizedText(context, zh: '创建时间', en: 'Created At'),
-    'updated_at' => _localizedText(context, zh: '更新时间', en: 'Updated At'),
-    'last_model' => _localizedText(context, zh: '最近模型', en: 'Last Model'),
-    'auto_title_acquired' => _localizedText(
+    'session_id' => openHandLocalizedText(
+      context,
+      zh: '会话 ID',
+      en: 'Session ID',
+    ),
+    'template' => openHandLocalizedText(context, zh: '模板', en: 'Template'),
+    'created_at' => openHandLocalizedText(
+      context,
+      zh: '创建时间',
+      en: 'Created At',
+    ),
+    'updated_at' => openHandLocalizedText(
+      context,
+      zh: '更新时间',
+      en: 'Updated At',
+    ),
+    'last_model' => openHandLocalizedText(
+      context,
+      zh: '最近模型',
+      en: 'Last Model',
+    ),
+    'auto_title_acquired' => openHandLocalizedText(
       context,
       zh: '标题获取状态',
       en: 'Title Acquired',
     ),
-    'auto_title_retry_count' => _localizedText(
+    'auto_title_retry_count' => openHandLocalizedText(
       context,
       zh: '标题重试次数',
       en: 'Title Retry Count',
     ),
-    'compression_checkpoint' => _localizedText(
+    'compression_checkpoint' => openHandLocalizedText(
       context,
       zh: '压缩检查点',
       en: 'Compression Checkpoint',
     ),
-    'latest_compression_at' => _localizedText(
+    'latest_compression_at' => openHandLocalizedText(
       context,
       zh: '最近压缩时间',
       en: 'Latest Compression At',
     ),
-    'total_input_characters' => _localizedText(
+    'total_input_characters' => openHandLocalizedText(
       context,
       zh: '输入字符总数',
       en: 'Total Input Characters',
     ),
-    'total_output_characters' => _localizedText(
+    'total_output_characters' => openHandLocalizedText(
       context,
       zh: '输出字符总数',
       en: 'Total Output Characters',
     ),
-    'total_prompt_characters' => _localizedText(
+    'total_prompt_characters' => openHandLocalizedText(
       context,
       zh: 'Prompt 字符总数',
       en: 'Total Prompt Characters',
     ),
-    'last_prompt_system_message_count' => _localizedText(
+    'last_prompt_system_message_count' => openHandLocalizedText(
       context,
       zh: '上次 Prompt 系统消息数',
       en: 'Last Prompt System Message Count',
     ),
-    'last_prompt_history_message_count' => _localizedText(
+    'last_prompt_history_message_count' => openHandLocalizedText(
       context,
       zh: '上次 Prompt 历史消息数',
       en: 'Last Prompt History Message Count',
     ),
-    'context_budget_estimated_prompt_tokens' => _localizedText(
+    'context_budget_estimated_prompt_tokens' => openHandLocalizedText(
       context,
       zh: '估算 Prompt Token',
       en: 'Estimated Prompt Tokens',
     ),
-    'context_budget_model_max_tokens' => _localizedText(
+    'context_budget_model_max_tokens' => openHandLocalizedText(
       context,
       zh: '模型上下文窗口',
       en: 'Model Context Window',
     ),
-    'context_budget_effective_window_tokens' => _localizedText(
+    'context_budget_effective_window_tokens' => openHandLocalizedText(
       context,
       zh: '有效上下文窗口',
       en: 'Effective Context Window',
     ),
-    'context_budget_auto_compact_threshold_tokens' => _localizedText(
+    'context_budget_auto_compact_threshold_tokens' => openHandLocalizedText(
       context,
       zh: '自动压缩阈值',
       en: 'Auto-Compact Threshold',
     ),
-    'context_budget_remaining_tokens' => _localizedText(
+    'context_budget_remaining_tokens' => openHandLocalizedText(
       context,
       zh: '估算剩余 Token',
       en: 'Estimated Remaining Tokens',
     ),
-    'context_budget_percent_left' => _localizedText(
+    'context_budget_percent_left' => openHandLocalizedText(
       context,
       zh: '距自动压缩剩余',
       en: 'Left Until Auto-Compact',
     ),
-    'context_budget_usage_percent' => _localizedText(
+    'context_budget_usage_percent' => openHandLocalizedText(
       context,
       zh: '估算使用率',
       en: 'Estimated Usage',
     ),
-    'compact_memory_sidecar_status' => _localizedText(
+    'compact_memory_sidecar_status' => openHandLocalizedText(
       context,
       zh: 'Sidecar 状态',
       en: 'Sidecar Status',
     ),
-    'compact_memory_checkpoint_id' => _localizedText(
+    'compact_memory_checkpoint_id' => openHandLocalizedText(
       context,
       zh: 'Checkpoint ID',
       en: 'Checkpoint ID',
     ),
-    'compact_memory_checkpoint_characters' => _localizedText(
+    'compact_memory_checkpoint_characters' => openHandLocalizedText(
       context,
       zh: 'Checkpoint 字符数',
       en: 'Checkpoint Characters',
     ),
-    'compact_memory_restored_from_sidecar' => _localizedText(
+    'compact_memory_restored_from_sidecar' => openHandLocalizedText(
       context,
       zh: '从 Sidecar 恢复',
       en: 'Restored From Sidecar',
     ),
-    'compact_memory_sidecar_path' => _localizedText(
+    'compact_memory_sidecar_path' => openHandLocalizedText(
       context,
       zh: 'Sidecar 路径',
       en: 'Sidecar Path',
     ),
-    'locale_tag' => _localizedText(context, zh: '语言区域', en: 'Locale Tag'),
-    'platform' => _localizedText(context, zh: '平台', en: 'Platform'),
-    'app_version' => _localizedText(context, zh: '应用版本', en: 'App Version'),
-    'compression_threshold_chars' => _localizedText(
+    'locale_tag' => openHandLocalizedText(
+      context,
+      zh: '语言区域',
+      en: 'Locale Tag',
+    ),
+    'platform' => openHandLocalizedText(context, zh: '平台', en: 'Platform'),
+    'app_version' => openHandLocalizedText(
+      context,
+      zh: '应用版本',
+      en: 'App Version',
+    ),
+    'compression_threshold_chars' => openHandLocalizedText(
       context,
       zh: '压缩阈值字符数',
       en: 'Compression Threshold Characters',
     ),
-    'single_round_tool_call_limit' => _localizedText(
+    'single_round_tool_call_limit' => openHandLocalizedText(
       context,
       zh: '单轮工具调用上限',
       en: 'Per-Response Tool Call Limit',
     ),
-    'sequential_tool_round_limit' => _localizedText(
+    'sequential_tool_round_limit' => openHandLocalizedText(
       context,
       zh: '连续工具轮次上限',
       en: 'Sequential Tool Round Limit',
     ),
-    'application_directory' => _localizedText(
+    'application_directory' => openHandLocalizedText(
       context,
       zh: '应用目录',
       en: 'Application Directory',
     ),
-    'home_directory' => _localizedText(
+    'home_directory' => openHandLocalizedText(
       context,
       zh: '主目录',
       en: 'Home Directory',
     ),
-    'settings_file' => _localizedText(context, zh: '设置文件', en: 'Settings File'),
-    'skills_storage' => _localizedText(
+    'settings_file' => openHandLocalizedText(
+      context,
+      zh: '设置文件',
+      en: 'Settings File',
+    ),
+    'skills_storage' => openHandLocalizedText(
       context,
       zh: '技能目录',
       en: 'Skills Storage',
     ),
-    'mcp_servers_file' => _localizedText(
+    'mcp_servers_file' => openHandLocalizedText(
       context,
       zh: 'MCP 文件',
       en: 'MCP Servers File',
     ),
-    'user_memory_file' => _localizedText(
+    'user_memory_file' => openHandLocalizedText(
       context,
       zh: '记忆文件',
       en: 'User Memory File',
     ),
-    'sessions_directory' => _localizedText(
+    'sessions_directory' => openHandLocalizedText(
       context,
       zh: '会话目录',
       en: 'Sessions Directory',

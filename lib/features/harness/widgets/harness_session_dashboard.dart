@@ -167,31 +167,9 @@ String _heAiModelConfigLabel(AiModelConfig config) {
   return '$label ($protocolLabel)';
 }
 
-String _heHarnessText(
-  BuildContext context, {
-  required String zh,
-  required String en,
-  String? zhHans,
-  String? zhHant,
-  String? fr,
-  String? de,
-  String? ja,
-}) {
-  return openHandLocalizedText(
-    context,
-    zh: zh,
-    en: en,
-    zhHans: zhHans,
-    zhHant: zhHant,
-    fr: fr,
-    de: de,
-    ja: ja,
-  );
-}
-
 String _heHarnessPhaseLabel(BuildContext context, HarnessPhase phase) {
   return switch (phase) {
-    HarnessPhase.metaCollection => _heHarnessText(
+    HarnessPhase.metaCollection => openHandLocalizedText(
       context,
       zh: '元数据采集',
       zhHant: '元資料採集',
@@ -200,7 +178,7 @@ String _heHarnessPhaseLabel(BuildContext context, HarnessPhase phase) {
       de: 'Metadaten-Erfassung',
       ja: 'メタデータ収集',
     ),
-    HarnessPhase.reading => _heHarnessText(
+    HarnessPhase.reading => openHandLocalizedText(
       context,
       zh: '调查',
       zhHant: '調查',
@@ -209,7 +187,7 @@ String _heHarnessPhaseLabel(BuildContext context, HarnessPhase phase) {
       de: 'Analyse',
       ja: '調査',
     ),
-    HarnessPhase.planning => _heHarnessText(
+    HarnessPhase.planning => openHandLocalizedText(
       context,
       zh: '规划',
       zhHant: '規劃',
@@ -218,7 +196,7 @@ String _heHarnessPhaseLabel(BuildContext context, HarnessPhase phase) {
       de: 'Planung',
       ja: '計画',
     ),
-    HarnessPhase.implementing => _heHarnessText(
+    HarnessPhase.implementing => openHandLocalizedText(
       context,
       zh: '实施',
       zhHant: '實施',
@@ -227,7 +205,7 @@ String _heHarnessPhaseLabel(BuildContext context, HarnessPhase phase) {
       de: 'Umsetzung',
       ja: '実装',
     ),
-    HarnessPhase.reviewing => _heHarnessText(
+    HarnessPhase.reviewing => openHandLocalizedText(
       context,
       zh: '验收',
       zhHant: '驗收',
@@ -240,7 +218,7 @@ String _heHarnessPhaseLabel(BuildContext context, HarnessPhase phase) {
 }
 
 String _heHarnessNotConfiguredText(BuildContext context) {
-  return _heHarnessText(
+  return openHandLocalizedText(
     context,
     zh: '未配置',
     zhHant: '未設定',
@@ -273,7 +251,7 @@ String _heDescribeAiModelConfig(
     return _heAiModelConfigLabel(matchedConfig);
   }
 
-  return _heHarnessText(
+  return openHandLocalizedText(
     context,
     zh: '已删除配置 · $trimmedConfigId',
     zhHant: '已刪除設定 · $trimmedConfigId',
@@ -292,7 +270,7 @@ String _heDescribeHarnessCliModel(
   final normalizedModel = modelId.trim();
   if (normalizedModel == kHarnessGeminiDefaultModelId ||
       (cli != null && isHarnessCliDefaultModel(cli, normalizedModel))) {
-    return _heHarnessText(
+    return openHandLocalizedText(
       context,
       zh: 'Gemini CLI 默认（自动）',
       zhHant: 'Gemini CLI 預設（自動）',
@@ -303,7 +281,7 @@ String _heDescribeHarnessCliModel(
     );
   }
   if (normalizedModel.isEmpty) {
-    return _heHarnessText(
+    return openHandLocalizedText(
       context,
       zh: '默认',
       zhHant: '預設',
@@ -1236,7 +1214,7 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
   ) {
     return switch (phase) {
       HarnessPhase.metaCollection => _HeManualPhaseCopy(
-        actionLabel: _heHarnessText(
+        actionLabel: openHandLocalizedText(
           context,
           zh: '我来研究',
           zhHant: '我來研究',
@@ -1245,7 +1223,7 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
           de: 'Ich recherchiere',
           ja: '自分で調査',
         ),
-        switchBackLabel: _heHarnessText(
+        switchBackLabel: openHandLocalizedText(
           context,
           zh: '改用 AI 研究',
           zhHant: '改用 AI 研究',
@@ -1254,7 +1232,7 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
           de: 'KI-Recherche nutzen',
           ja: 'AI 調査に切り替え',
         ),
-        title: _heHarnessText(
+        title: openHandLocalizedText(
           context,
           zh: '人工研究结果',
           zhHant: '人工研究結果',
@@ -1263,7 +1241,7 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
           de: 'Manuelle Recherche Notizen',
           ja: '手動調査メモ',
         ),
-        helperText: _heHarnessText(
+        helperText: openHandLocalizedText(
           context,
           zh: '请填写你亲自研究得到的项目结构、模块职责、依赖、约定或其他关键观察。发送后，AI 会整理为 architecture.md 与 conventions.md。',
           zhHant:
@@ -1273,7 +1251,7 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
           de: 'Erfasse Struktur, Modulzuständigkeiten, Abhängigkeiten, Konventionen oder wichtige Beobachtungen. Die KI verfeinert sie zu architecture.md und conventions.md.',
           ja: '調査した構成、モジュール責務、依存関係、規約、重要な観察を入力してください。AI が architecture.md と conventions.md に整理します。',
         ),
-        hintText: _heHarnessText(
+        hintText: openHandLocalizedText(
           context,
           zh: '例如：核心入口在 lib/main.dart；状态管理集中在 app/state；构建依赖 Flutter + Provider。',
           zhHant:
@@ -1283,7 +1261,7 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
           de: 'Beispiel: Einstieg in lib/main.dart; State unter app/state; Build mit Flutter + Provider.',
           ja: '例：主入口は lib/main.dart、状態管理は app/state、ビルドは Flutter + Provider。',
         ),
-        emptyMessage: _heHarnessText(
+        emptyMessage: openHandLocalizedText(
           context,
           zh: '请先填写研究结果，再发送给 AI 整理。',
           zhHant: '請先填寫研究結果，再傳送給 AI 整理。',
@@ -1292,7 +1270,7 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
           de: 'Gib zuerst deine Recherche ein, bevor die KI sie verfeinert.',
           ja: 'AI に整理させる前に調査メモを入力してください。',
         ),
-        activeBannerText: _heHarnessText(
+        activeBannerText: openHandLocalizedText(
           context,
           zh: '已切换为人工研究。请填写研究资料后点击发送，AI 会整理为规范文档。',
           zhHant: '已切換為人工研究。請填寫研究資料後點擊傳送，AI 會整理為規範文件。',
@@ -1301,7 +1279,7 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
           de: 'Manuelle Recherche ist aktiv. Sende deine Notizen, damit die KI sie strukturiert.',
           ja: '手動調査が有効です。メモを送信すると AI が必要な文書に整理します。',
         ),
-        queuedBannerText: _heHarnessText(
+        queuedBannerText: openHandLocalizedText(
           context,
           zh: '已保留上一份人工研究结果。点击“继续”会复用它；如需修改，请再次点击“我来研究”。',
           zhHant: '已保留上一份人工研究結果。點擊「繼續」會重用；如需修改，請再次點擊「我來研究」。',
@@ -1313,7 +1291,7 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
         icon: Icons.search_rounded,
       ),
       HarnessPhase.planning => _HeManualPhaseCopy(
-        actionLabel: _heHarnessText(
+        actionLabel: openHandLocalizedText(
           context,
           zh: '我来制定计划',
           zhHant: '我來制定計畫',
@@ -1322,7 +1300,7 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
           de: 'Ich plane',
           ja: '自分で計画',
         ),
-        switchBackLabel: _heHarnessText(
+        switchBackLabel: openHandLocalizedText(
           context,
           zh: '改用 AI 规划',
           zhHant: '改用 AI 規劃',
@@ -1331,7 +1309,7 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
           de: 'KI-Planung nutzen',
           ja: 'AI 計画に切り替え',
         ),
-        title: _heHarnessText(
+        title: openHandLocalizedText(
           context,
           zh: '人工计划草案',
           zhHant: '人工计划草案',
@@ -1340,7 +1318,7 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
           de: 'Manueller Planentwurf',
           ja: '手動計画ドラフト',
         ),
-        helperText: _heHarnessText(
+        helperText: openHandLocalizedText(
           context,
           zh: '请填写你制定的执行计划草案。发送后，AI 会补足步骤、文件指向、验收标准和复杂度标签。',
           zhHant: '請填寫你制定的執行計畫草案。傳送後，AI 會補足步驟、檔案指向、驗收標準和複雜度標籤。',
@@ -1349,7 +1327,7 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
           de: 'Erfasse deinen Planentwurf. Die KI ergänzt Schritte, Dateien, Akzeptanzkriterien und Komplexitätslabels.',
           ja: '実行計画ドラフトを入力してください。AI が手順、対象ファイル、受け入れ基準、複雑度ラベルを補います。',
         ),
-        hintText: _heHarnessText(
+        hintText: openHandLocalizedText(
           context,
           zh: '例如：1. 修改 lib/foo.dart 修复状态同步 [medium]；验收：切换页面后数据一致。',
           zhHant: '例如：1. 修改 lib/foo.dart 修復狀態同步 [medium]；驗收：切換頁面後資料一致。',
@@ -1358,7 +1336,7 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
           de: 'Beispiel: 1. lib/foo.dart für State-Sync ändern [medium]; Abnahme: Daten bleiben nach Navigation konsistent.',
           ja: '例：1. lib/foo.dart で状態同期を修正 [medium]；受け入れ：画面遷移後もデータが一致。',
         ),
-        emptyMessage: _heHarnessText(
+        emptyMessage: openHandLocalizedText(
           context,
           zh: '请先填写计划草案，再发送给 AI 润色。',
           zhHant: '請先填寫計畫草案，再傳送給 AI 潤色。',
@@ -1367,7 +1345,7 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
           de: 'Gib zuerst deinen Planentwurf ein, bevor die KI ihn verfeinert.',
           ja: 'AI に整理させる前に計画ドラフトを入力してください。',
         ),
-        activeBannerText: _heHarnessText(
+        activeBannerText: openHandLocalizedText(
           context,
           zh: '已切换为人工规划。请填写计划草案后点击发送，AI 会整理为规范计划文档。',
           zhHant: '已切換為人工規劃。請填寫計畫草案後點擊傳送，AI 會整理為規範計畫文件。',
@@ -1376,7 +1354,7 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
           de: 'Manuelle Planung ist aktiv. Sende den Entwurf, damit die KI ihn strukturiert.',
           ja: '手動計画が有効です。ドラフトを送信すると AI が必要な計画文書に整理します。',
         ),
-        queuedBannerText: _heHarnessText(
+        queuedBannerText: openHandLocalizedText(
           context,
           zh: '已保留上一份人工计划草案。点击“继续”会复用它；如需修改，请再次点击“我来制定计划”。',
           zhHant: '已保留上一份人工计划草案。點擊「繼續」會重用；如需修改，請再次點擊「我來制定計畫」。',
@@ -1388,7 +1366,7 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
         icon: Icons.route_rounded,
       ),
       HarnessPhase.reviewing => _HeManualPhaseCopy(
-        actionLabel: _heHarnessText(
+        actionLabel: openHandLocalizedText(
           context,
           zh: '我来验收',
           zhHant: '我來驗收',
@@ -1397,7 +1375,7 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
           de: 'Ich prüfe',
           ja: '自分でレビュー',
         ),
-        switchBackLabel: _heHarnessText(
+        switchBackLabel: openHandLocalizedText(
           context,
           zh: '改用 AI 验收',
           zhHant: '改用 AI 驗收',
@@ -1406,7 +1384,7 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
           de: 'KI-Prüfung nutzen',
           ja: 'AI レビューに切り替え',
         ),
-        title: _heHarnessText(
+        title: openHandLocalizedText(
           context,
           zh: '人工验收结果',
           zhHant: '人工驗收結果',
@@ -1415,7 +1393,7 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
           de: 'Manuelles Prüfergebnis',
           ja: '手動レビュー結果',
         ),
-        helperText: _heHarnessText(
+        helperText: openHandLocalizedText(
           context,
           zh: '请填写基于资产、页面、交互或真实结果得到的验收结论，然后点击“验收通过”或“验收不通过”。',
           zhHant: '請填寫基於資產、頁面、互動或真實結果得到的驗收結論，然後點擊「驗收通過」或「驗收不通過」。',
@@ -1424,7 +1402,7 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
           de: 'Erfasse das Prüfergebnis aus Assets, UI, Verhalten oder Beobachtungen und wähle dann "Bestehen" oder "Ablehnen".',
           ja: '資産、UI、挙動、実結果に基づくレビュー結果を入力し、「合格」または「不合格」を選択してください。',
         ),
-        hintText: _heHarnessText(
+        hintText: openHandLocalizedText(
           context,
           zh: '例如：桌面端布局符合预期，但导出图片边缘仍有白边；移动端卡片间距偏大。',
           zhHant: '例如：桌面端佈局符合預期，但匯出圖片邊緣仍有白邊；行動端卡片間距偏大。',
@@ -1433,7 +1411,7 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
           de: 'Beispiel: Desktop-Layout passt, aber Exporte haben weiße Ränder und mobile Kartenabstände sind zu groß.',
           ja: '例：デスクトップ配置は想定通りだが、画像書き出しに白い縁が残り、モバイルのカード間隔が大きい。',
         ),
-        emptyMessage: _heHarnessText(
+        emptyMessage: openHandLocalizedText(
           context,
           zh: '请先填写验收结果，再提交判定。',
           zhHant: '請先填寫驗收結果，再提交判定。',
@@ -1442,7 +1420,7 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
           de: 'Gib zuerst das Prüfergebnis ein, bevor du entscheidest.',
           ja: '判定を送信する前にレビュー結果を入力してください。',
         ),
-        activeBannerText: _heHarnessText(
+        activeBannerText: openHandLocalizedText(
           context,
           zh: '已切换为人工验收。请填写验收结果后点击“验收通过”或“验收不通过”。',
           zhHant: '已切換為人工驗收。請填寫驗收結果後點擊「驗收通過」或「驗收不通過」。',
@@ -1451,7 +1429,7 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
           de: 'Manuelle Prüfung ist aktiv. Erfasse das Ergebnis und wähle "Bestehen" oder "Ablehnen".',
           ja: '手動レビューが有効です。結果を入力し、「合格」または「不合格」を選択してください。',
         ),
-        queuedBannerText: _heHarnessText(
+        queuedBannerText: openHandLocalizedText(
           context,
           zh: '已保留上一份人工验收结果。点击“继续”会复用它；如需修改，请再次点击“我来验收”。',
           zhHant: '已保留上一份人工驗收結果。點擊「繼續」會重用；如需修改，請再次點擊「我來驗收」。',
@@ -1463,7 +1441,7 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
         icon: Icons.fact_check_outlined,
       ),
       HarnessPhase.reading || HarnessPhase.implementing => _HeManualPhaseCopy(
-        actionLabel: _heHarnessText(
+        actionLabel: openHandLocalizedText(
           context,
           zh: '我来处理',
           zhHant: '我來處理',
@@ -1472,7 +1450,7 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
           de: 'Ich übernehme',
           ja: '自分で処理',
         ),
-        switchBackLabel: _heHarnessText(
+        switchBackLabel: openHandLocalizedText(
           context,
           zh: '改用 AI 处理',
           zhHant: '改用 AI 處理',
@@ -1481,7 +1459,7 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
           de: 'KI nutzen',
           ja: 'AI に切り替え',
         ),
-        title: _heHarnessText(
+        title: openHandLocalizedText(
           context,
           zh: '人工输入',
           zhHant: '人工輸入',
@@ -1490,7 +1468,7 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
           de: 'Manuelle Eingabe',
           ja: '手動入力',
         ),
-        helperText: _heHarnessText(
+        helperText: openHandLocalizedText(
           context,
           zh: '请填写人工输入。',
           zhHant: '請填寫人工輸入。',
@@ -1499,7 +1477,7 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
           de: 'Gib die manuelle Eingabe ein.',
           ja: '手動入力を記入してください。',
         ),
-        hintText: _heHarnessText(
+        hintText: openHandLocalizedText(
           context,
           zh: '输入人工内容…',
           zhHant: '輸入人工內容…',
@@ -1508,7 +1486,7 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
           de: 'Manuelle Eingabe eingeben…',
           ja: '手動内容を入力…',
         ),
-        emptyMessage: _heHarnessText(
+        emptyMessage: openHandLocalizedText(
           context,
           zh: '请先填写内容。',
           zhHant: '請先填寫內容。',
@@ -1517,7 +1495,7 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
           de: 'Gib zuerst den Inhalt ein.',
           ja: '先に内容を入力してください。',
         ),
-        activeBannerText: _heHarnessText(
+        activeBannerText: openHandLocalizedText(
           context,
           zh: '已切换为人工输入。',
           zhHant: '已切換為人工輸入。',
@@ -1526,7 +1504,7 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
           de: 'Manuelle Eingabe ist aktiv.',
           ja: '手動入力が有効です。',
         ),
-        queuedBannerText: _heHarnessText(
+        queuedBannerText: openHandLocalizedText(
           context,
           zh: '已保留上一份人工输入。',
           zhHant: '已保留上一份人工輸入。',
@@ -1715,7 +1693,7 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
     final awaitingPhase = _awaitingManualPhase;
     if (awaitingPhase == null) {
       _showComposerMessage(
-        _heHarnessText(
+        openHandLocalizedText(
           context,
           zh: '当前没有等待中的人工输入阶段。',
           zhHant: '目前沒有等待中的人工輸入階段。',
@@ -1744,7 +1722,7 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
       if (!submitted && mounted) {
         setState(() => _manualPhaseSubmitting = false);
         _showComposerMessage(
-          _heHarnessText(
+          openHandLocalizedText(
             context,
             zh: '人工输入提交失败，请重试。',
             zhHant: '人工輸入提交失敗，請重試。',
@@ -1761,7 +1739,7 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
       }
       setState(() => _manualPhaseSubmitting = false);
       _showComposerMessage(
-        _heHarnessText(
+        openHandLocalizedText(
           context,
           zh: '人工输入提交异常，请重试。',
           zhHant: '人工輸入提交異常，請重試。',
@@ -1783,7 +1761,7 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
     final content = _manualPhaseController.text.trim();
     if (content.isEmpty) {
       _showComposerMessage(
-        _heHarnessText(
+        openHandLocalizedText(
           context,
           zh: '请先填写验收结果，再提交判定。',
           zhHant: '請先填寫驗收結果，再提交判定。',
@@ -1808,7 +1786,7 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
       if (!submitted && mounted) {
         setState(() => _manualPhaseSubmitting = false);
         _showComposerMessage(
-          _heHarnessText(
+          openHandLocalizedText(
             context,
             zh: '验收结果提交失败，请重试。',
             zhHant: '驗收結果提交失敗，請重試。',
@@ -1825,7 +1803,7 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
       }
       setState(() => _manualPhaseSubmitting = false);
       _showComposerMessage(
-        _heHarnessText(
+        openHandLocalizedText(
           context,
           zh: '验收结果提交异常，请重试。',
           zhHant: '驗收結果提交異常，請重試。',
@@ -2167,7 +2145,7 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
     final manualPhaseCopy = _manualPhaseCopy(context, _effectiveManualPhase);
     final primaryActionLabel = _isAwaitingManualPhaseInput
         ? (_manualPhaseSubmitting
-              ? _heHarnessText(
+              ? openHandLocalizedText(
                   context,
                   zh: '发送中',
                   zhHant: '傳送中',
@@ -2176,7 +2154,7 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
                   de: 'Wird gesendet',
                   ja: '送信中',
                 )
-              : _heHarnessText(
+              : openHandLocalizedText(
                   context,
                   zh: '发送',
                   zhHant: '傳送',
@@ -2186,7 +2164,7 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
                   ja: '送信',
                 ))
         : _isRunning
-        ? _heHarnessText(
+        ? openHandLocalizedText(
             context,
             zh: '中止',
             zhHant: '中止',
@@ -2196,7 +2174,7 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
             ja: '中止',
           )
         : _canRetryFailedRun
-        ? _heHarnessText(
+        ? openHandLocalizedText(
             context,
             zh: '重试失败阶段',
             zhHant: '重試失敗階段',
@@ -2206,7 +2184,7 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
             ja: '失敗したフェーズを再試行',
           )
         : (_isDone
-              ? _heHarnessText(
+              ? openHandLocalizedText(
                   context,
                   zh: '重新执行',
                   zhHant: '重新執行',
@@ -2215,7 +2193,7 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
                   de: 'Erneut ausführen',
                   ja: '再実行',
                 )
-              : _heHarnessText(
+              : openHandLocalizedText(
                   context,
                   zh: '开始执行',
                   zhHant: '開始執行',
@@ -2478,7 +2456,7 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
       context,
       SnackBar(
         content: Text(
-          _heHarnessText(
+          openHandLocalizedText(
             context,
             zh: '日志已复制到剪贴板',
             zhHant: '日誌已複製到剪貼簿',
@@ -2500,7 +2478,7 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
   Future<void> _deletePhaseLog(BuildContext context, int phaseIndex) async {
     final confirmed = await showOpenHandConfirmDialog(
       context: context,
-      title: _heHarnessText(
+      title: openHandLocalizedText(
         context,
         zh: '删除阶段',
         zhHant: '刪除階段',
@@ -2509,7 +2487,7 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
         de: 'Phase löschen',
         ja: 'フェーズを削除',
       ),
-      message: _heHarnessText(
+      message: openHandLocalizedText(
         context,
         zh: '确定删除这个阶段吗？删除后该阶段的执行日志将被移除。',
         zhHant: '確定要刪除此階段嗎？刪除後此階段的執行日誌將被移除。',
@@ -2518,7 +2496,7 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
         de: 'Diese Phase wirklich löschen? Das Ausführungslog wird entfernt.',
         ja: 'このフェーズを削除しますか？実行ログも削除されます。',
       ),
-      cancelLabel: _heHarnessText(
+      cancelLabel: openHandLocalizedText(
         context,
         zh: '取消',
         zhHant: '取消',
@@ -2527,7 +2505,7 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
         de: 'Abbrechen',
         ja: 'キャンセル',
       ),
-      confirmLabel: _heHarnessText(
+      confirmLabel: openHandLocalizedText(
         context,
         zh: '删除',
         zhHant: '刪除',
@@ -2545,7 +2523,7 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
   Future<void> _requestCancel(BuildContext context) async {
     final confirmed = await showOpenHandConfirmDialog(
       context: context,
-      title: _heHarnessText(
+      title: openHandLocalizedText(
         context,
         zh: '确认中止',
         zhHant: '確認中止',
@@ -2554,7 +2532,7 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
         de: 'Abbruch bestätigen',
         ja: '中止を確認',
       ),
-      message: _heHarnessText(
+      message: openHandLocalizedText(
         context,
         zh: '当前会话仍在运行中，确定要中止吗？\nCLI 进程将被终止，已生成的文件会保留。',
         zhHant: '目前會話仍在執行中，確定要中止嗎？\nCLI 行程將被終止，已生成的檔案會保留。',
@@ -2563,7 +2541,7 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
         de: 'Die Sitzung läuft noch. Abbrechen?\nDer aktive CLI-Prozess wird beendet. Bereits erzeugte Dateien bleiben erhalten.',
         ja: 'セッションはまだ実行中です。中止しますか？\n実行中の CLI プロセスは終了され、生成済みファイルは保持されます。',
       ),
-      cancelLabel: _heHarnessText(
+      cancelLabel: openHandLocalizedText(
         context,
         zh: '继续运行',
         zhHant: '繼續執行',
@@ -2572,7 +2550,7 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
         de: 'Weiter ausführen',
         ja: '実行を続ける',
       ),
-      confirmLabel: _heHarnessText(
+      confirmLabel: openHandLocalizedText(
         context,
         zh: '中止',
         zhHant: '中止',

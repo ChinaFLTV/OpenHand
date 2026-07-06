@@ -17,28 +17,6 @@ import '../service/knowledge_indexing_control.dart';
 import 'knowledge_dialog_widgets.dart';
 import 'knowledge_indexing_progress_dialog.dart';
 
-String _kbImportText(
-  BuildContext context, {
-  required String zh,
-  required String en,
-  String? zhHans,
-  String? zhHant,
-  String? fr,
-  String? de,
-  String? ja,
-}) {
-  return openHandLocalizedText(
-    context,
-    zh: zh,
-    en: en,
-    zhHans: zhHans,
-    zhHant: zhHant,
-    fr: fr,
-    de: de,
-    ja: ja,
-  );
-}
-
 Future<void> showKnowledgeImportDialog(BuildContext context) {
   return showAnimatedDialog<void>(
     context: context,
@@ -186,7 +164,7 @@ class _KnowledgeImportDialogState extends State<KnowledgeImportDialog> {
     if (embeddingModel == null) {
       OpenHandSnackBar.showError(
         context,
-        _kbImportText(
+        openHandLocalizedText(
           context,
           zh: '请先配置可用的嵌入模型。',
           zhHant: '請先設定可用的嵌入模型。',
@@ -201,7 +179,7 @@ class _KnowledgeImportDialogState extends State<KnowledgeImportDialog> {
     if (_content.text.trim().isEmpty) {
       OpenHandSnackBar.showError(
         context,
-        _kbImportText(
+        openHandLocalizedText(
           context,
           zh: '笔记内容不能为空。',
           zhHant: '筆記內容不能為空。',
@@ -219,7 +197,7 @@ class _KnowledgeImportDialogState extends State<KnowledgeImportDialog> {
       cancelToken: cancelToken,
       initialProgress: KnowledgeIndexingProgress(
         sourceTitle: _title.text.trim().isEmpty
-            ? _kbImportText(
+            ? openHandLocalizedText(
                 context,
                 zh: 'OpenHand 笔记',
                 zhHant: 'OpenHand 筆記',
@@ -235,7 +213,7 @@ class _KnowledgeImportDialogState extends State<KnowledgeImportDialog> {
       final source = await runKnowledgeIndexingProgressTask<KnowledgeSource>(
         context: context,
         controller: progressController,
-        title: _kbImportText(
+        title: openHandLocalizedText(
           context,
           zh: '构建知识库向量',
           zhHant: '建立知識庫向量',
@@ -244,7 +222,7 @@ class _KnowledgeImportDialogState extends State<KnowledgeImportDialog> {
           de: 'Wissensvektoren werden erstellt',
           ja: 'ナレッジベースベクトルを構築',
         ),
-        subtitle: _kbImportText(
+        subtitle: openHandLocalizedText(
           context,
           zh: '正在保存并索引笔记。',
           zhHant: '正在儲存並索引筆記。',
@@ -266,7 +244,7 @@ class _KnowledgeImportDialogState extends State<KnowledgeImportDialog> {
       if (cancelToken.isCancelled) {
         OpenHandSnackBar.showInfo(
           context,
-          _kbImportText(
+          openHandLocalizedText(
             context,
             zh: '已停止构建向量。',
             zhHant: '已停止建立向量。',
@@ -282,7 +260,7 @@ class _KnowledgeImportDialogState extends State<KnowledgeImportDialog> {
         OpenHandSnackBar.showError(
           context,
           controller.error ??
-              _kbImportText(
+              openHandLocalizedText(
                 context,
                 zh: '笔记导入失败。',
                 zhHant: '筆記匯入失敗。',
@@ -297,7 +275,7 @@ class _KnowledgeImportDialogState extends State<KnowledgeImportDialog> {
       Navigator.of(context).pop();
       OpenHandSnackBar.showSuccess(
         context,
-        _kbImportText(
+        openHandLocalizedText(
           context,
           zh: '笔记已导入并建立索引。',
           zhHant: '筆記已匯入並建立索引。',
@@ -313,7 +291,7 @@ class _KnowledgeImportDialogState extends State<KnowledgeImportDialog> {
           cancelToken.isCancelled) {
         OpenHandSnackBar.showInfo(
           context,
-          _kbImportText(
+          openHandLocalizedText(
             context,
             zh: '已停止构建向量。',
             zhHant: '已停止建立向量。',
@@ -343,7 +321,7 @@ class _KnowledgeImportDialogState extends State<KnowledgeImportDialog> {
       String? de,
       String? ja,
     }) {
-      return _kbImportText(
+      return openHandLocalizedText(
         context,
         zh: zh,
         en: en,
@@ -591,7 +569,7 @@ class _KnowledgeNoteEditor extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  _kbImportText(
+                  openHandLocalizedText(
                     context,
                     zh: '笔记内容',
                     zhHant: '筆記內容',
@@ -613,7 +591,7 @@ class _KnowledgeNoteEditor extends StatelessWidget {
                     value: false,
                     icon: const Icon(Icons.edit_outlined, size: 16),
                     label: Text(
-                      _kbImportText(
+                      openHandLocalizedText(
                         context,
                         zh: '编辑',
                         zhHant: '編輯',
@@ -628,7 +606,7 @@ class _KnowledgeNoteEditor extends StatelessWidget {
                     value: true,
                     icon: const Icon(Icons.visibility_outlined, size: 16),
                     label: Text(
-                      _kbImportText(
+                      openHandLocalizedText(
                         context,
                         zh: '预览',
                         zhHant: '預覽',
@@ -662,7 +640,7 @@ class _KnowledgeNoteEditor extends StatelessWidget {
             controller: title,
             decoration: knowledgeDialogInputDecoration(
               context,
-              _kbImportText(
+              openHandLocalizedText(
                 context,
                 zh: '标题',
                 zhHant: '標題',
@@ -682,7 +660,7 @@ class _KnowledgeNoteEditor extends StatelessWidget {
                   onSubmitted: (_) => onAddTag(),
                   decoration: knowledgeDialogInputDecoration(
                     context,
-                    _kbImportText(
+                    openHandLocalizedText(
                       context,
                       zh: '标签',
                       zhHant: '標籤',
@@ -705,7 +683,7 @@ class _KnowledgeNoteEditor extends StatelessWidget {
                     label: FittedBox(
                       fit: BoxFit.scaleDown,
                       child: Text(
-                        _kbImportText(
+                        openHandLocalizedText(
                           context,
                           zh: '添加',
                           zhHant: '新增',
@@ -844,7 +822,7 @@ class _MarkdownToolbar extends StatelessWidget {
         runSpacing: 6,
         children: [
           _ToolbarButton(
-            tooltip: _kbImportText(
+            tooltip: openHandLocalizedText(
               context,
               zh: '撤销',
               zhHant: '復原',
@@ -857,7 +835,7 @@ class _MarkdownToolbar extends StatelessWidget {
             onPressed: onUndo,
           ),
           _ToolbarButton(
-            tooltip: _kbImportText(
+            tooltip: openHandLocalizedText(
               context,
               zh: '重做',
               zhHant: '重做',
@@ -871,7 +849,7 @@ class _MarkdownToolbar extends StatelessWidget {
           ),
           _ToolbarDivider(),
           _ToolbarButton(
-            tooltip: _kbImportText(
+            tooltip: openHandLocalizedText(
               context,
               zh: '一级标题',
               zhHant: '一級標題',
@@ -884,7 +862,7 @@ class _MarkdownToolbar extends StatelessWidget {
             onPressed: onHeading1,
           ),
           _ToolbarButton(
-            tooltip: _kbImportText(
+            tooltip: openHandLocalizedText(
               context,
               zh: '二级标题',
               zhHant: '二級標題',
@@ -897,7 +875,7 @@ class _MarkdownToolbar extends StatelessWidget {
             onPressed: onHeading2,
           ),
           _ToolbarButton(
-            tooltip: _kbImportText(
+            tooltip: openHandLocalizedText(
               context,
               zh: '三级标题',
               zhHant: '三級標題',
@@ -911,7 +889,7 @@ class _MarkdownToolbar extends StatelessWidget {
           ),
           _ToolbarDivider(),
           _ToolbarButton(
-            tooltip: _kbImportText(
+            tooltip: openHandLocalizedText(
               context,
               zh: '加粗',
               zhHant: '粗體',
@@ -924,7 +902,7 @@ class _MarkdownToolbar extends StatelessWidget {
             onPressed: onBold,
           ),
           _ToolbarButton(
-            tooltip: _kbImportText(
+            tooltip: openHandLocalizedText(
               context,
               zh: '斜体',
               zhHant: '斜體',
@@ -937,7 +915,7 @@ class _MarkdownToolbar extends StatelessWidget {
             onPressed: onItalic,
           ),
           _ToolbarButton(
-            tooltip: _kbImportText(
+            tooltip: openHandLocalizedText(
               context,
               zh: '删除线',
               zhHant: '刪除線',
@@ -950,7 +928,7 @@ class _MarkdownToolbar extends StatelessWidget {
             onPressed: onStrike,
           ),
           _ToolbarButton(
-            tooltip: _kbImportText(
+            tooltip: openHandLocalizedText(
               context,
               zh: '代码',
               zhHant: '程式碼',
@@ -963,7 +941,7 @@ class _MarkdownToolbar extends StatelessWidget {
             onPressed: onCode,
           ),
           _ToolbarButton(
-            tooltip: _kbImportText(
+            tooltip: openHandLocalizedText(
               context,
               zh: '代码块',
               zhHant: '程式碼區塊',
@@ -977,7 +955,7 @@ class _MarkdownToolbar extends StatelessWidget {
           ),
           _ToolbarDivider(),
           _ToolbarButton(
-            tooltip: _kbImportText(
+            tooltip: openHandLocalizedText(
               context,
               zh: '无序列表',
               zhHant: '無序清單',
@@ -990,7 +968,7 @@ class _MarkdownToolbar extends StatelessWidget {
             onPressed: onBulletList,
           ),
           _ToolbarButton(
-            tooltip: _kbImportText(
+            tooltip: openHandLocalizedText(
               context,
               zh: '有序列表',
               zhHant: '有序清單',
@@ -1003,7 +981,7 @@ class _MarkdownToolbar extends StatelessWidget {
             onPressed: onOrderedList,
           ),
           _ToolbarButton(
-            tooltip: _kbImportText(
+            tooltip: openHandLocalizedText(
               context,
               zh: '任务列表',
               zhHant: '任務清單',
@@ -1016,7 +994,7 @@ class _MarkdownToolbar extends StatelessWidget {
             onPressed: onTaskList,
           ),
           _ToolbarButton(
-            tooltip: _kbImportText(
+            tooltip: openHandLocalizedText(
               context,
               zh: '引用',
               zhHant: '引用',
@@ -1030,7 +1008,7 @@ class _MarkdownToolbar extends StatelessWidget {
           ),
           _ToolbarDivider(),
           _ToolbarButton(
-            tooltip: _kbImportText(
+            tooltip: openHandLocalizedText(
               context,
               zh: '链接',
               zhHant: '連結',
@@ -1043,7 +1021,7 @@ class _MarkdownToolbar extends StatelessWidget {
             onPressed: onLink,
           ),
           _ToolbarButton(
-            tooltip: _kbImportText(
+            tooltip: openHandLocalizedText(
               context,
               zh: '图片',
               zhHant: '圖片',
@@ -1056,7 +1034,7 @@ class _MarkdownToolbar extends StatelessWidget {
             onPressed: onImage,
           ),
           _ToolbarButton(
-            tooltip: _kbImportText(
+            tooltip: openHandLocalizedText(
               context,
               zh: '表格',
               zhHant: '表格',
@@ -1069,7 +1047,7 @@ class _MarkdownToolbar extends StatelessWidget {
             onPressed: onTable,
           ),
           _ToolbarButton(
-            tooltip: _kbImportText(
+            tooltip: openHandLocalizedText(
               context,
               zh: '分割线',
               zhHant: '分隔線',
@@ -1154,7 +1132,7 @@ class _MarkdownTextEditor extends StatelessWidget {
       textAlignVertical: TextAlignVertical.top,
       decoration: knowledgeDialogInputDecoration(
         context,
-        _kbImportText(
+        openHandLocalizedText(
           context,
           zh: 'Markdown 内容',
           zhHant: 'Markdown 內容',
@@ -1193,7 +1171,7 @@ class _MarkdownPreview extends StatelessWidget {
           if (data.isEmpty) {
             return Center(
               child: Text(
-                _kbImportText(
+                openHandLocalizedText(
                   context,
                   zh: '暂无内容可预览。',
                   zhHant: '暫無內容可預覽。',

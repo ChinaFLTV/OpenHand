@@ -22,31 +22,9 @@ import 'harness_cli_login_dialog.dart';
 
 const double _kHarnessModeDropdownWidth = 132;
 
-String _heEngineeringText(
-  BuildContext context, {
-  required String zh,
-  required String en,
-  String? zhHans,
-  String? zhHant,
-  String? fr,
-  String? de,
-  String? ja,
-}) {
-  return openHandLocalizedText(
-    context,
-    zh: zh,
-    en: en,
-    zhHans: zhHans,
-    zhHant: zhHant,
-    fr: fr,
-    de: de,
-    ja: ja,
-  );
-}
-
 String _heEngineeringRoleLabel(BuildContext context, HarnessAgentRole role) {
   return switch (role) {
-    HarnessAgentRole.profiler => _heEngineeringText(
+    HarnessAgentRole.profiler => openHandLocalizedText(
       context,
       zh: '探档者',
       zhHant: '探檔者',
@@ -55,7 +33,7 @@ String _heEngineeringRoleLabel(BuildContext context, HarnessAgentRole role) {
       de: 'Profiler',
       ja: 'プロファイラー',
     ),
-    HarnessAgentRole.reader => _heEngineeringText(
+    HarnessAgentRole.reader => openHandLocalizedText(
       context,
       zh: '调查者',
       zhHant: '調查者',
@@ -64,7 +42,7 @@ String _heEngineeringRoleLabel(BuildContext context, HarnessAgentRole role) {
       de: 'Leser',
       ja: 'リーダー',
     ),
-    HarnessAgentRole.planner => _heEngineeringText(
+    HarnessAgentRole.planner => openHandLocalizedText(
       context,
       zh: '规划者',
       zhHant: '規劃者',
@@ -73,7 +51,7 @@ String _heEngineeringRoleLabel(BuildContext context, HarnessAgentRole role) {
       de: 'Planer',
       ja: 'プランナー',
     ),
-    HarnessAgentRole.implementer => _heEngineeringText(
+    HarnessAgentRole.implementer => openHandLocalizedText(
       context,
       zh: '实施者',
       zhHant: '實施者',
@@ -82,7 +60,7 @@ String _heEngineeringRoleLabel(BuildContext context, HarnessAgentRole role) {
       de: 'Umsetzer',
       ja: '実装者',
     ),
-    HarnessAgentRole.reviewer => _heEngineeringText(
+    HarnessAgentRole.reviewer => openHandLocalizedText(
       context,
       zh: '验收者',
       zhHant: '驗收者',
@@ -102,7 +80,7 @@ String _heEngineeringCliModelLabel(
   final normalizedModel = modelId.trim();
   if (normalizedModel == kHarnessGeminiDefaultModelId ||
       (cli != null && isHarnessCliDefaultModel(cli, normalizedModel))) {
-    return _heEngineeringText(
+    return openHandLocalizedText(
       context,
       zh: 'Gemini CLI 默认（自动）',
       zhHant: 'Gemini CLI 預設（自動）',
@@ -113,7 +91,7 @@ String _heEngineeringCliModelLabel(
     );
   }
   if (normalizedModel.isEmpty) {
-    return _heEngineeringText(
+    return openHandLocalizedText(
       context,
       zh: '默认',
       zhHant: '預設',
@@ -329,7 +307,7 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
         final configId = roleConfig.aiModelConfigId;
         if (configId == null || configId.trim().isEmpty) {
           issues.add(
-            _heEngineeringText(
+            openHandLocalizedText(
               context,
               zh: '$roleLabel：请选择 API 模型提供商。',
               zhHant: '$roleLabel：請選擇 API 模型提供者。',
@@ -346,7 +324,7 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
             .firstOrNull;
         if (provider == null) {
           issues.add(
-            _heEngineeringText(
+            openHandLocalizedText(
               context,
               zh: '$roleLabel：所选 API 模型提供商不存在，请重新选择。',
               zhHant: '$roleLabel：所選 API 模型提供者不存在，請重新選擇。',
@@ -363,7 +341,7 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
             urlModelId.isNotEmpty &&
             !provider.allModelIds.contains(urlModelId)) {
           issues.add(
-            _heEngineeringText(
+            openHandLocalizedText(
               context,
               zh: '$roleLabel：所选模型 "$urlModelId" 在该提供商中不存在。',
               zhHant: '$roleLabel：所選模型 "$urlModelId" 在該提供者中不存在。',
@@ -382,7 +360,7 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
 
       if (cliName.isEmpty) {
         issues.add(
-          _heEngineeringText(
+          openHandLocalizedText(
             context,
             zh: '$roleLabel：请选择 CLI。',
             zhHant: '$roleLabel：請選擇 CLI。',
@@ -398,7 +376,7 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
       final entry = _entryForCli(cliName);
       if (entry == null) {
         issues.add(
-          _heEngineeringText(
+          openHandLocalizedText(
             context,
             zh: '$roleLabel：无法识别所选 CLI，请重新选择。',
             zhHant: '$roleLabel：無法識別所選 CLI，請重新選擇。',
@@ -413,7 +391,7 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
 
       if (!entry.installed) {
         issues.add(
-          _heEngineeringText(
+          openHandLocalizedText(
             context,
             zh: '$roleLabel：所选 CLI 尚未安装。',
             zhHant: '$roleLabel：所選 CLI 尚未安裝。',
@@ -428,7 +406,7 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
 
       if (modelId.isEmpty) {
         issues.add(
-          _heEngineeringText(
+          openHandLocalizedText(
             context,
             zh: '$roleLabel：请选择模型。',
             zhHant: '$roleLabel：請選擇模型。',
@@ -496,7 +474,7 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
     );
 
     return [
-      _heEngineeringText(
+      openHandLocalizedText(
         context,
         zh: '当前使用 Gemini 的角色：$roleSummary。OpenHand 不会在 setup 阶段预判 Gemini 模型是否受支持，实际可用性以 CLI 运行结果为准。',
         zhHant:
@@ -507,7 +485,7 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
         ja: 'Gemini を使うロール：$roleSummary。OpenHand は setup 時に Gemini モデル対応を事前判定しません。実際の CLI 実行結果が基準です。',
       ),
       hasLoggedInGemini
-          ? _heEngineeringText(
+          ? openHandLocalizedText(
               context,
               zh: '即使显示已登录，免费版或受限账号运行部分 Pro / Preview 模型时仍可能无权限或找不到模型。',
               zhHant: '即使顯示已登入，免費版或受限帳號執行部分 Pro / Preview 模型時仍可能無權限或找不到模型。',
@@ -516,7 +494,7 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
               de: 'Auch angemeldet können kostenlose oder eingeschränkte Konten bei einigen Pro-/Preview-Modellen Berechtigungs- oder Model-not-found-Fehler erhalten.',
               ja: 'ログイン済みでも、無料または制限付きアカウントでは一部 Pro / Preview モデルで権限不足や model not found が起きる場合があります。',
             )
-          : _heEngineeringText(
+          : openHandLocalizedText(
               context,
               zh: 'Setup 阶段只能校验模型 ID 和登录状态，无法预先确认后续 Google 账号是否具备模型权限。',
               zhHant: 'Setup 階段只能校驗模型 ID 和登入狀態，無法預先確認後續 Google 帳號是否具備模型權限。',
@@ -526,7 +504,7 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
               ja: 'Setup 時に確認できるのはモデル ID とログイン状態だけで、Google アカウントの権限は事前確認できません。',
             ),
       hasPinnedGeminiModel
-          ? _heEngineeringText(
+          ? openHandLocalizedText(
               context,
               zh: '如果不确定额度或权限，优先改用 $defaultModelLabel 或 $flashModelLabel；运行后失败可在 dashboard 改模型并从失败阶段重试。',
               zhHant:
@@ -536,7 +514,7 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
               de: 'Bei unklaren Quoten oder Rechten nutze bevorzugt $defaultModelLabel oder $flashModelLabel. Bei Laufzeitfehlern Modell im Dashboard ändern und Phase erneut versuchen.',
               ja: '割り当てや権限が不明な場合は $defaultModelLabel または $flashModelLabel を優先してください。失敗時は dashboard でモデルを変えて失敗フェーズを再試行できます。',
             )
-          : _heEngineeringText(
+          : openHandLocalizedText(
               context,
               zh: '即使使用 $defaultModelLabel，也仍受当前账号权限影响；运行后失败可在 dashboard 改模型并从失败阶段重试。',
               zhHant:
@@ -612,7 +590,7 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
 
     final confirmed = await showOpenHandConfirmDialog(
       context: context,
-      title: _heEngineeringText(
+      title: openHandLocalizedText(
         context,
         zh: '确认登出',
         zhHant: '確認登出',
@@ -621,7 +599,7 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
         de: 'Logout bestätigen',
         ja: 'ログアウトを確認',
       ),
-      message: _heEngineeringText(
+      message: openHandLocalizedText(
         context,
         zh: '确定要登出 ${cli.name} 吗？登出后需要重新登录才能使用该 CLI。',
         zhHant: '確定要登出 ${cli.name} 嗎？登出後需要重新登入才能使用該 CLI。',
@@ -630,7 +608,7 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
         de: 'Von ${cli.name} abmelden? Danach musst du dich erneut anmelden, um diese CLI zu nutzen.',
         ja: '${cli.name} からログアウトしますか？この CLI を使うには再ログインが必要です。',
       ),
-      cancelLabel: _heEngineeringText(
+      cancelLabel: openHandLocalizedText(
         context,
         zh: '取消',
         zhHant: '取消',
@@ -639,7 +617,7 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
         de: 'Abbrechen',
         ja: 'キャンセル',
       ),
-      confirmLabel: _heEngineeringText(
+      confirmLabel: openHandLocalizedText(
         context,
         zh: '登出',
         zhHant: '登出',
@@ -663,7 +641,7 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
     if (scaffoldMessenger != null) {
       final strippedMessage = stripHarnessCliTerminalSequences(result.message);
       final snackMessage = result.success
-          ? _heEngineeringText(
+          ? openHandLocalizedText(
               context,
               zh: '${cli.name} 已登出。$strippedMessage',
               zhHant: '${cli.name} 已登出。$strippedMessage',
@@ -672,7 +650,7 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
               de: '${cli.name} abgemeldet. $strippedMessage',
               ja: '${cli.name} からログアウトしました。$strippedMessage',
             )
-          : _heEngineeringText(
+          : openHandLocalizedText(
               context,
               zh: '${cli.name} 登出失败：$strippedMessage',
               zhHant: '${cli.name} 登出失敗：$strippedMessage',
@@ -759,7 +737,7 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  _heEngineeringText(
+                  openHandLocalizedText(
                     context,
                     zh: 'Harness Engineering 配置',
                     zhHant: 'Harness Engineering 設定',
@@ -778,7 +756,7 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          _heEngineeringText(
+                          openHandLocalizedText(
                             context,
                             zh: 'OpenHand 将作为编排协调层。每个角色可使用 CLI 模式（委托给外部 CLI 工具）或 URL 模式（使用设置中的 API 模型）。',
                             zhHant:
@@ -801,7 +779,7 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
                           maxLines: 5,
                           minLines: 3,
                           decoration: InputDecoration(
-                            labelText: _heEngineeringText(
+                            labelText: openHandLocalizedText(
                               context,
                               zh: '任务 / 需求',
                               zhHant: '任務 / 需求',
@@ -810,7 +788,7 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
                               de: 'Aufgabe / Anforderung',
                               ja: 'タスク / 要件',
                             ),
-                            hintText: _heEngineeringText(
+                            hintText: openHandLocalizedText(
                               context,
                               zh: '描述你的开发任务或需求...',
                               zhHant: '描述你的開發任務或需求...',
@@ -828,7 +806,7 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
                         // ── Working directory ──────────────────────────────────
                         _DirectoryField(
                           controller: _workingDirController,
-                          label: _heEngineeringText(
+                          label: openHandLocalizedText(
                             context,
                             zh: '工作目录（项目根目录）',
                             zhHant: '工作目錄（專案根目錄）',
@@ -837,7 +815,7 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
                             de: 'Arbeitsverzeichnis',
                             ja: '作業ディレクトリ',
                           ),
-                          hint: _heEngineeringText(
+                          hint: openHandLocalizedText(
                             context,
                             zh: '输入或选择项目根目录路径',
                             zhHant: '輸入或選擇專案根目錄路徑',
@@ -846,7 +824,7 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
                             de: 'Projektwurzel eingeben oder auswählen',
                             ja: 'プロジェクトルートのパスを入力または選択',
                           ),
-                          browseTooltip: _heEngineeringText(
+                          browseTooltip: openHandLocalizedText(
                             context,
                             zh: '浏览文件夹',
                             zhHant: '瀏覽資料夾',
@@ -862,7 +840,7 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
                         // ── Persistence directory ──────────────────────────────
                         _DirectoryField(
                           controller: _persistenceDirController,
-                          label: _heEngineeringText(
+                          label: openHandLocalizedText(
                             context,
                             zh: '持久化根目录（steering 数据目录）',
                             zhHant: '持久化根目錄（steering 資料目錄）',
@@ -871,7 +849,7 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
                             de: 'Persistenzwurzel (steering-Verzeichnis)',
                             ja: '永続化ルート（steering データディレクトリ）',
                           ),
-                          hint: _heEngineeringText(
+                          hint: openHandLocalizedText(
                             context,
                             zh: '输入或选择持久化根目录路径',
                             zhHant: '輸入或選擇持久化根目錄路徑',
@@ -880,7 +858,7 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
                             de: 'Persistenzpfad eingeben oder auswählen',
                             ja: '永続化ルートのパスを入力または選択',
                           ),
-                          browseTooltip: _heEngineeringText(
+                          browseTooltip: openHandLocalizedText(
                             context,
                             zh: '浏览文件夹',
                             zhHant: '瀏覽資料夾',
@@ -898,7 +876,7 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
                         Row(
                           children: [
                             Text(
-                              _heEngineeringText(
+                              openHandLocalizedText(
                                 context,
                                 zh: '角色配置',
                                 zhHant: '角色設定',
@@ -930,7 +908,7 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
                                   Icons.refresh_rounded,
                                   size: 18,
                                 ),
-                                tooltip: _heEngineeringText(
+                                tooltip: openHandLocalizedText(
                                   context,
                                   zh: '重新扫描 CLI',
                                   zhHant: '重新掃描 CLI',
@@ -946,7 +924,7 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          _heEngineeringText(
+                          openHandLocalizedText(
                             context,
                             zh: '为每个角色选择执行模式（CLI 或 URL）并指定模型。● 已安装，○ 未安装，✓ 已登录，✗ 未登录。',
                             zhHant:
@@ -1017,7 +995,7 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
                                   ),
                                   const SizedBox(height: 12),
                                   Text(
-                                    _heEngineeringText(
+                                    openHandLocalizedText(
                                       context,
                                       zh: '扫描已安装的 CLI...',
                                       zhHant: '掃描已安裝的 CLI...',
@@ -1154,7 +1132,7 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
                                       const SizedBox(width: 8),
                                       Expanded(
                                         child: Text(
-                                          _heEngineeringText(
+                                          openHandLocalizedText(
                                             context,
                                             zh: '开始前请先修正以下配置问题',
                                             zhHant: '開始前請先修正以下設定問題',
@@ -1189,7 +1167,7 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
                                     ),
                                   if (configurationIssues.length > 4)
                                     Text(
-                                      _heEngineeringText(
+                                      openHandLocalizedText(
                                         context,
                                         zh: '还有 ${configurationIssues.length - 4} 项待处理。',
                                         zhHant:
@@ -1247,7 +1225,7 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
                                       const SizedBox(width: 8),
                                       Expanded(
                                         child: Text(
-                                          _heEngineeringText(
+                                          openHandLocalizedText(
                                             context,
                                             zh: 'Gemini 模型访问说明',
                                             zhHant: 'Gemini 模型存取說明',
@@ -1287,7 +1265,7 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
                                       size: 15,
                                     ),
                                     label: Text(
-                                      _heEngineeringText(
+                                      openHandLocalizedText(
                                         context,
                                         zh: '查看 Gemini 官方模型文档',
                                         zhHant: '查看 Gemini 官方模型文件',
@@ -1323,7 +1301,7 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
                               const SizedBox(width: 5),
                               Expanded(
                                 child: Text(
-                                  _heEngineeringText(
+                                  openHandLocalizedText(
                                     context,
                                     zh: '若 CLI 未被检测到但实际已安装，可能是启动环境未加载完整 PATH。可刷新重扫，或从终端启动 OpenHand。',
                                     zhHant:
@@ -1354,7 +1332,7 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
                   children: [
                     OpenHandDialogActionButton.secondary(
                       onPressed: () => Navigator.of(context).pop(),
-                      label: _heEngineeringText(
+                      label: openHandLocalizedText(
                         context,
                         zh: '取消',
                         zhHant: '取消',
@@ -1366,7 +1344,7 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
                     ),
                     OpenHandDialogActionButton.primary(
                       onPressed: canSubmit ? _submit : null,
-                      label: _heEngineeringText(
+                      label: openHandLocalizedText(
                         context,
                         zh: '开始会话',
                         zhHant: '開始會話',
@@ -1691,7 +1669,7 @@ class _RoleConfigRow extends StatelessWidget {
               SizedBox(
                 width: _kHarnessModeDropdownWidth,
                 child: _CompactDropdown<HarnessExecutionMode>(
-                  label: _heEngineeringText(
+                  label: openHandLocalizedText(
                     context,
                     zh: '模式',
                     zhHant: '模式',
@@ -1720,7 +1698,7 @@ class _RoleConfigRow extends StatelessWidget {
                 Expanded(
                   flex: 2,
                   child: _MenuAnchorModelSelector(
-                    label: _heEngineeringText(
+                    label: openHandLocalizedText(
                       context,
                       zh: 'API 模型',
                       zhHant: 'API 模型',
@@ -1741,7 +1719,7 @@ class _RoleConfigRow extends StatelessWidget {
                 if (settingsModels.isEmpty) ...[
                   const SizedBox(width: 8),
                   Tooltip(
-                    message: _heEngineeringText(
+                    message: openHandLocalizedText(
                       context,
                       zh: '请先在设置中配置 API 模型提供商',
                       zhHant: '請先在設定中設定 API 模型提供者',
@@ -1761,7 +1739,7 @@ class _RoleConfigRow extends StatelessWidget {
                 // CLI mode: show CLI + Model dropdowns and action buttons.
                 Expanded(
                   child: _CompactDropdown<String>(
-                    label: _heEngineeringText(
+                    label: openHandLocalizedText(
                       context,
                       zh: 'CLI 客户端',
                       zhHant: 'CLI 用戶端',
@@ -1778,7 +1756,7 @@ class _RoleConfigRow extends StatelessWidget {
                 const SizedBox(width: 10),
                 Expanded(
                   child: _CompactDropdown<String>(
-                    label: _heEngineeringText(
+                    label: openHandLocalizedText(
                       context,
                       zh: '模型',
                       zhHant: '模型',
@@ -1796,7 +1774,7 @@ class _RoleConfigRow extends StatelessWidget {
                 if (showInstallButton) ...[
                   const SizedBox(width: 8),
                   Tooltip(
-                    message: _heEngineeringText(
+                    message: openHandLocalizedText(
                       context,
                       zh: '安装此 CLI',
                       zhHant: '安裝此 CLI',
@@ -1809,7 +1787,7 @@ class _RoleConfigRow extends StatelessWidget {
                       onPressed: onInstall,
                       icon: const Icon(Icons.download_rounded, size: 15),
                       label: Text(
-                        _heEngineeringText(
+                        openHandLocalizedText(
                           context,
                           zh: '安装',
                           zhHant: '安裝',
@@ -1837,7 +1815,7 @@ class _RoleConfigRow extends StatelessWidget {
                 if (showViewDocsButton && onViewDocs != null) ...[
                   const SizedBox(width: 8),
                   Tooltip(
-                    message: _heEngineeringText(
+                    message: openHandLocalizedText(
                       context,
                       zh: '打开安装文档',
                       zhHant: '開啟安裝文件',
@@ -1850,7 +1828,7 @@ class _RoleConfigRow extends StatelessWidget {
                       onPressed: onViewDocs,
                       icon: const Icon(Icons.open_in_new_rounded, size: 15),
                       label: Text(
-                        _heEngineeringText(
+                        openHandLocalizedText(
                           context,
                           zh: '安装文档',
                           zhHant: '安裝文件',
@@ -1884,7 +1862,7 @@ class _RoleConfigRow extends StatelessWidget {
                   (_selectedEntry?.cli.hasLoginCheck ?? false)) ...[
                 const SizedBox(width: 8),
                 Tooltip(
-                  message: _heEngineeringText(
+                  message: openHandLocalizedText(
                     context,
                     zh: '正在检测登录状态...',
                     zhHant: '正在檢查登入狀態...',
@@ -1911,7 +1889,7 @@ class _RoleConfigRow extends StatelessWidget {
                   (_selectedEntry?.cli.hasLoginCheck ?? false)) ...[
                 const SizedBox(width: 6),
                 Tooltip(
-                  message: _heEngineeringText(
+                  message: openHandLocalizedText(
                     context,
                     zh: '已登录',
                     zhHant: '已登入',
@@ -1931,7 +1909,7 @@ class _RoleConfigRow extends StatelessWidget {
               if (!isUrlMode && showLoginButton) ...[
                 const SizedBox(width: 8),
                 Tooltip(
-                  message: _heEngineeringText(
+                  message: openHandLocalizedText(
                     context,
                     zh: '此 CLI 尚未登录，点击引导登录',
                     zhHant: '此 CLI 尚未登入，點擊以引導登入',
@@ -1944,7 +1922,7 @@ class _RoleConfigRow extends StatelessWidget {
                     onPressed: onLogin,
                     icon: const Icon(Icons.login_rounded, size: 15),
                     label: Text(
-                      _heEngineeringText(
+                      openHandLocalizedText(
                         context,
                         zh: '登录',
                         zhHant: '登入',
@@ -1973,7 +1951,7 @@ class _RoleConfigRow extends StatelessWidget {
               if (!isUrlMode && showLogoutButton) ...[
                 const SizedBox(width: 6),
                 Tooltip(
-                  message: _heEngineeringText(
+                  message: openHandLocalizedText(
                     context,
                     zh: '此 CLI 已登录，点击可登出以切换账号',
                     zhHant: '此 CLI 已登入，點擊可登出以切換帳號',
@@ -1986,7 +1964,7 @@ class _RoleConfigRow extends StatelessWidget {
                     onPressed: onLogout,
                     icon: const Icon(Icons.logout_rounded, size: 15),
                     label: Text(
-                      _heEngineeringText(
+                      openHandLocalizedText(
                         context,
                         zh: '登出',
                         zhHant: '登出',
@@ -2017,7 +1995,7 @@ class _RoleConfigRow extends StatelessWidget {
                   _selectedEntry?.cli.supportsHeadless == false) ...[
                 const SizedBox(width: 6),
                 Tooltip(
-                  message: _heEngineeringText(
+                  message: openHandLocalizedText(
                     context,
                     zh: '此工具为 GUI 应用，不支持无交互调用，Harness Engineering 将跳过此角色阶段',
                     zhHant: '此工具為 GUI 應用，不支援無互動呼叫，Harness Engineering 將跳過此角色階段',
@@ -2239,7 +2217,7 @@ class _QuickApplyBar extends StatelessWidget {
             Icon(Icons.bolt_rounded, size: 16, color: colorScheme.primary),
             const SizedBox(width: 6),
             Text(
-              _heEngineeringText(
+              openHandLocalizedText(
                 context,
                 zh: '一键配置',
                 zhHant: '一鍵設定',
@@ -2258,7 +2236,7 @@ class _QuickApplyBar extends StatelessWidget {
             SizedBox(
               width: _kHarnessModeDropdownWidth,
               child: _CompactDropdown<HarnessExecutionMode>(
-                label: _heEngineeringText(
+                label: openHandLocalizedText(
                   context,
                   zh: '模式',
                   zhHant: '模式',
@@ -2287,7 +2265,7 @@ class _QuickApplyBar extends StatelessWidget {
               Expanded(
                 flex: 2,
                 child: _MenuAnchorModelSelector(
-                  label: _heEngineeringText(
+                  label: openHandLocalizedText(
                     context,
                     zh: 'API 模型',
                     zhHant: 'API 模型',
@@ -2307,7 +2285,7 @@ class _QuickApplyBar extends StatelessWidget {
               // CLI mode: CLI + model dropdowns
               Expanded(
                 child: _CompactDropdown<String>(
-                  label: _heEngineeringText(
+                  label: openHandLocalizedText(
                     context,
                     zh: 'CLI 客户端',
                     zhHant: 'CLI 用戶端',
@@ -2325,7 +2303,7 @@ class _QuickApplyBar extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: _CompactDropdown<String>(
-                  label: _heEngineeringText(
+                  label: openHandLocalizedText(
                     context,
                     zh: '模型',
                     zhHant: '模型',
@@ -2353,7 +2331,7 @@ class _QuickApplyBar extends StatelessWidget {
                 textStyle: const TextStyle(fontSize: 12),
               ),
               child: Text(
-                _heEngineeringText(
+                openHandLocalizedText(
                   context,
                   zh: '应用至所有角色',
                   zhHant: '套用至所有角色',
@@ -2437,7 +2415,7 @@ class _CliScanSummary extends StatelessWidget {
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         Text(
-          _heEngineeringText(
+          openHandLocalizedText(
             context,
             zh: 'CLI 状态：',
             zhHant: 'CLI 狀態：',

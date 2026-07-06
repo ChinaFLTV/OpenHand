@@ -57,7 +57,7 @@ class _MachineTerminalBuiltinToolSummaryCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    _localizedText(
+                    openHandLocalizedText(
                       context,
                       zh: '机器终端工具',
                       en: 'Machine terminal tools',
@@ -68,7 +68,7 @@ class _MachineTerminalBuiltinToolSummaryCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    _localizedText(
+                    openHandLocalizedText(
                       context,
                       zh: '全局启用表示允许参与目录解析；运行时仅机器专家线程模板会看到这些终端读写与控制工具。',
                       en: 'Global enablement allows catalog resolution. At runtime, only Machine Expert sessions can see these terminal read/write/control tools.',
@@ -87,7 +87,7 @@ class _MachineTerminalBuiltinToolSummaryCard extends StatelessWidget {
                         onPressed: allEnabled ? null : onEnableAll,
                         icon: const Icon(Icons.check_circle_outline_rounded),
                         label: Text(
-                          _localizedText(
+                          openHandLocalizedText(
                             context,
                             zh: '启用终端工具',
                             en: 'Enable terminal tools',
@@ -98,7 +98,7 @@ class _MachineTerminalBuiltinToolSummaryCard extends StatelessWidget {
                         onPressed: allDisabled ? null : onDisableAll,
                         icon: const Icon(Icons.remove_circle_outline_rounded),
                         label: Text(
-                          _localizedText(
+                          openHandLocalizedText(
                             context,
                             zh: '禁用终端工具',
                             en: 'Disable terminal tools',
@@ -114,7 +114,7 @@ class _MachineTerminalBuiltinToolSummaryCard extends StatelessWidget {
                     children: [
                       _AgentToolMetricChip(
                         icon: Icons.toggle_on_rounded,
-                        label: _localizedText(
+                        label: openHandLocalizedText(
                           context,
                           zh: '已启用 $enabledCount/${configs.length}',
                           en: 'Enabled $enabledCount/${configs.length}',
@@ -122,7 +122,7 @@ class _MachineTerminalBuiltinToolSummaryCard extends StatelessWidget {
                       ),
                       _AgentToolMetricChip(
                         icon: Icons.visibility_outlined,
-                        label: _localizedText(
+                        label: openHandLocalizedText(
                           context,
                           zh: '读取 $enabledReadCount/$readCount',
                           en: 'Read $enabledReadCount/$readCount',
@@ -130,7 +130,7 @@ class _MachineTerminalBuiltinToolSummaryCard extends StatelessWidget {
                       ),
                       _AgentToolMetricChip(
                         icon: Icons.edit_note_rounded,
-                        label: _localizedText(
+                        label: openHandLocalizedText(
                           context,
                           zh: '变更 $enabledMutationCount/$mutationCount',
                           en: 'Mutating $enabledMutationCount/$mutationCount',
@@ -218,7 +218,7 @@ class _AgentBuiltinToolSummaryCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    _localizedText(
+                    openHandLocalizedText(
                       context,
                       zh: '智能体协同工具',
                       en: 'Agent coordination tools',
@@ -229,7 +229,7 @@ class _AgentBuiltinToolSummaryCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    _localizedText(
+                    openHandLocalizedText(
                       context,
                       zh: '全局启用只表示工具允许参与目录解析；实际进入线程会话工具目录，还需要至少一个已启用智能体在配置弹窗中绑定对应工具。',
                       en: 'Global enablement only allows catalog resolution. A tool appears in chat sessions only when at least one enabled agent binds it in the agent configuration dialog.',
@@ -248,7 +248,7 @@ class _AgentBuiltinToolSummaryCard extends StatelessWidget {
                         onPressed: allEnabled ? null : onEnableAll,
                         icon: const Icon(Icons.check_circle_outline_rounded),
                         label: Text(
-                          _localizedText(
+                          openHandLocalizedText(
                             context,
                             zh: '启用智能体工具',
                             en: 'Enable agent tools',
@@ -259,7 +259,7 @@ class _AgentBuiltinToolSummaryCard extends StatelessWidget {
                         onPressed: allDisabled ? null : onDisableAll,
                         icon: const Icon(Icons.remove_circle_outline_rounded),
                         label: Text(
-                          _localizedText(
+                          openHandLocalizedText(
                             context,
                             zh: '禁用智能体工具',
                             en: 'Disable agent tools',
@@ -275,7 +275,7 @@ class _AgentBuiltinToolSummaryCard extends StatelessWidget {
                     children: [
                       _AgentToolMetricChip(
                         icon: Icons.toggle_on_rounded,
-                        label: _localizedText(
+                        label: openHandLocalizedText(
                           context,
                           zh: '已启用 $enabledCount/${configs.length}',
                           en: 'Enabled $enabledCount/${configs.length}',
@@ -283,7 +283,7 @@ class _AgentBuiltinToolSummaryCard extends StatelessWidget {
                       ),
                       _AgentToolMetricChip(
                         icon: Icons.visibility_outlined,
-                        label: _localizedText(
+                        label: openHandLocalizedText(
                           context,
                           zh: '只读 $enabledReadOnlyCount/$readOnlyCount',
                           en: 'Read-only $enabledReadOnlyCount/$readOnlyCount',
@@ -291,7 +291,7 @@ class _AgentBuiltinToolSummaryCard extends StatelessWidget {
                       ),
                       _AgentToolMetricChip(
                         icon: Icons.edit_note_rounded,
-                        label: _localizedText(
+                        label: openHandLocalizedText(
                           context,
                           zh: '变更 $enabledMutationCount/$mutationCount',
                           en: 'Mutating $enabledMutationCount/$mutationCount',
@@ -351,27 +351,27 @@ class _AgentToolGroupChip extends StatelessWidget {
 
   String _label(BuildContext context, AiAgentBuiltinToolGroup group) {
     return switch (group) {
-      AiAgentBuiltinToolGroup.discovery => _localizedText(
+      AiAgentBuiltinToolGroup.discovery => openHandLocalizedText(
         context,
         zh: '发现路由',
         en: 'Discovery',
       ),
-      AiAgentBuiltinToolGroup.taskLifecycle => _localizedText(
+      AiAgentBuiltinToolGroup.taskLifecycle => openHandLocalizedText(
         context,
         zh: '任务生命周期',
         en: 'Task lifecycle',
       ),
-      AiAgentBuiltinToolGroup.governance => _localizedText(
+      AiAgentBuiltinToolGroup.governance => openHandLocalizedText(
         context,
         zh: '治理审计',
         en: 'Governance',
       ),
-      AiAgentBuiltinToolGroup.operations => _localizedText(
+      AiAgentBuiltinToolGroup.operations => openHandLocalizedText(
         context,
         zh: '运营资源',
         en: 'Operations',
       ),
-      AiAgentBuiltinToolGroup.cluster => _localizedText(
+      AiAgentBuiltinToolGroup.cluster => openHandLocalizedText(
         context,
         zh: '集群调度',
         en: 'Cluster',
@@ -415,7 +415,7 @@ class _AgentToolGroupChip extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      _localizedText(
+                      openHandLocalizedText(
                         context,
                         zh: '启用 ${summary.enabledCount}/${summary.totalCount} · 变更 ${summary.mutationCount}',
                         en: 'Enabled ${summary.enabledCount}/${summary.totalCount} · Mutating ${summary.mutationCount}',

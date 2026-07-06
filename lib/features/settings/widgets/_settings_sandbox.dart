@@ -82,12 +82,12 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
         Divider(color: colorScheme.outlineVariant),
         const SizedBox(height: 18),
         Text(
-          _localizedText(context, zh: '沙盒', en: 'Sandbox'),
+          openHandLocalizedText(context, zh: '沙盒', en: 'Sandbox'),
           style: theme.textTheme.titleMedium,
         ),
         const SizedBox(height: 8),
         Text(
-          _localizedText(
+          openHandLocalizedText(
             context,
             zh: '为命令类内建工具加一层 OS 沙盒：限制写入路径，记录沙盒状态，并在环境不可用时按策略阻断或降级。',
             en: 'Add an OS sandbox around command-oriented built-ins: restrict writable paths, record sandbox status, and block or downgrade when unavailable.',
@@ -100,8 +100,12 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
         _buildEnvironmentCard(context),
         const SizedBox(height: 16),
         _ResponsiveSettingRow(
-          title: _localizedText(context, zh: '启用沙盒', en: 'Enable Sandbox'),
-          subtitle: _localizedText(
+          title: openHandLocalizedText(
+            context,
+            zh: '启用沙盒',
+            en: 'Enable Sandbox',
+          ),
+          subtitle: openHandLocalizedText(
             context,
             zh: '默认关闭。开启后，仅你在下方多选的内建命令会进入沙盒。',
             en: 'Off by default. When enabled, only selected built-in commands run in the sandbox.',
@@ -113,12 +117,12 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
         ),
         const SizedBox(height: 14),
         _ResponsiveSettingRow(
-          title: _localizedText(
+          title: openHandLocalizedText(
             context,
             zh: '环境不可用时阻断',
             en: 'Fail If Unavailable',
           ),
-          subtitle: _localizedText(
+          subtitle: openHandLocalizedText(
             context,
             zh: '沙盒启用但依赖缺失时直接拦截命令，避免静默变成非沙盒执行。',
             en: 'Block commands when sandbox dependencies are missing instead of silently running unsandboxed.',
@@ -131,12 +135,12 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
         ),
         const SizedBox(height: 14),
         _ResponsiveSettingRow(
-          title: _localizedText(
+          title: openHandLocalizedText(
             context,
             zh: '允许排除命令非沙盒执行',
             en: 'Allow Excluded Commands Unsandboxed',
           ),
-          subtitle: _localizedText(
+          subtitle: openHandLocalizedText(
             context,
             zh: '关闭时，命中排除列表的命令会被拦截而不是降级执行。',
             en: 'When off, commands matching the exclusion list are blocked instead of downgraded.',
@@ -149,12 +153,12 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
         ),
         const SizedBox(height: 14),
         _ResponsiveSettingRow(
-          title: _localizedText(
+          title: openHandLocalizedText(
             context,
             zh: '沙盒命令跳过写命令确认',
             en: 'Auto-allow Sandboxed Writes',
           ),
-          subtitle: _localizedText(
+          subtitle: openHandLocalizedText(
             context,
             zh: '仅在 OS 沙盒实际生效时跳过 Bash 写命令确认；默认关闭。',
             en: 'Skip Bash write confirmation only when the OS sandbox is actually active. Off by default.',
@@ -167,12 +171,12 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
         ),
         const SizedBox(height: 14),
         _ResponsiveSettingRow(
-          title: _localizedText(
+          title: openHandLocalizedText(
             context,
             zh: '无域名规则时允许网络',
             en: 'Allow Network Without Domain Rules',
           ),
-          subtitle: _localizedText(
+          subtitle: openHandLocalizedText(
             context,
             zh: '关闭后，无域名规则的沙盒命令会禁用网络；配置域名规则时会启动本地过滤代理。macOS 会阻断直连绕过；Linux 严格模式会阻断尚无法强制过滤的域名规则。',
             en: 'When off, sandboxed commands without domain rules run with networking disabled. Domain rules start a local filtering proxy. macOS blocks direct bypass; Linux strict mode blocks domain rules that cannot be enforced yet.',
@@ -193,8 +197,12 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
         const SizedBox(height: 20),
         _buildPatternRules(
           context: context,
-          title: _localizedText(context, zh: '排除命令列表', en: 'Excluded Commands'),
-          body: _localizedText(
+          title: openHandLocalizedText(
+            context,
+            zh: '排除命令列表',
+            en: 'Excluded Commands',
+          ),
+          body: openHandLocalizedText(
             context,
             zh: '命中这些规则的命令不会进入沙盒；是否允许降级执行由上方开关控制。',
             en: 'Commands matching these rules do not enter the sandbox; the downgrade policy is controlled above.',
@@ -202,7 +210,7 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
           icon: Icons.remove_circle_outline_rounded,
           rules: settings.excludedCommands,
           onAdd: () => _showPatternRuleDialog(
-            title: _localizedText(
+            title: openHandLocalizedText(
               context,
               zh: '新增排除命令',
               en: 'Add Excluded Command',
@@ -218,7 +226,7 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
             ),
           ),
           onEdit: (rule) => _showPatternRuleDialog(
-            title: _localizedText(
+            title: openHandLocalizedText(
               context,
               zh: '编辑排除命令',
               en: 'Edit Excluded Command',
@@ -245,8 +253,12 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
         const SizedBox(height: 20),
         _buildPatternRules(
           context: context,
-          title: _localizedText(context, zh: '允许访问域名', en: 'Allowed Domains'),
-          body: _localizedText(
+          title: openHandLocalizedText(
+            context,
+            zh: '允许访问域名',
+            en: 'Allowed Domains',
+          ),
+          body: openHandLocalizedText(
             context,
             zh: '用于本地沙盒代理过滤。简单模式支持 *，正则模式按原样匹配 host 或 host:port。',
             en: 'Used by the local sandbox proxy filter. Simple mode supports *, regex mode matches host or host:port as written.',
@@ -254,7 +266,7 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
           icon: Icons.public_rounded,
           rules: settings.allowedDomains,
           onAdd: () => _showPatternRuleDialog(
-            title: _localizedText(
+            title: openHandLocalizedText(
               context,
               zh: '新增允许域名',
               en: 'Add Allowed Domain',
@@ -270,7 +282,7 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
             ),
           ),
           onEdit: (rule) => _showPatternRuleDialog(
-            title: _localizedText(
+            title: openHandLocalizedText(
               context,
               zh: '编辑允许域名',
               en: 'Edit Allowed Domain',
@@ -297,8 +309,12 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
         const SizedBox(height: 20),
         _buildPatternRules(
           context: context,
-          title: _localizedText(context, zh: '禁止访问域名', en: 'Denied Domains'),
-          body: _localizedText(
+          title: openHandLocalizedText(
+            context,
+            zh: '禁止访问域名',
+            en: 'Denied Domains',
+          ),
+          body: openHandLocalizedText(
             context,
             zh: '用于沙盒代理过滤；命中禁止列表的域名应被代理拒绝。',
             en: 'Used by the sandbox proxy filter; matching domains should be rejected by the proxy.',
@@ -306,7 +322,7 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
           icon: Icons.public_off_rounded,
           rules: settings.deniedDomains,
           onAdd: () => _showPatternRuleDialog(
-            title: _localizedText(
+            title: openHandLocalizedText(
               context,
               zh: '新增禁止域名',
               en: 'Add Denied Domain',
@@ -322,7 +338,7 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
             ),
           ),
           onEdit: (rule) => _showPatternRuleDialog(
-            title: _localizedText(
+            title: openHandLocalizedText(
               context,
               zh: '编辑禁止域名',
               en: 'Edit Denied Domain',
@@ -364,16 +380,20 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
             final isLoading =
                 snapshot.connectionState == ConnectionState.waiting;
             final title = isLoading
-                ? _localizedText(context, zh: '检测中', en: 'Detecting')
+                ? openHandLocalizedText(context, zh: '检测中', en: 'Detecting')
                 : status?.available == true
-                ? _localizedText(context, zh: '环境可用', en: 'Environment Ready')
-                : _localizedText(
+                ? openHandLocalizedText(
+                    context,
+                    zh: '环境可用',
+                    en: 'Environment Ready',
+                  )
+                : openHandLocalizedText(
                     context,
                     zh: '环境不可用',
                     en: 'Environment Unavailable',
                   );
             final body = status == null
-                ? _localizedText(
+                ? openHandLocalizedText(
                     context,
                     zh: '正在检测沙盒运行环境。',
                     en: 'Checking sandbox runtime environment.',
@@ -404,7 +424,7 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
                       }),
                       icon: const Icon(Icons.refresh_rounded),
                       label: Text(
-                        _localizedText(context, zh: '检测', en: 'Detect'),
+                        openHandLocalizedText(context, zh: '检测', en: 'Detect'),
                       ),
                     ),
                   ],
@@ -422,7 +442,7 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
                       ),
                       icon: const Icon(Icons.download_rounded),
                       label: Text(
-                        _localizedText(context, zh: '安装', en: 'Install'),
+                        openHandLocalizedText(context, zh: '安装', en: 'Install'),
                       ),
                     ),
                     OutlinedButton.icon(
@@ -431,7 +451,7 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
                       ),
                       icon: const Icon(Icons.upgrade_rounded),
                       label: Text(
-                        _localizedText(context, zh: '更新', en: 'Update'),
+                        openHandLocalizedText(context, zh: '更新', en: 'Update'),
                       ),
                     ),
                     OutlinedButton.icon(
@@ -440,7 +460,11 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
                       ),
                       icon: const Icon(Icons.delete_outline_rounded),
                       label: Text(
-                        _localizedText(context, zh: '卸载', en: 'Uninstall'),
+                        openHandLocalizedText(
+                          context,
+                          zh: '卸载',
+                          en: 'Uninstall',
+                        ),
                       ),
                     ),
                   ],
@@ -471,7 +495,11 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          _localizedText(context, zh: '走沙盒的内建命令', en: 'Sandboxed Built-ins'),
+          openHandLocalizedText(
+            context,
+            zh: '走沙盒的内建命令',
+            en: 'Sandboxed Built-ins',
+          ),
           style: Theme.of(context).textTheme.titleSmall,
         ),
         const SizedBox(height: 10),
@@ -504,12 +532,16 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          _localizedText(context, zh: '沙盒代理端口', en: 'Sandbox Proxy Ports'),
+          openHandLocalizedText(
+            context,
+            zh: '沙盒代理端口',
+            en: 'Sandbox Proxy Ports',
+          ),
           style: Theme.of(context).textTheme.titleSmall,
         ),
         const SizedBox(height: 6),
         Text(
-          _localizedText(
+          openHandLocalizedText(
             context,
             zh: 'HTTP 为空或 0 时自动选择临时端口；SOCKS 为空或 0 时不启用 SOCKS 入口。代理随沙盒命令启动并自动清理；Linux 关闭“环境不可用时阻断”后仅作为尽力而为的环境变量注入。',
             en: 'Blank or 0 HTTP uses an automatic temporary port; blank or 0 SOCKS disables the SOCKS entry point. The proxy starts per sandboxed command and is cleaned up automatically; on Linux with Fail If Unavailable off it is best-effort environment injection only.',
@@ -559,7 +591,7 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
           children: [
             Expanded(
               child: Text(
-                _localizedText(
+                openHandLocalizedText(
                   context,
                   zh: '文件路径与读写模式',
                   en: 'File Paths and Access',
@@ -576,7 +608,7 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
         ),
         const SizedBox(height: 8),
         Text(
-          _localizedText(
+          openHandLocalizedText(
             context,
             zh: '路径支持简单模式（* 通配）和正则模式；默认 .openhand 为只读。rw 路径会在沙盒内开放写入。',
             en: 'Paths support simple mode (* wildcard) and regex mode. .openhand is read-only by default; rw paths are writable inside the sandbox.',
@@ -587,8 +619,12 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
         if (settings.filesystemRules.isEmpty)
           _SettingsStateBox(
             icon: Icons.folder_off_outlined,
-            title: _localizedText(context, zh: '暂无文件规则', en: 'No file rules'),
-            body: _localizedText(
+            title: openHandLocalizedText(
+              context,
+              zh: '暂无文件规则',
+              en: 'No file rules',
+            ),
+            body: openHandLocalizedText(
               context,
               zh: '添加规则以开放沙盒内的读写范围。',
               en: 'Add rules to define sandbox file access.',
@@ -654,8 +690,8 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
         if (rules.isEmpty)
           _SettingsStateBox(
             icon: icon,
-            title: _localizedText(context, zh: '暂无规则', en: 'No rules'),
-            body: _localizedText(
+            title: openHandLocalizedText(context, zh: '暂无规则', en: 'No rules'),
+            body: openHandLocalizedText(
               context,
               zh: '添加简单匹配或正则匹配规则。',
               en: 'Add simple or regex matching rules.',
@@ -854,8 +890,12 @@ class _SandboxFileRuleDialogState extends State<_SandboxFileRuleDialog> {
     return buildOpenHandAlertDialog(
       title: Text(
         widget.initialRule == null
-            ? _localizedText(context, zh: '新增文件规则', en: 'Add File Rule')
-            : _localizedText(context, zh: '编辑文件规则', en: 'Edit File Rule'),
+            ? openHandLocalizedText(context, zh: '新增文件规则', en: 'Add File Rule')
+            : openHandLocalizedText(
+                context,
+                zh: '编辑文件规则',
+                en: 'Edit File Rule',
+              ),
       ),
       content: SizedBox(
         width: 560,
@@ -871,14 +911,18 @@ class _SandboxFileRuleDialogState extends State<_SandboxFileRuleDialog> {
                   hintText: r'.openhand or ^/Users/.*/cache$',
                 ),
                 validator: (value) => (value ?? '').trim().isEmpty
-                    ? _localizedText(context, zh: '请输入路径。', en: 'Enter a path.')
+                    ? openHandLocalizedText(
+                        context,
+                        zh: '请输入路径。',
+                        en: 'Enter a path.',
+                      )
                     : null,
               ),
               const SizedBox(height: 14),
               DropdownButtonFormField<AiSandboxFileAccessMode>(
                 initialValue: _accessMode,
                 decoration: InputDecoration(
-                  labelText: _localizedText(
+                  labelText: openHandLocalizedText(
                     context,
                     zh: '读写模式',
                     en: 'Access Mode',
@@ -902,7 +946,7 @@ class _SandboxFileRuleDialogState extends State<_SandboxFileRuleDialog> {
               DropdownButtonFormField<AiDenyCommandMatchMode>(
                 initialValue: _matchMode,
                 decoration: InputDecoration(
-                  labelText: _localizedText(
+                  labelText: openHandLocalizedText(
                     context,
                     zh: '匹配模式',
                     en: 'Match Mode',
@@ -912,13 +956,13 @@ class _SandboxFileRuleDialogState extends State<_SandboxFileRuleDialog> {
                   DropdownMenuItem(
                     value: AiDenyCommandMatchMode.simple,
                     child: Text(
-                      _localizedText(context, zh: '简单匹配', en: 'Simple'),
+                      openHandLocalizedText(context, zh: '简单匹配', en: 'Simple'),
                     ),
                   ),
                   DropdownMenuItem(
                     value: AiDenyCommandMatchMode.regex,
                     child: Text(
-                      _localizedText(context, zh: '正则匹配', en: 'Regex'),
+                      openHandLocalizedText(context, zh: '正则匹配', en: 'Regex'),
                     ),
                   ),
                 ],
@@ -930,7 +974,11 @@ class _SandboxFileRuleDialogState extends State<_SandboxFileRuleDialog> {
               TextFormField(
                 controller: _noteController,
                 decoration: InputDecoration(
-                  labelText: _localizedText(context, zh: '备注', en: 'Note'),
+                  labelText: openHandLocalizedText(
+                    context,
+                    zh: '备注',
+                    en: 'Note',
+                  ),
                 ),
                 maxLines: 2,
               ),
@@ -1022,7 +1070,7 @@ class _SandboxPatternRuleDialogState extends State<_SandboxPatternRuleDialog> {
                   hintText: widget.hint,
                 ),
                 validator: (value) => (value ?? '').trim().isEmpty
-                    ? _localizedText(
+                    ? openHandLocalizedText(
                         context,
                         zh: '请输入匹配表达式。',
                         en: 'Enter a pattern.',
@@ -1033,7 +1081,7 @@ class _SandboxPatternRuleDialogState extends State<_SandboxPatternRuleDialog> {
               DropdownButtonFormField<AiDenyCommandMatchMode>(
                 initialValue: _matchMode,
                 decoration: InputDecoration(
-                  labelText: _localizedText(
+                  labelText: openHandLocalizedText(
                     context,
                     zh: '匹配模式',
                     en: 'Match Mode',
@@ -1043,13 +1091,13 @@ class _SandboxPatternRuleDialogState extends State<_SandboxPatternRuleDialog> {
                   DropdownMenuItem(
                     value: AiDenyCommandMatchMode.simple,
                     child: Text(
-                      _localizedText(context, zh: '简单匹配', en: 'Simple'),
+                      openHandLocalizedText(context, zh: '简单匹配', en: 'Simple'),
                     ),
                   ),
                   DropdownMenuItem(
                     value: AiDenyCommandMatchMode.regex,
                     child: Text(
-                      _localizedText(context, zh: '正则匹配', en: 'Regex'),
+                      openHandLocalizedText(context, zh: '正则匹配', en: 'Regex'),
                     ),
                   ),
                 ],
@@ -1061,7 +1109,11 @@ class _SandboxPatternRuleDialogState extends State<_SandboxPatternRuleDialog> {
               TextFormField(
                 controller: _noteController,
                 decoration: InputDecoration(
-                  labelText: _localizedText(context, zh: '备注', en: 'Note'),
+                  labelText: openHandLocalizedText(
+                    context,
+                    zh: '备注',
+                    en: 'Note',
+                  ),
                 ),
                 maxLines: 2,
               ),

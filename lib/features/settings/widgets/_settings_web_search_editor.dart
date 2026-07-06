@@ -149,7 +149,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
       if (!mounted) return;
       OpenHandSnackBar.showError(
         context,
-        _localizedText(context, zh: '导出失败：$e', en: 'Export failed: $e'),
+        openHandLocalizedText(context, zh: '导出失败：$e', en: 'Export failed: $e'),
       );
     } finally {
       if (mounted) setState(() => _exportingTelemetry = false);
@@ -293,7 +293,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
       OpenHandSnackBar.showInfoOn(
         context,
         messenger,
-        _localizedText(
+        openHandLocalizedText(
           context,
           zh: 'WebSearch 本地缓存已清空',
           en: 'WebSearch local cache cleared',
@@ -335,13 +335,13 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
     final cfgId = widget.value.fixedModelProviderConfigId;
     final modelId = widget.value.fixedModelId;
     if (cfgId == null || modelId == null) {
-      return _localizedText(context, zh: '未选择', en: 'Not selected');
+      return openHandLocalizedText(context, zh: '未选择', en: 'Not selected');
     }
     final match = widget.availableModels
         .where((m) => m.id == cfgId)
         .firstOrNull;
     if (match == null) {
-      return '${_localizedText(context, zh: '已失效', en: 'Stale')} · $modelId';
+      return '${openHandLocalizedText(context, zh: '已失效', en: 'Stale')} · $modelId';
     }
     return '${match.providerLabel} · $modelId';
   }
@@ -371,7 +371,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
       children: [
         const Divider(height: 28),
         Text(
-          _localizedText(
+          openHandLocalizedText(
             context,
             zh: 'WebSearch 专属配置',
             en: 'WebSearch Settings',
@@ -380,7 +380,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
         ),
         const SizedBox(height: 4),
         Text(
-          _localizedText(
+          openHandLocalizedText(
             context,
             zh:
                 'WebSearch 内建工具会以 sub-agent 模式按以下顺序调用启用的搜索引擎,'
@@ -397,7 +397,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
 
         // ── Sub-agent model ──
         Text(
-          _localizedText(context, zh: 'Summary 模型', en: 'Summary Model'),
+          openHandLocalizedText(context, zh: 'Summary 模型', en: 'Summary Model'),
           style: theme.textTheme.titleSmall,
         ),
         const SizedBox(height: 8),
@@ -407,7 +407,11 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
               value: AiWebSearchModelMode.followSession,
               icon: const Icon(Icons.link_rounded),
               label: Text(
-                _localizedText(context, zh: '跟随会话', en: 'Follow session'),
+                openHandLocalizedText(
+                  context,
+                  zh: '跟随会话',
+                  en: 'Follow session',
+                ),
                 softWrap: false,
               ),
             ),
@@ -415,7 +419,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
               value: AiWebSearchModelMode.fixed,
               icon: const Icon(Icons.push_pin_rounded),
               label: Text(
-                _localizedText(context, zh: '固定模型', en: 'Fixed'),
+                openHandLocalizedText(context, zh: '固定模型', en: 'Fixed'),
                 softWrap: false,
               ),
             ),
@@ -441,7 +445,11 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
               if (v.fixedModelProviderConfigId != null) ...[
                 const SizedBox(width: 8),
                 IconButton(
-                  tooltip: _localizedText(context, zh: '清除', en: 'Clear'),
+                  tooltip: openHandLocalizedText(
+                    context,
+                    zh: '清除',
+                    en: 'Clear',
+                  ),
                   icon: const Icon(Icons.clear_rounded),
                   onPressed: () => _emit(v.copyWith(clearFixedModel: true)),
                 ),
@@ -457,7 +465,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
           keyboardType: TextInputType.number,
           inputFormatters: [FilteringTextInputFormatter.digitsOnly],
           decoration: InputDecoration(
-            labelText: _localizedText(
+            labelText: openHandLocalizedText(
               context,
               zh:
                   '结果数量 (${AiWebSearchSettings.minResultCount}-'
@@ -466,7 +474,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
                   'Result Count (${AiWebSearchSettings.minResultCount}-'
                   '${AiWebSearchSettings.maxResultCount})',
             ),
-            helperText: _localizedText(
+            helperText: openHandLocalizedText(
               context,
               zh:
                   '默认 ${AiWebSearchSettings.defaultResultCount},'
@@ -500,10 +508,14 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
               child: SwitchListTile(
                 contentPadding: EdgeInsets.zero,
                 title: Text(
-                  _localizedText(context, zh: '并行调度引擎', en: 'Parallel Engines'),
+                  openHandLocalizedText(
+                    context,
+                    zh: '并行调度引擎',
+                    en: 'Parallel Engines',
+                  ),
                 ),
                 subtitle: Text(
-                  _localizedText(
+                  openHandLocalizedText(
                     context,
                     zh: '启用后通过信号量限流并行调用多个引擎,提速明显;关闭后串行依次调用。',
                     en:
@@ -527,7 +539,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                 controller: _parallelWorkersController,
                 decoration: InputDecoration(
-                  labelText: _localizedText(
+                  labelText: openHandLocalizedText(
                     context,
                     zh:
                         'Workers (${AiWebSearchSettings.minParallelWorkers}-'
@@ -564,7 +576,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
               child: DropdownButtonFormField<AiWebSearchSummaryDetail>(
                 initialValue: v.summaryDetail,
                 decoration: InputDecoration(
-                  labelText: _localizedText(
+                  labelText: openHandLocalizedText(
                     context,
                     zh: 'Summary 简洁程度',
                     en: 'Summary Detail',
@@ -588,7 +600,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
               child: DropdownButtonFormField<AiWebSearchSummaryStyle>(
                 initialValue: v.summaryStyle,
                 decoration: InputDecoration(
-                  labelText: _localizedText(
+                  labelText: openHandLocalizedText(
                     context,
                     zh: 'Summary 语言风格',
                     en: 'Summary Style',
@@ -618,12 +630,12 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
                 keyboardType: TextInputType.number,
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                 decoration: InputDecoration(
-                  labelText: _localizedText(
+                  labelText: openHandLocalizedText(
                     context,
                     zh: 'Summary 最少字数',
                     en: 'Summary Min Chars',
                   ),
-                  helperText: _localizedText(
+                  helperText: openHandLocalizedText(
                     context,
                     zh: '0 表示不限制下界',
                     en: '0 = no lower bound',
@@ -650,12 +662,12 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
                 keyboardType: TextInputType.number,
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                 decoration: InputDecoration(
-                  labelText: _localizedText(
+                  labelText: openHandLocalizedText(
                     context,
                     zh: 'Summary 最大字数',
                     en: 'Summary Max Chars',
                   ),
-                  helperText: _localizedText(
+                  helperText: openHandLocalizedText(
                     context,
                     zh: '0 表示不限上界 (谨慎)',
                     en: '0 = no upper bound (use with care)',
@@ -681,12 +693,12 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
 
         // ── 本地持久化缓存 ──
         Text(
-          _localizedText(context, zh: '本地缓存', en: 'Local Cache'),
+          openHandLocalizedText(context, zh: '本地缓存', en: 'Local Cache'),
           style: theme.textTheme.titleSmall,
         ),
         const SizedBox(height: 4),
         Text(
-          _localizedText(
+          openHandLocalizedText(
             context,
             zh:
                 '相同关键词与设置的搜索 summary 会写入本地磁盘 (~/.openhand/cache/web_search/)，'
@@ -709,12 +721,12 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
                 keyboardType: TextInputType.number,
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                 decoration: InputDecoration(
-                  labelText: _localizedText(
+                  labelText: openHandLocalizedText(
                     context,
                     zh: '缓存 TTL (秒)',
                     en: 'Cache TTL (seconds)',
                   ),
-                  helperText: _localizedText(
+                  helperText: openHandLocalizedText(
                     context,
                     zh: '默认 300 秒 = 5 分钟; 设为 0 关闭缓存',
                     en: 'Default 300s (5 min); 0 disables caching',
@@ -742,12 +754,12 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
                   decimal: true,
                 ),
                 decoration: InputDecoration(
-                  labelText: _localizedText(
+                  labelText: openHandLocalizedText(
                     context,
                     zh: '缓存上限 (MB)',
                     en: 'Cache Cap (MB)',
                   ),
-                  helperText: _localizedText(
+                  helperText: openHandLocalizedText(
                     context,
                     zh: '默认 50 MB; 0 = 不限 (不推荐)',
                     en: 'Default 50 MB; 0 = unlimited (not recommended)',
@@ -775,7 +787,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
           children: [
             Expanded(
               child: Text(
-                _localizedText(
+                openHandLocalizedText(
                   context,
                   zh: '当前已占用：${formatNullableByteSize(_cacheBytesOnDisk, pendingLabel: '…')}',
                   en: 'On disk: ${formatNullableByteSize(_cacheBytesOnDisk, pendingLabel: '…')}',
@@ -789,7 +801,9 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
             TextButton.icon(
               onPressed: _clearingCache ? null : _refreshCacheBytesOnDisk,
               icon: const Icon(Icons.refresh, size: 16),
-              label: Text(_localizedText(context, zh: '刷新', en: 'Refresh')),
+              label: Text(
+                openHandLocalizedText(context, zh: '刷新', en: 'Refresh'),
+              ),
             ),
             const SizedBox(width: 4),
             FilledButton.tonalIcon(
@@ -815,7 +829,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
                       color: colorScheme.onPrimary,
                     ),
               label: Text(
-                _localizedText(
+                openHandLocalizedText(
                   context,
                   zh: _clearingCache ? '清理中…' : '清理缓存',
                   en: _clearingCache ? 'Clearing…' : 'Clear Cache',
@@ -828,12 +842,12 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
 
         // ── Engines list ──
         Text(
-          _localizedText(context, zh: '搜索引擎', en: 'Search Engines'),
+          openHandLocalizedText(context, zh: '搜索引擎', en: 'Search Engines'),
           style: theme.textTheme.titleSmall,
         ),
         const SizedBox(height: 4),
         Text(
-          _localizedText(
+          openHandLocalizedText(
             context,
             zh:
                 '拖拽卡片调整顺序;启用至少一个引擎,'
@@ -892,13 +906,17 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
   ) {
     return [
       Text(
-        _localizedText(context, zh: '高级（健壮性）', en: 'Advanced (resilience)'),
+        openHandLocalizedText(
+          context,
+          zh: '高级（健壮性）',
+          en: 'Advanced (resilience)',
+        ),
         style: theme.textTheme.titleSmall,
       ),
       const SizedBox(height: 8),
       // cooldown 三档
       Text(
-        _localizedText(
+        openHandLocalizedText(
           context,
           zh: '失败自动降级（cooldown）阈值',
           en: 'Failure auto-cooldown thresholds',
@@ -909,7 +927,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
       ),
       const SizedBox(height: 6),
       _AdvancedCooldownTierRow(
-        label: _localizedText(context, zh: '一级', en: 'Tier 1'),
+        label: openHandLocalizedText(context, zh: '一级', en: 'Tier 1'),
         failures: v.cooldownTier1Failures,
         seconds: v.cooldownTier1Seconds,
         onChangedFailures: (n) =>
@@ -918,7 +936,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
             _updateAdvanced(v.copyWith(cooldownTier1Seconds: n)),
       ),
       _AdvancedCooldownTierRow(
-        label: _localizedText(context, zh: '二级', en: 'Tier 2'),
+        label: openHandLocalizedText(context, zh: '二级', en: 'Tier 2'),
         failures: v.cooldownTier2Failures,
         seconds: v.cooldownTier2Seconds,
         onChangedFailures: (n) =>
@@ -927,7 +945,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
             _updateAdvanced(v.copyWith(cooldownTier2Seconds: n)),
       ),
       _AdvancedCooldownTierRow(
-        label: _localizedText(context, zh: '三级', en: 'Tier 3'),
+        label: openHandLocalizedText(context, zh: '三级', en: 'Tier 3'),
         failures: v.cooldownTier3Failures,
         seconds: v.cooldownTier3Seconds,
         onChangedFailures: (n) =>
@@ -937,7 +955,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
       ),
       const SizedBox(height: 4),
       _AdvancedNumberRow(
-        label: _localizedText(
+        label: openHandLocalizedText(
           context,
           zh: '配额/限流冷却（秒）',
           en: 'Quota cooldown (s)',
@@ -950,7 +968,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
       const SizedBox(height: 12),
       // 告警
       Text(
-        _localizedText(
+        openHandLocalizedText(
           context,
           zh: '健康度告警（0 = 关闭，至少 5 次调用后才会触发）',
           en: 'Health alerts (0 = off; needs ≥5 calls)',
@@ -961,7 +979,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
       ),
       const SizedBox(height: 6),
       _AdvancedNumberRow(
-        label: _localizedText(
+        label: openHandLocalizedText(
           context,
           zh: '成功率低于（%）',
           en: 'Success rate below (%)',
@@ -972,7 +990,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
         onChanged: (n) => _updateAdvanced(v.copyWith(alertSuccessRatePct: n)),
       ),
       _AdvancedNumberRow(
-        label: _localizedText(
+        label: openHandLocalizedText(
           context,
           zh: '平均耗时高于（毫秒）',
           en: 'Avg duration above (ms)',
@@ -985,7 +1003,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
       const SizedBox(height: 12),
       // throttle
       Text(
-        _localizedText(
+        openHandLocalizedText(
           context,
           zh: '速率限制（每引擎每分钟最大调用数；0 = 不限）',
           en: 'Rate limit (per engine, per minute; 0 = off)',
@@ -996,7 +1014,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
       ),
       const SizedBox(height: 6),
       _AdvancedNumberRow(
-        label: _localizedText(context, zh: '上限', en: 'Cap'),
+        label: openHandLocalizedText(context, zh: '上限', en: 'Cap'),
         value: v.throttlePerMinute,
         min: 0,
         max: AiWebSearchSettings.maxThrottlePerMinute,
@@ -1021,7 +1039,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
     final hasData = _recentCalls.isNotEmpty || _engineStats.isNotEmpty;
     return [
       Text(
-        _localizedText(
+        openHandLocalizedText(
           context,
           zh: '调用日志 / 引擎健康度',
           en: 'Call History / Engine Health',
@@ -1030,7 +1048,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
       ),
       const SizedBox(height: 4),
       Text(
-        _localizedText(
+        openHandLocalizedText(
           context,
           zh:
               '近期 50 条 WebSearch 调用与每引擎累计成功率、平均耗时、命中数；'
@@ -1058,7 +1076,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
                 : () => _exportTelemetry(asCsv: false),
             icon: const Icon(Icons.code, size: 16),
             label: Text(
-              _localizedText(context, zh: '导出 JSON', en: 'Export JSON'),
+              openHandLocalizedText(context, zh: '导出 JSON', en: 'Export JSON'),
             ),
           ),
           const SizedBox(width: 4),
@@ -1078,7 +1096,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
                   )
                 : const Icon(Icons.table_chart, size: 16),
             label: Text(
-              _localizedText(context, zh: '导出 CSV', en: 'Export CSV'),
+              openHandLocalizedText(context, zh: '导出 CSV', en: 'Export CSV'),
             ),
           ),
           const SizedBox(width: 4),
@@ -1093,7 +1111,9 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : const Icon(Icons.refresh, size: 16),
-            label: Text(_localizedText(context, zh: '刷新', en: 'Refresh')),
+            label: Text(
+              openHandLocalizedText(context, zh: '刷新', en: 'Refresh'),
+            ),
           ),
           const SizedBox(width: 4),
           TextButton.icon(
@@ -1108,7 +1128,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
                   )
                 : Icon(Icons.delete_sweep, size: 16, color: colorScheme.error),
             label: Text(
-              _localizedText(
+              openHandLocalizedText(
                 context,
                 zh: _clearingTelemetry ? '清空中…' : '清空记录',
                 en: _clearingTelemetry ? 'Clearing…' : 'Clear Logs',
@@ -1123,7 +1143,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 12),
           child: Text(
-            _localizedText(
+            openHandLocalizedText(
               context,
               zh: '暂无调用记录。下一次 WebSearch 调用结束后会自动记录。',
               en:
@@ -1138,7 +1158,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
       else ...[
         if (_engineStats.isNotEmpty) ...[
           Text(
-            _localizedText(context, zh: '引擎健康度', en: 'Engine Health'),
+            openHandLocalizedText(context, zh: '引擎健康度', en: 'Engine Health'),
             style: theme.textTheme.bodyMedium?.copyWith(
               fontWeight: FontWeight.w600,
             ),
@@ -1159,7 +1179,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
         ],
         if (_recentCalls.isNotEmpty) ...[
           Text(
-            _localizedText(context, zh: '最近调用', en: 'Recent Calls'),
+            openHandLocalizedText(context, zh: '最近调用', en: 'Recent Calls'),
             style: theme.textTheme.bodyMedium?.copyWith(
               fontWeight: FontWeight.w600,
             ),
@@ -1172,7 +1192,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
             Padding(
               padding: const EdgeInsets.only(top: 4),
               child: Text(
-                _localizedText(
+                openHandLocalizedText(
                   context,
                   zh: '… 还有 ${_recentCalls.length - 20} 条更早记录',
                   en: '… ${_recentCalls.length - 20} older entries',
@@ -1254,7 +1274,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
               ),
               Expanded(
                 child: Text(
-                  _localizedText(
+                  openHandLocalizedText(
                     context,
                     zh: '${stat.totalCalls} 次 · 平均 ${stat.avgDurationMs.toStringAsFixed(0)}ms · 累计 ${stat.totalHits} 命中',
                     en: '${stat.totalCalls} calls · avg ${stat.avgDurationMs.toStringAsFixed(0)}ms · ${stat.totalHits} hits',
@@ -1284,7 +1304,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
                   if (inCooldown) ...[
                     _SettingsStatusChip(
                       icon: Icons.pause_circle_outline,
-                      label: _localizedText(
+                      label: openHandLocalizedText(
                         context,
                         zh: '降级中 · 剩余 ${_settingsFormatRemainingUntilMs(stat.cooldownUntilMs)}',
                         en: 'cooldown · ${_settingsFormatRemainingUntilMs(stat.cooldownUntilMs)} left',
@@ -1301,7 +1321,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
                           vertical: 2,
                         ),
                         child: Text(
-                          _localizedText(context, zh: '重置', en: 'Reset'),
+                          openHandLocalizedText(context, zh: '重置', en: 'Reset'),
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: colorScheme.primary,
                             decoration: TextDecoration.underline,
@@ -1317,7 +1337,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
                       message: stat.lastQuotaError ?? '',
                       child: _SettingsStatusChip(
                         icon: Icons.speed,
-                        label: _localizedText(
+                        label: openHandLocalizedText(
                           context,
                           zh: '配额/限流',
                           en: 'rate limit',
@@ -1432,7 +1452,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
                   style: theme.textTheme.bodySmall,
                 ),
                 Text(
-                  _localizedText(
+                  openHandLocalizedText(
                     context,
                     zh:
                         '${call.success ? "成功" : "失败"} · ${call.totalDurationMs}ms · ${call.mergedHitCount} 条结果 · 摘要 ${call.summaryChars} 字'
@@ -1508,7 +1528,7 @@ class _AdvancedCooldownTierRow extends StatelessWidget {
             child: Text(label, style: theme.textTheme.bodySmall),
           ),
           Text(
-            _localizedText(context, zh: '连续失败 ', en: 'fails ≥ '),
+            openHandLocalizedText(context, zh: '连续失败 ', en: 'fails ≥ '),
             style: theme.textTheme.bodySmall,
           ),
           SizedBox(
@@ -1521,7 +1541,11 @@ class _AdvancedCooldownTierRow extends StatelessWidget {
             ),
           ),
           Text(
-            _localizedText(context, zh: ' 次  →  冷却 ', en: '  →  cooldown '),
+            openHandLocalizedText(
+              context,
+              zh: ' 次  →  冷却 ',
+              en: '  →  cooldown ',
+            ),
             style: theme.textTheme.bodySmall,
           ),
           SizedBox(
@@ -1534,7 +1558,7 @@ class _AdvancedCooldownTierRow extends StatelessWidget {
             ),
           ),
           Text(
-            _localizedText(context, zh: ' 秒', en: ' s'),
+            openHandLocalizedText(context, zh: ' 秒', en: ' s'),
             style: theme.textTheme.bodySmall,
           ),
         ],
@@ -1649,22 +1673,22 @@ class _WebSearchSparklinePainter extends CustomPainter {
 
 String _summaryDetailLabel(BuildContext context, AiWebSearchSummaryDetail d) {
   return switch (d) {
-    AiWebSearchSummaryDetail.brief => _localizedText(
+    AiWebSearchSummaryDetail.brief => openHandLocalizedText(
       context,
       zh: '简明扼要',
       en: 'Brief',
     ),
-    AiWebSearchSummaryDetail.balanced => _localizedText(
+    AiWebSearchSummaryDetail.balanced => openHandLocalizedText(
       context,
       zh: '中规中矩',
       en: 'Balanced',
     ),
-    AiWebSearchSummaryDetail.comprehensive => _localizedText(
+    AiWebSearchSummaryDetail.comprehensive => openHandLocalizedText(
       context,
       zh: '全面详细',
       en: 'Comprehensive',
     ),
-    AiWebSearchSummaryDetail.exhaustive => _localizedText(
+    AiWebSearchSummaryDetail.exhaustive => openHandLocalizedText(
       context,
       zh: '细致入微',
       en: 'Exhaustive',
@@ -1674,22 +1698,22 @@ String _summaryDetailLabel(BuildContext context, AiWebSearchSummaryDetail d) {
 
 String _summaryStyleLabel(BuildContext context, AiWebSearchSummaryStyle s) {
   return switch (s) {
-    AiWebSearchSummaryStyle.neutral => _localizedText(
+    AiWebSearchSummaryStyle.neutral => openHandLocalizedText(
       context,
       zh: '中性百科',
       en: 'Neutral',
     ),
-    AiWebSearchSummaryStyle.technical => _localizedText(
+    AiWebSearchSummaryStyle.technical => openHandLocalizedText(
       context,
       zh: '技术分析',
       en: 'Technical',
     ),
-    AiWebSearchSummaryStyle.casual => _localizedText(
+    AiWebSearchSummaryStyle.casual => openHandLocalizedText(
       context,
       zh: '通俗轻松',
       en: 'Casual',
     ),
-    AiWebSearchSummaryStyle.structured => _localizedText(
+    AiWebSearchSummaryStyle.structured => openHandLocalizedText(
       context,
       zh: '结构化',
       en: 'Structured',
@@ -1837,8 +1861,16 @@ class _WebSearchEngineCardState extends State<_WebSearchEngineCard> {
                   ),
                   IconButton(
                     tooltip: _expanded
-                        ? _localizedText(context, zh: '收起', en: 'Collapse')
-                        : _localizedText(context, zh: '展开', en: 'Expand'),
+                        ? openHandLocalizedText(
+                            context,
+                            zh: '收起',
+                            en: 'Collapse',
+                          )
+                        : openHandLocalizedText(
+                            context,
+                            zh: '展开',
+                            en: 'Expand',
+                          ),
                     icon: _SettingsExpandIcon(expanded: _expanded),
                     onPressed: () => setState(() => _expanded = !_expanded),
                   ),
@@ -1855,7 +1887,7 @@ class _WebSearchEngineCardState extends State<_WebSearchEngineCard> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      _localizedText(
+                      openHandLocalizedText(
                         context,
                         zh: '权重 ${cfg.weight} (1 = 最低,100 = 最高;影响 summary 偏重)',
                         en:
@@ -1888,7 +1920,7 @@ class _WebSearchEngineCardState extends State<_WebSearchEngineCard> {
                               FilteringTextInputFormatter.digitsOnly,
                             ],
                             decoration: InputDecoration(
-                              labelText: _localizedText(
+                              labelText: openHandLocalizedText(
                                 context,
                                 zh: '重试次数',
                                 en: 'Max Retries',
@@ -1918,7 +1950,7 @@ class _WebSearchEngineCardState extends State<_WebSearchEngineCard> {
                               FilteringTextInputFormatter.digitsOnly,
                             ],
                             decoration: InputDecoration(
-                              labelText: _localizedText(
+                              labelText: openHandLocalizedText(
                                 context,
                                 zh: '截断阈值 (字符)',
                                 en: 'Truncation (chars)',
@@ -1948,7 +1980,7 @@ class _WebSearchEngineCardState extends State<_WebSearchEngineCard> {
                       TextField(
                         controller: _apiKeyController,
                         decoration: InputDecoration(
-                          labelText: _localizedText(
+                          labelText: openHandLocalizedText(
                             context,
                             zh: 'API Key',
                             en: 'API Key',
@@ -1956,12 +1988,12 @@ class _WebSearchEngineCardState extends State<_WebSearchEngineCard> {
                           hintText: _apiKeyHint(cfg.kind),
                           suffixIcon: IconButton(
                             tooltip: _apiKeyVisible
-                                ? _localizedText(
+                                ? openHandLocalizedText(
                                     context,
                                     zh: '隐藏 API Key',
                                     en: 'Hide API Key',
                                   )
-                                : _localizedText(
+                                : openHandLocalizedText(
                                     context,
                                     zh: '显示 API Key',
                                     en: 'Show API Key',
@@ -1995,7 +2027,7 @@ class _WebSearchEngineCardState extends State<_WebSearchEngineCard> {
                           initialValue: cfg.providerConfigId,
                           isExpanded: true,
                           decoration: InputDecoration(
-                            labelText: _localizedText(
+                            labelText: openHandLocalizedText(
                               context,
                               zh: '复用 Provider 的 API Key (可选)',
                               en: 'Reuse Provider API Key (optional)',
@@ -2004,7 +2036,11 @@ class _WebSearchEngineCardState extends State<_WebSearchEngineCard> {
                           items: [
                             DropdownMenuItem<String?>(
                               child: Text(
-                                _localizedText(context, zh: '不复用', en: 'None'),
+                                openHandLocalizedText(
+                                  context,
+                                  zh: '不复用',
+                                  en: 'None',
+                                ),
                               ),
                             ),
                             for (final m in widget.availableModels)
@@ -2030,7 +2066,7 @@ class _WebSearchEngineCardState extends State<_WebSearchEngineCard> {
                       TextField(
                         controller: _endpointController,
                         decoration: InputDecoration(
-                          labelText: _localizedText(
+                          labelText: openHandLocalizedText(
                             context,
                             zh: '实例 Endpoint',
                             en: 'Instance Endpoint',
@@ -2083,57 +2119,57 @@ String? _apiKeyHint(AiWebSearchEngineKind kind) {
 
 String _engineSubtitle(BuildContext context, AiWebSearchEngineKind kind) {
   return switch (kind) {
-    AiWebSearchEngineKind.tavily => _localizedText(
+    AiWebSearchEngineKind.tavily => openHandLocalizedText(
       context,
       zh: '专业 AI 搜索 · 高精度',
       en: 'Pro AI search · high precision',
     ),
-    AiWebSearchEngineKind.exa => _localizedText(
+    AiWebSearchEngineKind.exa => openHandLocalizedText(
       context,
       zh: '神经搜索 · 内容深度索引',
       en: 'Neural search · deep content',
     ),
-    AiWebSearchEngineKind.kimi => _localizedText(
+    AiWebSearchEngineKind.kimi => openHandLocalizedText(
       context,
       zh: 'Moonshot 内置联网工具',
       en: 'Moonshot built-in web tool',
     ),
-    AiWebSearchEngineKind.baidu => _localizedText(
+    AiWebSearchEngineKind.baidu => openHandLocalizedText(
       context,
       zh: '中文友好 · 百度生态',
       en: 'CN-friendly · Baidu ecosystem',
     ),
-    AiWebSearchEngineKind.linkup => _localizedText(
+    AiWebSearchEngineKind.linkup => openHandLocalizedText(
       context,
       zh: '欧洲 AI 搜索 API',
       en: 'EU AI search API',
     ),
-    AiWebSearchEngineKind.bocha => _localizedText(
+    AiWebSearchEngineKind.bocha => openHandLocalizedText(
       context,
       zh: '中文 AI 搜索 · 国内访问稳定',
       en: 'CN AI search · stable in mainland',
     ),
-    AiWebSearchEngineKind.duckduckgo => _localizedText(
+    AiWebSearchEngineKind.duckduckgo => openHandLocalizedText(
       context,
       zh: '无需 Key · HTML 抓取兜底',
       en: 'No-key · HTML scrape fallback',
     ),
-    AiWebSearchEngineKind.grok => _localizedText(
+    AiWebSearchEngineKind.grok => openHandLocalizedText(
       context,
       zh: 'xAI Live Search · 实时数据',
       en: 'xAI Live Search · realtime',
     ),
-    AiWebSearchEngineKind.gemini => _localizedText(
+    AiWebSearchEngineKind.gemini => openHandLocalizedText(
       context,
       zh: 'Google Grounding · 高质量',
       en: 'Google Grounding · high quality',
     ),
-    AiWebSearchEngineKind.bing => _localizedText(
+    AiWebSearchEngineKind.bing => openHandLocalizedText(
       context,
       zh: 'HTML 抓取 · 默认兜底',
       en: 'HTML scrape · default fallback',
     ),
-    AiWebSearchEngineKind.searxng => _localizedText(
+    AiWebSearchEngineKind.searxng => openHandLocalizedText(
       context,
       zh: '开源元搜索 · 自托管',
       en: 'OSS meta-search · self-host',

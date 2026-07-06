@@ -466,7 +466,7 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
             children: [
               Expanded(
                 child: Text(
-                  _localizedText(
+                  openHandLocalizedText(
                     context,
                     zh: '绝对路径',
                     zhHant: '絕對路徑',
@@ -493,7 +493,7 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
         PopupMenuItem<String>(
           value: 'name',
           child: Text(
-            _localizedText(
+            openHandLocalizedText(
               context,
               zh: '文件名',
               zhHant: '檔案名稱',
@@ -507,7 +507,7 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
         PopupMenuItem<String>(
           value: 'content_root',
           child: Text(
-            _localizedText(
+            openHandLocalizedText(
               context,
               zh: '内容根目录相对路径',
               zhHant: '內容根目錄相對路徑',
@@ -521,7 +521,7 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
         PopupMenuItem<String>(
           value: 'repo_root',
           child: Text(
-            _localizedText(
+            openHandLocalizedText(
               context,
               zh: '仓库根目录相对路径',
               zhHant: '倉庫根目錄相對路徑',
@@ -548,7 +548,7 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
   Future<void> _renameNode(_FileNode node) async {
     final newName = await showOpenHandTextInputDialog(
       context: context,
-      title: _localizedText(
+      title: openHandLocalizedText(
         context,
         zh: '重命名',
         zhHant: '重新命名',
@@ -558,7 +558,7 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
         ja: '名前を変更',
       ),
       initialValue: node.name,
-      hintText: _localizedText(
+      hintText: openHandLocalizedText(
         context,
         zh: '输入新名称',
         zhHant: '輸入新名稱',
@@ -567,7 +567,7 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
         de: 'Neuen Namen eingeben',
         ja: '新しい名前を入力',
       ),
-      cancelLabel: _localizedText(
+      cancelLabel: openHandLocalizedText(
         context,
         zh: '取消',
         zhHant: '取消',
@@ -576,7 +576,7 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
         de: 'Abbrechen',
         ja: 'キャンセル',
       ),
-      confirmLabel: _localizedText(
+      confirmLabel: openHandLocalizedText(
         context,
         zh: '确定',
         zhHant: '確定',
@@ -605,7 +605,7 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
   Future<void> _deleteNode(_FileNode node) async {
     final confirmed = await showOpenHandConfirmDialog(
       context: context,
-      title: _localizedText(
+      title: openHandLocalizedText(
         context,
         zh: '删除确认',
         zhHant: '刪除確認',
@@ -614,7 +614,7 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
         de: 'Löschen bestätigen',
         ja: '削除の確認',
       ),
-      message: _localizedText(
+      message: openHandLocalizedText(
         context,
         zh: '确定要删除 "${node.name}" 吗？此操作不可撤销。',
         zhHant: '確定要刪除 "${node.name}" 嗎？此操作無法復原。',
@@ -623,7 +623,7 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
         de: 'Möchtest du "${node.name}" wirklich löschen? Dies kann nicht rückgängig gemacht werden.',
         ja: '"${node.name}" を削除しますか？この操作は元に戻せません。',
       ),
-      cancelLabel: _localizedText(
+      cancelLabel: openHandLocalizedText(
         context,
         zh: '取消',
         zhHant: '取消',
@@ -632,7 +632,7 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
         de: 'Abbrechen',
         ja: 'キャンセル',
       ),
-      confirmLabel: _localizedText(
+      confirmLabel: openHandLocalizedText(
         context,
         zh: '删除',
         zhHant: '刪除',
@@ -881,7 +881,7 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
                     horizontal: 12,
                     vertical: 8,
                   ),
-                  hintText: _localizedText(
+                  hintText: openHandLocalizedText(
                     context,
                     zh: '搜索文件或目录…',
                     zhHant: '搜尋檔案或目錄…',
@@ -1019,7 +1019,7 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Text(
-            _localizedText(
+            openHandLocalizedText(
               context,
               zh: '未找到匹配项',
               zhHant: '找不到相符項目',
@@ -1187,7 +1187,7 @@ class _FileTreeTile extends StatelessWidget {
       String? de,
       String? ja,
     }) {
-      return _localizedText(
+      return openHandLocalizedText(
         context,
         zh: zh,
         zhHant: zhHant,
@@ -1684,7 +1684,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     String? de,
     String? ja,
   }) {
-    return _localizedText(
+    return openHandLocalizedText(
       context,
       zh: zh,
       zhHant: zhHant,
@@ -2789,7 +2789,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
           String? de,
           String? ja,
         }) {
-          return _localizedText(
+          return openHandLocalizedText(
             dialogContext,
             zh: zh,
             zhHant: zhHant,
@@ -3179,7 +3179,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
   }
 
   String _workspaceEditSummary(AiLspWorkspaceEdit edit) {
-    final base = _localizedText(
+    final base = openHandLocalizedText(
       context,
       zh: '已应用 ${edit.editCount} 处修改，涉及 ${edit.fileCount} 个文件。',
       zhHant: '已套用 ${edit.editCount} 處修改，涉及 ${edit.fileCount} 個檔案。',
@@ -3191,7 +3191,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     if (!edit.hasUnsupportedOperations) {
       return base;
     }
-    return _localizedText(
+    return openHandLocalizedText(
       context,
       zh: '$base 其中有 ${edit.unsupportedOperationsCount} 个文件级操作未自动处理。',
       zhHant: '$base 其中有 ${edit.unsupportedOperationsCount} 個檔案級操作未自動處理。',
@@ -3205,7 +3205,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
   Future<String?> _promptRenameSymbol(String initialValue) async {
     return showOpenHandTextInputDialog(
       context: context,
-      title: _localizedText(
+      title: openHandLocalizedText(
         context,
         zh: '重命名符号',
         zhHant: '重新命名符號',
@@ -3215,7 +3215,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         ja: 'シンボル名を変更',
       ),
       initialValue: initialValue,
-      hintText: _localizedText(
+      hintText: openHandLocalizedText(
         context,
         zh: '新名称',
         zhHant: '新名稱',
@@ -3224,7 +3224,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         de: 'Neuer Name',
         ja: '新しい名前',
       ),
-      cancelLabel: _localizedText(
+      cancelLabel: openHandLocalizedText(
         context,
         zh: '取消',
         zhHant: '取消',
@@ -3233,7 +3233,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         de: 'Abbrechen',
         ja: 'キャンセル',
       ),
-      confirmLabel: _localizedText(
+      confirmLabel: openHandLocalizedText(
         context,
         zh: '应用',
         zhHant: '套用',
@@ -3243,7 +3243,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         ja: '適用',
       ),
       decoration: InputDecoration(
-        labelText: _localizedText(
+        labelText: openHandLocalizedText(
           context,
           zh: '新名称',
           zhHant: '新名稱',
@@ -3829,7 +3829,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
 
     String groupLabel(String key) {
       return switch (key) {
-        'quickfix' => _localizedText(
+        'quickfix' => openHandLocalizedText(
           context,
           zh: '快速修复',
           zhHant: '快速修復',
@@ -3838,7 +3838,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
           de: 'Schnellkorrektur',
           ja: 'クイック修正',
         ),
-        'refactor' => _localizedText(
+        'refactor' => openHandLocalizedText(
           context,
           zh: '重构',
           zhHant: '重構',
@@ -3847,7 +3847,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
           de: 'Refaktorieren',
           ja: 'リファクタリング',
         ),
-        'source' => _localizedText(
+        'source' => openHandLocalizedText(
           context,
           zh: '源码操作',
           zhHant: '原始碼操作',
@@ -3856,7 +3856,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
           de: 'Quelle',
           ja: 'ソース操作',
         ),
-        _ => _localizedText(
+        _ => openHandLocalizedText(
           context,
           zh: '其他操作',
           zhHant: '其他操作',
@@ -3912,7 +3912,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     String subgroupLabel(String groupKey, String subgroupKey) {
       if (subgroupKey == defaultSubgroupKey) {
         return switch (groupKey) {
-          'quickfix' => _localizedText(
+          'quickfix' => openHandLocalizedText(
             context,
             zh: '默认修复',
             zhHant: '預設修復',
@@ -3921,7 +3921,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
             de: 'Standard',
             ja: '既定',
           ),
-          'refactor' => _localizedText(
+          'refactor' => openHandLocalizedText(
             context,
             zh: '通用重构',
             zhHant: '通用重構',
@@ -3930,7 +3930,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
             de: 'Allgemein',
             ja: '一般',
           ),
-          'source' => _localizedText(
+          'source' => openHandLocalizedText(
             context,
             zh: '通用源码操作',
             zhHant: '通用原始碼操作',
@@ -3939,7 +3939,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
             de: 'Allgemein',
             ja: '一般',
           ),
-          _ => _localizedText(
+          _ => openHandLocalizedText(
             context,
             zh: '通用操作',
             zhHant: '通用操作',
@@ -4349,7 +4349,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
 
   String _lspUnavailableMessage(AiLspBackendResolution resolution) {
     return switch (resolution.availability) {
-      AiLspBackendAvailability.unsupportedLanguage => _localizedText(
+      AiLspBackendAvailability.unsupportedLanguage => openHandLocalizedText(
         context,
         zh: '当前语言 ${_programmingLanguageLabel(context, resolution.language)} 还没有映射到 LSP 后端。',
         zhHant:
@@ -4361,7 +4361,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       ),
       AiLspBackendAvailability.executableNotFound =>
         resolution.configuredInstallRoot?.trim().isNotEmpty == true
-            ? _localizedText(
+            ? openHandLocalizedText(
                 context,
                 zh: '已识别到 ${resolution.displayName ?? resolution.backendId}，但在你配置的 LSP 根路径 ${OpenHandPaths.shortenHomePath(resolution.configuredInstallRoot!)} 中没有找到命令 ${resolution.executable ?? ''}。',
                 zhHant:
@@ -4371,7 +4371,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                 de: 'Der Editor hat ${resolution.displayName ?? resolution.backendId} aufgelöst, aber ${resolution.executable ?? ''} wurde im konfigurierten LSP-Stamm ${OpenHandPaths.shortenHomePath(resolution.configuredInstallRoot!)} nicht gefunden.',
                 ja: 'エディタは ${resolution.displayName ?? resolution.backendId} を解決しましたが、設定済み LSP ルート ${OpenHandPaths.shortenHomePath(resolution.configuredInstallRoot!)} 内に ${resolution.executable ?? ''} が見つかりません。',
               )
-            : _localizedText(
+            : openHandLocalizedText(
                 context,
                 zh: '已识别到 ${resolution.displayName ?? resolution.backendId}，但本机 PATH 中没有找到命令 ${resolution.executable ?? ''}。',
                 zhHant:
@@ -4381,7 +4381,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                 de: 'Der Editor hat ${resolution.displayName ?? resolution.backendId} aufgelöst, aber ${resolution.executable ?? ''} wurde im PATH nicht gefunden.',
                 ja: 'エディタは ${resolution.displayName ?? resolution.backendId} を解決しましたが、PATH に ${resolution.executable ?? ''} が見つかりません。',
               ),
-      AiLspBackendAvailability.available => _localizedText(
+      AiLspBackendAvailability.available => openHandLocalizedText(
         context,
         zh: 'LSP 后端已就绪。',
         zhHant: 'LSP 後端已就緒。',
@@ -5039,7 +5039,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
   String _diagnosticsUnavailableMessage(String filePath) {
     final resolution = _lspResolutionForFile(filePath);
     if (_lspBackendLoadingFiles.contains(filePath) && resolution == null) {
-      return _localizedText(
+      return openHandLocalizedText(
         context,
         zh: '正在为当前文件解析 LSP 后端…',
         zhHant: '正在為目前檔案解析 LSP 後端…',
@@ -5050,7 +5050,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       );
     }
     if (resolution == null) {
-      return _localizedText(
+      return openHandLocalizedText(
         context,
         zh: '当前文件的 LSP 后端尚未解析完成。',
         zhHant: '目前檔案的 LSP 後端尚未解析完成。',
@@ -5066,7 +5066,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
   String _lspBackendStatusLabel(BuildContext context, String filePath) {
     final resolution = _lspResolutionForFile(filePath);
     if (_lspBackendLoadingFiles.contains(filePath) && resolution == null) {
-      return _localizedText(
+      return openHandLocalizedText(
         context,
         zh: 'LSP 解析中',
         zhHant: 'LSP 解析中',
@@ -5084,7 +5084,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
           resolution.backendId ??
           _programmingLanguageLabel(context, resolution.language);
     }
-    return _localizedText(
+    return openHandLocalizedText(
       context,
       zh: '无 LSP',
       zhHant: '無 LSP',
@@ -5111,7 +5111,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         _lspBackendLoadingFiles.contains(filePath) &&
         _lspResolutionForFile(filePath) == null;
     if (isResolving && hasOverride) {
-      return _localizedText(
+      return openHandLocalizedText(
         context,
         zh: '项目重绑',
         zhHant: '專案重綁',
@@ -5122,7 +5122,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       );
     }
     if (isResolving) {
-      return _localizedText(
+      return openHandLocalizedText(
         context,
         zh: '解析中',
         zhHant: '解析中',
@@ -5133,7 +5133,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       );
     }
     if (projectLanguage == 'mixed') {
-      return _localizedText(
+      return openHandLocalizedText(
         context,
         zh: '混合模式',
         zhHant: '混合模式',
@@ -5144,7 +5144,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       );
     }
     if (hasOverride) {
-      return _localizedText(
+      return openHandLocalizedText(
         context,
         zh: '项目覆盖',
         zhHant: '專案覆寫',
@@ -5154,7 +5154,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         ja: 'プロジェクト',
       );
     }
-    return _localizedText(
+    return openHandLocalizedText(
       context,
       zh: '全局默认',
       zhHant: '全域預設',
@@ -5190,7 +5190,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         _lspBackendLoadingFiles.contains(filePath) &&
         _lspResolutionForFile(filePath) == null;
     if (isResolving && hasOverride) {
-      return _localizedText(
+      return openHandLocalizedText(
         context,
         zh: '项目级 SDK / LSP 覆盖刚刚更新，当前文件正在重新绑定后端。',
         zhHant: '專案級 SDK / LSP 覆寫剛剛更新，目前檔案正在重新綁定後端。',
@@ -5201,7 +5201,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       );
     }
     if (projectLanguage == 'mixed') {
-      return _localizedText(
+      return openHandLocalizedText(
         context,
         zh: '混合模式下会按文件类型自动识别语言，并继续使用全局的按语言配置。点击展开来源树可查看当前文件命中的语言映射。',
         zhHant: '混合模式會依檔案類型自動識別語言，並繼續使用全域的各語言設定。點擊展開來源樹可查看目前檔案命中的語言對應。',
@@ -5212,7 +5212,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       );
     }
     if (hasOverride) {
-      return _localizedText(
+      return openHandLocalizedText(
         context,
         zh: '当前项目对 SDK 或 LSP 路径做了覆盖，点击展开项目级生效面板与来源树。',
         zhHant: '目前專案已覆寫 SDK 或 LSP 路徑，點擊可展開專案級生效面板與來源樹。',
@@ -5222,7 +5222,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         ja: '現在のプロジェクトは SDK または LSP パスを上書きしています。クリックすると状態パネルとソースツリーを展開します。',
       );
     }
-    return _localizedText(
+    return openHandLocalizedText(
       context,
       zh: '当前项目没有单独覆盖，点击展开当前继承关系和全局映射命中来源。',
       zhHant: '目前專案沒有單獨覆寫，點擊可展開目前繼承關係與全域映射命中來源。',
@@ -5347,7 +5347,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       final projectLanguage = normalizeAiLspLanguage(widget.projectLanguage);
       final hasProjectOverride = _hasProjectToolchainOverride();
       final lspSourceLine = widget.projectLspPath.trim().isNotEmpty
-          ? _localizedText(
+          ? openHandLocalizedText(
               context,
               zh: 'LSP 根路径来源：项目覆盖 (${OpenHandPaths.shortenHomePath(widget.projectLspPath)})',
               zhHant:
@@ -5358,7 +5358,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
               ja: 'LSP ルートのソース: プロジェクト上書き (${OpenHandPaths.shortenHomePath(widget.projectLspPath)})',
             )
           : resolution.configuredInstallRoot?.trim().isNotEmpty == true
-          ? _localizedText(
+          ? openHandLocalizedText(
               context,
               zh: 'LSP 根路径来源：已保存配置 (${OpenHandPaths.shortenHomePath(resolution.configuredInstallRoot!)})',
               zhHant:
@@ -5368,7 +5368,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
               de: 'LSP-Stammquelle: gespeicherte Zuordnung (${OpenHandPaths.shortenHomePath(resolution.configuredInstallRoot!)})',
               ja: 'LSP ルートのソース: 保存済みマッピング (${OpenHandPaths.shortenHomePath(resolution.configuredInstallRoot!)})',
             )
-          : _localizedText(
+          : openHandLocalizedText(
               context,
               zh: 'LSP 根路径来源：PATH 自动探测',
               zhHant: 'LSP 根路徑來源：PATH 自動偵測',
@@ -5378,7 +5378,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
               ja: 'LSP ルートのソース: PATH 自動検出',
             );
       final sdkSourceLine = widget.projectSdkPath.trim().isNotEmpty
-          ? _localizedText(
+          ? openHandLocalizedText(
               context,
               zh: 'SDK 来源：项目覆盖 (${OpenHandPaths.shortenHomePath(widget.projectSdkPath)})',
               zhHant:
@@ -5388,7 +5388,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
               de: 'SDK-Quelle: Projektüberschreibung (${OpenHandPaths.shortenHomePath(widget.projectSdkPath)})',
               ja: 'SDK ソース: プロジェクト上書き (${OpenHandPaths.shortenHomePath(widget.projectSdkPath)})',
             )
-          : _localizedText(
+          : openHandLocalizedText(
               context,
               zh: 'SDK 来源：全局配置或系统默认',
               zhHant: 'SDK 來源：全域設定或系統預設',
@@ -5398,7 +5398,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
               ja: 'SDK ソース: グローバル設定またはシステム既定値',
             );
       final modeLine = projectLanguage == 'mixed'
-          ? _localizedText(
+          ? openHandLocalizedText(
               context,
               zh: '项目模式：混合语言，按文件后缀自动选择语言后端',
               zhHant: '專案模式：混合語言，依檔案副檔名自動選擇語言後端',
@@ -5408,7 +5408,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
               ja: 'プロジェクトモード: 混在言語、ファイル種別ごとにバックエンドを解決',
             )
           : hasProjectOverride
-          ? _localizedText(
+          ? openHandLocalizedText(
               context,
               zh: '项目模式：项目级工具链覆盖已启用',
               zhHant: '專案模式：已啟用專案級工具鏈覆寫',
@@ -5417,7 +5417,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
               de: 'Projektmodus: projektweite Toolchain-Überschreibung aktiviert',
               ja: 'プロジェクトモード: プロジェクト単位のツールチェーン上書きが有効',
             )
-          : _localizedText(
+          : openHandLocalizedText(
               context,
               zh: '项目模式：继续使用全局按语言配置',
               zhHant: '專案模式：繼續使用全域各語言設定',
@@ -5540,7 +5540,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       String? de,
       String? ja,
     }) {
-      return _localizedText(
+      return openHandLocalizedText(
         context,
         zh: zh,
         zhHant: zhHant,
@@ -6249,7 +6249,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       String? de,
       String? ja,
     }) {
-      return _localizedText(
+      return openHandLocalizedText(
         context,
         zh: zh,
         zhHant: zhHant,
@@ -9019,7 +9019,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
   String _diagnosticsStatusLabel(BuildContext context, String filePath) {
     final resolution = _lspResolutionForFile(filePath);
     if (_lspBackendLoadingFiles.contains(filePath) && resolution == null) {
-      return _localizedText(
+      return openHandLocalizedText(
         context,
         zh: 'LSP中',
         zhHant: 'LSP中',
@@ -9030,7 +9030,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       );
     }
     if (resolution == null) {
-      return _localizedText(
+      return openHandLocalizedText(
         context,
         zh: '待解析',
         zhHant: '待解析',
@@ -9041,7 +9041,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       );
     }
     if (!resolution.isAvailable) {
-      return _localizedText(
+      return openHandLocalizedText(
         context,
         zh: '无后端',
         zhHant: '無後端',
@@ -9052,7 +9052,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       );
     }
     if (_diagnosticsLoadingFiles.contains(filePath)) {
-      return _localizedText(
+      return openHandLocalizedText(
         context,
         zh: '诊断中',
         zhHant: '診斷中',
@@ -9071,7 +9071,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         _diagnosticsStaleFiles.contains(filePath);
     if (errors == 0 && warnings == 0) {
       return stale
-          ? _localizedText(
+          ? openHandLocalizedText(
               context,
               zh: '已过期',
               zhHant: '已過期',
@@ -9080,7 +9080,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
               de: 'Veraltet',
               ja: '古い',
             )
-          : _localizedText(
+          : openHandLocalizedText(
               context,
               zh: '通过',
               zhHant: '通過',
@@ -9093,7 +9093,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     final buffer = StringBuffer();
     if (errors > 0) {
       buffer.write(
-        _localizedText(
+        openHandLocalizedText(
           context,
           zh: '$errors错',
           zhHant: '$errors錯',
@@ -9109,7 +9109,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         buffer.write(' · ');
       }
       buffer.write(
-        _localizedText(
+        openHandLocalizedText(
           context,
           zh: '$warnings警',
           zhHant: '$warnings警',
@@ -11974,7 +11974,7 @@ class _SignatureHelpOverlay extends StatelessWidget {
                   children: [
                     Expanded(
                       child: Text(
-                        _localizedText(
+                        openHandLocalizedText(
                           context,
                           zh: '参数签名',
                           zhHant: '參數簽名',
@@ -12045,7 +12045,7 @@ class _SignatureHelpOverlay extends StatelessWidget {
                 if (parameterDoc.isNotEmpty) ...[
                   const SizedBox(height: 10),
                   Text(
-                    _localizedText(
+                    openHandLocalizedText(
                       context,
                       zh: '当前参数',
                       zhHant: '目前參數',
@@ -12071,7 +12071,7 @@ class _SignatureHelpOverlay extends StatelessWidget {
                 if (signatureDoc.isNotEmpty) ...[
                   const SizedBox(height: 10),
                   Text(
-                    _localizedText(
+                    openHandLocalizedText(
                       context,
                       zh: '文档说明',
                       zhHant: '文件說明',
@@ -14806,7 +14806,7 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
                   if (diagnostics.length > visibleDiagnostics.length) ...[
                     const SizedBox(height: 6),
                     Text(
-                      _localizedText(
+                      openHandLocalizedText(
                         context,
                         zh: '还有 ${diagnostics.length - visibleDiagnostics.length} 条重叠诊断',
                         zhHant:
@@ -14856,7 +14856,7 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
                                 size: 16,
                               ),
                               label: Text(
-                                _localizedText(
+                                openHandLocalizedText(
                                   context,
                                   zh: '更多操作',
                                   zhHant: '更多操作',
@@ -14892,7 +14892,7 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
                                 size: 16,
                               ),
                               label: Text(
-                                _localizedText(
+                                openHandLocalizedText(
                                   context,
                                   zh: '应用快速修复',
                                   zhHant: '套用快速修復',
@@ -14923,7 +14923,7 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
   ) {
     final accent = _diagnosticColor(colorScheme, diagnostic);
     final severityLabel = diagnostic.isError
-        ? _localizedText(
+        ? openHandLocalizedText(
             context,
             zh: '错误',
             zhHant: '錯誤',
@@ -14933,7 +14933,7 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
             ja: 'エラー',
           )
         : diagnostic.isWarning
-        ? _localizedText(
+        ? openHandLocalizedText(
             context,
             zh: '警告',
             zhHant: '警告',
@@ -14942,7 +14942,7 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
             de: 'Warnung',
             ja: '警告',
           )
-        : _localizedText(
+        : openHandLocalizedText(
             context,
             zh: '提示',
             zhHant: '提示',

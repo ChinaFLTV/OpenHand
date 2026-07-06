@@ -1329,22 +1329,22 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final deletedBy = notice.deletedByLabel.trim().isEmpty
-          ? _localizedText(context, zh: 'Web 用户', en: 'a Web user')
+          ? openHandLocalizedText(context, zh: 'Web 用户', en: 'a Web user')
           : notice.deletedByLabel.trim();
       unawaited(
         showOpenHandInfoDialog(
           context: context,
-          title: _localizedText(
+          title: openHandLocalizedText(
             context,
             zh: '当前线程已被删除',
             en: 'Current Thread Deleted',
           ),
-          message: _localizedText(
+          message: openHandLocalizedText(
             context,
             zh: '当前会话「${notice.sessionTitle}」已被 $deletedBy 删除。',
             en: 'The current session "${notice.sessionTitle}" was deleted by $deletedBy.',
           ),
-          closeLabel: _localizedText(context, zh: '返回', en: 'Back'),
+          closeLabel: openHandLocalizedText(context, zh: '返回', en: 'Back'),
           barrierDismissible: false,
         ),
       );
@@ -4762,7 +4762,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           context,
           SnackBar(
             content: Text(
-              _localizedText(
+              openHandLocalizedText(
                 context,
                 zh: '该会话缺少 web_reverse_config，请新建会话。',
                 en: 'Session is missing web_reverse_config; create a new session.',
@@ -5733,7 +5733,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           context,
           SnackBar(
             content: Text(
-              _localizedText(
+              openHandLocalizedText(
                 context,
                 zh: '请先进入支持目标模式的线程。',
                 en: 'Open a thread that supports Goal Mode first.',
@@ -5761,7 +5761,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           context,
           SnackBar(
             content: Text(
-              _localizedText(
+              openHandLocalizedText(
                 context,
                 zh: '当前线程模板暂不支持目标模式。',
                 en: 'This thread template does not support Goal Mode.',
@@ -5904,18 +5904,22 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   Future<bool> _showFullAccessConfirmationDialog() {
     return showOpenHandConfirmDialog(
       context: context,
-      title: _localizedText(
+      title: openHandLocalizedText(
         context,
         zh: '启用完全访问权限？',
         en: 'Enable Full Access?',
       ),
-      message: _localizedText(
+      message: openHandLocalizedText(
         context,
         zh: '在完全访问权限模式下，OpenHand 可无需审批直接编辑计算机上的任意文件并运行网络命令。\n\n启用完全访问权限前请谨慎评估。此操作将显著增加数据丢失、泄露或异常行为的风险。',
         en: 'With Full Access enabled, OpenHand can edit any file and run commands without requiring your explicit approval.\n\nPlease evaluate carefully before enabling. This action significantly increases the risk of data loss, leakage, or unexpected behavior.',
       ),
-      cancelLabel: _localizedText(context, zh: '取消', en: 'Cancel'),
-      confirmLabel: _localizedText(context, zh: '是，仍然继续', en: 'Yes, Continue'),
+      cancelLabel: openHandLocalizedText(context, zh: '取消', en: 'Cancel'),
+      confirmLabel: openHandLocalizedText(
+        context,
+        zh: '是，仍然继续',
+        en: 'Yes, Continue',
+      ),
       destructive: true,
     );
   }
@@ -5956,7 +5960,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       context,
       SnackBar(
         content: Text(
-          _localizedText(
+          openHandLocalizedText(
             context,
             zh: '消息已暂存，将在当前回答完成后自动发送。',
             en: 'Message queued and will be sent automatically.',
@@ -5994,7 +5998,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         context,
         SnackBar(
           content: Text(
-            _localizedText(
+            openHandLocalizedText(
               context,
               zh: '当前模型不支持附件。',
               en: 'The selected model does not support attachments.',
@@ -6043,7 +6047,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           context,
           SnackBar(
             content: Text(
-              _localizedText(
+              openHandLocalizedText(
                 context,
                 zh: '本地斜杠命令不支持携带附件。',
                 en: 'Local slash commands do not accept attachments.',
@@ -6188,7 +6192,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       if (!activeContext.mounted) {
         return;
       }
-      final activeGoalMessage = _localizedText(
+      final activeGoalMessage = openHandLocalizedText(
         activeContext,
         zh: '当前目标仍在执行中，请暂停后继续目标或终止目标。',
         en: 'A goal is active. Resume or terminate it before sending manually.',
@@ -6846,7 +6850,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (!capabilities.supportsAny) {
       OpenHandSnackBar.showInfo(
         context,
-        _localizedText(
+        openHandLocalizedText(
           context,
           zh: '当前模型不支持附件。',
           en: 'The selected model does not support attachments.',
@@ -6860,7 +6864,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (extensions.isEmpty) {
       OpenHandSnackBar.showInfo(
         context,
-        _localizedText(
+        openHandLocalizedText(
           context,
           zh: '当前模型没有可添加的附件类型。',
           en: 'The selected model has no supported attachment types.',
@@ -6873,7 +6877,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (remainingSlots <= 0) {
       OpenHandSnackBar.showInfo(
         context,
-        _localizedText(
+        openHandLocalizedText(
           context,
           zh: '单条消息最多携带 20 个附件。',
           en: 'A single message supports at most 20 attachments.',
@@ -7018,7 +7022,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final lines = <String>[];
     if (result.limitSkipped > 0) {
       lines.add(
-        _localizedText(
+        openHandLocalizedText(
           context,
           zh: '单条消息最多携带 20 个附件。',
           en: 'A single message supports at most 20 attachments.',
@@ -7027,7 +7031,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     }
     if (result.unsupported > 0) {
       lines.add(
-        _localizedText(
+        openHandLocalizedText(
           context,
           zh: '已忽略 ${result.unsupported} 个当前模型不支持的附件类型。',
           en: 'Ignored ${result.unsupported} unsupported attachment type(s) for the selected model.',
@@ -7036,7 +7040,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     }
     if (result.oversized > 0) {
       lines.add(
-        _localizedText(
+        openHandLocalizedText(
           context,
           zh: '已忽略 ${result.oversized} 个超出 10MB 单文件上限的附件。',
           en: 'Ignored ${result.oversized} file(s) exceeding the 10MB per-attachment limit.',
@@ -7045,7 +7049,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     }
     if (result.unreadable > 0) {
       lines.add(
-        _localizedText(
+        openHandLocalizedText(
           context,
           zh: '已忽略 ${result.unreadable} 个无法读取的附件。',
           en: 'Ignored ${result.unreadable} unreadable attachment(s).',
@@ -7861,7 +7865,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
             context,
             SnackBar(
               content: Text(
-                _localizedText(
+                openHandLocalizedText(
                   context,
                   zh: '当前没有活动会话。',
                   en: 'There is no active session.',
@@ -7900,7 +7904,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
             context,
             SnackBar(
               content: Text(
-                _localizedText(
+                openHandLocalizedText(
                   context,
                   zh: '当前没有正在进行的响应。',
                   en: 'There is no active response to stop.',
@@ -7916,7 +7920,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
             context,
             SnackBar(
               content: Text(
-                _localizedText(
+                openHandLocalizedText(
                   context,
                   zh: '已请求当前会话停止继续响应。',
                   en: 'Requested the current session to stop responding.',
@@ -7955,39 +7959,59 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       _selectedSection = section;
     });
     final label = switch (section) {
-      AppSection.workspace => _localizedText(
+      AppSection.workspace => openHandLocalizedText(
         context,
         zh: '工作区',
         en: 'Workspace',
       ),
-      AppSection.skills => _localizedText(context, zh: '技能', en: 'Skills'),
-      AppSection.memory => _localizedText(context, zh: '记忆', en: 'Memory'),
-      AppSection.mcp => _localizedText(context, zh: 'MCP', en: 'MCP'),
-      AppSection.hooks => _localizedText(context, zh: 'Hooks', en: 'Hooks'),
+      AppSection.skills => openHandLocalizedText(
+        context,
+        zh: '技能',
+        en: 'Skills',
+      ),
+      AppSection.memory => openHandLocalizedText(
+        context,
+        zh: '记忆',
+        en: 'Memory',
+      ),
+      AppSection.mcp => openHandLocalizedText(context, zh: 'MCP', en: 'MCP'),
+      AppSection.hooks => openHandLocalizedText(
+        context,
+        zh: 'Hooks',
+        en: 'Hooks',
+      ),
       AppSection.crons => 'Crons',
-      AppSection.instructions => _localizedText(
+      AppSection.instructions => openHandLocalizedText(
         context,
         zh: '指令',
         en: 'Instructions',
       ),
-      AppSection.messageGateway => _localizedText(
+      AppSection.messageGateway => openHandLocalizedText(
         context,
         zh: '消息网关',
         en: 'Message Gateway',
       ),
-      AppSection.pluginService => _localizedText(
+      AppSection.pluginService => openHandLocalizedText(
         context,
         zh: '插件',
         en: 'Plugins',
       ),
-      AppSection.knowledgeBase => _localizedText(
+      AppSection.knowledgeBase => openHandLocalizedText(
         context,
         zh: '知识库',
         en: 'Knowledge Base',
       ),
-      AppSection.agents => _localizedText(context, zh: '智能体', en: 'Agents'),
-      AppSection.settings => _localizedText(context, zh: '设置', en: 'Settings'),
-      AppSection.harnessSession => _localizedText(
+      AppSection.agents => openHandLocalizedText(
+        context,
+        zh: '智能体',
+        en: 'Agents',
+      ),
+      AppSection.settings => openHandLocalizedText(
+        context,
+        zh: '设置',
+        en: 'Settings',
+      ),
+      AppSection.harnessSession => openHandLocalizedText(
         context,
         zh: 'Harness 会话',
         en: 'Harness Session',
@@ -7997,7 +8021,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       context,
       SnackBar(
         content: Text(
-          _localizedText(
+          openHandLocalizedText(
             context,
             zh: '已切换到 $label。',
             en: 'Switched to $label.',
@@ -8010,7 +8034,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   Future<void> _showSlashHelpDialog() {
     final settingsController = context.read<SettingsController>();
     final sessionController = context.read<AiSessionController>();
-    final closeLabel = _localizedText(context, zh: '关闭', en: 'Close');
+    final closeLabel = openHandLocalizedText(context, zh: '关闭', en: 'Close');
     final allowRulePreview = settingsController.aiAllowCommandRules
         .take(4)
         .map((item) => '- ${item.pattern}')
@@ -8032,14 +8056,14 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       '/mcp',
       '/agents',
     ].join('\n');
-    final detail = _localizedText(
+    final detail = openHandLocalizedText(
       context,
       zh: '可用本地命令：\n$commandList\n\n`/help`、`/commands`、`/feedback`、`/new`、`/status`、`/stop` 不会发给模型，而是由 OpenHand 本地处理。\n\n写命令确认：${settingsController.aiWriteCommandConfirmationEnabled ? '开启' : '关闭'}\n允许命令规则：${settingsController.aiAllowCommandRules.length}${allowRulePreview.isEmpty ? '' : '\n$allowRulePreview'}\n\n设置文件：${settingsController.displaySettingsFilePath}\n会话目录：${OpenHandPaths.shortenHomePath(sessionController.sessionsDirectoryPath)}',
       en: 'Available local commands:\n$commandList\n\n`/help`, `/commands`, `/feedback`, `/new`, `/status`, and `/stop` are handled locally by OpenHand instead of being sent to the model.\n\nWrite command confirmation: ${settingsController.aiWriteCommandConfirmationEnabled ? 'enabled' : 'disabled'}\nAllow command rules: ${settingsController.aiAllowCommandRules.length}${allowRulePreview.isEmpty ? '' : '\n$allowRulePreview'}\n\nSettings file: ${settingsController.displaySettingsFilePath}\nSession directory: ${OpenHandPaths.shortenHomePath(sessionController.sessionsDirectoryPath)}',
     );
     return showOpenHandInfoDialog(
       context: context,
-      title: _localizedText(
+      title: openHandLocalizedText(
         context,
         zh: 'Slash Commands',
         en: 'Slash Commands',
@@ -8053,14 +8077,14 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final settingsController = context.read<SettingsController>();
     final sessionController = context.read<AiSessionController>();
     final scaffoldMessenger = ScaffoldMessenger.of(context);
-    final closeLabel = _localizedText(context, zh: '关闭', en: 'Close');
-    final copiedLabel = _localizedText(
+    final closeLabel = openHandLocalizedText(context, zh: '关闭', en: 'Close');
+    final copiedLabel = openHandLocalizedText(
       context,
       zh: '反馈模板已复制。',
       en: 'Feedback template copied.',
     );
     final trimmedNote = note.trim();
-    final feedbackTemplate = _localizedText(
+    final feedbackTemplate = openHandLocalizedText(
       context,
       zh: 'OpenHand 反馈\n备注：${trimmedNote.isEmpty ? '请在这里补充问题描述。' : trimmedNote}\n设置文件：${settingsController.settingsFilePath}\n会话目录：${sessionController.sessionsDirectoryPath}',
       en: 'OpenHand Feedback\nNote: ${trimmedNote.isEmpty ? 'Add your issue details here.' : trimmedNote}\nSettings file: ${settingsController.settingsFilePath}\nSession directory: ${sessionController.sessionsDirectoryPath}',
@@ -8069,9 +8093,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       context: context,
       builder: (dialogContext) {
         return buildOpenHandAlertDialog(
-          title: Text(_localizedText(context, zh: '反馈信息', en: 'Feedback Info')),
+          title: Text(
+            openHandLocalizedText(context, zh: '反馈信息', en: 'Feedback Info'),
+          ),
           content: SelectableText(
-            _localizedText(
+            openHandLocalizedText(
               context,
               zh: '该命令不会发送给模型。你可以把下面这段信息复制出去提交反馈：\n\n$feedbackTemplate',
               en: 'This command is handled locally and is not sent to the model. You can copy the following report template for feedback:\n\n$feedbackTemplate',
@@ -8095,7 +8121,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
                   OpenHandSnackBar.success(context, copiedLabel),
                 );
               },
-              label: _localizedText(context, zh: '复制模板', en: 'Copy Template'),
+              label: openHandLocalizedText(
+                context,
+                zh: '复制模板',
+                en: 'Copy Template',
+              ),
             ),
           ],
         );
@@ -8107,9 +8137,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final controller = context.read<AiSessionController>();
     final submitted = await showOpenHandTextInputDialog(
       context: context,
-      title: _localizedText(context, zh: '重命名线程', en: 'Rename Thread'),
+      title: openHandLocalizedText(context, zh: '重命名线程', en: 'Rename Thread'),
       initialValue: session.title,
-      hintText: _localizedText(
+      hintText: openHandLocalizedText(
         context,
         zh: '输入线程标题',
         en: 'Enter a thread title',
@@ -8129,7 +8159,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       SnackBar(
         content: Text(
           controller.lastErrorMessage ??
-              _localizedText(context, zh: '线程重命名失败。', en: 'Rename failed.'),
+              openHandLocalizedText(
+                context,
+                zh: '线程重命名失败。',
+                en: 'Rename failed.',
+              ),
         ),
       ),
     );
@@ -8154,12 +8188,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       if (!mounted) return;
       showFriendlyErrorDetailsDialog(
         context,
-        title: _localizedText(
+        title: openHandLocalizedText(
           context,
           zh: '标题生成失败',
           en: 'Title Generation Failed',
         ),
-        fullText: _localizedText(
+        fullText: openHandLocalizedText(
           context,
           zh: '现象：读取线程消息失败。\n原因：$error',
           en: 'Summary: Failed to load thread messages.\nReason: $error',
@@ -8171,14 +8205,14 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       final errorMessage =
           sessionController.lastErrorMessageForSession(session.id) ??
           sessionController.lastErrorMessage ??
-          _localizedText(
+          openHandLocalizedText(
             context,
             zh: '线程消息尚未完整加载，请稍后重试。',
             en: 'Thread messages are not fully loaded. Please try again later.',
           );
       showFriendlyErrorDetailsDialog(
         context,
-        title: _localizedText(
+        title: openHandLocalizedText(
           context,
           zh: '标题生成失败',
           en: 'Title Generation Failed',
@@ -8198,12 +8232,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (userMessages.isEmpty) {
       await showOpenHandInfoDialog(
         context: context,
-        title: _localizedText(
+        title: openHandLocalizedText(
           context,
           zh: '无法生成标题',
           en: 'Unable to Generate Title',
         ),
-        message: _localizedText(
+        message: openHandLocalizedText(
           context,
           zh: '暂无用户消息可供总结。',
           en: 'No user messages to summarize.',
@@ -8331,7 +8365,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         context,
         SnackBar(
           content: Text(
-            _localizedText(context, zh: '标题生成成功', en: 'Title generated'),
+            openHandLocalizedText(context, zh: '标题生成成功', en: 'Title generated'),
           ),
         ),
       );
@@ -8343,12 +8377,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       if (!mounted || userCancelled) return;
       showFriendlyErrorDetailsDialog(
         context,
-        title: _localizedText(
+        title: openHandLocalizedText(
           context,
           zh: '标题生成失败',
           en: 'Title Generation Failed',
         ),
-        fullText: _localizedText(
+        fullText: openHandLocalizedText(
           context,
           zh: '原因：$error',
           en: 'Reason: $error',
@@ -8364,7 +8398,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   Future<void> _deleteSession(AiSession session) async {
     final confirmed = await showOpenHandConfirmDialog(
       context: context,
-      title: _localizedText(context, zh: '删除线程', en: 'Delete Thread'),
+      title: openHandLocalizedText(context, zh: '删除线程', en: 'Delete Thread'),
       message: session.title,
       cancelLabel: AppLocalizations.of(context)!.commonCancel,
       confirmLabel: AppLocalizations.of(context)!.commonDelete,
@@ -8400,7 +8434,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       SnackBar(
         content: Text(
           controller.lastErrorMessage ??
-              _localizedText(context, zh: '线程删除失败。', en: 'Delete failed.'),
+              openHandLocalizedText(
+                context,
+                zh: '线程删除失败。',
+                en: 'Delete failed.',
+              ),
         ),
       ),
     );
@@ -8411,13 +8449,13 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (record == null) return;
     final submitted = await showOpenHandTextInputDialog(
       context: context,
-      title: _localizedText(
+      title: openHandLocalizedText(
         context,
         zh: '重命名 Harness Engineering 会话',
         en: 'Rename Harness Session',
       ),
       initialValue: record.title,
-      hintText: _localizedText(
+      hintText: openHandLocalizedText(
         context,
         zh: '输入会话标题',
         en: 'Enter a session title',
@@ -8441,7 +8479,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (record == null) return;
     final confirmed = await showOpenHandConfirmDialog(
       context: context,
-      title: _localizedText(
+      title: openHandLocalizedText(
         context,
         zh: '删除 Harness Engineering 会话',
         en: 'Delete Harness Session',
@@ -8505,7 +8543,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         messenger,
         SnackBar(
           content: Text(
-            _localizedText(
+            openHandLocalizedText(
               context,
               zh: '加载会话失败：$error',
               en: 'Failed to load session: $error',
@@ -8522,7 +8560,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           messenger,
           SnackBar(
             content: Text(
-              _localizedText(
+              openHandLocalizedText(
                 context,
                 zh: '会话不存在或已被删除。',
                 en: 'Session is missing or has been deleted.',
@@ -8565,7 +8603,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         messenger,
         SnackBar(
           content: Text(
-            _localizedText(
+            openHandLocalizedText(
               context,
               zh: '无法打开保存对话框：$error',
               en: 'Unable to open save dialog: $error',
@@ -8586,13 +8624,17 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final dialogFuture = showExportProgressDialog(
       context: context,
       controller: progressController,
-      title: _localizedText(context, zh: '导出会话数据', en: 'Export Session Data'),
-      subtitle: _localizedText(
+      title: openHandLocalizedText(
+        context,
+        zh: '导出会话数据',
+        en: 'Export Session Data',
+      ),
+      subtitle: openHandLocalizedText(
         context,
         zh: '正在导出 “${loaded.title}”…',
         en: 'Exporting "${loaded.title}"…',
       ),
-      cancelLabel: _localizedText(context, zh: '取消', en: 'Cancel'),
+      cancelLabel: openHandLocalizedText(context, zh: '取消', en: 'Cancel'),
     );
 
     final destinationPath = normalizeJsonlExportPath(location.path);
@@ -8663,7 +8705,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         messenger,
         SnackBar(
           content: Text(
-            _localizedText(
+            openHandLocalizedText(
               context,
               zh: '无法打开保存对话框：$error',
               en: 'Unable to open save dialog: $error',
@@ -8683,13 +8725,17 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final dialogFuture = showExportProgressDialog(
       context: context,
       controller: progressController,
-      title: _localizedText(context, zh: '导出会话数据', en: 'Export Session Data'),
-      subtitle: _localizedText(
+      title: openHandLocalizedText(
+        context,
+        zh: '导出会话数据',
+        en: 'Export Session Data',
+      ),
+      subtitle: openHandLocalizedText(
         context,
         zh: '正在导出 “${record.title}”…',
         en: 'Exporting "${record.title}"…',
       ),
-      cancelLabel: _localizedText(context, zh: '取消', en: 'Cancel'),
+      cancelLabel: openHandLocalizedText(context, zh: '取消', en: 'Cancel'),
     );
 
     final destinationPath = normalizeJsonlExportPath(location.path);
@@ -8739,7 +8785,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     late final SnackBar snackBar;
     switch (result.kind) {
       case ExportResultKind.success:
-        message = _localizedText(
+        message = openHandLocalizedText(
           ctx,
           zh: '导出成功：$destinationPath',
           en: 'Export succeeded: $destinationPath',
@@ -8751,12 +8797,16 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         );
         break;
       case ExportResultKind.cancelled:
-        message = _localizedText(ctx, zh: '已取消导出。', en: 'Export cancelled.');
+        message = openHandLocalizedText(
+          ctx,
+          zh: '已取消导出。',
+          en: 'Export cancelled.',
+        );
         snackBar = OpenHandSnackBar.info(ctx, message);
         break;
       case ExportResultKind.failure:
         final reason = result.error?.toString() ?? 'unknown error';
-        message = _localizedText(
+        message = openHandLocalizedText(
           ctx,
           zh: '导出失败：$reason',
           en: 'Export failed: $reason',
@@ -8826,7 +8876,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       context,
       SnackBar(
         content: Text(
-          _localizedText(context, zh: '消息内容已复制。', en: 'Message copied.'),
+          openHandLocalizedText(context, zh: '消息内容已复制。', en: 'Message copied.'),
         ),
       ),
     );
@@ -8835,8 +8885,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   Future<bool> _deleteMessage(AiSessionMessage message) async {
     final confirmed = await showOpenHandConfirmDialog(
       context: context,
-      title: _localizedText(context, zh: '删除消息', en: 'Delete Message'),
-      message: _localizedText(
+      title: openHandLocalizedText(context, zh: '删除消息', en: 'Delete Message'),
+      message: openHandLocalizedText(
         context,
         zh: '删除后，这条消息将不再显示。',
         en: 'This message will no longer be shown.',
@@ -8858,7 +8908,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       SnackBar(
         content: Text(
           controller.lastErrorMessage ??
-              _localizedText(context, zh: '消息删除失败。', en: 'Delete failed.'),
+              openHandLocalizedText(
+                context,
+                zh: '消息删除失败。',
+                en: 'Delete failed.',
+              ),
         ),
       ),
     );
@@ -8868,8 +8922,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   Future<bool> _deleteMessageFromHere(AiSessionMessage message) async {
     final confirmed = await showOpenHandConfirmDialog(
       context: context,
-      title: _localizedText(context, zh: '删除此条及后续消息', en: 'Delete From Here'),
-      message: _localizedText(
+      title: openHandLocalizedText(
+        context,
+        zh: '删除此条及后续消息',
+        en: 'Delete From Here',
+      ),
+      message: openHandLocalizedText(
         context,
         zh: '删除后，这条消息及其后续消息将不再显示。',
         en: 'This message and the later messages will no longer be shown.',
@@ -8891,7 +8949,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       SnackBar(
         content: Text(
           controller.lastErrorMessage ??
-              _localizedText(context, zh: '批量删除消息失败。', en: 'Delete failed.'),
+              openHandLocalizedText(
+                context,
+                zh: '批量删除消息失败。',
+                en: 'Delete failed.',
+              ),
         ),
       ),
     );
@@ -8906,14 +8968,14 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     }
     final confirmed = await showOpenHandConfirmDialog(
       context: context,
-      title: _localizedText(context, zh: '派生新会话', en: 'Fork Session'),
-      message: _localizedText(
+      title: openHandLocalizedText(context, zh: '派生新会话', en: 'Fork Session'),
+      message: openHandLocalizedText(
         context,
         zh: '将从当前会话的这条消息之后派生出一个新会话。新会话会保留这条消息及之前的内容，并舍弃之后的消息。',
         en: 'Create a new session from this point. The new session keeps this message and everything before it, and drops later messages.',
       ),
       cancelLabel: AppLocalizations.of(context)!.commonCancel,
-      confirmLabel: _localizedText(context, zh: '派生', en: 'Fork'),
+      confirmLabel: openHandLocalizedText(context, zh: '派生', en: 'Fork'),
     );
     if (confirmed != true || !mounted) {
       return;
@@ -8931,7 +8993,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         SnackBar(
           content: Text(
             controller.lastErrorMessage ??
-                _localizedText(
+                openHandLocalizedText(
                   context,
                   zh: '派生会话失败。',
                   en: 'Failed to fork session.',
@@ -8949,7 +9011,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       context,
       SnackBar(
         content: Text(
-          _localizedText(context, zh: '已派生新会话。', en: 'Session forked.'),
+          openHandLocalizedText(context, zh: '已派生新会话。', en: 'Session forked.'),
         ),
       ),
     );
@@ -8976,7 +9038,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       context,
       SnackBar(
         content: Text(
-          _localizedText(
+          openHandLocalizedText(
             context,
             zh: '反馈保存失败。',
             en: 'Failed to save feedback.',
@@ -9007,7 +9069,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       context,
       SnackBar(
         content: Text(
-          _localizedText(
+          openHandLocalizedText(
             context,
             zh: '响应候选切换失败。',
             en: 'Failed to switch response variant.',
@@ -9028,7 +9090,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         AiSendPhase.idle) {
       OpenHandSnackBar.showInfo(
         context,
-        _localizedText(
+        openHandLocalizedText(
           context,
           zh: '当前会话正在响应，请先停止或等待完成。',
           en: 'This session is still responding. Stop it or wait for it to finish.',
@@ -9078,7 +9140,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     showFriendlyErrorSnackBar(
       context,
       message: controller.lastErrorMessageForSession(session.id),
-      fallback: _localizedText(
+      fallback: openHandLocalizedText(
         context,
         zh: '重新生成失败。',
         en: 'Failed to regenerate response.',
@@ -9097,7 +9159,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       SnackBar(
         content: Text(
           controller.lastErrorMessage ??
-              _localizedText(
+              openHandLocalizedText(
                 context,
                 zh: '恢复编辑前的会话状态失败。',
                 en: 'Failed to restore the previous conversation state.',
@@ -9477,7 +9539,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
               context,
               SnackBar(
                 content: Text(
-                  _localizedText(
+                  openHandLocalizedText(
                     context,
                     zh: '已锁定服务商与模型以保证缓存命中（可在设置→AI→成本控制中关闭输入缓存后再切换）',
                     en: 'Provider & model locked to ensure cache hit (disable Input Cache under Settings → AI → Cost Control to switch)',

@@ -126,35 +126,13 @@ bool _wrMotionEnabled(BuildContext context) {
   return openHandTickerMotionEnabled(context);
 }
 
-String _wrText(
-  BuildContext context, {
-  required String zh,
-  required String en,
-  String? zhHans,
-  String? zhHant,
-  String? fr,
-  String? de,
-  String? ja,
-}) {
-  return openHandLocalizedText(
-    context,
-    zh: zh,
-    en: en,
-    zhHans: zhHans,
-    zhHant: zhHant,
-    fr: fr,
-    de: de,
-    ja: ja,
-  );
-}
-
 String _wrClipboardSnackMessage(
   BuildContext context, {
   required String base,
   required WebReverseClipboardCopyResult result,
 }) {
   if (!result.clipped) return base;
-  return _wrText(
+  return openHandLocalizedText(
     context,
     zh: '$base（已按上限复制 ${result.copiedChars}/${result.originalChars} 字符）',
     zhHant: '$base（已依上限複製 ${result.copiedChars}/${result.originalChars} 字元）',
@@ -437,7 +415,7 @@ class _WebReverseDashboardDialogState
     if (updater == null) {
       OpenHandSnackBar.showError(
         context,
-        _wrText(
+        openHandLocalizedText(
           context,
           zh: '当前窗口无法更新 MCP 设置',
           zhHant: '目前視窗無法更新 MCP 設定',
@@ -470,7 +448,7 @@ class _WebReverseDashboardDialogState
       OpenHandSnackBar.showErrorOn(
         context,
         messenger,
-        _wrText(
+        openHandLocalizedText(
           context,
           zh: 'AI 侧 CDP MCP 设置更新失败',
           zhHant: 'AI 側 CDP MCP 設定更新失敗',
@@ -487,7 +465,7 @@ class _WebReverseDashboardDialogState
       context,
       messenger,
       enabled
-          ? _wrText(
+          ? openHandLocalizedText(
               context,
               zh: '已启用 AI 侧 CDP MCP，正在后台准备工具目录',
               zhHant: '已啟用 AI 側 CDP MCP，正在背景準備工具目錄',
@@ -496,7 +474,7 @@ class _WebReverseDashboardDialogState
               de: 'AI-seitiges CDP-MCP aktiviert; Tools werden im Hintergrund vorbereitet',
               ja: 'AI 側 CDP MCP を有効化しました。バックグラウンドでツールを準備しています',
             )
-          : _wrText(
+          : openHandLocalizedText(
               context,
               zh: '已禁用 AI 侧 CDP MCP，并停止本会话临时 MCP',
               zhHant: '已停用 AI 側 CDP MCP，並停止本會話臨時 MCP',
@@ -1126,7 +1104,7 @@ class _WebReverseDashboardDialogState
     OpenHandSnackBar.showInfo(
       context,
       ctrl.isRecording
-          ? _wrText(
+          ? openHandLocalizedText(
               context,
               zh: '已开始录制（Cmd+Shift+R 再次按下停止）',
               zhHant: '已開始錄製（Cmd+Shift+R 再次按下停止）',
@@ -1135,7 +1113,7 @@ class _WebReverseDashboardDialogState
               de: 'Aufzeichnung gestartet',
               ja: '録画を開始しました',
             )
-          : _wrText(
+          : openHandLocalizedText(
               context,
               zh: '已停止录制',
               zhHant: '已停止錄製',
@@ -1191,7 +1169,7 @@ class _WebReverseDashboardDialogState
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  _wrText(
+                  openHandLocalizedText(
                     context,
                     zh: 'Web 逆向调试面板',
                     zhHant: 'Web 逆向除錯面板',
@@ -1228,7 +1206,7 @@ class _WebReverseDashboardDialogState
           ),
           const SizedBox(width: 6),
           IconButton(
-            tooltip: _wrText(
+            tooltip: openHandLocalizedText(
               context,
               zh: '关闭',
               zhHant: '關閉',
@@ -1250,7 +1228,7 @@ class _WebReverseDashboardDialogState
     final port = ctrl.cdpPort;
     final cdpLabel = ctrl.isBrowserAlive
         ? port == null
-              ? _wrText(
+              ? openHandLocalizedText(
                   context,
                   zh: 'CDP 待同步',
                   zhHant: 'CDP 待同步',
@@ -1261,7 +1239,7 @@ class _WebReverseDashboardDialogState
                 )
               : 'CDP :$port'
         : port == null
-        ? _wrText(
+        ? openHandLocalizedText(
             context,
             zh: 'CDP 离线',
             zhHant: 'CDP 離線',
@@ -1270,7 +1248,7 @@ class _WebReverseDashboardDialogState
             de: 'CDP offline',
             ja: 'CDP オフライン',
           )
-        : _wrText(
+        : openHandLocalizedText(
             context,
             zh: 'CDP 离线 · 上次 :$port',
             zhHant: 'CDP 離線 · 上次 :$port',
@@ -1441,7 +1419,7 @@ Future<void> _openOfficialDevToolsForController(
     OpenHandSnackBar.showInfoOn(
       context,
       messenger,
-      _wrText(
+      openHandLocalizedText(
         context,
         zh: '未找到可用的 DevTools 前端，已退到 /json/list 列表页',
         zhHant: '未找到可用的 DevTools 前端，已退到 /json/list 列表頁',
@@ -1486,7 +1464,7 @@ class _CdpMcpBridgeHeaderStatus {
     if (runtimeStatus.rawStatus == 'disabled') {
       tone = _CdpMcpBridgeHeaderTone.disabled;
       icon = Icons.hub_outlined;
-      label = _wrText(
+      label = openHandLocalizedText(
         context,
         zh: 'AI CDP 未启用',
         zhHant: 'AI CDP 未啟用',
@@ -1498,7 +1476,7 @@ class _CdpMcpBridgeHeaderStatus {
     } else if (runtimeStatus.ready) {
       tone = _CdpMcpBridgeHeaderTone.ready;
       icon = Icons.hub_rounded;
-      label = _wrText(
+      label = openHandLocalizedText(
         context,
         zh: 'AI CDP 就绪 · ${runtimeStatus.toolCount}',
         zhHant: 'AI CDP 就緒 · ${runtimeStatus.toolCount}',
@@ -1510,7 +1488,7 @@ class _CdpMcpBridgeHeaderStatus {
     } else if (!runtimeStatus.browserAlive) {
       tone = _CdpMcpBridgeHeaderTone.unavailable;
       icon = Icons.power_off_rounded;
-      label = _wrText(
+      label = openHandLocalizedText(
         context,
         zh: 'AI CDP 离线',
         zhHant: 'AI CDP 離線',
@@ -1522,7 +1500,7 @@ class _CdpMcpBridgeHeaderStatus {
     } else if (runtimeStatus.rawStatus == 'preparing') {
       tone = _CdpMcpBridgeHeaderTone.preparing;
       icon = Icons.sync_rounded;
-      label = _wrText(
+      label = openHandLocalizedText(
         context,
         zh: 'AI CDP 准备中',
         zhHant: 'AI CDP 準備中',
@@ -1534,7 +1512,7 @@ class _CdpMcpBridgeHeaderStatus {
     } else if (runtimeStatus.rawStatus == 'failed') {
       tone = _CdpMcpBridgeHeaderTone.failed;
       icon = Icons.error_outline_rounded;
-      label = _wrText(
+      label = openHandLocalizedText(
         context,
         zh: 'AI CDP 异常',
         zhHant: 'AI CDP 異常',
@@ -1546,7 +1524,7 @@ class _CdpMcpBridgeHeaderStatus {
     } else {
       tone = _CdpMcpBridgeHeaderTone.unavailable;
       icon = Icons.link_off_rounded;
-      label = _wrText(
+      label = openHandLocalizedText(
         context,
         zh: 'AI CDP 待同步',
         zhHant: 'AI CDP 待同步',
@@ -1558,7 +1536,7 @@ class _CdpMcpBridgeHeaderStatus {
     }
 
     final lines = <String>[
-      _wrText(
+      openHandLocalizedText(
         context,
         zh: 'AI 侧 CDP MCP 桥接状态',
         zhHant: 'AI 側 CDP MCP 橋接狀態',
@@ -1567,17 +1545,17 @@ class _CdpMcpBridgeHeaderStatus {
         de: 'AI-seitige CDP-MCP-Bridge',
         ja: 'AI 側 CDP MCP ブリッジ状態',
       ),
-      '${_wrText(context, zh: '状态', zhHant: '狀態', en: 'Status', fr: 'Etat', de: 'Status', ja: '状態')}: ${runtimeStatus.rawStatus.isEmpty ? 'unknown' : runtimeStatus.rawStatus}',
-      '${_wrText(context, zh: '可调用工具', zhHant: '可呼叫工具', en: 'Callable tools', fr: 'Outils appelables', de: 'Aufrufbare Tools', ja: '呼び出し可能ツール')}: ${runtimeStatus.toolCount}',
+      '${openHandLocalizedText(context, zh: '状态', zhHant: '狀態', en: 'Status', fr: 'Etat', de: 'Status', ja: '状態')}: ${runtimeStatus.rawStatus.isEmpty ? 'unknown' : runtimeStatus.rawStatus}',
+      '${openHandLocalizedText(context, zh: '可调用工具', zhHant: '可呼叫工具', en: 'Callable tools', fr: 'Outils appelables', de: 'Aufrufbare Tools', ja: '呼び出し可能ツール')}: ${runtimeStatus.toolCount}',
       if (runtimeStatus.port != null)
-        '${_wrText(context, zh: 'CDP 端口', zhHant: 'CDP 連接埠', en: 'CDP port', fr: 'Port CDP', de: 'CDP-Port', ja: 'CDP ポート')}: ${runtimeStatus.port}',
+        '${openHandLocalizedText(context, zh: 'CDP 端口', zhHant: 'CDP 連接埠', en: 'CDP port', fr: 'Port CDP', de: 'CDP-Port', ja: 'CDP ポート')}: ${runtimeStatus.port}',
       if (runtimeStatus.serverName.isNotEmpty)
         'MCP: ${runtimeStatus.serverName}',
       if (runtimeStatus.message.isNotEmpty) runtimeStatus.message,
       if (runtimeStatus.warningMessage.isNotEmpty)
-        '${_wrText(context, zh: '提示', zhHant: '提示', en: 'Warning', fr: 'Avertissement', de: 'Warnung', ja: '警告')}: ${runtimeStatus.warningMessage}',
+        '${openHandLocalizedText(context, zh: '提示', zhHant: '提示', en: 'Warning', fr: 'Avertissement', de: 'Warnung', ja: '警告')}: ${runtimeStatus.warningMessage}',
       if (runtimeStatus.errorMessage.isNotEmpty)
-        '${_wrText(context, zh: '错误', zhHant: '錯誤', en: 'Error', fr: 'Erreur', de: 'Fehler', ja: 'エラー')}: ${runtimeStatus.errorMessage}',
+        '${openHandLocalizedText(context, zh: '错误', zhHant: '錯誤', en: 'Error', fr: 'Erreur', de: 'Fehler', ja: 'エラー')}: ${runtimeStatus.errorMessage}',
     ];
     return _CdpMcpBridgeHeaderStatus(
       tone: tone,
@@ -1607,7 +1585,7 @@ class _CdpMcpBridgeToggle extends StatelessWidget {
     final cs = theme.colorScheme;
     final color = enabled ? cs.primary : cs.onSurfaceVariant;
     return Tooltip(
-      message: _wrText(
+      message: openHandLocalizedText(
         context,
         zh: '手动启用后，本会话才会通过 npx 准备 chrome-devtools-mcp；关闭会停止临时 MCP。',
         zhHant: '手動啟用後，本會話才會透過 npx 準備 chrome-devtools-mcp；關閉會停止臨時 MCP。',
@@ -1654,7 +1632,7 @@ class _CdpMcpBridgeToggle extends StatelessWidget {
             const SizedBox(width: 6),
             Text(
               enabled
-                  ? _wrText(
+                  ? openHandLocalizedText(
                       context,
                       zh: 'MCP 开',
                       zhHant: 'MCP 開',
@@ -1663,7 +1641,7 @@ class _CdpMcpBridgeToggle extends StatelessWidget {
                       de: 'MCP ein',
                       ja: 'MCP オン',
                     )
-                  : _wrText(
+                  : openHandLocalizedText(
                       context,
                       zh: 'MCP 关',
                       zhHant: 'MCP 關',
@@ -1784,7 +1762,7 @@ class _OverviewBodyState extends State<_OverviewBody> {
       OpenHandSnackBar.showSuccessOn(
         context,
         messenger,
-        _wrText(
+        openHandLocalizedText(
           context,
           zh: '快照已保存到 ${location.path}',
           zhHant: '快照已儲存到 ${location.path}',
@@ -1801,7 +1779,7 @@ class _OverviewBodyState extends State<_OverviewBody> {
       OpenHandSnackBar.showErrorOn(
         context,
         messenger,
-        _wrText(
+        openHandLocalizedText(
           context,
           zh: '快照导出失败',
           zhHant: '快照匯出失敗',
@@ -1846,7 +1824,7 @@ class _OverviewBodyState extends State<_OverviewBody> {
         OpenHandSnackBar.showErrorOn(
           context,
           messenger,
-          _wrText(
+          openHandLocalizedText(
             context,
             zh: '快照格式无效',
             zhHant: '快照格式無效',
@@ -1865,7 +1843,7 @@ class _OverviewBodyState extends State<_OverviewBody> {
         OpenHandSnackBar.showErrorOn(
           context,
           messenger,
-          _wrText(
+          openHandLocalizedText(
             context,
             zh: '快照版本不兼容',
             zhHant: '快照版本不相容',
@@ -1880,7 +1858,7 @@ class _OverviewBodyState extends State<_OverviewBody> {
         OpenHandSnackBar.showSuccessOn(
           context,
           messenger,
-          _wrText(
+          openHandLocalizedText(
             context,
             zh: '已导入 $count 条网络记录',
             zhHant: '已匯入 $count 筆網路記錄',
@@ -1898,7 +1876,7 @@ class _OverviewBodyState extends State<_OverviewBody> {
       OpenHandSnackBar.showErrorOn(
         context,
         messenger,
-        _wrText(
+        openHandLocalizedText(
           context,
           zh: '快照导入失败',
           zhHant: '快照匯入失敗',
@@ -1922,7 +1900,7 @@ class _OverviewBodyState extends State<_OverviewBody> {
     final antiBot = ctrl.detectAntiBot();
     final stats = <(String, String)>[
       (
-        _wrText(
+        openHandLocalizedText(
           context,
           zh: '请求数',
           zhHant: '請求數',
@@ -1934,7 +1912,7 @@ class _OverviewBodyState extends State<_OverviewBody> {
         '${ctrl.networkRequests.length}',
       ),
       (
-        _wrText(
+        openHandLocalizedText(
           context,
           zh: '错误',
           zhHant: '錯誤',
@@ -1946,7 +1924,7 @@ class _OverviewBodyState extends State<_OverviewBody> {
         '${ctrl.networkRequests.where((e) => e.isError).length}',
       ),
       (
-        _wrText(
+        openHandLocalizedText(
           context,
           zh: '控制台条目',
           zhHant: '主控台項目',
@@ -1958,7 +1936,7 @@ class _OverviewBodyState extends State<_OverviewBody> {
         '${ctrl.consoleMessages.length}',
       ),
       (
-        _wrText(
+        openHandLocalizedText(
           context,
           zh: '运行状态',
           zhHant: '執行狀態',
@@ -1968,7 +1946,7 @@ class _OverviewBodyState extends State<_OverviewBody> {
           ja: '状態',
         ),
         ctrl.isRunning
-            ? _wrText(
+            ? openHandLocalizedText(
                 context,
                 zh: '运行中',
                 zhHant: '執行中',
@@ -1977,7 +1955,7 @@ class _OverviewBodyState extends State<_OverviewBody> {
                 de: 'Aktiv',
                 ja: '実行中',
               )
-            : _wrText(
+            : openHandLocalizedText(
                 context,
                 zh: '已停止',
                 zhHant: '已停止',
@@ -1988,7 +1966,7 @@ class _OverviewBodyState extends State<_OverviewBody> {
               ),
       ),
       (
-        _wrText(
+        openHandLocalizedText(
           context,
           zh: '浏览器',
           zhHant: '瀏覽器',
@@ -2000,7 +1978,7 @@ class _OverviewBodyState extends State<_OverviewBody> {
         ctrl.browserVersion ?? '-',
       ),
       (
-        _wrText(
+        openHandLocalizedText(
           context,
           zh: 'CDP 端口',
           zhHant: 'CDP 連接埠',
@@ -2037,7 +2015,7 @@ class _OverviewBodyState extends State<_OverviewBody> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        _wrText(
+                        openHandLocalizedText(
                           context,
                           zh: '检测到反爬指纹',
                           zhHant: '偵測到反爬指紋',
@@ -2061,7 +2039,7 @@ class _OverviewBodyState extends State<_OverviewBody> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        _wrText(
+                        openHandLocalizedText(
                           context,
                           zh: '此站点使用反爬服务，纯 curl/fetch 复现可能失败。建议保留浏览器流程，或为请求脚本叠加 cookie / TLS 指纹工具。',
                           zhHant:
@@ -2143,7 +2121,7 @@ class _OverviewBodyState extends State<_OverviewBody> {
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    _wrText(
+                    openHandLocalizedText(
                       context,
                       zh: '会话快照',
                       zhHant: '會話快照',
@@ -2160,7 +2138,7 @@ class _OverviewBodyState extends State<_OverviewBody> {
               ),
               const SizedBox(height: 6),
               Text(
-                _wrText(
+                openHandLocalizedText(
                   context,
                   zh: '把当前 target 的网络/控制台/WebSocket 帧导出为 JSON，便于离线重放、Issue 复现、跨机器协作。导入会覆盖现有缓冲。',
                   zhHant:
@@ -2182,7 +2160,7 @@ class _OverviewBodyState extends State<_OverviewBody> {
                     onPressed: _busy ? null : _exportSnapshot,
                     icon: const Icon(Icons.file_download_outlined, size: 18),
                     label: Text(
-                      _wrText(
+                      openHandLocalizedText(
                         context,
                         zh: '导出快照',
                         zhHant: '匯出快照',
@@ -2198,7 +2176,7 @@ class _OverviewBodyState extends State<_OverviewBody> {
                     onPressed: _busy ? null : _importSnapshot,
                     icon: const Icon(Icons.file_upload_outlined, size: 18),
                     label: Text(
-                      _wrText(
+                      openHandLocalizedText(
                         context,
                         zh: '导入快照',
                         zhHant: '匯入快照',
@@ -2338,7 +2316,7 @@ class _DiagnosisBannerState extends State<_DiagnosisBanner> {
       messenger,
       webReverseClipboardSnackMessage(
         context: context,
-        base: _wrText(
+        base: openHandLocalizedText(
           context,
           zh: '已复制原始报错',
           zhHant: '已複製原始錯誤',
@@ -2401,7 +2379,7 @@ class _DiagnosisBannerState extends State<_DiagnosisBanner> {
                 ),
                 IconButton(
                   tooltip: _expanded
-                      ? _wrText(
+                      ? openHandLocalizedText(
                           context,
                           zh: '收起',
                           zhHant: '收合',
@@ -2410,7 +2388,7 @@ class _DiagnosisBannerState extends State<_DiagnosisBanner> {
                           de: 'Einklappen',
                           ja: '折りたたむ',
                         )
-                      : _wrText(
+                      : openHandLocalizedText(
                           context,
                           zh: '展开',
                           zhHant: '展開',
@@ -2435,7 +2413,7 @@ class _DiagnosisBannerState extends State<_DiagnosisBanner> {
                 ),
                 const SizedBox(width: 4),
                 IconButton(
-                  tooltip: _wrText(
+                  tooltip: openHandLocalizedText(
                     context,
                     zh: '关闭诊断',
                     zhHant: '關閉診斷',
@@ -2480,7 +2458,7 @@ class _DiagnosisBannerState extends State<_DiagnosisBanner> {
                     ),
                     label: Text(
                       _busy
-                          ? _wrText(
+                          ? openHandLocalizedText(
                               context,
                               zh: '处理中…',
                               zhHant: '處理中…',
@@ -2490,7 +2468,7 @@ class _DiagnosisBannerState extends State<_DiagnosisBanner> {
                               ja: '処理中…',
                             )
                           : _onCooldown
-                          ? _wrText(
+                          ? openHandLocalizedText(
                               context,
                               zh: '冷却中（${_cooldownLeftSec}s）',
                               zhHant: '冷卻中（${_cooldownLeftSec}s）',
@@ -2499,7 +2477,7 @@ class _DiagnosisBannerState extends State<_DiagnosisBanner> {
                               de: 'Abklingzeit ${_cooldownLeftSec}s',
                               ja: 'クールダウン ${_cooldownLeftSec}s',
                             )
-                          : _wrText(
+                          : openHandLocalizedText(
                               context,
                               zh: '解决 Profile 冲突',
                               zhHant: '解決 Profile 衝突',
@@ -2517,7 +2495,7 @@ class _DiagnosisBannerState extends State<_DiagnosisBanner> {
                     onPressed: () => _copyRaw(diagnosis),
                     icon: const Icon(Icons.copy_all_rounded, size: 16),
                     label: Text(
-                      _wrText(
+                      openHandLocalizedText(
                         context,
                         zh: '复制原始报错',
                         zhHant: '複製原始錯誤',
@@ -2569,7 +2547,7 @@ class _CauseEntry extends StatelessWidget {
                   borderRadius: BorderRadius.circular(999),
                 ),
                 child: Text(
-                  _wrText(
+                  openHandLocalizedText(
                     context,
                     zh: '可能根因 ${index + 1}',
                     zhHant: '可能根因 ${index + 1}',
@@ -2622,7 +2600,7 @@ class _ShortcutsHelpDialog extends StatelessWidget {
     final cmd = Platform.isMacOS ? '⌘' : 'Ctrl';
     final groups = <({String title, List<({String keys, String desc})> rows})>[
       (
-        title: _wrText(
+        title: openHandLocalizedText(
           context,
           zh: 'Dashboard',
           zhHant: 'Dashboard',
@@ -2634,7 +2612,7 @@ class _ShortcutsHelpDialog extends StatelessWidget {
         rows: [
           (
             keys: 'Shift + ?',
-            desc: _wrText(
+            desc: openHandLocalizedText(
               context,
               zh: '打开本面板',
               zhHant: '開啟本面板',
@@ -2646,7 +2624,7 @@ class _ShortcutsHelpDialog extends StatelessWidget {
           ),
           (
             keys: '$cmd + Shift + R',
-            desc: _wrText(
+            desc: openHandLocalizedText(
               context,
               zh: '启停 Recorder',
               zhHant: '啟停 Recorder',
@@ -2659,7 +2637,7 @@ class _ShortcutsHelpDialog extends StatelessWidget {
         ],
       ),
       (
-        title: _wrText(
+        title: openHandLocalizedText(
           context,
           zh: '浏览器面板',
           zhHant: '瀏覽器面板',
@@ -2671,7 +2649,7 @@ class _ShortcutsHelpDialog extends StatelessWidget {
         rows: [
           (
             keys: '$cmd + T',
-            desc: _wrText(
+            desc: openHandLocalizedText(
               context,
               zh: '新标签页',
               zhHant: '新分頁',
@@ -2683,7 +2661,7 @@ class _ShortcutsHelpDialog extends StatelessWidget {
           ),
           (
             keys: '$cmd + W',
-            desc: _wrText(
+            desc: openHandLocalizedText(
               context,
               zh: '关闭当前标签页',
               zhHant: '關閉目前分頁',
@@ -2695,7 +2673,7 @@ class _ShortcutsHelpDialog extends StatelessWidget {
           ),
           (
             keys: '$cmd + R',
-            desc: _wrText(
+            desc: openHandLocalizedText(
               context,
               zh: '刷新',
               zhHant: '重新整理',
@@ -2707,7 +2685,7 @@ class _ShortcutsHelpDialog extends StatelessWidget {
           ),
           (
             keys: '$cmd + Shift + R',
-            desc: _wrText(
+            desc: openHandLocalizedText(
               context,
               zh: '强制刷新',
               zhHant: '強制重新整理',
@@ -2719,7 +2697,7 @@ class _ShortcutsHelpDialog extends StatelessWidget {
           ),
           (
             keys: '$cmd + L',
-            desc: _wrText(
+            desc: openHandLocalizedText(
               context,
               zh: '聚焦地址栏',
               zhHant: '聚焦網址列',
@@ -2731,7 +2709,7 @@ class _ShortcutsHelpDialog extends StatelessWidget {
           ),
           (
             keys: '$cmd + F',
-            desc: _wrText(
+            desc: openHandLocalizedText(
               context,
               zh: '页面查找',
               zhHant: '頁面搜尋',
@@ -2743,7 +2721,7 @@ class _ShortcutsHelpDialog extends StatelessWidget {
           ),
           (
             keys: 'Esc',
-            desc: _wrText(
+            desc: openHandLocalizedText(
               context,
               zh: '关闭查找条',
               zhHant: '關閉搜尋列',
@@ -2755,7 +2733,7 @@ class _ShortcutsHelpDialog extends StatelessWidget {
           ),
           (
             keys: '$cmd + +',
-            desc: _wrText(
+            desc: openHandLocalizedText(
               context,
               zh: '放大',
               zhHant: '放大',
@@ -2767,7 +2745,7 @@ class _ShortcutsHelpDialog extends StatelessWidget {
           ),
           (
             keys: '$cmd + -',
-            desc: _wrText(
+            desc: openHandLocalizedText(
               context,
               zh: '缩小',
               zhHant: '縮小',
@@ -2779,7 +2757,7 @@ class _ShortcutsHelpDialog extends StatelessWidget {
           ),
           (
             keys: '$cmd + 0',
-            desc: _wrText(
+            desc: openHandLocalizedText(
               context,
               zh: '复位 100%',
               zhHant: '重設 100%',
@@ -2792,7 +2770,7 @@ class _ShortcutsHelpDialog extends StatelessWidget {
         ],
       ),
       (
-        title: _wrText(
+        title: openHandLocalizedText(
           context,
           zh: '控制台',
           zhHant: '主控台',
@@ -2804,7 +2782,7 @@ class _ShortcutsHelpDialog extends StatelessWidget {
         rows: [
           (
             keys: '↑ / ↓',
-            desc: _wrText(
+            desc: openHandLocalizedText(
               context,
               zh: '浏览历史命令',
               zhHant: '瀏覽歷史命令',
@@ -2816,7 +2794,7 @@ class _ShortcutsHelpDialog extends StatelessWidget {
           ),
           (
             keys: 'Enter',
-            desc: _wrText(
+            desc: openHandLocalizedText(
               context,
               zh: '执行',
               zhHant: '執行',
@@ -2829,7 +2807,7 @@ class _ShortcutsHelpDialog extends StatelessWidget {
         ],
       ),
       (
-        title: _wrText(
+        title: openHandLocalizedText(
           context,
           zh: '通用',
           zhHant: '通用',
@@ -2840,7 +2818,7 @@ class _ShortcutsHelpDialog extends StatelessWidget {
         ),
         rows: [
           (
-            keys: _wrText(
+            keys: openHandLocalizedText(
               context,
               zh: '右键',
               zhHant: '右鍵',
@@ -2849,7 +2827,7 @@ class _ShortcutsHelpDialog extends StatelessWidget {
               de: 'Rechtsklick',
               ja: '右クリック',
             ),
-            desc: _wrText(
+            desc: openHandLocalizedText(
               context,
               zh: '浏览器面板上下文菜单（复制 / 粘贴 / 检查 / 框选导出 …）',
               zhHant: '瀏覽器面板內容選單（複製 / 貼上 / 檢查 / 框選匯出 …）',
@@ -2873,7 +2851,7 @@ class _ShortcutsHelpDialog extends StatelessWidget {
           buildOpenHandToolDialogHeader(
             context: context,
             icon: Icons.keyboard_rounded,
-            title: _wrText(
+            title: openHandLocalizedText(
               context,
               zh: '快捷键速查',
               zhHant: '快捷鍵速查',

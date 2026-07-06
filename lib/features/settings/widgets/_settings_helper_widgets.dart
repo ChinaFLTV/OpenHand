@@ -308,12 +308,12 @@ class _AiTtsSettingsPanel extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _ResponsiveSettingRow(
-                  title: _localizedText(
+                  title: openHandLocalizedText(
                     context,
                     zh: '朗读超时',
                     en: 'Read Timeout',
                   ),
-                  subtitle: _localizedText(
+                  subtitle: openHandLocalizedText(
                     context,
                     zh: '单次朗读或服务调用的最长等待秒数，防止无限等待。',
                     en: 'Maximum seconds for one read attempt.',
@@ -331,12 +331,12 @@ class _AiTtsSettingsPanel extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
                 _ResponsiveSettingRow(
-                  title: _localizedText(
+                  title: openHandLocalizedText(
                     context,
                     zh: '最大朗读字符',
                     en: 'Max Read Characters',
                   ),
-                  subtitle: _localizedText(
+                  subtitle: openHandLocalizedText(
                     context,
                     zh: '超出后自动截断，避免长消息占用朗读资源过久。',
                     en: 'Long messages are truncated to keep playback bounded.',
@@ -403,18 +403,22 @@ class _AiTranslationSettingsPanel extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _ResponsiveSettingRow(
-                  title: _localizedText(
+                  title: openHandLocalizedText(
                     context,
                     zh: '待翻译语种',
                     en: 'Source Language',
                   ),
-                  subtitle: _localizedText(
+                  subtitle: openHandLocalizedText(
                     context,
                     zh: '默认自动检测。传统翻译接口不支持自动检测时会按服务能力兜底。',
                     en: 'Defaults to auto-detect. Providers fall back by capability.',
                   ),
                   control: _SettingsStringDropdown(
-                    label: _localizedText(context, zh: '源语言', en: 'Source'),
+                    label: openHandLocalizedText(
+                      context,
+                      zh: '源语言',
+                      en: 'Source',
+                    ),
                     value: settings.sourceLanguage,
                     options: _translationLanguageDropdownOptions(
                       context,
@@ -427,18 +431,22 @@ class _AiTranslationSettingsPanel extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
                 _ResponsiveSettingRow(
-                  title: _localizedText(
+                  title: openHandLocalizedText(
                     context,
                     zh: '目标语种',
                     en: 'Target Language',
                   ),
-                  subtitle: _localizedText(
+                  subtitle: openHandLocalizedText(
                     context,
                     zh: '消息卡片会翻译为该语言，原始消息不被改写。',
                     en: 'Message cards render into this language without mutating history.',
                   ),
                   control: _SettingsStringDropdown(
-                    label: _localizedText(context, zh: '目标语言', en: 'Target'),
+                    label: openHandLocalizedText(
+                      context,
+                      zh: '目标语言',
+                      en: 'Target',
+                    ),
                     value: settings.targetLanguage,
                     options: _translationLanguageDropdownOptions(
                       context,
@@ -451,12 +459,12 @@ class _AiTranslationSettingsPanel extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
                 _ResponsiveSettingRow(
-                  title: _localizedText(
+                  title: openHandLocalizedText(
                     context,
                     zh: '翻译超时',
                     en: 'Translation Timeout',
                   ),
-                  subtitle: _localizedText(
+                  subtitle: openHandLocalizedText(
                     context,
                     zh: '单次翻译调用最长等待秒数，超时后按服务优先级回退。',
                     en: 'Maximum seconds per translation attempt before fallback.',
@@ -474,12 +482,12 @@ class _AiTranslationSettingsPanel extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
                 _ResponsiveSettingRow(
-                  title: _localizedText(
+                  title: openHandLocalizedText(
                     context,
                     zh: '最大翻译字符',
                     en: 'Max Translation Characters',
                   ),
-                  subtitle: _localizedText(
+                  subtitle: openHandLocalizedText(
                     context,
                     zh: '长消息会被截断后翻译，避免接口长时间占用资源。',
                     en: 'Long messages are truncated to keep translation bounded.',
@@ -551,12 +559,16 @@ class _AiTranslationProviderDeckState
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          _localizedText(context, zh: '翻译服务优先级', en: 'Translation Priority'),
+          openHandLocalizedText(
+            context,
+            zh: '翻译服务优先级',
+            en: 'Translation Priority',
+          ),
           style: theme.textTheme.titleMedium,
         ),
         const SizedBox(height: 6),
         Text(
-          _localizedText(
+          openHandLocalizedText(
             context,
             zh: '拖动下方服务卡片调整优先级；不可用、缺少凭据或超时时自动回退。',
             en: 'Drag provider cards to set priority; unavailable services fall back.',
@@ -834,7 +846,7 @@ class _AiTranslationProviderCardState
                   ),
                   _AiTtsTestButton(
                     testing: _testing,
-                    tooltip: _localizedText(
+                    tooltip: openHandLocalizedText(
                       context,
                       zh: '测试文本翻译服务',
                       en: 'Test translation',
@@ -907,7 +919,7 @@ class _AiTranslationProviderCardState
     if (readinessError != null) {
       _showSettingsTestErrorDialog(
         context: context,
-        title: _localizedText(
+        title: openHandLocalizedText(
           context,
           zh: '文本翻译测试无法开始',
           en: 'Translation Test Cannot Start',
@@ -936,7 +948,7 @@ class _AiTranslationProviderCardState
         ScaffoldMessenger.of(context),
         OpenHandSnackBar.success(
           context,
-          _localizedText(
+          openHandLocalizedText(
             context,
             zh: '文本翻译测试完成：${_compactSettingsPreview(result.text)}',
             en: 'Translation test completed: ${_compactSettingsPreview(result.text)}',
@@ -954,7 +966,7 @@ class _AiTranslationProviderCardState
       if (!mounted) return;
       _showSettingsTestErrorDialog(
         context: context,
-        title: _localizedText(
+        title: openHandLocalizedText(
           context,
           zh: '文本翻译测试失败',
           en: 'Translation Test Failed',
@@ -979,7 +991,7 @@ class _AiTranslationProviderCardState
       models: widget.availableModels,
     );
     return _AiTtsProviderSection(
-      title: _localizedText(context, zh: 'AI 模型', en: 'AI Model'),
+      title: openHandLocalizedText(context, zh: 'AI 模型', en: 'AI Model'),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -988,19 +1000,23 @@ class _AiTranslationProviderCardState
             icon: const Icon(Icons.manage_search_rounded),
             label: Text(
               selectedLabel ??
-                  _localizedText(context, zh: '选择翻译模型', en: 'Select model'),
+                  openHandLocalizedText(
+                    context,
+                    zh: '选择翻译模型',
+                    en: 'Select model',
+                  ),
               overflow: TextOverflow.ellipsis,
             ),
           ),
           const SizedBox(height: 8),
           Text(
             selectedLabel == null
-                ? _localizedText(
+                ? openHandLocalizedText(
                     context,
                     zh: '未选择时会尝试使用当前会话/全局默认模型。',
                     en: 'Falls back to the current/global model when empty.',
                   )
-                : _localizedText(
+                : openHandLocalizedText(
                     context,
                     zh: 'AI 翻译会复用该模型供应商的鉴权与接口配置。',
                     en: 'AI translation reuses this provider configuration.',
@@ -1020,11 +1036,11 @@ class _AiTranslationProviderCardState
   ) {
     final provider = widget.provider;
     return _AiTtsProviderSection(
-      title: _localizedText(context, zh: '连接与凭据', en: 'Access'),
+      title: openHandLocalizedText(context, zh: '连接与凭据', en: 'Access'),
       child: _AiTtsProviderFieldGrid(
         children: [
           _AiTtsProviderTextField(
-            label: _localizedText(context, zh: '接口地址', en: 'Endpoint'),
+            label: openHandLocalizedText(context, zh: '接口地址', en: 'Endpoint'),
             value: providerSettings.endpoint,
             onSubmitted: (value) =>
                 _updateCurrent((current) => current.copyWith(endpoint: value)),
@@ -1038,7 +1054,11 @@ class _AiTranslationProviderCardState
             ),
           if (provider == AiTranslationProvider.doubao)
             _AiTtsProviderTextField(
-              label: _localizedText(context, zh: 'App ID（旧版）', en: 'App ID'),
+              label: openHandLocalizedText(
+                context,
+                zh: 'App ID（旧版）',
+                en: 'App ID',
+              ),
               value: providerSettings.appId,
               onSubmitted: (value) =>
                   _updateCurrent((current) => current.copyWith(appId: value)),
@@ -1067,7 +1087,11 @@ class _AiTranslationProviderCardState
             ),
           if (provider == AiTranslationProvider.bing)
             _AiTtsProviderTextField(
-              label: _localizedText(context, zh: '区域 Region', en: 'Region'),
+              label: openHandLocalizedText(
+                context,
+                zh: '区域 Region',
+                en: 'Region',
+              ),
               value: providerSettings.region,
               onSubmitted: (value) =>
                   _updateCurrent((current) => current.copyWith(region: value)),
@@ -1100,7 +1124,11 @@ class _AiTranslationProviderCardState
               ),
             ),
             _AiTtsProviderTextField(
-              label: _localizedText(context, zh: '术语 JSON', en: 'Corpus JSON'),
+              label: openHandLocalizedText(
+                context,
+                zh: '术语 JSON',
+                en: 'Corpus JSON',
+              ),
               value: '${providerSettings.extra['corpus_json'] ?? ''}',
               onSubmitted: (value) => _updateExtra('corpus_json', value),
             ),
@@ -1365,12 +1393,12 @@ class _AiTtsProviderDeckState extends State<_AiTtsProviderDeck> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          _localizedText(context, zh: 'TTS 服务优先级', en: 'TTS Priority'),
+          openHandLocalizedText(context, zh: 'TTS 服务优先级', en: 'TTS Priority'),
           style: theme.textTheme.titleMedium,
         ),
         const SizedBox(height: 6),
         Text(
-          _localizedText(
+          openHandLocalizedText(
             context,
             zh: '拖动下方服务卡片调整优先级；不可用或超时时自动回退。',
             en: 'Drag provider cards to set priority; unavailable services fall back.',
@@ -1773,7 +1801,7 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
       widget.availableModels,
     ).isNotEmpty;
     return _AiTtsProviderSection(
-      title: _localizedText(context, zh: 'AI 模型', en: 'AI Model'),
+      title: openHandLocalizedText(context, zh: 'AI 模型', en: 'AI Model'),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1782,19 +1810,23 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
             icon: const Icon(Icons.manage_search_rounded),
             label: Text(
               selectedLabel ??
-                  _localizedText(context, zh: '选择语音模型', en: 'Select model'),
+                  openHandLocalizedText(
+                    context,
+                    zh: '选择语音模型',
+                    en: 'Select model',
+                  ),
               overflow: TextOverflow.ellipsis,
             ),
           ),
           const SizedBox(height: 8),
           Text(
             selectedLabel == null
-                ? _localizedText(
+                ? openHandLocalizedText(
                     context,
                     zh: '仅展示已标记为多模态且支持音频生成的模型。',
                     en: 'Only multimodal audio-generation models are listed.',
                   )
-                : _localizedText(
+                : openHandLocalizedText(
                     context,
                     zh: 'AI 语音会复用该模型供应商的鉴权与接口配置。',
                     en: 'AI speech reuses this provider configuration.',
@@ -1807,7 +1839,11 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
           _AiTtsProviderFieldGrid(
             children: [
               _AiTtsDropdown(
-                label: _localizedText(context, zh: '音色/发音人', en: 'Voice'),
+                label: openHandLocalizedText(
+                  context,
+                  zh: '音色/发音人',
+                  en: 'Voice',
+                ),
                 value: providerSettings.voice,
                 options: voiceOptions,
                 onChanged: (value) => _updateCurrent((current) {
@@ -1815,13 +1851,13 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
                 }),
               ),
               _AiTtsDropdown(
-                label: _localizedText(context, zh: '音频格式', en: 'Format'),
+                label: openHandLocalizedText(context, zh: '音频格式', en: 'Format'),
                 value: formatValue,
                 options: formatOptions,
                 onChanged: (value) => _updateExtra('format', value),
               ),
               _AiTtsProviderNumberField(
-                label: _localizedText(context, zh: '语速', en: 'Speed'),
+                label: openHandLocalizedText(context, zh: '语速', en: 'Speed'),
                 value: providerSettings.speed,
                 range: _aiTtsNumberRangeForModel(
                   protocol: modelProtocol,
@@ -1833,7 +1869,7 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
                 }),
               ),
               _AiTtsProviderNumberField(
-                label: _localizedText(context, zh: '音量', en: 'Volume'),
+                label: openHandLocalizedText(context, zh: '音量', en: 'Volume'),
                 value: providerSettings.volume,
                 range: _aiTtsNumberRangeForModel(
                   protocol: modelProtocol,
@@ -1861,11 +1897,15 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _AiTtsProviderSection(
-          title: _localizedText(context, zh: '声音参数', en: 'Voice'),
+          title: openHandLocalizedText(context, zh: '声音参数', en: 'Voice'),
           child: _AiTtsProviderFieldGrid(
             children: [
               _AiTtsDropdown(
-                label: _localizedText(context, zh: '音色/发音人', en: 'Voice'),
+                label: openHandLocalizedText(
+                  context,
+                  zh: '音色/发音人',
+                  en: 'Voice',
+                ),
                 value: providerSettings.voice,
                 options: catalog.voiceOptions,
                 onChanged: (value) => _updateCurrent((current) {
@@ -1873,7 +1913,7 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
                 }),
               ),
               _AiTtsDropdown(
-                label: _localizedText(context, zh: '语言', en: 'Language'),
+                label: openHandLocalizedText(context, zh: '语言', en: 'Language'),
                 value: providerSettings.language,
                 options: catalog.languageOptions,
                 onChanged: (value) => _updateCurrent((current) {
@@ -1881,7 +1921,7 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
                 }),
               ),
               _AiTtsProviderNumberField(
-                label: _localizedText(context, zh: '语速', en: 'Speed'),
+                label: openHandLocalizedText(context, zh: '语速', en: 'Speed'),
                 value: providerSettings.speed,
                 range: _ttsNumberRange(provider, _TtsNumberKind.speed),
                 onChanged: (value) => _updateCurrent((current) {
@@ -1889,7 +1929,7 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
                 }),
               ),
               _AiTtsProviderNumberField(
-                label: _localizedText(context, zh: '音量', en: 'Volume'),
+                label: openHandLocalizedText(context, zh: '音量', en: 'Volume'),
                 value: providerSettings.volume,
                 range: _ttsNumberRange(provider, _TtsNumberKind.volume),
                 onChanged: (value) => _updateCurrent((current) {
@@ -1897,7 +1937,7 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
                 }),
               ),
               _AiTtsProviderNumberField(
-                label: _localizedText(context, zh: '音调', en: 'Pitch'),
+                label: openHandLocalizedText(context, zh: '音调', en: 'Pitch'),
                 value: providerSettings.pitch,
                 range: _ttsNumberRange(provider, _TtsNumberKind.pitch),
                 onChanged: (value) => _updateCurrent((current) {
@@ -1911,12 +1951,16 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
             _providerNeedsCredentials(provider)) ...[
           const SizedBox(height: 12),
           _AiTtsProviderSection(
-            title: _localizedText(context, zh: '连接与凭据', en: 'Access'),
+            title: openHandLocalizedText(context, zh: '连接与凭据', en: 'Access'),
             child: _AiTtsProviderFieldGrid(
               children: [
                 if (_providerNeedsEndpoint(provider))
                   _AiTtsProviderTextField(
-                    label: _localizedText(context, zh: '接口地址', en: 'Endpoint'),
+                    label: openHandLocalizedText(
+                      context,
+                      zh: '接口地址',
+                      en: 'Endpoint',
+                    ),
                     value: providerSettings.endpoint,
                     onSubmitted: (value) => _updateCurrent((current) {
                       return current.copyWith(endpoint: value);
@@ -1959,7 +2003,7 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
                   ),
                 if (provider == AiTtsProvider.bing)
                   _AiTtsProviderTextField(
-                    label: _localizedText(
+                    label: openHandLocalizedText(
                       context,
                       zh: '区域 Region',
                       en: 'Region',
@@ -1976,7 +2020,7 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
         if (provider == AiTtsProvider.doubao) ...[
           const SizedBox(height: 12),
           _AiTtsProviderSection(
-            title: _localizedText(context, zh: '豆包参数', en: 'Doubao'),
+            title: openHandLocalizedText(context, zh: '豆包参数', en: 'Doubao'),
             child: _AiTtsProviderFieldGrid(
               children: [
                 _AiTtsDropdown(
@@ -1987,14 +2031,18 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
                   onChanged: (value) => _updateExtra('resource_id', value),
                 ),
                 _AiTtsDropdown(
-                  label: _localizedText(context, zh: '模型', en: 'Model'),
+                  label: openHandLocalizedText(context, zh: '模型', en: 'Model'),
                   value:
                       '${providerSettings.extra['model'] ?? 'seed-tts-2.0-standard'}',
                   options: catalog.modelOptions,
                   onChanged: (value) => _updateExtra('model', value),
                 ),
                 _AiTtsDropdown(
-                  label: _localizedText(context, zh: '音频格式', en: 'Format'),
+                  label: openHandLocalizedText(
+                    context,
+                    zh: '音频格式',
+                    en: 'Format',
+                  ),
                   value: '${providerSettings.extra['format'] ?? 'mp3'}',
                   options: catalog.formatOptions,
                   onChanged: (value) => _updateExtra('format', value),
@@ -2009,20 +2057,24 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
             child: _AiTtsProviderFieldGrid(
               children: [
                 _AiTtsDropdown(
-                  label: _localizedText(context, zh: '模型', en: 'Model'),
+                  label: openHandLocalizedText(context, zh: '模型', en: 'Model'),
                   value:
                       '${providerSettings.extra['model'] ?? 'mimo-v2.5-tts'}',
                   options: catalog.modelOptions,
                   onChanged: (value) => _updateExtra('model', value),
                 ),
                 _AiTtsDropdown(
-                  label: _localizedText(context, zh: '音频格式', en: 'Format'),
+                  label: openHandLocalizedText(
+                    context,
+                    zh: '音频格式',
+                    en: 'Format',
+                  ),
                   value: '${providerSettings.extra['format'] ?? 'wav'}',
                   options: catalog.formatOptions,
                   onChanged: (value) => _updateExtra('format', value),
                 ),
                 _AiTtsProviderTextField(
-                  label: _localizedText(
+                  label: openHandLocalizedText(
                     context,
                     zh: '风格提示',
                     en: 'Style Prompt',
@@ -2032,7 +2084,7 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
                   onSubmitted: (value) => _updateExtra('style_prompt', value),
                 ),
                 _AiTtsProviderTextField(
-                  label: _localizedText(
+                  label: openHandLocalizedText(
                     context,
                     zh: '克隆样本路径',
                     en: 'Clone Sample Path',
@@ -2042,7 +2094,7 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
                       _updateExtra('voice_sample_path', value),
                 ),
                 _AiTtsProviderTextField(
-                  label: _localizedText(
+                  label: openHandLocalizedText(
                     context,
                     zh: 'PCM 采样率',
                     en: 'PCM Sample Rate',
@@ -2063,11 +2115,15 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
         ] else if (provider == AiTtsProvider.xfyun) ...[
           const SizedBox(height: 12),
           _AiTtsProviderSection(
-            title: _localizedText(context, zh: '音频编码', en: 'Audio'),
+            title: openHandLocalizedText(context, zh: '音频编码', en: 'Audio'),
             child: _AiTtsProviderFieldGrid(
               children: [
                 _AiTtsDropdown(
-                  label: _localizedText(context, zh: '音频格式', en: 'Format'),
+                  label: openHandLocalizedText(
+                    context,
+                    zh: '音频格式',
+                    en: 'Format',
+                  ),
                   value: '${providerSettings.extra['aue'] ?? 'lame'}',
                   options: catalog.formatOptions,
                   onChanged: (value) => _updateExtra('aue', value),
@@ -2079,11 +2135,15 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
             provider == AiTtsProvider.bing) ...[
           const SizedBox(height: 12),
           _AiTtsProviderSection(
-            title: _localizedText(context, zh: '音频编码', en: 'Audio'),
+            title: openHandLocalizedText(context, zh: '音频编码', en: 'Audio'),
             child: _AiTtsProviderFieldGrid(
               children: [
                 _AiTtsDropdown(
-                  label: _localizedText(context, zh: '音频格式', en: 'Format'),
+                  label: openHandLocalizedText(
+                    context,
+                    zh: '音频格式',
+                    en: 'Format',
+                  ),
                   value:
                       '${providerSettings.extra[_audioEncodingExtraKey(provider)] ?? _defaultAudioEncoding(provider)}',
                   options: catalog.formatOptions,
@@ -2114,7 +2174,7 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
     if (readinessError != null) {
       _showSettingsTestErrorDialog(
         context: context,
-        title: _localizedText(
+        title: openHandLocalizedText(
           context,
           zh: 'TTS 测试无法开始',
           en: 'TTS Test Cannot Start',
@@ -2140,7 +2200,11 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
         ScaffoldMessenger.of(context),
         OpenHandSnackBar.success(
           context,
-          _localizedText(context, zh: 'TTS 测试播放完成', en: 'TTS test played'),
+          openHandLocalizedText(
+            context,
+            zh: 'TTS 测试播放完成',
+            en: 'TTS test played',
+          ),
         ),
       );
     } catch (error, stack) {
@@ -2155,7 +2219,11 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
       if (!mounted) return;
       _showSettingsTestErrorDialog(
         context: context,
-        title: _localizedText(context, zh: 'TTS 测试失败', en: 'TTS Test Failed'),
+        title: openHandLocalizedText(
+          context,
+          zh: 'TTS 测试失败',
+          en: 'TTS Test Failed',
+        ),
         targetLabel: _ttsProviderLabel(context, widget.provider),
         error: error,
       );
@@ -2458,7 +2526,7 @@ class _AiProviderDragHandleFrame extends StatelessWidget {
     final theme = Theme.of(context);
     return Semantics(
       button: true,
-      label: _localizedText(context, zh: '拖动调整优先级', en: 'Drag'),
+      label: openHandLocalizedText(context, zh: '拖动调整优先级', en: 'Drag'),
       child: MouseRegion(
         cursor: SystemMouseCursors.grab,
         child: AnimatedOpacity(
@@ -2533,8 +2601,8 @@ class _AiTtsStatusBadge extends StatelessWidget {
       ),
       child: Text(
         enabled
-            ? _localizedText(context, zh: '启用', en: 'On')
-            : _localizedText(context, zh: '停用', en: 'Off'),
+            ? openHandLocalizedText(context, zh: '启用', en: 'On')
+            : openHandLocalizedText(context, zh: '停用', en: 'Off'),
         style: theme.textTheme.labelSmall?.copyWith(
           color: color,
           fontWeight: FontWeight.w800,
@@ -2564,10 +2632,14 @@ class _AiProviderCardExpandButton extends StatelessWidget {
     );
     return Tooltip(
       message: !enabled
-          ? _localizedText(context, zh: '启用后可展开', en: 'Enable to expand')
+          ? openHandLocalizedText(context, zh: '启用后可展开', en: 'Enable to expand')
           : expanded
-          ? _localizedText(context, zh: '折叠服务卡片', en: 'Collapse provider')
-          : _localizedText(context, zh: '展开服务卡片', en: 'Expand provider'),
+          ? openHandLocalizedText(
+              context,
+              zh: '折叠服务卡片',
+              en: 'Collapse provider',
+            )
+          : openHandLocalizedText(context, zh: '展开服务卡片', en: 'Expand provider'),
       child: SizedBox.square(
         dimension: _aiTtsCardActionSize,
         child: IconButton.filledTonal(
@@ -2614,7 +2686,8 @@ class _AiTtsTestButton extends StatelessWidget {
     final theme = Theme.of(context);
     return Tooltip(
       message:
-          tooltip ?? _localizedText(context, zh: '测试 TTS 服务', en: 'Test TTS'),
+          tooltip ??
+          openHandLocalizedText(context, zh: '测试 TTS 服务', en: 'Test TTS'),
       child: SizedBox.square(
         dimension: _aiTtsCardActionSize,
         child: IconButton.filledTonal(
@@ -2769,7 +2842,7 @@ class _SettingsStringDropdown extends StatelessWidget {
             _SettingsStringDropdownOption(
               normalized,
               normalized.isEmpty
-                  ? _localizedText(context, zh: '默认', en: 'Default')
+                  ? openHandLocalizedText(context, zh: '默认', en: 'Default')
                   : _humanizedDropdownValue(context, normalized),
             ),
           ]
@@ -2778,7 +2851,7 @@ class _SettingsStringDropdown extends StatelessWidget {
         : <_SettingsStringDropdownOption>[
             _SettingsStringDropdownOption(
               normalized,
-              _localizedText(
+              openHandLocalizedText(
                 context,
                 zh: '当前配置：${_humanizedDropdownValue(context, normalized)}',
                 en: 'Current: ${_humanizedDropdownValue(context, normalized)}',
@@ -3051,7 +3124,7 @@ String _localizedTtsCatalogOptionLabel(
 ) {
   final english = option.enLabel?.trim();
   if (english?.isNotEmpty == true) {
-    return _localizedText(context, zh: option.label, en: english!);
+    return openHandLocalizedText(context, zh: option.label, en: english!);
   }
   final languageLabel = _localizedLanguageCodeLabel(
     context,
@@ -3065,7 +3138,7 @@ String _localizedTtsCatalogOptionLabel(
 String _humanizedDropdownValue(BuildContext context, String value) {
   final normalized = value.trim();
   if (normalized.isEmpty) {
-    return _localizedText(context, zh: '默认', en: 'Default');
+    return openHandLocalizedText(context, zh: '默认', en: 'Default');
   }
   final languageLabel = _localizedLanguageCodeLabel(
     context,
@@ -3126,7 +3199,7 @@ String _localizedLanguageCodeLabel(
     _ => null,
   };
   if (label != null) {
-    return _localizedText(context, zh: label.zh, en: label.en);
+    return openHandLocalizedText(context, zh: label.zh, en: label.en);
   }
   return _stripTrailingLanguageCode(fallback);
 }
@@ -3140,7 +3213,7 @@ String _localizedVoiceLabel(BuildContext context, String rawLabel) {
     _ => null,
   };
   if (exact != null) {
-    return _localizedText(context, zh: exact.zh, en: exact.en);
+    return openHandLocalizedText(context, zh: exact.zh, en: exact.en);
   }
   const suffixes = <String, ({String zh, String en})>{
     'English Female': (zh: '英语女声', en: 'English female voice'),
@@ -3161,7 +3234,7 @@ String _localizedVoiceLabel(BuildContext context, String rawLabel) {
       final prefix = trimmed
           .substring(0, trimmed.length - marker.length)
           .trim();
-      final localizedSuffix = _localizedText(
+      final localizedSuffix = openHandLocalizedText(
         context,
         zh: entry.value.zh,
         en: entry.value.en,
@@ -3187,19 +3260,19 @@ String _translationProviderLabel(
 ) {
   switch (provider) {
     case AiTranslationProvider.ai:
-      return _localizedText(context, zh: 'AI 翻译', en: 'AI Translation');
+      return openHandLocalizedText(context, zh: 'AI 翻译', en: 'AI Translation');
     case AiTranslationProvider.youdao:
-      return _localizedText(context, zh: '有道翻译', en: 'Youdao Translate');
+      return openHandLocalizedText(context, zh: '有道翻译', en: 'Youdao Translate');
     case AiTranslationProvider.google:
-      return _localizedText(context, zh: '谷歌翻译', en: 'Google Translate');
+      return openHandLocalizedText(context, zh: '谷歌翻译', en: 'Google Translate');
     case AiTranslationProvider.bing:
       return 'Bing Translate';
     case AiTranslationProvider.apple:
-      return _localizedText(context, zh: '苹果翻译', en: 'Apple Translate');
+      return openHandLocalizedText(context, zh: '苹果翻译', en: 'Apple Translate');
     case AiTranslationProvider.baidu:
-      return _localizedText(context, zh: '百度翻译', en: 'Baidu Translate');
+      return openHandLocalizedText(context, zh: '百度翻译', en: 'Baidu Translate');
     case AiTranslationProvider.doubao:
-      return _localizedText(context, zh: '豆包翻译', en: 'Doubao Translate');
+      return openHandLocalizedText(context, zh: '豆包翻译', en: 'Doubao Translate');
   }
 }
 
@@ -3209,43 +3282,43 @@ String _translationProviderHint(
 ) {
   switch (provider) {
     case AiTranslationProvider.ai:
-      return _localizedText(
+      return openHandLocalizedText(
         context,
         zh: '复用全局模型供应商执行翻译，适合保留 Markdown 与代码结构。',
         en: 'Uses configured model providers and preserves Markdown/code structure.',
       );
     case AiTranslationProvider.youdao:
-      return _localizedText(
+      return openHandLocalizedText(
         context,
         zh: '调用有道智云文本翻译接口，需 API Key 与 API Secret。',
         en: 'Calls Youdao text translation with API key and secret.',
       );
     case AiTranslationProvider.google:
-      return _localizedText(
+      return openHandLocalizedText(
         context,
         zh: '调用 Google Translate API，需 API Key。',
         en: 'Calls Google Translate API with an API key.',
       );
     case AiTranslationProvider.bing:
-      return _localizedText(
+      return openHandLocalizedText(
         context,
         zh: '调用 Microsoft Translator，需订阅密钥，可选区域 Region。',
         en: 'Calls Microsoft Translator with subscription key and optional region.',
       );
     case AiTranslationProvider.apple:
-      return _localizedText(
+      return openHandLocalizedText(
         context,
         zh: 'Apple 官方本地翻译 SDK 不直接暴露给 Flutter；这里接入本机/私有桥接服务。',
         en: 'Apple local translation is bridged through a local/private service.',
       );
     case AiTranslationProvider.baidu:
-      return _localizedText(
+      return openHandLocalizedText(
         context,
         zh: '调用百度通用翻译接口，需 App ID 与 Secret Key。',
         en: 'Calls Baidu general translation with App ID and secret key.',
       );
     case AiTranslationProvider.doubao:
-      return _localizedText(
+      return openHandLocalizedText(
         context,
         zh: '调用火山引擎机器翻译大模型，支持 API Key 或旧版 App Key 鉴权。',
         en: 'Calls Volcengine machine translation with API key or legacy app access key.',
@@ -3287,7 +3360,7 @@ String? _translationProviderReadinessError(
       if (settings.modelConfigId.trim().isEmpty ||
           settings.modelId.trim().isEmpty) {
         if (availableModels.isEmpty) {
-          missing.add(_localizedText(context, zh: '可用模型', en: 'models'));
+          missing.add(openHandLocalizedText(context, zh: '可用模型', en: 'models'));
         }
       }
       break;
@@ -3304,7 +3377,7 @@ String? _translationProviderReadinessError(
     case AiTranslationProvider.apple:
       requireField(
         settings.endpoint,
-        _localizedText(context, zh: '桥接服务地址', en: 'bridge endpoint'),
+        openHandLocalizedText(context, zh: '桥接服务地址', en: 'bridge endpoint'),
       );
       break;
     case AiTranslationProvider.baidu:
@@ -3320,7 +3393,7 @@ String? _translationProviderReadinessError(
       break;
   }
   if (missing.isEmpty) return null;
-  return _localizedText(
+  return openHandLocalizedText(
     context,
     zh: '请先补全 ${_translationProviderLabel(context, settings.provider)} 配置：${missing.join('、')}',
     en: 'Complete ${_translationProviderLabel(context, settings.provider)} first: ${missing.join(', ')}',
@@ -3330,86 +3403,86 @@ String? _translationProviderReadinessError(
 String _ttsProviderLabel(BuildContext context, AiTtsProvider provider) {
   switch (provider) {
     case AiTtsProvider.ai:
-      return _localizedText(context, zh: 'AI 语音', en: 'AI Speech');
+      return openHandLocalizedText(context, zh: 'AI 语音', en: 'AI Speech');
     case AiTtsProvider.system:
-      return _localizedText(context, zh: '系统 TTS', en: 'System TTS');
+      return openHandLocalizedText(context, zh: '系统 TTS', en: 'System TTS');
     case AiTtsProvider.xfyun:
-      return _localizedText(context, zh: '讯飞 TTS', en: 'Xfyun TTS');
+      return openHandLocalizedText(context, zh: '讯飞 TTS', en: 'Xfyun TTS');
     case AiTtsProvider.youdao:
-      return _localizedText(context, zh: '有道 TTS', en: 'Youdao TTS');
+      return openHandLocalizedText(context, zh: '有道 TTS', en: 'Youdao TTS');
     case AiTtsProvider.bing:
       return 'Bing TTS';
     case AiTtsProvider.google:
       return 'Google TTS';
     case AiTtsProvider.baidu:
-      return _localizedText(context, zh: '百度 TTS', en: 'Baidu TTS');
+      return openHandLocalizedText(context, zh: '百度 TTS', en: 'Baidu TTS');
     case AiTtsProvider.doubao:
-      return _localizedText(context, zh: '豆包 TTS', en: 'Doubao TTS');
+      return openHandLocalizedText(context, zh: '豆包 TTS', en: 'Doubao TTS');
     case AiTtsProvider.mimo:
       return 'Mimo TTS';
     case AiTtsProvider.apple:
-      return _localizedText(context, zh: '苹果 TTS', en: 'Apple TTS');
+      return openHandLocalizedText(context, zh: '苹果 TTS', en: 'Apple TTS');
   }
 }
 
 String _ttsProviderHint(BuildContext context, AiTtsProvider provider) {
   switch (provider) {
     case AiTtsProvider.ai:
-      return _localizedText(
+      return openHandLocalizedText(
         context,
         zh: '复用全局模型供应商生成语音，仅支持多模态音频生成模型。',
         en: 'Uses configured multimodal audio-generation model providers.',
       );
     case AiTtsProvider.system:
-      return _localizedText(
+      return openHandLocalizedText(
         context,
         zh: '默认使用本机系统语音能力，无需密钥。',
         en: 'Uses local system speech without credentials.',
       );
     case AiTtsProvider.apple:
-      return _localizedText(
+      return openHandLocalizedText(
         context,
         zh: '在 Apple 平台优先匹配系统语音；其他平台会按能力回退。',
         en: 'Prefers Apple system voices and falls back by capability.',
       );
     case AiTtsProvider.xfyun:
-      return _localizedText(
+      return openHandLocalizedText(
         context,
         zh: '讯飞在线 TTS，使用 WebSocket 与 HMAC 鉴权。',
         en: 'Xfyun online TTS with WebSocket and HMAC auth.',
       );
     case AiTtsProvider.youdao:
-      return _localizedText(
+      return openHandLocalizedText(
         context,
         zh: '保留有道 TTS 参数；服务接入不可用时自动回退。',
         en: 'Keeps Youdao TTS parameters and falls back when unavailable.',
       );
     case AiTtsProvider.bing:
-      return _localizedText(
+      return openHandLocalizedText(
         context,
         zh: '保留 Bing 语音参数；浏览器端可由系统语音兜底。',
         en: 'Keeps Bing voice parameters; browser runtime can fallback.',
       );
     case AiTtsProvider.google:
-      return _localizedText(
+      return openHandLocalizedText(
         context,
         zh: '保留 Google TTS 参数；服务不可用时自动回退。',
         en: 'Keeps Google TTS parameters and falls back when unavailable.',
       );
     case AiTtsProvider.baidu:
-      return _localizedText(
+      return openHandLocalizedText(
         context,
         zh: '填写 Access Token 后可调用百度语音合成接口。',
         en: 'Uses Baidu speech synthesis with an access token.',
       );
     case AiTtsProvider.doubao:
-      return _localizedText(
+      return openHandLocalizedText(
         context,
         zh: '豆包 V3 在线语音合成，需 API Key、Resource ID 与音色。',
         en: 'Doubao V3 online TTS with API key, resource ID, and speaker.',
       );
     case AiTtsProvider.mimo:
-      return _localizedText(
+      return openHandLocalizedText(
         context,
         zh: '小米 Mimo V2.5 语音合成，支持预置音色、风格提示和音频格式配置。',
         en: 'Xiaomi Mimo V2.5 TTS with preset voices, style prompts, and audio formats.',
@@ -3666,9 +3739,11 @@ String? _ttsProviderReadinessError(
           settings.modelId.trim().isEmpty) {
         if (!hasFallbackModel &&
             _ttsAudioGenerationModels(availableModels).isEmpty) {
-          missing.add(_localizedText(context, zh: '可用语音模型', en: 'models'));
+          missing.add(
+            openHandLocalizedText(context, zh: '可用语音模型', en: 'models'),
+          );
         } else if (!hasFallbackModel) {
-          missing.add(_localizedText(context, zh: '语音模型', en: 'model'));
+          missing.add(openHandLocalizedText(context, zh: '语音模型', en: 'model'));
         }
       } else if (!availableModels.any(
         (config) =>
@@ -3676,7 +3751,9 @@ String? _ttsProviderReadinessError(
             config.allModelIds.contains(settings.modelId) &&
             _isTtsAudioGenerationModel(config, settings.modelId),
       )) {
-        missing.add(_localizedText(context, zh: '有效语音模型', en: 'valid model'));
+        missing.add(
+          openHandLocalizedText(context, zh: '有效语音模型', en: 'valid model'),
+        );
       }
       break;
     case AiTtsProvider.system:
@@ -3694,7 +3771,9 @@ String? _ttsProviderReadinessError(
     case AiTtsProvider.bing:
       requireField(settings.apiKey, 'Subscription Key');
       if (settings.region.trim().isEmpty && settings.endpoint.trim().isEmpty) {
-        missing.add(_localizedText(context, zh: '区域 Region', en: 'Region'));
+        missing.add(
+          openHandLocalizedText(context, zh: '区域 Region', en: 'Region'),
+        );
       }
       break;
     case AiTtsProvider.google:
@@ -3712,18 +3791,18 @@ String? _ttsProviderReadinessError(
     case AiTtsProvider.mimo:
       requireField(settings.apiKey, 'API Key');
       if (_mimoUsesPresetVoice(settings) && settings.voice.trim().isEmpty) {
-        missing.add(_localizedText(context, zh: '音色', en: 'Voice'));
+        missing.add(openHandLocalizedText(context, zh: '音色', en: 'Voice'));
       }
       if (_mimoUsesVoiceClone(settings) &&
           '${settings.extra['voice_sample_path'] ?? ''}'.trim().isEmpty) {
         missing.add(
-          _localizedText(context, zh: '克隆样本路径', en: 'Clone Sample Path'),
+          openHandLocalizedText(context, zh: '克隆样本路径', en: 'Clone Sample Path'),
         );
       }
       break;
   }
   if (missing.isEmpty) return null;
-  return _localizedText(
+  return openHandLocalizedText(
     context,
     zh: '请先补全 ${_ttsProviderLabel(context, settings.provider)} 配置：${missing.join('、')}',
     en: 'Complete ${_ttsProviderLabel(context, settings.provider)} first: ${missing.join(', ')}',
@@ -3774,7 +3853,7 @@ String _settingsTestErrorDetails({
   final buffer = StringBuffer()
     ..writeln(title)
     ..writeln(
-      _localizedText(
+      openHandLocalizedText(
         context,
         zh: '测试对象：$targetLabel',
         en: 'Test target: $targetLabel',
@@ -3791,7 +3870,9 @@ String _settingsTestErrorDetails({
       !message.contains(rawResponse)) {
     buffer
       ..writeln()
-      ..writeln(_localizedText(context, zh: '原始响应：', en: 'Raw response:'))
+      ..writeln(
+        openHandLocalizedText(context, zh: '原始响应：', en: 'Raw response:'),
+      )
       ..writeln(rawResponse);
   }
 
@@ -3799,7 +3880,9 @@ String _settingsTestErrorDetails({
   if (targetedSuggestion != null) {
     buffer
       ..writeln()
-      ..writeln(_localizedText(context, zh: '排查建议：', en: 'Troubleshooting:'))
+      ..writeln(
+        openHandLocalizedText(context, zh: '排查建议：', en: 'Troubleshooting:'),
+      )
       ..writeln(targetedSuggestion);
   }
   return buffer.toString().trim();
@@ -3819,7 +3902,7 @@ String? _settingsTargetedErrorSuggestion(BuildContext context, Object error) {
   if (message.contains('voice_id') &&
       (message.contains('does not exist') ||
           message.contains('do not have access'))) {
-    return _localizedText(
+    return openHandLocalizedText(
       context,
       zh:
           '· 当前音色不属于该模型可用的系统音色，或账号没有该自定义音色权限。\n'
@@ -4953,7 +5036,7 @@ class _AiModelTileState extends State<_AiModelTile> {
     final allModels = widget.model.allModelIds;
     final modelCountLabel = allModels.isNotEmpty
         ? l10n.aiModelCount(allModels.length)
-        : _localizedText(context, zh: '无模型', en: 'No models');
+        : openHandLocalizedText(context, zh: '无模型', en: 'No models');
     final canExpandModels = allModels.length > _aiModelChipPreviewLimit;
     final animationDuration = _settingsMotionDuration(
       context,
@@ -5015,7 +5098,7 @@ class _AiModelTileState extends State<_AiModelTile> {
                           if (widget.model.modelId.trim().isNotEmpty) ...[
                             const SizedBox(height: 4),
                             Text(
-                              _localizedText(
+                              openHandLocalizedText(
                                 context,
                                 zh: '当前模型：${widget.model.modelId}',
                                 en: 'Active: ${widget.model.modelId}',
@@ -5039,12 +5122,12 @@ class _AiModelTileState extends State<_AiModelTile> {
                                 ? _toggleModelChipsExpanded
                                 : null,
                             tooltip: _modelChipsExpanded
-                                ? _localizedText(
+                                ? openHandLocalizedText(
                                     context,
                                     zh: '折叠模型列表',
                                     en: 'Collapse model list',
                                   )
-                                : _localizedText(
+                                : openHandLocalizedText(
                                     context,
                                     zh: '展开全部模型',
                                     en: 'Show all models',
@@ -5135,12 +5218,12 @@ class _AiModelTileState extends State<_AiModelTile> {
                           ? Icons.auto_fix_high_rounded
                           : Icons.rule_rounded,
                       label: widget.model.autoCompleteBaseUrl
-                          ? _localizedText(
+                          ? openHandLocalizedText(
                               context,
                               zh: '自动补全',
                               en: 'Auto-complete',
                             )
-                          : _localizedText(
+                          : openHandLocalizedText(
                               context,
                               zh: '精确 Base URL',
                               en: 'Exact Base URL',
@@ -5229,12 +5312,12 @@ class _AiModelTileState extends State<_AiModelTile> {
                                     isActive: id == activeId,
                                     compact: true,
                                     tooltip: id == activeId
-                                        ? _localizedText(
+                                        ? openHandLocalizedText(
                                             ctx,
                                             zh: '当前活跃模型',
                                             en: 'Currently active model',
                                           )
-                                        : _localizedText(
+                                        : openHandLocalizedText(
                                             ctx,
                                             zh: '点击切换为活跃模型',
                                             en: 'Click to set as active model',
@@ -5247,7 +5330,7 @@ class _AiModelTileState extends State<_AiModelTile> {
                                   _AiProviderOverflowChip(
                                     hiddenCount: hiddenCount,
                                     onPressed: _toggleModelChipsExpanded,
-                                    tooltip: _localizedText(
+                                    tooltip: openHandLocalizedText(
                                       ctx,
                                       zh: '展开剩余 $hiddenCount 个模型',
                                       en: 'Show $hiddenCount more models',

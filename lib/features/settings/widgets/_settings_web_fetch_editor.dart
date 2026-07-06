@@ -175,7 +175,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
       if (result == true) {
         OpenHandSnackBar.showSuccess(
           context,
-          _localizedText(
+          openHandLocalizedText(
             context,
             zh: 'Scrapling 运行时安装完成',
             en: 'Scrapling runtime installed',
@@ -187,7 +187,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
       if (!mounted) return;
       OpenHandSnackBar.showError(
         context,
-        _localizedText(context, zh: '安装失败：$e', en: 'Install failed: $e'),
+        openHandLocalizedText(context, zh: '安装失败：$e', en: 'Install failed: $e'),
       );
     } finally {
       if (mounted) setState(() => _scraplingRuntimeBusy = false);
@@ -199,18 +199,18 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
     if (_scraplingRuntimeBusy) return;
     final confirmed = await showOpenHandConfirmDialog(
       context: context,
-      title: _localizedText(
+      title: openHandLocalizedText(
         context,
         zh: '卸载 Scrapling 运行时？',
         en: 'Uninstall Scrapling runtime?',
       ),
-      message: _localizedText(
+      message: openHandLocalizedText(
         context,
         zh: '会执行 python -m pip uninstall -y scrapling，并重置当前 Scrapling 本地运行时。',
         en: 'This runs python -m pip uninstall -y scrapling and resets the current local Scrapling runtime.',
       ),
-      cancelLabel: _localizedText(context, zh: '取消', en: 'Cancel'),
-      confirmLabel: _localizedText(context, zh: '确认卸载', en: 'Uninstall'),
+      cancelLabel: openHandLocalizedText(context, zh: '取消', en: 'Cancel'),
+      confirmLabel: openHandLocalizedText(context, zh: '确认卸载', en: 'Uninstall'),
       destructive: true,
     );
     if (!confirmed || !mounted) return;
@@ -228,7 +228,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
       if (result == true) {
         OpenHandSnackBar.showSuccess(
           context,
-          _localizedText(
+          openHandLocalizedText(
             context,
             zh: 'Scrapling 运行时已卸载',
             en: 'Scrapling runtime uninstalled',
@@ -240,7 +240,11 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
       if (!mounted) return;
       OpenHandSnackBar.showError(
         context,
-        _localizedText(context, zh: '卸载失败：$e', en: 'Uninstall failed: $e'),
+        openHandLocalizedText(
+          context,
+          zh: '卸载失败：$e',
+          en: 'Uninstall failed: $e',
+        ),
       );
     } finally {
       if (mounted) setState(() => _scraplingRuntimeBusy = false);
@@ -285,7 +289,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
       if (!mounted) return;
       OpenHandSnackBar.showError(
         context,
-        _localizedText(context, zh: '导出失败：$e', en: 'Export failed: $e'),
+        openHandLocalizedText(context, zh: '导出失败：$e', en: 'Export failed: $e'),
       );
     } finally {
       if (mounted) setState(() => _exportingTelemetry = false);
@@ -410,7 +414,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
       OpenHandSnackBar.showInfoOn(
         context,
         messenger,
-        _localizedText(
+        openHandLocalizedText(
           context,
           zh: 'WebFetch 本地缓存已清空',
           en: 'WebFetch local cache cleared',
@@ -447,12 +451,16 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
       children: [
         const Divider(height: 28),
         Text(
-          _localizedText(context, zh: 'WebFetch 专属配置', en: 'WebFetch Settings'),
+          openHandLocalizedText(
+            context,
+            zh: 'WebFetch 专属配置',
+            en: 'WebFetch Settings',
+          ),
           style: theme.textTheme.titleMedium,
         ),
         const SizedBox(height: 4),
         Text(
-          _localizedText(
+          openHandLocalizedText(
             context,
             zh:
                 'WebFetch 内建工具会按以下顺序调用启用的引擎并行抓取目标 URL,'
@@ -473,7 +481,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
           keyboardType: TextInputType.number,
           inputFormatters: [FilteringTextInputFormatter.digitsOnly],
           decoration: InputDecoration(
-            labelText: _localizedText(
+            labelText: openHandLocalizedText(
               context,
               zh:
                   '结果数量 (${AiWebFetchSettings.minResultCount}-'
@@ -482,7 +490,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
                   'Result Count (${AiWebFetchSettings.minResultCount}-'
                   '${AiWebFetchSettings.maxResultCount})',
             ),
-            helperText: _localizedText(
+            helperText: openHandLocalizedText(
               context,
               zh:
                   '默认 ${AiWebFetchSettings.defaultResultCount},'
@@ -516,10 +524,14 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
               child: SwitchListTile(
                 contentPadding: EdgeInsets.zero,
                 title: Text(
-                  _localizedText(context, zh: '并行调度引擎', en: 'Parallel Engines'),
+                  openHandLocalizedText(
+                    context,
+                    zh: '并行调度引擎',
+                    en: 'Parallel Engines',
+                  ),
                 ),
                 subtitle: Text(
-                  _localizedText(
+                  openHandLocalizedText(
                     context,
                     zh: '启用后通过信号量限流并行调用多个引擎,提速明显;关闭后串行依次调用。',
                     en:
@@ -543,7 +555,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                 controller: _parallelWorkersController,
                 decoration: InputDecoration(
-                  labelText: _localizedText(
+                  labelText: openHandLocalizedText(
                     context,
                     zh:
                         'Workers (${AiWebFetchSettings.minParallelWorkers}-'
@@ -575,12 +587,12 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
 
         // ── 本地持久化缓存 ──
         Text(
-          _localizedText(context, zh: '本地缓存', en: 'Local Cache'),
+          openHandLocalizedText(context, zh: '本地缓存', en: 'Local Cache'),
           style: theme.textTheme.titleSmall,
         ),
         const SizedBox(height: 4),
         Text(
-          _localizedText(
+          openHandLocalizedText(
             context,
             zh:
                 '相同 URL 与 prompt 抓取后的正文会写入本地磁盘 (~/.openhand/cache/web_fetch/)，'
@@ -603,12 +615,12 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
                 keyboardType: TextInputType.number,
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                 decoration: InputDecoration(
-                  labelText: _localizedText(
+                  labelText: openHandLocalizedText(
                     context,
                     zh: '缓存 TTL (秒)',
                     en: 'Cache TTL (seconds)',
                   ),
-                  helperText: _localizedText(
+                  helperText: openHandLocalizedText(
                     context,
                     zh: '默认 300 秒 = 5 分钟; 设为 0 关闭缓存',
                     en: 'Default 300s (5 min); 0 disables caching',
@@ -636,12 +648,12 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
                   decimal: true,
                 ),
                 decoration: InputDecoration(
-                  labelText: _localizedText(
+                  labelText: openHandLocalizedText(
                     context,
                     zh: '缓存上限 (MB)',
                     en: 'Cache Cap (MB)',
                   ),
-                  helperText: _localizedText(
+                  helperText: openHandLocalizedText(
                     context,
                     zh: '默认 50 MB; 0 = 不限 (不推荐)',
                     en: 'Default 50 MB; 0 = unlimited (not recommended)',
@@ -669,7 +681,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
           children: [
             Expanded(
               child: Text(
-                _localizedText(
+                openHandLocalizedText(
                   context,
                   zh: '当前已占用：${formatNullableByteSize(_cacheBytesOnDisk, pendingLabel: '…')}',
                   en: 'On disk: ${formatNullableByteSize(_cacheBytesOnDisk, pendingLabel: '…')}',
@@ -683,7 +695,9 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
             TextButton.icon(
               onPressed: _clearingCache ? null : _refreshCacheBytesOnDisk,
               icon: const Icon(Icons.refresh, size: 16),
-              label: Text(_localizedText(context, zh: '刷新', en: 'Refresh')),
+              label: Text(
+                openHandLocalizedText(context, zh: '刷新', en: 'Refresh'),
+              ),
             ),
             const SizedBox(width: 4),
             FilledButton.tonalIcon(
@@ -709,7 +723,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
                       color: colorScheme.onPrimary,
                     ),
               label: Text(
-                _localizedText(
+                openHandLocalizedText(
                   context,
                   zh: _clearingCache ? '清理中…' : '清理缓存',
                   en: _clearingCache ? 'Clearing…' : 'Clear Cache',
@@ -722,12 +736,12 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
 
         // ── Engines list ──
         Text(
-          _localizedText(context, zh: '抓取引擎', en: 'Fetch Engines'),
+          openHandLocalizedText(context, zh: '抓取引擎', en: 'Fetch Engines'),
           style: theme.textTheme.titleSmall,
         ),
         const SizedBox(height: 4),
         Text(
-          _localizedText(
+          openHandLocalizedText(
             context,
             zh:
                 '拖拽卡片调整顺序；启用至少一个引擎；若全部禁用则自动启用 '
@@ -807,13 +821,17 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
   ) {
     return [
       Text(
-        _localizedText(context, zh: '高级（健壮性）', en: 'Advanced (resilience)'),
+        openHandLocalizedText(
+          context,
+          zh: '高级（健壮性）',
+          en: 'Advanced (resilience)',
+        ),
         style: theme.textTheme.titleSmall,
       ),
       const SizedBox(height: 8),
       // cooldown 三档
       Text(
-        _localizedText(
+        openHandLocalizedText(
           context,
           zh: '失败自动降级（cooldown）阈值',
           en: 'Failure auto-cooldown thresholds',
@@ -824,7 +842,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
       ),
       const SizedBox(height: 6),
       _FetchAdvancedCooldownTierRow(
-        label: _localizedText(context, zh: '一级', en: 'Tier 1'),
+        label: openHandLocalizedText(context, zh: '一级', en: 'Tier 1'),
         failures: v.cooldownTier1Failures,
         seconds: v.cooldownTier1Seconds,
         onChangedFailures: (n) =>
@@ -833,7 +851,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
             _updateAdvanced(v.copyWith(cooldownTier1Seconds: n)),
       ),
       _FetchAdvancedCooldownTierRow(
-        label: _localizedText(context, zh: '二级', en: 'Tier 2'),
+        label: openHandLocalizedText(context, zh: '二级', en: 'Tier 2'),
         failures: v.cooldownTier2Failures,
         seconds: v.cooldownTier2Seconds,
         onChangedFailures: (n) =>
@@ -842,7 +860,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
             _updateAdvanced(v.copyWith(cooldownTier2Seconds: n)),
       ),
       _FetchAdvancedCooldownTierRow(
-        label: _localizedText(context, zh: '三级', en: 'Tier 3'),
+        label: openHandLocalizedText(context, zh: '三级', en: 'Tier 3'),
         failures: v.cooldownTier3Failures,
         seconds: v.cooldownTier3Seconds,
         onChangedFailures: (n) =>
@@ -852,7 +870,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
       ),
       const SizedBox(height: 4),
       _FetchAdvancedNumberRow(
-        label: _localizedText(
+        label: openHandLocalizedText(
           context,
           zh: '配额/限流冷却（秒）',
           en: 'Quota cooldown (s)',
@@ -865,7 +883,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
       const SizedBox(height: 12),
       // 告警
       Text(
-        _localizedText(
+        openHandLocalizedText(
           context,
           zh: '健康度告警（0 = 关闭，至少 5 次调用后才会触发）',
           en: 'Health alerts (0 = off; needs ≥5 calls)',
@@ -876,7 +894,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
       ),
       const SizedBox(height: 6),
       _FetchAdvancedNumberRow(
-        label: _localizedText(
+        label: openHandLocalizedText(
           context,
           zh: '成功率低于（%）',
           en: 'Success rate below (%)',
@@ -887,7 +905,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
         onChanged: (n) => _updateAdvanced(v.copyWith(alertSuccessRatePct: n)),
       ),
       _FetchAdvancedNumberRow(
-        label: _localizedText(
+        label: openHandLocalizedText(
           context,
           zh: '平均耗时高于（毫秒）',
           en: 'Avg duration above (ms)',
@@ -900,7 +918,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
       const SizedBox(height: 12),
       // throttle
       Text(
-        _localizedText(
+        openHandLocalizedText(
           context,
           zh: '速率限制（每引擎每分钟最大调用数；0 = 不限）',
           en: 'Rate limit (per engine, per minute; 0 = off)',
@@ -911,7 +929,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
       ),
       const SizedBox(height: 6),
       _FetchAdvancedNumberRow(
-        label: _localizedText(context, zh: '上限', en: 'Cap'),
+        label: openHandLocalizedText(context, zh: '上限', en: 'Cap'),
         value: v.throttlePerMinute,
         min: 0,
         max: AiWebFetchSettings.maxThrottlePerMinute,
@@ -936,7 +954,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
     final hasData = _recentCalls.isNotEmpty || _engineStats.isNotEmpty;
     return [
       Text(
-        _localizedText(
+        openHandLocalizedText(
           context,
           zh: '调用日志 / 引擎健康度',
           en: 'Call History / Engine Health',
@@ -945,7 +963,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
       ),
       const SizedBox(height: 4),
       Text(
-        _localizedText(
+        openHandLocalizedText(
           context,
           zh:
               '近期 50 条 WebFetch 调用与每引擎累计成功率、平均耗时、累计字节；'
@@ -973,7 +991,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
                 : () => _exportTelemetry(asCsv: false),
             icon: const Icon(Icons.code, size: 16),
             label: Text(
-              _localizedText(context, zh: '导出 JSON', en: 'Export JSON'),
+              openHandLocalizedText(context, zh: '导出 JSON', en: 'Export JSON'),
             ),
           ),
           const SizedBox(width: 4),
@@ -993,7 +1011,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
                   )
                 : const Icon(Icons.table_chart, size: 16),
             label: Text(
-              _localizedText(context, zh: '导出 CSV', en: 'Export CSV'),
+              openHandLocalizedText(context, zh: '导出 CSV', en: 'Export CSV'),
             ),
           ),
           const SizedBox(width: 4),
@@ -1008,7 +1026,9 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : const Icon(Icons.refresh, size: 16),
-            label: Text(_localizedText(context, zh: '刷新', en: 'Refresh')),
+            label: Text(
+              openHandLocalizedText(context, zh: '刷新', en: 'Refresh'),
+            ),
           ),
           const SizedBox(width: 4),
           TextButton.icon(
@@ -1023,7 +1043,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
                   )
                 : Icon(Icons.delete_sweep, size: 16, color: colorScheme.error),
             label: Text(
-              _localizedText(
+              openHandLocalizedText(
                 context,
                 zh: _clearingTelemetry ? '清空中…' : '清空记录',
                 en: _clearingTelemetry ? 'Clearing…' : 'Clear Logs',
@@ -1038,7 +1058,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 12),
           child: Text(
-            _localizedText(
+            openHandLocalizedText(
               context,
               zh: '暂无调用记录。下一次 WebFetch 调用结束后会自动记录。',
               en:
@@ -1053,7 +1073,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
       else ...[
         if (_engineStats.isNotEmpty) ...[
           Text(
-            _localizedText(context, zh: '引擎健康度', en: 'Engine Health'),
+            openHandLocalizedText(context, zh: '引擎健康度', en: 'Engine Health'),
             style: theme.textTheme.bodyMedium?.copyWith(
               fontWeight: FontWeight.w600,
             ),
@@ -1074,7 +1094,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
         ],
         if (_recentCalls.isNotEmpty) ...[
           Text(
-            _localizedText(context, zh: '最近调用', en: 'Recent Calls'),
+            openHandLocalizedText(context, zh: '最近调用', en: 'Recent Calls'),
             style: theme.textTheme.bodyMedium?.copyWith(
               fontWeight: FontWeight.w600,
             ),
@@ -1087,7 +1107,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
             Padding(
               padding: const EdgeInsets.only(top: 4),
               child: Text(
-                _localizedText(
+                openHandLocalizedText(
                   context,
                   zh: '… 还有 ${_recentCalls.length - 20} 条更早记录',
                   en: '… ${_recentCalls.length - 20} older entries',
@@ -1169,7 +1189,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
               ),
               Expanded(
                 child: Text(
-                  _localizedText(
+                  openHandLocalizedText(
                     context,
                     zh: '${stat.totalCalls} 次 · 平均 ${stat.avgDurationMs.toStringAsFixed(0)}ms · 累计 ${stat.totalBytes} 字节',
                     en: '${stat.totalCalls} calls · avg ${stat.avgDurationMs.toStringAsFixed(0)}ms · ${stat.totalBytes} bytes',
@@ -1199,7 +1219,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
                   if (inCooldown) ...[
                     _SettingsStatusChip(
                       icon: Icons.pause_circle_outline,
-                      label: _localizedText(
+                      label: openHandLocalizedText(
                         context,
                         zh: '降级中 · 剩余 ${_settingsFormatRemainingUntilMs(stat.cooldownUntilMs)}',
                         en: 'cooldown · ${_settingsFormatRemainingUntilMs(stat.cooldownUntilMs)} left',
@@ -1216,7 +1236,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
                           vertical: 2,
                         ),
                         child: Text(
-                          _localizedText(context, zh: '重置', en: 'Reset'),
+                          openHandLocalizedText(context, zh: '重置', en: 'Reset'),
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: colorScheme.primary,
                             decoration: TextDecoration.underline,
@@ -1232,7 +1252,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
                       message: stat.lastQuotaError ?? '',
                       child: _SettingsStatusChip(
                         icon: Icons.speed,
-                        label: _localizedText(
+                        label: openHandLocalizedText(
                           context,
                           zh: '配额/限流',
                           en: 'rate limit',
@@ -1347,7 +1367,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
                   style: theme.textTheme.bodySmall,
                 ),
                 Text(
-                  _localizedText(
+                  openHandLocalizedText(
                     context,
                     zh:
                         '${call.success ? "成功" : "失败"} · ${call.totalDurationMs}ms · ${call.contentChars} 字'
@@ -1532,7 +1552,7 @@ class _ScraplingSettingsCardState extends State<_ScraplingSettingsCard> {
                       children: [
                         Text('Scrapling', style: theme.textTheme.titleSmall),
                         Text(
-                          _localizedText(
+                          openHandLocalizedText(
                             context,
                             zh: '本地 Python 抓取桥接 · 复杂页面更稳',
                             en: 'Local Python bridge · better on complex pages',
@@ -1561,8 +1581,16 @@ class _ScraplingSettingsCardState extends State<_ScraplingSettingsCard> {
                   const SizedBox(width: 10),
                   IconButton(
                     tooltip: _expanded
-                        ? _localizedText(context, zh: '收起', en: 'Collapse')
-                        : _localizedText(context, zh: '展开', en: 'Expand'),
+                        ? openHandLocalizedText(
+                            context,
+                            zh: '收起',
+                            en: 'Collapse',
+                          )
+                        : openHandLocalizedText(
+                            context,
+                            zh: '展开',
+                            en: 'Expand',
+                          ),
                     icon: _SettingsExpandIcon(expanded: _expanded),
                     onPressed: () => setState(() => _expanded = !_expanded),
                   ),
@@ -1589,7 +1617,7 @@ class _ScraplingSettingsCardState extends State<_ScraplingSettingsCard> {
                     if ((probe.pythonExecutable ?? '').trim().isNotEmpty) ...[
                       const SizedBox(height: 4),
                       Text(
-                        _localizedText(
+                        openHandLocalizedText(
                           context,
                           zh: 'Python: ${probe.pythonExecutable}',
                           en: 'Python: ${probe.pythonExecutable}',
@@ -1619,7 +1647,11 @@ class _ScraplingSettingsCardState extends State<_ScraplingSettingsCard> {
                                 )
                               : const Icon(Icons.refresh, size: 16),
                           label: Text(
-                            _localizedText(context, zh: '检测环境', en: 'Probe'),
+                            openHandLocalizedText(
+                              context,
+                              zh: '检测环境',
+                              en: 'Probe',
+                            ),
                           ),
                         ),
                         TextButton.icon(
@@ -1628,7 +1660,7 @@ class _ScraplingSettingsCardState extends State<_ScraplingSettingsCard> {
                               : widget.onResetRuntime,
                           icon: const Icon(Icons.restart_alt_rounded, size: 16),
                           label: Text(
-                            _localizedText(
+                            openHandLocalizedText(
                               context,
                               zh: '重置运行时',
                               en: 'Reset Runtime',
@@ -1651,7 +1683,7 @@ class _ScraplingSettingsCardState extends State<_ScraplingSettingsCard> {
                                 )
                               : const Icon(Icons.download_rounded, size: 16),
                           label: Text(
-                            _localizedText(
+                            openHandLocalizedText(
                               context,
                               zh: '安装运行时',
                               en: 'Install Runtime',
@@ -1677,7 +1709,7 @@ class _ScraplingSettingsCardState extends State<_ScraplingSettingsCard> {
                                   size: 16,
                                 ),
                           label: Text(
-                            _localizedText(
+                            openHandLocalizedText(
                               context,
                               zh: '卸载运行时',
                               en: 'Uninstall Runtime',
@@ -1690,7 +1722,7 @@ class _ScraplingSettingsCardState extends State<_ScraplingSettingsCard> {
                     TextField(
                       controller: _pythonController,
                       decoration: InputDecoration(
-                        labelText: _localizedText(
+                        labelText: openHandLocalizedText(
                           context,
                           zh: 'Python 可执行文件（留空自动发现）',
                           en: 'Python executable (blank = auto detect)',
@@ -1717,7 +1749,7 @@ class _ScraplingSettingsCardState extends State<_ScraplingSettingsCard> {
                               FilteringTextInputFormatter.digitsOnly,
                             ],
                             decoration: InputDecoration(
-                              labelText: _localizedText(
+                              labelText: openHandLocalizedText(
                                 context,
                                 zh: '启动超时（秒）',
                                 en: 'Startup timeout (s)',
@@ -1749,7 +1781,7 @@ class _ScraplingSettingsCardState extends State<_ScraplingSettingsCard> {
                               FilteringTextInputFormatter.digitsOnly,
                             ],
                             decoration: InputDecoration(
-                              labelText: _localizedText(
+                              labelText: openHandLocalizedText(
                                 context,
                                 zh: '请求超时（秒）',
                                 en: 'Request timeout (s)',
@@ -1780,7 +1812,7 @@ class _ScraplingSettingsCardState extends State<_ScraplingSettingsCard> {
                       keyboardType: TextInputType.number,
                       inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                       decoration: InputDecoration(
-                        labelText: _localizedText(
+                        labelText: openHandLocalizedText(
                           context,
                           zh: '安装/卸载超时（秒）',
                           en: 'Install/Uninstall timeout (s)',
@@ -1804,7 +1836,7 @@ class _ScraplingSettingsCardState extends State<_ScraplingSettingsCard> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      _localizedText(
+                      openHandLocalizedText(
                         context,
                         zh: '默认使用当前 Python 执行 pip install / uninstall Scrapling 运行时；仍保持现有全局弹窗与设置页动效风格。',
                         en: 'Uses the current Python to run pip install / uninstall for the Scrapling runtime while preserving the existing dialog and settings motion style.',
@@ -1833,34 +1865,34 @@ class _ScraplingSettingsCardState extends State<_ScraplingSettingsCard> {
     return (
       colorScheme.primaryContainer,
       colorScheme.onPrimaryContainer,
-      _localizedText(context, zh: '已就绪', en: 'Ready'),
+      openHandLocalizedText(context, zh: '已就绪', en: 'Ready'),
     );
   }
   return switch (probe.code) {
     'python_not_found' => (
       colorScheme.errorContainer,
       colorScheme.onErrorContainer,
-      _localizedText(context, zh: '缺少 Python', en: 'No Python'),
+      openHandLocalizedText(context, zh: '缺少 Python', en: 'No Python'),
     ),
     'scrapling_not_installed' || 'scrapling_fetchers_missing' => (
       colorScheme.tertiaryContainer,
       colorScheme.onTertiaryContainer,
-      _localizedText(context, zh: '缺少依赖', en: 'Missing deps'),
+      openHandLocalizedText(context, zh: '缺少依赖', en: 'Missing deps'),
     ),
     'probe_failed' || 'bridge_exception' => (
       colorScheme.errorContainer,
       colorScheme.onErrorContainer,
-      _localizedText(context, zh: '探测失败', en: 'Probe failed'),
+      openHandLocalizedText(context, zh: '探测失败', en: 'Probe failed'),
     ),
     'not_checked' => (
       colorScheme.surfaceContainerHighest,
       colorScheme.onSurfaceVariant,
-      _localizedText(context, zh: '未检测', en: 'Not checked'),
+      openHandLocalizedText(context, zh: '未检测', en: 'Not checked'),
     ),
     _ => (
       colorScheme.surfaceContainerHighest,
       colorScheme.onSurfaceVariant,
-      _localizedText(context, zh: '未就绪', en: 'Not ready'),
+      openHandLocalizedText(context, zh: '未就绪', en: 'Not ready'),
     ),
   };
 }
@@ -1892,7 +1924,7 @@ class _FetchAdvancedCooldownTierRow extends StatelessWidget {
             child: Text(label, style: theme.textTheme.bodySmall),
           ),
           Text(
-            _localizedText(context, zh: '连续失败 ', en: 'fails ≥ '),
+            openHandLocalizedText(context, zh: '连续失败 ', en: 'fails ≥ '),
             style: theme.textTheme.bodySmall,
           ),
           SizedBox(
@@ -1905,7 +1937,11 @@ class _FetchAdvancedCooldownTierRow extends StatelessWidget {
             ),
           ),
           Text(
-            _localizedText(context, zh: ' 次  →  冷却 ', en: '  →  cooldown '),
+            openHandLocalizedText(
+              context,
+              zh: ' 次  →  冷却 ',
+              en: '  →  cooldown ',
+            ),
             style: theme.textTheme.bodySmall,
           ),
           SizedBox(
@@ -1918,7 +1954,7 @@ class _FetchAdvancedCooldownTierRow extends StatelessWidget {
             ),
           ),
           Text(
-            _localizedText(context, zh: ' 秒', en: ' s'),
+            openHandLocalizedText(context, zh: ' 秒', en: ' s'),
             style: theme.textTheme.bodySmall,
           ),
         ],
@@ -2197,8 +2233,16 @@ class _WebFetchEngineCardState extends State<_WebFetchEngineCard> {
                   ),
                   IconButton(
                     tooltip: _expanded
-                        ? _localizedText(context, zh: '收起', en: 'Collapse')
-                        : _localizedText(context, zh: '展开', en: 'Expand'),
+                        ? openHandLocalizedText(
+                            context,
+                            zh: '收起',
+                            en: 'Collapse',
+                          )
+                        : openHandLocalizedText(
+                            context,
+                            zh: '展开',
+                            en: 'Expand',
+                          ),
                     icon: _SettingsExpandIcon(expanded: _expanded),
                     onPressed: () => setState(() => _expanded = !_expanded),
                   ),
@@ -2215,7 +2259,7 @@ class _WebFetchEngineCardState extends State<_WebFetchEngineCard> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      _localizedText(
+                      openHandLocalizedText(
                         context,
                         zh: '权重 ${cfg.weight} (1 = 最低,100 = 最高;影响 summary 偏重)',
                         en:
@@ -2248,7 +2292,7 @@ class _WebFetchEngineCardState extends State<_WebFetchEngineCard> {
                               FilteringTextInputFormatter.digitsOnly,
                             ],
                             decoration: InputDecoration(
-                              labelText: _localizedText(
+                              labelText: openHandLocalizedText(
                                 context,
                                 zh: '重试次数',
                                 en: 'Max Retries',
@@ -2278,7 +2322,7 @@ class _WebFetchEngineCardState extends State<_WebFetchEngineCard> {
                               FilteringTextInputFormatter.digitsOnly,
                             ],
                             decoration: InputDecoration(
-                              labelText: _localizedText(
+                              labelText: openHandLocalizedText(
                                 context,
                                 zh: '截断阈值 (字符)',
                                 en: 'Truncation (chars)',
@@ -2315,7 +2359,7 @@ class _WebFetchEngineCardState extends State<_WebFetchEngineCard> {
                                 FilteringTextInputFormatter.digitsOnly,
                               ],
                               decoration: InputDecoration(
-                                labelText: _localizedText(
+                                labelText: openHandLocalizedText(
                                   context,
                                   zh: '连接超时 (秒)',
                                   en: 'Connect Timeout (s)',
@@ -2351,7 +2395,7 @@ class _WebFetchEngineCardState extends State<_WebFetchEngineCard> {
                                 FilteringTextInputFormatter.digitsOnly,
                               ],
                               decoration: InputDecoration(
-                                labelText: _localizedText(
+                                labelText: openHandLocalizedText(
                                   context,
                                   zh: '响应超时 (秒)',
                                   en: 'Response Timeout (s)',
@@ -2385,7 +2429,7 @@ class _WebFetchEngineCardState extends State<_WebFetchEngineCard> {
                       TextField(
                         controller: _apiKeyController,
                         decoration: InputDecoration(
-                          labelText: _localizedText(
+                          labelText: openHandLocalizedText(
                             context,
                             zh: 'API Key',
                             en: 'API Key',
@@ -2400,12 +2444,12 @@ class _WebFetchEngineCardState extends State<_WebFetchEngineCard> {
                             heightFactor: 1,
                             child: IconButton(
                               tooltip: _apiKeyVisible
-                                  ? _localizedText(
+                                  ? openHandLocalizedText(
                                       context,
                                       zh: '隐藏 API Key',
                                       en: 'Hide API Key',
                                     )
-                                  : _localizedText(
+                                  : openHandLocalizedText(
                                       context,
                                       zh: '显示 API Key',
                                       en: 'Show API Key',
@@ -2454,7 +2498,7 @@ class _WebFetchEngineCardState extends State<_WebFetchEngineCard> {
                           initialValue: cfg.providerConfigId,
                           isExpanded: true,
                           decoration: InputDecoration(
-                            labelText: _localizedText(
+                            labelText: openHandLocalizedText(
                               context,
                               zh: '复用 Provider 的 API Key (可选)',
                               en: 'Reuse Provider API Key (optional)',
@@ -2463,7 +2507,11 @@ class _WebFetchEngineCardState extends State<_WebFetchEngineCard> {
                           items: [
                             DropdownMenuItem<String?>(
                               child: Text(
-                                _localizedText(context, zh: '不复用', en: 'None'),
+                                openHandLocalizedText(
+                                  context,
+                                  zh: '不复用',
+                                  en: 'None',
+                                ),
                               ),
                             ),
                             for (final m in widget.availableModels)
@@ -2520,67 +2568,67 @@ String? _fetchApiKeyHint(AiWebFetchEngineKind kind) {
 
 String _fetchEngineSubtitle(BuildContext context, AiWebFetchEngineKind kind) {
   return switch (kind) {
-    AiWebFetchEngineKind.firecrawl => _localizedText(
+    AiWebFetchEngineKind.firecrawl => openHandLocalizedText(
       context,
       zh: '专业网页抓取 · 渲染 JS',
       en: 'Pro scrape · renders JS',
     ),
-    AiWebFetchEngineKind.scrapling => _localizedText(
+    AiWebFetchEngineKind.scrapling => openHandLocalizedText(
       context,
       zh: '本地 Python 抓取 · 复杂页面更稳',
       en: 'Local Python scrape · better on complex pages',
     ),
-    AiWebFetchEngineKind.jina => _localizedText(
+    AiWebFetchEngineKind.jina => openHandLocalizedText(
       context,
       zh: 'r.jina.ai · Markdown 正文',
       en: 'r.jina.ai · Markdown content',
     ),
-    AiWebFetchEngineKind.tavily => _localizedText(
+    AiWebFetchEngineKind.tavily => openHandLocalizedText(
       context,
       zh: 'Tavily Extract · advanced',
       en: 'Tavily Extract · advanced',
     ),
-    AiWebFetchEngineKind.exa => _localizedText(
+    AiWebFetchEngineKind.exa => openHandLocalizedText(
       context,
       zh: 'Exa Contents · livecrawl',
       en: 'Exa Contents · livecrawl',
     ),
-    AiWebFetchEngineKind.kimi => _localizedText(
+    AiWebFetchEngineKind.kimi => openHandLocalizedText(
       context,
       zh: 'Moonshot 内置联网 · 以 URL 为查询',
       en: 'Moonshot web tool · query=URL',
     ),
-    AiWebFetchEngineKind.baidu => _localizedText(
+    AiWebFetchEngineKind.baidu => openHandLocalizedText(
       context,
       zh: '百度 AI 搜索 · 以 URL 为查询',
       en: 'Baidu AI search · query=URL',
     ),
-    AiWebFetchEngineKind.linkup => _localizedText(
+    AiWebFetchEngineKind.linkup => openHandLocalizedText(
       context,
       zh: 'Linkup deep · 以 URL 为查询',
       en: 'Linkup deep · query=URL',
     ),
-    AiWebFetchEngineKind.bocha => _localizedText(
+    AiWebFetchEngineKind.bocha => openHandLocalizedText(
       context,
       zh: '博查 · 以 URL 为查询',
       en: 'Bocha · query=URL',
     ),
-    AiWebFetchEngineKind.duckduckgo => _localizedText(
+    AiWebFetchEngineKind.duckduckgo => openHandLocalizedText(
       context,
       zh: '无 Key · HTTP 直连兜底',
       en: 'No-key · direct HTTP fallback',
     ),
-    AiWebFetchEngineKind.grok => _localizedText(
+    AiWebFetchEngineKind.grok => openHandLocalizedText(
       context,
       zh: 'xAI Live Search · 引用解析 URL',
       en: 'xAI Live · citations',
     ),
-    AiWebFetchEngineKind.gemini => _localizedText(
+    AiWebFetchEngineKind.gemini => openHandLocalizedText(
       context,
       zh: 'Google Grounding · URL 摘录',
       en: 'Google Grounding · URL excerpt',
     ),
-    AiWebFetchEngineKind.bing => _localizedText(
+    AiWebFetchEngineKind.bing => openHandLocalizedText(
       context,
       zh: '默认兜底 · HTTP 直连',
       en: 'Default fallback · direct HTTP',

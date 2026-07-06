@@ -58,7 +58,11 @@ class _HarnessSessionTile extends StatelessWidget {
                   const Icon(Icons.edit_outlined, size: 18),
                   const SizedBox(width: 8),
                   Text(
-                    _localizedText(context, zh: '重命名线程', en: 'Rename Thread'),
+                    openHandLocalizedText(
+                      context,
+                      zh: '重命名线程',
+                      en: 'Rename Thread',
+                    ),
                   ),
                 ],
               ),
@@ -80,7 +84,7 @@ class _HarnessSessionTile extends StatelessWidget {
                   const Icon(Icons.file_download_outlined, size: 18),
                   const SizedBox(width: 8),
                   Text(
-                    _localizedText(
+                    openHandLocalizedText(
                       context,
                       zh: '导出会话数据',
                       en: 'Export Session Data',
@@ -349,7 +353,11 @@ class _ThreadTile extends StatelessWidget {
                   const Icon(Icons.edit_outlined, size: 18),
                   const SizedBox(width: 8),
                   Text(
-                    _localizedText(context, zh: '重命名线程', en: 'Rename Thread'),
+                    openHandLocalizedText(
+                      context,
+                      zh: '重命名线程',
+                      en: 'Rename Thread',
+                    ),
                   ),
                 ],
               ),
@@ -371,7 +379,7 @@ class _ThreadTile extends StatelessWidget {
                   const Icon(Icons.file_download_outlined, size: 18),
                   const SizedBox(width: 8),
                   Text(
-                    _localizedText(
+                    openHandLocalizedText(
                       context,
                       zh: '导出会话数据',
                       en: 'Export Session Data',
@@ -388,7 +396,7 @@ class _ThreadTile extends StatelessWidget {
                     const Icon(Icons.auto_awesome_outlined, size: 18),
                     const SizedBox(width: 8),
                     Text(
-                      _localizedText(
+                      openHandLocalizedText(
                         context,
                         zh: '获取 AI 摘要标题',
                         en: 'Generate AI Title',
@@ -492,22 +500,22 @@ class _ActiveThreadBadge extends StatelessWidget {
         ? colorScheme.onPrimaryContainer.withValues(alpha: 0.14)
         : colorScheme.primary.withValues(alpha: 0.12);
     final label = switch (sendPhase) {
-      AiSendPhase.compressing => _localizedText(
+      AiSendPhase.compressing => openHandLocalizedText(
         context,
         zh: '压缩中',
         en: 'Compressing',
       ),
-      AiSendPhase.sendingMessage => _localizedText(
+      AiSendPhase.sendingMessage => openHandLocalizedText(
         context,
         zh: '发送中',
         en: 'Sending',
       ),
-      AiSendPhase.responding => _localizedText(
+      AiSendPhase.responding => openHandLocalizedText(
         context,
         zh: '进行中',
         en: 'Active',
       ),
-      AiSendPhase.awaitingApproval => _localizedText(
+      AiSendPhase.awaitingApproval => openHandLocalizedText(
         context,
         zh: '等待批准',
         en: 'Awaiting Approval',

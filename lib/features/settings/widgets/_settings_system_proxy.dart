@@ -543,7 +543,7 @@ class _InputRepairSectionState extends State<_InputRepairSection> {
         ),
         actions: [
           OpenHandDialogActionButton.secondary(
-            label: _localizedText(dialogContext, zh: '复制', en: 'Copy'),
+            label: openHandLocalizedText(dialogContext, zh: '复制', en: 'Copy'),
             onPressed: restarting
                 ? null
                 : () async {
@@ -553,7 +553,11 @@ class _InputRepairSectionState extends State<_InputRepairSection> {
                   },
           ),
           OpenHandDialogActionButton.primary(
-            label: _localizedText(dialogContext, zh: '重启', en: 'Restart'),
+            label: openHandLocalizedText(
+              dialogContext,
+              zh: '重启',
+              en: 'Restart',
+            ),
             icon: Icons.restart_alt_rounded,
             busy: restarting,
             onPressed: restarting
@@ -625,29 +629,29 @@ class _InputRepairSectionState extends State<_InputRepairSection> {
   String _formatRestartFailure(BuildContext context, Object error) {
     if (error is AppRestartException) {
       return switch (error.failure) {
-        AppRestartFailure.missingExecutable => _localizedText(
+        AppRestartFailure.missingExecutable => openHandLocalizedText(
           context,
           zh: '重启失败：无法定位当前应用可执行文件。',
           en: 'Restart failed: current app executable was not found.',
         ),
-        AppRestartFailure.prepareFailed => _localizedText(
+        AppRestartFailure.prepareFailed => openHandLocalizedText(
           context,
           zh: '重启失败：无法准备新的应用实例，请手动退出后重新打开。',
           en: 'Restart failed: could not prepare a new app instance. Please quit and reopen manually.',
         ),
-        AppRestartFailure.exitCanceled => _localizedText(
+        AppRestartFailure.exitCanceled => openHandLocalizedText(
           context,
           zh: '重启已取消：当前应用没有退出。',
           en: 'Restart canceled: the current app did not exit.',
         ),
-        AppRestartFailure.unsupportedPlatform => _localizedText(
+        AppRestartFailure.unsupportedPlatform => openHandLocalizedText(
           context,
           zh: '当前平台暂不支持应用内重启，请手动退出后重新打开。',
           en: 'In-app restart is not supported on this platform. Please quit and reopen manually.',
         ),
       };
     }
-    return _localizedText(
+    return openHandLocalizedText(
       context,
       zh: '重启失败，请手动退出后重新打开应用。',
       en: 'Restart failed. Please quit and reopen the app manually.',

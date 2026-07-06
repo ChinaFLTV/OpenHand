@@ -108,7 +108,11 @@ class _MachineExpertTerminalPanelState
           children: [
             Center(
               child: Text(
-                _localizedText(context, zh: '正在启动终端', en: 'Starting terminal'),
+                openHandLocalizedText(
+                  context,
+                  zh: '正在启动终端',
+                  en: 'Starting terminal',
+                ),
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: cs.onSurfaceVariant,
                   fontWeight: FontWeight.w700,
@@ -121,7 +125,7 @@ class _MachineExpertTerminalPanelState
                 right: 0,
                 child: _MachineTerminalIconButton(
                   icon: Icons.close_rounded,
-                  tooltip: _localizedText(
+                  tooltip: openHandLocalizedText(
                     context,
                     zh: '关闭面板',
                     en: 'Close Panel',
@@ -211,7 +215,7 @@ class _MachineExpertTerminalPanelState
       showFriendlyErrorSnackBar(
         context,
         message: '$error',
-        fallback: _localizedText(
+        fallback: openHandLocalizedText(
           context,
           zh: '终端操作失败。',
           en: 'Terminal action failed.',
@@ -227,7 +231,11 @@ class _MachineExpertTerminalPanelState
       context,
       SnackBar(
         content: Text(
-          _localizedText(context, zh: '终端 ID 已复制。', en: 'Terminal ID copied.'),
+          openHandLocalizedText(
+            context,
+            zh: '终端 ID 已复制。',
+            en: 'Terminal ID copied.',
+          ),
         ),
       ),
     );
@@ -369,7 +377,11 @@ class _MachineTerminalHeader extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    _localizedText(context, zh: '机器终端', en: 'Machine Terminal'),
+                    openHandLocalizedText(
+                      context,
+                      zh: '机器终端',
+                      en: 'Machine Terminal',
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.titleSmall?.copyWith(
@@ -391,14 +403,22 @@ class _MachineTerminalHeader extends StatelessWidget {
             ),
             _MachineTerminalIconButton(
               icon: Icons.copy_rounded,
-              tooltip: _localizedText(context, zh: '复制 ID', en: 'Copy ID'),
+              tooltip: openHandLocalizedText(
+                context,
+                zh: '复制 ID',
+                en: 'Copy ID',
+              ),
               onPressed: onCopyId,
             ),
             if (onPanelClose != null) ...[
               const SizedBox(width: 7),
               _MachineTerminalIconButton(
                 icon: Icons.close_rounded,
-                tooltip: _localizedText(context, zh: '关闭面板', en: 'Close Panel'),
+                tooltip: openHandLocalizedText(
+                  context,
+                  zh: '关闭面板',
+                  en: 'Close Panel',
+                ),
                 onPressed: onPanelClose,
               ),
             ],
@@ -438,12 +458,16 @@ class _MachineTerminalHeader extends StatelessWidget {
           children: [
             _MachineTerminalIconButton(
               icon: Icons.add_rounded,
-              tooltip: _localizedText(context, zh: '新建终端', en: 'New Terminal'),
+              tooltip: openHandLocalizedText(
+                context,
+                zh: '新建终端',
+                en: 'New Terminal',
+              ),
               onPressed: onNew,
             ),
             _MachineTerminalIconButton(
               icon: Icons.content_copy_rounded,
-              tooltip: _localizedText(
+              tooltip: openHandLocalizedText(
                 context,
                 zh: '复制终端',
                 en: 'Duplicate Terminal',
@@ -452,27 +476,31 @@ class _MachineTerminalHeader extends StatelessWidget {
             ),
             _MachineTerminalIconButton(
               icon: Icons.play_arrow_rounded,
-              tooltip: _localizedText(context, zh: '启动', en: 'Start'),
+              tooltip: openHandLocalizedText(context, zh: '启动', en: 'Start'),
               onPressed: canStart ? onStart : null,
             ),
             _MachineTerminalIconButton(
               icon: Icons.stop_rounded,
-              tooltip: _localizedText(context, zh: '关闭进程', en: 'Stop Process'),
+              tooltip: openHandLocalizedText(
+                context,
+                zh: '关闭进程',
+                en: 'Stop Process',
+              ),
               onPressed: canStop ? onStop : null,
             ),
             _MachineTerminalIconButton(
               icon: Icons.restart_alt_rounded,
-              tooltip: _localizedText(context, zh: '重启', en: 'Restart'),
+              tooltip: openHandLocalizedText(context, zh: '重启', en: 'Restart'),
               onPressed: onRestart,
             ),
             _MachineTerminalIconButton(
               icon: Icons.cleaning_services_rounded,
-              tooltip: _localizedText(context, zh: '清屏', en: 'Clear'),
+              tooltip: openHandLocalizedText(context, zh: '清屏', en: 'Clear'),
               onPressed: onClear,
             ),
             _MachineTerminalIconButton(
               icon: Icons.history_rounded,
-              tooltip: _localizedText(
+              tooltip: openHandLocalizedText(
                 context,
                 zh: '执行历史',
                 en: 'Execution History',
@@ -569,12 +597,12 @@ class _MachineTerminalHistoryDialogState
           children: [
             _MachineTerminalDialogHeader(
               icon: Icons.history_rounded,
-              title: _localizedText(
+              title: openHandLocalizedText(
                 context,
                 zh: '终端执行历史',
                 en: 'Terminal History',
               ),
-              subtitle: _localizedText(
+              subtitle: openHandLocalizedText(
                 context,
                 zh: '当前线程关联 ${terminals.length} 个终端会话 · 当前 ${activeTerminalId.isEmpty ? '-' : activeTerminalId}',
                 en: '${terminals.length} terminal sessions · active ${activeTerminalId.isEmpty ? '-' : activeTerminalId}',
@@ -608,7 +636,7 @@ class _MachineTerminalHistoryDialogState
     if (terminals.isEmpty) {
       return Center(
         child: Text(
-          _localizedText(
+          openHandLocalizedText(
             context,
             zh: '暂无终端会话历史。',
             en: 'No terminal history yet.',
@@ -674,50 +702,50 @@ class _MachineTerminalHistoryDialogState
         children: [
           _historyCell(
             context,
-            _localizedText(context, zh: '终端', en: 'Terminal'),
+            openHandLocalizedText(context, zh: '终端', en: 'Terminal'),
             width: _terminalColumnWidth,
             header: true,
           ),
           _historyCell(
             context,
-            _localizedText(context, zh: '状态', en: 'Status'),
+            openHandLocalizedText(context, zh: '状态', en: 'Status'),
             width: _statusColumnWidth,
             header: true,
           ),
           _historyCell(context, 'PID', width: _pidColumnWidth, header: true),
           _historyCell(
             context,
-            _localizedText(context, zh: '尺寸', en: 'Size'),
+            openHandLocalizedText(context, zh: '尺寸', en: 'Size'),
             width: _sizeColumnWidth,
             header: true,
           ),
           _historyCell(
             context,
-            _localizedText(context, zh: '命令', en: 'Commands'),
+            openHandLocalizedText(context, zh: '命令', en: 'Commands'),
             width: _commandsColumnWidth,
             header: true,
           ),
           _historyCell(
             context,
-            _localizedText(context, zh: '输出', en: 'Output'),
+            openHandLocalizedText(context, zh: '输出', en: 'Output'),
             width: _outputColumnWidth,
             header: true,
           ),
           _historyCell(
             context,
-            _localizedText(context, zh: '启动时间', en: 'Started'),
+            openHandLocalizedText(context, zh: '启动时间', en: 'Started'),
             width: _timeColumnWidth,
             header: true,
           ),
           _historyCell(
             context,
-            _localizedText(context, zh: '更新时间', en: 'Updated'),
+            openHandLocalizedText(context, zh: '更新时间', en: 'Updated'),
             width: _timeColumnWidth,
             header: true,
           ),
           _historyCell(
             context,
-            _localizedText(context, zh: '操作', en: 'Actions'),
+            openHandLocalizedText(context, zh: '操作', en: 'Actions'),
             width: _actionsColumnWidth,
             header: true,
             alignEnd: true,
@@ -763,7 +791,11 @@ class _MachineTerminalHistoryDialogState
             ),
             trailing: active
                 ? _MachineTerminalTinyBadge(
-                    label: _localizedText(context, zh: '当前', en: 'Active'),
+                    label: openHandLocalizedText(
+                      context,
+                      zh: '当前',
+                      en: 'Active',
+                    ),
                   )
                 : null,
           ),
@@ -819,7 +851,11 @@ class _MachineTerminalHistoryDialogState
               children: [
                 _MachineTerminalMiniActionButton(
                   icon: Icons.replay_rounded,
-                  tooltip: _localizedText(context, zh: '回放', en: 'Replay'),
+                  tooltip: openHandLocalizedText(
+                    context,
+                    zh: '回放',
+                    en: 'Replay',
+                  ),
                   onPressed: deleting ? null : () => widget.onReplay(terminal),
                 ),
                 const SizedBox(width: 6),
@@ -827,7 +863,11 @@ class _MachineTerminalHistoryDialogState
                   icon: deleting
                       ? Icons.hourglass_top_rounded
                       : Icons.delete_outline_rounded,
-                  tooltip: _localizedText(context, zh: '删除', en: 'Delete'),
+                  tooltip: openHandLocalizedText(
+                    context,
+                    zh: '删除',
+                    en: 'Delete',
+                  ),
                   destructive: true,
                   onPressed: deleting ? null : () => _deleteTerminal(terminal),
                 ),
@@ -901,7 +941,11 @@ class _MachineTerminalHistoryDialogState
         context,
         SnackBar(
           content: Text(
-            _localizedText(context, zh: '终端会话已删除。', en: 'Terminal deleted.'),
+            openHandLocalizedText(
+              context,
+              zh: '终端会话已删除。',
+              en: 'Terminal deleted.',
+            ),
           ),
         ),
       );
@@ -916,7 +960,7 @@ class _MachineTerminalHistoryDialogState
       showFriendlyErrorSnackBar(
         context,
         message: '$error',
-        fallback: _localizedText(
+        fallback: openHandLocalizedText(
           context,
           zh: '删除终端会话失败。',
           en: 'Failed to delete terminal.',
@@ -944,17 +988,17 @@ class _MachineTerminalHistoryMetrics extends StatelessWidget {
     final metrics = <Widget>[
       _MachineTerminalHistoryMetric(
         icon: Icons.layers_rounded,
-        label: _localizedText(context, zh: '终端数量', en: 'Terminals'),
+        label: openHandLocalizedText(context, zh: '终端数量', en: 'Terminals'),
         value: '$terminalCount',
       ),
       _MachineTerminalHistoryMetric(
         icon: Icons.code_rounded,
-        label: _localizedText(context, zh: '命令记录', en: 'Commands'),
+        label: openHandLocalizedText(context, zh: '命令记录', en: 'Commands'),
         value: '$commandCount',
       ),
       _MachineTerminalHistoryMetric(
         icon: Icons.storage_rounded,
-        label: _localizedText(context, zh: '历史输出', en: 'Output'),
+        label: openHandLocalizedText(context, zh: '历史输出', en: 'Output'),
         value: outputSize,
       ),
     ];
@@ -1057,13 +1101,13 @@ class _MachineTerminalReplayDialogState
           children: [
             _MachineTerminalDialogHeader(
               icon: Icons.replay_rounded,
-              title: _localizedText(
+              title: openHandLocalizedText(
                 context,
                 zh: '终端历史回放',
                 en: 'Terminal Replay',
               ),
               subtitle:
-                  '${widget.snapshot.terminalId} · ${formatByteSize(widget.snapshot.historyOutputCharacters)} · ${_localizedText(context, zh: '命令', en: 'commands')} ${widget.snapshot.commandCount}',
+                  '${widget.snapshot.terminalId} · ${formatByteSize(widget.snapshot.historyOutputCharacters)} · ${openHandLocalizedText(context, zh: '命令', en: 'commands')} ${widget.snapshot.commandCount}',
               onClose: () => Navigator.of(context).pop(),
             ),
             Padding(
@@ -1192,7 +1236,7 @@ class _MachineTerminalDialogHeader extends StatelessWidget {
           ),
           _MachineTerminalIconButton(
             icon: Icons.close_rounded,
-            tooltip: _localizedText(context, zh: '关闭', en: 'Close'),
+            tooltip: openHandLocalizedText(context, zh: '关闭', en: 'Close'),
             onPressed: onClose,
           ),
         ],
@@ -1456,7 +1500,7 @@ class _MachineTerminalTabCloseButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return Tooltip(
-      message: _localizedText(context, zh: '关闭终端', en: 'Close Terminal'),
+      message: openHandLocalizedText(context, zh: '关闭终端', en: 'Close Terminal'),
       child: InkResponse(
         onTap: onPressed,
         radius: 13,
@@ -1504,7 +1548,7 @@ class _MachineTerminalMetadataBar extends StatelessWidget {
             _MachineTerminalMetaLine(
               icon: Icons.schedule_rounded,
               text:
-                  '${_localizedText(context, zh: '更新', en: 'Updated')} ${formatYearMonthDayHms(snapshot.updatedAt.toLocal())}',
+                  '${openHandLocalizedText(context, zh: '更新', en: 'Updated')} ${formatYearMonthDayHms(snapshot.updatedAt.toLocal())}',
             ),
             if (snapshot.errorMessage != null) ...[
               const SizedBox(height: 5),
@@ -1691,27 +1735,31 @@ Color _terminalStatusColor(ColorScheme cs, MachineTerminalStatus status) {
 
 String _statusLabel(BuildContext context, MachineTerminalStatus status) {
   return switch (status) {
-    MachineTerminalStatus.running => _localizedText(
+    MachineTerminalStatus.running => openHandLocalizedText(
       context,
       zh: '运行中',
       en: 'Running',
     ),
-    MachineTerminalStatus.starting => _localizedText(
+    MachineTerminalStatus.starting => openHandLocalizedText(
       context,
       zh: '启动中',
       en: 'Starting',
     ),
-    MachineTerminalStatus.stopped => _localizedText(
+    MachineTerminalStatus.stopped => openHandLocalizedText(
       context,
       zh: '已停止',
       en: 'Stopped',
     ),
-    MachineTerminalStatus.failed => _localizedText(
+    MachineTerminalStatus.failed => openHandLocalizedText(
       context,
       zh: '异常',
       en: 'Failed',
     ),
-    MachineTerminalStatus.idle => _localizedText(context, zh: '待机', en: 'Idle'),
+    MachineTerminalStatus.idle => openHandLocalizedText(
+      context,
+      zh: '待机',
+      en: 'Idle',
+    ),
   };
 }
 

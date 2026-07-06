@@ -528,25 +528,33 @@ String _navigationDestinationLabel(BuildContext context, AppSection section) {
     AppSection.skills => l10n.skills,
     AppSection.memory => l10n.memory,
     AppSection.mcp => l10n.mcp,
-    AppSection.hooks => _localizedText(context, zh: 'Hooks', en: 'Hooks'),
+    AppSection.hooks => openHandLocalizedText(
+      context,
+      zh: 'Hooks',
+      en: 'Hooks',
+    ),
     AppSection.crons => 'Crons',
-    AppSection.instructions => _localizedText(
+    AppSection.instructions => openHandLocalizedText(
       context,
       zh: '指令',
       en: 'Instructions',
     ),
     AppSection.messageGateway => l10n.settingsMessageGatewayTitle,
-    AppSection.pluginService => _localizedText(
+    AppSection.pluginService => openHandLocalizedText(
       context,
       zh: '插件',
       en: 'Plugins',
     ),
-    AppSection.knowledgeBase => _localizedText(
+    AppSection.knowledgeBase => openHandLocalizedText(
       context,
       zh: '知识库',
       en: 'Knowledge Base',
     ),
-    AppSection.agents => _localizedText(context, zh: '智能体', en: 'Agents'),
+    AppSection.agents => openHandLocalizedText(
+      context,
+      zh: '智能体',
+      en: 'Agents',
+    ),
     AppSection.settings => l10n.settings,
     AppSection.workspace || AppSection.harnessSession => '',
   };

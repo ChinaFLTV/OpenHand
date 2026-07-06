@@ -29,7 +29,7 @@ class _HeChangedFilesList extends StatelessWidget {
               ),
               const SizedBox(width: 6),
               Text(
-                _heHarnessText(
+                openHandLocalizedText(
                   context,
                   zh: '文件变动 (${files.length})',
                   zhHant: '檔案變動 (${files.length})',
@@ -226,7 +226,7 @@ class _HeFileDiffDialogState extends State<_HeFileDiffDialog> {
                           if (!_computing) ...[
                             const SizedBox(width: 8),
                             Text(
-                              _heHarnessText(
+                              openHandLocalizedText(
                                 context,
                                 zh: '$safeAdditions 处新增，$safeDeletions 处删除',
                                 zhHant: '$safeAdditions 處新增，$safeDeletions 處刪除',
@@ -277,7 +277,7 @@ class _HeFileDiffDialogState extends State<_HeFileDiffDialog> {
                                 const CircularProgressIndicator(),
                                 const SizedBox(height: 16),
                                 Text(
-                                  _heHarnessText(
+                                  openHandLocalizedText(
                                     context,
                                     zh: '正在计算差异…',
                                     zhHant: '正在計算差異…',
@@ -322,7 +322,7 @@ class _HeFileDiffDialogState extends State<_HeFileDiffDialog> {
                             context,
                             SnackBar(
                               content: Text(
-                                _heHarnessText(
+                                openHandLocalizedText(
                                   context,
                                   zh: 'Diff 已复制',
                                   zhHant: 'Diff 已複製',
@@ -336,7 +336,7 @@ class _HeFileDiffDialogState extends State<_HeFileDiffDialog> {
                             ),
                           );
                         },
-                  label: _heHarnessText(
+                  label: openHandLocalizedText(
                     context,
                     zh: '复制 Diff',
                     zhHant: '複製 Diff',
@@ -349,7 +349,7 @@ class _HeFileDiffDialogState extends State<_HeFileDiffDialog> {
                 const SizedBox(width: 10),
                 OpenHandDialogActionButton.secondary(
                   onPressed: () => Navigator.of(context).pop(),
-                  label: _heHarnessText(
+                  label: openHandLocalizedText(
                     context,
                     zh: '关闭',
                     zhHant: '關閉',
@@ -369,7 +369,7 @@ class _HeFileDiffDialogState extends State<_HeFileDiffDialog> {
 
   String _changeTypeLabel() {
     return switch (widget.file.changeType) {
-      HarnessFileChangeType.added => _heHarnessText(
+      HarnessFileChangeType.added => openHandLocalizedText(
         context,
         zh: '新增文件',
         zhHant: '新增檔案',
@@ -378,7 +378,7 @@ class _HeFileDiffDialogState extends State<_HeFileDiffDialog> {
         de: 'Hinzugefügt',
         ja: '追加',
       ),
-      HarnessFileChangeType.modified => _heHarnessText(
+      HarnessFileChangeType.modified => openHandLocalizedText(
         context,
         zh: '已修改',
         zhHant: '已修改',
@@ -387,7 +387,7 @@ class _HeFileDiffDialogState extends State<_HeFileDiffDialog> {
         de: 'Geändert',
         ja: '変更済み',
       ),
-      HarnessFileChangeType.deleted => _heHarnessText(
+      HarnessFileChangeType.deleted => openHandLocalizedText(
         context,
         zh: '已删除',
         zhHant: '已刪除',

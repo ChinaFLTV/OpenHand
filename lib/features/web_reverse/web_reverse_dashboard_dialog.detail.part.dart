@@ -108,7 +108,7 @@ class _RequestDetailPanelState extends State<_RequestDetailPanel> {
             width: 32,
             height: 32,
             child: Tooltip(
-              message: _wrText(
+              message: openHandLocalizedText(
                 context,
                 zh: '关闭详情',
                 zhHant: '關閉詳情',
@@ -153,7 +153,7 @@ class _RequestDetailPanelState extends State<_RequestDetailPanel> {
             width: 32,
             height: 32,
             child: Tooltip(
-              message: _wrText(
+              message: openHandLocalizedText(
                 context,
                 zh: '重放 / 改包',
                 zhHant: '重放 / 改包',
@@ -184,7 +184,7 @@ class _RequestDetailPanelState extends State<_RequestDetailPanel> {
             width: 32,
             height: 32,
             child: Tooltip(
-              message: _wrText(
+              message: openHandLocalizedText(
                 context,
                 zh: '复制为...',
                 zhHant: '複製為...',
@@ -234,7 +234,7 @@ class _RequestDetailPanelState extends State<_RequestDetailPanel> {
       context,
       _wrClipboardSnackMessage(
         context,
-        base: _wrText(
+        base: openHandLocalizedText(
           context,
           zh: '已复制为 $kind',
           zhHant: '已複製為 $kind',
@@ -280,7 +280,7 @@ class _RequestDetailPanelState extends State<_RequestDetailPanel> {
 
   static String _detailTabLabel(BuildContext context, _DetailTab t) =>
       switch (t) {
-        _DetailTab.headers => _wrText(
+        _DetailTab.headers => openHandLocalizedText(
           context,
           zh: '标头',
           zhHant: '標頭',
@@ -289,7 +289,7 @@ class _RequestDetailPanelState extends State<_RequestDetailPanel> {
           de: 'Header',
           ja: 'ヘッダー',
         ),
-        _DetailTab.preview => _wrText(
+        _DetailTab.preview => openHandLocalizedText(
           context,
           zh: '预览',
           zhHant: '預覽',
@@ -298,7 +298,7 @@ class _RequestDetailPanelState extends State<_RequestDetailPanel> {
           de: 'Vorschau',
           ja: 'プレビュー',
         ),
-        _DetailTab.response => _wrText(
+        _DetailTab.response => openHandLocalizedText(
           context,
           zh: '响应',
           zhHant: '回應',
@@ -307,7 +307,7 @@ class _RequestDetailPanelState extends State<_RequestDetailPanel> {
           de: 'Antwort',
           ja: 'レスポンス',
         ),
-        _DetailTab.initiator => _wrText(
+        _DetailTab.initiator => openHandLocalizedText(
           context,
           zh: '发起方',
           zhHant: '發起方',
@@ -316,7 +316,7 @@ class _RequestDetailPanelState extends State<_RequestDetailPanel> {
           de: 'Auslöser',
           ja: 'イニシエーター',
         ),
-        _DetailTab.timing => _wrText(
+        _DetailTab.timing => openHandLocalizedText(
           context,
           zh: '耗时',
           zhHant: '耗時',
@@ -325,7 +325,7 @@ class _RequestDetailPanelState extends State<_RequestDetailPanel> {
           de: 'Timing',
           ja: 'タイミング',
         ),
-        _DetailTab.messages => _wrText(
+        _DetailTab.messages => openHandLocalizedText(
           context,
           zh: '消息',
           zhHant: '訊息',
@@ -419,7 +419,7 @@ class _HeadersTab extends StatelessWidget {
     final cs = theme.colorScheme;
     final general = <(String, String)>[
       (
-        _wrText(
+        openHandLocalizedText(
           context,
           zh: '请求 URL',
           zhHant: '請求 URL',
@@ -431,7 +431,7 @@ class _HeadersTab extends StatelessWidget {
         entry.url,
       ),
       (
-        _wrText(
+        openHandLocalizedText(
           context,
           zh: '请求方法',
           zhHant: '請求方法',
@@ -443,7 +443,7 @@ class _HeadersTab extends StatelessWidget {
         entry.method,
       ),
       (
-        _wrText(
+        openHandLocalizedText(
           context,
           zh: '状态码',
           zhHant: '狀態碼',
@@ -454,8 +454,8 @@ class _HeadersTab extends StatelessWidget {
         ),
         entry.statusCode == null
             ? (entry.failed
-                  ? '(${entry.errorText ?? _wrText(context, zh: "失败", zhHant: "失敗", en: "failed", fr: "échec", de: "fehlgeschlagen", ja: "失敗")})'
-                  : _wrText(
+                  ? '(${entry.errorText ?? openHandLocalizedText(context, zh: "失败", zhHant: "失敗", en: "failed", fr: "échec", de: "fehlgeschlagen", ja: "失敗")})'
+                  : openHandLocalizedText(
                       context,
                       zh: '(等待中)',
                       zhHant: '(等待中)',
@@ -468,7 +468,7 @@ class _HeadersTab extends StatelessWidget {
       ),
       if (entry.remoteAddress != null)
         (
-          _wrText(
+          openHandLocalizedText(
             context,
             zh: '远端地址',
             zhHant: '遠端位址',
@@ -481,7 +481,7 @@ class _HeadersTab extends StatelessWidget {
         ),
       if (entry.protocol != null)
         (
-          _wrText(
+          openHandLocalizedText(
             context,
             zh: '协议',
             zhHant: '通訊協定',
@@ -493,7 +493,7 @@ class _HeadersTab extends StatelessWidget {
           entry.protocol!,
         ),
       (
-        _wrText(
+        openHandLocalizedText(
           context,
           zh: '资源类型',
           zhHant: '資源類型',
@@ -506,7 +506,7 @@ class _HeadersTab extends StatelessWidget {
       ),
       if (entry.fromCache)
         (
-          _wrText(
+          openHandLocalizedText(
             context,
             zh: '来自缓存',
             zhHant: '來自快取',
@@ -515,7 +515,7 @@ class _HeadersTab extends StatelessWidget {
             de: 'Aus Cache',
             ja: 'キャッシュから',
           ),
-          _wrText(
+          openHandLocalizedText(
             context,
             zh: '是',
             zhHant: '是',
@@ -530,7 +530,7 @@ class _HeadersTab extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
       children: [
         _HeaderSection(
-          title: _wrText(
+          title: openHandLocalizedText(
             context,
             zh: '常规',
             zhHant: '一般',
@@ -543,7 +543,7 @@ class _HeadersTab extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         _HeaderSection(
-          title: _wrText(
+          title: openHandLocalizedText(
             context,
             zh: '响应标头',
             zhHant: '回應標頭',
@@ -558,7 +558,7 @@ class _HeadersTab extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         _HeaderSection(
-          title: _wrText(
+          title: openHandLocalizedText(
             context,
             zh: '请求标头',
             zhHant: '請求標頭',
@@ -575,7 +575,7 @@ class _HeadersTab extends StatelessWidget {
             entry.requestPostData!.isNotEmpty) ...[
           const SizedBox(height: 12),
           Text(
-            _wrText(
+            openHandLocalizedText(
               context,
               zh: '请求体',
               zhHant: '請求本文',
@@ -627,7 +627,7 @@ class _HeaderSection extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.all(6),
             child: Text(
-              _wrText(
+              openHandLocalizedText(
                 context,
                 zh: '(空)',
                 zhHant: '(空)',
@@ -729,7 +729,7 @@ class _BodyTab extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Text(
-            _wrText(
+            openHandLocalizedText(
               context,
               zh: '响应体不可用（可能已被回收，或服务端返回了空 body）。',
               zhHant: '回應本文不可用（可能已被回收，或伺服器回傳了空 body）。',
@@ -753,7 +753,7 @@ class _BodyTab extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              _wrText(
+              openHandLocalizedText(
                 context,
                 zh: '二进制响应',
                 zhHant: '二進位回應',
@@ -768,7 +768,7 @@ class _BodyTab extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             Text(
-              _wrText(
+              openHandLocalizedText(
                 context,
                 zh: '类型 ${mimeType ?? "(未知)"} · 大小约 ${text!.length ~/ 4 * 3} 字节（base64）',
                 zhHant:
@@ -877,7 +877,7 @@ class _InitiatorTab extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       children: [
         Text(
-          _wrText(
+          openHandLocalizedText(
             context,
             zh: '发起方',
             zhHant: '發起方',
@@ -893,7 +893,7 @@ class _InitiatorTab extends StatelessWidget {
         ),
         const SizedBox(height: 6),
         _MetaRow(
-          label: _wrText(
+          label: openHandLocalizedText(
             context,
             zh: '类型',
             zhHant: '類型',
@@ -915,7 +915,7 @@ class _InitiatorTab extends StatelessWidget {
           ),
         if (initLine != null && initUrl.isEmpty)
           _MetaRow(
-            label: _wrText(
+            label: openHandLocalizedText(
               context,
               zh: '行',
               zhHant: '行',
@@ -928,7 +928,7 @@ class _InitiatorTab extends StatelessWidget {
           ),
         const SizedBox(height: 14),
         Text(
-          _wrText(
+          openHandLocalizedText(
             context,
             zh: '调用栈',
             zhHant: '呼叫堆疊',
@@ -945,7 +945,7 @@ class _InitiatorTab extends StatelessWidget {
         const SizedBox(height: 6),
         if (stack.isEmpty)
           Text(
-            _wrText(
+            openHandLocalizedText(
               context,
               zh: '(无堆栈，可能由解析器或预加载触发)',
               zhHant: '(無堆疊，可能由解析器或預載觸發)',
@@ -965,7 +965,7 @@ class _InitiatorTab extends StatelessWidget {
         // Request Initiator Chain：重定向链按时间顺序展示，与 Chrome
         // DevTools 同名区段对齐。每一跳显示状态码 + URL + 跳转时间。
         Text(
-          _wrText(
+          openHandLocalizedText(
             context,
             zh: '请求发起链（重定向）',
             zhHant: '請求發起鏈（重新導向）',
@@ -982,7 +982,7 @@ class _InitiatorTab extends StatelessWidget {
         const SizedBox(height: 6),
         if (chain.isEmpty)
           Text(
-            _wrText(
+            openHandLocalizedText(
               context,
               zh: '(此请求未发生重定向)',
               zhHant: '(此請求未發生重新導向)',
@@ -1100,7 +1100,7 @@ class _RedirectStepRow extends StatelessWidget {
                 ),
                 Text(
                   isFinal
-                      ? _wrText(
+                      ? openHandLocalizedText(
                           context,
                           zh: '当前请求（最终目标）',
                           zhHant: '目前請求（最終目標）',
@@ -1168,7 +1168,7 @@ class _ClickableSourceRow extends StatelessWidget {
           ),
           Expanded(
             child: Tooltip(
-              message: _wrText(
+              message: openHandLocalizedText(
                 context,
                 zh: '在 Sources 中打开',
                 zhHant: '在 Sources 中開啟',
@@ -1306,7 +1306,7 @@ class _StackFrame extends StatelessWidget {
     );
     if (!hasJump) return body;
     return Tooltip(
-      message: _wrText(
+      message: openHandLocalizedText(
         context,
         zh: '在 Sources 中打开',
         zhHant: '在 Sources 中開啟',
@@ -1343,7 +1343,7 @@ class _TimingTab extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       children: [
         Text(
-          _wrText(
+          openHandLocalizedText(
             context,
             zh: '阶段瀑布（Resource Timing）',
             zhHant: '階段瀑布（Resource Timing）',
@@ -1360,7 +1360,7 @@ class _TimingTab extends StatelessWidget {
         const SizedBox(height: 8),
         if (phases == null)
           Text(
-            _wrText(
+            openHandLocalizedText(
               context,
               zh: '(浏览器尚未上报 ResourceTiming，常见于 service worker / from-cache / data: URL)',
               zhHant:
@@ -1378,7 +1378,7 @@ class _TimingTab extends StatelessWidget {
           _TimingWaterfall(phases: phases),
         const SizedBox(height: 18),
         Text(
-          _wrText(
+          openHandLocalizedText(
             context,
             zh: '汇总',
             zhHant: '彙總',
@@ -1394,7 +1394,7 @@ class _TimingTab extends StatelessWidget {
         ),
         const SizedBox(height: 6),
         _MetaRow(
-          label: _wrText(
+          label: openHandLocalizedText(
             context,
             zh: '开始',
             zhHant: '開始',
@@ -1406,7 +1406,7 @@ class _TimingTab extends StatelessWidget {
           value: _fmt(start),
         ),
         _MetaRow(
-          label: _wrText(
+          label: openHandLocalizedText(
             context,
             zh: '响应',
             zhHant: '回應',
@@ -1418,7 +1418,7 @@ class _TimingTab extends StatelessWidget {
           value: responseAt == null ? '-' : _fmt(responseAt),
         ),
         _MetaRow(
-          label: _wrText(
+          label: openHandLocalizedText(
             context,
             zh: '完成',
             zhHant: '完成',
@@ -1431,7 +1431,7 @@ class _TimingTab extends StatelessWidget {
         ),
         const Divider(height: 24),
         _MetaRow(
-          label: _wrText(
+          label: openHandLocalizedText(
             context,
             zh: '首字节时间',
             zhHant: '首位元組時間',
@@ -1443,7 +1443,7 @@ class _TimingTab extends StatelessWidget {
           value: ttfb == null ? '-' : '$ttfb ms',
         ),
         _MetaRow(
-          label: _wrText(
+          label: openHandLocalizedText(
             context,
             zh: '总耗时',
             zhHant: '總耗時',
@@ -1456,7 +1456,7 @@ class _TimingTab extends StatelessWidget {
         ),
         if (entry.encodedDataLength != null)
           _MetaRow(
-            label: _wrText(
+            label: openHandLocalizedText(
               context,
               zh: '编码后大小',
               zhHant: '編碼後大小',
@@ -1469,7 +1469,7 @@ class _TimingTab extends StatelessWidget {
           ),
         if (entry.protocol != null && entry.protocol!.isNotEmpty)
           _MetaRow(
-            label: _wrText(
+            label: openHandLocalizedText(
               context,
               zh: '协议',
               zhHant: '通訊協定',
@@ -1482,7 +1482,7 @@ class _TimingTab extends StatelessWidget {
           ),
         if (entry.remoteAddress != null && entry.remoteAddress!.isNotEmpty)
           _MetaRow(
-            label: _wrText(
+            label: openHandLocalizedText(
               context,
               zh: '远端',
               zhHant: '遠端',
@@ -1553,7 +1553,7 @@ class _TimingTab extends StatelessWidget {
     final receiveHeadersEnd = f('receiveHeadersEnd');
 
     add(
-      _wrText(
+      openHandLocalizedText(
         context,
         zh: '代理协商',
         zhHant: '代理協商',
@@ -1567,7 +1567,7 @@ class _TimingTab extends StatelessWidget {
       (cs) => cs.tertiary.withValues(alpha: 0.75),
     );
     add(
-      _wrText(
+      openHandLocalizedText(
         context,
         zh: 'DNS 解析',
         zhHant: 'DNS 解析',
@@ -1581,7 +1581,7 @@ class _TimingTab extends StatelessWidget {
       (cs) => Colors.indigo.shade400,
     );
     add(
-      _wrText(
+      openHandLocalizedText(
         context,
         zh: '初始连接',
         zhHant: '初始連線',
@@ -1595,7 +1595,7 @@ class _TimingTab extends StatelessWidget {
       (cs) => Colors.orange.shade400,
     );
     add(
-      _wrText(
+      openHandLocalizedText(
         context,
         zh: 'SSL 握手',
         zhHant: 'SSL 握手',
@@ -1609,7 +1609,7 @@ class _TimingTab extends StatelessWidget {
       (cs) => Colors.purple.shade400,
     );
     add(
-      _wrText(
+      openHandLocalizedText(
         context,
         zh: '请求发送',
         zhHant: '請求傳送',
@@ -1624,7 +1624,7 @@ class _TimingTab extends StatelessWidget {
     );
     // Waiting / TTFB：从 sendEnd 到 receiveHeadersEnd（如有 start 用之）。
     add(
-      _wrText(
+      openHandLocalizedText(
         context,
         zh: '等待响应（TTFB）',
         zhHant: '等待回應（TTFB）',
@@ -1644,7 +1644,7 @@ class _TimingTab extends StatelessWidget {
       final downloadMs = endMs - reqStartMs - 0; // 近似：start = requestWillBeSent
       if (downloadMs > receiveHeadersEnd) {
         add(
-          _wrText(
+          openHandLocalizedText(
             context,
             zh: '内容下载',
             zhHant: '內容下載',
@@ -1947,7 +1947,7 @@ class _MessagesTab extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Text(
-            _wrText(
+            openHandLocalizedText(
               context,
               zh: '尚未抓到 WebSocket 帧。在浏览器中触发动作后此处会实时刷新。',
               zhHant: '尚未抓到 WebSocket 訊框。在瀏覽器中觸發動作後此處會即時更新。',
@@ -2112,7 +2112,7 @@ class _ImageInlinePreview extends StatelessWidget {
               Icon(Icons.image_rounded, size: 16, color: cs.primary),
               const SizedBox(width: 6),
               Text(
-                _wrText(
+                openHandLocalizedText(
                   context,
                   zh: '点击图片可全屏预览',
                   zhHant: '點擊圖片可全螢幕預覽',
@@ -2237,7 +2237,7 @@ class _MediaInlinePreview extends StatelessWidget {
                 ),
                 icon: const Icon(Icons.open_in_full_rounded, size: 16),
                 label: Text(
-                  _wrText(
+                  openHandLocalizedText(
                     context,
                     zh: '全屏预览',
                     zhHant: '全螢幕預覽',
@@ -2268,7 +2268,7 @@ class _MediaInlinePreview extends StatelessWidget {
               child: Padding(
                 padding: const EdgeInsets.all(20),
                 child: Text(
-                  _wrText(
+                  openHandLocalizedText(
                     context,
                     zh: '此请求识别为${kind == MediaPreviewKind.audio ? "音频" : "视频"}流，点击右上方「全屏预览」按钮即可在内嵌播放器中播放',
                     zhHant:

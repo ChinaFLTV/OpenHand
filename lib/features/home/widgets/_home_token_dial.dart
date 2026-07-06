@@ -949,7 +949,11 @@ class _CompactCacheHitSparkline extends StatelessWidget {
     final readFrac = total == 0 ? 0.0 : cacheRead / total;
     final writeFrac = total == 0 ? 0.0 : cacheWrite / total;
     final promptFrac = total == 0 ? 1.0 : promptTokens / total;
-    final uncachedLabel = _localizedText(context, zh: '未缓存', en: 'Uncached');
+    final uncachedLabel = openHandLocalizedText(
+      context,
+      zh: '未缓存',
+      en: 'Uncached',
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,

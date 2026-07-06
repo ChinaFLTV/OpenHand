@@ -214,7 +214,7 @@ class _GoalStartOptionsDialogState extends State<_GoalStartOptionsDialog> {
     );
     return buildOpenHandAlertDialog(
       title: Text(
-        _localizedText(context, zh: '启动目标模式', en: 'Start Goal Mode'),
+        openHandLocalizedText(context, zh: '启动目标模式', en: 'Start Goal Mode'),
         style: theme.textTheme.titleLarge?.copyWith(
           fontWeight: FontWeight.w800,
           letterSpacing: 0,
@@ -248,8 +248,12 @@ class _GoalStartOptionsDialogState extends State<_GoalStartOptionsDialog> {
             _buildGoalSwitchRow(
               value: _turnLimitEnabled,
               onChanged: (value) => setState(() => _turnLimitEnabled = value),
-              title: _localizedText(context, zh: '轮次限制', en: 'Turn limit'),
-              subtitle: _localizedText(
+              title: openHandLocalizedText(
+                context,
+                zh: '轮次限制',
+                en: 'Turn limit',
+              ),
+              subtitle: openHandLocalizedText(
                 context,
                 zh: '开启后限制自动推进的最大对话轮次。',
                 en: 'Limit the maximum automatic conversation rounds.',
@@ -277,7 +281,7 @@ class _GoalStartOptionsDialogState extends State<_GoalStartOptionsDialog> {
                           ],
                           onChanged: (_) => setState(() {}),
                           decoration: InputDecoration(
-                            labelText: _localizedText(
+                            labelText: openHandLocalizedText(
                               context,
                               zh: '最大对话轮次',
                               en: 'Maximum turns',
@@ -295,12 +299,12 @@ class _GoalStartOptionsDialogState extends State<_GoalStartOptionsDialog> {
             _buildGoalSwitchRow(
               value: _tokenBudgetEnabled,
               onChanged: (value) => setState(() => _tokenBudgetEnabled = value),
-              title: _localizedText(
+              title: openHandLocalizedText(
                 context,
                 zh: 'Token 预算',
                 en: 'Token budget',
               ),
-              subtitle: _localizedText(
+              subtitle: openHandLocalizedText(
                 context,
                 zh: '开启后限制目标执行阶段最多消耗的 token。',
                 en: 'Limit token usage while this goal runs.',
@@ -327,7 +331,7 @@ class _GoalStartOptionsDialogState extends State<_GoalStartOptionsDialog> {
                           ],
                           onChanged: (_) => setState(() {}),
                           decoration: InputDecoration(
-                            labelText: _localizedText(
+                            labelText: openHandLocalizedText(
                               context,
                               zh: '最多消耗 token',
                               en: 'Maximum tokens',
@@ -344,7 +348,7 @@ class _GoalStartOptionsDialogState extends State<_GoalStartOptionsDialog> {
             if (!validSelection || invalidLimit) ...[
               const SizedBox(height: 12),
               Text(
-                _localizedText(
+                openHandLocalizedText(
                   context,
                   zh: '请选择可用评估模型，并填写正整数限制。',
                   en: 'Choose a valid evaluator model and enter positive limits.',
@@ -360,11 +364,11 @@ class _GoalStartOptionsDialogState extends State<_GoalStartOptionsDialog> {
       actions: [
         OpenHandDialogActionButton.secondary(
           onPressed: () => Navigator.of(context).pop(),
-          label: _localizedText(context, zh: '取消', en: 'Cancel'),
+          label: openHandLocalizedText(context, zh: '取消', en: 'Cancel'),
         ),
         OpenHandDialogActionButton.primary(
           onPressed: validSelection && !invalidLimit ? _submit : null,
-          label: _localizedText(context, zh: '开始', en: 'Start'),
+          label: openHandLocalizedText(context, zh: '开始', en: 'Start'),
         ),
       ],
     );
@@ -441,7 +445,7 @@ class _TitleSummaryRangeDialogState extends State<_TitleSummaryRangeDialog> {
       fontWeight: FontWeight.w700,
       letterSpacing: 0,
     );
-    final selectedCountLabel = _localizedText(
+    final selectedCountLabel = openHandLocalizedText(
       context,
       zh: '已选择 $selectedCount 条用户消息',
       zhHant: '已選擇 $selectedCount 則使用者訊息',
@@ -462,7 +466,7 @@ class _TitleSummaryRangeDialogState extends State<_TitleSummaryRangeDialog> {
 
     return buildOpenHandAlertDialog(
       title: Text(
-        _localizedText(
+        openHandLocalizedText(
           context,
           zh: '获取 AI 摘要标题',
           zhHant: '取得 AI 摘要標題',
@@ -483,7 +487,7 @@ class _TitleSummaryRangeDialogState extends State<_TitleSummaryRangeDialog> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              _localizedText(
+              openHandLocalizedText(
                 context,
                 zh: '模型',
                 zhHant: '模型',
@@ -516,7 +520,7 @@ class _TitleSummaryRangeDialogState extends State<_TitleSummaryRangeDialog> {
             Divider(height: 1, color: colorScheme.outlineVariant),
             const SizedBox(height: 16),
             Text(
-              _localizedText(
+              openHandLocalizedText(
                 context,
                 zh: '消息范围',
                 zhHant: '訊息範圍',
@@ -532,7 +536,7 @@ class _TitleSummaryRangeDialogState extends State<_TitleSummaryRangeDialog> {
               children: [
                 Expanded(
                   child: _TitleSummaryRangeEndpoint(
-                    label: _localizedText(
+                    label: openHandLocalizedText(
                       context,
                       zh: '起始',
                       zhHant: '起始',
@@ -548,7 +552,7 @@ class _TitleSummaryRangeDialogState extends State<_TitleSummaryRangeDialog> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: _TitleSummaryRangeEndpoint(
-                    label: _localizedText(
+                    label: openHandLocalizedText(
                       context,
                       zh: '结束',
                       zhHant: '結束',
@@ -616,7 +620,7 @@ class _TitleSummaryRangeDialogState extends State<_TitleSummaryRangeDialog> {
               model: _selectedModel,
             ),
           ),
-          label: _localizedText(
+          label: openHandLocalizedText(
             context,
             zh: '生成标题',
             zhHant: '產生標題',
@@ -692,7 +696,7 @@ class _TitleGenerationProgressDialog extends StatelessWidget {
       canPop: false,
       child: buildOpenHandAlertDialog(
         title: Text(
-          _localizedText(
+          openHandLocalizedText(
             context,
             zh: '获取 AI 摘要标题',
             zhHant: '取得 AI 摘要標題',
@@ -725,7 +729,7 @@ class _TitleGenerationProgressDialog extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      _localizedText(
+                      openHandLocalizedText(
                         context,
                         zh: '正在生成摘要标题...',
                         zhHant: '正在產生摘要標題...',
@@ -741,7 +745,7 @@ class _TitleGenerationProgressDialog extends StatelessWidget {
                     ),
                     const SizedBox(height: 3),
                     Text(
-                      _localizedText(
+                      openHandLocalizedText(
                         context,
                         zh: '完成后会自动更新线程标题。',
                         zhHant: '完成後會自動更新執行緒標題。',
@@ -930,7 +934,7 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
     final fallback = english == null || english.isEmpty
         ? option.label
         : english;
-    return _localizedText(
+    return openHandLocalizedText(
       context,
       zh: option.label,
       zhHant: option.label,
@@ -1001,22 +1005,22 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
     final isVideo = widget.mode == _CreationMode.video;
     final isAudio = widget.mode == _CreationMode.audio;
     final title = switch (widget.mode) {
-      _CreationMode.image => _localizedText(
+      _CreationMode.image => openHandLocalizedText(
         context,
         zh: '图像生成选项',
         en: 'Image options',
       ),
-      _CreationMode.video => _localizedText(
+      _CreationMode.video => openHandLocalizedText(
         context,
         zh: '视频生成选项',
         en: 'Video options',
       ),
-      _CreationMode.audio => _localizedText(
+      _CreationMode.audio => openHandLocalizedText(
         context,
         zh: '音频生成选项',
         en: 'Audio options',
       ),
-      _ => _localizedText(context, zh: '生成选项', en: 'Options'),
+      _ => openHandLocalizedText(context, zh: '生成选项', en: 'Options'),
     };
     final sectionStyle = theme.textTheme.labelMedium?.copyWith(
       color: cs.onSurfaceVariant,
@@ -1058,7 +1062,11 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
                     if (isImage || isVideo) ...[
                       _sectionLabel(
                         context,
-                        _localizedText(context, zh: '宽高比', en: 'Aspect ratio'),
+                        openHandLocalizedText(
+                          context,
+                          zh: '宽高比',
+                          en: 'Aspect ratio',
+                        ),
                         sectionStyle,
                       ),
                       const SizedBox(height: 8),
@@ -1091,7 +1099,7 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
                     if (isVideo || isAudio) ...[
                       _sectionLabel(
                         context,
-                        _localizedText(
+                        openHandLocalizedText(
                           context,
                           zh: '时长 (秒)',
                           en: 'Duration (s)',
@@ -1117,7 +1125,11 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
                     if (isImage) ...[
                       _choiceSection<String>(
                         context: context,
-                        title: _localizedText(context, zh: '质量', en: 'Quality'),
+                        title: openHandLocalizedText(
+                          context,
+                          zh: '质量',
+                          en: 'Quality',
+                        ),
                         values: _imageQualities,
                         selected: _quality,
                         labelFor: (value) => value,
@@ -1126,7 +1138,11 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
                       ),
                       _choiceSection<String>(
                         context: context,
-                        title: _localizedText(context, zh: '风格', en: 'Style'),
+                        title: openHandLocalizedText(
+                          context,
+                          zh: '风格',
+                          en: 'Style',
+                        ),
                         values: _imageStyles,
                         selected: _style,
                         labelFor: (value) => value,
@@ -1135,7 +1151,7 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
                       ),
                       _choiceSection<String>(
                         context: context,
-                        title: _localizedText(
+                        title: openHandLocalizedText(
                           context,
                           zh: '输出格式',
                           en: 'Output format',
@@ -1149,7 +1165,7 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
                       ),
                       _choiceSection<String>(
                         context: context,
-                        title: _localizedText(
+                        title: openHandLocalizedText(
                           context,
                           zh: '背景',
                           en: 'Background',
@@ -1165,7 +1181,7 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
                     if (isVideo) ...[
                       _choiceSection<String>(
                         context: context,
-                        title: _localizedText(
+                        title: openHandLocalizedText(
                           context,
                           zh: '分辨率',
                           en: 'Resolution',
@@ -1179,7 +1195,7 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
                       ),
                       _choiceSection<int>(
                         context: context,
-                        title: _localizedText(
+                        title: openHandLocalizedText(
                           context,
                           zh: '帧率',
                           en: 'Frame rate',
@@ -1193,7 +1209,11 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
                       ),
                       _choiceSection<int>(
                         context: context,
-                        title: _localizedText(context, zh: '帧数', en: 'Frames'),
+                        title: openHandLocalizedText(
+                          context,
+                          zh: '帧数',
+                          en: 'Frames',
+                        ),
                         values: _videoFrames,
                         selected: _numFrames,
                         labelFor: (value) => '$value',
@@ -1203,7 +1223,11 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
                       ),
                       _choiceSection<String>(
                         context: context,
-                        title: _localizedText(context, zh: '模式', en: 'Mode'),
+                        title: openHandLocalizedText(
+                          context,
+                          zh: '模式',
+                          en: 'Mode',
+                        ),
                         values: _videoModes,
                         selected: _mode,
                         labelFor: (value) => value,
@@ -1214,7 +1238,7 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
                     if (isImage || isVideo) ...[
                       _triBoolSection(
                         context: context,
-                        title: _localizedText(
+                        title: openHandLocalizedText(
                           context,
                           zh: 'Prompt 增强',
                           en: 'Prompt enhance',
@@ -1226,7 +1250,7 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
                       ),
                       _triBoolSection(
                         context: context,
-                        title: _localizedText(
+                        title: openHandLocalizedText(
                           context,
                           zh: '水印',
                           en: 'Watermark',
@@ -1238,7 +1262,7 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
                       ),
                       _textInput(
                         context,
-                        label: _localizedText(
+                        label: openHandLocalizedText(
                           context,
                           zh: '负向提示',
                           en: 'Negative prompt',
@@ -1259,7 +1283,7 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
                       _audioVoiceSection(context, sectionStyle),
                       _choiceSection<String>(
                         context: context,
-                        title: _localizedText(
+                        title: openHandLocalizedText(
                           context,
                           zh: '音频格式',
                           en: 'Audio format',
@@ -1273,7 +1297,11 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
                       ),
                       _choiceSection<double>(
                         context: context,
-                        title: _localizedText(context, zh: '语速', en: 'Speed'),
+                        title: openHandLocalizedText(
+                          context,
+                          zh: '语速',
+                          en: 'Speed',
+                        ),
                         values: _audioSpeeds,
                         selected: _speed,
                         labelFor: (value) => '${value}x',
@@ -1282,7 +1310,7 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
                       ),
                       _choiceSection<int>(
                         context: context,
-                        title: _localizedText(
+                        title: openHandLocalizedText(
                           context,
                           zh: '采样率',
                           en: 'Sample rate',
@@ -1296,7 +1324,11 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
                       ),
                       _choiceSection<int>(
                         context: context,
-                        title: _localizedText(context, zh: '码率', en: 'Bitrate'),
+                        title: openHandLocalizedText(
+                          context,
+                          zh: '码率',
+                          en: 'Bitrate',
+                        ),
                         values: _audioBitrates,
                         selected: _bitrate,
                         labelFor: (value) => '${value ~/ 1000} kbps',
@@ -1305,7 +1337,11 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
                       ),
                       _choiceSection<double>(
                         context: context,
-                        title: _localizedText(context, zh: '音量', en: 'Volume'),
+                        title: openHandLocalizedText(
+                          context,
+                          zh: '音量',
+                          en: 'Volume',
+                        ),
                         values: _audioVolumes,
                         selected: _volume,
                         labelFor: (value) => '${value}x',
@@ -1314,7 +1350,11 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
                       ),
                       _choiceSection<double>(
                         context: context,
-                        title: _localizedText(context, zh: '音高', en: 'Pitch'),
+                        title: openHandLocalizedText(
+                          context,
+                          zh: '音高',
+                          en: 'Pitch',
+                        ),
                         values: _audioPitches,
                         selected: _pitch,
                         labelFor: (value) => value.toStringAsFixed(0),
@@ -1364,7 +1404,9 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
             runSpacing: 8,
             children: [
               ChoiceChip(
-                label: Text(_localizedText(context, zh: '默认', en: 'Auto')),
+                label: Text(
+                  openHandLocalizedText(context, zh: '默认', en: 'Auto'),
+                ),
                 selected: selected == null,
                 onSelected: (_) => onSelected(null),
               ),
@@ -1400,17 +1442,19 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
             runSpacing: 8,
             children: [
               ChoiceChip(
-                label: Text(_localizedText(context, zh: '默认', en: 'Auto')),
+                label: Text(
+                  openHandLocalizedText(context, zh: '默认', en: 'Auto'),
+                ),
                 selected: value == null,
                 onSelected: (_) => onChanged(null),
               ),
               ChoiceChip(
-                label: Text(_localizedText(context, zh: '开', en: 'On')),
+                label: Text(openHandLocalizedText(context, zh: '开', en: 'On')),
                 selected: value == true,
                 onSelected: (_) => onChanged(true),
               ),
               ChoiceChip(
-                label: Text(_localizedText(context, zh: '关', en: 'Off')),
+                label: Text(openHandLocalizedText(context, zh: '关', en: 'Off')),
                 selected: value == false,
                 onSelected: (_) => onChanged(false),
               ),
@@ -1428,7 +1472,7 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
         padding: const EdgeInsets.only(bottom: 12),
         child: _textInput(
           context,
-          label: _localizedText(context, zh: '音色 ID', en: 'Voice ID'),
+          label: openHandLocalizedText(context, zh: '音色 ID', en: 'Voice ID'),
           controller: _voiceController,
         ),
       );
@@ -1444,7 +1488,7 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
         children: [
           _sectionLabel(
             context,
-            _localizedText(context, zh: '音色/发音人', en: 'Voice'),
+            openHandLocalizedText(context, zh: '音色/发音人', en: 'Voice'),
             sectionStyle,
           ),
           const SizedBox(height: 8),
@@ -1466,7 +1510,7 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
                 ),
               ChoiceChip(
                 label: Text(
-                  _localizedText(context, zh: '自定义 ID', en: 'Custom ID'),
+                  openHandLocalizedText(context, zh: '自定义 ID', en: 'Custom ID'),
                 ),
                 selected: customSelected,
                 onSelected: (_) => _showCustomVoiceInput(selectedKnown),
@@ -1477,7 +1521,7 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
             const SizedBox(height: 12),
             _textInput(
               context,
-              label: _localizedText(
+              label: openHandLocalizedText(
                 context,
                 zh: '自定义音色 ID',
                 en: 'Custom voice ID',
@@ -1532,7 +1576,7 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
         children: [
           _sectionLabel(
             context,
-            _localizedText(context, zh: '数量', en: 'Count'),
+            openHandLocalizedText(context, zh: '数量', en: 'Count'),
             sectionStyle,
           ),
           const SizedBox(height: 8),
@@ -1589,14 +1633,14 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
           constraints: const BoxConstraints(minWidth: 128),
           child: OpenHandDialogActionButton.secondary(
             onPressed: () => Navigator.of(context).pop(),
-            label: _localizedText(context, zh: '取消', en: 'Cancel'),
+            label: openHandLocalizedText(context, zh: '取消', en: 'Cancel'),
           ),
         ),
         ConstrainedBox(
           constraints: const BoxConstraints(minWidth: 128),
           child: OpenHandDialogActionButton.primary(
             onPressed: () => Navigator.of(context).pop(_selectedOptions()),
-            label: _localizedText(context, zh: '确认', en: 'Confirm'),
+            label: openHandLocalizedText(context, zh: '确认', en: 'Confirm'),
           ),
         ),
       ],

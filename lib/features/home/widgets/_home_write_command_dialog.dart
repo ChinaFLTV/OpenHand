@@ -114,7 +114,7 @@ class _WriteCommandConfirmationDialogState
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                _localizedText(
+                openHandLocalizedText(
                   context,
                   zh: '确认执行写命令',
                   en: 'Confirm Write Command',
@@ -132,7 +132,7 @@ class _WriteCommandConfirmationDialogState
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          _localizedText(
+                          openHandLocalizedText(
                             context,
                             zh: '该 bash 命令可能修改文件或系统状态，需要你确认后才会真正执行。',
                             en: 'This bash command may modify files or system state. OpenHand needs your approval before running it.',
@@ -205,12 +205,12 @@ class _WriteCommandConfirmationDialogState
                               ),
                               label: Text(
                                 _isExpanded
-                                    ? _localizedText(
+                                    ? openHandLocalizedText(
                                         context,
                                         zh: '收起命令',
                                         en: 'Collapse',
                                       )
-                                    : _localizedText(
+                                    : openHandLocalizedText(
                                         context,
                                         zh: '查看完整命令',
                                         en: 'View Full Command',
@@ -228,7 +228,7 @@ class _WriteCommandConfirmationDialogState
                           ),
                         const SizedBox(height: 12),
                         Text(
-                          '${_localizedText(context, zh: '工作目录', en: 'Working Directory')}: ${widget.request.workingDirectory}',
+                          '${openHandLocalizedText(context, zh: '工作目录', en: 'Working Directory')}: ${widget.request.workingDirectory}',
                         ),
                       ],
                     ),
@@ -237,7 +237,7 @@ class _WriteCommandConfirmationDialogState
               ),
               const SizedBox(height: 12),
               Text(
-                _localizedText(
+                openHandLocalizedText(
                   context,
                   zh: '快捷键：Enter 确认 · Esc 不关闭，请明确选择允许或取消',
                   en: 'Shortcuts: Enter approves · Esc is ignored; choose Run or Cancel explicitly',
@@ -259,7 +259,7 @@ class _WriteCommandConfirmationDialogState
                   OpenHandDialogActionButton.primary(
                     onPressed: () =>
                         _closeWith(BashCommandApprovalDecision.approved),
-                    label: _localizedText(
+                    label: openHandLocalizedText(
                       context,
                       zh: '允许执行',
                       en: 'Run Command',

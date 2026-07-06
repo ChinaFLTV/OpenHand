@@ -21,7 +21,7 @@ class _HeModelDropdown extends StatelessWidget {
         key: ValueKey<String>('he-model-text-${roleConfig.cliName}'),
         initialValue: roleConfig.modelId,
         decoration: InputDecoration(
-          labelText: _heHarnessText(
+          labelText: openHandLocalizedText(
             context,
             zh: '模型',
             zhHant: '模型',
@@ -62,7 +62,7 @@ class _HeModelDropdown extends StatelessWidget {
           ? configuredModelId
           : (models.contains(configuredModelId) ? configuredModelId : null),
       decoration: InputDecoration(
-        labelText: _heHarnessText(
+        labelText: openHandLocalizedText(
           context,
           zh: '模型',
           zhHant: '模型',
@@ -162,7 +162,7 @@ class _HeUrlModelField extends StatelessWidget {
             },
       child: InputDecorator(
         decoration: InputDecoration(
-          labelText: _heHarnessText(
+          labelText: openHandLocalizedText(
             context,
             zh: 'API 模型',
             zhHant: 'API 模型',
@@ -172,7 +172,7 @@ class _HeUrlModelField extends StatelessWidget {
             ja: 'API モデル',
           ),
           helperText: settingsModels.isEmpty
-              ? _heHarnessText(
+              ? openHandLocalizedText(
                   context,
                   zh: '请先在设置中配置 API 模型提供商。',
                   zhHant: '請先在設定中設定 API 模型提供者。',
@@ -182,7 +182,7 @@ class _HeUrlModelField extends StatelessWidget {
                   ja: '先に設定で API モデルプロバイダーを設定してください。',
                 )
               : (hasConfiguredAiModelConfig && !hasMatchingAiModelConfig)
-              ? _heHarnessText(
+              ? openHandLocalizedText(
                   context,
                   zh: '当前配置已删除，请重新选择。',
                   zhHant: '目前設定已刪除，請重新選擇。',
@@ -211,7 +211,7 @@ class _HeUrlModelField extends StatelessWidget {
         ),
         child: Text(
           label ??
-              _heHarnessText(
+              openHandLocalizedText(
                 context,
                 zh: '选择模型…',
                 zhHant: '選擇模型…',

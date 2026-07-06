@@ -613,7 +613,7 @@ class _BreakpointsBodyState extends State<_BreakpointsBody> {
     String? de,
     String? ja,
   }) {
-    return _wrText(
+    return openHandLocalizedText(
       context,
       zh: zh,
       zhHant: zhHant,
@@ -1350,7 +1350,7 @@ class _BpRow extends StatelessWidget {
           if (onEditCondition != null)
             IconButton(
               tooltip: hasCondition
-                  ? _wrText(
+                  ? openHandLocalizedText(
                       context,
                       zh: '编辑条件',
                       zhHant: '編輯條件',
@@ -1359,7 +1359,7 @@ class _BpRow extends StatelessWidget {
                       de: 'Bedingung bearbeiten',
                       ja: '条件を編集',
                     )
-                  : _wrText(
+                  : openHandLocalizedText(
                       context,
                       zh: '添加条件',
                       zhHant: '新增條件',
@@ -1376,7 +1376,7 @@ class _BpRow extends StatelessWidget {
               onPressed: onEditCondition,
             ),
           IconButton(
-            tooltip: _wrText(
+            tooltip: openHandLocalizedText(
               context,
               zh: '删除',
               zhHant: '刪除',

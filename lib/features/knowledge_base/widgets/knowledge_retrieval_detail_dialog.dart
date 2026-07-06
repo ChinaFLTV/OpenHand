@@ -19,28 +19,6 @@ import 'knowledge_chunk_detail_dialog.dart';
 import 'knowledge_dialog_widgets.dart';
 import 'knowledge_vector_distribution_view.dart';
 
-String _kbRetrievalText(
-  BuildContext context, {
-  required String zh,
-  required String en,
-  String? zhHans,
-  String? zhHant,
-  String? fr,
-  String? de,
-  String? ja,
-}) {
-  return openHandLocalizedText(
-    context,
-    zh: zh,
-    en: en,
-    zhHans: zhHans,
-    zhHant: zhHant,
-    fr: fr,
-    de: de,
-    ja: ja,
-  );
-}
-
 Future<void> showKnowledgeRetrievalDetailDialog(
   BuildContext context,
   Map<String, Object?> metadata,
@@ -76,7 +54,7 @@ class KnowledgeRetrievalDetailDialog extends StatelessWidget {
     final distribution = KnowledgeMessageMetadata.vectorDistribution(metadata);
     return buildOpenHandAlertDialog(
       title: Text(
-        _kbRetrievalText(
+        openHandLocalizedText(
           context,
           zh: '引用知识库详情',
           zhHant: '引用知識庫詳情',
@@ -94,7 +72,7 @@ class KnowledgeRetrievalDetailDialog extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               KnowledgeDialogSection(
-                title: _kbRetrievalText(
+                title: openHandLocalizedText(
                   context,
                   zh: '总览',
                   zhHant: '總覽',
@@ -106,7 +84,7 @@ class KnowledgeRetrievalDetailDialog extends StatelessWidget {
                 icon: Icons.fact_check_outlined,
                 child: KnowledgeDialogKeyValueList(
                   rows: {
-                    _kbRetrievalText(
+                    openHandLocalizedText(
                       context,
                       zh: '状态',
                       zhHant: '狀態',
@@ -115,7 +93,7 @@ class KnowledgeRetrievalDetailDialog extends StatelessWidget {
                       de: 'Status',
                       ja: '状態',
                     ): kb['status'],
-                    _kbRetrievalText(
+                    openHandLocalizedText(
                       context,
                       zh: '查询',
                       zhHant: '查詢',
@@ -124,7 +102,7 @@ class KnowledgeRetrievalDetailDialog extends StatelessWidget {
                       de: 'Abfrage',
                       ja: 'クエリ',
                     ): kb['query'],
-                    _kbRetrievalText(
+                    openHandLocalizedText(
                       context,
                       zh: '错误',
                       zhHant: '錯誤',
@@ -137,7 +115,7 @@ class KnowledgeRetrievalDetailDialog extends StatelessWidget {
                 ),
               ),
               KnowledgeDialogSection(
-                title: _kbRetrievalText(
+                title: openHandLocalizedText(
                   context,
                   zh: '嵌入',
                   zhHant: '嵌入',
@@ -155,7 +133,7 @@ class KnowledgeRetrievalDetailDialog extends StatelessWidget {
                 ),
               ),
               KnowledgeDialogSection(
-                title: _kbRetrievalText(
+                title: openHandLocalizedText(
                   context,
                   zh: '检索参数',
                   zhHant: '檢索參數',
@@ -173,7 +151,7 @@ class KnowledgeRetrievalDetailDialog extends StatelessWidget {
                 ),
               ),
               KnowledgeDialogSection(
-                title: _kbRetrievalText(
+                title: openHandLocalizedText(
                   context,
                   zh: 'Prompt 追加',
                   zhHant: 'Prompt 追加',
@@ -191,7 +169,7 @@ class KnowledgeRetrievalDetailDialog extends StatelessWidget {
                 ),
               ),
               KnowledgeDialogSection(
-                title: _kbRetrievalText(
+                title: openHandLocalizedText(
                   context,
                   zh: '重排序',
                   zhHant: '重排序',
@@ -200,7 +178,7 @@ class KnowledgeRetrievalDetailDialog extends StatelessWidget {
                   de: 'Reranking',
                   ja: '再ランク',
                 ),
-                subtitle: _kbRetrievalText(
+                subtitle: openHandLocalizedText(
                   context,
                   zh: '展示召回后如何打分、排序、保留与舍弃分块。',
                   zhHant: '展示召回後如何打分、排序、保留與捨棄分塊。',
@@ -213,7 +191,7 @@ class KnowledgeRetrievalDetailDialog extends StatelessWidget {
                 child: rerank.isEmpty
                     ? KnowledgeDialogNotice(
                         icon: Icons.info_outline_rounded,
-                        message: _kbRetrievalText(
+                        message: openHandLocalizedText(
                           context,
                           zh: '本次消息没有记录重排序细节。',
                           zhHant: '本次訊息沒有記錄重排序細節。',
@@ -232,7 +210,7 @@ class KnowledgeRetrievalDetailDialog extends StatelessWidget {
                   distribution: distribution,
                 ),
               KnowledgeDialogSection(
-                title: _kbRetrievalText(
+                title: openHandLocalizedText(
                   context,
                   zh: '命中分块 (${results.length})',
                   zhHant: '命中分塊 (${results.length})',
@@ -245,7 +223,7 @@ class KnowledgeRetrievalDetailDialog extends StatelessWidget {
                 child: results.isEmpty
                     ? KnowledgeDialogNotice(
                         icon: Icons.info_outline_rounded,
-                        message: _kbRetrievalText(
+                        message: openHandLocalizedText(
                           context,
                           zh: '没有命中 chunk。',
                           zhHant: '沒有命中 chunk。',
@@ -262,7 +240,7 @@ class KnowledgeRetrievalDetailDialog extends StatelessWidget {
                       ),
               ),
               KnowledgeDialogSection(
-                title: _kbRetrievalText(
+                title: openHandLocalizedText(
                   context,
                   zh: '实际追加给模型的上下文',
                   zhHant: '實際追加給模型的上下文',
@@ -290,7 +268,7 @@ class KnowledgeRetrievalDetailDialog extends StatelessWidget {
             if (context.mounted) {
               OpenHandSnackBar.showSuccess(
                 context,
-                _kbRetrievalText(
+                openHandLocalizedText(
                   context,
                   zh: '已复制知识库元数据。',
                   zhHant: '已複製知識庫元資料。',
@@ -303,7 +281,7 @@ class KnowledgeRetrievalDetailDialog extends StatelessWidget {
             }
           },
           icon: Icons.copy_rounded,
-          label: _kbRetrievalText(
+          label: openHandLocalizedText(
             context,
             zh: '复制元数据',
             zhHant: '複製元資料',
@@ -315,7 +293,7 @@ class KnowledgeRetrievalDetailDialog extends StatelessWidget {
         ),
         OpenHandDialogActionButton.primary(
           onPressed: () => Navigator.of(context).pop(),
-          label: _kbRetrievalText(
+          label: openHandLocalizedText(
             context,
             zh: '关闭',
             zhHant: '關閉',
@@ -341,7 +319,7 @@ class KnowledgeRetrievalDetailDialog extends StatelessWidget {
 
   String _metadataLabel(BuildContext context, String key) {
     return switch (key) {
-      'provider_config_id' => _kbRetrievalText(
+      'provider_config_id' => openHandLocalizedText(
         context,
         zh: 'Provider 配置',
         zhHant: 'Provider 配置',
@@ -350,7 +328,7 @@ class KnowledgeRetrievalDetailDialog extends StatelessWidget {
         de: 'Provider-Konfiguration',
         ja: 'プロバイダー設定',
       ),
-      'model_id' => _kbRetrievalText(
+      'model_id' => openHandLocalizedText(
         context,
         zh: '模型 ID',
         zhHant: '模型 ID',
@@ -359,7 +337,7 @@ class KnowledgeRetrievalDetailDialog extends StatelessWidget {
         de: 'Modell-ID',
         ja: 'モデル ID',
       ),
-      'dimensions' => _kbRetrievalText(
+      'dimensions' => openHandLocalizedText(
         context,
         zh: '向量维度',
         zhHant: '向量維度',
@@ -368,7 +346,7 @@ class KnowledgeRetrievalDetailDialog extends StatelessWidget {
         de: 'Dimensionen',
         ja: '次元数',
       ),
-      'duration_ms' => _kbRetrievalText(
+      'duration_ms' => openHandLocalizedText(
         context,
         zh: '耗时毫秒',
         zhHant: '耗時毫秒',
@@ -377,7 +355,7 @@ class KnowledgeRetrievalDetailDialog extends StatelessWidget {
         de: 'Dauer (ms)',
         ja: '所要時間 (ms)',
       ),
-      'top_n' => _kbRetrievalText(
+      'top_n' => openHandLocalizedText(
         context,
         zh: '召回 topN',
         zhHant: '召回 topN',
@@ -386,7 +364,7 @@ class KnowledgeRetrievalDetailDialog extends StatelessWidget {
         de: 'Abruf topN',
         ja: '取得 topN',
       ),
-      'top_k' => _kbRetrievalText(
+      'top_k' => openHandLocalizedText(
         context,
         zh: '最终 topK',
         zhHant: '最終 topK',
@@ -395,7 +373,7 @@ class KnowledgeRetrievalDetailDialog extends StatelessWidget {
         de: 'Finales topK',
         ja: '最終 topK',
       ),
-      'min_similarity' => _kbRetrievalText(
+      'min_similarity' => openHandLocalizedText(
         context,
         zh: '最低相似度',
         zhHant: '最低相似度',
@@ -404,7 +382,7 @@ class KnowledgeRetrievalDetailDialog extends StatelessWidget {
         de: 'Minimale Ähnlichkeit',
         ja: '最小類似度',
       ),
-      'filters' => _kbRetrievalText(
+      'filters' => openHandLocalizedText(
         context,
         zh: '过滤条件',
         zhHant: '篩選條件',
@@ -413,7 +391,7 @@ class KnowledgeRetrievalDetailDialog extends StatelessWidget {
         de: 'Filter',
         ja: 'フィルター',
       ),
-      'chunk_count' => _kbRetrievalText(
+      'chunk_count' => openHandLocalizedText(
         context,
         zh: '追加分块数',
         zhHant: '追加分塊數',
@@ -422,7 +400,7 @@ class KnowledgeRetrievalDetailDialog extends StatelessWidget {
         de: 'Angehängte Abschnitte',
         ja: '追加チャンク数',
       ),
-      'token_estimate' => _kbRetrievalText(
+      'token_estimate' => openHandLocalizedText(
         context,
         zh: '预估 token',
         zhHant: '預估 token',
@@ -431,7 +409,7 @@ class KnowledgeRetrievalDetailDialog extends StatelessWidget {
         de: 'Geschätzte Tokens',
         ja: '推定トークン',
       ),
-      'content_hash' => _kbRetrievalText(
+      'content_hash' => openHandLocalizedText(
         context,
         zh: '内容哈希',
         zhHant: '內容雜湊',
@@ -440,7 +418,7 @@ class KnowledgeRetrievalDetailDialog extends StatelessWidget {
         de: 'Inhalts-Hash',
         ja: 'コンテンツハッシュ',
       ),
-      'mode' => _kbRetrievalText(
+      'mode' => openHandLocalizedText(
         context,
         zh: '模式',
         zhHant: '模式',
@@ -449,7 +427,7 @@ class KnowledgeRetrievalDetailDialog extends StatelessWidget {
         de: 'Modus',
         ja: 'モード',
       ),
-      'strategy' => _kbRetrievalText(
+      'strategy' => openHandLocalizedText(
         context,
         zh: '策略',
         zhHant: '策略',
@@ -458,7 +436,7 @@ class KnowledgeRetrievalDetailDialog extends StatelessWidget {
         de: 'Strategie',
         ja: '戦略',
       ),
-      'candidate_count' => _kbRetrievalText(
+      'candidate_count' => openHandLocalizedText(
         context,
         zh: '候选数',
         zhHant: '候選數',
@@ -467,7 +445,7 @@ class KnowledgeRetrievalDetailDialog extends StatelessWidget {
         de: 'Kandidaten',
         ja: '候補数',
       ),
-      'rerank_input_count' => _kbRetrievalText(
+      'rerank_input_count' => openHandLocalizedText(
         context,
         zh: '重排输入数',
         zhHant: '重排輸入數',
@@ -476,7 +454,7 @@ class KnowledgeRetrievalDetailDialog extends StatelessWidget {
         de: 'Reranking-Eingaben',
         ja: '再ランク入力数',
       ),
-      'rerank_output_count' => _kbRetrievalText(
+      'rerank_output_count' => openHandLocalizedText(
         context,
         zh: '重排输出数',
         zhHant: '重排輸出數',
@@ -485,7 +463,7 @@ class KnowledgeRetrievalDetailDialog extends StatelessWidget {
         de: 'Reranking-Ausgaben',
         ja: '再ランク出力数',
       ),
-      'kept_count' => _kbRetrievalText(
+      'kept_count' => openHandLocalizedText(
         context,
         zh: '保留数',
         zhHant: '保留數',
@@ -494,7 +472,7 @@ class KnowledgeRetrievalDetailDialog extends StatelessWidget {
         de: 'Behalten',
         ja: '保持数',
       ),
-      'discarded_count' => _kbRetrievalText(
+      'discarded_count' => openHandLocalizedText(
         context,
         zh: '舍弃数',
         zhHant: '捨棄數',
@@ -547,7 +525,7 @@ class _KnowledgePromptAppendContextBoxState
         if (loading && text.isEmpty) {
           return KnowledgeDialogNotice(
             icon: Icons.hourglass_top_rounded,
-            message: _kbRetrievalText(
+            message: openHandLocalizedText(
               context,
               zh: '正在恢复本次追加给模型的知识库上下文。',
               zhHant: '正在恢復本次追加給模型的知識庫上下文。',
@@ -568,7 +546,7 @@ class _KnowledgePromptAppendContextBoxState
             ),
             text: text,
             maxHeight: 300,
-            emptyText: _kbRetrievalText(
+            emptyText: openHandLocalizedText(
               context,
               zh: '没有记录实际上下文；可打开命中分块查看详情。',
               zhHant: '沒有記錄實際上下文；可開啟命中分塊查看詳情。',
@@ -697,7 +675,7 @@ class _HitTile extends StatelessWidget {
               children: [
                 Text(
                   title.trim().isEmpty
-                      ? _kbRetrievalText(
+                      ? openHandLocalizedText(
                           context,
                           zh: '知识库命中',
                           zhHant: '知識庫命中',
@@ -734,19 +712,19 @@ class _HitTile extends StatelessWidget {
                     KnowledgeDialogChip(
                       icon: Icons.trending_up_rounded,
                       label:
-                          '${_kbRetrievalText(context, zh: '分数', zhHant: '分數', en: 'score', fr: 'score', de: 'Score', ja: 'スコア')} ${hit['score'] ?? '-'}',
+                          '${openHandLocalizedText(context, zh: '分数', zhHant: '分數', en: 'score', fr: 'score', de: 'Score', ja: 'スコア')} ${hit['score'] ?? '-'}',
                     ),
                     if (hit['rerank_score'] != null)
                       KnowledgeDialogChip(
                         icon: Icons.filter_alt_rounded,
                         label:
-                            '${_kbRetrievalText(context, zh: '重排', zhHant: '重排', en: 'rerank', fr: 'rerank', de: 'Rerank', ja: '再ランク')} ${hit['rerank_score']}',
+                            '${openHandLocalizedText(context, zh: '重排', zhHant: '重排', en: 'rerank', fr: 'rerank', de: 'Rerank', ja: '再ランク')} ${hit['rerank_score']}',
                       ),
                     if (hit['token_estimate'] != null)
                       KnowledgeDialogChip(
                         icon: Icons.data_usage_rounded,
                         label:
-                            '${hit['token_estimate']} ${_kbRetrievalText(context, zh: 'token', zhHant: 'token', en: 'tokens', fr: 'tokens', de: 'Tokens', ja: 'トークン')}',
+                            '${hit['token_estimate']} ${openHandLocalizedText(context, zh: 'token', zhHant: 'token', en: 'tokens', fr: 'tokens', de: 'Tokens', ja: 'トークン')}',
                       ),
                     if (documentTimeLabel.isNotEmpty)
                       KnowledgeDialogChip(
@@ -795,7 +773,7 @@ class _KnowledgeRetrievalHitDetailDialogState
         if (snapshot.connectionState != ConnectionState.done) {
           return buildOpenHandAlertDialog(
             title: Text(
-              _kbRetrievalText(
+              openHandLocalizedText(
                 context,
                 zh: '命中分块详情',
                 zhHant: '命中分塊詳情',
@@ -816,7 +794,7 @@ class _KnowledgeRetrievalHitDetailDialogState
             actions: [
               OpenHandDialogActionButton.primary(
                 onPressed: () => Navigator.of(context).pop(),
-                label: _kbRetrievalText(
+                label: openHandLocalizedText(
                   context,
                   zh: '关闭',
                   zhHant: '關閉',
@@ -890,7 +868,7 @@ class _KnowledgeRetrievalVectorSpaceSectionState
         : widget.distribution;
     final corpusCount = _corpusDistribution?.points.length ?? 0;
     return KnowledgeDialogSection(
-      title: _kbRetrievalText(
+      title: openHandLocalizedText(
         context,
         zh: '向量空间',
         zhHant: '向量空間',
@@ -900,7 +878,7 @@ class _KnowledgeRetrievalVectorSpaceSectionState
         ja: 'ベクトル空間',
       ),
       subtitle: _showCorpus
-          ? _kbRetrievalText(
+          ? openHandLocalizedText(
               context,
               zh: '天蓝色为全量采样，橙色为当前命中结果，红色为查询向量。',
               zhHant: '天藍色為全量採樣，橙色為目前命中結果，紅色為查詢向量。',
@@ -909,7 +887,7 @@ class _KnowledgeRetrievalVectorSpaceSectionState
               de: 'Hellblaue Punkte sind Korpus-Stichproben, orange Punkte sind Trefferabschnitte, Rot ist der Abfragevektor.',
               ja: '水色はコーパスのサンプル、オレンジはヒット結果、赤はクエリベクトルです。',
             )
-          : _kbRetrievalText(
+          : openHandLocalizedText(
               context,
               zh: '红色为查询向量，橙色为当前命中结果。',
               zhHant: '紅色為查詢向量，橙色為目前命中結果。',
@@ -933,7 +911,7 @@ class _KnowledgeRetrievalVectorSpaceSectionState
               ),
               label: Text(
                 _showCorpus
-                    ? _kbRetrievalText(
+                    ? openHandLocalizedText(
                         context,
                         zh: '隐藏全量',
                         zhHant: '隱藏全量',
@@ -942,7 +920,7 @@ class _KnowledgeRetrievalVectorSpaceSectionState
                         de: 'Korpus ausblenden',
                         ja: 'コーパスを非表示',
                       )
-                    : _kbRetrievalText(
+                    : openHandLocalizedText(
                         context,
                         zh: '叠加全量',
                         zhHant: '疊加全量',
@@ -978,7 +956,7 @@ class _KnowledgeRetrievalVectorSpaceSectionState
         padding: const EdgeInsets.only(top: 10),
         child: KnowledgeDialogNotice(
           icon: Icons.hourglass_top_rounded,
-          message: _kbRetrievalText(
+          message: openHandLocalizedText(
             context,
             zh: '正在按需采样并叠加全量向量。',
             zhHant: '正在按需取樣並疊加全量向量。',
@@ -997,7 +975,7 @@ class _KnowledgeRetrievalVectorSpaceSectionState
         child: KnowledgeDialogNotice(
           icon: Icons.error_outline_rounded,
           message:
-              '${_kbRetrievalText(context, zh: '全量向量加载失败：', zhHant: '全量向量載入失敗：', en: 'Failed to load corpus vectors: ', fr: 'Échec du chargement des vecteurs du corpus : ', de: 'Korpusvektoren konnten nicht geladen werden: ', ja: 'コーパスベクトルの読み込みに失敗しました: ')}${_corpusError!}',
+              '${openHandLocalizedText(context, zh: '全量向量加载失败：', zhHant: '全量向量載入失敗：', en: 'Failed to load corpus vectors: ', fr: 'Échec du chargement des vecteurs du corpus : ', de: 'Korpusvektoren konnten nicht geladen werden: ', ja: 'コーパスベクトルの読み込みに失敗しました: ')}${_corpusError!}',
           tone: KnowledgeDialogNoticeTone.error,
         ),
       );
@@ -1012,7 +990,7 @@ class _KnowledgeRetrievalVectorSpaceSectionState
               ? Icons.filter_center_focus_rounded
               : Icons.done_rounded,
           message: sampled
-              ? _kbRetrievalText(
+              ? openHandLocalizedText(
                   context,
                   zh: '已叠加 $corpusCount 个全量采样点；数据量较大时会采样展示以保持流畅。',
                   zhHant: '已疊加 $corpusCount 個全量取樣點；資料量較大時會取樣展示以保持流暢。',
@@ -1021,7 +999,7 @@ class _KnowledgeRetrievalVectorSpaceSectionState
                   de: '$corpusCount Korpus-Stichprobenpunkte werden überlagert; große Sammlungen werden für eine flüssige Ansicht abgetastet.',
                   ja: '$corpusCount 個のコーパスサンプル点を重ねています。大きなコレクションは表示を滑らかに保つためサンプリングされます。',
                 )
-              : _kbRetrievalText(
+              : openHandLocalizedText(
                   context,
                   zh: '已叠加 $corpusCount 个全量向量点。',
                   zhHant: '已疊加 $corpusCount 個全量向量點。',
@@ -1111,7 +1089,7 @@ class _KnowledgeRetrievalHitFallbackDialog extends StatelessWidget {
     final tags = stringListFromValue(hit['tags']);
     return buildOpenHandAlertDialog(
       title: Text(
-        _kbRetrievalText(
+        openHandLocalizedText(
           context,
           zh: '命中分块详情',
           zhHant: '命中分塊詳情',
@@ -1130,7 +1108,7 @@ class _KnowledgeRetrievalHitFallbackDialog extends StatelessWidget {
             children: [
               KnowledgeDialogNotice(
                 icon: Icons.info_outline_rounded,
-                message: _kbRetrievalText(
+                message: openHandLocalizedText(
                   context,
                   zh: '未能从本地知识库恢复完整 chunk，下面展示消息元数据中保留的命中信息。',
                   zhHant: '未能從本地知識庫恢復完整 chunk，下面展示訊息元資料中保留的命中資訊。',
@@ -1143,7 +1121,7 @@ class _KnowledgeRetrievalHitFallbackDialog extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               KnowledgeDialogSection(
-                title: _kbRetrievalText(
+                title: openHandLocalizedText(
                   context,
                   zh: '基础信息',
                   zhHant: '基本資訊',
@@ -1156,7 +1134,7 @@ class _KnowledgeRetrievalHitFallbackDialog extends StatelessWidget {
                 child: KnowledgeDialogKeyValueList(
                   labelWidth: isZh ? 112 : 132,
                   rows: {
-                    _kbRetrievalText(
+                    openHandLocalizedText(
                       context,
                       zh: '分块 ID',
                       zhHant: '分塊 ID',
@@ -1165,7 +1143,7 @@ class _KnowledgeRetrievalHitFallbackDialog extends StatelessWidget {
                       de: 'Abschnitts-ID',
                       ja: 'チャンク ID',
                     ): chunkId,
-                    _kbRetrievalText(
+                    openHandLocalizedText(
                       context,
                       zh: '来源 ID',
                       zhHant: '來源 ID',
@@ -1174,7 +1152,7 @@ class _KnowledgeRetrievalHitFallbackDialog extends StatelessWidget {
                       de: 'Quellen-ID',
                       ja: 'ソース ID',
                     ): hit['source_id'],
-                    _kbRetrievalText(
+                    openHandLocalizedText(
                       context,
                       zh: '标题',
                       zhHant: '標題',
@@ -1183,7 +1161,7 @@ class _KnowledgeRetrievalHitFallbackDialog extends StatelessWidget {
                       de: 'Titel',
                       ja: 'タイトル',
                     ): title,
-                    _kbRetrievalText(
+                    openHandLocalizedText(
                       context,
                       zh: '路径',
                       zhHant: '路徑',
@@ -1196,7 +1174,7 @@ class _KnowledgeRetrievalHitFallbackDialog extends StatelessWidget {
                 ),
               ),
               KnowledgeDialogSection(
-                title: _kbRetrievalText(
+                title: openHandLocalizedText(
                   context,
                   zh: '检索数据',
                   zhHant: '檢索資料',
@@ -1210,7 +1188,7 @@ class _KnowledgeRetrievalHitFallbackDialog extends StatelessWidget {
                   labelWidth: isZh ? 112 : 132,
                   rows: {
                     if (_hasValue(hit['score']))
-                      _kbRetrievalText(
+                      openHandLocalizedText(
                         context,
                         zh: '召回分数',
                         zhHant: '召回分數',
@@ -1220,7 +1198,7 @@ class _KnowledgeRetrievalHitFallbackDialog extends StatelessWidget {
                         ja: 'スコア',
                       ): hit['score'],
                     if (_hasValue(hit['rerank_score']))
-                      _kbRetrievalText(
+                      openHandLocalizedText(
                         context,
                         zh: '重排分数',
                         zhHant: '重排分數',
@@ -1230,7 +1208,7 @@ class _KnowledgeRetrievalHitFallbackDialog extends StatelessWidget {
                         ja: '再ランクスコア',
                       ): hit['rerank_score'],
                     if (_hasValue(hit['final_score']))
-                      _kbRetrievalText(
+                      openHandLocalizedText(
                         context,
                         zh: '最终分数',
                         zhHant: '最終分數',
@@ -1240,7 +1218,7 @@ class _KnowledgeRetrievalHitFallbackDialog extends StatelessWidget {
                         ja: '最終スコア',
                       ): hit['final_score'],
                     if (_hasValue(hit['token_estimate']))
-                      _kbRetrievalText(
+                      openHandLocalizedText(
                         context,
                         zh: '预估 token',
                         zhHant: '預估 token',
@@ -1250,7 +1228,7 @@ class _KnowledgeRetrievalHitFallbackDialog extends StatelessWidget {
                         ja: '推定トークン',
                       ): hit['token_estimate'],
                     if (_hasValue(hit['time_field']))
-                      _kbRetrievalText(
+                      openHandLocalizedText(
                         context,
                         zh: '时间字段',
                         zhHant: '時間欄位',
@@ -1260,7 +1238,7 @@ class _KnowledgeRetrievalHitFallbackDialog extends StatelessWidget {
                         ja: '時間フィールド',
                       ): hit['time_field'],
                     if (_hasValue(hit['document_time']))
-                      _kbRetrievalText(
+                      openHandLocalizedText(
                         context,
                         zh: '文档时间',
                         zhHant: '文件時間',
@@ -1272,7 +1250,7 @@ class _KnowledgeRetrievalHitFallbackDialog extends StatelessWidget {
                         hit['document_time'],
                       ),
                     if (_hasValue(hit['updated_at']))
-                      _kbRetrievalText(
+                      openHandLocalizedText(
                         context,
                         zh: '更新时间',
                         zhHant: '更新時間',
@@ -1287,7 +1265,7 @@ class _KnowledgeRetrievalHitFallbackDialog extends StatelessWidget {
                 ),
               ),
               KnowledgeDialogSection(
-                title: _kbRetrievalText(
+                title: openHandLocalizedText(
                   context,
                   zh: '标签',
                   zhHant: '標籤',
@@ -1300,7 +1278,7 @@ class _KnowledgeRetrievalHitFallbackDialog extends StatelessWidget {
                 child: tags.isEmpty
                     ? KnowledgeDialogNotice(
                         icon: Icons.info_outline_rounded,
-                        message: _kbRetrievalText(
+                        message: openHandLocalizedText(
                           context,
                           zh: '消息元数据中没有标签。',
                           zhHant: '訊息元資料中沒有標籤。',
@@ -1323,7 +1301,7 @@ class _KnowledgeRetrievalHitFallbackDialog extends StatelessWidget {
                       ),
               ),
               KnowledgeDialogSection(
-                title: _kbRetrievalText(
+                title: openHandLocalizedText(
                   context,
                   zh: '命中预览',
                   zhHant: '命中預覽',
@@ -1335,7 +1313,7 @@ class _KnowledgeRetrievalHitFallbackDialog extends StatelessWidget {
                 icon: Icons.notes_rounded,
                 child: KnowledgeDialogTextBox(
                   text: preview,
-                  emptyText: _kbRetrievalText(
+                  emptyText: openHandLocalizedText(
                     context,
                     zh: '消息元数据中没有命中预览。',
                     zhHant: '訊息元資料中沒有命中預覽。',
@@ -1347,7 +1325,7 @@ class _KnowledgeRetrievalHitFallbackDialog extends StatelessWidget {
                 ),
               ),
               KnowledgeDialogSection(
-                title: _kbRetrievalText(
+                title: openHandLocalizedText(
                   context,
                   zh: '原始命中元数据',
                   zhHant: '原始命中元資料',
@@ -1370,7 +1348,7 @@ class _KnowledgeRetrievalHitFallbackDialog extends StatelessWidget {
             onPressed: () => _copyText(
               context,
               chunkId,
-              _kbRetrievalText(
+              openHandLocalizedText(
                 context,
                 zh: '已复制分块 ID。',
                 zhHant: '已複製分塊 ID。',
@@ -1381,7 +1359,7 @@ class _KnowledgeRetrievalHitFallbackDialog extends StatelessWidget {
               ),
             ),
             icon: Icons.fingerprint_rounded,
-            label: _kbRetrievalText(
+            label: openHandLocalizedText(
               context,
               zh: '复制 ID',
               zhHant: '複製 ID',
@@ -1397,7 +1375,7 @@ class _KnowledgeRetrievalHitFallbackDialog extends StatelessWidget {
               : () => _copyText(
                   context,
                   preview,
-                  _kbRetrievalText(
+                  openHandLocalizedText(
                     context,
                     zh: '已复制命中预览。',
                     zhHant: '已複製命中預覽。',
@@ -1408,7 +1386,7 @@ class _KnowledgeRetrievalHitFallbackDialog extends StatelessWidget {
                   ),
                 ),
           icon: Icons.copy_all_rounded,
-          label: _kbRetrievalText(
+          label: openHandLocalizedText(
             context,
             zh: '复制预览',
             zhHant: '複製預覽',
@@ -1420,7 +1398,7 @@ class _KnowledgeRetrievalHitFallbackDialog extends StatelessWidget {
         ),
         OpenHandDialogActionButton.primary(
           onPressed: () => Navigator.of(context).pop(),
-          label: _kbRetrievalText(
+          label: openHandLocalizedText(
             context,
             zh: '关闭',
             zhHant: '關閉',

@@ -874,7 +874,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
                   _MessageMetaRow(
                     key: _metaCapsuleKey,
                     icon: Icons.inventory_2_outlined,
-                    label: _localizedText(
+                    label: openHandLocalizedText(
                       context,
                       zh: '工具结果',
                       en: 'Tool Result',
@@ -1106,7 +1106,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
                             _TypewriterCaret(color: textColor),
                             const SizedBox(width: 6),
                             Text(
-                              _localizedText(
+                              openHandLocalizedText(
                                 context,
                                 zh: '生成中',
                                 en: 'Streaming',
@@ -1175,7 +1175,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
           id: 'copy',
           onPressed: widget.onCopy,
           icon: Icons.content_copy_outlined,
-          label: _localizedText(context, zh: '复制', en: 'Copy'),
+          label: openHandLocalizedText(context, zh: '复制', en: 'Copy'),
         ),
         if (!isGoalRuntimeMessage &&
             widget.speechEnabled &&
@@ -1187,8 +1187,8 @@ class _MessageBubbleState extends State<_MessageBubble> {
                 ? Icons.stop_circle_outlined
                 : Icons.record_voice_over_outlined,
             label: widget.speechPlaying
-                ? _localizedText(context, zh: '停止', en: 'Stop')
-                : _localizedText(context, zh: '朗读', en: 'Read'),
+                ? openHandLocalizedText(context, zh: '停止', en: 'Stop')
+                : openHandLocalizedText(context, zh: '朗读', en: 'Read'),
           ),
         if (!isGoalRuntimeMessage &&
             widget.translationEnabled &&
@@ -1204,10 +1204,10 @@ class _MessageBubbleState extends State<_MessageBubble> {
                 ? Icons.visibility_outlined
                 : Icons.translate_rounded,
             label: widget.translationLoading
-                ? _localizedText(context, zh: '翻译中', en: 'Translating')
+                ? openHandLocalizedText(context, zh: '翻译中', en: 'Translating')
                 : widget.translationVisible
-                ? _localizedText(context, zh: '查看原始', en: 'Original')
-                : _localizedText(context, zh: '翻译', en: 'Translate'),
+                ? openHandLocalizedText(context, zh: '查看原始', en: 'Original')
+                : openHandLocalizedText(context, zh: '翻译', en: 'Translate'),
           ),
         if (isAiSideMessage && widget.onSetFeedback != null)
           _MessageActionSpec(
@@ -1220,7 +1220,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
             icon: selectedFeedback == AiSessionMessageFeedback.liked
                 ? Icons.thumb_up_alt_rounded
                 : Icons.thumb_up_alt_outlined,
-            label: _localizedText(context, zh: '点赞', en: 'Like'),
+            label: openHandLocalizedText(context, zh: '点赞', en: 'Like'),
             selected: selectedFeedback == AiSessionMessageFeedback.liked,
           ),
         if (isAiSideMessage && widget.onSetFeedback != null)
@@ -1234,7 +1234,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
             icon: selectedFeedback == AiSessionMessageFeedback.needsImprovement
                 ? Icons.thumb_down_alt_rounded
                 : Icons.thumb_down_alt_outlined,
-            label: _localizedText(context, zh: '需要改进', en: 'Improve'),
+            label: openHandLocalizedText(context, zh: '需要改进', en: 'Improve'),
             selected:
                 selectedFeedback == AiSessionMessageFeedback.needsImprovement,
           ),
@@ -1246,7 +1246,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
             id: 'regenerate',
             onPressed: widget.onRegenerateResponse,
             icon: Icons.refresh_rounded,
-            label: _localizedText(context, zh: '重新生成', en: 'Regenerate'),
+            label: openHandLocalizedText(context, zh: '重新生成', en: 'Regenerate'),
           ),
         if (widget.onEdit != null)
           _MessageActionSpec(
@@ -1259,7 +1259,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
           id: 'fork',
           onPressed: widget.onFork,
           icon: Icons.call_merge_rounded,
-          label: _localizedText(context, zh: '派生', en: 'Fork'),
+          label: openHandLocalizedText(context, zh: '派生', en: 'Fork'),
         ),
         _MessageActionSpec(
           id: 'delete',
@@ -1272,7 +1272,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
             id: 'delete-from-here',
             onPressed: widget.onDeleteFromHere,
             icon: Icons.delete_sweep_outlined,
-            label: _localizedText(
+            label: openHandLocalizedText(
               context,
               zh: '删除此条及后续',
               en: 'Delete From Here',
@@ -1283,7 +1283,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
             id: 'audit',
             onPressed: () async => widget.onAudit!.call(),
             icon: Icons.fact_check_outlined,
-            label: _localizedText(context, zh: '审计', en: 'Audit'),
+            label: openHandLocalizedText(context, zh: '审计', en: 'Audit'),
           ),
         if (!isUser &&
             !isToolCall &&
@@ -1302,8 +1302,12 @@ class _MessageBubbleState extends State<_MessageBubble> {
                 ? Icons.code_off_outlined
                 : Icons.code_outlined,
             label: _showRawContent
-                ? _localizedText(context, zh: '显示渲染', en: 'Show Rendered')
-                : _localizedText(context, zh: '显示原始', en: 'Show Raw'),
+                ? openHandLocalizedText(
+                    context,
+                    zh: '显示渲染',
+                    en: 'Show Rendered',
+                  )
+                : openHandLocalizedText(context, zh: '显示原始', en: 'Show Raw'),
           ),
         if (!isUser &&
             !isToolCall &&
@@ -1325,7 +1329,11 @@ class _MessageBubbleState extends State<_MessageBubble> {
               );
             },
             icon: Icons.open_in_browser_rounded,
-            label: _localizedText(context, zh: '浏览器打开', en: 'Open in Browser'),
+            label: openHandLocalizedText(
+              context,
+              zh: '浏览器打开',
+              en: 'Open in Browser',
+            ),
           ),
       ],
     );
@@ -1831,7 +1839,7 @@ void _showMediaClipboardSnack(
 }) {
   final messenger = ScaffoldMessenger.maybeOf(context);
   if (messenger == null) return;
-  final message = _localizedText(context, zh: zh, en: en);
+  final message = openHandLocalizedText(context, zh: zh, en: en);
   OpenHandSnackBar.show(
     context,
     messenger,
@@ -2076,7 +2084,7 @@ Future<void> _openAttachment(
       context,
       SnackBar(
         content: Text(
-          _localizedText(
+          openHandLocalizedText(
             context,
             zh: '附件文件不存在或已被移动。',
             en: 'Attachment file not found or has been moved.',
@@ -2139,7 +2147,7 @@ Future<void> _openLocalPathWithSystemApp(
         context,
         SnackBar(
           content: Text(
-            _localizedText(
+            openHandLocalizedText(
               context,
               zh: '拒绝打开不安全的路径：$normalizedPath',
               en: 'Refused unsafe path: $normalizedPath',
@@ -2172,7 +2180,7 @@ Future<void> _openLocalPathWithSystemApp(
       context,
       SnackBar(
         content: Text(
-          _localizedText(
+          openHandLocalizedText(
             context,
             zh: '打开文件失败：$error',
             en: 'Failed to open file: $error',
@@ -2275,7 +2283,7 @@ class _FilePreviewDialogState extends State<_FilePreviewDialog> {
                         Icons.content_copy_outlined,
                         color: colorScheme.onSurfaceVariant,
                       ),
-                      tooltip: _localizedText(
+                      tooltip: openHandLocalizedText(
                         context,
                         zh: '复制文件',
                         en: 'Copy File',
@@ -2290,7 +2298,7 @@ class _FilePreviewDialogState extends State<_FilePreviewDialog> {
                         Icons.open_in_new_rounded,
                         color: colorScheme.onSurfaceVariant,
                       ),
-                      tooltip: _localizedText(
+                      tooltip: openHandLocalizedText(
                         context,
                         zh: '使用系统应用打开',
                         en: 'Open with System App',
@@ -2394,19 +2402,27 @@ class _FilePreviewDialogState extends State<_FilePreviewDialog> {
                           ),
                           label: Text(
                             _copying
-                                ? _localizedText(
+                                ? openHandLocalizedText(
                                     context,
                                     zh: '复制中…',
                                     en: 'Copying…',
                                   )
-                                : _localizedText(context, zh: '复制', en: 'Copy'),
+                                : openHandLocalizedText(
+                                    context,
+                                    zh: '复制',
+                                    en: 'Copy',
+                                  ),
                           ),
                         ),
                         FilledButton.icon(
                           onPressed: _opening ? null : () => _openFile(context),
                           icon: const Icon(Icons.open_in_new_rounded, size: 18),
                           label: Text(
-                            _localizedText(context, zh: '打开', en: 'Open'),
+                            openHandLocalizedText(
+                              context,
+                              zh: '打开',
+                              en: 'Open',
+                            ),
                           ),
                         ),
                       ],
@@ -2838,7 +2854,7 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog> {
                               Icons.open_in_new_rounded,
                               color: colorScheme.onSurfaceVariant,
                             ),
-                            tooltip: _localizedText(
+                            tooltip: openHandLocalizedText(
                               context,
                               zh: '使用系统应用打开',
                               en: 'Open with System App',
@@ -2853,7 +2869,7 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog> {
                               Icons.content_copy_outlined,
                               color: colorScheme.onSurfaceVariant,
                             ),
-                            tooltip: _localizedText(
+                            tooltip: openHandLocalizedText(
                               context,
                               zh: '复制图片',
                               en: 'Copy Image',
@@ -2870,7 +2886,7 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog> {
                               Icons.download_rounded,
                               color: colorScheme.onSurfaceVariant,
                             ),
-                            tooltip: _localizedText(
+                            tooltip: openHandLocalizedText(
                               context,
                               zh: '保存到本地',
                               en: 'Save to disk',
@@ -3130,7 +3146,7 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog> {
               ),
               const SizedBox(height: 12),
               Text(
-                _localizedText(
+                openHandLocalizedText(
                   context,
                   zh: '无法加载图片',
                   en: 'Failed to load image',
@@ -3207,7 +3223,7 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog> {
       showFriendlyErrorSnackBar(
         context,
         message: '$e',
-        fallback: _localizedText(context, zh: '保存失败', en: 'Save failed'),
+        fallback: openHandLocalizedText(context, zh: '保存失败', en: 'Save failed'),
       );
     }
   }
@@ -4547,7 +4563,7 @@ class _MediaPreviewDialogState extends State<_MediaPreviewDialog> {
       _loadTimeoutTimer = startSafeTimer(_mediaLoadTimeout, () {
         if (!mounted || _mediaReady) return;
         setState(() {
-          _loadError = _localizedText(
+          _loadError = openHandLocalizedText(
             context,
             zh: '载入超时，可使用系统播放器打开。',
             en: 'Loading timed out. Open with the system player instead.',
@@ -5163,7 +5179,7 @@ input[type=range]:hover::-webkit-slider-thumb,input[type=range]:focus-visible::-
                           Icons.open_in_new_rounded,
                           color: colorScheme.onSurfaceVariant,
                         ),
-                        tooltip: _localizedText(
+                        tooltip: openHandLocalizedText(
                           context,
                           zh: '使用系统播放器打开',
                           en: 'Open with System Player',
@@ -5178,7 +5194,7 @@ input[type=range]:hover::-webkit-slider-thumb,input[type=range]:focus-visible::-
                           Icons.content_copy_outlined,
                           color: colorScheme.onSurfaceVariant,
                         ),
-                        tooltip: _localizedText(
+                        tooltip: openHandLocalizedText(
                           context,
                           zh: '复制媒体',
                           en: 'Copy Media',
@@ -5195,7 +5211,7 @@ input[type=range]:hover::-webkit-slider-thumb,input[type=range]:focus-visible::-
                           Icons.fullscreen_rounded,
                           color: colorScheme.onSurfaceVariant,
                         ),
-                        tooltip: _localizedText(
+                        tooltip: openHandLocalizedText(
                           context,
                           zh: '全屏沉浸播放',
                           en: 'Fullscreen playback',
@@ -5210,7 +5226,7 @@ input[type=range]:hover::-webkit-slider-thumb,input[type=range]:focus-visible::-
                           Icons.download_rounded,
                           color: colorScheme.onSurfaceVariant,
                         ),
-                        tooltip: _localizedText(
+                        tooltip: openHandLocalizedText(
                           context,
                           zh: '保存到本地',
                           en: 'Save to disk',
@@ -5326,7 +5342,7 @@ input[type=range]:hover::-webkit-slider-thumb,input[type=range]:focus-visible::-
           const Spacer(),
           _AudioOverlayIconButton(
             icon: Icons.open_in_new_rounded,
-            tooltip: _localizedText(
+            tooltip: openHandLocalizedText(
               context,
               zh: '使用系统播放器打开',
               en: 'Open with System Player',
@@ -5336,7 +5352,11 @@ input[type=range]:hover::-webkit-slider-thumb,input[type=range]:focus-visible::-
           const SizedBox(width: 10),
           _AudioOverlayIconButton(
             icon: Icons.content_copy_outlined,
-            tooltip: _localizedText(context, zh: '复制媒体', en: 'Copy Media'),
+            tooltip: openHandLocalizedText(
+              context,
+              zh: '复制媒体',
+              en: 'Copy Media',
+            ),
             onPressed: _isCopyingMedia
                 ? null
                 : () => _copyMediaToClipboard(context),
@@ -5344,13 +5364,17 @@ input[type=range]:hover::-webkit-slider-thumb,input[type=range]:focus-visible::-
           const SizedBox(width: 10),
           _AudioOverlayIconButton(
             icon: Icons.download_rounded,
-            tooltip: _localizedText(context, zh: '保存到本地', en: 'Save to disk'),
+            tooltip: openHandLocalizedText(
+              context,
+              zh: '保存到本地',
+              en: 'Save to disk',
+            ),
             onPressed: () => _saveMediaAs(context),
           ),
           const SizedBox(width: 10),
           _AudioOverlayIconButton(
             icon: Icons.close_rounded,
-            tooltip: _localizedText(context, zh: '关闭', en: 'Close'),
+            tooltip: openHandLocalizedText(context, zh: '关闭', en: 'Close'),
             onPressed: () => Navigator.of(context).pop(),
           ),
         ],
@@ -5512,7 +5536,7 @@ input[type=range]:hover::-webkit-slider-thumb,input[type=range]:focus-visible::-
         context,
         messenger,
         SnackBar(
-          content: Text(_localizedText(context, zh: zh, en: en)),
+          content: Text(openHandLocalizedText(context, zh: zh, en: en)),
         ),
       );
     }
@@ -5669,7 +5693,11 @@ class _MediaLoadFallback extends StatelessWidget {
               onPressed: onOpenExternal,
               icon: const Icon(Icons.open_in_new_rounded, size: 18),
               label: Text(
-                _localizedText(context, zh: '系统播放器', en: 'System Player'),
+                openHandLocalizedText(
+                  context,
+                  zh: '系统播放器',
+                  en: 'System Player',
+                ),
               ),
             ),
           ],
@@ -6123,16 +6151,24 @@ class _GoalMessageViewData {
   String chipLabel(BuildContext context) {
     final round = roundIndex == null ? '' : ' · #$roundIndex';
     return switch (kind) {
-      _GoalMessageViewKind.autoFollowUp => _localizedText(
+      _GoalMessageViewKind.autoFollowUp => openHandLocalizedText(
         context,
         zh: '目标自动推进',
         en: 'Goal Auto Follow-up',
       ),
       _GoalMessageViewKind.evaluationRequest =>
-        _localizedText(context, zh: '目标评估请求', en: 'Goal Evaluation Request') +
+        openHandLocalizedText(
+              context,
+              zh: '目标评估请求',
+              en: 'Goal Evaluation Request',
+            ) +
             round,
       _GoalMessageViewKind.evaluationResponse =>
-        _localizedText(context, zh: '目标评估响应', en: 'Goal Evaluation Response') +
+        openHandLocalizedText(
+              context,
+              zh: '目标评估响应',
+              en: 'Goal Evaluation Response',
+            ) +
             round,
     };
   }
@@ -6170,12 +6206,12 @@ class _MachineExpertRequestStructuredBody extends StatelessWidget {
   Widget build(BuildContext context) {
     return _ExpertRequestStructuredBody(
       icon: Icons.terminal_rounded,
-      title: _localizedText(
+      title: openHandLocalizedText(
         context,
         zh: '机器专家执行请求',
         en: 'Machine Expert Request',
       ),
-      description: _localizedText(
+      description: openHandLocalizedText(
         context,
         zh: '已绑定目标终端，会在指定会话中执行任务。',
         en: 'The target terminal is bound for this task.',
@@ -6188,33 +6224,45 @@ class _MachineExpertRequestStructuredBody extends StatelessWidget {
         ),
         _ExpertRequestChipData(
           icon: Icons.memory_rounded,
-          label: _localizedText(context, zh: '机器专家', en: 'Machine Expert'),
+          label: openHandLocalizedText(
+            context,
+            zh: '机器专家',
+            en: 'Machine Expert',
+          ),
         ),
         if ((data.appleScriptTarget ?? '').trim().isNotEmpty)
           _ExpertRequestChipData(
             icon: Icons.my_location_rounded,
-            label: _localizedText(context, zh: '精确定位', en: 'Precise Target'),
+            label: openHandLocalizedText(
+              context,
+              zh: '精确定位',
+              en: 'Precise Target',
+            ),
           ),
       ],
       fields: [
         if (data.terminalApplication.trim().isNotEmpty)
           _ExpertRequestFieldData(
-            label: _localizedText(context, zh: '终端应用', en: 'Terminal'),
+            label: openHandLocalizedText(context, zh: '终端应用', en: 'Terminal'),
             value: data.terminalApplication.trim(),
           ),
         if (data.terminalLocation.trim().isNotEmpty)
           _ExpertRequestFieldData(
-            label: _localizedText(context, zh: '打开位置', en: 'Location'),
+            label: openHandLocalizedText(context, zh: '打开位置', en: 'Location'),
             value: data.terminalLocation.trim(),
           ),
         if ((data.appleScriptTarget ?? '').trim().isNotEmpty)
           _ExpertRequestFieldData(
-            label: _localizedText(context, zh: '精确定位', en: 'Precise Target'),
+            label: openHandLocalizedText(
+              context,
+              zh: '精确定位',
+              en: 'Precise Target',
+            ),
             value: data.appleScriptTarget!.trim(),
           ),
         if (data.taskRequirement.trim().isNotEmpty)
           _ExpertRequestFieldData(
-            label: _localizedText(context, zh: '需求', en: 'Request'),
+            label: openHandLocalizedText(context, zh: '需求', en: 'Request'),
             value: data.taskRequirement.trim(),
           ),
       ],
@@ -6236,8 +6284,12 @@ class _WebReverseRequestStructuredBody extends StatelessWidget {
   Widget build(BuildContext context) {
     return _ExpertRequestStructuredBody(
       icon: Icons.language_rounded,
-      title: _localizedText(context, zh: 'Web 逆向请求', en: 'Web Reverse Request'),
-      description: _localizedText(
+      title: openHandLocalizedText(
+        context,
+        zh: 'Web 逆向请求',
+        en: 'Web Reverse Request',
+      ),
+      description: openHandLocalizedText(
         context,
         zh: '已绑定目标页面与 CDP 环境，按浏览器取证流程推进。',
         en: 'The target page and CDP environment are bound for this task.',
@@ -6250,7 +6302,11 @@ class _WebReverseRequestStructuredBody extends StatelessWidget {
         ),
         _ExpertRequestChipData(
           icon: Icons.travel_explore_rounded,
-          label: _localizedText(context, zh: 'Web 逆向', en: 'Web Reverse'),
+          label: openHandLocalizedText(
+            context,
+            zh: 'Web 逆向',
+            en: 'Web Reverse',
+          ),
         ),
         if (data.cdpPort.trim().isNotEmpty)
           _ExpertRequestChipData(
@@ -6266,52 +6322,72 @@ class _WebReverseRequestStructuredBody extends StatelessWidget {
       fields: [
         if (data.targetUrl.trim().isNotEmpty)
           _ExpertRequestFieldData(
-            label: _localizedText(context, zh: '目标 URL', en: 'Target URL'),
+            label: openHandLocalizedText(
+              context,
+              zh: '目标 URL',
+              en: 'Target URL',
+            ),
             value: data.targetUrl.trim(),
           ),
         if (data.reverseTarget.trim().isNotEmpty)
           _ExpertRequestFieldData(
-            label: _localizedText(context, zh: '逆向目标', en: 'Objective'),
+            label: openHandLocalizedText(context, zh: '逆向目标', en: 'Objective'),
             value: data.reverseTarget.trim(),
           ),
         if ((data.triggerActions ?? '').trim().isNotEmpty)
           _ExpertRequestFieldData(
-            label: _localizedText(context, zh: '触发动作', en: 'Trigger Actions'),
+            label: openHandLocalizedText(
+              context,
+              zh: '触发动作',
+              en: 'Trigger Actions',
+            ),
             value: data.triggerActions!.trim(),
           ),
         if (data.browser.trim().isNotEmpty)
           _ExpertRequestFieldData(
-            label: _localizedText(context, zh: '浏览器', en: 'Browser'),
+            label: openHandLocalizedText(context, zh: '浏览器', en: 'Browser'),
             value: data.browser.trim(),
           ),
         if (data.cdpMcp.trim().isNotEmpty)
           _ExpertRequestFieldData(
-            label: _localizedText(context, zh: 'AI 侧 CDP MCP', en: 'CDP MCP'),
+            label: openHandLocalizedText(
+              context,
+              zh: 'AI 侧 CDP MCP',
+              en: 'CDP MCP',
+            ),
             value: data.cdpMcp.trim(),
           ),
         if ((data.proxy ?? '').trim().isNotEmpty)
           _ExpertRequestFieldData(
-            label: _localizedText(context, zh: '代理', en: 'Proxy'),
+            label: openHandLocalizedText(context, zh: '代理', en: 'Proxy'),
             value: data.proxy!.trim(),
           ),
         if ((data.keywords ?? '').trim().isNotEmpty)
           _ExpertRequestFieldData(
-            label: _localizedText(context, zh: '关键字', en: 'Keywords'),
+            label: openHandLocalizedText(context, zh: '关键字', en: 'Keywords'),
             value: data.keywords!.trim(),
           ),
         if (data.evidenceDiscipline.trim().isNotEmpty)
           _ExpertRequestFieldData(
-            label: _localizedText(context, zh: '取证纪律', en: 'Evidence Rules'),
+            label: openHandLocalizedText(
+              context,
+              zh: '取证纪律',
+              en: 'Evidence Rules',
+            ),
             value: data.evidenceDiscipline.trim(),
           ),
         if (data.deliverables.trim().isNotEmpty)
           _ExpertRequestFieldData(
-            label: _localizedText(context, zh: '任务产物', en: 'Deliverables'),
+            label: openHandLocalizedText(
+              context,
+              zh: '任务产物',
+              en: 'Deliverables',
+            ),
             value: data.deliverables.trim(),
           ),
         if (data.acceptanceCriteria.trim().isNotEmpty)
           _ExpertRequestFieldData(
-            label: _localizedText(context, zh: '验收标准', en: 'Acceptance'),
+            label: openHandLocalizedText(context, zh: '验收标准', en: 'Acceptance'),
             value: data.acceptanceCriteria.trim(),
           ),
       ],
@@ -6333,12 +6409,12 @@ class _AndroidReverseRequestStructuredBody extends StatelessWidget {
   Widget build(BuildContext context) {
     return _ExpertRequestStructuredBody(
       icon: Icons.android_rounded,
-      title: _localizedText(
+      title: openHandLocalizedText(
         context,
         zh: 'Android 逆向请求',
         en: 'Android Reverse Request',
       ),
-      description: _localizedText(
+      description: openHandLocalizedText(
         context,
         zh: '已绑定目标应用与分析边界，按静态优先取证流程推进。',
         en: 'The target app and analysis boundary are bound for this task.',
@@ -6351,7 +6427,7 @@ class _AndroidReverseRequestStructuredBody extends StatelessWidget {
         ),
         _ExpertRequestChipData(
           icon: Icons.android_rounded,
-          label: _localizedText(
+          label: openHandLocalizedText(
             context,
             zh: 'Android 逆向',
             en: 'Android Reverse',
@@ -6365,38 +6441,42 @@ class _AndroidReverseRequestStructuredBody extends StatelessWidget {
         if ((data.apkPath ?? '').trim().isNotEmpty)
           _ExpertRequestChipData(
             icon: Icons.inventory_2_outlined,
-            label: _localizedText(context, zh: 'APK', en: 'APK'),
+            label: openHandLocalizedText(context, zh: 'APK', en: 'APK'),
           ),
       ],
       fields: [
         if (data.reverseTarget.trim().isNotEmpty)
           _ExpertRequestFieldData(
-            label: _localizedText(context, zh: '逆向目标', en: 'Objective'),
+            label: openHandLocalizedText(context, zh: '逆向目标', en: 'Objective'),
             value: data.reverseTarget.trim(),
           ),
         if ((data.packageName ?? '').trim().isNotEmpty)
           _ExpertRequestFieldData(
-            label: _localizedText(context, zh: '目标包名', en: 'Package'),
+            label: openHandLocalizedText(context, zh: '目标包名', en: 'Package'),
             value: data.packageName!.trim(),
           ),
         if ((data.apkPath ?? '').trim().isNotEmpty)
           _ExpertRequestFieldData(
-            label: _localizedText(context, zh: 'APK 路径', en: 'APK Path'),
+            label: openHandLocalizedText(context, zh: 'APK 路径', en: 'APK Path'),
             value: data.apkPath!.trim(),
           ),
         if (data.deviceDisplay.trim().isNotEmpty)
           _ExpertRequestFieldData(
-            label: _localizedText(context, zh: '设备', en: 'Device'),
+            label: openHandLocalizedText(context, zh: '设备', en: 'Device'),
             value: data.deviceDisplay.trim(),
           ),
         if (data.analysisMode.trim().isNotEmpty)
           _ExpertRequestFieldData(
-            label: _localizedText(context, zh: '分析模式', en: 'Analysis Mode'),
+            label: openHandLocalizedText(
+              context,
+              zh: '分析模式',
+              en: 'Analysis Mode',
+            ),
             value: data.analysisMode.trim(),
           ),
         if (data.authorizationScope.trim().isNotEmpty)
           _ExpertRequestFieldData(
-            label: _localizedText(
+            label: openHandLocalizedText(
               context,
               zh: '授权范围',
               en: 'Authorization Scope',
@@ -6405,32 +6485,40 @@ class _AndroidReverseRequestStructuredBody extends StatelessWidget {
           ),
         if (data.adbMcp.trim().isNotEmpty)
           _ExpertRequestFieldData(
-            label: _localizedText(context, zh: 'ADB MCP', en: 'ADB MCP'),
+            label: openHandLocalizedText(context, zh: 'ADB MCP', en: 'ADB MCP'),
             value: data.adbMcp.trim(),
           ),
         if (data.fridaMcp.trim().isNotEmpty)
           _ExpertRequestFieldData(
-            label: _localizedText(context, zh: 'Frida MCP', en: 'Frida MCP'),
+            label: openHandLocalizedText(
+              context,
+              zh: 'Frida MCP',
+              en: 'Frida MCP',
+            ),
             value: data.fridaMcp.trim(),
           ),
         if ((data.keywords ?? '').trim().isNotEmpty)
           _ExpertRequestFieldData(
-            label: _localizedText(context, zh: '关键字', en: 'Keywords'),
+            label: openHandLocalizedText(context, zh: '关键字', en: 'Keywords'),
             value: data.keywords!.trim(),
           ),
         if ((data.notes ?? '').trim().isNotEmpty)
           _ExpertRequestFieldData(
-            label: _localizedText(context, zh: '备注', en: 'Notes'),
+            label: openHandLocalizedText(context, zh: '备注', en: 'Notes'),
             value: data.notes!.trim(),
           ),
         if (data.evidenceDiscipline.trim().isNotEmpty)
           _ExpertRequestFieldData(
-            label: _localizedText(context, zh: '取证纪律', en: 'Evidence Rules'),
+            label: openHandLocalizedText(
+              context,
+              zh: '取证纪律',
+              en: 'Evidence Rules',
+            ),
             value: data.evidenceDiscipline.trim(),
           ),
         if (data.acceptanceCriteria.trim().isNotEmpty)
           _ExpertRequestFieldData(
-            label: _localizedText(context, zh: '验收标准', en: 'Acceptance'),
+            label: openHandLocalizedText(context, zh: '验收标准', en: 'Acceptance'),
             value: data.acceptanceCriteria.trim(),
           ),
       ],
@@ -6527,7 +6615,7 @@ class _ExpertRequestStructuredBody extends StatelessWidget {
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
-                  _localizedText(
+                  openHandLocalizedText(
                     context,
                     zh: '卡片内容已截断，完整原文仍保留在消息审计与复制内容中。',
                     en: 'Card content is shortened; the full source remains available for audit and copy.',
@@ -6574,44 +6662,48 @@ class _GoalMessageStructuredBody extends StatelessWidget {
     final theme = Theme.of(context);
     final accent = data.accentColor(theme);
     final title = switch (data.kind) {
-      _GoalMessageViewKind.autoFollowUp => _localizedText(
+      _GoalMessageViewKind.autoFollowUp => openHandLocalizedText(
         context,
         zh: '继续推进当前目标',
         en: 'Continue Current Goal',
       ),
-      _GoalMessageViewKind.evaluationRequest => _localizedText(
+      _GoalMessageViewKind.evaluationRequest => openHandLocalizedText(
         context,
         zh: '验证目标完成证据',
         en: 'Verify Goal Evidence',
       ),
       _GoalMessageViewKind.evaluationResponse =>
         data.passed == true
-            ? _localizedText(context, zh: '目标证据已通过', en: 'Goal Evidence Passed')
-            : _localizedText(
+            ? openHandLocalizedText(
+                context,
+                zh: '目标证据已通过',
+                en: 'Goal Evidence Passed',
+              )
+            : openHandLocalizedText(
                 context,
                 zh: '目标仍需推进',
                 en: 'Goal Still Needs Work',
               ),
     };
     final description = switch (data.kind) {
-      _GoalMessageViewKind.autoFollowUp => _localizedText(
+      _GoalMessageViewKind.autoFollowUp => openHandLocalizedText(
         context,
         zh: 'Agent Runtime 自动发送，用于在上一轮评估未通过后继续收敛目标。',
         en: 'Agent Runtime sent this automatically after evaluation required more evidence.',
       ),
-      _GoalMessageViewKind.evaluationRequest => _localizedText(
+      _GoalMessageViewKind.evaluationRequest => openHandLocalizedText(
         context,
         zh: '评估模型会基于当前目标和最近对话判断完成证据是否充分。',
         en: 'The evaluator checks the current goal and recent transcript for completion evidence.',
       ),
       _GoalMessageViewKind.evaluationResponse =>
         data.passed == true
-            ? _localizedText(
+            ? openHandLocalizedText(
                 context,
                 zh: '评估模型认为当前证据足以完成目标。',
                 en: 'The evaluator found enough evidence to complete the goal.',
               )
-            : _localizedText(
+            : openHandLocalizedText(
                 context,
                 zh: '评估模型认为证据仍不足，需要继续推进。',
                 en: 'The evaluator found the evidence insufficient and requested more work.',
@@ -6648,7 +6740,7 @@ class _GoalMessageStructuredBody extends StatelessWidget {
         if ((data.objective ?? '').trim().isNotEmpty) ...[
           const SizedBox(height: 12),
           _GoalMessageField(
-            label: _localizedText(context, zh: '目标', en: 'Goal'),
+            label: openHandLocalizedText(context, zh: '目标', en: 'Goal'),
             value: data.objective!.trim(),
             textColor: textColor,
           ),
@@ -6656,7 +6748,7 @@ class _GoalMessageStructuredBody extends StatelessWidget {
         if ((data.summary ?? '').trim().isNotEmpty) ...[
           const SizedBox(height: 12),
           _GoalMessageField(
-            label: _localizedText(
+            label: openHandLocalizedText(
               context,
               zh: '评估摘要',
               en: 'Evaluation Summary',
@@ -6669,7 +6761,7 @@ class _GoalMessageStructuredBody extends StatelessWidget {
             data.kind != _GoalMessageViewKind.autoFollowUp) ...[
           const SizedBox(height: 12),
           _GoalMessageField(
-            label: _localizedText(context, zh: '下一步', en: 'Next Step'),
+            label: openHandLocalizedText(context, zh: '下一步', en: 'Next Step'),
             value: data.followUpPrompt!.trim(),
             textColor: textColor,
           ),
@@ -6677,7 +6769,7 @@ class _GoalMessageStructuredBody extends StatelessWidget {
         if (data.evidence.isNotEmpty) ...[
           const SizedBox(height: 12),
           _GoalMessageBulletList(
-            label: _localizedText(context, zh: '证据', en: 'Evidence'),
+            label: openHandLocalizedText(context, zh: '证据', en: 'Evidence'),
             values: data.evidence,
             textColor: textColor,
             accent: OpenHandStatusColors.success,
@@ -6686,7 +6778,7 @@ class _GoalMessageStructuredBody extends StatelessWidget {
         if (data.missing.isNotEmpty) ...[
           const SizedBox(height: 12),
           _GoalMessageBulletList(
-            label: _localizedText(context, zh: '缺口', en: 'Missing'),
+            label: openHandLocalizedText(context, zh: '缺口', en: 'Missing'),
             values: data.missing,
             textColor: textColor,
             accent: theme.colorScheme.tertiary,
@@ -6720,13 +6812,13 @@ class _GoalMessageStructuredBody extends StatelessWidget {
       final budget = data.tokenBudget == null ? '' : '/${data.tokenBudget}';
       add(
         Icons.speed_rounded,
-        '${data.tokensUsed}$budget ${_localizedText(context, zh: '令牌', en: 'tokens')}',
+        '${data.tokensUsed}$budget ${openHandLocalizedText(context, zh: '令牌', en: 'tokens')}',
       );
     }
     if (data.recentMessageCount != null) {
       add(
         Icons.chat_bubble_outline_rounded,
-        _localizedText(
+        openHandLocalizedText(
           context,
           zh: '最近 ${data.recentMessageCount} 条',
           en: '${data.recentMessageCount} recent',
@@ -6742,13 +6834,13 @@ class _GoalMessageStructuredBody extends StatelessWidget {
     if (data.passed == true && data.elapsedMs != null) {
       add(
         Icons.timer_outlined,
-        '${_localizedText(context, zh: '总耗时', en: 'Total time')} ${formatCompactDurationMs(data.elapsedMs!)}',
+        '${openHandLocalizedText(context, zh: '总耗时', en: 'Total time')} ${formatCompactDurationMs(data.elapsedMs!)}',
       );
     }
     if (data.passed == true && data.totalTokens != null) {
       add(
         Icons.speed_rounded,
-        '${_localizedText(context, zh: '总令牌', en: 'Total tokens')} ${data.totalTokens}',
+        '${openHandLocalizedText(context, zh: '总令牌', en: 'Total tokens')} ${data.totalTokens}',
       );
     }
     return chips;
@@ -6999,19 +7091,19 @@ String _knowledgeBaseMessageCapsuleLabel(
       : null;
   final status = '${metadata['status'] ?? ''}'.trim();
   if (status == 'failed') {
-    return _localizedText(context, zh: '知识库失败', en: 'KB failed');
+    return openHandLocalizedText(context, zh: '知识库失败', en: 'KB failed');
   }
   if (hitCount <= 0) {
-    return _localizedText(context, zh: '知识库无命中', en: 'KB no hits');
+    return openHandLocalizedText(context, zh: '知识库无命中', en: 'KB no hits');
   }
   if (tokens == null) {
-    return _localizedText(
+    return openHandLocalizedText(
       context,
       zh: '知识库 $hitCount 条',
       en: 'KB $hitCount hits',
     );
   }
-  return _localizedText(
+  return openHandLocalizedText(
     context,
     zh: '知识库 · $hitCount 条 · $tokens tokens',
     en: 'KB · $hitCount hits · $tokens tokens',
@@ -7238,7 +7330,7 @@ class _SelectedMessageContextRow extends StatelessWidget {
           associatedKnowledgeBaseMetadata != null &&
           associatedKnowledgeBaseSourceCount > 0)
         _KnowledgeBaseContextCapsule(
-          label: _localizedText(
+          label: openHandLocalizedText(
             context,
             zh: '引用 $associatedKnowledgeBaseSourceCount 篇知识库',
             en: '$associatedKnowledgeBaseSourceCount KB sources',
@@ -7306,7 +7398,7 @@ class _HarnessAnnotationContextCapsules {
       if (annotation.agentRole != null)
         _MessageContextCapsule(
           icon: Icons.person_pin_rounded,
-          label: _localizedText(
+          label: openHandLocalizedText(
             context,
             zh: '角色 · ${_roleLabel(annotation, isZh: true)}${_agentSuffix(annotation)}',
             en: 'Role · ${_roleLabel(annotation, isZh: false)}${_agentSuffix(annotation)}',
@@ -7316,7 +7408,7 @@ class _HarnessAnnotationContextCapsules {
       if (annotation.phase != null)
         _MessageContextCapsule(
           icon: _hePhaseIcons[annotation.phase] ?? Icons.timelapse_rounded,
-          label: _localizedText(
+          label: openHandLocalizedText(
             context,
             zh: '阶段 · ${_phaseLabel(annotation, isZh: true)}',
             en: 'Phase · ${_phaseLabel(annotation, isZh: false)}',
@@ -7364,8 +7456,8 @@ class _GoalMessageContextCapsules {
     final label = data.passed == null
         ? data.chipLabel(context)
         : data.passed == true
-        ? '${data.chipLabel(context)} · ${_localizedText(context, zh: '通过', en: 'Passed')}'
-        : '${data.chipLabel(context)} · ${_localizedText(context, zh: '继续', en: 'Continue')}';
+        ? '${data.chipLabel(context)} · ${openHandLocalizedText(context, zh: '通过', en: 'Passed')}'
+        : '${data.chipLabel(context)} · ${openHandLocalizedText(context, zh: '继续', en: 'Continue')}';
     return <Widget>[
       _MessageContextCapsule(
         icon: data.icon,
@@ -7409,7 +7501,7 @@ class _GoalObjectiveContextCapsules {
       _MessageContextCapsule(
         icon: Icons.flag_rounded,
         label:
-            '${_localizedText(context, zh: '目标', en: 'Goal')} · ${_shortGoalId(goalId)}',
+            '${openHandLocalizedText(context, zh: '目标', en: 'Goal')} · ${_shortGoalId(goalId)}',
         textColor: textColor,
         maxLabelWidth: 180,
       ),
@@ -7447,7 +7539,7 @@ class _MachineExpertRequestContextCapsules {
     return <Widget>[
       _MessageContextCapsule(
         icon: Icons.terminal_rounded,
-        label: _localizedText(
+        label: openHandLocalizedText(
           context,
           zh: '机器专家请求',
           en: 'Machine Expert Request',
@@ -7457,7 +7549,11 @@ class _MachineExpertRequestContextCapsules {
       if ((data.appleScriptTarget ?? '').trim().isNotEmpty)
         _MessageContextCapsule(
           icon: Icons.my_location_rounded,
-          label: _localizedText(context, zh: '精确定位', en: 'Precise Target'),
+          label: openHandLocalizedText(
+            context,
+            zh: '精确定位',
+            en: 'Precise Target',
+          ),
           textColor: textColor,
         ),
     ];
@@ -7484,7 +7580,7 @@ class _ReverseExpertRequestContextCapsules {
       return <Widget>[
         _MessageContextCapsule(
           icon: Icons.travel_explore_rounded,
-          label: _localizedText(
+          label: openHandLocalizedText(
             context,
             zh: 'Web 逆向请求',
             en: 'Web Reverse Request',
@@ -7510,7 +7606,7 @@ class _ReverseExpertRequestContextCapsules {
     return <Widget>[
       _MessageContextCapsule(
         icon: Icons.android_rounded,
-        label: _localizedText(
+        label: openHandLocalizedText(
           context,
           zh: 'Android 逆向请求',
           en: 'Android Reverse Request',
@@ -7781,7 +7877,7 @@ class _AttachmentReferenceCapsule extends StatelessWidget {
     return _MessageContextCapsule(
       icon: _iconForAttachmentKind(attachment.kind),
       label:
-          '${attachment.name.trim().isNotEmpty ? attachment.name.trim() : _localizedText(context, zh: '附件', en: 'Attachment')} · ${aiFormatBytes(attachment.sizeBytes)}',
+          '${attachment.name.trim().isNotEmpty ? attachment.name.trim() : openHandLocalizedText(context, zh: '附件', en: 'Attachment')} · ${aiFormatBytes(attachment.sizeBytes)}',
       textColor: textColor,
       maxLabelWidth: 280,
       onPressed: () {
@@ -7847,7 +7943,7 @@ class _CreationModeChip extends StatelessWidget {
       if (options.negativePrompt != null) 'negative',
       if (options.count != 1) 'x${options.count}',
     ];
-    final label = _localizedText(
+    final label = openHandLocalizedText(
       context,
       zh: '模式 · $labelZh',
       en: 'Mode · $labelEn',
@@ -7891,7 +7987,7 @@ class _UserSkillSelectionChip extends StatelessWidget {
     final iconPath = (map['icon_path'] as String?)?.trim();
     final iconKind = (map['icon_kind'] as String?)?.trim();
     final leading = _buildLeading(emoji, iconPath, iconKind);
-    final label = _localizedText(
+    final label = openHandLocalizedText(
       context,
       zh: '技能 · $name',
       en: 'Skill · $name',
@@ -8681,7 +8777,7 @@ updateVolume();
                     left: 12,
                     child: _FullscreenChromeButton(
                       icon: Icons.arrow_back_rounded,
-                      tooltip: _localizedText(
+                      tooltip: openHandLocalizedText(
                         context,
                         zh: '返回（Esc）',
                         en: 'Back (Esc)',

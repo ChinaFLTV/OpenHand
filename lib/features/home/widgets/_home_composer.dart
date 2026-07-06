@@ -1427,20 +1427,20 @@ class _ComposerPanelState extends State<_ComposerPanel> {
             livePreview: widget.liveRuntimeToolPreview,
           );
     final sendButtonLabel = canStopSending
-        ? _localizedText(context, zh: '停止回答', en: 'Stop Response')
+        ? openHandLocalizedText(context, zh: '停止回答', en: 'Stop Response')
         : switch (widget.sendPhase) {
-            AiSendPhase.compressing => _localizedText(
+            AiSendPhase.compressing => openHandLocalizedText(
               context,
               zh: '消息压缩中',
               en: 'Compressing Messages',
             ),
             AiSendPhase.sendingMessage => l10n.chatSending,
-            AiSendPhase.responding => _localizedText(
+            AiSendPhase.responding => openHandLocalizedText(
               context,
               zh: '停止回答',
               en: 'Stop Response',
             ),
-            AiSendPhase.awaitingApproval => _localizedText(
+            AiSendPhase.awaitingApproval => openHandLocalizedText(
               context,
               zh: '等待批准',
               en: 'Awaiting Approval',
@@ -1492,7 +1492,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    _localizedText(
+                    openHandLocalizedText(
                       context,
                       zh: '正在编辑历史消息',
                       en: 'Editing Previous Message',
@@ -1622,7 +1622,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                             visualDensity: VisualDensity.compact,
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints(),
-                            tooltip: _localizedText(
+                            tooltip: openHandLocalizedText(
                               context,
                               zh: '上移',
                               en: 'Move up',
@@ -1649,7 +1649,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                             visualDensity: VisualDensity.compact,
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints(),
-                            tooltip: _localizedText(
+                            tooltip: openHandLocalizedText(
                               context,
                               zh: '下移',
                               en: 'Move down',
@@ -1681,7 +1681,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                             visualDensity: VisualDensity.compact,
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints(),
-                            tooltip: _localizedText(
+                            tooltip: openHandLocalizedText(
                               context,
                               zh: '编辑此等待消息',
                               en: 'Edit this queued message',
@@ -1703,7 +1703,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                             visualDensity: VisualDensity.compact,
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints(),
-                            tooltip: _localizedText(
+                            tooltip: openHandLocalizedText(
                               context,
                               zh: '指导发送此等待消息',
                               en: 'Send this queued message as guidance',
@@ -1725,7 +1725,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                             visualDensity: VisualDensity.compact,
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints(),
-                            tooltip: _localizedText(
+                            tooltip: openHandLocalizedText(
                               context,
                               zh: '删除此等待消息',
                               en: 'Remove this queued message',
@@ -1899,7 +1899,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                         // "tweak temperature mid-chat" flow from 4 taps
                         // (open settings → providers → row → edit) to 1.
                         Tooltip(
-                          message: _localizedText(
+                          message: openHandLocalizedText(
                             context,
                             zh: '编辑当前模型配置',
                             en: 'Edit selected model configuration',
@@ -1971,12 +1971,12 @@ class _ComposerPanelState extends State<_ComposerPanel> {
         // creation-mode button (which carries the mode-semantic icon below).
         Tooltip(
           message: widget.attachmentsEnabled
-              ? _localizedText(
+              ? openHandLocalizedText(
                   context,
                   zh: '添加附件（最多 $aiMessageAttachmentLimit 个，单文件 ≤10MB；支持图片、文本、代码、表格和 PDF）',
                   en: 'Add attachments (up to $aiMessageAttachmentLimit, ≤10MB each; images, text, code, spreadsheets, PDF)',
                 )
-              : _localizedText(
+              : openHandLocalizedText(
                   context,
                   zh: '当前模型不支持附件',
                   en: 'The selected model does not support attachments',
@@ -2008,7 +2008,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
         ),
         const SizedBox(width: 10),
         Tooltip(
-          message: _localizedText(
+          message: openHandLocalizedText(
             context,
             zh: widget.isCollapsed ? '展开输入框' : '折叠输入框',
             en: widget.isCollapsed ? 'Expand Composer' : 'Collapse Composer',
@@ -2038,7 +2038,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
         ),
         const SizedBox(width: 10),
         Tooltip(
-          message: _localizedText(
+          message: openHandLocalizedText(
             context,
             zh: !widget.autoFollowEnabled
                 ? '开启自动滚动'
@@ -2139,8 +2139,16 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                   ),
                   label: Text(
                     activeGoal?.isPaused == true
-                        ? _localizedText(context, zh: '继续目标', en: 'Resume Goal')
-                        : _localizedText(context, zh: '暂停目标', en: 'Pause Goal'),
+                        ? openHandLocalizedText(
+                            context,
+                            zh: '继续目标',
+                            en: 'Resume Goal',
+                          )
+                        : openHandLocalizedText(
+                            context,
+                            zh: '暂停目标',
+                            en: 'Pause Goal',
+                          ),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -2152,7 +2160,11 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                   ),
                   icon: const Icon(Icons.stop_circle_outlined),
                   label: Text(
-                    _localizedText(context, zh: '终止目标', en: 'Terminate Goal'),
+                    openHandLocalizedText(
+                      context,
+                      zh: '终止目标',
+                      en: 'Terminate Goal',
+                    ),
                   ),
                 ),
               ],
@@ -2195,13 +2207,13 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                         ),
                   label: Text(
                     isQueueingAction
-                        ? _localizedText(
+                        ? openHandLocalizedText(
                             context,
                             zh: '提前发送',
                             en: 'Queue Message',
                           )
                         : canStopSending && !hasUserTextOrAttachments
-                        ? _localizedText(
+                        ? openHandLocalizedText(
                             context,
                             zh: '停止回答',
                             en: 'Stop Responding',
@@ -2309,7 +2321,11 @@ class _ComposerFullAccessModeButtonState
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  _localizedText(context, zh: '默认权限', en: 'Default Access'),
+                  openHandLocalizedText(
+                    context,
+                    zh: '默认权限',
+                    en: 'Default Access',
+                  ),
                 ),
               ),
               if (!widget.fullAccess)
@@ -2327,7 +2343,11 @@ class _ComposerFullAccessModeButtonState
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  _localizedText(context, zh: '完全访问权限', en: 'Full Access'),
+                  openHandLocalizedText(
+                    context,
+                    zh: '完全访问权限',
+                    en: 'Full Access',
+                  ),
                 ),
               ),
               if (widget.fullAccess)
@@ -2349,8 +2369,8 @@ class _ComposerFullAccessModeButtonState
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final modeLabel = widget.fullAccess
-        ? _localizedText(context, zh: '完全访问权限', en: 'Full Access')
-        : _localizedText(context, zh: '默认权限', en: 'Default Access');
+        ? openHandLocalizedText(context, zh: '完全访问权限', en: 'Full Access')
+        : openHandLocalizedText(context, zh: '默认权限', en: 'Default Access');
     final backgroundColor = !widget.enabled
         ? colorScheme.surfaceContainerHighest.withValues(alpha: 0.78)
         : widget.fullAccess
@@ -2619,7 +2639,7 @@ class _ComposerCreationModeButtonState
     }
     if (mode == _CreationMode.deepResearch) {
       final label = switch (mode) {
-        _CreationMode.deepResearch => _localizedText(
+        _CreationMode.deepResearch => openHandLocalizedText(
           context,
           zh: '深度研究功能暂不支持，敬请期待',
           en: 'Deep Research is not yet supported',
@@ -2646,7 +2666,7 @@ class _ComposerCreationModeButtonState
     final colorScheme = Theme.of(context).colorScheme;
     final isActive = widget.creationMode != _CreationMode.none;
     return Tooltip(
-      message: _localizedText(context, zh: '模式', en: 'Mode'),
+      message: openHandLocalizedText(context, zh: '模式', en: 'Mode'),
       child: SizedBox(
         width: 52,
         height: 52,
@@ -2730,7 +2750,11 @@ class _ComposerCreationModeButtonState
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  _localizedText(context, zh: '创建图片', en: 'Create Image'),
+                  openHandLocalizedText(
+                    context,
+                    zh: '创建图片',
+                    en: 'Create Image',
+                  ),
                 ),
               ),
               if (widget.creationMode == _CreationMode.image)
@@ -2752,7 +2776,11 @@ class _ComposerCreationModeButtonState
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  _localizedText(context, zh: '视频生成', en: 'Generate Video'),
+                  openHandLocalizedText(
+                    context,
+                    zh: '视频生成',
+                    en: 'Generate Video',
+                  ),
                 ),
               ),
               if (widget.creationMode == _CreationMode.video)
@@ -2774,7 +2802,11 @@ class _ComposerCreationModeButtonState
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  _localizedText(context, zh: '音频生成', en: 'Generate Audio'),
+                  openHandLocalizedText(
+                    context,
+                    zh: '音频生成',
+                    en: 'Generate Audio',
+                  ),
                 ),
               ),
               if (widget.creationMode == _CreationMode.audio)
@@ -2790,7 +2822,11 @@ class _ComposerCreationModeButtonState
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  _localizedText(context, zh: '深度研究', en: 'Deep Research'),
+                  openHandLocalizedText(
+                    context,
+                    zh: '深度研究',
+                    en: 'Deep Research',
+                  ),
                 ),
               ),
             ],
@@ -3457,7 +3493,7 @@ class _AtMentionOverlayPanelState extends State<_AtMentionOverlayPanel>
     final motionEnabled = openHandTickerMotionEnabled(context);
     final isLocalFileMode = widget.mode == _AtMentionOverlayMode.localFiles;
     final titleLabel = isLocalFileMode
-        ? _localizedText(
+        ? openHandLocalizedText(
             context,
             zh: '选择文件',
             zhHant: '選擇檔案',
@@ -3466,7 +3502,7 @@ class _AtMentionOverlayPanelState extends State<_AtMentionOverlayPanel>
             de: 'Dateien auswählen',
             ja: 'ファイルを選択',
           )
-        : _localizedText(
+        : openHandLocalizedText(
             context,
             zh: '选择项目文件',
             zhHant: '選擇專案檔案',
@@ -3536,7 +3572,7 @@ class _AtMentionOverlayPanelState extends State<_AtMentionOverlayPanel>
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               _AtMentionBreadcrumbChip(
-                                label: _localizedText(
+                                label: openHandLocalizedText(
                                   context,
                                   zh: '项目根目录',
                                   zhHant: '專案根目錄',
@@ -3593,7 +3629,7 @@ class _AtMentionOverlayPanelState extends State<_AtMentionOverlayPanel>
                         child: Center(
                           child: Text(
                             isLocalFileMode && !widget.attachmentsEnabled
-                                ? _localizedText(
+                                ? openHandLocalizedText(
                                     context,
                                     zh: '当前模型不支持附件',
                                     zhHant: '目前模型不支援附件',
@@ -3602,7 +3638,7 @@ class _AtMentionOverlayPanelState extends State<_AtMentionOverlayPanel>
                                     de: 'Das ausgewählte Modell unterstützt keine Anhänge',
                                     ja: '選択中のモデルは添付ファイルに対応していません',
                                   )
-                                : _localizedText(
+                                : openHandLocalizedText(
                                     context,
                                     zh: '未找到匹配文件或目录',
                                     zhHant: '找不到相符的檔案或目錄',
@@ -3660,7 +3696,7 @@ class _AtMentionOverlayPanelState extends State<_AtMentionOverlayPanel>
                                           children: [
                                             Text(
                                               item.isLocalFileAction
-                                                  ? _localizedText(
+                                                  ? openHandLocalizedText(
                                                       context,
                                                       zh: '选择本地文件',
                                                       zhHant: '選擇本機檔案',
@@ -3679,7 +3715,7 @@ class _AtMentionOverlayPanelState extends State<_AtMentionOverlayPanel>
                                             ),
                                             Text(
                                               item.isLocalFileAction
-                                                  ? _localizedText(
+                                                  ? openHandLocalizedText(
                                                       context,
                                                       zh: '添加图片、文本、代码、表格或 PDF 附件',
                                                       zhHant:
@@ -3709,7 +3745,7 @@ class _AtMentionOverlayPanelState extends State<_AtMentionOverlayPanel>
                                         const SizedBox(width: 4),
                                         Semantics(
                                           button: true,
-                                          label: _localizedText(
+                                          label: openHandLocalizedText(
                                             context,
                                             zh: '进入目录',
                                             zhHant: '進入目錄',
@@ -4006,7 +4042,7 @@ class _SkillPickerOverlayPanelState extends State<_SkillPickerOverlayPanel>
                 ),
                 const SizedBox(width: 6),
                 Text(
-                  _localizedText(
+                  openHandLocalizedText(
                     context,
                     zh: '选择一个技能',
                     zhHant: '選擇一個技能',
@@ -4040,7 +4076,7 @@ class _SkillPickerOverlayPanelState extends State<_SkillPickerOverlayPanel>
               padding: const EdgeInsets.all(16),
               child: Center(
                 child: Text(
-                  _localizedText(
+                  openHandLocalizedText(
                     context,
                     zh: '未找到匹配技能',
                     zhHant: '找不到相符技能',
@@ -4265,7 +4301,7 @@ class _SelectedSkillChip extends StatelessWidget {
             ),
             const SizedBox(width: 6),
             Tooltip(
-              message: _localizedText(
+              message: openHandLocalizedText(
                 context,
                 zh: '移除此技能',
                 zhHant: '移除此技能',
@@ -4376,20 +4412,24 @@ class _ComposerCreationOptionsChip extends StatelessWidget {
       _CreationMode.image =>
         ratio != null && ratio.isNotEmpty
             ? ratio
-            : _localizedText(context, zh: '图像', en: 'IMG'),
+            : openHandLocalizedText(context, zh: '图像', en: 'IMG'),
       _CreationMode.video =>
         ratio != null && ratio.isNotEmpty
             ? ratio
-            : _localizedText(context, zh: '视频', en: 'VID'),
+            : openHandLocalizedText(context, zh: '视频', en: 'VID'),
       _CreationMode.audio =>
         options.durationSeconds != null
             ? '${options.durationSeconds}s'
-            : _localizedText(context, zh: '音频', en: 'AUD'),
-      _CreationMode.deepResearch => _localizedText(context, zh: '研究', en: 'R'),
-      _CreationMode.none => _localizedText(context, zh: '开', en: 'ON'),
+            : openHandLocalizedText(context, zh: '音频', en: 'AUD'),
+      _CreationMode.deepResearch => openHandLocalizedText(
+        context,
+        zh: '研究',
+        en: 'R',
+      ),
+      _CreationMode.none => openHandLocalizedText(context, zh: '开', en: 'ON'),
     };
     return Tooltip(
-      message: _localizedText(
+      message: openHandLocalizedText(
         context,
         zh: '取消创建模式并恢复文本发送',
         en: 'Cancel creation mode and return to text',

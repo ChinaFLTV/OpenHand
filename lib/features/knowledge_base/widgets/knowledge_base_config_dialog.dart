@@ -45,28 +45,6 @@ const double _knowledgeEmbeddingGroupMinWidth = 300;
 const double _knowledgeEmbeddingSettingMinWidth = 176;
 const List<String> _knowledgeDependencyPluginIds = <String>['docker', 'qdrant'];
 
-String _kbConfigText(
-  BuildContext context, {
-  required String zh,
-  required String en,
-  String? zhHans,
-  String? zhHant,
-  String? fr,
-  String? de,
-  String? ja,
-}) {
-  return openHandLocalizedText(
-    context,
-    zh: zh,
-    en: en,
-    zhHans: zhHans,
-    zhHant: zhHant,
-    fr: fr,
-    de: de,
-    ja: ja,
-  );
-}
-
 Future<void> showKnowledgeBaseConfigDialog(
   BuildContext context, {
   VoidCallback? onOpenPlugins,
@@ -500,7 +478,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
     Navigator.of(context).pop();
     OpenHandSnackBar.showSuccess(
       context,
-      _kbConfigText(
+      openHandLocalizedText(
         context,
         zh: '知识库配置已保存。',
         zhHant: '知識庫設定已儲存。',
@@ -535,7 +513,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
       String? de,
       String? ja,
     }) {
-      return _kbConfigText(
+      return openHandLocalizedText(
         context,
         zh: zh,
         en: en,
@@ -2146,7 +2124,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                 : Icons.dns_outlined,
             tone: KnowledgeDialogNoticeTone.warning,
             message: dependencyRefreshing
-                ? _kbConfigText(
+                ? openHandLocalizedText(
                     context,
                     zh: '正在重新检测 Docker/Qdrant 状态；当前缓存：$dependencyMessage',
                     zhHant: '正在重新檢測 Docker/Qdrant 狀態；目前快取：$dependencyMessage',
@@ -2155,7 +2133,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                     de: 'Docker/Qdrant-Status wird aktualisiert; zwischengespeicherter Status: $dependencyMessage',
                     ja: 'Docker/Qdrant の状態を再確認しています。キャッシュ状態: $dependencyMessage',
                   )
-                : _kbConfigText(
+                : openHandLocalizedText(
                     context,
                     zh: '知识库依赖未就绪：$dependencyMessage',
                     zhHant: '知識庫依賴尚未就緒：$dependencyMessage',
@@ -2173,7 +2151,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                       widget.onOpenPlugins?.call();
                     },
                     icon: Icons.power_rounded,
-                    label: _kbConfigText(
+                    label: openHandLocalizedText(
                       context,
                       zh: '前往插件',
                       zhHant: '前往外掛',
@@ -2190,7 +2168,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
           padding: const EdgeInsets.only(bottom: 12),
           child: KnowledgeDialogNotice(
             icon: Icons.hub_outlined,
-            message: _kbConfigText(
+            message: openHandLocalizedText(
               context,
               zh: '未配置可用的嵌入模型。请选择已开启“嵌入生成”的模型，并确认隐私开关。',
               zhHant: '未設定可用的嵌入模型。請選擇已啟用「嵌入生成」的模型，並確認隱私開關。',
@@ -2225,7 +2203,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
 
   String _nullableBoolLabel(BuildContext context, bool? value) {
     return switch (value) {
-      true => _kbConfigText(
+      true => openHandLocalizedText(
         context,
         zh: '是',
         zhHant: '是',
@@ -2234,7 +2212,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
         de: 'Ja',
         ja: 'はい',
       ),
-      false => _kbConfigText(
+      false => openHandLocalizedText(
         context,
         zh: '否',
         zhHant: '否',
@@ -2243,7 +2221,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
         de: 'Nein',
         ja: 'いいえ',
       ),
-      null => _kbConfigText(
+      null => openHandLocalizedText(
         context,
         zh: '未知',
         zhHant: '未知',
@@ -2454,7 +2432,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
               Expanded(
                 child: Text(
                   ready
-                      ? _kbConfigText(
+                      ? openHandLocalizedText(
                           context,
                           zh: '模型可用',
                           zhHant: '模型可用',
@@ -2463,7 +2441,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                           de: 'Modell bereit',
                           ja: 'モデル利用可能',
                         )
-                      : _kbConfigText(
+                      : openHandLocalizedText(
                           context,
                           zh: '等待选择',
                           zhHant: '等待選擇',
@@ -2489,7 +2467,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                     selectedConfig?.providerLabel,
                     profile.displayName ?? _settings.modelId,
                   ]).join(' / ')
-                : _kbConfigText(
+                : openHandLocalizedText(
                     context,
                     zh: '请选择已启用嵌入生成的模型配置。',
                     zhHant: '請選擇已啟用嵌入生成的模型配置。',
@@ -2519,7 +2497,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                 if (profile.supportsRerank)
                   KnowledgeDialogChip(
                     icon: Icons.filter_alt_rounded,
-                    label: _kbConfigText(
+                    label: openHandLocalizedText(
                       context,
                       zh: '可重排',
                       zhHant: '可重排',
@@ -2546,7 +2524,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
       return _fullRow(
         KnowledgeDialogNotice(
           icon: Icons.hub_outlined,
-          message: _kbConfigText(
+          message: openHandLocalizedText(
             context,
             zh: '当前保存的嵌入模型已不可用。请重新选择一个已开启“嵌入生成”的模型。',
             zhHant: '目前儲存的嵌入模型已不可用。請重新選擇一個已啟用「嵌入生成」的模型。',
@@ -2570,7 +2548,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
     final metrics = <({IconData icon, String label, String value})>[
       (
         icon: Icons.straighten_rounded,
-        label: _kbConfigText(
+        label: openHandLocalizedText(
           context,
           zh: '维度范围',
           zhHant: '維度範圍',
@@ -2583,7 +2561,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
       ),
       (
         icon: Icons.input_rounded,
-        label: _kbConfigText(
+        label: openHandLocalizedText(
           context,
           zh: '最大输入',
           zhHant: '最大輸入',
@@ -2596,7 +2574,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
       ),
       (
         icon: Icons.batch_prediction_outlined,
-        label: _kbConfigText(
+        label: openHandLocalizedText(
           context,
           zh: 'Batch / 上限',
           zhHant: 'Batch / 上限',
@@ -2617,7 +2595,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
       ),
       (
         icon: Icons.radar_rounded,
-        label: _kbConfigText(
+        label: openHandLocalizedText(
           context,
           zh: '距离/归一化',
           zhHant: '距離/正規化',
@@ -2635,7 +2613,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
     final details = <({IconData icon, String label, String value})>[
       (
         icon: Icons.route_outlined,
-        label: _kbConfigText(
+        label: openHandLocalizedText(
           context,
           zh: '模型路由',
           zhHant: '模型路由',
@@ -2653,7 +2631,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
       ),
       (
         icon: Icons.tune_rounded,
-        label: _kbConfigText(
+        label: openHandLocalizedText(
           context,
           zh: '支持参数',
           zhHant: '支援參數',
@@ -2666,7 +2644,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
       ),
       (
         icon: Icons.data_object_rounded,
-        label: _kbConfigText(
+        label: openHandLocalizedText(
           context,
           zh: '默认参数',
           zhHant: '預設參數',
@@ -2679,7 +2657,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
       ),
       (
         icon: Icons.swap_vert_rounded,
-        label: _kbConfigText(
+        label: openHandLocalizedText(
           context,
           zh: '输入类型',
           zhHant: '輸入類型',
@@ -2691,7 +2669,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
         value: [
           _listLabel(profile.embeddingInputTypes),
           if (profile.embeddingDefaultInputType != null)
-            '${_kbConfigText(context, zh: '默认', zhHant: '預設', en: 'default', fr: 'défaut', de: 'Standard', ja: '既定')} ${profile.embeddingDefaultInputType}',
+            '${openHandLocalizedText(context, zh: '默认', zhHant: '預設', en: 'default', fr: 'défaut', de: 'Standard', ja: '既定')} ${profile.embeddingDefaultInputType}',
           if (profile.embeddingQueryInputType != null)
             'query ${profile.embeddingQueryInputType}',
           if (profile.embeddingDocumentInputType != null)
@@ -2700,7 +2678,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
       ),
       (
         icon: Icons.task_alt_rounded,
-        label: _kbConfigText(
+        label: openHandLocalizedText(
           context,
           zh: '任务类型',
           zhHant: '任務類型',
@@ -2716,12 +2694,12 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
           if (profile.embeddingDefaultDocumentTaskType != null)
             'doc ${profile.embeddingDefaultDocumentTaskType}',
           if (profile.embeddingDefaultTaskType != null)
-            '${_kbConfigText(context, zh: '默认', zhHant: '預設', en: 'default', fr: 'défaut', de: 'Standard', ja: '既定')} ${profile.embeddingDefaultTaskType}',
+            '${openHandLocalizedText(context, zh: '默认', zhHant: '預設', en: 'default', fr: 'défaut', de: 'Standard', ja: '既定')} ${profile.embeddingDefaultTaskType}',
         ].join(' / '),
       ),
       (
         icon: Icons.short_text_rounded,
-        label: _kbConfigText(
+        label: openHandLocalizedText(
           context,
           zh: '文本前缀',
           zhHant: '文字前綴',
@@ -2739,7 +2717,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
       ),
       (
         icon: Icons.text_fields_rounded,
-        label: _kbConfigText(
+        label: openHandLocalizedText(
           context,
           zh: '编码格式',
           zhHant: '編碼格式',
@@ -2751,12 +2729,12 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
         value: [
           _listLabel(profile.embeddingEncodingFormats),
           if (profile.embeddingDefaultEncodingFormat != null)
-            '${_kbConfigText(context, zh: '默认', zhHant: '預設', en: 'default', fr: 'défaut', de: 'Standard', ja: '既定')} ${profile.embeddingDefaultEncodingFormat}',
+            '${openHandLocalizedText(context, zh: '默认', zhHant: '預設', en: 'default', fr: 'défaut', de: 'Standard', ja: '既定')} ${profile.embeddingDefaultEncodingFormat}',
         ].join(' / '),
       ),
       (
         icon: Icons.memory_rounded,
-        label: _kbConfigText(
+        label: openHandLocalizedText(
           context,
           zh: '输出 dtype',
           zhHant: '輸出 dtype',
@@ -2768,9 +2746,9 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
         value: [
           _listLabel(profile.embeddingOutputDTypes),
           if (profile.embeddingDefaultOutputDType != null)
-            '${_kbConfigText(context, zh: '默认', zhHant: '預設', en: 'default', fr: 'défaut', de: 'Standard', ja: '既定')} ${profile.embeddingDefaultOutputDType}',
+            '${openHandLocalizedText(context, zh: '默认', zhHant: '預設', en: 'default', fr: 'défaut', de: 'Standard', ja: '既定')} ${profile.embeddingDefaultOutputDType}',
           if (profile.embeddingDefaultTruncation != null)
-            '${_kbConfigText(context, zh: '截断', zhHant: '截斷', en: 'truncate', fr: 'troncature', de: 'Kürzung', ja: '切り詰め')} ${profile.embeddingDefaultTruncation}',
+            '${openHandLocalizedText(context, zh: '截断', zhHant: '截斷', en: 'truncate', fr: 'troncature', de: 'Kürzung', ja: '切り詰め')} ${profile.embeddingDefaultTruncation}',
         ].join(' / '),
       ),
     ];
@@ -2834,7 +2812,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            _kbConfigText(
+                            openHandLocalizedText(
                               context,
                               zh: '模型画像',
                               zhHant: '模型画像',
@@ -2872,7 +2850,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                         if (profile.embeddingSupportsCustomDimensions)
                           KnowledgeDialogChip(
                             icon: Icons.open_in_full_rounded,
-                            label: _kbConfigText(
+                            label: openHandLocalizedText(
                               context,
                               zh: '可调维度',
                               zhHant: '可調維度',
@@ -2885,7 +2863,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                         if (profile.supportsRerank)
                           KnowledgeDialogChip(
                             icon: Icons.filter_alt_rounded,
-                            label: _kbConfigText(
+                            label: openHandLocalizedText(
                               context,
                               zh: '可重排',
                               zhHant: '可重排',
@@ -3126,7 +3104,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                     context,
                     width: groupWidth,
                     icon: Icons.account_tree_outlined,
-                    title: _kbConfigText(
+                    title: openHandLocalizedText(
                       context,
                       zh: '向量输出',
                       zhHant: '向量輸出',
@@ -3135,7 +3113,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                       de: 'Vektorausgabe',
                       ja: 'ベクトル出力',
                     ),
-                    subtitle: _kbConfigText(
+                    subtitle: openHandLocalizedText(
                       context,
                       zh: '控制最终写入向量库的维度、输入预算与单批规模。',
                       zhHant: '控制最終寫入向量庫的維度、輸入預算與單批規模。',
@@ -3150,7 +3128,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                         _embeddingSettingTextField(
                           context,
                           controller: _dimensions,
-                          label: _kbConfigText(
+                          label: openHandLocalizedText(
                             context,
                             zh: '默认向量维度',
                             zhHant: '預設向量維度',
@@ -3164,7 +3142,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                         _embeddingSettingTextField(
                           context,
                           controller: _maxInputTokens,
-                          label: _kbConfigText(
+                          label: openHandLocalizedText(
                             context,
                             zh: '最大输入 token',
                             zhHant: '最大輸入 token',
@@ -3178,7 +3156,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                         _embeddingSettingTextField(
                           context,
                           controller: _batchSize,
-                          label: _kbConfigText(
+                          label: openHandLocalizedText(
                             context,
                             zh: '批量大小',
                             zhHant: '批次大小',
@@ -3196,7 +3174,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                     context,
                     width: groupWidth,
                     icon: Icons.speed_rounded,
-                    title: _kbConfigText(
+                    title: openHandLocalizedText(
                       context,
                       zh: '请求韧性',
                       zhHant: '請求韌性',
@@ -3205,7 +3183,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                       de: 'Anfrage-Resilienz',
                       ja: 'リクエスト耐性',
                     ),
-                    subtitle: _kbConfigText(
+                    subtitle: openHandLocalizedText(
                       context,
                       zh: '限制请求耗时、失败重试和并发，避免资源被无限占用。',
                       zhHant: '限制請求耗時、失敗重試和並發，避免資源被無限占用。',
@@ -3220,7 +3198,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                         _embeddingSettingTextField(
                           context,
                           controller: _timeout,
-                          label: _kbConfigText(
+                          label: openHandLocalizedText(
                             context,
                             zh: '请求超时',
                             zhHant: '請求逾時',
@@ -3235,7 +3213,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                         _embeddingSettingTextField(
                           context,
                           controller: _retryCount,
-                          label: _kbConfigText(
+                          label: openHandLocalizedText(
                             context,
                             zh: '失败重试',
                             zhHant: '失敗重試',
@@ -3249,7 +3227,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                         _embeddingSettingTextField(
                           context,
                           controller: _retryBackoffMs,
-                          label: _kbConfigText(
+                          label: openHandLocalizedText(
                             context,
                             zh: '重试退避',
                             zhHant: '重試退避',
@@ -3264,7 +3242,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                         _embeddingSettingTextField(
                           context,
                           controller: _concurrentRequests,
-                          label: _kbConfigText(
+                          label: openHandLocalizedText(
                             context,
                             zh: '并发请求',
                             zhHant: '並發請求',
@@ -3282,7 +3260,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                     context,
                     width: maxWidth,
                     icon: Icons.privacy_tip_outlined,
-                    title: _kbConfigText(
+                    title: openHandLocalizedText(
                       context,
                       zh: '隐私与缓存',
                       zhHant: '隱私與快取',
@@ -3291,7 +3269,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                       de: 'Datenschutz und Cache',
                       ja: 'プライバシーとキャッシュ',
                     ),
-                    subtitle: _kbConfigText(
+                    subtitle: openHandLocalizedText(
                       context,
                       zh: '云端 embedding 会发送文档 chunk 或用户 query；默认保持关闭。',
                       zhHant: '雲端 embedding 會傳送文件 chunk 或使用者 query；預設保持關閉。',
@@ -3306,7 +3284,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                       children: [
                         _embeddingSwitchTile(
                           context,
-                          label: _kbConfigText(
+                          label: openHandLocalizedText(
                             context,
                             zh: '允许发送文档内容',
                             zhHant: '允許傳送文件內容',
@@ -3315,7 +3293,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                             de: 'Cloud-Embedding für Dokumente erlauben',
                             ja: 'ドキュメントのクラウド埋め込みを許可',
                           ),
-                          subtitle: _kbConfigText(
+                          subtitle: openHandLocalizedText(
                             context,
                             zh: '导入文档向量化时生效',
                             zhHant: '匯入文件向量化時生效',
@@ -3335,7 +3313,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                         ),
                         _embeddingSwitchTile(
                           context,
-                          label: _kbConfigText(
+                          label: openHandLocalizedText(
                             context,
                             zh: '允许发送用户查询',
                             zhHant: '允許傳送使用者查詢',
@@ -3344,7 +3322,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                             de: 'Cloud-Embedding für Abfragen erlauben',
                             ja: 'クエリのクラウド埋め込みを許可',
                           ),
-                          subtitle: _kbConfigText(
+                          subtitle: openHandLocalizedText(
                             context,
                             zh: '发送消息检索时生效',
                             zhHant: '傳送訊息檢索時生效',
@@ -3364,7 +3342,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                         ),
                         _embeddingSwitchTile(
                           context,
-                          label: _kbConfigText(
+                          label: openHandLocalizedText(
                             context,
                             zh: '缓存查询 embedding',
                             zhHant: '快取查詢 embedding',
@@ -3373,7 +3351,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                             de: 'Abfrage-Embedding cachen',
                             ja: 'クエリ埋め込みをキャッシュ',
                           ),
-                          subtitle: _kbConfigText(
+                          subtitle: openHandLocalizedText(
                             context,
                             zh: '复用重复查询向量',
                             zhHant: '重複使用重複查詢向量',
@@ -3601,7 +3579,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
     return _fullRow(
       KnowledgeDialogNotice(
         icon: Icons.info_outline_rounded,
-        message: _kbConfigText(
+        message: openHandLocalizedText(
           context,
           zh: '没有已开启“嵌入生成”的模型。请先在设置的模型配置中启用该能力。',
           zhHant: '沒有已啟用「嵌入生成」的模型。請先在設定的模型配置中啟用該能力。',
@@ -3643,7 +3621,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  _kbConfigText(
+                  openHandLocalizedText(
                     context,
                     zh: '模型解析规则',
                     zhHant: '模型解析規則',
@@ -3661,7 +3639,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
           ),
           const SizedBox(height: 6),
           Text(
-            _kbConfigText(
+            openHandLocalizedText(
               context,
               zh: '为指定源文件类型启用 reader 模型后，导入时会先转换为目标类型，再进入分块与向量化。',
               zhHant: '為指定來源檔案類型啟用 reader 模型後，匯入時會先轉換為目標類型，再進入分塊與向量化。',
@@ -3692,7 +3670,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
             const SizedBox(height: 12),
             KnowledgeDialogNotice(
               icon: Icons.info_outline_rounded,
-              message: _kbConfigText(
+              message: openHandLocalizedText(
                 context,
                 zh: '当前没有已开启“读取转换”的模型。请先在设置的模型配置中启用该能力并配置源/目标类型。',
                 zhHant: '目前沒有已啟用「讀取轉換」的模型。請先在設定的模型配置中啟用該能力並設定來源/目標類型。',
@@ -3765,7 +3743,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                   isExpanded: true,
                   decoration: knowledgeDialogInputDecoration(
                     context,
-                    _kbConfigText(
+                    openHandLocalizedText(
                       context,
                       zh: '解析方式',
                       zhHant: '解析方式',
@@ -3779,7 +3757,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                     DropdownMenuItem(
                       value: KnowledgeReaderParserMode.local,
                       child: Text(
-                        _kbConfigText(
+                        openHandLocalizedText(
                           context,
                           zh: '本地解析',
                           zhHant: '本地解析',
@@ -3793,7 +3771,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                     DropdownMenuItem(
                       value: KnowledgeReaderParserMode.model,
                       child: Text(
-                        _kbConfigText(
+                        openHandLocalizedText(
                           context,
                           zh: '模型解析',
                           zhHant: '模型解析',
@@ -3924,7 +3902,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                               isExpanded: true,
                               decoration: knowledgeDialogInputDecoration(
                                 context,
-                                _kbConfigText(
+                                openHandLocalizedText(
                                   context,
                                   zh: '转换目标类型',
                                   zhHant: '轉換目標類型',

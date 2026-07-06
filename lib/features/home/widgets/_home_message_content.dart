@@ -285,7 +285,7 @@ class _CompressionCheckpointBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final toggleLabel = _localizedText(
+    final toggleLabel = openHandLocalizedText(
       context,
       zh: expanded ? '收起摘要' : '展开摘要',
       en: expanded ? 'Collapse Summary' : 'Expand Summary',
@@ -933,9 +933,9 @@ class _MessageCollapseToggleCapsuleState
     final theme = Theme.of(context);
     final effectiveColor = widget.color.withValues(alpha: 0.88);
     final label = widget.collapsed
-        ? _localizedText(context, zh: '展开完整内容', en: 'Show Full Content')
-        : _localizedText(context, zh: '收起长内容', en: 'Collapse Content');
-    final unitText = _localizedText(context, zh: ' 字符', en: ' chars');
+        ? openHandLocalizedText(context, zh: '展开完整内容', en: 'Show Full Content')
+        : openHandLocalizedText(context, zh: '收起长内容', en: 'Collapse Content');
+    final unitText = openHandLocalizedText(context, zh: ' 字符', en: ' chars');
     final textStyle =
         (theme.textTheme.labelLarge?.copyWith(
           color: effectiveColor,
@@ -4227,7 +4227,7 @@ class _StreamingHtmlPlaceholderState extends State<_StreamingHtmlPlaceholder>
                     const SizedBox(width: 6),
                     Flexible(
                       child: Text(
-                        _localizedText(
+                        openHandLocalizedText(
                           context,
                           zh: '正在生成 HTML 卡片',
                           en: 'Generating HTML card',
@@ -4261,7 +4261,7 @@ class _StreamingHtmlPlaceholderState extends State<_StreamingHtmlPlaceholder>
                     ),
                   ),
                   Text(
-                    _localizedText(context, zh: ' 字符', en: ' chars'),
+                    openHandLocalizedText(context, zh: ' 字符', en: ' chars'),
                     style: captionStyle.copyWith(
                       color: widget.textColor.withValues(alpha: 0.62),
                     ),

@@ -543,7 +543,7 @@ class _HermesSelfLearningWarningPill extends StatelessWidget {
     }
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final tooltip = _localizedText(
+    final tooltip = openHandLocalizedText(
       context,
       zh:
           '当前 Hermes Talker 自主学习能力已关闭。\n\n'
@@ -609,7 +609,7 @@ class _HermesSelfLearningWarningPill extends StatelessWidget {
               ),
               const SizedBox(width: 6),
               Text(
-                _localizedText(
+                openHandLocalizedText(
                   context,
                   zh: '自主学习已关闭',
                   zhHant: '自主學習已關閉',
@@ -1616,7 +1616,7 @@ String _goalToolbarLabel(BuildContext context, AiSessionGoalRecord goal) {
   final budgetText = goal.tokenBudget == null
       ? ''
       : ' · ${goal.tokensUsed}/${goal.tokenBudget} tok';
-  return _localizedText(
+  return openHandLocalizedText(
     context,
     zh: '目标 $status · $turnText$budgetText',
     en: 'Goal $status · $turnText$budgetText',
@@ -1625,37 +1625,37 @@ String _goalToolbarLabel(BuildContext context, AiSessionGoalRecord goal) {
 
 String _goalStatusLabel(BuildContext context, AiSessionGoalStatus status) {
   return switch (status) {
-    AiSessionGoalStatus.running => _localizedText(
+    AiSessionGoalStatus.running => openHandLocalizedText(
       context,
       zh: '运行中',
       en: 'running',
     ),
-    AiSessionGoalStatus.paused => _localizedText(
+    AiSessionGoalStatus.paused => openHandLocalizedText(
       context,
       zh: '已暂停',
       en: 'paused',
     ),
-    AiSessionGoalStatus.completed => _localizedText(
+    AiSessionGoalStatus.completed => openHandLocalizedText(
       context,
       zh: '已完成',
       en: 'completed',
     ),
-    AiSessionGoalStatus.terminated => _localizedText(
+    AiSessionGoalStatus.terminated => openHandLocalizedText(
       context,
       zh: '已终止',
       en: 'terminated',
     ),
-    AiSessionGoalStatus.failed => _localizedText(
+    AiSessionGoalStatus.failed => openHandLocalizedText(
       context,
       zh: '失败',
       en: 'failed',
     ),
-    AiSessionGoalStatus.roundLimitReached => _localizedText(
+    AiSessionGoalStatus.roundLimitReached => openHandLocalizedText(
       context,
       zh: '轮次耗尽',
       en: 'turn limit',
     ),
-    AiSessionGoalStatus.tokenBudgetReached => _localizedText(
+    AiSessionGoalStatus.tokenBudgetReached => openHandLocalizedText(
       context,
       zh: '预算耗尽',
       en: 'budget limit',
@@ -1666,46 +1666,48 @@ String _goalStatusLabel(BuildContext context, AiSessionGoalStatus status) {
 String _goalStatusReasonLabel(BuildContext context, String reason) {
   final normalized = reason.trim();
   return switch (normalized) {
-    'Paused by user.' => _localizedText(
+    'Paused by user.' => openHandLocalizedText(
       context,
       zh: '用户已暂停目标。',
       en: 'Paused by user.',
     ),
-    aiSessionGoalPausedForQueueStatusReason => _localizedText(
+    aiSessionGoalPausedForQueueStatusReason => openHandLocalizedText(
       context,
       zh: '已让出给等待队列中的消息。',
       en: aiSessionGoalPausedForQueueStatusReason,
     ),
-    'Terminated by user.' => _localizedText(
+    'Terminated by user.' => openHandLocalizedText(
       context,
       zh: '用户已终止目标。',
       en: 'Terminated by user.',
     ),
-    'Resumed by goal runtime.' => _localizedText(
+    'Resumed by goal runtime.' => openHandLocalizedText(
       context,
       zh: '目标运行时已恢复执行。',
       en: 'Resumed by goal runtime.',
     ),
-    'Token budget reached before evaluation.' => _localizedText(
+    'Token budget reached before evaluation.' => openHandLocalizedText(
       context,
       zh: '评估前已达到 token 预算。',
       en: 'Token budget reached before evaluation.',
     ),
-    'No evaluator model is configured.' => _localizedText(
+    'No evaluator model is configured.' => openHandLocalizedText(
       context,
       zh: '未配置可用评估模型。',
       en: 'No evaluator model is configured.',
     ),
-    'Round limit reached before evidence was sufficient.' => _localizedText(
-      context,
-      zh: '证据充分前已达到轮次限制。',
-      en: 'Round limit reached before evidence was sufficient.',
-    ),
-    'Token budget reached before evidence was sufficient.' => _localizedText(
-      context,
-      zh: '证据充分前已达到 token 预算。',
-      en: 'Token budget reached before evidence was sufficient.',
-    ),
+    'Round limit reached before evidence was sufficient.' =>
+      openHandLocalizedText(
+        context,
+        zh: '证据充分前已达到轮次限制。',
+        en: 'Round limit reached before evidence was sufficient.',
+      ),
+    'Token budget reached before evidence was sufficient.' =>
+      openHandLocalizedText(
+        context,
+        zh: '证据充分前已达到 token 预算。',
+        en: 'Token budget reached before evidence was sufficient.',
+      ),
     _ => normalized,
   };
 }
@@ -1713,22 +1715,22 @@ String _goalStatusReasonLabel(BuildContext context, String reason) {
 String _goalEvaluationSummaryLabel(BuildContext context, String summary) {
   final normalized = summary.trim();
   return switch (normalized) {
-    'Evaluator failed.' => _localizedText(
+    'Evaluator failed.' => openHandLocalizedText(
       context,
       zh: '评估模型调用失败。',
       en: 'Evaluator failed.',
     ),
-    'Evaluator returned invalid JSON.' => _localizedText(
+    'Evaluator returned invalid JSON.' => openHandLocalizedText(
       context,
       zh: '评估模型返回了无效 JSON。',
       en: 'Evaluator returned invalid JSON.',
     ),
-    'Goal is complete.' => _localizedText(
+    'Goal is complete.' => openHandLocalizedText(
       context,
       zh: '目标已完成。',
       en: 'Goal is complete.',
     ),
-    'Goal is not complete yet.' => _localizedText(
+    'Goal is not complete yet.' => openHandLocalizedText(
       context,
       zh: '目标尚未完成。',
       en: 'Goal is not complete yet.',
@@ -1770,7 +1772,7 @@ class _GoalDetailsDialog extends StatelessWidget {
     final maxHeight = MediaQuery.sizeOf(context).height * 0.72;
     return buildOpenHandAlertDialog(
       title: Text(
-        _localizedText(context, zh: '目标执行详情', en: 'Goal Details'),
+        openHandLocalizedText(context, zh: '目标执行详情', en: 'Goal Details'),
         style: theme.textTheme.titleLarge?.copyWith(
           fontWeight: FontWeight.w800,
           letterSpacing: 0,
@@ -1786,7 +1788,7 @@ class _GoalDetailsDialog extends StatelessWidget {
             children: [
               if (current != null)
                 _GoalRecordSection(
-                  title: _localizedText(
+                  title: openHandLocalizedText(
                     context,
                     zh: '当前目标',
                     en: 'Current Goal',
@@ -1795,7 +1797,7 @@ class _GoalDetailsDialog extends StatelessWidget {
                 )
               else
                 Text(
-                  _localizedText(
+                  openHandLocalizedText(
                     context,
                     zh: '当前没有正在执行的目标。',
                     en: 'No goal is currently active.',
@@ -1806,7 +1808,11 @@ class _GoalDetailsDialog extends StatelessWidget {
               if (recentHistory.isNotEmpty) ...[
                 const SizedBox(height: 16),
                 Text(
-                  _localizedText(context, zh: '历史目标', en: 'Goal History'),
+                  openHandLocalizedText(
+                    context,
+                    zh: '历史目标',
+                    en: 'Goal History',
+                  ),
                   style: Theme.of(
                     context,
                   ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
@@ -1830,7 +1836,7 @@ class _GoalDetailsDialog extends StatelessWidget {
       actions: [
         OpenHandDialogActionButton.primary(
           onPressed: () => Navigator.of(context).pop(),
-          label: _localizedText(context, zh: '关闭', en: 'Close'),
+          label: openHandLocalizedText(context, zh: '关闭', en: 'Close'),
         ),
       ],
     );
@@ -1900,21 +1906,21 @@ class _GoalRecordSection extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             _GoalKeyValue(
-              _localizedText(context, zh: '创建时间', en: 'Created'),
+              openHandLocalizedText(context, zh: '创建时间', en: 'Created'),
               _formatGoalDateTime(context, goal.createdAt),
             ),
             _GoalKeyValue(
-              _localizedText(context, zh: '更新时间', en: 'Updated'),
+              openHandLocalizedText(context, zh: '更新时间', en: 'Updated'),
               _formatGoalDateTime(context, goal.updatedAt),
             ),
             if (goal.completedAt != null)
               _GoalKeyValue(
-                _localizedText(context, zh: '完成时间', en: 'Completed'),
+                openHandLocalizedText(context, zh: '完成时间', en: 'Completed'),
                 _formatGoalDateTime(context, goal.completedAt),
               ),
             if (goal.terminatedAt != null)
               _GoalKeyValue(
-                _localizedText(context, zh: '终止时间', en: 'Terminated'),
+                openHandLocalizedText(context, zh: '终止时间', en: 'Terminated'),
                 _formatGoalDateTime(context, goal.terminatedAt),
               ),
             if ((goal.statusReason ?? '').trim().isNotEmpty) ...[
@@ -1982,8 +1988,8 @@ class _GoalEvaluationRow extends StatelessWidget {
         ? OpenHandStatusColors.success
         : theme.colorScheme.tertiary;
     final statusLabel = evaluation.passed
-        ? _localizedText(context, zh: '证据通过', en: 'Evidence Passed')
-        : _localizedText(context, zh: '继续推进', en: 'Continue Goal');
+        ? openHandLocalizedText(context, zh: '证据通过', en: 'Evidence Passed')
+        : openHandLocalizedText(context, zh: '继续推进', en: 'Continue Goal');
     return DecoratedBox(
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
@@ -2039,7 +2045,7 @@ class _GoalEvaluationRow extends StatelessWidget {
             if (evaluation.evidence.isNotEmpty) ...[
               const SizedBox(height: 8),
               _GoalInlineList(
-                label: _localizedText(context, zh: '证据', en: 'Evidence'),
+                label: openHandLocalizedText(context, zh: '证据', en: 'Evidence'),
                 values: evaluation.evidence,
                 color: OpenHandStatusColors.success,
               ),
@@ -2047,7 +2053,7 @@ class _GoalEvaluationRow extends StatelessWidget {
             if (evaluation.missing.isNotEmpty) ...[
               const SizedBox(height: 8),
               _GoalInlineList(
-                label: _localizedText(context, zh: '缺口', en: 'Missing'),
+                label: openHandLocalizedText(context, zh: '缺口', en: 'Missing'),
                 values: evaluation.missing,
                 color: theme.colorScheme.tertiary,
               ),
@@ -2121,34 +2127,34 @@ class _GoalEnvironmentSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final environment = session.environment;
     return _GoalRecordShell(
-      title: _localizedText(context, zh: '环境信息', en: 'Environment'),
+      title: openHandLocalizedText(context, zh: '环境信息', en: 'Environment'),
       children: [
         _GoalKeyValue(
-          _localizedText(context, zh: '线程', en: 'Session'),
+          openHandLocalizedText(context, zh: '线程', en: 'Session'),
           session.id,
         ),
         _GoalKeyValue(
-          _localizedText(context, zh: '模板', en: 'Template'),
+          openHandLocalizedText(context, zh: '模板', en: 'Template'),
           session.templateName,
         ),
         _GoalKeyValue(
-          _localizedText(context, zh: '当前模式', en: 'Mode'),
+          openHandLocalizedText(context, zh: '当前模式', en: 'Mode'),
           _runtimeModeLabel(context, null, explicitMode: session.mode),
         ),
         _GoalKeyValue(
-          _localizedText(context, zh: '消息数', en: 'Messages'),
+          openHandLocalizedText(context, zh: '消息数', en: 'Messages'),
           '${session.messages.length}',
         ),
         _GoalKeyValue(
-          _localizedText(context, zh: '平台', en: 'Platform'),
+          openHandLocalizedText(context, zh: '平台', en: 'Platform'),
           environment.platform,
         ),
         _GoalKeyValue(
-          _localizedText(context, zh: '工作目录', en: 'Working Directory'),
+          openHandLocalizedText(context, zh: '工作目录', en: 'Working Directory'),
           environment.applicationDirectory,
         ),
         _GoalKeyValue(
-          _localizedText(context, zh: '会话目录', en: 'Sessions Directory'),
+          openHandLocalizedText(context, zh: '会话目录', en: 'Sessions Directory'),
           environment.sessionsDirectoryPath,
         ),
       ],
@@ -2360,7 +2366,7 @@ String _runtimeModeLabel(
   final mode = explicitMode ?? status?.sessionMode ?? AiSessionMode.chat;
   final l10n = AppLocalizations.of(context)!;
   if (mode == AiSessionMode.goal) {
-    return _localizedText(context, zh: '目标模式', en: 'Goal Mode');
+    return openHandLocalizedText(context, zh: '目标模式', en: 'Goal Mode');
   }
   if (mode != AiSessionMode.plan) {
     return compact
@@ -2407,13 +2413,13 @@ String? _contextBudgetToolbarLabel(
   final percentLeft = _metadataInt(metadata['context_budget_percent_left']);
   final status = '${metadata['context_budget_status'] ?? ''}'.trim();
   final statusLabel = switch (status) {
-    'critical' => _localizedText(context, zh: '危险', en: 'critical'),
-    'auto_compact' => _localizedText(context, zh: '压缩', en: 'compact'),
-    'warning' => _localizedText(context, zh: '偏高', en: 'high'),
-    'ok' => _localizedText(context, zh: '正常', en: 'ok'),
-    _ => _localizedText(context, zh: '未知', en: 'unknown'),
+    'critical' => openHandLocalizedText(context, zh: '危险', en: 'critical'),
+    'auto_compact' => openHandLocalizedText(context, zh: '压缩', en: 'compact'),
+    'warning' => openHandLocalizedText(context, zh: '偏高', en: 'high'),
+    'ok' => openHandLocalizedText(context, zh: '正常', en: 'ok'),
+    _ => openHandLocalizedText(context, zh: '未知', en: 'unknown'),
   };
-  return _localizedText(
+  return openHandLocalizedText(
     context,
     zh: '上下文 $percentLeft% · $statusLabel',
     en: 'Ctx $percentLeft% · $statusLabel',
@@ -2426,7 +2432,7 @@ String _localizedFilesToggle(BuildContext context, bool visible) {
 }
 
 String _localizedMachineTerminalToggle(BuildContext context, bool visible) {
-  return _localizedText(
+  return openHandLocalizedText(
     context,
     zh: visible ? '关闭终端' : '打开终端',
     zhHant: visible ? '關閉終端' : '打開終端',
@@ -2521,7 +2527,7 @@ String _composerModeTooltip(
   _RuntimeToolCatalogStatus? status,
 ) {
   if (mode == AiSessionMode.goal) {
-    return _localizedText(
+    return openHandLocalizedText(
       context,
       zh: '目标模式已启用 · 点击切换到聊天模式',
       en: 'Goal mode active · switch to chat mode',
@@ -2631,7 +2637,7 @@ class _ContextStatsDialogState extends State<_ContextStatsDialog> {
     final home = _OpenHandHomePageState._activeHomeState;
     if (home == null || !home.mounted) {
       _showResult(
-        _localizedText(
+        openHandLocalizedText(
           context,
           zh: '压缩入口暂不可用，请稍后再试。',
           en: 'Compaction is unavailable right now.',
@@ -2645,7 +2651,7 @@ class _ContextStatsDialogState extends State<_ContextStatsDialog> {
     final selectedModel = settingsController.selectedAiModel;
     if (selectedModel == null) {
       _showResult(
-        _localizedText(
+        openHandLocalizedText(
           context,
           zh: '请先选择有效的 AI 模型。',
           en: 'Pick an AI model first.',
@@ -2670,7 +2676,7 @@ class _ContextStatsDialogState extends State<_ContextStatsDialog> {
       switch (result.status) {
         case AiManualCompactionStatus.success:
           _showResult(
-            _localizedText(
+            openHandLocalizedText(
               context,
               zh: '已生成压缩检查点。',
               en: 'Compaction checkpoint added.',
@@ -2681,7 +2687,7 @@ class _ContextStatsDialogState extends State<_ContextStatsDialog> {
         case AiManualCompactionStatus.cooldown:
           final secs = result.retryAfter?.inSeconds ?? 30;
           _showResult(
-            _localizedText(
+            openHandLocalizedText(
               context,
               zh: '刚刚已经压缩过，约 $secs 秒后再试。',
               en: 'Just compacted; retry in about $secs s.',
@@ -2691,7 +2697,7 @@ class _ContextStatsDialogState extends State<_ContextStatsDialog> {
           break;
         case AiManualCompactionStatus.notNeeded:
           _showResult(
-            _localizedText(
+            openHandLocalizedText(
               context,
               zh: '当前占用过低或没有可压缩的历史。',
               en: 'Usage too low — nothing meaningful to compact.',
@@ -2701,7 +2707,7 @@ class _ContextStatsDialogState extends State<_ContextStatsDialog> {
           break;
         case AiManualCompactionStatus.inflight:
           _showResult(
-            _localizedText(
+            openHandLocalizedText(
               context,
               zh: '已有压缩任务在进行中。',
               en: 'A compaction is already in flight.',
@@ -2711,7 +2717,7 @@ class _ContextStatsDialogState extends State<_ContextStatsDialog> {
           break;
         case AiManualCompactionStatus.sessionBusy:
           _showResult(
-            _localizedText(
+            openHandLocalizedText(
               context,
               zh: '当前会话正在响应，请等回复结束后再压缩。',
               en: 'Session is busy. Wait for the current response to finish.',
@@ -2721,7 +2727,7 @@ class _ContextStatsDialogState extends State<_ContextStatsDialog> {
           break;
         case AiManualCompactionStatus.circuitBreaker:
           _showResult(
-            _localizedText(
+            openHandLocalizedText(
               context,
               zh: '连续压缩失败已熔断，稍后再试。',
               en: 'Compaction circuit breaker tripped; retry later.',
@@ -2731,7 +2737,7 @@ class _ContextStatsDialogState extends State<_ContextStatsDialog> {
           break;
         case AiManualCompactionStatus.failed:
           _showResult(
-            _localizedText(
+            openHandLocalizedText(
               context,
               zh: '压缩未生效，请稍后重试。',
               en: 'Compaction did not apply; please retry.',
@@ -2741,7 +2747,7 @@ class _ContextStatsDialogState extends State<_ContextStatsDialog> {
           break;
         case AiManualCompactionStatus.noSession:
           _showResult(
-            _localizedText(
+            openHandLocalizedText(
               context,
               zh: '会话不存在或已被删除。',
               en: 'Session no longer exists.',
@@ -2754,7 +2760,7 @@ class _ContextStatsDialogState extends State<_ContextStatsDialog> {
       silentLog('context_stats', '_handleCompactPressed', error, stack);
       if (!mounted) return;
       _showResult(
-        _localizedText(
+        openHandLocalizedText(
           context,
           zh: '压缩失败：$error',
           en: 'Compaction failed: $error',
@@ -2790,15 +2796,19 @@ class _ContextStatsDialogState extends State<_ContextStatsDialog> {
     if (session == null) {
       return buildOpenHandAlertDialog(
         title: Text(
-          _localizedText(context, zh: '上下文使用情况', en: 'Context usage'),
+          openHandLocalizedText(context, zh: '上下文使用情况', en: 'Context usage'),
         ),
         content: Text(
-          _localizedText(context, zh: '会话不存在或已被删除。', en: 'Session is gone.'),
+          openHandLocalizedText(
+            context,
+            zh: '会话不存在或已被删除。',
+            en: 'Session is gone.',
+          ),
         ),
         actions: [
           OpenHandDialogActionButton.primary(
             onPressed: () => Navigator.of(context).maybePop(),
-            label: _localizedText(context, zh: '关闭', en: 'Close'),
+            label: openHandLocalizedText(context, zh: '关闭', en: 'Close'),
           ),
         ],
       );
@@ -2856,7 +2866,9 @@ class _ContextStatsDialogState extends State<_ContextStatsDialog> {
         children: [
           Icon(Icons.speed_rounded, color: statusColor),
           const SizedBox(width: 8),
-          Text(_localizedText(context, zh: '上下文使用情况', en: 'Context usage')),
+          Text(
+            openHandLocalizedText(context, zh: '上下文使用情况', en: 'Context usage'),
+          ),
         ],
       ),
       content: ConstrainedBox(
@@ -2867,49 +2879,49 @@ class _ContextStatsDialogState extends State<_ContextStatsDialog> {
             mainAxisSize: MainAxisSize.min,
             children: [
               _ContextStatsRow(
-                label: _localizedText(
+                label: openHandLocalizedText(
                   context,
                   zh: '估算 prompt tokens',
                   en: 'Estimated prompt tokens',
                 ),
                 value: estimatedTokens > 0
                     ? estimatedTokens.toString()
-                    : _localizedText(context, zh: '暂无', en: 'n/a'),
+                    : openHandLocalizedText(context, zh: '暂无', en: 'n/a'),
               ),
               _ContextStatsRow(
-                label: _localizedText(
+                label: openHandLocalizedText(
                   context,
                   zh: '占用 / 剩余',
                   en: 'Used / left',
                 ),
                 value: estimatedTokens > 0 && percentLeft >= 0
                     ? '$usagePercent% · ${percentLeft.toStringAsFixed(0)}%'
-                    : _localizedText(context, zh: '暂无', en: 'n/a'),
+                    : openHandLocalizedText(context, zh: '暂无', en: 'n/a'),
                 valueColor: statusColor,
               ),
               _ContextStatsRow(
-                label: _localizedText(
+                label: openHandLocalizedText(
                   context,
                   zh: '有效窗口 tokens',
                   en: 'Effective window',
                 ),
                 value: effectiveWindow > 0
                     ? '$effectiveWindow${inferred ? '*' : ''}'
-                    : _localizedText(context, zh: '暂无', en: 'n/a'),
+                    : openHandLocalizedText(context, zh: '暂无', en: 'n/a'),
               ),
               _ContextStatsRow(
-                label: _localizedText(
+                label: openHandLocalizedText(
                   context,
                   zh: '剩余 tokens',
                   en: 'Remaining tokens',
                 ),
                 value: remainingTokens > 0
                     ? remainingTokens.toString()
-                    : _localizedText(context, zh: '暂无', en: 'n/a'),
+                    : openHandLocalizedText(context, zh: '暂无', en: 'n/a'),
               ),
               const Divider(height: 24),
               Text(
-                _localizedText(
+                openHandLocalizedText(
                   context,
                   zh: '会话历史字符占比',
                   en: 'Session history breakdown',
@@ -2921,31 +2933,43 @@ class _ContextStatsDialogState extends State<_ContextStatsDialog> {
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 8),
                   child: Text(
-                    _localizedText(context, zh: '暂无历史。', en: 'No history yet.'),
+                    openHandLocalizedText(
+                      context,
+                      zh: '暂无历史。',
+                      en: 'No history yet.',
+                    ),
                     style: theme.textTheme.bodySmall,
                   ),
                 )
               else ...[
                 _ContextBreakdownBar(
-                  label: _localizedText(context, zh: '用户', en: 'User'),
+                  label: openHandLocalizedText(context, zh: '用户', en: 'User'),
                   chars: breakdown.userChars,
                   totalChars: totalChars,
                   color: colorScheme.primary,
                 ),
                 _ContextBreakdownBar(
-                  label: _localizedText(context, zh: 'AI 回复', en: 'Assistant'),
+                  label: openHandLocalizedText(
+                    context,
+                    zh: 'AI 回复',
+                    en: 'Assistant',
+                  ),
                   chars: breakdown.assistantChars,
                   totalChars: totalChars,
                   color: colorScheme.secondary,
                 ),
                 _ContextBreakdownBar(
-                  label: _localizedText(context, zh: '工具', en: 'Tools'),
+                  label: openHandLocalizedText(context, zh: '工具', en: 'Tools'),
                   chars: breakdown.toolChars,
                   totalChars: totalChars,
                   color: colorScheme.tertiary,
                 ),
                 _ContextBreakdownBar(
-                  label: _localizedText(context, zh: '附件 / 其他', en: 'Other'),
+                  label: openHandLocalizedText(
+                    context,
+                    zh: '附件 / 其他',
+                    en: 'Other',
+                  ),
                   chars: breakdown.otherChars,
                   totalChars: totalChars,
                   color: colorScheme.outline,
@@ -2953,7 +2977,7 @@ class _ContextStatsDialogState extends State<_ContextStatsDialog> {
               ],
               const Divider(height: 24),
               _ContextStatsRow(
-                label: _localizedText(
+                label: openHandLocalizedText(
                   context,
                   zh: '历史累计 prompt tokens',
                   en: 'Cumulative prompt tokens',
@@ -2963,7 +2987,7 @@ class _ContextStatsDialogState extends State<_ContextStatsDialog> {
                     : '0',
               ),
               _ContextStatsRow(
-                label: _localizedText(
+                label: openHandLocalizedText(
                   context,
                   zh: '历史累计输出 tokens',
                   en: 'Cumulative completion tokens',
@@ -2973,7 +2997,7 @@ class _ContextStatsDialogState extends State<_ContextStatsDialog> {
                     : '0',
               ),
               _ContextStatsRow(
-                label: _localizedText(
+                label: openHandLocalizedText(
                   context,
                   zh: '历史总 tokens',
                   en: 'Cumulative total',
@@ -3007,7 +3031,7 @@ class _ContextStatsDialogState extends State<_ContextStatsDialog> {
               if (inferred) ...[
                 const SizedBox(height: 8),
                 Text(
-                  _localizedText(
+                  openHandLocalizedText(
                     context,
                     zh: '* 模型未声明 maxContextTokens，按 $kInferredModelContextWindowTokens 估算。',
                     en:
@@ -3027,15 +3051,15 @@ class _ContextStatsDialogState extends State<_ContextStatsDialog> {
         OpenHandDialogActionButton.secondary(
           onPressed: _busy ? null : () => Navigator.of(context).maybePop(),
           icon: Icons.close_rounded,
-          label: _localizedText(context, zh: '关闭', en: 'Close'),
+          label: openHandLocalizedText(context, zh: '关闭', en: 'Close'),
         ),
         OpenHandDialogActionButton.primary(
           onPressed: (_busy || disableCompact) ? null : _handleCompactPressed,
           icon: Icons.compress_rounded,
           busy: _busy,
           label: _busy
-              ? _localizedText(context, zh: '正在压缩…', en: 'Compacting…')
-              : _localizedText(context, zh: '立即压缩', en: 'Compact now'),
+              ? openHandLocalizedText(context, zh: '正在压缩…', en: 'Compacting…')
+              : openHandLocalizedText(context, zh: '立即压缩', en: 'Compact now'),
         ),
       ],
     );
@@ -3283,7 +3307,7 @@ class _WebReverseDebugPillState extends State<_WebReverseDebugPill> {
       String? de,
       String? ja,
     }) {
-      return _localizedText(
+      return openHandLocalizedText(
         context,
         zh: zh,
         zhHant: zhHant,
@@ -3425,7 +3449,7 @@ class _WebReverseDebugCdpStatus {
     late final String label;
     if (runtimeStatus.rawStatus == 'disabled') {
       tone = _WebReverseDebugCdpTone.disabled;
-      label = _localizedText(
+      label = openHandLocalizedText(
         context,
         zh: 'MCP未启用',
         zhHant: 'MCP未啟用',
@@ -3439,7 +3463,7 @@ class _WebReverseDebugCdpStatus {
       label = 'CDP ${runtimeStatus.toolCount}';
     } else if (!runtimeStatus.browserAlive) {
       tone = _WebReverseDebugCdpTone.unavailable;
-      label = _localizedText(
+      label = openHandLocalizedText(
         context,
         zh: 'CDP离线',
         zhHant: 'CDP離線',
@@ -3456,7 +3480,7 @@ class _WebReverseDebugCdpStatus {
       label = 'CDP!';
     } else {
       tone = _WebReverseDebugCdpTone.unavailable;
-      label = _localizedText(
+      label = openHandLocalizedText(
         context,
         zh: 'CDP待同步',
         zhHant: 'CDP待同步',
@@ -3468,7 +3492,7 @@ class _WebReverseDebugCdpStatus {
     }
 
     final tooltipLines = <String>[
-      _localizedText(
+      openHandLocalizedText(
         context,
         zh: 'AI 侧 CDP MCP',
         zhHant: 'AI 側 CDP MCP',
@@ -3477,7 +3501,7 @@ class _WebReverseDebugCdpStatus {
         de: 'KI-seitiges CDP MCP',
         ja: 'AI 側 CDP MCP',
       ),
-      _localizedText(
+      openHandLocalizedText(
         context,
         zh: '状态: ${runtimeStatus.rawStatus.isEmpty ? 'unknown' : runtimeStatus.rawStatus}',
         zhHant:
@@ -3487,7 +3511,7 @@ class _WebReverseDebugCdpStatus {
         de: 'Status: ${runtimeStatus.rawStatus.isEmpty ? 'unknown' : runtimeStatus.rawStatus}',
         ja: '状態: ${runtimeStatus.rawStatus.isEmpty ? 'unknown' : runtimeStatus.rawStatus}',
       ),
-      _localizedText(
+      openHandLocalizedText(
         context,
         zh: '可调用工具: ${runtimeStatus.toolCount}',
         zhHant: '可呼叫工具: ${runtimeStatus.toolCount}',
@@ -3497,7 +3521,7 @@ class _WebReverseDebugCdpStatus {
         ja: '呼び出し可能ツール: ${runtimeStatus.toolCount}',
       ),
       if (runtimeStatus.port != null && runtimeStatus.port! > 0)
-        _localizedText(
+        openHandLocalizedText(
           context,
           zh: 'CDP 端口: ${runtimeStatus.port}',
           zhHant: 'CDP 連接埠: ${runtimeStatus.port}',
@@ -3508,7 +3532,7 @@ class _WebReverseDebugCdpStatus {
         ),
       if (runtimeStatus.message.isNotEmpty) runtimeStatus.message,
       if (runtimeStatus.warningMessage.isNotEmpty)
-        _localizedText(
+        openHandLocalizedText(
           context,
           zh: '提示: ${runtimeStatus.warningMessage}',
           zhHant: '提示: ${runtimeStatus.warningMessage}',
@@ -3518,7 +3542,7 @@ class _WebReverseDebugCdpStatus {
           ja: '警告: ${runtimeStatus.warningMessage}',
         ),
       if (runtimeStatus.errorMessage.isNotEmpty)
-        _localizedText(
+        openHandLocalizedText(
           context,
           zh: '错误: ${runtimeStatus.errorMessage}',
           zhHant: '錯誤: ${runtimeStatus.errorMessage}',
@@ -3596,7 +3620,7 @@ class _StreamThrottlePill extends StatelessWidget {
             ? scheme.outline
             : scheme.onTertiaryContainer;
         final label = !effEnabled
-            ? _localizedText(
+            ? openHandLocalizedText(
                 context,
                 zh: '节流·关',
                 zhHant: '節流·關',
@@ -3606,7 +3630,7 @@ class _StreamThrottlePill extends StatelessWidget {
                 ja: 'スロットル·オフ',
               )
             : disabled
-            ? _localizedText(
+            ? openHandLocalizedText(
                 context,
                 zh: '节流·关',
                 zhHant: '節流·關',
@@ -3616,7 +3640,7 @@ class _StreamThrottlePill extends StatelessWidget {
                 ja: 'スロットル·オフ',
               )
             : durationExpired
-            ? _localizedText(
+            ? openHandLocalizedText(
                 context,
                 zh: '节流·已耗尽',
                 zhHant: '節流·已耗盡',
@@ -3625,7 +3649,7 @@ class _StreamThrottlePill extends StatelessWidget {
                 de: 'Drossel·abgelaufen',
                 ja: 'スロットル·期限切れ',
               )
-            : _localizedText(
+            : openHandLocalizedText(
                 context,
                 zh: '字$effChars·卡$effCards',
                 zhHant: '字$effChars·卡$effCards',
@@ -3778,7 +3802,7 @@ class _StreamThrottleSessionDialogState
       String? de,
       String? ja,
     }) {
-      return _localizedText(
+      return openHandLocalizedText(
         context,
         zh: zh,
         zhHant: zhHant,
@@ -4364,7 +4388,7 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
 
   String _formatRangeLabel(BuildContext context, int seconds) {
     if (seconds < 60) {
-      return _localizedText(
+      return openHandLocalizedText(
         context,
         zh: '$seconds秒',
         zhHant: '$seconds秒',
@@ -4377,7 +4401,7 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
     final minutes = seconds ~/ 60;
     if (seconds % 60 != 0 && seconds < 60 * 60) {
       final value = (seconds / 60).toStringAsFixed(1);
-      return _localizedText(
+      return openHandLocalizedText(
         context,
         zh: '$value分',
         zhHant: '$value分',
@@ -4388,7 +4412,7 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
       );
     }
     if (minutes < 60) {
-      return _localizedText(
+      return openHandLocalizedText(
         context,
         zh: '$minutes分',
         zhHant: '$minutes分',
@@ -4399,7 +4423,7 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
       );
     }
     final hours = minutes ~/ 60;
-    return _localizedText(
+    return openHandLocalizedText(
       context,
       zh: '$hours小时',
       zhHant: '$hours小時',
@@ -4412,7 +4436,7 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
 
   String _formatGranularityLabel(BuildContext context, int seconds) {
     final unit = _formatRangeLabel(context, seconds);
-    return _localizedText(
+    return openHandLocalizedText(
       context,
       zh: '$unit/点',
       zhHant: '$unit/點',
@@ -4520,7 +4544,7 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
-                  _localizedText(
+                  openHandLocalizedText(
                     context,
                     zh: '节流后字符吞吐 · $headerWindow',
                     zhHant: '節流後字元吞吐 · $headerWindow',
@@ -4540,7 +4564,7 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
               ),
               const SizedBox(width: 6),
               Tooltip(
-                message: _localizedText(
+                message: openHandLocalizedText(
                   context,
                   zh: '触控板双指捏合或 Ctrl+滚轮放缩时间区间',
                   zhHant: '觸控板雙指捏合或 Ctrl+滾輪縮放時間區間',
@@ -4558,7 +4582,7 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
               const SizedBox(width: 8),
               Flexible(
                 child: Text(
-                  _localizedText(
+                  openHandLocalizedText(
                     context,
                     zh: '当前 $current/s · 峰 $peak/s · 均 $average/s · 上限 ${widget.maxRate}/s',
                     zhHant:
@@ -4836,7 +4860,7 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
           ),
           const SizedBox(height: 8),
           Text(
-            _localizedText(
+            openHandLocalizedText(
               context,
               zh: '模型原始流入 当前 $rawCurrent/s · 峰 $rawPeak/s',
               zhHant: '模型原始流入 目前 $rawCurrent/s · 峰 $rawPeak/s',
@@ -5101,7 +5125,7 @@ class _ThroughputTooltip extends StatelessWidget {
     final bg = overLimit ? scheme.errorContainer : scheme.primaryContainer;
     final fg = overLimit ? scheme.onErrorContainer : scheme.onPrimaryContainer;
     final timeLabel = agoStart == 0 && bucketSeconds == 1
-        ? _localizedText(
+        ? openHandLocalizedText(
             context,
             zh: '当前秒',
             zhHant: '目前秒',
@@ -5111,7 +5135,7 @@ class _ThroughputTooltip extends StatelessWidget {
             ja: '現在',
           )
         : bucketSeconds <= 1
-        ? _localizedText(
+        ? openHandLocalizedText(
             context,
             zh: '${agoStart}s 前',
             zhHant: '${agoStart}s 前',
@@ -5120,7 +5144,7 @@ class _ThroughputTooltip extends StatelessWidget {
             de: 'vor ${agoStart}s',
             ja: '$agoStart秒前',
           )
-        : _localizedText(
+        : openHandLocalizedText(
             context,
             zh: '$agoStart-${agoEnd}s 前',
             zhHant: '$agoStart-${agoEnd}s 前',
@@ -5131,7 +5155,7 @@ class _ThroughputTooltip extends StatelessWidget {
           );
     final valueLabel = bucketSeconds <= 1
         ? '$value/s'
-        : _localizedText(
+        : openHandLocalizedText(
             context,
             zh: '峰 $value/s',
             zhHant: '峰 $value/s',
@@ -5294,7 +5318,7 @@ class _AndroidReverseDebugPillState extends State<_AndroidReverseDebugPill> {
       String? de,
       String? ja,
     }) {
-      return _localizedText(
+      return openHandLocalizedText(
         context,
         zh: zh,
         zhHant: zhHant,

@@ -85,32 +85,12 @@ const List<String> _kAndroidMcpKeywords =
 const List<String> _kAndroidRuntimePluginIds =
     TemplateRuntimeDependencyRegistry.androidReversePluginIds;
 
-String _arText(
-  BuildContext context, {
-  required String zh,
-  String? zhHant,
-  required String en,
-  String? fr,
-  String? de,
-  String? ja,
-}) {
-  return openHandLocalizedText(
-    context,
-    zh: zh,
-    zhHant: zhHant,
-    en: en,
-    fr: fr,
-    de: de,
-    ja: ja,
-  );
-}
-
 String _androidToolchainInstallHint(
   BuildContext context,
   AndroidReverseToolchainProbe probe,
 ) {
   return switch (probe.id) {
-    'adb' => _arText(
+    'adb' => openHandLocalizedText(
       context,
       zh: '安装 Android SDK Platform Tools，并把 adb 加入 PATH。',
       zhHant: '安裝 Android SDK Platform Tools，並將 adb 加入 PATH。',
@@ -119,7 +99,7 @@ String _androidToolchainInstallHint(
       de: 'Installiere Android SDK Platform Tools und füge adb zum PATH hinzu.',
       ja: 'Android SDK Platform Tools をインストールし、adb を PATH に追加してください。',
     ),
-    'aapt' => _arText(
+    'aapt' => openHandLocalizedText(
       context,
       zh: '在 Android SDK Manager 安装 Build Tools。',
       zhHant: '在 Android SDK Manager 安裝 Build Tools。',
@@ -128,7 +108,7 @@ String _androidToolchainInstallHint(
       de: 'Installiere Android SDK Build Tools.',
       ja: 'Android SDK Build Tools をインストールしてください。',
     ),
-    'apksigner' => _arText(
+    'apksigner' => openHandLocalizedText(
       context,
       zh: '在 Android SDK Manager 安装 Build Tools，用于 APK 签名证书检查。',
       zhHant: '在 Android SDK Manager 安裝 Build Tools，用於 APK 簽章憑證檢查。',
@@ -137,7 +117,7 @@ String _androidToolchainInstallHint(
       de: 'Installiere Android SDK Build Tools für Prüfungen von APK-Signaturzertifikaten.',
       ja: 'APK 署名証明書の確認用に Android SDK Build Tools をインストールしてください。',
     ),
-    'keytool' => _arText(
+    'keytool' => openHandLocalizedText(
       context,
       zh: '安装 JDK，并把 keytool 加入 PATH，用于证书查看。',
       zhHant: '安裝 JDK，並將 keytool 加入 PATH，用於憑證查看。',
@@ -146,7 +126,7 @@ String _androidToolchainInstallHint(
       de: 'Installiere ein JDK und füge keytool für Zertifikatsprüfungen zum PATH hinzu.',
       ja: '証明書確認用に JDK をインストールし、keytool を PATH に追加してください。',
     ),
-    'strings' => _arText(
+    'strings' => openHandLocalizedText(
       context,
       zh: '安装系统开发者工具或 binutils，用于 dex/so/assets 字符串扫描。',
       zhHant: '安裝系統開發者工具或 binutils，用於 dex/so/assets 字串掃描。',
@@ -155,7 +135,7 @@ String _androidToolchainInstallHint(
       de: 'Installiere System-Entwicklertools oder binutils für dex/so/assets-Stringscans.',
       ja: 'dex/so/assets の文字列スキャン用にシステム開発者ツールまたは binutils をインストールしてください。',
     ),
-    'readelf' => _arText(
+    'readelf' => openHandLocalizedText(
       context,
       zh: '安装 binutils / LLVM / Android NDK，用于 so 符号与段信息分析。',
       zhHant: '安裝 binutils / LLVM / Android NDK，用於 so 符號與區段資訊分析。',
@@ -164,7 +144,7 @@ String _androidToolchainInstallHint(
       de: 'Installiere binutils, LLVM oder Android NDK für native Symbolanalysen.',
       ja: 'ネイティブシンボル解析用に binutils、LLVM、または Android NDK をインストールしてください。',
     ),
-    'apktool' => _arText(
+    'apktool' => openHandLocalizedText(
       context,
       zh: '可通过 Homebrew 安装：brew install apktool。',
       zhHant: '可透過 Homebrew 安裝：brew install apktool。',
@@ -173,7 +153,7 @@ String _androidToolchainInstallHint(
       de: 'Mit Homebrew installieren: brew install apktool.',
       ja: 'Homebrew でインストールできます: brew install apktool。',
     ),
-    'jadx' => _arText(
+    'jadx' => openHandLocalizedText(
       context,
       zh: '可通过 Homebrew 安装：brew install jadx。',
       zhHant: '可透過 Homebrew 安裝：brew install jadx。',
@@ -182,7 +162,7 @@ String _androidToolchainInstallHint(
       de: 'Mit Homebrew installieren: brew install jadx.',
       ja: 'Homebrew でインストールできます: brew install jadx。',
     ),
-    'frida' => _arText(
+    'frida' => openHandLocalizedText(
       context,
       zh: '安装 frida-tools，并按设备架构准备 frida-server。',
       zhHant: '安裝 frida-tools，並依裝置架構準備 frida-server。',
@@ -191,7 +171,7 @@ String _androidToolchainInstallHint(
       de: 'Installiere frida-tools und bereite frida-server für die Geräte-ABI vor.',
       ja: 'frida-tools をインストールし、デバイス ABI に合う frida-server を準備してください。',
     ),
-    'mitmproxy' => _arText(
+    'mitmproxy' => openHandLocalizedText(
       context,
       zh: '可通过 Homebrew 安装：brew install mitmproxy。',
       zhHant: '可透過 Homebrew 安裝：brew install mitmproxy。',
@@ -200,7 +180,7 @@ String _androidToolchainInstallHint(
       de: 'Mit Homebrew installieren: brew install mitmproxy.',
       ja: 'Homebrew でインストールできます: brew install mitmproxy。',
     ),
-    'radare2' => _arText(
+    'radare2' => openHandLocalizedText(
       context,
       zh: '可通过 Homebrew 安装：brew install radare2。',
       zhHant: '可透過 Homebrew 安裝：brew install radare2。',
@@ -209,7 +189,7 @@ String _androidToolchainInstallHint(
       de: 'Mit Homebrew installieren: brew install radare2.',
       ja: 'Homebrew でインストールできます: brew install radare2。',
     ),
-    'blutter' => _arText(
+    'blutter' => openHandLocalizedText(
       context,
       zh: '可在插件板块直接安装 blutter，或按项目说明安装并加入 PATH。',
       zhHant: '可在外掛板塊直接安裝 blutter，或依專案說明安裝並加入 PATH。',
@@ -218,7 +198,7 @@ String _androidToolchainInstallHint(
       de: 'Installiere blutter im Plugin-Tab oder nach Projektanleitung und füge es zum PATH hinzu.',
       ja: 'プラグインタブから blutter をインストールするか、プロジェクト手順に従って PATH に追加してください。',
     ),
-    'doldrums' => _arText(
+    'doldrums' => openHandLocalizedText(
       context,
       zh: '可在插件板块直接安装 Doldrums，或按项目说明安装并加入 PATH。',
       zhHant: '可在外掛板塊直接安裝 Doldrums，或依專案說明安裝並加入 PATH。',
@@ -227,7 +207,7 @@ String _androidToolchainInstallHint(
       de: 'Installiere Doldrums im Plugin-Tab oder nach Projektanleitung und füge es zum PATH hinzu.',
       ja: 'プラグインタブから Doldrums をインストールするか、プロジェクト手順に従って PATH に追加してください。',
     ),
-    'anything_analyzer' => _arText(
+    'anything_analyzer' => openHandLocalizedText(
       context,
       zh: '可在插件板块直接安装 Anything Analyzer，并在 MCP 面板启用对应 server。',
       zhHant: '可在外掛板塊直接安裝 Anything Analyzer，並在 MCP 面板啟用對應 server。',
@@ -236,7 +216,11 @@ String _androidToolchainInstallHint(
       de: 'Installiere Anything Analyzer im Plugin-Tab und aktiviere den passenden Server im MCP-Panel.',
       ja: 'プラグインタブから Anything Analyzer をインストールし、MCP パネルで対応 server を有効化してください。',
     ),
-    _ => _arText(context, zh: probe.installHintZh, en: probe.installHintEn),
+    _ => openHandLocalizedText(
+      context,
+      zh: probe.installHintZh,
+      en: probe.installHintEn,
+    ),
   };
 }
 
@@ -333,7 +317,7 @@ class _FridaSnippetPreset {
 
   String label(BuildContext context) {
     return switch (id) {
-      'java_method' => _arText(
+      'java_method' => openHandLocalizedText(
         context,
         zh: labelZh,
         zhHant: 'Java 方法',
@@ -342,7 +326,7 @@ class _FridaSnippetPreset {
         de: 'Java-Methode',
         ja: 'Java メソッド',
       ),
-      'native_func' => _arText(
+      'native_func' => openHandLocalizedText(
         context,
         zh: labelZh,
         zhHant: 'Native 函式',
@@ -351,7 +335,7 @@ class _FridaSnippetPreset {
         de: 'Native-Funktion',
         ja: 'Native 関数',
       ),
-      _ => _arText(
+      _ => openHandLocalizedText(
         context,
         zh: labelZh,
         zhHant: labelZh,
@@ -365,7 +349,7 @@ class _FridaSnippetPreset {
 
   String desc(BuildContext context) {
     return switch (id) {
-      'java_method' => _arText(
+      'java_method' => openHandLocalizedText(
         context,
         zh: descZh,
         zhHant: '入參、返回值、呼叫堆疊',
@@ -374,7 +358,7 @@ class _FridaSnippetPreset {
         de: 'Argumente, Rückgabewert, Stack',
         ja: '引数、戻り値、スタック',
       ),
-      'okhttp' => _arText(
+      'okhttp' => openHandLocalizedText(
         context,
         zh: descZh,
         zhHant: '請求/回應 URL、Header、Body',
@@ -383,7 +367,7 @@ class _FridaSnippetPreset {
         de: 'Request/Response-URL, Header, Body',
         ja: 'リクエスト/レスポンス URL、Header、Body',
       ),
-      'ssl_pinning' => _arText(
+      'ssl_pinning' => openHandLocalizedText(
         context,
         zh: descZh,
         zhHant: '常見憑證鎖定繞過',
@@ -392,7 +376,7 @@ class _FridaSnippetPreset {
         de: 'Gängige Pinning-Bypässe',
         ja: '一般的なピンニング回避',
       ),
-      'aes_cbc' => _arText(
+      'aes_cbc' => openHandLocalizedText(
         context,
         zh: descZh,
         zhHant: 'Cipher doFinal 明文/密文',
@@ -401,7 +385,7 @@ class _FridaSnippetPreset {
         de: 'Cipher doFinal Klartext/Chiffrat',
         ja: 'Cipher doFinal 平文/暗号文',
       ),
-      'native_func' => _arText(
+      'native_func' => openHandLocalizedText(
         context,
         zh: descZh,
         zhHant: 'JNI/so 入參與返回值',
@@ -410,7 +394,7 @@ class _FridaSnippetPreset {
         de: 'JNI/so-Argumente und Rückgabewert',
         ja: 'JNI/so 引数と戻り値',
       ),
-      'flutter_dart' => _arText(
+      'flutter_dart' => openHandLocalizedText(
         context,
         zh: descZh,
         zhHant: '配合 blutter/Doldrums',
@@ -419,7 +403,7 @@ class _FridaSnippetPreset {
         de: 'Mit blutter/Doldrums',
         ja: 'blutter/Doldrums と併用',
       ),
-      _ => _arText(
+      _ => openHandLocalizedText(
         context,
         zh: descZh,
         zhHant: descZh,
@@ -498,7 +482,7 @@ const List<_FridaSnippetPreset> _kFridaSnippetPresets = <_FridaSnippetPreset>[
 extension _TabLabel on _Tab {
   String label(BuildContext context) {
     return switch (this) {
-      _Tab.devices => _arText(
+      _Tab.devices => openHandLocalizedText(
         context,
         zh: '设备管理',
         zhHant: '裝置管理',
@@ -507,7 +491,7 @@ extension _TabLabel on _Tab {
         de: 'Geräte',
         ja: 'デバイス',
       ),
-      _Tab.overview => _arText(
+      _Tab.overview => openHandLocalizedText(
         context,
         zh: '概览',
         zhHant: '概覽',
@@ -516,7 +500,7 @@ extension _TabLabel on _Tab {
         de: 'Übersicht',
         ja: '概要',
       ),
-      _Tab.toolchain => _arText(
+      _Tab.toolchain => openHandLocalizedText(
         context,
         zh: '工具链',
         zhHant: '工具鏈',
@@ -526,7 +510,7 @@ extension _TabLabel on _Tab {
         ja: 'ツールチェーン',
       ),
       _Tab.mcp => 'MCP',
-      _Tab.plugins => _arText(
+      _Tab.plugins => openHandLocalizedText(
         context,
         zh: '插件',
         zhHant: '外掛',
@@ -535,7 +519,7 @@ extension _TabLabel on _Tab {
         de: 'Plugins',
         ja: 'プラグイン',
       ),
-      _Tab.packages => _arText(
+      _Tab.packages => openHandLocalizedText(
         context,
         zh: 'APP 信息',
         zhHant: 'APP 資訊',
@@ -544,7 +528,7 @@ extension _TabLabel on _Tab {
         de: 'APP-Info',
         ja: 'APP 情報',
       ),
-      _Tab.processes => _arText(
+      _Tab.processes => openHandLocalizedText(
         context,
         zh: '进程',
         zhHant: '程序',
@@ -555,7 +539,7 @@ extension _TabLabel on _Tab {
       ),
       _Tab.logcat => 'Logcat',
       _Tab.frida => 'Frida',
-      _Tab.network => _arText(
+      _Tab.network => openHandLocalizedText(
         context,
         zh: '网络',
         zhHant: '網路',
@@ -564,7 +548,7 @@ extension _TabLabel on _Tab {
         de: 'Netzwerk',
         ja: 'ネットワーク',
       ),
-      _Tab.staticAnalysis => _arText(
+      _Tab.staticAnalysis => openHandLocalizedText(
         context,
         zh: '静态分析',
         zhHant: '靜態分析',
@@ -573,7 +557,7 @@ extension _TabLabel on _Tab {
         de: 'Statisch',
         ja: '静的解析',
       ),
-      _Tab.certs => _arText(
+      _Tab.certs => openHandLocalizedText(
         context,
         zh: '证书',
         zhHant: '憑證',
@@ -582,7 +566,7 @@ extension _TabLabel on _Tab {
         de: 'Zertifikate',
         ja: '証明書',
       ),
-      _Tab.crypto => _arText(
+      _Tab.crypto => openHandLocalizedText(
         context,
         zh: '加密',
         zhHant: '加密',
@@ -908,20 +892,20 @@ class _AndroidReverseDashboardDialogState
       final summary = _summarizePackageDumpsys(dumpsys.stdout);
       final buf = StringBuffer()
         ..writeln(
-          '${_arText(context, zh: "包名", zhHant: "套件名稱", en: "Package", fr: "Package", de: "Paket", ja: "パッケージ")}: $packageName',
+          '${openHandLocalizedText(context, zh: "包名", zhHant: "套件名稱", en: "Package", fr: "Package", de: "Paket", ja: "パッケージ")}: $packageName',
         )
         ..writeln(
-          '${_arText(context, zh: "安装路径", zhHant: "安裝路徑", en: "APK path", fr: "Chemin APK", de: "APK-Pfad", ja: "APK パス")}: ${path ?? "-"}',
+          '${openHandLocalizedText(context, zh: "安装路径", zhHant: "安裝路徑", en: "APK path", fr: "Chemin APK", de: "APK-Pfad", ja: "APK パス")}: ${path ?? "-"}',
         )
         ..writeln(
-          '${_arText(context, zh: "版本", zhHant: "版本", en: "Version", fr: "Version", de: "Version", ja: "バージョン")}: ${version ?? "-"}',
+          '${openHandLocalizedText(context, zh: "版本", zhHant: "版本", en: "Version", fr: "Version", de: "Version", ja: "バージョン")}: ${version ?? "-"}',
         )
         ..writeln(
-          '${_arText(context, zh: "启动入口", zhHant: "啟動入口", en: "Launcher", fr: "Lanceur", de: "Launcher", ja: "ランチャー")}: ${launcher ?? "-"}',
+          '${openHandLocalizedText(context, zh: "启动入口", zhHant: "啟動入口", en: "Launcher", fr: "Lanceur", de: "Launcher", ja: "ランチャー")}: ${launcher ?? "-"}',
         )
         ..writeln()
         ..writeln(
-          _arText(
+          openHandLocalizedText(
             context,
             zh: 'dumpsys 摘要:',
             zhHant: 'dumpsys 摘要:',
@@ -933,7 +917,7 @@ class _AndroidReverseDashboardDialogState
         )
         ..write(
           summary.isEmpty
-              ? _arText(
+              ? openHandLocalizedText(
                   context,
                   zh: '(无输出)',
                   zhHant: '（無輸出）',
@@ -948,7 +932,7 @@ class _AndroidReverseDashboardDialogState
         buf
           ..writeln()
           ..writeln(
-            _arText(
+            openHandLocalizedText(
               context,
               zh: '(dumpsys 已超时，已展示可用输出)',
               zhHant: '（dumpsys 已逾時，已顯示可用輸出）',
@@ -964,7 +948,7 @@ class _AndroidReverseDashboardDialogState
         buf
           ..writeln()
           ..writeln(
-            '${_arText(context, zh: "错误", zhHant: "錯誤", en: "Error", fr: "Erreur", de: "Fehler", ja: "エラー")}: $err',
+            '${openHandLocalizedText(context, zh: "错误", zhHant: "錯誤", en: "Error", fr: "Erreur", de: "Fehler", ja: "エラー")}: $err',
           );
       }
       setState(() => _packageAnalysisOutput = buf.toString());
@@ -988,7 +972,7 @@ class _AndroidReverseDashboardDialogState
       setState(() => _packageAnalysisOutput = _formatAdbResult(result));
       if (result.ok || result.partialOk) {
         _showSnack(
-          _arText(
+          openHandLocalizedText(
             context,
             zh: '已生成 APP 信息报告工件。',
             zhHant: '已產生 APP 資訊報告工件。',
@@ -1005,7 +989,7 @@ class _AndroidReverseDashboardDialogState
       if (!mounted) return;
       setState(() {
         _packageAnalysisOutput =
-            '${_arText(context, zh: "生成 APP 信息报告失败", zhHant: "產生 APP 資訊報告失敗", en: "Failed to generate APP report", fr: "Échec de génération du rapport APP", de: "APP-Bericht konnte nicht erstellt werden", ja: "APP レポートの生成に失敗しました")}: $error';
+            '${openHandLocalizedText(context, zh: "生成 APP 信息报告失败", zhHant: "產生 APP 資訊報告失敗", en: "Failed to generate APP report", fr: "Échec de génération du rapport APP", de: "APP-Bericht konnte nicht erstellt werden", ja: "APP レポートの生成に失敗しました")}: $error';
       });
     } finally {
       if (mounted) setState(() => _capturingPackageReport = false);
@@ -1105,7 +1089,7 @@ class _AndroidReverseDashboardDialogState
     } catch (error) {
       if (!mounted) return;
       setState(() {
-        _deviceSnapshotOutput = _arText(
+        _deviceSnapshotOutput = openHandLocalizedText(
           context,
           zh: '刷新设备详情失败：$error',
           zhHant: '重新整理裝置詳情失敗：$error',
@@ -1134,7 +1118,7 @@ class _AndroidReverseDashboardDialogState
     if (result.timedOut) {
       if (buffer.isNotEmpty) buffer.writeln();
       buffer.write(
-        _arText(
+        openHandLocalizedText(
           context,
           zh: '(设备现场读取超时，已展示可用输出)',
           zhHant: '（裝置現場讀取逾時，已顯示可用輸出）',
@@ -1148,7 +1132,7 @@ class _AndroidReverseDashboardDialogState
     if (!result.ok && stderr.isNotEmpty) {
       if (buffer.isNotEmpty) buffer.writeln();
       buffer.write(
-        '${_arText(context, zh: "错误", zhHant: "錯誤", en: "Error", fr: "Erreur", de: "Fehler", ja: "エラー")}: $stderr',
+        '${openHandLocalizedText(context, zh: "错误", zhHant: "錯誤", en: "Error", fr: "Erreur", de: "Fehler", ja: "エラー")}: $stderr',
       );
     }
     return buffer.toString().trimRight();
@@ -1183,7 +1167,7 @@ class _AndroidReverseDashboardDialogState
             : _replaceLogcatLines(incoming);
         setState(() {
           if (incoming.isNotEmpty && result.timedOut) {
-            _logcatError = _arText(
+            _logcatError = openHandLocalizedText(
               context,
               zh: 'Logcat 读取超时，已展示可用输出。',
               zhHant: 'Logcat 讀取逾時，已顯示可用輸出。',
@@ -1199,7 +1183,7 @@ class _AndroidReverseDashboardDialogState
           } else if (err.isNotEmpty) {
             _logcatError = err;
           } else if (!silent && !append) {
-            _logcatError = _arText(
+            _logcatError = openHandLocalizedText(
               context,
               zh: '没有读取到 Logcat 输出。请确认设备在线，或清空 Tag 过滤后重试。',
               zhHant: '沒有讀取到 Logcat 輸出。請確認裝置在線，或清空 Tag 篩選後重試。',
@@ -1284,7 +1268,7 @@ class _AndroidReverseDashboardDialogState
     if (_clearingLogcat) return;
     final confirmed = await showOpenHandConfirmDialog(
       context: context,
-      title: _arText(
+      title: openHandLocalizedText(
         context,
         zh: '清空 Logcat？',
         zhHant: '清空 Logcat？',
@@ -1293,7 +1277,7 @@ class _AndroidReverseDashboardDialogState
         de: 'Logcat leeren?',
         ja: 'Logcat をクリアしますか？',
       ),
-      message: _arText(
+      message: openHandLocalizedText(
         context,
         zh: '将清空当前面板日志，并尝试清空设备 Logcat 缓冲区。自动刷新开启时会继续读取清空后的新日志。',
         zhHant: '將清空目前面板日誌，並嘗試清空裝置 Logcat 緩衝區。自動重新整理開啟時會繼續讀取清空後的新日誌。',
@@ -1302,7 +1286,7 @@ class _AndroidReverseDashboardDialogState
         de: 'Leert die Panel-Logs und versucht, den Logcat-Puffer des Geräts zu leeren. Auto-Aktualisierung liest danach weiter neue Logs.',
         ja: '現在のパネルログを消去し、デバイスの Logcat バッファーもクリアします。自動更新が有効な場合は新しいログを読み続けます。',
       ),
-      cancelLabel: _arText(
+      cancelLabel: openHandLocalizedText(
         context,
         zh: '取消',
         zhHant: '取消',
@@ -1311,7 +1295,7 @@ class _AndroidReverseDashboardDialogState
         de: 'Abbrechen',
         ja: 'キャンセル',
       ),
-      confirmLabel: _arText(
+      confirmLabel: openHandLocalizedText(
         context,
         zh: '清空',
         zhHant: '清空',
@@ -1328,7 +1312,7 @@ class _AndroidReverseDashboardDialogState
       _logcatLines.clear();
       _logcatParseCache.clear();
       _logcatMutationGeneration++;
-      _logcatError = _arText(
+      _logcatError = openHandLocalizedText(
         context,
         zh: '正在清空设备 Logcat...',
         zhHant: '正在清空裝置 Logcat...',
@@ -1343,7 +1327,7 @@ class _AndroidReverseDashboardDialogState
       if (!mounted) return;
       setState(() {
         _logcatError = result.ok
-            ? _arText(
+            ? openHandLocalizedText(
                 context,
                 zh: '已清空设备 Logcat。',
                 zhHant: '已清空裝置 Logcat。',
@@ -1358,7 +1342,7 @@ class _AndroidReverseDashboardDialogState
       if (!mounted) return;
       setState(() {
         _logcatError =
-            '${_arText(context, zh: "清空 Logcat 失败", zhHant: "清空 Logcat 失敗", en: "Failed to clear logcat", fr: "Échec de l’effacement de Logcat", de: "Logcat konnte nicht geleert werden", ja: "Logcat のクリアに失敗しました")}: $error';
+            '${openHandLocalizedText(context, zh: "清空 Logcat 失败", zhHant: "清空 Logcat 失敗", en: "Failed to clear logcat", fr: "Échec de l’effacement de Logcat", de: "Logcat konnte nicht geleert werden", ja: "Logcat のクリアに失敗しました")}: $error';
       });
     } finally {
       if (mounted) setState(() => _clearingLogcat = false);
@@ -1426,7 +1410,7 @@ class _AndroidReverseDashboardDialogState
 
   String _logcatLevelOptionLabel(String level, BuildContext context) {
     return switch (level) {
-      'V' => _arText(
+      'V' => openHandLocalizedText(
         context,
         zh: '详细',
         zhHant: '詳細',
@@ -1435,7 +1419,7 @@ class _AndroidReverseDashboardDialogState
         de: 'Ausführlich',
         ja: '詳細',
       ),
-      'D' => _arText(
+      'D' => openHandLocalizedText(
         context,
         zh: '调试',
         zhHant: '除錯',
@@ -1444,7 +1428,7 @@ class _AndroidReverseDashboardDialogState
         de: 'Debug',
         ja: 'デバッグ',
       ),
-      'I' => _arText(
+      'I' => openHandLocalizedText(
         context,
         zh: '信息',
         zhHant: '資訊',
@@ -1453,7 +1437,7 @@ class _AndroidReverseDashboardDialogState
         de: 'Info',
         ja: '情報',
       ),
-      'W' => _arText(
+      'W' => openHandLocalizedText(
         context,
         zh: '警告',
         zhHant: '警告',
@@ -1462,7 +1446,7 @@ class _AndroidReverseDashboardDialogState
         de: 'Warnung',
         ja: '警告',
       ),
-      'E' => _arText(
+      'E' => openHandLocalizedText(
         context,
         zh: '错误',
         zhHant: '錯誤',
@@ -1471,7 +1455,7 @@ class _AndroidReverseDashboardDialogState
         de: 'Fehler',
         ja: 'エラー',
       ),
-      'F' => _arText(
+      'F' => openHandLocalizedText(
         context,
         zh: '致命',
         zhHant: '致命',
@@ -1507,7 +1491,7 @@ class _AndroidReverseDashboardDialogState
               const Icon(Icons.copy_rounded, size: 16),
               const SizedBox(width: 8),
               Text(
-                _arText(
+                openHandLocalizedText(
                   context,
                   zh: '复制日志',
                   zhHant: '複製日誌',
@@ -1531,7 +1515,7 @@ class _AndroidReverseDashboardDialogState
               ),
               const SizedBox(width: 8),
               Text(
-                _arText(
+                openHandLocalizedText(
                   context,
                   zh: '删除此条',
                   zhHant: '刪除此列',
@@ -1580,11 +1564,11 @@ class _AndroidReverseDashboardDialogState
     if (!mounted) return;
     if (failure != null) {
       _showSnack(
-        '${_arText(context, zh: "保存 Logcat 失败", zhHant: "儲存 Logcat 失敗", en: "Failed to save Logcat", fr: "Échec de l’enregistrement Logcat", de: "Logcat konnte nicht gespeichert werden", ja: "Logcat の保存に失敗しました")}: $failure',
+        '${openHandLocalizedText(context, zh: "保存 Logcat 失败", zhHant: "儲存 Logcat 失敗", en: "Failed to save Logcat", fr: "Échec de l’enregistrement Logcat", de: "Logcat konnte nicht gespeichert werden", ja: "Logcat の保存に失敗しました")}: $failure',
       );
     } else if (path != null) {
       _showSnack(
-        _arText(
+        openHandLocalizedText(
           context,
           zh: '已保存 ${_logcatLines.length} 行到 $path',
           zhHant: '已儲存 ${_logcatLines.length} 行到 $path',
@@ -1629,7 +1613,7 @@ class _AndroidReverseDashboardDialogState
       });
       if (result.ok || result.partialOk) {
         _showSnack(
-          _arText(
+          openHandLocalizedText(
             context,
             zh: '已生成 Logcat 快照工件。',
             zhHant: '已產生 Logcat 快照工件。',
@@ -1646,7 +1630,7 @@ class _AndroidReverseDashboardDialogState
       if (!mounted) return;
       setState(() {
         _logcatArtifactOutput =
-            '${_arText(context, zh: "生成 Logcat 快照失败", zhHant: "產生 Logcat 快照失敗", en: "Failed to capture Logcat snapshot", fr: "Échec de capture du snapshot Logcat", de: "Logcat-Snapshot konnte nicht erstellt werden", ja: "Logcat スナップショットの取得に失敗しました")}: $error';
+            '${openHandLocalizedText(context, zh: "生成 Logcat 快照失败", zhHant: "產生 Logcat 快照失敗", en: "Failed to capture Logcat snapshot", fr: "Échec de capture du snapshot Logcat", de: "Logcat-Snapshot konnte nicht erstellt werden", ja: "Logcat スナップショットの取得に失敗しました")}: $error';
         _logcatError = _logcatArtifactOutput;
       });
     } finally {
@@ -1667,7 +1651,7 @@ class _AndroidReverseDashboardDialogState
     if (explicitPid.isNotEmpty) {
       return (
         pid: null,
-        notice: _arText(
+        notice: openHandLocalizedText(
           context,
           zh: 'PID 只能填写数字，已忽略该 PID 过滤。',
           zhHant: 'PID 只能填寫數字，已忽略該 PID 篩選。',
@@ -1700,7 +1684,7 @@ class _AndroidReverseDashboardDialogState
   String _logcatPidLookupNotice(AndroidPackagePidLookupResult lookup) {
     final stderr = lookup.stderr.trim();
     if (lookup.timedOut) {
-      return _arText(
+      return openHandLocalizedText(
         context,
         zh: '解析目标包 PID 超时，已按当前等级读取全局 Logcat。',
         zhHant: '解析目標套件 PID 逾時，已按目前等級讀取全域 Logcat。',
@@ -1711,7 +1695,7 @@ class _AndroidReverseDashboardDialogState
       );
     }
     if (stderr.isNotEmpty) {
-      return _arText(
+      return openHandLocalizedText(
         context,
         zh: '解析目标包 PID 失败：$stderr。已按当前等级读取全局 Logcat。',
         zhHant: '解析目標套件 PID 失敗：$stderr。已按目前等級讀取全域 Logcat。',
@@ -1721,7 +1705,7 @@ class _AndroidReverseDashboardDialogState
         ja: '対象パッケージの PID 解決に失敗しました: $stderr。選択レベルで全体 Logcat を読み込みました。',
       );
     }
-    return _arText(
+    return openHandLocalizedText(
       context,
       zh: '目标包未运行或无法解析 PID，已按当前等级读取全局 Logcat。',
       zhHant: '目標套件未執行或無法解析 PID，已按目前等級讀取全域 Logcat。',
@@ -1747,7 +1731,7 @@ class _AndroidReverseDashboardDialogState
       setState(() => _staticQuickScanOutput = _formatAdbResult(result));
       if (!result.ok && !result.hasUsableStdout) {
         _showSnack(
-          _arText(
+          openHandLocalizedText(
             context,
             zh: '静态扫描失败，已展示错误输出。',
             zhHant: '靜態掃描失敗，已顯示錯誤輸出。',
@@ -1764,7 +1748,7 @@ class _AndroidReverseDashboardDialogState
       if (!mounted) return;
       setState(() {
         _staticQuickScanOutput =
-            '${_arText(context, zh: "静态扫描失败", zhHant: "靜態掃描失敗", en: "Static scan failed", fr: "Échec du scan statique", de: "Statischer Scan fehlgeschlagen", ja: "静的スキャンに失敗しました")}: $error';
+            '${openHandLocalizedText(context, zh: "静态扫描失败", zhHant: "靜態掃描失敗", en: "Static scan failed", fr: "Échec du scan statique", de: "Statischer Scan fehlgeschlagen", ja: "静的スキャンに失敗しました")}: $error';
       });
     } finally {
       if (mounted) setState(() => _runningStaticQuickScan = false);
@@ -1783,7 +1767,7 @@ class _AndroidReverseDashboardDialogState
           '-w ${_shellQuote('${_ctrl.networkDir}/flows.mitm')}';
       setState(() {
         _networkAddonOutput = [
-          _arText(
+          openHandLocalizedText(
             context,
             zh: '已生成网络抓包工件:',
             zhHant: '已產生網路抓包工件:',
@@ -1796,7 +1780,7 @@ class _AndroidReverseDashboardDialogState
           'README: ${_ctrl.networkReadmePath}',
           'Proxy probe: ${_ctrl.networkProxyProbeScriptPath}',
           '',
-          _arText(
+          openHandLocalizedText(
             context,
             zh: '启动命令:',
             zhHant: '啟動指令:',
@@ -1814,10 +1798,10 @@ class _AndroidReverseDashboardDialogState
       if (!mounted) return;
       setState(() {
         _networkAddonOutput =
-            '${_arText(context, zh: "生成 mitmproxy addon 失败", zhHant: "產生 mitmproxy addon 失敗", en: "Failed to generate mitmproxy addon", fr: "Échec de génération de l’addon mitmproxy", de: "mitmproxy-Addon konnte nicht erstellt werden", ja: "mitmproxy addon の生成に失敗しました")}: $error';
+            '${openHandLocalizedText(context, zh: "生成 mitmproxy addon 失败", zhHant: "產生 mitmproxy addon 失敗", en: "Failed to generate mitmproxy addon", fr: "Échec de génération de l’addon mitmproxy", de: "mitmproxy-Addon konnte nicht erstellt werden", ja: "mitmproxy addon の生成に失敗しました")}: $error';
       });
       _showSnack(
-        _arText(
+        openHandLocalizedText(
           context,
           zh: '生成 mitmproxy addon 失败。',
           zhHant: '產生 mitmproxy addon 失敗。',
@@ -1847,10 +1831,10 @@ class _AndroidReverseDashboardDialogState
       if (!mounted) return;
       setState(() {
         _certificateArtifactOutput =
-            '${_arText(context, zh: "生成证书工件失败", zhHant: "產生憑證工件失敗", en: "Failed to generate certificate artifacts", fr: "Échec de génération des artefacts certificat", de: "Zertifikatsartefakte konnten nicht erstellt werden", ja: "証明書成果物の生成に失敗しました")}: $error';
+            '${openHandLocalizedText(context, zh: "生成证书工件失败", zhHant: "產生憑證工件失敗", en: "Failed to generate certificate artifacts", fr: "Échec de génération des artefacts certificat", de: "Zertifikatsartefakte konnten nicht erstellt werden", ja: "証明書成果物の生成に失敗しました")}: $error';
       });
       _showSnack(
-        _arText(
+        openHandLocalizedText(
           context,
           zh: '生成证书工件失败。',
           zhHant: '產生憑證工件失敗。',
@@ -1878,10 +1862,10 @@ class _AndroidReverseDashboardDialogState
       if (!mounted) return;
       setState(() {
         _mcpArtifactOutput =
-            '${_arText(context, zh: "生成 MCP 联动工件失败", zhHant: "產生 MCP 聯動工件失敗", en: "Failed to generate MCP linkage artifacts", fr: "Échec de génération des artefacts de liaison MCP", de: "MCP-Linkage-Artefakte konnten nicht erstellt werden", ja: "MCP 連携成果物の生成に失敗しました")}: $error';
+            '${openHandLocalizedText(context, zh: "生成 MCP 联动工件失败", zhHant: "產生 MCP 聯動工件失敗", en: "Failed to generate MCP linkage artifacts", fr: "Échec de génération des artefacts de liaison MCP", de: "MCP-Linkage-Artefakte konnten nicht erstellt werden", ja: "MCP 連携成果物の生成に失敗しました")}: $error';
       });
       _showSnack(
-        _arText(
+        openHandLocalizedText(
           context,
           zh: '生成 MCP 联动工件失败。',
           zhHant: '產生 MCP 聯動工件失敗。',
@@ -1902,7 +1886,7 @@ class _AndroidReverseDashboardDialogState
     if (_makingEvidenceBundle) return;
     setState(() {
       _makingEvidenceBundle = true;
-      _evidenceBundleOutput = _arText(
+      _evidenceBundleOutput = openHandLocalizedText(
         context,
         zh: '生成中...',
         zhHant: '產生中...',
@@ -1919,7 +1903,7 @@ class _AndroidReverseDashboardDialogState
       OpenHandSnackBar.showInfo(
         context,
         result.ok
-            ? _arText(
+            ? openHandLocalizedText(
                 context,
                 zh: '证据包已生成。',
                 zhHant: '證據包已產生。',
@@ -1928,7 +1912,7 @@ class _AndroidReverseDashboardDialogState
                 de: 'Beweispaket erstellt.',
                 ja: '証拠パッケージを生成しました。',
               )
-            : _arText(
+            : openHandLocalizedText(
                 context,
                 zh: '证据包生成失败。',
                 zhHant: '證據包產生失敗。',
@@ -1953,7 +1937,7 @@ class _AndroidReverseDashboardDialogState
     } catch (error) {
       if (!mounted) return;
       _showSnack(
-        _arText(
+        openHandLocalizedText(
           context,
           zh: '加载 Frida snippet 失败：$error',
           zhHant: '載入 Frida snippet 失敗：$error',
@@ -1986,7 +1970,7 @@ class _AndroidReverseDashboardDialogState
       });
       if (result.ok) {
         _showSnack(
-          _arText(
+          openHandLocalizedText(
             context,
             zh: '已保存 Frida 脚本工件。',
             zhHant: '已儲存 Frida 腳本工件。',
@@ -2003,7 +1987,7 @@ class _AndroidReverseDashboardDialogState
       if (!mounted) return;
       setState(() {
         _fridaArtifactOutput =
-            '${_arText(context, zh: "保存 Frida 脚本失败", zhHant: "儲存 Frida 腳本失敗", en: "Failed to save Frida script", fr: "Échec d’enregistrement du script Frida", de: "Frida-Skript konnte nicht gespeichert werden", ja: "Frida スクリプトの保存に失敗しました")}: $error';
+            '${openHandLocalizedText(context, zh: "保存 Frida 脚本失败", zhHant: "儲存 Frida 腳本失敗", en: "Failed to save Frida script", fr: "Échec d’enregistrement du script Frida", de: "Frida-Skript konnte nicht gespeichert werden", ja: "Frida スクリプトの保存に失敗しました")}: $error';
       });
     } finally {
       if (mounted) setState(() => _savingFridaScript = false);
@@ -2014,7 +1998,7 @@ class _AndroidReverseDashboardDialogState
     if (_runningFridaDoctor) return;
     setState(() {
       _runningFridaDoctor = true;
-      _fridaArtifactOutput = _arText(
+      _fridaArtifactOutput = openHandLocalizedText(
         context,
         zh: 'Frida 诊断运行中...',
         zhHant: 'Frida 診斷執行中...',
@@ -2079,7 +2063,7 @@ class _AndroidReverseDashboardDialogState
     final pkg = _logcatPackageTarget();
     if (pkg == null || pkg.isEmpty) {
       _showSnack(
-        _arText(
+        openHandLocalizedText(
           context,
           zh: '请先选择或配置包名。',
           zhHant: '請先選擇或設定套件名稱。',
@@ -2093,7 +2077,7 @@ class _AndroidReverseDashboardDialogState
     }
     setState(() {
       _runningFridaAction = true;
-      _fridaArtifactOutput = _arText(
+      _fridaArtifactOutput = openHandLocalizedText(
         context,
         zh: 'Frida 注入执行中...',
         zhHant: 'Frida 注入執行中...',
@@ -2109,7 +2093,7 @@ class _AndroidReverseDashboardDialogState
       if (scriptPath == null || scriptPath.isEmpty) {
         if (mounted) {
           setState(() {
-            _fridaArtifactOutput = _arText(
+            _fridaArtifactOutput = openHandLocalizedText(
               context,
               zh: '请先选择 snippet 或保存脚本。',
               zhHant: '請先選擇 snippet 或儲存腳本。',
@@ -2151,7 +2135,7 @@ class _AndroidReverseDashboardDialogState
     if (_runningFridaAction) return;
     setState(() {
       _runningFridaAction = true;
-      _fridaArtifactOutput = _arText(
+      _fridaArtifactOutput = openHandLocalizedText(
         context,
         zh: '读取 Frida 工件中...',
         zhHant: '讀取 Frida 工件中...',
@@ -2196,7 +2180,7 @@ fi
     if (_runningFridaAction) return;
     final confirmed = await showOpenHandConfirmDialog(
       context: context,
-      title: _arText(
+      title: openHandLocalizedText(
         context,
         zh: '启动设备端 frida-server？',
         zhHant: '啟動裝置端 frida-server？',
@@ -2205,7 +2189,7 @@ fi
         de: 'frida-server auf dem Gerät starten?',
         ja: 'デバイス側 frida-server を起動しますか？',
       ),
-      message: _arText(
+      message: openHandLocalizedText(
         context,
         zh: '仅会尝试启动已存在的 /data/local/tmp/frida-server 并建立 27042 端口转发，不会自动下载或推送二进制。',
         zhHant:
@@ -2215,7 +2199,7 @@ fi
         de: 'Startet nur einen vorhandenen /data/local/tmp/frida-server und leitet Port 27042 weiter. Es werden keine Binärdateien heruntergeladen oder übertragen.',
         ja: '既存の /data/local/tmp/frida-server の起動と 27042 ポート転送のみ試行します。バイナリの自動ダウンロードや push は行いません。',
       ),
-      cancelLabel: _arText(
+      cancelLabel: openHandLocalizedText(
         context,
         zh: '取消',
         zhHant: '取消',
@@ -2224,7 +2208,7 @@ fi
         de: 'Abbrechen',
         ja: 'キャンセル',
       ),
-      confirmLabel: _arText(
+      confirmLabel: openHandLocalizedText(
         context,
         zh: '启动',
         zhHant: '啟動',
@@ -2237,7 +2221,7 @@ fi
     if (!confirmed || !mounted) return;
     setState(() {
       _runningFridaAction = true;
-      _fridaArtifactOutput = _arText(
+      _fridaArtifactOutput = openHandLocalizedText(
         context,
         zh: '启动 frida-server 中...',
         zhHant: '啟動 frida-server 中...',
@@ -2274,7 +2258,7 @@ fi
     if (_runningNetworkProbe) return;
     setState(() {
       _runningNetworkProbe = true;
-      _networkAddonOutput = _arText(
+      _networkAddonOutput = openHandLocalizedText(
         context,
         zh: '代理 / 证书预检运行中...',
         zhHant: '代理 / 憑證預檢執行中...',
@@ -2313,7 +2297,7 @@ fi
     if (_runningNetworkAction) return;
     setState(() {
       _runningNetworkAction = true;
-      _networkAddonOutput = _arText(
+      _networkAddonOutput = openHandLocalizedText(
         context,
         zh: '网络动作执行中...',
         zhHant: '網路動作執行中...',
@@ -2351,7 +2335,7 @@ fi
     final port = _networkProxyPort();
     if (port == null) {
       _showSnack(
-        _arText(
+        openHandLocalizedText(
           context,
           zh: '请输入合法端口。',
           zhHant: '請輸入合法連接埠。',
@@ -2371,7 +2355,7 @@ fi
     final port = _networkProxyPort();
     if (host == null || port == null) {
       _showSnack(
-        _arText(
+        openHandLocalizedText(
           context,
           zh: '请输入合法代理主机和端口。',
           zhHant: '請輸入合法代理主機和連接埠。',
@@ -2414,7 +2398,7 @@ fi
 
   Future<void> _exportNetworkFlowsWithPicker() async {
     if (_runningNetworkAction) return;
-    final saveDialogErrorPrefix = _arText(
+    final saveDialogErrorPrefix = openHandLocalizedText(
       context,
       zh: '打开保存对话框失败',
       zhHant: '開啟儲存對話框失敗',
@@ -2423,7 +2407,7 @@ fi
       de: 'Speicherdialog konnte nicht geöffnet werden',
       ja: '保存ダイアログを開けませんでした',
     );
-    final missingFlowsArtifactMessage = _arText(
+    final missingFlowsArtifactMessage = openHandLocalizedText(
       context,
       zh: 'mitmproxy flows 文本产物不存在。',
       zhHant: 'mitmproxy flows 文字工件不存在。',
@@ -2477,7 +2461,7 @@ fi
     if (_runningStaticAction) return;
     setState(() {
       _runningStaticAction = true;
-      _staticQuickScanOutput = _arText(
+      _staticQuickScanOutput = openHandLocalizedText(
         context,
         zh: '静态分析动作执行中...',
         zhHant: '靜態分析動作執行中...',
@@ -2512,7 +2496,7 @@ fi
     if (_runningCertificateAction) return;
     setState(() {
       _runningCertificateAction = true;
-      _certificateArtifactOutput = _arText(
+      _certificateArtifactOutput = openHandLocalizedText(
         context,
         zh: '证书动作执行中...',
         zhHant: '憑證動作執行中...',
@@ -2556,7 +2540,7 @@ fi
     final apkPath = _ctrl.config.apkPath?.trim();
     if (apkPath == null || apkPath.isEmpty) {
       _showSnack(
-        _arText(
+        openHandLocalizedText(
           context,
           zh: '当前会话未配置 APK 路径。',
           zhHant: '目前會話未設定 APK 路徑。',
@@ -2580,7 +2564,7 @@ fi
     if (_runningCertificateAction) return;
     setState(() {
       _runningCertificateAction = true;
-      _certificateArtifactOutput = _arText(
+      _certificateArtifactOutput = openHandLocalizedText(
         context,
         zh: '读取证书工件中...',
         zhHant: '讀取憑證工件中...',
@@ -2605,7 +2589,7 @@ fi
     if (_runningCertificateAction) return;
     setState(() {
       _runningCertificateAction = true;
-      _certificateArtifactOutput = _arText(
+      _certificateArtifactOutput = openHandLocalizedText(
         context,
         zh: '检查 CA 证书中...',
         zhHant: '檢查 CA 憑證中...',
@@ -2630,7 +2614,7 @@ fi
     if (_runningCertificateAction) return;
     final confirmed = await showOpenHandConfirmDialog(
       context: context,
-      title: _arText(
+      title: openHandLocalizedText(
         context,
         zh: '安装系统 CA？',
         zhHant: '安裝系統 CA？',
@@ -2639,7 +2623,7 @@ fi
         de: 'System-CA installieren?',
         ja: 'システム CA をインストールしますか？',
       ),
-      message: _arText(
+      message: openHandLocalizedText(
         context,
         zh: '此操作会执行 adb root/remount，并把 mitmproxy CA 写入系统证书目录。仅在测试设备、root/Magisk 环境中使用。',
         zhHant:
@@ -2649,7 +2633,7 @@ fi
         de: 'Führt adb root/remount aus und schreibt die mitmproxy-CA in den System-Zertifikatsspeicher. Nur auf gerooteten Testgeräten verwenden.',
         ja: 'adb root/remount を実行し、mitmproxy CA をシステム証明書ストアへ書き込みます。root/Magisk のテストデバイスでのみ使用してください。',
       ),
-      cancelLabel: _arText(
+      cancelLabel: openHandLocalizedText(
         context,
         zh: '取消',
         zhHant: '取消',
@@ -2658,7 +2642,7 @@ fi
         de: 'Abbrechen',
         ja: 'キャンセル',
       ),
-      confirmLabel: _arText(
+      confirmLabel: openHandLocalizedText(
         context,
         zh: '安装',
         zhHant: '安裝',
@@ -2672,7 +2656,7 @@ fi
     if (!confirmed || !mounted) return;
     setState(() {
       _runningCertificateAction = true;
-      _certificateArtifactOutput = _arText(
+      _certificateArtifactOutput = openHandLocalizedText(
         context,
         zh: '安装系统 CA 中...',
         zhHant: '安裝系統 CA 中...',
@@ -2699,7 +2683,7 @@ fi
     final cmd = _normalizeAdbShellInput(rawCmd);
     if (_runningShell) return;
     if (cmd.isEmpty) {
-      final message = _arText(
+      final message = openHandLocalizedText(
         context,
         zh: '请输入要执行的 adb shell 命令。',
         zhHant: '請輸入要執行的 adb shell 指令。',
@@ -2718,9 +2702,9 @@ fi
       _lastShellResult = null;
       _rememberShellCommand(cmd);
       _shellOutputCtrl.text =
-          '${_arText(context, zh: "执行中", zhHant: "執行中", en: "Running", fr: "Exécution", de: "Läuft", ja: "実行中")}: $cmd\n'
-          '${_arText(context, zh: "目标设备", zhHant: "目標裝置", en: "Target", fr: "Cible", de: "Ziel", ja: "ターゲット")}: ${_shellTargetLabel(serial)}\n'
-          '${_arText(context, zh: "超时", zhHant: "逾時", en: "Timeout", fr: "Expiration", de: "Timeout", ja: "タイムアウト")}: ${_kInteractiveShellTimeout.inSeconds}s';
+          '${openHandLocalizedText(context, zh: "执行中", zhHant: "執行中", en: "Running", fr: "Exécution", de: "Läuft", ja: "実行中")}: $cmd\n'
+          '${openHandLocalizedText(context, zh: "目标设备", zhHant: "目標裝置", en: "Target", fr: "Cible", de: "Ziel", ja: "ターゲット")}: ${_shellTargetLabel(serial)}\n'
+          '${openHandLocalizedText(context, zh: "超时", zhHant: "逾時", en: "Timeout", fr: "Expiration", de: "Timeout", ja: "タイムアウト")}: ${_kInteractiveShellTimeout.inSeconds}s';
     });
     try {
       final result = await _ctrl.shellDetailed(
@@ -2738,7 +2722,7 @@ fi
       if (!mounted) return;
       setState(() {
         _shellOutputCtrl.text =
-            '${_arText(context, zh: "执行失败", zhHant: "執行失敗", en: "Run failed", fr: "Échec d’exécution", de: "Ausführung fehlgeschlagen", ja: "実行に失敗しました")}: $error';
+            '${openHandLocalizedText(context, zh: "执行失败", zhHant: "執行失敗", en: "Run failed", fr: "Échec d’exécution", de: "Ausführung fehlgeschlagen", ja: "実行に失敗しました")}: $error';
       });
     } finally {
       if (mounted) setState(() => _runningShell = false);
@@ -2758,7 +2742,7 @@ fi
   String _shellTargetLabel(String? serial) {
     final value = serial?.trim();
     if (value == null || value.isEmpty) {
-      return _arText(
+      return openHandLocalizedText(
         context,
         zh: '默认设备',
         zhHant: '預設裝置',
@@ -2775,11 +2759,11 @@ fi
     final buffer = StringBuffer()
       ..writeln('\$ ${result.commandLine}')
       ..writeln(
-        '${_arText(context, zh: "退出码", zhHant: "退出碼", en: "exit", fr: "code", de: "Exit", ja: "終了コード")}: ${result.exitCode}',
+        '${openHandLocalizedText(context, zh: "退出码", zhHant: "退出碼", en: "exit", fr: "code", de: "Exit", ja: "終了コード")}: ${result.exitCode}',
       );
     if (result.partialOk) {
       buffer.writeln(
-        _arText(
+        openHandLocalizedText(
           context,
           zh: '状态: 命令超时，但已保留可用输出；请优先采纳输出并减少重复重试。',
           zhHant: '狀態: 指令逾時，但已保留可用輸出；請優先採納輸出並減少重複重試。',
@@ -2807,7 +2791,7 @@ fi
       buffer
         ..writeln()
         ..write(
-          _arText(
+          openHandLocalizedText(
             context,
             zh: '(命令无输出)',
             zhHant: '（指令無輸出）',
@@ -2828,7 +2812,7 @@ fi
     setState(() {
       _runningDeviceAction = true;
       _lastDeviceActionResult = null;
-      _lastDeviceActionOutput = _arText(
+      _lastDeviceActionOutput = openHandLocalizedText(
         context,
         zh: '执行中...',
         zhHant: '執行中...',
@@ -2852,7 +2836,7 @@ fi
       setState(() {
         _lastDeviceActionResult = null;
         _lastDeviceActionOutput =
-            '${_arText(context, zh: "执行失败", zhHant: "執行失敗", en: "Run failed", fr: "Échec d’exécution", de: "Ausführung fehlgeschlagen", ja: "実行に失敗しました")}: $error';
+            '${openHandLocalizedText(context, zh: "执行失败", zhHant: "執行失敗", en: "Run failed", fr: "Échec d’exécution", de: "Ausführung fehlgeschlagen", ja: "実行に失敗しました")}: $error';
         _runningDeviceAction = false;
       });
     }
@@ -2869,7 +2853,7 @@ fi
     if (mounted) {
       OpenHandSnackBar.showSuccess(
         context,
-        _arText(
+        openHandLocalizedText(
           context,
           zh: '已复制',
           zhHant: '已複製',
@@ -2944,7 +2928,7 @@ fi
         ? cs.error
         : cs.primary;
     final statusLabel = !running
-        ? _arText(
+        ? openHandLocalizedText(
             context,
             zh: '已停止',
             zhHant: '已停止',
@@ -2954,7 +2938,7 @@ fi
             ja: '停止中',
           )
         : activeDevice == null
-        ? _arText(
+        ? openHandLocalizedText(
             context,
             zh: '无设备',
             zhHant: '無裝置',
@@ -2976,7 +2960,7 @@ fi
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  _arText(
+                  openHandLocalizedText(
                     context,
                     zh: 'Android 逆向调试面板',
                     zhHant: 'Android 逆向偵錯面板',
@@ -3036,7 +3020,7 @@ fi
           const SizedBox(width: 8),
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
-            tooltip: _arText(
+            tooltip: openHandLocalizedText(
               context,
               zh: '刷新',
               zhHant: '重新整理',
@@ -3051,7 +3035,7 @@ fi
           const SizedBox(width: _kIconButtonGap),
           IconButton(
             icon: const Icon(Icons.close_rounded),
-            tooltip: _arText(
+            tooltip: openHandLocalizedText(
               context,
               zh: '关闭',
               zhHant: '關閉',
@@ -3188,7 +3172,7 @@ fi
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     Text(
-                      _arText(
+                      openHandLocalizedText(
                         context,
                         zh: '已检测设备',
                         zhHant: '已偵測裝置',
@@ -3205,7 +3189,7 @@ fi
                       ConstrainedBox(
                         constraints: const BoxConstraints(maxWidth: 420),
                         child: Text(
-                          '${_arText(context, zh: "当前目标", zhHant: "目前目標", en: "Target", fr: "Cible", de: "Ziel", ja: "ターゲット")}: $_targetSerial',
+                          '${openHandLocalizedText(context, zh: "当前目标", zhHant: "目前目標", en: "Target", fr: "Cible", de: "Ziel", ja: "ターゲット")}: $_targetSerial',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.labelMedium?.copyWith(
@@ -3225,7 +3209,7 @@ fi
                     _refreshAll();
                   },
                   icon: const Icon(Icons.refresh_rounded, size: 14),
-                  label: _arText(
+                  label: openHandLocalizedText(
                     context,
                     zh: '刷新',
                     zhHant: '重新整理',
@@ -3279,7 +3263,7 @@ fi
                         controller: _shellCtrl,
                         decoration: InputDecoration(
                           isDense: true,
-                          hintText: _arText(
+                          hintText: openHandLocalizedText(
                             context,
                             zh: _kAdbShellHintZh,
                             zhHant: '請輸入 adb shell 指令',
@@ -3309,7 +3293,7 @@ fi
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         : const Icon(Icons.play_arrow_rounded, size: 16),
-                    label: _arText(
+                    label: openHandLocalizedText(
                       context,
                       zh: '执行',
                       zhHant: '執行',
@@ -3345,7 +3329,7 @@ fi
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         Text(
-          _arText(
+          openHandLocalizedText(
             context,
             zh: '最近',
             zhHant: '最近',
@@ -3407,7 +3391,7 @@ fi
                 children: [
                   Expanded(
                     child: Text(
-                      _arText(
+                      openHandLocalizedText(
                         context,
                         zh: 'ADB Shell 输出',
                         zhHant: 'ADB Shell 輸出',
@@ -3425,7 +3409,7 @@ fi
                     ),
                   ),
                   _DashboardIconActionButton(
-                    tooltip: _arText(
+                    tooltip: openHandLocalizedText(
                       context,
                       zh: '复制输出',
                       zhHant: '複製輸出',
@@ -3441,7 +3425,7 @@ fi
                   ),
                   const SizedBox(width: _kDashboardTrailingActionGap),
                   _DashboardIconActionButton(
-                    tooltip: _arText(
+                    tooltip: openHandLocalizedText(
                       context,
                       zh: '清空输出',
                       zhHant: '清空輸出',
@@ -3486,7 +3470,7 @@ fi
     if (devices.isEmpty) {
       return Center(
         child: Text(
-          _arText(
+          openHandLocalizedText(
             context,
             zh: '未找到设备。请连接 Android 设备或启动模拟器后刷新。',
             zhHant: '找不到裝置。請連接 Android 裝置或啟動模擬器後重新整理。',
@@ -3537,7 +3521,7 @@ fi
               trailing: Chip(
                 label: Text(
                   d.isOnline
-                      ? _arText(
+                      ? openHandLocalizedText(
                           context,
                           zh: '在线',
                           zhHant: '線上',
@@ -3546,7 +3530,7 @@ fi
                           de: 'online',
                           ja: 'オンライン',
                         )
-                      : _arText(
+                      : openHandLocalizedText(
                           context,
                           zh: '异常',
                           zhHant: '異常',
@@ -3588,7 +3572,7 @@ fi
     final snapshot = _deviceSnapshotOutput?.trim();
     final propItems = <(String, String)>[
       (
-        _arText(
+        openHandLocalizedText(
           context,
           zh: '系统版本',
           zhHant: '系統版本',
@@ -3601,7 +3585,7 @@ fi
       ),
       ('SDK', _deviceProps['ro.build.version.sdk'] ?? '-'),
       (
-        _arText(
+        openHandLocalizedText(
           context,
           zh: '品牌',
           zhHant: '品牌',
@@ -3613,7 +3597,7 @@ fi
         _deviceProps['ro.product.brand'] ?? '-',
       ),
       (
-        _arText(
+        openHandLocalizedText(
           context,
           zh: '设备',
           zhHant: '裝置',
@@ -3625,7 +3609,7 @@ fi
         _deviceProps['ro.product.device'] ?? '-',
       ),
       (
-        _arText(
+        openHandLocalizedText(
           context,
           zh: '指纹',
           zhHant: '指紋',
@@ -3645,7 +3629,7 @@ fi
             children: [
               Expanded(
                 child: Text(
-                  _arText(
+                  openHandLocalizedText(
                     context,
                     zh: '设备操作',
                     zhHant: '裝置操作',
@@ -3673,7 +3657,7 @@ fi
               cs: cs,
               theme: theme,
               icon: Icons.info_outline_rounded,
-              text: _arText(
+              text: openHandLocalizedText(
                 context,
                 zh: '请选择一个在线设备，或通过无线 ADB 连接设备。',
                 zhHant: '請選擇一個線上裝置，或透過無線 ADB 連接裝置。',
@@ -3701,7 +3685,7 @@ fi
                 children: [
                   Expanded(
                     child: Text(
-                      _arText(
+                      openHandLocalizedText(
                         context,
                         zh: '现场快照',
                         zhHant: '現場快照',
@@ -3718,7 +3702,7 @@ fi
                   ),
                   IconButton(
                     icon: const Icon(Icons.copy_rounded, size: 16),
-                    tooltip: _arText(
+                    tooltip: openHandLocalizedText(
                       context,
                       zh: '复制现场快照',
                       zhHant: '複製現場快照',
@@ -3738,7 +3722,7 @@ fi
           ],
           const SizedBox(height: 14),
           Text(
-            _arText(
+            openHandLocalizedText(
               context,
               zh: '无线 ADB',
               zhHant: '無線 ADB',
@@ -3778,7 +3762,7 @@ fi
               _DashboardActionButton(
                 onPressed: _runningDeviceAction ? null : _connectWirelessDevice,
                 icon: const Icon(Icons.link_rounded),
-                label: _arText(
+                label: openHandLocalizedText(
                   context,
                   zh: '连接',
                   zhHant: '連接',
@@ -3797,7 +3781,7 @@ fi
             children: [
               _SmallActionButton(
                 icon: Icons.link_off_rounded,
-                label: _arText(
+                label: openHandLocalizedText(
                   context,
                   zh: '断开当前',
                   zhHant: '中斷目前連線',
@@ -3812,7 +3796,7 @@ fi
               ),
               _SmallActionButton(
                 icon: Icons.restart_alt_rounded,
-                label: _arText(
+                label: openHandLocalizedText(
                   context,
                   zh: '重启',
                   zhHant: '重新啟動',
@@ -3845,7 +3829,7 @@ fi
           ),
           const SizedBox(height: 14),
           Text(
-            _arText(
+            openHandLocalizedText(
               context,
               zh: '端口转发',
               zhHant: '連接埠轉發',
@@ -3870,7 +3854,7 @@ fi
                     keyboardType: TextInputType.number,
                     decoration: InputDecoration(
                       isDense: true,
-                      hintText: _arText(
+                      hintText: openHandLocalizedText(
                         context,
                         zh: '本地端口',
                         zhHant: '本機連接埠',
@@ -3898,7 +3882,7 @@ fi
                     keyboardType: TextInputType.number,
                     decoration: InputDecoration(
                       isDense: true,
-                      hintText: _arText(
+                      hintText: openHandLocalizedText(
                         context,
                         zh: '设备端口',
                         zhHant: '裝置連接埠',
@@ -3925,7 +3909,7 @@ fi
                       ? null
                       : _addForward,
                   icon: const Icon(Icons.add_rounded),
-                  label: _arText(
+                  label: openHandLocalizedText(
                     context,
                     zh: '添加',
                     zhHant: '新增',
@@ -3941,7 +3925,7 @@ fi
           const SizedBox(height: 8),
           if (_forwardRows.isEmpty)
             Text(
-              _arText(
+              openHandLocalizedText(
                 context,
                 zh: '暂无端口转发',
                 zhHant: '暫無連接埠轉發',
@@ -3962,7 +3946,7 @@ fi
                   _ForwardRow(
                     row: row,
                     colorScheme: cs,
-                    removeTooltip: _arText(
+                    removeTooltip: openHandLocalizedText(
                       context,
                       zh: '移除转发',
                       zhHant: '移除轉發',
@@ -3997,7 +3981,7 @@ fi
                           ),
                     icon: const Icon(Icons.delete_outline_rounded, size: 14),
                     label: Text(
-                      _arText(
+                      openHandLocalizedText(
                         context,
                         zh: '移除全部转发',
                         zhHant: '移除全部轉發',
@@ -4013,7 +3997,7 @@ fi
             ),
           const SizedBox(height: 14),
           Text(
-            _arText(
+            openHandLocalizedText(
               context,
               zh: '反向端口映射',
               zhHant: '反向連接埠映射',
@@ -4038,7 +4022,7 @@ fi
                     keyboardType: TextInputType.number,
                     decoration: InputDecoration(
                       isDense: true,
-                      hintText: _arText(
+                      hintText: openHandLocalizedText(
                         context,
                         zh: '设备端口',
                         zhHant: '裝置連接埠',
@@ -4066,7 +4050,7 @@ fi
                     keyboardType: TextInputType.number,
                     decoration: InputDecoration(
                       isDense: true,
-                      hintText: _arText(
+                      hintText: openHandLocalizedText(
                         context,
                         zh: '主机端口',
                         zhHant: '主機連接埠',
@@ -4093,7 +4077,7 @@ fi
                       ? null
                       : _addReverse,
                   icon: const Icon(Icons.add_link_rounded),
-                  label: _arText(
+                  label: openHandLocalizedText(
                     context,
                     zh: '添加',
                     zhHant: '新增',
@@ -4109,7 +4093,7 @@ fi
           const SizedBox(height: 8),
           if (_reverseRows.isEmpty)
             Text(
-              _arText(
+              openHandLocalizedText(
                 context,
                 zh: '暂无反向映射',
                 zhHant: '暫無反向映射',
@@ -4130,7 +4114,7 @@ fi
                   _ForwardRow(
                     row: row,
                     colorScheme: cs,
-                    removeTooltip: _arText(
+                    removeTooltip: openHandLocalizedText(
                       context,
                       zh: '移除反向映射',
                       zhHant: '移除反向映射',
@@ -4165,7 +4149,7 @@ fi
                           ),
                     icon: const Icon(Icons.delete_outline_rounded, size: 14),
                     label: Text(
-                      _arText(
+                      openHandLocalizedText(
                         context,
                         zh: '移除全部反向映射',
                         zhHant: '移除全部反向映射',
@@ -4181,7 +4165,7 @@ fi
             ),
           const SizedBox(height: 14),
           Text(
-            _arText(
+            openHandLocalizedText(
               context,
               zh: '文件 / APK',
               zhHant: '檔案 / APK',
@@ -4198,7 +4182,7 @@ fi
           const SizedBox(height: 6),
           _buildPathActionRow(
             primaryController: _installApkPathCtrl,
-            primaryHint: _arText(
+            primaryHint: openHandLocalizedText(
               context,
               zh: '本地 APK 路径',
               zhHant: '本機 APK 路徑',
@@ -4208,7 +4192,7 @@ fi
               ja: 'ローカル APK パス',
             ),
             icon: Icons.install_mobile_rounded,
-            label: _arText(
+            label: openHandLocalizedText(
               context,
               zh: '安装',
               zhHant: '安裝',
@@ -4224,7 +4208,7 @@ fi
           const SizedBox(height: 8),
           _buildPathActionRow(
             primaryController: _pushLocalCtrl,
-            primaryHint: _arText(
+            primaryHint: openHandLocalizedText(
               context,
               zh: '本地路径',
               zhHant: '本機路徑',
@@ -4234,7 +4218,7 @@ fi
               ja: 'ローカルパス',
             ),
             secondaryController: _pushRemoteCtrl,
-            secondaryHint: _arText(
+            secondaryHint: openHandLocalizedText(
               context,
               zh: '设备路径',
               zhHant: '裝置路徑',
@@ -4244,7 +4228,7 @@ fi
               ja: 'リモートパス',
             ),
             icon: Icons.upload_file_rounded,
-            label: _arText(
+            label: openHandLocalizedText(
               context,
               zh: '推送',
               zhHant: '推送',
@@ -4260,7 +4244,7 @@ fi
           const SizedBox(height: 8),
           _buildPathActionRow(
             primaryController: _pullRemoteCtrl,
-            primaryHint: _arText(
+            primaryHint: openHandLocalizedText(
               context,
               zh: '设备路径',
               zhHant: '裝置路徑',
@@ -4270,7 +4254,7 @@ fi
               ja: 'リモートパス',
             ),
             secondaryController: _pullLocalCtrl,
-            secondaryHint: _arText(
+            secondaryHint: openHandLocalizedText(
               context,
               zh: '本地目录 / 文件',
               zhHant: '本機目錄 / 檔案',
@@ -4280,7 +4264,7 @@ fi
               ja: 'ローカルディレクトリ / ファイル',
             ),
             icon: Icons.download_rounded,
-            label: _arText(
+            label: openHandLocalizedText(
               context,
               zh: '拉取',
               zhHant: '拉取',
@@ -4300,7 +4284,7 @@ fi
             children: [
               _SmallActionButton(
                 icon: Icons.battery_charging_full_rounded,
-                label: _arText(
+                label: openHandLocalizedText(
                   context,
                   zh: '电池',
                   zhHant: '電池',
@@ -4315,7 +4299,7 @@ fi
               ),
               _SmallActionButton(
                 icon: Icons.aspect_ratio_rounded,
-                label: _arText(
+                label: openHandLocalizedText(
                   context,
                   zh: '屏幕',
                   zhHant: '螢幕',
@@ -4337,7 +4321,7 @@ fi
               ),
               _SmallActionButton(
                 icon: Icons.arrow_back_rounded,
-                label: _arText(
+                label: openHandLocalizedText(
                   context,
                   zh: '返回',
                   zhHant: '返回',
@@ -4352,7 +4336,7 @@ fi
               ),
               _SmallActionButton(
                 icon: Icons.view_carousel_rounded,
-                label: _arText(
+                label: openHandLocalizedText(
                   context,
                   zh: '最近任务',
                   zhHant: '最近任務',
@@ -4368,7 +4352,7 @@ fi
               ),
               _SmallActionButton(
                 icon: Icons.screenshot_monitor_rounded,
-                label: _arText(
+                label: openHandLocalizedText(
                   context,
                   zh: '截屏',
                   zhHant: '截圖',
@@ -4387,7 +4371,7 @@ fi
               ),
               _SmallActionButton(
                 icon: Icons.radio_button_checked_rounded,
-                label: _arText(
+                label: openHandLocalizedText(
                   context,
                   zh: '录屏 ${_kDefaultScreenRecordSeconds}s',
                   zhHant: '錄影 ${_kDefaultScreenRecordSeconds}s',
@@ -4406,7 +4390,7 @@ fi
               ),
               _SmallActionButton(
                 icon: Icons.delete_sweep_rounded,
-                label: _arText(
+                label: openHandLocalizedText(
                   context,
                   zh: '清 Logcat',
                   zhHant: '清空 Logcat',
@@ -4419,7 +4403,7 @@ fi
                     ? null
                     : () async {
                         final confirmed = await _confirmAction(
-                          title: _arText(
+                          title: openHandLocalizedText(
                             context,
                             zh: '清空设备 Logcat？',
                             zhHant: '清空裝置 Logcat？',
@@ -4428,7 +4412,7 @@ fi
                             de: 'Geräte-Logcat leeren?',
                             ja: 'デバイス Logcat をクリアしますか？',
                           ),
-                          message: _arText(
+                          message: openHandLocalizedText(
                             context,
                             zh: '将清空当前设备的 Logcat 缓冲区。',
                             zhHant: '將清空目前裝置的 Logcat 緩衝區。',
@@ -4437,7 +4421,7 @@ fi
                             de: 'Leert den Logcat-Puffer des aktuellen Geräts.',
                             ja: '現在のデバイスの Logcat バッファーをクリアします。',
                           ),
-                          confirmLabel: _arText(
+                          confirmLabel: openHandLocalizedText(
                             context,
                             zh: '清空',
                             zhHant: '清空',
@@ -4465,7 +4449,7 @@ fi
               ),
               _SmallActionButton(
                 icon: Icons.settings_rounded,
-                label: _arText(
+                label: openHandLocalizedText(
                   context,
                   zh: '系统设置',
                   zhHant: '系統設定',
@@ -4480,7 +4464,7 @@ fi
               ),
               _SmallActionButton(
                 icon: Icons.fact_check_rounded,
-                label: _arText(
+                label: openHandLocalizedText(
                   context,
                   zh: '现场报告',
                   zhHant: '現場報告',
@@ -4499,7 +4483,7 @@ fi
               ),
               _SmallActionButton(
                 icon: Icons.hub_rounded,
-                label: _arText(
+                label: openHandLocalizedText(
                   context,
                   zh: '网络地址',
                   zhHant: '網路位址',
@@ -4514,7 +4498,7 @@ fi
               ),
               _SmallActionButton(
                 icon: Icons.filter_center_focus_rounded,
-                label: _arText(
+                label: openHandLocalizedText(
                   context,
                   zh: '前台窗口',
                   zhHant: '前景視窗',
@@ -4531,7 +4515,7 @@ fi
               ),
               _SmallActionButton(
                 icon: Icons.sd_storage_rounded,
-                label: _arText(
+                label: openHandLocalizedText(
                   context,
                   zh: '存储',
                   zhHant: '儲存空間',
@@ -4548,7 +4532,7 @@ fi
               ),
               _SmallActionButton(
                 icon: Icons.tune_rounded,
-                label: _arText(
+                label: openHandLocalizedText(
                   context,
                   zh: '属性',
                   zhHant: '屬性',
@@ -4565,7 +4549,7 @@ fi
               ),
               _SmallActionButton(
                 icon: Icons.light_mode_rounded,
-                label: _arText(
+                label: openHandLocalizedText(
                   context,
                   zh: '亮屏',
                   zhHant: '喚醒螢幕',
@@ -4580,7 +4564,7 @@ fi
               ),
               _SmallActionButton(
                 icon: Icons.power_settings_new_rounded,
-                label: _arText(
+                label: openHandLocalizedText(
                   context,
                   zh: '电源键',
                   zhHant: '電源鍵',
@@ -4595,7 +4579,7 @@ fi
               ),
               _SmallActionButton(
                 icon: Icons.volume_up_rounded,
-                label: _arText(
+                label: openHandLocalizedText(
                   context,
                   zh: '音量+',
                   zhHant: '音量+',
@@ -4610,7 +4594,7 @@ fi
               ),
               _SmallActionButton(
                 icon: Icons.security_rounded,
-                label: _arText(
+                label: openHandLocalizedText(
                   context,
                   zh: '包权限',
                   zhHant: '套件權限',
@@ -4765,7 +4749,7 @@ fi
         PopupMenuItem(
           value: _DeviceMenuAction.useForPanel,
           child: Text(
-            _arText(
+            openHandLocalizedText(
               context,
               zh: '设为面板目标',
               zhHant: '設為面板目標',
@@ -4779,7 +4763,7 @@ fi
         PopupMenuItem(
           value: _DeviceMenuAction.copySerial,
           child: Text(
-            _arText(
+            openHandLocalizedText(
               context,
               zh: '复制序列号',
               zhHant: '複製序號',
@@ -4793,7 +4777,7 @@ fi
         PopupMenuItem(
           value: _DeviceMenuAction.refreshProps,
           child: Text(
-            _arText(
+            openHandLocalizedText(
               context,
               zh: '刷新属性 / 现场',
               zhHant: '重新整理屬性 / 現場',
@@ -4807,7 +4791,7 @@ fi
         PopupMenuItem(
           value: _DeviceMenuAction.listForwards,
           child: Text(
-            _arText(
+            openHandLocalizedText(
               context,
               zh: '查看端口映射',
               zhHant: '查看連接埠映射',
@@ -4826,7 +4810,7 @@ fi
         PopupMenuItem(
           value: _DeviceMenuAction.deviceReport,
           child: Text(
-            _arText(
+            openHandLocalizedText(
               context,
               zh: '生成现场报告',
               zhHant: '產生現場報告',
@@ -4840,7 +4824,7 @@ fi
         PopupMenuItem(
           value: _DeviceMenuAction.screenshot,
           child: Text(
-            _arText(
+            openHandLocalizedText(
               context,
               zh: '截屏到工件目录',
               zhHant: '截圖到工件目錄',
@@ -4854,7 +4838,7 @@ fi
         PopupMenuItem(
           value: _DeviceMenuAction.screenRecord,
           child: Text(
-            _arText(
+            openHandLocalizedText(
               context,
               zh: '录屏 $_kDefaultScreenRecordSeconds 秒到工件目录',
               zhHant: '錄影 $_kDefaultScreenRecordSeconds 秒到工件目錄',
@@ -4877,7 +4861,7 @@ fi
         PopupMenuItem(
           value: _DeviceMenuAction.reboot,
           child: Text(
-            _arText(
+            openHandLocalizedText(
               context,
               zh: '重启设备',
               zhHant: '重新啟動裝置',
@@ -4891,7 +4875,7 @@ fi
         PopupMenuItem(
           value: _DeviceMenuAction.disconnect,
           child: Text(
-            _arText(
+            openHandLocalizedText(
               context,
               zh: '断开连接',
               zhHant: '中斷連線',
@@ -4962,7 +4946,7 @@ fi
     if (!mounted) return;
     setState(() {
       _lastDeviceActionResult = null;
-      _lastDeviceActionOutput = _arText(
+      _lastDeviceActionOutput = openHandLocalizedText(
         context,
         zh: zh,
         zhHant: zhHant,
@@ -4993,7 +4977,7 @@ fi
         PopupMenuItem(
           value: _PackageMenuAction.analyze,
           child: Text(
-            _arText(
+            openHandLocalizedText(
               context,
               zh: '分析 APP 信息',
               zhHant: '分析 APP 資訊',
@@ -5007,7 +4991,7 @@ fi
         PopupMenuItem(
           value: _PackageMenuAction.report,
           child: Text(
-            _arText(
+            openHandLocalizedText(
               context,
               zh: '生成 APP 信息报告',
               zhHant: '產生 APP 資訊報告',
@@ -5021,7 +5005,7 @@ fi
         PopupMenuItem(
           value: _PackageMenuAction.copyPackage,
           child: Text(
-            _arText(
+            openHandLocalizedText(
               context,
               zh: '复制包名',
               zhHant: '複製套件名稱',
@@ -5035,7 +5019,7 @@ fi
         PopupMenuItem(
           value: _PackageMenuAction.logcat,
           child: Text(
-            _arText(
+            openHandLocalizedText(
               context,
               zh: '按此包过滤 Logcat',
               zhHant: '依此套件篩選 Logcat',
@@ -5049,7 +5033,7 @@ fi
         PopupMenuItem(
           value: _PackageMenuAction.pullApks,
           child: Text(
-            _arText(
+            openHandLocalizedText(
               context,
               zh: '拉取 APK 到工件目录',
               zhHant: '拉取 APK 到工件目錄',
@@ -5064,7 +5048,7 @@ fi
         PopupMenuItem(
           value: _PackageMenuAction.launch,
           child: Text(
-            _arText(
+            openHandLocalizedText(
               context,
               zh: '启动 APP',
               zhHant: '啟動 APP',
@@ -5078,7 +5062,7 @@ fi
         PopupMenuItem(
           value: _PackageMenuAction.forceStop,
           child: Text(
-            _arText(
+            openHandLocalizedText(
               context,
               zh: '强制停止',
               zhHant: '強制停止',
@@ -5092,7 +5076,7 @@ fi
         PopupMenuItem(
           value: _PackageMenuAction.clearData,
           child: Text(
-            _arText(
+            openHandLocalizedText(
               context,
               zh: '清除数据...',
               zhHant: '清除資料...',
@@ -5106,7 +5090,7 @@ fi
         PopupMenuItem(
           value: _PackageMenuAction.uninstall,
           child: Text(
-            _arText(
+            openHandLocalizedText(
               context,
               zh: '卸载...',
               zhHant: '解除安裝...',
@@ -5157,7 +5141,7 @@ fi
         );
       case _PackageMenuAction.clearData:
         final confirmed = await _confirmAction(
-          title: _arText(
+          title: openHandLocalizedText(
             context,
             zh: '清除 APP 数据',
             zhHant: '清除 APP 資料',
@@ -5166,7 +5150,7 @@ fi
             de: 'APP-Daten löschen',
             ja: 'APP データを消去',
           ),
-          message: _arText(
+          message: openHandLocalizedText(
             context,
             zh: '将执行 pm clear $packageName，应用数据会被清空。',
             zhHant: '將執行 pm clear $packageName，應用資料會被清空。',
@@ -5175,7 +5159,7 @@ fi
             de: 'Führt pm clear $packageName aus und löscht die APP-Daten.',
             ja: 'pm clear $packageName を実行し、APP データを消去します。',
           ),
-          confirmLabel: _arText(
+          confirmLabel: openHandLocalizedText(
             context,
             zh: '清除',
             zhHant: '清除',
@@ -5194,7 +5178,7 @@ fi
         );
       case _PackageMenuAction.uninstall:
         final confirmed = await _confirmAction(
-          title: _arText(
+          title: openHandLocalizedText(
             context,
             zh: '卸载 APP',
             zhHant: '解除安裝 APP',
@@ -5203,7 +5187,7 @@ fi
             de: 'APP deinstallieren',
             ja: 'APP をアンインストール',
           ),
-          message: _arText(
+          message: openHandLocalizedText(
             context,
             zh: '将从当前设备卸载 $packageName。',
             zhHant: '將從目前裝置解除安裝 $packageName。',
@@ -5212,7 +5196,7 @@ fi
             de: 'Deinstalliert $packageName vom aktuellen Gerät.',
             ja: '現在のデバイスから $packageName をアンインストールします。',
           ),
-          confirmLabel: _arText(
+          confirmLabel: openHandLocalizedText(
             context,
             zh: '卸载',
             zhHant: '解除安裝',
@@ -5267,7 +5251,7 @@ fi
         PopupMenuItem(
           value: _ProcessMenuAction.copyPid,
           child: Text(
-            _arText(
+            openHandLocalizedText(
               context,
               zh: '复制 PID',
               zhHant: '複製 PID',
@@ -5281,7 +5265,7 @@ fi
         PopupMenuItem(
           value: _ProcessMenuAction.copyName,
           child: Text(
-            _arText(
+            openHandLocalizedText(
               context,
               zh: '复制进程名',
               zhHant: '複製程序名稱',
@@ -5295,7 +5279,7 @@ fi
         PopupMenuItem(
           value: _ProcessMenuAction.logcatPid,
           child: Text(
-            _arText(
+            openHandLocalizedText(
               context,
               zh: '按 PID 过滤 Logcat',
               zhHant: '依 PID 篩選 Logcat',
@@ -5310,7 +5294,7 @@ fi
         PopupMenuItem(
           value: _ProcessMenuAction.kill,
           child: Text(
-            _arText(
+            openHandLocalizedText(
               context,
               zh: 'kill -9 进程...',
               zhHant: 'kill -9 程序...',
@@ -5325,7 +5309,7 @@ fi
           PopupMenuItem(
             value: _ProcessMenuAction.forceStopPackage,
             child: Text(
-              _arText(
+              openHandLocalizedText(
                 context,
                 zh: '强制停止包名',
                 zhHant: '強制停止套件',
@@ -5360,7 +5344,7 @@ fi
         await _fetchLogcat();
       case _ProcessMenuAction.kill:
         final confirmed = await _confirmAction(
-          title: _arText(
+          title: openHandLocalizedText(
             context,
             zh: '终止进程',
             zhHant: '終止程序',
@@ -5369,7 +5353,7 @@ fi
             de: 'Prozess beenden',
             ja: 'プロセスを終了',
           ),
-          message: _arText(
+          message: openHandLocalizedText(
             context,
             zh: '将执行 kill -9 ${process.pid} (${process.name})。',
             zhHant: '將執行 kill -9 ${process.pid} (${process.name})。',
@@ -5401,7 +5385,7 @@ fi
     final device = _ctrl.connectedDevice;
     final items = <(String, String)>[
       (
-        _arText(
+        openHandLocalizedText(
           context,
           zh: '逆向目标',
           zhHant: '逆向目標',
@@ -5414,7 +5398,7 @@ fi
       ),
       if (config.packageName != null)
         (
-          _arText(
+          openHandLocalizedText(
             context,
             zh: '包名',
             zhHant: '套件名稱',
@@ -5427,7 +5411,7 @@ fi
         ),
       if (config.apkPath != null)
         (
-          _arText(
+          openHandLocalizedText(
             context,
             zh: 'APK 路径',
             zhHant: 'APK 路徑',
@@ -5439,7 +5423,7 @@ fi
           config.apkPath!,
         ),
       (
-        _arText(
+        openHandLocalizedText(
           context,
           zh: '分析模式',
           zhHant: '分析模式',
@@ -5453,7 +5437,7 @@ fi
       if (config.authorizationScope != null &&
           config.authorizationScope!.trim().isNotEmpty)
         (
-          _arText(
+          openHandLocalizedText(
             context,
             zh: '授权范围',
             zhHant: '授權範圍',
@@ -5468,7 +5452,7 @@ fi
       ('Frida MCP', _enabledStateLabel(config.fridaMcpEnabled)),
       if (device != null) ...[
         (
-          _arText(
+          openHandLocalizedText(
             context,
             zh: '设备型号',
             zhHant: '裝置型號',
@@ -5480,7 +5464,7 @@ fi
           device.model ?? device.serial,
         ),
         (
-          _arText(
+          openHandLocalizedText(
             context,
             zh: '设备序列号',
             zhHant: '裝置序號',
@@ -5494,7 +5478,7 @@ fi
       ] else if (config.deviceSerial != null &&
           config.deviceSerial!.trim().isNotEmpty) ...[
         (
-          _arText(
+          openHandLocalizedText(
             context,
             zh: '配置设备',
             zhHant: '設定裝置',
@@ -5508,7 +5492,7 @@ fi
       ],
       if (config.keywords.isNotEmpty)
         (
-          _arText(
+          openHandLocalizedText(
             context,
             zh: '关键字',
             zhHant: '關鍵字',
@@ -5521,7 +5505,7 @@ fi
         ),
       if (config.notes != null && config.notes!.isNotEmpty)
         (
-          _arText(
+          openHandLocalizedText(
             context,
             zh: '备注',
             zhHant: '備註',
@@ -5549,7 +5533,7 @@ fi
                         child: CircularProgressIndicator(strokeWidth: 1.8),
                       )
                     : const Icon(Icons.inventory_2_rounded),
-                label: _arText(
+                label: openHandLocalizedText(
                   context,
                   zh: '生成证据包',
                   zhHant: '產生證據包',
@@ -5563,7 +5547,7 @@ fi
                 _DashboardActionButton(
                   onPressed: () => _copyText(_evidenceBundleOutput!.trim()),
                   icon: const Icon(Icons.copy_rounded),
-                  label: _arText(
+                  label: openHandLocalizedText(
                     context,
                     zh: '复制结果',
                     zhHant: '複製結果',
@@ -5618,7 +5602,7 @@ fi
 
   String _analysisModeLabel(AndroidReverseSessionConfig config) {
     return switch (config.analysisMode) {
-      AndroidReverseAnalysisMode.staticFirst => _arText(
+      AndroidReverseAnalysisMode.staticFirst => openHandLocalizedText(
         context,
         zh: config.analysisMode.labelZh,
         zhHant: '靜態優先',
@@ -5627,7 +5611,7 @@ fi
         de: 'Statisch zuerst',
         ja: '静的優先',
       ),
-      AndroidReverseAnalysisMode.balanced => _arText(
+      AndroidReverseAnalysisMode.balanced => openHandLocalizedText(
         context,
         zh: config.analysisMode.labelZh,
         zhHant: '均衡',
@@ -5636,7 +5620,7 @@ fi
         de: 'Ausgewogen',
         ja: 'バランス',
       ),
-      AndroidReverseAnalysisMode.dynamicFirst => _arText(
+      AndroidReverseAnalysisMode.dynamicFirst => openHandLocalizedText(
         context,
         zh: config.analysisMode.labelZh,
         zhHant: '動態優先',
@@ -5650,7 +5634,7 @@ fi
 
   String _enabledStateLabel(bool enabled) {
     return enabled
-        ? _arText(
+        ? openHandLocalizedText(
             context,
             zh: '已启用',
             zhHant: '已啟用',
@@ -5659,7 +5643,7 @@ fi
             de: 'aktiviert',
             ja: '有効',
           )
-        : _arText(
+        : openHandLocalizedText(
             context,
             zh: '未启用',
             zhHant: '未啟用',
@@ -5688,7 +5672,7 @@ fi
             leading: [
               if (_toolchainRows.isNotEmpty)
                 _StatusPill(
-                  label: _arText(
+                  label: openHandLocalizedText(
                     context,
                     zh: '必需缺失 $requiredMissing · 可选缺失 $optionalMissing',
                     zhHant: '必要缺失 $requiredMissing · 可選缺失 $optionalMissing',
@@ -5710,7 +5694,7 @@ fi
                         child: CircularProgressIndicator(strokeWidth: 1.5),
                       )
                     : const Icon(Icons.refresh_rounded),
-                label: _arText(
+                label: openHandLocalizedText(
                   context,
                   zh: '刷新',
                   zhHant: '重新整理',
@@ -5784,7 +5768,7 @@ fi
                             ),
                             if (row.probe.required)
                               _StatusPill(
-                                label: _arText(
+                                label: openHandLocalizedText(
                                   context,
                                   zh: '必需',
                                   zhHant: '必要',
@@ -5799,7 +5783,7 @@ fi
                               ),
                             if (plugin != null)
                               _StatusPill(
-                                label: _arText(
+                                label: openHandLocalizedText(
                                   context,
                                   zh: '插件托管',
                                   zhHant: '外掛托管',
@@ -5834,7 +5818,7 @@ fi
                               ),
                               const SizedBox(height: 2),
                               Text(
-                                '${_arText(context, zh: "耗时", zhHant: "耗時", en: "Duration", fr: "Durée", de: "Dauer", ja: "所要時間")}: ${row.durationMs}ms',
+                                '${openHandLocalizedText(context, zh: "耗时", zhHant: "耗時", en: "Duration", fr: "Durée", de: "Dauer", ja: "所要時間")}: ${row.durationMs}ms',
                                 style: theme.textTheme.labelSmall?.copyWith(
                                   color: cs.onSurfaceVariant,
                                 ),
@@ -5847,7 +5831,7 @@ fi
                           children: [
                             _DashboardIconActionButton(
                               icon: const Icon(Icons.copy_rounded),
-                              tooltip: _arText(
+                              tooltip: openHandLocalizedText(
                                 context,
                                 zh: '复制诊断',
                                 zhHant: '複製診斷',
@@ -5864,7 +5848,7 @@ fi
                             _DashboardPopupIconActionButton<
                               _ToolchainCommandAction
                             >(
-                              tooltip: _arText(
+                              tooltip: openHandLocalizedText(
                                 context,
                                 zh: '安装 / 更新 / 卸载 / 信息',
                                 zhHant: '安裝 / 更新 / 解除安裝 / 資訊',
@@ -5916,7 +5900,7 @@ fi
           _dashboardSectionHeader(
             leading: [
               _StatusPill(
-                label: _arText(
+                label: openHandLocalizedText(
                   context,
                   zh: '$configuredCapabilityCount/${capabilities.length} 个能力 · $totalAndroidTools 个工具',
                   zhHant:
@@ -5941,7 +5925,7 @@ fi
                         child: CircularProgressIndicator(strokeWidth: 1.5),
                       )
                     : const Icon(Icons.sync_rounded),
-                label: _arText(
+                label: openHandLocalizedText(
                   context,
                   zh: '刷新 MCP',
                   zhHant: '重新整理 MCP',
@@ -5962,7 +5946,7 @@ fi
                         child: CircularProgressIndicator(strokeWidth: 1.5),
                       )
                     : const Icon(Icons.article_rounded),
-                label: _arText(
+                label: openHandLocalizedText(
                   context,
                   zh: '生成联动工件',
                   zhHant: '產生聯動工件',
@@ -5982,7 +5966,7 @@ fi
           _sectionTitle(
             theme,
             cs,
-            _arText(
+            openHandLocalizedText(
               context,
               zh: '推荐 MCP 能力',
               zhHant: '推薦 MCP 能力',
@@ -6006,7 +5990,7 @@ fi
           _sectionTitle(
             theme,
             cs,
-            _arText(
+            openHandLocalizedText(
               context,
               zh: 'Android 相关 MCP',
               zhHant: 'Android 相關 MCP',
@@ -6023,7 +6007,7 @@ fi
               theme: theme,
               icon: Icons.error_outline_rounded,
               text:
-                  '${_arText(context, zh: "MCP 加载异常", zhHant: "MCP 載入異常", en: "MCP load error", fr: "Erreur de chargement MCP", de: "MCP-Ladefehler", ja: "MCP 読み込みエラー")}: ${mcpController.errorMessage}',
+                  '${openHandLocalizedText(context, zh: "MCP 加载异常", zhHant: "MCP 載入異常", en: "MCP load error", fr: "Erreur de chargement MCP", de: "MCP-Ladefehler", ja: "MCP 読み込みエラー")}: ${mcpController.errorMessage}',
             ),
             const SizedBox(height: 8),
           ],
@@ -6032,7 +6016,7 @@ fi
               cs: cs,
               theme: theme,
               icon: Icons.search_off_rounded,
-              text: _arText(
+              text: openHandLocalizedText(
                 context,
                 zh: '当前未发现名称、命令或工具描述中包含 ADB / Android / Frida / IDA / jadx / apktool / Flutter 逆向关键词的 MCP server。',
                 zhHant:
@@ -6072,7 +6056,7 @@ fi
           _dashboardSectionHeader(
             leading: [
               _StatusPill(
-                label: _arText(
+                label: openHandLocalizedText(
                   context,
                   zh: '$installedRuntimeCount/${runtimePlugins.length} 个前置条件可用',
                   zhHant:
@@ -6100,7 +6084,7 @@ fi
                         child: CircularProgressIndicator(strokeWidth: 1.5),
                       )
                     : const Icon(Icons.refresh_rounded),
-                label: _arText(
+                label: openHandLocalizedText(
                   context,
                   zh: '扫描插件',
                   zhHant: '掃描外掛',
@@ -6119,7 +6103,7 @@ fi
                         child: CircularProgressIndicator(strokeWidth: 1.5),
                       )
                     : const Icon(Icons.construction_rounded),
-                label: _arText(
+                label: openHandLocalizedText(
                   context,
                   zh: '刷新工具链',
                   zhHant: '重新整理工具鏈',
@@ -6135,7 +6119,7 @@ fi
           _sectionTitle(
             theme,
             cs,
-            _arText(
+            openHandLocalizedText(
               context,
               zh: '相邻运行时前置条件',
               zhHant: '相鄰執行期前置條件',
@@ -6152,7 +6136,7 @@ fi
               theme: theme,
               icon: Icons.error_outline_rounded,
               text:
-                  '${_arText(context, zh: "插件扫描异常", zhHant: "外掛掃描異常", en: "Plugin scan error", fr: "Erreur de scan plugin", de: "Plugin-Scanfehler", ja: "プラグインスキャンエラー")}: ${pluginController.errorMessage}',
+                  '${openHandLocalizedText(context, zh: "插件扫描异常", zhHant: "外掛掃描異常", en: "Plugin scan error", fr: "Erreur de scan plugin", de: "Plugin-Scanfehler", ja: "プラグインスキャンエラー")}: ${pluginController.errorMessage}',
             ),
             const SizedBox(height: 8),
           ],
@@ -6162,7 +6146,7 @@ fi
               theme: theme,
               icon: Icons.hourglass_empty_rounded,
               text: pluginController.isLoading
-                  ? _arText(
+                  ? openHandLocalizedText(
                       context,
                       zh: '正在扫描插件运行时...',
                       zhHant: '正在掃描外掛執行期...',
@@ -6171,7 +6155,7 @@ fi
                       de: 'Plugin-Runtimes werden gescannt...',
                       ja: 'プラグインランタイムをスキャン中...',
                     )
-                  : _arText(
+                  : openHandLocalizedText(
                       context,
                       zh: '插件服务暂未返回 Android 逆向关联插件状态。',
                       zhHant: '外掛服務尚未返回 Android 逆向關聯外掛狀態。',
@@ -6196,7 +6180,7 @@ fi
           _sectionTitle(
             theme,
             cs,
-            _arText(
+            openHandLocalizedText(
               context,
               zh: 'CLI 工具操作建议',
               zhHant: 'CLI 工具操作建議',
@@ -6293,7 +6277,7 @@ fi
                 children: [
                   _DashboardIconActionButton(
                     tooltip: server.enabled
-                        ? _arText(
+                        ? openHandLocalizedText(
                             context,
                             zh: '禁用 MCP',
                             zhHant: '停用 MCP',
@@ -6302,7 +6286,7 @@ fi
                             de: 'MCP deaktivieren',
                             ja: 'MCP を無効化',
                           )
-                        : _arText(
+                        : openHandLocalizedText(
                             context,
                             zh: '启用 MCP',
                             zhHant: '啟用 MCP',
@@ -6321,7 +6305,7 @@ fi
                     ),
                   ),
                   _DashboardIconActionButton(
-                    tooltip: _arText(
+                    tooltip: openHandLocalizedText(
                       context,
                       zh: '检查健康状态',
                       zhHant: '檢查健康狀態',
@@ -6346,7 +6330,7 @@ fi
                           ),
                   ),
                   _DashboardIconActionButton(
-                    tooltip: _arText(
+                    tooltip: openHandLocalizedText(
                       context,
                       zh: '刷新此 MCP 工具目录',
                       zhHant: '重新整理此 MCP 工具目錄',
@@ -6372,7 +6356,7 @@ fi
                   ),
                   if (query != null)
                     _DashboardIconActionButton(
-                      tooltip: _arText(
+                      tooltip: openHandLocalizedText(
                         context,
                         zh: '复制 ToolSearch 查询',
                         zhHant: '複製 ToolSearch 查詢',
@@ -6385,7 +6369,7 @@ fi
                       onPressed: () => _copyText(query),
                     ),
                   _DashboardIconActionButton(
-                    tooltip: _arText(
+                    tooltip: openHandLocalizedText(
                       context,
                       zh: '删除 MCP 服务',
                       zhHant: '刪除 MCP 服務',
@@ -6412,17 +6396,17 @@ fi
               ),
               _StatusPill(
                 label:
-                    '${_arText(context, zh: "健康", zhHant: "健康", en: "health", fr: "santé", de: "Status", ja: "ヘルス")}: ${_mcpHealthStatusLabel(health.status)}',
+                    '${openHandLocalizedText(context, zh: "健康", zhHant: "健康", en: "health", fr: "santé", de: "Status", ja: "ヘルス")}: ${_mcpHealthStatusLabel(health.status)}',
                 color: healthColor,
               ),
               _StatusPill(
                 label:
-                    '${_arText(context, zh: "目录", zhHant: "目錄", en: "catalog", fr: "catalogue", de: "Katalog", ja: "カタログ")}: ${_mcpCatalogStatusLabel(catalog.status)}',
+                    '${openHandLocalizedText(context, zh: "目录", zhHant: "目錄", en: "catalog", fr: "catalogue", de: "Katalog", ja: "カタログ")}: ${_mcpCatalogStatusLabel(catalog.status)}',
                 color: catalogColor,
               ),
               _StatusPill(
                 label:
-                    '${_arText(context, zh: "相关工具", zhHant: "相關工具", en: "related tools", fr: "outils liés", de: "relevante Tools", ja: "関連ツール")}: ${row.matchedTools.length}/${catalog.tools.length}',
+                    '${openHandLocalizedText(context, zh: "相关工具", zhHant: "相關工具", en: "related tools", fr: "outils liés", de: "relevante Tools", ja: "関連ツール")}: ${row.matchedTools.length}/${catalog.tools.length}',
                 color: row.matchedTools.isEmpty ? cs.outline : cs.primary,
               ),
             ],
@@ -6482,7 +6466,7 @@ fi
         ? cs.tertiary
         : cs.outline;
     final statusLabel = installed
-        ? _arText(
+        ? openHandLocalizedText(
             context,
             zh: '已配置 ${matches.length}',
             zhHant: '已設定 ${matches.length}',
@@ -6492,7 +6476,7 @@ fi
             ja: '${matches.length} 件設定済み',
           )
         : canInstall
-        ? _arText(
+        ? openHandLocalizedText(
             context,
             zh: '可安装',
             zhHant: '可安裝',
@@ -6501,7 +6485,7 @@ fi
             de: 'installierbar',
             ja: 'インストール可能',
           )
-        : _arText(
+        : openHandLocalizedText(
             context,
             zh: '缺少安装源',
             zhHant: '缺少安裝來源',
@@ -6511,7 +6495,7 @@ fi
             ja: 'インストール元なし',
           );
     final firstServer = matches.isEmpty ? null : matches.first;
-    final capabilityLabel = _arText(
+    final capabilityLabel = openHandLocalizedText(
       context,
       zh: capability.labelZh,
       zhHant: capability.labelZhHant,
@@ -6520,7 +6504,7 @@ fi
       de: capability.labelDe,
       ja: capability.labelJa,
     );
-    final capabilityDescription = _arText(
+    final capabilityDescription = openHandLocalizedText(
       context,
       zh: capability.descriptionZh,
       zhHant: capability.descriptionZhHant,
@@ -6576,7 +6560,7 @@ fi
                   [
                     capabilityDescription,
                     if (firstServer != null)
-                      '${_arText(context, zh: "服务", zhHant: "服務", en: "server", fr: "serveur", de: "Server", ja: "server")}: ${firstServer.name}',
+                      '${openHandLocalizedText(context, zh: "服务", zhHant: "服務", en: "server", fr: "serveur", de: "Server", ja: "server")}: ${firstServer.name}',
                   ].join(' · '),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
@@ -6598,7 +6582,7 @@ fi
                     ? null
                     : () => unawaited(_installAndroidMcpCapability(capability)),
                 icon: const Icon(Icons.download_rounded),
-                label: _arText(
+                label: openHandLocalizedText(
                   context,
                   zh: '安装',
                   zhHant: '安裝',
@@ -6613,7 +6597,7 @@ fi
                     ? null
                     : () => unawaited(_refreshAndroidMcpCapability(matches)),
                 icon: const Icon(Icons.system_update_alt_rounded),
-                label: _arText(
+                label: openHandLocalizedText(
                   context,
                   zh: '更新',
                   zhHant: '更新',
@@ -6630,7 +6614,7 @@ fi
                         _uninstallAndroidMcpCapability(capability, matches),
                       ),
                 icon: const Icon(Icons.delete_outline_rounded),
-                label: _arText(
+                label: openHandLocalizedText(
                   context,
                   zh: '卸载',
                   zhHant: '解除安裝',
@@ -6675,7 +6659,7 @@ fi
   ) async {
     if (!_canRegisterAndroidMcpCapability(capability)) {
       _showSnack(
-        _arText(
+        openHandLocalizedText(
           context,
           zh: '该 MCP 缺少可直接安装的来源。',
           zhHant: '此 MCP 缺少可直接安裝的來源。',
@@ -6701,7 +6685,7 @@ fi
     if (!mounted) return;
     _showSnack(
       ok
-          ? _arText(
+          ? openHandLocalizedText(
               context,
               zh: '已安装 MCP：${server.name}',
               zhHant: '已安裝 MCP：${server.name}',
@@ -6710,7 +6694,7 @@ fi
               de: 'MCP installiert: ${server.name}',
               ja: 'MCP をインストールしました: ${server.name}',
             )
-          : _arText(
+          : openHandLocalizedText(
               context,
               zh: 'MCP 已存在或名称冲突：${server.name}',
               zhHant: 'MCP 已存在或名稱衝突：${server.name}',
@@ -6733,7 +6717,7 @@ fi
     );
     if (!mounted) return;
     _showSnack(
-      _arText(
+      openHandLocalizedText(
         context,
         zh: '已更新 MCP 状态。',
         zhHant: '已更新 MCP 狀態。',
@@ -6751,7 +6735,7 @@ fi
   ) async {
     if (servers.isEmpty) return;
     final names = servers.map((server) => server.name).join(', ');
-    final capabilityLabel = _arText(
+    final capabilityLabel = openHandLocalizedText(
       context,
       zh: capability.labelZh,
       zhHant: capability.labelZhHant,
@@ -6762,7 +6746,7 @@ fi
     );
     final confirmed = await showOpenHandConfirmDialog(
       context: context,
-      title: _arText(
+      title: openHandLocalizedText(
         context,
         zh: '卸载 MCP 能力？',
         zhHant: '解除安裝 MCP 能力？',
@@ -6771,7 +6755,7 @@ fi
         de: 'MCP-Fähigkeit deinstallieren?',
         ja: 'MCP 機能をアンインストールしますか？',
       ),
-      message: _arText(
+      message: openHandLocalizedText(
         context,
         zh: '将从 OpenHand MCP 配置中删除 $capabilityLabel 对应服务：$names。',
         zhHant: '將從 OpenHand MCP 設定中刪除 $capabilityLabel 對應服務：$names。',
@@ -6780,7 +6764,7 @@ fi
         de: 'Entfernt die Server für $capabilityLabel aus der OpenHand-MCP-Konfiguration: $names.',
         ja: '$capabilityLabel の server を OpenHand MCP 設定から削除します: $names。',
       ),
-      cancelLabel: _arText(
+      cancelLabel: openHandLocalizedText(
         context,
         zh: '取消',
         zhHant: '取消',
@@ -6789,7 +6773,7 @@ fi
         de: 'Abbrechen',
         ja: 'キャンセル',
       ),
-      confirmLabel: _arText(
+      confirmLabel: openHandLocalizedText(
         context,
         zh: '卸载',
         zhHant: '解除安裝',
@@ -6809,7 +6793,7 @@ fi
     if (!mounted) return;
     _showSnack(
       ok
-          ? _arText(
+          ? openHandLocalizedText(
               context,
               zh: '已卸载 MCP：$names',
               zhHant: '已解除安裝 MCP：$names',
@@ -6818,7 +6802,7 @@ fi
               de: 'MCP deinstalliert: $names',
               ja: 'MCP をアンインストールしました: $names',
             )
-          : _arText(
+          : openHandLocalizedText(
               context,
               zh: '卸载 MCP 失败：$names',
               zhHant: '解除安裝 MCP 失敗：$names',
@@ -6839,7 +6823,7 @@ fi
     _showSnack(
       ok
           ? enabled
-                ? _arText(
+                ? openHandLocalizedText(
                     context,
                     zh: '已启用 MCP：${server.name}',
                     zhHant: '已啟用 MCP：${server.name}',
@@ -6848,7 +6832,7 @@ fi
                     de: 'MCP aktiviert: ${server.name}',
                     ja: 'MCP を有効化しました: ${server.name}',
                   )
-                : _arText(
+                : openHandLocalizedText(
                     context,
                     zh: '已禁用 MCP：${server.name}',
                     zhHant: '已停用 MCP：${server.name}',
@@ -6857,7 +6841,7 @@ fi
                     de: 'MCP deaktiviert: ${server.name}',
                     ja: 'MCP を無効化しました: ${server.name}',
                   )
-          : _arText(
+          : openHandLocalizedText(
               context,
               zh: 'MCP 状态更新失败',
               zhHant: 'MCP 狀態更新失敗',
@@ -6872,7 +6856,7 @@ fi
   Future<void> _deleteAndroidMcpServer(McpServer server) async {
     final confirmed = await showOpenHandConfirmDialog(
       context: context,
-      title: _arText(
+      title: openHandLocalizedText(
         context,
         zh: '删除 MCP 服务？',
         zhHant: '刪除 MCP 服務？',
@@ -6881,7 +6865,7 @@ fi
         de: 'MCP-Dienst löschen?',
         ja: 'MCP サービスを削除しますか？',
       ),
-      message: _arText(
+      message: openHandLocalizedText(
         context,
         zh: '将从 OpenHand MCP 配置中删除 ${server.name}。',
         zhHant: '將從 OpenHand MCP 設定中刪除 ${server.name}。',
@@ -6890,7 +6874,7 @@ fi
         de: 'Entfernt ${server.name} aus der OpenHand-MCP-Konfiguration.',
         ja: '${server.name} を OpenHand MCP 設定から削除します。',
       ),
-      cancelLabel: _arText(
+      cancelLabel: openHandLocalizedText(
         context,
         zh: '取消',
         zhHant: '取消',
@@ -6899,7 +6883,7 @@ fi
         de: 'Abbrechen',
         ja: 'キャンセル',
       ),
-      confirmLabel: _arText(
+      confirmLabel: openHandLocalizedText(
         context,
         zh: '删除',
         zhHant: '刪除',
@@ -6915,7 +6899,7 @@ fi
     if (!mounted) return;
     _showSnack(
       ok
-          ? _arText(
+          ? openHandLocalizedText(
               context,
               zh: '已删除 MCP：${server.name}',
               zhHant: '已刪除 MCP：${server.name}',
@@ -6924,7 +6908,7 @@ fi
               de: 'MCP gelöscht: ${server.name}',
               ja: 'MCP を削除しました: ${server.name}',
             )
-          : _arText(
+          : openHandLocalizedText(
               context,
               zh: '删除 MCP 失败',
               zhHant: '刪除 MCP 失敗',
@@ -6990,7 +6974,7 @@ fi
                     plugin.id,
                     if (version != null && version.isNotEmpty) version,
                     if (plugin.hasUpdate)
-                      _arText(
+                      openHandLocalizedText(
                         context,
                         zh: '有可用更新',
                         zhHant: '有可用更新',
@@ -7015,7 +6999,7 @@ fi
           _StatusPill(
             label: plugin.isInstalled
                 ? plugin.enabled
-                      ? _arText(
+                      ? openHandLocalizedText(
                           context,
                           zh: '可用',
                           zhHant: '可用',
@@ -7025,7 +7009,7 @@ fi
                           ja: '利用可能',
                         )
                       : _enabledStateLabel(false)
-                : _arText(
+                : openHandLocalizedText(
                     context,
                     zh: '未安装',
                     zhHant: '未安裝',
@@ -7039,7 +7023,7 @@ fi
           if (path != null && path.isNotEmpty) ...[
             const SizedBox(width: _kDashboardTrailingActionGap),
             _DashboardIconActionButton(
-              tooltip: _arText(
+              tooltip: openHandLocalizedText(
                 context,
                 zh: '复制路径',
                 zhHant: '複製路徑',
@@ -7055,7 +7039,7 @@ fi
           if (actions.isNotEmpty) ...[
             const SizedBox(width: _kDashboardTrailingActionGap),
             _DashboardPopupIconActionButton<_RuntimePluginAction>(
-              tooltip: _arText(
+              tooltip: openHandLocalizedText(
                 context,
                 zh: '插件操作',
                 zhHant: '外掛操作',
@@ -7126,7 +7110,7 @@ fi
 
   String _runtimePluginActionLabel(_RuntimePluginAction action) {
     return switch (action) {
-      _RuntimePluginAction.info => _arText(
+      _RuntimePluginAction.info => openHandLocalizedText(
         context,
         zh: '查看信息',
         zhHant: '查看資訊',
@@ -7135,7 +7119,7 @@ fi
         de: 'Info anzeigen',
         ja: '情報を見る',
       ),
-      _RuntimePluginAction.install => _arText(
+      _RuntimePluginAction.install => openHandLocalizedText(
         context,
         zh: '安装',
         zhHant: '安裝',
@@ -7144,7 +7128,7 @@ fi
         de: 'Installieren',
         ja: 'インストール',
       ),
-      _RuntimePluginAction.checkUpdate => _arText(
+      _RuntimePluginAction.checkUpdate => openHandLocalizedText(
         context,
         zh: '检查更新',
         zhHant: '檢查更新',
@@ -7153,7 +7137,7 @@ fi
         de: 'Updates prüfen',
         ja: '更新を確認',
       ),
-      _RuntimePluginAction.update => _arText(
+      _RuntimePluginAction.update => openHandLocalizedText(
         context,
         zh: '更新',
         zhHant: '更新',
@@ -7162,7 +7146,7 @@ fi
         de: 'Aktualisieren',
         ja: '更新',
       ),
-      _RuntimePluginAction.enable => _arText(
+      _RuntimePluginAction.enable => openHandLocalizedText(
         context,
         zh: '启用',
         zhHant: '啟用',
@@ -7171,7 +7155,7 @@ fi
         de: 'Aktivieren',
         ja: '有効化',
       ),
-      _RuntimePluginAction.disable => _arText(
+      _RuntimePluginAction.disable => openHandLocalizedText(
         context,
         zh: '禁用',
         zhHant: '停用',
@@ -7180,7 +7164,7 @@ fi
         de: 'Deaktivieren',
         ja: '無効化',
       ),
-      _RuntimePluginAction.uninstall => _arText(
+      _RuntimePluginAction.uninstall => openHandLocalizedText(
         context,
         zh: '卸载',
         zhHant: '解除安裝',
@@ -7216,7 +7200,7 @@ fi
         );
         _showSnack(
           action == _RuntimePluginAction.enable
-              ? _arText(
+              ? openHandLocalizedText(
                   context,
                   zh: '已启用 ${plugin.name}',
                   zhHant: '已啟用 ${plugin.name}',
@@ -7225,7 +7209,7 @@ fi
                   de: '${plugin.name} aktiviert',
                   ja: '${plugin.name} を有効化しました',
                 )
-              : _arText(
+              : openHandLocalizedText(
                   context,
                   zh: '已禁用 ${plugin.name}',
                   zhHant: '已停用 ${plugin.name}',
@@ -7243,7 +7227,7 @@ fi
         _showSnack(
           latest == null
               ? (pluginController.errorMessage ??
-                    _arText(
+                    openHandLocalizedText(
                       context,
                       zh: '检查更新失败',
                       zhHant: '檢查更新失敗',
@@ -7253,7 +7237,7 @@ fi
                       ja: '更新確認に失敗しました',
                     ))
               : latest.hasUpdate && latest.latestVersion != null
-              ? _arText(
+              ? openHandLocalizedText(
                   context,
                   zh: '发现新版本：${latest.latestVersion}',
                   zhHant: '發現新版本：${latest.latestVersion}',
@@ -7262,7 +7246,7 @@ fi
                   de: 'Neue Version verfügbar: ${latest.latestVersion}',
                   ja: '新しいバージョンがあります: ${latest.latestVersion}',
                 )
-              : _arText(
+              : openHandLocalizedText(
                   context,
                   zh: '未发现新版本',
                   zhHant: '未發現新版本',
@@ -7285,7 +7269,7 @@ fi
     _RuntimePluginAction action,
   ) async {
     final title = switch (action) {
-      _RuntimePluginAction.install => _arText(
+      _RuntimePluginAction.install => openHandLocalizedText(
         context,
         zh: '安装 ${plugin.name}？',
         zhHant: '安裝 ${plugin.name}？',
@@ -7294,7 +7278,7 @@ fi
         de: '${plugin.name} installieren?',
         ja: '${plugin.name} をインストールしますか？',
       ),
-      _RuntimePluginAction.update => _arText(
+      _RuntimePluginAction.update => openHandLocalizedText(
         context,
         zh: '更新 ${plugin.name}？',
         zhHant: '更新 ${plugin.name}？',
@@ -7303,7 +7287,7 @@ fi
         de: '${plugin.name} aktualisieren?',
         ja: '${plugin.name} を更新しますか？',
       ),
-      _RuntimePluginAction.uninstall => _arText(
+      _RuntimePluginAction.uninstall => openHandLocalizedText(
         context,
         zh: '卸载 ${plugin.name}？',
         zhHant: '解除安裝 ${plugin.name}？',
@@ -7315,7 +7299,7 @@ fi
       _ => '',
     };
     final message = switch (action) {
-      _RuntimePluginAction.install => _arText(
+      _RuntimePluginAction.install => openHandLocalizedText(
         context,
         zh: '将通过 OpenHand 插件服务安装 ${plugin.name}。安装可能需要下载依赖文件。',
         zhHant: '將透過 OpenHand 外掛服務安裝 ${plugin.name}。安裝可能需要下載依賴檔案。',
@@ -7324,7 +7308,7 @@ fi
         de: 'Der OpenHand-Plugin-Dienst installiert ${plugin.name}. Abhängigkeiten können heruntergeladen werden.',
         ja: 'OpenHand プラグインサービスが ${plugin.name} をインストールします。依存ファイルをダウンロードする場合があります。',
       ),
-      _RuntimePluginAction.update => _arText(
+      _RuntimePluginAction.update => openHandLocalizedText(
         context,
         zh: '将通过 OpenHand 插件服务更新 ${plugin.name}。',
         zhHant: '將透過 OpenHand 外掛服務更新 ${plugin.name}。',
@@ -7333,7 +7317,7 @@ fi
         de: 'Der OpenHand-Plugin-Dienst aktualisiert ${plugin.name}.',
         ja: 'OpenHand プラグインサービスが ${plugin.name} を更新します。',
       ),
-      _RuntimePluginAction.uninstall => _arText(
+      _RuntimePluginAction.uninstall => openHandLocalizedText(
         context,
         zh: '将从本机卸载 ${plugin.name}。此操作可能影响依赖它的能力。',
         zhHant: '將從本機解除安裝 ${plugin.name}。此操作可能影響依賴它的能力。',
@@ -7348,7 +7332,7 @@ fi
       context: context,
       title: title,
       message: message,
-      cancelLabel: _arText(
+      cancelLabel: openHandLocalizedText(
         context,
         zh: '取消',
         zhHant: '取消',
@@ -7379,7 +7363,7 @@ fi
     _showSnack(
       success
           ? switch (action) {
-              _RuntimePluginAction.install => _arText(
+              _RuntimePluginAction.install => openHandLocalizedText(
                 context,
                 zh: '${plugin.name} 安装成功',
                 zhHant: '${plugin.name} 安裝成功',
@@ -7388,7 +7372,7 @@ fi
                 de: '${plugin.name} installiert',
                 ja: '${plugin.name} をインストールしました',
               ),
-              _RuntimePluginAction.update => _arText(
+              _RuntimePluginAction.update => openHandLocalizedText(
                 context,
                 zh: '${plugin.name} 更新成功',
                 zhHant: '${plugin.name} 更新成功',
@@ -7397,7 +7381,7 @@ fi
                 de: '${plugin.name} aktualisiert',
                 ja: '${plugin.name} を更新しました',
               ),
-              _RuntimePluginAction.uninstall => _arText(
+              _RuntimePluginAction.uninstall => openHandLocalizedText(
                 context,
                 zh: '${plugin.name} 卸载成功',
                 zhHant: '${plugin.name} 解除安裝成功',
@@ -7410,7 +7394,7 @@ fi
             }
           : (pluginController.errorMessage ??
                 switch (action) {
-                  _RuntimePluginAction.install => _arText(
+                  _RuntimePluginAction.install => openHandLocalizedText(
                     context,
                     zh: '${plugin.name} 安装失败',
                     zhHant: '${plugin.name} 安裝失敗',
@@ -7419,7 +7403,7 @@ fi
                     de: 'Installation von ${plugin.name} fehlgeschlagen',
                     ja: '${plugin.name} のインストールに失敗しました',
                   ),
-                  _RuntimePluginAction.update => _arText(
+                  _RuntimePluginAction.update => openHandLocalizedText(
                     context,
                     zh: '${plugin.name} 更新失败',
                     zhHant: '${plugin.name} 更新失敗',
@@ -7428,7 +7412,7 @@ fi
                     de: 'Aktualisierung von ${plugin.name} fehlgeschlagen',
                     ja: '${plugin.name} の更新に失敗しました',
                   ),
-                  _RuntimePluginAction.uninstall => _arText(
+                  _RuntimePluginAction.uninstall => openHandLocalizedText(
                     context,
                     zh: '${plugin.name} 卸载失败',
                     zhHant: '${plugin.name} 解除安裝失敗',
@@ -7517,7 +7501,7 @@ fi
               ),
               _StatusPill(
                 label: ok
-                    ? _arText(
+                    ? openHandLocalizedText(
                         context,
                         zh: '已安装',
                         zhHant: '已安裝',
@@ -7527,7 +7511,7 @@ fi
                         ja: 'インストール済み',
                       )
                     : row.probe.required
-                    ? _arText(
+                    ? openHandLocalizedText(
                         context,
                         zh: '必需缺失',
                         zhHant: '必要缺失',
@@ -7536,7 +7520,7 @@ fi
                         de: 'erforderlich fehlt',
                         ja: '必須不足',
                       )
-                    : _arText(
+                    : openHandLocalizedText(
                         context,
                         zh: '可选缺失',
                         zhHant: '可選缺失',
@@ -7590,7 +7574,7 @@ fi
           child: _dashboardSectionHeader(
             leading: [
               _StatusPill(
-                label: _arText(
+                label: openHandLocalizedText(
                   context,
                   zh: '${_packages.length} 个 APP',
                   zhHant: '${_packages.length} 個 APP',
@@ -7612,7 +7596,7 @@ fi
                         child: CircularProgressIndicator(strokeWidth: 1.5),
                       )
                     : const Icon(Icons.refresh_rounded),
-                label: _arText(
+                label: openHandLocalizedText(
                   context,
                   zh: '刷新',
                   zhHant: '重新整理',
@@ -7661,7 +7645,7 @@ fi
                             children: [
                               IconButton(
                                 icon: const Icon(Icons.copy_rounded, size: 14),
-                                tooltip: _arText(
+                                tooltip: openHandLocalizedText(
                                   context,
                                   zh: '复制包名',
                                   zhHant: '複製套件名稱',
@@ -7679,7 +7663,7 @@ fi
                                   Icons.play_arrow_rounded,
                                   size: 15,
                                 ),
-                                tooltip: _arText(
+                                tooltip: openHandLocalizedText(
                                   context,
                                   zh: '启动 APP',
                                   zhHant: '啟動 APP',
@@ -7705,7 +7689,7 @@ fi
                                   size: 14,
                                   color: Colors.redAccent,
                                 ),
-                                tooltip: _arText(
+                                tooltip: openHandLocalizedText(
                                   context,
                                   zh: '强制停止',
                                   zhHant: '強制停止',
@@ -7725,7 +7709,7 @@ fi
                                         );
                                         if (!mounted) return;
                                         _showSnack(
-                                          _arText(
+                                          openHandLocalizedText(
                                             context,
                                             zh: '已发送强制停止：$pkg',
                                             zhHant: '已送出強制停止：$pkg',
@@ -7745,7 +7729,7 @@ fi
                                   Icons.more_horiz_rounded,
                                   size: 16,
                                 ),
-                                tooltip: _arText(
+                                tooltip: openHandLocalizedText(
                                   context,
                                   zh: '更多操作',
                                   zhHant: '更多操作',
@@ -7780,7 +7764,7 @@ fi
                     children: [
                       Expanded(
                         child: Text(
-                          '${_arText(context, zh: "APP 分析", zhHant: "APP 分析", en: "APP analysis", fr: "Analyse APP", de: "APP-Analyse", ja: "APP 解析")}: $_selectedPackageName',
+                          '${openHandLocalizedText(context, zh: "APP 分析", zhHant: "APP 分析", en: "APP analysis", fr: "Analyse APP", de: "APP-Analyse", ja: "APP 解析")}: $_selectedPackageName',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.labelLarge?.copyWith(
@@ -7806,7 +7790,7 @@ fi
                       const SizedBox(width: 8),
                       IconButton(
                         icon: const Icon(Icons.refresh_rounded, size: 16),
-                        tooltip: _arText(
+                        tooltip: openHandLocalizedText(
                           context,
                           zh: '重新分析',
                           zhHant: '重新分析',
@@ -7824,7 +7808,7 @@ fi
                           Icons.snippet_folder_rounded,
                           size: 16,
                         ),
-                        tooltip: _arText(
+                        tooltip: openHandLocalizedText(
                           context,
                           zh: '生成 APP 信息报告',
                           zhHant: '產生 APP 資訊報告',
@@ -7840,7 +7824,7 @@ fi
                       ),
                       IconButton(
                         icon: const Icon(Icons.copy_rounded, size: 16),
-                        tooltip: _arText(
+                        tooltip: openHandLocalizedText(
                           context,
                           zh: '复制分析结果',
                           zhHant: '複製分析結果',
@@ -7867,7 +7851,7 @@ fi
                           padding: const EdgeInsets.all(8),
                           child: SelectableText(
                             _packageAnalysisOutput ??
-                                _arText(
+                                openHandLocalizedText(
                                   context,
                                   zh: '正在读取 APP 信息...',
                                   zhHant: '正在讀取 APP 資訊...',
@@ -7912,7 +7896,7 @@ fi
                     controller: _processFilter,
                     decoration: InputDecoration(
                       isDense: true,
-                      hintText: _arText(
+                      hintText: openHandLocalizedText(
                         context,
                         zh: '过滤进程名...',
                         zhHant: '篩選程序名稱...',
@@ -7942,7 +7926,7 @@ fi
                         child: CircularProgressIndicator(strokeWidth: 1.5),
                       )
                     : const Icon(Icons.refresh_rounded),
-                label: _arText(
+                label: openHandLocalizedText(
                   context,
                   zh: '刷新',
                   zhHant: '重新整理',
@@ -7998,7 +7982,7 @@ fi
                               IconButton(
                                 icon: const Icon(Icons.copy_rounded, size: 14),
                                 onPressed: () => _copyText('${p.pid}'),
-                                tooltip: _arText(
+                                tooltip: openHandLocalizedText(
                                   context,
                                   zh: '复制 PID',
                                   zhHant: '複製 PID',
@@ -8016,7 +8000,7 @@ fi
                                   size: 16,
                                 ),
                                 onPressed: () => _showProcessMenu(p, null),
-                                tooltip: _arText(
+                                tooltip: openHandLocalizedText(
                                   context,
                                   zh: '更多操作',
                                   zhHant: '更多操作',
@@ -8054,7 +8038,7 @@ fi
     final selected = _logcatPackageFilterEnabled;
     final color = selected ? cs.primary : cs.onSurfaceVariant;
     return Tooltip(
-      message: _arText(
+      message: openHandLocalizedText(
         context,
         zh: '按包名过滤 Logcat',
         zhHant: '依套件名稱篩選 Logcat',
@@ -8155,7 +8139,7 @@ fi
                   _DashboardActionButton(
                     onPressed: _loadingLogcat ? null : _fetchLogcat,
                     icon: const Icon(Icons.refresh_rounded),
-                    label: _arText(
+                    label: openHandLocalizedText(
                       context,
                       zh: '刷新',
                       zhHant: '重新整理',
@@ -8173,7 +8157,7 @@ fi
                           : Icons.play_circle_outline_rounded,
                     ),
                     label: _logcatAutoRefresh
-                        ? _arText(
+                        ? openHandLocalizedText(
                             context,
                             zh: '停止自动',
                             zhHant: '停止自動',
@@ -8182,7 +8166,7 @@ fi
                             de: 'Auto stoppen',
                             ja: '自動停止',
                           )
-                        : _arText(
+                        : openHandLocalizedText(
                             context,
                             zh: '自动刷新',
                             zhHant: '自動重新整理',
@@ -8204,7 +8188,7 @@ fi
                             child: CircularProgressIndicator(strokeWidth: 1.6),
                           )
                         : const Icon(Icons.snippet_folder_rounded),
-                    label: _arText(
+                    label: openHandLocalizedText(
                       context,
                       zh: '快照',
                       zhHant: '快照',
@@ -8225,7 +8209,7 @@ fi
                             child: CircularProgressIndicator(strokeWidth: 1.6),
                           )
                         : const Icon(Icons.save_alt_rounded),
-                    label: _arText(
+                    label: openHandLocalizedText(
                       context,
                       zh: '保存',
                       zhHant: '儲存',
@@ -8240,7 +8224,7 @@ fi
                         ? null
                         : () => _copyText(_logcatLines.join('\n')),
                     icon: const Icon(Icons.copy_rounded),
-                    label: _arText(
+                    label: openHandLocalizedText(
                       context,
                       zh: '复制',
                       zhHant: '複製',
@@ -8259,7 +8243,7 @@ fi
                             child: CircularProgressIndicator(strokeWidth: 1.6),
                           )
                         : const Icon(Icons.delete_sweep_rounded),
-                    label: _arText(
+                    label: openHandLocalizedText(
                       context,
                       zh: '清空',
                       zhHant: '清空',
@@ -8280,7 +8264,7 @@ fi
                     controller: _logcatFilterCtrl,
                     decoration: InputDecoration(
                       isDense: true,
-                      hintText: _arText(
+                      hintText: openHandLocalizedText(
                         context,
                         zh: 'Tag 过滤',
                         zhHant: 'Tag 篩選',
@@ -8297,7 +8281,7 @@ fi
                       suffixIcon: _clearFieldSuffix(
                         cs: cs,
                         visible: _logcatFilterCtrl.text.trim().isNotEmpty,
-                        tooltip: _arText(
+                        tooltip: openHandLocalizedText(
                           context,
                           zh: '清空过滤',
                           zhHant: '清空篩選',
@@ -8327,7 +8311,7 @@ fi
                     initialValue: _logcatLevel,
                     decoration: InputDecoration(
                       isDense: true,
-                      labelText: _arText(
+                      labelText: openHandLocalizedText(
                         context,
                         zh: '等级',
                         zhHant: '等級',
@@ -8362,7 +8346,7 @@ fi
                     initialValue: _logcatCacheLimit,
                     decoration: InputDecoration(
                       isDense: true,
-                      labelText: _arText(
+                      labelText: openHandLocalizedText(
                         context,
                         zh: '缓存',
                         zhHant: '快取',
@@ -8419,7 +8403,7 @@ fi
                       suffixIcon: _clearFieldSuffix(
                         cs: cs,
                         visible: _logcatPidCtrl.text.trim().isNotEmpty,
-                        tooltip: _arText(
+                        tooltip: openHandLocalizedText(
                           context,
                           zh: '清空 PID',
                           zhHant: '清空 PID',
@@ -8473,7 +8457,7 @@ fi
                       const SizedBox(height: 8),
                       Text(
                         _logcatError ??
-                            _arText(
+                            openHandLocalizedText(
                               context,
                               zh: '尚未加载 Logcat',
                               zhHant: '尚未載入 Logcat',
@@ -8491,7 +8475,7 @@ fi
                       _DashboardActionButton(
                         onPressed: _loadingLogcat ? null : _fetchLogcat,
                         icon: const Icon(Icons.download_rounded),
-                        label: _arText(
+                        label: openHandLocalizedText(
                           context,
                           zh: '加载 Logcat',
                           zhHant: '載入 Logcat',
@@ -8614,7 +8598,7 @@ fi
               ),
               trailing: IconButton(
                 icon: const Icon(Icons.download_rounded, size: 15),
-                tooltip: _arText(
+                tooltip: openHandLocalizedText(
                   context,
                   zh: '加载',
                   zhHant: '載入',
@@ -8639,7 +8623,7 @@ fi
     final scriptAsset = _selectedFridaSnippetAsset;
     final selectedAssetLabel = Text(
       scriptAsset ??
-          _arText(
+          openHandLocalizedText(
             context,
             zh: '未选择内置 snippet',
             zhHant: '未選擇內建 snippet',
@@ -8667,7 +8651,7 @@ fi
                 child: CircularProgressIndicator(strokeWidth: 1.6),
               )
             : const Icon(Icons.save_alt_rounded),
-        label: _arText(
+        label: openHandLocalizedText(
           context,
           zh: '保存工件',
           zhHant: '儲存工件',
@@ -8682,7 +8666,7 @@ fi
             ? null
             : () => _copyText(_fridaScriptCtrl.text),
         icon: const Icon(Icons.copy_rounded),
-        label: _arText(
+        label: openHandLocalizedText(
           context,
           zh: '复制脚本',
           zhHant: '複製腳本',
@@ -8703,7 +8687,7 @@ fi
                 child: CircularProgressIndicator(strokeWidth: 1.6),
               )
             : const Icon(Icons.health_and_safety_rounded),
-        label: _arText(
+        label: openHandLocalizedText(
           context,
           zh: '运行诊断',
           zhHant: '執行診斷',
@@ -8722,7 +8706,7 @@ fi
                 child: CircularProgressIndicator(strokeWidth: 1.6),
               )
             : const Icon(Icons.folder_open_rounded),
-        label: _arText(
+        label: openHandLocalizedText(
           context,
           zh: '读取工件',
           zhHant: '讀取工件',
@@ -8741,7 +8725,7 @@ fi
                 child: CircularProgressIndicator(strokeWidth: 1.6),
               )
             : const Icon(Icons.play_circle_outline_rounded),
-        label: _arText(
+        label: openHandLocalizedText(
           context,
           zh: '启动服务',
           zhHant: '啟動服務',
@@ -8756,7 +8740,7 @@ fi
             ? null
             : () => _runFridaCapture(spawn: true),
         icon: const Icon(Icons.rocket_launch_rounded),
-        label: _arText(
+        label: openHandLocalizedText(
           context,
           zh: 'Spawn 注入',
           zhHant: 'Spawn 注入',
@@ -8771,7 +8755,7 @@ fi
             ? null
             : () => _runFridaCapture(spawn: false),
         icon: const Icon(Icons.link_rounded),
-        label: _arText(
+        label: openHandLocalizedText(
           context,
           zh: 'Attach 注入',
           zhHant: 'Attach 注入',
@@ -8794,7 +8778,7 @@ fi
             style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
             decoration: InputDecoration(
               isDense: true,
-              hintText: _arText(
+              hintText: openHandLocalizedText(
                 context,
                 zh: '// 选择 snippet 或粘贴脚本...',
                 zhHant: '// 選擇 snippet 或貼上腳本...',
@@ -8859,7 +8843,7 @@ fi
             leading: [
               _StatusPill(
                 label: captureRunning
-                    ? _arText(
+                    ? openHandLocalizedText(
                         context,
                         zh: '抓包中 PID ${_ctrl.networkCapturePid}',
                         zhHant: '抓包中 PID ${_ctrl.networkCapturePid}',
@@ -8868,7 +8852,7 @@ fi
                         de: 'Capture PID ${_ctrl.networkCapturePid}',
                         ja: 'キャプチャ中 PID ${_ctrl.networkCapturePid}',
                       )
-                    : _arText(
+                    : openHandLocalizedText(
                         context,
                         zh: '未抓包',
                         zhHant: '未抓包',
@@ -8890,7 +8874,7 @@ fi
                         child: CircularProgressIndicator(strokeWidth: 1.8),
                       )
                     : const Icon(Icons.receipt_long_rounded),
-                label: _arText(
+                label: openHandLocalizedText(
                   context,
                   zh: '生成 JSONL Addon',
                   zhHant: '產生 JSONL Addon',
@@ -8911,7 +8895,7 @@ fi
                         child: CircularProgressIndicator(strokeWidth: 1.8),
                       )
                     : const Icon(Icons.fact_check_rounded),
-                label: _arText(
+                label: openHandLocalizedText(
                   context,
                   zh: '运行预检',
                   zhHant: '執行預檢',
@@ -8925,7 +8909,7 @@ fi
                 _DashboardActionButton(
                   onPressed: () => _copyText(addonOutput),
                   icon: const Icon(Icons.copy_rounded),
-                  label: _arText(
+                  label: openHandLocalizedText(
                     context,
                     zh: '复制结果',
                     zhHant: '複製結果',
@@ -8945,7 +8929,7 @@ fi
                 flex: 2,
                 child: _pathTextField(
                   controller: _networkProxyHostCtrl,
-                  hintText: _arText(
+                  hintText: openHandLocalizedText(
                     context,
                     zh: '代理主机，例如 10.0.2.2',
                     zhHant: '代理主機，例如 10.0.2.2',
@@ -8961,7 +8945,7 @@ fi
                 width: 120,
                 child: _pathTextField(
                   controller: _networkProxyPortCtrl,
-                  hintText: _arText(
+                  hintText: openHandLocalizedText(
                     context,
                     zh: '端口',
                     zhHant: '連接埠',
@@ -8987,7 +8971,7 @@ fi
                       child: CircularProgressIndicator(strokeWidth: 1.8),
                     )
                   : const Icon(Icons.fiber_manual_record_rounded),
-              label: _arText(
+              label: openHandLocalizedText(
                 context,
                 zh: '启动抓包',
                 zhHant: '啟動抓包',
@@ -9002,7 +8986,7 @@ fi
                   ? null
                   : () => _runNetworkAction(_ctrl.stopNetworkCapture),
               icon: const Icon(Icons.stop_circle_rounded),
-              label: _arText(
+              label: openHandLocalizedText(
                 context,
                 zh: '停止抓包',
                 zhHant: '停止抓包',
@@ -9015,7 +8999,7 @@ fi
             _DashboardActionButton(
               onPressed: _runningNetworkAction ? null : _setDeviceProxy,
               icon: const Icon(Icons.settings_ethernet_rounded),
-              label: _arText(
+              label: openHandLocalizedText(
                 context,
                 zh: '设置代理',
                 zhHant: '設定代理',
@@ -9028,7 +9012,7 @@ fi
             _DashboardActionButton(
               onPressed: _runningNetworkAction ? null : _readDeviceProxy,
               icon: const Icon(Icons.visibility_rounded),
-              label: _arText(
+              label: openHandLocalizedText(
                 context,
                 zh: '读取代理',
                 zhHant: '讀取代理',
@@ -9041,7 +9025,7 @@ fi
             _DashboardActionButton(
               onPressed: _runningNetworkAction ? null : _clearDeviceProxy,
               icon: const Icon(Icons.cleaning_services_rounded),
-              label: _arText(
+              label: openHandLocalizedText(
                 context,
                 zh: '清除代理',
                 zhHant: '清除代理',
@@ -9056,7 +9040,7 @@ fi
                   ? null
                   : () => _runNetworkAction(_ctrl.readNetworkCaptureSummary),
               icon: const Icon(Icons.article_rounded),
-              label: _arText(
+              label: openHandLocalizedText(
                 context,
                 zh: '读取抓包',
                 zhHant: '讀取抓包',
@@ -9071,7 +9055,7 @@ fi
                   ? null
                   : _exportNetworkFlowsWithPicker,
               icon: const Icon(Icons.ios_share_rounded),
-              label: _arText(
+              label: openHandLocalizedText(
                 context,
                 zh: '导出 flows',
                 zhHant: '匯出 flows',
@@ -9111,7 +9095,7 @@ fi
                         child: CircularProgressIndicator(strokeWidth: 1.8),
                       )
                     : const Icon(Icons.manage_search_rounded),
-                label: _arText(
+                label: openHandLocalizedText(
                   context,
                   zh: '快速扫描 APK',
                   zhHant: '快速掃描 APK',
@@ -9131,7 +9115,7 @@ fi
                         ),
                       ),
                 icon: const Icon(Icons.folder_open_rounded),
-                label: _arText(
+                label: openHandLocalizedText(
                   context,
                   zh: '读取产物',
                   zhHant: '讀取產物',
@@ -9151,7 +9135,7 @@ fi
                         ),
                       ),
                 icon: const Icon(Icons.badge_rounded),
-                label: _arText(
+                label: openHandLocalizedText(
                   context,
                   zh: '身份验签',
                   zhHant: '身分驗簽',
@@ -9171,7 +9155,7 @@ fi
                         ),
                       ),
                 icon: const Icon(Icons.code_rounded),
-                label: _arText(
+                label: openHandLocalizedText(
                   context,
                   zh: 'jadx 反编译',
                   zhHant: 'jadx 反編譯',
@@ -9191,7 +9175,7 @@ fi
                         ),
                       ),
                 icon: const Icon(Icons.inventory_2_rounded),
-                label: _arText(
+                label: openHandLocalizedText(
                   context,
                   zh: 'apktool 解包',
                   zhHant: 'apktool 解包',
@@ -9211,7 +9195,7 @@ fi
                         ),
                       ),
                 icon: const Icon(Icons.search_rounded),
-                label: _arText(
+                label: openHandLocalizedText(
                   context,
                   zh: '字符串扫描',
                   zhHant: '字串掃描',
@@ -9225,7 +9209,7 @@ fi
                 _DashboardActionButton(
                   onPressed: () => _copyText(scanOutput),
                   icon: const Icon(Icons.copy_rounded),
-                  label: _arText(
+                  label: openHandLocalizedText(
                     context,
                     zh: '复制结果',
                     zhHant: '複製結果',
@@ -9269,7 +9253,7 @@ fi
                         child: CircularProgressIndicator(strokeWidth: 1.8),
                       )
                     : const Icon(Icons.description_rounded),
-                label: _arText(
+                label: openHandLocalizedText(
                   context,
                   zh: '生成证书工件',
                   zhHant: '產生憑證工件',
@@ -9290,7 +9274,7 @@ fi
                         child: CircularProgressIndicator(strokeWidth: 1.8),
                       )
                     : const Icon(Icons.folder_open_rounded),
-                label: _arText(
+                label: openHandLocalizedText(
                   context,
                   zh: '读取工件',
                   zhHant: '讀取工件',
@@ -9311,7 +9295,7 @@ fi
                         child: CircularProgressIndicator(strokeWidth: 1.8),
                       )
                     : const Icon(Icons.key_rounded),
-                label: _arText(
+                label: openHandLocalizedText(
                   context,
                   zh: '生成密钥库',
                   zhHant: '產生金鑰庫',
@@ -9332,7 +9316,7 @@ fi
                         child: CircularProgressIndicator(strokeWidth: 1.8),
                       )
                     : const Icon(Icons.verified_rounded),
-                label: _arText(
+                label: openHandLocalizedText(
                   context,
                   zh: '验签 APK',
                   zhHant: '驗簽 APK',
@@ -9353,7 +9337,7 @@ fi
                         child: CircularProgressIndicator(strokeWidth: 1.8),
                       )
                     : const Icon(Icons.policy_rounded),
-                label: _arText(
+                label: openHandLocalizedText(
                   context,
                   zh: '检查 CA',
                   zhHant: '檢查 CA',
@@ -9374,7 +9358,7 @@ fi
                         child: CircularProgressIndicator(strokeWidth: 1.8),
                       )
                     : const Icon(Icons.security_update_good_rounded),
-                label: _arText(
+                label: openHandLocalizedText(
                   context,
                   zh: '安装系统 CA',
                   zhHant: '安裝系統 CA',
@@ -9388,7 +9372,7 @@ fi
                 _DashboardActionButton(
                   onPressed: () => _copyText(artifactOutput),
                   icon: const Icon(Icons.copy_rounded),
-                  label: _arText(
+                  label: openHandLocalizedText(
                     context,
                     zh: '复制结果',
                     zhHant: '複製結果',
@@ -9403,7 +9387,7 @@ fi
           const SizedBox(height: 12),
           _pathTextField(
             controller: _mitmCertPathCtrl,
-            hintText: _arText(
+            hintText: openHandLocalizedText(
               context,
               zh: 'mitmproxy CA 路径，留默认使用 ~/.mitmproxy/mitmproxy-ca-cert.pem',
               zhHant:
@@ -9436,7 +9420,7 @@ fi
             maxLines: 8,
             decoration: InputDecoration(
               isDense: true,
-              hintText: _arText(
+              hintText: openHandLocalizedText(
                 context,
                 zh: '粘贴文本、Base64、URL 编码、JWT、密钥材料或待哈希内容...',
                 zhHant: '貼上文字、Base64、URL 編碼、JWT、金鑰材料或待雜湊內容...',
@@ -9456,7 +9440,7 @@ fi
                 onPressed: _base64Ctrl.text.isEmpty
                     ? null
                     : () => _setCryptoOutput(
-                        _arText(
+                        openHandLocalizedText(
                           context,
                           zh: 'Base64 编码',
                           zhHant: 'Base64 編碼',
@@ -9468,7 +9452,7 @@ fi
                         base64Encode(utf8.encode(_base64Ctrl.text)),
                       ),
                 icon: const Icon(Icons.upload_rounded),
-                label: _arText(
+                label: openHandLocalizedText(
                   context,
                   zh: 'Base64 编码',
                   zhHant: 'Base64 編碼',
@@ -9481,7 +9465,7 @@ fi
               _DashboardActionButton(
                 onPressed: _base64Ctrl.text.isEmpty ? null : _decodeBase64Input,
                 icon: const Icon(Icons.download_rounded),
-                label: _arText(
+                label: openHandLocalizedText(
                   context,
                   zh: 'Base64 解码',
                   zhHant: 'Base64 解碼',
@@ -9495,7 +9479,7 @@ fi
                 onPressed: _base64Ctrl.text.isEmpty
                     ? null
                     : () => _setCryptoOutput(
-                        _arText(
+                        openHandLocalizedText(
                           context,
                           zh: 'URL 编码',
                           zhHant: 'URL 編碼',
@@ -9507,7 +9491,7 @@ fi
                         Uri.encodeComponent(_base64Ctrl.text),
                       ),
                 icon: const Icon(Icons.link_rounded),
-                label: _arText(
+                label: openHandLocalizedText(
                   context,
                   zh: 'URL 编码',
                   zhHant: 'URL 編碼',
@@ -9520,7 +9504,7 @@ fi
               _DashboardActionButton(
                 onPressed: _base64Ctrl.text.isEmpty ? null : _decodeUrlInput,
                 icon: const Icon(Icons.link_off_rounded),
-                label: _arText(
+                label: openHandLocalizedText(
                   context,
                   zh: 'URL 解码',
                   zhHant: 'URL 解碼',
@@ -9561,7 +9545,7 @@ fi
               _DashboardActionButton(
                 onPressed: _base64Ctrl.text.isEmpty ? null : _decodeJwtInput,
                 icon: const Icon(Icons.token_rounded),
-                label: _arText(
+                label: openHandLocalizedText(
                   context,
                   zh: 'JWT 解析',
                   zhHant: 'JWT 解析',
@@ -9576,7 +9560,7 @@ fi
                     ? null
                     : () => _copyText(_cryptoCopyValue),
                 icon: const Icon(Icons.copy_rounded),
-                label: _arText(
+                label: openHandLocalizedText(
                   context,
                   zh: '复制结果',
                   zhHant: '複製結果',
@@ -9871,7 +9855,7 @@ fi
     final command = probe.commandFor(commandAction)?.trim() ?? '';
     if (command.isEmpty) {
       _showSnack(
-        _arText(
+        openHandLocalizedText(
           context,
           zh: '${probe.label} 暂无可自动执行的$actionLabel命令。',
           zhHant: '${probe.label} 暫無可自動執行的$actionLabel指令。',
@@ -9885,7 +9869,7 @@ fi
     }
     final confirmed = await showOpenHandConfirmDialog(
       context: context,
-      title: _arText(
+      title: openHandLocalizedText(
         context,
         zh: '$actionLabel ${probe.label}？',
         zhHant: '$actionLabel ${probe.label}？',
@@ -9895,7 +9879,7 @@ fi
         ja: '${probe.label} を$actionLabelしますか？',
       ),
       message: [
-        _arText(
+        openHandLocalizedText(
           context,
           zh: 'OpenHand 将直接执行以下命令，完成后自动刷新工具链诊断。',
           zhHant: 'OpenHand 將直接執行以下指令，完成後自動重新整理工具鏈診斷。',
@@ -9907,7 +9891,7 @@ fi
         '',
         command,
       ].join('\n'),
-      cancelLabel: _arText(
+      cancelLabel: openHandLocalizedText(
         context,
         zh: '取消',
         zhHant: '取消',
@@ -9926,7 +9910,7 @@ fi
       _lastToolchainCommandResult = AdbCommandResult(
         args: <String>['toolchain', action.name, probe.id],
         exitCode: -1,
-        stdout: _arText(
+        stdout: openHandLocalizedText(
           context,
           zh: '执行中...',
           zhHant: '執行中...',
@@ -9956,7 +9940,7 @@ fi
       setState(() => _lastToolchainCommandResult = adbResult);
       _showSnack(
         adbResult.ok
-            ? _arText(
+            ? openHandLocalizedText(
                 context,
                 zh: '${probe.label} $actionLabel完成',
                 zhHant: '${probe.label} $actionLabel完成',
@@ -9965,7 +9949,7 @@ fi
                 de: '${probe.label} ${actionLabel.toLowerCase()} abgeschlossen',
                 ja: '${probe.label} の$actionLabelが完了しました',
               )
-            : _arText(
+            : openHandLocalizedText(
                 context,
                 zh: '${probe.label} $actionLabel失败',
                 zhHant: '${probe.label} $actionLabel失敗',
@@ -10008,7 +9992,7 @@ fi
     final actionLabel = _toolchainCommandLabel(action);
     if (action == _ToolchainCommandAction.update && !plugin.isInstalled) {
       _showSnack(
-        _arText(
+        openHandLocalizedText(
           context,
           zh: '${plugin.name} 尚未安装。',
           zhHant: '${plugin.name} 尚未安裝。',
@@ -10022,7 +10006,7 @@ fi
     }
     if (action == _ToolchainCommandAction.uninstall && !plugin.isInstalled) {
       _showSnack(
-        _arText(
+        openHandLocalizedText(
           context,
           zh: '${plugin.name} 尚未安装。',
           zhHant: '${plugin.name} 尚未安裝。',
@@ -10036,7 +10020,7 @@ fi
     }
     final confirmed = await showOpenHandConfirmDialog(
       context: context,
-      title: _arText(
+      title: openHandLocalizedText(
         context,
         zh: '$actionLabel ${probe.label}？',
         zhHant: '$actionLabel ${probe.label}？',
@@ -10045,7 +10029,7 @@ fi
         de: '$actionLabel ${probe.label}?',
         ja: '${probe.label} を$actionLabelしますか？',
       ),
-      message: _arText(
+      message: openHandLocalizedText(
         context,
         zh: 'OpenHand 将通过插件服务直接$actionLabel ${plugin.name}，完成后自动刷新插件和工具链状态。',
         zhHant:
@@ -10055,7 +10039,7 @@ fi
         de: 'OpenHand führt ${actionLabel.toLowerCase()} für ${plugin.name} über den Plugin-Dienst aus und aktualisiert danach Plugin- und Toolchain-Status.',
         ja: 'OpenHand はプラグインサービス経由で ${plugin.name} を$actionLabelし、完了後にプラグインとツールチェーン状態を更新します。',
       ),
-      cancelLabel: _arText(
+      cancelLabel: openHandLocalizedText(
         context,
         zh: '取消',
         zhHant: '取消',
@@ -10075,7 +10059,7 @@ fi
       _lastToolchainCommandResult = AdbCommandResult(
         args: <String>['toolchain-plugin', action.name, plugin.id],
         exitCode: -1,
-        stdout: _arText(
+        stdout: openHandLocalizedText(
           context,
           zh: '插件服务执行中...',
           zhHant: '外掛服務執行中...',
@@ -10104,13 +10088,13 @@ fi
       final latest = pluginController.pluginById(plugin.id) ?? plugin;
       final logs = pluginController.operationLogs.join('\n').trim();
       final stdout = <String>[
-        '${_arText(context, zh: "插件", zhHant: "外掛", en: "Plugin", fr: "Plugin", de: "Plugin", ja: "プラグイン")}: ${latest.name}',
-        '${_arText(context, zh: "动作", zhHant: "動作", en: "Action", fr: "Action", de: "Aktion", ja: "アクション")}: $actionLabel',
-        '${_arText(context, zh: "状态", zhHant: "狀態", en: "Status", fr: "État", de: "Status", ja: "状態")}: ${success ? _arText(context, zh: "完成", zhHant: "完成", en: "completed", fr: "terminé", de: "abgeschlossen", ja: "完了") : _arText(context, zh: "失败", zhHant: "失敗", en: "failed", fr: "échec", de: "fehlgeschlagen", ja: "失敗")}',
+        '${openHandLocalizedText(context, zh: "插件", zhHant: "外掛", en: "Plugin", fr: "Plugin", de: "Plugin", ja: "プラグイン")}: ${latest.name}',
+        '${openHandLocalizedText(context, zh: "动作", zhHant: "動作", en: "Action", fr: "Action", de: "Aktion", ja: "アクション")}: $actionLabel',
+        '${openHandLocalizedText(context, zh: "状态", zhHant: "狀態", en: "Status", fr: "État", de: "Status", ja: "状態")}: ${success ? openHandLocalizedText(context, zh: "完成", zhHant: "完成", en: "completed", fr: "terminé", de: "abgeschlossen", ja: "完了") : openHandLocalizedText(context, zh: "失败", zhHant: "失敗", en: "failed", fr: "échec", de: "fehlgeschlagen", ja: "失敗")}',
         if (latest.installedVersion?.trim().isNotEmpty ?? false)
-          '${_arText(context, zh: "版本", zhHant: "版本", en: "Version", fr: "Version", de: "Version", ja: "バージョン")}: ${latest.installedVersion}',
+          '${openHandLocalizedText(context, zh: "版本", zhHant: "版本", en: "Version", fr: "Version", de: "Version", ja: "バージョン")}: ${latest.installedVersion}',
         if (latest.installPath?.trim().isNotEmpty ?? false)
-          '${_arText(context, zh: "路径", zhHant: "路徑", en: "Path", fr: "Chemin", de: "Pfad", ja: "パス")}: ${latest.installPath}',
+          '${openHandLocalizedText(context, zh: "路径", zhHant: "路徑", en: "Path", fr: "Chemin", de: "Pfad", ja: "パス")}: ${latest.installPath}',
         if (logs.isNotEmpty) ...['', logs],
       ].join('\n');
       setState(() {
@@ -10122,7 +10106,7 @@ fi
               ? ''
               : (pluginController.errorMessage ??
                     latest.errorMessage ??
-                    _arText(
+                    openHandLocalizedText(
                       context,
                       zh: '插件服务动作失败。',
                       zhHant: '外掛服務動作失敗。',
@@ -10136,7 +10120,7 @@ fi
       });
       _showSnack(
         success
-            ? _arText(
+            ? openHandLocalizedText(
                 context,
                 zh: '${plugin.name} $actionLabel完成',
                 zhHant: '${plugin.name} $actionLabel完成',
@@ -10145,7 +10129,7 @@ fi
                 de: '${plugin.name} ${actionLabel.toLowerCase()} abgeschlossen',
                 ja: '${plugin.name} の$actionLabelが完了しました',
               )
-            : _arText(
+            : openHandLocalizedText(
                 context,
                 zh: '${plugin.name} $actionLabel失败',
                 zhHant: '${plugin.name} $actionLabel失敗',
@@ -10188,7 +10172,7 @@ fi
 
   String _toolchainCommandLabel(_ToolchainCommandAction action) {
     return switch (action) {
-      _ToolchainCommandAction.install => _arText(
+      _ToolchainCommandAction.install => openHandLocalizedText(
         context,
         zh: '安装',
         zhHant: '安裝',
@@ -10197,7 +10181,7 @@ fi
         de: 'Installieren',
         ja: 'インストール',
       ),
-      _ToolchainCommandAction.update => _arText(
+      _ToolchainCommandAction.update => openHandLocalizedText(
         context,
         zh: '更新',
         zhHant: '更新',
@@ -10206,7 +10190,7 @@ fi
         de: 'Aktualisieren',
         ja: '更新',
       ),
-      _ToolchainCommandAction.uninstall => _arText(
+      _ToolchainCommandAction.uninstall => openHandLocalizedText(
         context,
         zh: '卸载',
         zhHant: '解除安裝',
@@ -10215,7 +10199,7 @@ fi
         de: 'Deinstallieren',
         ja: 'アンインストール',
       ),
-      _ToolchainCommandAction.reference => _arText(
+      _ToolchainCommandAction.reference => openHandLocalizedText(
         context,
         zh: '查看信息',
         zhHant: '查看資訊',
@@ -10233,7 +10217,7 @@ fi
 
   String _mcpCatalogStatusLabel(McpToolCatalogStatus status) {
     return switch (status) {
-      McpToolCatalogStatus.idle => _arText(
+      McpToolCatalogStatus.idle => openHandLocalizedText(
         context,
         zh: '未扫描',
         zhHant: '未掃描',
@@ -10242,7 +10226,7 @@ fi
         de: 'inaktiv',
         ja: '未スキャン',
       ),
-      McpToolCatalogStatus.loading => _arText(
+      McpToolCatalogStatus.loading => openHandLocalizedText(
         context,
         zh: '扫描中',
         zhHant: '掃描中',
@@ -10251,7 +10235,7 @@ fi
         de: 'lädt',
         ja: '読み込み中',
       ),
-      McpToolCatalogStatus.ready => _arText(
+      McpToolCatalogStatus.ready => openHandLocalizedText(
         context,
         zh: '已就绪',
         zhHant: '已就緒',
@@ -10260,7 +10244,7 @@ fi
         de: 'bereit',
         ja: '準備完了',
       ),
-      McpToolCatalogStatus.failed => _arText(
+      McpToolCatalogStatus.failed => openHandLocalizedText(
         context,
         zh: '失败',
         zhHant: '失敗',
@@ -10274,7 +10258,7 @@ fi
 
   String _mcpHealthStatusLabel(McpServerHealthStatus status) {
     return switch (status) {
-      McpServerHealthStatus.idle => _arText(
+      McpServerHealthStatus.idle => openHandLocalizedText(
         context,
         zh: '未探测',
         zhHant: '未探測',
@@ -10283,7 +10267,7 @@ fi
         de: 'inaktiv',
         ja: '未チェック',
       ),
-      McpServerHealthStatus.checking => _arText(
+      McpServerHealthStatus.checking => openHandLocalizedText(
         context,
         zh: '探测中',
         zhHant: '探測中',
@@ -10292,7 +10276,7 @@ fi
         de: 'prüft',
         ja: 'チェック中',
       ),
-      McpServerHealthStatus.healthy => _arText(
+      McpServerHealthStatus.healthy => openHandLocalizedText(
         context,
         zh: '正常',
         zhHant: '正常',
@@ -10301,7 +10285,7 @@ fi
         de: 'fehlerfrei',
         ja: '正常',
       ),
-      McpServerHealthStatus.unhealthy => _arText(
+      McpServerHealthStatus.unhealthy => openHandLocalizedText(
         context,
         zh: '异常',
         zhHant: '異常',
@@ -10386,7 +10370,7 @@ fi
             _StatusPill(
               label: ok
                   ? result.partialOk
-                        ? _arText(
+                        ? openHandLocalizedText(
                             context,
                             zh: '部分完成',
                             zhHant: '部分完成',
@@ -10395,7 +10379,7 @@ fi
                             de: 'teilweise',
                             ja: '一部完了',
                           )
-                        : _arText(
+                        : openHandLocalizedText(
                             context,
                             zh: '成功',
                             zhHant: '成功',
@@ -10404,7 +10388,7 @@ fi
                             de: 'erfolgreich',
                             ja: '成功',
                           )
-                  : _arText(
+                  : openHandLocalizedText(
                       context,
                       zh: '失败',
                       zhHant: '失敗',
@@ -10417,12 +10401,12 @@ fi
             ),
             _StatusPill(
               label:
-                  '${_arText(context, zh: "退出码", zhHant: "退出碼", en: "exit", fr: "code", de: "Exit", ja: "終了コード")} ${result.exitCode}',
+                  '${openHandLocalizedText(context, zh: "退出码", zhHant: "退出碼", en: "exit", fr: "code", de: "Exit", ja: "終了コード")} ${result.exitCode}',
               color: statusColor,
             ),
             if (result.timedOut)
               _StatusPill(
-                label: _arText(
+                label: openHandLocalizedText(
                   context,
                   zh: '超时',
                   zhHant: '逾時',
@@ -10439,7 +10423,7 @@ fi
         _resultSection(
           cs,
           theme,
-          _arText(
+          openHandLocalizedText(
             context,
             zh: '命令',
             zhHant: '指令',
@@ -10461,7 +10445,7 @@ fi
         if (stdout.isEmpty && stderr.isEmpty) ...[
           const SizedBox(height: 8),
           Text(
-            _arText(
+            openHandLocalizedText(
               context,
               zh: '(命令无输出)',
               zhHant: '（指令無輸出）',
@@ -10534,7 +10518,7 @@ fi
       final normalized = _base64Ctrl.text.replaceAll(RegExp(r'\s+'), '');
       final decoded = utf8.decode(base64Decode(base64.normalize(normalized)));
       _setCryptoOutput(
-        _arText(
+        openHandLocalizedText(
           context,
           zh: 'Base64 解码',
           zhHant: 'Base64 解碼',
@@ -10547,7 +10531,7 @@ fi
       );
     } catch (error) {
       _setCryptoOutput(
-        _arText(
+        openHandLocalizedText(
           context,
           zh: 'Base64 解码失败',
           zhHant: 'Base64 解碼失敗',
@@ -10564,7 +10548,7 @@ fi
   void _decodeUrlInput() {
     try {
       _setCryptoOutput(
-        _arText(
+        openHandLocalizedText(
           context,
           zh: 'URL 解码',
           zhHant: 'URL 解碼',
@@ -10577,7 +10561,7 @@ fi
       );
     } catch (error) {
       _setCryptoOutput(
-        _arText(
+        openHandLocalizedText(
           context,
           zh: 'URL 解码失败',
           zhHant: 'URL 解碼失敗',
@@ -10609,7 +10593,7 @@ fi
       final headerText = encoder.convert(jsonDecode(header));
       final payloadText = encoder.convert(jsonDecode(payload));
       _setCryptoOutput(
-        _arText(
+        openHandLocalizedText(
           context,
           zh: 'JWT 解析',
           zhHant: 'JWT 解析',
@@ -10629,7 +10613,7 @@ fi
       );
     } catch (error) {
       _setCryptoOutput(
-        _arText(
+        openHandLocalizedText(
           context,
           zh: 'JWT 解析失败',
           zhHant: 'JWT 解析失敗',
@@ -11254,7 +11238,7 @@ class _SmallActionButton extends StatelessWidget {
 
 String _runtimePluginStatusLabel(BuildContext context, PluginInfo plugin) {
   return switch (plugin.status) {
-    PluginStatus.notInstalled => _arText(
+    PluginStatus.notInstalled => openHandLocalizedText(
       context,
       zh: '未安装',
       zhHant: '未安裝',
@@ -11265,7 +11249,7 @@ String _runtimePluginStatusLabel(BuildContext context, PluginInfo plugin) {
     ),
     PluginStatus.installed =>
       plugin.enabled
-          ? _arText(
+          ? openHandLocalizedText(
               context,
               zh: '已安装并启用',
               zhHant: '已安裝並啟用',
@@ -11274,7 +11258,7 @@ String _runtimePluginStatusLabel(BuildContext context, PluginInfo plugin) {
               de: 'Installiert und aktiviert',
               ja: 'インストール済み、有効',
             )
-          : _arText(
+          : openHandLocalizedText(
               context,
               zh: '已安装但禁用',
               zhHant: '已安裝但停用',
@@ -11283,7 +11267,7 @@ String _runtimePluginStatusLabel(BuildContext context, PluginInfo plugin) {
               de: 'Installiert, aber deaktiviert',
               ja: 'インストール済み、無効',
             ),
-    PluginStatus.installing => _arText(
+    PluginStatus.installing => openHandLocalizedText(
       context,
       zh: '安装中',
       zhHant: '安裝中',
@@ -11292,7 +11276,7 @@ String _runtimePluginStatusLabel(BuildContext context, PluginInfo plugin) {
       de: 'Installation läuft',
       ja: 'インストール中',
     ),
-    PluginStatus.updating => _arText(
+    PluginStatus.updating => openHandLocalizedText(
       context,
       zh: '更新中',
       zhHant: '更新中',
@@ -11301,7 +11285,7 @@ String _runtimePluginStatusLabel(BuildContext context, PluginInfo plugin) {
       de: 'Aktualisierung läuft',
       ja: '更新中',
     ),
-    PluginStatus.uninstalling => _arText(
+    PluginStatus.uninstalling => openHandLocalizedText(
       context,
       zh: '卸载中',
       zhHant: '解除安裝中',
@@ -11310,7 +11294,7 @@ String _runtimePluginStatusLabel(BuildContext context, PluginInfo plugin) {
       de: 'Deinstallation läuft',
       ja: 'アンインストール中',
     ),
-    PluginStatus.error => _arText(
+    PluginStatus.error => openHandLocalizedText(
       context,
       zh: '异常',
       zhHant: '異常',
@@ -11355,7 +11339,7 @@ class _ToolchainInfoDialog extends StatelessWidget {
             context: context,
             icon: Icons.info_outline_rounded,
             title:
-                '${probe.label} ${_arText(context, zh: "详情", zhHant: "詳情", en: "Details", fr: "Détails", de: "Details", ja: "詳細")}',
+                '${probe.label} ${openHandLocalizedText(context, zh: "详情", zhHant: "詳情", en: "Details", fr: "Détails", de: "Details", ja: "詳細")}',
             subtitle: probe.id,
           ),
           Divider(height: 1, color: cs.outlineVariant),
@@ -11365,7 +11349,7 @@ class _ToolchainInfoDialog extends StatelessWidget {
                 padding: const EdgeInsets.all(18),
                 children: [
                   _DashboardDetailSection(
-                    title: _arText(
+                    title: openHandLocalizedText(
                       context,
                       zh: '基本信息',
                       zhHant: '基本資訊',
@@ -11377,7 +11361,7 @@ class _ToolchainInfoDialog extends StatelessWidget {
                     icon: Icons.construction_rounded,
                     children: [
                       _DashboardDetailRow(
-                        label: _arText(
+                        label: openHandLocalizedText(
                           context,
                           zh: '名称',
                           zhHant: '名稱',
@@ -11390,7 +11374,7 @@ class _ToolchainInfoDialog extends StatelessWidget {
                       ),
                       _DashboardDetailRow(label: 'ID', value: probe.id),
                       _DashboardDetailRow(
-                        label: _arText(
+                        label: openHandLocalizedText(
                           context,
                           zh: '类型',
                           zhHant: '類型',
@@ -11400,7 +11384,7 @@ class _ToolchainInfoDialog extends StatelessWidget {
                           ja: '種類',
                         ),
                         value: plugin == null
-                            ? _arText(
+                            ? openHandLocalizedText(
                                 context,
                                 zh: '系统工具链',
                                 zhHant: '系統工具鏈',
@@ -11409,7 +11393,7 @@ class _ToolchainInfoDialog extends StatelessWidget {
                                 de: 'System-Toolchain',
                                 ja: 'システムツールチェーン',
                               )
-                            : _arText(
+                            : openHandLocalizedText(
                                 context,
                                 zh: '插件托管工具',
                                 zhHant: '外掛托管工具',
@@ -11420,7 +11404,7 @@ class _ToolchainInfoDialog extends StatelessWidget {
                               ),
                       ),
                       _DashboardDetailRow(
-                        label: _arText(
+                        label: openHandLocalizedText(
                           context,
                           zh: '必要',
                           zhHant: '必要',
@@ -11430,7 +11414,7 @@ class _ToolchainInfoDialog extends StatelessWidget {
                           ja: '必須',
                         ),
                         value: probe.required
-                            ? _arText(
+                            ? openHandLocalizedText(
                                 context,
                                 zh: '是',
                                 zhHant: '是',
@@ -11439,7 +11423,7 @@ class _ToolchainInfoDialog extends StatelessWidget {
                                 de: 'Ja',
                                 ja: 'はい',
                               )
-                            : _arText(
+                            : openHandLocalizedText(
                                 context,
                                 zh: '否',
                                 zhHant: '否',
@@ -11450,7 +11434,7 @@ class _ToolchainInfoDialog extends StatelessWidget {
                               ),
                       ),
                       _DashboardDetailRow(
-                        label: _arText(
+                        label: openHandLocalizedText(
                           context,
                           zh: '状态',
                           zhHant: '狀態',
@@ -11460,7 +11444,7 @@ class _ToolchainInfoDialog extends StatelessWidget {
                           ja: '状態',
                         ),
                         value: installed == true
-                            ? _arText(
+                            ? openHandLocalizedText(
                                 context,
                                 zh: '已安装',
                                 zhHant: '已安裝',
@@ -11470,7 +11454,7 @@ class _ToolchainInfoDialog extends StatelessWidget {
                                 ja: 'インストール済み',
                               )
                             : installed == false
-                            ? _arText(
+                            ? openHandLocalizedText(
                                 context,
                                 zh: '未安装',
                                 zhHant: '未安裝',
@@ -11479,7 +11463,7 @@ class _ToolchainInfoDialog extends StatelessWidget {
                                 de: 'Nicht installiert',
                                 ja: '未インストール',
                               )
-                            : _arText(
+                            : openHandLocalizedText(
                                 context,
                                 zh: '未检测',
                                 zhHant: '未檢測',
@@ -11495,7 +11479,7 @@ class _ToolchainInfoDialog extends StatelessWidget {
                   if (result != null) ...[
                     const SizedBox(height: 14),
                     _DashboardDetailSection(
-                      title: _arText(
+                      title: openHandLocalizedText(
                         context,
                         zh: '诊断结果',
                         zhHant: '診斷結果',
@@ -11508,7 +11492,7 @@ class _ToolchainInfoDialog extends StatelessWidget {
                       accentColor: statusColor,
                       children: [
                         _DashboardDetailRow(
-                          label: _arText(
+                          label: openHandLocalizedText(
                             context,
                             zh: '输出',
                             zhHant: '輸出',
@@ -11522,7 +11506,7 @@ class _ToolchainInfoDialog extends StatelessWidget {
                           valueColor: result!.ok ? null : cs.error,
                         ),
                         _DashboardDetailRow(
-                          label: _arText(
+                          label: openHandLocalizedText(
                             context,
                             zh: '退出码',
                             zhHant: '退出碼',
@@ -11535,7 +11519,7 @@ class _ToolchainInfoDialog extends StatelessWidget {
                           monospace: true,
                         ),
                         _DashboardDetailRow(
-                          label: _arText(
+                          label: openHandLocalizedText(
                             context,
                             zh: '耗时',
                             zhHant: '耗時',
@@ -11549,7 +11533,7 @@ class _ToolchainInfoDialog extends StatelessWidget {
                         ),
                         if (result!.stderr.trim().isNotEmpty)
                           _DashboardDetailRow(
-                            label: _arText(
+                            label: openHandLocalizedText(
                               context,
                               zh: '错误',
                               zhHant: '錯誤',
@@ -11567,7 +11551,7 @@ class _ToolchainInfoDialog extends StatelessWidget {
                   ],
                   const SizedBox(height: 14),
                   _DashboardDetailSection(
-                    title: _arText(
+                    title: openHandLocalizedText(
                       context,
                       zh: '可用操作',
                       zhHant: '可用操作',
@@ -11579,7 +11563,7 @@ class _ToolchainInfoDialog extends StatelessWidget {
                     icon: Icons.terminal_rounded,
                     children: [
                       _DashboardDetailRow(
-                        label: _arText(
+                        label: openHandLocalizedText(
                           context,
                           zh: '安装',
                           zhHant: '安裝',
@@ -11595,7 +11579,7 @@ class _ToolchainInfoDialog extends StatelessWidget {
                             probe.installCommand?.trim().isNotEmpty ?? false,
                       ),
                       _DashboardDetailRow(
-                        label: _arText(
+                        label: openHandLocalizedText(
                           context,
                           zh: '更新',
                           zhHant: '更新',
@@ -11608,7 +11592,7 @@ class _ToolchainInfoDialog extends StatelessWidget {
                         monospace: true,
                       ),
                       _DashboardDetailRow(
-                        label: _arText(
+                        label: openHandLocalizedText(
                           context,
                           zh: '卸载',
                           zhHant: '解除安裝',
@@ -11621,7 +11605,7 @@ class _ToolchainInfoDialog extends StatelessWidget {
                         monospace: true,
                       ),
                       _DashboardDetailRow(
-                        label: _arText(
+                        label: openHandLocalizedText(
                           context,
                           zh: '参考',
                           zhHant: '參考',
@@ -11638,7 +11622,7 @@ class _ToolchainInfoDialog extends StatelessWidget {
                   if (plugin != null) ...[
                     const SizedBox(height: 14),
                     _DashboardDetailSection(
-                      title: _arText(
+                      title: openHandLocalizedText(
                         context,
                         zh: '关联插件',
                         zhHant: '關聯外掛',
@@ -11650,7 +11634,7 @@ class _ToolchainInfoDialog extends StatelessWidget {
                       icon: Icons.extension_rounded,
                       children: [
                         _DashboardDetailRow(
-                          label: _arText(
+                          label: openHandLocalizedText(
                             context,
                             zh: '名称',
                             zhHant: '名稱',
@@ -11663,7 +11647,7 @@ class _ToolchainInfoDialog extends StatelessWidget {
                         ),
                         _DashboardDetailRow(label: 'ID', value: plugin!.id),
                         _DashboardDetailRow(
-                          label: _arText(
+                          label: openHandLocalizedText(
                             context,
                             zh: '描述',
                             zhHant: '描述',
@@ -11675,7 +11659,7 @@ class _ToolchainInfoDialog extends StatelessWidget {
                           value: plugin!.description,
                         ),
                         _DashboardDetailRow(
-                          label: _arText(
+                          label: openHandLocalizedText(
                             context,
                             zh: '状态',
                             zhHant: '狀態',
@@ -11694,7 +11678,7 @@ class _ToolchainInfoDialog extends StatelessWidget {
                               : cs.tertiary,
                         ),
                         _DashboardDetailRow(
-                          label: _arText(
+                          label: openHandLocalizedText(
                             context,
                             zh: '版本',
                             zhHant: '版本',
@@ -11706,7 +11690,7 @@ class _ToolchainInfoDialog extends StatelessWidget {
                           value: plugin!.installedVersion,
                         ),
                         _DashboardDetailRow(
-                          label: _arText(
+                          label: openHandLocalizedText(
                             context,
                             zh: '路径',
                             zhHant: '路徑',
@@ -11765,7 +11749,7 @@ class _RuntimePluginInfoDialog extends StatelessWidget {
             context: context,
             icon: Icons.extension_rounded,
             title:
-                '${plugin.name} ${_arText(context, zh: "信息", zhHant: "資訊", en: "Info", fr: "Infos", de: "Info", ja: "情報")}',
+                '${plugin.name} ${openHandLocalizedText(context, zh: "信息", zhHant: "資訊", en: "Info", fr: "Infos", de: "Info", ja: "情報")}',
             subtitle: plugin.id,
           ),
           Divider(height: 1, color: cs.outlineVariant),
@@ -11775,7 +11759,7 @@ class _RuntimePluginInfoDialog extends StatelessWidget {
                 padding: const EdgeInsets.all(18),
                 children: [
                   _DashboardDetailSection(
-                    title: _arText(
+                    title: openHandLocalizedText(
                       context,
                       zh: '基本信息',
                       zhHant: '基本資訊',
@@ -11787,7 +11771,7 @@ class _RuntimePluginInfoDialog extends StatelessWidget {
                     icon: Icons.info_outline_rounded,
                     children: [
                       _DashboardDetailRow(
-                        label: _arText(
+                        label: openHandLocalizedText(
                           context,
                           zh: '名称',
                           zhHant: '名稱',
@@ -11800,7 +11784,7 @@ class _RuntimePluginInfoDialog extends StatelessWidget {
                       ),
                       _DashboardDetailRow(label: 'ID', value: plugin.id),
                       _DashboardDetailRow(
-                        label: _arText(
+                        label: openHandLocalizedText(
                           context,
                           zh: '描述',
                           zhHant: '描述',
@@ -11812,7 +11796,7 @@ class _RuntimePluginInfoDialog extends StatelessWidget {
                         value: plugin.description,
                       ),
                       _DashboardDetailRow(
-                        label: _arText(
+                        label: openHandLocalizedText(
                           context,
                           zh: '状态',
                           zhHant: '狀態',
@@ -11825,7 +11809,7 @@ class _RuntimePluginInfoDialog extends StatelessWidget {
                         valueColor: statusColor,
                       ),
                       _DashboardDetailRow(
-                        label: _arText(
+                        label: openHandLocalizedText(
                           context,
                           zh: '启用',
                           zhHant: '啟用',
@@ -11835,7 +11819,7 @@ class _RuntimePluginInfoDialog extends StatelessWidget {
                           ja: '有効',
                         ),
                         value: plugin.enabled
-                            ? _arText(
+                            ? openHandLocalizedText(
                                 context,
                                 zh: '是',
                                 zhHant: '是',
@@ -11844,7 +11828,7 @@ class _RuntimePluginInfoDialog extends StatelessWidget {
                                 de: 'Ja',
                                 ja: 'はい',
                               )
-                            : _arText(
+                            : openHandLocalizedText(
                                 context,
                                 zh: '否',
                                 zhHant: '否',
@@ -11858,7 +11842,7 @@ class _RuntimePluginInfoDialog extends StatelessWidget {
                   ),
                   const SizedBox(height: 14),
                   _DashboardDetailSection(
-                    title: _arText(
+                    title: openHandLocalizedText(
                       context,
                       zh: '版本与路径',
                       zhHant: '版本與路徑',
@@ -11870,7 +11854,7 @@ class _RuntimePluginInfoDialog extends StatelessWidget {
                     icon: Icons.inventory_2_rounded,
                     children: [
                       _DashboardDetailRow(
-                        label: _arText(
+                        label: openHandLocalizedText(
                           context,
                           zh: '已安装版本',
                           zhHant: '已安裝版本',
@@ -11882,7 +11866,7 @@ class _RuntimePluginInfoDialog extends StatelessWidget {
                         value: plugin.installedVersion,
                       ),
                       _DashboardDetailRow(
-                        label: _arText(
+                        label: openHandLocalizedText(
                           context,
                           zh: '最新版本',
                           zhHant: '最新版本',
@@ -11894,7 +11878,7 @@ class _RuntimePluginInfoDialog extends StatelessWidget {
                         value: plugin.latestVersion,
                       ),
                       _DashboardDetailRow(
-                        label: _arText(
+                        label: openHandLocalizedText(
                           context,
                           zh: '安装路径',
                           zhHant: '安裝路徑',
@@ -11907,7 +11891,7 @@ class _RuntimePluginInfoDialog extends StatelessWidget {
                         monospace: true,
                       ),
                       _DashboardDetailRow(
-                        label: _arText(
+                        label: openHandLocalizedText(
                           context,
                           zh: '支持卸载',
                           zhHant: '支援解除安裝',
@@ -11917,7 +11901,7 @@ class _RuntimePluginInfoDialog extends StatelessWidget {
                           ja: 'アンインストール可能',
                         ),
                         value: plugin.supportsUninstall
-                            ? _arText(
+                            ? openHandLocalizedText(
                                 context,
                                 zh: '是',
                                 zhHant: '是',
@@ -11926,7 +11910,7 @@ class _RuntimePluginInfoDialog extends StatelessWidget {
                                 de: 'Ja',
                                 ja: 'はい',
                               )
-                            : _arText(
+                            : openHandLocalizedText(
                                 context,
                                 zh: '否',
                                 zhHant: '否',
@@ -11940,7 +11924,7 @@ class _RuntimePluginInfoDialog extends StatelessWidget {
                   ),
                   const SizedBox(height: 14),
                   _DashboardDetailSection(
-                    title: _arText(
+                    title: openHandLocalizedText(
                       context,
                       zh: '依赖关系',
                       zhHant: '依賴關係',
@@ -11952,7 +11936,7 @@ class _RuntimePluginInfoDialog extends StatelessWidget {
                     icon: Icons.account_tree_rounded,
                     children: [
                       _DashboardDetailRow(
-                        label: _arText(
+                        label: openHandLocalizedText(
                           context,
                           zh: '依赖',
                           zhHant: '依賴',
@@ -11962,7 +11946,7 @@ class _RuntimePluginInfoDialog extends StatelessWidget {
                           ja: '依存先',
                         ),
                         value: plugin.dependencies.isEmpty
-                            ? _arText(
+                            ? openHandLocalizedText(
                                 context,
                                 zh: '无',
                                 zhHant: '無',
@@ -11975,7 +11959,7 @@ class _RuntimePluginInfoDialog extends StatelessWidget {
                         monospace: plugin.dependencies.isNotEmpty,
                       ),
                       _DashboardDetailRow(
-                        label: _arText(
+                        label: openHandLocalizedText(
                           context,
                           zh: '被依赖',
                           zhHant: '被依賴',
@@ -11985,7 +11969,7 @@ class _RuntimePluginInfoDialog extends StatelessWidget {
                           ja: '依存元',
                         ),
                         value: plugin.dependents.isEmpty
-                            ? _arText(
+                            ? openHandLocalizedText(
                                 context,
                                 zh: '无',
                                 zhHant: '無',
@@ -12002,7 +11986,7 @@ class _RuntimePluginInfoDialog extends StatelessWidget {
                   if (specs.isNotEmpty) ...[
                     const SizedBox(height: 14),
                     _DashboardDetailSection(
-                      title: _arText(
+                      title: openHandLocalizedText(
                         context,
                         zh: '逆向模板关联',
                         zhHant: '逆向模板關聯',
@@ -12014,7 +11998,7 @@ class _RuntimePluginInfoDialog extends StatelessWidget {
                       icon: Icons.dashboard_customize_rounded,
                       children: [
                         _DashboardDetailRow(
-                          label: _arText(
+                          label: openHandLocalizedText(
                             context,
                             zh: '关联模板',
                             zhHant: '關聯模板',
@@ -12025,7 +12009,7 @@ class _RuntimePluginInfoDialog extends StatelessWidget {
                           ),
                           value: specs
                               .map(
-                                (spec) => _arText(
+                                (spec) => openHandLocalizedText(
                                   context,
                                   zh: spec.labelZh,
                                   zhHant: spec.labelZhHant,
@@ -12043,7 +12027,7 @@ class _RuntimePluginInfoDialog extends StatelessWidget {
                   if (plugin.errorMessage?.trim().isNotEmpty ?? false) ...[
                     const SizedBox(height: 14),
                     _DashboardDetailSection(
-                      title: _arText(
+                      title: openHandLocalizedText(
                         context,
                         zh: '异常信息',
                         zhHant: '異常資訊',
@@ -12056,7 +12040,7 @@ class _RuntimePluginInfoDialog extends StatelessWidget {
                       accentColor: cs.error,
                       children: [
                         _DashboardDetailRow(
-                          label: _arText(
+                          label: openHandLocalizedText(
                             context,
                             zh: '错误',
                             zhHant: '錯誤',
