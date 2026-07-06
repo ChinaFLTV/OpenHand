@@ -41,7 +41,7 @@ class AiCreationOptions {
     this.size,
     this.aspectRatio,
     this.durationSeconds,
-    this.count = 1,
+    this.count = defaultCount,
     this.quality,
     this.style,
     this.outputFormat,
@@ -157,8 +157,10 @@ class AiCreationOptions {
     return AiCreationOptions(
       size: size ?? this.size,
       aspectRatio: aspectRatio ?? this.aspectRatio,
-      durationSeconds: durationSeconds ?? this.durationSeconds,
-      count: count ?? this.count,
+      durationSeconds: normalizeDurationSeconds(
+        durationSeconds ?? this.durationSeconds,
+      ),
+      count: normalizeCount(count ?? this.count),
       quality: quality ?? this.quality,
       style: style ?? this.style,
       outputFormat: outputFormat ?? this.outputFormat,
@@ -168,26 +170,36 @@ class AiCreationOptions {
       watermark: watermark ?? this.watermark,
       seed: seed ?? this.seed,
       resolution: resolution ?? this.resolution,
-      frameRate: frameRate ?? this.frameRate,
-      numFrames: numFrames ?? this.numFrames,
+      frameRate: normalizeFrameRate(frameRate ?? this.frameRate),
+      numFrames: normalizeNumFrames(numFrames ?? this.numFrames),
       mode: mode ?? this.mode,
       voice: voice ?? this.voice,
-      speed: speed ?? this.speed,
-      sampleRate: sampleRate ?? this.sampleRate,
-      bitrate: bitrate ?? this.bitrate,
-      volume: volume ?? this.volume,
-      pitch: pitch ?? this.pitch,
+      speed: normalizeSpeed(speed ?? this.speed),
+      sampleRate: normalizeSampleRate(sampleRate ?? this.sampleRate),
+      bitrate: normalizeBitrate(bitrate ?? this.bitrate),
+      volume: normalizeVolume(volume ?? this.volume),
+      pitch: normalizePitch(pitch ?? this.pitch),
     );
   }
 
   bool get hasExplicitOptions => toMetadata().isNotEmpty;
 
   Map<String, Object?> toMetadata() {
+    final normalizedDurationSeconds = normalizeDurationSeconds(durationSeconds);
+    final normalizedCount = normalizeCount(count);
+    final normalizedFrameRate = normalizeFrameRate(frameRate);
+    final normalizedNumFrames = normalizeNumFrames(numFrames);
+    final normalizedSpeed = normalizeSpeed(speed);
+    final normalizedSampleRate = normalizeSampleRate(sampleRate);
+    final normalizedBitrate = normalizeBitrate(bitrate);
+    final normalizedVolume = normalizeVolume(volume);
+    final normalizedPitch = normalizePitch(pitch);
     return <String, Object?>{
       if (size != null) 'size': size,
       if (aspectRatio != null) 'aspect_ratio': aspectRatio,
-      if (durationSeconds != null) 'duration_seconds': durationSeconds,
-      if (count != 1) 'count': count,
+      if (normalizedDurationSeconds != null)
+        'duration_seconds': normalizedDurationSeconds,
+      if (normalizedCount != defaultCount) 'count': normalizedCount,
       if (quality != null) 'quality': quality,
       if (style != null) 'style': style,
       if (outputFormat != null) 'output_format': outputFormat,
@@ -197,15 +209,15 @@ class AiCreationOptions {
       if (watermark != null) 'watermark': watermark,
       if (seed != null) 'seed': seed,
       if (resolution != null) 'resolution': resolution,
-      if (frameRate != null) 'frame_rate': frameRate,
-      if (numFrames != null) 'num_frames': numFrames,
+      if (normalizedFrameRate != null) 'frame_rate': normalizedFrameRate,
+      if (normalizedNumFrames != null) 'num_frames': normalizedNumFrames,
       if (mode != null) 'mode': mode,
       if (voice != null) 'voice': voice,
-      if (speed != null) 'speed': speed,
-      if (sampleRate != null) 'sample_rate': sampleRate,
-      if (bitrate != null) 'bitrate': bitrate,
-      if (volume != null) 'volume': volume,
-      if (pitch != null) 'pitch': pitch,
+      if (normalizedSpeed != null) 'speed': normalizedSpeed,
+      if (normalizedSampleRate != null) 'sample_rate': normalizedSampleRate,
+      if (normalizedBitrate != null) 'bitrate': normalizedBitrate,
+      if (normalizedVolume != null) 'volume': normalizedVolume,
+      if (normalizedPitch != null) 'pitch': normalizedPitch,
     };
   }
 
@@ -215,8 +227,8 @@ class AiCreationOptions {
     return AiCreationOptions(
       size: optionalStringFromValue(map['size']),
       aspectRatio: optionalStringFromValue(map['aspect_ratio']),
-      durationSeconds: optionalPositiveIntFromValue(map['duration_seconds']),
-      count: positiveIntFromValue(map['count'], fallback: 1),
+      durationSeconds: durationSecondsFromValue(map['duration_seconds']),
+      count: countFromValue(map['count']),
       quality: optionalStringFromValue(map['quality']),
       style: optionalStringFromValue(map['style']),
       outputFormat: optionalStringFromValue(map['output_format']),
@@ -232,20 +244,172 @@ class AiCreationOptions {
           optionalStringFromValue(map['resolution']) ??
           optionalStringFromValue(map['resolution_name']),
       frameRate:
-          optionalPositiveIntFromValue(map['frame_rate']) ??
-          optionalPositiveIntFromValue(map['fps']),
-      numFrames: optionalPositiveIntFromValue(map['num_frames']),
+          frameRateFromValue(map['frame_rate']) ??
+          frameRateFromValue(map['fps']),
+      numFrames: numFramesFromValue(map['num_frames']),
       mode: optionalStringFromValue(map['mode']),
       voice: optionalStringFromValue(map['voice']),
-      speed: optionalDoubleFromValue(map['speed']),
-      sampleRate: optionalPositiveIntFromValue(map['sample_rate']),
-      bitrate: optionalPositiveIntFromValue(map['bitrate']),
-      volume:
-          optionalDoubleFromValue(map['volume']) ??
-          optionalDoubleFromValue(map['vol']),
-      pitch: optionalDoubleFromValue(map['pitch']),
+      speed: speedFromValue(map['speed']),
+      sampleRate: sampleRateFromValue(map['sample_rate']),
+      bitrate: bitrateFromValue(map['bitrate']),
+      volume: volumeFromValue(map['volume']) ?? volumeFromValue(map['vol']),
+      pitch: pitchFromValue(map['pitch']),
     );
   }
+
+  static const int defaultCount = 1;
+  static const int minCount = 1;
+  static const int maxCount = 4;
+  static const int minDurationSeconds = 1;
+  static const int maxDurationSeconds = 600;
+  static const int minFrameRate = 1;
+  static const int maxFrameRate = 60;
+  static const int minNumFrames = 1;
+  static const int maxNumFrames = 441;
+  static const int minSampleRate = 8000;
+  static const int maxSampleRate = 96000;
+  static const int minBitrate = 8000;
+  static const int maxBitrate = 512000;
+  static const double defaultSpeed = 1.0;
+  static const double minSpeed = 0.25;
+  static const double maxSpeed = 4.0;
+  static const double defaultVolume = 1.0;
+  static const double minVolume = 0.0;
+  static const double maxVolume = 10.0;
+  static const double defaultPitch = 0.0;
+  static const double minPitch = -20.0;
+  static const double maxPitch = 20.0;
+
+  static const IntValueRange _countRange = IntValueRange(
+    fallback: defaultCount,
+    min: minCount,
+    max: maxCount,
+  );
+  static const IntValueRange _durationSecondsRange = IntValueRange(
+    fallback: minDurationSeconds,
+    min: minDurationSeconds,
+    max: maxDurationSeconds,
+  );
+  static const IntValueRange _frameRateRange = IntValueRange(
+    fallback: minFrameRate,
+    min: minFrameRate,
+    max: maxFrameRate,
+  );
+  static const IntValueRange _numFramesRange = IntValueRange(
+    fallback: minNumFrames,
+    min: minNumFrames,
+    max: maxNumFrames,
+  );
+  static const IntValueRange _sampleRateRange = IntValueRange(
+    fallback: minSampleRate,
+    min: minSampleRate,
+    max: maxSampleRate,
+  );
+  static const IntValueRange _bitrateRange = IntValueRange(
+    fallback: minBitrate,
+    min: minBitrate,
+    max: maxBitrate,
+  );
+  static const DoubleValueRange _speedRange = DoubleValueRange(
+    fallback: defaultSpeed,
+    min: minSpeed,
+    max: maxSpeed,
+  );
+  static const DoubleValueRange _volumeRange = DoubleValueRange(
+    fallback: defaultVolume,
+    min: minVolume,
+    max: maxVolume,
+  );
+  static const DoubleValueRange _pitchRange = DoubleValueRange(
+    fallback: defaultPitch,
+    min: minPitch,
+    max: maxPitch,
+  );
+
+  static int countFromValue(Object? value) => _countRange.fromValue(value);
+
+  static int normalizeCount(int value) => _countRange.normalize(value);
+
+  static int? durationSecondsFromValue(Object? value) {
+    return _positiveIntInRangeFromValue(value, _durationSecondsRange);
+  }
+
+  static int? normalizeDurationSeconds(int? value) {
+    return _positiveIntInRange(value, _durationSecondsRange);
+  }
+
+  static int? frameRateFromValue(Object? value) {
+    return _positiveIntInRangeFromValue(value, _frameRateRange);
+  }
+
+  static int? normalizeFrameRate(int? value) {
+    return _positiveIntInRange(value, _frameRateRange);
+  }
+
+  static int? numFramesFromValue(Object? value) {
+    return _positiveIntInRangeFromValue(value, _numFramesRange);
+  }
+
+  static int? normalizeNumFrames(int? value) {
+    return _positiveIntInRange(value, _numFramesRange);
+  }
+
+  static int? sampleRateFromValue(Object? value) {
+    return _positiveIntInRangeFromValue(value, _sampleRateRange);
+  }
+
+  static int? normalizeSampleRate(int? value) {
+    return _positiveIntInRange(value, _sampleRateRange);
+  }
+
+  static int? bitrateFromValue(Object? value) {
+    return _positiveIntInRangeFromValue(value, _bitrateRange);
+  }
+
+  static int? normalizeBitrate(int? value) {
+    return _positiveIntInRange(value, _bitrateRange);
+  }
+
+  static double? speedFromValue(Object? value) {
+    return _doubleInRangeFromValue(value, _speedRange);
+  }
+
+  static double? normalizeSpeed(double? value) {
+    return _doubleInRange(value, _speedRange);
+  }
+
+  static double? volumeFromValue(Object? value) {
+    return _doubleInRangeFromValue(value, _volumeRange);
+  }
+
+  static double? normalizeVolume(double? value) {
+    return _doubleInRange(value, _volumeRange);
+  }
+
+  static double? pitchFromValue(Object? value) {
+    return _doubleInRangeFromValue(value, _pitchRange);
+  }
+
+  static double? normalizePitch(double? value) {
+    return _doubleInRange(value, _pitchRange);
+  }
+}
+
+int? _positiveIntInRangeFromValue(Object? value, IntValueRange range) {
+  return _positiveIntInRange(optionalPositiveIntFromValue(value), range);
+}
+
+int? _positiveIntInRange(int? value, IntValueRange range) {
+  return value == null || value <= 0 ? null : range.normalize(value);
+}
+
+double? _doubleInRangeFromValue(Object? value, DoubleValueRange range) {
+  return _doubleInRange(optionalDoubleFromValue(value), range);
+}
+
+double? _doubleInRange(double? value, DoubleValueRange range) {
+  if (value == null) return null;
+  return range.normalize(value);
 }
 
 /// A fully-resolved creation request (mode + options) that can be serialised
