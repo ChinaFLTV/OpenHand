@@ -120,19 +120,23 @@ class AppProxySettings {
         }
       }
     }
-    final usableProtocols = protocols.isEmpty ? defaults.protocols : protocols;
+    final usableProtocols = _normalizeProtocols(
+      protocols,
+      fallback: defaults.protocols,
+    );
 
     final host = stringFromValue(json['host'], fallback: defaults.host);
-    final port = clampedTcpPortFromValue(json['port'], fallback: defaults.port);
+    final port = portFromValue(json['port']);
     final authEnabled = boolFromValue(json['auth_enabled']);
     final username = _credentialFromValue(json['username']);
     final password = _credentialFromValue(json['password']);
-    final exceptions = stringListFromValue(json['exceptions']);
+    final exceptions = _normalizeExceptions(
+      stringListFromValue(json['exceptions']),
+    );
 
-    final rawTestEndpoint = stringFromValue(json['test_endpoint']);
-    final testEndpoint = rawTestEndpoint.isEmpty
-        ? defaults.testEndpoint
-        : rawTestEndpoint;
+    final testEndpoint = _normalizeTestEndpoint(
+      stringFromValue(json['test_endpoint']),
+    );
 
     return AppProxySettings(
       mode: mode,
@@ -169,16 +173,26 @@ class AppProxySettings {
   static const String defaultTestEndpoint =
       'https://www.google.com/generate_204';
 
+  static int portFromValue(Object? value) {
+    return clampedTcpPortFromValue(value, fallback: defaultPort);
+  }
+
+  static int normalizePort(int value) {
+    return clampTcpPort(value);
+  }
+
   Map<String, Object?> toJson() => <String, Object?>{
     'mode': mode.jsonValue,
-    'protocols': protocols.map((p) => p.jsonValue).toList(growable: false),
+    'protocols': _normalizeProtocols(
+      protocols,
+    ).map((p) => p.jsonValue).toList(growable: false),
     'host': host,
-    'port': port,
+    'port': normalizePort(port),
     'auth_enabled': authEnabled,
     'username': username,
     'password': password,
-    'exceptions': List<String>.unmodifiable(exceptions),
-    'test_endpoint': testEndpoint,
+    'exceptions': _normalizeExceptions(exceptions),
+    'test_endpoint': _normalizeTestEndpoint(testEndpoint),
   };
 
   AppProxySettings copyWith({
@@ -194,14 +208,14 @@ class AppProxySettings {
   }) {
     return AppProxySettings(
       mode: mode ?? this.mode,
-      protocols: protocols ?? this.protocols,
+      protocols: _normalizeProtocols(protocols ?? this.protocols),
       host: host ?? this.host,
-      port: port == null ? this.port : clampTcpPort(port),
+      port: port == null ? normalizePort(this.port) : normalizePort(port),
       authEnabled: authEnabled ?? this.authEnabled,
       username: username ?? this.username,
       password: password ?? this.password,
-      exceptions: exceptions ?? this.exceptions,
-      testEndpoint: testEndpoint ?? this.testEndpoint,
+      exceptions: _normalizeExceptions(exceptions ?? this.exceptions),
+      testEndpoint: _normalizeTestEndpoint(testEndpoint ?? this.testEndpoint),
     );
   }
 
@@ -240,7 +254,7 @@ class AppProxySettings {
     authEnabled,
     username,
     password,
-    Object.hashAll(protocols),
+    Object.hashAllUnordered(protocols),
     Object.hashAll(exceptions),
     testEndpoint,
   );
@@ -258,4 +272,34 @@ bool _listEquals<T>(List<T> a, List<T> b) {
 String _credentialFromValue(Object? value) {
   if (value is String) return value;
   return stringFromValue(value);
+}
+
+Set<AppProxyProtocol> _normalizeProtocols(
+  Iterable<AppProxyProtocol> protocols, {
+  Set<AppProxyProtocol>? fallback,
+}) {
+  final source = protocols.toSet();
+  if (source.isEmpty) {
+    return Set<AppProxyProtocol>.unmodifiable(
+      fallback ?? AppProxySettings.defaults().protocols,
+    );
+  }
+  return Set<AppProxyProtocol>.unmodifiable(
+    AppProxyProtocol.values.where(source.contains),
+  );
+}
+
+List<String> _normalizeExceptions(Iterable<String> exceptions) {
+  final seen = <String>{};
+  final out = <String>[];
+  for (final item in exceptions) {
+    final normalized = nullIfBlank(item);
+    if (normalized == null || !seen.add(normalized)) continue;
+    out.add(normalized);
+  }
+  return List<String>.unmodifiable(out);
+}
+
+String _normalizeTestEndpoint(String value) {
+  return nullIfBlank(value) ?? AppProxySettings.defaultTestEndpoint;
 }
