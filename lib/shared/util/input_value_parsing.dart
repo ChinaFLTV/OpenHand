@@ -633,7 +633,54 @@ double clampedDoubleFromValue(
   final parsed = optionalDoubleFromValue(value);
   final (:lower, :upper) = _orderedDoubleBounds(min, max);
   final safeFallback = fallback.isFinite ? fallback : lower;
-  return (parsed ?? safeFallback).clamp(lower, upper).toDouble();
+  return clampDoubleToRange(
+    parsed ?? safeFallback,
+    min: lower,
+    max: upper,
+    fallback: safeFallback,
+  );
+}
+
+double clampDoubleToRange(
+  num value, {
+  required double min,
+  required double max,
+  double? fallback,
+}) {
+  final (:lower, :upper) = _orderedDoubleBounds(min, max);
+  final safeFallback = fallback != null && fallback.isFinite
+      ? fallback.clamp(lower, upper).toDouble()
+      : lower;
+  if (!value.isFinite) {
+    if (value.isInfinite) return value.isNegative ? lower : upper;
+    return safeFallback;
+  }
+  return value.clamp(lower, upper).toDouble();
+}
+
+class DoubleValueRange {
+  const DoubleValueRange({
+    required this.fallback,
+    required this.min,
+    required this.max,
+  });
+
+  final double fallback;
+  final double min;
+  final double max;
+
+  double fromValue(Object? value) {
+    return clampedDoubleFromValue(
+      value,
+      fallback: fallback,
+      min: min,
+      max: max,
+    );
+  }
+
+  double normalize(num value) {
+    return clampDoubleToRange(value, min: min, max: max, fallback: fallback);
+  }
 }
 
 double clampUnitInterval(num value, {double fallback = kUnitIntervalMinimum}) {

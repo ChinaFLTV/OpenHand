@@ -154,6 +154,48 @@ void main() {
     });
   });
 
+  group('clampDoubleToRange', () {
+    test('clamps finite and non-finite values within ordered bounds', () {
+      expect(clampDoubleToRange(0.75, min: 0.5, max: 2), 0.75);
+      expect(clampDoubleToRange(0.25, min: 0.5, max: 2), 0.5);
+      expect(clampDoubleToRange(3, min: 2, max: 0.5), 2);
+      expect(clampDoubleToRange(double.infinity, min: 0.5, max: 2), 2);
+      expect(
+        clampDoubleToRange(double.negativeInfinity, min: 0.5, max: 2),
+        0.5,
+      );
+      expect(
+        clampDoubleToRange(double.nan, min: 0.5, max: 2, fallback: 1.2),
+        1.2,
+      );
+      expect(
+        clampDoubleToRange(double.nan, min: 0.5, max: 2, fallback: double.nan),
+        0.5,
+      );
+    });
+  });
+
+  group('DoubleValueRange', () {
+    test('parses and clamps values through a reusable range rule', () {
+      const range = DoubleValueRange(fallback: 1, min: 0.5, max: 2);
+
+      expect(range.fromValue('1.5'), 1.5);
+      expect(range.fromValue(0.25), 0.5);
+      expect(range.fromValue(3), 2);
+      expect(range.fromValue('bad'), 1);
+    });
+
+    test('normalizes existing values with non-finite fallbacks', () {
+      const range = DoubleValueRange(fallback: 1, min: 2, max: 0.5);
+
+      expect(range.normalize(0.25), 0.5);
+      expect(range.normalize(1.5), 1.5);
+      expect(range.normalize(3), 2);
+      expect(range.normalize(double.infinity), 2);
+      expect(range.normalize(double.nan), 1);
+    });
+  });
+
   group('optionalPositiveIntFromValue', () {
     test('parses positive integers and rejects non-positive values', () {
       expect(optionalPositiveIntFromValue('7'), 7);

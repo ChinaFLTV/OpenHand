@@ -325,14 +325,15 @@ class AiTtsProviderSettings {
     String? modelId,
     Map<String, Object?>? extra,
   }) {
+    final defaults = AiTtsProviderSettings.defaults(provider);
     return AiTtsProviderSettings(
       provider: provider,
       enabled: enabled ?? this.enabled,
       voice: voice ?? this.voice,
       language: language ?? this.language,
-      speed: speed ?? this.speed,
-      volume: volume ?? this.volume,
-      pitch: pitch ?? this.pitch,
+      speed: normalizeSpeed(speed ?? this.speed, fallback: defaults.speed),
+      volume: normalizeVolume(volume ?? this.volume, fallback: defaults.volume),
+      pitch: normalizePitch(pitch ?? this.pitch, fallback: defaults.pitch),
       endpoint: endpoint ?? this.endpoint,
       appId: appId ?? this.appId,
       apiKey: apiKey ?? this.apiKey,
@@ -354,9 +355,9 @@ class AiTtsProviderSettings {
       language: normalizedLanguage.isEmpty
           ? defaults.language
           : normalizedLanguage,
-      speed: speed.clamp(0.1, 200.0).toDouble(),
-      volume: volume.clamp(0.0, 100.0).toDouble(),
-      pitch: pitch.clamp(-20.0, 100.0).toDouble(),
+      speed: normalizeSpeed(speed, fallback: defaults.speed),
+      volume: normalizeVolume(volume, fallback: defaults.volume),
+      pitch: normalizePitch(pitch, fallback: defaults.pitch),
       endpoint: endpoint.trim(),
       appId: appId.trim(),
       apiKey: apiKey.trim(),
@@ -370,13 +371,14 @@ class AiTtsProviderSettings {
   }
 
   Map<String, Object?> toJson() {
+    final defaults = AiTtsProviderSettings.defaults(provider);
     return <String, Object?>{
       'enabled': enabled,
       'voice': voice,
       'language': language,
-      'speed': speed,
-      'volume': volume,
-      'pitch': pitch,
+      'speed': normalizeSpeed(speed, fallback: defaults.speed),
+      'volume': normalizeVolume(volume, fallback: defaults.volume),
+      'pitch': normalizePitch(pitch, fallback: defaults.pitch),
       'endpoint': endpoint,
       'app_id': appId,
       'api_key': apiKey,
@@ -387,6 +389,40 @@ class AiTtsProviderSettings {
       'model_id': modelId,
       'extra': extra,
     };
+  }
+
+  static const double minSpeed = 0.1;
+  static const double maxSpeed = 200.0;
+  static const double minVolume = 0.0;
+  static const double maxVolume = 100.0;
+  static const double minPitch = -20.0;
+  static const double maxPitch = 100.0;
+
+  static double normalizeSpeed(double value, {double fallback = 1.0}) {
+    return clampDoubleToRange(
+      value,
+      fallback: fallback,
+      min: minSpeed,
+      max: maxSpeed,
+    );
+  }
+
+  static double normalizeVolume(double value, {double fallback = 1.0}) {
+    return clampDoubleToRange(
+      value,
+      fallback: fallback,
+      min: minVolume,
+      max: maxVolume,
+    );
+  }
+
+  static double normalizePitch(double value, {double fallback = 1.0}) {
+    return clampDoubleToRange(
+      value,
+      fallback: fallback,
+      min: minPitch,
+      max: maxPitch,
+    );
   }
 }
 
