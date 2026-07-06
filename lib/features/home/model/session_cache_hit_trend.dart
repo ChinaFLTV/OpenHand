@@ -44,11 +44,7 @@ bool shouldShowSessionCacheHitMetrics({
   required int cacheWriteTokens,
   required bool hasTrendPoints,
 }) {
-  return totalPromptTokens > 0 ||
-      totalTokens > 0 ||
-      cacheReadTokens > 0 ||
-      cacheWriteTokens > 0 ||
-      hasTrendPoints;
+  return cacheReadTokens > 0 || cacheWriteTokens > 0 || hasTrendPoints;
 }
 
 int resolveSessionCacheHitBarPromptTokens({
@@ -276,6 +272,9 @@ class SessionCacheHitTrend {
         continue;
       }
       final usage = telemetryMessage.usage ?? message.usage;
+      if (!_hasCacheUsageTelemetry(usage)) {
+        continue;
+      }
       final promptTokens = usage?.promptTokens ?? 0;
       final cacheReadTokens = usage?.cacheReadTokens ?? 0;
       final cacheWriteTokens = usage?.cacheCreationTokens ?? 0;
@@ -350,6 +349,10 @@ class SessionCacheHitTrend {
       claudeStyle: claudeStyle,
     );
   }
+}
+
+bool _hasCacheUsageTelemetry(AiTokenUsage? usage) {
+  return usage?.cacheReadTokens != null || usage?.cacheCreationTokens != null;
 }
 
 bool _isStructuralCacheRound(SessionCacheHitTurnPoint point) {

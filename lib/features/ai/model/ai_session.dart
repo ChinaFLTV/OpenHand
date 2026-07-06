@@ -981,6 +981,10 @@ class AiSessionEnvironment {
 class AiSessionStatistics {
   factory AiSessionStatistics.fromJson(Object? raw) {
     final json = stringKeyedMapFromValueOrJsonText(raw);
+    final cacheCreationTokens = _readNullableInt(json['cache_creation_tokens']);
+    final cacheReadTokens = _readNullableInt(json['cache_read_tokens']);
+    final hasCacheUsageTelemetry =
+        cacheCreationTokens != null || cacheReadTokens != null;
     return AiSessionStatistics(
       totalMessageCount: _readInt(json['total_message_count']),
       userMessageCount: _readInt(json['user_message_count']),
@@ -997,8 +1001,8 @@ class AiSessionStatistics {
       totalPromptTokens: _readNullableInt(json['total_prompt_tokens']),
       totalCompletionTokens: _readNullableInt(json['total_completion_tokens']),
       totalTokens: _readNullableInt(json['total_tokens']),
-      cacheCreationTokens: _readNullableInt(json['cache_creation_tokens']),
-      cacheReadTokens: _readNullableInt(json['cache_read_tokens']),
+      cacheCreationTokens: cacheCreationTokens,
+      cacheReadTokens: cacheReadTokens,
       reasoningTokens: _readNullableInt(json['reasoning_tokens']),
       firstPromptTokens: _readNullableInt(json['first_prompt_tokens']),
       lastPromptSystemMessageCount: _readInt(
@@ -1007,11 +1011,15 @@ class AiSessionStatistics {
       lastPromptHistoryMessageCount: _readInt(
         json['last_prompt_history_message_count'],
       ),
-      cacheHitRatio: _readNullableDouble(json['cache_hit_ratio']),
-      cacheHitTrendPoints: _readTrendPoints(json['cache_hit_trend_points']),
-      cacheHitTrendExcludedCount: _readInt(
-        json['cache_hit_trend_excluded_count'],
-      ),
+      cacheHitRatio: hasCacheUsageTelemetry
+          ? _readNullableDouble(json['cache_hit_ratio'])
+          : null,
+      cacheHitTrendPoints: hasCacheUsageTelemetry
+          ? _readTrendPoints(json['cache_hit_trend_points'])
+          : const <AiSessionCacheHitTrendPoint>[],
+      cacheHitTrendExcludedCount: hasCacheUsageTelemetry
+          ? _readInt(json['cache_hit_trend_excluded_count'])
+          : 0,
     );
   }
   const AiSessionStatistics({

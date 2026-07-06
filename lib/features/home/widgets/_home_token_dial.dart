@@ -356,6 +356,10 @@ class _TokenDialPopupState extends State<_TokenDialPopup> {
     );
     final displayData = trend.displayData(_displayMode);
     final cacheHitRatio = displayData.averageHitRatio;
+    final hasCacheUsageTelemetry =
+        widget.statistics.cacheReadTokens != null ||
+        widget.statistics.cacheCreationTokens != null ||
+        trend.points.isNotEmpty;
     final showCacheHitMetrics = shouldShowSessionCacheHitMetrics(
       totalPromptTokens: promptTokensTotal,
       totalTokens: total,
@@ -407,20 +411,22 @@ class _TokenDialPopupState extends State<_TokenDialPopup> {
               keyStyle: keyStyle,
               valueStyle: valueStyle,
             ),
-            _PopupRow(
-              label: AppLocalizations.of(context)!.tokenPopupCacheRead,
-              value: cacheRead,
-              keyStyle: keyStyle,
-              valueStyle: cacheValueStyle,
-              accent: Colors.green,
-            ),
-            _PopupRow(
-              label: AppLocalizations.of(context)!.tokenPopupCacheWrite,
-              value: cacheWrite,
-              keyStyle: keyStyle,
-              valueStyle: cacheValueStyle,
-              accent: Colors.green,
-            ),
+            if (hasCacheUsageTelemetry) ...[
+              _PopupRow(
+                label: AppLocalizations.of(context)!.tokenPopupCacheRead,
+                value: cacheRead,
+                keyStyle: keyStyle,
+                valueStyle: cacheValueStyle,
+                accent: Colors.green,
+              ),
+              _PopupRow(
+                label: AppLocalizations.of(context)!.tokenPopupCacheWrite,
+                value: cacheWrite,
+                keyStyle: keyStyle,
+                valueStyle: cacheValueStyle,
+                accent: Colors.green,
+              ),
+            ],
             const SizedBox(height: 10),
             Text(
               AppLocalizations.of(

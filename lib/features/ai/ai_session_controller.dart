@@ -11695,6 +11695,9 @@ $tail''';
     final trendDisplay = cacheTrend.displayData(
       SessionCacheHitDisplayMode.excludeExtremeMisses,
     );
+    final cacheHitRatio = cacheTrend.points.isEmpty
+        ? null
+        : trendDisplay.averageHitRatio;
     return trackedSession.copyWith(
       statistics: AiSessionStatistics.fromMessages(
         trackedSession.messages,
@@ -11713,7 +11716,7 @@ $tail''';
         lastPromptHistoryMessageCount:
             lastPromptHistoryMessageCount ??
             trackedSession.statistics.lastPromptHistoryMessageCount,
-        cacheHitRatio: trendDisplay.averageHitRatio,
+        cacheHitRatio: cacheHitRatio,
         cacheHitTrendPoints: cacheTrend.points
             .map((point) => point.toStatisticsPoint())
             .toList(growable: false),
@@ -12529,7 +12532,24 @@ $tail''';
     return entries;
   }
 
-  Object? _sanitizeTelemetryValue(Object? value, int maxChars, {String? key}) {
+  Iterable<MapEntry<String, Object?>> _telemetryMapEntries(
+    Map value, {
+    required bool preserveMapOrder,
+  }) {
+    if (preserveMapOrder) {
+      return value.entries.map(
+        (entry) => MapEntry<String, Object?>('${entry.key}', entry.value),
+      );
+    }
+    return _sortedTelemetryMapEntries(value);
+  }
+
+  Object? _sanitizeTelemetryValue(
+    Object? value,
+    int maxChars, {
+    String? key,
+    bool preserveMapOrder = false,
+  }) {
     if (key != null && _isSensitiveTelemetryKey(key)) {
       return '[redacted]';
     }
@@ -12544,19 +12564,29 @@ $tail''';
     }
     if (value is Map) {
       final sanitized = <String, Object?>{};
-      for (final entry in _sortedTelemetryMapEntries(value)) {
+      for (final entry in _telemetryMapEntries(
+        value,
+        preserveMapOrder: preserveMapOrder,
+      )) {
         final entryKey = entry.key;
         sanitized[entryKey] = _sanitizeTelemetryValue(
           entry.value,
           maxChars,
           key: entryKey,
+          preserveMapOrder: preserveMapOrder,
         );
       }
       return sanitized;
     }
     if (value is Iterable) {
       return value
-          .map((item) => _sanitizeTelemetryValue(item, maxChars))
+          .map(
+            (item) => _sanitizeTelemetryValue(
+              item,
+              maxChars,
+              preserveMapOrder: preserveMapOrder,
+            ),
+          )
           .toList(growable: false);
     }
     return _clampTelemetryPayload('$value', maxChars);
@@ -12568,6 +12598,16 @@ $tail''';
   ) {
     return Map<String, Object?>.from(
       _sanitizeTelemetryValue(value, maxChars) as Map<String, Object?>,
+    );
+  }
+
+  Map<String, Object?> _sanitizeTelemetryMapPreservingOrder(
+    Map<String, Object?> value,
+    int maxChars,
+  ) {
+    return Map<String, Object?>.from(
+      _sanitizeTelemetryValue(value, maxChars, preserveMapOrder: true)
+          as Map<String, Object?>,
     );
   }
 
@@ -12723,7 +12763,10 @@ $tail''';
       if (result.requestHeaders != null && result.requestHeaders!.isNotEmpty)
         'request_headers': _redactTelemetryHeaders(result.requestHeaders!),
       if (result.requestBody != null)
-        'request_payload': _sanitizeTelemetryMap(result.requestBody!, maxChars),
+        'request_payload': _sanitizeTelemetryMapPreservingOrder(
+          result.requestBody!,
+          maxChars,
+        ),
     };
     if (runtimeContext.telemetryCaptureRawPayload &&
         result.rawResponse != null &&
@@ -12774,7 +12817,7 @@ $tail''';
           telemetry!.requestHeaders!.isNotEmpty)
         'request_headers': _redactTelemetryHeaders(telemetry.requestHeaders!),
       if (telemetry?.requestBody != null)
-        'request_payload': _sanitizeTelemetryMap(
+        'request_payload': _sanitizeTelemetryMapPreservingOrder(
           telemetry!.requestBody!,
           runtimeContext.telemetryMaxPayloadChars,
         ),
@@ -12992,7 +13035,7 @@ $tail''';
           body: telemetry.requestBody!,
           headers: telemetry.requestHeaders,
         ),
-        'request_payload': _sanitizeTelemetryMap(
+        'request_payload': _sanitizeTelemetryMapPreservingOrder(
           telemetry.requestBody!,
           maxChars,
         ),
@@ -13125,7 +13168,8 @@ $tail''';
     required Map<String, Object?> requestBody,
   }) {
     final currentJson = jsonEncode(
-      _sanitizeTelemetryValue(requestBody, 0) as Map<String, Object?>,
+      _sanitizeTelemetryValue(requestBody, 0, preserveMapOrder: true)
+          as Map<String, Object?>,
     );
     final currentHash = stableFnv1a32Hex(currentJson);
     final previousRound = _previousRoundAnchorMessageForTelemetry(
