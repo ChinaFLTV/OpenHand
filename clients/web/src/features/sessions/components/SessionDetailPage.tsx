@@ -8648,6 +8648,9 @@ function shouldShowSessionCacheHitMetrics({
 interface TrendPoint {
   turnIndex: number;
   hitRatio: number;
+  promptTokens?: number;
+  cacheReadTokens?: number;
+  cacheWriteTokens?: number;
   idleGapSeconds?: number | null;
 }
 
@@ -8682,6 +8685,9 @@ function buildSessionCacheHitDisplay(
       points: backendTrendPoints.map((p) => ({
         turnIndex: p.turn_index,
         hitRatio: p.hit_ratio,
+        promptTokens: p.prompt_tokens,
+        cacheReadTokens: p.cache_read_tokens,
+        cacheWriteTokens: p.cache_write_tokens,
         starterMessageId: p.starter_message_id ?? null,
         starterMessageKind: p.starter_message_kind ?? null,
         starterOrigin: p.starter_origin ?? null,

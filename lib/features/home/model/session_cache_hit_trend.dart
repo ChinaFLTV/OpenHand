@@ -202,21 +202,15 @@ class SessionCacheHitTrend {
   bool get hasExtremeIdleExpiryMisses => points.any(_isExtremeIdleExpiryMiss);
 
   SessionCacheHitDisplayData displayData(SessionCacheHitDisplayMode mode) {
-    // A raw cache round starts at each non-AI-side input: explicit user
-    // messages and OpenHand-produced tool results. The default cleaned view is
-    // user-cost oriented: it keeps explicit user rounds with real cache
-    // activity, while excluding true cold starts, internal tool-continuation
-    // rounds, and true idle expiry outliers. "Include all" remains the exact
-    // transport-level view.
+    // A cache point is one model request + one model response. Tool-result
+    // continuations are first-class requests, so the cleaned view only removes
+    // true long-idle expiry outliers; it never collapses a user's message plus
+    // many AI/tool-detail messages into one coarse round.
     final filteredPoints = switch (mode) {
       SessionCacheHitDisplayMode.includeAll => points,
       SessionCacheHitDisplayMode.excludeExtremeMisses =>
         points
-            .where(
-              (point) =>
-                  !_isStructuralCacheRound(point) &&
-                  !_isExtremeIdleExpiryMiss(point),
-            )
+            .where((point) => !_isExtremeIdleExpiryMiss(point))
             .toList(growable: false),
     };
     var cacheReadTokens = 0;
@@ -361,17 +355,6 @@ bool _sessionHasCacheUsageTelemetry(AiSession session) {
     }
   }
   return false;
-}
-
-bool _isStructuralCacheRound(SessionCacheHitTurnPoint point) {
-  if (point.starterOrigin == aiSessionMessageSenderOriginOpenHandBackground ||
-      point.starterOrigin == aiSessionMessageSenderOriginOpenHandSystem) {
-    return true;
-  }
-  if (point.turnIndex != 1) {
-    return false;
-  }
-  return point.cacheReadTokens <= 0 && point.cacheWriteTokens <= 0;
 }
 
 class _CacheHitDiagnostics {

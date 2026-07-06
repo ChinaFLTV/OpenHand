@@ -4,6 +4,9 @@ import { clampNumber } from '../../../shared/util/number';
 interface TrendPoint {
   turnIndex: number;
   hitRatio: number;
+  promptTokens?: number;
+  cacheReadTokens?: number;
+  cacheWriteTokens?: number;
   starterMessageId?: string | null;
   starterMessageKind?: string | null;
   starterOrigin?: string | null;
@@ -44,7 +47,30 @@ function isExtremeIdleExpiryMiss(p: TrendPoint): boolean {
 }
 
 function isCleanTrendPoint(p: TrendPoint): boolean {
-  return p.turnIndex !== 1 && !isExtremeIdleExpiryMiss(p);
+  return !isExtremeIdleExpiryMiss(p);
+}
+
+function uncachedPromptTokens(p: TrendPoint, claudeStyle: boolean): number {
+  const prompt = Math.max(0, Math.round(p.promptTokens ?? 0));
+  const read = Math.max(0, Math.round(p.cacheReadTokens ?? 0));
+  if (claudeStyle) return prompt;
+  return Math.max(0, prompt - read);
+}
+
+function averageHitRatio(
+  points: TrendPoint[],
+  claudeStyle: boolean,
+  fallback: number,
+): number {
+  let readTotal = 0;
+  let uncachedTotal = 0;
+  for (const p of points) {
+    readTotal += Math.max(0, Math.round(p.cacheReadTokens ?? 0));
+    uncachedTotal += uncachedPromptTokens(p, claudeStyle);
+  }
+  const denominator = readTotal + uncachedTotal;
+  if (denominator <= 0) return clampNumber(fallback, 0, 1);
+  return clampNumber(readTotal / denominator, 0, 1);
 }
 
 interface Viewport {
@@ -136,6 +162,7 @@ const easeInCubic = (t: number) => t * t * t;
 export default function CacheHitTrendChart({
   points,
   averageRatio,
+  claudeStyle = false,
   height = 168,
   displayMode = 'excludeExtremeMisses',
   onDisplayModeChange,
@@ -149,6 +176,10 @@ export default function CacheHitTrendChart({
   }, [points, displayMode]);
 
   const excludedCount = points.length - filteredPoints.length;
+  const displayedAverageRatio = useMemo(
+    () => averageHitRatio(filteredPoints, claudeStyle, averageRatio),
+    [filteredPoints, claudeStyle, averageRatio],
+  );
   const hasDrawablePoints = filteredPoints.length >= 1;
 
   const [viewport, setViewport] = useState<Viewport>(() =>
@@ -262,7 +293,7 @@ export default function CacheHitTrendChart({
   const fillPath = buildSmoothFillPath(animatedLayoutPoints, PAD_TOP + chartH);
 
   const avgY =
-    PAD_TOP + chartH - chartH * clampNumber(averageRatio, 0, 1);
+    PAD_TOP + chartH - chartH * clampNumber(displayedAverageRatio, 0, 1);
 
   const showMiddleLabel =
     visiblePoints.length > 2
@@ -349,7 +380,7 @@ export default function CacheHitTrendChart({
             style={{ color: 'var(--m3-on-surface-variant)' }}
           >
             {t2('sessMeta.cacheHitAvg', '平均')}:{' '}
-            {Math.round(averageRatio * 100)}%
+            {Math.round(displayedAverageRatio * 100)}%
           </span>
         </div>
         <div
@@ -401,7 +432,7 @@ export default function CacheHitTrendChart({
           }}
         >
           {t2('sessMeta.cacheHitAvg', '平均')}:{' '}
-          {Math.round(averageRatio * 100)}%
+          {Math.round(displayedAverageRatio * 100)}%
         </span>
         <button
           type="button"
@@ -452,8 +483,8 @@ export default function CacheHitTrendChart({
         <div class="flex items-center" style={{ gap: 8 }}>
           {(
             [
-              ['excludeExtremeMisses', '排除极端值'],
-              ['includeAll', '包括全部'],
+              ['excludeExtremeMisses', '请求视角'],
+              ['includeAll', '含过期异常'],
             ] as Array<[CacheHitDisplayMode, string]>
           ).map(([key, label]) => {
             const selected = displayMode === key;

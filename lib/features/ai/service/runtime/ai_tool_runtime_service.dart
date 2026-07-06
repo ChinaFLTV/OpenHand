@@ -470,6 +470,11 @@ class AiToolRuntimeService {
   /// Returns true iff the resolved [tool] should appear in the catalog of a
   /// session whose thread template is [templateId].
   bool _isBuiltinAllowedForTemplate(AiResolvedTool tool, String templateId) {
+    if (templateId == kMachineExpertTemplateId &&
+        (tool.builtinKind == AiBuiltinToolKind.bash ||
+            tool.builtinKind == AiBuiltinToolKind.bashBackground)) {
+      return false;
+    }
     if (tool.builtinKind == AiBuiltinToolKind.skillManager) {
       return templateId == _skillManagerTemplateId;
     }
@@ -2600,6 +2605,14 @@ class AiToolRuntimeService {
             'type': 'string',
             'description': 'Raw text to write to the terminal.',
           },
+          'input': <String, Object?>{
+            'type': 'string',
+            'description': 'Alias for data.',
+          },
+          'text': <String, Object?>{
+            'type': 'string',
+            'description': 'Alias for data.',
+          },
           'append_newline': <String, Object?>{
             'type': 'boolean',
             'description': 'Append Enter/newline after data.',
@@ -2609,7 +2622,17 @@ class AiToolRuntimeService {
             'description': 'Alias for append_newline.',
           },
         },
-        'required': <String>['data'],
+        'anyOf': <Object?>[
+          <String, Object?>{
+            'required': <String>['data'],
+          },
+          <String, Object?>{
+            'required': <String>['input'],
+          },
+          <String, Object?>{
+            'required': <String>['text'],
+          },
+        ],
         'additionalProperties': false,
       },
     ),

@@ -761,7 +761,9 @@ class AiBuiltinToolConfig {
       case AiBuiltinToolKind.knowledgeSearch:
       case AiBuiltinToolKind.knowledgeRead:
       case AiBuiltinToolKind.machineTerminalRead:
+      case AiBuiltinToolKind.machineTerminalWrite:
       case AiBuiltinToolKind.machineTerminalExec:
+      case AiBuiltinToolKind.machineTerminalControl:
         return AiBuiltinToolLoadStrategy.eager;
       case AiBuiltinToolKind.bashBackground:
       case AiBuiltinToolKind.taskOutput:
@@ -780,8 +782,6 @@ class AiBuiltinToolConfig {
       case AiBuiltinToolKind.askUserChoice:
       case AiBuiltinToolKind.skillManager:
       case AiBuiltinToolKind.memory:
-      case AiBuiltinToolKind.machineTerminalWrite:
-      case AiBuiltinToolKind.machineTerminalControl:
       default:
         return AiBuiltinToolLoadStrategy.lazy;
     }

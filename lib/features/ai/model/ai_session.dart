@@ -1102,14 +1102,14 @@ class AiSessionStatistics {
   final int? cacheReadTokens;
   final int? reasoningTokens;
 
-  /// 第一轮 prompt 的 token 数，用于排除首轮计算缓存命中率。
-  /// 首轮必然 cache miss（此前无上下文可缓存），将其计入分母会拉低真实命中率。
+  /// 第一轮后台 prompt 的 token 数，主要用于会话累计 Prompt 展示时扣除
+  /// 自动标题等非对话请求；缓存命中率趋势按真实模型请求逐点计算。
   final int? firstPromptTokens;
   final int lastPromptSystemMessageCount;
   final int lastPromptHistoryMessageCount;
 
-  /// 2026-06-08 — 后端预计算的缓存命中率（已排除极端空闲过期 miss + 首轮
-  /// 必然 miss），供 WEB 端、TopBar 胶囊、浮窗统一读取，避免跨端计算口径
+  /// 2026-06-08 — 后端预计算的缓存命中率（逐模型请求聚合，仅排除极端空闲
+  /// 过期 miss），供 WEB 端、TopBar 胶囊、浮窗统一读取，避免跨端计算口径
   /// 漂移。范围 0.0..1.0。无任何 token 数据时为 null。
   final double? cacheHitRatio;
 

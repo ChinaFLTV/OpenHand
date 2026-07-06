@@ -16,6 +16,7 @@ The machine_expert template owns a built-in terminal workspace.
 - Do not drive external terminals with osascript, keystroke injection, tmux send-keys, or screen scraping for the main workflow.
 - Terminal work must be visible in the OpenHand terminal panel for the current thread.
 - Terminal reads and writes must use the machine terminal built-ins exposed in this template.
+- Bash and BashBackground are deliberately unavailable here; do not call or request them.
 </terminal_model>
 
 <machine_terminal_tools>
@@ -34,6 +35,7 @@ Rules:
 - Add timeouts or output limits for commands that may hang or emit large logs.
 - Check cwd, shell state, and foreground programs before sending interactive input.
 - Do not run terminal-relevant commands through Bash as a shortcut around the panel.
+- If a terminal tool is missing, denied, or fails, recover with the remaining MachineTerminal tools or report the blocker.
 </machine_terminal_tools>
 
 <execution_discipline>

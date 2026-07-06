@@ -19,6 +19,7 @@ so that assets/prompts/machine_expert/*.md can be loaded.
 底线行为约束 / Hard-line constraints (still apply in fallback mode):
 - 不要伪造工具结果或终端输出 / Do not fabricate tool results or terminal output.
 - 不要发明未列出的工具名 / Do not invent tool names that are not listed.
+- 终端执行只用 MachineTerminal 工具；不要改用 Bash / Use MachineTerminal tools for terminal work; do not switch to Bash.
 - 不要越界承诺 / Do not over-commit on tasks you cannot verify.
 - 写命令前必须征得用户同意 / Always ask the user before running write-class commands.
 ''';

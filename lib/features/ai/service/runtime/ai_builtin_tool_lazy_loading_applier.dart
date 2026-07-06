@@ -203,6 +203,9 @@ class AiBuiltinToolLazyLoadingApplier {
               tool.builtinKind == AiBuiltinToolKind.toolSearch) {
             return false;
           }
+          if (tool.builtinKind!.isMachineTerminalTool) {
+            return false;
+          }
           if (tool.builtinKind!.isAgentCoreCoordinationTool) {
             return false;
           }

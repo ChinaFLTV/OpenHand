@@ -11679,8 +11679,8 @@ $tail''';
     final trackedSession = _syncPlanHistory(session);
     final resolvedPromptBuildCount =
         promptBuildCount ?? trackedSession.statistics.promptBuildCount;
-    // 首轮 prompt（promptBuildCount==1）必然 cache miss，捕获其 prompt token 数，
-    // 后续计算缓存命中率时从分母中扣除，避免首轮拉低真实命中率。
+    // 捕获首个后台 prompt token 数，供会话累计 Prompt 展示扣除自动标题等
+    // 非对话请求；缓存命中率趋势按真实模型请求逐点计算。
     final resolvedFirstPromptTokens =
         trackedSession.statistics.firstPromptTokens ??
         (resolvedPromptBuildCount == 1 ? effectiveUsage.promptTokens : null);

@@ -21,9 +21,9 @@ class _TokenDial extends StatefulWidget {
   ///
   /// 改为与浮窗完全同一公式：复用
   /// [SessionCacheHitTrend.fromSession] + `excludeExtremeMisses` 模式，
-  /// 排除首轮（turnIndex==1 必然 miss）后再做加权平均。这样 TopBar 胶囊
-  /// 与浮窗"Cache 命中率"始终显示同一数值，避免用户看到 33% vs 50% 这种
-  /// 口径错位。
+  /// 逐次模型请求计算并仅排除长时间空闲导致的缓存过期异常。这样 TopBar
+  /// 胶囊与浮窗"Cache 命中率"始终显示同一数值，避免用户看到 33% vs 50%
+  /// 这种口径错位。
   ///
   /// 优先读取 [AiSessionStatistics.cacheHitRatio]（后端预计算、
   /// SSE 实时推送、WEB 端也直接消费），缺失时回退到客户端重算，保证同一
