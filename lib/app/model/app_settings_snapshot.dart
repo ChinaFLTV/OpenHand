@@ -300,17 +300,18 @@ class AppSettingsSnapshot {
   static const int defaultAiMessageCompressionThresholdChars = 12000;
   static const int minAiMessageCompressionThresholdChars = 2000;
   static const int maxAiMessageCompressionThresholdChars = 1000000;
+  static const IntValueRange _aiMessageCompressionThresholdCharsRange =
+      IntValueRange(
+        fallback: defaultAiMessageCompressionThresholdChars,
+        min: minAiMessageCompressionThresholdChars,
+        max: maxAiMessageCompressionThresholdChars,
+      );
 
   static int normalizeAiMessageCompressionThresholdChars(int value) {
     if (value <= 0) {
       return defaultAiMessageCompressionThresholdChars;
     }
-    return value
-        .clamp(
-          minAiMessageCompressionThresholdChars,
-          maxAiMessageCompressionThresholdChars,
-        )
-        .toInt();
+    return _aiMessageCompressionThresholdCharsRange.normalize(value);
   }
 
   /// 2026-04-27 — 工具调用输出在压缩提示词中的字符上限。
@@ -320,17 +321,18 @@ class AppSettingsSnapshot {
   static const int defaultAiToolResultCompressionThresholdChars = 1024;
   static const int minAiToolResultCompressionThresholdChars = 256;
   static const int maxAiToolResultCompressionThresholdChars = 65536;
+  static const IntValueRange _aiToolResultCompressionThresholdCharsRange =
+      IntValueRange(
+        fallback: defaultAiToolResultCompressionThresholdChars,
+        min: minAiToolResultCompressionThresholdChars,
+        max: maxAiToolResultCompressionThresholdChars,
+      );
 
   static int normalizeAiToolResultCompressionThresholdChars(int value) {
     if (value <= 0) {
       return defaultAiToolResultCompressionThresholdChars;
     }
-    return value
-        .clamp(
-          minAiToolResultCompressionThresholdChars,
-          maxAiToolResultCompressionThresholdChars,
-        )
-        .toInt();
+    return _aiToolResultCompressionThresholdCharsRange.normalize(value);
   }
 
   /// 2026-04-27 — 压缩摘要首尾片段窗口（字符）。越大保留越多 raw
