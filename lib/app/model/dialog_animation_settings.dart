@@ -143,32 +143,64 @@ class DialogAnimationSettings {
 
   factory DialogAnimationSettings.fromJson(Map<String, dynamic>? json) {
     if (json == null) return defaults;
+    final entranceStyle = DialogAnimationStyle.fromStorage(
+      nullIfBlank('${json['entrance_style'] ?? ''}'),
+    );
+    final exitStyle = DialogAnimationStyle.fromStorage(
+      nullIfBlank('${json['exit_style'] ?? ''}'),
+    );
     return DialogAnimationSettings(
-      entranceStyle: DialogAnimationStyle.fromStorage(
-        nullIfBlank('${json['entrance_style'] ?? ''}'),
-      ),
-      exitStyle: DialogAnimationStyle.fromStorage(
-        nullIfBlank('${json['exit_style'] ?? ''}'),
-      ),
-      durationMs: intFromValue(
+      entranceStyle: entranceStyle,
+      exitStyle: exitStyle,
+      durationMs: durationMsFromValue(
         json['duration_ms'],
-        fallback: defaultDurationMs,
+        entranceStyle: entranceStyle,
+        exitStyle: exitStyle,
       ),
       curve: DialogAnimationCurve.fromStorage(
         nullIfBlank('${json['curve'] ?? ''}'),
       ),
-    ).normalized();
+    );
   }
 
   static const int defaultDurationMs = 360;
   static const int minAnimatedDurationMs = 80;
   static const int maxDurationMs = 1200;
+  static const IntValueRange _animatedDurationMsRange = IntValueRange(
+    fallback: defaultDurationMs,
+    min: minAnimatedDurationMs,
+    max: maxDurationMs,
+  );
   static const DialogAnimationSettings legacyFadeScale =
       DialogAnimationSettings();
   static const DialogAnimationSettings defaults = DialogAnimationSettings(
     entranceStyle: DialogAnimationStyle.springScale,
     exitStyle: DialogAnimationStyle.springScale,
   );
+
+  static int durationMsFromValue(
+    Object? value, {
+    required DialogAnimationStyle entranceStyle,
+    required DialogAnimationStyle exitStyle,
+  }) {
+    return normalizeDurationMs(
+      _animatedDurationMsRange.fromValue(value),
+      entranceStyle: entranceStyle,
+      exitStyle: exitStyle,
+    );
+  }
+
+  static int normalizeDurationMs(
+    int durationMs, {
+    required DialogAnimationStyle entranceStyle,
+    required DialogAnimationStyle exitStyle,
+  }) {
+    return _normalizedDurationMs(
+      entranceStyle: entranceStyle,
+      exitStyle: exitStyle,
+      durationMs: durationMs,
+    );
+  }
 
   final DialogAnimationStyle entranceStyle;
   final DialogAnimationStyle exitStyle;
@@ -247,7 +279,7 @@ class DialogAnimationSettings {
     if (disabled) {
       return 0;
     }
-    return durationMs.clamp(minAnimatedDurationMs, maxDurationMs).toInt();
+    return _animatedDurationMsRange.normalize(durationMs);
   }
 }
 
