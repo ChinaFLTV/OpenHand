@@ -1201,6 +1201,14 @@ class _MachineTerminalHistoryMetrics extends StatelessWidget {
 
 enum _MachineTerminalHistoryView { commands, replay }
 
+const int _machineTerminalReplayScrollbackLines = 10000;
+const EdgeInsets _machineTerminalReplayPadding = EdgeInsets.fromLTRB(
+  14,
+  12,
+  14,
+  12,
+);
+
 class _MachineTerminalHistoryDetailDialog extends StatefulWidget {
   const _MachineTerminalHistoryDetailDialog({required this.snapshot});
 
@@ -1213,15 +1221,10 @@ class _MachineTerminalHistoryDetailDialog extends StatefulWidget {
 
 class _MachineTerminalHistoryDetailDialogState
     extends State<_MachineTerminalHistoryDetailDialog> {
-  static const int _replayScrollbackLines = 10000;
   static const double _dialogMaxWidth = 980;
   static const double _dialogMaxHeight = 760;
-  static const EdgeInsets _replayPadding = EdgeInsets.fromLTRB(14, 12, 14, 12);
 
-  late final Terminal _terminal;
   late _MachineTerminalHistoryView _selectedView;
-  final ScrollController _scrollController = ScrollController();
-  final FocusNode _focusNode = FocusNode(debugLabel: 'machine-terminal-replay');
 
   @override
   void initState() {
@@ -1229,18 +1232,6 @@ class _MachineTerminalHistoryDetailDialogState
     _selectedView = widget.snapshot.commandHistory.isEmpty
         ? _MachineTerminalHistoryView.replay
         : _MachineTerminalHistoryView.commands;
-    _terminal = Terminal(
-      maxLines: _replayScrollbackLines,
-      reflowEnabled: false,
-    );
-    _terminal.write(_replayAnsiOutput(widget.snapshot));
-  }
-
-  @override
-  void dispose() {
-    _scrollController.dispose();
-    _focusNode.dispose();
-    super.dispose();
   }
 
   @override
@@ -1380,36 +1371,7 @@ class _MachineTerminalHistoryDetailDialogState
                         ? _MachineTerminalCommandHistoryList(
                             snapshot: widget.snapshot,
                           )
-                        : DecoratedBox(
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF0B0D10),
-                              borderRadius: BorderRadius.circular(14),
-                              border: Border.all(
-                                color: cs.outlineVariant.withValues(
-                                  alpha: 0.34,
-                                ),
-                              ),
-                              boxShadow: <BoxShadow>[
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.20),
-                                  blurRadius: 24,
-                                  offset: const Offset(0, 14),
-                                ),
-                              ],
-                            ),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(14),
-                              child: RepaintBoundary(
-                                child: TerminalView(
-                                  _terminal,
-                                  scrollController: _scrollController,
-                                  focusNode: _focusNode,
-                                  padding: _replayPadding,
-                                  theme: _machineTerminalTheme(),
-                                ),
-                              ),
-                            ),
-                          ),
+                        : _MachineTerminalReplayView(snapshot: widget.snapshot),
                   ),
                 ),
               ),
@@ -1437,6 +1399,113 @@ class _MachineTerminalHistoryDetailDialogState
         ),
       ),
     );
+  }
+}
+
+class _MachineTerminalReplayView extends StatefulWidget {
+  const _MachineTerminalReplayView({required this.snapshot});
+
+  final MachineTerminalSnapshot snapshot;
+
+  @override
+  State<_MachineTerminalReplayView> createState() =>
+      _MachineTerminalReplayViewState();
+}
+
+class _MachineTerminalReplayViewState
+    extends State<_MachineTerminalReplayView> {
+  late Terminal _terminal;
+  final ScrollController _scrollController = ScrollController();
+  final FocusNode _focusNode = FocusNode(debugLabel: 'machine-terminal-replay');
+  bool _replayScheduled = false;
+  String? _renderedReplayKey;
+
+  @override
+  void initState() {
+    super.initState();
+    _terminal = _createTerminal();
+  }
+
+  @override
+  void didUpdateWidget(covariant _MachineTerminalReplayView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (_snapshotReplayIdentity(oldWidget.snapshot) !=
+        _snapshotReplayIdentity(widget.snapshot)) {
+      _terminal = _createTerminal();
+      _renderedReplayKey = null;
+      _replayScheduled = false;
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    _scheduleReplay();
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: const Color(0xFF0B0D10),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.34)),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.20),
+            blurRadius: 24,
+            offset: const Offset(0, 14),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(14),
+        child: RepaintBoundary(
+          child: TerminalView(
+            _terminal,
+            scrollController: _scrollController,
+            focusNode: _focusNode,
+            padding: _machineTerminalReplayPadding,
+            theme: _machineTerminalTheme(),
+            readOnly: true,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Terminal _createTerminal() {
+    return Terminal(maxLines: _machineTerminalReplayScrollbackLines);
+  }
+
+  void _scheduleReplay() {
+    if (_replayScheduled) return;
+    _replayScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _replayScheduled = false;
+      final replayKey = _snapshotReplayIdentity(widget.snapshot);
+      if (_renderedReplayKey == replayKey) return;
+      _terminal.write(_replayAnsiOutput(widget.snapshot));
+      _renderedReplayKey = replayKey;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !_scrollController.hasClients) return;
+        _scrollController.jumpTo(_scrollController.position.minScrollExtent);
+      });
+    });
+  }
+
+  String _snapshotReplayIdentity(MachineTerminalSnapshot snapshot) {
+    return [
+      snapshot.terminalId,
+      snapshot.updatedAt.microsecondsSinceEpoch,
+      snapshot.historyOutputCharacters,
+      snapshot.outputCharacters,
+      snapshot.commandCount,
+    ].join(':');
   }
 }
 

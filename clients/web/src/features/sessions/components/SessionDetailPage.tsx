@@ -2158,6 +2158,7 @@ function MachineTerminalReplayViewport({ terminal }: { terminal: MachineTerminal
   useEffect(() => {
     const root = shellRef.current;
     if (!root) return;
+    const replayOutput = terminalReplayAnsiOutput(terminal);
     const replay = new Terminal({
       allowProposedApi: false,
       convertEol: true,
@@ -2170,15 +2171,44 @@ function MachineTerminalReplayViewport({ terminal }: { terminal: MachineTerminal
       theme: MACHINE_TERMINAL_XTERM_THEME,
     });
     const fit = new FitAddon();
+    let disposed = false;
+    let renderFrame = 0;
+    let renderedSize = '';
     replay.loadAddon(fit);
     replay.open(root);
-    fit.fit();
-    replay.write(terminalReplayAnsiOutput(terminal), () => replay.scrollToTop());
+
+    const renderReplay = () => {
+      if (disposed) return;
+      fit.fit();
+      if (replay.cols <= 0 || replay.rows <= 0) return;
+      const sizeKey = `${replay.cols}x${replay.rows}`;
+      if (renderedSize === sizeKey) return;
+      renderedSize = sizeKey;
+      replay.reset();
+      fit.fit();
+      replay.write(replayOutput, () => {
+        if (!disposed) replay.scrollToTop();
+      });
+    };
+
+    const scheduleRender = () => {
+      if (renderFrame) cancelAnimationFrame(renderFrame);
+      renderFrame = requestAnimationFrame(() => {
+        renderFrame = requestAnimationFrame(() => {
+          renderFrame = 0;
+          renderReplay();
+        });
+      });
+    };
+
     const resizeObserver = typeof ResizeObserver === 'undefined'
       ? null
-      : new ResizeObserver(() => fit.fit());
+      : new ResizeObserver(scheduleRender);
     resizeObserver?.observe(root);
+    scheduleRender();
     return () => {
+      disposed = true;
+      if (renderFrame) cancelAnimationFrame(renderFrame);
       resizeObserver?.disconnect();
       replay.dispose();
     };
