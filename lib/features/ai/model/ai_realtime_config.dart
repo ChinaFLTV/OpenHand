@@ -48,7 +48,9 @@ class AiRealtimeConfig {
       transport: clearTransport ? null : (transport ?? this.transport),
       urlOverride: clearUrlOverride ? null : (urlOverride ?? this.urlOverride),
       voice: clearVoice ? null : (voice ?? this.voice),
-      sampleRate: clearSampleRate ? null : (sampleRate ?? this.sampleRate),
+      sampleRate: clearSampleRate
+          ? null
+          : normalizeSampleRate(sampleRate ?? this.sampleRate),
       inputFormat: clearInputFormat ? null : (inputFormat ?? this.inputFormat),
       outputFormat: clearOutputFormat
           ? null
@@ -64,7 +66,10 @@ class AiRealtimeConfig {
     putIfNotBlank(json, 'transport', transport);
     putIfNotBlank(json, 'url_override', urlOverride);
     putIfNotBlank(json, 'voice', voice);
-    if (sampleRate != null) json['sample_rate'] = sampleRate;
+    final normalizedSampleRate = normalizeSampleRate(sampleRate);
+    if (normalizedSampleRate != null) {
+      json['sample_rate'] = normalizedSampleRate;
+    }
     putIfNotBlank(json, 'input_format', inputFormat);
     putIfNotBlank(json, 'output_format', outputFormat);
     if (sessionDefaults.isNotEmpty) {
@@ -80,10 +85,28 @@ class AiRealtimeConfig {
       transport: optionalStringFromValue(json['transport']),
       urlOverride: optionalStringFromValue(json['url_override']),
       voice: optionalStringFromValue(json['voice']),
-      sampleRate: optionalPositiveIntFromValue(json['sample_rate']),
+      sampleRate: sampleRateFromValue(json['sample_rate']),
       inputFormat: optionalStringFromValue(json['input_format']),
       outputFormat: optionalStringFromValue(json['output_format']),
       sessionDefaults: stringKeyedMapFromValue(json['session_defaults']),
     );
+  }
+
+  static const int minSampleRate = 8000;
+  static const int maxSampleRate = 96000;
+  static const IntValueRange _sampleRateRange = IntValueRange(
+    fallback: minSampleRate,
+    min: minSampleRate,
+    max: maxSampleRate,
+  );
+
+  static int? sampleRateFromValue(Object? value) {
+    final parsed = optionalPositiveIntFromValue(value);
+    return normalizeSampleRate(parsed);
+  }
+
+  static int? normalizeSampleRate(int? value) {
+    if (value == null || value <= 0) return null;
+    return _sampleRateRange.normalize(value);
   }
 }

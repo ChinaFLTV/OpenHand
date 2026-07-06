@@ -30,6 +30,33 @@ void main() {
       );
     });
 
+    test('fromJson clamps sample rate bounds', () {
+      expect(
+        AiRealtimeConfig.fromJson(<String, Object?>{
+          'sample_rate': 1,
+        })!.sampleRate,
+        AiRealtimeConfig.minSampleRate,
+      );
+      expect(
+        AiRealtimeConfig.fromJson(<String, Object?>{
+          'sample_rate': 999999,
+        })!.sampleRate,
+        AiRealtimeConfig.maxSampleRate,
+      );
+    });
+
+    test('copyWith and toJson normalize unsafe sample rates', () {
+      const config = AiRealtimeConfig(sampleRate: 999999);
+      final normalized = config.copyWith();
+
+      expect(normalized.sampleRate, AiRealtimeConfig.maxSampleRate);
+      expect(
+        config.copyWith(sampleRate: 1).sampleRate,
+        AiRealtimeConfig.minSampleRate,
+      );
+      expect(config.toJson()['sample_rate'], AiRealtimeConfig.maxSampleRate);
+    });
+
     test('fromJson accepts json text payloads', () {
       final config = AiRealtimeConfig.fromJson(
         '{"transport":"websocket","sample_rate":16000}',
