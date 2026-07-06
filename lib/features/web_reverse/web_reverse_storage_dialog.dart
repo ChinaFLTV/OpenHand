@@ -9,7 +9,6 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
-import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/ui/resizable_splitter.dart';
 import '../../shared/util/input_value_parsing.dart';
 import 'web_reverse_clipboard.dart';
@@ -200,6 +199,8 @@ class _StorageDialogState extends State<_StorageDialog>
       );
     } catch (err, st) {
       silentLog('web_reverse_storage_dialog', 'storage.copy', err, st);
+      if (!mounted) return;
+      showWebReverseClipboardErrorSnack(context: context, error: err);
       return;
     }
     if (!mounted) return;
@@ -300,21 +301,16 @@ class _StorageDialogState extends State<_StorageDialog>
         httpOnly: httpOnly,
       );
       if (!mounted) return;
-      final m = ScaffoldMessenger.maybeOf(context);
-      if (m != null) {
-        if (success) {
-          OpenHandSnackBar.showSuccessOn(
-            context,
-            m,
-            loc?.webReverseStorageCookieSaved ?? 'Cookie saved',
-          );
-        } else {
-          OpenHandSnackBar.showErrorOn(
-            context,
-            m,
-            loc?.webReverseStorageSaveFailed ?? 'Save failed',
-          );
-        }
+      if (success) {
+        showWebReverseSuccessSnack(
+          context,
+          loc?.webReverseStorageCookieSaved ?? 'Cookie saved',
+        );
+      } else {
+        showWebReverseErrorSnack(
+          context,
+          loc?.webReverseStorageSaveFailed ?? 'Save failed',
+        );
       }
       await _refreshActive();
     } finally {

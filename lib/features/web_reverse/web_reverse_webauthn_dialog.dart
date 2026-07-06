@@ -21,7 +21,6 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
-import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/input_value_parsing.dart';
 import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_select_button.dart';
@@ -119,7 +118,6 @@ class _WebAuthnDialogState extends State<_WebAuthnDialog> {
       _busy = true;
       _lastError = null;
     });
-    final messenger = ScaffoldMessenger.maybeOf(context);
     try {
       final r = await _cdp('WebAuthn.addVirtualAuthenticator', {
         'options': {
@@ -146,10 +144,9 @@ class _WebAuthnDialogState extends State<_WebAuthnDialog> {
               isUserVerified: _newIsVerified,
             ),
           );
-          if (messenger != null && mounted) {
-            OpenHandSnackBar.showSuccessOn(
+          if (mounted) {
+            showWebReverseSuccessSnack(
               context,
-              messenger,
               AppLocalizations.of(context)?.webReverseWebauthnAdded(id) ??
                   'Added $id',
             );

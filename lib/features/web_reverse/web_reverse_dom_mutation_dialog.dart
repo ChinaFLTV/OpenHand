@@ -19,7 +19,6 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
-import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/date_time_format.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/timer_safety.dart';
@@ -155,7 +154,6 @@ class _DomMutationDialogState extends State<_DomMutationDialog> {
   Future<void> _install() async {
     if (_installing || _recording) return;
     setState(() => _installing = true);
-    final messenger = ScaffoldMessenger.maybeOf(context);
     try {
       // 注册到 new document 上 → 刷新后立即生效。
       final reg = await widget.controller.sendRawCdp(
@@ -181,10 +179,9 @@ class _DomMutationDialogState extends State<_DomMutationDialog> {
           _installing = false;
         });
       }
-      if (messenger != null && mounted) {
-        OpenHandSnackBar.showSuccessOn(
+      if (mounted) {
+        showWebReverseSuccessSnack(
           context,
-          messenger,
           AppLocalizations.of(context)?.webReverseDomMutRecordingStarted ??
               'Recording DOM mutations',
         );
@@ -197,10 +194,9 @@ class _DomMutationDialogState extends State<_DomMutationDialog> {
           _recording = false;
         });
       }
-      if (messenger != null && mounted) {
-        OpenHandSnackBar.showErrorOn(
+      if (mounted) {
+        showWebReverseErrorSnack(
           context,
-          messenger,
           AppLocalizations.of(
                 context,
               )?.webReverseDomMutInstallFailed(e.toString()) ??
@@ -285,24 +281,25 @@ class _DomMutationDialogState extends State<_DomMutationDialog> {
 
   Future<void> _exportJson() async {
     final loc = AppLocalizations.of(context);
-    final copied = await setWebReverseClipboardText(
-      const JsonEncoder.withIndent('  ').convert(_records),
-    );
-    if (!mounted) return;
-    final m = ScaffoldMessenger.maybeOf(context);
-    if (m != null) {
-      OpenHandSnackBar.showSuccessOn(
-        context,
-        m,
-        webReverseClipboardSnackMessage(
-          context: context,
-          base:
-              loc?.webReverseDomMutCopiedRecords(_records.length) ??
-              'Copied ${_records.length} records',
-          result: copied,
-        ),
+    late final WebReverseClipboardCopyResult copied;
+    try {
+      copied = await setWebReverseClipboardText(
+        const JsonEncoder.withIndent('  ').convert(_records),
       );
+    } catch (e, st) {
+      silentLog('web_reverse_dom_mutation', 'copy', e, st);
+      if (!mounted) return;
+      showWebReverseClipboardErrorSnack(context: context, error: e);
+      return;
     }
+    if (!mounted) return;
+    showWebReverseClipboardSuccessSnack(
+      context: context,
+      base:
+          loc?.webReverseDomMutCopiedRecords(_records.length) ??
+          'Copied ${_records.length} records',
+      result: copied,
+    );
   }
 
   List<Map<String, Object?>> _filtered() {

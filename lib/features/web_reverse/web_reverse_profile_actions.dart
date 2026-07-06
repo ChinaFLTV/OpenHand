@@ -5,8 +5,8 @@ import 'package:flutter/material.dart';
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
-import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/input_value_parsing.dart';
+import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_profile_cleaner.dart';
 
 /// 渐进式解决 profile 冲突的结果，供 UI 决定是否进入冷却期。
@@ -33,13 +33,11 @@ enum _ProfileToastTone { info, success, error }
 /// 二次校验；只要还有锁就弹窗询问用户是否「重置整个 profile」。重置只对
 /// 含有 `web_reverse` 关键词且长度 ≥ 16 的路径放行，规避误删用户其他目录。
 ///
-/// 该函数会自行通过 [ScaffoldMessenger] 弹反馈 SnackBar，调用方拿到
-/// outcome 即可。
+/// 该函数会自行弹反馈 SnackBar，调用方拿到 outcome 即可。
 Future<ProgressiveProfileOutcome> runProgressiveProfileResolve(
   BuildContext context, {
   required String userDataDir,
 }) async {
-  final messenger = ScaffoldMessenger.of(context);
   final loc = AppLocalizations.of(context);
 
   void toast({
@@ -50,26 +48,11 @@ Future<ProgressiveProfileOutcome> runProgressiveProfileResolve(
     if (!context.mounted) return;
     switch (tone) {
       case _ProfileToastTone.error:
-        OpenHandSnackBar.showErrorOn(
-          context,
-          messenger,
-          text,
-          duration: duration,
-        );
+        showWebReverseErrorSnack(context, text, duration: duration);
       case _ProfileToastTone.success:
-        OpenHandSnackBar.showSuccessOn(
-          context,
-          messenger,
-          text,
-          duration: duration,
-        );
+        showWebReverseSuccessSnack(context, text, duration: duration);
       case _ProfileToastTone.info:
-        OpenHandSnackBar.showInfoOn(
-          context,
-          messenger,
-          text,
-          duration: duration,
-        );
+        showWebReverseInfoSnack(context, text, duration: duration);
     }
   }
 

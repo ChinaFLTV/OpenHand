@@ -24,7 +24,6 @@ import 'package:flutter/material.dart';
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
-import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/text_clip.dart';
 import 'web_reverse_clipboard.dart';
@@ -564,19 +563,22 @@ class _SignatureDiffDialogState extends State<_SignatureDiffDialog> {
     dumpSection('Query', g.queryFields);
     dumpSection('Headers', g.headerFields);
     dumpSection('Body', g.bodyFields);
-    final copied = await setWebReverseClipboardText(buf.toString());
+    late final WebReverseClipboardCopyResult copied;
+    try {
+      copied = await setWebReverseClipboardText(buf.toString());
+    } catch (e, st) {
+      silentLog('web_reverse_signature_diff_dialog', 'copy report', e, st);
+      if (!mounted) return;
+      showWebReverseClipboardErrorSnack(context: context, error: e);
+      return;
+    }
     if (!mounted) return;
-    final messenger = ScaffoldMessenger.of(context);
-    OpenHandSnackBar.showSuccessOn(
-      context,
-      messenger,
-      webReverseClipboardSnackMessage(
-        context: context,
-        base:
-            loc?.webReverseSignatureDiffReportCopied ??
-            'Report copied to clipboard',
-        result: copied,
-      ),
+    showWebReverseClipboardSuccessSnack(
+      context: context,
+      base:
+          loc?.webReverseSignatureDiffReportCopied ??
+          'Report copied to clipboard',
+      result: copied,
     );
   }
 }

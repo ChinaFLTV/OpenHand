@@ -60,6 +60,7 @@ void showWebReverseClipboardSuccessSnack({
   required BuildContext context,
   required String base,
   required WebReverseClipboardCopyResult result,
+  Duration duration = kOpenHandSnackBarSuccessDuration,
 }) {
   if (!context.mounted) return;
   OpenHandSnackBar.showSuccess(
@@ -69,12 +70,14 @@ void showWebReverseClipboardSuccessSnack({
       base: base,
       result: result,
     ),
+    duration: duration,
   );
 }
 
 void showWebReverseClipboardErrorSnack({
   required BuildContext context,
   Object? error,
+  Duration duration = kOpenHandSnackBarErrorDuration,
 }) {
   if (!context.mounted) return;
   final detail = error == null ? '' : ': $error';
@@ -89,6 +92,7 @@ void showWebReverseClipboardErrorSnack({
       de: 'Kopieren fehlgeschlagen$detail',
       ja: 'コピーに失敗しました$detail',
     ),
+    duration: duration,
   );
 }
 
