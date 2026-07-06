@@ -12,7 +12,6 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
-import '../../shared/ui/openhand_snack_bar.dart';
 import 'web_reverse_clipboard.dart';
 import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_session_controller.dart';
@@ -63,14 +62,10 @@ class _ReplDialogState extends State<_ReplDialog> {
     final expr = _input.text.trim();
     if (expr.isEmpty || _busy) return;
     if (expr.length > WebReverseSessionController.maxReplExpressionChars) {
-      final m = ScaffoldMessenger.maybeOf(context);
-      if (m != null) {
-        OpenHandSnackBar.showErrorOn(
-          context,
-          m,
-          'Expression too large: ${expr.length} chars, limit ${WebReverseSessionController.maxReplExpressionChars}',
-        );
-      }
+      showWebReverseErrorSnack(
+        context,
+        'Expression too large: ${expr.length} chars, limit ${WebReverseSessionController.maxReplExpressionChars}',
+      );
       return;
     }
     final noResultLabel =
@@ -156,21 +151,16 @@ class _ReplDialogState extends State<_ReplDialog> {
       copied = await setWebReverseClipboardText(s);
     } catch (e, st) {
       silentLog('web_reverse_repl_dialog', 'repl.copy', e, st);
+      if (!mounted) return;
+      showWebReverseClipboardErrorSnack(context: context, error: e);
       return;
     }
     if (!mounted) return;
-    final m = ScaffoldMessenger.maybeOf(context);
-    if (m != null) {
-      OpenHandSnackBar.showSuccessOn(
-        context,
-        m,
-        webReverseClipboardSnackMessage(
-          context: context,
-          base: AppLocalizations.of(context)?.webReverseReplCopied ?? 'Copied',
-          result: copied,
-        ),
-      );
-    }
+    showWebReverseClipboardSuccessSnack(
+      context: context,
+      base: AppLocalizations.of(context)?.webReverseReplCopied ?? 'Copied',
+      result: copied,
+    );
   }
 
   @override

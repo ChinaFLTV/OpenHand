@@ -14,7 +14,6 @@ import 'package:flutter/material.dart';
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
-import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/date_time_format.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/timer_safety.dart';
@@ -196,14 +195,11 @@ class _JwtRefreshDialogState extends State<_JwtRefreshDialog> {
   Future<void> _doScan() async {
     if (!mounted || _busy) return;
     setState(() => _busy = true);
-    final messenger = ScaffoldMessenger.maybeOf(context);
     try {
       _samples = await _scan();
     } catch (e, st) {
       silentLog('web_reverse_jwt', 'scan', e, st);
-      if (messenger != null && mounted) {
-        OpenHandSnackBar.showErrorOn(context, messenger, '$e');
-      }
+      if (mounted) showWebReverseErrorSnack(context, '$e');
     }
     if (mounted) setState(() => _busy = false);
   }

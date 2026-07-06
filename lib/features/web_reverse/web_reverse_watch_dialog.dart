@@ -17,7 +17,6 @@ import 'package:flutter/services.dart';
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
-import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/date_time_format.dart';
 import '../../shared/util/localized_text.dart';
 import '../../shared/util/text_clip.dart';
@@ -171,7 +170,7 @@ class _WatchDialogState extends State<_WatchDialog> {
 
   void _addExpr() {
     if (_exprs.length >= _kWatchMaxExpressions) {
-      OpenHandSnackBar.showError(
+      showWebReverseErrorSnack(
         context,
         openHandLocalizedText(
           context,
@@ -188,7 +187,7 @@ class _WatchDialogState extends State<_WatchDialog> {
     final code = _newCode.text.trim();
     if (code.isEmpty) return;
     if (code.length > _kWatchMaxExpressionChars) {
-      OpenHandSnackBar.showError(
+      showWebReverseErrorSnack(
         context,
         openHandLocalizedText(
           context,
@@ -246,20 +245,21 @@ class _WatchDialogState extends State<_WatchDialog> {
           )
           .toList(),
     );
-    final copied = await setWebReverseClipboardText(out);
-    if (!mounted) return;
-    final m = ScaffoldMessenger.maybeOf(context);
-    if (m != null) {
-      OpenHandSnackBar.showSuccessOn(
-        context,
-        m,
-        webReverseClipboardSnackMessage(
-          context: context,
-          base: loc?.webReverseWatchCopiedJson ?? 'JSON copied',
-          result: copied,
-        ),
-      );
+    late final WebReverseClipboardCopyResult copied;
+    try {
+      copied = await setWebReverseClipboardText(out);
+    } catch (e, st) {
+      silentLog('web_reverse_watch', 'export', e, st);
+      if (!mounted) return;
+      showWebReverseClipboardErrorSnack(context: context, error: e);
+      return;
     }
+    if (!mounted) return;
+    showWebReverseClipboardSuccessSnack(
+      context: context,
+      base: loc?.webReverseWatchCopiedJson ?? 'JSON copied',
+      result: copied,
+    );
   }
 
   void _pushWatchSample(_WatchExpr expr, String text, bool isError) {

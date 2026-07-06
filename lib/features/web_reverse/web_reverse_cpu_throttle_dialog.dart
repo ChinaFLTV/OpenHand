@@ -13,7 +13,6 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
-import '../../shared/ui/openhand_snack_bar.dart';
 import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_session_controller.dart';
 
@@ -74,6 +73,10 @@ class _CpuThrottleDialogState extends State<_CpuThrottleDialog> {
         _busy = false;
         _status = loc?.webReverseCpuThrottleFailed(err) ?? 'Failed: $err';
       });
+      showWebReverseErrorSnack(
+        context,
+        loc?.webReverseCpuThrottleFailed(err) ?? 'Failed: $err',
+      );
       return;
     }
     setState(() {
@@ -83,17 +86,13 @@ class _CpuThrottleDialogState extends State<_CpuThrottleDialog> {
           : (loc?.webReverseCpuThrottleCurrent(rateStr) ??
                 'CPU throttled $rateStr×');
     });
-    final m = ScaffoldMessenger.maybeOf(context);
-    if (m != null) {
-      OpenHandSnackBar.showSuccessOn(
-        context,
-        m,
-        rate <= 1
-            ? (loc?.webReverseCpuThrottleResetDone ?? 'Reset')
-            : (loc?.webReverseCpuThrottleApplied(rateStr) ??
-                  'Applied $rateStr× throttle'),
-      );
-    }
+    showWebReverseSuccessSnack(
+      context,
+      rate <= 1
+          ? (loc?.webReverseCpuThrottleResetDone ?? 'Reset')
+          : (loc?.webReverseCpuThrottleApplied(rateStr) ??
+                'Applied $rateStr× throttle'),
+    );
   }
 
   @override
