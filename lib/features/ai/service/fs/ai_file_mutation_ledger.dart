@@ -224,43 +224,75 @@ class LedgerConfig {
       unifiedDiffLineSummaryDefaultMiniDiffBytes;
   static const int minMiniDiffMaxBytes = 0;
   static const int maxMiniDiffMaxBytes = 256 * 1024;
+  static const IntValueRange _maxVersionsPerFileRange = IntValueRange(
+    fallback: defaultMaxVersionsPerFile,
+    min: minMaxVersionsPerFile,
+    max: maxMaxVersionsPerFile,
+  );
+  static const IntValueRange _autoCleanupDaysRange = IntValueRange(
+    fallback: defaultAutoCleanupDays,
+    min: minAutoCleanupDays,
+    max: maxAutoCleanupDays,
+  );
+  static const IntValueRange _miniDiffMaxBytesRange = IntValueRange(
+    fallback: defaultMiniDiffMaxBytes,
+    min: minMiniDiffMaxBytes,
+    max: maxMiniDiffMaxBytes,
+  );
+
+  static int maxVersionsPerFileFromValue(Object? value) {
+    return _maxVersionsPerFileRange.fromValue(value);
+  }
+
+  static int normalizeMaxVersionsPerFile(int value) {
+    return _maxVersionsPerFileRange.normalize(value);
+  }
+
+  static int autoCleanupDaysFromValue(Object? value) {
+    return _autoCleanupDaysRange.fromValue(value);
+  }
+
+  static int normalizeAutoCleanupDays(int value) {
+    return _autoCleanupDaysRange.normalize(value);
+  }
+
+  static int miniDiffMaxBytesFromValue(Object? value) {
+    return _miniDiffMaxBytesRange.fromValue(value);
+  }
+
+  static int normalizeMiniDiffMaxBytes(int value) {
+    return _miniDiffMaxBytesRange.normalize(value);
+  }
 
   LedgerConfig copyWith({
     int? maxVersionsPerFile,
     int? autoCleanupDays,
     int? miniDiffMaxBytes,
   }) => LedgerConfig(
-    maxVersionsPerFile: maxVersionsPerFile ?? this.maxVersionsPerFile,
-    autoCleanupDays: autoCleanupDays ?? this.autoCleanupDays,
-    miniDiffMaxBytes: miniDiffMaxBytes ?? this.miniDiffMaxBytes,
+    maxVersionsPerFile: normalizeMaxVersionsPerFile(
+      maxVersionsPerFile ?? this.maxVersionsPerFile,
+    ),
+    autoCleanupDays: normalizeAutoCleanupDays(
+      autoCleanupDays ?? this.autoCleanupDays,
+    ),
+    miniDiffMaxBytes: normalizeMiniDiffMaxBytes(
+      miniDiffMaxBytes ?? this.miniDiffMaxBytes,
+    ),
   );
 
   Map<String, Object?> toJson() => <String, Object?>{
-    'max_versions_per_file': maxVersionsPerFile,
-    'auto_cleanup_days': autoCleanupDays,
-    'mini_diff_max_bytes': miniDiffMaxBytes,
+    'max_versions_per_file': normalizeMaxVersionsPerFile(maxVersionsPerFile),
+    'auto_cleanup_days': normalizeAutoCleanupDays(autoCleanupDays),
+    'mini_diff_max_bytes': normalizeMiniDiffMaxBytes(miniDiffMaxBytes),
   };
 
   static LedgerConfig fromJson(Map<String, Object?> json) {
     return LedgerConfig(
-      maxVersionsPerFile: clampedIntFromValue(
+      maxVersionsPerFile: maxVersionsPerFileFromValue(
         json['max_versions_per_file'],
-        fallback: defaultMaxVersionsPerFile,
-        min: minMaxVersionsPerFile,
-        max: maxMaxVersionsPerFile,
       ),
-      autoCleanupDays: clampedIntFromValue(
-        json['auto_cleanup_days'],
-        fallback: defaultAutoCleanupDays,
-        min: minAutoCleanupDays,
-        max: maxAutoCleanupDays,
-      ),
-      miniDiffMaxBytes: clampedIntFromValue(
-        json['mini_diff_max_bytes'],
-        fallback: defaultMiniDiffMaxBytes,
-        min: minMiniDiffMaxBytes,
-        max: maxMiniDiffMaxBytes,
-      ),
+      autoCleanupDays: autoCleanupDaysFromValue(json['auto_cleanup_days']),
+      miniDiffMaxBytes: miniDiffMaxBytesFromValue(json['mini_diff_max_bytes']),
     );
   }
 }
