@@ -6,10 +6,12 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_pty/flutter_pty.dart';
+import 'package:path/path.dart' as p;
 import 'package:xterm/xterm.dart';
 
 import '../../app/support/openhand_paths.dart';
 import '../../app/support/silent_log.dart';
+import '../../shared/db/atomic_file_operations.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/timer_safety.dart';
 
@@ -41,12 +43,16 @@ const int _maxToolOutputCharacters = 120000;
 const int _maxReplayOutputCharacters = _maxRetainedHistoryCharacters;
 const int _maxCommandHistoryEntries = 80;
 const int _maxCommandHistoryOutputCharacters = 40000;
+const int _maxPersistedTerminalSnapshots = 48;
 const Duration _commandPollInterval = Duration(milliseconds: 80);
 const Duration _metadataPersistDebounce = Duration(milliseconds: 700);
+const Duration _historyPersistDebounce = Duration(milliseconds: 650);
 const Duration _terminalStopGraceDuration = Duration(milliseconds: 900);
 const String _machineTerminalSurface = 'openhand_machine_terminal';
 const String _machineTerminalWorkflow = 'builtin_terminal_panel';
 const String _machineTerminalWorkspacePrefix = 'machine-terminal';
+const String _machineTerminalHistoryFileName = 'machine-terminal-history.json';
+const int _machineTerminalHistoryStorageSchemaVersion = 1;
 
 typedef MachineTerminalMetadataPersister =
     Future<void> Function(String sessionId, Map<String, Object?> metadata);
@@ -154,6 +160,36 @@ class MachineTerminalCommandRecord {
       'completed_at': completedAt.toUtc().toIso8601String(),
       if (error != null) 'error': error,
     };
+  }
+
+  static MachineTerminalCommandRecord? fromJson(
+    Object? value, {
+    required String fallbackTerminalId,
+  }) {
+    final raw = stringKeyedMapFromValue(value);
+    final command = '${raw['command'] ?? ''}';
+    if (raw.isEmpty || command.trim().isEmpty) return null;
+    final terminalId =
+        nullIfBlank('${raw['terminal_id'] ?? ''}') ?? fallbackTerminalId;
+    final now = DateTime.now();
+    final startedAt = utcDateTimeFromValue(raw['started_at'])?.toLocal() ?? now;
+    final completedAt =
+        utcDateTimeFromValue(raw['completed_at'])?.toLocal() ?? startedAt;
+    return MachineTerminalCommandRecord(
+      id: nullIfBlank('${raw['id'] ?? ''}') ?? 'cmd-restored',
+      terminalId: terminalId,
+      command: command,
+      output: _clipString(
+        '${raw['output'] ?? ''}',
+        _maxCommandHistoryOutputCharacters,
+      ),
+      startedAt: startedAt,
+      completedAt: completedAt,
+      durationMs: optionalIntFromValue(raw['duration_ms']) ?? 0,
+      exitCode: optionalIntFromValue(raw['exit_code']),
+      timedOut: boolFromValue(raw['timed_out']),
+      error: nullIfBlank('${raw['error'] ?? ''}'),
+    );
   }
 }
 
@@ -428,6 +464,11 @@ class MachineTerminalService extends ChangeNotifier {
   final Map<String, Timer> _metadataPersistTimers = <String, Timer>{};
   final Map<String, Future<void>> _metadataPersistChains =
       <String, Future<void>>{};
+  final Map<String, Timer> _historyPersistTimers = <String, Timer>{};
+  final Map<String, Future<void>> _historyPersistChains =
+      <String, Future<void>>{};
+  final Map<String, String> _lastPersistedHistoryDigestBySession =
+      <String, String>{};
 
   int _terminalCounter = 0;
   int _commandCounter = 0;
@@ -477,6 +518,7 @@ class MachineTerminalService extends ChangeNotifier {
     }
     if (start && isNewWorkspace) {
       _scheduleMetadataPersist(workspace.sessionId);
+      _scheduleHistoryPersist(workspace.sessionId);
     }
     return workspace.snapshot();
   }
@@ -494,12 +536,24 @@ class MachineTerminalService extends ChangeNotifier {
     if (normalizedSessionId == null) return;
     _metadataPersistTimers.remove(normalizedSessionId)?.cancel();
     _metadataPersistChains.remove(normalizedSessionId);
+    _historyPersistTimers.remove(normalizedSessionId)?.cancel();
+    final pendingHistoryPersist = _historyPersistChains.remove(
+      normalizedSessionId,
+    );
     _lastPersistedMetadataDigestBySession.remove(normalizedSessionId);
+    _lastPersistedHistoryDigestBySession.remove(normalizedSessionId);
     _metadataCreatedAtBySession.remove(normalizedSessionId);
     _metadataWorkingDirectoryBySession.remove(normalizedSessionId);
     final workspace = _workspaces.remove(normalizedSessionId);
-    if (workspace == null) return;
-    await workspace.shutdown();
+    if (workspace != null) {
+      await workspace.shutdown();
+    }
+    if (pendingHistoryPersist != null) {
+      await pendingHistoryPersist.catchError((Object error, StackTrace stack) {
+        silentLog('machine_terminal', 'dispose history persist', error, stack);
+      });
+    }
+    await _deleteWorkspaceHistoryFile(normalizedSessionId);
     _notifyListenersSafely();
   }
 
@@ -523,6 +577,7 @@ class MachineTerminalService extends ChangeNotifier {
       _startTerminalSoon(terminal);
     }
     _scheduleMetadataPersist(workspace.sessionId);
+    _scheduleHistoryPersist(workspace.sessionId);
     return terminal;
   }
 
@@ -547,6 +602,7 @@ class MachineTerminalService extends ChangeNotifier {
     final workspace = _requireWorkspace(sessionId);
     workspace.select(terminalId);
     _scheduleMetadataPersist(workspace.sessionId);
+    _scheduleHistoryPersist(workspace.sessionId);
     _notifyListenersSafely();
   }
 
@@ -569,6 +625,7 @@ class MachineTerminalService extends ChangeNotifier {
       );
     }
     _scheduleMetadataPersist(workspace.sessionId);
+    _scheduleHistoryPersist(workspace.sessionId);
     _notifyListenersSafely();
   }
 
@@ -579,6 +636,7 @@ class MachineTerminalService extends ChangeNotifier {
     final terminal = _requireTerminal(sessionId, terminalId);
     await terminal.start();
     _scheduleMetadataPersist(terminal.sessionId);
+    _scheduleHistoryPersist(terminal.sessionId);
   }
 
   Future<void> stopTerminal({
@@ -589,6 +647,7 @@ class MachineTerminalService extends ChangeNotifier {
     final terminal = _requireTerminal(sessionId, terminalId);
     await terminal.stop(force: force);
     _scheduleMetadataPersist(terminal.sessionId);
+    _scheduleHistoryPersist(terminal.sessionId);
   }
 
   Future<void> restartTerminal({
@@ -598,12 +657,14 @@ class MachineTerminalService extends ChangeNotifier {
     final terminal = _requireTerminal(sessionId, terminalId);
     await terminal.restart();
     _scheduleMetadataPersist(terminal.sessionId);
+    _scheduleHistoryPersist(terminal.sessionId);
   }
 
   void clearTerminal({required String sessionId, String? terminalId}) {
     final terminal = _requireTerminal(sessionId, terminalId);
     terminal.clear();
     _scheduleMetadataPersist(terminal.sessionId);
+    _scheduleHistoryPersist(terminal.sessionId);
   }
 
   void resizeTerminal({
@@ -615,6 +676,7 @@ class MachineTerminalService extends ChangeNotifier {
     final terminal = _requireTerminal(sessionId, terminalId);
     terminal.resize(columns: columns, rows: rows);
     _scheduleMetadataPersist(terminal.sessionId);
+    _scheduleHistoryPersist(terminal.sessionId);
   }
 
   Future<void> writeInput({
@@ -633,6 +695,7 @@ class MachineTerminalService extends ChangeNotifier {
     if (started) {
       _scheduleMetadataPersist(terminal.sessionId);
     }
+    _scheduleHistoryPersist(terminal.sessionId);
   }
 
   Future<MachineTerminalCommandResult> executeCommand({
@@ -665,6 +728,7 @@ class MachineTerminalService extends ChangeNotifier {
       timeout: timeout,
     );
     _scheduleMetadataPersist(terminal.sessionId);
+    _scheduleHistoryPersist(terminal.sessionId);
     return result;
   }
 
@@ -774,9 +838,18 @@ class MachineTerminalService extends ChangeNotifier {
     for (final timer in _metadataPersistTimers.values) {
       timer.cancel();
     }
+    for (final timer in _historyPersistTimers.values) {
+      timer.cancel();
+    }
+    for (final sessionId in _workspaces.keys.toList(growable: false)) {
+      unawaited(_persistWorkspaceHistoryNow(sessionId));
+    }
     _metadataPersistTimers.clear();
     _metadataPersistChains.clear();
+    _historyPersistTimers.clear();
+    _historyPersistChains.clear();
     _lastPersistedMetadataDigestBySession.clear();
+    _lastPersistedHistoryDigestBySession.clear();
     _metadataCreatedAtBySession.clear();
     _metadataWorkingDirectoryBySession.clear();
     for (final workspace in _workspaces.values) {
@@ -813,12 +886,18 @@ class MachineTerminalService extends ChangeNotifier {
   }) {
     final normalizedSessionId = _normalizeSessionId(sessionId);
     return _workspaces.putIfAbsent(normalizedSessionId, () {
+      final defaultWorkingDirectory =
+          nullIfBlank(workingDirectory) ??
+          _metadataWorkingDirectoryBySession[normalizedSessionId] ??
+          OpenHandPaths.applicationDirectoryPath();
+      final restored = _restoreWorkspaceFromDisk(
+        sessionId: normalizedSessionId,
+        defaultWorkingDirectory: defaultWorkingDirectory,
+      );
+      if (restored != null) return restored;
       final workspace = _MachineTerminalWorkspace(
         sessionId: normalizedSessionId,
-        defaultWorkingDirectory:
-            nullIfBlank(workingDirectory) ??
-            _metadataWorkingDirectoryBySession[normalizedSessionId] ??
-            OpenHandPaths.applicationDirectoryPath(),
+        defaultWorkingDirectory: defaultWorkingDirectory,
       );
       workspace.add(
         _createTerminal(
@@ -850,18 +929,33 @@ class MachineTerminalService extends ChangeNotifier {
   MachineTerminalSession _createTerminal({
     required String sessionId,
     required String workingDirectory,
+    String? id,
   }) {
-    final id = 'term-${++_terminalCounter}';
+    final terminalId = nullIfBlank(id) ?? 'term-${++_terminalCounter}';
+    _rememberTerminalIdForCounter(terminalId);
     final shell = _resolveShellExecutable();
     final terminal = MachineTerminalSession(
-      id: id,
+      id: terminalId,
       sessionId: sessionId,
-      identity: 'machine-$id',
+      identity: 'machine-$terminalId',
       shell: shell,
       workingDirectory: workingDirectory,
-      onChanged: _notifyListenersSafely,
+      onChanged: () => _handleTerminalChanged(sessionId),
     );
     return terminal;
+  }
+
+  void _rememberTerminalIdForCounter(String terminalId) {
+    final match = RegExp(r'^term-(\d+)$').firstMatch(terminalId);
+    final value = optionalIntFromValue(match?.group(1));
+    if (value != null && value > _terminalCounter) {
+      _terminalCounter = value;
+    }
+  }
+
+  void _handleTerminalChanged(String sessionId) {
+    _notifyListenersSafely();
+    _scheduleHistoryPersist(sessionId);
   }
 
   void _startTerminalSoon(MachineTerminalSession terminal) {
@@ -895,6 +989,198 @@ class MachineTerminalService extends ChangeNotifier {
             _metadataWorkingDirectoryBySession[sessionId],
     };
     return seed.isEmpty ? null : seed;
+  }
+
+  _MachineTerminalWorkspace? _restoreWorkspaceFromDisk({
+    required String sessionId,
+    required String defaultWorkingDirectory,
+  }) {
+    final file = _workspaceHistoryFile(sessionId);
+    try {
+      _recoverAtomicWriteBackupIfNeededSync(file);
+      if (!file.existsSync()) return null;
+      final decoded = jsonDecode(file.readAsStringSync());
+      final raw = stringKeyedMapFromValue(decoded);
+      final terminalsJson = raw['terminals'];
+      if (terminalsJson is! List || terminalsJson.isEmpty) return null;
+      final workspace = _MachineTerminalWorkspace(
+        sessionId: sessionId,
+        defaultWorkingDirectory: defaultWorkingDirectory,
+      );
+      final retained = terminalsJson.take(_maxPersistedTerminalSnapshots);
+      for (final item in retained) {
+        final terminalJson = stringKeyedMapFromValue(item);
+        final terminalId = nullIfBlank('${terminalJson['terminal_id'] ?? ''}');
+        if (terminalId == null) continue;
+        final terminal = _createTerminal(
+          sessionId: sessionId,
+          workingDirectory:
+              nullIfBlank('${terminalJson['working_directory'] ?? ''}') ??
+              defaultWorkingDirectory,
+          id: terminalId,
+        )..restoreFromJson(terminalJson);
+        workspace.add(terminal, activate: false);
+      }
+      if (workspace.terminals.isEmpty) return null;
+      final activeTerminalId = nullIfBlank(
+        '${raw['active_terminal_id'] ?? ''}',
+      );
+      if (activeTerminalId != null) {
+        workspace.select(activeTerminalId);
+      }
+      if (workspace.activeTerminalId.isEmpty) {
+        workspace.activeTerminalId = workspace.terminals.last.id;
+      }
+      _lastPersistedHistoryDigestBySession[sessionId] = jsonEncode(raw);
+      return workspace;
+    } catch (error, stack) {
+      silentLog('machine_terminal', 'restore terminal history', error, stack);
+      return null;
+    }
+  }
+
+  void _scheduleHistoryPersist(String sessionId) {
+    final normalizedSessionId = nullIfBlank(sessionId);
+    if (normalizedSessionId == null || _isDisposed) return;
+    _historyPersistTimers[normalizedSessionId]?.cancel();
+    _historyPersistTimers[normalizedSessionId] = startSafeTimer(
+      _historyPersistDebounce,
+      () {
+        _historyPersistTimers.remove(normalizedSessionId);
+        final previous =
+            _historyPersistChains[normalizedSessionId] ?? Future<void>.value();
+        late final Future<void> tracked;
+        tracked = previous
+            .catchError((Object error, StackTrace stack) {
+              silentLog(
+                'machine_terminal',
+                'history persist queue',
+                error,
+                stack,
+              );
+            })
+            .then((_) => _persistWorkspaceHistoryNow(normalizedSessionId))
+            .whenComplete(() {
+              if (identical(
+                _historyPersistChains[normalizedSessionId],
+                tracked,
+              )) {
+                _historyPersistChains.remove(normalizedSessionId);
+              }
+            });
+        _historyPersistChains[normalizedSessionId] = tracked;
+      },
+      onError: (error, stack) => silentLog(
+        'machine_terminal',
+        'schedule history persist',
+        error,
+        stack,
+      ),
+    );
+  }
+
+  Future<void> _persistWorkspaceHistoryNow(String sessionId) async {
+    final workspace = _workspaces[sessionId];
+    if (workspace == null) return;
+    final snapshot = workspace.snapshot();
+    final terminals = _retainedPersistedTerminals(snapshot.terminals);
+    final payload = <String, Object?>{
+      'schema_version': _machineTerminalHistoryStorageSchemaVersion,
+      'session_id': snapshot.sessionId,
+      'active_terminal_id': snapshot.activeTerminalId,
+      'updated_at': DateTime.now().toUtc().toIso8601String(),
+      'terminals': terminals
+          .map((terminal) => terminal.toJson())
+          .toList(growable: false),
+    };
+    final content = '${jsonEncode(payload)}\n';
+    if (_lastPersistedHistoryDigestBySession[sessionId] == content) return;
+    try {
+      await writeFileAtomically(_workspaceHistoryFile(sessionId), content);
+      _lastPersistedHistoryDigestBySession[sessionId] = content;
+    } catch (error, stack) {
+      silentLog('machine_terminal', 'persist terminal history', error, stack);
+    }
+  }
+
+  List<MachineTerminalSnapshot> _retainedPersistedTerminals(
+    List<MachineTerminalSnapshot> terminals,
+  ) {
+    if (terminals.length <= _maxPersistedTerminalSnapshots) {
+      return terminals;
+    }
+    final byRecent = List<MachineTerminalSnapshot>.from(terminals)
+      ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    final retainedIds = byRecent
+        .take(_maxPersistedTerminalSnapshots)
+        .map((terminal) => terminal.terminalId)
+        .toSet();
+    return terminals
+        .where((terminal) => retainedIds.contains(terminal.terminalId))
+        .toList(growable: false);
+  }
+
+  Future<void> _deleteWorkspaceHistoryFile(String sessionId) async {
+    final file = _workspaceHistoryFile(sessionId);
+    try {
+      if (await file.exists()) {
+        await file.delete();
+      }
+    } catch (error, stack) {
+      silentLog(
+        'machine_terminal',
+        'delete terminal history file',
+        error,
+        stack,
+      );
+    }
+  }
+
+  File _workspaceHistoryFile(String sessionId) {
+    return File(
+      p.join(
+        OpenHandPaths.defaultSessionsDirectoryPath(),
+        _safeSessionStorageSegment(sessionId),
+        _machineTerminalHistoryFileName,
+      ),
+    );
+  }
+
+  void _recoverAtomicWriteBackupIfNeededSync(File targetFile) {
+    final tempFile = File('${targetFile.path}.tmp');
+    final backupFile = File('${targetFile.path}.bak');
+    if (targetFile.existsSync()) {
+      if (tempFile.existsSync()) {
+        try {
+          tempFile.deleteSync();
+        } on FileSystemException {
+          // Best-effort cleanup only.
+        }
+      }
+      if (backupFile.existsSync()) {
+        try {
+          backupFile.deleteSync();
+        } on FileSystemException {
+          // Best-effort cleanup only.
+        }
+      }
+      return;
+    }
+    if (tempFile.existsSync()) {
+      try {
+        tempFile.renameSync(targetFile.path);
+        return;
+      } on FileSystemException {
+        try {
+          tempFile.deleteSync();
+        } on FileSystemException {
+          // Best-effort cleanup only.
+        }
+      }
+    }
+    if (backupFile.existsSync()) {
+      backupFile.renameSync(targetFile.path);
+    }
   }
 
   void _scheduleMetadataPersist(String sessionId) {
@@ -1041,6 +1327,45 @@ class MachineTerminalSession {
       exitCode: _exitCode,
       errorMessage: _errorMessage,
     );
+  }
+
+  void restoreFromJson(Map<String, Object?> raw) {
+    _rows = _coerceRows(optionalIntFromValue(raw['rows']) ?? _defaultRows);
+    _columns = _coerceColumns(
+      optionalIntFromValue(raw['columns']) ?? _defaultColumns,
+    );
+    terminal.resize(_columns, _rows);
+    _output = _clipString(
+      '${raw['ansi_output'] ?? raw['output'] ?? ''}',
+      _maxRetainedOutputCharacters,
+    );
+    final history =
+        '${raw['history_ansi_output'] ?? raw['history_output'] ?? _output}';
+    _historyOutput = _clipString(
+      history.trim().isEmpty ? _welcomeBanner() : history,
+      _maxRetainedHistoryCharacters,
+    );
+    _commandHistory
+      ..clear()
+      ..addAll(
+        _restoredCommandHistory(raw['command_history'], fallbackTerminalId: id),
+      );
+    _commandSequence = math.max(
+      optionalIntFromValue(raw['command_count']) ?? _commandHistory.length,
+      _maxRestoredCommandSequence(_commandHistory),
+    );
+    final now = DateTime.now();
+    _startedAt = utcDateTimeFromValue(raw['started_at'])?.toLocal() ?? now;
+    _updatedAt =
+        utcDateTimeFromValue(raw['updated_at'])?.toLocal() ?? _startedAt;
+    _status = _restorableStatusFromValue(raw['status']);
+    _pid = null;
+    _exitCode = optionalIntFromValue(raw['exit_code']);
+    _errorMessage = nullIfBlank('${raw['error_message'] ?? ''}');
+    final visibleOutput = _output.trim().isEmpty
+        ? _clipString(_historyOutput, _maxToolOutputCharacters)
+        : _output;
+    terminal.write('\x1b[2J\x1b[H$visibleOutput');
   }
 
   Future<void> start() async {
@@ -1414,9 +1739,11 @@ class _MachineTerminalWorkspace {
 
   MachineTerminalSession? get activeTerminal => terminalById(activeTerminalId);
 
-  void add(MachineTerminalSession terminal) {
+  void add(MachineTerminalSession terminal, {bool activate = true}) {
     terminals.add(terminal);
-    activeTerminalId = terminal.id;
+    if (activate || activeTerminalId.isEmpty) {
+      activeTerminalId = terminal.id;
+    }
   }
 
   void remove(String terminalId) {
@@ -1472,6 +1799,60 @@ class _ParsedCommandOutput {
 
   final String output;
   final int? exitCode;
+}
+
+List<MachineTerminalCommandRecord> _restoredCommandHistory(
+  Object? value, {
+  required String fallbackTerminalId,
+}) {
+  if (value is! List) return const <MachineTerminalCommandRecord>[];
+  final records = <MachineTerminalCommandRecord>[];
+  for (final item in value) {
+    final record = MachineTerminalCommandRecord.fromJson(
+      item,
+      fallbackTerminalId: fallbackTerminalId,
+    );
+    if (record != null) {
+      records.add(record);
+    }
+  }
+  if (records.length <= _maxCommandHistoryEntries) {
+    return records;
+  }
+  return records.sublist(records.length - _maxCommandHistoryEntries);
+}
+
+int _maxRestoredCommandSequence(List<MachineTerminalCommandRecord> records) {
+  var maxSequence = 0;
+  final pattern = RegExp(r'^cmd-(\d+)$');
+  for (final record in records) {
+    final match = pattern.firstMatch(record.id);
+    final value = optionalIntFromValue(match?.group(1));
+    if (value != null && value > maxSequence) {
+      maxSequence = value;
+    }
+  }
+  return maxSequence;
+}
+
+MachineTerminalStatus _restorableStatusFromValue(Object? value) {
+  final status = switch ('${value ?? ''}'.trim().toLowerCase()) {
+    'starting' => MachineTerminalStatus.starting,
+    'running' => MachineTerminalStatus.running,
+    'stopped' => MachineTerminalStatus.stopped,
+    'failed' => MachineTerminalStatus.failed,
+    _ => MachineTerminalStatus.idle,
+  };
+  return switch (status) {
+    MachineTerminalStatus.starting ||
+    MachineTerminalStatus.running => MachineTerminalStatus.stopped,
+    _ => status,
+  };
+}
+
+String _safeSessionStorageSegment(String sessionId) {
+  final normalized = _normalizeSessionId(sessionId);
+  return normalized.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
 }
 
 String _resolveShellExecutable() {
