@@ -31,4 +31,18 @@ void main() {
       kCronMaxRetryDelaySeconds,
     );
   });
+
+  test('cron entry fromJson clamps runtime integer bounds', () {
+    final entry = CronEntry.fromJson(<String, Object?>{
+      'id': 'cron-1',
+      'name': 'Cron',
+      'retry_count': kCronMaxRetryCount + 100,
+      'timeout_seconds': 0,
+      'max_retry_delay_seconds': kCronMaxRetryDelaySeconds + 100,
+    });
+
+    expect(entry.retryCount, kCronMaxRetryCount);
+    expect(entry.timeoutSeconds, kCronMinTimeoutSeconds);
+    expect(entry.maxRetryDelaySeconds, kCronMaxRetryDelaySeconds);
+  });
 }
