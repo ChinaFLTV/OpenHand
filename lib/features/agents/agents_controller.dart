@@ -831,12 +831,12 @@ class AgentsController extends ManagedChangeNotifier {
       final now = DateTime.now().toUtc();
       final normalized = usage.copyWith(
         cpuPercent: clampUnitInterval(usage.cpuPercent),
-        memoryBytes: math.max(0, usage.memoryBytes),
-        diskBytes: math.max(0, usage.diskBytes),
-        persistedBytes: math.max(0, usage.persistedBytes),
-        tokenBudget: math.max(0, usage.tokenBudget),
-        tokenUsed: math.max(0, usage.tokenUsed),
-        openHandles: math.max(0, usage.openHandles),
+        memoryBytes: _nonNegativeAgentMetric(usage.memoryBytes),
+        diskBytes: _nonNegativeAgentMetric(usage.diskBytes),
+        persistedBytes: _nonNegativeAgentMetric(usage.persistedBytes),
+        tokenBudget: _nonNegativeAgentMetric(usage.tokenBudget),
+        tokenUsed: _nonNegativeAgentMetric(usage.tokenUsed),
+        openHandles: _nonNegativeAgentMetric(usage.openHandles),
         extra: usage.publicExtra,
       );
       final metadata = <String, Object?>{
@@ -937,8 +937,8 @@ class AgentsController extends ManagedChangeNotifier {
         kind: normalizedKind,
         summary: trimmedSummary,
         toolName: normalizedToolName,
-        tokenUsage: math.max(0, tokenUsage),
-        requestCount: math.max(0, requestCount),
+        tokenUsage: _nonNegativeAgentMetric(tokenUsage),
+        requestCount: _nonNegativeAgentMetric(requestCount),
         createdAt: now,
         metadata: <String, Object?>{...metadata, 'recorded_by': auditToolName},
       );
@@ -1231,12 +1231,12 @@ class AgentsController extends ManagedChangeNotifier {
       manualMemoryBytes,
       derivedMemoryBytes,
     );
-    final normalizedDiskBytes = math.max(0, usage.diskBytes);
+    final normalizedDiskBytes = _nonNegativeAgentMetric(usage.diskBytes);
     final normalizedPersistedBytes = math.max(
       manualPersistedBytes,
       derivedPersistedBytes,
     );
-    final normalizedTokenBudget = math.max(0, usage.tokenBudget);
+    final normalizedTokenBudget = _nonNegativeAgentMetric(usage.tokenBudget);
     final normalizedTokenUsed = math.max(manualTokenUsed, derivedTokenUsed);
     final normalizedOpenHandles = math.max(
       manualOpenHandles,
@@ -1339,10 +1339,14 @@ class AgentsController extends ManagedChangeNotifier {
     Map<String, Object?> telemetry,
     String key,
   ) {
-    final normalized = math.max(0, value);
+    final normalized = _nonNegativeAgentMetric(value);
     final previousAuto = optionalNonNegativeIntFromValue(telemetry[key]);
     if (previousAuto != null && normalized == previousAuto) return 0;
     return normalized;
+  }
+
+  int _nonNegativeAgentMetric(int value) {
+    return nonNegativeIntFromValue(value, fallback: 0);
   }
 
   int _taskPayloadTokenEstimate(AgentTask task) {

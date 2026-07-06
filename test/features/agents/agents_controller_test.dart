@@ -85,6 +85,61 @@ void main() {
         expect(trimmedHistory.last, containsPair('token_used', 39));
       },
     );
+
+    test('normalizes negative manual metrics and audit counters', () async {
+      final controller = await _createTempController();
+
+      expect(
+        await controller.saveAgent(
+          const AgentProfile(id: 'agent-negative', name: 'Negative Agent'),
+        ),
+        isTrue,
+      );
+      expect(
+        await controller.saveResourceUsage(
+          'agent-negative',
+          const AgentResourceUsage(
+            cpuPercent: -0.5,
+            memoryBytes: -1,
+            diskBytes: -2,
+            persistedBytes: -3,
+            tokenBudget: -4,
+            tokenUsed: -5,
+            openHandles: -6,
+            extra: <String, Object?>{
+              'public_note': 'kept',
+              _resourceTelemetryExtraKey: <String, Object?>{'leak': true},
+            },
+          ),
+        ),
+        isTrue,
+      );
+
+      final usage = controller.agents.single.resourceUsage;
+      expect(usage.cpuPercent, 0);
+      expect(usage.memoryBytes, 0);
+      expect(usage.diskBytes, 0);
+      expect(usage.tokenBudget, 0);
+      expect(usage.tokenUsed, 0);
+      expect(usage.openHandles, 0);
+      expect(usage.extra['public_note'], 'kept');
+      final telemetry =
+          usage.extra[_resourceTelemetryExtraKey] as Map<String, Object?>;
+      expect(telemetry.containsKey('leak'), isFalse);
+
+      final audit = await controller.recordAuditEvent(
+        'agent-negative',
+        kind: '',
+        summary: 'Recorded',
+        tokenUsage: -9,
+        requestCount: -2,
+      );
+
+      expect(audit, isNotNull);
+      expect(audit!.kind, 'audit');
+      expect(audit.tokenUsage, 0);
+      expect(audit.requestCount, 0);
+    });
   });
 }
 
