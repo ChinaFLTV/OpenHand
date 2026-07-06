@@ -299,12 +299,10 @@ class AiTranslationSettings {
             optionalStringFromValue(json['target_language']),
           ) ??
           defaultTargetLanguage,
-      timeoutSeconds:
-          optionalIntFromValue(json['timeout_seconds']) ??
-          defaultTimeoutSeconds,
-      maxTextCharacters:
-          optionalIntFromValue(json['max_text_characters']) ??
-          defaultMaxTextCharacters,
+      timeoutSeconds: timeoutSecondsFromValue(json['timeout_seconds']),
+      maxTextCharacters: maxTextCharactersFromValue(
+        json['max_text_characters'],
+      ),
       providers: providers,
       providerPriority: _normalizePriority(priority),
     ).normalized();
@@ -318,6 +316,16 @@ class AiTranslationSettings {
   static const int defaultMaxTextCharacters = 6000;
   static const int minMaxTextCharacters = 20;
   static const int maxMaxTextCharacters = 30000;
+  static const IntValueRange _timeoutSecondsRange = IntValueRange(
+    fallback: defaultTimeoutSeconds,
+    min: minTimeoutSeconds,
+    max: maxTimeoutSeconds,
+  );
+  static const IntValueRange _maxTextCharactersRange = IntValueRange(
+    fallback: defaultMaxTextCharacters,
+    min: minMaxTextCharacters,
+    max: maxMaxTextCharacters,
+  );
   static const List<AiTranslationProvider> defaultProviderPriority =
       <AiTranslationProvider>[
         AiTranslationProvider.ai,
@@ -354,6 +362,22 @@ class AiTranslationSettings {
     'da',
   };
 
+  static int timeoutSecondsFromValue(Object? value) {
+    return _timeoutSecondsRange.fromValue(value);
+  }
+
+  static int normalizeTimeoutSeconds(int value) {
+    return _timeoutSecondsRange.normalize(value);
+  }
+
+  static int maxTextCharactersFromValue(Object? value) {
+    return _maxTextCharactersRange.fromValue(value);
+  }
+
+  static int normalizeMaxTextCharacters(int value) {
+    return _maxTextCharactersRange.normalize(value);
+  }
+
   final bool enabled;
   final String sourceLanguage;
   final String targetLanguage;
@@ -375,8 +399,12 @@ class AiTranslationSettings {
       enabled: enabled ?? this.enabled,
       sourceLanguage: sourceLanguage ?? this.sourceLanguage,
       targetLanguage: targetLanguage ?? this.targetLanguage,
-      timeoutSeconds: timeoutSeconds ?? this.timeoutSeconds,
-      maxTextCharacters: maxTextCharacters ?? this.maxTextCharacters,
+      timeoutSeconds: normalizeTimeoutSeconds(
+        timeoutSeconds ?? this.timeoutSeconds,
+      ),
+      maxTextCharacters: normalizeMaxTextCharacters(
+        maxTextCharacters ?? this.maxTextCharacters,
+      ),
       providers: providers ?? this.providers,
       providerPriority: providerPriority ?? this.providerPriority,
     );
@@ -401,12 +429,8 @@ class AiTranslationSettings {
       targetLanguage: normalizedTarget == 'auto'
           ? defaultTargetLanguage
           : normalizedTarget,
-      timeoutSeconds: timeoutSeconds
-          .clamp(minTimeoutSeconds, maxTimeoutSeconds)
-          .toInt(),
-      maxTextCharacters: maxTextCharacters
-          .clamp(minMaxTextCharacters, maxMaxTextCharacters)
-          .toInt(),
+      timeoutSeconds: normalizeTimeoutSeconds(timeoutSeconds),
+      maxTextCharacters: normalizeMaxTextCharacters(maxTextCharacters),
       providers:
           Map<
             AiTranslationProvider,
@@ -428,8 +452,8 @@ class AiTranslationSettings {
       'enabled': enabled,
       'source_language': sourceLanguage,
       'target_language': targetLanguage,
-      'timeout_seconds': timeoutSeconds,
-      'max_text_characters': maxTextCharacters,
+      'timeout_seconds': normalizeTimeoutSeconds(timeoutSeconds),
+      'max_text_characters': normalizeMaxTextCharacters(maxTextCharacters),
       'provider_priority': providerPriority
           .map((provider) => provider.storageKey)
           .toList(growable: false),

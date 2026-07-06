@@ -431,12 +431,10 @@ class AiTtsSettings {
         : defaultProviderPriority;
     return AiTtsSettings(
       enabled: boolFromValue(json['enabled']),
-      timeoutSeconds:
-          optionalIntFromValue(json['timeout_seconds']) ??
-          defaultTimeoutSeconds,
-      maxTextCharacters:
-          optionalIntFromValue(json['max_text_characters']) ??
-          defaultMaxTextCharacters,
+      timeoutSeconds: timeoutSecondsFromValue(json['timeout_seconds']),
+      maxTextCharacters: maxTextCharactersFromValue(
+        json['max_text_characters'],
+      ),
       providers: providers,
       providerPriority: _normalizePriority(priority),
     ).normalized();
@@ -448,6 +446,16 @@ class AiTtsSettings {
   static const int defaultMaxTextCharacters = 4000;
   static const int minMaxTextCharacters = 20;
   static const int maxMaxTextCharacters = 20000;
+  static const IntValueRange _timeoutSecondsRange = IntValueRange(
+    fallback: defaultTimeoutSeconds,
+    min: minTimeoutSeconds,
+    max: maxTimeoutSeconds,
+  );
+  static const IntValueRange _maxTextCharactersRange = IntValueRange(
+    fallback: defaultMaxTextCharacters,
+    min: minMaxTextCharacters,
+    max: maxMaxTextCharacters,
+  );
   static const List<AiTtsProvider> defaultProviderPriority = <AiTtsProvider>[
     AiTtsProvider.system,
     AiTtsProvider.ai,
@@ -460,6 +468,22 @@ class AiTtsSettings {
     AiTtsProvider.youdao,
     AiTtsProvider.mimo,
   ];
+
+  static int timeoutSecondsFromValue(Object? value) {
+    return _timeoutSecondsRange.fromValue(value);
+  }
+
+  static int normalizeTimeoutSeconds(int value) {
+    return _timeoutSecondsRange.normalize(value);
+  }
+
+  static int maxTextCharactersFromValue(Object? value) {
+    return _maxTextCharactersRange.fromValue(value);
+  }
+
+  static int normalizeMaxTextCharacters(int value) {
+    return _maxTextCharactersRange.normalize(value);
+  }
 
   final bool enabled;
   final int timeoutSeconds;
@@ -476,8 +500,12 @@ class AiTtsSettings {
   }) {
     return AiTtsSettings(
       enabled: enabled ?? this.enabled,
-      timeoutSeconds: timeoutSeconds ?? this.timeoutSeconds,
-      maxTextCharacters: maxTextCharacters ?? this.maxTextCharacters,
+      timeoutSeconds: normalizeTimeoutSeconds(
+        timeoutSeconds ?? this.timeoutSeconds,
+      ),
+      maxTextCharacters: normalizeMaxTextCharacters(
+        maxTextCharacters ?? this.maxTextCharacters,
+      ),
       providers: providers ?? this.providers,
       providerPriority: providerPriority ?? this.providerPriority,
     );
@@ -492,12 +520,8 @@ class AiTtsSettings {
     };
     return AiTtsSettings(
       enabled: enabled,
-      timeoutSeconds: timeoutSeconds
-          .clamp(minTimeoutSeconds, maxTimeoutSeconds)
-          .toInt(),
-      maxTextCharacters: maxTextCharacters
-          .clamp(minMaxTextCharacters, maxMaxTextCharacters)
-          .toInt(),
+      timeoutSeconds: normalizeTimeoutSeconds(timeoutSeconds),
+      maxTextCharacters: normalizeMaxTextCharacters(maxTextCharacters),
       providers: Map<AiTtsProvider, AiTtsProviderSettings>.unmodifiable(
         normalizedProviders,
       ),
@@ -514,8 +538,8 @@ class AiTtsSettings {
   Map<String, Object?> toJson() {
     return <String, Object?>{
       'enabled': enabled,
-      'timeout_seconds': timeoutSeconds,
-      'max_text_characters': maxTextCharacters,
+      'timeout_seconds': normalizeTimeoutSeconds(timeoutSeconds),
+      'max_text_characters': normalizeMaxTextCharacters(maxTextCharacters),
       'provider_priority': providerPriority
           .map((provider) => provider.storageKey)
           .toList(growable: false),
