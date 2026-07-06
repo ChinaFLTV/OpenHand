@@ -2379,6 +2379,7 @@ class WebMessagePlatformService {
               'name': template.name,
               'description': template.description,
               'icon': template.iconName,
+              'internal_version': template.internalVersion,
             },
           )
           .toList(growable: false),

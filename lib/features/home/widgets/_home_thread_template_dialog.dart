@@ -167,7 +167,7 @@ class _ThreadTemplateCardState extends State<_ThreadTemplateCard> {
                 ),
                 const SizedBox(height: 14),
                 Text(
-                  'v${widget.template.internalVersion}',
+                  widget.template.internalVersionLabel,
                   style: theme.textTheme.labelLarge?.copyWith(
                     color: colorScheme.primary,
                   ),

@@ -68,6 +68,8 @@ class AiThreadTemplate {
   final String promptAssetDirectory;
   final AiThreadTemplateAvailability availability;
 
+  String get internalVersionLabel => 'v$internalVersion';
+
   bool isSupportedOnPlatform(TargetPlatform platform) {
     return availability.supportsPlatform(platform);
   }

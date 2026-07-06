@@ -62,11 +62,22 @@ function templateIconGlyph(template: ApiMetaTemplate): string {
     return template.icon;
   }
   if (raw.includes('program') || raw.includes('code')) return '</>';
-  if (raw.includes('machine') || raw.includes('expert')) return 'OPS';
   if (raw.includes('harness') || raw.includes('engineering')) return 'ENG';
+  if (
+    raw.includes('web_reverse') ||
+    raw.includes('web reverse') ||
+    raw.includes('web 逆向')
+  ) return 'WEB';
+  if (raw.includes('android')) return 'AND';
+  if (raw.includes('machine') || raw.includes('机器') || raw.includes('機器')) return 'OPS';
   if (raw.includes('hermes') || raw.includes('talk')) return 'MSG';
   if (raw.includes('default') || raw.includes('chat')) return 'AI';
   return 'AI';
+}
+
+function templateVersionLabel(template: ApiMetaTemplate): string {
+  const version = template.internal_version?.trim();
+  return version ? `v${version}` : '';
 }
 
 function TemplateIcon({ template }: { template: ApiMetaTemplate }) {
@@ -111,33 +122,50 @@ export function TemplatePickerDialog({ templates, onPick, onClose }: TemplatePic
         </p>
       ) : (
         <div class="oh-template-picker-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {templates.map((tpl, idx) => (
-            <Appear key={tpl.id} variant="up" index={idx + 1}>
-              <button
-                type="button"
-                onClick={() => onPick(tpl)}
-                class="oh-tap-press oh-template-picker-card w-full text-left rounded-m3-md p-4 flex flex-col gap-2 h-full transition-all"
-                style={{
-                  background: 'var(--m3-surface)',
-                  border: '1px solid var(--m3-outline)',
-                  minHeight: '160px',
-                }}
-              >
-                <TemplateIcon template={tpl} />
-                <h3 class="text-base font-semibold" style={{ color: 'var(--m3-on-surface)' }}>
-                  {tpl.name}
-                </h3>
-                {tpl.description ? (
-                  <p
-                    class="oh-template-picker-card-description text-xs leading-snug"
-                    style={{ color: 'var(--m3-on-surface-variant)' }}
-                  >
-                    {tpl.description}
-                  </p>
-                ) : null}
-              </button>
-            </Appear>
-          ))}
+          {templates.map((tpl, idx) => {
+            const versionLabel = templateVersionLabel(tpl);
+            return (
+              <Appear key={tpl.id} variant="up" index={idx + 1}>
+                <button
+                  type="button"
+                  onClick={() => onPick(tpl)}
+                  class="oh-tap-press oh-template-picker-card w-full text-left rounded-m3-md p-4 flex flex-col gap-2 h-full transition-all"
+                  style={{
+                    background: 'var(--m3-surface)',
+                    border: '1px solid var(--m3-outline)',
+                    minHeight: '160px',
+                  }}
+                >
+                  <div class="flex items-start justify-between gap-3">
+                    <TemplateIcon template={tpl} />
+                    {versionLabel ? (
+                      <span
+                        class="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold"
+                        style={{
+                          color: 'var(--m3-on-primary-container)',
+                          background: 'var(--m3-primary-container)',
+                          fontVariantNumeric: 'tabular-nums',
+                        }}
+                      >
+                        {versionLabel}
+                      </span>
+                    ) : null}
+                  </div>
+                  <h3 class="text-base font-semibold" style={{ color: 'var(--m3-on-surface)' }}>
+                    {tpl.name}
+                  </h3>
+                  {tpl.description ? (
+                    <p
+                      class="oh-template-picker-card-description text-xs leading-snug"
+                      style={{ color: 'var(--m3-on-surface-variant)' }}
+                    >
+                      {tpl.description}
+                    </p>
+                  ) : null}
+                </button>
+              </Appear>
+            );
+          })}
         </div>
       )}
     </DialogShell>

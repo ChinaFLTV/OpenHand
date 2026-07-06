@@ -478,6 +478,9 @@ class AiSession {
 
   AiSession copyWith({
     String? title,
+    String? templateName,
+    String? templateIconName,
+    String? templateInternalVersion,
     DateTime? updatedAt,
     List<AiSessionMessage>? messages,
     AiSessionEnvironment? environment,
@@ -538,9 +541,10 @@ class AiSession {
       id: id,
       title: title ?? this.title,
       templateId: templateId,
-      templateName: templateName,
-      templateIconName: templateIconName,
-      templateInternalVersion: templateInternalVersion,
+      templateName: templateName ?? this.templateName,
+      templateIconName: templateIconName ?? this.templateIconName,
+      templateInternalVersion:
+          templateInternalVersion ?? this.templateInternalVersion,
       createdAt: createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       messages: messages ?? this.messages,

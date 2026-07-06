@@ -92,6 +92,7 @@ export interface ApiMetaTemplate {
   name: string;
   description?: string;
   icon?: string;
+  internal_version?: string;
 }
 
 export interface ApiMetaModel {

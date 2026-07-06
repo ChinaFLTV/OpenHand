@@ -1777,7 +1777,16 @@ class AiSessionController extends ChangeNotifier {
         restoreInterruptedResponseRegeneration:
             _canRestoreInterruptedResponseRegeneration(sessionId),
       );
-      if (shouldRecoverInterruptedRegeneration) {
+      if (!identical(normalized, loaded)) {
+        if (normalized.hasCompleteMessages) {
+          await _store.save(normalized);
+        } else {
+          await _store.saveSessionHeader(normalized);
+          if (shouldRecoverInterruptedRegeneration) {
+            _scheduleResponseRegenerationRecoveryPersistence(sessionId);
+          }
+        }
+      } else if (shouldRecoverInterruptedRegeneration) {
         if (normalized.hasCompleteMessages) {
           await _store.save(normalized);
         } else {
@@ -1816,17 +1825,13 @@ class AiSessionController extends ChangeNotifier {
       if (loaded == null || _deletedSessionIds.contains(sessionId)) {
         return null;
       }
-      final shouldRecoverInterruptedRegeneration =
-          _canRestoreInterruptedResponseRegeneration(sessionId) &&
-          _hasRestorableResponseRegenerationState(loaded);
       var normalized = _normalizeHydratedSessionForResume(
         loaded,
         normalizedAt: loaded.updatedAt,
         restoreInterruptedResponseRegeneration:
             _canRestoreInterruptedResponseRegeneration(sessionId),
       );
-      if (shouldRecoverInterruptedRegeneration &&
-          !identical(normalized, loaded)) {
+      if (!identical(normalized, loaded)) {
         normalized = _mergeLiveSessionState(
           normalized,
           _sessionById(sessionId),
@@ -9335,14 +9340,48 @@ class AiSessionController extends ChangeNotifier {
     DateTime? normalizedAt,
     bool restoreInterruptedResponseRegeneration = true,
   }) {
-    var normalized = _normalizeStaleCompletedPlanState(
+    var normalized = _normalizeTemplateSnapshot(
       session,
+      normalizedAt: normalizedAt,
+    );
+    normalized = _normalizeStaleCompletedPlanState(
+      normalized,
       normalizedAt: normalizedAt,
     );
     if (restoreInterruptedResponseRegeneration) {
       normalized = _restoreInterruptedResponseRegenerationState(normalized);
     }
     return normalized;
+  }
+
+  AiSession _normalizeTemplateSnapshot(
+    AiSession session, {
+    DateTime? normalizedAt,
+  }) {
+    final template = _exactTemplateForSession(session);
+    if (template == null ||
+        (session.templateName == template.name &&
+            session.templateIconName == template.iconName &&
+            session.templateInternalVersion == template.internalVersion)) {
+      return session;
+    }
+    return session.copyWith(
+      templateName: template.name,
+      templateIconName: template.iconName,
+      templateInternalVersion: template.internalVersion,
+      updatedAt: normalizedAt ?? session.updatedAt,
+    );
+  }
+
+  AiThreadTemplate? _exactTemplateForSession(AiSession session) {
+    final templateId = session.templateId.trim();
+    if (templateId.isEmpty) return null;
+    for (final template in _templateRepository.templates) {
+      if (template.id == templateId) {
+        return template;
+      }
+    }
+    return null;
   }
 
   bool _canRestoreInterruptedResponseRegeneration(String sessionId) {
@@ -10908,7 +10947,8 @@ $tail''';
     if (_deletedSessionIds.contains(session.id)) {
       return true;
     }
-    var normalizedSession = _normalizeStaleCompletedPlanState(session);
+    var normalizedSession = _normalizeTemplateSnapshot(session);
+    normalizedSession = _normalizeStaleCompletedPlanState(normalizedSession);
     if (_sessionNeedsMessageHydration(normalizedSession)) {
       final hydratedSession = await ensureSessionMessagesHydrated(
         normalizedSession.id,
@@ -10963,10 +11003,18 @@ $tail''';
   }
 
   void _setSessions(List<AiSession> sessions) {
-    _sessions = sessions;
-    _sessionsView = List<AiSession>.unmodifiable(sessions);
+    final normalizedSessions = sessions
+        .map(
+          (session) => _normalizeTemplateSnapshot(
+            session,
+            normalizedAt: session.updatedAt,
+          ),
+        )
+        .toList(growable: false);
+    _sessions = normalizedSessions;
+    _sessionsView = List<AiSession>.unmodifiable(normalizedSessions);
     _sessionsById = <String, AiSession>{
-      for (final session in sessions) session.id: session,
+      for (final session in normalizedSessions) session.id: session,
     };
   }
 

@@ -219,6 +219,15 @@ class AiPromptTemplatePolicies {
   static const String siriHelperPromptAssetDirectory =
       'assets/prompts/siri_helper';
 
+  static const String defaultTemplateVersion = '3.0.0';
+  static const String machineExpertTemplateVersion = '2.0.0';
+  static const String harnessEngineeringTemplateVersion = '1.0.0';
+  static const String programmingExpertTemplateVersion = '1.2.0';
+  static const String hermesTalkerTemplateVersion = '1.0.0';
+  static const String webReverseExpertTemplateVersion = '1.2.0';
+  static const String siriHelperTemplateVersion = '1.0.0';
+  static const String androidReverseExpertTemplateVersion = '1.1.0';
+
   static const List<AiPromptTemplateCatalogEntry>
   entries = <AiPromptTemplateCatalogEntry>[
     AiPromptTemplateCatalogEntry(
@@ -240,7 +249,7 @@ class AiPromptTemplatePolicies {
         descriptionDe:
             'Allgemeine Vorlage im Claude-Code-Stil für toolgestützte Arbeit, MCP und lokale Skills.',
         descriptionJa: 'Claude Code 風の汎用テンプレート。ツール支援作業、MCP、ローカルスキルの利用に適しています。',
-        internalVersion: '3.0.0',
+        internalVersion: defaultTemplateVersion,
         promptAssetDirectory: defaultPromptAssetDirectory,
       ),
       policy: AiPromptTemplatePolicy(
@@ -271,7 +280,7 @@ class AiPromptTemplatePolicies {
         descriptionDe:
             'Nutzt das lokale Terminal, um mit der Zielmaschine zu arbeiten und die Aufgabe zu erledigen.',
         descriptionJa: 'ローカル端末で対象マシンとやり取りし、ユーザーのタスクを完了します。',
-        internalVersion: '1.1.0',
+        internalVersion: machineExpertTemplateVersion,
         promptAssetDirectory: machineExpertPromptAssetDirectory,
       ),
       policy: AiPromptTemplatePolicy(
@@ -305,7 +314,7 @@ class AiPromptTemplatePolicies {
             'Mehrrollen-Orchestrierung. OpenHand delegiert Coding-Aufgaben an konfigurierte CLI-Tools und verwaltet strukturierten Kontext.',
         descriptionJa:
             '複数ロールのオーケストレーション。OpenHand が設定済み CLI ツールへ実装作業を委譲し、構造化された永続コンテキストを管理します。',
-        internalVersion: '1.0.0',
+        internalVersion: harnessEngineeringTemplateVersion,
         promptAssetDirectory: harnessEngineeringPromptAssetDirectory,
       ),
       policy: AiPromptTemplatePolicy(
@@ -339,7 +348,7 @@ class AiPromptTemplatePolicies {
             'Full-Stack-Coding-Agent im Claude-Code-Stil mit Tool-Fakten, Planung, Subagents, Validierung und Kontextwiederherstellung.',
         descriptionJa:
             'Claude Code 型のフルスタック開発エージェント。ツール事実、計画管理、サブエージェント、検証、文脈復元を使います。',
-        internalVersion: '1.2.0',
+        internalVersion: programmingExpertTemplateVersion,
         promptAssetDirectory: programmingExpertPromptAssetDirectory,
       ),
       policy: AiPromptTemplatePolicy(
@@ -374,7 +383,7 @@ class AiPromptTemplatePolicies {
             'Ergänzt die Default-Vorlage um skill_manager und periodisches Selbstlernen für wiederverwendbare Skills.',
         descriptionJa:
             'Default テンプレートに skill_manager と定期的な自己学習を追加し、再利用可能なスキルとユーザー文脈を蓄積します。',
-        internalVersion: '1.0.0',
+        internalVersion: hermesTalkerTemplateVersion,
         promptAssetDirectory: hermesTalkerPromptAssetDirectory,
       ),
       policy: AiPromptTemplatePolicy(
@@ -408,7 +417,7 @@ class AiPromptTemplatePolicies {
             'Nutzt Chrome oder Chromium mit CDP für Web-API-Reverse, Parameterrekonstruktion und Repro-Skripte. Nur für autorisierte Forschung.',
         descriptionJa:
             'Chrome または Chromium と CDP で Web API 解析、パラメータ復元、再現スクリプト作成を行います。許可された研究専用です。',
-        internalVersion: '1.2.0',
+        internalVersion: webReverseExpertTemplateVersion,
         promptAssetDirectory: webReverseExpertPromptAssetDirectory,
       ),
       policy: AiPromptTemplatePolicy(
@@ -442,7 +451,7 @@ class AiPromptTemplatePolicies {
             'Apple-orientierte Default-Vorlage mit Siri-artigen Systemanweisungen.',
         descriptionJa:
             'Apple 向けの Default テンプレート。Siri 風のシステム指示で Apple エコシステムのタスクに適します。',
-        internalVersion: '1.0.0',
+        internalVersion: siriHelperTemplateVersion,
         promptAssetDirectory: siriHelperPromptAssetDirectory,
         availability: AiPromptTemplateAvailabilityScope.appleOnly,
       ),
@@ -483,7 +492,7 @@ class AiPromptTemplatePolicies {
             'Nutzt ADB, Frida, jadx / apktool und mitmproxy für Android-Reverse, Kryptoanalyse und Hook-Skripte. Nur für autorisierte Forschung.',
         descriptionJa:
             'ADB、Frida、jadx / apktool、mitmproxy で Android API 解析、暗号解析、Hook スクリプト作成を行います。許可された研究専用です。',
-        internalVersion: '1.1.0',
+        internalVersion: androidReverseExpertTemplateVersion,
         promptAssetDirectory: androidReverseExpertPromptAssetDirectory,
       ),
       policy: AiPromptTemplatePolicy(

@@ -130,7 +130,7 @@ export interface SessionSummary {
   title: string;
   template_id: string;
   template_name?: string;
-  template_internal_version?: number;
+  template_internal_version?: string;
   created_at: string;
   updated_at: string;
   mode: SessionMode;
