@@ -47,6 +47,15 @@ void main() {
       expect(settings.scaleOutThreshold, agentScaleRatioMaximum);
       expect(settings.scaleInThreshold, agentScaleRatioMinimum);
     });
+
+    test('uses min workers as max worker fallback', () {
+      final settings = AgentScaleSettings.fromJson(<String, Object?>{
+        'min_workers': 4,
+      });
+
+      expect(settings.minWorkers, 4);
+      expect(settings.maxWorkers, 4);
+    });
   });
 
   group('AgentKpiItem', () {
@@ -89,6 +98,21 @@ void main() {
       expect(idle.workerUtilization, 0);
       expect(active.workerUtilization, closeTo(0.75, 0.000001));
       expect(overloaded.workerUtilization, 1);
+    });
+  });
+
+  group('AgentWorker', () {
+    test('clamps priority and normalizes counters from json', () {
+      final worker = AgentWorker.fromJson(<String, Object?>{
+        'id': 'worker-1',
+        'priority': 5000,
+        'busy_score': 2,
+        'executed_task_count': -8,
+      });
+
+      expect(worker.priority, 1000);
+      expect(worker.busyScore, 1);
+      expect(worker.executedTaskCount, 0);
     });
   });
 }

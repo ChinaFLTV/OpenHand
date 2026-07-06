@@ -37,6 +37,21 @@ const double agentScaleRatioMinimum = 0;
 const double agentScaleRatioMaximum = 1;
 const double agentScaleDefaultScaleOutThreshold = 0.75;
 const double agentScaleDefaultScaleInThreshold = 0.25;
+const IntValueRange _agentScaleMinWorkersRange = IntValueRange(
+  fallback: agentScaleDefaultMinWorkers,
+  min: agentScaleMinWorkersMinimum,
+  max: agentScaleWorkersMaximum,
+);
+const IntValueRange _agentScaleMaxRetriesRange = IntValueRange(
+  fallback: agentScaleDefaultMaxRetries,
+  min: agentScaleMaxRetriesMinimum,
+  max: agentScaleMaxRetriesMaximum,
+);
+const IntValueRange _agentWorkerPriorityRange = IntValueRange(
+  fallback: 0,
+  min: -1000,
+  max: 1000,
+);
 const List<String> agentSchedulerPolicyOptions = <String>[
   agentSchedulerPolicyLeastBusy,
   agentSchedulerPolicyPriorityFirst,
@@ -316,19 +331,12 @@ class AgentScaleSettings {
 
   factory AgentScaleSettings.fromJson(Object? raw) {
     final json = stringKeyedMapFromValue(raw);
-    final minWorkers = clampedIntFromValue(
+    final minWorkers = _agentScaleMinWorkersRange.fromValue(
       json['min_workers'],
-      fallback: agentScaleDefaultMinWorkers,
-      min: agentScaleMinWorkersMinimum,
-      max: agentScaleWorkersMaximum,
     );
-    final maxWorkers = clampedIntFromValue(
+    final maxWorkers = _agentScaleMaxWorkersFromValue(
       json['max_workers'],
-      fallback: minWorkers < agentScaleMaxWorkersMinimum
-          ? agentScaleMaxWorkersMinimum
-          : minWorkers,
-      min: agentScaleMaxWorkersMinimum,
-      max: agentScaleWorkersMaximum,
+      minWorkers: minWorkers,
     );
     return AgentScaleSettings(
       minWorkers: minWorkers > maxWorkers ? maxWorkers : minWorkers,
@@ -349,12 +357,7 @@ class AgentScaleSettings {
         json['retry_policy'],
         agentRetryPolicyBoundedRetry,
       ),
-      maxRetries: clampedIntFromValue(
-        json['max_retries'],
-        fallback: agentScaleDefaultMaxRetries,
-        min: agentScaleMaxRetriesMinimum,
-        max: agentScaleMaxRetriesMaximum,
-      ),
+      maxRetries: _agentScaleMaxRetriesRange.fromValue(json['max_retries']),
       schedulerPolicy: _nonEmpty(
         json['scheduler_policy'],
         agentSchedulerPolicyLeastBusy,
@@ -919,12 +922,7 @@ class AgentWorker {
         fallback: 0,
       ),
       busyScore: _ratioFromValue(json['busy_score'], fallback: 0),
-      priority: clampedIntFromValue(
-        json['priority'],
-        fallback: 0,
-        min: -1000,
-        max: 1000,
-      ),
+      priority: _agentWorkerPriorityRange.fromValue(json['priority']),
       currentTaskId: stringFromValue(json['current_task_id']),
       labels: stringListFromValue(json['labels']),
       updatedAt: _dateFromValue(json['updated_at']),
@@ -1352,6 +1350,17 @@ DateTime? _dateFromValue(Object? raw) {
 String _nonEmpty(Object? raw, String fallback) {
   final value = stringFromValue(raw).trim();
   return value.isEmpty ? fallback : value;
+}
+
+int _agentScaleMaxWorkersFromValue(Object? raw, {required int minWorkers}) {
+  final fallback = minWorkers < agentScaleMaxWorkersMinimum
+      ? agentScaleMaxWorkersMinimum
+      : minWorkers;
+  return IntValueRange(
+    fallback: fallback,
+    min: agentScaleMaxWorkersMinimum,
+    max: agentScaleWorkersMaximum,
+  ).fromValue(raw);
 }
 
 double _ratioFromValue(Object? raw, {required double fallback}) {
