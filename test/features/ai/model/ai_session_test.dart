@@ -63,6 +63,44 @@ void main() {
     expect(_trendPointWithHitRatio(1.25).hitRatio, 1);
     expect(_trendPointWithHitRatio('bad').hitRatio, 0);
   });
+
+  test('AiSessionEnvironment normalizes tool call safety limits', () {
+    final environment = AiSessionEnvironment.fromJson(const <String, Object?>{
+      'single_round_tool_call_limit': 999999,
+      'sequential_tool_round_limit': -1,
+    });
+
+    expect(
+      environment.singleRoundToolCallLimit,
+      AiSessionEnvironment.maxSingleRoundToolCallLimit,
+    );
+    expect(
+      environment.sequentialToolRoundLimit,
+      AiSessionEnvironment.defaultSequentialToolRoundLimit,
+    );
+
+    final copied = environment.copyWith(
+      singleRoundToolCallLimit: 0,
+      sequentialToolRoundLimit: 999999,
+    );
+
+    expect(
+      copied.singleRoundToolCallLimit,
+      AiSessionEnvironment.defaultSingleRoundToolCallLimit,
+    );
+    expect(
+      copied.sequentialToolRoundLimit,
+      AiSessionEnvironment.maxSequentialToolRoundLimit,
+    );
+    expect(
+      copied.toJson()['single_round_tool_call_limit'],
+      AiSessionEnvironment.defaultSingleRoundToolCallLimit,
+    );
+    expect(
+      copied.toJson()['sequential_tool_round_limit'],
+      AiSessionEnvironment.maxSequentialToolRoundLimit,
+    );
+  });
 }
 
 AiSessionCacheHitTrendPoint _trendPointWithHitRatio(Object? hitRatio) {
@@ -99,7 +137,7 @@ AiSession _session({
   );
 }
 
-const AiSessionEnvironment _testEnvironment = AiSessionEnvironment(
+final AiSessionEnvironment _testEnvironment = AiSessionEnvironment(
   localeTag: 'en',
   platform: 'test',
   appVersion: '1.0.0',

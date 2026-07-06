@@ -8,6 +8,7 @@ import '../../features/ai/model/ai_lsp_language_settings.dart';
 import '../../features/ai/model/ai_message_content_format.dart';
 import '../../features/ai/model/ai_model_config.dart';
 import '../../features/ai/model/ai_sandbox_settings.dart';
+import '../../features/ai/model/ai_tool_call_limit_policy.dart';
 import '../../features/ai/model/ai_translation_settings.dart';
 import '../../features/ai/model/ai_tts_settings.dart';
 import '../../features/mcp/model/mcp_keyword_index_update_mode.dart';
@@ -175,8 +176,8 @@ class AppSettingsSnapshot {
     required this.aiInputCacheBreakpointPositions,
     required this.aiBudgetUsdPerSession,
     required this.aiWriteToolSummaryMaxChars,
-    required this.aiSingleRoundToolCallLimit,
-    required this.aiSequentialToolRoundLimit,
+    required int aiSingleRoundToolCallLimit,
+    required int aiSequentialToolRoundLimit,
     required this.aiMaxRecentErrors,
     required this.aiMaxPlanHistoryEntries,
     required this.aiMaxTruncationContinuations,
@@ -251,7 +252,13 @@ class AppSettingsSnapshot {
     this.bashOutputMaxBytes = defaultBashOutputMaxBytes,
     this.maxConcurrentTools = defaultMaxConcurrentTools,
     AppProxySettings? proxySettings,
-  }) : aiTranslationSettings =
+  }) : aiSingleRoundToolCallLimit = normalizeAiSingleRoundToolCallLimit(
+         aiSingleRoundToolCallLimit,
+       ),
+       aiSequentialToolRoundLimit = normalizeAiSequentialToolRoundLimit(
+         aiSequentialToolRoundLimit,
+       ),
+       aiTranslationSettings =
            aiTranslationSettings ?? AiTranslationSettings.defaults(),
        proxySettings =
            proxySettings ??
@@ -410,8 +417,35 @@ class AppSettingsSnapshot {
   static const int defaultTelemetryMaxPayloadChars = 200000;
   static const int minTelemetryMaxPayloadChars = 4000;
   static const int maxTelemetryMaxPayloadChars = 2000000;
-  static const int defaultAiSingleRoundToolCallLimit = 40;
-  static const int defaultAiSequentialToolRoundLimit = 24;
+  static const int defaultAiSingleRoundToolCallLimit =
+      AiToolCallLimitPolicy.defaultSingleRoundToolCallLimit;
+  static const int minAiSingleRoundToolCallLimit =
+      AiToolCallLimitPolicy.minSingleRoundToolCallLimit;
+  static const int maxAiSingleRoundToolCallLimit =
+      AiToolCallLimitPolicy.maxSingleRoundToolCallLimit;
+
+  static int aiSingleRoundToolCallLimitFromValue(Object? value) {
+    return AiToolCallLimitPolicy.singleRoundFromValue(value);
+  }
+
+  static int normalizeAiSingleRoundToolCallLimit(int value) {
+    return AiToolCallLimitPolicy.normalizeSingleRound(value);
+  }
+
+  static const int defaultAiSequentialToolRoundLimit =
+      AiToolCallLimitPolicy.defaultSequentialToolRoundLimit;
+  static const int minAiSequentialToolRoundLimit =
+      AiToolCallLimitPolicy.minSequentialToolRoundLimit;
+  static const int maxAiSequentialToolRoundLimit =
+      AiToolCallLimitPolicy.maxSequentialToolRoundLimit;
+
+  static int aiSequentialToolRoundLimitFromValue(Object? value) {
+    return AiToolCallLimitPolicy.sequentialRoundFromValue(value);
+  }
+
+  static int normalizeAiSequentialToolRoundLimit(int value) {
+    return AiToolCallLimitPolicy.normalizeSequentialRound(value);
+  }
 
   /// 2026-04-29 — Group A: AI 会话控制参数。
   static const int defaultAiMaxRecentErrors = 20;

@@ -1172,9 +1172,8 @@ class SettingsController extends ChangeNotifier {
   }
 
   Future<bool> updateAiSingleRoundToolCallLimit(int value) async {
-    final normalizedValue = value <= 0
-        ? AppSettingsSnapshot.defaultAiSingleRoundToolCallLimit
-        : value;
+    final normalizedValue =
+        AppSettingsSnapshot.normalizeAiSingleRoundToolCallLimit(value);
     return _commitMutation(() {
       if (_aiSingleRoundToolCallLimit == normalizedValue) {
         return _MutationDisposition.successNoChange;
@@ -1185,9 +1184,8 @@ class SettingsController extends ChangeNotifier {
   }
 
   Future<bool> updateAiSequentialToolRoundLimit(int value) async {
-    final normalizedValue = value <= 0
-        ? AppSettingsSnapshot.defaultAiSequentialToolRoundLimit
-        : value;
+    final normalizedValue =
+        AppSettingsSnapshot.normalizeAiSequentialToolRoundLimit(value);
     return _commitMutation(() {
       if (_aiSequentialToolRoundLimit == normalizedValue) {
         return _MutationDisposition.successNoChange;

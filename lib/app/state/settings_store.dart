@@ -552,14 +552,14 @@ class SettingsStore {
       min: AppSettingsSnapshot.minAiWriteToolSummaryMaxChars,
       max: AppSettingsSnapshot.maxAiWriteToolSummaryMaxChars,
     );
-    final aiSingleRoundToolCallLimit = positiveIntFromValue(
-      json['ai_single_round_tool_call_limit'],
-      fallback: AppSettingsSnapshot.defaultAiSingleRoundToolCallLimit,
-    );
-    final aiSequentialToolRoundLimit = positiveIntFromValue(
-      json['ai_sequential_tool_round_limit'],
-      fallback: AppSettingsSnapshot.defaultAiSequentialToolRoundLimit,
-    );
+    final aiSingleRoundToolCallLimit =
+        AppSettingsSnapshot.aiSingleRoundToolCallLimitFromValue(
+          json['ai_single_round_tool_call_limit'],
+        );
+    final aiSequentialToolRoundLimit =
+        AppSettingsSnapshot.aiSequentialToolRoundLimitFromValue(
+          json['ai_sequential_tool_round_limit'],
+        );
     final aiMaxRecentErrors = clampedIntFromValue(
       json['ai_max_recent_errors'],
       fallback: AppSettingsSnapshot.defaultAiMaxRecentErrors,

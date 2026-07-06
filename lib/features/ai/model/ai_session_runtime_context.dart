@@ -11,6 +11,7 @@ import 'ai_builtin_tool_config.dart';
 import 'ai_deny_command_rule.dart';
 import 'ai_message_content_format.dart';
 import 'ai_sandbox_settings.dart';
+import 'ai_tool_call_limit_policy.dart';
 
 class AiRepositorySnapshot {
   factory AiRepositorySnapshot.fromJson(Object? raw) {
@@ -81,7 +82,7 @@ class AiWorkspaceInstructionDocument {
 }
 
 class AiSessionRuntimeContext {
-  const AiSessionRuntimeContext({
+  AiSessionRuntimeContext({
     required this.localeTag,
     required this.appVersion,
     required this.appBuildNumber,
@@ -114,8 +115,8 @@ class AiSessionRuntimeContext {
     required this.memoryEnabled,
     required this.memoryEntries,
     this.templateId = '',
-    this.singleRoundToolCallLimit = 40,
-    this.sequentialToolRoundLimit = 24,
+    int singleRoundToolCallLimit = defaultSingleRoundToolCallLimit,
+    int sequentialToolRoundLimit = defaultSequentialToolRoundLimit,
     this.maxRecentErrors = 20,
     this.maxPlanHistoryEntries = 20,
     this.maxTruncationContinuations = 5,
@@ -174,7 +175,13 @@ class AiSessionRuntimeContext {
     this.userInstructions = const <UserInstructionEntry>[],
     this.skippedInstructionIds = const <String>{},
     this.toolExecutionMetadata = const <String, Object?>{},
-  }) : sandboxSettings =
+  }) : singleRoundToolCallLimit = normalizeSingleRoundToolCallLimit(
+         singleRoundToolCallLimit,
+       ),
+       sequentialToolRoundLimit = normalizeSequentialToolRoundLimit(
+         sequentialToolRoundLimit,
+       ),
+       sandboxSettings =
            sandboxSettings ??
            const AiSandboxSettings(
              enabled: false,
@@ -198,6 +205,27 @@ class AiSessionRuntimeContext {
              socksProxyPort: 0,
              allowNetworkWhenNoDomainRules: true,
            );
+
+  static const int defaultSingleRoundToolCallLimit =
+      AiToolCallLimitPolicy.defaultSingleRoundToolCallLimit;
+  static const int minSingleRoundToolCallLimit =
+      AiToolCallLimitPolicy.minSingleRoundToolCallLimit;
+  static const int maxSingleRoundToolCallLimit =
+      AiToolCallLimitPolicy.maxSingleRoundToolCallLimit;
+  static const int defaultSequentialToolRoundLimit =
+      AiToolCallLimitPolicy.defaultSequentialToolRoundLimit;
+  static const int minSequentialToolRoundLimit =
+      AiToolCallLimitPolicy.minSequentialToolRoundLimit;
+  static const int maxSequentialToolRoundLimit =
+      AiToolCallLimitPolicy.maxSequentialToolRoundLimit;
+
+  static int normalizeSingleRoundToolCallLimit(int value) {
+    return AiToolCallLimitPolicy.normalizeSingleRound(value);
+  }
+
+  static int normalizeSequentialToolRoundLimit(int value) {
+    return AiToolCallLimitPolicy.normalizeSequentialRound(value);
+  }
 
   final String localeTag;
   final String appVersion;

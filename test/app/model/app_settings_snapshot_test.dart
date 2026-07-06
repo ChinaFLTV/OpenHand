@@ -36,5 +36,42 @@ void main() {
         AppSettingsSnapshot.maxAiToolResultCompressionThresholdChars,
       );
     });
+
+    test('normalizes AI tool call safety limit bounds', () {
+      expect(
+        AppSettingsSnapshot.aiSingleRoundToolCallLimitFromValue(null),
+        AppSettingsSnapshot.defaultAiSingleRoundToolCallLimit,
+      );
+      expect(
+        AppSettingsSnapshot.aiSingleRoundToolCallLimitFromValue(0),
+        AppSettingsSnapshot.defaultAiSingleRoundToolCallLimit,
+      );
+      expect(
+        AppSettingsSnapshot.aiSingleRoundToolCallLimitFromValue(999999),
+        AppSettingsSnapshot.maxAiSingleRoundToolCallLimit,
+      );
+      expect(
+        AppSettingsSnapshot.aiSequentialToolRoundLimitFromValue(-1),
+        AppSettingsSnapshot.defaultAiSequentialToolRoundLimit,
+      );
+      expect(
+        AppSettingsSnapshot.aiSequentialToolRoundLimitFromValue(999999),
+        AppSettingsSnapshot.maxAiSequentialToolRoundLimit,
+      );
+
+      final snapshot = AppSettingsSnapshot.defaults().copyWith(
+        aiSingleRoundToolCallLimit: 0,
+        aiSequentialToolRoundLimit: 999999,
+      );
+
+      expect(
+        snapshot.aiSingleRoundToolCallLimit,
+        AppSettingsSnapshot.defaultAiSingleRoundToolCallLimit,
+      );
+      expect(
+        snapshot.aiSequentialToolRoundLimit,
+        AppSettingsSnapshot.maxAiSequentialToolRoundLimit,
+      );
+    });
   });
 }

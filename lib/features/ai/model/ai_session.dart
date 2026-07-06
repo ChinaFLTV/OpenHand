@@ -2,6 +2,7 @@ import '../../../shared/util/input_value_parsing.dart';
 import 'ai_session_goal.dart';
 import 'ai_session_message.dart';
 import 'ai_token_usage.dart';
+import 'ai_tool_call_limit_policy.dart';
 
 int _max3(int a, int b, int c) {
   var result = a > b ? a : b;
@@ -837,17 +838,15 @@ class AiSessionEnvironment {
         json['compression_threshold_chars'],
         fallback: 0,
       ),
-      singleRoundToolCallLimit: positiveIntFromValue(
+      singleRoundToolCallLimit: singleRoundToolCallLimitFromValue(
         json['single_round_tool_call_limit'],
-        fallback: defaultSingleRoundToolCallLimit,
       ),
-      sequentialToolRoundLimit: positiveIntFromValue(
+      sequentialToolRoundLimit: sequentialToolRoundLimitFromValue(
         json['sequential_tool_round_limit'],
-        fallback: defaultSequentialToolRoundLimit,
       ),
     );
   }
-  const AiSessionEnvironment({
+  AiSessionEnvironment({
     required this.localeTag,
     required this.platform,
     required this.appVersion,
@@ -860,12 +859,43 @@ class AiSessionEnvironment {
     required this.userMemoryFilePath,
     required this.sessionsDirectoryPath,
     required this.compressionThresholdChars,
-    this.singleRoundToolCallLimit = defaultSingleRoundToolCallLimit,
-    this.sequentialToolRoundLimit = defaultSequentialToolRoundLimit,
-  });
+    int singleRoundToolCallLimit = defaultSingleRoundToolCallLimit,
+    int sequentialToolRoundLimit = defaultSequentialToolRoundLimit,
+  }) : singleRoundToolCallLimit = normalizeSingleRoundToolCallLimit(
+         singleRoundToolCallLimit,
+       ),
+       sequentialToolRoundLimit = normalizeSequentialToolRoundLimit(
+         sequentialToolRoundLimit,
+       );
 
-  static const int defaultSingleRoundToolCallLimit = 40;
-  static const int defaultSequentialToolRoundLimit = 24;
+  static const int defaultSingleRoundToolCallLimit =
+      AiToolCallLimitPolicy.defaultSingleRoundToolCallLimit;
+  static const int minSingleRoundToolCallLimit =
+      AiToolCallLimitPolicy.minSingleRoundToolCallLimit;
+  static const int maxSingleRoundToolCallLimit =
+      AiToolCallLimitPolicy.maxSingleRoundToolCallLimit;
+  static const int defaultSequentialToolRoundLimit =
+      AiToolCallLimitPolicy.defaultSequentialToolRoundLimit;
+  static const int minSequentialToolRoundLimit =
+      AiToolCallLimitPolicy.minSequentialToolRoundLimit;
+  static const int maxSequentialToolRoundLimit =
+      AiToolCallLimitPolicy.maxSequentialToolRoundLimit;
+
+  static int singleRoundToolCallLimitFromValue(Object? value) {
+    return AiToolCallLimitPolicy.singleRoundFromValue(value);
+  }
+
+  static int normalizeSingleRoundToolCallLimit(int value) {
+    return AiToolCallLimitPolicy.normalizeSingleRound(value);
+  }
+
+  static int sequentialToolRoundLimitFromValue(Object? value) {
+    return AiToolCallLimitPolicy.sequentialRoundFromValue(value);
+  }
+
+  static int normalizeSequentialToolRoundLimit(int value) {
+    return AiToolCallLimitPolicy.normalizeSequentialRound(value);
+  }
 
   final String localeTag;
   final String platform;
@@ -934,8 +964,12 @@ class AiSessionEnvironment {
       'user_memory_file_path': userMemoryFilePath,
       'sessions_directory_path': sessionsDirectoryPath,
       'compression_threshold_chars': compressionThresholdChars,
-      'single_round_tool_call_limit': singleRoundToolCallLimit,
-      'sequential_tool_round_limit': sequentialToolRoundLimit,
+      'single_round_tool_call_limit': normalizeSingleRoundToolCallLimit(
+        singleRoundToolCallLimit,
+      ),
+      'sequential_tool_round_limit': normalizeSequentialToolRoundLimit(
+        sequentialToolRoundLimit,
+      ),
     };
   }
 }

@@ -133,7 +133,7 @@ AiSession _session({
   );
 }
 
-const AiSessionEnvironment _testEnvironment = AiSessionEnvironment(
+final AiSessionEnvironment _testEnvironment = AiSessionEnvironment(
   localeTag: 'en',
   platform: 'test',
   appVersion: '1.0.0',

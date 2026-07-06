@@ -5297,13 +5297,15 @@ class _SettingsViewState extends State<SettingsView> {
     if (!context.mounted) {
       return;
     }
+    final settingsController = context.read<SettingsController>();
     if (!saved) {
       _toolCallLimitController.text =
-          '${context.read<SettingsController>().aiSingleRoundToolCallLimit}';
+          '${settingsController.aiSingleRoundToolCallLimit}';
       _showPersistenceFailureSnackBar(context);
       return;
     }
-    _toolCallLimitController.text = '$parsedValue';
+    _toolCallLimitController.text =
+        '${settingsController.aiSingleRoundToolCallLimit}';
     _showSnackBar(
       context,
       AppLocalizations.of(context)!.settingsThePerResponseToolCallLimit,
@@ -5328,13 +5330,15 @@ class _SettingsViewState extends State<SettingsView> {
     if (!context.mounted) {
       return;
     }
+    final settingsController = context.read<SettingsController>();
     if (!saved) {
       _sequentialToolRoundLimitController.text =
-          '${context.read<SettingsController>().aiSequentialToolRoundLimit}';
+          '${settingsController.aiSequentialToolRoundLimit}';
       _showPersistenceFailureSnackBar(context);
       return;
     }
-    _sequentialToolRoundLimitController.text = '$parsedValue';
+    _sequentialToolRoundLimitController.text =
+        '${settingsController.aiSequentialToolRoundLimit}';
     _showSnackBar(
       context,
       AppLocalizations.of(context)!.settingsTheSequentialToolRoundLimitHas,
