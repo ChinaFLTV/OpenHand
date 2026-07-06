@@ -26,10 +26,11 @@ class AiTokenUsageParser {
   ///   * prompt_cache_hit_tokens（DeepSeek 平铺 KV 缓存命中）
   ///   * cached_tokens（vLLM / SGLang / 自托管网关平铺写法）
   ///   * cache_read_input_tokens（少数 Claude→OpenAI 转译网关）
-  /// - 缓存写入字段（极少数实现暴露）:
+  /// - 缓存写入 / 未命中写入字段:
   ///   * prompt_tokens_details.cache_creation_tokens
   ///   * cache_creation_input_tokens
-  ///   * prompt_cache_miss_tokens 不视为写入，仅作为 miss 记录被丢弃。
+  ///   * prompt_cache_miss_tokens（DeepSeek KV Cache miss，代表本轮未命中
+  ///     并按常规输入计费的 prompt tokens，下一轮可成为缓存命中）
   static AiTokenUsage? parseOpenAi(Map<String, Object?> usageMap) {
     final promptTokens =
         _readInt(usageMap['prompt_tokens']) ??
@@ -59,11 +60,15 @@ class AiTokenUsageParser {
     final cacheWrite = _firstInt([
       promptDetails?['cache_creation_tokens'],
       promptDetails?['cache_write_tokens'],
+      promptDetails?['cache_miss_tokens'],
       inputDetails?['cache_creation_tokens'],
       inputDetails?['cache_write_tokens'],
+      inputDetails?['cache_miss_tokens'],
       usageMap['cache_creation_input_tokens'],
       usageMap['cache_creation_tokens'],
       usageMap['cache_write_tokens'],
+      usageMap['prompt_cache_miss_tokens'],
+      usageMap['cache_miss_tokens'],
       usageMap['cached_creation_tokens'],
     ]);
 

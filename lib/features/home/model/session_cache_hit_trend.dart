@@ -47,20 +47,6 @@ bool shouldShowSessionCacheHitMetrics({
   return cacheReadTokens > 0 || cacheWriteTokens > 0 || hasTrendPoints;
 }
 
-int resolveSessionCacheHitBarPromptTokens({
-  required SessionCacheHitDisplayData displayData,
-  required int promptTokens,
-  required int totalPromptTokens,
-}) {
-  if (displayData.uncachedPromptTokens > 0) {
-    return displayData.uncachedPromptTokens;
-  }
-  if (promptTokens > 0) {
-    return promptTokens;
-  }
-  return totalPromptTokens > 0 ? totalPromptTokens : 0;
-}
-
 class SessionCacheHitTurnPoint {
   const SessionCacheHitTurnPoint({
     required this.turnIndex,
@@ -223,9 +209,11 @@ class SessionCacheHitTrend {
         promptTokens: point.promptTokens,
         cacheReadTokens: point.cacheReadTokens,
         claudeStyle: claudeStyle,
+        cacheWriteTokens: point.cacheWriteTokens,
       );
     }
-    final denominator = cacheReadTokens + uncachedPromptTokens;
+    final denominator =
+        cacheReadTokens + cacheWriteTokens + uncachedPromptTokens;
     final averageHitRatio = unitRatio(cacheReadTokens, denominator);
     return SessionCacheHitDisplayData(
       mode: mode,
@@ -253,6 +241,7 @@ class SessionCacheHitTrend {
     var turnIndex = 0;
     var averagePromptTotal = 0;
     var averageCacheReadTotal = 0;
+    var averageCacheWriteTotal = 0;
 
     for (var index = 0; index < session.messages.length; index++) {
       final message = session.messages[index];
@@ -277,11 +266,13 @@ class SessionCacheHitTrend {
         promptTokens: promptTokens,
         cacheReadTokens: cacheReadTokens,
         claudeStyle: claudeStyle,
+        cacheWriteTokens: cacheWriteTokens,
       );
       final denominator = computeCacheHitDenominatorTokens(
         promptTokens: promptTokens,
         cacheReadTokens: cacheReadTokens,
         claudeStyle: claudeStyle,
+        cacheWriteTokens: cacheWriteTokens,
       );
       if (denominator <= 0) {
         continue;
@@ -289,10 +280,12 @@ class SessionCacheHitTrend {
       turnIndex += 1;
       averagePromptTotal += promptTokens;
       averageCacheReadTotal += cacheReadTokens;
+      averageCacheWriteTotal += cacheWriteTokens;
       final averageHitRatio = computeCacheHitRatio(
         promptTokens: averagePromptTotal,
         cacheReadTokens: averageCacheReadTotal,
         claudeStyle: claudeStyle,
+        cacheWriteTokens: averageCacheWriteTotal,
       );
       final previousRoundStarter = _previousRoundStarterMessage(
         session,
@@ -335,12 +328,101 @@ class SessionCacheHitTrend {
       promptTokens: averagePromptTotal,
       cacheReadTokens: averageCacheReadTotal,
       claudeStyle: claudeStyle,
+      cacheWriteTokens: averageCacheWriteTotal,
     );
     return SessionCacheHitTrend(
       points: List<SessionCacheHitTurnPoint>.unmodifiable(points),
       averageHitRatio: averageHitRatio,
       claudeStyle: claudeStyle,
     );
+  }
+
+  static bool statisticsTrendUsesRoundStarterSchema(
+    AiSessionStatistics statistics,
+  ) {
+    final points = statistics.cacheHitTrendPoints;
+    return points.isNotEmpty &&
+        points.every((point) => point.starterOrigin != null);
+  }
+
+  static SessionCacheHitTrend fromStatistics(
+    AiSessionStatistics statistics, {
+    required bool claudeStyle,
+  }) {
+    final points = <SessionCacheHitTurnPoint>[];
+    var promptTotal = 0;
+    var cacheReadTotal = 0;
+    var cacheWriteTotal = 0;
+    final fallbackTimestamp = DateTime.fromMillisecondsSinceEpoch(
+      0,
+      isUtc: true,
+    );
+    for (final point in statistics.cacheHitTrendPoints) {
+      final denominator = computeCacheHitDenominatorTokens(
+        promptTokens: point.promptTokens,
+        cacheReadTokens: point.cacheReadTokens,
+        cacheWriteTokens: point.cacheWriteTokens,
+        claudeStyle: claudeStyle,
+      );
+      if (denominator <= 0) continue;
+      promptTotal += point.promptTokens;
+      cacheReadTotal += point.cacheReadTokens;
+      cacheWriteTotal += point.cacheWriteTokens;
+      final hitRatio = computeCacheHitRatio(
+        promptTokens: point.promptTokens,
+        cacheReadTokens: point.cacheReadTokens,
+        cacheWriteTokens: point.cacheWriteTokens,
+        claudeStyle: claudeStyle,
+      );
+      final averageHitRatio = computeCacheHitRatio(
+        promptTokens: promptTotal,
+        cacheReadTokens: cacheReadTotal,
+        cacheWriteTokens: cacheWriteTotal,
+        claudeStyle: claudeStyle,
+      );
+      final ttlSuspected =
+          (point.idleGapSeconds ?? 0) >= kExtremeIdleGapSeconds &&
+          hitRatio < kExtremeHitRatioThreshold;
+      points.add(
+        SessionCacheHitTurnPoint(
+          turnIndex: point.turnIndex,
+          starterMessageId: point.starterMessageId ?? '',
+          starterMessageKind: point.starterMessageKind ?? '',
+          starterOrigin: point.starterOrigin ?? '',
+          timestamp: fallbackTimestamp,
+          hitRatio: hitRatio,
+          averageHitRatio: averageHitRatio,
+          promptTokens: point.promptTokens,
+          cacheReadTokens: point.cacheReadTokens,
+          cacheWriteTokens: point.cacheWriteTokens,
+          idleGapSeconds: point.idleGapSeconds,
+          ttlSuspected: ttlSuspected,
+          prefixDriftSuspected: false,
+          automaticProviderMissSuspected: false,
+        ),
+      );
+    }
+    final averageHitRatio = computeCacheHitRatio(
+      promptTokens: promptTotal,
+      cacheReadTokens: cacheReadTotal,
+      cacheWriteTokens: cacheWriteTotal,
+      claudeStyle: claudeStyle,
+    );
+    return SessionCacheHitTrend(
+      points: List<SessionCacheHitTurnPoint>.unmodifiable(points),
+      averageHitRatio: averageHitRatio,
+      claudeStyle: claudeStyle,
+    );
+  }
+
+  static SessionCacheHitTrend fromStatisticsOrSession(
+    AiSession session, {
+    required bool claudeStyle,
+  }) {
+    if (statisticsTrendUsesRoundStarterSchema(session.statistics)) {
+      return fromStatistics(session.statistics, claudeStyle: claudeStyle);
+    }
+    return fromSession(session, claudeStyle: claudeStyle);
   }
 }
 

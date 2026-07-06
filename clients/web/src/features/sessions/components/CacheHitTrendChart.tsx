@@ -53,8 +53,9 @@ function isCleanTrendPoint(p: TrendPoint): boolean {
 function uncachedPromptTokens(p: TrendPoint, claudeStyle: boolean): number {
   const prompt = Math.max(0, Math.round(p.promptTokens ?? 0));
   const read = Math.max(0, Math.round(p.cacheReadTokens ?? 0));
+  const write = Math.max(0, Math.round(p.cacheWriteTokens ?? 0));
   if (claudeStyle) return prompt;
-  return Math.max(0, prompt - read);
+  return Math.max(0, prompt - read - write);
 }
 
 function averageHitRatio(
@@ -63,12 +64,14 @@ function averageHitRatio(
   fallback: number,
 ): number {
   let readTotal = 0;
+  let writeTotal = 0;
   let uncachedTotal = 0;
   for (const p of points) {
     readTotal += Math.max(0, Math.round(p.cacheReadTokens ?? 0));
+    writeTotal += Math.max(0, Math.round(p.cacheWriteTokens ?? 0));
     uncachedTotal += uncachedPromptTokens(p, claudeStyle);
   }
-  const denominator = readTotal + uncachedTotal;
+  const denominator = readTotal + writeTotal + uncachedTotal;
   if (denominator <= 0) return clampNumber(fallback, 0, 1);
   return clampNumber(readTotal / denominator, 0, 1);
 }

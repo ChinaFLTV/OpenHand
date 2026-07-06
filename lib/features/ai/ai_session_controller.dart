@@ -781,6 +781,8 @@ class AiSessionController extends ChangeNotifier {
       <String, Future<AiSession?>>{};
   final Map<String, Future<AiSession?>> _sessionOlderMessageHydrationTasks =
       <String, Future<AiSession?>>{};
+  final Map<String, Future<AiSession?>> _sessionCacheStatsHydrationTasks =
+      <String, Future<AiSession?>>{};
   final Map<String, Future<void>> _responseRegenerationRecoveryTasks =
       <String, Future<void>>{};
   final Set<String> _hydratingSessionMessageIds = <String>{};
@@ -1412,6 +1414,9 @@ class AiSessionController extends ChangeNotifier {
     _sessionOlderMessageHydrationTasks.removeWhere(
       (sessionId, _) => !liveSessionIds.contains(sessionId),
     );
+    _sessionCacheStatsHydrationTasks.removeWhere(
+      (sessionId, _) => !liveSessionIds.contains(sessionId),
+    );
     // Remove stale entries from _deletedSessionIds that no longer have
     // in-flight operations.  An entry is safe to remove when no session
     // operation queue is pending for that id.
@@ -1527,6 +1532,7 @@ class AiSessionController extends ChangeNotifier {
           _sessionNeedsInitialMessageWindow(selectedSession)) {
         unawaited(ensureSessionMessageWindowHydrated(sessionId));
       }
+      _scheduleSessionCacheStatisticsHydration(sessionId);
       return;
     }
     _currentSessionId = sessionId;
@@ -1540,6 +1546,7 @@ class AiSessionController extends ChangeNotifier {
       sessionId,
       fallbackSession: selectedSession,
     );
+    _scheduleSessionCacheStatisticsHydration(sessionId);
   }
 
   AiSession? _primeSelectedSessionMessageWindow(String sessionId) {
@@ -1579,6 +1586,23 @@ class AiSessionController extends ChangeNotifier {
             ).catchError((Object _, StackTrace stackTrace) {}),
           );
         }
+      }),
+    );
+  }
+
+  void _scheduleSessionCacheStatisticsHydration(String sessionId) {
+    unawaited(
+      ensureSessionCacheStatisticsHydrated(sessionId).catchError((
+        Object error,
+        StackTrace stack,
+      ) {
+        silentLog(
+          'ai_session_controller',
+          'hydrate session cache statistics after select',
+          error,
+          stack,
+        );
+        return null;
       }),
     );
   }
@@ -1638,6 +1662,24 @@ class AiSessionController extends ChangeNotifier {
     return task;
   }
 
+  Future<AiSession?> ensureSessionCacheStatisticsHydrated(String sessionId) {
+    final normalizedSessionId = sessionId.trim();
+    if (normalizedSessionId.isEmpty) {
+      return Future<AiSession?>.value();
+    }
+    final current = _sessionById(normalizedSessionId);
+    if (current == null || !_sessionNeedsCacheStatisticsHydration(current)) {
+      return Future<AiSession?>.value(current);
+    }
+    final existingTask = _sessionCacheStatsHydrationTasks[normalizedSessionId];
+    if (existingTask != null) {
+      return existingTask;
+    }
+    final task = _hydrateSessionCacheStatistics(normalizedSessionId);
+    _sessionCacheStatsHydrationTasks[normalizedSessionId] = task;
+    return task;
+  }
+
   Future<AiSession?> loadOlderSessionMessages(String sessionId) {
     final normalizedSessionId = sessionId.trim();
     if (normalizedSessionId.isEmpty) {
@@ -1660,6 +1702,92 @@ class AiSessionController extends ChangeNotifier {
 
   bool _sessionNeedsMessageHydration(AiSession session) {
     return !session.hasCompleteMessages && session.messageTotalCount > 0;
+  }
+
+  bool _sessionNeedsCacheStatisticsHydration(AiSession session) {
+    final statistics = session.statistics;
+    final hasCacheUsageTelemetry =
+        statistics.cacheReadTokens != null ||
+        statistics.cacheCreationTokens != null;
+    if (!hasCacheUsageTelemetry || session.messageTotalCount <= 0) {
+      return false;
+    }
+    final cacheRead = statistics.cacheReadTokens ?? 0;
+    final cacheWrite = statistics.cacheCreationTokens ?? 0;
+    final hasCacheTokens = cacheRead > 0 || cacheWrite > 0;
+    final hasCurrentTrendSchema =
+        SessionCacheHitTrend.statisticsTrendUsesRoundStarterSchema(statistics);
+    final staleZeroRatio =
+        cacheRead > 0 && (statistics.cacheHitRatio ?? 0) <= 0;
+    final likelyWindowedStatistics =
+        session.hasPartialMessages &&
+        statistics.totalMessageCount < session.messageTotalCount;
+    return staleZeroRatio ||
+        (hasCacheTokens &&
+            (!hasCurrentTrendSchema || likelyWindowedStatistics));
+  }
+
+  Future<AiSession?> _hydrateSessionCacheStatistics(String sessionId) async {
+    try {
+      final liveBeforeLoad = _sessionById(sessionId);
+      if (liveBeforeLoad == null ||
+          !_sessionNeedsCacheStatisticsHydration(liveBeforeLoad)) {
+        return liveBeforeLoad;
+      }
+      final fullSession = liveBeforeLoad.hasCompleteMessages
+          ? liveBeforeLoad
+          : await _store.loadSession(sessionId);
+      if (fullSession == null || _deletedSessionIds.contains(sessionId)) {
+        return null;
+      }
+      final model =
+          resolveModelForSession(liveBeforeLoad) ??
+          resolveModelForSession(fullSession);
+      final rebuiltFullSession = _rebuildSession(fullSession, model: model);
+      final live = _sessionById(sessionId);
+      if (live == null) return null;
+      if (!_sessionNeedsCacheStatisticsHydration(live) &&
+          !_sessionStatisticsDiffer(
+            live.statistics,
+            rebuiltFullSession.statistics,
+          )) {
+        return live;
+      }
+      final updatedLive = live.copyWith(
+        statistics: rebuiltFullSession.statistics,
+        messageTotalCount: math.max(
+          live.messageTotalCount,
+          rebuiltFullSession.statistics.totalMessageCount,
+        ),
+      );
+      final replaced = _replaceSessionInMemory(
+        updatedLive,
+        sortSessions: false,
+      );
+      final effective = _sessionById(sessionId) ?? updatedLive;
+      if (replaced) {
+        notifyListeners();
+      }
+      await _store.saveSessionHeader(effective);
+      return effective;
+    } catch (error, stack) {
+      silentLog(
+        'ai_session_controller',
+        'hydrate session cache statistics',
+        error,
+        stack,
+      );
+      return _sessionById(sessionId);
+    } finally {
+      _sessionCacheStatsHydrationTasks.remove(sessionId);
+    }
+  }
+
+  bool _sessionStatisticsDiffer(
+    AiSessionStatistics left,
+    AiSessionStatistics right,
+  ) {
+    return jsonEncode(left.toJson()) != jsonEncode(right.toJson());
   }
 
   Future<AiSession?> _loadOlderSessionMessages(String sessionId) async {

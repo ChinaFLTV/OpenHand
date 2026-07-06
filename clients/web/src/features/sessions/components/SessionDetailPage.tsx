@@ -4982,7 +4982,7 @@ export function SessionDetailPage() {
         // 避免会话侧仅 token 计数器变化时客户端把快照当成
         // 重复帧丢掉，导致 Token 弹窗不实时刷新。
         const stats = (snap.session.statistics ?? {}) as Record<string, unknown>;
-        const tokenSig = `${stats['total_prompt_tokens'] ?? 0}:${stats['cache_read_tokens'] ?? 0}:${stats['cache_hit_ratio'] ?? 'n'}:${(stats['cache_hit_trend_points'] as unknown[] | undefined)?.length ?? 0}`;
+        const tokenSig = `${stats['total_prompt_tokens'] ?? 0}:${stats['cache_read_tokens'] ?? 0}:${stats['cache_creation_tokens'] ?? 0}:${stats['cache_hit_ratio'] ?? 'n'}:${(stats['cache_hit_trend_points'] as unknown[] | undefined)?.length ?? 0}`;
         const fingerprint = `${snapshotMessagesFingerprint(snap.messages)}|` + `${snap.send_phase}|${snap.last_error?.length ?? 0}|${snap.session.message_count ?? 0}|${snap.session.updated_at ?? ''}|` + `tok=${tokenSig}`;
         if (fingerprint === lastSnapshotFingerprint) return;
         lastSnapshotFingerprint = fingerprint;
@@ -8853,6 +8853,14 @@ interface TrendPoint {
   idleGapSeconds?: number | null;
 }
 
+function trendPointUncachedPromptTokens(point: TrendPoint, claudeStyle: boolean): number {
+  const prompt = Math.max(0, Math.round(point.promptTokens ?? 0));
+  const read = Math.max(0, Math.round(point.cacheReadTokens ?? 0));
+  const write = Math.max(0, Math.round(point.cacheWriteTokens ?? 0));
+  if (claudeStyle) return prompt;
+  return Math.max(0, prompt - read - write);
+}
+
 interface SessionCacheHitDisplay {
   cacheReadTokens: number;
   cacheWriteTokens: number;
@@ -8879,6 +8887,7 @@ function buildSessionCacheHitDisplay(
   const backendHitRatio = readDouble(stats['cache_hit_ratio'], 0);
   const cacheHitRatio = cacheHitRatioPercent(backendHitRatio);
   const backendTrendPoints = (stats['cache_hit_trend_points'] ?? []) as SessionCacheHitTrendPoint[] | undefined;
+  const claudeStyle = usesClaudeStyleCacheMath(session.last_used_model_protocol);
   const trendData = backendTrendPoints && backendTrendPoints.length > 0
     ? {
       points: backendTrendPoints.map((p) => ({
@@ -8895,6 +8904,21 @@ function buildSessionCacheHitDisplay(
       averageRatio: backendHitRatio,
     }
     : null;
+  let barReadTokens = cacheReadTokens;
+  let barWriteTokens = cacheWriteTokens;
+  let barUncachedTokens = claudeStyle
+    ? promptTokensTotal
+    : Math.max(0, promptTokensTotal - cacheReadTokens - cacheWriteTokens);
+  if (trendData && trendData.points.length > 0) {
+    barReadTokens = 0;
+    barWriteTokens = 0;
+    barUncachedTokens = 0;
+    for (const point of trendData.points) {
+      barReadTokens += Math.max(0, Math.round(point.cacheReadTokens ?? 0));
+      barWriteTokens += Math.max(0, Math.round(point.cacheWriteTokens ?? 0));
+      barUncachedTokens += trendPointUncachedPromptTokens(point, claudeStyle);
+    }
+  }
   const hasCacheHitMetrics = shouldShowSessionCacheHitMetrics({
     cacheReadTokens,
     cacheWriteTokens,
@@ -8902,14 +8926,10 @@ function buildSessionCacheHitDisplay(
     totalTokens,
     trendPointCount: trendData?.points.length ?? 0,
   });
-  const cacheHitFrac = cacheHitRatio / 100;
-  const hasWrite = cacheWriteTokens > 0;
-  const readWeight = hasWrite && cacheReadTokens + cacheWriteTokens > 0
-    ? cacheHitFrac * (cacheReadTokens / (cacheReadTokens + cacheWriteTokens))
-    : cacheHitFrac;
-  const writeWeight = hasWrite && cacheReadTokens + cacheWriteTokens > 0
-    ? cacheHitFrac * (cacheWriteTokens / (cacheReadTokens + cacheWriteTokens))
-    : 0;
+  const barTotal = barReadTokens + barWriteTokens + barUncachedTokens;
+  const readWeight = barTotal > 0 ? barReadTokens / barTotal : cacheHitRatio / 100;
+  const writeWeight = barTotal > 0 ? barWriteTokens / barTotal : 0;
+  const missWeight = barTotal > 0 ? barUncachedTokens / barTotal : Math.max(0, 1 - cacheHitRatio / 100);
   return {
     cacheReadTokens,
     cacheWriteTokens,
@@ -8917,8 +8937,8 @@ function buildSessionCacheHitDisplay(
     hasCacheHitMetrics,
     readWeight,
     writeWeight,
-    missWeight: 1 - cacheHitFrac,
-    claudeStyle: usesClaudeStyleCacheMath(session.last_used_model_protocol),
+    missWeight,
+    claudeStyle,
     trendData,
   };
 }

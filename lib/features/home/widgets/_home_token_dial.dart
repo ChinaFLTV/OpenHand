@@ -19,11 +19,10 @@ class _TokenDial extends StatefulWidget {
 
   /// 当前会话的 cache 命中率，范围 0..1。
   ///
-  /// 改为与浮窗完全同一公式：复用
-  /// [SessionCacheHitTrend.fromSession] + `excludeExtremeMisses` 模式，
-  /// 逐次模型请求计算并仅排除长时间空闲导致的缓存过期异常。这样 TopBar
-  /// 胶囊与浮窗"Cache 命中率"始终显示同一数值，避免用户看到 33% vs 50%
-  /// 这种口径错位。
+  /// 改为与浮窗完全同一公式：优先读取持久化在
+  /// [AiSessionStatistics.cacheHitTrendPoints] 中的完整趋势点；缺失时才从
+  /// 当前消息窗口兜底重算。这样进入长会话时不需要先点击"加载更早消息"，
+  /// TopBar 胶囊、APP 浮窗、WEB 浮窗也能保持同一口径。
   ///
   /// 优先读取 [AiSessionStatistics.cacheHitRatio]（后端预计算、
   /// SSE 实时推送、WEB 端也直接消费），缺失时回退到客户端重算，保证同一
@@ -40,7 +39,7 @@ class _TokenDial extends StatefulWidget {
         _cacheHitTrendUsesRoundStarterSchema) {
       return finiteUnitInterval(precomputed);
     }
-    final trend = SessionCacheHitTrend.fromSession(
+    final trend = SessionCacheHitTrend.fromStatisticsOrSession(
       session,
       claudeStyle: claudeStyle,
     );
@@ -50,9 +49,9 @@ class _TokenDial extends StatefulWidget {
   }
 
   bool get _cacheHitTrendUsesRoundStarterSchema {
-    final points = session.statistics.cacheHitTrendPoints;
-    return points.isNotEmpty &&
-        points.every((point) => point.starterOrigin != null);
+    return SessionCacheHitTrend.statisticsTrendUsesRoundStarterSchema(
+      session.statistics,
+    );
   }
 
   @override
@@ -149,6 +148,7 @@ class _TokenDialState extends State<_TokenDial>
           statistics: widget.statistics,
           activeProfile: widget.activeProfile,
           claudeStyle: widget.claudeStyle,
+          cacheHitRatio: widget.cacheHitRatio,
           compact: false,
         ),
       ),
@@ -195,6 +195,7 @@ class _TokenDialState extends State<_TokenDial>
                     statistics: widget.statistics,
                     activeProfile: widget.activeProfile,
                     claudeStyle: widget.claudeStyle,
+                    cacheHitRatio: widget.cacheHitRatio,
                   ),
                 ),
               ),
@@ -305,6 +306,7 @@ class _TokenDialPopup extends StatefulWidget {
   const _TokenDialPopup({
     required this.session,
     required this.statistics,
+    required this.cacheHitRatio,
     this.activeProfile,
     this.claudeStyle = true,
     this.compact = true,
@@ -312,6 +314,7 @@ class _TokenDialPopup extends StatefulWidget {
 
   final AiSession session;
   final AiSessionStatistics statistics;
+  final double cacheHitRatio;
   final AiModelProfile? activeProfile;
   final bool claudeStyle;
   final bool compact;
@@ -356,12 +359,14 @@ class _TokenDialPopupState extends State<_TokenDialPopup> {
     final cacheWrite = widget.statistics.cacheCreationTokens ?? 0;
     final reasoning = widget.statistics.reasoningTokens ?? 0;
     final total = widget.statistics.totalTokens ?? 0;
-    final trend = SessionCacheHitTrend.fromSession(
+    final trend = SessionCacheHitTrend.fromStatisticsOrSession(
       widget.session,
       claudeStyle: widget.claudeStyle,
     );
     final displayData = trend.displayData(_displayMode);
-    final cacheHitRatio = displayData.averageHitRatio;
+    final cacheHitRatio = trend.points.isEmpty
+        ? widget.cacheHitRatio
+        : displayData.averageHitRatio;
     final hasCacheUsageTelemetry =
         widget.statistics.cacheReadTokens != null ||
         widget.statistics.cacheCreationTokens != null ||
@@ -373,11 +378,13 @@ class _TokenDialPopupState extends State<_TokenDialPopup> {
       cacheWriteTokens: cacheWrite,
       hasTrendPoints: trend.points.isNotEmpty,
     );
-    final cacheBarPromptTokens = resolveSessionCacheHitBarPromptTokens(
-      displayData: displayData,
-      promptTokens: promptTokens,
-      totalPromptTokens: promptTokensTotal,
-    );
+    final fallbackUncachedRaw = promptTokens - cacheRead - cacheWrite;
+    final fallbackUncachedPromptTokens = widget.claudeStyle
+        ? promptTokens
+        : (fallbackUncachedRaw > 0 ? fallbackUncachedRaw : 0);
+    final cacheBarPromptTokens = trend.points.isNotEmpty
+        ? displayData.uncachedPromptTokens
+        : fallbackUncachedPromptTokens;
     return Material(
       color: Colors.transparent,
       child: Container(

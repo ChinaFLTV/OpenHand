@@ -177,6 +177,82 @@ void main() {
   });
 
   test(
+    'builds full trend from persisted statistics when messages are windowed',
+    () {
+      final now = DateTime.utc(2026, 7, 6);
+      final session =
+          _sessionWithMessages(<AiSessionMessage>[
+            AiSessionMessage.toolResult(
+              id: 'tail-tool',
+              content: 'tail',
+              createdAt: now,
+              metadata: const <String, Object?>{},
+            ),
+          ]).copyWith(
+            messageLoadState: AiSessionMessageLoadState.windowed,
+            messageWindowStartIndex: 17,
+            messageTotalCount: 18,
+            statistics: const AiSessionStatistics(
+              totalMessageCount: 18,
+              userMessageCount: 1,
+              assistantMessageCount: 2,
+              toolMessageCount: 15,
+              mcpMessageCount: 0,
+              skillMessageCount: 0,
+              compressionPointCount: 0,
+              totalInputCharacters: 0,
+              totalOutputCharacters: 0,
+              totalPromptCharacters: 0,
+              promptBuildCount: 2,
+              compressionRunCount: 0,
+              totalPromptTokens: 3000,
+              totalCompletionTokens: 20,
+              totalTokens: 3020,
+              cacheReadTokens: 1500,
+              cacheCreationTokens: 500,
+              cacheHitRatio: 0.5,
+              cacheHitTrendPoints: <AiSessionCacheHitTrendPoint>[
+                AiSessionCacheHitTrendPoint(
+                  turnIndex: 1,
+                  hitRatio: 0,
+                  promptTokens: 1000,
+                  cacheReadTokens: 0,
+                  cacheWriteTokens: 500,
+                  starterMessageId: 'user-1',
+                  starterMessageKind: 'user',
+                  starterOrigin: aiSessionMessageSenderOriginExplicitUser,
+                ),
+                AiSessionCacheHitTrendPoint(
+                  turnIndex: 2,
+                  hitRatio: 0.75,
+                  promptTokens: 2000,
+                  cacheReadTokens: 1500,
+                  cacheWriteTokens: 0,
+                  starterMessageId: 'tool-1',
+                  starterMessageKind: 'tool',
+                  starterOrigin: aiSessionMessageSenderOriginOpenHandBackground,
+                ),
+              ],
+            ),
+          );
+
+      final trend = SessionCacheHitTrend.fromStatisticsOrSession(
+        session,
+        claudeStyle: false,
+      );
+      final display = trend.displayData(
+        SessionCacheHitDisplayMode.excludeExtremeMisses,
+      );
+
+      expect(trend.points, hasLength(2));
+      expect(display.cacheReadTokens, 1500);
+      expect(display.cacheWriteTokens, 500);
+      expect(display.uncachedPromptTokens, 1000);
+      expect(display.averageHitRatio, closeTo(1500 / 3000, 0.0001));
+    },
+  );
+
+  test(
     'treats missing cache fields as zero after provider support is known',
     () {
       final startedAt = DateTime.utc(2026, 7, 6);

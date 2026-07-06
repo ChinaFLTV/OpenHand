@@ -729,9 +729,8 @@ class _SessionMetadataDialog extends StatelessWidget {
   }
 
   /// 在 summaryBlocks 之后渲染缓存命中率随消息推进的折线趋势图。
-  /// 数据源：遍历 `session.messages` 中带 usage 的 assistant 消息，
-  /// 按协议公式（Claude 系：read/(prompt+read)；OpenAI/Gemini 系：read/prompt）
-  /// 计算每条消息的 hit ratio。低于 2 个数据点时不渲染。
+  /// 数据源：优先使用 session.statistics 内的完整预计算趋势点；缺失时才从
+  /// 当前消息窗口兜底重算。低于 2 个数据点时不渲染。
   ///
   /// 抽出独立的 [_CacheHitTrendChart] 子部件支持
   /// (a) 悬停 tooltip 标注每点 %；(b) 切换显示另一条协议公式的叠加曲线。
@@ -740,7 +739,7 @@ class _SessionMetadataDialog extends StatelessWidget {
     ThemeData theme,
     ColorScheme colorScheme,
   ) {
-    final trend = SessionCacheHitTrend.fromSession(
+    final trend = SessionCacheHitTrend.fromStatisticsOrSession(
       session,
       claudeStyle: claudeStyle,
     );
@@ -2771,6 +2770,7 @@ class _CacheHitTrendChartState extends State<_CacheHitTrendChart> {
           return computeCacheHitRatio(
             promptTokens: prompt,
             cacheReadTokens: read,
+            cacheWriteTokens: point.cacheWriteTokens,
             claudeStyle: !widget.primaryClaudeStyle,
           );
         })

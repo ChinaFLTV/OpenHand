@@ -55,25 +55,29 @@ String _auditFormatOrDash(Object? value) {
 
 /// 返回单条消息维度的 prefix cache 命中率（0..1）。
 /// 与 [_TokenDial.cacheHitRatio] 同步的协议公式：
-/// - Claude / Anthropic：prompt 不含 cache_read → 分母 = prompt + read。
-/// - OpenAI 兼容系 / Gemini：prompt 已含 cache_read → 分母 = prompt。
+/// - Claude / Anthropic：prompt 不含 cache_read/cache_write → 分母 = prompt + read + write。
+/// - OpenAI 兼容系 / Gemini：prompt 通常已含 cache_read/cache_write → 分母 = prompt。
 /// 返回 null 表示无足够数据（usage 缺失 / 分母为 0）。
 double? _auditMessageHitRatio({
   required int? promptTokens,
   required int? cacheReadTokens,
+  required int? cacheWriteTokens,
   required bool claudeStyle,
 }) {
   final prompt = promptTokens ?? 0;
   final read = cacheReadTokens ?? 0;
-  if (prompt <= 0 && read <= 0) return null;
+  final write = cacheWriteTokens ?? 0;
+  if (prompt <= 0 && read <= 0 && write <= 0) return null;
   final ratio = computeCacheHitRatio(
     promptTokens: prompt,
     cacheReadTokens: read,
+    cacheWriteTokens: write,
     claudeStyle: claudeStyle,
   );
   final denominator = computeCacheHitDenominatorTokens(
     promptTokens: prompt,
     cacheReadTokens: read,
+    cacheWriteTokens: write,
     claudeStyle: claudeStyle,
   );
   return denominator <= 0 ? null : ratio;
@@ -840,6 +844,7 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
         : _auditMessageHitRatio(
             promptTokens: displayUsage.promptTokens,
             cacheReadTokens: displayUsage.cacheReadTokens,
+            cacheWriteTokens: displayUsage.cacheCreationTokens,
             claudeStyle: widget.claudeStyle,
           );
     final stablePrefixKnown =
@@ -1141,6 +1146,8 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
                             _auditMessageHitRatio(
                                   promptTokens: displayUsage.promptTokens,
                                   cacheReadTokens: displayUsage.cacheReadTokens,
+                                  cacheWriteTokens:
+                                      displayUsage.cacheCreationTokens,
                                   claudeStyle: widget.claudeStyle,
                                 ) !=
                                 null)
@@ -1152,6 +1159,8 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
                               _auditMessageHitRatio(
                                 promptTokens: displayUsage.promptTokens,
                                 cacheReadTokens: displayUsage.cacheReadTokens,
+                                cacheWriteTokens:
+                                    displayUsage.cacheCreationTokens,
                                 claudeStyle: widget.claudeStyle,
                               ),
                             ),
@@ -1687,14 +1696,13 @@ class _SessionAuditDialogState extends State<_SessionAuditDialog> {
                         ),
                       Builder(
                         builder: (context) {
-                          // 与 TopBar 胶囊 / 浮窗"Cache 命中率"
-                          // 走同一公式（[SessionCacheHitTrend] 排除首轮 + 排除
-                          // 极端空闲 miss），避免审计页 / TopBar / 浮窗三方口径
-                          // 错位。
-                          final trend = SessionCacheHitTrend.fromSession(
-                            session,
-                            claudeStyle: widget.claudeStyle,
-                          );
+                          // 与 TopBar 胶囊 / 浮窗"Cache 命中率"走同一公式：
+                          // 完整统计趋势点优先，当前消息窗口仅作兜底。
+                          final trend =
+                              SessionCacheHitTrend.fromStatisticsOrSession(
+                                session,
+                                claudeStyle: widget.claudeStyle,
+                              );
                           final ratio = trend
                               .displayData(
                                 SessionCacheHitDisplayMode.excludeExtremeMisses,

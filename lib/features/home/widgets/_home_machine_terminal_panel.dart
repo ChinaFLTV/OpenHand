@@ -532,23 +532,6 @@ class _MachineTerminalHistoryDialogState
     extends State<_MachineTerminalHistoryDialog> {
   static const double _dialogMaxWidth = 1060;
   static const double _dialogMaxHeight = 720;
-  static const double _terminalColumnWidth = 150;
-  static const double _statusColumnWidth = 98;
-  static const double _pidColumnWidth = 98;
-  static const double _sizeColumnWidth = 80;
-  static const double _commandsColumnWidth = 86;
-  static const double _outputColumnWidth = 110;
-  static const double _timeColumnWidth = 145;
-  static const double _actionsColumnWidth = 138;
-  static const double _tableWidth =
-      _terminalColumnWidth +
-      _statusColumnWidth +
-      _pidColumnWidth +
-      _sizeColumnWidth +
-      _commandsColumnWidth +
-      _outputColumnWidth +
-      _timeColumnWidth * 2 +
-      _actionsColumnWidth;
 
   final ScrollController _verticalScrollController = ScrollController();
   final ScrollController _horizontalScrollController = ScrollController();
@@ -657,43 +640,58 @@ class _MachineTerminalHistoryDialogState
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(14),
-        child: OpenHandSafeScrollbar(
-          controller: _verticalScrollController,
-          thumbVisibility: true,
-          child: SingleChildScrollView(
-            controller: _verticalScrollController,
-            physics: kOpenHandDialogScrollPhysics,
-            child: OpenHandSafeScrollbar(
-              controller: _horizontalScrollController,
-              scrollbarOrientation: ScrollbarOrientation.bottom,
-              child: SingleChildScrollView(
-                controller: _horizontalScrollController,
-                scrollDirection: Axis.horizontal,
-                physics: kOpenHandDialogScrollPhysics,
-                child: SizedBox(
-                  width: _tableWidth,
-                  child: Column(
-                    children: [
-                      _historyHeaderRow(context),
-                      ...terminals.map(
-                        (terminal) => _historyDataRow(
-                          context,
-                          terminal,
-                          active: terminal.terminalId == activeTerminalId,
-                        ),
-                      ),
-                    ],
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final columns = _MachineTerminalHistoryColumnLayout.fromWidth(
+              constraints.maxWidth,
+            );
+            final table = SizedBox(
+              width: columns.tableWidth,
+              child: Column(
+                children: [
+                  _historyHeaderRow(context, columns),
+                  ...terminals.map(
+                    (terminal) => _historyDataRow(
+                      context,
+                      terminal,
+                      active: terminal.terminalId == activeTerminalId,
+                      columns: columns,
+                    ),
                   ),
-                ),
+                ],
               ),
-            ),
-          ),
+            );
+            final tableBody = columns.tableWidth > constraints.maxWidth + 0.5
+                ? OpenHandSafeScrollbar(
+                    controller: _horizontalScrollController,
+                    scrollbarOrientation: ScrollbarOrientation.bottom,
+                    child: SingleChildScrollView(
+                      controller: _horizontalScrollController,
+                      scrollDirection: Axis.horizontal,
+                      physics: kOpenHandDialogScrollPhysics,
+                      child: table,
+                    ),
+                  )
+                : table;
+            return OpenHandSafeScrollbar(
+              controller: _verticalScrollController,
+              thumbVisibility: true,
+              child: SingleChildScrollView(
+                controller: _verticalScrollController,
+                physics: kOpenHandDialogScrollPhysics,
+                child: tableBody,
+              ),
+            );
+          },
         ),
       ),
     );
   }
 
-  Widget _historyHeaderRow(BuildContext context) {
+  Widget _historyHeaderRow(
+    BuildContext context,
+    _MachineTerminalHistoryColumnLayout columns,
+  ) {
     final cs = Theme.of(context).colorScheme;
     return Container(
       height: 42,
@@ -703,50 +701,50 @@ class _MachineTerminalHistoryDialogState
           _historyCell(
             context,
             openHandLocalizedText(context, zh: '终端', en: 'Terminal'),
-            width: _terminalColumnWidth,
+            width: columns.terminal,
             header: true,
           ),
           _historyCell(
             context,
             openHandLocalizedText(context, zh: '状态', en: 'Status'),
-            width: _statusColumnWidth,
+            width: columns.status,
             header: true,
           ),
-          _historyCell(context, 'PID', width: _pidColumnWidth, header: true),
+          _historyCell(context, 'PID', width: columns.pid, header: true),
           _historyCell(
             context,
             openHandLocalizedText(context, zh: '尺寸', en: 'Size'),
-            width: _sizeColumnWidth,
+            width: columns.size,
             header: true,
           ),
           _historyCell(
             context,
             openHandLocalizedText(context, zh: '命令', en: 'Commands'),
-            width: _commandsColumnWidth,
+            width: columns.commands,
             header: true,
           ),
           _historyCell(
             context,
             openHandLocalizedText(context, zh: '输出', en: 'Output'),
-            width: _outputColumnWidth,
+            width: columns.output,
             header: true,
           ),
           _historyCell(
             context,
             openHandLocalizedText(context, zh: '启动时间', en: 'Started'),
-            width: _timeColumnWidth,
+            width: columns.started,
             header: true,
           ),
           _historyCell(
             context,
             openHandLocalizedText(context, zh: '更新时间', en: 'Updated'),
-            width: _timeColumnWidth,
+            width: columns.updated,
             header: true,
           ),
           _historyCell(
             context,
             openHandLocalizedText(context, zh: '操作', en: 'Actions'),
-            width: _actionsColumnWidth,
+            width: columns.actions,
             header: true,
             alignEnd: true,
           ),
@@ -759,11 +757,11 @@ class _MachineTerminalHistoryDialogState
     BuildContext context,
     MachineTerminalSnapshot terminal, {
     required bool active,
+    required _MachineTerminalHistoryColumnLayout columns,
   }) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final deleting = _deletingTerminalId == terminal.terminalId;
-    const detailWidth = _tableWidth - _actionsColumnWidth;
     return AnimatedContainer(
       duration: openHandMotionDuration(
         context,
@@ -782,7 +780,7 @@ class _MachineTerminalHistoryDialogState
       child: Row(
         children: [
           SizedBox(
-            width: detailWidth,
+            width: columns.detailWidth,
             child: Material(
               color: Colors.transparent,
               child: InkWell(
@@ -798,7 +796,7 @@ class _MachineTerminalHistoryDialogState
                     _historyCell(
                       context,
                       terminal.terminalId,
-                      width: _terminalColumnWidth,
+                      width: columns.terminal,
                       leading: Icon(
                         Icons.terminal_rounded,
                         size: 16,
@@ -815,7 +813,7 @@ class _MachineTerminalHistoryDialogState
                           : null,
                     ),
                     SizedBox(
-                      width: _statusColumnWidth,
+                      width: columns.status,
                       child: Align(
                         alignment: Alignment.centerLeft,
                         child: Padding(
@@ -829,36 +827,36 @@ class _MachineTerminalHistoryDialogState
                     _historyCell(
                       context,
                       terminal.pid == null ? '-' : '${terminal.pid}',
-                      width: _pidColumnWidth,
+                      width: columns.pid,
                       mono: true,
                     ),
                     _historyCell(
                       context,
                       '${terminal.columns}x${terminal.rows}',
-                      width: _sizeColumnWidth,
+                      width: columns.size,
                       mono: true,
                     ),
                     _historyCell(
                       context,
                       '${terminal.commandCount}',
-                      width: _commandsColumnWidth,
+                      width: columns.commands,
                       mono: true,
                     ),
                     _historyCell(
                       context,
                       formatByteSize(terminal.historyOutputCharacters),
-                      width: _outputColumnWidth,
+                      width: columns.output,
                     ),
                     _historyCell(
                       context,
                       _formatTerminalHistoryTime(terminal.startedAt),
-                      width: _timeColumnWidth,
+                      width: columns.started,
                       mono: true,
                     ),
                     _historyCell(
                       context,
                       _formatTerminalHistoryTime(terminal.updatedAt),
-                      width: _timeColumnWidth,
+                      width: columns.updated,
                       mono: true,
                     ),
                   ],
@@ -867,7 +865,7 @@ class _MachineTerminalHistoryDialogState
             ),
           ),
           SizedBox(
-            width: _actionsColumnWidth,
+            width: columns.actions,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
@@ -1007,6 +1005,130 @@ class _MachineTerminalHistoryDialogState
     } finally {
       if (mounted) setState(() => _deletingTerminalId = null);
     }
+  }
+}
+
+class _MachineTerminalHistoryColumnLayout {
+  const _MachineTerminalHistoryColumnLayout({
+    required this.terminal,
+    required this.status,
+    required this.pid,
+    required this.size,
+    required this.commands,
+    required this.output,
+    required this.started,
+    required this.updated,
+    required this.actions,
+  });
+
+  static const double _preferredTerminal = 150;
+  static const double _preferredStatus = 98;
+  static const double _preferredPid = 98;
+  static const double _preferredSize = 80;
+  static const double _preferredCommands = 86;
+  static const double _preferredOutput = 110;
+  static const double _preferredTime = 145;
+  static const double _preferredActions = 138;
+
+  static const double _minimumTerminal = 118;
+  static const double _minimumStatus = 92;
+  static const double _minimumPid = 64;
+  static const double _minimumSize = 62;
+  static const double _minimumCommands = 72;
+  static const double _minimumOutput = 84;
+  static const double _minimumTime = 110;
+  static const double _minimumActions = 96;
+
+  static const double _preferredTableWidth =
+      _preferredTerminal +
+      _preferredStatus +
+      _preferredPid +
+      _preferredSize +
+      _preferredCommands +
+      _preferredOutput +
+      _preferredTime * 2 +
+      _preferredActions;
+  static const double _minimumTableWidth =
+      _minimumTerminal +
+      _minimumStatus +
+      _minimumPid +
+      _minimumSize +
+      _minimumCommands +
+      _minimumOutput +
+      _minimumTime * 2 +
+      _minimumActions;
+
+  final double terminal;
+  final double status;
+  final double pid;
+  final double size;
+  final double commands;
+  final double output;
+  final double started;
+  final double updated;
+  final double actions;
+
+  double get tableWidth =>
+      terminal +
+      status +
+      pid +
+      size +
+      commands +
+      output +
+      started +
+      updated +
+      actions;
+  double get detailWidth => tableWidth - actions;
+
+  static _MachineTerminalHistoryColumnLayout fromWidth(double maxWidth) {
+    final safeWidth = maxWidth.isFinite && maxWidth > 0
+        ? maxWidth
+        : _preferredTableWidth;
+    if (safeWidth >= _preferredTableWidth) {
+      final extra = safeWidth - _preferredTableWidth;
+      return _MachineTerminalHistoryColumnLayout(
+        terminal: _preferredTerminal + extra * 0.35,
+        status: _preferredStatus,
+        pid: _preferredPid,
+        size: _preferredSize,
+        commands: _preferredCommands,
+        output: _preferredOutput + extra * 0.15,
+        started: _preferredTime + extra * 0.15,
+        updated: _preferredTime + extra * 0.15,
+        actions: _preferredActions + extra * 0.20,
+      );
+    }
+    if (safeWidth <= _minimumTableWidth) {
+      return const _MachineTerminalHistoryColumnLayout(
+        terminal: _minimumTerminal,
+        status: _minimumStatus,
+        pid: _minimumPid,
+        size: _minimumSize,
+        commands: _minimumCommands,
+        output: _minimumOutput,
+        started: _minimumTime,
+        updated: _minimumTime,
+        actions: _minimumActions,
+      );
+    }
+    final scale =
+        (safeWidth - _minimumTableWidth) /
+        (_preferredTableWidth - _minimumTableWidth);
+    return _MachineTerminalHistoryColumnLayout(
+      terminal: _lerp(_minimumTerminal, _preferredTerminal, scale),
+      status: _lerp(_minimumStatus, _preferredStatus, scale),
+      pid: _lerp(_minimumPid, _preferredPid, scale),
+      size: _lerp(_minimumSize, _preferredSize, scale),
+      commands: _lerp(_minimumCommands, _preferredCommands, scale),
+      output: _lerp(_minimumOutput, _preferredOutput, scale),
+      started: _lerp(_minimumTime, _preferredTime, scale),
+      updated: _lerp(_minimumTime, _preferredTime, scale),
+      actions: _lerp(_minimumActions, _preferredActions, scale),
+    );
+  }
+
+  static double _lerp(double start, double end, double t) {
+    return start + (end - start) * t.clamp(0.0, 1.0);
   }
 }
 

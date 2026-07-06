@@ -2721,6 +2721,9 @@ class WebMessagePlatformService {
         'error': 'session_deleted_or_not_found',
       });
     }
+    unawaited(
+      _sessionController.ensureSessionCacheStatisticsHydrated(session.id),
+    );
     return _json(HttpStatus.ok, <String, Object?>{
       'session': await _sessionSummaryWithStoredMessageCount(
         session,

@@ -29,4 +29,17 @@ void main() {
     expect(usage, isNotNull);
     expect(usage!.reasoningTokens, 7);
   });
+
+  test('maps DeepSeek prompt cache miss tokens to cache write tokens', () {
+    final usage = AiTokenUsageParser.parseOpenAi(<String, Object?>{
+      'prompt_tokens': 2000,
+      'completion_tokens': 20,
+      'prompt_cache_hit_tokens': 1500,
+      'prompt_cache_miss_tokens': 500,
+    });
+
+    expect(usage, isNotNull);
+    expect(usage!.cacheReadTokens, 1500);
+    expect(usage.cacheCreationTokens, 500);
+  });
 }
