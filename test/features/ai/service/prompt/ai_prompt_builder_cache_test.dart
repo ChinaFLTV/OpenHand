@@ -29,6 +29,28 @@ void main() {
       isNot(second.metadata['stable_cache_key']),
     );
   });
+
+  test('tool catalog hash includes schema and description drift', () {
+    final first = _buildPromptWithTools(<AiToolDefinition>[
+      _tool('Read', 'Read a file.'),
+    ]);
+    final second = _buildPromptWithTools(<AiToolDefinition>[
+      _tool('Read', 'Read a local file with an absolute path.'),
+    ]);
+
+    expect(
+      first.metadata['stable_prefix_hash'],
+      second.metadata['stable_prefix_hash'],
+    );
+    expect(
+      first.metadata['tool_catalog_hash'],
+      isNot(second.metadata['tool_catalog_hash']),
+    );
+    expect(
+      first.metadata['cache_anchor_hash'],
+      isNot(second.metadata['cache_anchor_hash']),
+    );
+  });
 }
 
 AiPromptBuildResult _buildPromptWithTools(List<AiToolDefinition> tools) {

@@ -287,7 +287,6 @@ class AiPromptBuilder {
         .toList(growable: false);
     final availableToolNames = _promptCatalogToolNames(availableTools);
     final promptCatalogTools = displayCatalogOverride ?? availableTools;
-    final promptCatalogToolNames = _promptCatalogToolNames(promptCatalogTools);
     final currentFileEditingToolNames = availableToolNames
         .where(_isFileEditingToolName)
         .toList(growable: false);
@@ -665,7 +664,7 @@ class AiPromptBuilder {
       ].map(_fingerprintTurn).join('\n\n'),
     );
     final toolCatalogHash = _promptFingerprint(
-      promptCatalogToolNames.join('\n'),
+      _promptCatalogSignature(promptCatalogTools),
     );
     final inputCachePolicy = AiInputCachePolicy.resolve(
       model: model,
@@ -1900,6 +1899,41 @@ class AiPromptBuilder {
         .toList(growable: false);
     names.sort(_comparePromptCatalogNames);
     return names;
+  }
+
+  String _promptCatalogSignature(List<AiToolDefinition> tools) {
+    final entries = tools
+        .where((tool) => tool.name.trim().isNotEmpty)
+        .toList(growable: false);
+    entries.sort(_compareToolDefinitionsForPromptCatalog);
+    return entries
+        .map(
+          (tool) => <String>[
+            tool.name.trim(),
+            tool.description.trim(),
+            _promptJsonEncoder.convert(_canonicalPromptJson(tool.parameters)),
+          ].join('\u001f'),
+        )
+        .join('\u001e');
+  }
+
+  Object? _canonicalPromptJson(Object? value) {
+    if (value is Map) {
+      final entries = value.entries
+          .map(
+            (entry) => MapEntry<String, Object?>(
+              '${entry.key}',
+              _canonicalPromptJson(entry.value),
+            ),
+          )
+          .toList(growable: false);
+      entries.sort((left, right) => left.key.compareTo(right.key));
+      return Map<String, Object?>.fromEntries(entries);
+    }
+    if (value is Iterable) {
+      return value.map(_canonicalPromptJson).toList(growable: false);
+    }
+    return value;
   }
 
   String _promptFingerprint(String content) {
