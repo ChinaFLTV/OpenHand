@@ -185,5 +185,51 @@ void main() {
         AppSettingsSnapshot.maxAiStreamThrottleDurationSeconds,
       );
     });
+
+    test('normalizes AI request timeout bounds', () {
+      expect(
+        AppSettingsSnapshot.aiConnectTimeoutSecondsFromValue(0),
+        AppSettingsSnapshot.defaultAiConnectTimeoutSeconds,
+      );
+      expect(
+        AppSettingsSnapshot.aiConnectTimeoutSecondsFromValue(999999),
+        AppSettingsSnapshot.maxAiConnectTimeoutSeconds,
+      );
+      expect(
+        AppSettingsSnapshot.aiResponseTimeoutSecondsFromValue(0),
+        AppSettingsSnapshot.defaultAiResponseTimeoutSeconds,
+      );
+      expect(
+        AppSettingsSnapshot.aiResponseTimeoutSecondsFromValue(999999),
+        AppSettingsSnapshot.maxAiResponseTimeoutSeconds,
+      );
+      expect(
+        AppSettingsSnapshot.aiStreamIdleTimeoutSecondsFromValue(0),
+        AppSettingsSnapshot.defaultAiStreamIdleTimeoutSeconds,
+      );
+      expect(
+        AppSettingsSnapshot.aiStreamIdleTimeoutSecondsFromValue(999999),
+        AppSettingsSnapshot.maxAiStreamIdleTimeoutSeconds,
+      );
+
+      final snapshot = AppSettingsSnapshot.defaults().copyWith(
+        aiConnectTimeoutSeconds: 0,
+        aiResponseTimeoutSeconds: 999999,
+        aiStreamIdleTimeoutSeconds: 0,
+      );
+
+      expect(
+        snapshot.aiConnectTimeoutSeconds,
+        AppSettingsSnapshot.defaultAiConnectTimeoutSeconds,
+      );
+      expect(
+        snapshot.aiResponseTimeoutSeconds,
+        AppSettingsSnapshot.maxAiResponseTimeoutSeconds,
+      );
+      expect(
+        snapshot.aiStreamIdleTimeoutSeconds,
+        AppSettingsSnapshot.defaultAiStreamIdleTimeoutSeconds,
+      );
+    });
   });
 }

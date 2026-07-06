@@ -10,6 +10,7 @@ import 'ai_auto_title_fetch_mode.dart';
 import 'ai_builtin_tool_config.dart';
 import 'ai_deny_command_rule.dart';
 import 'ai_message_content_format.dart';
+import 'ai_request_timeout_policy.dart';
 import 'ai_sandbox_settings.dart';
 import 'ai_stream_throttle_policy.dart';
 import 'ai_tool_call_limit_policy.dart';
@@ -143,9 +144,9 @@ class AiSessionRuntimeContext {
     this.maxWorkspaceDocumentCharacters = 16000,
     this.imageSizeLimitBytes = kBytesPerMiB,
     this.writeCommandConfirmationEnabled = true,
-    this.connectTimeoutSeconds = 60,
-    this.responseTimeoutSeconds = 120,
-    this.streamIdleTimeoutSeconds = 120,
+    int connectTimeoutSeconds = defaultConnectTimeoutSeconds,
+    int responseTimeoutSeconds = defaultResponseTimeoutSeconds,
+    int streamIdleTimeoutSeconds = defaultStreamIdleTimeoutSeconds,
     int streamMaxCharsPerSecond = defaultStreamMaxCharsPerSecond,
     int streamMaxMessageCardsPerSecond = defaultStreamMaxMessageCardsPerSecond,
     this.streamThrottleEnabled = true,
@@ -198,6 +199,15 @@ class AiSessionRuntimeContext {
        ),
        bashOutputMaxBytes = normalizeBashOutputMaxBytes(bashOutputMaxBytes),
        maxConcurrentTools = normalizeMaxConcurrentTools(maxConcurrentTools),
+       connectTimeoutSeconds = normalizeConnectTimeoutSeconds(
+         connectTimeoutSeconds,
+       ),
+       responseTimeoutSeconds = normalizeResponseTimeoutSeconds(
+         responseTimeoutSeconds,
+       ),
+       streamIdleTimeoutSeconds = normalizeStreamIdleTimeoutSeconds(
+         streamIdleTimeoutSeconds,
+       ),
        streamMaxCharsPerSecond = normalizeStreamMaxCharsPerSecond(
          streamMaxCharsPerSecond,
        ),
@@ -328,6 +338,37 @@ class AiSessionRuntimeContext {
 
   static int normalizeMaxConcurrentTools(int value) {
     return AiToolExecutionLimitPolicy.normalizeMaxConcurrentTools(value);
+  }
+
+  static const int defaultConnectTimeoutSeconds =
+      AiRequestTimeoutPolicy.defaultConnectTimeoutSeconds;
+  static const int minConnectTimeoutSeconds =
+      AiRequestTimeoutPolicy.minConnectTimeoutSeconds;
+  static const int maxConnectTimeoutSeconds =
+      AiRequestTimeoutPolicy.maxConnectTimeoutSeconds;
+  static const int defaultResponseTimeoutSeconds =
+      AiRequestTimeoutPolicy.defaultResponseTimeoutSeconds;
+  static const int minResponseTimeoutSeconds =
+      AiRequestTimeoutPolicy.minResponseTimeoutSeconds;
+  static const int maxResponseTimeoutSeconds =
+      AiRequestTimeoutPolicy.maxResponseTimeoutSeconds;
+  static const int defaultStreamIdleTimeoutSeconds =
+      AiRequestTimeoutPolicy.defaultStreamIdleTimeoutSeconds;
+  static const int minStreamIdleTimeoutSeconds =
+      AiRequestTimeoutPolicy.minStreamIdleTimeoutSeconds;
+  static const int maxStreamIdleTimeoutSeconds =
+      AiRequestTimeoutPolicy.maxStreamIdleTimeoutSeconds;
+
+  static int normalizeConnectTimeoutSeconds(int value) {
+    return AiRequestTimeoutPolicy.normalizeConnectTimeoutSeconds(value);
+  }
+
+  static int normalizeResponseTimeoutSeconds(int value) {
+    return AiRequestTimeoutPolicy.normalizeResponseTimeoutSeconds(value);
+  }
+
+  static int normalizeStreamIdleTimeoutSeconds(int value) {
+    return AiRequestTimeoutPolicy.normalizeStreamIdleTimeoutSeconds(value);
   }
 
   static const int defaultStreamMaxCharsPerSecond =

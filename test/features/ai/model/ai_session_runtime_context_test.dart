@@ -16,6 +16,9 @@ void main() {
       streamMaxCharsPerSecond: -1,
       streamMaxMessageCardsPerSecond: 999999,
       streamThrottleDurationSeconds: 999999,
+      connectTimeoutSeconds: 0,
+      responseTimeoutSeconds: 999999,
+      streamIdleTimeoutSeconds: 0,
     );
 
     expect(
@@ -106,6 +109,18 @@ void main() {
       _runtimeContext().streamMaxCharsPerSecond,
       AiSessionRuntimeContext.defaultStreamMaxCharsPerSecond,
     );
+    expect(
+      context.connectTimeoutSeconds,
+      AiSessionRuntimeContext.defaultConnectTimeoutSeconds,
+    );
+    expect(
+      context.responseTimeoutSeconds,
+      AiSessionRuntimeContext.maxResponseTimeoutSeconds,
+    );
+    expect(
+      context.streamIdleTimeoutSeconds,
+      AiSessionRuntimeContext.defaultStreamIdleTimeoutSeconds,
+    );
   });
 }
 
@@ -122,6 +137,9 @@ AiSessionRuntimeContext _runtimeContext({
   int? streamMaxCharsPerSecond,
   int? streamMaxMessageCardsPerSecond,
   int? streamThrottleDurationSeconds,
+  int? connectTimeoutSeconds,
+  int? responseTimeoutSeconds,
+  int? streamIdleTimeoutSeconds,
 }) {
   return AiSessionRuntimeContext(
     localeTag: 'en',
@@ -158,6 +176,15 @@ AiSessionRuntimeContext _runtimeContext({
         bashOutputMaxBytes ?? AiSessionRuntimeContext.defaultBashOutputMaxBytes,
     maxConcurrentTools:
         maxConcurrentTools ?? AiSessionRuntimeContext.defaultMaxConcurrentTools,
+    connectTimeoutSeconds:
+        connectTimeoutSeconds ??
+        AiSessionRuntimeContext.defaultConnectTimeoutSeconds,
+    responseTimeoutSeconds:
+        responseTimeoutSeconds ??
+        AiSessionRuntimeContext.defaultResponseTimeoutSeconds,
+    streamIdleTimeoutSeconds:
+        streamIdleTimeoutSeconds ??
+        AiSessionRuntimeContext.defaultStreamIdleTimeoutSeconds,
     streamMaxCharsPerSecond:
         streamMaxCharsPerSecond ??
         AiSessionRuntimeContext.defaultStreamMaxCharsPerSecond,

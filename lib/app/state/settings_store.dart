@@ -702,24 +702,18 @@ class SettingsStore {
     final aiSandboxSettings = AiSandboxSettings.fromJson(rawSandboxSettings);
 
     // Session timeout settings.
-    final aiConnectTimeoutSeconds = clampedIntFromValue(
-      json['ai_connect_timeout_seconds'],
-      fallback: AppSettingsSnapshot.defaultAiConnectTimeoutSeconds,
-      min: AppSettingsSnapshot.minAiConnectTimeoutSeconds,
-      max: AppSettingsSnapshot.maxAiConnectTimeoutSeconds,
-    );
-    final aiResponseTimeoutSeconds = clampedIntFromValue(
-      json['ai_response_timeout_seconds'],
-      fallback: AppSettingsSnapshot.defaultAiResponseTimeoutSeconds,
-      min: AppSettingsSnapshot.minAiResponseTimeoutSeconds,
-      max: AppSettingsSnapshot.maxAiResponseTimeoutSeconds,
-    );
-    final aiStreamIdleTimeoutSeconds = clampedIntFromValue(
-      json['ai_stream_idle_timeout_seconds'],
-      fallback: AppSettingsSnapshot.defaultAiStreamIdleTimeoutSeconds,
-      min: AppSettingsSnapshot.minAiStreamIdleTimeoutSeconds,
-      max: AppSettingsSnapshot.maxAiStreamIdleTimeoutSeconds,
-    );
+    final aiConnectTimeoutSeconds =
+        AppSettingsSnapshot.aiConnectTimeoutSecondsFromValue(
+          json['ai_connect_timeout_seconds'],
+        );
+    final aiResponseTimeoutSeconds =
+        AppSettingsSnapshot.aiResponseTimeoutSecondsFromValue(
+          json['ai_response_timeout_seconds'],
+        );
+    final aiStreamIdleTimeoutSeconds =
+        AppSettingsSnapshot.aiStreamIdleTimeoutSecondsFromValue(
+          json['ai_stream_idle_timeout_seconds'],
+        );
     final aiStreamMaxCharsPerSecond =
         AppSettingsSnapshot.aiStreamMaxCharsPerSecondFromValue(
           json['ai_stream_max_chars_per_second'],

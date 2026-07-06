@@ -7,6 +7,7 @@ import '../../features/ai/model/ai_deny_command_rule.dart';
 import '../../features/ai/model/ai_lsp_language_settings.dart';
 import '../../features/ai/model/ai_message_content_format.dart';
 import '../../features/ai/model/ai_model_config.dart';
+import '../../features/ai/model/ai_request_timeout_policy.dart';
 import '../../features/ai/model/ai_sandbox_settings.dart';
 import '../../features/ai/model/ai_stream_throttle_policy.dart';
 import '../../features/ai/model/ai_tool_call_limit_policy.dart';
@@ -208,9 +209,9 @@ class AppSettingsSnapshot {
     required this.aiAllowCommandRules,
     required this.aiDenyCommandRules,
     required this.aiSandboxSettings,
-    required this.aiConnectTimeoutSeconds,
-    required this.aiResponseTimeoutSeconds,
-    required this.aiStreamIdleTimeoutSeconds,
+    required int aiConnectTimeoutSeconds,
+    required int aiResponseTimeoutSeconds,
+    required int aiStreamIdleTimeoutSeconds,
     required int aiStreamMaxCharsPerSecond,
     required int aiStreamMaxMessageCardsPerSecond,
     required this.aiStreamThrottleEnabled,
@@ -278,6 +279,15 @@ class AppSettingsSnapshot {
        ),
        bashOutputMaxBytes = normalizeBashOutputMaxBytes(bashOutputMaxBytes),
        maxConcurrentTools = normalizeMaxConcurrentTools(maxConcurrentTools),
+       aiConnectTimeoutSeconds = normalizeAiConnectTimeoutSeconds(
+         aiConnectTimeoutSeconds,
+       ),
+       aiResponseTimeoutSeconds = normalizeAiResponseTimeoutSeconds(
+         aiResponseTimeoutSeconds,
+       ),
+       aiStreamIdleTimeoutSeconds = normalizeAiStreamIdleTimeoutSeconds(
+         aiStreamIdleTimeoutSeconds,
+       ),
        aiStreamMaxCharsPerSecond = normalizeAiStreamMaxCharsPerSecond(
          aiStreamMaxCharsPerSecond,
        ),
@@ -626,21 +636,54 @@ class AppSettingsSnapshot {
 
   /// Timeout (seconds) for establishing the HTTP connection and receiving
   /// initial response headers from the AI provider.
-  static const int defaultAiConnectTimeoutSeconds = 60;
-  static const int minAiConnectTimeoutSeconds = 5;
-  static const int maxAiConnectTimeoutSeconds = 300;
+  static const int defaultAiConnectTimeoutSeconds =
+      AiRequestTimeoutPolicy.defaultConnectTimeoutSeconds;
+  static const int minAiConnectTimeoutSeconds =
+      AiRequestTimeoutPolicy.minConnectTimeoutSeconds;
+  static const int maxAiConnectTimeoutSeconds =
+      AiRequestTimeoutPolicy.maxConnectTimeoutSeconds;
+
+  static int aiConnectTimeoutSecondsFromValue(Object? value) {
+    return AiRequestTimeoutPolicy.connectTimeoutSecondsFromValue(value);
+  }
+
+  static int normalizeAiConnectTimeoutSeconds(int value) {
+    return AiRequestTimeoutPolicy.normalizeConnectTimeoutSeconds(value);
+  }
 
   /// Timeout (seconds) for receiving a complete non-streaming AI response.
-  static const int defaultAiResponseTimeoutSeconds = 120;
-  static const int minAiResponseTimeoutSeconds = 10;
-  static const int maxAiResponseTimeoutSeconds = 600;
+  static const int defaultAiResponseTimeoutSeconds =
+      AiRequestTimeoutPolicy.defaultResponseTimeoutSeconds;
+  static const int minAiResponseTimeoutSeconds =
+      AiRequestTimeoutPolicy.minResponseTimeoutSeconds;
+  static const int maxAiResponseTimeoutSeconds =
+      AiRequestTimeoutPolicy.maxResponseTimeoutSeconds;
+
+  static int aiResponseTimeoutSecondsFromValue(Object? value) {
+    return AiRequestTimeoutPolicy.responseTimeoutSecondsFromValue(value);
+  }
+
+  static int normalizeAiResponseTimeoutSeconds(int value) {
+    return AiRequestTimeoutPolicy.normalizeResponseTimeoutSeconds(value);
+  }
 
   /// Per-chunk idle timeout (seconds) for streaming AI responses.
   /// When the stream receives no new data within this window, the request
   /// is aborted and an error is shown (the "Request timed out." case).
-  static const int defaultAiStreamIdleTimeoutSeconds = 120;
-  static const int minAiStreamIdleTimeoutSeconds = 10;
-  static const int maxAiStreamIdleTimeoutSeconds = 600;
+  static const int defaultAiStreamIdleTimeoutSeconds =
+      AiRequestTimeoutPolicy.defaultStreamIdleTimeoutSeconds;
+  static const int minAiStreamIdleTimeoutSeconds =
+      AiRequestTimeoutPolicy.minStreamIdleTimeoutSeconds;
+  static const int maxAiStreamIdleTimeoutSeconds =
+      AiRequestTimeoutPolicy.maxStreamIdleTimeoutSeconds;
+
+  static int aiStreamIdleTimeoutSecondsFromValue(Object? value) {
+    return AiRequestTimeoutPolicy.streamIdleTimeoutSecondsFromValue(value);
+  }
+
+  static int normalizeAiStreamIdleTimeoutSeconds(int value) {
+    return AiRequestTimeoutPolicy.normalizeStreamIdleTimeoutSeconds(value);
+  }
 
   /// 流式输出渲染节流：每秒最多向当前流式消息卡片追加渲染的用户感知
   /// 字符数（grapheme cluster）。设置为 0 表示关闭节流。

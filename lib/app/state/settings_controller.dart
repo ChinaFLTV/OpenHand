@@ -1563,12 +1563,7 @@ class SettingsController extends ChangeNotifier {
 
   Future<bool> updateAiConnectTimeoutSeconds(int value) async {
     final normalizedValue =
-        value < AppSettingsSnapshot.minAiConnectTimeoutSeconds
-        ? AppSettingsSnapshot.defaultAiConnectTimeoutSeconds
-        : value.clamp(
-            AppSettingsSnapshot.minAiConnectTimeoutSeconds,
-            AppSettingsSnapshot.maxAiConnectTimeoutSeconds,
-          );
+        AppSettingsSnapshot.normalizeAiConnectTimeoutSeconds(value);
     return _commitMutation(() {
       if (_aiConnectTimeoutSeconds == normalizedValue) {
         return _MutationDisposition.successNoChange;
@@ -1580,12 +1575,7 @@ class SettingsController extends ChangeNotifier {
 
   Future<bool> updateAiResponseTimeoutSeconds(int value) async {
     final normalizedValue =
-        value < AppSettingsSnapshot.minAiResponseTimeoutSeconds
-        ? AppSettingsSnapshot.defaultAiResponseTimeoutSeconds
-        : value.clamp(
-            AppSettingsSnapshot.minAiResponseTimeoutSeconds,
-            AppSettingsSnapshot.maxAiResponseTimeoutSeconds,
-          );
+        AppSettingsSnapshot.normalizeAiResponseTimeoutSeconds(value);
     return _commitMutation(() {
       if (_aiResponseTimeoutSeconds == normalizedValue) {
         return _MutationDisposition.successNoChange;
@@ -1597,12 +1587,7 @@ class SettingsController extends ChangeNotifier {
 
   Future<bool> updateAiStreamIdleTimeoutSeconds(int value) async {
     final normalizedValue =
-        value < AppSettingsSnapshot.minAiStreamIdleTimeoutSeconds
-        ? AppSettingsSnapshot.defaultAiStreamIdleTimeoutSeconds
-        : value.clamp(
-            AppSettingsSnapshot.minAiStreamIdleTimeoutSeconds,
-            AppSettingsSnapshot.maxAiStreamIdleTimeoutSeconds,
-          );
+        AppSettingsSnapshot.normalizeAiStreamIdleTimeoutSeconds(value);
     return _commitMutation(() {
       if (_aiStreamIdleTimeoutSeconds == normalizedValue) {
         return _MutationDisposition.successNoChange;
