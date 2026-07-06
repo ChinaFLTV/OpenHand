@@ -14,7 +14,6 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/motion_preference.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
-import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/timer_safety.dart';
 import 'web_reverse_cdp_client.dart';
 import 'web_reverse_clipboard.dart';
@@ -203,23 +202,18 @@ class _IssuesDialogState extends State<_IssuesDialog> {
         const JsonEncoder.withIndent('  ').convert(e.raw),
       );
       if (mounted) {
-        final m = ScaffoldMessenger.maybeOf(context);
-        if (m != null) {
-          OpenHandSnackBar.showSuccessOn(
-            context,
-            m,
-            webReverseClipboardSnackMessage(
-              context: context,
-              base:
-                  AppLocalizations.of(context)?.webReverseIssuesCopied ??
-                  'Issue JSON copied',
-              result: copied,
-            ),
-          );
-        }
+        showWebReverseClipboardSuccessSnack(
+          context: context,
+          base:
+              AppLocalizations.of(context)?.webReverseIssuesCopied ??
+              'Issue JSON copied',
+          result: copied,
+        );
       }
     } catch (err, st) {
       silentLog('web_reverse_issues_dialog', 'copy', err, st);
+      if (!mounted) return;
+      showWebReverseClipboardErrorSnack(context: context, error: err);
     }
   }
 

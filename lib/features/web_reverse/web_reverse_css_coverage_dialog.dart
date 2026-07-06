@@ -11,7 +11,6 @@ import 'package:flutter/material.dart';
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
-import '../../shared/ui/openhand_snack_bar.dart';
 import 'web_reverse_clipboard.dart';
 import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_session_controller.dart';
@@ -188,21 +187,18 @@ class _CssCovDialogState extends State<_CssCovDialog> {
           .toList(),
     );
     final loc = AppLocalizations.of(context);
-    final m = ScaffoldMessenger.maybeOf(context);
     try {
       final copied = await setWebReverseClipboardText(json);
-      if (!mounted || m == null) return;
-      OpenHandSnackBar.showSuccessOn(
-        context,
-        m,
-        webReverseClipboardSnackMessage(
-          context: context,
-          base: loc?.webReverseCssCovJsonCopied ?? 'JSON copied',
-          result: copied,
-        ),
+      if (!mounted) return;
+      showWebReverseClipboardSuccessSnack(
+        context: context,
+        base: loc?.webReverseCssCovJsonCopied ?? 'JSON copied',
+        result: copied,
       );
     } catch (e, st) {
       silentLog('web_reverse_css_coverage_dialog', 'css-cov.copy', e, st);
+      if (!mounted) return;
+      showWebReverseClipboardErrorSnack(context: context, error: e);
     }
   }
 

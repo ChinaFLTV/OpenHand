@@ -13,7 +13,6 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
-import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/input_value_parsing.dart';
 import 'web_reverse_clipboard.dart';
 import 'web_reverse_dialog_utils.dart';
@@ -241,21 +240,16 @@ class _CorsDialogState extends State<_CorsDialog> {
       );
     } catch (err, st) {
       silentLog('web_reverse_cors_preflight_dialog', 'cors.copy', err, st);
+      if (!mounted) return;
+      showWebReverseClipboardErrorSnack(context: context, error: err);
       return;
     }
     if (!mounted) return;
-    final m = ScaffoldMessenger.maybeOf(context);
-    if (m != null) {
-      OpenHandSnackBar.showSuccessOn(
-        context,
-        m,
-        webReverseClipboardSnackMessage(
-          context: context,
-          base: loc?.webReverseCorsResultCopied ?? 'Result copied',
-          result: copied,
-        ),
-      );
-    }
+    showWebReverseClipboardSuccessSnack(
+      context: context,
+      base: loc?.webReverseCorsResultCopied ?? 'Result copied',
+      result: copied,
+    );
   }
 
   @override

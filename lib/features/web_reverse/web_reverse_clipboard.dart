@@ -72,6 +72,26 @@ void showWebReverseClipboardSuccessSnack({
   );
 }
 
+void showWebReverseClipboardErrorSnack({
+  required BuildContext context,
+  Object? error,
+}) {
+  if (!context.mounted) return;
+  final detail = error == null ? '' : ': $error';
+  OpenHandSnackBar.showError(
+    context,
+    openHandLocalizedText(
+      context,
+      zh: '复制失败$detail',
+      zhHant: '複製失敗$detail',
+      en: 'Copy failed$detail',
+      fr: 'Échec de la copie$detail',
+      de: 'Kopieren fehlgeschlagen$detail',
+      ja: 'コピーに失敗しました$detail',
+    ),
+  );
+}
+
 ({String text, bool clipped}) prepareWebReverseClipboardText(
   String text, {
   required int maxChars,

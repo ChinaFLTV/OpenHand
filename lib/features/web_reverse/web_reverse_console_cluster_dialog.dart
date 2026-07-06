@@ -11,7 +11,6 @@ import 'package:flutter/material.dart';
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
-import '../../shared/ui/openhand_snack_bar.dart';
 import 'web_reverse_clipboard.dart';
 import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_pure_helpers.dart';
@@ -114,23 +113,18 @@ class _ConsoleClusterDialogState extends State<_ConsoleClusterDialog> {
         err,
         st,
       );
+      if (!mounted) return;
+      showWebReverseClipboardErrorSnack(context: context, error: err);
       return;
     }
     if (!mounted) return;
-    final m = ScaffoldMessenger.maybeOf(context);
-    if (m != null) {
-      OpenHandSnackBar.showSuccessOn(
-        context,
-        m,
-        webReverseClipboardSnackMessage(
-          context: context,
-          base:
-              AppLocalizations.of(context)?.webReverseConsoleClusterCopied ??
-              'Cluster JSON copied',
-          result: copied,
-        ),
-      );
-    }
+    showWebReverseClipboardSuccessSnack(
+      context: context,
+      base:
+          AppLocalizations.of(context)?.webReverseConsoleClusterCopied ??
+          'Cluster JSON copied',
+      result: copied,
+    );
   }
 
   @override

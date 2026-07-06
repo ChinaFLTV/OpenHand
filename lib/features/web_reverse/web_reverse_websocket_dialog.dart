@@ -13,7 +13,6 @@ import 'package:flutter/material.dart';
 import '../../app/support/silent_log.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
-import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/localized_text.dart';
 import 'web_reverse_clipboard.dart';
@@ -79,28 +78,23 @@ class _WsDialogState extends State<_WsDialog> {
         const JsonEncoder.withIndent('  ').convert(data),
       );
       if (!mounted) return;
-      final m = ScaffoldMessenger.maybeOf(context);
-      if (m != null) {
-        OpenHandSnackBar.showSuccessOn(
+      showWebReverseClipboardSuccessSnack(
+        context: context,
+        base: openHandLocalizedText(
           context,
-          m,
-          webReverseClipboardSnackMessage(
-            context: context,
-            base: openHandLocalizedText(
-              context,
-              zh: '帧 JSON 已复制',
-              zhHant: '影格 JSON 已複製',
-              en: 'Frames JSON copied',
-              fr: 'JSON des trames copié',
-              de: 'Frame-JSON kopiert',
-              ja: 'フレーム JSON をコピーしました',
-            ),
-            result: copied,
-          ),
-        );
-      }
+          zh: '帧 JSON 已复制',
+          zhHant: '影格 JSON 已複製',
+          en: 'Frames JSON copied',
+          fr: 'JSON des trames copié',
+          de: 'Frame-JSON kopiert',
+          ja: 'フレーム JSON をコピーしました',
+        ),
+        result: copied,
+      );
     } catch (err, st) {
       silentLog('web_reverse_websocket_dialog', 'copy', err, st);
+      if (!mounted) return;
+      showWebReverseClipboardErrorSnack(context: context, error: err);
     }
   }
 
