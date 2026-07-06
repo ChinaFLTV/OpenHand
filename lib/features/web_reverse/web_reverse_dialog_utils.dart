@@ -90,6 +90,21 @@ void showWebReverseErrorSnack(
   );
 }
 
+void showWebReverseInfoSnack(
+  BuildContext context,
+  String message, {
+  Duration duration = kOpenHandSnackBarInfoDuration,
+  SnackBarAction? action,
+}) {
+  if (!context.mounted) return;
+  OpenHandSnackBar.showInfo(
+    context,
+    message,
+    duration: duration,
+    action: action,
+  );
+}
+
 Widget buildWebReverseStatusBar(
   BuildContext context, {
   required String status,

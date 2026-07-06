@@ -13,7 +13,6 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
-import '../../shared/ui/openhand_snack_bar.dart';
 import 'web_reverse_clipboard.dart';
 import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_session_controller.dart';
@@ -43,6 +42,15 @@ class _HeapDialogState extends State<_HeapDialog> {
   String _lastSaved = '';
   int _lastBytes = 0;
 
+  void _finishWithFailure(String message) {
+    if (!mounted) return;
+    setState(() {
+      _busy = false;
+      _status = message;
+    });
+    showWebReverseErrorSnack(context, message);
+  }
+
   Future<void> _take() async {
     final loc = AppLocalizations.of(context);
     setState(() {
@@ -57,16 +65,25 @@ class _HeapDialogState extends State<_HeapDialog> {
     }
     if (!mounted) return;
     if (r == null || r.json.isEmpty) {
-      setState(() {
-        _busy = false;
-        _status = loc?.webReverseHeapFailed ?? 'Snapshot failed or empty';
-      });
+      _finishWithFailure(
+        loc?.webReverseHeapFailed ?? 'Snapshot failed or empty',
+      );
       return;
     }
-    final dir = await getApplicationDocumentsDirectory();
-    final ts = DateTime.now().millisecondsSinceEpoch;
-    final file = File('${dir.path}/openhand_heap_$ts.heapsnapshot');
-    await file.writeAsString(r.json);
+    late final File file;
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      final ts = DateTime.now().millisecondsSinceEpoch;
+      file = File('${dir.path}/openhand_heap_$ts.heapsnapshot');
+      await file.writeAsString(r.json);
+    } catch (e, s) {
+      silentLog('web_reverse_heap_snapshot_dialog', 'heap-snapshot.save', e, s);
+      if (!mounted) return;
+      _finishWithFailure(
+        loc?.webReverseHeapFailed ?? 'Snapshot failed or empty',
+      );
+      return;
+    }
     if (!mounted) return;
     setState(() {
       _busy = false;
@@ -77,14 +94,10 @@ class _HeapDialogState extends State<_HeapDialog> {
           loc?.webReverseHeapSaved(file.path, mb) ??
           'Saved: ${file.path} ($mb MB)';
     });
-    final m = ScaffoldMessenger.maybeOf(context);
-    if (m != null) {
-      OpenHandSnackBar.showSuccessOn(
-        context,
-        m,
-        loc?.webReverseHeapSavedToast ?? 'Snapshot saved',
-      );
-    }
+    showWebReverseSuccessSnack(
+      context,
+      loc?.webReverseHeapSavedToast ?? 'Snapshot saved',
+    );
   }
 
   Future<void> _copyPath() async {
@@ -101,19 +114,12 @@ class _HeapDialogState extends State<_HeapDialog> {
       return;
     }
     if (!mounted) return;
-    final m = ScaffoldMessenger.maybeOf(context);
     final loc = AppLocalizations.of(context);
-    if (m != null) {
-      OpenHandSnackBar.showSuccessOn(
-        context,
-        m,
-        webReverseClipboardSnackMessage(
-          context: context,
-          base: loc?.webReverseHeapPathCopied ?? 'Path copied',
-          result: copied,
-        ),
-      );
-    }
+    showWebReverseClipboardSuccessSnack(
+      context: context,
+      base: loc?.webReverseHeapPathCopied ?? 'Path copied',
+      result: copied,
+    );
   }
 
   @override

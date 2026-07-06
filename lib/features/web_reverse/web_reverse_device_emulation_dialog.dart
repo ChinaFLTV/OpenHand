@@ -11,7 +11,6 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
-import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/input_value_parsing.dart';
 import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_session_controller.dart';
@@ -80,10 +79,7 @@ class _DeviceEmuDialogState extends State<_DeviceEmuDialog> {
       _busy = false;
       _status = message;
     });
-    final messenger = ScaffoldMessenger.maybeOf(context);
-    if (messenger != null) {
-      OpenHandSnackBar.showErrorOn(context, messenger, message);
-    }
+    showWebReverseErrorSnack(context, message);
   }
 
   Future<void> _applyPreset(WebReverseDevicePreset p) async {
@@ -111,14 +107,10 @@ class _DeviceEmuDialogState extends State<_DeviceEmuDialog> {
           loc?.webReverseDeviceEmuAppliedPreset(p.label) ??
           'Applied ${p.label}';
     });
-    final m = ScaffoldMessenger.maybeOf(context);
-    if (m != null) {
-      OpenHandSnackBar.showSuccessOn(
-        context,
-        m,
-        loc?.webReverseDeviceEmuAppliedPreset(p.label) ?? 'Applied ${p.label}',
-      );
-    }
+    showWebReverseSuccessSnack(
+      context,
+      loc?.webReverseDeviceEmuAppliedPreset(p.label) ?? 'Applied ${p.label}',
+    );
   }
 
   Future<void> _applyCustom() async {
@@ -179,14 +171,10 @@ class _DeviceEmuDialogState extends State<_DeviceEmuDialog> {
           loc?.webReverseDeviceEmuAppliedCustomSize(w, h, dpr.toString()) ??
           'Applied $w×$h @ ${dpr}x';
     });
-    final m = ScaffoldMessenger.maybeOf(context);
-    if (m != null) {
-      OpenHandSnackBar.showSuccessOn(
-        context,
-        m,
-        loc?.webReverseDeviceEmuApplied ?? 'Applied',
-      );
-    }
+    showWebReverseSuccessSnack(
+      context,
+      loc?.webReverseDeviceEmuApplied ?? 'Applied',
+    );
   }
 
   Future<void> _reset() async {

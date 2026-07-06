@@ -13,7 +13,6 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
-import '../../shared/ui/openhand_snack_bar.dart';
 import 'web_reverse_clipboard.dart';
 import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_session_controller.dart';
@@ -84,28 +83,20 @@ class _CdpConsoleDialogState extends State<_CdpConsoleDialog> {
     String? paramsJson;
     if (paramsText.isNotEmpty && paramsText != '{}') {
       if (paramsText.length > _kCdpConsoleMaxParamsJsonChars) {
-        final m = ScaffoldMessenger.maybeOf(context);
-        if (m != null) {
-          OpenHandSnackBar.showErrorOn(
-            context,
-            m,
-            'Params JSON too large: ${paramsText.length} chars, limit $_kCdpConsoleMaxParamsJsonChars',
-          );
-        }
+        showWebReverseErrorSnack(
+          context,
+          'Params JSON too large: ${paramsText.length} chars, limit $_kCdpConsoleMaxParamsJsonChars',
+        );
         return;
       }
       try {
         jsonDecode(paramsText);
         paramsJson = paramsText;
       } catch (err) {
-        final m = ScaffoldMessenger.maybeOf(context);
-        if (m != null) {
-          OpenHandSnackBar.showErrorOn(
-            context,
-            m,
-            loc?.webReverseCdpInvalidJson('$err') ?? 'Invalid JSON: $err',
-          );
-        }
+        showWebReverseErrorSnack(
+          context,
+          loc?.webReverseCdpInvalidJson('$err') ?? 'Invalid JSON: $err',
+        );
         return;
       }
     }
@@ -165,14 +156,10 @@ class _CdpConsoleDialogState extends State<_CdpConsoleDialog> {
       _useSession = h.useSession;
     });
     if (h.paramsClipped) {
-      final m = ScaffoldMessenger.maybeOf(context);
-      if (m != null) {
-        OpenHandSnackBar.showInfoOn(
-          context,
-          m,
-          'Params were clipped in history; input reset to {}.',
-        );
-      }
+      showWebReverseInfoSnack(
+        context,
+        'Params were clipped in history; input reset to {}.',
+      );
     }
   }
 
@@ -221,18 +208,11 @@ class _CdpConsoleDialogState extends State<_CdpConsoleDialog> {
       return;
     }
     if (!mounted) return;
-    final m = ScaffoldMessenger.maybeOf(context);
-    if (m != null) {
-      OpenHandSnackBar.showSuccessOn(
-        context,
-        m,
-        webReverseClipboardSnackMessage(
-          context: context,
-          base: AppLocalizations.of(context)?.webReverseCdpCopied ?? 'Copied',
-          result: copied,
-        ),
-      );
-    }
+    showWebReverseClipboardSuccessSnack(
+      context: context,
+      base: AppLocalizations.of(context)?.webReverseCdpCopied ?? 'Copied',
+      result: copied,
+    );
   }
 
   @override

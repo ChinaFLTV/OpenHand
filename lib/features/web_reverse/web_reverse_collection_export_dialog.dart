@@ -13,7 +13,6 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
-import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/localized_text.dart';
 import 'web_reverse_clipboard.dart';
 import 'web_reverse_dialog_utils.dart';
@@ -290,14 +289,10 @@ class _CollectionExportDialogState extends State<_CollectionExportDialog> {
     final loc = AppLocalizations.of(context);
     final entries = _selected();
     if (entries.isEmpty) {
-      final m = ScaffoldMessenger.maybeOf(context);
-      if (m != null) {
-        OpenHandSnackBar.showErrorOn(
-          context,
-          m,
-          loc?.webReverseCollectionExportNothing ?? 'Nothing to export',
-        );
-      }
+      showWebReverseErrorSnack(
+        context,
+        loc?.webReverseCollectionExportNothing ?? 'Nothing to export',
+      );
       return;
     }
     try {
@@ -307,34 +302,40 @@ class _CollectionExportDialogState extends State<_CollectionExportDialog> {
       final out = _buildOutput(exportEntries);
       final copyResult = await setWebReverseClipboardText(out);
       if (!mounted) return;
-      final m = ScaffoldMessenger.maybeOf(context);
-      if (m != null) {
-        final capped = entries.length > exportEntries.length;
-        final copiedLabel =
-            loc?.webReverseCollectionExportCopied(exportEntries.length) ??
-            'Copied ${exportEntries.length} requests to clipboard';
-        final cappedSuffix = openHandLocalizedText(
-          context,
-          zh: ' · 已按条目上限裁剪',
-          zhHant: ' · 已依條目上限裁剪',
-          en: ' · entry capped',
-          fr: ' · limite d’entrées atteinte',
-          de: ' · Eintragslimit erreicht',
-          ja: ' · 件数上限で切り詰め',
-        );
-        final message = capped ? '$copiedLabel$cappedSuffix' : copiedLabel;
-        OpenHandSnackBar.showSuccessOn(
-          context,
-          m,
-          webReverseClipboardSnackMessage(
-            context: context,
-            base: message,
-            result: copyResult,
-          ),
-        );
-      }
+      final capped = entries.length > exportEntries.length;
+      final copiedLabel =
+          loc?.webReverseCollectionExportCopied(exportEntries.length) ??
+          'Copied ${exportEntries.length} requests to clipboard';
+      final cappedSuffix = openHandLocalizedText(
+        context,
+        zh: ' · 已按条目上限裁剪',
+        zhHant: ' · 已依條目上限裁剪',
+        en: ' · entry capped',
+        fr: ' · limite d’entrées atteinte',
+        de: ' · Eintragslimit erreicht',
+        ja: ' · 件数上限で切り詰め',
+      );
+      final message = capped ? '$copiedLabel$cappedSuffix' : copiedLabel;
+      showWebReverseClipboardSuccessSnack(
+        context: context,
+        base: message,
+        result: copyResult,
+      );
     } catch (e, st) {
       silentLog('web_reverse_collection_export', 'copy', e, st);
+      if (!mounted) return;
+      showWebReverseErrorSnack(
+        context,
+        openHandLocalizedText(
+          context,
+          zh: '导出失败：$e',
+          zhHant: '匯出失敗：$e',
+          en: 'Export failed: $e',
+          fr: 'Échec de l’export : $e',
+          de: 'Export fehlgeschlagen: $e',
+          ja: 'エクスポートに失敗しました: $e',
+        ),
+      );
     }
   }
 
