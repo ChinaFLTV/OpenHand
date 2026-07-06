@@ -9,6 +9,7 @@ import '../../features/ai/model/ai_message_content_format.dart';
 import '../../features/ai/model/ai_model_config.dart';
 import '../../features/ai/model/ai_sandbox_settings.dart';
 import '../../features/ai/model/ai_tool_call_limit_policy.dart';
+import '../../features/ai/model/ai_tool_execution_limit_policy.dart';
 import '../../features/ai/model/ai_translation_settings.dart';
 import '../../features/ai/model/ai_tts_settings.dart';
 import '../../features/mcp/model/mcp_keyword_index_update_mode.dart';
@@ -182,10 +183,10 @@ class AppSettingsSnapshot {
     required this.aiMaxPlanHistoryEntries,
     required this.aiMaxTruncationContinuations,
     required this.aiEstimatedCharactersPerToken,
-    required this.aiMaxToolOutputChars,
-    required this.aiWriteConfirmationTimeoutMs,
-    required this.aiFastPathWriteAnalysisThreshold,
-    required this.aiMaxHookTextCharacters,
+    required int aiMaxToolOutputChars,
+    required int aiWriteConfirmationTimeoutMs,
+    required int aiFastPathWriteAnalysisThreshold,
+    required int aiMaxHookTextCharacters,
     required this.aiAttachmentMaxInlineImageDimension,
     required this.aiAttachmentMaxTextRawBytes,
     required this.aiAttachmentMaxPdfRawBytes,
@@ -248,9 +249,9 @@ class AppSettingsSnapshot {
     this.toolSearchReplayCancelWindowSeconds =
         defaultToolSearchReplayCancelWindowSeconds,
     this.reduceMotion = false,
-    this.subprocessGracefulShutdownMs = defaultSubprocessGracefulShutdownMs,
-    this.bashOutputMaxBytes = defaultBashOutputMaxBytes,
-    this.maxConcurrentTools = defaultMaxConcurrentTools,
+    int subprocessGracefulShutdownMs = defaultSubprocessGracefulShutdownMs,
+    int bashOutputMaxBytes = defaultBashOutputMaxBytes,
+    int maxConcurrentTools = defaultMaxConcurrentTools,
     AppProxySettings? proxySettings,
   }) : aiSingleRoundToolCallLimit = normalizeAiSingleRoundToolCallLimit(
          aiSingleRoundToolCallLimit,
@@ -258,6 +259,24 @@ class AppSettingsSnapshot {
        aiSequentialToolRoundLimit = normalizeAiSequentialToolRoundLimit(
          aiSequentialToolRoundLimit,
        ),
+       aiMaxToolOutputChars = normalizeAiMaxToolOutputChars(
+         aiMaxToolOutputChars,
+       ),
+       aiWriteConfirmationTimeoutMs = normalizeAiWriteConfirmationTimeoutMs(
+         aiWriteConfirmationTimeoutMs,
+       ),
+       aiFastPathWriteAnalysisThreshold =
+           normalizeAiFastPathWriteAnalysisThreshold(
+             aiFastPathWriteAnalysisThreshold,
+           ),
+       aiMaxHookTextCharacters = normalizeAiMaxHookTextCharacters(
+         aiMaxHookTextCharacters,
+       ),
+       subprocessGracefulShutdownMs = normalizeSubprocessGracefulShutdownMs(
+         subprocessGracefulShutdownMs,
+       ),
+       bashOutputMaxBytes = normalizeBashOutputMaxBytes(bashOutputMaxBytes),
+       maxConcurrentTools = normalizeMaxConcurrentTools(maxConcurrentTools),
        aiTranslationSettings =
            aiTranslationSettings ?? AiTranslationSettings.defaults(),
        proxySettings =
@@ -465,21 +484,73 @@ class AppSettingsSnapshot {
   static const int maxAiEstimatedCharactersPerToken = 32;
 
   /// 2026-04-29 — Group B: 工具调用与确认参数。
-  static const int defaultAiMaxToolOutputChars = 150000;
-  static const int minAiMaxToolOutputChars = 1000;
-  static const int maxAiMaxToolOutputChars = 10000000;
+  static const int defaultAiMaxToolOutputChars =
+      AiToolExecutionLimitPolicy.defaultMaxToolOutputChars;
+  static const int minAiMaxToolOutputChars =
+      AiToolExecutionLimitPolicy.minMaxToolOutputChars;
+  static const int maxAiMaxToolOutputChars =
+      AiToolExecutionLimitPolicy.maxMaxToolOutputChars;
 
-  static const int defaultAiWriteConfirmationTimeoutMs = 300000;
-  static const int minAiWriteConfirmationTimeoutMs = 1000;
-  static const int maxAiWriteConfirmationTimeoutMs = 3600000;
+  static int aiMaxToolOutputCharsFromValue(Object? value) {
+    return AiToolExecutionLimitPolicy.maxToolOutputCharsFromValue(value);
+  }
 
-  static const int defaultAiFastPathWriteAnalysisThreshold = 512;
-  static const int minAiFastPathWriteAnalysisThreshold = 0;
-  static const int maxAiFastPathWriteAnalysisThreshold = 100000;
+  static int normalizeAiMaxToolOutputChars(int value) {
+    return AiToolExecutionLimitPolicy.normalizeMaxToolOutputChars(value);
+  }
 
-  static const int defaultAiMaxHookTextCharacters = 4000;
-  static const int minAiMaxHookTextCharacters = 100;
-  static const int maxAiMaxHookTextCharacters = 1000000;
+  static const int defaultAiWriteConfirmationTimeoutMs =
+      AiToolExecutionLimitPolicy.defaultWriteConfirmationTimeoutMs;
+  static const int minAiWriteConfirmationTimeoutMs =
+      AiToolExecutionLimitPolicy.minWriteConfirmationTimeoutMs;
+  static const int maxAiWriteConfirmationTimeoutMs =
+      AiToolExecutionLimitPolicy.maxWriteConfirmationTimeoutMs;
+
+  static int aiWriteConfirmationTimeoutMsFromValue(Object? value) {
+    return AiToolExecutionLimitPolicy.writeConfirmationTimeoutMsFromValue(
+      value,
+    );
+  }
+
+  static int normalizeAiWriteConfirmationTimeoutMs(int value) {
+    return AiToolExecutionLimitPolicy.normalizeWriteConfirmationTimeoutMs(
+      value,
+    );
+  }
+
+  static const int defaultAiFastPathWriteAnalysisThreshold =
+      AiToolExecutionLimitPolicy.defaultFastPathWriteAnalysisThreshold;
+  static const int minAiFastPathWriteAnalysisThreshold =
+      AiToolExecutionLimitPolicy.minFastPathWriteAnalysisThreshold;
+  static const int maxAiFastPathWriteAnalysisThreshold =
+      AiToolExecutionLimitPolicy.maxFastPathWriteAnalysisThreshold;
+
+  static int aiFastPathWriteAnalysisThresholdFromValue(Object? value) {
+    return AiToolExecutionLimitPolicy.fastPathWriteAnalysisThresholdFromValue(
+      value,
+    );
+  }
+
+  static int normalizeAiFastPathWriteAnalysisThreshold(int value) {
+    return AiToolExecutionLimitPolicy.normalizeFastPathWriteAnalysisThreshold(
+      value,
+    );
+  }
+
+  static const int defaultAiMaxHookTextCharacters =
+      AiToolExecutionLimitPolicy.defaultMaxHookTextCharacters;
+  static const int minAiMaxHookTextCharacters =
+      AiToolExecutionLimitPolicy.minMaxHookTextCharacters;
+  static const int maxAiMaxHookTextCharacters =
+      AiToolExecutionLimitPolicy.maxMaxHookTextCharacters;
+
+  static int aiMaxHookTextCharactersFromValue(Object? value) {
+    return AiToolExecutionLimitPolicy.maxHookTextCharactersFromValue(value);
+  }
+
+  static int normalizeAiMaxHookTextCharacters(int value) {
+    return AiToolExecutionLimitPolicy.normalizeMaxHookTextCharacters(value);
+  }
 
   /// 2026-04-29 — Group C: 附件与流式缓冲参数。
   static const int defaultAiAttachmentMaxInlineImageDimension = 1568;
@@ -603,21 +674,58 @@ class AppSettingsSnapshot {
   /// 子进程 graceful shutdown 等待窗口（毫秒）。在 SIGTERM 之后等待
   /// 该时长，若进程仍未退出则升级到 SIGKILL。值越大越仁慈，但 UI
   /// 取消反馈延迟也越大。
-  static const int defaultSubprocessGracefulShutdownMs = 500;
-  static const int minSubprocessGracefulShutdownMs = 100;
-  static const int maxSubprocessGracefulShutdownMs = 5000;
+  static const int defaultSubprocessGracefulShutdownMs =
+      AiToolExecutionLimitPolicy.defaultSubprocessGracefulShutdownMs;
+  static const int minSubprocessGracefulShutdownMs =
+      AiToolExecutionLimitPolicy.minSubprocessGracefulShutdownMs;
+  static const int maxSubprocessGracefulShutdownMs =
+      AiToolExecutionLimitPolicy.maxSubprocessGracefulShutdownMs;
+
+  static int subprocessGracefulShutdownMsFromValue(Object? value) {
+    return AiToolExecutionLimitPolicy.subprocessGracefulShutdownMsFromValue(
+      value,
+    );
+  }
+
+  static int normalizeSubprocessGracefulShutdownMs(int value) {
+    return AiToolExecutionLimitPolicy.normalizeSubprocessGracefulShutdownMs(
+      value,
+    );
+  }
 
   /// 单次 bash 工具调用 stdout/stderr 合并捕获上限（字节，UTF-16 chars 近似）。
   /// 超过会从中段截断并保留头尾，避免巨型日志撑爆消息序列化。
-  static const int defaultBashOutputMaxBytes = 200000;
-  static const int minBashOutputMaxBytes = 16000;
-  static const int maxBashOutputMaxBytes = 4000000;
+  static const int defaultBashOutputMaxBytes =
+      AiToolExecutionLimitPolicy.defaultBashOutputMaxBytes;
+  static const int minBashOutputMaxBytes =
+      AiToolExecutionLimitPolicy.minBashOutputMaxBytes;
+  static const int maxBashOutputMaxBytes =
+      AiToolExecutionLimitPolicy.maxBashOutputMaxBytes;
+
+  static int bashOutputMaxBytesFromValue(Object? value) {
+    return AiToolExecutionLimitPolicy.bashOutputMaxBytesFromValue(value);
+  }
+
+  static int normalizeBashOutputMaxBytes(int value) {
+    return AiToolExecutionLimitPolicy.normalizeBashOutputMaxBytes(value);
+  }
 
   /// 同会话内并发派发的工具调用上限。超过会进入排队，避免一次 plan
   /// 100 个写命令瞬间打爆系统资源（也降低被 OS 限速触发的概率）。
-  static const int defaultMaxConcurrentTools = 8;
-  static const int minMaxConcurrentTools = 1;
-  static const int maxMaxConcurrentTools = 64;
+  static const int defaultMaxConcurrentTools =
+      AiToolExecutionLimitPolicy.defaultMaxConcurrentTools;
+  static const int minMaxConcurrentTools =
+      AiToolExecutionLimitPolicy.minMaxConcurrentTools;
+  static const int maxMaxConcurrentTools =
+      AiToolExecutionLimitPolicy.maxMaxConcurrentTools;
+
+  static int maxConcurrentToolsFromValue(Object? value) {
+    return AiToolExecutionLimitPolicy.maxConcurrentToolsFromValue(value);
+  }
+
+  static int normalizeMaxConcurrentTools(int value) {
+    return AiToolExecutionLimitPolicy.normalizeMaxConcurrentTools(value);
+  }
 
   /// Default session mode string: 'chat' or 'plan'.
   static const String defaultAiDefaultSessionMode = 'chat';

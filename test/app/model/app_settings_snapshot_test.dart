@@ -73,5 +73,75 @@ void main() {
         AppSettingsSnapshot.maxAiSequentialToolRoundLimit,
       );
     });
+
+    test('normalizes AI tool execution resource bounds', () {
+      expect(
+        AppSettingsSnapshot.aiMaxToolOutputCharsFromValue(-1),
+        AppSettingsSnapshot.minAiMaxToolOutputChars,
+      );
+      expect(
+        AppSettingsSnapshot.aiWriteConfirmationTimeoutMsFromValue(999999999),
+        AppSettingsSnapshot.maxAiWriteConfirmationTimeoutMs,
+      );
+      expect(
+        AppSettingsSnapshot.aiFastPathWriteAnalysisThresholdFromValue(-1),
+        AppSettingsSnapshot.minAiFastPathWriteAnalysisThreshold,
+      );
+      expect(
+        AppSettingsSnapshot.aiMaxHookTextCharactersFromValue(999999999),
+        AppSettingsSnapshot.maxAiMaxHookTextCharacters,
+      );
+      expect(
+        AppSettingsSnapshot.subprocessGracefulShutdownMsFromValue(0),
+        AppSettingsSnapshot.minSubprocessGracefulShutdownMs,
+      );
+      expect(
+        AppSettingsSnapshot.bashOutputMaxBytesFromValue(999999999),
+        AppSettingsSnapshot.maxBashOutputMaxBytes,
+      );
+      expect(
+        AppSettingsSnapshot.maxConcurrentToolsFromValue(0),
+        AppSettingsSnapshot.minMaxConcurrentTools,
+      );
+
+      final snapshot = AppSettingsSnapshot.defaults().copyWith(
+        aiMaxToolOutputChars: -1,
+        aiWriteConfirmationTimeoutMs: 999999999,
+        aiFastPathWriteAnalysisThreshold: -1,
+        aiMaxHookTextCharacters: 999999999,
+        subprocessGracefulShutdownMs: 0,
+        bashOutputMaxBytes: 999999999,
+        maxConcurrentTools: 0,
+      );
+
+      expect(
+        snapshot.aiMaxToolOutputChars,
+        AppSettingsSnapshot.minAiMaxToolOutputChars,
+      );
+      expect(
+        snapshot.aiWriteConfirmationTimeoutMs,
+        AppSettingsSnapshot.maxAiWriteConfirmationTimeoutMs,
+      );
+      expect(
+        snapshot.aiFastPathWriteAnalysisThreshold,
+        AppSettingsSnapshot.minAiFastPathWriteAnalysisThreshold,
+      );
+      expect(
+        snapshot.aiMaxHookTextCharacters,
+        AppSettingsSnapshot.maxAiMaxHookTextCharacters,
+      );
+      expect(
+        snapshot.subprocessGracefulShutdownMs,
+        AppSettingsSnapshot.minSubprocessGracefulShutdownMs,
+      );
+      expect(
+        snapshot.bashOutputMaxBytes,
+        AppSettingsSnapshot.maxBashOutputMaxBytes,
+      );
+      expect(
+        snapshot.maxConcurrentTools,
+        AppSettingsSnapshot.minMaxConcurrentTools,
+      );
+    });
   });
 }

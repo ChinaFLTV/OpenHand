@@ -1252,10 +1252,7 @@ class SettingsController extends ChangeNotifier {
   }
 
   Future<bool> updateAiMaxToolOutputChars(int value) async {
-    final clamped = value.clamp(
-      AppSettingsSnapshot.minAiMaxToolOutputChars,
-      AppSettingsSnapshot.maxAiMaxToolOutputChars,
-    );
+    final clamped = AppSettingsSnapshot.normalizeAiMaxToolOutputChars(value);
     return _commitMutation(() {
       if (_aiMaxToolOutputChars == clamped) {
         return _MutationDisposition.successNoChange;
@@ -1266,9 +1263,8 @@ class SettingsController extends ChangeNotifier {
   }
 
   Future<bool> updateAiWriteConfirmationTimeoutMs(int value) async {
-    final clamped = value.clamp(
-      AppSettingsSnapshot.minAiWriteConfirmationTimeoutMs,
-      AppSettingsSnapshot.maxAiWriteConfirmationTimeoutMs,
+    final clamped = AppSettingsSnapshot.normalizeAiWriteConfirmationTimeoutMs(
+      value,
     );
     return _commitMutation(() {
       if (_aiWriteConfirmationTimeoutMs == clamped) {
@@ -1280,10 +1276,8 @@ class SettingsController extends ChangeNotifier {
   }
 
   Future<bool> updateAiFastPathWriteAnalysisThreshold(int value) async {
-    final clamped = value.clamp(
-      AppSettingsSnapshot.minAiFastPathWriteAnalysisThreshold,
-      AppSettingsSnapshot.maxAiFastPathWriteAnalysisThreshold,
-    );
+    final clamped =
+        AppSettingsSnapshot.normalizeAiFastPathWriteAnalysisThreshold(value);
     return _commitMutation(() {
       if (_aiFastPathWriteAnalysisThreshold == clamped) {
         return _MutationDisposition.successNoChange;
@@ -1294,10 +1288,7 @@ class SettingsController extends ChangeNotifier {
   }
 
   Future<bool> updateAiMaxHookTextCharacters(int value) async {
-    final clamped = value.clamp(
-      AppSettingsSnapshot.minAiMaxHookTextCharacters,
-      AppSettingsSnapshot.maxAiMaxHookTextCharacters,
-    );
+    final clamped = AppSettingsSnapshot.normalizeAiMaxHookTextCharacters(value);
     return _commitMutation(() {
       if (_aiMaxHookTextCharacters == clamped) {
         return _MutationDisposition.successNoChange;
@@ -2484,9 +2475,8 @@ class SettingsController extends ChangeNotifier {
   /// 子进程 graceful shutdown 等待窗口（毫秒）。
   Future<bool> updateSubprocessGracefulShutdownMs(int value) async {
     return _commitMutation(() {
-      final clamped = value.clamp(
-        AppSettingsSnapshot.minSubprocessGracefulShutdownMs,
-        AppSettingsSnapshot.maxSubprocessGracefulShutdownMs,
+      final clamped = AppSettingsSnapshot.normalizeSubprocessGracefulShutdownMs(
+        value,
       );
       if (_subprocessGracefulShutdownMs == clamped) {
         return _MutationDisposition.successNoChange;
@@ -2499,10 +2489,7 @@ class SettingsController extends ChangeNotifier {
   /// 单次 bash 工具调用合并捕获 stdout+stderr 上限（字符）。
   Future<bool> updateBashOutputMaxBytes(int value) async {
     return _commitMutation(() {
-      final clamped = value.clamp(
-        AppSettingsSnapshot.minBashOutputMaxBytes,
-        AppSettingsSnapshot.maxBashOutputMaxBytes,
-      );
+      final clamped = AppSettingsSnapshot.normalizeBashOutputMaxBytes(value);
       if (_bashOutputMaxBytes == clamped) {
         return _MutationDisposition.successNoChange;
       }
@@ -2514,10 +2501,7 @@ class SettingsController extends ChangeNotifier {
   /// 同会话内并发派发工具调用的上限。
   Future<bool> updateMaxConcurrentTools(int value) async {
     return _commitMutation(() {
-      final clamped = value.clamp(
-        AppSettingsSnapshot.minMaxConcurrentTools,
-        AppSettingsSnapshot.maxMaxConcurrentTools,
-      );
+      final clamped = AppSettingsSnapshot.normalizeMaxConcurrentTools(value);
       if (_maxConcurrentTools == clamped) {
         return _MutationDisposition.successNoChange;
       }

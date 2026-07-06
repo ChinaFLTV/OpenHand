@@ -584,30 +584,22 @@ class SettingsStore {
       min: AppSettingsSnapshot.minAiEstimatedCharactersPerToken,
       max: AppSettingsSnapshot.maxAiEstimatedCharactersPerToken,
     );
-    final aiMaxToolOutputChars = clampedIntFromValue(
-      json['ai_max_tool_output_chars'],
-      fallback: AppSettingsSnapshot.defaultAiMaxToolOutputChars,
-      min: AppSettingsSnapshot.minAiMaxToolOutputChars,
-      max: AppSettingsSnapshot.maxAiMaxToolOutputChars,
-    );
-    final aiWriteConfirmationTimeoutMs = clampedIntFromValue(
-      json['ai_write_confirmation_timeout_ms'],
-      fallback: AppSettingsSnapshot.defaultAiWriteConfirmationTimeoutMs,
-      min: AppSettingsSnapshot.minAiWriteConfirmationTimeoutMs,
-      max: AppSettingsSnapshot.maxAiWriteConfirmationTimeoutMs,
-    );
-    final aiFastPathWriteAnalysisThreshold = clampedIntFromValue(
-      json['ai_fast_path_write_analysis_threshold'],
-      fallback: AppSettingsSnapshot.defaultAiFastPathWriteAnalysisThreshold,
-      min: AppSettingsSnapshot.minAiFastPathWriteAnalysisThreshold,
-      max: AppSettingsSnapshot.maxAiFastPathWriteAnalysisThreshold,
-    );
-    final aiMaxHookTextCharacters = clampedIntFromValue(
-      json['ai_max_hook_text_characters'],
-      fallback: AppSettingsSnapshot.defaultAiMaxHookTextCharacters,
-      min: AppSettingsSnapshot.minAiMaxHookTextCharacters,
-      max: AppSettingsSnapshot.maxAiMaxHookTextCharacters,
-    );
+    final aiMaxToolOutputChars =
+        AppSettingsSnapshot.aiMaxToolOutputCharsFromValue(
+          json['ai_max_tool_output_chars'],
+        );
+    final aiWriteConfirmationTimeoutMs =
+        AppSettingsSnapshot.aiWriteConfirmationTimeoutMsFromValue(
+          json['ai_write_confirmation_timeout_ms'],
+        );
+    final aiFastPathWriteAnalysisThreshold =
+        AppSettingsSnapshot.aiFastPathWriteAnalysisThresholdFromValue(
+          json['ai_fast_path_write_analysis_threshold'],
+        );
+    final aiMaxHookTextCharacters =
+        AppSettingsSnapshot.aiMaxHookTextCharactersFromValue(
+          json['ai_max_hook_text_characters'],
+        );
     final aiAttachmentMaxInlineImageDimension = clampedIntFromValue(
       json['ai_attachment_max_inline_image_dimension'],
       fallback: AppSettingsSnapshot.defaultAiAttachmentMaxInlineImageDimension,
@@ -1020,23 +1012,15 @@ class SettingsStore {
 
     final proxySettings = AppProxySettings.fromJson(json['proxy']);
 
-    final subprocessGracefulShutdownMs = clampedIntFromValue(
-      json['subprocess_graceful_shutdown_ms'],
-      fallback: AppSettingsSnapshot.defaultSubprocessGracefulShutdownMs,
-      min: AppSettingsSnapshot.minSubprocessGracefulShutdownMs,
-      max: AppSettingsSnapshot.maxSubprocessGracefulShutdownMs,
-    );
-    final bashOutputMaxBytes = clampedIntFromValue(
+    final subprocessGracefulShutdownMs =
+        AppSettingsSnapshot.subprocessGracefulShutdownMsFromValue(
+          json['subprocess_graceful_shutdown_ms'],
+        );
+    final bashOutputMaxBytes = AppSettingsSnapshot.bashOutputMaxBytesFromValue(
       json['bash_output_max_bytes'],
-      fallback: AppSettingsSnapshot.defaultBashOutputMaxBytes,
-      min: AppSettingsSnapshot.minBashOutputMaxBytes,
-      max: AppSettingsSnapshot.maxBashOutputMaxBytes,
     );
-    final maxConcurrentTools = clampedIntFromValue(
+    final maxConcurrentTools = AppSettingsSnapshot.maxConcurrentToolsFromValue(
       json['max_concurrent_tools'],
-      fallback: AppSettingsSnapshot.defaultMaxConcurrentTools,
-      min: AppSettingsSnapshot.minMaxConcurrentTools,
-      max: AppSettingsSnapshot.maxMaxConcurrentTools,
     );
 
     return AppSettingsSnapshot(

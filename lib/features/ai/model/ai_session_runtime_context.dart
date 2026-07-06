@@ -12,6 +12,7 @@ import 'ai_deny_command_rule.dart';
 import 'ai_message_content_format.dart';
 import 'ai_sandbox_settings.dart';
 import 'ai_tool_call_limit_policy.dart';
+import 'ai_tool_execution_limit_policy.dart';
 
 class AiRepositorySnapshot {
   factory AiRepositorySnapshot.fromJson(Object? raw) {
@@ -121,13 +122,13 @@ class AiSessionRuntimeContext {
     this.maxPlanHistoryEntries = 20,
     this.maxTruncationContinuations = 5,
     this.estimatedCharactersPerToken = 4,
-    this.maxToolOutputChars = 150000,
-    this.writeConfirmationTimeoutMs = 300000,
-    this.fastPathWriteAnalysisThreshold = 512,
-    this.maxHookTextCharacters = 4000,
-    this.subprocessGracefulShutdownMs = 500,
-    this.bashOutputMaxBytes = 200000,
-    this.maxConcurrentTools = 8,
+    int maxToolOutputChars = defaultMaxToolOutputChars,
+    int writeConfirmationTimeoutMs = defaultWriteConfirmationTimeoutMs,
+    int fastPathWriteAnalysisThreshold = defaultFastPathWriteAnalysisThreshold,
+    int maxHookTextCharacters = defaultMaxHookTextCharacters,
+    int subprocessGracefulShutdownMs = defaultSubprocessGracefulShutdownMs,
+    int bashOutputMaxBytes = defaultBashOutputMaxBytes,
+    int maxConcurrentTools = defaultMaxConcurrentTools,
     this.attachmentMaxInlineImageDimension = 1568,
     this.attachmentMaxTextRawBytes = 2 * kBytesPerMiB,
     this.attachmentMaxPdfRawBytes = 2 * kBytesPerMiB,
@@ -181,6 +182,21 @@ class AiSessionRuntimeContext {
        sequentialToolRoundLimit = normalizeSequentialToolRoundLimit(
          sequentialToolRoundLimit,
        ),
+       maxToolOutputChars = normalizeMaxToolOutputChars(maxToolOutputChars),
+       writeConfirmationTimeoutMs = normalizeWriteConfirmationTimeoutMs(
+         writeConfirmationTimeoutMs,
+       ),
+       fastPathWriteAnalysisThreshold = normalizeFastPathWriteAnalysisThreshold(
+         fastPathWriteAnalysisThreshold,
+       ),
+       maxHookTextCharacters = normalizeMaxHookTextCharacters(
+         maxHookTextCharacters,
+       ),
+       subprocessGracefulShutdownMs = normalizeSubprocessGracefulShutdownMs(
+         subprocessGracefulShutdownMs,
+       ),
+       bashOutputMaxBytes = normalizeBashOutputMaxBytes(bashOutputMaxBytes),
+       maxConcurrentTools = normalizeMaxConcurrentTools(maxConcurrentTools),
        sandboxSettings =
            sandboxSettings ??
            const AiSandboxSettings(
@@ -225,6 +241,83 @@ class AiSessionRuntimeContext {
 
   static int normalizeSequentialToolRoundLimit(int value) {
     return AiToolCallLimitPolicy.normalizeSequentialRound(value);
+  }
+
+  static const int defaultMaxToolOutputChars =
+      AiToolExecutionLimitPolicy.defaultMaxToolOutputChars;
+  static const int minMaxToolOutputChars =
+      AiToolExecutionLimitPolicy.minMaxToolOutputChars;
+  static const int maxMaxToolOutputChars =
+      AiToolExecutionLimitPolicy.maxMaxToolOutputChars;
+  static const int defaultWriteConfirmationTimeoutMs =
+      AiToolExecutionLimitPolicy.defaultWriteConfirmationTimeoutMs;
+  static const int minWriteConfirmationTimeoutMs =
+      AiToolExecutionLimitPolicy.minWriteConfirmationTimeoutMs;
+  static const int maxWriteConfirmationTimeoutMs =
+      AiToolExecutionLimitPolicy.maxWriteConfirmationTimeoutMs;
+  static const int defaultFastPathWriteAnalysisThreshold =
+      AiToolExecutionLimitPolicy.defaultFastPathWriteAnalysisThreshold;
+  static const int minFastPathWriteAnalysisThreshold =
+      AiToolExecutionLimitPolicy.minFastPathWriteAnalysisThreshold;
+  static const int maxFastPathWriteAnalysisThreshold =
+      AiToolExecutionLimitPolicy.maxFastPathWriteAnalysisThreshold;
+  static const int defaultMaxHookTextCharacters =
+      AiToolExecutionLimitPolicy.defaultMaxHookTextCharacters;
+  static const int minMaxHookTextCharacters =
+      AiToolExecutionLimitPolicy.minMaxHookTextCharacters;
+  static const int maxMaxHookTextCharacters =
+      AiToolExecutionLimitPolicy.maxMaxHookTextCharacters;
+  static const int defaultSubprocessGracefulShutdownMs =
+      AiToolExecutionLimitPolicy.defaultSubprocessGracefulShutdownMs;
+  static const int minSubprocessGracefulShutdownMs =
+      AiToolExecutionLimitPolicy.minSubprocessGracefulShutdownMs;
+  static const int maxSubprocessGracefulShutdownMs =
+      AiToolExecutionLimitPolicy.maxSubprocessGracefulShutdownMs;
+  static const int defaultBashOutputMaxBytes =
+      AiToolExecutionLimitPolicy.defaultBashOutputMaxBytes;
+  static const int minBashOutputMaxBytes =
+      AiToolExecutionLimitPolicy.minBashOutputMaxBytes;
+  static const int maxBashOutputMaxBytes =
+      AiToolExecutionLimitPolicy.maxBashOutputMaxBytes;
+  static const int defaultMaxConcurrentTools =
+      AiToolExecutionLimitPolicy.defaultMaxConcurrentTools;
+  static const int minMaxConcurrentTools =
+      AiToolExecutionLimitPolicy.minMaxConcurrentTools;
+  static const int maxMaxConcurrentTools =
+      AiToolExecutionLimitPolicy.maxMaxConcurrentTools;
+
+  static int normalizeMaxToolOutputChars(int value) {
+    return AiToolExecutionLimitPolicy.normalizeMaxToolOutputChars(value);
+  }
+
+  static int normalizeWriteConfirmationTimeoutMs(int value) {
+    return AiToolExecutionLimitPolicy.normalizeWriteConfirmationTimeoutMs(
+      value,
+    );
+  }
+
+  static int normalizeFastPathWriteAnalysisThreshold(int value) {
+    return AiToolExecutionLimitPolicy.normalizeFastPathWriteAnalysisThreshold(
+      value,
+    );
+  }
+
+  static int normalizeMaxHookTextCharacters(int value) {
+    return AiToolExecutionLimitPolicy.normalizeMaxHookTextCharacters(value);
+  }
+
+  static int normalizeSubprocessGracefulShutdownMs(int value) {
+    return AiToolExecutionLimitPolicy.normalizeSubprocessGracefulShutdownMs(
+      value,
+    );
+  }
+
+  static int normalizeBashOutputMaxBytes(int value) {
+    return AiToolExecutionLimitPolicy.normalizeBashOutputMaxBytes(value);
+  }
+
+  static int normalizeMaxConcurrentTools(int value) {
+    return AiToolExecutionLimitPolicy.normalizeMaxConcurrentTools(value);
   }
 
   final String localeTag;
@@ -508,19 +601,32 @@ class AiSessionRuntimeContext {
       'ai_input_cache_update_interval': aiInputCacheUpdateInterval,
       'ai_input_cache_breakpoint_count': aiInputCacheBreakpointCount,
       'ai_input_cache_breakpoint_positions': aiInputCacheBreakpointPositions,
-      'single_round_tool_call_limit': singleRoundToolCallLimit,
-      'sequential_tool_round_limit': sequentialToolRoundLimit,
+      'single_round_tool_call_limit': normalizeSingleRoundToolCallLimit(
+        singleRoundToolCallLimit,
+      ),
+      'sequential_tool_round_limit': normalizeSequentialToolRoundLimit(
+        sequentialToolRoundLimit,
+      ),
       'max_recent_errors': maxRecentErrors,
       'max_plan_history_entries': maxPlanHistoryEntries,
       'max_truncation_continuations': maxTruncationContinuations,
       'estimated_characters_per_token': estimatedCharactersPerToken,
-      'max_tool_output_chars': maxToolOutputChars,
-      'write_confirmation_timeout_ms': writeConfirmationTimeoutMs,
-      'fast_path_write_analysis_threshold': fastPathWriteAnalysisThreshold,
-      'max_hook_text_characters': maxHookTextCharacters,
-      'subprocess_graceful_shutdown_ms': subprocessGracefulShutdownMs,
-      'bash_output_max_bytes': bashOutputMaxBytes,
-      'max_concurrent_tools': maxConcurrentTools,
+      'max_tool_output_chars': normalizeMaxToolOutputChars(maxToolOutputChars),
+      'write_confirmation_timeout_ms': normalizeWriteConfirmationTimeoutMs(
+        writeConfirmationTimeoutMs,
+      ),
+      'fast_path_write_analysis_threshold':
+          normalizeFastPathWriteAnalysisThreshold(
+            fastPathWriteAnalysisThreshold,
+          ),
+      'max_hook_text_characters': normalizeMaxHookTextCharacters(
+        maxHookTextCharacters,
+      ),
+      'subprocess_graceful_shutdown_ms': normalizeSubprocessGracefulShutdownMs(
+        subprocessGracefulShutdownMs,
+      ),
+      'bash_output_max_bytes': normalizeBashOutputMaxBytes(bashOutputMaxBytes),
+      'max_concurrent_tools': normalizeMaxConcurrentTools(maxConcurrentTools),
       'attachment_max_inline_image_dimension':
           attachmentMaxInlineImageDimension,
       'attachment_max_text_raw_bytes': attachmentMaxTextRawBytes,
