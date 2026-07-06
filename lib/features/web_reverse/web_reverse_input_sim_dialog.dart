@@ -12,7 +12,6 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
-import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/input_value_parsing.dart';
 import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_session_controller.dart';
@@ -80,10 +79,9 @@ class _InputSimDialogState extends State<_InputSimDialog>
     return v;
   }
 
-  Future<void> _snack(String msg) async {
+  void _snack(String msg) {
     if (!mounted) return;
-    final m = ScaffoldMessenger.maybeOf(context);
-    if (m != null) OpenHandSnackBar.showSuccessOn(context, m, msg);
+    showWebReverseSuccessSnack(context, msg);
   }
 
   Future<void> _runMouseClick() async {
@@ -131,7 +129,7 @@ class _InputSimDialogState extends State<_InputSimDialog>
           loc1?.webReverseInputSimClickedAt(x.toString(), y.toString()) ??
           'Clicked ($x, $y)';
     });
-    await _snack(loc1?.webReverseInputSimDispatched ?? 'Dispatched');
+    _snack(loc1?.webReverseInputSimDispatched ?? 'Dispatched');
   }
 
   Future<void> _runWheel(double dy) async {
@@ -192,7 +190,7 @@ class _InputSimDialogState extends State<_InputSimDialog>
       _busy = false;
       _status = loc1?.webReverseInputSimKeyDispatched ?? 'Key dispatched';
     });
-    await _snack(loc1?.webReverseInputSimDispatched ?? 'Dispatched');
+    _snack(loc1?.webReverseInputSimDispatched ?? 'Dispatched');
   }
 
   ({double x, double y}) get _mousePoint => (
@@ -221,7 +219,7 @@ class _InputSimDialogState extends State<_InputSimDialog>
           loc1?.webReverseInputSimInsertedCount(t.length) ??
           'Inserted ${t.length} chars';
     });
-    await _snack(loc1?.webReverseInputSimInserted ?? 'Inserted');
+    _snack(loc1?.webReverseInputSimInserted ?? 'Inserted');
   }
 
   Widget _modifierChips() {

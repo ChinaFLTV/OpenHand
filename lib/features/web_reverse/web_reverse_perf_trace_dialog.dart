@@ -14,7 +14,6 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
-import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/timer_safety.dart';
 import 'web_reverse_clipboard.dart';
 import 'web_reverse_dialog_utils.dart';
@@ -79,6 +78,16 @@ class _PerfTraceDialogState extends State<_PerfTraceDialog> {
     super.dispose();
   }
 
+  void _finishWithFailure(String message) {
+    if (!mounted) return;
+    setState(() {
+      _busy = false;
+      _earlyStop = null;
+      _status = message;
+    });
+    showWebReverseErrorSnack(context, message);
+  }
+
   Future<void> _start() async {
     if (_busy) return;
     final loc = AppLocalizations.of(context);
@@ -115,17 +124,25 @@ class _PerfTraceDialogState extends State<_PerfTraceDialog> {
     _ticker = null;
     if (!mounted) return;
     if (json == null || json.isEmpty) {
-      setState(() {
-        _busy = false;
-        _earlyStop = null;
-        _status = loc?.webReversePerfTraceFailed ?? 'Trace failed or empty';
-      });
+      _finishWithFailure(
+        loc?.webReversePerfTraceFailed ?? 'Trace failed or empty',
+      );
       return;
     }
-    final dir = await getApplicationDocumentsDirectory();
-    final ts = DateTime.now().millisecondsSinceEpoch;
-    final file = File('${dir.path}/openhand_trace_$ts.json');
-    await file.writeAsString(json);
+    late final File file;
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      final ts = DateTime.now().millisecondsSinceEpoch;
+      file = File('${dir.path}/openhand_trace_$ts.json');
+      await file.writeAsString(json);
+    } catch (e, s) {
+      silentLog('web_reverse_perf_trace_dialog', 'perf-trace.save', e, s);
+      if (!mounted) return;
+      _finishWithFailure(
+        loc?.webReversePerfTraceFailed ?? 'Trace failed or empty',
+      );
+      return;
+    }
     if (!mounted) return;
     setState(() {
       _busy = false;
@@ -137,14 +154,10 @@ class _PerfTraceDialogState extends State<_PerfTraceDialog> {
           loc?.webReversePerfSaved(file.path, kb) ??
           'Saved: ${file.path} ($kb KB)';
     });
-    final m = ScaffoldMessenger.maybeOf(context);
-    if (m != null) {
-      OpenHandSnackBar.showSuccessOn(
-        context,
-        m,
-        loc?.webReversePerfTraceSaved ?? 'Trace saved',
-      );
-    }
+    showWebReverseSuccessSnack(
+      context,
+      loc?.webReversePerfTraceSaved ?? 'Trace saved',
+    );
   }
 
   void _stop() {

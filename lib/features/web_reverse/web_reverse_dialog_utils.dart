@@ -4,6 +4,7 @@ import '../../app/model/dialog_animation_settings.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/bounded_animation.dart';
 import '../../shared/ui/motion_preference.dart';
+import '../../shared/ui/openhand_snack_bar.dart';
 
 const EdgeInsets kWebReverseStatusBarPadding = EdgeInsets.fromLTRB(
   16,
@@ -56,6 +57,36 @@ Future<T?> showWebReverseToolDialog<T>({
     alignment: alignment,
     surfaceMotion: surfaceMotion,
     builder: builder,
+  );
+}
+
+void showWebReverseSuccessSnack(
+  BuildContext context,
+  String message, {
+  Duration duration = kOpenHandSnackBarSuccessDuration,
+  SnackBarAction? action,
+}) {
+  if (!context.mounted) return;
+  OpenHandSnackBar.showSuccess(
+    context,
+    message,
+    duration: duration,
+    action: action,
+  );
+}
+
+void showWebReverseErrorSnack(
+  BuildContext context,
+  String message, {
+  Duration duration = kOpenHandSnackBarErrorDuration,
+  SnackBarAction? action,
+}) {
+  if (!context.mounted) return;
+  OpenHandSnackBar.showError(
+    context,
+    message,
+    duration: duration,
+    action: action,
   );
 }
 

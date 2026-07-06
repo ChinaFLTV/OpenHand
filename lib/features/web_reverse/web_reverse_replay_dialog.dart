@@ -12,7 +12,6 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
-import '../../shared/ui/openhand_snack_bar.dart';
 import 'web_reverse_clipboard.dart';
 import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_session_controller.dart';
@@ -118,16 +117,12 @@ class _ReplayDialogState extends State<_ReplayDialog> {
     }
     if (!mounted) return;
     setState(() => _busy = false);
-    final m = ScaffoldMessenger.maybeOf(context);
-    if (m != null) {
-      final okCount = _results.values.where((r) => r.ok).length;
-      OpenHandSnackBar.showSuccessOn(
-        context,
-        m,
-        loc?.webReverseReplayDone(okCount, _results.length) ??
-            'Replay done: $okCount/${_results.length} ok',
-      );
-    }
+    final okCount = _results.values.where((r) => r.ok).length;
+    showWebReverseSuccessSnack(
+      context,
+      loc?.webReverseReplayDone(okCount, _results.length) ??
+          'Replay done: $okCount/${_results.length} ok',
+    );
   }
 
   Future<void> _exportJson() async {

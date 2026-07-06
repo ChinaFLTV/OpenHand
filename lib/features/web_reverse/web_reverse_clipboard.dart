@@ -61,11 +61,9 @@ void showWebReverseClipboardSuccessSnack({
   required String base,
   required WebReverseClipboardCopyResult result,
 }) {
-  final messenger = ScaffoldMessenger.maybeOf(context);
-  if (messenger == null) return;
-  OpenHandSnackBar.showSuccessOn(
+  if (!context.mounted) return;
+  OpenHandSnackBar.showSuccess(
     context,
-    messenger,
     webReverseClipboardSnackMessage(
       context: context,
       base: base,

@@ -18,6 +18,9 @@ const EdgeInsets _kDefaultSnackBarContentPadding = EdgeInsets.symmetric(
   horizontal: 16,
   vertical: 14,
 );
+const Duration kOpenHandSnackBarSuccessDuration = Duration(seconds: 2);
+const Duration kOpenHandSnackBarInfoDuration = Duration(seconds: 3);
+const Duration kOpenHandSnackBarErrorDuration = Duration(seconds: 4);
 
 enum OpenHandSnackKind { info, success, error }
 
@@ -27,7 +30,7 @@ void showOpenHandSnackBar(BuildContext context, SnackBar snackBar) {
 
 void showOpenHandSnackBarOn(
   BuildContext context,
-  ScaffoldMessengerState messenger,
+  ScaffoldMessengerState? messenger,
   SnackBar snackBar,
 ) {
   OpenHandSnackBar.show(context, messenger, snackBar);
@@ -260,9 +263,13 @@ class OpenHandSnackBar {
   }
 
   static void hideCurrentOn(
-    ScaffoldMessengerState messenger, {
+    ScaffoldMessengerState? messenger, {
     SnackBarClosedReason reason = SnackBarClosedReason.hide,
   }) {
+    if (messenger == null) {
+      OpenHandGlobalSnackBarHost.hideCurrent();
+      return;
+    }
     if (OpenHandGlobalSnackBarHost.isMounted ||
         identical(messenger, rootMessengerKey.currentState)) {
       OpenHandGlobalSnackBarHost.hideCurrent();
@@ -284,9 +291,13 @@ class OpenHandSnackBar {
 
   static void show(
     BuildContext context,
-    ScaffoldMessengerState messenger,
+    ScaffoldMessengerState? messenger,
     SnackBar snackBar,
   ) {
+    if (messenger == null || !context.mounted) {
+      OpenHandGlobalSnackBarHost.showSnackBar(snackBar);
+      return;
+    }
     if (OpenHandGlobalSnackBarHost.isMounted ||
         identical(messenger, rootMessengerKey.currentState)) {
       OpenHandGlobalSnackBarHost.showSnackBar(snackBar);
@@ -296,6 +307,10 @@ class OpenHandSnackBar {
   }
 
   static void showInContext(BuildContext context, SnackBar snackBar) {
+    if (!context.mounted) {
+      OpenHandGlobalSnackBarHost.showSnackBar(snackBar);
+      return;
+    }
     final messenger = ScaffoldMessenger.maybeOf(context);
     if (messenger != null) {
       show(context, messenger, snackBar);
@@ -358,7 +373,7 @@ class OpenHandSnackBar {
   static SnackBar success(
     BuildContext context,
     String message, {
-    Duration duration = const Duration(seconds: 2),
+    Duration duration = kOpenHandSnackBarSuccessDuration,
     SnackBarAction? action,
     int? maxLines,
   }) {
@@ -376,7 +391,7 @@ class OpenHandSnackBar {
   static SnackBar error(
     BuildContext context,
     String message, {
-    Duration duration = const Duration(seconds: 4),
+    Duration duration = kOpenHandSnackBarErrorDuration,
     SnackBarAction? action,
     int? maxLines,
   }) {
@@ -394,7 +409,7 @@ class OpenHandSnackBar {
   static SnackBar info(
     BuildContext context,
     String message, {
-    Duration duration = const Duration(seconds: 3),
+    Duration duration = kOpenHandSnackBarInfoDuration,
     SnackBarAction? action,
     int? maxLines,
   }) {
@@ -413,7 +428,7 @@ class OpenHandSnackBar {
   static void showInfo(
     BuildContext context,
     String message, {
-    Duration duration = const Duration(seconds: 3),
+    Duration duration = kOpenHandSnackBarInfoDuration,
     SnackBarAction? action,
   }) {
     showInContext(
@@ -424,9 +439,9 @@ class OpenHandSnackBar {
 
   static void showInfoOn(
     BuildContext context,
-    ScaffoldMessengerState messenger,
+    ScaffoldMessengerState? messenger,
     String message, {
-    Duration duration = const Duration(seconds: 3),
+    Duration duration = kOpenHandSnackBarInfoDuration,
     SnackBarAction? action,
   }) {
     show(
@@ -439,7 +454,7 @@ class OpenHandSnackBar {
   static void showSuccess(
     BuildContext context,
     String message, {
-    Duration duration = const Duration(seconds: 2),
+    Duration duration = kOpenHandSnackBarSuccessDuration,
     SnackBarAction? action,
   }) {
     showInContext(
@@ -450,9 +465,9 @@ class OpenHandSnackBar {
 
   static void showSuccessOn(
     BuildContext context,
-    ScaffoldMessengerState messenger,
+    ScaffoldMessengerState? messenger,
     String message, {
-    Duration duration = const Duration(seconds: 2),
+    Duration duration = kOpenHandSnackBarSuccessDuration,
     SnackBarAction? action,
   }) {
     show(
@@ -465,7 +480,7 @@ class OpenHandSnackBar {
   static void showError(
     BuildContext context,
     String message, {
-    Duration duration = const Duration(seconds: 4),
+    Duration duration = kOpenHandSnackBarErrorDuration,
     SnackBarAction? action,
   }) {
     showInContext(
@@ -476,9 +491,9 @@ class OpenHandSnackBar {
 
   static void showErrorOn(
     BuildContext context,
-    ScaffoldMessengerState messenger,
+    ScaffoldMessengerState? messenger,
     String message, {
-    Duration duration = const Duration(seconds: 4),
+    Duration duration = kOpenHandSnackBarErrorDuration,
     SnackBarAction? action,
   }) {
     show(
@@ -503,21 +518,21 @@ class OpenHandSnackBar {
           showSuccess(
             context,
             message,
-            duration: duration ?? const Duration(seconds: 2),
+            duration: duration ?? kOpenHandSnackBarSuccessDuration,
             action: action,
           );
         case OpenHandSnackKind.error:
           showError(
             context,
             message,
-            duration: duration ?? const Duration(seconds: 4),
+            duration: duration ?? kOpenHandSnackBarErrorDuration,
             action: action,
           );
         case OpenHandSnackKind.info:
           showInfo(
             context,
             message,
-            duration: duration ?? const Duration(seconds: 3),
+            duration: duration ?? kOpenHandSnackBarInfoDuration,
             action: action,
           );
       }
@@ -537,7 +552,7 @@ class OpenHandSnackBar {
     required Color tint,
     required Color backgroundColor,
     required Color foregroundColor,
-    Duration duration = const Duration(seconds: 4),
+    Duration duration = kOpenHandSnackBarErrorDuration,
   }) {
     return _build(
       context,

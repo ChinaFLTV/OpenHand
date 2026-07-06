@@ -14,7 +14,6 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
-import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/date_time_format.dart';
 import '../../shared/util/input_value_parsing.dart';
 import 'web_reverse_clipboard.dart';
@@ -66,16 +65,12 @@ class _MockRulesDialogState extends State<_MockRulesDialog> {
 
   void _commit() {
     widget.controller.setMockRules(_draft);
-    final m = ScaffoldMessenger.maybeOf(context);
-    if (m != null) {
-      final loc = AppLocalizations.of(context);
-      OpenHandSnackBar.showSuccessOn(
-        context,
-        m,
-        loc?.webReverseMockRulesSavedCount(_draft.length) ??
-            'Saved ${_draft.length} rule(s)',
-      );
-    }
+    final loc = AppLocalizations.of(context);
+    showWebReverseSuccessSnack(
+      context,
+      loc?.webReverseMockRulesSavedCount(_draft.length) ??
+          'Saved ${_draft.length} rule(s)',
+    );
   }
 
   void _addRule() {
@@ -104,25 +99,17 @@ class _MockRulesDialogState extends State<_MockRulesDialog> {
       '  ',
     ).convert(_draft.map((e) => e.toJson()).toList());
     final loc = AppLocalizations.of(context);
-    final m = ScaffoldMessenger.maybeOf(context);
     final copied = await setWebReverseClipboardText(out);
     if (!mounted) return;
-    if (m != null) {
-      OpenHandSnackBar.showSuccessOn(
-        context,
-        m,
-        webReverseClipboardSnackMessage(
-          context: context,
-          base: loc?.webReverseMockRulesJsonCopied ?? 'JSON copied',
-          result: copied,
-        ),
-      );
-    }
+    showWebReverseClipboardSuccessSnack(
+      context: context,
+      base: loc?.webReverseMockRulesJsonCopied ?? 'JSON copied',
+      result: copied,
+    );
   }
 
   Future<void> _importJson() async {
     final loc = AppLocalizations.of(context);
-    final m = ScaffoldMessenger.maybeOf(context);
     try {
       final data = await Clipboard.getData('text/plain');
       final text = data?.text ?? '';
@@ -135,24 +122,18 @@ class _MockRulesDialogState extends State<_MockRulesDialog> {
             .toList(growable: false);
         _selected = _draft.isEmpty ? -1 : 0;
       });
-      if (m != null) {
-        OpenHandSnackBar.showSuccessOn(
-          context,
-          m,
-          loc?.webReverseMockRulesImportedCount(_draft.length) ??
-              'Imported ${_draft.length}',
-        );
-      }
+      showWebReverseSuccessSnack(
+        context,
+        loc?.webReverseMockRulesImportedCount(_draft.length) ??
+            'Imported ${_draft.length}',
+      );
     } catch (e, st) {
       silentLog('web_reverse_mock_rules', 'import', e, st);
       if (!mounted) return;
-      if (m != null) {
-        OpenHandSnackBar.showErrorOn(
-          context,
-          m,
-          loc?.webReverseMockRulesImportFailed('$e') ?? 'Import failed: $e',
-        );
-      }
+      showWebReverseErrorSnack(
+        context,
+        loc?.webReverseMockRulesImportFailed('$e') ?? 'Import failed: $e',
+      );
     }
   }
 

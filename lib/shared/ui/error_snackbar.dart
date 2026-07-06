@@ -7,6 +7,8 @@ import 'openhand_dialog_action_button.dart';
 import 'openhand_safe_scrollbar.dart';
 import 'openhand_snack_bar.dart';
 
+const Duration _kFriendlyErrorDetailsSnackDuration = Duration(seconds: 6);
+
 /// 把可能很长的「现象 / 原因 / 建议」三段式错误文案以**对用户友好**的方式
 /// 展示在 SnackBar 上：
 ///   · SnackBar 主文本只截取第一非空行（作者设计为简短中英标题）
@@ -31,7 +33,7 @@ void showFriendlyErrorSnackBar(
       .toList(growable: false);
   final headline = lines.isEmpty ? fallback : lines.first;
   final hasDetails = lines.length > 1;
-  final messenger = ScaffoldMessenger.of(context);
+  final messenger = ScaffoldMessenger.maybeOf(context);
   // SnackBarAction 的 onPressed 触发时，调用方 context 往往已离开树
   // （例如发出 SnackBar 的临时 widget 已 dispose），此时再用它去
   // showAnimatedDialog 会触发「Looking up a deactivated widget's
@@ -47,8 +49,8 @@ void showFriendlyErrorSnackBar(
       headline,
       maxLines: 2,
       duration: hasDetails
-          ? const Duration(seconds: 6)
-          : const Duration(seconds: 4),
+          ? _kFriendlyErrorDetailsSnackDuration
+          : kOpenHandSnackBarErrorDuration,
       action: hasDetails
           ? SnackBarAction(
               label: l10n.commonDetails,
@@ -100,7 +102,7 @@ void _showErrorDetailsDialog(
             onPressed: () async {
               await Clipboard.setData(ClipboardData(text: fullText));
               if (!dialogContext.mounted) return;
-              final messenger = ScaffoldMessenger.of(dialogContext);
+              final messenger = ScaffoldMessenger.maybeOf(dialogContext);
               OpenHandSnackBar.hideCurrentOn(messenger);
               OpenHandSnackBar.show(
                 dialogContext,
