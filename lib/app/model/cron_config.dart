@@ -10,17 +10,17 @@ const int kCronMaxTimeoutSeconds = 3600;
 const int kCronDefaultRetryDelaySeconds = 30;
 const int kCronMinRetryDelaySeconds = 1;
 const int kCronMaxRetryDelaySeconds = 300;
-const _CronIntRange _cronRetryCountRange = _CronIntRange(
+const IntValueRange _cronRetryCountRange = IntValueRange(
   fallback: kCronDefaultRetryCount,
   min: kCronMinRetryCount,
   max: kCronMaxRetryCount,
 );
-const _CronIntRange _cronTimeoutSecondsRange = _CronIntRange(
+const IntValueRange _cronTimeoutSecondsRange = IntValueRange(
   fallback: kCronDefaultTimeoutSeconds,
   min: kCronMinTimeoutSeconds,
   max: kCronMaxTimeoutSeconds,
 );
-const _CronIntRange _cronRetryDelaySecondsRange = _CronIntRange(
+const IntValueRange _cronRetryDelaySecondsRange = IntValueRange(
   fallback: kCronDefaultRetryDelaySeconds,
   min: kCronMinRetryDelaySeconds,
   max: kCronMaxRetryDelaySeconds,
@@ -217,8 +217,8 @@ class CronEntry {
       scriptPath: nullIfBlank('${json['script_path'] ?? ''}'),
       scriptContent: nullIfBlank('${json['script_content'] ?? ''}'),
       cronExpression: '${json['cron_expression'] ?? '* * * * *'}'.trim(),
-      retryCount: _cronRetryCountRange.fromJson(json['retry_count']),
-      timeoutSeconds: _cronTimeoutSecondsRange.fromJson(
+      retryCount: _cronRetryCountRange.fromValue(json['retry_count']),
+      timeoutSeconds: _cronTimeoutSecondsRange.fromValue(
         json['timeout_seconds'],
       ),
       runAsUser: nullIfBlank('${json['run_as_user'] ?? ''}'),
@@ -280,7 +280,7 @@ class CronEntry {
       ),
       workingDirectory: nullIfBlank('${json['working_directory'] ?? ''}'),
       environment: keyValueMapFromValue(json['environment']),
-      maxRetryDelaySeconds: _cronRetryDelaySecondsRange.fromJson(
+      maxRetryDelaySeconds: _cronRetryDelaySecondsRange.fromValue(
         json['max_retry_delay_seconds'],
       ),
       lastRunAt: dateTimeFromValue(json['last_run_at']),
@@ -607,24 +607,4 @@ class CronExecutionRecord {
 
 int _cronNonNegativeCounter(Object? value) {
   return nonNegativeIntFromValue(value, fallback: 0);
-}
-
-class _CronIntRange {
-  const _CronIntRange({
-    required this.fallback,
-    required this.min,
-    required this.max,
-  });
-
-  final int fallback;
-  final int min;
-  final int max;
-
-  int fromJson(Object? value) {
-    return clampedIntFromValue(value, fallback: fallback, min: min, max: max);
-  }
-
-  int normalize(int value) {
-    return clampIntToRange(value, min: min, max: max);
-  }
 }

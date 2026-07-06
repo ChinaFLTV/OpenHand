@@ -604,6 +604,26 @@ int clampIntToRange(int value, {required int min, required int max}) {
   return value.clamp(lower, upper).toInt();
 }
 
+class IntValueRange {
+  const IntValueRange({
+    required this.fallback,
+    required this.min,
+    required this.max,
+  });
+
+  final int fallback;
+  final int min;
+  final int max;
+
+  int fromValue(Object? value) {
+    return clampedIntFromValue(value, fallback: fallback, min: min, max: max);
+  }
+
+  int normalize(int value) {
+    return clampIntToRange(value, min: min, max: max);
+  }
+}
+
 double clampedDoubleFromValue(
   Object? value, {
   required double fallback,

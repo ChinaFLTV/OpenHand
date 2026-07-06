@@ -135,6 +135,25 @@ void main() {
     });
   });
 
+  group('IntValueRange', () {
+    test('parses and clamps values through a reusable range rule', () {
+      const range = IntValueRange(fallback: 5, min: 0, max: 10);
+
+      expect(range.fromValue('7'), 7);
+      expect(range.fromValue(-2), 0);
+      expect(range.fromValue(12), 10);
+      expect(range.fromValue('bad'), 5);
+    });
+
+    test('normalizes existing values with ordered bounds', () {
+      const range = IntValueRange(fallback: 5, min: 10, max: 0);
+
+      expect(range.normalize(-2), 0);
+      expect(range.normalize(7), 7);
+      expect(range.normalize(12), 10);
+    });
+  });
+
   group('optionalPositiveIntFromValue', () {
     test('parses positive integers and rejects non-positive values', () {
       expect(optionalPositiveIntFromValue('7'), 7);

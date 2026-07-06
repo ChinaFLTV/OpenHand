@@ -1,3 +1,4 @@
+import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 
 /// 受支持的 WebFetch 数据源种类。和 WebSearch 平行——很多源既能搜也能抓
@@ -92,6 +93,31 @@ class AiWebFetchEngineConfig {
   static const int defaultResponseTimeoutSeconds = 30;
   static const int minResponseTimeoutSeconds = 5;
   static const int maxResponseTimeoutSeconds = 300;
+  static const IntValueRange _weightRange = IntValueRange(
+    fallback: defaultWeight,
+    min: minWeight,
+    max: maxWeight,
+  );
+  static const IntValueRange _maxRetriesRange = IntValueRange(
+    fallback: defaultMaxRetries,
+    min: 0,
+    max: maxRetriesUpperBound,
+  );
+  static const IntValueRange _truncationCharsRange = IntValueRange(
+    fallback: defaultTruncationChars,
+    min: minTruncationChars,
+    max: maxTruncationChars,
+  );
+  static const IntValueRange _connectionTimeoutSecondsRange = IntValueRange(
+    fallback: defaultConnectionTimeoutSeconds,
+    min: minConnectionTimeoutSeconds,
+    max: maxConnectionTimeoutSeconds,
+  );
+  static const IntValueRange _responseTimeoutSecondsRange = IntValueRange(
+    fallback: defaultResponseTimeoutSeconds,
+    min: minResponseTimeoutSeconds,
+    max: maxResponseTimeoutSeconds,
+  );
 
   final AiWebFetchEngineKind kind;
   final bool enabled;
@@ -161,35 +187,16 @@ class AiWebFetchEngineConfig {
     return AiWebFetchEngineConfig(
       kind: kind,
       enabled: boolFromValue(json['enabled']),
-      weight: clampedIntFromValue(
-        json['weight'],
-        fallback: defaultWeight,
-        min: minWeight,
-        max: maxWeight,
-      ),
-      maxRetries: clampedIntFromValue(
-        json['max_retries'],
-        fallback: defaultMaxRetries,
-        min: 0,
-        max: maxRetriesUpperBound,
-      ),
-      truncationChars: clampedIntFromValue(
+      weight: _weightRange.fromValue(json['weight']),
+      maxRetries: _maxRetriesRange.fromValue(json['max_retries']),
+      truncationChars: _truncationCharsRange.fromValue(
         json['truncation_chars'],
-        fallback: defaultTruncationChars,
-        min: minTruncationChars,
-        max: maxTruncationChars,
       ),
-      connectionTimeoutSeconds: clampedIntFromValue(
+      connectionTimeoutSeconds: _connectionTimeoutSecondsRange.fromValue(
         json['connection_timeout_seconds'],
-        fallback: defaultConnectionTimeoutSeconds,
-        min: minConnectionTimeoutSeconds,
-        max: maxConnectionTimeoutSeconds,
       ),
-      responseTimeoutSeconds: clampedIntFromValue(
+      responseTimeoutSeconds: _responseTimeoutSecondsRange.fromValue(
         json['response_timeout_seconds'],
-        fallback: defaultResponseTimeoutSeconds,
-        min: minResponseTimeoutSeconds,
-        max: maxResponseTimeoutSeconds,
       ),
       apiKey: optionalStringFromValue(json['api_key']),
       providerConfigId: optionalStringFromValue(json['provider_config_id']),
@@ -220,6 +227,21 @@ class AiWebFetchScraplingSettings {
   static const int defaultInstallTimeoutSeconds = 300;
   static const int minInstallTimeoutSeconds = 30;
   static const int maxInstallTimeoutSeconds = 1800;
+  static const IntValueRange _startupTimeoutSecondsRange = IntValueRange(
+    fallback: defaultStartupTimeoutSeconds,
+    min: minStartupTimeoutSeconds,
+    max: maxStartupTimeoutSeconds,
+  );
+  static const IntValueRange _requestTimeoutSecondsRange = IntValueRange(
+    fallback: defaultRequestTimeoutSeconds,
+    min: minRequestTimeoutSeconds,
+    max: maxRequestTimeoutSeconds,
+  );
+  static const IntValueRange _installTimeoutSecondsRange = IntValueRange(
+    fallback: defaultInstallTimeoutSeconds,
+    min: minInstallTimeoutSeconds,
+    max: maxInstallTimeoutSeconds,
+  );
 
   final String? pythonExecutable;
   final int startupTimeoutSeconds;
@@ -261,23 +283,14 @@ class AiWebFetchScraplingSettings {
     if (json == null) return null;
     return AiWebFetchScraplingSettings(
       pythonExecutable: optionalStringFromValue(json['python_executable']),
-      startupTimeoutSeconds: clampedIntFromValue(
+      startupTimeoutSeconds: _startupTimeoutSecondsRange.fromValue(
         json['startup_timeout_seconds'],
-        fallback: defaultStartupTimeoutSeconds,
-        min: minStartupTimeoutSeconds,
-        max: maxStartupTimeoutSeconds,
       ),
-      requestTimeoutSeconds: clampedIntFromValue(
+      requestTimeoutSeconds: _requestTimeoutSecondsRange.fromValue(
         json['request_timeout_seconds'],
-        fallback: defaultRequestTimeoutSeconds,
-        min: minRequestTimeoutSeconds,
-        max: maxRequestTimeoutSeconds,
       ),
-      installTimeoutSeconds: clampedIntFromValue(
+      installTimeoutSeconds: _installTimeoutSecondsRange.fromValue(
         json['install_timeout_seconds'],
-        fallback: defaultInstallTimeoutSeconds,
-        min: minInstallTimeoutSeconds,
-        max: maxInstallTimeoutSeconds,
       ),
     );
   }
@@ -328,9 +341,9 @@ class AiWebFetchSettings {
   static const int maxCacheTtlSeconds = 60 * 60 * 24 * 7;
 
   /// 缓存目录磁盘占用上限（字节）。默认 50 MB；0 = 无上限。
-  static const int defaultCacheMaxBytes = 50 * 1024 * 1024;
+  static const int defaultCacheMaxBytes = 50 * kBytesPerMiB;
   static const int minCacheMaxBytes = 0;
-  static const int maxCacheMaxBytes = 2 * 1024 * 1024 * 1024;
+  static const int maxCacheMaxBytes = 2 * kBytesPerGiB;
 
   // ===== 失败自动降级（cooldown）阈值，三档可调。=====
   static const int defaultCooldownTier1Failures = 3;
@@ -351,6 +364,76 @@ class AiWebFetchSettings {
 
   // ===== 每引擎每分钟节流上限。0 = 不限。=====
   static const int maxThrottlePerMinute = 600;
+  static const IntValueRange _resultCountRange = IntValueRange(
+    fallback: defaultResultCount,
+    min: minResultCount,
+    max: maxResultCount,
+  );
+  static const IntValueRange _parallelWorkersRange = IntValueRange(
+    fallback: defaultParallelWorkers,
+    min: minParallelWorkers,
+    max: maxParallelWorkers,
+  );
+  static const IntValueRange _cacheTtlSecondsRange = IntValueRange(
+    fallback: defaultCacheTtlSeconds,
+    min: minCacheTtlSeconds,
+    max: maxCacheTtlSeconds,
+  );
+  static const IntValueRange _cacheMaxBytesRange = IntValueRange(
+    fallback: defaultCacheMaxBytes,
+    min: minCacheMaxBytes,
+    max: maxCacheMaxBytes,
+  );
+  static const IntValueRange _cooldownTier1FailuresRange = IntValueRange(
+    fallback: defaultCooldownTier1Failures,
+    min: minCooldownFailures,
+    max: maxCooldownFailures,
+  );
+  static const IntValueRange _cooldownTier2FailuresRange = IntValueRange(
+    fallback: defaultCooldownTier2Failures,
+    min: minCooldownFailures,
+    max: maxCooldownFailures,
+  );
+  static const IntValueRange _cooldownTier3FailuresRange = IntValueRange(
+    fallback: defaultCooldownTier3Failures,
+    min: minCooldownFailures,
+    max: maxCooldownFailures,
+  );
+  static const IntValueRange _cooldownTier1SecondsRange = IntValueRange(
+    fallback: defaultCooldownTier1Seconds,
+    min: minCooldownSeconds,
+    max: maxCooldownSeconds,
+  );
+  static const IntValueRange _cooldownTier2SecondsRange = IntValueRange(
+    fallback: defaultCooldownTier2Seconds,
+    min: minCooldownSeconds,
+    max: maxCooldownSeconds,
+  );
+  static const IntValueRange _cooldownTier3SecondsRange = IntValueRange(
+    fallback: defaultCooldownTier3Seconds,
+    min: minCooldownSeconds,
+    max: maxCooldownSeconds,
+  );
+  static const IntValueRange _cooldownQuotaSecondsRange = IntValueRange(
+    fallback: defaultCooldownQuotaSeconds,
+    min: minCooldownSeconds,
+    max: maxCooldownSeconds,
+  );
+  static const IntValueRange _alertSuccessRatePctRange = IntValueRange(
+    fallback: 0,
+    min: 0,
+    max: maxAlertSuccessRatePct,
+  );
+  static const IntValueRange _alertAvgDurationMsRange = IntValueRange(
+    fallback: 0,
+    min: 0,
+    max: maxAlertAvgDurationMs,
+  );
+  static const IntValueRange _throttlePerMinuteRange = IntValueRange(
+    fallback: 0,
+    min: 0,
+    max: maxThrottlePerMinute,
+  );
 
   final List<AiWebFetchEngineConfig> engines;
   final int resultCount;
@@ -478,90 +561,44 @@ class AiWebFetchSettings {
       scrapling:
           AiWebFetchScraplingSettings.fromJson(json['scrapling']) ??
           const AiWebFetchScraplingSettings(),
-      resultCount: clampedIntFromValue(
-        json['result_count'],
-        fallback: defaultResultCount,
-        min: minResultCount,
-        max: maxResultCount,
-      ),
+      resultCount: _resultCountRange.fromValue(json['result_count']),
       parallel: boolFromValue(json['parallel'], defaultValue: true),
-      parallelWorkers: clampedIntFromValue(
+      parallelWorkers: _parallelWorkersRange.fromValue(
         json['parallel_workers'],
-        fallback: defaultParallelWorkers,
-        min: minParallelWorkers,
-        max: maxParallelWorkers,
       ),
-      cacheTtlSeconds: clampedIntFromValue(
+      cacheTtlSeconds: _cacheTtlSecondsRange.fromValue(
         json['cache_ttl_seconds'],
-        fallback: defaultCacheTtlSeconds,
-        min: minCacheTtlSeconds,
-        max: maxCacheTtlSeconds,
       ),
-      cacheMaxBytes: clampedIntFromValue(
-        json['cache_max_bytes'],
-        fallback: defaultCacheMaxBytes,
-        min: minCacheMaxBytes,
-        max: maxCacheMaxBytes,
-      ),
-      cooldownTier1Failures: clampedIntFromValue(
+      cacheMaxBytes: _cacheMaxBytesRange.fromValue(json['cache_max_bytes']),
+      cooldownTier1Failures: _cooldownTier1FailuresRange.fromValue(
         json['cooldown_tier1_failures'],
-        fallback: defaultCooldownTier1Failures,
-        min: minCooldownFailures,
-        max: maxCooldownFailures,
       ),
-      cooldownTier1Seconds: clampedIntFromValue(
+      cooldownTier1Seconds: _cooldownTier1SecondsRange.fromValue(
         json['cooldown_tier1_seconds'],
-        fallback: defaultCooldownTier1Seconds,
-        min: minCooldownSeconds,
-        max: maxCooldownSeconds,
       ),
-      cooldownTier2Failures: clampedIntFromValue(
+      cooldownTier2Failures: _cooldownTier2FailuresRange.fromValue(
         json['cooldown_tier2_failures'],
-        fallback: defaultCooldownTier2Failures,
-        min: minCooldownFailures,
-        max: maxCooldownFailures,
       ),
-      cooldownTier2Seconds: clampedIntFromValue(
+      cooldownTier2Seconds: _cooldownTier2SecondsRange.fromValue(
         json['cooldown_tier2_seconds'],
-        fallback: defaultCooldownTier2Seconds,
-        min: minCooldownSeconds,
-        max: maxCooldownSeconds,
       ),
-      cooldownTier3Failures: clampedIntFromValue(
+      cooldownTier3Failures: _cooldownTier3FailuresRange.fromValue(
         json['cooldown_tier3_failures'],
-        fallback: defaultCooldownTier3Failures,
-        min: minCooldownFailures,
-        max: maxCooldownFailures,
       ),
-      cooldownTier3Seconds: clampedIntFromValue(
+      cooldownTier3Seconds: _cooldownTier3SecondsRange.fromValue(
         json['cooldown_tier3_seconds'],
-        fallback: defaultCooldownTier3Seconds,
-        min: minCooldownSeconds,
-        max: maxCooldownSeconds,
       ),
-      cooldownQuotaSeconds: clampedIntFromValue(
+      cooldownQuotaSeconds: _cooldownQuotaSecondsRange.fromValue(
         json['cooldown_quota_seconds'],
-        fallback: defaultCooldownQuotaSeconds,
-        min: minCooldownSeconds,
-        max: maxCooldownSeconds,
       ),
-      alertSuccessRatePct: clampedIntFromValue(
+      alertSuccessRatePct: _alertSuccessRatePctRange.fromValue(
         json['alert_success_rate_pct'],
-        fallback: 0,
-        min: 0,
-        max: maxAlertSuccessRatePct,
       ),
-      alertAvgDurationMs: clampedIntFromValue(
+      alertAvgDurationMs: _alertAvgDurationMsRange.fromValue(
         json['alert_avg_duration_ms'],
-        fallback: 0,
-        min: 0,
-        max: maxAlertAvgDurationMs,
       ),
-      throttlePerMinute: clampedIntFromValue(
+      throttlePerMinute: _throttlePerMinuteRange.fromValue(
         json['throttle_per_minute'],
-        fallback: 0,
-        min: 0,
-        max: maxThrottlePerMinute,
       ),
     );
   }

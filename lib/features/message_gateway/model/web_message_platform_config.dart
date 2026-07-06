@@ -48,32 +48,67 @@ const int kWebGatewayMaxLogMaxFiles = 100;
 const int kWebGatewayDefaultLogLazyReadPageSize = 300;
 const int kWebGatewayMinLogLazyReadPageSize = 50;
 const int kWebGatewayMaxLogLazyReadPageSize = 5000;
-const _IntRange _healthTimeoutRange = _IntRange(
+const IntValueRange _listenPortRange = IntValueRange(
+  fallback: kWebGatewayDefaultListenPort,
+  min: kWebGatewayMinListenPort,
+  max: kWebGatewayMaxListenPort,
+);
+const IntValueRange _maxConcurrentRequestsRange = IntValueRange(
+  fallback: kWebGatewayDefaultMaxConcurrentRequests,
+  min: kWebGatewayMinConcurrentRequests,
+  max: kWebGatewayMaxConcurrentRequests,
+);
+const IntValueRange _singleMessageTokenLimitRange = IntValueRange(
+  fallback: kWebGatewayDefaultSingleMessageTokenLimit,
+  min: kWebGatewayMinSingleMessageTokenLimit,
+  max: kWebGatewayMaxSingleMessageTokenLimit,
+);
+const IntValueRange _maxMessagesPerSessionRange = IntValueRange(
+  fallback: kWebGatewayDefaultMaxMessagesPerSession,
+  min: kWebGatewayMinMessagesPerSession,
+  max: kWebGatewayMaxMessagesPerSession,
+);
+const IntValueRange _workspaceFileMaxBytesRange = IntValueRange(
+  fallback: kWebGatewayDefaultWorkspaceFileMaxBytes,
+  min: kWebGatewayMinWorkspaceFileMaxBytes,
+  max: kWebGatewayMaxWorkspaceFileMaxBytes,
+);
+const IntValueRange _uploadCacheRetentionDaysRange = IntValueRange(
+  fallback: kWebGatewayDefaultUploadCacheRetentionDays,
+  min: kWebGatewayMinUploadCacheRetentionDays,
+  max: kWebGatewayMaxUploadCacheRetentionDays,
+);
+const IntValueRange _uploadCacheMaxBytesRange = IntValueRange(
+  fallback: kWebGatewayDefaultUploadCacheMaxBytes,
+  min: kWebGatewayMinUploadCacheMaxBytes,
+  max: kWebGatewayMaxUploadCacheMaxBytes,
+);
+const IntValueRange _healthTimeoutRange = IntValueRange(
   fallback: kWebGatewayDefaultHealthTimeoutMs,
   min: kWebGatewayMinHealthTimeoutMs,
   max: kWebGatewayMaxHealthTimeoutMs,
 );
-const _IntRange _healthStatusCodeRange = _IntRange(
+const IntValueRange _healthStatusCodeRange = IntValueRange(
   fallback: kWebGatewayDefaultHealthStatusCode,
   min: kWebGatewayMinHealthStatusCode,
   max: kWebGatewayMaxHealthStatusCode,
 );
-const _IntRange _logFileMaxBytesRange = _IntRange(
+const IntValueRange _logFileMaxBytesRange = IntValueRange(
   fallback: kWebGatewayDefaultLogFileMaxBytes,
   min: kWebGatewayMinLogFileMaxBytes,
   max: kWebGatewayMaxLogFileMaxBytes,
 );
-const _IntRange _logRotationDaysRange = _IntRange(
+const IntValueRange _logRotationDaysRange = IntValueRange(
   fallback: kWebGatewayDefaultLogRotationDays,
   min: kWebGatewayMinLogRotationDays,
   max: kWebGatewayMaxLogRotationDays,
 );
-const _IntRange _logMaxFilesRange = _IntRange(
+const IntValueRange _logMaxFilesRange = IntValueRange(
   fallback: kWebGatewayDefaultLogMaxFiles,
   min: kWebGatewayMinLogMaxFiles,
   max: kWebGatewayMaxLogMaxFiles,
 );
-const _IntRange _logLazyReadPageSizeRange = _IntRange(
+const IntValueRange _logLazyReadPageSizeRange = IntValueRange(
   fallback: kWebGatewayDefaultLogLazyReadPageSize,
   min: kWebGatewayMinLogLazyReadPageSize,
   max: kWebGatewayMaxLogLazyReadPageSize,
@@ -204,8 +239,8 @@ class WebGatewayHealthCheckConfig {
       path: _nonEmptyString(json['path'], '/api/health'),
       method: _nonEmptyString(json['method'], 'GET').toUpperCase(),
       queryParameters: _stringMap(json['query_parameters']),
-      timeoutMs: _healthTimeoutRange.fromJson(json['timeout_ms']),
-      expectedStatusCode: _healthStatusCodeRange.fromJson(
+      timeoutMs: _healthTimeoutRange.fromValue(json['timeout_ms']),
+      expectedStatusCode: _healthStatusCodeRange.fromValue(
         json['expected_status_code'],
       ),
       responseContains: _stringValue(json['response_contains']).trim(),
@@ -283,14 +318,14 @@ class WebGatewayLogConfig {
 
   factory WebGatewayLogConfig.fromJson(Map<String, Object?> json) {
     return WebGatewayLogConfig(
-      fileMaxBytes: _logFileMaxBytesRange.fromJson(json['file_max_bytes']),
-      rotationDays: _logRotationDaysRange.fromJson(json['rotation_days']),
-      maxFiles: _logMaxFilesRange.fromJson(json['max_files']),
+      fileMaxBytes: _logFileMaxBytesRange.fromValue(json['file_max_bytes']),
+      rotationDays: _logRotationDaysRange.fromValue(json['rotation_days']),
+      maxFiles: _logMaxFilesRange.fromValue(json['max_files']),
       levels: _stringList(
         json['levels'],
         fallback: const <String>['info', 'warn', 'error', 'debug'],
       ),
-      lazyReadPageSize: _logLazyReadPageSizeRange.fromJson(
+      lazyReadPageSize: _logLazyReadPageSizeRange.fromValue(
         json['lazy_read_page_size'],
       ),
     );
@@ -408,23 +443,15 @@ class WebMessagePlatformConfig {
       ),
       description: _nonEmptyString(json['description'], defaultDescription),
       listenHost: _nonEmptyString(json['listen_host'], '0.0.0.0'),
-      listenPort: clampedIntFromValue(
-        json['listen_port'],
-        fallback: kWebGatewayDefaultListenPort,
-        min: kWebGatewayMinListenPort,
-        max: kWebGatewayMaxListenPort,
-      ),
+      listenPort: _listenPortRange.fromValue(json['listen_port']),
       authEnabled: boolFromValue(json['auth_enabled']),
       username: _nonEmptyString(json['username'], 'openhand'),
       password: _stringValue(json['password']),
       telemetryEnabled: boolFromValue(json['telemetry_enabled']),
       loggingEnabled: boolFromValue(json['logging_enabled']),
       opsEnabled: boolFromValue(json['ops_enabled']),
-      maxConcurrentRequests: clampedIntFromValue(
+      maxConcurrentRequests: _maxConcurrentRequestsRange.fromValue(
         json['max_concurrent_requests'],
-        fallback: kWebGatewayDefaultMaxConcurrentRequests,
-        min: kWebGatewayMinConcurrentRequests,
-        max: kWebGatewayMaxConcurrentRequests,
       ),
       allowedTemplateIds: _stringList(json['allowed_template_ids']),
       allowedSkillNames: _stringList(json['allowed_skill_names']),
@@ -474,17 +501,11 @@ class WebMessagePlatformConfig {
         json['regeneration_enabled'],
         defaultValue: true,
       ),
-      singleMessageTokenLimit: clampedIntFromValue(
+      singleMessageTokenLimit: _singleMessageTokenLimitRange.fromValue(
         json['single_message_token_limit'],
-        fallback: kWebGatewayDefaultSingleMessageTokenLimit,
-        min: kWebGatewayMinSingleMessageTokenLimit,
-        max: kWebGatewayMaxSingleMessageTokenLimit,
       ),
-      maxMessagesPerSession: clampedIntFromValue(
+      maxMessagesPerSession: _maxMessagesPerSessionRange.fromValue(
         json['max_messages_per_session'],
-        fallback: kWebGatewayDefaultMaxMessagesPerSession,
-        min: kWebGatewayMinMessagesPerSession,
-        max: kWebGatewayMaxMessagesPerSession,
       ),
       sessionManagementEnabled: boolFromValue(
         json['session_management_enabled'],
@@ -497,27 +518,18 @@ class WebMessagePlatformConfig {
       workspaceFileWriteEnabled: boolFromValue(
         json['workspace_file_write_enabled'],
       ),
-      workspaceFileMaxBytes: clampedIntFromValue(
+      workspaceFileMaxBytes: _workspaceFileMaxBytesRange.fromValue(
         json['workspace_file_max_bytes'],
-        fallback: kWebGatewayDefaultWorkspaceFileMaxBytes,
-        min: kWebGatewayMinWorkspaceFileMaxBytes,
-        max: kWebGatewayMaxWorkspaceFileMaxBytes,
       ),
       workspaceFileAllowedExtensions:
           webGatewayNormalizeWorkspaceFileExtensions(
             json['workspace_file_allowed_extensions'],
           ),
-      uploadCacheRetentionDays: clampedIntFromValue(
+      uploadCacheRetentionDays: _uploadCacheRetentionDaysRange.fromValue(
         json['upload_cache_retention_days'],
-        fallback: kWebGatewayDefaultUploadCacheRetentionDays,
-        min: kWebGatewayMinUploadCacheRetentionDays,
-        max: kWebGatewayMaxUploadCacheRetentionDays,
       ),
-      uploadCacheMaxBytes: clampedIntFromValue(
+      uploadCacheMaxBytes: _uploadCacheMaxBytesRange.fromValue(
         json['upload_cache_max_bytes'],
-        fallback: kWebGatewayDefaultUploadCacheMaxBytes,
-        min: kWebGatewayMinUploadCacheMaxBytes,
-        max: kWebGatewayMaxUploadCacheMaxBytes,
       ),
       healthCheck: healthCheckJson.isEmpty
           ? const WebGatewayHealthCheckConfig()
@@ -856,24 +868,4 @@ Set<T> _enumSet<T>(Object? raw, T? Function(String?) parser, Set<T> fallback) {
     if (parsed != null) result.add(parsed);
   }
   return result.isEmpty ? Set<T>.from(fallback) : result;
-}
-
-class _IntRange {
-  const _IntRange({
-    required this.fallback,
-    required this.min,
-    required this.max,
-  });
-
-  final int fallback;
-  final int min;
-  final int max;
-
-  int fromJson(Object? value) {
-    return clampedIntFromValue(value, fallback: fallback, min: min, max: max);
-  }
-
-  int normalize(int value) {
-    return clampIntToRange(value, min: min, max: max);
-  }
 }

@@ -117,6 +117,21 @@ class AiWebSearchEngineConfig {
   static const int defaultTruncationChars = 80000;
   static const int minTruncationChars = 1000;
   static const int maxTruncationChars = 400000;
+  static const IntValueRange _weightRange = IntValueRange(
+    fallback: defaultWeight,
+    min: minWeight,
+    max: maxWeight,
+  );
+  static const IntValueRange _maxRetriesRange = IntValueRange(
+    fallback: defaultMaxRetries,
+    min: 0,
+    max: maxRetriesUpperBound,
+  );
+  static const IntValueRange _truncationCharsRange = IntValueRange(
+    fallback: defaultTruncationChars,
+    min: minTruncationChars,
+    max: maxTruncationChars,
+  );
 
   final AiWebSearchEngineKind kind;
   final bool enabled;
@@ -184,23 +199,10 @@ class AiWebSearchEngineConfig {
     return AiWebSearchEngineConfig(
       kind: kind,
       enabled: boolFromValue(json['enabled']),
-      weight: clampedIntFromValue(
-        json['weight'],
-        fallback: defaultWeight,
-        min: minWeight,
-        max: maxWeight,
-      ),
-      maxRetries: clampedIntFromValue(
-        json['max_retries'],
-        fallback: defaultMaxRetries,
-        min: 0,
-        max: maxRetriesUpperBound,
-      ),
-      truncationChars: clampedIntFromValue(
+      weight: _weightRange.fromValue(json['weight']),
+      maxRetries: _maxRetriesRange.fromValue(json['max_retries']),
+      truncationChars: _truncationCharsRange.fromValue(
         json['truncation_chars'],
-        fallback: defaultTruncationChars,
-        min: minTruncationChars,
-        max: maxTruncationChars,
       ),
       apiKey: optionalStringFromValue(json['api_key']),
       providerConfigId: optionalStringFromValue(json['provider_config_id']),
@@ -288,6 +290,86 @@ class AiWebSearchSettings {
 
   // ===== 每引擎每分钟节流上限。0 = 不限。=====
   static const int maxThrottlePerMinute = 600;
+  static const IntValueRange _resultCountRange = IntValueRange(
+    fallback: defaultResultCount,
+    min: minResultCount,
+    max: maxResultCount,
+  );
+  static const IntValueRange _parallelWorkersRange = IntValueRange(
+    fallback: defaultParallelWorkers,
+    min: minParallelWorkers,
+    max: maxParallelWorkers,
+  );
+  static const IntValueRange _summaryMinCharsRange = IntValueRange(
+    fallback: 0,
+    min: 0,
+    max: maxSummaryMaxChars,
+  );
+  static const IntValueRange _summaryMaxCharsRange = IntValueRange(
+    fallback: defaultSummaryMaxChars,
+    min: 0,
+    max: maxSummaryMaxChars,
+  );
+  static const IntValueRange _cacheTtlSecondsRange = IntValueRange(
+    fallback: defaultCacheTtlSeconds,
+    min: minCacheTtlSeconds,
+    max: maxCacheTtlSeconds,
+  );
+  static const IntValueRange _cacheMaxBytesRange = IntValueRange(
+    fallback: defaultCacheMaxBytes,
+    min: minCacheMaxBytes,
+    max: maxCacheMaxBytes,
+  );
+  static const IntValueRange _cooldownTier1FailuresRange = IntValueRange(
+    fallback: defaultCooldownTier1Failures,
+    min: minCooldownFailures,
+    max: maxCooldownFailures,
+  );
+  static const IntValueRange _cooldownTier2FailuresRange = IntValueRange(
+    fallback: defaultCooldownTier2Failures,
+    min: minCooldownFailures,
+    max: maxCooldownFailures,
+  );
+  static const IntValueRange _cooldownTier3FailuresRange = IntValueRange(
+    fallback: defaultCooldownTier3Failures,
+    min: minCooldownFailures,
+    max: maxCooldownFailures,
+  );
+  static const IntValueRange _cooldownTier1SecondsRange = IntValueRange(
+    fallback: defaultCooldownTier1Seconds,
+    min: minCooldownSeconds,
+    max: maxCooldownSeconds,
+  );
+  static const IntValueRange _cooldownTier2SecondsRange = IntValueRange(
+    fallback: defaultCooldownTier2Seconds,
+    min: minCooldownSeconds,
+    max: maxCooldownSeconds,
+  );
+  static const IntValueRange _cooldownTier3SecondsRange = IntValueRange(
+    fallback: defaultCooldownTier3Seconds,
+    min: minCooldownSeconds,
+    max: maxCooldownSeconds,
+  );
+  static const IntValueRange _cooldownQuotaSecondsRange = IntValueRange(
+    fallback: defaultCooldownQuotaSeconds,
+    min: minCooldownSeconds,
+    max: maxCooldownSeconds,
+  );
+  static const IntValueRange _alertSuccessRatePctRange = IntValueRange(
+    fallback: 0,
+    min: 0,
+    max: maxAlertSuccessRatePct,
+  );
+  static const IntValueRange _alertAvgDurationMsRange = IntValueRange(
+    fallback: 0,
+    min: 0,
+    max: maxAlertAvgDurationMs,
+  );
+  static const IntValueRange _throttlePerMinuteRange = IntValueRange(
+    fallback: 0,
+    min: 0,
+    max: maxThrottlePerMinute,
+  );
 
   final List<AiWebSearchEngineConfig> engines;
   final int resultCount;
@@ -461,112 +543,65 @@ class AiWebSearchSettings {
       json['summary_style'],
       fallback: AiWebSearchSummaryStyle.neutral,
     );
+    final summaryMaxChars = _summaryMaxCharsRange.fromValue(
+      json['summary_max_chars'],
+    );
+    final parsedSummaryMinChars = _summaryMinCharsRange.fromValue(
+      json['summary_min_chars'],
+    );
+    final summaryMinChars = parsedSummaryMinChars > summaryMaxChars
+        ? summaryMaxChars
+        : parsedSummaryMinChars;
 
     return AiWebSearchSettings(
       engines: engines,
-      resultCount: clampedIntFromValue(
-        json['result_count'],
-        fallback: defaultResultCount,
-        min: minResultCount,
-        max: maxResultCount,
-      ),
+      resultCount: _resultCountRange.fromValue(json['result_count']),
       modelMode: modelMode,
       fixedModelProviderConfigId: optionalStringFromValue(
         json['fixed_model_provider_config_id'],
       ),
       fixedModelId: optionalStringFromValue(json['fixed_model_id']),
       parallel: boolFromValue(json['parallel'], defaultValue: true),
-      parallelWorkers: clampedIntFromValue(
+      parallelWorkers: _parallelWorkersRange.fromValue(
         json['parallel_workers'],
-        fallback: defaultParallelWorkers,
-        min: minParallelWorkers,
-        max: maxParallelWorkers,
       ),
       summaryDetail: summaryDetail,
       summaryStyle: summaryStyle,
-      summaryMinChars: clampedIntFromValue(
-        json['summary_min_chars'],
-        fallback: 0,
-        min: 0,
-        max: maxSummaryMaxChars,
-      ),
-      summaryMaxChars: clampedIntFromValue(
-        json['summary_max_chars'],
-        fallback: defaultSummaryMaxChars,
-        min: 0,
-        max: maxSummaryMaxChars,
-      ),
-      cacheTtlSeconds: clampedIntFromValue(
+      summaryMinChars: summaryMinChars,
+      summaryMaxChars: summaryMaxChars,
+      cacheTtlSeconds: _cacheTtlSecondsRange.fromValue(
         json['cache_ttl_seconds'],
-        fallback: defaultCacheTtlSeconds,
-        min: minCacheTtlSeconds,
-        max: maxCacheTtlSeconds,
       ),
-      cacheMaxBytes: clampedIntFromValue(
-        json['cache_max_bytes'],
-        fallback: defaultCacheMaxBytes,
-        min: minCacheMaxBytes,
-        max: maxCacheMaxBytes,
-      ),
-      cooldownTier1Failures: clampedIntFromValue(
+      cacheMaxBytes: _cacheMaxBytesRange.fromValue(json['cache_max_bytes']),
+      cooldownTier1Failures: _cooldownTier1FailuresRange.fromValue(
         json['cooldown_tier1_failures'],
-        fallback: defaultCooldownTier1Failures,
-        min: minCooldownFailures,
-        max: maxCooldownFailures,
       ),
-      cooldownTier1Seconds: clampedIntFromValue(
+      cooldownTier1Seconds: _cooldownTier1SecondsRange.fromValue(
         json['cooldown_tier1_seconds'],
-        fallback: defaultCooldownTier1Seconds,
-        min: minCooldownSeconds,
-        max: maxCooldownSeconds,
       ),
-      cooldownTier2Failures: clampedIntFromValue(
+      cooldownTier2Failures: _cooldownTier2FailuresRange.fromValue(
         json['cooldown_tier2_failures'],
-        fallback: defaultCooldownTier2Failures,
-        min: minCooldownFailures,
-        max: maxCooldownFailures,
       ),
-      cooldownTier2Seconds: clampedIntFromValue(
+      cooldownTier2Seconds: _cooldownTier2SecondsRange.fromValue(
         json['cooldown_tier2_seconds'],
-        fallback: defaultCooldownTier2Seconds,
-        min: minCooldownSeconds,
-        max: maxCooldownSeconds,
       ),
-      cooldownTier3Failures: clampedIntFromValue(
+      cooldownTier3Failures: _cooldownTier3FailuresRange.fromValue(
         json['cooldown_tier3_failures'],
-        fallback: defaultCooldownTier3Failures,
-        min: minCooldownFailures,
-        max: maxCooldownFailures,
       ),
-      cooldownTier3Seconds: clampedIntFromValue(
+      cooldownTier3Seconds: _cooldownTier3SecondsRange.fromValue(
         json['cooldown_tier3_seconds'],
-        fallback: defaultCooldownTier3Seconds,
-        min: minCooldownSeconds,
-        max: maxCooldownSeconds,
       ),
-      cooldownQuotaSeconds: clampedIntFromValue(
+      cooldownQuotaSeconds: _cooldownQuotaSecondsRange.fromValue(
         json['cooldown_quota_seconds'],
-        fallback: defaultCooldownQuotaSeconds,
-        min: minCooldownSeconds,
-        max: maxCooldownSeconds,
       ),
-      alertSuccessRatePct: clampedIntFromValue(
+      alertSuccessRatePct: _alertSuccessRatePctRange.fromValue(
         json['alert_success_rate_pct'],
-        fallback: 0,
-        min: 0,
-        max: maxAlertSuccessRatePct,
       ),
-      alertAvgDurationMs: clampedIntFromValue(
+      alertAvgDurationMs: _alertAvgDurationMsRange.fromValue(
         json['alert_avg_duration_ms'],
-        fallback: 0,
-        min: 0,
-        max: maxAlertAvgDurationMs,
       ),
-      throttlePerMinute: clampedIntFromValue(
+      throttlePerMinute: _throttlePerMinuteRange.fromValue(
         json['throttle_per_minute'],
-        fallback: 0,
-        min: 0,
-        max: maxThrottlePerMinute,
       ),
     );
   }
