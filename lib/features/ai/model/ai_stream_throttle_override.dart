@@ -38,19 +38,23 @@ class AiStreamThrottleOverride {
   }) {
     return AiStreamThrottleOverride(
       charsPerSecond: identical(charsPerSecond, _sentinel)
-          ? this.charsPerSecond
-          : charsPerSecond as int?,
+          ? normalizeCharsPerSecond(this.charsPerSecond)
+          : _nullableIntPatch(charsPerSecond, _charsPerSecondRange),
       cardsPerSecond: identical(cardsPerSecond, _sentinel)
-          ? this.cardsPerSecond
-          : cardsPerSecond as int?,
+          ? normalizeCardsPerSecond(this.cardsPerSecond)
+          : _nullableIntPatch(cardsPerSecond, _cardsPerSecondRange),
       enabled: identical(enabled, _sentinel) ? this.enabled : enabled as bool?,
     );
   }
 
   Map<String, Object?> toJson() {
+    final normalizedCharsPerSecond = normalizeCharsPerSecond(charsPerSecond);
+    final normalizedCardsPerSecond = normalizeCardsPerSecond(cardsPerSecond);
     return <String, Object?>{
-      if (charsPerSecond != null) 'chars_per_second': charsPerSecond,
-      if (cardsPerSecond != null) 'cards_per_second': cardsPerSecond,
+      if (normalizedCharsPerSecond != null)
+        'chars_per_second': normalizedCharsPerSecond,
+      if (normalizedCardsPerSecond != null)
+        'cards_per_second': normalizedCardsPerSecond,
       if (enabled != null) 'enabled': enabled,
     };
   }
@@ -59,11 +63,43 @@ class AiStreamThrottleOverride {
     final json = optionalStringKeyedMapFromValueOrJsonText(raw);
     if (json == null) return null;
     final override = AiStreamThrottleOverride(
-      charsPerSecond: optionalPositiveIntFromValue(json['chars_per_second']),
-      cardsPerSecond: optionalPositiveIntFromValue(json['cards_per_second']),
+      charsPerSecond: charsPerSecondFromValue(json['chars_per_second']),
+      cardsPerSecond: cardsPerSecondFromValue(json['cards_per_second']),
       enabled: optionalBoolFromValue(json['enabled']),
     );
     return override.isEmpty ? null : override;
+  }
+
+  static const int minCharsPerSecond = 0;
+  static const int maxCharsPerSecond = 100000;
+  static const int minCardsPerSecond = 0;
+  static const int maxCardsPerSecond = 60;
+
+  static const IntValueRange _charsPerSecondRange = IntValueRange(
+    fallback: minCharsPerSecond,
+    min: minCharsPerSecond,
+    max: maxCharsPerSecond,
+  );
+  static const IntValueRange _cardsPerSecondRange = IntValueRange(
+    fallback: minCardsPerSecond,
+    min: minCardsPerSecond,
+    max: maxCardsPerSecond,
+  );
+
+  static int? charsPerSecondFromValue(Object? value) {
+    return _nonNegativeIntegralIntInRange(value, _charsPerSecondRange);
+  }
+
+  static int? normalizeCharsPerSecond(int? value) {
+    return _nonNegativeIntInRange(value, _charsPerSecondRange);
+  }
+
+  static int? cardsPerSecondFromValue(Object? value) {
+    return _nonNegativeIntegralIntInRange(value, _cardsPerSecondRange);
+  }
+
+  static int? normalizeCardsPerSecond(int? value) {
+    return _nonNegativeIntInRange(value, _cardsPerSecondRange);
   }
 
   @override
@@ -79,3 +115,18 @@ class AiStreamThrottleOverride {
 }
 
 const Object _sentinel = Object();
+
+int? _nullableIntPatch(Object? value, IntValueRange range) {
+  if (value == null) return null;
+  if (value is! int) return null;
+  return _nonNegativeIntInRange(value, range);
+}
+
+int? _nonNegativeIntegralIntInRange(Object? value, IntValueRange range) {
+  final parsed = optionalNonNegativeIntegralIntFromValue(value);
+  return _nonNegativeIntInRange(parsed, range);
+}
+
+int? _nonNegativeIntInRange(int? value, IntValueRange range) {
+  return value == null || value < 0 ? null : range.normalize(value);
+}
