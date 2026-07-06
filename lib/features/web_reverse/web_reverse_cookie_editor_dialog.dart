@@ -10,10 +10,10 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 
+import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
-import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/input_value_parsing.dart';
 import 'web_reverse_clipboard.dart';
 import 'web_reverse_dialog_utils.dart';
@@ -115,7 +115,6 @@ class _CookieEditorDialogState extends State<_CookieEditorDialog> {
   }
 
   Future<void> _delete(_CookieRow row) async {
-    final messenger = ScaffoldMessenger.maybeOf(context);
     final r = await widget.controller.sendRawCdp(
       method: 'Network.deleteCookies',
       paramsJson: jsonEncode({
@@ -127,22 +126,16 @@ class _CookieEditorDialogState extends State<_CookieEditorDialog> {
     if (!mounted) return;
     final loc1 = AppLocalizations.of(context);
     if (r == null || r['error'] != null) {
-      if (messenger != null) {
-        OpenHandSnackBar.showErrorOn(
-          context,
-          messenger,
-          loc1?.webReverseCookieEditorDeleteFailed ?? 'Delete failed',
-        );
-      }
+      showWebReverseErrorSnack(
+        context,
+        loc1?.webReverseCookieEditorDeleteFailed ?? 'Delete failed',
+      );
       return;
     }
-    if (messenger != null) {
-      OpenHandSnackBar.showSuccessOn(
-        context,
-        messenger,
-        loc1?.webReverseCookieEditorDeleted(row.name) ?? 'Deleted ${row.name}',
-      );
-    }
+    showWebReverseSuccessSnack(
+      context,
+      loc1?.webReverseCookieEditorDeleted(row.name) ?? 'Deleted ${row.name}',
+    );
     await _refresh();
   }
 
@@ -152,7 +145,6 @@ class _CookieEditorDialogState extends State<_CookieEditorDialog> {
       builder: (_) => _CookieEditPanel(row: row),
     );
     if (result == null || !mounted) return;
-    final messenger = ScaffoldMessenger.maybeOf(context);
     final r = await widget.controller.sendRawCdp(
       method: 'Network.setCookie',
       paramsJson: jsonEncode(result),
@@ -160,22 +152,16 @@ class _CookieEditorDialogState extends State<_CookieEditorDialog> {
     if (!mounted) return;
     final loc = AppLocalizations.of(context);
     if (r == null || r['error'] != null || r['success'] == false) {
-      if (messenger != null) {
-        OpenHandSnackBar.showErrorOn(
-          context,
-          messenger,
-          loc?.webReverseCookieEditorWriteFailed ?? 'Write failed',
-        );
-      }
+      showWebReverseErrorSnack(
+        context,
+        loc?.webReverseCookieEditorWriteFailed ?? 'Write failed',
+      );
       return;
     }
-    if (messenger != null) {
-      OpenHandSnackBar.showSuccessOn(
-        context,
-        messenger,
-        loc?.webReverseCookieEditorSaved ?? 'Saved',
-      );
-    }
+    showWebReverseSuccessSnack(
+      context,
+      loc?.webReverseCookieEditorSaved ?? 'Saved',
+    );
     await _refresh();
   }
 
@@ -183,21 +169,22 @@ class _CookieEditorDialogState extends State<_CookieEditorDialog> {
     final json = const JsonEncoder.withIndent(
       '  ',
     ).convert(_visible.map((c) => c.raw).toList());
-    final copied = await setWebReverseClipboardText(json);
+    late final WebReverseClipboardCopyResult copied;
+    try {
+      copied = await setWebReverseClipboardText(json);
+    } catch (e, st) {
+      silentLog('web_reverse_cookie_editor_dialog', 'copy json', e, st);
+      if (!mounted) return;
+      showWebReverseClipboardErrorSnack(context: context, error: e);
+      return;
+    }
     if (!mounted) return;
     final loc = AppLocalizations.of(context);
-    final messenger = ScaffoldMessenger.maybeOf(context);
-    if (messenger != null) {
-      OpenHandSnackBar.showSuccessOn(
-        context,
-        messenger,
-        webReverseClipboardSnackMessage(
-          context: context,
-          base: loc?.webReverseCookieEditorCopiedJson ?? 'JSON copied',
-          result: copied,
-        ),
-      );
-    }
+    showWebReverseClipboardSuccessSnack(
+      context: context,
+      base: loc?.webReverseCookieEditorCopiedJson ?? 'JSON copied',
+      result: copied,
+    );
   }
 
   @override
@@ -426,14 +413,10 @@ class _CookieEditPanelState extends State<_CookieEditPanel> {
     final loc = AppLocalizations.of(context);
     final name = _name.text.trim();
     if (name.isEmpty) {
-      final m = ScaffoldMessenger.maybeOf(context);
-      if (m != null) {
-        OpenHandSnackBar.showErrorOn(
-          context,
-          m,
-          loc?.webReverseCookieEditorNameRequired ?? 'name required',
-        );
-      }
+      showWebReverseErrorSnack(
+        context,
+        loc?.webReverseCookieEditorNameRequired ?? 'name required',
+      );
       return;
     }
     final out = <String, Object?>{

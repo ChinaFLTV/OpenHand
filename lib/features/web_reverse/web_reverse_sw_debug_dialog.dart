@@ -17,7 +17,6 @@ import 'package:flutter/material.dart';
 
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
-import '../../shared/ui/openhand_snack_bar.dart';
 import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_session_controller.dart';
 
@@ -244,12 +243,10 @@ class _SwDebugDialogState extends State<_SwDebugDialog> {
   }
 
   void _toast(String msg, {bool error = false}) {
-    final m = ScaffoldMessenger.maybeOf(context);
-    if (m == null) return;
     if (error) {
-      OpenHandSnackBar.showErrorOn(context, m, msg);
+      showWebReverseErrorSnack(context, msg);
     } else {
-      OpenHandSnackBar.showSuccessOn(context, m, msg);
+      showWebReverseSuccessSnack(context, msg);
     }
   }
 

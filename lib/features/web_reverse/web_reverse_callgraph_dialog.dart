@@ -21,7 +21,6 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
-import '../../shared/ui/openhand_snack_bar.dart';
 import 'web_reverse_clipboard.dart';
 import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_select_button.dart';
@@ -346,7 +345,6 @@ class _CallgraphDialogState extends State<_CallgraphDialog> {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final loc = AppLocalizations.of(context);
-    final messenger = ScaffoldMessenger.maybeOf(context);
 
     final selected = _graphs.where((g) => g.url == _selectedUrl).firstOrNull;
     final callerHits = _findCallers(_searchCtrl.text);
@@ -557,13 +555,7 @@ class _CallgraphDialogState extends State<_CallgraphDialog> {
                         VerticalDivider(width: 1, color: cs.outlineVariant),
                         Expanded(
                           child: callerHits.isNotEmpty
-                              ? _buildCallerHits(
-                                  theme,
-                                  cs,
-                                  callerHits,
-                                  messenger,
-                                  loc,
-                                )
+                              ? _buildCallerHits(theme, cs, callerHits, loc)
                               : selected == null
                               ? Center(
                                   child: Text(
@@ -574,13 +566,7 @@ class _CallgraphDialogState extends State<_CallgraphDialog> {
                                     ),
                                   ),
                                 )
-                              : _buildScriptDetail(
-                                  theme,
-                                  cs,
-                                  selected,
-                                  messenger,
-                                  loc,
-                                ),
+                              : _buildScriptDetail(theme, cs, selected, loc),
                         ),
                       ],
                     ),
@@ -608,7 +594,6 @@ class _CallgraphDialogState extends State<_CallgraphDialog> {
     ThemeData theme,
     ColorScheme cs,
     _ScriptGraph g,
-    ScaffoldMessengerState? messenger,
     AppLocalizations? loc,
   ) {
     return Column(
@@ -634,22 +619,24 @@ class _CallgraphDialogState extends State<_CallgraphDialog> {
                       '${fn.name} -> ${fn.callees.take(20).join(', ')}',
                     );
                   }
-                  final copied = await setWebReverseClipboardText(
-                    buf.toString(),
-                  );
-                  if (messenger != null && mounted) {
-                    OpenHandSnackBar.showSuccessOn(
-                      context,
-                      messenger,
-                      webReverseClipboardSnackMessage(
-                        context: context,
-                        base:
-                            loc?.webReverseCallgraphGraphCopied ??
-                            'Graph copied',
-                        result: copied,
-                      ),
+                  late final WebReverseClipboardCopyResult copied;
+                  try {
+                    copied = await setWebReverseClipboardText(buf.toString());
+                  } catch (e, st) {
+                    silentLog('web_reverse_callgraph', 'copy graph', e, st);
+                    if (!mounted) return;
+                    showWebReverseClipboardErrorSnack(
+                      context: context,
+                      error: e,
                     );
+                    return;
                   }
+                  if (!mounted) return;
+                  showWebReverseClipboardSuccessSnack(
+                    context: context,
+                    base: loc?.webReverseCallgraphGraphCopied ?? 'Graph copied',
+                    result: copied,
+                  );
                 },
               ),
             ],
@@ -721,7 +708,6 @@ class _CallgraphDialogState extends State<_CallgraphDialog> {
     ThemeData theme,
     ColorScheme cs,
     List<_CallerHit> hits,
-    ScaffoldMessengerState? messenger,
     AppLocalizations? loc,
   ) {
     return Column(
