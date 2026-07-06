@@ -99,7 +99,7 @@ class AiStepFunOperationsService {
   Future<AiStepFunTokenCountResult> countChatTokens({
     required AiModelConfig model,
     required List<AiChatTurn> messages,
-    Duration timeout = const Duration(seconds: 60),
+    Duration timeout = AiOperationHttp.defaultRequestTimeout,
   }) async {
     final adapter = AiProtocolRegistry.adapterFor(model.protocolType);
     final body = await adapter.buildBody(model, messages);
@@ -116,7 +116,7 @@ class AiStepFunOperationsService {
   Future<AiStepFunTokenCountResult> countTokensFromBody({
     required AiModelConfig model,
     required Map<String, Object?> body,
-    Duration timeout = const Duration(seconds: 60),
+    Duration timeout = AiOperationHttp.defaultRequestTimeout,
   }) async {
     const family = AiApiFamily.tokenCount;
     final response = await _sendJson(
@@ -143,7 +143,7 @@ class AiStepFunOperationsService {
     String? system,
     Object? tools,
     Object? outputConfig,
-    Duration timeout = const Duration(seconds: 60),
+    Duration timeout = AiOperationHttp.defaultRequestTimeout,
   }) async {
     if (messages.isEmpty) {
       throw ArgumentError.value(
@@ -178,7 +178,7 @@ class AiStepFunOperationsService {
     required String query,
     int? count,
     String? category,
-    Duration timeout = const Duration(seconds: 60),
+    Duration timeout = AiOperationHttp.defaultRequestTimeout,
   }) async {
     const family = AiApiFamily.search;
     final trimmedQuery = query.trim();
@@ -214,7 +214,7 @@ class AiStepFunOperationsService {
     required AiModelConfig model,
     required String name,
     String type = 'text',
-    Duration timeout = const Duration(seconds: 60),
+    Duration timeout = AiOperationHttp.defaultRequestTimeout,
   }) {
     final trimmedName = name.trim();
     if (trimmedName.isEmpty) {
@@ -242,7 +242,7 @@ class AiStepFunOperationsService {
     String? order,
     String? before,
     String? after,
-    Duration timeout = const Duration(seconds: 60),
+    Duration timeout = AiOperationHttp.defaultRequestTimeout,
   }) {
     return _sendJsonless(
       model: model,
@@ -262,7 +262,7 @@ class AiStepFunOperationsService {
   Future<AiStepFunPayloadResult> retrieveVectorStore({
     required AiModelConfig model,
     required String vectorStoreId,
-    Duration timeout = const Duration(seconds: 60),
+    Duration timeout = AiOperationHttp.defaultRequestTimeout,
   }) {
     _checkRequiredId(vectorStoreId, 'vectorStoreId');
     return _sendJsonless(
@@ -278,7 +278,7 @@ class AiStepFunOperationsService {
   Future<AiStepFunPayloadResult> deleteVectorStore({
     required AiModelConfig model,
     required String vectorStoreId,
-    Duration timeout = const Duration(seconds: 60),
+    Duration timeout = AiOperationHttp.defaultRequestTimeout,
   }) {
     _checkRequiredId(vectorStoreId, 'vectorStoreId');
     return _sendJsonless(
@@ -295,7 +295,7 @@ class AiStepFunOperationsService {
     required AiModelConfig model,
     required String vectorStoreId,
     required List<Map<String, Object?>> files,
-    Duration timeout = const Duration(seconds: 60),
+    Duration timeout = AiOperationHttp.defaultRequestTimeout,
   }) {
     _checkRequiredId(vectorStoreId, 'vectorStoreId');
     if (files.isEmpty) {
@@ -323,7 +323,7 @@ class AiStepFunOperationsService {
     String? order,
     String? before,
     String? after,
-    Duration timeout = const Duration(seconds: 60),
+    Duration timeout = AiOperationHttp.defaultRequestTimeout,
   }) {
     _checkRequiredId(vectorStoreId, 'vectorStoreId');
     return _sendJsonless(
@@ -347,7 +347,7 @@ class AiStepFunOperationsService {
     required AiModelConfig model,
     required String vectorStoreId,
     required String fileId,
-    Duration timeout = const Duration(seconds: 60),
+    Duration timeout = AiOperationHttp.defaultRequestTimeout,
   }) {
     _checkRequiredId(vectorStoreId, 'vectorStoreId');
     _checkRequiredId(fileId, 'fileId');
@@ -396,7 +396,7 @@ class AiStepFunOperationsService {
     String? order,
     String? before,
     String? after,
-    Duration timeout = const Duration(seconds: 60),
+    Duration timeout = AiOperationHttp.defaultRequestTimeout,
   }) {
     return _sendJsonless(
       model: model,
@@ -416,7 +416,7 @@ class AiStepFunOperationsService {
   Future<AiStepFunPayloadResult> listSystemVoices({
     required AiModelConfig model,
     String? voiceModel,
-    Duration timeout = const Duration(seconds: 60),
+    Duration timeout = AiOperationHttp.defaultRequestTimeout,
   }) {
     const family = AiApiFamily.audioSystemVoices;
     final voiceModelValue =
@@ -491,7 +491,7 @@ class AiStepFunOperationsService {
     required AiModelConfig model,
     required Map<String, Object?> audio,
     Map<String, Object?> request = const <String, Object?>{},
-    Duration timeout = const Duration(seconds: 60),
+    Duration timeout = AiOperationHttp.defaultRequestTimeout,
   }) async {
     if (audio.isEmpty) {
       throw ArgumentError.value(
@@ -524,7 +524,7 @@ class AiStepFunOperationsService {
   Future<AiStepFunPayloadResult> queryAsrFileTask({
     required AiModelConfig model,
     required String taskId,
-    Duration timeout = const Duration(seconds: 60),
+    Duration timeout = AiOperationHttp.defaultRequestTimeout,
   }) {
     final trimmedTaskId = taskId.trim();
     if (trimmedTaskId.isEmpty) {

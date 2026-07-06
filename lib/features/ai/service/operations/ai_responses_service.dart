@@ -129,7 +129,7 @@ class AiResponsesService {
   Future<AiResponsesResult> createResponse({
     required AiModelConfig model,
     required Object input,
-    Duration timeout = const Duration(seconds: 60),
+    Duration timeout = AiOperationHttp.defaultRequestTimeout,
     String? instructions,
     String? previousResponseId,
     bool? store,
@@ -181,13 +181,9 @@ class AiResponsesService {
         timeout: timeout,
       );
     }
-    AiOperationHttp.throwIfFailed(
+    final decoded = AiOperationHttp.decodeSuccessfulJsonResponse(
       statusCode: response.statusCode,
       body: response.body,
-      contextHint: 'responses',
-    );
-    final decoded = AiOperationHttp.decodeJsonResponse(
-      response.body,
       contextHint: 'responses',
     );
     final parsed = _parseResponsePayload(decoded);

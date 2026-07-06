@@ -9,6 +9,7 @@ import '../../../../app/support/silent_log.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/stable_hash.dart';
 import '../../../../shared/util/text_clip.dart';
+import '../../../../shared/util/text_normalization.dart';
 import '../../../../shared/util/tool_name_normalization.dart';
 import '../../../instructions/index.dart';
 import '../../../knowledge_base/index.dart';
@@ -1866,15 +1867,7 @@ class AiPromptBuilder {
   }
 
   String _normalizeToolNameForPromptCatalog(String value) {
-    final buffer = StringBuffer();
-    for (final code in value.codeUnits) {
-      if ((code >= 0x30 && code <= 0x39) ||
-          (code >= 0x41 && code <= 0x5A) ||
-          (code >= 0x61 && code <= 0x7A)) {
-        buffer.writeCharCode(code | 0x20);
-      }
-    }
-    return buffer.toString();
+    return normalizeAsciiLookupKey(value);
   }
 
   int _compareToolDefinitionsForPromptCatalog(

@@ -203,18 +203,11 @@ class _StorageDialogState extends State<_StorageDialog>
       return;
     }
     if (!mounted) return;
-    final m = ScaffoldMessenger.maybeOf(context);
-    if (m != null) {
-      OpenHandSnackBar.showSuccessOn(
-        context,
-        m,
-        webReverseClipboardSnackMessage(
-          context: context,
-          base: loc?.webReverseStorageCopied ?? 'Copied',
-          result: copied,
-        ),
-      );
-    }
+    showWebReverseClipboardSuccessSnack(
+      context: context,
+      base: loc?.webReverseStorageCopied ?? 'Copied',
+      result: copied,
+    );
   }
 
   Future<void> _addCookieDialog() async {

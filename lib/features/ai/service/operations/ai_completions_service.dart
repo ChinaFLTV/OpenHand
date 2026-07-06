@@ -30,7 +30,7 @@ class AiCompletionsService {
   Future<AiCompletionResult> complete({
     required AiModelConfig model,
     required Object prompt,
-    Duration timeout = const Duration(seconds: 60),
+    Duration timeout = AiOperationHttp.defaultRequestTimeout,
     String? suffix,
     int? maxTokens,
     double? temperature,
@@ -87,16 +87,11 @@ class AiCompletionsService {
       body: body,
       timeout: timeout,
     );
-    AiOperationHttp.throwIfFailed(
+    final payload = AiOperationHttp.decodeSuccessfulJsonMap(
       statusCode: response.statusCode,
       body: response.body,
       contextHint: 'completions',
     );
-    final decoded = AiOperationHttp.decodeJsonResponse(
-      response.body,
-      contextHint: 'completions',
-    );
-    final payload = AiOperationHttp.jsonMapOrEmpty(decoded);
     final choices = payload['choices'];
     String text = '';
     if (choices is List && choices.isNotEmpty && choices.first is Map) {

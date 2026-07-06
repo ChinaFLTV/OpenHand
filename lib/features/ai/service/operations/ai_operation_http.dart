@@ -19,6 +19,7 @@ final class AiOperationHttp {
   static const String _xGoogApiKeyHeader = 'x-goog-api-key';
   static const int _maxExtractedErrorMessageLength = 4000;
   static const String _emptyErrorResponseMessage = 'Empty error response.';
+  static const Duration defaultRequestTimeout = Duration(seconds: 60);
 
   static final RegExp _htmlTagPattern = RegExp(r'<[^>]*>');
 
@@ -84,6 +85,29 @@ final class AiOperationHttp {
         'Invalid JSON response for $contextHint: ${error.message}',
       );
     }
+  }
+
+  static Object? decodeSuccessfulJsonResponse({
+    required int statusCode,
+    required String body,
+    required String contextHint,
+  }) {
+    throwIfFailed(statusCode: statusCode, body: body, contextHint: contextHint);
+    return decodeJsonResponse(body, contextHint: contextHint);
+  }
+
+  static Map<String, Object?> decodeSuccessfulJsonMap({
+    required int statusCode,
+    required String body,
+    required String contextHint,
+  }) {
+    return jsonMapOrEmpty(
+      decodeSuccessfulJsonResponse(
+        statusCode: statusCode,
+        body: body,
+        contextHint: contextHint,
+      ),
+    );
   }
 
   static Map<String, Object?> jsonMapOrEmpty(Object? decoded) {

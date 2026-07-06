@@ -36,7 +36,7 @@ class AiFilesService {
 
   Future<List<AiFileRecord>> listFiles({
     required AiModelConfig model,
-    Duration timeout = const Duration(seconds: 60),
+    Duration timeout = AiOperationHttp.defaultRequestTimeout,
   }) async {
     final endpoint = _router.resolve(model, AiApiFamily.files, method: 'GET');
     final response = await _transport.get(
@@ -44,9 +44,9 @@ class AiFilesService {
       headers: _buildHeaders(model, endpoint.headers),
       timeout: timeout,
     );
-    _throwIfFailed(response.statusCode, response.body, 'files');
-    final decoded = AiOperationHttp.decodeJsonResponse(
-      response.body,
+    final decoded = AiOperationHttp.decodeSuccessfulJsonResponse(
+      statusCode: response.statusCode,
+      body: response.body,
       contextHint: 'files',
     );
     final data = decoded is Map<String, Object?> ? decoded['data'] : null;
@@ -66,7 +66,7 @@ class AiFilesService {
   Future<AiFileRecord?> retrieveFile({
     required AiModelConfig model,
     required String fileId,
-    Duration timeout = const Duration(seconds: 60),
+    Duration timeout = AiOperationHttp.defaultRequestTimeout,
   }) async {
     final endpoint = _router.resolve(
       model,
@@ -79,12 +79,11 @@ class AiFilesService {
       headers: _buildHeaders(model, endpoint.headers),
       timeout: timeout,
     );
-    _throwIfFailed(response.statusCode, response.body, 'files/retrieve');
-    final decoded = AiOperationHttp.decodeJsonResponse(
-      response.body,
+    final payload = AiOperationHttp.decodeSuccessfulJsonMap(
+      statusCode: response.statusCode,
+      body: response.body,
       contextHint: 'files/retrieve',
     );
-    final payload = AiOperationHttp.jsonMapOrEmpty(decoded);
     if (payload.isEmpty) return null;
     return _recordFromPayload(payload, fallbackId: fileId);
   }
@@ -106,12 +105,11 @@ class AiFilesService {
       },
       timeout: timeout,
     );
-    _throwIfFailed(response.statusCode, response.body, 'files/create');
-    final decoded = AiOperationHttp.decodeJsonResponse(
-      response.body,
+    final payload = AiOperationHttp.decodeSuccessfulJsonMap(
+      statusCode: response.statusCode,
+      body: response.body,
       contextHint: 'files/create',
     );
-    final payload = AiOperationHttp.jsonMapOrEmpty(decoded);
     if (payload.isEmpty) return null;
     return _recordFromPayload(payload);
   }
@@ -119,7 +117,7 @@ class AiFilesService {
   Future<void> deleteFile({
     required AiModelConfig model,
     required String fileId,
-    Duration timeout = const Duration(seconds: 60),
+    Duration timeout = AiOperationHttp.defaultRequestTimeout,
   }) async {
     final endpoint = _router.resolve(
       model,
@@ -134,13 +132,17 @@ class AiFilesService {
       body: const <String, Object?>{},
       timeout: timeout,
     );
-    _throwIfFailed(response.statusCode, response.body, 'files/delete');
+    AiOperationHttp.throwIfFailed(
+      statusCode: response.statusCode,
+      body: response.body,
+      contextHint: 'files/delete',
+    );
   }
 
   Future<AiFileContentResult> retrieveFileContent({
     required AiModelConfig model,
     required String fileId,
-    Duration timeout = const Duration(seconds: 60),
+    Duration timeout = AiOperationHttp.defaultRequestTimeout,
   }) async {
     final endpoint = _router.resolve(
       model,
@@ -153,7 +155,11 @@ class AiFilesService {
       headers: _buildHeaders(model, endpoint.headers, jsonContent: false),
       timeout: timeout,
     );
-    _throwIfFailed(response.statusCode, response.body, 'files/content');
+    AiOperationHttp.throwIfFailed(
+      statusCode: response.statusCode,
+      body: response.body,
+      contextHint: 'files/content',
+    );
     return AiFileContentResult(
       content: response.body,
       rawResponse: response.body,
@@ -179,14 +185,6 @@ class AiFilesService {
       model: model,
       endpointHeaders: endpointHeaders,
       includeJsonContentType: jsonContent,
-    );
-  }
-
-  void _throwIfFailed(int statusCode, String body, String hint) {
-    AiOperationHttp.throwIfFailed(
-      statusCode: statusCode,
-      body: body,
-      contextHint: hint,
     );
   }
 

@@ -24,7 +24,7 @@ class AiFineTunesService {
 
   Future<List<AiFineTuneJob>> listJobs({
     required AiModelConfig model,
-    Duration timeout = const Duration(seconds: 60),
+    Duration timeout = AiOperationHttp.defaultRequestTimeout,
   }) async {
     final endpoint = _router.resolve(
       model,
@@ -36,9 +36,9 @@ class AiFineTunesService {
       headers: _buildHeaders(model, endpoint.headers),
       timeout: timeout,
     );
-    _throwIfFailed(response.statusCode, response.body, 'fine-tunes');
-    final decoded = AiOperationHttp.decodeJsonResponse(
-      response.body,
+    final decoded = AiOperationHttp.decodeSuccessfulJsonResponse(
+      statusCode: response.statusCode,
+      body: response.body,
       contextHint: 'fine-tunes',
     );
     final data = decoded is Map<String, Object?> ? decoded['data'] : null;
@@ -58,7 +58,7 @@ class AiFineTunesService {
   Future<AiFineTuneJob?> createJob({
     required AiModelConfig model,
     required Map<String, Object?> payload,
-    Duration timeout = const Duration(seconds: 60),
+    Duration timeout = AiOperationHttp.defaultRequestTimeout,
   }) async {
     final endpoint = _router.resolve(model, AiApiFamily.fineTunes);
     final response = await _transport.sendJson(
@@ -68,12 +68,11 @@ class AiFineTunesService {
       body: payload,
       timeout: timeout,
     );
-    _throwIfFailed(response.statusCode, response.body, 'fine-tunes/create');
-    final decoded = AiOperationHttp.decodeJsonResponse(
-      response.body,
+    final responsePayload = AiOperationHttp.decodeSuccessfulJsonMap(
+      statusCode: response.statusCode,
+      body: response.body,
       contextHint: 'fine-tunes/create',
     );
-    final responsePayload = AiOperationHttp.jsonMapOrEmpty(decoded);
     if (responsePayload.isEmpty) return null;
     return _jobFromPayload(responsePayload);
   }
@@ -81,7 +80,7 @@ class AiFineTunesService {
   Future<AiFineTuneJob?> retrieveJob({
     required AiModelConfig model,
     required String jobId,
-    Duration timeout = const Duration(seconds: 60),
+    Duration timeout = AiOperationHttp.defaultRequestTimeout,
   }) async {
     final endpoint = _router.resolve(
       model,
@@ -94,12 +93,11 @@ class AiFineTunesService {
       headers: _buildHeaders(model, endpoint.headers),
       timeout: timeout,
     );
-    _throwIfFailed(response.statusCode, response.body, 'fine-tunes/retrieve');
-    final decoded = AiOperationHttp.decodeJsonResponse(
-      response.body,
+    final payload = AiOperationHttp.decodeSuccessfulJsonMap(
+      statusCode: response.statusCode,
+      body: response.body,
       contextHint: 'fine-tunes/retrieve',
     );
-    final payload = AiOperationHttp.jsonMapOrEmpty(decoded);
     if (payload.isEmpty) return null;
     return _jobFromPayload(payload, fallbackId: jobId);
   }
@@ -107,7 +105,7 @@ class AiFineTunesService {
   Future<List<Map<String, Object?>>> listEvents({
     required AiModelConfig model,
     required String jobId,
-    Duration timeout = const Duration(seconds: 60),
+    Duration timeout = AiOperationHttp.defaultRequestTimeout,
   }) async {
     final endpoint = _router.resolve(
       model,
@@ -120,9 +118,9 @@ class AiFineTunesService {
       headers: _buildHeaders(model, endpoint.headers),
       timeout: timeout,
     );
-    _throwIfFailed(response.statusCode, response.body, 'fine-tunes/events');
-    final decoded = AiOperationHttp.decodeJsonResponse(
-      response.body,
+    final decoded = AiOperationHttp.decodeSuccessfulJsonResponse(
+      statusCode: response.statusCode,
+      body: response.body,
       contextHint: 'fine-tunes/events',
     );
     final data = decoded is Map<String, Object?> ? decoded['data'] : null;
@@ -149,14 +147,6 @@ class AiFineTunesService {
     return AiOperationHttp.buildHeaders(
       model: model,
       endpointHeaders: endpointHeaders,
-    );
-  }
-
-  void _throwIfFailed(int statusCode, String body, String hint) {
-    AiOperationHttp.throwIfFailed(
-      statusCode: statusCode,
-      body: body,
-      contextHint: hint,
     );
   }
 

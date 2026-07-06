@@ -85,7 +85,7 @@ class AiVideoGenerationService {
   Future<AiVideoGenerationResult> getVideoGeneration({
     required AiModelConfig model,
     required String id,
-    Duration timeout = const Duration(seconds: 60),
+    Duration timeout = AiOperationHttp.defaultRequestTimeout,
   }) {
     return _getVideo(
       model: model,
@@ -180,7 +180,7 @@ class AiVideoGenerationService {
   Future<AiVideoGenerationResult> getSoraVideo({
     required AiModelConfig model,
     required String id,
-    Duration timeout = const Duration(seconds: 60),
+    Duration timeout = AiOperationHttp.defaultRequestTimeout,
   }) {
     return _getVideo(
       model: model,
@@ -270,7 +270,7 @@ class AiVideoGenerationService {
   Future<AiVideoGenerationResult> getJimengVideo({
     required AiModelConfig model,
     required String id,
-    Duration timeout = const Duration(seconds: 60),
+    Duration timeout = AiOperationHttp.defaultRequestTimeout,
     String version = _jimengVersion,
   }) {
     return _getVideo(

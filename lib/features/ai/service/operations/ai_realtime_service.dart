@@ -89,7 +89,7 @@ class AiRealtimeService {
 
   Future<AiRealtimeSessionResult> createSession({
     required AiModelConfig model,
-    Duration timeout = const Duration(seconds: 60),
+    Duration timeout = AiOperationHttp.defaultRequestTimeout,
     String? voice,
     String? inputAudioFormat,
     String? outputAudioFormat,
@@ -140,16 +140,11 @@ class AiRealtimeService {
       body: body,
       timeout: timeout,
     );
-    AiOperationHttp.throwIfFailed(
+    final payload = AiOperationHttp.decodeSuccessfulJsonMap(
       statusCode: response.statusCode,
       body: response.body,
       contextHint: 'realtime/sessions',
     );
-    final decoded = AiOperationHttp.decodeJsonResponse(
-      response.body,
-      contextHint: 'realtime/sessions',
-    );
-    final payload = AiOperationHttp.jsonMapOrEmpty(decoded);
     final clientSecret = payload['client_secret'];
     final nestedSecret = AiOperationHttp.jsonMapOrEmpty(clientSecret);
     final sessionId = optionalStringFromValue(payload['id']);

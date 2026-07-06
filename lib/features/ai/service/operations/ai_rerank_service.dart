@@ -61,7 +61,7 @@ class AiRerankService {
     required AiModelConfig model,
     required String query,
     required List<Object> documents,
-    Duration timeout = const Duration(seconds: 60),
+    Duration timeout = AiOperationHttp.defaultRequestTimeout,
     int? topN,
     bool? returnDocuments,
     int? maxChunksPerDoc,
@@ -115,16 +115,11 @@ class AiRerankService {
       body: plan.body,
       timeout: timeout,
     );
-    AiOperationHttp.throwIfFailed(
+    final payload = AiOperationHttp.decodeSuccessfulJsonMap(
       statusCode: response.statusCode,
       body: response.body,
       contextHint: plan.contextHint,
     );
-    final decoded = AiOperationHttp.decodeJsonResponse(
-      response.body,
-      contextHint: plan.contextHint,
-    );
-    final payload = AiOperationHttp.jsonMapOrEmpty(decoded);
     return AiRerankResult(
       items: _parseItems(payload, documents: documents),
       rawResponse: response.body,

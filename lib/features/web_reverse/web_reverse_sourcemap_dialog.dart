@@ -14,7 +14,6 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
-import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/input_value_parsing.dart';
 import 'web_reverse_clipboard.dart';
 import 'web_reverse_dialog_utils.dart';
@@ -305,18 +304,11 @@ class _SmDialogState extends State<_SmDialog> {
       return;
     }
     if (!mounted) return;
-    final m = ScaffoldMessenger.maybeOf(context);
-    if (m != null) {
-      OpenHandSnackBar.showSuccessOn(
-        context,
-        m,
-        webReverseClipboardSnackMessage(
-          context: context,
-          base: loc?.webReverseSmCopied ?? 'Copied',
-          result: copied,
-        ),
-      );
-    }
+    showWebReverseClipboardSuccessSnack(
+      context: context,
+      base: loc?.webReverseSmCopied ?? 'Copied',
+      result: copied,
+    );
   }
 
   @override
@@ -465,18 +457,7 @@ class _SmDialogState extends State<_SmDialog> {
                     ),
                   ),
           ),
-          if (_status.isNotEmpty)
-            Container(
-              width: double.infinity,
-              color: cs.surfaceContainerHigh,
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-              child: Text(
-                _status,
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: cs.onSurfaceVariant,
-                ),
-              ),
-            ),
+          buildWebReverseStatusBar(context, status: _status),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
             child: SizedBox(

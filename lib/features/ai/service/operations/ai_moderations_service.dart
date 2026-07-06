@@ -24,7 +24,7 @@ class AiModerationsService {
   Future<AiModerationResult> moderate({
     required AiModelConfig model,
     required Object input,
-    Duration timeout = const Duration(seconds: 60),
+    Duration timeout = AiOperationHttp.defaultRequestTimeout,
   }) async {
     const family = AiApiFamily.moderations;
     final endpoint = _router.resolve(
@@ -51,19 +51,12 @@ class AiModerationsService {
       body: body,
       timeout: timeout,
     );
-    AiOperationHttp.throwIfFailed(
+    final payload = AiOperationHttp.decodeSuccessfulJsonMap(
       statusCode: response.statusCode,
       body: response.body,
       contextHint: 'moderations',
     );
-    final decoded = AiOperationHttp.decodeJsonResponse(
-      response.body,
-      contextHint: 'moderations',
-    );
-    return AiModerationResult(
-      rawResponse: response.body,
-      payload: AiOperationHttp.jsonMapOrEmpty(decoded),
-    );
+    return AiModerationResult(rawResponse: response.body, payload: payload);
   }
 
   void dispose() {

@@ -42,7 +42,7 @@ class AiModelsService {
 
   Future<AiModelsListResult> listModels({
     required AiModelConfig model,
-    Duration timeout = const Duration(seconds: 60),
+    Duration timeout = AiOperationHttp.defaultRequestTimeout,
     bool paginateGemini = true,
     int pageSize = _defaultGeminiPageSize,
   }) async {
@@ -66,16 +66,11 @@ class AiModelsService {
       ),
       timeout: timeout,
     );
-    AiOperationHttp.throwIfFailed(
+    final payload = AiOperationHttp.decodeSuccessfulJsonMap(
       statusCode: response.statusCode,
       body: response.body,
       contextHint: 'models',
     );
-    final decoded = AiOperationHttp.decodeJsonResponse(
-      response.body,
-      contextHint: 'models',
-    );
-    final payload = AiOperationHttp.jsonMapOrEmpty(decoded);
     return AiModelsListResult(
       models: _parseModelRecords(payload),
       rawResponse: response.body,
@@ -126,16 +121,11 @@ class AiModelsService {
         headers: headers,
         timeout: timeout,
       );
-      AiOperationHttp.throwIfFailed(
+      final payload = AiOperationHttp.decodeSuccessfulJsonMap(
         statusCode: response.statusCode,
         body: response.body,
         contextHint: 'models/gemini',
       );
-      final decoded = AiOperationHttp.decodeJsonResponse(
-        response.body,
-        contextHint: 'models/gemini',
-      );
-      final payload = AiOperationHttp.jsonMapOrEmpty(decoded);
       rawPages.add(payload);
       records.addAll(_parseModelRecords(payload));
       final next = optionalStringFromValue(payload['nextPageToken']);

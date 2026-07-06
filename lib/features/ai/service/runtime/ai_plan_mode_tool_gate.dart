@@ -1,3 +1,5 @@
+import '../../../../shared/util/text_normalization.dart';
+
 /// Shared Plan-mode tool gate rules.
 ///
 /// The controller filters the runtime catalog with these rules; prompt builders
@@ -36,15 +38,7 @@ abstract final class AiPlanModeToolGate {
   };
 
   static String normalizeToolName(String value) {
-    final buffer = StringBuffer();
-    for (final code in value.codeUnits) {
-      if ((code >= 0x30 && code <= 0x39) ||
-          (code >= 0x41 && code <= 0x5A) ||
-          (code >= 0x61 && code <= 0x7A)) {
-        buffer.writeCharCode(code | 0x20);
-      }
-    }
-    return buffer.toString();
+    return normalizeAsciiLookupKey(value);
   }
 
   static bool isPlanningTool(String toolName) {

@@ -346,18 +346,11 @@ class _CookieEditorDialogState extends State<_CookieEditorDialog> {
                     },
                   ),
           ),
-          if (_status.isNotEmpty)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-              color: cs.surfaceContainerHigh,
-              child: Text(
-                _status,
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: cs.onSurfaceVariant,
-                ),
-              ),
-            ),
+          buildWebReverseStatusBar(
+            context,
+            status: _status,
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+          ),
         ],
       ),
     );

@@ -55,7 +55,7 @@ class AiEmbeddingsService {
   Future<AiEmbeddingResult> createEmbeddings({
     required AiModelConfig model,
     required List<String> input,
-    Duration timeout = const Duration(seconds: 60),
+    Duration timeout = AiOperationHttp.defaultRequestTimeout,
     int? dimensions,
     String? encodingFormat,
     String? inputType,
@@ -83,7 +83,7 @@ class AiEmbeddingsService {
   Future<AiEmbeddingResult> createEmbedding({
     required AiModelConfig model,
     required Object input,
-    Duration timeout = const Duration(seconds: 60),
+    Duration timeout = AiOperationHttp.defaultRequestTimeout,
     int? dimensions,
     String? encodingFormat,
     String? inputType,
@@ -132,16 +132,11 @@ class AiEmbeddingsService {
       body: plan.body,
       timeout: timeout,
     );
-    AiOperationHttp.throwIfFailed(
+    final payload = AiOperationHttp.decodeSuccessfulJsonMap(
       statusCode: response.statusCode,
       body: response.body,
       contextHint: plan.contextHint,
     );
-    final decoded = AiOperationHttp.decodeJsonResponse(
-      response.body,
-      contextHint: plan.contextHint,
-    );
-    final payload = AiOperationHttp.jsonMapOrEmpty(decoded);
     return AiEmbeddingResult(
       vectors: _parseVectors(
         payload,
@@ -157,7 +152,7 @@ class AiEmbeddingsService {
   Future<AiEmbeddingResult> createEngineEmbedding({
     required AiModelConfig model,
     required Object content,
-    Duration timeout = const Duration(seconds: 60),
+    Duration timeout = AiOperationHttp.defaultRequestTimeout,
     String taskType = '',
     String title = '',
   }) async {

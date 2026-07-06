@@ -11,7 +11,6 @@ import 'package:flutter/material.dart';
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
-import '../../shared/ui/openhand_snack_bar.dart';
 import 'web_reverse_clipboard.dart';
 import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_session_controller.dart';
@@ -129,20 +128,11 @@ class _FrameTreeDialogState extends State<_FrameTreeDialog> {
       return;
     }
     if (!mounted) return;
-    final m = ScaffoldMessenger.maybeOf(context);
-    if (m != null) {
-      OpenHandSnackBar.showSuccessOn(
-        context,
-        m,
-        webReverseClipboardSnackMessage(
-          context: context,
-          base:
-              AppLocalizations.of(context)?.webReverseFrameTreeCopied ??
-              'Copied',
-          result: copied,
-        ),
-      );
-    }
+    showWebReverseClipboardSuccessSnack(
+      context: context,
+      base: AppLocalizations.of(context)?.webReverseFrameTreeCopied ?? 'Copied',
+      result: copied,
+    );
   }
 
   Future<void> _copyJson() async {

@@ -482,18 +482,7 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
             ),
           ),
           if (_busy) const LinearProgressIndicator(minHeight: 3),
-          if (_status.isNotEmpty)
-            Container(
-              width: double.infinity,
-              color: cs.surfaceContainerHigh,
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-              child: Text(
-                _status,
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: cs.onSurfaceVariant,
-                ),
-              ),
-            ),
+          buildWebReverseStatusBar(context, status: _status),
           Expanded(
             child: _rows.isEmpty
                 ? Center(

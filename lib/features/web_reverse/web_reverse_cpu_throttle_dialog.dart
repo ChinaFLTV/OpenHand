@@ -176,18 +176,7 @@ class _CpuThrottleDialogState extends State<_CpuThrottleDialog> {
               ),
             ),
           ),
-          if (_status.isNotEmpty)
-            Container(
-              width: double.infinity,
-              color: cs.surfaceContainerHigh,
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-              child: Text(
-                _status,
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: cs.onSurfaceVariant,
-                ),
-              ),
-            ),
+          buildWebReverseStatusBar(context, status: _status),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
             child: Row(

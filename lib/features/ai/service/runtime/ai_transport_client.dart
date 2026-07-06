@@ -10,6 +10,7 @@ import '../../../../shared/net/http_status_utils.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 
 const String _contentTypeHeaderName = 'content-type';
+const Duration _fallbackRequestTimeout = Duration(seconds: 60);
 
 class AiMultipartUploadFile {
   const AiMultipartUploadFile({required this.filePath, this.filename});
@@ -104,8 +105,9 @@ class AiTransportClient {
     http.BaseRequest request, {
     required Duration timeout,
   }) async {
-    final streamed = await _client.send(request).timeout(timeout);
-    return http.Response.fromStream(streamed).timeout(timeout);
+    final effectiveTimeout = _effectiveRequestTimeout(timeout);
+    final streamed = await _client.send(request).timeout(effectiveTimeout);
+    return http.Response.fromStream(streamed).timeout(effectiveTimeout);
   }
 
   Future<http.Response> _get({
@@ -113,7 +115,13 @@ class AiTransportClient {
     required Map<String, String> headers,
     required Duration timeout,
   }) {
-    return _client.get(uri, headers: headers).timeout(timeout);
+    return _client
+        .get(uri, headers: headers)
+        .timeout(_effectiveRequestTimeout(timeout));
+  }
+
+  Duration _effectiveRequestTimeout(Duration timeout) {
+    return timeout > Duration.zero ? timeout : _fallbackRequestTimeout;
   }
 
   String _multipartFieldValue(Object value) {

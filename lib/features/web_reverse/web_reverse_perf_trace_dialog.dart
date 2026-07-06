@@ -169,18 +169,11 @@ class _PerfTraceDialogState extends State<_PerfTraceDialog> {
       return;
     }
     if (!mounted) return;
-    final m = ScaffoldMessenger.maybeOf(context);
-    if (m != null) {
-      OpenHandSnackBar.showSuccessOn(
-        context,
-        m,
-        webReverseClipboardSnackMessage(
-          context: context,
-          base: loc?.webReversePerfPathCopied ?? 'Path copied',
-          result: copied,
-        ),
-      );
-    }
+    showWebReverseClipboardSuccessSnack(
+      context: context,
+      base: loc?.webReversePerfPathCopied ?? 'Path copied',
+      result: copied,
+    );
   }
 
   @override
@@ -272,18 +265,7 @@ class _PerfTraceDialogState extends State<_PerfTraceDialog> {
             ),
           ),
           if (_busy) const LinearProgressIndicator(minHeight: 3),
-          if (_status.isNotEmpty)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-              color: cs.surfaceContainerHigh,
-              child: Text(
-                _status,
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: cs.onSurfaceVariant,
-                ),
-              ),
-            ),
+          buildWebReverseStatusBar(context, status: _status),
           buildOpenHandDialogActionsBar(
             actions: [
               if (_lastSaved.isNotEmpty)

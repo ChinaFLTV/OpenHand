@@ -2,6 +2,15 @@ import 'package:flutter/material.dart';
 
 import '../../app/model/dialog_animation_settings.dart';
 import '../../shared/ui/animated_dialog.dart';
+import '../../shared/ui/bounded_animation.dart';
+import '../../shared/ui/motion_preference.dart';
+
+const EdgeInsets kWebReverseStatusBarPadding = EdgeInsets.fromLTRB(
+  16,
+  8,
+  16,
+  8,
+);
 
 const OpenHandAnimationTransitionProfile kWebReverseDialogMotionProfile =
     OpenHandAnimationTransitionProfile(
@@ -47,5 +56,61 @@ Future<T?> showWebReverseToolDialog<T>({
     alignment: alignment,
     surfaceMotion: surfaceMotion,
     builder: builder,
+  );
+}
+
+Widget buildWebReverseStatusBar(
+  BuildContext context, {
+  required String status,
+  EdgeInsetsGeometry padding = kWebReverseStatusBarPadding,
+}) {
+  final text = status.trim();
+  final theme = Theme.of(context);
+  final colorScheme = theme.colorScheme;
+  final duration = openHandMotionDurationMs(context, 180);
+  final child = text.isEmpty
+      ? const SizedBox.shrink(key: ValueKey<String>('empty'))
+      : Container(
+          key: ValueKey<String>(text),
+          width: double.infinity,
+          color: colorScheme.surfaceContainerHigh,
+          padding: padding,
+          child: Text(
+            text,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+        );
+  return AnimatedSwitcher(
+    duration: duration,
+    reverseDuration: duration,
+    switchInCurve: Curves.easeOutCubic,
+    switchOutCurve: Curves.easeInCubic,
+    layoutBuilder: (currentChild, previousChildren) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          ...previousChildren,
+          if (currentChild != null) currentChild,
+        ],
+      );
+    },
+    transitionBuilder: (child, animation) {
+      final curved = openHandBoundedCurveAnimation(
+        parent: animation,
+        curve: Curves.easeOutCubic,
+        reverseCurve: Curves.easeInCubic,
+      );
+      return FadeTransition(
+        opacity: curved,
+        child: SizeTransition(
+          sizeFactor: curved,
+          axisAlignment: -1,
+          child: child,
+        ),
+      );
+    },
+    child: child,
   );
 }

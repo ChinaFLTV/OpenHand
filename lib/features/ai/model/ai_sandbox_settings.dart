@@ -1,5 +1,6 @@
 import '../../../shared/net/tcp_port_utils.dart';
 import '../../../shared/util/input_value_parsing.dart';
+import '../../../shared/util/text_normalization.dart';
 import 'ai_deny_command_rule.dart';
 
 enum AiSandboxFileAccessMode {
@@ -331,14 +332,6 @@ class AiSandboxSettings {
   }
 
   static String _normalizeToolName(String value) {
-    final buffer = StringBuffer();
-    for (final code in value.codeUnits) {
-      if ((code >= 0x30 && code <= 0x39) ||
-          (code >= 0x41 && code <= 0x5A) ||
-          (code >= 0x61 && code <= 0x7A)) {
-        buffer.writeCharCode(code | 0x20);
-      }
-    }
-    return buffer.toString();
+    return normalizeAsciiLookupKey(value);
   }
 }

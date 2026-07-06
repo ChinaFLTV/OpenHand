@@ -6,6 +6,7 @@ import '../../../../app/support/safe_subprocess.dart';
 import '../../../../app/support/silent_log.dart';
 import '../../../../app/support/system_proxy.dart';
 import '../../../../shared/util/async_concurrency.dart';
+import '../../../../shared/util/text_normalization.dart';
 import '../../model/ai_deny_command_rule.dart';
 import '../../service/bash/ai_bash_tool_service.dart';
 import '../../service/hook/ai_claude_hook_service.dart';
@@ -147,15 +148,7 @@ class AiBashBackgroundTool extends AiTool {
   }
 
   String _normalizedToolCallName(String value) {
-    final buffer = StringBuffer();
-    for (final code in value.codeUnits) {
-      if ((code >= 0x30 && code <= 0x39) ||
-          (code >= 0x41 && code <= 0x5A) ||
-          (code >= 0x61 && code <= 0x7A)) {
-        buffer.writeCharCode(code | 0x20);
-      }
-    }
-    return buffer.toString();
+    return normalizeAsciiLookupKey(value);
   }
 
   Future<AiToolExecutionResult> _start(

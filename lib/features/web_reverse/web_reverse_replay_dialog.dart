@@ -149,18 +149,11 @@ class _ReplayDialogState extends State<_ReplayDialog> {
     try {
       final copied = await setWebReverseClipboardText(json);
       if (!mounted) return;
-      final m = ScaffoldMessenger.maybeOf(context);
-      if (m != null) {
-        OpenHandSnackBar.showSuccessOn(
-          context,
-          m,
-          webReverseClipboardSnackMessage(
-            context: context,
-            base: loc?.webReverseReplayJsonCopied ?? 'JSON copied',
-            result: copied,
-          ),
-        );
-      }
+      showWebReverseClipboardSuccessSnack(
+        context: context,
+        base: loc?.webReverseReplayJsonCopied ?? 'JSON copied',
+        result: copied,
+      );
     } catch (e, st) {
       silentLog('web_reverse_replay_dialog', 'replay.export', e, st);
     }

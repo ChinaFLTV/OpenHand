@@ -1,6 +1,7 @@
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter/widgets.dart';
 
+import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/localized_text.dart';
 
@@ -53,6 +54,24 @@ String webReverseClipboardSnackMessage({
   return isZh
       ? '$base（已按上限复制 ${result.copiedChars}/${result.originalChars} 字符）'
       : '$base (copied ${result.copiedChars}/${result.originalChars} chars, capped)';
+}
+
+void showWebReverseClipboardSuccessSnack({
+  required BuildContext context,
+  required String base,
+  required WebReverseClipboardCopyResult result,
+}) {
+  final messenger = ScaffoldMessenger.maybeOf(context);
+  if (messenger == null) return;
+  OpenHandSnackBar.showSuccessOn(
+    context,
+    messenger,
+    webReverseClipboardSnackMessage(
+      context: context,
+      base: base,
+      result: result,
+    ),
+  );
 }
 
 ({String text, bool clipped}) prepareWebReverseClipboardText(
