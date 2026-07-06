@@ -1814,15 +1814,19 @@ function MachineTerminalHistoryDialog({
 }) {
   const { closing, requestClose } = useDialogExitMotion(onClose);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [pendingDeleteTerminal, setPendingDeleteTerminal] = useState<MachineTerminalSnapshot | null>(null);
   const terminals = workspace.terminals ?? [];
   const commandTotal = terminals.reduce((total, item) => total + terminalCommandCount(item), 0);
   const outputTotal = terminals.reduce((total, item) => total + terminalHistoryOutputCharacters(item), 0);
 
-  async function handleDelete(terminalId: string): Promise<void> {
-    if (deletingId || busyAction) return;
+  async function confirmDeleteTerminal(): Promise<void> {
+    const terminal = pendingDeleteTerminal;
+    if (!terminal || deletingId || busyAction) return;
+    const terminalId = terminal.terminal_id;
     setDeletingId(terminalId);
     try {
       await onDelete(terminalId);
+      setPendingDeleteTerminal(null);
       showSnackbar(t('terminal.history.delete.ok', '终端会话已删除'), { tone: 'success' });
     } catch {
       // runControl already reports the concrete error.
@@ -1832,136 +1836,155 @@ function MachineTerminalHistoryDialog({
   }
 
   return (
-    <DialogFrame
-      closing={closing}
-      onRequestClose={requestClose}
-      ariaLabel={t('terminal.history.title', '终端执行历史')}
-      {...createStandardDialogFrameAppearance({
-        overlayTone: 'strong',
-        overlayBlurPx: 4,
-        panelClassName: 'oh-machine-terminal-history-dialog',
-        panelSurface: {
-          width: 'min(1060px, calc(100vw - 32px))',
-          maxHeight: 'min(86vh, 740px)',
-          overflow: 'hidden',
-          background: 'var(--m3-surface)',
-        },
-      })}
-    >
-      <div class="oh-machine-terminal-dialog-head">
-        <span class="oh-machine-terminal-dialog-icon" aria-hidden>
-          <ComposerIcon name="history" size={20} />
-        </span>
-        <div class="min-w-0 flex-1">
-          <h2>{t('terminal.history.title', '终端执行历史')}</h2>
-          <p>
-            {t('terminal.history.subtitle', '当前线程关联终端会话')} {terminals.length} · {t('terminal.history.active', '当前')} {workspace.active_terminal_id || '-'}
-          </p>
+    <>
+      <DialogFrame
+        closing={closing}
+        onRequestClose={requestClose}
+        ariaLabel={t('terminal.history.title', '终端执行历史')}
+        {...createStandardDialogFrameAppearance({
+          overlayTone: 'strong',
+          overlayBlurPx: 4,
+          panelClassName: 'oh-machine-terminal-history-dialog',
+          panelSurface: {
+            width: 'min(1060px, calc(100vw - 32px))',
+            maxHeight: 'min(86vh, 740px)',
+            overflow: 'hidden',
+            background: 'var(--m3-surface)',
+          },
+        })}
+      >
+        <div class="oh-machine-terminal-dialog-head">
+          <span class="oh-machine-terminal-dialog-icon" aria-hidden>
+            <ComposerIcon name="history" size={20} />
+          </span>
+          <div class="min-w-0 flex-1">
+            <h2>{t('terminal.history.title', '终端执行历史')}</h2>
+            <p>
+              {t('terminal.history.subtitle', '当前线程关联终端会话')} {terminals.length} · {t('terminal.history.active', '当前')} {workspace.active_terminal_id || '-'}
+            </p>
+          </div>
+          <button type="button" class="oh-machine-terminal-dialog-close oh-tap-press" onClick={requestClose} title={t('common.close', '关闭')}>
+            <ComposerIcon name="close" size={16} />
+          </button>
         </div>
-        <button type="button" class="oh-machine-terminal-dialog-close oh-tap-press" onClick={requestClose} title={t('common.close', '关闭')}>
-          <ComposerIcon name="close" size={16} />
-        </button>
-      </div>
 
-      <div class="oh-machine-terminal-history-metrics">
-        <MachineTerminalHistoryMetric icon="mode" label={t('terminal.history.metric.terminals', '终端数量')} value={`${terminals.length}`} />
-        <MachineTerminalHistoryMetric icon="plan" label={t('terminal.history.metric.commands', '命令记录')} value={`${commandTotal}`} />
-        <MachineTerminalHistoryMetric icon="file" label={t('terminal.history.metric.output', '历史输出')} value={formatTerminalHistorySize(outputTotal)} />
-      </div>
+        <div class="oh-machine-terminal-history-metrics">
+          <MachineTerminalHistoryMetric icon="mode" label={t('terminal.history.metric.terminals', '终端数量')} value={`${terminals.length}`} />
+          <MachineTerminalHistoryMetric icon="plan" label={t('terminal.history.metric.commands', '命令记录')} value={`${commandTotal}`} />
+          <MachineTerminalHistoryMetric icon="file" label={t('terminal.history.metric.output', '历史输出')} value={formatTerminalHistorySize(outputTotal)} />
+        </div>
 
-      <div class="oh-machine-terminal-history-table-shell">
-        {terminals.length === 0 ? (
-          <div class="oh-machine-terminal-history-empty">{t('terminal.history.empty', '暂无终端会话历史。')}</div>
-        ) : (
-          <table class="oh-machine-terminal-history-table">
-            <thead>
-              <tr>
-                <th>{t('terminal.history.col.terminal', '终端')}</th>
-                <th>{t('terminal.history.col.status', '状态')}</th>
-                <th>PID</th>
-                <th>{t('terminal.history.col.size', '尺寸')}</th>
-                <th>{t('terminal.history.col.commands', '命令')}</th>
-                <th>{t('terminal.history.col.output', '输出')}</th>
-                <th>{t('terminal.history.col.started', '启动时间')}</th>
-                <th>{t('terminal.history.col.updated', '更新时间')}</th>
-                <th class="text-right">{t('terminal.history.col.actions', '操作')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {terminals.map((terminal) => {
-                const active = terminal.terminal_id === workspace.active_terminal_id;
-                const deleting = deletingId === terminal.terminal_id;
-                const actionDisabled = Boolean(deleting || busyAction);
-                return (
-                  <tr
-                    key={terminal.terminal_id}
-                    class={`${active ? 'is-active ' : ''}is-clickable`}
-                    tabIndex={actionDisabled ? -1 : 0}
-                    title={t('terminal.history.viewDetails', '查看详情')}
-                    onClick={() => actionDisabled ? undefined : onOpenDetails(terminal)}
-                    onKeyDown={(event) => {
-                      if (actionDisabled || (event.key !== 'Enter' && event.key !== ' ')) return;
-                      event.preventDefault();
-                      onOpenDetails(terminal);
-                    }}
-                  >
-                    <td>
-                      <span class="oh-machine-terminal-history-terminal">
-                        <span class={`oh-machine-terminal-dot is-${terminal.status}`} />
-                        <span class="truncate">{terminal.terminal_id}</span>
-                        {active ? <span class="oh-machine-terminal-history-active">{t('terminal.history.active', '当前')}</span> : null}
-                      </span>
-                    </td>
-                    <td><span class={`oh-machine-terminal-history-status is-${terminal.status}`}>{terminalStatusLabel(terminal.status)}</span></td>
-                    <td class="tabular-nums">{terminal.pid ?? '-'}</td>
-                    <td class="tabular-nums">{terminal.columns}x{terminal.rows}</td>
-                    <td class="tabular-nums">{terminalCommandCount(terminal)}</td>
-                    <td>{formatTerminalHistorySize(terminalHistoryOutputCharacters(terminal))}</td>
-                    <td class="tabular-nums">{formatDialogDate(terminal.started_at)}</td>
-                    <td class="tabular-nums">{formatDialogDate(terminal.updated_at)}</td>
-                    <td>
-                      <div class="oh-machine-terminal-history-actions">
-                        <button
-                          type="button"
-                          class="oh-machine-terminal-history-action oh-tap-press"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            onOpenDetails(terminal);
-                          }}
-                          title={t('terminal.history.viewDetails', '查看详情')}
-                          disabled={actionDisabled}
-                        >
-                          <ComposerIcon name="file" size={15} />
-                        </button>
-                        <button
-                          type="button"
-                          class="oh-machine-terminal-history-action is-danger oh-tap-press"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            void handleDelete(terminal.terminal_id);
-                          }}
-                          title={t('terminal.history.delete', '删除')}
-                          disabled={actionDisabled}
-                        >
-                          <ComposerIcon name={deleting ? 'refresh' : 'trash'} size={15} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        )}
-      </div>
+        <div class="oh-machine-terminal-history-table-shell">
+          {terminals.length === 0 ? (
+            <div class="oh-machine-terminal-history-empty">{t('terminal.history.empty', '暂无终端会话历史。')}</div>
+          ) : (
+            <table class="oh-machine-terminal-history-table">
+              <thead>
+                <tr>
+                  <th>{t('terminal.history.col.terminal', '终端')}</th>
+                  <th>{t('terminal.history.col.status', '状态')}</th>
+                  <th>PID</th>
+                  <th>{t('terminal.history.col.size', '尺寸')}</th>
+                  <th>{t('terminal.history.col.commands', '命令')}</th>
+                  <th>{t('terminal.history.col.output', '输出')}</th>
+                  <th>{t('terminal.history.col.started', '启动时间')}</th>
+                  <th>{t('terminal.history.col.updated', '更新时间')}</th>
+                  <th class="text-right">{t('terminal.history.col.actions', '操作')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {terminals.map((terminal) => {
+                  const active = terminal.terminal_id === workspace.active_terminal_id;
+                  const deleting = deletingId === terminal.terminal_id;
+                  const actionDisabled = Boolean(deleting || busyAction);
+                  return (
+                    <tr
+                      key={terminal.terminal_id}
+                      class={`${active ? 'is-active ' : ''}is-clickable`}
+                      tabIndex={actionDisabled ? -1 : 0}
+                      title={t('terminal.history.viewDetails', '查看详情')}
+                      onClick={() => actionDisabled ? undefined : onOpenDetails(terminal)}
+                      onKeyDown={(event) => {
+                        if (actionDisabled || (event.key !== 'Enter' && event.key !== ' ')) return;
+                        event.preventDefault();
+                        onOpenDetails(terminal);
+                      }}
+                    >
+                      <td>
+                        <span class="oh-machine-terminal-history-terminal">
+                          <span class={`oh-machine-terminal-dot is-${terminal.status}`} />
+                          <span class="truncate">{terminal.terminal_id}</span>
+                          {active ? <span class="oh-machine-terminal-history-active">{t('terminal.history.active', '当前')}</span> : null}
+                        </span>
+                      </td>
+                      <td><span class={`oh-machine-terminal-history-status is-${terminal.status}`}>{terminalStatusLabel(terminal.status)}</span></td>
+                      <td class="tabular-nums">{terminal.pid ?? '-'}</td>
+                      <td class="tabular-nums">{terminal.columns}x{terminal.rows}</td>
+                      <td class="tabular-nums">{terminalCommandCount(terminal)}</td>
+                      <td>{formatTerminalHistorySize(terminalHistoryOutputCharacters(terminal))}</td>
+                      <td class="tabular-nums">{formatDialogDate(terminal.started_at)}</td>
+                      <td class="tabular-nums">{formatDialogDate(terminal.updated_at)}</td>
+                      <td>
+                        <div class="oh-machine-terminal-history-actions">
+                          <button
+                            type="button"
+                            class="oh-machine-terminal-history-action oh-tap-press"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              onOpenDetails(terminal);
+                            }}
+                            title={t('terminal.history.viewDetails', '查看详情')}
+                            disabled={actionDisabled}
+                          >
+                            <ComposerIcon name="file" size={15} />
+                          </button>
+                          <button
+                            type="button"
+                            class="oh-machine-terminal-history-action is-danger oh-tap-press"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setPendingDeleteTerminal(terminal);
+                            }}
+                            title={t('terminal.history.delete', '删除')}
+                            disabled={actionDisabled}
+                          >
+                            <ComposerIcon name={deleting ? 'refresh' : 'trash'} size={15} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
 
-      <div class="oh-machine-terminal-dialog-footer">
-        <DialogActionButton onClick={requestClose} tone="ghost">
-          <ComposerIcon name="close" size={14} />
-          {t('common.close', '关闭')}
-        </DialogActionButton>
-      </div>
-    </DialogFrame>
+        <div class="oh-machine-terminal-dialog-footer">
+          <DialogActionButton onClick={requestClose} tone="ghost">
+            <ComposerIcon name="close" size={14} />
+            {t('common.close', '关闭')}
+          </DialogActionButton>
+        </div>
+      </DialogFrame>
+      {pendingDeleteTerminal ? (
+        <ConfirmDialog
+          title={t('terminal.history.delete.confirmTitle', '删除终端历史?')}
+          body={t(
+            'terminal.history.delete.confirmBody',
+            `将删除 ${pendingDeleteTerminal.terminal_id} 的会话、命令记录和历史输出，此操作不可恢复。`,
+          )}
+          danger
+          busy={deletingId === pendingDeleteTerminal.terminal_id}
+          confirmLabel={deletingId === pendingDeleteTerminal.terminal_id ? t('sessions.delete.deleting', '正在删除…') : t('common.delete', '删除')}
+          cancelLabel={t('common.cancel', '取消')}
+          onCancel={() => {
+            if (!deletingId) setPendingDeleteTerminal(null);
+          }}
+          onConfirm={() => void confirmDeleteTerminal()}
+        />
+      ) : null}
+    </>
   );
 }
 

@@ -951,6 +951,22 @@ class _MachineTerminalHistoryDialogState
 
   Future<void> _deleteTerminal(MachineTerminalSnapshot terminal) async {
     if (_deletingTerminalId != null) return;
+    final confirmed = await showOpenHandConfirmDialog(
+      context: context,
+      title: openHandLocalizedText(
+        context,
+        zh: '删除终端历史？',
+        en: 'Delete Terminal History?',
+      ),
+      message: openHandLocalizedText(
+        context,
+        zh: '将删除 ${terminal.terminalId} 的会话、命令记录和历史输出，此操作不可恢复。',
+        en: 'This will delete ${terminal.terminalId}, including command records and output history. This cannot be undone.',
+      ),
+      confirmLabel: openHandLocalizedText(context, zh: '删除', en: 'Delete'),
+      destructive: true,
+    );
+    if (!confirmed || !mounted || _deletingTerminalId != null) return;
     setState(() => _deletingTerminalId = terminal.terminalId);
     try {
       await context.read<MachineTerminalService>().control(
@@ -1136,84 +1152,86 @@ class _MachineTerminalHistoryDetailDialogState
               ),
               subtitle:
                   '${widget.snapshot.terminalId} · ${formatByteSize(widget.snapshot.historyOutputCharacters)} · ${openHandLocalizedText(context, zh: '命令', en: 'commands')} ${widget.snapshot.commandCount}',
+              trailingActions: [
+                _MachineTerminalIconButton(
+                  icon: Icons.copy_all_rounded,
+                  tooltip: openHandLocalizedText(
+                    context,
+                    zh: '复制详情',
+                    en: 'Copy Details',
+                  ),
+                  onPressed: _copyDetails,
+                ),
+              ],
               onClose: () => Navigator.of(context).pop(),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(18, 0, 18, 12),
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  _MachineTerminalChip(
-                    icon: Icons.circle_rounded,
-                    label: _statusLabel(context, widget.snapshot.status),
-                    color: _terminalStatusColor(cs, widget.snapshot.status),
-                  ),
-                  _MachineTerminalChip(
-                    icon: Icons.fit_screen_rounded,
-                    label: '${widget.snapshot.columns}x${widget.snapshot.rows}',
-                    color: cs.secondary,
-                  ),
-                  _MachineTerminalChip(
-                    icon: Icons.schedule_rounded,
-                    label: _formatTerminalHistoryTime(
-                      widget.snapshot.updatedAt,
+              child: SizedBox(
+                width: double.infinity,
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _MachineTerminalChip(
+                      icon: Icons.circle_rounded,
+                      label: _statusLabel(context, widget.snapshot.status),
+                      color: _terminalStatusColor(cs, widget.snapshot.status),
                     ),
-                    color: cs.tertiary,
-                  ),
-                ],
+                    _MachineTerminalChip(
+                      icon: Icons.fit_screen_rounded,
+                      label:
+                          '${widget.snapshot.columns}x${widget.snapshot.rows}',
+                      color: cs.secondary,
+                    ),
+                    _MachineTerminalChip(
+                      icon: Icons.schedule_rounded,
+                      label: _formatTerminalHistoryTime(
+                        widget.snapshot.updatedAt,
+                      ),
+                      color: cs.tertiary,
+                    ),
+                  ],
+                ),
               ),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(18, 0, 18, 12),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: SegmentedButton<_MachineTerminalHistoryView>(
-                      selected: <_MachineTerminalHistoryView>{_selectedView},
-                      showSelectedIcon: false,
-                      segments: [
-                        ButtonSegment<_MachineTerminalHistoryView>(
-                          value: _MachineTerminalHistoryView.commands,
-                          icon: const Icon(Icons.list_alt_rounded, size: 18),
-                          label: Text(
-                            openHandLocalizedText(
-                              context,
-                              zh: '命令输出',
-                              en: 'Commands',
-                            ),
-                          ),
+              child: SizedBox(
+                width: double.infinity,
+                child: SegmentedButton<_MachineTerminalHistoryView>(
+                  selected: <_MachineTerminalHistoryView>{_selectedView},
+                  showSelectedIcon: false,
+                  segments: [
+                    ButtonSegment<_MachineTerminalHistoryView>(
+                      value: _MachineTerminalHistoryView.commands,
+                      icon: const Icon(Icons.list_alt_rounded, size: 18),
+                      label: Text(
+                        openHandLocalizedText(
+                          context,
+                          zh: '命令输出',
+                          en: 'Commands',
                         ),
-                        ButtonSegment<_MachineTerminalHistoryView>(
-                          value: _MachineTerminalHistoryView.replay,
-                          icon: const Icon(Icons.terminal_rounded, size: 18),
-                          label: Text(
-                            openHandLocalizedText(
-                              context,
-                              zh: '终端回放',
-                              en: 'Replay',
-                            ),
-                          ),
+                      ),
+                    ),
+                    ButtonSegment<_MachineTerminalHistoryView>(
+                      value: _MachineTerminalHistoryView.replay,
+                      icon: const Icon(Icons.terminal_rounded, size: 18),
+                      label: Text(
+                        openHandLocalizedText(
+                          context,
+                          zh: '终端回放',
+                          en: 'Replay',
                         ),
-                      ],
-                      onSelectionChanged: (selection) {
-                        final next = selection.isEmpty ? null : selection.first;
-                        if (next == null || next == _selectedView) return;
-                        setState(() => _selectedView = next);
-                      },
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  _MachineTerminalIconButton(
-                    icon: Icons.copy_all_rounded,
-                    tooltip: openHandLocalizedText(
-                      context,
-                      zh: '复制详情',
-                      en: 'Copy Details',
-                    ),
-                    onPressed: _copyDetails,
-                  ),
-                ],
+                  ],
+                  onSelectionChanged: (selection) {
+                    final next = selection.isEmpty ? null : selection.first;
+                    if (next == null || next == _selectedView) return;
+                    setState(() => _selectedView = next);
+                  },
+                ),
               ),
             ),
             Expanded(
@@ -1461,12 +1479,14 @@ class _MachineTerminalDialogHeader extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.onClose,
+    this.trailingActions = const <Widget>[],
   });
 
   final IconData icon;
   final String title;
   final String subtitle;
   final VoidCallback onClose;
+  final List<Widget> trailingActions;
 
   @override
   Widget build(BuildContext context) {
@@ -1513,6 +1533,11 @@ class _MachineTerminalDialogHeader extends StatelessWidget {
               ],
             ),
           ),
+          for (final action in trailingActions) ...[
+            const SizedBox(width: 7),
+            action,
+          ],
+          if (trailingActions.isNotEmpty) const SizedBox(width: 7),
           _MachineTerminalIconButton(
             icon: Icons.close_rounded,
             tooltip: openHandLocalizedText(context, zh: '关闭', en: 'Close'),

@@ -3935,6 +3935,7 @@ button.oh-message-context-capsule {
 .oh-machine-terminal-replay-meta {
   display: flex;
   align-items: center;
+  justify-content: flex-start;
   gap: 8px;
   padding: 14px 18px 10px;
   overflow-x: auto;
@@ -3966,8 +3967,9 @@ button.oh-message-context-capsule {
 }
 
 .oh-machine-terminal-detail-tabs {
-  display: inline-flex;
-  align-self: flex-start;
+  width: 100%;
+  display: flex;
+  align-self: stretch;
   gap: 6px;
   padding: 4px;
   border-radius: 14px;
@@ -3979,6 +3981,8 @@ button.oh-message-context-capsule {
   min-height: 34px;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  flex: 1 1 0;
   gap: 7px;
   padding: 0 12px;
   border: 0;
