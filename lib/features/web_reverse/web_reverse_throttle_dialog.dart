@@ -11,7 +11,6 @@ import 'package:flutter/material.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
-import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/localized_text.dart';
 import 'web_reverse_dialog_utils.dart';
@@ -136,15 +135,11 @@ class _ThrottleDialogState extends State<_ThrottleDialog> {
         _status =
             loc?.webReverseThrottleStatusApplied(body) ?? 'Applied: $body';
       });
-      final m = ScaffoldMessenger.maybeOf(context);
-      if (m != null) {
-        OpenHandSnackBar.showSuccessOn(
-          context,
-          m,
-          loc?.webReverseThrottleConditionsApplied ??
-              'Network conditions applied',
-        );
-      }
+      showWebReverseSuccessSnack(
+        context,
+        loc?.webReverseThrottleConditionsApplied ??
+            'Network conditions applied',
+      );
     } finally {
       if (mounted) setState(() => _applying = false);
     }
@@ -256,14 +251,10 @@ class _ThrottleDialogState extends State<_ThrottleDialog> {
           loc?.webReverseThrottleStatusFailed(effectiveReason) ??
           'Failed: $effectiveReason',
     );
-    final messenger = ScaffoldMessenger.maybeOf(context);
-    if (messenger != null) {
-      OpenHandSnackBar.showErrorOn(
-        context,
-        messenger,
-        loc?.webReverseThrottleApplyFailed ?? 'Apply failed',
-      );
-    }
+    showWebReverseErrorSnack(
+      context,
+      loc?.webReverseThrottleApplyFailed ?? 'Apply failed',
+    );
   }
 
   @override

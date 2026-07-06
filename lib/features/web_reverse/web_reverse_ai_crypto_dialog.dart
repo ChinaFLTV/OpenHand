@@ -21,7 +21,6 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
-import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/text_clip.dart';
 import 'web_reverse_clipboard.dart';
@@ -479,21 +478,22 @@ class _AiCryptoDialogState extends State<_AiCryptoDialog> {
 
   Future<void> _copy() async {
     if (_prompt.isEmpty) return;
-    final copied = await setWebReverseClipboardText(_prompt);
-    if (!mounted) return;
-    final messenger = ScaffoldMessenger.maybeOf(context);
-    final loc = AppLocalizations.of(context);
-    if (messenger != null) {
-      OpenHandSnackBar.showSuccessOn(
-        context,
-        messenger,
-        webReverseClipboardSnackMessage(
-          context: context,
-          base: loc?.webReverseAiCryptoCopied ?? 'Copied to clipboard',
-          result: copied,
-        ),
-      );
+    late final WebReverseClipboardCopyResult copied;
+    try {
+      copied = await setWebReverseClipboardText(_prompt);
+    } catch (e, st) {
+      silentLog('web_reverse_ai_crypto', 'copy', e, st);
+      if (!mounted) return;
+      showWebReverseClipboardErrorSnack(context: context, error: e);
+      return;
     }
+    if (!mounted) return;
+    final loc = AppLocalizations.of(context);
+    showWebReverseClipboardSuccessSnack(
+      context: context,
+      base: loc?.webReverseAiCryptoCopied ?? 'Copied to clipboard',
+      result: copied,
+    );
   }
 
   @override

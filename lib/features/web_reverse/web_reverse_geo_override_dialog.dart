@@ -16,7 +16,6 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
-import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/input_value_parsing.dart';
 import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_session_controller.dart';
@@ -125,7 +124,6 @@ class _GeoOverrideDialogState extends State<_GeoOverrideDialog> {
       _busy = true;
       _lastStatus = null;
     });
-    final messenger = ScaffoldMessenger.maybeOf(context);
     final errors = <String>[];
     try {
       if (_enableGeo) {
@@ -185,24 +183,21 @@ class _GeoOverrideDialogState extends State<_GeoOverrideDialog> {
           ? (loc?.webReverseGeoOverridesApplied ?? 'Overrides applied')
           : errors.join('; ');
     });
-    if (messenger != null) {
-      if (errors.isEmpty) {
-        OpenHandSnackBar.showSuccessOn(
-          context,
-          messenger,
-          loc?.webReverseGeoEnvOverridesApplied ??
-              'Environment overrides applied',
-        );
-      } else {
-        OpenHandSnackBar.showErrorOn(context, messenger, errors.join('; '));
-      }
+    if (errors.isEmpty) {
+      showWebReverseSuccessSnack(
+        context,
+        loc?.webReverseGeoEnvOverridesApplied ??
+            'Environment overrides applied',
+      );
+    } else {
+      showWebReverseErrorSnack(context, errors.join('; '));
     }
   }
 
   Future<void> _clear() async {
     if (_busy) return;
     setState(() => _busy = true);
-    final messenger = ScaffoldMessenger.maybeOf(context);
+    Object? failure;
     try {
       await _callCdp('Emulation.clearGeolocationOverride', const {});
       // CDP 没有 clearTimezone/clearLocale 等单独方法，用空字符串重置。
@@ -210,20 +205,24 @@ class _GeoOverrideDialogState extends State<_GeoOverrideDialog> {
       await _callCdp('Emulation.setLocaleOverride', const {});
     } catch (e, st) {
       silentLog('web_reverse_geo_override', 'clear', e, st);
+      failure = e;
     }
     if (!mounted) return;
     final loc = AppLocalizations.of(context);
     setState(() {
       _busy = false;
-      _lastStatus = loc?.webReverseGeoOverridesCleared ?? 'Overrides cleared';
+      _lastStatus = failure == null
+          ? (loc?.webReverseGeoOverridesCleared ?? 'Overrides cleared')
+          : '${loc?.webReverseGeoOverridesCleared ?? 'Overrides cleared'}: $failure';
     });
-    if (messenger != null) {
-      OpenHandSnackBar.showSuccessOn(
+    if (failure == null) {
+      showWebReverseSuccessSnack(
         context,
-        messenger,
         loc?.webReverseGeoEnvOverridesCleared ??
             'Cleared environment overrides',
       );
+    } else {
+      showWebReverseErrorSnack(context, '$failure');
     }
   }
 
