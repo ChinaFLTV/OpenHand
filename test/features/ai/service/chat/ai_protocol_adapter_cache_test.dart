@@ -88,6 +88,37 @@ void main() {
       expect(lcp, greaterThanOrEqualTo(firstJson.length - 4));
     },
   );
+
+  test('cache affinity distinguishes official and gateway semantics', () {
+    const officialOpenAi = AiModelConfig(
+      id: 'official-openai',
+      baseUrl: 'https://api.openai.com',
+      authScheme: AiAuthScheme.bearer,
+      token: 'test-token',
+      modelId: 'gpt-test',
+      protocolType: AiProtocolType.openai,
+      providerKind: AiProviderKind.openai,
+    );
+    const compatibleGateway = AiModelConfig(
+      id: 'compatible-gateway',
+      baseUrl: 'https://gateway.example.com',
+      authScheme: AiAuthScheme.bearer,
+      token: 'test-token',
+      modelId: 'gpt-test',
+      protocolType: AiProtocolType.openai,
+    );
+
+    expect(
+      AiPromptCacheAffinity.requiresGatewayForwardingForModel(officialOpenAi),
+      isFalse,
+    );
+    expect(
+      AiPromptCacheAffinity.requiresGatewayForwardingForModel(
+        compatibleGateway,
+      ),
+      isTrue,
+    );
+  });
 }
 
 int _longestCommonPrefixLength(String left, String right) {

@@ -70,6 +70,7 @@ import 'service/runtime/ai_plan_approval_detector.dart';
 import 'service/runtime/ai_plan_mode_tool_gate.dart';
 import 'service/runtime/ai_tool_execution_registry.dart';
 import 'service/runtime/ai_tool_runtime_service.dart';
+import 'service/session_io/ai_token_usage_parser.dart';
 import 'tools/memory/ai_memory_tool.dart' show MemoryControllerProvider;
 import 'tools/planning/ai_task_tool.dart';
 import 'tools/search/ai_tool_search_tool.dart';
@@ -12776,6 +12777,7 @@ $tail''';
         maxChars,
       );
     }
+    payload.addAll(_responseUsageTelemetry(result.rawResponse));
     if (runtimeContext.telemetryCaptureEnvironment) {
       payload['environment'] = _captureRuntimeEnvironmentSnapshot(
         runtimeContext,
@@ -12830,6 +12832,7 @@ $tail''';
         runtimeContext.telemetryMaxPayloadChars,
       );
     }
+    payload.addAll(_responseUsageTelemetry(telemetry?.rawResponse));
     if (runtimeContext.telemetryCaptureEnvironment) {
       payload['environment'] = _captureRuntimeEnvironmentSnapshot(
         runtimeContext,
@@ -13129,6 +13132,122 @@ $tail''';
       if (paths.isNotEmpty)
         'request_cache_affinity_marker_paths': paths.take(8).toList(),
     };
+  }
+
+  Map<String, Object?> _responseUsageTelemetry(String? rawResponse) {
+    final usageMaps = _usageMapsFromRawResponse(rawResponse);
+    if (usageMaps.isEmpty) {
+      return const <String, Object?>{};
+    }
+    final lastUsage = usageMaps.last;
+    final lastUsageKeyPaths = _usageKeyPaths(lastUsage);
+    final cacheFieldPaths = <String>{};
+    AiTokenUsage? lastParsedUsage;
+    for (final usageMap in usageMaps) {
+      cacheFieldPaths.addAll(_usageCacheFieldPaths(usageMap));
+      lastParsedUsage =
+          AiTokenUsageParser.parseOpenAi(usageMap) ??
+          AiTokenUsageParser.parseClaude(usageMap) ??
+          AiTokenUsageParser.parseGemini(usageMap) ??
+          lastParsedUsage;
+    }
+    final sortedCacheFieldPaths = cacheFieldPaths.toList(growable: false)
+      ..sort(_compareRuntimeMetadataText);
+    return <String, Object?>{
+      'response_usage_chunk_count': usageMaps.length,
+      'response_usage_last_keys': lastUsageKeyPaths.take(48).toList(),
+      'response_usage_cache_field_present': sortedCacheFieldPaths.isNotEmpty,
+      if (sortedCacheFieldPaths.isNotEmpty)
+        'response_usage_cache_field_paths': sortedCacheFieldPaths
+            .take(48)
+            .toList(),
+      if (lastParsedUsage?.promptTokens != null)
+        'response_usage_prompt_tokens': lastParsedUsage!.promptTokens,
+      if (lastParsedUsage?.completionTokens != null)
+        'response_usage_completion_tokens': lastParsedUsage!.completionTokens,
+      if (lastParsedUsage?.cacheReadTokens != null)
+        'response_usage_cache_read_tokens': lastParsedUsage!.cacheReadTokens,
+      if (lastParsedUsage?.cacheCreationTokens != null)
+        'response_usage_cache_creation_tokens':
+            lastParsedUsage!.cacheCreationTokens,
+      if (lastParsedUsage?.reasoningTokens != null)
+        'response_usage_reasoning_tokens': lastParsedUsage!.reasoningTokens,
+    };
+  }
+
+  List<Map<String, Object?>> _usageMapsFromRawResponse(String? rawResponse) {
+    final raw = nullIfBlank(rawResponse);
+    if (raw == null) return const <Map<String, Object?>>[];
+    final maps = <Map<String, Object?>>[];
+
+    void collectFromDecoded(Object? decoded) {
+      if (decoded is! Map) return;
+      final map = stringKeyedMapFromValue(decoded);
+      final usage = map['usage'];
+      if (usage is Map) {
+        maps.add(stringKeyedMapFromValue(usage));
+      }
+      final usageMetadata = map['usageMetadata'];
+      if (usageMetadata is Map) {
+        maps.add(stringKeyedMapFromValue(usageMetadata));
+      }
+      final message = map['message'];
+      if (message is Map) {
+        final messageUsage = message['usage'];
+        if (messageUsage is Map) {
+          maps.add(stringKeyedMapFromValue(messageUsage));
+        }
+      }
+    }
+
+    try {
+      collectFromDecoded(jsonDecode(raw));
+    } catch (_) {
+      // Streaming traces are usually newline-delimited JSON/SSE fragments.
+    }
+    if (maps.isNotEmpty) return maps;
+
+    for (final line in raw.split('\n')) {
+      var text = line.trim();
+      if (text.isEmpty) continue;
+      if (text.startsWith('data:')) {
+        text = text.substring(5).trim();
+      }
+      if (text.isEmpty || text == '[DONE]') continue;
+      try {
+        collectFromDecoded(jsonDecode(text));
+      } catch (_) {
+        continue;
+      }
+    }
+    return maps;
+  }
+
+  List<String> _usageKeyPaths(Map<String, Object?> usageMap) {
+    final paths = <String>[];
+    void visit(Object? value, String path) {
+      if (value is Map) {
+        for (final entry in _sortedTelemetryMapEntries(value)) {
+          final childPath = path.isEmpty ? entry.key : '$path.${entry.key}';
+          paths.add(childPath);
+          visit(entry.value, childPath);
+        }
+      }
+    }
+
+    visit(usageMap, '');
+    return paths.take(96).toList(growable: false);
+  }
+
+  List<String> _usageCacheFieldPaths(Map<String, Object?> usageMap) {
+    final paths = <String>[];
+    for (final path in _usageKeyPaths(usageMap)) {
+      final normalized = path.toLowerCase();
+      if (normalized.contains('cache') || normalized.contains('cached')) {
+        paths.add(path);
+      }
+    }
+    return paths;
   }
 
   Map<String, Object?> _cacheControlTelemetry(Map<String, Object?> body) {

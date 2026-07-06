@@ -629,8 +629,7 @@ class AiPromptBuilder {
     //   stable core prefix → runtime catalog prefix → persisted history
     //   → latest user → volatile tail.
     // All templates share this same skeleton. The cache affinity key is derived
-    // only from the stable core; mutable tool catalogs stay in a separate
-    // leading prefix so lazy-loading cannot rotate the provider cache key.
+    // from the actual leading request prefix (stable core + runtime catalog).
     // Truly per-turn state stays after the latest user and is omitted when it
     // only carries default/static values.
     // ─────────────────────────────────────────────────────────────
@@ -659,6 +658,12 @@ class AiPromptBuilder {
     final stablePrefixHash = _promptFingerprint(
       stablePrefixTurns.map(_fingerprintTurn).join('\n\n'),
     );
+    final cacheAnchorHash = _promptFingerprint(
+      <AiChatTurn>[
+        ...stablePrefixTurns,
+        ...runtimePrefixTurns,
+      ].map(_fingerprintTurn).join('\n\n'),
+    );
     final toolCatalogHash = _promptFingerprint(
       promptCatalogToolNames.join('\n'),
     );
@@ -672,7 +677,7 @@ class AiPromptBuilder {
     final cacheAffinityEnabled =
         inputCachePolicy.stablePromptPrefixEnabled && cacheAffinitySupported;
     final cacheAffinityRequiresGatewayForwarding =
-        AiPromptCacheAffinity.kindRequiresGatewayForwarding(cacheAffinityKind);
+        AiPromptCacheAffinity.requiresGatewayForwardingForModel(model);
     final cacheAffinityStrong =
         cacheAffinityEnabled && !cacheAffinityRequiresGatewayForwarding;
     final cacheAffinityBestEffort =
@@ -680,7 +685,7 @@ class AiPromptBuilder {
     final stableCacheKey = _stableCacheKey(
       session: session,
       model: model,
-      stablePrefixHash: stablePrefixHash,
+      cacheAnchorHash: cacheAnchorHash,
     );
     final previousCapturedAt =
         '${session.lastPromptMetadata['captured_at'] ?? ''}'.trim();
@@ -700,7 +705,7 @@ class AiPromptBuilder {
       ..['current_prompt_character_count'] = promptCharacterCount
       ..['stable_prefix_hash'] = stablePrefixHash
       ..['previous_stable_prefix_hash'] = previousStablePrefixHash
-      ..['cache_anchor_hash'] = stablePrefixHash
+      ..['cache_anchor_hash'] = cacheAnchorHash
       ..['previous_cache_anchor_hash'] = previousCacheAnchorHash
       ..['stable_prefix_message_count'] = stablePrefixMessageCount
       ..['stable_prefix_character_count'] = stablePrefixTurns.fold<int>(
@@ -1907,7 +1912,7 @@ class AiPromptBuilder {
   String _stableCacheKey({
     required AiSession session,
     required AiModelConfig model,
-    required String stablePrefixHash,
+    required String cacheAnchorHash,
   }) {
     return stableSha256Hex(
       [
@@ -1918,7 +1923,7 @@ class AiPromptBuilder {
         model.apiDialect.storageValue,
         model.providerKind.storageValue,
         model.modelId,
-        stablePrefixHash,
+        cacheAnchorHash,
       ].join('\n'),
     );
   }

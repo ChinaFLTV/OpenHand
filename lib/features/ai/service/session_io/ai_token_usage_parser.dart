@@ -39,17 +39,16 @@ class AiTokenUsageParser {
         _readInt(usageMap['output_tokens']);
     final totalTokens = _readInt(usageMap['total_tokens']);
 
-    final promptDetails = _readMap(
-      usageMap['prompt_tokens_details'] ?? usageMap['input_tokens_details'],
-    );
-    final completionDetails = _readMap(
-      usageMap['completion_tokens_details'] ??
-          usageMap['output_tokens_details'],
-    );
+    final promptDetails = _readMap(usageMap['prompt_tokens_details']);
+    final inputDetails = _readMap(usageMap['input_tokens_details']);
+    final completionDetails = _readMap(usageMap['completion_tokens_details']);
+    final outputDetails = _readMap(usageMap['output_tokens_details']);
 
     final cacheRead = _firstInt([
       promptDetails?['cached_tokens'],
       promptDetails?['cache_read_tokens'],
+      inputDetails?['cached_tokens'],
+      inputDetails?['cache_read_tokens'],
       usageMap['prompt_cache_hit_tokens'],
       usageMap['cached_tokens'],
       usageMap['cache_read_input_tokens'],
@@ -60,6 +59,8 @@ class AiTokenUsageParser {
     final cacheWrite = _firstInt([
       promptDetails?['cache_creation_tokens'],
       promptDetails?['cache_write_tokens'],
+      inputDetails?['cache_creation_tokens'],
+      inputDetails?['cache_write_tokens'],
       usageMap['cache_creation_input_tokens'],
       usageMap['cache_creation_tokens'],
       usageMap['cache_write_tokens'],
@@ -72,6 +73,8 @@ class AiTokenUsageParser {
     final reasoning = _firstInt([
       completionDetails?['reasoning_tokens'],
       completionDetails?['thinking_tokens'],
+      outputDetails?['reasoning_tokens'],
+      outputDetails?['thinking_tokens'],
       usageMap['reasoning_tokens'],
       usageMap['thinking_tokens'],
     ]);

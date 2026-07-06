@@ -841,7 +841,22 @@ class AiPromptCacheAffinity {
   }
 
   static bool kindRequiresGatewayForwarding(AiPromptCacheAffinityKind kind) {
-    return kind == AiPromptCacheAffinityKind.grokCompatibleGateway;
+    return switch (kind) {
+      AiPromptCacheAffinityKind.grokCompatibleGateway => true,
+      AiPromptCacheAffinityKind.none ||
+      AiPromptCacheAffinityKind.grokConversationHeader ||
+      AiPromptCacheAffinityKind.openRouterSession ||
+      AiPromptCacheAffinityKind.openAiPromptCacheKey => false,
+    };
+  }
+
+  static bool requiresGatewayForwardingForModel(AiModelConfig model) {
+    final kind = kindForModel(model);
+    if (kindRequiresGatewayForwarding(kind)) {
+      return true;
+    }
+    return kind == AiPromptCacheAffinityKind.openAiPromptCacheKey &&
+        !_isOpenAiEndpoint(model.baseUrl);
   }
 
   static bool requestHasMarker({
