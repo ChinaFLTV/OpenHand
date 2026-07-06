@@ -19,7 +19,6 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
-import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/date_time_format.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/timer_safety.dart';
@@ -292,22 +291,24 @@ class _PmDialogState extends State<_PmDialog> {
     final json = const JsonEncoder.withIndent(
       '  ',
     ).convert(filtered.map((r) => r.toJson()).toList());
-    final messenger = ScaffoldMessenger.maybeOf(context);
     final loc = AppLocalizations.of(context);
-    final copied = await setWebReverseClipboardText(json);
-    if (messenger != null && mounted) {
-      OpenHandSnackBar.showSuccessOn(
-        context,
-        messenger,
-        webReverseClipboardSnackMessage(
-          context: context,
-          base:
-              loc?.webReversePmCopiedCount(filtered.length) ??
-              'Copied ${filtered.length} records',
-          result: copied,
-        ),
-      );
+    late final WebReverseClipboardCopyResult copied;
+    try {
+      copied = await setWebReverseClipboardText(json);
+    } catch (e, st) {
+      silentLog('web_reverse_pm', 'copy', e, st);
+      if (!mounted) return;
+      showWebReverseClipboardErrorSnack(context: context, error: e);
+      return;
     }
+    if (!mounted) return;
+    showWebReverseClipboardSuccessSnack(
+      context: context,
+      base:
+          loc?.webReversePmCopiedCount(filtered.length) ??
+          'Copied ${filtered.length} records',
+      result: copied,
+    );
   }
 
   List<_PmRecord> _filtered() {

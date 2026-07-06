@@ -13,7 +13,6 @@ import 'package:flutter/material.dart';
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
-import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/date_time_format.dart';
 import '../../shared/util/input_value_parsing.dart';
 import 'web_reverse_clipboard.dart';
@@ -80,6 +79,12 @@ class _CoverageDialogState extends State<_CoverageDialog> {
       }
     } catch (e, st) {
       silentLog('web_reverse_coverage_dialog', 'start', e, st);
+      if (mounted) {
+        _toast(
+          false,
+          '${loc?.webReverseCoverageStartFailed ?? 'start failed'}: $e',
+        );
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -145,6 +150,12 @@ class _CoverageDialogState extends State<_CoverageDialog> {
       );
     } catch (e, st) {
       silentLog('web_reverse_coverage_dialog', 'take', e, st);
+      if (mounted) {
+        _toast(
+          false,
+          '${loc?.webReverseCoverageTakeFailed ?? 'take failed'}: $e',
+        );
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -160,6 +171,11 @@ class _CoverageDialogState extends State<_CoverageDialog> {
       );
       setState(() => _running = false);
       _toast(true, loc?.webReverseCoverageStopped ?? 'Stopped');
+    } catch (e, st) {
+      silentLog('web_reverse_coverage_dialog', 'stop', e, st);
+      if (mounted) {
+        _toast(false, '${loc?.tlCallFailed ?? 'Failed'}: $e');
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -179,25 +195,28 @@ class _CoverageDialogState extends State<_CoverageDialog> {
         '(${row.coveredFunctions}/${row.functions} fn)  ${row.url}',
       );
     }
-    final copied = await setWebReverseClipboardText(buf.toString());
+    late final WebReverseClipboardCopyResult copied;
+    try {
+      copied = await setWebReverseClipboardText(buf.toString());
+    } catch (e, st) {
+      silentLog('web_reverse_coverage_dialog', 'copy-report', e, st);
+      if (!mounted) return;
+      showWebReverseClipboardErrorSnack(context: context, error: e);
+      return;
+    }
     if (!mounted) return;
-    _toast(
-      true,
-      webReverseClipboardSnackMessage(
-        context: context,
-        base: loc?.webReverseCoverageReportCopied ?? 'Report copied',
-        result: copied,
-      ),
+    showWebReverseClipboardSuccessSnack(
+      context: context,
+      base: loc?.webReverseCoverageReportCopied ?? 'Report copied',
+      result: copied,
     );
   }
 
   void _toast(bool ok, String msg) {
-    final messenger = ScaffoldMessenger.maybeOf(context);
-    if (messenger == null) return;
     if (ok) {
-      OpenHandSnackBar.showSuccessOn(context, messenger, msg);
+      showWebReverseSuccessSnack(context, msg);
     } else {
-      OpenHandSnackBar.showErrorOn(context, messenger, msg);
+      showWebReverseErrorSnack(context, msg);
     }
   }
 
@@ -470,15 +489,20 @@ class _CoverageDialogState extends State<_CoverageDialog> {
           IconButton(
             tooltip: loc?.webReverseCoverageCopyUrl ?? 'Copy URL',
             onPressed: () async {
-              final copied = await setWebReverseClipboardText(row.url);
+              late final WebReverseClipboardCopyResult copied;
+              try {
+                copied = await setWebReverseClipboardText(row.url);
+              } catch (e, st) {
+                silentLog('web_reverse_coverage_dialog', 'copy-url', e, st);
+                if (!mounted) return;
+                showWebReverseClipboardErrorSnack(context: context, error: e);
+                return;
+              }
               if (!mounted) return;
-              _toast(
-                true,
-                webReverseClipboardSnackMessage(
-                  context: context,
-                  base: loc?.webReverseCoverageCopied ?? 'Copied',
-                  result: copied,
-                ),
+              showWebReverseClipboardSuccessSnack(
+                context: context,
+                base: loc?.webReverseCoverageCopied ?? 'Copied',
+                result: copied,
               );
             },
             icon: const Icon(Icons.copy_rounded, size: 16),

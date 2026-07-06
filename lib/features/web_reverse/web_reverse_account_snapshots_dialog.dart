@@ -13,7 +13,6 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
-import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/date_time_format.dart';
 import 'web_reverse_clipboard.dart';
 import 'web_reverse_dialog_utils.dart';
@@ -56,27 +55,26 @@ class _AccountSnapshotsDialogState extends State<_AccountSnapshotsDialog> {
     final name = _nameCtrl.text.trim();
     if (name.isEmpty) return;
     final loc = AppLocalizations.of(context);
-    final messenger = ScaffoldMessenger.maybeOf(context);
     setState(() => _busy = true);
     try {
       final snap = await widget.controller.captureAccountSnapshot(name);
       if (!mounted) return;
       if (snap != null) {
         _nameCtrl.clear();
-        if (messenger != null) {
-          OpenHandSnackBar.showSuccessOn(
-            context,
-            messenger,
-            loc?.webReverseAccountSnapSavedSnapshot(
-                  snap.name,
-                  snap.cookies.length,
-                ) ??
-                'Saved "${snap.name}" (${snap.cookies.length} cookies)',
-          );
-        }
+        showWebReverseSuccessSnack(
+          context,
+          loc?.webReverseAccountSnapSavedSnapshot(
+                snap.name,
+                snap.cookies.length,
+              ) ??
+              'Saved "${snap.name}" (${snap.cookies.length} cookies)',
+        );
       }
     } catch (e, st) {
       silentLog('web_reverse_account_snapshots_dialog', 'capture', e, st);
+      if (mounted) {
+        showWebReverseErrorSnack(context, loc?.tlCallFailed ?? 'Failed');
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -85,28 +83,23 @@ class _AccountSnapshotsDialogState extends State<_AccountSnapshotsDialog> {
   Future<void> _apply(WebReverseAccountSnapshot snap) async {
     if (_busy) return;
     final loc = AppLocalizations.of(context);
-    final messenger = ScaffoldMessenger.maybeOf(context);
     setState(() => _busy = true);
     try {
       final ok = await widget.controller.restoreAccountSnapshot(snap);
       if (!mounted) return;
-      if (messenger != null) {
-        if (ok) {
-          OpenHandSnackBar.showSuccessOn(
-            context,
-            messenger,
-            loc?.webReverseAccountSnapAppliedSnapshot(snap.name) ??
-                'Applied "${snap.name}". Refresh the page so JS re-reads it.',
-            duration: const Duration(seconds: 4),
-          );
-        } else {
-          OpenHandSnackBar.showErrorOn(
-            context,
-            messenger,
-            loc?.webReverseAccountSnapApplyFailedNoCdp ??
-                'Apply failed: no CDP session',
-          );
-        }
+      if (ok) {
+        showWebReverseSuccessSnack(
+          context,
+          loc?.webReverseAccountSnapAppliedSnapshot(snap.name) ??
+              'Applied "${snap.name}". Refresh the page so JS re-reads it.',
+          duration: const Duration(seconds: 4),
+        );
+      } else {
+        showWebReverseErrorSnack(
+          context,
+          loc?.webReverseAccountSnapApplyFailedNoCdp ??
+              'Apply failed: no CDP session',
+        );
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -123,27 +116,27 @@ class _AccountSnapshotsDialogState extends State<_AccountSnapshotsDialog> {
         .map((s) => s.toJson())
         .toList(growable: false);
     final json = const JsonEncoder.withIndent('  ').convert(list);
-    final copied = await setWebReverseClipboardText(json);
-    if (!mounted) return;
-    final messenger = ScaffoldMessenger.maybeOf(context);
-    if (messenger != null) {
-      OpenHandSnackBar.showSuccessOn(
-        context,
-        messenger,
-        webReverseClipboardSnackMessage(
-          context: context,
-          base:
-              loc?.webReverseAccountSnapCopiedCount(list.length) ??
-              'Copied ${list.length} snapshots JSON to clipboard',
-          result: copied,
-        ),
-      );
+    late final WebReverseClipboardCopyResult copied;
+    try {
+      copied = await setWebReverseClipboardText(json);
+    } catch (e, st) {
+      silentLog('web_reverse_account_snapshots_dialog', 'export', e, st);
+      if (!mounted) return;
+      showWebReverseClipboardErrorSnack(context: context, error: e);
+      return;
     }
+    if (!mounted) return;
+    showWebReverseClipboardSuccessSnack(
+      context: context,
+      base:
+          loc?.webReverseAccountSnapCopiedCount(list.length) ??
+          'Copied ${list.length} snapshots JSON to clipboard',
+      result: copied,
+    );
   }
 
   Future<void> _import() async {
     final loc = AppLocalizations.of(context);
-    final messenger = ScaffoldMessenger.maybeOf(context);
     final data = await Clipboard.getData('text/plain');
     final text = data?.text?.trim() ?? '';
     if (text.isEmpty) return;
@@ -157,25 +150,19 @@ class _AccountSnapshotsDialogState extends State<_AccountSnapshotsDialog> {
       ];
       widget.controller.setAccountSnapshots(merged);
       if (!mounted) return;
-      if (messenger != null) {
-        OpenHandSnackBar.showSuccessOn(
-          context,
-          messenger,
-          loc?.webReverseAccountSnapImportedCount(entries.length) ??
-              'Imported ${entries.length} snapshots',
-        );
-      }
+      showWebReverseSuccessSnack(
+        context,
+        loc?.webReverseAccountSnapImportedCount(entries.length) ??
+            'Imported ${entries.length} snapshots',
+      );
     } catch (e, st) {
       silentLog('web_reverse_account_snapshots_dialog', 'import', e, st);
       if (!mounted) return;
-      if (messenger != null) {
-        OpenHandSnackBar.showErrorOn(
-          context,
-          messenger,
-          loc?.webReverseAccountSnapNotSnapshotJson ??
-              'Clipboard is not a snapshot JSON',
-        );
-      }
+      showWebReverseErrorSnack(
+        context,
+        loc?.webReverseAccountSnapNotSnapshotJson ??
+            'Clipboard is not a snapshot JSON',
+      );
     }
   }
 
