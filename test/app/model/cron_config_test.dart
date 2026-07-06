@@ -39,10 +39,25 @@ void main() {
       'retry_count': kCronMaxRetryCount + 100,
       'timeout_seconds': 0,
       'max_retry_delay_seconds': kCronMaxRetryDelaySeconds + 100,
+      'consecutive_failures': -5,
     });
 
     expect(entry.retryCount, kCronMaxRetryCount);
     expect(entry.timeoutSeconds, kCronMinTimeoutSeconds);
     expect(entry.maxRetryDelaySeconds, kCronMaxRetryDelaySeconds);
+    expect(entry.consecutiveFailures, 0);
+  });
+
+  test('cron execution record drops negative counters from json', () {
+    final record = CronExecutionRecord.fromJson(<String, Object?>{
+      'id': 'record-1',
+      'cron_id': 'cron-1',
+      'started_at': '2026-01-01T00:00:00.000Z',
+      'elapsed_ms': -10,
+      'retry_attempt': -2,
+    });
+
+    expect(record.elapsedMs, 0);
+    expect(record.retryAttempt, 0);
   });
 }

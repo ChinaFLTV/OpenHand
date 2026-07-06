@@ -286,9 +286,8 @@ class CronEntry {
       lastRunAt: dateTimeFromValue(json['last_run_at']),
       nextRunAt: dateTimeFromValue(json['next_run_at']),
       lastExitCode: optionalIntFromValue(json['last_exit_code']),
-      consecutiveFailures: intFromValue(
+      consecutiveFailures: _cronNonNegativeCounter(
         json['consecutive_failures'],
-        fallback: 0,
       ),
       createdAt: dateTimeFromValue(json['created_at']),
       updatedAt: dateTimeFromValue(json['updated_at']),
@@ -534,8 +533,8 @@ class CronExecutionRecord {
       stdout: '${json['stdout'] ?? ''}'.trim(),
       stderr: '${json['stderr'] ?? ''}'.trim(),
       errorMessage: nullIfBlank('${json['error_message'] ?? ''}'),
-      elapsedMs: intFromValue(json['elapsed_ms'], fallback: 0),
-      retryAttempt: intFromValue(json['retry_attempt'], fallback: 0),
+      elapsedMs: _cronNonNegativeCounter(json['elapsed_ms']),
+      retryAttempt: _cronNonNegativeCounter(json['retry_attempt']),
       runAsUser: nullIfBlank('${json['run_as_user'] ?? ''}'),
       workingDirectory: nullIfBlank('${json['working_directory'] ?? ''}'),
       environment: keyValueMapFromValue(json['environment']),
@@ -604,6 +603,10 @@ class CronExecutionRecord {
       'trigger_type': triggerType,
     };
   }
+}
+
+int _cronNonNegativeCounter(Object? value) {
+  return nonNegativeIntFromValue(value, fallback: 0);
 }
 
 class _CronIntRange {
