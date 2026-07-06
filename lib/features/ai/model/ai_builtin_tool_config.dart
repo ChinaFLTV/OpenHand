@@ -389,6 +389,32 @@ class AiBuiltinToolConfig {
 
   /// 重试间隔（毫秒）的硬上限：单次等待最多 30s，避免任意大数把流程卡死。
   static const int maxRetryBackoffMs = 30000;
+  static const IntValueRange _maxRetriesRange = IntValueRange(
+    fallback: 0,
+    min: 0,
+    max: maxRetriesUpperBound,
+  );
+  static const IntValueRange _retryBackoffMsRange = IntValueRange(
+    fallback: defaultRetryBackoffMs,
+    min: 0,
+    max: maxRetryBackoffMs,
+  );
+
+  static int maxRetriesFromValue(Object? value) {
+    return _maxRetriesRange.fromValue(value);
+  }
+
+  static int normalizeMaxRetries(int value) {
+    return _maxRetriesRange.normalize(value);
+  }
+
+  static int retryBackoffMsFromValue(Object? value) {
+    return _retryBackoffMsRange.fromValue(value);
+  }
+
+  static int normalizeRetryBackoffMs(int value) {
+    return _retryBackoffMsRange.normalize(value);
+  }
 
   /// 工具类型标识。
   final AiBuiltinToolKind kind;
@@ -461,21 +487,11 @@ class AiBuiltinToolConfig {
   /// 实际生效的重试次数（已 clamp 到上限）。
   int get effectiveMaxRetries {
     if (!retryOnFailure) return 0;
-    return clampedIntFromValue(
-      maxRetries,
-      fallback: 0,
-      min: 0,
-      max: maxRetriesUpperBound,
-    );
+    return normalizeMaxRetries(maxRetries);
   }
 
   /// 实际生效的退避基线（毫秒），已 clamp 到 [0, [maxRetryBackoffMs]]。
-  int get effectiveRetryBackoffMs => clampedIntFromValue(
-    retryBackoffMs,
-    fallback: defaultRetryBackoffMs,
-    min: 0,
-    max: maxRetryBackoffMs,
-  );
+  int get effectiveRetryBackoffMs => normalizeRetryBackoffMs(retryBackoffMs);
 
   /// 计算第 [attemptIndex]（1-based: 第 1 次重试 = 1）次重试前应等待的毫秒数。
   /// 指数退避：base * 2^(attemptIndex-1)，上限 [maxRetryBackoffMs]。
@@ -591,8 +607,10 @@ class AiBuiltinToolConfig {
           ? null
           : (requireConfirmation ?? this.requireConfirmation),
       retryOnFailure: retryOnFailure ?? this.retryOnFailure,
-      maxRetries: maxRetries ?? this.maxRetries,
-      retryBackoffMs: retryBackoffMs ?? this.retryBackoffMs,
+      maxRetries: normalizeMaxRetries(maxRetries ?? this.maxRetries),
+      retryBackoffMs: normalizeRetryBackoffMs(
+        retryBackoffMs ?? this.retryBackoffMs,
+      ),
       isCustom: isCustom ?? this.isCustom,
       customToolName: clearCustomToolName
           ? null
@@ -630,8 +648,8 @@ class AiBuiltinToolConfig {
       if (requireConfirmation != null)
         'require_confirmation': requireConfirmation,
       'retry_on_failure': retryOnFailure,
-      'max_retries': maxRetries,
-      'retry_backoff_ms': retryBackoffMs,
+      'max_retries': normalizeMaxRetries(maxRetries),
+      'retry_backoff_ms': normalizeRetryBackoffMs(retryBackoffMs),
       'is_custom': isCustom,
       if (customToolName != null) 'custom_tool_name': customToolName,
       if (customDescription != null) 'custom_description': customDescription,
@@ -701,18 +719,8 @@ class AiBuiltinToolConfig {
       timeoutSeconds: optionalIntFromValue(json['timeout_seconds']),
       requireConfirmation: optionalBoolFromValue(json['require_confirmation']),
       retryOnFailure: boolFromValue(json['retry_on_failure']),
-      maxRetries: clampedIntFromValue(
-        json['max_retries'],
-        fallback: 0,
-        min: 0,
-        max: maxRetriesUpperBound,
-      ),
-      retryBackoffMs: clampedIntFromValue(
-        json['retry_backoff_ms'],
-        fallback: defaultRetryBackoffMs,
-        min: 0,
-        max: maxRetryBackoffMs,
-      ),
+      maxRetries: maxRetriesFromValue(json['max_retries']),
+      retryBackoffMs: retryBackoffMsFromValue(json['retry_backoff_ms']),
       isCustom: boolFromValue(json['is_custom']),
       customToolName: optionalStringFromValue(json['custom_tool_name']),
       customDescription: optionalStringFromValue(json['custom_description']),
