@@ -48,6 +48,36 @@ const int kWebGatewayMaxLogMaxFiles = 100;
 const int kWebGatewayDefaultLogLazyReadPageSize = 300;
 const int kWebGatewayMinLogLazyReadPageSize = 50;
 const int kWebGatewayMaxLogLazyReadPageSize = 5000;
+const _IntRange _healthTimeoutRange = _IntRange(
+  fallback: kWebGatewayDefaultHealthTimeoutMs,
+  min: kWebGatewayMinHealthTimeoutMs,
+  max: kWebGatewayMaxHealthTimeoutMs,
+);
+const _IntRange _healthStatusCodeRange = _IntRange(
+  fallback: kWebGatewayDefaultHealthStatusCode,
+  min: kWebGatewayMinHealthStatusCode,
+  max: kWebGatewayMaxHealthStatusCode,
+);
+const _IntRange _logFileMaxBytesRange = _IntRange(
+  fallback: kWebGatewayDefaultLogFileMaxBytes,
+  min: kWebGatewayMinLogFileMaxBytes,
+  max: kWebGatewayMaxLogFileMaxBytes,
+);
+const _IntRange _logRotationDaysRange = _IntRange(
+  fallback: kWebGatewayDefaultLogRotationDays,
+  min: kWebGatewayMinLogRotationDays,
+  max: kWebGatewayMaxLogRotationDays,
+);
+const _IntRange _logMaxFilesRange = _IntRange(
+  fallback: kWebGatewayDefaultLogMaxFiles,
+  min: kWebGatewayMinLogMaxFiles,
+  max: kWebGatewayMaxLogMaxFiles,
+);
+const _IntRange _logLazyReadPageSizeRange = _IntRange(
+  fallback: kWebGatewayDefaultLogLazyReadPageSize,
+  min: kWebGatewayMinLogLazyReadPageSize,
+  max: kWebGatewayMaxLogLazyReadPageSize,
+);
 const Set<String> webGatewayKnowledgeBaseBuiltinToolNames = <String>{
   'KnowledgeSearch',
   'KnowledgeRead',
@@ -174,17 +204,9 @@ class WebGatewayHealthCheckConfig {
       path: _nonEmptyString(json['path'], '/api/health'),
       method: _nonEmptyString(json['method'], 'GET').toUpperCase(),
       queryParameters: _stringMap(json['query_parameters']),
-      timeoutMs: clampedIntFromValue(
-        json['timeout_ms'],
-        fallback: kWebGatewayDefaultHealthTimeoutMs,
-        min: kWebGatewayMinHealthTimeoutMs,
-        max: kWebGatewayMaxHealthTimeoutMs,
-      ),
-      expectedStatusCode: clampedIntFromValue(
+      timeoutMs: _healthTimeoutRange.fromJson(json['timeout_ms']),
+      expectedStatusCode: _healthStatusCodeRange.fromJson(
         json['expected_status_code'],
-        fallback: kWebGatewayDefaultHealthStatusCode,
-        min: kWebGatewayMinHealthStatusCode,
-        max: kWebGatewayMaxHealthStatusCode,
       ),
       responseContains: _stringValue(json['response_contains']).trim(),
       followRedirects: boolFromValue(json['follow_redirects']),
@@ -228,16 +250,8 @@ class WebGatewayHealthCheckConfig {
       path: _nonEmptyString(path, '/api/health'),
       method: _nonEmptyString(method, 'GET').toUpperCase(),
       queryParameters: _stringMap(queryParameters),
-      timeoutMs: clampIntToRange(
-        timeoutMs,
-        min: kWebGatewayMinHealthTimeoutMs,
-        max: kWebGatewayMaxHealthTimeoutMs,
-      ),
-      expectedStatusCode: clampIntToRange(
-        expectedStatusCode,
-        min: kWebGatewayMinHealthStatusCode,
-        max: kWebGatewayMaxHealthStatusCode,
-      ),
+      timeoutMs: _healthTimeoutRange.normalize(timeoutMs),
+      expectedStatusCode: _healthStatusCodeRange.normalize(expectedStatusCode),
       responseContains: responseContains.trim(),
       followRedirects: followRedirects,
     );
@@ -269,33 +283,15 @@ class WebGatewayLogConfig {
 
   factory WebGatewayLogConfig.fromJson(Map<String, Object?> json) {
     return WebGatewayLogConfig(
-      fileMaxBytes: clampedIntFromValue(
-        json['file_max_bytes'],
-        fallback: kWebGatewayDefaultLogFileMaxBytes,
-        min: kWebGatewayMinLogFileMaxBytes,
-        max: kWebGatewayMaxLogFileMaxBytes,
-      ),
-      rotationDays: clampedIntFromValue(
-        json['rotation_days'],
-        fallback: kWebGatewayDefaultLogRotationDays,
-        min: kWebGatewayMinLogRotationDays,
-        max: kWebGatewayMaxLogRotationDays,
-      ),
-      maxFiles: clampedIntFromValue(
-        json['max_files'],
-        fallback: kWebGatewayDefaultLogMaxFiles,
-        min: kWebGatewayMinLogMaxFiles,
-        max: kWebGatewayMaxLogMaxFiles,
-      ),
+      fileMaxBytes: _logFileMaxBytesRange.fromJson(json['file_max_bytes']),
+      rotationDays: _logRotationDaysRange.fromJson(json['rotation_days']),
+      maxFiles: _logMaxFilesRange.fromJson(json['max_files']),
       levels: _stringList(
         json['levels'],
         fallback: const <String>['info', 'warn', 'error', 'debug'],
       ),
-      lazyReadPageSize: clampedIntFromValue(
+      lazyReadPageSize: _logLazyReadPageSizeRange.fromJson(
         json['lazy_read_page_size'],
-        fallback: kWebGatewayDefaultLogLazyReadPageSize,
-        min: kWebGatewayMinLogLazyReadPageSize,
-        max: kWebGatewayMaxLogLazyReadPageSize,
       ),
     );
   }
@@ -324,27 +320,11 @@ class WebGatewayLogConfig {
 
   WebGatewayLogConfig normalized() {
     return WebGatewayLogConfig(
-      fileMaxBytes: clampIntToRange(
-        fileMaxBytes,
-        min: kWebGatewayMinLogFileMaxBytes,
-        max: kWebGatewayMaxLogFileMaxBytes,
-      ),
-      rotationDays: clampIntToRange(
-        rotationDays,
-        min: kWebGatewayMinLogRotationDays,
-        max: kWebGatewayMaxLogRotationDays,
-      ),
-      maxFiles: clampIntToRange(
-        maxFiles,
-        min: kWebGatewayMinLogMaxFiles,
-        max: kWebGatewayMaxLogMaxFiles,
-      ),
+      fileMaxBytes: _logFileMaxBytesRange.normalize(fileMaxBytes),
+      rotationDays: _logRotationDaysRange.normalize(rotationDays),
+      maxFiles: _logMaxFilesRange.normalize(maxFiles),
       levels: _stringList(levels),
-      lazyReadPageSize: clampIntToRange(
-        lazyReadPageSize,
-        min: kWebGatewayMinLogLazyReadPageSize,
-        max: kWebGatewayMaxLogLazyReadPageSize,
-      ),
+      lazyReadPageSize: _logLazyReadPageSizeRange.normalize(lazyReadPageSize),
     );
   }
 
@@ -876,4 +856,24 @@ Set<T> _enumSet<T>(Object? raw, T? Function(String?) parser, Set<T> fallback) {
     if (parsed != null) result.add(parsed);
   }
   return result.isEmpty ? Set<T>.from(fallback) : result;
+}
+
+class _IntRange {
+  const _IntRange({
+    required this.fallback,
+    required this.min,
+    required this.max,
+  });
+
+  final int fallback;
+  final int min;
+  final int max;
+
+  int fromJson(Object? value) {
+    return clampedIntFromValue(value, fallback: fallback, min: min, max: max);
+  }
+
+  int normalize(int value) {
+    return clampIntToRange(value, min: min, max: max);
+  }
 }

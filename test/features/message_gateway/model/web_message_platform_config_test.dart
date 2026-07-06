@@ -83,5 +83,33 @@ void main() {
         WebGatewayConversationMode.normal,
       });
     });
+
+    test('fromJson clamps nested health and log numeric limits', () {
+      final config = WebMessagePlatformConfig.fromJson(<String, Object?>{
+        'health_check': <String, Object?>{
+          'timeout_ms': 999999,
+          'expected_status_code': -1,
+        },
+        'log_config': <String, Object?>{
+          'file_max_bytes': 1,
+          'rotation_days': 999,
+          'max_files': -10,
+          'lazy_read_page_size': 999999,
+        },
+      });
+
+      expect(config.healthCheck.timeoutMs, kWebGatewayMaxHealthTimeoutMs);
+      expect(
+        config.healthCheck.expectedStatusCode,
+        kWebGatewayMinHealthStatusCode,
+      );
+      expect(config.logConfig.fileMaxBytes, kWebGatewayMinLogFileMaxBytes);
+      expect(config.logConfig.rotationDays, kWebGatewayMaxLogRotationDays);
+      expect(config.logConfig.maxFiles, kWebGatewayMinLogMaxFiles);
+      expect(
+        config.logConfig.lazyReadPageSize,
+        kWebGatewayMaxLogLazyReadPageSize,
+      );
+    });
   });
 }
