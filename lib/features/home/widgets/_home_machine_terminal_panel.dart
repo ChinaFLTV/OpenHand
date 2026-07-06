@@ -535,6 +535,7 @@ class _MachineTerminalHistoryDialogState
 
   final ScrollController _verticalScrollController = ScrollController();
   String? _deletingTerminalId;
+  String? _restoringTerminalId;
 
   @override
   void dispose() {
@@ -547,6 +548,8 @@ class _MachineTerminalHistoryDialogState
     final terminalService = context.watch<MachineTerminalService>();
     final workspace = terminalService.snapshot(widget.sessionId);
     final terminals = workspace?.terminals ?? const <MachineTerminalSnapshot>[];
+    final activeTerminals =
+        workspace?.attachedTerminals ?? const <MachineTerminalSnapshot>[];
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final viewport = MediaQuery.sizeOf(context);
@@ -588,8 +591,8 @@ class _MachineTerminalHistoryDialogState
               ),
               subtitle: openHandLocalizedText(
                 context,
-                zh: '当前线程关联 ${terminals.length} 个终端会话 · 当前 ${activeTerminalId.isEmpty ? '-' : activeTerminalId}',
-                en: '${terminals.length} terminal sessions · active ${activeTerminalId.isEmpty ? '-' : activeTerminalId}',
+                zh: '当前线程关联 ${terminals.length} 个终端会话 · 面板 ${activeTerminals.length} 个 · 当前 ${activeTerminalId.isEmpty ? '-' : activeTerminalId}',
+                en: '${terminals.length} terminal sessions · ${activeTerminals.length} in panel · active ${activeTerminalId.isEmpty ? '-' : activeTerminalId}',
               ),
               onClose: () => Navigator.of(context).pop(),
             ),
@@ -750,6 +753,8 @@ class _MachineTerminalHistoryDialogState
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final deleting = _deletingTerminalId == terminal.terminalId;
+    final restoring = _restoringTerminalId == terminal.terminalId;
+    final actionDisabled = deleting || restoring;
     return AnimatedContainer(
       duration: openHandMotionDuration(
         context,
@@ -772,10 +777,10 @@ class _MachineTerminalHistoryDialogState
             child: Material(
               color: Colors.transparent,
               child: InkWell(
-                mouseCursor: deleting
+                mouseCursor: actionDisabled
                     ? SystemMouseCursors.basic
                     : SystemMouseCursors.click,
-                onTap: deleting ? null : () => widget.onReplay(terminal),
+                onTap: actionDisabled ? null : () => widget.onReplay(terminal),
                 hoverColor: cs.primary.withValues(alpha: 0.045),
                 splashColor: cs.primary.withValues(alpha: 0.08),
                 highlightColor: cs.primary.withValues(alpha: 0.055),
@@ -796,6 +801,14 @@ class _MachineTerminalHistoryDialogState
                                 context,
                                 zh: '当前',
                                 en: 'Active',
+                              ),
+                            )
+                          : !terminal.attached
+                          ? _MachineTerminalTinyBadge(
+                              label: openHandLocalizedText(
+                                context,
+                                zh: '已关闭',
+                                en: 'Closed',
                               ),
                             )
                           : null,
@@ -867,7 +880,29 @@ class _MachineTerminalHistoryDialogState
                     zh: '查看详情',
                     en: 'View Details',
                   ),
-                  onPressed: deleting ? null : () => widget.onReplay(terminal),
+                  onPressed: actionDisabled
+                      ? null
+                      : () => widget.onReplay(terminal),
+                ),
+                const SizedBox(width: 6),
+                _MachineTerminalMiniActionButton(
+                  icon: restoring
+                      ? Icons.hourglass_top_rounded
+                      : Icons.restore_rounded,
+                  tooltip: terminal.attached
+                      ? openHandLocalizedText(
+                          context,
+                          zh: '已在终端面板中',
+                          en: 'Already in Panel',
+                        )
+                      : openHandLocalizedText(
+                          context,
+                          zh: '恢复到终端面板',
+                          en: 'Restore to Panel',
+                        ),
+                  onPressed: actionDisabled || terminal.attached
+                      ? null
+                      : () => _restoreTerminal(terminal),
                 ),
                 const SizedBox(width: 6),
                 _MachineTerminalMiniActionButton(
@@ -880,7 +915,9 @@ class _MachineTerminalHistoryDialogState
                     en: 'Delete',
                   ),
                   destructive: true,
-                  onPressed: deleting ? null : () => _deleteTerminal(terminal),
+                  onPressed: actionDisabled
+                      ? null
+                      : () => _deleteTerminal(terminal),
                 ),
                 const SizedBox(width: 10),
               ],
@@ -889,6 +926,50 @@ class _MachineTerminalHistoryDialogState
         ],
       ),
     );
+  }
+
+  Future<void> _restoreTerminal(MachineTerminalSnapshot terminal) async {
+    if (_restoringTerminalId != null || _deletingTerminalId != null) return;
+    setState(() => _restoringTerminalId = terminal.terminalId);
+    try {
+      await context.read<MachineTerminalService>().control(
+        sessionId: widget.sessionId,
+        action: 'restore',
+        terminalId: terminal.terminalId,
+      );
+      if (!mounted) return;
+      showOpenHandSnackBar(
+        context,
+        SnackBar(
+          content: Text(
+            openHandLocalizedText(
+              context,
+              zh: '终端会话已恢复到面板。',
+              en: 'Terminal restored to the panel.',
+            ),
+          ),
+        ),
+      );
+    } catch (error, stack) {
+      silentLog(
+        'openhand_home',
+        'restore machine terminal history',
+        error,
+        stack,
+      );
+      if (!mounted) return;
+      showFriendlyErrorSnackBar(
+        context,
+        message: '$error',
+        fallback: openHandLocalizedText(
+          context,
+          zh: '恢复终端会话失败。',
+          en: 'Failed to restore terminal.',
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _restoringTerminalId = null);
+    }
   }
 
   Widget _historyCell(
@@ -1035,7 +1116,7 @@ class _MachineTerminalHistoryColumnLayout {
   static const double _preferredCommands = 62;
   static const double _preferredOutput = 88;
   static const double _preferredTime = 168;
-  static const double _preferredActions = 108;
+  static const double _preferredActions = 142;
 
   static const double _compactTerminal = 112;
   static const double _compactStatus = 84;
@@ -1044,7 +1125,7 @@ class _MachineTerminalHistoryColumnLayout {
   static const double _compactCommands = 54;
   static const double _compactOutput = 76;
   static const double _compactTime = 154;
-  static const double _compactActions = 88;
+  static const double _compactActions = 116;
 
   static const double _preferredTableWidth =
       _preferredTerminal +
@@ -1927,13 +2008,14 @@ class _MachineTerminalTabs extends StatelessWidget {
       context,
       const Duration(milliseconds: 160),
     );
-    final canCloseTabs = workspace.terminals.length > 1;
+    final terminals = workspace.attachedTerminals;
+    final canCloseTabs = terminals.isNotEmpty;
     return SizedBox(
       height: 34,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         itemBuilder: (context, index) {
-          final terminal = workspace.terminals[index];
+          final terminal = terminals[index];
           final selected = terminal.terminalId == workspace.activeTerminalId;
           return InkWell(
             borderRadius: BorderRadius.circular(8),
@@ -1988,7 +2070,7 @@ class _MachineTerminalTabs extends StatelessWidget {
           );
         },
         separatorBuilder: (_, _) => const SizedBox(width: 7),
-        itemCount: workspace.terminals.length,
+        itemCount: terminals.length,
       ),
     );
   }
@@ -2355,6 +2437,7 @@ String _terminalHistoryDetailText(MachineTerminalSnapshot snapshot) {
     ..writeln('shell: ${snapshot.shell}')
     ..writeln('working_directory: ${snapshot.workingDirectory}')
     ..writeln('size: ${snapshot.columns}x${snapshot.rows}')
+    ..writeln('attached: ${snapshot.attached}')
     ..writeln('pid: ${snapshot.pid ?? '-'}')
     ..writeln('started_at: ${snapshot.startedAt.toLocal().toIso8601String()}')
     ..writeln('updated_at: ${snapshot.updatedAt.toLocal().toIso8601String()}')

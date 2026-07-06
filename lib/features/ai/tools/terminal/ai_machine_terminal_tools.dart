@@ -337,6 +337,7 @@ String _terminalSnapshotText(
       'terminal_id: ${terminal.terminalId}\n'
       'identity: ${terminal.identity}\n'
       'status: ${terminal.status.storageValue}\n'
+      'attached: ${terminal.attached}\n'
       'pid: ${terminal.pid ?? ''}\n'
       'exit_code: ${terminal.exitCode ?? ''}\n'
       'shell: ${terminal.shell}\n'

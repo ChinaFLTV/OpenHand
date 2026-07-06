@@ -215,6 +215,8 @@ export interface MachineTerminalSnapshot {
   history_output_characters?: number;
   command_count?: number;
   command_history?: MachineTerminalCommandHistoryEntry[];
+  attached?: boolean;
+  has_user_activity?: boolean;
   started_at: string;
   updated_at: string;
   pid?: number | null;

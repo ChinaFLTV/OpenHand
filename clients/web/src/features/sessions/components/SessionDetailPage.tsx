@@ -1243,7 +1243,7 @@ function stabilizeAssociatedKnowledgeBaseMetadataByMessageId(
   return stable;
 }
 
-type ComposerIconName = 'attachment' | 'chat' | 'chevronDown' | 'chevronUp' | 'close' | 'copy' | 'edit' | 'file' | 'follow' | 'goal' | 'guide' | 'history' | 'image' | 'knowledge' | 'model' | 'mode' | 'pause' | 'plan' | 'play' | 'permission' | 'plus' | 'research' | 'refresh' | 'send' | 'sound' | 'spark' | 'stop' | 'trash' | 'video';
+type ComposerIconName = 'attachment' | 'chat' | 'chevronDown' | 'chevronUp' | 'close' | 'copy' | 'edit' | 'file' | 'follow' | 'goal' | 'guide' | 'history' | 'image' | 'knowledge' | 'model' | 'mode' | 'pause' | 'plan' | 'play' | 'permission' | 'plus' | 'research' | 'refresh' | 'restore' | 'send' | 'sound' | 'spark' | 'stop' | 'trash' | 'video';
 
 function sessionModeIconName(mode: string): ComposerIconName {
   if (mode === 'plan') return 'plan';
@@ -1447,6 +1447,14 @@ function ComposerIcon({ name, size = 18 }: { name: ComposerIconName; size?: numb
         <svg {...common}>
           <path {...stroke} d="M10.5 18a7.5 7.5 0 1 1 5.3-2.2L21 21" />
           <path {...stroke} d="M8 10h5M8 13h3" />
+        </svg>
+      );
+    case 'restore':
+      return (
+        <svg {...common}>
+          <path {...stroke} d="M4 12a8 8 0 1 0 2.7-6" />
+          <path {...stroke} d="M4 4.5v5h5" />
+          <path {...stroke} d="M12 8v4l3 2" />
         </svg>
       );
     case 'send':
@@ -1663,7 +1671,7 @@ function MachineTerminalPanel({ sessionId }: { sessionId: string }) {
         includeHistory: options.includeHistory,
       });
       setWorkspace(res.terminal);
-      if (action === 'clear' || action === 'select' || action === 'new' || action === 'duplicate' || action === 'close' || action === 'delete') {
+      if (action === 'clear' || action === 'select' || action === 'new' || action === 'duplicate' || action === 'close' || action === 'restore' || action === 'delete') {
         lastAnsiOutputRef.current = '';
         terminalRef.current?.reset();
         const nextActive = res.terminal.active_terminal ?? null;
@@ -1694,7 +1702,7 @@ function MachineTerminalPanel({ sessionId }: { sessionId: string }) {
     }
   }
 
-  const tabs = workspace?.terminals ?? [];
+  const tabs = (workspace?.terminals ?? []).filter(terminalAttached);
   const status = active?.status ?? 'starting';
   return (
     <>
@@ -1749,7 +1757,7 @@ function MachineTerminalPanel({ sessionId }: { sessionId: string }) {
           <button type="button" title={t('terminal.history', '执行历史')} onClick={() => void openHistoryDialog()} class="oh-machine-terminal-icon oh-tap-press" disabled={Boolean(!workspace || historyRefreshing)}>
             <ComposerIcon name="history" size={16} />
           </button>
-          <button type="button" title={t('terminal.close', '关闭终端')} onClick={() => void runControl('close', active?.terminal_id)} class="oh-machine-terminal-icon oh-tap-press" disabled={Boolean(busyAction || tabs.length <= 1)}>
+          <button type="button" title={t('terminal.close', '关闭终端')} onClick={() => void runControl('close', active?.terminal_id)} class="oh-machine-terminal-icon oh-tap-press" disabled={Boolean(busyAction || !active)}>
             <ComposerIcon name="close" size={16} />
           </button>
         </div>
@@ -1786,6 +1794,7 @@ function MachineTerminalPanel({ sessionId }: { sessionId: string }) {
           busyAction={historyRefreshing ? 'history' : busyAction}
           onClose={() => setHistoryOpen(false)}
           onOpenDetails={(terminal) => setDetailTerminal(terminal)}
+          onRestore={(terminalId) => runControl('restore', terminalId, { includeHistory: true, throwOnError: true })}
           onDelete={(terminalId) => runControl('delete', terminalId, { includeHistory: true, throwOnError: true })}
         />
       ) : null}
@@ -1804,18 +1813,22 @@ function MachineTerminalHistoryDialog({
   busyAction,
   onClose,
   onOpenDetails,
+  onRestore,
   onDelete,
 }: {
   workspace: MachineTerminalWorkspace;
   busyAction: string | null;
   onClose: () => void;
   onOpenDetails: (terminal: MachineTerminalSnapshot) => void;
+  onRestore: (terminalId: string) => Promise<void>;
   onDelete: (terminalId: string) => Promise<void>;
 }) {
   const { closing, requestClose } = useDialogExitMotion(onClose);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [restoringId, setRestoringId] = useState<string | null>(null);
   const [pendingDeleteTerminal, setPendingDeleteTerminal] = useState<MachineTerminalSnapshot | null>(null);
   const terminals = workspace.terminals ?? [];
+  const attachedCount = terminals.filter(terminalAttached).length;
   const commandTotal = terminals.reduce((total, item) => total + terminalCommandCount(item), 0);
   const outputTotal = terminals.reduce((total, item) => total + terminalHistoryOutputCharacters(item), 0);
 
@@ -1832,6 +1845,20 @@ function MachineTerminalHistoryDialog({
       // runControl already reports the concrete error.
     } finally {
       setDeletingId(null);
+    }
+  }
+
+  async function restoreTerminal(terminal: MachineTerminalSnapshot): Promise<void> {
+    if (terminalAttached(terminal) || restoringId || deletingId || busyAction) return;
+    const terminalId = terminal.terminal_id;
+    setRestoringId(terminalId);
+    try {
+      await onRestore(terminalId);
+      showSnackbar(t('terminal.history.restore.ok', '终端会话已恢复到面板'), { tone: 'success' });
+    } catch {
+      // runControl already reports the concrete error.
+    } finally {
+      setRestoringId(null);
     }
   }
 
@@ -1860,7 +1887,7 @@ function MachineTerminalHistoryDialog({
           <div class="min-w-0 flex-1">
             <h2>{t('terminal.history.title', '终端执行历史')}</h2>
             <p>
-              {t('terminal.history.subtitle', '当前线程关联终端会话')} {terminals.length} · {t('terminal.history.active', '当前')} {workspace.active_terminal_id || '-'}
+              {t('terminal.history.subtitle', '当前线程关联终端会话')} {terminals.length} · {t('terminal.history.panelCount', '面板')} {attachedCount} · {t('terminal.history.active', '当前')} {workspace.active_terminal_id || '-'}
             </p>
           </div>
           <button type="button" class="oh-machine-terminal-dialog-close oh-tap-press" onClick={requestClose} title={t('common.close', '关闭')}>
@@ -1907,7 +1934,9 @@ function MachineTerminalHistoryDialog({
                 {terminals.map((terminal) => {
                   const active = terminal.terminal_id === workspace.active_terminal_id;
                   const deleting = deletingId === terminal.terminal_id;
-                  const actionDisabled = Boolean(deleting || busyAction);
+                  const restoring = restoringId === terminal.terminal_id;
+                  const attached = terminalAttached(terminal);
+                  const actionDisabled = Boolean(deleting || restoring || busyAction);
                   return (
                     <tr
                       key={terminal.terminal_id}
@@ -1926,6 +1955,7 @@ function MachineTerminalHistoryDialog({
                           <span class={`oh-machine-terminal-dot is-${terminal.status}`} />
                           <span class="truncate">{terminal.terminal_id}</span>
                           {active ? <span class="oh-machine-terminal-history-active">{t('terminal.history.active', '当前')}</span> : null}
+                          {!attached ? <span class="oh-machine-terminal-history-active is-closed">{t('terminal.history.closed', '已关闭')}</span> : null}
                         </span>
                       </td>
                       <td><span class={`oh-machine-terminal-history-status is-${terminal.status}`}>{terminalStatusLabel(terminal.status)}</span></td>
@@ -1948,6 +1978,18 @@ function MachineTerminalHistoryDialog({
                             disabled={actionDisabled}
                           >
                             <ComposerIcon name="file" size={15} />
+                          </button>
+                          <button
+                            type="button"
+                            class="oh-machine-terminal-history-action oh-tap-press"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              void restoreTerminal(terminal);
+                            }}
+                            title={attached ? t('terminal.history.restore.attached', '已在终端面板中') : t('terminal.history.restore', '恢复到终端面板')}
+                            disabled={actionDisabled || attached}
+                          >
+                            <ComposerIcon name={restoring ? 'refresh' : 'restore'} size={15} />
                           </button>
                           <button
                             type="button"
@@ -2221,6 +2263,10 @@ function terminalCommandCount(terminal: MachineTerminalSnapshot): number {
   return terminal.command_count ?? terminal.command_history?.length ?? 0;
 }
 
+function terminalAttached(terminal: MachineTerminalSnapshot): boolean {
+  return terminal.attached !== false;
+}
+
 function terminalHistoryOutputCharacters(terminal: MachineTerminalSnapshot): number {
   return terminal.history_output_characters ?? terminal.output_characters ?? 0;
 }
@@ -2263,6 +2309,7 @@ function terminalHistoryPlainText(terminal: MachineTerminalSnapshot): string {
     `shell: ${terminal.shell}`,
     `working_directory: ${terminal.working_directory}`,
     `size: ${terminal.columns}x${terminal.rows}`,
+    `attached: ${terminalAttached(terminal)}`,
     `pid: ${terminal.pid ?? '-'}`,
     `started_at: ${terminal.started_at}`,
     `updated_at: ${terminal.updated_at}`,

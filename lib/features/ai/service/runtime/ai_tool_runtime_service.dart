@@ -2683,7 +2683,7 @@ class AiToolRuntimeService {
       kind: AiBuiltinToolKind.machineTerminalControl,
       name: 'MachineTerminalControl',
       description:
-          'Machine Expert only. Control the OpenHand terminal panel lifecycle: start, stop, restart, clear, new, duplicate, close, or select.',
+          'Machine Expert only. Control the OpenHand terminal panel lifecycle: start, stop, restart, clear, new, duplicate, close, restore, or select.',
       parameters: const <String, Object?>{
         'type': 'object',
         'properties': <String, Object?>{
@@ -2698,13 +2698,14 @@ class AiToolRuntimeService {
               'new',
               'duplicate',
               'close',
+              'restore',
               'select',
             ],
           },
           'terminal_id': <String, Object?>{
             'type': 'string',
             'description':
-                'Target terminal id. Required for select; optional otherwise.',
+                'Target terminal id. Required for select and restore; optional otherwise.',
           },
           'working_directory': <String, Object?>{
             'type': 'string',

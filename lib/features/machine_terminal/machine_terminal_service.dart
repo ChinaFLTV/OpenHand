@@ -213,6 +213,8 @@ class MachineTerminalSnapshot {
     required this.commandHistory,
     required this.startedAt,
     required this.updatedAt,
+    required this.attached,
+    required this.hasUserActivity,
     this.pid,
     this.exitCode,
     this.errorMessage,
@@ -236,6 +238,8 @@ class MachineTerminalSnapshot {
   final List<MachineTerminalCommandRecord> commandHistory;
   final DateTime startedAt;
   final DateTime updatedAt;
+  final bool attached;
+  final bool hasUserActivity;
   final int? pid;
   final int? exitCode;
   final String? errorMessage;
@@ -255,6 +259,8 @@ class MachineTerminalSnapshot {
       'output_characters': outputCharacters,
       'history_output_characters': historyOutputCharacters,
       'command_count': commandCount,
+      'attached': attached,
+      'has_user_activity': hasUserActivity,
       if (includeHistory) ...<String, Object?>{
         'history_output': historyOutput,
         'history_ansi_output': historyAnsiOutput,
@@ -280,6 +286,8 @@ class MachineTerminalSnapshot {
       'output_characters': outputCharacters,
       'history_output_characters': historyOutputCharacters,
       'command_count': commandCount,
+      'attached': attached,
+      'has_user_activity': hasUserActivity,
       'started_at': startedAt.toUtc().toIso8601String(),
       'updated_at': updatedAt.toUtc().toIso8601String(),
       if (pid != null) 'pid': pid,
@@ -302,12 +310,18 @@ class MachineTerminalWorkspaceSnapshot {
 
   MachineTerminalSnapshot? get activeTerminal {
     for (final terminal in terminals) {
-      if (terminal.terminalId == activeTerminalId) {
+      if (terminal.attached && terminal.terminalId == activeTerminalId) {
         return terminal;
       }
     }
-    return terminals.isEmpty ? null : terminals.first;
+    for (final terminal in terminals) {
+      if (terminal.attached) return terminal;
+    }
+    return null;
   }
+
+  List<MachineTerminalSnapshot> get attachedTerminals =>
+      terminals.where((terminal) => terminal.attached).toList(growable: false);
 
   Map<String, Object?> toJson({bool includeHistory = true}) {
     return <String, Object?>{
@@ -403,8 +417,10 @@ abstract final class MachineTerminalSessionMetadata {
         'shell_completion': true,
         'formatted_command_output': true,
         'marker_isolated_exec': true,
+        'close_preserves_history': true,
         'terminal_history': true,
         'terminal_replay': true,
+        'restore_terminal_history': true,
         'delete_terminal_history': true,
         'status_inspection': true,
         'environment_metadata': true,
@@ -615,8 +631,53 @@ class MachineTerminalService extends ChangeNotifier {
         workspace.terminalById(terminalId) ?? workspace.activeTerminal;
     if (terminal == null) return;
     await terminal.stop(force: true);
+    if (terminal.shouldRetainOnClose) {
+      workspace.detach(terminal.id);
+    } else {
+      workspace.remove(terminal.id);
+    }
+    if (workspace.attachedTerminals.isEmpty) {
+      workspace.add(
+        _createTerminal(
+          sessionId: workspace.sessionId,
+          workingDirectory: workspace.defaultWorkingDirectory,
+        ),
+      );
+    }
+    _scheduleMetadataPersist(workspace.sessionId);
+    _scheduleHistoryPersist(workspace.sessionId);
+    _notifyListenersSafely();
+  }
+
+  Future<void> restoreTerminal({
+    required String sessionId,
+    required String terminalId,
+    bool start = true,
+  }) async {
+    final workspace = _requireWorkspace(sessionId);
+    final terminal = workspace.terminalById(terminalId, includeDetached: true);
+    if (terminal == null) {
+      throw StateError('Terminal not found: $terminalId.');
+    }
+    workspace.restore(terminal.id);
+    if (start && !terminal.isRunningOrStarting) {
+      await terminal.start();
+    }
+    _scheduleMetadataPersist(workspace.sessionId);
+    _scheduleHistoryPersist(workspace.sessionId);
+    _notifyListenersSafely();
+  }
+
+  Future<void> deleteTerminal({
+    required String sessionId,
+    required String terminalId,
+  }) async {
+    final workspace = _requireWorkspace(sessionId);
+    final terminal = workspace.terminalById(terminalId, includeDetached: true);
+    if (terminal == null) return;
+    await terminal.stop(force: true);
     workspace.remove(terminal.id);
-    if (workspace.terminals.isEmpty) {
+    if (workspace.attachedTerminals.isEmpty) {
       workspace.add(
         _createTerminal(
           sessionId: workspace.sessionId,
@@ -771,10 +832,24 @@ class MachineTerminalService extends ChangeNotifier {
       case 'duplicate':
         await duplicateTerminal(sessionId: sessionId, terminalId: terminalId);
       case 'close':
+        await closeTerminal(sessionId: sessionId, terminalId: terminalId);
+      case 'restore':
+      case 'restore_terminal':
+        final id = nullIfBlank(terminalId);
+        if (id == null) {
+          throw ArgumentError('restore requires terminal_id.');
+        }
+        await restoreTerminal(sessionId: sessionId, terminalId: id);
       case 'delete':
       case 'delete_terminal':
+      case 'delete_history':
+      case 'purge':
       case 'remove':
-        await closeTerminal(sessionId: sessionId, terminalId: terminalId);
+        final id = nullIfBlank(terminalId);
+        if (id == null) {
+          throw ArgumentError('delete requires terminal_id.');
+        }
+        await deleteTerminal(sessionId: sessionId, terminalId: id);
       case 'select':
         final id = nullIfBlank(terminalId);
         if (id == null) {
@@ -783,7 +858,7 @@ class MachineTerminalService extends ChangeNotifier {
         await selectTerminal(sessionId: sessionId, terminalId: id);
       default:
         throw ArgumentError(
-          'Unsupported terminal action "$action". Use start, stop, restart, clear, resize, new, duplicate, close, delete, remove, or select.',
+          'Unsupported terminal action "$action". Use start, stop, restart, clear, resize, new, duplicate, close, restore, delete, remove, or select.',
         );
     }
     return ensureWorkspace(
@@ -1029,7 +1104,17 @@ class MachineTerminalService extends ChangeNotifier {
         workspace.select(activeTerminalId);
       }
       if (workspace.activeTerminalId.isEmpty) {
-        workspace.activeTerminalId = workspace.terminals.last.id;
+        final attached = workspace.attachedTerminals;
+        if (attached.isNotEmpty) {
+          workspace.activeTerminalId = attached.last.id;
+        } else {
+          workspace.add(
+            _createTerminal(
+              sessionId: sessionId,
+              workingDirectory: defaultWorkingDirectory,
+            ),
+          );
+        }
       }
       _lastPersistedHistoryDigestBySession[sessionId] = jsonEncode(raw);
       return workspace;
@@ -1282,8 +1367,13 @@ class MachineTerminalSession {
   final List<MachineTerminalCommandRecord> _commandHistory =
       <MachineTerminalCommandRecord>[];
   int _commandSequence = 0;
+  bool _attached = true;
+  bool _hasUserActivity = false;
 
   MachineTerminalStatus get status => _status;
+  bool get attached => _attached;
+  bool get hasUserActivity => _hasUserActivity || _commandSequence > 0;
+  bool get shouldRetainOnClose => hasUserActivity;
   int? get pid => _pid;
   int? get exitCode => _exitCode;
   String? get errorMessage => _errorMessage;
@@ -1323,6 +1413,8 @@ class MachineTerminalSession {
       ),
       startedAt: _startedAt,
       updatedAt: _updatedAt,
+      attached: _attached,
+      hasUserActivity: hasUserActivity,
       pid: _pid,
       exitCode: _exitCode,
       errorMessage: _errorMessage,
@@ -1354,11 +1446,24 @@ class MachineTerminalSession {
       optionalIntFromValue(raw['command_count']) ?? _commandHistory.length,
       _maxRestoredCommandSequence(_commandHistory),
     );
+    _hasUserActivity = raw.containsKey('has_user_activity')
+        ? boolFromValue(raw['has_user_activity']) ||
+              _commandSequence > 0 ||
+              _commandHistory.isNotEmpty
+        : _commandSequence > 0 ||
+              _commandHistory.isNotEmpty ||
+              history.trim().isNotEmpty;
+    _attached = raw.containsKey('attached')
+        ? boolFromValue(raw['attached'])
+        : !boolFromValue(raw['closed']);
     final now = DateTime.now();
     _startedAt = utcDateTimeFromValue(raw['started_at'])?.toLocal() ?? now;
     _updatedAt =
         utcDateTimeFromValue(raw['updated_at'])?.toLocal() ?? _startedAt;
     _status = _restorableStatusFromValue(raw['status']);
+    if (!_attached) {
+      _status = MachineTerminalStatus.stopped;
+    }
     _pid = null;
     _exitCode = optionalIntFromValue(raw['exit_code']);
     _errorMessage = nullIfBlank('${raw['error_message'] ?? ''}');
@@ -1366,6 +1471,20 @@ class MachineTerminalSession {
         ? _clipString(_historyOutput, _maxToolOutputCharacters)
         : _output;
     terminal.write('\x1b[2J\x1b[H$visibleOutput');
+  }
+
+  void markAttached() {
+    if (_attached) return;
+    _attached = true;
+    _touch();
+  }
+
+  void markDetached() {
+    if (!_attached) return;
+    _attached = false;
+    _status = MachineTerminalStatus.stopped;
+    _pid = null;
+    _touch();
   }
 
   Future<void> start() async {
@@ -1493,6 +1612,9 @@ class MachineTerminalSession {
     if (pty == null || _status != MachineTerminalStatus.running) {
       return;
     }
+    if (data.isNotEmpty) {
+      _hasUserActivity = true;
+    }
     pty.write(Uint8List.fromList(utf8.encode(data)));
   }
 
@@ -1581,6 +1703,7 @@ class MachineTerminalSession {
     MachineTerminalCommandResult result, {
     required DateTime startedAt,
   }) {
+    _hasUserActivity = true;
     _commandSequence += 1;
     _commandHistory.add(
       MachineTerminalCommandRecord(
@@ -1739,31 +1862,63 @@ class _MachineTerminalWorkspace {
 
   MachineTerminalSession? get activeTerminal => terminalById(activeTerminalId);
 
+  List<MachineTerminalSession> get attachedTerminals =>
+      terminals.where((terminal) => terminal.attached).toList(growable: false);
+
   void add(MachineTerminalSession terminal, {bool activate = true}) {
     terminals.add(terminal);
-    if (activate || activeTerminalId.isEmpty) {
+    if (terminal.attached && (activate || activeTerminalId.isEmpty)) {
       activeTerminalId = terminal.id;
     }
   }
 
-  void remove(String terminalId) {
-    terminals.removeWhere((item) => item.id == terminalId);
+  MachineTerminalSession? remove(String terminalId) {
+    final index = terminals.indexWhere((item) => item.id == terminalId);
+    if (index < 0) return null;
+    final removed = terminals.removeAt(index);
     if (activeTerminalId == terminalId) {
-      activeTerminalId = terminals.isEmpty ? '' : terminals.last.id;
+      _selectFallbackActive();
+    }
+    return removed;
+  }
+
+  void detach(String terminalId) {
+    final terminal = terminalById(terminalId);
+    if (terminal == null) return;
+    terminal.markDetached();
+    if (activeTerminalId == terminalId) {
+      _selectFallbackActive();
     }
   }
 
+  void restore(String terminalId) {
+    final terminal = terminalById(terminalId, includeDetached: true);
+    if (terminal == null) return;
+    terminal.markAttached();
+    activeTerminalId = terminal.id;
+  }
+
   void select(String terminalId) {
-    if (terminals.any((item) => item.id == terminalId)) {
+    if (terminals.any((item) => item.attached && item.id == terminalId)) {
       activeTerminalId = terminalId;
     }
   }
 
-  MachineTerminalSession? terminalById(String? terminalId) {
+  MachineTerminalSession? terminalById(
+    String? terminalId, {
+    bool includeDetached = false,
+  }) {
     final id = nullIfBlank(terminalId) ?? activeTerminalId;
-    if (id.isEmpty) return terminals.isEmpty ? null : terminals.first;
+    if (id.isEmpty) {
+      for (final terminal in terminals) {
+        if (includeDetached || terminal.attached) return terminal;
+      }
+      return null;
+    }
     for (final terminal in terminals) {
-      if (terminal.id == id) return terminal;
+      if (terminal.id == id && (includeDetached || terminal.attached)) {
+        return terminal;
+      }
     }
     return null;
   }
@@ -1774,6 +1929,16 @@ class _MachineTerminalWorkspace {
       activeTerminalId: activeTerminalId,
       terminals: terminals.map((item) => item.snapshot()).toList(),
     );
+  }
+
+  void _selectFallbackActive() {
+    for (final terminal in terminals.reversed) {
+      if (terminal.attached) {
+        activeTerminalId = terminal.id;
+        return;
+      }
+    }
+    activeTerminalId = '';
   }
 
   void dispose() {
