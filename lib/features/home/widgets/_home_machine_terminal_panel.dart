@@ -255,7 +255,7 @@ class _MachineExpertTerminalPanelState
     showAnimatedDialog<void>(
       context: context,
       builder: (dialogContext) =>
-          _MachineTerminalReplayDialog(snapshot: snapshot),
+          _MachineTerminalHistoryDetailDialog(snapshot: snapshot),
     );
   }
 }
@@ -763,6 +763,7 @@ class _MachineTerminalHistoryDialogState
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final deleting = _deletingTerminalId == terminal.terminalId;
+    const detailWidth = _tableWidth - _actionsColumnWidth;
     return AnimatedContainer(
       duration: openHandMotionDuration(
         context,
@@ -780,69 +781,90 @@ class _MachineTerminalHistoryDialogState
       ),
       child: Row(
         children: [
-          _historyCell(
-            context,
-            terminal.terminalId,
-            width: _terminalColumnWidth,
-            leading: Icon(
-              Icons.terminal_rounded,
-              size: 16,
-              color: _terminalStatusColor(cs, terminal.status),
-            ),
-            trailing: active
-                ? _MachineTerminalTinyBadge(
-                    label: openHandLocalizedText(
-                      context,
-                      zh: '当前',
-                      en: 'Active',
-                    ),
-                  )
-                : null,
-          ),
           SizedBox(
-            width: _statusColumnWidth,
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 10),
-                child: _MachineTerminalStatusPill(status: terminal.status),
+            width: detailWidth,
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                mouseCursor: deleting
+                    ? SystemMouseCursors.basic
+                    : SystemMouseCursors.click,
+                onTap: deleting ? null : () => widget.onReplay(terminal),
+                hoverColor: cs.primary.withValues(alpha: 0.045),
+                splashColor: cs.primary.withValues(alpha: 0.08),
+                highlightColor: cs.primary.withValues(alpha: 0.055),
+                child: Row(
+                  children: [
+                    _historyCell(
+                      context,
+                      terminal.terminalId,
+                      width: _terminalColumnWidth,
+                      leading: Icon(
+                        Icons.terminal_rounded,
+                        size: 16,
+                        color: _terminalStatusColor(cs, terminal.status),
+                      ),
+                      trailing: active
+                          ? _MachineTerminalTinyBadge(
+                              label: openHandLocalizedText(
+                                context,
+                                zh: '当前',
+                                en: 'Active',
+                              ),
+                            )
+                          : null,
+                    ),
+                    SizedBox(
+                      width: _statusColumnWidth,
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                          child: _MachineTerminalStatusPill(
+                            status: terminal.status,
+                          ),
+                        ),
+                      ),
+                    ),
+                    _historyCell(
+                      context,
+                      terminal.pid == null ? '-' : '${terminal.pid}',
+                      width: _pidColumnWidth,
+                      mono: true,
+                    ),
+                    _historyCell(
+                      context,
+                      '${terminal.columns}x${terminal.rows}',
+                      width: _sizeColumnWidth,
+                      mono: true,
+                    ),
+                    _historyCell(
+                      context,
+                      '${terminal.commandCount}',
+                      width: _commandsColumnWidth,
+                      mono: true,
+                    ),
+                    _historyCell(
+                      context,
+                      formatByteSize(terminal.historyOutputCharacters),
+                      width: _outputColumnWidth,
+                    ),
+                    _historyCell(
+                      context,
+                      _formatTerminalHistoryTime(terminal.startedAt),
+                      width: _timeColumnWidth,
+                      mono: true,
+                    ),
+                    _historyCell(
+                      context,
+                      _formatTerminalHistoryTime(terminal.updatedAt),
+                      width: _timeColumnWidth,
+                      mono: true,
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-          _historyCell(
-            context,
-            terminal.pid == null ? '-' : '${terminal.pid}',
-            width: _pidColumnWidth,
-            mono: true,
-          ),
-          _historyCell(
-            context,
-            '${terminal.columns}x${terminal.rows}',
-            width: _sizeColumnWidth,
-            mono: true,
-          ),
-          _historyCell(
-            context,
-            '${terminal.commandCount}',
-            width: _commandsColumnWidth,
-            mono: true,
-          ),
-          _historyCell(
-            context,
-            formatByteSize(terminal.historyOutputCharacters),
-            width: _outputColumnWidth,
-          ),
-          _historyCell(
-            context,
-            _formatTerminalHistoryTime(terminal.startedAt),
-            width: _timeColumnWidth,
-            mono: true,
-          ),
-          _historyCell(
-            context,
-            _formatTerminalHistoryTime(terminal.updatedAt),
-            width: _timeColumnWidth,
-            mono: true,
           ),
           SizedBox(
             width: _actionsColumnWidth,
@@ -850,11 +872,11 @@ class _MachineTerminalHistoryDialogState
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 _MachineTerminalMiniActionButton(
-                  icon: Icons.replay_rounded,
+                  icon: Icons.subject_rounded,
                   tooltip: openHandLocalizedText(
                     context,
-                    zh: '回放',
-                    en: 'Replay',
+                    zh: '查看详情',
+                    en: 'View Details',
                   ),
                   onPressed: deleting ? null : () => widget.onReplay(terminal),
                 ),
@@ -1031,30 +1053,36 @@ class _MachineTerminalHistoryMetrics extends StatelessWidget {
   }
 }
 
-class _MachineTerminalReplayDialog extends StatefulWidget {
-  const _MachineTerminalReplayDialog({required this.snapshot});
+enum _MachineTerminalHistoryView { commands, replay }
+
+class _MachineTerminalHistoryDetailDialog extends StatefulWidget {
+  const _MachineTerminalHistoryDetailDialog({required this.snapshot});
 
   final MachineTerminalSnapshot snapshot;
 
   @override
-  State<_MachineTerminalReplayDialog> createState() =>
-      _MachineTerminalReplayDialogState();
+  State<_MachineTerminalHistoryDetailDialog> createState() =>
+      _MachineTerminalHistoryDetailDialogState();
 }
 
-class _MachineTerminalReplayDialogState
-    extends State<_MachineTerminalReplayDialog> {
+class _MachineTerminalHistoryDetailDialogState
+    extends State<_MachineTerminalHistoryDetailDialog> {
   static const int _replayScrollbackLines = 10000;
   static const double _dialogMaxWidth = 980;
   static const double _dialogMaxHeight = 760;
   static const EdgeInsets _replayPadding = EdgeInsets.fromLTRB(14, 12, 14, 12);
 
   late final Terminal _terminal;
+  late _MachineTerminalHistoryView _selectedView;
   final ScrollController _scrollController = ScrollController();
   final FocusNode _focusNode = FocusNode(debugLabel: 'machine-terminal-replay');
 
   @override
   void initState() {
     super.initState();
+    _selectedView = widget.snapshot.commandHistory.isEmpty
+        ? _MachineTerminalHistoryView.replay
+        : _MachineTerminalHistoryView.commands;
     _terminal = Terminal(
       maxLines: _replayScrollbackLines,
       reflowEnabled: false,
@@ -1100,11 +1128,11 @@ class _MachineTerminalReplayDialogState
         child: Column(
           children: [
             _MachineTerminalDialogHeader(
-              icon: Icons.replay_rounded,
+              icon: Icons.subject_rounded,
               title: openHandLocalizedText(
                 context,
-                zh: '终端历史回放',
-                en: 'Terminal Replay',
+                zh: '终端历史详情',
+                en: 'Terminal History Details',
               ),
               subtitle:
                   '${widget.snapshot.terminalId} · ${formatByteSize(widget.snapshot.historyOutputCharacters)} · ${openHandLocalizedText(context, zh: '命令', en: 'commands')} ${widget.snapshot.commandCount}',
@@ -1136,41 +1164,292 @@ class _MachineTerminalReplayDialogState
                 ],
               ),
             ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(18, 0, 18, 12),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: SegmentedButton<_MachineTerminalHistoryView>(
+                      selected: <_MachineTerminalHistoryView>{_selectedView},
+                      showSelectedIcon: false,
+                      segments: [
+                        ButtonSegment<_MachineTerminalHistoryView>(
+                          value: _MachineTerminalHistoryView.commands,
+                          icon: const Icon(Icons.list_alt_rounded, size: 18),
+                          label: Text(
+                            openHandLocalizedText(
+                              context,
+                              zh: '命令输出',
+                              en: 'Commands',
+                            ),
+                          ),
+                        ),
+                        ButtonSegment<_MachineTerminalHistoryView>(
+                          value: _MachineTerminalHistoryView.replay,
+                          icon: const Icon(Icons.terminal_rounded, size: 18),
+                          label: Text(
+                            openHandLocalizedText(
+                              context,
+                              zh: '终端回放',
+                              en: 'Replay',
+                            ),
+                          ),
+                        ),
+                      ],
+                      onSelectionChanged: (selection) {
+                        final next = selection.isEmpty ? null : selection.first;
+                        if (next == null || next == _selectedView) return;
+                        setState(() => _selectedView = next);
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  _MachineTerminalIconButton(
+                    icon: Icons.copy_all_rounded,
+                    tooltip: openHandLocalizedText(
+                      context,
+                      zh: '复制详情',
+                      en: 'Copy Details',
+                    ),
+                    onPressed: _copyDetails,
+                  ),
+                ],
+              ),
+            ),
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF0B0D10),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                      color: cs.outlineVariant.withValues(alpha: 0.34),
-                    ),
-                    boxShadow: <BoxShadow>[
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.20),
-                        blurRadius: 24,
-                        offset: const Offset(0, 14),
-                      ),
-                    ],
+                child: AnimatedSwitcher(
+                  duration: openHandMotionDuration(
+                    context,
+                    const Duration(milliseconds: 180),
                   ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(14),
-                    child: RepaintBoundary(
-                      child: TerminalView(
-                        _terminal,
-                        scrollController: _scrollController,
-                        focusNode: _focusNode,
-                        padding: _replayPadding,
-                        theme: _machineTerminalTheme(),
-                      ),
-                    ),
+                  switchInCurve: Curves.easeOutCubic,
+                  switchOutCurve: Curves.easeInCubic,
+                  child: KeyedSubtree(
+                    key: ValueKey<_MachineTerminalHistoryView>(_selectedView),
+                    child: _selectedView == _MachineTerminalHistoryView.commands
+                        ? _MachineTerminalCommandHistoryList(
+                            snapshot: widget.snapshot,
+                          )
+                        : DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF0B0D10),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: cs.outlineVariant.withValues(
+                                  alpha: 0.34,
+                                ),
+                              ),
+                              boxShadow: <BoxShadow>[
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.20),
+                                  blurRadius: 24,
+                                  offset: const Offset(0, 14),
+                                ),
+                              ],
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(14),
+                              child: RepaintBoundary(
+                                child: TerminalView(
+                                  _terminal,
+                                  scrollController: _scrollController,
+                                  focusNode: _focusNode,
+                                  padding: _replayPadding,
+                                  theme: _machineTerminalTheme(),
+                                ),
+                              ),
+                            ),
+                          ),
                   ),
                 ),
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Future<void> _copyDetails() async {
+    await Clipboard.setData(
+      ClipboardData(text: _terminalHistoryDetailText(widget.snapshot)),
+    );
+    if (!mounted) return;
+    showOpenHandSnackBar(
+      context,
+      SnackBar(
+        content: Text(
+          openHandLocalizedText(
+            context,
+            zh: '终端历史详情已复制。',
+            en: 'Terminal history details copied.',
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MachineTerminalCommandHistoryList extends StatelessWidget {
+  const _MachineTerminalCommandHistoryList({required this.snapshot});
+
+  final MachineTerminalSnapshot snapshot;
+
+  @override
+  Widget build(BuildContext context) {
+    final commands = snapshot.commandHistory;
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    if (commands.isEmpty) {
+      return DecoratedBox(
+        decoration: BoxDecoration(
+          color: cs.surfaceContainerHighest.withValues(alpha: 0.34),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.48)),
+        ),
+        child: Center(
+          child: Text(
+            openHandLocalizedText(
+              context,
+              zh: '暂无结构化命令记录。',
+              en: 'No structured command records.',
+            ),
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: cs.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      );
+    }
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHighest.withValues(alpha: 0.30),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.48)),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(14),
+        child: ListView.separated(
+          physics: kOpenHandDialogScrollPhysics,
+          padding: const EdgeInsets.all(12),
+          itemBuilder: (context, index) {
+            final command = commands[index];
+            return _MachineTerminalCommandHistoryTile(
+              record: command,
+              index: index + 1,
+              total: commands.length,
+            );
+          },
+          separatorBuilder: (_, _) => const SizedBox(height: 10),
+          itemCount: commands.length,
+        ),
+      ),
+    );
+  }
+}
+
+class _MachineTerminalCommandHistoryTile extends StatelessWidget {
+  const _MachineTerminalCommandHistoryTile({
+    required this.record,
+    required this.index,
+    required this.total,
+  });
+
+  final MachineTerminalCommandRecord record;
+  final int index;
+  final int total;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final color = _commandRecordColor(cs, record);
+    final output = _commandRecordOutput(record);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: cs.surface.withValues(alpha: 0.72),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.42)),
+      ),
+      child: ExpansionTile(
+        initiallyExpanded: index == total,
+        tilePadding: const EdgeInsets.fromLTRB(12, 8, 10, 8),
+        childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+        shape: const RoundedRectangleBorder(),
+        collapsedShape: const RoundedRectangleBorder(),
+        leading: Container(
+          width: 30,
+          height: 30,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(9),
+            border: Border.all(color: color.withValues(alpha: 0.24)),
+          ),
+          child: Icon(_commandRecordIcon(record), size: 17, color: color),
+        ),
+        title: Text(
+          record.command,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: cs.onSurface,
+            fontWeight: FontWeight.w800,
+            fontFamily: 'Menlo',
+          ),
+        ),
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 6),
+          child: Wrap(
+            spacing: 7,
+            runSpacing: 5,
+            children: [
+              _MachineTerminalTinyBadge(label: '#$index'),
+              _MachineTerminalTinyBadge(
+                label: 'exit ${record.exitCode ?? '-'}',
+              ),
+              _MachineTerminalTinyBadge(label: '${record.durationMs}ms'),
+              if (record.timedOut)
+                _MachineTerminalTinyBadge(
+                  label: openHandLocalizedText(
+                    context,
+                    zh: '超时',
+                    en: 'Timed out',
+                  ),
+                ),
+              _MachineTerminalTinyBadge(
+                label: _formatTerminalHistoryTime(record.completedAt),
+              ),
+            ],
+          ),
+        ),
+        trailing: _MachineTerminalMiniActionButton(
+          icon: Icons.copy_rounded,
+          tooltip: openHandLocalizedText(
+            context,
+            zh: '复制输出',
+            en: 'Copy Output',
+          ),
+          onPressed: () => _copyCommandRecord(context, record),
+        ),
+        children: [
+          Align(
+            alignment: Alignment.centerLeft,
+            child: SelectableText(
+              output,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: cs.onSurfaceVariant,
+                height: 1.35,
+                fontFamily: 'Menlo',
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1776,6 +2055,102 @@ int _terminalHistoryBytes(List<MachineTerminalSnapshot> terminals) {
 
 String _formatTerminalHistoryTime(DateTime value) {
   return formatYearMonthDayHms(value.toLocal());
+}
+
+Future<void> _copyCommandRecord(
+  BuildContext context,
+  MachineTerminalCommandRecord record,
+) async {
+  await Clipboard.setData(
+    ClipboardData(text: _commandRecordDetailText(record)),
+  );
+  if (!context.mounted) return;
+  showOpenHandSnackBar(
+    context,
+    SnackBar(
+      content: Text(
+        openHandLocalizedText(
+          context,
+          zh: '命令输出已复制。',
+          en: 'Command output copied.',
+        ),
+      ),
+    ),
+  );
+}
+
+Color _commandRecordColor(ColorScheme cs, MachineTerminalCommandRecord record) {
+  if (record.timedOut) return cs.tertiary;
+  if (record.error != null && record.error!.trim().isNotEmpty) return cs.error;
+  final exitCode = record.exitCode ?? 0;
+  return exitCode == 0 ? const Color(0xFF4C9A2A) : cs.error;
+}
+
+IconData _commandRecordIcon(MachineTerminalCommandRecord record) {
+  if (record.timedOut) return Icons.timer_off_rounded;
+  if (record.error != null && record.error!.trim().isNotEmpty) {
+    return Icons.error_outline_rounded;
+  }
+  return (record.exitCode ?? 0) == 0
+      ? Icons.check_rounded
+      : Icons.close_rounded;
+}
+
+String _commandRecordOutput(MachineTerminalCommandRecord record) {
+  final output = record.output.trimRight();
+  final error = record.error?.trim();
+  if (output.isNotEmpty && error != null && error.isNotEmpty) {
+    return '$output\n\nerror: $error';
+  }
+  if (output.isNotEmpty) return output;
+  if (error != null && error.isNotEmpty) return 'error: $error';
+  return '(no output)';
+}
+
+String _commandRecordDetailText(MachineTerminalCommandRecord record) {
+  return [
+    '\$ ${record.command}',
+    'terminal_id: ${record.terminalId}',
+    'started_at: ${record.startedAt.toLocal().toIso8601String()}',
+    'completed_at: ${record.completedAt.toLocal().toIso8601String()}',
+    'duration_ms: ${record.durationMs}',
+    'exit_code: ${record.exitCode ?? '-'}',
+    'timed_out: ${record.timedOut}',
+    if (record.error != null && record.error!.trim().isNotEmpty)
+      'error: ${record.error!.trim()}',
+    'output:',
+    _commandRecordOutput(record),
+  ].join('\n');
+}
+
+String _terminalHistoryDetailText(MachineTerminalSnapshot snapshot) {
+  final buffer = StringBuffer()
+    ..writeln('terminal_id: ${snapshot.terminalId}')
+    ..writeln('identity: ${snapshot.identity}')
+    ..writeln('status: ${snapshot.status.storageValue}')
+    ..writeln('shell: ${snapshot.shell}')
+    ..writeln('working_directory: ${snapshot.workingDirectory}')
+    ..writeln('size: ${snapshot.columns}x${snapshot.rows}')
+    ..writeln('pid: ${snapshot.pid ?? '-'}')
+    ..writeln('started_at: ${snapshot.startedAt.toLocal().toIso8601String()}')
+    ..writeln('updated_at: ${snapshot.updatedAt.toLocal().toIso8601String()}')
+    ..writeln('command_count: ${snapshot.commandCount}')
+    ..writeln('history_output_characters: ${snapshot.historyOutputCharacters}');
+  if (snapshot.commandHistory.isNotEmpty) {
+    buffer.writeln('\ncommands:');
+    for (final record in snapshot.commandHistory) {
+      buffer
+        ..writeln('\n--- ${record.id} ---')
+        ..writeln(_commandRecordDetailText(record));
+    }
+  }
+  final history = snapshot.historyOutput.trimRight();
+  if (history.isNotEmpty) {
+    buffer
+      ..writeln('\nterminal_output:')
+      ..write(history);
+  }
+  return buffer.toString().trimRight();
 }
 
 String _replayAnsiOutput(MachineTerminalSnapshot snapshot) {

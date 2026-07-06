@@ -3658,7 +3658,7 @@ button.oh-message-context-capsule {
 }
 
 .oh-machine-terminal-history-dialog,
-.oh-machine-terminal-replay-dialog {
+.oh-machine-terminal-detail-dialog {
   display: flex;
   flex-direction: column;
   border-radius: 24px;
@@ -3668,7 +3668,7 @@ button.oh-message-context-capsule {
   height: min(86vh, 740px);
 }
 
-.oh-machine-terminal-replay-dialog {
+.oh-machine-terminal-detail-dialog {
   height: min(88vh, 780px);
 }
 
@@ -3802,6 +3802,15 @@ button.oh-message-context-capsule {
   transition:
     background-color var(--oh-motion-duration-fast) var(--oh-motion-emphasized),
     transform var(--oh-motion-duration-fast) var(--oh-motion-spring);
+}
+
+.oh-machine-terminal-history-table tbody tr.is-clickable {
+  cursor: pointer;
+}
+
+.oh-machine-terminal-history-table tbody tr.is-clickable:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--m3-primary) 58%, transparent);
+  outline-offset: -2px;
 }
 
 .oh-machine-terminal-history-table tbody tr:hover {
@@ -3947,6 +3956,153 @@ button.oh-message-context-capsule {
   white-space: nowrap;
 }
 
+.oh-machine-terminal-detail-body {
+  min-height: 0;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 0 18px 18px;
+}
+
+.oh-machine-terminal-detail-tabs {
+  display: inline-flex;
+  align-self: flex-start;
+  gap: 6px;
+  padding: 4px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--m3-outline-variant) 44%, transparent);
+  background: color-mix(in srgb, var(--m3-surface-container-high) 70%, transparent);
+}
+
+.oh-machine-terminal-detail-tab {
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 10px;
+  color: var(--m3-on-surface-variant);
+  background: transparent;
+  font-size: 0.78rem;
+  font-weight: 800;
+  transition:
+    transform var(--oh-motion-duration-fast) var(--oh-motion-spring),
+    background-color var(--oh-motion-duration-fast) var(--oh-motion-emphasized),
+    color var(--oh-motion-duration-fast) var(--oh-motion-emphasized);
+}
+
+.oh-machine-terminal-detail-tab:hover {
+  transform: translateY(-1px);
+}
+
+.oh-machine-terminal-detail-tab.is-active {
+  color: var(--m3-primary);
+  background: color-mix(in srgb, var(--m3-primary) 13%, transparent);
+}
+
+.oh-machine-terminal-detail-pane {
+  min-height: 0;
+  flex: 1 1 auto;
+  display: flex;
+}
+
+.oh-machine-terminal-command-list {
+  min-height: 0;
+  width: 100%;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 18px;
+  border: 1px solid color-mix(in srgb, var(--m3-outline-variant) 52%, transparent);
+  background: color-mix(in srgb, var(--m3-surface-container-low) 68%, transparent);
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--m3-outline) 44%, transparent) transparent;
+}
+
+.oh-machine-terminal-command-card {
+  content-visibility: auto;
+  contain-intrinsic-size: 180px;
+  overflow: hidden;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--m3-outline-variant) 42%, transparent);
+  background: color-mix(in srgb, var(--m3-surface) 82%, transparent);
+}
+
+.oh-machine-terminal-command-card-head {
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 12px 12px 8px;
+}
+
+.oh-machine-terminal-command-card-head code {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow-wrap: anywhere;
+  color: var(--m3-on-surface);
+  font-family: Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 0.8rem;
+  font-weight: 800;
+  line-height: 1.42;
+  white-space: pre-wrap;
+}
+
+.oh-machine-terminal-command-state {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 850;
+  white-space: nowrap;
+}
+
+.oh-machine-terminal-command-state.is-success {
+  color: #166534;
+  background: rgba(34, 197, 94, 0.14);
+}
+
+.oh-machine-terminal-command-state.is-error {
+  color: var(--m3-error);
+  background: color-mix(in srgb, var(--m3-error) 11%, transparent);
+}
+
+.oh-machine-terminal-command-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 12px 10px;
+  color: var(--m3-on-surface-variant);
+  font-size: 0.7rem;
+  font-weight: 750;
+}
+
+.oh-machine-terminal-command-meta > span {
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--m3-surface-container-high) 72%, transparent);
+  font-variant-numeric: tabular-nums;
+}
+
+.oh-machine-terminal-command-output {
+  margin: 0;
+  padding: 12px;
+  overflow: auto;
+  color: #e7ecf3;
+  background: #0b0d10;
+  font-family: Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
 .oh-machine-terminal-replay-viewport {
   min-height: 0;
   flex: 1 1 auto;
@@ -3958,6 +4114,12 @@ button.oh-message-context-capsule {
   box-shadow:
     inset 0 0 0 1px rgba(255, 255, 255, 0.03),
     inset 0 -24px 56px rgba(15, 23, 42, 0.36);
+}
+
+.oh-machine-terminal-detail-pane .oh-machine-terminal-replay-viewport {
+  width: 100%;
+  height: 100%;
+  margin: 0;
 }
 
 .oh-machine-terminal-replay-viewport .xterm {
@@ -4073,6 +4235,19 @@ button.oh-message-context-capsule {
   .oh-machine-terminal-replay-viewport {
     min-height: 0;
     margin: 0 14px 14px;
+  }
+
+  .oh-machine-terminal-detail-body {
+    padding: 0 14px 14px;
+  }
+
+  .oh-machine-terminal-detail-tabs {
+    width: 100%;
+  }
+
+  .oh-machine-terminal-detail-tab {
+    flex: 1 1 0;
+    justify-content: center;
   }
 
   .oh-machine-workbench {
