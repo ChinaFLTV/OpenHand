@@ -125,32 +125,18 @@ class SkillMarketClient {
     if (isHttpFailureStatus(response.statusCode)) {
       // Drain the body before throwing so the underlying connection can be
       // returned to the pool / closed cleanly instead of leaking.
-      try {
-        await response.stream.drain<void>();
-      } catch (error, stack) {
-        silentLog(
-          'skill_market_client',
-          'drain stream after non-2xx download',
-          error,
-          stack,
-        );
-      }
-      throw SkillMarketException(
-        'HTTP ${response.statusCode} while downloading skill.',
+      await _drainResponseStreamBestEffort(
+        response.stream,
+        reason: 'drain stream after non-2xx download',
       );
+      _throwHttpFailure(response.statusCode, 'while downloading skill');
     }
     final contentLength = response.contentLength;
     if (contentLength != null && contentLength > _maxDownloadBytes) {
-      try {
-        await response.stream.drain<void>();
-      } catch (error, stack) {
-        silentLog(
-          'skill_market_client',
-          'drain oversized download stream',
-          error,
-          stack,
-        );
-      }
+      await _drainResponseStreamBestEffort(
+        response.stream,
+        reason: 'drain oversized download stream',
+      );
       throw const SkillMarketException('Skill archive is too large.');
     }
 
@@ -316,11 +302,7 @@ class SkillMarketClient {
               },
             )
             .timeout(_requestTimeout);
-        if (isHttpFailureStatus(response.statusCode)) {
-          throw SkillMarketException(
-            'HTTP ${response.statusCode} while fetching skill file.',
-          );
-        }
+        _throwHttpFailure(response.statusCode, 'while fetching skill file');
         return utf8.decode(response.bodyBytes, allowMalformed: true);
       },
     );
@@ -404,9 +386,7 @@ class SkillMarketClient {
           },
         )
         .timeout(_requestTimeout);
-    if (isHttpFailureStatus(response.statusCode)) {
-      throw SkillMarketException('HTTP ${response.statusCode} from $uri.');
-    }
+    _throwHttpFailure(response.statusCode, 'from $uri');
     final decoded = jsonDecode(utf8.decode(response.bodyBytes));
     if (decoded is Map<String, Object?>) {
       return decoded;
@@ -427,6 +407,22 @@ class SkillMarketClient {
     throw SkillMarketException(
       message == null ? 'Skill market request failed.' : '$message',
     );
+  }
+
+  Future<void> _drainResponseStreamBestEffort(
+    Stream<List<int>> stream, {
+    required String reason,
+  }) async {
+    try {
+      await stream.drain<void>();
+    } catch (error, stack) {
+      silentLog('skill_market_client', reason, error, stack);
+    }
+  }
+
+  void _throwHttpFailure(int statusCode, String context) {
+    if (!isHttpFailureStatus(statusCode)) return;
+    throw SkillMarketException('HTTP $statusCode $context.');
   }
 
   Future<T> _cached<T>(
