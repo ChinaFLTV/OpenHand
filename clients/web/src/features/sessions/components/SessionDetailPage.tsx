@@ -1846,7 +1846,7 @@ function MachineTerminalHistoryDialog({
           overlayBlurPx: 4,
           panelClassName: 'oh-machine-terminal-history-dialog',
           panelSurface: {
-            width: 'min(1060px, calc(100vw - 32px))',
+            width: 'min(1180px, calc(100vw - 24px))',
             maxHeight: 'min(86vh, 740px)',
             overflow: 'hidden',
             background: 'var(--m3-surface)',
@@ -1879,6 +1879,17 @@ function MachineTerminalHistoryDialog({
             <div class="oh-machine-terminal-history-empty">{t('terminal.history.empty', '暂无终端会话历史。')}</div>
           ) : (
             <table class="oh-machine-terminal-history-table">
+              <colgroup>
+                <col class="oh-machine-terminal-history-col-terminal" />
+                <col class="oh-machine-terminal-history-col-status" />
+                <col class="oh-machine-terminal-history-col-pid" />
+                <col class="oh-machine-terminal-history-col-size" />
+                <col class="oh-machine-terminal-history-col-commands" />
+                <col class="oh-machine-terminal-history-col-output" />
+                <col class="oh-machine-terminal-history-col-started" />
+                <col class="oh-machine-terminal-history-col-updated" />
+                <col class="oh-machine-terminal-history-col-actions" />
+              </colgroup>
               <thead>
                 <tr>
                   <th>{t('terminal.history.col.terminal', '终端')}</th>
@@ -1922,8 +1933,8 @@ function MachineTerminalHistoryDialog({
                       <td class="tabular-nums">{terminal.columns}x{terminal.rows}</td>
                       <td class="tabular-nums">{terminalCommandCount(terminal)}</td>
                       <td>{formatTerminalHistorySize(terminalHistoryOutputCharacters(terminal))}</td>
-                      <td class="tabular-nums">{formatDialogDate(terminal.started_at)}</td>
-                      <td class="tabular-nums">{formatDialogDate(terminal.updated_at)}</td>
+                      <td class="oh-machine-terminal-history-time tabular-nums">{formatTerminalHistoryDate(terminal.started_at)}</td>
+                      <td class="oh-machine-terminal-history-time tabular-nums">{formatTerminalHistoryDate(terminal.updated_at)}</td>
                       <td>
                         <div class="oh-machine-terminal-history-actions">
                           <button
@@ -2287,6 +2298,14 @@ function formatTerminalTime(value: string): string {
   if (Number.isNaN(date.getTime())) return value;
   const pad = (n: number) => String(n).padStart(2, '0');
   return `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+}
+
+function formatTerminalHistoryDate(value?: string | null): string {
+  if (!value) return '—';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
 }
 
 /// Web composer 用户指令胶囊条（与 App 端 _ComposerInstructionsStrip 1:1 对齐）。

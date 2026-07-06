@@ -530,17 +530,15 @@ class _MachineTerminalHistoryDialog extends StatefulWidget {
 
 class _MachineTerminalHistoryDialogState
     extends State<_MachineTerminalHistoryDialog> {
-  static const double _dialogMaxWidth = 1060;
+  static const double _dialogMaxWidth = 1180;
   static const double _dialogMaxHeight = 720;
 
   final ScrollController _verticalScrollController = ScrollController();
-  final ScrollController _horizontalScrollController = ScrollController();
   String? _deletingTerminalId;
 
   @override
   void dispose() {
     _verticalScrollController.dispose();
-    _horizontalScrollController.dispose();
     super.dispose();
   }
 
@@ -552,7 +550,10 @@ class _MachineTerminalHistoryDialogState
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final viewport = MediaQuery.sizeOf(context);
-    final dialogWidth = math.min(viewport.width * 0.94, _dialogMaxWidth);
+    final dialogWidth = math.min(
+      math.max(360.0, viewport.width - 24),
+      _dialogMaxWidth,
+    );
     final dialogHeight = math.min(viewport.height * 0.86, _dialogMaxHeight);
     final activeTerminalId = workspace?.activeTerminalId ?? '';
 
@@ -560,7 +561,7 @@ class _MachineTerminalHistoryDialogState
       backgroundColor: Colors.transparent,
       elevation: 0,
       clipBehavior: Clip.none,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 18),
       child: Container(
         width: dialogWidth,
         height: dialogHeight,
@@ -599,7 +600,7 @@ class _MachineTerminalHistoryDialogState
             ),
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
+                padding: const EdgeInsets.fromLTRB(14, 0, 14, 18),
                 child: _buildHistoryTable(context, terminals, activeTerminalId),
               ),
             ),
@@ -645,41 +646,28 @@ class _MachineTerminalHistoryDialogState
             final columns = _MachineTerminalHistoryColumnLayout.fromWidth(
               constraints.maxWidth,
             );
-            final table = SizedBox(
-              width: columns.tableWidth,
-              child: Column(
-                children: [
-                  _historyHeaderRow(context, columns),
-                  ...terminals.map(
-                    (terminal) => _historyDataRow(
-                      context,
-                      terminal,
-                      active: terminal.terminalId == activeTerminalId,
-                      columns: columns,
-                    ),
-                  ),
-                ],
-              ),
-            );
-            final tableBody = columns.tableWidth > constraints.maxWidth + 0.5
-                ? OpenHandSafeScrollbar(
-                    controller: _horizontalScrollController,
-                    scrollbarOrientation: ScrollbarOrientation.bottom,
-                    child: SingleChildScrollView(
-                      controller: _horizontalScrollController,
-                      scrollDirection: Axis.horizontal,
-                      physics: kOpenHandDialogScrollPhysics,
-                      child: table,
-                    ),
-                  )
-                : table;
             return OpenHandSafeScrollbar(
               controller: _verticalScrollController,
               thumbVisibility: true,
               child: SingleChildScrollView(
                 controller: _verticalScrollController,
                 physics: kOpenHandDialogScrollPhysics,
-                child: tableBody,
+                child: SizedBox(
+                  width: columns.tableWidth,
+                  child: Column(
+                    children: [
+                      _historyHeaderRow(context, columns),
+                      ...terminals.map(
+                        (terminal) => _historyDataRow(
+                          context,
+                          terminal,
+                          active: terminal.terminalId == activeTerminalId,
+                          columns: columns,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             );
           },
@@ -817,7 +805,7 @@ class _MachineTerminalHistoryDialogState
                       child: Align(
                         alignment: Alignment.centerLeft,
                         child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                          padding: const EdgeInsets.symmetric(horizontal: 6),
                           child: _MachineTerminalStatusPill(
                             status: terminal.status,
                           ),
@@ -846,18 +834,21 @@ class _MachineTerminalHistoryDialogState
                       context,
                       formatByteSize(terminal.historyOutputCharacters),
                       width: columns.output,
+                      scaleDown: true,
                     ),
                     _historyCell(
                       context,
                       _formatTerminalHistoryTime(terminal.startedAt),
                       width: columns.started,
                       mono: true,
+                      scaleDown: true,
                     ),
                     _historyCell(
                       context,
                       _formatTerminalHistoryTime(terminal.updatedAt),
                       width: columns.updated,
                       mono: true,
+                      scaleDown: true,
                     ),
                   ],
                 ),
@@ -909,6 +900,7 @@ class _MachineTerminalHistoryDialogState
     bool header = false,
     bool mono = false,
     bool alignEnd = false,
+    bool scaleDown = false,
   }) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
@@ -922,10 +914,17 @@ class _MachineTerminalHistoryDialogState
                   : null,
               fontFamily: mono ? 'Menlo' : null,
             );
+    final label = Text(
+      text,
+      maxLines: 1,
+      softWrap: false,
+      overflow: scaleDown ? TextOverflow.visible : TextOverflow.ellipsis,
+      style: style,
+    );
     return SizedBox(
       width: width,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
         child: Row(
           mainAxisAlignment: alignEnd
               ? MainAxisAlignment.end
@@ -933,11 +932,19 @@ class _MachineTerminalHistoryDialogState
           children: [
             if (leading != null) ...[leading, const SizedBox(width: 7)],
             Flexible(
-              child: Text(
-                text,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: style,
+              child: Align(
+                alignment: alignEnd
+                    ? Alignment.centerRight
+                    : Alignment.centerLeft,
+                child: scaleDown
+                    ? FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: alignEnd
+                            ? Alignment.centerRight
+                            : Alignment.centerLeft,
+                        child: label,
+                      )
+                    : label,
               ),
             ),
             if (trailing != null) ...[const SizedBox(width: 7), trailing],
@@ -1021,23 +1028,23 @@ class _MachineTerminalHistoryColumnLayout {
     required this.actions,
   });
 
-  static const double _preferredTerminal = 150;
-  static const double _preferredStatus = 98;
-  static const double _preferredPid = 98;
-  static const double _preferredSize = 80;
-  static const double _preferredCommands = 86;
-  static const double _preferredOutput = 110;
-  static const double _preferredTime = 145;
-  static const double _preferredActions = 138;
+  static const double _preferredTerminal = 136;
+  static const double _preferredStatus = 92;
+  static const double _preferredPid = 72;
+  static const double _preferredSize = 70;
+  static const double _preferredCommands = 62;
+  static const double _preferredOutput = 88;
+  static const double _preferredTime = 168;
+  static const double _preferredActions = 108;
 
-  static const double _minimumTerminal = 118;
-  static const double _minimumStatus = 92;
-  static const double _minimumPid = 64;
-  static const double _minimumSize = 62;
-  static const double _minimumCommands = 72;
-  static const double _minimumOutput = 84;
-  static const double _minimumTime = 110;
-  static const double _minimumActions = 96;
+  static const double _compactTerminal = 112;
+  static const double _compactStatus = 84;
+  static const double _compactPid = 62;
+  static const double _compactSize = 62;
+  static const double _compactCommands = 54;
+  static const double _compactOutput = 76;
+  static const double _compactTime = 154;
+  static const double _compactActions = 88;
 
   static const double _preferredTableWidth =
       _preferredTerminal +
@@ -1048,15 +1055,15 @@ class _MachineTerminalHistoryColumnLayout {
       _preferredOutput +
       _preferredTime * 2 +
       _preferredActions;
-  static const double _minimumTableWidth =
-      _minimumTerminal +
-      _minimumStatus +
-      _minimumPid +
-      _minimumSize +
-      _minimumCommands +
-      _minimumOutput +
-      _minimumTime * 2 +
-      _minimumActions;
+  static const double _compactTableWidth =
+      _compactTerminal +
+      _compactStatus +
+      _compactPid +
+      _compactSize +
+      _compactCommands +
+      _compactOutput +
+      _compactTime * 2 +
+      _compactActions;
 
   final double terminal;
   final double status;
@@ -1098,32 +1105,33 @@ class _MachineTerminalHistoryColumnLayout {
         actions: _preferredActions + extra * 0.20,
       );
     }
-    if (safeWidth <= _minimumTableWidth) {
-      return const _MachineTerminalHistoryColumnLayout(
-        terminal: _minimumTerminal,
-        status: _minimumStatus,
-        pid: _minimumPid,
-        size: _minimumSize,
-        commands: _minimumCommands,
-        output: _minimumOutput,
-        started: _minimumTime,
-        updated: _minimumTime,
-        actions: _minimumActions,
+    if (safeWidth <= _compactTableWidth) {
+      final scale = safeWidth / _compactTableWidth;
+      return _MachineTerminalHistoryColumnLayout(
+        terminal: _compactTerminal * scale,
+        status: _compactStatus * scale,
+        pid: _compactPid * scale,
+        size: _compactSize * scale,
+        commands: _compactCommands * scale,
+        output: _compactOutput * scale,
+        started: _compactTime * scale,
+        updated: _compactTime * scale,
+        actions: _compactActions * scale,
       );
     }
     final scale =
-        (safeWidth - _minimumTableWidth) /
-        (_preferredTableWidth - _minimumTableWidth);
+        (safeWidth - _compactTableWidth) /
+        (_preferredTableWidth - _compactTableWidth);
     return _MachineTerminalHistoryColumnLayout(
-      terminal: _lerp(_minimumTerminal, _preferredTerminal, scale),
-      status: _lerp(_minimumStatus, _preferredStatus, scale),
-      pid: _lerp(_minimumPid, _preferredPid, scale),
-      size: _lerp(_minimumSize, _preferredSize, scale),
-      commands: _lerp(_minimumCommands, _preferredCommands, scale),
-      output: _lerp(_minimumOutput, _preferredOutput, scale),
-      started: _lerp(_minimumTime, _preferredTime, scale),
-      updated: _lerp(_minimumTime, _preferredTime, scale),
-      actions: _lerp(_minimumActions, _preferredActions, scale),
+      terminal: _lerp(_compactTerminal, _preferredTerminal, scale),
+      status: _lerp(_compactStatus, _preferredStatus, scale),
+      pid: _lerp(_compactPid, _preferredPid, scale),
+      size: _lerp(_compactSize, _preferredSize, scale),
+      commands: _lerp(_compactCommands, _preferredCommands, scale),
+      output: _lerp(_compactOutput, _preferredOutput, scale),
+      started: _lerp(_compactTime, _preferredTime, scale),
+      updated: _lerp(_compactTime, _preferredTime, scale),
+      actions: _lerp(_compactActions, _preferredActions, scale),
     );
   }
 

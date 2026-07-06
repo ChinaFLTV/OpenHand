@@ -3762,7 +3762,8 @@ button.oh-message-context-capsule {
   min-height: 0;
   flex: 1 1 auto;
   margin: 0 18px 14px;
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
   border-radius: 16px;
   border: 1px solid color-mix(in srgb, var(--m3-outline-variant) 52%, transparent);
   background: color-mix(in srgb, var(--m3-surface-container-low) 68%, transparent);
@@ -3772,9 +3773,42 @@ button.oh-message-context-capsule {
 
 .oh-machine-terminal-history-table {
   width: 100%;
-  min-width: 980px;
   border-collapse: collapse;
-  font-size: 0.78rem;
+  table-layout: fixed;
+  font-size: 0.76rem;
+}
+
+.oh-machine-terminal-history-col-terminal {
+  width: 13.5%;
+}
+
+.oh-machine-terminal-history-col-status {
+  width: 9%;
+}
+
+.oh-machine-terminal-history-col-pid {
+  width: 7.25%;
+}
+
+.oh-machine-terminal-history-col-size {
+  width: 7.25%;
+}
+
+.oh-machine-terminal-history-col-commands {
+  width: 6%;
+}
+
+.oh-machine-terminal-history-col-output {
+  width: 9%;
+}
+
+.oh-machine-terminal-history-col-started,
+.oh-machine-terminal-history-col-updated {
+  width: 17.5%;
+}
+
+.oh-machine-terminal-history-col-actions {
+  width: 13%;
 }
 
 .oh-machine-terminal-history-table thead {
@@ -3786,7 +3820,7 @@ button.oh-message-context-capsule {
 
 .oh-machine-terminal-history-table th,
 .oh-machine-terminal-history-table td {
-  padding: 11px 12px;
+  padding: 10px 8px;
   border-bottom: 1px solid color-mix(in srgb, var(--m3-outline-variant) 38%, transparent);
   color: var(--m3-on-surface-variant);
   text-align: left;
@@ -3826,7 +3860,7 @@ button.oh-message-context-capsule {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  max-width: 170px;
+  max-width: 100%;
 }
 
 .oh-machine-terminal-history-terminal .truncate {
@@ -3858,6 +3892,10 @@ button.oh-message-context-capsule {
   background: rgba(148, 163, 184, 0.12);
   font-size: 0.7rem;
   font-weight: 850;
+}
+
+.oh-machine-terminal-history-time {
+  font-size: 0.72rem;
 }
 
 .oh-machine-terminal-history-status.is-running {
