@@ -47,11 +47,8 @@ class HooksStore {
             scriptPath: nullIfBlank('${row['script_path'] ?? ''}'),
             scriptContent: nullIfBlank('${row['script_content'] ?? ''}'),
             enabled: boolFromValue(row['enabled']),
-            timeoutSeconds: clampedIntFromValue(
+            timeoutSeconds: HookEntry.timeoutSecondsFromValue(
               row['timeout_seconds'],
-              fallback: HookEntry.defaultTimeoutSeconds,
-              min: HookEntry.minTimeoutSeconds,
-              max: HookEntry.maxTimeoutSeconds,
             ),
           ),
         );
@@ -75,7 +72,9 @@ class HooksStore {
       'script_path': entry.scriptPath ?? '',
       'script_content': entry.scriptContent ?? '',
       'enabled': entry.enabled ? 1 : 0,
-      'timeout_seconds': entry.timeoutSeconds,
+      'timeout_seconds': HookEntry.normalizeTimeoutSeconds(
+        entry.timeoutSeconds,
+      ),
       'sort_order': sortOrder,
     }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
@@ -92,7 +91,9 @@ class HooksStore {
         'script_path': entry.scriptPath ?? '',
         'script_content': entry.scriptContent ?? '',
         'enabled': entry.enabled ? 1 : 0,
-        'timeout_seconds': entry.timeoutSeconds,
+        'timeout_seconds': HookEntry.normalizeTimeoutSeconds(
+          entry.timeoutSeconds,
+        ),
         'sort_order': i,
       });
     }

@@ -521,12 +521,7 @@ class _HookEditorDialogState extends State<_HookEditorDialog> {
       return;
     }
 
-    final timeout = clampedIntFromText(
-      _timeoutController.text,
-      fallback: HookEntry.defaultTimeoutSeconds,
-      min: HookEntry.minTimeoutSeconds,
-      max: HookEntry.maxTimeoutSeconds,
-    );
+    final timeout = HookEntry.timeoutSecondsFromValue(_timeoutController.text);
     final entry = HookEntry(
       id: widget.existing?.id ?? _uuid.v4(),
       event: _selectedEvent,

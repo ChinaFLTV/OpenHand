@@ -154,18 +154,26 @@ class HookEntry {
       scriptPath: optionalStringFromValue(json['script_path']),
       scriptContent: optionalStringFromValue(json['script_content']),
       enabled: boolFromValue(json['enabled'], defaultValue: true),
-      timeoutSeconds: clampedIntFromValue(
-        json['timeout_seconds'],
-        fallback: defaultTimeoutSeconds,
-        min: minTimeoutSeconds,
-        max: maxTimeoutSeconds,
-      ),
+      timeoutSeconds: timeoutSecondsFromValue(json['timeout_seconds']),
     );
   }
 
   static const int defaultTimeoutSeconds = 12;
   static const int minTimeoutSeconds = 1;
   static const int maxTimeoutSeconds = 60;
+  static const IntValueRange _timeoutSecondsRange = IntValueRange(
+    fallback: defaultTimeoutSeconds,
+    min: minTimeoutSeconds,
+    max: maxTimeoutSeconds,
+  );
+
+  static int timeoutSecondsFromValue(Object? value) {
+    return _timeoutSecondsRange.fromValue(value);
+  }
+
+  static int normalizeTimeoutSeconds(int value) {
+    return _timeoutSecondsRange.normalize(value);
+  }
 
   final String id;
   final HookEvent event;
@@ -200,7 +208,9 @@ class HookEntry {
           ? null
           : (scriptContent ?? this.scriptContent),
       enabled: enabled ?? this.enabled,
-      timeoutSeconds: timeoutSeconds ?? this.timeoutSeconds,
+      timeoutSeconds: normalizeTimeoutSeconds(
+        timeoutSeconds ?? this.timeoutSeconds,
+      ),
     );
   }
 
@@ -212,7 +222,7 @@ class HookEntry {
       'script_path': scriptPath ?? '',
       'script_content': scriptContent ?? '',
       'enabled': enabled,
-      'timeout_seconds': timeoutSeconds,
+      'timeout_seconds': normalizeTimeoutSeconds(timeoutSeconds),
     };
   }
 }

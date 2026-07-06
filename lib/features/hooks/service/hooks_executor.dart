@@ -313,10 +313,7 @@ class HooksExecutor {
     required Map<String, Object?> payload,
   }) async {
     final timeout = Duration(
-      seconds: hook.timeoutSeconds.clamp(
-        HookEntry.minTimeoutSeconds,
-        HookEntry.maxTimeoutSeconds,
-      ),
+      seconds: HookEntry.normalizeTimeoutSeconds(hook.timeoutSeconds),
     );
     final shellCommand = _buildCommand(hook);
     final workingDirectory = OpenHandPaths.applicationDirectoryPath();
