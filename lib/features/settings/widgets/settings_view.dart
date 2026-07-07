@@ -50,6 +50,7 @@ import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
+import '../../../shared/ui/persistence_issue_card.dart';
 import '../../../shared/ui/rolling_text.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';

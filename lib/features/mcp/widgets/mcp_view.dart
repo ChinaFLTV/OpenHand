@@ -26,6 +26,7 @@ import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_inline_notice.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
+import '../../../shared/ui/persistence_issue_card.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
@@ -10273,65 +10274,27 @@ class _McpPersistenceIssueCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final colorScheme = Theme.of(context).colorScheme;
+    final shortPath = OpenHandPaths.shortenHomePath(issue.filePath);
     final (title, body) = switch (issue.kind) {
       McpPersistenceIssueKind.recoveredInvalidFile => (
         l10n.mcpPersistenceRecoveredTitle,
-        '${l10n.mcpPersistenceRecoveredBody}\n${OpenHandPaths.shortenHomePath(issue.filePath)}',
+        '${l10n.mcpPersistenceRecoveredBody}\n$shortPath',
       ),
       McpPersistenceIssueKind.sanitizedInvalidContent => (
         l10n.mcpPersistenceSanitizedTitle,
-        '${l10n.mcpPersistenceSanitizedBody}\n${OpenHandPaths.shortenHomePath(issue.filePath)}',
+        '${l10n.mcpPersistenceSanitizedBody}\n$shortPath',
       ),
       McpPersistenceIssueKind.saveFailed => (
         l10n.mcpPersistenceSaveFailedTitle,
-        '${l10n.mcpPersistenceSaveFailedBody}\n${OpenHandPaths.shortenHomePath(issue.filePath)}',
+        '${l10n.mcpPersistenceSaveFailedBody}\n$shortPath',
       ),
     };
 
-    return Card(
-      color: colorScheme.errorContainer,
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(
-              Icons.warning_amber_rounded,
-              color: colorScheme.onErrorContainer,
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: colorScheme.onErrorContainer,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    body,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: colorScheme.onErrorContainer,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 12),
-            TextButton(
-              onPressed: onDismiss,
-              child: Text(
-                l10n.settingsPersistenceDismiss,
-                style: TextStyle(color: colorScheme.onErrorContainer),
-              ),
-            ),
-          ],
-        ),
-      ),
+    return PersistenceIssueCard(
+      title: title,
+      body: body,
+      dismissLabel: l10n.settingsPersistenceDismiss,
+      onDismiss: onDismiss,
     );
   }
 }

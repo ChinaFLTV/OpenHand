@@ -4437,66 +4437,27 @@ class _SettingsPersistenceIssueCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final colorScheme = Theme.of(context).colorScheme;
+    final shortPath = OpenHandPaths.shortenHomePath(issue.filePath);
     final (title, body) = switch (issue.kind) {
       SettingsPersistenceIssueKind.recoveredInvalidFile => (
         l10n.settingsPersistenceRecoveredTitle,
-        '${l10n.settingsPersistenceRecoveredBody}\n${OpenHandPaths.shortenHomePath(issue.filePath)}',
+        '${l10n.settingsPersistenceRecoveredBody}\n$shortPath',
       ),
       SettingsPersistenceIssueKind.sanitizedInvalidContent => (
         l10n.settingsPersistenceSanitizedTitle,
-        '${l10n.settingsPersistenceSanitizedBody}\n${OpenHandPaths.shortenHomePath(issue.filePath)}',
+        '${l10n.settingsPersistenceSanitizedBody}\n$shortPath',
       ),
       SettingsPersistenceIssueKind.saveFailed => (
         l10n.settingsPersistenceSaveFailedTitle,
-        '${l10n.settingsPersistenceSaveFailedBody}\n${OpenHandPaths.shortenHomePath(issue.filePath)}',
+        '${l10n.settingsPersistenceSaveFailedBody}\n$shortPath',
       ),
     };
 
-    return Card(
-      color: colorScheme.errorContainer,
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(
-              Icons.warning_amber_rounded,
-              color: colorScheme.onErrorContainer,
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: colorScheme.onErrorContainer,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    body,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: colorScheme.onErrorContainer,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            IconButton(
-              onPressed: onDismiss,
-              tooltip: l10n.settingsPersistenceDismiss,
-              icon: Icon(
-                Icons.close_rounded,
-                color: colorScheme.onErrorContainer,
-              ),
-            ),
-          ],
-        ),
-      ),
+    return PersistenceIssueCard(
+      title: title,
+      body: body,
+      dismissTooltip: l10n.settingsPersistenceDismiss,
+      onDismiss: onDismiss,
     );
   }
 }
