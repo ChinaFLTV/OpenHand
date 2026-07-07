@@ -174,18 +174,12 @@ class _PerfTraceDialogState extends State<_PerfTraceDialog> {
 
   Future<void> _copyPath() async {
     final loc = AppLocalizations.of(context);
-    late final WebReverseClipboardCopyResult copied;
-    try {
-      copied = await setWebReverseClipboardText(_lastSaved);
-    } catch (e, s) {
-      silentLog('web_reverse_perf_trace_dialog', 'perf-trace.clipboard', e, s);
-      return;
-    }
-    if (!mounted) return;
-    showWebReverseClipboardSuccessSnack(
+    await copyWebReverseTextToClipboard(
       context: context,
-      base: loc?.webReversePerfPathCopied ?? 'Path copied',
-      result: copied,
+      text: _lastSaved,
+      successBase: loc?.webReversePerfPathCopied ?? 'Path copied',
+      logTag: 'web_reverse_perf_trace_dialog',
+      logAction: 'perf-trace.clipboard',
     );
   }
 

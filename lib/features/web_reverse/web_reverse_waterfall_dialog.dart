@@ -256,35 +256,15 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
                                     leftWidth: leftWidth,
                                     barWidth: barWidth,
                                     onTap: () async {
-                                      late final WebReverseClipboardCopyResult
-                                      copied;
-                                      try {
-                                        copied =
-                                            await setWebReverseClipboardText(
-                                              e.url,
-                                            );
-                                      } catch (error, stack) {
-                                        silentLog(
-                                          'web_reverse_waterfall_dialog',
-                                          'copy url',
-                                          error,
-                                          stack,
-                                        );
-                                        if (!context.mounted) return;
-                                        showWebReverseClipboardErrorSnack(
-                                          context: context,
-                                          error: error,
-                                        );
-                                        return;
-                                      }
-                                      if (!context.mounted) return;
                                       final loc = AppLocalizations.of(context);
-                                      showWebReverseClipboardSuccessSnack(
+                                      await copyWebReverseTextToClipboard(
                                         context: context,
-                                        base:
+                                        text: e.url,
+                                        successBase:
                                             loc?.webReverseWaterfallUrlCopied ??
                                             'URL copied',
-                                        result: copied,
+                                        logTag: 'web_reverse_waterfall_dialog',
+                                        logAction: 'copy url',
                                       );
                                     },
                                   );

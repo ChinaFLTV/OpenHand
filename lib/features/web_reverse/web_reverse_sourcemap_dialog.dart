@@ -296,18 +296,12 @@ class _SmDialogState extends State<_SmDialog> {
     if (r == null) return;
     final text =
         '${r.source}:${r.line + 1}:${r.column + 1}${r.name != null ? '  (${r.name})' : ''}';
-    late final WebReverseClipboardCopyResult copied;
-    try {
-      copied = await setWebReverseClipboardText(text);
-    } catch (e, st) {
-      silentLog('web_reverse_sourcemap_dialog', 'sourcemap.copy', e, st);
-      return;
-    }
-    if (!mounted) return;
-    showWebReverseClipboardSuccessSnack(
+    await copyWebReverseTextToClipboard(
       context: context,
-      base: loc?.webReverseSmCopied ?? 'Copied',
-      result: copied,
+      text: text,
+      successBase: loc?.webReverseSmCopied ?? 'Copied',
+      logTag: 'web_reverse_sourcemap_dialog',
+      logAction: 'sourcemap.copy',
     );
   }
 

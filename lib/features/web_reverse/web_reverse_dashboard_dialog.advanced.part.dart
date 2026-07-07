@@ -2693,29 +2693,12 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
                 if (_tab == 3 && _events.isNotEmpty)
                   OutlinedButton.icon(
                     onPressed: () async {
-                      late final WebReverseClipboardCopyResult copied;
-                      try {
-                        copied = await setWebReverseClipboardText(
-                          const JsonEncoder.withIndent('  ').convert(_events),
-                        );
-                      } catch (error, stack) {
-                        silentLog(
-                          'web_reverse_webrtc_dialog',
-                          'copy events',
-                          error,
-                          stack,
-                        );
-                        if (!context.mounted) return;
-                        showWebReverseClipboardErrorSnack(
-                          context: context,
-                          error: error,
-                        );
-                        return;
-                      }
-                      if (!context.mounted) return;
-                      showWebReverseClipboardSuccessSnack(
+                      await copyWebReverseTextToClipboard(
                         context: context,
-                        base: openHandLocalizedText(
+                        text: const JsonEncoder.withIndent(
+                          '  ',
+                        ).convert(_events),
+                        successBase: openHandLocalizedText(
                           context,
                           zh: '已复制',
                           zhHant: '已複製',
@@ -2724,8 +2707,9 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
                           de: 'Kopiert',
                           ja: 'コピーしました',
                         ),
-                        result: copied,
-                        duration: const Duration(seconds: 1),
+                        logTag: 'web_reverse_webrtc_dialog',
+                        logAction: 'copy events',
+                        successDuration: const Duration(seconds: 1),
                       );
                     },
                     icon: const Icon(Icons.copy_all_rounded, size: 16),

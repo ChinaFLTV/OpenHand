@@ -197,24 +197,14 @@ class _IssuesDialogState extends State<_IssuesDialog> {
   }
 
   Future<void> _copyJson(_IssueEntry e) async {
-    try {
-      final copied = await setWebReverseClipboardText(
-        const JsonEncoder.withIndent('  ').convert(e.raw),
-      );
-      if (mounted) {
-        showWebReverseClipboardSuccessSnack(
-          context: context,
-          base:
-              AppLocalizations.of(context)?.webReverseIssuesCopied ??
-              'Issue JSON copied',
-          result: copied,
-        );
-      }
-    } catch (err, st) {
-      silentLog('web_reverse_issues_dialog', 'copy', err, st);
-      if (!mounted) return;
-      showWebReverseClipboardErrorSnack(context: context, error: err);
-    }
+    await copyWebReverseTextToClipboard(
+      context: context,
+      text: const JsonEncoder.withIndent('  ').convert(e.raw),
+      successBase:
+          AppLocalizations.of(context)?.webReverseIssuesCopied ??
+          'Issue JSON copied',
+      logTag: 'web_reverse_issues_dialog',
+    );
   }
 
   void _clear() {

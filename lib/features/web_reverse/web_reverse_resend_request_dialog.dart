@@ -601,22 +601,15 @@ print(resp.text[:2000])''';
   }
 
   Future<void> _copy(String text, String kind) async {
-    late final WebReverseClipboardCopyResult copied;
-    try {
-      copied = await setWebReverseClipboardText(text);
-    } catch (e, st) {
-      silentLog('web_reverse_resend_request_dialog', 'copy.$kind', e, st);
-      if (!mounted) return;
-      showWebReverseClipboardErrorSnack(context: context, error: e);
-      return;
-    }
-    if (!mounted) return;
     final loc = AppLocalizations.of(context);
-    showWebReverseClipboardSuccessSnack(
+    await copyWebReverseTextToClipboard(
       context: context,
-      base: loc?.webReverseResendRequestCopiedAs(kind) ?? 'Copied as $kind',
-      result: copied,
-      duration: const Duration(seconds: 1),
+      text: text,
+      successBase:
+          loc?.webReverseResendRequestCopiedAs(kind) ?? 'Copied as $kind',
+      logTag: 'web_reverse_resend_request_dialog',
+      logAction: 'copy.$kind',
+      successDuration: const Duration(seconds: 1),
     );
   }
 
@@ -1143,29 +1136,13 @@ print(resp.text[:2000])''';
                   final base =
                       loc2?.webReverseResendRequestResponseCopied ??
                       'Response copied';
-                  late final WebReverseClipboardCopyResult copied;
-                  try {
-                    copied = await setWebReverseClipboardText(r.body);
-                  } catch (e, st) {
-                    silentLog(
-                      'web_reverse_resend_request_dialog',
-                      'copy.response',
-                      e,
-                      st,
-                    );
-                    if (!dialogContext.mounted) return;
-                    showWebReverseClipboardErrorSnack(
-                      context: dialogContext,
-                      error: e,
-                    );
-                    return;
-                  }
-                  if (!dialogContext.mounted) return;
-                  showWebReverseClipboardSuccessSnack(
+                  await copyWebReverseTextToClipboard(
                     context: dialogContext,
-                    base: base,
-                    result: copied,
-                    duration: const Duration(seconds: 1),
+                    text: r.body,
+                    successBase: base,
+                    logTag: 'web_reverse_resend_request_dialog',
+                    logAction: 'copy.response',
+                    successDuration: const Duration(seconds: 1),
                   );
                 },
               ),

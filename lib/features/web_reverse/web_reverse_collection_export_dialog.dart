@@ -300,7 +300,13 @@ class _CollectionExportDialogState extends State<_CollectionExportDialog> {
           .take(_kCollectionExportMaxEntries)
           .toList(growable: false);
       final out = _buildOutput(exportEntries);
-      final copyResult = await setWebReverseClipboardText(out);
+      final copyResult = await copyWebReverseTextToClipboard(
+        context: context,
+        text: out,
+        logTag: 'web_reverse_collection_export',
+        showSuccess: false,
+      );
+      if (copyResult == null) return;
       if (!mounted) return;
       final capped = entries.length > exportEntries.length;
       final copiedLabel =

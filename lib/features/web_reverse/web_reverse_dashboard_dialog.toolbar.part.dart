@@ -1283,24 +1283,14 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
                       buf.writeln("'${e.url}'");
                       buf.writeln();
                     }
-                    late final WebReverseClipboardCopyResult copied;
-                    try {
-                      copied = await setWebReverseClipboardText(buf.toString());
-                    } catch (error, stack) {
-                      silentLog(
-                        'web_reverse_dashboard_dialog',
-                        'copy batch curl',
-                        error,
-                        stack,
-                      );
-                      if (!context.mounted) return;
-                      showWebReverseClipboardErrorSnack(
-                        context: context,
-                        error: error,
-                      );
-                      return;
-                    }
-                    if (!context.mounted) return;
+                    final copied = await copyWebReverseTextToClipboard(
+                      context: context,
+                      text: buf.toString(),
+                      logTag: 'web_reverse_dashboard_dialog',
+                      logAction: 'copy batch curl',
+                      showSuccess: false,
+                    );
+                    if (copied == null || !context.mounted) return;
                     final base = openHandLocalizedText(
                       context,
                       zh: '已复制 $copyCount 条 curl 到剪贴板${filtered.length > copyCount ? '（已按条目上限裁剪）' : ''}',

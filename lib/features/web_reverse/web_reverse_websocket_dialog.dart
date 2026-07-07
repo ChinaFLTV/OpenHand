@@ -73,29 +73,20 @@ class _WsDialogState extends State<_WsDialog> {
           },
         )
         .toList();
-    try {
-      final copied = await setWebReverseClipboardText(
-        const JsonEncoder.withIndent('  ').convert(data),
-      );
-      if (!mounted) return;
-      showWebReverseClipboardSuccessSnack(
-        context: context,
-        base: openHandLocalizedText(
-          context,
-          zh: '帧 JSON 已复制',
-          zhHant: '影格 JSON 已複製',
-          en: 'Frames JSON copied',
-          fr: 'JSON des trames copié',
-          de: 'Frame-JSON kopiert',
-          ja: 'フレーム JSON をコピーしました',
-        ),
-        result: copied,
-      );
-    } catch (err, st) {
-      silentLog('web_reverse_websocket_dialog', 'copy', err, st);
-      if (!mounted) return;
-      showWebReverseClipboardErrorSnack(context: context, error: err);
-    }
+    await copyWebReverseTextToClipboard(
+      context: context,
+      text: const JsonEncoder.withIndent('  ').convert(data),
+      successBase: openHandLocalizedText(
+        context,
+        zh: '帧 JSON 已复制',
+        zhHant: '影格 JSON 已複製',
+        en: 'Frames JSON copied',
+        fr: 'JSON des trames copié',
+        de: 'Frame-JSON kopiert',
+        ja: 'フレーム JSON をコピーしました',
+      ),
+      logTag: 'web_reverse_websocket_dialog',
+    );
   }
 
   Future<void> _replaySent() async {

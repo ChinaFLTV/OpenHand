@@ -195,20 +195,12 @@ class _CoverageDialogState extends State<_CoverageDialog> {
         '(${row.coveredFunctions}/${row.functions} fn)  ${row.url}',
       );
     }
-    late final WebReverseClipboardCopyResult copied;
-    try {
-      copied = await setWebReverseClipboardText(buf.toString());
-    } catch (e, st) {
-      silentLog('web_reverse_coverage_dialog', 'copy-report', e, st);
-      if (!mounted) return;
-      showWebReverseClipboardErrorSnack(context: context, error: e);
-      return;
-    }
-    if (!mounted) return;
-    showWebReverseClipboardSuccessSnack(
+    await copyWebReverseTextToClipboard(
       context: context,
-      base: loc?.webReverseCoverageReportCopied ?? 'Report copied',
-      result: copied,
+      text: buf.toString(),
+      successBase: loc?.webReverseCoverageReportCopied ?? 'Report copied',
+      logTag: 'web_reverse_coverage_dialog',
+      logAction: 'copy-report',
     );
   }
 
@@ -489,20 +481,12 @@ class _CoverageDialogState extends State<_CoverageDialog> {
           IconButton(
             tooltip: loc?.webReverseCoverageCopyUrl ?? 'Copy URL',
             onPressed: () async {
-              late final WebReverseClipboardCopyResult copied;
-              try {
-                copied = await setWebReverseClipboardText(row.url);
-              } catch (e, st) {
-                silentLog('web_reverse_coverage_dialog', 'copy-url', e, st);
-                if (!mounted) return;
-                showWebReverseClipboardErrorSnack(context: context, error: e);
-                return;
-              }
-              if (!mounted) return;
-              showWebReverseClipboardSuccessSnack(
+              await copyWebReverseTextToClipboard(
                 context: context,
-                base: loc?.webReverseCoverageCopied ?? 'Copied',
-                result: copied,
+                text: row.url,
+                successBase: loc?.webReverseCoverageCopied ?? 'Copied',
+                logTag: 'web_reverse_coverage_dialog',
+                logAction: 'copy-url',
               );
             },
             icon: const Icon(Icons.copy_rounded, size: 16),

@@ -281,24 +281,13 @@ class _DomMutationDialogState extends State<_DomMutationDialog> {
 
   Future<void> _exportJson() async {
     final loc = AppLocalizations.of(context);
-    late final WebReverseClipboardCopyResult copied;
-    try {
-      copied = await setWebReverseClipboardText(
-        const JsonEncoder.withIndent('  ').convert(_records),
-      );
-    } catch (e, st) {
-      silentLog('web_reverse_dom_mutation', 'copy', e, st);
-      if (!mounted) return;
-      showWebReverseClipboardErrorSnack(context: context, error: e);
-      return;
-    }
-    if (!mounted) return;
-    showWebReverseClipboardSuccessSnack(
+    await copyWebReverseTextToClipboard(
       context: context,
-      base:
+      text: const JsonEncoder.withIndent('  ').convert(_records),
+      successBase:
           loc?.webReverseDomMutCopiedRecords(_records.length) ??
           'Copied ${_records.length} records',
-      result: copied,
+      logTag: 'web_reverse_dom_mutation',
     );
   }
 

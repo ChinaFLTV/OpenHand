@@ -563,22 +563,14 @@ class _SignatureDiffDialogState extends State<_SignatureDiffDialog> {
     dumpSection('Query', g.queryFields);
     dumpSection('Headers', g.headerFields);
     dumpSection('Body', g.bodyFields);
-    late final WebReverseClipboardCopyResult copied;
-    try {
-      copied = await setWebReverseClipboardText(buf.toString());
-    } catch (e, st) {
-      silentLog('web_reverse_signature_diff_dialog', 'copy report', e, st);
-      if (!mounted) return;
-      showWebReverseClipboardErrorSnack(context: context, error: e);
-      return;
-    }
-    if (!mounted) return;
-    showWebReverseClipboardSuccessSnack(
+    await copyWebReverseTextToClipboard(
       context: context,
-      base:
+      text: buf.toString(),
+      successBase:
           loc?.webReverseSignatureDiffReportCopied ??
           'Report copied to clipboard',
-      result: copied,
+      logTag: 'web_reverse_signature_diff_dialog',
+      logAction: 'copy report',
     );
   }
 }

@@ -619,23 +619,13 @@ class _CallgraphDialogState extends State<_CallgraphDialog> {
                       '${fn.name} -> ${fn.callees.take(20).join(', ')}',
                     );
                   }
-                  late final WebReverseClipboardCopyResult copied;
-                  try {
-                    copied = await setWebReverseClipboardText(buf.toString());
-                  } catch (e, st) {
-                    silentLog('web_reverse_callgraph', 'copy graph', e, st);
-                    if (!mounted) return;
-                    showWebReverseClipboardErrorSnack(
-                      context: context,
-                      error: e,
-                    );
-                    return;
-                  }
-                  if (!mounted) return;
-                  showWebReverseClipboardSuccessSnack(
+                  await copyWebReverseTextToClipboard(
                     context: context,
-                    base: loc?.webReverseCallgraphGraphCopied ?? 'Graph copied',
-                    result: copied,
+                    text: buf.toString(),
+                    successBase:
+                        loc?.webReverseCallgraphGraphCopied ?? 'Graph copied',
+                    logTag: 'web_reverse_callgraph',
+                    logAction: 'copy graph',
                   );
                 },
               ),

@@ -144,22 +144,14 @@ class _ElementsBodyState extends State<_ElementsBody> {
       );
       return;
     }
-    late final WebReverseClipboardCopyResult copied;
-    try {
-      copied = await setWebReverseClipboardText(s);
-    } catch (e, st) {
-      silentLog('web_reverse_elements_panel', 'copy selector', e, st);
-      if (!mounted) return;
-      showWebReverseClipboardErrorSnack(context: context, error: e);
-      return;
-    }
-    if (!mounted) return;
     final loc = AppLocalizations.of(context);
-    showWebReverseClipboardSuccessSnack(
+    await copyWebReverseTextToClipboard(
       context: context,
-      base: loc?.webReverseElementsSelectorCopied ?? 'Selector copied',
-      result: copied,
-      duration: const Duration(seconds: 1),
+      text: s,
+      successBase: loc?.webReverseElementsSelectorCopied ?? 'Selector copied',
+      logTag: 'web_reverse_elements_panel',
+      logAction: 'copy selector',
+      successDuration: const Duration(seconds: 1),
     );
   }
 
@@ -176,22 +168,14 @@ class _ElementsBodyState extends State<_ElementsBody> {
       );
       return;
     }
-    late final WebReverseClipboardCopyResult copied;
-    try {
-      copied = await setWebReverseClipboardText(s);
-    } catch (e, st) {
-      silentLog('web_reverse_elements_panel', 'copy xpath', e, st);
-      if (!mounted) return;
-      showWebReverseClipboardErrorSnack(context: context, error: e);
-      return;
-    }
-    if (!mounted) return;
     final loc = AppLocalizations.of(context);
-    showWebReverseClipboardSuccessSnack(
+    await copyWebReverseTextToClipboard(
       context: context,
-      base: loc?.webReverseElementsXPathCopied ?? 'XPath copied',
-      result: copied,
-      duration: const Duration(seconds: 1),
+      text: s,
+      successBase: loc?.webReverseElementsXPathCopied ?? 'XPath copied',
+      logTag: 'web_reverse_elements_panel',
+      logAction: 'copy xpath',
+      successDuration: const Duration(seconds: 1),
     );
   }
 

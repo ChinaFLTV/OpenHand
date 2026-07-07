@@ -101,24 +101,13 @@ class _HeapDialogState extends State<_HeapDialog> {
   }
 
   Future<void> _copyPath() async {
-    late final WebReverseClipboardCopyResult copied;
-    try {
-      copied = await setWebReverseClipboardText(_lastSaved);
-    } catch (e, s) {
-      silentLog(
-        'web_reverse_heap_snapshot_dialog',
-        'heap-snapshot.clipboard',
-        e,
-        s,
-      );
-      return;
-    }
-    if (!mounted) return;
     final loc = AppLocalizations.of(context);
-    showWebReverseClipboardSuccessSnack(
+    await copyWebReverseTextToClipboard(
       context: context,
-      base: loc?.webReverseHeapPathCopied ?? 'Path copied',
-      result: copied,
+      text: _lastSaved,
+      successBase: loc?.webReverseHeapPathCopied ?? 'Path copied',
+      logTag: 'web_reverse_heap_snapshot_dialog',
+      logAction: 'heap-snapshot.clipboard',
     );
   }
 
