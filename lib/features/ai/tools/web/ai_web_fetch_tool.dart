@@ -278,7 +278,12 @@ class AiWebFetchTool extends AiTool {
         contentChars: 0,
         errorMessage: '$error',
       );
-      return failed(_friendlyFetchTransportError(error));
+      return failed(
+        AiTransportDiagnosticMessages.friendlyTransportError(
+          error,
+          contextLabel: 'WebFetch',
+        ),
+      );
     }
 
     final winner = orchestrationResult.merged;
@@ -383,7 +388,12 @@ class AiWebFetchTool extends AiTool {
       );
       return AiToolUtils.looksLikeTimeoutMessage(msg)
           ? timedOut('WebFetch timed out while focusing on the fetched page.')
-          : failed(_friendlyFetchTransportError(error));
+          : failed(
+              AiTransportDiagnosticMessages.friendlyTransportError(
+                error,
+                contextLabel: 'WebFetch',
+              ),
+            );
     }
     if (completion == null) {
       recordTelemetry(
@@ -544,33 +554,6 @@ class AiWebFetchTool extends AiTool {
       silentLog('ai_web_fetch_tool', '_maybeFireHealthAlerts', error, stack);
     }
   }
-}
-
-/// 把底层 dart:io / http 异常转换成「现象 / 原因 / 建议」三段式中英双语
-/// 文本，给 LLM 足够上下文以便后续回复用户。
-String _friendlyFetchTransportError(Object error) {
-  if (error is HandshakeException) {
-    return AiTransportDiagnosticMessages.handshake(
-      error,
-      contextLabel: 'WebFetch',
-    );
-  }
-  if (error is TlsException) {
-    return AiTransportDiagnosticMessages.tls(error, contextLabel: 'WebFetch');
-  }
-  if (error is SocketException) {
-    return AiTransportDiagnosticMessages.socket(
-      error,
-      contextLabel: 'WebFetch',
-    );
-  }
-  if (error is http.ClientException) {
-    return AiTransportDiagnosticMessages.httpClient(
-      error,
-      contextLabel: 'WebFetch',
-    );
-  }
-  return '$error';
 }
 
 bool _isSkippedWebEngineDiagnostic(String? error) {

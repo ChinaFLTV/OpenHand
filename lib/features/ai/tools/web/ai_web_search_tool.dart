@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:io';
+import 'dart:io' show Platform;
 
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:http/http.dart' as http;
@@ -289,7 +289,12 @@ class AiWebSearchTool extends AiTool {
         summaryChars: 0,
         errorMessage: '$error',
       );
-      return failed(_friendlySearchTransportError(error));
+      return failed(
+        AiTransportDiagnosticMessages.friendlyTransportError(
+          error,
+          contextLabel: 'WebSearch',
+        ),
+      );
     }
 
     final merged = orchestrationResult.merged;
@@ -393,7 +398,12 @@ class AiWebSearchTool extends AiTool {
       );
       return AiToolUtils.looksLikeTimeoutMessage(msg)
           ? timedOut('WebSearch timed out while summarizing the results.')
-          : failed(_friendlySearchTransportError(error));
+          : failed(
+              AiTransportDiagnosticMessages.friendlyTransportError(
+                error,
+                contextLabel: 'WebSearch',
+              ),
+            );
     }
 
     final summary = completion.reply.trim();
@@ -658,33 +668,6 @@ class _SummaryPrompts {
   final String system;
   final String user;
   final String rawHits;
-}
-
-/// 把底层 dart:io / http 异常转换成「现象 / 原因 / 建议」三段式中英双语
-/// 文本，给 LLM 足够上下文以便后续回复用户。
-String _friendlySearchTransportError(Object error) {
-  if (error is HandshakeException) {
-    return AiTransportDiagnosticMessages.handshake(
-      error,
-      contextLabel: 'WebSearch',
-    );
-  }
-  if (error is TlsException) {
-    return AiTransportDiagnosticMessages.tls(error, contextLabel: 'WebSearch');
-  }
-  if (error is SocketException) {
-    return AiTransportDiagnosticMessages.socket(
-      error,
-      contextLabel: 'WebSearch',
-    );
-  }
-  if (error is http.ClientException) {
-    return AiTransportDiagnosticMessages.httpClient(
-      error,
-      contextLabel: 'WebSearch',
-    );
-  }
-  return '$error';
 }
 
 bool _isSkippedWebEngineDiagnostic(String? error) {

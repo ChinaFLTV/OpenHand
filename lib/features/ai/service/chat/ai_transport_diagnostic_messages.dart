@@ -95,6 +95,25 @@ class AiTransportDiagnosticMessages {
         .any(message.contains);
   }
 
+  static String friendlyTransportError(
+    Object error, {
+    String contextLabel = '',
+  }) {
+    if (error is HandshakeException) {
+      return handshake(error, contextLabel: contextLabel);
+    }
+    if (error is TlsException) {
+      return tls(error, contextLabel: contextLabel);
+    }
+    if (error is SocketException) {
+      return socket(error, contextLabel: contextLabel);
+    }
+    if (error is http.ClientException) {
+      return httpClient(error, contextLabel: contextLabel);
+    }
+    return '$error';
+  }
+
   static bool _containsRetryableStatusCode(
     String message,
     Set<int> statusCodes,
