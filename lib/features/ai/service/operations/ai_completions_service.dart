@@ -76,14 +76,11 @@ class AiCompletionsService {
             'frequency_penalty': frequencyPenalty,
           if (userValue != null) 'user': userValue,
         });
-    final response = await _transport.sendJson(
-      uri: AiOperationHttp.uriWithExtraQuery(endpoint.url, model, family),
-      method: endpoint.method,
-      headers: AiOperationHttp.buildHeaders(
-        model: model,
-        endpointHeaders: endpoint.headers,
-        family: family,
-      ),
+    final response = await AiOperationHttp.sendJsonForFamily(
+      transport: _transport,
+      endpoint: endpoint,
+      model: model,
+      family: family,
       body: body,
       timeout: timeout,
     );

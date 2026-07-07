@@ -104,14 +104,11 @@ class AiRerankService {
       fallbackPath: plan.fallbackPath,
       method: model.requestMethod,
     );
-    final response = await _transport.sendJson(
-      uri: AiOperationHttp.uriWithExtraQuery(endpoint.url, model, family),
-      method: endpoint.method,
-      headers: AiOperationHttp.buildHeaders(
-        model: model,
-        endpointHeaders: endpoint.headers,
-        family: family,
-      ),
+    final response = await AiOperationHttp.sendJsonForFamily(
+      transport: _transport,
+      endpoint: endpoint,
+      model: model,
+      family: family,
       body: plan.body,
       timeout: timeout,
     );

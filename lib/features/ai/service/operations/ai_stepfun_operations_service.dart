@@ -615,14 +615,11 @@ class AiStepFunOperationsService {
       method: model.requestMethod,
       fallbackPath: fallbackPath,
     );
-    final response = await _transport.sendJson(
-      uri: AiOperationHttp.uriWithExtraQuery(endpoint.url, model, family),
-      method: endpoint.method,
-      headers: AiOperationHttp.buildHeaders(
-        model: model,
-        endpointHeaders: endpoint.headers,
-        family: family,
-      ),
+    final response = await AiOperationHttp.sendJsonForFamily(
+      transport: _transport,
+      endpoint: endpoint,
+      model: model,
+      family: family,
       body: AiOperationHttp.mergeBodyExtras(model, family, body),
       timeout: timeout,
     );

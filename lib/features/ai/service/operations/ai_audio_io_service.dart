@@ -91,17 +91,14 @@ class AiAudioIoService {
       protocol: model.protocolType,
       modelId: modelId,
     );
-    final response = await _transport.sendJson(
-      uri: AiOperationHttp.uriWithExtraQuery(endpoint.url, model, family),
-      method: endpoint.method,
-      headers: AiOperationHttp.buildHeaders(
-        model: model,
-        endpointHeaders: endpoint.headers,
-        family: family,
-        acceptJson: true,
-      ),
+    final response = await AiOperationHttp.sendJsonForFamily(
+      transport: _transport,
+      endpoint: endpoint,
+      model: model,
+      family: family,
       body: body,
       timeout: timeout,
+      acceptJson: true,
     );
     AiOperationHttp.throwIfFailed(
       statusCode: response.statusCode,

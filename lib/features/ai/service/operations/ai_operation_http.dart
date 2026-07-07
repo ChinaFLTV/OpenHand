@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:http/http.dart' as http;
+
 import '../../../../shared/net/http_status_utils.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/text_clip.dart';
@@ -7,6 +9,8 @@ import '../../../../shared/util/text_normalization.dart';
 import '../../model/ai_api_family.dart';
 import '../../model/ai_model_config.dart';
 import '../chat/ai_transport_diagnostic_messages.dart';
+import '../runtime/ai_endpoint_router.dart';
+import '../runtime/ai_transport_client.dart';
 
 final class AiOperationHttp {
   const AiOperationHttp._();
@@ -57,6 +61,31 @@ final class AiOperationHttp {
     };
     headers[headerName] = model.authScheme.apply(token);
     return headers;
+  }
+
+  static Future<http.Response> sendJsonForFamily({
+    required AiTransportClient transport,
+    required AiResolvedEndpoint endpoint,
+    required AiModelConfig model,
+    required AiApiFamily family,
+    required Map<String, Object?> body,
+    required Duration timeout,
+    bool includeJsonContentType = true,
+    bool acceptJson = false,
+  }) {
+    return transport.sendJson(
+      uri: uriWithExtraQuery(endpoint.url, model, family),
+      method: endpoint.method,
+      headers: buildHeaders(
+        model: model,
+        endpointHeaders: endpoint.headers,
+        family: family,
+        includeJsonContentType: includeJsonContentType,
+        acceptJson: acceptJson,
+      ),
+      body: body,
+      timeout: timeout,
+    );
   }
 
   static void throwIfFailed({
