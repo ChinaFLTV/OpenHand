@@ -1900,7 +1900,7 @@ class _AndroidReverseDashboardDialogState
       final result = await _ctrl.makeEvidenceBundleToArtifacts();
       if (!mounted) return;
       setState(() => _evidenceBundleOutput = _formatAdbResult(result));
-      OpenHandSnackBar.showInfo(
+      showAndroidReverseInfoSnack(
         context,
         result.ok
             ? openHandLocalizedText(
@@ -2693,7 +2693,7 @@ fi
         ja: '実行する adb shell コマンドを入力してください。',
       );
       setState(() => _shellOutputCtrl.text = message);
-      OpenHandSnackBar.showInfo(context, message);
+      showAndroidReverseInfoSnack(context, message);
       return;
     }
     final serial = _targetSerial;
@@ -2849,21 +2849,12 @@ fi
   }
 
   Future<void> _copyText(String text) async {
-    await Clipboard.setData(ClipboardData(text: text));
-    if (mounted) {
-      OpenHandSnackBar.showSuccess(
-        context,
-        openHandLocalizedText(
-          context,
-          zh: '已复制',
-          zhHant: '已複製',
-          en: 'Copied',
-          fr: 'Copié',
-          de: 'Kopiert',
-          ja: 'コピーしました',
-        ),
-      );
-    }
+    await copyAndroidReverseTextToClipboard(
+      context: context,
+      text: text,
+      logTag: 'android_reverse_dashboard',
+      logAction: 'copy text',
+    );
   }
 
   @override
