@@ -16,7 +16,6 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
-import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/input_value_parsing.dart';
 import 'web_reverse_clipboard.dart';
 import 'web_reverse_dialog_utils.dart';
@@ -99,7 +98,6 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
     final cs = theme.colorScheme;
     final loc = AppLocalizations.of(context);
     final entries = _filtered();
-    final messenger = ScaffoldMessenger.maybeOf(context);
 
     // 时间窗
     DateTime? earliest;
@@ -258,31 +256,36 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
                                     leftWidth: leftWidth,
                                     barWidth: barWidth,
                                     onTap: () async {
-                                      final copied =
-                                          await setWebReverseClipboardText(
-                                            e.url,
-                                          );
-                                      if (messenger != null &&
-                                          context.mounted) {
-                                        final loc = AppLocalizations.of(
-                                          context,
+                                      late final WebReverseClipboardCopyResult
+                                      copied;
+                                      try {
+                                        copied =
+                                            await setWebReverseClipboardText(
+                                              e.url,
+                                            );
+                                      } catch (error, stack) {
+                                        silentLog(
+                                          'web_reverse_waterfall_dialog',
+                                          'copy url',
+                                          error,
+                                          stack,
                                         );
-                                        OpenHandSnackBar.showSuccessOn(
-                                          context,
-                                          messenger,
-                                          webReverseClipboardSnackMessage(
-                                            isZh:
-                                                loc?.localeName.startsWith(
-                                                  'zh',
-                                                ) ??
-                                                false,
-                                            base:
-                                                loc?.webReverseWaterfallUrlCopied ??
-                                                'URL copied',
-                                            result: copied,
-                                          ),
+                                        if (!context.mounted) return;
+                                        showWebReverseClipboardErrorSnack(
+                                          context: context,
+                                          error: error,
                                         );
+                                        return;
                                       }
+                                      if (!context.mounted) return;
+                                      final loc = AppLocalizations.of(context);
+                                      showWebReverseClipboardSuccessSnack(
+                                        context: context,
+                                        base:
+                                            loc?.webReverseWaterfallUrlCopied ??
+                                            'URL copied',
+                                        result: copied,
+                                      );
                                     },
                                   );
                                 },
@@ -748,7 +751,6 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
 
   Future<void> _importHar() async {
     final loc = AppLocalizations.of(context);
-    final messenger = ScaffoldMessenger.of(context);
     const typeGroup = XTypeGroup(
       label: 'HAR',
       extensions: <String>['har', 'json'],
@@ -797,9 +799,8 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
       final read = await readWebReverseHarFile(file);
       if (read.isTooLarge) {
         if (!mounted) return;
-        OpenHandSnackBar.showErrorOn(
+        showWebReverseErrorSnack(
           context,
-          messenger,
           webReverseHarTooLargeMessage(read.tooLargeBytes!, context: context),
           duration: const Duration(seconds: 3),
         );
@@ -810,9 +811,8 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
       if (!mounted) return;
       setState(() {});
       final loc2 = AppLocalizations.of(context);
-      OpenHandSnackBar.showSuccessOn(
+      showWebReverseSuccessSnack(
         context,
-        messenger,
         merge
             ? (loc2?.webReverseWaterfallLoadMergedResult(r.loaded, r.skipped) ??
                   'Merged: ${r.loaded}; skipped ${r.skipped}')
@@ -826,9 +826,8 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
     } catch (error, stack) {
       silentLog('web_reverse_waterfall_dialog', 'parse har', error, stack);
       if (!mounted) return;
-      OpenHandSnackBar.showErrorOn(
+      showWebReverseErrorSnack(
         context,
-        messenger,
         loc?.webReverseWaterfallHarParseFailed ?? 'HAR parse failed',
         duration: const Duration(seconds: 3),
       );
@@ -836,7 +835,6 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
   }
 
   Future<void> _exportHar() async {
-    final messenger = ScaffoldMessenger.of(context);
     final ts = DateTime.now()
         .toIso8601String()
         .replaceAll(':', '-')
@@ -873,17 +871,15 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
     if (!mounted) return;
     final loc2 = AppLocalizations.of(context);
     if (written == null) {
-      OpenHandSnackBar.showErrorOn(
+      showWebReverseErrorSnack(
         context,
-        messenger,
         loc2?.webReverseWaterfallHarSaveFailed ??
             'HAR save failed or timed out',
         duration: const Duration(seconds: 3),
       );
     } else {
-      OpenHandSnackBar.showSuccessOn(
+      showWebReverseSuccessSnack(
         context,
-        messenger,
         loc2?.webReverseWaterfallHarSavedTo(written) ?? 'HAR saved to $written',
         duration: const Duration(seconds: 3),
       );

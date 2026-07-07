@@ -19,7 +19,6 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
-import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/date_time_format.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/text_clip.dart';
@@ -264,14 +263,10 @@ class _WsInjectDialogState extends State<_WsInjectDialog> {
     if (raw.isEmpty) return;
     final loc = AppLocalizations.of(context);
     if (raw.length > _kWsInjectMaxPayloadChars) {
-      final m = ScaffoldMessenger.maybeOf(context);
-      if (m != null) {
-        OpenHandSnackBar.showErrorOn(
-          context,
-          m,
-          'Payload too large: ${raw.length}/$_kWsInjectMaxPayloadChars',
-        );
-      }
+      showWebReverseErrorSnack(
+        context,
+        'Payload too large: ${raw.length}/$_kWsInjectMaxPayloadChars',
+      );
       return;
     }
     setState(() => _busy = true);
@@ -307,21 +302,16 @@ class _WsInjectDialogState extends State<_WsInjectDialog> {
       );
       if (_log.length > _kWsInjectMaxLogEntries) _log.removeLast();
       if (!mounted) return;
-      final m = ScaffoldMessenger.maybeOf(context);
-      if (m != null) {
-        if (ok) {
-          OpenHandSnackBar.showSuccessOn(
-            context,
-            m,
-            loc?.webReverseWsInjectInjected ?? 'Injected',
-          );
-        } else {
-          OpenHandSnackBar.showErrorOn(
-            context,
-            m,
-            loc?.webReverseWsInjectInjectFailed ?? 'Inject failed',
-          );
-        }
+      if (ok) {
+        showWebReverseSuccessSnack(
+          context,
+          loc?.webReverseWsInjectInjected ?? 'Injected',
+        );
+      } else {
+        showWebReverseErrorSnack(
+          context,
+          loc?.webReverseWsInjectInjectFailed ?? 'Inject failed',
+        );
       }
     } catch (e, st) {
       silentLog('web_reverse_ws_inject', 'send', e, st);
@@ -511,12 +501,8 @@ class _WsInjectDialogState extends State<_WsInjectDialog> {
               children: [
                 TextButton.icon(
                   onPressed: () async {
-                    final clippedSnackBar = OpenHandSnackBar.info(
-                      context,
-                      'Pasted payload clipped to $_kWsInjectMaxPayloadChars chars',
-                    );
                     final data = await Clipboard.getData('text/plain');
-                    if (!mounted) return;
+                    if (!context.mounted) return;
                     if (data?.text != null) {
                       final raw = data!.text!;
                       final clipped = raw.length > _kWsInjectMaxPayloadChars;
@@ -527,8 +513,9 @@ class _WsInjectDialogState extends State<_WsInjectDialog> {
                         ),
                       );
                       if (clipped) {
-                        OpenHandGlobalSnackBarHost.showSnackBar(
-                          clippedSnackBar,
+                        showWebReverseInfoSnack(
+                          context,
+                          'Pasted payload clipped to $_kWsInjectMaxPayloadChars chars',
                         );
                       }
                     }

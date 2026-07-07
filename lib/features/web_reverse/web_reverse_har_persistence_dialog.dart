@@ -19,7 +19,6 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
-import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/timer_safety.dart';
 import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_har_io.dart';
@@ -85,7 +84,6 @@ class _HarPersistenceDialogState extends State<_HarPersistenceDialog> {
   Future<void> _saveNow() async {
     if (_busy) return;
     final loc0 = AppLocalizations.of(context);
-    final messenger = ScaffoldMessenger.of(context);
     final ts = DateTime.now()
         .toIso8601String()
         .replaceAll(':', '-')
@@ -100,9 +98,8 @@ class _HarPersistenceDialogState extends State<_HarPersistenceDialog> {
     } catch (e, s) {
       silentLog('web_reverse_har_persistence', 'getSaveLocation', e, s);
       if (!mounted) return;
-      OpenHandSnackBar.showErrorOn(
+      showWebReverseErrorSnack(
         context,
-        messenger,
         loc0?.webReverseHarOpenSaveDialogFail ?? 'Failed to open save dialog',
       );
       return;
@@ -124,9 +121,8 @@ class _HarPersistenceDialogState extends State<_HarPersistenceDialog> {
               loc1?.webReverseHarExportFailedNoDraft ??
               'Export failed (no HAR draft)',
         );
-        OpenHandSnackBar.showErrorOn(
+        showWebReverseErrorSnack(
           context,
-          messenger,
           loc1?.webReverseHarExportFailed ?? 'Export failed',
         );
       } else {
@@ -134,9 +130,8 @@ class _HarPersistenceDialogState extends State<_HarPersistenceDialog> {
           () =>
               _status = (loc1?.webReverseHarWrotePrefix ?? 'Wrote: ') + written,
         );
-        OpenHandSnackBar.showSuccessOn(
+        showWebReverseSuccessSnack(
           context,
-          messenger,
           loc1?.webReverseHarSaved ?? 'HAR saved',
         );
       }
@@ -149,9 +144,8 @@ class _HarPersistenceDialogState extends State<_HarPersistenceDialog> {
             loc1?.webReverseHarExportException(e.toString()) ??
             'Export error: $e',
       );
-      OpenHandSnackBar.showErrorOn(
+      showWebReverseErrorSnack(
         context,
-        messenger,
         loc1?.webReverseHarExportErrorShort ?? 'Export error',
       );
     } finally {
@@ -162,7 +156,6 @@ class _HarPersistenceDialogState extends State<_HarPersistenceDialog> {
   Future<void> _loadHar() async {
     if (_busy) return;
     final loc0 = AppLocalizations.of(context);
-    final messenger = ScaffoldMessenger.of(context);
     const tg = XTypeGroup(label: 'HAR', extensions: <String>['har', 'json']);
     XFile? file;
     try {
@@ -170,9 +163,8 @@ class _HarPersistenceDialogState extends State<_HarPersistenceDialog> {
     } catch (e, s) {
       silentLog('web_reverse_har_persistence', 'openFile', e, s);
       if (!mounted) return;
-      OpenHandSnackBar.showErrorOn(
+      showWebReverseErrorSnack(
         context,
-        messenger,
         loc0?.webReverseHarOpenFileDialogFail ?? 'Failed to open file dialog',
       );
       return;
@@ -191,7 +183,7 @@ class _HarPersistenceDialogState extends State<_HarPersistenceDialog> {
           context: context,
         );
         setState(() => _status = message);
-        OpenHandSnackBar.showErrorOn(context, messenger, message);
+        showWebReverseErrorSnack(context, message);
         return;
       }
       final bytes = read.bytes!;
@@ -206,9 +198,8 @@ class _HarPersistenceDialogState extends State<_HarPersistenceDialog> {
             loc1?.webReverseHarLoadResult(r.loaded, r.skipped, mode) ??
             'Loaded: ${r.loaded} / skipped ${r.skipped} ($mode)',
       );
-      OpenHandSnackBar.showSuccessOn(
+      showWebReverseSuccessSnack(
         context,
-        messenger,
         loc1?.webReverseHarLoaded ?? 'HAR loaded',
       );
     } catch (e, s) {
@@ -219,9 +210,8 @@ class _HarPersistenceDialogState extends State<_HarPersistenceDialog> {
         () => _status =
             loc1?.webReverseHarLoadException(e.toString()) ?? 'Load error: $e',
       );
-      OpenHandSnackBar.showErrorOn(
+      showWebReverseErrorSnack(
         context,
-        messenger,
         loc1?.webReverseHarLoadErrorShort ?? 'Load error',
       );
     } finally {
@@ -244,12 +234,10 @@ class _HarPersistenceDialogState extends State<_HarPersistenceDialog> {
 
   void _startAutoRotate() {
     final loc = AppLocalizations.of(context);
-    final messenger = ScaffoldMessenger.of(context);
     final folder = _folder;
     if (folder == null || folder.isEmpty) {
-      OpenHandSnackBar.showErrorOn(
+      showWebReverseErrorSnack(
         context,
-        messenger,
         loc?.webReverseHarChooseFolderFirst ?? 'Choose a folder first',
       );
       return;
@@ -285,9 +273,8 @@ class _HarPersistenceDialogState extends State<_HarPersistenceDialog> {
     }, min: _minAutoRotateInterval);
     _interval = interval;
     setState(() {});
-    OpenHandSnackBar.showSuccessOn(
+    showWebReverseSuccessSnack(
       context,
-      messenger,
       loc?.webReverseHarAutoStarted ?? 'Auto-rotate started',
     );
   }
@@ -297,15 +284,11 @@ class _HarPersistenceDialogState extends State<_HarPersistenceDialog> {
     _autoRotate.timer = null;
     _autoRotate.nextAt = null;
     setState(() {});
-    final m = ScaffoldMessenger.maybeOf(context);
-    if (m != null) {
-      OpenHandSnackBar.showSuccessOn(
-        context,
-        m,
-        AppLocalizations.of(context)?.webReverseHarAutoStopped ??
-            'Auto-rotate stopped',
-      );
-    }
+    showWebReverseSuccessSnack(
+      context,
+      AppLocalizations.of(context)?.webReverseHarAutoStopped ??
+          'Auto-rotate stopped',
+    );
   }
 
   @override
