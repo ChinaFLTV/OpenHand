@@ -61,7 +61,7 @@ class McpServerOpsRuntime {
   static const int _rateWindowSeconds = 60;
   static const Map<String, String> _corsHeaders = <String, String>{
     'access-control-allow-origin': '*',
-    'access-control-allow-methods': 'GET, POST, OPTIONS',
+    'access-control-allow-methods': 'GET, POST, DELETE, OPTIONS, HEAD',
     'access-control-allow-headers':
         'accept, authorization, content-type, mcp-protocol-version, mcp-session-id, x-openhand-client, x-openhand-mcp-token, x-openhand-model, x-model',
     'access-control-expose-headers': 'mcp-protocol-version, mcp-session-id',
@@ -105,13 +105,14 @@ class McpServerOpsRuntime {
       ),
     );
     try {
-      final router = Router()
-        ..get('/health', _health)
-        ..options('/mcp', _options)
-        ..options('/', _options)
-        ..get('/mcp', _sseStream)
-        ..post('/mcp', _jsonRpc)
-        ..post('/', _jsonRpc);
+      // Streamable HTTP multiplexes POST (JSON-RPC), GET (SSE stream) and
+      // DELETE (session end) onto a single endpoint URL. Clients disagree on
+      // whether that URL carries a path (`/mcp`, `/mcp/`) or is the bare root,
+      // so every non-health request is funneled through one method dispatcher
+      // to avoid 404s from exact-path mismatches (e.g. Cursor's "Failed to open
+      // SSE stream: Not Found").
+      final router = Router(notFoundHandler: _dispatchMcp)
+        ..get('/health', _health);
       final handler = const shelf.Pipeline()
           .addMiddleware(_telemetryMiddleware())
           .addHandler(router.call);
@@ -200,16 +201,31 @@ class McpServerOpsRuntime {
       return result;
     }
     final host = _connectivityHost(_snapshot.boundHost ?? _config.listenHost);
-    final uri = Uri(scheme: 'http', host: host, port: port, path: '/health');
+    // Exercise the real Streamable HTTP endpoint with an `initialize` handshake
+    // so the test mirrors what external clients (Cursor, etc.) actually do,
+    // rather than only probing /health.
+    final uri = Uri(scheme: 'http', host: host, port: port, path: '/mcp');
     final client = HttpClient()..connectionTimeout = _connectivityTimeout;
     try {
-      final request = await client.getUrl(uri).timeout(_connectivityTimeout);
+      final request = await client.postUrl(uri).timeout(_connectivityTimeout);
+      request.headers
+        ..set(HttpHeaders.contentTypeHeader, 'application/json')
+        ..set(HttpHeaders.acceptHeader, 'application/json, text/event-stream')
+        ..set('mcp-protocol-version', _protocolVersion)
+        ..set('x-openhand-client', 'OpenHand Self-Test');
+      final token = nullIfBlank(_config.authToken);
+      if (_config.requireAuthToken && token != null) {
+        request.headers.set(HttpHeaders.authorizationHeader, 'Bearer $token');
+      }
+      request.add(utf8.encode(jsonEncode(_initializeProbePayload)));
       final response = await request.close().timeout(_connectivityTimeout);
       final body = await response.transform(utf8.decoder).join();
-      final ok = response.statusCode == HttpStatus.ok;
+      final ok = response.statusCode == HttpStatus.ok && _isInitializeAck(body);
       final result = McpOpsConnectivityResult(
         ok: ok,
-        message: ok ? 'OK $uri' : 'HTTP ${response.statusCode}: $body',
+        message: ok
+            ? 'OK $uri'
+            : 'HTTP ${response.statusCode}: ${_clipConnectivityBody(body)}',
         checkedAt: checkedAt,
       );
       _applyConnectivityResult(result);
@@ -225,6 +241,40 @@ class McpServerOpsRuntime {
     } finally {
       client.close(force: true);
     }
+  }
+
+  static const Map<String, Object?> _initializeProbePayload = <String, Object?>{
+    'jsonrpc': '2.0',
+    'id': 'openhand-self-test',
+    'method': 'initialize',
+    'params': <String, Object?>{
+      'protocolVersion': _protocolVersion,
+      'capabilities': <String, Object?>{},
+      'clientInfo': <String, Object?>{
+        'name': 'OpenHand Self-Test',
+        'version': _serverVersion,
+      },
+    },
+  };
+
+  bool _isInitializeAck(String body) {
+    try {
+      final decoded = jsonDecode(body);
+      if (decoded is! Map) return false;
+      final result = decoded['result'];
+      return result is Map && result['protocolVersion'] != null;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  String _clipConnectivityBody(String body) {
+    final trimmed = body.trim();
+    if (trimmed.isEmpty) return '(empty body)';
+    const maxChars = 200;
+    return trimmed.length <= maxChars
+        ? trimmed
+        : '${trimmed.substring(0, maxChars)}...';
   }
 
   shelf.Middleware _telemetryMiddleware() {
@@ -279,6 +329,43 @@ class McpServerOpsRuntime {
 
   shelf.Response _options(shelf.Request request) {
     return shelf.Response(HttpStatus.noContent, headers: _corsHeaders);
+  }
+
+  /// Single entrypoint for the Streamable HTTP endpoint, dispatching by method
+  /// regardless of the request path so `/`, `/mcp` and `/mcp/` behave alike.
+  FutureOr<shelf.Response> _dispatchMcp(shelf.Request request) {
+    switch (request.method) {
+      case 'POST':
+        return _jsonRpc(request);
+      case 'GET':
+        return _sseStream(request);
+      case 'DELETE':
+        return _terminateSession(request);
+      case 'OPTIONS':
+        return _options(request);
+      case 'HEAD':
+        return shelf.Response(
+          HttpStatus.noContent,
+          headers: <String, String>{..._corsHeaders, ..._sessionHeaders(request)},
+        );
+      default:
+        return shelf.Response(
+          HttpStatus.methodNotAllowed,
+          body: 'Method not allowed on the OpenHand MCP endpoint',
+          headers: const <String, String>{
+            ..._corsHeaders,
+            'allow': 'GET, POST, DELETE, OPTIONS, HEAD',
+            'content-type': 'text/plain; charset=utf-8',
+          },
+        );
+    }
+  }
+
+  shelf.Response _terminateSession(shelf.Request request) {
+    return shelf.Response(
+      HttpStatus.noContent,
+      headers: <String, String>{..._corsHeaders, ..._sessionHeaders(request)},
+    );
   }
 
   shelf.Response _sseStream(shelf.Request request) {
