@@ -175,16 +175,14 @@ class _HeStreamingSmartViewState extends State<_HeStreamingSmartView>
     );
     if (resolvedPath != null) {
       recognizer.onTap = () {
-        Clipboard.setData(ClipboardData(text: resolvedPath.resolvedPath));
-        if (mounted) {
-          showOpenHandSnackBar(
-            context,
-            SnackBar(
-              content: Text('Path copied: ${resolvedPath.resolvedPath}'),
-              duration: const Duration(seconds: 2),
-            ),
-          );
-        }
+        unawaited(
+          copyHarnessTextToClipboard(
+            context: context,
+            text: resolvedPath.resolvedPath,
+            successMessage: 'Path copied: ${resolvedPath.resolvedPath}',
+            logAction: 'copy streaming markdown link path',
+          ),
+        );
       };
     }
     return recognizer;
@@ -202,16 +200,14 @@ class _HeStreamingSmartViewState extends State<_HeStreamingSmartView>
     }
     final recognizer = TapGestureRecognizer()
       ..onTap = () {
-        Clipboard.setData(ClipboardData(text: resolvedPath.resolvedPath));
-        if (mounted) {
-          showOpenHandSnackBar(
-            context,
-            SnackBar(
-              content: Text('Path copied: ${resolvedPath.resolvedPath}'),
-              duration: const Duration(seconds: 2),
-            ),
-          );
-        }
+        unawaited(
+          copyHarnessTextToClipboard(
+            context: context,
+            text: resolvedPath.resolvedPath,
+            successMessage: 'Path copied: ${resolvedPath.resolvedPath}',
+            logAction: 'copy streaming markdown code path',
+          ),
+        );
       };
     _recognizers.add(recognizer);
     final linkColor = widget.colorScheme.primary;

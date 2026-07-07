@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
@@ -16,6 +15,7 @@ import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../service/harness_cli_catalog.dart';
+import 'harness_dialog_utils.dart';
 
 /// Shows a dialog that runs the CLI install command and streams output in real time.
 /// Pops with `true` when installation succeeds, `false` otherwise.
@@ -544,11 +544,15 @@ class _HarnessCliInstallDialogState extends State<HarnessCliInstallDialog> {
                     ),
                     const Spacer(),
                     if (widget.cli.installDocUrl != null)
-                      // Copy doc URL to clipboard
                       TextButton.icon(
-                        onPressed: () => Clipboard.setData(
-                          ClipboardData(text: widget.cli.installDocUrl!),
-                        ),
+                        onPressed: () async {
+                          await copyHarnessTextToClipboard(
+                            context: context,
+                            text: widget.cli.installDocUrl!,
+                            successMessage: l10n.commonCopiedToClipboard,
+                            logAction: 'copy install doc url',
+                          );
+                        },
                         icon: const Icon(Icons.link_rounded, size: 14),
                         label: Text(
                           l10n.harnessCliInstallCopyDocUrl,

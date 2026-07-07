@@ -314,26 +314,20 @@ class _HeFileDiffDialogState extends State<_HeFileDiffDialog> {
                 OpenHandDialogActionButton.secondary(
                   onPressed: _computing
                       ? null
-                      : () {
-                          Clipboard.setData(
-                            ClipboardData(text: diffLines.join('\n')),
-                          );
-                          showOpenHandSnackBar(
-                            context,
-                            SnackBar(
-                              content: Text(
-                                openHandLocalizedText(
-                                  context,
-                                  zh: 'Diff 已复制',
-                                  zhHant: 'Diff 已複製',
-                                  en: 'Diff copied',
-                                  fr: 'Diff copié',
-                                  de: 'Diff kopiert',
-                                  ja: 'Diff をコピーしました',
-                                ),
-                              ),
-                              duration: const Duration(seconds: 2),
+                      : () async {
+                          await copyHarnessTextToClipboard(
+                            context: context,
+                            text: diffLines.join('\n'),
+                            successMessage: openHandLocalizedText(
+                              context,
+                              zh: 'Diff 已复制',
+                              zhHant: 'Diff 已複製',
+                              en: 'Diff copied',
+                              fr: 'Diff copié',
+                              de: 'Diff kopiert',
+                              ja: 'Diff をコピーしました',
                             ),
+                            logAction: 'copy changed file diff',
                           );
                         },
                   label: openHandLocalizedText(

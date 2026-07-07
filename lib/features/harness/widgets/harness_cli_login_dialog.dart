@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/theme/openhand_status_colors.dart';
@@ -15,6 +14,7 @@ import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/util/timer_safety.dart';
 import '../service/harness_cli_catalog.dart';
+import 'harness_dialog_utils.dart';
 
 class HarnessCliLoginDialog extends StatefulWidget {
   const HarnessCliLoginDialog({super.key, required this.entry});
@@ -235,7 +235,12 @@ class _HarnessCliLoginDialogState extends State<HarnessCliLoginDialog> {
   }
 
   Future<void> _copyCommand() async {
-    await Clipboard.setData(ClipboardData(text: _commandPreview));
+    await copyHarnessTextToClipboard(
+      context: context,
+      text: _commandPreview,
+      successMessage: _l10n.commonCopiedToClipboard,
+      logAction: 'copy login command',
+    );
   }
 
   /// Opens the system terminal with the login command pre-injected.

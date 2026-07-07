@@ -47,6 +47,7 @@ import '../model/harness_role_config.dart';
 import '../model/harness_session_config.dart';
 import '../service/harness_cli_catalog.dart';
 import '../service/harness_orchestrator.dart';
+import 'harness_dialog_utils.dart';
 import 'harness_pending_replay_badge.dart';
 part 'harness_session_dashboard.header.part.dart';
 part 'harness_session_dashboard.phase_card.part.dart';
@@ -1820,12 +1821,7 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
     if (!mounted) {
       return;
     }
-    final messenger = ScaffoldMessenger.of(context);
-    OpenHandSnackBar.show(
-      context,
-      messenger,
-      OpenHandSnackBar.info(context, message),
-    );
+    showHarnessInfoSnack(context, message);
   }
 
   void _clearPendingFeedAutoFollowState() {
@@ -2451,22 +2447,20 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
   }
 
   void _copyLog(BuildContext context, HarnessPhaseLog log) {
-    Clipboard.setData(ClipboardData(text: log.lines.join('\n')));
-    showOpenHandSnackBar(
-      context,
-      SnackBar(
-        content: Text(
-          openHandLocalizedText(
-            context,
-            zh: '日志已复制到剪贴板',
-            zhHant: '日誌已複製到剪貼簿',
-            en: 'Log copied to clipboard',
-            fr: 'Journal copié dans le presse-papiers',
-            de: 'Log in die Zwischenablage kopiert',
-            ja: 'ログをクリップボードにコピーしました',
-          ),
+    unawaited(
+      copyHarnessTextToClipboard(
+        context: context,
+        text: log.lines.join('\n'),
+        successMessage: openHandLocalizedText(
+          context,
+          zh: '日志已复制到剪贴板',
+          zhHant: '日誌已複製到剪貼簿',
+          en: 'Log copied to clipboard',
+          fr: 'Journal copié dans le presse-papiers',
+          de: 'Log in die Zwischenablage kopiert',
+          ja: 'ログをクリップボードにコピーしました',
         ),
-        duration: const Duration(seconds: 2),
+        logAction: 'copy phase log',
       ),
     );
   }

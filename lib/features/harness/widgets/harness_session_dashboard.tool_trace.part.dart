@@ -792,8 +792,21 @@ class _HeToolTextPanelState extends State<_HeToolTextPanel> {
               IconButton(
                 onPressed: normalized.isEmpty
                     ? null
-                    : () {
-                        Clipboard.setData(ClipboardData(text: normalized));
+                    : () async {
+                        await copyHarnessTextToClipboard(
+                          context: context,
+                          text: normalized,
+                          successMessage: openHandLocalizedText(
+                            context,
+                            zh: '已复制',
+                            zhHant: '已複製',
+                            en: 'Copied',
+                            fr: 'Copié',
+                            de: 'Kopiert',
+                            ja: 'コピーしました',
+                          ),
+                          logAction: 'copy tool trace value',
+                        );
                       },
                 tooltip: openHandLocalizedText(
                   context,

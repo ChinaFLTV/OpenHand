@@ -195,16 +195,14 @@ class _HeSafeMarkdownBodyState extends State<_HeSafeMarkdownBody>
     );
     if (resolvedPath != null) {
       recognizer.onTap = () {
-        Clipboard.setData(ClipboardData(text: resolvedPath.resolvedPath));
-        if (mounted) {
-          showOpenHandSnackBar(
-            context,
-            SnackBar(
-              content: Text('Path copied: ${resolvedPath.resolvedPath}'),
-              duration: const Duration(seconds: 2),
-            ),
-          );
-        }
+        unawaited(
+          copyHarnessTextToClipboard(
+            context: context,
+            text: resolvedPath.resolvedPath,
+            successMessage: 'Path copied: ${resolvedPath.resolvedPath}',
+            logAction: 'copy markdown link path',
+          ),
+        );
       };
     }
     return recognizer;
@@ -222,16 +220,14 @@ class _HeSafeMarkdownBodyState extends State<_HeSafeMarkdownBody>
     }
     final recognizer = TapGestureRecognizer()
       ..onTap = () {
-        Clipboard.setData(ClipboardData(text: resolvedPath.resolvedPath));
-        if (mounted) {
-          showOpenHandSnackBar(
-            context,
-            SnackBar(
-              content: Text('Path copied: ${resolvedPath.resolvedPath}'),
-              duration: const Duration(seconds: 2),
-            ),
-          );
-        }
+        unawaited(
+          copyHarnessTextToClipboard(
+            context: context,
+            text: resolvedPath.resolvedPath,
+            successMessage: 'Path copied: ${resolvedPath.resolvedPath}',
+            logAction: 'copy markdown code path',
+          ),
+        );
       };
     _recognizers.add(recognizer);
     final linkColor = widget.colorScheme.primary;
@@ -799,48 +795,31 @@ class _HeHighlightedCodePanelState extends State<_HeHighlightedCodePanel> {
   void _copyCode() {
     _copiedResetTimer?.cancel();
     setState(() => _copied = true);
-    Clipboard.setData(ClipboardData(text: widget.content))
-        .then((_) {
-          if (!mounted) return;
-          showOpenHandSnackBar(
-            context,
-            SnackBar(
-              content: Text(
-                openHandLocalizedText(
-                  context,
-                  zh: '代码已复制',
-                  zhHant: '程式碼已複製',
-                  en: 'Code copied',
-                  fr: 'Code copié',
-                  de: 'Code kopiert',
-                  ja: 'コードをコピーしました',
-                ),
-              ),
-              duration: const Duration(milliseconds: 1800),
+    unawaited(
+      copyHarnessTextToClipboard(
+            context: context,
+            text: widget.content,
+            successMessage: openHandLocalizedText(
+              context,
+              zh: '代码已复制',
+              zhHant: '程式碼已複製',
+              en: 'Code copied',
+              fr: 'Code copié',
+              de: 'Code kopiert',
+              ja: 'コードをコピーしました',
             ),
-          );
-        })
-        .catchError((Object _) {
-          if (!mounted) return;
-          setState(() => _copied = false);
-          showOpenHandSnackBar(
-            context,
-            SnackBar(
-              content: Text(
-                openHandLocalizedText(
-                  context,
-                  zh: '复制失败',
-                  zhHant: '複製失敗',
-                  en: 'Copy failed',
-                  fr: 'Échec de la copie',
-                  de: 'Kopieren fehlgeschlagen',
-                  ja: 'コピーに失敗しました',
-                ),
-              ),
-              duration: const Duration(milliseconds: 1800),
-            ),
-          );
-        });
+            logAction: 'copy markdown code block',
+            successDuration: const Duration(milliseconds: 1800),
+          )
+          .then((copied) {
+            if (copied || !mounted) return;
+            setState(() => _copied = false);
+          })
+          .catchError((Object _) {
+            if (!mounted) return;
+            setState(() => _copied = false);
+          }),
+    );
     _copiedResetTimer = startSafeTimer(const Duration(milliseconds: 1600), () {
       if (mounted) setState(() => _copied = false);
     });

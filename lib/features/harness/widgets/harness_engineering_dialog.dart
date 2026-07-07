@@ -1,16 +1,15 @@
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 
 import '../../../app/state/settings_controller.dart';
 import '../../../app/support/safe_subprocess.dart';
+import '../../../app/support/silent_log.dart';
 import '../../../app/theme/openhand_status_colors.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/highlight_pulse.dart';
 import '../../../shared/ui/model_search_selector.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
-import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/util/localized_text.dart';
 import '../../ai/index.dart';
 import '../model/harness_agent_role.dart';
@@ -19,6 +18,7 @@ import '../model/harness_session_config.dart';
 import '../service/harness_cli_catalog.dart';
 import 'harness_cli_install_dialog.dart';
 import 'harness_cli_login_dialog.dart';
+import 'harness_dialog_utils.dart';
 
 const double _kHarnessModeDropdownWidth = 132;
 
@@ -549,8 +549,22 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
         parsedUrl != null &&
         parsedUrl.hasScheme &&
         (parsedUrl.scheme == 'https' || parsedUrl.scheme == 'http');
+    final copiedMessage = openHandLocalizedText(
+      context,
+      zh: '链接已复制到剪贴板',
+      zhHant: '連結已複製到剪貼簿',
+      en: 'Link copied to clipboard',
+      fr: 'Lien copié dans le presse-papiers',
+      de: 'Link in die Zwischenablage kopiert',
+      ja: 'リンクをクリップボードにコピーしました',
+    );
     if (!canOpenExternally) {
-      await Clipboard.setData(ClipboardData(text: normalizedUrl));
+      await copyHarnessTextToClipboard(
+        context: context,
+        text: normalizedUrl,
+        successMessage: copiedMessage,
+        logAction: 'copy invalid doc url',
+      );
       return;
     }
 
@@ -560,10 +574,23 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
         tag: 'harness_engineering.open_url',
       );
       if (!launched) {
-        await Clipboard.setData(ClipboardData(text: normalizedUrl));
+        if (!mounted) return;
+        await copyHarnessTextToClipboard(
+          context: context,
+          text: normalizedUrl,
+          successMessage: copiedMessage,
+          logAction: 'copy unopened doc url',
+        );
       }
-    } catch (_) {
-      await Clipboard.setData(ClipboardData(text: normalizedUrl));
+    } catch (error, stack) {
+      silentLog('harness_engineering', 'open doc url', error, stack);
+      if (!mounted) return;
+      await copyHarnessTextToClipboard(
+        context: context,
+        text: normalizedUrl,
+        successMessage: copiedMessage,
+        logAction: 'copy doc url after open failure',
+      );
     }
   }
 
@@ -630,47 +657,38 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
 
     if (confirmed != true || !mounted) return;
 
-    // Show a loading indicator while performing logout.
-    final scaffoldMessenger = ScaffoldMessenger.maybeOf(context);
     setState(() => _isCheckingAuth = true);
 
     final result = await performCliLogout(entry);
 
     if (!mounted) return;
 
-    if (scaffoldMessenger != null) {
-      final strippedMessage = stripHarnessCliTerminalSequences(result.message);
-      final snackMessage = result.success
-          ? openHandLocalizedText(
-              context,
-              zh: '${cli.name} 已登出。$strippedMessage',
-              zhHant: '${cli.name} 已登出。$strippedMessage',
-              en: '${cli.name} logged out. $strippedMessage',
-              fr: '${cli.name} déconnecté. $strippedMessage',
-              de: '${cli.name} abgemeldet. $strippedMessage',
-              ja: '${cli.name} からログアウトしました。$strippedMessage',
-            )
-          : openHandLocalizedText(
-              context,
-              zh: '${cli.name} 登出失败：$strippedMessage',
-              zhHant: '${cli.name} 登出失敗：$strippedMessage',
-              en: '${cli.name} logout failed: $strippedMessage',
-              fr: 'Échec de la déconnexion de ${cli.name} : $strippedMessage',
-              de: '${cli.name} Abmeldung fehlgeschlagen: $strippedMessage',
-              ja: '${cli.name} のログアウトに失敗しました：$strippedMessage',
-            );
-      OpenHandSnackBar.show(
-        context,
-        scaffoldMessenger,
-        result.success
-            ? OpenHandSnackBar.success(context, snackMessage)
-            : OpenHandSnackBar.error(context, snackMessage),
-      );
-      if (result.success) {
-        _logoutSuccessSignal.value++;
-      } else {
-        _logoutErrorSignal.value++;
-      }
+    final strippedMessage = stripHarnessCliTerminalSequences(result.message);
+    final snackMessage = result.success
+        ? openHandLocalizedText(
+            context,
+            zh: '${cli.name} 已登出。$strippedMessage',
+            zhHant: '${cli.name} 已登出。$strippedMessage',
+            en: '${cli.name} logged out. $strippedMessage',
+            fr: '${cli.name} déconnecté. $strippedMessage',
+            de: '${cli.name} abgemeldet. $strippedMessage',
+            ja: '${cli.name} からログアウトしました。$strippedMessage',
+          )
+        : openHandLocalizedText(
+            context,
+            zh: '${cli.name} 登出失败：$strippedMessage',
+            zhHant: '${cli.name} 登出失敗：$strippedMessage',
+            en: '${cli.name} logout failed: $strippedMessage',
+            fr: 'Échec de la déconnexion de ${cli.name} : $strippedMessage',
+            de: '${cli.name} Abmeldung fehlgeschlagen: $strippedMessage',
+            ja: '${cli.name} のログアウトに失敗しました：$strippedMessage',
+          );
+    if (result.success) {
+      showHarnessSuccessSnack(context, snackMessage);
+      _logoutSuccessSignal.value++;
+    } else {
+      showHarnessErrorSnack(context, snackMessage);
+      _logoutErrorSignal.value++;
     }
 
     await _scanClis();
