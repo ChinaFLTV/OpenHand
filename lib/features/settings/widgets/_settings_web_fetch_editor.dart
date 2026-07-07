@@ -173,7 +173,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
       );
       if (!mounted) return;
       if (result == true) {
-        OpenHandSnackBar.showSuccess(
+        _showSettingsSuccessSnack(
           context,
           openHandLocalizedText(
             context,
@@ -185,7 +185,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
     } catch (e, st) {
       silentLog('settings.webfetch', '_installScraplingRuntime', e, st);
       if (!mounted) return;
-      OpenHandSnackBar.showError(
+      _showSettingsErrorSnack(
         context,
         openHandLocalizedText(context, zh: '安装失败：$e', en: 'Install failed: $e'),
       );
@@ -226,7 +226,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
       );
       if (!mounted) return;
       if (result == true) {
-        OpenHandSnackBar.showSuccess(
+        _showSettingsSuccessSnack(
           context,
           openHandLocalizedText(
             context,
@@ -238,7 +238,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
     } catch (e, st) {
       silentLog('settings.webfetch', '_uninstallScraplingRuntime', e, st);
       if (!mounted) return;
-      OpenHandSnackBar.showError(
+      _showSettingsErrorSnack(
         context,
         openHandLocalizedText(
           context,
@@ -287,7 +287,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
     } catch (e, st) {
       silentLog('settings.webfetch', '_exportTelemetry', e, st);
       if (!mounted) return;
-      OpenHandSnackBar.showError(
+      _showSettingsErrorSnack(
         context,
         openHandLocalizedText(context, zh: '导出失败：$e', en: 'Export failed: $e'),
       );
@@ -409,19 +409,15 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
     setState(() => _clearingCache = false);
     await _refreshCacheBytesOnDisk();
     if (!mounted) return;
-    final messenger = ScaffoldMessenger.maybeOf(context);
-    if (messenger != null) {
-      OpenHandSnackBar.showInfoOn(
+    _showSettingsInfoSnack(
+      context,
+      openHandLocalizedText(
         context,
-        messenger,
-        openHandLocalizedText(
-          context,
-          zh: 'WebFetch 本地缓存已清空',
-          en: 'WebFetch local cache cleared',
-        ),
-        duration: const Duration(milliseconds: 1800),
-      );
-    }
+        zh: 'WebFetch 本地缓存已清空',
+        en: 'WebFetch local cache cleared',
+      ),
+      duration: const Duration(milliseconds: 1800),
+    );
   }
 
   void _emit(AiWebFetchSettings next) => widget.onChanged(next);
