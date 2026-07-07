@@ -2351,17 +2351,20 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         ttsSnapshot.playing &&
         ttsSnapshot.messageId == message.id;
     final translationEntry = _translationCacheByMessageId[message.id];
-    final translationFingerprint = _translationRequestFingerprint(
-      translationSettings,
-      _translationFallbackModel(settingsController),
-    );
+    // 指纹计算含 JSON 编码 + SHA256 且 _translationFallbackModel 需遍历模型列表，
+    // 但仅在该消息确实存在译文缓存并处于可见集合时才需要比对。放到 && 链末尾
+    // 借短路求值惰性化，长会话每帧省掉每条消息一次哈希，绝大多数消息直接跳过。
     final translationVisible =
         !hasMultimediaContent &&
         translationEntry != null &&
         _translationVisibleMessageIds.contains(message.id) &&
         translationEntry.sourceText ==
             _translatableMessageText(message, translationSettings) &&
-        translationEntry.settingsFingerprint == translationFingerprint;
+        translationEntry.settingsFingerprint ==
+            _translationRequestFingerprint(
+              translationSettings,
+              _translationFallbackModel(settingsController),
+            );
     final translationLoading =
         !hasMultimediaContent &&
         _translationLoadingMessageIds.contains(message.id);

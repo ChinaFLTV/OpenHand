@@ -16,14 +16,64 @@ class _HeAnnotation {
   bool get hasAnnotations => agentRole != null || phase != null;
 }
 
+// 进程级 HE 注解解析结果缓存。气泡每次 build 都会对整条 message.content
+// 跑 2 次 firstMatch + 3 次 replaceAll 全串正则，长会话下反复重扫是主线程
+// 负担。按内容指纹缓存结果（含未命中的 null），transcript 与 bubble 共用。
+// 值用 _HeAnnotationCacheEntry 包裹以区分「已算得 null」与「未缓存」。
+final RegExp _heLeadingWhitespacePattern = RegExp(r'^\s+');
+
+class _HeAnnotationCacheEntry {
+  const _HeAnnotationCacheEntry(this.value);
+  final _HeAnnotation? value;
+}
+
+class _HeAnnotationCache {
+  static const int _maxEntries = 256;
+  final LinkedHashMap<int, _HeAnnotationCacheEntry> _entries =
+      LinkedHashMap<int, _HeAnnotationCacheEntry>();
+
+  _HeAnnotationCacheEntry? get(int key) {
+    final entry = _entries.remove(key);
+    if (entry != null) {
+      _entries[key] = entry;
+    }
+    return entry;
+  }
+
+  void put(int key, _HeAnnotationCacheEntry entry) {
+    _entries.remove(key);
+    _entries[key] = entry;
+    while (_entries.length > _maxEntries) {
+      _entries.remove(_entries.keys.first);
+    }
+  }
+}
+
+final _HeAnnotationCache _heAnnotationCache = _HeAnnotationCache();
+
 _HeAnnotation? _parseHeAnnotation(String content) {
+  if (content.isEmpty) return null;
+  final cacheKey = Object.hash(
+    content.length,
+    boundedTextFingerprint(content),
+  );
+  final cached = _heAnnotationCache.get(cacheKey);
+  if (cached != null) {
+    return cached.value;
+  }
+  final result = _computeHeAnnotation(content);
+  _heAnnotationCache.put(cacheKey, _HeAnnotationCacheEntry(result));
+  return result;
+}
+
+_HeAnnotation? _computeHeAnnotation(String content) {
   final agentMatch = _heAgentPattern.firstMatch(content);
   final phaseMatch = _hePhasePattern.firstMatch(content);
   if (agentMatch == null && phaseMatch == null) return null;
   final stripped = content
       .replaceAll(_heAgentPattern, '')
       .replaceAll(_hePhasePattern, '')
-      .replaceAll(RegExp(r'^\s+'), '')
+      .replaceAll(_heLeadingWhitespacePattern, '')
       .trim();
   return _HeAnnotation(
     agentRole: agentMatch?.group(1),

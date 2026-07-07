@@ -468,13 +468,19 @@ class AiSession {
   final AiSessionMessageLoadState messageLoadState;
   final int messageWindowStartIndex;
   final int messageTotalCount;
-  late final int? _latestCompressionPointIndexCache =
-      _computeLatestCompressionPointIndex();
-  late final List<AiSessionMessage> _visibleMessagesCache = messages
-      .where((item) => item.isVisible)
-      .toList(growable: false);
-  late final List<AiSessionMessage> _displayMessagesCache =
-      _computeDisplayMessages();
+  // 派生自 [messages] 的三个 O(N) 缓存。刻意不用 `late final` 字段初始化器：
+  // 那样每个 copyWith 产出的新实例都会在首次访问时重跑全量扫描，而
+  // 绝大多数 copyWith（改标题 / 统计 / 错误 / 流式节流等）并不改动
+  // messages 引用。改为惰性 memo + copyWith 在 messages 引用未变时透传，
+  // 消除大会话每次无关更新在 UI 线程重跑全量扫描，同时让下游按
+  // `identical(displayMessages)` 命中的 memo（transcript 索引表 / 占位判定）
+  // 保持稳定。
+  // 压缩点索引可能合法地为 null，需独立的「已算」标记以免每次访问都
+  // 重跑逆序扫描。
+  bool _latestCompressionPointIndexComputed = false;
+  int? _latestCompressionPointIndexCache;
+  List<AiSessionMessage>? _visibleMessagesCache;
+  List<AiSessionMessage>? _displayMessagesCache;
 
   AiSession copyWith({
     String? title,
@@ -537,7 +543,7 @@ class AiSession {
             nextWindowStartIndex + nextMessages.length,
           ),
         };
-    return AiSession(
+    final next = AiSession(
       id: id,
       title: title ?? this.title,
       templateId: templateId,
@@ -584,6 +590,13 @@ class AiSession {
       messageWindowStartIndex: nextWindowStartIndex,
       messageTotalCount: nextTotalCount,
     );
+    // messages 引用未变时透传派生缓存：displayMessages / visibleMessages /
+    // 压缩点索引只依赖 messages，可安全复用，省掉一轮 O(N) 重扫；同时保持
+    // displayMessages 的 identity 稳定，让下游 `identical` memo 继续命中。
+    if (identical(nextMessages, messages)) {
+      next._seedDerivedCachesFrom(this);
+    }
+    return next;
   }
 
   bool get hasCompleteMessages =>
@@ -619,15 +632,41 @@ class AiSession {
   }
 
   int? get latestCompressionPointIndex {
+    if (_latestCompressionPointIndexComputed) {
+      return _latestCompressionPointIndexCache;
+    }
+    _latestCompressionPointIndexCache = _computeLatestCompressionPointIndex();
+    _latestCompressionPointIndexComputed = true;
     return _latestCompressionPointIndexCache;
   }
 
   List<AiSessionMessage> get visibleMessages {
-    return _visibleMessagesCache;
+    return _visibleMessagesCache ??= messages
+        .where((item) => item.isVisible)
+        .toList(growable: false);
   }
 
   List<AiSessionMessage> get displayMessages {
-    return _displayMessagesCache;
+    return _displayMessagesCache ??= _computeDisplayMessages();
+  }
+
+  /// 当 messages 引用未变时，把【已经算过】的派生缓存透传给 copyWith
+  /// 产出的新实例，避免大会话在无关字段更新后被迫重跑全量扫描。
+  /// 只搬运 source 上已物化的缓存，绝不主动触发计算——从未展示过的
+  /// 后台会话保持惰性，不会因一次 copyWith 就白算一轮 O(N)。仅由
+  /// copyWith 在确认 `identical(nextMessages, messages)` 时调用。
+  void _seedDerivedCachesFrom(AiSession source) {
+    if (source._latestCompressionPointIndexComputed) {
+      _latestCompressionPointIndexCache =
+          source._latestCompressionPointIndexCache;
+      _latestCompressionPointIndexComputed = true;
+    }
+    if (source._visibleMessagesCache != null) {
+      _visibleMessagesCache = source._visibleMessagesCache;
+    }
+    if (source._displayMessagesCache != null) {
+      _displayMessagesCache = source._displayMessagesCache;
+    }
   }
 
   AiSessionPlanRecord? get latestPlanRecord {
