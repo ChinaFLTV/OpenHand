@@ -26,12 +26,6 @@ const String _hermesAgentNpmPackage = 'hermes-agent';
 const String _hermesAgentPrimaryCommand = 'hermes-agent';
 const String _hermesAgentFallbackCommand = 'hermes';
 final RegExp _pluginLifecycleWhitespacePattern = RegExp(r'\s+');
-final RegExp _pluginLifecyclePythonVersionPattern = RegExp(
-  r'Python\s+(\d+\.\d+\.\d+)',
-);
-final RegExp _pluginLifecyclePipVersionPattern = RegExp(
-  r'pip\s+(\d+(?:\.\d+)+)',
-);
 final RegExp _pluginLifecycleNodeVersionPattern = RegExp(
   r'(v\d+\.\d+(?:\.\d+)?)',
 );
@@ -919,7 +913,7 @@ fi
       tag: 'plugin_lifecycle.python_version',
     );
     if (result.exitCode != 0) return null;
-    return _extractPythonVersion('${result.stdout}\n${result.stderr}');
+    return extractPythonVersion('${result.stdout}\n${result.stderr}');
   }
 
   Future<String?> _readPipVersion(String executable) async {
@@ -930,7 +924,7 @@ fi
       tag: 'plugin_lifecycle.pip_version',
     );
     if (result.exitCode != 0) return null;
-    return _extractPipVersion('${result.stdout}\n${result.stderr}');
+    return extractPipVersion('${result.stdout}\n${result.stderr}');
   }
 
   bool _isExternallyManagedPipError(String message) {
@@ -1119,7 +1113,7 @@ fi
       );
       if (result.exitCode == 0) {
         final version =
-            _extractPythonVersion('${result.stdout}\n${result.stderr}') ??
+            extractPythonVersion('${result.stdout}\n${result.stderr}') ??
             latest;
         onProgress?.call('Python $version 安装成功');
         return PluginOperationResult(
@@ -1149,7 +1143,7 @@ fi
           timeout: _pluginLifecycleVerifyTimeout,
           tag: 'plugin_lifecycle.python_install_verify',
         );
-        final version = _extractPythonVersion(
+        final version = extractPythonVersion(
           '${versionResult.stdout}\n${versionResult.stderr}',
         );
         if (version != null) {
@@ -2411,7 +2405,7 @@ exit 4
         );
         if (result.exitCode == 0) {
           final version =
-              _extractPythonVersion('${result.stdout}\n${result.stderr}') ??
+              extractPythonVersion('${result.stdout}\n${result.stderr}') ??
               latest;
           onProgress?.call('Python 已更新到 $version');
           return PluginOperationResult(
@@ -3271,16 +3265,6 @@ class _PythonRuntimeContext {
   final String? version;
   final String? pyenvVersion;
   final String? brewFormula;
-}
-
-String? _extractPythonVersion(String output) {
-  final match = _pluginLifecyclePythonVersionPattern.firstMatch(output);
-  return match?.group(1);
-}
-
-String? _extractPipVersion(String output) {
-  final match = _pluginLifecyclePipVersionPattern.firstMatch(output);
-  return match?.group(1);
 }
 
 String? _extractNodeVersion(String output) {

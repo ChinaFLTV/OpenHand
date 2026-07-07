@@ -1,5 +1,20 @@
 import 'dart:io';
 
+final RegExp _pythonVersionOutputPattern = RegExp(r'Python\s+(\d+\.\d+\.\d+)');
+final RegExp _pipVersionOutputPattern = RegExp(r'pip\s+(\d+(?:\.\d+)+)');
+
+/// Extracts the semantic version from `python --version` output
+/// (e.g. `Python 3.12.1` → `3.12.1`). Returns null when absent.
+String? extractPythonVersion(String output) {
+  return _pythonVersionOutputPattern.firstMatch(output)?.group(1);
+}
+
+/// Extracts the version from `pip --version` output
+/// (e.g. `pip 24.0 from ...` → `24.0`). Returns null when absent.
+String? extractPipVersion(String output) {
+  return _pipVersionOutputPattern.firstMatch(output)?.group(1);
+}
+
 String pluginToolchainManagedCommandScript(
   String executable,
   List<String> arguments,

@@ -76,12 +76,6 @@ class PluginScannerService {
   static final RegExp _nodeVersionOutputPattern = RegExp(r'v(\d+\.\d+\.\d+)');
   static final RegExp _nodeMajorVersionPattern = RegExp(r'v?(\d+)');
   static final RegExp _strictNodeVersionPattern = RegExp(r'^v\d+\.\d+\.\d+$');
-  static final RegExp _pythonVersionOutputPattern = RegExp(
-    r'Python\s+(\d+\.\d+\.\d+)',
-  );
-  static final RegExp _pipVersionOutputPattern = RegExp(
-    r'pip\s+(\d+(?:\.\d+)+)',
-  );
   static final RegExp _pyenvVersionPathPattern = RegExp(
     r'/.pyenv/versions/([^/]+)/',
   );
@@ -314,15 +308,6 @@ class PluginScannerService {
         : null;
   }
 
-  static String? _extractPythonVersion(String output) {
-    final match = _pythonVersionOutputPattern.firstMatch(output);
-    return match?.group(1);
-  }
-
-  static String? _extractPipVersion(String output) {
-    final match = _pipVersionOutputPattern.firstMatch(output);
-    return match?.group(1);
-  }
 
   static bool _looksLikeHomebrewPath(String path) {
     return path.contains('/Cellar/python') ||
@@ -600,7 +585,7 @@ class PluginScannerService {
         environment: _proxyEnv(),
       );
       if (versionResult.exitCode != 0) continue;
-      final version = _extractPythonVersion(
+      final version = extractPythonVersion(
         '${versionResult.stdout}\n${versionResult.stderr}',
       );
       if (version == null) continue;
@@ -642,7 +627,7 @@ class PluginScannerService {
     for (final command in const ['python3', 'python']) {
       final versionResult = await _shellRun('$command --version');
       if (versionResult.exitCode != 0) continue;
-      final version = _extractPythonVersion(
+      final version = extractPythonVersion(
         '${versionResult.stdout}\n${versionResult.stderr}',
       );
       if (version == null) continue;
@@ -794,7 +779,7 @@ class PluginScannerService {
     if (pipVersionResult.exitCode != 0) {
       return _pipNotInstalled;
     }
-    final version = _extractPipVersion(
+    final version = extractPipVersion(
       '${pipVersionResult.stdout}\n${pipVersionResult.stderr}',
     );
     if (version == null) return _pipNotInstalled;

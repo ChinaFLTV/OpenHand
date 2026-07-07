@@ -30,6 +30,11 @@ final RegExp _stdioLineBreakPattern = RegExp(r'[\r\n]');
 final RegExp _stdioLineBreaksPattern = RegExp(r'[\r\n]+');
 final RegExp _npxPackageVersionSuffixPattern = RegExp(r'@[^/]*$');
 
+// 国内最稳的 npm / PyPI 镜像源。集中定义，避免注入逻辑与多语言提示文案
+// 各处硬编码不一致。
+const String _kNpmMirrorRegistry = 'https://registry.npmmirror.com';
+const String _kPypiMirrorIndex = 'https://pypi.tuna.tsinghua.edu.cn/simple';
+
 String _mcpDiscoveryText({
   required String zh,
   required String en,
@@ -2085,9 +2090,9 @@ Map<String, String> mcpStdioIsolatedCacheEnv() {
       // pip / pipx 用 PIP_INDEX_URL。这些变量对不识别的工具是 no-op，
       // 所以无副作用、可以一次性全注入。npmmirror.com / 清华 PyPI 都是
       // 国内最稳的镜像之一。
-      env['npm_config_registry'] = 'https://registry.npmmirror.com';
-      env['UV_DEFAULT_INDEX'] = 'https://pypi.tuna.tsinghua.edu.cn/simple';
-      env['PIP_INDEX_URL'] = 'https://pypi.tuna.tsinghua.edu.cn/simple';
+      env['npm_config_registry'] = _kNpmMirrorRegistry;
+      env['UV_DEFAULT_INDEX'] = _kPypiMirrorIndex;
+      env['PIP_INDEX_URL'] = _kPypiMirrorIndex;
     }
     return env;
   } catch (error, stack) {
@@ -2205,7 +2210,7 @@ String _diagnoseStdioStderr(String stderr) {
     return '【诊断 / Diagnosis】 npm 取包阶段被网络层拦截或目标服务器不可达。\n'
         '【建议 / Try】\n'
         '  · 检查代理 / VPN 配置（npm 默认不走系统代理）\n'
-        '  · 切换 registry：`npm config set registry https://registry.npmmirror.com`\n'
+        '  · 切换 registry：`npm config set registry $_kNpmMirrorRegistry`\n'
         '  · 等几秒后重试';
   }
   // python uv / pipx 缺包
@@ -3215,32 +3220,32 @@ String _friendlyTimeoutMessage(
           '· 在终端单独跑一遍 server.command 看下载是否走得通 (网络/代理/镜像源)\n'
           '· 已把 stdio 缓存隔离到 ~/.openhand/mcp/package-cache，可手动 rm -rf 重置\n'
           '· 首启过后命中缓存即恢复秒级，故失败可直接重试\n'
-          '· 必要时给 npm/uv 配镜像源 (例：~/.npmrc -> registry=https://registry.npmmirror.com)',
+          '· 必要时给 npm/uv 配镜像源 (例：~/.npmrc -> registry=$_kNpmMirrorRegistry)',
       zhHant:
           '· 在終端單獨執行 server.command，確認下載是否可行 (網路/代理/映像源)\n'
           '· stdio 快取已隔離到 ~/.openhand/mcp/package-cache，可手動 rm -rf 重置\n'
           '· 首次啟動後命中快取即可恢復秒級，失敗時可直接重試\n'
-          '· 必要時為 npm/uv 設定映像源 (例：~/.npmrc -> registry=https://registry.npmmirror.com)',
+          '· 必要時為 npm/uv 設定映像源 (例：~/.npmrc -> registry=$_kNpmMirrorRegistry)',
       en:
           '· Run server.command directly in a terminal to verify downloads (network / proxy / mirror)\n'
           '· stdio cache is isolated at ~/.openhand/mcp/package-cache and can be reset with rm -rf\n'
           '· After the first successful launch, cache hits should return to seconds; retrying is fine\n'
-          '· Configure npm/uv mirrors if needed, for example ~/.npmrc -> registry=https://registry.npmmirror.com',
+          '· Configure npm/uv mirrors if needed, for example ~/.npmrc -> registry=$_kNpmMirrorRegistry',
       fr:
           '· Exécutez server.command dans un terminal pour vérifier les téléchargements (réseau / proxy / miroir)\n'
           '· Le cache stdio est isolé dans ~/.openhand/mcp/package-cache et peut être réinitialisé avec rm -rf\n'
           '· Après le premier lancement réussi, le cache ramène le délai à quelques secondes ; vous pouvez réessayer\n'
-          '· Configurez des miroirs npm/uv si nécessaire, par exemple ~/.npmrc -> registry=https://registry.npmmirror.com',
+          '· Configurez des miroirs npm/uv si nécessaire, par exemple ~/.npmrc -> registry=$_kNpmMirrorRegistry',
       de:
           '· Führe server.command im Terminal aus, um Downloads zu prüfen (Netzwerk / Proxy / Mirror)\n'
           '· Der stdio-Cache liegt isoliert unter ~/.openhand/mcp/package-cache und kann mit rm -rf zurückgesetzt werden\n'
           '· Nach dem ersten erfolgreichen Start sollten Cache-Treffer wieder Sekunden dauern; erneutes Versuchen ist ok\n'
-          '· Konfiguriere bei Bedarf npm/uv-Mirrors, z. B. ~/.npmrc -> registry=https://registry.npmmirror.com',
+          '· Konfiguriere bei Bedarf npm/uv-Mirrors, z. B. ~/.npmrc -> registry=$_kNpmMirrorRegistry',
       ja:
           '· ターミナルで server.command を直接実行し、ダウンロード可否を確認してください (ネットワーク / プロキシ / ミラー)\n'
           '· stdio キャッシュは ~/.openhand/mcp/package-cache に分離されており、rm -rf でリセットできます\n'
           '· 初回成功後はキャッシュにより秒単位に戻るため、失敗時はそのまま再試行できます\n'
-          '· 必要なら npm/uv のミラーを設定してください。例: ~/.npmrc -> registry=https://registry.npmmirror.com',
+          '· 必要なら npm/uv のミラーを設定してください。例: ~/.npmrc -> registry=$_kNpmMirrorRegistry',
     ),
     raw: label,
   );
