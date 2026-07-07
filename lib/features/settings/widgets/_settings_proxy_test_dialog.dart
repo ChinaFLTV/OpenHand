@@ -565,18 +565,12 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
     for (final entry in _entries) {
       buffer.writeln(_formatEntryAsPlainText(entry));
     }
-    await Clipboard.setData(ClipboardData(text: buffer.toString()));
-    if (!mounted) return;
-    final messenger = ScaffoldMessenger.maybeOf(context);
-    if (messenger == null) return;
-    OpenHandSnackBar.show(
-      context,
-      messenger,
-      OpenHandSnackBar.success(
-        context,
-        AppLocalizations.of(context)!.proxyTestConsoleCopied,
-        duration: const Duration(milliseconds: 1400),
-      ),
+    await _copySettingsTextToClipboard(
+      context: context,
+      text: buffer.toString(),
+      successMessage: AppLocalizations.of(context)!.proxyTestConsoleCopied,
+      logAction: 'copy proxy test logs',
+      successDuration: const Duration(milliseconds: 1400),
     );
   }
 
@@ -950,20 +944,12 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
   }
 
   Future<void> _copyEntryLine(_ProxyTestLogEntry entry) async {
-    await Clipboard.setData(
-      ClipboardData(text: _formatEntryAsPlainText(entry)),
-    );
-    if (!mounted) return;
-    final messenger = ScaffoldMessenger.maybeOf(context);
-    if (messenger == null) return;
-    OpenHandSnackBar.show(
-      context,
-      messenger,
-      OpenHandSnackBar.success(
-        context,
-        AppLocalizations.of(context)!.proxyTestConsoleCopied,
-        duration: const Duration(milliseconds: 1200),
-      ),
+    await _copySettingsTextToClipboard(
+      context: context,
+      text: _formatEntryAsPlainText(entry),
+      successMessage: AppLocalizations.of(context)!.proxyTestConsoleCopied,
+      logAction: 'copy proxy test entry',
+      successDuration: const Duration(milliseconds: 1200),
     );
   }
 

@@ -70,6 +70,7 @@ import '../data_cleanup/data_cleanup_service.dart';
 import '../service/throttle_cloud_sync_service.dart';
 import 'prompt_cache_breakpoint_bar.dart';
 import 'thread_session_management_dialog.dart';
+part '_settings_dialog_utils.dart';
 part '_settings_ai_model_editor.dart';
 part '_settings_editor_lsp.dart';
 part '_settings_command_rules.dart';

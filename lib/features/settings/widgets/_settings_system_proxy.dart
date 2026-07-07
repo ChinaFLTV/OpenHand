@@ -165,23 +165,21 @@ class _SystemProxySectionState extends State<_SystemProxySection> {
       testEndpoint: raw,
     );
     if (!mounted) return;
-    // 这里反馈文案依赖 Localizations.localeOf 直接取语言码，避免为单一
-    // 提示新增 ARB 键；不需要 AppLocalizations 实例。
-    final isEn = Localizations.localeOf(context).languageCode == 'en';
     final localizedSaved = saved
-        ? (isEn ? 'Test URL saved' : '测试 URL 已保存')
-        : (isEn ? 'Failed to save test URL' : '测试 URL 保存失败');
+        ? openHandLocalizedText(context, zh: '测试 URL 已保存', en: 'Test URL saved')
+        : openHandLocalizedText(
+            context,
+            zh: '测试 URL 保存失败',
+            en: 'Failed to save test URL',
+          );
     if (!_testEndpointFocus.hasFocus) {
       _testEndpointCtrl.text = widget.controller.proxySettings.testEndpoint;
     }
-    final messenger = ScaffoldMessenger.of(context);
-    OpenHandSnackBar.show(
-      context,
-      messenger,
-      saved
-          ? OpenHandSnackBar.success(context, localizedSaved)
-          : OpenHandSnackBar.error(context, localizedSaved),
-    );
+    if (saved) {
+      _showSettingsSuccessSnack(context, localizedSaved);
+    } else {
+      _showSettingsErrorSnack(context, localizedSaved);
+    }
   }
 
   Future<void> _runConnectivityTest() async {
@@ -547,8 +545,13 @@ class _InputRepairSectionState extends State<_InputRepairSection> {
             onPressed: restarting
                 ? null
                 : () async {
-                    await Clipboard.setData(
-                      ClipboardData(text: _formatRepairReport(report)),
+                    await _copySettingsTextToClipboard(
+                      context: dialogContext,
+                      text: _formatRepairReport(report),
+                      successMessage: AppLocalizations.of(
+                        dialogContext,
+                      )!.commonCopiedToClipboard,
+                      logAction: 'copy input repair report',
                     );
                   },
           ),
@@ -593,9 +596,9 @@ class _InputRepairSectionState extends State<_InputRepairSection> {
                         setDialogState(() {
                           restarting = false;
                         });
-                        OpenHandSnackBar.showError(dialogContext, message);
+                        _showSettingsErrorSnack(dialogContext, message);
                       } else if (mounted) {
-                        OpenHandSnackBar.showError(context, message);
+                        _showSettingsErrorSnack(context, message);
                       }
                     }
                   },
@@ -705,7 +708,6 @@ class _InputRepairSectionState extends State<_InputRepairSection> {
       _repairing = true;
     });
     final l10n = AppLocalizations.of(context)!;
-    final messenger = ScaffoldMessenger.maybeOf(context);
     late final InputRepairReport report;
     try {
       report = await InputRepairService.instance.repair(
@@ -733,24 +735,20 @@ class _InputRepairSectionState extends State<_InputRepairSection> {
       }
     }
 
-    if (messenger != null && context.mounted) {
+    if (context.mounted) {
       final total = report.trackedChildrenBefore + report.directChildrenKilled;
       final detail = total > 0
           ? l10n.inputRepairDoneDetail(total)
           : l10n.inputRepairDone;
       switch (report.result) {
         case InputRepairResult.success:
-          OpenHandSnackBar.showSuccessOn(context, messenger, detail);
+          _showSettingsSuccessSnack(context, detail);
           unawaited(_showRepairReportDialog(report));
         case InputRepairResult.partialSuccess:
-          OpenHandSnackBar.showInfoOn(context, messenger, detail);
+          _showSettingsInfoSnack(context, detail);
           unawaited(_showRepairReportDialog(report));
         case InputRepairResult.failure:
-          OpenHandSnackBar.showErrorOn(
-            context,
-            messenger,
-            l10n.inputRepairDone,
-          );
+          _showSettingsErrorSnack(context, l10n.inputRepairDone);
           unawaited(_showRepairReportDialog(report));
       }
     }

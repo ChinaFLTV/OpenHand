@@ -314,19 +314,12 @@ class _ScraplingRuntimeDialogState extends State<_ScraplingRuntimeDialog> {
       actions: [
         OpenHandDialogActionButton.secondary(
           onPressed: () async {
-            await Clipboard.setData(
-              ClipboardData(
-                text: _entries
-                    .map((entry) => entry.line)
-                    .join('\n')
-                    .trimRight(),
-              ),
-            );
-            if (!context.mounted) return;
-            OpenHandSnackBar.showSuccess(
-              context,
-              l10n.settingsScraplingRuntimeCopiedAllLogs,
-              duration: const Duration(milliseconds: 1400),
+            await _copySettingsTextToClipboard(
+              context: context,
+              text: _entries.map((entry) => entry.line).join('\n').trimRight(),
+              successMessage: l10n.settingsScraplingRuntimeCopiedAllLogs,
+              logAction: 'copy scrapling runtime logs',
+              successDuration: const Duration(milliseconds: 1400),
             );
           },
           label: l10n.settingsScraplingRuntimeCopyLogs,

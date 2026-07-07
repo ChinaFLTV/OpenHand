@@ -924,19 +924,22 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
       zh: '正在导出全部 ledger…',
       en: 'Exporting all ledger…',
     );
-    showOpenHandSnackBar(
+    _showSettingsInfoSnack(
       context,
-      OpenHandSnackBar.info(
-        context,
-        pendingText,
-        duration: const Duration(seconds: 1),
-      ),
+      pendingText,
+      duration: const Duration(seconds: 1),
     );
     try {
       final json = await _ledger.exportBundleJson();
-      await Clipboard.setData(ClipboardData(text: json));
-      _cleanupPulse.value += 1;
       if (!mounted) return;
+      final copied = await _copySettingsTextToClipboard(
+        context: context,
+        text: json,
+        logAction: 'copy ledger bundle',
+        showSuccess: false,
+      );
+      if (!copied || !mounted) return;
+      _cleanupPulse.value += 1;
       final bytes = utf8.encode(json).length;
       showOpenHandSnackBar(
         context,
@@ -1416,18 +1419,15 @@ class _LedgerSearchDialogState extends State<_LedgerSearchDialog> {
     final json = const JsonEncoder.withIndent(
       '  ',
     ).convert(_results.map((v) => v.record.toJson()).toList());
-    await Clipboard.setData(ClipboardData(text: json));
-    if (!mounted) return;
-    showOpenHandSnackBar(
-      context,
-      OpenHandSnackBar.success(
+    await _copySettingsTextToClipboard(
+      context: context,
+      text: json,
+      successMessage: openHandLocalizedText(
         context,
-        openHandLocalizedText(
-          context,
-          zh: '已复制 ${_results.length} 条结果到剪贴板',
-          en: 'Copied ${_results.length} record(s) to clipboard',
-        ),
+        zh: '已复制 ${_results.length} 条结果到剪贴板',
+        en: 'Copied ${_results.length} record(s) to clipboard',
       ),
+      logAction: 'copy ledger search results',
     );
   }
 
@@ -1439,18 +1439,16 @@ class _LedgerSearchDialogState extends State<_LedgerSearchDialog> {
       final bundle = await widget.ledger.exportRecordsAsBundleJson(
         _results.map((v) => v.record),
       );
-      await Clipboard.setData(ClipboardData(text: bundle));
       if (!mounted) return;
-      showOpenHandSnackBar(
-        context,
-        OpenHandSnackBar.success(
+      await _copySettingsTextToClipboard(
+        context: context,
+        text: bundle,
+        successMessage: openHandLocalizedText(
           context,
-          openHandLocalizedText(
-            context,
-            zh: '已导出 ${_results.length} 条筛选结果（含 blob）到剪贴板',
-            en: 'Exported ${_results.length} filtered record(s) (with blobs)',
-          ),
+          zh: '已导出 ${_results.length} 条筛选结果（含 blob）到剪贴板',
+          en: 'Exported ${_results.length} filtered record(s) (with blobs)',
         ),
+        logAction: 'copy filtered ledger bundle',
       );
     } catch (error, stack) {
       silentLog('_LedgerSearchDialog', 'exportFilteredAsBundle', error, stack);
