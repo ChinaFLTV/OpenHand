@@ -1477,7 +1477,7 @@ class _AndroidReverseDashboardDialogState
     final overlay =
         Overlay.of(context).context.findRenderObject() as RenderBox?;
     if (overlay == null) return;
-    final selected = await showMenu<_LogcatLineAction>(
+    final selected = await showAnimatedMenu<_LogcatLineAction>(
       context: context,
       position: RelativeRect.fromRect(
         Rect.fromLTWH(position.dx, position.dy, 1, 1),
@@ -4730,7 +4730,7 @@ fi
     if (overlay == null) return;
     final center = overlay.size.center(Offset.zero);
     final position = globalPosition ?? overlay.localToGlobal(center);
-    final selected = await showMenu<_DeviceMenuAction>(
+    final selected = await showAnimatedMenu<_DeviceMenuAction>(
       context: context,
       position: RelativeRect.fromRect(
         Rect.fromLTWH(position.dx, position.dy, 1, 1),
@@ -4958,7 +4958,7 @@ fi
     if (overlay == null) return;
     final center = overlay.size.center(Offset.zero);
     final position = globalPosition ?? overlay.localToGlobal(center);
-    final selected = await showMenu<_PackageMenuAction>(
+    final selected = await showAnimatedMenu<_PackageMenuAction>(
       context: context,
       position: RelativeRect.fromRect(
         Rect.fromLTWH(position.dx, position.dy, 1, 1),
@@ -5232,7 +5232,7 @@ fi
     final center = overlay.size.center(Offset.zero);
     final position = globalPosition ?? overlay.localToGlobal(center);
     final isPackageProcess = _looksLikePackageName(process.name);
-    final selected = await showMenu<_ProcessMenuAction>(
+    final selected = await showAnimatedMenu<_ProcessMenuAction>(
       context: context,
       position: RelativeRect.fromRect(
         Rect.fromLTWH(position.dx, position.dy, 1, 1),

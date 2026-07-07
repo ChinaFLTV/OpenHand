@@ -11,6 +11,7 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../util/input_value_parsing.dart';
 import '../util/timer_safety.dart';
+import 'animated_menu.dart';
 import 'motion_preference.dart';
 
 const Duration kNativeAudioLoadTimeout = Duration(seconds: 18);
@@ -1918,7 +1919,7 @@ class _NativeAudioEffectMenuButton extends StatelessWidget {
     if (box == null) return;
     final offset = box.localToGlobal(Offset.zero);
     final size = box.size;
-    showMenu<_NativeAudioEffect>(
+    showAnimatedMenu<_NativeAudioEffect>(
       context: ctx,
       position: RelativeRect.fromLTRB(
         offset.dx,
