@@ -10580,9 +10580,8 @@ fi
       }
       final header = _decodeJwtSegment(parts[0]);
       final payload = _decodeJwtSegment(parts[1]);
-      const encoder = JsonEncoder.withIndent('  ');
-      final headerText = encoder.convert(jsonDecode(header));
-      final payloadText = encoder.convert(jsonDecode(payload));
+      final headerText = prettyPrintJson(jsonDecode(header));
+      final payloadText = prettyPrintJson(jsonDecode(payload));
       _setCryptoOutput(
         openHandLocalizedText(
           context,

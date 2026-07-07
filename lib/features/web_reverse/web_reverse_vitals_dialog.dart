@@ -222,7 +222,7 @@ class _VitalsDialogState extends State<_VitalsDialog> {
     };
     await copyWebReverseTextToClipboard(
       context: context,
-      text: const JsonEncoder.withIndent('  ').convert(report),
+      text: prettyPrintJson(report),
       successBase:
           AppLocalizations.of(context)?.webReverseVitalsReportCopied ??
           'Report JSON copied',

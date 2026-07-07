@@ -795,7 +795,7 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
 
     final String text;
     if (format == _McpHistoryExportFormat.json) {
-      text = const JsonEncoder.withIndent('  ').convert({
+      text = prettyPrintJson({
         'exportedAt': DateTime.now().toUtc().toIso8601String(),
         'servers': entries,
       });
@@ -2039,7 +2039,7 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
         'Authorization': 'Bearer $token',
       };
     }
-    final content = const JsonEncoder.withIndent('  ').convert(
+    final content = prettyPrintJson(
       <String, Object?>{
         'mcpServers': <String, Object?>{'openhand': serverConfig},
       },
@@ -7280,7 +7280,7 @@ class _ToolSchemaBlock extends StatelessWidget {
     final colorScheme = theme.colorScheme;
     String pretty;
     try {
-      pretty = const JsonEncoder.withIndent('  ').convert(payload);
+      pretty = prettyPrintJson(payload);
     } catch (error, stack) {
       silentLog('mcp', 'render tool schema json', error, stack);
       pretty = payload.toString();
@@ -7623,7 +7623,7 @@ class _McpHealthHistorySheet extends StatelessWidget {
           },
       ],
     };
-    return const JsonEncoder.withIndent('  ').convert(payload);
+    return prettyPrintJson(payload);
   }
 
   String _renderHistoryCsv(List<McpHealthProbeRecord> probes) {
@@ -9960,9 +9960,7 @@ class _ToolSchemaPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final content = const JsonEncoder.withIndent(
-      '  ',
-    ).convert(_jsonFriendlyValue(schema));
+    final content = prettyPrintJson(_jsonFriendlyValue(schema));
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
@@ -10598,7 +10596,7 @@ String _suggestedArgumentsJson(McpTool tool) {
   for (final entry in properties.entries) {
     suggested[entry.key] = _schemaExampleValue(entry.value);
   }
-  return const JsonEncoder.withIndent('  ').convert(suggested);
+  return prettyPrintJson(suggested);
 }
 
 Object? _schemaExampleValue(Object? schema) {

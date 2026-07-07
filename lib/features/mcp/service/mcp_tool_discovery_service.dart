@@ -1039,7 +1039,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
         return buffer.toString().trim();
       }
     }
-    return const JsonEncoder.withIndent('  ').convert(result);
+    return prettyPrintJson(result);
   }
 
   String _renderToolCallContentItem(Object? rawItem) {
@@ -1058,7 +1058,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
       case 'resource_link':
         return '[resource_link] ${_readText(item['uri'])}';
       default:
-        return const JsonEncoder.withIndent('  ').convert(item);
+        return prettyPrintJson(item);
     }
   }
 

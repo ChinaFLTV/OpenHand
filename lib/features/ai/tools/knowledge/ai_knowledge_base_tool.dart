@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:sqflite_common/sqlite_api.dart';
@@ -84,9 +83,7 @@ class AiKnowledgeSearchTool extends AiTool {
         .toList(growable: false);
     final output = hits.isEmpty
         ? 'No Knowledge Base chunks matched query="$query".'
-        : const JsonEncoder.withIndent(
-            '  ',
-          ).convert(<String, Object?>{'query': query, 'results': hits});
+        : prettyPrintJson(<String, Object?>{'query': query, 'results': hits});
     final metadata = _knowledgeToolMetadata(
       status: hits.isEmpty ? 'skipped' : 'success',
       query: query,
@@ -142,9 +139,7 @@ class AiKnowledgeSearchTool extends AiTool {
       final hits = result.hits.map(_retrievalHitJson).toList(growable: false);
       final output = hits.isEmpty
           ? 'No Knowledge Base chunks matched query="$query".'
-          : const JsonEncoder.withIndent(
-              '  ',
-            ).convert(<String, Object?>{'query': query, 'results': hits});
+          : prettyPrintJson(<String, Object?>{'query': query, 'results': hits});
       final knowledgeBase = <String, Object?>{
         ...KnowledgeMessageMetadata.success(
           settings: retrieval.settings,
@@ -224,7 +219,7 @@ class AiKnowledgeReadTool extends AiTool {
         .toList(growable: false);
     final output = hits.isEmpty
         ? 'No Knowledge Base content found.'
-        : const JsonEncoder.withIndent('  ').convert(<String, Object?>{
+        : prettyPrintJson(<String, Object?>{
             'results': hits,
             if (!includeContent)
               'note':

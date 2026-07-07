@@ -2752,7 +2752,7 @@ class AiAgentTool extends AiTool {
       stdout: '',
       stderr: guidance,
       durationMs: 0,
-      resultText: const JsonEncoder.withIndent('  ').convert(payload),
+      resultText: prettyPrintJson(payload),
       metadata: <String, Object?>{
         'tool': _name,
         'action': 'agent_routing_required',
@@ -3077,7 +3077,7 @@ class AiAgentTool extends AiTool {
   }) {
     return AiToolUtils.simpleSuccessResult(
       command: _name,
-      output: const JsonEncoder.withIndent('  ').convert(payload),
+      output: prettyPrintJson(payload),
       durationMs: stopwatch.elapsedMilliseconds,
       metadata: <String, Object?>{'tool': _name, ...metadata},
     );

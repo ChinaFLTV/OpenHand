@@ -206,9 +206,7 @@ Future<void> _exportToolTelemetry<T>({
 }
 
 String _encodeJsonList(Iterable<Object?> values) {
-  return const JsonEncoder.withIndent(
-    '  ',
-  ).convert(values.toList(growable: false));
+  return prettyPrintJson(values.toList(growable: false));
 }
 
 String _csvCell(Object? value) {
@@ -4751,7 +4749,7 @@ class _SettingsViewState extends State<SettingsView> {
     try {
       final doc = controller.exportAiStreamThrottleConfig();
       final bytes = utf8.encode(
-        const JsonEncoder.withIndent('  ').convert(doc),
+        prettyPrintJson(doc),
       );
       final file = XFile.fromData(
         bytes,

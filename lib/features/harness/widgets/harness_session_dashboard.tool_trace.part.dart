@@ -1084,7 +1084,7 @@ String _heBuildStructuredToolArguments(
         'channel': segment.roleLabel!.trim().toLowerCase(),
     };
     if (arguments.isNotEmpty) {
-      return const JsonEncoder.withIndent('  ').convert(arguments);
+      return prettyPrintJson(arguments);
     }
   }
   if (segment.kind == _HeSegmentKind.toolCall) {

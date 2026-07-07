@@ -1666,7 +1666,7 @@ Future<void> _showCdpPaletteDialog(
                 if (!dialogContext.mounted) return;
                 result.value = r == null
                     ? '(null)'
-                    : const JsonEncoder.withIndent('  ').convert(r);
+                    : prettyPrintJson(r);
               } catch (error, stack) {
                 silentLog(
                   'web_reverse_dashboard_dialog',
@@ -2695,9 +2695,7 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
                     onPressed: () async {
                       await copyWebReverseTextToClipboard(
                         context: context,
-                        text: const JsonEncoder.withIndent(
-                          '  ',
-                        ).convert(_events),
+                        text: prettyPrintJson(_events),
                         successBase: openHandLocalizedText(
                           context,
                           zh: '已复制',

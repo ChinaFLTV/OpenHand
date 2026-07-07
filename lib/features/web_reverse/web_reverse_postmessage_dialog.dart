@@ -288,9 +288,7 @@ class _PmDialogState extends State<_PmDialog> {
   Future<void> _copy() async {
     final filtered = _filtered();
     if (filtered.isEmpty) return;
-    final json = const JsonEncoder.withIndent(
-      '  ',
-    ).convert(filtered.map((r) => r.toJson()).toList());
+    final json = prettyPrintJson(filtered.map((r) => r.toJson()).toList());
     final loc = AppLocalizations.of(context);
     await copyWebReverseTextToClipboard(
       context: context,

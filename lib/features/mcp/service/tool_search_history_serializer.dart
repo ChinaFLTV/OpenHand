@@ -99,7 +99,7 @@ class ToolSearchHistorySerializer {
           },
       ],
     };
-    return const JsonEncoder.withIndent('  ').convert(root);
+    return prettyPrintJson(root);
   }
 
   /// 反向解析由 [toJson] 生成的字符串。仅识别 `version: 1` 协议；其它版本

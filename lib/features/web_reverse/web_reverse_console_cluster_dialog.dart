@@ -4,12 +4,12 @@
 /// 聚成簇，按出现次数倒序展示。点击展开看原始条目。
 library;
 
-import 'dart:convert';
 
 import 'package:flutter/material.dart';
 
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
+import '../../shared/util/input_value_parsing.dart';
 import 'web_reverse_clipboard.dart';
 import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_pure_helpers.dart';
@@ -102,7 +102,7 @@ class _ConsoleClusterDialogState extends State<_ConsoleClusterDialog> {
     };
     await copyWebReverseTextToClipboard(
       context: context,
-      text: const JsonEncoder.withIndent('  ').convert(payload),
+      text: prettyPrintJson(payload),
       successBase:
           AppLocalizations.of(context)?.webReverseConsoleClusterCopied ??
           'Cluster JSON copied',

@@ -178,7 +178,7 @@ class AiSessionStore {
     await writeFileAtomically(File(markdownPath), markdown.toString());
     await writeFileAtomically(
       File(metadataPath),
-      const JsonEncoder.withIndent('  ').convert(metadata),
+      prettyPrintJson(metadata),
     );
   }
 

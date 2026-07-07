@@ -528,7 +528,7 @@ class _AuthCard extends StatelessWidget {
                     border: Border.all(color: cs.outlineVariant),
                   ),
                   child: SelectableText(
-                    const JsonEncoder.withIndent('  ').convert(c),
+                    prettyPrintJson(c),
                     style: const TextStyle(
                       fontFamily: 'monospace',
                       fontSize: 11,

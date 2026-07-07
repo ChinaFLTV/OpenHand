@@ -165,9 +165,7 @@ class _CookieEditorDialogState extends State<_CookieEditorDialog> {
   }
 
   Future<void> _copyJson() async {
-    final json = const JsonEncoder.withIndent(
-      '  ',
-    ).convert(_visible.map((c) => c.raw).toList());
+    final json = prettyPrintJson(_visible.map((c) => c.raw).toList());
     final loc = AppLocalizations.of(context);
     await copyWebReverseTextToClipboard(
       context: context,

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 
 import '../../../app/theme/openhand_status_colors.dart';
+import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
 
 const double kKnowledgeDialogSectionSpacing = 12;
@@ -345,7 +346,7 @@ class KnowledgeDialogJsonBox extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final text = const JsonEncoder.withIndent('  ').convert(value);
+    final text = prettyPrintJson(value);
     return Container(
       constraints: BoxConstraints(maxHeight: maxHeight ?? 320),
       padding: const EdgeInsets.all(12),

@@ -3562,9 +3562,7 @@ Future<void> _showAgentTaskDetailDialog(
   final l10n = AppLocalizations.of(context)!;
   final assignedWorker = _agentTaskAssignedWorkerLabel(l10n, task);
   final trackingSummary = _agentTaskTrackingSummary(context, agent, task);
-  final extraText = const JsonEncoder.withIndent(
-    '  ',
-  ).convert(_agentTaskExtraDisplayJson(task.extra));
+  final extraText = prettyPrintJson(_agentTaskExtraDisplayJson(task.extra));
   return showAnimatedDialog<void>(
     context: context,
     builder: (dialogContext) => buildOpenHandResponsiveDialogShell(
@@ -10565,7 +10563,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
     if (intents.isNotEmpty) data['intents'] = intents;
     data.addAll(_mapFromEntries(_routeExtraFields));
     if (data.isEmpty) return '';
-    return '---\n${const JsonEncoder.withIndent('  ').convert(data)}\n---';
+    return '---\n${prettyPrintJson(data)}\n---';
   }
 
   Map<String, Object?> _metadataMapFromEntries() {
@@ -13790,9 +13788,7 @@ Map<String, Object?> _agentLogEnvironmentSnapshot(AgentProfile agent) {
 }
 
 String _agentPrettyJsonForDisplay(Object? value) {
-  final encoded = const JsonEncoder.withIndent(
-    '  ',
-  ).convert(_agentJsonDisplayValue(value));
+  final encoded = prettyPrintJson(_agentJsonDisplayValue(value));
   if (encoded.length <= _agentLogDetailMaxJsonChars) return encoded;
   final preview = encoded.substring(0, _agentLogDetailMaxJsonChars);
   return '$preview\n... [truncated ${encoded.length - preview.length} chars]';

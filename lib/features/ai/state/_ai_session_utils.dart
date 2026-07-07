@@ -425,7 +425,7 @@ String _prettyToolArguments(String arguments) {
   }
   try {
     final decoded = jsonDecode(trimmed);
-    return const JsonEncoder.withIndent('  ').convert(decoded);
+    return prettyPrintJson(decoded);
   } catch (_) {
     return trimmed;
   }

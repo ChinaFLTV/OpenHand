@@ -1063,7 +1063,7 @@ class HarnessApiPhaseRunner {
         'created_at': DateTime.now().toUtc().toIso8601String(),
       };
       await metadataFile.writeAsString(
-        const JsonEncoder.withIndent('  ').convert(metadata),
+        prettyPrintJson(metadata),
         flush: true,
       );
       emit('📋 交接文档已保存：${handoffFile.path}');
@@ -1139,7 +1139,7 @@ class HarnessApiPhaseRunner {
         ),
       );
       await failureFile.writeAsString(
-        const JsonEncoder.withIndent('  ').convert(record),
+        prettyPrintJson(record),
         flush: true,
       );
       emit('📋 交接失败记录已保存：${failureFile.path}');

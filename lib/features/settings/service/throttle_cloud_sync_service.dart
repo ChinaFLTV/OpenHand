@@ -346,7 +346,7 @@ class ThrottleCloudSyncService {
         'updated_at_ms': updatedAtMs,
         'updated_at': DateTime.now().toUtc().toIso8601String(),
       };
-      final json = const JsonEncoder.withIndent('  ').convert(payload);
+      final json = prettyPrintJson(payload);
       final result = await _icloudChannel.invokeMapMethod<String, dynamic>(
         'pushIcloud',
         <String, dynamic>{'config_json': json},
@@ -446,14 +446,13 @@ class ThrottleCloudSyncService {
     final ownsClient = _client == null;
     final client = _client ?? http.Client();
     try {
-      final fileContent = const JsonEncoder.withIndent('  ')
-          .convert(<String, Object?>{
-            'kind': 'openhand.throttle_config',
-            'version': aiStreamThrottleConfigSchemaVersion,
-            'config': config,
-            'updated_at_ms': updatedAtMs,
-            'updated_at': DateTime.now().toUtc().toIso8601String(),
-          });
+      final fileContent = prettyPrintJson(<String, Object?>{
+        'kind': 'openhand.throttle_config',
+        'version': aiStreamThrottleConfigSchemaVersion,
+        'config': config,
+        'updated_at_ms': updatedAtMs,
+        'updated_at': DateTime.now().toUtc().toIso8601String(),
+      });
       final body = jsonEncode(<String, Object?>{
         'description': 'OpenHand throttle config (auto-synced)',
         'public': false,

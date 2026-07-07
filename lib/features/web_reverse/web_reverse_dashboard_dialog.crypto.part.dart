@@ -118,7 +118,7 @@ class _CryptoPadBodyState extends State<_CryptoPadBody> {
       final raw = _b64Decode(b);
       try {
         final v = jsonDecode(raw);
-        return const JsonEncoder.withIndent('  ').convert(v);
+        return prettyPrintJson(v);
       } catch (_) {
         return raw;
       }

@@ -923,13 +923,13 @@ class _SourcesPanelState extends State<_SourcesPanel> {
         child: SelectableText(
           openHandLocalizedText(
             context,
-            zh: '收到 LSP edit：$summary\n\n（当前面板只展示分析结果，未自动改源码；如需落盘请走外部 IDE。）\n\n${const JsonEncoder.withIndent('  ').convert(edit)}',
+            zh: '收到 LSP edit：$summary\n\n（当前面板只展示分析结果，未自动改源码；如需落盘请走外部 IDE。）\n\n${prettyPrintJson(edit)}',
             zhHant:
-                '收到 LSP edit：$summary\n\n（目前面板只展示分析結果，未自動改源碼；如需落盤請使用外部 IDE。）\n\n${const JsonEncoder.withIndent('  ').convert(edit)}',
-            en: 'LSP returned edit: $summary\n\n(Read-only preview.)\n\n${const JsonEncoder.withIndent('  ').convert(edit)}',
-            fr: 'Le LSP a retourné un edit : $summary\n\n(Aperçu en lecture seule.)\n\n${const JsonEncoder.withIndent('  ').convert(edit)}',
-            de: 'LSP gab ein Edit zurück: $summary\n\n(Nur-Lese-Vorschau.)\n\n${const JsonEncoder.withIndent('  ').convert(edit)}',
-            ja: 'LSP edit を受信: $summary\n\n（読み取り専用プレビューです。）\n\n${const JsonEncoder.withIndent('  ').convert(edit)}',
+                '收到 LSP edit：$summary\n\n（目前面板只展示分析結果，未自動改源碼；如需落盤請使用外部 IDE。）\n\n${prettyPrintJson(edit)}',
+            en: 'LSP returned edit: $summary\n\n(Read-only preview.)\n\n${prettyPrintJson(edit)}',
+            fr: 'Le LSP a retourné un edit : $summary\n\n(Aperçu en lecture seule.)\n\n${prettyPrintJson(edit)}',
+            de: 'LSP gab ein Edit zurück: $summary\n\n(Nur-Lese-Vorschau.)\n\n${prettyPrintJson(edit)}',
+            ja: 'LSP edit を受信: $summary\n\n（読み取り専用プレビューです。）\n\n${prettyPrintJson(edit)}',
           ),
           style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
         ),

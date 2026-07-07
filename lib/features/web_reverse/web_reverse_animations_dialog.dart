@@ -314,7 +314,7 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
   }
 
   Future<void> _copyJson() async {
-    final json = const JsonEncoder.withIndent('  ').convert(
+    final json = prettyPrintJson(
       _rows
           .map(
             (r) => {

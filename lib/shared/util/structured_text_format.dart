@@ -79,7 +79,7 @@ final class _JsonTextFormatterStrategy
     try {
       final decoded = jsonDecode(trimmed);
       return StructuredTextFormatResult(
-        text: _prettyJson(decoded),
+        text: prettyPrintJson(decoded),
         format: StructuredTextFormat.json,
       );
     } catch (_) {
@@ -119,7 +119,7 @@ final class _YamlTextFormatterStrategy
       final loaded = loadYaml(trimmed);
       if (loaded is! Map && loaded is! List) return null;
       return StructuredTextFormatResult(
-        text: _prettyJson(_jsonSafeValue(loaded)),
+        text: prettyPrintJson(_jsonSafeValue(loaded)),
         format: StructuredTextFormat.yaml,
       );
     } catch (_) {
@@ -150,10 +150,6 @@ bool _looksLikeYaml(String trimmed) {
     if (colonIndex > 0) structuredLineCount += 1;
   }
   return structuredLineCount > 0;
-}
-
-String _prettyJson(Object? value) {
-  return const JsonEncoder.withIndent('  ').convert(value);
 }
 
 Object? _jsonSafeValue(Object? value) {

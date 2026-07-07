@@ -191,7 +191,7 @@ class AiNotebookEditTool extends AiTool {
     final guardedWrite = await AiToolUtils.writeTextFileWithMutationGuard(
       toolName: 'NotebookEdit',
       file: file,
-      content: const JsonEncoder.withIndent('  ').convert(notebook),
+      content: prettyPrintJson(notebook),
       previouslyReadFiles: context.previouslyReadFiles,
       requireExistingFileRead: true,
       fileTracker: fileTracker,

@@ -7,6 +7,11 @@ import '../model/knowledge_base_settings.dart';
 
 const Duration _qdrantAdminConnectionTimeout = Duration(seconds: 5);
 
+/// Upper bound for the retained operation-log ring. The service lives as long
+/// as its owning controller, so the log must evict oldest entries instead of
+/// growing without limit on long-running sessions.
+const int _kQdrantAdminMaxLogEntries = 200;
+
 List<Map<String, Object?>> qdrantCollectionsFromResponse(Object? response) {
   final root = stringKeyedMapFromValue(response);
   final result = stringKeyedMapFromValue(root['result']);
@@ -193,6 +198,9 @@ class QdrantAdminService {
         throw HttpException('Qdrant ${response.statusCode}: $text');
       }
       if (action != null) {
+        if (_logs.length >= _kQdrantAdminMaxLogEntries) {
+          _logs.removeAt(0);
+        }
         _logs.add(
           QdrantAdminOperationLog(
             action: action,

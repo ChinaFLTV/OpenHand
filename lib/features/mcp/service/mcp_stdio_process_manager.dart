@@ -173,7 +173,7 @@ class McpStdioProcessManager extends ChangeNotifier {
 
       // 监听 stdout - 同时用于日志、握手响应检测和 discovery 响应路由
       final handshakeCompleter = Completer<bool>();
-      process.stdout
+      final stdoutSubscription = process.stdout
           .transform(utf8.decoder)
           .listen(
             (data) {
@@ -203,7 +203,7 @@ class McpStdioProcessManager extends ChangeNotifier {
           );
 
       // 监听 stderr
-      process.stderr
+      final stderrSubscription = process.stderr
           .transform(utf8.decoder)
           .listen(
             (data) => _appendLog(name, data, isStderr: true),
@@ -211,6 +211,12 @@ class McpStdioProcessManager extends ChangeNotifier {
                 _appendLog(name, '[stderr error] $e', isStderr: true),
             onDone: () => _appendLog(name, '[stderr closed]', isStderr: false),
           );
+
+      // 持有订阅句柄，停止进程时显式 cancel，避免管道未及时关闭时泄漏监听器。
+      _processes[name] = managed.copyWith(
+        stdoutSubscription: stdoutSubscription,
+        stderrSubscription: stderrSubscription,
+      );
 
       // 监听进程退出
       unawaited(
@@ -295,6 +301,8 @@ class McpStdioProcessManager extends ChangeNotifier {
     } catch (e) {
       _appendLog(serverName, '[${_timestamp()}] 停止异常: $e', isStderr: true);
     }
+
+    await managed.cancelSubscriptions();
 
     final current = _processes[serverName];
     if (current != null && current.info.state != StdioProcessState.stopped) {
@@ -948,18 +956,24 @@ class _ManagedProcess {
     this.process,
     this.handshakeCompleted = false,
     this.responseRouter,
+    this.stdoutSubscription,
+    this.stderrSubscription,
   });
 
   final StdioProcessInfo info;
   final Process? process;
   final bool handshakeCompleted;
   final _ManagedResponseRouter? responseRouter;
+  final StreamSubscription<String>? stdoutSubscription;
+  final StreamSubscription<String>? stderrSubscription;
 
   _ManagedProcess copyWith({
     StdioProcessInfo? info,
     Process? process,
     bool? handshakeCompleted,
     _ManagedResponseRouter? responseRouter,
+    StreamSubscription<String>? stdoutSubscription,
+    StreamSubscription<String>? stderrSubscription,
     bool clearProcess = false,
   }) {
     return _ManagedProcess(
@@ -967,7 +981,16 @@ class _ManagedProcess {
       process: clearProcess ? null : (process ?? this.process),
       handshakeCompleted: handshakeCompleted ?? this.handshakeCompleted,
       responseRouter: responseRouter ?? this.responseRouter,
+      stdoutSubscription: stdoutSubscription ?? this.stdoutSubscription,
+      stderrSubscription: stderrSubscription ?? this.stderrSubscription,
     );
+  }
+
+  /// Cancels stdout/stderr subscriptions as an explicit safety net so a process
+  /// whose pipes fail to close on kill does not leak its listeners.
+  Future<void> cancelSubscriptions() async {
+    await stdoutSubscription?.cancel();
+    await stderrSubscription?.cancel();
   }
 }
 

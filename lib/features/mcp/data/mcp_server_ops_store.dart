@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
@@ -40,9 +39,7 @@ class McpServerOpsStore {
     if (!await file.parent.exists()) {
       await file.parent.create(recursive: true);
     }
-    final content = const JsonEncoder.withIndent(
-      '  ',
-    ).convert(<String, Object?>{_configKey: config.toJson()});
+    final content = prettyPrintJson(<String, Object?>{_configKey: config.toJson()});
     await writeFileAtomically(file, content);
   }
 }

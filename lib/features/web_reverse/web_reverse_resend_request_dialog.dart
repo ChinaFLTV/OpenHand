@@ -969,9 +969,7 @@ print(resp.text[:2000])''';
                     final loc2 = AppLocalizations.of(context);
                     try {
                       final v = jsonDecode(_bodyCtrl.text);
-                      _bodyCtrl.text = const JsonEncoder.withIndent(
-                        '  ',
-                      ).convert(v);
+                      _bodyCtrl.text = prettyPrintJson(v);
                       setState(() {});
                     } catch (_) {
                       showWebReverseErrorSnack(

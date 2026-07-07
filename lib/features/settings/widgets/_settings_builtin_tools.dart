@@ -881,7 +881,7 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
     final schemaMap = c.schemaOverride ?? widget.defaultParameters;
     _schemaOverrideController = TextEditingController(
       text: schemaMap != null
-          ? const JsonEncoder.withIndent('  ').convert(schemaMap)
+          ? prettyPrintJson(schemaMap)
           : '',
     );
     _priorityController = TextEditingController(text: '${c.priority}');

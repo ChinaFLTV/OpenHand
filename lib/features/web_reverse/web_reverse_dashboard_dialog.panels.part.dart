@@ -3162,7 +3162,7 @@ class _CookiesTableState extends State<_CookiesTable> {
   }
 
   Future<void> _exportJson() async {
-    final encoded = const JsonEncoder.withIndent('  ').convert(widget.cookies);
+    final encoded = prettyPrintJson(widget.cookies);
     await copyWebReverseTextToClipboard(
       context: context,
       text: encoded,
@@ -3601,7 +3601,7 @@ class _StorageTableState extends State<_StorageTable> {
 
   Future<void> _exportJson() async {
     final map = <String, String>{for (final r in widget.rows) r.key: r.value};
-    final encoded = const JsonEncoder.withIndent('  ').convert(map);
+    final encoded = prettyPrintJson(map);
     await copyWebReverseTextToClipboard(
       context: context,
       text: encoded,
@@ -4583,7 +4583,7 @@ class _IndexedDbEntryRowState extends State<_IndexedDbEntryRow> {
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 4, 0, 0),
                 child: SelectableText(
-                  const JsonEncoder.withIndent('  ').convert(entry),
+                  prettyPrintJson(entry),
                   style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
                 ),
               ),
@@ -5075,7 +5075,7 @@ class _RecorderPanelState extends State<_RecorderPanel> {
     try {
       await File(
         location.path,
-      ).writeAsString(const JsonEncoder.withIndent('  ').convert(steps));
+      ).writeAsString(prettyPrintJson(steps));
       if (!mounted) return;
       showWebReverseSuccessSnack(context, _savedToFileMessage(location.path));
     } catch (error, stack) {
@@ -5949,7 +5949,7 @@ class _FlameGraphDialogState extends State<_FlameGraphDialog> {
           'pid: ${e.pid} · tid: ${e.tid}\n'
           'ts: ${e.ts} (μs)\n'
           'dur: ${e.dur} μs (${(e.dur / 1000).toStringAsFixed(2)} ms)\n'
-          '\nargs:\n${const JsonEncoder.withIndent('  ').convert(e.args)}',
+          '\nargs:\n${prettyPrintJson(e.args)}',
           style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
         ),
       ),

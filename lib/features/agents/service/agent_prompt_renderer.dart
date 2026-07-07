@@ -1,4 +1,3 @@
-import 'dart:convert';
 
 import 'package:flutter/services.dart';
 
@@ -629,7 +628,7 @@ const Set<String> _agentPromptSensitiveMetadataKeys = <String>{
 };
 
 String _json(Object? value) =>
-    const JsonEncoder.withIndent('  ').convert(value);
+    prettyPrintJson(value);
 
 String _agentCoordinationGuidance(
   AgentProfile agent, {

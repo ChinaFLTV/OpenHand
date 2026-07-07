@@ -1377,6 +1377,7 @@ class AiSessionController extends ChangeNotifier {
     _manualCompactionInflight.remove(sessionId);
     _lastCharThroughputSnapshot.remove(sessionId);
     _lastRawCharThroughputSnapshot.remove(sessionId);
+    _sessionsInitiallyThrottled.remove(sessionId);
     if (_sessionStreamThrottleOverrides.remove(sessionId) != null) {
       _sessionStreamThrottleSignal.value =
           _sessionStreamThrottleSignal.value + 1;
@@ -1395,6 +1396,9 @@ class AiSessionController extends ChangeNotifier {
       (sessionId, _) => !liveSessionIds.contains(sessionId),
     );
     _manualCompactionInflight.removeWhere(
+      (sessionId) => !liveSessionIds.contains(sessionId),
+    );
+    _sessionsInitiallyThrottled.removeWhere(
       (sessionId) => !liveSessionIds.contains(sessionId),
     );
     _lastErrorMessagesBySession.removeWhere(

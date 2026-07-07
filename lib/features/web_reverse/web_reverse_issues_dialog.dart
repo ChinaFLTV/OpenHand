@@ -5,7 +5,6 @@
 library;
 
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:flutter/material.dart';
 
@@ -14,6 +13,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/motion_preference.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
+import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/timer_safety.dart';
 import 'web_reverse_cdp_client.dart';
 import 'web_reverse_clipboard.dart';
@@ -199,7 +199,7 @@ class _IssuesDialogState extends State<_IssuesDialog> {
   Future<void> _copyJson(_IssueEntry e) async {
     await copyWebReverseTextToClipboard(
       context: context,
-      text: const JsonEncoder.withIndent('  ').convert(e.raw),
+      text: prettyPrintJson(e.raw),
       successBase:
           AppLocalizations.of(context)?.webReverseIssuesCopied ??
           'Issue JSON copied',
@@ -447,9 +447,7 @@ class _IssuesDialogState extends State<_IssuesDialog> {
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: SelectableText(
-                                  const JsonEncoder.withIndent(
-                                    '  ',
-                                  ).convert(e.raw),
+                                  prettyPrintJson(e.raw),
                                   style: tt.bodySmall?.copyWith(
                                     fontFamily: 'monospace',
                                     fontSize: 11.5,

@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
@@ -263,9 +262,7 @@ class McpStore {
       }
       entries[server.name] = value;
     }
-    return const JsonEncoder.withIndent(
-      '  ',
-    ).convert(<String, Object?>{_serversRootKey: entries});
+    return prettyPrintJson(<String, Object?>{_serversRootKey: entries});
   }
 
   _ParsedHeaders _parseHeaders(Object? rawHeaders) {

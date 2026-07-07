@@ -357,7 +357,7 @@ class _QdrantStatusDialogState extends State<QdrantStatusDialog> {
     if (snapshot == null) return;
     await copyKnowledgeBaseTextToClipboard(
       context: context,
-      text: const JsonEncoder.withIndent('  ').convert(<String, Object?>{
+      text: prettyPrintJson(<String, Object?>{
         'collected_at': snapshot.collectedAt.toIso8601String(),
         'sections': snapshot.sections,
         'raw': snapshot.raw,

@@ -1145,8 +1145,7 @@ class WebMessagePlatformService {
   }
 
   Future<String> exportLogBundleJson() async {
-    const encoder = JsonEncoder.withIndent('  ');
-    return encoder.convert(await _logBundlePayload());
+    return prettyPrintJson(await _logBundlePayload());
   }
 
   Future<String> exportCurrentLogText() async {

@@ -5,7 +5,6 @@
 /// 层，浏览器侧看到的就是 mock 出的响应。也展示最近 200 次命中记录。
 library;
 
-import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -95,9 +94,7 @@ class _MockRulesDialogState extends State<_MockRulesDialog> {
   }
 
   Future<void> _exportJson() async {
-    final out = const JsonEncoder.withIndent(
-      '  ',
-    ).convert(_draft.map((e) => e.toJson()).toList());
+    final out = prettyPrintJson(_draft.map((e) => e.toJson()).toList());
     final loc = AppLocalizations.of(context);
     await copyWebReverseTextToClipboard(
       context: context,

@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../service/bash/ai_bash_tool_service.dart';
@@ -290,7 +289,7 @@ class AiAskUserChoiceTool extends AiTool {
             ],
             'answers': <String, Object?>{title: response.value},
           };
-    final encoded = const JsonEncoder.withIndent('  ').convert(payload);
+    final encoded = prettyPrintJson(payload);
     return AiToolExecutionResult(
       status: BashToolExecutionStatus.success,
       command: commandName,

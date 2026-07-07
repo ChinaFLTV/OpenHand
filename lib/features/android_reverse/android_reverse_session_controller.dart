@@ -356,7 +356,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
         File(markdownPath).writeAsString(markdown),
         File(
           jsonPath,
-        ).writeAsString(const JsonEncoder.withIndent('  ').convert(json)),
+        ).writeAsString(prettyPrintJson(json)),
       ]);
       return AdbCommandResult(
         args: <String>['package-report', normalizedPackage],
@@ -448,7 +448,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
         File(txtPath).writeAsString(text.isEmpty ? '(empty)\n' : '$text\n'),
         File(
           jsonPath,
-        ).writeAsString(const JsonEncoder.withIndent('  ').convert(json)),
+        ).writeAsString(prettyPrintJson(json)),
       ]);
       return AdbCommandResult(
         args: <String>['logcat-snapshot'],
@@ -625,7 +625,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
         File(scriptPath).writeAsString('$normalizedScript\n'),
         File(
           jsonPath,
-        ).writeAsString(const JsonEncoder.withIndent('  ').convert(metadata)),
+        ).writeAsString(prettyPrintJson(metadata)),
       ]);
       return AdbCommandResult(
         args: const <String>['frida-script-save'],
@@ -782,7 +782,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
         File(markdownPath).writeAsString(markdown),
         File(
           jsonPath,
-        ).writeAsString(const JsonEncoder.withIndent('  ').convert(json)),
+        ).writeAsString(prettyPrintJson(json)),
       ]);
       return AdbCommandResult(
         args: <String>['device-report', reportSerial],
@@ -2208,7 +2208,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
           })
           .toList(growable: false),
     };
-    return const JsonEncoder.withIndent('  ').convert(payload);
+    return prettyPrintJson(payload);
   }
 
   String _mcpLinkageTemplatesJson(String generatedAt) {
@@ -2351,7 +2351,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
         'Use dashboard-generated cert/network/frida artifacts instead of rewriting boilerplate.',
       ],
     };
-    return const JsonEncoder.withIndent('  ').convert(payload);
+    return prettyPrintJson(payload);
   }
 }
 

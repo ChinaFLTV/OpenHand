@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
@@ -143,7 +142,7 @@ $task
       p.join(persistenceDirectory, 'steering', 'meta', 'harness_config.json'),
     );
     await configFile.writeAsString(
-      const JsonEncoder.withIndent('  ').convert(toJson()),
+      prettyPrintJson(toJson()),
     );
   }
 

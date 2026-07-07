@@ -4,13 +4,13 @@
 /// securityOrigin / loaderId / unreachableUrl。支持点击复制 url 与刷新。
 library;
 
-import 'dart:convert';
 
 import 'package:flutter/material.dart';
 
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
+import '../../shared/util/input_value_parsing.dart';
 import 'web_reverse_clipboard.dart';
 import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_session_controller.dart';
@@ -145,7 +145,7 @@ class _FrameTreeDialogState extends State<_FrameTreeDialog> {
           },
         )
         .toList();
-    await _copy(const JsonEncoder.withIndent('  ').convert(lines));
+    await _copy(prettyPrintJson(lines));
   }
 
   @override

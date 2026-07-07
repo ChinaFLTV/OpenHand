@@ -5,7 +5,6 @@
 /// 复制到剪贴板。可按 URL 子串过滤，避免把大量静态资源也带进集合。
 library;
 
-import 'dart:convert';
 
 import 'package:flutter/material.dart';
 
@@ -13,6 +12,7 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
+import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/localized_text.dart';
 import 'web_reverse_clipboard.dart';
 import 'web_reverse_dialog_utils.dart';
@@ -281,7 +281,7 @@ class _CollectionExportDialogState extends State<_CollectionExportDialog> {
     });
   }
 
-  String _pretty(Object? v) => const JsonEncoder.withIndent('  ').convert(v);
+  String _pretty(Object? v) => prettyPrintJson(v);
 
   String _escSingle(String s) => s.replaceAll("'", r"'\''");
 

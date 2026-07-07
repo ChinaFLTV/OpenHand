@@ -322,7 +322,7 @@ class WebReverseHeadlessBatch {
 
       if (captureNetwork) {
         await File('${perDir.path}/network.json').writeAsString(
-          const JsonEncoder.withIndent('  ').convert(<String, Object?>{
+          prettyPrintJson(<String, Object?>{
             'url': url,
             'captured': networkResponses.length,
             'dropped': networkDropped,
@@ -336,7 +336,7 @@ class WebReverseHeadlessBatch {
       }
       if (captureConsole) {
         await File('${perDir.path}/console.json').writeAsString(
-          const JsonEncoder.withIndent('  ').convert(<String, Object?>{
+          prettyPrintJson(<String, Object?>{
             'url': url,
             'captured': consoleEntries.length,
             'dropped': consoleDropped,

@@ -3,8 +3,7 @@ part of '../openhand_home_page.dart';
 /// Pretty-prints a JSON-ish value into a stable, human-readable string.
 String _auditFormatJson(Object? value) {
   try {
-    const encoder = JsonEncoder.withIndent('  ');
-    return encoder.convert(_auditSanitizeValue(value));
+    return prettyPrintJson(_auditSanitizeValue(value));
   } catch (_) {
     // Last-resort stringification keeps the dialog useful even for cyclic or
     // otherwise unencodable structures. This is intentionally permissive.

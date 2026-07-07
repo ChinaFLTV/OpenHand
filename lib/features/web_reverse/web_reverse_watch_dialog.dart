@@ -18,6 +18,7 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/util/date_time_format.dart';
+import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/localized_text.dart';
 import '../../shared/util/text_clip.dart';
 import '../../shared/util/timer_safety.dart';
@@ -226,7 +227,7 @@ class _WatchDialogState extends State<_WatchDialog> {
 
   Future<void> _exportJson() async {
     final loc = AppLocalizations.of(context);
-    final out = const JsonEncoder.withIndent('  ').convert(
+    final out = prettyPrintJson(
       _exprs
           .map(
             (e) => {

@@ -301,7 +301,7 @@ class AiFileReadRenderer {
     if (value is Map) {
       final textPlain = value['text/plain'];
       if (textPlain != null) return _renderNotebookValue(textPlain);
-      return const JsonEncoder.withIndent('  ').convert(value);
+      return prettyPrintJson(value);
     }
     return '$value'.trim();
   }

@@ -94,7 +94,7 @@ class AiPromptBuilder {
   const AiPromptBuilder();
 
   static final AiBashToolService _bashWriteAnalyzer = AiBashToolService();
-  static const JsonEncoder _promptJsonEncoder = JsonEncoder.withIndent('  ');
+  static const JsonEncoder _promptJsonEncoder = kPrettyJsonEncoder;
   static const int _microCompactKeepRecentToolResults = 2;
   static const int _historyAssistantContentMaxChars = 1600;
   static const int _historyAssistantContentEdgeChars = 700;

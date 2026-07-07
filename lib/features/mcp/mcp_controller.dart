@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:collection';
-import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
@@ -770,7 +769,7 @@ class McpController extends ChangeNotifier {
     }
     final item = config.first;
     return McpOpsToolInvocationResult(
-      text: _prettyJson(<String, Object?>{
+      text: prettyPrintJson(<String, Object?>{
         'kind': item.kind.name,
         'name': agentBuiltinToolCanonicalName(item.kind),
         'enabled': item.enabled,
@@ -795,7 +794,7 @@ class McpController extends ChangeNotifier {
     for (final entry in entries) {
       if (entry.id == tool.itemId) {
         return McpOpsToolInvocationResult(
-          text: _prettyJson(entry.toJson()),
+          text: prettyPrintJson(entry.toJson()),
           metadata: <String, Object?>{'memory_id': entry.id},
         );
       }
@@ -815,7 +814,7 @@ class McpController extends ChangeNotifier {
     for (final skill in skills) {
       if (skill.name == tool.itemId) {
         return McpOpsToolInvocationResult(
-          text: _prettyJson(<String, Object?>{
+          text: prettyPrintJson(<String, Object?>{
             'name': skill.name,
             'description': skill.description,
             'directory': skill.displayDirectoryPath,
@@ -842,7 +841,7 @@ class McpController extends ChangeNotifier {
     for (final entry in entries) {
       if (entry.id == tool.itemId && entry.enabled) {
         return McpOpsToolInvocationResult(
-          text: _prettyJson(entry.toJson()),
+          text: prettyPrintJson(entry.toJson()),
           metadata: <String, Object?>{'instruction_id': entry.id},
         );
       }
@@ -862,7 +861,7 @@ class McpController extends ChangeNotifier {
     for (final source in sources) {
       if (source.id == tool.itemId) {
         return McpOpsToolInvocationResult(
-          text: _prettyJson(source.toRow()),
+          text: prettyPrintJson(source.toRow()),
           metadata: <String, Object?>{'knowledge_source_id': source.id},
         );
       }
@@ -942,10 +941,6 @@ class McpController extends ChangeNotifier {
       if (required.isNotEmpty) 'required': required,
       'additionalProperties': false,
     };
-  }
-
-  String _prettyJson(Object? value) {
-    return const JsonEncoder.withIndent('  ').convert(value);
   }
 
   Future<bool> saveServer(McpServer server, {String? previousName}) async {

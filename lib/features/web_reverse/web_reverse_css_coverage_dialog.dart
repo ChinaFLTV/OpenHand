@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
+import '../../shared/util/input_value_parsing.dart';
 import 'web_reverse_clipboard.dart';
 import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_session_controller.dart';
@@ -170,7 +171,7 @@ class _CssCovDialogState extends State<_CssCovDialog> {
   }
 
   Future<void> _copyJson() async {
-    final json = const JsonEncoder.withIndent('  ').convert(
+    final json = prettyPrintJson(
       _results
           .map(
             (e) => {

@@ -2777,10 +2777,9 @@ class _WebGatewayConnectivityDialogState
   }
 
   Future<void> _copyResult(WebGatewayConnectivityTestResult result) async {
-    const encoder = JsonEncoder.withIndent('  ');
     await copyMessageGatewayTextToClipboard(
       context: context,
-      text: encoder.convert(result.toJson()),
+      text: prettyPrintJson(result.toJson()),
       successMessage: openHandLocalizedText(
         context,
         zh: '连通性测试结果已复制',
@@ -5395,8 +5394,7 @@ String _formatStructuredValue(Object? value) {
   if (value == null) return 'null';
   if (value is String || value is num || value is bool) return '$value';
   try {
-    const encoder = JsonEncoder.withIndent('  ');
-    return encoder.convert(value);
+    return prettyPrintJson(value);
   } catch (_) {
     return '$value';
   }

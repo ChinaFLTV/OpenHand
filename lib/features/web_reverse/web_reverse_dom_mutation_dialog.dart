@@ -283,7 +283,7 @@ class _DomMutationDialogState extends State<_DomMutationDialog> {
     final loc = AppLocalizations.of(context);
     await copyWebReverseTextToClipboard(
       context: context,
-      text: const JsonEncoder.withIndent('  ').convert(_records),
+      text: prettyPrintJson(_records),
       successBase:
           loc?.webReverseDomMutCopiedRecords(_records.length) ??
           'Copied ${_records.length} records',

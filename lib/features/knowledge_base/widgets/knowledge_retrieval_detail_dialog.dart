@@ -1,4 +1,3 @@
-import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -261,7 +260,7 @@ class KnowledgeRetrievalDetailDialog extends StatelessWidget {
           onPressed: () async {
             await copyKnowledgeBaseTextToClipboard(
               context: context,
-              text: const JsonEncoder.withIndent('  ').convert(kb),
+              text: prettyPrintJson(kb),
               successMessage: openHandLocalizedText(
                 context,
                 zh: '已复制知识库元数据。',

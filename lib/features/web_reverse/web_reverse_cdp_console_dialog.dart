@@ -13,6 +13,7 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
+import '../../shared/util/input_value_parsing.dart';
 import 'web_reverse_clipboard.dart';
 import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_session_controller.dart';
@@ -123,7 +124,7 @@ class _CdpConsoleDialogState extends State<_CdpConsoleDialog> {
         entry.error = '${r['error']}';
       } else {
         entry.resultJson = _capCdpConsoleHistoryText(
-          const JsonEncoder.withIndent('  ').convert(r),
+          prettyPrintJson(r),
           _kCdpConsoleHistoryResultChars,
         );
       }

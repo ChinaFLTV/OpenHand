@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
@@ -41,8 +40,10 @@ class MessageGatewayStore {
   Future<void> save(WebMessagePlatformConfig config) async {
     final file = File(filePath);
     try {
-      const encoder = JsonEncoder.withIndent('  ');
-      await writeFileAtomically(file, '${encoder.convert(config.toJson())}\n');
+      await writeFileAtomically(
+        file,
+        '${prettyPrintJson(config.toJson())}\n',
+      );
     } catch (error, stack) {
       silentLog('message_gateway_store', 'save config', error, stack);
       rethrow;

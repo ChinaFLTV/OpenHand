@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
@@ -58,7 +57,7 @@ class AgentsStore {
     if (!await file.parent.exists()) {
       await file.parent.create(recursive: true);
     }
-    final content = const JsonEncoder.withIndent('  ').convert(
+    final content = prettyPrintJson(
       <String, Object?>{
         _rootKey: agents.map((agent) => agent.toJson()).toList(growable: false),
       },

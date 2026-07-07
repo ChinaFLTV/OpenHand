@@ -93,6 +93,18 @@ const Set<String> _falsyBoolTexts = <String>{
   }
 }
 
+/// Shared two-space-indent JSON encoder. Reused so the indentation width and
+/// serialization behavior stay identical across every pretty-printed payload.
+const JsonEncoder kPrettyJsonEncoder = JsonEncoder.withIndent('  ');
+
+/// Serializes [value] as indented JSON. When [emptyMapAsBlank] is set, an empty
+/// map yields an empty string instead of `{}` — matching editor fields that
+/// treat "no config" as blank rather than an empty object literal.
+String prettyPrintJson(Object? value, {bool emptyMapAsBlank = false}) {
+  if (emptyMapAsBlank && value is Map && value.isEmpty) return '';
+  return kPrettyJsonEncoder.convert(value);
+}
+
 List<String> splitTrimmed(String value, {Pattern separator = ','}) {
   if (separator is String && separator.isEmpty) {
     return <String>[value.trim()];

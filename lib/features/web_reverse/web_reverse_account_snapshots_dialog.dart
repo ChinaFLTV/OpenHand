@@ -4,7 +4,6 @@
 /// "应用" 即清空当前 cookies 并回放保存值。导出/导入 JSON 跨设备同步。
 library;
 
-import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -14,6 +13,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/util/date_time_format.dart';
+import '../../shared/util/input_value_parsing.dart';
 import 'web_reverse_clipboard.dart';
 import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_pure_helpers.dart';
@@ -115,7 +115,7 @@ class _AccountSnapshotsDialogState extends State<_AccountSnapshotsDialog> {
     final list = widget.controller.accountSnapshots
         .map((s) => s.toJson())
         .toList(growable: false);
-    final json = const JsonEncoder.withIndent('  ').convert(list);
+    final json = prettyPrintJson(list);
     await copyWebReverseTextToClipboard(
       context: context,
       text: json,

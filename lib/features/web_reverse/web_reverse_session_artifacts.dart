@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import '../../app/support/silent_log.dart';
+import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/text_clip.dart';
 import '../../shared/util/timer_safety.dart';
 
@@ -219,7 +220,7 @@ class WebReverseSessionArtifacts {
       final path = '$rootDir/har/$ts.har';
       await File(
         path,
-      ).writeAsString(const JsonEncoder.withIndent('  ').convert(har));
+      ).writeAsString(prettyPrintJson(har));
       return path;
     } catch (error, stack) {
       silentLog('web_reverse_artifacts', 'exportHar', error, stack);

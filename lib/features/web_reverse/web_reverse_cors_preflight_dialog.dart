@@ -235,7 +235,7 @@ class _CorsDialogState extends State<_CorsDialog> {
     final loc = AppLocalizations.of(context);
     await copyWebReverseTextToClipboard(
       context: context,
-      text: const JsonEncoder.withIndent('  ').convert(res),
+      text: prettyPrintJson(res),
       successBase: loc?.webReverseCorsResultCopied ?? 'Result copied',
       logTag: 'web_reverse_cors_preflight_dialog',
       logAction: 'cors.copy',

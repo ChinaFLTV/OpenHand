@@ -3045,7 +3045,7 @@ String? _tryFormatLegacyToolSearchContent(String content) {
   final matchedCount = int.tryParse(headerMatch.group(1) ?? '') ?? 0;
   final deferredTotal = int.tryParse(headerMatch.group(2) ?? '') ?? 0;
   if (functions.isEmpty && matchedCount > 0) return null;
-  return const JsonEncoder.withIndent('  ').convert(<String, Object?>{
+  return prettyPrintJson(<String, Object?>{
     'tool': 'ToolSearch',
     'status': 'success',
     'matched_count': matchedCount,
@@ -3070,7 +3070,7 @@ String? _tryFormatJsonContent(String content) {
     return null;
   }
   try {
-    return const JsonEncoder.withIndent('  ').convert(jsonDecode(content));
+    return prettyPrintJson(jsonDecode(content));
   } catch (_) {
     return null;
   }

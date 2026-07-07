@@ -1732,7 +1732,7 @@ class _OverviewBodyState extends State<_OverviewBody> {
       );
       if (location == null) return;
       final snap = controller.exportSnapshot();
-      final jsonStr = const JsonEncoder.withIndent('  ').convert(snap);
+      final jsonStr = prettyPrintJson(snap);
       await File(location.path).writeAsString(jsonStr);
       if (!mounted) return;
       showWebReverseSuccessSnack(

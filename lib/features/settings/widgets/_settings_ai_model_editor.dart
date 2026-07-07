@@ -151,16 +151,18 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
       text: widget.initialModel?.realtime.urlOverride ?? '',
     );
     _endpointOverridesController = TextEditingController(
-      text: _prettyJson(
+      text: prettyPrintJson(
         aiEndpointOverridesToJson(
           widget.initialModel?.endpointOverrides ??
               const <AiApiFamily, AiEndpointOverride>{},
         ),
+        emptyMapAsBlank: true,
       ),
     );
     _operationExtrasController = TextEditingController(
-      text: _prettyJson(
+      text: prettyPrintJson(
         widget.initialModel?.operationExtras ?? const <String, Object?>{},
+        emptyMapAsBlank: true,
       ),
     );
     _realtimeCapabilityStatus =
@@ -2410,11 +2412,6 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
     return optionalStringKeyedMapFromJsonText(trimmed) ??
         (throw const FormatException('高级 JSON 配置必须是合法的 JSON 对象。'));
   }
-
-  String _prettyJson(Map<String, Object?> map) {
-    if (map.isEmpty) return '';
-    return const JsonEncoder.withIndent('  ').convert(map);
-  }
 }
 
 class _HeaderEntry {
@@ -2652,10 +2649,11 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
       ),
     );
     _defaultParametersController = TextEditingController(
-      text: _prettyJson(
+      text: prettyPrintJson(
         p.defaultParameters.isNotEmpty
             ? p.defaultParameters
             : effective.defaultParameters,
+        emptyMapAsBlank: true,
       ),
     );
     _embeddingDimensionsController = TextEditingController(
@@ -3121,11 +3119,6 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
     if (trimmed.isEmpty) return const <String, Object?>{};
     return optionalStringKeyedMapFromJsonText(trimmed) ??
         (throw const FormatException('JSON value must be an object.'));
-  }
-
-  String _prettyJson(Map<String, Object?> map) {
-    if (map.isEmpty) return '';
-    return const JsonEncoder.withIndent('  ').convert(map);
   }
 
   String? _validatedModelId() {
@@ -5742,7 +5735,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
       'expiration_date': profile.expirationDate,
       'links': profile.links?.toJson(),
     };
-    return const JsonEncoder.withIndent('  ').convert(map);
+    return prettyPrintJson(map);
   }
 
   Widget _buildSectionHeader(String text) {

@@ -3604,7 +3604,7 @@ class _RoundFileMutationSummaryCardState
           },
       ],
     };
-    final encoded = const JsonEncoder.withIndent('  ').convert(payload);
+    final encoded = prettyPrintJson(payload);
 
     final timestamp = widget.message.createdAt
         .toLocal()

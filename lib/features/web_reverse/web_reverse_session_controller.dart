@@ -3344,7 +3344,7 @@ class WebReverseSessionController extends ChangeNotifier {
         } else {
           // 对象 / 数组：用 JsonEncoder 美化；过长截断到 2KB。
           try {
-            preview = const JsonEncoder.withIndent('  ').convert(value);
+            preview = prettyPrintJson(value);
           } catch (error, stack) {
             silentLog(
               'web_reverse_session_controller',

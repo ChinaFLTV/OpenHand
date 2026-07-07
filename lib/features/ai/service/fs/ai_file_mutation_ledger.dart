@@ -344,6 +344,11 @@ class AiFileMutationLedger {
   static const int _blobRecoveryMaxBytes = 16 * 1024 * 1024;
   static const int _lineDeltaConcurrency = 4;
 
+  /// Upper bound for the negative-cache of blob shas that failed legacy
+  /// recovery. Keeps the set from growing without limit across long sessions
+  /// while still skipping repeated lookups for recently-missed shas.
+  static const int _maxLegacyBlobRecoveryMisses = 4096;
+
   final String? _rootOverride;
   final Random _rand = Random.secure();
   bool _migratedLegacy = false;
@@ -1474,23 +1479,23 @@ class AiFileMutationLedger {
       final index = await _legacyBlobIndex();
       final path = nullIfBlank(index[sha]);
       if (path == null) {
-        _legacyBlobRecoveryMisses.add(sha);
+        _recordLegacyBlobRecoveryMiss(sha);
         return null;
       }
       final file = File(path);
       if (!await file.exists()) {
-        _legacyBlobRecoveryMisses.add(sha);
+        _recordLegacyBlobRecoveryMiss(sha);
         return null;
       }
       final stat = await file.stat();
       if (stat.type != FileSystemEntityType.file ||
           stat.size > _blobRecoveryMaxBytes) {
-        _legacyBlobRecoveryMisses.add(sha);
+        _recordLegacyBlobRecoveryMiss(sha);
         return null;
       }
       final content = await file.readAsString();
       if (_sha256Of(content) != sha) {
-        _legacyBlobRecoveryMisses.add(sha);
+        _recordLegacyBlobRecoveryMiss(sha);
         return null;
       }
       await _cacheRecoveredBlob(sha, content, 'cache legacy blob');
@@ -1504,13 +1509,22 @@ class AiFileMutationLedger {
           stack,
         );
       }
-      _legacyBlobRecoveryMisses.add(sha);
+      _recordLegacyBlobRecoveryMiss(sha);
       return null;
     } catch (error, stack) {
       silentLog('ai_file_mutation_ledger', 'recover legacy blob', error, stack);
-      _legacyBlobRecoveryMisses.add(sha);
+      _recordLegacyBlobRecoveryMiss(sha);
       return null;
     }
+  }
+
+  /// Records [sha] in the negative-recovery cache, evicting the oldest entry
+  /// once the cap is reached so the set never grows without bound.
+  void _recordLegacyBlobRecoveryMiss(String sha) {
+    if (_legacyBlobRecoveryMisses.length >= _maxLegacyBlobRecoveryMisses) {
+      _legacyBlobRecoveryMisses.remove(_legacyBlobRecoveryMisses.first);
+    }
+    _legacyBlobRecoveryMisses.add(sha);
   }
 
   Future<Map<String, String>> _legacyBlobIndex() async {
@@ -1693,7 +1707,7 @@ class AiFileMutationLedger {
         blobMap[sha] = base64Encode(utf8.encode(content));
       }
     }
-    return const JsonEncoder.withIndent('  ').convert(<String, Object?>{
+    return prettyPrintJson(<String, Object?>{
       'kind': 'openhand.file_mutation_ledger.bundle',
       'version': 1,
       'exported_at': DateTime.now().toUtc().toIso8601String(),
@@ -1732,7 +1746,7 @@ class AiFileMutationLedger {
         blobMap[sha] = base64Encode(utf8.encode(content));
       }
     }
-    return const JsonEncoder.withIndent('  ').convert(<String, Object?>{
+    return prettyPrintJson(<String, Object?>{
       'kind': 'openhand.file_mutation_ledger.bundle',
       'version': 1,
       'exported_at': DateTime.now().toUtc().toIso8601String(),

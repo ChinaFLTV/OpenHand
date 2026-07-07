@@ -1416,9 +1416,7 @@ class _LedgerSearchDialogState extends State<_LedgerSearchDialog> {
   }
 
   Future<void> _copyResults() async {
-    final json = const JsonEncoder.withIndent(
-      '  ',
-    ).convert(_results.map((v) => v.record.toJson()).toList());
+    final json = prettyPrintJson(_results.map((v) => v.record.toJson()).toList());
     await _copySettingsTextToClipboard(
       context: context,
       text: json,

@@ -1,4 +1,3 @@
-import 'dart:convert';
 
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../service/chat/ai_protocol_adapter.dart';
@@ -29,7 +28,6 @@ class AiToolSearchTool extends AiTool {
   static const int _defaultMaxResults = 5;
   static const int _minMaxResults = 1;
   static const int _maxMaxResults = 50;
-  static const JsonEncoder _prettyJsonEncoder = JsonEncoder.withIndent('  ');
 
   @override
   AiBuiltinToolKind get kind => AiBuiltinToolKind.toolSearch;
@@ -295,7 +293,7 @@ class AiToolSearchTool extends AiTool {
   }
 
   String _encodePayload(Map<String, Object?> payload) {
-    return _prettyJsonEncoder.convert(payload);
+    return prettyPrintJson(payload);
   }
 
   List<Map<String, Object?>> _buildFunctionDefinitions(

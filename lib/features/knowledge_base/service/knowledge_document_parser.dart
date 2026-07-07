@@ -1064,7 +1064,7 @@ String _structuredDataToMarkdown({
   buffer
     ..writeln()
     ..writeln('```$codeLanguage')
-    ..writeln(const JsonEncoder.withIndent('  ').convert(plain))
+    ..writeln(prettyPrintJson(plain))
     ..writeln('```');
   return buffer.toString();
 }
@@ -1076,7 +1076,7 @@ String _rawFencedBlock({
   String? rawText,
 }) {
   return '# $title\n\n```$codeLanguage\n'
-      '${rawText ?? const JsonEncoder.withIndent('  ').convert(_jsonSafe(value))}\n'
+      '${rawText ?? prettyPrintJson(_jsonSafe(value))}\n'
       '```';
 }
 

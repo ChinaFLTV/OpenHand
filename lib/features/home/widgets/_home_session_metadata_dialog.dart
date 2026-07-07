@@ -701,9 +701,7 @@ class _SessionMetadataDialog extends StatelessWidget {
                       )!.sessMetaLastPromptMetadata,
                       children: [
                         _MetadataJsonPanel(
-                          content: const JsonEncoder.withIndent(
-                            '  ',
-                          ).convert(session.lastPromptMetadata),
+                          content: prettyPrintJson(session.lastPromptMetadata),
                         ),
                       ],
                     ),
@@ -1459,7 +1457,7 @@ String _metadataDisplayValue(Object? value) {
 
 String _metadataJsonEncode(Object? value) {
   try {
-    return const JsonEncoder.withIndent('  ').convert(value);
+    return prettyPrintJson(value);
   } catch (_) {
     return '${value ?? '-'}';
   }

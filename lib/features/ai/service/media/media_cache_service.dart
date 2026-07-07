@@ -314,7 +314,7 @@ class MediaCacheService {
     final sidecar = File(_metadataPathForMediaPath(mediaPath));
     try {
       await sidecar.writeAsString(
-        const JsonEncoder.withIndent('  ').convert(metadata),
+        prettyPrintJson(metadata),
         flush: true,
       );
     } catch (error, stack) {

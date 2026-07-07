@@ -75,7 +75,7 @@ class _WsDialogState extends State<_WsDialog> {
         .toList();
     await copyWebReverseTextToClipboard(
       context: context,
-      text: const JsonEncoder.withIndent('  ').convert(data),
+      text: prettyPrintJson(data),
       successBase: openHandLocalizedText(
         context,
         zh: '帧 JSON 已复制',

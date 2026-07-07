@@ -194,7 +194,7 @@ class _StorageDialogState extends State<_StorageDialog>
     final loc = AppLocalizations.of(context);
     await copyWebReverseTextToClipboard(
       context: context,
-      text: const JsonEncoder.withIndent('  ').convert(data),
+      text: prettyPrintJson(data),
       successBase: loc?.webReverseStorageCopied ?? 'Copied',
       logTag: 'web_reverse_storage_dialog',
       logAction: 'storage.copy',
