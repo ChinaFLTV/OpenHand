@@ -3150,15 +3150,18 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
     return ListView.separated(
       physics: openHandDialogAwareScrollPhysics(context),
       itemCount: entries.length + 1,
-      separatorBuilder: (_, _) => const SizedBox(height: 10),
+      separatorBuilder: (_, _) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
         if (index == 0) {
           return _McpOpsAuditSummaryPanel(entries: entries);
         }
         final entry = entries[index - 1];
-        return _McpOpsAuditRow(
-          entry: entry,
-          onDetails: () => _showAuditDetails(context, entry),
+        return SettingsAwareAppearOnce(
+          key: ValueKey<String>('mcp-ops-audit-${entry.id}'),
+          child: _McpOpsAuditRow(
+            entry: entry,
+            onDetails: () => _showAuditDetails(context, entry),
+          ),
         );
       },
     );
@@ -5817,6 +5820,10 @@ class _McpOpsSchemaToggleChip extends StatelessWidget {
   }
 }
 
+/// A single audit log entry rendered as a fully-clickable, structured card:
+/// a status accent rail, a stage badge, a title + stage/status header, and a
+/// compact metadata strip. Tapping anywhere (or the trailing button) opens the
+/// detail dialog.
 class _McpOpsAuditRow extends StatelessWidget {
   const _McpOpsAuditRow({required this.entry, required this.onDetails});
 
@@ -5827,73 +5834,173 @@ class _McpOpsAuditRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final statusColor = entry.failed
-        ? cs.error
-        : entry.status == 'blocked'
-        ? OpenHandStatusColors.warning
-        : OpenHandStatusColors.success;
-    return _McpOpsPanel(
-      icon: entry.failed ? Icons.error_outline_rounded : Icons.task_alt_rounded,
-      title: entry.toolName,
-      trailing: IconButton(
-        tooltip: _localizedText(context, zh: '详情', en: 'Details'),
-        onPressed: onDetails,
-        icon: const Icon(Icons.open_in_new_rounded),
+    final statusColor = _mcpOpsAuditStatusColor(context, entry);
+    return HoverLift(
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(_mcpOpsPanelRadius),
+          onTap: onDetails,
+          hoverColor: cs.primary.withValues(alpha: 0.04),
+          splashColor: cs.primary.withValues(alpha: 0.07),
+          highlightColor: cs.primary.withValues(alpha: 0.04),
+          child: AnimatedContainer(
+            duration: _mcpMotionDuration(
+              context,
+              const Duration(milliseconds: 180),
+            ),
+            curve: Curves.easeOutCubic,
+            decoration: BoxDecoration(
+              color: cs.surfaceContainerLow.withValues(alpha: 0.84),
+              borderRadius: BorderRadius.circular(_mcpOpsPanelRadius),
+              border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.62)),
+              boxShadow: <BoxShadow>[
+                BoxShadow(
+                  color: cs.shadow.withValues(alpha: 0.05),
+                  blurRadius: 18,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Status accent rail.
+                  Container(
+                    width: 4,
+                    decoration: BoxDecoration(
+                      color: statusColor,
+                      borderRadius: const BorderRadius.horizontal(
+                        left: Radius.circular(_mcpOpsPanelRadius),
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(14, 14, 12, 14),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildHeader(context, theme, cs, statusColor),
+                          const SizedBox(height: 12),
+                          _buildMetaStrip(context, cs),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
-      child: Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        children: [
-          _McpOpsStatusChip(
-            icon: Icons.circle_rounded,
-            label: _mcpOpsAuditStatusLabel(context, entry.status),
+    );
+  }
+
+  Widget _buildHeader(
+    BuildContext context,
+    ThemeData theme,
+    ColorScheme cs,
+    Color statusColor,
+  ) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 34,
+          height: 34,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: statusColor.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: statusColor.withValues(alpha: 0.24)),
+          ),
+          child: Icon(
+            _mcpOpsAuditKindIcon(entry.kind),
+            size: 19,
             color: statusColor,
           ),
-          _McpOpsStatusChip(
-            icon: Icons.timer_rounded,
-            label: '${entry.durationMs}ms',
-            color: cs.primary,
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                _mcpOpsAuditTitle(context, entry),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                '${_mcpOpsAuditKindLabel(context, entry.kind)} · ${formatMonthDayHms(entry.timestamp.toLocal())}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: cs.onSurfaceVariant,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
           ),
-          _McpOpsStatusChip(
-            icon: Icons.token_rounded,
-            label: _localizedText(
-              context,
-              zh: '${entry.totalTokens} tokens',
-              en: '${entry.totalTokens} tokens',
-              zhHant: '${entry.totalTokens} tokens',
-              fr: '${entry.totalTokens} tokens',
-              de: '${entry.totalTokens} Tokens',
-              ja: '${entry.totalTokens} tokens',
-            ),
-            color: cs.secondary,
-          ),
-          _McpOpsStatusChip(
-            icon: Icons.api_rounded,
-            label: entry.protocol,
-            color: cs.tertiary,
-          ),
-          _McpOpsStatusChip(
-            icon: Icons.smart_toy_rounded,
-            label: entry.model,
-            color: cs.primary,
-          ),
-          _McpOpsStatusChip(
-            icon: Icons.schedule_rounded,
-            label: formatMonthDayHms(entry.timestamp.toLocal()),
-            color: cs.secondary,
-          ),
-          _McpOpsStatusChip(
-            icon: Icons.devices_rounded,
-            label: entry.clientName,
-            color: cs.tertiary,
-          ),
-          _McpOpsStatusChip(
-            icon: Icons.public_rounded,
-            label: entry.ipAddress,
-            color: cs.primary,
-          ),
-        ],
-      ),
+        ),
+        const SizedBox(width: 8),
+        _McpOpsStatusChip(
+          icon: Icons.circle_rounded,
+          label: _mcpOpsAuditStatusLabel(context, entry.status),
+          color: statusColor,
+        ),
+        const SizedBox(width: 4),
+        Icon(
+          Icons.chevron_right_rounded,
+          size: 20,
+          color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMetaStrip(BuildContext context, ColorScheme cs) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        _McpOpsStatusChip(
+          icon: Icons.timer_rounded,
+          label: '${entry.durationMs}ms',
+          color: cs.primary,
+        ),
+        _McpOpsStatusChip(
+          icon: Icons.token_rounded,
+          label: '${entry.totalTokens} tokens',
+          color: cs.secondary,
+        ),
+        _McpOpsStatusChip(
+          icon: Icons.swap_vert_rounded,
+          label:
+              '${formatByteSize(entry.inboundBytes)} / ${formatByteSize(entry.outboundBytes)}',
+          color: cs.tertiary,
+        ),
+        _McpOpsStatusChip(
+          icon: Icons.api_rounded,
+          label: entry.protocol,
+          color: cs.tertiary,
+        ),
+        _McpOpsStatusChip(
+          icon: Icons.devices_rounded,
+          label: entry.clientName,
+          color: cs.primary,
+        ),
+        _McpOpsStatusChip(
+          icon: Icons.public_rounded,
+          label: entry.ipAddress,
+          color: cs.secondary,
+        ),
+      ],
     );
   }
 }
@@ -5906,9 +6013,9 @@ class _McpOpsAuditSummaryPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final total = entries.length;
-    final failed = entries.where((entry) => entry.failed).length;
-    final blocked = entries.where((entry) => entry.status == 'blocked').length;
-    final success = math.max(0, total - failed);
+    final blocked = entries.where((entry) => entry.blocked).length;
+    final failed = entries.where((entry) => entry.errored).length;
+    final success = math.max(0, total - blocked - failed);
     final avgLatency = total == 0
         ? 0
         : (entries.fold<int>(0, (sum, entry) => sum + entry.durationMs) / total)
@@ -5921,45 +6028,86 @@ class _McpOpsAuditSummaryPanel extends StatelessWidget {
       0,
       (sum, entry) => sum + entry.outboundBytes,
     );
+    final successRate = total == 0 ? 0.0 : success / total * 100;
+    final stageCounts = <McpOpsAuditKind, int>{};
+    for (final entry in entries) {
+      stageCounts[entry.kind] = (stageCounts[entry.kind] ?? 0) + 1;
+    }
+    final stages = stageCounts.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
     return _McpOpsPanel(
       icon: Icons.analytics_rounded,
       title: _localizedText(context, zh: '审计概览', en: 'Audit Overview'),
-      child: _McpOpsMetricGrid(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _McpOpsMetricTile(
-            icon: Icons.receipt_long_rounded,
-            label: _localizedText(context, zh: '日志总数', en: 'Total Logs'),
-            value: '$total',
-            helper: _localizedText(context, zh: '滚动窗口', en: 'Rolling window'),
+          _McpOpsMetricGrid(
+            children: [
+              _McpOpsMetricTile(
+                icon: Icons.receipt_long_rounded,
+                label: _localizedText(context, zh: '日志总数', en: 'Total Logs'),
+                value: '$total',
+                helper: _localizedText(
+                  context,
+                  zh: '滚动窗口 · 成功率 ${successRate.toStringAsFixed(1)}%',
+                  en: 'Rolling · ${successRate.toStringAsFixed(1)}% ok',
+                ),
+              ),
+              _McpOpsMetricTile(
+                icon: Icons.task_alt_rounded,
+                label: _localizedText(context, zh: '成功', en: 'Success'),
+                value: '$success',
+                color: OpenHandStatusColors.success,
+              ),
+              _McpOpsMetricTile(
+                icon: Icons.shield_rounded,
+                label: _localizedText(context, zh: '拦截', en: 'Blocked'),
+                value: '$blocked',
+                color: OpenHandStatusColors.warning,
+              ),
+              _McpOpsMetricTile(
+                icon: Icons.error_outline_rounded,
+                label: _localizedText(context, zh: '失败', en: 'Failed'),
+                value: '$failed',
+                color: Theme.of(context).colorScheme.error,
+              ),
+              _McpOpsMetricTile(
+                icon: Icons.timer_rounded,
+                label: _localizedText(context, zh: '平均耗时', en: 'Average latency'),
+                value: '${avgLatency}ms',
+              ),
+              _McpOpsMetricTile(
+                icon: Icons.swap_vert_rounded,
+                label: _localizedText(context, zh: '进出口流量', en: 'Traffic'),
+                value:
+                    '${formatByteSize(inbound)} / ${formatByteSize(outbound)}',
+              ),
+            ],
           ),
-          _McpOpsMetricTile(
-            icon: Icons.task_alt_rounded,
-            label: _localizedText(context, zh: '成功', en: 'Success'),
-            value: '$success',
-            color: OpenHandStatusColors.success,
-          ),
-          _McpOpsMetricTile(
-            icon: Icons.shield_rounded,
-            label: _localizedText(context, zh: '拦截', en: 'Blocked'),
-            value: '$blocked',
-            color: OpenHandStatusColors.warning,
-          ),
-          _McpOpsMetricTile(
-            icon: Icons.error_outline_rounded,
-            label: _localizedText(context, zh: '失败', en: 'Failed'),
-            value: '$failed',
-            color: Theme.of(context).colorScheme.error,
-          ),
-          _McpOpsMetricTile(
-            icon: Icons.timer_rounded,
-            label: _localizedText(context, zh: '平均耗时', en: 'Average latency'),
-            value: '${avgLatency}ms',
-          ),
-          _McpOpsMetricTile(
-            icon: Icons.swap_vert_rounded,
-            label: _localizedText(context, zh: '进出口流量', en: 'Traffic'),
-            value: '${formatByteSize(inbound)} / ${formatByteSize(outbound)}',
-          ),
+          if (stages.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            Text(
+              _localizedText(context, zh: '环节分布', en: 'Stage breakdown'),
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final stage in stages)
+                  _McpOpsStatusChip(
+                    icon: _mcpOpsAuditKindIcon(stage.key),
+                    label:
+                        '${_mcpOpsAuditKindLabel(context, stage.key)} · ${stage.value}',
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+              ],
+            ),
+          ],
         ],
       ),
     );
@@ -5973,6 +6121,7 @@ class _McpOpsAuditDetailDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final statusColor = _mcpOpsAuditStatusColor(context, entry);
     return buildOpenHandResponsiveDialogShell(
       context: context,
       maxWidth: 920,
@@ -5989,44 +6138,7 @@ class _McpOpsAuditDetailDialog extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Row(
-                children: [
-                  Container(
-                    width: 42,
-                    height: 42,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.primary.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(13),
-                      border: Border.all(
-                        color: Theme.of(
-                          context,
-                        ).colorScheme.primary.withValues(alpha: 0.26),
-                      ),
-                    ),
-                    child: Icon(
-                      Icons.manage_search_rounded,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      _localizedText(context, zh: '审计详情', en: 'Audit Details'),
-                      style: Theme.of(context).textTheme.titleLarge,
-                    ),
-                  ),
-                  IconButton(
-                    tooltip: MaterialLocalizations.of(
-                      context,
-                    ).closeButtonTooltip,
-                    onPressed: () => Navigator.of(context).maybePop(),
-                    icon: const Icon(Icons.close_rounded),
-                  ),
-                ],
-              ),
+              _buildHero(context, statusColor),
               const SizedBox(height: 14),
               Expanded(
                 child: SingleChildScrollView(
@@ -6034,25 +6146,57 @@ class _McpOpsAuditDetailDialog extends StatelessWidget {
                   child: Column(
                     children: [
                       _McpOpsDetailSection(
+                        icon: Icons.route_rounded,
                         title: _localizedText(
                           context,
-                          zh: '环境信息',
-                          en: 'Environment',
+                          zh: '调用环节',
+                          en: 'Call Stage',
                         ),
                         rows: {
-                          _localizedText(context, zh: '日志ID', en: 'ID'):
-                              entry.id,
-                          _localizedText(context, zh: '工具', en: 'Tool'):
-                              entry.toolName,
+                          _localizedText(context, zh: '环节', en: 'Stage'):
+                              _mcpOpsAuditKindLabel(context, entry.kind),
+                          _localizedText(context, zh: '工具/方法', en: 'Tool/Method'):
+                              _mcpOpsAuditTitle(context, entry),
                           _localizedText(context, zh: '暴露面', en: 'Surface'):
                               entry.surface,
                           _localizedText(context, zh: '接口', en: 'Endpoint'):
                               entry.endpoint,
                           _localizedText(context, zh: '状态', en: 'Status'):
                               _mcpOpsAuditStatusLabel(context, entry.status),
-                          _localizedText(context, zh: '请求时间', en: 'Time'): entry
-                              .timestamp
-                              .toIso8601String(),
+                          _localizedText(context, zh: '日志ID', en: 'Log ID'):
+                              entry.id,
+                        },
+                      ),
+                      const SizedBox(height: _mcpOpsGridGap),
+                      _McpOpsDetailSection(
+                        icon: Icons.speed_rounded,
+                        title: _localizedText(
+                          context,
+                          zh: '性能与流量',
+                          en: 'Performance',
+                        ),
+                        rows: {
+                          _localizedText(context, zh: '调用耗时', en: 'Duration'):
+                              '${entry.durationMs}ms',
+                          _localizedText(context, zh: 'Token数', en: 'Tokens'):
+                              '${entry.totalTokens} (${entry.promptTokens} + ${entry.completionTokens})',
+                          _localizedText(context, zh: '入口流量', en: 'Inbound'):
+                              formatByteSize(entry.inboundBytes),
+                          _localizedText(context, zh: '出口流量', en: 'Outbound'):
+                              formatByteSize(entry.outboundBytes),
+                        },
+                      ),
+                      const SizedBox(height: _mcpOpsGridGap),
+                      _McpOpsDetailSection(
+                        icon: Icons.hub_rounded,
+                        title: _localizedText(
+                          context,
+                          zh: '来源与环境',
+                          en: 'Peer & Environment',
+                        ),
+                        rows: {
+                          _localizedText(context, zh: '请求时间', en: 'Time'):
+                              entry.timestamp.toLocal().toIso8601String(),
                           _localizedText(context, zh: '来源客户端', en: 'Client'):
                               entry.clientName,
                           _localizedText(context, zh: '来源IP', en: 'IP'):
@@ -6061,48 +6205,53 @@ class _McpOpsAuditDetailDialog extends StatelessWidget {
                               entry.protocol,
                           _localizedText(context, zh: '模型', en: 'Model'):
                               entry.model,
-                          _localizedText(context, zh: '调用耗时', en: 'Duration'):
-                              '${entry.durationMs}ms',
-                          _localizedText(context, zh: 'Token数', en: 'Tokens'):
-                              '${entry.totalTokens}',
-                          _localizedText(
-                            context,
-                            zh: '进出口流量',
-                            en: 'Traffic',
-                          ): '${formatByteSize(entry.inboundBytes)} / ${formatByteSize(entry.outboundBytes)}',
                           ...entry.environment.map(
                             (key, value) => MapEntry(key, '$value'),
                           ),
                         },
                       ),
+                      if (entry.errorMessage.trim().isNotEmpty) ...[
+                        const SizedBox(height: _mcpOpsGridGap),
+                        _McpOpsDetailText(
+                          icon: Icons.report_gmailerrorred_rounded,
+                          title: _localizedText(
+                            context,
+                            zh: '错误信息',
+                            en: 'Error',
+                          ),
+                          text: entry.errorMessage,
+                          tone: statusColor,
+                        ),
+                      ],
                       const SizedBox(height: _mcpOpsGridGap),
                       _McpOpsDetailText(
+                        icon: Icons.data_object_rounded,
                         title: _localizedText(
                           context,
-                          zh: '参数信息',
+                          zh: '请求参数',
                           en: 'Parameters',
                         ),
                         text: entry.argumentsPreview,
                       ),
                       const SizedBox(height: _mcpOpsGridGap),
                       _McpOpsDetailText(
+                        icon: Icons.http_rounded,
                         title: _localizedText(
                           context,
-                          zh: '请求信息',
+                          zh: '请求摘要',
                           en: 'Request',
                         ),
                         text: entry.requestSummary,
                       ),
                       const SizedBox(height: _mcpOpsGridGap),
                       _McpOpsDetailText(
+                        icon: Icons.subject_rounded,
                         title: _localizedText(
                           context,
-                          zh: '响应信息',
+                          zh: '响应内容',
                           en: 'Response',
                         ),
-                        text: entry.responsePreview.isEmpty
-                            ? entry.errorMessage
-                            : entry.responsePreview,
+                        text: entry.responsePreview,
                       ),
                     ],
                   ),
@@ -6114,35 +6263,111 @@ class _McpOpsAuditDetailDialog extends StatelessWidget {
       ),
     );
   }
+
+  Widget _buildHero(BuildContext context, Color statusColor) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Row(
+      children: [
+        Container(
+          width: 44,
+          height: 44,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: statusColor.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(13),
+            border: Border.all(color: statusColor.withValues(alpha: 0.28)),
+          ),
+          child: Icon(
+            _mcpOpsAuditKindIcon(entry.kind),
+            color: statusColor,
+            size: 24,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                _mcpOpsAuditTitle(context, entry),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                '${_mcpOpsAuditKindLabel(context, entry.kind)} · ${_mcpOpsAuditStatusLabel(context, entry.status)} · ${formatMonthDayHms(entry.timestamp.toLocal())}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: cs.onSurfaceVariant,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+        ),
+        IconButton(
+          tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
+          onPressed: () => Navigator.of(context).maybePop(),
+          icon: const Icon(Icons.close_rounded),
+        ),
+      ],
+    );
+  }
 }
 
 class _McpOpsDetailSection extends StatelessWidget {
-  const _McpOpsDetailSection({required this.title, required this.rows});
+  const _McpOpsDetailSection({
+    required this.title,
+    required this.rows,
+    this.icon = Icons.info_outline_rounded,
+  });
 
   final String title;
   final Map<String, String> rows;
+  final IconData icon;
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final visibleRows = rows.entries
+        .where((row) => row.value.trim().isNotEmpty)
+        .toList(growable: false);
     return _McpOpsPanel(
-      icon: Icons.info_outline_rounded,
+      icon: icon,
       title: title,
       child: Column(
         children: [
-          for (final row in rows.entries)
+          for (final row in visibleRows.indexed)
             Padding(
-              padding: const EdgeInsets.only(bottom: 8),
+              padding: EdgeInsets.only(
+                bottom: row.$1 == visibleRows.length - 1 ? 0 : 10,
+              ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   SizedBox(
                     width: 180,
                     child: Text(
-                      row.key,
-                      style: Theme.of(context).textTheme.labelMedium,
+                      row.$2.key,
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: cs.onSurfaceVariant,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
-                  Expanded(child: SelectableText(row.value)),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: SelectableText(
+                      row.$2.value,
+                      style: theme.textTheme.bodyMedium,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -6153,17 +6378,44 @@ class _McpOpsDetailSection extends StatelessWidget {
 }
 
 class _McpOpsDetailText extends StatelessWidget {
-  const _McpOpsDetailText({required this.title, required this.text});
+  const _McpOpsDetailText({
+    required this.title,
+    required this.text,
+    this.icon = Icons.notes_rounded,
+    this.tone,
+  });
 
   final String title;
   final String text;
+  final IconData icon;
+  final Color? tone;
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final trimmed = text.trim();
+    final accent = tone ?? cs.primary;
     return _McpOpsPanel(
-      icon: Icons.notes_rounded,
+      icon: icon,
       title: title,
-      child: SelectableText(text.trim().isEmpty ? '-' : text.trim()),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
+          borderRadius: BorderRadius.circular(_mcpOpsControlRadius),
+          border: Border.all(color: accent.withValues(alpha: 0.16)),
+        ),
+        child: SelectableText(
+          trimmed.isEmpty ? '—' : trimmed,
+          style: theme.textTheme.bodySmall?.copyWith(
+            fontFamily: 'monospace',
+            height: 1.5,
+            color: trimmed.isEmpty ? cs.onSurfaceVariant : null,
+          ),
+        ),
+      ),
     );
   }
 }
@@ -6453,6 +6705,48 @@ String _mcpOpsAuditStatusLabel(BuildContext context, String status) {
     'failed' => _localizedText(context, zh: '失败', en: 'Failed'),
     _ => status,
   };
+}
+
+Color _mcpOpsAuditStatusColor(BuildContext context, McpOpsAuditEntry entry) {
+  final cs = Theme.of(context).colorScheme;
+  if (entry.errored) return cs.error;
+  if (entry.blocked) return OpenHandStatusColors.warning;
+  return OpenHandStatusColors.success;
+}
+
+/// Human label for an audit event's protocol stage ("环节").
+String _mcpOpsAuditKindLabel(BuildContext context, McpOpsAuditKind kind) {
+  return switch (kind) {
+    McpOpsAuditKind.handshake => _localizedText(context, zh: '握手', en: 'Handshake'),
+    McpOpsAuditKind.heartbeat => _localizedText(context, zh: '心跳', en: 'Heartbeat'),
+    McpOpsAuditKind.discovery => _localizedText(context, zh: '能力发现', en: 'Discovery'),
+    McpOpsAuditKind.invocation => _localizedText(context, zh: '工具调用', en: 'Tool Call'),
+    McpOpsAuditKind.stream => _localizedText(context, zh: '事件流', en: 'Event Stream'),
+    McpOpsAuditKind.session => _localizedText(context, zh: '会话终止', en: 'Session'),
+    McpOpsAuditKind.notification => _localizedText(context, zh: '通知', en: 'Notification'),
+    McpOpsAuditKind.other => _localizedText(context, zh: '其他', en: 'Other'),
+  };
+}
+
+IconData _mcpOpsAuditKindIcon(McpOpsAuditKind kind) {
+  return switch (kind) {
+    McpOpsAuditKind.handshake => Icons.handshake_rounded,
+    McpOpsAuditKind.heartbeat => Icons.favorite_rounded,
+    McpOpsAuditKind.discovery => Icons.travel_explore_rounded,
+    McpOpsAuditKind.invocation => Icons.bolt_rounded,
+    McpOpsAuditKind.stream => Icons.stream_rounded,
+    McpOpsAuditKind.session => Icons.link_off_rounded,
+    McpOpsAuditKind.notification => Icons.notifications_active_rounded,
+    McpOpsAuditKind.other => Icons.more_horiz_rounded,
+  };
+}
+
+/// A short, human title for a log row: the tool/method name, falling back to a
+/// stage label so protocol traffic never renders as a blank headline.
+String _mcpOpsAuditTitle(BuildContext context, McpOpsAuditEntry entry) {
+  final name = entry.toolName.trim();
+  if (name.isNotEmpty) return name;
+  return _mcpOpsAuditKindLabel(context, entry.kind);
 }
 
 class _McpServerCard extends StatefulWidget {

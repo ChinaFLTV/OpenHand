@@ -370,6 +370,13 @@ class McpServerOpsRuntime {
   }
 
   shelf.Response _terminateSession(shelf.Request request) {
+    _recordLifecycle(
+      request,
+      method: 'session/delete',
+      started: DateTime.now().toUtc(),
+      inboundBytes: 0,
+      outboundBytes: 0,
+    );
     return shelf.Response(
       HttpStatus.noContent,
       headers: <String, String>{..._corsHeaders, ..._sessionHeaders(request)},
@@ -378,6 +385,7 @@ class McpServerOpsRuntime {
 
   shelf.Response _sseStream(shelf.Request request) {
     const method = 'stream/get';
+    final started = DateTime.now().toUtc();
     if (!_requestAllowed(request, method, 0)) {
       return shelf.Response(
         HttpStatus.forbidden,
@@ -388,7 +396,8 @@ class McpServerOpsRuntime {
         },
       );
     }
-    _markRequest(request, method);
+    // Enforce the stream cap before counting a success so a rejected stream is
+    // audited as blocked, never double-counted as both success and blocked.
     if (_activeSseStreams >= _maxSseStreams) {
       _recordBlocked(
         request,
@@ -405,6 +414,13 @@ class McpServerOpsRuntime {
         },
       );
     }
+    _recordLifecycle(
+      request,
+      method: method,
+      started: started,
+      inboundBytes: 0,
+      outboundBytes: 0,
+    );
     _activeSseStreams += 1;
     _publishConnectionSnapshot();
     return shelf.Response.ok(
@@ -518,8 +534,18 @@ class McpServerOpsRuntime {
       );
       return _jsonRpcError(id, -32600, 'Invalid Request');
     }
+    final started = DateTime.now().toUtc();
     final isNotification = !message.containsKey('id');
-    if (method == 'notifications/initialized') {
+    if (method.startsWith('notifications/')) {
+      // Notifications carry no id and expect no response; still audit them so
+      // the console shows client-side lifecycle signals (initialized, etc.).
+      _recordLifecycle(
+        request,
+        method: method,
+        started: started,
+        inboundBytes: inboundBytes,
+        outboundBytes: 0,
+      );
       return null;
     }
     if (!_requestAllowed(request, method, inboundBytes)) {
@@ -529,9 +555,7 @@ class McpServerOpsRuntime {
 
     switch (method) {
       case 'initialize':
-        _markRequest(request, method);
-        if (isNotification) return null;
-        return _jsonRpcResult(id, <String, Object?>{
+        final result = _jsonRpcResult(id, <String, Object?>{
           'protocolVersion': _protocolVersion,
           'capabilities': const <String, Object?>{
             'tools': <String, Object?>{'listChanged': true},
@@ -543,23 +567,50 @@ class McpServerOpsRuntime {
           'instructions':
               'OpenHand exposes approved local tools, memory, skills, instructions, knowledge and MCP bridges. Respect policy errors and request approval for write operations.',
         });
+        _recordLifecycle(
+          request,
+          method: method,
+          started: started,
+          inboundBytes: inboundBytes,
+          outboundBytes: isNotification ? 0 : _messageBytes(result),
+        );
+        return isNotification ? null : result;
       case 'ping':
-        _markRequest(request, method);
+        _recordLifecycle(
+          request,
+          method: method,
+          started: started,
+          inboundBytes: inboundBytes,
+          outboundBytes: isNotification ? 0 : 2,
+        );
         return isNotification ? null : _jsonRpcResult(id, const {});
       case 'tools/list':
-        _markRequest(request, method);
-        return isNotification
-            ? null
-            : _jsonRpcResult(id, <String, Object?>{
-                'tools': _toolListProvider()
-                    .map((item) => item.toMcpJson())
-                    .toList(growable: false),
-              });
+        final result = _jsonRpcResult(id, <String, Object?>{
+          'tools': _toolListProvider()
+              .map((item) => item.toMcpJson())
+              .toList(growable: false),
+        });
+        _recordLifecycle(
+          request,
+          method: method,
+          started: started,
+          inboundBytes: inboundBytes,
+          outboundBytes: isNotification ? 0 : _messageBytes(result),
+        );
+        return isNotification ? null : result;
       case 'resources/list':
-        _markRequest(request, method);
-        return isNotification
-            ? null
-            : _jsonRpcResult(id, const <String, Object?>{'resources': []});
+        final result = _jsonRpcResult(
+          id,
+          const <String, Object?>{'resources': []},
+        );
+        _recordLifecycle(
+          request,
+          method: method,
+          started: started,
+          inboundBytes: inboundBytes,
+          outboundBytes: isNotification ? 0 : _messageBytes(result),
+        );
+        return isNotification ? null : result;
       case 'tools/call':
         if (isNotification) return null;
         return _handleToolCall(
@@ -689,6 +740,7 @@ class McpServerOpsRuntime {
       _recordAudit(
         request,
         tool: tool,
+        kind: McpOpsAuditKind.invocation,
         status: result.isError ? 'failed' : 'success',
         durationMs: durationMs,
         inboundBytes: inboundBytes,
@@ -710,6 +762,7 @@ class McpServerOpsRuntime {
       _recordAudit(
         request,
         tool: tool,
+        kind: McpOpsAuditKind.invocation,
         status: 'failed',
         durationMs: durationMs,
         inboundBytes: inboundBytes,
@@ -960,6 +1013,7 @@ class McpServerOpsRuntime {
     _recordAudit(
       request,
       status: 'blocked',
+      kind: _auditKindForMethod(toolName != null ? 'tools/call' : method),
       toolName: toolName ?? method,
       surface: 'policy',
       endpoint: method,
@@ -978,6 +1032,7 @@ class McpServerOpsRuntime {
     String? toolName,
     String? surface,
     String? endpoint,
+    required McpOpsAuditKind kind,
     required String status,
     required int durationMs,
     required int inboundBytes,
@@ -987,10 +1042,12 @@ class McpServerOpsRuntime {
     String errorMessage = '',
   }) {
     final now = DateTime.now().toUtc();
-    final argumentText = mcpOpsClipAuditText(arguments);
-    final responseText = mcpOpsClipAuditText(responsePreview);
-    final promptTokens = _estimateTokens(argumentText);
-    final completionTokens = _estimateTokens(responseText);
+    // When payload capture is off we still emit the audit trail (stage, timing,
+    // peer, byte counts) but drop request/response bodies and their token
+    // estimates so no tool payload is retained at rest.
+    final capture = _config.capturePayload;
+    final argumentText = capture ? mcpOpsClipAuditText(arguments) : '';
+    final responseText = capture ? mcpOpsClipAuditText(responsePreview) : '';
     _auditSink(
       McpOpsAuditEntry(
         id: _auditId(now),
@@ -999,13 +1056,14 @@ class McpServerOpsRuntime {
         surface: tool?.surface.storageValue ?? surface ?? '',
         endpoint: tool?.endpointId ?? endpoint ?? '',
         status: status,
+        kind: kind,
         protocol: _protocol(request),
         model: _model(request),
         clientName: _clientName(request),
         ipAddress: _ipAddress(request),
         durationMs: durationMs,
-        promptTokens: promptTokens,
-        completionTokens: completionTokens,
+        promptTokens: capture ? _estimateTokens(argumentText) : 0,
+        completionTokens: capture ? _estimateTokens(responseText) : 0,
         inboundBytes: inboundBytes,
         outboundBytes: outboundBytes,
         errorMessage: errorMessage,
@@ -1026,6 +1084,59 @@ class McpServerOpsRuntime {
       ),
     );
   }
+
+  /// Audits protocol-stage traffic (handshake / heartbeat / discovery / stream
+  /// / session / notification) that isn't a `tools/call`, so the audit console
+  /// reflects the full request lifecycle instead of only tool invocations.
+  /// Also bumps the request counters via [_markRequest].
+  void _recordLifecycle(
+    shelf.Request request, {
+    required String method,
+    required DateTime started,
+    required int inboundBytes,
+    required int outboundBytes,
+    String status = 'success',
+  }) {
+    _markRequest(request, method);
+    _recordAudit(
+      request,
+      toolName: method,
+      surface: 'protocol',
+      endpoint: method,
+      kind: _auditKindForMethod(method),
+      status: status,
+      durationMs: _elapsedMs(started),
+      inboundBytes: inboundBytes,
+      outboundBytes: outboundBytes,
+    );
+  }
+
+  static McpOpsAuditKind _auditKindForMethod(String method) {
+    switch (method) {
+      case 'initialize':
+        return McpOpsAuditKind.handshake;
+      case 'ping':
+        return McpOpsAuditKind.heartbeat;
+      case 'tools/list':
+      case 'resources/list':
+        return McpOpsAuditKind.discovery;
+      case 'tools/call':
+        return McpOpsAuditKind.invocation;
+      case 'stream/get':
+        return McpOpsAuditKind.stream;
+      case 'session/delete':
+        return McpOpsAuditKind.session;
+      default:
+        return method.startsWith('notifications/')
+            ? McpOpsAuditKind.notification
+            : McpOpsAuditKind.other;
+    }
+  }
+
+  int _elapsedMs(DateTime started) =>
+      DateTime.now().toUtc().difference(started).inMilliseconds;
+
+  int _messageBytes(Object? message) => utf8.encode(jsonEncode(message)).length;
 
   void _publishMetrics() {
     _setSnapshot(
