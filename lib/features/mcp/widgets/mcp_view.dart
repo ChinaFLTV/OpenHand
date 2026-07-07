@@ -2521,82 +2521,131 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
         _McpOpsPanel(
           icon: Icons.settings_ethernet_rounded,
           title: _localizedText(context, zh: '监听与访问控制', en: 'Listener'),
+          subtitle: _localizedText(
+            context,
+            zh: '定义服务器对外暴露的网络端点、可操作文件空间与访问凭证。',
+            en: 'Define the network endpoint, workspace scope and access credentials this server exposes.',
+          ),
           child: Column(
             children: [
-              _McpOpsResponsiveFields(
-                children: [
-                  TextField(
-                    controller: _hostController,
-                    decoration: InputDecoration(
-                      labelText: _localizedText(
-                        context,
-                        zh: '监听地址',
-                        en: 'Listen Host',
+              _McpOpsFieldGroup(
+                icon: Icons.lan_rounded,
+                label: _localizedText(context, zh: '网络绑定', en: 'Binding'),
+                hint: _localizedText(
+                  context,
+                  zh: '监听地址决定谁能连入，端口范围 $mcpOpsMinListenPort–$mcpOpsMaxListenPort。',
+                  en: 'Host controls who can connect; port range $mcpOpsMinListenPort–$mcpOpsMaxListenPort.',
+                ),
+                child: _McpOpsResponsiveFields(
+                  children: [
+                    TextField(
+                      controller: _hostController,
+                      decoration: InputDecoration(
+                        labelText: _localizedText(
+                          context,
+                          zh: '监听地址',
+                          en: 'Listen Host',
+                        ),
+                        prefixIcon: const Icon(Icons.dns_rounded),
+                        helperText: _localizedText(
+                          context,
+                          zh: '127.0.0.1 仅本机 · 0.0.0.0 允许局域网',
+                          en: '127.0.0.1 loopback · 0.0.0.0 LAN',
+                        ),
                       ),
                     ),
-                  ),
-                  TextField(
-                    controller: _portController,
-                    keyboardType: TextInputType.number,
-                    decoration: InputDecoration(
-                      labelText: _localizedText(
-                        context,
-                        zh: '监听端口',
-                        en: 'Listen Port',
+                    TextField(
+                      controller: _portController,
+                      keyboardType: TextInputType.number,
+                      decoration: InputDecoration(
+                        labelText: _localizedText(
+                          context,
+                          zh: '监听端口',
+                          en: 'Listen Port',
+                        ),
+                        prefixIcon: const Icon(Icons.numbers_rounded),
+                        helperText: _localizedText(
+                          context,
+                          zh: '默认 $mcpOpsDefaultListenPort',
+                          en: 'Default $mcpOpsDefaultListenPort',
+                        ),
                       ),
                     ),
-                  ),
-                  _buildWorkspaceScopeField(context),
-                  TextField(
-                    controller: _authTokenController,
-                    obscureText: true,
-                    decoration: InputDecoration(
-                      labelText: _localizedText(
-                        context,
-                        zh: '访问令牌',
-                        en: 'Access Token',
-                      ),
-                    ),
-                  ),
-                ],
+                    _buildWorkspaceScopeField(context),
+                  ],
+                ),
               ),
-              const SizedBox(height: 10),
-              Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: [
-                  _McpOpsSwitchChip(
-                    label: _localizedText(
-                      context,
-                      zh: '跟随应用启动',
-                      en: 'Start with app',
+              _McpOpsFieldGroup(
+                icon: Icons.verified_user_rounded,
+                label: _localizedText(context, zh: '安全与留痕', en: 'Security'),
+                topGap: 18,
+                hint: _localizedText(
+                  context,
+                  zh: '令牌校验开启后所有请求需携带 Bearer 令牌；记录参数便于审计回溯。',
+                  en: 'Token auth requires a Bearer token on every request; payload capture aids audit replay.',
+                ),
+                child: Column(
+                  children: [
+                    TextField(
+                      controller: _authTokenController,
+                      obscureText: true,
+                      enableSuggestions: false,
+                      autocorrect: false,
+                      decoration: InputDecoration(
+                        labelText: _localizedText(
+                          context,
+                          zh: '访问令牌',
+                          en: 'Access Token',
+                        ),
+                        prefixIcon: const Icon(Icons.key_rounded),
+                        helperText: _localizedText(
+                          context,
+                          zh: '写入 Authorization Header，仅限英文、数字与符号',
+                          en: 'Sent via Authorization header; ASCII letters, digits and symbols only',
+                        ),
+                      ),
                     ),
-                    value: _autoStart,
-                    onChanged: (value) => setState(() => _autoStart = value),
-                  ),
-                  _McpOpsSwitchChip(
-                    label: _localizedText(
-                      context,
-                      zh: '令牌校验',
-                      en: 'Token Auth',
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      children: [
+                        _McpOpsSwitchChip(
+                          label: _localizedText(
+                            context,
+                            zh: '跟随应用启动',
+                            en: 'Start with app',
+                          ),
+                          value: _autoStart,
+                          onChanged: (value) =>
+                              setState(() => _autoStart = value),
+                        ),
+                        _McpOpsSwitchChip(
+                          label: _localizedText(
+                            context,
+                            zh: '令牌校验',
+                            en: 'Token Auth',
+                          ),
+                          value: _requireAuthToken,
+                          onChanged: (value) =>
+                              setState(() => _requireAuthToken = value),
+                        ),
+                        _McpOpsSwitchChip(
+                          label: _localizedText(
+                            context,
+                            zh: '记录参数',
+                            en: 'Capture Payload',
+                          ),
+                          value: _capturePayload,
+                          onChanged: (value) =>
+                              setState(() => _capturePayload = value),
+                        ),
+                      ],
                     ),
-                    value: _requireAuthToken,
-                    onChanged: (value) =>
-                        setState(() => _requireAuthToken = value),
-                  ),
-                  _McpOpsSwitchChip(
-                    label: _localizedText(
-                      context,
-                      zh: '记录参数',
-                      en: 'Capture Payload',
-                    ),
-                    value: _capturePayload,
-                    onChanged: (value) =>
-                        setState(() => _capturePayload = value),
-                  ),
-                ],
+                  ],
+                ),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
               _McpOpsHintText(
                 icon: Icons.info_outline_rounded,
                 text: _localizedText(
@@ -2612,294 +2661,400 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
         _McpOpsPanel(
           icon: Icons.rule_rounded,
           title: _localizedText(context, zh: '限流与调用策略', en: 'Policy'),
+          subtitle: _localizedText(
+            context,
+            zh: '控制请求速率、超时、写操作审批与来源白名单，保障服务稳定与安全。',
+            en: 'Govern request rate, timeouts, write approvals and source allowlists for stable, safe serving.',
+          ),
           child: Column(
             children: [
-              _McpOpsResponsiveFields(
-                children: [
-                  TextField(
-                    controller: _rpmController,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(labelText: 'RPM'),
-                  ),
-                  TextField(
-                    controller: _thresholdController,
-                    keyboardType: TextInputType.number,
-                    decoration: InputDecoration(
-                      labelText: _localizedText(
-                        context,
-                        zh: '调用次数阈值',
-                        en: 'Call Threshold',
+              _McpOpsFieldGroup(
+                icon: Icons.speed_rounded,
+                label: _localizedText(context, zh: '速率与超时', en: 'Rate & Timeout'),
+                hint: _localizedText(
+                  context,
+                  zh: '数值填 0 表示不限制；超时与审批等待单位为毫秒。',
+                  en: 'Enter 0 to disable a limit; timeout and approval wait are in milliseconds.',
+                ),
+                child: _McpOpsResponsiveFields(
+                  children: [
+                    TextField(
+                      controller: _rpmController,
+                      keyboardType: TextInputType.number,
+                      decoration: InputDecoration(
+                        labelText: 'RPM',
+                        prefixIcon: const Icon(Icons.rate_review_rounded),
+                        helperText: _localizedText(
+                          context,
+                          zh: '每分钟请求上限 · 0 不限流 · 最大 $mcpOpsMaxRpmLimit',
+                          en: 'Requests / minute · 0 unlimited · max $mcpOpsMaxRpmLimit',
+                        ),
                       ),
                     ),
-                  ),
-                  TextField(
-                    controller: _timeoutController,
-                    keyboardType: TextInputType.number,
-                    decoration: InputDecoration(
-                      labelText: _localizedText(
-                        context,
-                        zh: '超时时间(ms)',
-                        en: 'Timeout (ms)',
+                    TextField(
+                      controller: _thresholdController,
+                      keyboardType: TextInputType.number,
+                      decoration: InputDecoration(
+                        labelText: _localizedText(
+                          context,
+                          zh: '调用次数阈值',
+                          en: 'Call Threshold',
+                        ),
+                        prefixIcon: const Icon(Icons.filter_9_plus_rounded),
+                        helperText: _localizedText(
+                          context,
+                          zh: '累计调用达到后告警 · 0 关闭',
+                          en: 'Alert after total calls · 0 off',
+                        ),
                       ),
                     ),
-                  ),
-                  TextField(
-                    controller: _approvalTimeoutController,
-                    keyboardType: TextInputType.number,
-                    decoration: InputDecoration(
-                      labelText: _localizedText(
-                        context,
-                        zh: '审批等待(ms)',
-                        en: 'Approval Wait (ms)',
+                    TextField(
+                      controller: _timeoutController,
+                      keyboardType: TextInputType.number,
+                      decoration: InputDecoration(
+                        labelText: _localizedText(
+                          context,
+                          zh: '超时时间(ms)',
+                          en: 'Timeout (ms)',
+                        ),
+                        prefixIcon: const Icon(Icons.timer_outlined),
+                        helperText: _localizedText(
+                          context,
+                          zh: '范围 $mcpOpsMinTimeoutMs–$mcpOpsMaxTimeoutMs',
+                          en: 'Range $mcpOpsMinTimeoutMs–$mcpOpsMaxTimeoutMs',
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                    TextField(
+                      controller: _approvalTimeoutController,
+                      keyboardType: TextInputType.number,
+                      decoration: InputDecoration(
+                        labelText: _localizedText(
+                          context,
+                          zh: '审批等待(ms)',
+                          en: 'Approval Wait (ms)',
+                        ),
+                        prefixIcon: const Icon(Icons.hourglass_top_rounded),
+                        helperText: _localizedText(
+                          context,
+                          zh: '超时未审批则自动拒绝',
+                          en: 'Auto-reject when no approval in time',
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(height: 12),
-              _McpOpsResponsiveFields(
-                children: [
-                  DropdownButtonFormField<McpOpsNetworkMode>(
-                    initialValue: _networkMode,
-                    decoration: InputDecoration(
-                      labelText: _localizedText(
-                        context,
-                        zh: '网络模式',
-                        en: 'Network Mode',
-                      ),
-                    ),
-                    items: [
-                      for (final mode in McpOpsNetworkMode.values)
-                        DropdownMenuItem(
-                          value: mode,
-                          child: Text(_networkModeLabel(context, mode)),
+              _McpOpsFieldGroup(
+                icon: Icons.tune_rounded,
+                label: _localizedText(context, zh: '调用与写入策略', en: 'Execution'),
+                topGap: 18,
+                hint: _policyModeHint(context),
+                child: _McpOpsResponsiveFields(
+                  children: [
+                    DropdownButtonFormField<McpOpsNetworkMode>(
+                      initialValue: _networkMode,
+                      decoration: InputDecoration(
+                        labelText: _localizedText(
+                          context,
+                          zh: '网络模式',
+                          en: 'Network Mode',
                         ),
-                    ],
-                    onChanged: (value) {
-                      if (value != null) setState(() => _networkMode = value);
-                    },
-                  ),
-                  DropdownButtonFormField<McpOpsInvocationMode>(
-                    initialValue: _invocationMode,
-                    decoration: InputDecoration(
-                      labelText: _localizedText(
-                        context,
-                        zh: '调用模式',
-                        en: 'Invocation Mode',
+                        prefixIcon: const Icon(Icons.wifi_tethering_rounded),
                       ),
+                      items: [
+                        for (final mode in McpOpsNetworkMode.values)
+                          DropdownMenuItem(
+                            value: mode,
+                            child: Text(_networkModeLabel(context, mode)),
+                          ),
+                      ],
+                      onChanged: (value) {
+                        if (value != null) setState(() => _networkMode = value);
+                      },
                     ),
-                    items: [
-                      for (final mode in McpOpsInvocationMode.values)
-                        DropdownMenuItem(
-                          value: mode,
-                          child: Text(_invocationModeLabel(context, mode)),
+                    DropdownButtonFormField<McpOpsInvocationMode>(
+                      initialValue: _invocationMode,
+                      decoration: InputDecoration(
+                        labelText: _localizedText(
+                          context,
+                          zh: '调用模式',
+                          en: 'Invocation Mode',
                         ),
-                    ],
-                    onChanged: (value) {
-                      if (value != null) {
-                        setState(() => _invocationMode = value);
-                      }
-                    },
-                  ),
-                  DropdownButtonFormField<McpOpsWriteMode>(
-                    initialValue: _writeMode,
-                    decoration: InputDecoration(
-                      labelText: _localizedText(
-                        context,
-                        zh: '写调用策略',
-                        en: 'Write Policy',
+                        prefixIcon: const Icon(Icons.alt_route_rounded),
                       ),
+                      items: [
+                        for (final mode in McpOpsInvocationMode.values)
+                          DropdownMenuItem(
+                            value: mode,
+                            child: Text(_invocationModeLabel(context, mode)),
+                          ),
+                      ],
+                      onChanged: (value) {
+                        if (value != null) {
+                          setState(() => _invocationMode = value);
+                        }
+                      },
                     ),
-                    items: [
-                      for (final mode in McpOpsWriteMode.values)
-                        DropdownMenuItem(
-                          value: mode,
-                          child: Text(_writeModeLabel(context, mode)),
+                    DropdownButtonFormField<McpOpsWriteMode>(
+                      initialValue: _writeMode,
+                      decoration: InputDecoration(
+                        labelText: _localizedText(
+                          context,
+                          zh: '写调用策略',
+                          en: 'Write Policy',
                         ),
-                    ],
-                    onChanged: (value) {
-                      if (value != null) setState(() => _writeMode = value);
-                    },
-                  ),
-                ],
+                        prefixIcon: const Icon(Icons.edit_note_rounded),
+                      ),
+                      items: [
+                        for (final mode in McpOpsWriteMode.values)
+                          DropdownMenuItem(
+                            value: mode,
+                            child: Text(_writeModeLabel(context, mode)),
+                          ),
+                      ],
+                      onChanged: (value) {
+                        if (value != null) setState(() => _writeMode = value);
+                      },
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(height: 12),
-              _McpOpsResponsiveFields(
-                children: [
-                  TextField(
-                    controller: _allowedClientsController,
-                    minLines: 2,
-                    maxLines: 4,
-                    decoration: InputDecoration(
-                      labelText: _localizedText(
-                        context,
-                        zh: '允许客户端',
-                        en: 'Allowed Clients',
+              _McpOpsFieldGroup(
+                icon: Icons.shield_moon_rounded,
+                label: _localizedText(context, zh: '访问白名单', en: 'Allowlist'),
+                topGap: 18,
+                hint: _localizedText(
+                  context,
+                  zh: '每行一条，留空表示不限制；时间窗支持 HH:MM-HH:MM 本地时区。',
+                  en: 'One entry per line; empty means unrestricted. Time window uses HH:MM-HH:MM local time.',
+                ),
+                child: _McpOpsResponsiveFields(
+                  children: [
+                    TextField(
+                      controller: _allowedClientsController,
+                      minLines: 2,
+                      maxLines: 4,
+                      decoration: InputDecoration(
+                        labelText: _localizedText(
+                          context,
+                          zh: '允许客户端',
+                          en: 'Allowed Clients',
+                        ),
+                        alignLabelWithHint: true,
+                        hintText: 'cursor\nclaude-desktop',
                       ),
                     ),
-                  ),
-                  TextField(
-                    controller: _allowedIpsController,
-                    minLines: 2,
-                    maxLines: 4,
-                    decoration: InputDecoration(
-                      labelText: _localizedText(
-                        context,
-                        zh: '允许IP/CIDR',
-                        en: 'Allowed IP/CIDR',
+                    TextField(
+                      controller: _allowedIpsController,
+                      minLines: 2,
+                      maxLines: 4,
+                      decoration: InputDecoration(
+                        labelText: _localizedText(
+                          context,
+                          zh: '允许IP/CIDR',
+                          en: 'Allowed IP/CIDR',
+                        ),
+                        alignLabelWithHint: true,
+                        hintText: '127.0.0.1\n192.168.0.0/16',
                       ),
                     ),
-                  ),
-                  TextField(
-                    controller: _allowedTimeController,
-                    minLines: 2,
-                    maxLines: 4,
-                    decoration: InputDecoration(
-                      labelText: _localizedText(
-                        context,
-                        zh: '允许时间',
-                        en: 'Allowed Time',
+                    TextField(
+                      controller: _allowedTimeController,
+                      minLines: 2,
+                      maxLines: 4,
+                      decoration: InputDecoration(
+                        labelText: _localizedText(
+                          context,
+                          zh: '允许时间',
+                          en: 'Allowed Time',
+                        ),
+                        alignLabelWithHint: true,
+                        hintText: '00:00-23:59\n09:00-18:00',
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ],
           ),
         ),
         const SizedBox(height: _mcpOpsGridGap),
-        _McpOpsPanel(
-          icon: Icons.visibility_rounded,
-          title: _localizedText(context, zh: 'MCP化暴露范围', en: 'Exposure'),
-          child: Column(
-            children: [
-              TextField(
-                controller: _exposureSearchController,
-                onChanged: (_) => setState(() {
-                  _exposureLimits.clear();
-                }),
-                decoration: InputDecoration(
-                  prefixIcon: const Icon(Icons.search_rounded),
-                  labelText: _localizedText(
-                    context,
-                    zh: '搜索暴露条目',
-                    en: 'Search exposure items',
+        Builder(
+          builder: (context) {
+            final sections = <McpOpsExposureSurface, List<_McpOpsExposureRow>>{
+              McpOpsExposureSurface.builtinTools: [
+                for (final config in settings.builtinToolConfigs)
+                  _McpOpsExposureRow(
+                    id: config.kind.name,
+                    title: config.effectiveName,
+                    subtitle: config.summary ?? config.kind.name,
+                    endpoints: const ['describe'],
                   ),
-                  hintText: _localizedText(
-                    context,
-                    zh: '输入服务、工具、技能、记忆或知识库关键字',
-                    en: 'Filter by server, tool, skill, memory or knowledge',
+              ],
+              McpOpsExposureSurface.memory: [
+                for (final entry in memories)
+                  _McpOpsExposureRow(
+                    id: entry.id,
+                    title: entry.displayTitle,
+                    subtitle: entry.type,
+                    endpoints: const ['read'],
                   ),
-                ),
+              ],
+              McpOpsExposureSurface.skills: [
+                for (final skill in skills)
+                  _McpOpsExposureRow(
+                    id: skill.name,
+                    title: skill.name,
+                    subtitle: skill.description,
+                    endpoints: const ['manifest'],
+                  ),
+              ],
+              McpOpsExposureSurface.instructions: [
+                for (final entry in instructions)
+                  _McpOpsExposureRow(
+                    id: entry.id,
+                    title: entry.name,
+                    subtitle: entry.enabled
+                        ? entry.description
+                        : _localizedText(context, zh: '已停用', en: 'Disabled'),
+                    endpoints: const ['read'],
+                  ),
+              ],
+              McpOpsExposureSurface.knowledgeBase: [
+                for (final source in knowledgeSources)
+                  _McpOpsExposureRow(
+                    id: source.id,
+                    title: source.title,
+                    subtitle: '${source.kind} · ${source.status}',
+                    endpoints: const ['metadata'],
+                  ),
+              ],
+              McpOpsExposureSurface.mcpServers: [
+                for (final server in servers)
+                  _McpOpsExposureRow(
+                    id: server.name,
+                    title: server.name,
+                    subtitle: server.summary,
+                    endpoints: controller
+                        .toolCatalogFor(server.name)
+                        .tools
+                        .map((tool) => tool.id)
+                        .toList(growable: false),
+                    endpointLabels: {
+                      for (final tool
+                          in controller.toolCatalogFor(server.name).tools)
+                        tool.id: tool.name,
+                    },
+                  ),
+              ],
+            };
+            final enabledSurfaces = sections.keys
+                .where(_surfaces.contains)
+                .length;
+            final totalItems = sections.values.fold<int>(
+              0,
+              (sum, rows) => sum + rows.length,
+            );
+            final exposedItems = sections.entries
+                .where((entry) => _surfaces.contains(entry.key))
+                .fold<int>(
+                  0,
+                  (sum, entry) =>
+                      sum +
+                      entry.value
+                          .where(
+                            (row) => !_hiddenItems.contains(
+                              mcpOpsItemKey(entry.key, row.id),
+                            ),
+                          )
+                          .length,
+                );
+            return _McpOpsPanel(
+              icon: Icons.visibility_rounded,
+              title: _localizedText(context, zh: 'MCP化暴露范围', en: 'Exposure'),
+              subtitle: _localizedText(
+                context,
+                zh: '精细控制内建工具、记忆、技能、指令、知识库与 MCP 服务对外的可见性。',
+                en: 'Fine-tune which builtin tools, memory, skills, instructions, knowledge and MCP servers are exposed.',
               ),
-              const SizedBox(height: 12),
-              _surfaceSwitch(context, McpOpsExposureSurface.builtinTools),
-              if (_surfaces.contains(McpOpsExposureSurface.builtinTools))
-                _exposureList(
-                  context,
-                  surface: McpOpsExposureSurface.builtinTools,
-                  rows: [
-                    for (final config in settings.builtinToolConfigs)
-                      _McpOpsExposureRow(
-                        id: config.kind.name,
-                        title: config.effectiveName,
-                        subtitle: config.summary ?? config.kind.name,
-                        endpoints: const ['describe'],
-                      ),
-                  ],
+              trailing: _McpOpsExposureQuickActions(
+                allEnabled: enabledSurfaces == sections.length,
+                onEnableAll: () => setState(
+                  () => _surfaces.addAll(sections.keys),
                 ),
-              _surfaceSwitch(context, McpOpsExposureSurface.memory),
-              if (_surfaces.contains(McpOpsExposureSurface.memory))
-                _exposureList(
-                  context,
-                  surface: McpOpsExposureSurface.memory,
-                  rows: [
-                    for (final entry in memories)
-                      _McpOpsExposureRow(
-                        id: entry.id,
-                        title: entry.displayTitle,
-                        subtitle: entry.type,
-                        endpoints: const ['read'],
+                onDisableAll: () => setState(_surfaces.clear),
+                enableLabel: _localizedText(context, zh: '全部启用', en: 'All on'),
+                disableLabel: _localizedText(context, zh: '全部关闭', en: 'All off'),
+              ),
+              child: Column(
+                children: [
+                  TextField(
+                    controller: _exposureSearchController,
+                    onChanged: (_) => setState(() {
+                      _exposureLimits.clear();
+                    }),
+                    decoration: InputDecoration(
+                      prefixIcon: const Icon(Icons.search_rounded),
+                      labelText: _localizedText(
+                        context,
+                        zh: '搜索暴露条目',
+                        en: 'Search exposure items',
                       ),
-                  ],
-                ),
-              _surfaceSwitch(context, McpOpsExposureSurface.skills),
-              if (_surfaces.contains(McpOpsExposureSurface.skills))
-                _exposureList(
-                  context,
-                  surface: McpOpsExposureSurface.skills,
-                  rows: [
-                    for (final skill in skills)
-                      _McpOpsExposureRow(
-                        id: skill.name,
-                        title: skill.name,
-                        subtitle: skill.description,
-                        endpoints: const ['manifest'],
+                      hintText: _localizedText(
+                        context,
+                        zh: '输入服务、工具、技能、记忆或知识库关键字',
+                        en: 'Filter by server, tool, skill, memory or knowledge',
                       ),
-                  ],
-                ),
-              _surfaceSwitch(context, McpOpsExposureSurface.instructions),
-              if (_surfaces.contains(McpOpsExposureSurface.instructions))
-                _exposureList(
-                  context,
-                  surface: McpOpsExposureSurface.instructions,
-                  rows: [
-                    for (final entry in instructions)
-                      _McpOpsExposureRow(
-                        id: entry.id,
-                        title: entry.name,
-                        subtitle: entry.enabled
-                            ? entry.description
-                            : _localizedText(
-                                context,
-                                zh: '已停用',
-                                en: 'Disabled',
-                              ),
-                        endpoints: const ['read'],
-                      ),
-                  ],
-                ),
-              _surfaceSwitch(context, McpOpsExposureSurface.knowledgeBase),
-              if (_surfaces.contains(McpOpsExposureSurface.knowledgeBase))
-                _exposureList(
-                  context,
-                  surface: McpOpsExposureSurface.knowledgeBase,
-                  rows: [
-                    for (final source in knowledgeSources)
-                      _McpOpsExposureRow(
-                        id: source.id,
-                        title: source.title,
-                        subtitle: '${source.kind} · ${source.status}',
-                        endpoints: const ['metadata'],
-                      ),
-                  ],
-                ),
-              _surfaceSwitch(context, McpOpsExposureSurface.mcpServers),
-              if (_surfaces.contains(McpOpsExposureSurface.mcpServers))
-                _exposureList(
-                  context,
-                  surface: McpOpsExposureSurface.mcpServers,
-                  rows: [
-                    for (final server in servers)
-                      _McpOpsExposureRow(
-                        id: server.name,
-                        title: server.name,
-                        subtitle: server.summary,
-                        endpoints: controller
-                            .toolCatalogFor(server.name)
-                            .tools
-                            .map((tool) => tool.id)
-                            .toList(growable: false),
-                        endpointLabels: {
-                          for (final tool
-                              in controller.toolCatalogFor(server.name).tools)
-                            tool.id: tool.name,
-                        },
-                      ),
-                  ],
-                ),
-            ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  _McpOpsExposureSummary(
+                    enabledSurfaces: enabledSurfaces,
+                    totalSurfaces: sections.length,
+                    exposedItems: exposedItems,
+                    totalItems: totalItems,
+                  ),
+                  const SizedBox(height: 12),
+                  for (final entry in sections.entries)
+                    _exposureSection(context, entry.key, entry.value),
+                ],
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _exposureSection(
+    BuildContext context,
+    McpOpsExposureSurface surface,
+    List<_McpOpsExposureRow> rows,
+  ) {
+    final enabled = _surfaces.contains(surface);
+    final visibleCount = rows
+        .where(
+          (row) => !_hiddenItems.contains(mcpOpsItemKey(surface, row.id)),
+        )
+        .length;
+    return Column(
+      children: [
+        _surfaceSwitch(
+          context,
+          surface,
+          badge: '$visibleCount/${rows.length}',
+        ),
+        AnimatedSize(
+          duration: _mcpMotionDuration(
+            context,
+            const Duration(milliseconds: 240),
           ),
+          curve: Curves.easeOutCubic,
+          alignment: Alignment.topCenter,
+          child: enabled
+              ? _exposureList(context, surface: surface, rows: rows)
+              : const SizedBox(width: double.infinity),
         ),
       ],
     );
@@ -2939,7 +3094,11 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
     );
   }
 
-  Widget _surfaceSwitch(BuildContext context, McpOpsExposureSurface surface) {
+  Widget _surfaceSwitch(
+    BuildContext context,
+    McpOpsExposureSurface surface, {
+    String? badge,
+  }) {
     final enabled = _surfaces.contains(surface);
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
@@ -2988,7 +3147,7 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
                   color: enabled ? cs.primary : cs.onSurfaceVariant,
                 ),
                 const SizedBox(width: 10),
-                Expanded(
+                Flexible(
                   child: Text(
                     _surfaceLabel(context, surface),
                     maxLines: 1,
@@ -2998,6 +3157,11 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
                     ),
                   ),
                 ),
+                if (badge != null && badge.trim().isNotEmpty) ...[
+                  const SizedBox(width: 8),
+                  _McpOpsCountBadge(text: badge, active: enabled),
+                ],
+                const Spacer(),
                 Switch(value: enabled, onChanged: update),
               ],
             ),
@@ -3287,6 +3451,11 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
     _hiddenItems = Set<String>.from(config.hiddenItemIds);
     _hiddenEndpoints = Set<String>.from(config.hiddenEndpointIds);
     _exposureLimits.clear();
+  }
+
+  String _policyModeHint(BuildContext context) {
+    return '${_invocationModeDescription(context, _invocationMode)} · '
+        '${_writeModeDescription(context, _writeMode)}';
   }
 
   McpOpsConfig _buildConfig() {
@@ -4621,11 +4790,13 @@ class _McpOpsPanel extends StatelessWidget {
     required this.icon,
     required this.title,
     required this.child,
+    this.subtitle,
     this.trailing,
   });
 
   final IconData icon;
   final String title;
+  final String? subtitle;
   final Widget child;
   final Widget? trailing;
 
@@ -4633,6 +4804,7 @@ class _McpOpsPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
+    final subtitleText = subtitle?.trim();
     return AnimatedContainer(
       duration: _mcpMotionDuration(context, const Duration(milliseconds: 180)),
       curve: Curves.easeOutCubic,
@@ -4657,34 +4829,283 @@ class _McpOpsPanel extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(
-                  width: 32,
-                  height: 32,
+                  width: 34,
+                  height: 34,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: cs.primary.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(10),
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        cs.primary.withValues(alpha: 0.18),
+                        cs.primary.withValues(alpha: 0.08),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(11),
                     border: Border.all(
                       color: cs.primary.withValues(alpha: 0.24),
                     ),
                   ),
                   child: Icon(icon, color: cs.primary, size: 19),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 11),
                 Expanded(
-                  child: Text(
-                    title,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w900,
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      if (subtitleText != null && subtitleText.isNotEmpty) ...[
+                        const SizedBox(height: 3),
+                        Text(
+                          subtitleText,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: cs.onSurfaceVariant,
+                            height: 1.3,
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
-                if (trailing != null) trailing!,
+                if (trailing != null) ...[const SizedBox(width: 8), trailing!],
               ],
             ),
             const SizedBox(height: 14),
             child,
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _McpOpsFieldGroup extends StatelessWidget {
+  const _McpOpsFieldGroup({
+    required this.icon,
+    required this.label,
+    required this.child,
+    this.hint,
+    this.topGap = 0,
+  });
+
+  final IconData icon;
+  final String label;
+  final String? hint;
+  final Widget child;
+  final double topGap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final hintText = hint?.trim();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (topGap > 0) SizedBox(height: topGap),
+        Row(
+          children: [
+            Icon(icon, size: 16, color: cs.primary),
+            const SizedBox(width: 7),
+            Text(
+              label,
+              style: theme.textTheme.labelLarge?.copyWith(
+                fontWeight: FontWeight.w900,
+                letterSpacing: 0.1,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Container(
+                height: 1,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      cs.outlineVariant.withValues(alpha: 0.5),
+                      cs.outlineVariant.withValues(alpha: 0),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+        if (hintText != null && hintText.isNotEmpty) ...[
+          const SizedBox(height: 4),
+          Padding(
+            padding: const EdgeInsets.only(left: 23),
+            child: Text(
+              hintText,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: cs.onSurfaceVariant,
+                height: 1.3,
+              ),
+            ),
+          ),
+        ],
+        const SizedBox(height: 12),
+        child,
+      ],
+    );
+  }
+}
+
+class _McpOpsCountBadge extends StatelessWidget {
+  const _McpOpsCountBadge({required this.text, required this.active});
+
+  final String text;
+  final bool active;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final tone = active ? cs.primary : cs.onSurfaceVariant;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: tone.withValues(alpha: active ? 0.14 : 0.08),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: tone.withValues(alpha: 0.28)),
+      ),
+      child: Text(
+        text,
+        style: theme.textTheme.labelSmall?.copyWith(
+          color: tone,
+          fontWeight: FontWeight.w800,
+          fontFeatures: const [FontFeature.tabularFigures()],
+        ),
+      ),
+    );
+  }
+}
+
+class _McpOpsExposureQuickActions extends StatelessWidget {
+  const _McpOpsExposureQuickActions({
+    required this.allEnabled,
+    required this.onEnableAll,
+    required this.onDisableAll,
+    required this.enableLabel,
+    required this.disableLabel,
+  });
+
+  final bool allEnabled;
+  final VoidCallback onEnableAll;
+  final VoidCallback onDisableAll;
+  final String enableLabel;
+  final String disableLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _McpOpsTogglePill(
+          selected: allEnabled,
+          icon: Icons.done_all_rounded,
+          label: enableLabel,
+          onChanged: (_) => onEnableAll(),
+        ),
+        const SizedBox(width: 8),
+        _McpOpsTogglePill(
+          selected: false,
+          icon: Icons.remove_done_rounded,
+          label: disableLabel,
+          onChanged: (_) => onDisableAll(),
+        ),
+      ],
+    );
+  }
+}
+
+class _McpOpsExposureSummary extends StatelessWidget {
+  const _McpOpsExposureSummary({
+    required this.enabledSurfaces,
+    required this.totalSurfaces,
+    required this.exposedItems,
+    required this.totalItems,
+  });
+
+  final int enabledSurfaces;
+  final int totalSurfaces;
+  final int exposedItems;
+  final int totalItems;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final ratio = totalItems <= 0 ? 0.0 : exposedItems / totalItems;
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            cs.primary.withValues(alpha: 0.1),
+            cs.primary.withValues(alpha: 0.03),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(_mcpOpsControlRadius),
+        border: Border.all(color: cs.primary.withValues(alpha: 0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.insights_rounded, size: 18, color: cs.primary),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  _localizedText(
+                    context,
+                    zh: '已启用 $enabledSurfaces / $totalSurfaces 个面 · 暴露 $exposedItems / $totalItems 个条目',
+                    en: '$enabledSurfaces / $totalSurfaces surfaces on · $exposedItems / $totalItems items exposed',
+                  ),
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+              ),
+              Text(
+                '${(ratio * 100).round()}%',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  color: cs.primary,
+                  fontWeight: FontWeight.w900,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: TweenAnimationBuilder<double>(
+              tween: Tween<double>(begin: 0, end: ratio.clamp(0, 1).toDouble()),
+              duration: _mcpMotionDuration(
+                context,
+                const Duration(milliseconds: 420),
+              ),
+              curve: Curves.easeOutCubic,
+              builder: (context, value, _) => LinearProgressIndicator(
+                value: value,
+                minHeight: 7,
+                color: cs.primary,
+                backgroundColor: cs.surfaceContainerHighest.withValues(
+                  alpha: 0.6,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -5680,6 +6101,49 @@ String _writeModeLabel(BuildContext context, McpOpsWriteMode mode) {
       context,
       zh: '只读',
       en: 'Read Only',
+    ),
+  };
+}
+
+String _invocationModeDescription(
+  BuildContext context,
+  McpOpsInvocationMode mode,
+) {
+  return switch (mode) {
+    McpOpsInvocationMode.direct => _localizedText(
+      context,
+      zh: '直接执行不排队',
+      en: 'Execute directly without queueing',
+    ),
+    McpOpsInvocationMode.queued => _localizedText(
+      context,
+      zh: '排队串行执行',
+      en: 'Queue and run serially',
+    ),
+    McpOpsInvocationMode.guarded => _localizedText(
+      context,
+      zh: '受控执行含审计',
+      en: 'Guarded execution with audit',
+    ),
+  };
+}
+
+String _writeModeDescription(BuildContext context, McpOpsWriteMode mode) {
+  return switch (mode) {
+    McpOpsWriteMode.approvalRequired => _localizedText(
+      context,
+      zh: '写操作需人工审批',
+      en: 'Writes require manual approval',
+    ),
+    McpOpsWriteMode.fullAccess => _localizedText(
+      context,
+      zh: '写操作直接放行',
+      en: 'Writes allowed directly',
+    ),
+    McpOpsWriteMode.readOnly => _localizedText(
+      context,
+      zh: '仅读禁止写操作',
+      en: 'Read only, writes blocked',
     ),
   };
 }
