@@ -5,6 +5,7 @@ import 'dart:math' as math;
 import 'package:path/path.dart' as p;
 
 import '../../../../app/support/silent_log.dart';
+import '../../../../shared/net/http_error_message.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/text_normalization.dart';
 import '../../model/ai_api_dialect.dart';
@@ -16,8 +17,6 @@ import '../operations/ai_operation_http.dart';
 import '../runtime/ai_endpoint_router.dart';
 import '../session_io/ai_token_usage_parser.dart';
 
-final RegExp _htmlTagPattern = RegExp(r'<[^>]*>');
-final RegExp _whitespacePattern = RegExp(r'\s+');
 final RegExp _dataUriMimePattern = RegExp(r'data:([^;]+)');
 final RegExp _markdownSeparatorTailPattern = RegExp(r'-+$');
 
@@ -1244,34 +1243,7 @@ abstract class AiProtocolAdapter {
   Future<String> parseAssistantMessage(String rawResponse);
 
   String extractErrorMessage(String rawResponse) {
-    final trimmed = nullIfBlank(rawResponse) ?? '';
-    // Try JSON error first.
-    try {
-      final decoded = jsonDecode(trimmed);
-      if (decoded is Map<String, Object?>) {
-        final error = decoded['error'];
-        if (error is String) {
-          final errorText = nullIfBlank(error);
-          if (errorText != null) return errorText;
-        }
-        if (error is Map<String, Object?>) {
-          final message = optionalStringFromValue(error['message']);
-          if (message != null) return message;
-        }
-      }
-    } catch (_) {
-      // Not JSON — may be HTML or plain text.
-    }
-    // Strip HTML tags for cleaner display when the server returns an HTML
-    // error page (e.g. nginx 400/502 pages).
-    if (trimmed.contains('<html') || trimmed.contains('<HTML')) {
-      final stripped = trimmed
-          .replaceAll(_htmlTagPattern, ' ')
-          .replaceAll(_whitespacePattern, ' ')
-          .trim();
-      return stripped.isEmpty ? trimmed : stripped;
-    }
-    return trimmed;
+    return extractApiErrorMessage(rawResponse, emptyFallback: '');
   }
 }
 
@@ -2993,23 +2965,8 @@ class OllamaProtocolAdapter extends OpenAiProtocolAdapter {
     }
   }
 
-  @override
-  String extractErrorMessage(String rawResponse) {
-    // Ollama sometimes returns a plain-text error or an `{"error":"..."}` JSON.
-    try {
-      final decoded = jsonDecode(rawResponse);
-      if (decoded is Map<String, Object?>) {
-        final error = decoded['error'];
-        if (error is String) {
-          final errorText = nullIfBlank(error);
-          if (errorText != null) return errorText;
-        }
-      }
-    } catch (_) {
-      // Fall through – treat the whole body as a message.
-    }
-    return nullIfBlank(rawResponse) ?? '';
-  }
+  // Ollama returns either a plain-text error or an `{"error":"..."}` JSON,
+  // both of which the shared extractor already handles — no override needed.
 }
 
 abstract final class AiProtocolRegistry {

@@ -89,6 +89,7 @@ import '../../shared/util/localized_text.dart';
 import '../../shared/util/path_safety.dart';
 import '../../shared/util/text_clip.dart';
 import '../../shared/util/text_fingerprint.dart';
+import '../../shared/util/text_normalization.dart';
 import '../../shared/util/text_search.dart';
 import '../../shared/util/timer_safety.dart';
 import '../../shared/util/tool_name_normalization.dart';

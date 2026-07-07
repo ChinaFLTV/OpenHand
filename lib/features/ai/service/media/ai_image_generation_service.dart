@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 
 import '../../../../app/support/silent_log.dart';
 import '../../../../app/support/system_proxy.dart';
+import '../../../../shared/net/http_error_message.dart';
 import '../../../../shared/net/http_status_utils.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../model/ai_api_family.dart';
@@ -2353,30 +2354,7 @@ class AiImageGenerationService {
   }
 
   String _extractError(String body) {
-    try {
-      final decoded = jsonDecode(body);
-      if (decoded is Map<String, Object?>) {
-        final error = decoded['error'];
-        if (error is String) {
-          final errorText = nullIfBlank(error);
-          if (errorText != null) return errorText;
-        }
-        if (error is Map<String, Object?>) {
-          final message = optionalStringFromValue(error['message']);
-          if (message != null) return message;
-        }
-        final message = optionalStringFromValue(decoded['message']);
-        if (message != null) return message;
-      }
-    } catch (error, stack) {
-      silentLog(
-        'ai_image_generation_service',
-        'decode error response body',
-        error,
-        stack,
-      );
-    }
-    return nullIfBlank(body) ?? 'Unknown error';
+    return extractApiErrorMessage(body, emptyFallback: 'Unknown error');
   }
 
   void dispose() {

@@ -3906,9 +3906,8 @@ String? _settingsTargetedErrorSuggestion(BuildContext context, Object error) {
 }
 
 String _compactSettingsPreview(String value) {
-  final normalized = value.replaceAll(RegExp(r'\s+'), ' ').trim();
   const maxLength = 90;
-  return clipText(normalized, maxLength);
+  return clipText(collapseInlineWhitespace(value), maxLength);
 }
 
 bool _providerNeedsEndpoint(AiTtsProvider provider) {

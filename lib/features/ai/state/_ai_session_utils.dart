@@ -123,7 +123,7 @@ String _sanitizeGeneratedTitle(String value) {
   var normalized = value.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
   // Strip all HTML tags so models that disregard the plain-text-only
   // instruction and still emit HTML wrappers produce a clean title.
-  normalized = normalized.replaceAll(RegExp(r'<[^>]*>'), '');
+  normalized = stripHtmlTags(normalized, replacement: '');
   final tagMatch = RegExp(
     r'<title[^>]*>([\s\S]*?)<\/title>',
     caseSensitive: false,
@@ -139,7 +139,7 @@ String _sanitizeGeneratedTitle(String value) {
   normalized = normalized.replaceFirst(RegExp(r'^\s*\d+[.)、:：-]\s*'), '');
   normalized = normalized.replaceFirst(RegExp(r'^\s*[-*+#>]+\s*'), '');
   normalized = _stripTitleWrappers(normalized);
-  final collapsed = normalized.replaceAll(RegExp(r'\s+'), ' ').trim();
+  final collapsed = collapseInlineWhitespace(normalized);
   if (collapsed.isEmpty) {
     return '';
   }
@@ -228,7 +228,7 @@ String _sanitizeTitleSourceLine(String value) {
   );
   normalized = _stripTitleLeadIn(normalized);
   normalized = _stripTitleWrappers(normalized);
-  return normalized.replaceAll(RegExp(r'\s+'), ' ').trim();
+  return collapseInlineWhitespace(normalized);
 }
 
 String _stripTitleLeadIn(String value) {
@@ -284,7 +284,7 @@ String _stripTitleWrappers(String value) {
 }
 
 String _trimTitleToMaxCharacters(String value, int maxCharacters) {
-  final collapsed = value.replaceAll(RegExp(r'\s+'), ' ').trim();
+  final collapsed = collapseInlineWhitespace(value);
   if (collapsed.isEmpty) {
     return '';
   }

@@ -81,7 +81,6 @@ class AiTtsPlaybackService {
   );
   static final RegExp _macOsVoiceColumnSeparatorPattern = RegExp(r'\s{2,}');
   static final RegExp _markdownCodeBlockPattern = RegExp(r'```[\s\S]*?```');
-  static final RegExp _htmlTagPattern = RegExp(r'<[^>]+>');
   static final LifecycleLruCache<_AiTtsAudioPayload> _audioCache =
       LifecycleLruCache<_AiTtsAudioPayload>(
         maxEntries: _audioCacheMaxEntries,
@@ -1488,9 +1487,7 @@ class AiTtsPlaybackService {
 
   static String _normalizeText(String text, int maxCharacters) {
     final trimmed = collapseInlineWhitespace(
-      text
-          .replaceAll(_markdownCodeBlockPattern, ' ')
-          .replaceAll(_htmlTagPattern, ' '),
+      stripHtmlTags(text.replaceAll(_markdownCodeBlockPattern, ' ')),
     );
     return clipText(trimmed, maxCharacters, suffix: '');
   }

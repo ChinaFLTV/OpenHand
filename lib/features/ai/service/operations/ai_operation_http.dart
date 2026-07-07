@@ -2,10 +2,9 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import '../../../../shared/net/http_error_message.dart';
 import '../../../../shared/net/http_status_utils.dart';
 import '../../../../shared/util/input_value_parsing.dart';
-import '../../../../shared/util/text_clip.dart';
-import '../../../../shared/util/text_normalization.dart';
 import '../../model/ai_api_family.dart';
 import '../../model/ai_model_config.dart';
 import '../chat/ai_transport_diagnostic_messages.dart';
@@ -21,11 +20,7 @@ final class AiOperationHttp {
   static const String _jsonMimeType = 'application/json';
   static const String _xApiKeyHeader = 'x-api-key';
   static const String _xGoogApiKeyHeader = 'x-goog-api-key';
-  static const int _maxExtractedErrorMessageLength = 4000;
-  static const String _emptyErrorResponseMessage = 'Empty error response.';
   static const Duration defaultRequestTimeout = Duration(seconds: 60);
-
-  static final RegExp _htmlTagPattern = RegExp(r'<[^>]*>');
 
   static const String extrasGlobalKey = 'global';
   static const String extrasBodyKey = 'body';
@@ -247,44 +242,6 @@ final class AiOperationHttp {
   }
 
   static String extractErrorMessage(String body) {
-    final trimmed = nullIfBlank(body);
-    if (trimmed == null) return _emptyErrorResponseMessage;
-    try {
-      final decoded = jsonDecode(trimmed);
-      if (decoded is Map<String, Object?>) {
-        final error = decoded['error'];
-        final errorText = optionalStringFromValue(error);
-        if (errorText != null) {
-          return _boundedErrorMessage(errorText);
-        }
-        if (error is Map) {
-          final map = stringKeyedMapFromValue(error);
-          final message =
-              optionalStringFromValue(map['message']) ??
-              optionalStringFromValue(map['error']);
-          if (message != null) return _boundedErrorMessage(message);
-          final code = optionalStringFromValue(map['code']);
-          if (code != null) return _boundedErrorMessage(code);
-        }
-        final message =
-            optionalStringFromValue(decoded['message']) ??
-            optionalStringFromValue(decoded['error_description']);
-        if (message != null) return _boundedErrorMessage(message);
-      }
-    } catch (_) {
-      // Plain text or HTML error response.
-    }
-    if (trimmed.contains('<html') || trimmed.contains('<HTML')) {
-      final stripped = collapseInlineWhitespace(
-        trimmed.replaceAll(_htmlTagPattern, ' '),
-      );
-      return _boundedErrorMessage(stripped.isEmpty ? trimmed : stripped);
-    }
-    return _boundedErrorMessage(trimmed);
-  }
-
-  static String _boundedErrorMessage(String message) {
-    final normalized = collapseInlineWhitespace(message);
-    return clipText(normalized, _maxExtractedErrorMessageLength);
+    return extractApiErrorMessage(body);
   }
 }

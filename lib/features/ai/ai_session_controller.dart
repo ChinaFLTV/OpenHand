@@ -24,6 +24,7 @@ import '../../shared/ui/structured_error_text.dart';
 import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/stable_hash.dart';
+import '../../shared/util/text_normalization.dart';
 import '../../shared/util/timer_safety.dart';
 import '../agents/agents_controller.dart';
 import '../home/index.dart';

@@ -1779,7 +1779,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
 
   String _friendlyTranslationUiError(Object error) {
     final raw = error.toString().replaceFirst(RegExp(r'^[^:]+:\s*'), '');
-    final normalized = raw.replaceAll(RegExp(r'\s+'), ' ').trim();
+    final normalized = collapseInlineWhitespace(raw);
     if (normalized.isEmpty) return 'unknown error';
     const maxLength = 140;
     return clipText(normalized, maxLength);

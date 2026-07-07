@@ -3315,7 +3315,7 @@ String? _summarizeArgumentValue(Object? value) {
   if (value is Map) return '{…}';
   if (value is List) return value.isEmpty ? '[]' : '[${value.length}]';
   final raw = value is String ? value : '$value';
-  final flat = raw.replaceAll(RegExp(r'\s+'), ' ').trim();
+  final flat = collapseInlineWhitespace(raw);
   if (flat.isEmpty) return null;
   const maxLen = 16;
   if (flat.length <= maxLen) return flat;
@@ -4507,7 +4507,7 @@ class _SelfLearningMarkdown extends StatelessWidget {
 /// collapsed header — trims whitespace, collapses newlines and truncates
 /// past 120 characters.
 String _previewText(String text) {
-  final collapsed = text.replaceAll(RegExp(r'\s+'), ' ').trim();
+  final collapsed = collapseInlineWhitespace(text);
   if (collapsed.length <= 120) return collapsed;
   return '${collapsed.substring(0, 117)}…';
 }

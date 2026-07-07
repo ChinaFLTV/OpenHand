@@ -57,6 +57,7 @@ import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
 import '../../../shared/util/reader_file_type.dart';
 import '../../../shared/util/text_clip.dart';
+import '../../../shared/util/text_normalization.dart';
 import '../../../shared/util/timer_safety.dart';
 import '../../ai/index.dart';
 import '../../crons/crons_controller.dart';

@@ -160,7 +160,7 @@ class _UserProfileSettingsButtonState
   }
 
   static String _previewContent(String content) {
-    final flat = content.replaceAll(RegExp(r'\s+'), ' ').trim();
+    final flat = collapseInlineWhitespace(content);
     if (flat.length <= 160) return flat;
     return '${flat.substring(0, 157)}…';
   }

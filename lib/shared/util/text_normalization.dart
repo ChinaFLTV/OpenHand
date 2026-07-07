@@ -2,8 +2,19 @@ final RegExp _inlineWhitespacePattern = RegExp(r'\s+');
 final RegExp _asciiLookupTokenSeparatorPattern = RegExp(r'[^a-z0-9]+');
 final RegExp _snakeStorageKeySeparatorPattern = RegExp(r'[\s-]+');
 
+/// Matches any HTML/XML tag. Shared so tag-stripping stays consistent across
+/// error-page cleanup, TTS text preparation and document parsing.
+final RegExp kHtmlTagPattern = RegExp(r'<[^>]*>');
+
 String collapseInlineWhitespace(String value) {
   return value.replaceAll(_inlineWhitespacePattern, ' ').trim();
+}
+
+/// Removes HTML/XML tags, substituting [replacement] for each. Defaults to a
+/// single space so adjacent words stay separated; pass `''` to delete tags
+/// without introducing whitespace.
+String stripHtmlTags(String value, {String replacement = ' '}) {
+  return value.replaceAll(kHtmlTagPattern, replacement);
 }
 
 String removeInlineWhitespace(String value) {

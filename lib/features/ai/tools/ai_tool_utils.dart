@@ -12,6 +12,7 @@ import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/path_safety.dart';
 import '../../../shared/util/text_clip.dart';
+import '../../../shared/util/text_normalization.dart';
 import '../service/bash/ai_bash_tool_service.dart';
 import '../service/fs/ai_file_history_service.dart';
 import '../service/fs/ai_file_mutation_ledger.dart';
@@ -506,7 +507,7 @@ class AiToolUtils {
           RegExp(r'<style[\s\S]*?</style>', caseSensitive: false),
           ' ',
         );
-    final withoutTags = withoutScripts.replaceAll(RegExp(r'<[^>]+>'), ' ');
+    final withoutTags = stripHtmlTags(withoutScripts);
     final withoutEntities = withoutTags
         .replaceAll('&nbsp;', ' ')
         .replaceAll('&amp;', '&')
@@ -514,7 +515,7 @@ class AiToolUtils {
         .replaceAll('&gt;', '>')
         .replaceAll('&quot;', '"')
         .replaceAll('&#39;', "'");
-    return withoutEntities.replaceAll(RegExp(r'\s+'), ' ').trim();
+    return collapseInlineWhitespace(withoutEntities);
   }
 
   static bool globMatches(String value, String pattern) {

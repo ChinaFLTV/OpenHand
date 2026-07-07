@@ -44,7 +44,6 @@ final RegExp _htmlTitlePattern = RegExp(
   caseSensitive: false,
   dotAll: true,
 );
-final RegExp _htmlTagPattern = RegExp(r'<[^>]+>', dotAll: true);
 final RegExp _htmlDecimalEntityPattern = RegExp(r'&#(\d+);');
 final RegExp _htmlHexEntityPattern = RegExp(r'&#x([0-9a-fA-F]+);');
 final RegExp _tomlSectionPattern = RegExp(r'^\[(.+)]$');
@@ -986,7 +985,7 @@ String _htmlTitle(String raw) {
 }
 
 String _stripTags(String value) {
-  return value.replaceAll(_htmlTagPattern, ' ');
+  return stripHtmlTags(value);
 }
 
 String _htmlEntitiesToText(String value) {
