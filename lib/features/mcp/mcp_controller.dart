@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:collection';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
@@ -9,7 +10,19 @@ import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/timer_safety.dart';
 import '../ai/index.dart'
-    show AiBuiltinToolConfig, agentBuiltinToolCanonicalName;
+    show
+        AiBuiltinToolConfig,
+        AiBuiltinToolKind,
+        AiModelConfig,
+        AiAuthScheme,
+        AiProtocolType,
+        AiResolvedTool,
+        AiResolvedToolCatalog,
+        AiToolCall,
+        AiToolDefinition,
+        AiToolRuntimeService,
+        BashToolExecutionStatus,
+        agentBuiltinToolCanonicalName;
 import '../instructions/index.dart';
 import '../knowledge_base/index.dart';
 import '../memory/index.dart';
@@ -33,6 +46,8 @@ class McpOpsRuntimeBindings {
     required this.memoryControllerProvider,
     required this.instructionsControllerProvider,
     required this.knowledgeBaseControllerProvider,
+    this.toolRuntimeServiceProvider,
+    this.opsModelProvider,
   });
 
   final List<AiBuiltinToolConfig> Function() builtinToolConfigsProvider;
@@ -40,6 +55,13 @@ class McpOpsRuntimeBindings {
   final MemoryController? Function() memoryControllerProvider;
   final InstructionsController? Function() instructionsControllerProvider;
   final KnowledgeBaseController? Function() knowledgeBaseControllerProvider;
+
+  /// 共享的 AI 工具运行时，供 MCP 运维服务器真正执行内建工具（而非仅返回配置）。
+  final AiToolRuntimeService? Function()? toolRuntimeServiceProvider;
+
+  /// 首个可用模型，供依赖大模型的内建工具（Task/WebSearch/WebFetch/Agent）使用；
+  /// 无可用模型时返回 null，调用方据此优雅报错。
+  final AiModelConfig? Function()? opsModelProvider;
 }
 
 class McpController extends ChangeNotifier {
@@ -153,6 +175,52 @@ class McpController extends ChangeNotifier {
   int _activeAutoProbeSlots = 0;
   DateTime? _lastBatchProbeAt;
   static const int _maxRecentProbeRecords = 30;
+
+  /// 内建工具 MCP 端点标识：语义为"执行"（真实调用工具），非旧的"describe"。
+  static const String _opsBuiltinEndpointId = 'invoke';
+
+  /// 会话标识与占位工作目录，供 MCP 运维服务器无会话执行内建工具时使用。
+  static const String _opsBuiltinSessionId = 'mcp-ops';
+
+  /// 依赖大模型的内建工具：无可用模型时优雅报错，不进入执行。
+  static const Set<AiBuiltinToolKind> _opsModelDependentBuiltinKinds =
+      <AiBuiltinToolKind>{
+        AiBuiltinToolKind.task,
+        AiBuiltinToolKind.webSearch,
+        AiBuiltinToolKind.webFetch,
+      };
+
+  /// 写语义内建工具：作为 MCP destructiveHint 与只读模式门控依据。
+  static const Set<AiBuiltinToolKind> _opsWriteBuiltinKinds =
+      <AiBuiltinToolKind>{
+        AiBuiltinToolKind.bash,
+        AiBuiltinToolKind.bashBackground,
+        AiBuiltinToolKind.taskStop,
+        AiBuiltinToolKind.edit,
+        AiBuiltinToolKind.multiEdit,
+        AiBuiltinToolKind.applyFileDiffs,
+        AiBuiltinToolKind.write,
+        AiBuiltinToolKind.notebookEdit,
+        AiBuiltinToolKind.deleteFile,
+        AiBuiltinToolKind.git,
+        AiBuiltinToolKind.skillManager,
+        AiBuiltinToolKind.memory,
+        AiBuiltinToolKind.machineTerminalWrite,
+        AiBuiltinToolKind.machineTerminalExec,
+        AiBuiltinToolKind.machineTerminalControl,
+      };
+
+  /// 无会话执行时的占位模型：仅用于满足 execute() 的非空约束；
+  /// 非模型类工具（Read/Grep/Bash/Edit…）不会读取 context.model。
+  static const AiModelConfig _opsPlaceholderModel = AiModelConfig(
+    id: 'mcp-ops-placeholder',
+    baseUrl: '',
+    authScheme: AiAuthScheme.none,
+    token: '',
+    modelId: '',
+    protocolType: AiProtocolType.openai,
+  );
+
   Future<void> _operationQueue = Future<void>.value();
   late final OpenHandDebouncer _pageActivationWorkDebouncer = OpenHandDebouncer(
     delay: _pageActivationWorkDelay,
@@ -572,39 +640,49 @@ class McpController extends ChangeNotifier {
     final tools = <McpOpsToolDefinition>[];
     for (final config in configs) {
       if (!config.enabled) continue;
+      final base = AiToolRuntimeService.builtinToolDefault(config.kind);
+      if (base == null) continue;
       final itemId = config.kind.name;
-      const endpointId = 'describe';
       if (!_opsVisible(
         McpOpsExposureSurface.builtinTools,
         itemId,
-        endpointId,
+        _opsBuiltinEndpointId,
       )) {
         continue;
       }
-      final name = _opsToolName(
-        'builtin',
-        agentBuiltinToolCanonicalName(config.kind),
-        endpointId,
-      );
+      final canonicalName = agentBuiltinToolCanonicalName(config.kind);
+      final schemaOverride = config.schemaOverride;
       tools.add(
         McpOpsToolDefinition(
-          name: name,
+          name: _opsToolName('builtin', canonicalName, _opsBuiltinEndpointId),
           title: config.displayName?.trim().isNotEmpty == true
               ? config.displayName!.trim()
-              : agentBuiltinToolCanonicalName(config.kind),
-          description:
-              (config.summary?.trim().isNotEmpty == true
-                      ? config.summary!.trim()
-                      : 'Describe the OpenHand builtin tool configuration.')
-                  .trim(),
+              : canonicalName,
+          // 优先用户覆盖，否则回落到工具的真实 Claude Code 风格描述与 JSON schema。
+          description: _opsBuiltinDescription(config, base.definition.description),
           surface: McpOpsExposureSurface.builtinTools,
           itemId: itemId,
-          endpointId: endpointId,
-          inputSchema: _opsObjectSchema(),
+          endpointId: _opsBuiltinEndpointId,
+          inputSchema: schemaOverride != null && schemaOverride.isNotEmpty
+              ? schemaOverride
+              : base.definition.parameters,
+          isWrite: _builtinKindMayWrite(config.kind),
         ),
       );
     }
     return tools;
+  }
+
+  /// 内建工具描述：用户 summary/promptOverride 优先，否则用工具默认描述。
+  String _opsBuiltinDescription(
+    AiBuiltinToolConfig config,
+    String fallbackDescription,
+  ) {
+    final summary = config.summary?.trim();
+    if (summary != null && summary.isNotEmpty) return summary;
+    final prompt = config.promptOverride?.trim();
+    if (prompt != null && prompt.isNotEmpty) return prompt;
+    return fallbackDescription.trim();
   }
 
   List<McpOpsToolDefinition> _opsMemoryToolDefinitions() {
@@ -748,7 +826,10 @@ class McpController extends ChangeNotifier {
     Map<String, Object?> arguments,
   ) async {
     return switch (tool.surface) {
-      McpOpsExposureSurface.builtinTools => _invokeOpsBuiltinTool(tool),
+      McpOpsExposureSurface.builtinTools => _invokeOpsBuiltinTool(
+        tool,
+        arguments,
+      ),
       McpOpsExposureSurface.memory => _invokeOpsMemoryTool(tool),
       McpOpsExposureSurface.skills => _invokeOpsSkillTool(tool),
       McpOpsExposureSurface.instructions => _invokeOpsInstructionTool(tool),
@@ -762,33 +843,70 @@ class McpController extends ChangeNotifier {
 
   Future<McpOpsToolInvocationResult> _invokeOpsBuiltinTool(
     McpOpsToolDefinition tool,
+    Map<String, Object?> arguments,
   ) async {
-    final configs =
-        _opsBindings?.builtinToolConfigsProvider() ??
-        const <AiBuiltinToolConfig>[];
-    final config = configs.where((item) => item.kind.name == tool.itemId);
-    if (config.isEmpty) {
+    final runtime = _opsBindings?.toolRuntimeServiceProvider?.call();
+    if (runtime == null) {
+      return const McpOpsToolInvocationResult(
+        text: 'AI tool runtime is not available; builtin tools cannot run.',
+        isError: true,
+      );
+    }
+    final kind = _builtinKindFromItemId(tool.itemId);
+    final base = kind == null
+        ? null
+        : AiToolRuntimeService.builtinToolDefault(kind);
+    if (kind == null || base == null) {
       return const McpOpsToolInvocationResult(
         text: 'Builtin tool is not available.',
         isError: true,
       );
     }
-    final item = config.first;
-    return McpOpsToolInvocationResult(
-      text: prettyPrintJson(<String, Object?>{
-        'kind': item.kind.name,
-        'name': agentBuiltinToolCanonicalName(item.kind),
-        'enabled': item.enabled,
-        'summary': item.summary,
-        'load_strategy': item.loadStrategy.name,
-        'force_load': item.forceLoad,
-        'timeout_seconds': item.timeoutSeconds,
-        'require_confirmation': item.requireConfirmation,
-        'retry_on_failure': item.retryOnFailure,
-        'max_retries': item.maxRetries,
-        'tags': item.tags,
-      }),
+    // 依赖大模型的工具在无可用模型时优雅报错，不进入执行。
+    final resolvedModel = _opsBindings?.opsModelProvider?.call();
+    if (_opsModelDependentBuiltinKinds.contains(kind) && resolvedModel == null) {
+      return McpOpsToolInvocationResult(
+        text:
+            'Tool "${base.name}" requires a configured AI model. '
+            'Add a model in OpenHand settings before calling it.',
+        isError: true,
+      );
+    }
+    final catalog = AiResolvedToolCatalog(
+      definitions: <AiToolDefinition>[base.definition],
+      toolsByName: <String, AiResolvedTool>{base.name: base},
     );
+    try {
+      final result = await runtime.execute(
+        sessionId: _opsBuiltinSessionId,
+        catalog: catalog,
+        toolCall: AiToolCall(
+          id: '',
+          name: base.name,
+          arguments: jsonEncode(arguments),
+        ),
+        model: resolvedModel ?? _opsPlaceholderModel,
+        previouslyReadFiles: const <String>{},
+        denyCommandRules: const [],
+        requireWriteCommandConfirmation: false,
+        confirmWriteCommand: null,
+      );
+      final succeeded = result.status == BashToolExecutionStatus.success;
+      return McpOpsToolInvocationResult(
+        text: result.toToolOutput(),
+        isError: !succeeded,
+        metadata: <String, Object?>{
+          'kind': kind.name,
+          'status': result.status.storageValue,
+        },
+      );
+    } catch (error, stack) {
+      silentLog('mcp', 'invoke ops builtin tool', error, stack);
+      return McpOpsToolInvocationResult(
+        text: 'Builtin tool execution failed: $error',
+        isError: true,
+      );
+    }
   }
 
   Future<McpOpsToolInvocationResult> _invokeOpsMemoryTool(
@@ -920,6 +1038,19 @@ class McpController extends ChangeNotifier {
         name.contains('apply') ||
         name.contains('exec') ||
         name.contains('run');
+  }
+
+  bool _builtinKindMayWrite(AiBuiltinToolKind kind) {
+    return _opsWriteBuiltinKinds.contains(kind);
+  }
+
+  /// itemId 为 [AiBuiltinToolKind.name]（见 _opsBuiltinToolDefinitions），
+  /// 反解回枚举；未知返回 null。
+  AiBuiltinToolKind? _builtinKindFromItemId(String itemId) {
+    for (final kind in AiBuiltinToolKind.values) {
+      if (kind.name == itemId) return kind;
+    }
+    return null;
   }
 
   String _opsToolName(String surface, String item, String endpoint) {

@@ -401,6 +401,11 @@ Future<void> _bootstrap() async {
       memoryControllerProvider: () => memory.controller,
       instructionsControllerProvider: () => instructions.controller,
       knowledgeBaseControllerProvider: () => knowledgeBase.controller,
+      toolRuntimeServiceProvider: () => aiSessionController.toolRuntimeService,
+      opsModelProvider: () {
+        final models = settingsController.aiModels;
+        return models.isEmpty ? null : models.first;
+      },
     ),
   );
   final messageGateway = await MessageGatewayModule.bootstrap(
