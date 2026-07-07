@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import '../../../shared/util/async_concurrency.dart';
+import '../../../shared/util/exponential_backoff.dart';
 import '../../ai/index.dart';
 import '../model/knowledge_base_settings.dart';
 import 'knowledge_indexing_control.dart';
@@ -439,15 +440,16 @@ class KnowledgeEmbeddingService {
   }
 
   Duration _retryBackoff(KnowledgeBaseSettings settings, int attempt) {
-    var delayMs = settings.retryBackoffMs > 0 ? settings.retryBackoffMs : 800;
-    for (var i = 0; i < attempt; i += 1) {
-      delayMs *= 2;
-      if (delayMs >= _maxRetryBackoffMs) {
-        delayMs = _maxRetryBackoffMs;
-        break;
-      }
-    }
-    return Duration(milliseconds: delayMs);
+    final baseMs = settings.retryBackoffMs > 0 ? settings.retryBackoffMs : 800;
+    // attempt 从 0 起：首个退避应等于 baseMs，故 attempt+1 对齐 backoff 公式的
+    // base * 2^(n-1) 语义。
+    return Duration(
+      milliseconds: exponentialBackoffMs(
+        attempt: attempt + 1,
+        baseMs: baseMs,
+        capMs: _maxRetryBackoffMs,
+      ),
+    );
   }
 
   String _timeoutMessage({
