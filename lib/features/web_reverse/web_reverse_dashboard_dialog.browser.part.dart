@@ -337,7 +337,6 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
 
   Future<void> _restartBrowserFromUi(String source) async {
     if (_restartBrowserInFlight) return;
-    final messenger = ScaffoldMessenger.of(context);
     final disconnectedAfterRestartMessage = openHandLocalizedText(
       context,
       zh: '重启完成后 CDP 仍未连接，请检查浏览器是否被系统或安全策略拦截。',
@@ -355,9 +354,8 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
       }
       if (!mounted) return;
       _lastConfiguredSize = null;
-      OpenHandSnackBar.showSuccessOn(
+      showWebReverseSuccessSnack(
         context,
-        messenger,
         openHandLocalizedText(
           context,
           zh: '浏览器已重启',
@@ -377,9 +375,8 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
         stack,
       );
       if (!mounted) return;
-      OpenHandSnackBar.showErrorOn(
+      showWebReverseErrorSnack(
         context,
-        messenger,
         _restartFailureMessage(error),
         duration: const Duration(seconds: 5),
       );
@@ -1257,7 +1254,6 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
   /// 用最近一帧 JPEG 字节直接落盘。
   Future<void> _saveCurrentFrame() async {
     final ctrl = widget.controller;
-    final messenger = ScaffoldMessenger.of(context);
     final ts = DateTime.now()
         .toIso8601String()
         .replaceAll(':', '-')
@@ -1271,9 +1267,8 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
     }
     if (!mounted) return;
     if (bytes == null) {
-      OpenHandSnackBar.showErrorOn(
+      showWebReverseErrorSnack(
         context,
-        messenger,
         openHandLocalizedText(
           context,
           zh: '当前没有可用的画面帧',
@@ -1309,9 +1304,8 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
     try {
       await File(location.path).writeAsBytes(bytes, flush: true);
       if (!mounted) return;
-      OpenHandSnackBar.showSuccessOn(
+      showWebReverseSuccessSnack(
         context,
-        messenger,
         openHandLocalizedText(
           context,
           zh: '已保存到 ${location.path}',
@@ -1330,9 +1324,8 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
         stack,
       );
       if (!mounted) return;
-      OpenHandSnackBar.showErrorOn(
+      showWebReverseErrorSnack(
         context,
-        messenger,
         openHandLocalizedText(
           context,
           zh: '保存失败',
@@ -1350,7 +1343,6 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
   /// 框选导出局部帧：full-resolution 截图后用 image 包做裁切，按用户在
   /// surface 上选的矩形百分比映射到浏览器侧 viewport 像素。
   Future<void> _finalizeCrop(Offset start, Offset end, Size renderSize) async {
-    final messenger = ScaffoldMessenger.of(context);
     setState(() {
       _cropMode = false;
       _cropStart = null;
@@ -1377,9 +1369,8 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
     }
     if (!mounted) return;
     if (png == null) {
-      OpenHandSnackBar.showErrorOn(
+      showWebReverseErrorSnack(
         context,
-        messenger,
         openHandLocalizedText(
           context,
           zh: '截图失败',
@@ -1395,9 +1386,8 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
     }
     final decoded = img.decodePng(png) ?? img.decodeImage(png);
     if (decoded == null) {
-      OpenHandSnackBar.showErrorOn(
+      showWebReverseErrorSnack(
         context,
-        messenger,
         openHandLocalizedText(
           context,
           zh: '解码失败',
@@ -1446,9 +1436,8 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
     try {
       await File(location.path).writeAsBytes(out, flush: true);
       if (!mounted) return;
-      OpenHandSnackBar.showSuccessOn(
+      showWebReverseSuccessSnack(
         context,
-        messenger,
         openHandLocalizedText(
           context,
           zh: '已保存到 ${location.path}',
@@ -1462,9 +1451,8 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
     } catch (error, stack) {
       silentLog('web_reverse_dashboard_dialog', 'save crop', error, stack);
       if (!mounted) return;
-      OpenHandSnackBar.showErrorOn(
+      showWebReverseErrorSnack(
         context,
-        messenger,
         openHandLocalizedText(
           context,
           zh: '保存失败',

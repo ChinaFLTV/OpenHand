@@ -6,7 +6,31 @@ const double _kNetworkMethodColumnWidth = 78;
 const double _kNetworkStatusColumnWidth = 48;
 const double _kNetworkTypeColumnWidth = 88;
 const Duration _kReplaySnackBarDuration = Duration(seconds: 2);
-const Duration _kReplayCopySnackBarDuration = Duration(seconds: 1);
+const Duration _kNetworkCopySnackBarDuration = Duration(seconds: 1);
+
+Future<void> _copyNetworkText(
+  BuildContext context, {
+  required String text,
+  required String base,
+  Duration duration = _kNetworkCopySnackBarDuration,
+}) async {
+  late final WebReverseClipboardCopyResult copied;
+  try {
+    copied = await setWebReverseClipboardText(text);
+  } catch (error, stack) {
+    silentLog('web_reverse_network_panel', 'copy text', error, stack);
+    if (!context.mounted) return;
+    showWebReverseClipboardErrorSnack(context: context, error: error);
+    return;
+  }
+  if (!context.mounted) return;
+  showWebReverseClipboardSuccessSnack(
+    context: context,
+    base: base,
+    result: copied,
+    duration: duration,
+  );
+}
 
 /// Network 资源类型过滤——对标 Chrome DevTools 顶部的 All / Fetch+XHR / JS / CSS
 /// / Img / Media / Manifest / WS / Wasm / Doc / Other 按钮组。
@@ -249,24 +273,18 @@ class _NetworkBody extends StatelessWidget {
   }
 
   Future<void> _copyUrl(BuildContext context, CdpNetworkEntry e) async {
-    final copied = await setWebReverseClipboardText(e.url);
-    if (!context.mounted) return;
-    OpenHandSnackBar.showSuccess(
+    await _copyNetworkText(
       context,
-      webReverseClipboardSnackMessage(
-        context: context,
-        base: openHandLocalizedText(
-          context,
-          zh: '已复制 URL',
-          zhHant: '已複製 URL',
-          en: 'URL copied',
-          fr: 'URL copiée',
-          de: 'URL kopiert',
-          ja: 'URL をコピーしました',
-        ),
-        result: copied,
+      text: e.url,
+      base: openHandLocalizedText(
+        context,
+        zh: '已复制 URL',
+        zhHant: '已複製 URL',
+        en: 'URL copied',
+        fr: 'URL copiée',
+        de: 'URL kopiert',
+        ja: 'URL をコピーしました',
       ),
-      duration: const Duration(seconds: 1),
     );
   }
 }
@@ -643,7 +661,6 @@ class _NetworkRow extends StatelessWidget {
         Overlay.of(context).context.findRenderObject() as RenderBox?;
     if (overlay == null) return;
     final blocked = controller.blockedUrls.contains(entry.url);
-    final messenger = ScaffoldMessenger.of(context);
     final selected = await showAnimatedMenu<String>(
       context: context,
       position: RelativeRect.fromRect(
@@ -800,78 +817,52 @@ class _NetworkRow extends StatelessWidget {
     if (selected == null || !context.mounted) return;
     switch (selected) {
       case 'copy_url':
-        final copied = await setWebReverseClipboardText(entry.url);
-        if (!context.mounted) return;
-        OpenHandSnackBar.showSuccessOn(
+        await _copyNetworkText(
           context,
-          messenger,
-          webReverseClipboardSnackMessage(
-            context: context,
-            base: openHandLocalizedText(
-              context,
-              zh: '已复制 URL',
-              zhHant: '已複製 URL',
-              en: 'URL copied',
-              fr: 'URL copiée',
-              de: 'URL kopiert',
-              ja: 'URL をコピーしました',
-            ),
-            result: copied,
+          text: entry.url,
+          base: openHandLocalizedText(
+            context,
+            zh: '已复制 URL',
+            zhHant: '已複製 URL',
+            en: 'URL copied',
+            fr: 'URL copiée',
+            de: 'URL kopiert',
+            ja: 'URL をコピーしました',
           ),
-          duration: const Duration(seconds: 1),
         );
       case 'copy_curl':
-        final copied = await setWebReverseClipboardText(
-          _asCurl(entry, windows: false),
-        );
-        if (!context.mounted) return;
-        OpenHandSnackBar.showSuccessOn(
+        await _copyNetworkText(
           context,
-          messenger,
-          webReverseClipboardSnackMessage(
-            context: context,
-            base: openHandLocalizedText(
-              context,
-              zh: '已复制 cURL',
-              zhHant: '已複製 cURL',
-              en: 'cURL copied',
-              fr: 'cURL copié',
-              de: 'cURL kopiert',
-              ja: 'cURL をコピーしました',
-            ),
-            result: copied,
+          text: _asCurl(entry, windows: false),
+          base: openHandLocalizedText(
+            context,
+            zh: '已复制 cURL',
+            zhHant: '已複製 cURL',
+            en: 'cURL copied',
+            fr: 'cURL copié',
+            de: 'cURL kopiert',
+            ja: 'cURL をコピーしました',
           ),
-          duration: const Duration(seconds: 1),
         );
       case 'copy_fetch':
-        final copied = await setWebReverseClipboardText(
-          _asFetch(entry, node: false),
-        );
-        if (!context.mounted) return;
-        OpenHandSnackBar.showSuccessOn(
+        await _copyNetworkText(
           context,
-          messenger,
-          webReverseClipboardSnackMessage(
-            context: context,
-            base: openHandLocalizedText(
-              context,
-              zh: '已复制 fetch',
-              zhHant: '已複製 fetch',
-              en: 'fetch copied',
-              fr: 'fetch copié',
-              de: 'fetch kopiert',
-              ja: 'fetch をコピーしました',
-            ),
-            result: copied,
+          text: _asFetch(entry, node: false),
+          base: openHandLocalizedText(
+            context,
+            zh: '已复制 fetch',
+            zhHant: '已複製 fetch',
+            en: 'fetch copied',
+            fr: 'fetch copié',
+            de: 'fetch kopiert',
+            ja: 'fetch をコピーしました',
           ),
-          duration: const Duration(seconds: 1),
         );
       case 'block':
         await controller.blockUrl(entry.url);
         if (!context.mounted) return;
-        OpenHandSnackBar.showInfoOn(
+        showWebReverseInfoSnack(
           context,
-          messenger,
           openHandLocalizedText(
             context,
             zh: '已屏蔽该 URL',
@@ -886,9 +877,8 @@ class _NetworkRow extends StatelessWidget {
       case 'unblock':
         await controller.unblockUrl(entry.url);
         if (!context.mounted) return;
-        OpenHandSnackBar.showInfoOn(
+        showWebReverseInfoSnack(
           context,
-          messenger,
           openHandLocalizedText(
             context,
             zh: '已取消屏蔽',
@@ -934,7 +924,6 @@ class _NetworkRow extends StatelessWidget {
     String? overrideUrl,
     Map<String, String>? overrideHeaders,
   }) async {
-    final messenger = ScaffoldMessenger.of(context);
     final result = await _replayRequestWithLoading(
       context,
       overrideUrl: overrideUrl,
@@ -942,9 +931,8 @@ class _NetworkRow extends StatelessWidget {
     );
     if (!context.mounted) return;
     if (result == null) {
-      OpenHandSnackBar.showErrorOn(
+      showWebReverseErrorSnack(
         context,
-        messenger,
         openHandLocalizedText(
           context,
           zh: '重放失败',
@@ -958,7 +946,7 @@ class _NetworkRow extends StatelessWidget {
       );
       return;
     }
-    await _showReplayResultDialog(context, messenger, result);
+    await _showReplayResultDialog(context, result);
   }
 
   Future<({int status, String body})?> _replayRequestWithLoading(
@@ -1004,7 +992,6 @@ class _NetworkRow extends StatelessWidget {
 
   Future<void> _showReplayResultDialog(
     BuildContext context,
-    ScaffoldMessengerState messenger,
     ({int status, String body}) result,
   ) {
     final body = result.body;
@@ -1046,25 +1033,18 @@ class _NetworkRow extends StatelessWidget {
         actions: [
           OpenHandDialogActionButton.secondary(
             onPressed: () async {
-              final copied = await setWebReverseClipboardText(body);
-              if (!dialogContext.mounted) return;
-              OpenHandSnackBar.showSuccessOn(
+              await _copyNetworkText(
                 dialogContext,
-                messenger,
-                webReverseClipboardSnackMessage(
-                  context: dialogContext,
-                  base: openHandLocalizedText(
-                    dialogContext,
-                    zh: '响应体已复制',
-                    zhHant: '已複製回應體',
-                    en: 'Body copied',
-                    fr: 'Corps copié',
-                    de: 'Body kopiert',
-                    ja: '本文をコピーしました',
-                  ),
-                  result: copied,
+                text: body,
+                base: openHandLocalizedText(
+                  dialogContext,
+                  zh: '响应体已复制',
+                  zhHant: '已複製回應體',
+                  en: 'Body copied',
+                  fr: 'Corps copié',
+                  de: 'Body kopiert',
+                  ja: '本文をコピーしました',
                 ),
-                duration: _kReplayCopySnackBarDuration,
               );
             },
             label: openHandLocalizedText(
