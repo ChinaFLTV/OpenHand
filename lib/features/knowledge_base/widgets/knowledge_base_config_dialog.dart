@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../../../app/state/settings_controller.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../../shared/net/tcp_port_utils.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
@@ -393,79 +394,183 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
     });
   }
 
-  int _int(TextEditingController controller, int fallback) {
-    return positiveIntFromText(controller.text, fallback: fallback);
+  int _int(
+    TextEditingController controller,
+    IntValueRange range,
+    int fallback,
+  ) {
+    return range.fromValueOr(controller.text, fallback: fallback);
   }
 
-  int _nonNegativeInt(TextEditingController controller, int fallback) {
-    return nonNegativeIntFromText(controller.text, fallback: fallback);
+  int _port(TextEditingController controller, int fallback) {
+    return tcpPortFromTextOr(controller.text, fallback: fallback);
   }
 
-  double _double(TextEditingController controller, double fallback) {
-    return doubleFromValue(controller.text, fallback: fallback);
+  double _double(
+    TextEditingController controller,
+    DoubleValueRange range,
+    double fallback,
+  ) {
+    return range.fromValueOr(controller.text, fallback: fallback);
   }
 
   Future<void> _save() async {
     final settingsController = context.read<SettingsController>();
     final knowledgeController = context.read<KnowledgeBaseController>();
     final next = _settings.copyWith(
-      dimensions: _int(_dimensions, _settings.dimensions),
-      maxInputTokens: _int(_maxInputTokens, _settings.maxInputTokens),
-      batchSize: _int(_batchSize, _settings.batchSize),
-      requestTimeoutSeconds: _int(_timeout, _settings.requestTimeoutSeconds),
-      retryCount: _nonNegativeInt(_retryCount, _settings.retryCount),
-      retryBackoffMs: _int(_retryBackoffMs, _settings.retryBackoffMs),
+      dimensions: _int(
+        _dimensions,
+        KnowledgeBaseSettingRanges.dimensions,
+        _settings.dimensions,
+      ),
+      maxInputTokens: _int(
+        _maxInputTokens,
+        KnowledgeBaseSettingRanges.maxInputTokens,
+        _settings.maxInputTokens,
+      ),
+      batchSize: _int(
+        _batchSize,
+        KnowledgeBaseSettingRanges.batchSize,
+        _settings.batchSize,
+      ),
+      requestTimeoutSeconds: _int(
+        _timeout,
+        KnowledgeBaseSettingRanges.requestTimeoutSeconds,
+        _settings.requestTimeoutSeconds,
+      ),
+      retryCount: _int(
+        _retryCount,
+        KnowledgeBaseSettingRanges.retryCount,
+        _settings.retryCount,
+      ),
+      retryBackoffMs: _int(
+        _retryBackoffMs,
+        KnowledgeBaseSettingRanges.retryBackoffMs,
+        _settings.retryBackoffMs,
+      ),
       concurrentRequests: _int(
         _concurrentRequests,
+        KnowledgeBaseSettingRanges.concurrentRequests,
         _settings.concurrentRequests,
       ),
-      qdrantHost: _qdrantHost.text.trim().isEmpty
-          ? _settings.qdrantHost
-          : _qdrantHost.text.trim(),
-      qdrantRestPort: _int(_qdrantRestPort, _settings.qdrantRestPort),
-      qdrantGrpcPort: _int(_qdrantGrpcPort, _settings.qdrantGrpcPort),
+      qdrantHost: KnowledgeBaseSettings.normalizeQdrantHost(
+        _qdrantHost.text,
+        fallback: _settings.qdrantHost,
+      ),
+      qdrantRestPort: _port(_qdrantRestPort, _settings.qdrantRestPort),
+      qdrantGrpcPort: _port(_qdrantGrpcPort, _settings.qdrantGrpcPort),
       collectionName: _collectionName.text.trim(),
-      hnswM: _int(_hnswM, _settings.hnswM),
-      hnswEfConstruct: _int(_hnswEfConstruct, _settings.hnswEfConstruct),
-      searchEf: _int(_searchEf, _settings.searchEf),
-      targetTokens: _int(_targetTokens, _settings.targetTokens),
-      hardMaxTokens: _int(_hardMaxTokens, _settings.hardMaxTokens),
-      overlapTokens: _nonNegativeInt(_overlapTokens, _settings.overlapTokens),
-      maxFileSizeMb: _int(_maxFileSizeMb, _settings.maxFileSizeMb),
-      topN: _int(_topN, _settings.topN),
-      topK: _int(_topK, _settings.topK),
-      minSimilarity: _double(_minSimilarity, _settings.minSimilarity),
-      sourceCap: _int(_sourceCap, _settings.sourceCap),
-      vectorWeight: _double(_vectorWeight, _settings.vectorWeight),
-      titleWeight: _double(_titleWeight, _settings.titleWeight),
-      tagWeight: _double(_tagWeight, _settings.tagWeight),
-      timeWeight: _double(_timeWeight, _settings.timeWeight),
+      hnswM: _int(_hnswM, KnowledgeBaseSettingRanges.hnswM, _settings.hnswM),
+      hnswEfConstruct: _int(
+        _hnswEfConstruct,
+        KnowledgeBaseSettingRanges.hnswEfConstruct,
+        _settings.hnswEfConstruct,
+      ),
+      searchEf: _int(
+        _searchEf,
+        KnowledgeBaseSettingRanges.searchEf,
+        _settings.searchEf,
+      ),
+      targetTokens: _int(
+        _targetTokens,
+        KnowledgeBaseSettingRanges.targetTokens,
+        _settings.targetTokens,
+      ),
+      hardMaxTokens: _int(
+        _hardMaxTokens,
+        KnowledgeBaseSettingRanges.hardMaxTokens,
+        _settings.hardMaxTokens,
+      ),
+      overlapTokens: _int(
+        _overlapTokens,
+        KnowledgeBaseSettingRanges.overlapTokens,
+        _settings.overlapTokens,
+      ),
+      maxFileSizeMb: _int(
+        _maxFileSizeMb,
+        KnowledgeBaseSettingRanges.maxFileSizeMb,
+        _settings.maxFileSizeMb,
+      ),
+      topN: _int(_topN, KnowledgeBaseSettingRanges.topN, _settings.topN),
+      topK: _int(_topK, KnowledgeBaseSettingRanges.topK, _settings.topK),
+      minSimilarity: _double(
+        _minSimilarity,
+        KnowledgeBaseSettingRanges.minSimilarity,
+        _settings.minSimilarity,
+      ),
+      sourceCap: _int(
+        _sourceCap,
+        KnowledgeBaseSettingRanges.sourceCap,
+        _settings.sourceCap,
+      ),
+      vectorWeight: _double(
+        _vectorWeight,
+        KnowledgeBaseSettingRanges.vectorWeight,
+        _settings.vectorWeight,
+      ),
+      titleWeight: _double(
+        _titleWeight,
+        KnowledgeBaseSettingRanges.titleWeight,
+        _settings.titleWeight,
+      ),
+      tagWeight: _double(
+        _tagWeight,
+        KnowledgeBaseSettingRanges.tagWeight,
+        _settings.tagWeight,
+      ),
+      timeWeight: _double(
+        _timeWeight,
+        KnowledgeBaseSettingRanges.timeWeight,
+        _settings.timeWeight,
+      ),
       exactPhraseWeight: _double(
         _exactPhraseWeight,
+        KnowledgeBaseSettingRanges.exactPhraseWeight,
         _settings.exactPhraseWeight,
       ),
       sourceQualityWeight: _double(
         _sourceQualityWeight,
+        KnowledgeBaseSettingRanges.sourceQualityWeight,
         _settings.sourceQualityWeight,
       ),
-      mmrLambda: _double(_mmrLambda, _settings.mmrLambda),
+      mmrLambda: _double(
+        _mmrLambda,
+        KnowledgeBaseSettingRanges.mmrLambda,
+        _settings.mmrLambda,
+      ),
       maxChunksPerSource: _int(
         _maxChunksPerSource,
+        KnowledgeBaseSettingRanges.maxChunksPerSource,
         _settings.maxChunksPerSource,
       ),
-      rerankTopN: _int(_rerankTopN, _settings.rerankTopN),
+      rerankTopN: _int(
+        _rerankTopN,
+        KnowledgeBaseSettingRanges.rerankTopN,
+        _settings.rerankTopN,
+      ),
       rerankTimeoutSeconds: _int(
         _rerankTimeout,
+        KnowledgeBaseSettingRanges.rerankTimeoutSeconds,
         _settings.rerankTimeoutSeconds,
       ),
-      maxPromptChunks: _int(_maxPromptChunks, _settings.maxPromptChunks),
-      maxPromptTokens: _int(_maxPromptTokens, _settings.maxPromptTokens),
+      maxPromptChunks: _int(
+        _maxPromptChunks,
+        KnowledgeBaseSettingRanges.maxPromptChunks,
+        _settings.maxPromptChunks,
+      ),
+      maxPromptTokens: _int(
+        _maxPromptTokens,
+        KnowledgeBaseSettingRanges.maxPromptTokens,
+        _settings.maxPromptTokens,
+      ),
       qdrantMetricsRefreshSeconds: _int(
         _qdrantMetricsRefreshSeconds,
+        KnowledgeBaseSettingRanges.qdrantMetricsRefreshSeconds,
         _settings.qdrantMetricsRefreshSeconds,
       ),
       qdrantLogRetainLines: _int(
         _qdrantLogRetainLines,
+        KnowledgeBaseSettingRanges.qdrantLogRetainLines,
         _settings.qdrantLogRetainLines,
       ),
       exposeReadonlyTools: settingsController.knowledgeBuiltinToolsEnabled,

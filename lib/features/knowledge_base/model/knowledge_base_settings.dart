@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import '../../../shared/net/tcp_port_utils.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/reader_file_type.dart';
 
@@ -8,6 +9,207 @@ const _skipDualCapabilityRerankJsonKey =
 final RegExp _knowledgeCollectionNameUnsafeCharsPattern = RegExp(
   r'[^a-zA-Z0-9_]+',
 );
+
+class KnowledgeBaseSettingRanges {
+  const KnowledgeBaseSettingRanges._();
+
+  static const int defaultDimensions = 1536;
+  static const int defaultMaxInputTokens = 8192;
+  static const int defaultBatchSize = 16;
+  static const int defaultRequestTimeoutSeconds = 60;
+  static const int defaultRetryCount = 2;
+  static const int defaultRetryBackoffMs = 800;
+  static const int defaultConcurrentRequests = 2;
+  static const String defaultQdrantHost = '127.0.0.1';
+  static const int defaultQdrantRestPort = 6333;
+  static const int defaultQdrantGrpcPort = 6334;
+  static const int defaultHnswM = 16;
+  static const int defaultHnswEfConstruct = 100;
+  static const int defaultSearchEf = 64;
+  static const int defaultMaxFileSizeMb = 50;
+  static const int defaultTargetTokens = 700;
+  static const int defaultHardMaxTokens = 1200;
+  static const int defaultOverlapTokens = 120;
+  static const int defaultTopN = 80;
+  static const int defaultTopK = 6;
+  static const double defaultMinSimilarity = 0.25;
+  static const int defaultSourceCap = 3;
+  static const double defaultVectorWeight = 0.65;
+  static const double defaultTitleWeight = 0.10;
+  static const double defaultTagWeight = 0.10;
+  static const double defaultTimeWeight = 0.08;
+  static const double defaultExactPhraseWeight = 0.05;
+  static const double defaultSourceQualityWeight = 0.02;
+  static const double defaultMmrLambda = 0.72;
+  static const int defaultMaxChunksPerSource = 3;
+  static const int defaultRerankTopN = 24;
+  static const int defaultRerankTimeoutSeconds = 30;
+  static const int defaultMaxPromptChunks = 6;
+  static const int defaultMaxPromptTokens = 6000;
+  static const int defaultQdrantMetricsRefreshSeconds = 10;
+  static const int defaultQdrantLogRetainLines = 300;
+
+  static const IntValueRange dimensions = IntValueRange(
+    fallback: defaultDimensions,
+    min: 1,
+    max: 65536,
+  );
+  static const IntValueRange maxInputTokens = IntValueRange(
+    fallback: defaultMaxInputTokens,
+    min: 1,
+    max: 2000000,
+  );
+  static const IntValueRange batchSize = IntValueRange(
+    fallback: defaultBatchSize,
+    min: 1,
+    max: 1024,
+  );
+  static const IntValueRange requestTimeoutSeconds = IntValueRange(
+    fallback: defaultRequestTimeoutSeconds,
+    min: 1,
+    max: 86400,
+  );
+  static const IntValueRange retryCount = IntValueRange(
+    fallback: defaultRetryCount,
+    min: 0,
+    max: 20,
+  );
+  static const IntValueRange retryBackoffMs = IntValueRange(
+    fallback: defaultRetryBackoffMs,
+    min: 1,
+    max: 300000,
+  );
+  static const IntValueRange concurrentRequests = IntValueRange(
+    fallback: defaultConcurrentRequests,
+    min: 1,
+    max: 64,
+  );
+  static const IntValueRange hnswM = IntValueRange(
+    fallback: defaultHnswM,
+    min: 1,
+    max: 4096,
+  );
+  static const IntValueRange hnswEfConstruct = IntValueRange(
+    fallback: defaultHnswEfConstruct,
+    min: 1,
+    max: 1000000,
+  );
+  static const IntValueRange searchEf = IntValueRange(
+    fallback: defaultSearchEf,
+    min: 1,
+    max: 1000000,
+  );
+  static const IntValueRange maxFileSizeMb = IntValueRange(
+    fallback: defaultMaxFileSizeMb,
+    min: 1,
+    max: 10240,
+  );
+  static const IntValueRange targetTokens = IntValueRange(
+    fallback: defaultTargetTokens,
+    min: 1,
+    max: 1000000,
+  );
+  static const IntValueRange hardMaxTokens = IntValueRange(
+    fallback: defaultHardMaxTokens,
+    min: 1,
+    max: 1000000,
+  );
+  static const IntValueRange overlapTokens = IntValueRange(
+    fallback: defaultOverlapTokens,
+    min: 0,
+    max: 1000000,
+  );
+  static const IntValueRange topN = IntValueRange(
+    fallback: defaultTopN,
+    min: 1,
+    max: 10000,
+  );
+  static const IntValueRange topK = IntValueRange(
+    fallback: defaultTopK,
+    min: 1,
+    max: 10000,
+  );
+  static const DoubleValueRange minSimilarity = DoubleValueRange(
+    fallback: defaultMinSimilarity,
+    min: 0,
+    max: 1,
+  );
+  static const IntValueRange sourceCap = IntValueRange(
+    fallback: defaultSourceCap,
+    min: 1,
+    max: 10000,
+  );
+  static const DoubleValueRange vectorWeight = DoubleValueRange(
+    fallback: defaultVectorWeight,
+    min: 0,
+    max: 100,
+  );
+  static const DoubleValueRange titleWeight = DoubleValueRange(
+    fallback: defaultTitleWeight,
+    min: 0,
+    max: 100,
+  );
+  static const DoubleValueRange tagWeight = DoubleValueRange(
+    fallback: defaultTagWeight,
+    min: 0,
+    max: 100,
+  );
+  static const DoubleValueRange timeWeight = DoubleValueRange(
+    fallback: defaultTimeWeight,
+    min: 0,
+    max: 100,
+  );
+  static const DoubleValueRange exactPhraseWeight = DoubleValueRange(
+    fallback: defaultExactPhraseWeight,
+    min: 0,
+    max: 100,
+  );
+  static const DoubleValueRange sourceQualityWeight = DoubleValueRange(
+    fallback: defaultSourceQualityWeight,
+    min: 0,
+    max: 100,
+  );
+  static const DoubleValueRange mmrLambda = DoubleValueRange(
+    fallback: defaultMmrLambda,
+    min: 0,
+    max: 1,
+  );
+  static const IntValueRange maxChunksPerSource = IntValueRange(
+    fallback: defaultMaxChunksPerSource,
+    min: 1,
+    max: 10000,
+  );
+  static const IntValueRange rerankTopN = IntValueRange(
+    fallback: defaultRerankTopN,
+    min: 1,
+    max: 10000,
+  );
+  static const IntValueRange rerankTimeoutSeconds = IntValueRange(
+    fallback: defaultRerankTimeoutSeconds,
+    min: 1,
+    max: 86400,
+  );
+  static const IntValueRange maxPromptChunks = IntValueRange(
+    fallback: defaultMaxPromptChunks,
+    min: 1,
+    max: 10000,
+  );
+  static const IntValueRange maxPromptTokens = IntValueRange(
+    fallback: defaultMaxPromptTokens,
+    min: 1,
+    max: 10000000,
+  );
+  static const IntValueRange qdrantMetricsRefreshSeconds = IntValueRange(
+    fallback: defaultQdrantMetricsRefreshSeconds,
+    min: 1,
+    max: 86400,
+  );
+  static const IntValueRange qdrantLogRetainLines = IntValueRange(
+    fallback: defaultQdrantLogRetainLines,
+    min: 1,
+    max: 1000000,
+  );
+}
 
 String _normalizeKnownValue(
   String value, {
@@ -210,28 +412,30 @@ class KnowledgeBaseSettings {
     this.providerConfigId = '',
     this.modelId = '',
     this.displayName = '',
-    this.dimensions = 1536,
-    this.maxInputTokens = 8192,
-    this.batchSize = 16,
-    this.requestTimeoutSeconds = 60,
-    this.retryCount = 2,
-    this.retryBackoffMs = 800,
-    this.concurrentRequests = 2,
+    this.dimensions = KnowledgeBaseSettingRanges.defaultDimensions,
+    this.maxInputTokens = KnowledgeBaseSettingRanges.defaultMaxInputTokens,
+    this.batchSize = KnowledgeBaseSettingRanges.defaultBatchSize,
+    this.requestTimeoutSeconds =
+        KnowledgeBaseSettingRanges.defaultRequestTimeoutSeconds,
+    this.retryCount = KnowledgeBaseSettingRanges.defaultRetryCount,
+    this.retryBackoffMs = KnowledgeBaseSettingRanges.defaultRetryBackoffMs,
+    this.concurrentRequests =
+        KnowledgeBaseSettingRanges.defaultConcurrentRequests,
     this.allowDocumentCloudEmbedding = false,
     this.allowQueryCloudEmbedding = false,
     this.vectorStoreType = 'qdrant',
-    this.qdrantHost = '127.0.0.1',
-    this.qdrantRestPort = 6333,
-    this.qdrantGrpcPort = 6334,
+    this.qdrantHost = KnowledgeBaseSettingRanges.defaultQdrantHost,
+    this.qdrantRestPort = KnowledgeBaseSettingRanges.defaultQdrantRestPort,
+    this.qdrantGrpcPort = KnowledgeBaseSettingRanges.defaultQdrantGrpcPort,
     this.collectionName = '',
     this.distanceMetric = KnowledgeDistanceMetric.cosine,
-    this.hnswM = 16,
-    this.hnswEfConstruct = 100,
-    this.searchEf = 64,
+    this.hnswM = KnowledgeBaseSettingRanges.defaultHnswM,
+    this.hnswEfConstruct = KnowledgeBaseSettingRanges.defaultHnswEfConstruct,
+    this.searchEf = KnowledgeBaseSettingRanges.defaultSearchEf,
     this.autoStartSidecar = false,
     this.copyImportedFiles = true,
     this.watchOriginalFiles = false,
-    this.maxFileSizeMb = 50,
+    this.maxFileSizeMb = KnowledgeBaseSettingRanges.defaultMaxFileSizeMb,
     this.documentParsingEngine = 'auto',
     this.officeParsingEngine = 'open_xml',
     this.pdfParsingEngine = 'basic_text_stream',
@@ -241,9 +445,9 @@ class KnowledgeBaseSettings {
     this.presentationParsingMode = 'slide_text',
     this.readerParserRules = const <String, KnowledgeReaderParserRule>{},
     this.chunkStrategy = KnowledgeChunkStrategy.markdownHeadingRecursive,
-    this.targetTokens = 700,
-    this.hardMaxTokens = 1200,
-    this.overlapTokens = 120,
+    this.targetTokens = KnowledgeBaseSettingRanges.defaultTargetTokens,
+    this.hardMaxTokens = KnowledgeBaseSettingRanges.defaultHardMaxTokens,
+    this.overlapTokens = KnowledgeBaseSettingRanges.defaultOverlapTokens,
     this.parentChildEnabled = true,
     this.autoPathTags = true,
     this.autoFrontMatterTags = true,
@@ -251,32 +455,36 @@ class KnowledgeBaseSettings {
     this.defaultDocumentTimeSource = 'front_matter',
     this.parseNaturalLanguageTime = true,
     this.recencyBoostEnabled = true,
-    this.topN = 80,
-    this.topK = 6,
-    this.minSimilarity = 0.25,
-    this.sourceCap = 3,
+    this.topN = KnowledgeBaseSettingRanges.defaultTopN,
+    this.topK = KnowledgeBaseSettingRanges.defaultTopK,
+    this.minSimilarity = KnowledgeBaseSettingRanges.defaultMinSimilarity,
+    this.sourceCap = KnowledgeBaseSettingRanges.defaultSourceCap,
     this.tagFilterMode = KnowledgeTagFilterMode.any,
     this.dateFilterMode = KnowledgeDateFilterMode.hardWhenExplicit,
-    this.vectorWeight = 0.65,
-    this.titleWeight = 0.10,
-    this.tagWeight = 0.10,
-    this.timeWeight = 0.08,
-    this.exactPhraseWeight = 0.05,
-    this.sourceQualityWeight = 0.02,
+    this.vectorWeight = KnowledgeBaseSettingRanges.defaultVectorWeight,
+    this.titleWeight = KnowledgeBaseSettingRanges.defaultTitleWeight,
+    this.tagWeight = KnowledgeBaseSettingRanges.defaultTagWeight,
+    this.timeWeight = KnowledgeBaseSettingRanges.defaultTimeWeight,
+    this.exactPhraseWeight =
+        KnowledgeBaseSettingRanges.defaultExactPhraseWeight,
+    this.sourceQualityWeight =
+        KnowledgeBaseSettingRanges.defaultSourceQualityWeight,
     this.mmrEnabled = true,
-    this.mmrLambda = 0.72,
+    this.mmrLambda = KnowledgeBaseSettingRanges.defaultMmrLambda,
     this.neighborExpansionEnabled = true,
     this.parentExpansionEnabled = true,
-    this.maxChunksPerSource = 3,
+    this.maxChunksPerSource =
+        KnowledgeBaseSettingRanges.defaultMaxChunksPerSource,
     this.cloudRerankEnabled = false,
     this.rerankMode = KnowledgeRerankMode.localHybrid,
     this.rerankProviderConfigId = '',
     this.rerankModelId = '',
     this.skipModelRerankWhenEmbeddingSupportsRerank = false,
-    this.rerankTopN = 24,
-    this.rerankTimeoutSeconds = 30,
-    this.maxPromptChunks = 6,
-    this.maxPromptTokens = 6000,
+    this.rerankTopN = KnowledgeBaseSettingRanges.defaultRerankTopN,
+    this.rerankTimeoutSeconds =
+        KnowledgeBaseSettingRanges.defaultRerankTimeoutSeconds,
+    this.maxPromptChunks = KnowledgeBaseSettingRanges.defaultMaxPromptChunks,
+    this.maxPromptTokens = KnowledgeBaseSettingRanges.defaultMaxPromptTokens,
     this.includeScore = true,
     this.includeTags = true,
     this.includeDate = true,
@@ -288,8 +496,10 @@ class KnowledgeBaseSettings {
     this.showPreviewBeforeSend = false,
     this.cacheQueryEmbedding = true,
     this.exposeReadonlyTools = true,
-    this.qdrantMetricsRefreshSeconds = 10,
-    this.qdrantLogRetainLines = 300,
+    this.qdrantMetricsRefreshSeconds =
+        KnowledgeBaseSettingRanges.defaultQdrantMetricsRefreshSeconds,
+    this.qdrantLogRetainLines =
+        KnowledgeBaseSettingRanges.defaultQdrantLogRetainLines,
     this.enableDangerousAdminOperations = false,
   });
 
@@ -303,36 +513,80 @@ class KnowledgeBaseSettings {
             : KnowledgeRerankMode.localHybrid,
       ),
     );
+    final targetTokens = KnowledgeBaseSettingRanges.targetTokens.fromValue(
+      json['target_tokens'],
+    );
+    final hardMaxTokens = _normalizeHardMaxTokens(
+      KnowledgeBaseSettingRanges.hardMaxTokens.fromValue(
+        json['hard_max_tokens'],
+      ),
+      targetTokens: targetTokens,
+    );
+    final overlapTokens = _normalizeOverlapTokens(
+      KnowledgeBaseSettingRanges.overlapTokens.fromValue(
+        json['overlap_tokens'],
+      ),
+      targetTokens: targetTokens,
+    );
+    final topN = KnowledgeBaseSettingRanges.topN.fromValue(json['top_n']);
+    final topK = _normalizeTopK(
+      KnowledgeBaseSettingRanges.topK.fromValue(json['top_k']),
+      topN: topN,
+    );
     return KnowledgeBaseSettings(
       providerConfigId: _string(json['provider_config_id']),
       modelId: _string(json['model_id']),
       displayName: _string(json['display_name']),
-      dimensions: _positiveInt(json['dimensions'], 1536),
-      maxInputTokens: _positiveInt(json['max_input_tokens'], 8192),
-      batchSize: _positiveInt(json['batch_size'], 16),
-      requestTimeoutSeconds: _positiveInt(json['request_timeout_seconds'], 60),
-      retryCount: _nonNegativeInt(json['retry_count'], 2),
-      retryBackoffMs: _positiveInt(json['retry_backoff_ms'], 800),
-      concurrentRequests: _positiveInt(json['concurrent_requests'], 2),
+      dimensions: KnowledgeBaseSettingRanges.dimensions.fromValue(
+        json['dimensions'],
+      ),
+      maxInputTokens: KnowledgeBaseSettingRanges.maxInputTokens.fromValue(
+        json['max_input_tokens'],
+      ),
+      batchSize: KnowledgeBaseSettingRanges.batchSize.fromValue(
+        json['batch_size'],
+      ),
+      requestTimeoutSeconds: KnowledgeBaseSettingRanges.requestTimeoutSeconds
+          .fromValue(json['request_timeout_seconds']),
+      retryCount: KnowledgeBaseSettingRanges.retryCount.fromValue(
+        json['retry_count'],
+      ),
+      retryBackoffMs: KnowledgeBaseSettingRanges.retryBackoffMs.fromValue(
+        json['retry_backoff_ms'],
+      ),
+      concurrentRequests: KnowledgeBaseSettingRanges.concurrentRequests
+          .fromValue(json['concurrent_requests']),
       allowDocumentCloudEmbedding: _bool(
         json['allow_document_cloud_embedding'],
       ),
       allowQueryCloudEmbedding: _bool(json['allow_query_cloud_embedding']),
       vectorStoreType: _string(json['vector_store_type'], 'qdrant'),
-      qdrantHost: _string(json['qdrant_host'], '127.0.0.1'),
-      qdrantRestPort: _positiveInt(json['qdrant_rest_port'], 6333),
-      qdrantGrpcPort: _positiveInt(json['qdrant_grpc_port'], 6334),
+      qdrantHost: normalizeQdrantHost(json['qdrant_host']),
+      qdrantRestPort: tcpPortFromValueOr(
+        json['qdrant_rest_port'],
+        fallback: KnowledgeBaseSettingRanges.defaultQdrantRestPort,
+      ),
+      qdrantGrpcPort: tcpPortFromValueOr(
+        json['qdrant_grpc_port'],
+        fallback: KnowledgeBaseSettingRanges.defaultQdrantGrpcPort,
+      ),
       collectionName: _string(json['collection_name']),
       distanceMetric: KnowledgeDistanceMetric.normalize(
         _string(json['distance_metric'], KnowledgeDistanceMetric.cosine),
       ),
-      hnswM: _positiveInt(json['hnsw_m'], 16),
-      hnswEfConstruct: _positiveInt(json['hnsw_ef_construct'], 100),
-      searchEf: _positiveInt(json['search_ef'], 64),
+      hnswM: KnowledgeBaseSettingRanges.hnswM.fromValue(json['hnsw_m']),
+      hnswEfConstruct: KnowledgeBaseSettingRanges.hnswEfConstruct.fromValue(
+        json['hnsw_ef_construct'],
+      ),
+      searchEf: KnowledgeBaseSettingRanges.searchEf.fromValue(
+        json['search_ef'],
+      ),
       autoStartSidecar: _bool(json['auto_start_sidecar']),
       copyImportedFiles: _bool(json['copy_imported_files'], true),
       watchOriginalFiles: _bool(json['watch_original_files']),
-      maxFileSizeMb: _positiveInt(json['max_file_size_mb'], 50),
+      maxFileSizeMb: KnowledgeBaseSettingRanges.maxFileSizeMb.fromValue(
+        json['max_file_size_mb'],
+      ),
       documentParsingEngine: _string(json['document_parsing_engine'], 'auto'),
       officeParsingEngine: _string(json['office_parsing_engine'], 'open_xml'),
       pdfParsingEngine: _string(
@@ -359,9 +613,9 @@ class KnowledgeBaseSettings {
           KnowledgeChunkStrategy.markdownHeadingRecursive,
         ),
       ),
-      targetTokens: _positiveInt(json['target_tokens'], 700),
-      hardMaxTokens: _positiveInt(json['hard_max_tokens'], 1200),
-      overlapTokens: _nonNegativeInt(json['overlap_tokens'], 120),
+      targetTokens: targetTokens,
+      hardMaxTokens: hardMaxTokens,
+      overlapTokens: overlapTokens,
       parentChildEnabled: _bool(json['parent_child_enabled'], true),
       autoPathTags: _bool(json['auto_path_tags'], true),
       autoFrontMatterTags: _bool(json['auto_front_matter_tags'], true),
@@ -375,10 +629,14 @@ class KnowledgeBaseSettings {
         true,
       ),
       recencyBoostEnabled: _bool(json['recency_boost_enabled'], true),
-      topN: _positiveInt(json['top_n'], 80),
-      topK: _positiveInt(json['top_k'], 6),
-      minSimilarity: _double(json['min_similarity'], 0.25),
-      sourceCap: _positiveInt(json['source_cap'], 3),
+      topN: topN,
+      topK: topK,
+      minSimilarity: KnowledgeBaseSettingRanges.minSimilarity.fromValue(
+        json['min_similarity'],
+      ),
+      sourceCap: KnowledgeBaseSettingRanges.sourceCap.fromValue(
+        json['source_cap'],
+      ),
       tagFilterMode: KnowledgeTagFilterMode.normalize(
         _string(json['tag_filter_mode'], KnowledgeTagFilterMode.any),
       ),
@@ -388,17 +646,31 @@ class KnowledgeBaseSettings {
           KnowledgeDateFilterMode.hardWhenExplicit,
         ),
       ),
-      vectorWeight: _double(json['vector_weight'], 0.65),
-      titleWeight: _double(json['title_weight'], 0.10),
-      tagWeight: _double(json['tag_weight'], 0.10),
-      timeWeight: _double(json['time_weight'], 0.08),
-      exactPhraseWeight: _double(json['exact_phrase_weight'], 0.05),
-      sourceQualityWeight: _double(json['source_quality_weight'], 0.02),
+      vectorWeight: KnowledgeBaseSettingRanges.vectorWeight.fromValue(
+        json['vector_weight'],
+      ),
+      titleWeight: KnowledgeBaseSettingRanges.titleWeight.fromValue(
+        json['title_weight'],
+      ),
+      tagWeight: KnowledgeBaseSettingRanges.tagWeight.fromValue(
+        json['tag_weight'],
+      ),
+      timeWeight: KnowledgeBaseSettingRanges.timeWeight.fromValue(
+        json['time_weight'],
+      ),
+      exactPhraseWeight: KnowledgeBaseSettingRanges.exactPhraseWeight.fromValue(
+        json['exact_phrase_weight'],
+      ),
+      sourceQualityWeight: KnowledgeBaseSettingRanges.sourceQualityWeight
+          .fromValue(json['source_quality_weight']),
       mmrEnabled: _bool(json['mmr_enabled'], true),
-      mmrLambda: _double(json['mmr_lambda'], 0.72),
+      mmrLambda: KnowledgeBaseSettingRanges.mmrLambda.fromValue(
+        json['mmr_lambda'],
+      ),
       neighborExpansionEnabled: _bool(json['neighbor_expansion_enabled'], true),
       parentExpansionEnabled: _bool(json['parent_expansion_enabled'], true),
-      maxChunksPerSource: _positiveInt(json['max_chunks_per_source'], 3),
+      maxChunksPerSource: KnowledgeBaseSettingRanges.maxChunksPerSource
+          .fromValue(json['max_chunks_per_source']),
       cloudRerankEnabled:
           parsedRerankMode == KnowledgeRerankMode.model ||
           legacyCloudRerankEnabled,
@@ -411,10 +683,17 @@ class KnowledgeBaseSettings {
       skipModelRerankWhenEmbeddingSupportsRerank: _bool(
         json[_skipDualCapabilityRerankJsonKey],
       ),
-      rerankTopN: _positiveInt(json['rerank_top_n'], 24),
-      rerankTimeoutSeconds: _positiveInt(json['rerank_timeout_seconds'], 30),
-      maxPromptChunks: _positiveInt(json['max_prompt_chunks'], 6),
-      maxPromptTokens: _positiveInt(json['max_prompt_tokens'], 6000),
+      rerankTopN: KnowledgeBaseSettingRanges.rerankTopN.fromValue(
+        json['rerank_top_n'],
+      ),
+      rerankTimeoutSeconds: KnowledgeBaseSettingRanges.rerankTimeoutSeconds
+          .fromValue(json['rerank_timeout_seconds']),
+      maxPromptChunks: KnowledgeBaseSettingRanges.maxPromptChunks.fromValue(
+        json['max_prompt_chunks'],
+      ),
+      maxPromptTokens: KnowledgeBaseSettingRanges.maxPromptTokens.fromValue(
+        json['max_prompt_tokens'],
+      ),
       includeScore: _bool(json['include_score'], true),
       includeTags: _bool(json['include_tags'], true),
       includeDate: _bool(json['include_date'], true),
@@ -433,11 +712,11 @@ class KnowledgeBaseSettings {
       showPreviewBeforeSend: _bool(json['show_preview_before_send']),
       cacheQueryEmbedding: _bool(json['cache_query_embedding'], true),
       exposeReadonlyTools: _bool(json['expose_readonly_tools'], true),
-      qdrantMetricsRefreshSeconds: _positiveInt(
-        json['qdrant_metrics_refresh_seconds'],
-        10,
-      ),
-      qdrantLogRetainLines: _positiveInt(json['qdrant_log_retain_lines'], 300),
+      qdrantMetricsRefreshSeconds: KnowledgeBaseSettingRanges
+          .qdrantMetricsRefreshSeconds
+          .fromValue(json['qdrant_metrics_refresh_seconds']),
+      qdrantLogRetainLines: KnowledgeBaseSettingRanges.qdrantLogRetainLines
+          .fromValue(json['qdrant_log_retain_lines']),
       enableDangerousAdminOperations: _bool(
         json['enable_dangerous_admin_operations'],
       ),
@@ -552,7 +831,14 @@ class KnowledgeBaseSettings {
     return 'openhand_knowledge_$raw';
   }
 
-  Uri get qdrantBaseUri => Uri.parse('http://$qdrantHost:$qdrantRestPort');
+  Uri get qdrantBaseUri => Uri(
+    scheme: 'http',
+    host: normalizeQdrantHost(qdrantHost),
+    port: tcpPortFromValueOr(
+      qdrantRestPort,
+      fallback: KnowledgeBaseSettingRanges.defaultQdrantRestPort,
+    ),
+  );
 
   KnowledgeBaseSettings copyWith({
     String? providerConfigId,
@@ -641,37 +927,82 @@ class KnowledgeBaseSettings {
     bool? enableDangerousAdminOperations,
   }) {
     final nextRerankMode = rerankMode ?? this.rerankMode;
+    final nextTargetTokens = KnowledgeBaseSettingRanges.targetTokens.normalize(
+      targetTokens ?? this.targetTokens,
+    );
+    final nextHardMaxTokens = _normalizeHardMaxTokens(
+      KnowledgeBaseSettingRanges.hardMaxTokens.normalize(
+        hardMaxTokens ?? this.hardMaxTokens,
+      ),
+      targetTokens: nextTargetTokens,
+    );
+    final nextOverlapTokens = _normalizeOverlapTokens(
+      KnowledgeBaseSettingRanges.overlapTokens.normalize(
+        overlapTokens ?? this.overlapTokens,
+      ),
+      targetTokens: nextTargetTokens,
+    );
+    final nextTopN = KnowledgeBaseSettingRanges.topN.normalize(
+      topN ?? this.topN,
+    );
+    final nextTopK = _normalizeTopK(
+      KnowledgeBaseSettingRanges.topK.normalize(topK ?? this.topK),
+      topN: nextTopN,
+    );
     return KnowledgeBaseSettings(
       providerConfigId: providerConfigId ?? this.providerConfigId,
       modelId: modelId ?? this.modelId,
       displayName: displayName ?? this.displayName,
-      dimensions: dimensions ?? this.dimensions,
-      maxInputTokens: maxInputTokens ?? this.maxInputTokens,
-      batchSize: batchSize ?? this.batchSize,
-      requestTimeoutSeconds:
-          requestTimeoutSeconds ?? this.requestTimeoutSeconds,
-      retryCount: retryCount ?? this.retryCount,
-      retryBackoffMs: retryBackoffMs ?? this.retryBackoffMs,
-      concurrentRequests: concurrentRequests ?? this.concurrentRequests,
+      dimensions: KnowledgeBaseSettingRanges.dimensions.normalize(
+        dimensions ?? this.dimensions,
+      ),
+      maxInputTokens: KnowledgeBaseSettingRanges.maxInputTokens.normalize(
+        maxInputTokens ?? this.maxInputTokens,
+      ),
+      batchSize: KnowledgeBaseSettingRanges.batchSize.normalize(
+        batchSize ?? this.batchSize,
+      ),
+      requestTimeoutSeconds: KnowledgeBaseSettingRanges.requestTimeoutSeconds
+          .normalize(requestTimeoutSeconds ?? this.requestTimeoutSeconds),
+      retryCount: KnowledgeBaseSettingRanges.retryCount.normalize(
+        retryCount ?? this.retryCount,
+      ),
+      retryBackoffMs: KnowledgeBaseSettingRanges.retryBackoffMs.normalize(
+        retryBackoffMs ?? this.retryBackoffMs,
+      ),
+      concurrentRequests: KnowledgeBaseSettingRanges.concurrentRequests
+          .normalize(concurrentRequests ?? this.concurrentRequests),
       allowDocumentCloudEmbedding:
           allowDocumentCloudEmbedding ?? this.allowDocumentCloudEmbedding,
       allowQueryCloudEmbedding:
           allowQueryCloudEmbedding ?? this.allowQueryCloudEmbedding,
       vectorStoreType: vectorStoreType ?? this.vectorStoreType,
-      qdrantHost: qdrantHost ?? this.qdrantHost,
-      qdrantRestPort: qdrantRestPort ?? this.qdrantRestPort,
-      qdrantGrpcPort: qdrantGrpcPort ?? this.qdrantGrpcPort,
+      qdrantHost: normalizeQdrantHost(qdrantHost ?? this.qdrantHost),
+      qdrantRestPort: tcpPortFromValueOr(
+        qdrantRestPort ?? this.qdrantRestPort,
+        fallback: KnowledgeBaseSettingRanges.defaultQdrantRestPort,
+      ),
+      qdrantGrpcPort: tcpPortFromValueOr(
+        qdrantGrpcPort ?? this.qdrantGrpcPort,
+        fallback: KnowledgeBaseSettingRanges.defaultQdrantGrpcPort,
+      ),
       collectionName: collectionName ?? this.collectionName,
       distanceMetric: distanceMetric == null
           ? this.distanceMetric
           : KnowledgeDistanceMetric.normalize(distanceMetric),
-      hnswM: hnswM ?? this.hnswM,
-      hnswEfConstruct: hnswEfConstruct ?? this.hnswEfConstruct,
-      searchEf: searchEf ?? this.searchEf,
+      hnswM: KnowledgeBaseSettingRanges.hnswM.normalize(hnswM ?? this.hnswM),
+      hnswEfConstruct: KnowledgeBaseSettingRanges.hnswEfConstruct.normalize(
+        hnswEfConstruct ?? this.hnswEfConstruct,
+      ),
+      searchEf: KnowledgeBaseSettingRanges.searchEf.normalize(
+        searchEf ?? this.searchEf,
+      ),
       autoStartSidecar: autoStartSidecar ?? this.autoStartSidecar,
       copyImportedFiles: copyImportedFiles ?? this.copyImportedFiles,
       watchOriginalFiles: watchOriginalFiles ?? this.watchOriginalFiles,
-      maxFileSizeMb: maxFileSizeMb ?? this.maxFileSizeMb,
+      maxFileSizeMb: KnowledgeBaseSettingRanges.maxFileSizeMb.normalize(
+        maxFileSizeMb ?? this.maxFileSizeMb,
+      ),
       documentParsingEngine:
           documentParsingEngine ?? this.documentParsingEngine,
       officeParsingEngine: officeParsingEngine ?? this.officeParsingEngine,
@@ -689,9 +1020,9 @@ class KnowledgeBaseSettings {
       chunkStrategy: chunkStrategy == null
           ? this.chunkStrategy
           : KnowledgeChunkStrategy.normalize(chunkStrategy),
-      targetTokens: targetTokens ?? this.targetTokens,
-      hardMaxTokens: hardMaxTokens ?? this.hardMaxTokens,
-      overlapTokens: overlapTokens ?? this.overlapTokens,
+      targetTokens: nextTargetTokens,
+      hardMaxTokens: nextHardMaxTokens,
+      overlapTokens: nextOverlapTokens,
       parentChildEnabled: parentChildEnabled ?? this.parentChildEnabled,
       autoPathTags: autoPathTags ?? this.autoPathTags,
       autoFrontMatterTags: autoFrontMatterTags ?? this.autoFrontMatterTags,
@@ -701,29 +1032,47 @@ class KnowledgeBaseSettings {
       parseNaturalLanguageTime:
           parseNaturalLanguageTime ?? this.parseNaturalLanguageTime,
       recencyBoostEnabled: recencyBoostEnabled ?? this.recencyBoostEnabled,
-      topN: topN ?? this.topN,
-      topK: topK ?? this.topK,
-      minSimilarity: minSimilarity ?? this.minSimilarity,
-      sourceCap: sourceCap ?? this.sourceCap,
+      topN: nextTopN,
+      topK: nextTopK,
+      minSimilarity: KnowledgeBaseSettingRanges.minSimilarity.normalize(
+        minSimilarity ?? this.minSimilarity,
+      ),
+      sourceCap: KnowledgeBaseSettingRanges.sourceCap.normalize(
+        sourceCap ?? this.sourceCap,
+      ),
       tagFilterMode: tagFilterMode == null
           ? this.tagFilterMode
           : KnowledgeTagFilterMode.normalize(tagFilterMode),
       dateFilterMode: dateFilterMode == null
           ? this.dateFilterMode
           : KnowledgeDateFilterMode.normalize(dateFilterMode),
-      vectorWeight: vectorWeight ?? this.vectorWeight,
-      titleWeight: titleWeight ?? this.titleWeight,
-      tagWeight: tagWeight ?? this.tagWeight,
-      timeWeight: timeWeight ?? this.timeWeight,
-      exactPhraseWeight: exactPhraseWeight ?? this.exactPhraseWeight,
-      sourceQualityWeight: sourceQualityWeight ?? this.sourceQualityWeight,
+      vectorWeight: KnowledgeBaseSettingRanges.vectorWeight.normalize(
+        vectorWeight ?? this.vectorWeight,
+      ),
+      titleWeight: KnowledgeBaseSettingRanges.titleWeight.normalize(
+        titleWeight ?? this.titleWeight,
+      ),
+      tagWeight: KnowledgeBaseSettingRanges.tagWeight.normalize(
+        tagWeight ?? this.tagWeight,
+      ),
+      timeWeight: KnowledgeBaseSettingRanges.timeWeight.normalize(
+        timeWeight ?? this.timeWeight,
+      ),
+      exactPhraseWeight: KnowledgeBaseSettingRanges.exactPhraseWeight.normalize(
+        exactPhraseWeight ?? this.exactPhraseWeight,
+      ),
+      sourceQualityWeight: KnowledgeBaseSettingRanges.sourceQualityWeight
+          .normalize(sourceQualityWeight ?? this.sourceQualityWeight),
       mmrEnabled: mmrEnabled ?? this.mmrEnabled,
-      mmrLambda: mmrLambda ?? this.mmrLambda,
+      mmrLambda: KnowledgeBaseSettingRanges.mmrLambda.normalize(
+        mmrLambda ?? this.mmrLambda,
+      ),
       neighborExpansionEnabled:
           neighborExpansionEnabled ?? this.neighborExpansionEnabled,
       parentExpansionEnabled:
           parentExpansionEnabled ?? this.parentExpansionEnabled,
-      maxChunksPerSource: maxChunksPerSource ?? this.maxChunksPerSource,
+      maxChunksPerSource: KnowledgeBaseSettingRanges.maxChunksPerSource
+          .normalize(maxChunksPerSource ?? this.maxChunksPerSource),
       cloudRerankEnabled:
           cloudRerankEnabled ?? (nextRerankMode == KnowledgeRerankMode.model),
       rerankMode: KnowledgeRerankMode.normalize(nextRerankMode),
@@ -733,10 +1082,17 @@ class KnowledgeBaseSettings {
       skipModelRerankWhenEmbeddingSupportsRerank:
           skipModelRerankWhenEmbeddingSupportsRerank ??
           this.skipModelRerankWhenEmbeddingSupportsRerank,
-      rerankTopN: rerankTopN ?? this.rerankTopN,
-      rerankTimeoutSeconds: rerankTimeoutSeconds ?? this.rerankTimeoutSeconds,
-      maxPromptChunks: maxPromptChunks ?? this.maxPromptChunks,
-      maxPromptTokens: maxPromptTokens ?? this.maxPromptTokens,
+      rerankTopN: KnowledgeBaseSettingRanges.rerankTopN.normalize(
+        rerankTopN ?? this.rerankTopN,
+      ),
+      rerankTimeoutSeconds: KnowledgeBaseSettingRanges.rerankTimeoutSeconds
+          .normalize(rerankTimeoutSeconds ?? this.rerankTimeoutSeconds),
+      maxPromptChunks: KnowledgeBaseSettingRanges.maxPromptChunks.normalize(
+        maxPromptChunks ?? this.maxPromptChunks,
+      ),
+      maxPromptTokens: KnowledgeBaseSettingRanges.maxPromptTokens.normalize(
+        maxPromptTokens ?? this.maxPromptTokens,
+      ),
       includeScore: includeScore ?? this.includeScore,
       includeTags: includeTags ?? this.includeTags,
       includeDate: includeDate ?? this.includeDate,
@@ -753,9 +1109,13 @@ class KnowledgeBaseSettings {
           showPreviewBeforeSend ?? this.showPreviewBeforeSend,
       cacheQueryEmbedding: cacheQueryEmbedding ?? this.cacheQueryEmbedding,
       exposeReadonlyTools: exposeReadonlyTools ?? this.exposeReadonlyTools,
-      qdrantMetricsRefreshSeconds:
-          qdrantMetricsRefreshSeconds ?? this.qdrantMetricsRefreshSeconds,
-      qdrantLogRetainLines: qdrantLogRetainLines ?? this.qdrantLogRetainLines,
+      qdrantMetricsRefreshSeconds: KnowledgeBaseSettingRanges
+          .qdrantMetricsRefreshSeconds
+          .normalize(
+            qdrantMetricsRefreshSeconds ?? this.qdrantMetricsRefreshSeconds,
+          ),
+      qdrantLogRetainLines: KnowledgeBaseSettingRanges.qdrantLogRetainLines
+          .normalize(qdrantLogRetainLines ?? this.qdrantLogRetainLines),
       enableDangerousAdminOperations:
           enableDangerousAdminOperations ?? this.enableDangerousAdminOperations,
     );
@@ -875,16 +1235,37 @@ class KnowledgeBaseSettings {
     return boolFromValue(value, defaultValue: fallback);
   }
 
-  static int _positiveInt(Object? value, int fallback) {
-    return positiveIntFromValue(value, fallback: fallback);
+  static String normalizeQdrantHost(
+    Object? value, {
+    String fallback = KnowledgeBaseSettingRanges.defaultQdrantHost,
+  }) {
+    final fallbackHost =
+        nullIfBlank(fallback) ?? KnowledgeBaseSettingRanges.defaultQdrantHost;
+    final raw = optionalStringFromValue(value);
+    if (raw == null) return fallbackHost;
+    final parsed = Uri.tryParse(raw);
+    if (parsed != null && parsed.hasScheme && parsed.host.isNotEmpty) {
+      return parsed.host;
+    }
+    final inferred = Uri.tryParse('http://$raw');
+    if (inferred != null && inferred.host.isNotEmpty) {
+      return inferred.host;
+    }
+    return raw;
   }
 
-  static int _nonNegativeInt(Object? value, int fallback) {
-    return nonNegativeIntFromValue(value, fallback: fallback);
+  static int _normalizeHardMaxTokens(int value, {required int targetTokens}) {
+    return value < targetTokens ? targetTokens : value;
   }
 
-  static double _double(Object? value, double fallback) {
-    return doubleFromValue(value, fallback: fallback);
+  static int _normalizeOverlapTokens(int value, {required int targetTokens}) {
+    if (targetTokens <= 1) return 0;
+    final maxOverlap = targetTokens - 1;
+    return value > maxOverlap ? maxOverlap : value;
+  }
+
+  static int _normalizeTopK(int value, {required int topN}) {
+    return value > topN ? topN : value;
   }
 
   static Map<String, KnowledgeReaderParserRule> _parseReaderParserRules(

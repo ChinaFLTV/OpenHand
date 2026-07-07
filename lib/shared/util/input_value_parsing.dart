@@ -619,6 +619,10 @@ class IntValueRange {
     return clampedIntFromValue(value, fallback: fallback, min: min, max: max);
   }
 
+  int fromValueOr(Object? value, {required int fallback}) {
+    return clampedIntFromValue(value, fallback: fallback, min: min, max: max);
+  }
+
   int normalize(int value) {
     return clampIntToRange(value, min: min, max: max);
   }
@@ -670,6 +674,15 @@ class DoubleValueRange {
   final double max;
 
   double fromValue(Object? value) {
+    return clampedDoubleFromValue(
+      value,
+      fallback: fallback,
+      min: min,
+      max: max,
+    );
+  }
+
+  double fromValueOr(Object? value, {required double fallback}) {
     return clampedDoubleFromValue(
       value,
       fallback: fallback,
