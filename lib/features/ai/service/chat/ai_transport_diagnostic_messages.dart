@@ -16,6 +16,7 @@
 // 注意：文案中刻意保留中英双语标题与建议，方便用户在多语种环境下都能
 // 抓到关键词（例如英文社区的 Cloudflare JA3 知识、HTTP 数字含义等）。
 
+import 'dart:async';
 import 'dart:io';
 
 import 'package:http/http.dart' as http;
@@ -25,8 +26,87 @@ import '../../../../shared/ui/structured_error_text.dart';
 class AiTransportDiagnosticMessages {
   AiTransportDiagnosticMessages._();
 
+  static const Set<int> defaultRetryableStatusCodes = <int>{
+    408,
+    409,
+    425,
+    429,
+    500,
+    502,
+    503,
+    504,
+  };
+
+  static const Set<String> _retryableTransportMessageMarkers = <String>{
+    'request timed out',
+    'timed out',
+    'timeout',
+    'rate limit',
+    'too many requests',
+    'resource_exhausted',
+    'overloaded',
+    'temporarily',
+    'temporary',
+    'try again later',
+    'connection reset',
+    'connection closed',
+    'connection aborted',
+    'connection refused',
+    'network error',
+    'http client error',
+    'service unavailable',
+    'bad gateway',
+    'gateway timeout',
+    '请求超时',
+    '触发限流',
+    '网络层错误',
+    '服务不可用',
+    '网关异常',
+    '网关超时',
+    '服务端内部错误',
+  };
+
+  static final RegExp _retryableStatusCodePattern = RegExp(
+    r'(?:\b(?:http|status|status code|code)\s*[:=#-]?\s*)?\b(\d{3})\b',
+    caseSensitive: false,
+  );
+
   static String _text({required String zh, required String en}) {
     return StructuredErrorText.pick(zh: zh, en: en);
+  }
+
+  static bool isRetryableTransportError(
+    Object error, {
+    Set<int> statusCodes = defaultRetryableStatusCodes,
+    Iterable<String> extraMessageMarkers = const <String>[],
+  }) {
+    if (error is TimeoutException ||
+        error is SocketException ||
+        error is http.ClientException) {
+      return true;
+    }
+    final message = '$error'.trim().toLowerCase();
+    if (message.isEmpty) return false;
+    if (_containsRetryableStatusCode(message, statusCodes)) return true;
+    return _retryableTransportMessageMarkers
+        .followedBy(extraMessageMarkers)
+        .map((marker) => marker.trim().toLowerCase())
+        .where((marker) => marker.isNotEmpty)
+        .any(message.contains);
+  }
+
+  static bool _containsRetryableStatusCode(
+    String message,
+    Set<int> statusCodes,
+  ) {
+    if (statusCodes.isEmpty) return false;
+    for (final match in _retryableStatusCodePattern.allMatches(message)) {
+      final statusCode = int.tryParse(match.group(1) ?? '');
+      if (statusCode != null && statusCodes.contains(statusCode)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   static String _suffix(String contextLabel) {

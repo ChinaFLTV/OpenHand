@@ -52,6 +52,7 @@ import 'model/ai_token_usage.dart';
 import 'service/bash/ai_bash_tool_service.dart';
 import 'service/chat/ai_chat_service.dart';
 import 'service/chat/ai_protocol_adapter.dart';
+import 'service/chat/ai_transport_diagnostic_messages.dart';
 import 'service/dsml/ai_dsml_partial_stream_scanner.dart';
 import 'service/dsml/ai_dsml_tool_call_parser.dart';
 import 'service/fs/ai_attachment_service.dart';

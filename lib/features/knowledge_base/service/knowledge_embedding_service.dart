@@ -435,18 +435,7 @@ class KnowledgeEmbeddingService {
   }
 
   bool _isRetryableEmbeddingError(Object error) {
-    if (error is TimeoutException || error is SocketException) return true;
-    final message = '$error'.toLowerCase();
-    return message.contains('http 408') ||
-        message.contains('http 409') ||
-        message.contains('http 425') ||
-        message.contains('http 429') ||
-        message.contains('http 500') ||
-        message.contains('http 502') ||
-        message.contains('http 503') ||
-        message.contains('http 504') ||
-        message.contains('connection reset') ||
-        message.contains('connection closed');
+    return AiTransportDiagnosticMessages.isRetryableTransportError(error);
   }
 
   Duration _retryBackoff(KnowledgeBaseSettings settings, int attempt) {
