@@ -9,6 +9,7 @@ import '../features/message_gateway/index.dart';
 import '../l10n/app_localizations.dart';
 import '../shared/ui/openhand_safe_scrollbar.dart';
 import '../shared/ui/openhand_snack_bar.dart';
+import '../shared/ui/openhand_tooltip_dismissal.dart';
 import 'model/app_language.dart';
 import 'state/settings_controller.dart';
 import 'support/input_repair_service.dart';
@@ -143,7 +144,9 @@ class _OverlayPortalStabilityBoundary extends StatelessWidget {
   Widget build(BuildContext context) {
     return NotificationListener<ScrollStartNotification>(
       onNotification: (_) {
-        Tooltip.dismissAllToolTips();
+        dismissOpenHandTooltipsSafely(
+          debugLabel: 'OpenHandApp.scrollStart.dismissTooltips',
+        );
         return false;
       },
       child: child,

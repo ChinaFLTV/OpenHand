@@ -11,6 +11,7 @@ import 'bounded_animation.dart';
 import 'motion_preference.dart';
 import 'openhand_dialog_action_button.dart';
 import 'openhand_safe_scrollbar.dart';
+import 'openhand_tooltip_dismissal.dart';
 import 'safe_edge_insets.dart';
 
 const double kOpenHandDialogViewportFraction = 0.95;
@@ -538,7 +539,9 @@ Future<T?> showAnimatedDialog<T>({
   RouteSettings? routeSettings,
   AlignmentGeometry alignment = Alignment.center,
 }) {
-  Tooltip.dismissAllToolTips();
+  dismissOpenHandTooltipsSafely(
+    debugLabel: 'OpenHand.showAnimatedDialog.dismissTooltips',
+  );
   final themedBuilder = _wrapDialogBuilderWithTheme(
     builder,
     dismissOnEscape: dismissOnEscape,
