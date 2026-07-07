@@ -151,7 +151,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
                         onChanged: (preset) async {
                           final ok = await ctrl.setNetworkThrottling(preset);
                           if (!ok && mounted) {
-                            OpenHandSnackBar.showError(
+                            showWebReverseErrorSnack(
                               context,
                               openHandLocalizedText(
                                 context,
@@ -545,8 +545,6 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
         .replaceAll(':', '-')
         .replaceAll('.', '-');
     const typeGroup = XTypeGroup(label: 'HAR', extensions: <String>['har']);
-    // 在任何 await 之前缓存 messenger，避免 context 跨 async gap 警告。
-    final messenger = ScaffoldMessenger.of(context);
     FileSaveLocation? location;
     try {
       location = await getSaveLocation(
@@ -561,9 +559,8 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
         stack,
       );
       if (!mounted) return;
-      OpenHandSnackBar.showErrorOn(
+      showWebReverseErrorSnack(
         context,
-        messenger,
         openHandLocalizedText(
           context,
           zh: '打开保存对话框失败',
@@ -593,9 +590,8 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
     }
     if (!mounted) return;
     if (written == null) {
-      OpenHandSnackBar.showErrorOn(
+      showWebReverseErrorSnack(
         context,
-        messenger,
         openHandLocalizedText(
           context,
           zh: 'HAR 保存失败或超时',
@@ -608,9 +604,8 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
         duration: const Duration(seconds: 3),
       );
     } else {
-      OpenHandSnackBar.showSuccessOn(
+      showWebReverseSuccessSnack(
         context,
-        messenger,
         openHandLocalizedText(
           context,
           zh: 'HAR 已保存到 $written',
@@ -630,15 +625,13 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
     bool isZh, {
     required bool fullPage,
   }) async {
-    final messenger = ScaffoldMessenger.of(context);
     final bytes = fullPage
         ? await ctrl.captureFullPageScreenshot()
         : await ctrl.captureScreenshot();
     if (!mounted) return;
     if (bytes == null) {
-      OpenHandSnackBar.showErrorOn(
+      showWebReverseErrorSnack(
         context,
-        messenger,
         openHandLocalizedText(
           context,
           zh: '截图失败',
@@ -674,9 +667,8 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
         stack,
       );
       if (!mounted) return;
-      OpenHandSnackBar.showErrorOn(
+      showWebReverseErrorSnack(
         context,
-        messenger,
         openHandLocalizedText(
           context,
           zh: '打开保存对话框失败',
@@ -694,9 +686,8 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
     try {
       await File(location.path).writeAsBytes(marked, flush: true);
       if (!mounted) return;
-      OpenHandSnackBar.showSuccessOn(
+      showWebReverseSuccessSnack(
         context,
-        messenger,
         openHandLocalizedText(
           context,
           zh: '已保存到 ${location.path}',
@@ -716,9 +707,8 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
         stack,
       );
       if (!mounted) return;
-      OpenHandSnackBar.showErrorOn(
+      showWebReverseErrorSnack(
         context,
-        messenger,
         openHandLocalizedText(
           context,
           zh: '截图保存失败',
@@ -737,7 +727,6 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
     WebReverseSessionController ctrl,
     bool isZh,
   ) async {
-    final messenger = ScaffoldMessenger.of(context);
     const typeGroup = XTypeGroup(
       label: 'HAR',
       extensions: <String>['har', 'json'],
@@ -825,9 +814,8 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
       final read = await readWebReverseHarFile(file);
       if (read.isTooLarge) {
         if (!mounted) return;
-        OpenHandSnackBar.showErrorOn(
+        showWebReverseErrorSnack(
           context,
-          messenger,
           webReverseHarTooLargeMessage(
             read.tooLargeBytes!,
             context: context,
@@ -840,9 +828,8 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
       final bytes = read.bytes!;
       final r = ctrl.loadHarBytes(bytes, merge: merge);
       if (!mounted) return;
-      OpenHandSnackBar.showSuccessOn(
+      showWebReverseSuccessSnack(
         context,
-        messenger,
         openHandLocalizedText(
           context,
           zh: '${merge ? "合并" : "替换"}加载 ${r.loaded} 条；跳过 ${r.skipped} 条无效条目',
@@ -858,9 +845,8 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
     } catch (error, stack) {
       silentLog('web_reverse_dashboard_dialog', 'parse har', error, stack);
       if (!mounted) return;
-      OpenHandSnackBar.showErrorOn(
+      showWebReverseErrorSnack(
         context,
-        messenger,
         openHandLocalizedText(
           context,
           zh: 'HAR 解析失败',
@@ -883,7 +869,6 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
   ///      给出 size delta + 内容预览片段；
   ///   ③ same —— 完全一致，仅出计数。
   Future<void> _showHarDiff(BuildContext context, bool isZh) async {
-    final messenger = ScaffoldMessenger.of(context);
     const typeGroup = XTypeGroup(
       label: 'HAR',
       extensions: <String>['har', 'json'],
@@ -978,9 +963,8 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
     if (!context.mounted) return;
     final tooLargeBytes = setA?.tooLargeBytes ?? setB?.tooLargeBytes;
     if (tooLargeBytes != null) {
-      OpenHandSnackBar.showErrorOn(
+      showWebReverseErrorSnack(
         context,
-        messenger,
         webReverseHarTooLargeMessage(
           tooLargeBytes,
           context: context,
@@ -991,9 +975,8 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
       return;
     }
     if (setA == null || setB == null) {
-      OpenHandSnackBar.showErrorOn(
+      showWebReverseErrorSnack(
         context,
-        messenger,
         openHandLocalizedText(
           context,
           zh: 'HAR 解析失败',
@@ -1202,14 +1185,12 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
                 ? null
                 : () async {
                     Navigator.of(dialogContext).pop();
-                    final messenger = ScaffoldMessenger.of(context);
                     for (final e in filtered) {
                       await ctrl.blockUrl(e.url);
                     }
                     if (!context.mounted) return;
-                    OpenHandSnackBar.showInfoOn(
+                    showWebReverseInfoSnack(
                       context,
-                      messenger,
                       openHandLocalizedText(
                         context,
                         zh: '已屏蔽 ${filtered.length} 个 URL',
@@ -1237,7 +1218,6 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
                 ? null
                 : () async {
                     Navigator.of(dialogContext).pop();
-                    final messenger = ScaffoldMessenger.of(context);
                     var ok = 0;
                     final cap = math.min(
                       filtered.length,
@@ -1248,9 +1228,8 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
                       if (r != null) ok++;
                     }
                     if (!context.mounted) return;
-                    OpenHandSnackBar.showInfoOn(
+                    showWebReverseInfoSnack(
                       context,
-                      messenger,
                       openHandLocalizedText(
                         context,
                         zh: '批量重放：成功 $ok / 共 $cap（上限 $_kNetworkBatchReplayLimit）',
@@ -1279,7 +1258,6 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
                 ? null
                 : () async {
                     Navigator.of(dialogContext).pop();
-                    final messenger = ScaffoldMessenger.of(context);
                     final buf = StringBuffer();
                     final copyCount = math.min(
                       filtered.length,
@@ -1305,9 +1283,23 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
                       buf.writeln("'${e.url}'");
                       buf.writeln();
                     }
-                    final copied = await setWebReverseClipboardText(
-                      buf.toString(),
-                    );
+                    late final WebReverseClipboardCopyResult copied;
+                    try {
+                      copied = await setWebReverseClipboardText(buf.toString());
+                    } catch (error, stack) {
+                      silentLog(
+                        'web_reverse_dashboard_dialog',
+                        'copy batch curl',
+                        error,
+                        stack,
+                      );
+                      if (!context.mounted) return;
+                      showWebReverseClipboardErrorSnack(
+                        context: context,
+                        error: error,
+                      );
+                      return;
+                    }
                     if (!context.mounted) return;
                     final base = openHandLocalizedText(
                       context,
@@ -1319,14 +1311,10 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
                       de: '$copyCount curl-Einträge kopiert${filtered.length > copyCount ? ' (begrenzte Einträge)' : ''}',
                       ja: '$copyCount 件の curl をコピーしました${filtered.length > copyCount ? '（件数上限で切り詰め）' : ''}',
                     );
-                    OpenHandSnackBar.showSuccessOn(
-                      context,
-                      messenger,
-                      webReverseClipboardSnackMessage(
-                        isZh: isZh,
-                        base: base,
-                        result: copied,
-                      ),
+                    showWebReverseClipboardSuccessSnack(
+                      context: context,
+                      base: base,
+                      result: copied,
                     );
                   },
             icon: Icons.copy_all_rounded,
