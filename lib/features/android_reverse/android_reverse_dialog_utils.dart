@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../app/model/dialog_animation_settings.dart';
-import '../../app/support/silent_log.dart';
 import '../../shared/ui/animated_dialog.dart';
+import '../../shared/ui/openhand_clipboard.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/localized_text.dart';
 
@@ -102,31 +101,14 @@ Future<bool> copyAndroidReverseTextToClipboard({
   String logAction = 'copy',
   Duration successDuration = kOpenHandSnackBarSuccessDuration,
   Duration errorDuration = kOpenHandSnackBarErrorDuration,
-}) async {
-  try {
-    await Clipboard.setData(ClipboardData(text: text));
-  } catch (error, stack) {
-    silentLog(logTag, logAction, error, stack);
-    if (!context.mounted) return false;
-    showAndroidReverseErrorSnack(
-      context,
-      openHandLocalizedText(
-        context,
-        zh: '复制失败：$error',
-        zhHant: '複製失敗：$error',
-        en: 'Copy failed: $error',
-        fr: 'Échec de la copie : $error',
-        de: 'Kopieren fehlgeschlagen: $error',
-        ja: 'コピーに失敗しました: $error',
-      ),
-      duration: errorDuration,
-    );
-    return false;
-  }
-  if (!context.mounted) return false;
-  showAndroidReverseSuccessSnack(
-    context,
-    successMessage ??
+}) {
+  return copyOpenHandTextToClipboard(
+    context: context,
+    text: text,
+    logTag: logTag,
+    logAction: logAction,
+    successMessage:
+        successMessage ??
         openHandLocalizedText(
           context,
           zh: '已复制',
@@ -136,7 +118,11 @@ Future<bool> copyAndroidReverseTextToClipboard({
           de: 'Kopiert',
           ja: 'コピーしました',
         ),
-    duration: successDuration,
+    successDuration: successDuration,
+    errorDuration: errorDuration,
+    showSuccessSnack: (context, message, {required duration}) =>
+        showAndroidReverseSuccessSnack(context, message, duration: duration),
+    showErrorSnack: (context, message, {required duration}) =>
+        showAndroidReverseErrorSnack(context, message, duration: duration),
   );
-  return true;
 }

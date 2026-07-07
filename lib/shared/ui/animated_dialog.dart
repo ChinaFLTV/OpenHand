@@ -103,9 +103,6 @@ DialogAnimationSettings _resolveDialogMotionSettings(
   BuildContext context, {
   DialogAnimationSettings? override,
 }) {
-  if (!openHandTickerMotionEnabled(context)) {
-    return OpenHandMotionDefaults.disabled;
-  }
   return openHandMotionSettingsOf(
     context,
     OpenHandMotionSettingsScope.dialog,

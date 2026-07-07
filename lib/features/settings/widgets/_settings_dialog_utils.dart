@@ -1,7 +1,5 @@
 part of 'settings_view.dart';
 
-const Duration _settingsClipboardCopyTimeout = Duration(seconds: 10);
-
 void _showSettingsSuccessSnack(
   BuildContext context,
   String message, {
@@ -69,45 +67,19 @@ Future<bool> _copySettingsTextToClipboard({
   bool showSuccess = true,
   Duration successDuration = kOpenHandSnackBarSuccessDuration,
   Duration errorDuration = kOpenHandSnackBarErrorDuration,
-}) async {
-  try {
-    await Clipboard.setData(
-      ClipboardData(text: text),
-    ).timeout(_settingsClipboardCopyTimeout);
-  } catch (error, stack) {
-    silentLog('settings', logAction, error, stack);
-    if (!context.mounted) return false;
-    _showSettingsErrorSnack(
-      context,
-      openHandLocalizedText(
-        context,
-        zh: '复制失败：$error',
-        zhHant: '複製失敗：$error',
-        en: 'Copy failed: $error',
-        fr: 'Échec de la copie : $error',
-        de: 'Kopieren fehlgeschlagen: $error',
-        ja: 'コピーに失敗しました: $error',
-      ),
-      duration: errorDuration,
-    );
-    return false;
-  }
-  if (!context.mounted) return false;
-  if (showSuccess) {
-    _showSettingsSuccessSnack(
-      context,
-      successMessage ??
-          openHandLocalizedText(
-            context,
-            zh: '已复制到剪贴板',
-            zhHant: '已複製到剪貼簿',
-            en: 'Copied to clipboard',
-            fr: 'Copié dans le presse-papiers',
-            de: 'In die Zwischenablage kopiert',
-            ja: 'クリップボードにコピーしました',
-          ),
-      duration: successDuration,
-    );
-  }
-  return true;
+}) {
+  return copyOpenHandTextToClipboard(
+    context: context,
+    text: text,
+    logTag: 'settings',
+    logAction: logAction,
+    successMessage: successMessage,
+    showSuccess: showSuccess,
+    successDuration: successDuration,
+    errorDuration: errorDuration,
+    showSuccessSnack: (context, message, {required duration}) =>
+        _showSettingsSuccessSnack(context, message, duration: duration),
+    showErrorSnack: (context, message, {required duration}) =>
+        _showSettingsErrorSnack(context, message, duration: duration),
+  );
 }

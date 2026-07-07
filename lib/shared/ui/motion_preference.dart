@@ -38,8 +38,10 @@ DialogAnimationSettings openHandMotionSettingsOf(
   OpenHandMotionSettingsScope scope, {
   DialogAnimationSettings? override,
   bool respectReduceMotion = true,
+  bool respectTickerMode = true,
 }) {
-  if (respectReduceMotion && openHandReduceMotionOf(context)) {
+  if ((respectReduceMotion && openHandReduceMotionOf(context)) ||
+      (respectTickerMode && !TickerMode.valuesOf(context).enabled)) {
     return OpenHandMotionDefaults.disabled;
   }
   return (override ?? openHandMotionSettingsFallbackOf(context, scope))

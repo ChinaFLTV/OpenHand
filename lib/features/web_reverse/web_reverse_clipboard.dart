@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../app/support/silent_log.dart';
+import '../../shared/ui/openhand_clipboard.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/localized_text.dart';
@@ -24,9 +24,10 @@ class WebReverseClipboardCopyResult {
 Future<WebReverseClipboardCopyResult> setWebReverseClipboardText(
   String text, {
   int maxChars = kWebReverseClipboardMaxChars,
+  Duration timeout = kOpenHandClipboardCopyTimeout,
 }) async {
   final prepared = prepareWebReverseClipboardText(text, maxChars: maxChars);
-  await Clipboard.setData(ClipboardData(text: prepared.text));
+  await setOpenHandClipboardText(prepared.text, timeout: timeout);
   return WebReverseClipboardCopyResult(
     originalChars: text.length,
     copiedChars: prepared.text.length,
@@ -43,11 +44,16 @@ Future<WebReverseClipboardCopyResult?> copyWebReverseTextToClipboard({
   int maxChars = kWebReverseClipboardMaxChars,
   Duration successDuration = kOpenHandSnackBarSuccessDuration,
   Duration errorDuration = kOpenHandSnackBarErrorDuration,
+  Duration timeout = kOpenHandClipboardCopyTimeout,
   bool showSuccess = true,
 }) async {
   late final WebReverseClipboardCopyResult copied;
   try {
-    copied = await setWebReverseClipboardText(text, maxChars: maxChars);
+    copied = await setWebReverseClipboardText(
+      text,
+      maxChars: maxChars,
+      timeout: timeout,
+    );
   } catch (error, stack) {
     silentLog(logTag, logAction, error, stack);
     if (!context.mounted) return null;
