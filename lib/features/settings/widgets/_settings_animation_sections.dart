@@ -56,20 +56,17 @@ class _AnimationRestoreDefaultsSection extends StatelessWidget {
             ]);
             if (!context.mounted) return;
             final allSaved = results.every((r) => r);
-            final messenger = ScaffoldMessenger.of(context);
-            OpenHandSnackBar.show(
-              context,
-              messenger,
-              allSaved
-                  ? OpenHandSnackBar.success(
-                      context,
-                      l10n.settingsAnimationRestoreSuccess,
-                    )
-                  : OpenHandSnackBar.error(
-                      context,
-                      l10n.settingsAnimationRestorePartialFailure,
-                    ),
-            );
+            if (allSaved) {
+              _showSettingsSuccessSnack(
+                context,
+                l10n.settingsAnimationRestoreSuccess,
+              );
+            } else {
+              _showSettingsErrorSnack(
+                context,
+                l10n.settingsAnimationRestorePartialFailure,
+              );
+            }
           },
         ),
       ),

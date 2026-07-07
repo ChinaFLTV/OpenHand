@@ -3442,7 +3442,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
     if (!mounted) {
       return;
     }
-    OpenHandSnackBar.showSuccess(
+    _showSettingsSuccessSnack(
       context,
       openHandLocalizedText(
         context,

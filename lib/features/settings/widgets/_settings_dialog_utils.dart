@@ -7,8 +7,22 @@ void _showSettingsSuccessSnack(
   String message, {
   Duration duration = kOpenHandSnackBarSuccessDuration,
   SnackBarAction? action,
+  int? maxLines,
 }) {
   if (!context.mounted) return;
+  if (maxLines != null) {
+    OpenHandSnackBar.showInContext(
+      context,
+      OpenHandSnackBar.success(
+        context,
+        message,
+        duration: duration,
+        action: action,
+        maxLines: maxLines,
+      ),
+    );
+    return;
+  }
   OpenHandSnackBar.showSuccess(
     context,
     message,

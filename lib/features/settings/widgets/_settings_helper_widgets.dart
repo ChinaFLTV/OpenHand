@@ -943,18 +943,14 @@ class _AiTranslationProviderCardState
         fallbackModel: settingsController.selectedAiModel,
       );
       if (!mounted) return;
-      OpenHandSnackBar.show(
+      _showSettingsSuccessSnack(
         context,
-        ScaffoldMessenger.of(context),
-        OpenHandSnackBar.success(
+        openHandLocalizedText(
           context,
-          openHandLocalizedText(
-            context,
-            zh: '文本翻译测试完成：${_compactSettingsPreview(result.text)}',
-            en: 'Translation test completed: ${_compactSettingsPreview(result.text)}',
-          ),
-          maxLines: 2,
+          zh: '文本翻译测试完成：${_compactSettingsPreview(result.text)}',
+          en: 'Translation test completed: ${_compactSettingsPreview(result.text)}',
         ),
+        maxLines: 2,
       );
     } catch (error, stack) {
       silentLog(
@@ -2195,17 +2191,9 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
         fallbackModel: fallbackModel,
       );
       if (!mounted) return;
-      OpenHandSnackBar.show(
+      _showSettingsSuccessSnack(
         context,
-        ScaffoldMessenger.of(context),
-        OpenHandSnackBar.success(
-          context,
-          openHandLocalizedText(
-            context,
-            zh: 'TTS 测试播放完成',
-            en: 'TTS test played',
-          ),
-        ),
+        openHandLocalizedText(context, zh: 'TTS 测试播放完成', en: 'TTS test played'),
       );
     } catch (error, stack) {
       if (!_isTtsConfigurationError(error)) {
@@ -3830,7 +3818,7 @@ void _showSettingsTestErrorDialog({
   required String targetLabel,
   required Object error,
 }) {
-  OpenHandSnackBar.hideCurrentOn(ScaffoldMessenger.of(context));
+  OpenHandSnackBar.hideGlobal();
   showFriendlyErrorDetailsDialog(
     context,
     title: title,
@@ -4980,7 +4968,7 @@ class _AiModelTileState extends State<_AiModelTile> {
     if (launched || !mounted) {
       return;
     }
-    OpenHandSnackBar.showError(
+    _showSettingsErrorSnack(
       context,
       AppLocalizations.of(context)!.aiModelOpenWebsiteFailure,
     );
