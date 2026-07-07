@@ -1142,7 +1142,7 @@ class _KnowledgeSourceContentBody extends StatelessWidget {
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Icon(
-                      _iconForKind(source.kind),
+                      knowledgeSourceKindIcon(source.kind),
                       color: colorScheme.primary,
                       size: 22,
                     ),
@@ -1184,7 +1184,7 @@ class _KnowledgeSourceContentBody extends StatelessWidget {
                 children: [
                   KnowledgeDialogChip(
                     icon: Icons.category_outlined,
-                    label: _localizedKind(source.kind, context),
+                    label: localizedKnowledgeSourceKind(context, source.kind),
                   ),
                   KnowledgeDialogChip(
                     icon: Icons.sd_storage_outlined,
@@ -1786,118 +1786,4 @@ String _localizedNotice(
 int _lineCount(String text) {
   if (text.isEmpty) return 0;
   return '\n'.allMatches(text).length + 1;
-}
-
-IconData _iconForKind(String kind) {
-  final normalized = kind.trim().toLowerCase();
-  return switch (normalized) {
-    'markdown' => Icons.notes_rounded,
-    'code' => Icons.code_rounded,
-    'pdf' => Icons.picture_as_pdf_outlined,
-    'html' => Icons.language_rounded,
-    'docx' => Icons.article_outlined,
-    'spreadsheet' => Icons.table_chart_outlined,
-    'presentation' => Icons.slideshow_outlined,
-    'table' => Icons.dataset_outlined,
-    'structured' => Icons.data_object_rounded,
-    _ => Icons.description_outlined,
-  };
-}
-
-String _localizedKind(String kind, BuildContext context) {
-  final normalized = kind.trim().toLowerCase();
-  return switch (normalized) {
-    'markdown' => openHandLocalizedText(
-      context,
-      zh: 'Markdown 文档',
-      zhHant: 'Markdown 文件',
-      en: 'Markdown',
-      fr: 'Markdown',
-      de: 'Markdown',
-      ja: 'Markdown',
-    ),
-    'text' => openHandLocalizedText(
-      context,
-      zh: '文本',
-      zhHant: '文字',
-      en: 'Text',
-      fr: 'Texte',
-      de: 'Text',
-      ja: 'テキスト',
-    ),
-    'code' => openHandLocalizedText(
-      context,
-      zh: '代码',
-      zhHant: '程式碼',
-      en: 'Code',
-      fr: 'Code',
-      de: 'Code',
-      ja: 'コード',
-    ),
-    'pdf' => 'PDF',
-    'html' => openHandLocalizedText(
-      context,
-      zh: '网页 HTML',
-      zhHant: '網頁 HTML',
-      en: 'HTML',
-      fr: 'HTML',
-      de: 'HTML',
-      ja: 'HTML',
-    ),
-    'docx' => openHandLocalizedText(
-      context,
-      zh: 'Word 文档',
-      zhHant: 'Word 文件',
-      en: 'Word document',
-      fr: 'Document Word',
-      de: 'Word-Dokument',
-      ja: 'Word 文書',
-    ),
-    'spreadsheet' => openHandLocalizedText(
-      context,
-      zh: '电子表格',
-      zhHant: '試算表',
-      en: 'Spreadsheet',
-      fr: 'Feuille de calcul',
-      de: 'Tabellenkalkulation',
-      ja: 'スプレッドシート',
-    ),
-    'presentation' => openHandLocalizedText(
-      context,
-      zh: '演示文稿',
-      zhHant: '簡報',
-      en: 'Presentation',
-      fr: 'Présentation',
-      de: 'Präsentation',
-      ja: 'プレゼンテーション',
-    ),
-    'table' => openHandLocalizedText(
-      context,
-      zh: '表格数据',
-      zhHant: '表格資料',
-      en: 'Table data',
-      fr: 'Données tabulaires',
-      de: 'Tabellendaten',
-      ja: '表データ',
-    ),
-    'structured' => openHandLocalizedText(
-      context,
-      zh: '结构化数据',
-      zhHant: '結構化資料',
-      en: 'Structured data',
-      fr: 'Données structurées',
-      de: 'Strukturierte Daten',
-      ja: '構造化データ',
-    ),
-    'note' => openHandLocalizedText(
-      context,
-      zh: '笔记',
-      zhHant: '筆記',
-      en: 'Note',
-      fr: 'Note',
-      de: 'Notiz',
-      ja: 'ノート',
-    ),
-    _ => normalized.isEmpty ? '-' : kind.trim(),
-  };
 }

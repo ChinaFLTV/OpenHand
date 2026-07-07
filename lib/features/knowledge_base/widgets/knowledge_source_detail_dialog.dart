@@ -166,9 +166,9 @@ class _SourceDetailBody extends StatelessWidget {
                   fr: 'Type',
                   de: 'Art',
                   ja: '種類',
-                ): _localizedKind(
-                  source.kind,
+                ): localizedKnowledgeSourceKind(
                   context,
+                  source.kind,
                 ),
                 openHandLocalizedText(
                   context,
@@ -178,9 +178,9 @@ class _SourceDetailBody extends StatelessWidget {
                   fr: 'État',
                   de: 'Status',
                   ja: '状態',
-                ): _localizedStatus(
-                  source.status,
+                ): localizedKnowledgeSourceStatus(
                   context,
+                  source.status,
                 ),
                 openHandLocalizedText(
                   context,
@@ -281,154 +281,6 @@ class _SourceDetailBody extends StatelessWidget {
         ],
       ),
     );
-  }
-
-  String _localizedKind(String kind, BuildContext context) {
-    return switch (kind) {
-      'markdown' => openHandLocalizedText(
-        context,
-        zh: 'Markdown 文档',
-        zhHant: 'Markdown 文件',
-        en: 'Markdown',
-        fr: 'Markdown',
-        de: 'Markdown',
-        ja: 'Markdown',
-      ),
-      'text' => openHandLocalizedText(
-        context,
-        zh: '文本',
-        zhHant: '文字',
-        en: 'Text',
-        fr: 'Texte',
-        de: 'Text',
-        ja: 'テキスト',
-      ),
-      'code' => openHandLocalizedText(
-        context,
-        zh: '代码',
-        zhHant: '程式碼',
-        en: 'Code',
-        fr: 'Code',
-        de: 'Code',
-        ja: 'コード',
-      ),
-      'pdf' => 'PDF',
-      'html' => openHandLocalizedText(
-        context,
-        zh: '网页 HTML',
-        zhHant: '網頁 HTML',
-        en: 'HTML',
-        fr: 'HTML',
-        de: 'HTML',
-        ja: 'HTML',
-      ),
-      'docx' => openHandLocalizedText(
-        context,
-        zh: 'Word 文档',
-        zhHant: 'Word 文件',
-        en: 'Word document',
-        fr: 'Document Word',
-        de: 'Word-Dokument',
-        ja: 'Word ドキュメント',
-      ),
-      'spreadsheet' => openHandLocalizedText(
-        context,
-        zh: '电子表格',
-        zhHant: '試算表',
-        en: 'Spreadsheet',
-        fr: 'Feuille de calcul',
-        de: 'Tabelle',
-        ja: 'スプレッドシート',
-      ),
-      'presentation' => openHandLocalizedText(
-        context,
-        zh: '演示文稿',
-        zhHant: '簡報',
-        en: 'Presentation',
-        fr: 'Présentation',
-        de: 'Präsentation',
-        ja: 'プレゼンテーション',
-      ),
-      'table' => openHandLocalizedText(
-        context,
-        zh: '表格数据',
-        zhHant: '表格資料',
-        en: 'Table data',
-        fr: 'Données tabulaires',
-        de: 'Tabellendaten',
-        ja: '表データ',
-      ),
-      'structured' => openHandLocalizedText(
-        context,
-        zh: '结构化数据',
-        zhHant: '結構化資料',
-        en: 'Structured data',
-        fr: 'Données structurées',
-        de: 'Strukturierte Daten',
-        ja: '構造化データ',
-      ),
-      'note' => openHandLocalizedText(
-        context,
-        zh: '笔记',
-        zhHant: '筆記',
-        en: 'Note',
-        fr: 'Note',
-        de: 'Notiz',
-        ja: 'ノート',
-      ),
-      _ => kind.trim().isEmpty ? '-' : kind,
-    };
-  }
-
-  String _localizedStatus(String status, BuildContext context) {
-    return switch (status) {
-      'indexed' => openHandLocalizedText(
-        context,
-        zh: '已索引',
-        zhHant: '已索引',
-        en: 'Indexed',
-        fr: 'Indexé',
-        de: 'Indexiert',
-        ja: 'インデックス済み',
-      ),
-      'failed' => openHandLocalizedText(
-        context,
-        zh: '失败',
-        zhHant: '失敗',
-        en: 'Failed',
-        fr: 'Échec',
-        de: 'Fehlgeschlagen',
-        ja: '失敗',
-      ),
-      'indexing' => openHandLocalizedText(
-        context,
-        zh: '索引中',
-        zhHant: '索引中',
-        en: 'Indexing',
-        fr: 'Indexation',
-        de: 'Wird indexiert',
-        ja: 'インデックス中',
-      ),
-      'pending' => openHandLocalizedText(
-        context,
-        zh: '待处理',
-        zhHant: '待處理',
-        en: 'Pending',
-        fr: 'En attente',
-        de: 'Ausstehend',
-        ja: '保留中',
-      ),
-      'cancelled' => openHandLocalizedText(
-        context,
-        zh: '已停止',
-        zhHant: '已停止',
-        en: 'Stopped',
-        fr: 'Arrêté',
-        de: 'Gestoppt',
-        ja: '停止済み',
-      ),
-      _ => status.trim().isEmpty ? '-' : status,
-    };
   }
 
   String _date(DateTime? value) {
