@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../../shared/ui/animated_dialog.dart';
@@ -9,6 +8,7 @@ import '../../../shared/util/localized_text.dart';
 import '../knowledge_base_controller.dart';
 import '../model/knowledge_chunk.dart';
 import '../model/knowledge_source.dart';
+import 'knowledge_base_dialog_utils.dart';
 import 'knowledge_chunk_detail_dialog.dart';
 import 'knowledge_dialog_widgets.dart';
 
@@ -77,8 +77,22 @@ class KnowledgeSourceDetailDialog extends StatelessWidget {
           actions: [
             if (source != null)
               OpenHandDialogActionButton.secondary(
-                onPressed: () =>
-                    Clipboard.setData(ClipboardData(text: source.originalPath)),
+                onPressed: () async {
+                  await copyKnowledgeBaseTextToClipboard(
+                    context: context,
+                    text: source.originalPath,
+                    successMessage: openHandLocalizedText(
+                      context,
+                      zh: '路径已复制。',
+                      zhHant: '路徑已複製。',
+                      en: 'Path copied.',
+                      fr: 'Chemin copié.',
+                      de: 'Pfad kopiert.',
+                      ja: 'パスをコピーしました。',
+                    ),
+                    logAction: 'copy source detail path',
+                  );
+                },
                 icon: Icons.copy_rounded,
                 label: openHandLocalizedText(
                   context,

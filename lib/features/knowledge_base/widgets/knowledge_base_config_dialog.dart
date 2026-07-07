@@ -11,7 +11,6 @@ import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_model_selector_field.dart';
-import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
 import '../../../shared/util/reader_file_type.dart';
@@ -21,6 +20,7 @@ import '../knowledge_base_controller.dart';
 import '../model/knowledge_base_settings.dart';
 import '../service/knowledge_dependency_service.dart';
 import '../service/knowledge_document_parser.dart';
+import 'knowledge_base_dialog_utils.dart';
 import 'knowledge_dialog_widgets.dart';
 
 const List<String> _knowledgeChunkStrategies = KnowledgeChunkStrategy.values;
@@ -476,7 +476,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
     await knowledgeController.updateSettings(next);
     if (!mounted) return;
     Navigator.of(context).pop();
-    OpenHandSnackBar.showSuccess(
+    showKnowledgeBaseSuccessSnack(
       context,
       openHandLocalizedText(
         context,

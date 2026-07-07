@@ -3,18 +3,17 @@ import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
-import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/timer_safety.dart';
 import '../knowledge_base_controller.dart';
 import '../service/qdrant_monitoring_service.dart';
+import 'knowledge_base_dialog_utils.dart';
 import 'knowledge_dialog_widgets.dart';
 
 const int _qdrantTrendSampleCap = 48;
@@ -155,14 +154,14 @@ class _QdrantStatusDialogState extends State<QdrantStatusDialog> {
     final l10n = AppLocalizations.of(context)!;
     final values = splitLooseDelimitedValues(_rawVector.text);
     if (values.isEmpty) {
-      OpenHandSnackBar.showError(context, l10n.qdrantStatusRawVectorEmpty);
+      showKnowledgeBaseErrorSnack(context, l10n.qdrantStatusRawVectorEmpty);
       return null;
     }
     final vector = <double>[];
     for (final value in values) {
       final parsed = optionalDoubleFromValue(value);
       if (parsed == null) {
-        OpenHandSnackBar.showError(
+        showKnowledgeBaseErrorSnack(
           context,
           l10n.qdrantStatusRawVectorInvalid(value),
         );
@@ -175,7 +174,7 @@ class _QdrantStatusDialogState extends State<QdrantStatusDialog> {
         .settings
         .dimensions;
     if (dimensions > 0 && vector.length != dimensions) {
-      OpenHandSnackBar.showError(
+      showKnowledgeBaseErrorSnack(
         context,
         l10n.qdrantStatusRawVectorDimensionMismatch(vector.length, dimensions),
       );
@@ -229,7 +228,7 @@ class _QdrantStatusDialogState extends State<QdrantStatusDialog> {
   Future<void> _loadPointIds() async {
     final ids = _parseIds();
     if (ids.isEmpty) {
-      OpenHandSnackBar.showError(context, _l10n.qdrantStatusPointIdsEmpty);
+      showKnowledgeBaseErrorSnack(context, _l10n.qdrantStatusPointIdsEmpty);
       return;
     }
     await _runOperation((controller) => controller.loadQdrantPointsByIds(ids));
@@ -261,7 +260,7 @@ class _QdrantStatusDialogState extends State<QdrantStatusDialog> {
       (controller) => controller.createDefaultQdrantPayloadIndexes(),
     );
     if (!mounted) return;
-    OpenHandSnackBar.showSuccess(
+    showKnowledgeBaseSuccessSnack(
       context,
       _l10n.qdrantStatusPayloadIndexesSubmitted,
     );
@@ -272,7 +271,7 @@ class _QdrantStatusDialogState extends State<QdrantStatusDialog> {
     final controller = context.read<KnowledgeBaseController>();
     final l10n = _l10n;
     if (!controller.settings.enableDangerousAdminOperations) {
-      OpenHandSnackBar.showError(
+      showKnowledgeBaseErrorSnack(
         context,
         l10n.qdrantStatusDangerousOpsDisabled,
       );
@@ -280,7 +279,10 @@ class _QdrantStatusDialogState extends State<QdrantStatusDialog> {
     }
     final ids = _parseIds();
     if (ids.isEmpty) {
-      OpenHandSnackBar.showError(context, l10n.qdrantStatusDeletePointIdsEmpty);
+      showKnowledgeBaseErrorSnack(
+        context,
+        l10n.qdrantStatusDeletePointIdsEmpty,
+      );
       return;
     }
     final confirmed = await showOpenHandConfirmDialog(
@@ -298,7 +300,7 @@ class _QdrantStatusDialogState extends State<QdrantStatusDialog> {
     try {
       await controller.deleteQdrantPoints(ids);
       if (!mounted) return;
-      OpenHandSnackBar.showSuccess(context, l10n.qdrantStatusPointsDeleted);
+      showKnowledgeBaseSuccessSnack(context, l10n.qdrantStatusPointsDeleted);
       await _refresh(silent: true);
     } catch (error) {
       if (mounted) setState(() => _error = '$error');
@@ -317,7 +319,7 @@ class _QdrantStatusDialogState extends State<QdrantStatusDialog> {
     final controller = context.read<KnowledgeBaseController>();
     final l10n = _l10n;
     if (!controller.settings.enableDangerousAdminOperations) {
-      OpenHandSnackBar.showError(
+      showKnowledgeBaseErrorSnack(
         context,
         l10n.qdrantStatusDangerousOpsDisabled,
       );
@@ -338,7 +340,10 @@ class _QdrantStatusDialogState extends State<QdrantStatusDialog> {
     try {
       await controller.deleteQdrantCollection(collection);
       if (!mounted) return;
-      OpenHandSnackBar.showSuccess(context, l10n.qdrantStatusCollectionDeleted);
+      showKnowledgeBaseSuccessSnack(
+        context,
+        l10n.qdrantStatusCollectionDeleted,
+      );
       await _refresh(silent: true);
     } catch (error) {
       if (mounted) setState(() => _error = '$error');
@@ -350,23 +355,18 @@ class _QdrantStatusDialogState extends State<QdrantStatusDialog> {
   Future<void> _copyDiagnostics() async {
     final snapshot = _snapshot;
     if (snapshot == null) return;
-    await Clipboard.setData(
-      ClipboardData(
-        text: const JsonEncoder.withIndent('  ').convert(<String, Object?>{
-          'collected_at': snapshot.collectedAt.toIso8601String(),
-          'sections': snapshot.sections,
-          'raw': snapshot.raw,
-          'collections': _collections,
-          'history': [for (final sample in _samples) sample.toJson()],
-        }),
-      ),
+    await copyKnowledgeBaseTextToClipboard(
+      context: context,
+      text: const JsonEncoder.withIndent('  ').convert(<String, Object?>{
+        'collected_at': snapshot.collectedAt.toIso8601String(),
+        'sections': snapshot.sections,
+        'raw': snapshot.raw,
+        'collections': _collections,
+        'history': [for (final sample in _samples) sample.toJson()],
+      }),
+      successMessage: _l10n.qdrantStatusDiagnosticsCopied,
+      logAction: 'copy qdrant diagnostics',
     );
-    if (mounted) {
-      OpenHandSnackBar.showSuccess(
-        context,
-        _l10n.qdrantStatusDiagnosticsCopied,
-      );
-    }
   }
 
   @override

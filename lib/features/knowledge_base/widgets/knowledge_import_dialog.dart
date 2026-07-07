@@ -9,11 +9,11 @@ import '../../../app/state/settings_controller.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
-import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/util/localized_text.dart';
 import '../knowledge_base_controller.dart';
 import '../model/knowledge_source.dart';
 import '../service/knowledge_indexing_control.dart';
+import 'knowledge_base_dialog_utils.dart';
 import 'knowledge_dialog_widgets.dart';
 import 'knowledge_indexing_progress_dialog.dart';
 
@@ -162,7 +162,7 @@ class _KnowledgeImportDialogState extends State<KnowledgeImportDialog> {
     final settings = context.read<SettingsController>();
     final embeddingModel = controller.resolveEmbeddingModel(settings.aiModels);
     if (embeddingModel == null) {
-      OpenHandSnackBar.showError(
+      showKnowledgeBaseErrorSnack(
         context,
         openHandLocalizedText(
           context,
@@ -177,7 +177,7 @@ class _KnowledgeImportDialogState extends State<KnowledgeImportDialog> {
       return;
     }
     if (_content.text.trim().isEmpty) {
-      OpenHandSnackBar.showError(
+      showKnowledgeBaseErrorSnack(
         context,
         openHandLocalizedText(
           context,
@@ -242,7 +242,7 @@ class _KnowledgeImportDialogState extends State<KnowledgeImportDialog> {
       );
       if (!mounted) return;
       if (cancelToken.isCancelled) {
-        OpenHandSnackBar.showInfo(
+        showKnowledgeBaseInfoSnack(
           context,
           openHandLocalizedText(
             context,
@@ -257,7 +257,7 @@ class _KnowledgeImportDialogState extends State<KnowledgeImportDialog> {
         return;
       }
       if (source == null) {
-        OpenHandSnackBar.showError(
+        showKnowledgeBaseErrorSnack(
           context,
           controller.error ??
               openHandLocalizedText(
@@ -273,7 +273,7 @@ class _KnowledgeImportDialogState extends State<KnowledgeImportDialog> {
         return;
       }
       Navigator.of(context).pop();
-      OpenHandSnackBar.showSuccess(
+      showKnowledgeBaseSuccessSnack(
         context,
         openHandLocalizedText(
           context,
@@ -289,7 +289,7 @@ class _KnowledgeImportDialogState extends State<KnowledgeImportDialog> {
       if (!mounted) return;
       if (error is KnowledgeIndexingCancelledException ||
           cancelToken.isCancelled) {
-        OpenHandSnackBar.showInfo(
+        showKnowledgeBaseInfoSnack(
           context,
           openHandLocalizedText(
             context,
@@ -303,7 +303,7 @@ class _KnowledgeImportDialogState extends State<KnowledgeImportDialog> {
         );
         return;
       }
-      OpenHandSnackBar.showError(context, '$error');
+      showKnowledgeBaseErrorSnack(context, '$error');
     } finally {
       progressController.dispose();
       if (mounted) setState(() => _saving = false);

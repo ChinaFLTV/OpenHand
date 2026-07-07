@@ -12,7 +12,6 @@ import '../../../shared/ui/feature_page_shell.dart';
 import '../../../shared/ui/feature_state_card.dart';
 import '../../../shared/ui/hover_lift.dart';
 import '../../../shared/ui/motion_preference.dart';
-import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/localized_text.dart';
@@ -22,6 +21,7 @@ import '../model/knowledge_source.dart';
 import '../service/knowledge_document_parser.dart';
 import '../service/knowledge_indexing_control.dart';
 import 'knowledge_base_config_dialog.dart';
+import 'knowledge_base_dialog_utils.dart';
 import 'knowledge_import_dialog.dart';
 import 'knowledge_indexing_progress_dialog.dart';
 import 'knowledge_source_content_dialog.dart';
@@ -122,7 +122,7 @@ class KnowledgeBaseView extends StatelessWidget {
     required List<AiModelConfig> aiModels,
   }) async {
     if (embeddingModel == null) {
-      OpenHandSnackBar.showError(
+      showKnowledgeBaseErrorSnack(
         context,
         openHandLocalizedText(
           context,
@@ -196,7 +196,7 @@ class KnowledgeBaseView extends StatelessWidget {
     }
     if (!context.mounted) return;
     if (cancelToken.isCancelled) {
-      OpenHandSnackBar.showInfo(
+      showKnowledgeBaseInfoSnack(
         context,
         openHandLocalizedText(
           context,
@@ -211,7 +211,7 @@ class KnowledgeBaseView extends StatelessWidget {
       return;
     }
     if (source != null) {
-      OpenHandSnackBar.showSuccess(
+      showKnowledgeBaseSuccessSnack(
         context,
         openHandLocalizedText(
           context,
@@ -224,7 +224,7 @@ class KnowledgeBaseView extends StatelessWidget {
         ),
       );
     } else {
-      OpenHandSnackBar.showError(
+      showKnowledgeBaseErrorSnack(
         context,
         controller.error ??
             openHandLocalizedText(
@@ -241,7 +241,7 @@ class KnowledgeBaseView extends StatelessWidget {
   }
 
   static void _showReindexNotice(BuildContext context) {
-    OpenHandSnackBar.showInfo(
+    showKnowledgeBaseInfoSnack(
       context,
       openHandLocalizedText(
         context,
@@ -1082,7 +1082,7 @@ class _KnowledgeSourceCard extends StatelessWidget {
     final deleted = await controller.deleteSource(source);
     if (!context.mounted) return;
     if (deleted) {
-      OpenHandSnackBar.showSuccess(
+      showKnowledgeBaseSuccessSnack(
         context,
         openHandLocalizedText(
           context,
@@ -1096,7 +1096,7 @@ class _KnowledgeSourceCard extends StatelessWidget {
       );
       return;
     }
-    OpenHandSnackBar.showError(
+    showKnowledgeBaseErrorSnack(
       context,
       controller.error ??
           openHandLocalizedText(

@@ -1,12 +1,10 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
-import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
@@ -15,6 +13,7 @@ import '../model/knowledge_chunk.dart';
 import '../model/knowledge_message_metadata.dart';
 import '../model/knowledge_source.dart';
 import '../model/knowledge_vector_distribution.dart';
+import 'knowledge_base_dialog_utils.dart';
 import 'knowledge_chunk_detail_dialog.dart';
 import 'knowledge_dialog_widgets.dart';
 import 'knowledge_vector_distribution_view.dart';
@@ -260,25 +259,20 @@ class KnowledgeRetrievalDetailDialog extends StatelessWidget {
       actions: [
         OpenHandDialogActionButton.secondary(
           onPressed: () async {
-            await Clipboard.setData(
-              ClipboardData(
-                text: const JsonEncoder.withIndent('  ').convert(kb),
-              ),
-            );
-            if (context.mounted) {
-              OpenHandSnackBar.showSuccess(
+            await copyKnowledgeBaseTextToClipboard(
+              context: context,
+              text: const JsonEncoder.withIndent('  ').convert(kb),
+              successMessage: openHandLocalizedText(
                 context,
-                openHandLocalizedText(
-                  context,
-                  zh: '已复制知识库元数据。',
-                  zhHant: '已複製知識庫元資料。',
-                  en: 'Knowledge metadata copied.',
-                  fr: 'Métadonnées copiées.',
-                  de: 'Wissensdatenbank-Metadaten kopiert.',
-                  ja: 'ナレッジベースのメタデータをコピーしました。',
-                ),
-              );
-            }
+                zh: '已复制知识库元数据。',
+                zhHant: '已複製知識庫元資料。',
+                en: 'Knowledge metadata copied.',
+                fr: 'Métadonnées copiées.',
+                de: 'Wissensdatenbank-Metadaten kopiert.',
+                ja: 'ナレッジベースのメタデータをコピーしました。',
+              ),
+              logAction: 'copy retrieval metadata',
+            );
           },
           icon: Icons.copy_rounded,
           label: openHandLocalizedText(
@@ -1442,8 +1436,10 @@ Future<void> _copyText(
   String text,
   String message,
 ) async {
-  await Clipboard.setData(ClipboardData(text: text));
-  if (context.mounted) {
-    OpenHandSnackBar.showSuccess(context, message);
-  }
+  await copyKnowledgeBaseTextToClipboard(
+    context: context,
+    text: text,
+    successMessage: message,
+    logAction: 'copy retrieval detail text',
+  );
 }

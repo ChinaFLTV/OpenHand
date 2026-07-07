@@ -4,7 +4,6 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:markdown/markdown.dart' as md;
 import 'package:path/path.dart' as p;
@@ -13,7 +12,6 @@ import 'package:provider/provider.dart';
 import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
-import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
@@ -22,6 +20,7 @@ import '../../../shared/util/text_search.dart';
 import '../knowledge_base_controller.dart';
 import '../model/knowledge_chunk.dart';
 import '../model/knowledge_source.dart';
+import 'knowledge_base_dialog_utils.dart';
 import 'knowledge_dialog_widgets.dart';
 
 const int _kMaxFilePreviewBytes = 2 * kBytesPerMiB;
@@ -169,7 +168,7 @@ class _KnowledgeSourceContentDialogState
     final snapshot = _snapshot;
     final path = snapshot?.editablePath;
     if (snapshot == null || path == null) {
-      OpenHandSnackBar.showError(
+      showKnowledgeBaseErrorSnack(
         context,
         openHandLocalizedText(
           context,
@@ -196,7 +195,7 @@ class _KnowledgeSourceContentDialogState
           lineCount: _lineCount(text),
         );
       });
-      OpenHandSnackBar.showSuccess(
+      showKnowledgeBaseSuccessSnack(
         context,
         openHandLocalizedText(
           context,
@@ -210,7 +209,7 @@ class _KnowledgeSourceContentDialogState
       );
     } catch (error) {
       if (!mounted) return;
-      OpenHandSnackBar.showError(
+      showKnowledgeBaseErrorSnack(
         context,
         openHandLocalizedText(
           context,
@@ -235,7 +234,7 @@ class _KnowledgeSourceContentDialogState
       ),
       clearHistory: true,
     );
-    OpenHandSnackBar.showInfo(
+    showKnowledgeBaseInfoSnack(
       context,
       openHandLocalizedText(
         context,
@@ -538,13 +537,11 @@ class _KnowledgeSourceContentDialogState
         OpenHandDialogActionButton.secondary(
           onPressed: snapshot?.source == null
               ? null
-              : () {
-                  Clipboard.setData(
-                    ClipboardData(text: snapshot!.source!.originalPath),
-                  );
-                  OpenHandSnackBar.showSuccess(
-                    context,
-                    openHandLocalizedText(
+              : () async {
+                  await copyKnowledgeBaseTextToClipboard(
+                    context: context,
+                    text: snapshot!.source!.originalPath,
+                    successMessage: openHandLocalizedText(
                       context,
                       zh: '路径已复制。',
                       zhHant: '路徑已複製。',
@@ -553,6 +550,7 @@ class _KnowledgeSourceContentDialogState
                       de: 'Pfad kopiert.',
                       ja: 'パスをコピーしました。',
                     ),
+                    logAction: 'copy source path',
                   );
                 },
           icon: Icons.copy_rounded,
@@ -1256,11 +1254,11 @@ class _KnowledgeSourceContentBody extends StatelessWidget {
                       child: FilledButton.tonalIcon(
                         onPressed: text.trim().isEmpty
                             ? null
-                            : () {
-                                Clipboard.setData(ClipboardData(text: text));
-                                OpenHandSnackBar.showSuccess(
-                                  context,
-                                  openHandLocalizedText(
+                            : () async {
+                                await copyKnowledgeBaseTextToClipboard(
+                                  context: context,
+                                  text: text,
+                                  successMessage: openHandLocalizedText(
                                     context,
                                     zh: '内容已复制。',
                                     zhHant: '內容已複製。',
@@ -1269,6 +1267,7 @@ class _KnowledgeSourceContentBody extends StatelessWidget {
                                     de: 'Inhalt kopiert.',
                                     ja: '内容をコピーしました。',
                                   ),
+                                  logAction: 'copy source content',
                                 );
                               },
                         icon: const Icon(Icons.copy_all_rounded),

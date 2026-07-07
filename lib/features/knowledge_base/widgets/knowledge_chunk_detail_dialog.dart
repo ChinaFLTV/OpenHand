@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
-import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/localized_text.dart';
 import '../model/knowledge_chunk.dart';
 import '../model/knowledge_source.dart';
+import 'knowledge_base_dialog_utils.dart';
 import 'knowledge_dialog_widgets.dart';
 
 Future<void> showKnowledgeChunkDetailDialog(
@@ -518,9 +517,11 @@ class KnowledgeChunkDetailDialog extends StatelessWidget {
     String text,
     String message,
   ) async {
-    await Clipboard.setData(ClipboardData(text: text));
-    if (context.mounted) {
-      OpenHandSnackBar.showSuccess(context, message);
-    }
+    await copyKnowledgeBaseTextToClipboard(
+      context: context,
+      text: text,
+      successMessage: message,
+      logAction: 'copy chunk detail text',
+    );
   }
 }

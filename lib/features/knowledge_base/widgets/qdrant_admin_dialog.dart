@@ -5,10 +5,10 @@ import 'package:provider/provider.dart';
 
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
-import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/localized_text.dart';
 import '../knowledge_base_controller.dart';
+import 'knowledge_base_dialog_utils.dart';
 import 'knowledge_dialog_widgets.dart';
 
 Future<void> showQdrantAdminDialog(BuildContext context) {
@@ -86,7 +86,7 @@ class _QdrantAdminDialogState extends State<QdrantAdminDialog> {
   Future<void> _deleteCollection(String collection) async {
     final controller = context.read<KnowledgeBaseController>();
     if (!controller.settings.enableDangerousAdminOperations) {
-      OpenHandSnackBar.showError(
+      showKnowledgeBaseErrorSnack(
         context,
         openHandLocalizedText(
           context,
@@ -136,7 +136,7 @@ class _QdrantAdminDialogState extends State<QdrantAdminDialog> {
     try {
       await controller.deleteQdrantCollection(collection);
       if (!mounted) return;
-      OpenHandSnackBar.showSuccess(
+      showKnowledgeBaseSuccessSnack(
         context,
         openHandLocalizedText(
           context,
