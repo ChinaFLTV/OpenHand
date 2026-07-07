@@ -151,7 +151,6 @@ class _PerformancePanelState extends State<_PerformancePanel> {
   /// 把当前记录的 FPS 历史 + Long task 列表合并成 CSV 落盘。两段数据放
   /// 同一个文件，靠 section 标记区分，方便 Excel / 数据分析工具一次性吃。
   Future<void> _exportCsv() async {
-    final messenger = ScaffoldMessenger.of(context);
     final ts = DateTime.now()
         .toIso8601String()
         .replaceAll(':', '-')
@@ -193,9 +192,8 @@ class _PerformancePanelState extends State<_PerformancePanel> {
     try {
       await File(location.path).writeAsString(buf.toString());
       if (!mounted) return;
-      OpenHandSnackBar.showSuccessOn(
+      showWebReverseSuccessSnack(
         context,
-        messenger,
         openHandLocalizedText(
           context,
           zh: '已保存到 ${location.path}',
@@ -214,9 +212,8 @@ class _PerformancePanelState extends State<_PerformancePanel> {
         stack,
       );
       if (!mounted) return;
-      OpenHandSnackBar.showErrorOn(
+      showWebReverseErrorSnack(
         context,
-        messenger,
         openHandLocalizedText(
           context,
           zh: '保存失败',
@@ -232,7 +229,6 @@ class _PerformancePanelState extends State<_PerformancePanel> {
   }
 
   Future<void> _record() async {
-    final messenger = ScaffoldMessenger.of(context);
     final earlyStop = Completer<void>();
     setState(() {
       _tracing = true;
@@ -253,9 +249,8 @@ class _PerformancePanelState extends State<_PerformancePanel> {
       _traceEarlyStop = null;
     });
     if (json == null) {
-      OpenHandSnackBar.showErrorOn(
+      showWebReverseErrorSnack(
         context,
-        messenger,
         openHandLocalizedText(
           context,
           zh: 'Trace 录制失败',
@@ -311,9 +306,8 @@ class _PerformancePanelState extends State<_PerformancePanel> {
     try {
       await File(location.path).writeAsString(json);
       if (!mounted) return;
-      OpenHandSnackBar.showSuccessOn(
+      showWebReverseSuccessSnack(
         context,
-        messenger,
         openHandLocalizedText(
           context,
           zh: 'Trace 已保存到 ${location.path}',
@@ -327,9 +321,8 @@ class _PerformancePanelState extends State<_PerformancePanel> {
     } catch (error, stack) {
       silentLog('web_reverse_dashboard_dialog', 'write trace', error, stack);
       if (!mounted) return;
-      OpenHandSnackBar.showErrorOn(
+      showWebReverseErrorSnack(
         context,
-        messenger,
         openHandLocalizedText(
           context,
           zh: 'Trace 保存失败',
@@ -1548,7 +1541,7 @@ class _MemoryPanelState extends State<_MemoryPanel> {
           now.difference(_lastWarnAt!) > const Duration(seconds: 60)) {
         _lastWarnAt = now;
         if (mounted) {
-          OpenHandSnackBar.showError(
+          showWebReverseErrorSnack(
             context,
             openHandLocalizedText(
               context,
@@ -1568,15 +1561,13 @@ class _MemoryPanelState extends State<_MemoryPanel> {
   }
 
   Future<void> _toggleSampling() async {
-    final messenger = ScaffoldMessenger.of(context);
     if (widget.controller.isMemorySampling) {
       final r = await widget.controller.stopMemorySampling();
       if (!mounted) return;
       setState(() => _samplingResult = r);
       if (r == null) {
-        OpenHandSnackBar.showErrorOn(
+        showWebReverseErrorSnack(
           context,
-          messenger,
           openHandLocalizedText(
             context,
             zh: '采样收尾失败',
@@ -1593,9 +1584,8 @@ class _MemoryPanelState extends State<_MemoryPanel> {
       final ok = await widget.controller.startMemorySampling();
       if (!mounted) return;
       if (!ok) {
-        OpenHandSnackBar.showErrorOn(
+        showWebReverseErrorSnack(
           context,
-          messenger,
           openHandLocalizedText(
             context,
             zh: '采样启动失败',
@@ -1619,7 +1609,6 @@ class _MemoryPanelState extends State<_MemoryPanel> {
   }
 
   Future<void> _capture() async {
-    final messenger = ScaffoldMessenger.of(context);
     setState(() => _capturing = true);
     final r = await widget.controller.takeHeapSnapshot();
     if (!mounted) return;
@@ -1641,9 +1630,8 @@ class _MemoryPanelState extends State<_MemoryPanel> {
           ?.persistHeapSnapshots(snapA: _snapA, snapB: _snapB);
     }
     if (r == null) {
-      OpenHandSnackBar.showErrorOn(
+      showWebReverseErrorSnack(
         context,
-        messenger,
         openHandLocalizedText(
           context,
           zh: '快照采集失败',
@@ -1665,7 +1653,7 @@ class _MemoryPanelState extends State<_MemoryPanel> {
     final a = _snapA;
     final b = _snapB;
     if (a == null || b == null) {
-      OpenHandSnackBar.showInfo(
+      showWebReverseInfoSnack(
         context,
         openHandLocalizedText(
           context,
@@ -1704,7 +1692,6 @@ class _MemoryPanelState extends State<_MemoryPanel> {
   Future<void> _save() async {
     final r = _last;
     if (r == null) return;
-    final messenger = ScaffoldMessenger.of(context);
     const typeGroup = XTypeGroup(
       label: 'Heap Snapshot',
       extensions: <String>['heapsnapshot'],
@@ -1731,9 +1718,8 @@ class _MemoryPanelState extends State<_MemoryPanel> {
     try {
       await File(location.path).writeAsString(r.json);
       if (!mounted) return;
-      OpenHandSnackBar.showSuccessOn(
+      showWebReverseSuccessSnack(
         context,
-        messenger,
         openHandLocalizedText(
           context,
           zh: '已保存到 ${location.path}',
@@ -1747,9 +1733,8 @@ class _MemoryPanelState extends State<_MemoryPanel> {
     } catch (error, stack) {
       silentLog('web_reverse_dashboard_dialog', 'write heap', error, stack);
       if (!mounted) return;
-      OpenHandSnackBar.showErrorOn(
+      showWebReverseErrorSnack(
         context,
-        messenger,
         openHandLocalizedText(
           context,
           zh: '保存失败',
@@ -2774,26 +2759,39 @@ class _SamplingTopList extends StatelessWidget {
           actions: [
             OpenHandDialogActionButton.secondary(
               onPressed: () async {
-                final copied = await setWebReverseClipboardText(
-                  row.stack.join('\n'),
-                );
+                late final WebReverseClipboardCopyResult copied;
+                try {
+                  copied = await setWebReverseClipboardText(
+                    row.stack.join('\n'),
+                  );
+                } catch (error, stack) {
+                  silentLog(
+                    'web_reverse_memory_panel',
+                    'copy stack',
+                    error,
+                    stack,
+                  );
+                  if (!context.mounted) return;
+                  showWebReverseClipboardErrorSnack(
+                    context: context,
+                    error: error,
+                  );
+                  return;
+                }
                 if (!dialogContext.mounted || !context.mounted) return;
                 Navigator.of(dialogContext).pop();
-                OpenHandSnackBar.showSuccess(
-                  context,
-                  webReverseClipboardSnackMessage(
-                    context: context,
-                    base: openHandLocalizedText(
-                      context,
-                      zh: '已复制',
-                      zhHant: '已複製',
-                      en: 'Copied',
-                      fr: 'Copie',
-                      de: 'Kopiert',
-                      ja: 'コピーしました',
-                    ),
-                    result: copied,
+                showWebReverseClipboardSuccessSnack(
+                  context: context,
+                  base: openHandLocalizedText(
+                    context,
+                    zh: '已复制',
+                    zhHant: '已複製',
+                    en: 'Copied',
+                    fr: 'Copie',
+                    de: 'Kopiert',
+                    ja: 'コピーしました',
                   ),
+                  result: copied,
                   duration: const Duration(seconds: 1),
                 );
               },
@@ -3176,23 +3174,28 @@ class _CookiesTableState extends State<_CookiesTable> {
 
   Future<void> _exportJson() async {
     final encoded = const JsonEncoder.withIndent('  ').convert(widget.cookies);
-    final copied = await setWebReverseClipboardText(encoded);
+    late final WebReverseClipboardCopyResult copied;
+    try {
+      copied = await setWebReverseClipboardText(encoded);
+    } catch (error, stack) {
+      silentLog('web_reverse_cookies_panel', 'copy export', error, stack);
+      if (!mounted) return;
+      showWebReverseClipboardErrorSnack(context: context, error: error);
+      return;
+    }
     if (!mounted) return;
-    OpenHandSnackBar.showSuccess(
-      context,
-      webReverseClipboardSnackMessage(
-        context: context,
-        base: openHandLocalizedText(
-          context,
-          zh: '已复制 ${widget.cookies.length} 条 cookie 到剪贴板',
-          zhHant: '已複製 ${widget.cookies.length} 筆 cookie 到剪貼簿',
-          en: 'Copied ${widget.cookies.length} cookies to clipboard',
-          fr: '${widget.cookies.length} cookies copiés dans le presse-papiers',
-          de: '${widget.cookies.length} Cookies in die Zwischenablage kopiert',
-          ja: '${widget.cookies.length} 件の cookie をクリップボードにコピーしました',
-        ),
-        result: copied,
+    showWebReverseClipboardSuccessSnack(
+      context: context,
+      base: openHandLocalizedText(
+        context,
+        zh: '已复制 ${widget.cookies.length} 条 cookie 到剪贴板',
+        zhHant: '已複製 ${widget.cookies.length} 筆 cookie 到剪貼簿',
+        en: 'Copied ${widget.cookies.length} cookies to clipboard',
+        fr: '${widget.cookies.length} cookies copiés dans le presse-papiers',
+        de: '${widget.cookies.length} Cookies in die Zwischenablage kopiert',
+        ja: '${widget.cookies.length} 件の cookie をクリップボードにコピーしました',
       ),
+      result: copied,
     );
   }
 
@@ -3618,23 +3621,28 @@ class _StorageTableState extends State<_StorageTable> {
   Future<void> _exportJson() async {
     final map = <String, String>{for (final r in widget.rows) r.key: r.value};
     final encoded = const JsonEncoder.withIndent('  ').convert(map);
-    final copied = await setWebReverseClipboardText(encoded);
+    late final WebReverseClipboardCopyResult copied;
+    try {
+      copied = await setWebReverseClipboardText(encoded);
+    } catch (error, stack) {
+      silentLog('web_reverse_storage_panel', 'copy export', error, stack);
+      if (!mounted) return;
+      showWebReverseClipboardErrorSnack(context: context, error: error);
+      return;
+    }
     if (!mounted) return;
-    OpenHandSnackBar.showSuccess(
-      context,
-      webReverseClipboardSnackMessage(
-        context: context,
-        base: openHandLocalizedText(
-          context,
-          zh: '已复制 ${widget.rows.length} 条到剪贴板',
-          zhHant: '已複製 ${widget.rows.length} 筆到剪貼簿',
-          en: 'Copied ${widget.rows.length} entries to clipboard',
-          fr: '${widget.rows.length} entrées copiées dans le presse-papiers',
-          de: '${widget.rows.length} Einträge in die Zwischenablage kopiert',
-          ja: '${widget.rows.length} 件をクリップボードにコピーしました',
-        ),
-        result: copied,
+    showWebReverseClipboardSuccessSnack(
+      context: context,
+      base: openHandLocalizedText(
+        context,
+        zh: '已复制 ${widget.rows.length} 条到剪贴板',
+        zhHant: '已複製 ${widget.rows.length} 筆到剪貼簿',
+        en: 'Copied ${widget.rows.length} entries to clipboard',
+        fr: '${widget.rows.length} entrées copiées dans le presse-papiers',
+        de: '${widget.rows.length} Einträge in die Zwischenablage kopiert',
+        ja: '${widget.rows.length} 件をクリップボードにコピーしました',
       ),
+      result: copied,
     );
   }
 
@@ -4003,7 +4011,6 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
 
   /// 删除整个数据库。弹二次确认。
   Future<void> _confirmDeleteDb(String dbName) async {
-    final messenger = ScaffoldMessenger.of(context);
     final ok = await _confirmDestructiveAction(
       titleZh: '删除数据库',
       titleEn: 'Delete database',
@@ -4038,9 +4045,8 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
           _skipCount = 0;
         }
       });
-      OpenHandSnackBar.showSuccessOn(
+      showWebReverseSuccessSnack(
         context,
-        messenger,
         openHandLocalizedText(
           context,
           zh: '已删除 $dbName',
@@ -4053,9 +4059,8 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
       );
       await widget.onChanged();
     } else {
-      OpenHandSnackBar.showErrorOn(
+      showWebReverseErrorSnack(
         context,
-        messenger,
         openHandLocalizedText(
           context,
           zh: '删除失败',
@@ -4073,7 +4078,6 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
   Future<void> _confirmClearStore() async {
     final selected = _selected;
     if (selected == null) return;
-    final messenger = ScaffoldMessenger.of(context);
     final ok = await _confirmDestructiveAction(
       titleZh: '清空 Object Store',
       titleEn: 'Clear object store',
@@ -4105,9 +4109,8 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
     if (success) {
       await _expand(selected.db, selected.store);
       if (mounted) {
-        OpenHandSnackBar.showSuccessOn(
+        showWebReverseSuccessSnack(
           context,
-          messenger,
           openHandLocalizedText(
             context,
             zh: '已清空',
@@ -4120,9 +4123,8 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
         );
       }
     } else {
-      OpenHandSnackBar.showErrorOn(
+      showWebReverseErrorSnack(
         context,
-        messenger,
         openHandLocalizedText(
           context,
           zh: '清空失败',
@@ -4143,9 +4145,8 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
     final keyRaw = entry['key'];
     final keyParam = _remoteObjectToKey(keyRaw);
     if (keyParam == null) {
-      OpenHandSnackBar.showErrorOn(
+      showWebReverseErrorSnack(
         context,
-        ScaffoldMessenger.of(context),
         openHandLocalizedText(
           context,
           zh: '不支持的 key 类型',
@@ -4158,7 +4159,6 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
       );
       return;
     }
-    final messenger = ScaffoldMessenger.of(context);
     final keyDescription = _describeRemoteObject(keyRaw);
     final ok = await _confirmDestructiveAction(
       titleZh: '删除记录',
@@ -4190,9 +4190,8 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
     if (success) {
       await _expand(selected.db, selected.store);
       if (mounted) {
-        OpenHandSnackBar.showSuccessOn(
+        showWebReverseSuccessSnack(
           context,
-          messenger,
           openHandLocalizedText(
             context,
             zh: '已删除',
@@ -4205,9 +4204,8 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
         );
       }
     } else {
-      OpenHandSnackBar.showErrorOn(
+      showWebReverseErrorSnack(
         context,
-        messenger,
         openHandLocalizedText(
           context,
           zh: '删除失败',
@@ -5079,7 +5077,6 @@ class _RecorderPanelState extends State<_RecorderPanel> {
   );
 
   Future<void> _save() async {
-    final messenger = ScaffoldMessenger.of(context);
     final steps = widget.controller.recorderSteps;
     if (steps.isEmpty) return;
     const typeGroup = XTypeGroup(label: 'JSON', extensions: <String>['json']);
@@ -5107,17 +5104,12 @@ class _RecorderPanelState extends State<_RecorderPanel> {
         location.path,
       ).writeAsString(const JsonEncoder.withIndent('  ').convert(steps));
       if (!mounted) return;
-      OpenHandSnackBar.showSuccessOn(
-        context,
-        messenger,
-        _savedToFileMessage(location.path),
-      );
+      showWebReverseSuccessSnack(context, _savedToFileMessage(location.path));
     } catch (error, stack) {
       silentLog('web_reverse_dashboard_dialog', 'write recorder', error, stack);
       if (!mounted) return;
-      OpenHandSnackBar.showErrorOn(
+      showWebReverseErrorSnack(
         context,
-        messenger,
         _saveFailedMessage,
         duration: const Duration(seconds: 2),
       );
@@ -5125,7 +5117,6 @@ class _RecorderPanelState extends State<_RecorderPanel> {
   }
 
   Future<void> _import() async {
-    final messenger = ScaffoldMessenger.of(context);
     const typeGroup = XTypeGroup(label: 'JSON', extensions: <String>['json']);
     XFile? file;
     try {
@@ -5143,9 +5134,8 @@ class _RecorderPanelState extends State<_RecorderPanel> {
       final read = await readWebReverseTextFile(file);
       if (!mounted) return;
       if (read.isTooLarge) {
-        OpenHandSnackBar.showErrorOn(
+        showWebReverseErrorSnack(
           context,
-          messenger,
           webReverseTextFileTooLargeMessage(
             read.tooLargeBytes!,
             context: context,
@@ -5160,9 +5150,8 @@ class _RecorderPanelState extends State<_RecorderPanel> {
       final steps = stringKeyedMapListFromValue(decoded);
       widget.controller.setRecorderSteps(steps);
       if (!mounted) return;
-      OpenHandSnackBar.showSuccessOn(
+      showWebReverseSuccessSnack(
         context,
-        messenger,
         openHandLocalizedText(
           context,
           zh: '已导入 ${steps.length} 步',
@@ -5181,9 +5170,8 @@ class _RecorderPanelState extends State<_RecorderPanel> {
         stack,
       );
       if (!mounted) return;
-      OpenHandSnackBar.showErrorOn(
+      showWebReverseErrorSnack(
         context,
-        messenger,
         openHandLocalizedText(
           context,
           zh: '导入失败：JSON 格式不合法',
@@ -5199,14 +5187,12 @@ class _RecorderPanelState extends State<_RecorderPanel> {
   }
 
   Future<void> _replay() async {
-    final messenger = ScaffoldMessenger.of(context);
     setState(() => _replaying = true);
     final result = await widget.controller.replaySteps();
     if (!mounted) return;
     setState(() => _replaying = false);
-    OpenHandSnackBar.showInfoOn(
+    showWebReverseInfoSnack(
       context,
-      messenger,
       openHandLocalizedText(
         context,
         zh: '重放完成：${result.executed} 步成功，${result.failed} 步失败',
@@ -5224,7 +5210,6 @@ class _RecorderPanelState extends State<_RecorderPanel> {
   /// change → page.select / page.click 取决于 value 类型；assertText → 等价
   /// 选择器读 textContent 后断言；assertVisible → 等待选择器可见。
   Future<void> _exportAsCode(String kind) async {
-    final messenger = ScaffoldMessenger.of(context);
     final steps = widget.controller.recorderSteps;
     if (steps.isEmpty) return;
     final code = kind == 'puppeteer'
@@ -5253,11 +5238,7 @@ class _RecorderPanelState extends State<_RecorderPanel> {
     try {
       await File(location.path).writeAsString(code);
       if (!mounted) return;
-      OpenHandSnackBar.showSuccessOn(
-        context,
-        messenger,
-        _savedToFileMessage(location.path),
-      );
+      showWebReverseSuccessSnack(context, _savedToFileMessage(location.path));
     } catch (error, stack) {
       silentLog(
         'web_reverse_dashboard_dialog',
@@ -5266,9 +5247,8 @@ class _RecorderPanelState extends State<_RecorderPanel> {
         stack,
       );
       if (!mounted) return;
-      OpenHandSnackBar.showErrorOn(
+      showWebReverseErrorSnack(
         context,
-        messenger,
         _saveFailedMessage,
         duration: const Duration(seconds: 2),
       );
