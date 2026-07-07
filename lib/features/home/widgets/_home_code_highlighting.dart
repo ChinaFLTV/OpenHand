@@ -3592,9 +3592,9 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
       return;
     }
 
-    // macOS 上 Flutter 的 Clipboard.setData / Pasteboard.writeText 在部分
+    // macOS 上 Flutter 文本剪贴板 / Pasteboard.writeText 在部分
     // 用户环境里会"静默"返回成功但剪贴板里没数据；先走 OS 原生 pbcopy，
-    // 再回退到 Pasteboard / Clipboard.setData。
+    // 再回退到 Pasteboard / OpenHand 剪贴板公共入口。
     final svgBytes = _svgUtf8Bytes(svg);
     bool writeOk = false;
     String? writeMethod;
@@ -3638,13 +3638,13 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
     }
     if (!writeOk) {
       try {
-        await Clipboard.setData(ClipboardData(text: svg));
+        await setOpenHandClipboardText(svg);
         writeOk = true;
-        writeMethod = 'Clipboard.setData';
+        writeMethod = 'setOpenHandClipboardText';
       } catch (error, stack) {
         silentLog(
           'home_code_highlighting',
-          'copy svg with Clipboard.setData',
+          'copy svg with setOpenHandClipboardText',
           error,
           stack,
         );

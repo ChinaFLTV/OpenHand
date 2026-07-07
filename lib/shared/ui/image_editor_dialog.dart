@@ -17,6 +17,7 @@ import '../../l10n/app_localizations.dart';
 import '../util/input_value_parsing.dart';
 import 'animated_dialog.dart';
 import 'highlight_pulse.dart';
+import 'openhand_clipboard.dart';
 import 'openhand_dialog_action_button.dart';
 import 'openhand_snack_bar.dart';
 
@@ -2178,7 +2179,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
 
       // Always also push the file path so non-image-aware paste targets get
       // something useful.
-      await Clipboard.setData(ClipboardData(text: tempFile.path));
+      await setOpenHandClipboardText(tempFile.path);
 
       if (!mounted) {
         return;
