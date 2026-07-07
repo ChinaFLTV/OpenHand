@@ -2276,19 +2276,10 @@ class _DiagnosisBannerState extends State<_DiagnosisBanner> {
   }
 
   Future<void> _copyRaw(WebReverseLaunchDiagnosis diagnosis) async {
-    late final WebReverseClipboardCopyResult copied;
-    try {
-      copied = await setWebReverseClipboardText(diagnosis.fullText);
-    } catch (error, stack) {
-      silentLog('web_reverse_dashboard_dialog', 'copy diagnosis', error, stack);
-      if (!mounted) return;
-      showWebReverseClipboardErrorSnack(context: context, error: error);
-      return;
-    }
-    if (!mounted) return;
-    showWebReverseClipboardSuccessSnack(
+    await copyWebReverseTextToClipboard(
       context: context,
-      base: openHandLocalizedText(
+      text: diagnosis.fullText,
+      successBase: openHandLocalizedText(
         context,
         zh: '已复制原始报错',
         zhHant: '已複製原始錯誤',
@@ -2297,8 +2288,9 @@ class _DiagnosisBannerState extends State<_DiagnosisBanner> {
         de: 'Rohfehler kopiert',
         ja: '原始エラーをコピーしました',
       ),
-      result: copied,
-      duration: const Duration(seconds: 1),
+      logTag: 'web_reverse_dashboard_dialog',
+      logAction: 'copy diagnosis',
+      successDuration: const Duration(seconds: 1),
     );
   }
 

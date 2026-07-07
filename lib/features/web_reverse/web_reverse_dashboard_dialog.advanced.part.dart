@@ -1769,24 +1769,10 @@ Future<void> _copyRecentRequestsForAi(
     }
     buf.writeln('---');
   }
-  late final WebReverseClipboardCopyResult copied;
-  try {
-    copied = await setWebReverseClipboardText(buf.toString());
-  } catch (error, stack) {
-    silentLog(
-      'web_reverse_advanced_menu',
-      'copy recent requests',
-      error,
-      stack,
-    );
-    if (!context.mounted) return;
-    showWebReverseClipboardErrorSnack(context: context, error: error);
-    return;
-  }
-  if (!context.mounted) return;
-  showWebReverseClipboardSuccessSnack(
+  await copyWebReverseTextToClipboard(
     context: context,
-    base: openHandLocalizedText(
+    text: buf.toString(),
+    successBase: openHandLocalizedText(
       context,
       zh: '请求摘要已复制，回到会话粘贴即可让 AI 分析',
       zhHant: '請求摘要已複製，回到會話貼上即可讓 AI 分析',
@@ -1795,8 +1781,9 @@ Future<void> _copyRecentRequestsForAi(
       de: 'Zusammenfassung kopiert; im Chat einfugen',
       ja: '要約をコピーしました。チャットに貼り付けて分析できます',
     ),
-    result: copied,
-    duration: const Duration(seconds: 3),
+    logTag: 'web_reverse_advanced_menu',
+    logAction: 'copy recent requests',
+    successDuration: const Duration(seconds: 3),
   );
 }
 
@@ -2210,18 +2197,13 @@ Future<void> _toggleHarReplayServer(
 }
 
 Future<void> _copyHarReplayPort(BuildContext context, int port) async {
-  try {
-    await setWebReverseClipboardText('$port');
-  } catch (error, stack) {
-    silentLog(
-      'web_reverse_advanced_menu',
-      'copy HAR replay port',
-      error,
-      stack,
-    );
-    if (!context.mounted) return;
-    showWebReverseClipboardErrorSnack(context: context, error: error);
-  }
+  await copyWebReverseTextToClipboard(
+    context: context,
+    text: '$port',
+    logTag: 'web_reverse_advanced_menu',
+    logAction: 'copy HAR replay port',
+    showSuccess: false,
+  );
 }
 
 Future<void> _toggleMitmproxyBridge(

@@ -14,21 +14,13 @@ Future<void> _copyNetworkText(
   required String base,
   Duration duration = _kNetworkCopySnackBarDuration,
 }) async {
-  late final WebReverseClipboardCopyResult copied;
-  try {
-    copied = await setWebReverseClipboardText(text);
-  } catch (error, stack) {
-    silentLog('web_reverse_network_panel', 'copy text', error, stack);
-    if (!context.mounted) return;
-    showWebReverseClipboardErrorSnack(context: context, error: error);
-    return;
-  }
-  if (!context.mounted) return;
-  showWebReverseClipboardSuccessSnack(
+  await copyWebReverseTextToClipboard(
     context: context,
-    base: base,
-    result: copied,
-    duration: duration,
+    text: text,
+    successBase: base,
+    logTag: 'web_reverse_network_panel',
+    logAction: 'copy text',
+    successDuration: duration,
   );
 }
 

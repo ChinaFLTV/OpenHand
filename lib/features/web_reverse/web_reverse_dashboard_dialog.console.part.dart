@@ -195,19 +195,10 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
   }
 
   Future<void> _copyConsoleText(String text) async {
-    late final WebReverseClipboardCopyResult copied;
-    try {
-      copied = await setWebReverseClipboardText(text);
-    } catch (e, st) {
-      silentLog('web_reverse_console_panel', 'copy text', e, st);
-      if (!mounted) return;
-      showWebReverseClipboardErrorSnack(context: context, error: e);
-      return;
-    }
-    if (!mounted) return;
-    showWebReverseClipboardSuccessSnack(
+    await copyWebReverseTextToClipboard(
       context: context,
-      base: openHandLocalizedText(
+      text: text,
+      successBase: openHandLocalizedText(
         context,
         zh: '控制台全文已复制',
         zhHant: '主控台全文已複製',
@@ -216,7 +207,8 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
         de: 'Konsolentext kopiert',
         ja: 'コンソール全文をコピーしました',
       ),
-      result: copied,
+      logTag: 'web_reverse_console_panel',
+      logAction: 'copy text',
     );
   }
 

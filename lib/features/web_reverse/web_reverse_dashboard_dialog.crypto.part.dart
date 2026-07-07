@@ -42,22 +42,13 @@ class _CryptoPadBodyState extends State<_CryptoPadBody> {
   }
 
   Future<void> _copy(String text, String label) async {
-    late final WebReverseClipboardCopyResult copied;
-    try {
-      copied = await setWebReverseClipboardText(text);
-    } catch (e, st) {
-      silentLog('web_reverse_crypto_pad', 'copy', e, st);
-      if (!mounted) return;
-      showWebReverseClipboardErrorSnack(context: context, error: e);
-      return;
-    }
-    if (!mounted) return;
     final loc = AppLocalizations.of(context);
-    showWebReverseClipboardSuccessSnack(
+    await copyWebReverseTextToClipboard(
       context: context,
-      base: loc?.webReverseCryptoCopied(label) ?? '$label copied',
-      result: copied,
-      duration: const Duration(seconds: 1),
+      text: text,
+      successBase: loc?.webReverseCryptoCopied(label) ?? '$label copied',
+      logTag: 'web_reverse_crypto_pad',
+      successDuration: const Duration(seconds: 1),
     );
   }
 

@@ -146,20 +146,13 @@ class _ReplDialogState extends State<_ReplDialog> {
   }
 
   Future<void> _copy(String s) async {
-    late final WebReverseClipboardCopyResult copied;
-    try {
-      copied = await setWebReverseClipboardText(s);
-    } catch (e, st) {
-      silentLog('web_reverse_repl_dialog', 'repl.copy', e, st);
-      if (!mounted) return;
-      showWebReverseClipboardErrorSnack(context: context, error: e);
-      return;
-    }
-    if (!mounted) return;
-    showWebReverseClipboardSuccessSnack(
+    await copyWebReverseTextToClipboard(
       context: context,
-      base: AppLocalizations.of(context)?.webReverseReplCopied ?? 'Copied',
-      result: copied,
+      text: s,
+      successBase:
+          AppLocalizations.of(context)?.webReverseReplCopied ?? 'Copied',
+      logTag: 'web_reverse_repl_dialog',
+      logAction: 'repl.copy',
     );
   }
 

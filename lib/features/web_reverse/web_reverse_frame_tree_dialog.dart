@@ -120,18 +120,13 @@ class _FrameTreeDialogState extends State<_FrameTreeDialog> {
   }
 
   Future<void> _copy(String s) async {
-    late final WebReverseClipboardCopyResult copied;
-    try {
-      copied = await setWebReverseClipboardText(s);
-    } catch (e, st) {
-      silentLog('web_reverse_frame_tree_dialog', 'frame-tree.copy', e, st);
-      return;
-    }
-    if (!mounted) return;
-    showWebReverseClipboardSuccessSnack(
+    await copyWebReverseTextToClipboard(
       context: context,
-      base: AppLocalizations.of(context)?.webReverseFrameTreeCopied ?? 'Copied',
-      result: copied,
+      text: s,
+      successBase:
+          AppLocalizations.of(context)?.webReverseFrameTreeCopied ?? 'Copied',
+      logTag: 'web_reverse_frame_tree_dialog',
+      logAction: 'frame-tree.copy',
     );
   }
 

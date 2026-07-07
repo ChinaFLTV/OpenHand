@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../app/support/silent_log.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/localized_text.dart';
@@ -31,6 +32,52 @@ Future<WebReverseClipboardCopyResult> setWebReverseClipboardText(
     copiedChars: prepared.text.length,
     clipped: prepared.clipped,
   );
+}
+
+Future<WebReverseClipboardCopyResult?> copyWebReverseTextToClipboard({
+  required BuildContext context,
+  required String text,
+  String? successBase,
+  required String logTag,
+  String logAction = 'copy',
+  int maxChars = kWebReverseClipboardMaxChars,
+  Duration successDuration = kOpenHandSnackBarSuccessDuration,
+  Duration errorDuration = kOpenHandSnackBarErrorDuration,
+  bool showSuccess = true,
+}) async {
+  late final WebReverseClipboardCopyResult copied;
+  try {
+    copied = await setWebReverseClipboardText(text, maxChars: maxChars);
+  } catch (error, stack) {
+    silentLog(logTag, logAction, error, stack);
+    if (!context.mounted) return null;
+    showWebReverseClipboardErrorSnack(
+      context: context,
+      error: error,
+      duration: errorDuration,
+    );
+    return null;
+  }
+  if (!context.mounted) return null;
+  if (showSuccess) {
+    showWebReverseClipboardSuccessSnack(
+      context: context,
+      base:
+          successBase ??
+          openHandLocalizedText(
+            context,
+            zh: '已复制',
+            zhHant: '已複製',
+            en: 'Copied',
+            fr: 'Copié',
+            de: 'Kopiert',
+            ja: 'コピーしました',
+          ),
+      result: copied,
+      duration: successDuration,
+    );
+  }
+  return copied;
 }
 
 String webReverseClipboardSnackMessage({

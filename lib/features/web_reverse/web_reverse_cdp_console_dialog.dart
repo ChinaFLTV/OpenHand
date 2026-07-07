@@ -200,18 +200,13 @@ class _CdpConsoleDialogState extends State<_CdpConsoleDialog> {
   }
 
   Future<void> _copy(String t) async {
-    late final WebReverseClipboardCopyResult copied;
-    try {
-      copied = await setWebReverseClipboardText(t);
-    } catch (err, st) {
-      silentLog('web_reverse_cdp_console_dialog', 'cdp-console.copy', err, st);
-      return;
-    }
-    if (!mounted) return;
-    showWebReverseClipboardSuccessSnack(
+    await copyWebReverseTextToClipboard(
       context: context,
-      base: AppLocalizations.of(context)?.webReverseCdpCopied ?? 'Copied',
-      result: copied,
+      text: t,
+      successBase:
+          AppLocalizations.of(context)?.webReverseCdpCopied ?? 'Copied',
+      logTag: 'web_reverse_cdp_console_dialog',
+      logAction: 'cdp-console.copy',
     );
   }
 

@@ -228,19 +228,10 @@ class _RequestDetailPanelState extends State<_RequestDetailPanel> {
       'fetch-node' => _asFetch(widget.entry, node: true),
       _ => widget.entry.url,
     };
-    late final WebReverseClipboardCopyResult copied;
-    try {
-      copied = await setWebReverseClipboardText(text);
-    } catch (e, st) {
-      silentLog('web_reverse_detail_panel', 'copy $kind', e, st);
-      if (!mounted) return;
-      showWebReverseClipboardErrorSnack(context: context, error: e);
-      return;
-    }
-    if (!mounted) return;
-    showWebReverseClipboardSuccessSnack(
+    await copyWebReverseTextToClipboard(
       context: context,
-      base: openHandLocalizedText(
+      text: text,
+      successBase: openHandLocalizedText(
         context,
         zh: '已复制为 $kind',
         zhHant: '已複製為 $kind',
@@ -249,8 +240,9 @@ class _RequestDetailPanelState extends State<_RequestDetailPanel> {
         de: 'Als $kind kopiert',
         ja: '$kind としてコピーしました',
       ),
-      result: copied,
-      duration: const Duration(seconds: 1),
+      logTag: 'web_reverse_detail_panel',
+      logAction: 'copy $kind',
+      successDuration: const Duration(seconds: 1),
     );
   }
 

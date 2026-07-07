@@ -99,12 +99,12 @@ class _MockRulesDialogState extends State<_MockRulesDialog> {
       '  ',
     ).convert(_draft.map((e) => e.toJson()).toList());
     final loc = AppLocalizations.of(context);
-    final copied = await setWebReverseClipboardText(out);
-    if (!mounted) return;
-    showWebReverseClipboardSuccessSnack(
+    await copyWebReverseTextToClipboard(
       context: context,
-      base: loc?.webReverseMockRulesJsonCopied ?? 'JSON copied',
-      result: copied,
+      text: out,
+      successBase: loc?.webReverseMockRulesJsonCopied ?? 'JSON copied',
+      logTag: 'web_reverse_mock_rules',
+      logAction: 'export',
     );
   }
 

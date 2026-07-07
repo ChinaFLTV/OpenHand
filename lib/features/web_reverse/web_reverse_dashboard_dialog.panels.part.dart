@@ -2759,25 +2759,14 @@ class _SamplingTopList extends StatelessWidget {
           actions: [
             OpenHandDialogActionButton.secondary(
               onPressed: () async {
-                late final WebReverseClipboardCopyResult copied;
-                try {
-                  copied = await setWebReverseClipboardText(
-                    row.stack.join('\n'),
-                  );
-                } catch (error, stack) {
-                  silentLog(
-                    'web_reverse_memory_panel',
-                    'copy stack',
-                    error,
-                    stack,
-                  );
-                  if (!context.mounted) return;
-                  showWebReverseClipboardErrorSnack(
-                    context: context,
-                    error: error,
-                  );
-                  return;
-                }
+                final copied = await copyWebReverseTextToClipboard(
+                  context: context,
+                  text: row.stack.join('\n'),
+                  logTag: 'web_reverse_memory_panel',
+                  logAction: 'copy stack',
+                  showSuccess: false,
+                );
+                if (copied == null) return;
                 if (!dialogContext.mounted || !context.mounted) return;
                 Navigator.of(dialogContext).pop();
                 showWebReverseClipboardSuccessSnack(
@@ -3174,19 +3163,10 @@ class _CookiesTableState extends State<_CookiesTable> {
 
   Future<void> _exportJson() async {
     final encoded = const JsonEncoder.withIndent('  ').convert(widget.cookies);
-    late final WebReverseClipboardCopyResult copied;
-    try {
-      copied = await setWebReverseClipboardText(encoded);
-    } catch (error, stack) {
-      silentLog('web_reverse_cookies_panel', 'copy export', error, stack);
-      if (!mounted) return;
-      showWebReverseClipboardErrorSnack(context: context, error: error);
-      return;
-    }
-    if (!mounted) return;
-    showWebReverseClipboardSuccessSnack(
+    await copyWebReverseTextToClipboard(
       context: context,
-      base: openHandLocalizedText(
+      text: encoded,
+      successBase: openHandLocalizedText(
         context,
         zh: '已复制 ${widget.cookies.length} 条 cookie 到剪贴板',
         zhHant: '已複製 ${widget.cookies.length} 筆 cookie 到剪貼簿',
@@ -3195,7 +3175,8 @@ class _CookiesTableState extends State<_CookiesTable> {
         de: '${widget.cookies.length} Cookies in die Zwischenablage kopiert',
         ja: '${widget.cookies.length} 件の cookie をクリップボードにコピーしました',
       ),
-      result: copied,
+      logTag: 'web_reverse_cookies_panel',
+      logAction: 'copy export',
     );
   }
 
@@ -3621,19 +3602,10 @@ class _StorageTableState extends State<_StorageTable> {
   Future<void> _exportJson() async {
     final map = <String, String>{for (final r in widget.rows) r.key: r.value};
     final encoded = const JsonEncoder.withIndent('  ').convert(map);
-    late final WebReverseClipboardCopyResult copied;
-    try {
-      copied = await setWebReverseClipboardText(encoded);
-    } catch (error, stack) {
-      silentLog('web_reverse_storage_panel', 'copy export', error, stack);
-      if (!mounted) return;
-      showWebReverseClipboardErrorSnack(context: context, error: error);
-      return;
-    }
-    if (!mounted) return;
-    showWebReverseClipboardSuccessSnack(
+    await copyWebReverseTextToClipboard(
       context: context,
-      base: openHandLocalizedText(
+      text: encoded,
+      successBase: openHandLocalizedText(
         context,
         zh: '已复制 ${widget.rows.length} 条到剪贴板',
         zhHant: '已複製 ${widget.rows.length} 筆到剪貼簿',
@@ -3642,7 +3614,8 @@ class _StorageTableState extends State<_StorageTable> {
         de: '${widget.rows.length} Einträge in die Zwischenablage kopiert',
         ja: '${widget.rows.length} 件をクリップボードにコピーしました',
       ),
-      result: copied,
+      logTag: 'web_reverse_storage_panel',
+      logAction: 'copy export',
     );
   }
 

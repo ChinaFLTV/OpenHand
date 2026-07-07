@@ -1864,27 +1864,10 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                 height: 32,
                 child: OutlinedButton.icon(
                   onPressed: () async {
-                    late final WebReverseClipboardCopyResult copied;
-                    try {
-                      copied = await setWebReverseClipboardText(source);
-                    } catch (error, stack) {
-                      silentLog(
-                        'web_reverse_sources_panel',
-                        'copy source',
-                        error,
-                        stack,
-                      );
-                      if (!mounted) return;
-                      showWebReverseClipboardErrorSnack(
-                        context: context,
-                        error: error,
-                      );
-                      return;
-                    }
-                    if (!mounted) return;
-                    showWebReverseClipboardSuccessSnack(
+                    await copyWebReverseTextToClipboard(
                       context: context,
-                      base: openHandLocalizedText(
+                      text: source,
+                      successBase: openHandLocalizedText(
                         context,
                         zh: '已复制',
                         zhHant: '已複製',
@@ -1893,8 +1876,9 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                         de: 'Kopiert',
                         ja: 'コピーしました',
                       ),
-                      result: copied,
-                      duration: const Duration(seconds: 1),
+                      logTag: 'web_reverse_sources_panel',
+                      logAction: 'copy source',
+                      successDuration: const Duration(seconds: 1),
                     );
                   },
                   icon: const Icon(Icons.copy_rounded, size: 16),
