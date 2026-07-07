@@ -10,6 +10,7 @@ import 'package:shelf_router/shelf_router.dart';
 
 import '../../../shared/net/http_status_utils.dart';
 import '../../../shared/util/input_value_parsing.dart';
+import '../model/mcp_http_headers.dart';
 import '../model/mcp_server_ops.dart';
 
 typedef McpOpsToolListProvider = List<McpOpsToolDefinition> Function();
@@ -53,8 +54,18 @@ class McpServerOpsRuntime {
   static const String _serverVersion = '1.0.0';
   static const Duration _shutdownTimeout = Duration(seconds: 5);
   static const Duration _connectivityTimeout = Duration(seconds: 3);
+  static const Duration _sseKeepAliveInterval = Duration(seconds: 15);
+  static const int _sseKeepAliveTicks = 480;
+  static const int _maxSseStreams = 32;
   static const int _latencyWindow = 512;
   static const int _rateWindowSeconds = 60;
+  static const Map<String, String> _corsHeaders = <String, String>{
+    'access-control-allow-origin': '*',
+    'access-control-allow-methods': 'GET, POST, OPTIONS',
+    'access-control-allow-headers':
+        'accept, authorization, content-type, mcp-protocol-version, mcp-session-id, x-openhand-client, x-openhand-mcp-token, x-openhand-model, x-model',
+    'access-control-expose-headers': 'mcp-protocol-version, mcp-session-id',
+  };
 
   final McpOpsToolListProvider _toolListProvider;
   final McpOpsToolInvoker _toolInvoker;
@@ -68,6 +79,7 @@ class McpServerOpsRuntime {
   final List<DateTime> _requestTimes = <DateTime>[];
   final List<int> _latencies = <int>[];
   int _activeRequests = 0;
+  int _activeSseStreams = 0;
   int _requestTotal = 0;
   int _blockedTotal = 0;
   int _failedTotal = 0;
@@ -78,6 +90,7 @@ class McpServerOpsRuntime {
   final Map<String, int> _clientDistribution = <String, int>{};
   final Map<String, int> _requestDistribution = <String, int>{};
   final Map<String, int> _protocolDistribution = <String, int>{};
+  final Set<String> _sessionIds = <String>{};
 
   McpOpsRuntimeSnapshot get snapshot => _snapshot;
   bool get isRunning => _server != null;
@@ -94,6 +107,9 @@ class McpServerOpsRuntime {
     try {
       final router = Router()
         ..get('/health', _health)
+        ..options('/mcp', _options)
+        ..options('/', _options)
+        ..get('/mcp', _sseStream)
         ..post('/mcp', _jsonRpc)
         ..post('/', _jsonRpc);
       final handler = const shelf.Pipeline()
@@ -145,6 +161,8 @@ class McpServerOpsRuntime {
     try {
       await server.close(force: true).timeout(_shutdownTimeout);
     } finally {
+      _activeRequests = 0;
+      _activeSseStreams = 0;
       _setSnapshot(
         _snapshot.copyWith(
           lifecycle: McpOpsLifecycleState.stopped,
@@ -217,7 +235,7 @@ class McpServerOpsRuntime {
         _setSnapshot(
           _snapshot.copyWith(
             activeRequests: _activeRequests,
-            currentConnections: _activeRequests,
+            currentConnections: _currentConnections,
             memoryRssBytes: _currentRss(),
           ),
         );
@@ -236,7 +254,7 @@ class McpServerOpsRuntime {
           _setSnapshot(
             _snapshot.copyWith(
               activeRequests: _activeRequests,
-              currentConnections: _activeRequests,
+              currentConnections: _currentConnections,
               avgLatencyMs: _averageLatency(),
               p95LatencyMs: _p95Latency(),
               memoryRssBytes: _currentRss(),
@@ -259,6 +277,69 @@ class McpServerOpsRuntime {
     return _jsonResponse(payload);
   }
 
+  shelf.Response _options(shelf.Request request) {
+    return shelf.Response(HttpStatus.noContent, headers: _corsHeaders);
+  }
+
+  shelf.Response _sseStream(shelf.Request request) {
+    const method = 'stream/get';
+    if (!_requestAllowed(request, method, 0)) {
+      return shelf.Response(
+        HttpStatus.forbidden,
+        body: 'Request blocked by OpenHand policy',
+        headers: const <String, String>{
+          ..._corsHeaders,
+          'content-type': 'text/plain; charset=utf-8',
+        },
+      );
+    }
+    _markRequest(request, method);
+    if (_activeSseStreams >= _maxSseStreams) {
+      _recordBlocked(
+        request,
+        inboundBytes: 0,
+        reason: 'SSE stream limit exceeded.',
+        method: method,
+      );
+      return shelf.Response(
+        HttpStatus.tooManyRequests,
+        body: 'Too many OpenHand MCP streams',
+        headers: const <String, String>{
+          ..._corsHeaders,
+          'content-type': 'text/plain; charset=utf-8',
+        },
+      );
+    }
+    _activeSseStreams += 1;
+    _publishConnectionSnapshot();
+    return shelf.Response.ok(
+      _sseKeepAliveStream(),
+      headers: <String, String>{
+        ..._corsHeaders,
+        ..._sessionHeaders(request),
+        'content-type': 'text/event-stream; charset=utf-8',
+        'cache-control': 'no-cache, no-transform',
+        'connection': 'keep-alive',
+        'x-accel-buffering': 'no',
+      },
+    );
+  }
+
+  Stream<List<int>> _sseKeepAliveStream() async* {
+    try {
+      yield utf8.encode(': OpenHand MCP stream ready\n\n');
+      for (var index = 0; index < _sseKeepAliveTicks; index++) {
+        await Future<void>.delayed(_sseKeepAliveInterval);
+        yield utf8.encode(
+          ': keepalive ${DateTime.now().toUtc().toIso8601String()}\n\n',
+        );
+      }
+    } finally {
+      _activeSseStreams = math.max(0, _activeSseStreams - 1);
+      _publishConnectionSnapshot();
+    }
+  }
+
   Future<shelf.Response> _jsonRpc(shelf.Request request) async {
     final body = await request.readAsString();
     final inboundBytes = utf8.encode(body).length;
@@ -276,6 +357,7 @@ class McpServerOpsRuntime {
       return _jsonResponse(
         _jsonRpcError(null, -32700, 'Parse error'),
         statusCode: HttpStatus.badRequest,
+        headers: _sessionHeaders(request),
       );
     }
 
@@ -290,9 +372,15 @@ class McpServerOpsRuntime {
         if (response != null) responses.add(response);
       }
       if (responses.isEmpty) {
-        return shelf.Response(HttpStatus.accepted);
+        return shelf.Response(
+          HttpStatus.accepted,
+          headers: <String, String>{
+            ..._corsHeaders,
+            ..._sessionHeaders(request),
+          },
+        );
       }
-      return _jsonResponse(responses);
+      return _jsonResponse(responses, headers: _sessionHeaders(request));
     }
 
     final response = await _handleJsonRpcMessage(
@@ -301,9 +389,12 @@ class McpServerOpsRuntime {
       inboundBytes: inboundBytes,
     );
     if (response == null) {
-      return shelf.Response(HttpStatus.accepted);
+      return shelf.Response(
+        HttpStatus.accepted,
+        headers: <String, String>{..._corsHeaders, ..._sessionHeaders(request)},
+      );
     }
-    return _jsonResponse(response, headers: _sessionHeaders());
+    return _jsonResponse(response, headers: _sessionHeaders(request));
   }
 
   Future<Map<String, Object?>?> _handleJsonRpcMessage(
@@ -836,6 +927,8 @@ class McpServerOpsRuntime {
   void _publishMetrics() {
     _setSnapshot(
       _snapshot.copyWith(
+        activeRequests: _activeRequests,
+        currentConnections: _currentConnections,
         requestTotal: _requestTotal,
         blockedTotal: _blockedTotal,
         failedTotal: _failedTotal,
@@ -853,6 +946,18 @@ class McpServerOpsRuntime {
         protocolDistribution: Map<String, int>.unmodifiable(
           _protocolDistribution,
         ),
+      ),
+    );
+  }
+
+  int get _currentConnections => _activeRequests + _activeSseStreams;
+
+  void _publishConnectionSnapshot() {
+    _setSnapshot(
+      _snapshot.copyWith(
+        activeRequests: _activeRequests,
+        currentConnections: _currentConnections,
+        memoryRssBytes: _currentRss(),
       ),
     );
   }
@@ -886,6 +991,7 @@ class McpServerOpsRuntime {
       statusCode,
       body: body,
       headers: <String, String>{
+        ..._corsHeaders,
         'content-type': 'application/json; charset=utf-8',
         ...headers,
       },
@@ -904,11 +1010,26 @@ class McpServerOpsRuntime {
     };
   }
 
-  Map<String, String> _sessionHeaders() {
+  Map<String, String> _sessionHeaders(shelf.Request request) {
     return <String, String>{
       'mcp-protocol-version': _protocolVersion,
-      'mcp-session-id': 'openhand-${DateTime.now().millisecondsSinceEpoch}',
+      'mcp-session-id': _sessionIdForRequest(request),
     };
+  }
+
+  String _sessionIdForRequest(shelf.Request request) {
+    final provided = nullIfBlank(request.headers['mcp-session-id']);
+    if (provided != null && isValidMcpHttpHeaderValue(provided)) {
+      _sessionIds.add(provided);
+      return provided;
+    }
+    final generated =
+        'openhand-${DateTime.now().microsecondsSinceEpoch}-${math.Random().nextInt(1 << 20)}';
+    _sessionIds.add(generated);
+    if (_sessionIds.length > 1024) {
+      _sessionIds.remove(_sessionIds.first);
+    }
+    return generated;
   }
 
   String _requestToken(shelf.Request request) {

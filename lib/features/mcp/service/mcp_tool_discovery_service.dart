@@ -17,6 +17,7 @@ import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
 import '../../../shared/util/text_clip.dart';
 import '../../ai/index.dart';
+import '../model/mcp_http_headers.dart';
 import '../model/mcp_server.dart';
 import '../model/mcp_server_health.dart';
 import '../model/mcp_tool.dart';
@@ -2761,6 +2762,9 @@ Map<String, String> _mergeRequestHeaders({
     final name = entry.key.trim();
     final value = entry.value.trim();
     if (name.isEmpty || value.isEmpty) {
+      continue;
+    }
+    if (!isValidMcpHttpHeader(name, value)) {
       continue;
     }
     if (protectedHeaderNames.contains(name.toLowerCase())) {

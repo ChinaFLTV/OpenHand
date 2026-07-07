@@ -7,6 +7,7 @@ import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/url_validation.dart';
 import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/util/input_value_parsing.dart';
+import '../model/mcp_http_headers.dart';
 import '../model/mcp_server.dart';
 
 enum McpPersistenceIssueKind {
@@ -282,11 +283,11 @@ class McpStore {
     rawHeaders.forEach((rawName, rawValue) {
       final name = optionalStringFromValue(rawName);
       final value = optionalStringFromValue(rawValue);
-      if (name == null || value == null) {
+      if (name == null || value == null || !isValidMcpHttpHeader(name, value)) {
         didSanitize = true;
         return;
       }
-      headers[name] = value;
+      headers[name.trim()] = value.trim();
     });
     return _ParsedHeaders(
       headers: Map<String, String>.unmodifiable(headers),

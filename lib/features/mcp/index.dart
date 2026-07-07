@@ -1,5 +1,6 @@
 export 'mcp_controller.dart';
 export 'mcp_module.dart';
+export 'model/mcp_http_headers.dart';
 export 'model/mcp_keyword_index_update_mode.dart';
 export 'model/mcp_lazy_loading_mode.dart';
 export 'model/mcp_server.dart';

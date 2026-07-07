@@ -39,6 +39,7 @@ import '../../skills/index.dart';
 import '../../thread_template_runtime/index.dart';
 import '../data/mcp_store.dart';
 import '../mcp_controller.dart';
+import '../model/mcp_http_headers.dart';
 import '../model/mcp_server.dart';
 import '../model/mcp_server_health.dart';
 import '../model/mcp_server_ops.dart';
@@ -1706,6 +1707,35 @@ class _McpServerEditorDialogState extends State<_McpServerEditorDialog> {
           ),
         );
       }
+      if (!isValidMcpHttpHeaderName(name)) {
+        return _HeaderParseResult(
+          headers: const <String, String>{},
+          errorMessage: _localizedText(
+            context,
+            zh: '第 ${index + 1} 个 Header 名称只能使用 ASCII 字母、数字和标准 HTTP 符号',
+            en: 'Header ${index + 1} name must use ASCII letters, digits and standard HTTP token symbols',
+            zhHant: '第 ${index + 1} 個 Header 名稱只能使用 ASCII 字母、數字和標準 HTTP 符號',
+            fr: 'Le nom de l’en-tête ${index + 1} doit utiliser des lettres ASCII, des chiffres et les symboles HTTP standard',
+            de: 'Header ${index + 1} muss ASCII-Buchstaben, Ziffern und standardmäßige HTTP-Token-Zeichen verwenden',
+            ja: 'ヘッダー ${index + 1} の名前は ASCII 英数字と標準 HTTP 記号のみ使用できます',
+          ),
+        );
+      }
+      if (!isValidMcpHttpHeaderValue(value)) {
+        return _HeaderParseResult(
+          headers: const <String, String>{},
+          errorMessage: _localizedText(
+            context,
+            zh: '第 ${index + 1} 个 Header 值不能包含中文、换行或控制字符；请使用 ASCII / Latin-1 安全值',
+            en: 'Header ${index + 1} value cannot contain Chinese characters, line breaks or control characters; use an ASCII / Latin-1 safe value',
+            zhHant:
+                '第 ${index + 1} 個 Header 值不能包含中文、換行或控制字元；請使用 ASCII / Latin-1 安全值',
+            fr: 'La valeur de l’en-tête ${index + 1} ne peut pas contenir de caractères chinois, de retours à la ligne ni de caractères de contrôle ; utilisez une valeur ASCII / Latin-1 sûre',
+            de: 'Header ${index + 1} darf keine chinesischen Zeichen, Zeilenumbrüche oder Steuerzeichen enthalten; verwenden Sie einen ASCII-/Latin-1-sicheren Wert',
+            ja: 'ヘッダー ${index + 1} の値には中国語、改行、制御文字を含められません。ASCII / Latin-1 で安全な値を使用してください',
+          ),
+        );
+      }
       final normalizedName = name.toLowerCase();
       if (!seenNames.add(normalizedName)) {
         return _HeaderParseResult(
@@ -1878,7 +1908,9 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
     final snapshot = controller.opsSnapshot;
     final config = _buildConfig();
     final endpoint = _mcpOpsEndpoint(snapshot, config);
+    final bindEndpoint = _mcpOpsBindEndpoint(snapshot, config);
     final endpointUri = 'http://$endpoint/mcp';
+    final bindEndpointUri = 'http://$bindEndpoint/mcp';
     return buildOpenHandResponsiveDialogShell(
       context: context,
       maxWidth: _mcpOpsDialogMaxWidth,
@@ -1904,8 +1936,11 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
                 _McpOpsConsoleHeader(
                   snapshot: snapshot,
                   endpointUri: endpointUri,
+                  bindEndpointUri: bindEndpointUri,
                   config: config,
                   onCopyEndpoint: () => _copyOpsEndpoint(context, endpointUri),
+                  onCopyCursorConfig: () =>
+                      _copyCursorConfig(context, endpointUri, config),
                   onConnectivityTest: () => _testConnectivity(context),
                   onStart: () => _startServer(context),
                   onRestart: () => _restartServer(context),
@@ -1977,6 +2012,47 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
         en: 'MCP endpoint copied',
       ),
       logAction: 'copy mcp ops endpoint',
+    );
+  }
+
+  Future<void> _copyCursorConfig(
+    BuildContext context,
+    String endpointUri,
+    McpOpsConfig config,
+  ) async {
+    final validationMessage = _opsClientConfigValidationMessage(
+      context,
+      config,
+    );
+    if (validationMessage != null) {
+      OpenHandSnackBar.flash(
+        context,
+        validationMessage,
+        kind: OpenHandSnackKind.error,
+      );
+      return;
+    }
+    final serverConfig = <String, Object?>{'url': endpointUri};
+    final token = config.authToken.trim();
+    if (config.requireAuthToken && token.isNotEmpty) {
+      serverConfig['headers'] = <String, String>{
+        'Authorization': 'Bearer $token',
+      };
+    }
+    final content = const JsonEncoder.withIndent('  ').convert(
+      <String, Object?>{
+        'mcpServers': <String, Object?>{'openhand': serverConfig},
+      },
+    );
+    await copyMcpTextToClipboard(
+      context: context,
+      text: content,
+      successMessage: _localizedText(
+        context,
+        zh: 'Cursor MCP配置已复制',
+        en: 'Cursor MCP config copied',
+      ),
+      logAction: 'copy openhand mcp cursor config',
     );
   }
 
@@ -2095,6 +2171,31 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
     });
   }
 
+  String? _opsClientConfigValidationMessage(
+    BuildContext context,
+    McpOpsConfig config,
+  ) {
+    if (!config.requireAuthToken) {
+      return null;
+    }
+    final token = config.authToken.trim();
+    if (token.isEmpty) {
+      return _localizedText(
+        context,
+        zh: '开启令牌校验后必须填写访问令牌',
+        en: 'Access token is required when token auth is enabled',
+      );
+    }
+    if (!isValidMcpHttpHeaderValue('Bearer $token')) {
+      return _localizedText(
+        context,
+        zh: '访问令牌会写入 Cursor Authorization Header，不能包含中文、换行或控制字符；请换成英文、数字或符号组成的安全令牌。',
+        en: 'The access token is sent through the Cursor Authorization header, so it cannot contain Chinese characters, line breaks or control characters. Use a token made of English letters, digits or symbols.',
+      );
+    }
+    return null;
+  }
+
   Widget _buildConfigActionsBar(BuildContext context, AppLocalizations l10n) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
@@ -2176,12 +2277,14 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
       auditEntries: auditEntries,
     );
     final endpoint = _mcpOpsEndpoint(snapshot, config);
+    final bindEndpoint = _mcpOpsBindEndpoint(snapshot, config);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _McpOpsHeroPanel(
           snapshot: snapshot,
           endpoint: endpoint,
+          bindEndpoint: bindEndpoint,
           config: config,
         ),
         const SizedBox(height: _mcpOpsGridGap),
@@ -3088,9 +3191,21 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
     BuildContext context, {
     required Future<bool> Function()? action,
   }) async {
+    final config = _buildConfig();
+    final validationMessage = _opsClientConfigValidationMessage(
+      context,
+      config,
+    );
+    if (validationMessage != null) {
+      setState(() {
+        _saving = false;
+        _configMessage = validationMessage;
+      });
+      return;
+    }
     setState(() => _saving = true);
     final controller = context.read<McpController>();
-    final ok = await controller.saveOpsConfig(_buildConfig());
+    final ok = await controller.saveOpsConfig(config);
     var actionOk = true;
     if (ok && action != null) {
       actionOk = await action();
@@ -3275,8 +3390,10 @@ class _McpOpsConsoleHeader extends StatelessWidget {
   const _McpOpsConsoleHeader({
     required this.snapshot,
     required this.endpointUri,
+    required this.bindEndpointUri,
     required this.config,
     required this.onCopyEndpoint,
+    required this.onCopyCursorConfig,
     required this.onConnectivityTest,
     required this.onStart,
     required this.onRestart,
@@ -3286,8 +3403,10 @@ class _McpOpsConsoleHeader extends StatelessWidget {
 
   final McpOpsRuntimeSnapshot snapshot;
   final String endpointUri;
+  final String bindEndpointUri;
   final McpOpsConfig config;
   final VoidCallback onCopyEndpoint;
+  final VoidCallback onCopyCursorConfig;
   final VoidCallback onConnectivityTest;
   final VoidCallback onStart;
   final VoidCallback onRestart;
@@ -3312,6 +3431,7 @@ class _McpOpsConsoleHeader extends StatelessWidget {
         snapshot.lifecycle == McpOpsLifecycleState.running ||
         snapshot.lifecycle == McpOpsLifecycleState.starting ||
         snapshot.lifecycle == McpOpsLifecycleState.restarting;
+    final showsBindEndpoint = bindEndpointUri != endpointUri;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -3369,6 +3489,16 @@ class _McpOpsConsoleHeader extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             _McpOpsIconButton(
+              icon: Icons.integration_instructions_rounded,
+              tooltip: _localizedText(
+                context,
+                zh: '复制 Cursor 配置',
+                en: 'Copy Cursor config',
+              ),
+              onPressed: onCopyCursorConfig,
+            ),
+            const SizedBox(width: 8),
+            _McpOpsIconButton(
               icon: Icons.close_rounded,
               tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
               onPressed: onClose,
@@ -3392,6 +3522,17 @@ class _McpOpsConsoleHeader extends StatelessWidget {
               color: cs.primary,
               monospace: true,
             ),
+            if (showsBindEndpoint)
+              _McpOpsStatusChip(
+                icon: Icons.settings_ethernet_rounded,
+                label: _localizedText(
+                  context,
+                  zh: '监听 $bindEndpointUri',
+                  en: 'Bind $bindEndpointUri',
+                ),
+                color: cs.onSurfaceVariant,
+                monospace: true,
+              ),
             _McpOpsStatusChip(
               icon: Icons.speed_rounded,
               label: config.rpmLimit <= 0 ? 'RPM ∞' : 'RPM ${config.rpmLimit}',
@@ -3579,11 +3720,52 @@ class _McpOpsTabLabel extends StatelessWidget {
 }
 
 String _mcpOpsEndpoint(McpOpsRuntimeSnapshot snapshot, McpOpsConfig config) {
+  return _mcpOpsEndpointFromHost(
+    _mcpOpsClientHost(_mcpOpsRawEndpointHost(snapshot, config)),
+    snapshot.boundPort ?? config.listenPort,
+  );
+}
+
+String _mcpOpsBindEndpoint(
+  McpOpsRuntimeSnapshot snapshot,
+  McpOpsConfig config,
+) {
+  return _mcpOpsEndpointFromHost(
+    _mcpOpsRawEndpointHost(snapshot, config),
+    snapshot.boundPort ?? config.listenPort,
+  );
+}
+
+String _mcpOpsRawEndpointHost(
+  McpOpsRuntimeSnapshot snapshot,
+  McpOpsConfig config,
+) {
   final host = snapshot.boundHost?.trim().isNotEmpty == true
       ? snapshot.boundHost!.trim()
       : config.listenHost.trim();
-  final port = snapshot.boundPort ?? config.listenPort;
-  return '${host.isEmpty ? mcpOpsDefaultListenHost : host}:$port';
+  return host.isEmpty ? mcpOpsDefaultListenHost : host;
+}
+
+String _mcpOpsClientHost(String host) {
+  final normalized = host.trim();
+  if (normalized.isEmpty ||
+      normalized == '0.0.0.0' ||
+      normalized == '::' ||
+      normalized == '[::]') {
+    return mcpOpsDefaultListenHost;
+  }
+  return normalized;
+}
+
+String _mcpOpsEndpointFromHost(String host, int port) {
+  final cleanHost = host.trim();
+  final formattedHost =
+      cleanHost.contains(':') &&
+          !cleanHost.startsWith('[') &&
+          !cleanHost.endsWith(']')
+      ? '[$cleanHost]'
+      : cleanHost;
+  return '${formattedHost.isEmpty ? mcpOpsDefaultListenHost : formattedHost}:$port';
 }
 
 class _McpOpsDashboardStats {
@@ -3774,11 +3956,13 @@ class _McpOpsHeroPanel extends StatelessWidget {
   const _McpOpsHeroPanel({
     required this.snapshot,
     required this.endpoint,
+    required this.bindEndpoint,
     required this.config,
   });
 
   final McpOpsRuntimeSnapshot snapshot;
   final String endpoint;
+  final String bindEndpoint;
   final McpOpsConfig config;
 
   @override
@@ -3791,6 +3975,9 @@ class _McpOpsHeroPanel extends StatelessWidget {
         : snapshot.lifecycle == McpOpsLifecycleState.failed
         ? cs.error
         : cs.primary;
+    final endpointUri = 'http://$endpoint/mcp';
+    final bindEndpointUri = 'http://$bindEndpoint/mcp';
+    final showsBindEndpoint = bindEndpoint != endpoint;
     return _McpOpsPanel(
       icon: running ? Icons.cloud_done_rounded : Icons.cloud_queue_rounded,
       title: _localizedText(context, zh: '服务控制台', en: 'Server Console'),
@@ -3811,10 +3998,21 @@ class _McpOpsHeroPanel extends StatelessWidget {
               ),
               _McpOpsStatusChip(
                 icon: Icons.link_rounded,
-                label: 'http://$endpoint/mcp',
+                label: endpointUri,
                 color: cs.primary,
                 monospace: true,
               ),
+              if (showsBindEndpoint)
+                _McpOpsStatusChip(
+                  icon: Icons.settings_ethernet_rounded,
+                  label: _localizedText(
+                    context,
+                    zh: '监听 $bindEndpointUri',
+                    en: 'Bind $bindEndpointUri',
+                  ),
+                  color: cs.onSurfaceVariant,
+                  monospace: true,
+                ),
               _McpOpsStatusChip(
                 icon: Icons.schedule_rounded,
                 label: _localizedText(
@@ -3840,7 +4038,8 @@ class _McpOpsHeroPanel extends StatelessWidget {
           const SizedBox(height: 12),
           _McpOpsRuntimeTerminal(
             snapshot: snapshot,
-            endpointUri: 'http://$endpoint/mcp',
+            endpointUri: endpointUri,
+            bindEndpointUri: bindEndpointUri,
             config: config,
           ),
           if (snapshot.errorMessage?.trim().isNotEmpty ?? false) ...[
@@ -3873,11 +4072,13 @@ class _McpOpsRuntimeTerminal extends StatelessWidget {
   const _McpOpsRuntimeTerminal({
     required this.snapshot,
     required this.endpointUri,
+    required this.bindEndpointUri,
     required this.config,
   });
 
   final McpOpsRuntimeSnapshot snapshot;
   final String endpointUri;
+  final String bindEndpointUri;
   final McpOpsConfig config;
 
   @override
@@ -3919,6 +4120,14 @@ class _McpOpsRuntimeTerminal extends StatelessWidget {
                 promptColor: promptColor,
                 commandColor: commandColor,
               ),
+              if (bindEndpointUri != endpointUri)
+                _McpOpsConsoleLine(
+                  prompt: 'bind',
+                  command: bindEndpointUri,
+                  detail: 'client endpoint uses loopback for wildcard bind',
+                  promptColor: promptColor,
+                  commandColor: commandColor,
+                ),
               _McpOpsConsoleLine(
                 prompt: 'state',
                 command: _lifecycleLabel(context, snapshot.lifecycle),
@@ -11731,12 +11940,38 @@ _mcpLocalizedFallbacks = <String, _McpLocalizedFallback>{
     de: 'Endpunkt kopieren',
     ja: 'エンドポイントをコピー',
   ),
+  'Copy Cursor config': _McpLocalizedFallback(
+    zhHant: '複製 Cursor 配置',
+    fr: 'Copier la configuration Cursor',
+    de: 'Cursor-Konfiguration kopieren',
+    ja: 'Cursor 設定をコピー',
+  ),
   'MCP endpoint copied': _McpLocalizedFallback(
     zhHant: 'MCP 入口已複製',
     fr: 'Point d’accès MCP copié',
     de: 'MCP-Endpunkt kopiert',
     ja: 'MCP エンドポイントをコピーしました',
   ),
+  'Cursor MCP config copied': _McpLocalizedFallback(
+    zhHant: 'Cursor MCP 配置已複製',
+    fr: 'Configuration MCP Cursor copiée',
+    de: 'Cursor-MCP-Konfiguration kopiert',
+    ja: 'Cursor MCP 設定をコピーしました',
+  ),
+  'Access token is required when token auth is enabled': _McpLocalizedFallback(
+    zhHant: '開啟令牌校驗後必須填寫訪問令牌',
+    fr: 'Le jeton d’accès est requis quand l’authentification par jeton est activée',
+    de: 'Bei aktivierter Token-Authentifizierung ist ein Zugriffstoken erforderlich',
+    ja: 'トークン認証を有効にする場合はアクセストークンが必要です',
+  ),
+  'The access token is sent through the Cursor Authorization header, so it cannot contain Chinese characters, line breaks or control characters. Use a token made of English letters, digits or symbols.':
+      _McpLocalizedFallback(
+        zhHant:
+            '訪問令牌會寫入 Cursor Authorization Header，不能包含中文、換行或控制字元；請換成英文、數字或符號組成的安全令牌。',
+        fr: 'Le jeton est envoyé dans l’en-tête Authorization de Cursor ; il ne peut donc pas contenir de caractères chinois, de retours à la ligne ni de caractères de contrôle. Utilisez un jeton composé de lettres anglaises, de chiffres ou de symboles.',
+        de: 'Das Token wird über den Cursor-Authorization-Header gesendet und darf daher keine chinesischen Zeichen, Zeilenumbrüche oder Steuerzeichen enthalten. Verwenden Sie ein Token aus englischen Buchstaben, Ziffern oder Symbolen.',
+        ja: 'アクセストークンは Cursor の Authorization ヘッダーで送信されるため、中国語、改行、制御文字は使用できません。英字、数字、記号で構成されたトークンを使用してください。',
+      ),
   'Schema copied': _McpLocalizedFallback(
     zhHant: '已複製 Schema',
     fr: 'Schéma copié',
