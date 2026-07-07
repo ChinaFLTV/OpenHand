@@ -27,6 +27,15 @@ Duration _threadSessionMotionDuration(BuildContext context, Duration duration) {
   return openHandTickerMotionEnabled(context) ? duration : Duration.zero;
 }
 
+void _showThreadSessionSnack(
+  BuildContext context,
+  String message, {
+  OpenHandSnackKind kind = OpenHandSnackKind.info,
+}) {
+  if (!context.mounted) return;
+  OpenHandSnackBar.flash(context, message, kind: kind, postFrame: true);
+}
+
 /// Shows the Thread Session Management dialog. Honors the global dialog
 /// animation settings (entrance/exit are picked from the nearest
 /// `SettingsController` automatically by [showAnimatedDialog]).
@@ -222,15 +231,11 @@ class _ThreadSessionManagementDialogState
     if (!mounted || submitted == null || submitted.isEmpty) return;
     final ok = await controller.renameSession(session.id, submitted);
     if (!mounted || ok) return;
-    final messenger = ScaffoldMessenger.of(context);
-    OpenHandSnackBar.show(
+    _showThreadSessionSnack(
       context,
-      messenger,
-      OpenHandSnackBar.error(
-        context,
-        controller.lastErrorMessage ??
-            AppLocalizations.of(context)!.tsmRenameFailed,
-      ),
+      controller.lastErrorMessage ??
+          AppLocalizations.of(context)!.tsmRenameFailed,
+      kind: OpenHandSnackKind.error,
     );
     _outcomeErrorSignal.value++;
   }
@@ -294,14 +299,10 @@ class _ThreadSessionManagementDialogState
       _localOrder?.removeWhere((s) => ids.contains(s.id));
     });
     if (failed > 0) {
-      final messenger = ScaffoldMessenger.of(context);
-      OpenHandSnackBar.show(
+      _showThreadSessionSnack(
         context,
-        messenger,
-        OpenHandSnackBar.error(
-          context,
-          AppLocalizations.of(context)!.tsmDeleteFailedCount(failed),
-        ),
+        AppLocalizations.of(context)!.tsmDeleteFailedCount(failed),
+        kind: OpenHandSnackKind.error,
       );
       _outcomeErrorSignal.value++;
     } else {
@@ -314,7 +315,6 @@ class _ThreadSessionManagementDialogState
 
   Future<void> _exportSession(AiSession headerOnly) async {
     final controller = context.read<AiSessionController>();
-    final messenger = ScaffoldMessenger.of(context);
     AiSession? full;
     try {
       full = await controller.store.loadSession(headerOnly.id);
@@ -328,13 +328,10 @@ class _ThreadSessionManagementDialogState
     }
     if (full == null || !mounted) {
       if (mounted) {
-        OpenHandSnackBar.show(
+        _showThreadSessionSnack(
           context,
-          messenger,
-          OpenHandSnackBar.error(
-            context,
-            AppLocalizations.of(context)!.tsmSessionMissing,
-          ),
+          AppLocalizations.of(context)!.tsmSessionMissing,
+          kind: OpenHandSnackKind.error,
         );
         _outcomeErrorSignal.value++;
       }
@@ -400,12 +397,10 @@ class _ThreadSessionManagementDialogState
     if (!mounted) return;
     final ok = result.kind == ExportResultKind.success;
     final l10n = AppLocalizations.of(context)!;
-    OpenHandSnackBar.show(
+    _showThreadSessionSnack(
       context,
-      messenger,
-      ok
-          ? OpenHandSnackBar.success(context, l10n.tsmExportComplete)
-          : OpenHandSnackBar.error(context, l10n.tsmExportFailed),
+      ok ? l10n.tsmExportComplete : l10n.tsmExportFailed,
+      kind: ok ? OpenHandSnackKind.success : OpenHandSnackKind.error,
     );
     if (ok) {
       _outcomeSuccessSignal.value++;
@@ -418,7 +413,6 @@ class _ThreadSessionManagementDialogState
     if (_selectedIds.isEmpty) return;
     final ids = List<String>.from(_selectedIds);
     final controller = context.read<AiSessionController>();
-    final messenger = ScaffoldMessenger.of(context);
     // Pick a destination folder once, then write each session into it.
     String? folderPath;
     try {
@@ -517,12 +511,10 @@ class _ThreadSessionManagementDialogState
     final batchMessage = AppLocalizations.of(
       context,
     )!.tsmBatchExportDone(ok, failed);
-    OpenHandSnackBar.show(
+    _showThreadSessionSnack(
       context,
-      messenger,
-      failed == 0
-          ? OpenHandSnackBar.success(context, batchMessage)
-          : OpenHandSnackBar.error(context, batchMessage),
+      batchMessage,
+      kind: failed == 0 ? OpenHandSnackKind.success : OpenHandSnackKind.error,
     );
     if (failed == 0) {
       _outcomeSuccessSignal.value++;
@@ -641,14 +633,10 @@ class _ThreadSessionManagementDialogState
       });
       await _refreshFlags();
     } else {
-      final messenger = ScaffoldMessenger.of(context);
-      OpenHandSnackBar.show(
+      _showThreadSessionSnack(
         context,
-        messenger,
-        OpenHandSnackBar.error(
-          context,
-          AppLocalizations.of(context)!.tsmPinUpdateFailed,
-        ),
+        AppLocalizations.of(context)!.tsmPinUpdateFailed,
+        kind: OpenHandSnackKind.error,
       );
       _outcomeErrorSignal.value++;
     }
@@ -672,14 +660,10 @@ class _ThreadSessionManagementDialogState
       });
       await _refreshFlags();
     } else {
-      final messenger = ScaffoldMessenger.of(context);
-      OpenHandSnackBar.show(
+      _showThreadSessionSnack(
         context,
-        messenger,
-        OpenHandSnackBar.error(
-          context,
-          AppLocalizations.of(context)!.tsmArchiveUpdateFailed,
-        ),
+        AppLocalizations.of(context)!.tsmArchiveUpdateFailed,
+        kind: OpenHandSnackKind.error,
       );
       _outcomeErrorSignal.value++;
     }
