@@ -5,7 +5,6 @@ import 'dart:math' as math;
 
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../../app/model/dialog_animation_settings.dart';
@@ -32,6 +31,7 @@ import '../../../shared/util/timer_safety.dart';
 import '../message_gateway_controller.dart';
 import '../model/web_message_platform_config.dart';
 import '../service/web_message_platform_service.dart';
+import 'message_gateway_dialog_utils.dart';
 
 String _gatewayEmptyMeansAllLabel(BuildContext context, String label) {
   final suffix = openHandLocalizedText(
@@ -2778,25 +2778,20 @@ class _WebGatewayConnectivityDialogState
 
   Future<void> _copyResult(WebGatewayConnectivityTestResult result) async {
     const encoder = JsonEncoder.withIndent('  ');
-    await Clipboard.setData(
-      ClipboardData(text: encoder.convert(result.toJson())),
-    );
-    if (!mounted) return;
-    showOpenHandSnackBar(
-      context,
-      OpenHandSnackBar.success(
+    await copyMessageGatewayTextToClipboard(
+      context: context,
+      text: encoder.convert(result.toJson()),
+      successMessage: openHandLocalizedText(
         context,
-        openHandLocalizedText(
-          context,
-          zh: '连通性测试结果已复制',
-          zhHant: '連通性測試結果已複製',
-          en: 'Connectivity test result copied',
-          fr: 'Résultat du test de connectivité copié',
-          de: 'Konnektivitätstestergebnis kopiert',
-          ja: '接続テスト結果をコピーしました',
-        ),
-        duration: const Duration(milliseconds: 1600),
+        zh: '连通性测试结果已复制',
+        zhHant: '連通性測試結果已複製',
+        en: 'Connectivity test result copied',
+        fr: 'Résultat du test de connectivité copié',
+        de: 'Konnektivitätstestergebnis kopiert',
+        ja: '接続テスト結果をコピーしました',
       ),
+      logAction: 'copy connectivity test result',
+      successDuration: const Duration(milliseconds: 1600),
     );
   }
 }
@@ -3723,24 +3718,19 @@ class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog> {
   }
 
   Future<void> _copyLogs(List<WebGatewayLogEntry> logs) async {
-    await Clipboard.setData(
-      ClipboardData(text: logs.map((entry) => entry.toLogLine()).join('\n')),
-    );
-    if (!mounted) return;
-    showOpenHandSnackBar(
-      context,
-      OpenHandSnackBar.success(
+    await copyMessageGatewayTextToClipboard(
+      context: context,
+      text: logs.map((entry) => entry.toLogLine()).join('\n'),
+      successMessage: openHandLocalizedText(
         context,
-        openHandLocalizedText(
-          context,
-          zh: '日志已保存到剪贴板',
-          zhHant: '日誌已儲存到剪貼簿',
-          en: 'Logs copied to clipboard',
-          fr: 'Journaux copiés',
-          de: 'Protokolle kopiert',
-          ja: 'ログをクリップボードにコピーしました',
-        ),
+        zh: '日志已保存到剪贴板',
+        zhHant: '日誌已儲存到剪貼簿',
+        en: 'Logs copied to clipboard',
+        fr: 'Journaux copiés',
+        de: 'Protokolle kopiert',
+        ja: 'ログをクリップボードにコピーしました',
       ),
+      logAction: 'copy gateway logs',
     );
   }
 
@@ -5172,22 +5162,19 @@ class _AccessibleUrlsBar extends StatelessWidget {
   final List<String> urls;
 
   Future<void> _copy(BuildContext context, String url) async {
-    await Clipboard.setData(ClipboardData(text: url));
-    if (!context.mounted) return;
-    showOpenHandSnackBar(
-      context,
-      OpenHandSnackBar.success(
+    await copyMessageGatewayTextToClipboard(
+      context: context,
+      text: url,
+      successMessage: openHandLocalizedText(
         context,
-        openHandLocalizedText(
-          context,
-          zh: '已复制 $url',
-          zhHant: '已複製 $url',
-          en: 'Copied $url',
-          fr: '$url copié',
-          de: '$url kopiert',
-          ja: '$url をコピーしました',
-        ),
+        zh: '已复制 $url',
+        zhHant: '已複製 $url',
+        en: 'Copied $url',
+        fr: '$url copié',
+        de: '$url kopiert',
+        ja: '$url をコピーしました',
       ),
+      logAction: 'copy accessible url',
     );
   }
 
