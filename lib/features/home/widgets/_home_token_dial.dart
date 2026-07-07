@@ -61,7 +61,7 @@ class _TokenDial extends StatefulWidget {
 class _TokenDialState extends State<_TokenDial>
     with SingleTickerProviderStateMixin {
   final OverlayPortalController _portalController = OverlayPortalController();
-  final LayerLink _link = LayerLink();
+  final GlobalKey _anchorKey = GlobalKey();
   late final AnimationController _transitionController;
   Timer? _hideTimer;
   bool _showQueued = false;
@@ -129,7 +129,7 @@ class _TokenDialState extends State<_TokenDial>
     _hideTimer = startSafeTimer(const Duration(milliseconds: 60), () {
       _runAfterFrame(() async {
         await _transitionController.reverse();
-        if (!mounted) return;
+        if (!mounted || _showQueued) return;
         if (_portalController.isShowing) {
           _portalController.hide();
         }
@@ -168,114 +168,293 @@ class _TokenDialState extends State<_TokenDial>
       color: colorScheme.onSurfaceVariant,
     );
     final hasCache = (widget.cacheReadTokens ?? 0) > 0;
-    return CompositedTransformTarget(
-      link: _link,
-      child: OverlayPortal(
-        controller: _portalController,
-        overlayChildBuilder: (context) {
-          return Positioned(
-            left: 0,
-            top: 0,
-            child: CompositedTransformFollower(
-              link: _link,
-              showWhenUnlinked: false,
-              targetAnchor: Alignment.bottomRight,
-              followerAnchor: Alignment.topRight,
-              offset: const Offset(0, 8),
-              child: MouseRegion(
-                onEnter: (_) => _showPopup(),
-                onExit: (_) {
-                  if (!_webClickPinned) _schedulePopupHide();
-                },
-                child: buildAnimationStyleTransition(
-                  animation: _transitionController,
-                  settings: _dialogSettings(context),
-                  child: _TokenDialPopup(
-                    session: widget.session,
-                    statistics: widget.statistics,
-                    activeProfile: widget.activeProfile,
-                    claudeStyle: widget.claudeStyle,
-                    cacheHitRatio: widget.cacheHitRatio,
-                  ),
-                ),
+    return OverlayPortal(
+      controller: _portalController,
+      overlayChildBuilder: (overlayContext) {
+        return _TokenDialPopupOverlay(
+          anchorKey: _anchorKey,
+          animation: _transitionController,
+          settings: _dialogSettings(overlayContext),
+          onEnter: _showPopup,
+          onExit: () {
+            if (!_webClickPinned) _schedulePopupHide();
+          },
+          builder: (context, metrics) => _TokenDialPopup(
+            session: widget.session,
+            statistics: widget.statistics,
+            activeProfile: widget.activeProfile,
+            claudeStyle: widget.claudeStyle,
+            cacheHitRatio: widget.cacheHitRatio,
+            maxHeight: metrics.maxHeight,
+            minWidth: metrics.minWidth,
+            maxWidth: metrics.maxWidth,
+          ),
+        );
+      },
+      child: MouseRegion(
+        onEnter: (_) {
+          if (!_useTapSheet) _showPopup();
+        },
+        onExit: (_) {
+          if (!_useTapSheet && !_webClickPinned) _schedulePopupHide();
+        },
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: _useTapSheet
+              ? _showTouchPopupSheet
+              : kIsWeb
+              ? () {
+                  if (_webClickPinned) {
+                    _webClickPinned = false;
+                    _schedulePopupHide();
+                  } else {
+                    _webClickPinned = true;
+                    _showPopup();
+                  }
+                }
+              : null,
+          child: Container(
+            key: _anchorKey,
+            height: 32,
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            decoration: BoxDecoration(
+              color: hasCache
+                  ? Colors.green.withValues(alpha: 0.08)
+                  : colorScheme.surfaceContainerHighest,
+              borderRadius: _borderRadius999,
+              border: Border.all(
+                color: hasCache
+                    ? Colors.green.withValues(alpha: 0.4)
+                    : colorScheme.outlineVariant.withValues(alpha: 0.55),
               ),
             ),
-          );
-        },
-        child: MouseRegion(
-          onEnter: (_) {
-            if (!_useTapSheet) _showPopup();
-          },
-          onExit: (_) {
-            if (!_useTapSheet && !_webClickPinned) _schedulePopupHide();
-          },
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: _useTapSheet
-                ? _showTouchPopupSheet
-                : kIsWeb
-                ? () {
-                    if (_webClickPinned) {
-                      _webClickPinned = false;
-                      _schedulePopupHide();
-                    } else {
-                      _webClickPinned = true;
-                      _showPopup();
-                    }
-                  }
-                : null,
-            child: Container(
-              height: 32,
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              decoration: BoxDecoration(
-                color: hasCache
-                    ? Colors.green.withValues(alpha: 0.08)
-                    : colorScheme.surfaceContainerHighest,
-                borderRadius: _borderRadius999,
-                border: Border.all(
-                  color: hasCache
-                      ? Colors.green.withValues(alpha: 0.4)
-                      : colorScheme.outlineVariant.withValues(alpha: 0.55),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  hasCache
+                      ? Icons.bolt_rounded
+                      : Icons.confirmation_number_rounded,
+                  size: 14,
+                  color: hasCache ? Colors.green.shade600 : colorScheme.primary,
                 ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    hasCache
-                        ? Icons.bolt_rounded
-                        : Icons.confirmation_number_rounded,
-                    size: 14,
-                    color: hasCache
-                        ? Colors.green.shade600
-                        : colorScheme.primary,
-                  ),
-                  const SizedBox(width: 6),
-                  if (hasCache) ...[
-                    _CacheSavingsBadge(percent: widget.cacheHitRatio),
-                    Container(
-                      width: 1,
-                      height: 12,
-                      margin: const EdgeInsets.symmetric(horizontal: 6),
-                      color: colorScheme.outlineVariant,
-                    ),
-                  ],
-                  RollingText(
-                    text: _formatThousands(widget.totalTokens),
-                    style: numberStyle ?? const TextStyle(),
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    AppLocalizations.of(context)!.tokenDialUnit,
-                    style: labelStyle,
+                const SizedBox(width: 6),
+                if (hasCache) ...[
+                  _CacheSavingsBadge(percent: widget.cacheHitRatio),
+                  Container(
+                    width: 1,
+                    height: 12,
+                    margin: const EdgeInsets.symmetric(horizontal: 6),
+                    color: colorScheme.outlineVariant,
                   ),
                 ],
-              ),
+                RollingText(
+                  text: _formatThousands(widget.totalTokens),
+                  style: numberStyle ?? const TextStyle(),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  AppLocalizations.of(context)!.tokenDialUnit,
+                  style: labelStyle,
+                ),
+              ],
             ),
           ),
         ),
       ),
     );
+  }
+}
+
+const double _kTokenDialPopupCompactMinWidth = 320;
+const double _kTokenDialPopupExpandedMinWidth = 360;
+const double _kTokenDialPopupCompactMaxWidth = 420;
+const double _kTokenDialPopupExpandedMaxWidth = 520;
+const double _kTokenDialPopupViewportPadding = 12;
+const double _kTokenDialPopupAnchorGap = 8;
+const double _kTokenDialPopupMinScrollableHeight = 180;
+
+double? _positivePopupExtent(double? value) {
+  if (value == null || !value.isFinite || value <= 0) return null;
+  return value;
+}
+
+class _TokenDialPopupOverlay extends StatelessWidget {
+  const _TokenDialPopupOverlay({
+    required this.anchorKey,
+    required this.animation,
+    required this.settings,
+    required this.onEnter,
+    required this.onExit,
+    required this.builder,
+  });
+
+  final GlobalKey anchorKey;
+  final Animation<double> animation;
+  final DialogAnimationSettings settings;
+  final VoidCallback onEnter;
+  final VoidCallback onExit;
+  final Widget Function(BuildContext context, _TokenDialPopupMetrics metrics)
+  builder;
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned.fill(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final overlaySize = Size(constraints.maxWidth, constraints.maxHeight);
+          final metrics = _TokenDialPopupMetrics.resolve(
+            context: context,
+            anchorKey: anchorKey,
+            overlaySize: overlaySize,
+          );
+          return CustomSingleChildLayout(
+            delegate: _TokenDialPopupLayoutDelegate(metrics),
+            child: MouseRegion(
+              onEnter: (_) => onEnter(),
+              onExit: (_) => onExit(),
+              child: buildAnimationStyleTransition(
+                animation: animation,
+                settings: settings,
+                profile: OpenHandAnimationTransitionProfile(
+                  alignment: metrics.placedAbove
+                      ? Alignment.bottomRight
+                      : Alignment.topRight,
+                ),
+                child: builder(context, metrics),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _TokenDialPopupMetrics {
+  const _TokenDialPopupMetrics({
+    required this.safeRect,
+    required this.anchorRect,
+    required this.placedAbove,
+    required this.maxHeight,
+    required this.minWidth,
+    required this.maxWidth,
+  });
+
+  final Rect safeRect;
+  final Rect anchorRect;
+  final bool placedAbove;
+  final double maxHeight;
+  final double minWidth;
+  final double maxWidth;
+
+  static _TokenDialPopupMetrics resolve({
+    required BuildContext context,
+    required GlobalKey anchorKey,
+    required Size overlaySize,
+  }) {
+    final media = MediaQuery.of(context);
+    final safeRect = _safePopupRect(overlaySize, media.padding);
+    final anchorRect =
+        _anchorRect(anchorKey) ??
+        Rect.fromLTWH(safeRect.right, safeRect.top, 0, 0);
+    final belowHeight =
+        safeRect.bottom - anchorRect.bottom - _kTokenDialPopupAnchorGap;
+    final aboveHeight =
+        anchorRect.top - safeRect.top - _kTokenDialPopupAnchorGap;
+    final placedAbove =
+        belowHeight < _kTokenDialPopupMinScrollableHeight &&
+        aboveHeight > belowHeight;
+    final rawHeight = placedAbove ? aboveHeight : belowHeight;
+    final maxHeight = rawHeight.isFinite && rawHeight > 0
+        ? rawHeight
+              .clamp(
+                0.0,
+                math.max(_kTokenDialPopupMinScrollableHeight, safeRect.height),
+              )
+              .toDouble()
+        : safeRect.height;
+    final maxWidth = math.min(
+      _kTokenDialPopupCompactMaxWidth,
+      math.max(0.0, safeRect.width),
+    );
+    final minWidth = math.min(_kTokenDialPopupCompactMinWidth, maxWidth);
+
+    return _TokenDialPopupMetrics(
+      safeRect: safeRect,
+      anchorRect: anchorRect,
+      placedAbove: placedAbove,
+      maxHeight: math.max(0.0, maxHeight.toDouble()),
+      minWidth: minWidth,
+      maxWidth: maxWidth,
+    );
+  }
+
+  static Rect _safePopupRect(Size size, EdgeInsets padding) {
+    final width = size.width.isFinite && size.width > 0 ? size.width : 0.0;
+    final height = size.height.isFinite && size.height > 0 ? size.height : 0.0;
+    final left = (padding.left + _kTokenDialPopupViewportPadding)
+        .clamp(0, width)
+        .toDouble();
+    final top = (padding.top + _kTokenDialPopupViewportPadding)
+        .clamp(0, height)
+        .toDouble();
+    final right = math.max(
+      left,
+      width - padding.right - _kTokenDialPopupViewportPadding,
+    );
+    final bottom = math.max(
+      top,
+      height - padding.bottom - _kTokenDialPopupViewportPadding,
+    );
+    return Rect.fromLTRB(left, top, right, bottom);
+  }
+
+  static Rect? _anchorRect(GlobalKey key) {
+    final context = key.currentContext;
+    final renderObject = context?.findRenderObject();
+    if (renderObject is! RenderBox || !renderObject.attached) return null;
+    final size = renderObject.size;
+    if (size.isEmpty) return null;
+    final topLeft = renderObject.localToGlobal(Offset.zero);
+    return topLeft & size;
+  }
+}
+
+class _TokenDialPopupLayoutDelegate extends SingleChildLayoutDelegate {
+  const _TokenDialPopupLayoutDelegate(this.metrics);
+
+  final _TokenDialPopupMetrics metrics;
+
+  @override
+  BoxConstraints getConstraintsForChild(BoxConstraints constraints) {
+    return BoxConstraints(
+      minWidth: metrics.minWidth,
+      maxWidth: metrics.maxWidth,
+      maxHeight: metrics.maxHeight,
+    );
+  }
+
+  @override
+  Offset getPositionForChild(Size size, Size childSize) {
+    final safe = metrics.safeRect;
+    final rawLeft = metrics.anchorRect.right - childSize.width;
+    final left = rawLeft.clamp(safe.left, safe.right - childSize.width);
+    final rawTop = metrics.placedAbove
+        ? metrics.anchorRect.top - childSize.height - _kTokenDialPopupAnchorGap
+        : metrics.anchorRect.bottom + _kTokenDialPopupAnchorGap;
+    final top = rawTop.clamp(safe.top, safe.bottom - childSize.height);
+    return Offset(left.toDouble(), top.toDouble());
+  }
+
+  @override
+  bool shouldRelayout(covariant _TokenDialPopupLayoutDelegate oldDelegate) {
+    return oldDelegate.metrics.safeRect != metrics.safeRect ||
+        oldDelegate.metrics.anchorRect != metrics.anchorRect ||
+        oldDelegate.metrics.placedAbove != metrics.placedAbove ||
+        oldDelegate.metrics.maxHeight != metrics.maxHeight ||
+        oldDelegate.metrics.minWidth != metrics.minWidth ||
+        oldDelegate.metrics.maxWidth != metrics.maxWidth;
   }
 }
 
@@ -310,6 +489,9 @@ class _TokenDialPopup extends StatefulWidget {
     this.activeProfile,
     this.claudeStyle = true,
     this.compact = true,
+    this.maxHeight,
+    this.minWidth,
+    this.maxWidth,
   });
 
   final AiSession session;
@@ -318,14 +500,24 @@ class _TokenDialPopup extends StatefulWidget {
   final AiModelProfile? activeProfile;
   final bool claudeStyle;
   final bool compact;
+  final double? maxHeight;
+  final double? minWidth;
+  final double? maxWidth;
 
   @override
   State<_TokenDialPopup> createState() => _TokenDialPopupState();
 }
 
 class _TokenDialPopupState extends State<_TokenDialPopup> {
+  final ScrollController _scrollController = ScrollController();
   SessionCacheHitDisplayMode _displayMode =
       SessionCacheHitDisplayMode.excludeExtremeMisses;
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -385,14 +577,163 @@ class _TokenDialPopupState extends State<_TokenDialPopup> {
     final cacheBarPromptTokens = trend.points.isNotEmpty
         ? displayData.uncachedPromptTokens
         : fallbackUncachedPromptTokens;
+    final defaultMinWidth = widget.compact
+        ? _kTokenDialPopupCompactMinWidth
+        : _kTokenDialPopupExpandedMinWidth;
+    final defaultMaxWidth = widget.compact
+        ? _kTokenDialPopupCompactMaxWidth
+        : _kTokenDialPopupExpandedMaxWidth;
+    final maxWidth = _positivePopupExtent(widget.maxWidth) ?? defaultMaxWidth;
+    final minWidth = math.min(
+      _positivePopupExtent(widget.minWidth) ?? defaultMinWidth,
+      maxWidth,
+    );
+    final maxHeight = _positivePopupExtent(widget.maxHeight) ?? double.infinity;
+    final content = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          AppLocalizations.of(context)!.tokenPopupInputHeading.toUpperCase(),
+          style: headStyle,
+        ),
+        const SizedBox(height: 6),
+        _PopupRow(
+          label: AppLocalizations.of(context)!.tokenPopupPrompt,
+          value: promptTokens,
+          keyStyle: keyStyle,
+          valueStyle: valueStyle,
+        ),
+        if (hasCacheUsageTelemetry) ...[
+          _PopupRow(
+            label: AppLocalizations.of(context)!.tokenPopupCacheRead,
+            value: cacheRead,
+            keyStyle: keyStyle,
+            valueStyle: cacheValueStyle,
+            accent: Colors.green,
+          ),
+          _PopupRow(
+            label: AppLocalizations.of(context)!.tokenPopupCacheWrite,
+            value: cacheWrite,
+            keyStyle: keyStyle,
+            valueStyle: cacheValueStyle,
+            accent: Colors.green,
+          ),
+        ],
+        const SizedBox(height: 10),
+        Text(
+          AppLocalizations.of(context)!.tokenPopupOutputHeading.toUpperCase(),
+          style: headStyle,
+        ),
+        const SizedBox(height: 6),
+        _PopupRow(
+          label: AppLocalizations.of(context)!.tokenPopupCompletion,
+          value: completionTokens,
+          keyStyle: keyStyle,
+          valueStyle: valueStyle,
+        ),
+        if (reasoning > 0)
+          _PopupRow(
+            label: AppLocalizations.of(context)!.tokenPopupReasoning,
+            value: reasoning,
+            keyStyle: keyStyle,
+            valueStyle: reasoningValueStyle,
+            accent: Colors.purple,
+          ),
+        Container(
+          margin: const EdgeInsets.symmetric(vertical: 10),
+          height: 1,
+          color: colorScheme.outlineVariant.withValues(alpha: 0.4),
+        ),
+        _PopupRow(
+          label: AppLocalizations.of(context)!.tokenPopupGrandTotal,
+          value: total,
+          keyStyle: keyStyle?.copyWith(fontWeight: FontWeight.w700),
+          valueStyle: valueStyle?.copyWith(
+            color: colorScheme.primary,
+            fontSize: (valueStyle.fontSize ?? 14) + 1,
+          ),
+        ),
+        if (showCacheHitMetrics) ...[
+          const SizedBox(height: 6),
+          _PopupRow(
+            label: AppLocalizations.of(context)!.tokenPopupCacheHit,
+            value: (cacheHitRatio * 100).round(),
+            suffix: '%',
+            keyStyle: keyStyle,
+            valueStyle: cacheValueStyle,
+            accent: Colors.green,
+          ),
+          const SizedBox(height: 6),
+          _CacheHitBar(
+            ratio: cacheHitRatio,
+            cacheRead: displayData.cacheReadTokens,
+            cacheWrite: displayData.cacheWriteTokens,
+            prompt: cacheBarPromptTokens,
+          ),
+        ],
+        if (trend.points.isNotEmpty) ...[
+          const SizedBox(height: 10),
+          TokenPopupCacheHitTrendChart(
+            trend: trend,
+            displayMode: _displayMode,
+            onDisplayModeChanged: (mode) {
+              if (_displayMode == mode) return;
+              setState(() {
+                _displayMode = mode;
+              });
+            },
+            height: widget.compact ? 176 : 220,
+          ),
+        ] else if (cacheRead > 0) ...[
+          const SizedBox(height: 10),
+          _CompactCacheHitSparkline(
+            cacheHitRatio: cacheHitRatio,
+            cacheRead: cacheRead,
+            cacheWrite: cacheWrite,
+            promptTokens: cacheBarPromptTokens,
+          ),
+        ],
+        const SizedBox(height: 10),
+        Text(
+          AppLocalizations.of(context)!.tokenPopupSessionHeading.toUpperCase(),
+          style: headStyle,
+        ),
+        const SizedBox(height: 6),
+        _PopupRow(
+          label: AppLocalizations.of(context)!.tokenPopupMessages,
+          value: widget.statistics.totalMessageCount,
+          keyStyle: keyStyle,
+          valueStyle: valueStyle,
+        ),
+        _PopupRow(
+          label: AppLocalizations.of(context)!.tokenPopupPromptBuilds,
+          value: widget.statistics.promptBuildCount,
+          keyStyle: keyStyle,
+          valueStyle: valueStyle,
+        ),
+        _PopupRow(
+          label: AppLocalizations.of(context)!.tokenPopupPromptChars,
+          value: widget.statistics.totalPromptCharacters,
+          keyStyle: keyStyle,
+          valueStyle: valueStyle,
+        ),
+        ..._buildCostSection(
+          context: context,
+          headStyle: headStyle,
+          keyStyle: keyStyle,
+          valueStyle: valueStyle,
+          colorScheme: colorScheme,
+          promptTokens: promptTokens,
+          completionTokens: completionTokens,
+          cacheRead: cacheRead,
+          cacheWrite: cacheWrite,
+        ),
+      ],
+    );
     return Material(
       color: Colors.transparent,
       child: Container(
-        constraints: BoxConstraints(
-          minWidth: widget.compact ? 320 : 360,
-          maxWidth: widget.compact ? 420 : 520,
-        ),
-        padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
         decoration: BoxDecoration(
           color: colorScheme.surface,
           borderRadius: BorderRadius.circular(14),
@@ -407,153 +748,24 @@ class _TokenDialPopupState extends State<_TokenDialPopup> {
             ),
           ],
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              AppLocalizations.of(
-                context,
-              )!.tokenPopupInputHeading.toUpperCase(),
-              style: headStyle,
-            ),
-            const SizedBox(height: 6),
-            _PopupRow(
-              label: AppLocalizations.of(context)!.tokenPopupPrompt,
-              value: promptTokens,
-              keyStyle: keyStyle,
-              valueStyle: valueStyle,
-            ),
-            if (hasCacheUsageTelemetry) ...[
-              _PopupRow(
-                label: AppLocalizations.of(context)!.tokenPopupCacheRead,
-                value: cacheRead,
-                keyStyle: keyStyle,
-                valueStyle: cacheValueStyle,
-                accent: Colors.green,
-              ),
-              _PopupRow(
-                label: AppLocalizations.of(context)!.tokenPopupCacheWrite,
-                value: cacheWrite,
-                keyStyle: keyStyle,
-                valueStyle: cacheValueStyle,
-                accent: Colors.green,
-              ),
-            ],
-            const SizedBox(height: 10),
-            Text(
-              AppLocalizations.of(
-                context,
-              )!.tokenPopupOutputHeading.toUpperCase(),
-              style: headStyle,
-            ),
-            const SizedBox(height: 6),
-            _PopupRow(
-              label: AppLocalizations.of(context)!.tokenPopupCompletion,
-              value: completionTokens,
-              keyStyle: keyStyle,
-              valueStyle: valueStyle,
-            ),
-            if (reasoning > 0)
-              _PopupRow(
-                label: AppLocalizations.of(context)!.tokenPopupReasoning,
-                value: reasoning,
-                keyStyle: keyStyle,
-                valueStyle: reasoningValueStyle,
-                accent: Colors.purple,
-              ),
-            Container(
-              margin: const EdgeInsets.symmetric(vertical: 10),
-              height: 1,
-              color: colorScheme.outlineVariant.withValues(alpha: 0.4),
-            ),
-            _PopupRow(
-              label: AppLocalizations.of(context)!.tokenPopupGrandTotal,
-              value: total,
-              keyStyle: keyStyle?.copyWith(fontWeight: FontWeight.w700),
-              valueStyle: valueStyle?.copyWith(
-                color: colorScheme.primary,
-                fontSize: (valueStyle.fontSize ?? 14) + 1,
+        clipBehavior: Clip.antiAlias,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            minWidth: minWidth,
+            maxWidth: maxWidth,
+            maxHeight: maxHeight,
+          ),
+          child: buildOpenHandDialogScrollConfiguration(
+            child: OpenHandSafeScrollbar(
+              controller: _scrollController,
+              child: SingleChildScrollView(
+                controller: _scrollController,
+                physics: kOpenHandDialogScrollPhysics,
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+                child: content,
               ),
             ),
-            if (showCacheHitMetrics) ...[
-              const SizedBox(height: 6),
-              _PopupRow(
-                label: AppLocalizations.of(context)!.tokenPopupCacheHit,
-                value: (cacheHitRatio * 100).round(),
-                suffix: '%',
-                keyStyle: keyStyle,
-                valueStyle: cacheValueStyle,
-                accent: Colors.green,
-              ),
-              const SizedBox(height: 6),
-              _CacheHitBar(
-                ratio: cacheHitRatio,
-                cacheRead: displayData.cacheReadTokens,
-                cacheWrite: displayData.cacheWriteTokens,
-                prompt: cacheBarPromptTokens,
-              ),
-            ],
-            if (trend.points.isNotEmpty) ...[
-              const SizedBox(height: 10),
-              TokenPopupCacheHitTrendChart(
-                trend: trend,
-                displayMode: _displayMode,
-                onDisplayModeChanged: (mode) {
-                  if (_displayMode == mode) return;
-                  setState(() {
-                    _displayMode = mode;
-                  });
-                },
-                height: widget.compact ? 176 : 220,
-              ),
-            ] else if (cacheRead > 0) ...[
-              const SizedBox(height: 10),
-              _CompactCacheHitSparkline(
-                cacheHitRatio: cacheHitRatio,
-                cacheRead: cacheRead,
-                cacheWrite: cacheWrite,
-                promptTokens: cacheBarPromptTokens,
-              ),
-            ],
-            const SizedBox(height: 10),
-            Text(
-              AppLocalizations.of(
-                context,
-              )!.tokenPopupSessionHeading.toUpperCase(),
-              style: headStyle,
-            ),
-            const SizedBox(height: 6),
-            _PopupRow(
-              label: AppLocalizations.of(context)!.tokenPopupMessages,
-              value: widget.statistics.totalMessageCount,
-              keyStyle: keyStyle,
-              valueStyle: valueStyle,
-            ),
-            _PopupRow(
-              label: AppLocalizations.of(context)!.tokenPopupPromptBuilds,
-              value: widget.statistics.promptBuildCount,
-              keyStyle: keyStyle,
-              valueStyle: valueStyle,
-            ),
-            _PopupRow(
-              label: AppLocalizations.of(context)!.tokenPopupPromptChars,
-              value: widget.statistics.totalPromptCharacters,
-              keyStyle: keyStyle,
-              valueStyle: valueStyle,
-            ),
-            ..._buildCostSection(
-              context: context,
-              headStyle: headStyle,
-              keyStyle: keyStyle,
-              valueStyle: valueStyle,
-              colorScheme: colorScheme,
-              promptTokens: promptTokens,
-              completionTokens: completionTokens,
-              cacheRead: cacheRead,
-              cacheWrite: cacheWrite,
-            ),
-          ],
+          ),
         ),
       ),
     );

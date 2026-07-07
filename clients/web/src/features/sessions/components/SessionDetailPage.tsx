@@ -218,6 +218,7 @@ const DEFAULT_COMPOSER_MODES = ['normal', 'image', 'video', 'audio', 'deep_resea
 const THROTTLE_BUCKET_TICK_MS = 1000;
 const AUTO_TITLE_FOLLOW_UP_DELAYS_MS = [1200, 3200, 7000, 14000, 24000] as const;
 const USER_SKILL_SELECTION_METADATA_KEY = 'user_skill_selection';
+const TOKEN_STATS_DIALOG_MAX_HEIGHT = 'min(720px, calc(100vh - 32px))';
 const INFERRED_MODEL_CONTEXT_WINDOW_TOKENS = 128_000;
 const COMPOSER_TRIGGER_ROOT_OFFSET = 0;
 const COMPOSER_TRIGGER_WINDOWS_DRIVE_RE = /^[A-Za-z]:/;
@@ -8472,9 +8473,9 @@ function SessionTokenStatsDialog({ detail, onClose }: { detail: SessionDetailRes
       onRequestClose={requestClose}
       {...createStandardDialogFrameAppearance({
         overlayTone: 'soft',
-        panelClassName: 'w-full max-w-md rounded-m3-xl p-5 flex flex-col',
+        panelClassName: 'w-full max-w-md min-h-0 rounded-m3-xl p-5 flex flex-col overflow-hidden',
         panelSurface: {
-          maxHeight: 'min(720px, calc(100vh - 32px))',
+          maxHeight: TOKEN_STATS_DIALOG_MAX_HEIGHT,
         },
       })}
       ariaLabel={t('topbar.tokens', 'Token 统计')}
@@ -8490,7 +8491,7 @@ function SessionTokenStatsDialog({ detail, onClose }: { detail: SessionDetailRes
           {t('common.close', '关闭')}
         </DialogActionButton>
       </header>
-      <div class="space-y-4 overflow-y-auto" style={{ scrollbarWidth: 'thin' }}>
+      <div class="min-h-0 flex-1 space-y-4 overflow-y-auto" style={{ scrollbarWidth: 'thin', overscrollBehavior: 'contain' }}>
         <SessionTokenStatsContent stats={tokenStats} trendDisplayMode={trendDisplayMode} onTrendDisplayModeChange={setTrendDisplayMode} />
       </div>
     </DialogFrame>
