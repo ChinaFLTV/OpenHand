@@ -3656,6 +3656,21 @@ class _McpOpsTabStrip extends StatelessWidget {
       child: TabBar(
         dividerColor: Colors.transparent,
         indicatorSize: TabBarIndicatorSize.tab,
+        // Clip the ink ripple and press/hover overlay to the indicator's radius
+        // so interaction feedback stays pill-shaped instead of a sharp rectangle.
+        splashBorderRadius: BorderRadius.circular(_mcpOpsControlRadius),
+        overlayColor: WidgetStateProperty.resolveWith<Color?>((states) {
+          if (states.contains(WidgetState.pressed)) {
+            return cs.primary.withValues(alpha: 0.16);
+          }
+          if (states.contains(WidgetState.hovered)) {
+            return cs.primary.withValues(alpha: 0.08);
+          }
+          if (states.contains(WidgetState.focused)) {
+            return cs.primary.withValues(alpha: 0.10);
+          }
+          return null;
+        }),
         labelColor: cs.primary,
         unselectedLabelColor: cs.onSurfaceVariant,
         labelStyle: theme.textTheme.labelLarge?.copyWith(
