@@ -1243,7 +1243,7 @@ class _ToolContentFullDialogState extends State<_ToolContentFullDialog> {
     String message, {
     OpenHandSnackKind kind = OpenHandSnackKind.info,
   }) {
-    OpenHandSnackBar.flash(context, message, kind: kind, postFrame: true);
+    flashHomeSnack(context, message, kind: kind, postFrame: true);
   }
 
   _ToolContentDialogStats _statsFor(String text) {
@@ -3552,15 +3552,9 @@ void _showMessageLinkOpenError(BuildContext context, Object error) {
   if (!context.mounted) {
     return;
   }
-  showOpenHandSnackBar(
+  showHomeErrorSnack(
     context,
-    SnackBar(
-      content: Text(
-        AppLocalizations.of(
-          context,
-        )!.tlCallFailedToOpenFileLocationError(error),
-      ),
-    ),
+    AppLocalizations.of(context)!.tlCallFailedToOpenFileLocationError(error),
   );
 }
 

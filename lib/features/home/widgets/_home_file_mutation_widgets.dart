@@ -209,15 +209,11 @@ class _FileMutationCardState extends State<_FileMutationCard> {
       );
       if (!mounted) return;
       if (!r.success) {
-        showOpenHandSnackBar(
+        showHomeErrorSnack(
           context,
-          SnackBar(
-            content: Text(
-              r.errorMessage.isNotEmpty
-                  ? r.errorMessage
-                  : AppLocalizations.of(context)!.fileMutationUndoFailed,
-            ),
-          ),
+          r.errorMessage.isNotEmpty
+              ? r.errorMessage
+              : AppLocalizations.of(context)!.fileMutationUndoFailed,
         );
       } else {
         _pulseSignal.value += 1;
@@ -241,15 +237,11 @@ class _FileMutationCardState extends State<_FileMutationCard> {
       );
       if (!mounted) return;
       if (!r.success) {
-        showOpenHandSnackBar(
+        showHomeErrorSnack(
           context,
-          SnackBar(
-            content: Text(
-              r.errorMessage.isNotEmpty
-                  ? r.errorMessage
-                  : AppLocalizations.of(context)!.fileMutationRedoFailed,
-            ),
-          ),
+          r.errorMessage.isNotEmpty
+              ? r.errorMessage
+              : AppLocalizations.of(context)!.fileMutationRedoFailed,
         );
       } else {
         _pulseSignal.value += 1;
@@ -335,15 +327,11 @@ class _FileMutationCardState extends State<_FileMutationCard> {
     _refresh();
     if (failure > 0) {
       final l10n = AppLocalizations.of(context)!;
-      showOpenHandSnackBar(
+      showHomeErrorSnack(
         context,
-        SnackBar(
-          content: Text(
-            lastError != null && lastError!.isNotEmpty
-                ? '${l10n.fileMutationUndoFailed} ($failure): $lastError'
-                : '${l10n.fileMutationUndoFailed} ($failure)',
-          ),
-        ),
+        lastError != null && lastError!.isNotEmpty
+            ? '${l10n.fileMutationUndoFailed} ($failure): $lastError'
+            : '${l10n.fileMutationUndoFailed} ($failure)',
       );
     }
   }
@@ -380,16 +368,12 @@ class _FileMutationCardState extends State<_FileMutationCard> {
       buf.writeln('```');
       buf.writeln();
     }
-    await Clipboard.setData(ClipboardData(text: buf.toString()));
     if (!mounted) return;
-    showOpenHandSnackBar(
-      context,
-      SnackBar(
-        content: Text(
-          AppLocalizations.of(context)!.fileMutationCopyAllDiffDone,
-        ),
-        duration: const Duration(seconds: 2),
-      ),
+    await copyHomeTextToClipboard(
+      context: context,
+      text: buf.toString(),
+      logAction: 'copy all file mutation diff',
+      successMessage: AppLocalizations.of(context)!.fileMutationCopyAllDiffDone,
     );
   }
 
@@ -2199,14 +2183,11 @@ String? _languageFromFilePath(String path) {
 /// 把 `filePath` 写入剪贴板并 SnackBar 提示。统一从 Row 的右键
 /// / 长按手势调用，因此抽到顶层而非 row state。
 Future<void> _copyPathToClipboard(BuildContext context, String filePath) async {
-  await Clipboard.setData(ClipboardData(text: filePath));
-  if (!context.mounted) return;
-  showOpenHandSnackBar(
-    context,
-    SnackBar(
-      content: Text(AppLocalizations.of(context)!.fileMutationPathCopied),
-      duration: const Duration(seconds: 2),
-    ),
+  await copyHomeTextToClipboard(
+    context: context,
+    text: filePath,
+    logAction: 'copy file mutation path',
+    successMessage: AppLocalizations.of(context)!.fileMutationPathCopied,
   );
 }
 
@@ -2230,12 +2211,10 @@ Future<void> _revealFileMutationPath(
 ) async {
   final rawPath = filePath.trim();
   if (rawPath.isEmpty) {
-    showOpenHandSnackBar(
+    showHomeErrorSnack(
       context,
-      SnackBar(
-        content: Text(_fileMutationRevealPathFailedLabel(context)),
-        duration: const Duration(seconds: 2),
-      ),
+      _fileMutationRevealPathFailedLabel(context),
+      duration: const Duration(seconds: 2),
     );
     return;
   }
@@ -2260,23 +2239,19 @@ Future<void> _revealFileMutationPath(
     );
     if (!context.mounted) return;
     if (!ok) {
-      showOpenHandSnackBar(
+      showHomeErrorSnack(
         context,
-        SnackBar(
-          content: Text(_fileMutationRevealPathFailedLabel(context)),
-          duration: const Duration(seconds: 2),
-        ),
+        _fileMutationRevealPathFailedLabel(context),
+        duration: const Duration(seconds: 2),
       );
     }
   } catch (error, stack) {
     silentLog('file_mutation_entry', 'reveal path', error, stack);
     if (!context.mounted) return;
-    showOpenHandSnackBar(
+    showHomeErrorSnack(
       context,
-      SnackBar(
-        content: Text(_fileMutationRevealPathFailedLabel(context)),
-        duration: const Duration(seconds: 2),
-      ),
+      _fileMutationRevealPathFailedLabel(context),
+      duration: const Duration(seconds: 2),
     );
   }
 }
@@ -2975,47 +2950,35 @@ class _InspectorEntryRow extends StatelessWidget {
     if (!context.mounted) return;
     if (selected == 'copy_json') {
       final json = jsonEncode(view.record.toJson());
-      await Clipboard.setData(ClipboardData(text: json));
-      if (context.mounted) {
-        showOpenHandSnackBar(
+      await copyHomeTextToClipboard(
+        context: context,
+        text: json,
+        logAction: 'copy file mutation record json',
+        successMessage: openHandLocalizedText(
           context,
-          SnackBar(
-            duration: const Duration(seconds: 2),
-            content: Text(
-              openHandLocalizedText(
-                context,
-                zh: '已复制 record JSON',
-                zhHant: '已複製 record JSON',
-                en: 'Copied record JSON',
-                fr: 'JSON de l’entrée copié',
-                de: 'Record-JSON kopiert',
-                ja: 'record JSON をコピーしました',
-              ),
-            ),
-          ),
-        );
-      }
+          zh: '已复制 record JSON',
+          zhHant: '已複製 record JSON',
+          en: 'Copied record JSON',
+          fr: 'JSON de l’entrée copié',
+          de: 'Record-JSON kopiert',
+          ja: 'record JSON をコピーしました',
+        ),
+      );
     } else if (selected == 'copy_id') {
-      await Clipboard.setData(ClipboardData(text: view.record.recordId));
-      if (context.mounted) {
-        showOpenHandSnackBar(
+      await copyHomeTextToClipboard(
+        context: context,
+        text: view.record.recordId,
+        logAction: 'copy file mutation record id',
+        successMessage: openHandLocalizedText(
           context,
-          SnackBar(
-            duration: const Duration(seconds: 2),
-            content: Text(
-              openHandLocalizedText(
-                context,
-                zh: '已复制 record ID',
-                zhHant: '已複製 record ID',
-                en: 'Copied record ID',
-                fr: 'Record ID copié',
-                de: 'Record-ID kopiert',
-                ja: 'record ID をコピーしました',
-              ),
-            ),
-          ),
-        );
-      }
+          zh: '已复制 record ID',
+          zhHant: '已複製 record ID',
+          en: 'Copied record ID',
+          fr: 'Record ID copié',
+          de: 'Record-ID kopiert',
+          ja: 'record ID をコピーしました',
+        ),
+      );
     }
   }
 
@@ -3521,18 +3484,14 @@ class _RoundFileMutationSummaryCardState
                 highlight: true,
               );
           if (fallbackOk && mounted) {
-            showOpenHandSnackBar(
+            showHomeInfoSnack(
               context,
-              SnackBar(
-                duration: const Duration(milliseconds: 2800),
-                content: Text(
-                  openHandLocalizedText(
-                    context,
-                    zh: '目标消息位于上下文压缩点之前，已跳转到最早可见消息。',
-                    en: 'Target message is before compression point. Jumped to earliest visible message.',
-                  ),
-                ),
+              openHandLocalizedText(
+                context,
+                zh: '目标消息位于上下文压缩点之前，已跳转到最早可见消息。',
+                en: 'Target message is before compression point. Jumped to earliest visible message.',
               ),
+              duration: const Duration(milliseconds: 2800),
             );
             return;
           }
@@ -3541,18 +3500,14 @@ class _RoundFileMutationSummaryCardState
     }
 
     if (!mounted) return;
-    showOpenHandSnackBar(
+    showHomeInfoSnack(
       context,
-      SnackBar(
-        duration: const Duration(milliseconds: 2200),
-        content: Text(
-          openHandLocalizedText(
-            context,
-            zh: '未能定位来源消息（可能已被删除）。',
-            en: 'Could not locate source message (may have been deleted).',
-          ),
-        ),
+      openHandLocalizedText(
+        context,
+        zh: '未能定位来源消息（可能已被删除）。',
+        en: 'Could not locate source message (may have been deleted).',
       ),
+      duration: const Duration(milliseconds: 2200),
     );
   }
 
@@ -3622,14 +3577,7 @@ class _RoundFileMutationSummaryCardState
     });
     _pulseSignal.value += 1;
     if (lastError != null) {
-      final messenger = ScaffoldMessenger.maybeOf(context);
-      if (messenger != null) {
-        OpenHandSnackBar.show(
-          context,
-          messenger,
-          OpenHandSnackBar.error(context, lastError!),
-        );
-      }
+      showHomeErrorSnack(context, lastError!);
     }
   }
 
@@ -3680,36 +3628,23 @@ class _RoundFileMutationSummaryCardState
         stack,
       );
       if (!mounted) return;
-      showOpenHandSnackBar(
+      showHomeErrorSnack(
         context,
-        SnackBar(
-          duration: const Duration(milliseconds: 2400),
-          content: Text(
-            openHandLocalizedText(
-              context,
-              zh: '导出取消（无法打开文件选择器）：$error',
-              en: 'Export aborted (file picker unavailable): $error',
-            ),
-          ),
+        openHandLocalizedText(
+          context,
+          zh: '导出取消（无法打开文件选择器）：$error',
+          en: 'Export aborted (file picker unavailable): $error',
         ),
+        duration: const Duration(milliseconds: 2400),
       );
       return;
     }
     if (location == null) {
-      // 用户主动取消：弹一条 toast 让 UI 状态闭合。
       if (!mounted) return;
-      showOpenHandSnackBar(
+      showHomeInfoSnack(
         context,
-        SnackBar(
-          duration: const Duration(milliseconds: 1600),
-          content: Text(
-            openHandLocalizedText(
-              context,
-              zh: '已取消导出。',
-              en: 'Export cancelled.',
-            ),
-          ),
-        ),
+        openHandLocalizedText(context, zh: '已取消导出。', en: 'Export cancelled.'),
+        duration: const Duration(milliseconds: 1600),
       );
       return;
     }
@@ -3723,35 +3658,28 @@ class _RoundFileMutationSummaryCardState
         stack,
       );
       if (!mounted) return;
-      showOpenHandSnackBar(
+      showHomeErrorSnack(
         context,
-        SnackBar(
-          duration: const Duration(milliseconds: 2800),
-          content: Text(
-            openHandLocalizedText(
-              context,
-              zh: '保存失败：$error',
-              en: 'Save failed: $error',
-            ),
-          ),
+        openHandLocalizedText(
+          context,
+          zh: '保存失败：$error',
+          en: 'Save failed: $error',
         ),
+        duration: const Duration(milliseconds: 2800),
       );
       return;
     }
     if (!mounted) return;
     _pulseSignal.value += 1;
-    showOpenHandSnackBar(
+    showHomeSuccessSnack(
       context,
-      SnackBar(
-        duration: const Duration(milliseconds: 2400),
-        content: Text(
-          openHandLocalizedText(
-            context,
-            zh: '已保存到 ${location.path}',
-            en: 'Saved to ${location.path}',
-          ),
-        ),
+      openHandLocalizedText(
+        context,
+        zh: '已保存到 ${location.path}',
+        en: 'Saved to ${location.path}',
       ),
+      duration: const Duration(milliseconds: 2400),
+      maxLines: 2,
     );
   }
 

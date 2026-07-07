@@ -3055,40 +3055,29 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       );
       if (!mounted) return;
       if (outcome.success) {
-        final messenger = ScaffoldMessenger.maybeOf(context);
-        if (messenger != null) {
-          showOpenHandSnackBarOn(
-            context,
-            messenger,
-            SnackBar(
-              content: Text(
-                '${AppLocalizations.of(context)!.fileMutationUndone}: '
-                '${r.filePath}',
-              ),
-              action: SnackBarAction(
-                label: AppLocalizations.of(context)!.fileMutationRedo,
-                onPressed: () async {
-                  final redoResult = await ledger.redoRecord(
-                    sessionId: sessionId,
-                    recordId: r.recordId,
-                  );
-                  if (!mounted) return;
-                  final msg = redoResult.success
-                      ? '${AppLocalizations.of(context)!.fileMutationRedo}: '
-                            '${r.filePath}'
-                      : AppLocalizations.of(context)!.fileMutationRedoFailed;
-                  showOpenHandSnackBar(
-                    context,
-                    SnackBar(
-                      content: Text(msg),
-                      duration: const Duration(seconds: 2),
-                    ),
-                  );
-                },
-              ),
-            ),
-          );
-        }
+        showHomeSuccessSnack(
+          context,
+          '${AppLocalizations.of(context)!.fileMutationUndone}: ${r.filePath}',
+          action: SnackBarAction(
+            label: AppLocalizations.of(context)!.fileMutationRedo,
+            onPressed: () async {
+              final redoResult = await ledger.redoRecord(
+                sessionId: sessionId,
+                recordId: r.recordId,
+              );
+              if (!mounted) return;
+              final msg = redoResult.success
+                  ? '${AppLocalizations.of(context)!.fileMutationRedo}: '
+                        '${r.filePath}'
+                  : AppLocalizations.of(context)!.fileMutationRedoFailed;
+              if (redoResult.success) {
+                showHomeSuccessSnack(context, msg);
+              } else {
+                showHomeErrorSnack(context, msg);
+              }
+            },
+          ),
+        );
         return;
       }
     }
@@ -4789,16 +4778,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final config = WebReverseSessionConfig.fromJson(raw);
     if (config == null) {
       if (mounted) {
-        showOpenHandSnackBar(
+        showHomeErrorSnack(
           context,
-          SnackBar(
-            content: Text(
-              openHandLocalizedText(
-                context,
-                zh: '该会话缺少 web_reverse_config，请新建会话。',
-                en: 'Session is missing web_reverse_config; create a new session.',
-              ),
-            ),
+          openHandLocalizedText(
+            context,
+            zh: '该会话缺少 web_reverse_config，请新建会话。',
+            en: 'Session is missing web_reverse_config; create a new session.',
           ),
         );
       }
@@ -5760,16 +5745,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final currentSession = sessionController.currentSession;
     if (currentSession == null) {
       if (mode == AiSessionMode.goal) {
-        showOpenHandSnackBar(
+        showHomeInfoSnack(
           context,
-          SnackBar(
-            content: Text(
-              openHandLocalizedText(
-                context,
-                zh: '请先进入支持目标模式的线程。',
-                en: 'Open a thread that supports Goal Mode first.',
-              ),
-            ),
+          openHandLocalizedText(
+            context,
+            zh: '请先进入支持目标模式的线程。',
+            en: 'Open a thread that supports Goal Mode first.',
           ),
         );
         return;
@@ -5788,16 +5769,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     AiSessionGoalStartOptions? pendingGoalStartOptions;
     if (mode == AiSessionMode.goal) {
       if (!aiSessionGoalModeAllowedForTemplate(currentSession.templateId)) {
-        showOpenHandSnackBar(
+        showHomeInfoSnack(
           context,
-          SnackBar(
-            content: Text(
-              openHandLocalizedText(
-                context,
-                zh: '当前线程模板暂不支持目标模式。',
-                en: 'This thread template does not support Goal Mode.',
-              ),
-            ),
+          openHandLocalizedText(
+            context,
+            zh: '当前线程模板暂不支持目标模式。',
+            en: 'This thread template does not support Goal Mode.',
           ),
         );
         return;
@@ -5808,7 +5785,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         currentSession,
       );
       if (selectedModel == null) {
-        OpenHandSnackBar.showError(
+        showHomeErrorSnack(
           context,
           AppLocalizations.of(context)!.aiModelSelectionRequired,
         );
@@ -5986,19 +5963,15 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (!mounted) {
       return;
     }
-    OpenHandSnackBar.hideCurrentOn(ScaffoldMessenger.of(context));
-    showOpenHandSnackBar(
+    OpenHandGlobalSnackBarHost.hideCurrent();
+    showHomeInfoSnack(
       context,
-      SnackBar(
-        content: Text(
-          openHandLocalizedText(
-            context,
-            zh: '消息已暂存，将在当前回答完成后自动发送。',
-            en: 'Message queued and will be sent automatically.',
-          ),
-        ),
-        duration: const Duration(seconds: 2),
+      openHandLocalizedText(
+        context,
+        zh: '消息已暂存，将在当前回答完成后自动发送。',
+        en: 'Message queued and will be sent automatically.',
       ),
+      duration: const Duration(seconds: 2),
     );
   }
 
@@ -6018,23 +5991,19 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       sessionController.currentSession,
     );
     if (selectedModel == null) {
-      OpenHandSnackBar.showError(context, l10n.aiModelSelectionRequired);
+      showHomeErrorSnack(context, l10n.aiModelSelectionRequired);
       return;
     }
     final attachmentCapabilities = _selectedModelAttachmentCapabilities(
       selectedModel,
     );
     if (pendingAttachments.isNotEmpty && !attachmentCapabilities.supportsAny) {
-      showOpenHandSnackBar(
+      showHomeInfoSnack(
         context,
-        SnackBar(
-          content: Text(
-            openHandLocalizedText(
-              context,
-              zh: '当前模型不支持附件。',
-              en: 'The selected model does not support attachments.',
-            ),
-          ),
+        openHandLocalizedText(
+          context,
+          zh: '当前模型不支持附件。',
+          en: 'The selected model does not support attachments.',
         ),
       );
       return;
@@ -6074,16 +6043,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final slashCommand = parseOpenHandSlashCommand(prompt);
     if (slashCommand != null) {
       if (pendingAttachments.isNotEmpty) {
-        showOpenHandSnackBar(
+        showHomeInfoSnack(
           context,
-          SnackBar(
-            content: Text(
-              openHandLocalizedText(
-                context,
-                zh: '本地斜杠命令不支持携带附件。',
-                en: 'Local slash commands do not accept attachments.',
-              ),
-            ),
+          openHandLocalizedText(
+            context,
+            zh: '本地斜杠命令不支持携带附件。',
+            en: 'Local slash commands do not accept attachments.',
           ),
         );
         return;
@@ -6228,10 +6193,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         zh: '当前目标仍在执行中，请暂停后继续目标或终止目标。',
         en: 'A goal is active. Resume or terminate it before sending manually.',
       );
-      showOpenHandSnackBar(
-        activeContext,
-        SnackBar(content: Text(activeGoalMessage)),
-      );
+      showHomeInfoSnack(activeContext, activeGoalMessage);
       return;
     }
     AiSessionGoalStartOptions? goalStartOptions;
@@ -6657,7 +6619,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         return _SubmitTextOutcome.submitted;
       }
       if (sessionController.didCompressInLastSendForSession(targetSessionId)) {
-        OpenHandSnackBar.showInfo(context, l10n.threadCompressionNotice);
+        showHomeInfoSnack(context, l10n.threadCompressionNotice);
       }
       _scheduleAutoFollowIfNeeded(consumePendingRequest: true);
       return _SubmitTextOutcome.submitted;
@@ -6675,13 +6637,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       }
       if (mounted) {
         final errorMessage = '$error'.trim();
-        showOpenHandSnackBar(
+        showHomeErrorSnack(
           context,
-          SnackBar(
-            content: Text(
-              errorMessage.isEmpty ? l10n.chatRequestFailed : errorMessage,
-            ),
-          ),
+          errorMessage.isEmpty ? l10n.chatRequestFailed : errorMessage,
         );
       }
       return unresolvedOutcome(stopped: submissionWasStopped());
@@ -6874,12 +6832,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       context.read<AiSessionController>().currentSession,
     );
     if (selectedModel == null) {
-      OpenHandSnackBar.showError(context, l10n.aiModelSelectionRequired);
+      showHomeErrorSnack(context, l10n.aiModelSelectionRequired);
       return;
     }
     final capabilities = _selectedModelAttachmentCapabilities(selectedModel);
     if (!capabilities.supportsAny) {
-      OpenHandSnackBar.showInfo(
+      showHomeInfoSnack(
         context,
         openHandLocalizedText(
           context,
@@ -6893,7 +6851,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       capabilities,
     );
     if (extensions.isEmpty) {
-      OpenHandSnackBar.showInfo(
+      showHomeInfoSnack(
         context,
         openHandLocalizedText(
           context,
@@ -6906,7 +6864,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final remainingSlots =
         aiMessageAttachmentLimit - _pendingAttachments.length;
     if (remainingSlots <= 0) {
-      OpenHandSnackBar.showInfo(
+      showHomeInfoSnack(
         context,
         openHandLocalizedText(
           context,
@@ -7088,7 +7046,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       );
     }
     if (lines.isNotEmpty) {
-      showOpenHandSnackBar(context, SnackBar(content: Text(lines.join('\n'))));
+      showHomeInfoSnack(context, lines.join('\n'), maxLines: 3);
     }
   }
 
@@ -7261,7 +7219,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       currentSession,
     );
     if (selectedModel == null) {
-      OpenHandSnackBar.showError(
+      showHomeErrorSnack(
         context,
         AppLocalizations.of(context)!.aiModelSelectionRequired,
       );
@@ -7900,16 +7858,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       case OpenHandSlashCommandKind.status:
         final session = context.read<AiSessionController>().currentSession;
         if (session == null) {
-          showOpenHandSnackBar(
+          showHomeInfoSnack(
             context,
-            SnackBar(
-              content: Text(
-                openHandLocalizedText(
-                  context,
-                  zh: '当前没有活动会话。',
-                  en: 'There is no active session.',
-                ),
-              ),
+            openHandLocalizedText(
+              context,
+              zh: '当前没有活动会话。',
+              en: 'There is no active session.',
             ),
           );
           return;
@@ -7939,32 +7893,24 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
             currentSessionId != null &&
             _canStopCurrentSessionResponse(sessionController);
         if (!hasActiveResponse) {
-          showOpenHandSnackBar(
+          showHomeInfoSnack(
             context,
-            SnackBar(
-              content: Text(
-                openHandLocalizedText(
-                  context,
-                  zh: '当前没有正在进行的响应。',
-                  en: 'There is no active response to stop.',
-                ),
-              ),
+            openHandLocalizedText(
+              context,
+              zh: '当前没有正在进行的响应。',
+              en: 'There is no active response to stop.',
             ),
           );
           return;
         }
         await _stopResponding();
         if (mounted) {
-          showOpenHandSnackBar(
+          showHomeInfoSnack(
             context,
-            SnackBar(
-              content: Text(
-                openHandLocalizedText(
-                  context,
-                  zh: '已请求当前会话停止继续响应。',
-                  en: 'Requested the current session to stop responding.',
-                ),
-              ),
+            openHandLocalizedText(
+              context,
+              zh: '已请求当前会话停止继续响应。',
+              en: 'Requested the current session to stop responding.',
             ),
           );
         }
@@ -8056,16 +8002,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         en: 'Harness Session',
       ),
     };
-    showOpenHandSnackBar(
+    showHomeInfoSnack(
       context,
-      SnackBar(
-        content: Text(
-          openHandLocalizedText(
-            context,
-            zh: '已切换到 $label。',
-            en: 'Switched to $label.',
-          ),
-        ),
+      openHandLocalizedText(
+        context,
+        zh: '已切换到 $label。',
+        en: 'Switched to $label.',
       ),
     );
   }
@@ -8115,7 +8057,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   Future<void> _showFeedbackDialog(String note) {
     final settingsController = context.read<SettingsController>();
     final sessionController = context.read<AiSessionController>();
-    final scaffoldMessenger = ScaffoldMessenger.of(context);
     final closeLabel = openHandLocalizedText(context, zh: '关闭', en: 'Close');
     final copiedLabel = openHandLocalizedText(
       context,
@@ -8149,16 +8090,18 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
             ),
             OpenHandDialogActionButton.primary(
               onPressed: () async {
-                await Clipboard.setData(ClipboardData(text: feedbackTemplate));
-                if (!mounted || !dialogContext.mounted) {
+                final copied = await copyHomeTextToClipboard(
+                  context: context,
+                  text: feedbackTemplate,
+                  logAction: 'copy feedback template',
+                  successMessage: copiedLabel,
+                  showSuccess: false,
+                );
+                if (!copied || !mounted || !dialogContext.mounted) {
                   return;
                 }
                 Navigator.of(dialogContext).pop();
-                showOpenHandSnackBarOn(
-                  context,
-                  scaffoldMessenger,
-                  OpenHandSnackBar.success(context, copiedLabel),
-                );
+                showHomeSuccessSnack(context, copiedLabel);
               },
               label: openHandLocalizedText(
                 context,
@@ -8193,18 +8136,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (!mounted || renamed) {
       return;
     }
-    showOpenHandSnackBar(
+    showHomeErrorSnack(
       context,
-      SnackBar(
-        content: Text(
-          controller.lastErrorMessage ??
-              openHandLocalizedText(
-                context,
-                zh: '线程重命名失败。',
-                en: 'Rename failed.',
-              ),
-        ),
-      ),
+      controller.lastErrorMessage ??
+          openHandLocalizedText(context, zh: '线程重命名失败。', en: 'Rename failed.'),
     );
   }
 
@@ -8400,13 +8335,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       if (!mounted || userCancelled) return;
       await closeProgressDialog();
       if (!mounted || userCancelled) return;
-      showOpenHandSnackBar(
+      showHomeSuccessSnack(
         context,
-        SnackBar(
-          content: Text(
-            openHandLocalizedText(context, zh: '标题生成成功', en: 'Title generated'),
-          ),
-        ),
+        openHandLocalizedText(context, zh: '标题生成成功', en: 'Title generated'),
       );
     } on AiChatCancelledException {
       cancelTitleGeneration();
@@ -8468,18 +8399,19 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       }
       return;
     }
-    showOpenHandSnackBar(
+    showHomeErrorSnack(
       context,
-      SnackBar(
-        content: Text(
-          controller.lastErrorMessage ??
-              openHandLocalizedText(
-                context,
-                zh: '线程删除失败。',
-                en: 'Delete failed.',
-              ),
-        ),
-      ),
+      controller.lastErrorMessage ??
+          openHandLocalizedText(context, zh: '线程删除失败。', en: 'Delete failed.'),
+    );
+  }
+
+  void _logHarnessSessionSaveError(Object error, StackTrace stack) {
+    silentLog(
+      'openhand_home_page',
+      'save harness session metadata',
+      error,
+      stack,
     );
   }
 
@@ -8510,7 +8442,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       updatedAt: DateTime.now(),
     );
     setState(() => _persistedHarnessSession = updated);
-    unawaited(_harnessSessionStore.save(updated).catchError((_) {}));
+    unawaited(
+      _harnessSessionStore
+          .save(updated)
+          .catchError(_logHarnessSessionSaveError),
+    );
   }
 
   Future<void> _deleteHarnessSession() async {
@@ -8562,7 +8498,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
 
   Future<void> _exportSession(AiSession session) async {
     final controller = context.read<AiSessionController>();
-    final messenger = ScaffoldMessenger.of(context);
 
     // Step 1: load the full session up-front so the config dialog can show
     // an accurate message count for range validation.
@@ -8577,34 +8512,25 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         stack,
       );
       if (!mounted) return;
-      showOpenHandSnackBarOn(
+      showHomeErrorSnack(
         context,
-        messenger,
-        SnackBar(
-          content: Text(
-            openHandLocalizedText(
-              context,
-              zh: '加载会话失败：$error',
-              en: 'Failed to load session: $error',
-            ),
-          ),
+        openHandLocalizedText(
+          context,
+          zh: '加载会话失败：$error',
+          en: 'Failed to load session: $error',
         ),
+        maxLines: 2,
       );
       return;
     }
     if (loaded == null || !mounted) {
       if (mounted) {
-        showOpenHandSnackBarOn(
+        showHomeErrorSnack(
           context,
-          messenger,
-          SnackBar(
-            content: Text(
-              openHandLocalizedText(
-                context,
-                zh: '会话不存在或已被删除。',
-                en: 'Session is missing or has been deleted.',
-              ),
-            ),
+          openHandLocalizedText(
+            context,
+            zh: '会话不存在或已被删除。',
+            en: 'Session is missing or has been deleted.',
           ),
         );
       }
@@ -8637,18 +8563,14 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         stack,
       );
       if (!mounted) return;
-      showOpenHandSnackBarOn(
+      showHomeErrorSnack(
         context,
-        messenger,
-        SnackBar(
-          content: Text(
-            openHandLocalizedText(
-              context,
-              zh: '无法打开保存对话框：$error',
-              en: 'Unable to open save dialog: $error',
-            ),
-          ),
+        openHandLocalizedText(
+          context,
+          zh: '无法打开保存对话框：$error',
+          en: 'Unable to open save dialog: $error',
         ),
+        maxLines: 2,
       );
       return;
     }
@@ -8705,13 +8627,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     progressController.dispose();
 
     if (!mounted) return;
-    _showExportResultSnackBar(messenger, result, destinationPath);
+    _showExportResultSnackBar(result, destinationPath);
   }
 
   Future<void> _exportHarnessSession() async {
     final record = _persistedHarnessSession;
     if (record == null) return;
-    final messenger = ScaffoldMessenger.of(context);
 
     // Step 1: collect the export configuration from the user.
     final config = await showHarnessSessionExportConfigDialog(
@@ -8739,18 +8660,14 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         stack,
       );
       if (!mounted) return;
-      showOpenHandSnackBarOn(
+      showHomeErrorSnack(
         context,
-        messenger,
-        SnackBar(
-          content: Text(
-            openHandLocalizedText(
-              context,
-              zh: '无法打开保存对话框：$error',
-              en: 'Unable to open save dialog: $error',
-            ),
-          ),
+        openHandLocalizedText(
+          context,
+          zh: '无法打开保存对话框：$error',
+          en: 'Unable to open save dialog: $error',
         ),
+        maxLines: 2,
       );
       return;
     }
@@ -8811,54 +8728,44 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     progressController.dispose();
 
     if (!mounted) return;
-    _showExportResultSnackBar(messenger, result, destinationPath);
+    _showExportResultSnackBar(result, destinationPath);
   }
 
-  void _showExportResultSnackBar(
-    ScaffoldMessengerState messenger,
-    ExportResult result,
-    String destinationPath,
-  ) {
+  void _showExportResultSnackBar(ExportResult result, String destinationPath) {
     final ctx = context;
-    final String message;
-    late final SnackBar snackBar;
     switch (result.kind) {
       case ExportResultKind.success:
-        message = openHandLocalizedText(
+        showHomeSuccessSnack(
           ctx,
-          zh: '导出成功：$destinationPath',
-          en: 'Export succeeded: $destinationPath',
-        );
-        snackBar = OpenHandSnackBar.success(
-          ctx,
-          message,
+          openHandLocalizedText(
+            ctx,
+            zh: '导出成功：$destinationPath',
+            en: 'Export succeeded: $destinationPath',
+          ),
           duration: const Duration(seconds: 6),
+          maxLines: 2,
         );
         break;
       case ExportResultKind.cancelled:
-        message = openHandLocalizedText(
+        showHomeInfoSnack(
           ctx,
-          zh: '已取消导出。',
-          en: 'Export cancelled.',
+          openHandLocalizedText(ctx, zh: '已取消导出。', en: 'Export cancelled.'),
         );
-        snackBar = OpenHandSnackBar.info(ctx, message);
         break;
       case ExportResultKind.failure:
         final reason = result.error?.toString() ?? 'unknown error';
-        message = openHandLocalizedText(
+        showHomeErrorSnack(
           ctx,
-          zh: '导出失败：$reason',
-          en: 'Export failed: $reason',
-        );
-        snackBar = OpenHandSnackBar.error(
-          ctx,
-          message,
-          maxLines: 2,
+          openHandLocalizedText(
+            ctx,
+            zh: '导出失败：$reason',
+            en: 'Export failed: $reason',
+          ),
           duration: const Duration(seconds: 6),
+          maxLines: 2,
         );
         break;
     }
-    OpenHandSnackBar.show(ctx, messenger, snackBar);
   }
 
   Future<void> _editMessage(AiSessionMessage message) async {
@@ -8907,16 +8814,14 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   }
 
   Future<void> _copyMessage(AiSessionMessage message) async {
-    await Clipboard.setData(ClipboardData(text: message.content));
-    if (!mounted) {
-      return;
-    }
-    showOpenHandSnackBar(
-      context,
-      SnackBar(
-        content: Text(
-          openHandLocalizedText(context, zh: '消息内容已复制。', en: 'Message copied.'),
-        ),
+    await copyHomeTextToClipboard(
+      context: context,
+      text: message.content,
+      logAction: 'copy message content',
+      successMessage: openHandLocalizedText(
+        context,
+        zh: '消息内容已复制。',
+        en: 'Message copied.',
       ),
     );
   }
@@ -8942,18 +8847,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (!mounted || deleted) {
       return deleted;
     }
-    showOpenHandSnackBar(
+    showHomeErrorSnack(
       context,
-      SnackBar(
-        content: Text(
-          controller.lastErrorMessage ??
-              openHandLocalizedText(
-                context,
-                zh: '消息删除失败。',
-                en: 'Delete failed.',
-              ),
-        ),
-      ),
+      controller.lastErrorMessage ??
+          openHandLocalizedText(context, zh: '消息删除失败。', en: 'Delete failed.'),
     );
     return false;
   }
@@ -8983,18 +8880,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (!mounted || deleted) {
       return deleted;
     }
-    showOpenHandSnackBar(
+    showHomeErrorSnack(
       context,
-      SnackBar(
-        content: Text(
-          controller.lastErrorMessage ??
-              openHandLocalizedText(
-                context,
-                zh: '批量删除消息失败。',
-                en: 'Delete failed.',
-              ),
-        ),
-      ),
+      controller.lastErrorMessage ??
+          openHandLocalizedText(context, zh: '批量删除消息失败。', en: 'Delete failed.'),
     );
     return false;
   }
@@ -9027,18 +8916,14 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       return;
     }
     if (forked == null) {
-      showOpenHandSnackBar(
+      showHomeErrorSnack(
         context,
-        SnackBar(
-          content: Text(
-            controller.lastErrorMessage ??
-                openHandLocalizedText(
-                  context,
-                  zh: '派生会话失败。',
-                  en: 'Failed to fork session.',
-                ),
-          ),
-        ),
+        controller.lastErrorMessage ??
+            openHandLocalizedText(
+              context,
+              zh: '派生会话失败。',
+              en: 'Failed to fork session.',
+            ),
       );
       return;
     }
@@ -9046,13 +8931,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       _selectedSection = AppSection.workspace;
       _armAutoFollowToBottom(notifyPausedState: false);
     });
-    showOpenHandSnackBar(
+    showHomeSuccessSnack(
       context,
-      SnackBar(
-        content: Text(
-          openHandLocalizedText(context, zh: '已派生新会话。', en: 'Session forked.'),
-        ),
-      ),
+      openHandLocalizedText(context, zh: '已派生新会话。', en: 'Session forked.'),
     );
   }
 
@@ -9073,16 +8954,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (!mounted || saved) {
       return;
     }
-    showOpenHandSnackBar(
+    showHomeErrorSnack(
       context,
-      SnackBar(
-        content: Text(
-          openHandLocalizedText(
-            context,
-            zh: '反馈保存失败。',
-            en: 'Failed to save feedback.',
-          ),
-        ),
+      openHandLocalizedText(
+        context,
+        zh: '反馈保存失败。',
+        en: 'Failed to save feedback.',
       ),
     );
   }
@@ -9104,16 +8981,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (!mounted || selected) {
       return;
     }
-    showOpenHandSnackBar(
+    showHomeErrorSnack(
       context,
-      SnackBar(
-        content: Text(
-          openHandLocalizedText(
-            context,
-            zh: '响应候选切换失败。',
-            en: 'Failed to switch response variant.',
-          ),
-        ),
+      openHandLocalizedText(
+        context,
+        zh: '响应候选切换失败。',
+        en: 'Failed to switch response variant.',
       ),
     );
   }
@@ -9127,7 +9000,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     }
     if (_displaySendPhaseForSession(controller, session.id) !=
         AiSendPhase.idle) {
-      OpenHandSnackBar.showInfo(
+      showHomeInfoSnack(
         context,
         openHandLocalizedText(
           context,
@@ -9142,7 +9015,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       session,
     );
     if (selectedModel == null) {
-      OpenHandSnackBar.showError(
+      showHomeErrorSnack(
         context,
         AppLocalizations.of(context)!.aiModelSelectionRequired,
       );
@@ -9193,18 +9066,14 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (!mounted || cancelled) {
       return;
     }
-    showOpenHandSnackBar(
+    showHomeErrorSnack(
       context,
-      SnackBar(
-        content: Text(
-          controller.lastErrorMessage ??
-              openHandLocalizedText(
-                context,
-                zh: '恢复编辑前的会话状态失败。',
-                en: 'Failed to restore the previous conversation state.',
-              ),
-        ),
-      ),
+      controller.lastErrorMessage ??
+          openHandLocalizedText(
+            context,
+            zh: '恢复编辑前的会话状态失败。',
+            en: 'Failed to restore the previous conversation state.',
+          ),
     );
   }
 
@@ -9574,18 +9443,14 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           if (settingsController.aiInputCacheEnabled &&
               session != null &&
               session.statistics.assistantMessageCount > 0) {
-            showOpenHandSnackBar(
+            showHomeInfoSnack(
               context,
-              SnackBar(
-                content: Text(
-                  openHandLocalizedText(
-                    context,
-                    zh: '已锁定服务商与模型以保证缓存命中（可在设置→AI→成本控制中关闭输入缓存后再切换）',
-                    en: 'Provider & model locked to ensure cache hit (disable Input Cache under Settings → AI → Cost Control to switch)',
-                  ),
-                ),
-                duration: const Duration(seconds: 3),
+              openHandLocalizedText(
+                context,
+                zh: '已锁定服务商与模型以保证缓存命中（可在设置→AI→成本控制中关闭输入缓存后再切换）',
+                en: 'Provider & model locked to ensure cache hit (disable Input Cache under Settings → AI → Cost Control to switch)',
               ),
+              maxLines: 2,
             );
             return;
           }

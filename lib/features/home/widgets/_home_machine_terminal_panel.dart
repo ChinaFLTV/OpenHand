@@ -225,18 +225,14 @@ class _MachineExpertTerminalPanelState
   }
 
   Future<void> _copyTerminalId(String terminalId) async {
-    await Clipboard.setData(ClipboardData(text: terminalId));
-    if (!mounted) return;
-    showOpenHandSnackBar(
-      context,
-      SnackBar(
-        content: Text(
-          openHandLocalizedText(
-            context,
-            zh: '终端 ID 已复制。',
-            en: 'Terminal ID copied.',
-          ),
-        ),
+    await copyHomeTextToClipboard(
+      context: context,
+      text: terminalId,
+      logAction: 'copy machine terminal id',
+      successMessage: openHandLocalizedText(
+        context,
+        zh: '终端 ID 已复制。',
+        en: 'Terminal ID copied.',
       ),
     );
   }
@@ -938,16 +934,12 @@ class _MachineTerminalHistoryDialogState
         terminalId: terminal.terminalId,
       );
       if (!mounted) return;
-      showOpenHandSnackBar(
+      showHomeSuccessSnack(
         context,
-        SnackBar(
-          content: Text(
-            openHandLocalizedText(
-              context,
-              zh: '终端会话已恢复到面板。',
-              en: 'Terminal restored to the panel.',
-            ),
-          ),
+        openHandLocalizedText(
+          context,
+          zh: '终端会话已恢复到面板。',
+          en: 'Terminal restored to the panel.',
         ),
       );
     } catch (error, stack) {
@@ -1061,17 +1053,9 @@ class _MachineTerminalHistoryDialogState
         terminalId: terminal.terminalId,
       );
       if (!mounted) return;
-      showOpenHandSnackBar(
+      showHomeSuccessSnack(
         context,
-        SnackBar(
-          content: Text(
-            openHandLocalizedText(
-              context,
-              zh: '终端会话已删除。',
-              en: 'Terminal deleted.',
-            ),
-          ),
-        ),
+        openHandLocalizedText(context, zh: '终端会话已删除。', en: 'Terminal deleted.'),
       );
     } catch (error, stack) {
       silentLog(
@@ -1464,20 +1448,14 @@ class _MachineTerminalHistoryDetailDialogState
   }
 
   Future<void> _copyDetails() async {
-    await Clipboard.setData(
-      ClipboardData(text: _terminalHistoryDetailText(widget.snapshot)),
-    );
-    if (!mounted) return;
-    showOpenHandSnackBar(
-      context,
-      SnackBar(
-        content: Text(
-          openHandLocalizedText(
-            context,
-            zh: '终端历史详情已复制。',
-            en: 'Terminal history details copied.',
-          ),
-        ),
+    await copyHomeTextToClipboard(
+      context: context,
+      text: _terminalHistoryDetailText(widget.snapshot),
+      logAction: 'copy machine terminal history details',
+      successMessage: openHandLocalizedText(
+        context,
+        zh: '终端历史详情已复制。',
+        en: 'Terminal history details copied.',
       ),
     );
   }
@@ -2367,20 +2345,14 @@ Future<void> _copyCommandRecord(
   BuildContext context,
   MachineTerminalCommandRecord record,
 ) async {
-  await Clipboard.setData(
-    ClipboardData(text: _commandRecordDetailText(record)),
-  );
-  if (!context.mounted) return;
-  showOpenHandSnackBar(
-    context,
-    SnackBar(
-      content: Text(
-        openHandLocalizedText(
-          context,
-          zh: '命令输出已复制。',
-          en: 'Command output copied.',
-        ),
-      ),
+  await copyHomeTextToClipboard(
+    context: context,
+    text: _commandRecordDetailText(record),
+    logAction: 'copy machine terminal command output',
+    successMessage: openHandLocalizedText(
+      context,
+      zh: '命令输出已复制。',
+      en: 'Command output copied.',
     ),
   );
 }

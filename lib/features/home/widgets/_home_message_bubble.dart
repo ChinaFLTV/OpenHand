@@ -1837,16 +1837,12 @@ void _showMediaClipboardSnack(
   required String en,
   bool isError = false,
 }) {
-  final messenger = ScaffoldMessenger.maybeOf(context);
-  if (messenger == null) return;
   final message = openHandLocalizedText(context, zh: zh, en: en);
-  OpenHandSnackBar.show(
-    context,
-    messenger,
-    isError
-        ? OpenHandSnackBar.error(context, message, maxLines: 2)
-        : OpenHandSnackBar.success(context, message),
-  );
+  if (isError) {
+    showHomeErrorSnack(context, message, maxLines: 2);
+    return;
+  }
+  showHomeSuccessSnack(context, message);
 }
 
 Future<bool> _copyLocalFileToPasteboard(String filePath) async {
@@ -2080,16 +2076,12 @@ Future<void> _openAttachment(
   final file = File(storagePath);
   if (!file.existsSync()) {
     if (!context.mounted) return;
-    showOpenHandSnackBar(
+    showHomeErrorSnack(
       context,
-      SnackBar(
-        content: Text(
-          openHandLocalizedText(
-            context,
-            zh: '附件文件不存在或已被移动。',
-            en: 'Attachment file not found or has been moved.',
-          ),
-        ),
+      openHandLocalizedText(
+        context,
+        zh: '附件文件不存在或已被移动。',
+        en: 'Attachment file not found or has been moved.',
       ),
     );
     return;
@@ -2143,17 +2135,14 @@ Future<void> _openLocalPathWithSystemApp(
   final hasLeadingDash = normalizedPath.startsWith('-');
   if ((looksLikeUri && !isWindowsDrivePath) || hasLeadingDash) {
     if (context.mounted) {
-      showOpenHandSnackBar(
+      showHomeErrorSnack(
         context,
-        SnackBar(
-          content: Text(
-            openHandLocalizedText(
-              context,
-              zh: '拒绝打开不安全的路径：$normalizedPath',
-              en: 'Refused unsafe path: $normalizedPath',
-            ),
-          ),
+        openHandLocalizedText(
+          context,
+          zh: '拒绝打开不安全的路径：$normalizedPath',
+          en: 'Refused unsafe path: $normalizedPath',
         ),
+        maxLines: 2,
       );
     }
     return;
@@ -2176,17 +2165,14 @@ Future<void> _openLocalPathWithSystemApp(
     if (!context.mounted) {
       return;
     }
-    showOpenHandSnackBar(
+    showHomeErrorSnack(
       context,
-      SnackBar(
-        content: Text(
-          openHandLocalizedText(
-            context,
-            zh: '打开文件失败：$error',
-            en: 'Failed to open file: $error',
-          ),
-        ),
+      openHandLocalizedText(
+        context,
+        zh: '打开文件失败：$error',
+        en: 'Failed to open file: $error',
       ),
+      maxLines: 2,
     );
   }
 }
@@ -3012,14 +2998,16 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog> {
           en: 'Copied image to clipboard.',
         );
       } catch (_) {
-        await Clipboard.setData(
-          ClipboardData(text: sourceUri.toString()),
-        ).timeout(_mediaClipboardOperationTimeout);
-        if (!context.mounted) return;
-        _showMediaClipboardSnack(
-          context,
-          zh: '无法复制图片数据，已复制图片地址。',
-          en: 'Unable to copy image data. Copied the image URL.',
+        await copyHomeTextToClipboard(
+          context: context,
+          text: sourceUri.toString(),
+          timeout: _mediaClipboardOperationTimeout,
+          logAction: 'copy remote image url fallback',
+          successMessage: openHandLocalizedText(
+            context,
+            zh: '无法复制图片数据，已复制图片地址。',
+            en: 'Unable to copy image data. Copied the image URL.',
+          ),
         );
       }
     } catch (error) {
@@ -5431,14 +5419,16 @@ input[type=range]:hover::-webkit-slider-thumb,input[type=range]:focus-visible::-
         );
         return;
       }
-      await Clipboard.setData(
-        ClipboardData(text: widget.source.uri.toString()),
-      ).timeout(_mediaClipboardOperationTimeout);
-      if (!context.mounted) return;
-      _showMediaClipboardSnack(
-        context,
-        zh: '已复制媒体地址。',
-        en: 'Copied media URL.',
+      await copyHomeTextToClipboard(
+        context: context,
+        text: widget.source.uri.toString(),
+        timeout: _mediaClipboardOperationTimeout,
+        logAction: 'copy generated media url',
+        successMessage: openHandLocalizedText(
+          context,
+          zh: '已复制媒体地址。',
+          en: 'Copied media URL.',
+        ),
       );
     } catch (error) {
       if (!context.mounted) return;
@@ -5528,17 +5518,22 @@ input[type=range]:hover::-webkit-slider-thumb,input[type=range]:focus-visible::-
   Future<void> _saveMediaAs(BuildContext context) async {
     if (_isSaving) return;
     _isSaving = true;
-    final messenger = ScaffoldMessenger.maybeOf(context);
-    void showSnack(String zh, String en) {
-      if (messenger == null) return;
-      OpenHandSnackBar.hideCurrentOn(messenger);
-      showOpenHandSnackBarOn(
-        context,
-        messenger,
-        SnackBar(
-          content: Text(openHandLocalizedText(context, zh: zh, en: en)),
-        ),
-      );
+    void showSnack(
+      String zh,
+      String en, {
+      OpenHandSnackKind kind = OpenHandSnackKind.info,
+    }) {
+      if (!context.mounted) return;
+      final message = openHandLocalizedText(context, zh: zh, en: en);
+      OpenHandGlobalSnackBarHost.hideCurrent();
+      switch (kind) {
+        case OpenHandSnackKind.success:
+          showHomeSuccessSnack(context, message, maxLines: 2);
+        case OpenHandSnackKind.error:
+          showHomeErrorSnack(context, message, maxLines: 2);
+        case OpenHandSnackKind.info:
+          showHomeInfoSnack(context, message, maxLines: 2);
+      }
     }
 
     try {
@@ -5568,7 +5563,11 @@ input[type=range]:hover::-webkit-slider-thumb,input[type=range]:focus-visible::-
           throw FileSystemException('Media source file is missing.', filePath);
         }
         await source.copy(location.path);
-        showSnack('已保存到：${location.path}', 'Saved to: ${location.path}');
+        showSnack(
+          '已保存到：${location.path}',
+          'Saved to: ${location.path}',
+          kind: OpenHandSnackKind.success,
+        );
         return;
       }
       final cancel = Completer<void>();
@@ -5583,7 +5582,11 @@ input[type=range]:hover::-webkit-slider-thumb,input[type=range]:focus-visible::-
           final cachedFile = File(cachedPath);
           if (await cachedFile.exists()) {
             await cachedFile.copy(location.path);
-            showSnack('已保存到：${location.path}', 'Saved to: ${location.path}');
+            showSnack(
+              '已保存到：${location.path}',
+              'Saved to: ${location.path}',
+              kind: OpenHandSnackKind.success,
+            );
             return;
           }
         }
@@ -5600,7 +5603,11 @@ input[type=range]:hover::-webkit-slider-thumb,input[type=range]:focus-visible::-
             mimeType: _mimeTypeForGeneratedMedia(widget.source),
           ),
         );
-        showSnack('已保存到：${location.path}', 'Saved to: ${location.path}');
+        showSnack(
+          '已保存到：${location.path}',
+          'Saved to: ${location.path}',
+          kind: OpenHandSnackKind.success,
+        );
       } finally {
         if (identical(_saveCancel, cancel)) _saveCancel = null;
       }
@@ -5610,9 +5617,14 @@ input[type=range]:hover::-webkit-slider-thumb,input[type=range]:focus-visible::-
       showSnack(
         '保存超时：${error.message ?? ''}',
         'Save timed out: ${error.message ?? ''}',
+        kind: OpenHandSnackKind.error,
       );
     } catch (error) {
-      showSnack('保存失败：$error', 'Save failed: $error');
+      showSnack(
+        '保存失败：$error',
+        'Save failed: $error',
+        kind: OpenHandSnackKind.error,
+      );
     } finally {
       if (!_disposed) _isSaving = false;
     }

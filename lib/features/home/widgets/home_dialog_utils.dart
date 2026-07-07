@@ -14,13 +14,38 @@ void showHomeSuccessSnack(
   String message, {
   Duration duration = kOpenHandSnackBarSuccessDuration,
   SnackBarAction? action,
+  int? maxLines,
 }) {
   if (!context.mounted) return;
-  OpenHandSnackBar.showSuccess(
+  OpenHandSnackBar.showInContext(
     context,
-    message,
-    duration: duration,
-    action: action,
+    OpenHandSnackBar.success(
+      context,
+      message,
+      duration: duration,
+      action: action,
+      maxLines: maxLines,
+    ),
+  );
+}
+
+void showHomeInfoSnack(
+  BuildContext context,
+  String message, {
+  Duration duration = kOpenHandSnackBarInfoDuration,
+  SnackBarAction? action,
+  int? maxLines,
+}) {
+  if (!context.mounted) return;
+  OpenHandSnackBar.showInContext(
+    context,
+    OpenHandSnackBar.info(
+      context,
+      message,
+      duration: duration,
+      action: action,
+      maxLines: maxLines,
+    ),
   );
 }
 
@@ -29,13 +54,36 @@ void showHomeErrorSnack(
   String message, {
   Duration duration = kOpenHandSnackBarErrorDuration,
   SnackBarAction? action,
+  int? maxLines,
 }) {
   if (!context.mounted) return;
-  OpenHandSnackBar.showError(
+  OpenHandSnackBar.showInContext(
+    context,
+    OpenHandSnackBar.error(
+      context,
+      message,
+      duration: duration,
+      action: action,
+      maxLines: maxLines,
+    ),
+  );
+}
+
+void flashHomeSnack(
+  BuildContext context,
+  String message, {
+  OpenHandSnackKind kind = OpenHandSnackKind.info,
+  Duration? duration,
+  SnackBarAction? action,
+  bool postFrame = false,
+}) {
+  OpenHandSnackBar.flash(
     context,
     message,
+    kind: kind,
     duration: duration,
     action: action,
+    postFrame: postFrame,
   );
 }
 
@@ -48,11 +96,10 @@ Future<bool> copyHomeTextToClipboard({
   bool showSuccess = true,
   Duration successDuration = kOpenHandSnackBarSuccessDuration,
   Duration errorDuration = kOpenHandSnackBarErrorDuration,
+  Duration timeout = _homeClipboardCopyTimeout,
 }) async {
   try {
-    await Clipboard.setData(
-      ClipboardData(text: text),
-    ).timeout(_homeClipboardCopyTimeout);
+    await Clipboard.setData(ClipboardData(text: text)).timeout(timeout);
   } catch (error, stack) {
     silentLog('home', logAction, error, stack);
     if (!context.mounted) return false;

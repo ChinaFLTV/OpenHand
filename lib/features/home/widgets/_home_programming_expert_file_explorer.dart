@@ -11,6 +11,20 @@ const double _kFileTreeIndentPerLevel = 16;
 const double _kFileTreeActiveBorderWidth = 2.5;
 const double _kFileTreeRowTrailingPadding = 16;
 const int _kEditorUnifiedDiffMaxMyersLineTotal = 10000;
+const Duration _kProgrammingExplorerClipboardTimeout = Duration(seconds: 10);
+
+Future<void> _setProgrammingExplorerClipboardText(
+  String text, {
+  required String logAction,
+}) async {
+  try {
+    await Clipboard.setData(
+      ClipboardData(text: text),
+    ).timeout(_kProgrammingExplorerClipboardTimeout);
+  } catch (error, stack) {
+    silentLog('programming_expert_file_explorer', logAction, error, stack);
+  }
+}
 
 class _FileExplorerPanel extends StatefulWidget {
   const _FileExplorerPanel({
@@ -542,7 +556,20 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
       'repo_root' => relativeFromRoot,
       _ => absolutePath,
     };
-    await Clipboard.setData(ClipboardData(text: textToCopy));
+    await copyHomeTextToClipboard(
+      context: context,
+      text: textToCopy,
+      logAction: 'copy programming explorer path',
+      successMessage: openHandLocalizedText(
+        context,
+        zh: '路径已复制。',
+        zhHant: '路徑已複製。',
+        en: 'Path copied.',
+        fr: 'Chemin copié.',
+        de: 'Pfad kopiert.',
+        ja: 'パスをコピーしました。',
+      ),
+    );
   }
 
   Future<void> _renameNode(_FileNode node) async {
@@ -9550,21 +9577,17 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     } catch (error, stack) {
       silentLog('file_explorer', 'save file $filePath', error, stack);
       if (!mounted) return;
-      showOpenHandSnackBar(
+      showHomeErrorSnack(
         context,
-        SnackBar(
-          content: Text(
-            _editorText(
-              zh: '保存失败：${p.basename(filePath)}\n$error',
-              zhHant: '儲存失敗：${p.basename(filePath)}\n$error',
-              en: 'Save failed: ${p.basename(filePath)}\n$error',
-              fr: 'Échec de l’enregistrement : ${p.basename(filePath)}\n$error',
-              de: 'Speichern fehlgeschlagen: ${p.basename(filePath)}\n$error',
-              ja: '保存に失敗しました: ${p.basename(filePath)}\n$error',
-            ),
-          ),
-          backgroundColor: Theme.of(context).colorScheme.error,
+        _editorText(
+          zh: '保存失败：${p.basename(filePath)}\n$error',
+          zhHant: '儲存失敗：${p.basename(filePath)}\n$error',
+          en: 'Save failed: ${p.basename(filePath)}\n$error',
+          fr: 'Échec de l’enregistrement : ${p.basename(filePath)}\n$error',
+          de: 'Speichern fehlgeschlagen: ${p.basename(filePath)}\n$error',
+          ja: '保存に失敗しました: ${p.basename(filePath)}\n$error',
         ),
+        maxLines: 3,
       );
     }
   }
@@ -9769,7 +9792,19 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       'workspace_root' => relativeFromWorkspace,
       _ => filePath,
     };
-    await Clipboard.setData(ClipboardData(text: textToCopy));
+    await copyHomeTextToClipboard(
+      context: context,
+      text: textToCopy,
+      logAction: 'copy editor tab path',
+      successMessage: _editorText(
+        zh: '路径已复制。',
+        zhHant: '路徑已複製。',
+        en: 'Path copied.',
+        fr: 'Chemin copié.',
+        de: 'Pfad kopiert.',
+        ja: 'パスをコピーしました。',
+      ),
+    );
   }
 
   Future<void> _handleEditorTabMenuAction(
@@ -10971,7 +11006,12 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       selection.start,
       selection.end,
     );
-    Clipboard.setData(ClipboardData(text: selectedText));
+    unawaited(
+      _setProgrammingExplorerClipboardText(
+        selectedText,
+        logAction: 'editor cut',
+      ),
+    );
     _commitProgrammaticEditorValueChange(
       filePath,
       controller,
@@ -10991,7 +11031,12 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       selection.start,
       selection.end,
     );
-    Clipboard.setData(ClipboardData(text: selectedText));
+    unawaited(
+      _setProgrammingExplorerClipboardText(
+        selectedText,
+        logAction: 'editor copy',
+      ),
+    );
   }
 
   Future<void> _editorClipboardPaste(String filePath) async {
