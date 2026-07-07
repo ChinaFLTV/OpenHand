@@ -114,17 +114,22 @@ class _RealtimeBodyState extends State<_RealtimeBody> {
   }
 
   Future<void> _copyFrame(CdpWebSocketFrame f) async {
-    final copied = await setWebReverseClipboardText(f.payload);
+    late final WebReverseClipboardCopyResult copied;
+    try {
+      copied = await setWebReverseClipboardText(f.payload);
+    } catch (e, st) {
+      silentLog('web_reverse_realtime_panel', 'copy frame', e, st);
+      if (!mounted) return;
+      showWebReverseClipboardErrorSnack(context: context, error: e);
+      return;
+    }
     if (!mounted) return;
-    OpenHandSnackBar.showSuccess(
-      context,
-      webReverseClipboardSnackMessage(
-        context: context,
-        base:
-            AppLocalizations.of(context)?.webReverseRealtimePayloadCopied ??
-            'Payload copied',
-        result: copied,
-      ),
+    showWebReverseClipboardSuccessSnack(
+      context: context,
+      base:
+          AppLocalizations.of(context)?.webReverseRealtimePayloadCopied ??
+          'Payload copied',
+      result: copied,
     );
   }
 

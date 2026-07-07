@@ -228,23 +228,28 @@ class _RequestDetailPanelState extends State<_RequestDetailPanel> {
       'fetch-node' => _asFetch(widget.entry, node: true),
       _ => widget.entry.url,
     };
-    final copied = await setWebReverseClipboardText(text);
+    late final WebReverseClipboardCopyResult copied;
+    try {
+      copied = await setWebReverseClipboardText(text);
+    } catch (e, st) {
+      silentLog('web_reverse_detail_panel', 'copy $kind', e, st);
+      if (!mounted) return;
+      showWebReverseClipboardErrorSnack(context: context, error: e);
+      return;
+    }
     if (!mounted) return;
-    OpenHandSnackBar.showSuccess(
-      context,
-      _wrClipboardSnackMessage(
+    showWebReverseClipboardSuccessSnack(
+      context: context,
+      base: openHandLocalizedText(
         context,
-        base: openHandLocalizedText(
-          context,
-          zh: '已复制为 $kind',
-          zhHant: '已複製為 $kind',
-          en: 'Copied as $kind',
-          fr: 'Copié en $kind',
-          de: 'Als $kind kopiert',
-          ja: '$kind としてコピーしました',
-        ),
-        result: copied,
+        zh: '已复制为 $kind',
+        zhHant: '已複製為 $kind',
+        en: 'Copied as $kind',
+        fr: 'Copié en $kind',
+        de: 'Als $kind kopiert',
+        ja: '$kind としてコピーしました',
       ),
+      result: copied,
       duration: const Duration(seconds: 1),
     );
   }

@@ -166,7 +166,7 @@ class _CronsBodyState extends State<_CronsBody> {
     if (iv == null ||
         iv < WebReverseSessionController.minCronIntervalSeconds ||
         iv > WebReverseSessionController.maxCronIntervalSeconds) {
-      OpenHandSnackBar.showError(
+      showWebReverseErrorSnack(
         context,
         _text(
           zh: '周期需为 ${WebReverseSessionController.minCronIntervalSeconds}-${WebReverseSessionController.maxCronIntervalSeconds} 秒',
@@ -189,7 +189,7 @@ class _CronsBodyState extends State<_CronsBody> {
     widget.onPersist();
     if (mounted) {
       setState(() => _dirty = false);
-      OpenHandSnackBar.showSuccess(
+      showWebReverseSuccessSnack(
         context,
         _text(
           zh: '已保存',

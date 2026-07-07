@@ -126,23 +126,6 @@ bool _wrMotionEnabled(BuildContext context) {
   return openHandTickerMotionEnabled(context);
 }
 
-String _wrClipboardSnackMessage(
-  BuildContext context, {
-  required String base,
-  required WebReverseClipboardCopyResult result,
-}) {
-  if (!result.clipped) return base;
-  return openHandLocalizedText(
-    context,
-    zh: '$base（已按上限复制 ${result.copiedChars}/${result.originalChars} 字符）',
-    zhHant: '$base（已依上限複製 ${result.copiedChars}/${result.originalChars} 字元）',
-    en: '$base (copied ${result.copiedChars}/${result.originalChars} chars, capped)',
-    fr: '$base (${result.copiedChars}/${result.originalChars} caractères copiés, limite atteinte)',
-    de: '$base (${result.copiedChars}/${result.originalChars} Zeichen kopiert, begrenzt)',
-    ja: '$base（上限により ${result.copiedChars}/${result.originalChars} 文字をコピー）',
-  );
-}
-
 Widget? _hideTextFieldCounter(
   BuildContext context, {
   required int currentLength,

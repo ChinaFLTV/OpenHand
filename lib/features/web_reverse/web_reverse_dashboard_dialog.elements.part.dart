@@ -138,22 +138,27 @@ class _ElementsBodyState extends State<_ElementsBody> {
     if (!mounted) return;
     if (s == null) {
       final loc = AppLocalizations.of(context);
-      OpenHandSnackBar.showError(
+      showWebReverseErrorSnack(
         context,
         loc?.webReverseElementsSelectorFailed ?? 'Failed to build selector',
       );
       return;
     }
-    final copied = await setWebReverseClipboardText(s);
+    late final WebReverseClipboardCopyResult copied;
+    try {
+      copied = await setWebReverseClipboardText(s);
+    } catch (e, st) {
+      silentLog('web_reverse_elements_panel', 'copy selector', e, st);
+      if (!mounted) return;
+      showWebReverseClipboardErrorSnack(context: context, error: e);
+      return;
+    }
     if (!mounted) return;
     final loc = AppLocalizations.of(context);
-    OpenHandSnackBar.showSuccess(
-      context,
-      webReverseClipboardSnackMessage(
-        context: context,
-        base: loc?.webReverseElementsSelectorCopied ?? 'Selector copied',
-        result: copied,
-      ),
+    showWebReverseClipboardSuccessSnack(
+      context: context,
+      base: loc?.webReverseElementsSelectorCopied ?? 'Selector copied',
+      result: copied,
       duration: const Duration(seconds: 1),
     );
   }
@@ -165,22 +170,27 @@ class _ElementsBodyState extends State<_ElementsBody> {
     if (!mounted) return;
     if (s == null) {
       final loc = AppLocalizations.of(context);
-      OpenHandSnackBar.showError(
+      showWebReverseErrorSnack(
         context,
         loc?.webReverseElementsXPathFailed ?? 'Failed to build XPath',
       );
       return;
     }
-    final copied = await setWebReverseClipboardText(s);
+    late final WebReverseClipboardCopyResult copied;
+    try {
+      copied = await setWebReverseClipboardText(s);
+    } catch (e, st) {
+      silentLog('web_reverse_elements_panel', 'copy xpath', e, st);
+      if (!mounted) return;
+      showWebReverseClipboardErrorSnack(context: context, error: e);
+      return;
+    }
     if (!mounted) return;
     final loc = AppLocalizations.of(context);
-    OpenHandSnackBar.showSuccess(
-      context,
-      webReverseClipboardSnackMessage(
-        context: context,
-        base: loc?.webReverseElementsXPathCopied ?? 'XPath copied',
-        result: copied,
-      ),
+    showWebReverseClipboardSuccessSnack(
+      context: context,
+      base: loc?.webReverseElementsXPathCopied ?? 'XPath copied',
+      result: copied,
       duration: const Duration(seconds: 1),
     );
   }

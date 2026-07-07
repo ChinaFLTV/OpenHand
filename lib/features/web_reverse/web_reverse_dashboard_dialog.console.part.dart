@@ -167,7 +167,7 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
     _scheduleConsoleFollow();
     final loc = AppLocalizations.of(context);
     if (r == null) {
-      OpenHandSnackBar.showError(
+      showWebReverseErrorSnack(
         context,
         loc?.webReverseConsoleEvalFailed ?? 'Eval failed',
         duration: const Duration(seconds: 2),
@@ -195,11 +195,19 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
   }
 
   Future<void> _copyConsoleText(String text) async {
-    await Clipboard.setData(ClipboardData(text: text));
+    late final WebReverseClipboardCopyResult copied;
+    try {
+      copied = await setWebReverseClipboardText(text);
+    } catch (e, st) {
+      silentLog('web_reverse_console_panel', 'copy text', e, st);
+      if (!mounted) return;
+      showWebReverseClipboardErrorSnack(context: context, error: e);
+      return;
+    }
     if (!mounted) return;
-    OpenHandSnackBar.showInfo(
-      context,
-      openHandLocalizedText(
+    showWebReverseClipboardSuccessSnack(
+      context: context,
+      base: openHandLocalizedText(
         context,
         zh: '控制台全文已复制',
         zhHant: '主控台全文已複製',
@@ -208,7 +216,7 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
         de: 'Konsolentext kopiert',
         ja: 'コンソール全文をコピーしました',
       ),
-      duration: const Duration(seconds: 2),
+      result: copied,
     );
   }
 
