@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
 
@@ -3196,7 +3195,7 @@ class _StructuredResponsePreview extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final decoded = _tryDecodeJson(raw);
+    final decoded = tryDecodeJson(raw);
     final entries = decoded is Map
         ? decoded.entries.toList(growable: false)
         : const <MapEntry<Object?, Object?>>[];
@@ -5382,13 +5381,6 @@ class _AccessibleUrlPill extends StatelessWidget {
   }
 }
 
-Object? _tryDecodeJson(String value) {
-  try {
-    return jsonDecode(value);
-  } catch (_) {
-    return null;
-  }
-}
 
 String _formatStructuredValue(Object? value) {
   if (value == null) return 'null';

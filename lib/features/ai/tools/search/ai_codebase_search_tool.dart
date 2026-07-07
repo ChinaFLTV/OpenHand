@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
@@ -357,7 +356,7 @@ class AiCodebaseSearchTool extends AiTool {
     for (final line in lines) {
       if (nullIfBlank(line) == null) continue;
       try {
-        final decoded = _safeJsonDecode(line);
+        final decoded = tryDecodeJson(line);
         if (decoded is! Map) continue;
         final Map<String, dynamic> entry = Map<String, dynamic>.from(decoded);
         final type = entry['type'] as String? ?? '';
@@ -420,16 +419,6 @@ class AiCodebaseSearchTool extends AiTool {
 
     return results.values.toList();
   }
-
-  Object? _safeJsonDecode(String input) {
-    try {
-      return _jsonCodec.decode(input);
-    } catch (_) {
-      return null;
-    }
-  }
-
-  static const _jsonCodec = JsonCodec();
 
   Future<List<String>> _findFilesByName(
     String searchRoot,

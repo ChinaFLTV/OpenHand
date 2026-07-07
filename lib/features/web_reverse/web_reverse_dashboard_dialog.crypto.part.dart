@@ -84,8 +84,7 @@ class _CryptoPadBodyState extends State<_CryptoPadBody> {
   }
 
   String _hexEncode(String s) {
-    final bytes = utf8.encode(s);
-    return bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+    return bytesToHex(utf8.encode(s));
   }
 
   String _hexDecode(String s) {
@@ -161,8 +160,7 @@ class _CryptoPadBodyState extends State<_CryptoPadBody> {
     final bytes = List<int>.generate(16, (_) => r.nextInt(256));
     bytes[6] = (bytes[6] & 0x0f) | 0x40; // version 4
     bytes[8] = (bytes[8] & 0x3f) | 0x80; // variant
-    String hex(int b) => b.toRadixString(16).padLeft(2, '0');
-    final s = bytes.map(hex).join();
+    final s = bytesToHex(bytes);
     return '${s.substring(0, 8)}-${s.substring(8, 12)}-'
         '${s.substring(12, 16)}-${s.substring(16, 20)}-${s.substring(20)}';
   }

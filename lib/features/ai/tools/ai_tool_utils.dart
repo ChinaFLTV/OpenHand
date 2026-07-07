@@ -316,19 +316,19 @@ class AiToolUtils {
       final trimmed = stripped.trim();
       final schemaType = _schemaType(schema);
       if (schemaType == 'array' || schemaType == 'object') {
-        final decoded = _tryDecodeJson(trimmed);
+        final decoded = tryDecodeJson(trimmed);
         if (decoded != null) {
           return _coerceArgumentValue(decoded, schema: schema);
         }
       }
       if (schemaType == 'integer' || schemaType == 'number') {
-        final decoded = _tryDecodeJson(trimmed);
+        final decoded = tryDecodeJson(trimmed);
         if (decoded is num) return decoded;
         final parsed = num.tryParse(trimmed);
         if (parsed != null) return parsed;
       }
       if (schemaType == 'boolean') {
-        final decoded = _tryDecodeJson(trimmed);
+        final decoded = tryDecodeJson(trimmed);
         if (decoded is bool) return decoded;
         return optionalBoolFromValue(trimmed) ?? stripped;
       }
@@ -404,15 +404,6 @@ class AiToolUtils {
     return '';
   }
 
-  static Object? _tryDecodeJson(String value) {
-    if (value.isEmpty) return null;
-    try {
-      return jsonDecode(value);
-    } catch (_) {
-      return null;
-    }
-  }
-
   static String _stripCdata(String value) {
     final cdataPattern = RegExp(
       r'<!\[CDATA\[([\s\S]*?)\]\]>',
@@ -478,7 +469,7 @@ class AiToolUtils {
     if (value is List<Object?>) return value;
     if (value is List) return value.cast<Object?>().toList(growable: false);
     if (value is String) {
-      final decoded = _tryDecodeJson(value.trim());
+      final decoded = tryDecodeJson(value.trim());
       if (decoded is List) {
         return decoded.cast<Object?>().toList(growable: false);
       }

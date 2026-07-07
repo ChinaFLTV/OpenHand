@@ -93,6 +93,14 @@ const Set<String> _falsyBoolTexts = <String>{
   }
 }
 
+/// Decodes [value] as JSON, returning `null` on blank input or any decode
+/// failure. For callers that just need "the parsed value or nothing".
+Object? tryDecodeJson(String value) {
+  if (value.isEmpty) return null;
+  final decoded = _tryDecodeJsonText(value);
+  return decoded.ok ? decoded.value : null;
+}
+
 /// Shared two-space-indent JSON encoder. Reused so the indentation width and
 /// serialization behavior stay identical across every pretty-printed payload.
 const JsonEncoder kPrettyJsonEncoder = JsonEncoder.withIndent('  ');

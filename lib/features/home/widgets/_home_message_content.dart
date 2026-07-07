@@ -36,14 +36,10 @@ const int _htmlProgressiveRenderPreviewCharCap = 1800;
 const double _htmlProgressiveRenderPreviewMaxHeight = 220;
 
 String _cssHexFromColor(Color color) {
-  final red = (color.r * 255).round() & 0xff;
-  final green = (color.g * 255).round() & 0xff;
-  final blue = (color.b * 255).round() & 0xff;
-  return '#${_twoDigitHex(red)}${_twoDigitHex(green)}${_twoDigitHex(blue)}';
-}
-
-String _twoDigitHex(int value) {
-  return (value & 0xff).toRadixString(16).padLeft(2, '0');
+  final red = (color.r * 255).round();
+  final green = (color.g * 255).round();
+  final blue = (color.b * 255).round();
+  return '#${byteToHex(red)}${byteToHex(green)}${byteToHex(blue)}';
 }
 
 abstract final class _CollapsedBodyScrollOffsetCache {

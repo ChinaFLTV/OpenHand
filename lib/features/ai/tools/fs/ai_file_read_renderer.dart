@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:image/image.dart' as img;
 import 'package:path/path.dart' as p;
 
+import '../../../../shared/util/hex_encoding.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../ai_tool_utils.dart';
 import 'ai_read_tool.dart';
@@ -270,9 +271,7 @@ class AiFileReadRenderer {
     required bool truncated,
   }) {
     final previewBytes = bytes.take(AiToolUtils.maxBinaryPreviewBytes).toList();
-    final hexPreview = previewBytes
-        .map((v) => v.toRadixString(16).padLeft(2, '0'))
-        .join(' ');
+    final hexPreview = bytesToHex(previewBytes, separator: ' ');
     final buffer = StringBuffer()
       ..writeln('file_type: binary')
       ..writeln('path: $filePath')
