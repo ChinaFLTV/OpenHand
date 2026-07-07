@@ -179,6 +179,46 @@ const EdgeInsetsDirectional _agentNumberStepperContentPadding =
 const EdgeInsetsDirectional _agentNumberStepperLabelPadding =
     EdgeInsetsDirectional.fromSTEB(8, 0, 8, 0);
 
+void _showAgentInfoSnack(
+  BuildContext context,
+  String message, {
+  Duration duration = kOpenHandSnackBarInfoDuration,
+  SnackBarAction? action,
+  int? maxLines,
+}) {
+  if (!context.mounted) return;
+  OpenHandSnackBar.showInContext(
+    context,
+    OpenHandSnackBar.info(
+      context,
+      message,
+      duration: duration,
+      action: action,
+      maxLines: maxLines,
+    ),
+  );
+}
+
+void _showAgentErrorSnack(
+  BuildContext context,
+  String message, {
+  Duration duration = kOpenHandSnackBarErrorDuration,
+  SnackBarAction? action,
+  int? maxLines,
+}) {
+  if (!context.mounted) return;
+  OpenHandSnackBar.showInContext(
+    context,
+    OpenHandSnackBar.error(
+      context,
+      message,
+      duration: duration,
+      action: action,
+      maxLines: maxLines,
+    ),
+  );
+}
+
 int _normalizeAgentMaxWorkers(int value) {
   return value
       .clamp(agentScaleMaxWorkersMinimum, agentScaleWorkersMaximum)
@@ -2632,7 +2672,7 @@ class _AgentClusterDialogContentState
     if (saved) {
       setState(() => _editing = false);
     } else {
-      OpenHandSnackBar.showError(this.context, failureMessage);
+      _showAgentErrorSnack(this.context, failureMessage);
     }
   }
 
@@ -4167,7 +4207,7 @@ Future<void> _updateAgentTaskFromDesk(
     activityTitle: activityTitle,
   );
   if (updated == null && context.mounted) {
-    OpenHandSnackBar.showError(
+    _showAgentErrorSnack(
       context,
       openHandLocalizedText(
         context,
@@ -4279,7 +4319,7 @@ Future<void> _showCompleteTaskDialog(
     if (submitted == true && context.mounted) {
       final resultText = result.text.trim();
       if (resultText.isEmpty) {
-        OpenHandSnackBar.showInfo(
+        _showAgentInfoSnack(
           context,
           openHandLocalizedText(
             context,
@@ -4853,7 +4893,7 @@ class _AgentKpiEditorDialogState extends State<_AgentKpiEditorDialog> {
   void _submitKpi() {
     final duplicate = _agentFirstDuplicateKey(_extraEntries);
     if (duplicate != null) {
-      OpenHandSnackBar.showError(
+      _showAgentErrorSnack(
         context,
         openHandLocalizedText(
           context,
@@ -6544,7 +6584,7 @@ class _AgentResourceEditorDialogState
   void _submitUsage() {
     final duplicate = _agentFirstDuplicateKey(_extraEntries);
     if (duplicate != null) {
-      OpenHandSnackBar.showError(
+      _showAgentErrorSnack(
         context,
         openHandLocalizedText(
           context,
@@ -8091,7 +8131,7 @@ class _AgentApprovalRequestDialogState
   void _submit() {
     final title = _title.text.trim();
     if (title.isEmpty) {
-      OpenHandSnackBar.showInfo(
+      _showAgentInfoSnack(
         context,
         openHandLocalizedText(
           context,
@@ -8103,7 +8143,7 @@ class _AgentApprovalRequestDialogState
     }
     final duplicate = _agentFirstDuplicateKey(_extraEntries);
     if (duplicate != null) {
-      OpenHandSnackBar.showError(
+      _showAgentErrorSnack(
         context,
         openHandLocalizedText(
           context,
@@ -8136,7 +8176,7 @@ Future<void> _resolveAgentApprovalFromDialog(
     status,
   );
   if (resolved == null && context.mounted) {
-    OpenHandSnackBar.showError(
+    _showAgentErrorSnack(
       context,
       openHandLocalizedText(
         context,
@@ -8254,7 +8294,7 @@ Future<void> _showPublishTaskDialog(
       extra: draft.extra,
     );
     if (!published && context.mounted) {
-      OpenHandSnackBar.showError(
+      _showAgentErrorSnack(
         context,
         openHandLocalizedText(
           context,
@@ -8495,7 +8535,7 @@ class _AgentPublishTaskDialogState extends State<_AgentPublishTaskDialog> {
   void _submit() {
     FocusScope.of(context).unfocus();
     if (_title.text.trim().isEmpty) {
-      OpenHandSnackBar.showInfo(
+      _showAgentInfoSnack(
         context,
         openHandLocalizedText(
           context,
@@ -8703,7 +8743,7 @@ void _handleCreateAgent(
   AgentRuntimeAvailability runtime,
 ) {
   if (!runtime.canRun) {
-    OpenHandSnackBar.showError(
+    _showAgentErrorSnack(
       context,
       _agentRuntimeCreateBlockingText(context, runtime),
     );
@@ -8720,7 +8760,7 @@ Future<void> _handleToggleAgentEnabled(
   final controller = context.read<AgentsController>();
   final updated = await controller.setAgentEnabled(agent.id, enabled: enabled);
   if (updated || !enabled || !context.mounted) return;
-  OpenHandSnackBar.showError(
+  _showAgentErrorSnack(
     context,
     _agentRuntimeBlockingText(context, controller.runtimeAvailability),
   );
@@ -10167,7 +10207,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
       setState(() => _avatar.text = path);
     } catch (error) {
       if (!mounted) return;
-      OpenHandSnackBar.showError(
+      _showAgentErrorSnack(
         context,
         openHandLocalizedText(
           context,
@@ -10253,7 +10293,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
         context.read<InstructionsController>().refresh(),
       ]);
       if (!mounted) return;
-      OpenHandSnackBar.showInfo(
+      _showAgentInfoSnack(
         context,
         openHandLocalizedText(
           context,
@@ -10263,7 +10303,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
       );
     } catch (error) {
       if (!mounted) return;
-      OpenHandSnackBar.showError(
+      _showAgentErrorSnack(
         context,
         openHandLocalizedText(
           context,
@@ -10383,7 +10423,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
     FocusScope.of(dialogContext).unfocus();
     final validationError = _validateDraft();
     if (validationError != null) {
-      OpenHandSnackBar.showError(context, validationError);
+      _showAgentErrorSnack(context, validationError);
       return;
     }
     final metadata = _metadataMapFromEntries();
