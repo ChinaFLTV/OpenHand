@@ -25,7 +25,6 @@ import '../../shared/ui/motion_preference.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_editor_scroll_behavior.dart';
 import '../../shared/ui/openhand_safe_scrollbar.dart';
-import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/ui/resizable_splitter.dart';
 import '../../shared/util/date_time_format.dart';
 import '../../shared/util/input_value_parsing.dart';
@@ -396,7 +395,7 @@ class _WebReverseDashboardDialogState
     if (_cdpMcpToggleBusy) return;
     final updater = widget.onCdpMcpEnabledChanged;
     if (updater == null) {
-      OpenHandSnackBar.showError(
+      showWebReverseErrorSnack(
         context,
         openHandLocalizedText(
           context,
@@ -412,7 +411,6 @@ class _WebReverseDashboardDialogState
       return;
     }
     setState(() => _cdpMcpToggleBusy = true);
-    final messenger = ScaffoldMessenger.of(context);
     var ok = false;
     try {
       ok = await updater(enabled).timeout(const Duration(seconds: 12));
@@ -428,9 +426,8 @@ class _WebReverseDashboardDialogState
     }
     if (!mounted) return;
     if (!ok) {
-      OpenHandSnackBar.showErrorOn(
+      showWebReverseErrorSnack(
         context,
-        messenger,
         openHandLocalizedText(
           context,
           zh: 'AI 侧 CDP MCP 设置更新失败',
@@ -444,9 +441,8 @@ class _WebReverseDashboardDialogState
       );
       return;
     }
-    OpenHandSnackBar.showInfoOn(
+    showWebReverseInfoSnack(
       context,
-      messenger,
       enabled
           ? openHandLocalizedText(
               context,
@@ -1084,7 +1080,7 @@ class _WebReverseDashboardDialogState
       await ctrl.startRecording();
     }
     if (!mounted) return;
-    OpenHandSnackBar.showInfo(
+    showWebReverseInfoSnack(
       context,
       ctrl.isRecording
           ? openHandLocalizedText(
@@ -1326,7 +1322,6 @@ Future<void> _openOfficialDevToolsForController(
 ) async {
   final port = ctrl.cdpPort;
   if (port == null) return;
-  final messenger = ScaffoldMessenger.of(context);
   String? frontendUrl;
   try {
     final client = createWebReverseCdpHttpClient(
@@ -1399,9 +1394,8 @@ Future<void> _openOfficialDevToolsForController(
   }
   if (!context.mounted) return;
   if (frontendUrl == null) {
-    OpenHandSnackBar.showInfoOn(
+    showWebReverseInfoSnack(
       context,
-      messenger,
       openHandLocalizedText(
         context,
         zh: '未找到可用的 DevTools 前端，已退到 /json/list 列表页',
@@ -1726,7 +1720,6 @@ class _OverviewBodyState extends State<_OverviewBody> {
   Future<void> _exportSnapshot() async {
     if (_busy) return;
     setState(() => _busy = true);
-    final messenger = ScaffoldMessenger.of(context);
     try {
       final ts = DateTime.now()
           .toIso8601String()
@@ -1742,9 +1735,8 @@ class _OverviewBodyState extends State<_OverviewBody> {
       final jsonStr = const JsonEncoder.withIndent('  ').convert(snap);
       await File(location.path).writeAsString(jsonStr);
       if (!mounted) return;
-      OpenHandSnackBar.showSuccessOn(
+      showWebReverseSuccessSnack(
         context,
-        messenger,
         openHandLocalizedText(
           context,
           zh: '快照已保存到 ${location.path}',
@@ -1759,9 +1751,8 @@ class _OverviewBodyState extends State<_OverviewBody> {
     } catch (error, stack) {
       silentLog('web_reverse_dashboard_dialog', 'exportSnapshot', error, stack);
       if (!mounted) return;
-      OpenHandSnackBar.showErrorOn(
+      showWebReverseErrorSnack(
         context,
-        messenger,
         openHandLocalizedText(
           context,
           zh: '快照导出失败',
@@ -1781,7 +1772,6 @@ class _OverviewBodyState extends State<_OverviewBody> {
   Future<void> _importSnapshot() async {
     if (_busy) return;
     setState(() => _busy = true);
-    final messenger = ScaffoldMessenger.of(context);
     try {
       const typeGroup = XTypeGroup(label: 'JSON', extensions: <String>['json']);
       final file = await openFile(acceptedTypeGroups: const [typeGroup]);
@@ -1789,9 +1779,8 @@ class _OverviewBodyState extends State<_OverviewBody> {
       final read = await readWebReverseTextFile(file);
       if (!mounted) return;
       if (read.isTooLarge) {
-        OpenHandSnackBar.showErrorOn(
+        showWebReverseErrorSnack(
           context,
-          messenger,
           webReverseTextFileTooLargeMessage(
             read.tooLargeBytes!,
             context: context,
@@ -1804,9 +1793,8 @@ class _OverviewBodyState extends State<_OverviewBody> {
       final decoded = jsonDecode(raw);
       if (decoded is! Map) {
         if (!mounted) return;
-        OpenHandSnackBar.showErrorOn(
+        showWebReverseErrorSnack(
           context,
-          messenger,
           openHandLocalizedText(
             context,
             zh: '快照格式无效',
@@ -1823,9 +1811,8 @@ class _OverviewBodyState extends State<_OverviewBody> {
       final count = controller.importSnapshot(decoded.cast<String, Object?>());
       if (!mounted) return;
       if (count < 0) {
-        OpenHandSnackBar.showErrorOn(
+        showWebReverseErrorSnack(
           context,
-          messenger,
           openHandLocalizedText(
             context,
             zh: '快照版本不兼容',
@@ -1838,9 +1825,8 @@ class _OverviewBodyState extends State<_OverviewBody> {
           duration: const Duration(seconds: 3),
         );
       } else {
-        OpenHandSnackBar.showSuccessOn(
+        showWebReverseSuccessSnack(
           context,
-          messenger,
           openHandLocalizedText(
             context,
             zh: '已导入 $count 条网络记录',
@@ -1856,9 +1842,8 @@ class _OverviewBodyState extends State<_OverviewBody> {
     } catch (error, stack) {
       silentLog('web_reverse_dashboard_dialog', 'importSnapshot', error, stack);
       if (!mounted) return;
-      OpenHandSnackBar.showErrorOn(
+      showWebReverseErrorSnack(
         context,
-        messenger,
         openHandLocalizedText(
           context,
           zh: '快照导入失败',
@@ -2291,25 +2276,28 @@ class _DiagnosisBannerState extends State<_DiagnosisBanner> {
   }
 
   Future<void> _copyRaw(WebReverseLaunchDiagnosis diagnosis) async {
-    final messenger = ScaffoldMessenger.of(context);
-    final copied = await setWebReverseClipboardText(diagnosis.fullText);
+    late final WebReverseClipboardCopyResult copied;
+    try {
+      copied = await setWebReverseClipboardText(diagnosis.fullText);
+    } catch (error, stack) {
+      silentLog('web_reverse_dashboard_dialog', 'copy diagnosis', error, stack);
+      if (!mounted) return;
+      showWebReverseClipboardErrorSnack(context: context, error: error);
+      return;
+    }
     if (!mounted) return;
-    OpenHandSnackBar.showSuccessOn(
-      context,
-      messenger,
-      webReverseClipboardSnackMessage(
-        context: context,
-        base: openHandLocalizedText(
-          context,
-          zh: '已复制原始报错',
-          zhHant: '已複製原始錯誤',
-          en: 'Raw error copied',
-          fr: 'Erreur brute copiee',
-          de: 'Rohfehler kopiert',
-          ja: '原始エラーをコピーしました',
-        ),
-        result: copied,
+    showWebReverseClipboardSuccessSnack(
+      context: context,
+      base: openHandLocalizedText(
+        context,
+        zh: '已复制原始报错',
+        zhHant: '已複製原始錯誤',
+        en: 'Raw error copied',
+        fr: 'Erreur brute copiee',
+        de: 'Rohfehler kopiert',
+        ja: '原始エラーをコピーしました',
       ),
+      result: copied,
       duration: const Duration(seconds: 1),
     );
   }
