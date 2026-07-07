@@ -104,6 +104,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
   static const double _kDebuggerSideRailWidth = 300;
   static const double _kDebuggerSideRailStackBreakpoint = 680;
   static const double _kDebuggerSideRailStackHeight = 220;
+  static const int _kLspSnackErrorMaxChars = 220;
   final ScrollController _sourceScroll = ScrollController();
   final ScrollController _sourceLineScroll = ScrollController();
   final ScrollController _sourceHorizontalScroll = ScrollController();
@@ -204,7 +205,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
   Future<void> _showQuickOpen() async {
     final scripts = widget.controller.parsedScripts;
     if (scripts.isEmpty) {
-      OpenHandSnackBar.showInfo(
+      showWebReverseInfoSnack(
         context,
         openHandLocalizedText(
           context,
@@ -248,9 +249,9 @@ class _SourcesPanelState extends State<_SourcesPanel> {
   /// 用户在 chip 上点击启用 LSP：拉起子进程，握手成功后把当前选中脚本
   /// 推给 server。失败时 chip 自动回到禁用状态并 SnackBar 提示。
   Future<void> _toggleLsp() async {
-    final messenger = ScaffoldMessenger.of(context);
     if (_lspEnabled) {
       await _lsp.stop();
+      if (!mounted) return;
       setState(() => _lspEnabled = false);
       return;
     }
@@ -259,16 +260,41 @@ class _SourcesPanelState extends State<_SourcesPanel> {
     final cfg = context
         .findAncestorStateOfType<_WebReverseDashboardDialogState>()
         ?.readLspConfig();
-    final ok = await _lsp.start(
-      cmd: cfg?.command,
-      cmdArgs: cfg?.args.isEmpty ?? true ? null : cfg!.args,
-    );
+    late final bool ok;
+    try {
+      ok = await _lsp.start(
+        cmd: cfg?.command,
+        cmdArgs: cfg?.args.isEmpty ?? true ? null : cfg!.args,
+      );
+    } catch (error, stack) {
+      silentLog('web_reverse_sources_panel', 'lsp.start', error, stack);
+      if (!mounted) return;
+      setState(() => _lspEnabled = false);
+      final detail = clipTextWithEllipsis('$error', _kLspSnackErrorMaxChars);
+      showWebReverseErrorSnack(
+        context,
+        openHandLocalizedText(
+          context,
+          zh: 'LSP 启动失败：$detail',
+          zhHant: 'LSP 啟動失敗：$detail',
+          en: 'LSP failed: $detail',
+          fr: 'Échec LSP : $detail',
+          de: 'LSP fehlgeschlagen: $detail',
+          ja: 'LSP 起動に失敗しました: $detail',
+        ),
+        duration: const Duration(seconds: 6),
+      );
+      return;
+    }
     if (!mounted) return;
     if (!ok) {
       setState(() => _lspEnabled = false);
       // exit 127 = "command not found"。识别到这个码就主动给一段安装提示，
       // 让用户不用再回 README 找。
-      final raw = _lsp.lastError ?? '';
+      final raw = clipTextWithEllipsis(
+        _lsp.lastError ?? '',
+        _kLspSnackErrorMaxChars,
+      );
       final isMissing =
           raw.contains('exit 127') ||
           raw.contains('Cannot run program') ||
@@ -294,17 +320,15 @@ class _SourcesPanelState extends State<_SourcesPanel> {
               de: 'LSP fehlgeschlagen: $raw',
               ja: 'LSP 起動に失敗しました: $raw',
             );
-      OpenHandSnackBar.showErrorOn(
+      showWebReverseErrorSnack(
         context,
-        messenger,
         friendly,
         duration: const Duration(seconds: 6),
       );
       return;
     }
-    OpenHandSnackBar.showSuccessOn(
+    showWebReverseSuccessSnack(
       context,
-      messenger,
       openHandLocalizedText(
         context,
         zh: 'LSP 已就绪',
@@ -546,22 +570,21 @@ class _SourcesPanelState extends State<_SourcesPanel> {
       // 重启：先 stop 旧 server（如果运行中），切回 disabled 状态等用户主动开。
       if (_lspEnabled) {
         await _lsp.stop();
+        if (!mounted) return;
         setState(() => _lspEnabled = false);
         // 提示用户需要再次点击 LSP 启用以走新配置。
-        if (mounted) {
-          OpenHandSnackBar.showInfo(
+        showWebReverseInfoSnack(
+          context,
+          openHandLocalizedText(
             context,
-            openHandLocalizedText(
-              context,
-              zh: '已保存。点击 LSP 胶囊以新命令重启。',
-              zhHant: '已儲存。點擊 LSP 膠囊以新命令重啟。',
-              en: 'Saved. Tap LSP chip to restart.',
-              fr: 'Enregistré. Touchez le badge LSP pour redémarrer.',
-              de: 'Gespeichert. LSP-Chip antippen zum Neustart.',
-              ja: '保存しました。LSP チップをクリックして新しいコマンドで再起動してください。',
-            ),
-          );
-        }
+            zh: '已保存。点击 LSP 胶囊以新命令重启。',
+            zhHant: '已儲存。點擊 LSP 膠囊以新命令重啟。',
+            en: 'Saved. Tap LSP chip to restart.',
+            fr: 'Enregistré. Touchez le badge LSP pour redémarrer.',
+            de: 'Gespeichert. LSP-Chip antippen zum Neustart.',
+            ja: '保存しました。LSP チップをクリックして新しいコマンドで再起動してください。',
+          ),
+        );
       }
     } finally {
       cmdCtrl.dispose();
@@ -728,16 +751,14 @@ class _SourcesPanelState extends State<_SourcesPanel> {
   }
 
   Future<void> _showHover(int line, int col) async {
-    final messenger = ScaffoldMessenger.of(context);
     if (_lastSentUri == null) await _pushCurrentToLsp();
     final uri = _lastSentUri;
     if (uri == null) return;
     final md = await _lsp.hover(uri, line, col);
     if (!mounted) return;
     if (md == null || md.isEmpty) {
-      OpenHandSnackBar.showInfoOn(
+      showWebReverseInfoSnack(
         context,
-        messenger,
         openHandLocalizedText(
           context,
           zh: '该位置无 hover 信息',
@@ -774,16 +795,14 @@ class _SourcesPanelState extends State<_SourcesPanel> {
   }
 
   Future<void> _gotoDefinition(int line, int col) async {
-    final messenger = ScaffoldMessenger.of(context);
     if (_lastSentUri == null) await _pushCurrentToLsp();
     final uri = _lastSentUri;
     if (uri == null) return;
     final r = await _lsp.definition(uri, line, col);
     if (!mounted) return;
     if (r == null) {
-      OpenHandSnackBar.showInfoOn(
+      showWebReverseInfoSnack(
         context,
-        messenger,
         openHandLocalizedText(
           context,
           zh: '未找到定义',
@@ -803,9 +822,8 @@ class _SourcesPanelState extends State<_SourcesPanel> {
     if (r.uri == uri) {
       _scrollToLine(r.line);
     } else {
-      OpenHandSnackBar.showInfoOn(
+      showWebReverseInfoSnack(
         context,
-        messenger,
         openHandLocalizedText(
           context,
           zh: '定义位置：${r.uri} 第 ${r.line + 1} 行',
@@ -821,7 +839,6 @@ class _SourcesPanelState extends State<_SourcesPanel> {
   }
 
   Future<void> _renameAt(int line, int col) async {
-    final messenger = ScaffoldMessenger.of(context);
     if (_lastSentUri == null) await _pushCurrentToLsp();
     final uri = _lastSentUri;
     if (uri == null) return;
@@ -861,9 +878,8 @@ class _SourcesPanelState extends State<_SourcesPanel> {
     final edit = await _lsp.rename(uri, line, col, newName);
     if (!mounted) return;
     if (edit == null) {
-      OpenHandSnackBar.showErrorOn(
+      showWebReverseErrorSnack(
         context,
-        messenger,
         openHandLocalizedText(
           context,
           zh: '重命名失败（LSP 未返回 edit）',
@@ -977,10 +993,8 @@ class _SourcesPanelState extends State<_SourcesPanel> {
     }();
     if (matchId == null) {
       if (!mounted) return;
-      final messenger = ScaffoldMessenger.of(context);
-      OpenHandSnackBar.showInfoOn(
+      showWebReverseInfoSnack(
         context,
-        messenger,
         openHandLocalizedText(
           context,
           zh: '未找到对应脚本：$url',
@@ -1010,29 +1024,24 @@ class _SourcesPanelState extends State<_SourcesPanel> {
     // 查看原始源时点行号无法直接转成生成文件行号（需要反向 mapping），
     // 现阶段不支持，直接 SnackBar 提示用户「切回压缩源再下断点」。
     if (_viewingOriginal) {
-      final messenger = ScaffoldMessenger.maybeOf(context);
-      if (messenger != null) {
-        OpenHandSnackBar.showInfoOn(
+      showWebReverseInfoSnack(
+        context,
+        openHandLocalizedText(
           context,
-          messenger,
-          openHandLocalizedText(
-            context,
-            zh: '原始源视图暂不支持下断点，请先返回压缩源',
-            zhHant: '原始源視圖暫不支援設定斷點，請先返回壓縮源',
-            en: 'Breakpoint not supported in original-source view',
-            fr: 'Points d’arrêt non pris en charge dans la source originale',
-            de: 'Breakpoints in Originalquellenansicht nicht unterstützt',
-            ja: '元ソース表示ではブレークポイントを設定できません',
-          ),
-          duration: const Duration(seconds: 2),
-        );
-      }
+          zh: '原始源视图暂不支持下断点，请先返回压缩源',
+          zhHant: '原始源視圖暫不支援設定斷點，請先返回壓縮源',
+          en: 'Breakpoint not supported in original-source view',
+          fr: 'Points d’arrêt non pris en charge dans la source originale',
+          de: 'Breakpoints in Originalquellenansicht nicht unterstützt',
+          ja: '元ソース表示ではブレークポイントを設定できません',
+        ),
+        duration: const Duration(seconds: 2),
+      );
       return;
     }
     final url = widget.controller.parsedScripts[id]?.url;
     if (url == null || url.isEmpty) return;
     final existing = _bpAtLine[lineIdx];
-    final messenger = ScaffoldMessenger.of(context);
     if (existing != null) {
       final ok = await widget.controller.removeBreakpoint(existing);
       if (!mounted) return;
@@ -1042,9 +1051,8 @@ class _SourcesPanelState extends State<_SourcesPanel> {
             .findAncestorStateOfType<_WebReverseDashboardDialogState>()
             ?.persistBreakpoints();
       } else {
-        OpenHandSnackBar.showErrorOn(
+        showWebReverseErrorSnack(
           context,
-          messenger,
           openHandLocalizedText(
             context,
             zh: '取消断点失败',
@@ -1068,9 +1076,8 @@ class _SourcesPanelState extends State<_SourcesPanel> {
         context
             .findAncestorStateOfType<_WebReverseDashboardDialogState>()
             ?.persistBreakpoints();
-        OpenHandSnackBar.showSuccessOn(
+        showWebReverseSuccessSnack(
           context,
-          messenger,
           openHandLocalizedText(
             context,
             zh: '已下断点',
@@ -1083,9 +1090,8 @@ class _SourcesPanelState extends State<_SourcesPanel> {
           duration: const Duration(seconds: 1),
         );
       } else {
-        OpenHandSnackBar.showErrorOn(
+        showWebReverseErrorSnack(
           context,
-          messenger,
           openHandLocalizedText(
             context,
             zh: '下断点失败（可能 url 不可达）',
@@ -1858,25 +1864,36 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                 height: 32,
                 child: OutlinedButton.icon(
                   onPressed: () async {
-                    final messenger = ScaffoldMessenger.of(context);
-                    final copied = await setWebReverseClipboardText(source);
-                    if (!mounted) return;
-                    OpenHandSnackBar.showSuccessOn(
-                      context,
-                      messenger,
-                      webReverseClipboardSnackMessage(
+                    late final WebReverseClipboardCopyResult copied;
+                    try {
+                      copied = await setWebReverseClipboardText(source);
+                    } catch (error, stack) {
+                      silentLog(
+                        'web_reverse_sources_panel',
+                        'copy source',
+                        error,
+                        stack,
+                      );
+                      if (!mounted) return;
+                      showWebReverseClipboardErrorSnack(
                         context: context,
-                        base: openHandLocalizedText(
-                          context,
-                          zh: '已复制',
-                          zhHant: '已複製',
-                          en: 'Copied',
-                          fr: 'Copié',
-                          de: 'Kopiert',
-                          ja: 'コピーしました',
-                        ),
-                        result: copied,
+                        error: error,
+                      );
+                      return;
+                    }
+                    if (!mounted) return;
+                    showWebReverseClipboardSuccessSnack(
+                      context: context,
+                      base: openHandLocalizedText(
+                        context,
+                        zh: '已复制',
+                        zhHant: '已複製',
+                        en: 'Copied',
+                        fr: 'Copié',
+                        de: 'Kopiert',
+                        ja: 'コピーしました',
                       ),
+                      result: copied,
                       duration: const Duration(seconds: 1),
                     );
                   },
