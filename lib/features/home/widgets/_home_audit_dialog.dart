@@ -499,17 +499,13 @@ class _AuditJsonBlockState extends State<_AuditJsonBlock> {
                       tooltip: AppLocalizations.of(context)!.auditCopyJson,
                       icon: const Icon(Icons.copy_all_rounded, size: 18),
                       onPressed: () async {
-                        await Clipboard.setData(ClipboardData(text: rendered));
-                        if (!context.mounted) return;
-                        showOpenHandSnackBar(
-                          context,
-                          SnackBar(
-                            content: Text(
-                              AppLocalizations.of(
-                                context,
-                              )!.auditCopiedToClipboard,
-                            ),
-                          ),
+                        await copyHomeTextToClipboard(
+                          context: context,
+                          text: rendered,
+                          successMessage: AppLocalizations.of(
+                            context,
+                          )!.auditCopiedToClipboard,
+                          logAction: 'copy audit json',
                         );
                       },
                     ),
@@ -1390,17 +1386,13 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
                 'session_title': session.title,
                 'environment': _auditSafeMap(session.environment.toJson),
               };
-              await Clipboard.setData(
-                ClipboardData(text: _auditFormatJson(payload)),
-              );
-              if (!context.mounted) return;
-              showOpenHandSnackBar(
-                context,
-                SnackBar(
-                  content: Text(
-                    AppLocalizations.of(context)!.auditAuditSnapshotCopied,
-                  ),
-                ),
+              await copyHomeTextToClipboard(
+                context: context,
+                text: _auditFormatJson(payload),
+                successMessage: AppLocalizations.of(
+                  context,
+                )!.auditAuditSnapshotCopied,
+                logAction: 'copy audit snapshot',
               );
             },
             icon: Icons.copy_all_rounded,

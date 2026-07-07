@@ -117,6 +117,7 @@ import 'util/editor_indentation.dart';
 import 'util/message_path_linking.dart';
 import 'util/slash_command_parser.dart';
 import 'util/tool_call_argument_parser.dart';
+import 'widgets/home_dialog_utils.dart';
 import 'widgets/html_selection_bridge_clipboard.dart';
 import 'widgets/token_popup_cache_hit_trend_chart.dart';
 part 'widgets/_home_navigation.dart';

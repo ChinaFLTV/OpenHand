@@ -1155,43 +1155,35 @@ class _ToolContentFullDialogState extends State<_ToolContentFullDialog> {
   Future<void> _copyContent() async {
     final text = _effectiveContent.text;
     if (text.isEmpty || _loadingFile) return;
-    try {
-      await Clipboard.setData(ClipboardData(text: text));
-      if (!mounted) return;
-      _copiedResetTimer?.cancel();
-      setState(() => _copied = true);
-      _showToolContentSnackBar(
-        openHandLocalizedText(
-          context,
-          zh: '完整内容已复制。',
-          zhHant: '完整內容已複製。',
-          en: 'Full content copied.',
-          fr: 'Contenu complet copié.',
-          de: 'Vollständiger Inhalt kopiert.',
-          ja: '完全な内容をコピーしました。',
-        ),
-      );
-      _copiedResetTimer = startSafeTimer(
-        _kToolContentDialogActionResetDelay,
-        () {
-          if (mounted) setState(() => _copied = false);
-        },
-      );
-    } catch (error, stack) {
-      silentLog('home_tool_call', 'copy full tool content', error, stack);
-      if (!mounted) return;
-      _showToolContentSnackBar(
-        openHandLocalizedText(
-          context,
-          zh: '复制完整内容失败。',
-          zhHant: '複製完整內容失敗。',
-          en: 'Failed to copy full content.',
-          fr: 'Échec de la copie du contenu complet.',
-          de: 'Vollständiger Inhalt konnte nicht kopiert werden.',
-          ja: '完全な内容のコピーに失敗しました。',
-        ),
-      );
-    }
+    final copied = await copyHomeTextToClipboard(
+      context: context,
+      text: text,
+      successMessage: openHandLocalizedText(
+        context,
+        zh: '完整内容已复制。',
+        zhHant: '完整內容已複製。',
+        en: 'Full content copied.',
+        fr: 'Contenu complet copié.',
+        de: 'Vollständiger Inhalt kopiert.',
+        ja: '完全な内容をコピーしました。',
+      ),
+      errorMessage: openHandLocalizedText(
+        context,
+        zh: '复制完整内容失败。',
+        zhHant: '複製完整內容失敗。',
+        en: 'Failed to copy full content.',
+        fr: 'Échec de la copie du contenu complet.',
+        de: 'Vollständiger Inhalt konnte nicht kopiert werden.',
+        ja: '完全な内容のコピーに失敗しました。',
+      ),
+      logAction: 'copy full tool content',
+    );
+    if (!mounted || !copied) return;
+    _copiedResetTimer?.cancel();
+    setState(() => _copied = true);
+    _copiedResetTimer = startSafeTimer(_kToolContentDialogActionResetDelay, () {
+      if (mounted) setState(() => _copied = false);
+    });
   }
 
   Future<void> _downloadContent() async {
@@ -1221,6 +1213,7 @@ class _ToolContentFullDialogState extends State<_ToolContentFullDialog> {
           de: 'Vollständiger Inhalt als ${p.basename(selectedPath)} gespeichert',
           ja: '完全な内容を ${p.basename(selectedPath)} として保存しました',
         ),
+        kind: OpenHandSnackKind.success,
       );
       _downloadedResetTimer = startSafeTimer(
         _kToolContentDialogActionResetDelay,
@@ -1241,18 +1234,16 @@ class _ToolContentFullDialogState extends State<_ToolContentFullDialog> {
           de: 'Vollständiger Inhalt konnte nicht gespeichert werden.',
           ja: '完全な内容の保存に失敗しました。',
         ),
+        kind: OpenHandSnackKind.error,
       );
     }
   }
 
-  void _showToolContentSnackBar(String message) {
-    final messenger = ScaffoldMessenger.of(context);
-    OpenHandSnackBar.hideCurrentOn(messenger);
-    showOpenHandSnackBarOn(
-      context,
-      messenger,
-      SnackBar(content: Text(message)),
-    );
+  void _showToolContentSnackBar(
+    String message, {
+    OpenHandSnackKind kind = OpenHandSnackKind.info,
+  }) {
+    OpenHandSnackBar.flash(context, message, kind: kind, postFrame: true);
   }
 
   _ToolContentDialogStats _statsFor(String text) {
