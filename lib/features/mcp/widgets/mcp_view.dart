@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:isolate';
 import 'dart:math' as math;
 
+import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:provider/provider.dart';
@@ -1979,6 +1980,121 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
     );
   }
 
+  Widget _buildWorkspaceScopeField(BuildContext context) {
+    final browseLabel = _localizedText(
+      context,
+      zh: '选择目录',
+      en: 'Choose Directory',
+    );
+    final clearLabel = _localizedText(
+      context,
+      zh: '清除目录',
+      en: 'Clear Directory',
+    );
+    return ValueListenableBuilder<TextEditingValue>(
+      valueListenable: _workspaceController,
+      builder: (context, value, _) {
+        final hasPath = value.text.trim().isNotEmpty;
+        return TextField(
+          controller: _workspaceController,
+          readOnly: true,
+          showCursor: false,
+          onTap: _browseWorkspaceRoot,
+          decoration: InputDecoration(
+            labelText: _localizedText(
+              context,
+              zh: '可操作文件空间',
+              en: 'Workspace Scope',
+            ),
+            hintText: _localizedText(
+              context,
+              zh: '通过系统文件浏览器选择目录',
+              en: 'Pick a folder with the system file browser',
+            ),
+            prefixIcon: const Icon(Icons.folder_open_rounded),
+            suffixIconConstraints: BoxConstraints(
+              minWidth: hasPath ? 92 : 48,
+              minHeight: 48,
+            ),
+            suffixIcon: Padding(
+              padding: const EdgeInsetsDirectional.only(end: 4),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (hasPath)
+                    Tooltip(
+                      message: clearLabel,
+                      child: IconButton(
+                        icon: const Icon(Icons.close_rounded),
+                        onPressed: _clearWorkspaceRoot,
+                      ),
+                    ),
+                  Tooltip(
+                    message: browseLabel,
+                    child: IconButton(
+                      icon: const Icon(Icons.drive_folder_upload_rounded),
+                      onPressed: _browseWorkspaceRoot,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _browseWorkspaceRoot() async {
+    final confirmLabel = _localizedText(
+      context,
+      zh: '选择目录',
+      en: 'Choose Directory',
+    );
+    final failureLabel = _localizedText(
+      context,
+      zh: '打开系统文件浏览器失败',
+      en: 'Failed to open file browser',
+    );
+    final initialDirectory = OpenHandPaths.normalizeOptionalPath(
+      _workspaceController.text,
+    );
+    try {
+      final selectedPath = await getDirectoryPath(
+        confirmButtonText: confirmLabel,
+        initialDirectory: initialDirectory.isEmpty ? null : initialDirectory,
+      );
+      if (!mounted) {
+        return;
+      }
+      final normalizedPath = OpenHandPaths.normalizeOptionalPath(selectedPath);
+      if (normalizedPath.isEmpty) {
+        return;
+      }
+      setState(() {
+        _workspaceController.text = normalizedPath;
+        _configMessage = null;
+      });
+    } catch (error, stack) {
+      silentLog('mcp', 'browse workspace scope directory', error, stack);
+      if (!mounted) {
+        return;
+      }
+      OpenHandSnackBar.flash(
+        context,
+        '$failureLabel：$error',
+        kind: OpenHandSnackKind.error,
+      );
+    }
+  }
+
+  void _clearWorkspaceRoot() {
+    setState(() {
+      _workspaceController.clear();
+      _configMessage = null;
+    });
+  }
+
   Widget _buildConfigActionsBar(BuildContext context, AppLocalizations l10n) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
@@ -2326,16 +2442,7 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
                       ),
                     ),
                   ),
-                  TextField(
-                    controller: _workspaceController,
-                    decoration: InputDecoration(
-                      labelText: _localizedText(
-                        context,
-                        zh: '可操作文件空间',
-                        en: 'Workspace Scope',
-                      ),
-                    ),
-                  ),
+                  _buildWorkspaceScopeField(context),
                   TextField(
                     controller: _authTokenController,
                     obscureText: true,
@@ -10830,6 +10937,30 @@ _mcpLocalizedFallbacks = <String, _McpLocalizedFallback>{
     fr: 'Espace de travail',
     de: 'Arbeitsbereich',
     ja: 'ワークスペース範囲',
+  ),
+  'Pick a folder with the system file browser': _McpLocalizedFallback(
+    zhHant: '透過系統檔案瀏覽器選擇目錄',
+    fr: 'Choisir un dossier avec le navigateur système',
+    de: 'Ordner über den System-Dateibrowser auswählen',
+    ja: 'システムのファイルブラウザーでフォルダーを選択',
+  ),
+  'Choose Directory': _McpLocalizedFallback(
+    zhHant: '選擇目錄',
+    fr: 'Choisir un dossier',
+    de: 'Verzeichnis auswählen',
+    ja: 'ディレクトリを選択',
+  ),
+  'Clear Directory': _McpLocalizedFallback(
+    zhHant: '清除目錄',
+    fr: 'Effacer le dossier',
+    de: 'Verzeichnis leeren',
+    ja: 'ディレクトリをクリア',
+  ),
+  'Failed to open file browser': _McpLocalizedFallback(
+    zhHant: '開啟系統檔案瀏覽器失敗',
+    fr: 'Échec de l’ouverture du navigateur de fichiers',
+    de: 'Dateibrowser konnte nicht geöffnet werden',
+    ja: 'ファイルブラウザーを開けませんでした',
   ),
   'Access Token': _McpLocalizedFallback(
     zhHant: '訪問令牌',
