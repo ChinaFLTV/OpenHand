@@ -628,6 +628,9 @@ class _SocketReadBuffer {
     );
   }
 
+  static const int _defaultMaxHeaderBytes = 64 * 1024;
+  static const Duration _defaultReadTimeout = Duration(seconds: 10);
+
   final Socket socket;
   late final StreamSubscription<Uint8List> _subscription;
   final List<int> _buffer = <int>[];
@@ -637,9 +640,10 @@ class _SocketReadBuffer {
   StackTrace? _stack;
 
   Future<String?> readHeader({
-    int maxBytes = 64 * 1024,
-    Duration timeout = const Duration(seconds: 10),
+    int maxBytes = _defaultMaxHeaderBytes,
+    Duration timeout = _defaultReadTimeout,
   }) async {
+    final effectiveMaxBytes = maxBytes > 0 ? maxBytes : _defaultMaxHeaderBytes;
     return _withTimeout(timeout, () async {
       while (true) {
         _throwIfErrored();
@@ -649,7 +653,7 @@ class _SocketReadBuffer {
           _buffer.removeRange(0, end);
           return latin1.decode(header);
         }
-        if (_buffer.length > maxBytes) {
+        if (_buffer.length > effectiveMaxBytes) {
           throw const FormatException('Proxy header is too large.');
         }
         if (_done) return null;
@@ -660,8 +664,14 @@ class _SocketReadBuffer {
 
   Future<Uint8List?> readExactly(
     int count, {
-    Duration timeout = const Duration(seconds: 10),
+    Duration timeout = _defaultReadTimeout,
   }) async {
+    if (count < 0) {
+      throw RangeError.range(count, 0, null, 'count');
+    }
+    if (count == 0) {
+      return Uint8List(0);
+    }
     return _withTimeout(timeout, () async {
       while (_buffer.length < count) {
         _throwIfErrored();
@@ -707,7 +717,10 @@ class _SocketReadBuffer {
     Future<T?> Function() action,
   ) async {
     try {
-      return await action().timeout(timeout);
+      final effectiveTimeout = timeout > Duration.zero
+          ? timeout
+          : _defaultReadTimeout;
+      return await action().timeout(effectiveTimeout);
     } on TimeoutException {
       socket.destroy();
       return null;
