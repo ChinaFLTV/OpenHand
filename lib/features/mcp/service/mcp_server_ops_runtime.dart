@@ -92,6 +92,11 @@ class McpServerOpsRuntime {
   final Map<String, int> _requestDistribution = <String, int>{};
   final Map<String, int> _protocolDistribution = <String, int>{};
   final Set<String> _sessionIds = <String>{};
+  // Minute-aligned traffic rollup keyed by UTC bucket start, feeding the
+  // dashboard trend/latency charts from every request rather than audited
+  // tool calls alone.
+  final Map<DateTime, _McpOpsMinuteBucket> _trafficBuckets =
+      <DateTime, _McpOpsMinuteBucket>{};
 
   McpOpsRuntimeSnapshot get snapshot => _snapshot;
   bool get isRunning => _server != null;
@@ -171,6 +176,7 @@ class McpServerOpsRuntime {
           clearBound: true,
           clearStartedAt: true,
           activeRequests: 0,
+          activeStreams: 0,
           currentConnections: 0,
         ),
       );
@@ -301,6 +307,7 @@ class McpServerOpsRuntime {
           if (_latencies.length > _latencyWindow) {
             _latencies.removeRange(0, _latencies.length - _latencyWindow);
           }
+          _recordTrafficLatency(durationMs);
           _activeRequests = math.max(0, _activeRequests - 1);
           _setSnapshot(
             _snapshot.copyWith(
@@ -691,6 +698,7 @@ class McpServerOpsRuntime {
         errorMessage: result.isError ? result.text : '',
       );
       if (result.isError) _failedTotal += 1;
+      _recordTrafficOutcome(result.isError ? 'failed' : 'success');
       _publishMetrics();
       return _jsonRpcResult(id, payload);
     } catch (error) {
@@ -709,6 +717,7 @@ class McpServerOpsRuntime {
         arguments: arguments,
         errorMessage: '$error',
       );
+      _recordTrafficOutcome('failed');
       _publishMetrics();
       return _jsonRpcError(id, -32000, '$error');
     }
@@ -926,6 +935,11 @@ class McpServerOpsRuntime {
     _increment(_clientDistribution, _clientName(request));
     _increment(_requestDistribution, toolName ?? method);
     _increment(_protocolDistribution, _protocol(request));
+    // tools/call resolves its terminal outcome later in _handleToolCall; every
+    // other allowed method is a completed success at this point.
+    if (method != 'tools/call') {
+      _recordTrafficOutcome('success');
+    }
     _publishMetrics();
   }
 
@@ -942,6 +956,7 @@ class McpServerOpsRuntime {
     _increment(_clientDistribution, _clientName(request));
     _increment(_requestDistribution, toolName ?? method);
     _increment(_protocolDistribution, _protocol(request));
+    _recordTrafficOutcome('blocked');
     _recordAudit(
       request,
       status: 'blocked',
@@ -1016,6 +1031,8 @@ class McpServerOpsRuntime {
     _setSnapshot(
       _snapshot.copyWith(
         activeRequests: _activeRequests,
+        activeStreams: _activeSseStreams,
+        sessionCount: _sessionIds.length,
         currentConnections: _currentConnections,
         requestTotal: _requestTotal,
         blockedTotal: _blockedTotal,
@@ -1026,6 +1043,7 @@ class McpServerOpsRuntime {
         memoryRssBytes: _currentRss(),
         avgLatencyMs: _averageLatency(),
         p95LatencyMs: _p95Latency(),
+        trafficSeries: _trafficSnapshot(),
         ipDistribution: Map<String, int>.unmodifiable(_ipDistribution),
         clientDistribution: Map<String, int>.unmodifiable(_clientDistribution),
         requestDistribution: Map<String, int>.unmodifiable(
@@ -1044,6 +1062,8 @@ class McpServerOpsRuntime {
     _setSnapshot(
       _snapshot.copyWith(
         activeRequests: _activeRequests,
+        activeStreams: _activeSseStreams,
+        sessionCount: _sessionIds.length,
         currentConnections: _currentConnections,
         memoryRssBytes: _currentRss(),
       ),
@@ -1192,5 +1212,93 @@ class McpServerOpsRuntime {
   void _increment(Map<String, int> map, String key) {
     final normalized = nullIfBlank(key) ?? 'unknown';
     map[normalized] = (map[normalized] ?? 0) + 1;
+  }
+
+  /// Tallies a request outcome into the current minute bucket, pruning buckets
+  /// older than the retained trend window.
+  void _recordTrafficOutcome(String outcome) {
+    final bucket = _currentTrafficBucket();
+    switch (outcome) {
+      case 'blocked':
+        bucket.blocked += 1;
+      case 'failed':
+        bucket.failed += 1;
+      default:
+        bucket.success += 1;
+    }
+  }
+
+  void _recordTrafficLatency(int durationMs) {
+    if (durationMs <= 0) return;
+    _currentTrafficBucket().latencies.add(durationMs);
+  }
+
+  _McpOpsMinuteBucket _currentTrafficBucket() {
+    final now = DateTime.now().toUtc();
+    final minute = DateTime.utc(now.year, now.month, now.day, now.hour, now.minute);
+    final bucket = _trafficBuckets.putIfAbsent(
+      minute,
+      () => _McpOpsMinuteBucket(minute),
+    );
+    if (_trafficBuckets.length > mcpOpsTrafficWindowMinutes * 3) {
+      final cutoff = minute.subtract(
+        const Duration(minutes: mcpOpsTrafficWindowMinutes * 3),
+      );
+      _trafficBuckets.removeWhere((key, _) => key.isBefore(cutoff));
+    }
+    return bucket;
+  }
+
+  /// Emits the last [mcpOpsTrafficWindowMinutes] minute buckets in chronological
+  /// order, padding gaps with empty samples so charts render a continuous axis.
+  List<McpOpsTrafficSample> _trafficSnapshot() {
+    final now = DateTime.now().toUtc();
+    final latest = DateTime.utc(
+      now.year,
+      now.month,
+      now.day,
+      now.hour,
+      now.minute,
+    );
+    final samples = <McpOpsTrafficSample>[];
+    for (var i = mcpOpsTrafficWindowMinutes - 1; i >= 0; i--) {
+      final minute = latest.subtract(Duration(minutes: i));
+      final bucket = _trafficBuckets[minute];
+      samples.add(
+        bucket?.toSample() ?? McpOpsTrafficSample(minute: minute),
+      );
+    }
+    return List<McpOpsTrafficSample>.unmodifiable(samples);
+  }
+}
+
+/// Mutable accumulator for a single UTC minute of MCP traffic.
+class _McpOpsMinuteBucket {
+  _McpOpsMinuteBucket(this.minute);
+
+  final DateTime minute;
+  int success = 0;
+  int blocked = 0;
+  int failed = 0;
+  final List<int> latencies = <int>[];
+
+  McpOpsTrafficSample toSample() {
+    var avg = 0;
+    var p95 = 0;
+    if (latencies.isNotEmpty) {
+      final sorted = List<int>.from(latencies)..sort();
+      avg = (sorted.fold<int>(0, (sum, item) => sum + item) / sorted.length)
+          .round();
+      final index = ((sorted.length - 1) * 0.95).round();
+      p95 = sorted[index.clamp(0, sorted.length - 1)];
+    }
+    return McpOpsTrafficSample(
+      minute: minute,
+      success: success,
+      blocked: blocked,
+      failed: failed,
+      avgLatencyMs: avg,
+      p95LatencyMs: p95,
+    );
   }
 }

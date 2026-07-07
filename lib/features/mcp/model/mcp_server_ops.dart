@@ -15,6 +15,9 @@ const int mcpOpsDefaultApprovalTimeoutMs = 45000;
 const int mcpOpsMaxAuditEntries = 300;
 const int mcpOpsAuditPreviewMaxChars = 2800;
 
+/// Number of minute-level buckets retained for traffic/latency trend charts.
+const int mcpOpsTrafficWindowMinutes = 12;
+
 enum McpOpsLifecycleState {
   stopped,
   starting,
@@ -400,6 +403,20 @@ class McpOpsToolInvocationResult {
   final Map<String, Object?> metadata;
 }
 
+/// Coarse classification of an audit event's protocol stage ("环节"), used to
+/// drive titles, icons and accent colors in the audit UI. Kept independent of
+/// [McpOpsAuditEntry.status] so a blocked handshake still reads as a handshake.
+enum McpOpsAuditKind {
+  handshake,
+  heartbeat,
+  discovery,
+  invocation,
+  stream,
+  session,
+  notification,
+  other,
+}
+
 class McpOpsAuditEntry {
   const McpOpsAuditEntry({
     required this.id,
@@ -417,6 +434,7 @@ class McpOpsAuditEntry {
     required this.completionTokens,
     required this.inboundBytes,
     required this.outboundBytes,
+    this.kind = McpOpsAuditKind.other,
     this.errorMessage = '',
     this.requestSummary = '',
     this.argumentsPreview = '',
@@ -439,6 +457,7 @@ class McpOpsAuditEntry {
   final int completionTokens;
   final int inboundBytes;
   final int outboundBytes;
+  final McpOpsAuditKind kind;
   final String errorMessage;
   final String requestSummary;
   final String argumentsPreview;
@@ -446,7 +465,9 @@ class McpOpsAuditEntry {
   final Map<String, Object?> environment;
 
   int get totalTokens => promptTokens + completionTokens;
-  bool get failed => status == 'failed' || status == 'blocked';
+  bool get blocked => status == 'blocked';
+  bool get errored => status == 'failed';
+  bool get failed => errored || blocked;
 }
 
 class McpOpsApprovalRequest {
@@ -469,6 +490,47 @@ class McpOpsApprovalRequest {
   final String argumentsPreview;
 }
 
+/// Minute-level rollup of MCP traffic. Backs the trend/latency charts so the
+/// dashboard reflects *every* request (initialize/list/stream/call), not only
+/// audited tool calls.
+class McpOpsTrafficSample {
+  const McpOpsTrafficSample({
+    required this.minute,
+    this.success = 0,
+    this.blocked = 0,
+    this.failed = 0,
+    this.avgLatencyMs = 0,
+    this.p95LatencyMs = 0,
+  });
+
+  /// UTC minute-aligned bucket start.
+  final DateTime minute;
+  final int success;
+  final int blocked;
+  final int failed;
+  final int avgLatencyMs;
+  final int p95LatencyMs;
+
+  int get total => success + blocked + failed;
+
+  McpOpsTrafficSample copyWith({
+    int? success,
+    int? blocked,
+    int? failed,
+    int? avgLatencyMs,
+    int? p95LatencyMs,
+  }) {
+    return McpOpsTrafficSample(
+      minute: minute,
+      success: success ?? this.success,
+      blocked: blocked ?? this.blocked,
+      failed: failed ?? this.failed,
+      avgLatencyMs: avgLatencyMs ?? this.avgLatencyMs,
+      p95LatencyMs: p95LatencyMs ?? this.p95LatencyMs,
+    );
+  }
+}
+
 class McpOpsRuntimeSnapshot {
   const McpOpsRuntimeSnapshot({
     this.lifecycle = McpOpsLifecycleState.stopped,
@@ -480,6 +542,8 @@ class McpOpsRuntimeSnapshot {
     this.lastConnectivityMessage = '',
     this.currentConnections = 0,
     this.activeRequests = 0,
+    this.activeStreams = 0,
+    this.sessionCount = 0,
     this.requestTotal = 0,
     this.blockedTotal = 0,
     this.failedTotal = 0,
@@ -494,6 +558,7 @@ class McpOpsRuntimeSnapshot {
     this.clientDistribution = const <String, int>{},
     this.requestDistribution = const <String, int>{},
     this.protocolDistribution = const <String, int>{},
+    this.trafficSeries = const <McpOpsTrafficSample>[],
   });
 
   final McpOpsLifecycleState lifecycle;
@@ -505,6 +570,8 @@ class McpOpsRuntimeSnapshot {
   final String lastConnectivityMessage;
   final int currentConnections;
   final int activeRequests;
+  final int activeStreams;
+  final int sessionCount;
   final int requestTotal;
   final int blockedTotal;
   final int failedTotal;
@@ -519,6 +586,12 @@ class McpOpsRuntimeSnapshot {
   final Map<String, int> clientDistribution;
   final Map<String, int> requestDistribution;
   final Map<String, int> protocolDistribution;
+  final List<McpOpsTrafficSample> trafficSeries;
+
+  /// Live SSE streams held open beyond the request/response cycle.
+  int get idleStreams => (currentConnections - activeRequests).clamp(0, 1 << 30);
+  int get successTotal =>
+      (requestTotal - blockedTotal - failedTotal).clamp(0, 1 << 30);
 
   bool get isRunning => lifecycle == McpOpsLifecycleState.running;
 
@@ -541,6 +614,8 @@ class McpOpsRuntimeSnapshot {
     String? lastConnectivityMessage,
     int? currentConnections,
     int? activeRequests,
+    int? activeStreams,
+    int? sessionCount,
     int? requestTotal,
     int? blockedTotal,
     int? failedTotal,
@@ -556,6 +631,7 @@ class McpOpsRuntimeSnapshot {
     Map<String, int>? clientDistribution,
     Map<String, int>? requestDistribution,
     Map<String, int>? protocolDistribution,
+    List<McpOpsTrafficSample>? trafficSeries,
   }) {
     return McpOpsRuntimeSnapshot(
       lifecycle: lifecycle ?? this.lifecycle,
@@ -568,6 +644,8 @@ class McpOpsRuntimeSnapshot {
           lastConnectivityMessage ?? this.lastConnectivityMessage,
       currentConnections: currentConnections ?? this.currentConnections,
       activeRequests: activeRequests ?? this.activeRequests,
+      activeStreams: activeStreams ?? this.activeStreams,
+      sessionCount: sessionCount ?? this.sessionCount,
       requestTotal: requestTotal ?? this.requestTotal,
       blockedTotal: blockedTotal ?? this.blockedTotal,
       failedTotal: failedTotal ?? this.failedTotal,
@@ -584,6 +662,7 @@ class McpOpsRuntimeSnapshot {
       clientDistribution: clientDistribution ?? this.clientDistribution,
       requestDistribution: requestDistribution ?? this.requestDistribution,
       protocolDistribution: protocolDistribution ?? this.protocolDistribution,
+      trafficSeries: trafficSeries ?? this.trafficSeries,
     );
   }
 }
