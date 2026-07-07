@@ -11,16 +11,13 @@ const double _kFileTreeIndentPerLevel = 16;
 const double _kFileTreeActiveBorderWidth = 2.5;
 const double _kFileTreeRowTrailingPadding = 16;
 const int _kEditorUnifiedDiffMaxMyersLineTotal = 10000;
-const Duration _kProgrammingExplorerClipboardTimeout = Duration(seconds: 10);
 
 Future<void> _setProgrammingExplorerClipboardText(
   String text, {
   required String logAction,
 }) async {
   try {
-    await Clipboard.setData(
-      ClipboardData(text: text),
-    ).timeout(_kProgrammingExplorerClipboardTimeout);
+    await setOpenHandClipboardText(text);
   } catch (error, stack) {
     silentLog('programming_expert_file_explorer', logAction, error, stack);
   }

@@ -19,6 +19,7 @@ import 'dialog_motion_css.dart';
 import 'interactive_image_preview.dart';
 import 'motion_preference.dart';
 import 'native_audio_preview.dart';
+import 'openhand_clipboard.dart';
 import 'openhand_snack_bar.dart';
 
 /// 通用图片 / 音频 / 视频预览弹窗。覆盖三种来源：
@@ -39,10 +40,10 @@ class MediaPreviewDialog extends StatefulWidget {
     this.bytes,
     this.networkUrl,
     this.filePath,
+    this.sourceUrl,
     this.mimeType,
     required this.kind,
     required this.title,
-    this.onCopyUrl,
   });
 
   factory MediaPreviewDialog.bytes({
@@ -56,9 +57,7 @@ class MediaPreviewDialog extends StatefulWidget {
     title: title,
     kind: kind,
     mimeType: mimeType,
-    onCopyUrl: sourceUrl == null
-        ? null
-        : () => Clipboard.setData(ClipboardData(text: sourceUrl)),
+    sourceUrl: sourceUrl,
   );
 
   factory MediaPreviewDialog.network({
@@ -71,7 +70,6 @@ class MediaPreviewDialog extends StatefulWidget {
     title: title,
     kind: kind,
     mimeType: mimeType,
-    onCopyUrl: () => Clipboard.setData(ClipboardData(text: url)),
   );
 
   factory MediaPreviewDialog.file({
@@ -89,10 +87,10 @@ class MediaPreviewDialog extends StatefulWidget {
   final Uint8List? bytes;
   final String? networkUrl;
   final String? filePath;
+  final String? sourceUrl;
   final String? mimeType;
   final MediaPreviewKind kind;
   final String title;
-  final VoidCallback? onCopyUrl;
 
   @override
   State<MediaPreviewDialog> createState() => _MediaPreviewDialogState();
@@ -367,12 +365,9 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
         );
         return;
       }
-      final url = widget.networkUrl;
+      final url = widget.networkUrl ?? widget.sourceUrl;
       if (url != null) {
-        widget.onCopyUrl?.call();
-        await Clipboard.setData(
-          ClipboardData(text: url),
-        ).timeout(_kClipboardTimeout);
+        await setOpenHandClipboardText(url, timeout: _kClipboardTimeout);
         if (!context.mounted) return;
         _showCopySnack(context, message: l10n.mediaPreviewMediaUrlCopied);
         return;
@@ -392,13 +387,10 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
       }
       throw const FileSystemException('Media source is unavailable.');
     } catch (error) {
-      final url = widget.networkUrl;
+      final url = widget.networkUrl ?? widget.sourceUrl;
       if (url != null) {
         try {
-          widget.onCopyUrl?.call();
-          await Clipboard.setData(
-            ClipboardData(text: url),
-          ).timeout(_kClipboardTimeout);
+          await setOpenHandClipboardText(url, timeout: _kClipboardTimeout);
           if (!context.mounted) return;
           _showCopySnack(
             context,
@@ -467,9 +459,7 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
     } catch (_) {
       ok = false;
     } finally {
-      await Clipboard.setData(
-        ClipboardData(text: filePath),
-      ).timeout(_kClipboardTimeout);
+      await setOpenHandClipboardText(filePath, timeout: _kClipboardTimeout);
     }
     return ok;
   }

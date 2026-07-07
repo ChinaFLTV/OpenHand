@@ -1,4 +1,4 @@
-import 'package:flutter/services.dart';
+import '../../../shared/ui/openhand_clipboard.dart';
 
 class HtmlSelectionBridgeClipboard {
   static String? _selectedText;
@@ -24,6 +24,6 @@ class HtmlSelectionBridgeClipboard {
   static Future<void> copySelection() async {
     final text = _selectedText;
     if (text == null || text.trim().isEmpty) return;
-    await Clipboard.setData(ClipboardData(text: text));
+    await setOpenHandClipboardText(text);
   }
 }

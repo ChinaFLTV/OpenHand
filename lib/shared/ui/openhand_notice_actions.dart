@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../l10n/app_localizations.dart';
+import 'openhand_clipboard.dart';
 import 'openhand_snack_bar.dart';
 
 class OpenHandNoticeActionButtons extends StatelessWidget {
@@ -58,23 +58,29 @@ class OpenHandNoticeActionButtons extends StatelessWidget {
 
   static Future<void> _copy(BuildContext context, String text) async {
     final l10n = AppLocalizations.of(context);
-    try {
-      await Clipboard.setData(ClipboardData(text: text));
-      if (!context.mounted) return;
-      OpenHandSnackBar.showInContext(
-        context,
-        OpenHandSnackBar.success(
+    await copyOpenHandTextToClipboard(
+      context: context,
+      text: text,
+      logTag: 'notice_actions',
+      successMessage: l10n?.commonCopiedToClipboard,
+      showSuccessSnack: (context, message, {required duration}) {
+        OpenHandSnackBar.showInContext(
           context,
-          l10n?.commonCopiedToClipboard ?? 'Copied to clipboard',
-        ),
-      );
-    } catch (error) {
-      if (!context.mounted) return;
-      OpenHandSnackBar.showInContext(
-        context,
-        OpenHandSnackBar.error(context, 'Copy failed: $error', maxLines: 2),
-      );
-    }
+          OpenHandSnackBar.success(context, message, duration: duration),
+        );
+      },
+      showErrorSnack: (context, message, {required duration}) {
+        OpenHandSnackBar.showInContext(
+          context,
+          OpenHandSnackBar.error(
+            context,
+            message,
+            duration: duration,
+            maxLines: 2,
+          ),
+        );
+      },
+    );
   }
 }
 

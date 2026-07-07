@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../l10n/app_localizations.dart';
 import 'animated_dialog.dart';
+import 'openhand_clipboard.dart';
 import 'openhand_dialog_action_button.dart';
 import 'openhand_safe_scrollbar.dart';
 import 'openhand_snack_bar.dart';
@@ -100,17 +100,38 @@ void _showErrorDetailsDialog(
         actions: <Widget>[
           OpenHandDialogActionButton.secondary(
             onPressed: () async {
-              await Clipboard.setData(ClipboardData(text: fullText));
-              if (!dialogContext.mounted) return;
-              final messenger = ScaffoldMessenger.maybeOf(dialogContext);
-              OpenHandSnackBar.hideCurrentOn(messenger);
-              OpenHandSnackBar.show(
-                dialogContext,
-                messenger,
-                OpenHandSnackBar.success(
-                  dialogContext,
-                  l10n.commonCopiedToClipboard,
-                ),
+              await copyOpenHandTextToClipboard(
+                context: dialogContext,
+                text: fullText,
+                logTag: 'error_snackbar',
+                successMessage: l10n.commonCopiedToClipboard,
+                showSuccessSnack: (context, message, {required duration}) {
+                  final messenger = ScaffoldMessenger.maybeOf(context);
+                  OpenHandSnackBar.hideCurrentOn(messenger);
+                  OpenHandSnackBar.show(
+                    context,
+                    messenger,
+                    OpenHandSnackBar.success(
+                      context,
+                      message,
+                      duration: duration,
+                    ),
+                  );
+                },
+                showErrorSnack: (context, message, {required duration}) {
+                  final messenger = ScaffoldMessenger.maybeOf(context);
+                  OpenHandSnackBar.hideCurrentOn(messenger);
+                  OpenHandSnackBar.show(
+                    context,
+                    messenger,
+                    OpenHandSnackBar.error(
+                      context,
+                      message,
+                      duration: duration,
+                      maxLines: 2,
+                    ),
+                  );
+                },
               );
             },
             icon: Icons.copy_all_outlined,

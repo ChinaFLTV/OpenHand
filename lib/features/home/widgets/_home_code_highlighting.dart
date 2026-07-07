@@ -716,7 +716,7 @@ class _InlineCodexDiffPanelState extends State<_InlineCodexDiffPanel> {
 
   Future<void> _writeDiffToClipboard() async {
     try {
-      await Clipboard.setData(ClipboardData(text: widget.content));
+      await setOpenHandClipboardText(widget.content);
     } catch (error, stack) {
       silentLog('home_code_highlighting', 'copy inline diff', error, stack);
       if (!mounted) return;
@@ -1466,7 +1466,7 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
 
   Future<void> _writeCodeBlockToClipboard() async {
     try {
-      await Clipboard.setData(ClipboardData(text: widget.content));
+      await setOpenHandClipboardText(widget.content);
     } catch (error, stack) {
       silentLog('home_code_highlighting', 'copy code block', error, stack);
       if (!mounted) {

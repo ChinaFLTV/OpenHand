@@ -1854,9 +1854,10 @@ Future<bool> _copyLocalFileToPasteboard(String filePath) async {
   } catch (_) {
     ok = false;
   } finally {
-    await Clipboard.setData(
-      ClipboardData(text: filePath),
-    ).timeout(_mediaClipboardOperationTimeout);
+    await setOpenHandClipboardText(
+      filePath,
+      timeout: _mediaClipboardOperationTimeout,
+    );
   }
   return ok;
 }
