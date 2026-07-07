@@ -33,6 +33,7 @@ import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
 import '../../../shared/util/structured_text_format.dart';
 import '../../../shared/util/text_clip.dart';
+import '../../ai/index.dart' show AiToolRuntimeService;
 import '../../instructions/index.dart';
 import '../../knowledge_base/index.dart';
 import '../../memory/index.dart';
@@ -2311,12 +2312,16 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
               label: _localizedText(context, zh: '当前连接数', en: 'Connections'),
               value: '${snapshot.currentConnections}',
               helper: _localizedText(context, zh: '实时会话', en: 'Live sessions'),
+              onTap: () =>
+                  _showOpsInsight(context, _McpOpsInsightKind.connections),
             ),
             _McpOpsMetricTile(
               icon: Icons.bolt_rounded,
               label: _localizedText(context, zh: '活跃请求', en: 'Active'),
               value: '${snapshot.activeRequests}',
               helper: _localizedText(context, zh: '执行中', en: 'In flight'),
+              onTap: () =>
+                  _showOpsInsight(context, _McpOpsInsightKind.activeRequests),
             ),
             _McpOpsMetricTile(
               icon: Icons.call_made_rounded,
@@ -2331,6 +2336,8 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
                 de: 'Fenster ${stats.windowRequestCount}',
                 ja: '直近 ${stats.windowRequestCount}',
               ),
+              onTap: () =>
+                  _showOpsInsight(context, _McpOpsInsightKind.requests),
             ),
             _McpOpsMetricTile(
               icon: Icons.task_alt_rounded,
@@ -2338,6 +2345,8 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
               value: '${stats.successTotal}',
               helper: '${stats.successRateLabel}%',
               color: OpenHandStatusColors.success,
+              onTap: () =>
+                  _showOpsInsight(context, _McpOpsInsightKind.succeeded),
             ),
             _McpOpsMetricTile(
               icon: Icons.shield_rounded,
@@ -2345,6 +2354,7 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
               value: '${snapshot.blockedTotal}',
               helper: '${stats.blockedRateLabel}%',
               color: OpenHandStatusColors.warning,
+              onTap: () => _showOpsInsight(context, _McpOpsInsightKind.blocked),
             ),
             _McpOpsMetricTile(
               icon: Icons.error_outline_rounded,
@@ -2352,54 +2362,69 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
               value: '${snapshot.failedTotal}',
               helper: '${stats.failedRateLabel}%',
               color: Theme.of(context).colorScheme.error,
+              onTap: () =>
+                  _showOpsInsight(context, _McpOpsInsightKind.failures),
             ),
             _McpOpsMetricTile(
               icon: Icons.south_west_rounded,
               label: _localizedText(context, zh: '入口流量', en: 'Inbound'),
               value: formatByteSize(snapshot.inboundBytes),
               helper: _localizedText(context, zh: '请求体', en: 'Request bytes'),
+              onTap: () => _showOpsInsight(context, _McpOpsInsightKind.inbound),
             ),
             _McpOpsMetricTile(
               icon: Icons.north_east_rounded,
               label: _localizedText(context, zh: '出口流量', en: 'Outbound'),
               value: formatByteSize(snapshot.outboundBytes),
               helper: _localizedText(context, zh: '响应体', en: 'Response bytes'),
+              onTap: () =>
+                  _showOpsInsight(context, _McpOpsInsightKind.outbound),
             ),
             _McpOpsMetricTile(
               icon: Icons.speed_rounded,
               label: _localizedText(context, zh: '调用耗时', en: 'Latency'),
               value: '${snapshot.avgLatencyMs}ms',
               helper: 'p95 ${snapshot.p95LatencyMs}ms',
+              onTap: () => _showOpsInsight(context, _McpOpsInsightKind.latency),
             ),
             _McpOpsMetricTile(
               icon: Icons.schedule_rounded,
               label: _localizedText(context, zh: '允许时间', en: 'Allowed Time'),
               value: config.allowedTimeWindows.join(', '),
               helper: _localizedText(context, zh: '本地时区', en: 'Local time'),
+              onTap: () =>
+                  _showOpsInsight(context, _McpOpsInsightKind.allowedTime),
             ),
             _McpOpsMetricTile(
               icon: Icons.memory_rounded,
               label: _localizedText(context, zh: '内存占用', en: 'Memory'),
               value: formatByteSize(snapshot.memoryRssBytes),
               helper: _localizedText(context, zh: '当前RSS', en: 'Current RSS'),
+              onTap: () => _showOpsInsight(context, _McpOpsInsightKind.memory),
             ),
             _McpOpsMetricTile(
               icon: Icons.hub_rounded,
               label: _localizedText(context, zh: 'MCP数量', en: 'MCP Count'),
               value: '${controller.servers.length}',
               helper: _localizedText(context, zh: '已注册服务', en: 'Registered'),
+              onTap: () =>
+                  _showOpsInsight(context, _McpOpsInsightKind.mcpCount),
             ),
             _McpOpsMetricTile(
               icon: Icons.change_circle_rounded,
               label: _localizedText(context, zh: '文件变动', en: 'Mutations'),
               value: '${snapshot.fileMutationCount}',
               helper: _localizedText(context, zh: '写工具成功', en: 'Write calls'),
+              onTap: () =>
+                  _showOpsInsight(context, _McpOpsInsightKind.mutations),
             ),
             _McpOpsMetricTile(
               icon: Icons.inventory_2_rounded,
               label: _localizedText(context, zh: '审计日志', en: 'Audit Logs'),
               value: '${auditEntries.length}',
               helper: _localizedText(context, zh: '滚动保留', en: 'Rolling kept'),
+              onTap: () =>
+                  _showOpsInsight(context, _McpOpsInsightKind.auditLogs),
             ),
             _McpOpsMetricTile(
               icon: Icons.speed_rounded,
@@ -2408,6 +2433,7 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
               helper: config.rpmLimit <= 0
                   ? _localizedText(context, zh: '不限流', en: 'Unlimited')
                   : '/ ${config.rpmLimit}',
+              onTap: () => _showOpsInsight(context, _McpOpsInsightKind.rpm),
             ),
             _McpOpsMetricTile(
               icon: Icons.security_rounded,
@@ -2416,6 +2442,8 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
               helper: config.requireAuthToken
                   ? _localizedText(context, zh: '令牌校验', en: 'Token auth')
                   : _localizedText(context, zh: '无令牌', en: 'No token'),
+              onTap: () =>
+                  _showOpsInsight(context, _McpOpsInsightKind.accessPolicy),
             ),
           ],
         ),
@@ -2439,6 +2467,8 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
                   zh: '等待请求样本',
                   en: 'Waiting for traffic',
                 ),
+                onTap: () =>
+                    _showOpsInsight(context, _McpOpsInsightKind.requestTrend),
               ),
               _McpOpsTrendPanel(
                 title: _localizedText(context, zh: '耗时曲线', en: 'Latency Curve'),
@@ -2455,6 +2485,8 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
                   zh: '暂无耗时样本',
                   en: 'No latency samples',
                 ),
+                onTap: () =>
+                    _showOpsInsight(context, _McpOpsInsightKind.latencyTrend),
               ),
             ];
             if (compact) {
@@ -2487,26 +2519,35 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
                 title: _localizedText(context, zh: '状态分布', en: 'Status Mix'),
                 icon: Icons.donut_small_rounded,
                 values: stats.statusDistribution(context),
+                onTap: () =>
+                    _showOpsInsight(context, _McpOpsInsightKind.statusMix),
               ),
               _McpOpsDistributionPanel(
                 title: _localizedText(context, zh: '请求IP分布', en: 'IP Mix'),
                 icon: Icons.public_rounded,
                 values: snapshot.ipDistribution,
+                onTap: () => _showOpsInsight(context, _McpOpsInsightKind.ipMix),
               ),
               _McpOpsDistributionPanel(
                 title: _localizedText(context, zh: '请求客户端分布', en: 'Client Mix'),
                 icon: Icons.devices_other_rounded,
                 values: snapshot.clientDistribution,
+                onTap: () =>
+                    _showOpsInsight(context, _McpOpsInsightKind.clientMix),
               ),
               _McpOpsDistributionPanel(
                 title: _localizedText(context, zh: '请求分布', en: 'Request Mix'),
                 icon: Icons.account_tree_rounded,
                 values: snapshot.requestDistribution,
+                onTap: () =>
+                    _showOpsInsight(context, _McpOpsInsightKind.requestMix),
               ),
               _McpOpsDistributionPanel(
                 title: _localizedText(context, zh: '协议分布', en: 'Protocol Mix'),
                 icon: Icons.api_rounded,
                 values: snapshot.protocolDistribution,
+                onTap: () =>
+                    _showOpsInsight(context, _McpOpsInsightKind.protocolMix),
               ),
             ];
             return _McpOpsPanelGrid(children: panels);
@@ -2900,12 +2941,26 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
             final sections = <McpOpsExposureSurface, List<_McpOpsExposureRow>>{
               McpOpsExposureSurface.builtinTools: [
                 for (final config in settings.builtinToolConfigs)
-                  _McpOpsExposureRow(
-                    id: config.kind.name,
-                    title: config.effectiveName,
-                    subtitle: config.summary ?? config.kind.name,
-                    endpoints: const ['describe'],
-                  ),
+                  () {
+                    final base = AiToolRuntimeService.builtinToolDefault(
+                      config.kind,
+                    );
+                    final description =
+                        config.summary?.trim().isNotEmpty == true
+                        ? config.summary!.trim()
+                        : (base?.definition.description.trim() ??
+                              config.kind.name);
+                    return _McpOpsExposureRow(
+                      id: config.kind.name,
+                      title: config.effectiveName,
+                      subtitle: description,
+                      endpoints: const ['invoke'],
+                      inputSchema:
+                          config.schemaOverride?.isNotEmpty == true
+                          ? config.schemaOverride
+                          : base?.definition.parameters,
+                    );
+                  }(),
               ],
               McpOpsExposureSurface.memory: [
                 for (final entry in memories)
@@ -3522,6 +3577,68 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
       builder: (_) => _McpOpsAuditDetailDialog(entry: entry),
     );
   }
+
+  /// Opens a structured drill-down for a dashboard card. The dialog reuses the
+  /// shared animated shell and watches the controller, so its content stays
+  /// live while open. [kind] selects which sections to render.
+  void _showOpsInsight(BuildContext context, _McpOpsInsightKind kind) {
+    final config = _buildConfig();
+    final spec = _mcpOpsInsightSpec(context, kind);
+    showAnimatedDialog<void>(
+      context: context,
+      builder: (_) => _McpOpsInsightDialog(
+        icon: spec.icon,
+        title: spec.title,
+        subtitle: spec.subtitle,
+        tone: spec.tone,
+        config: config,
+        sections: spec.sections,
+      ),
+    );
+  }
+}
+
+/// Identifies which drill-down an ops card opens.
+enum _McpOpsInsightKind {
+  connections,
+  activeRequests,
+  requests,
+  succeeded,
+  blocked,
+  failures,
+  inbound,
+  outbound,
+  latency,
+  allowedTime,
+  memory,
+  mcpCount,
+  mutations,
+  auditLogs,
+  rpm,
+  accessPolicy,
+  requestTrend,
+  latencyTrend,
+  statusMix,
+  ipMix,
+  clientMix,
+  requestMix,
+  protocolMix,
+}
+
+class _McpOpsInsightSpec {
+  const _McpOpsInsightSpec({
+    required this.icon,
+    required this.title,
+    required this.sections,
+    this.subtitle = '',
+    this.tone,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final Color? tone;
+  final _McpOpsInsightSections sections;
 }
 
 class _McpOpsDialogSurface extends StatelessWidget {
@@ -3922,117 +4039,83 @@ class _McpOpsTabLabel extends StatelessWidget {
 class _McpOpsDashboardStats {
   const _McpOpsDashboardStats({
     required this.successTotal,
+    required this.blockedTotal,
+    required this.failedTotal,
     required this.currentRpm,
     required this.windowRequestCount,
     required this.successRate,
     required this.blockedRate,
     required this.failedRate,
-    required this.requestBuckets,
     required this.successBuckets,
     required this.blockedBuckets,
     required this.failedBuckets,
     required this.avgLatencyBuckets,
     required this.p95LatencyBuckets,
-    required this.statusCounts,
+    required this.bucketMinutes,
   });
 
   factory _McpOpsDashboardStats.from({
     required McpOpsRuntimeSnapshot snapshot,
     required List<McpOpsAuditEntry> auditEntries,
   }) {
-    final now = DateTime.now().toUtc();
-    final minuteAgo = now.subtract(const Duration(minutes: 1));
-    final windowStart = now.subtract(const Duration(minutes: _bucketCount));
-    final requestBuckets = List<double>.filled(_bucketCount, 0);
-    final successBuckets = List<double>.filled(_bucketCount, 0);
-    final blockedBuckets = List<double>.filled(_bucketCount, 0);
-    final failedBuckets = List<double>.filled(_bucketCount, 0);
-    final latencySamples = List<List<int>>.generate(
-      _bucketCount,
-      (_) => <int>[],
-    );
-    final statusCounts = <String, int>{};
-    var currentRpm = 0;
-    var windowRequestCount = 0;
-    for (final entry in auditEntries) {
-      final timestamp = entry.timestamp.toUtc();
-      if (!timestamp.isBefore(minuteAgo)) {
-        currentRpm += 1;
-      }
-      statusCounts[entry.status] = (statusCounts[entry.status] ?? 0) + 1;
-      if (timestamp.isBefore(windowStart)) {
-        continue;
-      }
-      final bucket = now
-          .difference(timestamp)
-          .inMinutes
-          .clamp(0, _bucketCount - 1)
-          .toInt();
-      final index = _bucketCount - 1 - bucket;
-      requestBuckets[index] += 1;
-      windowRequestCount += 1;
-      if (entry.status == 'blocked') {
-        blockedBuckets[index] += 1;
-      } else if (entry.failed) {
-        failedBuckets[index] += 1;
-      } else {
-        successBuckets[index] += 1;
-      }
-      if (entry.durationMs > 0) {
-        latencySamples[index].add(entry.durationMs);
-      }
-    }
+    // The runtime traffic series is authoritative: it rolls up *every* request
+    // (initialize/list/stream/call) per minute, whereas audit entries cover
+    // only tool calls and blocks. Charts read from it so trends never sit empty
+    // while real traffic flows.
+    final series = snapshot.trafficSeries;
+    final successBuckets = <double>[];
+    final blockedBuckets = <double>[];
+    final failedBuckets = <double>[];
     final avgLatencyBuckets = <double>[];
     final p95LatencyBuckets = <double>[];
-    for (final samples in latencySamples) {
-      if (samples.isEmpty) {
-        avgLatencyBuckets.add(0);
-        p95LatencyBuckets.add(0);
-        continue;
-      }
-      samples.sort();
-      avgLatencyBuckets.add(
-        samples.fold<int>(0, (sum, item) => sum + item) / samples.length,
-      );
-      final p95Index = ((samples.length - 1) * 0.95).round();
-      p95LatencyBuckets.add(samples[p95Index].toDouble());
+    final bucketMinutes = <DateTime>[];
+    var windowRequestCount = 0;
+    for (final sample in series) {
+      successBuckets.add(sample.success.toDouble());
+      blockedBuckets.add(sample.blocked.toDouble());
+      failedBuckets.add(sample.failed.toDouble());
+      avgLatencyBuckets.add(sample.avgLatencyMs.toDouble());
+      p95LatencyBuckets.add(sample.p95LatencyMs.toDouble());
+      bucketMinutes.add(sample.minute);
+      windowRequestCount += sample.total;
     }
+    final currentRpm = series.isEmpty ? 0 : series.last.total;
     final total = math.max(1, snapshot.requestTotal);
     final blocked = snapshot.blockedTotal;
     final failed = snapshot.failedTotal;
     final success = math.max(0, snapshot.requestTotal - blocked - failed);
     return _McpOpsDashboardStats(
       successTotal: success,
+      blockedTotal: blocked,
+      failedTotal: failed,
       currentRpm: currentRpm,
       windowRequestCount: windowRequestCount,
       successRate: success / total,
       blockedRate: blocked / total,
       failedRate: failed / total,
-      requestBuckets: List<double>.unmodifiable(requestBuckets),
       successBuckets: List<double>.unmodifiable(successBuckets),
       blockedBuckets: List<double>.unmodifiable(blockedBuckets),
       failedBuckets: List<double>.unmodifiable(failedBuckets),
       avgLatencyBuckets: List<double>.unmodifiable(avgLatencyBuckets),
       p95LatencyBuckets: List<double>.unmodifiable(p95LatencyBuckets),
-      statusCounts: Map<String, int>.unmodifiable(statusCounts),
+      bucketMinutes: List<DateTime>.unmodifiable(bucketMinutes),
     );
   }
 
-  static const int _bucketCount = 12;
-
   final int successTotal;
+  final int blockedTotal;
+  final int failedTotal;
   final int currentRpm;
   final int windowRequestCount;
   final double successRate;
   final double blockedRate;
   final double failedRate;
-  final List<double> requestBuckets;
   final List<double> successBuckets;
   final List<double> blockedBuckets;
   final List<double> failedBuckets;
   final List<double> avgLatencyBuckets;
   final List<double> p95LatencyBuckets;
-  final Map<String, int> statusCounts;
+  final List<DateTime> bucketMinutes;
 
   String get successRateLabel => _percentLabel(successRate);
   String get blockedRateLabel => _percentLabel(blockedRate);
@@ -4076,13 +4159,10 @@ class _McpOpsDashboardStats {
   }
 
   Map<String, int> statusDistribution(BuildContext context) {
-    final success = statusCounts['success'] ?? 0;
-    final blocked = statusCounts['blocked'] ?? 0;
-    final failed = statusCounts['failed'] ?? 0;
     return <String, int>{
-      _localizedText(context, zh: '成功', en: 'Success'): success,
-      _localizedText(context, zh: '拦截', en: 'Blocked'): blocked,
-      _localizedText(context, zh: '失败', en: 'Failed'): failed,
+      _localizedText(context, zh: '成功', en: 'Success'): successTotal,
+      _localizedText(context, zh: '拦截', en: 'Blocked'): blockedTotal,
+      _localizedText(context, zh: '失败', en: 'Failed'): failedTotal,
     }..removeWhere((_, value) => value <= 0);
   }
 
@@ -4422,6 +4502,7 @@ class _McpOpsMetricTile extends StatelessWidget {
     required this.value,
     this.helper,
     this.color,
+    this.onTap,
   });
 
   final IconData icon;
@@ -4429,6 +4510,7 @@ class _McpOpsMetricTile extends StatelessWidget {
   final String value;
   final String? helper;
   final Color? color;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -4436,75 +4518,149 @@ class _McpOpsMetricTile extends StatelessWidget {
     final cs = theme.colorScheme;
     final tone = color ?? cs.primary;
     final duration = openHandMotionDurationMs(context, 180);
-    return AnimatedContainer(
-      duration: duration,
-      curve: Curves.easeOutCubic,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHigh.withValues(alpha: 0.66),
-        borderRadius: BorderRadius.circular(_mcpOpsPanelRadius),
-        border: Border.all(color: tone.withValues(alpha: 0.26)),
-        boxShadow: <BoxShadow>[
-          BoxShadow(
-            color: cs.shadow.withValues(alpha: 0.04),
-            blurRadius: 14,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 30,
-                height: 30,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: tone.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: tone.withValues(alpha: 0.22)),
+    return _McpOpsTappableCard(
+      onTap: onTap,
+      radius: _mcpOpsPanelRadius,
+      tone: tone,
+      child: AnimatedContainer(
+        duration: duration,
+        curve: Curves.easeOutCubic,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: cs.surfaceContainerHigh.withValues(alpha: 0.66),
+          borderRadius: BorderRadius.circular(_mcpOpsPanelRadius),
+          border: Border.all(color: tone.withValues(alpha: 0.26)),
+          boxShadow: <BoxShadow>[
+            BoxShadow(
+              color: cs.shadow.withValues(alpha: 0.04),
+              blurRadius: 14,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 30,
+                  height: 30,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: tone.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: tone.withValues(alpha: 0.22)),
+                  ),
+                  child: Icon(icon, size: 17, color: tone),
                 ),
-                child: Icon(icon, size: 17, color: tone),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: cs.onSurfaceVariant,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                if (onTap != null)
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    size: 18,
+                    color: tone.withValues(alpha: 0.7),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              value.trim().isEmpty ? '-' : value,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w900,
+                height: 1.05,
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    color: cs.onSurfaceVariant,
-                    fontWeight: FontWeight.w700,
+            ),
+            if (helper?.trim().isNotEmpty ?? false) ...[
+              const SizedBox(height: 4),
+              Text(
+                helper!.trim(),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: tone.withValues(alpha: 0.86),
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Shared tap affordance for ops cards: a hover-highlighted, press-scaled
+/// wrapper that stays inert (and shows no pointer cursor) when [onTap] is null.
+class _McpOpsTappableCard extends StatefulWidget {
+  const _McpOpsTappableCard({
+    required this.child,
+    required this.radius,
+    required this.tone,
+    this.onTap,
+  });
+
+  final Widget child;
+  final double radius;
+  final Color tone;
+  final VoidCallback? onTap;
+
+  @override
+  State<_McpOpsTappableCard> createState() => _McpOpsTappableCardState();
+}
+
+class _McpOpsTappableCardState extends State<_McpOpsTappableCard> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.onTap == null) return widget.child;
+    final duration = _mcpMotionDuration(
+      context,
+      const Duration(milliseconds: 120),
+    );
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTapDown: (_) => setState(() => _pressed = true),
+        onTapCancel: () => setState(() => _pressed = false),
+        onTapUp: (_) => setState(() => _pressed = false),
+        onTap: widget.onTap,
+        child: AnimatedScale(
+          scale: _pressed ? 0.97 : 1,
+          duration: duration,
+          curve: Curves.easeOutCubic,
+          child: Stack(
+            children: [
+              widget.child,
+              Positioned.fill(
+                child: AnimatedContainer(
+                  duration: duration,
+                  curve: Curves.easeOutCubic,
+                  decoration: BoxDecoration(
+                    color: _pressed
+                        ? widget.tone.withValues(alpha: 0.08)
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(widget.radius),
                   ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          Text(
-            value.trim().isEmpty ? '-' : value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.w900,
-              height: 1.05,
-            ),
-          ),
-          if (helper?.trim().isNotEmpty ?? false) ...[
-            const SizedBox(height: 4),
-            Text(
-              helper!.trim(),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: tone.withValues(alpha: 0.86),
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
-        ],
+        ),
       ),
     );
   }
@@ -4518,6 +4674,7 @@ class _McpOpsTrendPanel extends StatelessWidget {
     required this.emptyLabel,
     this.subtitle = '',
     this.valueSuffix = '',
+    this.onTap,
   });
 
   final String title;
@@ -4526,6 +4683,7 @@ class _McpOpsTrendPanel extends StatelessWidget {
   final String emptyLabel;
   final String subtitle;
   final String valueSuffix;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -4537,6 +4695,7 @@ class _McpOpsTrendPanel extends StatelessWidget {
     return _McpOpsPanel(
       icon: icon,
       title: title,
+      onTap: onTap,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -4758,6 +4917,7 @@ class _McpOpsPanel extends StatelessWidget {
     required this.child,
     this.subtitle,
     this.trailing,
+    this.onTap,
   });
 
   final IconData icon;
@@ -4765,13 +4925,14 @@ class _McpOpsPanel extends StatelessWidget {
   final String? subtitle;
   final Widget child;
   final Widget? trailing;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final subtitleText = subtitle?.trim();
-    return AnimatedContainer(
+    final panel = AnimatedContainer(
       duration: _mcpMotionDuration(context, const Duration(milliseconds: 180)),
       curve: Curves.easeOutCubic,
       decoration: BoxDecoration(
@@ -4839,6 +5000,14 @@ class _McpOpsPanel extends StatelessWidget {
                   ),
                 ),
                 if (trailing != null) ...[const SizedBox(width: 8), trailing!],
+                if (trailing == null && onTap != null) ...[
+                  const SizedBox(width: 8),
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    size: 20,
+                    color: cs.primary.withValues(alpha: 0.7),
+                  ),
+                ],
               ],
             ),
             const SizedBox(height: 14),
@@ -4846,6 +5015,13 @@ class _McpOpsPanel extends StatelessWidget {
           ],
         ),
       ),
+    );
+    if (onTap == null) return panel;
+    return _McpOpsTappableCard(
+      onTap: onTap,
+      radius: _mcpOpsPanelRadius,
+      tone: cs.primary,
+      child: panel,
     );
   }
 }
@@ -5082,11 +5258,13 @@ class _McpOpsDistributionPanel extends StatelessWidget {
     required this.title,
     required this.icon,
     required this.values,
+    this.onTap,
   });
 
   final String title;
   final IconData icon;
   final Map<String, int> values;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -5100,6 +5278,7 @@ class _McpOpsDistributionPanel extends StatelessWidget {
     return _McpOpsPanel(
       icon: icon,
       title: title,
+      onTap: onTap,
       child: top.isEmpty
           ? Text(
               _localizedText(context, zh: '等待请求样本', en: 'Waiting for traffic'),
@@ -5211,12 +5390,14 @@ class _McpOpsDistributionRow extends StatelessWidget {
     required this.value,
     required this.total,
     required this.color,
+    this.showPercent = false,
   });
 
   final String label;
   final int value;
   final int total;
   final Color color;
+  final bool showPercent;
 
   @override
   Widget build(BuildContext context) {
@@ -5238,7 +5419,22 @@ class _McpOpsDistributionRow extends StatelessWidget {
                   style: theme.textTheme.labelMedium,
                 ),
               ),
-              Text('$value', style: theme.textTheme.labelMedium),
+              if (showPercent) ...[
+                Text(
+                  '${(ratio * 100).toStringAsFixed(1)}%',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: cs.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(width: 8),
+              ],
+              Text(
+                '$value',
+                style: theme.textTheme.labelMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 5),
@@ -5419,6 +5615,7 @@ class _McpOpsExposureRow {
     required this.subtitle,
     required this.endpoints,
     this.endpointLabels = const <String, String>{},
+    this.inputSchema,
   });
 
   final String id;
@@ -5426,9 +5623,14 @@ class _McpOpsExposureRow {
   final String subtitle;
   final List<String> endpoints;
   final Map<String, String> endpointLabels;
+
+  /// 入参 JSON Schema（内建工具携带真实参数定义），供暴露面板展开预览。
+  final Map<String, Object?>? inputSchema;
+
+  bool get hasInputSchema => inputSchema?.isNotEmpty == true;
 }
 
-class _McpOpsExposureTile extends StatelessWidget {
+class _McpOpsExposureTile extends StatefulWidget {
   const _McpOpsExposureTile({
     required this.surface,
     required this.row,
@@ -5446,9 +5648,19 @@ class _McpOpsExposureTile extends StatelessWidget {
   final void Function(String endpoint, bool visible) onEndpointChanged;
 
   @override
+  State<_McpOpsExposureTile> createState() => _McpOpsExposureTileState();
+}
+
+class _McpOpsExposureTileState extends State<_McpOpsExposureTile> {
+  bool _schemaExpanded = false;
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
+    final row = widget.row;
+    final itemVisible = widget.itemVisible;
+    final showSchemaToggle = itemVisible && row.hasInputSchema;
     return DecoratedBox(
       decoration: BoxDecoration(
         color: itemVisible
@@ -5483,16 +5695,17 @@ class _McpOpsExposureTile extends StatelessWidget {
                       if (row.subtitle.trim().isNotEmpty)
                         Text(
                           row.subtitle,
-                          maxLines: 1,
+                          maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: cs.onSurfaceVariant,
+                            height: 1.35,
                           ),
                         ),
                     ],
                   ),
                 ),
-                Switch(value: itemVisible, onChanged: onItemChanged),
+                Switch(value: itemVisible, onChanged: widget.onItemChanged),
               ],
             ),
             if (itemVisible && row.endpoints.isNotEmpty) ...[
@@ -5500,20 +5713,104 @@ class _McpOpsExposureTile extends StatelessWidget {
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   for (final endpoint in row.endpoints)
                     _McpOpsTogglePill(
-                      selected: endpointVisible(endpoint),
-                      icon: endpointVisible(endpoint)
+                      selected: widget.endpointVisible(endpoint),
+                      icon: widget.endpointVisible(endpoint)
                           ? Icons.visibility_rounded
                           : Icons.visibility_off_rounded,
                       label: row.endpointLabels[endpoint] ?? endpoint,
-                      onChanged: (value) => onEndpointChanged(endpoint, value),
+                      onChanged: (value) =>
+                          widget.onEndpointChanged(endpoint, value),
+                    ),
+                  if (showSchemaToggle)
+                    _McpOpsSchemaToggleChip(
+                      expanded: _schemaExpanded,
+                      onToggle: () => setState(
+                        () => _schemaExpanded = !_schemaExpanded,
+                      ),
                     ),
                 ],
               ),
             ],
+            if (showSchemaToggle)
+              AnimatedSize(
+                duration: const Duration(milliseconds: 180),
+                curve: Curves.easeOutCubic,
+                alignment: Alignment.topLeft,
+                child: _schemaExpanded
+                    ? Padding(
+                        padding: const EdgeInsets.only(top: 10),
+                        child: _ToolSchemaBlock(
+                          title: _localizedText(
+                            context,
+                            zh: '入参 Schema',
+                            en: 'Input schema',
+                          ),
+                          payload: row.inputSchema!,
+                        ),
+                      )
+                    : const SizedBox.shrink(),
+              ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 暴露面板中「展开/收起参数 Schema」胶囊按钮，沿用全局 Q 弹旋转动效。
+class _McpOpsSchemaToggleChip extends StatelessWidget {
+  const _McpOpsSchemaToggleChip({
+    required this.expanded,
+    required this.onToggle,
+  });
+
+  final bool expanded;
+  final VoidCallback onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(999),
+        onTap: onToggle,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.data_object_rounded,
+                size: 16,
+                color: cs.onSurfaceVariant,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                _localizedText(context, zh: '参数 Schema', en: 'Schema'),
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: cs.onSurfaceVariant,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(width: 2),
+              AnimatedRotation(
+                turns: expanded ? 0.5 : 0.0,
+                duration: const Duration(milliseconds: 180),
+                curve: Curves.easeOutCubic,
+                child: Icon(
+                  Icons.expand_more_rounded,
+                  size: 18,
+                  color: cs.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -12856,4 +13153,1528 @@ String _formatRelativeFuture(BuildContext context, DateTime utc) {
   }
   final d = diff.inDays;
   return l10n.mcpRelativeInDays(d);
+}
+
+/// Live view of the data every insight dialog renders against. The dialog
+/// watches [McpController], so these values refresh in place while it is open.
+class _McpOpsInsightData {
+  const _McpOpsInsightData({
+    required this.snapshot,
+    required this.audit,
+    required this.config,
+    required this.stats,
+    required this.servers,
+  });
+
+  final McpOpsRuntimeSnapshot snapshot;
+  final List<McpOpsAuditEntry> audit;
+  final McpOpsConfig config;
+  final _McpOpsDashboardStats stats;
+  final List<McpServer> servers;
+}
+
+typedef _McpOpsInsightSections =
+    List<Widget> Function(BuildContext context, _McpOpsInsightData data);
+
+/// Structured drill-down dialog shared by every clickable ops card. Reuses the
+/// audit dialog's animated shell so entrance/exit motion follows the global
+/// dialog animation setting, and recomputes its body from the live controller.
+class _McpOpsInsightDialog extends StatelessWidget {
+  const _McpOpsInsightDialog({
+    required this.icon,
+    required this.title,
+    required this.config,
+    required this.sections,
+    this.subtitle = '',
+    this.tone,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final McpOpsConfig config;
+  final _McpOpsInsightSections sections;
+  final Color? tone;
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = context.watch<McpController>();
+    final snapshot = controller.opsSnapshot;
+    final audit = controller.opsAuditEntries;
+    final data = _McpOpsInsightData(
+      snapshot: snapshot,
+      audit: audit,
+      config: config,
+      stats: _McpOpsDashboardStats.from(
+        snapshot: snapshot,
+        auditEntries: audit,
+      ),
+      servers: controller.servers,
+    );
+    final cs = Theme.of(context).colorScheme;
+    final accent = tone ?? cs.primary;
+    final children = sections(context, data);
+    return buildOpenHandResponsiveDialogShell(
+      context: context,
+      maxWidth: 940,
+      maxHeight: 800,
+      maxWidthFraction: 0.94,
+      maxHeightFraction: 0.92,
+      backgroundColor: Colors.transparent,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(_mcpOpsOuterRadius),
+      ),
+      child: _McpOpsDialogSurface(
+        child: _McpOpsConsoleShell(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 42,
+                    height: 42,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: accent.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(13),
+                      border: Border.all(color: accent.withValues(alpha: 0.26)),
+                    ),
+                    child: Icon(icon, color: accent),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(
+                            context,
+                          ).textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        if (subtitle.trim().isNotEmpty) ...[
+                          const SizedBox(height: 3),
+                          Text(
+                            subtitle,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(color: cs.onSurfaceVariant),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: MaterialLocalizations.of(
+                      context,
+                    ).closeButtonTooltip,
+                    onPressed: () => Navigator.of(context).maybePop(),
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              Expanded(
+                child: SingleChildScrollView(
+                  physics: openHandDialogAwareScrollPhysics(context),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      for (var i = 0; i < children.length; i++) ...[
+                        if (i != 0) const SizedBox(height: _mcpOpsGridGap),
+                        children[i],
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Panel wrapping an inline KPI grid — the workhorse for dialog headers.
+class _McpOpsStatPanel extends StatelessWidget {
+  const _McpOpsStatPanel({
+    required this.icon,
+    required this.title,
+    required this.tiles,
+  });
+
+  final IconData icon;
+  final String title;
+  final List<Widget> tiles;
+
+  @override
+  Widget build(BuildContext context) {
+    return _McpOpsPanel(
+      icon: icon,
+      title: title,
+      child: _McpOpsMetricGrid(children: tiles),
+    );
+  }
+}
+
+/// Full breakdown of a distribution map — every entry ranked with share bars,
+/// unlike the dashboard cards which only surface the top five.
+class _McpOpsBarPanel extends StatelessWidget {
+  const _McpOpsBarPanel({
+    required this.icon,
+    required this.title,
+    required this.values,
+  });
+
+  final IconData icon;
+  final String title;
+  final Map<String, int> values;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final sorted = values.entries.where((entry) => entry.value > 0).toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    final total = sorted.fold<int>(0, (sum, entry) => sum + entry.value);
+    final palette = _mcpOpsChartPalette(cs);
+    return _McpOpsPanel(
+      icon: icon,
+      title: title,
+      trailing: sorted.isEmpty
+          ? null
+          : _McpOpsStatusChip(
+              icon: Icons.functions_rounded,
+              label: '$total',
+              color: cs.primary,
+            ),
+      child: sorted.isEmpty
+          ? _McpOpsInsightEmpty(
+              label: _localizedText(
+                context,
+                zh: '暂无样本数据',
+                en: 'No samples yet',
+              ),
+            )
+          : Column(
+              children: [
+                for (var i = 0; i < sorted.length; i++)
+                  _McpOpsDistributionRow(
+                    label: sorted[i].key,
+                    value: sorted[i].value,
+                    total: total,
+                    color: palette[i % palette.length],
+                    showPercent: true,
+                  ),
+              ],
+            ),
+    );
+  }
+}
+
+/// Trend chart with a per-minute breakdown table, used by the request/latency
+/// drill-downs.
+class _McpOpsTrendDetailPanel extends StatelessWidget {
+  const _McpOpsTrendDetailPanel({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.series,
+    required this.minutes,
+    required this.columns,
+    required this.emptyLabel,
+    this.valueSuffix = '',
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final List<_McpOpsChartSeries> series;
+  final List<DateTime> minutes;
+  final List<String> columns;
+  final String emptyLabel;
+  final String valueSuffix;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final maxValue = series
+        .expand((item) => item.values)
+        .fold<double>(0, (max, value) => math.max(max, value));
+    final rows = <TableRow>[];
+    for (var i = minutes.length - 1; i >= 0; i--) {
+      final hasData = series.any((s) => i < s.values.length && s.values[i] > 0);
+      if (!hasData) continue;
+      rows.add(
+        TableRow(
+          children: [
+            _McpOpsTableCell(text: formatHourMinute(minutes[i].toLocal())),
+            for (final s in series)
+              _McpOpsTableCell(
+                text: i < s.values.length
+                    ? '${s.values[i].round()}$valueSuffix'
+                    : '-',
+                color: s.color,
+                alignEnd: true,
+              ),
+          ],
+        ),
+      );
+    }
+    return _McpOpsPanel(
+      icon: icon,
+      title: title,
+      subtitle: subtitle,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SizedBox(
+            height: 208,
+            child: RepaintBoundary(
+              child: CustomPaint(
+                painter: _McpOpsSmoothLineChartPainter(
+                  series: series,
+                  gridColor: cs.outlineVariant.withValues(alpha: 0.46),
+                  labelColor: cs.onSurfaceVariant,
+                  emptyLabel: maxValue <= 0 ? emptyLabel : '',
+                  valueSuffix: valueSuffix,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 10,
+            runSpacing: 8,
+            children: [
+              for (final item in series)
+                _McpOpsLegendPill(label: item.label, color: item.color),
+            ],
+          ),
+          if (rows.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            Table(
+              columnWidths: const <int, TableColumnWidth>{
+                0: FlexColumnWidth(1.2),
+              },
+              children: [
+                TableRow(
+                  children: [
+                    _McpOpsTableCell(
+                      text: _localizedText(context, zh: '时间', en: 'Time'),
+                      header: true,
+                    ),
+                    for (final column in columns)
+                      _McpOpsTableCell(
+                        text: column,
+                        header: true,
+                        alignEnd: true,
+                      ),
+                  ],
+                ),
+                ...rows,
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Compact list of audit entries filtered to a single lens (blocked, failed,
+/// write, …). Shows a status-colored strip per row.
+class _McpOpsLogListPanel extends StatelessWidget {
+  const _McpOpsLogListPanel({
+    required this.icon,
+    required this.title,
+    required this.entries,
+    required this.emptyLabel,
+    this.showReason = false,
+    this.maxEntries = 30,
+  });
+
+  final IconData icon;
+  final String title;
+  final List<McpOpsAuditEntry> entries;
+  final String emptyLabel;
+  final bool showReason;
+  final int maxEntries;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final shown = entries.take(maxEntries).toList(growable: false);
+    return _McpOpsPanel(
+      icon: icon,
+      title: title,
+      trailing: entries.isEmpty
+          ? null
+          : _McpOpsStatusChip(
+              icon: Icons.list_alt_rounded,
+              label: '${entries.length}',
+              color: cs.primary,
+            ),
+      child: shown.isEmpty
+          ? _McpOpsInsightEmpty(label: emptyLabel)
+          : Column(
+              children: [
+                for (var i = 0; i < shown.length; i++) ...[
+                  if (i != 0)
+                    Divider(
+                      height: 16,
+                      color: cs.outlineVariant.withValues(alpha: 0.4),
+                    ),
+                  _McpOpsLogRow(entry: shown[i], showReason: showReason),
+                ],
+              ],
+            ),
+    );
+  }
+}
+
+class _McpOpsLogRow extends StatelessWidget {
+  const _McpOpsLogRow({required this.entry, this.showReason = false});
+
+  final McpOpsAuditEntry entry;
+  final bool showReason;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final statusColor = entry.failed
+        ? (entry.status == 'blocked' ? OpenHandStatusColors.warning : cs.error)
+        : OpenHandStatusColors.success;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 4,
+          height: 38,
+          margin: const EdgeInsets.only(top: 2, right: 10),
+          decoration: BoxDecoration(
+            color: statusColor,
+            borderRadius: BorderRadius.circular(999),
+          ),
+        ),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      entry.toolName.trim().isEmpty
+                          ? entry.endpoint
+                          : entry.toolName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    formatMonthDayHms(entry.timestamp.toLocal()),
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: cs.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: [
+                  _McpOpsMiniTag(
+                    icon: Icons.public_rounded,
+                    label: entry.ipAddress,
+                  ),
+                  _McpOpsMiniTag(
+                    icon: Icons.devices_rounded,
+                    label: entry.clientName,
+                  ),
+                  _McpOpsMiniTag(
+                    icon: Icons.timer_rounded,
+                    label: '${entry.durationMs}ms',
+                  ),
+                  if (entry.inboundBytes > 0 || entry.outboundBytes > 0)
+                    _McpOpsMiniTag(
+                      icon: Icons.swap_vert_rounded,
+                      label:
+                          '${formatByteSize(entry.inboundBytes)} / ${formatByteSize(entry.outboundBytes)}',
+                    ),
+                ],
+              ),
+              if (showReason && entry.errorMessage.trim().isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(
+                  entry.errorMessage.trim(),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: statusColor,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _McpOpsMiniTag extends StatelessWidget {
+  const _McpOpsMiniTag({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.5)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: cs.onSurfaceVariant),
+          const SizedBox(width: 4),
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: cs.onSurfaceVariant,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _McpOpsTableCell extends StatelessWidget {
+  const _McpOpsTableCell({
+    required this.text,
+    this.header = false,
+    this.alignEnd = false,
+    this.color,
+  });
+
+  final String text;
+  final bool header;
+  final bool alignEnd;
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 4),
+      child: Text(
+        text,
+        textAlign: alignEnd ? TextAlign.end : TextAlign.start,
+        style:
+            (header ? theme.textTheme.labelSmall : theme.textTheme.labelMedium)
+                ?.copyWith(
+                  color: color ?? (header ? cs.onSurfaceVariant : null),
+                  fontWeight: header ? FontWeight.w800 : FontWeight.w600,
+                ),
+      ),
+    );
+  }
+}
+
+class _McpOpsInsightEmpty extends StatelessWidget {
+  const _McpOpsInsightEmpty({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 22),
+      alignment: Alignment.center,
+      child: Column(
+        children: [
+          Icon(
+            Icons.inbox_rounded,
+            color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            label,
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: cs.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// Non-tappable metric tile for use inside insight dialogs.
+_McpOpsMetricTile _mcpOpsInsightTile(
+  IconData icon,
+  String label,
+  String value, {
+  String? helper,
+  Color? color,
+}) {
+  return _McpOpsMetricTile(
+    icon: icon,
+    label: label,
+    value: value,
+    helper: helper,
+    color: color,
+  );
+}
+
+/// Resolves the icon/title/tone and section builder for a drill-down [kind].
+/// Kept as one dispatcher so every card's dialog shares identical structure.
+_McpOpsInsightSpec _mcpOpsInsightSpec(
+  BuildContext context,
+  _McpOpsInsightKind kind,
+) {
+  final cs = Theme.of(context).colorScheme;
+  const success = OpenHandStatusColors.success;
+  const warning = OpenHandStatusColors.warning;
+
+  switch (kind) {
+    case _McpOpsInsightKind.connections:
+      return _McpOpsInsightSpec(
+        icon: Icons.link_rounded,
+        title: _localizedText(context, zh: '连接明细', en: 'Connections'),
+        subtitle: _localizedText(
+          context,
+          zh: '实时会话 · 活跃与空闲连接',
+          en: 'Live sessions · active and idle',
+        ),
+        sections: (context, data) {
+          final s = data.snapshot;
+          return [
+            _McpOpsStatPanel(
+              icon: Icons.hub_rounded,
+              title: _localizedText(context, zh: '连接概览', en: 'Overview'),
+              tiles: [
+                _mcpOpsInsightTile(
+                  Icons.link_rounded,
+                  _localizedText(context, zh: '当前连接', en: 'Connections'),
+                  '${s.currentConnections}',
+                ),
+                _mcpOpsInsightTile(
+                  Icons.bolt_rounded,
+                  _localizedText(context, zh: '活跃请求', en: 'Active'),
+                  '${s.activeRequests}',
+                  color: cs.primary,
+                ),
+                _mcpOpsInsightTile(
+                  Icons.stream_rounded,
+                  _localizedText(context, zh: '空闲流', en: 'Idle streams'),
+                  '${s.idleStreams}',
+                  helper: _localizedText(context, zh: 'SSE 长连接', en: 'SSE'),
+                ),
+                _mcpOpsInsightTile(
+                  Icons.badge_rounded,
+                  _localizedText(context, zh: '会话总数', en: 'Sessions'),
+                  '${s.sessionCount}',
+                ),
+              ],
+            ),
+            _McpOpsBarPanel(
+              icon: Icons.public_rounded,
+              title: _localizedText(context, zh: '来源 IP 分布', en: 'IP Mix'),
+              values: s.ipDistribution,
+            ),
+            _McpOpsBarPanel(
+              icon: Icons.devices_other_rounded,
+              title: _localizedText(context, zh: '客户端分布', en: 'Client Mix'),
+              values: s.clientDistribution,
+            ),
+            _McpOpsLogListPanel(
+              icon: Icons.history_rounded,
+              title: _localizedText(context, zh: '最近请求', en: 'Recent Requests'),
+              entries: data.audit,
+              emptyLabel: _localizedText(
+                context,
+                zh: '暂无请求记录',
+                en: 'No requests yet',
+              ),
+            ),
+          ];
+        },
+      );
+
+    case _McpOpsInsightKind.activeRequests:
+      return _McpOpsInsightSpec(
+        icon: Icons.bolt_rounded,
+        title: _localizedText(context, zh: '活跃请求', en: 'Active Requests'),
+        subtitle: _localizedText(
+          context,
+          zh: '执行中的请求与近窗吞吐',
+          en: 'In-flight requests and throughput',
+        ),
+        sections: (context, data) {
+          final s = data.snapshot;
+          return [
+            _McpOpsStatPanel(
+              icon: Icons.speed_rounded,
+              title: _localizedText(context, zh: '实时吞吐', en: 'Throughput'),
+              tiles: [
+                _mcpOpsInsightTile(
+                  Icons.bolt_rounded,
+                  _localizedText(context, zh: '活跃请求', en: 'Active'),
+                  '${s.activeRequests}',
+                  color: cs.primary,
+                ),
+                _mcpOpsInsightTile(
+                  Icons.link_rounded,
+                  _localizedText(context, zh: '当前连接', en: 'Connections'),
+                  '${s.currentConnections}',
+                ),
+                _mcpOpsInsightTile(
+                  Icons.speed_rounded,
+                  'RPM',
+                  '${data.stats.currentRpm}',
+                  helper: data.config.rpmLimit <= 0
+                      ? _localizedText(context, zh: '不限流', en: 'Unlimited')
+                      : '/ ${data.config.rpmLimit}',
+                ),
+                _mcpOpsInsightTile(
+                  Icons.call_made_rounded,
+                  _localizedText(context, zh: '近窗请求', en: 'Window'),
+                  '${data.stats.windowRequestCount}',
+                ),
+              ],
+            ),
+            _McpOpsBarPanel(
+              icon: Icons.account_tree_rounded,
+              title: _localizedText(context, zh: '请求方法分布', en: 'Method Mix'),
+              values: s.requestDistribution,
+            ),
+            _McpOpsLogListPanel(
+              icon: Icons.history_rounded,
+              title: _localizedText(context, zh: '最近调用', en: 'Recent Calls'),
+              entries: data.audit,
+              emptyLabel: _localizedText(
+                context,
+                zh: '暂无调用记录',
+                en: 'No calls yet',
+              ),
+            ),
+          ];
+        },
+      );
+
+    case _McpOpsInsightKind.requests:
+      return _McpOpsInsightSpec(
+        icon: Icons.call_made_rounded,
+        title: _localizedText(context, zh: '请求总览', en: 'Requests'),
+        subtitle: _localizedText(
+          context,
+          zh: '累计请求与成功/拦截/失败构成',
+          en: 'Totals and success/blocked/failed mix',
+        ),
+        sections: (context, data) => [
+          _McpOpsStatPanel(
+            icon: Icons.analytics_rounded,
+            title: _localizedText(context, zh: '请求构成', en: 'Composition'),
+            tiles: _mcpOpsOutcomeTiles(context, data),
+          ),
+          _mcpOpsRequestTrendPanel(context, data),
+          _McpOpsBarPanel(
+            icon: Icons.account_tree_rounded,
+            title: _localizedText(context, zh: '请求方法分布', en: 'Method Mix'),
+            values: data.snapshot.requestDistribution,
+          ),
+          _McpOpsLogListPanel(
+            icon: Icons.history_rounded,
+            title: _localizedText(context, zh: '最近请求', en: 'Recent Requests'),
+            entries: data.audit,
+            emptyLabel: _localizedText(
+              context,
+              zh: '暂无请求记录',
+              en: 'No requests yet',
+            ),
+          ),
+        ],
+      );
+
+    case _McpOpsInsightKind.succeeded:
+      return _McpOpsInsightSpec(
+        icon: Icons.task_alt_rounded,
+        title: _localizedText(context, zh: '成功请求', en: 'Succeeded'),
+        tone: success,
+        sections: (context, data) => [
+          _McpOpsStatPanel(
+            icon: Icons.verified_rounded,
+            title: _localizedText(context, zh: '成功概览', en: 'Overview'),
+            tiles: _mcpOpsOutcomeTiles(context, data),
+          ),
+          _McpOpsBarPanel(
+            icon: Icons.donut_small_rounded,
+            title: _localizedText(context, zh: '状态分布', en: 'Status Mix'),
+            values: data.stats.statusDistribution(context),
+          ),
+          _mcpOpsRequestTrendPanel(context, data),
+        ],
+      );
+
+    case _McpOpsInsightKind.blocked:
+      return _McpOpsInsightSpec(
+        icon: Icons.shield_rounded,
+        title: _localizedText(context, zh: '拦截明细', en: 'Blocked'),
+        tone: warning,
+        sections: (context, data) {
+          final logs = data.audit
+              .where((entry) => entry.status == 'blocked')
+              .toList(growable: false);
+          return [
+            _McpOpsStatPanel(
+              icon: Icons.gpp_maybe_rounded,
+              title: _localizedText(context, zh: '拦截概览', en: 'Overview'),
+              tiles: [
+                _mcpOpsInsightTile(
+                  Icons.shield_rounded,
+                  _localizedText(context, zh: '拦截数量', en: 'Blocked'),
+                  '${data.snapshot.blockedTotal}',
+                  helper: '${data.stats.blockedRateLabel}%',
+                  color: warning,
+                ),
+                _mcpOpsInsightTile(
+                  Icons.policy_rounded,
+                  _localizedText(context, zh: '访问策略', en: 'Policy'),
+                  _networkModeLabel(context, data.config.networkMode),
+                ),
+                _mcpOpsInsightTile(
+                  Icons.speed_rounded,
+                  'RPM',
+                  data.config.rpmLimit <= 0
+                      ? '∞'
+                      : '${data.config.rpmLimit}',
+                  helper: _localizedText(context, zh: '限流阈值', en: 'Limit'),
+                ),
+              ],
+            ),
+            _McpOpsLogListPanel(
+              icon: Icons.block_rounded,
+              title: _localizedText(context, zh: '拦截记录', en: 'Blocked Log'),
+              entries: logs,
+              showReason: true,
+              emptyLabel: _localizedText(
+                context,
+                zh: '暂无拦截记录',
+                en: 'No blocked requests',
+              ),
+            ),
+          ];
+        },
+      );
+
+    case _McpOpsInsightKind.failures:
+      return _McpOpsInsightSpec(
+        icon: Icons.error_outline_rounded,
+        title: _localizedText(context, zh: '失败明细', en: 'Failures'),
+        tone: cs.error,
+        sections: (context, data) {
+          final logs = data.audit
+              .where((entry) => entry.status == 'failed')
+              .toList(growable: false);
+          return [
+            _McpOpsStatPanel(
+              icon: Icons.report_rounded,
+              title: _localizedText(context, zh: '失败概览', en: 'Overview'),
+              tiles: [
+                _mcpOpsInsightTile(
+                  Icons.error_outline_rounded,
+                  _localizedText(context, zh: '失败数量', en: 'Failures'),
+                  '${data.snapshot.failedTotal}',
+                  helper: '${data.stats.failedRateLabel}%',
+                  color: cs.error,
+                ),
+                _mcpOpsInsightTile(
+                  Icons.task_alt_rounded,
+                  _localizedText(context, zh: '成功数量', en: 'Succeeded'),
+                  '${data.stats.successTotal}',
+                  color: success,
+                ),
+                _mcpOpsInsightTile(
+                  Icons.call_made_rounded,
+                  _localizedText(context, zh: '请求总数', en: 'Requests'),
+                  '${data.snapshot.requestTotal}',
+                ),
+              ],
+            ),
+            _McpOpsLogListPanel(
+              icon: Icons.bug_report_rounded,
+              title: _localizedText(context, zh: '失败记录', en: 'Failure Log'),
+              entries: logs,
+              showReason: true,
+              emptyLabel: _localizedText(
+                context,
+                zh: '暂无失败记录',
+                en: 'No failures',
+              ),
+            ),
+          ];
+        },
+      );
+
+    case _McpOpsInsightKind.inbound:
+      return _mcpOpsTrafficSpec(context, inbound: true);
+    case _McpOpsInsightKind.outbound:
+      return _mcpOpsTrafficSpec(context, inbound: false);
+
+    case _McpOpsInsightKind.latency:
+    case _McpOpsInsightKind.latencyTrend:
+      return _McpOpsInsightSpec(
+        icon: Icons.speed_rounded,
+        title: _localizedText(context, zh: '耗时分析', en: 'Latency'),
+        subtitle: _localizedText(
+          context,
+          zh: '平均耗时、尾延迟与最慢调用',
+          en: 'Average, tail latency and slowest calls',
+        ),
+        sections: (context, data) {
+          final slowest = [...data.audit]
+            ..sort((a, b) => b.durationMs.compareTo(a.durationMs));
+          return [
+            _McpOpsStatPanel(
+              icon: Icons.timer_rounded,
+              title: _localizedText(context, zh: '耗时概览', en: 'Overview'),
+              tiles: [
+                _mcpOpsInsightTile(
+                  Icons.speed_rounded,
+                  _localizedText(context, zh: '平均耗时', en: 'Average'),
+                  '${data.snapshot.avgLatencyMs}ms',
+                ),
+                _mcpOpsInsightTile(
+                  Icons.timeline_rounded,
+                  'p95',
+                  '${data.snapshot.p95LatencyMs}ms',
+                  color: cs.tertiary,
+                ),
+              ],
+            ),
+            _mcpOpsLatencyTrendPanel(context, data),
+            _McpOpsLogListPanel(
+              icon: Icons.trending_down_rounded,
+              title: _localizedText(context, zh: '最慢调用', en: 'Slowest Calls'),
+              entries: slowest
+                  .where((entry) => entry.durationMs > 0)
+                  .toList(growable: false),
+              maxEntries: 12,
+              emptyLabel: _localizedText(
+                context,
+                zh: '暂无耗时样本',
+                en: 'No latency samples',
+              ),
+            ),
+          ];
+        },
+      );
+
+    case _McpOpsInsightKind.allowedTime:
+      return _McpOpsInsightSpec(
+        icon: Icons.schedule_rounded,
+        title: _localizedText(context, zh: '允许时间窗', en: 'Allowed Time'),
+        sections: (context, data) => [
+          _McpOpsPanel(
+            icon: Icons.schedule_rounded,
+            title: _localizedText(context, zh: '放行时间段', en: 'Windows'),
+            subtitle: _localizedText(
+              context,
+              zh: '仅在以下本地时段放行外部调用',
+              en: 'External calls allowed only within these local windows',
+            ),
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final window in data.config.allowedTimeWindows)
+                  _McpOpsStatusChip(
+                    icon: Icons.check_circle_rounded,
+                    label: window,
+                    color: cs.primary,
+                  ),
+              ],
+            ),
+          ),
+        ],
+      );
+
+    case _McpOpsInsightKind.memory:
+      return _McpOpsInsightSpec(
+        icon: Icons.memory_rounded,
+        title: _localizedText(context, zh: '资源占用', en: 'Resource Usage'),
+        sections: (context, data) => [
+          _McpOpsStatPanel(
+            icon: Icons.memory_rounded,
+            title: _localizedText(context, zh: '进程资源', en: 'Process'),
+            tiles: [
+              _mcpOpsInsightTile(
+                Icons.memory_rounded,
+                _localizedText(context, zh: '内存占用', en: 'Memory'),
+                formatByteSize(data.snapshot.memoryRssBytes),
+                helper: _localizedText(context, zh: '当前 RSS', en: 'Current RSS'),
+              ),
+              _mcpOpsInsightTile(
+                Icons.link_rounded,
+                _localizedText(context, zh: '当前连接', en: 'Connections'),
+                '${data.snapshot.currentConnections}',
+              ),
+              _mcpOpsInsightTile(
+                Icons.swap_vert_rounded,
+                _localizedText(context, zh: '进出口流量', en: 'Traffic'),
+                '${formatByteSize(data.snapshot.inboundBytes)} / ${formatByteSize(data.snapshot.outboundBytes)}',
+              ),
+            ],
+          ),
+        ],
+      );
+
+    case _McpOpsInsightKind.mcpCount:
+      return _McpOpsInsightSpec(
+        icon: Icons.hub_rounded,
+        title: _localizedText(context, zh: '已注册 MCP', en: 'Registered MCP'),
+        sections: (context, data) => [
+          _McpOpsStatPanel(
+            icon: Icons.dns_rounded,
+            title: _localizedText(context, zh: '服务概览', en: 'Overview'),
+            tiles: [
+              _mcpOpsInsightTile(
+                Icons.hub_rounded,
+                _localizedText(context, zh: '注册数量', en: 'Registered'),
+                '${data.servers.length}',
+              ),
+              _mcpOpsInsightTile(
+                Icons.toggle_on_rounded,
+                _localizedText(context, zh: '已启用', en: 'Enabled'),
+                '${data.servers.where((server) => server.enabled).length}',
+                color: success,
+              ),
+            ],
+          ),
+          _McpOpsPanel(
+            icon: Icons.list_alt_rounded,
+            title: _localizedText(context, zh: '服务列表', en: 'Server List'),
+            child: data.servers.isEmpty
+                ? _McpOpsInsightEmpty(
+                    label: _localizedText(
+                      context,
+                      zh: '暂无注册服务',
+                      en: 'No servers registered',
+                    ),
+                  )
+                : Column(
+                    children: [
+                      for (var i = 0; i < data.servers.length; i++) ...[
+                        if (i != 0)
+                          Divider(
+                            height: 16,
+                            color: cs.outlineVariant.withValues(alpha: 0.4),
+                          ),
+                        _mcpOpsServerRow(context, data.servers[i]),
+                      ],
+                    ],
+                  ),
+          ),
+        ],
+      );
+
+    case _McpOpsInsightKind.mutations:
+      return _McpOpsInsightSpec(
+        icon: Icons.change_circle_rounded,
+        title: _localizedText(context, zh: '文件变动', en: 'File Mutations'),
+        sections: (context, data) {
+          final writes = data.audit
+              .where(
+                (entry) => entry.surface != 'policy' && !entry.failed,
+              )
+              .toList(growable: false);
+          return [
+            _McpOpsStatPanel(
+              icon: Icons.edit_note_rounded,
+              title: _localizedText(context, zh: '写入概览', en: 'Overview'),
+              tiles: [
+                _mcpOpsInsightTile(
+                  Icons.change_circle_rounded,
+                  _localizedText(context, zh: '成功写入', en: 'Mutations'),
+                  '${data.snapshot.fileMutationCount}',
+                ),
+              ],
+            ),
+            _McpOpsLogListPanel(
+              icon: Icons.edit_rounded,
+              title: _localizedText(context, zh: '写工具调用', en: 'Write Calls'),
+              entries: writes,
+              emptyLabel: _localizedText(
+                context,
+                zh: '暂无写入记录',
+                en: 'No write calls',
+              ),
+            ),
+          ];
+        },
+      );
+
+    case _McpOpsInsightKind.auditLogs:
+      return _McpOpsInsightSpec(
+        icon: Icons.inventory_2_rounded,
+        title: _localizedText(context, zh: '审计日志', en: 'Audit Logs'),
+        sections: (context, data) => [
+          _McpOpsStatPanel(
+            icon: Icons.receipt_long_rounded,
+            title: _localizedText(context, zh: '日志概览', en: 'Overview'),
+            tiles: [
+              _mcpOpsInsightTile(
+                Icons.inventory_2_rounded,
+                _localizedText(context, zh: '日志总数', en: 'Total'),
+                '${data.audit.length}',
+              ),
+              _mcpOpsInsightTile(
+                Icons.task_alt_rounded,
+                _localizedText(context, zh: '成功', en: 'Success'),
+                '${data.audit.where((entry) => !entry.failed).length}',
+                color: success,
+              ),
+              _mcpOpsInsightTile(
+                Icons.shield_rounded,
+                _localizedText(context, zh: '拦截', en: 'Blocked'),
+                '${data.audit.where((entry) => entry.status == 'blocked').length}',
+                color: warning,
+              ),
+              _mcpOpsInsightTile(
+                Icons.error_outline_rounded,
+                _localizedText(context, zh: '失败', en: 'Failed'),
+                '${data.audit.where((entry) => entry.status == 'failed').length}',
+                color: cs.error,
+              ),
+            ],
+          ),
+          _McpOpsLogListPanel(
+            icon: Icons.history_rounded,
+            title: _localizedText(context, zh: '最近日志', en: 'Recent Logs'),
+            entries: data.audit,
+            showReason: true,
+            maxEntries: 40,
+            emptyLabel: _localizedText(
+              context,
+              zh: '暂无审计日志',
+              en: 'No audit logs',
+            ),
+          ),
+        ],
+      );
+
+    case _McpOpsInsightKind.rpm:
+      return _McpOpsInsightSpec(
+        icon: Icons.speed_rounded,
+        title: _localizedText(context, zh: '速率限制', en: 'Rate Limit'),
+        sections: (context, data) => [
+          _McpOpsStatPanel(
+            icon: Icons.speed_rounded,
+            title: _localizedText(context, zh: '限流概览', en: 'Overview'),
+            tiles: [
+              _mcpOpsInsightTile(
+                Icons.speed_rounded,
+                _localizedText(context, zh: '当前 RPM', en: 'Current RPM'),
+                '${data.stats.currentRpm}',
+              ),
+              _mcpOpsInsightTile(
+                Icons.flag_rounded,
+                _localizedText(context, zh: '限流阈值', en: 'Limit'),
+                data.config.rpmLimit <= 0
+                    ? _localizedText(context, zh: '不限流', en: 'Unlimited')
+                    : '${data.config.rpmLimit}',
+              ),
+            ],
+          ),
+          _mcpOpsRequestTrendPanel(context, data),
+        ],
+      );
+
+    case _McpOpsInsightKind.accessPolicy:
+      return _McpOpsInsightSpec(
+        icon: Icons.security_rounded,
+        title: _localizedText(context, zh: '访问策略', en: 'Access Policy'),
+        sections: (context, data) {
+          final config = data.config;
+          return [
+            _McpOpsStatPanel(
+              icon: Icons.verified_user_rounded,
+              title: _localizedText(context, zh: '策略概览', en: 'Overview'),
+              tiles: [
+                _mcpOpsInsightTile(
+                  Icons.lan_rounded,
+                  _localizedText(context, zh: '网络模式', en: 'Network'),
+                  _networkModeLabel(context, config.networkMode),
+                ),
+                _mcpOpsInsightTile(
+                  Icons.edit_rounded,
+                  _localizedText(context, zh: '写入策略', en: 'Write'),
+                  _writeModeLabel(context, config.writeMode),
+                ),
+                _mcpOpsInsightTile(
+                  Icons.key_rounded,
+                  _localizedText(context, zh: '令牌校验', en: 'Token'),
+                  config.requireAuthToken
+                      ? _localizedText(context, zh: '开启', en: 'On')
+                      : _localizedText(context, zh: '关闭', en: 'Off'),
+                ),
+              ],
+            ),
+            _McpOpsDetailSection(
+              title: _localizedText(context, zh: '策略明细', en: 'Details'),
+              rows: {
+                _localizedText(context, zh: '调用模式', en: 'Invocation'):
+                    _invocationModeLabel(context, config.invocationMode),
+                _localizedText(context, zh: '允许客户端', en: 'Clients'):
+                    config.allowedClients.isEmpty
+                    ? _localizedText(context, zh: '全部', en: 'All')
+                    : config.allowedClients.join(', '),
+                _localizedText(context, zh: '允许网段', en: 'IP CIDR'):
+                    config.allowedIpCidrs.isEmpty
+                    ? _localizedText(context, zh: '未限制', en: 'Any')
+                    : config.allowedIpCidrs.join(', '),
+                _localizedText(context, zh: '工作区', en: 'Workspace'):
+                    config.workspaceRoot.trim().isEmpty
+                    ? _localizedText(context, zh: '默认', en: 'Default')
+                    : config.workspaceRoot,
+              },
+            ),
+          ];
+        },
+      );
+
+    case _McpOpsInsightKind.requestTrend:
+      return _McpOpsInsightSpec(
+        icon: Icons.show_chart_rounded,
+        title: _localizedText(context, zh: '请求趋势', en: 'Request Trend'),
+        subtitle: _localizedText(
+          context,
+          zh: '最近 12 分钟成功/拦截/失败',
+          en: 'Last 12 minutes success/blocked/failed',
+        ),
+        sections: (context, data) => [
+          _mcpOpsRequestTrendPanel(context, data),
+          _McpOpsBarPanel(
+            icon: Icons.donut_small_rounded,
+            title: _localizedText(context, zh: '状态分布', en: 'Status Mix'),
+            values: data.stats.statusDistribution(context),
+          ),
+          _McpOpsBarPanel(
+            icon: Icons.account_tree_rounded,
+            title: _localizedText(context, zh: '请求方法分布', en: 'Method Mix'),
+            values: data.snapshot.requestDistribution,
+          ),
+        ],
+      );
+
+    case _McpOpsInsightKind.statusMix:
+      return _McpOpsInsightSpec(
+        icon: Icons.donut_small_rounded,
+        title: _localizedText(context, zh: '状态分布', en: 'Status Mix'),
+        sections: (context, data) => [
+          _McpOpsStatPanel(
+            icon: Icons.pie_chart_rounded,
+            title: _localizedText(context, zh: '状态概览', en: 'Overview'),
+            tiles: _mcpOpsOutcomeTiles(context, data),
+          ),
+          _McpOpsBarPanel(
+            icon: Icons.donut_small_rounded,
+            title: _localizedText(context, zh: '状态占比', en: 'Status Share'),
+            values: data.stats.statusDistribution(context),
+          ),
+          _mcpOpsRequestTrendPanel(context, data),
+        ],
+      );
+
+    case _McpOpsInsightKind.ipMix:
+      return _mcpOpsDistributionSpec(
+        context,
+        icon: Icons.public_rounded,
+        title: _localizedText(context, zh: '请求 IP 分布', en: 'IP Mix'),
+        selector: (data) => data.snapshot.ipDistribution,
+      );
+    case _McpOpsInsightKind.clientMix:
+      return _mcpOpsDistributionSpec(
+        context,
+        icon: Icons.devices_other_rounded,
+        title: _localizedText(context, zh: '客户端分布', en: 'Client Mix'),
+        selector: (data) => data.snapshot.clientDistribution,
+      );
+    case _McpOpsInsightKind.requestMix:
+      return _mcpOpsDistributionSpec(
+        context,
+        icon: Icons.account_tree_rounded,
+        title: _localizedText(context, zh: '请求方法分布', en: 'Request Mix'),
+        selector: (data) => data.snapshot.requestDistribution,
+      );
+    case _McpOpsInsightKind.protocolMix:
+      return _mcpOpsDistributionSpec(
+        context,
+        icon: Icons.api_rounded,
+        title: _localizedText(context, zh: '协议分布', en: 'Protocol Mix'),
+        selector: (data) => data.snapshot.protocolDistribution,
+      );
+  }
+}
+
+/// Shared success/blocked/failed KPI tiles.
+List<Widget> _mcpOpsOutcomeTiles(
+  BuildContext context,
+  _McpOpsInsightData data,
+) {
+  final cs = Theme.of(context).colorScheme;
+  return [
+    _mcpOpsInsightTile(
+      Icons.call_made_rounded,
+      _localizedText(context, zh: '请求总数', en: 'Requests'),
+      '${data.snapshot.requestTotal}',
+    ),
+    _mcpOpsInsightTile(
+      Icons.task_alt_rounded,
+      _localizedText(context, zh: '成功', en: 'Succeeded'),
+      '${data.stats.successTotal}',
+      helper: '${data.stats.successRateLabel}%',
+      color: OpenHandStatusColors.success,
+    ),
+    _mcpOpsInsightTile(
+      Icons.shield_rounded,
+      _localizedText(context, zh: '拦截', en: 'Blocked'),
+      '${data.snapshot.blockedTotal}',
+      helper: '${data.stats.blockedRateLabel}%',
+      color: OpenHandStatusColors.warning,
+    ),
+    _mcpOpsInsightTile(
+      Icons.error_outline_rounded,
+      _localizedText(context, zh: '失败', en: 'Failed'),
+      '${data.snapshot.failedTotal}',
+      helper: '${data.stats.failedRateLabel}%',
+      color: cs.error,
+    ),
+  ];
+}
+
+/// Request trend chart + per-minute table.
+Widget _mcpOpsRequestTrendPanel(
+  BuildContext context,
+  _McpOpsInsightData data,
+) {
+  return _McpOpsTrendDetailPanel(
+    icon: Icons.show_chart_rounded,
+    title: _localizedText(context, zh: '请求趋势', en: 'Request Trend'),
+    subtitle: _localizedText(
+      context,
+      zh: '最近 12 分钟 · 成功/拦截/失败',
+      en: 'Last 12 minutes · success/blocked/failed',
+    ),
+    series: data.stats.requestTrendSeries(context),
+    minutes: data.stats.bucketMinutes,
+    columns: [
+      _localizedText(context, zh: '成功', en: 'Success'),
+      _localizedText(context, zh: '拦截', en: 'Blocked'),
+      _localizedText(context, zh: '失败', en: 'Failed'),
+    ],
+    emptyLabel: _localizedText(context, zh: '等待请求样本', en: 'Waiting for traffic'),
+  );
+}
+
+/// Latency trend chart + per-minute table.
+Widget _mcpOpsLatencyTrendPanel(
+  BuildContext context,
+  _McpOpsInsightData data,
+) {
+  return _McpOpsTrendDetailPanel(
+    icon: Icons.timeline_rounded,
+    title: _localizedText(context, zh: '耗时曲线', en: 'Latency Curve'),
+    subtitle: _localizedText(
+      context,
+      zh: '平均耗时与尾延迟',
+      en: 'Average and tail latency',
+    ),
+    series: data.stats.latencyTrendSeries(context),
+    minutes: data.stats.bucketMinutes,
+    valueSuffix: 'ms',
+    columns: [
+      _localizedText(context, zh: '平均', en: 'Average'),
+      'p95',
+    ],
+    emptyLabel: _localizedText(context, zh: '暂无耗时样本', en: 'No latency samples'),
+  );
+}
+
+/// Inbound/outbound traffic drill-down.
+_McpOpsInsightSpec _mcpOpsTrafficSpec(
+  BuildContext context, {
+  required bool inbound,
+}) {
+  return _McpOpsInsightSpec(
+    icon: inbound ? Icons.south_west_rounded : Icons.north_east_rounded,
+    title: inbound
+        ? _localizedText(context, zh: '入口流量', en: 'Inbound Traffic')
+        : _localizedText(context, zh: '出口流量', en: 'Outbound Traffic'),
+    sections: (context, data) {
+      final s = data.snapshot;
+      final bytes = inbound ? s.inboundBytes : s.outboundBytes;
+      final total = math.max(1, s.requestTotal);
+      final avg = bytes ~/ total;
+      final logs = [...data.audit]..sort(
+        (a, b) => (inbound ? b.inboundBytes : b.outboundBytes).compareTo(
+          inbound ? a.inboundBytes : a.outboundBytes,
+        ),
+      );
+      return [
+        _McpOpsStatPanel(
+          icon: Icons.swap_vert_rounded,
+          title: _localizedText(context, zh: '流量概览', en: 'Overview'),
+          tiles: [
+            _mcpOpsInsightTile(
+              inbound ? Icons.south_west_rounded : Icons.north_east_rounded,
+              inbound
+                  ? _localizedText(context, zh: '入口总量', en: 'Inbound')
+                  : _localizedText(context, zh: '出口总量', en: 'Outbound'),
+              formatByteSize(bytes),
+            ),
+            _mcpOpsInsightTile(
+              Icons.straighten_rounded,
+              _localizedText(context, zh: '平均每请求', en: 'Per request'),
+              formatByteSize(avg),
+            ),
+            _mcpOpsInsightTile(
+              Icons.call_made_rounded,
+              _localizedText(context, zh: '请求总数', en: 'Requests'),
+              '${s.requestTotal}',
+            ),
+          ],
+        ),
+        _McpOpsLogListPanel(
+          icon: Icons.data_usage_rounded,
+          title: inbound
+              ? _localizedText(context, zh: '入口占用最高', en: 'Top Inbound')
+              : _localizedText(context, zh: '出口占用最高', en: 'Top Outbound'),
+          entries: logs
+              .where(
+                (entry) =>
+                    (inbound ? entry.inboundBytes : entry.outboundBytes) > 0,
+              )
+              .toList(growable: false),
+          maxEntries: 12,
+          emptyLabel: _localizedText(
+            context,
+            zh: '暂无流量样本',
+            en: 'No traffic samples',
+          ),
+        ),
+      ];
+    },
+  );
+}
+
+/// Generic distribution drill-down: full ranked bars + a donut summary.
+_McpOpsInsightSpec _mcpOpsDistributionSpec(
+  BuildContext context, {
+  required IconData icon,
+  required String title,
+  required Map<String, int> Function(_McpOpsInsightData data) selector,
+}) {
+  return _McpOpsInsightSpec(
+    icon: icon,
+    title: title,
+    sections: (context, data) => [
+      _McpOpsBarPanel(
+        icon: icon,
+        title: title,
+        values: selector(data),
+      ),
+    ],
+  );
+}
+
+Widget _mcpOpsServerRow(BuildContext context, McpServer server) {
+  final theme = Theme.of(context);
+  final cs = theme.colorScheme;
+  final tone = server.enabled ? OpenHandStatusColors.success : cs.onSurfaceVariant;
+  return Row(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Container(
+        width: 4,
+        height: 34,
+        margin: const EdgeInsets.only(top: 2, right: 10),
+        decoration: BoxDecoration(
+          color: tone,
+          borderRadius: BorderRadius.circular(999),
+        ),
+      ),
+      Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              server.name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.labelLarge?.copyWith(
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            if (server.summary.trim().isNotEmpty)
+              Text(
+                server.summary,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: cs.onSurfaceVariant,
+                ),
+              ),
+          ],
+        ),
+      ),
+      const SizedBox(width: 8),
+      _McpOpsStatusChip(
+        icon: server.enabled
+            ? Icons.check_circle_rounded
+            : Icons.pause_circle_rounded,
+        label: server.enabled
+            ? _localizedText(context, zh: '启用', en: 'Enabled')
+            : _localizedText(context, zh: '停用', en: 'Disabled'),
+        color: tone,
+      ),
+    ],
+  );
 }
