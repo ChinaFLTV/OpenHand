@@ -1767,7 +1767,7 @@ class _EditableHeaderRow {
 const double _mcpOpsDialogMaxWidth = 1080;
 const double _mcpOpsDialogMaxHeight = 820;
 const double _mcpOpsPanelRadius = 8;
-const double _mcpOpsGridGap = 12;
+const double _mcpOpsGridGap = 18;
 const double _mcpOpsMetricWideBreakpoint = 860;
 const double _mcpOpsMetricMediumBreakpoint = 560;
 const int _mcpOpsExposureInitialLimit = 14;
@@ -1943,34 +1943,29 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
                   ],
                 ),
               ),
-              const SizedBox(height: 12),
-              buildOpenHandDialogActionsBar(
-                leading: _configMessage == null
-                    ? null
-                    : Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          _configMessage!,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
+              Builder(
+                builder: (footerContext) {
+                  final tabController = DefaultTabController.of(footerContext);
+                  return AnimatedBuilder(
+                    animation: tabController,
+                    builder: (context, _) {
+                      final showConfigActions = tabController.index == 1;
+                      return AnimatedSwitcher(
+                        duration: _mcpMotionDuration(
+                          context,
+                          const Duration(milliseconds: 180),
                         ),
-                      ),
-                actions: [
-                  OpenHandDialogActionButton.secondary(
-                    onPressed: _saving
-                        ? null
-                        : () => Navigator.of(context).maybePop(),
-                    label: l10n.commonClose,
-                  ),
-                  OpenHandDialogActionButton.primary(
-                    icon: Icons.save_rounded,
-                    onPressed: _saving ? null : () => _saveConfig(context),
-                    label: l10n.commonSave,
-                  ),
-                ],
+                        switchInCurve: Curves.easeOutCubic,
+                        switchOutCurve: Curves.easeInCubic,
+                        child: showConfigActions
+                            ? _buildConfigActionsBar(context, l10n)
+                            : const SizedBox.shrink(
+                                key: ValueKey<String>('mcp-ops-footer-empty'),
+                              ),
+                      );
+                    },
+                  );
+                },
               ),
             ],
           ),
@@ -1979,10 +1974,56 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
     );
   }
 
+  Widget _buildConfigActionsBar(BuildContext context, AppLocalizations l10n) {
+    final theme = Theme.of(context);
+    return Column(
+      key: const ValueKey<String>('mcp-ops-config-footer'),
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (_configMessage?.trim().isNotEmpty ?? false) ...[
+          const SizedBox(height: 8),
+          Text(
+            _configMessage!.trim(),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+        const SizedBox(height: 10),
+        buildOpenHandDialogActionsBar(
+          actions: [
+            OpenHandDialogActionButton.secondary(
+              icon: Icons.restart_alt_rounded,
+              onPressed: _saving
+                  ? null
+                  : () => _resetConfigWithConfirm(context),
+              label: _localizedText(context, zh: '重置', en: 'Reset'),
+            ),
+            OpenHandDialogActionButton.secondary(
+              onPressed: _saving
+                  ? null
+                  : () => Navigator.of(context).maybePop(),
+              label: l10n.commonClose,
+            ),
+            OpenHandDialogActionButton.primary(
+              icon: Icons.save_rounded,
+              onPressed: _saving ? null : () => _saveConfig(context),
+              label: l10n.commonSave,
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
   Widget _tabScroll(BuildContext context, Widget child) {
     return SingleChildScrollView(
       physics: openHandDialogAwareScrollPhysics(context),
-      child: child,
+      child: Padding(padding: const EdgeInsets.only(bottom: 18), child: child),
     );
   }
 
@@ -2186,6 +2227,7 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
             );
           },
         ),
+        const SizedBox(height: _mcpOpsGridGap),
         Builder(
           builder: (context) {
             final panels = [
@@ -2296,7 +2338,11 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
                 runSpacing: 10,
                 children: [
                   _McpOpsSwitchChip(
-                    label: _localizedText(context, zh: '自动启动', en: 'Autostart'),
+                    label: _localizedText(
+                      context,
+                      zh: '跟随应用启动',
+                      en: 'Start with app',
+                    ),
                     value: _autoStart,
                     onChanged: (value) => setState(() => _autoStart = value),
                   ),
@@ -2321,6 +2367,15 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
                         setState(() => _capturePayload = value),
                   ),
                 ],
+              ),
+              const SizedBox(height: 10),
+              _McpOpsHintText(
+                icon: Icons.info_outline_rounded,
+                text: _localizedText(
+                  context,
+                  zh: '自启动默认关闭；仅在这里开启后，OpenHand 启动完成时才会自动启动本 MCP 服务器。',
+                  en: 'Autostart is off by default. OpenHand only starts this MCP server during app launch when this switch is enabled.',
+                ),
               ),
             ],
           ),
@@ -2625,9 +2680,11 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
   Widget _buildAuditTab(BuildContext context) {
     final entries = context.watch<McpController>().opsAuditEntries;
     if (entries.isEmpty) {
-      return Center(
-        child: FeatureStateCard.inline(
+      return SizedBox.expand(
+        key: const ValueKey<String>('mcp-ops-audit-empty'),
+        child: FeatureStateCard.centered(
           icon: Icons.manage_search_rounded,
+          tone: FeatureStateTone.neutral,
           title: _localizedText(context, zh: '暂无调用日志', en: 'No audit logs'),
           body: _localizedText(
             context,
@@ -2867,6 +2924,75 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
           ? _localizedText(context, zh: '配置已生效', en: 'Configuration applied')
           : _localizedText(context, zh: '配置保存失败', en: 'Configuration failed');
     });
+  }
+
+  Future<void> _resetConfigWithConfirm(BuildContext context) async {
+    final l10n = AppLocalizations.of(context)!;
+    final controller = context.read<McpController>();
+    final previous = controller.opsConfig;
+    final confirmed = await showOpenHandConfirmDialog(
+      context: context,
+      title: _localizedText(
+        context,
+        zh: '重置 MCP 服务器配置？',
+        en: 'Reset MCP server configuration?',
+      ),
+      message: _localizedText(
+        context,
+        zh: '将把监听、访问控制、限流、调用策略、暴露范围全部恢复为默认值。自启动会保持关闭。此操作会立即保存。',
+        en: 'Listener, access control, rate limits, invocation policy and exposure scope will return to defaults. Autostart stays off. This will be saved immediately.',
+      ),
+      cancelLabel: l10n.commonCancel,
+      confirmLabel: _localizedText(context, zh: '重置', en: 'Reset'),
+      destructive: true,
+    );
+    if (!confirmed || !mounted) {
+      return;
+    }
+    const defaults = McpOpsConfig();
+    setState(() {
+      _saving = true;
+      _applyConfigToForm(defaults);
+      _configMessage = null;
+    });
+    final ok = await controller.saveOpsConfig(defaults);
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _saving = false;
+      if (!ok) {
+        _applyConfigToForm(previous);
+      }
+      _configMessage = ok
+          ? _localizedText(context, zh: '已恢复默认配置', en: 'Defaults restored')
+          : _localizedText(context, zh: '重置失败', en: 'Reset failed');
+    });
+  }
+
+  void _applyConfigToForm(McpOpsConfig config) {
+    _hostController.text = config.listenHost;
+    _portController.text = '${config.listenPort}';
+    _rpmController.text = '${config.rpmLimit}';
+    _thresholdController.text = '${config.callThreshold}';
+    _timeoutController.text = '${config.timeoutMs}';
+    _approvalTimeoutController.text = '${config.approvalTimeoutMs}';
+    _workspaceController.text = config.workspaceRoot;
+    _authTokenController.text = config.authToken;
+    _allowedClientsController.text = config.allowedClients.join('\n');
+    _allowedIpsController.text = config.allowedIpCidrs.join('\n');
+    _allowedTimeController.text = config.allowedTimeWindows.join('\n');
+    _exposureSearchController.clear();
+    _autoStart = config.autoStart;
+    _requireAuthToken = config.requireAuthToken;
+    _capturePayload = config.capturePayload;
+    _networkMode = config.networkMode;
+    _invocationMode = config.invocationMode;
+    _writeMode = config.writeMode;
+    _surfaces = Set<McpOpsExposureSurface>.from(config.exposedSurfaces);
+    _hiddenItems = Set<String>.from(config.hiddenItemIds);
+    _hiddenEndpoints = Set<String>.from(config.hiddenEndpointIds);
+    _exposureLimits.clear();
   }
 
   McpOpsConfig _buildConfig() {
@@ -3904,6 +4030,35 @@ class _McpOpsSwitchChip extends StatelessWidget {
       icon: value ? Icons.check_rounded : Icons.close_rounded,
       label: label,
       onChanged: onChanged,
+    );
+  }
+}
+
+class _McpOpsHintText extends StatelessWidget {
+  const _McpOpsHintText({required this.icon, required this.text});
+
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 16, color: cs.onSurfaceVariant),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            text,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: cs.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -10072,6 +10227,19 @@ _mcpLocalizedFallbacks = <String, _McpLocalizedFallback>{
     de: 'Zugriffstoken',
     ja: 'アクセストークン',
   ),
+  'Start with app': _McpLocalizedFallback(
+    zhHant: '跟隨應用啟動',
+    fr: 'Démarrer avec l’app',
+    de: 'Mit App starten',
+    ja: 'アプリ起動時に開始',
+  ),
+  'Autostart is off by default. OpenHand only starts this MCP server during app launch when this switch is enabled.':
+      _McpLocalizedFallback(
+        zhHant: '自動啟動預設關閉；只有在這裡啟用後，OpenHand 啟動完成時才會自動啟動本 MCP 伺服器。',
+        fr: 'Le démarrage auto est désactivé par défaut. OpenHand ne lance ce serveur MCP au démarrage que si ce commutateur est activé.',
+        de: 'Autostart ist standardmäßig aus. OpenHand startet diesen MCP-Server beim App-Start nur, wenn dieser Schalter aktiviert ist.',
+        ja: '自動起動は既定でオフです。このスイッチを有効にした場合のみ、OpenHand の起動時にこの MCP サーバーを開始します。',
+      ),
   'Autostart': _McpLocalizedFallback(
     zhHant: '自動啟動',
     fr: 'Démarrage auto',
@@ -10215,6 +10383,37 @@ _mcpLocalizedFallbacks = <String, _McpLocalizedFallback>{
     fr: 'Échec de la configuration',
     de: 'Konfiguration fehlgeschlagen',
     ja: '設定に失敗しました',
+  ),
+  'Reset': _McpLocalizedFallback(
+    zhHant: '重置',
+    fr: 'Réinitialiser',
+    de: 'Zurücksetzen',
+    ja: 'リセット',
+  ),
+  'Reset MCP server configuration?': _McpLocalizedFallback(
+    zhHant: '重置 MCP 伺服器配置？',
+    fr: 'Réinitialiser la configuration du serveur MCP ?',
+    de: 'MCP-Serverkonfiguration zurücksetzen?',
+    ja: 'MCP サーバー設定をリセットしますか？',
+  ),
+  'Listener, access control, rate limits, invocation policy and exposure scope will return to defaults. Autostart stays off. This will be saved immediately.':
+      _McpLocalizedFallback(
+        zhHant: '監聽、訪問控制、限流、調用策略與暴露範圍都會恢復為預設值。自動啟動會保持關閉。此操作會立即保存。',
+        fr: 'L’écoute, le contrôle d’accès, les limites, la stratégie d’appel et le périmètre d’exposition reviendront aux valeurs par défaut. Le démarrage auto reste désactivé. L’enregistrement est immédiat.',
+        de: 'Listener, Zugriffskontrolle, Limits, Aufrufrichtlinie und Freigabeumfang werden auf Standardwerte zurückgesetzt. Autostart bleibt aus. Dies wird sofort gespeichert.',
+        ja: 'リスナー、アクセス制御、レート制限、呼び出し方針、公開範囲を既定値に戻します。自動起動はオフのままです。この操作はすぐに保存されます。',
+      ),
+  'Defaults restored': _McpLocalizedFallback(
+    zhHant: '已恢復預設配置',
+    fr: 'Valeurs par défaut restaurées',
+    de: 'Standardwerte wiederhergestellt',
+    ja: '既定値を復元しました',
+  ),
+  'Reset failed': _McpLocalizedFallback(
+    zhHant: '重置失敗',
+    fr: 'Échec de la réinitialisation',
+    de: 'Zurücksetzen fehlgeschlagen',
+    ja: 'リセットに失敗しました',
   ),
   'Server Console': _McpLocalizedFallback(
     zhHant: '服務控制台',
