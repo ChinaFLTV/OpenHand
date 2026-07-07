@@ -894,33 +894,16 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
     String message, {
     _MarketSnackKind kind = _MarketSnackKind.info,
   }) {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!context.mounted) {
-        return;
-      }
-      final messenger = ScaffoldMessenger.maybeOf(context);
-      if (messenger == null) return;
-      switch (kind) {
-        case _MarketSnackKind.success:
-          OpenHandSnackBar.show(
-            context,
-            messenger,
-            OpenHandSnackBar.success(context, message),
-          );
-        case _MarketSnackKind.error:
-          OpenHandSnackBar.show(
-            context,
-            messenger,
-            OpenHandSnackBar.error(context, message),
-          );
-        case _MarketSnackKind.info:
-          OpenHandSnackBar.show(
-            context,
-            messenger,
-            OpenHandSnackBar.info(context, message),
-          );
-      }
-    });
+    OpenHandSnackBar.flash(
+      context,
+      message,
+      kind: switch (kind) {
+        _MarketSnackKind.success => OpenHandSnackKind.success,
+        _MarketSnackKind.error => OpenHandSnackKind.error,
+        _MarketSnackKind.info => OpenHandSnackKind.info,
+      },
+      postFrame: true,
+    );
   }
 
   SkillMarketSummary? _findSkillBySlug(

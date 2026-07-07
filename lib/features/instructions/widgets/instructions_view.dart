@@ -915,11 +915,11 @@ class _InstructionEditorDialogState extends State<_InstructionEditorDialog> {
       if (ok) {
         Navigator.of(context).pop();
       } else {
-        final messenger = ScaffoldMessenger.of(context);
-        OpenHandSnackBar.show(
+        OpenHandSnackBar.flash(
           context,
-          messenger,
-          OpenHandSnackBar.error(context, l10n.instructionSaveFailed),
+          l10n.instructionSaveFailed,
+          kind: OpenHandSnackKind.error,
+          postFrame: true,
         );
       }
     } finally {
