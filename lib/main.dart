@@ -394,6 +394,15 @@ Future<void> _bootstrap() async {
 
   final knowledgeBase = await knowledgeBaseModuleFuture;
   knowledgeBaseControllerHandle = knowledgeBase.controller;
+  mcp.controller.attachOpsRuntimeBindings(
+    McpOpsRuntimeBindings(
+      builtinToolConfigsProvider: () => settingsController.builtinToolConfigs,
+      skillsControllerProvider: () => skills.controller,
+      memoryControllerProvider: () => memory.controller,
+      instructionsControllerProvider: () => instructions.controller,
+      knowledgeBaseControllerProvider: () => knowledgeBase.controller,
+    ),
+  );
   final messageGateway = await MessageGatewayModule.bootstrap(
     sessionController: aiSessionController,
     settingsController: settingsController,

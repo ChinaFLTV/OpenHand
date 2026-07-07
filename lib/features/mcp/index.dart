@@ -4,6 +4,7 @@ export 'model/mcp_keyword_index_update_mode.dart';
 export 'model/mcp_lazy_loading_mode.dart';
 export 'model/mcp_server.dart';
 export 'model/mcp_server_health.dart';
+export 'model/mcp_server_ops.dart';
 export 'model/mcp_stdio_mirror_mode.dart';
 export 'model/mcp_tool.dart';
 export 'service/mcp_lazy_loading_applier.dart';

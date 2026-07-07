@@ -30,11 +30,16 @@ import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
 import '../../../shared/util/structured_text_format.dart';
 import '../../../shared/util/text_clip.dart';
+import '../../instructions/index.dart';
+import '../../knowledge_base/index.dart';
+import '../../memory/index.dart';
+import '../../skills/index.dart';
 import '../../thread_template_runtime/index.dart';
 import '../data/mcp_store.dart';
 import '../mcp_controller.dart';
 import '../model/mcp_server.dart';
 import '../model/mcp_server_health.dart';
+import '../model/mcp_server_ops.dart';
 import '../model/mcp_tool.dart';
 import '../service/mcp_stdio_process_manager.dart';
 import '../service/mcp_tool_discovery_service.dart';
@@ -162,6 +167,11 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
               : () => mcpController.refresh(),
           icon: const Icon(Icons.refresh_rounded),
           label: Text(l10n.mcpRefresh),
+        ),
+        FilledButton.tonalIcon(
+          onPressed: () => _showMcpOpsDialog(context),
+          icon: const Icon(Icons.dns_rounded),
+          label: Text(_localizedText(context, zh: 'MCP服务器', en: 'MCP Server')),
         ),
         OutlinedButton.icon(
           onPressed: () => _openDirectory(context),
@@ -452,6 +462,13 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
     showAnimatedDialog(
       context: context,
       builder: (ctx) => const _McpProbeDetailsDialog(),
+    );
+  }
+
+  void _showMcpOpsDialog(BuildContext context) {
+    showAnimatedDialog<void>(
+      context: context,
+      builder: (_) => const _McpOpsDialog(),
     );
   }
 
@@ -1744,6 +1761,1927 @@ class _EditableHeaderRow {
     nameController.dispose();
     valueController.dispose();
   }
+}
+
+const double _mcpOpsDialogMaxWidth = 1080;
+const double _mcpOpsDialogMaxHeight = 820;
+const double _mcpOpsPanelRadius = 18;
+const double _mcpOpsGridGap = 12;
+const double _mcpOpsMetricWideBreakpoint = 860;
+const double _mcpOpsMetricMediumBreakpoint = 560;
+
+class _McpOpsDialog extends StatefulWidget {
+  const _McpOpsDialog();
+
+  @override
+  State<_McpOpsDialog> createState() => _McpOpsDialogState();
+}
+
+class _McpOpsDialogState extends State<_McpOpsDialog> {
+  late final TextEditingController _hostController;
+  late final TextEditingController _portController;
+  late final TextEditingController _rpmController;
+  late final TextEditingController _thresholdController;
+  late final TextEditingController _timeoutController;
+  late final TextEditingController _approvalTimeoutController;
+  late final TextEditingController _workspaceController;
+  late final TextEditingController _authTokenController;
+  late final TextEditingController _allowedClientsController;
+  late final TextEditingController _allowedIpsController;
+  late final TextEditingController _allowedTimeController;
+  late bool _autoStart;
+  late bool _requireAuthToken;
+  late bool _capturePayload;
+  late McpOpsNetworkMode _networkMode;
+  late McpOpsInvocationMode _invocationMode;
+  late McpOpsWriteMode _writeMode;
+  late Set<McpOpsExposureSurface> _surfaces;
+  late Set<String> _hiddenItems;
+  late Set<String> _hiddenEndpoints;
+  bool _saving = false;
+  String? _configMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    final config = context.read<McpController>().opsConfig;
+    _hostController = TextEditingController(text: config.listenHost);
+    _portController = TextEditingController(text: '${config.listenPort}');
+    _rpmController = TextEditingController(text: '${config.rpmLimit}');
+    _thresholdController = TextEditingController(
+      text: '${config.callThreshold}',
+    );
+    _timeoutController = TextEditingController(text: '${config.timeoutMs}');
+    _approvalTimeoutController = TextEditingController(
+      text: '${config.approvalTimeoutMs}',
+    );
+    _workspaceController = TextEditingController(text: config.workspaceRoot);
+    _authTokenController = TextEditingController(text: config.authToken);
+    _allowedClientsController = TextEditingController(
+      text: config.allowedClients.join('\n'),
+    );
+    _allowedIpsController = TextEditingController(
+      text: config.allowedIpCidrs.join('\n'),
+    );
+    _allowedTimeController = TextEditingController(
+      text: config.allowedTimeWindows.join('\n'),
+    );
+    _autoStart = config.autoStart;
+    _requireAuthToken = config.requireAuthToken;
+    _capturePayload = config.capturePayload;
+    _networkMode = config.networkMode;
+    _invocationMode = config.invocationMode;
+    _writeMode = config.writeMode;
+    _surfaces = Set<McpOpsExposureSurface>.from(config.exposedSurfaces);
+    _hiddenItems = Set<String>.from(config.hiddenItemIds);
+    _hiddenEndpoints = Set<String>.from(config.hiddenEndpointIds);
+  }
+
+  @override
+  void dispose() {
+    for (final controller in [
+      _hostController,
+      _portController,
+      _rpmController,
+      _thresholdController,
+      _timeoutController,
+      _approvalTimeoutController,
+      _workspaceController,
+      _authTokenController,
+      _allowedClientsController,
+      _allowedIpsController,
+      _allowedTimeController,
+    ]) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    return buildOpenHandResponsiveDialogShell(
+      context: context,
+      maxWidth: _mcpOpsDialogMaxWidth,
+      maxHeight: _mcpOpsDialogMaxHeight,
+      maxWidthFraction: 0.96,
+      maxHeightFraction: 0.94,
+      horizontalMargin: 32,
+      verticalMargin: 64,
+      minAvailableWidth: 340,
+      expandToMax: true,
+      child: DefaultTabController(
+        length: 3,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(22, 18, 22, 18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.dns_rounded, color: theme.colorScheme.primary),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      _localizedText(
+                        context,
+                        zh: 'MCP服务器运维',
+                        en: 'MCP Server Operations',
+                      ),
+                      style: theme.textTheme.titleLarge,
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: MaterialLocalizations.of(
+                      context,
+                    ).closeButtonTooltip,
+                    onPressed: () => Navigator.of(context).maybePop(),
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              TabBar(
+                labelPadding: const EdgeInsets.symmetric(horizontal: 6),
+                tabs: [
+                  Tab(
+                    text: _localizedText(context, zh: '运维面板', en: 'Ops'),
+                    icon: const Icon(Icons.monitor_heart_rounded),
+                  ),
+                  Tab(
+                    text: _localizedText(context, zh: '参数配置', en: 'Config'),
+                    icon: const Icon(Icons.tune_rounded),
+                  ),
+                  Tab(
+                    text: _localizedText(context, zh: '日志审计', en: 'Audit'),
+                    icon: const Icon(Icons.manage_search_rounded),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              Expanded(
+                child: TabBarView(
+                  children: [
+                    _tabScroll(_buildOpsTab(context)),
+                    _tabScroll(_buildConfigTab(context)),
+                    _buildAuditTab(context),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              buildOpenHandDialogActionsBar(
+                leading: _configMessage == null
+                    ? null
+                    : Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          _configMessage!,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                actions: [
+                  OpenHandDialogActionButton.secondary(
+                    onPressed: _saving
+                        ? null
+                        : () => Navigator.of(context).maybePop(),
+                    label: l10n.commonClose,
+                  ),
+                  OpenHandDialogActionButton.primary(
+                    icon: Icons.save_rounded,
+                    onPressed: _saving ? null : () => _saveConfig(context),
+                    label: l10n.commonSave,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _tabScroll(Widget child) {
+    return SingleChildScrollView(
+      physics: openHandDialogAwareScrollPhysics(context),
+      child: child,
+    );
+  }
+
+  Widget _buildOpsTab(BuildContext context) {
+    final controller = context.watch<McpController>();
+    final snapshot = controller.opsSnapshot;
+    final config = _buildConfig();
+    final endpoint = snapshot.boundPort == null
+        ? '${config.listenHost}:${config.listenPort}'
+        : '${snapshot.boundHost ?? config.listenHost}:${snapshot.boundPort}';
+    final exportedTools = controller.opsAuditEntries.length;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _McpOpsHeroPanel(
+          snapshot: snapshot,
+          endpoint: endpoint,
+          config: config,
+          onStart: () => _startServer(context),
+          onRestart: () => _restartServer(context),
+          onStop: () => _stopServer(context),
+          onConnectivityTest: () => _testConnectivity(context),
+        ),
+        const SizedBox(height: _mcpOpsGridGap),
+        _McpOpsMetricGrid(
+          children: [
+            _McpOpsMetricTile(
+              icon: Icons.link_rounded,
+              label: _localizedText(context, zh: '当前连接数', en: 'Connections'),
+              value: '${snapshot.currentConnections}',
+            ),
+            _McpOpsMetricTile(
+              icon: Icons.bolt_rounded,
+              label: _localizedText(context, zh: '活跃请求', en: 'Active'),
+              value: '${snapshot.activeRequests}',
+            ),
+            _McpOpsMetricTile(
+              icon: Icons.call_made_rounded,
+              label: _localizedText(context, zh: '请求总数', en: 'Requests'),
+              value: '${snapshot.requestTotal}',
+            ),
+            _McpOpsMetricTile(
+              icon: Icons.shield_rounded,
+              label: _localizedText(context, zh: '拦截数量', en: 'Blocked'),
+              value: '${snapshot.blockedTotal}',
+            ),
+            _McpOpsMetricTile(
+              icon: Icons.error_outline_rounded,
+              label: _localizedText(context, zh: '失败数量', en: 'Failures'),
+              value: '${snapshot.failedTotal}',
+              color: Theme.of(context).colorScheme.error,
+            ),
+            _McpOpsMetricTile(
+              icon: Icons.swap_vert_rounded,
+              label: _localizedText(context, zh: '进出口流量', en: 'Traffic'),
+              value:
+                  '${formatByteSize(snapshot.inboundBytes)} / ${formatByteSize(snapshot.outboundBytes)}',
+            ),
+            _McpOpsMetricTile(
+              icon: Icons.speed_rounded,
+              label: _localizedText(context, zh: '调用耗时', en: 'Latency'),
+              value:
+                  '${snapshot.avgLatencyMs}ms / p95 ${snapshot.p95LatencyMs}ms',
+            ),
+            _McpOpsMetricTile(
+              icon: Icons.schedule_rounded,
+              label: _localizedText(context, zh: '允许时间', en: 'Allowed Time'),
+              value: config.allowedTimeWindows.join(', '),
+            ),
+            _McpOpsMetricTile(
+              icon: Icons.memory_rounded,
+              label: _localizedText(context, zh: '内存占用', en: 'Memory'),
+              value: formatByteSize(snapshot.memoryRssBytes),
+            ),
+            _McpOpsMetricTile(
+              icon: Icons.hub_rounded,
+              label: _localizedText(context, zh: 'MCP数量', en: 'MCP Count'),
+              value: '${controller.servers.length}',
+            ),
+            _McpOpsMetricTile(
+              icon: Icons.change_circle_rounded,
+              label: _localizedText(context, zh: '文件变动', en: 'Mutations'),
+              value: '${snapshot.fileMutationCount}',
+            ),
+            _McpOpsMetricTile(
+              icon: Icons.inventory_2_rounded,
+              label: _localizedText(context, zh: '审计日志', en: 'Audit Logs'),
+              value: '$exportedTools',
+            ),
+          ],
+        ),
+        const SizedBox(height: _mcpOpsGridGap),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final compact =
+                constraints.maxWidth.isFinite && constraints.maxWidth < 760;
+            final panels = [
+              _McpOpsDistributionPanel(
+                title: _localizedText(context, zh: '请求IP分布', en: 'IP Mix'),
+                icon: Icons.public_rounded,
+                values: snapshot.ipDistribution,
+              ),
+              _McpOpsDistributionPanel(
+                title: _localizedText(context, zh: '请求客户端分布', en: 'Client Mix'),
+                icon: Icons.devices_other_rounded,
+                values: snapshot.clientDistribution,
+              ),
+              _McpOpsDistributionPanel(
+                title: _localizedText(context, zh: '请求分布', en: 'Request Mix'),
+                icon: Icons.account_tree_rounded,
+                values: snapshot.requestDistribution,
+              ),
+            ];
+            if (compact) {
+              return Column(
+                children: [
+                  for (final panel in panels) ...[
+                    panel,
+                    const SizedBox(height: _mcpOpsGridGap),
+                  ],
+                ],
+              );
+            }
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (var i = 0; i < panels.length; i++) ...[
+                  Expanded(child: panels[i]),
+                  if (i != panels.length - 1)
+                    const SizedBox(width: _mcpOpsGridGap),
+                ],
+              ],
+            );
+          },
+        ),
+        if (controller.opsApprovalRequests.isNotEmpty) ...[
+          const SizedBox(height: _mcpOpsGridGap),
+          _McpOpsApprovalPanel(requests: controller.opsApprovalRequests),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildConfigTab(BuildContext context) {
+    final controller = context.watch<McpController>();
+    final settings = context.watch<SettingsController>();
+    final skills = context.watch<SkillsController>().skills;
+    final memories = context.watch<MemoryController>().entries;
+    final instructions = context.watch<InstructionsController>().entries;
+    final knowledgeSources = context.watch<KnowledgeBaseController>().sources;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _McpOpsPanel(
+          icon: Icons.settings_ethernet_rounded,
+          title: _localizedText(context, zh: '监听与访问控制', en: 'Listener'),
+          child: Column(
+            children: [
+              _McpOpsResponsiveFields(
+                children: [
+                  TextField(
+                    controller: _hostController,
+                    decoration: InputDecoration(
+                      labelText: _localizedText(
+                        context,
+                        zh: '监听地址',
+                        en: 'Listen Host',
+                      ),
+                    ),
+                  ),
+                  TextField(
+                    controller: _portController,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: _localizedText(
+                        context,
+                        zh: '监听端口',
+                        en: 'Listen Port',
+                      ),
+                    ),
+                  ),
+                  TextField(
+                    controller: _workspaceController,
+                    decoration: InputDecoration(
+                      labelText: _localizedText(
+                        context,
+                        zh: '可操作文件空间',
+                        en: 'Workspace Scope',
+                      ),
+                    ),
+                  ),
+                  TextField(
+                    controller: _authTokenController,
+                    obscureText: true,
+                    decoration: InputDecoration(
+                      labelText: _localizedText(
+                        context,
+                        zh: '访问令牌',
+                        en: 'Access Token',
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  _McpOpsSwitchChip(
+                    label: _localizedText(context, zh: '自动启动', en: 'Autostart'),
+                    value: _autoStart,
+                    onChanged: (value) => setState(() => _autoStart = value),
+                  ),
+                  _McpOpsSwitchChip(
+                    label: _localizedText(
+                      context,
+                      zh: '令牌校验',
+                      en: 'Token Auth',
+                    ),
+                    value: _requireAuthToken,
+                    onChanged: (value) =>
+                        setState(() => _requireAuthToken = value),
+                  ),
+                  _McpOpsSwitchChip(
+                    label: _localizedText(
+                      context,
+                      zh: '记录参数',
+                      en: 'Capture Payload',
+                    ),
+                    value: _capturePayload,
+                    onChanged: (value) =>
+                        setState(() => _capturePayload = value),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: _mcpOpsGridGap),
+        _McpOpsPanel(
+          icon: Icons.rule_rounded,
+          title: _localizedText(context, zh: '限流与调用策略', en: 'Policy'),
+          child: Column(
+            children: [
+              _McpOpsResponsiveFields(
+                children: [
+                  TextField(
+                    controller: _rpmController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(labelText: 'RPM'),
+                  ),
+                  TextField(
+                    controller: _thresholdController,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: _localizedText(
+                        context,
+                        zh: '调用次数阈值',
+                        en: 'Call Threshold',
+                      ),
+                    ),
+                  ),
+                  TextField(
+                    controller: _timeoutController,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: _localizedText(
+                        context,
+                        zh: '超时时间(ms)',
+                        en: 'Timeout (ms)',
+                      ),
+                    ),
+                  ),
+                  TextField(
+                    controller: _approvalTimeoutController,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: _localizedText(
+                        context,
+                        zh: '审批等待(ms)',
+                        en: 'Approval Wait (ms)',
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              _McpOpsResponsiveFields(
+                children: [
+                  DropdownButtonFormField<McpOpsNetworkMode>(
+                    initialValue: _networkMode,
+                    decoration: InputDecoration(
+                      labelText: _localizedText(
+                        context,
+                        zh: '网络模式',
+                        en: 'Network Mode',
+                      ),
+                    ),
+                    items: [
+                      for (final mode in McpOpsNetworkMode.values)
+                        DropdownMenuItem(
+                          value: mode,
+                          child: Text(_networkModeLabel(context, mode)),
+                        ),
+                    ],
+                    onChanged: (value) {
+                      if (value != null) setState(() => _networkMode = value);
+                    },
+                  ),
+                  DropdownButtonFormField<McpOpsInvocationMode>(
+                    initialValue: _invocationMode,
+                    decoration: InputDecoration(
+                      labelText: _localizedText(
+                        context,
+                        zh: '调用模式',
+                        en: 'Invocation Mode',
+                      ),
+                    ),
+                    items: [
+                      for (final mode in McpOpsInvocationMode.values)
+                        DropdownMenuItem(
+                          value: mode,
+                          child: Text(_invocationModeLabel(context, mode)),
+                        ),
+                    ],
+                    onChanged: (value) {
+                      if (value != null) {
+                        setState(() => _invocationMode = value);
+                      }
+                    },
+                  ),
+                  DropdownButtonFormField<McpOpsWriteMode>(
+                    initialValue: _writeMode,
+                    decoration: InputDecoration(
+                      labelText: _localizedText(
+                        context,
+                        zh: '写调用策略',
+                        en: 'Write Policy',
+                      ),
+                    ),
+                    items: [
+                      for (final mode in McpOpsWriteMode.values)
+                        DropdownMenuItem(
+                          value: mode,
+                          child: Text(_writeModeLabel(context, mode)),
+                        ),
+                    ],
+                    onChanged: (value) {
+                      if (value != null) setState(() => _writeMode = value);
+                    },
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              _McpOpsResponsiveFields(
+                children: [
+                  TextField(
+                    controller: _allowedClientsController,
+                    minLines: 2,
+                    maxLines: 4,
+                    decoration: InputDecoration(
+                      labelText: _localizedText(
+                        context,
+                        zh: '允许客户端',
+                        en: 'Allowed Clients',
+                      ),
+                    ),
+                  ),
+                  TextField(
+                    controller: _allowedIpsController,
+                    minLines: 2,
+                    maxLines: 4,
+                    decoration: InputDecoration(
+                      labelText: _localizedText(
+                        context,
+                        zh: '允许IP/CIDR',
+                        en: 'Allowed IP/CIDR',
+                      ),
+                    ),
+                  ),
+                  TextField(
+                    controller: _allowedTimeController,
+                    minLines: 2,
+                    maxLines: 4,
+                    decoration: InputDecoration(
+                      labelText: _localizedText(
+                        context,
+                        zh: '允许时间',
+                        en: 'Allowed Time',
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: _mcpOpsGridGap),
+        _McpOpsPanel(
+          icon: Icons.visibility_rounded,
+          title: _localizedText(context, zh: 'MCP化暴露范围', en: 'Exposure'),
+          child: Column(
+            children: [
+              _surfaceSwitch(context, McpOpsExposureSurface.builtinTools),
+              if (_surfaces.contains(McpOpsExposureSurface.builtinTools))
+                _exposureList(
+                  context,
+                  surface: McpOpsExposureSurface.builtinTools,
+                  rows: [
+                    for (final config in settings.builtinToolConfigs)
+                      _McpOpsExposureRow(
+                        id: config.kind.name,
+                        title: config.effectiveName,
+                        subtitle: config.summary ?? config.kind.name,
+                        endpoints: const ['describe'],
+                      ),
+                  ],
+                ),
+              _surfaceSwitch(context, McpOpsExposureSurface.memory),
+              if (_surfaces.contains(McpOpsExposureSurface.memory))
+                _exposureList(
+                  context,
+                  surface: McpOpsExposureSurface.memory,
+                  rows: [
+                    for (final entry in memories)
+                      _McpOpsExposureRow(
+                        id: entry.id,
+                        title: entry.displayTitle,
+                        subtitle: entry.type,
+                        endpoints: const ['read'],
+                      ),
+                  ],
+                ),
+              _surfaceSwitch(context, McpOpsExposureSurface.skills),
+              if (_surfaces.contains(McpOpsExposureSurface.skills))
+                _exposureList(
+                  context,
+                  surface: McpOpsExposureSurface.skills,
+                  rows: [
+                    for (final skill in skills)
+                      _McpOpsExposureRow(
+                        id: skill.name,
+                        title: skill.name,
+                        subtitle: skill.description,
+                        endpoints: const ['manifest'],
+                      ),
+                  ],
+                ),
+              _surfaceSwitch(context, McpOpsExposureSurface.instructions),
+              if (_surfaces.contains(McpOpsExposureSurface.instructions))
+                _exposureList(
+                  context,
+                  surface: McpOpsExposureSurface.instructions,
+                  rows: [
+                    for (final entry in instructions)
+                      _McpOpsExposureRow(
+                        id: entry.id,
+                        title: entry.name,
+                        subtitle: entry.enabled
+                            ? entry.description
+                            : _localizedText(
+                                context,
+                                zh: '已停用',
+                                en: 'Disabled',
+                              ),
+                        endpoints: const ['read'],
+                      ),
+                  ],
+                ),
+              _surfaceSwitch(context, McpOpsExposureSurface.knowledgeBase),
+              if (_surfaces.contains(McpOpsExposureSurface.knowledgeBase))
+                _exposureList(
+                  context,
+                  surface: McpOpsExposureSurface.knowledgeBase,
+                  rows: [
+                    for (final source in knowledgeSources)
+                      _McpOpsExposureRow(
+                        id: source.id,
+                        title: source.title,
+                        subtitle: '${source.kind} · ${source.status}',
+                        endpoints: const ['metadata'],
+                      ),
+                  ],
+                ),
+              _surfaceSwitch(context, McpOpsExposureSurface.mcpServers),
+              if (_surfaces.contains(McpOpsExposureSurface.mcpServers))
+                _exposureList(
+                  context,
+                  surface: McpOpsExposureSurface.mcpServers,
+                  rows: [
+                    for (final server in controller.servers)
+                      _McpOpsExposureRow(
+                        id: server.name,
+                        title: server.name,
+                        subtitle: server.summary,
+                        endpoints: controller
+                            .toolCatalogFor(server.name)
+                            .tools
+                            .map((tool) => tool.id)
+                            .toList(growable: false),
+                        endpointLabels: {
+                          for (final tool
+                              in controller.toolCatalogFor(server.name).tools)
+                            tool.id: tool.name,
+                        },
+                      ),
+                  ],
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAuditTab(BuildContext context) {
+    final entries = context.watch<McpController>().opsAuditEntries;
+    if (entries.isEmpty) {
+      return Center(
+        child: FeatureStateCard.inline(
+          icon: Icons.manage_search_rounded,
+          title: _localizedText(context, zh: '暂无调用日志', en: 'No audit logs'),
+          body: _localizedText(
+            context,
+            zh: '外部 MCP 客户端发起调用后，会在这里实时滚动输出审计记录。',
+            en: 'External MCP calls will stream into this audit list.',
+          ),
+        ),
+      );
+    }
+    return ListView.separated(
+      physics: openHandDialogAwareScrollPhysics(context),
+      itemCount: entries.length,
+      separatorBuilder: (_, _) => const SizedBox(height: 10),
+      itemBuilder: (context, index) {
+        final entry = entries[index];
+        return _McpOpsAuditRow(
+          entry: entry,
+          onDetails: () => _showAuditDetails(context, entry),
+        );
+      },
+    );
+  }
+
+  Widget _surfaceSwitch(BuildContext context, McpOpsExposureSurface surface) {
+    final enabled = _surfaces.contains(surface);
+    return SwitchListTile(
+      contentPadding: EdgeInsets.zero,
+      value: enabled,
+      title: Text(_surfaceLabel(context, surface)),
+      secondary: Icon(_surfaceIcon(surface)),
+      onChanged: (value) {
+        setState(() {
+          if (value) {
+            _surfaces.add(surface);
+          } else {
+            _surfaces.remove(surface);
+          }
+        });
+      },
+    );
+  }
+
+  Widget _exposureList(
+    BuildContext context, {
+    required McpOpsExposureSurface surface,
+    required List<_McpOpsExposureRow> rows,
+  }) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    if (rows.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: Text(
+          _localizedText(context, zh: '暂无可暴露条目', en: 'No exposed items'),
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: cs.onSurfaceVariant,
+          ),
+        ),
+      );
+    }
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        children: [
+          for (final row in rows)
+            _McpOpsExposureTile(
+              surface: surface,
+              row: row,
+              itemVisible: !_hiddenItems.contains(
+                mcpOpsItemKey(surface, row.id),
+              ),
+              endpointVisible: (endpoint) => !_hiddenEndpoints.contains(
+                mcpOpsEndpointKey(surface, '${row.id}:$endpoint'),
+              ),
+              onItemChanged: (value) {
+                setState(() {
+                  final key = mcpOpsItemKey(surface, row.id);
+                  if (value) {
+                    _hiddenItems.remove(key);
+                  } else {
+                    _hiddenItems.add(key);
+                  }
+                });
+              },
+              onEndpointChanged: (endpoint, value) {
+                setState(() {
+                  final key = mcpOpsEndpointKey(surface, '${row.id}:$endpoint');
+                  if (value) {
+                    _hiddenEndpoints.remove(key);
+                  } else {
+                    _hiddenEndpoints.add(key);
+                  }
+                });
+              },
+            ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _saveConfig(BuildContext context) async {
+    await _persistConfig(context, action: null);
+  }
+
+  Future<void> _startServer(BuildContext context) async {
+    await _persistConfig(
+      context,
+      action: () {
+        return context.read<McpController>().startMcpOpsServer();
+      },
+    );
+  }
+
+  Future<void> _restartServer(BuildContext context) async {
+    await _persistConfig(
+      context,
+      action: () {
+        return context.read<McpController>().restartMcpOpsServer();
+      },
+    );
+  }
+
+  Future<void> _stopServer(BuildContext context) async {
+    setState(() => _saving = true);
+    final ok = await context.read<McpController>().stopMcpOpsServer();
+    if (!mounted) return;
+    setState(() {
+      _saving = false;
+      _configMessage = ok
+          ? _localizedText(context, zh: 'MCP服务器已关闭', en: 'MCP server stopped')
+          : _localizedText(context, zh: '关闭失败', en: 'Stop failed');
+    });
+  }
+
+  Future<void> _testConnectivity(BuildContext context) async {
+    setState(() => _saving = true);
+    final result = await context.read<McpController>().testMcpOpsConnectivity();
+    if (!mounted) return;
+    setState(() {
+      _saving = false;
+      _configMessage = result.ok
+          ? _localizedText(context, zh: '连通性正常', en: 'Connectivity OK')
+          : result.message;
+    });
+  }
+
+  Future<void> _persistConfig(
+    BuildContext context, {
+    required Future<bool> Function()? action,
+  }) async {
+    setState(() => _saving = true);
+    final controller = context.read<McpController>();
+    final ok = await controller.saveOpsConfig(_buildConfig());
+    var actionOk = true;
+    if (ok && action != null) {
+      actionOk = await action();
+    }
+    if (!mounted) return;
+    setState(() {
+      _saving = false;
+      _configMessage = ok && actionOk
+          ? _localizedText(context, zh: '配置已生效', en: 'Configuration applied')
+          : _localizedText(context, zh: '配置保存失败', en: 'Configuration failed');
+    });
+  }
+
+  McpOpsConfig _buildConfig() {
+    final current = context.read<McpController>().opsConfig;
+    return current.copyWith(
+      autoStart: _autoStart,
+      listenHost: _hostController.text.trim(),
+      listenPort: nonNegativeIntFromValue(
+        _portController.text,
+        fallback: current.listenPort,
+      ),
+      networkMode: _networkMode,
+      invocationMode: _invocationMode,
+      writeMode: _writeMode,
+      requireAuthToken: _requireAuthToken,
+      authToken: _authTokenController.text.trim(),
+      allowedClients: splitLooseDelimitedValues(_allowedClientsController.text),
+      allowedIpCidrs: splitLooseDelimitedValues(_allowedIpsController.text),
+      allowedTimeWindows: splitLooseDelimitedValues(
+        _allowedTimeController.text,
+      ),
+      workspaceRoot: _workspaceController.text.trim(),
+      rpmLimit: nonNegativeIntFromValue(
+        _rpmController.text,
+        fallback: current.rpmLimit,
+      ),
+      callThreshold: nonNegativeIntFromValue(
+        _thresholdController.text,
+        fallback: current.callThreshold,
+      ),
+      timeoutMs: nonNegativeIntFromValue(
+        _timeoutController.text,
+        fallback: current.timeoutMs,
+      ),
+      approvalTimeoutMs: nonNegativeIntFromValue(
+        _approvalTimeoutController.text,
+        fallback: current.approvalTimeoutMs,
+      ),
+      capturePayload: _capturePayload,
+      exposedSurfaces: _surfaces,
+      hiddenItemIds: _hiddenItems,
+      hiddenEndpointIds: _hiddenEndpoints,
+    );
+  }
+
+  void _showAuditDetails(BuildContext context, McpOpsAuditEntry entry) {
+    showAnimatedDialog<void>(
+      context: context,
+      builder: (_) => _McpOpsAuditDetailDialog(entry: entry),
+    );
+  }
+}
+
+class _McpOpsHeroPanel extends StatelessWidget {
+  const _McpOpsHeroPanel({
+    required this.snapshot,
+    required this.endpoint,
+    required this.config,
+    required this.onStart,
+    required this.onRestart,
+    required this.onStop,
+    required this.onConnectivityTest,
+  });
+
+  final McpOpsRuntimeSnapshot snapshot;
+  final String endpoint;
+  final McpOpsConfig config;
+  final VoidCallback onStart;
+  final VoidCallback onRestart;
+  final VoidCallback onStop;
+  final VoidCallback onConnectivityTest;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final running = snapshot.isRunning;
+    final tone = running
+        ? OpenHandStatusColors.success
+        : snapshot.lifecycle == McpOpsLifecycleState.failed
+        ? cs.error
+        : cs.primary;
+    return _McpOpsPanel(
+      icon: running ? Icons.cloud_done_rounded : Icons.cloud_queue_rounded,
+      title: _localizedText(context, zh: '服务控制台', en: 'Server Console'),
+      trailing: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          FilledButton.tonalIcon(
+            onPressed: onConnectivityTest,
+            icon: const Icon(Icons.radar_rounded),
+            label: Text(_localizedText(context, zh: '连通性测试', en: 'Test')),
+          ),
+          FilledButton.icon(
+            onPressed: running ? null : onStart,
+            icon: const Icon(Icons.play_arrow_rounded),
+            label: Text(_localizedText(context, zh: '启动', en: 'Start')),
+          ),
+          FilledButton.tonalIcon(
+            onPressed: running ? onRestart : null,
+            icon: const Icon(Icons.restart_alt_rounded),
+            label: Text(_localizedText(context, zh: '重启', en: 'Restart')),
+          ),
+          OutlinedButton.icon(
+            onPressed: running ? onStop : null,
+            icon: const Icon(Icons.stop_rounded),
+            label: Text(_localizedText(context, zh: '关闭', en: 'Stop')),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              _McpOpsStatusChip(
+                icon: running
+                    ? Icons.check_circle_rounded
+                    : Icons.pause_circle_outline_rounded,
+                label: _lifecycleLabel(context, snapshot.lifecycle),
+                color: tone,
+              ),
+              _McpOpsStatusChip(
+                icon: Icons.link_rounded,
+                label: 'http://$endpoint/mcp',
+                color: cs.primary,
+                monospace: true,
+              ),
+              _McpOpsStatusChip(
+                icon: Icons.schedule_rounded,
+                label: _localizedText(
+                  context,
+                  zh: '运行 ${formatCompactDuration(snapshot.uptime)}',
+                  en: 'Uptime ${formatCompactDuration(snapshot.uptime)}',
+                ),
+                color: cs.tertiary,
+              ),
+              _McpOpsStatusChip(
+                icon: config.writeMode == McpOpsWriteMode.fullAccess
+                    ? Icons.lock_open_rounded
+                    : Icons.verified_user_rounded,
+                label: _writeModeLabel(context, config.writeMode),
+                color: cs.secondary,
+              ),
+            ],
+          ),
+          if (snapshot.errorMessage?.trim().isNotEmpty ?? false) ...[
+            const SizedBox(height: 10),
+            Text(
+              snapshot.errorMessage!,
+              style: theme.textTheme.bodySmall?.copyWith(color: cs.error),
+            ),
+          ],
+          if (snapshot.lastConnectivityAt != null) ...[
+            const SizedBox(height: 10),
+            Text(
+              '${formatMonthDayHms(snapshot.lastConnectivityAt!.toLocal())} · ${snapshot.lastConnectivityMessage}',
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: snapshot.lastConnectivityOk
+                    ? OpenHandStatusColors.success
+                    : cs.error,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _McpOpsMetricGrid extends StatelessWidget {
+  const _McpOpsMetricGrid({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final maxWidth = constraints.maxWidth;
+        final columns = !maxWidth.isFinite
+            ? 3
+            : maxWidth >= _mcpOpsMetricWideBreakpoint
+            ? 4
+            : maxWidth >= _mcpOpsMetricMediumBreakpoint
+            ? 2
+            : 1;
+        final width = maxWidth.isFinite
+            ? (maxWidth - _mcpOpsGridGap * (columns - 1)) / columns
+            : 220.0;
+        return Wrap(
+          spacing: _mcpOpsGridGap,
+          runSpacing: _mcpOpsGridGap,
+          children: [
+            for (final child in children)
+              SizedBox(width: width < 0 ? 0 : width, child: child),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _McpOpsMetricTile extends StatelessWidget {
+  const _McpOpsMetricTile({
+    required this.icon,
+    required this.label,
+    required this.value,
+    this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final tone = color ?? cs.primary;
+    final duration = openHandMotionDurationMs(context, 180);
+    return AnimatedContainer(
+      duration: duration,
+      curve: Curves.easeOutCubic,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHighest.withValues(alpha: 0.52),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: tone.withValues(alpha: 0.22)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 18, color: tone),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: cs.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            value.trim().isEmpty ? '-' : value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _McpOpsPanel extends StatelessWidget {
+  const _McpOpsPanel({
+    required this.icon,
+    required this.title,
+    required this.child,
+    this.trailing,
+  });
+
+  final IconData icon;
+  final String title;
+  final Widget child;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerLow.withValues(alpha: 0.78),
+        borderRadius: BorderRadius.circular(_mcpOpsPanelRadius),
+        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.72)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(icon, color: cs.primary, size: 21),
+                const SizedBox(width: 9),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+                if (trailing != null) trailing!,
+              ],
+            ),
+            const SizedBox(height: 14),
+            child,
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _McpOpsDistributionPanel extends StatelessWidget {
+  const _McpOpsDistributionPanel({
+    required this.title,
+    required this.icon,
+    required this.values,
+  });
+
+  final String title;
+  final IconData icon;
+  final Map<String, int> values;
+
+  @override
+  Widget build(BuildContext context) {
+    final sorted = values.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    final top = sorted.take(5).toList(growable: false);
+    final total = values.values.fold<int>(0, (sum, value) => sum + value);
+    return _McpOpsPanel(
+      icon: icon,
+      title: title,
+      child: top.isEmpty
+          ? Text(
+              _localizedText(context, zh: '等待请求样本', en: 'Waiting for traffic'),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            )
+          : Column(
+              children: [
+                for (final entry in top)
+                  _McpOpsDistributionRow(
+                    label: entry.key,
+                    value: entry.value,
+                    total: total,
+                  ),
+              ],
+            ),
+    );
+  }
+}
+
+class _McpOpsDistributionRow extends StatelessWidget {
+  const _McpOpsDistributionRow({
+    required this.label,
+    required this.value,
+    required this.total,
+  });
+
+  final String label;
+  final int value;
+  final int total;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final ratio = total <= 0 ? 0.0 : value / total;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelMedium,
+                ),
+              ),
+              Text('$value', style: theme.textTheme.labelMedium),
+            ],
+          ),
+          const SizedBox(height: 5),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: LinearProgressIndicator(
+              value: ratio.clamp(0, 1).toDouble(),
+              minHeight: 8,
+              color: cs.primary,
+              backgroundColor: cs.surfaceContainerHighest,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _McpOpsResponsiveFields extends StatelessWidget {
+  const _McpOpsResponsiveFields({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final columns = constraints.maxWidth >= 760
+            ? 3
+            : constraints.maxWidth >= 520
+            ? 2
+            : 1;
+        final width =
+            (constraints.maxWidth - _mcpOpsGridGap * (columns - 1)) / columns;
+        return Wrap(
+          spacing: _mcpOpsGridGap,
+          runSpacing: _mcpOpsGridGap,
+          children: [
+            for (final child in children)
+              SizedBox(width: width < 0 ? 0 : width, child: child),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _McpOpsSwitchChip extends StatelessWidget {
+  const _McpOpsSwitchChip({
+    required this.label,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final String label;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return FilterChip(
+      selected: value,
+      label: Text(label),
+      avatar: Icon(value ? Icons.check_rounded : Icons.close_rounded, size: 18),
+      onSelected: onChanged,
+    );
+  }
+}
+
+class _McpOpsExposureRow {
+  const _McpOpsExposureRow({
+    required this.id,
+    required this.title,
+    required this.subtitle,
+    required this.endpoints,
+    this.endpointLabels = const <String, String>{},
+  });
+
+  final String id;
+  final String title;
+  final String subtitle;
+  final List<String> endpoints;
+  final Map<String, String> endpointLabels;
+}
+
+class _McpOpsExposureTile extends StatelessWidget {
+  const _McpOpsExposureTile({
+    required this.surface,
+    required this.row,
+    required this.itemVisible,
+    required this.endpointVisible,
+    required this.onItemChanged,
+    required this.onEndpointChanged,
+  });
+
+  final McpOpsExposureSurface surface;
+  final _McpOpsExposureRow row;
+  final bool itemVisible;
+  final bool Function(String endpoint) endpointVisible;
+  final ValueChanged<bool> onItemChanged;
+  final void Function(String endpoint, bool visible) onEndpointChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border(
+          top: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.45)),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        row.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      if (row.subtitle.trim().isNotEmpty)
+                        Text(
+                          row.subtitle,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: cs.onSurfaceVariant,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                Switch(value: itemVisible, onChanged: onItemChanged),
+              ],
+            ),
+            if (itemVisible && row.endpoints.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final endpoint in row.endpoints)
+                    FilterChip(
+                      selected: endpointVisible(endpoint),
+                      label: Text(row.endpointLabels[endpoint] ?? endpoint),
+                      avatar: Icon(
+                        endpointVisible(endpoint)
+                            ? Icons.visibility_rounded
+                            : Icons.visibility_off_rounded,
+                        size: 16,
+                      ),
+                      onSelected: (value) => onEndpointChanged(endpoint, value),
+                    ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _McpOpsAuditRow extends StatelessWidget {
+  const _McpOpsAuditRow({required this.entry, required this.onDetails});
+
+  final McpOpsAuditEntry entry;
+  final VoidCallback onDetails;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final statusColor = entry.failed
+        ? cs.error
+        : entry.status == 'blocked'
+        ? OpenHandStatusColors.warning
+        : OpenHandStatusColors.success;
+    return _McpOpsPanel(
+      icon: entry.failed ? Icons.error_outline_rounded : Icons.task_alt_rounded,
+      title: entry.toolName,
+      trailing: IconButton(
+        tooltip: _localizedText(context, zh: '详情', en: 'Details'),
+        onPressed: onDetails,
+        icon: const Icon(Icons.open_in_new_rounded),
+      ),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          _McpOpsStatusChip(
+            icon: Icons.circle_rounded,
+            label: entry.status,
+            color: statusColor,
+          ),
+          _McpOpsStatusChip(
+            icon: Icons.timer_rounded,
+            label: '${entry.durationMs}ms',
+            color: cs.primary,
+          ),
+          _McpOpsStatusChip(
+            icon: Icons.token_rounded,
+            label: '${entry.totalTokens} tokens',
+            color: cs.secondary,
+          ),
+          _McpOpsStatusChip(
+            icon: Icons.api_rounded,
+            label: entry.protocol,
+            color: cs.tertiary,
+          ),
+          _McpOpsStatusChip(
+            icon: Icons.smart_toy_rounded,
+            label: entry.model,
+            color: cs.primary,
+          ),
+          _McpOpsStatusChip(
+            icon: Icons.schedule_rounded,
+            label: formatMonthDayHms(entry.timestamp.toLocal()),
+            color: cs.secondary,
+          ),
+          _McpOpsStatusChip(
+            icon: Icons.devices_rounded,
+            label: entry.clientName,
+            color: cs.tertiary,
+          ),
+          _McpOpsStatusChip(
+            icon: Icons.public_rounded,
+            label: entry.ipAddress,
+            color: cs.primary,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _McpOpsAuditDetailDialog extends StatelessWidget {
+  const _McpOpsAuditDetailDialog({required this.entry});
+
+  final McpOpsAuditEntry entry;
+
+  @override
+  Widget build(BuildContext context) {
+    return buildOpenHandResponsiveDialogShell(
+      context: context,
+      maxWidth: 920,
+      maxHeight: 760,
+      maxWidthFraction: 0.94,
+      maxHeightFraction: 0.92,
+      child: Padding(
+        padding: const EdgeInsets.all(22),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.manage_search_rounded,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    _localizedText(context, zh: '审计详情', en: 'Audit Details'),
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                ),
+                IconButton(
+                  tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
+                  onPressed: () => Navigator.of(context).maybePop(),
+                  icon: const Icon(Icons.close_rounded),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            Expanded(
+              child: SingleChildScrollView(
+                physics: openHandDialogAwareScrollPhysics(context),
+                child: Column(
+                  children: [
+                    _McpOpsDetailSection(
+                      title: _localizedText(
+                        context,
+                        zh: '环境信息',
+                        en: 'Environment',
+                      ),
+                      rows: {
+                        'id': entry.id,
+                        'tool': entry.toolName,
+                        'surface': entry.surface,
+                        'endpoint': entry.endpoint,
+                        'status': entry.status,
+                        'time': entry.timestamp.toIso8601String(),
+                        'client': entry.clientName,
+                        'ip': entry.ipAddress,
+                        'protocol': entry.protocol,
+                        'model': entry.model,
+                        'duration_ms': '${entry.durationMs}',
+                        'tokens': '${entry.totalTokens}',
+                        'traffic':
+                            '${formatByteSize(entry.inboundBytes)} / ${formatByteSize(entry.outboundBytes)}',
+                        ...entry.environment.map(
+                          (key, value) => MapEntry(key, '$value'),
+                        ),
+                      },
+                    ),
+                    const SizedBox(height: _mcpOpsGridGap),
+                    _McpOpsDetailText(
+                      title: _localizedText(
+                        context,
+                        zh: '参数信息',
+                        en: 'Parameters',
+                      ),
+                      text: entry.argumentsPreview,
+                    ),
+                    const SizedBox(height: _mcpOpsGridGap),
+                    _McpOpsDetailText(
+                      title: _localizedText(context, zh: '请求信息', en: 'Request'),
+                      text: entry.requestSummary,
+                    ),
+                    const SizedBox(height: _mcpOpsGridGap),
+                    _McpOpsDetailText(
+                      title: _localizedText(
+                        context,
+                        zh: '响应信息',
+                        en: 'Response',
+                      ),
+                      text: entry.responsePreview.isEmpty
+                          ? entry.errorMessage
+                          : entry.responsePreview,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _McpOpsDetailSection extends StatelessWidget {
+  const _McpOpsDetailSection({required this.title, required this.rows});
+
+  final String title;
+  final Map<String, String> rows;
+
+  @override
+  Widget build(BuildContext context) {
+    return _McpOpsPanel(
+      icon: Icons.info_outline_rounded,
+      title: title,
+      child: Column(
+        children: [
+          for (final row in rows.entries)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(
+                    width: 180,
+                    child: Text(
+                      row.key,
+                      style: Theme.of(context).textTheme.labelMedium,
+                    ),
+                  ),
+                  Expanded(child: SelectableText(row.value)),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _McpOpsDetailText extends StatelessWidget {
+  const _McpOpsDetailText({required this.title, required this.text});
+
+  final String title;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return _McpOpsPanel(
+      icon: Icons.notes_rounded,
+      title: title,
+      child: SelectableText(text.trim().isEmpty ? '-' : text.trim()),
+    );
+  }
+}
+
+class _McpOpsApprovalPanel extends StatelessWidget {
+  const _McpOpsApprovalPanel({required this.requests});
+
+  final List<McpOpsApprovalRequest> requests;
+
+  @override
+  Widget build(BuildContext context) {
+    return _McpOpsPanel(
+      icon: Icons.verified_user_rounded,
+      title: _localizedText(context, zh: '写调用审批', en: 'Write Approvals'),
+      child: Column(
+        children: [
+          for (final request in requests)
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(request.toolName),
+              subtitle: Text(
+                '${request.clientName} · ${request.ipAddress} · ${formatMonthDayHms(request.requestedAt.toLocal())}',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              trailing: Wrap(
+                spacing: 8,
+                children: [
+                  OutlinedButton(
+                    onPressed: () => context
+                        .read<McpController>()
+                        .resolveOpsApproval(request.id, approved: false),
+                    child: Text(
+                      _localizedText(context, zh: '拒绝', en: 'Reject'),
+                    ),
+                  ),
+                  FilledButton(
+                    onPressed: () => context
+                        .read<McpController>()
+                        .resolveOpsApproval(request.id, approved: true),
+                    child: Text(_localizedText(context, zh: '放行', en: 'Allow')),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _McpOpsStatusChip extends StatelessWidget {
+  const _McpOpsStatusChip({
+    required this.icon,
+    required this.label,
+    required this.color,
+    this.monospace = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+  final bool monospace;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.24)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: color),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w800,
+              fontFamily: monospace ? 'monospace' : null,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+String _surfaceLabel(BuildContext context, McpOpsExposureSurface surface) {
+  return switch (surface) {
+    McpOpsExposureSurface.builtinTools => _localizedText(
+      context,
+      zh: '内建工具',
+      en: 'Builtin Tools',
+    ),
+    McpOpsExposureSurface.memory => _localizedText(
+      context,
+      zh: '记忆',
+      en: 'Memory',
+    ),
+    McpOpsExposureSurface.skills => _localizedText(
+      context,
+      zh: '技能',
+      en: 'Skills',
+    ),
+    McpOpsExposureSurface.instructions => _localizedText(
+      context,
+      zh: '指令',
+      en: 'Instructions',
+    ),
+    McpOpsExposureSurface.knowledgeBase => _localizedText(
+      context,
+      zh: '知识库',
+      en: 'Knowledge Base',
+    ),
+    McpOpsExposureSurface.mcpServers => _localizedText(
+      context,
+      zh: 'MCP服务',
+      en: 'MCP Servers',
+    ),
+  };
+}
+
+IconData _surfaceIcon(McpOpsExposureSurface surface) {
+  return switch (surface) {
+    McpOpsExposureSurface.builtinTools => Icons.build_circle_rounded,
+    McpOpsExposureSurface.memory => Icons.psychology_alt_rounded,
+    McpOpsExposureSurface.skills => Icons.extension_rounded,
+    McpOpsExposureSurface.instructions => Icons.fact_check_rounded,
+    McpOpsExposureSurface.knowledgeBase => Icons.library_books_rounded,
+    McpOpsExposureSurface.mcpServers => Icons.hub_rounded,
+  };
+}
+
+String _networkModeLabel(BuildContext context, McpOpsNetworkMode mode) {
+  return switch (mode) {
+    McpOpsNetworkMode.loopbackOnly => _localizedText(
+      context,
+      zh: '仅本机',
+      en: 'Loopback',
+    ),
+    McpOpsNetworkMode.lan => _localizedText(context, zh: '局域网', en: 'LAN'),
+    McpOpsNetworkMode.custom => _localizedText(
+      context,
+      zh: '自定义',
+      en: 'Custom',
+    ),
+  };
+}
+
+String _invocationModeLabel(BuildContext context, McpOpsInvocationMode mode) {
+  return switch (mode) {
+    McpOpsInvocationMode.direct => _localizedText(
+      context,
+      zh: '直接',
+      en: 'Direct',
+    ),
+    McpOpsInvocationMode.queued => _localizedText(
+      context,
+      zh: '排队',
+      en: 'Queued',
+    ),
+    McpOpsInvocationMode.guarded => _localizedText(
+      context,
+      zh: '受控',
+      en: 'Guarded',
+    ),
+  };
+}
+
+String _writeModeLabel(BuildContext context, McpOpsWriteMode mode) {
+  return switch (mode) {
+    McpOpsWriteMode.approvalRequired => _localizedText(
+      context,
+      zh: '默认审批',
+      en: 'Approval',
+    ),
+    McpOpsWriteMode.fullAccess => _localizedText(
+      context,
+      zh: '完全访问',
+      en: 'Full Access',
+    ),
+    McpOpsWriteMode.readOnly => _localizedText(
+      context,
+      zh: '只读',
+      en: 'Read Only',
+    ),
+  };
+}
+
+String _lifecycleLabel(BuildContext context, McpOpsLifecycleState state) {
+  return switch (state) {
+    McpOpsLifecycleState.stopped => _localizedText(
+      context,
+      zh: '已关闭',
+      en: 'Stopped',
+    ),
+    McpOpsLifecycleState.starting => _localizedText(
+      context,
+      zh: '启动中',
+      en: 'Starting',
+    ),
+    McpOpsLifecycleState.running => _localizedText(
+      context,
+      zh: '运行中',
+      en: 'Running',
+    ),
+    McpOpsLifecycleState.restarting => _localizedText(
+      context,
+      zh: '重启中',
+      en: 'Restarting',
+    ),
+    McpOpsLifecycleState.stopping => _localizedText(
+      context,
+      zh: '关闭中',
+      en: 'Stopping',
+    ),
+    McpOpsLifecycleState.failed => _localizedText(
+      context,
+      zh: '异常',
+      en: 'Failed',
+    ),
+  };
 }
 
 class _McpServerCard extends StatefulWidget {
