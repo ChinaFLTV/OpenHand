@@ -2196,7 +2196,7 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
         openHandLocalizedText(context, zh: 'TTS 测试播放完成', en: 'TTS test played'),
       );
     } catch (error, stack) {
-      if (!_isTtsConfigurationError(error)) {
+      if (!isAiTtsConfigurationError(error)) {
         silentLog(
           'tts-settings',
           'test ${widget.provider.storageKey}',
@@ -3909,20 +3909,6 @@ String _compactSettingsPreview(String value) {
   final normalized = value.replaceAll(RegExp(r'\s+'), ' ').trim();
   const maxLength = 90;
   return clipText(normalized, maxLength);
-}
-
-bool _isTtsConfigurationError(Object error) {
-  if (error is! StateError) return false;
-  final message = error.message;
-  return message.contains('credentials are incomplete') ||
-      message.contains('API key is empty') ||
-      message.contains('subscription key is empty') ||
-      message.contains('region is empty') ||
-      message.contains('speaker is empty') ||
-      message.contains('voice is empty') ||
-      message.contains('voice sample') ||
-      message.contains('API key or secret is empty') ||
-      message.contains('AI TTS model');
 }
 
 bool _providerNeedsEndpoint(AiTtsProvider provider) {

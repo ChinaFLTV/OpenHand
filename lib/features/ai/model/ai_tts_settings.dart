@@ -1,5 +1,23 @@
 import '../../../shared/util/input_value_parsing.dart';
 
+const Set<String> _aiTtsConfigurationErrorMarkers = <String>{
+  'credentials are incomplete',
+  'api key is empty',
+  'subscription key is empty',
+  'region is empty',
+  'speaker is empty',
+  'voice is empty',
+  'voice sample',
+  'api key or secret is empty',
+  'ai tts model',
+};
+
+bool isAiTtsConfigurationError(Object error) {
+  if (error is! StateError) return false;
+  final message = error.message.toLowerCase();
+  return _aiTtsConfigurationErrorMarkers.any(message.contains);
+}
+
 enum AiTtsProvider {
   ai('ai'),
   system('system'),
