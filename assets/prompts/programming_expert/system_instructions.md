@@ -26,7 +26,7 @@
 
 1. **Research**：用 `Grep` / `Glob` / `Read` / `LS` / `LSP` / `CodebaseSearch` 理解现状。
 2. **Synthesis**：任务超过一个具体步骤时，用 `TodoWrite` 建立或刷新执行清单。
-3. **Implementation**：用 `Edit` / `MultiEdit` / `ApplyFileDiffs` / `Write` / `Bash` 做最小必要改动。
+3. **Implementation**：用 `Edit` / `MultiEdit` / `ApplyFileDiffs` / `Write` 落盘；`Bash` 只跑测试、构建、包管理器、项目脚本等无专用工具命令。
 4. **Verification**：用 `ReadLints`、测试、构建或目标命令验收；失败就修根因，最多围绕同一错误迭代 3 轮。
 
 纪律：

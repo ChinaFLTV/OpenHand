@@ -1289,16 +1289,10 @@ bool? _profileInlineImageSupport(AiModelConfig model) {
 List<AiToolDefinition> stableToolDefinitionsForAiRequest(
   List<AiToolDefinition> tools,
 ) {
-  final sorted = tools
-      .map(stableToolDefinitionForAiRequest)
-      .toList(growable: false);
-  if (sorted.length <= 1) {
-    return sorted;
-  }
-  sorted.sort((a, b) {
-    return compareToolNamesForAiRequest(a.name, b.name);
-  });
-  return sorted;
+  // Upstream catalog resolution already produces a deterministic order that
+  // encodes capability priority. Preserve it so native tool-calling models see
+  // specialized file/search tools before broad shell fallbacks.
+  return tools.map(stableToolDefinitionForAiRequest).toList(growable: false);
 }
 
 int compareToolNamesForAiRequest(String left, String right) {

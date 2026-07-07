@@ -595,6 +595,7 @@ class AiPromptBuilder {
           templatePolicy: templatePolicy,
           awaitingPlanApproval: session.awaitingPlanApproval,
           useDsmlToolCalls: useDsmlToolCalls,
+          resolvedToolsByName: resolvedToolsByName,
         ),
       ),
     ];
@@ -1524,6 +1525,8 @@ class AiPromptBuilder {
     required AiPromptTemplatePolicy templatePolicy,
     bool awaitingPlanApproval = false,
     bool useDsmlToolCalls = false,
+    Map<String, AiResolvedTool> resolvedToolsByName =
+        const <String, AiResolvedTool>{},
   }) {
     final skillTools = <AiToolDefinition>[];
     final mcpTools = <AiToolDefinition>[];
@@ -1541,9 +1544,16 @@ class AiPromptBuilder {
         builtinTools.add(tool);
       }
     }
-    skillTools.sort(_compareToolDefinitionsForPromptCatalog);
-    mcpTools.sort(_compareToolDefinitionsForPromptCatalog);
-    builtinTools.sort(_compareToolDefinitionsForPromptCatalog);
+    int compareTools(AiToolDefinition a, AiToolDefinition b) =>
+        _compareToolDefinitionsForPromptCatalog(
+          a,
+          b,
+          resolvedToolsByName: resolvedToolsByName,
+        );
+
+    skillTools.sort(compareTools);
+    mcpTools.sort(compareTools);
+    builtinTools.sort(compareTools);
     final visibleToolCount =
         skillTools.length + mcpTools.length + builtinTools.length;
     if (visibleToolCount == 0) {
@@ -1583,7 +1593,7 @@ class AiPromptBuilder {
           'CDP MCP tools backed by the OpenHand-managed Chrome CDP runtime and local jsonl/HAR artifacts are the first-line path for navigation, DOM, Network, Console, Storage, screenshots, Raw CDP, WebSocket/SSE, and HAR work. Treat chrome-devtools-mcp and current-page `js-reverse_*` wrappers as CDP MCP routes. '
           'Live CDP requires the injected `cdp_runtime` to report `browser_alive=true` plus a current CDP endpoint/port; while live, do not launch a new browser or attach via Bash. '
           'When `browser_alive` is false or no current endpoint/port exists, live CDP MCP actions are unavailable: use local jsonl/HAR artifacts and ask the user to restart the browser before live browser operations. '
-          'Bash / Read / Write / Edit / Grep / Glob / WebFetch support local artifacts, static code search, and reproduce scripts. '
+          'Read / Grep / Glob / LS handle local artifacts and static code search before Bash; Bash is for reproduction scripts and shell-only toolchains. '
           'Bash/WebFetch/WebSearch target-origin capture is blocked; use CDP MCP tools, ToolSearch, or local jsonl/HAR first. '
           'skill__* tools are auxiliary knowledge only. Do not use Playwright, Puppeteer, Selenium/WebDriver, Browserless, or other non-CDP browser automation for target-origin capture; if CDP cannot expose the needed state, explain the gap and use local artifacts or ask the user to restore CDP. '
           'Hook scripts MUST be loaded from `assets/prompts/web_reverse_expert/snippets/`; never hand-craft hook code.',
@@ -1595,12 +1605,13 @@ class AiPromptBuilder {
           'Frida MCP (or frida CLI Bash) is the first-line dynamic instrumentation channel; spawn before attach where possible. '
           'Static analysis (jadx / apktool / radare2 / IDA Pro MCP) precedes dynamic hooking — decompile before hooking unknown code. '
           'Hook scripts MUST be loaded from `assets/prompts/android_reverse_expert/snippets/`; never hand-craft hook code. '
-          'Bash/Read/Write/Edit/Grep support local artifacts and reproduce scripts. '
+          'Read / Grep / Glob / LS handle local artifacts and static searches before Bash; Bash is for ADB/Frida/static-analysis toolchains and reproduction scripts. '
           'Stop and report after 2 consecutive Frida/ADB failures on the same target; never silently downgrade.',
         );
       } else {
         buffer.writeln(
           'Choose tools by task fit, not by trial order. '
+          'For local file read/search/list/edit, use Read/Grep/Glob/LS/Edit family before Bash. '
           'Use a skill only when the user explicitly selected it or the request clearly needs that skill\'s specialized workflow. '
           'When no listed capability is required, stay on the base instructions and ask only for missing requirements that block the response. '
           'Prefer MCP when it is the clearest live data/action surface; use builtin tools for local files, shell, search, and routine implementation.',
@@ -1876,9 +1887,39 @@ class AiPromptBuilder {
 
   int _compareToolDefinitionsForPromptCatalog(
     AiToolDefinition a,
-    AiToolDefinition b,
-  ) {
+    AiToolDefinition b, {
+    Map<String, AiResolvedTool> resolvedToolsByName =
+        const <String, AiResolvedTool>{},
+  }) {
+    final resolvedA = resolvedToolsByName[a.name];
+    final resolvedB = resolvedToolsByName[b.name];
+    final sourceCompare = _toolSourcePromptRank(
+      resolvedA,
+    ).compareTo(_toolSourcePromptRank(resolvedB));
+    if (sourceCompare != 0) return sourceCompare;
+
+    final configA = resolvedA?.builtinConfig;
+    final configB = resolvedB?.builtinConfig;
+    if (configA != null || configB != null) {
+      final sortOrderCompare = (configA?.sortOrder ?? 100000).compareTo(
+        configB?.sortOrder ?? 100000,
+      );
+      if (sortOrderCompare != 0) return sortOrderCompare;
+      final priorityCompare = (configA?.priority ?? 100).compareTo(
+        configB?.priority ?? 100,
+      );
+      if (priorityCompare != 0) return priorityCompare;
+    }
     return _comparePromptCatalogNames(a.name, b.name);
+  }
+
+  int _toolSourcePromptRank(AiResolvedTool? tool) {
+    return switch (tool?.source) {
+      AiRuntimeToolSource.skill => 0,
+      AiRuntimeToolSource.mcp => 1,
+      AiRuntimeToolSource.builtin => 2,
+      null => 3,
+    };
   }
 
   int _comparePromptCatalogNames(String a, String b) {
@@ -2433,9 +2474,9 @@ class AiPromptBuilder {
         'screenshots_dir': p.join(rootDir, 'screenshots'),
       },
       'local_read_hints': <String>[
-        'tail -200 ${p.join(rootDir, 'network.jsonl')}',
-        'tail -200 ${p.join(rootDir, 'console.jsonl')}',
-        'grep __OH_ ${p.join(rootDir, 'console.jsonl')}',
+        'Read ${p.join(rootDir, 'network.jsonl')} with offset/limit when recent network events are needed',
+        'Read ${p.join(rootDir, 'console.jsonl')} with offset/limit when recent console events are needed',
+        'Grep pattern __OH_ in ${p.join(rootDir, 'console.jsonl')}',
       ],
       'dashboard_visible_metadata_keys': presentKeys,
     };
@@ -2606,41 +2647,41 @@ class AiPromptBuilder {
         'logs_dir': p.join(rootDir, 'logs'),
       },
       'local_read_hints': <String>[
-        'tail -200 ${p.join(rootDir, 'logcat.jsonl')}',
-        'find ${p.join(rootDir, 'logcat')} -maxdepth 2 -type f | head -200',
-        'tail -200 ${p.join(rootDir, 'network.jsonl')}',
-        'find ${p.join(rootDir, 'devices')} -maxdepth 3 -type f | head -200',
-        'find ${p.join(rootDir, 'packages')} -maxdepth 3 -type f | head -200',
-        'find ${p.join(rootDir, 'network')} -maxdepth 2 -type f | head -200',
-        'cat ${p.join(rootDir, 'network', 'README.md')}',
+        'Read ${p.join(rootDir, 'logcat.jsonl')} with offset/limit when recent logcat is needed',
+        'Glob ${p.join(rootDir, 'logcat')} with pattern **/*',
+        'Read ${p.join(rootDir, 'network.jsonl')} with offset/limit when recent network events are needed',
+        'Glob ${p.join(rootDir, 'devices')} with pattern **/*',
+        'Glob ${p.join(rootDir, 'packages')} with pattern **/*',
+        'Glob ${p.join(rootDir, 'network')} with pattern **/*',
+        'Read ${p.join(rootDir, 'network', 'README.md')}',
         '${p.join(rootDir, 'network', 'proxy_probe.sh')} --timeout 6',
-        'find ${p.join(rootDir, 'apks')} -maxdepth 3 -type f',
-        'find ${p.join(rootDir, 'screenshots')} -maxdepth 2 -type f',
-        'find ${p.join(rootDir, 'recordings')} -maxdepth 2 -type f',
-        'find ${p.join(rootDir, 'frida')} -maxdepth 2 -type f',
-        'find ${p.join(rootDir, 'frida', 'scripts')} -maxdepth 1 -type f | head -200',
-        'find ${p.join(rootDir, 'frida', 'output')} -maxdepth 1 -type f | head -200',
-        'cat ${p.join(rootDir, 'frida', 'README.md')}',
+        'Glob ${p.join(rootDir, 'apks')} with pattern **/*',
+        'Glob ${p.join(rootDir, 'screenshots')} with pattern **/*',
+        'Glob ${p.join(rootDir, 'recordings')} with pattern **/*',
+        'Glob ${p.join(rootDir, 'frida')} with pattern **/*',
+        'Glob ${p.join(rootDir, 'frida', 'scripts')} with pattern *',
+        'Glob ${p.join(rootDir, 'frida', 'output')} with pattern *',
+        'Read ${p.join(rootDir, 'frida', 'README.md')}',
         '${p.join(rootDir, 'frida', 'frida_doctor.sh')} --timeout 6',
         '${p.join(rootDir, 'frida', 'run_frida_capture.sh')} --help',
-        'find ${p.join(rootDir, 'decompiled')} -maxdepth 3 -type f | head -200',
-        'find ${p.join(rootDir, 'decompiled')} -path "*/quick_scan/SUMMARY.md" -type f -exec cat {} \\;',
-        'find ${p.join(rootDir, 'decompiled')} -path "*/quick_scan/*" -type f | head -200',
-        'find ${p.join(rootDir, 'mcp')} -maxdepth 2 -type f | head -200',
-        'cat ${p.join(rootDir, 'mcp', 'SETUP.md')}',
-        'cat ${p.join(rootDir, 'mcp', 'README.md')}',
-        'cat ${p.join(rootDir, 'mcp', 'openhand_android_reverse_mcp_templates.json')}',
-        'cat ${p.join(rootDir, 'toolchain', 'README.md')}',
-        'cat ${p.join(rootDir, 'toolchain', 'setup_commands.json')}',
-        'cat ${p.join(rootDir, 'scripts', 'README.md')}',
-        'sed -n "1,220p" ${p.join(rootDir, 'scripts', 'reproduce_http.py')}',
-        'sed -n "1,220p" ${p.join(rootDir, 'scripts', 'reproduce_curl.sh')}',
+        'Glob ${p.join(rootDir, 'decompiled')} with pattern **/*',
+        'Glob ${p.join(rootDir, 'decompiled')} with pattern **/quick_scan/SUMMARY.md, then Read matches',
+        'Glob ${p.join(rootDir, 'decompiled')} with pattern **/quick_scan/*',
+        'Glob ${p.join(rootDir, 'mcp')} with pattern **/*',
+        'Read ${p.join(rootDir, 'mcp', 'SETUP.md')}',
+        'Read ${p.join(rootDir, 'mcp', 'README.md')}',
+        'Read ${p.join(rootDir, 'mcp', 'openhand_android_reverse_mcp_templates.json')}',
+        'Read ${p.join(rootDir, 'toolchain', 'README.md')}',
+        'Read ${p.join(rootDir, 'toolchain', 'setup_commands.json')}',
+        'Read ${p.join(rootDir, 'scripts', 'README.md')}',
+        'Read ${p.join(rootDir, 'scripts', 'reproduce_http.py')} with limit 220',
+        'Read ${p.join(rootDir, 'scripts', 'reproduce_curl.sh')} with limit 220',
         p.join(rootDir, 'scripts', 'make_evidence_bundle.sh'),
-        'find ${p.join(rootDir, 'scripts')} -maxdepth 1 -name "evidence_bundle_*.md" -type f | sort | tail -5',
+        'Glob ${p.join(rootDir, 'scripts')} with pattern evidence_bundle_*.md',
         '${p.join(rootDir, 'scripts', 'adb_one_shot.sh')} --timeout 6 devices',
         '${p.join(rootDir, 'scripts', 'android_dynamic_probe.sh')} --timeout 6',
-        'find ${p.join(rootDir, 'certs')} -maxdepth 3 -type f | head -200',
-        'cat ${p.join(rootDir, 'certs', 'README.md')}',
+        'Glob ${p.join(rootDir, 'certs')} with pattern **/*',
+        'Read ${p.join(rootDir, 'certs', 'README.md')}',
         'bash ${p.join(rootDir, 'certs', 'verify_apk_signature.sh')} <apk>',
       ],
       'dashboard_actions': const <String>[

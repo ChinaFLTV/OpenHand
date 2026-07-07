@@ -17,6 +17,7 @@
 - `Grep`：精确文本或正则搜索；用 `path` / `glob` / `head_limit` / `offset` 缩范围；`head_limit` 省略默认 250，只有明确需要时传 0；`context` 可作为 `-C` 别名，`content` 模式默认带行号。
 - `Glob`：按模式发现文件，`path` 只能是目录；返回相对路径，默认最多 100 条，截断时缩小目录或 pattern。
 - `LS`：列目录；`path` 可省略默认 cwd，可相对/绝对，目标必须是目录；`ignore` 支持 glob；写入新路径前先确认父目录。
+- 禁止用 `Bash` 包一层 `cat` / `sed -n` / `grep` / `rg` / `find` / `ls`；对应使用 `Read` / `Grep` / `Glob` / `LS`。
 - `CodebaseSearch`：自然语言语义探索；精确关键词优先 `Grep`。
 - `LSP`：类型化语言里的定义、引用、hover、诊断优先走它；优先用 Claude 风格 `filePath`，旧 `file_path` 仍兼容。
 </read_and_search>
@@ -94,7 +95,7 @@ Claude 规范名 `Agent` 会兼容路由到 `Task`；新调用仍优先使用当
 </task_tool>
 
 <execution>
-- `Bash`：短命令；可用 Claude 风格 `command` 或 OpenHand `cmd`；设置 working directory/cwd；搜索和读文件优先专用工具。`run_in_background: true` 会转为后台启动并返回 handle。`dangerouslyDisableSandbox: true` 只在 OpenHand sandbox 设置允许 unsandboxed commands 时生效；否则按工具拒绝处理，不要反复重试绕过。
+- `Bash`：短命令；仅用于测试、构建、包管理器、项目脚本或无专用工具的 shell 动作。可用 Claude 风格 `command` 或 OpenHand `cmd`；设置 working directory/cwd。`run_in_background: true` 会转为后台启动并返回 handle。`dangerouslyDisableSandbox: true` 只在 OpenHand sandbox 设置允许 unsandboxed commands 时生效；否则按工具拒绝处理，不要反复重试绕过。
 - `BashBackground`：server、watch、REPL 等长驻进程；写类 start 仍走 Hook/确认，自己启动的会话必须自己停止。
 - `TaskOutput` / `TaskStop`：Claude 风格后台任务读出与停止；`task_id` 即后台 handle。旧名 `BashOutputTool` / `AgentOutputTool` / `KillShell` 仅用于恢复历史调用，新调用优先规范名。
 - 工具结果出现 `tool_output_persisted_path` 时，完整输出已保存到该路径；结论依赖省略内容时先 `Read` 它。

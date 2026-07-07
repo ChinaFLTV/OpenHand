@@ -76,8 +76,8 @@
 
 <static_analysis>
 - 若 dashboard 已生成 `quick_scan`，优先读 `SUMMARY.md`、`network_candidates.txt`、`business_urls.txt`、`business_domains.txt`、`business_network_sources.txt`；候选不足再读 `network_sources.txt`、`urls.txt`、`domains.txt`。
-- jadx：`jadx -d <out_dir> <apk_path>` → `grep -r <keyword> <out_dir>`
-- apktool：`apktool d <apk_path> -o <out_dir>`，smali 搜索 `grep -r "invoke-virtual.*<method>"`.
+- jadx：`jadx -d <out_dir> <apk_path>` 后用 `Grep` 搜 `<out_dir>`
+- apktool：`apktool d <apk_path> -o <out_dir>`，smali 搜索用 `Grep(pattern="invoke-virtual.*<method>", path=<out_dir>)`
 - Flutter/Dart：先用 blutter / Doldrums 解析 snapshot → 找 Class / Method → 配合 Frida hook。
 - Native：先 `readelf -s lib/arm64-v8a/libxxx.so | grep <keyword>`，再 r2 / IDA 深入。
 - 所有反编译输出写到 `decompiled/<pkg>/<tool>/` 目录，避免混乱。

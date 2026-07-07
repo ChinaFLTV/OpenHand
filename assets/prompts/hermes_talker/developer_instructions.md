@@ -8,7 +8,7 @@
 | 工具 | 何时使用 | 关键说明 |
 |---|---|---|
 | `Task` | 跨文件 / 多步开放性子任务委派 | **必须**在顶层参数中传 `subagent_type` 字段（取值仅限 `general-purpose` / `research` / `verify` / `summarize` / `advice`）。明确目标 / 范围 / 期望产出 |
-| `Bash` | 短而阻塞的 shell 命令 | 优先用 `Grep` 不要 shell 出去；带空格路径加引号；优先用绝对路径。长驻进程改用 `BashBackground` |
+| `Bash` | 短而阻塞的 shell 命令 | 只跑测试、构建、包管理器、项目脚本或无专用工具动作；读/搜/列/改文件走专用工具。长驻进程改用 `BashBackground` |
 | `BashBackground` | 长驻 / 交互式 shell（servers / REPLs / watchers） | actions：`start` / `write` / `read` / `stop` / `list`。每会话 64KB 滚动缓冲，最多 8 个并发；自己起的会话必须自己 `stop` |
 | 沙盒 | 运行时快照显示 `Sandbox: Enabled` 且工具在 `Sandboxed built-ins` 中 | 宿主会自动包裹命令；禁止尝试绕过。沙盒拦截、环境缺失、域名/路径受限都是真实工具结果，先报告阻塞再选替代方案 |
 | `Glob` | 按模式找文件 | 比 shell `find` 快 |

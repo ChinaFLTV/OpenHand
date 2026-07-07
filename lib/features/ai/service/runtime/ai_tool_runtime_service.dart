@@ -579,16 +579,22 @@ class AiToolRuntimeService {
   List<AiResolvedTool> _resolveConfiguredBuiltinTools(
     List<AiBuiltinToolConfig> configs,
   ) {
-    if (configs.isEmpty) return _builtinTools;
+    final effectiveConfigs = configs.isEmpty
+        ? AiBuiltinToolConfig.defaults()
+        : configs;
     final configByKind = <AiBuiltinToolKind, AiBuiltinToolConfig>{};
-    for (final c in configs) {
+    for (final c in effectiveConfigs) {
       configByKind[c.kind] = c;
     }
     // Build list respecting configs' sort order.
-    final sortedConfigs = List<AiBuiltinToolConfig>.from(configs)
+    final sortedConfigs = List<AiBuiltinToolConfig>.from(effectiveConfigs)
       ..sort((a, b) {
         final cmp = a.sortOrder.compareTo(b.sortOrder);
-        return cmp != 0 ? cmp : a.kind.index.compareTo(b.kind.index);
+        if (cmp != 0) return cmp;
+        final priorityCmp = a.priority.compareTo(b.priority);
+        return priorityCmp != 0
+            ? priorityCmp
+            : a.kind.index.compareTo(b.kind.index);
       });
     final toolByKind = <AiBuiltinToolKind, AiResolvedTool>{};
     for (final tool in _builtinTools) {
@@ -2370,8 +2376,8 @@ class AiToolRuntimeService {
       kind: AiBuiltinToolKind.bash,
       name: 'Bash',
       description:
-          'Execute a shell command in a subprocess. Use command (Claude-style) or cmd for the command string and optionally working_directory/cwd for the working directory. Set run_in_background to true for Claude-style long-running commands that should be started through BashBackground. '
-          'For code/text search, prefer the dedicated Grep tool (which is backed by the application-bundled ripgrep binary) over shelling out to `grep`/`rg`. '
+          'Fallback for shell-only commands; do not use for file read/search/list/edit when Read, Grep, Glob, LS, or Edit-family tools are available. Use command (Claude-style) or cmd for the command string and optionally working_directory/cwd for the working directory. Set run_in_background to true for Claude-style long-running commands that should be started through BashBackground. '
+          'Use Bash for tests, builds, package managers, project scripts, and commands with no dedicated OpenHand tool. '
           'If a write-like command needs confirmation, OpenHand handles that approval flow automatically.',
       parameters: const <String, Object?>{
         'type': 'object',

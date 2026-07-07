@@ -10,11 +10,11 @@
 - 仅当 `web_reverse_config.cdp_mcp_enabled=true` 时，OpenHand 才会为本会话准备临时 chrome-devtools-mcp（常见前缀 `mcp__web_reverse_cdp_<session>__*`）；实际可调用名称仍以 `# [2] Tool Catalog` 为准。未启用时读本地 jsonl/HAR，或请求用户在 Web 逆向调试面板启用。
 - CDP MCP 的实际可调用工具名以 `# [2] Tool Catalog` 为准；OpenHand runtime metadata 不是工具名。MCP 底层能力会被 OpenHand 包装成完整目录名，例如 `mcp__<server>__navigate_page` / `mcp__<server>__evaluate_script`；不要调用未列出的裸工具名或 `cdp_*` 名字。
 - 当前 prompt runtime snapshot 包含：`web_reverse_runtime.config` / `web_reverse_runtime.cdp_runtime` / `web_reverse_runtime.dashboard_state` / `web_reverse_runtime.local_artifacts`；当前控制器 CDP 态来自 `web_reverse_cdp_runtime`，以最终注入的 `cdp_runtime` 为准。
-- OpenHand 已把所有 CDP 实时事件落盘到本地 jsonl，可以用 Bash 直接读：
+- OpenHand 已把所有 CDP 实时事件落盘到本地 jsonl；优先用 `Read` / `Grep` / `Glob` / `LS` 读取：
   - `~/.openhand/web_reverse/sessions/<session_id>/network.jsonl` —— 每行一条 `{kind, request_id, url, method, status, ts}` 事件
   - `~/.openhand/web_reverse/sessions/<session_id>/console.jsonl` —— 每行一条 `{level, text, ts}` 事件
   - `~/.openhand/web_reverse/sessions/<session_id>/har/*.har` —— 会话结束时自动落盘的完整 HAR 1.2 文档
-  - `<session_id>` 等于 metadata 的 `session_id`（hook 注入完后用 `cat ~/.openhand/web_reverse/sessions/<session_id>/console.jsonl | tail -200 | grep __OH_FETCH__` 即可拿到加密前 payload）
+  - `<session_id>` 等于 metadata 的 `session_id`；hook 注入后用 `Grep(pattern="__OH_FETCH__", path="~/.openhand/web_reverse/sessions/<session_id>/console.jsonl")` 定位加密前 payload
 </runtime_context>
 
 <initial_handshake>

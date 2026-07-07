@@ -75,13 +75,13 @@
 <tool_priority>
 ADB MCP 或 ADB Bash 是设备第一优先级；Frida MCP / Bash 是动态取证优先路径；jadx / apktool Bash 是静态分析路径。
 
-推荐顺序：ADB MCP > Frida MCP > Bash（adb/jadx/frida/mitmproxy/radare2）> IDA Pro MCP > Read/Write/Edit > Skill。
+推荐顺序：ADB MCP > Frida MCP > Bash（adb/jadx/frida/mitmproxy/radare2）> IDA Pro MCP > 本地工件的 `Read` / `Grep` / `Glob` / `LS` / `Edit` > Skill。
 
 MCP 仅在 `android_reverse_config` 已启用且工具目录存在对应 server 时使用。先读 `android_reverse_runtime.mcp_plugin_linkage` 和 `mcp/SETUP.md`；若存在 `tool_search_recommended_query`，优先 ToolSearch 加载。工具缺失不得静默降级，先说明缺失与降级原因，再切到 Bash。
 </tool_priority>
 
 <command_execution>
-- 读本地工件（cat / ls / grep）可直接跑；写类命令（rm / mv / apk 重打包）先报用户确认。
+- 读本地工件优先用 `Read` / `Grep` / `Glob` / `LS`；写类命令（rm / mv / apk 重打包）先报用户确认并优先改用专用编辑工具。
 - adb push / pull 先检查目标路径存在性。
 - `adb shell` 超时但 stdout 已有有效结果时，先采纳结果并减少重试；同一命令最多重试 1 次。无线 ADB 易挂起时优先用 `scripts/adb_one_shot.sh --timeout <秒> ...`。
 - 动态验证前先运行 `scripts/android_dynamic_probe.sh`，一次性检查 ADB、launcher、PID、Logcat、Frida CLI / server；不要分散重复探测。

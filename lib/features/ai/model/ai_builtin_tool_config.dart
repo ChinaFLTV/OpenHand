@@ -708,7 +708,7 @@ class AiBuiltinToolConfig {
       promptOverride: optionalStringFromValue(json['prompt_override']),
       schemaOverride: schemaOverride,
       priority: intFromValue(json['priority'], fallback: 100),
-      sortOrder: intFromValue(json['sort_order'], fallback: 0),
+      sortOrder: intFromValue(json['sort_order'], fallback: kind.index),
       loadStrategy: loadStrategy,
       forceLoad: boolFromValue(
         json['force_load'],
@@ -735,6 +735,103 @@ class AiBuiltinToolConfig {
   /// 返回内建工具在默认配置中是否强制直接加载。
   static bool defaultForceLoadForKind(AiBuiltinToolKind kind) {
     return defaultLoadStrategyForKind(kind) == AiBuiltinToolLoadStrategy.eager;
+  }
+
+  /// 返回内建工具在默认配置中的视觉/Prompt 优先级。数值越小越优先。
+  static int defaultPriorityForKind(AiBuiltinToolKind kind) {
+    if (kind.isAgentCoreCoordinationTool) return 80;
+    if (kind.isAgentCoordinationTool) return 110;
+    return switch (kind) {
+      AiBuiltinToolKind.machineTerminalRead ||
+      AiBuiltinToolKind.machineTerminalWrite ||
+      AiBuiltinToolKind.machineTerminalExec ||
+      AiBuiltinToolKind.machineTerminalControl => 10,
+      AiBuiltinToolKind.task ||
+      AiBuiltinToolKind.todoWrite ||
+      AiBuiltinToolKind.toolSearch ||
+      AiBuiltinToolKind.exitPlanMode => 20,
+      AiBuiltinToolKind.glob ||
+      AiBuiltinToolKind.grep ||
+      AiBuiltinToolKind.ls ||
+      AiBuiltinToolKind.read ||
+      AiBuiltinToolKind.lsp ||
+      AiBuiltinToolKind.codebaseSearch ||
+      AiBuiltinToolKind.git ||
+      AiBuiltinToolKind.readLints => 30,
+      AiBuiltinToolKind.edit ||
+      AiBuiltinToolKind.multiEdit ||
+      AiBuiltinToolKind.applyFileDiffs ||
+      AiBuiltinToolKind.write ||
+      AiBuiltinToolKind.notebookEdit ||
+      AiBuiltinToolKind.deleteFile => 40,
+      AiBuiltinToolKind.webSearch || AiBuiltinToolKind.webFetch => 60,
+      AiBuiltinToolKind.knowledgeSearch ||
+      AiBuiltinToolKind.knowledgeRead => 65,
+      AiBuiltinToolKind.skillManager || AiBuiltinToolKind.memory => 70,
+      AiBuiltinToolKind.taskOutput || AiBuiltinToolKind.taskStop => 85,
+      AiBuiltinToolKind.bash => 90,
+      AiBuiltinToolKind.bashBackground => 95,
+      _ => 100,
+    };
+  }
+
+  /// 返回内建工具在默认配置中的展示顺序。
+  static int defaultSortOrderForKind(AiBuiltinToolKind kind) {
+    return switch (kind) {
+      AiBuiltinToolKind.machineTerminalRead => 0,
+      AiBuiltinToolKind.machineTerminalWrite => 1,
+      AiBuiltinToolKind.machineTerminalExec => 2,
+      AiBuiltinToolKind.machineTerminalControl => 3,
+      AiBuiltinToolKind.task => 10,
+      AiBuiltinToolKind.todoWrite => 11,
+      AiBuiltinToolKind.toolSearch => 12,
+      AiBuiltinToolKind.glob => 20,
+      AiBuiltinToolKind.grep => 21,
+      AiBuiltinToolKind.ls => 22,
+      AiBuiltinToolKind.read => 23,
+      AiBuiltinToolKind.lsp => 24,
+      AiBuiltinToolKind.codebaseSearch => 25,
+      AiBuiltinToolKind.readLints => 26,
+      AiBuiltinToolKind.git => 27,
+      AiBuiltinToolKind.edit => 40,
+      AiBuiltinToolKind.multiEdit => 41,
+      AiBuiltinToolKind.applyFileDiffs => 42,
+      AiBuiltinToolKind.write => 43,
+      AiBuiltinToolKind.notebookEdit => 44,
+      AiBuiltinToolKind.deleteFile => 45,
+      AiBuiltinToolKind.exitPlanMode => 50,
+      AiBuiltinToolKind.askUserChoice => 51,
+      AiBuiltinToolKind.webSearch => 60,
+      AiBuiltinToolKind.webFetch => 61,
+      AiBuiltinToolKind.knowledgeSearch => 70,
+      AiBuiltinToolKind.knowledgeRead => 71,
+      AiBuiltinToolKind.skillManager => 72,
+      AiBuiltinToolKind.memory => 73,
+      AiBuiltinToolKind.taskOutput => 80,
+      AiBuiltinToolKind.taskStop => 81,
+      AiBuiltinToolKind.bash => 90,
+      AiBuiltinToolKind.bashBackground => 91,
+      AiBuiltinToolKind.agentList => 200,
+      AiBuiltinToolKind.agentDetail => 201,
+      AiBuiltinToolKind.agentActivityLog => 202,
+      AiBuiltinToolKind.agentAuditReport => 203,
+      AiBuiltinToolKind.agentAuditRecord => 204,
+      AiBuiltinToolKind.agentApprovalRequest => 205,
+      AiBuiltinToolKind.agentKpiUpsert => 206,
+      AiBuiltinToolKind.agentResourceUpdate => 207,
+      AiBuiltinToolKind.agentClusterConfigure => 208,
+      AiBuiltinToolKind.agentClusterStatus => 209,
+      AiBuiltinToolKind.agentTaskList => 210,
+      AiBuiltinToolKind.agentTaskPublish => 211,
+      AiBuiltinToolKind.agentTaskTrack => 212,
+      AiBuiltinToolKind.agentTaskProgress => 213,
+      AiBuiltinToolKind.agentTaskCancel => 214,
+      AiBuiltinToolKind.agentTaskPause => 215,
+      AiBuiltinToolKind.agentTaskTerminate => 216,
+      AiBuiltinToolKind.agentTaskResume => 217,
+      AiBuiltinToolKind.agentTaskComplete => 218,
+      AiBuiltinToolKind.agentTaskResult => 219,
+    };
   }
 
   /// 返回内建工具在默认配置中的加载策略。
@@ -803,6 +900,24 @@ class AiBuiltinToolConfig {
     return true;
   }
 
+  static bool looksLikeLegacyBuiltinOrderingDefaults(
+    List<AiBuiltinToolConfig> configs,
+  ) {
+    if (configs.length != AiBuiltinToolKind.values.length) return false;
+    final byKind = <AiBuiltinToolKind, AiBuiltinToolConfig>{};
+    for (final config in configs) {
+      if (byKind.containsKey(config.kind)) return false;
+      byKind[config.kind] = config;
+    }
+    for (final kind in AiBuiltinToolKind.values) {
+      final config = byKind[kind];
+      if (config == null || !_looksLikeLegacyBuiltinOrderingDefault(config)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   static bool _looksLikeLegacyEagerDefault(AiBuiltinToolConfig config) {
     if (!config.enabled ||
         config.displayName != null ||
@@ -825,6 +940,38 @@ class AiBuiltinToolConfig {
         config.customParameters != null) {
       return false;
     }
+    return _defaultProviderSettingsEquivalent(config);
+  }
+
+  static bool _looksLikeLegacyBuiltinOrderingDefault(
+    AiBuiltinToolConfig config,
+  ) {
+    if (!config.enabled ||
+        config.displayName != null ||
+        config.summary != null ||
+        config.promptOverride != null ||
+        config.schemaOverride != null ||
+        config.priority != 100 ||
+        config.sortOrder != config.kind.index ||
+        config.loadStrategy != defaultLoadStrategyForKind(config.kind) ||
+        config.forceLoad != defaultForceLoadForKind(config.kind) ||
+        config.tags.isNotEmpty ||
+        config.maxOutputChars != null ||
+        config.timeoutSeconds != null ||
+        config.requireConfirmation != null ||
+        config.retryOnFailure ||
+        config.maxRetries != 0 ||
+        config.retryBackoffMs != defaultRetryBackoffMs ||
+        config.isCustom ||
+        config.customToolName != null ||
+        config.customDescription != null ||
+        config.customParameters != null) {
+      return false;
+    }
+    return _defaultProviderSettingsEquivalent(config);
+  }
+
+  static bool _defaultProviderSettingsEquivalent(AiBuiltinToolConfig config) {
     final expectedWebSearch = config.kind == AiBuiltinToolKind.webSearch
         ? AiWebSearchSettings.defaults()
         : null;
@@ -848,11 +995,12 @@ class AiBuiltinToolConfig {
 
   /// 为所有内建工具类型生成默认配置列表。
   static List<AiBuiltinToolConfig> defaults() {
-    return AiBuiltinToolKind.values
+    final configs = AiBuiltinToolKind.values
         .map(
           (kind) => AiBuiltinToolConfig(
             kind: kind,
-            sortOrder: kind.index,
+            priority: defaultPriorityForKind(kind),
+            sortOrder: defaultSortOrderForKind(kind),
             loadStrategy: defaultLoadStrategyForKind(kind),
             forceLoad: defaultForceLoadForKind(kind),
             webSearchSettings: kind == AiBuiltinToolKind.webSearch
@@ -864,5 +1012,13 @@ class AiBuiltinToolConfig {
           ),
         )
         .toList();
+    configs.sort((a, b) {
+      final sortOrderCompare = a.sortOrder.compareTo(b.sortOrder);
+      if (sortOrderCompare != 0) return sortOrderCompare;
+      final priorityCompare = a.priority.compareTo(b.priority);
+      if (priorityCompare != 0) return priorityCompare;
+      return a.kind.index.compareTo(b.kind.index);
+    });
+    return configs;
   }
 }

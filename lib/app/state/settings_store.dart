@@ -915,7 +915,10 @@ class SettingsStore {
         }
       }
       if (parsed.isNotEmpty) {
-        if (AiBuiltinToolConfig.looksLikeLegacyEagerDefaults(parsed)) {
+        if (AiBuiltinToolConfig.looksLikeLegacyEagerDefaults(parsed) ||
+            AiBuiltinToolConfig.looksLikeLegacyBuiltinOrderingDefaults(
+              parsed,
+            )) {
           builtinToolConfigs = AiBuiltinToolConfig.defaults();
         } else {
           // Merge: keep parsed entries, add missing defaults for new tool kinds.

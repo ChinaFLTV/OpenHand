@@ -19,6 +19,7 @@ import '../ai_tool_execution_context.dart';
 import '../ai_tool_utils.dart';
 import '../android_reverse_adb_command_guard.dart';
 import '../web_reverse_cdp_first_guard.dart';
+import 'ai_bash_specialized_tool_policy.dart';
 import 'ai_bash_write_confirmation_gate.dart';
 
 const Utf8Decoder _backgroundOutputDecoder = Utf8Decoder(allowMalformed: true);
@@ -168,6 +169,16 @@ class AiBashBackgroundTool extends AiTool {
     final cwd = AiToolUtils.resolvePath(
       '${args['working_directory'] ?? args['cwd'] ?? ''}',
     );
+    final specializedToolDecision = AiBashSpecializedToolPolicy.evaluate(
+      command: cmd,
+      catalog: context.catalog,
+    );
+    if (specializedToolDecision != null) {
+      return specializedToolDecision.toResult(
+        command: cmd,
+        workingDirectory: cwd,
+      );
+    }
     final cdpFirstDecision = WebReverseCdpFirstGuard.evaluateCommand(
       command: cmd,
       metadata: context.metadata,

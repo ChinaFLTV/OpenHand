@@ -6,6 +6,7 @@ import '../ai_tool_execution_context.dart';
 import '../ai_tool_utils.dart';
 import '../android_reverse_adb_command_guard.dart';
 import '../web_reverse_cdp_first_guard.dart';
+import 'ai_bash_specialized_tool_policy.dart';
 import 'ai_bash_write_confirmation_gate.dart';
 
 class AiBashTool extends AiTool {
@@ -63,6 +64,16 @@ class AiBashTool extends AiTool {
       return AiToolUtils.invalidResult(
         'Bash',
         'Bash timeout must be between 1 and 600000 milliseconds.',
+      );
+    }
+    final specializedToolDecision = AiBashSpecializedToolPolicy.evaluate(
+      command: command,
+      catalog: context.catalog,
+    );
+    if (specializedToolDecision != null) {
+      return specializedToolDecision.toResult(
+        command: command,
+        workingDirectory: workingDirectory,
       );
     }
     final cdpFirstDecision = WebReverseCdpFirstGuard.evaluateCommand(
