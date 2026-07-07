@@ -12,6 +12,7 @@ import '../../../shared/net/http_status_utils.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../model/mcp_http_headers.dart';
 import '../model/mcp_server_ops.dart';
+import 'mcp_ops_endpoint.dart';
 
 typedef McpOpsToolListProvider = List<McpOpsToolDefinition> Function();
 typedef McpOpsToolInvoker =
@@ -200,7 +201,7 @@ class McpServerOpsRuntime {
       _applyConnectivityResult(result);
       return result;
     }
-    final host = _connectivityHost(_snapshot.boundHost ?? _config.listenHost);
+    final host = mcpOpsClientHost(_snapshot.boundHost ?? _config.listenHost);
     // Exercise the real Streamable HTTP endpoint with an `initialize` handshake
     // so the test mirrors what external clients (Cursor, etc.) actually do,
     // rather than only probing /health.
@@ -1160,14 +1161,6 @@ class McpServerOpsRuntime {
 
   String _auditId(DateTime time) {
     return '${time.microsecondsSinceEpoch}-${math.Random().nextInt(1 << 20)}';
-  }
-
-  String _connectivityHost(String host) {
-    final normalized = host.trim();
-    if (normalized.isEmpty || normalized == '0.0.0.0' || normalized == '::') {
-      return '127.0.0.1';
-    }
-    return normalized;
   }
 
   int _averageLatency() {

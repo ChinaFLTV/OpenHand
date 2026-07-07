@@ -21,6 +21,7 @@ import 'model/mcp_server_health.dart';
 import 'model/mcp_server_ops.dart';
 import 'model/mcp_tool.dart';
 import 'service/mcp_keyword_index.dart';
+import 'service/mcp_ops_endpoint.dart';
 import 'service/mcp_server_ops_runtime.dart';
 import 'service/mcp_stdio_process_manager.dart';
 import 'service/mcp_tool_discovery_service.dart';
@@ -712,6 +713,11 @@ class McpController extends ChangeNotifier {
       if (!server.enabled || !_opsConfig.itemVisible(surface, server.name)) {
         continue;
       }
+      // 兜底：即便某个 server 因后期改端口/host 变成指向本机运维入口，也绝不
+      // 把它反向桥接出去，避免引用循环与工具无限膨胀。
+      if (isSelfReferencingServer(server)) {
+        continue;
+      }
       final catalog = toolCatalogFor(server.name);
       for (final tool in catalog.tools) {
         final endpointId = tool.id;
@@ -943,9 +949,24 @@ class McpController extends ChangeNotifier {
     };
   }
 
+  /// 待保存的 server 是否指向 OpenHand 自身的 MCP 运维入口。命中即为自引用，
+  /// 保存会被拒绝——把内置运维入口添加回 MCP 列表会造成引用循环与工具无限膨胀。
+  bool isSelfReferencingServer(McpServer server) {
+    return mcpOpsServerTargetsSelfEndpoint(
+      server: server,
+      snapshot: _opsSnapshot,
+      config: _opsConfig,
+    );
+  }
+
   Future<bool> saveServer(McpServer server, {String? previousName}) async {
     final normalizedName = server.name.trim();
     if (normalizedName.isEmpty) {
+      return false;
+    }
+    // 拒绝把 OpenHand 自身的 MCP 运维入口添加回来，杜绝引用循环 / 工具膨胀。
+    // 覆盖 UI 弹窗与模板/插件等编程调用方所有入口。
+    if (isSelfReferencingServer(server)) {
       return false;
     }
     return _enqueueOperation(() async {

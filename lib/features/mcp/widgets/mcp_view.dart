@@ -45,6 +45,7 @@ import '../model/mcp_server.dart';
 import '../model/mcp_server_health.dart';
 import '../model/mcp_server_ops.dart';
 import '../model/mcp_tool.dart';
+import '../service/mcp_ops_endpoint.dart';
 import '../service/mcp_stdio_process_manager.dart';
 import '../service/mcp_tool_discovery_service.dart';
 import 'mcp_dialog_utils.dart';
@@ -1367,6 +1368,20 @@ class _McpServerEditorDialogState extends State<_McpServerEditorDialog> {
                               if (!isValidHttpUrl(rawValue)) {
                                 return l10n.mcpUrlInvalid;
                               }
+                              if (context.read<McpController>().isSelfReferencingServer(
+                                McpServer(
+                                  name: _nameController.text.trim(),
+                                  type: _type,
+                                  enabled: _enabled,
+                                  url: rawValue,
+                                ),
+                              )) {
+                                return _localizedText(
+                                  context,
+                                  zh: '该地址指向 OpenHand 自身的 MCP 运维入口，无法添加，否则会造成引用循环与工具无限膨胀。',
+                                  en: 'This URL points to OpenHand\'s own MCP operations endpoint and cannot be added; it would create a reference cycle and unbounded tool growth.',
+                                );
+                              }
                               return null;
                             },
                           ),
@@ -1908,8 +1923,8 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
     final controller = context.watch<McpController>();
     final snapshot = controller.opsSnapshot;
     final config = _buildConfig();
-    final endpoint = _mcpOpsEndpoint(snapshot, config);
-    final bindEndpoint = _mcpOpsBindEndpoint(snapshot, config);
+    final endpoint = mcpOpsClientAuthority(snapshot, config);
+    final bindEndpoint = mcpOpsBindAuthority(snapshot, config);
     final endpointUri = 'http://$endpoint/mcp';
     final bindEndpointUri = 'http://$bindEndpoint/mcp';
     return buildOpenHandResponsiveDialogShell(
@@ -2277,8 +2292,8 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
       snapshot: snapshot,
       auditEntries: auditEntries,
     );
-    final endpoint = _mcpOpsEndpoint(snapshot, config);
-    final bindEndpoint = _mcpOpsBindEndpoint(snapshot, config);
+    final endpoint = mcpOpsClientAuthority(snapshot, config);
+    final bindEndpoint = mcpOpsBindAuthority(snapshot, config);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -3902,55 +3917,6 @@ class _McpOpsTabLabel extends StatelessWidget {
       ],
     );
   }
-}
-
-String _mcpOpsEndpoint(McpOpsRuntimeSnapshot snapshot, McpOpsConfig config) {
-  return _mcpOpsEndpointFromHost(
-    _mcpOpsClientHost(_mcpOpsRawEndpointHost(snapshot, config)),
-    snapshot.boundPort ?? config.listenPort,
-  );
-}
-
-String _mcpOpsBindEndpoint(
-  McpOpsRuntimeSnapshot snapshot,
-  McpOpsConfig config,
-) {
-  return _mcpOpsEndpointFromHost(
-    _mcpOpsRawEndpointHost(snapshot, config),
-    snapshot.boundPort ?? config.listenPort,
-  );
-}
-
-String _mcpOpsRawEndpointHost(
-  McpOpsRuntimeSnapshot snapshot,
-  McpOpsConfig config,
-) {
-  final host = snapshot.boundHost?.trim().isNotEmpty == true
-      ? snapshot.boundHost!.trim()
-      : config.listenHost.trim();
-  return host.isEmpty ? mcpOpsDefaultListenHost : host;
-}
-
-String _mcpOpsClientHost(String host) {
-  final normalized = host.trim();
-  if (normalized.isEmpty ||
-      normalized == '0.0.0.0' ||
-      normalized == '::' ||
-      normalized == '[::]') {
-    return mcpOpsDefaultListenHost;
-  }
-  return normalized;
-}
-
-String _mcpOpsEndpointFromHost(String host, int port) {
-  final cleanHost = host.trim();
-  final formattedHost =
-      cleanHost.contains(':') &&
-          !cleanHost.startsWith('[') &&
-          !cleanHost.endsWith(']')
-      ? '[$cleanHost]'
-      : cleanHost;
-  return '${formattedHost.isEmpty ? mcpOpsDefaultListenHost : formattedHost}:$port';
 }
 
 class _McpOpsDashboardStats {
