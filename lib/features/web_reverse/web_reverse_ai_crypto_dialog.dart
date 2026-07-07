@@ -478,21 +478,12 @@ class _AiCryptoDialogState extends State<_AiCryptoDialog> {
 
   Future<void> _copy() async {
     if (_prompt.isEmpty) return;
-    late final WebReverseClipboardCopyResult copied;
-    try {
-      copied = await setWebReverseClipboardText(_prompt);
-    } catch (e, st) {
-      silentLog('web_reverse_ai_crypto', 'copy', e, st);
-      if (!mounted) return;
-      showWebReverseClipboardErrorSnack(context: context, error: e);
-      return;
-    }
-    if (!mounted) return;
     final loc = AppLocalizations.of(context);
-    showWebReverseClipboardSuccessSnack(
+    await copyWebReverseTextToClipboard(
       context: context,
-      base: loc?.webReverseAiCryptoCopied ?? 'Copied to clipboard',
-      result: copied,
+      text: _prompt,
+      successBase: loc?.webReverseAiCryptoCopied ?? 'Copied to clipboard',
+      logTag: 'web_reverse_ai_crypto',
     );
   }
 

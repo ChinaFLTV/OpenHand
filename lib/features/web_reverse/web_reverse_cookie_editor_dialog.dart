@@ -10,7 +10,6 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 
-import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
@@ -169,21 +168,13 @@ class _CookieEditorDialogState extends State<_CookieEditorDialog> {
     final json = const JsonEncoder.withIndent(
       '  ',
     ).convert(_visible.map((c) => c.raw).toList());
-    late final WebReverseClipboardCopyResult copied;
-    try {
-      copied = await setWebReverseClipboardText(json);
-    } catch (e, st) {
-      silentLog('web_reverse_cookie_editor_dialog', 'copy json', e, st);
-      if (!mounted) return;
-      showWebReverseClipboardErrorSnack(context: context, error: e);
-      return;
-    }
-    if (!mounted) return;
     final loc = AppLocalizations.of(context);
-    showWebReverseClipboardSuccessSnack(
+    await copyWebReverseTextToClipboard(
       context: context,
-      base: loc?.webReverseCookieEditorCopiedJson ?? 'JSON copied',
-      result: copied,
+      text: json,
+      successBase: loc?.webReverseCookieEditorCopiedJson ?? 'JSON copied',
+      logTag: 'web_reverse_cookie_editor_dialog',
+      logAction: 'copy json',
     );
   }
 

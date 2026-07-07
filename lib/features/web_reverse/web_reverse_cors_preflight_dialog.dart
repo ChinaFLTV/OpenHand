@@ -233,22 +233,12 @@ class _CorsDialogState extends State<_CorsDialog> {
     final res = _result;
     if (res == null) return;
     final loc = AppLocalizations.of(context);
-    late final WebReverseClipboardCopyResult copied;
-    try {
-      copied = await setWebReverseClipboardText(
-        const JsonEncoder.withIndent('  ').convert(res),
-      );
-    } catch (err, st) {
-      silentLog('web_reverse_cors_preflight_dialog', 'cors.copy', err, st);
-      if (!mounted) return;
-      showWebReverseClipboardErrorSnack(context: context, error: err);
-      return;
-    }
-    if (!mounted) return;
-    showWebReverseClipboardSuccessSnack(
+    await copyWebReverseTextToClipboard(
       context: context,
-      base: loc?.webReverseCorsResultCopied ?? 'Result copied',
-      result: copied,
+      text: const JsonEncoder.withIndent('  ').convert(res),
+      successBase: loc?.webReverseCorsResultCopied ?? 'Result copied',
+      logTag: 'web_reverse_cors_preflight_dialog',
+      logAction: 'cors.copy',
     );
   }
 

@@ -220,23 +220,14 @@ class _VitalsDialogState extends State<_VitalsDialog> {
           m.key: {'value': m.value, 'unit': m.unit, 'rating': _ratingOf(m)},
       },
     };
-    try {
-      final copied = await setWebReverseClipboardText(
-        const JsonEncoder.withIndent('  ').convert(report),
-      );
-      if (!mounted) return;
-      showWebReverseClipboardSuccessSnack(
-        context: context,
-        base:
-            AppLocalizations.of(context)?.webReverseVitalsReportCopied ??
-            'Report JSON copied',
-        result: copied,
-      );
-    } catch (e, st) {
-      silentLog('web_reverse_vitals_dialog', 'copy', e, st);
-      if (!mounted) return;
-      showWebReverseClipboardErrorSnack(context: context, error: e);
-    }
+    await copyWebReverseTextToClipboard(
+      context: context,
+      text: const JsonEncoder.withIndent('  ').convert(report),
+      successBase:
+          AppLocalizations.of(context)?.webReverseVitalsReportCopied ??
+          'Report JSON copied',
+      logTag: 'web_reverse_vitals_dialog',
+    );
   }
 
   String _ratingOf(_MetricBucket m) {

@@ -292,22 +292,13 @@ class _PmDialogState extends State<_PmDialog> {
       '  ',
     ).convert(filtered.map((r) => r.toJson()).toList());
     final loc = AppLocalizations.of(context);
-    late final WebReverseClipboardCopyResult copied;
-    try {
-      copied = await setWebReverseClipboardText(json);
-    } catch (e, st) {
-      silentLog('web_reverse_pm', 'copy', e, st);
-      if (!mounted) return;
-      showWebReverseClipboardErrorSnack(context: context, error: e);
-      return;
-    }
-    if (!mounted) return;
-    showWebReverseClipboardSuccessSnack(
+    await copyWebReverseTextToClipboard(
       context: context,
-      base:
+      text: json,
+      successBase:
           loc?.webReversePmCopiedCount(filtered.length) ??
           'Copied ${filtered.length} records',
-      result: copied,
+      logTag: 'web_reverse_pm',
     );
   }
 

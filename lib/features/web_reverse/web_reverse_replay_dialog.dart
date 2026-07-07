@@ -141,17 +141,13 @@ class _ReplayDialogState extends State<_ReplayDialog> {
         .toList();
     final json = const JsonEncoder.withIndent('  ').convert(data);
     final loc = AppLocalizations.of(context);
-    try {
-      final copied = await setWebReverseClipboardText(json);
-      if (!mounted) return;
-      showWebReverseClipboardSuccessSnack(
-        context: context,
-        base: loc?.webReverseReplayJsonCopied ?? 'JSON copied',
-        result: copied,
-      );
-    } catch (e, st) {
-      silentLog('web_reverse_replay_dialog', 'replay.export', e, st);
-    }
+    await copyWebReverseTextToClipboard(
+      context: context,
+      text: json,
+      successBase: loc?.webReverseReplayJsonCopied ?? 'JSON copied',
+      logTag: 'web_reverse_replay_dialog',
+      logAction: 'replay.export',
+    );
   }
 
   @override

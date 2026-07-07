@@ -332,19 +332,12 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
           .toList(),
     );
     final loc = AppLocalizations.of(context);
-    try {
-      final copied = await setWebReverseClipboardText(json);
-      if (!mounted) return;
-      showWebReverseClipboardSuccessSnack(
-        context: context,
-        base: loc?.webReverseAnimationsJsonCopied ?? 'JSON copied',
-        result: copied,
-      );
-    } catch (e, st) {
-      silentLog('web_reverse_animations_dialog', 'copy', e, st);
-      if (!mounted) return;
-      showWebReverseClipboardErrorSnack(context: context, error: e);
-    }
+    await copyWebReverseTextToClipboard(
+      context: context,
+      text: json,
+      successBase: loc?.webReverseAnimationsJsonCopied ?? 'JSON copied',
+      logTag: 'web_reverse_animations_dialog',
+    );
   }
 
   @override

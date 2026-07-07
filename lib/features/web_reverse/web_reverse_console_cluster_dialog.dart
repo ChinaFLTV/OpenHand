@@ -8,7 +8,6 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 
-import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import 'web_reverse_clipboard.dart';
@@ -101,29 +100,14 @@ class _ConsoleClusterDialogState extends State<_ConsoleClusterDialog> {
           .map((e) => {'ts': e.timestamp.toIso8601String(), 'text': e.text})
           .toList(),
     };
-    late final WebReverseClipboardCopyResult copied;
-    try {
-      copied = await setWebReverseClipboardText(
-        const JsonEncoder.withIndent('  ').convert(payload),
-      );
-    } catch (err, st) {
-      silentLog(
-        'web_reverse_console_cluster_dialog',
-        'console.cluster.copy',
-        err,
-        st,
-      );
-      if (!mounted) return;
-      showWebReverseClipboardErrorSnack(context: context, error: err);
-      return;
-    }
-    if (!mounted) return;
-    showWebReverseClipboardSuccessSnack(
+    await copyWebReverseTextToClipboard(
       context: context,
-      base:
+      text: const JsonEncoder.withIndent('  ').convert(payload),
+      successBase:
           AppLocalizations.of(context)?.webReverseConsoleClusterCopied ??
           'Cluster JSON copied',
-      result: copied,
+      logTag: 'web_reverse_console_cluster_dialog',
+      logAction: 'console.cluster.copy',
     );
   }
 

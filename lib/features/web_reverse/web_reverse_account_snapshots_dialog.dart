@@ -116,22 +116,14 @@ class _AccountSnapshotsDialogState extends State<_AccountSnapshotsDialog> {
         .map((s) => s.toJson())
         .toList(growable: false);
     final json = const JsonEncoder.withIndent('  ').convert(list);
-    late final WebReverseClipboardCopyResult copied;
-    try {
-      copied = await setWebReverseClipboardText(json);
-    } catch (e, st) {
-      silentLog('web_reverse_account_snapshots_dialog', 'export', e, st);
-      if (!mounted) return;
-      showWebReverseClipboardErrorSnack(context: context, error: e);
-      return;
-    }
-    if (!mounted) return;
-    showWebReverseClipboardSuccessSnack(
+    await copyWebReverseTextToClipboard(
       context: context,
-      base:
+      text: json,
+      successBase:
           loc?.webReverseAccountSnapCopiedCount(list.length) ??
           'Copied ${list.length} snapshots JSON to clipboard',
-      result: copied,
+      logTag: 'web_reverse_account_snapshots_dialog',
+      logAction: 'export',
     );
   }
 

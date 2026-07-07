@@ -187,19 +187,13 @@ class _CssCovDialogState extends State<_CssCovDialog> {
           .toList(),
     );
     final loc = AppLocalizations.of(context);
-    try {
-      final copied = await setWebReverseClipboardText(json);
-      if (!mounted) return;
-      showWebReverseClipboardSuccessSnack(
-        context: context,
-        base: loc?.webReverseCssCovJsonCopied ?? 'JSON copied',
-        result: copied,
-      );
-    } catch (e, st) {
-      silentLog('web_reverse_css_coverage_dialog', 'css-cov.copy', e, st);
-      if (!mounted) return;
-      showWebReverseClipboardErrorSnack(context: context, error: e);
-    }
+    await copyWebReverseTextToClipboard(
+      context: context,
+      text: json,
+      successBase: loc?.webReverseCssCovJsonCopied ?? 'JSON copied',
+      logTag: 'web_reverse_css_coverage_dialog',
+      logAction: 'css-cov.copy',
+    );
   }
 
   @override

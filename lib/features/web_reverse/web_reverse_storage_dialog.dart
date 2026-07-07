@@ -192,22 +192,12 @@ class _StorageDialogState extends State<_StorageDialog>
 
   Future<void> _copyJson(Object? data) async {
     final loc = AppLocalizations.of(context);
-    late final WebReverseClipboardCopyResult copied;
-    try {
-      copied = await setWebReverseClipboardText(
-        const JsonEncoder.withIndent('  ').convert(data),
-      );
-    } catch (err, st) {
-      silentLog('web_reverse_storage_dialog', 'storage.copy', err, st);
-      if (!mounted) return;
-      showWebReverseClipboardErrorSnack(context: context, error: err);
-      return;
-    }
-    if (!mounted) return;
-    showWebReverseClipboardSuccessSnack(
+    await copyWebReverseTextToClipboard(
       context: context,
-      base: loc?.webReverseStorageCopied ?? 'Copied',
-      result: copied,
+      text: const JsonEncoder.withIndent('  ').convert(data),
+      successBase: loc?.webReverseStorageCopied ?? 'Copied',
+      logTag: 'web_reverse_storage_dialog',
+      logAction: 'storage.copy',
     );
   }
 

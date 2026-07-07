@@ -245,20 +245,12 @@ class _WatchDialogState extends State<_WatchDialog> {
           )
           .toList(),
     );
-    late final WebReverseClipboardCopyResult copied;
-    try {
-      copied = await setWebReverseClipboardText(out);
-    } catch (e, st) {
-      silentLog('web_reverse_watch', 'export', e, st);
-      if (!mounted) return;
-      showWebReverseClipboardErrorSnack(context: context, error: e);
-      return;
-    }
-    if (!mounted) return;
-    showWebReverseClipboardSuccessSnack(
+    await copyWebReverseTextToClipboard(
       context: context,
-      base: loc?.webReverseWatchCopiedJson ?? 'JSON copied',
-      result: copied,
+      text: out,
+      successBase: loc?.webReverseWatchCopiedJson ?? 'JSON copied',
+      logTag: 'web_reverse_watch',
+      logAction: 'export',
     );
   }
 
