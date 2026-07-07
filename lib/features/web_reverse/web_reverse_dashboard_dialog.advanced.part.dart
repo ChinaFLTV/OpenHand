@@ -70,13 +70,11 @@ class _AdvancedMenuDialog extends StatelessWidget {
         ),
         onTap: () async {
           Navigator.of(context).pop();
-          final messenger = ScaffoldMessenger.of(context);
           final path = await controller.exportSessionBundle();
           if (!context.mounted) return;
           if (path == null) {
-            OpenHandSnackBar.showErrorOn(
+            showWebReverseErrorSnack(
               context,
-              messenger,
               tr(
                 zh: '导出失败',
                 zhHant: '匯出失敗',
@@ -88,9 +86,8 @@ class _AdvancedMenuDialog extends StatelessWidget {
               duration: const Duration(seconds: 3),
             );
           } else {
-            OpenHandSnackBar.showSuccessOn(
+            showWebReverseSuccessSnack(
               context,
-              messenger,
               tr(
                 zh: '已导出到 $path',
                 zhHant: '已匯出到 $path',
@@ -1433,7 +1430,6 @@ Future<void> _showExtraHeadersDialog(
   final ctrlText = TextEditingController(
     text: _formatHeaderLines(ctrl.extraHeaders),
   );
-  final messenger = ScaffoldMessenger.of(context);
   try {
     final ok = await showOpenHandFormDialog<bool>(
       context: context,
@@ -1501,9 +1497,8 @@ Future<void> _showExtraHeadersDialog(
     final saved = await ctrl.setExtraHttpHeaders(headers);
     if (!context.mounted) return;
     if (saved) {
-      OpenHandSnackBar.showSuccessOn(
+      showWebReverseSuccessSnack(
         context,
-        messenger,
         openHandLocalizedText(
           context,
           zh: '已注入 ${headers.length} 个 Header',
@@ -1515,9 +1510,8 @@ Future<void> _showExtraHeadersDialog(
         ),
       );
     } else {
-      OpenHandSnackBar.showErrorOn(
+      showWebReverseErrorSnack(
         context,
-        messenger,
         openHandLocalizedText(
           context,
           zh: '保存失败',
@@ -1717,12 +1711,10 @@ Future<void> _copyRecentRequestsForAi(
   BuildContext context,
   WebReverseSessionController ctrl,
 ) async {
-  final messenger = ScaffoldMessenger.of(context);
   final entries = ctrl.networkRequests.reversed.take(10).toList();
   if (entries.isEmpty) {
-    OpenHandSnackBar.showInfoOn(
+    showWebReverseInfoSnack(
       context,
-      messenger,
       openHandLocalizedText(
         context,
         zh: '当前无请求可分析',
@@ -1777,24 +1769,33 @@ Future<void> _copyRecentRequestsForAi(
     }
     buf.writeln('---');
   }
-  final copied = await setWebReverseClipboardText(buf.toString());
+  late final WebReverseClipboardCopyResult copied;
+  try {
+    copied = await setWebReverseClipboardText(buf.toString());
+  } catch (error, stack) {
+    silentLog(
+      'web_reverse_advanced_menu',
+      'copy recent requests',
+      error,
+      stack,
+    );
+    if (!context.mounted) return;
+    showWebReverseClipboardErrorSnack(context: context, error: error);
+    return;
+  }
   if (!context.mounted) return;
-  OpenHandSnackBar.showSuccessOn(
-    context,
-    messenger,
-    webReverseClipboardSnackMessage(
-      context: context,
-      base: openHandLocalizedText(
-        context,
-        zh: '请求摘要已复制，回到会话粘贴即可让 AI 分析',
-        zhHant: '請求摘要已複製，回到會話貼上即可讓 AI 分析',
-        en: 'Summary copied; paste in chat',
-        fr: 'Resume copie ; collez-le dans le chat',
-        de: 'Zusammenfassung kopiert; im Chat einfugen',
-        ja: '要約をコピーしました。チャットに貼り付けて分析できます',
-      ),
-      result: copied,
+  showWebReverseClipboardSuccessSnack(
+    context: context,
+    base: openHandLocalizedText(
+      context,
+      zh: '请求摘要已复制，回到会话粘贴即可让 AI 分析',
+      zhHant: '請求摘要已複製，回到會話貼上即可讓 AI 分析',
+      en: 'Summary copied; paste in chat',
+      fr: 'Resume copie ; collez-le dans le chat',
+      de: 'Zusammenfassung kopiert; im Chat einfugen',
+      ja: '要約をコピーしました。チャットに貼り付けて分析できます',
     ),
+    result: copied,
     duration: const Duration(seconds: 3),
   );
 }
@@ -1805,7 +1806,7 @@ Future<void> _showDiffPicker(
 ) async {
   final all = ctrl.networkRequests;
   if (all.length < 2) {
-    OpenHandSnackBar.showInfo(
+    showWebReverseInfoSnack(
       context,
       openHandLocalizedText(
         context,
@@ -2021,7 +2022,6 @@ Future<void> _showServiceWorkersDialog(
   BuildContext context,
   WebReverseSessionController ctrl,
 ) async {
-  final messenger = ScaffoldMessenger.of(context);
   final list = await ctrl.listServiceWorkers();
   if (!context.mounted) return;
   await showWebReverseToolDialog<void>(
@@ -2097,9 +2097,8 @@ Future<void> _showServiceWorkersDialog(
               );
               if (!context.mounted) return;
               if (r == null) {
-                OpenHandSnackBar.showErrorOn(
+                showWebReverseErrorSnack(
                   context,
-                  messenger,
                   openHandLocalizedText(
                     context,
                     zh: '反注册失败',
@@ -2112,9 +2111,8 @@ Future<void> _showServiceWorkersDialog(
                   duration: const Duration(seconds: 2),
                 );
               } else {
-                OpenHandSnackBar.showSuccessOn(
+                showWebReverseSuccessSnack(
                   context,
-                  messenger,
                   openHandLocalizedText(
                     context,
                     zh: '已反注册 $r 个 SW',
@@ -2146,14 +2144,12 @@ Future<void> _toggleHarReplayServer(
   BuildContext context,
   WebReverseSessionController ctrl,
 ) async {
-  final messenger = ScaffoldMessenger.of(context);
   final running = ctrl.harReplayServer;
   if (running != null) {
     await ctrl.stopHarReplayServer();
     if (!context.mounted) return;
-    OpenHandSnackBar.showInfoOn(
+    showWebReverseInfoSnack(
       context,
-      messenger,
       openHandLocalizedText(
         context,
         zh: '已停止 HAR 重放服务器',
@@ -2170,9 +2166,8 @@ Future<void> _toggleHarReplayServer(
   final r = await ctrl.startHarReplayServer();
   if (!context.mounted) return;
   if (r == null) {
-    OpenHandSnackBar.showErrorOn(
+    showWebReverseErrorSnack(
       context,
-      messenger,
       openHandLocalizedText(
         context,
         zh: '启动失败：HAR 不可用或端口被占',
@@ -2186,49 +2181,58 @@ Future<void> _toggleHarReplayServer(
     );
     return;
   }
-  OpenHandSnackBar.show(
+  showWebReverseInfoSnack(
     context,
-    messenger,
-    OpenHandSnackBar.info(
+    openHandLocalizedText(
       context,
-      openHandLocalizedText(
+      zh: 'HAR 重放服务器已启动：http://127.0.0.1:${r.port}/  · 已加载 ${r.entryCount} 条',
+      zhHant:
+          'HAR 重放伺服器已啟動：http://127.0.0.1:${r.port}/  · 已載入 ${r.entryCount} 筆',
+      en: 'Replay server up at http://127.0.0.1:${r.port}/  · ${r.entryCount} entries',
+      fr: 'Serveur de replay actif sur http://127.0.0.1:${r.port}/  · ${r.entryCount} entrees',
+      de: 'Replay-Server lauft unter http://127.0.0.1:${r.port}/  · ${r.entryCount} Eintrage',
+      ja: 'リプレイサーバー起動: http://127.0.0.1:${r.port}/  · ${r.entryCount} 件',
+    ),
+    duration: const Duration(seconds: 6),
+    action: SnackBarAction(
+      label: openHandLocalizedText(
         context,
-        zh: 'HAR 重放服务器已启动：http://127.0.0.1:${r.port}/  · 已加载 ${r.entryCount} 条',
-        zhHant:
-            'HAR 重放伺服器已啟動：http://127.0.0.1:${r.port}/  · 已載入 ${r.entryCount} 筆',
-        en: 'Replay server up at http://127.0.0.1:${r.port}/  · ${r.entryCount} entries',
-        fr: 'Serveur de replay actif sur http://127.0.0.1:${r.port}/  · ${r.entryCount} entrees',
-        de: 'Replay-Server lauft unter http://127.0.0.1:${r.port}/  · ${r.entryCount} Eintrage',
-        ja: 'リプレイサーバー起動: http://127.0.0.1:${r.port}/  · ${r.entryCount} 件',
+        zh: '复制端口',
+        zhHant: '複製連接埠',
+        en: 'Copy port',
+        fr: 'Copier le port',
+        de: 'Port kopieren',
+        ja: 'ポートをコピー',
       ),
-      duration: const Duration(seconds: 6),
-      action: SnackBarAction(
-        label: openHandLocalizedText(
-          context,
-          zh: '复制端口',
-          zhHant: '複製連接埠',
-          en: 'Copy port',
-          fr: 'Copier le port',
-          de: 'Port kopieren',
-          ja: 'ポートをコピー',
-        ),
-        onPressed: () => unawaited(setWebReverseClipboardText('${r.port}')),
-      ),
+      onPressed: () => unawaited(_copyHarReplayPort(context, r.port)),
     ),
   );
+}
+
+Future<void> _copyHarReplayPort(BuildContext context, int port) async {
+  try {
+    await setWebReverseClipboardText('$port');
+  } catch (error, stack) {
+    silentLog(
+      'web_reverse_advanced_menu',
+      'copy HAR replay port',
+      error,
+      stack,
+    );
+    if (!context.mounted) return;
+    showWebReverseClipboardErrorSnack(context: context, error: error);
+  }
 }
 
 Future<void> _toggleMitmproxyBridge(
   BuildContext context,
   WebReverseSessionController ctrl,
 ) async {
-  final messenger = ScaffoldMessenger.of(context);
   if (ctrl.mitmproxyBridge != null) {
     await ctrl.stopMitmproxyBridge();
     if (!context.mounted) return;
-    OpenHandSnackBar.showInfoOn(
+    showWebReverseInfoSnack(
       context,
-      messenger,
       openHandLocalizedText(
         context,
         zh: '已停止 mitmproxy 桥接',
@@ -2338,9 +2342,8 @@ Future<void> _toggleMitmproxyBridge(
   final r = await ctrl.startMitmproxyBridge();
   if (!context.mounted) return;
   if (r == null) {
-    OpenHandSnackBar.showErrorOn(
+    showWebReverseErrorSnack(
       context,
-      messenger,
       openHandLocalizedText(
         context,
         zh: '启动失败（端口 8080 可能已被占）',
@@ -2354,9 +2357,8 @@ Future<void> _toggleMitmproxyBridge(
     );
     return;
   }
-  OpenHandSnackBar.showSuccessOn(
+  showWebReverseSuccessSnack(
     context,
-    messenger,
     openHandLocalizedText(
       context,
       zh: 'mitmproxy 桥接已启动：客户端代理 127.0.0.1:${r.mitmPort}（回调 :${r.callbackPort}）',
@@ -2375,13 +2377,11 @@ Future<void> _toggleWebRtcCapture(
   BuildContext context,
   WebReverseSessionController ctrl,
 ) async {
-  final messenger = ScaffoldMessenger.of(context);
   final ok = await ctrl.installWebRtcCapture();
   if (!context.mounted) return;
   if (!ok) {
-    OpenHandSnackBar.showErrorOn(
+    showWebReverseErrorSnack(
       context,
-      messenger,
       openHandLocalizedText(
         context,
         zh: '注入失败（page 可能尚未就绪）',
@@ -2518,7 +2518,6 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
   /// packets_lost,rtt_ms。每行一个 sample，buckets 0 = 当前秒。
   Future<void> _exportSeriesCsv() async {
     if (_series.isEmpty) return;
-    final messenger = ScaffoldMessenger.of(context);
     final buf = StringBuffer()
       ..writeln(
         'pc_id,bucket_seconds_ago,bytes_sent,bytes_received,'
@@ -2557,9 +2556,8 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
     try {
       await File(loc.path).writeAsString(buf.toString());
       if (!mounted) return;
-      OpenHandSnackBar.showSuccessOn(
+      showWebReverseSuccessSnack(
         context,
-        messenger,
         openHandLocalizedText(
           context,
           zh: 'CSV 已保存',
@@ -2573,9 +2571,8 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
     } catch (error, stack) {
       silentLog('web_reverse_dashboard', 'rtc csv write', error, stack);
       if (!mounted) return;
-      OpenHandSnackBar.showErrorOn(
+      showWebReverseErrorSnack(
         context,
-        messenger,
         openHandLocalizedText(
           context,
           zh: '保存失败',
@@ -2714,27 +2711,38 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
                 if (_tab == 3 && _events.isNotEmpty)
                   OutlinedButton.icon(
                     onPressed: () async {
-                      final messenger = ScaffoldMessenger.of(context);
-                      final copied = await setWebReverseClipboardText(
-                        const JsonEncoder.withIndent('  ').convert(_events),
-                      );
-                      if (!context.mounted) return;
-                      OpenHandSnackBar.showSuccessOn(
-                        context,
-                        messenger,
-                        webReverseClipboardSnackMessage(
+                      late final WebReverseClipboardCopyResult copied;
+                      try {
+                        copied = await setWebReverseClipboardText(
+                          const JsonEncoder.withIndent('  ').convert(_events),
+                        );
+                      } catch (error, stack) {
+                        silentLog(
+                          'web_reverse_webrtc_dialog',
+                          'copy events',
+                          error,
+                          stack,
+                        );
+                        if (!context.mounted) return;
+                        showWebReverseClipboardErrorSnack(
                           context: context,
-                          base: openHandLocalizedText(
-                            context,
-                            zh: '已复制',
-                            zhHant: '已複製',
-                            en: 'Copied',
-                            fr: 'Copie',
-                            de: 'Kopiert',
-                            ja: 'コピーしました',
-                          ),
-                          result: copied,
+                          error: error,
+                        );
+                        return;
+                      }
+                      if (!context.mounted) return;
+                      showWebReverseClipboardSuccessSnack(
+                        context: context,
+                        base: openHandLocalizedText(
+                          context,
+                          zh: '已复制',
+                          zhHant: '已複製',
+                          en: 'Copied',
+                          fr: 'Copie',
+                          de: 'Kopiert',
+                          ja: 'コピーしました',
                         ),
+                        result: copied,
                         duration: const Duration(seconds: 1),
                       );
                     },
