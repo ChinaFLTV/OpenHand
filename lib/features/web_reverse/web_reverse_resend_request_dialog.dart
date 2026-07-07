@@ -18,7 +18,6 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/motion_preference.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
-import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/localized_text.dart';
 import '../../shared/util/text_clip.dart';
@@ -164,7 +163,7 @@ class _ResendRequestDialogState extends State<_ResendRequestDialog> {
     final urlText = _urlCtrl.text.trim();
     final loc0 = AppLocalizations.of(context);
     if (urlText.isEmpty) {
-      OpenHandSnackBar.showError(
+      showWebReverseErrorSnack(
         context,
         loc0?.webReverseResendRequestUrlEmpty ?? 'URL is required',
       );
@@ -177,7 +176,7 @@ class _ResendRequestDialogState extends State<_ResendRequestDialog> {
         throw const FormatException('only http/https');
       }
     } catch (_) {
-      OpenHandSnackBar.showError(
+      showWebReverseErrorSnack(
         context,
         loc0?.webReverseResendRequestUrlInvalid ?? 'Invalid URL',
       );
@@ -602,16 +601,21 @@ print(resp.text[:2000])''';
   }
 
   Future<void> _copy(String text, String kind) async {
-    final copied = await setWebReverseClipboardText(text);
+    late final WebReverseClipboardCopyResult copied;
+    try {
+      copied = await setWebReverseClipboardText(text);
+    } catch (e, st) {
+      silentLog('web_reverse_resend_request_dialog', 'copy.$kind', e, st);
+      if (!mounted) return;
+      showWebReverseClipboardErrorSnack(context: context, error: e);
+      return;
+    }
     if (!mounted) return;
     final loc = AppLocalizations.of(context);
-    OpenHandSnackBar.showSuccess(
-      context,
-      webReverseClipboardSnackMessage(
-        context: context,
-        base: loc?.webReverseResendRequestCopiedAs(kind) ?? 'Copied as $kind',
-        result: copied,
-      ),
+    showWebReverseClipboardSuccessSnack(
+      context: context,
+      base: loc?.webReverseResendRequestCopiedAs(kind) ?? 'Copied as $kind',
+      result: copied,
       duration: const Duration(seconds: 1),
     );
   }
@@ -977,7 +981,7 @@ print(resp.text[:2000])''';
                       ).convert(v);
                       setState(() {});
                     } catch (_) {
-                      OpenHandSnackBar.showError(
+                      showWebReverseErrorSnack(
                         context,
                         loc2?.webReverseResendRequestInvalidJson ??
                             'Body is not valid JSON',
@@ -1135,21 +1139,32 @@ print(resp.text[:2000])''';
                 icon: const Icon(Icons.content_copy_rounded, size: 14),
                 onPressed: () async {
                   final dialogContext = context;
-                  final messenger = ScaffoldMessenger.of(dialogContext);
                   final loc2 = AppLocalizations.of(dialogContext);
                   final base =
                       loc2?.webReverseResendRequestResponseCopied ??
                       'Response copied';
-                  final copied = await setWebReverseClipboardText(r.body);
-                  if (!dialogContext.mounted) return;
-                  OpenHandSnackBar.showSuccessOn(
-                    dialogContext,
-                    messenger,
-                    webReverseClipboardSnackMessage(
+                  late final WebReverseClipboardCopyResult copied;
+                  try {
+                    copied = await setWebReverseClipboardText(r.body);
+                  } catch (e, st) {
+                    silentLog(
+                      'web_reverse_resend_request_dialog',
+                      'copy.response',
+                      e,
+                      st,
+                    );
+                    if (!dialogContext.mounted) return;
+                    showWebReverseClipboardErrorSnack(
                       context: dialogContext,
-                      base: base,
-                      result: copied,
-                    ),
+                      error: e,
+                    );
+                    return;
+                  }
+                  if (!dialogContext.mounted) return;
+                  showWebReverseClipboardSuccessSnack(
+                    context: dialogContext,
+                    base: base,
+                    result: copied,
                     duration: const Duration(seconds: 1),
                   );
                 },
