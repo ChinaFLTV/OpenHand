@@ -158,6 +158,7 @@ class McpController extends ChangeNotifier {
     delay: _pageActivationWorkDelay,
   );
   Timer? _healthCheckTimer;
+  Timer? _opsSnapshotNotifyTimer;
   final ValueNotifier<int> _saveSuccessSignal = ValueNotifier<int>(0);
 
   /// Increments after each successful `_store.save`. UI may listen via
@@ -326,6 +327,7 @@ class McpController extends ChangeNotifier {
     }
     _pageActivationWorkDebouncer.dispose();
     _healthCheckTimer?.cancel();
+    _opsSnapshotNotifyTimer?.cancel();
     _cancelQueuedAutoProbeSlots();
     try {
       _toolDiscoveryService.dispose();
@@ -491,8 +493,23 @@ class McpController extends ChangeNotifier {
       auditSink: _recordOpsAudit,
       snapshotSink: (snapshot) {
         _opsSnapshot = snapshot;
+        _scheduleOpsSnapshotNotify();
+      },
+    );
+  }
+
+  void _scheduleOpsSnapshotNotify() {
+    if (_isDisposed || (_opsSnapshotNotifyTimer?.isActive ?? false)) {
+      return;
+    }
+    _opsSnapshotNotifyTimer = startSafeTimer(
+      const Duration(milliseconds: 80),
+      () {
+        _opsSnapshotNotifyTimer = null;
         notifyListeners();
       },
+      onError: (error, stack) =>
+          silentLog('mcp', 'ops snapshot notify', error, stack),
     );
   }
 
@@ -531,7 +548,7 @@ class McpController extends ChangeNotifier {
     _opsAuditEntriesView = List<McpOpsAuditEntry>.unmodifiable(
       _opsAuditEntries,
     );
-    notifyListeners();
+    _scheduleOpsSnapshotNotify();
   }
 
   List<McpOpsToolDefinition> _opsToolDefinitions() {

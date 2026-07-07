@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:isolate';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
@@ -1765,10 +1766,12 @@ class _EditableHeaderRow {
 
 const double _mcpOpsDialogMaxWidth = 1080;
 const double _mcpOpsDialogMaxHeight = 820;
-const double _mcpOpsPanelRadius = 18;
+const double _mcpOpsPanelRadius = 8;
 const double _mcpOpsGridGap = 12;
 const double _mcpOpsMetricWideBreakpoint = 860;
 const double _mcpOpsMetricMediumBreakpoint = 560;
+const int _mcpOpsExposureInitialLimit = 14;
+const int _mcpOpsExposurePageSize = 18;
 
 class _McpOpsDialog extends StatefulWidget {
   const _McpOpsDialog();
@@ -1778,6 +1781,8 @@ class _McpOpsDialog extends StatefulWidget {
 }
 
 class _McpOpsDialogState extends State<_McpOpsDialog> {
+  final Map<McpOpsExposureSurface, int> _exposureLimits =
+      <McpOpsExposureSurface, int>{};
   late final TextEditingController _hostController;
   late final TextEditingController _portController;
   late final TextEditingController _rpmController;
@@ -1789,6 +1794,7 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
   late final TextEditingController _allowedClientsController;
   late final TextEditingController _allowedIpsController;
   late final TextEditingController _allowedTimeController;
+  late final TextEditingController _exposureSearchController;
   late bool _autoStart;
   late bool _requireAuthToken;
   late bool _capturePayload;
@@ -1826,6 +1832,7 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
     _allowedTimeController = TextEditingController(
       text: config.allowedTimeWindows.join('\n'),
     );
+    _exposureSearchController = TextEditingController();
     _autoStart = config.autoStart;
     _requireAuthToken = config.requireAuthToken;
     _capturePayload = config.capturePayload;
@@ -1851,6 +1858,7 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
       _allowedClientsController,
       _allowedIpsController,
       _allowedTimeController,
+      _exposureSearchController,
     ]) {
       controller.dispose();
     }
@@ -1923,9 +1931,15 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
               Expanded(
                 child: TabBarView(
                   children: [
-                    _tabScroll(_buildOpsTab(context)),
-                    _tabScroll(_buildConfigTab(context)),
-                    _buildAuditTab(context),
+                    Builder(
+                      builder: (tabContext) =>
+                          _tabScroll(tabContext, _buildOpsTab(tabContext)),
+                    ),
+                    Builder(
+                      builder: (tabContext) =>
+                          _tabScroll(tabContext, _buildConfigTab(tabContext)),
+                    ),
+                    Builder(builder: _buildAuditTab),
                   ],
                 ),
               ),
@@ -1965,7 +1979,7 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
     );
   }
 
-  Widget _tabScroll(Widget child) {
+  Widget _tabScroll(BuildContext context, Widget child) {
     return SingleChildScrollView(
       physics: openHandDialogAwareScrollPhysics(context),
       child: child,
@@ -1975,11 +1989,15 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
   Widget _buildOpsTab(BuildContext context) {
     final controller = context.watch<McpController>();
     final snapshot = controller.opsSnapshot;
+    final auditEntries = controller.opsAuditEntries;
     final config = _buildConfig();
+    final stats = _McpOpsDashboardStats.from(
+      snapshot: snapshot,
+      auditEntries: auditEntries,
+    );
     final endpoint = snapshot.boundPort == null
         ? '${config.listenHost}:${config.listenPort}'
         : '${snapshot.boundHost ?? config.listenHost}:${snapshot.boundPort}';
-    final exportedTools = controller.opsAuditEntries.length;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -1999,64 +2017,112 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
               icon: Icons.link_rounded,
               label: _localizedText(context, zh: '当前连接数', en: 'Connections'),
               value: '${snapshot.currentConnections}',
+              helper: _localizedText(context, zh: '实时会话', en: 'Live sessions'),
             ),
             _McpOpsMetricTile(
               icon: Icons.bolt_rounded,
               label: _localizedText(context, zh: '活跃请求', en: 'Active'),
               value: '${snapshot.activeRequests}',
+              helper: _localizedText(context, zh: '执行中', en: 'In flight'),
             ),
             _McpOpsMetricTile(
               icon: Icons.call_made_rounded,
               label: _localizedText(context, zh: '请求总数', en: 'Requests'),
               value: '${snapshot.requestTotal}',
+              helper: _localizedText(
+                context,
+                zh: '近窗 ${stats.windowRequestCount}',
+                en: 'Window ${stats.windowRequestCount}',
+                zhHant: '近窗 ${stats.windowRequestCount}',
+                fr: 'Fenêtre ${stats.windowRequestCount}',
+                de: 'Fenster ${stats.windowRequestCount}',
+                ja: '直近 ${stats.windowRequestCount}',
+              ),
+            ),
+            _McpOpsMetricTile(
+              icon: Icons.task_alt_rounded,
+              label: _localizedText(context, zh: '成功数量', en: 'Succeeded'),
+              value: '${stats.successTotal}',
+              helper: '${stats.successRateLabel}%',
+              color: OpenHandStatusColors.success,
             ),
             _McpOpsMetricTile(
               icon: Icons.shield_rounded,
               label: _localizedText(context, zh: '拦截数量', en: 'Blocked'),
               value: '${snapshot.blockedTotal}',
+              helper: '${stats.blockedRateLabel}%',
+              color: OpenHandStatusColors.warning,
             ),
             _McpOpsMetricTile(
               icon: Icons.error_outline_rounded,
               label: _localizedText(context, zh: '失败数量', en: 'Failures'),
               value: '${snapshot.failedTotal}',
+              helper: '${stats.failedRateLabel}%',
               color: Theme.of(context).colorScheme.error,
             ),
             _McpOpsMetricTile(
-              icon: Icons.swap_vert_rounded,
-              label: _localizedText(context, zh: '进出口流量', en: 'Traffic'),
-              value:
-                  '${formatByteSize(snapshot.inboundBytes)} / ${formatByteSize(snapshot.outboundBytes)}',
+              icon: Icons.south_west_rounded,
+              label: _localizedText(context, zh: '入口流量', en: 'Inbound'),
+              value: formatByteSize(snapshot.inboundBytes),
+              helper: _localizedText(context, zh: '请求体', en: 'Request bytes'),
+            ),
+            _McpOpsMetricTile(
+              icon: Icons.north_east_rounded,
+              label: _localizedText(context, zh: '出口流量', en: 'Outbound'),
+              value: formatByteSize(snapshot.outboundBytes),
+              helper: _localizedText(context, zh: '响应体', en: 'Response bytes'),
             ),
             _McpOpsMetricTile(
               icon: Icons.speed_rounded,
               label: _localizedText(context, zh: '调用耗时', en: 'Latency'),
-              value:
-                  '${snapshot.avgLatencyMs}ms / p95 ${snapshot.p95LatencyMs}ms',
+              value: '${snapshot.avgLatencyMs}ms',
+              helper: 'p95 ${snapshot.p95LatencyMs}ms',
             ),
             _McpOpsMetricTile(
               icon: Icons.schedule_rounded,
               label: _localizedText(context, zh: '允许时间', en: 'Allowed Time'),
               value: config.allowedTimeWindows.join(', '),
+              helper: _localizedText(context, zh: '本地时区', en: 'Local time'),
             ),
             _McpOpsMetricTile(
               icon: Icons.memory_rounded,
               label: _localizedText(context, zh: '内存占用', en: 'Memory'),
               value: formatByteSize(snapshot.memoryRssBytes),
+              helper: _localizedText(context, zh: '当前RSS', en: 'Current RSS'),
             ),
             _McpOpsMetricTile(
               icon: Icons.hub_rounded,
               label: _localizedText(context, zh: 'MCP数量', en: 'MCP Count'),
               value: '${controller.servers.length}',
+              helper: _localizedText(context, zh: '已注册服务', en: 'Registered'),
             ),
             _McpOpsMetricTile(
               icon: Icons.change_circle_rounded,
               label: _localizedText(context, zh: '文件变动', en: 'Mutations'),
               value: '${snapshot.fileMutationCount}',
+              helper: _localizedText(context, zh: '写工具成功', en: 'Write calls'),
             ),
             _McpOpsMetricTile(
               icon: Icons.inventory_2_rounded,
               label: _localizedText(context, zh: '审计日志', en: 'Audit Logs'),
-              value: '$exportedTools',
+              value: '${auditEntries.length}',
+              helper: _localizedText(context, zh: '滚动保留', en: 'Rolling kept'),
+            ),
+            _McpOpsMetricTile(
+              icon: Icons.speed_rounded,
+              label: 'RPM',
+              value: '${stats.currentRpm}',
+              helper: config.rpmLimit <= 0
+                  ? _localizedText(context, zh: '不限流', en: 'Unlimited')
+                  : '/ ${config.rpmLimit}',
+            ),
+            _McpOpsMetricTile(
+              icon: Icons.security_rounded,
+              label: _localizedText(context, zh: '访问策略', en: 'Access Policy'),
+              value: _networkModeLabel(context, config.networkMode),
+              helper: config.requireAuthToken
+                  ? _localizedText(context, zh: '令牌校验', en: 'Token auth')
+                  : _localizedText(context, zh: '无令牌', en: 'No token'),
             ),
           ],
         ),
@@ -2064,8 +2130,70 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
         LayoutBuilder(
           builder: (context, constraints) {
             final compact =
-                constraints.maxWidth.isFinite && constraints.maxWidth < 760;
+                constraints.maxWidth.isFinite && constraints.maxWidth < 780;
+            final trendPanels = [
+              _McpOpsTrendPanel(
+                title: _localizedText(context, zh: '请求趋势', en: 'Request Trend'),
+                icon: Icons.show_chart_rounded,
+                subtitle: _localizedText(
+                  context,
+                  zh: '最近12分钟 · 成功/失败/拦截',
+                  en: 'Last 12 minutes · success/failure/blocked',
+                ),
+                series: stats.requestTrendSeries(context),
+                emptyLabel: _localizedText(
+                  context,
+                  zh: '等待请求样本',
+                  en: 'Waiting for traffic',
+                ),
+              ),
+              _McpOpsTrendPanel(
+                title: _localizedText(context, zh: '耗时曲线', en: 'Latency Curve'),
+                icon: Icons.timeline_rounded,
+                subtitle: _localizedText(
+                  context,
+                  zh: '平均耗时与尾延迟',
+                  en: 'Average and tail latency',
+                ),
+                series: stats.latencyTrendSeries(context),
+                valueSuffix: 'ms',
+                emptyLabel: _localizedText(
+                  context,
+                  zh: '暂无耗时样本',
+                  en: 'No latency samples',
+                ),
+              ),
+            ];
+            if (compact) {
+              return Column(
+                children: [
+                  for (final panel in trendPanels) ...[
+                    panel,
+                    const SizedBox(height: _mcpOpsGridGap),
+                  ],
+                ],
+              );
+            }
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (var i = 0; i < trendPanels.length; i++) ...[
+                  Expanded(child: trendPanels[i]),
+                  if (i != trendPanels.length - 1)
+                    const SizedBox(width: _mcpOpsGridGap),
+                ],
+              ],
+            );
+          },
+        ),
+        Builder(
+          builder: (context) {
             final panels = [
+              _McpOpsDistributionPanel(
+                title: _localizedText(context, zh: '状态分布', en: 'Status Mix'),
+                icon: Icons.donut_small_rounded,
+                values: stats.statusDistribution(context),
+              ),
               _McpOpsDistributionPanel(
                 title: _localizedText(context, zh: '请求IP分布', en: 'IP Mix'),
                 icon: Icons.public_rounded,
@@ -2081,27 +2209,13 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
                 icon: Icons.account_tree_rounded,
                 values: snapshot.requestDistribution,
               ),
+              _McpOpsDistributionPanel(
+                title: _localizedText(context, zh: '协议分布', en: 'Protocol Mix'),
+                icon: Icons.api_rounded,
+                values: snapshot.protocolDistribution,
+              ),
             ];
-            if (compact) {
-              return Column(
-                children: [
-                  for (final panel in panels) ...[
-                    panel,
-                    const SizedBox(height: _mcpOpsGridGap),
-                  ],
-                ],
-              );
-            }
-            return Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                for (var i = 0; i < panels.length; i++) ...[
-                  Expanded(child: panels[i]),
-                  if (i != panels.length - 1)
-                    const SizedBox(width: _mcpOpsGridGap),
-                ],
-              ],
-            );
+            return _McpOpsPanelGrid(children: panels);
           },
         ),
         if (controller.opsApprovalRequests.isNotEmpty) ...[
@@ -2113,7 +2227,10 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
   }
 
   Widget _buildConfigTab(BuildContext context) {
-    final controller = context.watch<McpController>();
+    final controller = context.read<McpController>();
+    final servers = context.select<McpController, List<McpServer>>(
+      (controller) => controller.servers,
+    );
     final settings = context.watch<SettingsController>();
     final skills = context.watch<SkillsController>().skills;
     final memories = context.watch<MemoryController>().entries;
@@ -2373,6 +2490,26 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
           title: _localizedText(context, zh: 'MCP化暴露范围', en: 'Exposure'),
           child: Column(
             children: [
+              TextField(
+                controller: _exposureSearchController,
+                onChanged: (_) => setState(() {
+                  _exposureLimits.clear();
+                }),
+                decoration: InputDecoration(
+                  prefixIcon: const Icon(Icons.search_rounded),
+                  labelText: _localizedText(
+                    context,
+                    zh: '搜索暴露条目',
+                    en: 'Search exposure items',
+                  ),
+                  hintText: _localizedText(
+                    context,
+                    zh: '输入服务、工具、技能、记忆或知识库关键字',
+                    en: 'Filter by server, tool, skill, memory or knowledge',
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
               _surfaceSwitch(context, McpOpsExposureSurface.builtinTools),
               if (_surfaces.contains(McpOpsExposureSurface.builtinTools))
                 _exposureList(
@@ -2460,7 +2597,7 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
                   context,
                   surface: McpOpsExposureSurface.mcpServers,
                   rows: [
-                    for (final server in controller.servers)
+                    for (final server in servers)
                       _McpOpsExposureRow(
                         id: server.name,
                         title: server.name,
@@ -2502,10 +2639,13 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
     }
     return ListView.separated(
       physics: openHandDialogAwareScrollPhysics(context),
-      itemCount: entries.length,
+      itemCount: entries.length + 1,
       separatorBuilder: (_, _) => const SizedBox(height: 10),
       itemBuilder: (context, index) {
-        final entry = entries[index];
+        if (index == 0) {
+          return _McpOpsAuditSummaryPanel(entries: entries);
+        }
+        final entry = entries[index - 1];
         return _McpOpsAuditRow(
           entry: entry,
           onDetails: () => _showAuditDetails(context, entry),
@@ -2540,22 +2680,94 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
   }) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    if (rows.isEmpty) {
+    final query = _exposureSearchController.text.trim().toLowerCase();
+    final filteredRows = query.isEmpty
+        ? rows
+        : rows
+              .where(
+                (row) =>
+                    row.title.toLowerCase().contains(query) ||
+                    row.subtitle.toLowerCase().contains(query) ||
+                    row.id.toLowerCase().contains(query) ||
+                    row.endpoints.any(
+                      (endpoint) =>
+                          endpoint.toLowerCase().contains(query) ||
+                          (row.endpointLabels[endpoint] ?? '')
+                              .toLowerCase()
+                              .contains(query),
+                    ),
+              )
+              .toList(growable: false);
+    if (filteredRows.isEmpty) {
       return Padding(
         padding: const EdgeInsets.only(bottom: 10),
         child: Text(
-          _localizedText(context, zh: '暂无可暴露条目', en: 'No exposed items'),
+          rows.isEmpty
+              ? _localizedText(context, zh: '暂无可暴露条目', en: 'No exposed items')
+              : _localizedText(context, zh: '没有匹配条目', en: 'No matches'),
           style: theme.textTheme.bodySmall?.copyWith(
             color: cs.onSurfaceVariant,
           ),
         ),
       );
     }
+    final limit = math.min(
+      _exposureLimits[surface] ?? _mcpOpsExposureInitialLimit,
+      filteredRows.length,
+    );
+    final visibleRows = filteredRows.take(limit).toList(growable: false);
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Column(
         children: [
-          for (final row in rows)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    _localizedText(
+                      context,
+                      zh: '显示 $limit / ${filteredRows.length}',
+                      en: 'Showing $limit / ${filteredRows.length}',
+                      zhHant: '顯示 $limit / ${filteredRows.length}',
+                      fr: '$limit / ${filteredRows.length} affichés',
+                      de: '$limit / ${filteredRows.length} angezeigt',
+                      ja: '$limit / ${filteredRows.length} 件を表示',
+                    ),
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: cs.onSurfaceVariant,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                if (limit < filteredRows.length)
+                  TextButton.icon(
+                    onPressed: () => setState(() {
+                      _exposureLimits[surface] = math.min(
+                        filteredRows.length,
+                        limit + _mcpOpsExposurePageSize,
+                      );
+                    }),
+                    icon: const Icon(Icons.expand_more_rounded, size: 18),
+                    label: Text(
+                      _localizedText(context, zh: '加载更多', en: 'Show more'),
+                    ),
+                  ),
+                if (limit > _mcpOpsExposureInitialLimit)
+                  TextButton.icon(
+                    onPressed: () => setState(() {
+                      _exposureLimits[surface] = _mcpOpsExposureInitialLimit;
+                    }),
+                    icon: const Icon(Icons.unfold_less_rounded, size: 18),
+                    label: Text(
+                      _localizedText(context, zh: '收起', en: 'Collapse'),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          for (final row in visibleRows)
             _McpOpsExposureTile(
               surface: surface,
               row: row,
@@ -2708,6 +2920,190 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
   }
 }
 
+class _McpOpsDashboardStats {
+  const _McpOpsDashboardStats({
+    required this.successTotal,
+    required this.currentRpm,
+    required this.windowRequestCount,
+    required this.successRate,
+    required this.blockedRate,
+    required this.failedRate,
+    required this.requestBuckets,
+    required this.successBuckets,
+    required this.blockedBuckets,
+    required this.failedBuckets,
+    required this.avgLatencyBuckets,
+    required this.p95LatencyBuckets,
+    required this.statusCounts,
+  });
+
+  factory _McpOpsDashboardStats.from({
+    required McpOpsRuntimeSnapshot snapshot,
+    required List<McpOpsAuditEntry> auditEntries,
+  }) {
+    final now = DateTime.now().toUtc();
+    final minuteAgo = now.subtract(const Duration(minutes: 1));
+    final windowStart = now.subtract(const Duration(minutes: _bucketCount));
+    final requestBuckets = List<double>.filled(_bucketCount, 0);
+    final successBuckets = List<double>.filled(_bucketCount, 0);
+    final blockedBuckets = List<double>.filled(_bucketCount, 0);
+    final failedBuckets = List<double>.filled(_bucketCount, 0);
+    final latencySamples = List<List<int>>.generate(
+      _bucketCount,
+      (_) => <int>[],
+    );
+    final statusCounts = <String, int>{};
+    var currentRpm = 0;
+    var windowRequestCount = 0;
+    for (final entry in auditEntries) {
+      final timestamp = entry.timestamp.toUtc();
+      if (!timestamp.isBefore(minuteAgo)) {
+        currentRpm += 1;
+      }
+      statusCounts[entry.status] = (statusCounts[entry.status] ?? 0) + 1;
+      if (timestamp.isBefore(windowStart)) {
+        continue;
+      }
+      final bucket = now
+          .difference(timestamp)
+          .inMinutes
+          .clamp(0, _bucketCount - 1)
+          .toInt();
+      final index = _bucketCount - 1 - bucket;
+      requestBuckets[index] += 1;
+      windowRequestCount += 1;
+      if (entry.status == 'blocked') {
+        blockedBuckets[index] += 1;
+      } else if (entry.failed) {
+        failedBuckets[index] += 1;
+      } else {
+        successBuckets[index] += 1;
+      }
+      if (entry.durationMs > 0) {
+        latencySamples[index].add(entry.durationMs);
+      }
+    }
+    final avgLatencyBuckets = <double>[];
+    final p95LatencyBuckets = <double>[];
+    for (final samples in latencySamples) {
+      if (samples.isEmpty) {
+        avgLatencyBuckets.add(0);
+        p95LatencyBuckets.add(0);
+        continue;
+      }
+      samples.sort();
+      avgLatencyBuckets.add(
+        samples.fold<int>(0, (sum, item) => sum + item) / samples.length,
+      );
+      final p95Index = ((samples.length - 1) * 0.95).round();
+      p95LatencyBuckets.add(samples[p95Index].toDouble());
+    }
+    final total = math.max(1, snapshot.requestTotal);
+    final blocked = snapshot.blockedTotal;
+    final failed = snapshot.failedTotal;
+    final success = math.max(0, snapshot.requestTotal - blocked - failed);
+    return _McpOpsDashboardStats(
+      successTotal: success,
+      currentRpm: currentRpm,
+      windowRequestCount: windowRequestCount,
+      successRate: success / total,
+      blockedRate: blocked / total,
+      failedRate: failed / total,
+      requestBuckets: List<double>.unmodifiable(requestBuckets),
+      successBuckets: List<double>.unmodifiable(successBuckets),
+      blockedBuckets: List<double>.unmodifiable(blockedBuckets),
+      failedBuckets: List<double>.unmodifiable(failedBuckets),
+      avgLatencyBuckets: List<double>.unmodifiable(avgLatencyBuckets),
+      p95LatencyBuckets: List<double>.unmodifiable(p95LatencyBuckets),
+      statusCounts: Map<String, int>.unmodifiable(statusCounts),
+    );
+  }
+
+  static const int _bucketCount = 12;
+
+  final int successTotal;
+  final int currentRpm;
+  final int windowRequestCount;
+  final double successRate;
+  final double blockedRate;
+  final double failedRate;
+  final List<double> requestBuckets;
+  final List<double> successBuckets;
+  final List<double> blockedBuckets;
+  final List<double> failedBuckets;
+  final List<double> avgLatencyBuckets;
+  final List<double> p95LatencyBuckets;
+  final Map<String, int> statusCounts;
+
+  String get successRateLabel => _percentLabel(successRate);
+  String get blockedRateLabel => _percentLabel(blockedRate);
+  String get failedRateLabel => _percentLabel(failedRate);
+
+  List<_McpOpsChartSeries> requestTrendSeries(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return <_McpOpsChartSeries>[
+      _McpOpsChartSeries(
+        label: _localizedText(context, zh: '成功', en: 'Success'),
+        values: successBuckets,
+        color: OpenHandStatusColors.success,
+      ),
+      _McpOpsChartSeries(
+        label: _localizedText(context, zh: '拦截', en: 'Blocked'),
+        values: blockedBuckets,
+        color: OpenHandStatusColors.warning,
+      ),
+      _McpOpsChartSeries(
+        label: _localizedText(context, zh: '失败', en: 'Failed'),
+        values: failedBuckets,
+        color: cs.error,
+      ),
+    ];
+  }
+
+  List<_McpOpsChartSeries> latencyTrendSeries(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return <_McpOpsChartSeries>[
+      _McpOpsChartSeries(
+        label: _localizedText(context, zh: '平均', en: 'Average'),
+        values: avgLatencyBuckets,
+        color: cs.primary,
+      ),
+      _McpOpsChartSeries(
+        label: 'p95',
+        values: p95LatencyBuckets,
+        color: cs.tertiary,
+      ),
+    ];
+  }
+
+  Map<String, int> statusDistribution(BuildContext context) {
+    final success = statusCounts['success'] ?? 0;
+    final blocked = statusCounts['blocked'] ?? 0;
+    final failed = statusCounts['failed'] ?? 0;
+    return <String, int>{
+      _localizedText(context, zh: '成功', en: 'Success'): success,
+      _localizedText(context, zh: '拦截', en: 'Blocked'): blocked,
+      _localizedText(context, zh: '失败', en: 'Failed'): failed,
+    }..removeWhere((_, value) => value <= 0);
+  }
+
+  static String _percentLabel(double value) {
+    return (value * 100).clamp(0, 100).toStringAsFixed(1);
+  }
+}
+
+class _McpOpsChartSeries {
+  const _McpOpsChartSeries({
+    required this.label,
+    required this.values,
+    required this.color,
+  });
+
+  final String label;
+  final List<double> values;
+  final Color color;
+}
+
 class _McpOpsHeroPanel extends StatelessWidget {
   const _McpOpsHeroPanel({
     required this.snapshot,
@@ -2793,6 +3189,10 @@ class _McpOpsHeroPanel extends StatelessWidget {
                   context,
                   zh: '运行 ${formatCompactDuration(snapshot.uptime)}',
                   en: 'Uptime ${formatCompactDuration(snapshot.uptime)}',
+                  zhHant: '運行 ${formatCompactDuration(snapshot.uptime)}',
+                  fr: 'Disponibilité ${formatCompactDuration(snapshot.uptime)}',
+                  de: 'Laufzeit ${formatCompactDuration(snapshot.uptime)}',
+                  ja: '稼働 ${formatCompactDuration(snapshot.uptime)}',
                 ),
                 color: cs.tertiary,
               ),
@@ -2864,17 +3264,50 @@ class _McpOpsMetricGrid extends StatelessWidget {
   }
 }
 
+class _McpOpsPanelGrid extends StatelessWidget {
+  const _McpOpsPanelGrid({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final maxWidth = constraints.maxWidth;
+        final columns = !maxWidth.isFinite
+            ? 2
+            : maxWidth >= 920
+            ? 2
+            : 1;
+        final width = maxWidth.isFinite
+            ? (maxWidth - _mcpOpsGridGap * (columns - 1)) / columns
+            : 420.0;
+        return Wrap(
+          spacing: _mcpOpsGridGap,
+          runSpacing: _mcpOpsGridGap,
+          children: [
+            for (final child in children)
+              SizedBox(width: width < 0 ? 0 : width, child: child),
+          ],
+        );
+      },
+    );
+  }
+}
+
 class _McpOpsMetricTile extends StatelessWidget {
   const _McpOpsMetricTile({
     required this.icon,
     required this.label,
     required this.value,
+    this.helper,
     this.color,
   });
 
   final IconData icon;
   final String label;
   final String value;
+  final String? helper;
   final Color? color;
 
   @override
@@ -2889,7 +3322,7 @@ class _McpOpsMetricTile extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: cs.surfaceContainerHighest.withValues(alpha: 0.52),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(8),
         border: Border.all(color: tone.withValues(alpha: 0.22)),
       ),
       child: Column(
@@ -2921,8 +3354,261 @@ class _McpOpsMetricTile extends StatelessWidget {
               fontWeight: FontWeight.w900,
             ),
           ),
+          if (helper?.trim().isNotEmpty ?? false) ...[
+            const SizedBox(height: 4),
+            Text(
+              helper!.trim(),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: tone.withValues(alpha: 0.86),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
         ],
       ),
+    );
+  }
+}
+
+class _McpOpsTrendPanel extends StatelessWidget {
+  const _McpOpsTrendPanel({
+    required this.title,
+    required this.icon,
+    required this.series,
+    required this.emptyLabel,
+    this.subtitle = '',
+    this.valueSuffix = '',
+  });
+
+  final String title;
+  final IconData icon;
+  final List<_McpOpsChartSeries> series;
+  final String emptyLabel;
+  final String subtitle;
+  final String valueSuffix;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final maxValue = series
+        .expand((item) => item.values)
+        .fold<double>(0, (max, value) => math.max(max, value));
+    return _McpOpsPanel(
+      icon: icon,
+      title: title,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (subtitle.trim().isNotEmpty) ...[
+            Text(
+              subtitle,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: cs.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 10),
+          ],
+          SizedBox(
+            height: 156,
+            child: RepaintBoundary(
+              child: CustomPaint(
+                painter: _McpOpsSmoothLineChartPainter(
+                  series: series,
+                  gridColor: cs.outlineVariant.withValues(alpha: 0.46),
+                  labelColor: cs.onSurfaceVariant,
+                  emptyLabel: maxValue <= 0 ? emptyLabel : '',
+                  valueSuffix: valueSuffix,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 10,
+            runSpacing: 8,
+            children: [
+              for (final item in series)
+                _McpOpsLegendPill(label: item.label, color: item.color),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _McpOpsSmoothLineChartPainter extends CustomPainter {
+  const _McpOpsSmoothLineChartPainter({
+    required this.series,
+    required this.gridColor,
+    required this.labelColor,
+    required this.emptyLabel,
+    required this.valueSuffix,
+  });
+
+  final List<_McpOpsChartSeries> series;
+  final Color gridColor;
+  final Color labelColor;
+  final String emptyLabel;
+  final String valueSuffix;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final bounds = Offset.zero & size;
+    final chart = Rect.fromLTWH(8, 8, size.width - 16, size.height - 24);
+    final gridPaint = Paint()
+      ..color = gridColor
+      ..strokeWidth = 1;
+    for (var i = 0; i < 4; i++) {
+      final y = chart.top + chart.height * i / 3;
+      canvas.drawLine(Offset(chart.left, y), Offset(chart.right, y), gridPaint);
+    }
+    for (var i = 0; i < 6; i++) {
+      final x = chart.left + chart.width * i / 5;
+      canvas.drawLine(Offset(x, chart.top), Offset(x, chart.bottom), gridPaint);
+    }
+
+    final allValues = series.expand((item) => item.values).toList();
+    final maxValue = allValues.fold<double>(
+      0,
+      (max, value) => math.max(max, value),
+    );
+    if (maxValue <= 0) {
+      _paintEmpty(canvas, bounds);
+      return;
+    }
+    final normalizedMax = maxValue <= 1 ? 1.0 : maxValue * 1.14;
+    for (final item in series) {
+      if (item.values.isEmpty) continue;
+      final points = <Offset>[];
+      final denominator = math.max(1, item.values.length - 1);
+      for (var i = 0; i < item.values.length; i++) {
+        final x = chart.left + chart.width * i / denominator;
+        final ratio = (item.values[i] / normalizedMax).clamp(0.0, 1.0);
+        final y = chart.bottom - chart.height * ratio;
+        points.add(Offset(x, y));
+      }
+      if (points.length == 1) {
+        points.add(Offset(chart.right, points.first.dy));
+      }
+      final areaPath = _smoothPath(points)
+        ..lineTo(points.last.dx, chart.bottom)
+        ..lineTo(points.first.dx, chart.bottom)
+        ..close();
+      canvas.drawPath(
+        areaPath,
+        Paint()..color = item.color.withValues(alpha: 0.08),
+      );
+      canvas.drawPath(
+        _smoothPath(points),
+        Paint()
+          ..color = item.color
+          ..strokeWidth = 2.6
+          ..style = PaintingStyle.stroke
+          ..strokeCap = StrokeCap.round
+          ..strokeJoin = StrokeJoin.round,
+      );
+      canvas.drawCircle(points.last, 3.4, Paint()..color = item.color);
+    }
+    final maxLabel = valueSuffix.isEmpty
+        ? maxValue.round().toString()
+        : '${maxValue.round()}$valueSuffix';
+    _paintLabel(canvas, maxLabel, Offset(chart.left + 2, chart.top + 2));
+  }
+
+  Path _smoothPath(List<Offset> points) {
+    final path = Path()..moveTo(points.first.dx, points.first.dy);
+    for (var i = 0; i < points.length - 1; i++) {
+      final current = points[i];
+      final next = points[i + 1];
+      final mid = Offset(
+        (current.dx + next.dx) / 2,
+        (current.dy + next.dy) / 2,
+      );
+      path.quadraticBezierTo(current.dx, current.dy, mid.dx, mid.dy);
+    }
+    path.lineTo(points.last.dx, points.last.dy);
+    return path;
+  }
+
+  void _paintEmpty(Canvas canvas, Rect bounds) {
+    if (emptyLabel.trim().isEmpty) return;
+    final painter = TextPainter(
+      text: TextSpan(
+        text: emptyLabel,
+        style: TextStyle(
+          color: labelColor,
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+      maxLines: 1,
+    )..layout(maxWidth: bounds.width);
+    painter.paint(
+      canvas,
+      Offset(
+        bounds.center.dx - painter.width / 2,
+        bounds.center.dy - painter.height / 2,
+      ),
+    );
+  }
+
+  void _paintLabel(Canvas canvas, String label, Offset offset) {
+    final painter = TextPainter(
+      text: TextSpan(
+        text: label,
+        style: TextStyle(
+          color: labelColor,
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+      maxLines: 1,
+    )..layout();
+    painter.paint(canvas, offset);
+  }
+
+  @override
+  bool shouldRepaint(covariant _McpOpsSmoothLineChartPainter oldDelegate) {
+    return oldDelegate.series != series ||
+        oldDelegate.gridColor != gridColor ||
+        oldDelegate.labelColor != labelColor ||
+        oldDelegate.emptyLabel != emptyLabel ||
+        oldDelegate.valueSuffix != valueSuffix;
+  }
+}
+
+class _McpOpsLegendPill extends StatelessWidget {
+  const _McpOpsLegendPill({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 9,
+          height: 9,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 6),
+        Text(
+          label,
+          style: theme.textTheme.labelSmall?.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -2993,31 +3679,118 @@ class _McpOpsDistributionPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
     final sorted = values.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
     final top = sorted.take(5).toList(growable: false);
     final total = values.values.fold<int>(0, (sum, value) => sum + value);
+    final palette = _mcpOpsChartPalette(cs);
     return _McpOpsPanel(
       icon: icon,
       title: title,
       child: top.isEmpty
           ? Text(
               _localizedText(context, zh: '等待请求样本', en: 'Waiting for traffic'),
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: cs.onSurfaceVariant,
               ),
             )
-          : Column(
+          : Row(
               children: [
-                for (final entry in top)
-                  _McpOpsDistributionRow(
-                    label: entry.key,
-                    value: entry.value,
-                    total: total,
+                SizedBox(
+                  width: 112,
+                  height: 112,
+                  child: RepaintBoundary(
+                    child: CustomPaint(
+                      painter: _McpOpsDonutChartPainter(
+                        values: top.map((entry) => entry.value).toList(),
+                        colors: palette,
+                        trackColor: cs.surfaceContainerHighest,
+                      ),
+                      child: Center(
+                        child: Text(
+                          '$total',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    children: [
+                      for (var i = 0; i < top.length; i++)
+                        _McpOpsDistributionRow(
+                          label: top[i].key,
+                          value: top[i].value,
+                          total: total,
+                          color: palette[i % palette.length],
+                        ),
+                    ],
+                  ),
+                ),
               ],
             ),
     );
+  }
+}
+
+class _McpOpsDonutChartPainter extends CustomPainter {
+  const _McpOpsDonutChartPainter({
+    required this.values,
+    required this.colors,
+    required this.trackColor,
+  });
+
+  final List<int> values;
+  final List<Color> colors;
+  final Color trackColor;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final total = values.fold<int>(0, (sum, value) => sum + value);
+    final stroke = math.max(10.0, math.min(size.shortestSide * 0.16, 18.0));
+    final rect =
+        Offset(stroke / 2, stroke / 2) &
+        Size(size.width - stroke, size.height - stroke);
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = stroke
+      ..strokeCap = StrokeCap.round;
+    canvas.drawArc(
+      rect,
+      -math.pi / 2,
+      math.pi * 2,
+      false,
+      paint..color = trackColor,
+    );
+    if (total <= 0 || colors.isEmpty) return;
+    var start = -math.pi / 2;
+    for (var i = 0; i < values.length; i++) {
+      final sweep = math.pi * 2 * values[i] / total;
+      if (sweep <= 0) continue;
+      canvas.drawArc(
+        rect,
+        start,
+        math.max(0.03, sweep - 0.018),
+        false,
+        paint..color = colors[i % colors.length],
+      );
+      start += sweep;
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _McpOpsDonutChartPainter oldDelegate) {
+    return oldDelegate.values != values ||
+        oldDelegate.colors != colors ||
+        oldDelegate.trackColor != trackColor;
   }
 }
 
@@ -3026,11 +3799,13 @@ class _McpOpsDistributionRow extends StatelessWidget {
     required this.label,
     required this.value,
     required this.total,
+    required this.color,
   });
 
   final String label;
   final int value;
   final int total;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
@@ -3061,7 +3836,7 @@ class _McpOpsDistributionRow extends StatelessWidget {
             child: LinearProgressIndicator(
               value: ratio.clamp(0, 1).toDouble(),
               minHeight: 8,
-              color: cs.primary,
+              color: color,
               backgroundColor: cs.surfaceContainerHighest,
             ),
           ),
@@ -3069,6 +3844,17 @@ class _McpOpsDistributionRow extends StatelessWidget {
       ),
     );
   }
+}
+
+List<Color> _mcpOpsChartPalette(ColorScheme cs) {
+  return <Color>[
+    cs.primary,
+    cs.tertiary,
+    OpenHandStatusColors.success,
+    OpenHandStatusColors.warning,
+    cs.error,
+    cs.secondary,
+  ];
 }
 
 class _McpOpsResponsiveFields extends StatelessWidget {
@@ -3113,11 +3899,75 @@ class _McpOpsSwitchChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return FilterChip(
+    return _McpOpsTogglePill(
       selected: value,
-      label: Text(label),
-      avatar: Icon(value ? Icons.check_rounded : Icons.close_rounded, size: 18),
-      onSelected: onChanged,
+      icon: value ? Icons.check_rounded : Icons.close_rounded,
+      label: label,
+      onChanged: onChanged,
+    );
+  }
+}
+
+class _McpOpsTogglePill extends StatelessWidget {
+  const _McpOpsTogglePill({
+    required this.selected,
+    required this.icon,
+    required this.label,
+    required this.onChanged,
+  });
+
+  final bool selected;
+  final IconData icon;
+  final String label;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final tone = selected ? cs.primary : cs.onSurfaceVariant;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(999),
+        hoverColor: tone.withValues(alpha: 0.08),
+        splashColor: tone.withValues(alpha: 0.08),
+        highlightColor: tone.withValues(alpha: 0.05),
+        onTap: () => onChanged(!selected),
+        child: AnimatedContainer(
+          duration: _mcpMotionDuration(
+            context,
+            const Duration(milliseconds: 160),
+          ),
+          curve: Curves.easeOutCubic,
+          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+          decoration: BoxDecoration(
+            color: selected
+                ? tone.withValues(alpha: 0.14)
+                : cs.surfaceContainerHighest.withValues(alpha: 0.58),
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(
+              color: selected
+                  ? tone.withValues(alpha: 0.32)
+                  : cs.outlineVariant.withValues(alpha: 0.7),
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 16, color: tone),
+              const SizedBox(width: 7),
+              Text(
+                label,
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: selected ? tone : cs.onSurfaceVariant,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -3206,16 +4056,13 @@ class _McpOpsExposureTile extends StatelessWidget {
                 runSpacing: 8,
                 children: [
                   for (final endpoint in row.endpoints)
-                    FilterChip(
+                    _McpOpsTogglePill(
                       selected: endpointVisible(endpoint),
-                      label: Text(row.endpointLabels[endpoint] ?? endpoint),
-                      avatar: Icon(
-                        endpointVisible(endpoint)
-                            ? Icons.visibility_rounded
-                            : Icons.visibility_off_rounded,
-                        size: 16,
-                      ),
-                      onSelected: (value) => onEndpointChanged(endpoint, value),
+                      icon: endpointVisible(endpoint)
+                          ? Icons.visibility_rounded
+                          : Icons.visibility_off_rounded,
+                      label: row.endpointLabels[endpoint] ?? endpoint,
+                      onChanged: (value) => onEndpointChanged(endpoint, value),
                     ),
                 ],
               ),
@@ -3256,7 +4103,7 @@ class _McpOpsAuditRow extends StatelessWidget {
         children: [
           _McpOpsStatusChip(
             icon: Icons.circle_rounded,
-            label: entry.status,
+            label: _mcpOpsAuditStatusLabel(context, entry.status),
             color: statusColor,
           ),
           _McpOpsStatusChip(
@@ -3266,7 +4113,15 @@ class _McpOpsAuditRow extends StatelessWidget {
           ),
           _McpOpsStatusChip(
             icon: Icons.token_rounded,
-            label: '${entry.totalTokens} tokens',
+            label: _localizedText(
+              context,
+              zh: '${entry.totalTokens} tokens',
+              en: '${entry.totalTokens} tokens',
+              zhHant: '${entry.totalTokens} tokens',
+              fr: '${entry.totalTokens} tokens',
+              de: '${entry.totalTokens} Tokens',
+              ja: '${entry.totalTokens} tokens',
+            ),
             color: cs.secondary,
           ),
           _McpOpsStatusChip(
@@ -3293,6 +4148,74 @@ class _McpOpsAuditRow extends StatelessWidget {
             icon: Icons.public_rounded,
             label: entry.ipAddress,
             color: cs.primary,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _McpOpsAuditSummaryPanel extends StatelessWidget {
+  const _McpOpsAuditSummaryPanel({required this.entries});
+
+  final List<McpOpsAuditEntry> entries;
+
+  @override
+  Widget build(BuildContext context) {
+    final total = entries.length;
+    final failed = entries.where((entry) => entry.failed).length;
+    final blocked = entries.where((entry) => entry.status == 'blocked').length;
+    final success = math.max(0, total - failed);
+    final avgLatency = total == 0
+        ? 0
+        : (entries.fold<int>(0, (sum, entry) => sum + entry.durationMs) / total)
+              .round();
+    final inbound = entries.fold<int>(
+      0,
+      (sum, entry) => sum + entry.inboundBytes,
+    );
+    final outbound = entries.fold<int>(
+      0,
+      (sum, entry) => sum + entry.outboundBytes,
+    );
+    return _McpOpsPanel(
+      icon: Icons.analytics_rounded,
+      title: _localizedText(context, zh: '审计概览', en: 'Audit Overview'),
+      child: _McpOpsMetricGrid(
+        children: [
+          _McpOpsMetricTile(
+            icon: Icons.receipt_long_rounded,
+            label: _localizedText(context, zh: '日志总数', en: 'Total Logs'),
+            value: '$total',
+            helper: _localizedText(context, zh: '滚动窗口', en: 'Rolling window'),
+          ),
+          _McpOpsMetricTile(
+            icon: Icons.task_alt_rounded,
+            label: _localizedText(context, zh: '成功', en: 'Success'),
+            value: '$success',
+            color: OpenHandStatusColors.success,
+          ),
+          _McpOpsMetricTile(
+            icon: Icons.shield_rounded,
+            label: _localizedText(context, zh: '拦截', en: 'Blocked'),
+            value: '$blocked',
+            color: OpenHandStatusColors.warning,
+          ),
+          _McpOpsMetricTile(
+            icon: Icons.error_outline_rounded,
+            label: _localizedText(context, zh: '失败', en: 'Failed'),
+            value: '$failed',
+            color: Theme.of(context).colorScheme.error,
+          ),
+          _McpOpsMetricTile(
+            icon: Icons.timer_rounded,
+            label: _localizedText(context, zh: '平均耗时', en: 'Average latency'),
+            value: '${avgLatency}ms',
+          ),
+          _McpOpsMetricTile(
+            icon: Icons.swap_vert_rounded,
+            label: _localizedText(context, zh: '进出口流量', en: 'Traffic'),
+            value: '${formatByteSize(inbound)} / ${formatByteSize(outbound)}',
           ),
         ],
       ),
@@ -3351,20 +4274,35 @@ class _McpOpsAuditDetailDialog extends StatelessWidget {
                         en: 'Environment',
                       ),
                       rows: {
-                        'id': entry.id,
-                        'tool': entry.toolName,
-                        'surface': entry.surface,
-                        'endpoint': entry.endpoint,
-                        'status': entry.status,
-                        'time': entry.timestamp.toIso8601String(),
-                        'client': entry.clientName,
-                        'ip': entry.ipAddress,
-                        'protocol': entry.protocol,
-                        'model': entry.model,
-                        'duration_ms': '${entry.durationMs}',
-                        'tokens': '${entry.totalTokens}',
-                        'traffic':
-                            '${formatByteSize(entry.inboundBytes)} / ${formatByteSize(entry.outboundBytes)}',
+                        _localizedText(context, zh: '日志ID', en: 'ID'): entry.id,
+                        _localizedText(context, zh: '工具', en: 'Tool'):
+                            entry.toolName,
+                        _localizedText(context, zh: '暴露面', en: 'Surface'):
+                            entry.surface,
+                        _localizedText(context, zh: '接口', en: 'Endpoint'):
+                            entry.endpoint,
+                        _localizedText(context, zh: '状态', en: 'Status'):
+                            _mcpOpsAuditStatusLabel(context, entry.status),
+                        _localizedText(context, zh: '请求时间', en: 'Time'): entry
+                            .timestamp
+                            .toIso8601String(),
+                        _localizedText(context, zh: '来源客户端', en: 'Client'):
+                            entry.clientName,
+                        _localizedText(context, zh: '来源IP', en: 'IP'):
+                            entry.ipAddress,
+                        _localizedText(context, zh: '协议', en: 'Protocol'):
+                            entry.protocol,
+                        _localizedText(context, zh: '模型', en: 'Model'):
+                            entry.model,
+                        _localizedText(context, zh: '调用耗时', en: 'Duration'):
+                            '${entry.durationMs}ms',
+                        _localizedText(context, zh: 'Token数', en: 'Tokens'):
+                            '${entry.totalTokens}',
+                        _localizedText(
+                          context,
+                          zh: '进出口流量',
+                          en: 'Traffic',
+                        ): '${formatByteSize(entry.inboundBytes)} / ${formatByteSize(entry.outboundBytes)}',
                         ...entry.environment.map(
                           (key, value) => MapEntry(key, '$value'),
                         ),
@@ -3681,6 +4619,15 @@ String _lifecycleLabel(BuildContext context, McpOpsLifecycleState state) {
       zh: '异常',
       en: 'Failed',
     ),
+  };
+}
+
+String _mcpOpsAuditStatusLabel(BuildContext context, String status) {
+  return switch (status.trim().toLowerCase()) {
+    'success' => _localizedText(context, zh: '成功', en: 'Success'),
+    'blocked' => _localizedText(context, zh: '已拦截', en: 'Blocked'),
+    'failed' => _localizedText(context, zh: '失败', en: 'Failed'),
+    _ => status,
   };
 }
 
@@ -8764,6 +9711,662 @@ class _McpLocalizedFallback {
 
 const Map<String, _McpLocalizedFallback>
 _mcpLocalizedFallbacks = <String, _McpLocalizedFallback>{
+  'MCP Server Operations': _McpLocalizedFallback(
+    zhHant: 'MCP 伺服器運維',
+    fr: 'Opérations du serveur MCP',
+    de: 'MCP-Serverbetrieb',
+    ja: 'MCP サーバー運用',
+  ),
+  'MCP Server': _McpLocalizedFallback(
+    zhHant: 'MCP 伺服器',
+    fr: 'Serveur MCP',
+    de: 'MCP-Server',
+    ja: 'MCP サーバー',
+  ),
+  'Ops': _McpLocalizedFallback(
+    zhHant: '運維面板',
+    fr: 'Exploitation',
+    de: 'Betrieb',
+    ja: '運用',
+  ),
+  'Config': _McpLocalizedFallback(
+    zhHant: '參數配置',
+    fr: 'Configuration',
+    de: 'Konfiguration',
+    ja: '設定',
+  ),
+  'Audit': _McpLocalizedFallback(
+    zhHant: '日誌審計',
+    fr: 'Audit',
+    de: 'Audit',
+    ja: '監査',
+  ),
+  'No audit logs': _McpLocalizedFallback(
+    zhHant: '暫無調用日誌',
+    fr: 'Aucun journal d’appel',
+    de: 'Keine Aufruflogs',
+    ja: '呼び出しログはありません',
+  ),
+  'External MCP calls will stream into this audit list.': _McpLocalizedFallback(
+    zhHant: '外部 MCP 客戶端發起調用後，會在這裡即時滾動輸出審計記錄。',
+    fr: 'Les appels MCP externes s’affichent ici en continu.',
+    de: 'Externe MCP-Aufrufe erscheinen fortlaufend in dieser Auditliste.',
+    ja: '外部 MCP クライアントの呼び出しはここに流れます。',
+  ),
+  'Details': _McpLocalizedFallback(
+    zhHant: '詳情',
+    fr: 'Détails',
+    de: 'Details',
+    ja: '詳細',
+  ),
+  'Audit Details': _McpLocalizedFallback(
+    zhHant: '審計詳情',
+    fr: 'Détails d’audit',
+    de: 'Auditdetails',
+    ja: '監査詳細',
+  ),
+  'Audit Overview': _McpLocalizedFallback(
+    zhHant: '審計概覽',
+    fr: 'Vue d’ensemble de l’audit',
+    de: 'Auditübersicht',
+    ja: '監査概要',
+  ),
+  'Total Logs': _McpLocalizedFallback(
+    zhHant: '日誌總數',
+    fr: 'Total des journaux',
+    de: 'Logs gesamt',
+    ja: 'ログ総数',
+  ),
+  'Rolling window': _McpLocalizedFallback(
+    zhHant: '滾動窗口',
+    fr: 'Fenêtre glissante',
+    de: 'Rollierendes Fenster',
+    ja: 'ローリングウィンドウ',
+  ),
+  'Environment': _McpLocalizedFallback(
+    zhHant: '環境資訊',
+    fr: 'Environnement',
+    de: 'Umgebung',
+    ja: '環境',
+  ),
+  'Success': _McpLocalizedFallback(
+    zhHant: '成功',
+    fr: 'Succès',
+    de: 'Erfolg',
+    ja: '成功',
+  ),
+  'Failures': _McpLocalizedFallback(
+    zhHant: '失敗數量',
+    fr: 'Échecs',
+    de: 'Fehler',
+    ja: '失敗数',
+  ),
+  'ID': _McpLocalizedFallback(zhHant: '日誌 ID', fr: 'ID', de: 'ID', ja: 'ID'),
+  'Surface': _McpLocalizedFallback(
+    zhHant: '暴露面',
+    fr: 'Surface',
+    de: 'Oberfläche',
+    ja: '公開面',
+  ),
+  'Time': _McpLocalizedFallback(
+    zhHant: '請求時間',
+    fr: 'Heure',
+    de: 'Zeit',
+    ja: '時刻',
+  ),
+  'Client': _McpLocalizedFallback(
+    zhHant: '來源客戶端',
+    fr: 'Client',
+    de: 'Client',
+    ja: 'クライアント',
+  ),
+  'Model': _McpLocalizedFallback(
+    zhHant: '模型',
+    fr: 'Modèle',
+    de: 'Modell',
+    ja: 'モデル',
+  ),
+  'Duration': _McpLocalizedFallback(
+    zhHant: '調用耗時',
+    fr: 'Durée',
+    de: 'Dauer',
+    ja: '所要時間',
+  ),
+  'Tokens': _McpLocalizedFallback(
+    zhHant: 'Token 數',
+    fr: 'Tokens',
+    de: 'Tokens',
+    ja: 'トークン数',
+  ),
+  'Traffic': _McpLocalizedFallback(
+    zhHant: '進出口流量',
+    fr: 'Trafic',
+    de: 'Traffic',
+    ja: 'トラフィック',
+  ),
+  'Request': _McpLocalizedFallback(
+    zhHant: '請求資訊',
+    fr: 'Requête',
+    de: 'Anfrage',
+    ja: 'リクエスト',
+  ),
+  'Response': _McpLocalizedFallback(
+    zhHant: '響應資訊',
+    fr: 'Réponse',
+    de: 'Antwort',
+    ja: 'レスポンス',
+  ),
+  'Connections': _McpLocalizedFallback(
+    zhHant: '當前連線數',
+    fr: 'Connexions',
+    de: 'Verbindungen',
+    ja: '接続数',
+  ),
+  'Live sessions': _McpLocalizedFallback(
+    zhHant: '即時會話',
+    fr: 'Sessions actives',
+    de: 'Live-Sitzungen',
+    ja: 'ライブセッション',
+  ),
+  'In flight': _McpLocalizedFallback(
+    zhHant: '執行中',
+    fr: 'En cours',
+    de: 'In Ausführung',
+    ja: '処理中',
+  ),
+  'Inbound': _McpLocalizedFallback(
+    zhHant: '入口流量',
+    fr: 'Entrant',
+    de: 'Eingehend',
+    ja: '受信',
+  ),
+  'Outbound': _McpLocalizedFallback(
+    zhHant: '出口流量',
+    fr: 'Sortant',
+    de: 'Ausgehend',
+    ja: '送信',
+  ),
+  'Request bytes': _McpLocalizedFallback(
+    zhHant: '請求體',
+    fr: 'Octets de requête',
+    de: 'Anfragebytes',
+    ja: 'リクエストバイト',
+  ),
+  'Response bytes': _McpLocalizedFallback(
+    zhHant: '響應體',
+    fr: 'Octets de réponse',
+    de: 'Antwortbytes',
+    ja: 'レスポンスバイト',
+  ),
+  'Latency': _McpLocalizedFallback(
+    zhHant: '調用耗時',
+    fr: 'Latence',
+    de: 'Latenz',
+    ja: 'レイテンシ',
+  ),
+  'Allowed Time': _McpLocalizedFallback(
+    zhHant: '允許時間',
+    fr: 'Période autorisée',
+    de: 'Erlaubte Zeit',
+    ja: '許可時間',
+  ),
+  'Local time': _McpLocalizedFallback(
+    zhHant: '本地時區',
+    fr: 'Heure locale',
+    de: 'Lokale Zeit',
+    ja: 'ローカル時刻',
+  ),
+  'Memory': _McpLocalizedFallback(
+    zhHant: '記憶',
+    fr: 'Mémoire',
+    de: 'Speicher',
+    ja: 'メモリ',
+  ),
+  'Current RSS': _McpLocalizedFallback(
+    zhHant: '當前 RSS',
+    fr: 'RSS actuel',
+    de: 'Aktueller RSS',
+    ja: '現在の RSS',
+  ),
+  'MCP Count': _McpLocalizedFallback(
+    zhHant: 'MCP 數量',
+    fr: 'Nombre de MCP',
+    de: 'MCP-Anzahl',
+    ja: 'MCP 数',
+  ),
+  'Registered': _McpLocalizedFallback(
+    zhHant: '已註冊服務',
+    fr: 'Enregistrés',
+    de: 'Registriert',
+    ja: '登録済み',
+  ),
+  'Mutations': _McpLocalizedFallback(
+    zhHant: '檔案變動',
+    fr: 'Mutations',
+    de: 'Änderungen',
+    ja: '変更',
+  ),
+  'Write calls': _McpLocalizedFallback(
+    zhHant: '寫工具成功',
+    fr: 'Écritures réussies',
+    de: 'Schreibaufrufe',
+    ja: '書き込み呼び出し',
+  ),
+  'Audit Logs': _McpLocalizedFallback(
+    zhHant: '審計日誌',
+    fr: 'Journaux d’audit',
+    de: 'Audit-Logs',
+    ja: '監査ログ',
+  ),
+  'Rolling kept': _McpLocalizedFallback(
+    zhHant: '滾動保留',
+    fr: 'Conservation glissante',
+    de: 'Rollierend behalten',
+    ja: 'ローテーション保持',
+  ),
+  'Unlimited': _McpLocalizedFallback(
+    zhHant: '不限流',
+    fr: 'Illimité',
+    de: 'Unbegrenzt',
+    ja: '無制限',
+  ),
+  'Access Policy': _McpLocalizedFallback(
+    zhHant: '訪問策略',
+    fr: 'Politique d’accès',
+    de: 'Zugriffsrichtlinie',
+    ja: 'アクセス方針',
+  ),
+  'Token auth': _McpLocalizedFallback(
+    zhHant: '令牌校驗',
+    fr: 'Jeton requis',
+    de: 'Tokenprüfung',
+    ja: 'トークン認証',
+  ),
+  'No token': _McpLocalizedFallback(
+    zhHant: '無令牌',
+    fr: 'Sans jeton',
+    de: 'Kein Token',
+    ja: 'トークンなし',
+  ),
+  'Request Trend': _McpLocalizedFallback(
+    zhHant: '請求趨勢',
+    fr: 'Tendance des requêtes',
+    de: 'Anfragetrend',
+    ja: 'リクエスト推移',
+  ),
+  'Latency Curve': _McpLocalizedFallback(
+    zhHant: '耗時曲線',
+    fr: 'Courbe de latence',
+    de: 'Latenzkurve',
+    ja: 'レイテンシ曲線',
+  ),
+  'Last 12 minutes · success/failure/blocked': _McpLocalizedFallback(
+    zhHant: '最近12分鐘 · 成功/失敗/攔截',
+    fr: '12 dernières minutes · succès/échec/bloqué',
+    de: 'Letzte 12 Minuten · Erfolg/Fehler/Blockiert',
+    ja: '直近12分 · 成功/失敗/ブロック',
+  ),
+  'Average and tail latency': _McpLocalizedFallback(
+    zhHant: '平均耗時與尾延遲',
+    fr: 'Latence moyenne et de queue',
+    de: 'Durchschnitts- und Tail-Latenz',
+    ja: '平均とテールレイテンシ',
+  ),
+  'Status Mix': _McpLocalizedFallback(
+    zhHant: '狀態分布',
+    fr: 'Répartition des états',
+    de: 'Statusverteilung',
+    ja: 'ステータス分布',
+  ),
+  'IP Mix': _McpLocalizedFallback(
+    zhHant: '請求 IP 分布',
+    fr: 'Répartition IP',
+    de: 'IP-Verteilung',
+    ja: 'IP 分布',
+  ),
+  'Client Mix': _McpLocalizedFallback(
+    zhHant: '請求客戶端分布',
+    fr: 'Répartition des clients',
+    de: 'Clientverteilung',
+    ja: 'クライアント分布',
+  ),
+  'Request Mix': _McpLocalizedFallback(
+    zhHant: '請求分布',
+    fr: 'Répartition des requêtes',
+    de: 'Anfrageverteilung',
+    ja: 'リクエスト分布',
+  ),
+  'Protocol Mix': _McpLocalizedFallback(
+    zhHant: '協議分布',
+    fr: 'Répartition des protocoles',
+    de: 'Protokollverteilung',
+    ja: 'プロトコル分布',
+  ),
+  'Listener': _McpLocalizedFallback(
+    zhHant: '監聽與訪問控制',
+    fr: 'Écoute et accès',
+    de: 'Listener und Zugriff',
+    ja: 'リスナーとアクセス',
+  ),
+  'Listen Host': _McpLocalizedFallback(
+    zhHant: '監聽地址',
+    fr: 'Adresse d’écoute',
+    de: 'Listen-Adresse',
+    ja: 'リッスンホスト',
+  ),
+  'Listen Port': _McpLocalizedFallback(
+    zhHant: '監聽埠',
+    fr: 'Port d’écoute',
+    de: 'Listen-Port',
+    ja: 'リッスンポート',
+  ),
+  'Workspace Scope': _McpLocalizedFallback(
+    zhHant: '可操作檔案空間',
+    fr: 'Espace de travail',
+    de: 'Arbeitsbereich',
+    ja: 'ワークスペース範囲',
+  ),
+  'Access Token': _McpLocalizedFallback(
+    zhHant: '訪問令牌',
+    fr: 'Jeton d’accès',
+    de: 'Zugriffstoken',
+    ja: 'アクセストークン',
+  ),
+  'Autostart': _McpLocalizedFallback(
+    zhHant: '自動啟動',
+    fr: 'Démarrage auto',
+    de: 'Autostart',
+    ja: '自動起動',
+  ),
+  'Token Auth': _McpLocalizedFallback(
+    zhHant: '令牌校驗',
+    fr: 'Auth par jeton',
+    de: 'Token-Auth',
+    ja: 'トークン認証',
+  ),
+  'Capture Payload': _McpLocalizedFallback(
+    zhHant: '記錄參數',
+    fr: 'Capturer les paramètres',
+    de: 'Payload erfassen',
+    ja: 'ペイロード記録',
+  ),
+  'Policy': _McpLocalizedFallback(
+    zhHant: '限流與調用策略',
+    fr: 'Politique',
+    de: 'Richtlinie',
+    ja: 'ポリシー',
+  ),
+  'Call Threshold': _McpLocalizedFallback(
+    zhHant: '調用次數閾值',
+    fr: 'Seuil d’appels',
+    de: 'Aufrufschwelle',
+    ja: '呼び出ししきい値',
+  ),
+  'Timeout (ms)': _McpLocalizedFallback(
+    zhHant: '超時時間(ms)',
+    fr: 'Délai (ms)',
+    de: 'Timeout (ms)',
+    ja: 'タイムアウト(ms)',
+  ),
+  'Approval Wait (ms)': _McpLocalizedFallback(
+    zhHant: '審批等待(ms)',
+    fr: 'Attente approbation (ms)',
+    de: 'Freigabe-Wartezeit (ms)',
+    ja: '承認待機(ms)',
+  ),
+  'Network Mode': _McpLocalizedFallback(
+    zhHant: '網路模式',
+    fr: 'Mode réseau',
+    de: 'Netzwerkmodus',
+    ja: 'ネットワークモード',
+  ),
+  'Invocation Mode': _McpLocalizedFallback(
+    zhHant: '調用模式',
+    fr: 'Mode d’appel',
+    de: 'Aufrufmodus',
+    ja: '呼び出しモード',
+  ),
+  'Write Policy': _McpLocalizedFallback(
+    zhHant: '寫調用策略',
+    fr: 'Politique d’écriture',
+    de: 'Schreibrichtlinie',
+    ja: '書き込み方針',
+  ),
+  'Allowed Clients': _McpLocalizedFallback(
+    zhHant: '允許客戶端',
+    fr: 'Clients autorisés',
+    de: 'Erlaubte Clients',
+    ja: '許可クライアント',
+  ),
+  'Allowed IP/CIDR': _McpLocalizedFallback(
+    zhHant: '允許 IP/CIDR',
+    fr: 'IP/CIDR autorisés',
+    de: 'Erlaubte IP/CIDR',
+    ja: '許可 IP/CIDR',
+  ),
+  'Exposure': _McpLocalizedFallback(
+    zhHant: 'MCP 化暴露範圍',
+    fr: 'Exposition MCP',
+    de: 'MCP-Freigabe',
+    ja: 'MCP 公開範囲',
+  ),
+  'Search exposure items': _McpLocalizedFallback(
+    zhHant: '搜尋暴露條目',
+    fr: 'Rechercher les éléments exposés',
+    de: 'Freigaben durchsuchen',
+    ja: '公開項目を検索',
+  ),
+  'Filter by server, tool, skill, memory or knowledge': _McpLocalizedFallback(
+    zhHant: '輸入服務、工具、技能、記憶或知識庫關鍵字',
+    fr: 'Filtrer par serveur, outil, compétence, mémoire ou connaissance',
+    de: 'Nach Server, Tool, Skill, Memory oder Wissen filtern',
+    ja: 'サーバー、ツール、スキル、メモリ、知識で絞り込み',
+  ),
+  'Disabled': _McpLocalizedFallback(
+    zhHant: '已停用',
+    fr: 'Désactivé',
+    de: 'Deaktiviert',
+    ja: '無効',
+  ),
+  'No exposed items': _McpLocalizedFallback(
+    zhHant: '暫無可暴露條目',
+    fr: 'Aucun élément exposable',
+    de: 'Keine freigebbaren Einträge',
+    ja: '公開可能な項目はありません',
+  ),
+  'No matches': _McpLocalizedFallback(
+    zhHant: '沒有匹配條目',
+    fr: 'Aucun résultat',
+    de: 'Keine Treffer',
+    ja: '一致なし',
+  ),
+  'Show more': _McpLocalizedFallback(
+    zhHant: '載入更多',
+    fr: 'Afficher plus',
+    de: 'Mehr anzeigen',
+    ja: 'さらに表示',
+  ),
+  'MCP server stopped': _McpLocalizedFallback(
+    zhHant: 'MCP 伺服器已關閉',
+    fr: 'Serveur MCP arrêté',
+    de: 'MCP-Server gestoppt',
+    ja: 'MCP サーバーを停止しました',
+  ),
+  'Stop failed': _McpLocalizedFallback(
+    zhHant: '關閉失敗',
+    fr: 'Arrêt échoué',
+    de: 'Stop fehlgeschlagen',
+    ja: '停止に失敗しました',
+  ),
+  'Connectivity OK': _McpLocalizedFallback(
+    zhHant: '連通性正常',
+    fr: 'Connectivité OK',
+    de: 'Verbindung OK',
+    ja: '接続正常',
+  ),
+  'Configuration applied': _McpLocalizedFallback(
+    zhHant: '配置已生效',
+    fr: 'Configuration appliquée',
+    de: 'Konfiguration angewendet',
+    ja: '設定を適用しました',
+  ),
+  'Configuration failed': _McpLocalizedFallback(
+    zhHant: '配置保存失敗',
+    fr: 'Échec de la configuration',
+    de: 'Konfiguration fehlgeschlagen',
+    ja: '設定に失敗しました',
+  ),
+  'Server Console': _McpLocalizedFallback(
+    zhHant: '服務控制台',
+    fr: 'Console serveur',
+    de: 'Serverkonsole',
+    ja: 'サーバーコンソール',
+  ),
+  'Test': _McpLocalizedFallback(
+    zhHant: '連通性測試',
+    fr: 'Tester',
+    de: 'Testen',
+    ja: 'テスト',
+  ),
+  'Start': _McpLocalizedFallback(
+    zhHant: '啟動',
+    fr: 'Démarrer',
+    de: 'Starten',
+    ja: '起動',
+  ),
+  'Restart': _McpLocalizedFallback(
+    zhHant: '重啟',
+    fr: 'Redémarrer',
+    de: 'Neu starten',
+    ja: '再起動',
+  ),
+  'Stop': _McpLocalizedFallback(
+    zhHant: '關閉',
+    fr: 'Arrêter',
+    de: 'Stoppen',
+    ja: '停止',
+  ),
+  'Average': _McpLocalizedFallback(
+    zhHant: '平均',
+    fr: 'Moyenne',
+    de: 'Durchschnitt',
+    ja: '平均',
+  ),
+  'Waiting for traffic': _McpLocalizedFallback(
+    zhHant: '等待請求樣本',
+    fr: 'En attente de trafic',
+    de: 'Warte auf Traffic',
+    ja: 'トラフィック待ち',
+  ),
+  'Write Approvals': _McpLocalizedFallback(
+    zhHant: '寫調用審批',
+    fr: 'Approbations d’écriture',
+    de: 'Schreibfreigaben',
+    ja: '書き込み承認',
+  ),
+  'Reject': _McpLocalizedFallback(
+    zhHant: '拒絕',
+    fr: 'Refuser',
+    de: 'Ablehnen',
+    ja: '拒否',
+  ),
+  'Allow': _McpLocalizedFallback(
+    zhHant: '放行',
+    fr: 'Autoriser',
+    de: 'Erlauben',
+    ja: '許可',
+  ),
+  'Builtin Tools': _McpLocalizedFallback(
+    zhHant: '內建工具',
+    fr: 'Outils intégrés',
+    de: 'Integrierte Tools',
+    ja: '内蔵ツール',
+  ),
+  'Skills': _McpLocalizedFallback(
+    zhHant: '技能',
+    fr: 'Compétences',
+    de: 'Skills',
+    ja: 'スキル',
+  ),
+  'Instructions': _McpLocalizedFallback(
+    zhHant: '指令',
+    fr: 'Instructions',
+    de: 'Anweisungen',
+    ja: '指示',
+  ),
+  'Knowledge Base': _McpLocalizedFallback(
+    zhHant: '知識庫',
+    fr: 'Base de connaissances',
+    de: 'Wissensdatenbank',
+    ja: 'ナレッジベース',
+  ),
+  'MCP Servers': _McpLocalizedFallback(
+    zhHant: 'MCP 服務',
+    fr: 'Serveurs MCP',
+    de: 'MCP-Server',
+    ja: 'MCP サーバー',
+  ),
+  'Loopback': _McpLocalizedFallback(
+    zhHant: '僅本機',
+    fr: 'Boucle locale',
+    de: 'Loopback',
+    ja: 'ローカルのみ',
+  ),
+  'LAN': _McpLocalizedFallback(zhHant: '區域網', fr: 'LAN', de: 'LAN', ja: 'LAN'),
+  'Custom': _McpLocalizedFallback(
+    zhHant: '自訂',
+    fr: 'Personnalisé',
+    de: 'Benutzerdefiniert',
+    ja: 'カスタム',
+  ),
+  'Direct': _McpLocalizedFallback(
+    zhHant: '直接',
+    fr: 'Direct',
+    de: 'Direkt',
+    ja: '直接',
+  ),
+  'Queued': _McpLocalizedFallback(
+    zhHant: '排隊',
+    fr: 'En file',
+    de: 'Warteschlange',
+    ja: 'キュー',
+  ),
+  'Guarded': _McpLocalizedFallback(
+    zhHant: '受控',
+    fr: 'Contrôlé',
+    de: 'Geschützt',
+    ja: '保護',
+  ),
+  'Approval': _McpLocalizedFallback(
+    zhHant: '預設審批',
+    fr: 'Approbation',
+    de: 'Freigabe',
+    ja: '承認',
+  ),
+  'Full Access': _McpLocalizedFallback(
+    zhHant: '完全訪問',
+    fr: 'Accès complet',
+    de: 'Vollzugriff',
+    ja: 'フルアクセス',
+  ),
+  'Read Only': _McpLocalizedFallback(
+    zhHant: '只讀',
+    fr: 'Lecture seule',
+    de: 'Nur Lesen',
+    ja: '読み取り専用',
+  ),
+  'Stopped': _McpLocalizedFallback(
+    zhHant: '已關閉',
+    fr: 'Arrêté',
+    de: 'Gestoppt',
+    ja: '停止済み',
+  ),
+  'Restarting': _McpLocalizedFallback(
+    zhHant: '重啟中',
+    fr: 'Redémarrage',
+    de: 'Neustart läuft',
+    ja: '再起動中',
+  ),
   'Export snapshot': _McpLocalizedFallback(
     zhHant: '匯出快照',
     fr: 'Exporter l’instantané',
