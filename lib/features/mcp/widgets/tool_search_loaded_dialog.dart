@@ -3,7 +3,6 @@ import 'dart:io';
 
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 
 import '../../../app/support/safe_subprocess.dart';
@@ -18,6 +17,7 @@ import '../../../shared/util/date_time_format.dart';
 import '../../ai/index.dart';
 import '../service/tool_search_history_export_prefs.dart';
 import '../service/tool_search_history_serializer.dart';
+import 'mcp_dialog_utils.dart';
 
 Future<void> showToolSearchLoadedDialog(
   BuildContext context, {
@@ -168,32 +168,24 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
   }
 
   Future<void> _handleCopy(String name) async {
-    await Clipboard.setData(ClipboardData(text: 'select:$name'));
-    if (!mounted) return;
     final l10n = AppLocalizations.of(context);
-    if (l10n == null) return;
-    showOpenHandSnackBar(
-      context,
-      SnackBar(
-        content: Text(l10n.snackToolSearchLoadedCopiedToast),
-        behavior: SnackBarBehavior.floating,
-      ),
+    await copyMcpTextToClipboard(
+      context: context,
+      text: 'select:$name',
+      successMessage: l10n?.snackToolSearchLoadedCopiedToast,
+      logAction: 'copy tool search selection',
     );
   }
 
   Future<void> _handleCopyGroup(_ToolGroup group) async {
     if (group.names.isEmpty) return;
     final payload = group.names.map((n) => 'select:$n').join(', ');
-    await Clipboard.setData(ClipboardData(text: payload));
-    if (!mounted) return;
     final l10n = AppLocalizations.of(context);
-    if (l10n == null) return;
-    showOpenHandSnackBar(
-      context,
-      SnackBar(
-        content: Text(l10n.snackToolSearchLoadedCopiedToast),
-        behavior: SnackBarBehavior.floating,
-      ),
+    await copyMcpTextToClipboard(
+      context: context,
+      text: payload,
+      successMessage: l10n?.snackToolSearchLoadedCopiedToast,
+      logAction: 'copy tool search group',
     );
   }
 
@@ -211,16 +203,12 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
     }
     // 退化路径：未提供 onReplayBatch 时，回退为复制到剪贴板。
     final payload = entry.addedNames.map((n) => 'select:$n').join(', ');
-    await Clipboard.setData(ClipboardData(text: payload));
-    if (!mounted) return;
     final l10n = AppLocalizations.of(context);
-    if (l10n == null) return;
-    showOpenHandSnackBar(
-      context,
-      SnackBar(
-        content: Text(l10n.snackToolSearchLoadedCopiedToast),
-        behavior: SnackBarBehavior.floating,
-      ),
+    await copyMcpTextToClipboard(
+      context: context,
+      text: payload,
+      successMessage: l10n?.snackToolSearchLoadedCopiedToast,
+      logAction: 'copy tool search history replay',
     );
   }
 
@@ -267,16 +255,13 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
         ? ToolSearchHistorySerializer.toJson(entries)
         : ToolSearchHistorySerializer.toMarkdown(entries);
     if (action.destination == _HistoryExportDestination.clipboard) {
-      await Clipboard.setData(ClipboardData(text: payload));
-      if (!mounted) return;
-      showOpenHandSnackBar(
-        context,
-        SnackBar(
-          content: Text(
-            l10n.snackToolSearchLoadedHistoryExportedToast(entries.length),
-          ),
-          behavior: SnackBarBehavior.floating,
+      await copyMcpTextToClipboard(
+        context: context,
+        text: payload,
+        successMessage: l10n.snackToolSearchLoadedHistoryExportedToast(
+          entries.length,
         ),
+        logAction: 'copy tool search history export',
       );
       return;
     }

@@ -3,7 +3,6 @@ import 'dart:io';
 import 'dart:isolate';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:provider/provider.dart';
 
@@ -39,6 +38,7 @@ import '../model/mcp_server_health.dart';
 import '../model/mcp_tool.dart';
 import '../service/mcp_stdio_process_manager.dart';
 import '../service/mcp_tool_discovery_service.dart';
+import 'mcp_dialog_utils.dart';
 import 'mcp_keyword_index_progress_dialog.dart';
 import 'mcp_stdio_dialogs.dart';
 
@@ -806,14 +806,11 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
       text = buffer.toString();
     }
 
-    await Clipboard.setData(ClipboardData(text: text));
-    if (!context.mounted) {
-      return;
-    }
     final formatLabel = format == _McpHistoryExportFormat.json ? 'JSON' : 'CSV';
-    _showSnackBar(
-      context,
-      _localizedText(
+    await copyMcpTextToClipboard(
+      context: context,
+      text: text,
+      successMessage: _localizedText(
         context,
         zh: '已将 ${entries.length} 个服务的快照以 $formatLabel 复制到剪贴板',
         en: 'Copied snapshot of ${entries.length} servers as $formatLabel to clipboard',
@@ -822,7 +819,7 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
         de: 'Snapshot von ${entries.length} Diensten als $formatLabel in die Zwischenablage kopiert',
         ja: '${entries.length} 個のサービスのスナップショットを $formatLabel としてクリップボードにコピーしました',
       ),
-      kind: OpenHandSnackKind.success,
+      logAction: 'export server snapshots',
     );
   }
 
@@ -3303,7 +3300,8 @@ class _ToolSchemaBlock extends StatelessWidget {
     String pretty;
     try {
       pretty = const JsonEncoder.withIndent('  ').convert(payload);
-    } catch (_) {
+    } catch (error, stack) {
+      silentLog('mcp', 'render tool schema json', error, stack);
       pretty = payload.toString();
     }
     return Container(
@@ -3332,21 +3330,15 @@ class _ToolSchemaBlock extends StatelessWidget {
                   visualDensity: VisualDensity.compact,
                   icon: const Icon(Icons.copy_rounded, size: 16),
                   onPressed: () async {
-                    await Clipboard.setData(ClipboardData(text: pretty));
-                    if (!context.mounted) return;
-                    final messenger = ScaffoldMessenger.maybeOf(context);
-                    if (messenger == null) return;
-                    OpenHandSnackBar.show(
-                      context,
-                      messenger,
-                      OpenHandSnackBar.success(
+                    await copyMcpTextToClipboard(
+                      context: context,
+                      text: pretty,
+                      successMessage: _localizedText(
                         context,
-                        _localizedText(
-                          context,
-                          zh: '已复制 Schema',
-                          en: 'Schema copied',
-                        ),
+                        zh: '已复制 Schema',
+                        en: 'Schema copied',
                       ),
+                      logAction: 'copy tool schema',
                     );
                   },
                 ),
@@ -3582,34 +3574,24 @@ class _McpHealthHistorySheet extends StatelessWidget {
       _McpHistoryExportFormat.json => _renderHistoryJson(probes),
       _McpHistoryExportFormat.csv => _renderHistoryCsv(probes),
     };
-    await Clipboard.setData(ClipboardData(text: text));
-    if (!context.mounted) {
-      return;
-    }
-    final messenger = ScaffoldMessenger.maybeOf(context);
-    if (messenger == null) {
-      return;
-    }
     final formatLabel = switch (format) {
       _McpHistoryExportFormat.markdown => 'Markdown',
       _McpHistoryExportFormat.json => 'JSON',
       _McpHistoryExportFormat.csv => 'CSV',
     };
-    OpenHandSnackBar.show(
-      context,
-      messenger,
-      OpenHandSnackBar.success(
+    await copyMcpTextToClipboard(
+      context: context,
+      text: text,
+      successMessage: _localizedText(
         context,
-        _localizedText(
-          context,
-          zh: '已将最近 ${probes.length} 条探测记录以 $formatLabel 格式复制到剪贴板',
-          en: 'Copied ${probes.length} recent probes as $formatLabel to clipboard',
-          zhHant: '已將最近 ${probes.length} 條探測記錄以 $formatLabel 格式複製到剪貼簿',
-          fr: '${probes.length} sondes récentes copiées en $formatLabel dans le presse-papiers',
-          de: '${probes.length} aktuelle Prüfungen als $formatLabel in die Zwischenablage kopiert',
-          ja: '直近 ${probes.length} 件のプローブ記録を $formatLabel としてクリップボードにコピーしました',
-        ),
+        zh: '已将最近 ${probes.length} 条探测记录以 $formatLabel 格式复制到剪贴板',
+        en: 'Copied ${probes.length} recent probes as $formatLabel to clipboard',
+        zhHant: '已將最近 ${probes.length} 條探測記錄以 $formatLabel 格式複製到剪貼簿',
+        fr: '${probes.length} sondes récentes copiées en $formatLabel dans le presse-papiers',
+        de: '${probes.length} aktuelle Prüfungen als $formatLabel in die Zwischenablage kopiert',
+        ja: '直近 ${probes.length} 件のプローブ記録を $formatLabel としてクリップボードにコピーしました',
       ),
+      logAction: 'copy probe history',
     );
   }
 

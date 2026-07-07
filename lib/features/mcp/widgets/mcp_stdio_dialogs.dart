@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
@@ -10,12 +9,12 @@ import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/auto_follow_scroll_guard.dart';
 import '../../../shared/ui/motion_preference.dart';
-import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/timer_safety.dart';
 import '../model/mcp_server.dart';
 import '../service/mcp_stdio_process_manager.dart';
 import '../service/mcp_tool_discovery_service.dart';
+import 'mcp_dialog_utils.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // STDIO MCP 服务日志查看弹窗
@@ -173,13 +172,13 @@ class _StdioLogDialogState extends State<_StdioLogDialog> {
                         child: IconButton(
                           onPressed: logs.isEmpty
                               ? null
-                              : () {
-                                  Clipboard.setData(
-                                    ClipboardData(text: logs.join('\n')),
-                                  );
-                                  OpenHandSnackBar.showSuccess(
-                                    context,
-                                    l10n.mcpStdioDialogCopiedToClipboard,
+                              : () async {
+                                  await copyMcpTextToClipboard(
+                                    context: context,
+                                    text: logs.join('\n'),
+                                    successMessage:
+                                        l10n.mcpStdioDialogCopiedToClipboard,
+                                    logAction: 'copy stdio logs',
                                   );
                                 },
                           icon: const Icon(Icons.copy_rounded, size: 18),
