@@ -211,14 +211,9 @@ class _McpOpsWriteApprovalDialogState
                 ],
               ),
               const SizedBox(height: 16),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(999),
-                child: LinearProgressIndicator(
-                  value: _remainingProgress,
-                  minHeight: 6,
-                  backgroundColor: cs.surfaceContainerHighest,
-                  valueColor: const AlwaysStoppedAnimation<Color>(warning),
-                ),
+              _ApprovalCountdownProgressBar(
+                value: _remainingProgress,
+                color: warning,
               ),
               const SizedBox(height: 12),
               Wrap(
@@ -345,6 +340,130 @@ class _McpOpsWriteApprovalDialogState
         ),
       ),
     );
+  }
+}
+
+class _ApprovalCountdownProgressBar extends StatefulWidget {
+  const _ApprovalCountdownProgressBar({
+    required this.value,
+    required this.color,
+  });
+
+  final double value;
+  final Color color;
+
+  @override
+  State<_ApprovalCountdownProgressBar> createState() =>
+      _ApprovalCountdownProgressBarState();
+}
+
+class _ApprovalCountdownProgressBarState
+    extends State<_ApprovalCountdownProgressBar> {
+  double _begin = 0;
+  double _end = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    final initial = _normalizedValue(widget.value);
+    _begin = initial;
+    _end = initial;
+  }
+
+  @override
+  void didUpdateWidget(covariant _ApprovalCountdownProgressBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final next = _normalizedValue(widget.value);
+    if (next == _end) return;
+    _begin = _end;
+    _end = next;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(begin: _begin, end: _end),
+      duration: openHandMotionDuration(
+        context,
+        const Duration(milliseconds: 760),
+      ),
+      curve: Curves.easeOutCubic,
+      builder: (context, value, _) {
+        final progress = _normalizedValue(value);
+        return SizedBox(
+          height: 8,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: cs.surfaceContainerHighest.withValues(alpha: 0.78),
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(
+                color: cs.outlineVariant.withValues(alpha: 0.42),
+              ),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(999),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final fillWidth = constraints.maxWidth * progress;
+                  return Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      Align(
+                        alignment: AlignmentDirectional.centerStart,
+                        child: SizedBox(
+                          width: fillWidth,
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  widget.color.withValues(alpha: 0.98),
+                                  widget.color.withValues(alpha: 0.74),
+                                ],
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: widget.color.withValues(alpha: 0.22),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: fillWidth > 18
+                                ? Align(
+                                    alignment: AlignmentDirectional.centerEnd,
+                                    child: Container(
+                                      width: 18,
+                                      decoration: BoxDecoration(
+                                        gradient: LinearGradient(
+                                          colors: [
+                                            Colors.white.withValues(alpha: 0),
+                                            Colors.white.withValues(
+                                              alpha: 0.32,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  )
+                                : const SizedBox.shrink(),
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  double _normalizedValue(double value) {
+    if (!value.isFinite) return 0;
+    return value.clamp(0.0, 1.0).toDouble();
   }
 }
 
