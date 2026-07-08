@@ -60,6 +60,13 @@ class McpServerOpsRuntime {
   static const int _maxSseStreams = 32;
   static const int _latencyWindow = 512;
   static const int _rateWindowSeconds = 60;
+  static const String _connectionInfoContextKey = 'shelf.io.connection_info';
+  static const List<String> _sourcePortHeaders = <String>[
+    'x-forwarded-source-port',
+    'x-real-port',
+    'x-client-port',
+    'x-openhand-client-port',
+  ];
   static const Map<String, String> _corsHeaders = <String, String>{
     'access-control-allow-origin': '*',
     'access-control-allow-methods': 'GET, POST, DELETE, OPTIONS, HEAD',
@@ -766,7 +773,7 @@ class McpServerOpsRuntime {
           id: _auditId(started),
           toolName: name,
           clientName: _clientName(request),
-          ipAddress: _ipAddress(request),
+          ipAddress: _peerAddress(request).label,
           requestedAt: started,
           expiresAt: started.add(_config.approvalTimeout),
           argumentsPreview: mcpOpsClipAuditText(arguments),
@@ -1057,7 +1064,7 @@ class McpServerOpsRuntime {
 
   void _markRequest(shelf.Request request, String method, {String? toolName}) {
     _requestTotal += 1;
-    _increment(_ipDistribution, _ipAddress(request));
+    _increment(_ipDistribution, _peerAddress(request).label);
     _increment(_clientDistribution, _clientName(request));
     _increment(_requestDistribution, toolName ?? method);
     _increment(_protocolDistribution, _protocol(request));
@@ -1078,7 +1085,7 @@ class McpServerOpsRuntime {
     Map<String, Object?> arguments = const <String, Object?>{},
   }) {
     _blockedTotal += 1;
-    _increment(_ipDistribution, _ipAddress(request));
+    _increment(_ipDistribution, _peerAddress(request).label);
     _increment(_clientDistribution, _clientName(request));
     _increment(_requestDistribution, toolName ?? method);
     _increment(_protocolDistribution, _protocol(request));
@@ -1121,6 +1128,7 @@ class McpServerOpsRuntime {
     final capture = _config.capturePayload;
     final argumentText = capture ? mcpOpsClipAuditText(arguments) : '';
     final responseText = capture ? mcpOpsClipAuditText(responsePreview) : '';
+    final peer = _peerAddress(request);
     _auditSink(
       McpOpsAuditEntry(
         id: _auditId(now),
@@ -1133,7 +1141,7 @@ class McpServerOpsRuntime {
         protocol: _protocol(request),
         model: _model(request),
         clientName: _clientName(request),
-        ipAddress: _ipAddress(request),
+        ipAddress: peer.label,
         durationMs: durationMs,
         promptTokens: capture ? _estimateTokens(argumentText) : 0,
         completionTokens: capture ? _estimateTokens(responseText) : 0,
@@ -1151,6 +1159,8 @@ class McpServerOpsRuntime {
           'mcp_protocol_version': request.headers['mcp-protocol-version'],
           'origin': request.headers['origin'],
           'referer': request.headers['referer'],
+          'peer_ip': peer.ipAddress,
+          if (peer.port != null) 'peer_port': peer.port,
           'write_mode': _config.writeMode.storageValue,
           'network_mode': _config.networkMode.storageValue,
         },
@@ -1333,16 +1343,115 @@ class McpServerOpsRuntime {
     return '';
   }
 
-  String _ipAddress(shelf.Request request) {
-    final forwarded = nullIfBlank(request.headers['x-forwarded-for']);
-    if (forwarded != null) {
-      return forwarded.split(',').first.trim();
+  String _ipAddress(shelf.Request request) => _peerAddress(request).ipAddress;
+
+  _McpOpsPeerAddress _peerAddress(shelf.Request request) {
+    final socketPeer = _socketPeerAddress(request);
+    final forwardedPeer =
+        _forwardedForPeer(request.headers['x-forwarded-for']) ??
+        _forwardedHeaderPeer(request.headers['forwarded']) ??
+        _forwardedForPeer(request.headers['x-real-ip']);
+    if (forwardedPeer != null) {
+      final forwardedPort =
+          forwardedPeer.port ??
+          _sourcePortFromHeaders(request) ??
+          (_sameIpAddress(forwardedPeer.ipAddress, socketPeer?.ipAddress)
+              ? socketPeer?.port
+              : null);
+      return forwardedPeer.copyWith(port: forwardedPort);
     }
-    final info = request.context['shelf.io.connection_info'];
-    if (info is HttpConnectionInfo) {
-      return info.remoteAddress.address;
+    return socketPeer ?? const _McpOpsPeerAddress.unknown();
+  }
+
+  _McpOpsPeerAddress? _socketPeerAddress(shelf.Request request) {
+    final info = request.context[_connectionInfoContextKey];
+    if (info is! HttpConnectionInfo) return null;
+    return _McpOpsPeerAddress(
+      ipAddress: info.remoteAddress.address,
+      port: _validPort(info.remotePort),
+    );
+  }
+
+  _McpOpsPeerAddress? _forwardedForPeer(String? raw) {
+    final header = nullIfBlank(raw);
+    if (header == null) return null;
+    return _parsePeerAddressToken(header.split(',').first);
+  }
+
+  _McpOpsPeerAddress? _forwardedHeaderPeer(String? raw) {
+    final header = nullIfBlank(raw);
+    if (header == null) return null;
+    final first = header.split(',').first;
+    for (final part in first.split(';')) {
+      final normalized = part.trim();
+      final separator = normalized.indexOf('=');
+      if (separator <= 0) continue;
+      final key = normalized.substring(0, separator).trim().toLowerCase();
+      if (key != 'for') continue;
+      return _parsePeerAddressToken(normalized.substring(separator + 1));
     }
-    return 'unknown';
+    return null;
+  }
+
+  _McpOpsPeerAddress? _parsePeerAddressToken(String raw) {
+    var value = _stripQuotes(raw.trim());
+    if (value.isEmpty || value.toLowerCase() == 'unknown') return null;
+    if (value.startsWith('[')) {
+      final end = value.indexOf(']');
+      if (end > 1) {
+        final ip = value.substring(1, end).trim();
+        final port = value.length > end + 1 && value[end + 1] == ':'
+            ? _validPort(int.tryParse(value.substring(end + 2)))
+            : null;
+        return ip.isEmpty
+            ? null
+            : _McpOpsPeerAddress(ipAddress: ip, port: port);
+      }
+    }
+    final firstColon = value.indexOf(':');
+    if (firstColon > 0 && firstColon == value.lastIndexOf(':')) {
+      final ip = value.substring(0, firstColon).trim();
+      final port = _validPort(int.tryParse(value.substring(firstColon + 1)));
+      if (ip.isNotEmpty && port != null) {
+        return _McpOpsPeerAddress(ipAddress: ip, port: port);
+      }
+    }
+    return _McpOpsPeerAddress(ipAddress: value);
+  }
+
+  int? _sourcePortFromHeaders(shelf.Request request) {
+    for (final header in _sourcePortHeaders) {
+      final port = _validPort(int.tryParse(request.headers[header] ?? ''));
+      if (port != null) return port;
+    }
+    return null;
+  }
+
+  int? _validPort(int? value) {
+    if (value == null || value <= 0 || value > 65535) return null;
+    return value;
+  }
+
+  String _stripQuotes(String value) {
+    if (value.length < 2) return value;
+    final first = value[0];
+    final last = value[value.length - 1];
+    if ((first == '"' && last == '"') || (first == "'" && last == "'")) {
+      return value.substring(1, value.length - 1).trim();
+    }
+    return value;
+  }
+
+  bool _sameIpAddress(String? left, String? right) {
+    final a = nullIfBlank(left);
+    final b = nullIfBlank(right);
+    if (a == null || b == null) return false;
+    final parsedA = InternetAddress.tryParse(a);
+    final parsedB = InternetAddress.tryParse(b);
+    if (parsedA != null && parsedB != null) {
+      return parsedA.address == parsedB.address;
+    }
+    return a.toLowerCase() == b.toLowerCase();
   }
 
   String _clientName(shelf.Request request) {
@@ -1451,6 +1560,26 @@ class McpServerOpsRuntime {
       samples.add(bucket?.toSample() ?? McpOpsTrafficSample(minute: minute));
     }
     return List<McpOpsTrafficSample>.unmodifiable(samples);
+  }
+}
+
+class _McpOpsPeerAddress {
+  const _McpOpsPeerAddress({required this.ipAddress, this.port});
+
+  const _McpOpsPeerAddress.unknown() : ipAddress = 'unknown', port = null;
+
+  final String ipAddress;
+  final int? port;
+
+  String get label {
+    final host = nullIfBlank(ipAddress) ?? 'unknown';
+    final sourcePort = port;
+    if (host == 'unknown' || sourcePort == null) return host;
+    return mcpOpsAuthority(host, sourcePort);
+  }
+
+  _McpOpsPeerAddress copyWith({int? port}) {
+    return _McpOpsPeerAddress(ipAddress: ipAddress, port: port ?? this.port);
   }
 }
 

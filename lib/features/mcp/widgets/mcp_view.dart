@@ -2569,7 +2569,7 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
                     _showOpsInsight(context, _McpOpsInsightKind.statusMix),
               ),
               _McpOpsDistributionPanel(
-                title: _localizedText(context, zh: '请求IP分布', en: 'IP Mix'),
+                title: _localizedText(context, zh: '请求来源分布', en: 'Peer Mix'),
                 icon: Icons.public_rounded,
                 values: snapshot.ipDistribution,
                 onTap: () => _showOpsInsight(context, _McpOpsInsightKind.ipMix),
@@ -7968,7 +7968,7 @@ class _McpOpsAuditDetailDialog extends StatelessWidget {
                               .toIso8601String(),
                           _localizedText(context, zh: '来源客户端', en: 'Client'):
                               entry.clientName,
-                          _localizedText(context, zh: '来源IP', en: 'IP'):
+                          _localizedText(context, zh: '来源地址', en: 'Peer'):
                               entry.ipAddress,
                           _localizedText(context, zh: '协议', en: 'Protocol'):
                               _mcpOpsDisplayAuditValue(context, entry.protocol),
@@ -8411,6 +8411,8 @@ String _mcpOpsEnvironmentLabel(BuildContext context, String key) {
     ),
     'origin' => _localizedText(context, zh: 'Origin 来源', en: 'Origin'),
     'referer' => _localizedText(context, zh: '引用来源', en: 'Referrer'),
+    'peer_ip' => _localizedText(context, zh: '来源 IP', en: 'Peer IP'),
+    'peer_port' => _localizedText(context, zh: '来源端口', en: 'Peer Port'),
     'write_mode' => _localizedText(context, zh: '写入策略', en: 'Write Policy'),
     'network_mode' => _localizedText(context, zh: '网络模式', en: 'Network Mode'),
     _ => key.trim(),
@@ -14006,7 +14008,6 @@ _mcpLocalizedFallbacks = <String, _McpLocalizedFallback>{
     de: 'Oberfläche',
     ja: '公開面',
   ),
-  'IP': _McpLocalizedFallback(zhHant: '來源 IP', fr: 'IP', de: 'IP', ja: 'IP'),
   'Time': _McpLocalizedFallback(
     zhHant: '請求時間',
     fr: 'Heure',
@@ -14217,11 +14218,29 @@ _mcpLocalizedFallbacks = <String, _McpLocalizedFallback>{
     de: 'Statusverteilung',
     ja: 'ステータス分布',
   ),
-  'IP Mix': _McpLocalizedFallback(
-    zhHant: '請求 IP 分布',
-    fr: 'Répartition IP',
-    de: 'IP-Verteilung',
-    ja: 'IP 分布',
+  'Peer Mix': _McpLocalizedFallback(
+    zhHant: '請求來源分布',
+    fr: 'Répartition des sources',
+    de: 'Quellenverteilung',
+    ja: '送信元分布',
+  ),
+  'Peer': _McpLocalizedFallback(
+    zhHant: '來源地址',
+    fr: 'Source',
+    de: 'Quelle',
+    ja: '送信元',
+  ),
+  'Peer IP': _McpLocalizedFallback(
+    zhHant: '來源 IP',
+    fr: 'IP source',
+    de: 'Quell-IP',
+    ja: '送信元 IP',
+  ),
+  'Peer Port': _McpLocalizedFallback(
+    zhHant: '來源埠',
+    fr: 'Port source',
+    de: 'Quellport',
+    ja: '送信元ポート',
   ),
   'Client Mix': _McpLocalizedFallback(
     zhHant: '請求客戶端分布',
@@ -16515,7 +16534,7 @@ _McpOpsInsightSpec _mcpOpsInsightSpec(
             ),
             _McpOpsBarPanel(
               icon: Icons.public_rounded,
-              title: _localizedText(context, zh: '来源 IP 分布', en: 'IP Mix'),
+              title: _localizedText(context, zh: '来源地址分布', en: 'Peer Mix'),
               values: s.ipDistribution,
             ),
             _McpOpsBarPanel(
@@ -17135,7 +17154,7 @@ _McpOpsInsightSpec _mcpOpsInsightSpec(
       return _mcpOpsDistributionSpec(
         context,
         icon: Icons.public_rounded,
-        title: _localizedText(context, zh: '请求 IP 分布', en: 'IP Mix'),
+        title: _localizedText(context, zh: '请求来源分布', en: 'Peer Mix'),
         selector: (data) => data.snapshot.ipDistribution,
       );
     case _McpOpsInsightKind.clientMix:
