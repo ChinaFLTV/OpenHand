@@ -3898,17 +3898,19 @@ class _McpOpsHeaderControls extends StatelessWidget {
               switchInCurve: Curves.easeOutBack,
               switchOutCurve: Curves.easeInCubic,
               transitionBuilder: (child, animation) {
-                final curved = CurvedAnimation(
-                  parent: animation,
-                  curve: Curves.easeOutCubic,
-                  reverseCurve: Curves.easeInCubic,
-                );
+                // Drive both transitions from the switcher's animation directly.
+                // AnimatedSwitcher already applies the elastic easeOutBack curve
+                // (which overshoots past 1.0); re-wrapping it in another
+                // CurvedAnimation would feed that >1.0 value into Curve.transform
+                // and trip its t∈[0,1] assert. SizeTransition clamps its factor
+                // to ≥0 and FadeTransition clamps opacity into [0,1] internally,
+                // so the overshoot stays safe while the Q-elastic feel is kept.
                 return FadeTransition(
-                  opacity: curved,
+                  opacity: animation,
                   child: SizeTransition(
                     axis: Axis.horizontal,
                     axisAlignment: -1,
-                    sizeFactor: curved,
+                    sizeFactor: animation,
                     child: child,
                   ),
                 );
