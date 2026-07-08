@@ -12,7 +12,7 @@ Future<bool> copyMessageGatewayTextToClipboard({
   Duration successDuration = kOpenHandSnackBarSuccessDuration,
   Duration errorDuration = kOpenHandSnackBarErrorDuration,
 }) {
-  return copyOpenHandFeatureTextToClipboard(
+  return copyOpenHandTextToClipboard(
     context: context,
     text: text,
     logTag: 'message_gateway',

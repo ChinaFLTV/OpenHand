@@ -289,12 +289,9 @@ class _DataCleanupSectionState extends State<_DataCleanupSection> {
     }
     if (!mounted) return;
     if (errorText != null) {
-      showOpenHandSnackBar(context, OpenHandSnackBar.error(context, errorText));
+      showOpenHandErrorSnack(context, errorText);
     } else {
-      showOpenHandSnackBar(
-        context,
-        OpenHandSnackBar.success(context, successText),
-      );
+      showOpenHandSuccessSnack(context, successText);
     }
     // 重新测算，让 UI 反映最新体积。
     await _measureAll();
@@ -932,19 +929,16 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
         setState(() => _lastGcStats = gc);
         _cleanupPulse.value += 1;
         // SnackBar 反馈与 undo/redo 节奏一致：2s。
-        showOpenHandSnackBar(
+        showOpenHandSuccessSnack(
           context,
-          OpenHandSnackBar.success(
+          openHandLocalizedText(
             context,
-            openHandLocalizedText(
-              context,
-              zh:
-                  '已清理 · 释放 ${gc.removed} 个 blob · '
-                  '${formatHumanBytes(gc.bytesFreed)}',
-              en:
-                  'Cleaned · ${gc.removed} blob(s) · '
-                  '${formatHumanBytes(gc.bytesFreed)} freed',
-            ),
+            zh:
+                '已清理 · 释放 ${gc.removed} 个 blob · '
+                '${formatHumanBytes(gc.bytesFreed)}',
+            en:
+                'Cleaned · ${gc.removed} blob(s) · '
+                '${formatHumanBytes(gc.bytesFreed)} freed',
           ),
         );
       }
@@ -985,29 +979,23 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
       if (!copied || !mounted) return;
       _cleanupPulse.value += 1;
       final bytes = utf8.encode(json).length;
-      showOpenHandSnackBar(
+      showOpenHandSuccessSnack(
         context,
-        OpenHandSnackBar.success(
+        openHandLocalizedText(
           context,
-          openHandLocalizedText(
-            context,
-            zh: '已复制 ledger bundle · ${formatHumanBytes(bytes)}',
-            en: 'Copied ledger bundle · ${formatHumanBytes(bytes)}',
-          ),
+          zh: '已复制 ledger bundle · ${formatHumanBytes(bytes)}',
+          en: 'Copied ledger bundle · ${formatHumanBytes(bytes)}',
         ),
       );
     } catch (error, stack) {
       silentLog('ledger_export', 'export', error, stack);
       if (!mounted) return;
-      showOpenHandSnackBar(
+      showOpenHandErrorSnack(
         context,
-        OpenHandSnackBar.error(
+        openHandLocalizedText(
           context,
-          openHandLocalizedText(
-            context,
-            zh: '导出失败：$error',
-            en: 'Export failed: $error',
-          ),
+          zh: '导出失败：$error',
+          en: 'Export failed: $error',
         ),
       );
     }
@@ -1018,12 +1006,9 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
     final raw = clip?.text ?? '';
     if (!mounted) return;
     if (raw.trim().isEmpty) {
-      showOpenHandSnackBar(
+      showOpenHandInfoSnack(
         context,
-        OpenHandSnackBar.info(
-          context,
-          openHandLocalizedText(context, zh: '剪贴板为空', en: 'Clipboard is empty'),
-        ),
+        openHandLocalizedText(context, zh: '剪贴板为空', en: 'Clipboard is empty'),
       );
       return;
     }
@@ -1059,29 +1044,23 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
       _cleanupPulse.value += 1;
       await _refreshStats();
       if (!mounted) return;
-      showOpenHandSnackBar(
+      showOpenHandSuccessSnack(
         context,
-        OpenHandSnackBar.success(
+        openHandLocalizedText(
           context,
-          openHandLocalizedText(
-            context,
-            zh: '已导入 $imported 条新记录',
-            en: 'Imported $imported new record(s)',
-          ),
+          zh: '已导入 $imported 条新记录',
+          en: 'Imported $imported new record(s)',
         ),
       );
     } catch (error, stack) {
       silentLog('ledger_import', 'import', error, stack);
       if (!mounted) return;
-      showOpenHandSnackBar(
+      showOpenHandErrorSnack(
         context,
-        OpenHandSnackBar.error(
+        openHandLocalizedText(
           context,
-          openHandLocalizedText(
-            context,
-            zh: '导入失败：$error',
-            en: 'Import failed: $error',
-          ),
+          zh: '导入失败：$error',
+          en: 'Import failed: $error',
         ),
       );
     }
@@ -1497,15 +1476,12 @@ class _LedgerSearchDialogState extends State<_LedgerSearchDialog> {
     } catch (error, stack) {
       silentLog('_LedgerSearchDialog', 'exportFilteredAsBundle', error, stack);
       if (!mounted) return;
-      showOpenHandSnackBar(
+      showOpenHandErrorSnack(
         context,
-        OpenHandSnackBar.error(
+        openHandLocalizedText(
           context,
-          openHandLocalizedText(
-            context,
-            zh: '导出失败：$error',
-            en: 'Export failed: $error',
-          ),
+          zh: '导出失败：$error',
+          en: 'Export failed: $error',
         ),
       );
     } finally {

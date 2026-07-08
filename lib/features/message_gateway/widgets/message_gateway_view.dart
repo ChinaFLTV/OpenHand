@@ -770,17 +770,10 @@ class _WebPlatformServiceCard extends StatelessWidget {
   ) async {
     final result = await controller.runHealthCheck();
     if (!context.mounted) return;
-    showOpenHandSnackBar(
+    OpenHandSnackBar.flash(
       context,
-      result.ok
-          ? OpenHandSnackBar.success(
-              context,
-              '${result.summary} (${result.durationMs}ms)',
-            )
-          : OpenHandSnackBar.error(
-              context,
-              '${result.summary} (${result.durationMs}ms)',
-            ),
+      '${result.summary} (${result.durationMs}ms)',
+      kind: result.ok ? OpenHandSnackKind.success : OpenHandSnackKind.error,
     );
   }
 
@@ -2211,19 +2204,16 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
       Navigator.of(context).pop();
     } catch (error) {
       if (!mounted) return;
-      showOpenHandSnackBar(
+      showOpenHandErrorSnack(
         context,
-        OpenHandSnackBar.error(
+        openHandLocalizedText(
           context,
-          openHandLocalizedText(
-            context,
-            zh: '保存失败: $error',
-            zhHant: '儲存失敗: $error',
-            en: 'Save failed: $error',
-            fr: 'Échec de l’enregistrement : $error',
-            de: 'Speichern fehlgeschlagen: $error',
-            ja: '保存に失敗しました: $error',
-          ),
+          zh: '保存失败: $error',
+          zhHant: '儲存失敗: $error',
+          en: 'Save failed: $error',
+          fr: 'Échec de l’enregistrement : $error',
+          de: 'Speichern fehlgeschlagen: $error',
+          ja: '保存に失敗しました: $error',
         ),
       );
       setState(() {
@@ -3598,21 +3588,18 @@ class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog> {
       _anchorLogId = logs.isEmpty ? 0 : logs.last.id;
       _historyLimit = 0;
     });
-    showOpenHandSnackBar(
+    showOpenHandSuccessSnack(
       context,
-      OpenHandSnackBar.success(
+      openHandLocalizedText(
         context,
-        openHandLocalizedText(
-          context,
-          zh: '终端显示已清空，底层日志文件保持不变',
-          zhHant: '終端顯示已清空，底層日誌檔案保持不變',
-          en: 'Terminal display cleared; log files are unchanged',
-          fr: 'Affichage effacé ; les fichiers journaux sont inchangés',
-          de: 'Terminalanzeige geleert; Protokolldateien bleiben unverändert',
-          ja: '端末表示をクリアしました。ログファイルは変更されません',
-        ),
-        duration: const Duration(milliseconds: 1600),
+        zh: '终端显示已清空，底层日志文件保持不变',
+        zhHant: '終端顯示已清空，底層日誌檔案保持不變',
+        en: 'Terminal display cleared; log files are unchanged',
+        fr: 'Affichage effacé ; les fichiers journaux sont inchangés',
+        de: 'Terminalanzeige geleert; Protokolldateien bleiben unverändert',
+        ja: '端末表示をクリアしました。ログファイルは変更されません',
       ),
+      duration: const Duration(milliseconds: 1600),
     );
   }
 
@@ -3752,39 +3739,33 @@ class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog> {
       final text = await widget.controller.exportCurrentLogText();
       await File(location.path).writeAsString(text);
       if (!mounted) return;
-      showOpenHandSnackBar(
+      showOpenHandSuccessSnack(
         context,
-        OpenHandSnackBar.success(
+        openHandLocalizedText(
           context,
-          openHandLocalizedText(
-            context,
-            zh: '当前日志已导出到 ${location.path}',
-            zhHant: '目前日誌已匯出到 ${location.path}',
-            en: 'Current logs exported to ${location.path}',
-            fr: 'Journaux actuels exportés vers ${location.path}',
-            de: 'Aktuelle Protokolle exportiert nach ${location.path}',
-            ja: '現在のログを ${location.path} にエクスポートしました',
-          ),
-          maxLines: 2,
+          zh: '当前日志已导出到 ${location.path}',
+          zhHant: '目前日誌已匯出到 ${location.path}',
+          en: 'Current logs exported to ${location.path}',
+          fr: 'Journaux actuels exportés vers ${location.path}',
+          de: 'Aktuelle Protokolle exportiert nach ${location.path}',
+          ja: '現在のログを ${location.path} にエクスポートしました',
         ),
+        maxLines: 2,
       );
     } catch (error) {
       if (!mounted) return;
-      showOpenHandSnackBar(
+      showOpenHandErrorSnack(
         context,
-        OpenHandSnackBar.error(
+        openHandLocalizedText(
           context,
-          openHandLocalizedText(
-            context,
-            zh: '当前日志导出失败: $error',
-            zhHant: '目前日誌匯出失敗: $error',
-            en: 'Current log export failed: $error',
-            fr: 'Échec de l’export des journaux : $error',
-            de: 'Export der aktuellen Protokolle fehlgeschlagen: $error',
-            ja: '現在のログのエクスポートに失敗しました: $error',
-          ),
-          maxLines: 2,
+          zh: '当前日志导出失败: $error',
+          zhHant: '目前日誌匯出失敗: $error',
+          en: 'Current log export failed: $error',
+          fr: 'Échec de l’export des journaux : $error',
+          de: 'Export der aktuellen Protokolle fehlgeschlagen: $error',
+          ja: '現在のログのエクスポートに失敗しました: $error',
         ),
+        maxLines: 2,
       );
     } finally {
       if (mounted) setState(() => _isExportingLog = false);
@@ -5070,20 +5051,17 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
       );
       if (!mounted) return;
       final freedBytes = uploadResult.bytesFreed + opsResult.bytes;
-      showOpenHandSnackBar(
+      showOpenHandSuccessSnack(
         context,
-        OpenHandSnackBar.success(
+        openHandLocalizedText(
           context,
-          openHandLocalizedText(
-            context,
-            zh: '$uploadCacheLabel / $opsCacheLabel 清理完成，释放 ${_bytes(freedBytes)}，清理 ${opsResult.itemCount} 条运维记录',
-            zhHant:
-                '$uploadCacheLabel / $opsCacheLabel 清理完成，釋放 ${_bytes(freedBytes)}，清理 ${opsResult.itemCount} 則維運記錄',
-            en: '$uploadCacheLabel / $opsCacheLabel cleanup completed, freed ${_bytes(freedBytes)}, removed ${opsResult.itemCount} ops records',
-            fr: 'Nettoyage $uploadCacheLabel / $opsCacheLabel terminé, ${_bytes(freedBytes)} libérés, ${opsResult.itemCount} enregistrements supprimés',
-            de: '$uploadCacheLabel / $opsCacheLabel bereinigt, ${_bytes(freedBytes)} freigegeben, ${opsResult.itemCount} Ops-Einträge entfernt',
-            ja: '$uploadCacheLabel / $opsCacheLabel のクリーンアップが完了しました。${_bytes(freedBytes)} 解放、${opsResult.itemCount} 件削除',
-          ),
+          zh: '$uploadCacheLabel / $opsCacheLabel 清理完成，释放 ${_bytes(freedBytes)}，清理 ${opsResult.itemCount} 条运维记录',
+          zhHant:
+              '$uploadCacheLabel / $opsCacheLabel 清理完成，釋放 ${_bytes(freedBytes)}，清理 ${opsResult.itemCount} 則維運記錄',
+          en: '$uploadCacheLabel / $opsCacheLabel cleanup completed, freed ${_bytes(freedBytes)}, removed ${opsResult.itemCount} ops records',
+          fr: 'Nettoyage $uploadCacheLabel / $opsCacheLabel terminé, ${_bytes(freedBytes)} libérés, ${opsResult.itemCount} enregistrements supprimés',
+          de: '$uploadCacheLabel / $opsCacheLabel bereinigt, ${_bytes(freedBytes)} freigegeben, ${opsResult.itemCount} Ops-Einträge entfernt',
+          ja: '$uploadCacheLabel / $opsCacheLabel のクリーンアップが完了しました。${_bytes(freedBytes)} 解放、${opsResult.itemCount} 件削除',
         ),
       );
       final persisted = widget.controller.persistedRuntimeSnapshots;
@@ -5095,21 +5073,18 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
       await _tick();
     } catch (error) {
       if (!mounted) return;
-      showOpenHandSnackBar(
+      showOpenHandErrorSnack(
         context,
-        OpenHandSnackBar.error(
+        openHandLocalizedText(
           context,
-          openHandLocalizedText(
-            context,
-            zh: '缓存清理失败: $error',
-            zhHant: '快取清理失敗: $error',
-            en: 'Cache cleanup failed: $error',
-            fr: 'Échec du nettoyage du cache : $error',
-            de: 'Cache-Bereinigung fehlgeschlagen: $error',
-            ja: 'キャッシュのクリーンアップに失敗しました: $error',
-          ),
-          maxLines: 2,
+          zh: '缓存清理失败: $error',
+          zhHant: '快取清理失敗: $error',
+          en: 'Cache cleanup failed: $error',
+          fr: 'Échec du nettoyage du cache : $error',
+          de: 'Cache-Bereinigung fehlgeschlagen: $error',
+          ja: 'キャッシュのクリーンアップに失敗しました: $error',
         ),
+        maxLines: 2,
       );
     } finally {
       if (mounted) setState(() => _isCleaning = false);
@@ -5151,22 +5126,19 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
       );
       if (!mounted) return;
       final freedBytes = expiredResult.bytesFreed + opsResult.bytes;
-      showOpenHandSnackBar(
+      showOpenHandSuccessSnack(
         context,
-        OpenHandSnackBar.success(
+        openHandLocalizedText(
           context,
-          openHandLocalizedText(
-            context,
-            zh: '$expiredResourcesLabel / $opsCacheLabel 清理完成，释放 ${_bytes(freedBytes)}，删除 ${expiredResult.deletedFiles} 个文件，清理 ${opsResult.itemCount} 条运维记录',
-            zhHant:
-                '$expiredResourcesLabel / $opsCacheLabel 清理完成，釋放 ${_bytes(freedBytes)}，刪除 ${expiredResult.deletedFiles} 個檔案，清理 ${opsResult.itemCount} 則維運記錄',
-            en: '$expiredResourcesLabel / $opsCacheLabel cleanup completed, freed ${_bytes(freedBytes)}, deleted ${expiredResult.deletedFiles} files, removed ${opsResult.itemCount} ops records',
-            fr: 'Nettoyage $expiredResourcesLabel / $opsCacheLabel terminé, ${_bytes(freedBytes)} libérés, ${expiredResult.deletedFiles} fichiers supprimés, ${opsResult.itemCount} enregistrements supprimés',
-            de: '$expiredResourcesLabel / $opsCacheLabel bereinigt, ${_bytes(freedBytes)} freigegeben, ${expiredResult.deletedFiles} Dateien gelöscht, ${opsResult.itemCount} Ops-Einträge entfernt',
-            ja: '$expiredResourcesLabel / $opsCacheLabel のクリーンアップが完了しました。${_bytes(freedBytes)} 解放、${expiredResult.deletedFiles} ファイル削除、${opsResult.itemCount} 件削除',
-          ),
-          maxLines: 2,
+          zh: '$expiredResourcesLabel / $opsCacheLabel 清理完成，释放 ${_bytes(freedBytes)}，删除 ${expiredResult.deletedFiles} 个文件，清理 ${opsResult.itemCount} 条运维记录',
+          zhHant:
+              '$expiredResourcesLabel / $opsCacheLabel 清理完成，釋放 ${_bytes(freedBytes)}，刪除 ${expiredResult.deletedFiles} 個檔案，清理 ${opsResult.itemCount} 則維運記錄',
+          en: '$expiredResourcesLabel / $opsCacheLabel cleanup completed, freed ${_bytes(freedBytes)}, deleted ${expiredResult.deletedFiles} files, removed ${opsResult.itemCount} ops records',
+          fr: 'Nettoyage $expiredResourcesLabel / $opsCacheLabel terminé, ${_bytes(freedBytes)} libérés, ${expiredResult.deletedFiles} fichiers supprimés, ${opsResult.itemCount} enregistrements supprimés',
+          de: '$expiredResourcesLabel / $opsCacheLabel bereinigt, ${_bytes(freedBytes)} freigegeben, ${expiredResult.deletedFiles} Dateien gelöscht, ${opsResult.itemCount} Ops-Einträge entfernt',
+          ja: '$expiredResourcesLabel / $opsCacheLabel のクリーンアップが完了しました。${_bytes(freedBytes)} 解放、${expiredResult.deletedFiles} ファイル削除、${opsResult.itemCount} 件削除',
         ),
+        maxLines: 2,
       );
       final persisted = widget.controller.persistedRuntimeSnapshots;
       setState(() {
@@ -5177,21 +5149,18 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
       await _tick();
     } catch (error) {
       if (!mounted) return;
-      showOpenHandSnackBar(
+      showOpenHandErrorSnack(
         context,
-        OpenHandSnackBar.error(
+        openHandLocalizedText(
           context,
-          openHandLocalizedText(
-            context,
-            zh: '过期资源清理失败: $error',
-            zhHant: '過期資源清理失敗: $error',
-            en: 'Expired resource cleanup failed: $error',
-            fr: 'Échec du nettoyage des ressources expirées : $error',
-            de: 'Bereinigung abgelaufener Ressourcen fehlgeschlagen: $error',
-            ja: '期限切れリソースのクリーンアップに失敗しました: $error',
-          ),
-          maxLines: 2,
+          zh: '过期资源清理失败: $error',
+          zhHant: '過期資源清理失敗: $error',
+          en: 'Expired resource cleanup failed: $error',
+          fr: 'Échec du nettoyage des ressources expirées : $error',
+          de: 'Bereinigung abgelaufener Ressourcen fehlgeschlagen: $error',
+          ja: '期限切れリソースのクリーンアップに失敗しました: $error',
         ),
+        maxLines: 2,
       );
     } finally {
       if (mounted) setState(() => _isCleaning = false);
@@ -5208,39 +5177,33 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
       await action();
       await _tick();
       if (!mounted) return;
-      showOpenHandSnackBar(
+      showOpenHandSuccessSnack(
         context,
-        OpenHandSnackBar.success(
+        openHandLocalizedText(
           context,
-          openHandLocalizedText(
-            context,
-            zh: '$label 已完成',
-            zhHant: '$label 已完成',
-            en: '$label completed',
-            fr: '$label terminé',
-            de: '$label abgeschlossen',
-            ja: '$label が完了しました',
-          ),
-          duration: const Duration(milliseconds: 1600),
+          zh: '$label 已完成',
+          zhHant: '$label 已完成',
+          en: '$label completed',
+          fr: '$label terminé',
+          de: '$label abgeschlossen',
+          ja: '$label が完了しました',
         ),
+        duration: const Duration(milliseconds: 1600),
       );
     } catch (error) {
       if (!mounted) return;
-      showOpenHandSnackBar(
+      showOpenHandErrorSnack(
         context,
-        OpenHandSnackBar.error(
+        openHandLocalizedText(
           context,
-          openHandLocalizedText(
-            context,
-            zh: '$label 失败: $error',
-            zhHant: '$label 失敗: $error',
-            en: '$label failed: $error',
-            fr: 'Échec de $label : $error',
-            de: '$label fehlgeschlagen: $error',
-            ja: '$label に失敗しました: $error',
-          ),
-          maxLines: 2,
+          zh: '$label 失败: $error',
+          zhHant: '$label 失敗: $error',
+          en: '$label failed: $error',
+          fr: 'Échec de $label : $error',
+          de: '$label fehlgeschlagen: $error',
+          ja: '$label に失敗しました: $error',
         ),
+        maxLines: 2,
       );
     } finally {
       if (mounted) setState(() => _isServiceActing = false);
@@ -5254,37 +5217,26 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
       final result = await widget.controller.runHealthCheck();
       await _tick();
       if (!mounted) return;
-      showOpenHandSnackBar(
+      OpenHandSnackBar.flash(
         context,
-        result.ok
-            ? OpenHandSnackBar.success(
-                context,
-                '${result.summary} (${result.durationMs}ms)',
-                duration: const Duration(milliseconds: 1800),
-              )
-            : OpenHandSnackBar.error(
-                context,
-                '${result.summary} (${result.durationMs}ms)',
-                duration: const Duration(milliseconds: 1800),
-              ),
+        '${result.summary} (${result.durationMs}ms)',
+        kind: result.ok ? OpenHandSnackKind.success : OpenHandSnackKind.error,
+        duration: const Duration(milliseconds: 1800),
       );
     } catch (error) {
       if (!mounted) return;
-      showOpenHandSnackBar(
+      showOpenHandErrorSnack(
         context,
-        OpenHandSnackBar.error(
+        openHandLocalizedText(
           context,
-          openHandLocalizedText(
-            context,
-            zh: '健康诊断失败: $error',
-            zhHant: '健康診斷失敗: $error',
-            en: 'Health diagnosis failed: $error',
-            fr: 'Échec du diagnostic de santé : $error',
-            de: 'Integritätsdiagnose fehlgeschlagen: $error',
-            ja: 'ヘルス診断に失敗しました: $error',
-          ),
-          maxLines: 2,
+          zh: '健康诊断失败: $error',
+          zhHant: '健康診斷失敗: $error',
+          en: 'Health diagnosis failed: $error',
+          fr: 'Échec du diagnostic de santé : $error',
+          de: 'Integritätsdiagnose fehlgeschlagen: $error',
+          ja: 'ヘルス診断に失敗しました: $error',
         ),
+        maxLines: 2,
       );
     } finally {
       if (mounted) setState(() => _isHealthChecking = false);
@@ -5300,38 +5252,32 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
     try {
       final result = await action();
       if (!mounted) return;
-      showOpenHandSnackBar(
+      showOpenHandSuccessSnack(
         context,
-        OpenHandSnackBar.success(
+        openHandLocalizedText(
           context,
-          openHandLocalizedText(
-            context,
-            zh: '$label清理完成，释放 ${_bytes(result.bytesFreed)}，删除 ${result.deletedFiles} 个文件',
-            zhHant:
-                '$label 清理完成，釋放 ${_bytes(result.bytesFreed)}，刪除 ${result.deletedFiles} 個檔案',
-            en: '$label cleanup completed, freed ${_bytes(result.bytesFreed)}, deleted ${result.deletedFiles} files',
-            fr: 'Nettoyage $label terminé, ${_bytes(result.bytesFreed)} libérés, ${result.deletedFiles} fichiers supprimés',
-            de: '$label-Bereinigung abgeschlossen, ${_bytes(result.bytesFreed)} freigegeben, ${result.deletedFiles} Dateien gelöscht',
-            ja: '$label のクリーンアップが完了しました。${_bytes(result.bytesFreed)} 解放、${result.deletedFiles} ファイル削除',
-          ),
+          zh: '$label清理完成，释放 ${_bytes(result.bytesFreed)}，删除 ${result.deletedFiles} 个文件',
+          zhHant:
+              '$label 清理完成，釋放 ${_bytes(result.bytesFreed)}，刪除 ${result.deletedFiles} 個檔案',
+          en: '$label cleanup completed, freed ${_bytes(result.bytesFreed)}, deleted ${result.deletedFiles} files',
+          fr: 'Nettoyage $label terminé, ${_bytes(result.bytesFreed)} libérés, ${result.deletedFiles} fichiers supprimés',
+          de: '$label-Bereinigung abgeschlossen, ${_bytes(result.bytesFreed)} freigegeben, ${result.deletedFiles} Dateien gelöscht',
+          ja: '$label のクリーンアップが完了しました。${_bytes(result.bytesFreed)} 解放、${result.deletedFiles} ファイル削除',
         ),
       );
       await _tick();
     } catch (error) {
       if (!mounted) return;
-      showOpenHandSnackBar(
+      showOpenHandErrorSnack(
         context,
-        OpenHandSnackBar.error(
+        openHandLocalizedText(
           context,
-          openHandLocalizedText(
-            context,
-            zh: '$label清理失败: $error',
-            zhHant: '$label 清理失敗: $error',
-            en: '$label cleanup failed: $error',
-            fr: 'Échec du nettoyage $label : $error',
-            de: '$label-Bereinigung fehlgeschlagen: $error',
-            ja: '$label のクリーンアップに失敗しました: $error',
-          ),
+          zh: '$label清理失败: $error',
+          zhHant: '$label 清理失敗: $error',
+          en: '$label cleanup failed: $error',
+          fr: 'Échec du nettoyage $label : $error',
+          de: '$label-Bereinigung fehlgeschlagen: $error',
+          ja: '$label のクリーンアップに失敗しました: $error',
         ),
       );
     } finally {
@@ -7037,54 +6983,45 @@ class _AccessibleUrlsBar extends StatelessWidget {
       );
       if (!context.mounted) return;
       if (!opened) {
-        showOpenHandSnackBar(
+        showOpenHandErrorSnack(
           context,
-          OpenHandSnackBar.error(
+          openHandLocalizedText(
             context,
-            openHandLocalizedText(
-              context,
-              zh: '打开失败: $url',
-              zhHant: '開啟失敗: $url',
-              en: 'Failed to open: $url',
-              fr: 'Échec de l’ouverture : $url',
-              de: 'Öffnen fehlgeschlagen: $url',
-              ja: '開けませんでした: $url',
-            ),
+            zh: '打开失败: $url',
+            zhHant: '開啟失敗: $url',
+            en: 'Failed to open: $url',
+            fr: 'Échec de l’ouverture : $url',
+            de: 'Öffnen fehlgeschlagen: $url',
+            ja: '開けませんでした: $url',
           ),
         );
         return;
       }
-      showOpenHandSnackBar(
+      showOpenHandInfoSnack(
         context,
-        OpenHandSnackBar.info(
+        openHandLocalizedText(
           context,
-          openHandLocalizedText(
-            context,
-            zh: '正在打开 $url',
-            zhHant: '正在開啟 $url',
-            en: 'Opening $url',
-            fr: 'Ouverture de $url',
-            de: '$url wird geöffnet',
-            ja: '$url を開いています',
-          ),
+          zh: '正在打开 $url',
+          zhHant: '正在開啟 $url',
+          en: 'Opening $url',
+          fr: 'Ouverture de $url',
+          de: '$url wird geöffnet',
+          ja: '$url を開いています',
         ),
       );
     } catch (error, stack) {
       silentLog('message_gateway_view', 'open url', error, stack);
       if (!context.mounted) return;
-      showOpenHandSnackBar(
+      showOpenHandErrorSnack(
         context,
-        OpenHandSnackBar.error(
+        openHandLocalizedText(
           context,
-          openHandLocalizedText(
-            context,
-            zh: '打开失败: $error',
-            zhHant: '開啟失敗: $error',
-            en: 'Failed to open: $error',
-            fr: 'Échec de l’ouverture : $error',
-            de: 'Öffnen fehlgeschlagen: $error',
-            ja: '開けませんでした: $error',
-          ),
+          zh: '打开失败: $error',
+          zhHant: '開啟失敗: $error',
+          en: 'Failed to open: $error',
+          fr: 'Échec de l’ouverture : $error',
+          de: 'Öffnen fehlgeschlagen: $error',
+          ja: '開けませんでした: $error',
         ),
       );
     }

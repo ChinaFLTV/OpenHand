@@ -64,36 +64,6 @@ Future<bool> copyOpenHandTextToClipboard({
   return true;
 }
 
-Future<bool> copyOpenHandFeatureTextToClipboard({
-  required BuildContext context,
-  required String text,
-  required String logTag,
-  String logAction = 'copy',
-  String? successMessage,
-  String? errorMessage,
-  bool showSuccess = true,
-  Duration timeout = kOpenHandClipboardCopyTimeout,
-  Duration successDuration = kOpenHandSnackBarSuccessDuration,
-  Duration errorDuration = kOpenHandSnackBarErrorDuration,
-}) {
-  return copyOpenHandTextToClipboard(
-    context: context,
-    text: text,
-    logTag: logTag,
-    logAction: logAction,
-    successMessage: successMessage,
-    errorMessage: errorMessage,
-    showSuccess: showSuccess,
-    timeout: timeout,
-    successDuration: successDuration,
-    errorDuration: errorDuration,
-    showSuccessSnack: (context, message, {required duration}) =>
-        showOpenHandSuccessSnack(context, message, duration: duration),
-    showErrorSnack: (context, message, {required duration}) =>
-        showOpenHandErrorSnack(context, message, duration: duration),
-  );
-}
-
 String openHandClipboardCopySuccessMessage(BuildContext context) {
   return openHandLocalizedText(
     context,

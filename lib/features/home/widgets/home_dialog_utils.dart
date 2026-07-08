@@ -82,7 +82,7 @@ Future<bool> copyHomeTextToClipboard({
   Duration errorDuration = kOpenHandSnackBarErrorDuration,
   Duration timeout = kOpenHandClipboardCopyTimeout,
 }) {
-  return copyOpenHandFeatureTextToClipboard(
+  return copyOpenHandTextToClipboard(
     context: context,
     text: text,
     logTag: 'home',

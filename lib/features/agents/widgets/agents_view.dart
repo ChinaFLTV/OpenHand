@@ -186,16 +186,12 @@ void _showAgentInfoSnack(
   SnackBarAction? action,
   int? maxLines,
 }) {
-  if (!context.mounted) return;
-  OpenHandSnackBar.showInContext(
+  showOpenHandInfoSnack(
     context,
-    OpenHandSnackBar.info(
-      context,
-      message,
-      duration: duration,
-      action: action,
-      maxLines: maxLines,
-    ),
+    message,
+    duration: duration,
+    action: action,
+    maxLines: maxLines,
   );
 }
 
@@ -206,16 +202,12 @@ void _showAgentErrorSnack(
   SnackBarAction? action,
   int? maxLines,
 }) {
-  if (!context.mounted) return;
-  OpenHandSnackBar.showInContext(
+  showOpenHandErrorSnack(
     context,
-    OpenHandSnackBar.error(
-      context,
-      message,
-      duration: duration,
-      action: action,
-      maxLines: maxLines,
-    ),
+    message,
+    duration: duration,
+    action: action,
+    maxLines: maxLines,
   );
 }
 
