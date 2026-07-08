@@ -1829,6 +1829,21 @@ const double _mcpOpsMetricMediumBreakpoint = 560;
 const int _mcpOpsExposureInitialLimit = 14;
 const int _mcpOpsExposurePageSize = 18;
 const Color _mcpOpsTerminalBackground = Color(0xFF0B0D10);
+const List<String> _mcpOpsSchemaEditableTypes = <String>[
+  'string',
+  'number',
+  'integer',
+  'boolean',
+  'array',
+  'object',
+];
+const List<String> _mcpOpsSchemaArrayItemTypes = <String>[
+  'string',
+  'number',
+  'integer',
+  'boolean',
+  'object',
+];
 
 class _McpOpsRouteEscapeDismissScope extends StatefulWidget {
   const _McpOpsRouteEscapeDismissScope({
@@ -6193,11 +6208,10 @@ class _McpOpsSchemaPill extends StatelessWidget {
   }
 }
 
-/// Structured, editable viewer for a builtin tool's input schema. The schema is
-/// surfaced as a hierarchical field list (name · type · required · description)
-/// with a raw-JSON editor underneath; edits validate before persisting through
-/// [onSaved]. Read-only when [onSaved] is null. Reuses the shared ops dialog
-/// shell so it inherits the global Q-elastic enter/exit motion.
+/// Structured, editable viewer for a builtin tool's input schema. Editable
+/// entries are maintained through a field-form draft while the JSON source stays
+/// read-only for audit/copy. Reuses the shared ops dialog shell so it inherits
+/// the global Q-elastic enter/exit motion.
 class _McpOpsSchemaDialog extends StatefulWidget {
   const _McpOpsSchemaDialog({
     required this.title,
@@ -6218,37 +6232,40 @@ class _McpOpsSchemaDialog extends StatefulWidget {
 }
 
 class _McpOpsSchemaDialogState extends State<_McpOpsSchemaDialog> {
-  late final TextEditingController _editorController;
   bool get _editable => widget.onSaved != null;
-  bool _rawMode = false;
+  late _SchemaEditorObjectScope _schemaDraft;
+  bool _sourcePreviewExpanded = true;
   bool _saving = false;
   String? _error;
-  late String _savedText;
+  late String _savedSourceText;
+  late String _sourceText;
 
   @override
   void initState() {
     super.initState();
-    _savedText = prettyPrintJson(widget.schema);
-    _editorController = TextEditingController(text: _savedText);
+    _schemaDraft = _SchemaEditorObjectScope.fromSchema(widget.schema);
+    _savedSourceText = prettyPrintJson(widget.schema);
+    _sourceText = _savedSourceText;
   }
 
   @override
   void dispose() {
-    _editorController.dispose();
+    _schemaDraft.dispose();
     super.dispose();
   }
 
-  /// Current editor text parsed back into a schema map, or null when invalid.
-  Map<String, Object?>? get _parsedSchema =>
-      optionalStringKeyedMapFromJsonText(_editorController.text);
+  Map<String, Object?> get _currentSchema => _schemaDraft.toSchema();
 
-  bool get _dirty => _editorController.text.trim() != _savedText.trim();
+  bool get _dirty => _sourceText.trim() != _savedSourceText.trim();
 
   bool get _canRestoreDefault {
     final defaultSchema = widget.defaultSchema;
     if (defaultSchema == null) return false;
-    final parsed = _parsedSchema;
-    return parsed == null || !_mcpJsonEquals(parsed, defaultSchema);
+    return !_mcpJsonEquals(_currentSchema, defaultSchema);
+  }
+
+  void _syncSourceFromDraft() {
+    _sourceText = prettyPrintJson(_currentSchema);
   }
 
   @override
@@ -6256,8 +6273,8 @@ class _McpOpsSchemaDialogState extends State<_McpOpsSchemaDialog> {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final parsed = _parsedSchema;
-    final fields = _schemaFields(parsed ?? widget.schema);
+    final currentSchema = _currentSchema;
+    final fields = _schemaFields(currentSchema);
     return _McpOpsRouteEscapeDismissScope(
       enabled: !_saving,
       child: buildOpenHandResponsiveDialogShell(
@@ -6283,9 +6300,20 @@ class _McpOpsSchemaDialogState extends State<_McpOpsSchemaDialog> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        _McpOpsSchemaFieldList(fields: fields),
+                        if (_editable)
+                          _McpOpsSchemaFormEditor(
+                            scope: _schemaDraft,
+                            onChanged: () {
+                              setState(() {
+                                _error = null;
+                                _syncSourceFromDraft();
+                              });
+                            },
+                          )
+                        else
+                          _McpOpsSchemaFieldList(fields: fields),
                         const SizedBox(height: _mcpOpsGridGap),
-                        _buildSourcePanel(context, theme, cs),
+                        _buildSourcePanel(context),
                       ],
                     ),
                   ),
@@ -6364,42 +6392,40 @@ class _McpOpsSchemaDialogState extends State<_McpOpsSchemaDialog> {
     );
   }
 
-  Widget _buildSourcePanel(
-    BuildContext context,
-    ThemeData theme,
-    ColorScheme cs,
-  ) {
+  Widget _buildSourcePanel(BuildContext context) {
     return _McpOpsPanel(
       icon: Icons.code_rounded,
-      title: _localizedText(context, zh: '结构源码', en: 'Schema Source'),
-      subtitle: _editable
-          ? _localizedText(
-              context,
-              zh: '编辑标准 JSON 结构定义；保存前会自动校验格式。',
-              en: 'Edit the JSON Schema; format is validated before saving.',
-            )
-          : null,
+      title: _localizedText(context, zh: 'Schema 源码', en: 'Schema Source'),
+      subtitle: _localizedText(
+        context,
+        zh: '只读源码预览；结构化表单会同步生成标准 JSON Schema。',
+        en: 'Read-only source preview; the structured form generates JSON Schema.',
+      ),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (_editable)
-            _McpOpsTogglePill(
-              selected: _rawMode,
-              icon: _rawMode
-                  ? Icons.edit_note_rounded
-                  : Icons.visibility_rounded,
-              label: _rawMode
-                  ? _localizedText(context, zh: '编辑', en: 'Edit')
-                  : _localizedText(context, zh: '预览', en: 'Preview'),
-              onChanged: (value) => setState(() => _rawMode = value),
+          _McpOpsIconButton(
+            icon: _sourcePreviewExpanded
+                ? Icons.visibility_off_rounded
+                : Icons.visibility_rounded,
+            tooltip: _sourcePreviewExpanded
+                ? _localizedText(
+                    context,
+                    zh: '收起源码预览',
+                    en: 'Collapse source preview',
+                  )
+                : _localizedText(context, zh: '预览源码', en: 'Preview source'),
+            onPressed: () => setState(
+              () => _sourcePreviewExpanded = !_sourcePreviewExpanded,
             ),
+          ),
           const SizedBox(width: 8),
           _McpOpsIconButton(
             icon: Icons.copy_rounded,
             tooltip: _localizedText(context, zh: '复制', en: 'Copy'),
             onPressed: () => copyMcpTextToClipboard(
               context: context,
-              text: _editorController.text,
+              text: _sourceText,
               successMessage: _localizedText(
                 context,
                 zh: '已复制结构定义',
@@ -6410,28 +6436,22 @@ class _McpOpsSchemaDialogState extends State<_McpOpsSchemaDialog> {
           ),
         ],
       ),
-      child: (!_editable || !_rawMode)
-          ? _McpOpsSchemaCodeView(text: _editorController.text)
-          : TextField(
-              controller: _editorController,
-              onChanged: (_) => setState(() => _error = null),
-              maxLines: null,
-              minLines: 10,
-              style: theme.textTheme.bodySmall?.copyWith(
-                fontFamily: 'monospace',
-                height: 1.5,
+      child: AnimatedSwitcher(
+        duration: _mcpMotionDuration(
+          context,
+          const Duration(milliseconds: 180),
+        ),
+        switchInCurve: Curves.easeOutCubic,
+        switchOutCurve: Curves.easeInCubic,
+        child: _sourcePreviewExpanded
+            ? _McpOpsSchemaCodeView(
+                key: const ValueKey('source'),
+                text: _sourceText,
+              )
+            : const _McpOpsSchemaSourceCollapsedNotice(
+                key: ValueKey('collapsed-source'),
               ),
-              decoration: InputDecoration(
-                filled: true,
-                fillColor: cs.surfaceContainerHighest.withValues(alpha: 0.4),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(_mcpOpsControlRadius),
-                  borderSide: BorderSide(
-                    color: cs.outlineVariant.withValues(alpha: 0.6),
-                  ),
-                ),
-              ),
-            ),
+      ),
     );
   }
 
@@ -6467,26 +6487,28 @@ class _McpOpsSchemaDialogState extends State<_McpOpsSchemaDialog> {
   void _restoreDefault() {
     final defaultSchema = widget.defaultSchema;
     if (defaultSchema == null) return;
+    final previousDraft = _schemaDraft;
     setState(() {
-      _editorController.text = prettyPrintJson(defaultSchema);
+      _schemaDraft = _SchemaEditorObjectScope.fromSchema(defaultSchema);
+      _syncSourceFromDraft();
       _error = null;
     });
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => previousDraft.dispose(),
+    );
   }
 
   Future<void> _save() async {
-    final parsed = _parsedSchema;
-    if (parsed == null) {
+    final validationError = _schemaDraftValidationError(context, _schemaDraft);
+    if (validationError != null) {
       setState(() {
-        _error = _localizedText(
-          context,
-          zh: 'JSON 格式无效，请检查后重试。',
-          en: 'Invalid JSON. Please fix and retry.',
-        );
+        _error = validationError;
       });
       return;
     }
+    final schema = _currentSchema;
     setState(() => _saving = true);
-    final ok = await widget.onSaved!(parsed);
+    final ok = await widget.onSaved!(schema);
     if (!mounted) return;
     if (ok) {
       OpenHandSnackBar.flash(
@@ -6502,6 +6524,672 @@ class _McpOpsSchemaDialogState extends State<_McpOpsSchemaDialog> {
       _saving = false;
       _error = _localizedText(context, zh: '保存失败，请重试。', en: 'Save failed.');
     });
+  }
+}
+
+class _SchemaEditorObjectScope {
+  _SchemaEditorObjectScope({required this.baseSchema, required this.fields});
+
+  factory _SchemaEditorObjectScope.fromSchema(Map<String, Object?> schema) {
+    final properties = _asMap(schema['properties']);
+    final requiredFields = _requiredFieldNames(schema['required']);
+    final fields = <_SchemaEditorFieldDraft>[];
+    if (properties != null) {
+      for (final entry in properties.entries) {
+        fields.add(
+          _SchemaEditorFieldDraft.fromSchema(
+            name: entry.key,
+            schema: entry.value,
+            required: requiredFields.contains(entry.key),
+          ),
+        );
+      }
+    }
+    return _SchemaEditorObjectScope(
+      baseSchema: Map<String, Object?>.from(schema),
+      fields: fields,
+    );
+  }
+
+  factory _SchemaEditorObjectScope.empty() {
+    return _SchemaEditorObjectScope(
+      baseSchema: const <String, Object?>{'type': 'object'},
+      fields: <_SchemaEditorFieldDraft>[],
+    );
+  }
+
+  final Map<String, Object?> baseSchema;
+  final List<_SchemaEditorFieldDraft> fields;
+
+  Map<String, Object?> toSchema() {
+    final next = Map<String, Object?>.from(baseSchema);
+    final properties = <String, Object?>{};
+    final required = <String>[];
+    for (final field in fields) {
+      final name = field.name;
+      if (name.isEmpty) {
+        continue;
+      }
+      properties[name] = field.toSchema();
+      if (field.required) {
+        required.add(name);
+      }
+    }
+    next['type'] = 'object';
+    if (properties.isEmpty) {
+      next.remove('properties');
+    } else {
+      next['properties'] = properties;
+    }
+    if (required.isEmpty) {
+      next.remove('required');
+    } else {
+      next['required'] = required;
+    }
+    return next;
+  }
+
+  void addField() {
+    final names = fields.map((field) => field.name).toSet();
+    var index = fields.length + 1;
+    var name = 'param$index';
+    while (names.contains(name)) {
+      index += 1;
+      name = 'param$index';
+    }
+    fields.add(_SchemaEditorFieldDraft.empty(name: name));
+  }
+
+  void dispose() {
+    for (final field in fields) {
+      field.dispose();
+    }
+  }
+}
+
+class _SchemaEditorFieldDraft {
+  _SchemaEditorFieldDraft._({
+    required String name,
+    required String description,
+    required String enumText,
+    required this.baseSchema,
+    required this.itemBaseSchema,
+    required this.type,
+    required this.itemType,
+    required this.required,
+    required this.children,
+  }) : nameController = TextEditingController(text: name),
+       descriptionController = TextEditingController(text: description),
+       enumController = TextEditingController(text: enumText);
+
+  factory _SchemaEditorFieldDraft.fromSchema({
+    required String name,
+    required Object? schema,
+    required bool required,
+  }) {
+    final schemaMap =
+        _asMap(schema) ??
+        <String, Object?>{'type': _schemaEditableType(schema)};
+    final type = _schemaEditableType(schemaMap);
+    var itemType = 'string';
+    Map<String, Object?>? itemBaseSchema;
+    _SchemaEditorObjectScope? children;
+
+    if (type == 'object') {
+      children = _SchemaEditorObjectScope.fromSchema(schemaMap);
+    } else if (type == 'array') {
+      final itemsMap = _asMap(schemaMap['items']);
+      if (itemsMap != null) {
+        itemBaseSchema = Map<String, Object?>.from(itemsMap);
+        itemType = _schemaEditableType(itemsMap);
+        if (!_mcpOpsSchemaArrayItemTypes.contains(itemType)) {
+          itemType = 'object';
+        }
+        if (itemType == 'object' || _asMap(itemsMap['properties']) != null) {
+          children = _SchemaEditorObjectScope.fromSchema(itemsMap);
+          itemType = 'object';
+        }
+      }
+    }
+
+    return _SchemaEditorFieldDraft._(
+      name: name,
+      description: _schemaDescription(schemaMap),
+      enumText: _schemaEnumText(schemaMap['enum']),
+      baseSchema: Map<String, Object?>.from(schemaMap),
+      itemBaseSchema: itemBaseSchema,
+      type: type,
+      itemType: itemType,
+      required: required,
+      children: children,
+    );
+  }
+
+  factory _SchemaEditorFieldDraft.empty({required String name}) {
+    return _SchemaEditorFieldDraft._(
+      name: name,
+      description: '',
+      enumText: '',
+      baseSchema: const <String, Object?>{'type': 'string'},
+      itemBaseSchema: null,
+      type: 'string',
+      itemType: 'string',
+      required: false,
+      children: null,
+    );
+  }
+
+  final TextEditingController nameController;
+  final TextEditingController descriptionController;
+  final TextEditingController enumController;
+  final Map<String, Object?> baseSchema;
+  final Map<String, Object?>? itemBaseSchema;
+  String type;
+  String itemType;
+  bool required;
+  _SchemaEditorObjectScope? children;
+
+  String get name => nameController.text.trim();
+
+  _SchemaEditorObjectScope ensureChildren() {
+    return children ??= _SchemaEditorObjectScope.empty();
+  }
+
+  void setType(String nextType) {
+    if (!_mcpOpsSchemaEditableTypes.contains(nextType)) {
+      return;
+    }
+    type = nextType;
+    if (type == 'object' || (type == 'array' && itemType == 'object')) {
+      ensureChildren();
+    }
+  }
+
+  void setArrayItemType(String nextType) {
+    if (!_mcpOpsSchemaArrayItemTypes.contains(nextType)) {
+      return;
+    }
+    itemType = nextType;
+    if (itemType == 'object') {
+      ensureChildren();
+    }
+  }
+
+  Map<String, Object?> toSchema() {
+    final next = Map<String, Object?>.from(baseSchema);
+    next['type'] = type;
+
+    final description = descriptionController.text.trim();
+    if (description.isEmpty) {
+      next.remove('description');
+    } else {
+      next['description'] = description;
+    }
+
+    final enumValues = _schemaEnumValues(enumController.text);
+    if (enumValues.isEmpty) {
+      next.remove('enum');
+    } else {
+      next['enum'] = enumValues;
+    }
+
+    if (type == 'object') {
+      final childSchema = ensureChildren().toSchema();
+      next.remove('items');
+      if (childSchema.containsKey('properties')) {
+        next['properties'] = childSchema['properties'];
+      } else {
+        next.remove('properties');
+      }
+      if (childSchema.containsKey('required')) {
+        next['required'] = childSchema['required'];
+      } else {
+        next.remove('required');
+      }
+      return next;
+    }
+
+    if (type == 'array') {
+      next.remove('properties');
+      next.remove('required');
+      next['items'] = itemType == 'object'
+          ? ensureChildren().toSchema()
+          : <String, Object?>{...?itemBaseSchema, 'type': itemType};
+      return next;
+    }
+
+    next.remove('items');
+    next.remove('properties');
+    next.remove('required');
+    return next;
+  }
+
+  void dispose() {
+    nameController.dispose();
+    descriptionController.dispose();
+    enumController.dispose();
+    children?.dispose();
+  }
+}
+
+class _McpOpsSchemaFormEditor extends StatelessWidget {
+  const _McpOpsSchemaFormEditor({required this.scope, required this.onChanged});
+
+  final _SchemaEditorObjectScope scope;
+  final VoidCallback onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return _McpOpsPanel(
+      icon: Icons.edit_note_rounded,
+      title: _localizedText(context, zh: '结构化编辑', en: 'Structured Editor'),
+      subtitle: _localizedText(
+        context,
+        zh: '用表单维护字段名、类型、必填项、枚举值与说明。',
+        en: 'Edit names, types, requirements, enum values and descriptions.',
+      ),
+      trailing: _McpOpsCountBadge(text: '${scope.fields.length}', active: true),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (scope.fields.isEmpty)
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: cs.surfaceContainerHighest.withValues(alpha: 0.35),
+                borderRadius: BorderRadius.circular(_mcpOpsControlRadius),
+                border: Border.all(
+                  color: cs.outlineVariant.withValues(alpha: 0.48),
+                ),
+              ),
+              child: Text(
+                _localizedText(
+                  context,
+                  zh: '当前结构没有入参字段。',
+                  en: 'This schema has no parameter fields.',
+                ),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: cs.onSurfaceVariant,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            )
+          else
+            for (final entry in scope.fields.indexed) ...[
+              if (entry.$1 != 0) const SizedBox(height: 12),
+              _McpOpsSchemaFieldEditorCard(
+                key: ObjectKey(entry.$2),
+                field: entry.$2,
+                depth: 0,
+                onChanged: onChanged,
+                onRemove: () {
+                  final removed = scope.fields.removeAt(entry.$1);
+                  removed.dispose();
+                  onChanged();
+                },
+              ),
+            ],
+          const SizedBox(height: 12),
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: OutlinedButton.icon(
+              onPressed: () {
+                scope.addField();
+                onChanged();
+              },
+              icon: const Icon(Icons.add_rounded),
+              label: Text(_localizedText(context, zh: '添加字段', en: 'Add Field')),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _McpOpsSchemaFieldEditorCard extends StatelessWidget {
+  const _McpOpsSchemaFieldEditorCard({
+    super.key,
+    required this.field,
+    required this.depth,
+    required this.onChanged,
+    required this.onRemove,
+  });
+
+  final _SchemaEditorFieldDraft field;
+  final int depth;
+  final VoidCallback onChanged;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final childScope = _editableChildScope;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHighest.withValues(alpha: 0.38),
+        borderRadius: BorderRadius.circular(_mcpOpsControlRadius),
+        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.5)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              SizedBox(
+                width: 220,
+                child: TextField(
+                  controller: field.nameController,
+                  onChanged: (_) => onChanged(),
+                  textInputAction: TextInputAction.next,
+                  decoration: _mcpOpsSchemaInputDecoration(
+                    context,
+                    label: _localizedText(context, zh: '字段名', en: 'Field Name'),
+                  ),
+                ),
+              ),
+              SizedBox(
+                width: 156,
+                child: DropdownButtonFormField<String>(
+                  initialValue: field.type,
+                  isExpanded: true,
+                  decoration: _mcpOpsSchemaInputDecoration(
+                    context,
+                    label: _localizedText(context, zh: '类型', en: 'Type'),
+                  ),
+                  items: [
+                    for (final type in _mcpOpsSchemaEditableTypes)
+                      DropdownMenuItem<String>(
+                        value: type,
+                        child: Text(_schemaTypeLabel(context, type)),
+                      ),
+                  ],
+                  onChanged: (value) {
+                    if (value == null) return;
+                    field.setType(value);
+                    onChanged();
+                  },
+                ),
+              ),
+              _McpOpsSchemaRequiredSwitch(field: field, onChanged: onChanged),
+              _McpOpsIconButton(
+                icon: Icons.delete_outline_rounded,
+                tooltip: _localizedText(
+                  context,
+                  zh: '删除字段',
+                  en: 'Delete Field',
+                ),
+                onPressed: onRemove,
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: field.descriptionController,
+            onChanged: (_) => onChanged(),
+            minLines: 1,
+            maxLines: 3,
+            decoration: _mcpOpsSchemaInputDecoration(
+              context,
+              label: _localizedText(context, zh: '说明', en: 'Description'),
+            ),
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: field.enumController,
+            onChanged: (_) => onChanged(),
+            minLines: 1,
+            maxLines: 3,
+            decoration: _mcpOpsSchemaInputDecoration(
+              context,
+              label: _localizedText(context, zh: '枚举值', en: 'Enum Values'),
+              hint: _localizedText(
+                context,
+                zh: '一行一个，可留空',
+                en: 'One per line, optional',
+              ),
+            ),
+          ),
+          if (field.type == 'array') ...[
+            const SizedBox(height: 10),
+            SizedBox(
+              width: 180,
+              child: DropdownButtonFormField<String>(
+                initialValue: field.itemType,
+                isExpanded: true,
+                decoration: _mcpOpsSchemaInputDecoration(
+                  context,
+                  label: _localizedText(context, zh: '数组项类型', en: 'Item Type'),
+                ),
+                items: [
+                  for (final type in _mcpOpsSchemaArrayItemTypes)
+                    DropdownMenuItem<String>(
+                      value: type,
+                      child: Text(_schemaTypeLabel(context, type)),
+                    ),
+                ],
+                onChanged: (value) {
+                  if (value == null) return;
+                  field.setArrayItemType(value);
+                  onChanged();
+                },
+              ),
+            ),
+          ],
+          if (childScope != null) ...[
+            const SizedBox(height: 12),
+            _McpOpsSchemaNestedEditor(
+              scope: childScope,
+              depth: depth + 1,
+              title: field.type == 'array'
+                  ? _localizedText(context, zh: '数组项字段', en: 'Item Fields')
+                  : _localizedText(context, zh: '子字段', en: 'Child Fields'),
+              onChanged: onChanged,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  _SchemaEditorObjectScope? get _editableChildScope {
+    if (field.type == 'object') {
+      return field.ensureChildren();
+    }
+    if (field.type == 'array' && field.itemType == 'object') {
+      return field.ensureChildren();
+    }
+    return null;
+  }
+}
+
+class _McpOpsSchemaNestedEditor extends StatelessWidget {
+  const _McpOpsSchemaNestedEditor({
+    required this.scope,
+    required this.depth,
+    required this.title,
+    required this.onChanged,
+  });
+
+  final _SchemaEditorObjectScope scope;
+  final int depth;
+  final String title;
+  final VoidCallback onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerLowest.withValues(alpha: 0.65),
+        borderRadius: BorderRadius.circular(_mcpOpsControlRadius),
+        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.44)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.subdirectory_arrow_right_rounded,
+                size: 18,
+                color: cs.primary,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  title,
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              _McpOpsCountBadge(text: '${scope.fields.length}', active: true),
+            ],
+          ),
+          const SizedBox(height: 10),
+          if (scope.fields.isEmpty)
+            Text(
+              _localizedText(context, zh: '暂无子字段。', en: 'No child fields yet.'),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: cs.onSurfaceVariant,
+                fontWeight: FontWeight.w700,
+              ),
+            )
+          else
+            for (final entry in scope.fields.indexed) ...[
+              if (entry.$1 != 0) const SizedBox(height: 10),
+              _McpOpsSchemaFieldEditorCard(
+                key: ObjectKey(entry.$2),
+                field: entry.$2,
+                depth: depth,
+                onChanged: onChanged,
+                onRemove: () {
+                  final removed = scope.fields.removeAt(entry.$1);
+                  removed.dispose();
+                  onChanged();
+                },
+              ),
+            ],
+          const SizedBox(height: 10),
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: TextButton.icon(
+              onPressed: () {
+                scope.addField();
+                onChanged();
+              },
+              icon: const Icon(Icons.add_rounded),
+              label: Text(
+                _localizedText(context, zh: '添加子字段', en: 'Add Child'),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _McpOpsSchemaRequiredSwitch extends StatelessWidget {
+  const _McpOpsSchemaRequiredSwitch({
+    required this.field,
+    required this.onChanged,
+  });
+
+  final _SchemaEditorFieldDraft field;
+  final VoidCallback onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Container(
+      height: 48,
+      padding: const EdgeInsetsDirectional.only(start: 12, end: 6),
+      decoration: BoxDecoration(
+        color: field.required
+            ? cs.error.withValues(alpha: 0.10)
+            : cs.surfaceContainerHigh.withValues(alpha: 0.62),
+        borderRadius: BorderRadius.circular(_mcpOpsControlRadius),
+        border: Border.all(
+          color: field.required
+              ? cs.error.withValues(alpha: 0.30)
+              : cs.outlineVariant.withValues(alpha: 0.58),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            _localizedText(context, zh: '必填', en: 'Required'),
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: field.required ? cs.error : cs.onSurfaceVariant,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          Switch(
+            value: field.required,
+            onChanged: (value) {
+              field.required = value;
+              onChanged();
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _McpOpsSchemaSourceCollapsedNotice extends StatelessWidget {
+  const _McpOpsSchemaSourceCollapsedNotice({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHighest.withValues(alpha: 0.34),
+        borderRadius: BorderRadius.circular(_mcpOpsControlRadius),
+        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.45)),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.visibility_off_rounded,
+            size: 18,
+            color: cs.onSurfaceVariant,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              _localizedText(
+                context,
+                zh: '源码预览已收起。',
+                en: 'Source preview is collapsed.',
+              ),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: cs.onSurfaceVariant,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -6612,7 +7300,7 @@ class _McpOpsSchemaFieldCard extends StatelessWidget {
 
 /// Syntax-neutral, scroll-safe code display for the schema JSON preview.
 class _McpOpsSchemaCodeView extends StatelessWidget {
-  const _McpOpsSchemaCodeView({required this.text});
+  const _McpOpsSchemaCodeView({super.key, required this.text});
 
   final String text;
 
@@ -12582,6 +13270,147 @@ String _schemaDescription(Object? schema) {
       '';
 }
 
+String _schemaEditableType(Object? schema) {
+  final type = _schemaType(schema).toLowerCase().trim();
+  if (_mcpOpsSchemaEditableTypes.contains(type)) {
+    return type;
+  }
+  if (type.contains('|')) {
+    for (final part in type.split('|')) {
+      final candidate = part.trim();
+      if (_mcpOpsSchemaEditableTypes.contains(candidate)) {
+        return candidate;
+      }
+    }
+  }
+  if (type == 'text' || type == 'enum') {
+    return 'string';
+  }
+  return 'object';
+}
+
+String _schemaEnumText(Object? enumValue) {
+  if (enumValue is! List || enumValue.isEmpty) {
+    return '';
+  }
+  return enumValue
+      .map((value) => '$value'.trim())
+      .where((value) {
+        return value.isNotEmpty && value != 'null';
+      })
+      .join('\n');
+}
+
+List<Object?> _schemaEnumValues(String text) {
+  final values = <Object?>[];
+  final seen = <String>{};
+  for (final raw in text.split(RegExp(r'[\n,]'))) {
+    final value = raw.trim();
+    if (value.isEmpty) {
+      continue;
+    }
+    final parsed = _schemaEnumValue(value);
+    final signature = jsonEncode(_jsonFriendlyValue(parsed));
+    if (seen.add(signature)) {
+      values.add(parsed);
+    }
+  }
+  return values;
+}
+
+Object? _schemaEnumValue(String value) {
+  try {
+    return jsonDecode(value);
+  } catch (_) {
+    return value;
+  }
+}
+
+String _schemaTypeLabel(BuildContext context, String type) {
+  return switch (type) {
+    'string' => _localizedText(context, zh: '文本', en: 'String'),
+    'number' => _localizedText(context, zh: '数字', en: 'Number'),
+    'integer' => _localizedText(context, zh: '整数', en: 'Integer'),
+    'boolean' => _localizedText(context, zh: '布尔值', en: 'Boolean'),
+    'array' => _localizedText(context, zh: '数组', en: 'Array'),
+    'object' => _localizedText(context, zh: '对象', en: 'Object'),
+    _ => type,
+  };
+}
+
+InputDecoration _mcpOpsSchemaInputDecoration(
+  BuildContext context, {
+  required String label,
+  String? hint,
+}) {
+  final cs = Theme.of(context).colorScheme;
+  return InputDecoration(
+    labelText: label,
+    hintText: hint,
+    isDense: true,
+    filled: true,
+    fillColor: cs.surfaceContainerHighest.withValues(alpha: 0.34),
+    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(_mcpOpsControlRadius),
+      borderSide: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.6)),
+    ),
+    enabledBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(_mcpOpsControlRadius),
+      borderSide: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.55)),
+    ),
+    focusedBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(_mcpOpsControlRadius),
+      borderSide: BorderSide(color: cs.primary.withValues(alpha: 0.65)),
+    ),
+  );
+}
+
+String? _schemaDraftValidationError(
+  BuildContext context,
+  _SchemaEditorObjectScope scope, {
+  String path = '',
+}) {
+  final seenNames = <String>{};
+  for (final field in scope.fields) {
+    final name = field.name;
+    if (name.isEmpty) {
+      return _localizedText(
+        context,
+        zh: path.isEmpty ? '字段名不能为空。' : '$path 下的字段名不能为空。',
+        en: path.isEmpty
+            ? 'Field name cannot be empty.'
+            : 'Field name under $path cannot be empty.',
+      );
+    }
+    if (!seenNames.add(name)) {
+      return _localizedText(
+        context,
+        zh: '字段名「$name」重复，请保持同级唯一。',
+        en: 'Field "$name" is duplicated. Keep sibling names unique.',
+      );
+    }
+    final childScope =
+        field.type == 'object' ||
+            (field.type == 'array' && field.itemType == 'object')
+        ? field.children
+        : null;
+    if (childScope == null) {
+      continue;
+    }
+    final childPath = path.isEmpty ? name : '$path.$name';
+    final childError = _schemaDraftValidationError(
+      context,
+      childScope,
+      path: childPath,
+    );
+    if (childError != null) {
+      return childError;
+    }
+  }
+  return null;
+}
+
 String _schemaSummary(
   BuildContext context, {
   required Object? rawSchema,
@@ -14239,6 +15068,135 @@ _mcpLocalizedFallbacks = <String, _McpLocalizedFallback>{
     fr: 'Schéma enregistré',
     de: 'Schema gespeichert',
     ja: 'スキーマを保存しました',
+  ),
+  'Read-only source preview; the structured form generates JSON Schema.':
+      _McpLocalizedFallback(
+        zhHant: '唯讀源碼預覽；結構化表單會同步產生標準 JSON Schema。',
+        fr: 'Aperçu source en lecture seule ; le formulaire structuré génère le JSON Schema.',
+        de: 'Schreibgeschützte Quellvorschau; das strukturierte Formular erzeugt JSON Schema.',
+        ja: '読み取り専用のソースプレビューです。構造化フォームが JSON Schema を生成します。',
+      ),
+  'Collapse source preview': _McpLocalizedFallback(
+    zhHant: '收合源碼預覽',
+    fr: 'Réduire l’aperçu source',
+    de: 'Quellvorschau einklappen',
+    ja: 'ソースプレビューを折りたたむ',
+  ),
+  'Preview source': _McpLocalizedFallback(
+    zhHant: '預覽源碼',
+    fr: 'Aperçu du source',
+    de: 'Quelle ansehen',
+    ja: 'ソースをプレビュー',
+  ),
+  'Structured Editor': _McpLocalizedFallback(
+    zhHant: '結構化編輯',
+    fr: 'Éditeur structuré',
+    de: 'Strukturierter Editor',
+    ja: '構造化エディタ',
+  ),
+  'Edit names, types, requirements, enum values and descriptions.':
+      _McpLocalizedFallback(
+        zhHant: '用表單維護欄位名、類型、必填項、列舉值與說明。',
+        fr: 'Modifiez les noms, types, obligations, valeurs enum et descriptions.',
+        de: 'Namen, Typen, Pflichtangaben, Enum-Werte und Beschreibungen bearbeiten.',
+        ja: '名前、型、必須項目、列挙値、説明を編集します。',
+      ),
+  'This schema has no parameter fields.': _McpLocalizedFallback(
+    zhHant: '目前結構沒有入參欄位。',
+    fr: 'Ce schéma ne contient aucun paramètre.',
+    de: 'Dieses Schema enthält keine Parameterfelder.',
+    ja: 'このスキーマにはパラメータフィールドがありません。',
+  ),
+  'Add Field': _McpLocalizedFallback(
+    zhHant: '新增欄位',
+    fr: 'Ajouter un champ',
+    de: 'Feld hinzufügen',
+    ja: 'フィールドを追加',
+  ),
+  'Field Name': _McpLocalizedFallback(
+    zhHant: '欄位名',
+    fr: 'Nom du champ',
+    de: 'Feldname',
+    ja: 'フィールド名',
+  ),
+  'Type': _McpLocalizedFallback(zhHant: '類型', fr: 'Type', de: 'Typ', ja: '型'),
+  'Delete Field': _McpLocalizedFallback(
+    zhHant: '刪除欄位',
+    fr: 'Supprimer le champ',
+    de: 'Feld löschen',
+    ja: 'フィールドを削除',
+  ),
+  'Description': _McpLocalizedFallback(
+    zhHant: '說明',
+    fr: 'Description',
+    de: 'Beschreibung',
+    ja: '説明',
+  ),
+  'Enum Values': _McpLocalizedFallback(
+    zhHant: '列舉值',
+    fr: 'Valeurs enum',
+    de: 'Enum-Werte',
+    ja: '列挙値',
+  ),
+  'One per line, optional': _McpLocalizedFallback(
+    zhHant: '每行一個，可留空',
+    fr: 'Une par ligne, facultatif',
+    de: 'Ein Wert pro Zeile, optional',
+    ja: '1 行に 1 つ、省略可',
+  ),
+  'Item Type': _McpLocalizedFallback(
+    zhHant: '陣列項類型',
+    fr: 'Type d’élément',
+    de: 'Elementtyp',
+    ja: '項目の型',
+  ),
+  'Item Fields': _McpLocalizedFallback(
+    zhHant: '陣列項欄位',
+    fr: 'Champs d’élément',
+    de: 'Elementfelder',
+    ja: '項目フィールド',
+  ),
+  'Child Fields': _McpLocalizedFallback(
+    zhHant: '子欄位',
+    fr: 'Champs enfants',
+    de: 'Unterfelder',
+    ja: '子フィールド',
+  ),
+  'No child fields yet.': _McpLocalizedFallback(
+    zhHant: '暫無子欄位。',
+    fr: 'Aucun champ enfant pour le moment.',
+    de: 'Noch keine Unterfelder.',
+    ja: '子フィールドはまだありません。',
+  ),
+  'Add Child': _McpLocalizedFallback(
+    zhHant: '新增子欄位',
+    fr: 'Ajouter un enfant',
+    de: 'Unterfeld hinzufügen',
+    ja: '子を追加',
+  ),
+  'Source preview is collapsed.': _McpLocalizedFallback(
+    zhHant: '源碼預覽已收合。',
+    fr: 'L’aperçu source est réduit.',
+    de: 'Die Quellvorschau ist eingeklappt.',
+    ja: 'ソースプレビューは折りたたまれています。',
+  ),
+  'String': _McpLocalizedFallback(
+    zhHant: '文字',
+    fr: 'Chaîne',
+    de: 'Zeichenfolge',
+    ja: '文字列',
+  ),
+  'Integer': _McpLocalizedFallback(
+    zhHant: '整數',
+    fr: 'Entier',
+    de: 'Ganzzahl',
+    ja: '整数',
+  ),
+  'Object': _McpLocalizedFallback(
+    zhHant: '物件',
+    fr: 'Objet',
+    de: 'Objekt',
+    ja: 'オブジェクト',
   ),
   'Recent probe history': _McpLocalizedFallback(
     zhHant: '最近探測歷史',
