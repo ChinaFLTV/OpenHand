@@ -2863,15 +2863,30 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
                         ? config.summary!.trim()
                         : (base?.definition.description.trim() ??
                               config.kind.name);
+                    final defaultSchema = base?.definition.parameters;
                     return _McpOpsExposureRow(
                       id: config.kind.name,
                       title: config.effectiveName,
                       subtitle: description,
                       endpoints: const ['invoke'],
-                      inputSchema:
-                          config.schemaOverride?.isNotEmpty == true
+                      inputSchema: config.schemaOverride?.isNotEmpty == true
                           ? config.schemaOverride
-                          : base?.definition.parameters,
+                          : defaultSchema,
+                      defaultSchema: defaultSchema,
+                      onSchemaSaved: (schema) {
+                        // schema == defaultSchema (or null) → clear the override
+                        // so the tool falls back to its factory definition.
+                        final isDefault =
+                            schema == null ||
+                            (defaultSchema != null &&
+                                _mcpJsonEquals(schema, defaultSchema));
+                        return settings.updateBuiltinToolConfig(
+                          config.copyWith(
+                            schemaOverride: isDefault ? null : schema,
+                            clearSchemaOverride: isDefault,
+                          ),
+                        );
+                      },
                     );
                   }(),
               ],
@@ -4063,28 +4078,39 @@ class _McpOpsHeaderActionButton extends StatelessWidget {
 }
 
 class _McpOpsHeaderMessage extends StatelessWidget {
-  const _McpOpsHeaderMessage({required this.text});
+  const _McpOpsHeaderMessage({required this.text, this.tone});
 
   final String text;
+
+  /// Accent color; defaults to the primary "info" tone when omitted.
+  final Color? tone;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
+    final accent = tone ?? cs.primary;
+    final isError = tone == cs.error;
     return Align(
       alignment: AlignmentDirectional.centerStart,
       child: Container(
         constraints: const BoxConstraints(maxWidth: 720),
         padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
         decoration: BoxDecoration(
-          color: cs.primary.withValues(alpha: 0.10),
+          color: accent.withValues(alpha: 0.10),
           borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: cs.primary.withValues(alpha: 0.22)),
+          border: Border.all(color: accent.withValues(alpha: 0.22)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.info_outline_rounded, size: 16, color: cs.primary),
+            Icon(
+              isError
+                  ? Icons.error_outline_rounded
+                  : Icons.info_outline_rounded,
+              size: 16,
+              color: accent,
+            ),
             const SizedBox(width: 7),
             Flexible(
               child: Text(
@@ -4092,7 +4118,7 @@ class _McpOpsHeaderMessage extends StatelessWidget {
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: cs.onSurfaceVariant,
+                  color: isError ? accent : cs.onSurfaceVariant,
                   fontWeight: FontWeight.w800,
                   height: 1.2,
                 ),
@@ -5842,6 +5868,8 @@ class _McpOpsExposureRow {
     required this.endpoints,
     this.endpointLabels = const <String, String>{},
     this.inputSchema,
+    this.defaultSchema,
+    this.onSchemaSaved,
   });
 
   final String id;
@@ -5850,13 +5878,21 @@ class _McpOpsExposureRow {
   final List<String> endpoints;
   final Map<String, String> endpointLabels;
 
-  /// 入参 JSON Schema（内建工具携带真实参数定义），供暴露面板展开预览。
+  /// 入参 JSON Schema（内建工具携带真实参数定义），供暴露面板结构化预览与编辑。
   final Map<String, Object?>? inputSchema;
 
+  /// 出厂默认 Schema，用于弹窗内「恢复默认」。
+  final Map<String, Object?>? defaultSchema;
+
+  /// 持久化回调；为空表示该条目 Schema 只读。返回是否保存成功。
+  final Future<bool> Function(Map<String, Object?>? schema)? onSchemaSaved;
+
   bool get hasInputSchema => inputSchema?.isNotEmpty == true;
+
+  bool get schemaEditable => onSchemaSaved != null;
 }
 
-class _McpOpsExposureTile extends StatefulWidget {
+class _McpOpsExposureTile extends StatelessWidget {
   const _McpOpsExposureTile({
     required this.surface,
     required this.row,
@@ -5874,19 +5910,10 @@ class _McpOpsExposureTile extends StatefulWidget {
   final void Function(String endpoint, bool visible) onEndpointChanged;
 
   @override
-  State<_McpOpsExposureTile> createState() => _McpOpsExposureTileState();
-}
-
-class _McpOpsExposureTileState extends State<_McpOpsExposureTile> {
-  bool _schemaExpanded = false;
-
-  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final row = widget.row;
-    final itemVisible = widget.itemVisible;
-    final showSchemaToggle = itemVisible && row.hasInputSchema;
+    final showSchemaPill = itemVisible && row.hasInputSchema;
     return DecoratedBox(
       decoration: BoxDecoration(
         color: itemVisible
@@ -5931,7 +5958,7 @@ class _McpOpsExposureTileState extends State<_McpOpsExposureTile> {
                     ],
                   ),
                 ),
-                Switch(value: itemVisible, onChanged: widget.onItemChanged),
+                Switch(value: itemVisible, onChanged: onItemChanged),
               ],
             ),
             if (itemVisible && row.endpoints.isNotEmpty) ...[
@@ -5943,59 +5970,50 @@ class _McpOpsExposureTileState extends State<_McpOpsExposureTile> {
                 children: [
                   for (final endpoint in row.endpoints)
                     _McpOpsTogglePill(
-                      selected: widget.endpointVisible(endpoint),
-                      icon: widget.endpointVisible(endpoint)
+                      selected: endpointVisible(endpoint),
+                      icon: endpointVisible(endpoint)
                           ? Icons.visibility_rounded
                           : Icons.visibility_off_rounded,
                       label: row.endpointLabels[endpoint] ?? endpoint,
-                      onChanged: (value) =>
-                          widget.onEndpointChanged(endpoint, value),
+                      onChanged: (value) => onEndpointChanged(endpoint, value),
                     ),
-                  if (showSchemaToggle)
-                    _McpOpsSchemaToggleChip(
-                      expanded: _schemaExpanded,
-                      onToggle: () => setState(
-                        () => _schemaExpanded = !_schemaExpanded,
-                      ),
+                  // Shares _McpOpsTogglePill geometry so its top/bottom edges
+                  // line up exactly with the invoke pill beside it.
+                  if (showSchemaPill)
+                    _McpOpsSchemaPill(
+                      editable: row.schemaEditable,
+                      onTap: () => _openSchemaDialog(context),
                     ),
                 ],
               ),
             ],
-            if (showSchemaToggle)
-              AnimatedSize(
-                duration: const Duration(milliseconds: 180),
-                curve: Curves.easeOutCubic,
-                alignment: Alignment.topLeft,
-                child: _schemaExpanded
-                    ? Padding(
-                        padding: const EdgeInsets.only(top: 10),
-                        child: _ToolSchemaBlock(
-                          title: _localizedText(
-                            context,
-                            zh: '入参 Schema',
-                            en: 'Input schema',
-                          ),
-                          payload: row.inputSchema!,
-                        ),
-                      )
-                    : const SizedBox.shrink(),
-              ),
           ],
         ),
       ),
     );
   }
+
+  void _openSchemaDialog(BuildContext context) {
+    showAnimatedDialog<void>(
+      context: context,
+      builder: (_) => _McpOpsSchemaDialog(
+        title: row.title,
+        subtitle: row.subtitle,
+        schema: row.inputSchema!,
+        defaultSchema: row.defaultSchema,
+        onSaved: row.onSchemaSaved,
+      ),
+    );
+  }
 }
 
-/// 暴露面板中「展开/收起参数 Schema」胶囊按钮，沿用全局 Q 弹旋转动效。
-class _McpOpsSchemaToggleChip extends StatelessWidget {
-  const _McpOpsSchemaToggleChip({
-    required this.expanded,
-    required this.onToggle,
-  });
+/// 暴露面板中「参数 Schema」胶囊按钮，几何尺寸与 [_McpOpsTogglePill] 完全一致，
+/// 从而与左侧 invoke 胶囊上下对齐；点击打开结构化 Schema 弹窗。
+class _McpOpsSchemaPill extends StatelessWidget {
+  const _McpOpsSchemaPill({required this.editable, required this.onTap});
 
-  final bool expanded;
-  final VoidCallback onToggle;
+  final bool editable;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -6005,38 +6023,481 @@ class _McpOpsSchemaToggleChip extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         borderRadius: BorderRadius.circular(999),
-        onTap: onToggle,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        hoverColor: cs.primary.withValues(alpha: 0.08),
+        splashColor: cs.primary.withValues(alpha: 0.08),
+        highlightColor: cs.primary.withValues(alpha: 0.05),
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: _mcpMotionDuration(
+            context,
+            const Duration(milliseconds: 160),
+          ),
+          curve: Curves.easeOutCubic,
+          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+          decoration: BoxDecoration(
+            color: cs.primary.withValues(alpha: 0.10),
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: cs.primary.withValues(alpha: 0.28)),
+          ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                Icons.data_object_rounded,
-                size: 16,
-                color: cs.onSurfaceVariant,
-              ),
-              const SizedBox(width: 6),
+              Icon(Icons.data_object_rounded, size: 16, color: cs.primary),
+              const SizedBox(width: 7),
               Text(
                 _localizedText(context, zh: '参数 Schema', en: 'Schema'),
                 style: theme.textTheme.labelMedium?.copyWith(
-                  color: cs.onSurfaceVariant,
-                  fontWeight: FontWeight.w700,
+                  color: cs.primary,
+                  fontWeight: FontWeight.w800,
                 ),
               ),
-              const SizedBox(width: 2),
-              AnimatedRotation(
-                turns: expanded ? 0.5 : 0.0,
-                duration: const Duration(milliseconds: 180),
-                curve: Curves.easeOutCubic,
-                child: Icon(
-                  Icons.expand_more_rounded,
-                  size: 18,
+              const SizedBox(width: 5),
+              Icon(
+                editable ? Icons.edit_rounded : Icons.open_in_full_rounded,
+                size: 14,
+                color: cs.primary.withValues(alpha: 0.85),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Structured, editable viewer for a builtin tool's input schema. The schema is
+/// surfaced as a hierarchical field list (name · type · required · description)
+/// with a raw-JSON editor underneath; edits validate before persisting through
+/// [onSaved]. Read-only when [onSaved] is null. Reuses the shared ops dialog
+/// shell so it inherits the global Q-elastic enter/exit motion.
+class _McpOpsSchemaDialog extends StatefulWidget {
+  const _McpOpsSchemaDialog({
+    required this.title,
+    required this.subtitle,
+    required this.schema,
+    required this.defaultSchema,
+    required this.onSaved,
+  });
+
+  final String title;
+  final String subtitle;
+  final Map<String, Object?> schema;
+  final Map<String, Object?>? defaultSchema;
+  final Future<bool> Function(Map<String, Object?>? schema)? onSaved;
+
+  @override
+  State<_McpOpsSchemaDialog> createState() => _McpOpsSchemaDialogState();
+}
+
+class _McpOpsSchemaDialogState extends State<_McpOpsSchemaDialog> {
+  late final TextEditingController _editorController;
+  bool get _editable => widget.onSaved != null;
+  bool _rawMode = false;
+  bool _saving = false;
+  String? _error;
+  late String _savedText;
+
+  @override
+  void initState() {
+    super.initState();
+    _savedText = prettyPrintJson(widget.schema);
+    _editorController = TextEditingController(text: _savedText);
+  }
+
+  @override
+  void dispose() {
+    _editorController.dispose();
+    super.dispose();
+  }
+
+  /// Current editor text parsed back into a schema map, or null when invalid.
+  Map<String, Object?>? get _parsedSchema =>
+      optionalStringKeyedMapFromJsonText(_editorController.text);
+
+  bool get _dirty => _editorController.text.trim() != _savedText.trim();
+
+  bool get _canRestoreDefault {
+    final defaultSchema = widget.defaultSchema;
+    if (defaultSchema == null) return false;
+    final parsed = _parsedSchema;
+    return parsed == null || !_mcpJsonEquals(parsed, defaultSchema);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final parsed = _parsedSchema;
+    final fields = _schemaFields(parsed ?? widget.schema);
+    return buildOpenHandResponsiveDialogShell(
+      context: context,
+      maxWidth: 820,
+      maxWidthFraction: 0.94,
+      maxHeightFraction: 0.92,
+      backgroundColor: Colors.transparent,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(_mcpOpsOuterRadius),
+      ),
+      child: _McpOpsDialogSurface(
+        child: _McpOpsConsoleShell(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _buildHero(context, theme, cs),
+              const SizedBox(height: 14),
+              Expanded(
+                child: SingleChildScrollView(
+                  physics: openHandDialogAwareScrollPhysics(context),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _McpOpsSchemaFieldList(fields: fields),
+                      const SizedBox(height: _mcpOpsGridGap),
+                      _buildSourcePanel(context, theme, cs),
+                    ],
+                  ),
+                ),
+              ),
+              if (_error != null) ...[
+                const SizedBox(height: 10),
+                _McpOpsHeaderMessage(text: _error!, tone: cs.error),
+              ],
+              buildOpenHandDialogActionsBar(
+                actions: _buildActions(context, l10n),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHero(BuildContext context, ThemeData theme, ColorScheme cs) {
+    return Row(
+      children: [
+        Container(
+          width: 44,
+          height: 44,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: cs.primary.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(13),
+            border: Border.all(color: cs.primary.withValues(alpha: 0.28)),
+          ),
+          child: Icon(Icons.data_object_rounded, color: cs.primary, size: 24),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                widget.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                _editable
+                    ? _localizedText(
+                        context,
+                        zh: '参数 Schema · 可编辑',
+                        en: 'Input schema · Editable',
+                      )
+                    : _localizedText(
+                        context,
+                        zh: '参数 Schema · 只读',
+                        en: 'Input schema · Read-only',
+                      ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodySmall?.copyWith(
                   color: cs.onSurfaceVariant,
+                  fontWeight: FontWeight.w800,
                 ),
               ),
             ],
           ),
+        ),
+        IconButton(
+          tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
+          onPressed: _saving ? null : () => Navigator.of(context).maybePop(),
+          icon: const Icon(Icons.close_rounded),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSourcePanel(BuildContext context, ThemeData theme, ColorScheme cs) {
+    return _McpOpsPanel(
+      icon: Icons.code_rounded,
+      title: _localizedText(context, zh: 'Schema 源码', en: 'Schema Source'),
+      subtitle: _editable
+          ? _localizedText(
+              context,
+              zh: '编辑标准 JSON Schema；保存前会自动校验格式。',
+              en: 'Edit the JSON Schema; format is validated before saving.',
+            )
+          : null,
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (_editable)
+            _McpOpsTogglePill(
+              selected: _rawMode,
+              icon: _rawMode ? Icons.edit_note_rounded : Icons.visibility_rounded,
+              label: _rawMode
+                  ? _localizedText(context, zh: '编辑', en: 'Edit')
+                  : _localizedText(context, zh: '预览', en: 'Preview'),
+              onChanged: (value) => setState(() => _rawMode = value),
+            ),
+          const SizedBox(width: 8),
+          _McpOpsIconButton(
+            icon: Icons.copy_rounded,
+            tooltip: _localizedText(context, zh: '复制', en: 'Copy'),
+            onPressed: () => copyMcpTextToClipboard(
+              context: context,
+              text: _editorController.text,
+              successMessage: _localizedText(
+                context,
+                zh: '已复制 Schema',
+                en: 'Schema copied',
+              ),
+              logAction: 'copy ops tool schema',
+            ),
+          ),
+        ],
+      ),
+      child: (!_editable || !_rawMode)
+          ? _McpOpsSchemaCodeView(text: _editorController.text)
+          : TextField(
+              controller: _editorController,
+              onChanged: (_) => setState(() => _error = null),
+              maxLines: null,
+              minLines: 10,
+              style: theme.textTheme.bodySmall?.copyWith(
+                fontFamily: 'monospace',
+                height: 1.5,
+              ),
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: cs.surfaceContainerHighest.withValues(alpha: 0.4),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(_mcpOpsControlRadius),
+                  borderSide: BorderSide(
+                    color: cs.outlineVariant.withValues(alpha: 0.6),
+                  ),
+                ),
+              ),
+            ),
+    );
+  }
+
+  List<Widget> _buildActions(BuildContext context, AppLocalizations l10n) {
+    if (!_editable) {
+      return [
+        OpenHandDialogActionButton.primary(
+          onPressed: () => Navigator.of(context).maybePop(),
+          label: l10n.commonClose,
+        ),
+      ];
+    }
+    return [
+      if (widget.defaultSchema != null)
+        OpenHandDialogActionButton.secondary(
+          icon: Icons.restart_alt_rounded,
+          onPressed: _saving || !_canRestoreDefault
+              ? null
+              : _restoreDefault,
+          label: _localizedText(context, zh: '恢复默认', en: 'Default'),
+        ),
+      OpenHandDialogActionButton.secondary(
+        onPressed: _saving ? null : () => Navigator.of(context).maybePop(),
+        label: l10n.commonClose,
+      ),
+      OpenHandDialogActionButton.primary(
+        icon: Icons.save_rounded,
+        busy: _saving,
+        onPressed: _saving || !_dirty ? null : _save,
+        label: l10n.commonSave,
+      ),
+    ];
+  }
+
+  void _restoreDefault() {
+    final defaultSchema = widget.defaultSchema;
+    if (defaultSchema == null) return;
+    setState(() {
+      _editorController.text = prettyPrintJson(defaultSchema);
+      _error = null;
+    });
+  }
+
+  Future<void> _save() async {
+    final parsed = _parsedSchema;
+    if (parsed == null) {
+      setState(() {
+        _error = _localizedText(
+          context,
+          zh: 'JSON 格式无效，请检查后重试。',
+          en: 'Invalid JSON. Please fix and retry.',
+        );
+      });
+      return;
+    }
+    setState(() => _saving = true);
+    final ok = await widget.onSaved!(parsed);
+    if (!mounted) return;
+    if (ok) {
+      OpenHandSnackBar.flash(
+        context,
+        _localizedText(context, zh: 'Schema 已保存', en: 'Schema saved'),
+        kind: OpenHandSnackKind.success,
+        postFrame: true,
+      );
+      Navigator.of(context).maybePop();
+      return;
+    }
+    setState(() {
+      _saving = false;
+      _error = _localizedText(context, zh: '保存失败，请重试。', en: 'Save failed.');
+    });
+  }
+}
+
+/// Hierarchical, read-first rendering of parsed schema fields. Groups the field
+/// name, type badge, required marker and description into structured cards.
+class _McpOpsSchemaFieldList extends StatelessWidget {
+  const _McpOpsSchemaFieldList({required this.fields});
+
+  final List<_SchemaField> fields;
+
+  @override
+  Widget build(BuildContext context) {
+    return _McpOpsPanel(
+      icon: Icons.account_tree_rounded,
+      title: _localizedText(context, zh: '参数结构', en: 'Parameters'),
+      subtitle: _localizedText(
+        context,
+        zh: '按字段名、类型、是否必填与说明分层展示。',
+        en: 'Structured by name, type, requirement and description.',
+      ),
+      trailing: _McpOpsCountBadge(text: '${fields.length}', active: true),
+      child: fields.isEmpty
+          ? Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Text(
+                _localizedText(
+                  context,
+                  zh: '该工具无入参字段。',
+                  en: 'This tool takes no parameters.',
+                ),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            )
+          : Column(
+              children: [
+                for (final field in fields.indexed) ...[
+                  if (field.$1 != 0) const SizedBox(height: 10),
+                  _McpOpsSchemaFieldCard(field: field.$2),
+                ],
+              ],
+            ),
+    );
+  }
+}
+
+class _McpOpsSchemaFieldCard extends StatelessWidget {
+  const _McpOpsSchemaFieldCard({required this.field});
+
+  final _SchemaField field;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
+        borderRadius: BorderRadius.circular(_mcpOpsControlRadius),
+        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.5)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Text(
+                field.name,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  fontFamily: 'monospace',
+                ),
+              ),
+              _McpOpsStatusChip(
+                icon: Icons.code_rounded,
+                label: field.type,
+                color: cs.secondary,
+              ),
+              if (field.required)
+                _McpOpsStatusChip(
+                  icon: Icons.priority_high_rounded,
+                  label: _localizedText(context, zh: '必填', en: 'Required'),
+                  color: cs.error,
+                ),
+            ],
+          ),
+          if (field.description.trim().isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              field.description.trim(),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: cs.onSurfaceVariant,
+                height: 1.45,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Syntax-neutral, scroll-safe code display for the schema JSON preview.
+class _McpOpsSchemaCodeView extends StatelessWidget {
+  const _McpOpsSchemaCodeView({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
+        borderRadius: BorderRadius.circular(_mcpOpsControlRadius),
+        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.5)),
+      ),
+      child: SelectableText(
+        text.trim().isEmpty ? '{}' : text,
+        style: theme.textTheme.bodySmall?.copyWith(
+          fontFamily: 'monospace',
+          height: 1.5,
         ),
       ),
     );
@@ -6168,16 +6629,26 @@ class _McpOpsAuditRow extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 8),
-        _McpOpsStatusChip(
-          icon: Icons.circle_rounded,
-          label: _mcpOpsAuditStatusLabel(context, entry.status),
-          color: statusColor,
-        ),
-        const SizedBox(width: 4),
-        Icon(
-          Icons.chevron_right_rounded,
-          size: 20,
-          color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+        // Keep the status capsule and the open button on one baseline: the
+        // IntrinsicHeight + stretch pins the round button to the capsule's
+        // exact height, so their top and bottom edges line up precisely.
+        IntrinsicHeight(
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _McpOpsStatusChip(
+                icon: Icons.circle_rounded,
+                label: _mcpOpsAuditStatusLabel(context, entry.status),
+                color: statusColor,
+              ),
+              const SizedBox(width: 8),
+              AspectRatio(
+                aspectRatio: 1,
+                child: _McpOpsAuditOpenButton(onTap: onDetails),
+              ),
+            ],
+          ),
         ),
       ],
     );
@@ -6220,6 +6691,45 @@ class _McpOpsAuditRow extends StatelessWidget {
           color: cs.secondary,
         ),
       ],
+    );
+  }
+}
+
+/// Circular "open detail" affordance shown at the top-right of an audit card.
+/// Sized by an [AspectRatio] against the sibling status capsule so it stays a
+/// perfect circle whose top/bottom edges align with the capsule.
+class _McpOpsAuditOpenButton extends StatelessWidget {
+  const _McpOpsAuditOpenButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Material(
+      color: Colors.transparent,
+      shape: const CircleBorder(),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        hoverColor: cs.primary.withValues(alpha: 0.10),
+        splashColor: cs.primary.withValues(alpha: 0.12),
+        highlightColor: cs.primary.withValues(alpha: 0.06),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: cs.surfaceContainerHighest.withValues(alpha: 0.58),
+            border: Border.all(
+              color: cs.outlineVariant.withValues(alpha: 0.7),
+            ),
+          ),
+          child: Icon(
+            Icons.chevron_right_rounded,
+            size: 18,
+            color: cs.onSurfaceVariant.withValues(alpha: 0.85),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -11914,6 +12424,17 @@ Map<String, Object?>? _asMap(Object? value) {
     return stringKeyedMapFromValue(value);
   }
   return null;
+}
+
+/// Deep equality for two JSON-shaped maps via canonical encoding. Used to tell
+/// an edited builtin-tool schema apart from its factory default.
+bool _mcpJsonEquals(Map<String, Object?> a, Map<String, Object?> b) {
+  if (identical(a, b)) return true;
+  try {
+    return jsonEncode(_jsonFriendlyValue(a)) == jsonEncode(_jsonFriendlyValue(b));
+  } catch (_) {
+    return false;
+  }
 }
 
 Object? _jsonFriendlyValue(Object? value) {
