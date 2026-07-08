@@ -9,32 +9,37 @@ import '../../app/support/safe_subprocess.dart';
 final Map<String, Future<void>> _writeLocks = <String, Future<void>>{};
 const String _atomicTempSuffix = '.tmp';
 const String _atomicBackupSuffix = '.bak';
+const Duration _atomicStaleArtifactAge = Duration(minutes: 10);
 const Duration _openDirectoryCommandTimeout = Duration(seconds: 6);
 const String _openDirectoryProcessTag = 'atomic_file_ops';
+int _atomicTempSerial = 0;
 
 /// Recovers a file from its atomic-write backup if the target is missing.
 ///
-/// If the application was terminated between the "rename original → .bak" and
-/// "rename .tmp → target" steps inside [writeFileAtomically], neither the
-/// target file nor the .tmp file will exist, but the .bak file that holds the
-/// previous content will still be present.  This function detects that state
-/// and renames the .bak back to the target so that subsequent reads succeed.
+/// If the application was terminated during [writeFileAtomically], the target
+/// may be missing while a `.tmp`/`.tmp.*` file or `.bak` file is still present.
+/// This function restores the newest temp file first, then falls back to the
+/// backup that holds the previous content.
 ///
 /// Call this once for each critical file **before** reading it at startup.
 /// It is safe to call even when no leftover artifacts exist.
-Future<void> recoverAtomicWriteBackupIfNeeded(File targetFile) async {
-  final tempFile = File('${targetFile.path}$_atomicTempSuffix');
-  final backupFile = File('${targetFile.path}$_atomicBackupSuffix');
+Future<void> recoverAtomicWriteBackupIfNeeded(File targetFile) {
+  return _runWithAtomicWriteLock(
+    targetFile,
+    _recoverAtomicWriteBackupIfNeededLocked,
+  );
+}
 
+Future<void> _recoverAtomicWriteBackupIfNeededLocked(File targetFile) async {
+  final parent = targetFile.parent;
+  if (!await parent.exists()) {
+    return;
+  }
+  final backupFile = _atomicBackupFile(targetFile);
   if (await targetFile.exists()) {
-    // Target is intact — clean up any orphaned atomic-write artifacts.
-    if (await tempFile.exists()) {
-      try {
-        await tempFile.delete();
-      } on FileSystemException {
-        // Best-effort cleanup; ignore if the file cannot be deleted.
-      }
-    }
+    // Target is intact. Keep recent temp artifacts because another app
+    // instance may still be finishing its rename; only remove stale leftovers.
+    await _deleteStaleAtomicTempArtifacts(targetFile);
     if (await backupFile.exists()) {
       try {
         await backupFile.delete();
@@ -45,25 +50,30 @@ Future<void> recoverAtomicWriteBackupIfNeeded(File targetFile) async {
     return;
   }
 
-  // Target is missing — try restoring from the .tmp file first (this
-  // covers the case where the process crashed after writing the .tmp file
-  // but before renaming it to the target).
-  if (await tempFile.exists()) {
+  // Target is missing — try restoring from the newest temp file first. This
+  // covers both legacy `.tmp` files and the unique `.tmp.*` files used by
+  // current writers.
+  final tempFile = await _newestAtomicTempArtifact(targetFile);
+  if (tempFile != null && await tempFile.exists()) {
     try {
+      await _ensureAtomicParentDirectory(targetFile);
       await tempFile.rename(targetFile.path);
+      if (await backupFile.exists()) {
+        try {
+          await backupFile.delete();
+        } on FileSystemException {
+          // Best-effort cleanup.
+        }
+      }
       return;
     } on FileSystemException {
-      // .tmp rename failed — fall through to try the .bak file.
-      try {
-        await tempFile.delete();
-      } on FileSystemException {
-        // Best-effort cleanup.
-      }
+      // Temp restore failed — fall through to try the backup file.
     }
   }
 
   // Restore from backup if available.
   if (await backupFile.exists()) {
+    await _ensureAtomicParentDirectory(targetFile);
     await backupFile.rename(targetFile.path);
   }
 }
@@ -78,7 +88,7 @@ Future<void> recoverAtomicWriteBackupIfNeeded(File targetFile) async {
 Future<void> writeFileAtomically(File targetFile, String content) {
   return _runWithAtomicWriteLock(
     targetFile,
-    () => _writeFileAtomicallyLocked(targetFile, content),
+    (targetFile) => _writeFileAtomicallyLocked(targetFile, content),
   );
 }
 
@@ -87,27 +97,35 @@ Future<void> writeFileAtomically(File targetFile, String content) {
 Future<void> writeFileBytesAtomically(File targetFile, List<int> bytes) {
   return _runWithAtomicWriteLock(
     targetFile,
-    () => _writeFileBytesAtomicallyLocked(targetFile, bytes),
+    (targetFile) => _writeFileBytesAtomicallyLocked(targetFile, bytes),
   );
 }
 
 Future<void> _runWithAtomicWriteLock(
   File targetFile,
-  Future<void> Function() operation,
+  Future<void> Function(File targetFile) operation,
 ) {
-  final key = targetFile.absolute.path;
+  final normalizedTargetFile = targetFile.absolute;
+  final key = normalizedTargetFile.path;
   final previous = _writeLocks[key] ?? Future<void>.value();
   final current = previous.catchError((Object _, StackTrace _) {}).then((_) {
-    return operation();
+    return operation(normalizedTargetFile);
   });
   _writeLocks[key] = current;
   // Remove the lock once this write finishes (success or failure) and no
   // other caller queued behind it.
-  current.whenComplete(() {
+  void releaseLock() {
     if (identical(_writeLocks[key], current)) {
       _writeLocks.remove(key);
     }
-  });
+  }
+
+  unawaited(
+    current.then<void>(
+      (_) => releaseLock(),
+      onError: (Object _, StackTrace _) => releaseLock(),
+    ),
+  );
   return current;
 }
 
@@ -132,29 +150,20 @@ Future<void> _writeAtomicallyLocked(
   File targetFile,
   Future<void> Function(File tempFile) writeTempFile,
 ) async {
-  // Ensure the parent directory exists before writing. Without this, writing
-  // the `.tmp` file will fail on fresh installs or after the user deletes
-  // storage directories.
-  final parent = targetFile.parent;
-  if (!await parent.exists()) {
-    try {
-      await parent.create(recursive: true);
-    } on FileSystemException {
-      // Fall through — the subsequent writeAsString will surface a precise
-      // error if the directory is still missing.
-    }
-  }
+  await _ensureAtomicParentDirectory(targetFile);
 
-  final tempFile = File('${targetFile.path}$_atomicTempSuffix');
-  final backupFile = File('${targetFile.path}$_atomicBackupSuffix');
-
-  if (await tempFile.exists()) {
-    await tempFile.delete();
-  }
+  final tempFile = _newAtomicTempFile(targetFile);
+  final backupFile = _atomicBackupFile(targetFile);
   await writeTempFile(tempFile);
 
   var movedExistingFile = false;
   try {
+    if (!await tempFile.exists()) {
+      throw FileSystemException(
+        'Atomic temp file disappeared before rename.',
+        tempFile.path,
+      );
+    }
     if (await backupFile.exists()) {
       await backupFile.delete();
     }
@@ -194,6 +203,87 @@ Future<void> _writeAtomicallyLocked(
     }
     rethrow;
   }
+}
+
+Future<void> _ensureAtomicParentDirectory(File targetFile) async {
+  final parent = targetFile.parent;
+  if (!await parent.exists()) {
+    try {
+      await parent.create(recursive: true);
+    } on FileSystemException {
+      // Fall through — the subsequent file operation will surface a precise
+      // error if the directory is still missing.
+    }
+  }
+}
+
+File _atomicBackupFile(File targetFile) {
+  return File('${targetFile.path}$_atomicBackupSuffix');
+}
+
+File _newAtomicTempFile(File targetFile) {
+  final serial = _atomicTempSerial++;
+  final stamp = DateTime.now().microsecondsSinceEpoch;
+  return File('${targetFile.path}$_atomicTempSuffix.$pid.$stamp.$serial');
+}
+
+Future<File?> _newestAtomicTempArtifact(File targetFile) async {
+  final artifacts = await _atomicTempArtifacts(targetFile);
+  if (artifacts.isEmpty) {
+    return null;
+  }
+  final stamped = <({File file, DateTime modified})>[];
+  for (final file in artifacts) {
+    try {
+      stamped.add((file: file, modified: (await file.stat()).modified));
+    } on FileSystemException {
+      // Ignore files that disappeared while listing.
+    }
+  }
+  if (stamped.isEmpty) {
+    return null;
+  }
+  stamped.sort((a, b) => b.modified.compareTo(a.modified));
+  return stamped.first.file;
+}
+
+Future<void> _deleteStaleAtomicTempArtifacts(File targetFile) async {
+  final cutoff = DateTime.now().subtract(_atomicStaleArtifactAge);
+  for (final file in await _atomicTempArtifacts(targetFile)) {
+    try {
+      final stat = await file.stat();
+      if (stat.modified.isAfter(cutoff)) {
+        continue;
+      }
+      await file.delete();
+    } on FileSystemException {
+      // Best-effort cleanup.
+    }
+  }
+}
+
+Future<List<File>> _atomicTempArtifacts(File targetFile) async {
+  final parent = targetFile.parent;
+  if (!await parent.exists()) {
+    return const <File>[];
+  }
+  final legacyTempPath = '${targetFile.path}$_atomicTempSuffix';
+  final uniqueTempPrefix = '$legacyTempPath.';
+  final artifacts = <File>[];
+  try {
+    await for (final entity in parent.list(followLinks: false)) {
+      if (entity is! File) {
+        continue;
+      }
+      if (entity.path == legacyTempPath ||
+          entity.path.startsWith(uniqueTempPrefix)) {
+        artifacts.add(entity);
+      }
+    }
+  } on FileSystemException {
+    return const <File>[];
+  }
+  return artifacts;
 }
 
 /// Opens a directory in the platform-native file manager.
