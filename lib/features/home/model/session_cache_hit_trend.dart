@@ -643,8 +643,14 @@ _CacheHitDiagnostics _cacheHitDiagnostics({
     primaryMetadata['request_cache_affinity_marker_count'],
     relatedMetadata['request_cache_affinity_marker_count'],
   ]);
+  final cacheAffinityDegraded = firstBool([
+    primaryMetadata['cache_affinity_degraded'],
+    relatedMetadata['cache_affinity_degraded'],
+    if (promptMetadata != null) promptMetadata['cache_affinity_degraded'],
+  ]);
   final cacheAffinityMissing =
       cacheAffinityEnabled &&
+      !cacheAffinityDegraded &&
       requestCacheAffinityMarkerCount != null &&
       requestCacheAffinityMarkerCount <= 0;
   final stablePrefixKnown =

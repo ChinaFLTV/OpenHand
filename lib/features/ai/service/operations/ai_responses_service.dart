@@ -3,6 +3,7 @@ import 'dart:async';
 import '../../../../shared/net/http_status_utils.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../model/ai_api_family.dart';
+import '../../model/ai_input_cache_runtime_config.dart';
 import '../../model/ai_model_config.dart';
 import '../../model/ai_token_usage.dart';
 import '../chat/ai_chat_service.dart';
@@ -36,6 +37,7 @@ class AiResponsesResult {
     this.requestMethod,
     this.requestHeaders,
     this.requestBody,
+    this.requestFallbacks = const <String>[],
   });
 
   final String text;
@@ -46,6 +48,7 @@ class AiResponsesResult {
   final String? requestMethod;
   final Map<String, String>? requestHeaders;
   final Map<String, Object?>? requestBody;
+  final List<String> requestFallbacks;
 }
 
 class AiResponsesService {
@@ -72,6 +75,7 @@ class AiResponsesService {
     Object? tools,
     Object? toolChoice,
     String? user,
+    AiInputCacheRuntimeConfig? inputCacheConfig,
   }) {
     const family = AiApiFamily.responses;
     final instructionsValue = nullIfBlank(instructions);
@@ -109,7 +113,19 @@ class AiResponsesService {
       if (userValue != null) 'user': userValue,
       if (stream) 'stream': true,
     };
-    final body = AiOperationHttp.mergeBodyExtras(model, family, baseBody);
+    final cacheAffinity = AiPromptCacheAffinity.resolve(
+      model: model,
+      inputCacheConfig: inputCacheConfig,
+    );
+    final headers = AiOperationHttp.buildHeaders(
+      model: model,
+      endpointHeaders: endpoint.headers,
+      family: family,
+    );
+    cacheAffinity.applyToHeaders(headers);
+    final body = cacheAffinity.applyToBody(
+      AiOperationHttp.mergeBodyExtras(model, family, baseBody),
+    );
     return AiResponsesRequestBlueprint(
       url: AiOperationHttp.uriWithExtraQuery(
         endpoint.url,
@@ -117,11 +133,7 @@ class AiResponsesService {
         family,
       ).toString(),
       method: endpoint.method,
-      headers: AiOperationHttp.buildHeaders(
-        model: model,
-        endpointHeaders: endpoint.headers,
-        family: family,
-      ),
+      headers: headers,
       body: body,
     );
   }
@@ -142,7 +154,9 @@ class AiResponsesService {
     Object? tools,
     Object? toolChoice,
     String? user,
+    AiInputCacheRuntimeConfig? inputCacheConfig,
   }) async {
+    final requestFallbacks = <String>[];
     var request = buildRequest(
       model: model,
       input: input,
@@ -158,6 +172,7 @@ class AiResponsesService {
       tools: tools,
       toolChoice: toolChoice,
       user: user,
+      inputCacheConfig: inputCacheConfig,
     );
     var response = await _transport.sendJson(
       uri: Uri.parse(request.url),
@@ -167,11 +182,35 @@ class AiResponsesService {
       timeout: timeout,
     );
     if (isHttpFailureStatus(response.statusCode) &&
+        AiPromptCacheAffinity.shouldRetryWithoutMarkers(
+          statusCode: response.statusCode,
+          errorBody: response.body,
+          requestBody: request.body,
+          requestHeaders: request.headers,
+        )) {
+      _addRequestFallback(
+        requestFallbacks,
+        aiChatRequestFallbackCacheAffinityRejected,
+      );
+      request = _withoutCacheAffinityMarkers(request);
+      response = await _transport.sendJson(
+        uri: Uri.parse(request.url),
+        method: request.method,
+        headers: request.headers,
+        body: request.body,
+        timeout: timeout,
+      );
+    }
+    if (isHttpFailureStatus(response.statusCode) &&
         AiThinkingRequestPolicy.shouldRetryWithoutMarkers(
           statusCode: response.statusCode,
           errorBody: response.body,
           requestBody: request.body,
         )) {
+      _addRequestFallback(
+        requestFallbacks,
+        aiChatRequestFallbackThinkingMarkersRejected,
+      );
       request = _withoutThinkingMarkers(request);
       response = await _transport.sendJson(
         uri: Uri.parse(request.url),
@@ -196,6 +235,25 @@ class AiResponsesService {
       requestMethod: request.method,
       requestHeaders: Map<String, String>.unmodifiable(request.headers),
       requestBody: request.body,
+      requestFallbacks: List<String>.unmodifiable(requestFallbacks),
+    );
+  }
+
+  void _addRequestFallback(List<String> fallbacks, String reason) {
+    if (reason.isEmpty || fallbacks.contains(reason)) {
+      return;
+    }
+    fallbacks.add(reason);
+  }
+
+  AiResponsesRequestBlueprint _withoutCacheAffinityMarkers(
+    AiResponsesRequestBlueprint request,
+  ) {
+    return AiResponsesRequestBlueprint(
+      url: request.url,
+      method: request.method,
+      headers: AiPromptCacheAffinity.withoutHeaderMarkers(request.headers),
+      body: AiPromptCacheAffinity.withoutBodyMarkers(request.body),
     );
   }
 

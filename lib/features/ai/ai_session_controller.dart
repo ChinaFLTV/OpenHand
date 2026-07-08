@@ -12897,6 +12897,15 @@ $tail''';
       if (result.requestMethod != null) 'request_method': result.requestMethod,
       if (result.requestHeaders != null && result.requestHeaders!.isNotEmpty)
         'request_headers': _redactTelemetryHeaders(result.requestHeaders!),
+      if (result.requestFallbacks.isNotEmpty) ...<String, Object?>{
+        'request_fallbacks': result.requestFallbacks,
+        'cache_affinity_degraded': result.requestFallbacks.contains(
+          aiChatRequestFallbackCacheAffinityRejected,
+        ),
+        'thinking_markers_degraded': result.requestFallbacks.contains(
+          aiChatRequestFallbackThinkingMarkersRejected,
+        ),
+      },
       if (result.requestBody != null)
         'request_payload': _sanitizeTelemetryMapPreservingOrder(
           result.requestBody!,
@@ -12952,6 +12961,16 @@ $tail''';
       if (telemetry?.requestHeaders != null &&
           telemetry!.requestHeaders!.isNotEmpty)
         'request_headers': _redactTelemetryHeaders(telemetry.requestHeaders!),
+      if (telemetry != null &&
+          telemetry.requestFallbacks.isNotEmpty) ...<String, Object?>{
+        'request_fallbacks': telemetry.requestFallbacks,
+        'cache_affinity_degraded': telemetry.requestFallbacks.contains(
+          aiChatRequestFallbackCacheAffinityRejected,
+        ),
+        'thinking_markers_degraded': telemetry.requestFallbacks.contains(
+          aiChatRequestFallbackThinkingMarkersRejected,
+        ),
+      },
       if (telemetry?.requestBody != null)
         'request_payload': _sanitizeTelemetryMapPreservingOrder(
           telemetry!.requestBody!,
@@ -13166,6 +13185,15 @@ $tail''';
       if (telemetry.requestHeaders != null &&
           telemetry.requestHeaders!.isNotEmpty)
         'request_headers': _redactTelemetryHeaders(telemetry.requestHeaders!),
+      if (telemetry.requestFallbacks.isNotEmpty) ...<String, Object?>{
+        'request_fallbacks': telemetry.requestFallbacks,
+        'cache_affinity_degraded': telemetry.requestFallbacks.contains(
+          aiChatRequestFallbackCacheAffinityRejected,
+        ),
+        'thinking_markers_degraded': telemetry.requestFallbacks.contains(
+          aiChatRequestFallbackThinkingMarkersRejected,
+        ),
+      },
       if (telemetry.requestBody != null) ...<String, Object?>{
         ..._cacheControlTelemetry(telemetry.requestBody!),
         ..._cacheAffinityTelemetry(
@@ -13515,6 +13543,8 @@ $tail''';
       'tool_result_prompt_threshold_chars',
       'tool_result_prompt_head_tail_chars',
       'dynamic_session_state_delivery',
+      'prompt_assembly_layout',
+      'cache_affinity_key_scope',
       'stable_prefix_hash',
       'previous_stable_prefix_hash',
       'cache_anchor_hash',
@@ -13535,6 +13565,9 @@ $tail''';
       'ttl_suspected',
       'request_cache_affinity_marker_count',
       'request_cache_affinity_marker_paths',
+      'request_fallbacks',
+      'cache_affinity_degraded',
+      'thinking_markers_degraded',
       'request_cache_control_marker_count',
       'request_cache_control_marker_paths',
       'request_payload_lcp_chars',

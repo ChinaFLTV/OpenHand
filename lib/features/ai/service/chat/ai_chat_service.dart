@@ -27,6 +27,11 @@ import 'ai_protocol_adapter.dart';
 import 'ai_sse_data_parser.dart';
 import 'ai_transport_diagnostic_messages.dart';
 
+const String aiChatRequestFallbackCacheAffinityRejected =
+    'cache_affinity_rejected';
+const String aiChatRequestFallbackThinkingMarkersRejected =
+    'thinking_markers_rejected';
+
 abstract class AiChatClient {
   Future<AiChatCompletion> sendMessage({
     required AiModelConfig model,
@@ -70,6 +75,7 @@ class AiChatRequestTelemetry {
     this.durationMs,
     this.finishReason,
     this.error,
+    this.requestFallbacks = const <String>[],
   });
 
   final String? requestUrl;
@@ -82,6 +88,7 @@ class AiChatRequestTelemetry {
   final int? durationMs;
   final String? finishReason;
   final String? error;
+  final List<String> requestFallbacks;
 }
 
 class AiChatCompletion {
@@ -98,6 +105,7 @@ class AiChatCompletion {
     this.startedAt,
     this.endedAt,
     this.durationMs,
+    this.requestFallbacks = const <String>[],
   });
 
   final String reply;
@@ -116,6 +124,7 @@ class AiChatCompletion {
   final DateTime? startedAt;
   final DateTime? endedAt;
   final int? durationMs;
+  final List<String> requestFallbacks;
 }
 
 enum AiChatStreamEventType { textDelta, reasoningDelta, toolCallDelta, usage }
@@ -178,6 +187,7 @@ class AiChatStreamResult {
     this.startedAt,
     this.endedAt,
     this.durationMs,
+    this.requestFallbacks = const <String>[],
   });
 
   final String reply;
@@ -193,6 +203,7 @@ class AiChatStreamResult {
   final DateTime? startedAt;
   final DateTime? endedAt;
   final int? durationMs;
+  final List<String> requestFallbacks;
 
   /// The reason the model stopped generating.
   ///
@@ -323,52 +334,11 @@ class AiChatService implements AiChatClient {
     return message.contains('404') || message.contains('405');
   }
 
-  bool _shouldRetryWithoutCacheAffinity({
-    required int statusCode,
-    required String errorBody,
-    required Map<String, Object?> requestBody,
-    required Map<String, String> requestHeaders,
-  }) {
-    if (statusCode < 400 || statusCode >= 500) {
-      return false;
+  void _addRequestFallback(List<String> fallbacks, String reason) {
+    if (reason.isEmpty || fallbacks.contains(reason)) {
+      return;
     }
-    if (!AiPromptCacheAffinity.requestHasMarker(
-      body: requestBody,
-      headers: requestHeaders,
-    )) {
-      return false;
-    }
-    final normalized = errorBody.toLowerCase();
-    final mentionsAffinityField =
-        normalized.contains(
-          AiPromptCacheAffinity.openAiPromptCacheKeyBodyField,
-        ) ||
-        normalized.contains(AiPromptCacheAffinity.openRouterSessionBodyField) ||
-        normalized.contains(AiPromptCacheAffinity.openRouterSessionHeader) ||
-        normalized.contains(AiPromptCacheAffinity.grokConversationHeader);
-    if (mentionsAffinityField) {
-      return normalized.contains('unknown') ||
-          normalized.contains('unrecognized') ||
-          normalized.contains('unsupported') ||
-          normalized.contains('unexpected') ||
-          normalized.contains('not allowed') ||
-          normalized.contains('additional') ||
-          normalized.contains('invalid');
-    }
-    if (statusCode != 400 && statusCode != 422) {
-      return false;
-    }
-    return normalized.contains('invalid') ||
-        normalized.contains('schema') ||
-        normalized.contains('parameter') ||
-        normalized.contains('field') ||
-        normalized.contains('body') ||
-        normalized.contains('request') ||
-        normalized.contains('bad request') ||
-        normalized.contains('unrecognized') ||
-        normalized.contains('unsupported') ||
-        normalized.contains('unexpected') ||
-        normalized.contains('additional');
+    fallbacks.add(reason);
   }
 
   AiRequestBlueprint _withoutCacheAffinityMarkers(
@@ -558,13 +528,20 @@ class AiChatService implements AiChatClient {
             model: model,
             input: flattenedInput,
             timeout: timeout,
+            inputCacheConfig: inputCacheConfig,
           ),
           cancelSignal,
         );
         return AiChatCompletion(
           reply: response.text,
           reasoningContent: response.reasoning,
+          usage: response.usage,
           rawResponse: response.rawResponse,
+          requestUrl: response.requestUrl,
+          requestMethod: response.requestMethod,
+          requestHeaders: response.requestHeaders,
+          requestBody: response.requestBody,
+          requestFallbacks: response.requestFallbacks,
         );
       } on AiChatCancelledException {
         rethrow;
@@ -584,6 +561,7 @@ class AiChatService implements AiChatClient {
       );
       final effectiveMethod = _effectiveRequestMethod(model);
       final startedAt = DateTime.now().toUtc();
+      final requestFallbacks = <String>[];
       AiChatRequestTelemetry telemetry({
         String? rawResponse,
         DateTime? endedAt,
@@ -600,6 +578,7 @@ class AiChatService implements AiChatClient {
           endedAt: resolvedEndedAt,
           durationMs: resolvedEndedAt.difference(startedAt).inMilliseconds,
           error: error,
+          requestFallbacks: List<String>.unmodifiable(requestFallbacks),
         );
       }
 
@@ -612,6 +591,7 @@ class AiChatService implements AiChatClient {
             requestHeaders: Map<String, String>.unmodifiable(blueprint.headers),
             requestBody: blueprint.body,
             startedAt: startedAt,
+            requestFallbacks: List<String>.unmodifiable(requestFallbacks),
           ),
         );
         try {
@@ -649,12 +629,16 @@ class AiChatService implements AiChatClient {
       var response = await sendBlueprint(blueprint);
       var endedAt = DateTime.now().toUtc();
       if (isHttpFailureStatus(response.statusCode)) {
-        if (_shouldRetryWithoutCacheAffinity(
+        if (AiPromptCacheAffinity.shouldRetryWithoutMarkers(
           statusCode: response.statusCode,
           errorBody: response.body,
           requestBody: blueprint.body,
           requestHeaders: blueprint.headers,
         )) {
+          _addRequestFallback(
+            requestFallbacks,
+            aiChatRequestFallbackCacheAffinityRejected,
+          );
           response = await sendBlueprint(
             _withoutCacheAffinityMarkers(blueprint),
           );
@@ -667,6 +651,10 @@ class AiChatService implements AiChatClient {
           errorBody: response.body,
           requestBody: blueprint.body,
         )) {
+          _addRequestFallback(
+            requestFallbacks,
+            aiChatRequestFallbackThinkingMarkersRejected,
+          );
           response = await sendBlueprint(_withoutThinkingMarkers(blueprint));
           endedAt = DateTime.now().toUtc();
         }
@@ -715,6 +703,7 @@ class AiChatService implements AiChatClient {
           startedAt: startedAt,
           endedAt: endedAt,
           durationMs: endedAt.difference(startedAt).inMilliseconds,
+          requestFallbacks: List<String>.unmodifiable(requestFallbacks),
         );
       } on FormatException catch (error) {
         throw AiChatException(
@@ -787,6 +776,7 @@ class AiChatService implements AiChatClient {
           streamIdleTimeout: streamIdleTimeout,
           cancelSignal: cancelSignal,
           onRequestStarted: onRequestStarted,
+          inputCacheConfig: inputCacheConfig,
         );
       } on AiChatException catch (error) {
         if (!_shouldFallbackFromResponsesStream(error)) {
@@ -807,6 +797,7 @@ class AiChatService implements AiChatClient {
         timeout: timeout,
         cancelSignal: cancelSignal,
         onRequestStarted: onRequestStarted,
+        inputCacheConfig: inputCacheConfig,
       );
     }
     final adapter = AiProtocolRegistry.adapterFor(model.protocolType);
@@ -820,6 +811,7 @@ class AiChatService implements AiChatClient {
         timeout: timeout,
         cancelSignal: cancelSignal,
         onRequestStarted: onRequestStarted,
+        inputCacheConfig: inputCacheConfig,
       );
     }
     final isClaudeProtocol = adapter is ClaudeProtocolAdapter;
@@ -834,6 +826,7 @@ class AiChatService implements AiChatClient {
       inputCacheConfig: inputCacheConfig,
     );
     final effectiveMethod = _effectiveRequestMethod(model);
+    final requestFallbacks = <String>[];
     late DateTime streamStartedAt;
     late Map<String, String> capturedHeaders;
     late Map<String, Object?> capturedBody;
@@ -859,6 +852,7 @@ class AiChatService implements AiChatClient {
             resolvedEndedAt.difference(streamStartedAt).inMilliseconds,
         finishReason: finishReason,
         error: error,
+        requestFallbacks: List<String>.unmodifiable(requestFallbacks),
       );
     }
 
@@ -876,6 +870,7 @@ class AiChatService implements AiChatClient {
           requestHeaders: capturedHeaders,
           requestBody: capturedBody,
           startedAt: streamStartedAt,
+          requestFallbacks: List<String>.unmodifiable(requestFallbacks),
         ),
       );
       final request = http.Request(effectiveMethod, Uri.parse(blueprint.url))
@@ -956,12 +951,16 @@ class AiChatService implements AiChatClient {
     if (isHttpFailureStatus(streamedResponse.statusCode)) {
       final initialErrorBody = await streamedResponse.stream.bytesToString();
       var finalErrorBody = initialErrorBody;
-      if (_shouldRetryWithoutCacheAffinity(
+      if (AiPromptCacheAffinity.shouldRetryWithoutMarkers(
         statusCode: streamedResponse.statusCode,
         errorBody: initialErrorBody,
         requestBody: blueprint.body,
         requestHeaders: blueprint.headers,
       )) {
+        _addRequestFallback(
+          requestFallbacks,
+          aiChatRequestFallbackCacheAffinityRejected,
+        );
         streamedResponse = await openStream(
           _withoutCacheAffinityMarkers(blueprint),
         );
@@ -988,6 +987,10 @@ class AiChatService implements AiChatClient {
             errorBody: finalErrorBody,
             requestBody: blueprint.body,
           )) {
+        _addRequestFallback(
+          requestFallbacks,
+          aiChatRequestFallbackThinkingMarkersRejected,
+        );
         streamedResponse = await openStream(_withoutThinkingMarkers(blueprint));
         if (streamedResponse == null) {
           return AiChatStreamingResponse(
@@ -1111,6 +1114,7 @@ class AiChatService implements AiChatClient {
               .toUtc()
               .difference(streamStartedAt)
               .inMilliseconds,
+          requestFallbacks: List<String>.unmodifiable(requestFallbacks),
         ),
       );
       if (!eventController.isClosed) {
@@ -1309,6 +1313,7 @@ class AiChatService implements AiChatClient {
     required Duration streamIdleTimeout,
     Future<void>? cancelSignal,
     void Function(AiChatRequestTelemetry telemetry)? onRequestStarted,
+    AiInputCacheRuntimeConfig? inputCacheConfig,
   }) async {
     _responsesService ??= AiResponsesService();
     final flattenedInput = trimmedNonEmptyStrings(
@@ -1318,7 +1323,9 @@ class AiChatService implements AiChatClient {
       model: model,
       input: flattenedInput,
       stream: true,
+      inputCacheConfig: inputCacheConfig,
     );
+    final requestFallbacks = <String>[];
     late DateTime streamStartedAt;
     late Map<String, String> capturedHeaders;
     late Map<String, Object?> capturedBody;
@@ -1337,6 +1344,7 @@ class AiChatService implements AiChatClient {
           requestHeaders: capturedHeaders,
           requestBody: capturedBody,
           startedAt: streamStartedAt,
+          requestFallbacks: List<String>.unmodifiable(requestFallbacks),
         ),
       );
       final streamedResponseFuture = _sendHttpRequestWithRedirects(
@@ -1377,11 +1385,53 @@ class AiChatService implements AiChatClient {
     String? responsesErrorBody;
     if (isHttpFailureStatus(streamedResponse.statusCode)) {
       responsesErrorBody = await streamedResponse.stream.bytesToString();
-      if (AiThinkingRequestPolicy.shouldRetryWithoutMarkers(
+      if (AiPromptCacheAffinity.shouldRetryWithoutMarkers(
         statusCode: streamedResponse.statusCode,
         errorBody: responsesErrorBody,
         requestBody: request.body,
+        requestHeaders: request.headers,
       )) {
+        _addRequestFallback(
+          requestFallbacks,
+          aiChatRequestFallbackCacheAffinityRejected,
+        );
+        final retryRequest = AiResponsesRequestBlueprint(
+          url: request.url,
+          method: request.method,
+          headers: AiPromptCacheAffinity.withoutHeaderMarkers(request.headers),
+          body: AiPromptCacheAffinity.withoutBodyMarkers(request.body),
+        );
+        streamedResponse = await openResponsesStream(retryRequest);
+        if (streamedResponse == null) {
+          return AiChatStreamingResponse(
+            events: const Stream<AiChatStreamEvent>.empty(),
+            result: Future<AiChatStreamResult>.value(
+              const AiChatStreamResult(
+                reply: '',
+                reasoning: '',
+                toolCalls: <AiToolCall>[],
+                wasCancelled: true,
+              ),
+            ),
+          );
+        }
+        if (isHttpSuccessStatus(streamedResponse.statusCode)) {
+          responsesErrorBody = null;
+        } else {
+          responsesErrorBody = await streamedResponse.stream.bytesToString();
+        }
+      }
+    }
+    if (isHttpFailureStatus(streamedResponse.statusCode)) {
+      if (AiThinkingRequestPolicy.shouldRetryWithoutMarkers(
+        statusCode: streamedResponse.statusCode,
+        errorBody: responsesErrorBody ?? '',
+        requestBody: request.body,
+      )) {
+        _addRequestFallback(
+          requestFallbacks,
+          aiChatRequestFallbackThinkingMarkersRejected,
+        );
         final retryRequest = AiResponsesRequestBlueprint(
           url: request.url,
           method: request.method,
@@ -1431,6 +1481,7 @@ class AiChatService implements AiChatClient {
               .difference(streamStartedAt)
               .inMilliseconds,
           error: errorBody,
+          requestFallbacks: List<String>.unmodifiable(requestFallbacks),
         ),
       );
     }
@@ -1526,6 +1577,7 @@ class AiChatService implements AiChatClient {
                       .toUtc()
                       .difference(streamStartedAt)
                       .inMilliseconds,
+                  requestFallbacks: List<String>.unmodifiable(requestFallbacks),
                 ),
               );
             }
@@ -1557,6 +1609,7 @@ class AiChatService implements AiChatClient {
     required Duration timeout,
     Future<void>? cancelSignal,
     void Function(AiChatRequestTelemetry telemetry)? onRequestStarted,
+    AiInputCacheRuntimeConfig? inputCacheConfig,
   }) async {
     final controller = StreamController<AiChatStreamEvent>(sync: true);
     final completer = Completer<AiChatStreamResult>();
@@ -1599,6 +1652,7 @@ class AiChatService implements AiChatClient {
           creationRequest: creationRequest,
           timeout: timeout,
           onRequestStarted: onRequestStarted,
+          inputCacheConfig: inputCacheConfig,
         );
         // Race the actual completion against (a) the caller's cancel
         // signal, and (b) our internal signal raised by `cancel()`.
@@ -1644,6 +1698,7 @@ class AiChatService implements AiChatClient {
               startedAt: completion.startedAt,
               endedAt: completion.endedAt,
               durationMs: completion.durationMs,
+              requestFallbacks: completion.requestFallbacks,
             ),
           );
         }

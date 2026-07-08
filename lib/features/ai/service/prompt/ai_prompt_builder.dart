@@ -93,6 +93,10 @@ class _PromptAssemblyPlan {
 class AiPromptBuilder {
   const AiPromptBuilder();
 
+  static const String _promptAssemblyLayout =
+      'stable_prefix.runtime_prefix.history.latest_user.volatile_tail.v1';
+  static const String _promptCacheAffinityKeyScope =
+      'session_template_model.v1';
   static final AiBashToolService _bashWriteAnalyzer = AiBashToolService();
   static const JsonEncoder _promptJsonEncoder = kPrettyJsonEncoder;
   static const int _microCompactKeepRecentToolResults = 2;
@@ -682,10 +686,9 @@ class AiPromptBuilder {
         cacheAffinityEnabled && !cacheAffinityRequiresGatewayForwarding;
     final cacheAffinityBestEffort =
         inputCachePolicy.usesAutomaticProviderCache && !cacheAffinityStrong;
-    final stableCacheKey = _stableCacheKey(
+    final promptCacheAffinityKey = _promptCacheAffinityKey(
       session: session,
       model: model,
-      cacheAnchorHash: cacheAnchorHash,
     );
     final previousCapturedAt =
         '${session.lastPromptMetadata['captured_at'] ?? ''}'.trim();
@@ -703,6 +706,7 @@ class AiPromptBuilder {
     metadata
       ..['captured_at'] = currentCapturedAt.toIso8601String()
       ..['current_prompt_character_count'] = promptCharacterCount
+      ..['prompt_assembly_layout'] = _promptAssemblyLayout
       ..['stable_prefix_hash'] = stablePrefixHash
       ..['previous_stable_prefix_hash'] = previousStablePrefixHash
       ..['cache_anchor_hash'] = cacheAnchorHash
@@ -766,7 +770,8 @@ class AiPromptBuilder {
           : dynamicSessionState.isNotEmpty
           ? 'omitted_for_tool_continuation'
           : 'empty'
-      ..['stable_cache_key'] = stableCacheKey
+      ..['cache_affinity_key_scope'] = _promptCacheAffinityKeyScope
+      ..['stable_cache_key'] = promptCacheAffinityKey
       ..['previous_stable_cache_key'] =
           '${session.lastPromptMetadata['stable_cache_key'] ?? ''}'.trim()
       ..['idle_gap_seconds'] = idleGapSeconds
@@ -1984,13 +1989,14 @@ class AiPromptBuilder {
     return stableFnv1a32Hex(content);
   }
 
-  String _stableCacheKey({
+  String _promptCacheAffinityKey({
     required AiSession session,
     required AiModelConfig model,
-    required String cacheAnchorHash,
   }) {
     return stableSha256Hex(
       [
+        _promptCacheAffinityKeyScope,
+        session.id,
         session.templateId,
         session.templateInternalVersion,
         model.normalizedBaseUrl,
@@ -1998,7 +2004,6 @@ class AiPromptBuilder {
         model.apiDialect.storageValue,
         model.providerKind.storageValue,
         model.modelId,
-        cacheAnchorHash,
       ].join('\n'),
     );
   }

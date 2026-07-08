@@ -865,6 +865,49 @@ class AiPromptCacheAffinity {
     return bodyHasMarker(body) || headersHaveMarker(headers);
   }
 
+  static bool shouldRetryWithoutMarkers({
+    required int statusCode,
+    required String errorBody,
+    required Map<String, Object?> requestBody,
+    required Map<String, String>? requestHeaders,
+  }) {
+    if (statusCode < 400 || statusCode >= 500) {
+      return false;
+    }
+    if (!requestHasMarker(body: requestBody, headers: requestHeaders)) {
+      return false;
+    }
+    final normalized = errorBody.toLowerCase();
+    final mentionsAffinityField =
+        normalized.contains(openAiPromptCacheKeyBodyField) ||
+        normalized.contains(openRouterSessionBodyField) ||
+        normalized.contains(openRouterSessionHeader) ||
+        normalized.contains(grokConversationHeader);
+    if (mentionsAffinityField) {
+      return normalized.contains('unknown') ||
+          normalized.contains('unrecognized') ||
+          normalized.contains('unsupported') ||
+          normalized.contains('unexpected') ||
+          normalized.contains('not allowed') ||
+          normalized.contains('additional') ||
+          normalized.contains('invalid');
+    }
+    if (statusCode != 400 && statusCode != 422) {
+      return false;
+    }
+    return normalized.contains('invalid') ||
+        normalized.contains('schema') ||
+        normalized.contains('parameter') ||
+        normalized.contains('field') ||
+        normalized.contains('body') ||
+        normalized.contains('request') ||
+        normalized.contains('bad request') ||
+        normalized.contains('unrecognized') ||
+        normalized.contains('unsupported') ||
+        normalized.contains('unexpected') ||
+        normalized.contains('additional');
+  }
+
   static bool bodyHasMarker(Map<String, Object?> body) {
     for (final field in _bodyMarkerFields) {
       if (body.containsKey(field)) {

@@ -822,6 +822,12 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
             promptMetadataFromMsg['cache_protocol_controlled'],
         ]) ||
         cacheControlStrategy == 'explicit_cache_control';
+    final cacheAffinityDegraded = _auditFirstBool([
+      metadata['cache_affinity_degraded'],
+      relatedMetadata['cache_affinity_degraded'],
+      if (promptMetadataFromMsg != null)
+        promptMetadataFromMsg['cache_affinity_degraded'],
+    ]);
     final stableCacheKey = _auditFirstString([
       metadata['stable_cache_key'],
       relatedMetadata['stable_cache_key'],
@@ -1171,7 +1177,8 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
                       if (cacheIdleGapSeconds != null ||
                           cacheTtlSuspected ||
                           prefixDriftSuspected ||
-                          automaticProviderMissSuspected)
+                          automaticProviderMissSuspected ||
+                          cacheAffinityDegraded)
                         _AuditJsonBlock(
                           label: openHandLocalizedText(
                             context,
@@ -1189,6 +1196,7 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
                             'prefix_drift_suspected': prefixDriftSuspected,
                             'automatic_provider_cache_miss_suspected':
                                 automaticProviderMissSuspected,
+                            'cache_affinity_degraded': cacheAffinityDegraded,
                             'stable_prefix_hash': stablePrefixHash,
                             'previous_stable_prefix_hash':
                                 previousStablePrefixHash,
