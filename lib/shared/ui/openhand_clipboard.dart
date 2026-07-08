@@ -102,7 +102,12 @@ void _showDefaultClipboardSuccessSnack(
   required Duration duration,
 }) {
   if (!context.mounted) return;
-  OpenHandSnackBar.showSuccess(context, message, duration: duration);
+  OpenHandSnackBar.showKind(
+    context,
+    message,
+    kind: OpenHandSnackKind.success,
+    duration: duration,
+  );
 }
 
 void _showDefaultClipboardErrorSnack(
@@ -111,5 +116,10 @@ void _showDefaultClipboardErrorSnack(
   required Duration duration,
 }) {
   if (!context.mounted) return;
-  OpenHandSnackBar.showError(context, message, duration: duration);
+  OpenHandSnackBar.showKind(
+    context,
+    message,
+    kind: OpenHandSnackKind.error,
+    duration: duration,
+  );
 }

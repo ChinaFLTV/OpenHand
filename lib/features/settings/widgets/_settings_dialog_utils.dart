@@ -8,24 +8,13 @@ void _showSettingsSuccessSnack(
   int? maxLines,
 }) {
   if (!context.mounted) return;
-  if (maxLines != null) {
-    OpenHandSnackBar.showInContext(
-      context,
-      OpenHandSnackBar.success(
-        context,
-        message,
-        duration: duration,
-        action: action,
-        maxLines: maxLines,
-      ),
-    );
-    return;
-  }
-  OpenHandSnackBar.showSuccess(
+  OpenHandSnackBar.showKind(
     context,
     message,
+    kind: OpenHandSnackKind.success,
     duration: duration,
     action: action,
+    maxLines: maxLines,
   );
 }
 
@@ -34,13 +23,16 @@ void _showSettingsErrorSnack(
   String message, {
   Duration duration = kOpenHandSnackBarErrorDuration,
   SnackBarAction? action,
+  int? maxLines,
 }) {
   if (!context.mounted) return;
-  OpenHandSnackBar.showError(
+  OpenHandSnackBar.showKind(
     context,
     message,
+    kind: OpenHandSnackKind.error,
     duration: duration,
     action: action,
+    maxLines: maxLines,
   );
 }
 
@@ -49,13 +41,15 @@ void _showSettingsInfoSnack(
   String message, {
   Duration duration = kOpenHandSnackBarInfoDuration,
   SnackBarAction? action,
+  int? maxLines,
 }) {
   if (!context.mounted) return;
-  OpenHandSnackBar.showInfo(
+  OpenHandSnackBar.showKind(
     context,
     message,
     duration: duration,
     action: action,
+    maxLines: maxLines,
   );
 }
 

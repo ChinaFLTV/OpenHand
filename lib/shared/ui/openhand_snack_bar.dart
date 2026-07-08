@@ -425,15 +425,108 @@ class OpenHandSnackBar {
     );
   }
 
+  static Duration defaultDurationForKind(OpenHandSnackKind kind) {
+    return switch (kind) {
+      OpenHandSnackKind.success => kOpenHandSnackBarSuccessDuration,
+      OpenHandSnackKind.error => kOpenHandSnackBarErrorDuration,
+      OpenHandSnackKind.info => kOpenHandSnackBarInfoDuration,
+    };
+  }
+
+  static SnackBar ofKind(
+    BuildContext context,
+    OpenHandSnackKind kind,
+    String message, {
+    Duration? duration,
+    SnackBarAction? action,
+    int? maxLines,
+  }) {
+    final effectiveDuration = duration ?? defaultDurationForKind(kind);
+    return switch (kind) {
+      OpenHandSnackKind.success => success(
+        context,
+        message,
+        duration: effectiveDuration,
+        action: action,
+        maxLines: maxLines,
+      ),
+      OpenHandSnackKind.error => error(
+        context,
+        message,
+        duration: effectiveDuration,
+        action: action,
+        maxLines: maxLines,
+      ),
+      OpenHandSnackKind.info => info(
+        context,
+        message,
+        duration: effectiveDuration,
+        action: action,
+        maxLines: maxLines,
+      ),
+    };
+  }
+
+  static void showKind(
+    BuildContext context,
+    String message, {
+    OpenHandSnackKind kind = OpenHandSnackKind.info,
+    Duration? duration,
+    SnackBarAction? action,
+    int? maxLines,
+  }) {
+    showInContext(
+      context,
+      ofKind(
+        context,
+        kind,
+        message,
+        duration: duration,
+        action: action,
+        maxLines: maxLines,
+      ),
+    );
+  }
+
+  static void showKindOn(
+    BuildContext context,
+    ScaffoldMessengerState? messenger,
+    String message, {
+    OpenHandSnackKind kind = OpenHandSnackKind.info,
+    Duration? duration,
+    SnackBarAction? action,
+    int? maxLines,
+  }) {
+    show(
+      context,
+      messenger,
+      ofKind(
+        context,
+        kind,
+        message,
+        duration: duration,
+        action: action,
+        maxLines: maxLines,
+      ),
+    );
+  }
+
   static void showInfo(
     BuildContext context,
     String message, {
     Duration duration = kOpenHandSnackBarInfoDuration,
     SnackBarAction? action,
+    int? maxLines,
   }) {
     showInContext(
       context,
-      info(context, message, duration: duration, action: action),
+      info(
+        context,
+        message,
+        duration: duration,
+        action: action,
+        maxLines: maxLines,
+      ),
     );
   }
 
@@ -443,11 +536,18 @@ class OpenHandSnackBar {
     String message, {
     Duration duration = kOpenHandSnackBarInfoDuration,
     SnackBarAction? action,
+    int? maxLines,
   }) {
     show(
       context,
       messenger,
-      info(context, message, duration: duration, action: action),
+      info(
+        context,
+        message,
+        duration: duration,
+        action: action,
+        maxLines: maxLines,
+      ),
     );
   }
 
@@ -456,10 +556,17 @@ class OpenHandSnackBar {
     String message, {
     Duration duration = kOpenHandSnackBarSuccessDuration,
     SnackBarAction? action,
+    int? maxLines,
   }) {
     showInContext(
       context,
-      success(context, message, duration: duration, action: action),
+      success(
+        context,
+        message,
+        duration: duration,
+        action: action,
+        maxLines: maxLines,
+      ),
     );
   }
 
@@ -469,11 +576,18 @@ class OpenHandSnackBar {
     String message, {
     Duration duration = kOpenHandSnackBarSuccessDuration,
     SnackBarAction? action,
+    int? maxLines,
   }) {
     show(
       context,
       messenger,
-      success(context, message, duration: duration, action: action),
+      success(
+        context,
+        message,
+        duration: duration,
+        action: action,
+        maxLines: maxLines,
+      ),
     );
   }
 
@@ -482,10 +596,17 @@ class OpenHandSnackBar {
     String message, {
     Duration duration = kOpenHandSnackBarErrorDuration,
     SnackBarAction? action,
+    int? maxLines,
   }) {
     showInContext(
       context,
-      error(context, message, duration: duration, action: action),
+      error(
+        context,
+        message,
+        duration: duration,
+        action: action,
+        maxLines: maxLines,
+      ),
     );
   }
 
@@ -495,11 +616,18 @@ class OpenHandSnackBar {
     String message, {
     Duration duration = kOpenHandSnackBarErrorDuration,
     SnackBarAction? action,
+    int? maxLines,
   }) {
     show(
       context,
       messenger,
-      error(context, message, duration: duration, action: action),
+      error(
+        context,
+        message,
+        duration: duration,
+        action: action,
+        maxLines: maxLines,
+      ),
     );
   }
 
@@ -509,33 +637,19 @@ class OpenHandSnackBar {
     OpenHandSnackKind kind = OpenHandSnackKind.info,
     Duration? duration,
     SnackBarAction? action,
+    int? maxLines,
     bool postFrame = false,
   }) {
     void dispatch() {
       if (!context.mounted) return;
-      switch (kind) {
-        case OpenHandSnackKind.success:
-          showSuccess(
-            context,
-            message,
-            duration: duration ?? kOpenHandSnackBarSuccessDuration,
-            action: action,
-          );
-        case OpenHandSnackKind.error:
-          showError(
-            context,
-            message,
-            duration: duration ?? kOpenHandSnackBarErrorDuration,
-            action: action,
-          );
-        case OpenHandSnackKind.info:
-          showInfo(
-            context,
-            message,
-            duration: duration ?? kOpenHandSnackBarInfoDuration,
-            action: action,
-          );
-      }
+      showKind(
+        context,
+        message,
+        kind: kind,
+        duration: duration,
+        action: action,
+        maxLines: maxLines,
+      );
     }
 
     if (postFrame) {

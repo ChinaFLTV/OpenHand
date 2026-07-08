@@ -11,15 +11,13 @@ void showHomeSuccessSnack(
   int? maxLines,
 }) {
   if (!context.mounted) return;
-  OpenHandSnackBar.showInContext(
+  OpenHandSnackBar.showKind(
     context,
-    OpenHandSnackBar.success(
-      context,
-      message,
-      duration: duration,
-      action: action,
-      maxLines: maxLines,
-    ),
+    message,
+    kind: OpenHandSnackKind.success,
+    duration: duration,
+    action: action,
+    maxLines: maxLines,
   );
 }
 
@@ -31,15 +29,12 @@ void showHomeInfoSnack(
   int? maxLines,
 }) {
   if (!context.mounted) return;
-  OpenHandSnackBar.showInContext(
+  OpenHandSnackBar.showKind(
     context,
-    OpenHandSnackBar.info(
-      context,
-      message,
-      duration: duration,
-      action: action,
-      maxLines: maxLines,
-    ),
+    message,
+    duration: duration,
+    action: action,
+    maxLines: maxLines,
   );
 }
 
@@ -51,15 +46,13 @@ void showHomeErrorSnack(
   int? maxLines,
 }) {
   if (!context.mounted) return;
-  OpenHandSnackBar.showInContext(
+  OpenHandSnackBar.showKind(
     context,
-    OpenHandSnackBar.error(
-      context,
-      message,
-      duration: duration,
-      action: action,
-      maxLines: maxLines,
-    ),
+    message,
+    kind: OpenHandSnackKind.error,
+    duration: duration,
+    action: action,
+    maxLines: maxLines,
   );
 }
 
@@ -69,6 +62,7 @@ void flashHomeSnack(
   OpenHandSnackKind kind = OpenHandSnackKind.info,
   Duration? duration,
   SnackBarAction? action,
+  int? maxLines,
   bool postFrame = false,
 }) {
   OpenHandSnackBar.flash(
@@ -77,6 +71,7 @@ void flashHomeSnack(
     kind: kind,
     duration: duration,
     action: action,
+    maxLines: maxLines,
     postFrame: postFrame,
   );
 }

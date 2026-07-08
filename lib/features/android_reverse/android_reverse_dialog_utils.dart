@@ -53,13 +53,16 @@ void showAndroidReverseSuccessSnack(
   String message, {
   Duration duration = kOpenHandSnackBarSuccessDuration,
   SnackBarAction? action,
+  int? maxLines,
 }) {
   if (!context.mounted) return;
-  OpenHandSnackBar.showSuccess(
+  OpenHandSnackBar.showKind(
     context,
     message,
+    kind: OpenHandSnackKind.success,
     duration: duration,
     action: action,
+    maxLines: maxLines,
   );
 }
 
@@ -68,13 +71,16 @@ void showAndroidReverseErrorSnack(
   String message, {
   Duration duration = kOpenHandSnackBarErrorDuration,
   SnackBarAction? action,
+  int? maxLines,
 }) {
   if (!context.mounted) return;
-  OpenHandSnackBar.showError(
+  OpenHandSnackBar.showKind(
     context,
     message,
+    kind: OpenHandSnackKind.error,
     duration: duration,
     action: action,
+    maxLines: maxLines,
   );
 }
 
@@ -83,13 +89,15 @@ void showAndroidReverseInfoSnack(
   String message, {
   Duration duration = kOpenHandSnackBarInfoDuration,
   SnackBarAction? action,
+  int? maxLines,
 }) {
   if (!context.mounted) return;
-  OpenHandSnackBar.showInfo(
+  OpenHandSnackBar.showKind(
     context,
     message,
     duration: duration,
     action: action,
+    maxLines: maxLines,
   );
 }
 

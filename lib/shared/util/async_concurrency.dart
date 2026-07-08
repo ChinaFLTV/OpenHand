@@ -54,6 +54,8 @@ int _boundedConcurrency({required int itemCount, required int maxConcurrency}) {
   return safeLimit < itemCount ? safeLimit : itemCount;
 }
 
+int _safeAsyncItemCount(int itemCount) => itemCount < 0 ? 0 : itemCount;
+
 /// Runs indexed async work with a bounded worker pool and preserves result order.
 ///
 /// [maxConcurrency] is clamped to [kOpenHandMaxAsyncConcurrency] so accidental
@@ -63,9 +65,10 @@ Future<List<T>> runOrderedWithConcurrencyLimit<T>({
   required int maxConcurrency,
   required Future<T> Function(int index) task,
 }) async {
-  final results = List<T?>.filled(itemCount, null);
+  final safeItemCount = _safeAsyncItemCount(itemCount);
+  final results = List<T?>.filled(safeItemCount, null);
   await _runIndexedWithConcurrencyLimit(
-    itemCount: itemCount,
+    itemCount: safeItemCount,
     maxConcurrency: maxConcurrency,
     task: (index) async {
       results[index] = await task(index);
@@ -86,8 +89,9 @@ Future<void> forEachIndexWithConcurrencyLimit({
   OpenHandAsyncContinuePredicate? shouldContinue,
   Duration delayBetweenItems = Duration.zero,
 }) async {
+  final safeItemCount = _safeAsyncItemCount(itemCount);
   await _runIndexedWithConcurrencyLimit(
-    itemCount: itemCount,
+    itemCount: safeItemCount,
     maxConcurrency: maxConcurrency,
     task: task,
     shouldContinue: shouldContinue,
