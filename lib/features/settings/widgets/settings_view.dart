@@ -197,14 +197,13 @@ Future<void> _exportToolTelemetry<T>({
   final body = asCsv ? encodeCsv(calls) : encodeJson(calls);
   await File(location.path).writeAsString(body, flush: true);
   if (!context.mounted) return;
-  OpenHandSnackBar.showKind(
+  showOpenHandSuccessSnack(
     context,
     openHandLocalizedText(
       context,
       zh: '已导出 ${calls.length} 条记录到 ${location.path}',
       en: 'Exported ${calls.length} entries to ${location.path}',
     ),
-    kind: OpenHandSnackKind.success,
     duration: const Duration(milliseconds: 1800),
   );
 }

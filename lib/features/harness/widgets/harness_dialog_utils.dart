@@ -10,11 +10,9 @@ void showHarnessSuccessSnack(
   SnackBarAction? action,
   int? maxLines,
 }) {
-  if (!context.mounted) return;
-  OpenHandSnackBar.showKind(
+  showOpenHandSuccessSnack(
     context,
     message,
-    kind: OpenHandSnackKind.success,
     duration: duration,
     action: action,
     maxLines: maxLines,
@@ -28,11 +26,9 @@ void showHarnessErrorSnack(
   SnackBarAction? action,
   int? maxLines,
 }) {
-  if (!context.mounted) return;
-  OpenHandSnackBar.showKind(
+  showOpenHandErrorSnack(
     context,
     message,
-    kind: OpenHandSnackKind.error,
     duration: duration,
     action: action,
     maxLines: maxLines,
@@ -46,8 +42,7 @@ void showHarnessInfoSnack(
   SnackBarAction? action,
   int? maxLines,
 }) {
-  if (!context.mounted) return;
-  OpenHandSnackBar.showKind(
+  showOpenHandInfoSnack(
     context,
     message,
     duration: duration,
@@ -65,7 +60,7 @@ Future<bool> copyHarnessTextToClipboard({
   Duration successDuration = kOpenHandSnackBarSuccessDuration,
   Duration errorDuration = kOpenHandSnackBarErrorDuration,
 }) {
-  return copyOpenHandTextToClipboard(
+  return copyOpenHandFeatureTextToClipboard(
     context: context,
     text: text,
     logTag: 'harness',
@@ -74,9 +69,5 @@ Future<bool> copyHarnessTextToClipboard({
     showSuccess: showSuccess,
     successDuration: successDuration,
     errorDuration: errorDuration,
-    showSuccessSnack: (context, message, {required duration}) =>
-        showHarnessSuccessSnack(context, message, duration: duration),
-    showErrorSnack: (context, message, {required duration}) =>
-        showHarnessErrorSnack(context, message, duration: duration),
   );
 }

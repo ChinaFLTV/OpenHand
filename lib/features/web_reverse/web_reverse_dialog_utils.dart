@@ -67,11 +67,9 @@ void showWebReverseSuccessSnack(
   SnackBarAction? action,
   int? maxLines,
 }) {
-  if (!context.mounted) return;
-  OpenHandSnackBar.showKind(
+  showOpenHandSuccessSnack(
     context,
     message,
-    kind: OpenHandSnackKind.success,
     duration: duration,
     action: action,
     maxLines: maxLines,
@@ -85,11 +83,9 @@ void showWebReverseErrorSnack(
   SnackBarAction? action,
   int? maxLines,
 }) {
-  if (!context.mounted) return;
-  OpenHandSnackBar.showKind(
+  showOpenHandErrorSnack(
     context,
     message,
-    kind: OpenHandSnackKind.error,
     duration: duration,
     action: action,
     maxLines: maxLines,
@@ -103,8 +99,7 @@ void showWebReverseInfoSnack(
   SnackBarAction? action,
   int? maxLines,
 }) {
-  if (!context.mounted) return;
-  OpenHandSnackBar.showKind(
+  showOpenHandInfoSnack(
     context,
     message,
     duration: duration,

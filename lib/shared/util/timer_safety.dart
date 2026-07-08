@@ -157,41 +157,83 @@ Timer startNonOverlappingPeriodicTimer(
     min: kOpenHandMinPeriodicCallbackTimeout,
     max: kOpenHandMaxPeriodicCallbackTimeout,
   );
-  var running = false;
+  final gate = _NonOverlappingPeriodicTimerGate(
+    callback: callback,
+    callbackTimeout: effectiveCallbackTimeout,
+    cancelOnCallbackTimeout: cancelOnCallbackTimeout,
+    zone: zone,
+    onError: onError,
+  );
   return startSafePeriodicTimer(
     interval,
-    (timer) {
-      if (running) return;
-      running = true;
-      unawaited(() async {
-        Timer? timeoutTimer;
-        try {
-          final pending = Future<void>.sync(() => callback(timer));
-          if (effectiveCallbackTimeout != null) {
-            timeoutTimer = startSafeTimer(
-              effectiveCallbackTimeout,
-              () => _handleTimerCallbackTimeout(
-                timer: timer,
-                timeout: effectiveCallbackTimeout,
-                cancelTimer: cancelOnCallbackTimeout,
-                zone: zone,
-                onError: onError,
-              ),
-            );
-          }
-          await pending;
-        } catch (error, stack) {
-          _reportTimerError(error, stack, zone, onError);
-        } finally {
-          timeoutTimer?.cancel();
-          running = false;
-        }
-      }());
-    },
+    gate.handleTick,
     min: min,
     max: max,
     onError: onError,
   );
+}
+
+class _NonOverlappingPeriodicTimerGate {
+  _NonOverlappingPeriodicTimerGate({
+    required this.callback,
+    required this.callbackTimeout,
+    required this.cancelOnCallbackTimeout,
+    required this.zone,
+    required this.onError,
+  });
+
+  final FutureOr<void> Function(Timer timer) callback;
+  final Duration? callbackTimeout;
+  final bool cancelOnCallbackTimeout;
+  final Zone zone;
+  final OpenHandTimerErrorHandler? onError;
+  bool _running = false;
+
+  void handleTick(Timer timer) {
+    if (_running) return;
+    _running = true;
+    unawaited(_run(timer));
+  }
+
+  Future<void> _run(Timer timer) async {
+    try {
+      await _runCallbackWithTimeout(timer);
+    } catch (error, stack) {
+      _reportTimerError(error, stack, zone, onError);
+    } finally {
+      _running = false;
+    }
+  }
+
+  Future<void> _runCallbackWithTimeout(Timer timer) async {
+    final pending = Future<void>.sync(() => callback(timer));
+    final timeout = callbackTimeout;
+    if (timeout == null) {
+      await pending;
+      return;
+    }
+
+    final timeoutMarker = Object();
+    final winner = await Future.any<Object?>([
+      pending.then<Object?>((_) => null),
+      Future<void>.delayed(timeout).then<Object?>((_) => timeoutMarker),
+    ]);
+    if (!identical(winner, timeoutMarker)) return;
+
+    _handleTimerCallbackTimeout(
+      timer: timer,
+      timeout: timeout,
+      cancelTimer: cancelOnCallbackTimeout,
+      zone: zone,
+      onError: onError,
+    );
+    unawaited(
+      pending.catchError(
+        (Object error, StackTrace stack) =>
+            _reportTimerError(error, stack, zone, onError),
+      ),
+    );
+  }
 }
 
 void _handleTimerCallbackTimeout({

@@ -55,11 +55,9 @@ void showAndroidReverseSuccessSnack(
   SnackBarAction? action,
   int? maxLines,
 }) {
-  if (!context.mounted) return;
-  OpenHandSnackBar.showKind(
+  showOpenHandSuccessSnack(
     context,
     message,
-    kind: OpenHandSnackKind.success,
     duration: duration,
     action: action,
     maxLines: maxLines,
@@ -73,11 +71,9 @@ void showAndroidReverseErrorSnack(
   SnackBarAction? action,
   int? maxLines,
 }) {
-  if (!context.mounted) return;
-  OpenHandSnackBar.showKind(
+  showOpenHandErrorSnack(
     context,
     message,
-    kind: OpenHandSnackKind.error,
     duration: duration,
     action: action,
     maxLines: maxLines,
@@ -91,8 +87,7 @@ void showAndroidReverseInfoSnack(
   SnackBarAction? action,
   int? maxLines,
 }) {
-  if (!context.mounted) return;
-  OpenHandSnackBar.showKind(
+  showOpenHandInfoSnack(
     context,
     message,
     duration: duration,
@@ -110,7 +105,7 @@ Future<bool> copyAndroidReverseTextToClipboard({
   Duration successDuration = kOpenHandSnackBarSuccessDuration,
   Duration errorDuration = kOpenHandSnackBarErrorDuration,
 }) {
-  return copyOpenHandTextToClipboard(
+  return copyOpenHandFeatureTextToClipboard(
     context: context,
     text: text,
     logTag: logTag,
@@ -128,9 +123,5 @@ Future<bool> copyAndroidReverseTextToClipboard({
         ),
     successDuration: successDuration,
     errorDuration: errorDuration,
-    showSuccessSnack: (context, message, {required duration}) =>
-        showAndroidReverseSuccessSnack(context, message, duration: duration),
-    showErrorSnack: (context, message, {required duration}) =>
-        showAndroidReverseErrorSnack(context, message, duration: duration),
   );
 }

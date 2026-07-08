@@ -24,6 +24,56 @@ const Duration kOpenHandSnackBarErrorDuration = Duration(seconds: 4);
 
 enum OpenHandSnackKind { info, success, error }
 
+void showOpenHandSuccessSnack(
+  BuildContext context,
+  String message, {
+  Duration duration = kOpenHandSnackBarSuccessDuration,
+  SnackBarAction? action,
+  int? maxLines,
+}) {
+  OpenHandSnackBar.flash(
+    context,
+    message,
+    kind: OpenHandSnackKind.success,
+    duration: duration,
+    action: action,
+    maxLines: maxLines,
+  );
+}
+
+void showOpenHandInfoSnack(
+  BuildContext context,
+  String message, {
+  Duration duration = kOpenHandSnackBarInfoDuration,
+  SnackBarAction? action,
+  int? maxLines,
+}) {
+  OpenHandSnackBar.flash(
+    context,
+    message,
+    duration: duration,
+    action: action,
+    maxLines: maxLines,
+  );
+}
+
+void showOpenHandErrorSnack(
+  BuildContext context,
+  String message, {
+  Duration duration = kOpenHandSnackBarErrorDuration,
+  SnackBarAction? action,
+  int? maxLines,
+}) {
+  OpenHandSnackBar.flash(
+    context,
+    message,
+    kind: OpenHandSnackKind.error,
+    duration: duration,
+    action: action,
+    maxLines: maxLines,
+  );
+}
+
 void showOpenHandSnackBar(BuildContext context, SnackBar snackBar) {
   OpenHandSnackBar.showInContext(context, snackBar);
 }

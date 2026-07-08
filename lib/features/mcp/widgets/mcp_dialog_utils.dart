@@ -12,7 +12,7 @@ Future<bool> copyMcpTextToClipboard({
   Duration successDuration = kOpenHandSnackBarSuccessDuration,
   Duration errorDuration = kOpenHandSnackBarErrorDuration,
 }) {
-  return copyOpenHandTextToClipboard(
+  return copyOpenHandFeatureTextToClipboard(
     context: context,
     text: text,
     logTag: 'mcp',

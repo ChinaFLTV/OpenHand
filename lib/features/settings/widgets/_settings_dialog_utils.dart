@@ -7,11 +7,9 @@ void _showSettingsSuccessSnack(
   SnackBarAction? action,
   int? maxLines,
 }) {
-  if (!context.mounted) return;
-  OpenHandSnackBar.showKind(
+  showOpenHandSuccessSnack(
     context,
     message,
-    kind: OpenHandSnackKind.success,
     duration: duration,
     action: action,
     maxLines: maxLines,
@@ -25,11 +23,9 @@ void _showSettingsErrorSnack(
   SnackBarAction? action,
   int? maxLines,
 }) {
-  if (!context.mounted) return;
-  OpenHandSnackBar.showKind(
+  showOpenHandErrorSnack(
     context,
     message,
-    kind: OpenHandSnackKind.error,
     duration: duration,
     action: action,
     maxLines: maxLines,
@@ -43,8 +39,7 @@ void _showSettingsInfoSnack(
   SnackBarAction? action,
   int? maxLines,
 }) {
-  if (!context.mounted) return;
-  OpenHandSnackBar.showKind(
+  showOpenHandInfoSnack(
     context,
     message,
     duration: duration,
@@ -62,7 +57,7 @@ Future<bool> _copySettingsTextToClipboard({
   Duration successDuration = kOpenHandSnackBarSuccessDuration,
   Duration errorDuration = kOpenHandSnackBarErrorDuration,
 }) {
-  return copyOpenHandTextToClipboard(
+  return copyOpenHandFeatureTextToClipboard(
     context: context,
     text: text,
     logTag: 'settings',
@@ -71,9 +66,5 @@ Future<bool> _copySettingsTextToClipboard({
     showSuccess: showSuccess,
     successDuration: successDuration,
     errorDuration: errorDuration,
-    showSuccessSnack: (context, message, {required duration}) =>
-        _showSettingsSuccessSnack(context, message, duration: duration),
-    showErrorSnack: (context, message, {required duration}) =>
-        _showSettingsErrorSnack(context, message, duration: duration),
   );
 }
