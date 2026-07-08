@@ -2100,8 +2100,6 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
                     onClose: () => Navigator.of(context).maybePop(),
                   ),
                   const SizedBox(height: 12),
-                  const _McpOpsTabStrip(),
-                  const SizedBox(height: 12),
                   Expanded(
                     child: TabBarView(
                       children: [
@@ -3821,75 +3819,39 @@ class _McpOpsConsoleHeader extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(
-          children: [
-            Container(
-              width: 48,
-              height: 48,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: statusColor.withValues(alpha: 0.14),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: statusColor.withValues(alpha: 0.34)),
-              ),
-              child: Icon(Icons.dns_rounded, color: statusColor, size: 28),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final compact = constraints.maxWidth < 1020;
+            final identity = _McpOpsHeaderIdentity(
+              statusColor: statusColor,
+              endpointUri: endpointUri,
+            );
+            final actions = _McpOpsHeaderTopActions(
+              onCopyEndpoint: onCopyEndpoint,
+              onCopyCursorConfig: onCopyCursorConfig,
+              onClose: onClose,
+            );
+            if (compact) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text(
-                    _localizedText(
-                      context,
-                      zh: 'MCP服务器运维',
-                      en: 'MCP Server Operations',
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    _localizedText(
-                      context,
-                      zh: 'OpenHand MCP Server · $endpointUri',
-                      en: 'OpenHand MCP Server · $endpointUri',
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: cs.onSurfaceVariant,
-                      fontWeight: FontWeight.w800,
-                    ),
+                  identity,
+                  const SizedBox(height: 10),
+                  Align(
+                    alignment: AlignmentDirectional.centerEnd,
+                    child: actions,
                   ),
                 ],
-              ),
-            ),
-            _McpOpsIconButton(
-              icon: Icons.copy_rounded,
-              tooltip: _localizedText(context, zh: '复制入口', en: 'Copy endpoint'),
-              onPressed: onCopyEndpoint,
-            ),
-            const SizedBox(width: 8),
-            _McpOpsIconButton(
-              icon: Icons.integration_instructions_rounded,
-              tooltip: _localizedText(
-                context,
-                zh: '复制 Cursor 配置',
-                en: 'Copy Cursor config',
-              ),
-              onPressed: onCopyCursorConfig,
-            ),
-            const SizedBox(width: 8),
-            _McpOpsIconButton(
-              icon: Icons.close_rounded,
-              tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
-              onPressed: onClose,
-            ),
-          ],
+              );
+            }
+            return Row(
+              children: [
+                Expanded(child: identity),
+                const SizedBox(width: 12),
+                actions,
+              ],
+            );
+          },
         ),
         const SizedBox(height: 12),
         Wrap(
@@ -3976,6 +3938,253 @@ class _McpOpsConsoleHeader extends StatelessWidget {
           onClose: onClose,
         ),
       ],
+    );
+  }
+}
+
+class _McpOpsHeaderIdentity extends StatelessWidget {
+  const _McpOpsHeaderIdentity({
+    required this.statusColor,
+    required this.endpointUri,
+  });
+
+  final Color statusColor;
+  final String endpointUri;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Row(
+      children: [
+        Container(
+          width: 48,
+          height: 48,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: statusColor.withValues(alpha: 0.14),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: statusColor.withValues(alpha: 0.34)),
+          ),
+          child: Icon(Icons.dns_rounded, color: statusColor, size: 28),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                _localizedText(
+                  context,
+                  zh: 'MCP服务器运维',
+                  en: 'MCP Server Operations',
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                _localizedText(
+                  context,
+                  zh: 'OpenHand MCP Server · $endpointUri',
+                  en: 'OpenHand MCP Server · $endpointUri',
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: cs.onSurfaceVariant,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _McpOpsHeaderTopActions extends StatelessWidget {
+  const _McpOpsHeaderTopActions({
+    required this.onCopyEndpoint,
+    required this.onCopyCursorConfig,
+    required this.onClose,
+  });
+
+  final VoidCallback onCopyEndpoint;
+  final VoidCallback onCopyCursorConfig;
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      alignment: WrapAlignment.end,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        _McpOpsIconButton(
+          icon: Icons.copy_rounded,
+          tooltip: _localizedText(context, zh: '复制入口', en: 'Copy endpoint'),
+          onPressed: onCopyEndpoint,
+        ),
+        _McpOpsIconButton(
+          icon: Icons.integration_instructions_rounded,
+          tooltip: _localizedText(
+            context,
+            zh: '复制 Cursor 配置',
+            en: 'Copy Cursor config',
+          ),
+          onPressed: onCopyCursorConfig,
+        ),
+        _McpOpsIconButton(
+          icon: Icons.close_rounded,
+          tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
+          onPressed: onClose,
+        ),
+        const _McpOpsHeaderTabButtons(),
+      ],
+    );
+  }
+}
+
+class _McpOpsHeaderTabButtons extends StatelessWidget {
+  const _McpOpsHeaderTabButtons();
+
+  @override
+  Widget build(BuildContext context) {
+    final tabController = DefaultTabController.of(context);
+    final tabs = [
+      (
+        index: 0,
+        icon: Icons.monitor_heart_rounded,
+        label: _localizedText(context, zh: '运维面板', en: 'Ops'),
+      ),
+      (
+        index: 1,
+        icon: Icons.tune_rounded,
+        label: _localizedText(context, zh: '参数配置', en: 'Config'),
+      ),
+      (
+        index: 2,
+        icon: Icons.manage_search_rounded,
+        label: _localizedText(context, zh: '日志审计', en: 'Audit'),
+      ),
+    ];
+    return AnimatedBuilder(
+      animation: tabController,
+      builder: (context, _) {
+        return Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            for (final tab in tabs)
+              _McpOpsHeaderTabButton(
+                icon: tab.icon,
+                label: tab.label,
+                selected: tabController.index == tab.index,
+                onPressed: tabController.index == tab.index
+                    ? null
+                    : () => tabController.animateTo(
+                        tab.index,
+                        duration: _mcpMotionDuration(
+                          context,
+                          const Duration(milliseconds: 220),
+                        ),
+                        curve: Curves.easeOutCubic,
+                      ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _McpOpsHeaderTabButton extends StatelessWidget {
+  const _McpOpsHeaderTabButton({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.onPressed,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool selected;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final foreground = selected ? cs.primary : cs.onSurfaceVariant;
+    final background = selected
+        ? cs.primary.withValues(alpha: 0.14)
+        : cs.surfaceContainerHigh.withValues(alpha: 0.78);
+    return Tooltip(
+      message: label,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(_mcpOpsControlRadius),
+          hoverColor: cs.primary.withValues(alpha: 0.08),
+          splashColor: cs.primary.withValues(alpha: 0.10),
+          highlightColor: cs.primary.withValues(alpha: 0.05),
+          onTap: onPressed,
+          child: AnimatedContainer(
+            duration: _mcpMotionDuration(
+              context,
+              const Duration(milliseconds: 160),
+            ),
+            curve: Curves.easeOutCubic,
+            height: 44,
+            constraints: const BoxConstraints(minWidth: 104, maxWidth: 132),
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            decoration: BoxDecoration(
+              color: background,
+              borderRadius: BorderRadius.circular(_mcpOpsControlRadius),
+              border: Border.all(
+                color: selected
+                    ? cs.primary.withValues(alpha: 0.34)
+                    : cs.outlineVariant.withValues(alpha: 0.72),
+              ),
+              boxShadow: selected
+                  ? <BoxShadow>[
+                      BoxShadow(
+                        color: cs.primary.withValues(alpha: 0.12),
+                        blurRadius: 14,
+                        offset: const Offset(0, 7),
+                      ),
+                    ]
+                  : null,
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 18, color: foreground),
+                const SizedBox(width: 7),
+                Flexible(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      color: foreground,
+                      fontWeight: selected ? FontWeight.w900 : FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -4339,104 +4548,6 @@ class _McpOpsIconButton extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-}
-
-class _McpOpsTabStrip extends StatelessWidget {
-  const _McpOpsTabStrip();
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    return Container(
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHigh.withValues(alpha: 0.58),
-        borderRadius: BorderRadius.circular(_mcpOpsPanelRadius),
-        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.58)),
-      ),
-      child: TabBar(
-        dividerColor: Colors.transparent,
-        indicatorSize: TabBarIndicatorSize.tab,
-        // Inset the selected pill on both sides so neighbouring tabs keep a
-        // visible gutter instead of butting together edge-to-edge.
-        indicatorPadding: const EdgeInsets.symmetric(horizontal: 5),
-        // Clip the ink ripple and press/hover overlay to the indicator's radius
-        // so interaction feedback stays pill-shaped instead of a sharp rectangle.
-        splashBorderRadius: BorderRadius.circular(_mcpOpsControlRadius),
-        overlayColor: WidgetStateProperty.resolveWith<Color?>((states) {
-          if (states.contains(WidgetState.pressed)) {
-            return cs.primary.withValues(alpha: 0.16);
-          }
-          if (states.contains(WidgetState.hovered)) {
-            return cs.primary.withValues(alpha: 0.08);
-          }
-          if (states.contains(WidgetState.focused)) {
-            return cs.primary.withValues(alpha: 0.10);
-          }
-          return null;
-        }),
-        labelColor: cs.primary,
-        unselectedLabelColor: cs.onSurfaceVariant,
-        labelStyle: theme.textTheme.labelLarge?.copyWith(
-          fontWeight: FontWeight.w900,
-        ),
-        unselectedLabelStyle: theme.textTheme.labelLarge?.copyWith(
-          fontWeight: FontWeight.w800,
-        ),
-        indicator: BoxDecoration(
-          color: cs.primary.withValues(alpha: 0.14),
-          borderRadius: BorderRadius.circular(_mcpOpsControlRadius),
-          border: Border.all(color: cs.primary.withValues(alpha: 0.32)),
-        ),
-        tabs: [
-          Tab(
-            height: 48,
-            child: _McpOpsTabLabel(
-              icon: Icons.monitor_heart_rounded,
-              label: _localizedText(context, zh: '运维面板', en: 'Ops'),
-            ),
-          ),
-          Tab(
-            height: 48,
-            child: _McpOpsTabLabel(
-              icon: Icons.tune_rounded,
-              label: _localizedText(context, zh: '参数配置', en: 'Config'),
-            ),
-          ),
-          Tab(
-            height: 48,
-            child: _McpOpsTabLabel(
-              icon: Icons.manage_search_rounded,
-              label: _localizedText(context, zh: '日志审计', en: 'Audit'),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _McpOpsTabLabel extends StatelessWidget {
-  const _McpOpsTabLabel({required this.icon, required this.label});
-
-  final IconData icon;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 19),
-        const SizedBox(width: 8),
-        Flexible(
-          child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
-        ),
-      ],
     );
   }
 }
