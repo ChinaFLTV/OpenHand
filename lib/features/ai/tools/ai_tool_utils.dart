@@ -1762,18 +1762,22 @@ class AiToolUtils {
     final commandForApproval =
         approvalCommand ?? '$toolName $targetPath\n$operationDescription';
     final commandForResult = resultCommand ?? '$toolName $targetPath';
+    final confirmationTimeout = Duration(
+      milliseconds: timeoutMs ?? _writeConfirmationTimeoutMs,
+    );
+    final requestedAt = DateTime.now().toUtc();
     final request = BashCommandApprovalRequest(
       command: commandForApproval,
       workingDirectory: workingDirectory,
       isWriteCommand: true,
+      requestedAt: requestedAt,
+      expiresAt: requestedAt.add(confirmationTimeout),
     );
 
     late final _WriteConfirmationOutcome outcome;
     try {
       final approvalFuture = confirmWriteCommand(request)
-          .timeout(
-            Duration(milliseconds: timeoutMs ?? _writeConfirmationTimeoutMs),
-          )
+          .timeout(confirmationTimeout)
           .then<_WriteConfirmationOutcome>(
             (decision) => _WriteConfirmationOutcome.fromDecision(decision),
           );

@@ -70,6 +70,7 @@ import '../../shared/ui/model_search_selector.dart';
 import '../../shared/ui/motion_preference.dart';
 import '../../shared/ui/native_audio_preview.dart';
 import '../../shared/ui/openhand_clipboard.dart';
+import '../../shared/ui/openhand_countdown_progress_bar.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_editor_scroll_behavior.dart';
 import '../../shared/ui/openhand_model_selector_field.dart';

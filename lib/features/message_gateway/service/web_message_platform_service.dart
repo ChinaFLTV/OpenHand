@@ -128,6 +128,8 @@ class WebWriteApprovalRequest {
       command: command,
       workingDirectory: workingDirectory,
       isWriteCommand: isWriteCommand,
+      requestedAt: createdAt,
+      expiresAt: expiresAt,
     );
   }
 }

@@ -79,11 +79,15 @@ class BashCommandApprovalRequest {
     required this.command,
     required this.workingDirectory,
     required this.isWriteCommand,
+    this.requestedAt,
+    this.expiresAt,
   });
 
   final String command;
   final String workingDirectory;
   final bool isWriteCommand;
+  final DateTime? requestedAt;
+  final DateTime? expiresAt;
 }
 
 class BashToolExecutionUpdate {
@@ -627,6 +631,10 @@ class AiBashToolService {
         late final _WriteConfirmationOutcome outcome;
         final missingConfirmationCallback = confirmWriteCommand == null;
         try {
+          final confirmationTimeout = Duration(
+            milliseconds: writeConfirmationTimeoutMs,
+          );
+          final requestedAt = DateTime.now().toUtc();
           final approvalDecisionFuture = missingConfirmationCallback
               ? Future<BashCommandApprovalDecision>.value(
                   BashCommandApprovalDecision.rejected,
@@ -636,10 +644,12 @@ class AiBashToolService {
                     command: normalizedCommand,
                     workingDirectory: displayedWorkingDirectory,
                     isWriteCommand: true,
+                    requestedAt: requestedAt,
+                    expiresAt: requestedAt.add(confirmationTimeout),
                   ),
                 );
           final approvalFuture = approvalDecisionFuture
-              .timeout(Duration(milliseconds: writeConfirmationTimeoutMs))
+              .timeout(confirmationTimeout)
               .then<_WriteConfirmationOutcome>(
                 (decision) => _WriteConfirmationOutcome.fromDecision(decision),
               );
