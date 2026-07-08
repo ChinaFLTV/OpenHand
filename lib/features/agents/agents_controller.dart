@@ -146,25 +146,17 @@ class AgentsController extends ManagedChangeNotifier {
               createdAt: draft.createdAt ?? now,
             ),
       );
-      final index = _agents.indexWhere((agent) => agent.id == normalized.id);
-      if (index < 0) {
-        _setAgents(<AgentProfile>[normalized, ..._agents]);
-      } else {
-        _setAgents(<AgentProfile>[
-          ..._agents.sublist(0, index),
-          normalized,
-          ..._agents.sublist(index + 1),
-        ]);
-      }
-      await _store.save(_agents);
+      await _upsertAgentAndSave(normalized);
       return true;
     });
   }
 
   Future<bool> deleteAgent(String id) {
+    final normalizedId = id.trim();
+    if (normalizedId.isEmpty) return Future<bool>.value(false);
     return _commitMutation(() async {
       final before = _agents.length;
-      _setAgents(_agents.where((agent) => agent.id != id).toList());
+      _setAgents(_agents.where((agent) => agent.id != normalizedId).toList());
       if (_agents.length == before) return false;
       await _store.save(_agents);
       return true;
@@ -261,9 +253,7 @@ class AgentsController extends ManagedChangeNotifier {
     final normalizedAgentId = agentId.trim();
     if (normalizedAgentId.isEmpty) return null;
     final changed = await _commitMutation(() async {
-      final index = _agents.indexWhere(
-        (agent) => agent.id == normalizedAgentId,
-      );
+      final index = _agentIndexById(normalizedAgentId);
       if (index < 0) return false;
       final agent = _agents[index];
       if (!agent.enabled ||
@@ -328,12 +318,7 @@ class AgentsController extends ManagedChangeNotifier {
         (item) => item.id == task.id,
         orElse: () => createdTask!,
       );
-      _setAgents(<AgentProfile>[
-        ..._agents.sublist(0, index),
-        normalized,
-        ..._agents.sublist(index + 1),
-      ]);
-      await _store.save(_agents);
+      await _replaceAgentAtAndSave(index, normalized);
       return true;
     });
     return changed ? createdTask : null;
@@ -355,7 +340,7 @@ class AgentsController extends ManagedChangeNotifier {
     final normalizedTaskId = taskId.trim();
     if (normalizedTaskId.isEmpty) return null;
     final changed = await _commitMutation(() async {
-      final index = _agents.indexWhere((agent) => agent.id == agentId);
+      final index = _agentIndexById(agentId);
       if (index < 0) return false;
       final agent = _agents[index];
       if (!agent.enabled) return false;
@@ -477,12 +462,7 @@ class AgentsController extends ManagedChangeNotifier {
         (task) => task.id == normalizedTaskId,
         orElse: () => updatedTask!,
       );
-      _setAgents(<AgentProfile>[
-        ..._agents.sublist(0, index),
-        normalized,
-        ..._agents.sublist(index + 1),
-      ]);
-      await _store.save(_agents);
+      await _replaceAgentAtAndSave(index, normalized);
       return true;
     });
     return changed ? updatedTask : null;
@@ -501,9 +481,7 @@ class AgentsController extends ManagedChangeNotifier {
     if (normalizedAgentId.isEmpty || trimmedTitle.isEmpty) return null;
     AgentApprovalRequest? createdApproval;
     final changed = await _commitMutation(() async {
-      final index = _agents.indexWhere(
-        (agent) => agent.id == normalizedAgentId,
-      );
+      final index = _agentIndexById(normalizedAgentId);
       if (index < 0) return false;
       final agent = _agents[index];
       final now = DateTime.now().toUtc();
@@ -553,12 +531,7 @@ class AgentsController extends ManagedChangeNotifier {
           updatedAt: now,
         ),
       );
-      _setAgents(<AgentProfile>[
-        ..._agents.sublist(0, index),
-        updated,
-        ..._agents.sublist(index + 1),
-      ]);
-      await _store.save(_agents);
+      await _replaceAgentAtAndSave(index, updated);
       return true;
     });
     return changed ? createdApproval : null;
@@ -580,9 +553,7 @@ class AgentsController extends ManagedChangeNotifier {
     }
     AgentApprovalRequest? resolvedApproval;
     final changed = await _commitMutation(() async {
-      final index = _agents.indexWhere(
-        (agent) => agent.id == normalizedAgentId,
-      );
+      final index = _agentIndexById(normalizedAgentId);
       if (index < 0) return false;
       final agent = _agents[index];
       final now = DateTime.now().toUtc();
@@ -649,12 +620,7 @@ class AgentsController extends ManagedChangeNotifier {
           updatedAt: now,
         ),
       );
-      _setAgents(<AgentProfile>[
-        ..._agents.sublist(0, index),
-        updated,
-        ..._agents.sublist(index + 1),
-      ]);
-      await _store.save(_agents);
+      await _replaceAgentAtAndSave(index, updated);
       return true;
     });
     return changed ? resolvedApproval : null;
@@ -670,9 +636,7 @@ class AgentsController extends ManagedChangeNotifier {
     if (normalizedAgentId.isEmpty || trimmedName.isEmpty) return null;
     AgentKpiItem? savedKpi;
     final changed = await _commitMutation(() async {
-      final index = _agents.indexWhere(
-        (agent) => agent.id == normalizedAgentId,
-      );
+      final index = _agentIndexById(normalizedAgentId);
       if (index < 0) return false;
       final agent = _agents[index];
       final now = DateTime.now().toUtc();
@@ -733,12 +697,7 @@ class AgentsController extends ManagedChangeNotifier {
           updatedAt: now,
         ),
       );
-      _setAgents(<AgentProfile>[
-        ..._agents.sublist(0, index),
-        updated,
-        ..._agents.sublist(index + 1),
-      ]);
-      await _store.save(_agents);
+      await _replaceAgentAtAndSave(index, updated);
       return true;
     });
     return changed ? savedKpi : null;
@@ -755,9 +714,7 @@ class AgentsController extends ManagedChangeNotifier {
       return Future<bool>.value(false);
     }
     return _commitMutation(() async {
-      final index = _agents.indexWhere(
-        (agent) => agent.id == normalizedAgentId,
-      );
+      final index = _agentIndexById(normalizedAgentId);
       if (index < 0) return false;
       final agent = _agents[index];
       AgentKpiItem? deletedKpi;
@@ -805,12 +762,7 @@ class AgentsController extends ManagedChangeNotifier {
           updatedAt: now,
         ),
       );
-      _setAgents(<AgentProfile>[
-        ..._agents.sublist(0, index),
-        updated,
-        ..._agents.sublist(index + 1),
-      ]);
-      await _store.save(_agents);
+      await _replaceAgentAtAndSave(index, updated);
       return true;
     });
   }
@@ -823,9 +775,7 @@ class AgentsController extends ManagedChangeNotifier {
     final normalizedAgentId = agentId.trim();
     if (normalizedAgentId.isEmpty) return Future<bool>.value(false);
     return _commitMutation(() async {
-      final index = _agents.indexWhere(
-        (agent) => agent.id == normalizedAgentId,
-      );
+      final index = _agentIndexById(normalizedAgentId);
       if (index < 0) return false;
       final agent = _agents[index];
       final now = DateTime.now().toUtc();
@@ -877,12 +827,7 @@ class AgentsController extends ManagedChangeNotifier {
           updatedAt: now,
         ),
       );
-      _setAgents(<AgentProfile>[
-        ..._agents.sublist(0, index),
-        updated,
-        ..._agents.sublist(index + 1),
-      ]);
-      await _store.save(_agents);
+      await _replaceAgentAtAndSave(index, updated);
       return true;
     });
   }
@@ -891,19 +836,13 @@ class AgentsController extends ManagedChangeNotifier {
     final normalizedAgentId = agentId.trim();
     if (normalizedAgentId.isEmpty) return Future<bool>.value(false);
     return enqueueOperation(() async {
-      final index = _agents.indexWhere(
-        (agent) => agent.id == normalizedAgentId,
-      );
+      final index = _agentIndexById(normalizedAgentId);
       if (index < 0) return false;
       final agent = _agents[index];
       final sampled = agent.copyWith(
         resourceUsage: _normalizeResourceUsageForAgent(agent),
       );
-      _setAgents(<AgentProfile>[
-        ..._agents.sublist(0, index),
-        sampled,
-        ..._agents.sublist(index + 1),
-      ]);
+      _replaceAgentAt(index, sampled);
       notifyListeners();
       return true;
     });
@@ -924,9 +863,7 @@ class AgentsController extends ManagedChangeNotifier {
     if (normalizedAgentId.isEmpty || trimmedSummary.isEmpty) return null;
     AgentAuditEvent? savedEvent;
     final changed = await _commitMutation(() async {
-      final index = _agents.indexWhere(
-        (agent) => agent.id == normalizedAgentId,
-      );
+      final index = _agentIndexById(normalizedAgentId);
       if (index < 0) return false;
       final agent = _agents[index];
       final now = DateTime.now().toUtc();
@@ -964,12 +901,7 @@ class AgentsController extends ManagedChangeNotifier {
           updatedAt: now,
         ),
       );
-      _setAgents(<AgentProfile>[
-        ..._agents.sublist(0, index),
-        updated,
-        ..._agents.sublist(index + 1),
-      ]);
-      await _store.save(_agents);
+      await _replaceAgentAtAndSave(index, updated);
       return true;
     });
     return changed ? savedEvent : null;
@@ -983,9 +915,7 @@ class AgentsController extends ManagedChangeNotifier {
     final normalizedAgentId = agentId.trim();
     if (normalizedAgentId.isEmpty) return Future<bool>.value(false);
     return _commitMutation(() async {
-      final index = _agents.indexWhere(
-        (agent) => agent.id == normalizedAgentId,
-      );
+      final index = _agentIndexById(normalizedAgentId);
       if (index < 0) return false;
       final agent = _agents[index];
       final now = DateTime.now().toUtc();
@@ -1048,12 +978,7 @@ class AgentsController extends ManagedChangeNotifier {
           updatedAt: now,
         ),
       );
-      _setAgents(<AgentProfile>[
-        ..._agents.sublist(0, index),
-        updated,
-        ..._agents.sublist(index + 1),
-      ]);
-      await _store.save(_agents);
+      await _replaceAgentAtAndSave(index, updated);
       return true;
     });
   }
@@ -1063,17 +988,12 @@ class AgentsController extends ManagedChangeNotifier {
     AgentProfile Function(AgentProfile agent) mutate,
   ) {
     return _commitMutation(() async {
-      final index = _agents.indexWhere((agent) => agent.id == id);
+      final index = _agentIndexById(id);
       if (index < 0) return false;
       final updated = _normalizeAgent(
         mutate(_agents[index]).copyWith(updatedAt: DateTime.now().toUtc()),
       );
-      _setAgents(<AgentProfile>[
-        ..._agents.sublist(0, index),
-        updated,
-        ..._agents.sublist(index + 1),
-      ]);
-      await _store.save(_agents);
+      await _replaceAgentAtAndSave(index, updated);
       return true;
     });
   }
@@ -1104,6 +1024,35 @@ class AgentsController extends ManagedChangeNotifier {
   void _setAgents(List<AgentProfile> value) {
     _agents = value;
     _agentsView = List<AgentProfile>.unmodifiable(value);
+  }
+
+  int _agentIndexById(String id) {
+    final normalized = id.trim();
+    if (normalized.isEmpty) return -1;
+    return _agents.indexWhere((agent) => agent.id == normalized);
+  }
+
+  void _replaceAgentAt(int index, AgentProfile agent) {
+    _setAgents(<AgentProfile>[
+      ..._agents.sublist(0, index),
+      agent,
+      ..._agents.sublist(index + 1),
+    ]);
+  }
+
+  Future<void> _replaceAgentAtAndSave(int index, AgentProfile agent) async {
+    _replaceAgentAt(index, agent);
+    await _store.save(_agents);
+  }
+
+  Future<void> _upsertAgentAndSave(AgentProfile agent) async {
+    final index = _agentIndexById(agent.id);
+    if (index < 0) {
+      _setAgents(<AgentProfile>[agent, ..._agents]);
+    } else {
+      _replaceAgentAt(index, agent);
+    }
+    await _store.save(_agents);
   }
 
   AgentProfile _normalizeAgent(AgentProfile agent) {

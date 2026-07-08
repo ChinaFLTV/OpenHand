@@ -39,46 +39,17 @@ import { ConfirmDialog } from '../../../components/ConfirmDialog';
 import { showSnackbar } from '../../../components/Snackbar';
 import { BusyWaitDialog } from '../../../components/BusyWaitDialog';
 import { AnimatedTitleText } from '../../../components/AnimatedTitleText';
+import { BrowserFullscreenButton } from '../../../components/BrowserFullscreenButton';
+import { formatLocalDateTimeMinute } from '../../../shared/util/date_time';
 
 const DEFAULT_PAGE_SIZE = 10;
 const PULL_REFRESH_MIN_VISIBLE_MS = 180;
-
-function formatTimestamp(iso: string): string {
-  try {
-    const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return iso;
-    const pad = (n: number) => String(n).padStart(2, '0');
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-  } catch {
-    return iso;
-  }
-}
 
 function modeLabel(mode: string): string {
   if (mode === 'plan') return t('sessions.mode.plan', '计划模式');
   if (mode === 'goal') return t('sessions.mode.goal', '目标模式');
   if (mode === 'chat') return t('sessions.mode.chat', '聊天模式');
   return mode;
-}
-
-function BrowserFullscreenIcon({ active }: { active: boolean }) {
-  const common = {
-    width: 17,
-    height: 17,
-    viewBox: '0 0 24 24',
-    fill: 'none',
-    stroke: 'currentColor',
-    strokeWidth: 1.9,
-    strokeLinecap: 'round' as const,
-    strokeLinejoin: 'round' as const,
-    focusable: 'false',
-    'aria-hidden': true,
-  };
-  return active ? (
-    <svg {...common}><path d="M10 4v6H4" /><path d="m10 10-6-6" /><path d="M14 4v6h6" /><path d="m14 10 6-6" /><path d="M10 20v-6H4" /><path d="m10 14-6 6" /><path d="M14 20v-6h6" /><path d="m14 14 6 6" /></svg>
-  ) : (
-    <svg {...common}><path d="M8 4H4v4" /><path d="M4 4l6 6" /><path d="M16 4h4v4" /><path d="m20 4-6 6" /><path d="M8 20H4v-4" /><path d="m4 20 6-6" /><path d="M16 20h4v-4" /><path d="m20 20-6-6" /></svg>
-  );
 }
 
 interface RowState {
@@ -196,6 +167,21 @@ export function SessionsPage() {
     setRowStates((prev) => ({ ...prev, [id]: { ...emptyRow, ...prev[id], ...patch } }));
   }
 
+  function prependCreatedSession(session: SessionSummary): void {
+    setData((prev) => {
+      if (!prev) return prev;
+      const existed = prev.items.some((item) => item.id === session.id);
+      return {
+        ...prev,
+        items: [
+          session,
+          ...prev.items.filter((item) => item.id !== session.id),
+        ].slice(0, prev.page_size),
+        total: prev.total + (existed ? 0 : 1),
+      };
+    });
+  }
+
   function openPicker(): void {
     setCreateError(null);
     setPickerOpen(true);
@@ -219,16 +205,7 @@ export function SessionsPage() {
         templateId: tpl.id,
         mode: 'chat',
       });
-      setData((prev) => prev
-        ? {
-            ...prev,
-            items: [
-              res.session,
-              ...prev.items.filter((item) => item.id !== res.session.id),
-            ].slice(0, prev.page_size),
-            total: prev.total + (prev.items.some((item) => item.id === res.session.id) ? 0 : 1),
-          }
-        : prev);
+      prependCreatedSession(res.session);
       showSnackbar(t('sessions.create.ok', '已创建会话'), { tone: 'success' });
       location.route(`/threads/${res.session.id}`);
     } catch (e: unknown) {
@@ -260,16 +237,7 @@ export function SessionsPage() {
         modelKey: params.modelKey || undefined,
       };
       const res = await createSession(input);
-      setData((prev) => prev
-        ? {
-            ...prev,
-            items: [
-              res.session,
-              ...prev.items.filter((item) => item.id !== res.session.id),
-            ].slice(0, prev.page_size),
-            total: prev.total + (prev.items.some((item) => item.id === res.session.id) ? 0 : 1),
-          }
-        : prev);
+      prependCreatedSession(res.session);
       // 模型偏好仍写一份本地缓存；服务端也会保存到会话 last-used model。
       if (params.modelKey) {
         writeBrowserStorage('openhand.web.lastModelKey', params.modelKey);
@@ -433,27 +401,10 @@ export function SessionsPage() {
               : t('sessions.subtitle.loading', '加载中…')
           }
           actionSlot={(
-            <button
-              type="button"
+            <BrowserFullscreenButton
+              active={fullscreenActive}
               onClick={() => void toggleBrowserFullscreen()}
-              class="oh-tap-press oh-icon-button oh-session-fullscreen-button flex-none"
-              style={{
-                color: fullscreenActive ? 'var(--m3-primary)' : 'var(--m3-on-surface-variant)',
-                border: fullscreenActive
-                  ? '1px solid color-mix(in srgb, var(--m3-primary) 48%, var(--m3-outline-variant))'
-                  : '1px solid var(--m3-outline-variant)',
-                background: fullscreenActive ? 'var(--m3-primary-container)' : 'var(--m3-surface)',
-              }}
-              title={fullscreenActive
-                ? t('topbar.fullscreen.exit', '退出全屏')
-                : t('topbar.fullscreen.enter', '浏览器全屏')}
-              aria-label={fullscreenActive
-                ? t('topbar.fullscreen.exit', '退出全屏')
-                : t('topbar.fullscreen.enter', '浏览器全屏')}
-              aria-pressed={fullscreenActive}
-            >
-              <BrowserFullscreenIcon active={fullscreenActive} />
-            </button>
+            />
           )}
         />
 
@@ -611,7 +562,7 @@ export function SessionsPage() {
                           class="text-xs mt-2 flex flex-wrap gap-x-3 gap-y-1"
                           style={{ color: 'var(--m3-on-surface-variant)' }}
                         >
-                          <span>{formatTimestamp(item.updated_at)}</span>
+                          <span>{formatLocalDateTimeMinute(item.updated_at)}</span>
                           <span>· {modeLabel(item.mode)}</span>
                           <span>
                             · {t('sessions.template.label', '模板：')}

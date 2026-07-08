@@ -196,34 +196,21 @@ class _SwDebugDialogState extends State<_SwDebugDialog> {
     String scope, {
     Map<String, Object?>? extra,
   }) async {
-    final loc = AppLocalizations.of(context);
-    final params = <String, Object?>{'scopeURL': scope, ...?extra};
-    final r = await widget.controller.sendRawCdp(
-      method: method,
-      paramsJson: jsonEncode(params),
-      useSession: false,
-    );
-    if (!mounted) return;
-    if (r == null || r['error'] != null) {
-      _toast(
-        loc?.webReverseSwDebugMethodFailed(
-              method,
-              '${r?['error'] ?? 'unknown'}',
-            ) ??
-            '$method failed: ${r?['error'] ?? 'unknown'}',
-        error: true,
-      );
-      return;
-    }
-    _toast(loc?.webReverseSwDebugMethodOk(method) ?? '$method ok');
-    await _refresh();
+    await _runCdpMethod(method, <String, Object?>{
+      'scopeURL': scope,
+      ...?extra,
+    });
   }
 
   Future<void> _runForVersion(String method, String versionId) async {
+    await _runCdpMethod(method, <String, Object?>{'versionId': versionId});
+  }
+
+  Future<void> _runCdpMethod(String method, Map<String, Object?> params) async {
     final loc = AppLocalizations.of(context);
     final r = await widget.controller.sendRawCdp(
       method: method,
-      paramsJson: jsonEncode({'versionId': versionId}),
+      paramsJson: jsonEncode(params),
       useSession: false,
     );
     if (!mounted) return;

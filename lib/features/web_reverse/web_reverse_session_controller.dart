@@ -4386,33 +4386,19 @@ class WebReverseSessionController extends ChangeNotifier {
 
   /// 后退一帧（若有历史）。
   Future<void> goBack() async {
-    final cdp = _browserCdp;
-    if (cdp == null || _pageSessionId == null) return;
-    try {
-      final r = await cdp.send(
-        'Page.getNavigationHistory',
-        sessionId: _pageSessionId,
-        timeout: const Duration(seconds: 3),
-      );
-      final entries = (r['entries'] as List?) ?? const [];
-      final current = intFromValue(r['currentIndex'], fallback: -1);
-      if (current <= 0 || entries.isEmpty) return;
-      final id = optionalIntFromValue(
-        stringKeyedMapFromValue(entries[current - 1])['id'],
-      );
-      if (id == null) return;
-      await cdp.send(
-        'Page.navigateToHistoryEntry',
-        params: <String, Object?>{'entryId': id},
-        sessionId: _pageSessionId,
-      );
-    } catch (error, stack) {
-      silentLog('web_reverse_session_controller', 'goBack', error, stack);
-    }
+    await _navigateHistoryOffset(-1, logAction: 'goBack');
   }
 
   /// 前进一帧（若有历史）。
   Future<void> goForward() async {
+    await _navigateHistoryOffset(1, logAction: 'goForward');
+  }
+
+  Future<void> _navigateHistoryOffset(
+    int offset, {
+    required String logAction,
+  }) async {
+    if (offset == 0) return;
     final cdp = _browserCdp;
     if (cdp == null || _pageSessionId == null) return;
     try {
@@ -4423,9 +4409,10 @@ class WebReverseSessionController extends ChangeNotifier {
       );
       final entries = (r['entries'] as List?) ?? const [];
       final current = intFromValue(r['currentIndex'], fallback: -1);
-      if (current < 0 || current + 1 >= entries.length) return;
+      final target = current + offset;
+      if (current < 0 || target < 0 || target >= entries.length) return;
       final id = optionalIntFromValue(
-        stringKeyedMapFromValue(entries[current + 1])['id'],
+        stringKeyedMapFromValue(entries[target])['id'],
       );
       if (id == null) return;
       await cdp.send(
@@ -4434,7 +4421,7 @@ class WebReverseSessionController extends ChangeNotifier {
         sessionId: _pageSessionId,
       );
     } catch (error, stack) {
-      silentLog('web_reverse_session_controller', 'goForward', error, stack);
+      silentLog('web_reverse_session_controller', logAction, error, stack);
     }
   }
 

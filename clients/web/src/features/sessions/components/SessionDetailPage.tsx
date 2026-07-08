@@ -16,7 +16,7 @@
 //   POST  /api/sessions/:id/stop     body {}
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
-import type { ComponentChildren } from 'preact';
+import type { ComponentChildren, JSX } from 'preact';
 import { useRoute } from 'preact-iso';
 import { FitAddon } from '@xterm/addon-fit';
 import { Terminal } from '@xterm/xterm';
@@ -446,7 +446,44 @@ async function copyJsonWithFeedback(json: string): Promise<void> {
   });
 }
 
-// 时间戳与角色标签现在由 MessageCard 内部处理，本页不再直接使用。
+function JsonDialogActions({
+  json,
+  requestClose,
+  surfaceStyle,
+  closeTone = 'ghost',
+}: {
+  json: string;
+  requestClose: () => void;
+  surfaceStyle?: JSX.CSSProperties;
+  closeTone?: 'ghost' | 'secondary';
+}) {
+  const copyStyle = surfaceStyle
+    ? { ...surfaceStyle, color: 'var(--m3-primary)' }
+    : { color: 'var(--m3-primary)' };
+  const closeStyle = surfaceStyle
+    ? { ...surfaceStyle, color: 'var(--m3-on-surface-variant)' }
+    : undefined;
+  return (
+    <div class="flex flex-wrap items-center justify-end gap-2 flex-none">
+      <DialogActionButton
+        tone="secondary"
+        style={copyStyle}
+        onClick={() => void copyJsonWithFeedback(json)}
+      >
+        <ComposerIcon name="copy" size={14} />
+        <span>{t('common.copy', '复制')}</span>
+      </DialogActionButton>
+      <DialogActionButton
+        onClick={requestClose}
+        tone={closeTone}
+        style={closeStyle}
+      >
+        <ComposerIcon name="close" size={14} />
+        <span>{t('common.close', '关闭')}</span>
+      </DialogActionButton>
+    </div>
+  );
+}
 
 interface MergeServerWindowOptions {
   preserveLocalStreamingTail?: boolean;
@@ -8321,20 +8358,7 @@ function MessageAuditDialog({ message, onClose }: { message: SessionMessage; onC
         <h2 class="text-base font-semibold min-w-0 truncate">
           {t('common.audit', '审计')} · {message.id}
         </h2>
-        <div class="flex flex-wrap items-center justify-end gap-2">
-          <DialogActionButton
-            tone="secondary"
-            style={{ color: 'var(--m3-primary)' }}
-            onClick={() => void copyJsonWithFeedback(json)}
-          >
-            <ComposerIcon name="copy" size={14} />
-            <span>{t('common.copy', '复制')}</span>
-          </DialogActionButton>
-          <DialogActionButton onClick={requestClose} tone="ghost">
-            <ComposerIcon name="close" size={14} />
-            <span>{t('common.close', '关闭')}</span>
-          </DialogActionButton>
-        </div>
+        <JsonDialogActions json={json} requestClose={requestClose} />
       </header>
       <pre
         class="text-xs overflow-auto rounded-m3-sm p-3 whitespace-pre-wrap flex-1 min-h-0"
@@ -9770,30 +9794,12 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
             {session.title}
           </p>
         </div>
-        <div class="flex flex-wrap items-center justify-end gap-2 flex-none">
-          <DialogActionButton
-            tone="secondary"
-            style={{
-              ...metadataActionButtonSurface,
-              color: 'var(--m3-primary)',
-            }}
-            onClick={() => void copyJsonWithFeedback(metadataSnapshotJson)}
-          >
-            <ComposerIcon name="copy" size={14} />
-            <span>{t('common.copy', '复制')}</span>
-          </DialogActionButton>
-          <DialogActionButton
-            tone="secondary"
-            style={{
-              ...metadataActionButtonSurface,
-              color: 'var(--m3-on-surface-variant)',
-            }}
-            onClick={requestClose}
-          >
-            <ComposerIcon name="close" size={14} />
-            <span>{t('common.close', '关闭')}</span>
-          </DialogActionButton>
-        </div>
+        <JsonDialogActions
+          json={metadataSnapshotJson}
+          requestClose={requestClose}
+          surfaceStyle={metadataActionButtonSurface}
+          closeTone="secondary"
+        />
       </header>
       <div
         class="min-h-0 flex-1 overflow-auto px-5 py-4 pr-4"
@@ -10111,20 +10117,7 @@ function SessionAuditDialog({ detail, messages, onClose }: { detail: SessionDeta
             {session.id}
           </p>
         </div>
-        <div class="flex flex-wrap items-center justify-end gap-2 flex-none">
-          <DialogActionButton
-            tone="secondary"
-            style={{ color: 'var(--m3-primary)' }}
-            onClick={() => void copyJsonWithFeedback(json)}
-          >
-            <ComposerIcon name="copy" size={14} />
-            <span>{t('common.copy', '复制')}</span>
-          </DialogActionButton>
-          <DialogActionButton onClick={requestClose} tone="ghost">
-            <ComposerIcon name="close" size={14} />
-            <span>{t('common.close', '关闭')}</span>
-          </DialogActionButton>
-        </div>
+        <JsonDialogActions json={json} requestClose={requestClose} />
       </header>
       <div class="flex flex-wrap gap-2 mb-3">
         {stats.map((item) => (

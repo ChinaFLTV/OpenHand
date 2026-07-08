@@ -19,6 +19,7 @@ import { OverlayPortal } from './OverlayPortal';
 import { showSnackbar } from './Snackbar';
 import { RollingText } from './RollingText';
 import { AnimatedTitleText } from './AnimatedTitleText';
+import { BrowserFullscreenButton, BrowserFullscreenIcon } from './BrowserFullscreenButton';
 
 export interface SessionToolbarCapsule {
   key: string;
@@ -112,9 +113,9 @@ function TopBarIcon({ name, size = 16 }: { name: TopBarIconName; size?: number }
     case 'export':
       return <svg {...common}><path d="M12 4v10" /><path d="m8 10 4 4 4-4" /><path d="M5 19h14" /></svg>;
     case 'fullscreen':
-      return <svg {...common}><path d="M8 4H4v4" /><path d="M4 4l6 6" /><path d="M16 4h4v4" /><path d="m20 4-6 6" /><path d="M8 20H4v-4" /><path d="m4 20 6-6" /><path d="M16 20h4v-4" /><path d="m20 20-6-6" /></svg>;
+      return <BrowserFullscreenIcon active={false} size={size} className="oh-topbar-icon-svg" />;
     case 'fullscreenExit':
-      return <svg {...common}><path d="M10 4v6H4" /><path d="m10 10-6-6" /><path d="M14 4v6h6" /><path d="m14 10 6-6" /><path d="M10 20v-6H4" /><path d="m10 14-6 6" /><path d="M14 20v-6h6" /><path d="m14 14 6 6" /></svg>;
+      return <BrowserFullscreenIcon active size={size} className="oh-topbar-icon-svg" />;
     case 'copy':
       return <svg {...common}><rect x="8" y="8" width="11" height="11" rx="2" /><path d="M5 15V7a2 2 0 0 1 2-2h8" /></svg>;
     case 'trash':
@@ -335,27 +336,10 @@ export function SessionTopBar(props: SessionTopBarProps) {
 
         <div class="oh-session-topbar-actions flex items-center gap-2 flex-none">
           {onToggleFullscreen ? (
-            <button
-              type="button"
+            <BrowserFullscreenButton
+              active={fullscreenActive}
               onClick={onToggleFullscreen}
-              class="oh-tap-press oh-icon-button oh-session-fullscreen-button flex-none"
-              style={{
-                color: fullscreenActive ? 'var(--m3-primary)' : 'var(--m3-on-surface-variant)',
-                border: fullscreenActive
-                  ? '1px solid color-mix(in srgb, var(--m3-primary) 48%, var(--m3-outline-variant))'
-                  : '1px solid var(--m3-outline-variant)',
-                background: fullscreenActive ? 'var(--m3-primary-container)' : 'var(--m3-surface)',
-              }}
-              title={fullscreenActive
-                ? t('topbar.fullscreen.exit', '退出全屏')
-                : t('topbar.fullscreen.enter', '浏览器全屏')}
-              aria-label={fullscreenActive
-                ? t('topbar.fullscreen.exit', '退出全屏')
-                : t('topbar.fullscreen.enter', '浏览器全屏')}
-              aria-pressed={fullscreenActive}
-            >
-              <TopBarIcon name={fullscreenActive ? 'fullscreenExit' : 'fullscreen'} size={17} />
-            </button>
+            />
           ) : null}
 
           <div ref={moreMenuAnchorRef} class="relative flex-none" data-topbar-menu>

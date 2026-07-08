@@ -23,6 +23,16 @@ import 'web_reverse_session_controller.dart';
 const int _kJsonFuzzMaxSafeInteger = 9007199254740991;
 const int _kJsonFuzzMinSafeInteger = -_kJsonFuzzMaxSafeInteger;
 const String _kJsonFuzzUnsafeIntegerText = '9007199254740993';
+const int _kWsEvalCloseDelayMs = 800;
+const int _kWsEvalDefaultDelayMs = 30;
+const int _kWsEvalDefaultReceiveLimit = 32;
+const int _kWsEvalDefaultPreviewChars = 512;
+const int _kWsEvalDefaultTimeoutMs = 8000;
+const int _kWsReplayReceiveLimit = 16;
+const int _kWsReplayPreviewChars = 256;
+const int _kWsEditTimeoutMs = 5000;
+const int _kWsFuzzBaseTimeoutMs = 6000;
+const double _kWsDialogActionSpacing = 10;
 final String _jsonFuzzLongString = 'A' * 1024;
 
 Future<void> showWebReverseWebSocketDialog(
@@ -122,67 +132,13 @@ class _WsDialogState extends State<_WsDialog> {
         ja: 'WS を開いて順にリプレイしています...',
       );
     });
-    final js =
-        '''
-(async () => {
-  try {
-    const url = ${jsonEncode(e.url)};
-    const ws = new WebSocket(url);
-    const frames = ${jsonEncode(sentFrames)};
-    const result = await new Promise((resolve) => {
-      let sent = 0;
-      const received = [];
-      let timer = null;
-      ws.addEventListener('open', () => {
-        const tick = () => {
-          if (sent >= frames.length) {
-            timer = setTimeout(() => {
-              try { ws.close(); } catch (_) {}
-              resolve({ ok: true, sent, received });
-            }, 800);
-            return;
-          }
-          try { ws.send(frames[sent]); } catch (err) {
-            resolve({ ok: false, sent, error: String(err), received });
-            return;
-          }
-          sent += 1;
-          setTimeout(tick, 30);
-        };
-        tick();
-      });
-      ws.addEventListener('message', (ev) => {
-        if (received.length < 16) {
-          const data = typeof ev.data === 'string' ? ev.data : '<binary>';
-          received.push(data.length > 256 ? data.slice(0, 256) + '…' : data);
-        }
-      });
-      ws.addEventListener('error', () => {
-        if (timer) clearTimeout(timer);
-        resolve({ ok: false, sent, error: 'ws error', received });
-      });
-      setTimeout(() => {
-        if (timer) clearTimeout(timer);
-        try { ws.close(); } catch (_) {}
-        resolve({ ok: true, sent, received, timeout: true });
-      }, 8000);
-    });
-    return JSON.stringify(result);
-  } catch (err) {
-    return JSON.stringify({ ok: false, error: String(err) });
-  }
-})()
-''';
     try {
-      final r = await widget.controller.sendRawCdp(
-        method: 'Runtime.evaluate',
-        paramsJson: jsonEncode({
-          'expression': js,
-          'awaitPromise': true,
-          'returnByValue': true,
-        }),
+      final res = await _evalSendFrames(
+        e.url,
+        sentFrames,
+        receiveLimit: _kWsReplayReceiveLimit,
+        previewChars: _kWsReplayPreviewChars,
       );
-      final res = cdpJsonMapStringResultValue(r);
       if (res == null) {
         if (!mounted) return;
         setState(() {
@@ -257,8 +213,10 @@ class _WsDialogState extends State<_WsDialog> {
   Future<Map<String, Object?>?> _evalSendFrames(
     String url,
     List<String> frames, {
-    int delayMs = 30,
-    int timeoutMs = 8000,
+    int delayMs = _kWsEvalDefaultDelayMs,
+    int timeoutMs = _kWsEvalDefaultTimeoutMs,
+    int receiveLimit = _kWsEvalDefaultReceiveLimit,
+    int previewChars = _kWsEvalDefaultPreviewChars,
   }) async {
     final js =
         '''
@@ -267,22 +225,39 @@ class _WsDialogState extends State<_WsDialog> {
     const url = ${jsonEncode(url)};
     const frames = ${jsonEncode(frames)};
     const delay = ${jsonEncode(delayMs)};
+    const receiveLimit = ${jsonEncode(receiveLimit)};
+    const previewChars = ${jsonEncode(previewChars)};
     const ws = new WebSocket(url);
     const result = await new Promise((resolve) => {
       let sent = 0;
       const received = [];
-      let timer = null;
+      let closeTimer = null;
+      let timeoutTimer = null;
+      let settled = false;
+      const cleanup = () => {
+        if (closeTimer) clearTimeout(closeTimer);
+        if (timeoutTimer) clearTimeout(timeoutTimer);
+        closeTimer = null;
+        timeoutTimer = null;
+      };
+      const finish = (value) => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        resolve(value);
+      };
       ws.addEventListener('open', () => {
         const tick = () => {
+          if (settled) return;
           if (sent >= frames.length) {
-            timer = setTimeout(() => {
+            closeTimer = setTimeout(() => {
               try { ws.close(); } catch (_) {}
-              resolve({ ok: true, sent, received });
-            }, 800);
+              finish({ ok: true, sent, received });
+            }, ${jsonEncode(_kWsEvalCloseDelayMs)});
             return;
           }
           try { ws.send(frames[sent]); } catch (err) {
-            resolve({ ok: false, sent, error: String(err), received });
+            finish({ ok: false, sent, error: String(err), received });
             return;
           }
           sent += 1;
@@ -291,19 +266,17 @@ class _WsDialogState extends State<_WsDialog> {
         tick();
       });
       ws.addEventListener('message', (ev) => {
-        if (received.length < 32) {
+        if (received.length < receiveLimit) {
           const data = typeof ev.data === 'string' ? ev.data : '<binary>';
-          received.push(data.length > 512 ? data.slice(0, 512) + '…' : data);
+          received.push(data.length > previewChars ? data.slice(0, previewChars) + '…' : data);
         }
       });
       ws.addEventListener('error', () => {
-        if (timer) clearTimeout(timer);
-        resolve({ ok: false, sent, error: 'ws error', received });
+        finish({ ok: false, sent, error: 'ws error', received });
       });
-      setTimeout(() => {
-        if (timer) clearTimeout(timer);
+      timeoutTimer = setTimeout(() => {
         try { ws.close(); } catch (_) {}
-        resolve({ ok: true, sent, received, timeout: true });
+        finish({ ok: true, sent, received, timeout: true });
       }, ${jsonEncode(timeoutMs)});
     });
     return JSON.stringify(result);
@@ -341,7 +314,9 @@ class _WsDialogState extends State<_WsDialog> {
       );
     });
     try {
-      final res = await _evalSendFrames(e.url, [edited], timeoutMs: 5000);
+      final res = await _evalSendFrames(e.url, [
+        edited,
+      ], timeoutMs: _kWsEditTimeoutMs);
       if (!mounted) return;
       if (res == null) {
         setState(() {
@@ -419,7 +394,7 @@ class _WsDialogState extends State<_WsDialog> {
         e.url,
         mutated,
         delayMs: cfg.delayMs,
-        timeoutMs: 4000 + cfg.count * cfg.delayMs + 2000,
+        timeoutMs: _kWsFuzzBaseTimeoutMs + cfg.count * cfg.delayMs,
       );
       if (!mounted) return;
       if (res == null) {
@@ -571,278 +546,278 @@ class _WsDialogState extends State<_WsDialog> {
 
   Future<String?> _showEditFrameDialog(String initial) async {
     final ctrl = TextEditingController(text: initial);
-    return showWebReverseToolDialog<String>(
-      context: context,
-      builder: (ctx) {
-        final cs = Theme.of(ctx).colorScheme;
-        return buildOpenHandToolDialogShell(
-          context: ctx,
-          maxWidth: 720,
-          maxHeight: 560,
-          child: Column(
-            children: [
-              buildOpenHandToolDialogHeader(
-                context: ctx,
-                icon: Icons.edit_note_rounded,
-                title: openHandLocalizedText(
-                  ctx,
-                  zh: '编辑单帧再发送',
-                  zhHant: '編輯單一影格後傳送',
-                  en: 'Edit frame & send',
-                  fr: 'Modifier puis envoyer',
-                  de: 'Frame bearbeiten und senden',
-                  ja: 'フレームを編集して送信',
+    try {
+      return await showWebReverseToolDialog<String>(
+        context: context,
+        builder: (ctx) {
+          final cs = Theme.of(ctx).colorScheme;
+          return buildOpenHandToolDialogShell(
+            context: ctx,
+            maxWidth: 720,
+            maxHeight: 560,
+            child: Column(
+              children: [
+                buildOpenHandToolDialogHeader(
+                  context: ctx,
+                  icon: Icons.edit_note_rounded,
+                  title: openHandLocalizedText(
+                    ctx,
+                    zh: '编辑单帧再发送',
+                    zhHant: '編輯單一影格後傳送',
+                    en: 'Edit frame & send',
+                    fr: 'Modifier puis envoyer',
+                    de: 'Frame bearbeiten und senden',
+                    ja: 'フレームを編集して送信',
+                  ),
                 ),
-              ),
-              Divider(height: 1, color: cs.outlineVariant),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-                  child: TextField(
-                    controller: ctrl,
-                    maxLines: null,
-                    expands: true,
-                    textAlignVertical: TextAlignVertical.top,
-                    style: const TextStyle(
-                      fontFamily: 'monospace',
-                      fontSize: 12,
-                    ),
-                    decoration: InputDecoration(
-                      hintText: openHandLocalizedText(
-                        ctx,
-                        zh: '在这里修改 payload，然后点发送',
-                        zhHant: '在這裡修改 payload，然後點傳送',
-                        en: 'Edit payload, then send',
-                        fr: 'Modifiez le payload, puis envoyez',
-                        de: 'Payload bearbeiten, dann senden',
-                        ja: 'payload を編集してから送信',
+                Divider(height: 1, color: cs.outlineVariant),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                    child: TextField(
+                      controller: ctrl,
+                      maxLines: null,
+                      expands: true,
+                      textAlignVertical: TextAlignVertical.top,
+                      style: const TextStyle(
+                        fontFamily: 'monospace',
+                        fontSize: 12,
                       ),
-                      filled: true,
-                      fillColor: cs.surface,
-                      border: const OutlineInputBorder(),
+                      decoration: InputDecoration(
+                        hintText: openHandLocalizedText(
+                          ctx,
+                          zh: '在这里修改 payload，然后点发送',
+                          zhHant: '在這裡修改 payload，然後點傳送',
+                          en: 'Edit payload, then send',
+                          fr: 'Modifiez le payload, puis envoyez',
+                          de: 'Payload bearbeiten, dann senden',
+                          ja: 'payload を編集してから送信',
+                        ),
+                        filled: true,
+                        fillColor: cs.surface,
+                        border: const OutlineInputBorder(),
+                      ),
                     ),
                   ),
                 ),
-              ),
-              Divider(height: 1, color: cs.outlineVariant),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: OpenHandDialogActionButton.secondary(
-                        label: openHandLocalizedText(
-                          ctx,
-                          zh: '取消',
-                          zhHant: '取消',
-                          en: 'Cancel',
-                          fr: 'Annuler',
-                          de: 'Abbrechen',
-                          ja: 'キャンセル',
-                        ),
-                        onPressed: () => Navigator.of(ctx).pop(),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: OpenHandDialogActionButton.primary(
-                        icon: Icons.send_rounded,
-                        label: openHandLocalizedText(
-                          ctx,
-                          zh: '发送',
-                          zhHant: '傳送',
-                          en: 'Send',
-                          fr: 'Envoyer',
-                          de: 'Senden',
-                          ja: '送信',
-                        ),
-                        onPressed: () => Navigator.of(ctx).pop(ctrl.text),
-                      ),
-                    ),
-                  ],
+                Divider(height: 1, color: cs.outlineVariant),
+                _buildFrameDialogActionRow(
+                  ctx,
+                  primaryIcon: Icons.send_rounded,
+                  primaryLabel: openHandLocalizedText(
+                    ctx,
+                    zh: '发送',
+                    zhHant: '傳送',
+                    en: 'Send',
+                    fr: 'Envoyer',
+                    de: 'Senden',
+                    ja: '送信',
+                  ),
+                  onPrimaryPressed: () => Navigator.of(ctx).pop(ctrl.text),
                 ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
+              ],
+            ),
+          );
+        },
+      );
+    } finally {
+      ctrl.dispose();
+    }
   }
 
   Future<_FuzzConfig?> _showFuzzConfigDialog(String basePayload) async {
     final countCtrl = TextEditingController(text: '20');
     final delayCtrl = TextEditingController(text: '50');
     var intensity = 2;
-    return showOpenHandStatefulDialog<_FuzzConfig>(
-      context: context,
-      builder: (ctx, setLocal) {
-        final cs = Theme.of(ctx).colorScheme;
-        return buildOpenHandToolDialogShell(
-          context: ctx,
-          maxWidth: 520,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              buildOpenHandToolDialogHeader(
-                context: ctx,
-                icon: Icons.bug_report_rounded,
-                iconColor: cs.tertiary,
-                title: openHandLocalizedText(
+    try {
+      return await showOpenHandStatefulDialog<_FuzzConfig>(
+        context: context,
+        builder: (ctx, setLocal) {
+          final cs = Theme.of(ctx).colorScheme;
+          return buildOpenHandToolDialogShell(
+            context: ctx,
+            maxWidth: 520,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                buildOpenHandToolDialogHeader(
+                  context: ctx,
+                  icon: Icons.bug_report_rounded,
+                  iconColor: cs.tertiary,
+                  title: openHandLocalizedText(
+                    ctx,
+                    zh: 'Fuzz 帧（按 JSON 叶子或字节变异）',
+                    zhHant: 'Fuzz 影格（依 JSON 葉節點或位元組變異）',
+                    en: 'Fuzz frame',
+                    fr: 'Fuzz de trame',
+                    de: 'Frame fuzzing',
+                    ja: 'フレームを fuzz',
+                  ),
+                ),
+                Divider(height: 1, color: cs.outlineVariant),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        openHandLocalizedText(
+                          ctx,
+                          zh: '基准 payload 长度：${basePayload.length} 字符',
+                          zhHant: '基準 payload 長度：${basePayload.length} 字元',
+                          en: 'Base payload: ${basePayload.length} chars',
+                          fr: 'Payload de base : ${basePayload.length} caractères',
+                          de: 'Basis-Payload: ${basePayload.length} Zeichen',
+                          ja: '基準 payload: ${basePayload.length} 文字',
+                        ),
+                        style: Theme.of(ctx).textTheme.labelSmall,
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: countCtrl,
+                              decoration: InputDecoration(
+                                labelText: openHandLocalizedText(
+                                  ctx,
+                                  zh: '发送次数 (1-200)',
+                                  zhHant: '傳送次數 (1-200)',
+                                  en: 'Count (1-200)',
+                                  fr: 'Nombre (1-200)',
+                                  de: 'Anzahl (1-200)',
+                                  ja: '回数 (1-200)',
+                                ),
+                                border: const OutlineInputBorder(),
+                                isDense: true,
+                              ),
+                              keyboardType: TextInputType.number,
+                            ),
+                          ),
+                          const SizedBox(width: _kWsDialogActionSpacing),
+                          Expanded(
+                            child: TextField(
+                              controller: delayCtrl,
+                              decoration: InputDecoration(
+                                labelText: openHandLocalizedText(
+                                  ctx,
+                                  zh: '间隔 ms (10-1000)',
+                                  zhHant: '間隔 ms (10-1000)',
+                                  en: 'Delay ms (10-1000)',
+                                  fr: 'Délai ms (10-1000)',
+                                  de: 'Pause ms (10-1000)',
+                                  ja: '間隔 ms (10-1000)',
+                                ),
+                                border: const OutlineInputBorder(),
+                                isDense: true,
+                              ),
+                              keyboardType: TextInputType.number,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+                      Text(
+                        openHandLocalizedText(
+                          ctx,
+                          zh: '变异强度',
+                          zhHant: '變異強度',
+                          en: 'Intensity',
+                          fr: 'Intensité',
+                          de: 'Intensität',
+                          ja: '強度',
+                        ),
+                        style: Theme.of(ctx).textTheme.labelSmall,
+                      ),
+                      Slider(
+                        value: intensity.toDouble(),
+                        min: 1,
+                        max: 5,
+                        divisions: 4,
+                        label: '$intensity',
+                        onChanged: (v) => setLocal(() => intensity = v.round()),
+                      ),
+                    ],
+                  ),
+                ),
+                Divider(height: 1, color: cs.outlineVariant),
+                _buildFrameDialogActionRow(
                   ctx,
-                  zh: 'Fuzz 帧（按 JSON 叶子或字节变异）',
-                  zhHant: 'Fuzz 影格（依 JSON 葉節點或位元組變異）',
-                  en: 'Fuzz frame',
-                  fr: 'Fuzz de trame',
-                  de: 'Frame fuzzing',
-                  ja: 'フレームを fuzz',
+                  primaryIcon: Icons.play_arrow_rounded,
+                  primaryLabel: openHandLocalizedText(
+                    ctx,
+                    zh: '开始 Fuzz',
+                    zhHant: '開始 Fuzz',
+                    en: 'Start Fuzz',
+                    fr: 'Démarrer le fuzz',
+                    de: 'Fuzz starten',
+                    ja: 'Fuzz 開始',
+                  ),
+                  onPrimaryPressed: () {
+                    Navigator.of(ctx).pop(
+                      _FuzzConfig(
+                        count: clampedIntFromValue(
+                          countCtrl.text,
+                          fallback: 20,
+                          min: 1,
+                          max: 200,
+                        ),
+                        delayMs: clampedIntFromValue(
+                          delayCtrl.text,
+                          fallback: 50,
+                          min: 10,
+                          max: 1000,
+                        ),
+                        intensity: intensity,
+                      ),
+                    );
+                  },
                 ),
+              ],
+            ),
+          );
+        },
+      );
+    } finally {
+      countCtrl.dispose();
+      delayCtrl.dispose();
+    }
+  }
+
+  Widget _buildFrameDialogActionRow(
+    BuildContext ctx, {
+    required IconData primaryIcon,
+    required String primaryLabel,
+    required VoidCallback onPrimaryPressed,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+      child: Row(
+        children: [
+          Expanded(
+            child: OpenHandDialogActionButton.secondary(
+              label: openHandLocalizedText(
+                ctx,
+                zh: '取消',
+                zhHant: '取消',
+                en: 'Cancel',
+                fr: 'Annuler',
+                de: 'Abbrechen',
+                ja: 'キャンセル',
               ),
-              Divider(height: 1, color: cs.outlineVariant),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      openHandLocalizedText(
-                        ctx,
-                        zh: '基准 payload 长度：${basePayload.length} 字符',
-                        zhHant: '基準 payload 長度：${basePayload.length} 字元',
-                        en: 'Base payload: ${basePayload.length} chars',
-                        fr: 'Payload de base : ${basePayload.length} caractères',
-                        de: 'Basis-Payload: ${basePayload.length} Zeichen',
-                        ja: '基準 payload: ${basePayload.length} 文字',
-                      ),
-                      style: Theme.of(ctx).textTheme.labelSmall,
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: countCtrl,
-                            decoration: InputDecoration(
-                              labelText: openHandLocalizedText(
-                                ctx,
-                                zh: '发送次数 (1-200)',
-                                zhHant: '傳送次數 (1-200)',
-                                en: 'Count (1-200)',
-                                fr: 'Nombre (1-200)',
-                                de: 'Anzahl (1-200)',
-                                ja: '回数 (1-200)',
-                              ),
-                              border: const OutlineInputBorder(),
-                              isDense: true,
-                            ),
-                            keyboardType: TextInputType.number,
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: TextField(
-                            controller: delayCtrl,
-                            decoration: InputDecoration(
-                              labelText: openHandLocalizedText(
-                                ctx,
-                                zh: '间隔 ms (10-1000)',
-                                zhHant: '間隔 ms (10-1000)',
-                                en: 'Delay ms (10-1000)',
-                                fr: 'Délai ms (10-1000)',
-                                de: 'Pause ms (10-1000)',
-                                ja: '間隔 ms (10-1000)',
-                              ),
-                              border: const OutlineInputBorder(),
-                              isDense: true,
-                            ),
-                            keyboardType: TextInputType.number,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 14),
-                    Text(
-                      openHandLocalizedText(
-                        ctx,
-                        zh: '变异强度',
-                        zhHant: '變異強度',
-                        en: 'Intensity',
-                        fr: 'Intensité',
-                        de: 'Intensität',
-                        ja: '強度',
-                      ),
-                      style: Theme.of(ctx).textTheme.labelSmall,
-                    ),
-                    Slider(
-                      value: intensity.toDouble(),
-                      min: 1,
-                      max: 5,
-                      divisions: 4,
-                      label: '$intensity',
-                      onChanged: (v) => setLocal(() => intensity = v.round()),
-                    ),
-                  ],
-                ),
-              ),
-              Divider(height: 1, color: cs.outlineVariant),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: OpenHandDialogActionButton.secondary(
-                        label: openHandLocalizedText(
-                          ctx,
-                          zh: '取消',
-                          zhHant: '取消',
-                          en: 'Cancel',
-                          fr: 'Annuler',
-                          de: 'Abbrechen',
-                          ja: 'キャンセル',
-                        ),
-                        onPressed: () => Navigator.of(ctx).pop(),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: OpenHandDialogActionButton.primary(
-                        icon: Icons.play_arrow_rounded,
-                        label: openHandLocalizedText(
-                          ctx,
-                          zh: '开始 Fuzz',
-                          zhHant: '開始 Fuzz',
-                          en: 'Start Fuzz',
-                          fr: 'Démarrer le fuzz',
-                          de: 'Fuzz starten',
-                          ja: 'Fuzz 開始',
-                        ),
-                        onPressed: () {
-                          Navigator.of(ctx).pop(
-                            _FuzzConfig(
-                              count: clampedIntFromValue(
-                                countCtrl.text,
-                                fallback: 20,
-                                min: 1,
-                                max: 200,
-                              ),
-                              delayMs: clampedIntFromValue(
-                                delayCtrl.text,
-                                fallback: 50,
-                                min: 10,
-                                max: 1000,
-                              ),
-                              intensity: intensity,
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+              onPressed: () => Navigator.of(ctx).pop(),
+            ),
           ),
-        );
-      },
+          const SizedBox(width: _kWsDialogActionSpacing),
+          Expanded(
+            child: OpenHandDialogActionButton.primary(
+              icon: primaryIcon,
+              label: primaryLabel,
+              onPressed: onPrimaryPressed,
+            ),
+          ),
+        ],
+      ),
     );
   }
 

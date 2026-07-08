@@ -73,17 +73,7 @@ import {
   scheduleAfterTranscriptScrollSettles,
 } from '../shared/ui/transcript_scroll_activity';
 import { STREAMING_TURN_IDLE_DEBOUNCE_MS } from '../shared/ui/streaming_turn_timing';
-
-function formatTimestamp(iso: string): string {
-  try {
-    const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return iso;
-    const pad = (n: number) => String(n).padStart(2, '0');
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-  } catch {
-    return iso;
-  }
-}
+import { formatLocalDateTimeMinute } from '../shared/util/date_time';
 
 const TOOL_LIVE_ELAPSED_TICK_MS = 1000;
 
@@ -1957,7 +1947,7 @@ function selectedMessageInfoChips(
       onClick: onOpenAssociatedKnowledgeBase,
     });
   }
-  const sentAt = formatTimestamp(message.created_at);
+  const sentAt = formatLocalDateTimeMinute(message.created_at);
   if (sentAt) {
     chips.push({
       key: 'sent-at',

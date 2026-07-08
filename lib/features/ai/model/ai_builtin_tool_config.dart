@@ -885,23 +885,21 @@ class AiBuiltinToolConfig {
   }
 
   static bool looksLikeLegacyEagerDefaults(List<AiBuiltinToolConfig> configs) {
-    if (configs.length != AiBuiltinToolKind.values.length) return false;
-    final byKind = <AiBuiltinToolKind, AiBuiltinToolConfig>{};
-    for (final config in configs) {
-      if (byKind.containsKey(config.kind)) return false;
-      byKind[config.kind] = config;
-    }
-    for (final kind in AiBuiltinToolKind.values) {
-      final config = byKind[kind];
-      if (config == null || !_looksLikeLegacyEagerDefault(config)) {
-        return false;
-      }
-    }
-    return true;
+    return _looksLikeLegacyDefaults(configs, _looksLikeLegacyEagerDefault);
   }
 
   static bool looksLikeLegacyBuiltinOrderingDefaults(
     List<AiBuiltinToolConfig> configs,
+  ) {
+    return _looksLikeLegacyDefaults(
+      configs,
+      _looksLikeLegacyBuiltinOrderingDefault,
+    );
+  }
+
+  static bool _looksLikeLegacyDefaults(
+    List<AiBuiltinToolConfig> configs,
+    bool Function(AiBuiltinToolConfig config) matches,
   ) {
     if (configs.length != AiBuiltinToolKind.values.length) return false;
     final byKind = <AiBuiltinToolKind, AiBuiltinToolConfig>{};
@@ -911,7 +909,7 @@ class AiBuiltinToolConfig {
     }
     for (final kind in AiBuiltinToolKind.values) {
       final config = byKind[kind];
-      if (config == null || !_looksLikeLegacyBuiltinOrderingDefault(config)) {
+      if (config == null || !matches(config)) {
         return false;
       }
     }
@@ -919,33 +917,27 @@ class AiBuiltinToolConfig {
   }
 
   static bool _looksLikeLegacyEagerDefault(AiBuiltinToolConfig config) {
-    if (!config.enabled ||
-        config.displayName != null ||
-        config.summary != null ||
-        config.promptOverride != null ||
-        config.schemaOverride != null ||
-        config.priority != 100 ||
-        config.sortOrder != config.kind.index ||
-        config.loadStrategy != AiBuiltinToolLoadStrategy.eager ||
-        config.tags.isNotEmpty ||
-        config.maxOutputChars != null ||
-        config.timeoutSeconds != null ||
-        config.requireConfirmation != null ||
-        config.retryOnFailure ||
-        config.maxRetries != 0 ||
-        config.retryBackoffMs != defaultRetryBackoffMs ||
-        config.isCustom ||
-        config.customToolName != null ||
-        config.customDescription != null ||
-        config.customParameters != null) {
-      return false;
-    }
-    return _defaultProviderSettingsEquivalent(config);
+    return _looksLikeLegacyDefaultConfig(
+      config,
+      loadStrategy: AiBuiltinToolLoadStrategy.eager,
+    );
   }
 
   static bool _looksLikeLegacyBuiltinOrderingDefault(
     AiBuiltinToolConfig config,
   ) {
+    return _looksLikeLegacyDefaultConfig(
+      config,
+      loadStrategy: defaultLoadStrategyForKind(config.kind),
+      forceLoad: defaultForceLoadForKind(config.kind),
+    );
+  }
+
+  static bool _looksLikeLegacyDefaultConfig(
+    AiBuiltinToolConfig config, {
+    required AiBuiltinToolLoadStrategy loadStrategy,
+    bool? forceLoad,
+  }) {
     if (!config.enabled ||
         config.displayName != null ||
         config.summary != null ||
@@ -953,8 +945,8 @@ class AiBuiltinToolConfig {
         config.schemaOverride != null ||
         config.priority != 100 ||
         config.sortOrder != config.kind.index ||
-        config.loadStrategy != defaultLoadStrategyForKind(config.kind) ||
-        config.forceLoad != defaultForceLoadForKind(config.kind) ||
+        config.loadStrategy != loadStrategy ||
+        (forceLoad != null && config.forceLoad != forceLoad) ||
         config.tags.isNotEmpty ||
         config.maxOutputChars != null ||
         config.timeoutSeconds != null ||
