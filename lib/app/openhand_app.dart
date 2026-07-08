@@ -243,8 +243,8 @@ class _McpOpsApprovalHostState extends State<_McpOpsApprovalHost> {
 
     _presentingDialogId = approval.id;
     _handledDialogIds.add(approval.id);
-    final dialogContext = _dialogContext;
-    if (dialogContext == null) {
+    final navigator = _dialogNavigator;
+    if (navigator == null) {
       _rescheduleApprovalDialog(controller, approval);
       return;
     }
@@ -269,18 +269,20 @@ class _McpOpsApprovalHostState extends State<_McpOpsApprovalHost> {
       }
       resolvedElsewhere = true;
       final dialogContext = _activeDialogContext;
-      if (dialogContext != null &&
-          dialogContext.mounted &&
-          Navigator.of(dialogContext).canPop()) {
-        Navigator.of(dialogContext).pop();
+      final navigator = dialogContext == null || !dialogContext.mounted
+          ? null
+          : Navigator.maybeOf(dialogContext, rootNavigator: true);
+      if (navigator != null && navigator.canPop()) {
+        navigator.pop();
       }
     };
     controller.addListener(listener);
     listenerAttached = true;
 
     try {
-      final approved = await showMcpOpsWriteApprovalDialog(
-        dialogContext,
+      final approved = await showMcpOpsWriteApprovalDialogOnNavigator(
+        navigator,
+        context: context,
         request: approval,
         onDialogContext: (dialogContext) {
           _activeDialogContext = dialogContext;
@@ -314,20 +316,12 @@ class _McpOpsApprovalHostState extends State<_McpOpsApprovalHost> {
     }
   }
 
-  BuildContext? get _dialogContext {
+  NavigatorState? get _dialogNavigator {
     final navigator = widget.navigatorKey.currentState;
     if (navigator == null || !navigator.mounted) {
       return null;
     }
-    final dialogContext =
-        navigator.overlay?.context ??
-        widget.navigatorKey.currentContext ??
-        navigator.context;
-    final resolvedNavigator = Navigator.maybeOf(
-      dialogContext,
-      rootNavigator: true,
-    );
-    return resolvedNavigator == null ? null : dialogContext;
+    return navigator.overlay == null ? null : navigator;
   }
 
   bool _approvalStillPending(

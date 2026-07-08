@@ -618,6 +618,77 @@ Future<T?> showAnimatedDialog<T>({
   );
 }
 
+/// Shows an animated dialog by pushing directly through an already resolved
+/// [NavigatorState]. Use this for app-level hosts that live above the
+/// Navigator and therefore cannot safely call [showGeneralDialog] with their
+/// own [BuildContext].
+Future<T?> showAnimatedDialogOnNavigator<T>({
+  required NavigatorState navigator,
+  required BuildContext context,
+  required WidgetBuilder builder,
+  DialogAnimationSettings? settings,
+  OpenHandAnimationTransitionProfile transitionProfile =
+      const OpenHandAnimationTransitionProfile(),
+  bool barrierDismissible = true,
+  bool dismissOnEscape = true,
+  String? barrierLabel,
+  Color? barrierColor,
+  RouteSettings? routeSettings,
+  AlignmentGeometry alignment = Alignment.center,
+}) {
+  if (!navigator.mounted) {
+    return Future<T?>.value();
+  }
+  dismissOpenHandTooltipsSafely(
+    debugLabel: 'OpenHand.showAnimatedDialogOnNavigator.dismissTooltips',
+  );
+  final themedBuilder = _wrapDialogBuilderWithTheme(
+    builder,
+    dismissOnEscape: dismissOnEscape,
+    alignment: alignment,
+  );
+  final effectiveSettings = _resolveDialogMotionSettings(
+    context,
+    override: settings,
+  );
+  final motionDisabled = openHandMotionDisabled(effectiveSettings);
+  final resolvedBarrierLabel =
+      barrierLabel ??
+      Localizations.of<MaterialLocalizations>(
+        context,
+        MaterialLocalizations,
+      )?.modalBarrierDismissLabel ??
+      'Dismiss';
+  return navigator.push<T>(
+    RawDialogRoute<T>(
+      pageBuilder: (routeContext, animation, secondaryAnimation) =>
+          themedBuilder(routeContext),
+      barrierDismissible: barrierDismissible,
+      barrierLabel: resolvedBarrierLabel,
+      barrierColor: resolveAnimatedDialogBarrierColor(
+        context,
+        override: barrierColor,
+      ),
+      transitionDuration: motionDisabled
+          ? Duration.zero
+          : effectiveSettings.duration,
+      transitionBuilder: (routeContext, animation, secondaryAnimation, child) {
+        if (motionDisabled) {
+          return child;
+        }
+        return buildAnimationStyleTransition(
+          animation: animation,
+          settings: effectiveSettings,
+          profile: transitionProfile,
+          child: child,
+        );
+      },
+      settings: routeSettings,
+      requestFocus: true,
+    ),
+  );
+}
+
 Widget buildOpenHandDialogMotionSurface({
   required BuildContext context,
   required Widget child,

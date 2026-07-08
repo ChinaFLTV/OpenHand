@@ -30,6 +30,24 @@ Future<bool?> showMcpOpsWriteApprovalDialog(
   );
 }
 
+Future<bool?> showMcpOpsWriteApprovalDialogOnNavigator(
+  NavigatorState navigator, {
+  required BuildContext context,
+  required McpOpsApprovalRequest request,
+  ValueChanged<BuildContext>? onDialogContext,
+}) {
+  return showAnimatedDialogOnNavigator<bool>(
+    navigator: navigator,
+    context: context,
+    barrierDismissible: false,
+    dismissOnEscape: false,
+    builder: (dialogContext) {
+      onDialogContext?.call(dialogContext);
+      return _McpOpsWriteApprovalDialog(request: request);
+    },
+  );
+}
+
 class _McpOpsWriteApprovalDialog extends StatefulWidget {
   const _McpOpsWriteApprovalDialog({required this.request});
 
