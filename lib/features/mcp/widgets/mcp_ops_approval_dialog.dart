@@ -4,7 +4,6 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../../app/theme/openhand_status_colors.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_countdown_progress_bar.dart';
@@ -127,7 +126,7 @@ class _McpOpsWriteApprovalDialogState
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    const warning = OpenHandStatusColors.warning;
+    final accent = cs.primary;
     return Focus(
       focusNode: _shortcutFocusNode,
       autofocus: true,
@@ -163,16 +162,11 @@ class _McpOpsWriteApprovalDialogState
                     height: 48,
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
-                      color: warning.withValues(alpha: 0.12),
+                      color: accent.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: warning.withValues(alpha: 0.28),
-                      ),
+                      border: Border.all(color: accent.withValues(alpha: 0.28)),
                     ),
-                    child: const Icon(
-                      Icons.verified_user_rounded,
-                      color: warning,
-                    ),
+                    child: Icon(Icons.verified_user_rounded, color: accent),
                   ),
                   const SizedBox(width: 14),
                   Expanded(
@@ -214,7 +208,7 @@ class _McpOpsWriteApprovalDialogState
               const SizedBox(height: 16),
               OpenHandCountdownProgressBar(
                 value: _remainingProgress,
-                color: warning,
+                color: accent,
                 semanticLabel: openHandLocalizedText(
                   context,
                   zh: '审批剩余时间',
@@ -241,7 +235,7 @@ class _McpOpsWriteApprovalDialogState
                   _ApprovalChip(
                     icon: Icons.hourglass_top_rounded,
                     label: _formatRemaining(context, _remaining),
-                    color: warning,
+                    color: accent,
                   ),
                 ],
               ),
@@ -249,7 +243,7 @@ class _McpOpsWriteApprovalDialogState
               Expanded(
                 child: OpenHandSafeScrollbar(
                   controller: _bodyScrollController,
-                  thumbVisibility: true,
+                  thumbVisibility: false,
                   child: ListView(
                     controller: _bodyScrollController,
                     physics: openHandDialogAwareScrollPhysics(context),
@@ -481,7 +475,7 @@ class _ApprovalPayloadPanel extends StatelessWidget {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final parsed = _parseApprovalPayload(text);
-    const accent = OpenHandStatusColors.warning;
+    final accent = cs.primary;
     return AnimatedContainer(
       duration: openHandMotionDuration(
         context,
@@ -524,11 +518,7 @@ class _ApprovalPayloadPanel extends StatelessWidget {
                   borderRadius: BorderRadius.circular(11),
                   border: Border.all(color: accent.withValues(alpha: 0.22)),
                 ),
-                child: const Icon(
-                  Icons.data_object_rounded,
-                  color: accent,
-                  size: 19,
-                ),
+                child: Icon(Icons.data_object_rounded, color: accent, size: 19),
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -861,7 +851,7 @@ class _ApprovalPayloadOverflowNotice extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    const accent = OpenHandStatusColors.warning;
+    final accent = cs.primary;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -872,7 +862,7 @@ class _ApprovalPayloadOverflowNotice extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(Icons.unfold_more_rounded, size: 16, color: accent),
+          Icon(Icons.unfold_more_rounded, size: 16, color: accent),
           const SizedBox(width: 8),
           Expanded(
             child: Text(

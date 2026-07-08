@@ -6,14 +6,14 @@ class OpenHandCountdownProgressBar extends StatefulWidget {
   const OpenHandCountdownProgressBar({
     super.key,
     required this.value,
-    required this.color,
+    this.color,
     this.height = 8,
     this.animationDuration = const Duration(milliseconds: 760),
     this.semanticLabel,
   });
 
   final double value;
-  final Color color;
+  final Color? color;
   final double height;
   final Duration animationDuration;
   final String? semanticLabel;
@@ -48,6 +48,7 @@ class _OpenHandCountdownProgressBarState
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final accent = widget.color ?? cs.primary;
     return TweenAnimationBuilder<double>(
       tween: Tween<double>(begin: _begin, end: _end),
       duration: openHandMotionDuration(context, widget.animationDuration),
@@ -87,15 +88,13 @@ class _OpenHandCountdownProgressBarState
                                 decoration: BoxDecoration(
                                   gradient: LinearGradient(
                                     colors: [
-                                      widget.color.withValues(alpha: 0.98),
-                                      widget.color.withValues(alpha: 0.74),
+                                      accent.withValues(alpha: 0.98),
+                                      accent.withValues(alpha: 0.74),
                                     ],
                                   ),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: widget.color.withValues(
-                                        alpha: 0.22,
-                                      ),
+                                      color: accent.withValues(alpha: 0.22),
                                       blurRadius: 10,
                                       offset: const Offset(0, 2),
                                     ),

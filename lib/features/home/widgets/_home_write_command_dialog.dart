@@ -134,7 +134,7 @@ class _WriteCommandConfirmationDialogState
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    const warning = OpenHandStatusColors.warning;
+    final accent = cs.primary;
     final remaining = _remaining;
     final progress = _remainingProgress;
     return Focus(
@@ -174,13 +174,11 @@ class _WriteCommandConfirmationDialogState
                     height: 48,
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
-                      color: warning.withValues(alpha: 0.12),
+                      color: accent.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: warning.withValues(alpha: 0.28),
-                      ),
+                      border: Border.all(color: accent.withValues(alpha: 0.28)),
                     ),
-                    child: const Icon(Icons.terminal_rounded, color: warning),
+                    child: Icon(Icons.terminal_rounded, color: accent),
                   ),
                   const SizedBox(width: 14),
                   Expanded(
@@ -223,7 +221,7 @@ class _WriteCommandConfirmationDialogState
                 const SizedBox(height: 16),
                 OpenHandCountdownProgressBar(
                   value: progress,
-                  color: warning,
+                  color: accent,
                   semanticLabel: openHandLocalizedText(
                     context,
                     zh: '写命令确认剩余时间',
@@ -240,7 +238,7 @@ class _WriteCommandConfirmationDialogState
                     _WriteCommandApprovalChip(
                       icon: Icons.hourglass_top_rounded,
                       label: _formatWriteCommandRemaining(context, remaining),
-                      color: warning,
+                      color: accent,
                     ),
                     _WriteCommandApprovalChip(
                       icon: Icons.folder_open_rounded,
@@ -253,7 +251,7 @@ class _WriteCommandConfirmationDialogState
               Expanded(
                 child: OpenHandSafeScrollbar(
                   controller: _bodyScrollController,
-                  thumbVisibility: true,
+                  thumbVisibility: false,
                   child: SingleChildScrollView(
                     controller: _bodyScrollController,
                     physics: openHandDialogAwareScrollPhysics(context),
