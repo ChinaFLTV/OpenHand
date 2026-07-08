@@ -350,7 +350,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   AiSessionController? _observedSessionController;
   AiGoalContinuationYieldPredicate? _goalContinuationYieldPredicate;
   MessageGatewayController? _observedMessageGatewayController;
-  McpController? _observedMcpController;
   TemplateRuntimeLinkageController? _templateRuntimeLinkageController;
   StreamSubscription<List<WebWriteApprovalRequest>>? _writeApprovalSubscription;
   final Set<String> _handledWriteApprovalDialogIds = <String>{};
@@ -359,10 +358,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   String? _presentingWriteApprovalSessionId;
   BuildContext? _activeWriteApprovalDialogContext;
   bool _suppressWriteApprovalDialogResponse = false;
-  final Set<String> _handledMcpOpsApprovalDialogIds = <String>{};
-  String? _scheduledMcpOpsApprovalDialogId;
-  String? _presentingMcpOpsApprovalDialogId;
-  BuildContext? _activeMcpOpsApprovalDialogContext;
   AiSessionMode _detachedComposerMode = AiSessionMode.chat;
   bool _detachedFullAccessPermission = false;
   String? _activeComposerSessionId;
@@ -906,15 +901,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   void didChangeDependencies() {
     super.didChangeDependencies();
     final sessionController = context.read<AiSessionController>();
-    final mcpController = context.read<McpController>();
     _templateRuntimeLinkageController = context
         .read<TemplateRuntimeLinkageController>();
-    if (!identical(_observedMcpController, mcpController)) {
-      _observedMcpController?.removeListener(_handleMcpOpsApprovalsChanged);
-      _observedMcpController = mcpController;
-      _observedMcpController?.addListener(_handleMcpOpsApprovalsChanged);
-      _handleMcpOpsApprovalsChanged();
-    }
     if (identical(_observedSessionController, sessionController)) {
       return;
     }
@@ -1002,8 +990,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     _observedSessionController?.toolSearchLoadedSignal.removeListener(
       _handleToolSearchLoadedSignal,
     );
-    _observedMcpController?.removeListener(_handleMcpOpsApprovalsChanged);
-    _observedMcpController = null;
     _writeApprovalSubscription?.cancel();
     _writeApprovalSubscription = null;
     _observedMessageGatewayController = null;
@@ -1338,113 +1324,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         _handlePendingWriteApprovalsChanged(
           gatewayController.pendingWriteApprovals,
         );
-      }
-    }
-  }
-
-  void _handleMcpOpsApprovalsChanged() {
-    final controller = _observedMcpController;
-    if (!mounted || controller == null) {
-      return;
-    }
-    final approvals = controller.opsApprovalRequests;
-    final pendingIds = approvals.map((item) => item.id).toSet();
-    _handledMcpOpsApprovalDialogIds.removeWhere(
-      (id) =>
-          !pendingIds.contains(id) &&
-          id != _presentingMcpOpsApprovalDialogId &&
-          id != _scheduledMcpOpsApprovalDialogId,
-    );
-    if (_presentingMcpOpsApprovalDialogId != null ||
-        _scheduledMcpOpsApprovalDialogId != null) {
-      return;
-    }
-    for (final approval in approvals) {
-      if (_handledMcpOpsApprovalDialogIds.contains(approval.id)) {
-        continue;
-      }
-      _scheduledMcpOpsApprovalDialogId = approval.id;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (_scheduledMcpOpsApprovalDialogId == approval.id) {
-          _scheduledMcpOpsApprovalDialogId = null;
-        }
-        if (!mounted) {
-          return;
-        }
-        unawaited(_presentMcpOpsApprovalDialog(approval));
-      });
-      return;
-    }
-  }
-
-  Future<void> _presentMcpOpsApprovalDialog(
-    McpOpsApprovalRequest approval,
-  ) async {
-    final controller = _observedMcpController;
-    if (controller == null || !mounted) {
-      return;
-    }
-    if (_presentingMcpOpsApprovalDialogId != null ||
-        _handledMcpOpsApprovalDialogIds.contains(approval.id)) {
-      return;
-    }
-    if (!controller.opsApprovalRequests.any((item) => item.id == approval.id)) {
-      return;
-    }
-
-    _presentingMcpOpsApprovalDialogId = approval.id;
-    _handledMcpOpsApprovalDialogIds.add(approval.id);
-    var resolvedElsewhere = false;
-    var listenerAttached = false;
-    late final VoidCallback listener;
-    void detachListener() {
-      if (!listenerAttached) {
-        return;
-      }
-      controller.removeListener(listener);
-      listenerAttached = false;
-    }
-
-    listener = () {
-      final stillPending = controller.opsApprovalRequests.any(
-        (item) => item.id == approval.id,
-      );
-      if (stillPending) {
-        return;
-      }
-      resolvedElsewhere = true;
-      final dialogContext = _activeMcpOpsApprovalDialogContext;
-      if (dialogContext != null &&
-          dialogContext.mounted &&
-          Navigator.of(dialogContext).canPop()) {
-        Navigator.of(dialogContext).pop();
-      }
-    };
-    controller.addListener(listener);
-    listenerAttached = true;
-
-    try {
-      final approved = await showMcpOpsWriteApprovalDialog(
-        context,
-        request: approval,
-        onDialogContext: (context) {
-          _activeMcpOpsApprovalDialogContext = context;
-        },
-      );
-      _activeMcpOpsApprovalDialogContext = null;
-      if (!mounted || resolvedElsewhere) {
-        return;
-      }
-      detachListener();
-      controller.resolveOpsApproval(approval.id, approved: approved == true);
-    } finally {
-      detachListener();
-      if (_presentingMcpOpsApprovalDialogId == approval.id) {
-        _presentingMcpOpsApprovalDialogId = null;
-      }
-      _activeMcpOpsApprovalDialogContext = null;
-      if (mounted) {
-        _handleMcpOpsApprovalsChanged();
       }
     }
   }

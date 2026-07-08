@@ -931,7 +931,9 @@ String mcpOpsEndpointKey(McpOpsExposureSurface surface, String endpointId) {
 }
 
 String mcpOpsClipAuditText(Object? value) {
-  final text = '$value'.trim();
+  final text = value is Map || value is List
+      ? prettyPrintJson(value)
+      : '$value'.trim();
   if (text.length <= mcpOpsAuditPreviewMaxChars) return text;
   return '${text.substring(0, mcpOpsAuditPreviewMaxChars)}...';
 }

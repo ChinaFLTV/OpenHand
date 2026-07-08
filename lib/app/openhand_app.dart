@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui';
 
 import 'package:flutter/gestures.dart';
@@ -5,6 +6,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../features/home/openhand_home_page.dart';
+import '../features/mcp/mcp_controller.dart';
+import '../features/mcp/model/mcp_server_ops.dart';
+import '../features/mcp/widgets/mcp_ops_approval_dialog.dart';
 import '../features/message_gateway/index.dart';
 import '../l10n/app_localizations.dart';
 import '../shared/ui/openhand_safe_scrollbar.dart';
@@ -116,7 +120,7 @@ class _OpenHandAppState extends State<OpenHandApp> {
         return Stack(
           fit: StackFit.expand,
           children: [
-            builtChild,
+            _McpOpsApprovalHost(child: builtChild),
             Offstage(
               child: Focus(
                 focusNode: _inputRepairSentinelFocusNode,
@@ -133,6 +137,161 @@ class _OpenHandAppState extends State<OpenHandApp> {
       ),
     );
   }
+}
+
+class _McpOpsApprovalHost extends StatefulWidget {
+  const _McpOpsApprovalHost({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_McpOpsApprovalHost> createState() => _McpOpsApprovalHostState();
+}
+
+class _McpOpsApprovalHostState extends State<_McpOpsApprovalHost> {
+  final Set<String> _handledDialogIds = <String>{};
+  McpController? _controller;
+  String? _scheduledDialogId;
+  String? _presentingDialogId;
+  BuildContext? _activeDialogContext;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    McpController? controller;
+    try {
+      controller = context.read<McpController>();
+    } catch (_) {
+      controller = null;
+    }
+    if (identical(_controller, controller)) {
+      return;
+    }
+    _controller?.removeListener(_handleApprovalsChanged);
+    _controller = controller;
+    _controller?.addListener(_handleApprovalsChanged);
+    _handleApprovalsChanged();
+  }
+
+  @override
+  void dispose() {
+    _controller?.removeListener(_handleApprovalsChanged);
+    _controller = null;
+    _activeDialogContext = null;
+    super.dispose();
+  }
+
+  void _handleApprovalsChanged() {
+    final controller = _controller;
+    if (!mounted || controller == null) {
+      return;
+    }
+    final approvals = controller.opsApprovalRequests;
+    final pendingIds = approvals.map((item) => item.id).toSet();
+    _handledDialogIds.removeWhere(
+      (id) =>
+          !pendingIds.contains(id) &&
+          id != _presentingDialogId &&
+          id != _scheduledDialogId,
+    );
+    if (_presentingDialogId != null || _scheduledDialogId != null) {
+      return;
+    }
+    for (final approval in approvals) {
+      if (_handledDialogIds.contains(approval.id)) {
+        continue;
+      }
+      _scheduledDialogId = approval.id;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_scheduledDialogId == approval.id) {
+          _scheduledDialogId = null;
+        }
+        if (!mounted) {
+          return;
+        }
+        unawaited(_presentApprovalDialog(approval));
+      });
+      return;
+    }
+  }
+
+  Future<void> _presentApprovalDialog(McpOpsApprovalRequest approval) async {
+    final controller = _controller;
+    if (controller == null || !mounted) {
+      return;
+    }
+    if (_presentingDialogId != null ||
+        _handledDialogIds.contains(approval.id)) {
+      return;
+    }
+    if (!controller.opsApprovalRequests.any((item) => item.id == approval.id)) {
+      return;
+    }
+
+    _presentingDialogId = approval.id;
+    _handledDialogIds.add(approval.id);
+    var resolvedElsewhere = false;
+    var listenerAttached = false;
+    late final VoidCallback listener;
+    void detachListener() {
+      if (!listenerAttached) {
+        return;
+      }
+      controller.removeListener(listener);
+      listenerAttached = false;
+    }
+
+    listener = () {
+      final stillPending = controller.opsApprovalRequests.any(
+        (item) => item.id == approval.id,
+      );
+      if (stillPending) {
+        return;
+      }
+      resolvedElsewhere = true;
+      final dialogContext = _activeDialogContext;
+      if (dialogContext != null &&
+          dialogContext.mounted &&
+          Navigator.of(dialogContext).canPop()) {
+        Navigator.of(dialogContext).pop();
+      }
+    };
+    controller.addListener(listener);
+    listenerAttached = true;
+
+    try {
+      final approved = await showMcpOpsWriteApprovalDialog(
+        context,
+        request: approval,
+        onDialogContext: (dialogContext) {
+          _activeDialogContext = dialogContext;
+        },
+      );
+      _activeDialogContext = null;
+      if (!mounted || resolvedElsewhere) {
+        return;
+      }
+      detachListener();
+      controller.resolveOpsApproval(approval.id, approved: approved == true);
+    } catch (error, stack) {
+      silentLog('openhand_app', 'present MCP ops approval', error, stack);
+      if (!resolvedElsewhere) {
+        controller.resolveOpsApproval(approval.id, approved: false);
+      }
+    } finally {
+      detachListener();
+      if (_presentingDialogId == approval.id) {
+        _presentingDialogId = null;
+      }
+      _activeDialogContext = null;
+      if (mounted) {
+        _handleApprovalsChanged();
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }
 
 class _OverlayPortalStabilityBoundary extends StatelessWidget {

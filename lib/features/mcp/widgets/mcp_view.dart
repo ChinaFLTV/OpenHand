@@ -3665,7 +3665,7 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
   }
 
   Future<void> _handleWriteModeChanged(McpOpsWriteMode? value) async {
-    if (value == null || value == _writeMode) {
+    if (value == null || value == _writeMode || _saving) {
       return;
     }
     final previous = _writeMode;
@@ -3692,6 +3692,34 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
       _writeMode = value;
       _writeModeSelectorRevision += 1;
       _configMessage = null;
+    });
+    unawaited(_applyWriteModeImmediately(value));
+  }
+
+  Future<void> _applyWriteModeImmediately(McpOpsWriteMode mode) async {
+    final controller = context.read<McpController>();
+    setState(() => _saving = true);
+    final ok = await controller.saveOpsConfig(
+      controller.opsConfig.copyWith(writeMode: mode),
+    );
+    if (!mounted) {
+      return;
+    }
+    if (_writeMode != mode) {
+      setState(() => _saving = false);
+      return;
+    }
+    setState(() {
+      _saving = false;
+      if (ok) {
+        _lastAppliedConfig = controller.opsConfig;
+      } else {
+        _writeMode = controller.opsConfig.writeMode;
+        _writeModeSelectorRevision += 1;
+      }
+      _configMessage = ok
+          ? _localizedText(context, zh: '写调用策略已生效', en: 'Write policy applied')
+          : _localizedText(context, zh: '写调用策略保存失败', en: 'Write policy failed');
     });
   }
 
@@ -8384,10 +8412,8 @@ class _McpOpsAuditDetailDialog extends StatelessWidget {
                           en: 'Peer & Environment',
                         ),
                         rows: {
-                          _localizedText(context, zh: '请求时间', en: 'Time'): entry
-                              .timestamp
-                              .toLocal()
-                              .toIso8601String(),
+                          _localizedText(context, zh: '请求时间', en: 'Time'):
+                              formatYearMonthDayHms(entry.timestamp.toLocal()),
                           _localizedText(context, zh: '来源客户端', en: 'Client'):
                               entry.clientName,
                           _localizedText(context, zh: '来源地址', en: 'Peer'):
@@ -8422,8 +8448,7 @@ class _McpOpsAuditDetailDialog extends StatelessWidget {
                         ),
                       ],
                       const SizedBox(height: _mcpOpsGridGap),
-                      _McpOpsDetailText(
-                        icon: Icons.data_object_rounded,
+                      _McpOpsStructuredPayload(
                         title: _localizedText(
                           context,
                           zh: '请求参数',
@@ -8442,7 +8467,7 @@ class _McpOpsAuditDetailDialog extends StatelessWidget {
                         text: entry.requestSummary,
                       ),
                       const SizedBox(height: _mcpOpsGridGap),
-                      _McpOpsDetailText(
+                      _McpOpsStructuredPayload(
                         icon: Icons.subject_rounded,
                         title: _localizedText(
                           context,
@@ -8498,7 +8523,7 @@ class _McpOpsAuditDetailDialog extends StatelessWidget {
               ),
               const SizedBox(height: 3),
               _McpOpsCopyText(
-                '${_mcpOpsAuditKindLabel(context, entry.kind)} · ${_mcpOpsAuditStatusLabel(context, entry.status)} · ${formatMonthDayHms(entry.timestamp.toLocal())}',
+                '${_mcpOpsAuditKindLabel(context, entry.kind)} · ${_mcpOpsAuditStatusLabel(context, entry.status)} · ${formatYearMonthDayHms(entry.timestamp.toLocal())}',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: theme.textTheme.bodySmall?.copyWith(
@@ -8617,6 +8642,449 @@ class _McpOpsDetailText extends StatelessWidget {
       ),
     );
   }
+}
+
+class _McpOpsStructuredPayload extends StatelessWidget {
+  const _McpOpsStructuredPayload({
+    required this.title,
+    required this.text,
+    this.icon = Icons.data_object_rounded,
+  });
+
+  final String title;
+  final String text;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final parsed = _parseMcpOpsPayload(text);
+    final accent = cs.primary;
+    return _McpOpsPanel(
+      icon: icon,
+      title: title,
+      child: AnimatedSwitcher(
+        duration: _mcpMotionDuration(
+          context,
+          const Duration(milliseconds: 180),
+        ),
+        switchInCurve: Curves.easeOutCubic,
+        switchOutCurve: Curves.easeInCubic,
+        child: parsed.isEmpty
+            ? Container(
+                key: const ValueKey<String>('mcp-ops-payload-empty'),
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: cs.surfaceContainerHighest.withValues(alpha: 0.36),
+                  borderRadius: BorderRadius.circular(_mcpOpsControlRadius),
+                  border: Border.all(
+                    color: cs.outlineVariant.withValues(alpha: 0.48),
+                  ),
+                ),
+                child: Text(
+                  _localizedText(
+                    context,
+                    zh: '未捕获内容',
+                    en: 'No payload captured',
+                  ),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: cs.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              )
+            : _McpOpsStructuredNode(
+                key: ValueKey<String>(
+                  'mcp-ops-payload-${parsed.structured}-${parsed.raw.hashCode}',
+                ),
+                value: parsed.value,
+                raw: parsed.raw,
+                structured: parsed.structured,
+                accent: accent,
+              ),
+      ),
+    );
+  }
+}
+
+class _McpOpsStructuredNode extends StatelessWidget {
+  const _McpOpsStructuredNode({
+    required this.value,
+    required this.raw,
+    required this.structured,
+    required this.accent,
+    this.depth = 0,
+    this.semanticKey = '',
+    super.key,
+  });
+
+  final Object? value;
+  final String raw;
+  final bool structured;
+  final Color accent;
+  final int depth;
+  final String semanticKey;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!structured) {
+      return _McpOpsScalarPayload(
+        value: raw,
+        accent: accent,
+        semanticKey: semanticKey,
+      );
+    }
+    final current = value;
+    if (current is Map) {
+      final entries = current.entries
+          .where((entry) => '${entry.key}'.trim().isNotEmpty)
+          .toList(growable: false);
+      if (entries.isEmpty) {
+        return _McpOpsScalarPayload(
+          value: '{}',
+          accent: accent,
+          semanticKey: semanticKey,
+        );
+      }
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (final entry in entries.indexed)
+            Padding(
+              padding: EdgeInsets.only(
+                bottom: entry.$1 == entries.length - 1 ? 0 : 10,
+              ),
+              child: _McpOpsStructuredField(
+                label: '${entry.$2.key}',
+                value: entry.$2.value,
+                accent: accent,
+                depth: depth,
+              ),
+            ),
+        ],
+      );
+    }
+    if (current is List) {
+      if (current.isEmpty) {
+        return _McpOpsScalarPayload(
+          value: '[]',
+          accent: accent,
+          semanticKey: semanticKey,
+        );
+      }
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (final item in current.indexed)
+            Padding(
+              padding: EdgeInsets.only(
+                bottom: item.$1 == current.length - 1 ? 0 : 10,
+              ),
+              child: _McpOpsStructuredField(
+                label: '#${item.$1 + 1}',
+                value: item.$2,
+                accent: accent,
+                depth: depth,
+              ),
+            ),
+        ],
+      );
+    }
+    return _McpOpsScalarPayload(
+      value: current,
+      accent: accent,
+      semanticKey: semanticKey,
+    );
+  }
+}
+
+class _McpOpsStructuredField extends StatelessWidget {
+  const _McpOpsStructuredField({
+    required this.label,
+    required this.value,
+    required this.accent,
+    required this.depth,
+  });
+
+  final String label;
+  final Object? value;
+  final Color accent;
+  final int depth;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final child = _McpOpsStructuredNode(
+      value: value,
+      raw: _mcpOpsPayloadScalarText(value),
+      structured: value is Map || value is List,
+      accent: accent,
+      depth: depth + 1,
+      semanticKey: label,
+    );
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHighest.withValues(
+          alpha: depth == 0 ? 0.34 : 0.22,
+        ),
+        borderRadius: BorderRadius.circular(_mcpOpsControlRadius),
+        border: Border.all(
+          color: (depth == 0 ? accent : cs.outlineVariant).withValues(
+            alpha: depth == 0 ? 0.18 : 0.38,
+          ),
+        ),
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact =
+              constraints.maxWidth.isFinite && constraints.maxWidth < 620;
+          final labelWidget = _McpOpsPayloadLabel(
+            label: label,
+            value: value,
+            accent: accent,
+          );
+          if (compact) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [labelWidget, const SizedBox(height: 8), child],
+            );
+          }
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(width: 172, child: labelWidget),
+              const SizedBox(width: 12),
+              Expanded(child: child),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _McpOpsPayloadLabel extends StatelessWidget {
+  const _McpOpsPayloadLabel({
+    required this.label,
+    required this.value,
+    required this.accent,
+  });
+
+  final String label;
+  final Object? value;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SelectableText(
+          label,
+          maxLines: 2,
+          style: theme.textTheme.labelLarge?.copyWith(
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: accent.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: accent.withValues(alpha: 0.2)),
+          ),
+          child: Text(
+            _mcpOpsPayloadTypeLabel(context, value),
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: cs.onSurfaceVariant,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _McpOpsScalarPayload extends StatelessWidget {
+  const _McpOpsScalarPayload({
+    required this.value,
+    required this.accent,
+    this.semanticKey = '',
+  });
+
+  final Object? value;
+  final Color accent;
+  final String semanticKey;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final text = _mcpOpsPayloadScalarText(value);
+    final muted = text.trim().isEmpty;
+    final mono = _mcpOpsPayloadPrefersMonospace(semanticKey, text);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: cs.surface.withValues(alpha: 0.58),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: accent.withValues(alpha: 0.12)),
+      ),
+      child: SelectableText(
+        muted ? '—' : text,
+        style: theme.textTheme.bodySmall?.copyWith(
+          fontFamily: mono ? 'monospace' : null,
+          height: mono ? 1.48 : 1.34,
+          color: muted ? cs.onSurfaceVariant : null,
+          fontFeatures: mono ? const [FontFeature.tabularFigures()] : null,
+        ),
+      ),
+    );
+  }
+}
+
+class _McpOpsParsedPayload {
+  const _McpOpsParsedPayload({
+    required this.value,
+    required this.raw,
+    required this.structured,
+  });
+
+  final Object? value;
+  final String raw;
+  final bool structured;
+
+  bool get isEmpty => raw.trim().isEmpty;
+}
+
+_McpOpsParsedPayload _parseMcpOpsPayload(String text) {
+  final raw = text.trim();
+  if (raw.isEmpty) {
+    return const _McpOpsParsedPayload(value: null, raw: '', structured: false);
+  }
+  final decoded = tryDecodeJson(raw);
+  if (decoded is Map || decoded is List) {
+    return _McpOpsParsedPayload(value: decoded, raw: raw, structured: true);
+  }
+  final looseMap = _parseMcpOpsLooseMap(raw);
+  if (looseMap != null && looseMap.isNotEmpty) {
+    return _McpOpsParsedPayload(value: looseMap, raw: raw, structured: true);
+  }
+  final linesMap = _parseMcpOpsKeyValueLines(raw);
+  if (linesMap != null && linesMap.isNotEmpty) {
+    return _McpOpsParsedPayload(value: linesMap, raw: raw, structured: true);
+  }
+  return _McpOpsParsedPayload(value: raw, raw: raw, structured: false);
+}
+
+Map<String, Object?>? _parseMcpOpsKeyValueLines(String text) {
+  final result = <String, Object?>{};
+  String? currentKey;
+  final buffer = StringBuffer();
+
+  void flush() {
+    final key = currentKey;
+    if (key == null) return;
+    result[key] = _coerceMcpOpsPayloadValue(buffer.toString().trimRight());
+    currentKey = null;
+    buffer.clear();
+  }
+
+  for (final line in text.split(RegExp(r'\r?\n'))) {
+    final match = RegExp(
+      r'^([a-z][a-z0-9_.-]{0,64}):(?:\s*(.*))?$',
+    ).firstMatch(line);
+    if (match != null) {
+      flush();
+      currentKey = match.group(1)!.trim();
+      buffer.write(match.group(2) ?? '');
+      continue;
+    }
+    if (currentKey == null) {
+      if (line.trim().isNotEmpty) return null;
+      continue;
+    }
+    if (buffer.isNotEmpty) buffer.writeln();
+    buffer.write(line);
+  }
+  flush();
+  return result.isEmpty ? null : result;
+}
+
+Map<String, Object?>? _parseMcpOpsLooseMap(String text) {
+  if (!text.startsWith('{') || !text.endsWith('}')) {
+    return null;
+  }
+  final inner = text.substring(1, text.length - 1).trim();
+  if (inner.isEmpty) return const <String, Object?>{};
+  final matches = RegExp(
+    r'(?:^|,\s*)([A-Za-z_][A-Za-z0-9_.-]{0,64}):\s*',
+  ).allMatches(inner).toList(growable: false);
+  if (matches.isEmpty) return null;
+  final result = <String, Object?>{};
+  for (var index = 0; index < matches.length; index++) {
+    final match = matches[index];
+    final key = match.group(1)!.trim();
+    final end = index + 1 < matches.length
+        ? matches[index + 1].start
+        : inner.length;
+    var value = inner.substring(match.end, end).trim();
+    if (value.endsWith(',')) {
+      value = value.substring(0, value.length - 1).trimRight();
+    }
+    result[key] = _coerceMcpOpsPayloadValue(value);
+  }
+  return result;
+}
+
+Object? _coerceMcpOpsPayloadValue(String value) {
+  final trimmed = value.trim();
+  if (trimmed.isEmpty) return '';
+  final decoded = tryDecodeJson(trimmed);
+  if (decoded != null) return decoded;
+  final lower = trimmed.toLowerCase();
+  if (lower == 'true') return true;
+  if (lower == 'false') return false;
+  if (lower == 'null') return null;
+  return int.tryParse(trimmed) ?? double.tryParse(trimmed) ?? trimmed;
+}
+
+String _mcpOpsPayloadScalarText(Object? value) {
+  if (value == null) return 'null';
+  if (value is String) return value.trim();
+  if (value is num || value is bool) return '$value';
+  if (value is Map || value is List) return prettyPrintJson(value);
+  return '$value'.trim();
+}
+
+bool _mcpOpsPayloadPrefersMonospace(String key, String value) {
+  final normalizedKey = key.toLowerCase();
+  return normalizedKey.contains('command') ||
+      normalizedKey.contains('path') ||
+      normalizedKey.contains('stdout') ||
+      normalizedKey.contains('stderr') ||
+      normalizedKey.contains('code') ||
+      value.contains('\n') ||
+      value.contains('&&') ||
+      value.contains('://');
+}
+
+String _mcpOpsPayloadTypeLabel(BuildContext context, Object? value) {
+  if (value is Map) return _localizedText(context, zh: '对象', en: 'Object');
+  if (value is List) return _localizedText(context, zh: '列表', en: 'Array');
+  if (value is num) return _localizedText(context, zh: '数值', en: 'Number');
+  if (value is bool) return _localizedText(context, zh: '布尔', en: 'Boolean');
+  if (value == null) return _localizedText(context, zh: '空值', en: 'Null');
+  return _localizedText(context, zh: '文本', en: 'Text');
 }
 
 class _McpOpsApprovalPanel extends StatelessWidget {
