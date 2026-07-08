@@ -1987,6 +1987,7 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
   late Set<McpOpsExposureSurface> _surfaces;
   late Set<String> _hiddenItems;
   late Set<String> _hiddenEndpoints;
+  int _writeModeSelectorRevision = 0;
   bool _saving = false;
   String? _configMessage;
 
@@ -2022,6 +2023,7 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
     _networkMode = config.networkMode;
     _invocationMode = config.invocationMode;
     _writeMode = config.writeMode;
+    _writeModeSelectorRevision += 1;
     _surfaces = Set<McpOpsExposureSurface>.from(config.exposedSurfaces);
     _hiddenItems = Set<String>.from(config.hiddenItemIds);
     _hiddenEndpoints = Set<String>.from(config.hiddenEndpointIds);
@@ -2903,6 +2905,9 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
                       },
                     ),
                     DropdownButtonFormField<McpOpsWriteMode>(
+                      key: ValueKey<String>(
+                        'mcp-ops-write-mode-${_writeMode.name}-$_writeModeSelectorRevision',
+                      ),
                       initialValue: _writeMode,
                       decoration: InputDecoration(
                         labelText: _localizedText(
@@ -2919,9 +2924,7 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
                             child: Text(_writeModeLabel(context, mode)),
                           ),
                       ],
-                      onChanged: (value) {
-                        if (value != null) setState(() => _writeMode = value);
-                      },
+                      onChanged: _handleWriteModeChanged,
                     ),
                   ],
                 ),
@@ -3492,6 +3495,37 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
       _configMessage = result.ok
           ? _localizedText(context, zh: '连通性正常', en: 'Connectivity OK')
           : result.message;
+    });
+  }
+
+  Future<void> _handleWriteModeChanged(McpOpsWriteMode? value) async {
+    if (value == null || value == _writeMode) {
+      return;
+    }
+    final previous = _writeMode;
+    if (value == McpOpsWriteMode.fullAccess &&
+        previous != McpOpsWriteMode.fullAccess) {
+      final confirmed = await showOpenHandFullAccessConfirmationDialog(
+        context: context,
+      );
+      if (!mounted) return;
+      if (!confirmed) {
+        setState(() {
+          _writeModeSelectorRevision += 1;
+          _configMessage = _localizedText(
+            context,
+            zh: '已取消启用完全访问',
+            en: 'Full Access was not enabled',
+          );
+        });
+        return;
+      }
+    }
+    if (!mounted) return;
+    setState(() {
+      _writeMode = value;
+      _writeModeSelectorRevision += 1;
+      _configMessage = null;
     });
   }
 

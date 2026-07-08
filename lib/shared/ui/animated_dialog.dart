@@ -7,6 +7,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
 import '../../app/model/dialog_animation_settings.dart';
+import '../util/localized_text.dart';
 import 'bounded_animation.dart';
 import 'motion_preference.dart';
 import 'openhand_dialog_action_button.dart';
@@ -347,6 +348,31 @@ Future<bool> showOpenHandConfirmDialog({
     ),
   );
   return confirmed == true;
+}
+
+Future<bool> showOpenHandFullAccessConfirmationDialog({
+  required BuildContext context,
+}) {
+  return showOpenHandConfirmDialog(
+    context: context,
+    title: openHandLocalizedText(
+      context,
+      zh: '启用完全访问权限？',
+      en: 'Enable Full Access?',
+    ),
+    message: openHandLocalizedText(
+      context,
+      zh: '在完全访问权限模式下，OpenHand 可无需审批直接编辑计算机上的任意文件并运行网络命令。\n\n启用完全访问权限前请谨慎评估。此操作将显著增加数据丢失、泄露或异常行为的风险。',
+      en: 'With Full Access enabled, OpenHand can edit any file and run commands without requiring your explicit approval.\n\nPlease evaluate carefully before enabling. This action significantly increases the risk of data loss, leakage, or unexpected behavior.',
+    ),
+    cancelLabel: openHandLocalizedText(context, zh: '取消', en: 'Cancel'),
+    confirmLabel: openHandLocalizedText(
+      context,
+      zh: '是，仍然继续',
+      en: 'Yes, Continue',
+    ),
+    destructive: true,
+  );
 }
 
 Future<String?> showOpenHandTextInputDialog({

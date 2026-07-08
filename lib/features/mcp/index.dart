@@ -15,6 +15,8 @@ export 'service/mcp_stdio_process_manager.dart';
 export 'service/mcp_tool_discovery_service.dart';
 export 'service/tool_search_history_export_prefs.dart';
 export 'service/tool_search_replay_dispatcher.dart';
+export 'widgets/mcp_ops_approval_dialog.dart'
+    show showMcpOpsWriteApprovalDialog;
 export 'widgets/mcp_view.dart' show McpView;
 export 'widgets/tool_search_loaded_dialog.dart'
     show ToolSearchLoadedDialog, showToolSearchLoadedDialog;
