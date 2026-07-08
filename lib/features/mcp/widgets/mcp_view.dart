@@ -3875,12 +3875,7 @@ class _McpOpsConsoleHeader extends StatelessWidget {
               statusColor: statusColor,
               endpointUri: endpointUri,
             );
-            final actions = _McpOpsHeaderTopActions(
-              onCopyEndpoint: onCopyEndpoint,
-              onCopyCursorConfig: onCopyCursorConfig,
-              onCleanupData: onCleanupData,
-              onClose: onClose,
-            );
+            final actions = _McpOpsHeaderTopActions(onClose: onClose);
             if (compact) {
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -3983,6 +3978,9 @@ class _McpOpsConsoleHeader extends StatelessWidget {
           onStart: onStart,
           onRestart: onRestart,
           onStop: onStop,
+          onCopyEndpoint: onCopyEndpoint,
+          onCopyCursorConfig: onCopyCursorConfig,
+          onCleanupData: onCleanupData,
           onResetConfig: onResetConfig,
           onSaveConfig: onSaveConfig,
           onClose: onClose,
@@ -4058,16 +4056,8 @@ class _McpOpsHeaderIdentity extends StatelessWidget {
 }
 
 class _McpOpsHeaderTopActions extends StatelessWidget {
-  const _McpOpsHeaderTopActions({
-    required this.onCopyEndpoint,
-    required this.onCopyCursorConfig,
-    required this.onCleanupData,
-    required this.onClose,
-  });
+  const _McpOpsHeaderTopActions({required this.onClose});
 
-  final VoidCallback onCopyEndpoint;
-  final VoidCallback onCopyCursorConfig;
-  final VoidCallback onCleanupData;
   final VoidCallback onClose;
 
   @override
@@ -4078,31 +4068,12 @@ class _McpOpsHeaderTopActions extends StatelessWidget {
       alignment: WrapAlignment.end,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        _McpOpsIconButton(
-          icon: Icons.copy_rounded,
-          tooltip: _localizedText(context, zh: '复制入口', en: 'Copy endpoint'),
-          onPressed: onCopyEndpoint,
-        ),
-        _McpOpsIconButton(
-          icon: Icons.integration_instructions_rounded,
-          tooltip: _localizedText(
-            context,
-            zh: '复制 Cursor 配置',
-            en: 'Copy Cursor config',
-          ),
-          onPressed: onCopyCursorConfig,
-        ),
+        const _McpOpsHeaderTabButtons(),
         _McpOpsIconButton(
           icon: Icons.close_rounded,
           tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
           onPressed: onClose,
         ),
-        _McpOpsIconButton(
-          icon: Icons.cleaning_services_outlined,
-          tooltip: _localizedText(context, zh: '清理运维数据', en: 'Clean ops data'),
-          onPressed: onCleanupData,
-        ),
-        const _McpOpsHeaderTabButtons(),
       ],
     );
   }
@@ -4256,6 +4227,9 @@ class _McpOpsHeaderControls extends StatelessWidget {
     required this.onStart,
     required this.onRestart,
     required this.onStop,
+    required this.onCopyEndpoint,
+    required this.onCopyCursorConfig,
+    required this.onCleanupData,
     required this.onResetConfig,
     required this.onSaveConfig,
     required this.onClose,
@@ -4269,6 +4243,9 @@ class _McpOpsHeaderControls extends StatelessWidget {
   final VoidCallback onStart;
   final VoidCallback onRestart;
   final VoidCallback onStop;
+  final VoidCallback onCopyEndpoint;
+  final VoidCallback onCopyCursorConfig;
+  final VoidCallback onCleanupData;
   final VoidCallback onResetConfig;
   final VoidCallback onSaveConfig;
   final VoidCallback onClose;
@@ -4304,6 +4281,29 @@ class _McpOpsHeaderControls extends StatelessWidget {
               icon: Icons.stop_rounded,
               tooltip: _localizedText(context, zh: '关闭', en: 'Stop'),
               onPressed: canStop ? onStop : null,
+            ),
+            _McpOpsIconButton(
+              icon: Icons.copy_rounded,
+              tooltip: _localizedText(context, zh: '复制入口', en: 'Copy endpoint'),
+              onPressed: onCopyEndpoint,
+            ),
+            _McpOpsIconButton(
+              icon: Icons.integration_instructions_rounded,
+              tooltip: _localizedText(
+                context,
+                zh: '复制 Cursor 配置',
+                en: 'Copy Cursor config',
+              ),
+              onPressed: onCopyCursorConfig,
+            ),
+            _McpOpsIconButton(
+              icon: Icons.cleaning_services_outlined,
+              tooltip: _localizedText(
+                context,
+                zh: '清理运维数据',
+                en: 'Clean ops data',
+              ),
+              onPressed: busy ? null : onCleanupData,
             ),
             AnimatedSwitcher(
               duration: _mcpMotionDuration(

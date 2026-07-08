@@ -138,11 +138,12 @@ class _OpenHandCleanupRangeDialogState
               runSpacing: 8,
               children: [
                 for (final preset in OpenHandCleanupRangePreset.values)
-                  ChoiceChip(
+                  _OpenHandCleanupRangePresetPill(
+                    key: ValueKey<OpenHandCleanupRangePreset>(preset),
                     selected: _preset == preset,
-                    avatar: Icon(_presetIcon(preset), size: 18),
+                    icon: _presetIcon(preset),
                     label: Text(_presetLabel(context, preset)),
-                    onSelected: (_) => setState(() {
+                    onPressed: () => setState(() {
                       _preset = preset;
                       _errorText = null;
                     }),
@@ -277,6 +278,69 @@ class _OpenHandCleanupRangeDialogState
           endUtc: end.toUtc(),
         );
     }
+  }
+}
+
+class _OpenHandCleanupRangePresetPill extends StatelessWidget {
+  const _OpenHandCleanupRangePresetPill({
+    super.key,
+    required this.selected,
+    required this.icon,
+    required this.label,
+    required this.onPressed,
+  });
+
+  final bool selected;
+  final IconData icon;
+  final Widget label;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final foreground = selected ? cs.onPrimaryContainer : cs.onSurfaceVariant;
+    final background = selected
+        ? cs.primaryContainer.withValues(alpha: 0.78)
+        : cs.surfaceContainerHighest.withValues(alpha: 0.52);
+    final borderColor = selected
+        ? cs.primary.withValues(alpha: 0.42)
+        : cs.outlineVariant.withValues(alpha: 0.78);
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(999),
+        hoverColor: cs.primary.withValues(alpha: 0.08),
+        splashColor: cs.primary.withValues(alpha: 0.10),
+        highlightColor: cs.primary.withValues(alpha: 0.05),
+        onTap: onPressed,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOutCubic,
+          constraints: const BoxConstraints(minHeight: 42),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: background,
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: borderColor),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 18, color: foreground),
+              const SizedBox(width: 8),
+              DefaultTextStyle.merge(
+                style: theme.textTheme.labelLarge?.copyWith(
+                  color: foreground,
+                  fontWeight: FontWeight.w900,
+                ),
+                child: label,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 

@@ -4026,9 +4026,9 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                   action: widget.controller.hotFix,
                 ),
                 onHealthCheck: _runOpsHealthCheck,
-                onCleanExpired: () => _runCleanup(
-                  label: expiredResourcesLabel,
-                  action: widget.controller.cleanupExpiredArtifacts,
+                onCleanExpired: () => _confirmAndCleanupExpiredResources(
+                  expiredResourcesLabel: expiredResourcesLabel,
+                  opsCacheLabel: opsCacheLabel,
                 ),
                 onClearLogs: () => _confirmAndCleanup(
                   title: openHandLocalizedText(
@@ -5107,6 +5107,88 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
             fr: 'Échec du nettoyage du cache : $error',
             de: 'Cache-Bereinigung fehlgeschlagen: $error',
             ja: 'キャッシュのクリーンアップに失敗しました: $error',
+          ),
+          maxLines: 2,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isCleaning = false);
+    }
+  }
+
+  Future<void> _confirmAndCleanupExpiredResources({
+    required String expiredResourcesLabel,
+    required String opsCacheLabel,
+  }) async {
+    final range = await showOpenHandDataCleanupRangeDialog(
+      context: context,
+      title: openHandLocalizedText(
+        context,
+        zh: '清理 Web 过期资源',
+        zhHant: '清理 Web 過期資源',
+        en: 'Clean expired web resources',
+        fr: 'Nettoyer les ressources web expirées',
+        de: 'Abgelaufene Webressourcen bereinigen',
+        ja: '期限切れWebリソースを清理',
+      ),
+      description: openHandLocalizedText(
+        context,
+        zh: '会按保留策略清理 Web 服务过期日志与上传资源，并按所选时间范围清理本地持久化的 Web 运维、监控与日志回溯数据。',
+        zhHant: '會依保留策略清理 Web 服務過期日誌與上傳資源，並依所選時間範圍清理本地持久化的 Web 維運、監控與日誌回溯資料。',
+        en: 'Applies the retention policy to expired web logs and uploads, and removes locally persisted web operations metrics, monitoring snapshots and log history in the selected range.',
+        fr: 'Applique la rétention aux journaux et envois expirés, puis supprime les métriques, instantanés et journaux persistés dans la période choisie.',
+        de: 'Wendet die Aufbewahrungsregel auf abgelaufene Webprotokolle und Uploads an und entfernt lokal gespeicherte Betriebsmetriken, Monitoring-Snapshots und Protokolle im gewählten Zeitraum.',
+        ja: '保持ポリシーに従って期限切れのWebログとアップロードを削除し、選択範囲の運用メトリクス、監視スナップショット、ログ履歴を削除します。',
+      ),
+    );
+    if (range == null || !mounted || _isCleaning) return;
+    setState(() => _isCleaning = true);
+    try {
+      final expiredResult = await widget.controller.cleanupExpiredArtifacts();
+      final opsResult = await widget.controller.cleanupOpsCache(
+        startUtc: range.startUtc,
+        endUtc: range.endUtc,
+      );
+      if (!mounted) return;
+      final freedBytes = expiredResult.bytesFreed + opsResult.bytes;
+      showOpenHandSnackBar(
+        context,
+        OpenHandSnackBar.success(
+          context,
+          openHandLocalizedText(
+            context,
+            zh: '$expiredResourcesLabel / $opsCacheLabel 清理完成，释放 ${_bytes(freedBytes)}，删除 ${expiredResult.deletedFiles} 个文件，清理 ${opsResult.itemCount} 条运维记录',
+            zhHant:
+                '$expiredResourcesLabel / $opsCacheLabel 清理完成，釋放 ${_bytes(freedBytes)}，刪除 ${expiredResult.deletedFiles} 個檔案，清理 ${opsResult.itemCount} 則維運記錄',
+            en: '$expiredResourcesLabel / $opsCacheLabel cleanup completed, freed ${_bytes(freedBytes)}, deleted ${expiredResult.deletedFiles} files, removed ${opsResult.itemCount} ops records',
+            fr: 'Nettoyage $expiredResourcesLabel / $opsCacheLabel terminé, ${_bytes(freedBytes)} libérés, ${expiredResult.deletedFiles} fichiers supprimés, ${opsResult.itemCount} enregistrements supprimés',
+            de: '$expiredResourcesLabel / $opsCacheLabel bereinigt, ${_bytes(freedBytes)} freigegeben, ${expiredResult.deletedFiles} Dateien gelöscht, ${opsResult.itemCount} Ops-Einträge entfernt',
+            ja: '$expiredResourcesLabel / $opsCacheLabel のクリーンアップが完了しました。${_bytes(freedBytes)} 解放、${expiredResult.deletedFiles} ファイル削除、${opsResult.itemCount} 件削除',
+          ),
+          maxLines: 2,
+        ),
+      );
+      final persisted = widget.controller.persistedRuntimeSnapshots;
+      setState(() {
+        _trend
+          ..clear()
+          ..addAll(persisted.skip(math.max(0, persisted.length - _trendLimit)));
+      });
+      await _tick();
+    } catch (error) {
+      if (!mounted) return;
+      showOpenHandSnackBar(
+        context,
+        OpenHandSnackBar.error(
+          context,
+          openHandLocalizedText(
+            context,
+            zh: '过期资源清理失败: $error',
+            zhHant: '過期資源清理失敗: $error',
+            en: 'Expired resource cleanup failed: $error',
+            fr: 'Échec du nettoyage des ressources expirées : $error',
+            de: 'Bereinigung abgelaufener Ressourcen fehlgeschlagen: $error',
+            ja: '期限切れリソースのクリーンアップに失敗しました: $error',
           ),
           maxLines: 2,
         ),
