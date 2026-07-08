@@ -84,6 +84,7 @@ class McpServerOpsRuntime {
   HttpServer? _server;
   McpOpsConfig _config = const McpOpsConfig();
   McpOpsRuntimeSnapshot _snapshot = const McpOpsRuntimeSnapshot();
+  Future<void>? _lifecycleTask;
   final List<DateTime> _requestTimes = <DateTime>[];
   final List<int> _latencies = <int>[];
   int _activeRequests = 0;
@@ -179,8 +180,19 @@ class McpServerOpsRuntime {
     );
   }
 
-  Future<void> start(McpOpsConfig config) async {
-    if (_server != null) return;
+  Future<void> start(McpOpsConfig config) {
+    return _runLifecycleLocked(() => _startUnlocked(config));
+  }
+
+  Future<void> _startUnlocked(McpOpsConfig config) async {
+    if (_server != null) {
+      _config = config;
+      if (_listenerMatches(config)) {
+        return;
+      }
+      await _restartUnlocked(config);
+      return;
+    }
     _config = config;
     _setSnapshot(
       _snapshot.copyWith(
@@ -202,7 +214,7 @@ class McpServerOpsRuntime {
           .addHandler(router.call);
       _server = await shelf_io.serve(
         handler,
-        config.listenHost,
+        mcpOpsListenAddress(config.listenHost),
         config.listenPort,
       );
       final bound = _server!;
@@ -229,7 +241,11 @@ class McpServerOpsRuntime {
     }
   }
 
-  Future<void> stop() async {
+  Future<void> stop() {
+    return _runLifecycleLocked(_stopUnlocked);
+  }
+
+  Future<void> _stopUnlocked() async {
     final server = _server;
     if (server == null) {
       _setSnapshot(
@@ -261,16 +277,54 @@ class McpServerOpsRuntime {
     }
   }
 
-  Future<void> restart(McpOpsConfig config) async {
+  Future<void> restart(McpOpsConfig config) {
+    return _runLifecycleLocked(() => _restartUnlocked(config));
+  }
+
+  Future<void> _restartUnlocked(McpOpsConfig config) async {
     _setSnapshot(
       _snapshot.copyWith(lifecycle: McpOpsLifecycleState.restarting),
     );
-    await stop();
-    await start(config);
+    await _stopUnlocked();
+    await _startUnlocked(config);
   }
 
   void updateConfig(McpOpsConfig config) {
     _config = config;
+  }
+
+  bool _listenerMatches(McpOpsConfig config) {
+    final boundPort = _snapshot.boundPort;
+    if (boundPort == null || boundPort != config.listenPort) {
+      return false;
+    }
+    final boundHost = _snapshot.boundHost ?? _config.listenHost;
+    return _normalizeListenHostForCompare(boundHost) ==
+        _normalizeListenHostForCompare(config.listenHost);
+  }
+
+  String _normalizeListenHostForCompare(String host) {
+    final normalized = host.trim().toLowerCase();
+    if (mcpOpsIsWildcardHost(normalized)) return '*';
+    return normalized;
+  }
+
+  Future<void> _runLifecycleLocked(Future<void> Function() action) async {
+    while (_lifecycleTask != null) {
+      await _lifecycleTask;
+    }
+    final completer = Completer<void>();
+    _lifecycleTask = completer.future;
+    try {
+      await action();
+    } finally {
+      if (identical(_lifecycleTask, completer.future)) {
+        _lifecycleTask = null;
+      }
+      if (!completer.isCompleted) {
+        completer.complete();
+      }
+    }
   }
 
   Future<McpOpsConnectivityResult> testConnectivity() async {

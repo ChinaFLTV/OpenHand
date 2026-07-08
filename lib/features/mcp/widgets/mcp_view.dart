@@ -1829,6 +1829,7 @@ const double _mcpOpsMetricWideBreakpoint = 860;
 const double _mcpOpsMetricMediumBreakpoint = 560;
 const int _mcpOpsExposureInitialLimit = 14;
 const int _mcpOpsExposurePageSize = 18;
+const Duration _mcpOpsEndpointDiscoveryDebounce = Duration(milliseconds: 320);
 const Color _mcpOpsTerminalBackground = Color(0xFF0B0D10);
 const List<String> _mcpOpsSchemaEditableTypes = <String>[
   'string',
@@ -1988,6 +1989,10 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
   late Set<String> _hiddenItems;
   late Set<String> _hiddenEndpoints;
   late McpOpsConfig _lastAppliedConfig;
+  Timer? _endpointDiscoveryTimer;
+  List<String> _advertisedHosts = const <String>[];
+  int _endpointDiscoveryRevision = 0;
+  bool _mutingEndpointInputListeners = false;
   int _writeModeSelectorRevision = 0;
   bool _hydratingConfig = false;
   bool _saving = false;
@@ -2021,6 +2026,8 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
       text: config.allowedTimeWindows.join('\n'),
     );
     _exposureSearchController = TextEditingController();
+    _hostController.addListener(_handleEndpointInputChanged);
+    _portController.addListener(_handleEndpointInputChanged);
     _autoStart = config.autoStart;
     _requireAuthToken = config.requireAuthToken;
     _capturePayload = config.capturePayload;
@@ -2033,10 +2040,14 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
     _hiddenEndpoints = Set<String>.from(config.hiddenEndpointIds);
     _lastAppliedConfig = config;
     unawaited(_hydrateOpsConfigFromDisk());
+    unawaited(_refreshAdvertisedHosts());
   }
 
   @override
   void dispose() {
+    _endpointDiscoveryTimer?.cancel();
+    _hostController.removeListener(_handleEndpointInputChanged);
+    _portController.removeListener(_handleEndpointInputChanged);
     for (final controller in [
       _hostController,
       _portController,
@@ -2054,6 +2065,37 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
       controller.dispose();
     }
     super.dispose();
+  }
+
+  void _handleEndpointInputChanged() {
+    if (!mounted) return;
+    if (_mutingEndpointInputListeners) return;
+    _endpointDiscoveryTimer?.cancel();
+    _endpointDiscoveryTimer = Timer(
+      _mcpOpsEndpointDiscoveryDebounce,
+      () => unawaited(_refreshAdvertisedHosts()),
+    );
+    setState(() {
+      _configMessage = null;
+    });
+  }
+
+  Future<void> _refreshAdvertisedHosts() async {
+    final revision = ++_endpointDiscoveryRevision;
+    final listenHost = _hostController.text.trim();
+    final hosts = await mcpOpsDiscoverAdvertisedHosts(listenHost);
+    if (!mounted || revision != _endpointDiscoveryRevision) return;
+    setState(() {
+      _advertisedHosts = hosts;
+    });
+  }
+
+  Future<void> _refreshAdvertisedHostsForCopy(McpOpsConfig config) async {
+    if (!mcpOpsIsWildcardHost(config.listenHost) ||
+        _advertisedHosts.isNotEmpty) {
+      return;
+    }
+    await _refreshAdvertisedHosts();
   }
 
   Future<void> _hydrateOpsConfigFromDisk() async {
@@ -2090,9 +2132,15 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
     final controller = context.watch<McpController>();
     final snapshot = controller.opsSnapshot;
     final config = _buildConfig();
-    final endpoint = mcpOpsClientAuthority(snapshot, config);
+    final endpoint = mcpOpsAdvertisedClientAuthority(
+      snapshot,
+      config,
+      discoveredHosts: _advertisedHosts,
+    );
+    final localEndpoint = mcpOpsClientAuthority(snapshot, config);
     final bindEndpoint = mcpOpsBindAuthority(snapshot, config);
     final endpointUri = 'http://$endpoint/mcp';
+    final localEndpointUri = 'http://$localEndpoint/mcp';
     final bindEndpointUri = 'http://$bindEndpoint/mcp';
     return _McpOpsRouteEscapeDismissScope(
       enabled: !_saving,
@@ -2121,12 +2169,12 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
                   _McpOpsConsoleHeader(
                     snapshot: snapshot,
                     endpointUri: endpointUri,
+                    localEndpointUri: localEndpointUri,
                     bindEndpointUri: bindEndpointUri,
+                    discoveredHosts: _advertisedHosts,
                     config: config,
-                    onCopyEndpoint: () =>
-                        _copyOpsEndpoint(context, endpointUri),
-                    onCopyCursorConfig: () =>
-                        _copyCursorConfig(context, endpointUri, config),
+                    onCopyEndpoint: () => _copyCurrentOpsEndpoint(context),
+                    onCopyCursorConfig: () => _copyCurrentCursorConfig(context),
                     onConnectivityTest: () => _testConnectivity(context),
                     onStart: () => _startServer(context),
                     onRestart: () => _restartServer(context),
@@ -2163,6 +2211,29 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
         ),
       ),
     );
+  }
+
+  String _currentEndpointUri() {
+    final controller = context.read<McpController>();
+    final config = _buildConfig();
+    final endpoint = mcpOpsAdvertisedClientAuthority(
+      controller.opsSnapshot,
+      config,
+      discoveredHosts: _advertisedHosts,
+    );
+    return 'http://$endpoint/mcp';
+  }
+
+  Future<void> _copyCurrentOpsEndpoint(BuildContext context) async {
+    await _refreshAdvertisedHostsForCopy(_buildConfig());
+    if (!mounted || !context.mounted) return;
+    await _copyOpsEndpoint(context, _currentEndpointUri());
+  }
+
+  Future<void> _copyCurrentCursorConfig(BuildContext context) async {
+    await _refreshAdvertisedHostsForCopy(_buildConfig());
+    if (!mounted || !context.mounted) return;
+    await _copyCursorConfig(context, _currentEndpointUri(), _buildConfig());
   }
 
   Future<void> _copyOpsEndpoint(
@@ -2386,7 +2457,12 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
       snapshot: snapshot,
       auditEntries: auditEntries,
     );
-    final endpoint = mcpOpsClientAuthority(snapshot, config);
+    final endpoint = mcpOpsAdvertisedClientAuthority(
+      snapshot,
+      config,
+      discoveredHosts: _advertisedHosts,
+    );
+    final localEndpoint = mcpOpsClientAuthority(snapshot, config);
     final bindEndpoint = mcpOpsBindAuthority(snapshot, config);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -2394,7 +2470,9 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
         _McpOpsHeroPanel(
           snapshot: snapshot,
           endpoint: endpoint,
+          localEndpoint: localEndpoint,
           bindEndpoint: bindEndpoint,
+          discoveredHosts: _advertisedHosts,
           config: config,
         ),
         const SizedBox(height: _mcpOpsGridGap),
@@ -2698,8 +2776,8 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
                         prefixIcon: const Icon(Icons.dns_rounded),
                         helperText: _localizedText(
                           context,
-                          zh: '127.0.0.1 仅本机 · 0.0.0.0 允许局域网',
-                          en: '127.0.0.1 loopback · 0.0.0.0 LAN',
+                          zh: '127.0.0.1 仅本机 · 0.0.0.0 监听全部网卡并自动推荐局域网入口',
+                          en: '127.0.0.1 local only · 0.0.0.0 listens on all adapters and advertises a LAN endpoint',
                         ),
                       ),
                     ),
@@ -3679,10 +3757,16 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
     }
     setState(() => _saving = true);
     final controller = context.read<McpController>();
+    final previousConfig = controller.opsConfig;
+    final wasRunning = controller.opsSnapshot.isRunning;
     final ok = await controller.saveOpsConfig(config);
     var actionOk = true;
     if (ok && action != null) {
       actionOk = await action();
+    } else if (ok &&
+        wasRunning &&
+        _mcpOpsListenerChanged(previousConfig, config)) {
+      actionOk = await controller.restartMcpOpsServer();
     }
     if (!mounted) return;
     setState(() {
@@ -3690,8 +3774,22 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
       if (ok && actionOk) {
         _lastAppliedConfig = config;
       }
+      final restarted =
+          action == null &&
+          wasRunning &&
+          _mcpOpsListenerChanged(previousConfig, config);
       _configMessage = ok && actionOk
-          ? _localizedText(context, zh: '配置已生效', en: 'Configuration applied')
+          ? restarted
+                ? _localizedText(
+                    context,
+                    zh: '监听地址已更新，服务已重启',
+                    en: 'Listener updated and server restarted',
+                  )
+                : _localizedText(
+                    context,
+                    zh: '配置已生效',
+                    en: 'Configuration applied',
+                  )
           : _localizedText(context, zh: '配置保存失败', en: 'Configuration failed');
     });
   }
@@ -3741,8 +3839,11 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
   }
 
   void _applyConfigToForm(McpOpsConfig config) {
+    _mutingEndpointInputListeners = true;
     _hostController.text = config.listenHost;
     _portController.text = '${config.listenPort}';
+    _mutingEndpointInputListeners = false;
+    unawaited(_refreshAdvertisedHosts());
     _rpmController.text = '${config.rpmLimit}';
     _thresholdController.text = '${config.callThreshold}';
     _timeoutController.text = '${config.timeoutMs}';
@@ -3816,6 +3917,12 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
 
   bool _sameMcpOpsConfig(McpOpsConfig left, McpOpsConfig right) {
     return jsonEncode(left.toJson()) == jsonEncode(right.toJson());
+  }
+
+  bool _mcpOpsListenerChanged(McpOpsConfig left, McpOpsConfig right) {
+    return left.listenPort != right.listenPort ||
+        left.listenHost.trim().toLowerCase() !=
+            right.listenHost.trim().toLowerCase();
   }
 
   void _showAuditDetails(BuildContext context, McpOpsAuditEntry entry) {
@@ -3939,7 +4046,9 @@ class _McpOpsConsoleHeader extends StatelessWidget {
   const _McpOpsConsoleHeader({
     required this.snapshot,
     required this.endpointUri,
+    required this.localEndpointUri,
     required this.bindEndpointUri,
+    required this.discoveredHosts,
     required this.config,
     required this.onCopyEndpoint,
     required this.onCopyCursorConfig,
@@ -3957,7 +4066,9 @@ class _McpOpsConsoleHeader extends StatelessWidget {
 
   final McpOpsRuntimeSnapshot snapshot;
   final String endpointUri;
+  final String localEndpointUri;
   final String bindEndpointUri;
+  final List<String> discoveredHosts;
   final McpOpsConfig config;
   final VoidCallback onCopyEndpoint;
   final VoidCallback onCopyCursorConfig;
@@ -3993,6 +4104,8 @@ class _McpOpsConsoleHeader extends StatelessWidget {
             snapshot.lifecycle == McpOpsLifecycleState.starting ||
             snapshot.lifecycle == McpOpsLifecycleState.restarting);
     final showsBindEndpoint = bindEndpointUri != endpointUri;
+    final showsLocalEndpoint = localEndpointUri != endpointUri;
+    final wildcardListen = mcpOpsIsWildcardHost(config.listenHost);
     final configMessageText = configMessage?.trim() ?? '';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -4040,10 +4153,27 @@ class _McpOpsConsoleHeader extends StatelessWidget {
             ),
             _McpOpsStatusChip(
               icon: Icons.link_rounded,
-              label: endpointUri,
+              label: showsLocalEndpoint
+                  ? _localizedText(
+                      context,
+                      zh: '对外 $endpointUri',
+                      en: 'External $endpointUri',
+                    )
+                  : endpointUri,
               color: cs.primary,
               monospace: true,
             ),
+            if (showsLocalEndpoint)
+              _McpOpsStatusChip(
+                icon: Icons.home_rounded,
+                label: _localizedText(
+                  context,
+                  zh: '本机 $localEndpointUri',
+                  en: 'Local $localEndpointUri',
+                ),
+                color: cs.tertiary,
+                monospace: true,
+              ),
             if (showsBindEndpoint)
               _McpOpsStatusChip(
                 icon: Icons.settings_ethernet_rounded,
@@ -4054,6 +4184,16 @@ class _McpOpsConsoleHeader extends StatelessWidget {
                 ),
                 color: cs.onSurfaceVariant,
                 monospace: true,
+              ),
+            if (wildcardListen && discoveredHosts.isEmpty)
+              _McpOpsStatusChip(
+                icon: Icons.warning_amber_rounded,
+                label: _localizedText(
+                  context,
+                  zh: '未发现局域网地址',
+                  en: 'No LAN address detected',
+                ),
+                color: Colors.amber.shade700,
               ),
             _McpOpsStatusChip(
               icon: Icons.speed_rounded,
@@ -4889,13 +5029,17 @@ class _McpOpsHeroPanel extends StatelessWidget {
   const _McpOpsHeroPanel({
     required this.snapshot,
     required this.endpoint,
+    required this.localEndpoint,
     required this.bindEndpoint,
+    required this.discoveredHosts,
     required this.config,
   });
 
   final McpOpsRuntimeSnapshot snapshot;
   final String endpoint;
+  final String localEndpoint;
   final String bindEndpoint;
+  final List<String> discoveredHosts;
   final McpOpsConfig config;
 
   @override
@@ -4909,8 +5053,11 @@ class _McpOpsHeroPanel extends StatelessWidget {
         ? cs.error
         : cs.primary;
     final endpointUri = 'http://$endpoint/mcp';
+    final localEndpointUri = 'http://$localEndpoint/mcp';
     final bindEndpointUri = 'http://$bindEndpoint/mcp';
+    final showsLocalEndpoint = localEndpointUri != endpointUri;
     final showsBindEndpoint = bindEndpoint != endpoint;
+    final wildcardListen = mcpOpsIsWildcardHost(config.listenHost);
     return _McpOpsPanel(
       icon: running ? Icons.cloud_done_rounded : Icons.cloud_queue_rounded,
       title: _localizedText(context, zh: '服务控制台', en: 'Server Console'),
@@ -4931,10 +5078,27 @@ class _McpOpsHeroPanel extends StatelessWidget {
               ),
               _McpOpsStatusChip(
                 icon: Icons.link_rounded,
-                label: endpointUri,
+                label: showsLocalEndpoint
+                    ? _localizedText(
+                        context,
+                        zh: '对外 $endpointUri',
+                        en: 'External $endpointUri',
+                      )
+                    : endpointUri,
                 color: cs.primary,
                 monospace: true,
               ),
+              if (showsLocalEndpoint)
+                _McpOpsStatusChip(
+                  icon: Icons.home_rounded,
+                  label: _localizedText(
+                    context,
+                    zh: '本机 $localEndpointUri',
+                    en: 'Local $localEndpointUri',
+                  ),
+                  color: cs.tertiary,
+                  monospace: true,
+                ),
               if (showsBindEndpoint)
                 _McpOpsStatusChip(
                   icon: Icons.settings_ethernet_rounded,
@@ -4945,6 +5109,16 @@ class _McpOpsHeroPanel extends StatelessWidget {
                   ),
                   color: cs.onSurfaceVariant,
                   monospace: true,
+                ),
+              if (wildcardListen && discoveredHosts.isEmpty)
+                _McpOpsStatusChip(
+                  icon: Icons.warning_amber_rounded,
+                  label: _localizedText(
+                    context,
+                    zh: '未发现局域网地址',
+                    en: 'No LAN address detected',
+                  ),
+                  color: Colors.amber.shade700,
                 ),
               _McpOpsStatusChip(
                 icon: Icons.schedule_rounded,
@@ -4972,6 +5146,7 @@ class _McpOpsHeroPanel extends StatelessWidget {
           _McpOpsRuntimeTerminal(
             snapshot: snapshot,
             endpointUri: endpointUri,
+            localEndpointUri: localEndpointUri,
             bindEndpointUri: bindEndpointUri,
             config: config,
           ),
@@ -5005,12 +5180,14 @@ class _McpOpsRuntimeTerminal extends StatelessWidget {
   const _McpOpsRuntimeTerminal({
     required this.snapshot,
     required this.endpointUri,
+    required this.localEndpointUri,
     required this.bindEndpointUri,
     required this.config,
   });
 
   final McpOpsRuntimeSnapshot snapshot;
   final String endpointUri;
+  final String localEndpointUri;
   final String bindEndpointUri;
   final McpOpsConfig config;
 
@@ -5053,11 +5230,19 @@ class _McpOpsRuntimeTerminal extends StatelessWidget {
                 promptColor: promptColor,
                 commandColor: commandColor,
               ),
+              if (localEndpointUri != endpointUri)
+                _McpOpsConsoleLine(
+                  prompt: 'local',
+                  command: localEndpointUri,
+                  detail: 'same-machine clients',
+                  promptColor: promptColor,
+                  commandColor: commandColor,
+                ),
               if (bindEndpointUri != endpointUri)
                 _McpOpsConsoleLine(
                   prompt: 'bind',
                   command: bindEndpointUri,
-                  detail: 'client endpoint uses loopback for wildcard bind',
+                  detail: 'listen socket',
                   promptColor: promptColor,
                   commandColor: commandColor,
                 ),

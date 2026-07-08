@@ -8,7 +8,9 @@ import '../model/mcp_server_ops.dart';
 /// 识别工具集合。UI 展示、连通性自检、以及「禁止把本机 MCP 运维入口添加回
 /// MCP 列表」的甄别逻辑都复用这里，避免 host 归一化规则散落各处漂移。
 ///
-/// 纯函数、无 Flutter 依赖：可被 controller / widget / runtime 共同引用。
+/// 无 Flutter 依赖：可被 controller / widget / runtime 共同引用。
+const String mcpOpsWildcardIpv4Host = '0.0.0.0';
+const String mcpOpsWildcardIpv6Host = '::';
 
 /// 运维入口实际生效的端口：优先取已绑定端口，未启动时回落到配置端口。
 int mcpOpsEffectivePort(McpOpsRuntimeSnapshot snapshot, McpOpsConfig config) {
@@ -26,16 +28,89 @@ String mcpOpsRawEndpointHost(
   return host.isEmpty ? mcpOpsDefaultListenHost : host;
 }
 
-/// 把通配监听地址（0.0.0.0 / ::）映射为客户端可直接拨号的回环地址。
+/// 当前监听 host 是否为通配地址。
+bool mcpOpsIsWildcardHost(String host) {
+  final normalized = _stripIpv6Brackets(host).trim().toLowerCase();
+  return normalized.isEmpty ||
+      normalized == '*' ||
+      normalized == mcpOpsWildcardIpv4Host ||
+      normalized == mcpOpsWildcardIpv6Host;
+}
+
+/// 传给 `HttpServer.bind` 的地址对象。通配地址显式使用 Dart 的 any 地址，
+/// 避免平台对字符串型 0.0.0.0 / :: 的解析差异。
+Object mcpOpsListenAddress(String host) {
+  final normalized = _stripIpv6Brackets(host).trim();
+  if (normalized == '*' || normalized == mcpOpsWildcardIpv4Host) {
+    return InternetAddress.anyIPv4;
+  }
+  if (normalized == mcpOpsWildcardIpv6Host) {
+    return InternetAddress.anyIPv6;
+  }
+  return normalized.isEmpty ? mcpOpsDefaultListenHost : normalized;
+}
+
+/// 把通配监听地址（0.0.0.0 / ::）映射为本机自检可直接拨号的回环地址。
 String mcpOpsClientHost(String host) {
   final normalized = host.trim();
-  if (normalized.isEmpty ||
-      normalized == '0.0.0.0' ||
-      normalized == '::' ||
-      normalized == '[::]') {
+  if (mcpOpsIsWildcardHost(normalized)) {
     return mcpOpsDefaultListenHost;
   }
   return normalized;
+}
+
+/// 通配监听时，对外给 Cursor / Claude Desktop 等其他客户端使用的主机。
+/// 若能发现局域网地址，优先返回局域网地址；否则退回到本机回环，保证本机
+/// 客户端和自检仍然可用。
+String mcpOpsAdvertisedClientHost(
+  String host, {
+  List<String> discoveredHosts = const <String>[],
+}) {
+  final normalized = host.trim();
+  if (!mcpOpsIsWildcardHost(normalized)) {
+    return mcpOpsClientHost(normalized);
+  }
+  for (final candidate in discoveredHosts) {
+    final clean = _stripIpv6Brackets(candidate).trim();
+    if (clean.isEmpty) continue;
+    final address = InternetAddress.tryParse(clean);
+    if (address == null ||
+        (!address.isLoopback && !_isUnspecifiedAddress(address))) {
+      return clean;
+    }
+  }
+  return mcpOpsDefaultListenHost;
+}
+
+/// 发现适合对外展示的本机地址。只在通配监听时使用；优先 IPv4 局域网地址，
+/// 跳过回环、通配和链路本地地址，避免把 127.0.0.1 错复制给远端客户端。
+Future<List<String>> mcpOpsDiscoverAdvertisedHosts(String listenHost) async {
+  if (!mcpOpsIsWildcardHost(listenHost)) {
+    return const <String>[];
+  }
+  try {
+    final interfaces = await NetworkInterface.list(
+      type: InternetAddressType.IPv4,
+    );
+    final hosts = <String>{};
+    for (final interface in interfaces) {
+      for (final address in interface.addresses) {
+        if (_isAdvertisableAddress(address)) {
+          hosts.add(address.address);
+        }
+      }
+    }
+    final sorted = hosts.toList(growable: false)
+      ..sort((left, right) {
+        final byPriority = _advertisedHostPriority(
+          left,
+        ).compareTo(_advertisedHostPriority(right));
+        return byPriority == 0 ? left.compareTo(right) : byPriority;
+      });
+    return List<String>.unmodifiable(sorted);
+  } catch (_) {
+    return const <String>[];
+  }
 }
 
 /// 组装 `host:port` authority，IPv6 字面量自动补方括号。
@@ -57,6 +132,21 @@ String mcpOpsClientAuthority(
 ) {
   return mcpOpsAuthority(
     mcpOpsClientHost(mcpOpsRawEndpointHost(snapshot, config)),
+    mcpOpsEffectivePort(snapshot, config),
+  );
+}
+
+/// 外部客户端推荐使用的 authority。通配监听时会使用已发现的局域网地址。
+String mcpOpsAdvertisedClientAuthority(
+  McpOpsRuntimeSnapshot snapshot,
+  McpOpsConfig config, {
+  List<String> discoveredHosts = const <String>[],
+}) {
+  return mcpOpsAuthority(
+    mcpOpsAdvertisedClientHost(
+      mcpOpsRawEndpointHost(snapshot, config),
+      discoveredHosts: discoveredHosts,
+    ),
     mcpOpsEffectivePort(snapshot, config),
   );
 }
@@ -137,6 +227,31 @@ bool _hostReachesLocalOps({required String urlHost, required String opsHost}) {
 
 bool _isUnspecifiedAddress(InternetAddress address) {
   return address.rawAddress.every((byte) => byte == 0);
+}
+
+bool _isAdvertisableAddress(InternetAddress address) {
+  if (address.isLoopback || _isUnspecifiedAddress(address)) return false;
+  if (address.type != InternetAddressType.IPv4) return false;
+  final parts = address.address
+      .split('.')
+      .map((item) => int.tryParse(item) ?? -1)
+      .toList(growable: false);
+  if (parts.length != 4 || parts.any((part) => part < 0 || part > 255)) {
+    return false;
+  }
+  return !(parts[0] == 169 && parts[1] == 254);
+}
+
+int _advertisedHostPriority(String host) {
+  final parts = host
+      .split('.')
+      .map((item) => int.tryParse(item) ?? -1)
+      .toList(growable: false);
+  if (parts.length != 4) return 100;
+  if (parts[0] == 192 && parts[1] == 168) return 0;
+  if (parts[0] == 10) return 1;
+  if (parts[0] == 172 && parts[1] >= 16 && parts[1] <= 31) return 2;
+  return 10;
 }
 
 String _stripIpv6Brackets(String host) {
