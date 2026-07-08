@@ -2006,7 +2006,9 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
       text: '${config.approvalTimeoutMs}',
     );
     _workspaceController = TextEditingController(text: config.workspaceRoot);
-    _authTokenController = TextEditingController(text: config.authToken);
+    _authTokenController = TextEditingController(
+      text: config.requireAuthToken ? config.authToken : '',
+    );
     _allowedClientsController = TextEditingController(
       text: config.allowedClients.join('\n'),
     );
@@ -2297,6 +2299,16 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
     setState(() {
       _workspaceController.clear();
       _configMessage = null;
+    });
+  }
+
+  void _setRequireAuthToken(bool value) {
+    setState(() {
+      _requireAuthToken = value;
+      _configMessage = null;
+      if (!value) {
+        _authTokenController.clear();
+      }
     });
   }
 
@@ -2690,61 +2702,103 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
                 ),
                 child: Column(
                   children: [
-                    TextField(
-                      controller: _authTokenController,
-                      obscureText: true,
-                      enableSuggestions: false,
-                      autocorrect: false,
-                      decoration: InputDecoration(
-                        labelText: _localizedText(
-                          context,
-                          zh: '访问令牌',
-                          en: 'Access Token',
-                        ),
-                        prefixIcon: const Icon(Icons.key_rounded),
-                        helperText: _localizedText(
-                          context,
-                          zh: '写入 Authorization Header，仅限英文、数字与符号',
-                          en: 'Sent via Authorization header; ASCII letters, digits and symbols only',
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Wrap(
-                      spacing: 10,
-                      runSpacing: 10,
+                    _McpOpsResponsiveFields(
                       children: [
-                        _McpOpsSwitchChip(
+                        _McpOpsToggleFormField(
+                          icon: Icons.rocket_launch_rounded,
                           label: _localizedText(
                             context,
-                            zh: '跟随应用启动',
+                            zh: '自启动模式',
                             en: 'Start with app',
+                            zhHant: '自啟動模式',
+                          ),
+                          description: _localizedText(
+                            context,
+                            zh: 'OpenHand 启动完成后自动拉起 MCP 运维服务器。',
+                            en: 'Start the MCP ops server after OpenHand is ready.',
                           ),
                           value: _autoStart,
                           onChanged: (value) =>
                               setState(() => _autoStart = value),
                         ),
-                        _McpOpsSwitchChip(
+                        _McpOpsToggleFormField(
+                          icon: Icons.lock_rounded,
                           label: _localizedText(
                             context,
-                            zh: '令牌校验',
+                            zh: '是否鉴权',
                             en: 'Token Auth',
+                            zhHant: '是否鑑權',
+                          ),
+                          description: _localizedText(
+                            context,
+                            zh: '要求所有请求携带 Bearer 令牌。',
+                            en: 'Require a Bearer token on every request.',
                           ),
                           value: _requireAuthToken,
-                          onChanged: (value) =>
-                              setState(() => _requireAuthToken = value),
+                          onChanged: _setRequireAuthToken,
                         ),
-                        _McpOpsSwitchChip(
+                        _McpOpsToggleFormField(
+                          icon: Icons.receipt_long_rounded,
                           label: _localizedText(
                             context,
-                            zh: '记录参数',
+                            zh: '是否记录参数',
                             en: 'Capture Payload',
+                            zhHant: '是否記錄參數',
+                          ),
+                          description: _localizedText(
+                            context,
+                            zh: '保存参数预览，便于审计追踪。',
+                            en: 'Keep payload previews for audit review.',
                           ),
                           value: _capturePayload,
                           onChanged: (value) =>
                               setState(() => _capturePayload = value),
                         ),
                       ],
+                    ),
+                    AnimatedSwitcher(
+                      duration: _mcpMotionDuration(
+                        context,
+                        const Duration(milliseconds: 220),
+                      ),
+                      switchInCurve: Curves.easeOutCubic,
+                      switchOutCurve: Curves.easeInCubic,
+                      transitionBuilder: (child, animation) => FadeTransition(
+                        opacity: animation,
+                        child: SizeTransition(
+                          sizeFactor: animation,
+                          axisAlignment: -1,
+                          child: child,
+                        ),
+                      ),
+                      child: _requireAuthToken
+                          ? Padding(
+                              key: const ValueKey('mcp-ops-auth-token-field'),
+                              padding: const EdgeInsets.only(top: 12),
+                              child: TextField(
+                                controller: _authTokenController,
+                                obscureText: true,
+                                enableSuggestions: false,
+                                autocorrect: false,
+                                decoration: InputDecoration(
+                                  labelText: _localizedText(
+                                    context,
+                                    zh: '访问令牌',
+                                    en: 'Access Token',
+                                  ),
+                                  prefixIcon: const Icon(Icons.key_rounded),
+                                  helperText: _localizedText(
+                                    context,
+                                    zh: '写入 Authorization Header，仅限英文、数字与符号',
+                                    en: 'Sent via Authorization header; ASCII letters, digits and symbols only',
+                                  ),
+                                ),
+                              ),
+                            )
+                          : const SizedBox(
+                              key: ValueKey('mcp-ops-auth-token-empty'),
+                              width: double.infinity,
+                            ),
                     ),
                   ],
                 ),
@@ -3658,7 +3712,7 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
     _timeoutController.text = '${config.timeoutMs}';
     _approvalTimeoutController.text = '${config.approvalTimeoutMs}';
     _workspaceController.text = config.workspaceRoot;
-    _authTokenController.text = config.authToken;
+    _authTokenController.text = config.requireAuthToken ? config.authToken : '';
     _allowedClientsController.text = config.allowedClients.join('\n');
     _allowedIpsController.text = config.allowedIpCidrs.join('\n');
     _allowedTimeController.text = config.allowedTimeWindows.join('\n');
@@ -3693,7 +3747,7 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
       invocationMode: _invocationMode,
       writeMode: _writeMode,
       requireAuthToken: _requireAuthToken,
-      authToken: _authTokenController.text.trim(),
+      authToken: _requireAuthToken ? _authTokenController.text.trim() : '',
       allowedClients: splitLooseDelimitedValues(_allowedClientsController.text),
       allowedIpCidrs: splitLooseDelimitedValues(_allowedIpsController.text),
       allowedTimeWindows: splitLooseDelimitedValues(
@@ -4882,14 +4936,14 @@ class _McpOpsHeroPanel extends StatelessWidget {
           ),
           if (snapshot.errorMessage?.trim().isNotEmpty ?? false) ...[
             const SizedBox(height: 12),
-            Text(
+            _McpOpsCopyText(
               snapshot.errorMessage!,
               style: theme.textTheme.bodySmall?.copyWith(color: cs.error),
             ),
           ],
           if (snapshot.lastConnectivityAt != null) ...[
             const SizedBox(height: 10),
-            Text(
+            _McpOpsCopyText(
               '${formatMonthDayHms(snapshot.lastConnectivityAt!.toLocal())} · ${snapshot.lastConnectivityMessage}',
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
@@ -5015,7 +5069,7 @@ class _McpOpsConsoleLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text.rich(
+    return SelectableText.rich(
       TextSpan(
         children: [
           TextSpan(
@@ -5033,7 +5087,6 @@ class _McpOpsConsoleLine extends StatelessWidget {
         ],
       ),
       maxLines: 1,
-      overflow: TextOverflow.ellipsis,
     );
   }
 }
@@ -5102,6 +5155,35 @@ class _McpOpsPanelGrid extends StatelessWidget {
   }
 }
 
+class _McpOpsCopyText extends StatelessWidget {
+  const _McpOpsCopyText(
+    this.text, {
+    this.style,
+    this.maxLines,
+    this.overflow,
+    this.textAlign,
+  });
+
+  final String text;
+  final TextStyle? style;
+  final int? maxLines;
+  final TextOverflow? overflow;
+  final TextAlign? textAlign;
+
+  @override
+  Widget build(BuildContext context) {
+    return SelectionArea(
+      child: Text(
+        text,
+        maxLines: maxLines,
+        overflow: overflow,
+        textAlign: textAlign,
+        style: style,
+      ),
+    );
+  }
+}
+
 class _McpOpsMetricTile extends StatelessWidget {
   const _McpOpsMetricTile({
     required this.icon,
@@ -5163,7 +5245,7 @@ class _McpOpsMetricTile extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text(
+                  child: _McpOpsCopyText(
                     label,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -5182,7 +5264,7 @@ class _McpOpsMetricTile extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 8),
-            Text(
+            _McpOpsCopyText(
               value.trim().isEmpty ? '-' : value,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -5193,7 +5275,7 @@ class _McpOpsMetricTile extends StatelessWidget {
             ),
             if (helper?.trim().isNotEmpty ?? false) ...[
               const SizedBox(height: 4),
-              Text(
+              _McpOpsCopyText(
                 helper!.trim(),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -5307,7 +5389,7 @@ class _McpOpsTrendPanel extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (subtitle.trim().isNotEmpty) ...[
-            Text(
+            _McpOpsCopyText(
               subtitle,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: cs.onSurfaceVariant,
@@ -5505,8 +5587,10 @@ class _McpOpsLegendPill extends StatelessWidget {
           decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
         const SizedBox(width: 6),
-        Text(
+        _McpOpsCopyText(
           label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
           style: theme.textTheme.labelSmall?.copyWith(
             color: Theme.of(context).colorScheme.onSurfaceVariant,
             fontWeight: FontWeight.w800,
@@ -5587,16 +5671,20 @@ class _McpOpsPanel extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
+                      _McpOpsCopyText(
                         title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.w900,
                         ),
                       ),
                       if (subtitleText != null && subtitleText.isNotEmpty) ...[
                         const SizedBox(height: 3),
-                        Text(
+                        _McpOpsCopyText(
                           subtitleText,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: cs.onSurfaceVariant,
                             height: 1.3,
@@ -5661,8 +5749,10 @@ class _McpOpsFieldGroup extends StatelessWidget {
           children: [
             Icon(icon, size: 16, color: cs.primary),
             const SizedBox(width: 7),
-            Text(
+            _McpOpsCopyText(
               label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: theme.textTheme.labelLarge?.copyWith(
                 fontWeight: FontWeight.w900,
                 letterSpacing: 0.1,
@@ -5688,7 +5778,7 @@ class _McpOpsFieldGroup extends StatelessWidget {
           const SizedBox(height: 4),
           Padding(
             padding: const EdgeInsets.only(left: 23),
-            child: Text(
+            child: _McpOpsCopyText(
               hintText,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: cs.onSurfaceVariant,
@@ -5722,7 +5812,7 @@ class _McpOpsCountBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(999),
         border: Border.all(color: tone.withValues(alpha: 0.28)),
       ),
-      child: Text(
+      child: _McpOpsCopyText(
         text,
         style: theme.textTheme.labelSmall?.copyWith(
           color: tone,
@@ -5812,7 +5902,7 @@ class _McpOpsExposureSummary extends StatelessWidget {
               Icon(Icons.insights_rounded, size: 18, color: cs.primary),
               const SizedBox(width: 8),
               Expanded(
-                child: Text(
+                child: _McpOpsCopyText(
                   _localizedText(
                     context,
                     zh: '已启用 $enabledSurfaces / $totalSurfaces 个面 · 暴露 $exposedItems / $totalItems 个条目',
@@ -5824,7 +5914,7 @@ class _McpOpsExposureSummary extends StatelessWidget {
                   ),
                 ),
               ),
-              Text(
+              _McpOpsCopyText(
                 '${(ratio * 100).round()}%',
                 style: theme.textTheme.titleSmall?.copyWith(
                   color: cs.primary,
@@ -5887,7 +5977,7 @@ class _McpOpsDistributionPanel extends StatelessWidget {
       title: title,
       onTap: onTap,
       child: top.isEmpty
-          ? Text(
+          ? _McpOpsCopyText(
               _localizedText(context, zh: '等待请求样本', en: 'Waiting for traffic'),
               style: theme.textTheme.bodySmall?.copyWith(
                 color: cs.onSurfaceVariant,
@@ -5906,7 +5996,7 @@ class _McpOpsDistributionPanel extends StatelessWidget {
                         trackColor: cs.surfaceContainerHighest,
                       ),
                       child: Center(
-                        child: Text(
+                        child: _McpOpsCopyText(
                           '$total',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -6019,7 +6109,7 @@ class _McpOpsDistributionRow extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: Text(
+                child: _McpOpsCopyText(
                   label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -6027,7 +6117,7 @@ class _McpOpsDistributionRow extends StatelessWidget {
                 ),
               ),
               if (showPercent) ...[
-                Text(
+                _McpOpsCopyText(
                   '${(ratio * 100).toStringAsFixed(1)}%',
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: cs.onSurfaceVariant,
@@ -6036,7 +6126,7 @@ class _McpOpsDistributionRow extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
               ],
-              Text(
+              _McpOpsCopyText(
                 '$value',
                 style: theme.textTheme.labelMedium?.copyWith(
                   fontWeight: FontWeight.w800,
@@ -6100,24 +6190,95 @@ class _McpOpsResponsiveFields extends StatelessWidget {
   }
 }
 
-class _McpOpsSwitchChip extends StatelessWidget {
-  const _McpOpsSwitchChip({
+class _McpOpsToggleFormField extends StatelessWidget {
+  const _McpOpsToggleFormField({
+    required this.icon,
     required this.label,
+    required this.description,
     required this.value,
     required this.onChanged,
   });
 
+  final IconData icon;
   final String label;
+  final String description;
   final bool value;
   final ValueChanged<bool> onChanged;
 
   @override
   Widget build(BuildContext context) {
-    return _McpOpsTogglePill(
-      selected: value,
-      icon: value ? Icons.check_rounded : Icons.close_rounded,
-      label: label,
-      onChanged: onChanged,
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final tone = value ? cs.primary : cs.onSurfaceVariant;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(_mcpOpsControlRadius),
+        onTap: () => onChanged(!value),
+        child: AnimatedContainer(
+          duration: _mcpMotionDuration(
+            context,
+            const Duration(milliseconds: 180),
+          ),
+          curve: Curves.easeOutCubic,
+          padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+          decoration: BoxDecoration(
+            color: value
+                ? cs.primary.withValues(alpha: 0.08)
+                : cs.surfaceContainerHighest.withValues(alpha: 0.42),
+            borderRadius: BorderRadius.circular(_mcpOpsControlRadius),
+            border: Border.all(
+              color: value
+                  ? cs.primary.withValues(alpha: 0.26)
+                  : cs.outlineVariant.withValues(alpha: 0.58),
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: tone.withValues(alpha: value ? 0.14 : 0.08),
+                  borderRadius: BorderRadius.circular(11),
+                  border: Border.all(color: tone.withValues(alpha: 0.22)),
+                ),
+                child: Icon(icon, size: 18, color: tone),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    _McpOpsCopyText(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    _McpOpsCopyText(
+                      description,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: cs.onSurfaceVariant,
+                        height: 1.25,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Switch(value: value, onChanged: onChanged),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -6138,7 +6299,7 @@ class _McpOpsHintText extends StatelessWidget {
         Icon(icon, size: 16, color: cs.onSurfaceVariant),
         const SizedBox(width: 8),
         Expanded(
-          child: Text(
+          child: _McpOpsCopyText(
             text,
             style: theme.textTheme.bodySmall?.copyWith(
               color: cs.onSurfaceVariant,
@@ -7865,7 +8026,7 @@ class _McpOpsAuditSummaryPanel extends StatelessWidget {
           ),
           if (stages.isNotEmpty) ...[
             const SizedBox(height: 14),
-            Text(
+            _McpOpsCopyText(
               _localizedText(context, zh: '环节分布', en: 'Stage breakdown'),
               style: Theme.of(context).textTheme.labelMedium?.copyWith(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -8100,7 +8261,7 @@ class _McpOpsAuditDetailDialog extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
+              _McpOpsCopyText(
                 _mcpOpsAuditTitle(context, entry),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -8109,7 +8270,7 @@ class _McpOpsAuditDetailDialog extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 3),
-              Text(
+              _McpOpsCopyText(
                 '${_mcpOpsAuditKindLabel(context, entry.kind)} · ${_mcpOpsAuditStatusLabel(context, entry.status)} · ${formatMonthDayHms(entry.timestamp.toLocal())}',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -8164,7 +8325,7 @@ class _McpOpsDetailSection extends StatelessWidget {
                 children: [
                   SizedBox(
                     width: 180,
-                    child: Text(
+                    child: _McpOpsCopyText(
                       row.$2.key,
                       style: theme.textTheme.labelMedium?.copyWith(
                         color: cs.onSurfaceVariant,
@@ -8246,8 +8407,8 @@ class _McpOpsApprovalPanel extends StatelessWidget {
           for (final request in requests)
             ListTile(
               contentPadding: EdgeInsets.zero,
-              title: Text(request.toolName),
-              subtitle: Text(
+              title: _McpOpsCopyText(request.toolName),
+              subtitle: _McpOpsCopyText(
                 '${request.clientName} · ${request.ipAddress} · ${formatMonthDayHms(request.requestedAt.toLocal())}',
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
@@ -8312,7 +8473,7 @@ class _McpOpsStatusChip extends StatelessWidget {
           const SizedBox(width: 6),
           ConstrainedBox(
             constraints: BoxConstraints(maxWidth: maxLabelWidth),
-            child: Text(
+            child: _McpOpsCopyText(
               label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -16004,7 +16165,7 @@ class _McpOpsInsightDialog extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
+                          _McpOpsCopyText(
                             title,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -16013,7 +16174,7 @@ class _McpOpsInsightDialog extends StatelessWidget {
                           ),
                           if (subtitle.trim().isNotEmpty) ...[
                             const SizedBox(height: 3),
-                            Text(
+                            _McpOpsCopyText(
                               subtitle,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -16329,7 +16490,7 @@ class _McpOpsLogRow extends StatelessWidget {
               Row(
                 children: [
                   Expanded(
-                    child: Text(
+                    child: _McpOpsCopyText(
                       _mcpOpsAuditTitle(context, entry),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -16339,7 +16500,7 @@ class _McpOpsLogRow extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  Text(
+                  _McpOpsCopyText(
                     formatMonthDayHms(entry.timestamp.toLocal()),
                     style: theme.textTheme.labelSmall?.copyWith(
                       color: cs.onSurfaceVariant,
@@ -16374,7 +16535,7 @@ class _McpOpsLogRow extends StatelessWidget {
               ),
               if (showReason && entry.errorMessage.trim().isNotEmpty) ...[
                 const SizedBox(height: 4),
-                Text(
+                _McpOpsCopyText(
                   entry.errorMessage.trim(),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
@@ -16415,7 +16576,7 @@ class _McpOpsMiniTag extends StatelessWidget {
           Icon(icon, size: 12, color: cs.onSurfaceVariant),
           const SizedBox(width: 4),
           Flexible(
-            child: Text(
+            child: _McpOpsCopyText(
               label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -16450,7 +16611,7 @@ class _McpOpsTableCell extends StatelessWidget {
     final cs = theme.colorScheme;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 4),
-      child: Text(
+      child: _McpOpsCopyText(
         text,
         textAlign: alignEnd ? TextAlign.end : TextAlign.start,
         style:
@@ -16484,7 +16645,7 @@ class _McpOpsInsightEmpty extends StatelessWidget {
             color: cs.onSurfaceVariant.withValues(alpha: 0.6),
           ),
           const SizedBox(height: 8),
-          Text(
+          _McpOpsCopyText(
             label,
             textAlign: TextAlign.center,
             style: theme.textTheme.bodySmall?.copyWith(
@@ -17403,7 +17564,7 @@ Widget _mcpOpsServerRow(BuildContext context, McpServer server) {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
+            _McpOpsCopyText(
               server.name,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -17412,7 +17573,7 @@ Widget _mcpOpsServerRow(BuildContext context, McpServer server) {
               ),
             ),
             if (server.summary.trim().isNotEmpty)
-              Text(
+              _McpOpsCopyText(
                 server.summary,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
