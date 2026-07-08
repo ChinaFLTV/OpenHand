@@ -41,6 +41,7 @@ import '../../memory/index.dart';
 import '../../plugin_service/index.dart';
 import '../../skills/index.dart';
 import '../../thread_template_runtime/index.dart';
+import '../data/web_gateway_ops_store.dart';
 import '../model/web_gateway_runtime.dart';
 import '../model/web_gateway_session_metadata.dart';
 import '../model/web_message_platform_config.dart';
@@ -174,6 +175,7 @@ class WebMessagePlatformService {
     String? cacheDirectoryPath,
     String? logsDirectoryPath,
     String? workspaceDirectoryPath,
+    WebGatewayOpsStore? opsStore,
   }) : _sessionController = sessionController,
        _settingsController = settingsController,
        _agentsController = agentsController,
@@ -189,6 +191,7 @@ class WebMessagePlatformService {
            cacheDirectoryPath ?? OpenHandPaths.defaultCacheDirectoryPath(),
        _workspaceDirectoryPath =
            workspaceDirectoryPath ?? OpenHandPaths.applicationDirectoryPath(),
+       _opsStore = opsStore ?? WebGatewayOpsStore(),
        _fileLogger = _WebGatewayRotatingLogger(
          logsDirectoryPath: logsDirectoryPath,
        ) {
@@ -217,6 +220,7 @@ class WebMessagePlatformService {
 
   final String _cacheDirectoryPath;
   final String _workspaceDirectoryPath;
+  final WebGatewayOpsStore _opsStore;
   final _WebGatewayRotatingLogger _fileLogger;
   final StreamController<WebGatewayLogEntry> _logStreamController =
       StreamController<WebGatewayLogEntry>.broadcast();
@@ -226,6 +230,8 @@ class WebMessagePlatformService {
   final AiTranslationService _translationService = AiTranslationService();
   final AiTtsPlaybackService _ttsPlaybackService = AiTtsPlaybackService();
   final List<WebGatewayLogEntry> _memoryLogs = <WebGatewayLogEntry>[];
+  final List<WebGatewayOpsSnapshotRecord> _persistedSnapshots =
+      <WebGatewayOpsSnapshotRecord>[];
   final List<WebGatewayCleanupResult> _cleanupHistory =
       <WebGatewayCleanupResult>[];
   final Map<String, _WebGatewayAuthSession> _authSessions =
@@ -300,6 +306,15 @@ class WebMessagePlatformService {
   _ProcessDiagnostics _processDiagnostics = const _ProcessDiagnostics();
   DateTime? _processDiagnosticsAt;
   _LinuxCpuSample? _previousLinuxCpuSample;
+  late final OpenHandDebouncer _opsPersistDebouncer = OpenHandDebouncer(
+    delay: const Duration(milliseconds: 900),
+    onError: (error, stack) => silentLog(
+      'web_message_platform_service',
+      'persist ops data',
+      error,
+      stack,
+    ),
+  );
 
   /// 当前活跃的 SSE 订阅数（每个 `/api/sessions/<id>/events` 长连接 +1，
   /// onCancel 时 -1）。Ops 面板用它判断"是否有人在看活跃流"，并辅助识别
@@ -322,6 +337,10 @@ class WebMessagePlatformService {
       _pendingWriteApprovalStreamController.stream;
   List<WebGatewayLogEntry> get logs =>
       List<WebGatewayLogEntry>.unmodifiable(_memoryLogs);
+  List<WebGatewayRuntimeSnapshot> get persistedRuntimeSnapshots =>
+      List<WebGatewayRuntimeSnapshot>.unmodifiable(
+        _persistedSnapshots.map((item) => item.snapshot),
+      );
   List<WebWriteApprovalRequest> get pendingWriteApprovals =>
       _pendingWriteApprovalSnapshot();
   List<WebGatewayCleanupResult> get cleanupHistory =>
@@ -343,6 +362,180 @@ class WebMessagePlatformService {
     boundPort: _server?.port,
     localIPv4Addresses: _localAddressesCache,
   );
+
+  Future<void> loadPersistedOpsData() async {
+    final data = await _opsStore.load();
+    _persistedSnapshots
+      ..clear()
+      ..addAll(_trimSnapshotRecords(data.snapshots));
+    _memoryLogs
+      ..clear()
+      ..addAll(_trimLogs(data.logs));
+    _cleanupHistory
+      ..clear()
+      ..addAll(_trimCleanupHistory(data.cleanupHistory));
+    _nextLogId =
+        _memoryLogs.fold<int>(0, (maxId, entry) => math.max(maxId, entry.id)) +
+        1;
+    if (_persistedSnapshots.isNotEmpty) {
+      _hydrateMetricsFromSnapshot(_persistedSnapshots.last.snapshot);
+    }
+  }
+
+  Future<WebGatewayOpsPersistenceReport> measurePersistedOpsData() {
+    return _opsStore.measure();
+  }
+
+  Future<WebGatewayOpsPersistenceReport> clearPersistedOpsData({
+    DateTime? startUtc,
+    DateTime? endUtc,
+  }) async {
+    final before = await _opsStore.measure();
+    final clearsAll = startUtc == null && endUtc == null;
+    if (clearsAll) {
+      _persistedSnapshots.clear();
+      _memoryLogs.clear();
+      _cleanupHistory.clear();
+      _resetHydratedMetricCounters();
+    } else {
+      _persistedSnapshots.removeWhere(
+        (record) => _webGatewayOpsTimestampInRange(
+          record.timestamp,
+          startUtc: startUtc,
+          endUtc: endUtc,
+        ),
+      );
+      _memoryLogs.removeWhere(
+        (entry) => _webGatewayOpsTimestampInRange(
+          entry.timestamp,
+          startUtc: startUtc,
+          endUtc: endUtc,
+        ),
+      );
+      _cleanupHistory.removeWhere(
+        (entry) => _webGatewayOpsTimestampInRange(
+          entry.timestamp,
+          startUtc: startUtc,
+          endUtc: endUtc,
+        ),
+      );
+      if (_persistedSnapshots.isNotEmpty) {
+        _hydrateMetricsFromSnapshot(_persistedSnapshots.last.snapshot);
+      } else {
+        _resetHydratedMetricCounters();
+      }
+    }
+    _opsPersistDebouncer.cancel();
+    await _persistOpsHistory();
+    return before;
+  }
+
+  void _recordOpsSnapshot(WebGatewayRuntimeSnapshot snapshot) {
+    _persistedSnapshots.add(
+      WebGatewayOpsSnapshotRecord(
+        timestamp: DateTime.now().toUtc(),
+        snapshot: snapshot,
+      ),
+    );
+    if (_persistedSnapshots.length > webGatewayOpsMaxPersistedSnapshots) {
+      _persistedSnapshots.removeRange(
+        0,
+        _persistedSnapshots.length - webGatewayOpsMaxPersistedSnapshots,
+      );
+    }
+    _scheduleOpsPersistence();
+  }
+
+  void _hydrateMetricsFromSnapshot(WebGatewayRuntimeSnapshot snapshot) {
+    _totalRequests = snapshot.totalRequests;
+    _totalErrors = snapshot.totalErrors;
+    _totalBytesIn = snapshot.totalBytesIn;
+    _totalBytesOut = snapshot.totalBytesOut;
+    _crashCount = snapshot.crashCount;
+    _restartCount = snapshot.restartCount;
+    _statusBuckets
+      ..updateAll((_, _) => 0)
+      ..addAll(snapshot.statusCodeBreakdown);
+    _methodCounts
+      ..clear()
+      ..addAll(snapshot.methodBreakdown);
+    _routeCounts
+      ..clear()
+      ..addEntries(snapshot.topRoutes);
+    _recentErrors
+      ..clear()
+      ..addAll(snapshot.recentErrors.take(_maxRecentErrors));
+    _lastError = snapshot.lastError;
+    _lastErrorAt = snapshot.lastErrorAt;
+    _lastErrorPath = snapshot.lastErrorPath;
+    final slow = snapshot.slowestRecent;
+    if (slow != null) {
+      _slowestRecentPath = slow.path;
+      _slowestRecentMethod = slow.method;
+      _slowestRecentDurationMs = slow.durationMs;
+      _slowestRecentStatus = slow.statusCode;
+      _slowestRecentAt = slow.at;
+    }
+    _latencyBuffer
+      ..clear()
+      ..addAll(_latencySamplesFromStats(snapshot.latencyStats));
+  }
+
+  void _resetHydratedMetricCounters() {
+    _totalRequests = 0;
+    _totalErrors = 0;
+    _totalBytesIn = 0;
+    _totalBytesOut = 0;
+    _crashCount = 0;
+    _restartCount = 0;
+    _statusBuckets.updateAll((_, _) => 0);
+    _methodCounts.clear();
+    _routeCounts.clear();
+    _latencyBuffer.clear();
+    _recentRequestEpochMs.clear();
+    _recentRequestObservations.clear();
+    _recentErrors.clear();
+    _lastError = '';
+    _lastErrorAt = null;
+    _lastErrorPath = '';
+    _slowestRecentPath = '';
+    _slowestRecentMethod = '';
+    _slowestRecentDurationMs = 0;
+    _slowestRecentStatus = 0;
+    _slowestRecentAt = null;
+  }
+
+  void _scheduleOpsPersistence() {
+    _opsPersistDebouncer.schedule(_persistOpsHistory);
+  }
+
+  Future<void> _persistOpsHistory() {
+    return _opsStore.save(
+      WebGatewayOpsHistoryData(
+        snapshots: _trimSnapshotRecords(_persistedSnapshots),
+        logs: _trimLogs(_memoryLogs),
+        cleanupHistory: _trimCleanupHistory(_cleanupHistory),
+      ),
+    );
+  }
+
+  List<int> _latencySamplesFromStats(WebGatewayLatencyStats stats) {
+    if (stats.sampleCount <= 0) return const <int>[];
+    final values = <int>[
+      if (stats.p50Ms > 0) stats.p50Ms,
+      if (stats.avgMs > 0) stats.avgMs,
+      if (stats.p95Ms > 0) stats.p95Ms,
+      if (stats.p99Ms > 0) stats.p99Ms,
+      if (stats.maxMs > 0) stats.maxMs,
+    ];
+    if (values.isEmpty) return const <int>[];
+    final target = math.min(stats.sampleCount, _maxLatencyBuffer);
+    final samples = <int>[];
+    for (var i = 0; i < target; i++) {
+      samples.add(values[i % values.length]);
+    }
+    return samples;
+  }
 
   bool _hasQueuedGoalInterruption(String sessionId) {
     final leases = _queuedGoalYieldLeasesBySessionId[sessionId];
@@ -520,6 +713,8 @@ class WebMessagePlatformService {
   }
 
   Future<void> dispose() async {
+    _opsPersistDebouncer.cancel();
+    await _persistOpsHistory();
     await stop();
     _sessionController.removeGoalContinuationYieldPredicate(
       _hasQueuedGoalInterruption,
@@ -868,7 +1063,9 @@ class WebMessagePlatformService {
   Future<WebGatewayRuntimeSnapshot> runtimeSnapshotAsync() async {
     await _refreshProcessDiagnosticsIfStale();
     await _refreshLocalAddressesIfStale();
-    return runtimeSnapshot();
+    final snapshot = runtimeSnapshot();
+    _recordOpsSnapshot(snapshot);
+    return snapshot;
   }
 
   /// 刷新主机非环回 IPv4 地址列表，30 s TTL。失败不抛，仅 silentLog——
@@ -1134,6 +1331,7 @@ class WebMessagePlatformService {
       if (_cleanupHistory.length > 50) {
         _cleanupHistory.removeRange(0, _cleanupHistory.length - 50);
       }
+      _scheduleOpsPersistence();
       _log(
         WebGatewayLogLevel.warn,
         'CLEANUP',
@@ -7060,6 +7258,7 @@ class WebMessagePlatformService {
     if (_config.loggingEnabled) {
       unawaited(_fileLogger.write(entry, _config.logConfig));
     }
+    _scheduleOpsPersistence();
   }
 
   Future<_GatewayBindResult> _serveGateway({
@@ -7457,6 +7656,56 @@ String _string(Object? value, String fallback) {
   if (value == null) return fallback;
   final text = '$value';
   return text.isEmpty ? fallback : text;
+}
+
+List<WebGatewayOpsSnapshotRecord> _trimSnapshotRecords(
+  Iterable<WebGatewayOpsSnapshotRecord> source,
+) {
+  final items = source.toList(growable: false)
+    ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
+  if (items.length <= webGatewayOpsMaxPersistedSnapshots) {
+    return List<WebGatewayOpsSnapshotRecord>.unmodifiable(items);
+  }
+  return List<WebGatewayOpsSnapshotRecord>.unmodifiable(
+    items.skip(items.length - webGatewayOpsMaxPersistedSnapshots),
+  );
+}
+
+List<WebGatewayLogEntry> _trimLogs(Iterable<WebGatewayLogEntry> source) {
+  final items = source.toList(growable: false)
+    ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
+  if (items.length <= webGatewayOpsMaxPersistedLogs) {
+    return List<WebGatewayLogEntry>.unmodifiable(items);
+  }
+  return List<WebGatewayLogEntry>.unmodifiable(
+    items.skip(items.length - webGatewayOpsMaxPersistedLogs),
+  );
+}
+
+List<WebGatewayCleanupResult> _trimCleanupHistory(
+  Iterable<WebGatewayCleanupResult> source,
+) {
+  final items = source.toList(growable: false)
+    ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
+  if (items.length <= webGatewayOpsMaxCleanupHistory) {
+    return List<WebGatewayCleanupResult>.unmodifiable(items);
+  }
+  return List<WebGatewayCleanupResult>.unmodifiable(
+    items.skip(items.length - webGatewayOpsMaxCleanupHistory),
+  );
+}
+
+bool _webGatewayOpsTimestampInRange(
+  DateTime value, {
+  required DateTime? startUtc,
+  required DateTime? endUtc,
+}) {
+  final utc = value.toUtc();
+  final start = startUtc?.toUtc();
+  final end = endUtc?.toUtc();
+  if (start != null && utc.isBefore(start)) return false;
+  if (end != null && utc.isAfter(end)) return false;
+  return true;
 }
 
 String _safeFileName(String value) {

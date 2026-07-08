@@ -26,6 +26,7 @@ import '../../hooks/hooks_controller.dart';
 import '../../instructions/instructions_controller.dart';
 import '../../mcp/mcp_controller.dart';
 import '../../memory/memory_controller.dart';
+import '../../message_gateway/index.dart' show MessageGatewayController;
 import '../../skills/skills_controller.dart';
 import 'data_cleanup_models.dart';
 
@@ -38,6 +39,7 @@ class DataCleanupService {
     required InstructionsController instructionsController,
     required MemoryController memoryController,
     required McpController mcpController,
+    required MessageGatewayController messageGatewayController,
     required SkillsController skillsController,
     required SettingsController settingsController,
   }) : _aiSessionController = aiSessionController,
@@ -46,6 +48,7 @@ class DataCleanupService {
        _instructionsController = instructionsController,
        _memoryController = memoryController,
        _mcpController = mcpController,
+       _messageGatewayController = messageGatewayController,
        _skillsController = skillsController,
        _settingsController = settingsController;
 
@@ -55,6 +58,7 @@ class DataCleanupService {
   final InstructionsController _instructionsController;
   final MemoryController _memoryController;
   final McpController _mcpController;
+  final MessageGatewayController _messageGatewayController;
   final SkillsController _skillsController;
   final SettingsController _settingsController;
   // 体积探测
@@ -133,6 +137,22 @@ class DataCleanupService {
   /// MCP 配置文件大小。
   Future<DataCleanupSizeReport> measureMcpConfig() {
     return compute(_isolateMeasureFile, _settingsController.mcpServersFilePath);
+  }
+
+  Future<DataCleanupSizeReport> measureMcpOpsCache() async {
+    final report = await _mcpController.measureOpsRuntimeData();
+    return DataCleanupSizeReport(
+      bytes: report.bytes,
+      itemCount: report.itemCount,
+    );
+  }
+
+  Future<DataCleanupSizeReport> measureWebGatewayOpsCache() async {
+    final report = await _messageGatewayController.measureOpsCache();
+    return DataCleanupSizeReport(
+      bytes: report.bytes,
+      itemCount: report.itemCount,
+    );
   }
 
   /// Hooks 配置：sqlite `hooks` 表的行数 + LENGTH 估算。
@@ -266,6 +286,8 @@ class DataCleanupService {
         measureLogs(),
         measureUserMemory(),
         measureMcpConfig(),
+        measureMcpOpsCache(),
+        measureWebGatewayOpsCache(),
         measureHooks(),
         measureCrons(),
         measureInstructions(),
@@ -395,6 +417,14 @@ class DataCleanupService {
     }
   }
 
+  Future<void> cleanMcpOpsCache() async {
+    await _mcpController.clearOpsRuntimeData();
+  }
+
+  Future<void> cleanWebGatewayOpsCache() async {
+    await _messageGatewayController.cleanupOpsCache();
+  }
+
   /// 清空技能目录内容（保留目录本身），并让 controller 重新扫描。
   Future<void> cleanSkillsDirectory() async {
     await compute(
@@ -444,6 +474,8 @@ class DataCleanupService {
     await runStep('logs', cleanLogs);
     await runStep('userMemory', cleanUserMemory);
     await runStep('mcpConfig', cleanMcpConfig);
+    await runStep('mcpOpsCache', cleanMcpOpsCache);
+    await runStep('webGatewayOpsCache', cleanWebGatewayOpsCache);
     await runStep('hooks', cleanHooks);
     await runStep('crons', cleanCrons);
     await runStep('instructions', cleanInstructions);

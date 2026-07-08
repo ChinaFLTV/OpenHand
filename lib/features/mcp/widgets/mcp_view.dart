@@ -21,6 +21,7 @@ import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/animated_menu.dart';
 import '../../../shared/ui/appear_once.dart';
+import '../../../shared/ui/data_cleanup_range_dialog.dart';
 import '../../../shared/ui/feature_page_shell.dart';
 import '../../../shared/ui/feature_state_card.dart';
 import '../../../shared/ui/hover_lift.dart';
@@ -2097,6 +2098,7 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
                     configMessage: _configMessage,
                     onResetConfig: () => _resetConfigWithConfirm(context),
                     onSaveConfig: () => _saveConfig(context),
+                    onCleanupData: () => _clearOpsDataWithRange(context),
                     onClose: () => Navigator.of(context).maybePop(),
                   ),
                   const SizedBox(height: 12),
@@ -3493,6 +3495,51 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
     });
   }
 
+  Future<void> _clearOpsDataWithRange(BuildContext context) async {
+    if (_saving) return;
+    final range = await showOpenHandDataCleanupRangeDialog(
+      context: context,
+      title: _localizedText(
+        context,
+        zh: '清理 MCP 运维数据',
+        en: 'Clean MCP ops data',
+      ),
+      description: _localizedText(
+        context,
+        zh: '将清理本地持久化的 MCP 运维监控、趋势与日志审计数据。MCP 配置不会被删除。',
+        en: 'Clears locally persisted MCP operations metrics, trends and audit logs. MCP configuration is preserved.',
+      ),
+    );
+    if (range == null || !context.mounted || !mounted) return;
+    setState(() => _saving = true);
+    try {
+      final result = await context.read<McpController>().clearOpsRuntimeData(
+        startUtc: range.startUtc,
+        endUtc: range.endUtc,
+      );
+      if (!context.mounted || !mounted) return;
+      setState(() {
+        _saving = false;
+        _configMessage = _localizedText(
+          context,
+          zh: '运维数据已清理，释放 ${formatByteSize(result.bytes)}',
+          en: 'Ops data cleaned, freed ${formatByteSize(result.bytes)}',
+        );
+      });
+    } catch (error, stack) {
+      silentLog('mcp', 'clear ops runtime data', error, stack);
+      if (!context.mounted || !mounted) return;
+      setState(() {
+        _saving = false;
+        _configMessage = _localizedText(
+          context,
+          zh: '运维数据清理失败：$error',
+          en: 'Ops data cleanup failed: $error',
+        );
+      });
+    }
+  }
+
   Future<void> _persistConfig(
     BuildContext context, {
     required Future<bool> Function()? action,
@@ -3774,6 +3821,7 @@ class _McpOpsConsoleHeader extends StatelessWidget {
     required this.configActionBusy,
     required this.onResetConfig,
     required this.onSaveConfig,
+    required this.onCleanupData,
     required this.onClose,
     this.configMessage,
   });
@@ -3792,6 +3840,7 @@ class _McpOpsConsoleHeader extends StatelessWidget {
   final String? configMessage;
   final VoidCallback onResetConfig;
   final VoidCallback onSaveConfig;
+  final VoidCallback onCleanupData;
   final VoidCallback onClose;
 
   @override
@@ -3829,6 +3878,7 @@ class _McpOpsConsoleHeader extends StatelessWidget {
             final actions = _McpOpsHeaderTopActions(
               onCopyEndpoint: onCopyEndpoint,
               onCopyCursorConfig: onCopyCursorConfig,
+              onCleanupData: onCleanupData,
               onClose: onClose,
             );
             if (compact) {
@@ -4011,11 +4061,13 @@ class _McpOpsHeaderTopActions extends StatelessWidget {
   const _McpOpsHeaderTopActions({
     required this.onCopyEndpoint,
     required this.onCopyCursorConfig,
+    required this.onCleanupData,
     required this.onClose,
   });
 
   final VoidCallback onCopyEndpoint;
   final VoidCallback onCopyCursorConfig;
+  final VoidCallback onCleanupData;
   final VoidCallback onClose;
 
   @override
@@ -4044,6 +4096,11 @@ class _McpOpsHeaderTopActions extends StatelessWidget {
           icon: Icons.close_rounded,
           tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
           onPressed: onClose,
+        ),
+        _McpOpsIconButton(
+          icon: Icons.cleaning_services_outlined,
+          tooltip: _localizedText(context, zh: '清理运维数据', en: 'Clean ops data'),
+          onPressed: onCleanupData,
         ),
         const _McpOpsHeaderTabButtons(),
       ],

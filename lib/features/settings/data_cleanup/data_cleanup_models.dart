@@ -27,6 +27,12 @@ enum DataCleanupCategory {
   /// MCP Server 配置文件（`~/.openhand/mcp/mcp_servers.json`）。
   mcpConfig,
 
+  /// MCP 运维弹窗持久化的监控趋势与审计日志。
+  mcpOpsCache,
+
+  /// Web 消息网关运维弹窗持久化的监控趋势与日志回溯。
+  webGatewayOpsCache,
+
   /// Hooks 钩子配置（sqlite `hooks` 表）。
   hooks,
 

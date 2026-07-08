@@ -15,6 +15,7 @@ import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/animated_menu.dart';
 import '../../../shared/ui/auto_follow_scroll_guard.dart';
+import '../../../shared/ui/data_cleanup_range_dialog.dart';
 import '../../../shared/ui/feature_page_shell.dart';
 import '../../../shared/ui/feature_state_card.dart';
 import '../../../shared/ui/motion_preference.dart';
@@ -3818,6 +3819,8 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    final persisted = widget.controller.persistedRuntimeSnapshots;
+    _trend.addAll(persisted.skip(math.max(0, persisted.length - _trendLimit)));
     _tick();
     _startTimerIfForeground();
   }
@@ -3966,6 +3969,15 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
       fr: 'Cache d’envoi',
       de: 'Upload-Cache',
       ja: 'アップロードキャッシュ',
+    );
+    final opsCacheLabel = openHandLocalizedText(
+      context,
+      zh: '运维缓存',
+      zhHant: '維運快取',
+      en: 'Ops cache',
+      fr: 'Cache opérations',
+      de: 'Ops-Cache',
+      ja: '運用キャッシュ',
     );
     return buildOpenHandResponsiveDialogShell(
       context: context,
@@ -4158,28 +4170,9 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                           FilledButton.tonalIcon(
                             onPressed: _isCleaning
                                 ? null
-                                : () => _confirmAndCleanup(
-                                    title: openHandLocalizedText(
-                                      context,
-                                      zh: '清空上传缓存',
-                                      zhHant: '清空上傳快取',
-                                      en: 'Clear upload cache',
-                                      fr: 'Effacer le cache d’envoi',
-                                      de: 'Upload-Cache leeren',
-                                      ja: 'アップロードキャッシュをクリア',
-                                    ),
-                                    message: openHandLocalizedText(
-                                      context,
-                                      zh: '会删除 Web 消息附件落盘缓存，不影响已经写入会话的消息记录。',
-                                      zhHant: '會刪除 Web 訊息附件落盤快取，不影響已寫入會話的訊息記錄。',
-                                      en: 'This deletes cached web message attachments. Messages already written to sessions are unaffected.',
-                                      fr: 'Cela supprime le cache des pièces jointes web. Les messages déjà écrits ne sont pas affectés.',
-                                      de: 'Dies löscht zwischengespeicherte Webnachrichten-Anhänge. Bereits gespeicherte Sitzungsnachrichten bleiben erhalten.',
-                                      ja: 'Webメッセージ添付のディスクキャッシュを削除します。セッションに保存済みのメッセージには影響しません。',
-                                    ),
-                                    label: uploadCacheLabel,
-                                    action:
-                                        widget.controller.cleanupUploadCache,
+                                : () => _confirmAndCleanupGatewayCache(
+                                    uploadCacheLabel: uploadCacheLabel,
+                                    opsCacheLabel: opsCacheLabel,
                                   ),
                             icon: const Icon(Icons.folder_delete_outlined),
                             label: Text(
@@ -4933,6 +4926,87 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
     }
   }
 
+  Future<void> _confirmAndCleanupGatewayCache({
+    required String uploadCacheLabel,
+    required String opsCacheLabel,
+  }) async {
+    final range = await showOpenHandDataCleanupRangeDialog(
+      context: context,
+      title: openHandLocalizedText(
+        context,
+        zh: '清空 Web 服务缓存',
+        zhHant: '清空 Web 服務快取',
+        en: 'Clear web service cache',
+        fr: 'Effacer le cache du service web',
+        de: 'Webdienst-Cache leeren',
+        ja: 'Webサービスキャッシュをクリア',
+      ),
+      description: openHandLocalizedText(
+        context,
+        zh: '会清空 Web 消息附件上传缓存，并按所选时间范围清理本地持久化的 Web 运维、监控与日志回溯数据。',
+        zhHant: '會清空 Web 訊息附件上傳快取，並依所選時間範圍清理本地持久化的 Web 維運、監控與日誌回溯資料。',
+        en: 'Clears cached web message uploads and removes locally persisted web operations metrics, monitoring snapshots and log history in the selected range.',
+        fr: 'Efface le cache des envois web et les métriques, instantanés et journaux persistés dans la période choisie.',
+        de: 'Leert den Upload-Cache und entfernt lokal gespeicherte Betriebsmetriken, Monitoring-Snapshots und Protokolle im gewählten Zeitraum.',
+        ja: 'Webメッセージのアップロードキャッシュを消去し、選択範囲の運用メトリクス、監視スナップショット、ログ履歴を削除します。',
+      ),
+    );
+    if (range == null || !mounted || _isCleaning) return;
+    setState(() => _isCleaning = true);
+    try {
+      final uploadResult = await widget.controller.cleanupUploadCache();
+      final opsResult = await widget.controller.cleanupOpsCache(
+        startUtc: range.startUtc,
+        endUtc: range.endUtc,
+      );
+      if (!mounted) return;
+      final freedBytes = uploadResult.bytesFreed + opsResult.bytes;
+      showOpenHandSnackBar(
+        context,
+        OpenHandSnackBar.success(
+          context,
+          openHandLocalizedText(
+            context,
+            zh: '$uploadCacheLabel / $opsCacheLabel 清理完成，释放 ${_bytes(freedBytes)}，清理 ${opsResult.itemCount} 条运维记录',
+            zhHant:
+                '$uploadCacheLabel / $opsCacheLabel 清理完成，釋放 ${_bytes(freedBytes)}，清理 ${opsResult.itemCount} 則維運記錄',
+            en: '$uploadCacheLabel / $opsCacheLabel cleanup completed, freed ${_bytes(freedBytes)}, removed ${opsResult.itemCount} ops records',
+            fr: 'Nettoyage $uploadCacheLabel / $opsCacheLabel terminé, ${_bytes(freedBytes)} libérés, ${opsResult.itemCount} enregistrements supprimés',
+            de: '$uploadCacheLabel / $opsCacheLabel bereinigt, ${_bytes(freedBytes)} freigegeben, ${opsResult.itemCount} Ops-Einträge entfernt',
+            ja: '$uploadCacheLabel / $opsCacheLabel のクリーンアップが完了しました。${_bytes(freedBytes)} 解放、${opsResult.itemCount} 件削除',
+          ),
+        ),
+      );
+      final persisted = widget.controller.persistedRuntimeSnapshots;
+      setState(() {
+        _trend
+          ..clear()
+          ..addAll(persisted.skip(math.max(0, persisted.length - _trendLimit)));
+      });
+      await _tick();
+    } catch (error) {
+      if (!mounted) return;
+      showOpenHandSnackBar(
+        context,
+        OpenHandSnackBar.error(
+          context,
+          openHandLocalizedText(
+            context,
+            zh: '缓存清理失败: $error',
+            zhHant: '快取清理失敗: $error',
+            en: 'Cache cleanup failed: $error',
+            fr: 'Échec du nettoyage du cache : $error',
+            de: 'Cache-Bereinigung fehlgeschlagen: $error',
+            ja: 'キャッシュのクリーンアップに失敗しました: $error',
+          ),
+          maxLines: 2,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isCleaning = false);
+    }
+  }
+
   Future<void> _runServiceAction({
     required String label,
     required Future<void> Function() action,
@@ -5380,7 +5454,6 @@ class _AccessibleUrlPill extends StatelessWidget {
     );
   }
 }
-
 
 String _formatStructuredValue(Object? value) {
   if (value == null) return 'null';

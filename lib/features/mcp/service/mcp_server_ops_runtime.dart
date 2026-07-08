@@ -101,6 +101,77 @@ class McpServerOpsRuntime {
   McpOpsRuntimeSnapshot get snapshot => _snapshot;
   bool get isRunning => _server != null;
 
+  void hydrateMetrics(McpOpsRuntimeSnapshot snapshot) {
+    _snapshot = snapshot.asOfflinePersistedSnapshot();
+    _requestTotal = snapshot.requestTotal;
+    _blockedTotal = snapshot.blockedTotal;
+    _failedTotal = snapshot.failedTotal;
+    _inboundBytes = snapshot.inboundBytes;
+    _outboundBytes = snapshot.outboundBytes;
+    _fileMutationCount = snapshot.fileMutationCount;
+    _ipDistribution
+      ..clear()
+      ..addAll(snapshot.ipDistribution);
+    _clientDistribution
+      ..clear()
+      ..addAll(snapshot.clientDistribution);
+    _requestDistribution
+      ..clear()
+      ..addAll(snapshot.requestDistribution);
+    _protocolDistribution
+      ..clear()
+      ..addAll(snapshot.protocolDistribution);
+    _trafficBuckets
+      ..clear()
+      ..addEntries(
+        snapshot.trafficSeries.map(
+          (sample) => MapEntry(
+            _minuteStart(sample.minute),
+            _McpOpsMinuteBucket.fromSample(sample),
+          ),
+        ),
+      );
+    _snapshotSink(_snapshot);
+  }
+
+  void clearMetrics({DateTime? startUtc, DateTime? endUtc}) {
+    final clearsAll = startUtc == null && endUtc == null;
+    if (clearsAll) {
+      _requestTimes.clear();
+      _latencies.clear();
+      _requestTotal = 0;
+      _blockedTotal = 0;
+      _failedTotal = 0;
+      _inboundBytes = 0;
+      _outboundBytes = 0;
+      _fileMutationCount = 0;
+      _ipDistribution.clear();
+      _clientDistribution.clear();
+      _requestDistribution.clear();
+      _protocolDistribution.clear();
+      _trafficBuckets.clear();
+      _publishMetrics();
+      return;
+    }
+    _trafficBuckets.removeWhere(
+      (minute, _) =>
+          _mcpOpsTimeInRange(minute, startUtc: startUtc, endUtc: endUtc),
+    );
+    _setSnapshot(
+      _snapshot.copyWith(
+        trafficSeries: _trafficSnapshot()
+            .where((sample) {
+              return !_mcpOpsTimeInRange(
+                sample.minute,
+                startUtc: startUtc,
+                endUtc: endUtc,
+              );
+            })
+            .toList(growable: false),
+      ),
+    );
+  }
+
   Future<void> start(McpOpsConfig config) async {
     if (_server != null) return;
     _config = config;
@@ -354,7 +425,10 @@ class McpServerOpsRuntime {
       case 'HEAD':
         return shelf.Response(
           HttpStatus.noContent,
-          headers: <String, String>{..._corsHeaders, ..._sessionHeaders(request)},
+          headers: <String, String>{
+            ..._corsHeaders,
+            ..._sessionHeaders(request),
+          },
         );
       default:
         return shelf.Response(
@@ -599,10 +673,9 @@ class McpServerOpsRuntime {
         );
         return isNotification ? null : result;
       case 'resources/list':
-        final result = _jsonRpcResult(
-          id,
-          const <String, Object?>{'resources': []},
-        );
+        final result = _jsonRpcResult(id, const <String, Object?>{
+          'resources': [],
+        });
         _recordLifecycle(
           request,
           method: method,
@@ -1346,7 +1419,7 @@ class McpServerOpsRuntime {
 
   _McpOpsMinuteBucket _currentTrafficBucket() {
     final now = DateTime.now().toUtc();
-    final minute = DateTime.utc(now.year, now.month, now.day, now.hour, now.minute);
+    final minute = _minuteStart(now);
     final bucket = _trafficBuckets.putIfAbsent(
       minute,
       () => _McpOpsMinuteBucket(minute),
@@ -1375,9 +1448,7 @@ class McpServerOpsRuntime {
     for (var i = mcpOpsTrafficWindowMinutes - 1; i >= 0; i--) {
       final minute = latest.subtract(Duration(minutes: i));
       final bucket = _trafficBuckets[minute];
-      samples.add(
-        bucket?.toSample() ?? McpOpsTrafficSample(minute: minute),
-      );
+      samples.add(bucket?.toSample() ?? McpOpsTrafficSample(minute: minute));
     }
     return List<McpOpsTrafficSample>.unmodifiable(samples);
   }
@@ -1386,6 +1457,20 @@ class McpServerOpsRuntime {
 /// Mutable accumulator for a single UTC minute of MCP traffic.
 class _McpOpsMinuteBucket {
   _McpOpsMinuteBucket(this.minute);
+
+  factory _McpOpsMinuteBucket.fromSample(McpOpsTrafficSample sample) {
+    final bucket = _McpOpsMinuteBucket(_minuteStart(sample.minute));
+    bucket.success = sample.success;
+    bucket.blocked = sample.blocked;
+    bucket.failed = sample.failed;
+    if (sample.avgLatencyMs > 0) {
+      bucket.latencies.add(sample.avgLatencyMs);
+    }
+    if (sample.p95LatencyMs > 0 && sample.p95LatencyMs != sample.avgLatencyMs) {
+      bucket.latencies.add(sample.p95LatencyMs);
+    }
+    return bucket;
+  }
 
   final DateTime minute;
   int success = 0;
@@ -1412,4 +1497,22 @@ class _McpOpsMinuteBucket {
       p95LatencyMs: p95,
     );
   }
+}
+
+DateTime _minuteStart(DateTime value) {
+  final utc = value.toUtc();
+  return DateTime.utc(utc.year, utc.month, utc.day, utc.hour, utc.minute);
+}
+
+bool _mcpOpsTimeInRange(
+  DateTime value, {
+  required DateTime? startUtc,
+  required DateTime? endUtc,
+}) {
+  final utc = value.toUtc();
+  final start = startUtc?.toUtc();
+  final end = endUtc?.toUtc();
+  if (start != null && utc.isBefore(start)) return false;
+  if (end != null && utc.isAfter(end)) return false;
+  return true;
 }

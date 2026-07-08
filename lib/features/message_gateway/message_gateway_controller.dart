@@ -19,6 +19,7 @@ import '../memory/index.dart';
 import '../plugin_service/index.dart';
 import '../skills/index.dart';
 import 'data/message_gateway_store.dart';
+import 'data/web_gateway_ops_store.dart';
 import 'model/web_message_platform_config.dart';
 import 'service/web_message_platform_service.dart';
 
@@ -159,6 +160,8 @@ class MessageGatewayController extends ManagedChangeNotifier {
   /// view 与设置面板可直接 `Wrap`/`SelectableText.rich` 渲染。
   List<String> get webUrls => _service.accessibleUrls;
   List<WebGatewayLogEntry> get logs => _service.logs;
+  List<WebGatewayRuntimeSnapshot> get persistedRuntimeSnapshots =>
+      _service.persistedRuntimeSnapshots;
   List<WebGatewayCleanupResult> get cleanupHistory => _service.cleanupHistory;
   WebGatewayRuntimeSnapshot runtimeSnapshot() => _service.runtimeSnapshot();
   Future<WebGatewayRuntimeSnapshot> refreshRuntimeSnapshot() async {
@@ -273,6 +276,7 @@ class MessageGatewayController extends ManagedChangeNotifier {
     _errorMessage = null;
     notifyListeners();
     try {
+      await _service.loadPersistedOpsData();
       final loaded = await _store.load();
       _config = _normalizeAgainstRuntimeOptions(loaded);
       if (_config.autoStartOnLaunch && !_service.isRunning) {
@@ -396,6 +400,22 @@ class MessageGatewayController extends ManagedChangeNotifier {
 
   Future<WebGatewayCleanupResult> cleanupUploadCache() async {
     final result = await _service.cleanupArtifacts(logs: false, uploads: true);
+    notifyListeners();
+    return result;
+  }
+
+  Future<WebGatewayOpsPersistenceReport> measureOpsCache() {
+    return _service.measurePersistedOpsData();
+  }
+
+  Future<WebGatewayOpsPersistenceReport> cleanupOpsCache({
+    DateTime? startUtc,
+    DateTime? endUtc,
+  }) async {
+    final result = await _service.clearPersistedOpsData(
+      startUtc: startUtc,
+      endUtc: endUtc,
+    );
     notifyListeners();
     return result;
   }

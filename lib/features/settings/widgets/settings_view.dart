@@ -67,6 +67,7 @@ import '../../hooks/hooks_controller.dart';
 import '../../instructions/instructions_controller.dart';
 import '../../mcp/index.dart';
 import '../../memory/memory_controller.dart';
+import '../../message_gateway/index.dart' show MessageGatewayController;
 import '../../skills/skills_controller.dart';
 import '../data_cleanup/data_cleanup_models.dart';
 import '../data_cleanup/data_cleanup_service.dart';
@@ -4750,9 +4751,7 @@ class _SettingsViewState extends State<SettingsView> {
     if (location == null) return;
     try {
       final doc = controller.exportAiStreamThrottleConfig();
-      final bytes = utf8.encode(
-        prettyPrintJson(doc),
-      );
+      final bytes = utf8.encode(prettyPrintJson(doc));
       final file = XFile.fromData(
         bytes,
         mimeType: 'application/json',

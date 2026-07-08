@@ -52,6 +52,7 @@ class _DataCleanupSectionState extends State<_DataCleanupSection> {
       instructionsController: context.read<InstructionsController>(),
       memoryController: context.read<MemoryController>(),
       mcpController: context.read<McpController>(),
+      messageGatewayController: context.read<MessageGatewayController>(),
       skillsController: context.read<SkillsController>(),
       settingsController: context.read<SettingsController>(),
     );
@@ -102,6 +103,11 @@ class _DataCleanupSectionState extends State<_DataCleanupSection> {
       measureOne(DataCleanupCategory.logs, _service.measureLogs),
       measureOne(DataCleanupCategory.userMemory, _service.measureUserMemory),
       measureOne(DataCleanupCategory.mcpConfig, _service.measureMcpConfig),
+      measureOne(DataCleanupCategory.mcpOpsCache, _service.measureMcpOpsCache),
+      measureOne(
+        DataCleanupCategory.webGatewayOpsCache,
+        _service.measureWebGatewayOpsCache,
+      ),
       measureOne(DataCleanupCategory.hooks, _service.measureHooks),
       measureOne(DataCleanupCategory.crons, _service.measureCrons),
       measureOne(
@@ -239,6 +245,12 @@ class _DataCleanupSectionState extends State<_DataCleanupSection> {
           break;
         case DataCleanupCategory.mcpConfig:
           await _service.cleanMcpConfig();
+          break;
+        case DataCleanupCategory.mcpOpsCache:
+          await _service.cleanMcpOpsCache();
+          break;
+        case DataCleanupCategory.webGatewayOpsCache:
+          await _service.cleanWebGatewayOpsCache();
           break;
         case DataCleanupCategory.hooks:
           await _service.cleanHooks();
@@ -644,6 +656,10 @@ IconData _categoryIcon(DataCleanupCategory category) {
       return Icons.psychology_outlined;
     case DataCleanupCategory.mcpConfig:
       return Icons.cable_outlined;
+    case DataCleanupCategory.mcpOpsCache:
+      return Icons.monitor_heart_outlined;
+    case DataCleanupCategory.webGatewayOpsCache:
+      return Icons.hub_outlined;
     case DataCleanupCategory.hooks:
       return Icons.webhook_outlined;
     case DataCleanupCategory.crons:
@@ -675,6 +691,18 @@ String _categoryTitle(BuildContext context, DataCleanupCategory category) {
       return openHandLocalizedText(context, zh: '用户记忆', en: 'User Memory');
     case DataCleanupCategory.mcpConfig:
       return openHandLocalizedText(context, zh: 'MCP 配置', en: 'MCP Config');
+    case DataCleanupCategory.mcpOpsCache:
+      return openHandLocalizedText(
+        context,
+        zh: 'MCP 运维缓存',
+        en: 'MCP Ops Cache',
+      );
+    case DataCleanupCategory.webGatewayOpsCache:
+      return openHandLocalizedText(
+        context,
+        zh: 'Web 网关运维缓存',
+        en: 'Web Gateway Ops Cache',
+      );
     case DataCleanupCategory.hooks:
       return openHandLocalizedText(context, zh: 'Hooks 配置', en: 'Hooks');
     case DataCleanupCategory.crons:
@@ -751,6 +779,22 @@ String _categorySubtitle(BuildContext context, DataCleanupCategory category) {
         en:
             'Configured MCP Server list (JSON file). The MCP list will be '
             'empty after cleanup.',
+      );
+    case DataCleanupCategory.mcpOpsCache:
+      return openHandLocalizedText(
+        context,
+        zh: 'MCP 服务器运维弹窗本地持久化的监控趋势、运行快照与日志审计数据。清理后不影响 MCP 配置。',
+        en:
+            'Locally persisted MCP operations trends, runtime snapshots and '
+            'audit logs. MCP configuration is not affected.',
+      );
+    case DataCleanupCategory.webGatewayOpsCache:
+      return openHandLocalizedText(
+        context,
+        zh: 'Web 消息网关运维弹窗本地持久化的监控趋势、运行快照与内存日志回溯数据。',
+        en:
+            'Locally persisted Web Message Gateway operations trends, runtime '
+            'snapshots and in-memory log history.',
       );
     case DataCleanupCategory.hooks:
       return openHandLocalizedText(
@@ -1416,7 +1460,9 @@ class _LedgerSearchDialogState extends State<_LedgerSearchDialog> {
   }
 
   Future<void> _copyResults() async {
-    final json = prettyPrintJson(_results.map((v) => v.record.toJson()).toList());
+    final json = prettyPrintJson(
+      _results.map((v) => v.record.toJson()).toList(),
+    );
     await _copySettingsTextToClipboard(
       context: context,
       text: json,

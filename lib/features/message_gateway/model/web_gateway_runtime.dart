@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 
+import '../../../shared/util/input_value_parsing.dart';
+
 /// Runtime types for the Web 通用消息平台 service.
 ///
 /// 这些类从 [service/web_message_platform_service.dart] 抽出到独立模型文件，
@@ -106,8 +108,24 @@ class WebGatewayThemeSnapshot {
 /// Web 服务运行时状态机。
 enum WebGatewayRuntimeState { stopped, starting, running, stopping, crashed }
 
+WebGatewayRuntimeState webGatewayRuntimeStateFromValue(Object? value) {
+  return enumByNameOr(
+    WebGatewayRuntimeState.values,
+    value,
+    fallback: WebGatewayRuntimeState.stopped,
+  );
+}
+
 /// 日志级别。`telemetry` 用于结构化遥测事件，与普通日志区分。
 enum WebGatewayLogLevel { info, success, warn, error, debug, telemetry }
+
+WebGatewayLogLevel webGatewayLogLevelFromValue(Object? value) {
+  return enumByNameOr(
+    WebGatewayLogLevel.values,
+    value,
+    fallback: WebGatewayLogLevel.info,
+  );
+}
 
 /// 单条日志记录。`toLogLine()` 输出 NDJSON 行，方便文件持久化与流式回放。
 class WebGatewayLogEntry {
@@ -139,6 +157,20 @@ class WebGatewayLogEntry {
   }
 
   String toLogLine() => jsonEncode(toJson());
+
+  static WebGatewayLogEntry fromJson(Object? raw) {
+    final map = stringKeyedMapFromValue(raw);
+    final timestamp =
+        utcDateTimeFromValue(map['timestamp']) ?? DateTime.now().toUtc();
+    return WebGatewayLogEntry(
+      id: nonNegativeIntFromValue(map['id'], fallback: 0),
+      timestamp: timestamp,
+      level: webGatewayLogLevelFromValue(map['level']),
+      tag: stringFromValue(map['tag'], fallback: 'OPS'),
+      message: stringFromValue(map['message']),
+      data: stringKeyedMapFromValue(map['data']),
+    );
+  }
 }
 
 /// 健康检查结果。
@@ -279,6 +311,26 @@ class WebGatewayCleanupResult {
       'bytes_freed': bytesFreed,
       'memory_log_entries_cleared': memoryLogEntriesCleared,
     };
+  }
+
+  static WebGatewayCleanupResult fromJson(Object? raw) {
+    final map = stringKeyedMapFromValue(raw);
+    return WebGatewayCleanupResult(
+      timestamp:
+          utcDateTimeFromValue(map['timestamp']) ?? DateTime.now().toUtc(),
+      target: stringFromValue(map['target'], fallback: 'ops'),
+      expiredOnly: boolFromValue(map['expired_only']),
+      deletedFiles: nonNegativeIntFromValue(map['deleted_files'], fallback: 0),
+      deletedDirectories: nonNegativeIntFromValue(
+        map['deleted_directories'],
+        fallback: 0,
+      ),
+      bytesFreed: nonNegativeIntFromValue(map['bytes_freed'], fallback: 0),
+      memoryLogEntriesCleared: nonNegativeIntFromValue(
+        map['memory_log_entries_cleared'],
+        fallback: 0,
+      ),
+    );
   }
 }
 
@@ -471,6 +523,139 @@ class WebGatewayRuntimeSnapshot {
       'mcp_server_total_count': mcpServerTotalCount,
     };
   }
+
+  static WebGatewayRuntimeSnapshot fromJson(Object? raw) {
+    final map = stringKeyedMapFromValue(raw);
+    final process = stringKeyedMapFromValue(map['process']);
+    return WebGatewayRuntimeSnapshot(
+      state: webGatewayRuntimeStateFromValue(map['state']),
+      startedAt: utcDateTimeFromValue(map['started_at']),
+      uptimeMs: nonNegativeIntFromValue(map['uptime_ms'], fallback: 0),
+      boundUrl: stringFromValue(map['bound_url']),
+      accessibleUrls: stringListFromValue(map['accessible_urls']),
+      activeRequests: nonNegativeIntFromValue(
+        map['active_requests'],
+        fallback: 0,
+      ),
+      maxConcurrentRequests: nonNegativeIntFromValue(
+        map['max_concurrent_requests'],
+        fallback: 0,
+      ),
+      activeRequestRatio: doubleFromValue(
+        map['active_request_ratio'],
+        fallback: 0,
+      ),
+      totalRequests: nonNegativeIntFromValue(
+        map['total_requests'],
+        fallback: 0,
+      ),
+      totalErrors: nonNegativeIntFromValue(map['total_errors'], fallback: 0),
+      totalBytesIn: nonNegativeIntFromValue(map['total_bytes_in'], fallback: 0),
+      totalBytesOut: nonNegativeIntFromValue(
+        map['total_bytes_out'],
+        fallback: 0,
+      ),
+      crashCount: nonNegativeIntFromValue(map['crash_count'], fallback: 0),
+      restartCount: nonNegativeIntFromValue(map['restart_count'], fallback: 0),
+      currentRssBytes: nonNegativeIntFromValue(
+        process['current_rss_bytes'] ?? map['current_rss_bytes'],
+        fallback: 0,
+      ),
+      maxRssBytes: nonNegativeIntFromValue(
+        process['max_rss_bytes'] ?? map['max_rss_bytes'],
+        fallback: 0,
+      ),
+      cpuPercent: optionalDoubleFromValue(process['cpu_percent']),
+      threadCount: optionalIntFromValue(process['thread_count']),
+      fileHandleCount: optionalIntFromValue(process['file_handle_count']),
+      swapBytes: optionalIntFromValue(process['swap_bytes']),
+      logBytes: nonNegativeIntFromValue(
+        process['disk_log_bytes'] ?? map['log_bytes'],
+        fallback: 0,
+      ),
+      openSessionCount: nonNegativeIntFromValue(
+        map['open_session_count'],
+        fallback: 0,
+      ),
+      lastError: stringFromValue(map['last_error']),
+      statusCodeBreakdown: _webGatewayStringIntMapFromValue(
+        map['status_code_breakdown'],
+      ),
+      methodBreakdown: _webGatewayStringIntMapFromValue(
+        map['method_breakdown'],
+      ),
+      topRoutes: _webGatewayTopRoutesFromValue(map['top_routes']),
+      latencyStats: WebGatewayLatencyStats.fromJson(map['latency_stats']),
+      latencyBuckets: _webGatewayStringIntMapFromValue(map['latency_buckets']),
+      requestsPerMinute: doubleFromValue(
+        map['requests_per_minute'],
+        fallback: 0,
+      ),
+      errorsPerMinute: doubleFromValue(map['errors_per_minute'], fallback: 0),
+      bytesInPerMinute: doubleFromValue(
+        map['bytes_in_per_minute'],
+        fallback: 0,
+      ),
+      bytesOutPerMinute: doubleFromValue(
+        map['bytes_out_per_minute'],
+        fallback: 0,
+      ),
+      slowestRecent: stringKeyedMapFromValue(map['slowest_recent']).isEmpty
+          ? null
+          : WebGatewayRecentSlowRequest.fromJson(map['slowest_recent']),
+      lastErrorAt: utcDateTimeFromValue(map['last_error_at']),
+      lastErrorPath: stringFromValue(map['last_error_path']),
+      dartVersion: stringFromValue(process['dart_version']),
+      hostName: stringFromValue(process['host_name']),
+      activeSseSubscriptions: nonNegativeIntFromValue(
+        map['active_sse_subscriptions'],
+        fallback: 0,
+      ),
+      recentErrors: stringKeyedMapListFromValue(map['recent_errors']),
+      logLevelBreakdown: _webGatewayStringIntMapFromValue(
+        map['log_level_breakdown'],
+      ),
+      memoryLogCount: nonNegativeIntFromValue(
+        map['memory_log_count'],
+        fallback: 0,
+      ),
+      sendPhaseBreakdown: _webGatewayStringIntMapFromValue(
+        map['send_phase_breakdown'],
+      ),
+      allowedModelCount: nonNegativeIntFromValue(
+        map['allowed_model_count'],
+        fallback: 0,
+      ),
+      modelProviderCount: nonNegativeIntFromValue(
+        map['model_provider_count'],
+        fallback: 0,
+      ),
+      templateCount: nonNegativeIntFromValue(
+        map['template_count'],
+        fallback: 0,
+      ),
+      cronEnabledCount: nonNegativeIntFromValue(
+        map['cron_enabled_count'],
+        fallback: 0,
+      ),
+      cronTotalCount: nonNegativeIntFromValue(
+        map['cron_total_count'],
+        fallback: 0,
+      ),
+      memoryEntryCount: nonNegativeIntFromValue(
+        map['memory_entry_count'],
+        fallback: 0,
+      ),
+      mcpServerEnabledCount: nonNegativeIntFromValue(
+        map['mcp_server_enabled_count'],
+        fallback: 0,
+      ),
+      mcpServerTotalCount: nonNegativeIntFromValue(
+        map['mcp_server_total_count'],
+        fallback: 0,
+      ),
+    );
+  }
 }
 
 /// 请求延迟分位数快照，由近 256 次请求推导。
@@ -499,6 +684,18 @@ class WebGatewayLatencyStats {
     'p99_ms': p99Ms,
     'max_ms': maxMs,
   };
+
+  static WebGatewayLatencyStats fromJson(Object? raw) {
+    final map = stringKeyedMapFromValue(raw);
+    return WebGatewayLatencyStats(
+      sampleCount: nonNegativeIntFromValue(map['sample_count'], fallback: 0),
+      avgMs: nonNegativeIntFromValue(map['avg_ms'], fallback: 0),
+      p50Ms: nonNegativeIntFromValue(map['p50_ms'], fallback: 0),
+      p95Ms: nonNegativeIntFromValue(map['p95_ms'], fallback: 0),
+      p99Ms: nonNegativeIntFromValue(map['p99_ms'], fallback: 0),
+      maxMs: nonNegativeIntFromValue(map['max_ms'], fallback: 0),
+    );
+  }
 }
 
 /// 近期最慢一次请求的元信息。仅作为面板上的"故障线索"，不代表历史最慢。
@@ -524,4 +721,44 @@ class WebGatewayRecentSlowRequest {
     'duration_ms': durationMs,
     'at': at?.toUtc().toIso8601String(),
   };
+
+  static WebGatewayRecentSlowRequest fromJson(Object? raw) {
+    final map = stringKeyedMapFromValue(raw);
+    return WebGatewayRecentSlowRequest(
+      path: stringFromValue(map['path']),
+      method: stringFromValue(map['method'], fallback: 'GET'),
+      statusCode: nonNegativeIntFromValue(map['status_code'], fallback: 0),
+      durationMs: nonNegativeIntFromValue(map['duration_ms'], fallback: 0),
+      at: utcDateTimeFromValue(map['at']),
+    );
+  }
+}
+
+Map<String, int> _webGatewayStringIntMapFromValue(Object? raw) {
+  final source = stringKeyedMapFromValue(raw);
+  if (source.isEmpty) return const <String, int>{};
+  final result = <String, int>{};
+  for (final entry in source.entries) {
+    final key = entry.key.trim();
+    if (key.isEmpty) continue;
+    final value = nonNegativeIntFromValue(entry.value, fallback: 0);
+    if (value > 0) {
+      result[key] = value;
+    }
+  }
+  return Map<String, int>.unmodifiable(result);
+}
+
+List<MapEntry<String, int>> _webGatewayTopRoutesFromValue(Object? raw) {
+  final rows = stringKeyedMapListFromValue(raw);
+  if (rows.isEmpty) return const <MapEntry<String, int>>[];
+  final routes = <MapEntry<String, int>>[];
+  for (final row in rows) {
+    final path = stringFromValue(row['path']);
+    if (path.isEmpty) continue;
+    routes.add(
+      MapEntry(path, nonNegativeIntFromValue(row['count'], fallback: 0)),
+    );
+  }
+  return List<MapEntry<String, int>>.unmodifiable(routes);
 }

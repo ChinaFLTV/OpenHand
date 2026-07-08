@@ -225,6 +225,11 @@ class McpController extends ChangeNotifier {
   late final OpenHandDebouncer _pageActivationWorkDebouncer = OpenHandDebouncer(
     delay: _pageActivationWorkDelay,
   );
+  late final OpenHandDebouncer _opsPersistenceDebouncer = OpenHandDebouncer(
+    delay: const Duration(milliseconds: 650),
+    onError: (error, stack) =>
+        silentLog('mcp', 'persist ops runtime data', error, stack),
+  );
   Timer? _healthCheckTimer;
   Timer? _opsSnapshotNotifyTimer;
   final ValueNotifier<int> _saveSuccessSignal = ValueNotifier<int>(0);
@@ -394,6 +399,8 @@ class McpController extends ChangeNotifier {
       unawaited(opsRuntime.stop());
     }
     _pageActivationWorkDebouncer.dispose();
+    unawaited(_persistOpsRuntimeData());
+    _opsPersistenceDebouncer.dispose();
     _healthCheckTimer?.cancel();
     _opsSnapshotNotifyTimer?.cancel();
     _cancelQueuedAutoProbeSlots();
@@ -450,7 +457,11 @@ class McpController extends ChangeNotifier {
       try {
         final loadResult = await _store.load();
         _opsConfig = await _opsStore.loadConfig();
+        final persistedOps = await _opsStore.loadRuntimeData();
         _opsRuntime?.updateConfig(_opsConfig);
+        if (_opsRuntime?.isRunning != true) {
+          _hydratePersistedOpsRuntimeData(persistedOps);
+        }
         _setServers(loadResult.servers);
         _syncToolCatalogsWithServers(_servers);
         _syncHealthStatusesWithServers(_servers);
@@ -554,16 +565,24 @@ class McpController extends ChangeNotifier {
   }
 
   McpServerOpsRuntime _ensureOpsRuntime() {
-    return _opsRuntime ??= McpServerOpsRuntime(
+    final existing = _opsRuntime;
+    if (existing != null) {
+      return existing;
+    }
+    final runtime = McpServerOpsRuntime(
       toolListProvider: _opsToolDefinitions,
       toolInvoker: _invokeOpsTool,
       approvalGate: _handleOpsApprovalRequest,
       auditSink: _recordOpsAudit,
       snapshotSink: (snapshot) {
         _opsSnapshot = snapshot;
+        _scheduleOpsPersistence();
         _scheduleOpsSnapshotNotify();
       },
     );
+    _opsRuntime = runtime;
+    runtime.hydrateMetrics(_opsSnapshot);
+    return runtime;
   }
 
   void _scheduleOpsSnapshotNotify() {
@@ -616,7 +635,85 @@ class McpController extends ChangeNotifier {
     _opsAuditEntriesView = List<McpOpsAuditEntry>.unmodifiable(
       _opsAuditEntries,
     );
+    _scheduleOpsPersistence();
     _scheduleOpsSnapshotNotify();
+  }
+
+  Future<McpOpsPersistenceReport> measureOpsRuntimeData() {
+    return _opsStore.measureRuntimeData();
+  }
+
+  Future<McpOpsPersistenceReport> clearOpsRuntimeData({
+    DateTime? startUtc,
+    DateTime? endUtc,
+  }) async {
+    final before = await _opsStore.measureRuntimeData();
+    final clearsAll = startUtc == null && endUtc == null;
+    _opsRuntime?.clearMetrics(startUtc: startUtc, endUtc: endUtc);
+    if (clearsAll && _opsRuntime?.isRunning != true) {
+      _opsSnapshot = const McpOpsRuntimeSnapshot();
+    } else if (!clearsAll && _opsRuntime?.isRunning != true) {
+      _opsSnapshot = _opsSnapshot.copyWith(
+        trafficSeries: _opsSnapshot.trafficSeries
+            .where((sample) {
+              return !_mcpOpsTimestampInRange(
+                sample.minute,
+                startUtc: startUtc,
+                endUtc: endUtc,
+              );
+            })
+            .toList(growable: false),
+      );
+    }
+    _opsAuditEntries.removeWhere(
+      (entry) => clearsAll
+          ? true
+          : _mcpOpsTimestampInRange(
+              entry.timestamp,
+              startUtc: startUtc,
+              endUtc: endUtc,
+            ),
+    );
+    _opsAuditEntriesView = List<McpOpsAuditEntry>.unmodifiable(
+      _opsAuditEntries,
+    );
+    _opsPersistenceDebouncer.cancel();
+    await _persistOpsRuntimeData();
+    notifyListeners();
+    return before;
+  }
+
+  void _hydratePersistedOpsRuntimeData(McpOpsPersistedRuntimeData data) {
+    final snapshot = data.snapshot?.asOfflinePersistedSnapshot();
+    if (snapshot != null) {
+      _opsSnapshot = snapshot;
+      _opsRuntime?.hydrateMetrics(snapshot);
+    }
+    final entries = List<McpOpsAuditEntry>.from(data.auditEntries)
+      ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
+    _opsAuditEntries
+      ..clear()
+      ..addAll(entries.take(mcpOpsMaxAuditEntries));
+    _opsAuditEntriesView = List<McpOpsAuditEntry>.unmodifiable(
+      _opsAuditEntries,
+    );
+  }
+
+  void _scheduleOpsPersistence() {
+    if (_isDisposed) return;
+    _opsPersistenceDebouncer.schedule(_persistOpsRuntimeData);
+  }
+
+  Future<void> _persistOpsRuntimeData() async {
+    final entries = _opsAuditEntries.take(mcpOpsMaxPersistedAuditEntries);
+    await _opsStore.saveRuntimeData(
+      McpOpsPersistedRuntimeData(
+        snapshot: _mcpOpsRuntimeSnapshotHasData(_opsSnapshot)
+            ? _opsSnapshot
+            : null,
+        auditEntries: entries.toList(growable: false),
+      ),
+    );
   }
 
   List<McpOpsToolDefinition> _opsToolDefinitions() {
@@ -659,7 +756,10 @@ class McpController extends ChangeNotifier {
               ? config.displayName!.trim()
               : canonicalName,
           // 优先用户覆盖，否则回落到工具的真实 Claude Code 风格描述与 JSON schema。
-          description: _opsBuiltinDescription(config, base.definition.description),
+          description: _opsBuiltinDescription(
+            config,
+            base.definition.description,
+          ),
           surface: McpOpsExposureSurface.builtinTools,
           itemId: itemId,
           endpointId: _opsBuiltinEndpointId,
@@ -864,7 +964,8 @@ class McpController extends ChangeNotifier {
     }
     // 依赖大模型的工具在无可用模型时优雅报错，不进入执行。
     final resolvedModel = _opsBindings?.opsModelProvider?.call();
-    if (_opsModelDependentBuiltinKinds.contains(kind) && resolvedModel == null) {
+    if (_opsModelDependentBuiltinKinds.contains(kind) &&
+        resolvedModel == null) {
       return McpOpsToolInvocationResult(
         text:
             'Tool "${base.name}" requires a configured AI model. '
@@ -1902,4 +2003,50 @@ class McpController extends ChangeNotifier {
         health.lastSuccessAt == null &&
         health.recentProbes.isEmpty;
   }
+}
+
+bool _mcpOpsTimestampInRange(
+  DateTime value, {
+  required DateTime? startUtc,
+  required DateTime? endUtc,
+}) {
+  final utc = value.toUtc();
+  final start = startUtc?.toUtc();
+  final end = endUtc?.toUtc();
+  if (start != null && utc.isBefore(start)) return false;
+  if (end != null && utc.isAfter(end)) return false;
+  return true;
+}
+
+bool _mcpOpsRuntimeSnapshotHasData(McpOpsRuntimeSnapshot snapshot) {
+  return snapshot.lifecycle != McpOpsLifecycleState.stopped ||
+      snapshot.boundHost != null ||
+      snapshot.boundPort != null ||
+      snapshot.startedAt != null ||
+      snapshot.lastConnectivityAt != null ||
+      snapshot.lastConnectivityMessage.trim().isNotEmpty ||
+      snapshot.currentConnections > 0 ||
+      snapshot.activeRequests > 0 ||
+      snapshot.activeStreams > 0 ||
+      snapshot.sessionCount > 0 ||
+      snapshot.requestTotal > 0 ||
+      snapshot.blockedTotal > 0 ||
+      snapshot.failedTotal > 0 ||
+      snapshot.inboundBytes > 0 ||
+      snapshot.outboundBytes > 0 ||
+      snapshot.avgLatencyMs > 0 ||
+      snapshot.p95LatencyMs > 0 ||
+      snapshot.fileMutationCount > 0 ||
+      snapshot.memoryRssBytes > 0 ||
+      (snapshot.errorMessage?.trim().isNotEmpty ?? false) ||
+      snapshot.ipDistribution.isNotEmpty ||
+      snapshot.clientDistribution.isNotEmpty ||
+      snapshot.requestDistribution.isNotEmpty ||
+      snapshot.protocolDistribution.isNotEmpty ||
+      snapshot.trafficSeries.any(
+        (sample) =>
+            sample.total > 0 ||
+            sample.avgLatencyMs > 0 ||
+            sample.p95LatencyMs > 0,
+      );
 }

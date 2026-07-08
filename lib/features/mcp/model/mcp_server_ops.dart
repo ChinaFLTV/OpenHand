@@ -14,6 +14,7 @@ const int mcpOpsMaxTimeoutMs = 600000;
 const int mcpOpsDefaultApprovalTimeoutMs = 45000;
 const int mcpOpsMaxAuditEntries = 300;
 const int mcpOpsAuditPreviewMaxChars = 2800;
+const int mcpOpsMaxPersistedAuditEntries = 1200;
 
 /// Number of minute-level buckets retained for traffic/latency trend charts.
 const int mcpOpsTrafficWindowMinutes = 12;
@@ -25,6 +26,15 @@ enum McpOpsLifecycleState {
   restarting,
   stopping,
   failed,
+}
+
+McpOpsLifecycleState mcpOpsLifecycleStateFromValue(Object? value) {
+  return enumByNameOr(
+    McpOpsLifecycleState.values,
+    value,
+    fallback: McpOpsLifecycleState.stopped,
+    normalize: _normalizeOpsEnumValue,
+  );
 }
 
 enum McpOpsWriteMode {
@@ -417,6 +427,15 @@ enum McpOpsAuditKind {
   other,
 }
 
+McpOpsAuditKind mcpOpsAuditKindFromValue(Object? value) {
+  return enumByNameOr(
+    McpOpsAuditKind.values,
+    value,
+    fallback: McpOpsAuditKind.other,
+    normalize: _normalizeOpsEnumValue,
+  );
+}
+
 class McpOpsAuditEntry {
   const McpOpsAuditEntry({
     required this.id,
@@ -468,6 +487,70 @@ class McpOpsAuditEntry {
   bool get blocked => status == 'blocked';
   bool get errored => status == 'failed';
   bool get failed => errored || blocked;
+
+  Map<String, Object?> toJson() {
+    return <String, Object?>{
+      'id': id,
+      'timestamp': timestamp.toUtc().toIso8601String(),
+      'tool_name': toolName,
+      'surface': surface,
+      'endpoint': endpoint,
+      'status': status,
+      'protocol': protocol,
+      'model': model,
+      'client_name': clientName,
+      'ip_address': ipAddress,
+      'duration_ms': durationMs,
+      'prompt_tokens': promptTokens,
+      'completion_tokens': completionTokens,
+      'inbound_bytes': inboundBytes,
+      'outbound_bytes': outboundBytes,
+      'kind': kind.name,
+      if (errorMessage.isNotEmpty) 'error_message': errorMessage,
+      if (requestSummary.isNotEmpty) 'request_summary': requestSummary,
+      if (argumentsPreview.isNotEmpty) 'arguments_preview': argumentsPreview,
+      if (responsePreview.isNotEmpty) 'response_preview': responsePreview,
+      if (environment.isNotEmpty) 'environment': environment,
+    };
+  }
+
+  static McpOpsAuditEntry fromJson(Object? raw) {
+    final map = stringKeyedMapFromValue(raw);
+    final timestamp =
+        utcDateTimeFromValue(map['timestamp']) ?? DateTime.now().toUtc();
+    return McpOpsAuditEntry(
+      id: stringFromValue(
+        map['id'],
+        fallback: 'restored-${timestamp.microsecondsSinceEpoch}',
+      ),
+      timestamp: timestamp,
+      toolName: stringFromValue(map['tool_name']),
+      surface: stringFromValue(map['surface']),
+      endpoint: stringFromValue(map['endpoint']),
+      status: stringFromValue(map['status'], fallback: 'success'),
+      protocol: stringFromValue(map['protocol']),
+      model: stringFromValue(map['model']),
+      clientName: stringFromValue(map['client_name'], fallback: 'unknown'),
+      ipAddress: stringFromValue(map['ip_address'], fallback: 'unknown'),
+      durationMs: nonNegativeIntFromValue(map['duration_ms'], fallback: 0),
+      promptTokens: nonNegativeIntFromValue(map['prompt_tokens'], fallback: 0),
+      completionTokens: nonNegativeIntFromValue(
+        map['completion_tokens'],
+        fallback: 0,
+      ),
+      inboundBytes: nonNegativeIntFromValue(map['inbound_bytes'], fallback: 0),
+      outboundBytes: nonNegativeIntFromValue(
+        map['outbound_bytes'],
+        fallback: 0,
+      ),
+      kind: mcpOpsAuditKindFromValue(map['kind']),
+      errorMessage: stringFromValue(map['error_message']),
+      requestSummary: stringFromValue(map['request_summary']),
+      argumentsPreview: stringFromValue(map['arguments_preview']),
+      responsePreview: stringFromValue(map['response_preview']),
+      environment: stringKeyedMapFromValue(map['environment']),
+    );
+  }
 }
 
 class McpOpsApprovalRequest {
@@ -512,6 +595,29 @@ class McpOpsTrafficSample {
   final int p95LatencyMs;
 
   int get total => success + blocked + failed;
+
+  Map<String, Object?> toJson() {
+    return <String, Object?>{
+      'minute': minute.toUtc().toIso8601String(),
+      'success': success,
+      'blocked': blocked,
+      'failed': failed,
+      'avg_latency_ms': avgLatencyMs,
+      'p95_latency_ms': p95LatencyMs,
+    };
+  }
+
+  static McpOpsTrafficSample fromJson(Object? raw) {
+    final map = stringKeyedMapFromValue(raw);
+    return McpOpsTrafficSample(
+      minute: utcDateTimeFromValue(map['minute']) ?? DateTime.now().toUtc(),
+      success: nonNegativeIntFromValue(map['success'], fallback: 0),
+      blocked: nonNegativeIntFromValue(map['blocked'], fallback: 0),
+      failed: nonNegativeIntFromValue(map['failed'], fallback: 0),
+      avgLatencyMs: nonNegativeIntFromValue(map['avg_latency_ms'], fallback: 0),
+      p95LatencyMs: nonNegativeIntFromValue(map['p95_latency_ms'], fallback: 0),
+    );
+  }
 
   McpOpsTrafficSample copyWith({
     int? success,
@@ -589,7 +695,8 @@ class McpOpsRuntimeSnapshot {
   final List<McpOpsTrafficSample> trafficSeries;
 
   /// Live SSE streams held open beyond the request/response cycle.
-  int get idleStreams => (currentConnections - activeRequests).clamp(0, 1 << 30);
+  int get idleStreams =>
+      (currentConnections - activeRequests).clamp(0, 1 << 30);
   int get successTotal =>
       (requestTotal - blockedTotal - failedTotal).clamp(0, 1 << 30);
 
@@ -600,6 +707,108 @@ class McpOpsRuntimeSnapshot {
     if (start == null || !isRunning) return Duration.zero;
     final delta = DateTime.now().toUtc().difference(start);
     return delta.isNegative ? Duration.zero : delta;
+  }
+
+  McpOpsRuntimeSnapshot asOfflinePersistedSnapshot() {
+    return copyWith(
+      lifecycle: McpOpsLifecycleState.stopped,
+      clearBound: true,
+      clearStartedAt: true,
+      currentConnections: 0,
+      activeRequests: 0,
+      activeStreams: 0,
+      sessionCount: 0,
+    );
+  }
+
+  Map<String, Object?> toJson() {
+    return <String, Object?>{
+      'lifecycle': lifecycle.name,
+      'bound_host': boundHost,
+      'bound_port': boundPort,
+      'started_at': startedAt?.toUtc().toIso8601String(),
+      'last_connectivity_at': lastConnectivityAt?.toUtc().toIso8601String(),
+      'last_connectivity_ok': lastConnectivityOk,
+      'last_connectivity_message': lastConnectivityMessage,
+      'current_connections': currentConnections,
+      'active_requests': activeRequests,
+      'active_streams': activeStreams,
+      'session_count': sessionCount,
+      'request_total': requestTotal,
+      'blocked_total': blockedTotal,
+      'failed_total': failedTotal,
+      'inbound_bytes': inboundBytes,
+      'outbound_bytes': outboundBytes,
+      'avg_latency_ms': avgLatencyMs,
+      'p95_latency_ms': p95LatencyMs,
+      'file_mutation_count': fileMutationCount,
+      'memory_rss_bytes': memoryRssBytes,
+      if (errorMessage != null && errorMessage!.isNotEmpty)
+        'error_message': errorMessage,
+      'ip_distribution': ipDistribution,
+      'client_distribution': clientDistribution,
+      'request_distribution': requestDistribution,
+      'protocol_distribution': protocolDistribution,
+      'traffic_series': trafficSeries
+          .map((item) => item.toJson())
+          .toList(growable: false),
+    };
+  }
+
+  static McpOpsRuntimeSnapshot fromJson(Object? raw) {
+    final map = stringKeyedMapFromValue(raw);
+    return McpOpsRuntimeSnapshot(
+      lifecycle: mcpOpsLifecycleStateFromValue(map['lifecycle']),
+      boundHost: optionalStringFromValue(map['bound_host']),
+      boundPort: optionalIntFromValue(map['bound_port']),
+      startedAt: utcDateTimeFromValue(map['started_at']),
+      lastConnectivityAt: utcDateTimeFromValue(map['last_connectivity_at']),
+      lastConnectivityOk: boolFromValue(map['last_connectivity_ok']),
+      lastConnectivityMessage: stringFromValue(
+        map['last_connectivity_message'],
+      ),
+      currentConnections: nonNegativeIntFromValue(
+        map['current_connections'],
+        fallback: 0,
+      ),
+      activeRequests: nonNegativeIntFromValue(
+        map['active_requests'],
+        fallback: 0,
+      ),
+      activeStreams: nonNegativeIntFromValue(
+        map['active_streams'],
+        fallback: 0,
+      ),
+      sessionCount: nonNegativeIntFromValue(map['session_count'], fallback: 0),
+      requestTotal: nonNegativeIntFromValue(map['request_total'], fallback: 0),
+      blockedTotal: nonNegativeIntFromValue(map['blocked_total'], fallback: 0),
+      failedTotal: nonNegativeIntFromValue(map['failed_total'], fallback: 0),
+      inboundBytes: nonNegativeIntFromValue(map['inbound_bytes'], fallback: 0),
+      outboundBytes: nonNegativeIntFromValue(
+        map['outbound_bytes'],
+        fallback: 0,
+      ),
+      avgLatencyMs: nonNegativeIntFromValue(map['avg_latency_ms'], fallback: 0),
+      p95LatencyMs: nonNegativeIntFromValue(map['p95_latency_ms'], fallback: 0),
+      fileMutationCount: nonNegativeIntFromValue(
+        map['file_mutation_count'],
+        fallback: 0,
+      ),
+      memoryRssBytes: nonNegativeIntFromValue(
+        map['memory_rss_bytes'],
+        fallback: 0,
+      ),
+      errorMessage: optionalStringFromValue(map['error_message']),
+      ipDistribution: _stringIntMapFromValue(map['ip_distribution']),
+      clientDistribution: _stringIntMapFromValue(map['client_distribution']),
+      requestDistribution: _stringIntMapFromValue(map['request_distribution']),
+      protocolDistribution: _stringIntMapFromValue(
+        map['protocol_distribution'],
+      ),
+      trafficSeries: stringKeyedMapListFromValue(
+        map['traffic_series'],
+      ).map(McpOpsTrafficSample.fromJson).toList(growable: false),
+    );
   }
 
   McpOpsRuntimeSnapshot copyWith({
@@ -667,6 +876,52 @@ class McpOpsRuntimeSnapshot {
   }
 }
 
+class McpOpsPersistedRuntimeData {
+  const McpOpsPersistedRuntimeData({
+    this.snapshot,
+    this.auditEntries = const <McpOpsAuditEntry>[],
+  });
+
+  final McpOpsRuntimeSnapshot? snapshot;
+  final List<McpOpsAuditEntry> auditEntries;
+
+  int get itemCount => (snapshot == null ? 0 : 1) + auditEntries.length;
+
+  Map<String, Object?> toJson() {
+    return <String, Object?>{
+      if (snapshot != null) 'snapshot': snapshot!.toJson(),
+      'audit_entries': auditEntries
+          .map((entry) => entry.toJson())
+          .toList(growable: false),
+    };
+  }
+
+  static McpOpsPersistedRuntimeData fromJson(Object? raw) {
+    final map = stringKeyedMapFromValue(raw);
+    final snapshotRaw = map['snapshot'];
+    return McpOpsPersistedRuntimeData(
+      snapshot: snapshotRaw is Map
+          ? McpOpsRuntimeSnapshot.fromJson(snapshotRaw)
+          : null,
+      auditEntries: stringKeyedMapListFromValue(
+        map['audit_entries'],
+      ).map(McpOpsAuditEntry.fromJson).toList(growable: false),
+    );
+  }
+}
+
+class McpOpsPersistenceReport {
+  const McpOpsPersistenceReport({required this.bytes, required this.itemCount});
+
+  final int bytes;
+  final int itemCount;
+
+  static const McpOpsPersistenceReport empty = McpOpsPersistenceReport(
+    bytes: 0,
+    itemCount: 0,
+  );
+}
+
 String mcpOpsItemKey(McpOpsExposureSurface surface, String itemId) {
   return '${surface.storageValue}:${itemId.trim()}';
 }
@@ -718,4 +973,19 @@ List<String> _normalizeStringList(
     }
   }
   return result.isEmpty ? List<String>.from(fallback) : result;
+}
+
+Map<String, int> _stringIntMapFromValue(Object? raw) {
+  final source = stringKeyedMapFromValue(raw);
+  if (source.isEmpty) return const <String, int>{};
+  final result = <String, int>{};
+  for (final entry in source.entries) {
+    final key = entry.key.trim();
+    if (key.isEmpty) continue;
+    final value = nonNegativeIntFromValue(entry.value, fallback: 0);
+    if (value > 0) {
+      result[key] = value;
+    }
+  }
+  return Map<String, int>.unmodifiable(result);
 }
