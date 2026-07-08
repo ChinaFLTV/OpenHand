@@ -1826,6 +1826,8 @@ const double _mcpOpsPanelRadius = 14;
 const double _mcpOpsControlRadius = 12;
 const double _mcpOpsGridGap = 16;
 const double _mcpOpsTerminalRadius = 12;
+const double _mcpOpsPayloadFieldRadius = 13;
+const double _mcpOpsPayloadRailWidth = 3;
 const double _mcpOpsMetricWideBreakpoint = 860;
 const double _mcpOpsMetricMediumBreakpoint = 560;
 const int _mcpOpsExposureInitialLimit = 14;
@@ -8664,6 +8666,9 @@ class _McpOpsStructuredPayload extends StatelessWidget {
     return _McpOpsPanel(
       icon: icon,
       title: title,
+      subtitle: parsed.isEmpty
+          ? _localizedText(context, zh: '暂无可展示内容', en: 'No captured payload')
+          : _mcpOpsPayloadSubtitle(context, parsed),
       child: AnimatedSwitcher(
         duration: _mcpMotionDuration(
           context,
@@ -8695,15 +8700,122 @@ class _McpOpsStructuredPayload extends StatelessWidget {
                   ),
                 ),
               )
-            : _McpOpsStructuredNode(
+            : Column(
                 key: ValueKey<String>(
                   'mcp-ops-payload-${parsed.structured}-${parsed.raw.hashCode}',
                 ),
-                value: parsed.value,
-                raw: parsed.raw,
-                structured: parsed.structured,
-                accent: accent,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _McpOpsPayloadInspectorHeader(parsed: parsed, accent: accent),
+                  const SizedBox(height: 12),
+                  _McpOpsStructuredNode(
+                    value: parsed.value,
+                    raw: parsed.raw,
+                    structured: parsed.structured,
+                    accent: accent,
+                  ),
+                ],
               ),
+      ),
+    );
+  }
+}
+
+class _McpOpsPayloadInspectorHeader extends StatelessWidget {
+  const _McpOpsPayloadInspectorHeader({
+    required this.parsed,
+    required this.accent,
+  });
+
+  final _McpOpsParsedPayload parsed;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: AlignmentDirectional.topStart,
+          end: AlignmentDirectional.bottomEnd,
+          colors: [
+            accent.withValues(alpha: 0.10),
+            cs.surfaceContainerHigh.withValues(alpha: 0.52),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(_mcpOpsPayloadFieldRadius),
+        border: Border.all(color: accent.withValues(alpha: 0.18)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: cs.surface.withValues(alpha: 0.62),
+              borderRadius: BorderRadius.circular(11),
+              border: Border.all(color: accent.withValues(alpha: 0.20)),
+            ),
+            child: Icon(Icons.account_tree_rounded, size: 18, color: accent),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  parsed.structured
+                      ? _localizedText(
+                          context,
+                          zh: '结构化载荷视图',
+                          en: 'Structured payload view',
+                        )
+                      : _localizedText(
+                          context,
+                          zh: '文本载荷视图',
+                          en: 'Text payload view',
+                        ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _McpOpsPayloadPill(
+                      icon: Icons.schema_rounded,
+                      label: _mcpOpsPayloadShapeLabel(
+                        context,
+                        parsed.value,
+                        parsed.structured,
+                      ),
+                      accent: accent,
+                    ),
+                    _McpOpsPayloadPill(
+                      icon: Icons.format_list_bulleted_rounded,
+                      label: _mcpOpsPayloadCountLabel(context, parsed.value),
+                      accent: cs.onSurfaceVariant,
+                    ),
+                    _McpOpsPayloadPill(
+                      icon: Icons.notes_rounded,
+                      label: _mcpOpsPayloadSizeLabel(context, parsed.raw),
+                      accent: cs.onSurfaceVariant,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -8717,7 +8829,6 @@ class _McpOpsStructuredNode extends StatelessWidget {
     required this.accent,
     this.depth = 0,
     this.semanticKey = '',
-    super.key,
   });
 
   final Object? value;
@@ -8754,7 +8865,7 @@ class _McpOpsStructuredNode extends StatelessWidget {
           for (final entry in entries.indexed)
             Padding(
               padding: EdgeInsets.only(
-                bottom: entry.$1 == entries.length - 1 ? 0 : 10,
+                bottom: entry.$1 == entries.length - 1 ? 0 : 9,
               ),
               child: _McpOpsStructuredField(
                 label: '${entry.$2.key}',
@@ -8780,7 +8891,7 @@ class _McpOpsStructuredNode extends StatelessWidget {
           for (final item in current.indexed)
             Padding(
               padding: EdgeInsets.only(
-                bottom: item.$1 == current.length - 1 ? 0 : 10,
+                bottom: item.$1 == current.length - 1 ? 0 : 9,
               ),
               child: _McpOpsStructuredField(
                 label: '#${item.$1 + 1}',
@@ -8817,58 +8928,79 @@ class _McpOpsStructuredField extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
+    final nested = value is Map || value is List;
+    final tone = depth == 0 ? accent : cs.primary.withValues(alpha: 0.78);
     final child = _McpOpsStructuredNode(
       value: value,
       raw: _mcpOpsPayloadScalarText(value),
-      structured: value is Map || value is List,
+      structured: nested,
       accent: accent,
       depth: depth + 1,
       semanticKey: label,
     );
-    return Container(
-      padding: const EdgeInsets.all(12),
+    return AnimatedContainer(
+      duration: _mcpMotionDuration(context, const Duration(milliseconds: 170)),
+      curve: Curves.easeOutCubic,
       decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest.withValues(
-          alpha: depth == 0 ? 0.34 : 0.22,
-        ),
-        borderRadius: BorderRadius.circular(_mcpOpsControlRadius),
+        color: depth == 0
+            ? cs.surfaceContainerHigh.withValues(alpha: 0.58)
+            : cs.surfaceContainerLow.withValues(alpha: 0.72),
+        borderRadius: BorderRadius.circular(_mcpOpsPayloadFieldRadius),
         border: Border.all(
           color: (depth == 0 ? accent : cs.outlineVariant).withValues(
-            alpha: depth == 0 ? 0.18 : 0.38,
+            alpha: depth == 0 ? 0.20 : 0.46,
           ),
         ),
+        boxShadow: depth == 0
+            ? <BoxShadow>[
+                BoxShadow(
+                  color: cs.shadow.withValues(alpha: 0.035),
+                  blurRadius: 12,
+                  offset: const Offset(0, 6),
+                ),
+              ]
+            : null,
       ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final compact =
-              constraints.maxWidth.isFinite && constraints.maxWidth < 620;
-          final labelWidget = _McpOpsPayloadLabel(
-            label: label,
-            value: value,
-            accent: accent,
-          );
-          if (compact) {
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [labelWidget, const SizedBox(height: 8), child],
-            );
-          }
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SizedBox(width: 172, child: labelWidget),
-              const SizedBox(width: 12),
-              Expanded(child: child),
-            ],
-          );
-        },
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(_mcpOpsPayloadFieldRadius),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Container(
+              width: _mcpOpsPayloadRailWidth,
+              color: tone.withValues(alpha: depth == 0 ? 0.85 : 0.38),
+            ),
+            Expanded(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(
+                  depth == 0 ? 13 : 11,
+                  depth == 0 ? 12 : 10,
+                  depth == 0 ? 13 : 11,
+                  depth == 0 ? 12 : 10,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _McpOpsPayloadFieldHeader(
+                      label: label,
+                      value: value,
+                      accent: tone,
+                    ),
+                    const SizedBox(height: 10),
+                    child,
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-class _McpOpsPayloadLabel extends StatelessWidget {
-  const _McpOpsPayloadLabel({
+class _McpOpsPayloadFieldHeader extends StatelessWidget {
+  const _McpOpsPayloadFieldHeader({
     required this.label,
     required this.value,
     required this.accent,
@@ -8882,33 +9014,81 @@ class _McpOpsPayloadLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Row(
       children: [
-        SelectableText(
-          label,
-          maxLines: 2,
-          style: theme.textTheme.labelLarge?.copyWith(
-            fontWeight: FontWeight.w900,
-          ),
-        ),
-        const SizedBox(height: 6),
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          width: 28,
+          height: 28,
+          alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: accent.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(999),
-            border: Border.all(color: accent.withValues(alpha: 0.2)),
+            color: accent.withValues(alpha: 0.10),
+            borderRadius: BorderRadius.circular(9),
+            border: Border.all(color: accent.withValues(alpha: 0.20)),
           ),
-          child: Text(
-            _mcpOpsPayloadTypeLabel(context, value),
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: cs.onSurfaceVariant,
-              fontWeight: FontWeight.w800,
+          child: Icon(_mcpOpsPayloadValueIcon(value), size: 16, color: accent),
+        ),
+        const SizedBox(width: 9),
+        Expanded(
+          child: SelectableText(
+            label,
+            maxLines: 2,
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w900,
+              height: 1.12,
             ),
           ),
         ),
+        const SizedBox(width: 8),
+        _McpOpsPayloadPill(
+          icon: Icons.category_rounded,
+          label: _mcpOpsPayloadTypeLabel(context, value),
+          accent: cs.onSurfaceVariant,
+        ),
       ],
+    );
+  }
+}
+
+class _McpOpsPayloadPill extends StatelessWidget {
+  const _McpOpsPayloadPill({
+    required this.icon,
+    required this.label,
+    required this.accent,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      decoration: BoxDecoration(
+        color: accent.withValues(alpha: 0.09),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: accent.withValues(alpha: 0.18)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 13, color: accent.withValues(alpha: 0.88)),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: cs.onSurfaceVariant,
+              fontWeight: FontWeight.w900,
+              height: 1.1,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -8931,25 +9111,166 @@ class _McpOpsScalarPayload extends StatelessWidget {
     final text = _mcpOpsPayloadScalarText(value);
     final muted = text.trim().isEmpty;
     final mono = _mcpOpsPayloadPrefersMonospace(semanticKey, text);
+    final longText = text.length > 96 || text.contains('\n');
+    if (!mono && !longText) {
+      return SelectableText(
+        muted ? '—' : text,
+        style: theme.textTheme.bodyMedium?.copyWith(
+          height: 1.36,
+          color: muted ? cs.onSurfaceVariant : null,
+          fontWeight: muted ? FontWeight.w700 : FontWeight.w600,
+        ),
+      );
+    }
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: cs.surface.withValues(alpha: 0.58),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: accent.withValues(alpha: 0.12)),
+        color: cs.surface.withValues(alpha: 0.66),
+        borderRadius: BorderRadius.circular(11),
+        border: Border.all(color: accent.withValues(alpha: 0.14)),
       ),
-      child: SelectableText(
-        muted ? '—' : text,
-        style: theme.textTheme.bodySmall?.copyWith(
-          fontFamily: mono ? 'monospace' : null,
-          height: mono ? 1.48 : 1.34,
-          color: muted ? cs.onSurfaceVariant : null,
-          fontFeatures: mono ? const [FontFeature.tabularFigures()] : null,
-        ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+            decoration: BoxDecoration(
+              color: cs.surfaceContainerHighest.withValues(alpha: 0.42),
+              border: Border(
+                bottom: BorderSide(
+                  color: cs.outlineVariant.withValues(alpha: 0.40),
+                ),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  mono ? Icons.terminal_rounded : Icons.subject_rounded,
+                  size: 14,
+                  color: accent,
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    _mcpOpsPayloadContentLabel(context, semanticKey, mono),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: cs.onSurfaceVariant,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+                Text(
+                  _mcpOpsPayloadSizeLabel(context, text),
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: cs.onSurfaceVariant,
+                    fontWeight: FontWeight.w800,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            child: SelectableText(
+              muted ? '—' : text,
+              style: theme.textTheme.bodySmall?.copyWith(
+                fontFamily: mono ? 'monospace' : null,
+                height: mono ? 1.50 : 1.42,
+                color: muted ? cs.onSurfaceVariant : null,
+                fontFeatures: mono
+                    ? const [FontFeature.tabularFigures()]
+                    : null,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
+}
+
+String _mcpOpsPayloadSubtitle(
+  BuildContext context,
+  _McpOpsParsedPayload parsed,
+) {
+  return [
+    _mcpOpsPayloadShapeLabel(context, parsed.value, parsed.structured),
+    _mcpOpsPayloadCountLabel(context, parsed.value),
+    _mcpOpsPayloadSizeLabel(context, parsed.raw),
+  ].join(' · ');
+}
+
+String _mcpOpsPayloadShapeLabel(
+  BuildContext context,
+  Object? value,
+  bool structured,
+) {
+  if (!structured) {
+    return _localizedText(context, zh: '原始文本', en: 'Plain text');
+  }
+  if (value is Map) return _localizedText(context, zh: '对象结构', en: 'Object');
+  if (value is List) return _localizedText(context, zh: '列表结构', en: 'Array');
+  return _localizedText(context, zh: '结构化', en: 'Structured');
+}
+
+String _mcpOpsPayloadCountLabel(BuildContext context, Object? value) {
+  if (value is Map) {
+    return _localizedText(
+      context,
+      zh: '${value.length} 个字段',
+      en: '${value.length} fields',
+    );
+  }
+  if (value is List) {
+    return _localizedText(
+      context,
+      zh: '${value.length} 项',
+      en: '${value.length} items',
+    );
+  }
+  return _localizedText(context, zh: '1 段内容', en: '1 segment');
+}
+
+String _mcpOpsPayloadSizeLabel(BuildContext context, String text) {
+  return _localizedText(
+    context,
+    zh: '${text.length} 字符',
+    en: '${text.length} chars',
+  );
+}
+
+String _mcpOpsPayloadContentLabel(
+  BuildContext context,
+  String semanticKey,
+  bool mono,
+) {
+  final key = semanticKey.toLowerCase();
+  if (key.contains('command')) {
+    return _localizedText(context, zh: 'Shell 命令', en: 'Shell command');
+  }
+  if (key.contains('stdout') || key.contains('stderr')) {
+    return _localizedText(context, zh: '终端输出', en: 'Terminal output');
+  }
+  if (key.contains('path')) {
+    return _localizedText(context, zh: '文件路径', en: 'File path');
+  }
+  if (mono) {
+    return _localizedText(context, zh: '等宽文本', en: 'Monospace text');
+  }
+  return _localizedText(context, zh: '长文本', en: 'Long text');
+}
+
+IconData _mcpOpsPayloadValueIcon(Object? value) {
+  if (value is Map) return Icons.data_object_rounded;
+  if (value is List) return Icons.data_array_rounded;
+  if (value is num) return Icons.pin_rounded;
+  if (value is bool) return Icons.toggle_on_rounded;
+  if (value == null) return Icons.block_rounded;
+  return Icons.short_text_rounded;
 }
 
 class _McpOpsParsedPayload {

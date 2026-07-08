@@ -33,6 +33,7 @@ class OpenHandApp extends StatefulWidget {
 
 class _OpenHandAppState extends State<OpenHandApp> {
   late final AppLifecycleListener _lifecycleListener;
+  final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
   final FocusNode _inputRepairSentinelFocusNode = FocusNode(
     debugLabel: 'input-repair-sentinel',
   );
@@ -85,6 +86,7 @@ class _OpenHandAppState extends State<OpenHandApp> {
     );
 
     return MaterialApp(
+      navigatorKey: _navigatorKey,
       debugShowCheckedModeBanner: false,
       scaffoldMessengerKey: OpenHandSnackBar.rootMessengerKey,
       onGenerateTitle: (context) => AppLocalizations.of(context)!.appTitle,
@@ -120,7 +122,7 @@ class _OpenHandAppState extends State<OpenHandApp> {
         return Stack(
           fit: StackFit.expand,
           children: [
-            _McpOpsApprovalHost(child: builtChild),
+            _McpOpsApprovalHost(navigatorKey: _navigatorKey, child: builtChild),
             Offstage(
               child: Focus(
                 focusNode: _inputRepairSentinelFocusNode,
@@ -140,8 +142,9 @@ class _OpenHandAppState extends State<OpenHandApp> {
 }
 
 class _McpOpsApprovalHost extends StatefulWidget {
-  const _McpOpsApprovalHost({required this.child});
+  const _McpOpsApprovalHost({required this.navigatorKey, required this.child});
 
+  final GlobalKey<NavigatorState> navigatorKey;
   final Widget child;
 
   @override
@@ -149,8 +152,11 @@ class _McpOpsApprovalHost extends StatefulWidget {
 }
 
 class _McpOpsApprovalHostState extends State<_McpOpsApprovalHost> {
+  static const Duration _navigatorRetryDelay = Duration(milliseconds: 120);
+
   final Set<String> _handledDialogIds = <String>{};
   McpController? _controller;
+  Timer? _dialogRetryTimer;
   String? _scheduledDialogId;
   String? _presentingDialogId;
   BuildContext? _activeDialogContext;
@@ -175,6 +181,7 @@ class _McpOpsApprovalHostState extends State<_McpOpsApprovalHost> {
 
   @override
   void dispose() {
+    _dialogRetryTimer?.cancel();
     _controller?.removeListener(_handleApprovalsChanged);
     _controller = null;
     _activeDialogContext = null;
@@ -188,6 +195,12 @@ class _McpOpsApprovalHostState extends State<_McpOpsApprovalHost> {
     }
     final approvals = controller.opsApprovalRequests;
     final pendingIds = approvals.map((item) => item.id).toSet();
+    final scheduledId = _scheduledDialogId;
+    if (scheduledId != null && !pendingIds.contains(scheduledId)) {
+      _dialogRetryTimer?.cancel();
+      _dialogRetryTimer = null;
+      _scheduledDialogId = null;
+    }
     _handledDialogIds.removeWhere(
       (id) =>
           !pendingIds.contains(id) &&
@@ -230,6 +243,12 @@ class _McpOpsApprovalHostState extends State<_McpOpsApprovalHost> {
 
     _presentingDialogId = approval.id;
     _handledDialogIds.add(approval.id);
+    final dialogContext = _dialogContext;
+    if (dialogContext == null) {
+      _rescheduleApprovalDialog(controller, approval);
+      return;
+    }
+    var rescheduled = false;
     var resolvedElsewhere = false;
     var listenerAttached = false;
     late final VoidCallback listener;
@@ -261,7 +280,7 @@ class _McpOpsApprovalHostState extends State<_McpOpsApprovalHost> {
 
     try {
       final approved = await showMcpOpsWriteApprovalDialog(
-        context,
+        dialogContext,
         request: approval,
         onDialogContext: (dialogContext) {
           _activeDialogContext = dialogContext;
@@ -275,7 +294,12 @@ class _McpOpsApprovalHostState extends State<_McpOpsApprovalHost> {
       controller.resolveOpsApproval(approval.id, approved: approved == true);
     } catch (error, stack) {
       silentLog('openhand_app', 'present MCP ops approval', error, stack);
-      if (!resolvedElsewhere) {
+      if (!resolvedElsewhere && _approvalStillPending(controller, approval)) {
+        rescheduled = true;
+        _rescheduleApprovalDialog(controller, approval);
+        return;
+      }
+      if (!resolvedElsewhere && mounted) {
         controller.resolveOpsApproval(approval.id, approved: false);
       }
     } finally {
@@ -284,10 +308,60 @@ class _McpOpsApprovalHostState extends State<_McpOpsApprovalHost> {
         _presentingDialogId = null;
       }
       _activeDialogContext = null;
-      if (mounted) {
+      if (mounted && !rescheduled) {
         _handleApprovalsChanged();
       }
     }
+  }
+
+  BuildContext? get _dialogContext {
+    final navigator = widget.navigatorKey.currentState;
+    if (navigator == null || !navigator.mounted) {
+      return null;
+    }
+    final dialogContext =
+        navigator.overlay?.context ??
+        widget.navigatorKey.currentContext ??
+        navigator.context;
+    final resolvedNavigator = Navigator.maybeOf(
+      dialogContext,
+      rootNavigator: true,
+    );
+    return resolvedNavigator == null ? null : dialogContext;
+  }
+
+  bool _approvalStillPending(
+    McpController controller,
+    McpOpsApprovalRequest approval,
+  ) {
+    return mounted &&
+        DateTime.now().toUtc().isBefore(approval.expiresAt) &&
+        controller.opsApprovalRequests.any((item) => item.id == approval.id);
+  }
+
+  void _rescheduleApprovalDialog(
+    McpController controller,
+    McpOpsApprovalRequest approval,
+  ) {
+    _handledDialogIds.remove(approval.id);
+    if (_presentingDialogId == approval.id) {
+      _presentingDialogId = null;
+    }
+    _activeDialogContext = null;
+    if (!_approvalStillPending(controller, approval)) {
+      return;
+    }
+    _dialogRetryTimer?.cancel();
+    _scheduledDialogId = approval.id;
+    _dialogRetryTimer = Timer(_navigatorRetryDelay, () {
+      _dialogRetryTimer = null;
+      if (_scheduledDialogId == approval.id) {
+        _scheduledDialogId = null;
+      }
+      if (mounted) {
+        _handleApprovalsChanged();
+      }
+    });
   }
 
   @override
