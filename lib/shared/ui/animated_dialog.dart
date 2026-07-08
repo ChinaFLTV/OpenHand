@@ -1352,38 +1352,82 @@ class _DialogInitialHitTestShield extends StatefulWidget {
 
 class _DialogInitialHitTestShieldState
     extends State<_DialogInitialHitTestShield> {
-  Timer? _releaseTimer;
   bool _absorbing = true;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _releaseTimer = Timer(Duration.zero, () {
-        if (mounted) {
-          setState(() => _absorbing = false);
-        }
-      });
-    });
+    unawaited(_releaseAfterStableFrames());
   }
 
-  @override
-  void dispose() {
-    _releaseTimer?.cancel();
-    super.dispose();
+  Future<void> _releaseAfterStableFrames() async {
+    final binding = WidgetsBinding.instance;
+    await binding.endOfFrame;
+    await binding.endOfFrame;
+    if (mounted) {
+      setState(() => _absorbing = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final child = AbsorbPointer(absorbing: _absorbing, child: widget.child);
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        if (constraints.hasBoundedWidth && constraints.hasBoundedHeight) {
-          return SizedBox.expand(child: child);
-        }
-        return child;
-      },
+    return _DialogInitialHitTestGate(
+      absorbing: _absorbing,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          if (constraints.hasBoundedWidth && constraints.hasBoundedHeight) {
+            return SizedBox.expand(child: widget.child);
+          }
+          return widget.child;
+        },
+      ),
     );
+  }
+}
+
+class _DialogInitialHitTestGate extends SingleChildRenderObjectWidget {
+  const _DialogInitialHitTestGate({
+    required this.absorbing,
+    required super.child,
+  });
+
+  final bool absorbing;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) {
+    return _RenderDialogInitialHitTestGate(absorbing: absorbing);
+  }
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _RenderDialogInitialHitTestGate renderObject,
+  ) {
+    renderObject.absorbing = absorbing;
+  }
+}
+
+class _RenderDialogInitialHitTestGate extends RenderProxyBox {
+  _RenderDialogInitialHitTestGate({required bool absorbing})
+    : _absorbing = absorbing;
+
+  bool _absorbing;
+
+  set absorbing(bool value) {
+    if (_absorbing == value) return;
+    _absorbing = value;
+  }
+
+  @override
+  bool hitTest(BoxHitTestResult result, {required Offset position}) {
+    if (!hasSize || !size.contains(position)) {
+      return false;
+    }
+    if (!_absorbing) {
+      return super.hitTest(result, position: position);
+    }
+    result.add(BoxHitTestEntry(this, position));
+    return true;
   }
 }
 
