@@ -1920,7 +1920,6 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
     final controller = context.watch<McpController>();
     final snapshot = controller.opsSnapshot;
     final config = _buildConfig();
@@ -1962,6 +1961,10 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
                   onStart: () => _startServer(context),
                   onRestart: () => _restartServer(context),
                   onStop: () => _stopServer(context),
+                  configActionBusy: _saving,
+                  configMessage: _configMessage,
+                  onResetConfig: () => _resetConfigWithConfirm(context),
+                  onSaveConfig: () => _saveConfig(context),
                   onClose: () => Navigator.of(context).maybePop(),
                 ),
                 const SizedBox(height: 12),
@@ -1981,32 +1984,6 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
                       Builder(builder: _buildAuditTab),
                     ],
                   ),
-                ),
-                Builder(
-                  builder: (footerContext) {
-                    final tabController = DefaultTabController.of(
-                      footerContext,
-                    );
-                    return AnimatedBuilder(
-                      animation: tabController,
-                      builder: (context, _) {
-                        final showConfigActions = tabController.index == 1;
-                        return AnimatedSwitcher(
-                          duration: _mcpMotionDuration(
-                            context,
-                            const Duration(milliseconds: 180),
-                          ),
-                          switchInCurve: Curves.easeOutCubic,
-                          switchOutCurve: Curves.easeInCubic,
-                          child: showConfigActions
-                              ? _buildConfigActionsBar(context, l10n)
-                              : const SizedBox.shrink(
-                                  key: ValueKey<String>('mcp-ops-footer-empty'),
-                                ),
-                        );
-                      },
-                    );
-                  },
                 ),
               ],
             ),
@@ -2211,70 +2188,6 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
       );
     }
     return null;
-  }
-
-  Widget _buildConfigActionsBar(BuildContext context, AppLocalizations l10n) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    return Container(
-      key: const ValueKey<String>('mcp-ops-config-footer'),
-      margin: const EdgeInsets.only(top: 12),
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHigh.withValues(alpha: 0.62),
-        borderRadius: BorderRadius.circular(_mcpOpsPanelRadius),
-        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.58)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (_configMessage?.trim().isNotEmpty ?? false) ...[
-            const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.check_circle_rounded, size: 16, color: cs.primary),
-                const SizedBox(width: 7),
-                Flexible(
-                  child: Text(
-                    _configMessage!.trim(),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: cs.onSurfaceVariant,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
-          buildOpenHandDialogActionsBar(
-            padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
-            actions: [
-              OpenHandDialogActionButton.secondary(
-                icon: Icons.restart_alt_rounded,
-                onPressed: _saving
-                    ? null
-                    : () => _resetConfigWithConfirm(context),
-                label: _localizedText(context, zh: '重置', en: 'Reset'),
-              ),
-              OpenHandDialogActionButton.secondary(
-                onPressed: _saving
-                    ? null
-                    : () => Navigator.of(context).maybePop(),
-                label: l10n.commonClose,
-              ),
-              OpenHandDialogActionButton.primary(
-                icon: Icons.save_rounded,
-                onPressed: _saving ? null : () => _saveConfig(context),
-                label: l10n.commonSave,
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
   }
 
   Widget _tabScroll(BuildContext context, Widget child) {
@@ -3220,21 +3133,27 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
                   color: enabled ? cs.primary : cs.onSurfaceVariant,
                 ),
                 const SizedBox(width: 10),
-                Flexible(
-                  child: Text(
-                    _surfaceLabel(context, surface),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w900,
-                    ),
+                Expanded(
+                  child: Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          _surfaceLabel(context, surface),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                      if (badge != null && badge.trim().isNotEmpty) ...[
+                        const SizedBox(width: 8),
+                        _McpOpsCountBadge(text: badge, active: enabled),
+                      ],
+                    ],
                   ),
                 ),
-                if (badge != null && badge.trim().isNotEmpty) ...[
-                  const SizedBox(width: 8),
-                  _McpOpsCountBadge(text: badge, active: enabled),
-                ],
-                const Spacer(),
+                const SizedBox(width: 10),
                 Switch(value: enabled, onChanged: update),
               ],
             ),
@@ -3703,7 +3622,11 @@ class _McpOpsConsoleHeader extends StatelessWidget {
     required this.onStart,
     required this.onRestart,
     required this.onStop,
+    required this.configActionBusy,
+    required this.onResetConfig,
+    required this.onSaveConfig,
     required this.onClose,
+    this.configMessage,
   });
 
   final McpOpsRuntimeSnapshot snapshot;
@@ -3716,6 +3639,10 @@ class _McpOpsConsoleHeader extends StatelessWidget {
   final VoidCallback onStart;
   final VoidCallback onRestart;
   final VoidCallback onStop;
+  final bool configActionBusy;
+  final String? configMessage;
+  final VoidCallback onResetConfig;
+  final VoidCallback onSaveConfig;
   final VoidCallback onClose;
 
   @override
@@ -3729,14 +3656,17 @@ class _McpOpsConsoleHeader extends StatelessWidget {
         ? cs.error
         : cs.primary;
     final canStart =
+        !configActionBusy &&
         snapshot.lifecycle != McpOpsLifecycleState.running &&
         snapshot.lifecycle != McpOpsLifecycleState.starting &&
         snapshot.lifecycle != McpOpsLifecycleState.restarting;
     final canStop =
-        snapshot.lifecycle == McpOpsLifecycleState.running ||
-        snapshot.lifecycle == McpOpsLifecycleState.starting ||
-        snapshot.lifecycle == McpOpsLifecycleState.restarting;
+        !configActionBusy &&
+        (snapshot.lifecycle == McpOpsLifecycleState.running ||
+            snapshot.lifecycle == McpOpsLifecycleState.starting ||
+            snapshot.lifecycle == McpOpsLifecycleState.restarting);
     final showsBindEndpoint = bindEndpointUri != endpointUri;
+    final configMessageText = configMessage?.trim() ?? '';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -3854,14 +3784,81 @@ class _McpOpsConsoleHeader extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 12),
-        Wrap(
+        _McpOpsHeaderControls(
+          running: running,
+          canStart: canStart,
+          canStop: canStop,
+          busy: configActionBusy,
+          onConnectivityTest: onConnectivityTest,
+          onStart: onStart,
+          onRestart: onRestart,
+          onStop: onStop,
+          onResetConfig: onResetConfig,
+          onSaveConfig: onSaveConfig,
+          onClose: onClose,
+        ),
+        AnimatedSize(
+          duration: _mcpMotionDuration(
+            context,
+            const Duration(milliseconds: 180),
+          ),
+          curve: Curves.easeOutCubic,
+          alignment: Alignment.topLeft,
+          child: configMessageText.isEmpty
+              ? const SizedBox(width: double.infinity)
+              : Padding(
+                  padding: const EdgeInsets.only(top: 10),
+                  child: _McpOpsHeaderMessage(text: configMessageText),
+                ),
+        ),
+      ],
+    );
+  }
+}
+
+class _McpOpsHeaderControls extends StatelessWidget {
+  const _McpOpsHeaderControls({
+    required this.running,
+    required this.canStart,
+    required this.canStop,
+    required this.busy,
+    required this.onConnectivityTest,
+    required this.onStart,
+    required this.onRestart,
+    required this.onStop,
+    required this.onResetConfig,
+    required this.onSaveConfig,
+    required this.onClose,
+  });
+
+  final bool running;
+  final bool canStart;
+  final bool canStop;
+  final bool busy;
+  final VoidCallback onConnectivityTest;
+  final VoidCallback onStart;
+  final VoidCallback onRestart;
+  final VoidCallback onStop;
+  final VoidCallback onResetConfig;
+  final VoidCallback onSaveConfig;
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    final tabController = DefaultTabController.of(context);
+    return AnimatedBuilder(
+      animation: tabController,
+      builder: (context, _) {
+        final showConfigActions = tabController.index == 1;
+        return Wrap(
           spacing: 8,
           runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             _McpOpsIconButton(
               icon: Icons.radar_rounded,
               tooltip: _localizedText(context, zh: '连通性测试', en: 'Test'),
-              onPressed: onConnectivityTest,
+              onPressed: busy ? null : onConnectivityTest,
             ),
             _McpOpsIconButton(
               icon: Icons.play_arrow_rounded,
@@ -3871,16 +3868,239 @@ class _McpOpsConsoleHeader extends StatelessWidget {
             _McpOpsIconButton(
               icon: Icons.restart_alt_rounded,
               tooltip: _localizedText(context, zh: '重启', en: 'Restart'),
-              onPressed: running ? onRestart : null,
+              onPressed: running && !busy ? onRestart : null,
             ),
             _McpOpsIconButton(
               icon: Icons.stop_rounded,
               tooltip: _localizedText(context, zh: '关闭', en: 'Stop'),
               onPressed: canStop ? onStop : null,
             ),
+            AnimatedSwitcher(
+              duration: _mcpMotionDuration(
+                context,
+                const Duration(milliseconds: 180),
+              ),
+              switchInCurve: Curves.easeOutBack,
+              switchOutCurve: Curves.easeInCubic,
+              transitionBuilder: (child, animation) {
+                final curved = CurvedAnimation(
+                  parent: animation,
+                  curve: Curves.easeOutCubic,
+                  reverseCurve: Curves.easeInCubic,
+                );
+                return FadeTransition(
+                  opacity: curved,
+                  child: SizeTransition(
+                    axis: Axis.horizontal,
+                    axisAlignment: -1,
+                    sizeFactor: curved,
+                    child: child,
+                  ),
+                );
+              },
+              child: showConfigActions
+                  ? _McpOpsHeaderConfigActions(
+                      key: const ValueKey<String>('mcp-ops-top-config-actions'),
+                      busy: busy,
+                      onResetConfig: onResetConfig,
+                      onSaveConfig: onSaveConfig,
+                      onClose: onClose,
+                    )
+                  : const SizedBox.shrink(
+                      key: ValueKey<String>('mcp-ops-top-config-actions-empty'),
+                    ),
+            ),
           ],
+        );
+      },
+    );
+  }
+}
+
+class _McpOpsHeaderConfigActions extends StatelessWidget {
+  const _McpOpsHeaderConfigActions({
+    super.key,
+    required this.busy,
+    required this.onResetConfig,
+    required this.onSaveConfig,
+    required this.onClose,
+  });
+
+  final bool busy;
+  final VoidCallback onResetConfig;
+  final VoidCallback onSaveConfig;
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        _McpOpsHeaderActionButton(
+          icon: Icons.restart_alt_rounded,
+          label: _localizedText(context, zh: '重置', en: 'Reset'),
+          onPressed: busy ? null : onResetConfig,
+        ),
+        _McpOpsHeaderActionButton(
+          icon: Icons.close_rounded,
+          label: l10n.commonClose,
+          onPressed: busy ? null : onClose,
+        ),
+        _McpOpsHeaderActionButton(
+          icon: Icons.save_rounded,
+          label: l10n.commonSave,
+          primary: true,
+          onPressed: busy ? null : onSaveConfig,
         ),
       ],
+    );
+  }
+}
+
+class _McpOpsHeaderActionButton extends StatelessWidget {
+  const _McpOpsHeaderActionButton({
+    required this.icon,
+    required this.label,
+    required this.onPressed,
+    this.primary = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback? onPressed;
+  final bool primary;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final enabled = onPressed != null;
+    final background = primary
+        ? cs.primary
+        : cs.surfaceContainerHigh.withValues(alpha: 0.82);
+    final foreground = primary ? cs.onPrimary : cs.onSurfaceVariant;
+    return Tooltip(
+      message: label,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(_mcpOpsControlRadius),
+          hoverColor: (primary ? cs.onPrimary : cs.primary).withValues(
+            alpha: 0.08,
+          ),
+          splashColor: (primary ? cs.onPrimary : cs.primary).withValues(
+            alpha: 0.10,
+          ),
+          highlightColor: (primary ? cs.onPrimary : cs.primary).withValues(
+            alpha: 0.05,
+          ),
+          onTap: onPressed,
+          child: AnimatedContainer(
+            duration: _mcpMotionDuration(
+              context,
+              const Duration(milliseconds: 160),
+            ),
+            curve: Curves.easeOutCubic,
+            height: 44,
+            constraints: const BoxConstraints(minWidth: 88, maxWidth: 124),
+            padding: const EdgeInsets.symmetric(horizontal: 13),
+            decoration: BoxDecoration(
+              color: enabled
+                  ? background
+                  : cs.surfaceContainerHighest.withValues(alpha: 0.40),
+              borderRadius: BorderRadius.circular(_mcpOpsControlRadius),
+              border: Border.all(
+                color: enabled
+                    ? (primary
+                          ? cs.primary.withValues(alpha: 0.30)
+                          : cs.outlineVariant.withValues(alpha: 0.72))
+                    : cs.outlineVariant.withValues(alpha: 0.40),
+              ),
+              boxShadow: enabled && primary
+                  ? <BoxShadow>[
+                      BoxShadow(
+                        color: cs.primary.withValues(alpha: 0.18),
+                        blurRadius: 16,
+                        offset: const Offset(0, 8),
+                      ),
+                    ]
+                  : null,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  icon,
+                  size: 18,
+                  color: enabled
+                      ? foreground
+                      : cs.onSurfaceVariant.withValues(alpha: 0.42),
+                ),
+                const SizedBox(width: 7),
+                Flexible(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      color: enabled
+                          ? foreground
+                          : cs.onSurfaceVariant.withValues(alpha: 0.42),
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _McpOpsHeaderMessage extends StatelessWidget {
+  const _McpOpsHeaderMessage({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Align(
+      alignment: AlignmentDirectional.centerStart,
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 720),
+        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
+        decoration: BoxDecoration(
+          color: cs.primary.withValues(alpha: 0.10),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: cs.primary.withValues(alpha: 0.22)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.info_outline_rounded, size: 16, color: cs.primary),
+            const SizedBox(width: 7),
+            Flexible(
+              child: Text(
+                text,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: cs.onSurfaceVariant,
+                  fontWeight: FontWeight.w800,
+                  height: 1.2,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -3961,6 +4181,9 @@ class _McpOpsTabStrip extends StatelessWidget {
       child: TabBar(
         dividerColor: Colors.transparent,
         indicatorSize: TabBarIndicatorSize.tab,
+        // Inset the selected pill on both sides so neighbouring tabs keep a
+        // visible gutter instead of butting together edge-to-edge.
+        indicatorPadding: const EdgeInsets.symmetric(horizontal: 5),
         // Clip the ink ripple and press/hover overlay to the indicator's radius
         // so interaction feedback stays pill-shaped instead of a sharp rectangle.
         splashBorderRadius: BorderRadius.circular(_mcpOpsControlRadius),
@@ -5853,7 +6076,9 @@ class _McpOpsAuditRow extends StatelessWidget {
             decoration: BoxDecoration(
               color: cs.surfaceContainerLow.withValues(alpha: 0.84),
               borderRadius: BorderRadius.circular(_mcpOpsPanelRadius),
-              border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.62)),
+              border: Border.all(
+                color: cs.outlineVariant.withValues(alpha: 0.62),
+              ),
               boxShadow: <BoxShadow>[
                 BoxShadow(
                   color: cs.shadow.withValues(alpha: 0.05),
@@ -5862,34 +6087,28 @@ class _McpOpsAuditRow extends StatelessWidget {
                 ),
               ],
             ),
-            child: IntrinsicHeight(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Status accent rail.
-                  Container(
-                    width: 4,
-                    decoration: BoxDecoration(
-                      color: statusColor,
-                      borderRadius: const BorderRadius.horizontal(
-                        left: Radius.circular(_mcpOpsPanelRadius),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(_mcpOpsPanelRadius),
+              child: IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Container(width: 4, color: statusColor),
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(14, 14, 12, 14),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildHeader(context, theme, cs, statusColor),
+                            const SizedBox(height: 12),
+                            _buildMetaStrip(context, cs),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(14, 14, 12, 14),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _buildHeader(context, theme, cs, statusColor),
-                          const SizedBox(height: 12),
-                          _buildMetaStrip(context, cs),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
