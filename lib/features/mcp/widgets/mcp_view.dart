@@ -3932,6 +3932,33 @@ class _McpOpsConsoleHeader extends StatelessWidget {
               label: _writeModeLabel(context, config.writeMode),
               color: cs.secondary,
             ),
+            AnimatedSwitcher(
+              duration: _mcpMotionDuration(
+                context,
+                const Duration(milliseconds: 180),
+              ),
+              switchInCurve: Curves.easeOutBack,
+              switchOutCurve: Curves.easeInCubic,
+              transitionBuilder: (child, animation) {
+                return FadeTransition(
+                  opacity: animation,
+                  child: SizeTransition(
+                    axis: Axis.horizontal,
+                    axisAlignment: -1,
+                    sizeFactor: animation,
+                    child: child,
+                  ),
+                );
+              },
+              child: configMessageText.isEmpty
+                  ? const SizedBox.shrink(
+                      key: ValueKey<String>('mcp-ops-header-message-empty'),
+                    )
+                  : _McpOpsHeaderMessage(
+                      key: const ValueKey<String>('mcp-ops-header-message'),
+                      text: configMessageText,
+                    ),
+            ),
           ],
         ),
         const SizedBox(height: 12),
@@ -3947,20 +3974,6 @@ class _McpOpsConsoleHeader extends StatelessWidget {
           onResetConfig: onResetConfig,
           onSaveConfig: onSaveConfig,
           onClose: onClose,
-        ),
-        AnimatedSize(
-          duration: _mcpMotionDuration(
-            context,
-            const Duration(milliseconds: 180),
-          ),
-          curve: Curves.easeOutCubic,
-          alignment: Alignment.topLeft,
-          child: configMessageText.isEmpty
-              ? const SizedBox(width: double.infinity)
-              : Padding(
-                  padding: const EdgeInsets.only(top: 10),
-                  child: _McpOpsHeaderMessage(text: configMessageText),
-                ),
         ),
       ],
     );
@@ -4216,7 +4229,7 @@ class _McpOpsHeaderActionButton extends StatelessWidget {
 }
 
 class _McpOpsHeaderMessage extends StatelessWidget {
-  const _McpOpsHeaderMessage({required this.text, this.tone});
+  const _McpOpsHeaderMessage({super.key, required this.text, this.tone});
 
   final String text;
 
@@ -4231,6 +4244,8 @@ class _McpOpsHeaderMessage extends StatelessWidget {
     final isError = tone == cs.error;
     return Align(
       alignment: AlignmentDirectional.centerStart,
+      widthFactor: 1,
+      heightFactor: 1,
       child: Container(
         constraints: const BoxConstraints(maxWidth: 720),
         padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
