@@ -3881,6 +3881,9 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
     final snapshot = _trend.isEmpty
         ? widget.controller.runtimeSnapshot()
         : _trend.last;
+    final config = widget.controller.config;
+    final persistedSnapshotCount =
+        widget.controller.persistedRuntimeSnapshots.length;
     final cleanupHistory = widget.controller.cleanupHistory.reversed
         .take(6)
         .toList(growable: false);
@@ -3981,732 +3984,147 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
     );
     return buildOpenHandResponsiveDialogShell(
       context: context,
-      maxWidth: 1100,
-      minAvailableHeight: 420,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(18, 14, 8, 12),
-            child: Row(
-              children: [
-                const Icon(Icons.speed_rounded),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    openHandLocalizedText(
-                      context,
-                      zh: 'Web 服务运维',
-                      zhHant: 'Web 服務維運',
-                      en: 'Web service operations',
-                      fr: 'Opérations du service web',
-                      de: 'Webdienstbetrieb',
-                      ja: 'Webサービス運用',
-                    ),
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
+      maxWidth: 1180,
+      minAvailableHeight: 520,
+      child: _WebOpsDialogSurface(
+        child: _WebOpsConsoleShell(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _WebOpsConsoleHeader(
+                snapshot: snapshot,
+                config: config,
+                persistedSnapshotCount: persistedSnapshotCount,
+                isRunning: isRunning,
+                serviceControlsDisabled: serviceControlsDisabled,
+                cleaning: _isCleaning,
+                healthChecking: _isHealthChecking,
+                startLabel: startLabel,
+                stopLabel: stopLabel,
+                restartLabel: restartLabel,
+                reloadLabel: reloadLabel,
+                hotFixLabel: hotFixLabel,
+                healthLabel: healthLabel,
+                onStart: () => _runServiceAction(
+                  label: startLabel,
+                  action: widget.controller.startService,
                 ),
-                IconButton(
-                  tooltip: openHandLocalizedText(
+                onStop: () => _runServiceAction(
+                  label: stopLabel,
+                  action: widget.controller.stopService,
+                ),
+                onRestart: () => _runServiceAction(
+                  label: restartLabel,
+                  action: widget.controller.restartService,
+                ),
+                onReload: () => _runServiceAction(
+                  label: reloadLabel,
+                  action: widget.controller.reloadConfig,
+                ),
+                onHotFix: () => _runServiceAction(
+                  label: hotFixLabel,
+                  action: widget.controller.hotFix,
+                ),
+                onHealthCheck: _runOpsHealthCheck,
+                onCleanExpired: () => _runCleanup(
+                  label: expiredResourcesLabel,
+                  action: widget.controller.cleanupExpiredArtifacts,
+                ),
+                onClearLogs: () => _confirmAndCleanup(
+                  title: openHandLocalizedText(
                     context,
-                    zh: '关闭',
-                    zhHant: '關閉',
-                    en: 'Close',
-                    fr: 'Fermer',
-                    de: 'Schließen',
-                    ja: '閉じる',
+                    zh: '清空日志',
+                    zhHant: '清空日誌',
+                    en: 'Clear logs',
+                    fr: 'Effacer les journaux',
+                    de: 'Protokolle leeren',
+                    ja: 'ログをクリア',
                   ),
-                  onPressed: () => Navigator.of(context).pop(),
-                  icon: const Icon(Icons.close_rounded),
+                  message: openHandLocalizedText(
+                    context,
+                    zh: '会清空内存日志和 Web 服务磁盘日志，保留策略不会保留当前内容。',
+                    zhHant: '會清空記憶體日誌和 Web 服務磁碟日誌，保留策略不會保留目前內容。',
+                    en: 'This clears in-memory logs and web service log files. Retention policy will not keep the current content.',
+                    fr: 'Cela efface les journaux en mémoire et sur disque. La rétention ne conservera pas le contenu actuel.',
+                    de: 'Dies leert Speicher- und Dateiprotokolle. Die Aufbewahrungsregel behält den aktuellen Inhalt nicht.',
+                    ja: 'メモリ内ログとWebサービスのディスクログをクリアします。保持ポリシーは現在の内容を保持しません。',
+                  ),
+                  label: logsLabel,
+                  action: widget.controller.cleanupLogs,
                 ),
-              ],
-            ),
-          ),
-          const Divider(height: 1),
-          Expanded(
-            child: OpenHandSafeScrollbar(
-              controller: _scrollController,
-              child: SingleChildScrollView(
-                controller: _scrollController,
-                primary: false,
-                physics: kOpenHandClampingPhysics,
-                padding: const EdgeInsets.all(18),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    AnimatedOpacity(
-                      duration: openHandMotionDurationMs(context, 220),
-                      curve: Curves.easeOutCubic,
-                      opacity: serviceControlsDisabled ? .62 : 1,
-                      child: Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          FilledButton.tonalIcon(
-                            onPressed: isRunning || serviceControlsDisabled
-                                ? null
-                                : () => _runServiceAction(
-                                    label: startLabel,
-                                    action: widget.controller.startService,
-                                  ),
-                            icon: const Icon(Icons.play_arrow_rounded),
-                            label: Text(startLabel),
-                          ),
-                          FilledButton.tonalIcon(
-                            onPressed: !isRunning || serviceControlsDisabled
-                                ? null
-                                : () => _runServiceAction(
-                                    label: stopLabel,
-                                    action: widget.controller.stopService,
-                                  ),
-                            icon: const Icon(Icons.stop_rounded),
-                            label: Text(stopLabel),
-                          ),
-                          FilledButton.tonalIcon(
-                            onPressed: serviceControlsDisabled
-                                ? null
-                                : () => _runServiceAction(
-                                    label: restartLabel,
-                                    action: widget.controller.restartService,
-                                  ),
-                            icon: const Icon(Icons.restart_alt_rounded),
-                            label: Text(restartLabel),
-                          ),
-                          FilledButton.tonalIcon(
-                            onPressed: serviceControlsDisabled
-                                ? null
-                                : () => _runServiceAction(
-                                    label: reloadLabel,
-                                    action: widget.controller.reloadConfig,
-                                  ),
-                            icon: const Icon(Icons.sync_rounded),
-                            label: Text(reloadLabel),
-                          ),
-                          FilledButton.tonalIcon(
-                            onPressed: serviceControlsDisabled
-                                ? null
-                                : () => _runServiceAction(
-                                    label: hotFixLabel,
-                                    action: widget.controller.hotFix,
-                                  ),
-                            icon: const Icon(Icons.healing_rounded),
-                            label: Text(hotFixLabel),
-                          ),
-                          FilledButton.icon(
-                            onPressed: _isHealthChecking
-                                ? null
-                                : _runOpsHealthCheck,
-                            icon: _isHealthChecking
-                                ? const SizedBox.square(
-                                    dimension: 18,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : const Icon(Icons.monitor_heart_outlined),
-                            label: Text(healthLabel),
-                          ),
-                          FilledButton.tonalIcon(
-                            onPressed: _isCleaning
-                                ? null
-                                : () => _runCleanup(
-                                    label: expiredResourcesLabel,
-                                    action: widget
-                                        .controller
-                                        .cleanupExpiredArtifacts,
-                                  ),
-                            icon: const Icon(Icons.cleaning_services_outlined),
-                            label: Text(
-                              openHandLocalizedText(
-                                context,
-                                zh: '清理过期',
-                                zhHant: '清理過期',
-                                en: 'Clean expired',
-                                fr: 'Nettoyer les expirés',
-                                de: 'Abgelaufene bereinigen',
-                                ja: '期限切れを清理',
-                              ),
-                            ),
-                          ),
-                          FilledButton.tonalIcon(
-                            onPressed: _isCleaning
-                                ? null
-                                : () => _confirmAndCleanup(
-                                    title: openHandLocalizedText(
-                                      context,
-                                      zh: '清空日志',
-                                      zhHant: '清空日誌',
-                                      en: 'Clear logs',
-                                      fr: 'Effacer les journaux',
-                                      de: 'Protokolle leeren',
-                                      ja: 'ログをクリア',
-                                    ),
-                                    message: openHandLocalizedText(
-                                      context,
-                                      zh: '会清空内存日志和 Web 服务磁盘日志，保留策略不会保留当前内容。',
-                                      zhHant:
-                                          '會清空記憶體日誌和 Web 服務磁碟日誌，保留策略不會保留目前內容。',
-                                      en: 'This clears in-memory logs and web service log files. Retention policy will not keep the current content.',
-                                      fr: 'Cela efface les journaux en mémoire et sur disque. La rétention ne conservera pas le contenu actuel.',
-                                      de: 'Dies leert Speicher- und Dateiprotokolle. Die Aufbewahrungsregel behält den aktuellen Inhalt nicht.',
-                                      ja: 'メモリ内ログとWebサービスのディスクログをクリアします。保持ポリシーは現在の内容を保持しません。',
-                                    ),
-                                    label: logsLabel,
-                                    action: widget.controller.cleanupLogs,
-                                  ),
-                            icon: const Icon(Icons.delete_sweep_outlined),
-                            label: Text(
-                              openHandLocalizedText(
-                                context,
-                                zh: '清空日志',
-                                zhHant: '清空日誌',
-                                en: 'Clear logs',
-                                fr: 'Effacer les journaux',
-                                de: 'Protokolle leeren',
-                                ja: 'ログをクリア',
-                              ),
-                            ),
-                          ),
-                          FilledButton.tonalIcon(
-                            onPressed: _isCleaning
-                                ? null
-                                : () => _confirmAndCleanupGatewayCache(
-                                    uploadCacheLabel: uploadCacheLabel,
-                                    opsCacheLabel: opsCacheLabel,
-                                  ),
-                            icon: const Icon(Icons.folder_delete_outlined),
-                            label: Text(
-                              openHandLocalizedText(
-                                context,
-                                zh: '清空缓存',
-                                zhHant: '清空快取',
-                                en: 'Clear cache',
-                                fr: 'Effacer le cache',
-                                de: 'Cache leeren',
-                                ja: 'キャッシュをクリア',
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    LayoutBuilder(
-                      builder: (context, constraints) {
-                        final columns = constraints.maxWidth < 760 ? 2 : 4;
-                        return GridView.count(
-                          crossAxisCount: columns,
-                          crossAxisSpacing: 10,
-                          mainAxisSpacing: 10,
-                          childAspectRatio: columns == 2 ? 2.1 : 2.4,
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
+                onClearCache: () => _confirmAndCleanupGatewayCache(
+                  uploadCacheLabel: uploadCacheLabel,
+                  opsCacheLabel: opsCacheLabel,
+                ),
+                onClose: () => Navigator.of(context).pop(),
+              ),
+              const SizedBox(height: 14),
+              Expanded(
+                child: OpenHandSafeScrollbar(
+                  controller: _scrollController,
+                  child: SingleChildScrollView(
+                    controller: _scrollController,
+                    primary: false,
+                    physics: kOpenHandClampingPhysics,
+                    padding: const EdgeInsets.all(18),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _WebOpsHeroPanel(snapshot: snapshot, config: config),
+                        const SizedBox(height: 16),
+                        _WebOpsMetricGrid(
                           children: [
-                            _MetricTile(
+                            _WebOpsMetricTile(
+                              icon: Icons.route_rounded,
                               label: openHandLocalizedText(
                                 context,
-                                zh: '运行状态',
-                                zhHant: '執行狀態',
-                                en: 'Runtime state',
-                                fr: 'État d’exécution',
-                                de: 'Laufzeitstatus',
-                                ja: '実行状態',
+                                zh: '请求速率',
+                                zhHant: '請求速率',
+                                en: 'Request rate',
+                                fr: 'Débit requêtes',
+                                de: 'Anfragerate',
+                                ja: 'リクエスト率',
                               ),
-                              value: _runtimeStateLabel(
+                              value: _rate(snapshot.requestsPerMinute),
+                              detail: openHandLocalizedText(
                                 context,
-                                snapshot.state,
-                              ),
-                            ),
-                            _MetricTile(
-                              label: openHandLocalizedText(
-                                context,
-                                zh: '运行时间',
-                                zhHant: '執行時間',
-                                en: 'Uptime',
-                                fr: 'Temps actif',
-                                de: 'Laufzeit',
-                                ja: '稼働時間',
-                              ),
-                              value: formatCompactDurationMs(snapshot.uptimeMs),
-                            ),
-                            _MetricTile(
-                              label: 'CPU',
-                              value: snapshot.cpuPercent == null
-                                  ? _gatewayUnavailable(context)
-                                  : '${snapshot.cpuPercent!.toStringAsFixed(1)}%',
-                            ),
-                            _MetricTile(
-                              label: openHandLocalizedText(
-                                context,
-                                zh: '线程数',
-                                zhHant: '執行緒數',
-                                en: 'Threads',
-                                fr: 'Threads',
-                                de: 'Threads',
-                                ja: 'スレッド数',
-                              ),
-                              value:
-                                  snapshot.threadCount?.toString() ??
-                                  _gatewayUnavailable(context),
-                            ),
-                            _MetricTile(
-                              label: openHandLocalizedText(
-                                context,
-                                zh: '文件句柄',
-                                zhHant: '檔案句柄',
-                                en: 'File handles',
-                                fr: 'Descripteurs de fichier',
-                                de: 'Dateihandles',
-                                ja: 'ファイルハンドル',
-                              ),
-                              value:
-                                  snapshot.fileHandleCount?.toString() ??
-                                  _gatewayUnavailable(context),
-                            ),
-                            _MetricTile(
-                              label: 'Swap',
-                              value: snapshot.swapBytes == null
-                                  ? _gatewayUnavailable(context)
-                                  : _bytes(snapshot.swapBytes!),
-                            ),
-                            _MetricTile(
-                              label: openHandLocalizedText(
-                                context,
-                                zh: '内存',
-                                zhHant: '記憶體',
-                                en: 'Memory',
-                                fr: 'Mémoire',
-                                de: 'Speicher',
-                                ja: 'メモリ',
-                              ),
-                              value: _bytes(snapshot.currentRssBytes),
-                            ),
-                            _MetricTile(
-                              label: openHandLocalizedText(
-                                context,
-                                zh: '最大内存',
-                                zhHant: '最大記憶體',
-                                en: 'Peak memory',
-                                fr: 'Mémoire max',
-                                de: 'Max. Speicher',
-                                ja: '最大メモリ',
-                              ),
-                              value: _bytes(snapshot.maxRssBytes),
-                            ),
-                            _MetricTile(
-                              label: openHandLocalizedText(
-                                context,
-                                zh: '日志磁盘',
-                                zhHant: '日誌磁碟',
-                                en: 'Log disk',
-                                fr: 'Disque des journaux',
-                                de: 'Protokollspeicher',
-                                ja: 'ログディスク',
-                              ),
-                              value: _bytes(snapshot.logBytes),
-                            ),
-                            _MetricTile(
-                              label: openHandLocalizedText(
-                                context,
-                                zh: '活动请求',
-                                zhHant: '活動請求',
-                                en: 'Active requests',
-                                fr: 'Requêtes actives',
-                                de: 'Aktive Anfragen',
-                                ja: 'アクティブリクエスト',
-                              ),
-                              value: '${snapshot.activeRequests}',
-                            ),
-                            _MetricTile(
-                              label: openHandLocalizedText(
-                                context,
-                                zh: 'SSE 长连接',
-                                zhHant: 'SSE 長連線',
-                                en: 'SSE connections',
-                                fr: 'Connexions SSE',
-                                de: 'SSE-Verbindungen',
-                                ja: 'SSE接続',
-                              ),
-                              value: '${snapshot.activeSseSubscriptions}',
-                            ),
-                            _MetricTile(
-                              label: openHandLocalizedText(
-                                context,
-                                zh: '总请求',
-                                zhHant: '總請求',
-                                en: 'Total requests',
-                                fr: 'Requêtes totales',
-                                de: 'Anfragen gesamt',
-                                ja: '総リクエスト',
-                              ),
-                              value: '${snapshot.totalRequests}',
-                            ),
-                            _MetricTile(
-                              label: openHandLocalizedText(
-                                context,
-                                zh: '请求/min',
-                                zhHant: '請求/min',
-                                en: 'Requests/min',
-                                fr: 'Requêtes/min',
+                                zh: '每分钟请求',
+                                zhHant: '每分鐘請求',
+                                en: 'requests/min',
+                                fr: 'requêtes/min',
                                 de: 'Anfragen/min',
                                 ja: 'リクエスト/min',
                               ),
-                              value: _rate(snapshot.requestsPerMinute),
+                              tone: Theme.of(context).colorScheme.primary,
                             ),
-                            _MetricTile(
+                            _WebOpsMetricTile(
+                              icon: Icons.report_gmailerrorred_rounded,
                               label: openHandLocalizedText(
                                 context,
-                                zh: '错误数',
-                                zhHant: '錯誤數',
-                                en: 'Errors',
-                                fr: 'Erreurs',
-                                de: 'Fehler',
-                                ja: 'エラー数',
+                                zh: '错误速率',
+                                zhHant: '錯誤速率',
+                                en: 'Error rate',
+                                fr: 'Débit erreurs',
+                                de: 'Fehlerrate',
+                                ja: 'エラー率',
                               ),
-                              value: '${snapshot.totalErrors}',
-                            ),
-                            _MetricTile(
-                              label: openHandLocalizedText(
+                              value: _rate(snapshot.errorsPerMinute),
+                              detail: openHandLocalizedText(
                                 context,
-                                zh: '错误/min',
-                                zhHant: '錯誤/min',
-                                en: 'Errors/min',
-                                fr: 'Erreurs/min',
+                                zh: '每分钟错误',
+                                zhHant: '每分鐘錯誤',
+                                en: 'errors/min',
+                                fr: 'erreurs/min',
                                 de: 'Fehler/min',
                                 ja: 'エラー/min',
                               ),
-                              value: _rate(snapshot.errorsPerMinute),
+                              tone: snapshot.errorsPerMinute > 0
+                                  ? Theme.of(context).colorScheme.error
+                                  : OpenHandStatusColors.success,
                             ),
-                            _MetricTile(
+                            _WebOpsMetricTile(
+                              icon: Icons.timer_rounded,
                               label: openHandLocalizedText(
-                                context,
-                                zh: '入流量/min',
-                                zhHant: '入流量/min',
-                                en: 'Inbound/min',
-                                fr: 'Entrant/min',
-                                de: 'Eingehend/min',
-                                ja: '受信/min',
-                              ),
-                              value: _bytes(snapshot.bytesInPerMinute.round()),
-                            ),
-                            _MetricTile(
-                              label: openHandLocalizedText(
-                                context,
-                                zh: '出流量/min',
-                                zhHant: '出流量/min',
-                                en: 'Outbound/min',
-                                fr: 'Sortant/min',
-                                de: 'Ausgehend/min',
-                                ja: '送信/min',
-                              ),
-                              value: _bytes(snapshot.bytesOutPerMinute.round()),
-                            ),
-                            _MetricTile(
-                              label: openHandLocalizedText(
-                                context,
-                                zh: '延迟 P95',
-                                zhHant: '延遲 P95',
-                                en: 'Latency P95',
-                                fr: 'Latence P95',
-                                de: 'Latenz P95',
-                                ja: 'レイテンシ P95',
-                              ),
-                              value: '${snapshot.latencyStats.p95Ms}ms',
-                            ),
-                            _MetricTile(
-                              label: openHandLocalizedText(
-                                context,
-                                zh: '延迟 P50',
-                                zhHant: '延遲 P50',
-                                en: 'Latency P50',
-                                fr: 'Latence P50',
-                                de: 'Latenz P50',
-                                ja: 'レイテンシ P50',
-                              ),
-                              value: '${snapshot.latencyStats.p50Ms}ms',
-                            ),
-                            _MetricTile(
-                              label: openHandLocalizedText(
-                                context,
-                                zh: '延迟 P99',
-                                zhHant: '延遲 P99',
-                                en: 'Latency P99',
-                                fr: 'Latence P99',
-                                de: 'Latenz P99',
-                                ja: 'レイテンシ P99',
-                              ),
-                              value: '${snapshot.latencyStats.p99Ms}ms',
-                            ),
-                            _MetricTile(
-                              label: openHandLocalizedText(
-                                context,
-                                zh: '延迟 MAX',
-                                zhHant: '延遲 MAX',
-                                en: 'Latency MAX',
-                                fr: 'Latence MAX',
-                                de: 'Latenz MAX',
-                                ja: 'レイテンシ MAX',
-                              ),
-                              value: '${snapshot.latencyStats.maxMs}ms',
-                            ),
-                            _MetricTile(
-                              label: openHandLocalizedText(
-                                context,
-                                zh: '延迟样本',
-                                zhHant: '延遲樣本',
-                                en: 'Latency samples',
-                                fr: 'Échantillons latence',
-                                de: 'Latenzstichproben',
-                                ja: 'レイテンシサンプル',
-                              ),
-                              value: '${snapshot.latencyStats.sampleCount}',
-                            ),
-                            _MetricTile(
-                              label: openHandLocalizedText(
-                                context,
-                                zh: '累计入流量',
-                                zhHant: '累計入流量',
-                                en: 'Total inbound',
-                                fr: 'Entrant total',
-                                de: 'Eingehend gesamt',
-                                ja: '総受信量',
-                              ),
-                              value: _bytes(snapshot.totalBytesIn),
-                            ),
-                            _MetricTile(
-                              label: openHandLocalizedText(
-                                context,
-                                zh: '累计出流量',
-                                zhHant: '累計出流量',
-                                en: 'Total outbound',
-                                fr: 'Sortant total',
-                                de: 'Ausgehend gesamt',
-                                ja: '総送信量',
-                              ),
-                              value: _bytes(snapshot.totalBytesOut),
-                            ),
-                            _MetricTile(
-                              label: openHandLocalizedText(
-                                context,
-                                zh: '崩溃数',
-                                zhHant: '崩潰數',
-                                en: 'Crashes',
-                                fr: 'Plantages',
-                                de: 'Abstürze',
-                                ja: 'クラッシュ数',
-                              ),
-                              value: '${snapshot.crashCount}',
-                            ),
-                            _MetricTile(
-                              label: openHandLocalizedText(
-                                context,
-                                zh: '重启数',
-                                zhHant: '重啟數',
-                                en: 'Restarts',
-                                fr: 'Redémarrages',
-                                de: 'Neustarts',
-                                ja: '再起動数',
-                              ),
-                              value: '${snapshot.restartCount}',
-                            ),
-                            _MetricTile(
-                              label: openHandLocalizedText(
-                                context,
-                                zh: '线程会话',
-                                zhHant: '執行緒會話',
-                                en: 'Thread sessions',
-                                fr: 'Sessions de fil',
-                                de: 'Thread-Sitzungen',
-                                ja: 'スレッドセッション',
-                              ),
-                              value: '${snapshot.openSessionCount}',
-                            ),
-                            _MetricTile(
-                              label: openHandLocalizedText(
-                                context,
-                                zh: '并发水位',
-                                zhHant: '並發水位',
-                                en: 'Concurrency level',
-                                fr: 'Niveau de concurrence',
-                                de: 'Parallelitätsniveau',
-                                ja: '同時実行水位',
-                              ),
-                              value: _percent(snapshot.activeRequestRatio),
-                            ),
-                          ],
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 18),
-                    _OpsHealthCard(snapshot: snapshot),
-                    const SizedBox(height: 18),
-                    _OpsSummaryCard(snapshot: snapshot),
-                    const SizedBox(height: 18),
-                    _NaturalCardGrid(
-                      minTileWidth: 360,
-                      spacing: 12,
-                      maxColumns: 2,
-                      children: [
-                        _OpsBreakdownCard(
-                          title: openHandLocalizedText(
-                            context,
-                            zh: 'HTTP 状态码分布',
-                            zhHant: 'HTTP 狀態碼分布',
-                            en: 'HTTP status distribution',
-                            fr: 'Répartition des statuts HTTP',
-                            de: 'HTTP-Statusverteilung',
-                            ja: 'HTTPステータス分布',
-                          ),
-                          values: snapshot.statusCodeBreakdown,
-                        ),
-                        _OpsBreakdownCard(
-                          title: openHandLocalizedText(
-                            context,
-                            zh: 'HTTP Method 分布',
-                            zhHant: 'HTTP Method 分布',
-                            en: 'HTTP method distribution',
-                            fr: 'Répartition des méthodes HTTP',
-                            de: 'HTTP-Methodenverteilung',
-                            ja: 'HTTPメソッド分布',
-                          ),
-                          values: snapshot.methodBreakdown,
-                        ),
-                        _OpsBreakdownCard(
-                          title: openHandLocalizedText(
-                            context,
-                            zh: '延迟桶',
-                            zhHant: '延遲桶',
-                            en: 'Latency buckets',
-                            fr: 'Buckets de latence',
-                            de: 'Latenz-Buckets',
-                            ja: 'レイテンシバケット',
-                          ),
-                          values: snapshot.latencyBuckets,
-                        ),
-                        _OpsBreakdownCard(
-                          title: openHandLocalizedText(
-                            context,
-                            zh: '发送阶段分布',
-                            zhHant: '傳送階段分布',
-                            en: 'Send phase distribution',
-                            fr: 'Répartition des phases d’envoi',
-                            de: 'Sendephasenverteilung',
-                            ja: '送信フェーズ分布',
-                          ),
-                          values: snapshot.sendPhaseBreakdown,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 18),
-                    _NaturalCardGrid(
-                      minTileWidth: 360,
-                      spacing: 12,
-                      maxColumns: 2,
-                      children: [
-                        _TopRoutesCard(routes: snapshot.topRoutes),
-                        _RecentErrorsCard(errors: snapshot.recentErrors),
-                        _OpsBreakdownCard(
-                          title: openHandLocalizedText(
-                            context,
-                            zh: '日志级别分布',
-                            zhHant: '日誌級別分布',
-                            en: 'Log level distribution',
-                            fr: 'Répartition des niveaux de journal',
-                            de: 'Protokollstufenverteilung',
-                            ja: 'ログレベル分布',
-                          ),
-                          values: snapshot.logLevelBreakdown,
-                          footer: openHandLocalizedText(
-                            context,
-                            zh: '${snapshot.memoryLogCount} 条内存日志',
-                            zhHant: '${snapshot.memoryLogCount} 則記憶體日誌',
-                            en: '${snapshot.memoryLogCount} in-memory logs',
-                            fr: '${snapshot.memoryLogCount} journaux en mémoire',
-                            de: '${snapshot.memoryLogCount} Speicherprotokolle',
-                            ja: '${snapshot.memoryLogCount} 件のメモリ内ログ',
-                          ),
-                        ),
-                        _ResourceInventoryCard(snapshot: snapshot),
-                      ],
-                    ),
-                    const SizedBox(height: 18),
-                    _SectionTitle(
-                      openHandLocalizedText(
-                        context,
-                        zh: '吞吐趋势',
-                        zhHant: '吞吐趨勢',
-                        en: 'Throughput Trends',
-                        fr: 'Tendances du débit',
-                        de: 'Durchsatztrends',
-                        ja: 'スループット傾向',
-                      ),
-                      icon: Icons.show_chart,
-                    ),
-                    LayoutBuilder(
-                      builder: (context, constraints) {
-                        final columns = constraints.maxWidth < 720 ? 1 : 2;
-                        return GridView.count(
-                          crossAxisCount: columns,
-                          crossAxisSpacing: 12,
-                          mainAxisSpacing: 12,
-                          childAspectRatio: columns == 1 ? 2.35 : 1.85,
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          children: [
-                            _TrendLineChart(
-                              title: openHandLocalizedText(
-                                context,
-                                zh: '请求/秒',
-                                zhHant: '請求/秒',
-                                en: 'Requests/sec',
-                                fr: 'Requêtes/s',
-                                de: 'Anfragen/s',
-                                ja: 'リクエスト/秒',
-                              ),
-                              values: _deltaSeries(
-                                _trend,
-                                (snapshot) => snapshot.totalRequests.toDouble(),
-                              ),
-                              valueFormatter: (value) =>
-                                  value.toStringAsFixed(0),
-                            ),
-                            _TrendLineChart(
-                              title: openHandLocalizedText(
-                                context,
-                                zh: '错误/秒',
-                                zhHant: '錯誤/秒',
-                                en: 'Errors/sec',
-                                fr: 'Erreurs/s',
-                                de: 'Fehler/s',
-                                ja: 'エラー/秒',
-                              ),
-                              values: _deltaSeries(
-                                _trend,
-                                (snapshot) => snapshot.totalErrors.toDouble(),
-                              ),
-                              valueFormatter: (value) =>
-                                  value.toStringAsFixed(0),
-                            ),
-                            _TrendLineChart(
-                              title: openHandLocalizedText(
-                                context,
-                                zh: '活动请求',
-                                zhHant: '活動請求',
-                                en: 'Active requests',
-                                fr: 'Requêtes actives',
-                                de: 'Aktive Anfragen',
-                                ja: 'アクティブリクエスト',
-                              ),
-                              values: _series(
-                                _trend,
-                                (snapshot) =>
-                                    snapshot.activeRequests.toDouble(),
-                              ),
-                              valueFormatter: (value) =>
-                                  value.toStringAsFixed(0),
-                            ),
-                            _TrendLineChart(
-                              title: openHandLocalizedText(
                                 context,
                                 zh: 'P95 延迟',
                                 zhHant: 'P95 延遲',
@@ -4715,179 +4133,870 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                                 de: 'P95-Latenz',
                                 ja: 'P95レイテンシ',
                               ),
-                              values: _series(
-                                _trend,
-                                (snapshot) =>
-                                    snapshot.latencyStats.p95Ms.toDouble(),
+                              value: '${snapshot.latencyStats.p95Ms}ms',
+                              detail: openHandLocalizedText(
+                                context,
+                                zh: 'P50 ${snapshot.latencyStats.p50Ms}ms · P99 ${snapshot.latencyStats.p99Ms}ms',
+                                zhHant:
+                                    'P50 ${snapshot.latencyStats.p50Ms}ms · P99 ${snapshot.latencyStats.p99Ms}ms',
+                                en: 'P50 ${snapshot.latencyStats.p50Ms}ms · P99 ${snapshot.latencyStats.p99Ms}ms',
+                                fr: 'P50 ${snapshot.latencyStats.p50Ms}ms · P99 ${snapshot.latencyStats.p99Ms}ms',
+                                de: 'P50 ${snapshot.latencyStats.p50Ms}ms · P99 ${snapshot.latencyStats.p99Ms}ms',
+                                ja: 'P50 ${snapshot.latencyStats.p50Ms}ms · P99 ${snapshot.latencyStats.p99Ms}ms',
                               ),
-                              valueFormatter: (value) =>
-                                  '${value.toStringAsFixed(0)}ms',
+                              tone: Theme.of(context).colorScheme.tertiary,
+                            ),
+                            _WebOpsMetricTile(
+                              icon: Icons.hub_rounded,
+                              label: openHandLocalizedText(
+                                context,
+                                zh: '并发水位',
+                                zhHant: '並發水位',
+                                en: 'Concurrency',
+                                fr: 'Concurrence',
+                                de: 'Parallelität',
+                                ja: '同時実行',
+                              ),
+                              value: _percent(snapshot.activeRequestRatio),
+                              detail:
+                                  '${snapshot.activeRequests}/${snapshot.maxConcurrentRequests} · SSE ${snapshot.activeSseSubscriptions}',
+                              progress: snapshot.activeRequestRatio,
+                              tone: snapshot.activeRequestRatio >= .75
+                                  ? OpenHandStatusColors.warning
+                                  : Theme.of(context).colorScheme.secondary,
+                            ),
+                            _WebOpsMetricTile(
+                              icon: Icons.memory_rounded,
+                              label: openHandLocalizedText(
+                                context,
+                                zh: '进程内存',
+                                zhHant: '程序記憶體',
+                                en: 'Process memory',
+                                fr: 'Mémoire processus',
+                                de: 'Prozessspeicher',
+                                ja: 'プロセスメモリ',
+                              ),
+                              value: _bytes(snapshot.currentRssBytes),
+                              detail: openHandLocalizedText(
+                                context,
+                                zh: '峰值 ${_bytes(snapshot.maxRssBytes)}',
+                                zhHant: '峰值 ${_bytes(snapshot.maxRssBytes)}',
+                                en: 'peak ${_bytes(snapshot.maxRssBytes)}',
+                                fr: 'pic ${_bytes(snapshot.maxRssBytes)}',
+                                de: 'Peak ${_bytes(snapshot.maxRssBytes)}',
+                                ja: 'ピーク ${_bytes(snapshot.maxRssBytes)}',
+                              ),
+                              tone: Theme.of(context).colorScheme.primary,
+                            ),
+                            _WebOpsMetricTile(
+                              icon: Icons.speed_rounded,
+                              label: 'CPU',
+                              value: snapshot.cpuPercent == null
+                                  ? _gatewayUnavailable(context)
+                                  : '${snapshot.cpuPercent!.toStringAsFixed(1)}%',
+                              detail: openHandLocalizedText(
+                                context,
+                                zh: '线程 ${snapshot.threadCount?.toString() ?? _gatewayUnavailable(context)} · 句柄 ${snapshot.fileHandleCount?.toString() ?? _gatewayUnavailable(context)}',
+                                zhHant:
+                                    '執行緒 ${snapshot.threadCount?.toString() ?? _gatewayUnavailable(context)} · 句柄 ${snapshot.fileHandleCount?.toString() ?? _gatewayUnavailable(context)}',
+                                en: 'threads ${snapshot.threadCount?.toString() ?? _gatewayUnavailable(context)} · handles ${snapshot.fileHandleCount?.toString() ?? _gatewayUnavailable(context)}',
+                                fr: 'threads ${snapshot.threadCount?.toString() ?? _gatewayUnavailable(context)} · handles ${snapshot.fileHandleCount?.toString() ?? _gatewayUnavailable(context)}',
+                                de: 'Threads ${snapshot.threadCount?.toString() ?? _gatewayUnavailable(context)} · Handles ${snapshot.fileHandleCount?.toString() ?? _gatewayUnavailable(context)}',
+                                ja: 'スレッド ${snapshot.threadCount?.toString() ?? _gatewayUnavailable(context)} · ハンドル ${snapshot.fileHandleCount?.toString() ?? _gatewayUnavailable(context)}',
+                              ),
+                              tone: Theme.of(context).colorScheme.secondary,
+                            ),
+                            _WebOpsMetricTile(
+                              icon: Icons.swap_vert_rounded,
+                              label: openHandLocalizedText(
+                                context,
+                                zh: '数据流量',
+                                zhHant: '資料流量',
+                                en: 'Data flow',
+                                fr: 'Flux de données',
+                                de: 'Datenfluss',
+                                ja: 'データフロー',
+                              ),
+                              value: _bytes(
+                                (snapshot.bytesInPerMinute +
+                                        snapshot.bytesOutPerMinute)
+                                    .round(),
+                              ),
+                              detail: openHandLocalizedText(
+                                context,
+                                zh: '入 ${_bytes(snapshot.bytesInPerMinute.round())} / 出 ${_bytes(snapshot.bytesOutPerMinute.round())}',
+                                zhHant:
+                                    '入 ${_bytes(snapshot.bytesInPerMinute.round())} / 出 ${_bytes(snapshot.bytesOutPerMinute.round())}',
+                                en: 'in ${_bytes(snapshot.bytesInPerMinute.round())} / out ${_bytes(snapshot.bytesOutPerMinute.round())}',
+                                fr: 'in ${_bytes(snapshot.bytesInPerMinute.round())} / out ${_bytes(snapshot.bytesOutPerMinute.round())}',
+                                de: 'in ${_bytes(snapshot.bytesInPerMinute.round())} / out ${_bytes(snapshot.bytesOutPerMinute.round())}',
+                                ja: '受信 ${_bytes(snapshot.bytesInPerMinute.round())} / 送信 ${_bytes(snapshot.bytesOutPerMinute.round())}',
+                              ),
+                              tone: Theme.of(context).colorScheme.tertiary,
+                            ),
+                            _WebOpsMetricTile(
+                              icon: Icons.history_rounded,
+                              label: openHandLocalizedText(
+                                context,
+                                zh: '本地回溯',
+                                zhHant: '本地回溯',
+                                en: 'Local history',
+                                fr: 'Historique local',
+                                de: 'Lokale Historie',
+                                ja: 'ローカル履歴',
+                              ),
+                              value: '$persistedSnapshotCount',
+                              detail: openHandLocalizedText(
+                                context,
+                                zh: '${snapshot.memoryLogCount} 条内存日志 · ${cleanupHistory.length} 条清理记录',
+                                zhHant:
+                                    '${snapshot.memoryLogCount} 則記憶體日誌 · ${cleanupHistory.length} 則清理記錄',
+                                en: '${snapshot.memoryLogCount} memory logs · ${cleanupHistory.length} cleanup records',
+                                fr: '${snapshot.memoryLogCount} journaux mémoire · ${cleanupHistory.length} nettoyages',
+                                de: '${snapshot.memoryLogCount} Speicherlogs · ${cleanupHistory.length} Bereinigungen',
+                                ja: '${snapshot.memoryLogCount} 件メモリログ · ${cleanupHistory.length} 件クリーンアップ',
+                              ),
+                              tone: Theme.of(context).colorScheme.primary,
                             ),
                           ],
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 18),
-                    _SectionTitle(
-                      openHandLocalizedText(
-                        context,
-                        zh: '资源趋势',
-                        zhHant: '資源趨勢',
-                        en: 'Resource Trends',
-                        fr: 'Tendances des ressources',
-                        de: 'Ressourcentrends',
-                        ja: 'リソース傾向',
-                      ),
-                      icon: Icons.show_chart,
-                    ),
-                    LayoutBuilder(
-                      builder: (context, constraints) {
-                        final columns = constraints.maxWidth < 720 ? 1 : 2;
-                        return GridView.count(
-                          crossAxisCount: columns,
-                          crossAxisSpacing: 12,
-                          mainAxisSpacing: 12,
-                          childAspectRatio: columns == 1 ? 2.35 : 1.85,
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
+                        ),
+                        const SizedBox(height: 16),
+                        _WebOpsPanelGrid(
                           children: [
-                            _TrendLineChart(
-                              title: 'CPU %',
-                              values: _series(
-                                _trend,
-                                (snapshot) => snapshot.cpuPercent,
-                              ),
-                              valueFormatter: (value) =>
-                                  '${value.toStringAsFixed(1)}%',
+                            _WebOpsEnvironmentPanel(
+                              snapshot: snapshot,
+                              config: config,
                             ),
-                            _TrendLineChart(
-                              title: openHandLocalizedText(
-                                context,
-                                zh: '内存 RSS',
-                                zhHant: '記憶體 RSS',
-                                en: 'Memory RSS',
-                                fr: 'Mémoire RSS',
-                                de: 'Speicher RSS',
-                                ja: 'メモリ RSS',
-                              ),
-                              values: _series(
-                                _trend,
-                                (snapshot) =>
-                                    snapshot.currentRssBytes.toDouble(),
-                              ),
-                              valueFormatter: (value) => _bytes(value.round()),
-                            ),
-                            _TrendLineChart(
-                              title: openHandLocalizedText(
-                                context,
-                                zh: '日志磁盘',
-                                zhHant: '日誌磁碟',
-                                en: 'Log disk',
-                                fr: 'Disque des journaux',
-                                de: 'Protokollspeicher',
-                                ja: 'ログディスク',
-                              ),
-                              values: _series(
-                                _trend,
-                                (snapshot) => snapshot.logBytes.toDouble(),
-                              ),
-                              valueFormatter: (value) => _bytes(value.round()),
-                            ),
-                            _TrendLineChart(
-                              title: openHandLocalizedText(
-                                context,
-                                zh: '线程数',
-                                zhHant: '執行緒數',
-                                en: 'Threads',
-                                fr: 'Threads',
-                                de: 'Threads',
-                                ja: 'スレッド数',
-                              ),
-                              values: _series(
-                                _trend,
-                                (snapshot) => snapshot.threadCount?.toDouble(),
-                              ),
-                              valueFormatter: (value) =>
-                                  value.toStringAsFixed(0),
-                            ),
-                            _TrendLineChart(
-                              title: openHandLocalizedText(
-                                context,
-                                zh: '会话数',
-                                zhHant: '會話數',
-                                en: 'Sessions',
-                                fr: 'Sessions',
-                                de: 'Sitzungen',
-                                ja: 'セッション数',
-                              ),
-                              values: _series(
-                                _trend,
-                                (snapshot) =>
-                                    snapshot.openSessionCount.toDouble(),
-                              ),
-                              valueFormatter: (value) =>
-                                  value.toStringAsFixed(0),
-                            ),
-                            _TrendLineChart(
-                              title: openHandLocalizedText(
-                                context,
-                                zh: '入流量/min',
-                                zhHant: '入流量/min',
-                                en: 'Inbound/min',
-                                fr: 'Entrant/min',
-                                de: 'Eingehend/min',
-                                ja: '受信/min',
-                              ),
-                              values: _series(
-                                _trend,
-                                (snapshot) => snapshot.bytesInPerMinute,
-                              ),
-                              valueFormatter: (value) => _bytes(value.round()),
+                            _WebOpsFeatureMatrixPanel(
+                              snapshot: snapshot,
+                              config: config,
                             ),
                           ],
-                        );
-                      },
+                        ),
+                        const SizedBox(height: 16),
+                        _SectionTitle(
+                          openHandLocalizedText(
+                            context,
+                            zh: '细粒度指标快照',
+                            zhHant: '細粒度指標快照',
+                            en: 'Fine-grained metric snapshot',
+                            fr: 'Instantané détaillé des métriques',
+                            de: 'Feingranularer Metrik-Snapshot',
+                            ja: '詳細メトリクススナップショット',
+                          ),
+                          icon: Icons.dashboard_customize_rounded,
+                        ),
+                        LayoutBuilder(
+                          builder: (context, constraints) {
+                            final columns = constraints.maxWidth < 760 ? 2 : 4;
+                            return GridView.count(
+                              crossAxisCount: columns,
+                              crossAxisSpacing: 10,
+                              mainAxisSpacing: 10,
+                              childAspectRatio: columns == 2 ? 2.1 : 2.4,
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              children: [
+                                _MetricTile(
+                                  label: openHandLocalizedText(
+                                    context,
+                                    zh: '运行状态',
+                                    zhHant: '執行狀態',
+                                    en: 'Runtime state',
+                                    fr: 'État d’exécution',
+                                    de: 'Laufzeitstatus',
+                                    ja: '実行状態',
+                                  ),
+                                  value: _runtimeStateLabel(
+                                    context,
+                                    snapshot.state,
+                                  ),
+                                ),
+                                _MetricTile(
+                                  label: openHandLocalizedText(
+                                    context,
+                                    zh: '运行时间',
+                                    zhHant: '執行時間',
+                                    en: 'Uptime',
+                                    fr: 'Temps actif',
+                                    de: 'Laufzeit',
+                                    ja: '稼働時間',
+                                  ),
+                                  value: formatCompactDurationMs(
+                                    snapshot.uptimeMs,
+                                  ),
+                                ),
+                                _MetricTile(
+                                  label: 'CPU',
+                                  value: snapshot.cpuPercent == null
+                                      ? _gatewayUnavailable(context)
+                                      : '${snapshot.cpuPercent!.toStringAsFixed(1)}%',
+                                ),
+                                _MetricTile(
+                                  label: openHandLocalizedText(
+                                    context,
+                                    zh: '线程数',
+                                    zhHant: '執行緒數',
+                                    en: 'Threads',
+                                    fr: 'Threads',
+                                    de: 'Threads',
+                                    ja: 'スレッド数',
+                                  ),
+                                  value:
+                                      snapshot.threadCount?.toString() ??
+                                      _gatewayUnavailable(context),
+                                ),
+                                _MetricTile(
+                                  label: openHandLocalizedText(
+                                    context,
+                                    zh: '文件句柄',
+                                    zhHant: '檔案句柄',
+                                    en: 'File handles',
+                                    fr: 'Descripteurs de fichier',
+                                    de: 'Dateihandles',
+                                    ja: 'ファイルハンドル',
+                                  ),
+                                  value:
+                                      snapshot.fileHandleCount?.toString() ??
+                                      _gatewayUnavailable(context),
+                                ),
+                                _MetricTile(
+                                  label: 'Swap',
+                                  value: snapshot.swapBytes == null
+                                      ? _gatewayUnavailable(context)
+                                      : _bytes(snapshot.swapBytes!),
+                                ),
+                                _MetricTile(
+                                  label: openHandLocalizedText(
+                                    context,
+                                    zh: '内存',
+                                    zhHant: '記憶體',
+                                    en: 'Memory',
+                                    fr: 'Mémoire',
+                                    de: 'Speicher',
+                                    ja: 'メモリ',
+                                  ),
+                                  value: _bytes(snapshot.currentRssBytes),
+                                ),
+                                _MetricTile(
+                                  label: openHandLocalizedText(
+                                    context,
+                                    zh: '最大内存',
+                                    zhHant: '最大記憶體',
+                                    en: 'Peak memory',
+                                    fr: 'Mémoire max',
+                                    de: 'Max. Speicher',
+                                    ja: '最大メモリ',
+                                  ),
+                                  value: _bytes(snapshot.maxRssBytes),
+                                ),
+                                _MetricTile(
+                                  label: openHandLocalizedText(
+                                    context,
+                                    zh: '日志磁盘',
+                                    zhHant: '日誌磁碟',
+                                    en: 'Log disk',
+                                    fr: 'Disque des journaux',
+                                    de: 'Protokollspeicher',
+                                    ja: 'ログディスク',
+                                  ),
+                                  value: _bytes(snapshot.logBytes),
+                                ),
+                                _MetricTile(
+                                  label: openHandLocalizedText(
+                                    context,
+                                    zh: '活动请求',
+                                    zhHant: '活動請求',
+                                    en: 'Active requests',
+                                    fr: 'Requêtes actives',
+                                    de: 'Aktive Anfragen',
+                                    ja: 'アクティブリクエスト',
+                                  ),
+                                  value: '${snapshot.activeRequests}',
+                                ),
+                                _MetricTile(
+                                  label: openHandLocalizedText(
+                                    context,
+                                    zh: 'SSE 长连接',
+                                    zhHant: 'SSE 長連線',
+                                    en: 'SSE connections',
+                                    fr: 'Connexions SSE',
+                                    de: 'SSE-Verbindungen',
+                                    ja: 'SSE接続',
+                                  ),
+                                  value: '${snapshot.activeSseSubscriptions}',
+                                ),
+                                _MetricTile(
+                                  label: openHandLocalizedText(
+                                    context,
+                                    zh: '总请求',
+                                    zhHant: '總請求',
+                                    en: 'Total requests',
+                                    fr: 'Requêtes totales',
+                                    de: 'Anfragen gesamt',
+                                    ja: '総リクエスト',
+                                  ),
+                                  value: '${snapshot.totalRequests}',
+                                ),
+                                _MetricTile(
+                                  label: openHandLocalizedText(
+                                    context,
+                                    zh: '请求/min',
+                                    zhHant: '請求/min',
+                                    en: 'Requests/min',
+                                    fr: 'Requêtes/min',
+                                    de: 'Anfragen/min',
+                                    ja: 'リクエスト/min',
+                                  ),
+                                  value: _rate(snapshot.requestsPerMinute),
+                                ),
+                                _MetricTile(
+                                  label: openHandLocalizedText(
+                                    context,
+                                    zh: '错误数',
+                                    zhHant: '錯誤數',
+                                    en: 'Errors',
+                                    fr: 'Erreurs',
+                                    de: 'Fehler',
+                                    ja: 'エラー数',
+                                  ),
+                                  value: '${snapshot.totalErrors}',
+                                ),
+                                _MetricTile(
+                                  label: openHandLocalizedText(
+                                    context,
+                                    zh: '错误/min',
+                                    zhHant: '錯誤/min',
+                                    en: 'Errors/min',
+                                    fr: 'Erreurs/min',
+                                    de: 'Fehler/min',
+                                    ja: 'エラー/min',
+                                  ),
+                                  value: _rate(snapshot.errorsPerMinute),
+                                ),
+                                _MetricTile(
+                                  label: openHandLocalizedText(
+                                    context,
+                                    zh: '入流量/min',
+                                    zhHant: '入流量/min',
+                                    en: 'Inbound/min',
+                                    fr: 'Entrant/min',
+                                    de: 'Eingehend/min',
+                                    ja: '受信/min',
+                                  ),
+                                  value: _bytes(
+                                    snapshot.bytesInPerMinute.round(),
+                                  ),
+                                ),
+                                _MetricTile(
+                                  label: openHandLocalizedText(
+                                    context,
+                                    zh: '出流量/min',
+                                    zhHant: '出流量/min',
+                                    en: 'Outbound/min',
+                                    fr: 'Sortant/min',
+                                    de: 'Ausgehend/min',
+                                    ja: '送信/min',
+                                  ),
+                                  value: _bytes(
+                                    snapshot.bytesOutPerMinute.round(),
+                                  ),
+                                ),
+                                _MetricTile(
+                                  label: openHandLocalizedText(
+                                    context,
+                                    zh: '延迟 P95',
+                                    zhHant: '延遲 P95',
+                                    en: 'Latency P95',
+                                    fr: 'Latence P95',
+                                    de: 'Latenz P95',
+                                    ja: 'レイテンシ P95',
+                                  ),
+                                  value: '${snapshot.latencyStats.p95Ms}ms',
+                                ),
+                                _MetricTile(
+                                  label: openHandLocalizedText(
+                                    context,
+                                    zh: '延迟 P50',
+                                    zhHant: '延遲 P50',
+                                    en: 'Latency P50',
+                                    fr: 'Latence P50',
+                                    de: 'Latenz P50',
+                                    ja: 'レイテンシ P50',
+                                  ),
+                                  value: '${snapshot.latencyStats.p50Ms}ms',
+                                ),
+                                _MetricTile(
+                                  label: openHandLocalizedText(
+                                    context,
+                                    zh: '延迟 P99',
+                                    zhHant: '延遲 P99',
+                                    en: 'Latency P99',
+                                    fr: 'Latence P99',
+                                    de: 'Latenz P99',
+                                    ja: 'レイテンシ P99',
+                                  ),
+                                  value: '${snapshot.latencyStats.p99Ms}ms',
+                                ),
+                                _MetricTile(
+                                  label: openHandLocalizedText(
+                                    context,
+                                    zh: '延迟 MAX',
+                                    zhHant: '延遲 MAX',
+                                    en: 'Latency MAX',
+                                    fr: 'Latence MAX',
+                                    de: 'Latenz MAX',
+                                    ja: 'レイテンシ MAX',
+                                  ),
+                                  value: '${snapshot.latencyStats.maxMs}ms',
+                                ),
+                                _MetricTile(
+                                  label: openHandLocalizedText(
+                                    context,
+                                    zh: '延迟样本',
+                                    zhHant: '延遲樣本',
+                                    en: 'Latency samples',
+                                    fr: 'Échantillons latence',
+                                    de: 'Latenzstichproben',
+                                    ja: 'レイテンシサンプル',
+                                  ),
+                                  value: '${snapshot.latencyStats.sampleCount}',
+                                ),
+                                _MetricTile(
+                                  label: openHandLocalizedText(
+                                    context,
+                                    zh: '累计入流量',
+                                    zhHant: '累計入流量',
+                                    en: 'Total inbound',
+                                    fr: 'Entrant total',
+                                    de: 'Eingehend gesamt',
+                                    ja: '総受信量',
+                                  ),
+                                  value: _bytes(snapshot.totalBytesIn),
+                                ),
+                                _MetricTile(
+                                  label: openHandLocalizedText(
+                                    context,
+                                    zh: '累计出流量',
+                                    zhHant: '累計出流量',
+                                    en: 'Total outbound',
+                                    fr: 'Sortant total',
+                                    de: 'Ausgehend gesamt',
+                                    ja: '総送信量',
+                                  ),
+                                  value: _bytes(snapshot.totalBytesOut),
+                                ),
+                                _MetricTile(
+                                  label: openHandLocalizedText(
+                                    context,
+                                    zh: '崩溃数',
+                                    zhHant: '崩潰數',
+                                    en: 'Crashes',
+                                    fr: 'Plantages',
+                                    de: 'Abstürze',
+                                    ja: 'クラッシュ数',
+                                  ),
+                                  value: '${snapshot.crashCount}',
+                                ),
+                                _MetricTile(
+                                  label: openHandLocalizedText(
+                                    context,
+                                    zh: '重启数',
+                                    zhHant: '重啟數',
+                                    en: 'Restarts',
+                                    fr: 'Redémarrages',
+                                    de: 'Neustarts',
+                                    ja: '再起動数',
+                                  ),
+                                  value: '${snapshot.restartCount}',
+                                ),
+                                _MetricTile(
+                                  label: openHandLocalizedText(
+                                    context,
+                                    zh: '线程会话',
+                                    zhHant: '執行緒會話',
+                                    en: 'Thread sessions',
+                                    fr: 'Sessions de fil',
+                                    de: 'Thread-Sitzungen',
+                                    ja: 'スレッドセッション',
+                                  ),
+                                  value: '${snapshot.openSessionCount}',
+                                ),
+                                _MetricTile(
+                                  label: openHandLocalizedText(
+                                    context,
+                                    zh: '并发水位',
+                                    zhHant: '並發水位',
+                                    en: 'Concurrency level',
+                                    fr: 'Niveau de concurrence',
+                                    de: 'Parallelitätsniveau',
+                                    ja: '同時実行水位',
+                                  ),
+                                  value: _percent(snapshot.activeRequestRatio),
+                                ),
+                              ],
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 18),
+                        _OpsHealthCard(snapshot: snapshot),
+                        const SizedBox(height: 18),
+                        _OpsSummaryCard(snapshot: snapshot),
+                        const SizedBox(height: 18),
+                        _NaturalCardGrid(
+                          minTileWidth: 360,
+                          spacing: 12,
+                          maxColumns: 2,
+                          children: [
+                            _OpsBreakdownCard(
+                              title: openHandLocalizedText(
+                                context,
+                                zh: 'HTTP 状态码分布',
+                                zhHant: 'HTTP 狀態碼分布',
+                                en: 'HTTP status distribution',
+                                fr: 'Répartition des statuts HTTP',
+                                de: 'HTTP-Statusverteilung',
+                                ja: 'HTTPステータス分布',
+                              ),
+                              values: snapshot.statusCodeBreakdown,
+                            ),
+                            _OpsBreakdownCard(
+                              title: openHandLocalizedText(
+                                context,
+                                zh: 'HTTP Method 分布',
+                                zhHant: 'HTTP Method 分布',
+                                en: 'HTTP method distribution',
+                                fr: 'Répartition des méthodes HTTP',
+                                de: 'HTTP-Methodenverteilung',
+                                ja: 'HTTPメソッド分布',
+                              ),
+                              values: snapshot.methodBreakdown,
+                            ),
+                            _OpsBreakdownCard(
+                              title: openHandLocalizedText(
+                                context,
+                                zh: '延迟桶',
+                                zhHant: '延遲桶',
+                                en: 'Latency buckets',
+                                fr: 'Buckets de latence',
+                                de: 'Latenz-Buckets',
+                                ja: 'レイテンシバケット',
+                              ),
+                              values: snapshot.latencyBuckets,
+                            ),
+                            _OpsBreakdownCard(
+                              title: openHandLocalizedText(
+                                context,
+                                zh: '发送阶段分布',
+                                zhHant: '傳送階段分布',
+                                en: 'Send phase distribution',
+                                fr: 'Répartition des phases d’envoi',
+                                de: 'Sendephasenverteilung',
+                                ja: '送信フェーズ分布',
+                              ),
+                              values: snapshot.sendPhaseBreakdown,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 18),
+                        _NaturalCardGrid(
+                          minTileWidth: 360,
+                          spacing: 12,
+                          maxColumns: 2,
+                          children: [
+                            _TopRoutesCard(routes: snapshot.topRoutes),
+                            _RecentErrorsCard(errors: snapshot.recentErrors),
+                            _OpsBreakdownCard(
+                              title: openHandLocalizedText(
+                                context,
+                                zh: '日志级别分布',
+                                zhHant: '日誌級別分布',
+                                en: 'Log level distribution',
+                                fr: 'Répartition des niveaux de journal',
+                                de: 'Protokollstufenverteilung',
+                                ja: 'ログレベル分布',
+                              ),
+                              values: snapshot.logLevelBreakdown,
+                              footer: openHandLocalizedText(
+                                context,
+                                zh: '${snapshot.memoryLogCount} 条内存日志',
+                                zhHant: '${snapshot.memoryLogCount} 則記憶體日誌',
+                                en: '${snapshot.memoryLogCount} in-memory logs',
+                                fr: '${snapshot.memoryLogCount} journaux en mémoire',
+                                de: '${snapshot.memoryLogCount} Speicherprotokolle',
+                                ja: '${snapshot.memoryLogCount} 件のメモリ内ログ',
+                              ),
+                            ),
+                            _ResourceInventoryCard(snapshot: snapshot),
+                          ],
+                        ),
+                        const SizedBox(height: 18),
+                        _SectionTitle(
+                          openHandLocalizedText(
+                            context,
+                            zh: '吞吐趋势',
+                            zhHant: '吞吐趨勢',
+                            en: 'Throughput Trends',
+                            fr: 'Tendances du débit',
+                            de: 'Durchsatztrends',
+                            ja: 'スループット傾向',
+                          ),
+                          icon: Icons.show_chart,
+                        ),
+                        LayoutBuilder(
+                          builder: (context, constraints) {
+                            final columns = constraints.maxWidth < 720 ? 1 : 2;
+                            return GridView.count(
+                              crossAxisCount: columns,
+                              crossAxisSpacing: 12,
+                              mainAxisSpacing: 12,
+                              childAspectRatio: columns == 1 ? 2.35 : 1.85,
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              children: [
+                                _TrendLineChart(
+                                  title: openHandLocalizedText(
+                                    context,
+                                    zh: '请求/秒',
+                                    zhHant: '請求/秒',
+                                    en: 'Requests/sec',
+                                    fr: 'Requêtes/s',
+                                    de: 'Anfragen/s',
+                                    ja: 'リクエスト/秒',
+                                  ),
+                                  values: _deltaSeries(
+                                    _trend,
+                                    (snapshot) =>
+                                        snapshot.totalRequests.toDouble(),
+                                  ),
+                                  valueFormatter: (value) =>
+                                      value.toStringAsFixed(0),
+                                ),
+                                _TrendLineChart(
+                                  title: openHandLocalizedText(
+                                    context,
+                                    zh: '错误/秒',
+                                    zhHant: '錯誤/秒',
+                                    en: 'Errors/sec',
+                                    fr: 'Erreurs/s',
+                                    de: 'Fehler/s',
+                                    ja: 'エラー/秒',
+                                  ),
+                                  values: _deltaSeries(
+                                    _trend,
+                                    (snapshot) =>
+                                        snapshot.totalErrors.toDouble(),
+                                  ),
+                                  valueFormatter: (value) =>
+                                      value.toStringAsFixed(0),
+                                ),
+                                _TrendLineChart(
+                                  title: openHandLocalizedText(
+                                    context,
+                                    zh: '活动请求',
+                                    zhHant: '活動請求',
+                                    en: 'Active requests',
+                                    fr: 'Requêtes actives',
+                                    de: 'Aktive Anfragen',
+                                    ja: 'アクティブリクエスト',
+                                  ),
+                                  values: _series(
+                                    _trend,
+                                    (snapshot) =>
+                                        snapshot.activeRequests.toDouble(),
+                                  ),
+                                  valueFormatter: (value) =>
+                                      value.toStringAsFixed(0),
+                                ),
+                                _TrendLineChart(
+                                  title: openHandLocalizedText(
+                                    context,
+                                    zh: 'P95 延迟',
+                                    zhHant: 'P95 延遲',
+                                    en: 'P95 latency',
+                                    fr: 'Latence P95',
+                                    de: 'P95-Latenz',
+                                    ja: 'P95レイテンシ',
+                                  ),
+                                  values: _series(
+                                    _trend,
+                                    (snapshot) =>
+                                        snapshot.latencyStats.p95Ms.toDouble(),
+                                  ),
+                                  valueFormatter: (value) =>
+                                      '${value.toStringAsFixed(0)}ms',
+                                ),
+                              ],
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 18),
+                        _SectionTitle(
+                          openHandLocalizedText(
+                            context,
+                            zh: '资源趋势',
+                            zhHant: '資源趨勢',
+                            en: 'Resource Trends',
+                            fr: 'Tendances des ressources',
+                            de: 'Ressourcentrends',
+                            ja: 'リソース傾向',
+                          ),
+                          icon: Icons.show_chart,
+                        ),
+                        LayoutBuilder(
+                          builder: (context, constraints) {
+                            final columns = constraints.maxWidth < 720 ? 1 : 2;
+                            return GridView.count(
+                              crossAxisCount: columns,
+                              crossAxisSpacing: 12,
+                              mainAxisSpacing: 12,
+                              childAspectRatio: columns == 1 ? 2.35 : 1.85,
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              children: [
+                                _TrendLineChart(
+                                  title: 'CPU %',
+                                  values: _series(
+                                    _trend,
+                                    (snapshot) => snapshot.cpuPercent,
+                                  ),
+                                  valueFormatter: (value) =>
+                                      '${value.toStringAsFixed(1)}%',
+                                ),
+                                _TrendLineChart(
+                                  title: openHandLocalizedText(
+                                    context,
+                                    zh: '内存 RSS',
+                                    zhHant: '記憶體 RSS',
+                                    en: 'Memory RSS',
+                                    fr: 'Mémoire RSS',
+                                    de: 'Speicher RSS',
+                                    ja: 'メモリ RSS',
+                                  ),
+                                  values: _series(
+                                    _trend,
+                                    (snapshot) =>
+                                        snapshot.currentRssBytes.toDouble(),
+                                  ),
+                                  valueFormatter: (value) =>
+                                      _bytes(value.round()),
+                                ),
+                                _TrendLineChart(
+                                  title: openHandLocalizedText(
+                                    context,
+                                    zh: '日志磁盘',
+                                    zhHant: '日誌磁碟',
+                                    en: 'Log disk',
+                                    fr: 'Disque des journaux',
+                                    de: 'Protokollspeicher',
+                                    ja: 'ログディスク',
+                                  ),
+                                  values: _series(
+                                    _trend,
+                                    (snapshot) => snapshot.logBytes.toDouble(),
+                                  ),
+                                  valueFormatter: (value) =>
+                                      _bytes(value.round()),
+                                ),
+                                _TrendLineChart(
+                                  title: openHandLocalizedText(
+                                    context,
+                                    zh: '线程数',
+                                    zhHant: '執行緒數',
+                                    en: 'Threads',
+                                    fr: 'Threads',
+                                    de: 'Threads',
+                                    ja: 'スレッド数',
+                                  ),
+                                  values: _series(
+                                    _trend,
+                                    (snapshot) =>
+                                        snapshot.threadCount?.toDouble(),
+                                  ),
+                                  valueFormatter: (value) =>
+                                      value.toStringAsFixed(0),
+                                ),
+                                _TrendLineChart(
+                                  title: openHandLocalizedText(
+                                    context,
+                                    zh: '会话数',
+                                    zhHant: '會話數',
+                                    en: 'Sessions',
+                                    fr: 'Sessions',
+                                    de: 'Sitzungen',
+                                    ja: 'セッション数',
+                                  ),
+                                  values: _series(
+                                    _trend,
+                                    (snapshot) =>
+                                        snapshot.openSessionCount.toDouble(),
+                                  ),
+                                  valueFormatter: (value) =>
+                                      value.toStringAsFixed(0),
+                                ),
+                                _TrendLineChart(
+                                  title: openHandLocalizedText(
+                                    context,
+                                    zh: '入流量/min',
+                                    zhHant: '入流量/min',
+                                    en: 'Inbound/min',
+                                    fr: 'Entrant/min',
+                                    de: 'Eingehend/min',
+                                    ja: '受信/min',
+                                  ),
+                                  values: _series(
+                                    _trend,
+                                    (snapshot) => snapshot.bytesInPerMinute,
+                                  ),
+                                  valueFormatter: (value) =>
+                                      _bytes(value.round()),
+                                ),
+                              ],
+                            );
+                          },
+                        ),
+                        if (cleanupHistory.isNotEmpty) ...[
+                          const SizedBox(height: 18),
+                          _SectionTitle(
+                            openHandLocalizedText(
+                              context,
+                              zh: '清理历史',
+                              zhHant: '清理歷史',
+                              en: 'Cleanup History',
+                              fr: 'Historique de nettoyage',
+                              de: 'Bereinigungsverlauf',
+                              ja: 'クリーンアップ履歴',
+                            ),
+                            icon: Icons.cleaning_services_outlined,
+                          ),
+                          ...cleanupHistory.map(
+                            (entry) => _CleanupHistoryLine(entry: entry),
+                          ),
+                        ],
+                        if (snapshot.lastError.isNotEmpty) ...[
+                          const SizedBox(height: 18),
+                          _SectionTitle(
+                            openHandLocalizedText(
+                              context,
+                              zh: '最近错误',
+                              zhHant: '最近錯誤',
+                              en: 'Latest Error',
+                              fr: 'Dernière erreur',
+                              de: 'Letzter Fehler',
+                              ja: '最新エラー',
+                            ),
+                            icon: Icons.article_outlined,
+                          ),
+                          SelectableText(snapshot.lastError),
+                        ],
+                      ],
                     ),
-                    if (cleanupHistory.isNotEmpty) ...[
-                      const SizedBox(height: 18),
-                      _SectionTitle(
-                        openHandLocalizedText(
-                          context,
-                          zh: '清理历史',
-                          zhHant: '清理歷史',
-                          en: 'Cleanup History',
-                          fr: 'Historique de nettoyage',
-                          de: 'Bereinigungsverlauf',
-                          ja: 'クリーンアップ履歴',
-                        ),
-                        icon: Icons.cleaning_services_outlined,
-                      ),
-                      ...cleanupHistory.map(
-                        (entry) => _CleanupHistoryLine(entry: entry),
-                      ),
-                    ],
-                    if (snapshot.lastError.isNotEmpty) ...[
-                      const SizedBox(height: 18),
-                      _SectionTitle(
-                        openHandLocalizedText(
-                          context,
-                          zh: '最近错误',
-                          zhHant: '最近錯誤',
-                          en: 'Latest Error',
-                          fr: 'Dernière erreur',
-                          de: 'Letzter Fehler',
-                          ja: '最新エラー',
-                        ),
-                        icon: Icons.article_outlined,
-                      ),
-                      SelectableText(snapshot.lastError),
-                    ],
-                  ],
+                  ),
                 ),
               ),
-            ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -5147,6 +5256,1594 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
       if (mounted) setState(() => _isCleaning = false);
     }
   }
+}
+
+const double _webOpsOuterRadius = 24;
+const double _webOpsShellRadius = 18;
+const double _webOpsControlRadius = 12;
+const double _webOpsGridGap = 14;
+const double _webOpsMetricWideBreakpoint = 860;
+const double _webOpsMetricMediumBreakpoint = 560;
+const Color _webOpsTerminalBackground = Color(0xFF10131A);
+
+class _WebOpsDialogSurface extends StatelessWidget {
+  const _WebOpsDialogSurface({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: cs.surface,
+        borderRadius: BorderRadius.circular(_webOpsOuterRadius),
+        border: Border.all(color: cs.outlineVariant.withValues(alpha: .72)),
+        boxShadow: [
+          BoxShadow(
+            color: cs.shadow.withValues(alpha: .18),
+            blurRadius: 34,
+            offset: const Offset(0, 18),
+          ),
+        ],
+      ),
+      child: Padding(padding: const EdgeInsets.all(16), child: child),
+    );
+  }
+}
+
+class _WebOpsConsoleShell extends StatelessWidget {
+  const _WebOpsConsoleShell({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: openHandMotionDurationMs(context, 180),
+      curve: Curves.easeOutCubic,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHighest.withValues(alpha: .42),
+        borderRadius: BorderRadius.circular(_webOpsShellRadius),
+        border: Border.all(color: cs.outlineVariant.withValues(alpha: .72)),
+      ),
+      child: child,
+    );
+  }
+}
+
+class _WebOpsConsoleHeader extends StatelessWidget {
+  const _WebOpsConsoleHeader({
+    required this.snapshot,
+    required this.config,
+    required this.persistedSnapshotCount,
+    required this.isRunning,
+    required this.serviceControlsDisabled,
+    required this.cleaning,
+    required this.healthChecking,
+    required this.startLabel,
+    required this.stopLabel,
+    required this.restartLabel,
+    required this.reloadLabel,
+    required this.hotFixLabel,
+    required this.healthLabel,
+    required this.onStart,
+    required this.onStop,
+    required this.onRestart,
+    required this.onReload,
+    required this.onHotFix,
+    required this.onHealthCheck,
+    required this.onCleanExpired,
+    required this.onClearLogs,
+    required this.onClearCache,
+    required this.onClose,
+  });
+
+  final WebGatewayRuntimeSnapshot snapshot;
+  final WebMessagePlatformConfig config;
+  final int persistedSnapshotCount;
+  final bool isRunning;
+  final bool serviceControlsDisabled;
+  final bool cleaning;
+  final bool healthChecking;
+  final String startLabel;
+  final String stopLabel;
+  final String restartLabel;
+  final String reloadLabel;
+  final String hotFixLabel;
+  final String healthLabel;
+  final VoidCallback onStart;
+  final VoidCallback onStop;
+  final VoidCallback onRestart;
+  final VoidCallback onReload;
+  final VoidCallback onHotFix;
+  final VoidCallback onHealthCheck;
+  final VoidCallback onCleanExpired;
+  final VoidCallback onClearLogs;
+  final VoidCallback onClearCache;
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final statusColor = _webOpsStateColor(cs, snapshot.state);
+    final endpoint = snapshot.boundUrl.isEmpty
+        ? config.endpointUrl
+        : snapshot.boundUrl;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final compact = constraints.maxWidth < 980;
+            final identity = _WebOpsHeaderIdentity(
+              statusColor: statusColor,
+              endpoint: endpoint,
+            );
+            final actions = _WebOpsHeaderActions(
+              cleaning: cleaning,
+              onClearLogs: onClearLogs,
+              onClearCache: onClearCache,
+              onClose: onClose,
+            );
+            if (compact) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  identity,
+                  const SizedBox(height: 10),
+                  Align(
+                    alignment: AlignmentDirectional.centerEnd,
+                    child: actions,
+                  ),
+                ],
+              );
+            }
+            return Row(
+              children: [
+                Expanded(child: identity),
+                const SizedBox(width: 12),
+                actions,
+              ],
+            );
+          },
+        ),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            _WebOpsStatusChip(
+              icon: Icons.circle_rounded,
+              label: _runtimeStateLabel(context, snapshot.state),
+              color: statusColor,
+            ),
+            _WebOpsStatusChip(
+              icon: Icons.link_rounded,
+              label: endpoint,
+              color: cs.primary,
+              monospace: true,
+            ),
+            _WebOpsStatusChip(
+              icon: Icons.schedule_rounded,
+              label: openHandLocalizedText(
+                context,
+                zh: '运行 ${formatCompactDurationMs(snapshot.uptimeMs)}',
+                zhHant: '運行 ${formatCompactDurationMs(snapshot.uptimeMs)}',
+                en: 'Uptime ${formatCompactDurationMs(snapshot.uptimeMs)}',
+                fr: 'Disponibilité ${formatCompactDurationMs(snapshot.uptimeMs)}',
+                de: 'Laufzeit ${formatCompactDurationMs(snapshot.uptimeMs)}',
+                ja: '稼働 ${formatCompactDurationMs(snapshot.uptimeMs)}',
+              ),
+              color: cs.tertiary,
+            ),
+            _WebOpsStatusChip(
+              icon: config.authEnabled
+                  ? Icons.verified_user_rounded
+                  : Icons.no_encryption_gmailerrorred_rounded,
+              label: config.authEnabled
+                  ? openHandLocalizedText(
+                      context,
+                      zh: '鉴权开启',
+                      zhHant: '鑑權開啟',
+                      en: 'Auth enabled',
+                      fr: 'Auth activée',
+                      de: 'Auth aktiv',
+                      ja: '認証有効',
+                    )
+                  : openHandLocalizedText(
+                      context,
+                      zh: '鉴权关闭',
+                      zhHant: '鑑權關閉',
+                      en: 'Auth off',
+                      fr: 'Auth désactivée',
+                      de: 'Auth aus',
+                      ja: '認証オフ',
+                    ),
+              color: config.authEnabled
+                  ? cs.secondary
+                  : OpenHandStatusColors.warning,
+            ),
+            _WebOpsStatusChip(
+              icon: Icons.history_rounded,
+              label: openHandLocalizedText(
+                context,
+                zh: '本地回溯 $persistedSnapshotCount',
+                zhHant: '本地回溯 $persistedSnapshotCount',
+                en: 'Local history $persistedSnapshotCount',
+                fr: 'Historique local $persistedSnapshotCount',
+                de: 'Lokale Historie $persistedSnapshotCount',
+                ja: 'ローカル履歴 $persistedSnapshotCount',
+              ),
+              color: cs.primary,
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        AnimatedOpacity(
+          duration: openHandMotionDurationMs(context, 180),
+          curve: Curves.easeOutCubic,
+          opacity: serviceControlsDisabled ? .64 : 1,
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              _WebOpsIconButton(
+                icon: Icons.play_arrow_rounded,
+                tooltip: startLabel,
+                onPressed: !isRunning && !serviceControlsDisabled
+                    ? onStart
+                    : null,
+              ),
+              _WebOpsIconButton(
+                icon: Icons.stop_rounded,
+                tooltip: stopLabel,
+                onPressed: isRunning && !serviceControlsDisabled
+                    ? onStop
+                    : null,
+              ),
+              _WebOpsIconButton(
+                icon: Icons.restart_alt_rounded,
+                tooltip: restartLabel,
+                onPressed: serviceControlsDisabled ? null : onRestart,
+              ),
+              _WebOpsIconButton(
+                icon: Icons.sync_rounded,
+                tooltip: reloadLabel,
+                onPressed: serviceControlsDisabled ? null : onReload,
+              ),
+              _WebOpsIconButton(
+                icon: Icons.healing_rounded,
+                tooltip: hotFixLabel,
+                onPressed: serviceControlsDisabled ? null : onHotFix,
+              ),
+              _WebOpsIconButton(
+                icon: healthChecking
+                    ? Icons.hourglass_top_rounded
+                    : Icons.monitor_heart_outlined,
+                tooltip: healthLabel,
+                onPressed: healthChecking ? null : onHealthCheck,
+              ),
+              _WebOpsIconButton(
+                icon: cleaning
+                    ? Icons.hourglass_bottom_rounded
+                    : Icons.cleaning_services_outlined,
+                tooltip: openHandLocalizedText(
+                  context,
+                  zh: '清理过期资源',
+                  zhHant: '清理過期資源',
+                  en: 'Clean expired resources',
+                  fr: 'Nettoyer les ressources expirées',
+                  de: 'Abgelaufene Ressourcen bereinigen',
+                  ja: '期限切れリソースを清理',
+                ),
+                onPressed: cleaning ? null : onCleanExpired,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _WebOpsHeaderIdentity extends StatelessWidget {
+  const _WebOpsHeaderIdentity({
+    required this.statusColor,
+    required this.endpoint,
+  });
+
+  final Color statusColor;
+  final String endpoint;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Row(
+      children: [
+        Stack(
+          clipBehavior: Clip.none,
+          children: [
+            AnimatedContainer(
+              duration: openHandMotionDurationMs(context, 180),
+              curve: Curves.easeOutCubic,
+              width: 50,
+              height: 50,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: statusColor.withValues(alpha: .13),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: statusColor.withValues(alpha: .34)),
+              ),
+              child: Icon(Icons.language_rounded, color: statusColor, size: 28),
+            ),
+            Positioned(
+              right: -2,
+              bottom: -2,
+              child: _StatusDot(color: statusColor),
+            ),
+          ],
+        ),
+        const SizedBox(width: 13),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                openHandLocalizedText(
+                  context,
+                  zh: 'Web 服务运维',
+                  zhHant: 'Web 服務維運',
+                  en: 'Web service operations',
+                  fr: 'Opérations du service web',
+                  de: 'Webdienstbetrieb',
+                  ja: 'Webサービス運用',
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                openHandLocalizedText(
+                  context,
+                  zh: '$webMessagePlatformBuiltinName · $endpoint',
+                  zhHant: '$webMessagePlatformBuiltinName · $endpoint',
+                  en: '$webMessagePlatformBuiltinName · $endpoint',
+                  fr: '$webMessagePlatformBuiltinName · $endpoint',
+                  de: '$webMessagePlatformBuiltinName · $endpoint',
+                  ja: '$webMessagePlatformBuiltinName · $endpoint',
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: cs.onSurfaceVariant,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _WebOpsHeaderActions extends StatelessWidget {
+  const _WebOpsHeaderActions({
+    required this.cleaning,
+    required this.onClearLogs,
+    required this.onClearCache,
+    required this.onClose,
+  });
+
+  final bool cleaning;
+  final VoidCallback onClearLogs;
+  final VoidCallback onClearCache;
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      alignment: WrapAlignment.end,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        _WebOpsIconButton(
+          icon: Icons.delete_sweep_outlined,
+          tooltip: openHandLocalizedText(
+            context,
+            zh: '清空日志',
+            zhHant: '清空日誌',
+            en: 'Clear logs',
+            fr: 'Effacer les journaux',
+            de: 'Protokolle leeren',
+            ja: 'ログをクリア',
+          ),
+          onPressed: cleaning ? null : onClearLogs,
+        ),
+        _WebOpsIconButton(
+          icon: Icons.folder_delete_outlined,
+          tooltip: openHandLocalizedText(
+            context,
+            zh: '清空缓存',
+            zhHant: '清空快取',
+            en: 'Clear cache',
+            fr: 'Effacer le cache',
+            de: 'Cache leeren',
+            ja: 'キャッシュをクリア',
+          ),
+          onPressed: cleaning ? null : onClearCache,
+        ),
+        _WebOpsIconButton(
+          icon: Icons.close_rounded,
+          tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
+          onPressed: onClose,
+        ),
+      ],
+    );
+  }
+}
+
+class _WebOpsIconButton extends StatelessWidget {
+  const _WebOpsIconButton({
+    required this.icon,
+    required this.tooltip,
+    required this.onPressed,
+  });
+
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final enabled = onPressed != null;
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(_webOpsControlRadius),
+          hoverColor: cs.primary.withValues(alpha: .08),
+          splashColor: cs.primary.withValues(alpha: .10),
+          highlightColor: cs.primary.withValues(alpha: .06),
+          onTap: onPressed,
+          child: AnimatedContainer(
+            duration: openHandMotionDurationMs(context, 160),
+            curve: Curves.easeOutCubic,
+            width: 44,
+            height: 44,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: enabled
+                  ? cs.surfaceContainerHigh.withValues(alpha: .82)
+                  : cs.surfaceContainerHighest.withValues(alpha: .40),
+              borderRadius: BorderRadius.circular(_webOpsControlRadius),
+              border: Border.all(
+                color: cs.outlineVariant.withValues(alpha: enabled ? .72 : .40),
+              ),
+            ),
+            child: Icon(
+              icon,
+              size: 22,
+              color: enabled
+                  ? cs.onSurfaceVariant
+                  : cs.onSurfaceVariant.withValues(alpha: .42),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _WebOpsStatusChip extends StatelessWidget {
+  const _WebOpsStatusChip({
+    required this.icon,
+    required this.label,
+    required this.color,
+    this.monospace = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+  final bool monospace;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return AnimatedContainer(
+      duration: openHandMotionDurationMs(context, 180),
+      curve: Curves.easeOutCubic,
+      constraints: const BoxConstraints(maxWidth: 360),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: .10),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: .24)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 15, color: color),
+          const SizedBox(width: 7),
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: theme.colorScheme.onSurface,
+                fontWeight: FontWeight.w800,
+                fontFeatures: monospace
+                    ? const [FontFeature.tabularFigures()]
+                    : null,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WebOpsHeroPanel extends StatelessWidget {
+  const _WebOpsHeroPanel({required this.snapshot, required this.config});
+
+  final WebGatewayRuntimeSnapshot snapshot;
+  final WebMessagePlatformConfig config;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final running = snapshot.state == WebGatewayRuntimeState.running;
+    return _WebOpsPanel(
+      icon: running ? Icons.cloud_done_rounded : Icons.cloud_queue_rounded,
+      title: openHandLocalizedText(
+        context,
+        zh: '服务控制台',
+        zhHant: '服務控制台',
+        en: 'Service console',
+        fr: 'Console du service',
+        de: 'Dienstkonsole',
+        ja: 'サービスコンソール',
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _WebOpsRuntimeTerminal(snapshot: snapshot, config: config),
+          if (snapshot.accessibleUrls.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            _AccessibleUrlsBar(urls: snapshot.accessibleUrls),
+          ],
+          if (snapshot.lastError.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Text(
+              snapshot.lastError,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: cs.error,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _WebOpsRuntimeTerminal extends StatelessWidget {
+  const _WebOpsRuntimeTerminal({required this.snapshot, required this.config});
+
+  final WebGatewayRuntimeSnapshot snapshot;
+  final WebMessagePlatformConfig config;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final endpoint = snapshot.boundUrl.isEmpty
+        ? config.endpointUrl
+        : snapshot.boundUrl;
+    const promptColor = OpenHandStatusColors.success;
+    final commandColor = cs.tertiary;
+    final textColor = Colors.white.withValues(alpha: .90);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: _webOpsTerminalBackground,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: cs.outlineVariant.withValues(alpha: .34)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: .18),
+            blurRadius: 22,
+            offset: const Offset(0, 12),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+        child: DefaultTextStyle(
+          style: TextStyle(
+            color: textColor,
+            fontSize: 13,
+            height: 1.45,
+            fontFamily: 'monospace',
+            fontWeight: FontWeight.w700,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _WebOpsConsoleLine(
+                prompt: 'OpenHand',
+                command: 'web-gateway',
+                detail: endpoint,
+                promptColor: promptColor,
+                commandColor: commandColor,
+              ),
+              _WebOpsConsoleLine(
+                prompt: 'state',
+                command: _runtimeStateLabel(context, snapshot.state),
+                detail:
+                    'uptime=${formatCompactDurationMs(snapshot.uptimeMs)} active=${snapshot.activeRequests} sse=${snapshot.activeSseSubscriptions}',
+                promptColor: promptColor,
+                commandColor: commandColor,
+              ),
+              _WebOpsConsoleLine(
+                prompt: 'traffic',
+                command:
+                    'in=${_bytes(snapshot.totalBytesIn)} out=${_bytes(snapshot.totalBytesOut)}',
+                detail:
+                    'rpm=${_rate(snapshot.requestsPerMinute)} err=${_rate(snapshot.errorsPerMinute)} p95=${snapshot.latencyStats.p95Ms}ms',
+                promptColor: promptColor,
+                commandColor: commandColor,
+              ),
+              _WebOpsConsoleLine(
+                prompt: 'policy',
+                command: config.authEnabled ? 'auth=on' : 'auth=off',
+                detail:
+                    'telemetry=${_webOpsOnOff(config.telemetryEnabled)} logs=${_webOpsOnOff(config.loggingEnabled)} ops=${_webOpsOnOff(config.opsEnabled)}',
+                promptColor: promptColor,
+                commandColor: commandColor,
+              ),
+              _WebOpsConsoleLine(
+                prompt: 'limits',
+                command: 'concurrency=${config.maxConcurrentRequests}',
+                detail:
+                    'message_tokens=${config.singleMessageTokenLimit} upload_cache=${_bytes(config.uploadCacheMaxBytes)}',
+                promptColor: promptColor,
+                commandColor: commandColor,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _WebOpsConsoleLine extends StatelessWidget {
+  const _WebOpsConsoleLine({
+    required this.prompt,
+    required this.command,
+    required this.detail,
+    required this.promptColor,
+    required this.commandColor,
+  });
+
+  final String prompt;
+  final String command;
+  final String detail;
+  final Color promptColor;
+  final Color commandColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text.rich(
+      TextSpan(
+        children: [
+          TextSpan(
+            text: '> $prompt ',
+            style: TextStyle(color: promptColor),
+          ),
+          TextSpan(
+            text: command,
+            style: TextStyle(color: commandColor, fontWeight: FontWeight.w900),
+          ),
+          TextSpan(
+            text: detail.trim().isEmpty ? '' : '  $detail',
+            style: TextStyle(color: Colors.white.withValues(alpha: .72)),
+          ),
+        ],
+      ),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+    );
+  }
+}
+
+class _WebOpsMetricGrid extends StatelessWidget {
+  const _WebOpsMetricGrid({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final maxWidth = constraints.maxWidth;
+        final columns = !maxWidth.isFinite
+            ? 4
+            : maxWidth >= _webOpsMetricWideBreakpoint
+            ? 4
+            : maxWidth >= _webOpsMetricMediumBreakpoint
+            ? 2
+            : 1;
+        final width = maxWidth.isFinite
+            ? (maxWidth - _webOpsGridGap * (columns - 1)) / columns
+            : 240.0;
+        return Wrap(
+          spacing: _webOpsGridGap,
+          runSpacing: _webOpsGridGap,
+          children: [
+            for (final child in children)
+              SizedBox(width: math.max(0, width), child: child),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _WebOpsMetricTile extends StatelessWidget {
+  const _WebOpsMetricTile({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.detail,
+    required this.tone,
+    this.progress,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final String detail;
+  final Color tone;
+  final double? progress;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return AnimatedContainer(
+      duration: openHandMotionDurationMs(context, 180),
+      curve: Curves.easeOutCubic,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHigh.withValues(alpha: .68),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: tone.withValues(alpha: .22)),
+        boxShadow: [
+          BoxShadow(
+            color: tone.withValues(alpha: .08),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: tone.withValues(alpha: .12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(icon, color: tone, size: 18),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: cs.onSurfaceVariant,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.w900,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            detail,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: cs.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          if (progress != null) ...[
+            const SizedBox(height: 10),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(999),
+              child: LinearProgressIndicator(
+                value: clampUnitInterval(progress!),
+                minHeight: 5,
+                color: tone,
+                backgroundColor: tone.withValues(alpha: .14),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _WebOpsPanelGrid extends StatelessWidget {
+  const _WebOpsPanelGrid({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final maxWidth = constraints.maxWidth;
+        final columns = !maxWidth.isFinite || maxWidth >= 900 ? 2 : 1;
+        final width = maxWidth.isFinite
+            ? (maxWidth - _webOpsGridGap * (columns - 1)) / columns
+            : 420.0;
+        return Wrap(
+          spacing: _webOpsGridGap,
+          runSpacing: _webOpsGridGap,
+          children: [
+            for (final child in children)
+              SizedBox(width: math.max(0, width), child: child),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _WebOpsPanel extends StatelessWidget {
+  const _WebOpsPanel({
+    required this.icon,
+    required this.title,
+    required this.child,
+  });
+
+  final IconData icon;
+  final String title;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: _opsCardDecoration(theme),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 30,
+                height: 30,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: cs.primaryContainer.withValues(alpha: .58),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(icon, size: 17, color: cs.onPrimaryContainer),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _WebOpsEnvironmentPanel extends StatelessWidget {
+  const _WebOpsEnvironmentPanel({required this.snapshot, required this.config});
+
+  final WebGatewayRuntimeSnapshot snapshot;
+  final WebMessagePlatformConfig config;
+
+  @override
+  Widget build(BuildContext context) {
+    final startedAt = snapshot.startedAt?.toLocal();
+    final platform = snapshot.platform.isEmpty
+        ? Platform.operatingSystem
+        : snapshot.platform;
+    final platformVersion = snapshot.platformVersion.isEmpty
+        ? Platform.operatingSystemVersion
+        : snapshot.platformVersion;
+    return _WebOpsPanel(
+      icon: Icons.dns_rounded,
+      title: openHandLocalizedText(
+        context,
+        zh: '环境与进程画像',
+        zhHant: '環境與程序畫像',
+        en: 'Environment and process profile',
+        fr: 'Profil environnement et processus',
+        de: 'Umgebungs- und Prozessprofil',
+        ja: '環境とプロセスプロファイル',
+      ),
+      child: Column(
+        children: [
+          _WebOpsInfoRow(
+            openHandLocalizedText(
+              context,
+              zh: '主机',
+              zhHant: '主機',
+              en: 'Host',
+              fr: 'Hôte',
+              de: 'Host',
+              ja: 'ホスト',
+            ),
+            snapshot.hostName.isEmpty
+                ? _gatewayUnavailable(context)
+                : snapshot.hostName,
+          ),
+          _WebOpsInfoRow(
+            openHandLocalizedText(
+              context,
+              zh: '系统',
+              zhHant: '系統',
+              en: 'System',
+              fr: 'Système',
+              de: 'System',
+              ja: 'システム',
+            ),
+            '$platform · $platformVersion',
+          ),
+          _WebOpsInfoRow(
+            'PID / Dart',
+            '${snapshot.processId <= 0 ? pid : snapshot.processId} · ${snapshot.dartVersion.isEmpty ? Platform.version : snapshot.dartVersion}',
+          ),
+          _WebOpsInfoRow(
+            openHandLocalizedText(
+              context,
+              zh: '启动时间',
+              zhHant: '啟動時間',
+              en: 'Started at',
+              fr: 'Démarré à',
+              de: 'Gestartet um',
+              ja: '起動時刻',
+            ),
+            startedAt == null
+                ? _gatewayUnavailable(context)
+                : formatYearMonthDayHms(startedAt),
+          ),
+          _WebOpsInfoRow(
+            openHandLocalizedText(
+              context,
+              zh: '监听策略',
+              zhHant: '監聽策略',
+              en: 'Listen policy',
+              fr: 'Politique écoute',
+              de: 'Lauschrichtlinie',
+              ja: 'リッスンポリシー',
+            ),
+            '${config.listenHost}:${config.listenPort} · ${snapshot.accessibleUrls.length} URL',
+          ),
+          _WebOpsInfoRow(
+            openHandLocalizedText(
+              context,
+              zh: '资源占用',
+              zhHant: '資源佔用',
+              en: 'Resource usage',
+              fr: 'Utilisation ressources',
+              de: 'Ressourcennutzung',
+              ja: 'リソース使用量',
+            ),
+            'RSS ${_bytes(snapshot.currentRssBytes)} · CPU ${snapshot.cpuPercent == null ? _gatewayUnavailable(context) : '${snapshot.cpuPercent!.toStringAsFixed(1)}%'}',
+          ),
+          _WebOpsInfoRow(
+            openHandLocalizedText(
+              context,
+              zh: '句柄 / Swap',
+              zhHant: '句柄 / Swap',
+              en: 'Handles / Swap',
+              fr: 'Handles / Swap',
+              de: 'Handles / Swap',
+              ja: 'ハンドル / Swap',
+            ),
+            '${snapshot.fileHandleCount?.toString() ?? _gatewayUnavailable(context)} · ${snapshot.swapBytes == null ? _gatewayUnavailable(context) : _bytes(snapshot.swapBytes!)}',
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WebOpsFeatureMatrixPanel extends StatelessWidget {
+  const _WebOpsFeatureMatrixPanel({
+    required this.snapshot,
+    required this.config,
+  });
+
+  final WebGatewayRuntimeSnapshot snapshot;
+  final WebMessagePlatformConfig config;
+
+  @override
+  Widget build(BuildContext context) {
+    return _WebOpsPanel(
+      icon: Icons.tune_rounded,
+      title: openHandLocalizedText(
+        context,
+        zh: '能力、策略与数据面',
+        zhHant: '能力、策略與資料面',
+        en: 'Capabilities, policy and data plane',
+        fr: 'Capacités, politiques et plan de données',
+        de: 'Fähigkeiten, Richtlinien und Datenebene',
+        ja: '機能、ポリシー、データプレーン',
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _webOpsFlagChip(
+                context,
+                label: openHandLocalizedText(
+                  context,
+                  zh: '鉴权',
+                  zhHant: '鑑權',
+                  en: 'Auth',
+                  fr: 'Auth',
+                  de: 'Auth',
+                  ja: '認証',
+                ),
+                enabled: config.authEnabled,
+              ),
+              _webOpsFlagChip(
+                context,
+                label: openHandLocalizedText(
+                  context,
+                  zh: '遥测',
+                  zhHant: '遙測',
+                  en: 'Telemetry',
+                  fr: 'Télémétrie',
+                  de: 'Telemetrie',
+                  ja: 'テレメトリ',
+                ),
+                enabled: config.telemetryEnabled,
+              ),
+              _webOpsFlagChip(
+                context,
+                label: openHandLocalizedText(
+                  context,
+                  zh: '日志',
+                  zhHant: '日誌',
+                  en: 'Logging',
+                  fr: 'Journalisation',
+                  de: 'Protokolle',
+                  ja: 'ログ',
+                ),
+                enabled: config.loggingEnabled,
+              ),
+              _webOpsFlagChip(
+                context,
+                label: openHandLocalizedText(
+                  context,
+                  zh: '运维 API',
+                  zhHant: '維運 API',
+                  en: 'Ops API',
+                  fr: 'API Ops',
+                  de: 'Ops-API',
+                  ja: 'Ops API',
+                ),
+                enabled: config.opsEnabled,
+              ),
+              _webOpsFlagChip(
+                context,
+                label: openHandLocalizedText(
+                  context,
+                  zh: '自动启动',
+                  zhHant: '自動啟動',
+                  en: 'Auto start',
+                  fr: 'Démarrage auto',
+                  de: 'Autostart',
+                  ja: '自動起動',
+                ),
+                enabled: config.autoStartOnLaunch,
+              ),
+              _webOpsFlagChip(
+                context,
+                label: openHandLocalizedText(
+                  context,
+                  zh: '热重载',
+                  zhHant: '熱重載',
+                  en: 'Hot reload',
+                  fr: 'Rechargement à chaud',
+                  de: 'Hot Reload',
+                  ja: 'ホットリロード',
+                ),
+                enabled: config.autoReloadOnChange,
+              ),
+              _webOpsFlagChip(
+                context,
+                label: openHandLocalizedText(
+                  context,
+                  zh: '工作区写入',
+                  zhHant: '工作區寫入',
+                  en: 'Workspace write',
+                  fr: 'Écriture workspace',
+                  de: 'Workspace-Schreiben',
+                  ja: 'ワークスペース書込',
+                ),
+                enabled: config.workspaceFileWriteEnabled,
+              ),
+              _webOpsFlagChip(
+                context,
+                label: openHandLocalizedText(
+                  context,
+                  zh: '会话管理',
+                  zhHant: '會話管理',
+                  en: 'Sessions',
+                  fr: 'Sessions',
+                  de: 'Sitzungen',
+                  ja: 'セッション',
+                ),
+                enabled: config.sessionManagementEnabled,
+              ),
+              _webOpsFlagChip(
+                context,
+                label: openHandLocalizedText(
+                  context,
+                  zh: '工作区文件',
+                  zhHant: '工作區檔案',
+                  en: 'Workspace files',
+                  fr: 'Fichiers workspace',
+                  de: 'Workspace-Dateien',
+                  ja: 'ワークスペースファイル',
+                ),
+                enabled: config.workspaceFilesEnabled,
+              ),
+              _webOpsFlagChip(
+                context,
+                label: openHandLocalizedText(
+                  context,
+                  zh: '计划模式',
+                  zhHant: '計劃模式',
+                  en: 'Plan mode',
+                  fr: 'Mode plan',
+                  de: 'Planmodus',
+                  ja: '計画モード',
+                ),
+                enabled: config.planModeEnabled,
+              ),
+              _webOpsFlagChip(
+                context,
+                label: openHandLocalizedText(
+                  context,
+                  zh: '智能体',
+                  zhHant: '智能體',
+                  en: 'Agents',
+                  fr: 'Agents',
+                  de: 'Agenten',
+                  ja: 'エージェント',
+                ),
+                enabled: config.agentsEnabled,
+              ),
+              _webOpsFlagChip(
+                context,
+                label: openHandLocalizedText(
+                  context,
+                  zh: '知识库',
+                  zhHant: '知識庫',
+                  en: 'Knowledge',
+                  fr: 'Connaissance',
+                  de: 'Wissen',
+                  ja: 'ナレッジ',
+                ),
+                enabled: config.knowledgeBaseEnabled,
+              ),
+              _webOpsFlagChip(
+                context,
+                label: openHandLocalizedText(
+                  context,
+                  zh: '朗读',
+                  zhHant: '朗讀',
+                  en: 'Read aloud',
+                  fr: 'Lecture vocale',
+                  de: 'Vorlesen',
+                  ja: '読み上げ',
+                ),
+                enabled: config.readAloudEnabled,
+              ),
+              _webOpsFlagChip(
+                context,
+                label: openHandLocalizedText(
+                  context,
+                  zh: '翻译',
+                  zhHant: '翻譯',
+                  en: 'Translate',
+                  fr: 'Traduire',
+                  de: 'Übersetzen',
+                  ja: '翻訳',
+                ),
+                enabled: config.translationEnabled,
+              ),
+              _webOpsFlagChip(
+                context,
+                label: openHandLocalizedText(
+                  context,
+                  zh: '反馈',
+                  zhHant: '回饋',
+                  en: 'Feedback',
+                  fr: 'Retour',
+                  de: 'Feedback',
+                  ja: 'フィードバック',
+                ),
+                enabled: config.feedbackEnabled,
+              ),
+              _webOpsFlagChip(
+                context,
+                label: openHandLocalizedText(
+                  context,
+                  zh: '重新生成',
+                  zhHant: '重新生成',
+                  en: 'Regenerate',
+                  fr: 'Régénérer',
+                  de: 'Neu generieren',
+                  ja: '再生成',
+                ),
+                enabled: config.regenerationEnabled,
+              ),
+              _webOpsFlagChip(
+                context,
+                label: openHandLocalizedText(
+                  context,
+                  zh: '健康检查',
+                  zhHant: '健康檢查',
+                  en: 'Health check',
+                  fr: 'Santé',
+                  de: 'Healthcheck',
+                  ja: 'ヘルスチェック',
+                ),
+                enabled: config.healthCheck.enabled,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _WebOpsInfoRow(
+            openHandLocalizedText(
+              context,
+              zh: '入口限制',
+              zhHant: '入口限制',
+              en: 'Ingress limits',
+              fr: 'Limites entrée',
+              de: 'Ingress-Limits',
+              ja: '入口制限',
+            ),
+            openHandLocalizedText(
+              context,
+              zh: '${config.maxConcurrentRequests} 并发 · ${config.singleMessageTokenLimit} token/消息 · ${config.maxMessagesPerSession} 消息/会话',
+              zhHant:
+                  '${config.maxConcurrentRequests} 並發 · ${config.singleMessageTokenLimit} token/訊息 · ${config.maxMessagesPerSession} 訊息/會話',
+              en: '${config.maxConcurrentRequests} concurrent · ${config.singleMessageTokenLimit} tokens/message · ${config.maxMessagesPerSession} messages/session',
+              fr: '${config.maxConcurrentRequests} concurrents · ${config.singleMessageTokenLimit} tokens/message · ${config.maxMessagesPerSession} messages/session',
+              de: '${config.maxConcurrentRequests} parallel · ${config.singleMessageTokenLimit} Tokens/Nachricht · ${config.maxMessagesPerSession} Nachrichten/Sitzung',
+              ja: '${config.maxConcurrentRequests} 同時実行 · ${config.singleMessageTokenLimit} token/メッセージ · ${config.maxMessagesPerSession} メッセージ/セッション',
+            ),
+          ),
+          _WebOpsInfoRow(
+            openHandLocalizedText(
+              context,
+              zh: '缓存与文件',
+              zhHant: '快取與檔案',
+              en: 'Cache and files',
+              fr: 'Cache et fichiers',
+              de: 'Cache und Dateien',
+              ja: 'キャッシュとファイル',
+            ),
+            openHandLocalizedText(
+              context,
+              zh: '上传缓存 ${_bytes(config.uploadCacheMaxBytes)} / ${config.uploadCacheRetentionDays} 天 · 工作区 ${_bytes(config.workspaceFileMaxBytes)}',
+              zhHant:
+                  '上傳快取 ${_bytes(config.uploadCacheMaxBytes)} / ${config.uploadCacheRetentionDays} 天 · 工作區 ${_bytes(config.workspaceFileMaxBytes)}',
+              en: 'upload cache ${_bytes(config.uploadCacheMaxBytes)} / ${config.uploadCacheRetentionDays} days · workspace ${_bytes(config.workspaceFileMaxBytes)}',
+              fr: 'cache upload ${_bytes(config.uploadCacheMaxBytes)} / ${config.uploadCacheRetentionDays} jours · workspace ${_bytes(config.workspaceFileMaxBytes)}',
+              de: 'Upload-Cache ${_bytes(config.uploadCacheMaxBytes)} / ${config.uploadCacheRetentionDays} Tage · Workspace ${_bytes(config.workspaceFileMaxBytes)}',
+              ja: 'アップロードキャッシュ ${_bytes(config.uploadCacheMaxBytes)} / ${config.uploadCacheRetentionDays} 日 · ワークスペース ${_bytes(config.workspaceFileMaxBytes)}',
+            ),
+          ),
+          _WebOpsInfoRow(
+            openHandLocalizedText(
+              context,
+              zh: '资源可见性',
+              zhHant: '資源可見性',
+              en: 'Resource visibility',
+              fr: 'Visibilité ressources',
+              de: 'Ressourcensichtbarkeit',
+              ja: 'リソース可視性',
+            ),
+            openHandLocalizedText(
+              context,
+              zh: '模型 ${snapshot.allowedModelCount} · 模板 ${snapshot.templateCount} · MCP ${snapshot.mcpServerEnabledCount}/${snapshot.mcpServerTotalCount} · 记忆 ${snapshot.memoryEntryCount}',
+              zhHant:
+                  '模型 ${snapshot.allowedModelCount} · 模板 ${snapshot.templateCount} · MCP ${snapshot.mcpServerEnabledCount}/${snapshot.mcpServerTotalCount} · 記憶 ${snapshot.memoryEntryCount}',
+              en: 'models ${snapshot.allowedModelCount} · templates ${snapshot.templateCount} · MCP ${snapshot.mcpServerEnabledCount}/${snapshot.mcpServerTotalCount} · memory ${snapshot.memoryEntryCount}',
+              fr: 'modèles ${snapshot.allowedModelCount} · templates ${snapshot.templateCount} · MCP ${snapshot.mcpServerEnabledCount}/${snapshot.mcpServerTotalCount} · mémoire ${snapshot.memoryEntryCount}',
+              de: 'Modelle ${snapshot.allowedModelCount} · Vorlagen ${snapshot.templateCount} · MCP ${snapshot.mcpServerEnabledCount}/${snapshot.mcpServerTotalCount} · Speicher ${snapshot.memoryEntryCount}',
+              ja: 'モデル ${snapshot.allowedModelCount} · テンプレート ${snapshot.templateCount} · MCP ${snapshot.mcpServerEnabledCount}/${snapshot.mcpServerTotalCount} · メモリ ${snapshot.memoryEntryCount}',
+            ),
+          ),
+          _WebOpsInfoRow(
+            openHandLocalizedText(
+              context,
+              zh: '授权清单',
+              zhHant: '授權清單',
+              en: 'Allow lists',
+              fr: 'Listes autorisées',
+              de: 'Allow-Listen',
+              ja: '許可リスト',
+            ),
+            openHandLocalizedText(
+              context,
+              zh: '技能 ${_webOpsScopeCount(context, config.allowedSkillNames)} · 工具 ${_webOpsScopeCount(context, config.allowedBuiltinToolNames)} · 指令 ${_webOpsScopeCount(context, config.allowedInstructionIds)} · 智能体 ${_webOpsScopeCount(context, config.allowedAgentIds)}',
+              zhHant:
+                  '技能 ${_webOpsScopeCount(context, config.allowedSkillNames)} · 工具 ${_webOpsScopeCount(context, config.allowedBuiltinToolNames)} · 指令 ${_webOpsScopeCount(context, config.allowedInstructionIds)} · 智能體 ${_webOpsScopeCount(context, config.allowedAgentIds)}',
+              en: 'skills ${_webOpsScopeCount(context, config.allowedSkillNames)} · tools ${_webOpsScopeCount(context, config.allowedBuiltinToolNames)} · instructions ${_webOpsScopeCount(context, config.allowedInstructionIds)} · agents ${_webOpsScopeCount(context, config.allowedAgentIds)}',
+              fr: 'skills ${_webOpsScopeCount(context, config.allowedSkillNames)} · outils ${_webOpsScopeCount(context, config.allowedBuiltinToolNames)} · instructions ${_webOpsScopeCount(context, config.allowedInstructionIds)} · agents ${_webOpsScopeCount(context, config.allowedAgentIds)}',
+              de: 'Skills ${_webOpsScopeCount(context, config.allowedSkillNames)} · Tools ${_webOpsScopeCount(context, config.allowedBuiltinToolNames)} · Anweisungen ${_webOpsScopeCount(context, config.allowedInstructionIds)} · Agenten ${_webOpsScopeCount(context, config.allowedAgentIds)}',
+              ja: 'スキル ${_webOpsScopeCount(context, config.allowedSkillNames)} · ツール ${_webOpsScopeCount(context, config.allowedBuiltinToolNames)} · 指示 ${_webOpsScopeCount(context, config.allowedInstructionIds)} · エージェント ${_webOpsScopeCount(context, config.allowedAgentIds)}',
+            ),
+          ),
+          _WebOpsInfoRow(
+            openHandLocalizedText(
+              context,
+              zh: '日志策略',
+              zhHant: '日誌策略',
+              en: 'Log policy',
+              fr: 'Politique journaux',
+              de: 'Protokollrichtlinie',
+              ja: 'ログポリシー',
+            ),
+            openHandLocalizedText(
+              context,
+              zh: '${_bytes(config.logConfig.fileMaxBytes)} / 文件 · ${config.logConfig.maxFiles} 文件 · ${config.logConfig.rotationDays} 天轮转 · ${config.logConfig.lazyReadPageSize} 条/页',
+              zhHant:
+                  '${_bytes(config.logConfig.fileMaxBytes)} / 檔案 · ${config.logConfig.maxFiles} 檔案 · ${config.logConfig.rotationDays} 天輪轉 · ${config.logConfig.lazyReadPageSize} 則/頁',
+              en: '${_bytes(config.logConfig.fileMaxBytes)} per file · ${config.logConfig.maxFiles} files · ${config.logConfig.rotationDays}d rotation · ${config.logConfig.lazyReadPageSize}/page',
+              fr: '${_bytes(config.logConfig.fileMaxBytes)} par fichier · ${config.logConfig.maxFiles} fichiers · rotation ${config.logConfig.rotationDays}j · ${config.logConfig.lazyReadPageSize}/page',
+              de: '${_bytes(config.logConfig.fileMaxBytes)} pro Datei · ${config.logConfig.maxFiles} Dateien · Rotation ${config.logConfig.rotationDays}T · ${config.logConfig.lazyReadPageSize}/Seite',
+              ja: 'ファイルごと ${_bytes(config.logConfig.fileMaxBytes)} · ${config.logConfig.maxFiles} ファイル · ${config.logConfig.rotationDays}日ローテーション · ${config.logConfig.lazyReadPageSize}/ページ',
+            ),
+          ),
+          _WebOpsInfoRow(
+            openHandLocalizedText(
+              context,
+              zh: '消息面',
+              zhHant: '訊息面',
+              en: 'Message plane',
+              fr: 'Plan messages',
+              de: 'Nachrichtenebene',
+              ja: 'メッセージ面',
+            ),
+            '${config.allowedMessageTypes.map((item) => _messageTypeLabel(context, item)).join(_gatewayListSeparator(context))} · ${config.allowedConversationModes.map((item) => _modeLabel(context, item)).join(_gatewayListSeparator(context))}',
+          ),
+          _WebOpsInfoRow(
+            openHandLocalizedText(
+              context,
+              zh: '健康检查',
+              zhHant: '健康檢查',
+              en: 'Health check',
+              fr: 'Contrôle santé',
+              de: 'Integritätsprüfung',
+              ja: 'ヘルスチェック',
+            ),
+            _webOpsHealthEndpoint(context, config),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WebOpsInfoRow extends StatelessWidget {
+  const _WebOpsInfoRow(this.label, this.value);
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 118,
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: cs.onSurfaceVariant,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: SelectableText(
+              value,
+              maxLines: 2,
+              style: theme.textTheme.labelMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+Color _webOpsStateColor(ColorScheme colorScheme, WebGatewayRuntimeState state) {
+  return switch (state) {
+    WebGatewayRuntimeState.running => OpenHandStatusColors.success,
+    WebGatewayRuntimeState.crashed => colorScheme.error,
+    WebGatewayRuntimeState.starting ||
+    WebGatewayRuntimeState.stopping => OpenHandStatusColors.warning,
+    WebGatewayRuntimeState.stopped => colorScheme.onSurfaceVariant,
+  };
+}
+
+String _webOpsOnOff(bool value) => value ? 'on' : 'off';
+
+Widget _webOpsFlagChip(
+  BuildContext context, {
+  required String label,
+  required bool enabled,
+}) {
+  final cs = Theme.of(context).colorScheme;
+  final color = enabled ? OpenHandStatusColors.success : cs.onSurfaceVariant;
+  return _OpsPill(
+    label,
+    enabled
+        ? openHandLocalizedText(
+            context,
+            zh: '开启',
+            zhHant: '開啟',
+            en: 'On',
+            fr: 'Actif',
+            de: 'Ein',
+            ja: 'オン',
+          )
+        : openHandLocalizedText(
+            context,
+            zh: '关闭',
+            zhHant: '關閉',
+            en: 'Off',
+            fr: 'Inactif',
+            de: 'Aus',
+            ja: 'オフ',
+          ),
+    color: color,
+  );
+}
+
+String _webOpsScopeCount(BuildContext context, List<String> values) {
+  if (webGatewayIsDenyAllSelection(values)) {
+    return openHandLocalizedText(
+      context,
+      zh: '全部不可用',
+      zhHant: '全部不可用',
+      en: 'all unavailable',
+      fr: 'tout indisponible',
+      de: 'alle nicht verfügbar',
+      ja: 'すべて利用不可',
+    );
+  }
+  if (values.isEmpty) {
+    return openHandLocalizedText(
+      context,
+      zh: '全部可用',
+      zhHant: '全部可用',
+      en: 'all available',
+      fr: 'tout disponible',
+      de: 'alle verfügbar',
+      ja: 'すべて利用可能',
+    );
+  }
+  return openHandLocalizedText(
+    context,
+    zh: '${values.length} 项',
+    zhHant: '${values.length} 項',
+    en: '${values.length} items',
+    fr: '${values.length} éléments',
+    de: '${values.length} Einträge',
+    ja: '${values.length} 項目',
+  );
+}
+
+String _webOpsHealthEndpoint(
+  BuildContext context,
+  WebMessagePlatformConfig config,
+) {
+  final query = config.healthCheck.queryParameters.isEmpty
+      ? ''
+      : '?${_formatQueryParameters(config.healthCheck.queryParameters)}';
+  final enabled = config.healthCheck.enabled
+      ? openHandLocalizedText(
+          context,
+          zh: '开启',
+          zhHant: '開啟',
+          en: 'On',
+          fr: 'Actif',
+          de: 'Ein',
+          ja: 'オン',
+        )
+      : openHandLocalizedText(
+          context,
+          zh: '关闭',
+          zhHant: '關閉',
+          en: 'Off',
+          fr: 'Inactif',
+          de: 'Aus',
+          ja: 'オフ',
+        );
+  return '$enabled · ${config.healthCheck.method} ${config.healthCheck.path}$query · ${config.healthCheck.timeoutMs}ms · ${config.healthCheck.expectedStatusCode}';
 }
 
 class _StatusDot extends StatelessWidget {
@@ -5472,14 +7169,24 @@ class _MetricTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.all(12),
+    final colorScheme = theme.colorScheme;
+    return AnimatedContainer(
+      duration: openHandMotionDurationMs(context, 180),
+      curve: Curves.easeOutCubic,
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest.withValues(
-          alpha: 0.56,
-        ),
+        color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.62),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: theme.colorScheme.outlineVariant),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.72),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: colorScheme.shadow.withValues(alpha: 0.05),
+            blurRadius: 14,
+            offset: const Offset(0, 7),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -5488,15 +7195,19 @@ class _MetricTile extends StatelessWidget {
           Text(
             label,
             style: theme.textTheme.labelMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+              color: colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w800,
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
           Text(
             value,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.titleMedium,
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w900,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
           ),
         ],
       ),
@@ -6621,22 +8332,22 @@ class _ResourceInventoryCard extends StatelessWidget {
 }
 
 class _OpsPill extends StatelessWidget {
-  const _OpsPill(this.label, this.value);
+  const _OpsPill(this.label, this.value, {this.color});
 
   final String label;
   final String value;
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final tone = color ?? theme.colorScheme.primary;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest.withValues(
-          alpha: 0.48,
-        ),
+        color: tone.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: theme.colorScheme.outlineVariant),
+        border: Border.all(color: tone.withValues(alpha: 0.20)),
       ),
       child: RichText(
         text: TextSpan(
@@ -6650,7 +8361,7 @@ class _OpsPill extends StatelessWidget {
             ),
             TextSpan(
               text: value,
-              style: const TextStyle(fontWeight: FontWeight.w700),
+              style: TextStyle(fontWeight: FontWeight.w800, color: tone),
             ),
           ],
         ),
@@ -6699,9 +8410,18 @@ class _OpsKeyValue extends StatelessWidget {
 }
 
 BoxDecoration _opsCardDecoration(ThemeData theme) => BoxDecoration(
-  color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.36),
+  color: theme.colorScheme.surfaceContainerHigh.withValues(alpha: 0.58),
   borderRadius: BorderRadius.circular(8),
-  border: Border.all(color: theme.colorScheme.outlineVariant),
+  border: Border.all(
+    color: theme.colorScheme.outlineVariant.withValues(alpha: 0.72),
+  ),
+  boxShadow: [
+    BoxShadow(
+      color: theme.colorScheme.shadow.withValues(alpha: 0.06),
+      blurRadius: 18,
+      offset: const Offset(0, 9),
+    ),
+  ],
 );
 
 class _SwitchGrid extends StatelessWidget {
@@ -8298,9 +10018,18 @@ class _TrendLineChartState extends State<_TrendLineChart> {
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: colorScheme.surfaceContainerHighest.withValues(alpha: .42),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: colorScheme.outlineVariant),
+          color: colorScheme.surfaceContainerHigh.withValues(alpha: .60),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: colorScheme.outlineVariant.withValues(alpha: .72),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: colorScheme.shadow.withValues(alpha: .05),
+              blurRadius: 16,
+              offset: const Offset(0, 8),
+            ),
+          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

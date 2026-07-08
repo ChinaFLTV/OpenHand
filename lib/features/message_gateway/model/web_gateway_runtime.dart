@@ -373,6 +373,9 @@ class WebGatewayRuntimeSnapshot {
     this.slowestRecent,
     this.lastErrorAt,
     this.lastErrorPath = '',
+    this.processId = 0,
+    this.platform = '',
+    this.platformVersion = '',
     this.dartVersion = '',
     this.hostName = '',
     this.activeSseSubscriptions = 0,
@@ -432,6 +435,9 @@ class WebGatewayRuntimeSnapshot {
   final WebGatewayRecentSlowRequest? slowestRecent;
   final DateTime? lastErrorAt;
   final String lastErrorPath;
+  final int processId;
+  final String platform;
+  final String platformVersion;
   final String dartVersion;
   final String hostName;
 
@@ -478,7 +484,7 @@ class WebGatewayRuntimeSnapshot {
       'crash_count': crashCount,
       'restart_count': restartCount,
       'process': <String, Object?>{
-        'pid': pid,
+        'pid': processId <= 0 ? pid : processId,
         'current_rss_bytes': currentRssBytes,
         'max_rss_bytes': maxRssBytes,
         'cpu_percent': cpuPercent,
@@ -486,8 +492,10 @@ class WebGatewayRuntimeSnapshot {
         'file_handle_count': fileHandleCount,
         'swap_bytes': swapBytes,
         'disk_log_bytes': logBytes,
-        'platform': Platform.operatingSystem,
-        'platform_version': Platform.operatingSystemVersion,
+        'platform': platform.isEmpty ? Platform.operatingSystem : platform,
+        'platform_version': platformVersion.isEmpty
+            ? Platform.operatingSystemVersion
+            : platformVersion,
         'dart_version': dartVersion,
         'host_name': hostName,
       },
@@ -605,6 +613,9 @@ class WebGatewayRuntimeSnapshot {
           : WebGatewayRecentSlowRequest.fromJson(map['slowest_recent']),
       lastErrorAt: utcDateTimeFromValue(map['last_error_at']),
       lastErrorPath: stringFromValue(map['last_error_path']),
+      processId: nonNegativeIntFromValue(process['pid'], fallback: 0),
+      platform: stringFromValue(process['platform']),
+      platformVersion: stringFromValue(process['platform_version']),
       dartVersion: stringFromValue(process['dart_version']),
       hostName: stringFromValue(process['host_name']),
       activeSseSubscriptions: nonNegativeIntFromValue(
