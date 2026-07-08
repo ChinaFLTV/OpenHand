@@ -15,6 +15,12 @@ import '../../../shared/util/localized_text.dart';
 import '../../../shared/util/timer_safety.dart';
 import '../model/mcp_server_ops.dart';
 
+const double _approvalDialogMaxWidth = 860;
+const int _approvalPayloadMaxDepth = 8;
+const int _approvalPayloadPreviewItemsPerLevel = 12;
+const int _approvalPayloadMaxItemsPerLevel = 80;
+const int _approvalPayloadExpandedMaxChars = 12000;
+
 Future<bool?> showMcpOpsWriteApprovalDialog(
   BuildContext context, {
   required McpOpsApprovalRequest request,
@@ -137,13 +143,13 @@ class _McpOpsWriteApprovalDialogState
       },
       child: buildOpenHandResponsiveDialogShell(
         context: context,
-        maxWidth: 860,
-        maxHeight: double.infinity,
+        maxWidth: _approvalDialogMaxWidth,
         maxHeightFraction: 0.82,
         safeAreaMinimum: const EdgeInsets.symmetric(
           horizontal: 28,
           vertical: 24,
         ),
+        expandToMax: true,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(24, 22, 24, 18),
           child: Column(
@@ -170,6 +176,7 @@ class _McpOpsWriteApprovalDialogState
                   const SizedBox(width: 14),
                   Expanded(
                     child: Column(
+                      mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
@@ -242,63 +249,59 @@ class _McpOpsWriteApprovalDialogState
                 child: OpenHandSafeScrollbar(
                   controller: _bodyScrollController,
                   thumbVisibility: true,
-                  child: SingleChildScrollView(
+                  child: ListView(
                     controller: _bodyScrollController,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        _ApprovalInfoPanel(
-                          icon: Icons.route_rounded,
-                          title: openHandLocalizedText(
+                    physics: openHandDialogAwareScrollPhysics(context),
+                    padding: EdgeInsets.zero,
+                    children: [
+                      _ApprovalInfoPanel(
+                        icon: Icons.route_rounded,
+                        title: openHandLocalizedText(
+                          context,
+                          zh: '调用环境',
+                          en: 'Call Context',
+                        ),
+                        rows: {
+                          openHandLocalizedText(context, zh: '工具', en: 'Tool'):
+                              widget.request.toolName,
+                          openHandLocalizedText(
                             context,
-                            zh: '调用环境',
-                            en: 'Call Context',
+                            zh: '客户端',
+                            en: 'Client',
+                          ): widget.request.clientName,
+                          openHandLocalizedText(
+                            context,
+                            zh: '来源地址',
+                            en: 'Peer',
+                          ): widget.request.ipAddress,
+                          openHandLocalizedText(
+                            context,
+                            zh: '请求时间',
+                            en: 'Requested',
+                          ): formatMonthDayHms(
+                            widget.request.requestedAt.toLocal(),
                           ),
-                          rows: {
-                            openHandLocalizedText(
-                              context,
-                              zh: '工具',
-                              en: 'Tool',
-                            ): widget.request.toolName,
-                            openHandLocalizedText(
-                              context,
-                              zh: '客户端',
-                              en: 'Client',
-                            ): widget.request.clientName,
-                            openHandLocalizedText(
-                              context,
-                              zh: '来源地址',
-                              en: 'Peer',
-                            ): widget.request.ipAddress,
-                            openHandLocalizedText(
-                              context,
-                              zh: '请求时间',
-                              en: 'Requested',
-                            ): formatMonthDayHms(
-                              widget.request.requestedAt.toLocal(),
-                            ),
-                            openHandLocalizedText(
-                              context,
-                              zh: '自动拒绝',
-                              en: 'Auto Reject',
-                            ): formatMonthDayHms(
-                              widget.request.expiresAt.toLocal(),
-                            ),
-                          },
-                        ),
-                        const SizedBox(height: 12),
-                        _ApprovalPayloadPanel(
-                          text: _argumentsPreview,
-                          expanded: _isExpanded,
-                          canToggle: _isLongPayload,
-                          onToggle: _isLongPayload
-                              ? () => setState(() {
-                                  _isExpanded = !_isExpanded;
-                                })
-                              : null,
-                        ),
-                      ],
-                    ),
+                          openHandLocalizedText(
+                            context,
+                            zh: '自动拒绝',
+                            en: 'Auto Reject',
+                          ): formatMonthDayHms(
+                            widget.request.expiresAt.toLocal(),
+                          ),
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      _ApprovalPayloadPanel(
+                        text: _argumentsPreview,
+                        expanded: _isExpanded,
+                        canToggle: _isLongPayload,
+                        onToggle: _isLongPayload
+                            ? () => setState(() {
+                                _isExpanded = !_isExpanded;
+                              })
+                            : null,
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -411,6 +414,7 @@ class _ApprovalInfoPanel extends StatelessWidget {
         border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.62)),
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
@@ -504,6 +508,7 @@ class _ApprovalPayloadPanel extends StatelessWidget {
         ],
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
@@ -527,6 +532,7 @@ class _ApprovalPayloadPanel extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
@@ -643,6 +649,15 @@ class _ApprovalPayloadNode extends StatelessWidget {
       );
     }
     final current = value;
+    if (depth >= _approvalPayloadMaxDepth &&
+        (current is Map || current is List)) {
+      return _ApprovalPayloadScalar(
+        value: current,
+        semanticKey: semanticKey,
+        expanded: expanded,
+        accent: accent,
+      );
+    }
     if (current is Map) {
       final entries = current.entries
           .where((entry) => '${entry.key}'.trim().isNotEmpty)
@@ -655,13 +670,22 @@ class _ApprovalPayloadNode extends StatelessWidget {
           accent: accent,
         );
       }
+      final maxItems = expanded
+          ? _approvalPayloadMaxItemsPerLevel
+          : _approvalPayloadPreviewItemsPerLevel;
+      final visibleEntries = entries.take(maxItems).toList(growable: false);
+      final hiddenCount = entries.length - visibleEntries.length;
       return Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          for (final entry in entries.indexed)
+          for (final entry in visibleEntries.indexed)
             Padding(
               padding: EdgeInsets.only(
-                bottom: entry.$1 == entries.length - 1 ? 0 : 9,
+                bottom:
+                    entry.$1 == visibleEntries.length - 1 && hiddenCount <= 0
+                    ? 0
+                    : 9,
               ),
               child: _ApprovalPayloadField(
                 label: '${entry.$2.key}',
@@ -671,6 +695,8 @@ class _ApprovalPayloadNode extends StatelessWidget {
                 depth: depth,
               ),
             ),
+          if (hiddenCount > 0)
+            _ApprovalPayloadOverflowNotice(hiddenCount: hiddenCount),
         ],
       );
     }
@@ -683,13 +709,21 @@ class _ApprovalPayloadNode extends StatelessWidget {
           accent: accent,
         );
       }
+      final maxItems = expanded
+          ? _approvalPayloadMaxItemsPerLevel
+          : _approvalPayloadPreviewItemsPerLevel;
+      final visibleItems = current.take(maxItems).toList(growable: false);
+      final hiddenCount = current.length - visibleItems.length;
       return Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          for (final item in current.indexed)
+          for (final item in visibleItems.indexed)
             Padding(
               padding: EdgeInsets.only(
-                bottom: item.$1 == current.length - 1 ? 0 : 9,
+                bottom: item.$1 == visibleItems.length - 1 && hiddenCount <= 0
+                    ? 0
+                    : 9,
               ),
               child: _ApprovalPayloadField(
                 label: '#${item.$1 + 1}',
@@ -699,6 +733,8 @@ class _ApprovalPayloadNode extends StatelessWidget {
                 depth: depth,
               ),
             ),
+          if (hiddenCount > 0)
+            _ApprovalPayloadOverflowNotice(hiddenCount: hiddenCount),
         ],
       );
     }
@@ -745,65 +781,108 @@ class _ApprovalPayloadField extends StatelessWidget {
         ),
       ),
       clipBehavior: Clip.antiAlias,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+      child: Stack(
         children: [
-          Container(width: 3, color: tone.withValues(alpha: 0.78)),
+          PositionedDirectional(
+            start: 0,
+            top: 0,
+            bottom: 0,
+            width: 3,
+            child: ColoredBox(color: tone.withValues(alpha: 0.78)),
+          ),
+          Padding(
+            padding: const EdgeInsetsDirectional.fromSTEB(15, 11, 12, 12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 28,
+                      height: 28,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: tone.withValues(alpha: 0.10),
+                        borderRadius: BorderRadius.circular(9),
+                        border: Border.all(color: tone.withValues(alpha: 0.20)),
+                      ),
+                      child: Icon(
+                        _approvalPayloadValueIcon(value),
+                        size: 16,
+                        color: tone,
+                      ),
+                    ),
+                    const SizedBox(width: 9),
+                    Expanded(
+                      child: SelectableText(
+                        label,
+                        maxLines: 2,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w900,
+                          height: 1.12,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    _ApprovalPayloadPill(
+                      icon: Icons.category_rounded,
+                      label: _approvalPayloadTypeLabel(context, value),
+                      color: cs.onSurfaceVariant,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                _ApprovalPayloadNode(
+                  value: value,
+                  raw: _approvalPayloadScalarText(value),
+                  structured: nested,
+                  expanded: expanded,
+                  accent: accent,
+                  depth: depth + 1,
+                  semanticKey: label,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ApprovalPayloadOverflowNotice extends StatelessWidget {
+  const _ApprovalPayloadOverflowNotice({required this.hiddenCount});
+
+  final int hiddenCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    const accent = OpenHandStatusColors.warning;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: accent.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: accent.withValues(alpha: 0.18)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.unfold_more_rounded, size: 16, color: accent),
+          const SizedBox(width: 8),
           Expanded(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 11, 12, 12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 28,
-                        height: 28,
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          color: tone.withValues(alpha: 0.10),
-                          borderRadius: BorderRadius.circular(9),
-                          border: Border.all(
-                            color: tone.withValues(alpha: 0.20),
-                          ),
-                        ),
-                        child: Icon(
-                          _approvalPayloadValueIcon(value),
-                          size: 16,
-                          color: tone,
-                        ),
-                      ),
-                      const SizedBox(width: 9),
-                      Expanded(
-                        child: SelectableText(
-                          label,
-                          maxLines: 2,
-                          style: theme.textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.w900,
-                            height: 1.12,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      _ApprovalPayloadPill(
-                        icon: Icons.category_rounded,
-                        label: _approvalPayloadTypeLabel(context, value),
-                        color: cs.onSurfaceVariant,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  _ApprovalPayloadNode(
-                    value: value,
-                    raw: _approvalPayloadScalarText(value),
-                    structured: nested,
-                    expanded: expanded,
-                    accent: accent,
-                    depth: depth + 1,
-                    semanticKey: label,
-                  ),
-                ],
+            child: Text(
+              openHandLocalizedText(
+                context,
+                zh: '仍有 $hiddenCount 项未展开，审批记录中会保留原始参数摘要',
+                en: '$hiddenCount more entries are hidden; the approval record keeps the raw parameter summary',
+              ),
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: cs.onSurfaceVariant,
+                fontWeight: FontWeight.w800,
               ),
             ),
           ),
@@ -831,9 +910,10 @@ class _ApprovalPayloadScalar extends StatelessWidget {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final rawText = _approvalPayloadScalarText(value);
-    final text = expanded
-        ? rawText
-        : _clipApprovalPayloadText(rawText, maxChars: 260);
+    final text = _clipApprovalPayloadText(
+      rawText,
+      maxChars: expanded ? _approvalPayloadExpandedMaxChars : 260,
+    );
     final muted = text.trim().isEmpty;
     final mono = _approvalPayloadPrefersMonospace(semanticKey, rawText);
     final block = mono || rawText.length > 96 || rawText.contains('\n');
@@ -855,6 +935,7 @@ class _ApprovalPayloadScalar extends StatelessWidget {
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Container(
