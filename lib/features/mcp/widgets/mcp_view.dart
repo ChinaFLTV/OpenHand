@@ -1987,7 +1987,9 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
   late Set<McpOpsExposureSurface> _surfaces;
   late Set<String> _hiddenItems;
   late Set<String> _hiddenEndpoints;
+  late McpOpsConfig _lastAppliedConfig;
   int _writeModeSelectorRevision = 0;
+  bool _hydratingConfig = false;
   bool _saving = false;
   String? _configMessage;
 
@@ -2029,6 +2031,8 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
     _surfaces = Set<McpOpsExposureSurface>.from(config.exposedSurfaces);
     _hiddenItems = Set<String>.from(config.hiddenItemIds);
     _hiddenEndpoints = Set<String>.from(config.hiddenEndpointIds);
+    _lastAppliedConfig = config;
+    unawaited(_hydrateOpsConfigFromDisk());
   }
 
   @override
@@ -2050,6 +2054,35 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
       controller.dispose();
     }
     super.dispose();
+  }
+
+  Future<void> _hydrateOpsConfigFromDisk() async {
+    if (_hydratingConfig || !mounted) return;
+    setState(() => _hydratingConfig = true);
+    try {
+      final controller = context.read<McpController>();
+      await controller.ensureOpsPersistenceLoaded();
+      if (!mounted) return;
+      final loaded = controller.opsConfig;
+      setState(() {
+        if (_sameMcpOpsConfig(_buildConfig(), _lastAppliedConfig)) {
+          _applyConfigToForm(loaded);
+          _lastAppliedConfig = loaded;
+        }
+        _hydratingConfig = false;
+      });
+    } catch (error, stack) {
+      silentLog('mcp', 'hydrate ops config from disk', error, stack);
+      if (!mounted) return;
+      setState(() {
+        _hydratingConfig = false;
+        _configMessage = _localizedText(
+          context,
+          zh: '读取本地运维配置失败：$error',
+          en: 'Failed to load local ops config: $error',
+        );
+      });
+    }
   }
 
   @override
@@ -2098,7 +2131,7 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
                     onStart: () => _startServer(context),
                     onRestart: () => _restartServer(context),
                     onStop: () => _stopServer(context),
-                    configActionBusy: _saving,
+                    configActionBusy: _saving || _hydratingConfig,
                     configMessage: _configMessage,
                     onResetConfig: () => _resetConfigWithConfirm(context),
                     onSaveConfig: () => _saveConfig(context),
@@ -3654,6 +3687,9 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
     if (!mounted) return;
     setState(() {
       _saving = false;
+      if (ok && actionOk) {
+        _lastAppliedConfig = config;
+      }
       _configMessage = ok && actionOk
           ? _localizedText(context, zh: '配置已生效', en: 'Configuration applied')
           : _localizedText(context, zh: '配置保存失败', en: 'Configuration failed');
@@ -3727,6 +3763,7 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
     _hiddenItems = Set<String>.from(config.hiddenItemIds);
     _hiddenEndpoints = Set<String>.from(config.hiddenEndpointIds);
     _exposureLimits.clear();
+    _lastAppliedConfig = config;
   }
 
   String _policyModeHint(BuildContext context) {
@@ -3775,6 +3812,10 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
       hiddenItemIds: _hiddenItems,
       hiddenEndpointIds: _hiddenEndpoints,
     );
+  }
+
+  bool _sameMcpOpsConfig(McpOpsConfig left, McpOpsConfig right) {
+    return jsonEncode(left.toJson()) == jsonEncode(right.toJson());
   }
 
   void _showAuditDetails(BuildContext context, McpOpsAuditEntry entry) {

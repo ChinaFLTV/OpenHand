@@ -172,6 +172,8 @@ class McpController extends ChangeNotifier {
   bool _isPageActive = false;
   bool _autoToolRefreshInProgress = false;
   bool _autoHealthCheckInProgress = false;
+  bool _opsPersistenceLoaded = false;
+  Future<void>? _opsPersistenceLoadFuture;
   int _activeAutoProbeSlots = 0;
   DateTime? _lastBatchProbeAt;
   static const int _maxRecentProbeRecords = 30;
@@ -310,6 +312,11 @@ class McpController extends ChangeNotifier {
   List<McpOpsAuditEntry> get opsAuditEntries => _opsAuditEntriesView;
   List<McpOpsApprovalRequest> get opsApprovalRequests =>
       _opsApprovalRequestsView;
+
+  Future<void> ensureOpsPersistenceLoaded() {
+    return _ensureOpsPersistenceLoaded();
+  }
+
   McpToolCatalog toolCatalogFor(String serverName) {
     return _toolCatalogByServerName[_normalizeServerName(serverName)] ??
         const McpToolCatalog();
@@ -456,12 +463,7 @@ class McpController extends ChangeNotifier {
 
       try {
         final loadResult = await _store.load();
-        _opsConfig = await _opsStore.loadConfig();
-        final persistedOps = await _opsStore.loadRuntimeData();
-        _opsRuntime?.updateConfig(_opsConfig);
-        if (_opsRuntime?.isRunning != true) {
-          _hydratePersistedOpsRuntimeData(persistedOps);
-        }
+        await _ensureOpsPersistenceLoaded(force: true);
         _setServers(loadResult.servers);
         _syncToolCatalogsWithServers(_servers);
         _syncHealthStatusesWithServers(_servers);
@@ -497,8 +499,9 @@ class McpController extends ChangeNotifier {
   }
 
   Future<bool> saveOpsConfig(McpOpsConfig config) async {
-    final normalized = config.copyWith();
     try {
+      await _ensureOpsPersistenceLoaded();
+      final normalized = config.copyWith();
       await _opsStore.saveConfig(normalized);
       _opsConfig = normalized;
       _opsRuntime?.updateConfig(normalized);
@@ -513,6 +516,7 @@ class McpController extends ChangeNotifier {
   Future<bool> startMcpOpsServer() async {
     if (_isDisposed) return false;
     try {
+      await _ensureOpsPersistenceLoaded();
       await _ensureOpsRuntime().start(_opsConfig);
       notifyListeners();
       return true;
@@ -525,6 +529,7 @@ class McpController extends ChangeNotifier {
 
   Future<bool> stopMcpOpsServer() async {
     try {
+      await _ensureOpsPersistenceLoaded();
       await _ensureOpsRuntime().stop();
       notifyListeners();
       return true;
@@ -536,6 +541,7 @@ class McpController extends ChangeNotifier {
 
   Future<bool> restartMcpOpsServer() async {
     try {
+      await _ensureOpsPersistenceLoaded();
       await _ensureOpsRuntime().restart(_opsConfig);
       notifyListeners();
       return true;
@@ -547,9 +553,19 @@ class McpController extends ChangeNotifier {
   }
 
   Future<McpOpsConnectivityResult> testMcpOpsConnectivity() async {
-    final result = await _ensureOpsRuntime().testConnectivity();
-    notifyListeners();
-    return result;
+    try {
+      await _ensureOpsPersistenceLoaded();
+      final result = await _ensureOpsRuntime().testConnectivity();
+      notifyListeners();
+      return result;
+    } catch (error, stack) {
+      silentLog('mcp', 'test ops connectivity', error, stack);
+      return McpOpsConnectivityResult(
+        ok: false,
+        message: '$error',
+        checkedAt: DateTime.now().toUtc(),
+      );
+    }
   }
 
   void resolveOpsApproval(String id, {required bool approved}) {
@@ -583,6 +599,34 @@ class McpController extends ChangeNotifier {
     _opsRuntime = runtime;
     runtime.hydrateMetrics(_opsSnapshot);
     return runtime;
+  }
+
+  Future<void> _ensureOpsPersistenceLoaded({bool force = false}) {
+    if (!force && _opsPersistenceLoaded) {
+      return Future<void>.value();
+    }
+    final pending = _opsPersistenceLoadFuture;
+    if (pending != null) {
+      return pending;
+    }
+    final future = _loadOpsPersistenceLocked();
+    _opsPersistenceLoadFuture = future.whenComplete(() {
+      if (identical(_opsPersistenceLoadFuture, future)) {
+        _opsPersistenceLoadFuture = null;
+      }
+    });
+    return _opsPersistenceLoadFuture!;
+  }
+
+  Future<void> _loadOpsPersistenceLocked() async {
+    final config = await _opsStore.loadConfig();
+    final persistedOps = await _opsStore.loadRuntimeData();
+    _opsConfig = config;
+    _opsRuntime?.updateConfig(config);
+    if (_opsRuntime?.isRunning != true) {
+      _hydratePersistedOpsRuntimeData(persistedOps);
+    }
+    _opsPersistenceLoaded = true;
   }
 
   void _scheduleOpsSnapshotNotify() {
@@ -639,7 +683,8 @@ class McpController extends ChangeNotifier {
     _scheduleOpsSnapshotNotify();
   }
 
-  Future<McpOpsPersistenceReport> measureOpsRuntimeData() {
+  Future<McpOpsPersistenceReport> measureOpsRuntimeData() async {
+    await _ensureOpsPersistenceLoaded();
     return _opsStore.measureRuntimeData();
   }
 
@@ -647,6 +692,7 @@ class McpController extends ChangeNotifier {
     DateTime? startUtc,
     DateTime? endUtc,
   }) async {
+    await _ensureOpsPersistenceLoaded();
     final before = await _opsStore.measureRuntimeData();
     final clearsAll = startUtc == null && endUtc == null;
     _opsRuntime?.clearMetrics(startUtc: startUtc, endUtc: endUtc);
@@ -705,6 +751,7 @@ class McpController extends ChangeNotifier {
   }
 
   Future<void> _persistOpsRuntimeData() async {
+    await _ensureOpsPersistenceLoaded();
     final entries = _opsAuditEntries.take(mcpOpsMaxPersistedAuditEntries);
     await _opsStore.saveRuntimeData(
       McpOpsPersistedRuntimeData(

@@ -315,6 +315,8 @@ class WebMessagePlatformService {
       stack,
     ),
   );
+  Future<void>? _opsDataLoadFuture;
+  bool _opsDataLoaded = false;
 
   /// 当前活跃的 SSE 订阅数（每个 `/api/sessions/<id>/events` 长连接 +1，
   /// onCancel 时 -1）。Ops 面板用它判断"是否有人在看活跃流"，并辅助识别
@@ -363,26 +365,56 @@ class WebMessagePlatformService {
     localIPv4Addresses: _localAddressesCache,
   );
 
-  Future<void> loadPersistedOpsData() async {
+  Future<void> loadPersistedOpsData() {
+    return ensurePersistedOpsDataLoaded();
+  }
+
+  Future<void> ensurePersistedOpsDataLoaded() {
+    if (_opsDataLoaded) {
+      return Future<void>.value();
+    }
+    final pending = _opsDataLoadFuture;
+    if (pending != null) {
+      return pending;
+    }
+    final future = _loadPersistedOpsDataLocked();
+    _opsDataLoadFuture = future.whenComplete(() {
+      if (identical(_opsDataLoadFuture, future)) {
+        _opsDataLoadFuture = null;
+      }
+    });
+    return _opsDataLoadFuture!;
+  }
+
+  Future<void> _loadPersistedOpsDataLocked() async {
     final data = await _opsStore.load();
+    final liveSnapshots = List<WebGatewayOpsSnapshotRecord>.from(
+      _persistedSnapshots,
+    );
+    final liveLogs = List<WebGatewayLogEntry>.from(_memoryLogs);
+    final liveCleanupHistory = List<WebGatewayCleanupResult>.from(
+      _cleanupHistory,
+    );
     _persistedSnapshots
       ..clear()
-      ..addAll(_trimSnapshotRecords(data.snapshots));
+      ..addAll(_mergeSnapshotRecords(data.snapshots, liveSnapshots));
     _memoryLogs
       ..clear()
-      ..addAll(_trimLogs(data.logs));
+      ..addAll(_mergeLogs(data.logs, liveLogs));
     _cleanupHistory
       ..clear()
-      ..addAll(_trimCleanupHistory(data.cleanupHistory));
+      ..addAll(_mergeCleanupHistory(data.cleanupHistory, liveCleanupHistory));
     _nextLogId =
         _memoryLogs.fold<int>(0, (maxId, entry) => math.max(maxId, entry.id)) +
         1;
     if (_persistedSnapshots.isNotEmpty) {
       _hydrateMetricsFromSnapshot(_persistedSnapshots.last.snapshot);
     }
+    _opsDataLoaded = true;
   }
 
-  Future<WebGatewayOpsPersistenceReport> measurePersistedOpsData() {
+  Future<WebGatewayOpsPersistenceReport> measurePersistedOpsData() async {
+    await ensurePersistedOpsDataLoaded();
     return _opsStore.measure();
   }
 
@@ -390,6 +422,7 @@ class WebMessagePlatformService {
     DateTime? startUtc,
     DateTime? endUtc,
   }) async {
+    await ensurePersistedOpsDataLoaded();
     final before = await _opsStore.measure();
     final clearsAll = startUtc == null && endUtc == null;
     if (clearsAll) {
@@ -579,6 +612,7 @@ class WebMessagePlatformService {
   }
 
   Future<void> start(WebMessagePlatformConfig config) async {
+    await ensurePersistedOpsDataLoaded();
     _config = config;
     if (_server != null) {
       await stop();
@@ -669,6 +703,7 @@ class WebMessagePlatformService {
   }
 
   Future<void> stop() async {
+    await ensurePersistedOpsDataLoaded();
     await _ttsPlaybackService.stop();
     final server = _server;
     if (server == null) {
@@ -695,12 +730,14 @@ class WebMessagePlatformService {
   }
 
   Future<void> restart(WebMessagePlatformConfig config) async {
+    await ensurePersistedOpsDataLoaded();
     _restartCount++;
     await stop();
     await start(config);
   }
 
   Future<void> reloadConfig(WebMessagePlatformConfig config) async {
+    await ensurePersistedOpsDataLoaded();
     final needsRestart =
         config.enabled != _config.enabled ||
         config.listenHost != _config.listenHost ||
@@ -713,9 +750,10 @@ class WebMessagePlatformService {
   }
 
   Future<void> dispose() async {
+    await ensurePersistedOpsDataLoaded();
+    await stop();
     _opsPersistDebouncer.cancel();
     await _persistOpsHistory();
-    await stop();
     _sessionController.removeGoalContinuationYieldPredicate(
       _hasQueuedGoalInterruption,
     );
@@ -1064,6 +1102,7 @@ class WebMessagePlatformService {
   }
 
   Future<WebGatewayRuntimeSnapshot> runtimeSnapshotAsync() async {
+    await ensurePersistedOpsDataLoaded();
     await _refreshProcessDiagnosticsIfStale();
     await _refreshLocalAddressesIfStale();
     final snapshot = runtimeSnapshot();
@@ -1299,6 +1338,7 @@ class WebMessagePlatformService {
     required bool uploads,
     bool expiredOnly = false,
   }) async {
+    await ensurePersistedOpsDataLoaded();
     var stats = const _CleanupStats();
     var memoryLogEntriesCleared = 0;
     if (logs) {
@@ -1346,10 +1386,12 @@ class WebMessagePlatformService {
   }
 
   Future<String> exportLogBundleJson() async {
+    await ensurePersistedOpsDataLoaded();
     return prettyPrintJson(await _logBundlePayload());
   }
 
   Future<String> exportCurrentLogText() async {
+    await ensurePersistedOpsDataLoaded();
     final currentFileText = await _fileLogger.readCurrentLogText();
     if (currentFileText.trim().isNotEmpty) {
       return currentFileText;
@@ -7659,6 +7701,30 @@ String _string(Object? value, String fallback) {
   if (value == null) return fallback;
   final text = '$value';
   return text.isEmpty ? fallback : text;
+}
+
+List<WebGatewayOpsSnapshotRecord> _mergeSnapshotRecords(
+  Iterable<WebGatewayOpsSnapshotRecord> persisted,
+  Iterable<WebGatewayOpsSnapshotRecord> live,
+) {
+  return _trimSnapshotRecords(<WebGatewayOpsSnapshotRecord>[
+    ...persisted,
+    ...live,
+  ]);
+}
+
+List<WebGatewayLogEntry> _mergeLogs(
+  Iterable<WebGatewayLogEntry> persisted,
+  Iterable<WebGatewayLogEntry> live,
+) {
+  return _trimLogs(<WebGatewayLogEntry>[...persisted, ...live]);
+}
+
+List<WebGatewayCleanupResult> _mergeCleanupHistory(
+  Iterable<WebGatewayCleanupResult> persisted,
+  Iterable<WebGatewayCleanupResult> live,
+) {
+  return _trimCleanupHistory(<WebGatewayCleanupResult>[...persisted, ...live]);
 }
 
 List<WebGatewayOpsSnapshotRecord> _trimSnapshotRecords(
