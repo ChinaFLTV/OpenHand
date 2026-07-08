@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 
 import '../../../app/theme/openhand_status_colors.dart';
 import '../../../shared/ui/animated_dialog.dart';
+import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/util/date_time_format.dart';
@@ -72,16 +73,6 @@ class _McpOpsWriteApprovalDialogState
 
   bool get _isLongPayload =>
       _argumentsPreview.length > 220 || _argumentsPreview.contains('\n');
-
-  String get _shortPayload {
-    if (!_isLongPayload) return _argumentsPreview;
-    final firstLine = _argumentsPreview.split('\n').first.trim();
-    final prefix = firstLine.length > 180
-        ? firstLine.substring(0, 180)
-        : firstLine;
-    final omitted = math.max(0, _argumentsPreview.length - prefix.length);
-    return '$prefix... [omitted $omitted chars]';
-  }
 
   Duration get _remaining {
     final value = widget.request.expiresAt.difference(_now);
@@ -184,8 +175,8 @@ class _McpOpsWriteApprovalDialogState
                         Text(
                           openHandLocalizedText(
                             context,
-                            zh: '确认 MCP 写调用',
-                            en: 'Confirm MCP Write Call',
+                            zh: 'MCP写调用确认',
+                            en: 'MCP Write Call Confirmation',
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -297,35 +288,15 @@ class _McpOpsWriteApprovalDialogState
                         ),
                         const SizedBox(height: 12),
                         _ApprovalPayloadPanel(
-                          text: _isExpanded ? _argumentsPreview : _shortPayload,
+                          text: _argumentsPreview,
+                          expanded: _isExpanded,
+                          canToggle: _isLongPayload,
+                          onToggle: _isLongPayload
+                              ? () => setState(() {
+                                  _isExpanded = !_isExpanded;
+                                })
+                              : null,
                         ),
-                        if (_isLongPayload)
-                          Align(
-                            alignment: AlignmentDirectional.centerStart,
-                            child: TextButton.icon(
-                              onPressed: () =>
-                                  setState(() => _isExpanded = !_isExpanded),
-                              icon: Icon(
-                                _isExpanded
-                                    ? Icons.unfold_less_rounded
-                                    : Icons.unfold_more_rounded,
-                                size: 18,
-                              ),
-                              label: Text(
-                                _isExpanded
-                                    ? openHandLocalizedText(
-                                        context,
-                                        zh: '收起参数',
-                                        en: 'Collapse',
-                                      )
-                                    : openHandLocalizedText(
-                                        context,
-                                        zh: '查看完整参数',
-                                        en: 'View Full Parameters',
-                                      ),
-                              ),
-                            ),
-                          ),
                       ],
                     ),
                   ),
@@ -488,56 +459,762 @@ class _ApprovalInfoPanel extends StatelessWidget {
 }
 
 class _ApprovalPayloadPanel extends StatelessWidget {
-  const _ApprovalPayloadPanel({required this.text});
+  const _ApprovalPayloadPanel({
+    required this.text,
+    required this.expanded,
+    required this.canToggle,
+    required this.onToggle,
+  });
 
   final String text;
+  final bool expanded;
+  final bool canToggle;
+  final VoidCallback? onToggle;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final payload = text.trim();
-    return Container(
-      padding: const EdgeInsets.all(16),
+    final parsed = _parseApprovalPayload(text);
+    const accent = OpenHandStatusColors.warning;
+    return AnimatedContainer(
+      duration: openHandMotionDuration(
+        context,
+        const Duration(milliseconds: 180),
+      ),
+      curve: Curves.easeOutCubic,
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest.withValues(alpha: 0.35),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: OpenHandStatusColors.warning.withValues(alpha: 0.24),
+        gradient: LinearGradient(
+          begin: AlignmentDirectional.topStart,
+          end: AlignmentDirectional.bottomEnd,
+          colors: [
+            accent.withValues(alpha: 0.08),
+            cs.surfaceContainerHighest.withValues(alpha: 0.32),
+          ],
         ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: accent.withValues(alpha: 0.24)),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: cs.shadow.withValues(alpha: 0.035),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Icon(
-                Icons.data_object_rounded,
-                color: OpenHandStatusColors.warning,
-                size: 20,
+              Container(
+                width: 34,
+                height: 34,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(11),
+                  border: Border.all(color: accent.withValues(alpha: 0.22)),
+                ),
+                child: const Icon(
+                  Icons.data_object_rounded,
+                  color: accent,
+                  size: 19,
+                ),
               ),
-              const SizedBox(width: 8),
-              Text(
-                openHandLocalizedText(context, zh: '请求参数', en: 'Parameters'),
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w900,
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      openHandLocalizedText(
+                        context,
+                        zh: '请求参数',
+                        en: 'Request Parameters',
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 7),
+                    Wrap(
+                      spacing: 7,
+                      runSpacing: 7,
+                      children: [
+                        _ApprovalPayloadPill(
+                          icon: Icons.schema_rounded,
+                          label: _approvalPayloadShapeLabel(context, parsed),
+                          color: accent,
+                        ),
+                        _ApprovalPayloadPill(
+                          icon: Icons.format_list_bulleted_rounded,
+                          label: _approvalPayloadCountLabel(
+                            context,
+                            parsed.value,
+                          ),
+                          color: cs.onSurfaceVariant,
+                        ),
+                        _ApprovalPayloadPill(
+                          icon: Icons.notes_rounded,
+                          label: _approvalPayloadSizeLabel(context, parsed.raw),
+                          color: cs.onSurfaceVariant,
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
           const SizedBox(height: 12),
-          SelectableText(
-            payload.isEmpty ? '-' : payload,
-            style: theme.textTheme.bodySmall?.copyWith(
-              fontFamily: 'monospace',
-              height: 1.5,
-              color: payload.isEmpty ? cs.onSurfaceVariant : null,
+          AnimatedSize(
+            duration: openHandMotionDuration(
+              context,
+              const Duration(milliseconds: 180),
+            ),
+            curve: Curves.easeOutCubic,
+            alignment: Alignment.topCenter,
+            child: AnimatedSwitcher(
+              duration: openHandMotionDuration(
+                context,
+                const Duration(milliseconds: 160),
+              ),
+              switchInCurve: Curves.easeOutCubic,
+              switchOutCurve: Curves.easeInCubic,
+              child: _ApprovalPayloadNode(
+                key: ValueKey<String>(
+                  'approval-payload-${expanded ? 'full' : 'preview'}-${parsed.raw.hashCode}',
+                ),
+                value: parsed.value,
+                raw: parsed.raw,
+                structured: parsed.structured,
+                expanded: expanded,
+                accent: accent,
+              ),
+            ),
+          ),
+          if (canToggle && onToggle != null) ...[
+            const SizedBox(height: 12),
+            _ApprovalPayloadToggle(
+              expanded: expanded,
+              onPressed: onToggle!,
+              color: accent,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _ApprovalPayloadNode extends StatelessWidget {
+  const _ApprovalPayloadNode({
+    required this.value,
+    required this.raw,
+    required this.structured,
+    required this.expanded,
+    required this.accent,
+    this.depth = 0,
+    this.semanticKey = '',
+    super.key,
+  });
+
+  final Object? value;
+  final String raw;
+  final bool structured;
+  final bool expanded;
+  final Color accent;
+  final int depth;
+  final String semanticKey;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!structured) {
+      return _ApprovalPayloadScalar(
+        value: raw,
+        semanticKey: semanticKey,
+        expanded: expanded,
+        accent: accent,
+      );
+    }
+    final current = value;
+    if (current is Map) {
+      final entries = current.entries
+          .where((entry) => '${entry.key}'.trim().isNotEmpty)
+          .toList(growable: false);
+      if (entries.isEmpty) {
+        return _ApprovalPayloadScalar(
+          value: '{}',
+          semanticKey: semanticKey,
+          expanded: expanded,
+          accent: accent,
+        );
+      }
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (final entry in entries.indexed)
+            Padding(
+              padding: EdgeInsets.only(
+                bottom: entry.$1 == entries.length - 1 ? 0 : 9,
+              ),
+              child: _ApprovalPayloadField(
+                label: '${entry.$2.key}',
+                value: entry.$2.value,
+                expanded: expanded,
+                accent: accent,
+                depth: depth,
+              ),
+            ),
+        ],
+      );
+    }
+    if (current is List) {
+      if (current.isEmpty) {
+        return _ApprovalPayloadScalar(
+          value: '[]',
+          semanticKey: semanticKey,
+          expanded: expanded,
+          accent: accent,
+        );
+      }
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (final item in current.indexed)
+            Padding(
+              padding: EdgeInsets.only(
+                bottom: item.$1 == current.length - 1 ? 0 : 9,
+              ),
+              child: _ApprovalPayloadField(
+                label: '#${item.$1 + 1}',
+                value: item.$2,
+                expanded: expanded,
+                accent: accent,
+                depth: depth,
+              ),
+            ),
+        ],
+      );
+    }
+    return _ApprovalPayloadScalar(
+      value: current,
+      semanticKey: semanticKey,
+      expanded: expanded,
+      accent: accent,
+    );
+  }
+}
+
+class _ApprovalPayloadField extends StatelessWidget {
+  const _ApprovalPayloadField({
+    required this.label,
+    required this.value,
+    required this.expanded,
+    required this.accent,
+    required this.depth,
+  });
+
+  final String label;
+  final Object? value;
+  final bool expanded;
+  final Color accent;
+  final int depth;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final nested = value is Map || value is List;
+    final tone = depth == 0 ? accent : cs.primary.withValues(alpha: 0.78);
+    return Container(
+      decoration: BoxDecoration(
+        color: depth == 0
+            ? cs.surface.withValues(alpha: 0.58)
+            : cs.surfaceContainerLow.withValues(alpha: 0.72),
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(
+          color: (depth == 0 ? accent : cs.outlineVariant).withValues(
+            alpha: depth == 0 ? 0.18 : 0.42,
+          ),
+        ),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(width: 3, color: tone.withValues(alpha: 0.78)),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 11, 12, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 28,
+                        height: 28,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: tone.withValues(alpha: 0.10),
+                          borderRadius: BorderRadius.circular(9),
+                          border: Border.all(
+                            color: tone.withValues(alpha: 0.20),
+                          ),
+                        ),
+                        child: Icon(
+                          _approvalPayloadValueIcon(value),
+                          size: 16,
+                          color: tone,
+                        ),
+                      ),
+                      const SizedBox(width: 9),
+                      Expanded(
+                        child: SelectableText(
+                          label,
+                          maxLines: 2,
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w900,
+                            height: 1.12,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      _ApprovalPayloadPill(
+                        icon: Icons.category_rounded,
+                        label: _approvalPayloadTypeLabel(context, value),
+                        color: cs.onSurfaceVariant,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  _ApprovalPayloadNode(
+                    value: value,
+                    raw: _approvalPayloadScalarText(value),
+                    structured: nested,
+                    expanded: expanded,
+                    accent: accent,
+                    depth: depth + 1,
+                    semanticKey: label,
+                  ),
+                ],
+              ),
             ),
           ),
         ],
       ),
     );
   }
+}
+
+class _ApprovalPayloadScalar extends StatelessWidget {
+  const _ApprovalPayloadScalar({
+    required this.value,
+    required this.semanticKey,
+    required this.expanded,
+    required this.accent,
+  });
+
+  final Object? value;
+  final String semanticKey;
+  final bool expanded;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final rawText = _approvalPayloadScalarText(value);
+    final text = expanded
+        ? rawText
+        : _clipApprovalPayloadText(rawText, maxChars: 260);
+    final muted = text.trim().isEmpty;
+    final mono = _approvalPayloadPrefersMonospace(semanticKey, rawText);
+    final block = mono || rawText.length > 96 || rawText.contains('\n');
+    if (!block) {
+      return SelectableText(
+        muted ? '-' : text,
+        style: theme.textTheme.bodyMedium?.copyWith(
+          height: 1.36,
+          color: muted ? cs.onSurfaceVariant : null,
+          fontWeight: muted ? FontWeight.w700 : FontWeight.w600,
+        ),
+      );
+    }
+    return Container(
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerLow.withValues(alpha: 0.74),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: accent.withValues(alpha: 0.13)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+            decoration: BoxDecoration(
+              color: cs.surfaceContainerHighest.withValues(alpha: 0.44),
+              border: Border(
+                bottom: BorderSide(
+                  color: cs.outlineVariant.withValues(alpha: 0.42),
+                ),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  mono ? Icons.terminal_rounded : Icons.subject_rounded,
+                  size: 14,
+                  color: accent,
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    _approvalPayloadContentLabel(context, semanticKey, mono),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: cs.onSurfaceVariant,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+                Text(
+                  _approvalPayloadSizeLabel(context, rawText),
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: cs.onSurfaceVariant,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            child: SelectableText(
+              muted ? '-' : text,
+              style: theme.textTheme.bodySmall?.copyWith(
+                fontFamily: mono ? 'monospace' : null,
+                height: mono ? 1.50 : 1.42,
+                color: muted ? cs.onSurfaceVariant : null,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ApprovalPayloadPill extends StatelessWidget {
+  const _ApprovalPayloadPill({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.09),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.18)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 13, color: color.withValues(alpha: 0.9)),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: cs.onSurfaceVariant,
+              fontWeight: FontWeight.w900,
+              height: 1.1,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ApprovalPayloadToggle extends StatelessWidget {
+  const _ApprovalPayloadToggle({
+    required this.expanded,
+    required this.onPressed,
+    required this.color,
+  });
+
+  final bool expanded;
+  final VoidCallback onPressed;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final label = expanded
+        ? openHandLocalizedText(context, zh: '收起参数', en: 'Collapse Parameters')
+        : openHandLocalizedText(context, zh: '展开完整参数', en: 'Expand Parameters');
+    return Align(
+      alignment: AlignmentDirectional.centerStart,
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(999),
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(999),
+          hoverColor: color.withValues(alpha: 0.08),
+          splashColor: color.withValues(alpha: 0.10),
+          highlightColor: color.withValues(alpha: 0.06),
+          child: AnimatedContainer(
+            duration: openHandMotionDuration(
+              context,
+              const Duration(milliseconds: 160),
+            ),
+            curve: Curves.easeOutCubic,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(color: color.withValues(alpha: 0.22)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                AnimatedRotation(
+                  turns: expanded ? 0.5 : 0,
+                  duration: openHandMotionDuration(
+                    context,
+                    const Duration(milliseconds: 160),
+                  ),
+                  curve: Curves.easeOutCubic,
+                  child: Icon(
+                    Icons.keyboard_arrow_down_rounded,
+                    size: 18,
+                    color: color,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  label,
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: cs.onSurfaceVariant,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ApprovalParsedPayload {
+  const _ApprovalParsedPayload({
+    required this.value,
+    required this.raw,
+    required this.structured,
+  });
+
+  final Object? value;
+  final String raw;
+  final bool structured;
+}
+
+_ApprovalParsedPayload _parseApprovalPayload(String text) {
+  final raw = text.trim();
+  if (raw.isEmpty) {
+    return const _ApprovalParsedPayload(
+      value: null,
+      raw: '',
+      structured: false,
+    );
+  }
+  final decoded = tryDecodeJson(raw);
+  if (decoded is Map || decoded is List) {
+    return _ApprovalParsedPayload(value: decoded, raw: raw, structured: true);
+  }
+  final looseMap = _parseApprovalLooseMap(raw);
+  if (looseMap != null && looseMap.isNotEmpty) {
+    return _ApprovalParsedPayload(value: looseMap, raw: raw, structured: true);
+  }
+  return _ApprovalParsedPayload(value: raw, raw: raw, structured: false);
+}
+
+Map<String, Object?>? _parseApprovalLooseMap(String text) {
+  if (!text.startsWith('{') || !text.endsWith('}')) {
+    return null;
+  }
+  final inner = text.substring(1, text.length - 1).trim();
+  if (inner.isEmpty) return const <String, Object?>{};
+  final matches = RegExp(
+    r'(?:^|,\s*)([A-Za-z_][A-Za-z0-9_.-]{0,64}):\s*',
+  ).allMatches(inner).toList(growable: false);
+  if (matches.isEmpty) return null;
+  final result = <String, Object?>{};
+  for (var index = 0; index < matches.length; index++) {
+    final match = matches[index];
+    final key = match.group(1)!.trim();
+    final end = index + 1 < matches.length
+        ? matches[index + 1].start
+        : inner.length;
+    var value = inner.substring(match.end, end).trim();
+    if (value.endsWith(',')) {
+      value = value.substring(0, value.length - 1).trimRight();
+    }
+    result[key] = _coerceApprovalPayloadValue(value);
+  }
+  return result;
+}
+
+Object? _coerceApprovalPayloadValue(String value) {
+  final trimmed = value.trim();
+  if (trimmed.isEmpty) return '';
+  final decoded = tryDecodeJson(trimmed);
+  if (decoded != null) return decoded;
+  final lower = trimmed.toLowerCase();
+  if (lower == 'true') return true;
+  if (lower == 'false') return false;
+  if (lower == 'null') return null;
+  return int.tryParse(trimmed) ?? double.tryParse(trimmed) ?? trimmed;
+}
+
+String _approvalPayloadScalarText(Object? value) {
+  if (value == null) return 'null';
+  if (value is String) return value.trim();
+  if (value is num || value is bool) return '$value';
+  if (value is Map || value is List) return prettyPrintJson(value);
+  return '$value'.trim();
+}
+
+String _clipApprovalPayloadText(String text, {required int maxChars}) {
+  final trimmed = text.trim();
+  if (trimmed.length <= maxChars) return trimmed;
+  return '${trimmed.substring(0, maxChars).trimRight()}...';
+}
+
+bool _approvalPayloadPrefersMonospace(String key, String value) {
+  final normalizedKey = key.toLowerCase();
+  return normalizedKey.contains('command') ||
+      normalizedKey.contains('path') ||
+      normalizedKey.contains('stdout') ||
+      normalizedKey.contains('stderr') ||
+      normalizedKey.contains('code') ||
+      value.contains('\n') ||
+      value.contains('&&') ||
+      value.contains('://');
+}
+
+String _approvalPayloadShapeLabel(
+  BuildContext context,
+  _ApprovalParsedPayload parsed,
+) {
+  if (!parsed.structured) {
+    return openHandLocalizedText(context, zh: '原始文本', en: 'Plain text');
+  }
+  if (parsed.value is Map) {
+    return openHandLocalizedText(context, zh: '对象结构', en: 'Object');
+  }
+  if (parsed.value is List) {
+    return openHandLocalizedText(context, zh: '列表结构', en: 'Array');
+  }
+  return openHandLocalizedText(context, zh: '结构化', en: 'Structured');
+}
+
+String _approvalPayloadCountLabel(BuildContext context, Object? value) {
+  if (value is Map) {
+    return openHandLocalizedText(
+      context,
+      zh: '${value.length} 个字段',
+      en: '${value.length} fields',
+    );
+  }
+  if (value is List) {
+    return openHandLocalizedText(
+      context,
+      zh: '${value.length} 项',
+      en: '${value.length} items',
+    );
+  }
+  return openHandLocalizedText(context, zh: '1 段内容', en: '1 segment');
+}
+
+String _approvalPayloadSizeLabel(BuildContext context, String text) {
+  return openHandLocalizedText(
+    context,
+    zh: '${text.length} 字符',
+    en: '${text.length} chars',
+  );
+}
+
+String _approvalPayloadTypeLabel(BuildContext context, Object? value) {
+  if (value is Map) {
+    return openHandLocalizedText(context, zh: '对象', en: 'Object');
+  }
+  if (value is List) {
+    return openHandLocalizedText(context, zh: '列表', en: 'Array');
+  }
+  if (value is num) {
+    return openHandLocalizedText(context, zh: '数值', en: 'Number');
+  }
+  if (value is bool) {
+    return openHandLocalizedText(context, zh: '布尔', en: 'Boolean');
+  }
+  if (value == null) {
+    return openHandLocalizedText(context, zh: '空值', en: 'Null');
+  }
+  return openHandLocalizedText(context, zh: '文本', en: 'Text');
+}
+
+String _approvalPayloadContentLabel(
+  BuildContext context,
+  String semanticKey,
+  bool mono,
+) {
+  final key = semanticKey.toLowerCase();
+  if (key.contains('command')) {
+    return openHandLocalizedText(context, zh: 'Shell 命令', en: 'Shell command');
+  }
+  if (key.contains('stdout') || key.contains('stderr')) {
+    return openHandLocalizedText(context, zh: '终端输出', en: 'Terminal output');
+  }
+  if (key.contains('path')) {
+    return openHandLocalizedText(context, zh: '文件路径', en: 'File path');
+  }
+  if (mono) {
+    return openHandLocalizedText(context, zh: '等宽文本', en: 'Monospace text');
+  }
+  return openHandLocalizedText(context, zh: '长文本', en: 'Long text');
+}
+
+IconData _approvalPayloadValueIcon(Object? value) {
+  if (value is Map) return Icons.data_object_rounded;
+  if (value is List) return Icons.data_array_rounded;
+  if (value is num) return Icons.pin_rounded;
+  if (value is bool) return Icons.toggle_on_rounded;
+  if (value == null) return Icons.block_rounded;
+  return Icons.short_text_rounded;
 }
 
 String _formatRemaining(BuildContext context, Duration remaining) {
