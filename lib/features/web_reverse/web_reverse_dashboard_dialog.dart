@@ -1204,7 +1204,7 @@ class _WebReverseDashboardDialogState
   }
 
   String _cdpHeaderSubtitle(WebReverseSessionController ctrl, String version) {
-    final normalizedVersion = version.trim().isEmpty ? '-' : version.trim();
+    final normalizedVersion = nonBlankStringOr(version, '-');
     final port = ctrl.cdpPort;
     final cdpLabel = ctrl.isBrowserAlive
         ? port == null

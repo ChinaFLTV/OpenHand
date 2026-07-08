@@ -2192,7 +2192,7 @@ class _AgentCapabilityLogDetailHero extends StatelessWidget {
                   ),
                   const SizedBox(height: 10),
                   Text(
-                    capabilityName.trim().isEmpty ? '-' : capabilityName.trim(),
+                    nonBlankStringOr(capabilityName, '-'),
                     maxLines: compact ? 3 : 2,
                     overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.titleLarge?.copyWith(
@@ -7370,7 +7370,7 @@ class _AgentTaskDetailHero extends StatelessWidget {
     final settings = _agentDialogAnimationSettings(context);
     final progress = clampUnitInterval(task.progress);
     final progressPercent = (progress * 100).round();
-    final title = task.title.trim().isEmpty ? '-' : task.title.trim();
+    final title = nonBlankStringOr(task.title, '-');
     final worker = assignedWorker.trim();
     final next = nextAction.trim();
     final borderRadius = BorderRadius.circular(_agentTaskDetailCardRadius);
@@ -7619,7 +7619,7 @@ class _AgentTaskDetailFact extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final normalizedValue = value.trim().isEmpty ? '-' : value.trim();
+    final normalizedValue = nonBlankStringOr(value, '-');
     return ConstrainedBox(
       constraints: const BoxConstraints(
         minHeight: _agentTaskDetailFactMinHeight,
@@ -7733,7 +7733,7 @@ class _AgentDialogMetricTile extends StatelessWidget {
     final cs = theme.colorScheme;
     final settings = _agentDialogAnimationSettings(context);
     final tone = color ?? cs.primary;
-    final normalizedValue = value.trim().isEmpty ? '-' : value.trim();
+    final normalizedValue = nonBlankStringOr(value, '-');
     final progressValue = progress;
     final normalizedProgress = progressValue == null
         ? null
@@ -7862,7 +7862,7 @@ class _AgentTaskDetailBlock extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final value = body.trim().isEmpty ? '-' : body.trim();
+    final value = nonBlankStringOr(body, '-');
     final textStyle =
         (compact ? theme.textTheme.bodyMedium : theme.textTheme.bodyLarge)
             ?.copyWith(

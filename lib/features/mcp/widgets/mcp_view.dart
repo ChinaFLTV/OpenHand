@@ -36,6 +36,7 @@ import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
 import '../../../shared/util/structured_text_format.dart';
 import '../../../shared/util/text_clip.dart';
+import '../../../shared/util/timer_safety.dart';
 import '../../ai/index.dart' show AiToolRuntimeService;
 import '../../instructions/index.dart';
 import '../../knowledge_base/index.dart';
@@ -2071,7 +2072,7 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
     if (!mounted) return;
     if (_mutingEndpointInputListeners) return;
     _endpointDiscoveryTimer?.cancel();
-    _endpointDiscoveryTimer = Timer(
+    _endpointDiscoveryTimer = startSafeTimer(
       _mcpOpsEndpointDiscoveryDebounce,
       () => unawaited(_refreshAdvertisedHosts()),
     );

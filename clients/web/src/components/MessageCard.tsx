@@ -26,7 +26,11 @@ import { MediaPreviewDialog, MessageMedia, messageHasMultimedia, stripCollectedN
 import type { MediaItem } from './MessageMedia';
 import { MessageToolMeta } from './MessageToolMeta';
 import { ToolResultBody } from './ToolResultBody';
-import { DialogFrame, createStandardDialogFrameAppearance } from './DialogFrame';
+import {
+  DialogCloseButton,
+  DialogFrame,
+  createStandardDialogFrameAppearance,
+} from './DialogFrame';
 import { memo } from 'preact/compat';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { showSnackbar } from './Snackbar';
@@ -3497,9 +3501,12 @@ function KnowledgeBaseRetrievalDialog({
           <h3>{t('message.kbDialog.title', '引用知识库详情')}</h3>
           <p>{results.length} {t('message.kbDialog.hitUnit', '条命中')} · {status}</p>
         </div>
-        <button type="button" class="oh-kb-dialog-close oh-tap-press" onClick={requestClose} aria-label={t('common.close', '关闭')}>
-          <MessageIcon name="close" size={18} />
-        </button>
+        <DialogCloseButton
+          onClick={requestClose}
+          label={t('common.close', '关闭')}
+          className="oh-kb-dialog-close oh-tap-press"
+          iconSize={18}
+        />
       </header>
       <div class="oh-kb-dialog-body">
         <KnowledgeBaseDialogSection title={t('message.kbDialog.query', '原始 query')}>
@@ -3700,9 +3707,12 @@ function KnowledgeChunkDetailDialog({
           <h3>{chunk ? t('message.kbDialog.chunkDetailTitleResolved', '分块详情') : t('message.kbDialog.chunkDetailTitle', '命中分块详情')}</h3>
           <p>{resolvedTitle}</p>
         </div>
-        <button type="button" class="oh-kb-dialog-close oh-tap-press" onClick={requestClose} aria-label={t('common.close', '关闭')}>
-          <MessageIcon name="close" size={18} />
-        </button>
+        <DialogCloseButton
+          onClick={requestClose}
+          label={t('common.close', '关闭')}
+          className="oh-kb-dialog-close oh-tap-press"
+          iconSize={18}
+        />
       </header>
       <div class="oh-kb-dialog-body">
           {loading ? (
@@ -4278,9 +4288,12 @@ function KnowledgeVectorPointPopover({
     >
       <div class="oh-kb-vector-popover-head">
         <strong>{point.title || point.id}</strong>
-        <button type="button" class="oh-kb-vector-popover-close oh-tap-press" onClick={onClose} aria-label={t('common.close', '关闭')}>
-          <MessageIcon name="close" size={13} />
-        </button>
+        <DialogCloseButton
+          onClick={onClose}
+          label={t('common.close', '关闭')}
+          className="oh-kb-vector-popover-close oh-tap-press"
+          iconSize={13}
+        />
       </div>
       <em>{knowledgeVectorKindLabel(point.kind)}</em>
       <div class="oh-kb-vector-popover-metrics">

@@ -9,7 +9,9 @@ import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/util/date_time_format.dart';
+import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
+import '../../../shared/util/timer_safety.dart';
 import '../model/mcp_server_ops.dart';
 
 Future<bool?> showMcpOpsWriteApprovalDialog(
@@ -87,7 +89,7 @@ class _McpOpsWriteApprovalDialogState
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _shortcutFocusNode.requestFocus();
     });
-    _timer = Timer.periodic(_tick, (_) {
+    _timer = startSafePeriodicTimer(_tick, (_) {
       if (!mounted) return;
       final nextNow = DateTime.now().toUtc();
       setState(() => _now = nextNow);
@@ -382,7 +384,7 @@ class _ApprovalChip extends StatelessWidget {
           ConstrainedBox(
             constraints: BoxConstraints(maxWidth: maxWidth),
             child: Text(
-              label.trim().isEmpty ? '-' : label.trim(),
+              nonBlankStringOr(label, '-'),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: theme.textTheme.labelMedium?.copyWith(
@@ -454,7 +456,7 @@ class _ApprovalInfoPanel extends StatelessWidget {
                   const SizedBox(width: 12),
                   Expanded(
                     child: SelectableText(
-                      row.value.trim().isEmpty ? '-' : row.value.trim(),
+                      nonBlankStringOr(row.value, '-'),
                       style: theme.textTheme.bodyMedium,
                     ),
                   ),

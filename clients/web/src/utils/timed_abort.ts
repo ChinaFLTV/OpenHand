@@ -43,6 +43,15 @@ export interface RunWithAbortableTimeoutOptions extends RunWithTimeoutOptions {
   signal?: AbortSignal;
 }
 
+function abortController(controller: AbortController, reason?: unknown): void {
+  if (controller.signal.aborted) return;
+  try {
+    controller.abort(reason);
+  } catch {
+    controller.abort();
+  }
+}
+
 function normalizeAbortTimeoutMs(value: number | undefined): number {
   return normalizeDurationMs(value, {
     fallback: DEFAULT_ABORT_TIMEOUT_MS,
@@ -68,7 +77,7 @@ export function createTimedAbortController(
   let timedOut = false;
 
   const clearExternalAbortListener = () => {
-    externalSignal?.removeEventListener('abort', abort);
+    externalSignal?.removeEventListener('abort', abortFromExternalSignal);
   };
 
   const clear = () => {
@@ -77,11 +86,17 @@ export function createTimedAbortController(
     timer = null;
   };
 
-  const abort = () => {
+  const abortWithReason = (reason?: unknown) => {
     clear();
     clearExternalAbortListener();
-    if (!controller.signal.aborted) controller.abort();
+    abortController(controller, reason);
   };
+
+  const abortFromExternalSignal = () => {
+    abortWithReason(abortReasonFromSignal(externalSignal));
+  };
+
+  const abort = () => abortWithReason();
 
   const dispose = () => {
     clear();
@@ -89,9 +104,11 @@ export function createTimedAbortController(
   };
 
   if (externalSignal?.aborted) {
-    abort();
+    abortFromExternalSignal();
   } else {
-    externalSignal?.addEventListener('abort', abort, { once: true });
+    externalSignal?.addEventListener('abort', abortFromExternalSignal, {
+      once: true,
+    });
   }
 
   if (
@@ -102,7 +119,7 @@ export function createTimedAbortController(
     timer = window.setTimeout(() => {
       timer = null;
       timedOut = true;
-      abort();
+      abortWithReason(new OperationTimeoutError(effectiveTimeoutMs));
     }, effectiveTimeoutMs);
   }
 
@@ -177,12 +194,11 @@ export async function runWithAbortableTimeout<T>(
   }: RunWithAbortableTimeoutOptions = {},
 ): Promise<T> {
   const controller = new AbortController();
-  const abort = () => {
-    if (!controller.signal.aborted) controller.abort();
-  };
+  const abort = (reason?: unknown) => abortController(controller, reason);
   if (signal?.aborted) {
-    abort();
-    throw abortReasonFromSignal(signal);
+    const reason = abortReasonFromSignal(signal);
+    abort(reason);
+    throw reason;
   }
 
   let abortReject: ((reason: unknown) => void) | null = null;
@@ -190,8 +206,9 @@ export async function runWithAbortableTimeout<T>(
     abortReject = reject;
   });
   const abortAndReject = () => {
-    abort();
-    abortReject?.(abortReasonFromSignal(signal));
+    const reason = abortReasonFromSignal(signal);
+    abort(reason);
+    abortReject?.(reason);
   };
   signal?.addEventListener('abort', abortAndReject, { once: true });
 
@@ -201,18 +218,18 @@ export async function runWithAbortableTimeout<T>(
       {
         timeoutMs,
         createTimeoutError: (effectiveTimeoutMs) => {
-          abort();
-          return (
+          const reason =
             createTimeoutError?.(effectiveTimeoutMs) ??
-            new OperationTimeoutError(effectiveTimeoutMs)
-          );
+            new OperationTimeoutError(effectiveTimeoutMs);
+          abort(reason);
+          return reason;
         },
       },
     );
   } finally {
     signal?.removeEventListener('abort', abortAndReject);
     abortReject = null;
-    abort();
+    abort(new OperationAbortedError());
   }
 }
 

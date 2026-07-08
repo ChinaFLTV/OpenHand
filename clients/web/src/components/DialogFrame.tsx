@@ -268,7 +268,7 @@ function panelMotionClass(animation: DialogPanelAnimation, closing: boolean): st
   }
 }
 
-function DialogCloseIcon({ size = 16 }: { size?: number }) {
+export function DialogCloseIcon({ size = 16 }: { size?: number }) {
   return (
     <svg
       width={size}
@@ -296,7 +296,7 @@ interface DialogCloseButtonProps {
   iconSize?: number;
 }
 
-function DialogCloseButton({
+export function DialogCloseButton({
   onClick,
   label = 'close',
   disabled = false,

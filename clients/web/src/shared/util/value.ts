@@ -20,6 +20,14 @@ export function strictStringFromUnknown(value: unknown): string {
   return stringFromUnknown(value, { coerce: false });
 }
 
+export function nonBlankStringFromUnknown(
+  value: unknown,
+  options?: StringFromUnknownOptions,
+): string | null {
+  const text = stringFromUnknown(value, options);
+  return text.length > 0 ? text : null;
+}
+
 export function booleanOrNullFromUnknown(value: unknown): boolean | null {
   if (typeof value === 'boolean') return value;
   if (typeof value === 'number' && Number.isFinite(value)) {

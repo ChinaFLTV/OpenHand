@@ -3,9 +3,14 @@
 // JSON 请求 / 响应自动序列化；非 2xx 抛 ApiError(status, body)。
 
 import { clearAuthStorage, ensureDeviceId, readToken } from '../state/storage';
+import { isAbortError } from '../shared/util/errors';
 import { normalizeDurationMs } from '../shared/util/number';
 import { clientEnvironmentHeaders } from '../utils/client_env';
-import { createTimedAbortController } from '../utils/timed_abort';
+import {
+  createTimedAbortController,
+  OperationTimeoutError,
+  type TimedAbortController,
+} from '../utils/timed_abort';
 
 export const DEFAULT_API_REQUEST_TIMEOUT_MS = 120_000;
 export const LONG_API_REQUEST_TIMEOUT_MS = 300_000;
@@ -36,6 +41,7 @@ export type ApiRequestSignalOptions = Pick<ApiOptions, 'signal' | 'timeoutMs'>;
 
 interface ApiAbortSignal {
   signal?: AbortSignal;
+  timed?: TimedAbortController;
   cleanup: () => void;
 }
 
@@ -54,8 +60,22 @@ function createApiAbortSignal(opts: ApiOptions): ApiAbortSignal {
   const timed = createTimedAbortController(timeoutMs, opts.signal);
   return {
     signal: timed.controller.signal,
+    timed,
     cleanup: timed.dispose,
   };
+}
+
+function timeoutErrorFromAbortSignal(
+  abortSignal: ApiAbortSignal,
+  error: unknown,
+): OperationTimeoutError | null {
+  if (!isAbortError(error)) return null;
+  const reason = abortSignal.signal?.reason;
+  if (reason instanceof OperationTimeoutError) return reason;
+  if (abortSignal.timed?.timedOut) {
+    return new OperationTimeoutError(abortSignal.timed.timeoutMs);
+  }
+  return null;
 }
 
 export async function apiRequest<T = unknown>(
@@ -80,12 +100,17 @@ export async function apiRequest<T = unknown>(
 
   const abortSignal = createApiAbortSignal(opts);
   try {
-    const res = await fetch(path, {
-      method: opts.method ?? 'GET',
-      headers,
-      body,
-      signal: abortSignal.signal,
-    });
+    let res: Response;
+    try {
+      res = await fetch(path, {
+        method: opts.method ?? 'GET',
+        headers,
+        body,
+        signal: abortSignal.signal,
+      });
+    } catch (error) {
+      throw timeoutErrorFromAbortSignal(abortSignal, error) ?? error;
+    }
 
     let parsed: unknown = null;
     const text = await res.text();

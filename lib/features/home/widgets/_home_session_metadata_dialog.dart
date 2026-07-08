@@ -1449,7 +1449,7 @@ String? _metadataCleanString(Object? value) {
 
 String _metadataDisplayValue(Object? value) {
   if (value == null) return '-';
-  if (value is String) return value.trim().isEmpty ? '-' : value.trim();
+  if (value is String) return nonBlankStringOr(value, '-');
   if (value is num || value is bool) return '$value';
   if (value is DateTime) return value.toUtc().toIso8601String();
   return _metadataJsonEncode(value);

@@ -5,6 +5,10 @@ String? nullIfBlank(String? value) {
   return trimmed == null || trimmed.isEmpty ? null : trimmed;
 }
 
+String nonBlankStringOr(String? value, String fallback) {
+  return nullIfBlank(value) ?? fallback;
+}
+
 void putIfNotBlank(Map<String, Object?> target, String key, String? value) {
   final normalized = nullIfBlank(value);
   if (normalized != null) target[key] = normalized;

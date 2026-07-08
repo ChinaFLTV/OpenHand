@@ -2222,7 +2222,7 @@ class _GoalKeyValue extends StatelessWidget {
           ),
           Expanded(
             child: Text(
-              value.trim().isEmpty ? '-' : value.trim(),
+              nonBlankStringOr(value, '-'),
               style: theme.textTheme.bodySmall,
             ),
           ),
