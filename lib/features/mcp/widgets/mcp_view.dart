@@ -1828,6 +1828,9 @@ const double _mcpOpsGridGap = 16;
 const double _mcpOpsTerminalRadius = 12;
 const double _mcpOpsPayloadFieldRadius = 13;
 const double _mcpOpsPayloadRailWidth = 3;
+const int _mcpOpsPayloadMaxDepth = 8;
+const int _mcpOpsPayloadMaxItemsPerLevel = 80;
+const int _mcpOpsPayloadMaxScalarChars = 12000;
 const double _mcpOpsMetricWideBreakpoint = 860;
 const double _mcpOpsMetricMediumBreakpoint = 560;
 const int _mcpOpsExposureInitialLimit = 14;
@@ -5919,6 +5922,7 @@ class _McpOpsPanel extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Row(
@@ -8359,148 +8363,133 @@ class _McpOpsAuditDetailDialog extends StatelessWidget {
               _buildHero(context, statusColor),
               const SizedBox(height: 14),
               Expanded(
-                child: SingleChildScrollView(
+                child: ListView(
                   physics: openHandDialogAwareScrollPhysics(context),
-                  child: Column(
-                    children: [
-                      _McpOpsDetailSection(
-                        icon: Icons.route_rounded,
-                        title: _localizedText(
-                          context,
-                          zh: '调用环节',
-                          en: 'Call Stage',
-                        ),
-                        rows: {
-                          _localizedText(context, zh: '环节', en: 'Stage'):
-                              _mcpOpsAuditKindLabel(context, entry.kind),
-                          _localizedText(
-                            context,
-                            zh: '工具/方法',
-                            en: 'Tool/Method',
-                          ): _mcpOpsAuditTitle(
-                            context,
-                            entry,
-                          ),
-                          _localizedText(
-                            context,
-                            zh: '暴露面',
-                            en: 'Surface',
-                          ): _mcpOpsSurfaceLabelFromValue(
-                            context,
-                            entry.surface,
-                          ),
-                          _localizedText(
-                            context,
-                            zh: '接口',
-                            en: 'Endpoint',
-                          ): _mcpOpsEndpointLabel(
-                            context,
-                            entry.endpoint,
-                            surfaceValue: entry.surface,
-                          ),
-                          _localizedText(context, zh: '状态', en: 'Status'):
-                              _mcpOpsAuditStatusLabel(context, entry.status),
-                          _localizedText(context, zh: '日志ID', en: 'Log ID'):
-                              entry.id,
-                        },
+                  padding: EdgeInsets.zero,
+                  children: [
+                    _McpOpsDetailSection(
+                      icon: Icons.route_rounded,
+                      title: _localizedText(
+                        context,
+                        zh: '调用环节',
+                        en: 'Call Stage',
                       ),
-                      const SizedBox(height: _mcpOpsGridGap),
-                      _McpOpsDetailSection(
-                        icon: Icons.speed_rounded,
-                        title: _localizedText(
+                      rows: {
+                        _localizedText(context, zh: '环节', en: 'Stage'):
+                            _mcpOpsAuditKindLabel(context, entry.kind),
+                        _localizedText(context, zh: '工具/方法', en: 'Tool/Method'):
+                            _mcpOpsAuditTitle(context, entry),
+                        _localizedText(
                           context,
-                          zh: '性能与流量',
-                          en: 'Performance',
-                        ),
-                        rows: {
-                          _localizedText(context, zh: '调用耗时', en: 'Duration'):
-                              '${entry.durationMs}ms',
-                          _localizedText(
-                            context,
-                            zh: 'Token数',
-                            en: 'Tokens',
-                          ): '${entry.totalTokens} (${entry.promptTokens} + ${entry.completionTokens})',
-                          _localizedText(context, zh: '入口流量', en: 'Inbound'):
-                              formatByteSize(entry.inboundBytes),
-                          _localizedText(context, zh: '出口流量', en: 'Outbound'):
-                              formatByteSize(entry.outboundBytes),
-                        },
-                      ),
-                      const SizedBox(height: _mcpOpsGridGap),
-                      _McpOpsDetailSection(
-                        icon: Icons.hub_rounded,
-                        title: _localizedText(
+                          zh: '暴露面',
+                          en: 'Surface',
+                        ): _mcpOpsSurfaceLabelFromValue(
                           context,
-                          zh: '来源与环境',
-                          en: 'Peer & Environment',
+                          entry.surface,
                         ),
-                        rows: {
-                          _localizedText(context, zh: '请求时间', en: 'Time'):
-                              formatYearMonthDayHms(entry.timestamp.toLocal()),
-                          _localizedText(context, zh: '来源客户端', en: 'Client'):
-                              entry.clientName,
-                          _localizedText(context, zh: '来源地址', en: 'Peer'):
-                              entry.ipAddress,
-                          _localizedText(context, zh: '协议', en: 'Protocol'):
-                              _mcpOpsDisplayAuditValue(context, entry.protocol),
-                          _localizedText(context, zh: '模型', en: 'Model'):
-                              _mcpOpsDisplayAuditValue(context, entry.model),
-                          for (final environmentEntry
-                              in entry.environment.entries)
-                            _mcpOpsEnvironmentLabel(
-                              context,
-                              environmentEntry.key,
-                            ): _mcpOpsEnvironmentValue(
-                              context,
-                              environmentEntry.key,
-                              environmentEntry.value,
-                            ),
-                        },
+                        _localizedText(
+                          context,
+                          zh: '接口',
+                          en: 'Endpoint',
+                        ): _mcpOpsEndpointLabel(
+                          context,
+                          entry.endpoint,
+                          surfaceValue: entry.surface,
+                        ),
+                        _localizedText(context, zh: '状态', en: 'Status'):
+                            _mcpOpsAuditStatusLabel(context, entry.status),
+                        _localizedText(context, zh: '日志ID', en: 'Log ID'):
+                            entry.id,
+                      },
+                    ),
+                    const SizedBox(height: _mcpOpsGridGap),
+                    _McpOpsDetailSection(
+                      icon: Icons.speed_rounded,
+                      title: _localizedText(
+                        context,
+                        zh: '性能与流量',
+                        en: 'Performance',
                       ),
-                      if (entry.errorMessage.trim().isNotEmpty) ...[
-                        const SizedBox(height: _mcpOpsGridGap),
-                        _McpOpsDetailText(
-                          icon: Icons.report_gmailerrorred_rounded,
-                          title: _localizedText(
+                      rows: {
+                        _localizedText(context, zh: '调用耗时', en: 'Duration'):
+                            '${entry.durationMs}ms',
+                        _localizedText(
+                          context,
+                          zh: 'Token数',
+                          en: 'Tokens',
+                        ): '${entry.totalTokens} (${entry.promptTokens} + ${entry.completionTokens})',
+                        _localizedText(context, zh: '入口流量', en: 'Inbound'):
+                            formatByteSize(entry.inboundBytes),
+                        _localizedText(context, zh: '出口流量', en: 'Outbound'):
+                            formatByteSize(entry.outboundBytes),
+                      },
+                    ),
+                    const SizedBox(height: _mcpOpsGridGap),
+                    _McpOpsDetailSection(
+                      icon: Icons.hub_rounded,
+                      title: _localizedText(
+                        context,
+                        zh: '来源与环境',
+                        en: 'Peer & Environment',
+                      ),
+                      rows: {
+                        _localizedText(context, zh: '请求时间', en: 'Time'):
+                            formatYearMonthDayHms(entry.timestamp.toLocal()),
+                        _localizedText(context, zh: '来源客户端', en: 'Client'):
+                            entry.clientName,
+                        _localizedText(context, zh: '来源地址', en: 'Peer'):
+                            entry.ipAddress,
+                        _localizedText(context, zh: '协议', en: 'Protocol'):
+                            _mcpOpsDisplayAuditValue(context, entry.protocol),
+                        _localizedText(context, zh: '模型', en: 'Model'):
+                            _mcpOpsDisplayAuditValue(context, entry.model),
+                        for (final environmentEntry
+                            in entry.environment.entries)
+                          _mcpOpsEnvironmentLabel(
                             context,
-                            zh: '错误信息',
-                            en: 'Error',
+                            environmentEntry.key,
+                          ): _mcpOpsEnvironmentValue(
+                            context,
+                            environmentEntry.key,
+                            environmentEntry.value,
                           ),
-                          text: entry.errorMessage,
-                          tone: statusColor,
-                        ),
-                      ],
-                      const SizedBox(height: _mcpOpsGridGap),
-                      _McpOpsStructuredPayload(
-                        title: _localizedText(
-                          context,
-                          zh: '请求参数',
-                          en: 'Parameters',
-                        ),
-                        text: entry.argumentsPreview,
-                      ),
+                      },
+                    ),
+                    if (entry.errorMessage.trim().isNotEmpty) ...[
                       const SizedBox(height: _mcpOpsGridGap),
                       _McpOpsDetailText(
-                        icon: Icons.http_rounded,
-                        title: _localizedText(
-                          context,
-                          zh: '请求摘要',
-                          en: 'Request',
-                        ),
-                        text: entry.requestSummary,
-                      ),
-                      const SizedBox(height: _mcpOpsGridGap),
-                      _McpOpsStructuredPayload(
-                        icon: Icons.subject_rounded,
-                        title: _localizedText(
-                          context,
-                          zh: '响应内容',
-                          en: 'Response',
-                        ),
-                        text: entry.responsePreview,
+                        icon: Icons.report_gmailerrorred_rounded,
+                        title: _localizedText(context, zh: '错误信息', en: 'Error'),
+                        text: entry.errorMessage,
+                        tone: statusColor,
                       ),
                     ],
-                  ),
+                    const SizedBox(height: _mcpOpsGridGap),
+                    _McpOpsStructuredPayload(
+                      title: _localizedText(
+                        context,
+                        zh: '请求参数',
+                        en: 'Parameters',
+                      ),
+                      text: entry.argumentsPreview,
+                    ),
+                    const SizedBox(height: _mcpOpsGridGap),
+                    _McpOpsDetailText(
+                      icon: Icons.http_rounded,
+                      title: _localizedText(context, zh: '请求摘要', en: 'Request'),
+                      text: entry.requestSummary,
+                    ),
+                    const SizedBox(height: _mcpOpsGridGap),
+                    _McpOpsStructuredPayload(
+                      icon: Icons.subject_rounded,
+                      title: _localizedText(
+                        context,
+                        zh: '响应内容',
+                        en: 'Response',
+                      ),
+                      text: entry.responsePreview,
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -8534,6 +8523,7 @@ class _McpOpsAuditDetailDialog extends StatelessWidget {
         const SizedBox(width: 12),
         Expanded(
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _McpOpsCopyText(
@@ -8589,6 +8579,7 @@ class _McpOpsDetailSection extends StatelessWidget {
       icon: icon,
       title: title,
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
           for (final row in visibleRows.indexed)
             Padding(
@@ -8725,6 +8716,7 @@ class _McpOpsStructuredPayload extends StatelessWidget {
                 key: ValueKey<String>(
                   'mcp-ops-payload-${parsed.structured}-${parsed.raw.hashCode}',
                 ),
+                mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   _McpOpsPayloadInspectorHeader(parsed: parsed, accent: accent),
@@ -8869,6 +8861,14 @@ class _McpOpsStructuredNode extends StatelessWidget {
       );
     }
     final current = value;
+    if (depth >= _mcpOpsPayloadMaxDepth &&
+        (current is Map || current is List)) {
+      return _McpOpsScalarPayload(
+        value: current,
+        accent: accent,
+        semanticKey: semanticKey,
+      );
+    }
     if (current is Map) {
       final entries = current.entries
           .where((entry) => '${entry.key}'.trim().isNotEmpty)
@@ -8880,13 +8880,21 @@ class _McpOpsStructuredNode extends StatelessWidget {
           semanticKey: semanticKey,
         );
       }
+      final visibleEntries = entries
+          .take(_mcpOpsPayloadMaxItemsPerLevel)
+          .toList(growable: false);
+      final hiddenCount = entries.length - visibleEntries.length;
       return Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          for (final entry in entries.indexed)
+          for (final entry in visibleEntries.indexed)
             Padding(
               padding: EdgeInsets.only(
-                bottom: entry.$1 == entries.length - 1 ? 0 : 9,
+                bottom:
+                    entry.$1 == visibleEntries.length - 1 && hiddenCount <= 0
+                    ? 0
+                    : 9,
               ),
               child: _McpOpsStructuredField(
                 label: '${entry.$2.key}',
@@ -8895,6 +8903,8 @@ class _McpOpsStructuredNode extends StatelessWidget {
                 depth: depth,
               ),
             ),
+          if (hiddenCount > 0)
+            _McpOpsPayloadOverflowNotice(hiddenCount: hiddenCount),
         ],
       );
     }
@@ -8906,13 +8916,20 @@ class _McpOpsStructuredNode extends StatelessWidget {
           semanticKey: semanticKey,
         );
       }
+      final visibleItems = current
+          .take(_mcpOpsPayloadMaxItemsPerLevel)
+          .toList(growable: false);
+      final hiddenCount = current.length - visibleItems.length;
       return Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          for (final item in current.indexed)
+          for (final item in visibleItems.indexed)
             Padding(
               padding: EdgeInsets.only(
-                bottom: item.$1 == current.length - 1 ? 0 : 9,
+                bottom: item.$1 == visibleItems.length - 1 && hiddenCount <= 0
+                    ? 0
+                    : 9,
               ),
               child: _McpOpsStructuredField(
                 label: '#${item.$1 + 1}',
@@ -8921,6 +8938,8 @@ class _McpOpsStructuredNode extends StatelessWidget {
                 depth: depth,
               ),
             ),
+          if (hiddenCount > 0)
+            _McpOpsPayloadOverflowNotice(hiddenCount: hiddenCount),
         ],
       );
     }
@@ -8984,37 +9003,80 @@ class _McpOpsStructuredField extends StatelessWidget {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(_mcpOpsPayloadFieldRadius),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+        child: Stack(
           children: [
-            Container(
+            PositionedDirectional(
+              start: 0,
+              top: 0,
+              bottom: 0,
               width: _mcpOpsPayloadRailWidth,
-              color: tone.withValues(alpha: depth == 0 ? 0.85 : 0.38),
+              child: ColoredBox(
+                color: tone.withValues(alpha: depth == 0 ? 0.85 : 0.38),
+              ),
             ),
-            Expanded(
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(
-                  depth == 0 ? 13 : 11,
-                  depth == 0 ? 12 : 10,
-                  depth == 0 ? 13 : 11,
-                  depth == 0 ? 12 : 10,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _McpOpsPayloadFieldHeader(
-                      label: label,
-                      value: value,
-                      accent: tone,
-                    ),
-                    const SizedBox(height: 10),
-                    child,
-                  ],
-                ),
+            Padding(
+              padding: EdgeInsetsDirectional.fromSTEB(
+                _mcpOpsPayloadRailWidth + (depth == 0 ? 13 : 11),
+                depth == 0 ? 12 : 10,
+                depth == 0 ? 13 : 11,
+                depth == 0 ? 12 : 10,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _McpOpsPayloadFieldHeader(
+                    label: label,
+                    value: value,
+                    accent: tone,
+                  ),
+                  const SizedBox(height: 10),
+                  child,
+                ],
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _McpOpsPayloadOverflowNotice extends StatelessWidget {
+  const _McpOpsPayloadOverflowNotice({required this.hiddenCount});
+
+  final int hiddenCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: cs.secondaryContainer.withValues(alpha: 0.34),
+        borderRadius: BorderRadius.circular(11),
+        border: Border.all(color: cs.secondary.withValues(alpha: 0.18)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.unfold_more_rounded, size: 16, color: cs.secondary),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              _localizedText(
+                context,
+                zh: '仍有 $hiddenCount 项未展开，可在原始日志中查看完整内容',
+                en: '$hiddenCount more entries are available in the raw log',
+              ),
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: cs.onSecondaryContainer,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -9129,7 +9191,8 @@ class _McpOpsScalarPayload extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final text = _mcpOpsPayloadScalarText(value);
+    final fullText = _mcpOpsPayloadScalarText(value);
+    final text = _truncateMcpOpsPayloadText(fullText);
     final muted = text.trim().isEmpty;
     final mono = _mcpOpsPayloadPrefersMonospace(semanticKey, text);
     final longText = text.length > 96 || text.contains('\n');
@@ -9152,6 +9215,7 @@ class _McpOpsScalarPayload extends StatelessWidget {
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Container(
@@ -9184,7 +9248,7 @@ class _McpOpsScalarPayload extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  _mcpOpsPayloadSizeLabel(context, text),
+                  _mcpOpsPayloadSizeLabel(context, fullText),
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: cs.onSurfaceVariant,
                     fontWeight: FontWeight.w800,
@@ -9406,6 +9470,13 @@ String _mcpOpsPayloadScalarText(Object? value) {
   if (value is num || value is bool) return '$value';
   if (value is Map || value is List) return prettyPrintJson(value);
   return '$value'.trim();
+}
+
+String _truncateMcpOpsPayloadText(String text) {
+  if (text.length <= _mcpOpsPayloadMaxScalarChars) {
+    return text;
+  }
+  return '${text.substring(0, _mcpOpsPayloadMaxScalarChars).trimRight()}\n...';
 }
 
 bool _mcpOpsPayloadPrefersMonospace(String key, String value) {
