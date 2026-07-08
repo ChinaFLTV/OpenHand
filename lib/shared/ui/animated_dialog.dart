@@ -1334,9 +1334,57 @@ WidgetBuilder _wrapDialogBuilderWithTheme(
     // 在窄屏 / 浮动小窗模式下不会贴边或溢出。
     // 只设置上限，不强行撑满，原本小弹窗（install_guide 等）不受影响。
     final clamped = _ViewportClamp(alignment: alignment, child: themed);
-    if (!dismissOnEscape) return clamped;
-    return _EscapeDismissDialogScope(child: clamped);
+    final stableHitTest = _DialogInitialHitTestShield(child: clamped);
+    if (!dismissOnEscape) return stableHitTest;
+    return _EscapeDismissDialogScope(child: stableHitTest);
   };
+}
+
+class _DialogInitialHitTestShield extends StatefulWidget {
+  const _DialogInitialHitTestShield({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_DialogInitialHitTestShield> createState() =>
+      _DialogInitialHitTestShieldState();
+}
+
+class _DialogInitialHitTestShieldState
+    extends State<_DialogInitialHitTestShield> {
+  Timer? _releaseTimer;
+  bool _absorbing = true;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _releaseTimer = Timer(Duration.zero, () {
+        if (mounted) {
+          setState(() => _absorbing = false);
+        }
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _releaseTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final child = AbsorbPointer(absorbing: _absorbing, child: widget.child);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.hasBoundedWidth && constraints.hasBoundedHeight) {
+          return SizedBox.expand(child: child);
+        }
+        return child;
+      },
+    );
+  }
 }
 
 /// 在弹窗外层套一个 MediaQuery 感知的 ConstrainedBox，把最大宽 / 高限制为

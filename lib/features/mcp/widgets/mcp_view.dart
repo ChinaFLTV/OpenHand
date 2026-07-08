@@ -1999,6 +1999,7 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
   int _writeModeSelectorRevision = 0;
   bool _hydratingConfig = false;
   bool _saving = false;
+  bool _auditDetailDialogQueued = false;
   String? _configMessage;
 
   @override
@@ -3957,10 +3958,30 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
   }
 
   void _showAuditDetails(BuildContext context, McpOpsAuditEntry entry) {
-    showAnimatedDialog<void>(
-      context: context,
-      builder: (_) => _McpOpsAuditDetailDialog(entry: entry),
-    );
+    if (_auditDetailDialogQueued) {
+      return;
+    }
+    _auditDetailDialogQueued = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        _auditDetailDialogQueued = false;
+        return;
+      }
+      try {
+        final dialogFuture = showAnimatedDialog<void>(
+          context: this.context,
+          builder: (_) => _McpOpsAuditDetailDialog(entry: entry),
+        );
+        unawaited(
+          dialogFuture.whenComplete(() {
+            _auditDetailDialogQueued = false;
+          }),
+        );
+      } catch (error, stack) {
+        _auditDetailDialogQueued = false;
+        silentLog('mcp_view', 'show MCP ops audit detail', error, stack);
+      }
+    });
   }
 
   /// Opens a structured drill-down for a dashboard card. The dialog reuses the
