@@ -7384,6 +7384,36 @@ button.oh-composer-pill:not(:disabled):hover {
   opacity: 0.45;
 }
 .oh-markdown input[type='checkbox'] { margin-right: 0.4rem; }
+.oh-markdown-render-placeholder {
+  position: relative;
+  display: grid;
+  align-content: start;
+  gap: 9px;
+  width: min(100%, 620px);
+  padding: 4px 0;
+  overflow: hidden;
+  border-radius: 8px;
+  background:
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, currentColor 5%, transparent),
+      color-mix(in srgb, currentColor 11%, transparent),
+      color-mix(in srgb, currentColor 5%, transparent)
+    );
+  background-size: 220% 100%;
+  animation: oh-html-placeholder-sweep 1.4s ease-in-out infinite;
+  contain: paint;
+}
+[data-transcript-scroll-active='true'] .oh-markdown-render-placeholder {
+  animation: none;
+}
+.oh-markdown-render-placeholder span {
+  display: block;
+  height: 12px;
+  max-width: 100%;
+  border-radius: 999px;
+  background: color-mix(in srgb, currentColor 12%, transparent);
+}
 
 /* oh-html-body: 原生 HTML 渲染容器（format=html 时由 HtmlBody 组件使用）。
    与 oh-markdown 保持相近的排版节奏，同时兼容原生 HTML 元素层级。 */
@@ -7485,7 +7515,8 @@ button.oh-composer-pill:not(:disabled):hover {
   to { background-position: -120% 0; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .oh-html-body-placeholder {
+  .oh-html-body-placeholder,
+  .oh-markdown-render-placeholder {
     animation: none;
   }
 }

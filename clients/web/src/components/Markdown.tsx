@@ -97,12 +97,19 @@ function loadRehypeKatex(): Promise<MarkdownPlugin> {
 }
 
 const CONTENT_TOO_BIG_BYTES = 120 * 1024;
-/// 32 KB 以上才走帧节流 deferred 路径 (首帧 plain text 占位 + 下一空闲帧
+/// 8 KB 以上才走帧节流 deferred 路径 (首帧骨架占位 + 下一空闲帧
 /// 补回 markdown)。早期 1 KB 阈值过保守：用户截图中的 mermaid 流程图 + 图例
 /// 文本普遍 2-4 KB，会被错误丢进占位符。8 KB 以上通常已经包含较长正文、
 /// 表格或代码块；打开长会话时将这类卡片推迟到空闲帧解析，能明显降低
 /// 首屏主线程尖峰，同时短消息仍保持同步渲染，避免闪烁。
 const MARKDOWN_DEFERRED_PARSE_THRESHOLD = 8 * 1024;
+const MARKDOWN_PLACEHOLDER_MIN_HEIGHT_PX = 44;
+const MARKDOWN_PLACEHOLDER_MAX_HEIGHT_PX = 520;
+const MARKDOWN_PLACEHOLDER_CHARS_PER_LINE = 92;
+const MARKDOWN_PLACEHOLDER_LINE_HEIGHT_PX = 24;
+const MARKDOWN_PLACEHOLDER_GAP_PX = 9;
+const MARKDOWN_PLACEHOLDER_MAX_LINES = 24;
+const MARKDOWN_PLACEHOLDER_WIDTHS = [72, 90, 64, 82, 58, 46] as const;
 // 流式节流：parseReady=true 后的内容变更，若增量很小且距上次 flush 不久，
 // 短期 coalesce 到一帧。覆盖 SSE 80ms 一 tick 期间内容追加只增几字符的场景，
 // 把"每 token 重 parse 整棵 react-markdown 树"压成最多 ~12 次/秒。
@@ -123,8 +130,8 @@ const INLINE_DIFF_HUNK_HEADER_RE = /^@@\s+-(\d+)(?:,(\d+))?(?:\s+\+(\d+)(?:,(\d+
 /// 全局帧节流的 markdown 解析调度器。打开长会话时多张消息卡片
 /// 在同一帧内全部 mount, 之前每张都同步走 react-markdown / rehype 解析,
 /// 主线程一次性占用数百毫秒 (JS thread 卡死, 用户看到 white blank)。
-/// 改为按帧节流, 每帧最多 1 个 markdown 升级渲染, 剩下的卡片以 plain
-/// text 占位, 直到本帧完成后下一帧再升级。与 App 端
+/// 改为按帧节流, 每帧最多 1 个 markdown 升级渲染, 剩下的卡片以骨架
+/// 占位, 直到本帧完成后下一帧再升级。与 App 端
 /// _MarkdownFrameScheduler 思路完全对齐。
 const MARKDOWN_FRAME_BUDGET_PER_FRAME = 1;
 const MARKDOWN_PARSE_READY_CACHE_LIMIT = 768;
@@ -1140,6 +1147,50 @@ function extractMarkdownCodeText(nodes: unknown): string {
   return '';
 }
 
+function estimateMarkdownPlaceholderLineCount(source: string): number {
+  const trimmed = source.trimEnd();
+  if (!trimmed) return 1;
+  const explicitLines = Math.min(
+    MARKDOWN_PLACEHOLDER_MAX_LINES,
+    trimmed.split(/\r?\n/).length,
+  );
+  const wrappedLines = Math.ceil(trimmed.length / MARKDOWN_PLACEHOLDER_CHARS_PER_LINE);
+  return Math.max(
+    1,
+    Math.min(MARKDOWN_PLACEHOLDER_MAX_LINES, Math.max(explicitLines, wrappedLines)),
+  );
+}
+
+function estimateMarkdownPlaceholderHeight(lineCount: number): number {
+  const height = lineCount * MARKDOWN_PLACEHOLDER_LINE_HEIGHT_PX +
+    Math.max(0, lineCount - 1) * MARKDOWN_PLACEHOLDER_GAP_PX;
+  return Math.max(
+    MARKDOWN_PLACEHOLDER_MIN_HEIGHT_PX,
+    Math.min(MARKDOWN_PLACEHOLDER_MAX_HEIGHT_PX, height),
+  );
+}
+
+function MarkdownRenderPlaceholder({ source }: { source: string }) {
+  const lineCount = estimateMarkdownPlaceholderLineCount(source);
+  const height = estimateMarkdownPlaceholderHeight(lineCount);
+  return (
+    <div
+      class="oh-markdown-render-placeholder"
+      aria-hidden="true"
+      style={{ minHeight: `${height}px` }}
+    >
+      {Array.from({ length: lineCount }, (_, index) => (
+        <span
+          key={index}
+          style={{
+            width: `${MARKDOWN_PLACEHOLDER_WIDTHS[index % MARKDOWN_PLACEHOLDER_WIDTHS.length]}%`,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
 export function Markdown({ source, raw = false, mono = false, format = 'markdown', htmlFallback = 'markdown', streaming = false }: MarkdownProps) {
   const content = source ?? '';
   const markdownContent = useMemo(() => stripLocalMediaReferences(content), [content]);
@@ -1153,7 +1204,7 @@ export function Markdown({ source, raw = false, mono = false, format = 'markdown
 
   // 帧节流 deferred 路径。raw / tooBig 已经走 plain text 路径，无需
   // 帧节流。中等以上内容 (> MARKDOWN_DEFERRED_PARSE_THRESHOLD) 首次挂载时
-  // 先 plain text 占位, 把 react-markdown / rehype 解析推迟到下一空闲帧
+  // 先骨架占位, 把 react-markdown / rehype 解析推迟到下一空闲帧
   // (帧节流调度器), 避免长会话首屏多卡片同步 parse 撑爆主线程。
   const shouldDeferParse = !streaming && !raw && format !== 'plain_text' && !stickyLooksHtml && !tooBig
     && content.length > MARKDOWN_DEFERRED_PARSE_THRESHOLD;
@@ -1496,18 +1547,13 @@ export function Markdown({ source, raw = false, mono = false, format = 'markdown
     );
   }
 
-  // deferred parse 期间渲染 plain text 占位, 让首屏布局立刻完成。
+  // deferred parse 期间渲染骨架占位, 让首屏布局立刻完成。
   // 占位用与最终 markdown 相同的容器 (.oh-markdown), 避免 parse 完成后
   // 容器尺寸/主题色突变。
   if (!parseReady) {
     return (
       <div class="oh-markdown text-sm" style={{ fontFamily }}>
-        <pre
-          class="whitespace-pre-wrap break-words"
-          style={{ margin: 0, fontFamily: 'inherit' }}
-        >
-          {markdownContent}
-        </pre>
+        <MarkdownRenderPlaceholder source={markdownContent} />
       </div>
     );
   }

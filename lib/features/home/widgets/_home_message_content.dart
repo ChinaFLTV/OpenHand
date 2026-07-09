@@ -1627,8 +1627,13 @@ const int _markdownStreamingDeferredParseThresholdChars = 160;
 const int _markdownStreamingInitialSyncParseThresholdChars = 8 * 1024;
 const int _markdownStreamingParseMinIntervalMs = 96;
 const int _markdownStreamingPlaceholderMaxLines = 6;
+const int _markdownDeferredPlaceholderMaxLines = 24;
+const int _markdownPlaceholderCharsPerLine = 72;
 const double _markdownStreamingPlaceholderMinHeight = 28;
 const double _markdownStreamingPlaceholderMaxHeight = 132;
+const double _markdownDeferredPlaceholderMinHeight = 44;
+const double _markdownDeferredPlaceholderMaxHeight = 520;
+const double _markdownPlaceholderMaxWidth = 560;
 
 /// 进程级 AST 解析结果缓存。同一段 markdown 内容（按内容 +
 /// 主题/builder 签名 hash 索引）在多次 mount 之间复用 AST 节点，
@@ -1989,26 +1994,36 @@ class _MarkdownFrameScheduler {
   void schedule(VoidCallback task) => _scheduler.schedule(task);
 }
 
-class _StreamingMarkdownStabilizingPlaceholder extends StatelessWidget {
-  const _StreamingMarkdownStabilizingPlaceholder({
+class _MarkdownStabilizingPlaceholder extends StatelessWidget {
+  const _MarkdownStabilizingPlaceholder({
     required this.source,
     required this.style,
+    required this.maxLines,
+    required this.minHeight,
+    required this.maxHeight,
   });
 
   final String source;
   final TextStyle? style;
+  final int maxLines;
+  final double minHeight;
+  final double maxHeight;
 
   int get _lineCount {
-    var lines = 1;
+    final trimmed = source.trimRight();
+    if (trimmed.isEmpty) return 1;
+    var explicitLines = 1;
     for (var i = 0; i < source.length; i += 1) {
       if (source.codeUnitAt(i) == 0x0A) {
-        lines += 1;
-        if (lines >= _markdownStreamingPlaceholderMaxLines) {
+        explicitLines += 1;
+        if (explicitLines >= maxLines) {
           break;
         }
       }
     }
-    return lines.clamp(1, _markdownStreamingPlaceholderMaxLines).toInt();
+    final wrappedLines = (trimmed.length / _markdownPlaceholderCharsPerLine)
+        .ceil();
+    return math.max(explicitLines, wrappedLines).clamp(1, maxLines).toInt();
   }
 
   double get _lineHeight {
@@ -2021,35 +2036,62 @@ class _StreamingMarkdownStabilizingPlaceholder extends StatelessWidget {
     final color =
         style?.color ?? Theme.of(context).colorScheme.onSurfaceVariant;
     final lines = _lineCount;
-    final height = (lines * _lineHeight)
-        .clamp(
-          _markdownStreamingPlaceholderMinHeight,
-          _markdownStreamingPlaceholderMaxHeight,
-        )
+    final lineHeight = _lineHeight;
+    final barHeight = math.max(8.0, lineHeight * 0.42);
+    final gap = math.min(8.0, lineHeight * 0.32);
+    final height = (lines * barHeight + math.max(0, lines - 1) * gap)
+        .clamp(minHeight, maxHeight)
         .toDouble();
-    final widths = <double>[0.72, 0.9, 0.64, 0.82, 0.58, 0.46];
-    return SizedBox(
-      height: height,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: List<Widget>.generate(lines, (index) {
-          return Padding(
-            padding: EdgeInsets.only(
-              bottom: index == lines - 1 ? 0 : math.min(8, _lineHeight * 0.32),
-            ),
-            child: FractionallySizedBox(
-              widthFactor: widths[index % widths.length],
-              child: Container(
-                height: math.max(8, _lineHeight * 0.42),
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.12),
-                  borderRadius: _borderRadius999,
+    const widths = <double>[0.72, 0.9, 0.64, 0.82, 0.58, 0.46];
+    final fillColor = color.withValues(alpha: 0.12);
+    return Semantics(
+      label: openHandLocalizedText(
+        context,
+        zh: '消息内容正在渲染',
+        en: 'Rendering message content',
+      ),
+      child: ClipRRect(
+        borderRadius: _borderRadius18,
+        child: OpenHandSweepShimmer(
+          enabled: !_isTranscriptScrollActive(context),
+          sweepColor: color.withValues(alpha: 0.10),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final width = constraints.maxWidth.isFinite
+                  ? math.max(
+                      1.0,
+                      math.min(
+                        constraints.maxWidth,
+                        _markdownPlaceholderMaxWidth,
+                      ),
+                    )
+                  : _markdownPlaceholderMaxWidth;
+              return SizedBox(
+                width: width,
+                height: height,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: List<Widget>.generate(lines, (index) {
+                    return Padding(
+                      padding: EdgeInsets.only(
+                        bottom: index == lines - 1 ? 0 : gap,
+                      ),
+                      child: Container(
+                        width: width * widths[index % widths.length],
+                        height: barHeight,
+                        decoration: BoxDecoration(
+                          color: fillColor,
+                          borderRadius: _borderRadius999,
+                        ),
+                      ),
+                    );
+                  }),
                 ),
-              ),
-            ),
-          );
-        }),
+              );
+            },
+          ),
+        ),
       ),
     );
   }
@@ -2136,8 +2178,8 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
 
   /// Decides whether to parse synchronously or defer to the next frame.
   ///
-  /// On the first mount of a non-trivial body we paint a cheap plain-text
-  /// stand-in immediately and queue the real parse via the global
+  /// On the first mount of a non-trivial body we paint a cheap skeleton
+  /// immediately and queue the real parse via the global
   /// [_MarkdownFrameScheduler]. Streaming updates keep the last rich tree
   /// visible and coalesce reparses into a bounded cadence.
   /// 无论是首次挂载还是展开触发的重建，只要内容超过阈值就走
@@ -2164,8 +2206,8 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
       // 流式抽搐修复：仅在「真·首挂载」（_children == null）
       // 时铺轻量占位；后续 didUpdateWidget（流式 chunk / 主题变化）路径
       // 保留上一帧已解析好的富文本，等帧节流回调 setState 再无缝替换。
-      // 之前每次 chunk 都把 _children 推回纯文本，造成「rich → plain
-      // (看起来像折叠摘要) → rich」反复闪烁。
+      // 之前每次 chunk 都把 _children 推回纯文本，造成「rich → raw
+      // text → rich」反复闪烁。
       final hadChildren = _children != null;
       if (widget.streaming &&
           !hadChildren &&
@@ -2259,17 +2301,24 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
     _disposeRecognizers();
     if (streaming) {
       _children = <Widget>[
-        _StreamingMarkdownStabilizingPlaceholder(
+        _MarkdownStabilizingPlaceholder(
           source: normalizedSource,
           style: effectiveStyleSheet.p,
+          maxLines: _markdownStreamingPlaceholderMaxLines,
+          minHeight: _markdownStreamingPlaceholderMinHeight,
+          maxHeight: _markdownStreamingPlaceholderMaxHeight,
         ),
       ];
       return;
     }
     _children = <Widget>[
-      widget.selectable
-          ? SelectableText(normalizedSource, style: effectiveStyleSheet.p)
-          : Text(normalizedSource, style: effectiveStyleSheet.p),
+      _MarkdownStabilizingPlaceholder(
+        source: normalizedSource,
+        style: effectiveStyleSheet.p,
+        maxLines: _markdownDeferredPlaceholderMaxLines,
+        minHeight: _markdownDeferredPlaceholderMinHeight,
+        maxHeight: _markdownDeferredPlaceholderMaxHeight,
+      ),
     ];
   }
 
@@ -2377,9 +2426,12 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
           return;
         }
         _children = <Widget>[
-          _StreamingMarkdownStabilizingPlaceholder(
+          _MarkdownStabilizingPlaceholder(
             source: normalizedSource,
             style: effectiveStyleSheet.p,
+            maxLines: _markdownStreamingPlaceholderMaxLines,
+            minHeight: _markdownStreamingPlaceholderMinHeight,
+            maxHeight: _markdownStreamingPlaceholderMaxHeight,
           ),
         ];
         return;
