@@ -3,7 +3,9 @@ part of '../openhand_home_page.dart';
 const Duration _kTranscriptCardEntranceDuration = Duration(milliseconds: 360);
 const Duration _kCreationPlaceholderExitDuration = Duration(milliseconds: 260);
 const Duration _kCreationFailureExitDuration = Duration(milliseconds: 240);
-const double _kTranscriptListCacheExtent = 900;
+// Smaller cache extent keeps off-screen markdown/HTML cards from mounting
+// during open and fling on large threads.
+const double _kTranscriptListCacheExtent = 560;
 const double _kTranscriptEstimatedMessageSpacing = 14;
 const int _kScrollToMessageMaterializeFrameLimit = 8;
 const String _kTranscriptEntryKeyPrefix = 'transcript-entry-';
@@ -484,10 +486,11 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     super.initState();
     _syncWindowStartIndex(forceReset: true);
     _TranscriptScrollDispatcher.instance.register(widget.session.id, this);
-    // Materialise the current window immediately so Scrollbar gets the real
-    // maxScrollExtent from the first layout. Markdown parsing / syntax
-    // highlighting remains frame-throttled by the warmup schedulers.
-    _replaceRenderEntries(_visibleMessagesForWindow(), animate: false);
+    // Open path: first paint only the latest tail of the active window so
+    // large HTML/markdown cards never all mount in the opening frame.
+    // Remaining window rows expand on the next frame(s); rich work stays
+    // frame-throttled by the warmup / HTML mount schedulers.
+    _materializeOpenWindow(progressive: true);
     _syncVisibleError();
     // 首屏贴底由调用方 jumpToBottomOnInit 路径在滚动视图挂载后做单帧
     // jumpTo；这里保持当前窗口真实布局，避免依赖惰性列表估算高度。
@@ -542,14 +545,14 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         if (!mounted) return;
         if (_renderEntries.isNotEmpty) return;
         setState(() {
-          _replaceRenderEntries(_visibleMessagesForWindow(), animate: false);
+          _materializeOpenWindow(progressive: true);
         });
       });
       WidgetsBinding.instance.endOfFrame.then((_) {
         if (!mounted) return;
         if (_renderEntries.isNotEmpty) return;
         setState(() {
-          _replaceRenderEntries(_visibleMessagesForWindow(), animate: false);
+          _materializeOpenWindow(progressive: true);
         });
       });
       // jumpToBottomOnInit 由父级 jumpTo 单独保证；这里不再做多帧 settle。
@@ -569,9 +572,16 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
           0,
           newDisplayLength - oldDisplayLength,
         );
-        _windowStartIndex = math.max(
-          0,
-          _windowStartIndex + addedDisplayCount - _transcriptWindowIncrement,
+        // Keep the previous tail on screen while revealing one older slice.
+        // Do not apply the open-path materialize cap here — users must be able
+        // to walk further back through history after load-older.
+        _windowStartIndex = TranscriptListWindowing.clampWindowStart(
+          TranscriptListWindowing.windowStartAfterHistoryPrepend(
+            previousWindowStart: _windowStartIndex,
+            addedDisplayCount: addedDisplayCount,
+            windowIncrement: _transcriptWindowIncrement,
+          ),
+          newDisplayLength,
         );
       } else {
         _syncWindowStartIndex();
@@ -629,9 +639,26 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
 
   void _syncWindowStartIndex({bool forceReset = false}) {
     final displayMessages = widget.session.displayMessages;
+    final preferred = forceReset
+        ? TranscriptListWindowing.initialWindowStartIndex(
+            displayMessages.length,
+            initialWindowSize: _transcriptInitialWindowSize,
+            windowingThreshold: _transcriptWindowingThreshold,
+          )
+        : TranscriptListWindowing.clampWindowStart(
+            _windowStartIndex,
+            displayMessages.length,
+          );
+    // Open/session-switch only: never materialise more than the soft cap on
+    // first paint. Subsequent reveal-older may grow the window; ListView
+    // virtualizes off-screen rows and HTML mounts stay concurrency-capped.
     final nextWindowStartIndex = forceReset
-        ? _initialWindowStartIndex(displayMessages.length)
-        : _windowStartIndex.clamp(0, displayMessages.length).toInt();
+        ? TranscriptListWindowing.cappedWindowStart(
+            preferredWindowStart: preferred,
+            messageCount: displayMessages.length,
+            maxMaterialized: _transcriptMaxMaterializedWindow,
+          )
+        : preferred;
     if (forceReset) {
       _loadingOlderMessages = false;
     }
@@ -643,15 +670,55 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
 
   List<AiSessionMessage> _visibleMessagesForWindow() {
     final displayMessages = widget.session.displayMessages;
-    final clampedWindowStartIndex = _windowStartIndex
-        .clamp(0, displayMessages.length)
-        .toInt();
+    final clampedWindowStartIndex = TranscriptListWindowing.clampWindowStart(
+      _windowStartIndex,
+      displayMessages.length,
+    );
     // 避免为了“全量访问”多一份卷复制：窗口从 0 开始
     // 且无位限制时，直接返回底层 List 的不可变视图。
     if (clampedWindowStartIndex == 0) {
       return displayMessages;
     }
     return displayMessages.sublist(clampedWindowStartIndex);
+  }
+
+  void _materializeOpenWindow({required bool progressive}) {
+    final visibleMessages = _visibleMessagesForWindow();
+    if (!progressive ||
+        visibleMessages.length <= _transcriptOpenFirstPaintCap) {
+      _replaceRenderEntries(visibleMessages, animate: false);
+      return;
+    }
+    final firstPaintStart = TranscriptListWindowing.openFirstPaintStartIndex(
+      visibleMessages.length,
+      firstPaintCap: _transcriptOpenFirstPaintCap,
+    );
+    _replaceRenderEntries(
+      visibleMessages.sublist(firstPaintStart),
+      animate: false,
+    );
+    final sessionId = widget.session.id;
+    void expandRemaining() {
+      if (!mounted || widget.session.id != sessionId) {
+        return;
+      }
+      final fullWindow = _visibleMessagesForWindow();
+      if (fullWindow.length <= _renderEntries.length) {
+        return;
+      }
+      setState(() {
+        _replaceRenderEntries(fullWindow, animate: false);
+      });
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || widget.session.id != sessionId) {
+        return;
+      }
+      // One frame of layout with the latest tail, then expand the rest of
+      // the bounded window without blocking the open paint.
+      WidgetsBinding.instance.addPostFrameCallback((_) => expandRemaining());
+    });
   }
 
   void _replaceRenderEntries(
@@ -745,7 +812,11 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     final staged = visibleMessages;
     final warmCount = math.min(
       staged.length,
-      math.max(_transcriptInitialWindowSize, _transcriptWindowIncrement),
+      TranscriptListWindowing.warmupMessageBudget(
+        initialWindowSize: _transcriptInitialWindowSize,
+        windowIncrement: _transcriptWindowIncrement,
+        maxWarmup: TranscriptListWindowing.defaultWarmupMaxMessages,
+      ),
     );
     final warmMessages = <AiSessionMessage>[];
     var warmCharacters = 0;
@@ -1272,13 +1343,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
 
   Future<bool>? _activeScrollFuture;
   String? _activeScrollTargetId;
-
-  int _initialWindowStartIndex(int messageCount) {
-    if (messageCount <= _transcriptWindowingThreshold) {
-      return 0;
-    }
-    return math.max(0, messageCount - _transcriptInitialWindowSize);
-  }
 
   void _handleRevealScrollActivityChanged() {
     final activity = _scrollActivity;
@@ -1829,9 +1893,12 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
 
       if (_windowStartIndex > 0) {
         setState(() {
-          _windowStartIndex = math.max(
-            0,
-            _windowStartIndex - _transcriptWindowIncrement,
+          _windowStartIndex = TranscriptListWindowing.clampWindowStart(
+            TranscriptListWindowing.revealOlderWindowStart(
+              _windowStartIndex,
+              windowIncrement: _transcriptWindowIncrement,
+            ),
+            widget.session.displayMessages.length,
           );
           _syncRenderEntriesAfterHistoryPrepend();
         });
@@ -2604,7 +2671,10 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     // 字段赋值（与 didUpdateWidget 内的同名调用一致），赋值后
     // 当前帧即拿到新 `_renderEntries` 用于绘制，不破坏 build 不变量。
     if (_renderEntries.isEmpty && visibleMessages.isNotEmpty) {
-      _replaceRenderEntries(visibleMessages, animate: false);
+      // Build-stage open fallback: materialise only the latest first-paint
+      // tail synchronously; the progressive expansion scheduled inside
+      // `_materializeOpenWindow` fills the rest of the bounded window.
+      _materializeOpenWindow(progressive: true);
     }
     if (_renderEntries.isEmpty && visibleMessages.isEmpty) {
       // Header-only 会话正在按需水合消息时，显示加载占位而非空会话。

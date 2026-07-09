@@ -4441,76 +4441,17 @@ class _HtmlWebViewFrameScheduler {
   void schedule(VoidCallback task) => _scheduler.schedule(task);
 }
 
-class _HtmlWebViewMountLimiter {
-  _HtmlWebViewMountLimiter();
-
-  final Set<int> _activeIds = <int>{};
-  final Queue<_HtmlWebViewMountPermit> _waiting =
-      Queue<_HtmlWebViewMountPermit>();
-  int _nextId = 0;
-
-  _HtmlWebViewMountPermit request(
-    VoidCallback onGranted, {
-    bool priority = false,
-  }) {
-    final permit = _HtmlWebViewMountPermit._(++_nextId, this, onGranted);
-    if (_activeIds.length < _htmlWebViewMaxMountedCount) {
-      _activeIds.add(permit.id);
-      permit._granted = true;
-      return permit;
-    }
-    if (priority) {
-      _waiting.addFirst(permit);
-    } else {
-      _waiting.add(permit);
-    }
-    return permit;
-  }
-
-  void release(_HtmlWebViewMountPermit permit) {
-    if (permit._released) return;
-    permit._released = true;
-    if (permit._granted) {
-      _activeIds.remove(permit.id);
-    } else {
-      _waiting.remove(permit);
-    }
-    _drain();
-  }
-
-  void _drain() {
-    while (_activeIds.length < _htmlWebViewMaxMountedCount &&
-        _waiting.isNotEmpty) {
-      final permit = _waiting.removeFirst();
-      if (permit._released) continue;
-      permit._granted = true;
-      _activeIds.add(permit.id);
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!permit._released) {
-          permit._onGranted();
-        }
-      });
-      WidgetsBinding.instance.ensureVisualUpdate();
-    }
-  }
-}
-
-class _HtmlWebViewMountPermit {
-  _HtmlWebViewMountPermit._(this.id, this._owner, this._onGranted);
-
-  final int id;
-  final _HtmlWebViewMountLimiter _owner;
-  final VoidCallback _onGranted;
-  bool _granted = false;
-  bool _released = false;
-
-  bool get granted => _granted && !_released;
-
-  void release() => _owner.release(this);
-}
-
-final _HtmlWebViewMountLimiter _htmlWebViewMountLimiter =
-    _HtmlWebViewMountLimiter();
+final HtmlWebViewMountLimiter _htmlWebViewMountLimiter =
+    HtmlWebViewMountLimiter(
+      // Keep explicit so prelude tuning stays the single source of truth even
+      // when it matches HtmlWebViewMountLimiter.defaultMaxMounted.
+      // ignore: avoid_redundant_argument_values
+      maxMounted: _htmlWebViewMaxMountedCount,
+      scheduleGranted: (task) {
+        WidgetsBinding.instance.addPostFrameCallback((_) => task());
+        WidgetsBinding.instance.ensureVisualUpdate();
+      },
+    );
 
 class _DeferredHtmlBubbleWebView extends StatefulWidget {
   const _DeferredHtmlBubbleWebView({
@@ -4537,7 +4478,7 @@ class _DeferredHtmlBubbleWebViewState
   int _generation = 0;
   TranscriptScrollActivity? _scrollActivity;
   bool _pendingMountAfterScroll = false;
-  _HtmlWebViewMountPermit? _mountPermit;
+  HtmlWebViewMountPermit? _mountPermit;
   Timer? _coldMountTimer;
   Timer? _permitWaitTimer;
 
@@ -4671,7 +4612,7 @@ class _DeferredHtmlBubbleWebViewState
       return;
     }
 
-    late final _HtmlWebViewMountPermit permit;
+    late final HtmlWebViewMountPermit permit;
     final warmMetrics = _hasWarmWebViewMetrics();
     permit = _htmlWebViewMountLimiter.request(() {
       if (!mounted ||
@@ -4727,7 +4668,7 @@ class _DeferredHtmlBubbleWebViewState
     _permitWaitTimer = null;
   }
 
-  void _startPermitWaitTimer(_HtmlWebViewMountPermit permit, int generation) {
+  void _startPermitWaitTimer(HtmlWebViewMountPermit permit, int generation) {
     _cancelPermitWaitTimer();
     _permitWaitTimer = startSafeTimer(_htmlWebViewPermitWaitTimeout, () {
       _permitWaitTimer = null;

@@ -31,18 +31,26 @@ const double _autoFollowPauseHysteresis = 96;
 const String _detachedComposerDraftSessionKey = '__detached_composer_draft__';
 // Long transcripts expose the latest window first; older history expands only
 // when the user asks for it, keeping the active scroll extent stable.
-const int _transcriptInitialWindowSize = 10;
-const int _transcriptWindowIncrement = 6;
-const int _transcriptWindowingThreshold = 14;
-const int _transcriptPreparationThreshold = 16;
+const int _transcriptInitialWindowSize =
+    TranscriptListWindowing.defaultInitialWindowSize;
+const int _transcriptWindowIncrement =
+    TranscriptListWindowing.defaultWindowIncrement;
+const int _transcriptWindowingThreshold =
+    TranscriptListWindowing.defaultWindowingThreshold;
+const int _transcriptMaxMaterializedWindow =
+    TranscriptListWindowing.defaultMaxMaterializedWindow;
+const int _transcriptOpenFirstPaintCap =
+    TranscriptListWindowing.defaultOpenFirstPaintCap;
+const int _transcriptPreparationThreshold = 12;
 const int _transcriptWarmupMaxPerFrame = 1;
 const int _transcriptWarmupSignatureCacheLimit = 256;
-const int _transcriptWarmupCharacterBudget = 14000;
-const int _transcriptHtmlWarmupMaxPerPass = 1;
-const int _htmlWebViewMaxMountedCount = 2;
-const Duration _htmlWebViewColdMountDelay = Duration(milliseconds: 180);
+const int _transcriptWarmupCharacterBudget = 12000;
+const int _transcriptHtmlWarmupMaxPerPass =
+    TranscriptListWindowing.defaultHtmlWarmupMaxPerPass;
+const int _htmlWebViewMaxMountedCount = HtmlWebViewMountLimiter.defaultMaxMounted;
+const Duration _htmlWebViewColdMountDelay = Duration(milliseconds: 220);
 const Duration _htmlWebViewPermitWaitTimeout = Duration(seconds: 3);
-const Duration _htmlWebViewPermitRetryDelay = Duration(milliseconds: 420);
+const Duration _htmlWebViewPermitRetryDelay = Duration(milliseconds: 480);
 const int _transcriptPrependAnchorSettleFrameCount = 6;
 const int _responseVariantAnchorSettleFrameCount = 18;
 const double _transcriptPrependAnchorMinCorrection = 0.75;

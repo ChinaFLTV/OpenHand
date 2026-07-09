@@ -131,7 +131,9 @@ const MARKDOWN_PARSE_READY_CACHE_LIMIT = 768;
 const HTML_SANITIZE_CACHE_LIMIT = 256;
 const HTML_RENDER_READY_CACHE_LIMIT = 512;
 const HTML_RENDER_PROFILE_CACHE_LIMIT = 256;
-const HTML_DEFERRED_RENDER_ROOT_MARGIN = '720px 0px';
+// Keep deferred HTML mounts near the viewport so long threads do not
+// sanitize/render dozens of off-screen HTML cards on open.
+const HTML_DEFERRED_RENDER_ROOT_MARGIN = '420px 0px';
 const HTML_PLACEHOLDER_MIN_HEIGHT_PX = 96;
 const HTML_PLACEHOLDER_MAX_HEIGHT_PX = 520;
 const HTML_PLACEHOLDER_CHARS_PER_LINE = 90;

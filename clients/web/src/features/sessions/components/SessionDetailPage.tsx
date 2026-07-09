@@ -149,16 +149,25 @@ import { ImageEditorDialog, type ImageEditorInput, type ImageEditorResult } from
 import { CreationOptionsDialog, type CreationOptions } from '../../../components/CreationOptionsDialog';
 import { TitleSummaryDialog } from '../../../components/TitleSummaryDialog';
 import { MediaGeneratingPlaceholderTransition, type MediaGenerationMode } from '../../../components/MediaGeneratingPlaceholder';
+import {
+  MESSAGE_LIST_DEFAULT_INITIAL_PAGE_SIZE,
+  MESSAGE_LIST_DEFAULT_PAGE_SIZE,
+  MESSAGE_LIST_ESTIMATED_ROW_HEIGHT_PX,
+  MESSAGE_LIST_GAP_PX,
+  MESSAGE_LIST_VIRTUALIZATION_OVERSCAN_PX,
+  buildHeightPrefix,
+  clampMessageRowHeight,
+  initialVirtualMessageRange,
+  resolveVirtualMessageRange,
+  shouldVirtualizeMessageList,
+  virtualMessageTop,
+  virtualMessageTotalHeight,
+  type VirtualMessageRange,
+} from '../../../shared/util/virtual_message_list_math';
 
-const PAGE_SIZE = 24;
 // 首屏加载最近一页消息；更早历史只在用户点击“加载更早”时进入当前滚动范围。
-const INITIAL_PAGE_SIZE = 12;
-const MESSAGE_LIST_VIRTUALIZATION_THRESHOLD = 72;
-const MESSAGE_LIST_VIRTUALIZATION_OVERSCAN_PX = 900;
-const MESSAGE_LIST_ESTIMATED_ROW_HEIGHT_PX = 188;
-const MESSAGE_LIST_MIN_ROW_HEIGHT_PX = 44;
-const MESSAGE_LIST_MAX_ROW_HEIGHT_PX = 1400;
-const MESSAGE_LIST_GAP_PX = 12;
+const PAGE_SIZE = MESSAGE_LIST_DEFAULT_PAGE_SIZE;
+const INITIAL_PAGE_SIZE = MESSAGE_LIST_DEFAULT_INITIAL_PAGE_SIZE;
 
 function supportsTitleGeneration(model: ApiMetaModel | undefined): boolean {
   return !!model && model.supports_text_title_generation !== false;
@@ -2684,74 +2693,10 @@ function messageWindowShapeKey(sessionId: string, windowOffset: number, ordered:
   ].join('|');
 }
 
-interface VirtualMessageRange {
-  start: number;
-  end: number;
-}
-
 interface VirtualMessageListProps {
   messages: SessionMessage[];
   scrollContainerRef: { current: HTMLElement | null };
   renderMessage: (message: SessionMessage) => ComponentChildren;
-}
-
-function clampMessageRowHeight(value: number): number {
-  if (!Number.isFinite(value) || value <= 0) {
-    return MESSAGE_LIST_ESTIMATED_ROW_HEIGHT_PX;
-  }
-  return Math.round(clampNumber(
-    value,
-    MESSAGE_LIST_MIN_ROW_HEIGHT_PX,
-    MESSAGE_LIST_MAX_ROW_HEIGHT_PX,
-  ));
-}
-
-function virtualMessageTop(prefix: number[], index: number): number {
-  return prefix[index]! + index * MESSAGE_LIST_GAP_PX;
-}
-
-function virtualMessageBottom(prefix: number[], heights: number[], index: number): number {
-  return virtualMessageTop(prefix, index) + heights[index]!;
-}
-
-function virtualMessageTotalHeight(prefix: number[], count: number): number {
-  return prefix[count]! + Math.max(0, count - 1) * MESSAGE_LIST_GAP_PX;
-}
-
-function firstVirtualMessageIntersecting(
-  prefix: number[],
-  heights: number[],
-  targetY: number,
-): number {
-  let lo = 0;
-  let hi = heights.length;
-  while (lo < hi) {
-    const mid = Math.floor((lo + hi) / 2);
-    if (virtualMessageBottom(prefix, heights, mid) < targetY) {
-      lo = mid + 1;
-    } else {
-      hi = mid;
-    }
-  }
-  return Math.min(lo, heights.length);
-}
-
-function firstVirtualMessageAfter(
-  prefix: number[],
-  heights: number[],
-  targetY: number,
-): number {
-  let lo = 0;
-  let hi = heights.length;
-  while (lo < hi) {
-    const mid = Math.floor((lo + hi) / 2);
-    if (virtualMessageTop(prefix, mid) <= targetY) {
-      lo = mid + 1;
-    } else {
-      hi = mid;
-    }
-  }
-  return Math.min(lo, heights.length);
 }
 
 function MeasuredMessageRow({
@@ -2802,16 +2747,17 @@ function VirtualMessageList({
   scrollContainerRef,
   renderMessage,
 }: VirtualMessageListProps) {
-  const virtualized = messages.length > MESSAGE_LIST_VIRTUALIZATION_THRESHOLD;
+  const virtualized = shouldVirtualizeMessageList(messages.length);
   const listRef = useRef<HTMLDivElement | null>(null);
   const rangeFrameRef = useRef<number | null>(null);
   const heightCommitFrameRef = useRef<number | null>(null);
   const measuredHeightsRef = useRef(new Map<string, number>());
   const [heightRevision, setHeightRevision] = useState(0);
-  const [range, setRange] = useState<VirtualMessageRange>(() => ({
-    start: 0,
-    end: messages.length,
-  }));
+  // Chat open is stick-to-bottom: first paint only mounts a bounded tail so
+  // large windows never fully render before the first range measurement.
+  const [range, setRange] = useState<VirtualMessageRange>(() =>
+    initialVirtualMessageRange(messages.length),
+  );
 
   const estimatedHeights = useMemo(
     () => messages.map((message) =>
@@ -2820,15 +2766,32 @@ function VirtualMessageList({
     ),
     [heightRevision, messages],
   );
-  const heightPrefix = useMemo(() => {
-    const prefix = new Array<number>(messages.length + 1);
-    prefix[0] = 0;
-    for (let index = 0; index < messages.length; index += 1) {
-      prefix[index + 1] = prefix[index]! + estimatedHeights[index]!;
-    }
-    return prefix;
-  }, [estimatedHeights, messages.length]);
+  const heightPrefix = useMemo(
+    () => buildHeightPrefix(estimatedHeights),
+    [estimatedHeights],
+  );
   const totalHeight = virtualMessageTotalHeight(heightPrefix, messages.length);
+
+  useEffect(() => {
+    setRange((current) => {
+      const next = initialVirtualMessageRange(messages.length);
+      if (!virtualized) {
+        return current.start === 0 && current.end === messages.length
+          ? current
+          : { start: 0, end: messages.length };
+      }
+      // Keep an already-measured viewport range when only heights change;
+      // when the list grows past the virtualization threshold or identity
+      // jumps, re-seed from the tail so open never mounts the full history.
+      if (current.end > messages.length || current.start >= messages.length) {
+        return next;
+      }
+      if (messages.length > 0 && current.end - current.start > messages.length) {
+        return next;
+      }
+      return current;
+    });
+  }, [messages.length, virtualized]);
 
   const scheduleHeightCommit = useCallback(() => {
     if (heightCommitFrameRef.current != null) return;
@@ -2859,43 +2822,33 @@ function VirtualMessageList({
     const scroller = scrollContainerRef.current;
     const list = listRef.current;
     if (!scroller || !list || messages.length === 0) {
+      const fallback = initialVirtualMessageRange(messages.length);
       setRange((current) =>
-        current.start === 0 && current.end === Math.min(messages.length, 1)
+        current.start === fallback.start && current.end === fallback.end
           ? current
-          : { start: 0, end: Math.min(messages.length, 1) },
+          : fallback,
       );
       return;
     }
     const scrollerRect = scroller.getBoundingClientRect();
     const listRect = list.getBoundingClientRect();
     const listTopInScroller = listRect.top - scrollerRect.top + scroller.scrollTop;
-    const viewportTop = Math.max(
-      0,
-      scroller.scrollTop - listTopInScroller - MESSAGE_LIST_VIRTUALIZATION_OVERSCAN_PX,
-    );
+    const viewportTop = Math.max(0, scroller.scrollTop - listTopInScroller);
     const viewportBottom =
-      scroller.scrollTop -
-      listTopInScroller +
-      scroller.clientHeight +
-      MESSAGE_LIST_VIRTUALIZATION_OVERSCAN_PX;
-    const nextStart = Math.max(
-      0,
-      Math.min(
-        messages.length - 1,
-        firstVirtualMessageIntersecting(heightPrefix, estimatedHeights, viewportTop),
-      ),
-    );
-    const nextEnd = Math.max(
-      nextStart + 1,
-      Math.min(
-        messages.length,
-        firstVirtualMessageAfter(heightPrefix, estimatedHeights, viewportBottom) + 1,
-      ),
-    );
+      scroller.scrollTop - listTopInScroller + scroller.clientHeight;
+    const next = resolveVirtualMessageRange({
+      messageCount: messages.length,
+      prefix: heightPrefix,
+      heights: estimatedHeights,
+      viewportTop,
+      viewportBottom,
+      overscanPx: MESSAGE_LIST_VIRTUALIZATION_OVERSCAN_PX,
+      virtualized: true,
+    });
     setRange((current) =>
-      current.start === nextStart && current.end === nextEnd
+      current.start === next.start && current.end === next.end
         ? current
-        : { start: nextStart, end: nextEnd },
+        : next,
     );
   }, [estimatedHeights, heightPrefix, messages.length, scrollContainerRef, virtualized]);
 

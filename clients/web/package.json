@@ -9,7 +9,8 @@
     "dev": "vite",
     "build": "tsc -b && vite build && node scripts/validate-bundle.mjs ../../assets/web",
     "preview": "vite preview",
-    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.node.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.node.json --noEmit",
+    "test:virtual-list": "node --experimental-strip-types scripts/virtual-message-list-math.test.mjs"
   },
   "dependencies": {
     "@xterm/addon-fit": "^0.11.0",
