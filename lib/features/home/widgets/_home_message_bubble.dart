@@ -8050,9 +8050,10 @@ class _UserSkillSelectionChip extends StatelessWidget {
 /// which has historically caused jank/ANR on macOS. Subsequent requesters
 /// queue and inherit the slot when the previous capture finishes.
 class _VideoThumbnailManager {
-  static final Queue<Completer<void>> _waiters = Queue<Completer<void>>();
-  static int _active = 0;
-  static const int _maxActive = 1;
+  static final OpenHandAsyncSemaphore _semaphore = OpenHandAsyncSemaphore(
+    1,
+    maxAllowedPermits: 1,
+  );
   // Per-process retry guard: if a capture failed once we don't keep
   // re-creating WebViews for the same file in the same session.
   static final Set<String> _failed = <String>{};
@@ -8062,23 +8063,9 @@ class _VideoThumbnailManager {
   static bool isMarkedFailed(String videoPath) => _failed.contains(videoPath);
   static void _markFailed(String videoPath) => _failed.add(videoPath);
 
-  static Future<void> _acquireSlot() {
-    if (_active < _maxActive) {
-      _active += 1;
-      return Future<void>.value();
-    }
-    final completer = Completer<void>();
-    _waiters.add(completer);
-    return completer.future;
-  }
+  static Future<void> _acquireSlot() => _semaphore.acquire();
 
-  static void _releaseSlot() {
-    if (_active > 0) _active -= 1;
-    if (_active < _maxActive && _waiters.isNotEmpty) {
-      _active += 1;
-      _waiters.removeFirst().complete();
-    }
-  }
+  static void _releaseSlot() => _semaphore.release();
 }
 
 /// Offstage WebView that captures a single first-frame PNG for a local

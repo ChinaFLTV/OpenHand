@@ -1,4 +1,5 @@
 import 'dart:collection';
+import 'dart:math' as math;
 
 /// Concurrency gate for expensive HTML WebView platform views.
 ///
@@ -7,9 +8,9 @@ import 'dart:collection';
 /// drain never re-enters layout/build synchronously.
 class HtmlWebViewMountLimiter {
   HtmlWebViewMountLimiter({
-    this.maxMounted = defaultMaxMounted,
+    int maxMounted = defaultMaxMounted,
     void Function(void Function() task)? scheduleGranted,
-  }) : assert(maxMounted > 0),
+  }) : maxMounted = math.max(1, maxMounted),
        _scheduleGranted = scheduleGranted;
 
   static const int defaultMaxMounted = 2;

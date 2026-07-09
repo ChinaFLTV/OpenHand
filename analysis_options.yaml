@@ -30,6 +30,10 @@ linter:
     directives_ordering: true              # import 语句按规范排序
 
 analyzer:
+  exclude:
+    # vendored dependency with local OpenHand patch; keep app lint noise focused
+    # on first-party source and avoid rewriting third-party style wholesale.
+    - vendor/**
   errors:
     # 将以下降级为 warning，避免过于严格影响开发效率
     prefer_final_locals: info

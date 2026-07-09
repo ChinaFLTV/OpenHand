@@ -4,14 +4,14 @@
 /// 扫描最近 7 天内的 Hermes Talker 会话，为满足触发条件的会话派发
 /// 子 Agent 以将对话中的关键结论沉淀到用户记忆 / 技能库。
 ///
-/// 本文件仅实现 **扫描 + 调度骨架 + 信号量并发池**。
+/// 本文件仅实现 **扫描 + 调度骨架 + 有界并发派发**。
 /// 真正的子 Agent 派发由 [runForSession] 在运行时注入，负责针对单个
 /// 会话执行"自我学习"子 Agent，并持久化 `selfLearning` 消息卡片。
 ///
 /// 本模块的职责边界：
 /// * 查询候选会话（最近 7 天 + Hermes Talker 模板）。
 /// * 排除已有未完成 selfLearning 或正在学习中的会话。
-/// * 通过内部 `_Semaphore` 限制最大并发数（默认 5）。
+/// * 通过共享 FIFO 信号量限制最大并发数（默认 5）。
 /// * 收集每轮 tick 的统计结果 [SelfLearningTickResult]。
 ///
 /// 故意不持有任何全局可变状态；所有外部依赖通过构造参数注入，
@@ -21,6 +21,7 @@ library;
 import 'dart:async';
 
 import '../../../../app/state/settings_controller.dart';
+import '../../../../shared/util/async_concurrency.dart';
 import '../../data/ai_session_store.dart';
 import '../../model/ai_session.dart';
 import '../../model/ai_session_message.dart';
@@ -83,13 +84,21 @@ class SelfLearningScheduler {
     this.lookbackDuration = const Duration(days: 7),
     this.templateId = AiPromptTemplatePolicies.hermesTalkerTemplateId,
     this.minMessagesRequired = 4,
-  }) : _semaphore = _Semaphore(concurrency.clamp(1, _maxConcurrency));
+  }) : _semaphore = OpenHandAsyncSemaphore(
+         _normalizeConcurrency(concurrency),
+         maxAllowedPermits: _maxConcurrency,
+       );
 
   /// 默认并发度。
   static const int _defaultConcurrency = 5;
 
   /// 并发上限，防止误配置造成超额资源占用。
   static const int _maxConcurrency = 10;
+
+  static int _normalizeConcurrency(int value) {
+    if (value < 1) return 1;
+    return value > _maxConcurrency ? _maxConcurrency : value;
+  }
 
   final AiSessionStore sessionStore;
   final SettingsController settingsController;
@@ -98,14 +107,17 @@ class SelfLearningScheduler {
   final String templateId;
   final int minMessagesRequired;
 
-  _Semaphore _semaphore;
+  OpenHandAsyncSemaphore _semaphore;
 
   /// 调整并发度（例如在用户修改设置时调用）。
   /// 正在运行的任务不会被抢占，但新提交的任务会遵循新的上限。
   void updateConcurrency(int newConcurrency) {
-    final clamped = newConcurrency.clamp(1, _maxConcurrency);
-    if (clamped == _semaphore.limit) return;
-    _semaphore = _Semaphore(clamped);
+    final clamped = _normalizeConcurrency(newConcurrency);
+    if (clamped == _semaphore.maxPermits) return;
+    _semaphore = OpenHandAsyncSemaphore(
+      clamped,
+      maxAllowedPermits: _maxConcurrency,
+    );
   }
 
   /// 扫描候选会话并派发自我学习任务。
@@ -197,46 +209,6 @@ class SelfLearningScheduler {
   }
 
   Future<SelfLearningSessionReport?> _dispatch(AiSession session) async {
-    await _semaphore.acquire();
-    try {
-      return await runForSession(session);
-    } finally {
-      _semaphore.release();
-    }
-  }
-}
-
-/// 有界异步信号量。实现最小 FIFO 公平：
-/// 当许可用尽时，后续调用会进入等待队列，按 [acquire] 调用顺序依次唤醒。
-class _Semaphore {
-  _Semaphore(this.limit) : _available = limit {
-    if (limit < 1) {
-      throw ArgumentError.value(limit, 'limit', 'must be >= 1');
-    }
-  }
-
-  final int limit;
-  int _available;
-  final _waiters = <Completer<void>>[];
-
-  Future<void> acquire() {
-    if (_available > 0) {
-      _available -= 1;
-      return Future<void>.value();
-    }
-    final completer = Completer<void>();
-    _waiters.add(completer);
-    return completer.future;
-  }
-
-  void release() {
-    if (_waiters.isNotEmpty) {
-      final next = _waiters.removeAt(0);
-      next.complete();
-      return;
-    }
-    if (_available < limit) {
-      _available += 1;
-    }
+    return _semaphore.withPermit(() => runForSession(session));
   }
 }

@@ -946,19 +946,16 @@ class _NetworkRow extends StatelessWidget {
     String? overrideUrl,
     Map<String, String>? overrideHeaders,
   }) async {
-    final navigator = Navigator.of(context, rootNavigator: true);
-    unawaited(
-      showOpenHandLoadingDialog(
-        context: context,
-        message: openHandLocalizedText(
-          context,
-          zh: '重放中...',
-          zhHant: '重放中...',
-          en: 'Replaying...',
-          fr: 'Relecture...',
-          de: 'Wiederholung läuft...',
-          ja: '再実行中...',
-        ),
+    final loadingDialog = showOpenHandTrackedLoadingDialog(
+      context: context,
+      message: openHandLocalizedText(
+        context,
+        zh: '重放中...',
+        zhHant: '重放中...',
+        en: 'Replaying...',
+        fr: 'Relecture...',
+        de: 'Wiederholung läuft...',
+        ja: '再実行中...',
       ),
     );
     try {
@@ -976,9 +973,10 @@ class _NetworkRow extends StatelessWidget {
       );
       return null;
     } finally {
-      if (navigator.mounted) {
-        navigator.pop();
-      }
+      await loadingDialog.dismiss(
+        logTag: 'web_reverse_dashboard_dialog',
+        logAction: 'dismiss replay loading dialog',
+      );
     }
   }
 

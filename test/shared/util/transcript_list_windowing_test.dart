@@ -5,31 +5,13 @@ import 'package:openhand/shared/util/transcript_list_windowing.dart';
 void main() {
   group('TranscriptListWindowing', () {
     test('initial window is full list below threshold', () {
-      expect(
-        TranscriptListWindowing.initialWindowStartIndex(
-          10,
-          initialWindowSize: 8,
-          windowingThreshold: 12,
-        ),
-        0,
-      );
-      expect(
-        TranscriptListWindowing.initialWindowStartIndex(
-          12,
-          initialWindowSize: 8,
-          windowingThreshold: 12,
-        ),
-        0,
-      );
+      expect(TranscriptListWindowing.initialWindowStartIndex(10), 0);
+      expect(TranscriptListWindowing.initialWindowStartIndex(12), 0);
     });
 
     test('initial window keeps a bounded latest tail for large N', () {
       const n = 1000;
-      final start = TranscriptListWindowing.initialWindowStartIndex(
-        n,
-        initialWindowSize: 8,
-        windowingThreshold: 12,
-      );
+      final start = TranscriptListWindowing.initialWindowStartIndex(n);
       expect(start, n - 8);
       expect(TranscriptListWindowing.visibleCount(n, start), 8);
       expect(start, greaterThan(0));
@@ -38,12 +20,12 @@ void main() {
     test('initial window for N=200 stays within open-path bound', () {
       final start = TranscriptListWindowing.initialWindowStartIndex(200);
       final visible = TranscriptListWindowing.visibleCount(200, start);
-      expect(visible, lessThanOrEqualTo(TranscriptListWindowing.defaultInitialWindowSize));
-      expect(visible, greaterThan(0));
       expect(
-        start,
-        TranscriptListWindowing.clampWindowStart(start, 200),
+        visible,
+        lessThanOrEqualTo(TranscriptListWindowing.defaultInitialWindowSize),
       );
+      expect(visible, greaterThan(0));
+      expect(start, TranscriptListWindowing.clampWindowStart(start, 200));
     });
 
     test('clamp and open first-paint tail math', () {
@@ -51,19 +33,10 @@ void main() {
       expect(TranscriptListWindowing.clampWindowStart(80, 50), 50);
       expect(TranscriptListWindowing.clampWindowStart(12, 50), 12);
 
-      expect(
-        TranscriptListWindowing.openFirstPaintStartIndex(3, firstPaintCap: 4),
-        0,
-      );
-      expect(
-        TranscriptListWindowing.openFirstPaintStartIndex(20, firstPaintCap: 4),
-        16,
-      );
-      final firstPaintVisible = 20 -
-          TranscriptListWindowing.openFirstPaintStartIndex(
-            20,
-            firstPaintCap: 4,
-          );
+      expect(TranscriptListWindowing.openFirstPaintStartIndex(3), 0);
+      expect(TranscriptListWindowing.openFirstPaintStartIndex(20), 16);
+      final firstPaintVisible =
+          20 - TranscriptListWindowing.openFirstPaintStartIndex(20);
       expect(firstPaintVisible, 4);
     });
 
@@ -72,18 +45,11 @@ void main() {
         TranscriptListWindowing.windowStartAfterHistoryPrepend(
           previousWindowStart: 40,
           addedDisplayCount: 12,
-          windowIncrement: 6,
         ),
         46,
       );
-      expect(
-        TranscriptListWindowing.revealOlderWindowStart(18, windowIncrement: 6),
-        12,
-      );
-      expect(
-        TranscriptListWindowing.revealOlderWindowStart(3, windowIncrement: 6),
-        0,
-      );
+      expect(TranscriptListWindowing.revealOlderWindowStart(18), 12);
+      expect(TranscriptListWindowing.revealOlderWindowStart(3), 0);
     });
 
     test('open-path cap never materializes more than max rows', () {
@@ -92,7 +58,6 @@ void main() {
       final capped = TranscriptListWindowing.cappedWindowStart(
         preferredWindowStart: 0,
         messageCount: count,
-        maxMaterialized: 48,
       );
       expect(TranscriptListWindowing.visibleCount(count, capped), 48);
       expect(
@@ -101,7 +66,6 @@ void main() {
           TranscriptListWindowing.cappedWindowStart(
             preferredWindowStart: preferred,
             messageCount: count,
-            maxMaterialized: 48,
           ),
         ),
         lessThanOrEqualTo(48),
@@ -109,18 +73,14 @@ void main() {
     });
 
     test('warmup budget is bounded and non-zero', () {
-      final budget = TranscriptListWindowing.warmupMessageBudget(
-        initialWindowSize: 8,
-        windowIncrement: 6,
-        maxWarmup: 8,
-      );
+      final budget = TranscriptListWindowing.warmupMessageBudget();
       expect(budget, inInclusiveRange(1, 8));
     });
   });
 
   group('HtmlWebViewMountLimiter', () {
     test('grants at most maxMounted concurrent permits immediately', () {
-      final limiter = HtmlWebViewMountLimiter(maxMounted: 2);
+      final limiter = HtmlWebViewMountLimiter();
 
       final a = limiter.request(() {});
       final b = limiter.request(() {});
@@ -145,7 +105,10 @@ void main() {
       expect(active.granted, isTrue);
 
       final normal = limiter.request(() => order.add('normal'));
-      final priority = limiter.request(() => order.add('priority'), priority: true);
+      final priority = limiter.request(
+        () => order.add('priority'),
+        priority: true,
+      );
       expect(normal.granted, isFalse);
       expect(priority.granted, isFalse);
 
@@ -181,7 +144,7 @@ void main() {
     });
 
     test('clear releases waiters and drops active set', () {
-      final limiter = HtmlWebViewMountLimiter(maxMounted: 2);
+      final limiter = HtmlWebViewMountLimiter();
       final a = limiter.request(() {});
       final b = limiter.request(() {});
       final c = limiter.request(() {});
@@ -195,7 +158,7 @@ void main() {
     });
 
     test('large concurrent request storm stays within maxMounted', () {
-      final limiter = HtmlWebViewMountLimiter(maxMounted: 2);
+      final limiter = HtmlWebViewMountLimiter();
       final permits = <HtmlWebViewMountPermit>[
         for (var i = 0; i < 200; i++) limiter.request(() {}),
       ];
@@ -209,6 +172,19 @@ void main() {
       }
       expect(limiter.activeCount, 0);
       expect(limiter.waitingCount, 0);
+    });
+
+    test('invalid maxMounted gracefully falls back to one', () {
+      final limiter = HtmlWebViewMountLimiter(maxMounted: 0);
+
+      final active = limiter.request(() {});
+      final waiting = limiter.request(() {});
+
+      expect(limiter.maxMounted, 1);
+      expect(active.granted, isTrue);
+      expect(waiting.granted, isFalse);
+      expect(limiter.activeCount, 1);
+      expect(limiter.waitingCount, 1);
     });
   });
 }

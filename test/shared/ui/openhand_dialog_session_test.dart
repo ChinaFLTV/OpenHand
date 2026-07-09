@@ -151,4 +151,48 @@ void main() {
     expect(find.text('open'), findsOneWidget);
     expect(navKey.currentState?.canPop() ?? false, isFalse);
   });
+
+  testWidgets(
+    'tracked loading dialog dismisses only itself before first frame',
+    (tester) async {
+      final navKey = GlobalKey<NavigatorState>();
+      late OpenHandDialogSession session;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          navigatorKey: navKey,
+          home: Builder(
+            builder: (context) {
+              return Scaffold(
+                body: TextButton(
+                  key: const Key('open-loading'),
+                  onPressed: () {
+                    session = showOpenHandTrackedLoadingDialog(
+                      context: context,
+                      message: 'working',
+                    );
+                  },
+                  child: const Text('open'),
+                ),
+              );
+            },
+          ),
+        ),
+      );
+
+      await tester.tap(find.byKey(const Key('open-loading')));
+      final dismissFuture = session.dismiss(
+        attachTimeout: const Duration(seconds: 1),
+      );
+
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(await dismissFuture, isTrue);
+      await tester.pumpAndSettle();
+
+      expect(find.text('working'), findsNothing);
+      expect(find.text('open'), findsOneWidget);
+      expect(navKey.currentState?.canPop() ?? false, isFalse);
+    },
+  );
 }

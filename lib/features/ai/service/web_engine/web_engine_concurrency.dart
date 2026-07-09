@@ -1,52 +1,9 @@
 import 'dart:async';
-import 'dart:collection';
 
+import '../../../../shared/util/async_concurrency.dart';
 import 'web_engine_telemetry_store_base.dart';
 
-/// 简单计数信号量，用于 orchestrator 并行 fan-out 限流。
-///
-/// 之前 [WebSearchOrchestrator] / [WebFetchOrchestrator] 各自有一份等价实现，
-/// 这里做唯一来源。
-class WebEngineSemaphore {
-  WebEngineSemaphore(int maxCount)
-    : maxCount = _normalizeSemaphoreMaxCount(maxCount),
-      _available = _normalizeSemaphoreMaxCount(maxCount);
-
-  final int maxCount;
-  int _available;
-  final Queue<Completer<void>> _waiters = Queue<Completer<void>>();
-
-  Future<void> acquire() {
-    if (_available > 0) {
-      _available -= 1;
-      return Future.value();
-    }
-    final c = Completer<void>();
-    _waiters.add(c);
-    return c.future;
-  }
-
-  void release() {
-    if (_waiters.isNotEmpty) {
-      _waiters.removeFirst().complete();
-    } else {
-      _available = (_available + 1).clamp(0, maxCount);
-    }
-  }
-
-  Future<T> withPermit<T>(Future<T> Function() action) async {
-    await acquire();
-    try {
-      return await action();
-    } finally {
-      release();
-    }
-  }
-}
-
-int _normalizeSemaphoreMaxCount(int value) {
-  return value < 1 ? 1 : value;
-}
+typedef WebEngineSemaphore = OpenHandAsyncSemaphore;
 
 /// 单个被跳过的引擎条目（cooldown / throttle）。
 class WebEngineSkippedItem<TConfig> {

@@ -579,7 +579,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
           TranscriptListWindowing.windowStartAfterHistoryPrepend(
             previousWindowStart: _windowStartIndex,
             addedDisplayCount: addedDisplayCount,
-            windowIncrement: _transcriptWindowIncrement,
           ),
           newDisplayLength,
         );
@@ -642,8 +641,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     final preferred = forceReset
         ? TranscriptListWindowing.initialWindowStartIndex(
             displayMessages.length,
-            initialWindowSize: _transcriptInitialWindowSize,
-            windowingThreshold: _transcriptWindowingThreshold,
           )
         : TranscriptListWindowing.clampWindowStart(
             _windowStartIndex,
@@ -656,7 +653,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         ? TranscriptListWindowing.cappedWindowStart(
             preferredWindowStart: preferred,
             messageCount: displayMessages.length,
-            maxMaterialized: _transcriptMaxMaterializedWindow,
           )
         : preferred;
     if (forceReset) {
@@ -691,7 +687,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     }
     final firstPaintStart = TranscriptListWindowing.openFirstPaintStartIndex(
       visibleMessages.length,
-      firstPaintCap: _transcriptOpenFirstPaintCap,
     );
     _replaceRenderEntries(
       visibleMessages.sublist(firstPaintStart),
@@ -812,11 +807,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     final staged = visibleMessages;
     final warmCount = math.min(
       staged.length,
-      TranscriptListWindowing.warmupMessageBudget(
-        initialWindowSize: _transcriptInitialWindowSize,
-        windowIncrement: _transcriptWindowIncrement,
-        maxWarmup: TranscriptListWindowing.defaultWarmupMaxMessages,
-      ),
+      TranscriptListWindowing.warmupMessageBudget(),
     );
     final warmMessages = <AiSessionMessage>[];
     var warmCharacters = 0;
@@ -1894,10 +1885,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       if (_windowStartIndex > 0) {
         setState(() {
           _windowStartIndex = TranscriptListWindowing.clampWindowStart(
-            TranscriptListWindowing.revealOlderWindowStart(
-              _windowStartIndex,
-              windowIncrement: _transcriptWindowIncrement,
-            ),
+            TranscriptListWindowing.revealOlderWindowStart(_windowStartIndex),
             widget.session.displayMessages.length,
           );
           _syncRenderEntriesAfterHistoryPrepend();

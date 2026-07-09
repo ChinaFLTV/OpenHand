@@ -1,9 +1,65 @@
 import 'dart:async';
+import 'dart:collection';
 
 typedef OpenHandAsyncContinuePredicate = bool Function();
 
 const int kOpenHandMaxAsyncConcurrency = 64;
 const Duration _kOpenHandAsyncDelayCheckInterval = Duration(milliseconds: 50);
+
+/// Small FIFO semaphore for bounded async fan-out.
+///
+/// Invalid or oversized limits are normalized so caller mistakes cannot create
+/// unbounded workers or a permanently closed semaphore.
+class OpenHandAsyncSemaphore {
+  OpenHandAsyncSemaphore(
+    int maxPermits, {
+    int maxAllowedPermits = kOpenHandMaxAsyncConcurrency,
+  }) : maxPermits = _normalizeAsyncConcurrencyLimit(
+         maxPermits,
+         maxAllowedPermits: maxAllowedPermits,
+       ),
+       _available = _normalizeAsyncConcurrencyLimit(
+         maxPermits,
+         maxAllowedPermits: maxAllowedPermits,
+       );
+
+  final int maxPermits;
+  int _available;
+  final Queue<Completer<void>> _waiters = Queue<Completer<void>>();
+
+  int get availableCount => _available;
+
+  int get waitingCount => _waiters.length;
+
+  Future<void> acquire() {
+    if (_available > 0) {
+      _available -= 1;
+      return Future<void>.value();
+    }
+    final completer = Completer<void>();
+    _waiters.add(completer);
+    return completer.future;
+  }
+
+  void release() {
+    if (_waiters.isNotEmpty) {
+      _waiters.removeFirst().complete();
+      return;
+    }
+    if (_available < maxPermits) {
+      _available += 1;
+    }
+  }
+
+  Future<T> withPermit<T>(Future<T> Function() action) async {
+    await acquire();
+    try {
+      return await action();
+    } finally {
+      release();
+    }
+  }
+}
 
 Future<bool> isCancelSignalCompleted(Future<void>? cancelSignal) {
   if (cancelSignal == null) return Future<bool>.value(false);
@@ -47,14 +103,20 @@ Future<T?> awaitWithCancelSignal<T>(
 
 int _boundedConcurrency({required int itemCount, required int maxConcurrency}) {
   if (itemCount <= 0) return 0;
-  final requestedLimit = maxConcurrency < 1 ? 1 : maxConcurrency;
-  final safeLimit = requestedLimit > kOpenHandMaxAsyncConcurrency
-      ? kOpenHandMaxAsyncConcurrency
-      : requestedLimit;
+  final safeLimit = _normalizeAsyncConcurrencyLimit(maxConcurrency);
   return safeLimit < itemCount ? safeLimit : itemCount;
 }
 
 int _safeAsyncItemCount(int itemCount) => itemCount < 0 ? 0 : itemCount;
+
+int _normalizeAsyncConcurrencyLimit(
+  int value, {
+  int maxAllowedPermits = kOpenHandMaxAsyncConcurrency,
+}) {
+  final upper = maxAllowedPermits < 1 ? 1 : maxAllowedPermits;
+  if (value < 1) return 1;
+  return value > upper ? upper : value;
+}
 
 /// Runs indexed async work with a bounded worker pool and preserves result order.
 ///

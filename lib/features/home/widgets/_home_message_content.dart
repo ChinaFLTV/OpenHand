@@ -4514,10 +4514,6 @@ class _HtmlWebViewFrameScheduler {
 
 final HtmlWebViewMountLimiter _htmlWebViewMountLimiter =
     HtmlWebViewMountLimiter(
-      // Keep explicit so prelude tuning stays the single source of truth even
-      // when it matches HtmlWebViewMountLimiter.defaultMaxMounted.
-      // ignore: avoid_redundant_argument_values
-      maxMounted: _htmlWebViewMaxMountedCount,
       scheduleGranted: (task) {
         WidgetsBinding.instance.addPostFrameCallback((_) => task());
         WidgetsBinding.instance.ensureVisualUpdate();

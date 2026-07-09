@@ -952,32 +952,56 @@ Future<void> showOpenHandLoadingDialog({
   bool barrierDismissible = false,
   bool dismissOnEscape = false,
 }) {
-  final body =
-      content ??
-      SizedBox(
-        height: 56,
-        child: Center(
-          child: message == null
-              ? const CircularProgressIndicator()
-              : Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const SizedBox(
-                      width: 24,
-                      height: 24,
-                      child: CircularProgressIndicator(strokeWidth: 2.5),
-                    ),
-                    const SizedBox(width: 16),
-                    Flexible(child: Text(message)),
-                  ],
-                ),
-        ),
-      );
   return showAnimatedDialog<void>(
     context: context,
     barrierDismissible: barrierDismissible,
     dismissOnEscape: dismissOnEscape,
-    builder: (_) => buildOpenHandAlertDialog(content: body),
+    builder: (_) =>
+        buildOpenHandLoadingDialog(message: message, content: content),
+  );
+}
+
+OpenHandDialogSession showOpenHandTrackedLoadingDialog({
+  required BuildContext context,
+  String? message,
+  Widget? content,
+  bool barrierDismissible = false,
+  bool dismissOnEscape = false,
+}) {
+  return showTrackedAnimatedDialog(
+    context: context,
+    barrierDismissible: barrierDismissible,
+    dismissOnEscape: dismissOnEscape,
+    builder: (_) =>
+        buildOpenHandLoadingDialog(message: message, content: content),
+  );
+}
+
+AlertDialog buildOpenHandLoadingDialog({String? message, Widget? content}) {
+  return buildOpenHandAlertDialog(
+    content: content ?? buildOpenHandLoadingDialogContent(message: message),
+  );
+}
+
+Widget buildOpenHandLoadingDialogContent({String? message}) {
+  return SizedBox(
+    height: 56,
+    child: Center(
+      child: message == null
+          ? const CircularProgressIndicator()
+          : Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(strokeWidth: 2.5),
+                ),
+                const SizedBox(width: 16),
+                Flexible(child: Text(message)),
+              ],
+            ),
+    ),
   );
 }
 
