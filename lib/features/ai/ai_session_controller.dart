@@ -370,6 +370,12 @@ class AiSessionController extends ChangeNotifier {
   static const int _initialMessageHydrationWindowSize = 8;
   static const int _initialMessageHydrationCharacterBudget = 14000;
   static const int _olderMessageHydrationBatchSize = 12;
+  // Cache-hit trend repair may load the full historical transcript. Defer it
+  // for partial sessions so selecting a long thread paints the tail window
+  // before any best-effort statistics work competes for the UI isolate.
+  static const Duration _cacheStatisticsHydrationOpenDelay = Duration(
+    milliseconds: 1800,
+  );
 
   static Duration _mediaGenerationTimeoutFor(AiCreationRequest request) {
     switch (request.mode) {
@@ -1600,7 +1606,7 @@ class AiSessionController extends ChangeNotifier {
 
   void _scheduleSessionCacheStatisticsHydration(String sessionId) {
     unawaited(
-      ensureSessionCacheStatisticsHydrated(sessionId).catchError((
+      _deferredSessionCacheStatisticsHydration(sessionId).catchError((
         Object error,
         StackTrace stack,
       ) {
@@ -1613,6 +1619,20 @@ class AiSessionController extends ChangeNotifier {
         return null;
       }),
     );
+  }
+
+  Future<AiSession?> _deferredSessionCacheStatisticsHydration(
+    String sessionId,
+  ) async {
+    final initial = _sessionById(sessionId);
+    final deferForOpenFrame = initial != null && initial.hasPartialMessages;
+    if (deferForOpenFrame) {
+      await Future<void>.delayed(_cacheStatisticsHydrationOpenDelay);
+      if (_isDisposed || _currentSessionId != sessionId) {
+        return _sessionById(sessionId);
+      }
+    }
+    return ensureSessionCacheStatisticsHydrated(sessionId);
   }
 
   Future<AiSession?> ensureSessionMessageWindowHydrated(String sessionId) {

@@ -269,6 +269,7 @@ class WebMessagePlatformService {
   static const int _sseMessageWindowSize = 20;
   static const int _sessionSummaryMessageWindowSize = 6;
   static const int _inMemoryMessageWindowDirectLimit = 240;
+  static const int _sessionSummaryModelKeyScanLimit = 32;
   static const int _storedMessageWindowScanMultiplier = 1;
   static const int _storedMessageWindowScanContext = 8;
   static const int _storedMessageWindowExpandedScanMultiplier = 2;
@@ -3297,6 +3298,7 @@ class WebMessagePlatformService {
         session,
         messageCountOverride: window.total,
         lastMessageOverride: lastMessage,
+        lastModelKeyCandidates: window.messages,
       ),
       'items': window.messages.map(_messageJson).toList(growable: false),
       'offset': window.offset,
@@ -4714,14 +4716,18 @@ class WebMessagePlatformService {
     var snapshotQueued = false;
 
     Future<Map<String, Object?>> buildSnapshot(AiSession live) async {
-      final liveMessages = live.displayMessages;
       final _WebSessionMessageWindow messageWindow;
+      final liveMessageCount = live.messages.length;
+      final liveKnownTotal = math.max(
+        live.messageTotalCount,
+        live.statistics.totalMessageCount,
+      );
       final liveLooksComplete =
-          liveMessages.isNotEmpty &&
-          live.messages.length >= live.statistics.totalMessageCount;
-      if (liveLooksComplete) {
+          liveMessageCount > 0 && liveMessageCount >= liveKnownTotal;
+      if (liveLooksComplete &&
+          liveMessageCount <= _inMemoryMessageWindowDirectLimit) {
         messageWindow = _messageWindowFromDisplayMessages(
-          liveMessages,
+          live.displayMessages,
           limit: _sseMessageWindowSize,
           tail: true,
         );
@@ -4751,6 +4757,7 @@ class WebMessagePlatformService {
           live,
           messageCountOverride: messageWindow.total,
           lastMessageOverride: lastMessage,
+          lastModelKeyCandidates: messageWindow.messages,
         ),
         'messages': messageWindow.messages
             .map(_messageJson)
@@ -6044,14 +6051,30 @@ class WebMessagePlatformService {
         .firstOrNull;
   }
 
-  String? _lastModelKeyForSession(AiSession session) {
-    for (final message in session.displayMessages.reversed) {
-      final direct = _allowedModelKeyFromValue(message.metadata['model_key']);
-      if (direct != null) return direct;
-      final context = _webContext(message.metadata);
-      final nested = _allowedModelKeyFromValue(context['model_key']);
-      if (nested != null) return nested;
+  String? _lastModelKeyForSession(
+    AiSession session, {
+    List<AiSessionMessage>? candidateMessages,
+  }) {
+    final fromCandidates =
+        candidateMessages == null || candidateMessages.isEmpty
+        ? null
+        : _lastModelKeyFromMessages(candidateMessages);
+    if (fromCandidates != null) return fromCandidates;
+
+    if (session.messages.length <= _inMemoryMessageWindowDirectLimit) {
+      final fromDisplay = _lastModelKeyFromMessages(session.displayMessages);
+      if (fromDisplay != null) return fromDisplay;
+    } else if (session.messages.isNotEmpty) {
+      final start = math.max(
+        0,
+        session.messages.length - _sessionSummaryModelKeyScanLimit,
+      );
+      final fromTail = _lastModelKeyFromMessages(
+        session.messages.sublist(start),
+      );
+      if (fromTail != null) return fromTail;
     }
+
     final context = _webContext(session.metadata);
     final requested = _allowedModelKeyFromValue(context['requested_model_key']);
     if (requested != null) return requested;
@@ -6069,9 +6092,22 @@ class WebMessagePlatformService {
     return null;
   }
 
+  String? _lastModelKeyFromMessages(List<AiSessionMessage> messages) {
+    for (var index = messages.length - 1; index >= 0; index -= 1) {
+      final message = messages[index];
+      if (message.isDeleted) continue;
+      final direct = _allowedModelKeyFromValue(message.metadata['model_key']);
+      if (direct != null) return direct;
+      final context = _webContext(message.metadata);
+      final nested = _allowedModelKeyFromValue(context['model_key']);
+      if (nested != null) return nested;
+    }
+    return null;
+  }
+
   /// 2026-06-08 — 每次序列化会话时，只要累积 cache 数据明确有值，就用
-  /// SessionCacheHitTrend 的当前过滤规则刷新展示口径；优先复用已持久化趋势点，
-  /// 缺失时才回扫消息，保证 `getSession` / SSE 快照始终携带正确命中率。
+  /// SessionCacheHitTrend 的当前过滤规则刷新展示口径；优先复用已持久化趋势点。
+  /// 长/部分水合会话只用聚合 token 给出轻量比例，避免摘要/SSE 回扫全量消息。
   Map<String, Object?> _ensureCacheHitStats(AiSession session) {
     final stats = Map<String, Object?>.from(session.statistics.toJson());
     final cacheRead = (stats['cache_read_tokens'] is int)
@@ -6084,6 +6120,14 @@ class WebMessagePlatformService {
     final trendSchemaCurrent = _cacheHitTrendUsesRoundStarterSchema(
       stats['cache_hit_trend_points'],
     );
+    if (!trendSchemaCurrent &&
+        (session.hasPartialMessages ||
+            session.messages.length > _inMemoryMessageWindowDirectLimit)) {
+      stats['cache_hit_ratio'] = cacheRead / prompt;
+      stats['cache_hit_trend_points'] = const <Object?>[];
+      stats['cache_hit_trend_excluded_count'] = 0;
+      return stats;
+    }
     final protocol = _lastModelProtocolForSession(session);
     final claudeStyle =
         protocol != null && protocol.trim().toLowerCase() == 'claude';
@@ -6147,6 +6191,29 @@ class WebMessagePlatformService {
           : resolvedOffset + messages.length < total,
       hasOlder: resolvedOffset > 0,
       hasNewer: resolvedOffset + messages.length < total,
+      window: tail ? 'tail' : 'offset',
+    );
+  }
+
+  _WebSessionMessageWindow _emptyMessageWindow({
+    required int total,
+    required int limit,
+    int offset = 0,
+    bool tail = false,
+  }) {
+    final safeLimit = math.min(_maxMessageWindowLimit, math.max(1, limit));
+    final safeTotal = math.max(0, total);
+    final resolvedOffset = tail
+        ? math.max(0, safeTotal - safeLimit)
+        : math.min(math.max(0, offset), safeTotal);
+    return (
+      messages: const <AiSessionMessage>[],
+      offset: resolvedOffset,
+      limit: safeLimit,
+      total: safeTotal,
+      hasMore: tail ? resolvedOffset > 0 : resolvedOffset < safeTotal,
+      hasOlder: resolvedOffset > 0,
+      hasNewer: tail ? false : resolvedOffset < safeTotal,
       window: tail ? 'tail' : 'offset',
     );
   }
@@ -6267,8 +6334,23 @@ class WebMessagePlatformService {
       return window;
     } catch (error, stack) {
       silentLog('WebGateway', 'load stored message window', error, stack);
-      return _messageWindowFromDisplayMessages(
-        session.displayMessages,
+      final cheapDisplayMessages = _displayMessagesIfCheap(session);
+      if (cheapDisplayMessages.isNotEmpty) {
+        return _messageWindowFromDisplayMessages(
+          cheapDisplayMessages,
+          limit: safeLimit,
+          offset: offset,
+          tail: tail,
+        );
+      }
+      return _emptyMessageWindow(
+        total: math.max(
+          session.messageTotalCount,
+          math.max(
+            session.statistics.totalMessageCount,
+            session.messages.length,
+          ),
+        ),
         limit: safeLimit,
         offset: offset,
         tail: tail,
@@ -6419,6 +6501,9 @@ class WebMessagePlatformService {
       includeDetails: includeDetails,
       messageCountOverride: math.max(window.total, liveDisplayMessages.length),
       lastMessageOverride: lastMessage,
+      lastModelKeyCandidates: window.messages.isNotEmpty
+          ? window.messages
+          : liveDisplayMessages,
     );
   }
 
@@ -6443,6 +6528,7 @@ class WebMessagePlatformService {
       lastMessageOverride: liveDisplayMessages.isEmpty
           ? null
           : liveDisplayMessages.last,
+      lastModelKeyCandidates: liveDisplayMessages,
     );
   }
 
@@ -6459,6 +6545,7 @@ class WebMessagePlatformService {
     bool includeDetails = false,
     int? messageCountOverride,
     AiSessionMessage? lastMessageOverride,
+    List<AiSessionMessage>? lastModelKeyCandidates,
   }) {
     final context = _webContext(session.metadata);
     final canDeriveDisplayMessages =
@@ -6477,7 +6564,13 @@ class WebMessagePlatformService {
         (needsDisplayMessages
             ? displayMessages.length
             : session.statistics.totalMessageCount);
-    final lastModelKey = _lastModelKeyForSession(session);
+    final lastModelKey = _lastModelKeyForSession(
+      session,
+      candidateMessages: lastModelKeyCandidates,
+    );
+    final latestCompressionPointForDetails = includeDetails
+        ? _latestCompressionPointIfCheap(session)
+        : null;
     final summary = <String, Object?>{
       'id': session.id,
       'title': session.title,
@@ -6545,11 +6638,19 @@ class WebMessagePlatformService {
           .where((error) => error.stage != 'title_generation')
           .map((item) => item.toJson())
           .toList(growable: false),
-      'latest_compression_point': session.latestCompressionPoint == null
+      'latest_compression_point': latestCompressionPointForDetails == null
           ? null
-          : _messageJson(session.latestCompressionPoint!),
+          : _messageJson(latestCompressionPointForDetails),
     });
     return summary;
+  }
+
+  AiSessionMessage? _latestCompressionPointIfCheap(AiSession session) {
+    if (session.messages.isEmpty ||
+        session.messages.length > _inMemoryMessageWindowDirectLimit) {
+      return null;
+    }
+    return session.latestCompressionPoint;
   }
 
   Map<String, Object?> _messageJson(AiSessionMessage message) {
