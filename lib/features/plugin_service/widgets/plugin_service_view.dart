@@ -556,15 +556,13 @@ class _PluginCard extends StatelessWidget {
       confirmLabel: l10n.pluginServiceActionInstall,
     );
     if (!confirmed || !context.mounted) return;
-    _showOperationDialog(
+    final progress = _showOperationDialog(
       context,
       _PluginServiceAction.install.label(l10n),
       plugin.name,
     );
     final success = await controller.installPlugin(plugin.id);
-    if (!context.mounted) return;
-    await safePopOpenHandRoute(
-      context,
+    await progress.dismiss(
       logTag: 'plugin_service_view',
       logAction: 'dismiss install dialog',
     );
@@ -592,15 +590,13 @@ class _PluginCard extends StatelessWidget {
       confirmLabel: l10n.pluginServiceActionUpdate,
     );
     if (!confirmed || !context.mounted) return;
-    _showOperationDialog(
+    final progress = _showOperationDialog(
       context,
       _PluginServiceAction.update.label(l10n),
       plugin.name,
     );
     final success = await controller.updatePlugin(plugin.id);
-    if (!context.mounted) return;
-    await safePopOpenHandRoute(
-      context,
+    await progress.dismiss(
       logTag: 'plugin_service_view',
       logAction: 'dismiss update dialog',
     );
@@ -660,15 +656,13 @@ class _PluginCard extends StatelessWidget {
       destructive: true,
     );
     if (!confirmed || !context.mounted) return;
-    _showOperationDialog(
+    final progress = _showOperationDialog(
       context,
       _PluginServiceAction.uninstall.label(l10n),
       plugin.name,
     );
     final success = await controller.uninstallPlugin(plugin.id);
-    if (!context.mounted) return;
-    await safePopOpenHandRoute(
-      context,
+    await progress.dismiss(
       logTag: 'plugin_service_view',
       logAction: 'dismiss uninstall dialog',
     );
@@ -682,14 +676,17 @@ class _PluginCard extends StatelessWidget {
     );
   }
 
-  void _showOperationDialog(
+  /// Progress shell for long plugin ops: non-dismissible (tap + ESC) and
+  /// tracked so completion only removes this route, never the host page.
+  OpenHandDialogSession _showOperationDialog(
     BuildContext context,
     String action,
     String pluginName,
   ) {
-    showAnimatedDialog(
+    return showTrackedAnimatedDialog(
       context: context,
       barrierDismissible: false,
+      dismissOnEscape: false,
       builder: (ctx) => _PluginOperationProgressDialog(
         action: action,
         pluginName: pluginName,

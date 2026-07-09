@@ -539,26 +539,120 @@ Future<T?> showOpenHandFormDialog<T>({
   );
 }
 
-/// Safely dismisses the top route on [context]'s navigator.
+/// Tracks one [showAnimatedDialog] presentation so it can be dismissed later
+/// without risking a bare [Navigator.maybePop] on the host page route.
 ///
-/// Used after async work that presented a loading/progress dialog: the user
-/// may already have closed it, or the route tree may have changed. Failures
-/// are logged and swallowed so callers can continue with success/error UI.
-Future<bool> safePopOpenHandRoute(
-  BuildContext context, {
-  bool rootNavigator = true,
-  String logTag = 'dialog',
-  String logAction = 'safePop',
-}) async {
-  if (!context.mounted) return false;
-  try {
-    final navigator = Navigator.of(context, rootNavigator: rootNavigator);
-    if (!navigator.canPop()) return false;
-    return navigator.maybePop();
-  } catch (error, stack) {
-    silentLog(logTag, logAction, error, stack);
-    return false;
+/// When the dialog is already gone (ESC / barrier / external pop), [dismiss]
+/// is a no-op. Dismissal always targets the captured [Route], never the
+/// arbitrary top of the host navigator.
+class OpenHandDialogSession {
+  OpenHandDialogSession._(this._future) {
+    unawaited(
+      _future.whenComplete(() {
+        _closed = true;
+      }),
+    );
   }
+
+  final Future<void> _future;
+  Route<Object?>? _route;
+  bool _closed = false;
+
+  /// Whether the dialog future has already completed.
+  bool get isClosed => _closed;
+
+  Future<void> get future => _future;
+
+  void _attachRoute(Route<Object?> route) {
+    if (_closed) return;
+    _route = route;
+  }
+
+  /// Dismisses this session's dialog if it is still active.
+  ///
+  /// Returns `true` only when this session successfully removed its route.
+  Future<bool> dismiss({
+    String logTag = 'dialog',
+    String logAction = 'dismissTrackedDialog',
+  }) async {
+    if (_closed) return false;
+    final route = _route;
+    if (route == null) {
+      // Builder has not attached the route yet, or the route never mounted.
+      // Do not pop the host navigator blindly.
+      return false;
+    }
+    if (!route.isActive) {
+      _closed = true;
+      return false;
+    }
+    final navigator = route.navigator;
+    if (navigator == null) {
+      _closed = true;
+      return false;
+    }
+    try {
+      navigator.removeRoute(route);
+      await _future;
+      return true;
+    } catch (error, stack) {
+      silentLog(logTag, logAction, error, stack);
+      return false;
+    }
+  }
+}
+
+/// Presents an animated dialog and returns a [OpenHandDialogSession] that can
+/// dismiss only that dialog later (safe after async work).
+OpenHandDialogSession showTrackedAnimatedDialog({
+  required BuildContext context,
+  required WidgetBuilder builder,
+  DialogAnimationSettings? settings,
+  OpenHandAnimationTransitionProfile transitionProfile =
+      const OpenHandAnimationTransitionProfile(),
+  bool barrierDismissible = true,
+  bool dismissOnEscape = true,
+  String? barrierLabel,
+  Color? barrierColor,
+  bool useRootNavigator = true,
+  RouteSettings? routeSettings,
+  AlignmentGeometry alignment = Alignment.center,
+}) {
+  // Holder so the route builder can attach even if it runs after this returns
+  // (normal for showGeneralDialog) or, rarely, before session assignment.
+  final sessionHolder = <OpenHandDialogSession?>[null];
+  final future = showAnimatedDialog<void>(
+    context: context,
+    settings: settings,
+    transitionProfile: transitionProfile,
+    barrierDismissible: barrierDismissible,
+    dismissOnEscape: dismissOnEscape,
+    barrierLabel: barrierLabel,
+    barrierColor: barrierColor,
+    useRootNavigator: useRootNavigator,
+    routeSettings: routeSettings,
+    alignment: alignment,
+    builder: (dialogContext) {
+      final route = ModalRoute.of(dialogContext);
+      void attach(Route<Object?> r) {
+        final session = sessionHolder[0];
+        if (session != null && !session.isClosed) {
+          session._attachRoute(r);
+        }
+      }
+
+      if (route != null) {
+        attach(route);
+        if (sessionHolder[0] == null) {
+          scheduleMicrotask(() => attach(route));
+        }
+      }
+      return builder(dialogContext);
+    },
+  );
+  final session = OpenHandDialogSession._(future);
+  sessionHolder[0] = session;
+  return session;
 }
 
 /// Shows a dialog with configurable entrance and exit animations.
