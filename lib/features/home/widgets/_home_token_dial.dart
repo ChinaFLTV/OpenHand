@@ -41,6 +41,20 @@ class _TokenDial extends StatefulWidget {
   State<_TokenDial> createState() => _TokenDialState();
 }
 
+const double _cacheWriteThemeColorBlend = 0.45;
+
+Color _cacheWriteThemeColor(ColorScheme colorScheme) {
+  return Color.lerp(
+    colorScheme.primary,
+    colorScheme.surfaceContainerHighest,
+    _cacheWriteThemeColorBlend,
+  )!;
+}
+
+int _cacheHitBarFlex(double weight) {
+  return (weight * 1000).round().clamp(1, 1000);
+}
+
 class _TokenDialState extends State<_TokenDial>
     with SingleTickerProviderStateMixin {
   final OverlayPortalController _portalController = OverlayPortalController();
@@ -202,12 +216,12 @@ class _TokenDialState extends State<_TokenDial>
             padding: const EdgeInsets.symmetric(horizontal: 10),
             decoration: BoxDecoration(
               color: hasCache
-                  ? Colors.green.withValues(alpha: 0.08)
+                  ? colorScheme.primary.withValues(alpha: 0.08)
                   : colorScheme.surfaceContainerHighest,
               borderRadius: _borderRadius999,
               border: Border.all(
                 color: hasCache
-                    ? Colors.green.withValues(alpha: 0.4)
+                    ? colorScheme.primary.withValues(alpha: 0.38)
                     : colorScheme.outlineVariant.withValues(alpha: 0.55),
               ),
             ),
@@ -219,7 +233,7 @@ class _TokenDialState extends State<_TokenDial>
                       ? Icons.bolt_rounded
                       : Icons.confirmation_number_rounded,
                   size: 14,
-                  color: hasCache ? Colors.green.shade600 : colorScheme.primary,
+                  color: colorScheme.primary,
                 ),
                 const SizedBox(width: 6),
                 if (hasCache) ...[
@@ -519,10 +533,7 @@ class _TokenDialPopupState extends State<_TokenDialPopup> {
       color: colorScheme.onSurface,
       fontFeatures: const [FontFeature.tabularFigures()],
     );
-    final cacheValueStyle = valueStyle?.copyWith(color: Colors.green.shade700);
-    final reasoningValueStyle = valueStyle?.copyWith(
-      color: Colors.purple.shade400,
-    );
+    final accentValueStyle = valueStyle?.copyWith(color: colorScheme.primary);
     final promptTokensTotal = widget.statistics.totalPromptTokens ?? 0;
     final firstPrompt = widget.statistics.firstPromptTokens ?? 0;
     final promptTokens = (promptTokensTotal - firstPrompt).clamp(
@@ -592,15 +603,13 @@ class _TokenDialPopupState extends State<_TokenDialPopup> {
             label: AppLocalizations.of(context)!.tokenPopupCacheRead,
             value: cacheRead,
             keyStyle: keyStyle,
-            valueStyle: cacheValueStyle,
-            accent: Colors.green,
+            valueStyle: accentValueStyle,
           ),
           _PopupRow(
             label: AppLocalizations.of(context)!.tokenPopupCacheWrite,
             value: cacheWrite,
             keyStyle: keyStyle,
-            valueStyle: cacheValueStyle,
-            accent: Colors.green,
+            valueStyle: accentValueStyle,
           ),
         ],
         const SizedBox(height: 10),
@@ -620,8 +629,7 @@ class _TokenDialPopupState extends State<_TokenDialPopup> {
             label: AppLocalizations.of(context)!.tokenPopupReasoning,
             value: reasoning,
             keyStyle: keyStyle,
-            valueStyle: reasoningValueStyle,
-            accent: Colors.purple,
+            valueStyle: valueStyle,
           ),
         Container(
           margin: const EdgeInsets.symmetric(vertical: 10),
@@ -644,8 +652,7 @@ class _TokenDialPopupState extends State<_TokenDialPopup> {
             value: (cacheHitRatio * 100).round(),
             suffix: '%',
             keyStyle: keyStyle,
-            valueStyle: cacheValueStyle,
-            accent: Colors.green,
+            valueStyle: accentValueStyle,
           ),
           const SizedBox(height: 6),
           _CacheHitBar(
@@ -725,7 +732,7 @@ class _TokenDialPopupState extends State<_TokenDialPopup> {
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.10),
+              color: colorScheme.shadow.withValues(alpha: 0.10),
               blurRadius: 18,
               offset: const Offset(0, 6),
             ),
@@ -780,7 +787,6 @@ class _TokenDialPopupState extends State<_TokenDialPopup> {
     );
     if (breakdown == null || breakdown.isEmpty) return const <Widget>[];
 
-    final amberStyle = valueStyle?.copyWith(color: Colors.amber.shade700);
     final l10n = AppLocalizations.of(context)!;
 
     return <Widget>[
@@ -810,14 +816,14 @@ class _TokenDialPopupState extends State<_TokenDialPopup> {
           label: l10n.tokenPopupCostCacheRead,
           usd: breakdown.cacheReadUsd!,
           keyStyle: keyStyle,
-          valueStyle: amberStyle,
+          valueStyle: valueStyle,
         ),
       if (breakdown.cacheWriteUsd != null)
         _CostPopupRow(
           label: l10n.tokenPopupCostCacheWrite,
           usd: breakdown.cacheWriteUsd!,
           keyStyle: keyStyle,
-          valueStyle: amberStyle,
+          valueStyle: valueStyle,
         ),
       if (breakdown.totalUsd != null) ...[
         const SizedBox(height: 4),
@@ -910,8 +916,8 @@ class _CostPopupRowState extends State<_CostPopupRow> {
   }
 }
 
-/// TopBar Token 胶囊里的常驻「缓存收益」徽标：闪电图标 + 百分比 + 流体进度条。
-/// 比例越高背景越绿、越饱和，给用户一眼可读的「省了多少」反馈。
+/// TopBar Token 胶囊里的常驻「缓存收益」徽标：闪电图标 + 百分比。
+/// 跟随当前主题主色，避免在不同主题下出现割裂的固定绿色。
 class _CacheSavingsBadge extends StatelessWidget {
   const _CacheSavingsBadge({required this.percent});
 
@@ -921,15 +927,12 @@ class _CacheSavingsBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    // 0 命中时弱化显示；命中越高饱和度越强。
+    final colorScheme = theme.colorScheme;
+    // 0 命中时弱化显示；命中越高强调越强。
     final clamped = finiteUnitInterval(percent);
     final intensity = (0.5 + clamped * 0.5).clamp(0.5, 1.0);
-    final fg = Color.lerp(
-      Colors.green.shade400,
-      Colors.green.shade700,
-      clamped,
-    )!;
-    final bg = Colors.green.withValues(alpha: 0.12 + clamped * 0.18);
+    final fg = colorScheme.primary;
+    final bg = colorScheme.primary.withValues(alpha: 0.08 + clamped * 0.12);
     final percentInt = (clamped * 100).round();
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -962,9 +965,8 @@ class _CacheSavingsBadge extends StatelessWidget {
   }
 }
 
-/// 缓存命中比例可视化条：左侧绿色 = cache_read（命中），中间金色 =
-/// cache_creation（写入），右侧灰色 = 未缓存的 prompt。Hover 时整体亮度提升，
-/// 让用户一眼看出当前 session 的缓存收益。
+/// 缓存命中比例可视化条：左侧主色 = cache_read（命中），中间浅主色 =
+/// cache_creation（写入），右侧中性底色 = 未缓存的 prompt。
 class _CacheHitBar extends StatefulWidget {
   const _CacheHitBar({
     required this.ratio,
@@ -995,8 +997,8 @@ class _CacheHitBarState extends State<_CacheHitBar> {
     final writeWeight = unitRatio(widget.cacheWrite, total);
     final promptWeight = unitRatio(widget.prompt, total);
     final intensify = _hovered ? 1.10 : 1.0;
-    final readColor = Colors.green.shade500;
-    final writeColor = Colors.amber.shade600;
+    final readColor = colorScheme.primary;
+    final writeColor = _cacheWriteThemeColor(colorScheme);
     final missColor = colorScheme.surfaceContainerHighest;
     return MouseRegion(
       onEnter: (_) {
@@ -1034,7 +1036,7 @@ class _CacheHitBarState extends State<_CacheHitBar> {
           children: [
             if (readWeight > 0)
               Expanded(
-                flex: (readWeight * 1000).round(),
+                flex: _cacheHitBarFlex(readWeight),
                 child: Container(
                   color: readColor.withValues(
                     alpha: clampUnitInterval(0.85 * intensify),
@@ -1043,7 +1045,7 @@ class _CacheHitBarState extends State<_CacheHitBar> {
               ),
             if (writeWeight > 0)
               Expanded(
-                flex: (writeWeight * 1000).round(),
+                flex: _cacheHitBarFlex(writeWeight),
                 child: Container(
                   color: writeColor.withValues(
                     alpha: clampUnitInterval(0.78 * intensify),
@@ -1052,7 +1054,7 @@ class _CacheHitBarState extends State<_CacheHitBar> {
               ),
             if (promptWeight > 0)
               Expanded(
-                flex: (promptWeight * 1000).round(),
+                flex: _cacheHitBarFlex(promptWeight),
                 child: const SizedBox.shrink(),
               ),
           ],
@@ -1069,7 +1071,6 @@ class _PopupRow extends StatefulWidget {
     this.suffix,
     this.keyStyle,
     this.valueStyle,
-    this.accent,
   });
 
   final String label;
@@ -1077,9 +1078,6 @@ class _PopupRow extends StatefulWidget {
   final String? suffix;
   final TextStyle? keyStyle;
   final TextStyle? valueStyle;
-
-  /// Tinted hover highlight (defaults to theme primary when null).
-  final Color? accent;
 
   @override
   State<_PopupRow> createState() => _PopupRowState();
@@ -1090,7 +1088,7 @@ class _PopupRowState extends State<_PopupRow> {
 
   @override
   Widget build(BuildContext context) {
-    final accent = widget.accent ?? Theme.of(context).colorScheme.primary;
+    final accent = Theme.of(context).colorScheme.primary;
     final highlight = _hovered
         ? accent.withValues(alpha: 0.10)
         : Colors.transparent;
@@ -1180,6 +1178,8 @@ class _CompactCacheHitSparkline extends StatelessWidget {
     final writeFrac = total == 0 ? 0.0 : cacheWrite / total;
     final promptFrac = total == 0 ? 1.0 : promptTokens / total;
     final uncachedLabel = l10n.tokenPopupUncached;
+    final readColor = colorScheme.primary;
+    final writeColor = _cacheWriteThemeColor(colorScheme);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -1190,7 +1190,7 @@ class _CompactCacheHitSparkline extends StatelessWidget {
               width: 7,
               height: 7,
               decoration: BoxDecoration(
-                color: Colors.green.shade500,
+                color: readColor,
                 shape: BoxShape.circle,
               ),
             ),
@@ -1198,7 +1198,7 @@ class _CompactCacheHitSparkline extends StatelessWidget {
             Text(
               '${l10n.tokenPopupCacheHit} $hitPercent%',
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: Colors.green.shade700,
+                color: colorScheme.primary,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -1214,12 +1214,12 @@ class _CompactCacheHitSparkline extends StatelessWidget {
                 if (readFrac > 0)
                   Flexible(
                     flex: (readFrac * 1000).round().clamp(1, 1000),
-                    child: Container(color: Colors.green.shade400),
+                    child: Container(color: readColor.withValues(alpha: 0.72)),
                   ),
                 if (writeFrac > 0)
                   Flexible(
                     flex: (writeFrac * 1000).round().clamp(1, 1000),
-                    child: Container(color: Colors.amber.shade400),
+                    child: Container(color: writeColor.withValues(alpha: 0.72)),
                   ),
                 if (promptFrac > 0)
                   Flexible(
@@ -1238,11 +1238,11 @@ class _CompactCacheHitSparkline extends StatelessWidget {
           runSpacing: 4,
           children: [
             _LegendDot(
-              color: Colors.green.shade400,
+              color: readColor.withValues(alpha: 0.72),
               label: '${l10n.tokenPopupCacheRead} ${_k(cacheRead)}',
             ),
             _LegendDot(
-              color: Colors.amber.shade400,
+              color: writeColor.withValues(alpha: 0.72),
               label: '${l10n.tokenPopupCacheWrite} ${_k(cacheWrite)}',
             ),
             _LegendDot(

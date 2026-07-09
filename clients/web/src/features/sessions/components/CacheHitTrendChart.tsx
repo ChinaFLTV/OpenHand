@@ -25,7 +25,7 @@ const PAD_RIGHT = 8;
 const PAD_TOP = 8;
 const PAD_BOTTOM = 22;
 const MIN_VISIBLE_POINTS = 6;
-const CACHE_LINE_COLOR = '#2E7D32';
+const CACHE_LINE_COLOR = 'var(--m3-primary)';
 const CACHE_TREND_ENTRANCE_DURATION_MS = 560;
 const CACHE_TREND_HOVER_IN_DURATION_MS = 240;
 const CACHE_TREND_HOVER_OUT_DURATION_MS = 200;
@@ -843,14 +843,11 @@ export default function CacheHitTrendChart({
                 PAD_LEFT,
                 Math.max(PAD_LEFT, PAD_LEFT + chartW - tooltipW),
               );
-              const tipColor =
-                point.firstRequest
-                  ? 'var(--m3-on-surface-variant)'
-                  : ratio >= 0.95
-                    ? CACHE_LINE_COLOR
-                    : ratio >= 0.5
-                      ? 'var(--m3-primary)'
-                      : 'var(--m3-on-surface)';
+              const tipColor = point.firstRequest
+                ? 'var(--m3-on-surface-variant)'
+                : ratio >= 0.5
+                  ? CACHE_LINE_COLOR
+                  : 'var(--m3-on-surface)';
               const scale = hoverAnim;
               return (
                 <>
@@ -897,7 +894,7 @@ export default function CacheHitTrendChart({
                       background: 'var(--m3-surface-container-high)',
                       border: '1px solid var(--m3-outline-variant)',
                       borderRadius: 8,
-                      boxShadow: '0 2px 10px rgba(0,0,0,0.18)',
+                      boxShadow: 'var(--m3-elev-2)',
                       pointerEvents: 'none',
                       transform: `scale(${scale})`,
                       transformOrigin: showAbove

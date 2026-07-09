@@ -671,7 +671,7 @@ class _TokenPopupCacheHitTrendChartState
                                 child: Text(
                                   l10n.sessMetaCacheHitAvg,
                                   style: valueStyle?.copyWith(
-                                    color: Colors.green.shade700,
+                                    color: colorScheme.primary,
                                     fontWeight: FontWeight.w700,
                                   ),
                                 ),
@@ -893,9 +893,7 @@ class _TokenPopupCacheHitTrendChartState
                       Text(
                         percentText,
                         style: theme.textTheme.labelMedium?.copyWith(
-                          color: ratio >= 0.95
-                              ? Colors.green.shade700
-                              : ratio >= 0.5
+                          color: ratio >= 0.5
                               ? colorScheme.primary
                               : colorScheme.onSurface,
                           fontWeight: FontWeight.w800,
@@ -950,7 +948,7 @@ class _TokenPopupCacheHitTrendStaticPainter extends CustomPainter {
       ..color = colorScheme.outlineVariant.withValues(alpha: 0.35)
       ..strokeWidth = 1;
     final dashedPaint = Paint()
-      ..color = Colors.green.shade600.withValues(alpha: 0.75)
+      ..color = colorScheme.primary.withValues(alpha: 0.62)
       ..strokeWidth = 1.1
       ..style = PaintingStyle.stroke;
 

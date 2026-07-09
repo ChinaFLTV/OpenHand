@@ -477,9 +477,8 @@ function ToolbarCapsule({ capsule }: { capsule: SessionToolbarCapsule }) {
   );
 }
 
-/// 胶囊右侧的常驻徽标。tone=success 时绿色发光，warning 时琥珀色，
-/// primary 时跟随主题主色，neutral 时低对比度。专用于 token 胶囊上的
-/// 「缓存收益 %」、未来也可承载其它即时统计指标。
+// 胶囊右侧的常驻徽标。success/primary 跟随主题主色，warning 使用全局警示色，
+// neutral 低对比度。专用于 token 胶囊上的「缓存收益 %」，未来也可承载其它即时统计指标。
 function CapsuleBadge({
   badge,
 }: {

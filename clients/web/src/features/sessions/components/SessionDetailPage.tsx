@@ -6526,7 +6526,7 @@ export function SessionDetailPage() {
         ? {
             text: `${cacheSavingsPercent}%`,
             title: `${t('topbar.tokens.cacheSavings', '缓存命中率')} · ${sessCacheRead.toLocaleString()} / ${cacheSavingsBase.toLocaleString()}`,
-            tone: 'success' as const,
+            tone: 'primary' as const,
           }
         : undefined;
     const capsules: SessionToolbarCapsule[] = [];
@@ -8335,12 +8335,12 @@ function SessionTokenStatsContent({
     <>
       <TokenStatsSection title={t('tokenPopup.input', '输入')}>
         <TokenStatsRow label={t('tokenPopup.prompt', '提示词')} value={promptTokens} />
-        <TokenStatsRow label={t('tokenPopup.cacheRead', '缓存命中')} value={cacheReadTokens} tone="success" />
-        <TokenStatsRow label={t('tokenPopup.cacheWrite', '缓存写入')} value={cacheWriteTokens} tone="success" />
+        <TokenStatsRow label={t('tokenPopup.cacheRead', '缓存命中')} value={cacheReadTokens} tone="accent" />
+        <TokenStatsRow label={t('tokenPopup.cacheWrite', '缓存写入')} value={cacheWriteTokens} tone="accent" />
       </TokenStatsSection>
       <TokenStatsSection title={t('tokenPopup.output', '输出')}>
         <TokenStatsRow label={t('tokenPopup.completion', '回复')} value={completionTokens} />
-        {reasoningTokens > 0 ? <TokenStatsRow label={t('tokenPopup.reasoning', '推理')} value={reasoningTokens} tone="reasoning" /> : null}
+        {reasoningTokens > 0 ? <TokenStatsRow label={t('tokenPopup.reasoning', '推理')} value={reasoningTokens} /> : null}
       </TokenStatsSection>
       <div
         class="rounded-m3-md px-3 py-2.5"
@@ -8353,7 +8353,7 @@ function SessionTokenStatsContent({
         <TokenStatsRow label={t('tokenPopup.total', '总计')} value={totalTokens} emphasized />
         {cacheHit.hasCacheHitMetrics ? (
           <>
-            <TokenStatsRow label={t('tokenPopup.cacheHit', '缓存命中率')} value={activeCacheHitRatio} suffix="%" tone="success" />
+            <TokenStatsRow label={t('tokenPopup.cacheHit', '缓存命中率')} value={activeCacheHitRatio} suffix="%" tone="accent" />
             <CacheHitBar readWeight={activeReadWeight} writeWeight={activeWriteWeight} missWeight={activeMissWeight} />
             {trendData && trendData.points.length > 0 ? (
               <div style={{ marginTop: '8px' }}>
@@ -8747,9 +8747,9 @@ function TokenStatsSection({ title, children }: { title: string; children: Compo
   );
 }
 
-/// Three-segment cache hit visualisation: green = cache_read, amber =
-/// cache_creation (write), neutral = remaining un-cached prompt. Mirrors
-/// the App-side _CacheHitBar so users get the same shape across platforms.
+// Three-segment cache hit visualisation: primary = cache_read, soft primary =
+// cache_creation (write), neutral = remaining un-cached prompt. Mirrors
+// the App-side _CacheHitBar so users get the same shape across platforms.
 function CacheHitBar({ readWeight, writeWeight, missWeight }: { readWeight: number; writeWeight: number; missWeight: number }) {
   const safe = (n: number) => (Number.isFinite(n) && n > 0 ? n : 0);
   const r = safe(readWeight);
@@ -8764,7 +8764,7 @@ function CacheHitBar({ readWeight, writeWeight, missWeight }: { readWeight: numb
           <div
             style={{
               width: `${(r / sum) * 100}%`,
-              background: 'color-mix(in srgb, var(--m3-primary) 70%, transparent)',
+              background: 'color-mix(in srgb, var(--m3-primary) 72%, transparent)',
               transition: 'width 220ms ease-out',
             }}
           />
@@ -8773,7 +8773,7 @@ function CacheHitBar({ readWeight, writeWeight, missWeight }: { readWeight: numb
           <div
             style={{
               width: `${(w / sum) * 100}%`,
-              background: 'color-mix(in srgb, var(--oh-full-access) 80%, transparent)',
+              background: 'color-mix(in srgb, var(--m3-primary) 34%, var(--m3-surface-container-highest))',
               transition: 'width 220ms ease-out',
             }}
           />
@@ -8792,8 +8792,8 @@ function CacheHitBar({ readWeight, writeWeight, missWeight }: { readWeight: numb
   );
 }
 
-function TokenStatsRow({ label, value, suffix = '', tone = 'neutral', emphasized = false }: { label: string; value: number; suffix?: string; tone?: 'neutral' | 'success' | 'reasoning'; emphasized?: boolean }) {
-  const color = tone === 'success' ? 'var(--m3-secondary)' : tone === 'reasoning' ? 'var(--m3-tertiary)' : 'var(--m3-on-surface)';
+function TokenStatsRow({ label, value, suffix = '', tone = 'neutral', emphasized = false }: { label: string; value: number; suffix?: string; tone?: 'neutral' | 'accent'; emphasized?: boolean }) {
+  const color = tone === 'accent' || emphasized ? 'var(--m3-primary)' : 'var(--m3-on-surface)';
   return (
     <div class="flex items-center justify-between gap-3 text-sm">
       <span style={{ color: 'var(--m3-on-surface-variant)' }}>{label}</span>
