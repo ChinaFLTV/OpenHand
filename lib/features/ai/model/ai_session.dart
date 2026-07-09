@@ -20,6 +20,70 @@ int _resolveMessageTotalCount(
   return _max3(explicitCount ?? 0, statisticsCount, loadedCount);
 }
 
+const Set<String> _standaloneToolResultSuppressedToolNames = <String>{
+  'machineterminalread',
+  'terminalread',
+  'machineterminalwrite',
+  'terminalwrite',
+  'machineterminalexec',
+  'terminalexec',
+  'terminalcommand',
+  'machineterminalcontrol',
+  'terminalcontrol',
+};
+
+String _messageMetadataText(AiSessionMessage message, String key) {
+  return '${message.metadata[key] ?? ''}'.trim();
+}
+
+bool _isTranscriptToolResultKind(AiSessionMessageKind kind) {
+  return kind == AiSessionMessageKind.tool ||
+      kind == AiSessionMessageKind.mcp ||
+      kind == AiSessionMessageKind.skill ||
+      kind == AiSessionMessageKind.hook;
+}
+
+bool _contentLooksLikeMachineTerminalOutput(String content) {
+  final text = content.trimLeft();
+  return text.startsWith('terminal_id:') &&
+      text.contains('\nstatus:') &&
+      (text.contains('\nduration_ms:') ||
+          text.contains('\nwritten_chars:') ||
+          text.contains('\noutput:'));
+}
+
+bool _metadataLooksLikeMachineTerminal(Map<String, Object?> metadata) {
+  return '${metadata['terminal_id'] ?? ''}'.trim().isNotEmpty ||
+      metadata['machine_terminal_snapshot'] != null ||
+      metadata['machine_terminal_metadata'] != null;
+}
+
+bool _isStandaloneMachineTerminalToolResult(AiSessionMessage message) {
+  if (message.kind != AiSessionMessageKind.tool) {
+    return false;
+  }
+  final toolName = _messageMetadataText(message, 'tool_name').toLowerCase();
+  if (_standaloneToolResultSuppressedToolNames.contains(toolName)) {
+    return true;
+  }
+  return _metadataLooksLikeMachineTerminal(message.metadata) &&
+      _contentLooksLikeMachineTerminalOutput(message.content);
+}
+
+bool _shouldSuppressTranscriptToolResult(
+  AiSessionMessage message,
+  Set<String> toolCallIds,
+) {
+  if (!_isTranscriptToolResultKind(message.kind)) {
+    return false;
+  }
+  final toolCallId = _messageMetadataText(message, 'tool_call_id');
+  if (toolCallId.isNotEmpty && toolCallIds.contains(toolCallId)) {
+    return true;
+  }
+  return _isStandaloneMachineTerminalToolResult(message);
+}
+
 enum AiSessionMode {
   chat('chat'),
   plan('plan'),
@@ -743,7 +807,7 @@ class AiSession {
     for (final message in messages) {
       if (!message.isTranscriptRenderable) continue;
       if (message.kind != AiSessionMessageKind.toolCall) continue;
-      final toolCallId = '${message.metadata['tool_call_id'] ?? ''}'.trim();
+      final toolCallId = _messageMetadataText(message, 'tool_call_id');
       if (toolCallId.isNotEmpty) {
         toolCallIds.add(toolCallId);
       }
@@ -754,17 +818,10 @@ class AiSession {
       if (message.metadata['plan_mode_approved'] == true) {
         continue;
       }
-      if (message.kind != AiSessionMessageKind.tool &&
-          message.kind != AiSessionMessageKind.mcp &&
-          message.kind != AiSessionMessageKind.skill &&
-          message.kind != AiSessionMessageKind.hook) {
-        displayMessages.add(message);
+      if (_shouldSuppressTranscriptToolResult(message, toolCallIds)) {
         continue;
       }
-      final toolCallId = '${message.metadata['tool_call_id'] ?? ''}'.trim();
-      if (toolCallId.isEmpty || !toolCallIds.contains(toolCallId)) {
-        displayMessages.add(message);
-      }
+      displayMessages.add(message);
     }
     return List<AiSessionMessage>.unmodifiable(displayMessages);
   }
