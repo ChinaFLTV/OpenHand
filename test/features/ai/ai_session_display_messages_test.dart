@@ -69,6 +69,27 @@ void main() {
 
       expect(session.displayMessages.single.id, 'ordinary-tool-result');
     });
+
+    test(
+      'copyWith keeps derived display cache when messages are unchanged',
+      () {
+        final messages = List<AiSessionMessage>.generate(
+          120,
+          (index) => AiSessionMessage.assistant(
+            id: 'assistant-$index',
+            content: 'message $index',
+            createdAt: _time(index),
+          ),
+          growable: false,
+        );
+        final session = _session(messages);
+        final displayMessages = session.displayMessages;
+
+        final copied = session.copyWith(updatedAt: _time(200));
+
+        expect(identical(copied.displayMessages, displayMessages), isTrue);
+      },
+    );
   });
 }
 

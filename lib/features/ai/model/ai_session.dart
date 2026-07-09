@@ -657,7 +657,7 @@ class AiSession {
     // messages 引用未变时透传派生缓存：displayMessages / visibleMessages /
     // 压缩点索引只依赖 messages，可安全复用，省掉一轮 O(N) 重扫；同时保持
     // displayMessages 的 identity 稳定，让下游 `identical` memo 继续命中。
-    if (identical(nextMessages, messages)) {
+    if (identical(nextMessages, this.messages)) {
       next._seedDerivedCachesFrom(this);
     }
     return next;

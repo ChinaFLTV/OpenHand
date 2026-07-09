@@ -20,7 +20,7 @@ import { memo } from 'preact/compat';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { fnv1aHashBase36 } from '../shared/util/hash';
+import { boundedFnv1aHashBase36, fnv1aHashBase36 } from '../shared/util/hash';
 import { normalizeMarkdownDestination } from '../shared/util/markdown';
 import { truncateEndText } from '../shared/util/text';
 import {
@@ -149,9 +149,14 @@ const HTML_COMPLEX_SOURCE_MIN_CHARS = 9 * 1024;
 const HTML_COMPLEX_TAG_COUNT = 96;
 const HTML_COMPLEX_RENDER_COST = 18;
 const HTML_COMPLEX_PREVIEW_MAX_CHARS = 1400;
+const HTML_COMPLEX_PREVIEW_SCAN_CHARS = 12 * 1024;
 
 function contentCacheKey(prefix: string, content: string): string {
   return `${prefix}:${content.length}:${fnv1aHashBase36(content)}`;
+}
+
+function profileCacheKey(prefix: string, content: string): string {
+  return `${prefix}:${content.length}:${boundedFnv1aHashBase36(content)}`;
 }
 
 function rememberLru<K, V>(cache: Map<K, V>, key: K, value: V, limit: number): void {
@@ -387,18 +392,21 @@ const HTML_ANY_TAG_RE = /<\s*\/?[a-zA-Z][a-zA-Z0-9-]*\b[^>]*>/;
 
 function hasHtmlTagStructure(value: string): boolean {
   if (!value) return false;
+  if (!value.includes('<')) return false;
   return HTML_ANY_TAG_RE.test(stripFencedCodeBlocks(value));
 }
 
 /// 剥掉内容中的围栏代码块（```...```），避免代码块内的 <br/>、<div>
 /// 等标签被误判为 HTML 导致整条 Markdown 消息进入 HtmlBody 渲染路径。
 function stripFencedCodeBlocks(value: string): string {
+  if (!value.includes('```')) return value;
   // 匹配 ```language\n...content...\n``` 形式的围栏代码块。
   return value.replace(/(^|\n)```[^\n]*\n[\s\S]*?\n```/g, '');
 }
 
 function looksLikeHtml(value: string): boolean {
   if (!value) return false;
+  if (!value.includes('<')) return false;
   return HTML_LIKELY_TAG_RE.test(stripFencedCodeBlocks(value));
 }
 
@@ -444,7 +452,10 @@ function decodeBasicHtmlEntities(value: string): string {
 }
 
 function extractHtmlPreviewText(source: string): string {
-  const preview = decodeBasicHtmlEntities(source)
+  const previewSource = source.length > HTML_COMPLEX_PREVIEW_SCAN_CHARS
+    ? source.slice(0, HTML_COMPLEX_PREVIEW_SCAN_CHARS)
+    : source;
+  const preview = decodeBasicHtmlEntities(previewSource)
     .replace(HTML_PREVIEW_DROP_RE, ' ')
     .replace(HTML_PREVIEW_BR_RE, '\n')
     .replace(HTML_PREVIEW_BLOCK_BREAK_RE, '\n')
@@ -454,7 +465,7 @@ function extractHtmlPreviewText(source: string): string {
     .replace(/[ \t]+\n/g, '\n')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
-  const text = preview || source.replace(HTML_PREVIEW_TAG_RE, ' ').replace(/\s+/g, ' ').trim();
+  const text = preview || previewSource.replace(HTML_PREVIEW_TAG_RE, ' ').replace(/\s+/g, ' ').trim();
   if (text.length <= HTML_COMPLEX_PREVIEW_MAX_CHARS) return text;
   return truncateEndText(text, HTML_COMPLEX_PREVIEW_MAX_CHARS, {
     ellipsis: '...',
@@ -463,7 +474,7 @@ function extractHtmlPreviewText(source: string): string {
 }
 
 function htmlRenderProfile(source: string): HtmlRenderProfile {
-  const key = contentCacheKey('html-profile', source);
+  const key = profileCacheKey('html-profile', source);
   const cached = htmlRenderProfileCache.get(key);
   if (cached != null) {
     rememberLru(htmlRenderProfileCache, key, cached, HTML_RENDER_PROFILE_CACHE_LIMIT);
@@ -1209,8 +1220,11 @@ export function Markdown({ source, raw = false, mono = false, format = 'markdown
   const shouldDeferParse = !streaming && !raw && format !== 'plain_text' && !stickyLooksHtml && !tooBig
     && content.length > MARKDOWN_DEFERRED_PARSE_THRESHOLD;
   const markdownReadyKey = useMemo(
-    () => contentCacheKey(`md:${format}:${htmlFallback}`, markdownContent),
-    [format, htmlFallback, markdownContent],
+    () =>
+      shouldDeferParse
+        ? contentCacheKey(`md:${format}:${htmlFallback}`, markdownContent)
+        : '',
+    [format, htmlFallback, markdownContent, shouldDeferParse],
   );
   const [parseReady, setParseReady] = useState(
     () => !shouldDeferParse || markdownParseReadyCache.has(markdownReadyKey),
@@ -1219,7 +1233,6 @@ export function Markdown({ source, raw = false, mono = false, format = 'markdown
   useEffect(() => {
     if (!shouldDeferParse) {
       if (!parseReady) setParseReady(true);
-      rememberLru(markdownParseReadyCache, markdownReadyKey, true, MARKDOWN_PARSE_READY_CACHE_LIMIT);
       lastSourceRef.current = content;
       return;
     }

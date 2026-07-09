@@ -33,6 +33,8 @@ const int _htmlProgressiveRenderCharThreshold = 14 * 1024;
 const int _htmlProgressiveRenderTagThreshold = 160;
 const int _htmlProgressiveRenderHighCostTagThreshold = 12;
 const int _htmlProgressiveRenderPreviewCharCap = 1800;
+const int _htmlProgressiveRenderPreviewScanCharCap = 12 * 1024;
+const int _htmlHealFullScanCharLimit = 48 * 1024;
 const double _htmlProgressiveRenderPreviewMaxHeight = 220;
 
 String _cssHexFromColor(Color color) {
@@ -3384,6 +3386,7 @@ final RegExp _htmlLikelyTagPattern = RegExp(
 
 bool _looksLikeHtml(String value) {
   if (value.isEmpty) return false;
+  if (!value.contains('<')) return false;
   return _htmlLikelyTagPattern.hasMatch(value);
 }
 
@@ -3418,6 +3421,7 @@ final RegExp _htmlPreviewNumericEntityPattern = RegExp(
 
 bool _hasHtmlTagStructure(String value) {
   if (value.isEmpty) return false;
+  if (!value.contains('<')) return false;
   // 至少包含 1 个完整的 HTML 标签（开/闭/自闭合均可）。
   return _htmlAnyTagPattern.hasMatch(value);
 }
@@ -3469,6 +3473,15 @@ String _healUnbalancedHtml(String value) {
   if (value.isEmpty) return value;
   final lastLt = value.lastIndexOf('<');
   final lastGt = value.lastIndexOf('>');
+  if (value.length > _htmlHealFullScanCharLimit) {
+    if (lastLt <= lastGt) return value;
+    final tail = value.substring(lastLt);
+    final partial = _htmlPartialOpenTagPattern.firstMatch(tail);
+    if (partial == null) return value;
+    final tag = partial.group(1)!.toLowerCase();
+    if (_htmlVoidTags.contains(tag)) return value;
+    return '$value</$tag>';
+  }
   final stack = <String>[];
   for (final match in _htmlTagScanPattern.allMatches(value)) {
     final isClosing = (match.group(1) ?? '').isNotEmpty;
@@ -3569,24 +3582,27 @@ _PreparedHtmlRenderData _preparedHtmlRenderDataFor(String value) {
 
   final looksLikeHtml = _looksLikeHtml(value);
   final hasTagStructure = !looksLikeHtml && _hasHtmlTagStructure(value);
-  final healedHtml = looksLikeHtml || hasTagStructure
-      ? _healUnbalancedHtml(value)
-      : value;
-  final tagCount = _countPatternMatchesUpTo(
-    _htmlTagScanPattern,
-    healedHtml,
-    _htmlProgressiveRenderTagThreshold + 1,
-  );
-  final highCostTagCount = _countPatternMatchesUpTo(
-    _htmlHighCostTagPattern,
-    healedHtml,
-    _htmlProgressiveRenderHighCostTagThreshold + 1,
-  );
+  final isHtmlCandidate = looksLikeHtml || hasTagStructure;
+  final healedHtml = isHtmlCandidate ? _healUnbalancedHtml(value) : value;
+  final tagCount = isHtmlCandidate
+      ? _countPatternMatchesUpTo(
+          _htmlTagScanPattern,
+          healedHtml,
+          _htmlProgressiveRenderTagThreshold + 1,
+        )
+      : 0;
+  final highCostTagCount = isHtmlCandidate
+      ? _countPatternMatchesUpTo(
+          _htmlHighCostTagPattern,
+          healedHtml,
+          _htmlProgressiveRenderHighCostTagThreshold + 1,
+        )
+      : 0;
   final prepared = _PreparedHtmlRenderData(
     sourceLength: sourceLength,
     sourceFingerprint: sourceFingerprint,
     healedHtml: healedHtml,
-    previewText: _htmlPlainTextPreview(healedHtml),
+    previewText: isHtmlCandidate ? _htmlPlainTextPreview(healedHtml) : '',
     looksLikeHtml: looksLikeHtml,
     hasTagStructure: hasTagStructure,
     tagCount: tagCount,
@@ -3608,7 +3624,10 @@ int _countPatternMatchesUpTo(RegExp pattern, String value, int limit) {
 
 String _htmlPlainTextPreview(String html) {
   if (html.isEmpty) return '';
-  var text = html
+  final source = html.length > _htmlProgressiveRenderPreviewScanCharCap
+      ? html.substring(0, _htmlProgressiveRenderPreviewScanCharCap)
+      : html;
+  var text = source
       .replaceAll(_htmlPreviewRawTextElementPattern, ' ')
       .replaceAll(_htmlPreviewLineBreakTagPattern, '\n')
       .replaceAll(_htmlPreviewBlockEndTagPattern, '\n')
@@ -3618,7 +3637,7 @@ String _htmlPlainTextPreview(String html) {
       .replaceAll(_htmlPreviewBlankLinesPattern, '\n\n')
       .trim();
   if (text.isEmpty) {
-    final fallback = html.trim();
+    final fallback = source.trim();
     if (fallback.length <= _htmlProgressiveRenderPreviewCharCap) {
       return fallback;
     }

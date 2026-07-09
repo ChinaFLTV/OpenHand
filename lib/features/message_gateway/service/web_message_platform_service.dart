@@ -268,6 +268,7 @@ class WebMessagePlatformService {
   static const int _maxMessageWindowLimit = 200;
   static const int _sseMessageWindowSize = 20;
   static const int _sessionSummaryMessageWindowSize = 6;
+  static const int _inMemoryMessageWindowDirectLimit = 240;
   static const int _storedMessageWindowScanMultiplier = 1;
   static const int _storedMessageWindowScanContext = 8;
   static const int _storedMessageWindowExpandedScanMultiplier = 2;
@@ -6187,7 +6188,10 @@ class WebMessagePlatformService {
     final safeLimit = math.min(_maxMessageWindowLimit, math.max(1, limit));
     try {
       final rawTotal = await _sessionController.store.countMessages(session.id);
-      if (session.messages.isNotEmpty && session.messages.length >= rawTotal) {
+      final inMemoryComplete =
+          session.messages.isNotEmpty && session.messages.length >= rawTotal;
+      if (inMemoryComplete &&
+          session.messages.length <= _inMemoryMessageWindowDirectLimit) {
         return _messageWindowFromDisplayMessages(
           session.displayMessages,
           limit: safeLimit,
@@ -6220,6 +6224,13 @@ class WebMessagePlatformService {
         required int context,
       }) async {
         final rawOffset = rawOffsetFor(scanLimit, context);
+        final liveMessages = _liveMessagesForStoredWindowMerge(
+          session: session,
+          inMemoryComplete: inMemoryComplete,
+          rawOffset: rawOffset,
+          scanLimit: scanLimit,
+          rawTotal: rawTotal,
+        );
         final page = await _sessionController.store.loadMessages(
           session.id,
           limit: scanLimit,
@@ -6228,6 +6239,7 @@ class WebMessagePlatformService {
         return _boundedStoredMessageWindow(
           session: session,
           storedMessages: page.messages,
+          liveMessages: liveMessages,
           rawOffset: rawOffset,
           rawTotal: rawTotal,
           safeLimit: safeLimit,
@@ -6270,6 +6282,7 @@ class WebMessagePlatformService {
   _WebSessionMessageWindow _boundedStoredMessageWindow({
     required AiSession session,
     required List<AiSessionMessage> storedMessages,
+    required List<AiSessionMessage> liveMessages,
     required int rawOffset,
     required int rawTotal,
     required int safeLimit,
@@ -6285,7 +6298,7 @@ class WebMessagePlatformService {
     }
     final mergedMessages = _mergeStoredAndLiveMessages(
       storedMessages,
-      session.messages,
+      liveMessages,
     );
     var syntheticRawIndex = math.max(
       rawTotal,
@@ -6348,6 +6361,49 @@ class WebMessagePlatformService {
     );
   }
 
+  List<AiSessionMessage> _liveMessagesForStoredWindowMerge({
+    required AiSession session,
+    required bool inMemoryComplete,
+    required int rawOffset,
+    required int scanLimit,
+    required int rawTotal,
+  }) {
+    final liveMessages = session.messages;
+    if (liveMessages.isEmpty) return const <AiSessionMessage>[];
+    if (!inMemoryComplete ||
+        liveMessages.length <= _inMemoryMessageWindowDirectLimit) {
+      return liveMessages;
+    }
+
+    final storedStart = math.max(0, math.min(rawOffset, liveMessages.length));
+    final storedEnd = math.max(
+      storedStart,
+      math.min(rawOffset + scanLimit, math.min(rawTotal, liveMessages.length)),
+    );
+    final unsavedStart = math.max(0, math.min(rawTotal, liveMessages.length));
+    final hasStoredOverlap = storedEnd > storedStart;
+    final hasUnsavedTail = unsavedStart < liveMessages.length;
+    final boundedUnsavedStart = hasUnsavedTail
+        ? math.max(
+            unsavedStart,
+            liveMessages.length - _inMemoryMessageWindowDirectLimit,
+          )
+        : unsavedStart;
+    if (!hasStoredOverlap && !hasUnsavedTail) {
+      return const <AiSessionMessage>[];
+    }
+    if (!hasUnsavedTail) {
+      return liveMessages.sublist(storedStart, storedEnd);
+    }
+    if (!hasStoredOverlap) {
+      return liveMessages.sublist(boundedUnsavedStart);
+    }
+    return <AiSessionMessage>[
+      ...liveMessages.sublist(storedStart, storedEnd),
+      ...liveMessages.sublist(boundedUnsavedStart),
+    ];
+  }
+
   Future<Map<String, Object?>> _sessionSummaryWithStoredMessages(
     AiSession session, {
     bool includeDetails = false,
@@ -6357,7 +6413,7 @@ class WebMessagePlatformService {
       limit: _sessionSummaryMessageWindowSize,
       tail: true,
     );
-    final liveDisplayMessages = session.displayMessages;
+    final liveDisplayMessages = _displayMessagesIfCheap(session);
     final lastMessage = liveDisplayMessages.isNotEmpty
         ? liveDisplayMessages.last
         : (window.messages.isEmpty ? null : window.messages.last);
@@ -6382,9 +6438,7 @@ class WebMessagePlatformService {
     } catch (error, stack) {
       silentLog('WebGateway', 'count stored messages', error, stack);
     }
-    final liveDisplayMessages = session.messages.isEmpty
-        ? const <AiSessionMessage>[]
-        : session.displayMessages;
+    final liveDisplayMessages = _displayMessagesIfCheap(session);
     return _sessionSummary(
       session,
       includeDetails: includeDetails,
@@ -6395,6 +6449,14 @@ class WebMessagePlatformService {
     );
   }
 
+  List<AiSessionMessage> _displayMessagesIfCheap(AiSession session) {
+    if (session.messages.isEmpty ||
+        session.messages.length > _inMemoryMessageWindowDirectLimit) {
+      return const <AiSessionMessage>[];
+    }
+    return session.displayMessages;
+  }
+
   Map<String, Object?> _sessionSummary(
     AiSession session, {
     bool includeDetails = false,
@@ -6402,14 +6464,22 @@ class WebMessagePlatformService {
     AiSessionMessage? lastMessageOverride,
   }) {
     final context = _webContext(session.metadata);
+    final canDeriveDisplayMessages =
+        session.messages.length <= _inMemoryMessageWindowDirectLimit;
     final needsDisplayMessages =
-        messageCountOverride == null || lastMessageOverride == null;
+        canDeriveDisplayMessages &&
+        (messageCountOverride == null || lastMessageOverride == null);
     final displayMessages = needsDisplayMessages
         ? session.displayMessages
         : const <AiSessionMessage>[];
     final last =
         lastMessageOverride ??
         (displayMessages.isEmpty ? null : displayMessages.last);
+    final messageCount =
+        messageCountOverride ??
+        (needsDisplayMessages
+            ? displayMessages.length
+            : session.statistics.totalMessageCount);
     final lastModelKey = _lastModelKeyForSession(session);
     final summary = <String, Object?>{
       'id': session.id,
@@ -6437,7 +6507,7 @@ class WebMessagePlatformService {
           ?.toUtc()
           .toIso8601String(),
       'last_model_key': lastModelKey,
-      'message_count': messageCountOverride ?? displayMessages.length,
+      'message_count': messageCount,
       'statistics': _ensureCacheHitStats(session),
       'total_tokens': session.statistics.totalTokens,
       'total_prompt_tokens': session.statistics.totalPromptTokens,
