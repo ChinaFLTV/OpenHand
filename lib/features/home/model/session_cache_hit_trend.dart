@@ -9,13 +9,13 @@ enum SessionCacheMissKind {
   automaticProviderMiss,
 }
 
-/// "极端值"判定：长时间空闲（≥ 30 分钟）后命中率近乎为 0（< 1%）。
-const int kExtremeIdleGapSeconds = 1800; // 30 分钟
-const double kExtremeHitRatioThreshold = 0.01; // 1%
+/// 过期异常判定：距离上一轮请求超过 30 分钟，且本轮缓存命中率不足 3%。
+const int kCacheHitExpiryIdleGapSeconds = 1800; // 30 分钟
+const double kCacheHitExpiryHitRatioThreshold = 0.03; // 3%
 const int kAutomaticProviderCacheMissMinGapSeconds = 0;
 const double kAutomaticProviderCacheMissHitRatioThreshold = 0.80;
 
-enum SessionCacheHitDisplayMode { excludeExtremeMisses, includeAll }
+enum SessionCacheHitDisplayMode { excludeExpiredMisses, includeExpiredMisses }
 
 class SessionCacheHitDisplayData {
   const SessionCacheHitDisplayData({
@@ -26,6 +26,9 @@ class SessionCacheHitDisplayData {
     required this.cacheWriteTokens,
     required this.uncachedPromptTokens,
     required this.excludedPointCount,
+    required this.excludedFirstRequestCount,
+    required this.excludedExpiredMissCount,
+    required this.averagePointCount,
   });
 
   final SessionCacheHitDisplayMode mode;
@@ -35,6 +38,9 @@ class SessionCacheHitDisplayData {
   final int cacheWriteTokens;
   final int uncachedPromptTokens;
   final int excludedPointCount;
+  final int excludedFirstRequestCount;
+  final int excludedExpiredMissCount;
+  final int averagePointCount;
 }
 
 bool shouldShowSessionCacheHitMetrics({
@@ -79,6 +85,8 @@ class SessionCacheHitTurnPoint {
   final bool ttlSuspected;
   final bool prefixDriftSuspected;
   final bool automaticProviderMissSuspected;
+
+  bool get isFirstRequest => turnIndex <= 1;
 
   SessionCacheMissKind get missKind {
     if (ttlSuspected) return SessionCacheMissKind.ttlSuspected;
@@ -185,24 +193,33 @@ class SessionCacheHitTrend {
   final bool claudeStyle;
 
   bool get hasEnoughPoints => points.length >= 2;
-  bool get hasExtremeIdleExpiryMisses => points.any(_isExtremeIdleExpiryMiss);
+  bool get hasExpiredCacheMisses => points.any(_isExpiredCacheMiss);
 
   SessionCacheHitDisplayData displayData(SessionCacheHitDisplayMode mode) {
     // A cache point is one model request + one model response. Tool-result
-    // continuations are first-class requests, so the cleaned view only removes
-    // true long-idle expiry outliers; it never collapses a user's message plus
-    // many AI/tool-detail messages into one coarse round.
-    final filteredPoints = switch (mode) {
-      SessionCacheHitDisplayMode.includeAll => points,
-      SessionCacheHitDisplayMode.excludeExtremeMisses =>
+    // continuations are first-class requests; the default view only removes the
+    // cold first request and true long-idle expiry misses.
+    final chartPoints = switch (mode) {
+      SessionCacheHitDisplayMode.includeExpiredMisses => points,
+      SessionCacheHitDisplayMode.excludeExpiredMisses =>
         points
-            .where((point) => !_isExtremeIdleExpiryMiss(point))
+            .where(
+              (point) => !point.isFirstRequest && !_isExpiredCacheMiss(point),
+            )
             .toList(growable: false),
     };
+    final averagePoints = points
+        .where(
+          (point) =>
+              !point.isFirstRequest &&
+              (mode == SessionCacheHitDisplayMode.includeExpiredMisses ||
+                  !_isExpiredCacheMiss(point)),
+        )
+        .toList(growable: false);
     var cacheReadTokens = 0;
     var cacheWriteTokens = 0;
     var uncachedPromptTokens = 0;
-    for (final point in filteredPoints) {
+    for (final point in averagePoints) {
       cacheReadTokens += point.cacheReadTokens;
       cacheWriteTokens += point.cacheWriteTokens;
       uncachedPromptTokens += computeUncachedPromptTokens(
@@ -215,10 +232,13 @@ class SessionCacheHitTrend {
     final denominator =
         cacheReadTokens + cacheWriteTokens + uncachedPromptTokens;
     final averageHitRatio = unitRatio(cacheReadTokens, denominator);
+    final visibleTurnIndexes = chartPoints
+        .map((point) => point.turnIndex)
+        .toSet();
     return SessionCacheHitDisplayData(
       mode: mode,
       trend: SessionCacheHitTrend(
-        points: List<SessionCacheHitTurnPoint>.unmodifiable(filteredPoints),
+        points: List<SessionCacheHitTurnPoint>.unmodifiable(chartPoints),
         averageHitRatio: averageHitRatio,
         claudeStyle: claudeStyle,
       ),
@@ -226,7 +246,17 @@ class SessionCacheHitTrend {
       cacheReadTokens: cacheReadTokens,
       cacheWriteTokens: cacheWriteTokens,
       uncachedPromptTokens: uncachedPromptTokens,
-      excludedPointCount: points.length - filteredPoints.length,
+      excludedPointCount: points.length - chartPoints.length,
+      excludedFirstRequestCount: points.where((point) {
+        return point.isFirstRequest &&
+            !visibleTurnIndexes.contains(point.turnIndex);
+      }).length,
+      excludedExpiredMissCount: points.where((point) {
+        return !point.isFirstRequest &&
+            _isExpiredCacheMiss(point) &&
+            !visibleTurnIndexes.contains(point.turnIndex);
+      }).length,
+      averagePointCount: averagePoints.length,
     );
   }
 
@@ -324,11 +354,11 @@ class SessionCacheHitTrend {
       );
     }
 
-    final averageHitRatio = computeCacheHitRatio(
-      promptTokens: averagePromptTotal,
-      cacheReadTokens: averageCacheReadTotal,
+    final averageHitRatio = _averageCacheHitRatioForPoints(
+      points.where((point) {
+        return !point.isFirstRequest && !_isExpiredCacheMiss(point);
+      }),
       claudeStyle: claudeStyle,
-      cacheWriteTokens: averageCacheWriteTotal,
     );
     return SessionCacheHitTrend(
       points: List<SessionCacheHitTurnPoint>.unmodifiable(points),
@@ -380,9 +410,10 @@ class SessionCacheHitTrend {
         cacheWriteTokens: cacheWriteTotal,
         claudeStyle: claudeStyle,
       );
-      final ttlSuspected =
-          (point.idleGapSeconds ?? 0) >= kExtremeIdleGapSeconds &&
-          hitRatio < kExtremeHitRatioThreshold;
+      final ttlSuspected = _isExpiredCacheMissByValues(
+        idleGapSeconds: point.idleGapSeconds,
+        hitRatio: hitRatio,
+      );
       points.add(
         SessionCacheHitTurnPoint(
           turnIndex: point.turnIndex,
@@ -402,10 +433,10 @@ class SessionCacheHitTrend {
         ),
       );
     }
-    final averageHitRatio = computeCacheHitRatio(
-      promptTokens: promptTotal,
-      cacheReadTokens: cacheReadTotal,
-      cacheWriteTokens: cacheWriteTotal,
+    final averageHitRatio = _averageCacheHitRatioForPoints(
+      points.where((point) {
+        return !point.isFirstRequest && !_isExpiredCacheMiss(point);
+      }),
       claudeStyle: claudeStyle,
     );
     return SessionCacheHitTrend(
@@ -437,6 +468,27 @@ bool _sessionHasCacheUsageTelemetry(AiSession session) {
     }
   }
   return false;
+}
+
+double _averageCacheHitRatioForPoints(
+  Iterable<SessionCacheHitTurnPoint> points, {
+  required bool claudeStyle,
+}) {
+  var cacheReadTokens = 0;
+  var cacheWriteTokens = 0;
+  var uncachedPromptTokens = 0;
+  for (final point in points) {
+    cacheReadTokens += point.cacheReadTokens;
+    cacheWriteTokens += point.cacheWriteTokens;
+    uncachedPromptTokens += computeUncachedPromptTokens(
+      promptTokens: point.promptTokens,
+      cacheReadTokens: point.cacheReadTokens,
+      claudeStyle: claudeStyle,
+      cacheWriteTokens: point.cacheWriteTokens,
+    );
+  }
+  final denominator = cacheReadTokens + cacheWriteTokens + uncachedPromptTokens;
+  return unitRatio(cacheReadTokens, denominator);
 }
 
 class _CacheHitDiagnostics {
@@ -560,11 +612,6 @@ _CacheHitDiagnostics _cacheHitDiagnostics({
     if (promptMetadata != null) promptMetadata['idle_gap_seconds'],
     fallbackIdleGapSeconds,
   ]);
-  final ttlSuspected = firstBool([
-    primaryMetadata['ttl_suspected'],
-    relatedMetadata['ttl_suspected'],
-    if (promptMetadata != null) promptMetadata['ttl_suspected'],
-  ]);
   final stablePrefixHash = firstString([
     primaryMetadata['stable_prefix_hash'],
     relatedMetadata['stable_prefix_hash'],
@@ -671,6 +718,10 @@ _CacheHitDiagnostics _cacheHitDiagnostics({
   ]);
   final requestPrefixStable =
       !requestPrefixProbeComplete || requestPrefixContinuity;
+  final ttlSuspected = _isExpiredCacheMissByValues(
+    idleGapSeconds: idleGapSeconds,
+    hitRatio: hitRatio,
+  );
   final automaticProviderMissSuspected =
       !explicitCacheControlsRequired &&
       (automaticProviderCacheProtected || automaticProviderCacheBestEffort) &&
@@ -701,19 +752,29 @@ _CacheHitDiagnostics _cacheHitDiagnostics({
   );
 }
 
-/// 极端值 = 长时间空闲（≥ 30 分钟）后命中率近乎为 0（< 1%）的轮次。
+/// 过期异常 = 长时间空闲（> 30 分钟）后命中率不足 3% 的轮次。
 ///
 /// 设计要点：
-/// - 用 `idleGapSeconds >= 1800`（30 分钟）排除会话内短暂停顿造成的低命中轮，
+/// - 用 `idleGapSeconds > 1800`（超过 30 分钟）排除会话内短暂停顿造成的低命中轮，
 ///   也避免冷启动首轮（idleGap 为 0）被误判。
-/// - 用 `hitRatio < 0.01`（1%）作为"几乎完全失效"阈值；只要存在极少量
-///   `cacheReadTokens`（例如远小于 prompt 的 1%）的边界情况，也能正确归类。
+/// - 用 `hitRatio < 0.03`（3%）作为过期异常阈值；只要存在少量残留命中，
+///   也能按请求级真实比例正确归类。
 /// - 不再依赖 `cacheReadTokens <= 0` 的硬等于判定，避免因少量残留命中导致
-///   整轮极端值被忽略。
-bool _isExtremeIdleExpiryMiss(SessionCacheHitTurnPoint point) {
-  final idleGap = point.idleGapSeconds ?? 0;
-  if (idleGap < kExtremeIdleGapSeconds) {
+///   整轮过期异常被忽略。
+bool _isExpiredCacheMiss(SessionCacheHitTurnPoint point) {
+  return _isExpiredCacheMissByValues(
+    idleGapSeconds: point.idleGapSeconds,
+    hitRatio: point.hitRatio,
+  );
+}
+
+bool _isExpiredCacheMissByValues({
+  required int? idleGapSeconds,
+  required double hitRatio,
+}) {
+  final idleGap = idleGapSeconds ?? 0;
+  if (idleGap <= kCacheHitExpiryIdleGapSeconds) {
     return false;
   }
-  return point.hitRatio < kExtremeHitRatioThreshold;
+  return hitRatio < kCacheHitExpiryHitRatioThreshold;
 }

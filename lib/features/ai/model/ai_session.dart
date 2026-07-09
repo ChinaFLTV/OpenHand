@@ -1204,9 +1204,9 @@ class AiSessionStatistics {
   final int lastPromptSystemMessageCount;
   final int lastPromptHistoryMessageCount;
 
-  /// 2026-06-08 — 后端预计算的缓存命中率（逐模型请求聚合，仅排除极端空闲
-  /// 过期 miss），供 WEB 端、TopBar 胶囊、浮窗统一读取，避免跨端计算口径
-  /// 漂移。范围 0.0..1.0。无任何 token 数据时为 null。
+  /// 2026-06-08 — 后端预计算的缓存命中率（逐模型请求聚合，默认排除首轮
+  /// 冷请求与过期异常），供 WEB 端、TopBar 胶囊、浮窗统一读取，避免跨端
+  /// 计算口径漂移。范围 0.0..1.0。无任何 token 数据时为 null。
   final double? cacheHitRatio;
 
   /// 2026-06-08 — 后端预计算的逐轮次趋势点。轮次从非 AI 侧消息开始：
@@ -1214,8 +1214,8 @@ class AiSessionStatistics {
   /// messages 重算，直接消费。
   final List<AiSessionCacheHitTrendPoint> cacheHitTrendPoints;
 
-  /// 2026-06-08 — 被「排除极端值」模式过滤掉的轮次数（idle_gap>=30min 且
-  /// hit_ratio<1%），用于浮窗内展示「已排除 N 轮」提示。
+  /// 2026-06-08 — 被「不包含过期异常」模式过滤掉的轮次数（首轮冷请求，
+  /// 或 idle_gap>30min 且 hit_ratio<3%），用于浮窗内展示「已排除 N 轮」提示。
   final int cacheHitTrendExcludedCount;
 
   AiSessionStatistics copyWith({

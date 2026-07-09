@@ -6069,15 +6069,11 @@ class WebMessagePlatformService {
     return null;
   }
 
-  /// 2026-06-08 — 每次序列化会话时，若 statistics.cacheHitRatio 为 0 或 null
-  /// 但累积 cache 数据明确有值，直接用 SessionCacheHitTrend.fromSession（与
-  /// APP 端同源）重算，保证 `getSession` / SSE 快照始终携带正确的缓存命中率。
+  /// 2026-06-08 — 每次序列化会话时，只要累积 cache 数据明确有值，就用
+  /// SessionCacheHitTrend 的当前过滤规则刷新展示口径；优先复用已持久化趋势点，
+  /// 缺失时才回扫消息，保证 `getSession` / SSE 快照始终携带正确命中率。
   Map<String, Object?> _ensureCacheHitStats(AiSession session) {
     final stats = Map<String, Object?>.from(session.statistics.toJson());
-    final existingRatio = stats['cache_hit_ratio'];
-    final hasExisting =
-        existingRatio is num &&
-        (existingRatio is double ? existingRatio > 0.0001 : existingRatio > 0);
     final cacheRead = (stats['cache_read_tokens'] is int)
         ? stats['cache_read_tokens'] as int
         : 0;
@@ -6088,16 +6084,17 @@ class WebMessagePlatformService {
     final trendSchemaCurrent = _cacheHitTrendUsesRoundStarterSchema(
       stats['cache_hit_trend_points'],
     );
-    if (hasExisting && trendSchemaCurrent) return stats;
     final protocol = _lastModelProtocolForSession(session);
     final claudeStyle =
         protocol != null && protocol.trim().toLowerCase() == 'claude';
-    final trend = SessionCacheHitTrend.fromSession(
-      session,
-      claudeStyle: claudeStyle,
-    );
+    final trend = trendSchemaCurrent
+        ? SessionCacheHitTrend.fromStatistics(
+            session.statistics,
+            claudeStyle: claudeStyle,
+          )
+        : SessionCacheHitTrend.fromSession(session, claudeStyle: claudeStyle);
     final display = trend.displayData(
-      SessionCacheHitDisplayMode.excludeExtremeMisses,
+      SessionCacheHitDisplayMode.excludeExpiredMisses,
     );
     final trendPoints = trend.points
         .map((point) => point.toJson())

@@ -19,39 +19,22 @@ class _TokenDial extends StatefulWidget {
 
   /// 当前会话的 cache 命中率，范围 0..1。
   ///
-  /// 改为与浮窗完全同一公式：优先读取持久化在
-  /// [AiSessionStatistics.cacheHitTrendPoints] 中的完整趋势点；缺失时才从
-  /// 当前消息窗口兜底重算。这样进入长会话时不需要先点击"加载更早消息"，
-  /// TopBar 胶囊、APP 浮窗、WEB 浮窗也能保持同一口径。
-  ///
-  /// 优先读取 [AiSessionStatistics.cacheHitRatio]（后端预计算、
-  /// SSE 实时推送、WEB 端也直接消费），缺失时回退到客户端重算，保证同一
-  /// 个会话在 APP 端 TopBar、APP 端浮窗、WEB 端 TopBar、WEB 端浮窗四个位置
-  /// 永远显示同一数字。
+  /// 与浮窗完全同一公式：优先读取持久化趋势点；缺失时才从当前消息窗口
+  /// 兜底重算。默认口径剔除首轮冷请求和过期异常，避免历史预计算字段在
+  /// 规则升级后带来跨端数字漂移。
   double get cacheHitRatio {
-    final precomputed = session.statistics.cacheHitRatio;
-    final hasStaleZeroWithCacheRead =
-        precomputed != null &&
-        precomputed <= 0 &&
-        (session.statistics.cacheReadTokens ?? 0) > 0;
-    if (precomputed != null &&
-        !hasStaleZeroWithCacheRead &&
-        _cacheHitTrendUsesRoundStarterSchema) {
-      return finiteUnitInterval(precomputed);
-    }
     final trend = SessionCacheHitTrend.fromStatisticsOrSession(
       session,
       claudeStyle: claudeStyle,
     );
-    return trend
-        .displayData(SessionCacheHitDisplayMode.excludeExtremeMisses)
+    final ratio = trend
+        .displayData(SessionCacheHitDisplayMode.excludeExpiredMisses)
         .averageHitRatio;
-  }
-
-  bool get _cacheHitTrendUsesRoundStarterSchema {
-    return SessionCacheHitTrend.statisticsTrendUsesRoundStarterSchema(
-      session.statistics,
-    );
+    final precomputed = session.statistics.cacheHitRatio;
+    if (ratio <= 0 && precomputed != null && trend.points.isEmpty) {
+      return finiteUnitInterval(precomputed);
+    }
+    return ratio;
   }
 
   @override
@@ -511,7 +494,7 @@ class _TokenDialPopup extends StatefulWidget {
 class _TokenDialPopupState extends State<_TokenDialPopup> {
   final ScrollController _scrollController = ScrollController();
   SessionCacheHitDisplayMode _displayMode =
-      SessionCacheHitDisplayMode.excludeExtremeMisses;
+      SessionCacheHitDisplayMode.excludeExpiredMisses;
 
   @override
   void dispose() {

@@ -1701,7 +1701,7 @@ class _SessionAuditDialogState extends State<_SessionAuditDialog> {
                               );
                           final ratio = trend
                               .displayData(
-                                SessionCacheHitDisplayMode.excludeExtremeMisses,
+                                SessionCacheHitDisplayMode.excludeExpiredMisses,
                               )
                               .averageHitRatio;
                           if (ratio <= 0 &&

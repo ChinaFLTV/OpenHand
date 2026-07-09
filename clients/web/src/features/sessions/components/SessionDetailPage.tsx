@@ -86,6 +86,11 @@ import type { ApiMetaInstruction, ApiMetaModel, ApiMetaShortcutBinding } from '.
 import { MessageCard, markMessagesAsAppeared } from '../../../components/MessageCard';
 import { PlanTimeline } from '../../../components/PlanTimeline';
 import CacheHitTrendChart, { type CacheHitDisplayMode } from './CacheHitTrendChart';
+import {
+  cacheHitDisplayData,
+  DEFAULT_CACHE_HIT_DISPLAY_MODE,
+  type CacheHitTrendPoint,
+} from '../cache_hit_stats';
 import { notifyIfHidden } from '../../../services/pwa';
 import { readBrowserStorage, removeBrowserStorage, writeBrowserStorage } from '../../../shared/util/browser_storage';
 import {
@@ -6509,15 +6514,12 @@ export function SessionDetailPage() {
     const lazyLoadingCapsule = mcpLazyLoadingCapsule(runtimeNotices);
     const contextBudgetLabel = contextBudgetToolbarLabel(lastPromptMetadata);
     const tokens = session.total_tokens != null ? `${session.total_tokens.toLocaleString()} tokens` : t('topbar.tokens.empty', 'Token 暂无');
-    // WEB 端纯只读：缓存命中率从后端 metadata 实时取得，
-    // 不做任何客户端计算。后端 _patchedStatistics + _resolveCacheHitTrend
-    // 已保证任何有 cache 数据的会话都返回非零值。
     const tokenStats = recordFromUnknown(session.statistics);
     const sessPrompt = readStatNumber(tokenStats['total_prompt_tokens'], session.total_prompt_tokens);
-    const sessCacheRead = readStatNumber(tokenStats['cache_read_tokens'], 0);
+    const cacheHitDisplay = buildSessionCacheHitDisplay(session, tokenStats);
+    const sessCacheRead = cacheHitDisplay.cacheReadTokens;
     const claudeStyle = usesClaudeStyleCacheMath(session.last_used_model_protocol);
-    const backendHitRatio = readDouble(tokenStats['cache_hit_ratio'], 0);
-    const cacheSavingsPercent = cacheHitRatioPercent(backendHitRatio);
+    const cacheSavingsPercent = cacheHitDisplay.cacheHitRatio;
     const cacheSavingsBase = claudeStyle ? sessPrompt + sessCacheRead : sessPrompt;
     const tokensBadge =
       sessCacheRead > 0
@@ -8304,9 +8306,31 @@ function SessionTokenStatsContent({
     trendData,
     claudeStyle,
   } = cacheHit;
-  // Stacked-bar weights (read / write / unCached prompt)。与 APP 端
-  // _CacheHitBar 同口径：使用 backend 预计算的 cacheHitRatio（由
-  // SessionCacheHitTrend.displayData 生成），而非客户端聚合公式。
+  const activeTrendDisplay = trendData
+    ? cacheHitDisplayData({
+      points: trendData.points,
+      displayMode: trendDisplayMode,
+      claudeStyle,
+      fallbackAverageRatio: trendData.averageRatio,
+    })
+    : null;
+  const activeCacheHitRatio = activeTrendDisplay
+    ? cacheHitRatioPercent(activeTrendDisplay.averageRatio)
+    : cacheHitRatio;
+  const activeBarTotal = activeTrendDisplay
+    ? activeTrendDisplay.cacheReadTokens +
+      activeTrendDisplay.cacheWriteTokens +
+      activeTrendDisplay.uncachedPromptTokens
+    : 0;
+  const activeReadWeight = activeTrendDisplay && activeBarTotal > 0
+    ? activeTrendDisplay.cacheReadTokens / activeBarTotal
+    : readWeight;
+  const activeWriteWeight = activeTrendDisplay && activeBarTotal > 0
+    ? activeTrendDisplay.cacheWriteTokens / activeBarTotal
+    : writeWeight;
+  const activeMissWeight = activeTrendDisplay && activeBarTotal > 0
+    ? activeTrendDisplay.uncachedPromptTokens / activeBarTotal
+    : missWeight;
   return (
     <>
       <TokenStatsSection title={t('tokenPopup.input', '输入')}>
@@ -8329,8 +8353,8 @@ function SessionTokenStatsContent({
         <TokenStatsRow label={t('tokenPopup.total', '总计')} value={totalTokens} emphasized />
         {cacheHit.hasCacheHitMetrics ? (
           <>
-            <TokenStatsRow label={t('tokenPopup.cacheHit', '缓存命中率')} value={cacheHitRatio} suffix="%" tone="success" />
-            <CacheHitBar readWeight={readWeight} writeWeight={writeWeight} missWeight={missWeight} />
+            <TokenStatsRow label={t('tokenPopup.cacheHit', '缓存命中率')} value={activeCacheHitRatio} suffix="%" tone="success" />
+            <CacheHitBar readWeight={activeReadWeight} writeWeight={activeWriteWeight} missWeight={activeMissWeight} />
             {trendData && trendData.points.length > 0 ? (
               <div style={{ marginTop: '8px' }}>
                 <CacheHitTrendChart points={trendData.points} averageRatio={trendData.averageRatio} claudeStyle={claudeStyle} height={136} displayMode={trendDisplayMode} onDisplayModeChange={onTrendDisplayModeChange} t={t} />
@@ -8349,7 +8373,7 @@ function SessionTokenStatsContent({
 }
 
 function SessionTokenStatsDialog({ detail, onClose }: { detail: SessionDetailResponse; onClose: () => void }) {
-  const [trendDisplayMode, setTrendDisplayMode] = useState<CacheHitDisplayMode>('excludeExtremeMisses');
+  const [trendDisplayMode, setTrendDisplayMode] = useState<CacheHitDisplayMode>(DEFAULT_CACHE_HIT_DISPLAY_MODE);
   const { closing, requestClose } = useDialogExitMotion(onClose);
   const session = detail.session;
   const tokenStats = useMemo(() => buildSessionTokenStatsViewModel(session), [session]);
@@ -8465,7 +8489,7 @@ function SessionContextStatsDialog({ detail, messages, modelKey, onClose, onComp
   const cumulativeCompletionTokens = readStatNumber(stats['total_completion_tokens'], session.total_completion_tokens ?? 0);
   const cumulativeTokens = readStatNumber(stats['total_tokens'], session.total_tokens ?? cumulativePromptTokens + cumulativeCompletionTokens);
   const tokenStats = useMemo(() => buildSessionTokenStatsViewModel(session), [session]);
-  const [contextTrendDisplayMode, setContextTrendDisplayMode] = useState<CacheHitDisplayMode>('excludeExtremeMisses');
+  const [contextTrendDisplayMode, setContextTrendDisplayMode] = useState<CacheHitDisplayMode>(DEFAULT_CACHE_HIT_DISPLAY_MODE);
 
   const [busy, setBusy] = useState(false);
   const [resultMessage, setResultMessage] = useState<string | null>(null);
@@ -8823,27 +8847,6 @@ function shouldShowSessionCacheHitMetrics({
     trendPointCount > 0;
 }
 
-// WEB 端纯只读：所有缓存命中率元数据从后端 metadata 实时取得，
-// 此处仅保留 usesClaudeStyleCacheMath（用于 TopBar 分母展示，不参与计算）和
-// TrendPoint 接口（走势图渲染）。
-
-interface TrendPoint {
-  turnIndex: number;
-  hitRatio: number;
-  promptTokens?: number;
-  cacheReadTokens?: number;
-  cacheWriteTokens?: number;
-  idleGapSeconds?: number | null;
-}
-
-function trendPointUncachedPromptTokens(point: TrendPoint, claudeStyle: boolean): number {
-  const prompt = Math.max(0, Math.round(point.promptTokens ?? 0));
-  const read = Math.max(0, Math.round(point.cacheReadTokens ?? 0));
-  const write = Math.max(0, Math.round(point.cacheWriteTokens ?? 0));
-  if (claudeStyle) return prompt;
-  return Math.max(0, prompt - read - write);
-}
-
 interface SessionCacheHitDisplay {
   cacheReadTokens: number;
   cacheWriteTokens: number;
@@ -8854,7 +8857,7 @@ interface SessionCacheHitDisplay {
   missWeight: number;
   claudeStyle: boolean;
   trendData: {
-    points: TrendPoint[];
+    points: CacheHitTrendPoint[];
     averageRatio: number;
   } | null;
 }
@@ -8868,23 +8871,34 @@ function buildSessionCacheHitDisplay(
   const promptTokensTotal = readStatNumber(stats['total_prompt_tokens'], session.total_prompt_tokens);
   const totalTokens = readStatNumber(stats['total_tokens'], session.total_tokens);
   const backendHitRatio = readDouble(stats['cache_hit_ratio'], 0);
-  const cacheHitRatio = cacheHitRatioPercent(backendHitRatio);
   const backendTrendPoints = (stats['cache_hit_trend_points'] ?? []) as SessionCacheHitTrendPoint[] | undefined;
   const claudeStyle = usesClaudeStyleCacheMath(session.last_used_model_protocol);
-  const trendData = backendTrendPoints && backendTrendPoints.length > 0
+  const trendPoints = backendTrendPoints?.map((p) => ({
+    turnIndex: p.turn_index,
+    hitRatio: p.hit_ratio,
+    promptTokens: p.prompt_tokens,
+    cacheReadTokens: p.cache_read_tokens,
+    cacheWriteTokens: p.cache_write_tokens,
+    starterMessageId: p.starter_message_id ?? null,
+    starterMessageKind: p.starter_message_kind ?? null,
+    starterOrigin: p.starter_origin ?? null,
+    idleGapSeconds: p.idle_gap_seconds ?? null,
+  })) ?? [];
+  const defaultDisplay = trendPoints.length > 0
+    ? cacheHitDisplayData({
+      points: trendPoints,
+      displayMode: DEFAULT_CACHE_HIT_DISPLAY_MODE,
+      claudeStyle,
+      fallbackAverageRatio: backendHitRatio,
+    })
+    : null;
+  const cacheHitRatio = cacheHitRatioPercent(
+    defaultDisplay?.averageRatio ?? backendHitRatio,
+  );
+  const trendData = trendPoints.length > 0
     ? {
-      points: backendTrendPoints.map((p) => ({
-        turnIndex: p.turn_index,
-        hitRatio: p.hit_ratio,
-        promptTokens: p.prompt_tokens,
-        cacheReadTokens: p.cache_read_tokens,
-        cacheWriteTokens: p.cache_write_tokens,
-        starterMessageId: p.starter_message_id ?? null,
-        starterMessageKind: p.starter_message_kind ?? null,
-        starterOrigin: p.starter_origin ?? null,
-        idleGapSeconds: p.idle_gap_seconds ?? null,
-      })),
-      averageRatio: backendHitRatio,
+      points: trendPoints,
+      averageRatio: defaultDisplay?.averageRatio ?? backendHitRatio,
     }
     : null;
   let barReadTokens = cacheReadTokens;
@@ -8892,15 +8906,10 @@ function buildSessionCacheHitDisplay(
   let barUncachedTokens = claudeStyle
     ? promptTokensTotal
     : Math.max(0, promptTokensTotal - cacheReadTokens - cacheWriteTokens);
-  if (trendData && trendData.points.length > 0) {
-    barReadTokens = 0;
-    barWriteTokens = 0;
-    barUncachedTokens = 0;
-    for (const point of trendData.points) {
-      barReadTokens += Math.max(0, Math.round(point.cacheReadTokens ?? 0));
-      barWriteTokens += Math.max(0, Math.round(point.cacheWriteTokens ?? 0));
-      barUncachedTokens += trendPointUncachedPromptTokens(point, claudeStyle);
-    }
+  if (defaultDisplay) {
+    barReadTokens = defaultDisplay.cacheReadTokens;
+    barWriteTokens = defaultDisplay.cacheWriteTokens;
+    barUncachedTokens = defaultDisplay.uncachedPromptTokens;
   }
   const hasCacheHitMetrics = shouldShowSessionCacheHitMetrics({
     cacheReadTokens,
@@ -9051,7 +9060,7 @@ function runtimeGateReasonLabel(reason: string): string {
 
 function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionDetailResponse; messages: SessionMessage[]; onClose: () => void }) {
   const session = detail.session;
-  const [metadataTrendDisplayMode, setMetadataTrendDisplayMode] = useState<CacheHitDisplayMode>('excludeExtremeMisses');
+  const [metadataTrendDisplayMode, setMetadataTrendDisplayMode] = useState<CacheHitDisplayMode>(DEFAULT_CACHE_HIT_DISPLAY_MODE);
   const { closing, requestClose } = useDialogExitMotion(onClose);
 
   const stats = recordFromUnknown(session.statistics);

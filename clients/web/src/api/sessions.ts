@@ -371,8 +371,8 @@ export interface SessionStatistics {
   cache_creation_tokens?: number | null;
   reasoning_tokens?: number | null;
   first_prompt_tokens?: number | null;
-  // 2026-06-08 — 后端预计算字段：避免 WEB 端独立 walk messages 重算导致跨端
-  // 计算口径漂移。`null` 表示无任何 token 数据。
+  // 后端预计算字段：默认剔除首轮冷请求与过期异常，避免 WEB 端独立
+  // walk messages 重算导致跨端计算口径漂移。`null` 表示无任何 token 数据。
   cache_hit_ratio?: number | null;
   cache_hit_trend_points?: SessionCacheHitTrendPoint[];
   cache_hit_trend_excluded_count?: number;

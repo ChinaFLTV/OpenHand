@@ -11820,9 +11820,8 @@ $tail''';
     final resolvedFirstPromptTokens =
         trackedSession.statistics.firstPromptTokens ??
         (resolvedPromptBuildCount == 1 ? effectiveUsage.promptTokens : null);
-    // 2026-06-08 — 缓存命中率直接从 APP 端 SessionCacheHitTrend.fromSession
-    // 计算（与 TopBar 胶囊 / 浮窗走势图完全同源），传入 fromMessages 作为预制
-    // 字段，不再让 AiSessionStatistics 内部重算。
+    // 缓存命中率直接从 SessionCacheHitTrend 计算：默认剔除首轮冷请求和
+    // 过期异常，与 TopBar 胶囊 / 浮窗走势图完全同源。
     final claudeStyle =
         model != null && model.protocolType == AiProtocolType.claude;
     final cacheTrend = SessionCacheHitTrend.fromSession(
@@ -11830,7 +11829,7 @@ $tail''';
       claudeStyle: claudeStyle,
     );
     final trendDisplay = cacheTrend.displayData(
-      SessionCacheHitDisplayMode.excludeExtremeMisses,
+      SessionCacheHitDisplayMode.excludeExpiredMisses,
     );
     final cacheHitRatio = cacheTrend.points.isEmpty
         ? null

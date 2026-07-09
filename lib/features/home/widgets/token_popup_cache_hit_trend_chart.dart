@@ -91,12 +91,54 @@ void _drawTokenPopupCacheHitTrendDashedLine(
   }
 }
 
+String _cacheHitExclusionHint(
+  BuildContext context,
+  SessionCacheHitDisplayData displayData,
+) {
+  if (displayData.mode == SessionCacheHitDisplayMode.includeExpiredMisses) {
+    final hasFirst = displayData.trend.points.any((point) {
+      return point.isFirstRequest;
+    });
+    if (!hasFirst) return '';
+    return openHandLocalizedText(
+      context,
+      zh: '首轮不计平均',
+      zhHant: '首輪不計平均',
+      en: 'First request ignored',
+      fr: 'Première requête ignorée',
+      de: 'Erste Anfrage ignoriert',
+      ja: '初回は平均外',
+    );
+  }
+  if (displayData.excludedPointCount <= 0) return '';
+  if (displayData.excludedExpiredMissCount > 0) {
+    return openHandLocalizedText(
+      context,
+      zh: '已排除 ${displayData.excludedPointCount} 轮',
+      zhHant: '已排除 ${displayData.excludedPointCount} 輪',
+      en: '${displayData.excludedPointCount} excluded',
+      fr: '${displayData.excludedPointCount} exclues',
+      de: '${displayData.excludedPointCount} ausgeschlossen',
+      ja: '${displayData.excludedPointCount} 件除外',
+    );
+  }
+  return openHandLocalizedText(
+    context,
+    zh: '首轮不计平均',
+    zhHant: '首輪不計平均',
+    en: 'First request ignored',
+    fr: 'Première requête ignorée',
+    de: 'Erste Anfrage ignoriert',
+    ja: '初回は平均外',
+  );
+}
+
 class TokenPopupCacheHitTrendChart extends StatefulWidget {
   const TokenPopupCacheHitTrendChart({
     super.key,
     required this.trend,
     this.height = 168,
-    this.displayMode = SessionCacheHitDisplayMode.excludeExtremeMisses,
+    this.displayMode = SessionCacheHitDisplayMode.excludeExpiredMisses,
     this.onDisplayModeChanged,
   });
 
@@ -214,10 +256,6 @@ class _TokenPopupCacheHitTrendChartState
       fontFeatures: const [FontFeature.tabularFigures()],
     );
 
-    if (displayData.trend.points.isEmpty) {
-      return const SizedBox.shrink();
-    }
-
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
       decoration: BoxDecoration(
@@ -305,22 +343,22 @@ class _TokenPopupCacheHitTrendChartState
                   _CacheHitModeChip(
                     label: openHandLocalizedText(
                       context,
-                      zh: '请求视角',
-                      zhHant: '請求視角',
-                      en: 'Requests',
-                      fr: 'Requêtes',
-                      de: 'Anfragen',
-                      ja: 'リクエスト',
+                      zh: '不包含过期异常',
+                      zhHant: '不包含過期異常',
+                      en: 'Exclude expiry',
+                      fr: 'Sans expiration',
+                      de: 'Ohne Ablauf',
+                      ja: '期限切れ除外',
                     ),
                     selected:
                         widget.displayMode ==
-                        SessionCacheHitDisplayMode.excludeExtremeMisses,
+                        SessionCacheHitDisplayMode.excludeExpiredMisses,
                     onTap: () {
                       _viewport = SessionCacheHitViewport.full(
                         displayData.trend.points.length,
                       );
                       widget.onDisplayModeChanged?.call(
-                        SessionCacheHitDisplayMode.excludeExtremeMisses,
+                        SessionCacheHitDisplayMode.excludeExpiredMisses,
                       );
                     },
                   ),
@@ -329,98 +367,116 @@ class _TokenPopupCacheHitTrendChartState
                       context,
                       zh: '含过期异常',
                       zhHant: '含過期異常',
-                      en: 'All requests',
-                      fr: 'Tout inclure',
-                      de: 'Alle inkl.',
-                      ja: '全件表示',
+                      en: 'Include expiry',
+                      fr: 'Avec expiration',
+                      de: 'Mit Ablauf',
+                      ja: '期限切れ含む',
                     ),
                     selected:
                         widget.displayMode ==
-                        SessionCacheHitDisplayMode.includeAll,
+                        SessionCacheHitDisplayMode.includeExpiredMisses,
                     onTap: () {
                       _viewport = SessionCacheHitViewport.full(
                         widget.trend.points.length,
                       );
                       widget.onDisplayModeChanged?.call(
-                        SessionCacheHitDisplayMode.includeAll,
+                        SessionCacheHitDisplayMode.includeExpiredMisses,
                       );
                     },
                   ),
                 ],
               ),
               const Spacer(),
-              if (displayData.excludedPointCount > 0)
+              if (_cacheHitExclusionHint(context, displayData).isNotEmpty)
                 Text(
-                  '已排除 ${displayData.excludedPointCount} 轮',
+                  _cacheHitExclusionHint(context, displayData),
                   textAlign: TextAlign.right,
                   style: valueStyle,
                 ),
             ],
           ),
           const SizedBox(height: 10),
-          SizedBox(
-            height: widget.height,
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                const chartPadding = EdgeInsets.fromLTRB(30, 8, 8, 22);
-                final chartRect = Rect.fromLTWH(
-                  chartPadding.left,
-                  chartPadding.top,
-                  math.max(1, constraints.maxWidth - chartPadding.horizontal),
-                  math.max(1, widget.height - chartPadding.vertical),
-                );
-                final averageY =
-                    chartRect.bottom -
-                    chartRect.height *
-                        clampUnitInterval(displayData.averageHitRatio);
-                final startTurn = visiblePoints.first.turnIndex;
-                final middleTurn =
-                    visiblePoints[visiblePoints.length ~/ 2].turnIndex;
-                final endTurn = visiblePoints.last.turnIndex;
-                // 修复 X 轴刻度与数据点未对齐：按各数据点
-                // 真实 x 坐标（chartRect.left + stepX * index）居中放置。
-                // 旧实现用 Row + spaceBetween 会出现两类错位：
-                //   1) 首尾各偏 8px（Row 起点 = chartRect.left - 8，终点 = Stack 右边），
-                //   2) 中间标签落在 Row 几何中点，但可见点中点位于 chartRect.width
-                //      * (length/2) / (length-1) 处，对 4 点而言是 2/3 宽而非 1/2 宽。
-                final singlePoint = visiblePoints.length == 1;
-                final startX = singlePoint
-                    ? chartRect.center.dx
-                    : chartRect.left;
-                final endX = chartRect.right;
-                final middleIndex = visiblePoints.length ~/ 2;
-                final middleX = visiblePoints.length > 1
-                    ? chartRect.left +
-                          chartRect.width /
-                              (visiblePoints.length - 1) *
-                              middleIndex
-                    : chartRect.center.dx;
-                // 仅当中间标签与首/尾不重复时才渲染（例如 4 点时显示 1/3/4，
-                // 2 点时只显示首尾避免视觉重复）。
-                final showMiddleLabel =
-                    visiblePoints.length > 2 &&
-                    middleTurn != startTurn &&
-                    middleTurn != endTurn;
-                return Listener(
-                  onPointerPanZoomStart: (_) {
-                    _wheelScaleAccumulator = 1;
-                  },
-                  onPointerPanZoomUpdate: (event) {
-                    final localDx = (event.localPosition.dx - chartRect.left)
-                        .clamp(0.0, chartRect.width);
-                    final anchor =
-                        _viewport.start +
-                        (chartRect.width <= 0
-                            ? 0
-                            : localDx / chartRect.width * _viewport.span);
-                    if ((event.scale - 1).abs() > 0.02) {
-                      _zoom(anchor, event.scale);
-                    }
-                  },
-                  onPointerSignal: (event) {
-                    if (event is PointerScrollEvent) {
-                      final direction = event.scrollDelta.dy;
-                      final scale = direction > 0 ? 0.88 : 1.12;
+          if (displayData.trend.points.isEmpty)
+            _CacheHitTrendEmptyState(
+              displayMode: widget.displayMode,
+              height: math.min(84, widget.height),
+            )
+          else
+            SizedBox(
+              height: widget.height,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  const chartPadding = EdgeInsets.fromLTRB(30, 8, 8, 22);
+                  final chartRect = Rect.fromLTWH(
+                    chartPadding.left,
+                    chartPadding.top,
+                    math.max(1, constraints.maxWidth - chartPadding.horizontal),
+                    math.max(1, widget.height - chartPadding.vertical),
+                  );
+                  final averageY =
+                      chartRect.bottom -
+                      chartRect.height *
+                          clampUnitInterval(displayData.averageHitRatio);
+                  final startTurn = visiblePoints.first.turnIndex;
+                  final middleTurn =
+                      visiblePoints[visiblePoints.length ~/ 2].turnIndex;
+                  final endTurn = visiblePoints.last.turnIndex;
+                  // 修复 X 轴刻度与数据点未对齐：按各数据点
+                  // 真实 x 坐标（chartRect.left + stepX * index）居中放置。
+                  // 旧实现用 Row + spaceBetween 会出现两类错位：
+                  //   1) 首尾各偏 8px（Row 起点 = chartRect.left - 8，终点 = Stack 右边），
+                  //   2) 中间标签落在 Row 几何中点，但可见点中点位于 chartRect.width
+                  //      * (length/2) / (length-1) 处，对 4 点而言是 2/3 宽而非 1/2 宽。
+                  final singlePoint = visiblePoints.length == 1;
+                  final startX = singlePoint
+                      ? chartRect.center.dx
+                      : chartRect.left;
+                  final endX = chartRect.right;
+                  final middleIndex = visiblePoints.length ~/ 2;
+                  final middleX = visiblePoints.length > 1
+                      ? chartRect.left +
+                            chartRect.width /
+                                (visiblePoints.length - 1) *
+                                middleIndex
+                      : chartRect.center.dx;
+                  // 仅当中间标签与首/尾不重复时才渲染（例如 4 点时显示 1/3/4，
+                  // 2 点时只显示首尾避免视觉重复）。
+                  final showMiddleLabel =
+                      visiblePoints.length > 2 &&
+                      middleTurn != startTurn &&
+                      middleTurn != endTurn;
+                  final firstRequestIndex = visiblePoints.indexWhere(
+                    (point) => point.isFirstRequest,
+                  );
+                  final firstRequestBadgeText = openHandLocalizedText(
+                    context,
+                    zh: '首轮不计',
+                    zhHant: '首輪不計',
+                    en: 'Ignored',
+                    fr: 'Ignorée',
+                    de: 'Ignoriert',
+                    ja: '平均外',
+                  );
+                  final firstRequestDx = firstRequestIndex < 0
+                      ? 0.0
+                      : (singlePoint
+                            ? chartRect.center.dx
+                            : chartRect.left +
+                                  chartRect.width /
+                                      (visiblePoints.length - 1) *
+                                      firstRequestIndex);
+                  final firstRequestDy = firstRequestIndex < 0
+                      ? 0.0
+                      : chartRect.bottom -
+                            chartRect.height *
+                                clampUnitInterval(
+                                  visiblePoints[firstRequestIndex].hitRatio,
+                                );
+                  return Listener(
+                    onPointerPanZoomStart: (_) {
+                      _wheelScaleAccumulator = 1;
+                    },
+                    onPointerPanZoomUpdate: (event) {
                       final localDx = (event.localPosition.dx - chartRect.left)
                           .clamp(0.0, chartRect.width);
                       final anchor =
@@ -428,233 +484,301 @@ class _TokenPopupCacheHitTrendChartState
                           (chartRect.width <= 0
                               ? 0
                               : localDx / chartRect.width * _viewport.span);
-                      _wheelScaleAccumulator *= scale;
-                      _zoom(anchor, _wheelScaleAccumulator);
-                      _wheelScaleAccumulator = 1;
-                    }
-                  },
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onScaleUpdate: (details) {
-                      final localDx =
-                          (details.localFocalPoint.dx - chartRect.left).clamp(
-                            0.0,
-                            chartRect.width,
-                          );
-                      final anchor =
-                          _viewport.start +
-                          (chartRect.width <= 0
-                              ? 0
-                              : localDx / chartRect.width * _viewport.span);
-                      if ((details.scale - 1).abs() > 0.02) {
-                        _zoom(anchor, details.scale);
-                        return;
-                      }
-                      final deltaPoints = chartRect.width <= 0
-                          ? 0.0
-                          : -details.focalPointDelta.dx /
-                                chartRect.width *
-                                _viewport.span;
-                      if (deltaPoints.abs() > 0.01) {
-                        _pan(deltaPoints);
+                      if ((event.scale - 1).abs() > 0.02) {
+                        _zoom(anchor, event.scale);
                       }
                     },
-                    child: MouseRegion(
-                      onHover: (event) {
-                        // 边界：visiblePoints 为空（理论上 hasEnoughPoints
-                        // 已守住，但作为 onHover 顶层保护，避免驱动空动画
-                        // 与 setState 不必要的 rebuild）。
-                        if (visiblePoints.isEmpty) {
-                          if (_hoveredPointIndex != null) {
-                            setState(() => _hoveredPointIndex = null);
-                            _hoverController.reverse();
-                          }
-                          return;
-                        }
+                    onPointerSignal: (event) {
+                      if (event is PointerScrollEvent) {
+                        final direction = event.scrollDelta.dy;
+                        final scale = direction > 0 ? 0.88 : 1.12;
                         final localDx =
                             (event.localPosition.dx - chartRect.left).clamp(
                               0.0,
                               chartRect.width,
                             );
-                        if (localDx < 0 || localDx > chartRect.width) {
+                        final anchor =
+                            _viewport.start +
+                            (chartRect.width <= 0
+                                ? 0
+                                : localDx / chartRect.width * _viewport.span);
+                        _wheelScaleAccumulator *= scale;
+                        _zoom(anchor, _wheelScaleAccumulator);
+                        _wheelScaleAccumulator = 1;
+                      }
+                    },
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onScaleUpdate: (details) {
+                        final localDx =
+                            (details.localFocalPoint.dx - chartRect.left).clamp(
+                              0.0,
+                              chartRect.width,
+                            );
+                        final anchor =
+                            _viewport.start +
+                            (chartRect.width <= 0
+                                ? 0
+                                : localDx / chartRect.width * _viewport.span);
+                        if ((details.scale - 1).abs() > 0.02) {
+                          _zoom(anchor, details.scale);
+                          return;
+                        }
+                        final deltaPoints = chartRect.width <= 0
+                            ? 0.0
+                            : -details.focalPointDelta.dx /
+                                  chartRect.width *
+                                  _viewport.span;
+                        if (deltaPoints.abs() > 0.01) {
+                          _pan(deltaPoints);
+                        }
+                      },
+                      child: MouseRegion(
+                        onHover: (event) {
+                          // 边界：visiblePoints 为空（理论上 hasEnoughPoints
+                          // 已守住，但作为 onHover 顶层保护，避免驱动空动画
+                          // 与 setState 不必要的 rebuild）。
+                          if (visiblePoints.isEmpty) {
+                            if (_hoveredPointIndex != null) {
+                              setState(() => _hoveredPointIndex = null);
+                              _hoverController.reverse();
+                            }
+                            return;
+                          }
+                          final localDx =
+                              (event.localPosition.dx - chartRect.left).clamp(
+                                0.0,
+                                chartRect.width,
+                              );
+                          if (localDx < 0 || localDx > chartRect.width) {
+                            if (_hoveredPointIndex != null) {
+                              setState(() => _hoveredPointIndex = null);
+                              _hoverController.reverse();
+                            }
+                            return;
+                          }
+                          // 把鼠标横向位置映射到 visiblePoints 索引。
+                          final span = visiblePoints.length <= 1
+                              ? 0.0
+                              : chartRect.width / (visiblePoints.length - 1);
+                          final raw = span <= 0
+                              ? 0.0
+                              : (localDx / span).round();
+                          // 上面已 guard visiblePoints.isEmpty，这里 length-1
+                          // 一定 >= 0，clamp 区间合法。
+                          final idx = raw
+                              .clamp(0, visiblePoints.length - 1)
+                              .toInt();
+                          if (_hoveredPointIndex != idx) {
+                            final wasHovering = _hoveredPointIndex != null;
+                            setState(() => _hoveredPointIndex = idx);
+                            if (!wasHovering) {
+                              // 第一次入场或退场中再次入场：从当前值 forward，
+                              // 已完全显示时（value==1）forward 是 no-op，
+                              // 退场中（0<value<1）则继续推进到 1，保证
+                              // 进出衔接自然不闪。
+                              _hoverController.forward();
+                            }
+                          }
+                        },
+                        onExit: (_) {
                           if (_hoveredPointIndex != null) {
                             setState(() => _hoveredPointIndex = null);
                             _hoverController.reverse();
                           }
-                          return;
-                        }
-                        // 把鼠标横向位置映射到 visiblePoints 索引。
-                        final span = visiblePoints.length <= 1
-                            ? 0.0
-                            : chartRect.width / (visiblePoints.length - 1);
-                        final raw = span <= 0 ? 0.0 : (localDx / span).round();
-                        // 上面已 guard visiblePoints.isEmpty，这里 length-1
-                        // 一定 >= 0，clamp 区间合法。
-                        final idx = raw
-                            .clamp(0, visiblePoints.length - 1)
-                            .toInt();
-                        if (_hoveredPointIndex != idx) {
-                          final wasHovering = _hoveredPointIndex != null;
-                          setState(() => _hoveredPointIndex = idx);
-                          if (!wasHovering) {
-                            // 第一次入场或退场中再次入场：从当前值 forward，
-                            // 已完全显示时（value==1）forward 是 no-op，
-                            // 退场中（0<value<1）则继续推进到 1，保证
-                            // 进出衔接自然不闪。
-                            _hoverController.forward();
-                          }
-                        }
-                      },
-                      onExit: (_) {
-                        if (_hoveredPointIndex != null) {
-                          setState(() => _hoveredPointIndex = null);
-                          _hoverController.reverse();
-                        }
-                      },
-                      child: Stack(
-                        clipBehavior: Clip.none,
-                        children: [
-                          Positioned.fill(
-                            child: RepaintBoundary(
-                              child: CustomPaint(
-                                painter: _TokenPopupCacheHitTrendStaticPainter(
-                                  averageHitRatio: displayData.averageHitRatio,
-                                  colorScheme: colorScheme,
-                                ),
-                                child: const SizedBox.expand(),
-                              ),
-                            ),
-                          ),
-                          Positioned.fill(
-                            child: AnimatedBuilder(
-                              animation: _controller,
-                              builder: (context, _) {
-                                return RepaintBoundary(
-                                  child: CustomPaint(
-                                    painter:
-                                        _TokenPopupCacheHitTrendDynamicPainter(
-                                          points: visiblePoints,
-                                          progress: motionDisabled
-                                              ? 1
-                                              : _controller.value,
-                                          colorScheme: colorScheme,
-                                        ),
-                                    child: const SizedBox.expand(),
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
-                          // hover 高亮 + tooltip：把鼠标位置
-                          // 映射到最近的 visiblePoints 索引，叠一个发光圆点
-                          // + 浮窗，整组走 springScale 的 Q 弹进退场（由
-                          // [_hoverController] 驱动 forward / reverse），与
-                          // 全局 DialogAnimationSettings 的时长 / 曲线保持
-                          // 一致。
-                          if (_hoveredPointIndex != null)
-                            _buildHoverOverlay(
-                              visiblePoints: visiblePoints,
-                              hoveredIndex: _hoveredPointIndex!,
-                              chartRect: chartRect,
-                              colorScheme: colorScheme,
-                              l10n: l10n,
-                              hoverSettings: _hoverSettingsFor(context),
-                            ),
-                          Positioned(
-                            left: 0,
-                            top: chartRect.top - 7,
-                            child: Text('100%', style: valueStyle),
-                          ),
-                          // 修复"平均"标签与左侧 Y 轴刻度视觉重叠：
-                          // 旧位置 left:8 紧贴 y 轴 0%/100% 区域，当平均值接近
-                          // 25%/50% 等网格刻度时，文字与网格线 / 0%-100% 标签
-                          // 在同一水平条带叠加。改为贴虚线右端 + 轻量底色
-                          // （用 surface 浮于 chart 半透明背景之上），既远离
-                          // y 轴区域，又能在平均值贴近最后一个数据点时不被
-                          // 发光圆 / 实心点遮挡。
-                          Positioned(
-                            right: 12,
-                            top: averageY - 8,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 5,
-                                vertical: 1,
-                              ),
-                              decoration: BoxDecoration(
-                                color: colorScheme.surface,
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                l10n.sessMetaCacheHitAvg,
-                                style: valueStyle?.copyWith(
-                                  color: Colors.green.shade700,
-                                  fontWeight: FontWeight.w700,
+                        },
+                        child: Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            Positioned.fill(
+                              child: RepaintBoundary(
+                                child: CustomPaint(
+                                  painter:
+                                      _TokenPopupCacheHitTrendStaticPainter(
+                                        averageHitRatio:
+                                            displayData.averageHitRatio,
+                                        colorScheme: colorScheme,
+                                      ),
+                                  child: const SizedBox.expand(),
                                 ),
                               ),
                             ),
-                          ),
-                          Positioned(
-                            left: 8,
-                            bottom: 14,
-                            child: Text('0%', style: valueStyle),
-                          ),
-                          // X 轴刻度改为按数据点真实 x 居中：
-                          // 用 Stack + Positioned(left: dataX - 16, width: 32)
-                          // 让每个标签在 32px 单元格内水平居中，单元格中心恰为
-                          // 对应数据点 x 坐标；不再使用 Row + spaceBetween。
-                          Positioned(
-                            left: 0,
-                            right: 0,
-                            bottom: 0,
-                            child: SizedBox(
-                              height: 18,
-                              child: Stack(
-                                clipBehavior: Clip.none,
-                                children: [
-                                  Positioned(
-                                    left: startX - 16,
-                                    width: 32,
-                                    child: Center(
-                                      child: Text(
-                                        '$startTurn',
-                                        style: valueStyle,
+                            Positioned.fill(
+                              child: AnimatedBuilder(
+                                animation: _controller,
+                                builder: (context, _) {
+                                  return RepaintBoundary(
+                                    child: CustomPaint(
+                                      painter:
+                                          _TokenPopupCacheHitTrendDynamicPainter(
+                                            points: visiblePoints,
+                                            progress: motionDisabled
+                                                ? 1
+                                                : _controller.value,
+                                            colorScheme: colorScheme,
+                                          ),
+                                      child: const SizedBox.expand(),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                            if (firstRequestIndex >= 0)
+                              Positioned(
+                                left: (firstRequestDx + 8)
+                                    .clamp(
+                                      chartRect.left,
+                                      math.max(
+                                        chartRect.left,
+                                        chartRect.right - 76,
+                                      ),
+                                    )
+                                    .toDouble(),
+                                top: (firstRequestDy - 10)
+                                    .clamp(
+                                      chartRect.top,
+                                      math.max(
+                                        chartRect.top,
+                                        chartRect.bottom - 18,
+                                      ),
+                                    )
+                                    .toDouble(),
+                                child: IgnorePointer(
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 5,
+                                      vertical: 1,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: colorScheme.surface.withValues(
+                                        alpha: 0.92,
+                                      ),
+                                      borderRadius: BorderRadius.circular(4),
+                                      border: Border.all(
+                                        color: colorScheme.outlineVariant
+                                            .withValues(alpha: 0.55),
+                                      ),
+                                    ),
+                                    child: Text(
+                                      firstRequestBadgeText,
+                                      style: valueStyle?.copyWith(
+                                        color: colorScheme.onSurfaceVariant,
+                                        fontWeight: FontWeight.w700,
                                       ),
                                     ),
                                   ),
-                                  if (showMiddleLabel)
+                                ),
+                              ),
+                            // hover 高亮 + tooltip：把鼠标位置
+                            // 映射到最近的 visiblePoints 索引，叠一个发光圆点
+                            // + 浮窗，整组走 springScale 的 Q 弹进退场（由
+                            // [_hoverController] 驱动 forward / reverse），与
+                            // 全局 DialogAnimationSettings 的时长 / 曲线保持
+                            // 一致。
+                            if (_hoveredPointIndex != null)
+                              _buildHoverOverlay(
+                                visiblePoints: visiblePoints,
+                                hoveredIndex: _hoveredPointIndex!,
+                                chartRect: chartRect,
+                                colorScheme: colorScheme,
+                                l10n: l10n,
+                                hoverSettings: _hoverSettingsFor(context),
+                              ),
+                            Positioned(
+                              left: 0,
+                              top: chartRect.top - 7,
+                              child: Text('100%', style: valueStyle),
+                            ),
+                            // 修复"平均"标签与左侧 Y 轴刻度视觉重叠：
+                            // 旧位置 left:8 紧贴 y 轴 0%/100% 区域，当平均值接近
+                            // 25%/50% 等网格刻度时，文字与网格线 / 0%-100% 标签
+                            // 在同一水平条带叠加。改为贴虚线右端 + 轻量底色
+                            // （用 surface 浮于 chart 半透明背景之上），既远离
+                            // y 轴区域，又能在平均值贴近最后一个数据点时不被
+                            // 发光圆 / 实心点遮挡。
+                            Positioned(
+                              right: 12,
+                              top: averageY - 8,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 5,
+                                  vertical: 1,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: colorScheme.surface,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  l10n.sessMetaCacheHitAvg,
+                                  style: valueStyle?.copyWith(
+                                    color: Colors.green.shade700,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            Positioned(
+                              left: 8,
+                              bottom: 14,
+                              child: Text('0%', style: valueStyle),
+                            ),
+                            // X 轴刻度改为按数据点真实 x 居中：
+                            // 用 Stack + Positioned(left: dataX - 16, width: 32)
+                            // 让每个标签在 32px 单元格内水平居中，单元格中心恰为
+                            // 对应数据点 x 坐标；不再使用 Row + spaceBetween。
+                            Positioned(
+                              left: 0,
+                              right: 0,
+                              bottom: 0,
+                              child: SizedBox(
+                                height: 18,
+                                child: Stack(
+                                  clipBehavior: Clip.none,
+                                  children: [
                                     Positioned(
-                                      left: middleX - 16,
+                                      left: startX - 16,
                                       width: 32,
                                       child: Center(
                                         child: Text(
-                                          '$middleTurn',
+                                          '$startTurn',
                                           style: valueStyle,
                                         ),
                                       ),
                                     ),
-                                  if (!singlePoint)
-                                    Positioned(
-                                      left: endX - 16,
-                                      width: 32,
-                                      child: Center(
-                                        child: Text(
-                                          '$endTurn',
-                                          style: valueStyle,
+                                    if (showMiddleLabel)
+                                      Positioned(
+                                        left: middleX - 16,
+                                        width: 32,
+                                        child: Center(
+                                          child: Text(
+                                            '$middleTurn',
+                                            style: valueStyle,
+                                          ),
                                         ),
                                       ),
-                                    ),
-                                ],
+                                    if (!singlePoint)
+                                      Positioned(
+                                        left: endX - 16,
+                                        width: 32,
+                                        child: Center(
+                                          child: Text(
+                                            '$endTurn',
+                                            style: valueStyle,
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
                               ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                );
-              },
+                  );
+                },
+              ),
             ),
-          ),
         ],
       ),
     );
@@ -704,8 +828,19 @@ class _TokenPopupCacheHitTrendChartState
     final tooltipBorder = colorScheme.outlineVariant.withValues(alpha: 0.7);
     final percentText = '${(ratio * 100).round()}%';
     final turnLabel = l10n.sessMetaCacheHitPoint(point.turnIndex);
-    const tooltipWidth = 132.0;
-    const tooltipHeight = 46.0;
+    final firstRequestNote = point.isFirstRequest
+        ? openHandLocalizedText(
+            context,
+            zh: '不参与平均',
+            zhHant: '不參與平均',
+            en: 'Not averaged',
+            fr: 'Hors moyenne',
+            de: 'Nicht gemittelt',
+            ja: '平均外',
+          )
+        : '';
+    final tooltipWidth = point.isFirstRequest ? 148.0 : 132.0;
+    final tooltipHeight = point.isFirstRequest ? 58.0 : 46.0;
     // tooltip 优先放在点的上方；空间不足时翻转到下方。
     final showAbove = (cy - tooltipHeight - 12) >= chartRect.top;
     final tooltipTop = showAbove
@@ -816,6 +951,19 @@ class _TokenPopupCacheHitTrendChartState
                           height: 1.0,
                         ),
                       ),
+                      if (firstRequestNote.isNotEmpty) ...[
+                        const SizedBox(height: 3),
+                        Text(
+                          firstRequestNote,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                            fontWeight: FontWeight.w700,
+                            height: 1.0,
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -922,11 +1070,7 @@ class _TokenPopupCacheHitTrendDynamicPainter extends CustomPainter {
     );
     if (polyline.length < 2) {
       if (polyline.length == 1) {
-        canvas.drawCircle(
-          polyline.single,
-          3.8,
-          Paint()..color = colorScheme.primary,
-        );
+        _drawPointMarker(canvas, polyline.single, points.first);
       }
       return;
     }
@@ -950,7 +1094,41 @@ class _TokenPopupCacheHitTrendDynamicPainter extends CustomPainter {
 
     canvas.drawPath(fillPath, fillPaint);
     canvas.drawPath(linePath, linePaint);
-    canvas.drawCircle(polyline.last, 3.6, Paint()..color = colorScheme.primary);
+    if (points.first.isFirstRequest) {
+      _drawPointMarker(canvas, polyline.first, points.first);
+    }
+    if (!points.last.isFirstRequest) {
+      _drawPointMarker(canvas, polyline.last, points.last);
+    }
+  }
+
+  void _drawPointMarker(
+    Canvas canvas,
+    Offset center,
+    SessionCacheHitTurnPoint point,
+  ) {
+    if (point.isFirstRequest) {
+      canvas.drawCircle(
+        center,
+        4.4,
+        Paint()..color = colorScheme.surface.withValues(alpha: 0.92),
+      );
+      canvas.drawCircle(
+        center,
+        4.4,
+        Paint()
+          ..color = colorScheme.outline.withValues(alpha: 0.78)
+          ..strokeWidth = 1.5
+          ..style = PaintingStyle.stroke,
+      );
+      canvas.drawCircle(
+        center,
+        1.7,
+        Paint()..color = colorScheme.outline.withValues(alpha: 0.68),
+      );
+      return;
+    }
+    canvas.drawCircle(center, 3.6, Paint()..color = colorScheme.primary);
   }
 
   @override
@@ -960,6 +1138,54 @@ class _TokenPopupCacheHitTrendDynamicPainter extends CustomPainter {
     return oldDelegate.points != points ||
         oldDelegate.progress != progress ||
         oldDelegate.colorScheme != colorScheme;
+  }
+}
+
+class _CacheHitTrendEmptyState extends StatelessWidget {
+  const _CacheHitTrendEmptyState({
+    required this.displayMode,
+    required this.height,
+  });
+
+  final SessionCacheHitDisplayMode displayMode;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final text = displayMode == SessionCacheHitDisplayMode.excludeExpiredMisses
+        ? openHandLocalizedText(
+            context,
+            zh: '首轮请求不参与平均，下一轮正常请求后展示趋势。',
+            zhHant: '首輪請求不參與平均，下一輪正常請求後展示趨勢。',
+            en: 'The first request is ignored; the trend starts after the next normal request.',
+            fr: 'La première requête est ignorée; la tendance démarre ensuite.',
+            de: 'Die erste Anfrage zählt nicht; der Trend startet nach der nächsten normalen Anfrage.',
+            ja: '初回リクエストは平均外です。次の通常リクエスト後に表示します。',
+          )
+        : openHandLocalizedText(
+            context,
+            zh: '首轮仅作参考，不参与平均缓存命中率。',
+            zhHant: '首輪僅作參考，不參與平均快取命中率。',
+            en: 'The first request is reference only and is not averaged.',
+            fr: 'La première requête est indicative et hors moyenne.',
+            de: 'Die erste Anfrage ist nur Referenz und zählt nicht zum Durchschnitt.',
+            ja: '初回は参考表示のみで、平均には含めません。',
+          );
+    return SizedBox(
+      height: height,
+      child: Center(
+        child: Text(
+          text,
+          textAlign: TextAlign.center,
+          style: theme.textTheme.labelSmall?.copyWith(
+            color: colorScheme.onSurfaceVariant,
+            height: 1.35,
+          ),
+        ),
+      ),
+    );
   }
 }
 

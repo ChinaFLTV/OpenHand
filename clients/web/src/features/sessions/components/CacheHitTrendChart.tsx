@@ -1,22 +1,17 @@
 import { useRef, useState, useEffect, useCallback, useMemo } from 'preact/hooks';
 import { clampNumber } from '../../../shared/util/number';
+import {
+  cacheHitDisplayData,
+  DEFAULT_CACHE_HIT_DISPLAY_MODE,
+  isFirstCacheHitRequest,
+  type CacheHitDisplayMode,
+  type CacheHitTrendPoint,
+} from '../cache_hit_stats';
 
-interface TrendPoint {
-  turnIndex: number;
-  hitRatio: number;
-  promptTokens?: number;
-  cacheReadTokens?: number;
-  cacheWriteTokens?: number;
-  starterMessageId?: string | null;
-  starterMessageKind?: string | null;
-  starterOrigin?: string | null;
-  idleGapSeconds?: number | null;
-}
-
-export type CacheHitDisplayMode = 'excludeExtremeMisses' | 'includeAll';
+export type { CacheHitDisplayMode, CacheHitTrendPoint };
 
 interface CacheHitTrendChartProps {
-  points: TrendPoint[];
+  points: CacheHitTrendPoint[];
   averageRatio: number;
   claudeStyle?: boolean;
   height?: number;
@@ -29,52 +24,16 @@ const PAD_LEFT = 30;
 const PAD_RIGHT = 8;
 const PAD_TOP = 8;
 const PAD_BOTTOM = 22;
-const EXTREME_IDLE_GAP_SECONDS = 1800; // 30 min
-const EXTREME_HIT_RATIO_THRESHOLD = 0.01; // 1%
 const MIN_VISIBLE_POINTS = 6;
 const CACHE_LINE_COLOR = '#2E7D32';
 const CACHE_TREND_ENTRANCE_DURATION_MS = 560;
 const CACHE_TREND_HOVER_IN_DURATION_MS = 240;
 const CACHE_TREND_HOVER_OUT_DURATION_MS = 200;
 const CACHE_TOOLTIP_WIDTH_PX = 132;
+const CACHE_TOOLTIP_FIRST_WIDTH_PX = 148;
 const CACHE_TOOLTIP_HEIGHT_PX = 46;
+const CACHE_TOOLTIP_FIRST_HEIGHT_PX = 58;
 const CACHE_TOOLTIP_OFFSET_PX = 12;
-
-function isExtremeIdleExpiryMiss(p: TrendPoint): boolean {
-  const gap = p.idleGapSeconds ?? 0;
-  if (gap < EXTREME_IDLE_GAP_SECONDS) return false;
-  return p.hitRatio < EXTREME_HIT_RATIO_THRESHOLD;
-}
-
-function isCleanTrendPoint(p: TrendPoint): boolean {
-  return !isExtremeIdleExpiryMiss(p);
-}
-
-function uncachedPromptTokens(p: TrendPoint, claudeStyle: boolean): number {
-  const prompt = Math.max(0, Math.round(p.promptTokens ?? 0));
-  const read = Math.max(0, Math.round(p.cacheReadTokens ?? 0));
-  const write = Math.max(0, Math.round(p.cacheWriteTokens ?? 0));
-  if (claudeStyle) return prompt;
-  return Math.max(0, prompt - read - write);
-}
-
-function averageHitRatio(
-  points: TrendPoint[],
-  claudeStyle: boolean,
-  fallback: number,
-): number {
-  let readTotal = 0;
-  let writeTotal = 0;
-  let uncachedTotal = 0;
-  for (const p of points) {
-    readTotal += Math.max(0, Math.round(p.cacheReadTokens ?? 0));
-    writeTotal += Math.max(0, Math.round(p.cacheWriteTokens ?? 0));
-    uncachedTotal += uncachedPromptTokens(p, claudeStyle);
-  }
-  const denominator = readTotal + writeTotal + uncachedTotal;
-  if (denominator <= 0) return clampNumber(fallback, 0, 1);
-  return clampNumber(readTotal / denominator, 0, 1);
-}
 
 interface Viewport {
   start: number;
@@ -162,28 +121,65 @@ function buildSmoothFillPath(
 const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
 const easeInCubic = (t: number) => t * t * t;
 
+function cacheHitExclusionHint(
+  displayData: ReturnType<typeof cacheHitDisplayData>,
+  displayMode: CacheHitDisplayMode,
+  t: (key: string, fallback: string) => string,
+): string {
+  if (displayMode === 'includeExpiredMisses') {
+    return displayData.points.some(isFirstCacheHitRequest)
+      ? t('tokenPopup.firstRequestIgnored', '首轮不计平均')
+      : '';
+  }
+  if (displayData.excludedPointCount <= 0) return '';
+  if (displayData.excludedExpiredMissCount > 0) {
+    return t('tokenPopup.excludedRounds', '已排除 {{n}} 轮').replace(
+      '{{n}}',
+      String(displayData.excludedPointCount),
+    );
+  }
+  return t('tokenPopup.firstRequestIgnored', '首轮不计平均');
+}
+
 export default function CacheHitTrendChart({
   points,
   averageRatio,
   claudeStyle = false,
   height = 168,
-  displayMode = 'excludeExtremeMisses',
+  displayMode = DEFAULT_CACHE_HIT_DISPLAY_MODE,
   onDisplayModeChange,
   t = (_k: string, fallback: string) => fallback,
 }: CacheHitTrendChartProps) {
   const t2 = useCallback((k: string, fb: string) => t(k, fb), [t]);
 
-  const filteredPoints = useMemo(() => {
-    if (displayMode === 'includeAll') return points;
-    return points.filter(isCleanTrendPoint);
-  }, [points, displayMode]);
-
-  const excludedCount = points.length - filteredPoints.length;
-  const displayedAverageRatio = useMemo(
-    () => averageHitRatio(filteredPoints, claudeStyle, averageRatio),
-    [filteredPoints, claudeStyle, averageRatio],
+  const displayData = useMemo(
+    () =>
+      cacheHitDisplayData({
+        points,
+        displayMode,
+        claudeStyle,
+        fallbackAverageRatio: averageRatio,
+      }),
+    [points, displayMode, claudeStyle, averageRatio],
   );
+  const filteredPoints = displayData.points;
+  const displayedAverageRatio = displayData.averageRatio;
   const hasDrawablePoints = filteredPoints.length >= 1;
+  const modeOptions = useMemo(
+    () =>
+      [
+        [
+          'excludeExpiredMisses',
+          t2('tokenPopup.cacheHitMode.excludeExpired', '不包含过期异常'),
+        ],
+        [
+          'includeExpiredMisses',
+          t2('tokenPopup.cacheHitMode.includeExpired', '含过期异常'),
+        ],
+      ] as Array<[CacheHitDisplayMode, string]>,
+    [t2],
+  );
+  const exclusionHint = cacheHitExclusionHint(displayData, displayMode, t2);
 
   const [viewport, setViewport] = useState<Viewport>(() =>
     viewportFull(filteredPoints.length),
@@ -264,6 +260,7 @@ export default function CacheHitTrendChart({
       y: PAD_TOP + chartH - chartH * clampNumber(p.hitRatio, 0, 1),
       hitRatio: p.hitRatio,
       turnIndex: p.turnIndex,
+      firstRequest: isFirstCacheHitRequest(p),
     }));
   }, [visiblePoints, chartW, chartH]);
 
@@ -287,6 +284,7 @@ export default function CacheHitTrendChart({
         y: prev.y + (next.y - prev.y) * partial,
         hitRatio: prev.hitRatio + (next.hitRatio - prev.hitRatio) * partial,
         turnIndex: prev.turnIndex,
+        firstRequest: prev.firstRequest,
       });
     }
     return out;
@@ -310,6 +308,7 @@ export default function CacheHitTrendChart({
   const middleIdx = Math.floor(visiblePoints.length / 2);
   const middleTurn = visiblePoints[middleIdx]?.turnIndex ?? 0;
   const middleX = layoutPoints[middleIdx]?.x ?? 0;
+  const firstBadgeText = t2('tokenPopup.firstRequestShort', '首轮不计');
 
   const onMouseMove = useCallback(
     (e: MouseEvent) => {
@@ -388,12 +387,67 @@ export default function CacheHitTrendChart({
         </div>
         <div
           class="text-xs"
-          style={{ color: 'var(--m3-on-surface-variant)' }}
+          style={{ color: 'var(--m3-on-surface-variant)', marginBottom: 10 }}
         >
-          {t2(
-            'tokenPopup.trendNoData',
-            '尚无缓存命中率数据，发送消息后将在此展示走势。',
-          )}
+          {points.length <= 0
+            ? t2(
+                'tokenPopup.trendNoData',
+                '尚无缓存命中率数据，发送消息后将在此展示走势。',
+              )
+            : displayMode === 'excludeExpiredMisses'
+              ? t2(
+                'tokenPopup.trendOnlyFirstIgnored',
+                '首轮请求不参与平均，下一轮正常请求后展示趋势。',
+              )
+              : t2(
+                'tokenPopup.trendFirstReferenceOnly',
+                '首轮仅作参考，不参与平均缓存命中率。',
+              )}
+        </div>
+        <div class="flex items-center" style={{ gap: 8 }}>
+          <div class="flex items-center" style={{ gap: 8 }}>
+            {modeOptions.map(([key, label]) => {
+              const selected = displayMode === key;
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => {
+                    setViewport(viewportFull(points.length));
+                    onDisplayModeChange?.(key);
+                  }}
+                  style={{
+                    borderRadius: 999,
+                    padding: '5px 10px',
+                    fontSize: 11,
+                    fontWeight: 700,
+                    border: selected
+                      ? '1px solid color-mix(in srgb, var(--m3-primary) 50%, transparent)'
+                      : '1px solid var(--m3-outline-variant)',
+                    background: selected
+                      ? 'color-mix(in srgb, var(--m3-primary) 12%, transparent)'
+                      : 'color-mix(in srgb, var(--m3-surface-container-highest) 50%, transparent)',
+                    color: selected
+                      ? 'var(--m3-primary)'
+                      : 'var(--m3-on-surface-variant)',
+                    cursor: 'pointer',
+                    transition: 'all 220ms cubic-bezier(0.33, 1, 0.68, 1)',
+                  }}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+          <div style={{ flex: 1 }} />
+          {exclusionHint ? (
+            <span
+              class="text-xs"
+              style={{ color: 'var(--m3-on-surface-variant)' }}
+            >
+              {exclusionHint}
+            </span>
+          ) : null}
         </div>
       </div>
     );
@@ -484,12 +538,7 @@ export default function CacheHitTrendChart({
         style={{ gap: 8, marginBottom: 10 }}
       >
         <div class="flex items-center" style={{ gap: 8 }}>
-          {(
-            [
-              ['excludeExtremeMisses', '请求视角'],
-              ['includeAll', '含过期异常'],
-            ] as Array<[CacheHitDisplayMode, string]>
-          ).map(([key, label]) => {
+          {modeOptions.map(([key, label]) => {
             const selected = displayMode === key;
             return (
               <button
@@ -523,15 +572,12 @@ export default function CacheHitTrendChart({
           })}
         </div>
         <div style={{ flex: 1 }} />
-        {excludedCount > 0 ? (
+        {exclusionHint ? (
           <span
             class="text-xs"
             style={{ color: 'var(--m3-on-surface-variant)' }}
           >
-            {t2('tokenPopup.excludedRounds', '已排除 {{n}} 轮').replace(
-              '{{n}}',
-              String(excludedCount),
-            )}
+            {exclusionHint}
           </span>
         ) : null}
       </div>
@@ -629,11 +675,78 @@ export default function CacheHitTrendChart({
             />
           ) : null}
 
+          {/* First request marker: visible in "include expired" mode, but excluded from averages. */}
+          {layoutPoints
+            .filter((point) => point.firstRequest)
+            .map((point) => {
+              const badgeW = 52;
+              const badgeH = 16;
+              const badgeX = clampNumber(
+                point.x + 8,
+                PAD_LEFT,
+                PAD_LEFT + chartW - badgeW,
+              );
+              const badgeY = clampNumber(
+                point.y - 10,
+                PAD_TOP,
+                PAD_TOP + chartH - badgeH,
+              );
+              return (
+                <g key={`first-${point.turnIndex}`}>
+                  <circle
+                    cx={point.x}
+                    cy={point.y}
+                    r="4.4"
+                    fill="var(--m3-surface)"
+                    opacity="0.94"
+                  />
+                  <circle
+                    cx={point.x}
+                    cy={point.y}
+                    r="4.4"
+                    fill="none"
+                    stroke="var(--m3-on-surface-variant)"
+                    stroke-opacity="0.78"
+                    stroke-width="1.4"
+                  />
+                  <circle
+                    cx={point.x}
+                    cy={point.y}
+                    r="1.7"
+                    fill="var(--m3-on-surface-variant)"
+                    opacity="0.68"
+                  />
+                  <rect
+                    x={badgeX}
+                    y={badgeY}
+                    width={badgeW}
+                    height={badgeH}
+                    rx="4"
+                    fill="var(--m3-surface)"
+                    opacity="0.94"
+                    stroke="var(--m3-outline-variant)"
+                    stroke-opacity="0.55"
+                  />
+                  <text
+                    x={badgeX + badgeW / 2}
+                    y={badgeY + 11}
+                    text-anchor="middle"
+                    fill="var(--m3-on-surface-variant)"
+                    font-size="9"
+                    font-weight="700"
+                  >
+                    {firstBadgeText}
+                  </text>
+                </g>
+              );
+            })}
+
           {/* Last point dot */}
           {animatedLayoutPoints.length > 0
             ? (() => {
                 const last =
                   animatedLayoutPoints[animatedLayoutPoints.length - 1];
+                if (last.firstRequest) return null;
                 return (
                   <circle
                     cx={last.x}
@@ -711,8 +824,12 @@ export default function CacheHitTrendChart({
               const ratio = point.hitRatio;
               const cy = point.y;
               const cx = point.x;
-              const tooltipH = CACHE_TOOLTIP_HEIGHT_PX;
-              const tooltipW = CACHE_TOOLTIP_WIDTH_PX;
+              const tooltipH = point.firstRequest
+                ? CACHE_TOOLTIP_FIRST_HEIGHT_PX
+                : CACHE_TOOLTIP_HEIGHT_PX;
+              const tooltipW = point.firstRequest
+                ? CACHE_TOOLTIP_FIRST_WIDTH_PX
+                : CACHE_TOOLTIP_WIDTH_PX;
               const showAbove = cy - tooltipH - CACHE_TOOLTIP_OFFSET_PX >= PAD_TOP;
               const tooltipTop = showAbove
                 ? cy - tooltipH - CACHE_TOOLTIP_OFFSET_PX
@@ -727,11 +844,13 @@ export default function CacheHitTrendChart({
                 Math.max(PAD_LEFT, PAD_LEFT + chartW - tooltipW),
               );
               const tipColor =
-                ratio >= 0.95
-                  ? CACHE_LINE_COLOR
-                  : ratio >= 0.5
-                    ? 'var(--m3-primary)'
-                    : 'var(--m3-on-surface)';
+                point.firstRequest
+                  ? 'var(--m3-on-surface-variant)'
+                  : ratio >= 0.95
+                    ? CACHE_LINE_COLOR
+                    : ratio >= 0.5
+                      ? 'var(--m3-primary)'
+                      : 'var(--m3-on-surface)';
               const scale = hoverAnim;
               return (
                 <>
@@ -743,7 +862,9 @@ export default function CacheHitTrendChart({
                       width: 18,
                       height: 18,
                       borderRadius: '50%',
-                      background: 'var(--m3-primary)',
+                      background: point.firstRequest
+                        ? 'var(--m3-on-surface-variant)'
+                        : 'var(--m3-primary)',
                       opacity: 0.18 * scale,
                       pointerEvents: 'none',
                       transform: `scale(${scale})`,
@@ -757,7 +878,9 @@ export default function CacheHitTrendChart({
                       width: 8,
                       height: 8,
                       borderRadius: '50%',
-                      background: 'var(--m3-primary)',
+                      background: point.firstRequest
+                        ? 'var(--m3-on-surface-variant)'
+                        : 'var(--m3-primary)',
                       border: '1.4px solid var(--m3-surface)',
                       pointerEvents: 'none',
                       transform: `scale(${scale})`,
@@ -811,6 +934,20 @@ export default function CacheHitTrendChart({
                     >
                       {Math.round(ratio * 100)}%
                     </div>
+                    {point.firstRequest ? (
+                      <div
+                        style={{
+                          fontSize: 10,
+                          color: 'var(--m3-on-surface-variant)',
+                          fontWeight: 700,
+                          lineHeight: 1.0,
+                          marginTop: 4,
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {t2('tokenPopup.firstRequestNotAveraged', '不参与平均')}
+                      </div>
+                    ) : null}
                   </div>
                 </>
               );
