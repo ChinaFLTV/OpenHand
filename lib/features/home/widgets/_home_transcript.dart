@@ -1368,18 +1368,15 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       });
     } catch (error) {
       if (!mounted) return;
-      showOpenHandSnackBar(
+      flashHomeSnack(
         context,
-        SnackBar(
-          content: Text(
-            openHandLocalizedText(
-              context,
-              zh: '翻译失败：${_friendlyTranslationUiError(error)}',
-              en: 'Translation failed: ${_friendlyTranslationUiError(error)}',
-            ),
-          ),
-          duration: const Duration(seconds: 3),
+        openHandLocalizedText(
+          context,
+          zh: '翻译失败：${_friendlyTranslationUiError(error)}',
+          en: 'Translation failed: ${_friendlyTranslationUiError(error)}',
         ),
+        kind: OpenHandSnackKind.error,
+        duration: const Duration(seconds: 3),
       );
     } finally {
       if (mounted) {

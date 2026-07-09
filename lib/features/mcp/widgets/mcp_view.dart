@@ -395,7 +395,7 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
         hasPlaceholder ||
         ((command == null || command.isEmpty) &&
             (url == null || url.isEmpty))) {
-      _showSnackBar(
+      flashOpenHandSnack(
         context,
         _localizedText(
           context,
@@ -419,7 +419,7 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
       ),
     );
     if (!context.mounted) return;
-    _showSnackBar(
+    flashOpenHandSnack(
       context,
       saved
           ? _localizedText(
@@ -453,7 +453,7 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
       if (!context.mounted) {
         return;
       }
-      _showSnackBar(
+      flashOpenHandSnack(
         context,
         l10n.mcpOperationFailed,
         kind: OpenHandSnackKind.error,
@@ -506,7 +506,7 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
     if (!context.mounted || submitted != true) {
       return;
     }
-    _showSnackBar(
+    flashOpenHandSnack(
       context,
       initialServer == null ? l10n.mcpServerCreated : l10n.mcpServerUpdated,
       kind: OpenHandSnackKind.success,
@@ -575,7 +575,7 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
       return;
     }
     if (!deleted) {
-      _showSnackBar(
+      flashOpenHandSnack(
         context,
         l10n.mcpOperationFailed,
         kind: OpenHandSnackKind.error,
@@ -589,7 +589,7 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
       _cleanupNpxDependency(context, cleanPkg, server.name);
     }
 
-    _showSnackBar(
+    flashOpenHandSnack(
       context,
       l10n.mcpServerDeleted,
       kind: OpenHandSnackKind.success,
@@ -637,13 +637,13 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
 
       if (!context.mounted) return;
       if (result.exitCode == 0) {
-        _showSnackBar(
+        flashOpenHandSnack(
           context,
           l10n.mcpDependencyCleanedUp(packageName),
           kind: OpenHandSnackKind.success,
         );
       } else {
-        _showSnackBar(
+        flashOpenHandSnack(
           context,
           l10n.mcpDependencyCleanupFailed(packageName, result.stderr),
           kind: OpenHandSnackKind.error,
@@ -651,7 +651,7 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
       }
     } catch (e) {
       if (!context.mounted) return;
-      _showSnackBar(
+      flashOpenHandSnack(
         context,
         l10n.mcpDependencyCleanupError(packageName, '$e'),
         kind: OpenHandSnackKind.error,
@@ -872,20 +872,13 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
     if (!context.mounted || saved) {
       return;
     }
-    _showSnackBar(
+    flashOpenHandSnack(
       context,
       l10n.mcpOperationFailed,
       kind: OpenHandSnackKind.error,
     );
   }
 
-  void _showSnackBar(
-    BuildContext context,
-    String message, {
-    OpenHandSnackKind kind = OpenHandSnackKind.info,
-  }) {
-    OpenHandSnackBar.flash(context, message, kind: kind, postFrame: true);
-  }
 }
 
 List<

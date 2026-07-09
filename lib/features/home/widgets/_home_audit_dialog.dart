@@ -1540,13 +1540,10 @@ class _SessionAuditDialogState extends State<_SessionAuditDialog> {
       }
       await widget.controller.updateSessionMetadata(_liveSession.id, payload);
       if (!mounted) return;
-      showOpenHandSnackBar(
+      flashHomeSnack(
         context,
-        SnackBar(
-          content: Text(
-            AppLocalizations.of(context)!.auditSessionMetadataSaved,
-          ),
-        ),
+        AppLocalizations.of(context)!.auditSessionMetadataSaved,
+        kind: OpenHandSnackKind.success,
       );
     } on FormatException catch (error) {
       if (!mounted) return;

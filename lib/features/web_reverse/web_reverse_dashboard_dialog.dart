@@ -22,6 +22,7 @@ import '../../shared/ui/animated_menu.dart';
 import '../../shared/ui/auto_follow_scroll_guard.dart';
 import '../../shared/ui/media_preview_dialog.dart';
 import '../../shared/ui/motion_preference.dart';
+import '../../shared/ui/openhand_clipboard.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_editor_scroll_behavior.dart';
 import '../../shared/ui/openhand_safe_scrollbar.dart';

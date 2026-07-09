@@ -27,15 +27,6 @@ Duration _threadSessionMotionDuration(BuildContext context, Duration duration) {
   return openHandTickerMotionEnabled(context) ? duration : Duration.zero;
 }
 
-void _showThreadSessionSnack(
-  BuildContext context,
-  String message, {
-  OpenHandSnackKind kind = OpenHandSnackKind.info,
-}) {
-  if (!context.mounted) return;
-  OpenHandSnackBar.flash(context, message, kind: kind, postFrame: true);
-}
-
 /// Shows the Thread Session Management dialog. Honors the global dialog
 /// animation settings (entrance/exit are picked from the nearest
 /// `SettingsController` automatically by [showAnimatedDialog]).
@@ -231,7 +222,7 @@ class _ThreadSessionManagementDialogState
     if (!mounted || submitted == null || submitted.isEmpty) return;
     final ok = await controller.renameSession(session.id, submitted);
     if (!mounted || ok) return;
-    _showThreadSessionSnack(
+    flashOpenHandSnack(
       context,
       controller.lastErrorMessage ??
           AppLocalizations.of(context)!.tsmRenameFailed,
@@ -299,7 +290,7 @@ class _ThreadSessionManagementDialogState
       _localOrder?.removeWhere((s) => ids.contains(s.id));
     });
     if (failed > 0) {
-      _showThreadSessionSnack(
+      flashOpenHandSnack(
         context,
         AppLocalizations.of(context)!.tsmDeleteFailedCount(failed),
         kind: OpenHandSnackKind.error,
@@ -328,7 +319,7 @@ class _ThreadSessionManagementDialogState
     }
     if (full == null || !mounted) {
       if (mounted) {
-        _showThreadSessionSnack(
+        flashOpenHandSnack(
           context,
           AppLocalizations.of(context)!.tsmSessionMissing,
           kind: OpenHandSnackKind.error,
@@ -397,7 +388,7 @@ class _ThreadSessionManagementDialogState
     if (!mounted) return;
     final ok = result.kind == ExportResultKind.success;
     final l10n = AppLocalizations.of(context)!;
-    _showThreadSessionSnack(
+    flashOpenHandSnack(
       context,
       ok ? l10n.tsmExportComplete : l10n.tsmExportFailed,
       kind: ok ? OpenHandSnackKind.success : OpenHandSnackKind.error,
@@ -511,7 +502,7 @@ class _ThreadSessionManagementDialogState
     final batchMessage = AppLocalizations.of(
       context,
     )!.tsmBatchExportDone(ok, failed);
-    _showThreadSessionSnack(
+    flashOpenHandSnack(
       context,
       batchMessage,
       kind: failed == 0 ? OpenHandSnackKind.success : OpenHandSnackKind.error,
@@ -633,7 +624,7 @@ class _ThreadSessionManagementDialogState
       });
       await _refreshFlags();
     } else {
-      _showThreadSessionSnack(
+      flashOpenHandSnack(
         context,
         AppLocalizations.of(context)!.tsmPinUpdateFailed,
         kind: OpenHandSnackKind.error,
@@ -660,7 +651,7 @@ class _ThreadSessionManagementDialogState
       });
       await _refreshFlags();
     } else {
-      _showThreadSessionSnack(
+      flashOpenHandSnack(
         context,
         AppLocalizations.of(context)!.tsmArchiveUpdateFailed,
         kind: OpenHandSnackKind.error,

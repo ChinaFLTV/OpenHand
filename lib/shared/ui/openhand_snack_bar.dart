@@ -78,6 +78,31 @@ void showOpenHandSnackBar(BuildContext context, SnackBar snackBar) {
   OpenHandSnackBar.showInContext(context, snackBar);
 }
 
+/// Convenience flash for feature views after async/setState/dialog pop.
+///
+/// Defaults [postFrame] to `true` so callers avoid showing a snack during
+/// an active frame transition. Prefer this over ad-hoc local `_showSnackBar`
+/// wrappers that only forward to [OpenHandSnackBar.flash].
+void flashOpenHandSnack(
+  BuildContext context,
+  String message, {
+  OpenHandSnackKind kind = OpenHandSnackKind.info,
+  Duration? duration,
+  SnackBarAction? action,
+  int? maxLines,
+  bool postFrame = true,
+}) {
+  OpenHandSnackBar.flash(
+    context,
+    message,
+    kind: kind,
+    duration: duration,
+    action: action,
+    maxLines: maxLines,
+    postFrame: postFrame,
+  );
+}
+
 void showOpenHandSnackBarOn(
   BuildContext context,
   ScaffoldMessengerState? messenger,

@@ -6,11 +6,10 @@ library;
 
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
+import '../../shared/ui/openhand_clipboard.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/util/date_time_format.dart';
 import '../../shared/util/input_value_parsing.dart';
@@ -129,8 +128,7 @@ class _AccountSnapshotsDialogState extends State<_AccountSnapshotsDialog> {
 
   Future<void> _import() async {
     final loc = AppLocalizations.of(context);
-    final data = await Clipboard.getData('text/plain');
-    final text = data?.text?.trim() ?? '';
+    final text = (await getOpenHandClipboardText())?.trim() ?? '';
     if (text.isEmpty) return;
     if (!mounted) return;
     try {

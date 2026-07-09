@@ -7,6 +7,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
 import '../../app/model/dialog_animation_settings.dart';
+import '../../app/support/silent_log.dart';
 import '../util/localized_text.dart';
 import 'bounded_animation.dart';
 import 'motion_preference.dart';
@@ -536,6 +537,28 @@ Future<T?> showOpenHandFormDialog<T>({
       ],
     ),
   );
+}
+
+/// Safely dismisses the top route on [context]'s navigator.
+///
+/// Used after async work that presented a loading/progress dialog: the user
+/// may already have closed it, or the route tree may have changed. Failures
+/// are logged and swallowed so callers can continue with success/error UI.
+Future<bool> safePopOpenHandRoute(
+  BuildContext context, {
+  bool rootNavigator = true,
+  String logTag = 'dialog',
+  String logAction = 'safePop',
+}) async {
+  if (!context.mounted) return false;
+  try {
+    final navigator = Navigator.of(context, rootNavigator: rootNavigator);
+    if (!navigator.canPop()) return false;
+    return navigator.maybePop();
+  } catch (error, stack) {
+    silentLog(logTag, logAction, error, stack);
+    return false;
+  }
 }
 
 /// Shows a dialog with configurable entrance and exit animations.

@@ -518,7 +518,7 @@ class _SettingsViewState extends State<SettingsView> {
         _showPersistenceFailureSnackBar(context);
         return;
       }
-      _showSnackBar(
+      flashOpenHandSnack(
         context,
         l10n.aiModelDeleteSuccess,
         kind: OpenHandSnackKind.success,
@@ -543,7 +543,7 @@ class _SettingsViewState extends State<SettingsView> {
       _mutatingAiModelIds.remove(model.id);
       _testingAiModelIds.remove(model.id);
     });
-    _showSnackBar(
+    flashOpenHandSnack(
       context,
       l10n.aiModelDeleteSuccess,
       kind: OpenHandSnackKind.success,
@@ -1367,7 +1367,7 @@ class _SettingsViewState extends State<SettingsView> {
           await settingsController.updateAiMessageContentFormat(value);
           if (!context.mounted) return;
           if (value == AiMessageContentFormat.html) {
-            _showSnackBar(context, l10n.aiMessageContentFormatHtmlTokenWarning);
+            flashOpenHandSnack(context, l10n.aiMessageContentFormatHtmlTokenWarning);
           }
         },
       ),
@@ -4451,7 +4451,7 @@ class _SettingsViewState extends State<SettingsView> {
       if (!context.mounted) {
         return;
       }
-      _showSnackBar(
+      flashOpenHandSnack(
         context,
         l10n.skillOperationFailed,
         kind: OpenHandSnackKind.error,
@@ -4501,14 +4501,14 @@ class _SettingsViewState extends State<SettingsView> {
           _showPersistenceFailureSnackBar(context);
           return;
         }
-        _showSnackBar(context, failureMessage);
+        flashOpenHandSnack(context, failureMessage);
         return;
       }
       if (!context.mounted) {
         return;
       }
       fieldController.text = currentPath(settingsController);
-      _showSnackBar(context, successMessage);
+      flashOpenHandSnack(context, successMessage);
     } catch (_) {
       final rolledBack = await restoreSetting(previousPath);
       if (!context.mounted) {
@@ -4519,7 +4519,7 @@ class _SettingsViewState extends State<SettingsView> {
         _showPersistenceFailureSnackBar(context);
         return;
       }
-      _showSnackBar(context, failureMessage);
+      flashOpenHandSnack(context, failureMessage);
     }
   }
 
@@ -4555,7 +4555,7 @@ class _SettingsViewState extends State<SettingsView> {
   }) async {
     final parsedValue = optionalIntFromValue(rawValue);
     if (parsedValue == null || parsedValue < min || parsedValue > max) {
-      _showSnackBar(
+      flashOpenHandSnack(
         context,
         invalidMessage ??
             AppLocalizations.of(
@@ -4576,7 +4576,7 @@ class _SettingsViewState extends State<SettingsView> {
       _showPersistenceFailureSnackBar(context);
       return;
     }
-    _showSnackBar(context, successMessage, kind: successKind);
+    flashOpenHandSnack(context, successMessage, kind: successKind);
   }
 
   Future<void> _saveConnectTimeout(
@@ -4733,7 +4733,7 @@ class _SettingsViewState extends State<SettingsView> {
         stack,
       );
       if (!context.mounted) return;
-      _showSnackBar(
+      flashOpenHandSnack(
         context,
         openHandLocalizedText(
           context,
@@ -4766,7 +4766,7 @@ class _SettingsViewState extends State<SettingsView> {
         stack,
       );
       if (!context.mounted) return;
-      _showSnackBar(
+      flashOpenHandSnack(
         context,
         openHandLocalizedText(
           context,
@@ -4782,7 +4782,7 @@ class _SettingsViewState extends State<SettingsView> {
       return;
     }
     if (!context.mounted) return;
-    _showSnackBar(
+    flashOpenHandSnack(
       context,
       openHandLocalizedText(
         context,
@@ -4812,7 +4812,7 @@ class _SettingsViewState extends State<SettingsView> {
         stack,
       );
       if (!context.mounted) return;
-      _showSnackBar(
+      flashOpenHandSnack(
         context,
         openHandLocalizedText(
           context,
@@ -4844,7 +4844,7 @@ class _SettingsViewState extends State<SettingsView> {
         stack,
       );
       if (!context.mounted) return;
-      _showSnackBar(
+      flashOpenHandSnack(
         context,
         openHandLocalizedText(
           context,
@@ -4869,7 +4869,7 @@ class _SettingsViewState extends State<SettingsView> {
     final migratedNext = migrateAiStreamThrottleConfig(nextDoc);
     final diffs = _diffThrottleConfig(current, migratedNext);
     if (diffs.isEmpty) {
-      _showSnackBar(
+      flashOpenHandSnack(
         context,
         openHandLocalizedText(
           context,
@@ -4916,7 +4916,7 @@ class _SettingsViewState extends State<SettingsView> {
     try {
       final changed = await controller.importAiStreamThrottleConfig(nextDoc);
       if (!context.mounted) return;
-      _showSnackBar(
+      flashOpenHandSnack(
         context,
         changed
             ? openHandLocalizedText(
@@ -4947,7 +4947,7 @@ class _SettingsViewState extends State<SettingsView> {
         stack,
       );
       if (!context.mounted) return;
-      _showSnackBar(
+      flashOpenHandSnack(
         context,
         openHandLocalizedText(
           context,
@@ -5016,7 +5016,7 @@ class _SettingsViewState extends State<SettingsView> {
     final l10n = AppLocalizations.of(context)!;
     final parsedValue = optionalPositiveIntFromText(rawValue);
     if (parsedValue == null) {
-      _showSnackBar(
+      flashOpenHandSnack(
         context,
         l10n.aiCompressionThresholdInvalid,
         kind: OpenHandSnackKind.error,
@@ -5037,7 +5037,7 @@ class _SettingsViewState extends State<SettingsView> {
     }
     _compressionThresholdController.text =
         '${context.read<SettingsController>().aiMessageCompressionThresholdChars}';
-    _showSnackBar(
+    flashOpenHandSnack(
       context,
       l10n.aiCompressionThresholdSaved,
       kind: OpenHandSnackKind.success,
@@ -5051,7 +5051,7 @@ class _SettingsViewState extends State<SettingsView> {
     final l10n = AppLocalizations.of(context)!;
     final parsedValue = optionalPositiveIntFromText(rawValue);
     if (parsedValue == null) {
-      _showSnackBar(
+      flashOpenHandSnack(
         context,
         l10n.aiToolResultCompressionThresholdInvalid,
         kind: OpenHandSnackKind.error,
@@ -5072,7 +5072,7 @@ class _SettingsViewState extends State<SettingsView> {
     }
     _toolResultCompressionThresholdController.text =
         '${context.read<SettingsController>().aiToolResultCompressionThresholdChars}';
-    _showSnackBar(
+    flashOpenHandSnack(
       context,
       l10n.aiToolResultCompressionThresholdSaved,
       kind: OpenHandSnackKind.success,
@@ -5188,7 +5188,7 @@ class _SettingsViewState extends State<SettingsView> {
     if (parsed == null ||
         parsed < AppSettingsSnapshot.minAiBudgetUsdPerSession ||
         parsed > AppSettingsSnapshot.maxAiBudgetUsdPerSession) {
-      _showSnackBar(
+      flashOpenHandSnack(
         context,
         AppLocalizations.of(context)!.settingsAiBudgetUsdPerSessionInvalid,
       );
@@ -5204,7 +5204,7 @@ class _SettingsViewState extends State<SettingsView> {
       _showPersistenceFailureSnackBar(context);
       return;
     }
-    _showSnackBar(
+    flashOpenHandSnack(
       context,
       AppLocalizations.of(context)!.settingsAiBudgetUsdPerSessionSaved,
     );
@@ -5256,7 +5256,7 @@ class _SettingsViewState extends State<SettingsView> {
       _showPersistenceFailureSnackBar(context);
       return;
     }
-    _showSnackBar(
+    flashOpenHandSnack(
       context,
       AppLocalizations.of(context)!.settingsCacheBreakpointPositionsSaved,
     );
@@ -5286,7 +5286,7 @@ class _SettingsViewState extends State<SettingsView> {
   Future<void> _saveToolCallLimit(BuildContext context, String rawValue) async {
     final parsedValue = optionalPositiveIntFromText(rawValue);
     if (parsedValue == null) {
-      _showSnackBar(
+      flashOpenHandSnack(
         context,
         AppLocalizations.of(context)!.settingsEnterAToolCallLimitGreater,
       );
@@ -5307,7 +5307,7 @@ class _SettingsViewState extends State<SettingsView> {
     }
     _toolCallLimitController.text =
         '${settingsController.aiSingleRoundToolCallLimit}';
-    _showSnackBar(
+    flashOpenHandSnack(
       context,
       AppLocalizations.of(context)!.settingsThePerResponseToolCallLimit,
     );
@@ -5319,7 +5319,7 @@ class _SettingsViewState extends State<SettingsView> {
   ) async {
     final parsedValue = optionalPositiveIntFromText(rawValue);
     if (parsedValue == null) {
-      _showSnackBar(
+      flashOpenHandSnack(
         context,
         AppLocalizations.of(context)!.settingsEnterASequentialToolRoundLimit,
       );
@@ -5340,7 +5340,7 @@ class _SettingsViewState extends State<SettingsView> {
     }
     _sequentialToolRoundLimitController.text =
         '${settingsController.aiSequentialToolRoundLimit}';
-    _showSnackBar(
+    flashOpenHandSnack(
       context,
       AppLocalizations.of(context)!.settingsTheSequentialToolRoundLimitHas,
     );
@@ -5479,7 +5479,7 @@ class _SettingsViewState extends State<SettingsView> {
     final l10n = AppLocalizations.of(context)!;
     final parsedValue = optionalDoubleFromText(rawValue);
     if (parsedValue == null || parsedValue <= 0) {
-      _showSnackBar(
+      flashOpenHandSnack(
         context,
         l10n.aiImageSizeLimitInvalid,
         kind: OpenHandSnackKind.error,
@@ -5509,7 +5509,7 @@ class _SettingsViewState extends State<SettingsView> {
         .read<SettingsController>()
         .aiImageSizeLimitBytes;
     _imageSizeLimitController.text = formatMegabytesInput(effectiveBytes);
-    _showSnackBar(
+    flashOpenHandSnack(
       context,
       l10n.aiImageSizeLimitSaved,
       kind: OpenHandSnackKind.success,
@@ -5548,7 +5548,7 @@ class _SettingsViewState extends State<SettingsView> {
       _showPersistenceFailureSnackBar(context);
       return;
     }
-    _showSnackBar(
+    flashOpenHandSnack(
       context,
       (initialRule == null
           ? AppLocalizations.of(context)!.settingsTheDenyCommandRuleHasBeen
@@ -5582,7 +5582,7 @@ class _SettingsViewState extends State<SettingsView> {
       _showPersistenceFailureSnackBar(context);
       return;
     }
-    _showSnackBar(
+    flashOpenHandSnack(
       context,
       AppLocalizations.of(context)!.settingsTheDenyCommandRuleHasBeen,
     );
@@ -5621,7 +5621,7 @@ class _SettingsViewState extends State<SettingsView> {
       _showPersistenceFailureSnackBar(context);
       return;
     }
-    _showSnackBar(
+    flashOpenHandSnack(
       context,
       (initialRule == null
           ? AppLocalizations.of(context)!.settingsTheAllowCommandRuleHasBeen
@@ -5655,7 +5655,7 @@ class _SettingsViewState extends State<SettingsView> {
       _showPersistenceFailureSnackBar(context);
       return;
     }
-    _showSnackBar(
+    flashOpenHandSnack(
       context,
       AppLocalizations.of(context)!.settingsTheAllowCommandRuleHasBeen,
     );
@@ -5669,7 +5669,7 @@ class _SettingsViewState extends State<SettingsView> {
       if (!context.mounted) {
         return;
       }
-      _showSnackBar(
+      flashOpenHandSnack(
         context,
         l10n.mcpOperationFailed,
         kind: OpenHandSnackKind.error,
@@ -5684,7 +5684,7 @@ class _SettingsViewState extends State<SettingsView> {
     final aiCtrl = context.read<AiSessionController>();
     final sessionId = aiCtrl.currentSessionId;
     if (sessionId == null) {
-      _showSnackBar(context, l10n.mcpLazyLoadingNoActiveSession);
+      flashOpenHandSnack(context, l10n.mcpLazyLoadingNoActiveSession);
       return;
     }
     final names = aiCtrl.loadedMcpToolNamesForSession(sessionId);
@@ -5703,7 +5703,7 @@ class _SettingsViewState extends State<SettingsView> {
     final l10n = AppLocalizations.of(context)!;
     await ToolSearchHistoryExportPrefs.clear();
     if (!context.mounted) return;
-    _showSnackBar(context, l10n.mcpToolSearchExportLastDirResetToast);
+    flashOpenHandSnack(context, l10n.mcpToolSearchExportLastDirResetToast);
   }
 
   /// 一键重置 stdio MCP 隔离包缓存（~/.openhand/mcp/package-cache）。
@@ -5715,7 +5715,7 @@ class _SettingsViewState extends State<SettingsView> {
     // 工具重拉，这会用新的 env（含 mirror override）重新 spawn 子进程，
     // 刚好覆盖「立刻按新设置重启」的诉求。
     unawaited(mcp.refresh());
-    _showSnackBar(
+    flashOpenHandSnack(
       context,
       l10n.mcpStdioMirrorModeReconnectDone,
       kind: OpenHandSnackKind.success,
@@ -5736,7 +5736,7 @@ class _SettingsViewState extends State<SettingsView> {
     try {
       await resetMcpStdioIsolatedCache();
       if (!context.mounted) return;
-      _showSnackBar(
+      flashOpenHandSnack(
         context,
         l10n.mcpStdioCacheResetDone,
         kind: OpenHandSnackKind.success,
@@ -5744,7 +5744,7 @@ class _SettingsViewState extends State<SettingsView> {
     } catch (error, stack) {
       silentLog('settings.mcp', 'resetStdioPackageCache', error, stack);
       if (!context.mounted) return;
-      _showSnackBar(
+      flashOpenHandSnack(
         context,
         l10n.mcpStdioCacheResetFailed,
         kind: OpenHandSnackKind.error,
@@ -5759,7 +5759,7 @@ class _SettingsViewState extends State<SettingsView> {
     final dispatcher = context.read<ToolSearchReplayDispatcher>();
     final fired = await dispatcher.replayLastCancelled();
     if (!context.mounted) return;
-    _showSnackBar(
+    flashOpenHandSnack(
       context,
       fired
           ? l10n.mcpToolSearchReplayLastCancelToastFired
@@ -5782,7 +5782,7 @@ class _SettingsViewState extends State<SettingsView> {
     if (!context.mounted || submitted != true) {
       return;
     }
-    _showSnackBar(
+    flashOpenHandSnack(
       context,
       l10n.aiModelSaveSuccess,
       kind: OpenHandSnackKind.success,
@@ -5803,7 +5803,7 @@ class _SettingsViewState extends State<SettingsView> {
         return;
       }
       final l10n = AppLocalizations.of(context)!;
-      _showSnackBar(
+      flashOpenHandSnack(
         context,
         l10n.aiModelTestSuccess(model.providerLabel),
         kind: OpenHandSnackKind.success,
@@ -5868,7 +5868,7 @@ class _SettingsViewState extends State<SettingsView> {
 
   void _showPersistenceFailureSnackBar(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    _showSnackBar(
+    flashOpenHandSnack(
       context,
       l10n.settingsPersistenceSaveFailedBody,
       kind: OpenHandSnackKind.error,
@@ -5920,7 +5920,7 @@ class _SettingsViewState extends State<SettingsView> {
       _showPersistenceFailureSnackBar(context);
       return;
     }
-    _showSnackBar(
+    flashOpenHandSnack(
       context,
       AppLocalizations.of(context)!.settingsTheShortcutHasBeenUpdated,
     );
@@ -5956,7 +5956,7 @@ class _SettingsViewState extends State<SettingsView> {
       _showPersistenceFailureSnackBar(context);
       return;
     }
-    _showSnackBar(
+    flashOpenHandSnack(
       context,
       AppLocalizations.of(context)!.settingsTheEditorShortcutHasBeenUpdated,
     );
@@ -6137,13 +6137,6 @@ class _SettingsViewState extends State<SettingsView> {
     showAppUpdateDialog(context: context, appInfo: appInfo);
   }
 
-  void _showSnackBar(
-    BuildContext context,
-    String message, {
-    OpenHandSnackKind kind = OpenHandSnackKind.info,
-  }) {
-    OpenHandSnackBar.flash(context, message, kind: kind, postFrame: true);
-  }
 }
 
 List<Widget> _intersperse(List<Widget> items, Widget separator) {

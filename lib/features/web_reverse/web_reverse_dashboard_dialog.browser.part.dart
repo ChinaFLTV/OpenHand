@@ -919,8 +919,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
   /// 输入框。空剪贴板或非文本内容静默忽略。
   Future<void> _shortcutPasteFromHostClipboard() async {
     try {
-      final data = await Clipboard.getData(Clipboard.kTextPlain);
-      final text = data?.text;
+      final text = await getOpenHandClipboardText();
       if (text == null || text.isEmpty) return;
       await widget.controller.insertText(text);
     } catch (error, stack) {

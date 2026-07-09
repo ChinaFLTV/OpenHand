@@ -857,10 +857,10 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
         _isInstalling = false;
         _installError = null;
       });
-      _showMarketSnackBar(
+      flashOpenHandSnack(
         context,
         '${openHandLocalizedText(context, zh: '已安装技能', zhHant: '已安裝技能', en: 'Skill installed', fr: 'Compétence installée', de: 'Skill installiert', ja: 'スキルをインストールしました')}: ${installedSkill.name}',
-        kind: _MarketSnackKind.success,
+        kind: OpenHandSnackKind.success,
       );
       _installSuccessSignal.value++;
     } catch (error, stackTrace) {
@@ -889,22 +889,6 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
     }
   }
 
-  void _showMarketSnackBar(
-    BuildContext context,
-    String message, {
-    _MarketSnackKind kind = _MarketSnackKind.info,
-  }) {
-    OpenHandSnackBar.flash(
-      context,
-      message,
-      kind: switch (kind) {
-        _MarketSnackKind.success => OpenHandSnackKind.success,
-        _MarketSnackKind.error => OpenHandSnackKind.error,
-        _MarketSnackKind.info => OpenHandSnackKind.info,
-      },
-      postFrame: true,
-    );
-  }
 
   SkillMarketSummary? _findSkillBySlug(
     List<SkillMarketSummary> skills,
@@ -1879,4 +1863,3 @@ String _truncateMarkdown(String markdown, int maxChars, BuildContext context) {
   return '${markdown.substring(0, maxChars)}$suffix';
 }
 
-enum _MarketSnackKind { info, success, error }

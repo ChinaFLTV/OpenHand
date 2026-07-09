@@ -158,12 +158,9 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
     });
     final l10n = AppLocalizations.of(context);
     if (l10n == null) return;
-    showOpenHandSnackBar(
+    flashOpenHandSnack(
       context,
-      SnackBar(
-        content: Text(l10n.snackToolSearchLoadedClearedToast),
-        behavior: SnackBarBehavior.floating,
-      ),
+      l10n.snackToolSearchLoadedClearedToast,
     );
   }
 
@@ -219,12 +216,9 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
     });
     final l10n = AppLocalizations.of(context);
     if (l10n == null) return;
-    showOpenHandSnackBar(
+    flashOpenHandSnack(
       context,
-      SnackBar(
-        content: Text(l10n.snackToolSearchLoadedHistoryClearedToast),
-        behavior: SnackBarBehavior.floating,
-      ),
+      l10n.snackToolSearchLoadedHistoryClearedToast,
     );
   }
 
@@ -238,12 +232,9 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
     if (l10n == null) return;
     final entries = _filterHistory(_history);
     if (entries.isEmpty) {
-      showOpenHandSnackBar(
+      flashOpenHandSnack(
         context,
-        SnackBar(
-          content: Text(l10n.snackToolSearchLoadedHistoryExportEmptyToast),
-          behavior: SnackBarBehavior.floating,
-        ),
+        l10n.snackToolSearchLoadedHistoryExportEmptyToast,
       );
       return;
     }
@@ -293,14 +284,10 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
         stack,
       );
       if (!mounted) return;
-      showOpenHandSnackBar(
+      flashOpenHandSnack(
         context,
-        SnackBar(
-          content: Text(
-            l10n.snackToolSearchLoadedHistoryExportSaveFailedToast('$error'),
-          ),
-          behavior: SnackBarBehavior.floating,
-        ),
+        l10n.snackToolSearchLoadedHistoryExportSaveFailedToast('$error'),
+        kind: OpenHandSnackKind.error,
       );
       return;
     }
@@ -315,14 +302,10 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
         stack,
       );
       if (!mounted) return;
-      showOpenHandSnackBar(
+      flashOpenHandSnack(
         context,
-        SnackBar(
-          content: Text(
-            l10n.snackToolSearchLoadedHistoryExportSaveFailedToast('$error'),
-          ),
-          behavior: SnackBarBehavior.floating,
-        ),
+        l10n.snackToolSearchLoadedHistoryExportSaveFailedToast('$error'),
+        kind: OpenHandSnackKind.error,
       );
       return;
     }
@@ -330,21 +313,17 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
     final savedPath = location.path;
     // Remember the directory for next export.
     unawaited(ToolSearchHistoryExportPrefs.writeLastDir(p.dirname(savedPath)));
-    showOpenHandSnackBar(
+    flashOpenHandSnack(
       context,
-      SnackBar(
-        content: Text(
-          l10n.snackToolSearchLoadedHistoryExportSavedToast(
-            entries.length,
-            savedPath,
-          ),
-        ),
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 6),
-        action: SnackBarAction(
-          label: l10n.snackToolSearchLoadedHistoryExportRevealAction,
-          onPressed: () => _revealInFileManager(savedPath),
-        ),
+      l10n.snackToolSearchLoadedHistoryExportSavedToast(
+        entries.length,
+        savedPath,
+      ),
+      kind: OpenHandSnackKind.success,
+      duration: const Duration(seconds: 6),
+      action: SnackBarAction(
+        label: l10n.snackToolSearchLoadedHistoryExportRevealAction,
+        onPressed: () => _revealInFileManager(savedPath),
       ),
     );
   }
@@ -400,14 +379,10 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
         stack,
       );
       if (!mounted) return;
-      showOpenHandSnackBar(
+      flashOpenHandSnack(
         context,
-        SnackBar(
-          content: Text(
-            l10n.toolSearchLoadedHistoryImportDialogParseFailed('$error'),
-          ),
-          behavior: SnackBarBehavior.floating,
-        ),
+        l10n.toolSearchLoadedHistoryImportDialogParseFailed('$error'),
+        kind: OpenHandSnackKind.error,
       );
       return;
     }
@@ -416,14 +391,10 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
       entries = ToolSearchHistorySerializer.fromJson(raw);
     } catch (error) {
       if (!mounted) return;
-      showOpenHandSnackBar(
+      flashOpenHandSnack(
         context,
-        SnackBar(
-          content: Text(
-            l10n.toolSearchLoadedHistoryImportDialogParseFailed('$error'),
-          ),
-          behavior: SnackBarBehavior.floating,
-        ),
+        l10n.toolSearchLoadedHistoryImportDialogParseFailed('$error'),
+        kind: OpenHandSnackKind.error,
       );
       return;
     }

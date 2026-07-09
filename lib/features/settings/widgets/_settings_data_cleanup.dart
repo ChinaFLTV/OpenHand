@@ -1002,8 +1002,7 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
   }
 
   Future<void> _importLedgerFromClipboard() async {
-    final clip = await Clipboard.getData(Clipboard.kTextPlain);
-    final raw = clip?.text ?? '';
+    final raw = await getOpenHandClipboardText() ?? '';
     if (!mounted) return;
     if (raw.trim().isEmpty) {
       showOpenHandInfoSnack(

@@ -11,13 +11,12 @@ library;
 
 import 'dart:async';
 import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
+import '../../shared/ui/openhand_clipboard.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/util/date_time_format.dart';
 import '../../shared/util/input_value_parsing.dart';
@@ -501,10 +500,10 @@ class _WsInjectDialogState extends State<_WsInjectDialog> {
               children: [
                 TextButton.icon(
                   onPressed: () async {
-                    final data = await Clipboard.getData('text/plain');
+                    final dataText = await getOpenHandClipboardText();
                     if (!context.mounted) return;
-                    if (data?.text != null) {
-                      final raw = data!.text!;
+                    if (dataText != null) {
+                      final raw = dataText;
                       final clipped = raw.length > _kWsInjectMaxPayloadChars;
                       setState(
                         () => _payloadCtrl.text = _capWsInjectText(

@@ -17,13 +17,41 @@ typedef OpenHandClipboardSnackPresenter =
       required Duration duration,
     });
 
+/// Clamps clipboard operation timeouts into a safe range.
+Duration clampOpenHandClipboardTimeout(Duration timeout) {
+  if (timeout <= Duration.zero) return kOpenHandClipboardCopyTimeout;
+  if (timeout > _kOpenHandClipboardMaxCopyTimeout) {
+    return _kOpenHandClipboardMaxCopyTimeout;
+  }
+  return timeout;
+}
+
 Future<void> setOpenHandClipboardText(
   String text, {
   Duration timeout = kOpenHandClipboardCopyTimeout,
 }) {
   return Clipboard.setData(
     ClipboardData(text: text),
-  ).timeout(_safeOpenHandClipboardTimeout(timeout));
+  ).timeout(clampOpenHandClipboardTimeout(timeout));
+}
+
+/// Reads plain text from the system clipboard with a bounded timeout.
+///
+/// Returns `null` when the clipboard is empty, unavailable, or the read
+/// times out / fails. Callers should treat `null` as a soft failure.
+Future<String?> getOpenHandClipboardText({
+  Duration timeout = kOpenHandClipboardCopyTimeout,
+}) async {
+  try {
+    final data = await Clipboard.getData(
+      Clipboard.kTextPlain,
+    ).timeout(clampOpenHandClipboardTimeout(timeout));
+    final text = data?.text;
+    if (text == null) return null;
+    return text;
+  } catch (_) {
+    return null;
+  }
 }
 
 Future<bool> copyOpenHandTextToClipboard({
@@ -86,14 +114,6 @@ String openHandClipboardCopyErrorMessage(BuildContext context, Object error) {
     de: 'Kopieren fehlgeschlagen: $error',
     ja: 'コピーに失敗しました: $error',
   );
-}
-
-Duration _safeOpenHandClipboardTimeout(Duration timeout) {
-  if (timeout <= Duration.zero) return kOpenHandClipboardCopyTimeout;
-  if (timeout > _kOpenHandClipboardMaxCopyTimeout) {
-    return _kOpenHandClipboardMaxCopyTimeout;
-  }
-  return timeout;
 }
 
 void _showDefaultClipboardSuccessSnack(

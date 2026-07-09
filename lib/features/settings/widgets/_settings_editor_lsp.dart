@@ -460,7 +460,7 @@ extension on _SettingsViewState {
 
     if (startInstall) {
       if (installBackend == null) {
-        _showSnackBar(
+        flashOpenHandSnack(
           context,
           openHandLocalizedText(
             context,
@@ -477,7 +477,7 @@ extension on _SettingsViewState {
         settings: settings,
       );
       if (validationMessage != null) {
-        _showSnackBar(
+        flashOpenHandSnack(
           context,
           openHandLocalizedText(
             context,
@@ -503,7 +503,7 @@ extension on _SettingsViewState {
     }
 
     if (!startInstall) {
-      _showSnackBar(
+      flashOpenHandSnack(
         context,
         openHandLocalizedText(
           context,
@@ -517,7 +517,7 @@ extension on _SettingsViewState {
 
     if (installBackend == null ||
         !AiLspManagedInstallService.supportsManagedInstall(installBackend)) {
-      _showSnackBar(
+      flashOpenHandSnack(
         context,
         openHandLocalizedText(
           context,
@@ -533,7 +533,7 @@ extension on _SettingsViewState {
       settings,
     );
     if (installPlan == null) {
-      _showSnackBar(
+      flashOpenHandSnack(
         context,
         openHandLocalizedText(
           context,
@@ -568,7 +568,7 @@ extension on _SettingsViewState {
         if (!context.mounted) {
           return;
         }
-        _showSnackBar(
+        flashOpenHandSnack(
           context,
           openHandLocalizedText(
             context,
@@ -582,7 +582,7 @@ extension on _SettingsViewState {
       if (!context.mounted) {
         return;
       }
-      _showSnackBar(
+      flashOpenHandSnack(
         context,
         openHandLocalizedText(
           context,
@@ -594,7 +594,7 @@ extension on _SettingsViewState {
       return;
     }
 
-    _showSnackBar(
+    flashOpenHandSnack(
       context,
       openHandLocalizedText(
         context,
@@ -620,7 +620,7 @@ extension on _SettingsViewState {
       return;
     }
 
-    _showSnackBar(
+    flashOpenHandSnack(
       context,
       openHandLocalizedText(
         context,
@@ -643,7 +643,7 @@ extension on _SettingsViewState {
     );
     final manifest = AiLspManagedInstallService.readManifest(normalizedRoot);
     if (manifest == null) {
-      _showSnackBar(
+      flashOpenHandSnack(
         context,
         openHandLocalizedText(
           context,
@@ -685,7 +685,7 @@ extension on _SettingsViewState {
       if (!context.mounted) {
         return;
       }
-      _showSnackBar(
+      flashOpenHandSnack(
         context,
         openHandLocalizedText(
           context,
@@ -716,7 +716,7 @@ extension on _SettingsViewState {
       return;
     }
 
-    _showSnackBar(
+    flashOpenHandSnack(
       context,
       openHandLocalizedText(
         context,

@@ -540,13 +540,10 @@ class _PluginCard extends StatelessWidget {
     for (final depId in plugin.dependencies) {
       final dep = controller.pluginById(depId);
       if (dep == null || !dep.isInstalled) {
-        showOpenHandSnackBar(
+        flashOpenHandSnack(
           context,
-          SnackBar(
-            content: Text(
-              l10n.pluginServiceInstallDependencyRequired(dep?.name ?? depId),
-            ),
-          ),
+          l10n.pluginServiceInstallDependencyRequired(dep?.name ?? depId),
+          kind: OpenHandSnackKind.error,
         );
         return;
       }
@@ -566,21 +563,18 @@ class _PluginCard extends StatelessWidget {
     );
     final success = await controller.installPlugin(plugin.id);
     if (!context.mounted) return;
-    // 弹窗可能已被用户强制关闭，安全 pop
-    try {
-      Navigator.of(context, rootNavigator: true).pop();
-    } catch (error, stack) {
-      silentLog('plugin_service_view', 'dismiss install dialog', error, stack);
-    }
-    showOpenHandSnackBar(
+    await safePopOpenHandRoute(
       context,
-      SnackBar(
-        content: Text(
-          success
-              ? l10n.pluginServiceInstallSuccess(plugin.name)
-              : l10n.pluginServiceInstallFailure(plugin.name),
-        ),
-      ),
+      logTag: 'plugin_service_view',
+      logAction: 'dismiss install dialog',
+    );
+    if (!context.mounted) return;
+    flashOpenHandSnack(
+      context,
+      success
+          ? l10n.pluginServiceInstallSuccess(plugin.name)
+          : l10n.pluginServiceInstallFailure(plugin.name),
+      kind: success ? OpenHandSnackKind.success : OpenHandSnackKind.error,
     );
   }
 
@@ -605,20 +599,18 @@ class _PluginCard extends StatelessWidget {
     );
     final success = await controller.updatePlugin(plugin.id);
     if (!context.mounted) return;
-    try {
-      Navigator.of(context, rootNavigator: true).pop();
-    } catch (error, stack) {
-      silentLog('plugin_service_view', 'dismiss update dialog', error, stack);
-    }
-    showOpenHandSnackBar(
+    await safePopOpenHandRoute(
       context,
-      SnackBar(
-        content: Text(
-          success
-              ? l10n.pluginServiceUpdateSuccess(plugin.name)
-              : l10n.pluginServiceUpdateFailure(plugin.name),
-        ),
-      ),
+      logTag: 'plugin_service_view',
+      logAction: 'dismiss update dialog',
+    );
+    if (!context.mounted) return;
+    flashOpenHandSnack(
+      context,
+      success
+          ? l10n.pluginServiceUpdateSuccess(plugin.name)
+          : l10n.pluginServiceUpdateFailure(plugin.name),
+      kind: success ? OpenHandSnackKind.success : OpenHandSnackKind.error,
     );
   }
 
@@ -627,28 +619,22 @@ class _PluginCard extends StatelessWidget {
     final refreshed = await controller.checkPluginUpdate(plugin.id);
     if (!context.mounted) return;
     if (refreshed == null) {
-      showOpenHandSnackBar(
+      flashOpenHandSnack(
         context,
-        SnackBar(
-          content: Text(
-            controller.errorMessage ?? l10n.pluginServiceCheckUpdateFailed,
-          ),
-        ),
+        controller.errorMessage ?? l10n.pluginServiceCheckUpdateFailed,
+        kind: OpenHandSnackKind.error,
       );
       return;
     }
     final checkedPlugin = controller.pluginById(plugin.id) ?? refreshed;
-    showOpenHandSnackBar(
+    final hasUpdate =
+        checkedPlugin.hasUpdate && checkedPlugin.latestVersion != null;
+    flashOpenHandSnack(
       context,
-      SnackBar(
-        content: Text(
-          checkedPlugin.hasUpdate && checkedPlugin.latestVersion != null
-              ? l10n.pluginServiceNewVersionAvailable(
-                  checkedPlugin.latestVersion!,
-                )
-              : l10n.pluginServiceNoUpdatesAvailable,
-        ),
-      ),
+      hasUpdate
+          ? l10n.pluginServiceNewVersionAvailable(checkedPlugin.latestVersion!)
+          : l10n.pluginServiceNoUpdatesAvailable,
+      kind: hasUpdate ? OpenHandSnackKind.success : OpenHandSnackKind.info,
     );
   }
 
@@ -657,13 +643,10 @@ class _PluginCard extends StatelessWidget {
     for (final dependentId in plugin.dependents) {
       final dependent = controller.pluginById(dependentId);
       if (dependent != null && dependent.isInstalled) {
-        showOpenHandSnackBar(
+        flashOpenHandSnack(
           context,
-          SnackBar(
-            content: Text(
-              l10n.pluginServiceUninstallBlocked(dependent.name, plugin.name),
-            ),
-          ),
+          l10n.pluginServiceUninstallBlocked(dependent.name, plugin.name),
+          kind: OpenHandSnackKind.error,
         );
         return;
       }
@@ -684,25 +667,18 @@ class _PluginCard extends StatelessWidget {
     );
     final success = await controller.uninstallPlugin(plugin.id);
     if (!context.mounted) return;
-    try {
-      Navigator.of(context, rootNavigator: true).pop();
-    } catch (error, stack) {
-      silentLog(
-        'plugin_service_view',
-        'dismiss uninstall dialog',
-        error,
-        stack,
-      );
-    }
-    showOpenHandSnackBar(
+    await safePopOpenHandRoute(
       context,
-      SnackBar(
-        content: Text(
-          success
-              ? l10n.pluginServiceUninstallSuccess(plugin.name)
-              : l10n.pluginServiceUninstallFailure(plugin.name),
-        ),
-      ),
+      logTag: 'plugin_service_view',
+      logAction: 'dismiss uninstall dialog',
+    );
+    if (!context.mounted) return;
+    flashOpenHandSnack(
+      context,
+      success
+          ? l10n.pluginServiceUninstallSuccess(plugin.name)
+          : l10n.pluginServiceUninstallFailure(plugin.name),
+      kind: success ? OpenHandSnackKind.success : OpenHandSnackKind.error,
     );
   }
 

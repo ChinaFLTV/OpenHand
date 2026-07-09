@@ -60,7 +60,7 @@ void flashHomeSnack(
   int? maxLines,
   bool postFrame = false,
 }) {
-  OpenHandSnackBar.flash(
+  flashOpenHandSnack(
     context,
     message,
     kind: kind,

@@ -246,7 +246,7 @@ class MemoryView extends StatelessWidget {
       if (!context.mounted) {
         return;
       }
-      _showSnackBar(
+      flashOpenHandSnack(
         context,
         l10n.memoryOperationFailed,
         kind: OpenHandSnackKind.error,
@@ -269,7 +269,7 @@ class MemoryView extends StatelessWidget {
     if (submitted != true || !context.mounted) {
       return;
     }
-    _showSnackBar(
+    flashOpenHandSnack(
       context,
       initialEntry == null ? l10n.memoryEntryCreated : l10n.memoryEntryUpdated,
       kind: OpenHandSnackKind.success,
@@ -301,27 +301,20 @@ class MemoryView extends StatelessWidget {
       return;
     }
     if (!deleted) {
-      _showSnackBar(
+      flashOpenHandSnack(
         context,
         l10n.memoryOperationFailed,
         kind: OpenHandSnackKind.error,
       );
       return;
     }
-    _showSnackBar(
+    flashOpenHandSnack(
       context,
       l10n.memoryEntryDeleted,
       kind: OpenHandSnackKind.success,
     );
   }
 
-  void _showSnackBar(
-    BuildContext context,
-    String message, {
-    OpenHandSnackKind kind = OpenHandSnackKind.info,
-  }) {
-    OpenHandSnackBar.flash(context, message, kind: kind, postFrame: true);
-  }
 }
 
 class _MemoryEditorDialog extends StatefulWidget {

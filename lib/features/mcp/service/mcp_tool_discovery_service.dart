@@ -101,6 +101,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
   static const Duration _toolCallTimeout = Duration(seconds: 30);
   static const Duration _legacyEndpointTimeout = Duration(seconds: 4);
   static const Duration _stdioShutdownTimeout = Duration(milliseconds: 400);
+  static const int _maxStdoutMessagesPerDrain = 256;
   static const int _maxStdioStdoutBufferBytes = 4 * kBytesPerMiB;
   static const int _maxRedirects = 4;
   static const int _maxToolPages = 8;
@@ -2428,7 +2429,9 @@ class _StdioSession {
   }
 
   void _drainStdoutBuffer() {
-    while (true) {
+    var processed = 0;
+    while (processed <
+        DefaultMcpToolDiscoveryService._maxStdoutMessagesPerDrain) {
       final payload = _takeNextMessage();
       if (payload == null) {
         return;
@@ -2436,6 +2439,7 @@ class _StdioSession {
       if (payload.isEmpty) {
         continue;
       }
+      processed += 1;
       final decoded = jsonDecode(payload);
       for (final message in _jsonRpcMessagesFromDecoded(decoded)) {
         final messageIdText = _messageIdText(message['id']);
@@ -2450,6 +2454,10 @@ class _StdioSession {
           pendingResponse.complete(message);
         }
       }
+    }
+    // 单次 drain 达到上限时，若缓冲区仍有数据，调度后续 drain，避免阻塞事件循环。
+    if (_stdoutBuffer.isNotEmpty) {
+      scheduleMicrotask(_drainStdoutBuffer);
     }
   }
 

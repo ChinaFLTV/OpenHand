@@ -11039,10 +11039,10 @@ class _CodeEditorViewState extends State<_CodeEditorView>
   Future<void> _editorClipboardPaste(String filePath) async {
     final controller = _textControllers[filePath];
     if (controller == null) return;
-    final data = await Clipboard.getData(Clipboard.kTextPlain);
-    if (data?.text == null || data!.text!.isEmpty) return;
+    final pasteText = await getOpenHandClipboardText();
+    if (pasteText == null || pasteText.isEmpty) return;
     final selection = controller.selection;
-    final newOffset = selection.start + data.text!.length;
+    final newOffset = selection.start + pasteText.length;
     _commitProgrammaticEditorValueChange(
       filePath,
       controller,
@@ -11050,7 +11050,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         text: controller.text.replaceRange(
           selection.start,
           selection.end,
-          data.text!,
+          pasteText,
         ),
         selection: TextSelection.collapsed(offset: newOffset),
       ),

@@ -324,7 +324,7 @@ class _SkillsViewState extends State<SkillsView> {
       if (!context.mounted) {
         return;
       }
-      _showSnackBar(
+      flashOpenHandSnack(
         context,
         '${l10n.skillsImportSuccess}: ${skill.name}',
         kind: OpenHandSnackKind.success,
@@ -333,7 +333,7 @@ class _SkillsViewState extends State<SkillsView> {
       if (!context.mounted) {
         return;
       }
-      _showSnackBar(
+      flashOpenHandSnack(
         context,
         l10n.skillOperationFailed,
         kind: OpenHandSnackKind.error,
@@ -352,7 +352,7 @@ class _SkillsViewState extends State<SkillsView> {
     if (!context.mounted || createdSkillName == null) {
       return;
     }
-    _showSnackBar(
+    flashOpenHandSnack(
       context,
       '${l10n.skillTemplateCreated}: $createdSkillName',
       kind: OpenHandSnackKind.success,
@@ -371,7 +371,7 @@ class _SkillsViewState extends State<SkillsView> {
       if (!context.mounted) {
         return;
       }
-      _showSnackBar(
+      flashOpenHandSnack(
         context,
         l10n.skillOperationFailed,
         kind: OpenHandSnackKind.error,
@@ -390,7 +390,7 @@ class _SkillsViewState extends State<SkillsView> {
       if (!context.mounted) {
         return;
       }
-      _showSnackBar(
+      flashOpenHandSnack(
         context,
         l10n.skillOperationFailed,
         kind: OpenHandSnackKind.error,
@@ -482,7 +482,7 @@ class _SkillsViewState extends State<SkillsView> {
       if (!context.mounted) {
         return;
       }
-      _showSnackBar(
+      flashOpenHandSnack(
         context,
         l10n.skillOperationFailed,
         kind: OpenHandSnackKind.error,
@@ -513,7 +513,7 @@ class _SkillsViewState extends State<SkillsView> {
       if (!context.mounted || submitted != true) {
         return;
       }
-      _showSnackBar(
+      flashOpenHandSnack(
         context,
         l10n.skillsEditSuccess,
         kind: OpenHandSnackKind.success,
@@ -522,7 +522,7 @@ class _SkillsViewState extends State<SkillsView> {
       if (!context.mounted) {
         return;
       }
-      _showSnackBar(
+      flashOpenHandSnack(
         context,
         l10n.skillOperationFailed,
         kind: OpenHandSnackKind.error,
@@ -552,7 +552,7 @@ class _SkillsViewState extends State<SkillsView> {
       if (!context.mounted) {
         return;
       }
-      _showSnackBar(
+      flashOpenHandSnack(
         context,
         l10n.skillsDeleteSuccess,
         kind: OpenHandSnackKind.success,
@@ -561,7 +561,7 @@ class _SkillsViewState extends State<SkillsView> {
       if (!context.mounted) {
         return;
       }
-      _showSnackBar(
+      flashOpenHandSnack(
         context,
         l10n.skillOperationFailed,
         kind: OpenHandSnackKind.error,
@@ -569,13 +569,6 @@ class _SkillsViewState extends State<SkillsView> {
     }
   }
 
-  void _showSnackBar(
-    BuildContext context,
-    String message, {
-    OpenHandSnackKind kind = OpenHandSnackKind.info,
-  }) {
-    OpenHandSnackBar.flash(context, message, kind: kind, postFrame: true);
-  }
 }
 
 class _EditSkillDialog extends StatefulWidget {

@@ -7,11 +7,10 @@ library;
 
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
+import '../../shared/ui/openhand_clipboard.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/util/date_time_format.dart';
 import '../../shared/util/input_value_parsing.dart';
@@ -108,8 +107,7 @@ class _MockRulesDialogState extends State<_MockRulesDialog> {
   Future<void> _importJson() async {
     final loc = AppLocalizations.of(context);
     try {
-      final data = await Clipboard.getData('text/plain');
-      final text = data?.text ?? '';
+      final text = await getOpenHandClipboardText() ?? '';
       final entries = decodeStringKeyedJsonMapList(text);
       if (entries == null) throw const FormatException('expected array');
       if (!mounted) return;

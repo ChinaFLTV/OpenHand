@@ -701,10 +701,9 @@ class _InlineCodexDiffPanelState extends State<_InlineCodexDiffPanel> {
     showOpenHandSnackBarOn(
       context,
       messenger,
-      SnackBar(
-        content: Text(
-          openHandLocalizedText(context, zh: 'Diff 内容已复制。', en: 'Diff copied.'),
-        ),
+      OpenHandSnackBar.success(
+        context,
+        openHandLocalizedText(context, zh: 'Diff 内容已复制。', en: 'Diff copied.'),
       ),
     );
     _copiedResetTimer = startSafeTimer(_actionResetDelay, () {
@@ -727,13 +726,12 @@ class _InlineCodexDiffPanelState extends State<_InlineCodexDiffPanel> {
       showOpenHandSnackBarOn(
         context,
         messenger,
-        SnackBar(
-          content: Text(
-            openHandLocalizedText(
-              context,
-              zh: '复制 Diff 失败。',
-              en: 'Failed to copy diff.',
-            ),
+        OpenHandSnackBar.error(
+          context,
+          openHandLocalizedText(
+            context,
+            zh: '复制 Diff 失败。',
+            en: 'Failed to copy diff.',
           ),
         ),
       );
@@ -765,13 +763,12 @@ class _InlineCodexDiffPanelState extends State<_InlineCodexDiffPanel> {
       showOpenHandSnackBarOn(
         context,
         messenger,
-        SnackBar(
-          content: Text(
-            openHandLocalizedText(
-              context,
-              zh: 'Diff 已下载为 ${p.basename(selectedPath)}',
-              en: 'Diff downloaded as ${p.basename(selectedPath)}',
-            ),
+        OpenHandSnackBar.success(
+          context,
+          openHandLocalizedText(
+            context,
+            zh: 'Diff 已下载为 ${p.basename(selectedPath)}',
+            en: 'Diff downloaded as ${p.basename(selectedPath)}',
           ),
         ),
       );
@@ -787,13 +784,12 @@ class _InlineCodexDiffPanelState extends State<_InlineCodexDiffPanel> {
       showOpenHandSnackBarOn(
         context,
         messenger,
-        SnackBar(
-          content: Text(
-            openHandLocalizedText(
-              context,
-              zh: '下载 Diff 失败。',
-              en: 'Download failed.',
-            ),
+        OpenHandSnackBar.error(
+          context,
+          openHandLocalizedText(
+            context,
+            zh: '下载 Diff 失败。',
+            en: 'Download failed.',
           ),
         ),
       );
@@ -3773,17 +3769,8 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
         stack,
       );
     }
-    try {
-      final data = await Clipboard.getData(Clipboard.kTextPlain);
-      flutterLen = data?.text?.length ?? 0;
-    } catch (error, stack) {
-      silentLog(
-        'home_code_highlighting',
-        'verify svg via Clipboard.getData',
-        error,
-        stack,
-      );
-    }
+    final clipboardText = await getOpenHandClipboardText();
+    flutterLen = clipboardText?.length ?? 0;
     final osLayerOk =
         pbpasteLen == expectedByteLength &&
         pbpasteSvgOpenCount == 1 &&
