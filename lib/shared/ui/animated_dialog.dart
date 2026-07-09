@@ -539,22 +539,31 @@ Future<T?> showOpenHandFormDialog<T>({
   );
 }
 
+/// Max wait for the dialog builder to attach its [Route] before [dismiss]
+/// gives up. Keeps a fast-finishing async op from racing past first paint
+/// and leaving a stuck progress shell, without unbounded waiting.
+const Duration kOpenHandDialogRouteAttachTimeout = Duration(seconds: 2);
+
 /// Tracks one [showAnimatedDialog] presentation so it can be dismissed later
 /// without risking a bare [Navigator.maybePop] on the host page route.
 ///
 /// When the dialog is already gone (ESC / barrier / external pop), [dismiss]
-/// is a no-op. Dismissal always targets the captured [Route], never the
-/// arbitrary top of the host navigator.
+/// is a no-op. Dismissal targets the captured [Route] only:
+/// - if it is current → [Navigator.pop] so the global exit transition runs;
+/// - else if still active → [Navigator.removeRoute] as a last-resort identity
+///   dismiss (another route sits above it).
 class OpenHandDialogSession {
   OpenHandDialogSession._(this._future) {
     unawaited(
       _future.whenComplete(() {
         _closed = true;
+        _signalRouteAttached();
       }),
     );
   }
 
   final Future<void> _future;
+  final Completer<void> _routeAttached = Completer<void>();
   Route<Object?>? _route;
   bool _closed = false;
 
@@ -563,25 +572,49 @@ class OpenHandDialogSession {
 
   Future<void> get future => _future;
 
+  void _signalRouteAttached() {
+    if (!_routeAttached.isCompleted) {
+      _routeAttached.complete();
+    }
+  }
+
   void _attachRoute(Route<Object?> route) {
     if (_closed) return;
     _route = route;
+    _signalRouteAttached();
+  }
+
+  Future<Route<Object?>?> _awaitRoute({
+    Duration timeout = kOpenHandDialogRouteAttachTimeout,
+  }) async {
+    if (_closed) return null;
+    if (_route != null) return _route;
+    try {
+      await _routeAttached.future.timeout(timeout);
+    } on TimeoutException {
+      // Fall through and return whatever is attached (may still be null).
+    }
+    if (_closed) return null;
+    return _route;
   }
 
   /// Dismisses this session's dialog if it is still active.
   ///
-  /// Returns `true` only when this session successfully removed its route.
+  /// Waits briefly for the route to attach so a task that finishes before the
+  /// first dialog frame does not leave a stuck progress shell. Prefer
+  /// [Navigator.pop] when this route is current so exit motion runs.
+  ///
+  /// Returns `true` only when this session successfully requested close of
+  /// its own route.
   Future<bool> dismiss({
     String logTag = 'dialog',
     String logAction = 'dismissTrackedDialog',
+    Duration attachTimeout = kOpenHandDialogRouteAttachTimeout,
   }) async {
     if (_closed) return false;
-    final route = _route;
-    if (route == null) {
-      // Builder has not attached the route yet, or the route never mounted.
-      // Do not pop the host navigator blindly.
-      return false;
-    }
+    final route = await _awaitRoute(timeout: attachTimeout);
+    if (_closed) return false;
+    if (route == null) return false;
     if (!route.isActive) {
       _closed = true;
       return false;
@@ -592,7 +625,15 @@ class OpenHandDialogSession {
       return false;
     }
     try {
-      navigator.removeRoute(route);
+      if (route.isCurrent) {
+        // Runs the reverse transition (global dialog exit / Q-bounce when set).
+        navigator.pop();
+      } else if (route.isActive) {
+        // Not top-most: identity-only removal so we never pop a foreign route.
+        navigator.removeRoute(route);
+      } else {
+        return false;
+      }
       await _future;
       return true;
     } catch (error, stack) {
