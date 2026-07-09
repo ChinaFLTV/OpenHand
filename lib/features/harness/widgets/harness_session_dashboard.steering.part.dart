@@ -604,22 +604,18 @@ class _HeSteeringFileEditorDialogState
         _dirty = false;
         _saving = false;
       });
-      showOpenHandSnackBar(
+      showHarnessSuccessSnack(
         context,
-        SnackBar(
-          content: Text(
-            openHandLocalizedText(
-              context,
-              zh: '文件已保存',
-              zhHant: '檔案已儲存',
-              en: 'File saved',
-              fr: 'Fichier enregistré',
-              de: 'Datei gespeichert',
-              ja: 'ファイルを保存しました',
-            ),
-          ),
-          duration: const Duration(seconds: 1),
+        openHandLocalizedText(
+          context,
+          zh: '文件已保存',
+          zhHant: '檔案已儲存',
+          en: 'File saved',
+          fr: 'Fichier enregistré',
+          de: 'Datei gespeichert',
+          ja: 'ファイルを保存しました',
         ),
+        duration: const Duration(seconds: 1),
       );
     } catch (e) {
       if (!mounted) return;

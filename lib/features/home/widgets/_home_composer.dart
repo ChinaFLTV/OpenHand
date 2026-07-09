@@ -2647,13 +2647,10 @@ class _ComposerCreationModeButtonState
         _ => '',
       };
       if (label.isNotEmpty) {
-        showOpenHandSnackBar(
+        flashHomeSnack(
           context,
-          SnackBar(
-            content: Text(label),
-            behavior: SnackBarBehavior.floating,
-            duration: const Duration(seconds: 2),
-          ),
+          label,
+          duration: const Duration(seconds: 2),
         );
       }
       return;
