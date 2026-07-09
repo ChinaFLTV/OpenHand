@@ -9,8 +9,9 @@
 // - 默认 align='right' 时菜单右对齐到触发器右边，并在视口内自动收边避免溢出。
 
 import type { ComponentChildren } from 'preact';
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { useDelayedVisibility } from '../hooks/useDelayedVisibility';
+import { useDismissibleOverlay } from '../hooks/useDismissibleOverlay';
 import { useRafScheduler } from '../hooks/useRafScheduler';
 import {
   DEFAULT_FLOATING_ANCHOR_GAP,
@@ -23,23 +24,23 @@ export interface PopMenuItem {
   key: string;
   label: string;
   onClick: () => void;
-  /// 'danger' → 红色文字（删除等）。
+  /** 'danger' → 红色文字（删除等）。 */
   variant?: 'default' | 'danger';
-  /// 禁用时按钮可见但不可点。
+  /** 禁用时按钮可见但不可点。 */
   disabled?: boolean;
-  /// 当前选中项；禁用时仍保持主题选中态，避免看起来像普通不可用项。
+  /** 当前选中项；禁用时仍保持主题选中态，避免看起来像普通不可用项。 */
   selected?: boolean;
 }
 
 export interface PopMenuProps {
   items: PopMenuItem[];
-  /// 触发器；调用方控制其外观。
+  /** 触发器；调用方控制其外观。 */
   trigger: (props: { open: boolean; toggle: () => void }) => ComponentChildren;
-  /// Optional class for callers that need layout control over the trigger wrap.
+  /** Optional class for callers that need layout control over the trigger wrap. */
   wrapperClassName?: string;
-  /// 默认 'right'，菜单从触发器右上角弹出。
+  /** 默认 'right'，菜单从触发器右上角弹出。 */
   align?: 'left' | 'right';
-  /// 可选固定宽度，适合模式选择等短菜单，避免长禁用说明把菜单撑宽。
+  /** 可选固定宽度，适合模式选择等短菜单，避免长禁用说明把菜单撑宽。 */
   width?: number;
 }
 
@@ -77,27 +78,13 @@ export function PopMenu({ items, trigger, wrapperClassName = '', align = 'right'
   const [pos, setPos] = useState<MenuPos | null>(null);
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const dismissTargets = useMemo(() => [wrapRef, menuRef], []);
 
-  // 关闭：点击外部 / Esc。
-  useEffect(() => {
-    if (!open || closing) return;
-    const onDown = (ev: MouseEvent) => {
-      const target = ev.target as Node | null;
-      if (!target) return;
-      if (wrapRef.current?.contains(target)) return;
-      if (menuRef.current?.contains(target)) return;
-      hideMenu();
-    };
-    const onKey = (ev: KeyboardEvent) => {
-      if (ev.key === 'Escape') hideMenu();
-    };
-    window.addEventListener('mousedown', onDown);
-    window.addEventListener('keydown', onKey);
-    return () => {
-      window.removeEventListener('mousedown', onDown);
-      window.removeEventListener('keydown', onKey);
-    };
-  }, [open, closing, hideMenu]);
+  useDismissibleOverlay({
+    active: open && !closing,
+    targets: dismissTargets,
+    onDismiss: hideMenu,
+  });
 
   // 计算菜单坐标：fixed 定位 + 视口内夹紧。
   const recompute = useCallback(() => {

@@ -3,11 +3,12 @@
 // - 工具区: 仅接收上层按 App 端顺序构造好的胶囊；会话模式 / 权限不在 TopBar 重复展示。
 // - More 菜单 (重命名 / 删除 / 导出 / 复制 ID)。
 
-import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { ComponentChildren } from 'preact';
 import { t } from '../i18n';
 import { useRafScheduler } from '../hooks/useRafScheduler';
 import { useDelayedVisibility } from '../hooks/useDelayedVisibility';
+import { useDismissibleOverlay } from '../hooks/useDismissibleOverlay';
 import {
   DEFAULT_FLOATING_ANCHOR_GAP,
   DEFAULT_FLOATING_VIEWPORT_PADDING,
@@ -27,10 +28,10 @@ export interface SessionToolbarCapsule {
   label: string;
   title?: string;
   tone?: 'neutral' | 'primary' | 'warning' | 'success' | 'muted';
-  /// Optional permanent badge rendered on the right side of the capsule. Used
-  /// by the token capsule to surface "cache savings %" without requiring a
-  /// hover. Shape mirrors the parent capsule's tone so badges read as a
-  /// natural extension of the chip rather than a stuck-on alert.
+  /** Optional permanent badge rendered on the right side of the capsule. Used
+   * by the token capsule to surface "cache savings %" without requiring a
+   * hover. Shape mirrors the parent capsule's tone so badges read as a
+   * natural extension of the chip rather than a stuck-on alert. */
   badge?: {
     text: string;
     title?: string;
@@ -164,6 +165,11 @@ export function SessionTopBar(props: SessionTopBarProps) {
   const [draftTitle, setDraftTitle] = useState(title);
   const titleInputRef = useRef<HTMLInputElement | null>(null);
   const moreMenuAnchorRef = useRef<HTMLDivElement | null>(null);
+  const moreMenuPanelRef = useRef<HTMLDivElement | null>(null);
+  const moreMenuDismissTargets = useMemo(
+    () => [moreMenuAnchorRef, moreMenuPanelRef],
+    [],
+  );
   const [renaming, setRenaming] = useState(false);
   const {
     open: moreMenuOpen,
@@ -181,25 +187,11 @@ export function SessionTopBar(props: SessionTopBarProps) {
     if (editing) titleInputRef.current?.focus();
   }, [editing]);
 
-  // 任意菜单打开时, 点击外部关闭
-  useEffect(() => {
-    if (!moreMenuOpen || closingMore) return;
-    function close(e: MouseEvent) {
-      const t = e.target as HTMLElement;
-      if (!t.closest('[data-topbar-menu]')) {
-        requestCloseMoreMenu();
-      }
-    }
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') requestCloseMoreMenu();
-    }
-    window.addEventListener('mousedown', close);
-    window.addEventListener('keydown', onKey);
-    return () => {
-      window.removeEventListener('mousedown', close);
-      window.removeEventListener('keydown', onKey);
-    };
-  }, [moreMenuOpen, closingMore, requestCloseMoreMenu]);
+  useDismissibleOverlay({
+    active: moreMenuOpen && !closingMore,
+    targets: moreMenuDismissTargets,
+    onDismiss: requestCloseMoreMenu,
+  });
 
   async function commitRename() {
     if (renaming) return;
@@ -211,6 +203,9 @@ export function SessionTopBar(props: SessionTopBarProps) {
         await onRename(next);
       } catch {
         setEditing(true);
+        showSnackbar(t('topbar.rename.failed', '重命名失败，请稍后重试'), {
+          tone: 'error',
+        });
       } finally {
         setRenaming(false);
       }
@@ -342,7 +337,7 @@ export function SessionTopBar(props: SessionTopBarProps) {
             />
           ) : null}
 
-          <div ref={moreMenuAnchorRef} class="relative flex-none" data-topbar-menu>
+          <div ref={moreMenuAnchorRef} class="relative flex-none">
             <button
               type="button"
               onClick={toggleMoreMenu}
@@ -357,7 +352,11 @@ export function SessionTopBar(props: SessionTopBarProps) {
               <TopBarIcon name="more" size={17} />
             </button>
             {moreMenuVisible ? (
-              <Menu anchorRef={moreMenuAnchorRef} closing={closingMore}>
+              <Menu
+                anchorRef={moreMenuAnchorRef}
+                menuRef={moreMenuPanelRef}
+                closing={closingMore}
+              >
                 {onRename ? (
                   <MenuItem icon="rename" onClick={() => { requestCloseMoreMenu(); setEditing(true); }}>
                     {t('topbar.rename', '重命名')}
@@ -541,13 +540,14 @@ function computeTopBarMenuPosition(
 function Menu({
   children,
   anchorRef,
+  menuRef,
   closing,
 }: {
   children: ComponentChildren;
   anchorRef: { current: HTMLElement | null };
+  menuRef: { current: HTMLDivElement | null };
   closing: boolean;
 }) {
-  const menuRef = useRef<HTMLDivElement | null>(null);
   const [position, setPosition] = useState<TopBarMenuPosition>(() => (
     computeTopBarMenuPosition(anchorRef.current)
   ));
@@ -575,7 +575,6 @@ function Menu({
   const node = (
     <div
       ref={menuRef}
-      data-topbar-menu
       role="menu"
       class={`fixed rounded-m3-sm py-1 ${closing ? 'oh-menu-pop-out' : 'oh-popmenu-pop'}`}
       style={{

@@ -518,41 +518,28 @@ class AnimatedPopupMenuButton<T> extends StatefulWidget {
 class _AnimatedPopupMenuButtonState<T>
     extends State<AnimatedPopupMenuButton<T>> {
   void _showMenu() {
-    final button = context.findRenderObject()! as RenderBox;
-    final overlay =
-        Navigator.of(
-              context,
-              rootNavigator: widget.useRootNavigator,
-            ).overlay!.context.findRenderObject()!
-            as RenderBox;
+    final buttonObject = context.findRenderObject();
+    final navigator = Navigator.of(
+      context,
+      rootNavigator: widget.useRootNavigator,
+    );
+    final overlayObject = navigator.overlay?.context.findRenderObject();
+    if (buttonObject is! RenderBox ||
+        overlayObject is! RenderBox ||
+        !buttonObject.hasSize ||
+        !overlayObject.hasSize) {
+      return;
+    }
     final offset = widget.offset;
-    final anchorRect = widget.position == PopupMenuPosition.under
-        ? Rect.fromLTWH(
-            button
-                .localToGlobal(
-                  Offset(offset.dx, button.size.height + offset.dy),
-                  ancestor: overlay,
-                )
-                .dx,
-            button
-                .localToGlobal(
-                  Offset(offset.dx, button.size.height + offset.dy),
-                  ancestor: overlay,
-                )
-                .dy,
-            button.size.width,
-            0,
-          )
-        : Rect.fromPoints(
-            button.localToGlobal(offset, ancestor: overlay),
-            button.localToGlobal(
-              button.size.bottomRight(Offset.zero) + offset,
-              ancestor: overlay,
-            ),
-          );
+    final anchorRect = _animatedPopupMenuAnchorRect(
+      button: buttonObject,
+      overlay: overlayObject,
+      position: widget.position,
+      offset: offset,
+    );
     final position = RelativeRect.fromRect(
       anchorRect,
-      Offset.zero & overlay.size,
+      Offset.zero & overlayObject.size,
     );
 
     final items = widget.itemBuilder(context);
@@ -609,6 +596,28 @@ class _AnimatedPopupMenuButtonState<T>
       ),
     );
   }
+}
+
+Rect _animatedPopupMenuAnchorRect({
+  required RenderBox button,
+  required RenderBox overlay,
+  required PopupMenuPosition position,
+  required Offset offset,
+}) {
+  if (position == PopupMenuPosition.under) {
+    final origin = button.localToGlobal(
+      Offset(offset.dx, button.size.height + offset.dy),
+      ancestor: overlay,
+    );
+    return Rect.fromLTWH(origin.dx, origin.dy, button.size.width, 0);
+  }
+  return Rect.fromPoints(
+    button.localToGlobal(offset, ancestor: overlay),
+    button.localToGlobal(
+      button.size.bottomRight(Offset.zero) + offset,
+      ancestor: overlay,
+    ),
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

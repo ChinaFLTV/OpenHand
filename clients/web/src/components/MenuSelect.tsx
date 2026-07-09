@@ -11,6 +11,7 @@
 import type { JSX } from 'preact';
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'preact/hooks';
 import { useDelayedVisibility } from '../hooks/useDelayedVisibility';
+import { useDismissibleOverlay } from '../hooks/useDismissibleOverlay';
 import { useRafScheduler } from '../hooks/useRafScheduler';
 import { clampNumber } from '../shared/util/number';
 import { OverlayPortal } from './OverlayPortal';
@@ -70,9 +71,14 @@ export function MenuSelect<T extends string = string>(props: MenuSelectProps<T>)
   const [menuPosition, setMenuPosition] = useState<MenuPosition | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const dismissTargets = useMemo(() => [triggerRef, menuRef], []);
   const listboxId = useId();
 
   const current = useMemo(() => options.find((o) => o.value === value), [options, value]);
+  const closeMenuAndFocusTrigger = useCallback(() => {
+    hideMenu();
+    triggerRef.current?.focus();
+  }, [hideMenu]);
 
   const computeMenuPosition = useCallback((measuredHeight?: number): MenuPosition | null => {
     if (typeof window === 'undefined') return null;
@@ -115,7 +121,14 @@ export function MenuSelect<T extends string = string>(props: MenuSelectProps<T>)
     // 同步初始 highlight 到当前值。
     const idx = options.findIndex((o) => o.value === value);
     if (idx >= 0) setHighlight(idx);
-  }, [open, closing]);
+  }, [open, closing, options, value]);
+
+  useDismissibleOverlay({
+    active: open && !closing,
+    targets: dismissTargets,
+    onDismiss: hideMenu,
+    onEscape: closeMenuAndFocusTrigger,
+  });
 
   useEffect(() => {
     if (!menuVisible) return;
@@ -137,19 +150,8 @@ export function MenuSelect<T extends string = string>(props: MenuSelectProps<T>)
 
   useEffect(() => {
     if (!open || closing) return;
-    const onDocClick = (ev: MouseEvent) => {
-      const target = ev.target as Node | null;
-      if (!target) return;
-      if (triggerRef.current?.contains(target)) return;
-      if (menuRef.current?.contains(target)) return;
-      hideMenu();
-    };
     const onKey = (ev: KeyboardEvent) => {
-      if (ev.key === 'Escape') {
-        hideMenu();
-        triggerRef.current?.focus();
-        return;
-      }
+      if (options.length === 0) return;
       if (ev.key === 'ArrowDown') {
         ev.preventDefault();
         setHighlight((h) => stepHighlight(options, h, +1));
@@ -194,10 +196,8 @@ export function MenuSelect<T extends string = string>(props: MenuSelectProps<T>)
         }
       }
     };
-    document.addEventListener('mousedown', onDocClick);
     document.addEventListener('keydown', onKey);
     return () => {
-      document.removeEventListener('mousedown', onDocClick);
       document.removeEventListener('keydown', onKey);
     };
   }, [open, closing, highlight, options, onChange, hideMenu]);

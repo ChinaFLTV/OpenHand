@@ -16,6 +16,7 @@ import '../../../app/support/silent_log.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/animated_appearance.dart';
 import '../../../shared/ui/animated_dialog.dart';
+import '../../../shared/ui/animated_menu.dart';
 import '../../../shared/ui/appear_once.dart';
 import '../../../shared/ui/feature_page_shell.dart';
 import '../../../shared/ui/feature_state_card.dart';
@@ -700,7 +701,7 @@ class _AgentCardMoreMenu extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    return PopupMenuButton<_AgentCardAction>(
+    return AnimatedPopupMenuButton<_AgentCardAction>(
       key: ValueKey<String>('agent-card-more-$agentId'),
       tooltip: l10n.agentsMore,
       onSelected: onAction,
