@@ -1335,7 +1335,6 @@ class MachineTerminalSession {
        terminal = Terminal(
          maxLines: _scrollbackLines,
          platform: _terminalTargetPlatform(),
-         reflowEnabled: false,
        ) {
     terminal
       ..resize(_defaultColumns, _defaultRows)
@@ -1619,7 +1618,15 @@ class MachineTerminalSession {
   }
 
   void resize({required int columns, required int rows}) {
-    terminal.resize(_coerceColumns(columns), _coerceRows(rows));
+    final nextColumns = _coerceColumns(columns);
+    final nextRows = _coerceRows(rows);
+    if (_columns == nextColumns &&
+        _rows == nextRows &&
+        terminal.viewWidth == nextColumns &&
+        terminal.viewHeight == nextRows) {
+      return;
+    }
+    terminal.resize(nextColumns, nextRows);
   }
 
   Future<MachineTerminalCommandResult> executeCommand({
@@ -1737,17 +1744,10 @@ class MachineTerminalSession {
   }
 
   void _handleResize(int width, int height, int pixelWidth, int pixelHeight) {
-    final previousColumns = terminal.viewWidth;
     final nextColumns = _coerceColumns(width);
     final nextRows = _coerceRows(height);
-    if (nextColumns < previousColumns) {
-      _eraseTerminalColumns(from: nextColumns, to: previousColumns);
-    } else if (nextColumns > previousColumns) {
-      scheduleMicrotask(() {
-        _eraseTerminalColumns(from: previousColumns, to: nextColumns);
-        terminal.notifyListeners();
-      });
-    }
+    final changed = _columns != nextColumns || _rows != nextRows;
+    if (!changed) return;
     _columns = nextColumns;
     _rows = nextRows;
     try {
@@ -1762,25 +1762,6 @@ class MachineTerminalSession {
     terminal.write(text);
     _appendRaw(text);
     _touch();
-  }
-
-  void _eraseTerminalColumns({required int from, required int to}) {
-    if (to <= from || from < 0) return;
-    _eraseBufferColumns(terminal.mainBuffer, from: from, to: to);
-    _eraseBufferColumns(terminal.altBuffer, from: from, to: to);
-  }
-
-  void _eraseBufferColumns(
-    Buffer buffer, {
-    required int from,
-    required int to,
-  }) {
-    final lines = buffer.lines;
-    for (var index = 0; index < lines.length; index++) {
-      final line = lines[index];
-      if (line.length <= from) continue;
-      line.eraseRange(from, math.min(to, line.length), CursorStyle.empty);
-    }
   }
 
   void _appendPlain(String text) {

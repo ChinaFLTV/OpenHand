@@ -1570,6 +1570,8 @@ function MachineTerminalPanel({ sessionId }: { sessionId: string }) {
   const writeErrorShownRef = useRef(false);
   const activeTerminalIdRef = useRef<string | undefined>(undefined);
   const lastResizeRef = useRef('');
+  const resizeFrameRef = useRef<number | null>(null);
+  const requestTerminalFitRef = useRef<(() => void) | null>(null);
   const [workspace, setWorkspace] = useState<MachineTerminalWorkspace | null>(null);
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -1580,6 +1582,8 @@ function MachineTerminalPanel({ sessionId }: { sessionId: string }) {
 
   useEffect(() => {
     activeTerminalIdRef.current = active?.terminal_id || undefined;
+    lastResizeRef.current = '';
+    requestTerminalFitRef.current?.();
   }, [active?.terminal_id]);
 
   const syncTerminal = useCallback(async (
@@ -1611,7 +1615,11 @@ function MachineTerminalPanel({ sessionId }: { sessionId: string }) {
     const fit = new FitAddon();
     terminal.loadAddon(fit);
     terminal.open(root);
-    fit.fit();
+    try {
+      fit.fit();
+    } catch {
+      // The scheduled resize below retries after layout has settled.
+    }
     terminal.focus();
     terminalRef.current = terminal;
     fitRef.current = fit;
@@ -1628,7 +1636,12 @@ function MachineTerminalPanel({ sessionId }: { sessionId: string }) {
         });
     });
     const publishResize = () => {
-      fit.fit();
+      if (root.clientWidth <= 0 || root.clientHeight <= 0) return;
+      try {
+        fit.fit();
+      } catch {
+        return;
+      }
       const columns = terminal.cols;
       const rows = terminal.rows;
       if (!Number.isFinite(columns) || !Number.isFinite(rows) || columns <= 0 || rows <= 0) return;
@@ -1644,16 +1657,40 @@ function MachineTerminalPanel({ sessionId }: { sessionId: string }) {
         lastResizeRef.current = '';
       });
     };
-    const resizeObserver = new ResizeObserver(publishResize);
-    resizeObserver.observe(root);
-    publishResize();
+
+    const scheduleResize = () => {
+      if (resizeFrameRef.current != null) {
+        window.cancelAnimationFrame(resizeFrameRef.current);
+      }
+      resizeFrameRef.current = window.requestAnimationFrame(() => {
+        resizeFrameRef.current = window.requestAnimationFrame(() => {
+          resizeFrameRef.current = null;
+          publishResize();
+        });
+      });
+    };
+
+    const resizeObserver = typeof ResizeObserver === 'undefined'
+      ? null
+      : new ResizeObserver(scheduleResize);
+    requestTerminalFitRef.current = scheduleResize;
+    resizeObserver?.observe(root);
+    if (root.parentElement) resizeObserver?.observe(root.parentElement);
+    window.addEventListener('resize', scheduleResize);
+    scheduleResize();
     void syncTerminal(true);
     return () => {
       dataDisposable.dispose();
-      resizeObserver.disconnect();
+      resizeObserver?.disconnect();
+      window.removeEventListener('resize', scheduleResize);
+      if (resizeFrameRef.current != null) {
+        window.cancelAnimationFrame(resizeFrameRef.current);
+        resizeFrameRef.current = null;
+      }
       terminal.dispose();
       terminalRef.current = null;
       fitRef.current = null;
+      requestTerminalFitRef.current = null;
       lastAnsiOutputRef.current = '';
     };
   }, [sessionId, syncTerminal]);
