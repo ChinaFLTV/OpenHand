@@ -4447,10 +4447,10 @@ class AppLocalizationsFr extends AppLocalizations {
   String get tokenPopupCostOutput => 'Sortie';
 
   @override
-  String get tokenPopupCostCacheRead => 'Cache lu';
+  String get tokenPopupCostCacheRead => 'Lecture du cache';
 
   @override
-  String get tokenPopupCostCacheWrite => 'Cache écrit';
+  String get tokenPopupCostCacheWrite => 'Écriture du cache';
 
   @override
   String get tokenPopupCostTotal => 'Total';
@@ -4468,10 +4468,10 @@ class AppLocalizationsFr extends AppLocalizations {
   String get tokenPopupPrompt => 'Invite';
 
   @override
-  String get tokenPopupCacheRead => 'Cache lu';
+  String get tokenPopupCacheRead => 'Lecture du cache';
 
   @override
-  String get tokenPopupCacheWrite => 'Cache écrit';
+  String get tokenPopupCacheWrite => 'Écriture du cache';
 
   @override
   String get tokenPopupOutputHeading => 'Sortie';
@@ -4486,7 +4486,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get tokenPopupGrandTotal => 'Total général';
 
   @override
-  String get tokenPopupCacheHit => 'Taux de cache';
+  String get tokenPopupCacheHit => 'Taux de succès du cache';
 
   @override
   String get tokenPopupSessionHeading => 'Session';
@@ -4495,10 +4495,45 @@ class AppLocalizationsFr extends AppLocalizations {
   String get tokenPopupMessages => 'Messages';
 
   @override
-  String get tokenPopupPromptBuilds => 'Constructions de prompt';
+  String get tokenPopupPromptBuilds => 'Constructions d\'invite';
 
   @override
-  String get tokenPopupPromptChars => 'Caractères de prompt';
+  String get tokenPopupPromptChars => 'Caractères d\'invite';
+
+  @override
+  String get tokenPopupCacheHitModeExcludeExpired => 'Sans anomalies expirées';
+
+  @override
+  String get tokenPopupCacheHitModeIncludeExpired => 'Avec anomalies expirées';
+
+  @override
+  String get tokenPopupFirstRequestIgnored => 'Première requête ignorée';
+
+  @override
+  String tokenPopupExcludedRounds(int count) {
+    return '$count exclues';
+  }
+
+  @override
+  String get tokenPopupFirstRequestShort => 'Première ignorée';
+
+  @override
+  String get tokenPopupFirstRequestNotAveraged => 'Hors moyenne';
+
+  @override
+  String get tokenPopupTrendNoData =>
+      'Aucune donnée de taux de cache pour l\'instant. La tendance apparaîtra après l\'envoi de messages.';
+
+  @override
+  String get tokenPopupTrendOnlyFirstIgnored =>
+      'La première requête est ignorée. La tendance démarre après la prochaine requête normale.';
+
+  @override
+  String get tokenPopupTrendFirstReferenceOnly =>
+      'La première requête sert seulement de référence et n\'est pas incluse dans la moyenne.';
+
+  @override
+  String get tokenPopupUncached => 'Non mis en cache';
 
   @override
   String get toolbarSessionMetadata => 'Métadonnées de session';

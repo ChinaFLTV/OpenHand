@@ -404,8 +404,8 @@ export default function CacheHitTrendChart({
                 '首轮仅作参考，不参与平均缓存命中率。',
               )}
         </div>
-        <div class="flex items-center" style={{ gap: 8 }}>
-          <div class="flex items-center" style={{ gap: 8 }}>
+        <div class="flex items-center" style={{ gap: 8, flexWrap: 'wrap' }}>
+          <div class="flex items-center" style={{ gap: 8, flexWrap: 'wrap' }}>
             {modeOptions.map(([key, label]) => {
               const selected = displayMode === key;
               return (
@@ -535,9 +535,9 @@ export default function CacheHitTrendChart({
       {/* Mode chips row */}
       <div
         class="flex items-center"
-        style={{ gap: 8, marginBottom: 10 }}
+        style={{ gap: 8, marginBottom: 10, flexWrap: 'wrap' }}
       >
-        <div class="flex items-center" style={{ gap: 8 }}>
+        <div class="flex items-center" style={{ gap: 8, flexWrap: 'wrap' }}>
           {modeOptions.map(([key, label]) => {
             const selected = displayMode === key;
             return (

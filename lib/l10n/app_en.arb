@@ -2316,6 +2316,23 @@
   "tokenPopupMessages": "Messages",
   "tokenPopupPromptBuilds": "Prompt Builds",
   "tokenPopupPromptChars": "Prompt Chars",
+  "tokenPopupCacheHitModeExcludeExpired": "Exclude expiry anomalies",
+  "tokenPopupCacheHitModeIncludeExpired": "Include expiry anomalies",
+  "tokenPopupFirstRequestIgnored": "First request ignored",
+  "tokenPopupExcludedRounds": "{count} excluded",
+  "@tokenPopupExcludedRounds": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "tokenPopupFirstRequestShort": "Ignored",
+  "tokenPopupFirstRequestNotAveraged": "Not averaged",
+  "tokenPopupTrendNoData": "No cache hit data yet. The trend appears after messages are sent.",
+  "tokenPopupTrendOnlyFirstIgnored": "The first request is ignored. The trend starts after the next normal request.",
+  "tokenPopupTrendFirstReferenceOnly": "The first request is reference only and is not averaged.",
+  "tokenPopupUncached": "Uncached",
   "toolbarSessionMetadata": "Session Metadata",
   "toolbarProviderModelLocked": "Provider & model locked to stabilize cache prefix",
   "toolbarModelLocked": "Model Locked",

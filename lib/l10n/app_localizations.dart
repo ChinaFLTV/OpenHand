@@ -7749,13 +7749,13 @@ abstract class AppLocalizations {
   /// No description provided for @tokenPopupCostCacheRead.
   ///
   /// In zh, this message translates to:
-  /// **'Cache 命中'**
+  /// **'缓存命中'**
   String get tokenPopupCostCacheRead;
 
   /// No description provided for @tokenPopupCostCacheWrite.
   ///
   /// In zh, this message translates to:
-  /// **'Cache 写入'**
+  /// **'缓存写入'**
   String get tokenPopupCostCacheWrite;
 
   /// No description provided for @tokenPopupCostTotal.
@@ -7785,19 +7785,19 @@ abstract class AppLocalizations {
   /// No description provided for @tokenPopupPrompt.
   ///
   /// In zh, this message translates to:
-  /// **'Prompt'**
+  /// **'提示词'**
   String get tokenPopupPrompt;
 
   /// No description provided for @tokenPopupCacheRead.
   ///
   /// In zh, this message translates to:
-  /// **'Cache 命中'**
+  /// **'缓存命中'**
   String get tokenPopupCacheRead;
 
   /// No description provided for @tokenPopupCacheWrite.
   ///
   /// In zh, this message translates to:
-  /// **'Cache 写入'**
+  /// **'缓存写入'**
   String get tokenPopupCacheWrite;
 
   /// No description provided for @tokenPopupOutputHeading.
@@ -7809,13 +7809,13 @@ abstract class AppLocalizations {
   /// No description provided for @tokenPopupCompletion.
   ///
   /// In zh, this message translates to:
-  /// **'Completion'**
+  /// **'回复'**
   String get tokenPopupCompletion;
 
   /// No description provided for @tokenPopupReasoning.
   ///
   /// In zh, this message translates to:
-  /// **'Reasoning'**
+  /// **'推理'**
   String get tokenPopupReasoning;
 
   /// No description provided for @tokenPopupGrandTotal.
@@ -7827,7 +7827,7 @@ abstract class AppLocalizations {
   /// No description provided for @tokenPopupCacheHit.
   ///
   /// In zh, this message translates to:
-  /// **'Cache 命中率'**
+  /// **'缓存命中率'**
   String get tokenPopupCacheHit;
 
   /// No description provided for @tokenPopupSessionHeading.
@@ -7845,14 +7845,74 @@ abstract class AppLocalizations {
   /// No description provided for @tokenPopupPromptBuilds.
   ///
   /// In zh, this message translates to:
-  /// **'Prompt 构建'**
+  /// **'提示词构建'**
   String get tokenPopupPromptBuilds;
 
   /// No description provided for @tokenPopupPromptChars.
   ///
   /// In zh, this message translates to:
-  /// **'Prompt 字符'**
+  /// **'提示词字符'**
   String get tokenPopupPromptChars;
+
+  /// No description provided for @tokenPopupCacheHitModeExcludeExpired.
+  ///
+  /// In zh, this message translates to:
+  /// **'不含过期异常'**
+  String get tokenPopupCacheHitModeExcludeExpired;
+
+  /// No description provided for @tokenPopupCacheHitModeIncludeExpired.
+  ///
+  /// In zh, this message translates to:
+  /// **'含过期异常'**
+  String get tokenPopupCacheHitModeIncludeExpired;
+
+  /// No description provided for @tokenPopupFirstRequestIgnored.
+  ///
+  /// In zh, this message translates to:
+  /// **'首轮不计平均'**
+  String get tokenPopupFirstRequestIgnored;
+
+  /// No description provided for @tokenPopupExcludedRounds.
+  ///
+  /// In zh, this message translates to:
+  /// **'已排除 {count} 轮'**
+  String tokenPopupExcludedRounds(int count);
+
+  /// No description provided for @tokenPopupFirstRequestShort.
+  ///
+  /// In zh, this message translates to:
+  /// **'首轮不计'**
+  String get tokenPopupFirstRequestShort;
+
+  /// No description provided for @tokenPopupFirstRequestNotAveraged.
+  ///
+  /// In zh, this message translates to:
+  /// **'不参与平均'**
+  String get tokenPopupFirstRequestNotAveraged;
+
+  /// No description provided for @tokenPopupTrendNoData.
+  ///
+  /// In zh, this message translates to:
+  /// **'尚无缓存命中率数据，发送消息后将在此展示走势。'**
+  String get tokenPopupTrendNoData;
+
+  /// No description provided for @tokenPopupTrendOnlyFirstIgnored.
+  ///
+  /// In zh, this message translates to:
+  /// **'首轮请求不参与平均，下一轮正常请求后展示趋势。'**
+  String get tokenPopupTrendOnlyFirstIgnored;
+
+  /// No description provided for @tokenPopupTrendFirstReferenceOnly.
+  ///
+  /// In zh, this message translates to:
+  /// **'首轮仅作参考，不参与平均缓存命中率。'**
+  String get tokenPopupTrendFirstReferenceOnly;
+
+  /// No description provided for @tokenPopupUncached.
+  ///
+  /// In zh, this message translates to:
+  /// **'未缓存'**
+  String get tokenPopupUncached;
 
   /// No description provided for @toolbarSessionMetadata.
   ///

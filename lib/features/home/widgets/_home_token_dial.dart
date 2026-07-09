@@ -893,7 +893,15 @@ class _CostPopupRowState extends State<_CostPopupRow> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(widget.label, style: widget.keyStyle),
+            Flexible(
+              child: Text(
+                widget.label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: widget.keyStyle,
+              ),
+            ),
+            const SizedBox(width: 8),
             Text(_format(widget.usd), style: widget.valueStyle),
           ],
         ),
@@ -1113,7 +1121,15 @@ class _PopupRowState extends State<_PopupRow> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(widget.label, style: widget.keyStyle),
+            Flexible(
+              child: Text(
+                widget.label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: widget.keyStyle,
+              ),
+            ),
+            const SizedBox(width: 8),
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -1163,11 +1179,7 @@ class _CompactCacheHitSparkline extends StatelessWidget {
     final readFrac = total == 0 ? 0.0 : cacheRead / total;
     final writeFrac = total == 0 ? 0.0 : cacheWrite / total;
     final promptFrac = total == 0 ? 1.0 : promptTokens / total;
-    final uncachedLabel = openHandLocalizedText(
-      context,
-      zh: '未缓存',
-      en: 'Uncached',
-    );
+    final uncachedLabel = l10n.tokenPopupUncached;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -1221,18 +1233,18 @@ class _CompactCacheHitSparkline extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 6),
-        Row(
+        Wrap(
+          spacing: 10,
+          runSpacing: 4,
           children: [
             _LegendDot(
               color: Colors.green.shade400,
               label: '${l10n.tokenPopupCacheRead} ${_k(cacheRead)}',
             ),
-            const SizedBox(width: 10),
             _LegendDot(
               color: Colors.amber.shade400,
               label: '${l10n.tokenPopupCacheWrite} ${_k(cacheWrite)}',
             ),
-            const SizedBox(width: 10),
             _LegendDot(
               color: colorScheme.outlineVariant.withValues(alpha: 0.5),
               label: '$uncachedLabel ${_k(promptTokens)}',

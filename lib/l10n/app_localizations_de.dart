@@ -4429,10 +4429,10 @@ class AppLocalizationsDe extends AppLocalizations {
   String get tokenPopupCostOutput => 'Ausgabe';
 
   @override
-  String get tokenPopupCostCacheRead => 'Cache-Treffer';
+  String get tokenPopupCostCacheRead => 'Zwischenspeicher-Treffer';
 
   @override
-  String get tokenPopupCostCacheWrite => 'Cache-Schreiben';
+  String get tokenPopupCostCacheWrite => 'Zwischenspeicher-Schreiben';
 
   @override
   String get tokenPopupCostTotal => 'Gesamt';
@@ -4447,13 +4447,13 @@ class AppLocalizationsDe extends AppLocalizations {
   String get tokenPopupInputHeading => 'Eingabe';
 
   @override
-  String get tokenPopupPrompt => 'Aufforderung';
+  String get tokenPopupPrompt => 'Eingabetext';
 
   @override
-  String get tokenPopupCacheRead => 'Cache-Treffer';
+  String get tokenPopupCacheRead => 'Zwischenspeicher-Treffer';
 
   @override
-  String get tokenPopupCacheWrite => 'Cache-Schreiben';
+  String get tokenPopupCacheWrite => 'Zwischenspeicher-Schreiben';
 
   @override
   String get tokenPopupOutputHeading => 'Ausgabe';
@@ -4462,13 +4462,13 @@ class AppLocalizationsDe extends AppLocalizations {
   String get tokenPopupCompletion => 'Antwort';
 
   @override
-  String get tokenPopupReasoning => 'Reasoning';
+  String get tokenPopupReasoning => 'Denkprozess';
 
   @override
   String get tokenPopupGrandTotal => 'Gesamt';
 
   @override
-  String get tokenPopupCacheHit => 'Cache-Trefferquote';
+  String get tokenPopupCacheHit => 'Zwischenspeicher-Trefferquote';
 
   @override
   String get tokenPopupSessionHeading => 'Sitzung';
@@ -4477,10 +4477,45 @@ class AppLocalizationsDe extends AppLocalizations {
   String get tokenPopupMessages => 'Nachrichten';
 
   @override
-  String get tokenPopupPromptBuilds => 'Prompt-Builds';
+  String get tokenPopupPromptBuilds => 'Eingabeaufbauten';
 
   @override
-  String get tokenPopupPromptChars => 'Prompt-Zeichen';
+  String get tokenPopupPromptChars => 'Eingabezeichen';
+
+  @override
+  String get tokenPopupCacheHitModeExcludeExpired => 'Ohne Ablauf-Ausreißer';
+
+  @override
+  String get tokenPopupCacheHitModeIncludeExpired => 'Mit Ablauf-Ausreißern';
+
+  @override
+  String get tokenPopupFirstRequestIgnored => 'Erste Anfrage ignoriert';
+
+  @override
+  String tokenPopupExcludedRounds(int count) {
+    return '$count ausgeschlossen';
+  }
+
+  @override
+  String get tokenPopupFirstRequestShort => 'Ignoriert';
+
+  @override
+  String get tokenPopupFirstRequestNotAveraged => 'Nicht im Schnitt';
+
+  @override
+  String get tokenPopupTrendNoData =>
+      'Noch keine Daten zur Trefferquote. Der Trend erscheint nach gesendeten Nachrichten.';
+
+  @override
+  String get tokenPopupTrendOnlyFirstIgnored =>
+      'Die erste Anfrage zählt nicht. Der Trend startet nach der nächsten normalen Anfrage.';
+
+  @override
+  String get tokenPopupTrendFirstReferenceOnly =>
+      'Die erste Anfrage dient nur als Referenz und zählt nicht zum Durchschnitt.';
+
+  @override
+  String get tokenPopupUncached => 'Nicht gespeichert';
 
   @override
   String get toolbarSessionMetadata => 'Sitzungsmetadaten';

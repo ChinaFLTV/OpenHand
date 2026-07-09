@@ -4438,6 +4438,41 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tokenPopupPromptChars => 'Prompt Chars';
 
   @override
+  String get tokenPopupCacheHitModeExcludeExpired => 'Exclude expiry anomalies';
+
+  @override
+  String get tokenPopupCacheHitModeIncludeExpired => 'Include expiry anomalies';
+
+  @override
+  String get tokenPopupFirstRequestIgnored => 'First request ignored';
+
+  @override
+  String tokenPopupExcludedRounds(int count) {
+    return '$count excluded';
+  }
+
+  @override
+  String get tokenPopupFirstRequestShort => 'Ignored';
+
+  @override
+  String get tokenPopupFirstRequestNotAveraged => 'Not averaged';
+
+  @override
+  String get tokenPopupTrendNoData =>
+      'No cache hit data yet. The trend appears after messages are sent.';
+
+  @override
+  String get tokenPopupTrendOnlyFirstIgnored =>
+      'The first request is ignored. The trend starts after the next normal request.';
+
+  @override
+  String get tokenPopupTrendFirstReferenceOnly =>
+      'The first request is reference only and is not averaged.';
+
+  @override
+  String get tokenPopupUncached => 'Uncached';
+
+  @override
   String get toolbarSessionMetadata => 'Session Metadata';
 
   @override

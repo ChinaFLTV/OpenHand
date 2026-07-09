@@ -8334,13 +8334,13 @@ function SessionTokenStatsContent({
   return (
     <>
       <TokenStatsSection title={t('tokenPopup.input', '输入')}>
-        <TokenStatsRow label={t('tokenPopup.prompt', 'Prompt')} value={promptTokens} />
-        <TokenStatsRow label={t('tokenPopup.cacheRead', 'Cache 命中')} value={cacheReadTokens} tone="success" />
-        <TokenStatsRow label={t('tokenPopup.cacheWrite', 'Cache 写入')} value={cacheWriteTokens} tone="success" />
+        <TokenStatsRow label={t('tokenPopup.prompt', '提示词')} value={promptTokens} />
+        <TokenStatsRow label={t('tokenPopup.cacheRead', '缓存命中')} value={cacheReadTokens} tone="success" />
+        <TokenStatsRow label={t('tokenPopup.cacheWrite', '缓存写入')} value={cacheWriteTokens} tone="success" />
       </TokenStatsSection>
       <TokenStatsSection title={t('tokenPopup.output', '输出')}>
-        <TokenStatsRow label={t('tokenPopup.completion', 'Completion')} value={completionTokens} />
-        {reasoningTokens > 0 ? <TokenStatsRow label={t('tokenPopup.reasoning', 'Reasoning')} value={reasoningTokens} tone="reasoning" /> : null}
+        <TokenStatsRow label={t('tokenPopup.completion', '回复')} value={completionTokens} />
+        {reasoningTokens > 0 ? <TokenStatsRow label={t('tokenPopup.reasoning', '推理')} value={reasoningTokens} tone="reasoning" /> : null}
       </TokenStatsSection>
       <div
         class="rounded-m3-md px-3 py-2.5"
@@ -8365,8 +8365,8 @@ function SessionTokenStatsContent({
       </div>
       <TokenStatsSection title={t('tokenPopup.session', '会话累计')}>
         <TokenStatsRow label={t('tokenPopup.messages', '消息总数')} value={totalMessageCount} />
-        <TokenStatsRow label={t('tokenPopup.promptBuilds', 'Prompt 构建')} value={promptBuildCount} />
-        <TokenStatsRow label={t('tokenPopup.promptChars', 'Prompt 字符')} value={totalPromptCharacters} />
+        <TokenStatsRow label={t('tokenPopup.promptBuilds', '提示词构建')} value={promptBuildCount} />
+        <TokenStatsRow label={t('tokenPopup.promptChars', '提示词字符')} value={totalPromptCharacters} />
       </TokenStatsSection>
     </>
   );
@@ -8758,7 +8758,7 @@ function CacheHitBar({ readWeight, writeWeight, missWeight }: { readWeight: numb
   const sum = r + w + m;
   if (sum <= 0) return null;
   return (
-    <div class="mt-2 h-2 overflow-hidden rounded-full" style={{ background: 'var(--m3-surface-variant)' }} title={t('tokenPopup.cacheHitBar.title', '左：cache_read · 中：cache_write · 右：未缓存 prompt')}>
+    <div class="mt-2 h-2 overflow-hidden rounded-full" style={{ background: 'var(--m3-surface-variant)' }} title={t('tokenPopup.cacheHitBar.title', '左：缓存命中 · 中：缓存写入 · 右：未缓存提示词')}>
       <div class="flex h-full">
         {r > 0 ? (
           <div
@@ -9518,8 +9518,8 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
       >
         <EntryRow label={t('tokenPopup.cacheHit', '缓存命中率')} value={`${cacheHit.cacheHitRatio}%`} />
         <div class="flex flex-wrap gap-2 mb-2">
-          <Chip label={`${t('tokenPopup.cacheRead', 'Cache 命中')} ${cacheHit.cacheReadTokens}`} />
-          <Chip label={`${t('tokenPopup.cacheWrite', 'Cache 写入')} ${cacheHit.cacheWriteTokens}`} />
+          <Chip label={`${t('tokenPopup.cacheRead', '缓存命中')} ${cacheHit.cacheReadTokens}`} />
+          <Chip label={`${t('tokenPopup.cacheWrite', '缓存写入')} ${cacheHit.cacheWriteTokens}`} />
         </div>
         <CacheHitBar readWeight={cacheHit.readWeight} writeWeight={cacheHit.writeWeight} missWeight={cacheHit.missWeight} />
         {cacheHit.trendData && cacheHit.trendData.points.length > 0 ? (

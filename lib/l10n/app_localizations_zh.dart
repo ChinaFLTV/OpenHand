@@ -4216,10 +4216,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get tokenPopupCostOutput => '输出';
 
   @override
-  String get tokenPopupCostCacheRead => 'Cache 命中';
+  String get tokenPopupCostCacheRead => '缓存命中';
 
   @override
-  String get tokenPopupCostCacheWrite => 'Cache 写入';
+  String get tokenPopupCostCacheWrite => '缓存写入';
 
   @override
   String get tokenPopupCostTotal => '总计';
@@ -4234,28 +4234,28 @@ class AppLocalizationsZh extends AppLocalizations {
   String get tokenPopupInputHeading => '输入';
 
   @override
-  String get tokenPopupPrompt => 'Prompt';
+  String get tokenPopupPrompt => '提示词';
 
   @override
-  String get tokenPopupCacheRead => 'Cache 命中';
+  String get tokenPopupCacheRead => '缓存命中';
 
   @override
-  String get tokenPopupCacheWrite => 'Cache 写入';
+  String get tokenPopupCacheWrite => '缓存写入';
 
   @override
   String get tokenPopupOutputHeading => '输出';
 
   @override
-  String get tokenPopupCompletion => 'Completion';
+  String get tokenPopupCompletion => '回复';
 
   @override
-  String get tokenPopupReasoning => 'Reasoning';
+  String get tokenPopupReasoning => '推理';
 
   @override
   String get tokenPopupGrandTotal => '总计';
 
   @override
-  String get tokenPopupCacheHit => 'Cache 命中率';
+  String get tokenPopupCacheHit => '缓存命中率';
 
   @override
   String get tokenPopupSessionHeading => '会话累计';
@@ -4264,10 +4264,42 @@ class AppLocalizationsZh extends AppLocalizations {
   String get tokenPopupMessages => '消息总数';
 
   @override
-  String get tokenPopupPromptBuilds => 'Prompt 构建';
+  String get tokenPopupPromptBuilds => '提示词构建';
 
   @override
-  String get tokenPopupPromptChars => 'Prompt 字符';
+  String get tokenPopupPromptChars => '提示词字符';
+
+  @override
+  String get tokenPopupCacheHitModeExcludeExpired => '不含过期异常';
+
+  @override
+  String get tokenPopupCacheHitModeIncludeExpired => '含过期异常';
+
+  @override
+  String get tokenPopupFirstRequestIgnored => '首轮不计平均';
+
+  @override
+  String tokenPopupExcludedRounds(int count) {
+    return '已排除 $count 轮';
+  }
+
+  @override
+  String get tokenPopupFirstRequestShort => '首轮不计';
+
+  @override
+  String get tokenPopupFirstRequestNotAveraged => '不参与平均';
+
+  @override
+  String get tokenPopupTrendNoData => '尚无缓存命中率数据，发送消息后将在此展示走势。';
+
+  @override
+  String get tokenPopupTrendOnlyFirstIgnored => '首轮请求不参与平均，下一轮正常请求后展示趋势。';
+
+  @override
+  String get tokenPopupTrendFirstReferenceOnly => '首轮仅作参考，不参与平均缓存命中率。';
+
+  @override
+  String get tokenPopupUncached => '未缓存';
 
   @override
   String get toolbarSessionMetadata => '会话元数据';
@@ -15303,10 +15335,10 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get tokenPopupCostOutput => '輸出';
 
   @override
-  String get tokenPopupCostCacheRead => 'Cache 命中';
+  String get tokenPopupCostCacheRead => '快取命中';
 
   @override
-  String get tokenPopupCostCacheWrite => 'Cache 寫入';
+  String get tokenPopupCostCacheWrite => '快取寫入';
 
   @override
   String get tokenPopupCostTotal => '總計';
@@ -15321,28 +15353,28 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get tokenPopupInputHeading => '輸入';
 
   @override
-  String get tokenPopupPrompt => 'Prompt';
+  String get tokenPopupPrompt => '提示詞';
 
   @override
-  String get tokenPopupCacheRead => 'Cache 命中';
+  String get tokenPopupCacheRead => '快取命中';
 
   @override
-  String get tokenPopupCacheWrite => 'Cache 寫入';
+  String get tokenPopupCacheWrite => '快取寫入';
 
   @override
   String get tokenPopupOutputHeading => '輸出';
 
   @override
-  String get tokenPopupCompletion => 'Completion';
+  String get tokenPopupCompletion => '回覆';
 
   @override
-  String get tokenPopupReasoning => 'Reasoning';
+  String get tokenPopupReasoning => '推理';
 
   @override
   String get tokenPopupGrandTotal => '總計';
 
   @override
-  String get tokenPopupCacheHit => 'Cache 命中率';
+  String get tokenPopupCacheHit => '快取命中率';
 
   @override
   String get tokenPopupSessionHeading => '會話累計';
@@ -15351,10 +15383,42 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get tokenPopupMessages => '訊息總數';
 
   @override
-  String get tokenPopupPromptBuilds => 'Prompt 構建';
+  String get tokenPopupPromptBuilds => '提示詞構建';
 
   @override
-  String get tokenPopupPromptChars => 'Prompt 字元';
+  String get tokenPopupPromptChars => '提示詞字元';
+
+  @override
+  String get tokenPopupCacheHitModeExcludeExpired => '不含過期異常';
+
+  @override
+  String get tokenPopupCacheHitModeIncludeExpired => '含過期異常';
+
+  @override
+  String get tokenPopupFirstRequestIgnored => '首輪不計平均';
+
+  @override
+  String tokenPopupExcludedRounds(int count) {
+    return '已排除 $count 輪';
+  }
+
+  @override
+  String get tokenPopupFirstRequestShort => '首輪不計';
+
+  @override
+  String get tokenPopupFirstRequestNotAveraged => '不參與平均';
+
+  @override
+  String get tokenPopupTrendNoData => '尚無快取命中率資料，傳送訊息後會在此展示走勢。';
+
+  @override
+  String get tokenPopupTrendOnlyFirstIgnored => '首輪請求不參與平均，下一輪正常請求後展示趨勢。';
+
+  @override
+  String get tokenPopupTrendFirstReferenceOnly => '首輪僅作參考，不參與平均快取命中率。';
+
+  @override
+  String get tokenPopupUncached => '未快取';
 
   @override
   String get toolbarSessionMetadata => '會話元數據';

@@ -4326,6 +4326,39 @@ class AppLocalizationsJa extends AppLocalizations {
   String get tokenPopupPromptChars => 'プロンプト文字数';
 
   @override
+  String get tokenPopupCacheHitModeExcludeExpired => '期限切れ異常を除外';
+
+  @override
+  String get tokenPopupCacheHitModeIncludeExpired => '期限切れ異常を含む';
+
+  @override
+  String get tokenPopupFirstRequestIgnored => '初回は平均外';
+
+  @override
+  String tokenPopupExcludedRounds(int count) {
+    return '$count 件除外';
+  }
+
+  @override
+  String get tokenPopupFirstRequestShort => '初回除外';
+
+  @override
+  String get tokenPopupFirstRequestNotAveraged => '平均外';
+
+  @override
+  String get tokenPopupTrendNoData => 'キャッシュ命中率データはまだありません。メッセージ送信後に推移を表示します。';
+
+  @override
+  String get tokenPopupTrendOnlyFirstIgnored =>
+      '初回リクエストは平均外です。次の通常リクエスト後に表示します。';
+
+  @override
+  String get tokenPopupTrendFirstReferenceOnly => '初回は参考表示のみで、平均には含めません。';
+
+  @override
+  String get tokenPopupUncached => '未キャッシュ';
+
+  @override
   String get toolbarSessionMetadata => 'セッションメタデータ';
 
   @override

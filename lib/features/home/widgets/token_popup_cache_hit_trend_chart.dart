@@ -8,7 +8,6 @@ import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/util/input_value_parsing.dart';
-import '../../../shared/util/localized_text.dart';
 import '../model/session_cache_hit_trend.dart';
 
 const Curve _tokenPopupCacheHitTrendEntranceCurve = Curves.easeOutCubic;
@@ -92,7 +91,7 @@ void _drawTokenPopupCacheHitTrendDashedLine(
 }
 
 String _cacheHitExclusionHint(
-  BuildContext context,
+  AppLocalizations l10n,
   SessionCacheHitDisplayData displayData,
 ) {
   if (displayData.mode == SessionCacheHitDisplayMode.includeExpiredMisses) {
@@ -100,37 +99,13 @@ String _cacheHitExclusionHint(
       return point.isFirstRequest;
     });
     if (!hasFirst) return '';
-    return openHandLocalizedText(
-      context,
-      zh: '首轮不计平均',
-      zhHant: '首輪不計平均',
-      en: 'First request ignored',
-      fr: 'Première requête ignorée',
-      de: 'Erste Anfrage ignoriert',
-      ja: '初回は平均外',
-    );
+    return l10n.tokenPopupFirstRequestIgnored;
   }
   if (displayData.excludedPointCount <= 0) return '';
   if (displayData.excludedExpiredMissCount > 0) {
-    return openHandLocalizedText(
-      context,
-      zh: '已排除 ${displayData.excludedPointCount} 轮',
-      zhHant: '已排除 ${displayData.excludedPointCount} 輪',
-      en: '${displayData.excludedPointCount} excluded',
-      fr: '${displayData.excludedPointCount} exclues',
-      de: '${displayData.excludedPointCount} ausgeschlossen',
-      ja: '${displayData.excludedPointCount} 件除外',
-    );
+    return l10n.tokenPopupExcludedRounds(displayData.excludedPointCount);
   }
-  return openHandLocalizedText(
-    context,
-    zh: '首轮不计平均',
-    zhHant: '首輪不計平均',
-    en: 'First request ignored',
-    fr: 'Première requête ignorée',
-    de: 'Erste Anfrage ignoriert',
-    ja: '初回は平均外',
-  );
+  return l10n.tokenPopupFirstRequestIgnored;
 }
 
 class TokenPopupCacheHitTrendChart extends StatefulWidget {
@@ -243,6 +218,7 @@ class _TokenPopupCacheHitTrendChartState
     final l10n = AppLocalizations.of(context)!;
     final motionDisabled = !openHandTickerMotionEnabled(context);
     final displayData = widget.trend.displayData(widget.displayMode);
+    final exclusionHint = _cacheHitExclusionHint(l10n, displayData);
     final effectiveViewport =
         _viewport.totalPoints == displayData.trend.points.length
         ? _viewport
@@ -336,68 +312,59 @@ class _TokenPopupCacheHitTrendChartState
           const SizedBox(height: 8),
           Row(
             children: [
-              Wrap(
-                spacing: 8,
-                runSpacing: 6,
-                children: [
-                  _CacheHitModeChip(
-                    label: openHandLocalizedText(
-                      context,
-                      zh: '不包含过期异常',
-                      zhHant: '不包含過期異常',
-                      en: 'Exclude expiry',
-                      fr: 'Sans expiration',
-                      de: 'Ohne Ablauf',
-                      ja: '期限切れ除外',
+              Expanded(
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  children: [
+                    _CacheHitModeChip(
+                      label: l10n.tokenPopupCacheHitModeExcludeExpired,
+                      selected:
+                          widget.displayMode ==
+                          SessionCacheHitDisplayMode.excludeExpiredMisses,
+                      onTap: () {
+                        _viewport = SessionCacheHitViewport.full(
+                          displayData.trend.points.length,
+                        );
+                        widget.onDisplayModeChanged?.call(
+                          SessionCacheHitDisplayMode.excludeExpiredMisses,
+                        );
+                      },
                     ),
-                    selected:
-                        widget.displayMode ==
-                        SessionCacheHitDisplayMode.excludeExpiredMisses,
-                    onTap: () {
-                      _viewport = SessionCacheHitViewport.full(
-                        displayData.trend.points.length,
-                      );
-                      widget.onDisplayModeChanged?.call(
-                        SessionCacheHitDisplayMode.excludeExpiredMisses,
-                      );
-                    },
-                  ),
-                  _CacheHitModeChip(
-                    label: openHandLocalizedText(
-                      context,
-                      zh: '含过期异常',
-                      zhHant: '含過期異常',
-                      en: 'Include expiry',
-                      fr: 'Avec expiration',
-                      de: 'Mit Ablauf',
-                      ja: '期限切れ含む',
+                    _CacheHitModeChip(
+                      label: l10n.tokenPopupCacheHitModeIncludeExpired,
+                      selected:
+                          widget.displayMode ==
+                          SessionCacheHitDisplayMode.includeExpiredMisses,
+                      onTap: () {
+                        _viewport = SessionCacheHitViewport.full(
+                          widget.trend.points.length,
+                        );
+                        widget.onDisplayModeChanged?.call(
+                          SessionCacheHitDisplayMode.includeExpiredMisses,
+                        );
+                      },
                     ),
-                    selected:
-                        widget.displayMode ==
-                        SessionCacheHitDisplayMode.includeExpiredMisses,
-                    onTap: () {
-                      _viewport = SessionCacheHitViewport.full(
-                        widget.trend.points.length,
-                      );
-                      widget.onDisplayModeChanged?.call(
-                        SessionCacheHitDisplayMode.includeExpiredMisses,
-                      );
-                    },
-                  ),
-                ],
-              ),
-              const Spacer(),
-              if (_cacheHitExclusionHint(context, displayData).isNotEmpty)
-                Text(
-                  _cacheHitExclusionHint(context, displayData),
-                  textAlign: TextAlign.right,
-                  style: valueStyle,
+                  ],
                 ),
+              ),
+              if (exclusionHint.isNotEmpty) ...[
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    exclusionHint,
+                    textAlign: TextAlign.right,
+                    overflow: TextOverflow.ellipsis,
+                    style: valueStyle,
+                  ),
+                ),
+              ],
             ],
           ),
           const SizedBox(height: 10),
           if (displayData.trend.points.isEmpty)
             _CacheHitTrendEmptyState(
+              hasAnyPoints: widget.trend.points.isNotEmpty,
               displayMode: widget.displayMode,
               height: math.min(84, widget.height),
             )
@@ -448,15 +415,8 @@ class _TokenPopupCacheHitTrendChartState
                   final firstRequestIndex = visiblePoints.indexWhere(
                     (point) => point.isFirstRequest,
                   );
-                  final firstRequestBadgeText = openHandLocalizedText(
-                    context,
-                    zh: '首轮不计',
-                    zhHant: '首輪不計',
-                    en: 'Ignored',
-                    fr: 'Ignorée',
-                    de: 'Ignoriert',
-                    ja: '平均外',
-                  );
+                  final firstRequestBadgeText =
+                      l10n.tokenPopupFirstRequestShort;
                   final firstRequestDx = firstRequestIndex < 0
                       ? 0.0
                       : (singlePoint
@@ -829,15 +789,7 @@ class _TokenPopupCacheHitTrendChartState
     final percentText = '${(ratio * 100).round()}%';
     final turnLabel = l10n.sessMetaCacheHitPoint(point.turnIndex);
     final firstRequestNote = point.isFirstRequest
-        ? openHandLocalizedText(
-            context,
-            zh: '不参与平均',
-            zhHant: '不參與平均',
-            en: 'Not averaged',
-            fr: 'Hors moyenne',
-            de: 'Nicht gemittelt',
-            ja: '平均外',
-          )
+        ? l10n.tokenPopupFirstRequestNotAveraged
         : '';
     final tooltipWidth = point.isFirstRequest ? 148.0 : 132.0;
     final tooltipHeight = point.isFirstRequest ? 58.0 : 46.0;
@@ -1143,10 +1095,12 @@ class _TokenPopupCacheHitTrendDynamicPainter extends CustomPainter {
 
 class _CacheHitTrendEmptyState extends StatelessWidget {
   const _CacheHitTrendEmptyState({
+    required this.hasAnyPoints,
     required this.displayMode,
     required this.height,
   });
 
+  final bool hasAnyPoints;
   final SessionCacheHitDisplayMode displayMode;
   final double height;
 
@@ -1154,25 +1108,12 @@ class _CacheHitTrendEmptyState extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final text = displayMode == SessionCacheHitDisplayMode.excludeExpiredMisses
-        ? openHandLocalizedText(
-            context,
-            zh: '首轮请求不参与平均，下一轮正常请求后展示趋势。',
-            zhHant: '首輪請求不參與平均，下一輪正常請求後展示趨勢。',
-            en: 'The first request is ignored; the trend starts after the next normal request.',
-            fr: 'La première requête est ignorée; la tendance démarre ensuite.',
-            de: 'Die erste Anfrage zählt nicht; der Trend startet nach der nächsten normalen Anfrage.',
-            ja: '初回リクエストは平均外です。次の通常リクエスト後に表示します。',
-          )
-        : openHandLocalizedText(
-            context,
-            zh: '首轮仅作参考，不参与平均缓存命中率。',
-            zhHant: '首輪僅作參考，不參與平均快取命中率。',
-            en: 'The first request is reference only and is not averaged.',
-            fr: 'La première requête est indicative et hors moyenne.',
-            de: 'Die erste Anfrage ist nur Referenz und zählt nicht zum Durchschnitt.',
-            ja: '初回は参考表示のみで、平均には含めません。',
-          );
+    final l10n = AppLocalizations.of(context)!;
+    final text = !hasAnyPoints
+        ? l10n.tokenPopupTrendNoData
+        : displayMode == SessionCacheHitDisplayMode.excludeExpiredMisses
+        ? l10n.tokenPopupTrendOnlyFirstIgnored
+        : l10n.tokenPopupTrendFirstReferenceOnly;
     return SizedBox(
       height: height,
       child: Center(

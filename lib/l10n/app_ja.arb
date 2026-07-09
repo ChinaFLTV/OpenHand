@@ -2316,6 +2316,23 @@
   "tokenPopupMessages": "メッセージ",
   "tokenPopupPromptBuilds": "プロンプト生成",
   "tokenPopupPromptChars": "プロンプト文字数",
+  "tokenPopupCacheHitModeExcludeExpired": "期限切れ異常を除外",
+  "tokenPopupCacheHitModeIncludeExpired": "期限切れ異常を含む",
+  "tokenPopupFirstRequestIgnored": "初回は平均外",
+  "tokenPopupExcludedRounds": "{count} 件除外",
+  "@tokenPopupExcludedRounds": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "tokenPopupFirstRequestShort": "初回除外",
+  "tokenPopupFirstRequestNotAveraged": "平均外",
+  "tokenPopupTrendNoData": "キャッシュ命中率データはまだありません。メッセージ送信後に推移を表示します。",
+  "tokenPopupTrendOnlyFirstIgnored": "初回リクエストは平均外です。次の通常リクエスト後に表示します。",
+  "tokenPopupTrendFirstReferenceOnly": "初回は参考表示のみで、平均には含めません。",
+  "tokenPopupUncached": "未キャッシュ",
   "toolbarSessionMetadata": "セッションメタデータ",
   "toolbarProviderModelLocked": "プロバイダとモデルを固定してキャッシュ接頭辞を安定化",
   "toolbarModelLocked": "モデルロック中",
