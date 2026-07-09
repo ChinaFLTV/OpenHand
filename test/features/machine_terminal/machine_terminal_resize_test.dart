@@ -34,6 +34,41 @@ void main() {
       expect(_lineText(terminal, 0), 'abcdefghijklmnopqr');
       expect(_lineText(terminal, 1), isEmpty);
     });
+
+    test('clamps a trailing wide cell before reflow copies past line data', () {
+      final terminal = Terminal();
+
+      terminal
+        ..resize(64, 6)
+        ..mainBuffer.clear();
+      final line = terminal.mainBuffer.lines[0];
+
+      line.setCell(63, '界'.runes.single, 2, CursorStyle.empty);
+
+      expect(line.getTrimmedLength(64), 64);
+      expect(() => terminal.resize(65, 6), returnsNormally);
+    });
+
+    test(
+      'keeps a one-column wide glyph shrink finite',
+      () {
+        final terminal = Terminal();
+
+        terminal
+          ..resize(2, 6)
+          ..mainBuffer.clear();
+        terminal.mainBuffer.lines[0].setCell(
+          0,
+          '界'.runes.single,
+          2,
+          CursorStyle.empty,
+        );
+
+        expect(() => terminal.resize(1, 6), returnsNormally);
+        expect(terminal.viewWidth, 1);
+      },
+      timeout: const Timeout(Duration(seconds: 2)),
+    );
   });
 }
 

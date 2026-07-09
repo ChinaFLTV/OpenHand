@@ -50,6 +50,12 @@ dev_dependencies:
     sdk: flutter
   flutter_lints: ^6.0.0
 
+dependency_overrides:
+  # Local xterm patch: guards terminal reflow from copying past the backing
+  # line buffer when a wide glyph sits at the right edge.
+  xterm:
+    path: vendor/xterm
+
 flutter:
   uses-material-design: true
   generate: true
