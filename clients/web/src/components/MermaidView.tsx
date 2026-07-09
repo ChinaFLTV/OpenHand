@@ -18,7 +18,7 @@ import { copyTextToClipboard, copyBlobToClipboard } from '../utils/clipboard';
 import { isAbortError } from '../shared/util/errors';
 import { showSnackbar } from './Snackbar';
 import { clampNumber, finiteNumberFromText } from '../shared/util/number';
-import { strictStringFromUnknown } from '../shared/util/value';
+import { strictStringFromUnknown, stringifyJsonSafely } from '../shared/util/value';
 
 interface MermaidViewProps {
   source: string;
@@ -97,10 +97,8 @@ function formatMermaidError(err: unknown): string {
       const text = strictStringFromUnknown(record[key]);
       if (text) return text;
     }
-    try {
-      const serialized = JSON.stringify(record, null, 2);
-      if (serialized && serialized !== '{}') return serialized;
-    } catch {}
+    const serialized = stringifyJsonSafely(record, 2);
+    if (serialized && serialized !== '{}') return serialized;
   }
   return String(err);
 }

@@ -75,7 +75,7 @@ import {
   type SessionSummary,
 } from '../../../api/sessions';
 import { ApiError, UnauthorizedError } from '../../../api/client';
-import { isAbortError } from '../../../shared/util/errors';
+import { ignoreError, isAbortError } from '../../../shared/util/errors';
 import { subscribeSessionEvents, type PendingWriteApproval, type SessionEventSnapshot } from '../../../api/session_events';
 import { listSessions } from '../../../api/sessions';
 import { SessionGoneDialog } from '../../../components/SessionGoneDialog';
@@ -106,11 +106,13 @@ import {
   finiteNumberFromUnknown,
   integerFromUnknown,
   nonNegativeIntegerFromUnknown,
+  parseJsonRecordSafely,
   booleanFromUnknown,
   recordFromUnknown,
   recordOrNullFromUnknown,
   roundedNonNegativeIntegerOrNullFromUnknown,
   strictStringFromUnknown,
+  stringifyJsonSafely,
   stringFromUnknown,
   stringListFromUnknown,
 } from '../../../shared/util/value';
@@ -539,11 +541,7 @@ function metadataString(value: unknown): string {
 function metadataTextLength(value: unknown): number {
   if (typeof value === 'string') return value.length;
   if (value == null) return 0;
-  try {
-    return JSON.stringify(value).length;
-  } catch {
-    return String(value).length;
-  }
+  return stringifyJsonSafely(value)?.length ?? String(value).length;
 }
 
 const MESSAGE_RENDER_METADATA_KEYS = [
@@ -1139,16 +1137,11 @@ function knowledgeToolResultRows(metadata: Record<string, unknown>): Record<stri
   }
   const resultText = nonEmptyString(metadata['tool_execution_result'] ?? metadata['result_text']);
   if (!resultText) return [];
-  try {
-    const decoded = JSON.parse(resultText) as unknown;
-    const results = recordOrNullFromUnknown(decoded)?.['results'];
-    if (!Array.isArray(results)) return [];
-    return results
-      .map((item) => recordOrNullFromUnknown(item))
-      .filter((item): item is Record<string, unknown> => item != null);
-  } catch {
-    return [];
-  }
+  const results = parseJsonRecordSafely(resultText)?.['results'];
+  if (!Array.isArray(results)) return [];
+  return results
+    .map((item) => recordOrNullFromUnknown(item))
+    .filter((item): item is Record<string, unknown> => item != null);
 }
 
 function knowledgeToolQuery(metadata: Record<string, unknown>, isRead: boolean): string {
@@ -1167,11 +1160,7 @@ function knowledgeToolArguments(raw: unknown): Record<string, unknown> {
   if (direct) return direct;
   const text = nonEmptyString(raw);
   if (!text) return {};
-  try {
-    return recordOrNullFromUnknown(JSON.parse(text) as unknown) ?? {};
-  } catch {
-    return {};
-  }
+  return parseJsonRecordSafely(text) ?? {};
 }
 
 function knowledgeSearchRowToHit(row: Record<string, unknown>): Record<string, unknown> {
@@ -1250,11 +1239,7 @@ interface AssociatedKnowledgeBaseCacheEntry {
 }
 
 function associatedKnowledgeBaseMetadataSignature(metadata: Record<string, unknown>): string {
-  try {
-    return JSON.stringify(metadata) ?? '';
-  } catch {
-    return `fallback:${metadataTextLength(metadata)}`;
-  }
+  return stringifyJsonSafely(metadata) ?? `fallback:${metadataTextLength(metadata)}`;
 }
 
 function stabilizeAssociatedKnowledgeBaseMetadataByMessageId(
@@ -3572,7 +3557,7 @@ export function SessionDetailPage() {
     setTtsPlayback(EMPTY_TTS_PLAYBACK);
     void stopMessageTtsPlayback()
       .then((result) => applyTtsPlayback(result.playback))
-      .catch(() => undefined);
+      .catch(ignoreError);
     queueDispatchingRef.current = false;
     queueGuidanceDispatchingRef.current = false;
     blockedQueuedMessageIdRef.current = null;
@@ -3624,7 +3609,7 @@ export function SessionDetailPage() {
   }, [applyTtsPlayback, sessionId]);
 
   useEffect(() => () => {
-    void stopMessageTtsPlayback().catch(() => undefined);
+    void stopMessageTtsPlayback().catch(ignoreError);
   }, []);
 
   useAsyncPolling(
@@ -5601,7 +5586,7 @@ export function SessionDetailPage() {
       title,
       body: preview,
       sessionId,
-    }).catch(() => undefined);
+    }).catch(ignoreError);
   }, [messageWindowView.latestAssistantMessage?.id, sessionId, detail?.session.title]);
 
   const skillPickerResults = useMemo(() => {
@@ -9103,11 +9088,7 @@ function metadataValue(value: unknown): string {
   if (value == null || value === '') return '—';
   if (typeof value === 'string') return value;
   if (typeof value === 'number' || typeof value === 'boolean') return String(value);
-  try {
-    return JSON.stringify(value, null, 2);
-  } catch {
-    return String(value);
-  }
+  return stringifyJsonSafely(value, 2) ?? String(value);
 }
 
 function metadataFieldLabel(field: string): string {

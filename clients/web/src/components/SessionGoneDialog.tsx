@@ -4,6 +4,7 @@ import { useControlledDelayedVisibility } from '../hooks/useDelayedVisibility';
 import { t } from '../i18n';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
 import { runWithTimeout } from '../utils/timed_abort';
+import { ignoreError } from '../shared/util/errors';
 import {
   DIALOG_OVERLAY_CENTER_COMPACT_CLASS,
   DialogFrame,
@@ -23,7 +24,7 @@ async function runBeforeNavigate(
   if (!onBeforeNavigate || typeof window === 'undefined') return;
   await runWithTimeout(() => Promise.resolve().then(onBeforeNavigate), {
     timeoutMs: BEFORE_NAVIGATE_TIMEOUT_MS,
-  }).catch(() => undefined);
+  }).catch(ignoreError);
 }
 
 export function SessionGoneDialog({ open, onBeforeNavigate }: SessionGoneDialogProps) {

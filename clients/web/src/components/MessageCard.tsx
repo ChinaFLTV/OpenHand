@@ -63,8 +63,11 @@ import {
   booleanFromUnknown,
   finiteNumberOrNullFromUnknown,
   nonNegativeIntegerFromUnknown,
+  parseJsonRecordSafely,
+  parseJsonSafely,
   recordOrNullFromUnknown,
   strictStringFromUnknown,
+  stringifyJsonSafely,
   stringFromUnknown,
   stringListFromUnknown,
 } from '../shared/util/value';
@@ -1406,12 +1409,7 @@ function parseGoalAutoFollowUpContent(content: string): { prompt?: string; objec
 function parseJsonObjectFromMarker(content: string, marker: string): Record<string, unknown> | null {
   const index = content.indexOf(marker);
   if (index < 0) return null;
-  try {
-    const parsed: unknown = JSON.parse(content.slice(index).trim());
-    return recordOrNullFromUnknown(parsed);
-  } catch {
-    return null;
-  }
+  return parseJsonRecordSafely(content.slice(index).trim());
 }
 
 function goalMetricsFromMeta(meta: Record<string, unknown>): MessageContextChip[] {
@@ -3796,11 +3794,7 @@ function KnowledgeChunkDetailDialog({
 function knowledgeErrorMessage(error: unknown): string {
   if (error instanceof Error && error.message) return error.message;
   if (typeof error === 'string') return error;
-  try {
-    return JSON.stringify(error);
-  } catch {
-    return String(error);
-  }
+  return stringifyJsonSafely(error) ?? String(error);
 }
 
 function KnowledgeVectorDistributionScene({
@@ -4561,7 +4555,7 @@ function KbKv({ label, value }: { label: string; value: unknown }) {
     : value == null || value === ''
       ? '—'
       : typeof value === 'object'
-        ? JSON.stringify(value)
+        ? stringifyJsonSafely(value) ?? String(value)
         : String(value);
   return (
     <div class="oh-kb-kv">
@@ -5025,11 +5019,8 @@ function formatToolSectionContent(content: string): string {
   const legacyToolSearchContent = formatLegacyToolSearchContent(trimmed);
   if (legacyToolSearchContent) return legacyToolSearchContent;
   if (!looksLikeJsonText(trimmed)) return normalized;
-  try {
-    return JSON.stringify(JSON.parse(trimmed), null, 2);
-  } catch {
-    return normalized;
-  }
+  const parsed = parseJsonSafely(trimmed);
+  return parsed == null ? normalized : stringifyJsonSafely(parsed, 2) ?? normalized;
 }
 
 function looksLikeJsonText(text: string): boolean {
@@ -5050,14 +5041,9 @@ function formatLegacyToolSearchContent(content: string): string | null {
   for (const match of content.matchAll(functionPattern)) {
     const rawFunction = match[1]?.trim();
     if (!rawFunction) continue;
-    try {
-      const decoded = JSON.parse(rawFunction);
-      if (decoded && typeof decoded === 'object' && !Array.isArray(decoded)) {
-        functions.push(decoded as Record<string, unknown>);
-      }
-    } catch {
-      return null;
-    }
+    const decoded = parseJsonRecordSafely(rawFunction);
+    if (decoded == null) return null;
+    functions.push(decoded);
   }
   const matchedCount = Number.parseInt(header[1] ?? '0', 10) || 0;
   const deferredTotal = Number.parseInt(header[2] ?? '0', 10) || 0;
@@ -5065,7 +5051,7 @@ function formatLegacyToolSearchContent(content: string): string | null {
   const loadedTools = functions
     .map((item) => (typeof item.name === 'string' ? item.name.trim() : ''))
     .filter(Boolean);
-  return JSON.stringify(
+  return stringifyJsonSafely(
     {
       tool: 'ToolSearch',
       status: 'success',
@@ -5077,9 +5063,8 @@ function formatLegacyToolSearchContent(content: string): string | null {
         : 'Matched tools are callable by exact name from the next model request onward.',
       functions,
     },
-    null,
     2,
-  );
+  ) ?? null;
 }
 
 function MetaChip({ label, tone = 'neutral', mono }: { label: string; tone?: 'neutral' | 'ok' | 'danger'; mono?: boolean }) {
@@ -5173,17 +5158,10 @@ function ToolArgumentsBlock({
   if (typeof raw === 'string') {
     const trimmed = raw.trim();
     if (trimmed === '') return null;
-    try {
-      pretty = JSON.stringify(JSON.parse(trimmed), null, 2);
-    } catch {
-      pretty = trimmed;
-    }
+    const parsed = parseJsonSafely(trimmed);
+    pretty = parsed == null ? trimmed : stringifyJsonSafely(parsed, 2) ?? trimmed;
   } else {
-    try {
-      pretty = JSON.stringify(raw, null, 2);
-    } catch {
-      pretty = String(raw);
-    }
+    pretty = stringifyJsonSafely(raw, 2) ?? String(raw);
   }
   const [expanded, setExpanded] = useState(false);
   const lineCount = pretty.split('\n').length;

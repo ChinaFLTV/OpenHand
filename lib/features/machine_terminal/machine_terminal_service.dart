@@ -2047,11 +2047,18 @@ List<String> _shellArguments(String shell) {
 String _safeWorkingDirectory(String value) {
   final normalized =
       nullIfBlank(value) ?? OpenHandPaths.applicationDirectoryPath();
-  try {
-    final directory = Directory(normalized);
-    if (directory.existsSync()) return directory.path;
-  } catch (_) {}
+  if (_directoryExists(normalized)) return Directory(normalized).path;
   return OpenHandPaths.applicationDirectoryPath();
+}
+
+bool _directoryExists(String path) {
+  try {
+    return Directory(path).existsSync();
+  } on FileSystemException {
+    return false;
+  } on ArgumentError {
+    return false;
+  }
 }
 
 TerminalTargetPlatform _terminalTargetPlatform() {

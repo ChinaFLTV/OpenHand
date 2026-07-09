@@ -7,6 +7,8 @@
 //   App 内的红点 + 列表行为重复。
 // - 同一 sessionId 共用一个 tag, 后到的会替换旧的, 不堆叠成长串。
 
+import { ignoreError, runIgnoringErrors } from '../shared/util/errors';
+
 let _swRegistration: ServiceWorkerRegistration | null = null;
 let _permissionRequestedOnce = false;
 
@@ -18,9 +20,9 @@ export function registerServiceWorker(): void {
     // 主动反注册以前在 prod 模式装过的 sw, 防止 vite HMR 走缓存
     navigator.serviceWorker.getRegistrations().then((regs) => {
       regs.forEach((r) => {
-        r.unregister().catch(() => undefined);
+        r.unregister().catch(ignoreError);
       });
-    }).catch(() => undefined);
+    }).catch(ignoreError);
     return;
   }
   const tryRegister = () => {
@@ -92,7 +94,7 @@ export async function notifyIfHidden(opts: {
       tag,
     });
     n.onclick = () => {
-      try { window.focus(); } catch {}
+      runIgnoringErrors(() => window.focus());
       if (opts.sessionId) {
         location.href = `/threads/${opts.sessionId}`;
       }

@@ -11,6 +11,7 @@ import { clearAuthStorage, readProfile, readToken, type AuthProfile } from './st
 import { setRemoteReducedMotion } from '../hooks/useReducedMotion';
 import { syncRemoteDialogMotionSettings } from '../hooks/useDialogMotionSettings';
 import { syncLangFromAppPreferences } from '../i18n';
+import { ignoreError } from '../shared/util/errors';
 
 export interface AuthState {
   meta: ApiMetaResponse | null;
@@ -70,7 +71,7 @@ function installForegroundMetaSync(): void {
       return;
     }
     lastForegroundMetaRefreshAt = now;
-    void refreshMeta().catch(() => undefined);
+    void refreshMeta().catch(ignoreError);
   };
   const refreshIfVisible = () => {
     if (document.visibilityState === 'visible') refreshIfStale();

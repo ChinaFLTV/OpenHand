@@ -11,6 +11,7 @@
 import { ensureDeviceId, readToken } from '../state/storage';
 import type { SessionMessage, SessionSummary } from './sessions';
 import { collectClientEnvironment } from '../utils/client_env';
+import { runIgnoringErrors } from '../shared/util/errors';
 
 export interface PendingWriteApproval {
   id: string;
@@ -128,8 +129,6 @@ export function subscribeSessionEvents(
     es.removeEventListener('session_deleted', handleDeleted);
     es.onopen = null;
     es.onerror = null;
-    try {
-      es.close();
-    } catch {}
+    runIgnoringErrors(() => es.close());
   };
 }

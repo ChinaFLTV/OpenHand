@@ -1,4 +1,5 @@
 import { useLocation } from 'preact-iso';
+import { ignoreError } from '../shared/util/errors';
 import { normalizeDurationMs } from '../shared/util/number';
 
 type ViewTransitionDocument = Document & {
@@ -54,9 +55,9 @@ function runWithRouteTransition(update: () => void): void {
       updateStarted = true;
       update();
     });
-    void transition.ready?.catch(() => undefined);
-    void transition.updateCallbackDone?.catch(() => undefined);
-    void transition.finished.catch(() => undefined).finally(cleanup);
+    void transition.ready?.catch(ignoreError);
+    void transition.updateCallbackDone?.catch(ignoreError);
+    void transition.finished.catch(ignoreError).finally(cleanup);
   } catch {
     cleanup();
     if (!updateStarted) update();

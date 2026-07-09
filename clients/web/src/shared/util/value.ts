@@ -88,6 +88,27 @@ export function integerFromUnknown(value: unknown, fallback = 0): number {
   return Math.trunc(parsed ?? safeFallback);
 }
 
+export function stringifyJsonSafely(value: unknown, space?: number): string | null {
+  try {
+    const serialized = JSON.stringify(value, null, space);
+    return typeof serialized === 'string' ? serialized : null;
+  } catch {
+    return null;
+  }
+}
+
+export function parseJsonSafely(value: string): unknown | null {
+  try {
+    return JSON.parse(value) as unknown;
+  } catch {
+    return null;
+  }
+}
+
+export function parseJsonRecordSafely(value: string): Record<string, unknown> | null {
+  return recordOrNullFromUnknown(parseJsonSafely(value));
+}
+
 export function recordFromUnknown(value: unknown): Record<string, unknown> {
   if (value != null && typeof value === 'object' && !Array.isArray(value)) {
     return value as Record<string, unknown>;
