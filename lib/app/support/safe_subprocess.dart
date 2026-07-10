@@ -238,8 +238,8 @@ Future<void> killAllTrackedChildren({
   }
 }
 
-/// 仅供测试 / 诊断使用：当前未退出的子进程 pid 列表。
-List<int> debugTrackedChildPids() =>
+/// 当前仍由应用跟踪的子进程 PID 快照。
+List<int> trackedChildPidsSnapshot() =>
     List<int>.unmodifiable(_trackedChildren.keys);
 
 Future<String?> _resolveProcessGroupLauncher() {

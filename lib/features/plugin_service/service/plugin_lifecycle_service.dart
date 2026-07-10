@@ -2,8 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter/foundation.dart' show visibleForTesting;
-
 import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
@@ -44,8 +42,7 @@ final RegExp _pluginLifecycleBrewPythonFormulaPathPattern = RegExp(
   r'/(python(?:@[\d.]+)?)(?:/|$)',
 );
 
-@visibleForTesting
-String? homebrewStableVersionFromDecoded(Object? decoded) {
+String? _homebrewStableVersionFromDecoded(Object? decoded) {
   final root = stringKeyedMapFromValue(decoded);
   final formulae = stringKeyedMapListFromValue(root['formulae']);
   if (formulae.isEmpty) return null;
@@ -54,16 +51,14 @@ String? homebrewStableVersionFromDecoded(Object? decoded) {
   return stable.isEmpty ? null : stable;
 }
 
-@visibleForTesting
-bool pluginLifecycleOutputHasPyPiTlsFailure(String output) {
+bool _pluginLifecycleOutputHasPyPiTlsFailure(String output) {
   final lower = output.toLowerCase();
   return lower.contains('certificate_verify_failed') ||
       (lower.contains('unable to get local issuer certificate') &&
           (lower.contains('pypi.org') || lower.contains('/simple/')));
 }
 
-@visibleForTesting
-String hermesAgentNpmFailureMessage({
+String _hermesAgentNpmFailureMessage({
   required String label,
   required String output,
   bool tlsRetryAttempted = false,
@@ -71,7 +66,7 @@ String hermesAgentNpmFailureMessage({
 }) {
   final trimmed = output.trim();
   final lower = trimmed.toLowerCase();
-  final hasTlsFailure = pluginLifecycleOutputHasPyPiTlsFailure(trimmed);
+  final hasTlsFailure = _pluginLifecycleOutputHasPyPiTlsFailure(trimmed);
   final hasMetadataFailure =
       lower.contains('could not fetch url') || lower.contains('/simple/');
   final hasNoMatchingDistribution = lower.contains(
@@ -98,23 +93,6 @@ String hermesAgentNpmFailureMessage({
   }
   return lines.join('\n');
 }
-
-@visibleForTesting
-String pluginLifecycleManagedToolchainCommandScript(
-  String executable,
-  List<String> arguments,
-) => pluginToolchainManagedCommandScript(executable, arguments);
-
-@visibleForTesting
-String pluginLifecycleExecutableAvailabilityScript(String executable) =>
-    pluginToolchainExecutableAvailabilityScript(executable);
-
-@visibleForTesting
-String pluginLifecycleManagedCommandPathScript(String executable) =>
-    pluginToolchainCommandPathScript(
-      executable,
-      includeNpmGlobalBinFallback: true,
-    );
 
 /// 插件生命周期操作结果。
 class PluginOperationResult {
@@ -661,10 +639,7 @@ class PluginLifecycleService {
   }) {
     return runTrackedProcessOrFailed(
       _pickShell(),
-      [
-        '-c',
-        pluginLifecycleManagedToolchainCommandScript(executable, arguments),
-      ],
+      ['-c', pluginToolchainManagedCommandScript(executable, arguments)],
       timeout: timeout,
       tag: tag ?? 'plugin_lifecycle.command.$executable',
       environment: environment ?? _proxyEnv(),
@@ -680,10 +655,7 @@ class PluginLifecycleService {
   }) {
     return _runWithProgress(
       _pickShell(),
-      [
-        '-c',
-        pluginLifecycleManagedToolchainCommandScript(executable, arguments),
-      ],
+      ['-c', pluginToolchainManagedCommandScript(executable, arguments)],
       onProgress: onProgress,
       timeout: timeout,
       environment: environment ?? _proxyEnv(),
@@ -696,7 +668,13 @@ class PluginLifecycleService {
   }) async {
     final result = await runTrackedProcessOrFailed(
       _pickShell(),
-      ['-c', pluginLifecycleManagedCommandPathScript(executable)],
+      [
+        '-c',
+        pluginToolchainCommandPathScript(
+          executable,
+          includeNpmGlobalBinFallback: true,
+        ),
+      ],
       timeout: _pluginLifecycleProbeTimeout,
       tag: 'plugin_lifecycle.command_path.$executable',
       environment: environment ?? _proxyEnv(),
@@ -708,7 +686,7 @@ class PluginLifecycleService {
   Future<bool> _isExecutableAvailable(String executable) async {
     final result = await runTrackedProcessOrFailed(
       _pickShell(),
-      ['-c', pluginLifecycleExecutableAvailabilityScript(executable)],
+      ['-c', pluginToolchainExecutableAvailabilityScript(executable)],
       timeout: _pluginLifecycleProbeTimeout,
       tag: 'plugin_lifecycle.command_probe.$executable',
       environment: _proxyEnv(),
@@ -995,7 +973,7 @@ fi
     if (result.exitCode != 0) return null;
     try {
       final decoded = jsonDecode(result.stdout.toString());
-      return homebrewStableVersionFromDecoded(decoded);
+      return _homebrewStableVersionFromDecoded(decoded);
     } catch (_) {
       return null;
     }
@@ -1546,7 +1524,7 @@ fi
     var tlsRetryAttempted = false;
     final firstOutput = _combinedProcessOutput(result);
     if (result.exitCode != 0 &&
-        pluginLifecycleOutputHasPyPiTlsFailure(firstOutput)) {
+        _pluginLifecycleOutputHasPyPiTlsFailure(firstOutput)) {
       tlsBundle = await _detectTlsBundleAfterFailure(firstOutput);
       if (tlsBundle != null) {
         tlsRetryAttempted = true;
@@ -1575,7 +1553,7 @@ fi
       return PluginOperationResult(
         success: false,
         message: packageName == _hermesAgentNpmPackage
-            ? hermesAgentNpmFailureMessage(
+            ? _hermesAgentNpmFailureMessage(
                 label: label,
                 output: output,
                 tlsRetryAttempted: tlsRetryAttempted,
@@ -1688,7 +1666,7 @@ fi
   }
 
   Future<String?> _detectTlsBundleAfterFailure(String output) async {
-    if (!pluginLifecycleOutputHasPyPiTlsFailure(output)) return null;
+    if (!_pluginLifecycleOutputHasPyPiTlsFailure(output)) return null;
     final certifi = await _probeCertifiBundle();
     if (certifi != null && File(certifi).existsSync()) return certifi;
     for (final candidate in const <String>[

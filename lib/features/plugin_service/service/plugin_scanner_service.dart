@@ -2,8 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter/foundation.dart' show visibleForTesting;
-
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../app/support/system_proxy.dart';
@@ -12,8 +10,7 @@ import '../../../shared/util/version_compare.dart';
 import '../model/plugin_info.dart';
 import 'plugin_toolchain_shell.dart';
 
-@visibleForTesting
-Map<String, Object?>? qdrantInspectMetadataFromDecoded(Object? decoded) {
+Map<String, Object?>? _qdrantInspectMetadataFromDecoded(Object? decoded) {
   if (decoded is! List || decoded.isEmpty || decoded.first is! Map) {
     return null;
   }
@@ -307,7 +304,6 @@ class PluginScannerService {
         ? candidateLatestVersion
         : null;
   }
-
 
   static bool _looksLikeHomebrewPath(String path) {
     return path.contains('/Cellar/python') ||
@@ -1154,7 +1150,7 @@ class PluginScannerService {
         return _qdrantNotInstalled;
       }
       final decoded = _decodeOptionalJson(inspectResult.stdout.toString());
-      final metadata = qdrantInspectMetadataFromDecoded(decoded);
+      final metadata = _qdrantInspectMetadataFromDecoded(decoded);
       if (metadata == null) {
         return _qdrantNotInstalled.copyWith(
           status: PluginStatus.error,

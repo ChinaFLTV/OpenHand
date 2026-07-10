@@ -17,6 +17,7 @@ import '../crons_controller.dart';
 
 /// 控制全进程仅执行一次的标志位。即使被误调多次，也只生效首次。
 bool _hasRunInThisProcess = false;
+const Duration _cleanupTimeout = Duration(seconds: 30);
 
 /// 冷启动后异步运行：根据设置项决定是否清理 cron 执行历史。
 ///
@@ -24,14 +25,9 @@ bool _hasRunInThisProcess = false;
 ///
 /// * [settings] — 读取 `cronAutoCleanupEnabled` / `cronAutoCleanupRetentionDays`。
 /// * [crons] — 用于实际删除历史记录。
-/// * [now] — 仅供测试注入；生产代码用默认值。
-/// * [maxWait] — 安全护栏：清理 SQL 最长等待时间，超时直接放弃，
-///   避免与启动时其他写入操作互相阻塞造成无限等待。默认 30s。
 Future<void> runCronHistoryCleanupOnce({
   required SettingsController settings,
   required CronsController crons,
-  DateTime? now,
-  Duration maxWait = const Duration(seconds: 30),
 }) async {
   if (_hasRunInThisProcess) return;
   _hasRunInThisProcess = true;
@@ -41,25 +37,18 @@ Future<void> runCronHistoryCleanupOnce({
     final retention = settings.cronAutoCleanupRetentionDays;
     if (retention <= 0) return;
 
-    final effectiveNow = now ?? DateTime.now();
-    final cutoff = effectiveNow.subtract(Duration(days: retention));
+    final cutoff = DateTime.now().subtract(Duration(days: retention));
 
     // 用 timeout 兜底，防止 SQLite 写锁互相阻塞导致无限等待。
     final affected = await crons
         .purgeHistoryOlderThan(cutoff)
-        .timeout(maxWait, onTimeout: () => -1);
+        .timeout(_cleanupTimeout, onTimeout: () => -1);
 
     if (affected < 0) {
       silentLog(
         'cron_history_cleanup_worker',
         'cleanup timed out',
-        'maxWait=$maxWait retentionDays=$retention',
-      );
-    } else if (affected > 0) {
-      silentLog(
-        'cron_history_cleanup_worker',
-        'cleanup ok',
-        'removed=$affected retentionDays=$retention cutoff=$cutoff',
+        'maxWait=$_cleanupTimeout retentionDays=$retention',
       );
     }
   } catch (error, stack) {

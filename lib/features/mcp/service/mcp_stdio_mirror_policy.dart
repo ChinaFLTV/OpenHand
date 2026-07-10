@@ -31,35 +31,25 @@ enum McpMirrorEffectiveSource {
       this == envOn || this == settingForceOn || this == autoLocaleZh;
 }
 
-/// 计算镜像源决策最终命中的来源。供 UI、日志、测试三方共用。
+/// 计算镜像源决策最终命中的来源，供 UI 与运行时注入逻辑共用。
 McpMirrorEffectiveSource resolveMcpMirrorEffectiveSource() {
-  return resolveMcpMirrorEffectiveSourceFromValues(
-    environmentOverride: Platform.environment['OPENHAND_MCP_MIRROR'],
-    modeOverride: mcpStdioMirrorModeOverride,
-    localeName: Platform.localeName,
+  final override = optionalBoolFromValue(
+    Platform.environment['OPENHAND_MCP_MIRROR'],
   );
-}
-
-McpMirrorEffectiveSource resolveMcpMirrorEffectiveSourceFromValues({
-  required String? environmentOverride,
-  required McpStdioMirrorMode? modeOverride,
-  required String localeName,
-}) {
-  final override = optionalBoolFromValue(environmentOverride);
   if (override == true) {
     return McpMirrorEffectiveSource.envOn;
   }
   if (override == false) {
     return McpMirrorEffectiveSource.envOff;
   }
-  switch (modeOverride) {
+  switch (mcpStdioMirrorModeOverride) {
     case McpStdioMirrorMode.forceOn:
       return McpMirrorEffectiveSource.settingForceOn;
     case McpStdioMirrorMode.forceOff:
       return McpMirrorEffectiveSource.settingForceOff;
     case McpStdioMirrorMode.auto:
     case null:
-      final locale = localeName.toLowerCase();
+      final locale = Platform.localeName.toLowerCase();
       return locale.startsWith('zh')
           ? McpMirrorEffectiveSource.autoLocaleZh
           : McpMirrorEffectiveSource.autoLocaleOther;

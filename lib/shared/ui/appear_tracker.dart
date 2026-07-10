@@ -1,33 +1,5 @@
-/// Tiny helper that decides whether an entry "is new" relative to its
-/// surrounding list, enabling per-item entrance animations (e.g. wrapping
-/// with `AppearOnce`) without re-animating the whole list on first build.
-///
-/// Usage pattern:
-///
-/// ```dart
-/// final tracker = AppearTracker();
-/// // First build: prime the tracker with the existing ids so they are
-/// // treated as "already seen". Nothing animates.
-/// for (final id in initialIds) {
-///   tracker.markSeen(id);
-/// }
-/// tracker.markInitialBuildDone();
-///
-/// // Subsequent builds: ask before adding to the tree.
-/// for (final id in currentIds) {
-///   final isNew = tracker.shouldAnimate(id);
-///   tracker.markSeen(id);
-///   // ... wrap with AppearOnce iff isNew
-/// }
-///
-/// // After computing the new list, evict ids that are no longer present so
-/// // a future re-appearance counts as new again.
-/// tracker.retainOnly(currentIds);
-/// ```
-///
-/// The class is intentionally framework-agnostic — there are no Flutter
-/// imports here so it can be unit-tested cheaply without spinning up a
-/// `WidgetTester`.
+/// Tracks list item identities so only entries added after the first build
+/// play their entrance animation.
 class AppearTracker {
   AppearTracker();
 
@@ -37,9 +9,6 @@ class AppearTracker {
   /// True iff [shouldAnimate] would return `true` for an id that has not
   /// been seen yet.
   bool get isInitialBuildDone => _initialBuildDone;
-
-  /// Visible for testing.
-  Set<String> get seenIdsForTest => Set<String>.unmodifiable(_seen);
 
   /// Mark the initial population as done. Calls to [shouldAnimate] only
   /// return `true` once the initial build has completed — so the very

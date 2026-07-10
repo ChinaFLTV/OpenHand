@@ -348,11 +348,10 @@ abstract final class MachineTerminalSessionMetadata {
     String? workingDirectory,
     MachineTerminalWorkspaceSnapshot? snapshot,
     Object? existingMetadata,
-    DateTime? now,
   }) {
     final raw = stringKeyedMapFromValue(existingMetadata);
-    final timestamp = (now ?? DateTime.now()).toUtc();
-    final createdAt = createdAtFrom(raw) ?? timestamp.toUtc().toIso8601String();
+    final timestamp = DateTime.now().toUtc();
+    final createdAt = createdAtFrom(raw) ?? timestamp.toIso8601String();
     final resolvedWorkingDirectory = _safeWorkingDirectory(
       nullIfBlank(workingDirectory) ??
           defaultWorkingDirectoryFrom(raw) ??

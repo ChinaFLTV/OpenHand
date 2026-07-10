@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
 
-import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
 import '../../../app/support/silent_log.dart';
@@ -215,10 +214,8 @@ class HarnessApiPhaseRunner {
     final phaseSessionId = phase == HarnessPhase.reviewing
         ? 'harness-reviewer-isolated-${DateTime.now().millisecondsSinceEpoch}'
         : 'harness-phase-${phase.storageValue}';
-    return guardedRunPhase<HarnessApiPhaseResult>(
-      phaseSessionId: phaseSessionId,
-      onPhaseEnded: _handlePhaseEnded,
-      run: () => _runPhaseInner(
+    try {
+      return await _runPhaseInner(
         model: model,
         phase: phase,
         phasePrompt: phasePrompt,
@@ -228,28 +225,9 @@ class HarnessApiPhaseRunner {
         requireWriteCommandConfirmation: requireWriteCommandConfirmation,
         cancelSignal: cancelSignal,
         phaseSessionId: phaseSessionId,
-      ),
-    );
-  }
-
-  void _handlePhaseEnded({required String phaseSessionId}) {
-    _loadedMcpToolsBySession.remove(phaseSessionId);
-    onPhaseEnded?.call(phaseSessionId: phaseSessionId);
-  }
-
-  /// 公开的 try/finally 包装：保证 [onPhaseEnded] 会在 [run] 结束时
-  /// 被调用一次，无论 [run] 是正常返回还是抛出异常。
-  /// 暴露为静态方法主要是为了便于纯单测覆盖 finally 路径，无需构造
-  /// 完整的 chatClient / toolRuntimeService 依赖图。
-  @visibleForTesting
-  static Future<T> guardedRunPhase<T>({
-    required String phaseSessionId,
-    required Future<T> Function() run,
-    required void Function({required String phaseSessionId})? onPhaseEnded,
-  }) async {
-    try {
-      return await run();
+      );
     } finally {
+      _loadedMcpToolsBySession.remove(phaseSessionId);
       onPhaseEnded?.call(phaseSessionId: phaseSessionId);
     }
   }
@@ -1062,10 +1040,7 @@ class HarnessApiPhaseRunner {
         'validation_status': 'passed',
         'created_at': DateTime.now().toUtc().toIso8601String(),
       };
-      await metadataFile.writeAsString(
-        prettyPrintJson(metadata),
-        flush: true,
-      );
+      await metadataFile.writeAsString(prettyPrintJson(metadata), flush: true);
       emit('📋 交接文档已保存：${handoffFile.path}');
       emit('📋 交接元数据已保存：${metadataFile.path}');
     } catch (e) {
@@ -1138,10 +1113,7 @@ class HarnessApiPhaseRunner {
           'handoff-failure-${phase.storageValue}-s$sessionIndex-$ts.json',
         ),
       );
-      await failureFile.writeAsString(
-        prettyPrintJson(record),
-        flush: true,
-      );
+      await failureFile.writeAsString(prettyPrintJson(record), flush: true);
       emit('📋 交接失败记录已保存：${failureFile.path}');
       emit(
         '  {"handoff_failure":"recorded","stage":${jsonEncode(failureStage)},"path":${jsonEncode(failureFile.path)}}',

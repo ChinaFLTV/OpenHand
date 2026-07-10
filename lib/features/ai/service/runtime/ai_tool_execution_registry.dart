@@ -25,7 +25,7 @@ class AiToolExecutionRegistry with ChangeNotifier {
   /// toolCallId → 内部条目（含可变 killer / pid）。
   final Map<String, _RegisteredEntry> _entries = <String, _RegisteredEntry>{};
 
-  /// 本月生命周期内累计执行过的工具调用数（用于设置页统计展示，不含未注册的）。
+  /// 本次应用生命周期内累计执行过的工具调用数（不含未注册的）。
   int _lifetimeCount = 0;
   int get lifetimeCount => _lifetimeCount;
 
@@ -122,14 +122,6 @@ class AiToolExecutionRegistry with ChangeNotifier {
         );
       }
     }
-  }
-
-  /// 仅供测试使用 —— 清空登记表。
-  @visibleForTesting
-  void resetForTests() {
-    _entries.clear();
-    _lifetimeCount = 0;
-    notifyListeners();
   }
 }
 

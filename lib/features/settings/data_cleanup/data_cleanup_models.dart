@@ -1,6 +1,5 @@
-/// 这里**不**包含任何 Flutter 依赖，方便在 isolate（`compute()`）以及单元
-/// 测试里安全使用。UI 层（`_settings_data_cleanup.dart`）只通过这个文件
-/// 拿到分类元数据与人类友好的字节数格式化结果。
+/// 这里不包含 Flutter 依赖，可直接用于 isolate。UI 层只通过本文件获取
+/// 分类元数据与人类友好的字节数格式化结果。
 library;
 
 import '../../../shared/util/byte_size_format.dart';

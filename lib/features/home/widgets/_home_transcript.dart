@@ -160,15 +160,6 @@ class _TranscriptScrollDispatcher {
     }
   }
 
-  /// drip 串行 materialization 已下线，flushDripFor 无操作直接返回 false。
-  bool flushDripFor(String sessionId) {
-    return false;
-  }
-
-  void flushAllDrips() {
-    // drip 串行 materialization 已下线，空实现。
-  }
-
   Future<bool> scrollToMessage(
     String sessionId,
     String messageId, {
@@ -1238,7 +1229,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       return true;
     }
 
-    // drip 串行 materialization 已下线，无需抑制并发 drip 冲突。
     if (await tryEnsureVisible()) return true;
 
     // 目标尚未物化。先看看它在 displayMessages 中是否存在 / 位置。

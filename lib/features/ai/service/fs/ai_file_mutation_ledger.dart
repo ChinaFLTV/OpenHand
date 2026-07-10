@@ -299,7 +299,7 @@ class LedgerConfig {
 
 /// 极简 unified diff 行级摘要。共同行标 ` `，删除行 `-`，
 /// 新增行 `+`。不做 LCS 最优——目标是粘到 PR/聊天里能一眼看出改了
-/// 哪几行；提取成顶层函数便于单测。
+/// 哪几行。
 ///
 /// 当任一侧大于 [maxBytes]（默认 256 KiB）时不再做完整逐行
 /// 展开，避免在 UI 线程上炸成几万行。返回一行式占位摘要，包含双侧
@@ -334,8 +334,7 @@ String unifiedDiffLineSummary(
 }
 
 class AiFileMutationLedger {
-  AiFileMutationLedger({String? rootDirectoryOverride})
-    : _rootOverride = rootDirectoryOverride;
+  AiFileMutationLedger();
 
   static final RegExp _sha256HexPattern = RegExp(r'^[0-9a-f]{64}$');
   static final RegExp _unsafeSessionIdCharPattern = RegExp(r'[^a-zA-Z0-9_\-.]');
@@ -349,7 +348,6 @@ class AiFileMutationLedger {
   /// while still skipping repeated lookups for recently-missed shas.
   static const int _maxLegacyBlobRecoveryMisses = 4096;
 
-  final String? _rootOverride;
   final Random _rand = Random.secure();
   bool _migratedLegacy = false;
   Map<String, String>? _legacyBlobPathIndex;
@@ -383,7 +381,6 @@ class AiFileMutationLedger {
   }
 
   String get _root =>
-      _rootOverride ??
       p.join(OpenHandPaths.defaultRootDirectoryPath(), 'file_history');
 
   Directory _blobsDir() => Directory(p.join(_root, 'blobs'));
@@ -453,11 +450,7 @@ class AiFileMutationLedger {
       }
       if (!_ranAutoCleanup) {
         _ranAutoCleanup = true;
-        // 测试场景下使用了 rootOverride，自动清理会与并发写入抢资源；只在
-        // 真实运行（未传 override）路径上启用一次性自动清理。
-        if (_rootOverride == null) {
-          unawaited(_runAutoCleanupOnce());
-        }
+        unawaited(_runAutoCleanupOnce());
       }
     } catch (error, stack) {
       silentLog('ai_file_mutation_ledger', 'init', error, stack);

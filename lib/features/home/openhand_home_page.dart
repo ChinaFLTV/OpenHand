@@ -2354,24 +2354,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         _clearPendingAutoFollowState();
         return;
       }
-      // 2026-05-23 (修复 后台→前台 跳底)：应用被从后台拉回前台后，
-      // 活跃 transcript 可能处于「分帧 drip」状态（后台期间流式下发了
-      // 一堆消息但未完全物化），此时 maxScrollExtent 只反映「已被
-      // 允许看见」的尾部。跳底之前必须先冲刷 drip，以给后面的
-      // _scheduleScrollToBottom 提供真实的 maxScrollExtent。同时打开
-      // settle passes，让 markdown 异步解析 / 代码高亮后续帧为高度
-      // 增长还能追上。
-      final activeSessionId = _activeTranscriptSessionId;
-      var flushedDrip = false;
-      if (activeSessionId != null && activeSessionId.isNotEmpty) {
-        flushedDrip = _TranscriptScrollDispatcher.instance.flushDripFor(
-          activeSessionId,
-        );
-      }
       final shouldForce =
           _pendingForcedScrollToBottom || _queuedForcedScrollToBottom;
-      if (shouldForce || flushedDrip) {
-        _scheduleScrollToBottom(force: shouldForce);
+      if (shouldForce) {
+        _scheduleScrollToBottom(force: true);
       }
     });
   }
@@ -2632,13 +2618,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       setState(() {
         _autoFollowPaused = false;
       });
-      // 2026-05-23 (修复)：点击「跳到最新」时，必须先把 transcript
-      // 可能在跑的 drip 一次性冲刷为全量 tail，避免“跳到当前可见
-      // 尾部→drip 再露出一条→再点一下”的反复物化概率。
-      final activeSessionId = _activeTranscriptSessionId;
-      if (activeSessionId != null && activeSessionId.isNotEmpty) {
-        _TranscriptScrollDispatcher.instance.flushDripFor(activeSessionId);
-      }
       _requestFollowToLatest(notifyPausedState: false);
       return;
     }
@@ -5634,13 +5613,13 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     required SkillsController skillsController,
     required McpController mcpController,
     required AppInfo appInfo,
-    DateTime? now,
+    required DateTime now,
     List<AiAllowCommandRule>? allowCommandRules,
     List<LocalSkill>? availableSkills,
     List<McpServer>? availableMcpServers,
     List<AiBuiltinToolConfig>? builtinToolConfigs,
   }) {
-    final localNow = (now ?? DateTime.now()).toLocal();
+    final localNow = now.toLocal();
     return AiSessionRuntimeContext(
       localeTag: settingsController.locale.toLanguageTag(),
       appVersion: appInfo.version,

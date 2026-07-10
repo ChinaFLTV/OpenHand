@@ -15,22 +15,20 @@ const Duration _tokenPopupCacheHitModeChipDuration = Duration(
   milliseconds: 220,
 );
 
-@visibleForTesting
-double tokenPopupCacheHitTrendAnimationProgress(double t) {
+double _tokenPopupCacheHitTrendAnimationProgress(double t) {
   final clamped = clampUnitInterval(t);
   return clampUnitInterval(
     _tokenPopupCacheHitTrendEntranceCurve.transform(clamped),
   );
 }
 
-@visibleForTesting
-List<Offset> tokenPopupCacheHitTrendAnimatedPolyline({
+List<Offset> _tokenPopupCacheHitTrendAnimatedPolyline({
   required List<double> ratios,
   required Rect chartRect,
   required double progress,
 }) {
   if (ratios.isEmpty) return const <Offset>[];
-  final easedProgress = tokenPopupCacheHitTrendAnimationProgress(progress);
+  final easedProgress = _tokenPopupCacheHitTrendAnimationProgress(progress);
   final visibleCount = (ratios.length * easedProgress).clamp(
     1.0,
     ratios.length.toDouble(),
@@ -1013,7 +1011,7 @@ class _TokenPopupCacheHitTrendDynamicPainter extends CustomPainter {
         ],
       ).createShader(chart);
 
-    final polyline = tokenPopupCacheHitTrendAnimatedPolyline(
+    final polyline = _tokenPopupCacheHitTrendAnimatedPolyline(
       ratios: points.map((point) => point.hitRatio).toList(growable: false),
       chartRect: chart,
       progress: progress,

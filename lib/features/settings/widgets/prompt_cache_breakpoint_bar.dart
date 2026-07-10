@@ -41,9 +41,6 @@ class _PromptCacheBreakpointBarState extends State<PromptCacheBreakpointBar> {
   static const double _pegHeadTopGap = 2;
   static const double _topReserve = _pegHeadHeight + _pegHeadTopGap;
 
-  @visibleForTesting
-  List<double> get debugDraft => List<double>.unmodifiable(_draft);
-
   @override
   void initState() {
     super.initState();

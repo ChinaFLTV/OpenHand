@@ -6,8 +6,6 @@ class HtmlSelectionBridgeClipboard {
   static bool get hasSelection =>
       _selectedText != null && _selectedText!.trim().isNotEmpty;
 
-  static String? get selectedTextForTest => _selectedText;
-
   static void clear() {
     _selectedText = null;
   }

@@ -1,8 +1,6 @@
 /// Web 通用消息平台「当前可访问 URL 列表」的纯函数推导逻辑。
 ///
-/// 抽出独立模块的目的：使 `WebMessagePlatformService.accessibleUrls`
-/// 可在不构造完整 service（避免拉起 6 个 controller + AppInfo）的前提下
-/// 被单元测试覆盖。逻辑须与 service.accessibleUrls 文档块保持一一对应：
+/// 与 `WebMessagePlatformService.accessibleUrls` 共用以下推导规则：
 ///
 /// - `boundPort == null`（服务未启动）→ 返回空列表
 /// - 监听具体 IP（如 `192.168.1.5`）→ 仅返回 `[http://<host>:<port>]`

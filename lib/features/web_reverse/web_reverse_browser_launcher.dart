@@ -38,9 +38,11 @@ class WebReverseLaunchResult {
 /// - `--no-first-run --no-default-browser-check`：跳过首启向导。
 /// - `--disable-features=...`：关掉若干会拦截 CDP 的功能。
 class WebReverseBrowserLauncher {
-  WebReverseBrowserLauncher({this.httpClientFactory});
+  WebReverseBrowserLauncher();
 
-  final http.Client Function()? httpClientFactory;
+  static const int _firstCdpPort = 9222;
+  static const int _lastCdpPortExclusive = 9322;
+  static const Duration _handshakeTimeout = Duration(seconds: 30);
 
   /// 创建一个**强制绕过任何系统/用户级代理**的 HTTP 客户端。
   /// CDP 探测目标是 127.0.0.1，如果走 HTTP/SOCKS 代理会被路由到外网拒绝
@@ -58,11 +60,10 @@ class WebReverseBrowserLauncher {
   ///    `Connection refused` 才是真空闲。
   /// 2. 再 ServerSocket.bind 一次确认本进程能 listen，避免操作系统级保留。
   /// 这两步组合能避开"用户已开 Chrome 占 9222"的常见冲突。
-  Future<int?> pickFreePort({int start = 9222, int end = 9322}) async {
-    final probeClient = httpClientFactory?.call() ?? _newDirectClient();
-    final ownsClient = httpClientFactory == null;
+  Future<int?> _pickFreePort() async {
+    final probeClient = _newDirectClient();
     try {
-      for (var port = start; port < end; port++) {
+      for (var port = _firstCdpPort; port < _lastCdpPortExclusive; port++) {
         // 1) 是否已被 CDP 占用？
         try {
           final resp = await probeClient
@@ -89,25 +90,24 @@ class WebReverseBrowserLauncher {
       }
       return null;
     } finally {
-      if (ownsClient) probeClient.close();
+      probeClient.close();
     }
   }
 
   /// 启动浏览器并轮询 `/json/version` 直到拿到 webSocketDebuggerUrl。
   ///
-  /// 超时 [handshakeTimeout] 后视为失败。
+  /// 超时 [_handshakeTimeout] 后视为失败。
   /// 默认 30s：macOS 首次起新 profile 时的"first-run + DNS warmup +
   /// start-maximized + 主页加载 + 远端代理"链路在慢机或带 proxy 的网络下
-  /// 容易跨过 12s。如果被外部传入更短/更长值（测试场景）则按入参为准。
+  /// 容易跨过 12s。
   Future<WebReverseLaunchResult> launch({
     required String executablePath,
     required WebReverseBrowserKind browserKind,
     required String userDataDir,
     required String startUrl,
     String? proxy,
-    Duration handshakeTimeout = const Duration(seconds: 30),
   }) async {
-    final port = await pickFreePort();
+    final port = await _pickFreePort();
     if (port == null) {
       throw const WebReverseLaunchException(
         WebReverseLaunchFailure.noFreePort,
@@ -214,9 +214,9 @@ class WebReverseBrowserLauncher {
     // 轮询 /json/version 拿 webSocketDebuggerUrl。
     // 退避策略：前 2s 用 150ms 间隔（macOS 上 chrome 通常 800ms 就能起 CDP），
     // 之后切到 400ms 间隔，减少对系统的压力但仍能在 30s 内多次命中。
-    final client = httpClientFactory?.call() ?? _newDirectClient();
+    final client = _newDirectClient();
     final start = DateTime.now();
-    final deadline = start.add(handshakeTimeout);
+    final deadline = start.add(_handshakeTimeout);
     String? wsUrl;
     String version = browserKind.displayName;
     var lastHttpError = '';
@@ -259,7 +259,7 @@ class WebReverseBrowserLauncher {
         );
       }
     } finally {
-      if (httpClientFactory == null) client.close();
+      client.close();
     }
     if (wsUrl == null) {
       try {
@@ -298,7 +298,7 @@ class WebReverseBrowserLauncher {
           : '';
       throw WebReverseLaunchException(
         WebReverseLaunchFailure.cdpHandshakeFailed,
-        'CDP 握手超时（${handshakeTimeout.inSeconds}s，已尝试 $attempts 次；'
+        'CDP 握手超时（${_handshakeTimeout.inSeconds}s，已尝试 $attempts 次；'
         '最后一次探测错误：${lastHttpError.isEmpty ? "(无)" : lastHttpError}）。'
         '常见原因：① 已存在另一个 Chrome 实例占用同 user-data-dir；'
         '② --remote-allow-origins 被企业策略拒绝；'

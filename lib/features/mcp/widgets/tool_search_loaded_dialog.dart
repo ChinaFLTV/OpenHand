@@ -79,8 +79,7 @@ class _ToolGroup {
 
 /// 进程级缓存，记录用户对每个分组的折叠/展开偏好。
 /// 跨次打开 dialog 保留；进程重启后回到默认展开。
-@visibleForTesting
-final Map<String, bool> debugMcpGroupExpansionCache = <String, bool>{};
+final Map<String, bool> _mcpGroupExpansionCache = <String, bool>{};
 
 /// 将完整工具名拆出 `SERVER` 段。
 /// 形如 `mcp__SERVER__tool_name` 返回 `SERVER`；其它返回 `null`。
@@ -158,10 +157,7 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
     });
     final l10n = AppLocalizations.of(context);
     if (l10n == null) return;
-    flashOpenHandSnack(
-      context,
-      l10n.snackToolSearchLoadedClearedToast,
-    );
+    flashOpenHandSnack(context, l10n.snackToolSearchLoadedClearedToast);
   }
 
   Future<void> _handleCopy(String name) async {
@@ -216,10 +212,7 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
     });
     final l10n = AppLocalizations.of(context);
     if (l10n == null) return;
-    flashOpenHandSnack(
-      context,
-      l10n.snackToolSearchLoadedHistoryClearedToast,
-    );
+    flashOpenHandSnack(context, l10n.snackToolSearchLoadedHistoryClearedToast);
   }
 
   /// 把当前 [_history]（应用 [_historyFilterQuery]、[_historyFilterSource] 之后）
@@ -846,10 +839,9 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
       data: theme.copyWith(dividerColor: Colors.transparent),
       child: ExpansionTile(
         key: PageStorageKey<String>('mcpToolGroup:${group.persistKey}'),
-        initiallyExpanded:
-            debugMcpGroupExpansionCache[group.persistKey] ?? true,
+        initiallyExpanded: _mcpGroupExpansionCache[group.persistKey] ?? true,
         onExpansionChanged: (expanded) {
-          debugMcpGroupExpansionCache[group.persistKey] = expanded;
+          _mcpGroupExpansionCache[group.persistKey] = expanded;
         },
         tilePadding: const EdgeInsets.symmetric(horizontal: 12),
         childrenPadding: const EdgeInsets.only(left: 8, bottom: 4),

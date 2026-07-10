@@ -54,16 +54,6 @@ String _mcpDiscoveryText({
   );
 }
 
-
-/// Whether another stdout take is allowed in the current drain batch.
-///
-/// [takes] counts every take (including empty frames). [maxTakes] is clamped
-/// to at least 1 so accidental zero never spins forever.
-bool mcpStdoutDrainHasBudget({required int takes, required int maxTakes}) {
-  final safeMax = maxTakes < 1 ? 1 : maxTakes;
-  return takes < safeMax;
-}
-
 abstract class McpToolDiscoveryService {
   Future<McpToolCatalog> discoverTools(McpServer server);
   Future<McpServerHealth> checkHealth(McpServer server);
@@ -2442,10 +2432,7 @@ class _StdioSession {
     // Count every take (including empty frames) so whitespace floods cannot
     // busy-loop the event loop without hitting the batch ceiling.
     var takes = 0;
-    while (mcpStdoutDrainHasBudget(
-      takes: takes,
-      maxTakes: DefaultMcpToolDiscoveryService._maxStdoutMessagesPerDrain,
-    )) {
+    while (takes < DefaultMcpToolDiscoveryService._maxStdoutMessagesPerDrain) {
       final payload = _takeNextMessage();
       if (payload == null) {
         return;

@@ -8,16 +8,6 @@ const List<double> _compressionPromptTooLongDropRatios = <double>[
   0.50,
   0.65,
 ];
-@visibleForTesting
-List<List<AiSessionMessage>> groupSessionMessagesForCompression(
-  List<AiSessionMessage> messages,
-) {
-  return _buildCompressionMessageGroups(
-    messages,
-  ).map((group) => group.messages).toList(growable: false);
-}
-
-@visibleForTesting
 ({
   List<AiSessionMessage> discardedMessages,
   List<AiSessionMessage> messagesToCompress,
@@ -61,18 +51,6 @@ retryCompressionWindowAfterPromptTooLong(
   );
 }
 
-@visibleForTesting
-List<List<AiSessionMessage>> retainedSessionMessageGroupsForCompression(
-  List<AiSessionMessage> messages, {
-  required int threshold,
-}) {
-  return _selectRetainedCompressionGroups(
-    _buildCompressionMessageGroups(messages),
-    threshold,
-  ).map((group) => group.messages).toList(growable: false);
-}
-
-@visibleForTesting
 String normalizeCompressionCheckpointSummary(String summary) {
   final raw = summary.trim();
   if (raw.isEmpty) {

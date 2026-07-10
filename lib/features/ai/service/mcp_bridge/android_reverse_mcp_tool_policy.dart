@@ -1,5 +1,3 @@
-import 'package:flutter/foundation.dart';
-
 import '../../../../shared/util/input_value_parsing.dart';
 import '../runtime/ai_tool_runtime_service.dart';
 
@@ -9,15 +7,14 @@ class AndroidReverseMcpToolPolicy {
   static Set<String> forceVisibleToolNames(AiResolvedToolCatalog catalog) {
     final names = <String>{};
     for (final entry in catalog.toolsByName.entries) {
-      if (shouldForceVisibleTool(entry.value, catalogName: entry.key)) {
+      if (_shouldForceVisibleTool(entry.value, catalogName: entry.key)) {
         names.add(entry.key);
       }
     }
     return names;
   }
 
-  @visibleForTesting
-  static bool shouldForceVisibleTool(
+  static bool _shouldForceVisibleTool(
     AiResolvedTool tool, {
     String? catalogName,
   }) {

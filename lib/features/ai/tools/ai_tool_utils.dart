@@ -1642,11 +1642,6 @@ class AiToolUtils {
     return await resolveRipgrepPath() != null;
   }
 
-  /// 清除缓存的 ripgrep 路径（供测试使用）。
-  static void clearRipgrepPathCache() {
-    _cachedRgPath = null;
-  }
-
   /// 执行进程，正确处理异常并返回统一的 ProcessResult。
   ///
   /// [workingDirectory]：工作目录。如果为空，使用当前目录。

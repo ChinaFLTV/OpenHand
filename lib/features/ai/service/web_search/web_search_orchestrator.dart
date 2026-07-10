@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../../../../shared/util/input_value_parsing.dart';
@@ -264,21 +263,6 @@ class WebSearchOrchestrator {
   }
 
   // ── 内部：合并 & 排序 ─────────────────────────────────────────────────────
-
-  @visibleForTesting
-  List<WebSearchAggregatedHit> mergeAndRankForTesting({
-    String query = '',
-    required List<WebSearchEngineResult> results,
-    required Map<AiWebSearchEngineKind, AiWebSearchEngineConfig> configs,
-    required int maxResults,
-  }) {
-    return _mergeAndRank(
-      query: query,
-      results: results,
-      configs: configs,
-      maxResults: maxResults,
-    );
-  }
 
   List<WebSearchAggregatedHit> _mergeAndRank({
     required String query,

@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:math' as math;
 
-import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../../../../shared/util/input_value_parsing.dart';
@@ -264,21 +263,6 @@ class WebFetchOrchestrator {
   }
 
   /// 选胜：成功结果中综合权重、URL 命中、抓取类型、HTTP 状态与长度信号。
-  @visibleForTesting
-  WebFetchEngineResult? pickWinnerForTesting({
-    required String requestedUrl,
-    String prompt = '',
-    required List<WebFetchEngineResult> results,
-    required Map<AiWebFetchEngineKind, AiWebFetchEngineConfig> configs,
-  }) {
-    return _pickWinner(
-      requestedUrl: requestedUrl,
-      prompt: prompt,
-      results: results,
-      configs: configs,
-    );
-  }
-
   WebFetchEngineResult? _pickWinner({
     required String requestedUrl,
     required String prompt,

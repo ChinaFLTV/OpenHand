@@ -14,8 +14,7 @@
 /// * 通过共享 FIFO 信号量限制最大并发数（默认 5）。
 /// * 收集每轮 tick 的统计结果 [SelfLearningTickResult]。
 ///
-/// 故意不持有任何全局可变状态；所有外部依赖通过构造参数注入，
-/// 便于在单元测试中打桩。
+/// 不持有全局可变状态；外部依赖通过构造参数注入。
 library;
 
 import 'dart:async';
@@ -123,9 +122,7 @@ class SelfLearningScheduler {
   /// 扫描候选会话并派发自我学习任务。
   ///
   /// 返回统计结果；无论个别会话成功与否，本方法都不会抛出异常。
-  ///
-  /// [now] 仅用于测试时注入固定时间；生产代码请使用默认参数。
-  Future<SelfLearningTickResult> tick({DateTime? now}) async {
+  Future<SelfLearningTickResult> tick() async {
     if (!settingsController.selfLearningEnabled) {
       return const SelfLearningTickResult(
         scanned: 0,
@@ -135,8 +132,7 @@ class SelfLearningScheduler {
       );
     }
 
-    final effectiveNow = now ?? DateTime.now().toUtc();
-    final cutoff = effectiveNow.subtract(lookbackDuration);
+    final cutoff = DateTime.now().toUtc().subtract(lookbackDuration);
 
     List<AiSession> candidates;
     try {

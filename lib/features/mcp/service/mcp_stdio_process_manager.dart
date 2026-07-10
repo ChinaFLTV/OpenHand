@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter/foundation.dart' show ChangeNotifier, visibleForTesting;
+import 'package:flutter/foundation.dart' show ChangeNotifier;
 
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
@@ -22,8 +22,7 @@ const int _jsonRpcMalformedLinePreviewChars = 200;
 const int _jsonRpcCompactLinePreviewChars = 120;
 const int _jsonRpcToolDescriptionPreviewChars = 60;
 
-@visibleForTesting
-Map<String, Object?>? parseMcpStdioJsonRpcLine(String line) {
+Map<String, Object?>? _parseMcpStdioJsonRpcLine(String line) {
   final trimmed = nullIfBlank(line);
   if (trimmed == null || !trimmed.startsWith('{')) return null;
   try {
@@ -466,7 +465,7 @@ class McpStdioProcessManager extends ChangeNotifier {
 
   /// 将 JSON-RPC 响应解析为结构化摘要，避免超长单行 JSON 淹没日志。
   void _appendJsonRpcSummary(List<String> logs, String jsonLine) {
-    final parsed = parseMcpStdioJsonRpcLine(jsonLine);
+    final parsed = _parseMcpStdioJsonRpcLine(jsonLine);
     if (parsed == null) {
       // JSON 解析失败，原样输出（截断超长行）
       if (jsonLine.length > _jsonRpcMalformedLinePreviewChars) {
@@ -922,7 +921,7 @@ class _ManagedResponseRouter {
       final trimmed = line.trim();
       if (trimmed.isEmpty || !trimmed.startsWith('{')) continue;
       try {
-        final decoded = parseMcpStdioJsonRpcLine(trimmed);
+        final decoded = _parseMcpStdioJsonRpcLine(trimmed);
         if (decoded == null) continue;
         final id = decoded['id'];
         if (id == null) continue;

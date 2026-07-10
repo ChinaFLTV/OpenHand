@@ -127,7 +127,7 @@ class GitHubReleaseDataSource implements AppUpdateDataSource {
           message: 'HTTP ${response.statusCode}: $body',
         );
       }
-      final release = parseGitHubReleaseInfo(
+      final release = _parseGitHubReleaseInfo(
         jsonDecode(body),
         platformAssetSuffix: _platformAssetSuffix(),
       );
@@ -271,8 +271,7 @@ String _safeUpdateFileName(Uri uri) {
   return basename.replaceAll(RegExp(r'[\\/]'), '_');
 }
 
-@visibleForTesting
-AppReleaseInfo? parseGitHubReleaseInfo(
+AppReleaseInfo? _parseGitHubReleaseInfo(
   Object? raw, {
   String platformAssetSuffix = '',
 }) {

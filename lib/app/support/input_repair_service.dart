@@ -199,14 +199,10 @@ class InputRepairService {
   InputRepairService._();
 
   static final InputRepairService instance = InputRepairService._();
+  static const Duration _focusSettleDelay = Duration(milliseconds: 60);
 
   final Map<Object, _InputRepairParticipant> _participants =
       <Object, _InputRepairParticipant>{};
-  Future<void> Function()? debugKillTrackedChildrenOverride;
-  Future<int> Function()? debugKillDirectChildrenOverride;
-  Future<void> Function(String method, [Object? arguments])?
-  debugTextInputMethodOverride;
-  Duration debugFocusSettleDelay = const Duration(milliseconds: 60);
 
   InputRepairReport? _lastReport;
   InputRepairReport? get lastReport => _lastReport;
@@ -250,35 +246,12 @@ class InputRepairService {
     });
   }
 
-  @visibleForTesting
-  void resetForTest() {
-    _participants.clear();
-    _lastReport = null;
-    _softRecoveryHook = null;
-    debugKillTrackedChildrenOverride = null;
-    debugKillDirectChildrenOverride = null;
-    debugTextInputMethodOverride = null;
-    debugFocusSettleDelay = const Duration(milliseconds: 60);
-  }
-
-  Future<void> _invokeTextInputMethod(
-    String method, [
-    Object? arguments,
-  ]) async {
-    final override = debugTextInputMethodOverride;
-    if (override != null) {
-      await override(method, arguments);
-      return;
-    }
-    await SystemChannels.textInput.invokeMethod<void>(method, arguments);
-  }
-
   Future<InputRepairReport> repair({
     required FocusNode sentinelFocusNode,
     bool Function(FocusNode node)? isSafeRestoreTarget,
   }) async {
     final steps = <InputRepairStepReport>[];
-    final trackedChildrenBefore = debugTrackedChildPids().length;
+    final trackedChildrenBefore = trackedChildPidsSnapshot().length;
     final savedFocus = FocusManager.instance.primaryFocus;
     final primaryFocusBeforeLabel = _focusLabel(savedFocus);
     FocusNode? restoredFocus;
@@ -320,8 +293,7 @@ class InputRepairService {
     try {
       await runParticipants(InputRepairParticipantPhase.beforeTextInputReset);
 
-      await (debugKillTrackedChildrenOverride?.call() ??
-          killAllTrackedChildren());
+      await killAllTrackedChildren();
       steps.add(
         const InputRepairStepReport(
           stage: InputRepairStage.killTrackedChildren,
@@ -329,9 +301,7 @@ class InputRepairService {
         ),
       );
 
-      directChildrenKilled =
-          await (debugKillDirectChildrenOverride?.call() ??
-              killAllDirectChildren());
+      directChildrenKilled = await killAllDirectChildren();
       steps.add(
         InputRepairStepReport(
           stage: InputRepairStage.killDirectChildren,
@@ -342,7 +312,9 @@ class InputRepairService {
 
       savedFocus?.unfocus();
       try {
-        await _invokeTextInputMethod('TextInput.clearClient');
+        await SystemChannels.textInput.invokeMethod<void>(
+          'TextInput.clearClient',
+        );
         steps.add(
           const InputRepairStepReport(
             stage: InputRepairStage.clearTextInputClient,
@@ -361,7 +333,7 @@ class InputRepairService {
       }
 
       try {
-        await _invokeTextInputMethod('TextInput.hide');
+        await SystemChannels.textInput.invokeMethod<void>('TextInput.hide');
         steps.add(
           const InputRepairStepReport(
             stage: InputRepairStage.hideTextInput,
@@ -380,7 +352,10 @@ class InputRepairService {
       }
 
       try {
-        await _invokeTextInputMethod('TextInput.finishAutofillContext', false);
+        await SystemChannels.textInput.invokeMethod<void>(
+          'TextInput.finishAutofillContext',
+          false,
+        );
         steps.add(
           const InputRepairStepReport(
             stage: InputRepairStage.finishAutofillContext,
@@ -399,7 +374,9 @@ class InputRepairService {
       }
 
       try {
-        await _invokeTextInputMethod('TextInput.requestExistingInputState');
+        await SystemChannels.textInput.invokeMethod<void>(
+          'TextInput.requestExistingInputState',
+        );
         steps.add(
           const InputRepairStepReport(
             stage: InputRepairStage.requestExistingInputState,
@@ -424,9 +401,7 @@ class InputRepairService {
           status: InputRepairStepStatus.success,
         ),
       );
-      if (debugFocusSettleDelay > Duration.zero) {
-        await Future<void>.delayed(debugFocusSettleDelay);
-      }
+      await Future<void>.delayed(_focusSettleDelay);
 
       await runParticipants(InputRepairParticipantPhase.afterTextInputReset);
 

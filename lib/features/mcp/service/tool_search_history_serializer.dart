@@ -6,7 +6,7 @@ import '../../ai/index.dart';
 /// 把 [AiToolSearchLoadHistoryEntry] 序列化为 CSV / Markdown 的纯函数集合。
 ///
 /// 所有函数均为纯函数：不读 BuildContext、不写剪贴板、不依赖 setState；
-/// 把「序列化」与「投递（剪贴板/文件）」职责分开，方便单测并在多入口复用。
+/// 把「序列化」与「投递（剪贴板/文件）」职责分开，供多个入口复用。
 ///
 /// CSV 协议：
 ///   - 第一行固定 header `timestamp,source,query,added_count,total_deferred,added_names`

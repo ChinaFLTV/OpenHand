@@ -3,8 +3,7 @@ import 'dart:collection';
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:flutter/foundation.dart'
-    show ValueListenable, ValueNotifier, visibleForTesting;
+import 'package:flutter/foundation.dart' show ValueListenable, ValueNotifier;
 import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart';
 
@@ -446,11 +445,6 @@ int? _validProxyPort(int? port) {
 ///   * `192.168.0.0/16` —— IPv4 CIDR（仅当 host 是 IPv4 字面量时）
 ///   * `*.example.com` —— 后缀 glob（含裸 apex `example.com`）
 ///   * `example.com` —— 精确或子域
-@visibleForTesting
-bool matchesProxyException(String host, String pattern) {
-  return _matchesExceptionPattern(host.toLowerCase(), pattern.toLowerCase());
-}
-
 bool _matchesExceptionPattern(String lowerHost, String lowerPattern) {
   if (lowerPattern.isEmpty) return false;
   if (lowerPattern == '*') return true;

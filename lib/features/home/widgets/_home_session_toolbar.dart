@@ -4084,8 +4084,7 @@ class _StreamThrottleSessionDialogState
                         widget.sessionId,
                         _parse(_cardsCtrl.text),
                       );
-                      // Switch 已 setState 即时下发；Apply 再确认一次
-                      // 让单测/截屏验证场景拿到一致状态。
+                      // Switch 已即时下发；Apply 再确认一次最终状态。
                       session.setSessionStreamEnabledOverride(
                         widget.sessionId,
                         _enabledOverride,

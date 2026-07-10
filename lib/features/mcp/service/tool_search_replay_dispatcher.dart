@@ -1,7 +1,5 @@
-// 2026-05-09 — 把 ToolSearch 重放的「3 秒反悔窗口」从 openhand_home_page
-// 抽出来，便于直接用 FakeAsync 单元测。任何调用方都可以构造一个实例
-// （或多次复用），它内部只维护 Timer 与取消标志。
-// 设计契约：
+// ToolSearch 重放的撤销窗口，只维护 Timer 与取消状态。
+// 行为契约：
 // - schedule(onFire, onCancel) 启动一个 [window] 后触发 onFire 的 Timer。
 //   若在窗口内调用 cancel()，Timer 取消、onCancel 被调用。否则 Timer 触发
 //   时调用 onFire。
@@ -18,8 +16,7 @@ import 'package:flutter/foundation.dart';
 import '../../../shared/util/timer_safety.dart';
 
 /// 在「新建一个独立 AI session 后再重放 select: 查询」这个两步流程中，
-/// 把 createSession / replay 的回调编排抽到一个纯函数里，方便单元测试
-/// 验证「session 一定先于 replay 创建」这条契约。
+/// 保证先创建 session，再执行 replay。
 ///
 /// 参数：
 /// - [names]：本轮要 select: 的工具名列表。空列表直接返回。
@@ -51,25 +48,12 @@ class ToolSearchReplayDispatcher {
   bool _settled = false;
   bool _disposed = false;
 
-  /// 广播「当前是否有 pending 的反悔窗口在跑」。订阅者（例如 harness phase
-  /// header、托盘指示器）只读地监听此 [ValueListenable]：
-  ///   - true：用户刚点过「重放」，正在 [defaultWindow] 内可以撤销
-  ///   - false：要么从未调度过，要么已 fire / 已 cancel / 已 dispose
-  /// 注意：这只是 hasPending 的镜像，不发任何业务负载（names/query 等）；
-  /// 调用方若需要业务数据，请用 schedule 的回调闭包自行传递。
-  ValueListenable<bool> get pendingListenable => _pendingNotifier;
-  final ValueNotifier<bool> _pendingNotifier = ValueNotifier<bool>(false);
-
   /// 广播本次反悔窗口的截止时刻。订阅者可以基于 `deadline.difference(now)`
   /// 渲染倒计时（harness phase header、托盘指示器等）。idle 时为 null。
-  /// 始终与 [pendingListenable] 同步：true ⇒ deadline != null，false ⇒ null。
   ValueListenable<DateTime?> get pendingDeadlineListenable => _deadlineNotifier;
   final ValueNotifier<DateTime?> _deadlineNotifier = ValueNotifier<DateTime?>(
     null,
   );
-
-  /// 是否还有 pending 的 timer 等待触发。
-  bool get hasPending => _timer != null && !_settled;
 
   /// 调度一次重放。会取消之前任何 pending 的调度（不触发其回调）。
   /// [onFire] 在窗口耗尽后触发；[onCancel] 在窗口内被 [cancel] 时触发。
@@ -91,7 +75,7 @@ class ToolSearchReplayDispatcher {
       if (_disposed || _settled) return;
       _settled = true;
       _timer = null;
-      _setPending(false);
+      _deadlineNotifier.value = null;
       // 成功 fire 后不再保留 onFire—「已发出」不应该被「重发」。
       _lastCancelledFire = null;
       _replayableNotifier.value = false;
@@ -100,7 +84,6 @@ class ToolSearchReplayDispatcher {
     _pendingCancel = onCancel;
     _pendingFire = onFire;
     _deadlineNotifier.value = DateTime.now().add(effectiveWindow);
-    _setPending(true);
   }
 
   FutureOr<void> Function()? _pendingFire;
@@ -108,20 +91,17 @@ class ToolSearchReplayDispatcher {
   void Function()? _pendingCancel;
 
   /// 上次被 [cancel] 取消的 `onFire` 回调副本。`replayLastCancelled` 用
-  /// 它来「再发一次」（快速调试入口）。每次新 [schedule] 会清空它（避免
+  /// 它来「再发一次」。每次新 [schedule] 会清空它（避免
   /// 重发已被覆盖的旧调度）；每次 [cancel] 会写入；首次成功 `fire` 时
   /// 也清空（避免误以为还能再放一次）。
   FutureOr<void> Function()? _lastCancelledFire;
   final ValueNotifier<bool> _replayableNotifier = ValueNotifier<bool>(false);
 
-  /// 是否记忆了一次「可重放的」上次取消。Settings/调试入口订阅这个
+  /// 是否记忆了一次「可重放的」上次取消。设置页订阅这个
   /// listenable 决定按钮置灰 / 高亮。
   ValueListenable<bool> get replayableListenable => _replayableNotifier;
 
-  /// 是否有「上次被取消的 onFire」可以重发。
-  bool get hasReplayable => _lastCancelledFire != null && !_disposed;
-
-  /// 重发上次被 [cancel] 掉的 `onFire`；没有时 no-op。仅供调试 / 快速测试。
+  /// 重发上次被 [cancel] 掉的 `onFire`；没有时 no-op。
   /// 不影响当前 pending 的调度。
   Future<bool> replayLastCancelled() async {
     if (_disposed) return false;
@@ -145,7 +125,7 @@ class ToolSearchReplayDispatcher {
     _lastCancelledFire = _pendingFire;
     _pendingFire = null;
     _replayableNotifier.value = _lastCancelledFire != null;
-    _setPending(false);
+    _deadlineNotifier.value = null;
     cb?.call();
   }
 
@@ -157,17 +137,8 @@ class ToolSearchReplayDispatcher {
     _pendingCancel = null;
     _pendingFire = null;
     _lastCancelledFire = null;
-    _setPending(false);
-    _pendingNotifier.dispose();
+    _deadlineNotifier.value = null;
     _deadlineNotifier.dispose();
     _replayableNotifier.dispose();
-  }
-
-  void _setPending(bool value) {
-    if (_pendingNotifier.value == value) return;
-    _pendingNotifier.value = value;
-    if (!value && _deadlineNotifier.value != null) {
-      _deadlineNotifier.value = null;
-    }
   }
 }
