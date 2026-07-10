@@ -1945,6 +1945,10 @@ class AiModelConfig {
         normalizedModelId.contains('gpt-5')) {
       return _defaultOpenAiGpt5EffortOptions;
     }
+    if (normalizedModelId.contains('grok-4-5') ||
+        normalizedModelId.contains('grok-build-latest')) {
+      return _defaultLowMediumHighEffortOptions;
+    }
     if (protocolType == AiProtocolType.grok ||
         normalizedModelId.startsWith('grok')) {
       return _defaultGrokReasoningEffortOptions;
@@ -1997,14 +2001,19 @@ class AiModelConfig {
     required String modelId,
     required AiProtocolType protocolType,
   }) {
+    final normalizedModelId = _normalizeReasoningModelId(modelId);
+    if (normalizedModelId.contains('grok-4-5') ||
+        normalizedModelId.contains('grok-build-latest')) {
+      return 'high';
+    }
     if (protocolType == AiProtocolType.qwen ||
-        _normalizeReasoningModelId(modelId).startsWith('qwen') ||
-        _normalizeReasoningModelId(modelId).startsWith('qwq') ||
-        _normalizeReasoningModelId(modelId).startsWith('qvq')) {
+        normalizedModelId.startsWith('qwen') ||
+        normalizedModelId.startsWith('qwq') ||
+        normalizedModelId.startsWith('qvq')) {
       return '8192';
     }
     if (protocolType == AiProtocolType.grok ||
-        _normalizeReasoningModelId(modelId).startsWith('grok')) {
+        normalizedModelId.startsWith('grok')) {
       return 'low';
     }
     return 'medium';
@@ -2087,7 +2096,8 @@ class AiModelConfig {
   bool get resolvedThinkingEnabled {
     final trimmedModelId = nullIfBlank(modelId) ?? '';
     final normalizedModelId = _normalizeReasoningModelId(trimmedModelId);
-    if (_looksLikeAlwaysOnClaudeAdaptiveThinking(normalizedModelId)) {
+    if (_looksLikeAlwaysOnClaudeAdaptiveThinking(normalizedModelId) ||
+        _looksLikeAlwaysOnGrokReasoning(normalizedModelId)) {
       return true;
     }
     final userOverride = modelProfiles[trimmedModelId]?.thinkingEnabled;
@@ -2125,6 +2135,11 @@ class AiModelConfig {
     return normalizedModelId.contains('fable-5') ||
         normalizedModelId.contains('mythos-5') ||
         normalizedModelId.contains('mythos-preview');
+  }
+
+  static bool _looksLikeAlwaysOnGrokReasoning(String normalizedModelId) {
+    return normalizedModelId.contains('grok-4-5') ||
+        normalizedModelId.contains('grok-build-latest');
   }
 
   String? get resolvedReasoningEffort {

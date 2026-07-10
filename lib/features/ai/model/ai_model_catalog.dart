@@ -4150,6 +4150,23 @@ class AiModelCatalog {
         capabilities: _imageGen,
       );
     }
+    if (id.contains('grok-4.5') || id.endsWith('grok-build-latest')) {
+      return _p(
+        name: 'Grok 4.5',
+        desc: '面向编程、智能体任务与知识工作的 xAI 旗舰推理模型。',
+        multimodal: true,
+        supportsAttachments: true,
+        modalities: _textImage,
+        context: 500000,
+        thinkingEnabled: true,
+        reasoningEffortControlEnabled: true,
+        reasoningEffort: 'high',
+        reasoningEffortOptions: _effortLowMediumHigh,
+        inputUsdPer1M: 2.00,
+        outputUsdPer1M: 6.00,
+        cacheReadUsdPer1M: 0.50,
+      );
+    }
     if (id.startsWith('grok-3-mini-fast')) {
       return _p(
         name: 'Grok-3 Mini Fast',
