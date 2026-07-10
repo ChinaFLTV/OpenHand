@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart' show ThemeMode;
 import 'package:flutter/services.dart' show rootBundle;
@@ -19,6 +20,7 @@ import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../shared/db/atomic_file_operations.dart';
+import '../../../shared/net/http_response_utils.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/lifecycle_cache.dart';
@@ -88,6 +90,16 @@ class _WebWriteApprovalRequest {
       'expires_at': expiresAt.toUtc().toIso8601String(),
     };
   }
+}
+
+class _WebGatewayRequestException implements Exception {
+  const _WebGatewayRequestException(this.statusCode, this.errorCode);
+
+  final int statusCode;
+  final String errorCode;
+
+  @override
+  String toString() => errorCode;
 }
 
 class WebWriteApprovalRequest {
@@ -275,6 +287,9 @@ class WebMessagePlatformService {
   static const int _storedMessageWindowExpandedScanMultiplier = 2;
   static const int _storedMessageWindowExpandedScanContext = 16;
   static const int _storedMessageWindowExpandedScanLimit = 96;
+  static const int _maxHealthCheckResponseBytes = 1024 * 1024;
+  static const Duration _requestBodyIdleTimeout = Duration(seconds: 30);
+  static const Duration _requestBodyTotalTimeout = Duration(minutes: 2);
   static const int _connectivityProbeMinTimeoutMs = 500;
   static const int _connectivityProbeMaxTimeoutMs = 10000;
   static const Duration _queuedGoalYieldLeaseDuration = Duration(minutes: 15);
@@ -1171,7 +1186,13 @@ class WebMessagePlatformService {
       final request = await client.openUrl(health.method, uri).timeout(timeout);
       request.followRedirects = health.followRedirects;
       final response = await request.close().timeout(timeout);
-      final body = await utf8.decodeStream(response).timeout(timeout);
+      final body = await readBoundedHttpResponseText(
+        response,
+        maxBytes: _maxHealthCheckResponseBytes,
+        idleTimeout: timeout,
+        totalTimeout: timeout,
+        allowMalformed: true,
+      );
       stopwatch.stop();
       final containsOk =
           health.responseContains.trim().isEmpty ||
@@ -1203,7 +1224,7 @@ class WebMessagePlatformService {
       _log(WebGatewayLogLevel.error, 'HEALTH', result.summary);
       return result;
     } finally {
-      client.close();
+      client.close(force: true);
     }
   }
 
@@ -1269,7 +1290,13 @@ class WebMessagePlatformService {
           final request = await client.getUrl(endpoint).timeout(timeout);
           request.followRedirects = false;
           final response = await request.close().timeout(timeout);
-          final body = await utf8.decodeStream(response).timeout(timeout);
+          final body = await readBoundedHttpResponseText(
+            response,
+            maxBytes: _maxHealthCheckResponseBytes,
+            idleTimeout: timeout,
+            totalTimeout: timeout,
+            allowMalformed: true,
+          );
           probeStarted.stop();
           final ok =
               response.statusCode == HttpStatus.ok && body.contains('ok');
@@ -1919,6 +1946,15 @@ class WebMessagePlatformService {
           statusCode = response.statusCode;
           responseBytes = response.contentLength ?? 0;
           return response;
+        } on _WebGatewayRequestException catch (error) {
+          statusCode = error.statusCode;
+          errorText = error.errorCode;
+          _totalErrors++;
+          final rejected = _json(statusCode, <String, Object?>{
+            'error': error.errorCode,
+          });
+          responseBytes = rejected.contentLength ?? 0;
+          return rejected;
         } catch (error, stack) {
           statusCode = HttpStatus.internalServerError;
           errorText = '$error';
@@ -7288,23 +7324,64 @@ class WebMessagePlatformService {
     return stats;
   }
 
-  /// 读取并解析 JSON 请求体；超过 [maxBytes] 抛 `FormatException`，
-  /// 由外层中间件转 500。空 body 返回 `{}`。
+  /// 读取并解析 JSON 请求体；非法、超时和超限输入由中间件映射为
+  /// 400、408 和 413。空 body 返回 `{}`。
   Future<Map<String, Object?>> _readJsonBody(
     shelf.Request request, {
     int maxBytes = 1024 * 1024,
   }) async {
-    final chunks = <int>[];
-    await for (final chunk in request.read()) {
-      chunks.addAll(chunk);
-      if (chunks.length > maxBytes) {
-        throw const FormatException('Request body is too large.');
-      }
+    if (maxBytes < 1) {
+      throw const _WebGatewayRequestException(
+        HttpStatus.internalServerError,
+        'invalid_request_body_limit',
+      );
     }
-    if (chunks.isEmpty) return <String, Object?>{};
-    final decoded = jsonDecode(utf8.decode(chunks));
-    if (decoded is Map) return stringKeyedMapFromValue(decoded);
-    return <String, Object?>{};
+    final declaredLength = request.contentLength;
+    if (declaredLength != null && declaredLength > maxBytes) {
+      throw const _WebGatewayRequestException(
+        HttpStatus.requestEntityTooLarge,
+        'request_body_too_large',
+      );
+    }
+    final chunks = BytesBuilder(copy: false);
+    var receivedBytes = 0;
+    final deadline = DateTime.now().add(_requestBodyTotalTimeout);
+    try {
+      await for (final chunk in request.read().timeout(
+        _requestBodyIdleTimeout,
+      )) {
+        if (DateTime.now().isAfter(deadline)) {
+          throw const _WebGatewayRequestException(
+            HttpStatus.requestTimeout,
+            'request_body_timeout',
+          );
+        }
+        receivedBytes += chunk.length;
+        if (receivedBytes > maxBytes) {
+          throw const _WebGatewayRequestException(
+            HttpStatus.requestEntityTooLarge,
+            'request_body_too_large',
+          );
+        }
+        chunks.add(chunk);
+      }
+    } on TimeoutException {
+      throw const _WebGatewayRequestException(
+        HttpStatus.requestTimeout,
+        'request_body_timeout',
+      );
+    }
+    if (receivedBytes == 0) return <String, Object?>{};
+    try {
+      final decoded = jsonDecode(utf8.decode(chunks.takeBytes()));
+      if (decoded is Map) return stringKeyedMapFromValue(decoded);
+    } on FormatException {
+      // Normalized to the same client-facing error below.
+    }
+    throw const _WebGatewayRequestException(
+      HttpStatus.badRequest,
+      'invalid_json_body',
+    );
   }
 
   /// 构造 JSON 响应。`Cache-Control: no-store` 避免浏览器/CDN 缓存敏感数据。

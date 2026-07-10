@@ -1,11 +1,15 @@
 import 'dart:convert';
 import 'dart:io';
 
+import '../../../shared/net/http_response_utils.dart';
 import '../../../shared/net/http_status_utils.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../model/knowledge_base_settings.dart';
 
 const Duration _qdrantAdminConnectionTimeout = Duration(seconds: 5);
+const Duration _qdrantAdminRequestTimeout = Duration(seconds: 15);
+const Duration _qdrantAdminResponseIdleTimeout = Duration(seconds: 5);
+const int _qdrantAdminMaxResponseBytes = 16 * 1024 * 1024;
 
 /// Upper bound for the retained operation-log ring. The service lives as long
 /// as its owning controller, so the log must evict oldest entries instead of
@@ -186,14 +190,20 @@ class QdrantAdminService {
     final client = HttpClient()
       ..connectionTimeout = _qdrantAdminConnectionTimeout;
     try {
-      final request = await client.openUrl(
-        method,
-        settings.qdrantBaseUri.replace(path: path),
-      );
+      final request = await client
+          .openUrl(method, settings.qdrantBaseUri.replace(path: path))
+          .timeout(_qdrantAdminConnectionTimeout);
       request.headers.contentType = ContentType.json;
       if (body != null) request.write(jsonEncode(body));
-      final response = await request.close();
-      final text = await utf8.decoder.bind(response).join();
+      final response = await request.close().timeout(
+        _qdrantAdminRequestTimeout,
+      );
+      final text = await readBoundedHttpResponseText(
+        response,
+        maxBytes: _qdrantAdminMaxResponseBytes,
+        idleTimeout: _qdrantAdminResponseIdleTimeout,
+        totalTimeout: _qdrantAdminRequestTimeout,
+      );
       if (isHttpFailureStatus(response.statusCode)) {
         throw HttpException('Qdrant ${response.statusCode}: $text');
       }

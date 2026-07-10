@@ -53,6 +53,8 @@ class WebReverseMitmproxyBridge {
 
   static const int _kMaxMitmBodyBytes = 256 * 1024;
   static const int _kMaxCallbackPayloadBytes = 2 * 1024 * 1024;
+  static const Duration _kCallbackBodyIdleTimeout = Duration(seconds: 5);
+  static const Duration _kCallbackBodyTotalTimeout = Duration(seconds: 20);
 
   final Process _process;
   final HttpServer _server;
@@ -141,6 +143,24 @@ class WebReverseMitmproxyBridge {
         }
         req.response.statusCode = 204;
         await req.response.close();
+      } on TimeoutException catch (error, stack) {
+        silentLog(
+          'web_reverse_mitmproxy_bridge',
+          'callback body timeout',
+          error,
+          stack,
+        );
+        req.response.statusCode = HttpStatus.requestTimeout;
+        try {
+          await req.response.close();
+        } catch (closeError, closeStack) {
+          silentLog(
+            'web_reverse_mitmproxy_bridge',
+            'close timed out callback response',
+            closeError,
+            closeStack,
+          );
+        }
       } catch (error, stack) {
         silentLog(
           'web_reverse_mitmproxy_bridge',
@@ -220,10 +240,13 @@ class WebReverseMitmproxyBridge {
   static Future<String?> _readCallbackBody(HttpRequest req) async {
     final builder = BytesBuilder(copy: false);
     var total = 0;
-    await for (final chunk in req) {
+    final deadline = DateTime.now().add(_kCallbackBodyTotalTimeout);
+    await for (final chunk in req.timeout(_kCallbackBodyIdleTimeout)) {
+      if (DateTime.now().isAfter(deadline)) {
+        throw TimeoutException('mitmproxy callback body exceeded time limit.');
+      }
       total += chunk.length;
       if (total > _kMaxCallbackPayloadBytes) {
-        await req.drain<void>();
         return null;
       }
       builder.add(chunk);

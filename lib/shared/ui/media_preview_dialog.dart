@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -12,6 +11,7 @@ import 'package:webview_flutter/webview_flutter.dart';
 import '../../app/model/dialog_animation_settings.dart';
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
+import '../net/http_response_utils.dart';
 import '../net/http_status_utils.dart';
 import '../util/byte_size_format.dart';
 import 'animated_dialog.dart';
@@ -492,19 +492,12 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
           uri: uri,
         );
       }
-      if (response.contentLength > _kClipboardMaxBytes) {
-        throw HttpException('Response is too large for clipboard.', uri: uri);
-      }
-      final builder = BytesBuilder(copy: false);
-      var received = 0;
-      await for (final chunk in response.timeout(_kNetworkTimeout)) {
-        received += chunk.length;
-        if (received > _kClipboardMaxBytes) {
-          throw HttpException('Response is too large for clipboard.', uri: uri);
-        }
-        builder.add(chunk);
-      }
-      return builder.takeBytes();
+      return readBoundedHttpResponseBytes(
+        response,
+        maxBytes: _kClipboardMaxBytes,
+        idleTimeout: _kNetworkTimeout,
+        totalTimeout: _kNetworkTimeout,
+      );
     } finally {
       client.close(force: true);
     }

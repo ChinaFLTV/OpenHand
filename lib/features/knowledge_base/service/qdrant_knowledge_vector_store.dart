@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:uuid/uuid.dart';
 
+import '../../../shared/net/http_response_utils.dart';
 import '../../../shared/net/http_status_utils.dart';
 import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/input_value_parsing.dart';
@@ -12,6 +13,7 @@ import 'knowledge_indexing_control.dart';
 import 'knowledge_vector_store.dart';
 
 const Uuid _qdrantPointUuid = Uuid();
+const int _qdrantVectorMaxResponseBytes = 32 * 1024 * 1024;
 
 class QdrantKnowledgeVectorStore implements KnowledgeVectorStore {
   QdrantKnowledgeVectorStore({required this.settings});
@@ -230,10 +232,14 @@ class QdrantKnowledgeVectorStore implements KnowledgeVectorStore {
       if (body != null) {
         request.write(jsonEncode(body));
       }
-      final response = await request.close().timeout(
-        Duration(seconds: settings.requestTimeoutSeconds),
+      final requestTimeout = Duration(seconds: settings.requestTimeoutSeconds);
+      final response = await request.close().timeout(requestTimeout);
+      final text = await readBoundedHttpResponseText(
+        response,
+        maxBytes: _qdrantVectorMaxResponseBytes,
+        idleTimeout: requestTimeout,
+        totalTimeout: requestTimeout,
       );
-      final text = await utf8.decoder.bind(response).join();
       if (response.statusCode == 404 && tolerateNotFound) {
         return _QdrantResponse(response.statusCode, text);
       }

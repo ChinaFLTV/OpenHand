@@ -1,10 +1,12 @@
 // 2026-05-13 — 应用更新检查服务。抽象数据源层以便日后迁移到其他平台。
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
+import '../../shared/net/http_response_utils.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/version_compare.dart';
 import 'silent_log.dart';
@@ -12,6 +14,12 @@ import 'system_proxy.dart';
 
 const Duration _kUpdateCheckConnectionTimeout = Duration(seconds: 15);
 const Duration _kUpdateDownloadConnectionTimeout = Duration(seconds: 30);
+const Duration _kUpdateResponseHeaderTimeout = Duration(seconds: 30);
+const Duration _kUpdateResponseIdleTimeout = Duration(seconds: 30);
+const Duration _kUpdateCheckTotalTimeout = Duration(seconds: 45);
+const Duration _kUpdateDownloadTotalTimeout = Duration(minutes: 30);
+const int _kUpdateMetadataMaxBytes = 2 * 1024 * 1024;
+const int _kUpdateMaxDownloadBytes = 2 * 1024 * 1024 * 1024;
 const String _kGitHubReleaseAcceptHeader = 'application/vnd.github.v3+json';
 const String _kUpdateCheckerUserAgent = 'OpenHand-UpdateChecker';
 const String _kFallbackUpdateFileName = 'openhand-update';
@@ -99,17 +107,26 @@ class GitHubReleaseDataSource implements AppUpdateDataSource {
   Future<AppUpdateCheckResult> checkForUpdate(String currentVersion) async {
     final client = _createHttpClient(_kUpdateCheckConnectionTimeout);
     try {
-      final request = await client.getUrl(Uri.parse(_apiUrl));
+      final request = await client
+          .getUrl(Uri.parse(_apiUrl))
+          .timeout(_kUpdateCheckConnectionTimeout);
       request.headers.set('Accept', _kGitHubReleaseAcceptHeader);
       request.headers.set('User-Agent', _kUpdateCheckerUserAgent);
-      final response = await request.close();
+      final response = await request.close().timeout(
+        _kUpdateResponseHeaderTimeout,
+      );
+      final body = await readBoundedHttpResponseText(
+        response,
+        maxBytes: _kUpdateMetadataMaxBytes,
+        idleTimeout: _kUpdateResponseIdleTimeout,
+        totalTimeout: _kUpdateCheckTotalTimeout,
+        allowMalformed: true,
+      );
       if (response.statusCode != 200) {
-        final body = await response.transform(utf8.decoder).join();
         return AppUpdateCheckError(
           message: 'HTTP ${response.statusCode}: $body',
         );
       }
-      final body = await response.transform(utf8.decoder).join();
       final release = parseGitHubReleaseInfo(
         jsonDecode(body),
         platformAssetSuffix: _platformAssetSuffix(),
@@ -138,39 +155,98 @@ class GitHubReleaseDataSource implements AppUpdateDataSource {
     if (release.downloadUrl.isEmpty) {
       throw Exception('No download URL available.');
     }
-    final downloadUri = Uri.parse(release.downloadUrl);
+    final downloadUri = Uri.tryParse(release.downloadUrl);
+    if (downloadUri == null ||
+        downloadUri.scheme.toLowerCase() != 'https' ||
+        downloadUri.host.trim().isEmpty ||
+        downloadUri.userInfo.isNotEmpty) {
+      throw const FormatException('Update download URL must use HTTPS.');
+    }
+    if (release.downloadSize > _kUpdateMaxDownloadBytes) {
+      throw const FileSystemException('Update package is too large.');
+    }
     final client = _createHttpClient(_kUpdateDownloadConnectionTimeout);
+    Directory? downloadDirectory;
     try {
-      final request = await client.getUrl(downloadUri);
+      final request = await client
+          .getUrl(downloadUri)
+          .timeout(_kUpdateDownloadConnectionTimeout);
       request.headers.set('User-Agent', _kUpdateCheckerUserAgent);
-      final response = await request.close();
+      final response = await request.close().timeout(
+        _kUpdateResponseHeaderTimeout,
+      );
       if (response.statusCode != 200) {
+        final body = await readBoundedHttpResponseText(
+          response,
+          maxBytes: _kUpdateMetadataMaxBytes,
+          idleTimeout: _kUpdateResponseIdleTimeout,
+          totalTimeout: _kUpdateCheckTotalTimeout,
+          allowMalformed: true,
+        );
         throw HttpException(
-          'Download failed: HTTP ${response.statusCode}',
+          'Download failed: HTTP ${response.statusCode}: $body',
           uri: downloadUri,
         );
       }
       final contentLength = response.contentLength;
-      final tempDir = Directory.systemTemp;
+      if (contentLength > _kUpdateMaxDownloadBytes) {
+        throw const FileSystemException('Update package is too large.');
+      }
+      downloadDirectory = await Directory.systemTemp.createTemp(
+        'openhand-update-',
+      );
       final fileName = _safeUpdateFileName(downloadUri);
-      final filePath = p.join(tempDir.path, fileName);
-      final file = File(filePath);
-      final sink = file.openWrite();
+      final filePath = p.join(downloadDirectory.path, fileName);
+      final partialFile = File('$filePath.part');
+      final sink = partialFile.openWrite();
       try {
         var received = 0;
-        await for (final chunk in response) {
+        final deadline = DateTime.now().add(_kUpdateDownloadTotalTimeout);
+        await for (final chunk in response.timeout(
+          _kUpdateResponseIdleTimeout,
+        )) {
+          if (DateTime.now().isAfter(deadline)) {
+            throw TimeoutException('Update download exceeded time limit.');
+          }
           sink.add(chunk);
           received += chunk.length;
+          if (received > _kUpdateMaxDownloadBytes) {
+            throw const FileSystemException('Update package is too large.');
+          }
           if (contentLength > 0) {
             onProgress(unitRatio(received, contentLength));
           }
         }
+        if (received <= 0) {
+          throw const FileSystemException('Downloaded update is empty.');
+        }
+        if (contentLength > 0 && received != contentLength) {
+          throw const FileSystemException('Update download is incomplete.');
+        }
         await sink.flush();
-        onProgress(1.0);
       } finally {
         await sink.close();
       }
+      await partialFile.rename(filePath);
+      onProgress(1.0);
       onFilePath(filePath);
+    } catch (_) {
+      final directory = downloadDirectory;
+      if (directory != null) {
+        try {
+          if (await directory.exists()) {
+            await directory.delete(recursive: true);
+          }
+        } catch (error, stack) {
+          silentLog(
+            'app_update_checker',
+            'clean failed update download',
+            error,
+            stack,
+          );
+        }
+      }
+      rethrow;
     } finally {
       client.close(force: true);
     }

@@ -62,6 +62,8 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
   final Set<_ProxyTestLogLevel> _hiddenLevels = <_ProxyTestLogLevel>{};
   bool _maximized = false;
   static const int _slowSectionThresholdMs = 50;
+  static const int _maxHttpBodyProbeBytes = 64 * 1024;
+  static const Duration _httpRequestTimeout = Duration(seconds: 12);
 
   @override
   void initState() {
@@ -474,14 +476,10 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
       _log(_ProxyTestLogLevel.info, 'HTTP', '> Accept: */*');
 
       final httpStart = _totalStopwatch.elapsedMilliseconds;
-      final request = await httpClient
-          .getUrl(uri)
-          .timeout(const Duration(seconds: 12));
+      final request = await httpClient.getUrl(uri).timeout(_httpRequestTimeout);
       request.headers.set('User-Agent', 'OpenHand-ProxyDiag/1.0');
       request.headers.set('Accept', '*/*');
-      final response = await request.close().timeout(
-        const Duration(seconds: 12),
-      );
+      final response = await request.close().timeout(_httpRequestTimeout);
       final ttfb = _totalStopwatch.elapsedMilliseconds - httpStart;
       _log(
         _ProxyTestLogLevel.ok,
@@ -495,9 +493,9 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
       });
       // Drain body (small responses only).
       var bodyBytes = 0;
-      await for (final chunk in response) {
+      await for (final chunk in response.timeout(_httpRequestTimeout)) {
         bodyBytes += chunk.length;
-        if (bodyBytes > 64 * 1024) break;
+        if (bodyBytes > _maxHttpBodyProbeBytes) break;
       }
       _log(
         _ProxyTestLogLevel.info,

@@ -1,12 +1,16 @@
 import 'dart:convert';
 import 'dart:io';
 
+import '../../../shared/net/http_response_utils.dart';
 import '../../../shared/net/http_status_utils.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../data/knowledge_base_store.dart';
 import '../model/knowledge_base_settings.dart';
 
 const Duration _qdrantMonitoringConnectionTimeout = Duration(seconds: 3);
+const Duration _qdrantMonitoringRequestTimeout = Duration(seconds: 8);
+const Duration _qdrantMonitoringResponseIdleTimeout = Duration(seconds: 3);
+const int _qdrantMonitoringMaxResponseBytes = 8 * 1024 * 1024;
 
 class QdrantMonitoringSnapshot {
   const QdrantMonitoringSnapshot({
@@ -26,24 +30,32 @@ class QdrantMonitoringService {
   final KnowledgeBaseStore _store;
 
   Future<QdrantMonitoringSnapshot> load(KnowledgeBaseSettings settings) async {
-    final stats = await _store.loadStats();
-    final root = await _get(settings, '/');
-    final collections = await _get(settings, '/collections');
-    final collectionsResult = collections['result'];
-    final collectionList = collectionsResult is Map
-        ? collectionsResult['collections']
-        : null;
     final collectionPath = '/collections/${settings.effectiveCollectionName}';
-    final collectionInfo = await _get(settings, collectionPath);
-    final collectionResult =
-        _object(collectionInfo['result']) ?? const <String, Object?>{};
-    final countResult = await _post(
+    final statsFuture = _store.loadStats();
+    final rootFuture = _get(settings, '/');
+    final collectionsFuture = _get(settings, '/collections');
+    final collectionInfoFuture = _get(settings, collectionPath);
+    final countFuture = _post(
       settings,
       '$collectionPath/points/count',
       const <String, Object?>{'exact': false},
     );
-    final clusterInfo = await _get(settings, '$collectionPath/cluster');
-    final telemetry = await _get(settings, '/telemetry');
+    final clusterInfoFuture = _get(settings, '$collectionPath/cluster');
+    final telemetryFuture = _get(settings, '/telemetry');
+
+    final stats = await statsFuture;
+    final root = await rootFuture;
+    final collections = await collectionsFuture;
+    final collectionInfo = await collectionInfoFuture;
+    final countResult = await countFuture;
+    final clusterInfo = await clusterInfoFuture;
+    final telemetry = await telemetryFuture;
+    final collectionsResult = collections['result'];
+    final collectionList = collectionsResult is Map
+        ? collectionsResult['collections']
+        : null;
+    final collectionResult =
+        _object(collectionInfo['result']) ?? const <String, Object?>{};
     final payloadSchema = _object(collectionResult['payload_schema']);
     final config = _object(collectionResult['config']);
     final params = _object(config?['params']);
@@ -208,16 +220,25 @@ class QdrantMonitoringService {
       ..connectionTimeout = _qdrantMonitoringConnectionTimeout;
     try {
       final uri = settings.qdrantBaseUri.replace(path: path);
-      final request = await client.openUrl(method, uri);
+      final request = await client
+          .openUrl(method, uri)
+          .timeout(_qdrantMonitoringConnectionTimeout);
       if (body != null) {
         request.headers.contentType = ContentType.json;
         request.write(jsonEncode(body));
       }
-      final response = await request.close();
+      final response = await request.close().timeout(
+        _qdrantMonitoringRequestTimeout,
+      );
       if (isHttpFailureStatus(response.statusCode)) {
         return const <String, Object?>{};
       }
-      final text = await utf8.decoder.bind(response).join();
+      final text = await readBoundedHttpResponseText(
+        response,
+        maxBytes: _qdrantMonitoringMaxResponseBytes,
+        idleTimeout: _qdrantMonitoringResponseIdleTimeout,
+        totalTimeout: _qdrantMonitoringRequestTimeout,
+      );
       return stringKeyedMapFromJsonText(text);
     } catch (_) {
       return const <String, Object?>{};

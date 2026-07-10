@@ -188,19 +188,7 @@ String _nativeAudioEffectLabel(
   };
 }
 
-@visibleForTesting
-enum NativeAudioPlaybackBackendKind { mediaKit }
-
-@visibleForTesting
-NativeAudioPlaybackBackendKind selectNativeAudioPlaybackBackend({
-  required bool isWeb,
-  required TargetPlatform targetPlatform,
-}) {
-  return NativeAudioPlaybackBackendKind.mediaKit;
-}
-
-@visibleForTesting
-bool nativeAudioPreviewSourcesReferToSameMedia(
+bool _nativeAudioPreviewSourcesReferToSameMedia(
   NativeAudioPreviewSource a,
   NativeAudioPreviewSource b,
 ) {
@@ -255,13 +243,7 @@ abstract class _NativeAudioPlaybackEngine {
 }
 
 _NativeAudioPlaybackEngine _createNativeAudioPlaybackEngine() {
-  final backend = selectNativeAudioPlaybackBackend(
-    isWeb: kIsWeb,
-    targetPlatform: defaultTargetPlatform,
-  );
-  return switch (backend) {
-    NativeAudioPlaybackBackendKind.mediaKit => _MediaKitPlaybackEngine(),
-  };
+  return _MediaKitPlaybackEngine();
 }
 
 class _MediaKitPlaybackEngine implements _NativeAudioPlaybackEngine {
@@ -496,7 +478,7 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
       if (oldController?._state == this) oldController!._state = null;
       widget.controller?._state = this;
     }
-    if (!nativeAudioPreviewSourcesReferToSameMedia(
+    if (!_nativeAudioPreviewSourcesReferToSameMedia(
       oldWidget.source,
       widget.source,
     )) {

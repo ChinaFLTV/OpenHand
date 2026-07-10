@@ -8,6 +8,7 @@ import 'package:shelf/shelf.dart' as shelf;
 import 'package:shelf/shelf_io.dart' as shelf_io;
 import 'package:shelf_router/shelf_router.dart';
 
+import '../../../shared/net/http_response_utils.dart';
 import '../../../shared/net/http_status_utils.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../model/mcp_http_headers.dart';
@@ -55,6 +56,7 @@ class McpServerOpsRuntime {
   static const String _serverVersion = '1.0.0';
   static const Duration _shutdownTimeout = Duration(seconds: 5);
   static const Duration _connectivityTimeout = Duration(seconds: 3);
+  static const int _maxConnectivityResponseBytes = 1024 * 1024;
   static const Duration _sseKeepAliveInterval = Duration(seconds: 15);
   static const int _sseKeepAliveTicks = 480;
   static const int _maxSseStreams = 32;
@@ -358,7 +360,12 @@ class McpServerOpsRuntime {
       }
       request.add(utf8.encode(jsonEncode(_initializeProbePayload)));
       final response = await request.close().timeout(_connectivityTimeout);
-      final body = await response.transform(utf8.decoder).join();
+      final body = await readBoundedHttpResponseText(
+        response,
+        maxBytes: _maxConnectivityResponseBytes,
+        idleTimeout: _connectivityTimeout,
+        totalTimeout: _connectivityTimeout,
+      );
       final ok = response.statusCode == HttpStatus.ok && _isInitializeAck(body);
       final result = McpOpsConnectivityResult(
         ok: ok,

@@ -17,6 +17,7 @@ import '../../app/support/safe_subprocess.dart';
 import '../../app/support/silent_log.dart';
 import '../../app/support/system_proxy.dart';
 import '../../l10n/app_localizations.dart';
+import '../../shared/net/http_response_utils.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/animated_menu.dart';
 import '../../shared/ui/auto_follow_scroll_guard.dart';
@@ -120,6 +121,8 @@ const EdgeInsets _kDashboardDialogInsetPadding = EdgeInsets.all(24);
 const double _kShortcutsHelpDialogMaxWidth = 560;
 const double _kShortcutsHelpDialogMaxHeight = 600;
 const Duration _kSwitchDuration = Duration(milliseconds: 220);
+const Duration _kDevToolsDiscoveryTimeout = Duration(seconds: 3);
+const int _kDevToolsDiscoveryMaxResponseBytes = 4 * 1024 * 1024;
 const Curve _kSwitchInCurve = Curves.easeOutCubic;
 const Curve _kSwitchOutCurve = Curves.easeInCubic;
 
@@ -1327,13 +1330,18 @@ Future<void> _openOfficialDevToolsForController(
   String? frontendUrl;
   try {
     final client = createWebReverseCdpHttpClient(
-      connectionTimeout: const Duration(seconds: 3),
-      idleTimeout: const Duration(seconds: 3),
+      connectionTimeout: _kDevToolsDiscoveryTimeout,
+      idleTimeout: _kDevToolsDiscoveryTimeout,
     );
     try {
       final req = await client.getUrl(webReverseCdpHttpUri(port, '/json/list'));
-      final res = await req.close().timeout(const Duration(seconds: 3));
-      final body = await res.transform(utf8.decoder).join();
+      final res = await req.close().timeout(_kDevToolsDiscoveryTimeout);
+      final body = await readBoundedHttpResponseText(
+        res,
+        maxBytes: _kDevToolsDiscoveryMaxResponseBytes,
+        idleTimeout: _kDevToolsDiscoveryTimeout,
+        totalTimeout: _kDevToolsDiscoveryTimeout,
+      );
       final list = jsonDecode(body);
       if (list is List) {
         Map<String, Object?>? best;

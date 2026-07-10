@@ -27,14 +27,19 @@ class OpenHandDebouncer {
   final OpenHandTimerErrorHandler? _onError;
   Timer? _timer;
   bool _isRunning = false;
+  bool _isDisposed = false;
+  FutureOr<void> Function()? _pendingCallback;
+  OpenHandTimerErrorHandler? _pendingErrorHandler;
 
-  bool get isActive => (_timer?.isActive ?? false) || _isRunning;
+  bool get isActive =>
+      (_timer?.isActive ?? false) || _isRunning || _pendingCallback != null;
 
   void schedule(
     FutureOr<void> Function() callback, {
     Duration? delay,
     OpenHandTimerErrorHandler? onError,
   }) {
+    if (_isDisposed) return;
     cancel();
     _timer = _start(callback, delay: delay, onError: onError);
   }
@@ -44,7 +49,7 @@ class OpenHandDebouncer {
     Duration? delay,
     OpenHandTimerErrorHandler? onError,
   }) {
-    if (isActive) return false;
+    if (_isDisposed || isActive) return false;
     _timer = _start(callback, delay: delay, onError: onError);
     return true;
   }
@@ -52,9 +57,15 @@ class OpenHandDebouncer {
   void cancel() {
     _timer?.cancel();
     _timer = null;
+    _pendingCallback = null;
+    _pendingErrorHandler = null;
   }
 
-  void dispose() => cancel();
+  void dispose() {
+    if (_isDisposed) return;
+    _isDisposed = true;
+    cancel();
+  }
 
   Timer _start(
     FutureOr<void> Function() callback, {
@@ -65,17 +76,46 @@ class OpenHandDebouncer {
       delay ?? _delay,
       () async {
         _timer = null;
-        _isRunning = true;
-        try {
-          await callback();
-        } finally {
-          _isRunning = false;
-        }
+        await _runOrQueue(callback, onError: onError);
       },
       min: _minDelay,
       max: _maxDelay,
       onError: onError ?? _onError,
     );
+  }
+
+  Future<void> _runOrQueue(
+    FutureOr<void> Function() callback, {
+    OpenHandTimerErrorHandler? onError,
+  }) async {
+    if (_isDisposed) return;
+    if (_isRunning) {
+      _pendingCallback = callback;
+      _pendingErrorHandler = onError;
+      return;
+    }
+
+    _isRunning = true;
+    try {
+      await callback();
+    } finally {
+      _isRunning = false;
+      _schedulePendingRun();
+    }
+  }
+
+  void _schedulePendingRun() {
+    if (_isDisposed) {
+      _pendingCallback = null;
+      _pendingErrorHandler = null;
+      return;
+    }
+    final callback = _pendingCallback;
+    final onError = _pendingErrorHandler;
+    _pendingCallback = null;
+    _pendingErrorHandler = null;
+    if (callback == null) return;
+    _timer = _start(callback, delay: Duration.zero, onError: onError);
   }
 }
 
@@ -227,6 +267,11 @@ class _NonOverlappingPeriodicTimerGate {
       zone: zone,
       onError: onError,
     );
+    if (!cancelOnCallbackTimeout) {
+      // Keep the gate closed until the slow callback actually settles.
+      await pending;
+      return;
+    }
     unawaited(
       pending.catchError(
         (Object error, StackTrace stack) =>
