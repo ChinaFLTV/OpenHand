@@ -2062,6 +2062,63 @@ class SettingsController extends ChangeNotifier {
     });
   }
 
+  /// Persists the selected reasoning effort for one concrete model without
+  /// replacing unrelated provider or per-model overrides.
+  Future<bool> updateAiModelReasoningEffort(
+    String providerConfigId,
+    String modelId,
+    String effort,
+  ) async {
+    final normalizedProviderId = providerConfigId.trim();
+    final normalizedModelId = modelId.trim();
+    final normalizedEffort = effort.trim().toLowerCase();
+    if (normalizedProviderId.isEmpty ||
+        normalizedModelId.isEmpty ||
+        normalizedEffort.isEmpty) {
+      return false;
+    }
+    return _commitMutation(() {
+      final index = _aiModels.indexWhere(
+        (item) => item.id == normalizedProviderId,
+      );
+      if (index == -1) return _MutationDisposition.reject;
+      final provider = _aiModels[index];
+      if (!provider.allModelIds.contains(normalizedModelId)) {
+        return _MutationDisposition.reject;
+      }
+      final resolvedModel = provider.copyWith(modelId: normalizedModelId);
+      final resolvedProfile = resolvedModel.profileFor(normalizedModelId);
+      AiReasoningEffortOption? selectedOption;
+      for (final option in resolvedProfile.reasoningEffortOptions) {
+        if (option.isSelectable &&
+            option.value.toLowerCase() == normalizedEffort) {
+          selectedOption = option;
+          break;
+        }
+      }
+      if (!resolvedModel.resolvedReasoningEffortControlEnabled ||
+          selectedOption == null) {
+        return _MutationDisposition.reject;
+      }
+      final currentOverride =
+          provider.modelProfiles[normalizedModelId] ?? const AiModelProfile();
+      if (currentOverride.reasoningEffortControlEnabled == true &&
+          currentOverride.reasoningEffort?.toLowerCase() == normalizedEffort) {
+        return _MutationDisposition.successNoChange;
+      }
+      final profiles = Map<String, AiModelProfile>.from(provider.modelProfiles);
+      profiles[normalizedModelId] = currentOverride.copyWith(
+        reasoningEffortControlEnabled: true,
+        reasoningEffort: selectedOption.value,
+      );
+      final updatedModels = List<AiModelConfig>.from(_aiModels);
+      updatedModels[index] = provider.copyWith(modelProfiles: profiles);
+      _aiModels = updatedModels;
+      _cachedAiModelsView = null;
+      return _MutationDisposition.apply;
+    });
+  }
+
   /// Updates the available model IDs list for a specific provider config.
   Future<bool> updateProviderAvailableModels(
     String providerConfigId,

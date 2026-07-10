@@ -1875,6 +1875,11 @@ class WebMessagePlatformService {
       (shelf.Request r) =>
           _withAuth(r, (req, _) => _putPreferencesHandler(req)),
     );
+    router.put(
+      '/api/settings/models/reasoning-effort',
+      (shelf.Request r) =>
+          _withAuth(r, (req, _) => _putModelReasoningEffortHandler(req)),
+    );
 
     return router;
   }
@@ -2442,6 +2447,76 @@ class WebMessagePlatformService {
     return _json(HttpStatus.ok, _preferencesPayload(updated: updated));
   }
 
+  Future<shelf.Response> _putModelReasoningEffortHandler(
+    shelf.Request request,
+  ) async {
+    final body = await _readJsonBody(request, maxBytes: 4 * 1024);
+    final modelKey = _string(body['model_key'], '').trim();
+    final effort = _string(body['effort'], '').trim().toLowerCase();
+    final parsed = _parseModelKey(modelKey);
+    if (parsed == null || effort.isEmpty) {
+      return _json(HttpStatus.badRequest, <String, Object?>{
+        'error': 'model_key_and_effort_required',
+      });
+    }
+    if (!_allowedModels().any((model) => model.key == modelKey)) {
+      return _json(HttpStatus.notFound, <String, Object?>{
+        'error': 'model_not_found_or_not_allowed',
+      });
+    }
+    AiModelConfig? provider;
+    for (final item in _settingsController.aiModels) {
+      if (item.id == parsed.providerId &&
+          item.allModelIds.contains(parsed.modelId)) {
+        provider = item;
+        break;
+      }
+    }
+    if (provider == null) {
+      return _json(HttpStatus.notFound, <String, Object?>{
+        'error': 'model_not_found_or_not_allowed',
+      });
+    }
+    final resolvedModel = provider.copyWith(modelId: parsed.modelId);
+    final profile = resolvedModel.profileFor(parsed.modelId);
+    final selectable = profile.reasoningEffortOptions
+        .where((option) => option.isSelectable)
+        .toList(growable: false);
+    if (!resolvedModel.resolvedReasoningEffortControlEnabled ||
+        !selectable.any((option) => option.value.toLowerCase() == effort)) {
+      return _json(HttpStatus.conflict, <String, Object?>{
+        'error': 'reasoning_effort_not_supported',
+      });
+    }
+    final saved = await _settingsController.updateAiModelReasoningEffort(
+      parsed.providerId,
+      parsed.modelId,
+      effort,
+    );
+    if (!saved) {
+      return _json(HttpStatus.internalServerError, <String, Object?>{
+        'error': 'reasoning_effort_save_failed',
+      });
+    }
+    final updatedProvider = _settingsController.aiModels
+        .where((item) => item.id == parsed.providerId)
+        .firstOrNull;
+    final updatedModel = updatedProvider?.copyWith(modelId: parsed.modelId);
+    _log(
+      WebGatewayLogLevel.success,
+      'SETTINGS',
+      'Web 修改模型推理强度',
+      <String, Object?>{
+        'model_key': modelKey,
+        'effort': updatedModel?.resolvedReasoningEffort ?? effort,
+      },
+    );
+    return _json(HttpStatus.ok, <String, Object?>{
+      'model_key': modelKey,
+      'reasoning_effort': updatedModel?.resolvedReasoningEffort ?? effort,
+    });
+  }
+
   // ─── Plugin Service Handlers ───────────────────────────────────────────────
 
   Map<String, Object?> _pluginPayload(PluginInfo p) {
@@ -2720,6 +2795,20 @@ class WebMessagePlatformService {
               'provider_default_title_model_key':
                   item.providerDefaultTitleModelKey,
               'is_global_default_title_model': item.isGlobalDefaultTitleModel,
+              'reasoning_effort_control_enabled':
+                  item.reasoningEffortControlEnabled,
+              'reasoning_effort': item.reasoningEffort,
+              'reasoning_effort_options': item.reasoningEffortOptions
+                  .where((option) => option.isSelectable)
+                  .map(
+                    (option) => <String, Object?>{
+                      'value': option.value,
+                      'label': option.labelForLocaleName(
+                        _settingsController.locale.toLanguageTag(),
+                      ),
+                    },
+                  )
+                  .toList(growable: false),
             },
           )
           .toList(growable: false),
@@ -7062,6 +7151,10 @@ class WebMessagePlatformService {
                 profile.isGlobalDefaultTitleModel ||
                 (legacyGlobalDefaultTitleModelId.isNotEmpty &&
                     modelId == legacyGlobalDefaultTitleModelId),
+            reasoningEffortControlEnabled:
+                resolved.resolvedReasoningEffortControlEnabled,
+            reasoningEffort: resolved.resolvedReasoningEffort,
+            reasoningEffortOptions: resolved.resolvedReasoningEffortOptions,
           ),
         );
       }
@@ -7905,6 +7998,9 @@ class _AllowedWebModel {
     required this.supportsRerank,
     required this.providerDefaultTitleModelKey,
     required this.isGlobalDefaultTitleModel,
+    required this.reasoningEffortControlEnabled,
+    required this.reasoningEffort,
+    required this.reasoningEffortOptions,
   });
 
   final String key;
@@ -7924,6 +8020,9 @@ class _AllowedWebModel {
   final bool supportsRerank;
   final String? providerDefaultTitleModelKey;
   final bool isGlobalDefaultTitleModel;
+  final bool reasoningEffortControlEnabled;
+  final String? reasoningEffort;
+  final List<AiReasoningEffortOption> reasoningEffortOptions;
 }
 
 class _ParsedModelKey {

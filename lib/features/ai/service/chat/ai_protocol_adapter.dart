@@ -134,6 +134,9 @@ abstract final class AiThinkingRequestPolicy {
     required int maxTokens,
   }) {
     if (!shouldApply(model)) return null;
+    // Fable 5 / Mythos 5 reject `thinking: {type: "disabled"}` and use
+    // adaptive thinking whenever the field is omitted.
+    if (_usesAlwaysOnClaudeAdaptiveThinking(model)) return null;
     if (!model.resolvedThinkingEnabled) {
       return const <String, Object?>{'type': 'disabled'};
     }
@@ -158,9 +161,7 @@ abstract final class AiThinkingRequestPolicy {
   }
 
   static Map<String, Object?>? claudeOutputConfigFor(AiModelConfig model) {
-    if (!shouldApply(model) ||
-        !model.resolvedThinkingEnabled ||
-        !model.resolvedReasoningEffortControlEnabled) {
+    if (!shouldApply(model) || !model.resolvedReasoningEffortControlEnabled) {
       return null;
     }
     if (!_usesClaudeOutputEffort(model)) return null;
@@ -487,6 +488,7 @@ abstract final class AiThinkingRequestPolicy {
     return id.contains('sonnet-5') ||
         id.contains('fable-5') ||
         id.contains('mythos-5') ||
+        id.contains('mythos-preview') ||
         id.contains('opus-4-8') ||
         id.contains('4-8-opus') ||
         id.contains('opus-4-7') ||
@@ -497,6 +499,20 @@ abstract final class AiThinkingRequestPolicy {
         id.contains('4-5-opus') ||
         id.contains('sonnet-4-6') ||
         id.contains('4-6-sonnet');
+  }
+
+  static bool _usesAlwaysOnClaudeAdaptiveThinking(AiModelConfig model) {
+    if (model.protocolType != AiProtocolType.claude &&
+        !lowercaseStringFromValue(model.modelId).contains('claude')) {
+      return false;
+    }
+    final id = lowercaseStringFromValue(model.modelId)
+        .replaceAll(_modelIdSeparatorPattern, '-')
+        .replaceAll(_modelIdRepeatedDashPattern, '-')
+        .replaceAll(_modelIdEdgeDashPattern, '');
+    return id.contains('fable-5') ||
+        id.contains('mythos-5') ||
+        id.contains('mythos-preview');
   }
 }
 

@@ -242,6 +242,20 @@ class AiModelCatalog {
   static const _effortLowMediumHighMax = <AiReasoningEffortOption>[
     ..._effortLowMediumHigh,
     AiReasoningEffortOption(
+      value: 'max',
+      label: '最高',
+      labelZhHans: '最高',
+      labelZhHant: '最高',
+      labelEn: 'Max',
+      labelFr: 'Maximum',
+      labelDe: 'Maximal',
+      labelJa: '最大',
+    ),
+  ];
+
+  static const _effortLowMediumHighXHighMax = <AiReasoningEffortOption>[
+    ..._effortLowMediumHigh,
+    AiReasoningEffortOption(
       value: 'xhigh',
       label: '极高',
       labelZhHans: '极高',
@@ -284,6 +298,42 @@ class AiModelCatalog {
       labelFr: 'Très élevé',
       labelDe: 'Sehr hoch',
       labelJa: '最高',
+    ),
+  ];
+
+  /// GPT-5.6 removed `minimal` and added `max`; keep this separate from
+  /// earlier GPT-5 generations so the UI never offers an API-invalid value.
+  static const _effortOpenAiGpt56 = <AiReasoningEffortOption>[
+    AiReasoningEffortOption(
+      value: 'none',
+      label: '无',
+      labelZhHans: '无',
+      labelZhHant: '無',
+      labelEn: 'None',
+      labelFr: 'Aucun',
+      labelDe: 'Keine',
+      labelJa: 'なし',
+    ),
+    ..._effortLowMediumHigh,
+    AiReasoningEffortOption(
+      value: 'xhigh',
+      label: '极高',
+      labelZhHans: '极高',
+      labelZhHant: '極高',
+      labelEn: 'X-High',
+      labelFr: 'Très élevé',
+      labelDe: 'Sehr hoch',
+      labelJa: '最高',
+    ),
+    AiReasoningEffortOption(
+      value: 'max',
+      label: '最高',
+      labelZhHans: '最高',
+      labelZhHant: '最高',
+      labelEn: 'Max',
+      labelFr: 'Maximum',
+      labelDe: 'Maximal',
+      labelJa: '最大',
     ),
   ];
 
@@ -1030,6 +1080,59 @@ class AiModelCatalog {
       );
     }
 
+    // ── GPT-5.6 series ──────────────────────────────────────────────────
+    if (id.startsWith('gpt-5.6-luna')) {
+      return _p(
+        name: 'GPT-5.6 Luna',
+        desc: '高吞吐 GPT-5.6 模型，支持视觉、智能体工具与可调推理强度。',
+        multimodal: true,
+        supportsAttachments: true,
+        modalities: _textImage,
+        context: 1050000,
+        output: 128000,
+        thinking: 128000,
+        reasoningEffortControlEnabled: true,
+        reasoningEffort: 'medium',
+        reasoningEffortOptions: _effortOpenAiGpt56,
+        inputUsdPer1M: 1.00,
+        outputUsdPer1M: 6.00,
+      );
+    }
+    if (id.startsWith('gpt-5.6-terra')) {
+      return _p(
+        name: 'GPT-5.6 Terra',
+        desc: '兼顾智能与成本的 GPT-5.6 模型，支持视觉、智能体工具与可调推理强度。',
+        multimodal: true,
+        supportsAttachments: true,
+        modalities: _textImage,
+        context: 1050000,
+        output: 128000,
+        thinking: 128000,
+        reasoningEffortControlEnabled: true,
+        reasoningEffort: 'medium',
+        reasoningEffortOptions: _effortOpenAiGpt56,
+        inputUsdPer1M: 2.50,
+        outputUsdPer1M: 15.00,
+      );
+    }
+    if (id.startsWith('gpt-5.6-sol') || id.startsWith('gpt-5.6')) {
+      return _p(
+        name: 'GPT-5.6 Sol',
+        desc: '面向复杂专业工作、推理与编程的 GPT-5.6 旗舰模型。',
+        multimodal: true,
+        supportsAttachments: true,
+        modalities: _textImage,
+        context: 1050000,
+        output: 128000,
+        thinking: 128000,
+        reasoningEffortControlEnabled: true,
+        reasoningEffort: 'medium',
+        reasoningEffortOptions: _effortOpenAiGpt56,
+        inputUsdPer1M: 5.00,
+        outputUsdPer1M: 30.00,
+      );
+    }
+
     // ── GPT-5.5 / GPT-5.4 series ────────────────────────────────────────
     if (id.startsWith('gpt-5.5')) {
       return _p(
@@ -1196,6 +1299,93 @@ class AiModelCatalog {
   // ═══════════════════════════════════════════════════════════════════════════
 
   static AiModelProfile? _claude(String id) {
+    // ── Claude 5 / 4.8 ──────────────────────────────────────────────────
+    if (id.contains('fable-5')) {
+      return _p(
+        name: 'Claude Fable 5',
+        desc: '面向高难度推理与长时程智能体工作的 Claude 旗舰模型。',
+        multimodal: true,
+        supportsAttachments: true,
+        modalities: _textImage,
+        context: 1000000,
+        output: 128000,
+        thinking: 128000,
+        thinkingEnabled: true,
+        reasoningEffortControlEnabled: true,
+        reasoningEffort: 'high',
+        reasoningEffortOptions: _effortLowMediumHighXHighMax,
+        inputUsdPer1M: 10.00,
+        outputUsdPer1M: 50.00,
+      );
+    }
+    if (id.contains('mythos-5')) {
+      return _p(
+        name: 'Claude Mythos 5',
+        desc: '与 Fable 5 同规格的受限开放模型，面向获批的安全工作负载。',
+        multimodal: true,
+        supportsAttachments: true,
+        modalities: _textImage,
+        context: 1000000,
+        output: 128000,
+        thinking: 128000,
+        thinkingEnabled: true,
+        reasoningEffortControlEnabled: true,
+        reasoningEffort: 'high',
+        reasoningEffortOptions: _effortLowMediumHighXHighMax,
+        inputUsdPer1M: 10.00,
+        outputUsdPer1M: 50.00,
+      );
+    }
+    if (id.contains('mythos-preview')) {
+      return _p(
+        name: 'Claude Mythos Preview',
+        desc: '面向获批安全工作负载的受限预览模型，支持自适应思考与可调 effort。',
+        multimodal: true,
+        supportsAttachments: true,
+        modalities: _textImage,
+        thinkingEnabled: true,
+        reasoningEffortControlEnabled: true,
+        reasoningEffort: 'high',
+        reasoningEffortOptions: _effortLowMediumHighXHighMax,
+      );
+    }
+    if (id.contains('sonnet-5')) {
+      return _p(
+        name: 'Claude Sonnet 5',
+        desc: '兼顾速度与智能的新一代 Claude 模型，支持自适应思考。',
+        multimodal: true,
+        supportsAttachments: true,
+        modalities: _textImage,
+        context: 1000000,
+        output: 128000,
+        thinking: 128000,
+        thinkingEnabled: true,
+        reasoningEffortControlEnabled: true,
+        reasoningEffort: 'high',
+        reasoningEffortOptions: _effortLowMediumHighXHighMax,
+        inputUsdPer1M: 3.00,
+        outputUsdPer1M: 15.00,
+      );
+    }
+    if (id.contains('opus-4-8') || id.contains('4.8-opus')) {
+      return _p(
+        name: 'Claude Opus 4.8',
+        desc: '面向复杂智能体编程与企业工作的高性能 Claude 模型。',
+        multimodal: true,
+        supportsAttachments: true,
+        modalities: _textImage,
+        context: 1000000,
+        output: 128000,
+        thinking: 128000,
+        thinkingEnabled: true,
+        reasoningEffortControlEnabled: true,
+        reasoningEffort: 'high',
+        reasoningEffortOptions: _effortLowMediumHighXHighMax,
+        inputUsdPer1M: 5.00,
+        outputUsdPer1M: 25.00,
+      );
+    }
+
     // ── Claude 4.7 / 4.6 / 4.5 ─────────────────────────────────────────
     if (id.contains('opus-4-7') || id.contains('4.7-opus')) {
       return _p(
@@ -1208,7 +1398,7 @@ class AiModelCatalog {
         thinking: 128000,
         reasoningEffortControlEnabled: true,
         reasoningEffort: 'medium',
-        reasoningEffortOptions: _effortLowMediumHighMax,
+        reasoningEffortOptions: _effortLowMediumHighXHighMax,
       );
     }
     if (id.contains('sonnet-4-6') || id.contains('4.6-sonnet')) {

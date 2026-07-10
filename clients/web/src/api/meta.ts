@@ -1,6 +1,7 @@
 import type { M3ThemeTokens } from '../theme/tokens';
 import { tFmt } from '../i18n';
 import type { ApiDialogAnimationSettings } from '../hooks/useDialogMotionSettings';
+import { apiRequest } from './client';
 
 export interface ApiMetaService {
   listen_host?: string;
@@ -112,6 +113,19 @@ export interface ApiMetaModel {
   supports_embeddings?: boolean;
   provider_default_title_model_key?: string | null;
   is_global_default_title_model?: boolean;
+  reasoning_effort_control_enabled?: boolean;
+  reasoning_effort?: string | null;
+  reasoning_effort_options?: ApiReasoningEffortOption[];
+}
+
+export interface ApiReasoningEffortOption {
+  value: string;
+  label: string;
+}
+
+export interface UpdateModelReasoningEffortResponse {
+  model_key: string;
+  reasoning_effort: string;
 }
 
 export interface ApiMetaInstruction {
@@ -146,6 +160,19 @@ export async function fetchApiMeta(signal?: AbortSignal): Promise<ApiMetaRespons
     throw new Error(tFmt('error.meta.failed', { status: res.status }));
   }
   return (await res.json()) as ApiMetaResponse;
+}
+
+export function updateModelReasoningEffort(
+  modelKey: string,
+  effort: string,
+): Promise<UpdateModelReasoningEffortResponse> {
+  return apiRequest<UpdateModelReasoningEffortResponse>(
+    '/api/settings/models/reasoning-effort',
+    {
+      method: 'PUT',
+      body: { model_key: modelKey, effort },
+    },
+  );
 }
 
 /// 把 service 端 snake_case 的 theme 字段映射为前端 token 体系，缺失字段

@@ -33,7 +33,13 @@ export interface PopMenuItem {
 }
 
 export interface PopMenuProps {
-  items: PopMenuItem[];
+  items?: PopMenuItem[];
+  /** 自定义面板内容；复用同一套锚定、外部关闭与全局进退场动画。 */
+  content?: (actions: { close: () => void }) => ComponentChildren;
+  /** 自定义面板的无障碍标签。 */
+  ariaLabel?: string;
+  /** 自定义面板样式钩子。 */
+  panelClassName?: string;
   /** 触发器；调用方控制其外观。 */
   trigger: (props: { open: boolean; toggle: () => void }) => ComponentChildren;
   /** Optional class for callers that need layout control over the trigger wrap. */
@@ -72,7 +78,16 @@ function PopMenuCheckIcon() {
   );
 }
 
-export function PopMenu({ items, trigger, wrapperClassName = '', align = 'right', width }: PopMenuProps) {
+export function PopMenu({
+  items = [],
+  content,
+  ariaLabel,
+  panelClassName = '',
+  trigger,
+  wrapperClassName = '',
+  align = 'right',
+  width,
+}: PopMenuProps) {
   const menuMotion = useDelayedVisibility();
   const { open, closing, visible: menuVisible, hide: hideMenu, toggle: toggleMenu } = menuMotion;
   const [pos, setPos] = useState<MenuPos | null>(null);
@@ -138,7 +153,7 @@ export function PopMenu({ items, trigger, wrapperClassName = '', align = 'right'
       <OverlayPortal>
         <div
           ref={menuRef}
-          class={`${closing ? 'oh-menu-pop-out' : 'oh-popmenu-pop'} fixed py-1 rounded-m3-md`}
+          class={`${closing ? 'oh-menu-pop-out' : 'oh-popmenu-pop'} ${panelClassName} fixed py-1 rounded-m3-md`}
           style={{
             top: pos ? `${pos.top}px` : '-9999px',
             left: pos ? `${pos.left}px` : '-9999px',
@@ -152,11 +167,12 @@ export function PopMenu({ items, trigger, wrapperClassName = '', align = 'right'
             visibility: pos ? 'visible' : 'hidden',
             transformOrigin: align === 'right' ? 'top right' : 'top left',
           }}
-          role="menu"
+          role={content ? 'dialog' : 'menu'}
+          aria-label={ariaLabel}
           onMouseDown={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
         >
-          {items.map((item) => (
+          {content ? content({ close: hideMenu }) : items.map((item) => (
             <button
               type="button"
               key={item.key}

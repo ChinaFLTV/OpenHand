@@ -1462,6 +1462,20 @@ class AiModelConfig {
   _defaultLowMediumHighMaxEffortOptions = <AiReasoningEffortOption>[
     ..._defaultLowMediumHighEffortOptions,
     AiReasoningEffortOption(
+      value: 'max',
+      label: '最高',
+      labelZhHans: '最高',
+      labelZhHant: '最高',
+      labelEn: 'Max',
+      labelFr: 'Maximum',
+      labelDe: 'Maximal',
+      labelJa: '最大',
+    ),
+  ];
+  static const List<AiReasoningEffortOption>
+  _defaultLowMediumHighXHighMaxEffortOptions = <AiReasoningEffortOption>[
+    ..._defaultLowMediumHighEffortOptions,
+    AiReasoningEffortOption(
       value: 'xhigh',
       label: '极高',
       labelZhHans: '极高',
@@ -1504,6 +1518,40 @@ class AiModelConfig {
           labelFr: 'Très élevé',
           labelDe: 'Sehr hoch',
           labelJa: '最高',
+        ),
+      ];
+  static const List<AiReasoningEffortOption> _defaultOpenAiGpt56EffortOptions =
+      <AiReasoningEffortOption>[
+        AiReasoningEffortOption(
+          value: 'none',
+          label: '无',
+          labelZhHans: '无',
+          labelZhHant: '無',
+          labelEn: 'None',
+          labelFr: 'Aucun',
+          labelDe: 'Keine',
+          labelJa: 'なし',
+        ),
+        ..._defaultLowMediumHighEffortOptions,
+        AiReasoningEffortOption(
+          value: 'xhigh',
+          label: '极高',
+          labelZhHans: '极高',
+          labelZhHant: '極高',
+          labelEn: 'X-High',
+          labelFr: 'Très élevé',
+          labelDe: 'Sehr hoch',
+          labelJa: '最高',
+        ),
+        AiReasoningEffortOption(
+          value: 'max',
+          label: '最高',
+          labelZhHans: '最高',
+          labelZhHant: '最高',
+          labelEn: 'Max',
+          labelFr: 'Maximum',
+          labelDe: 'Maximal',
+          labelJa: '最大',
         ),
       ];
   static const List<AiReasoningEffortOption>
@@ -1859,8 +1907,7 @@ class AiModelConfig {
     required String modelId,
     required AiProtocolType protocolType,
   }) {
-    if (profile.reasoningEffortControlEnabled != null ||
-        profile.reasoningEffort != null ||
+    if (profile.reasoningEffortControlEnabled == false ||
         profile.reasoningEffortOptions.isNotEmpty) {
       return profile;
     }
@@ -1877,11 +1924,11 @@ class AiModelConfig {
     );
     if (options.isEmpty) return profile;
     return profile.copyWith(
-      reasoningEffortControlEnabled: true,
-      reasoningEffort: _defaultReasoningEffort(
-        modelId: modelId,
-        protocolType: protocolType,
-      ),
+      reasoningEffortControlEnabled:
+          profile.reasoningEffortControlEnabled ?? true,
+      reasoningEffort:
+          profile.reasoningEffort ??
+          _defaultReasoningEffort(modelId: modelId, protocolType: protocolType),
       reasoningEffortOptions: options,
     );
   }
@@ -1891,6 +1938,9 @@ class AiModelConfig {
     required AiProtocolType protocolType,
   }) {
     final normalizedModelId = _normalizeReasoningModelId(modelId);
+    if (normalizedModelId.contains('gpt-5-6')) {
+      return _defaultOpenAiGpt56EffortOptions;
+    }
     if (normalizedModelId.startsWith('gpt-5') ||
         normalizedModelId.contains('gpt-5')) {
       return _defaultOpenAiGpt5EffortOptions;
@@ -1911,7 +1961,9 @@ class AiModelConfig {
     }
     if (protocolType == AiProtocolType.claude ||
         normalizedModelId.contains('claude')) {
-      return _looksLikeClaudeOutputEffortModel(normalizedModelId)
+      return _looksLikeClaudeXHighEffortModel(normalizedModelId)
+          ? _defaultLowMediumHighXHighMaxEffortOptions
+          : _looksLikeClaudeOutputEffortModel(normalizedModelId)
           ? _defaultLowMediumHighMaxEffortOptions
           : _defaultLowMediumHighEffortOptions;
     }
@@ -1962,6 +2014,7 @@ class AiModelConfig {
     return normalizedModelId.contains('sonnet-5') ||
         normalizedModelId.contains('fable-5') ||
         normalizedModelId.contains('mythos-5') ||
+        normalizedModelId.contains('mythos-preview') ||
         normalizedModelId.contains('opus-4-8') ||
         normalizedModelId.contains('4-8-opus') ||
         normalizedModelId.contains('opus-4-7') ||
@@ -1972,6 +2025,17 @@ class AiModelConfig {
         normalizedModelId.contains('4-5-opus') ||
         normalizedModelId.contains('sonnet-4-6') ||
         normalizedModelId.contains('4-6-sonnet');
+  }
+
+  static bool _looksLikeClaudeXHighEffortModel(String normalizedModelId) {
+    return normalizedModelId.contains('sonnet-5') ||
+        normalizedModelId.contains('fable-5') ||
+        normalizedModelId.contains('mythos-5') ||
+        normalizedModelId.contains('mythos-preview') ||
+        normalizedModelId.contains('opus-4-8') ||
+        normalizedModelId.contains('4-8-opus') ||
+        normalizedModelId.contains('opus-4-7') ||
+        normalizedModelId.contains('4-7-opus');
   }
 
   /// Resolves whether the *current* model accepts user-uploaded attachments.
@@ -2022,6 +2086,10 @@ class AiModelConfig {
 
   bool get resolvedThinkingEnabled {
     final trimmedModelId = nullIfBlank(modelId) ?? '';
+    final normalizedModelId = _normalizeReasoningModelId(trimmedModelId);
+    if (_looksLikeAlwaysOnClaudeAdaptiveThinking(normalizedModelId)) {
+      return true;
+    }
     final userOverride = modelProfiles[trimmedModelId]?.thinkingEnabled;
     if (userOverride != null) {
       return userOverride;
@@ -2039,12 +2107,24 @@ class AiModelConfig {
   }
 
   bool get resolvedReasoningEffortControlEnabled {
-    if (!resolvedThinkingEnabled) return false;
     final trimmedModelId = nullIfBlank(modelId) ?? '';
+    final normalizedModelId = _normalizeReasoningModelId(trimmedModelId);
+    if (!resolvedThinkingEnabled &&
+        !_looksLikeClaudeOutputEffortModel(normalizedModelId)) {
+      return false;
+    }
     final userOverride =
         modelProfiles[trimmedModelId]?.reasoningEffortControlEnabled;
     if (userOverride != null) return userOverride;
     return profileFor(trimmedModelId).reasoningEffortControlEnabled ?? false;
+  }
+
+  static bool _looksLikeAlwaysOnClaudeAdaptiveThinking(
+    String normalizedModelId,
+  ) {
+    return normalizedModelId.contains('fable-5') ||
+        normalizedModelId.contains('mythos-5') ||
+        normalizedModelId.contains('mythos-preview');
   }
 
   String? get resolvedReasoningEffort {

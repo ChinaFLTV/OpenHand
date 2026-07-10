@@ -1396,6 +1396,36 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     await showAiModelEditorDialog(btnContext, initialModel: selected);
   }
 
+  Future<void> _selectReasoningEffort(BuildContext btnContext) async {
+    final selected = widget.selectedModel;
+    if (selected == null || !selected.resolvedReasoningEffortControlEnabled) {
+      return;
+    }
+    final options = selected.resolvedReasoningEffortOptions
+        .where((option) => option.isSelectable)
+        .toList(growable: false);
+    if (options.isEmpty) return;
+    final effort = await showReasoningEffortSelector(
+      context: context,
+      anchorContext: btnContext,
+      options: options,
+      currentValue: selected.resolvedReasoningEffort,
+    );
+    if (!mounted || effort == null) return;
+    final saved = await context
+        .read<SettingsController>()
+        .updateAiModelReasoningEffort(selected.id, selected.modelId, effort);
+    if (!mounted || saved) return;
+    showOpenHandErrorSnack(
+      context,
+      openHandLocalizedText(
+        context,
+        zh: '推理强度保存失败，请检查当前模型配置。',
+        en: 'Could not save the reasoning effort. Check this model configuration.',
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
@@ -1406,6 +1436,33 @@ class _ComposerPanelState extends State<_ComposerPanel> {
         ?.reasoningEffortLabelForLocaleName(
           Localizations.localeOf(context).toLanguageTag(),
         );
+    final selectedModelReasoningSupported =
+        widget.selectedModel?.resolvedReasoningEffortControlEnabled == true &&
+        (widget.selectedModel?.resolvedReasoningEffortOptions.any(
+              (option) => option.isSelectable,
+            ) ??
+            false);
+    final selectedModelHasReasoningOptions =
+        widget.selectedModel?.resolvedReasoningEffortOptions.any(
+          (option) => option.isSelectable,
+        ) ??
+        false;
+    final selectedModelReasoningButtonLabel = widget.selectedModel == null
+        ? openHandLocalizedText(
+            context,
+            zh: '推理不可用',
+            en: 'Reasoning unavailable',
+          )
+        : selectedModelReasoningSupported
+        ? (selectedModelReasoningEffortLabel ??
+              openHandLocalizedText(context, zh: '推理强度', en: 'Reasoning'))
+        : selectedModelHasReasoningOptions
+        ? openHandLocalizedText(context, zh: '推理未启用', en: 'Reasoning disabled')
+        : openHandLocalizedText(
+            context,
+            zh: '不支持推理',
+            en: 'No reasoning control',
+          );
     final selectedModelThinkingEnabled =
         widget.selectedModel?.resolvedThinkingEnabled ?? false;
     final isCompressing = widget.sendPhase == AiSendPhase.compressing;
@@ -1870,27 +1927,68 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                               ),
                             ),
                           ),
-                          label: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                selectedModelLabel,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              if (selectedModelReasoningEffortLabel !=
-                                  null) ...[
-                                const SizedBox(width: 6),
-                                Text(
-                                  selectedModelReasoningEffortLabel,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: Theme.of(context).textTheme.labelLarge
-                                      ?.copyWith(
-                                        color: colorScheme.onSurfaceVariant,
-                                        fontWeight: FontWeight.w700,
-                                      ),
+                          label: Text(
+                            selectedModelLabel,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        Tooltip(
+                          message: selectedModelReasoningSupported
+                              ? openHandLocalizedText(
+                                  context,
+                                  zh: '调整当前模型的推理强度',
+                                  en: 'Adjust reasoning effort for this model',
+                                )
+                              : openHandLocalizedText(
+                                  context,
+                                  zh: '当前模型未启用或不支持推理强度控制',
+                                  en: 'Reasoning effort control is disabled or unsupported',
                                 ),
-                              ],
-                            ],
+                          child: SizedBox(
+                            height: 52,
+                            child: OutlinedButton.icon(
+                              onPressed: selectedModelReasoningSupported
+                                  ? () => unawaited(
+                                      _selectReasoningEffort(btnContext),
+                                    )
+                                  : null,
+                              style: OutlinedButton.styleFrom(
+                                minimumSize: const Size(0, 52),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                ),
+                                shape: const RoundedRectangleBorder(),
+                              ),
+                              icon: AnimatedSwitcher(
+                                duration: openHandMotionDuration(
+                                  context,
+                                  const Duration(milliseconds: 220),
+                                ),
+                                switchInCurve: Curves.easeOutBack,
+                                switchOutCurve: Curves.easeInCubic,
+                                child: Icon(
+                                  Icons.psychology_alt_rounded,
+                                  key: ValueKey<String>(
+                                    selectedModelReasoningEffortLabel ?? 'off',
+                                  ),
+                                  size: 18,
+                                ),
+                              ),
+                              label: AnimatedSwitcher(
+                                duration: openHandMotionDuration(
+                                  context,
+                                  const Duration(milliseconds: 220),
+                                ),
+                                switchInCurve: Curves.easeOutBack,
+                                switchOutCurve: Curves.easeInCubic,
+                                child: Text(
+                                  selectedModelReasoningButtonLabel,
+                                  key: ValueKey<String>(
+                                    selectedModelReasoningButtonLabel,
+                                  ),
+                                ),
+                              ),
+                            ),
                           ),
                         ),
                         // Quick-edit gear: opens the same editor dialog used
@@ -2647,11 +2745,7 @@ class _ComposerCreationModeButtonState
         _ => '',
       };
       if (label.isNotEmpty) {
-        flashHomeSnack(
-          context,
-          label,
-          duration: const Duration(seconds: 2),
-        );
+        flashHomeSnack(context, label, duration: const Duration(seconds: 2));
       }
       return;
     }

@@ -4918,6 +4918,264 @@ button.oh-message-context-capsule {
 .oh-composer-model-control {
   max-width: 260px;
 }
+.oh-composer-reasoning-menu {
+  flex: 0 0 auto;
+}
+.oh-composer-reasoning-control {
+  position: relative;
+  min-width: 116px;
+  padding-right: 11px;
+  overflow: hidden;
+  isolation: isolate;
+}
+.oh-composer-reasoning-control::after {
+  content: '';
+  position: absolute;
+  inset: -55% -70%;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0;
+  background: linear-gradient(
+    110deg,
+    transparent 18%,
+    color-mix(in srgb, var(--m3-primary) 16%, transparent) 48%,
+    transparent 78%
+  );
+  transform: translateX(-60%);
+  transition: opacity 220ms var(--oh-motion-emphasized);
+}
+.oh-composer-reasoning-control:not(:disabled):hover::after {
+  opacity: 1;
+  animation: oh-reasoning-control-sweep 980ms var(--oh-motion-emphasized) both;
+}
+.oh-reasoning-energy-dot {
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: 999px;
+  background: var(--m3-primary);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--m3-primary) 12%, transparent);
+  transition:
+    transform 280ms var(--oh-motion-spring),
+    background-color 220ms var(--oh-motion-emphasized),
+    box-shadow 260ms var(--oh-motion-emphasized);
+}
+.oh-reasoning-energy-dot.is-open {
+  transform: scale(1.2);
+  background: var(--m3-tertiary);
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--m3-tertiary) 14%, transparent);
+}
+
+.oh-reasoning-effort-popover {
+  padding: 0 !important;
+  border-radius: 24px !important;
+  overflow: hidden;
+  background:
+    linear-gradient(
+      145deg,
+      color-mix(in srgb, var(--m3-surface-container-high) 94%, var(--m3-primary) 6%),
+      var(--m3-surface-container)
+    ) !important;
+  box-shadow:
+    var(--m3-elev-3),
+    0 22px 52px -34px color-mix(in srgb, var(--m3-primary) 46%, transparent) !important;
+  transform-origin: bottom center !important;
+}
+.oh-reasoning-effort-panel {
+  --oh-reasoning-progress: 50%;
+  --oh-reasoning-start: var(--m3-primary);
+  --oh-reasoning-end: var(--m3-primary);
+  width: 100%;
+  padding: 17px 18px 15px;
+  user-select: none;
+}
+.oh-reasoning-effort-panel[data-energy='balanced'] {
+  --oh-reasoning-end: color-mix(in srgb, var(--m3-primary) 62%, var(--m3-tertiary));
+}
+.oh-reasoning-effort-panel[data-energy='high'] {
+  --oh-reasoning-end: var(--m3-tertiary);
+}
+.oh-reasoning-effort-panel[data-energy='max'] {
+  --oh-reasoning-end: color-mix(in srgb, var(--m3-tertiary) 58%, var(--m3-secondary));
+}
+.oh-reasoning-effort-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--m3-on-surface-variant);
+  font-size: 13px;
+  font-weight: 760;
+  letter-spacing: 0.01em;
+}
+.oh-reasoning-effort-track-shell {
+  position: relative;
+  height: 72px;
+  margin-top: 2px;
+}
+.oh-reasoning-effort-track {
+  position: absolute;
+  inset: 22px 22px;
+  height: 28px;
+  border-radius: 999px;
+  overflow: visible;
+  background: var(--m3-surface-container-highest);
+  border: 1px solid var(--m3-outline-variant);
+  box-shadow: inset 0 1px 2px color-mix(in srgb, var(--m3-on-surface) 8%, transparent);
+}
+.oh-reasoning-effort-fill {
+  position: absolute;
+  inset: -1px auto -1px -1px;
+  width: var(--oh-reasoning-progress);
+  min-width: 2px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--oh-reasoning-start), var(--oh-reasoning-end));
+  box-shadow: 0 8px 22px -13px color-mix(in srgb, var(--oh-reasoning-end) 82%, transparent);
+  transition:
+    width 360ms var(--oh-motion-spring),
+    background 280ms var(--oh-motion-emphasized),
+    box-shadow 280ms var(--oh-motion-emphasized);
+}
+.oh-reasoning-effort-tick {
+  position: absolute;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--m3-on-surface-variant) 34%, transparent);
+  transform: translate(-50%, -50%) scale(0.86);
+  transition:
+    transform 260ms var(--oh-motion-spring),
+    background-color 220ms var(--oh-motion-emphasized),
+    box-shadow 260ms var(--oh-motion-emphasized);
+}
+.oh-reasoning-effort-tick.is-active {
+  background: color-mix(in srgb, var(--m3-on-primary) 62%, transparent);
+  transform: translate(-50%, -50%) scale(1);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--m3-on-primary) 8%, transparent);
+}
+.oh-reasoning-effort-orb {
+  position: absolute;
+  top: 50%;
+  left: var(--oh-reasoning-progress);
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  background: #fff;
+  border: 1px solid color-mix(in srgb, var(--oh-reasoning-end) 36%, transparent);
+  box-shadow:
+    0 10px 24px -10px color-mix(in srgb, var(--m3-on-surface) 38%, transparent),
+    0 0 0 5px color-mix(in srgb, var(--oh-reasoning-end) 9%, transparent);
+  transform: translate(-50%, -50%);
+  transition:
+    left 360ms var(--oh-motion-spring),
+    border-color 260ms var(--oh-motion-emphasized),
+    box-shadow 300ms var(--oh-motion-emphasized),
+    transform 180ms var(--oh-motion-spring);
+}
+.oh-reasoning-effort-track-shell:active .oh-reasoning-effort-orb {
+  transform: translate(-50%, -50%) scale(1.06);
+}
+.oh-reasoning-effort-sparkles {
+  position: absolute;
+  inset: 2px;
+  border-radius: inherit;
+  overflow: hidden;
+  pointer-events: none;
+  opacity: 0;
+  background-image:
+    radial-gradient(circle at 12% 65%, rgb(255 255 255 / 70%) 0 1.2px, transparent 1.8px),
+    radial-gradient(circle at 30% 28%, rgb(255 255 255 / 52%) 0 1px, transparent 1.7px),
+    radial-gradient(circle at 51% 72%, rgb(255 255 255 / 68%) 0 1.3px, transparent 2px),
+    radial-gradient(circle at 70% 32%, rgb(255 255 255 / 56%) 0 1px, transparent 1.8px),
+    radial-gradient(circle at 88% 60%, rgb(255 255 255 / 72%) 0 1.4px, transparent 2.1px);
+  background-size: 86px 28px;
+  transition: opacity 260ms var(--oh-motion-emphasized);
+}
+.oh-reasoning-effort-panel[data-energy='high'] .oh-reasoning-effort-sparkles,
+.oh-reasoning-effort-panel[data-energy='max'] .oh-reasoning-effort-sparkles {
+  opacity: 1;
+  animation: oh-reasoning-sparkle-drift 1600ms linear infinite;
+}
+.oh-reasoning-effort-range {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  cursor: grab;
+  opacity: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  padding-inline: 22px;
+}
+.oh-reasoning-effort-range::-webkit-slider-runnable-track {
+  height: 28px;
+  background: transparent;
+}
+.oh-reasoning-effort-range::-webkit-slider-thumb {
+  width: 44px;
+  height: 44px;
+  margin-top: -8px;
+  appearance: none;
+  -webkit-appearance: none;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+}
+.oh-reasoning-effort-range::-moz-range-track {
+  height: 28px;
+  border: 0;
+  background: transparent;
+}
+.oh-reasoning-effort-range::-moz-range-thumb {
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+}
+.oh-reasoning-effort-range:active {
+  cursor: grabbing;
+}
+.oh-reasoning-effort-range:focus-visible {
+  outline: none;
+}
+.oh-reasoning-effort-track-shell:has(.oh-reasoning-effort-range:focus-visible) .oh-reasoning-effort-track {
+  outline: 3px solid color-mix(in srgb, var(--m3-primary) 46%, transparent);
+  outline-offset: 3px;
+}
+.oh-reasoning-effort-current {
+  display: flex;
+  justify-content: center;
+  min-height: 36px;
+}
+.oh-reasoning-effort-current > span {
+  min-width: 92px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 16px;
+  border-radius: 999px;
+  color: var(--m3-on-primary-container);
+  background: color-mix(
+    in srgb,
+    var(--m3-primary-container) calc(100% - var(--oh-reasoning-progress)),
+    var(--m3-tertiary-container)
+  );
+  border: 1px solid color-mix(in srgb, var(--oh-reasoning-end) 44%, var(--m3-outline-variant));
+  box-shadow: 0 8px 20px -16px color-mix(in srgb, var(--oh-reasoning-end) 72%, transparent);
+  font-size: 13px;
+  font-weight: 800;
+}
+@keyframes oh-reasoning-control-sweep {
+  from { transform: translateX(-60%); }
+  to { transform: translateX(60%); }
+}
+@keyframes oh-reasoning-sparkle-drift {
+  from { background-position: 0 0; }
+  to { background-position: 86px 0; }
+}
 .oh-composer-model-provider {
   color: var(--m3-on-surface-variant);
   font-weight: 650;
@@ -6470,6 +6728,14 @@ button.oh-composer-pill:not(:disabled):hover {
     grid-column: 1 / -1;
     max-width: none;
   }
+  .oh-composer-reasoning-menu {
+    order: 2;
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+  .oh-composer-reasoning-control {
+    width: 100%;
+  }
   .oh-composer-kb-control {
     order: 2;
     grid-column: 1 / -1;
@@ -6722,6 +6988,7 @@ button.oh-composer-pill:not(:disabled):hover {
     max-height: min(36dvh, 260px);
   }
   .oh-composer-model-control,
+  .oh-composer-reasoning-menu,
   .oh-composer-permission-control,
   .oh-session-mode-button {
     grid-column: 1 / -1;
@@ -6764,6 +7031,12 @@ button.oh-composer-pill:not(:disabled):hover {
     width: 23px;
     height: 23px;
     border-radius: 8px;
+  }
+  .oh-reasoning-effort-popover {
+    max-width: calc(100vw - 16px) !important;
+  }
+  .oh-reasoning-effort-panel {
+    padding-inline: 14px;
   }
   .oh-composer-icon-control {
     width: 38px;

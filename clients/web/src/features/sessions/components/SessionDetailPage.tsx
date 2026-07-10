@@ -81,8 +81,13 @@ import { listSessions } from '../../../api/sessions';
 import { SessionGoneDialog } from '../../../components/SessionGoneDialog';
 import { RollingText } from '../../../components/RollingText';
 import { t } from '../../../i18n';
-import { useAuth } from '../../../state/auth';
-import type { ApiMetaInstruction, ApiMetaModel, ApiMetaShortcutBinding } from '../../../api/meta';
+import { refreshMeta, useAuth } from '../../../state/auth';
+import {
+  updateModelReasoningEffort,
+  type ApiMetaInstruction,
+  type ApiMetaModel,
+  type ApiMetaShortcutBinding,
+} from '../../../api/meta';
 import { MessageCard, markMessagesAsAppeared } from '../../../components/MessageCard';
 import { PlanTimeline } from '../../../components/PlanTimeline';
 import CacheHitTrendChart, { type CacheHitDisplayMode } from './CacheHitTrendChart';
@@ -127,6 +132,7 @@ import {
 } from '../../../shared/util/session_transcript_messages';
 import { SessionTopBar, type SessionToolbarCapsule } from '../../../components/SessionTopBar';
 import { ModelPickerDialog, pushRecentModel } from '../../../components/ModelPickerDialog';
+import { ReasoningEffortControl } from '../../../components/ReasoningEffortControl';
 import { PullIndicator } from '../../../components/PullIndicator';
 import { usePullToRefresh } from '../../../hooks/usePullToRefresh';
 import { useReducedMotion } from '../../../hooks/useReducedMotion';
@@ -3266,6 +3272,7 @@ export function SessionDetailPage() {
   const [autoFollowPaused, setAutoFollowPaused] = useState(false);
   const [fullscreenActive, setFullscreenActive] = useState(false);
   const [showComposerModelPicker, setShowComposerModelPicker] = useState(false);
+  const [reasoningEffortSaving, setReasoningEffortSaving] = useState(false);
   const [showCreationOptions, setShowCreationOptions] = useState<'image' | 'video' | 'audio' | null>(null);
   const [creationOptions, setCreationOptions] = useState<CreationOptions>({});
   const [showTitleSummary, setShowTitleSummary] = useState(false);
@@ -5084,6 +5091,38 @@ export function SessionDetailPage() {
     (modelSupportsAttachmentKind(selectedModel, 'image') || modelSupportsAttachmentKind(selectedModel, 'file'));
   const attachmentAccept = useMemo(() => attachmentAcceptForModel(selectedModel), [selectedModel]);
   const textAllowed = allowedMessageTypes.includes('text');
+
+  async function changeComposerReasoningEffort(effort: string): Promise<void> {
+    if (!selectedModel || reasoningEffortSaving) return;
+    setReasoningEffortSaving(true);
+    let saved = false;
+    try {
+      await updateModelReasoningEffort(selectedModel.key, effort);
+      saved = true;
+      await refreshMeta();
+      showSnackbar(t('composer.reasoning.saved', '推理强度已更新'), {
+        tone: 'success',
+      });
+    } catch (error) {
+      if (handleAuthError(error)) return;
+      if (saved) {
+        showSnackbar(
+          t(
+            'composer.reasoning.savedRefreshPending',
+            '推理强度已保存，界面将在下次同步时刷新',
+          ),
+        );
+      } else {
+        const message = error instanceof Error ? error.message : String(error);
+        showSnackbar(
+          `${t('composer.reasoning.saveFailed', '推理强度保存失败')}：${message}`,
+          { tone: 'error' },
+        );
+      }
+    } finally {
+      if (mountedRef.current) setReasoningEffortSaving(false);
+    }
+  }
 
   function copyQueuedAttachments(): SendMessageAttachment[] {
     return composerAttachments.map((att) => ({ ...att }));
@@ -7006,6 +7045,13 @@ export function SessionDetailPage() {
                     {selectedModelProvider ? <span class="oh-composer-model-provider"> · {selectedModelProvider}</span> : null}
                   </span>
                 </button>
+
+                <ReasoningEffortControl
+                  model={selectedModel}
+                  disabled={composerSending}
+                  saving={reasoningEffortSaving}
+                  onSelect={changeComposerReasoningEffort}
+                />
 
                 <PopMenu
                   align="left"
