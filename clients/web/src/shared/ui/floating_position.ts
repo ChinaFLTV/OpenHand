@@ -1,6 +1,7 @@
 import { clampNumber } from '../util/number';
 
 export type FloatingHorizontalAlign = 'left' | 'right';
+export type FloatingVerticalPlacement = 'auto' | 'above' | 'below';
 
 export interface AnchoredMenuPosition {
   top: number;
@@ -16,6 +17,7 @@ export interface AnchoredMenuPositionOptions {
   measuredHeight?: number;
   fallbackHeight?: number;
   align?: FloatingHorizontalAlign;
+  verticalPlacement?: FloatingVerticalPlacement;
   viewportPadding?: number;
   gap?: number;
 }
@@ -32,6 +34,7 @@ export function computeAnchoredMenuPosition({
   measuredHeight = 0,
   fallbackHeight = DEFAULT_FLOATING_FALLBACK_HEIGHT,
   align = 'right',
+  verticalPlacement = 'auto',
   viewportPadding = DEFAULT_FLOATING_VIEWPORT_PADDING,
   gap = DEFAULT_FLOATING_ANCHOR_GAP,
 }: AnchoredMenuPositionOptions): AnchoredMenuPosition {
@@ -60,7 +63,9 @@ export function computeAnchoredMenuPosition({
   const aboveTop = rect.top - height - gap;
   const canFitBelow = belowTop + height <= window.innerHeight - viewportPadding;
   const canFitAbove = aboveTop >= viewportPadding;
-  const placedAbove = !canFitBelow && canFitAbove;
+  const placedAbove = verticalPlacement === 'above'
+    ? canFitAbove || !canFitBelow
+    : !canFitBelow && canFitAbove;
   const rawTop = placedAbove ? aboveTop : belowTop;
   const maxTop = Math.max(viewportPadding, window.innerHeight - height - viewportPadding);
   const top = clampNumber(rawTop, viewportPadding, maxTop);

@@ -4923,8 +4923,7 @@ button.oh-message-context-capsule {
 }
 .oh-composer-reasoning-control {
   position: relative;
-  min-width: 116px;
-  padding-right: 11px;
+  min-width: 92px;
   overflow: hidden;
   isolation: isolate;
 }
@@ -4948,24 +4947,6 @@ button.oh-message-context-capsule {
   opacity: 1;
   animation: oh-reasoning-control-sweep 980ms var(--oh-motion-emphasized) both;
 }
-.oh-reasoning-energy-dot {
-  width: 7px;
-  height: 7px;
-  flex: none;
-  border-radius: 999px;
-  background: var(--m3-primary);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--m3-primary) 12%, transparent);
-  transition:
-    transform 280ms var(--oh-motion-spring),
-    background-color 220ms var(--oh-motion-emphasized),
-    box-shadow 260ms var(--oh-motion-emphasized);
-}
-.oh-reasoning-energy-dot.is-open {
-  transform: scale(1.2);
-  background: var(--m3-tertiary);
-  box-shadow: 0 0 0 5px color-mix(in srgb, var(--m3-tertiary) 14%, transparent);
-}
-
 .oh-reasoning-effort-popover {
   padding: 0 !important;
   border-radius: 24px !important;
@@ -4983,20 +4964,27 @@ button.oh-message-context-capsule {
 }
 .oh-reasoning-effort-panel {
   --oh-reasoning-progress: 50%;
+  --oh-reasoning-fill-position: 50%;
+  --oh-reasoning-thumb-position: 50%;
   --oh-reasoning-start: var(--m3-primary);
+  --oh-reasoning-mid: var(--m3-primary);
   --oh-reasoning-end: var(--m3-primary);
   width: 100%;
   padding: 17px 18px 15px;
   user-select: none;
 }
 .oh-reasoning-effort-panel[data-energy='balanced'] {
+  --oh-reasoning-mid: color-mix(in srgb, var(--m3-primary) 82%, var(--m3-tertiary));
   --oh-reasoning-end: color-mix(in srgb, var(--m3-primary) 62%, var(--m3-tertiary));
 }
 .oh-reasoning-effort-panel[data-energy='high'] {
+  --oh-reasoning-mid: color-mix(in srgb, var(--m3-primary) 56%, var(--m3-tertiary));
   --oh-reasoning-end: var(--m3-tertiary);
 }
 .oh-reasoning-effort-panel[data-energy='max'] {
-  --oh-reasoning-end: color-mix(in srgb, var(--m3-tertiary) 58%, var(--m3-secondary));
+  --oh-reasoning-start: color-mix(in srgb, var(--m3-primary) 38%, #2878ff);
+  --oh-reasoning-mid: color-mix(in srgb, var(--m3-tertiary) 34%, #875cff);
+  --oh-reasoning-end: color-mix(in srgb, var(--m3-secondary) 32%, #ff46d7);
 }
 .oh-reasoning-effort-heading {
   display: flex;
@@ -5014,7 +5002,7 @@ button.oh-message-context-capsule {
 }
 .oh-reasoning-effort-track {
   position: absolute;
-  inset: 22px 22px;
+  inset: 22px 0;
   height: 28px;
   border-radius: 999px;
   overflow: visible;
@@ -5025,15 +5013,27 @@ button.oh-message-context-capsule {
 .oh-reasoning-effort-fill {
   position: absolute;
   inset: -1px auto -1px -1px;
-  width: var(--oh-reasoning-progress);
+  width: var(--oh-reasoning-fill-position);
   min-width: 2px;
   border-radius: 999px;
-  background: linear-gradient(90deg, var(--oh-reasoning-start), var(--oh-reasoning-end));
+  background: linear-gradient(
+    90deg,
+    var(--oh-reasoning-start),
+    var(--oh-reasoning-mid) 52%,
+    var(--oh-reasoning-end)
+  );
   box-shadow: 0 8px 22px -13px color-mix(in srgb, var(--oh-reasoning-end) 82%, transparent);
   transition:
     width 360ms var(--oh-motion-spring),
     background 280ms var(--oh-motion-emphasized),
     box-shadow 280ms var(--oh-motion-emphasized);
+}
+.oh-reasoning-effort-panel[data-energy='max'] .oh-reasoning-effort-fill {
+  background-size: 220% 100%;
+  box-shadow:
+    0 0 18px -5px color-mix(in srgb, var(--oh-reasoning-start) 78%, transparent),
+    0 0 24px -7px color-mix(in srgb, var(--oh-reasoning-end) 80%, transparent);
+  animation: oh-reasoning-aurora 2800ms ease-in-out infinite alternate;
 }
 .oh-reasoning-effort-tick {
   position: absolute;
@@ -5056,7 +5056,7 @@ button.oh-message-context-capsule {
 .oh-reasoning-effort-orb {
   position: absolute;
   top: 50%;
-  left: var(--oh-reasoning-progress);
+  left: var(--oh-reasoning-thumb-position);
   width: 44px;
   height: 44px;
   border-radius: 999px;
@@ -5074,27 +5074,41 @@ button.oh-message-context-capsule {
 }
 .oh-reasoning-effort-track-shell:active .oh-reasoning-effort-orb {
   transform: translate(-50%, -50%) scale(1.06);
+  box-shadow: none;
 }
 .oh-reasoning-effort-sparkles {
   position: absolute;
-  inset: 2px;
+  inset: 2px auto 2px 2px;
+  width: max(0px, calc(var(--oh-reasoning-fill-position) - 4px));
   border-radius: inherit;
   overflow: hidden;
   pointer-events: none;
   opacity: 0;
-  background-image:
-    radial-gradient(circle at 12% 65%, rgb(255 255 255 / 70%) 0 1.2px, transparent 1.8px),
-    radial-gradient(circle at 30% 28%, rgb(255 255 255 / 52%) 0 1px, transparent 1.7px),
-    radial-gradient(circle at 51% 72%, rgb(255 255 255 / 68%) 0 1.3px, transparent 2px),
-    radial-gradient(circle at 70% 32%, rgb(255 255 255 / 56%) 0 1px, transparent 1.8px),
-    radial-gradient(circle at 88% 60%, rgb(255 255 255 / 72%) 0 1.4px, transparent 2.1px);
-  background-size: 86px 28px;
-  transition: opacity 260ms var(--oh-motion-emphasized);
+  transition:
+    width 360ms var(--oh-motion-spring),
+    opacity 260ms var(--oh-motion-emphasized);
+}
+.oh-reasoning-effort-sparkles > i {
+  position: absolute;
+  display: block;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 78%);
+  box-shadow: 0 0 4px rgb(255 255 255 / 42%);
+  transform: translate(-50%, -50%);
+  animation-name: oh-reasoning-particle-float;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
 }
 .oh-reasoning-effort-panel[data-energy='high'] .oh-reasoning-effort-sparkles,
 .oh-reasoning-effort-panel[data-energy='max'] .oh-reasoning-effort-sparkles {
   opacity: 1;
-  animation: oh-reasoning-sparkle-drift 1600ms linear infinite;
+}
+.oh-reasoning-effort-panel[data-energy='max'] .oh-reasoning-effort-sparkles > i:nth-child(3n + 1) {
+  background: color-mix(in srgb, #fff 74%, #8cecff);
+}
+.oh-reasoning-effort-panel[data-energy='max'] .oh-reasoning-effort-sparkles > i:nth-child(3n + 2) {
+  background: color-mix(in srgb, #fff 76%, #ffd0fa);
 }
 .oh-reasoning-effort-range {
   position: absolute;
@@ -5107,7 +5121,7 @@ button.oh-message-context-capsule {
   appearance: none;
   -webkit-appearance: none;
   background: transparent;
-  padding-inline: 22px;
+  padding-inline: 0;
 }
 .oh-reasoning-effort-range::-webkit-slider-runnable-track {
   height: 28px;
@@ -5168,13 +5182,31 @@ button.oh-message-context-capsule {
   font-size: 13px;
   font-weight: 800;
 }
+.oh-reasoning-effort-panel[data-energy='max'] .oh-reasoning-effort-current > span {
+  color: #fff;
+  background: linear-gradient(
+    110deg,
+    color-mix(in srgb, var(--m3-primary) 42%, #2878ff),
+    color-mix(in srgb, var(--m3-tertiary) 34%, #875cff) 52%,
+    color-mix(in srgb, var(--m3-secondary) 32%, #ff46d7)
+  );
+  border-color: color-mix(in srgb, #fff 42%, var(--m3-tertiary));
+  box-shadow:
+    0 10px 24px -16px color-mix(in srgb, #2878ff 78%, transparent),
+    0 10px 28px -18px color-mix(in srgb, #ff46d7 76%, transparent);
+}
 @keyframes oh-reasoning-control-sweep {
   from { transform: translateX(-60%); }
   to { transform: translateX(60%); }
 }
-@keyframes oh-reasoning-sparkle-drift {
-  from { background-position: 0 0; }
-  to { background-position: 86px 0; }
+@keyframes oh-reasoning-particle-float {
+  0% { opacity: 0.28; transform: translate(-50%, -50%) translate3d(-1px, 2px, 0) scale(0.72); }
+  43% { opacity: 0.92; }
+  100% { opacity: 0.5; transform: translate(-50%, -50%) translate3d(2px, -2px, 0) scale(1.16); }
+}
+@keyframes oh-reasoning-aurora {
+  from { background-position: 0% 50%; filter: saturate(1.02); }
+  to { background-position: 100% 50%; filter: saturate(1.24); }
 }
 .oh-composer-model-provider {
   color: var(--m3-on-surface-variant);

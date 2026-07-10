@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -9,33 +10,45 @@ import 'animated_menu.dart';
 import 'motion_preference.dart';
 
 const double _kReasoningPopupWidth = 356;
-const double _kReasoningTrackHorizontalInset = 24;
+const double _kReasoningPopupEntryHeight = 190;
+const double _kReasoningPopupEstimatedHeight = 206;
+const double _kReasoningPopupGap = 8;
 const double _kReasoningThumbRadius = 22;
 
-Future<String?> showReasoningEffortSelector({
+Future<void> showReasoningEffortSelector({
   required BuildContext context,
   required BuildContext anchorContext,
   required List<AiReasoningEffortOption> options,
   required String? currentValue,
-}) {
+  required Future<bool> Function(String effort) onChanged,
+}) async {
   final selectable = options
       .where((option) => option.isSelectable)
       .toList(growable: false);
-  if (selectable.isEmpty) return Future<String?>.value();
+  if (selectable.isEmpty) return;
   final anchorBox = anchorContext.findRenderObject();
   final overlayBox = Overlay.maybeOf(anchorContext)?.context.findRenderObject();
   if (anchorBox is! RenderBox ||
       overlayBox is! RenderBox ||
       !anchorBox.hasSize ||
       !overlayBox.hasSize) {
-    return Future<String?>.value();
+    return;
   }
   final topLeft = anchorBox.localToGlobal(Offset.zero, ancestor: overlayBox);
-  final anchorRect = topLeft & anchorBox.size;
+  final popupTop = math.max(
+    8,
+    topLeft.dy - _kReasoningPopupEstimatedHeight - _kReasoningPopupGap,
+  );
+  final anchorRect = Rect.fromLTWH(
+    topLeft.dx,
+    popupTop.toDouble(),
+    anchorBox.size.width,
+    0,
+  );
   final popupWidth = math
       .min(_kReasoningPopupWidth, math.max(112, overlayBox.size.width - 16))
       .toDouble();
-  return showAnimatedMenu<String>(
+  await showAnimatedMenu<String>(
     context: context,
     position: RelativeRect.fromRect(anchorRect, Offset.zero & overlayBox.size),
     constraints: BoxConstraints(minWidth: popupWidth, maxWidth: popupWidth),
@@ -45,6 +58,7 @@ Future<String?> showReasoningEffortSelector({
         width: popupWidth,
         options: selectable,
         currentValue: currentValue,
+        onChanged: onChanged,
       ),
     ],
   );
@@ -55,14 +69,16 @@ class _ReasoningEffortPopupEntry extends PopupMenuEntry<String> {
     required this.width,
     required this.options,
     required this.currentValue,
+    required this.onChanged,
   });
 
   final double width;
   final List<AiReasoningEffortOption> options;
   final String? currentValue;
+  final Future<bool> Function(String effort) onChanged;
 
   @override
-  double get height => 190;
+  double get height => _kReasoningPopupEntryHeight;
 
   @override
   bool represents(String? value) => false;
@@ -75,6 +91,9 @@ class _ReasoningEffortPopupEntry extends PopupMenuEntry<String> {
 class _ReasoningEffortPopupEntryState
     extends State<_ReasoningEffortPopupEntry> {
   late int _selectedIndex;
+  late String _persistedValue;
+  String? _pendingValue;
+  bool _saving = false;
 
   @override
   void initState() {
@@ -84,6 +103,7 @@ class _ReasoningEffortPopupEntryState
       (option) => option.value.toLowerCase() == normalizedCurrent,
     );
     _selectedIndex = resolved < 0 ? widget.options.length ~/ 2 : resolved;
+    _persistedValue = widget.options[_selectedIndex].value;
   }
 
   void _select(double value) {
@@ -95,7 +115,40 @@ class _ReasoningEffortPopupEntryState
 
   void _commit(double value) {
     final next = value.round().clamp(0, widget.options.length - 1);
-    Navigator.of(context).pop(widget.options[next].value);
+    final effort = widget.options[next].value;
+    if (!_saving && effort.toLowerCase() == _persistedValue.toLowerCase()) {
+      return;
+    }
+    if (_pendingValue?.toLowerCase() == effort.toLowerCase()) return;
+    _pendingValue = effort;
+    if (_saving) return;
+    _saving = true;
+    unawaited(_drainPendingChanges());
+  }
+
+  Future<void> _drainPendingChanges() async {
+    try {
+      while (_pendingValue != null) {
+        final effort = _pendingValue!;
+        _pendingValue = null;
+        final saved = await widget.onChanged(effort);
+        if (saved) {
+          _persistedValue = effort;
+          continue;
+        }
+        if (_pendingValue == null && mounted) {
+          final persistedIndex = widget.options.indexWhere(
+            (option) =>
+                option.value.toLowerCase() == _persistedValue.toLowerCase(),
+          );
+          if (persistedIndex >= 0) {
+            setState(() => _selectedIndex = persistedIndex);
+          }
+        }
+      }
+    } finally {
+      _saving = false;
+    }
   }
 
   @override
@@ -106,6 +159,8 @@ class _ReasoningEffortPopupEntryState
     final option = widget.options[_selectedIndex];
     final maxIndex = math.max(1, widget.options.length - 1);
     final progress = _selectedIndex / maxIndex;
+    final isMaximum = progress >= 0.96;
+    final maximumColors = _maximumEffortColors(colorScheme);
     return SizedBox(
       width: widget.width,
       child: Padding(
@@ -160,10 +215,10 @@ class _ReasoningEffortPopupEntryState
                       disabledActiveTrackColor: Colors.transparent,
                       disabledInactiveTrackColor: Colors.transparent,
                       thumbColor: Colors.transparent,
-                      overlayColor: colorScheme.primary.withValues(alpha: 0.08),
+                      overlayColor: Colors.transparent,
                       thumbShape: const _InvisibleSliderThumbShape(),
                       overlayShape: const RoundSliderOverlayShape(
-                        overlayRadius: 28,
+                        overlayRadius: 0,
                       ),
                       tickMarkShape: SliderTickMarkShape.noTickMark,
                     ),
@@ -194,27 +249,42 @@ class _ReasoningEffortPopupEntryState
                   vertical: 9,
                 ),
                 decoration: BoxDecoration(
-                  color: Color.lerp(
-                    colorScheme.primaryContainer,
-                    colorScheme.tertiaryContainer,
-                    progress,
-                  ),
+                  color: isMaximum
+                      ? null
+                      : Color.lerp(
+                          colorScheme.primaryContainer,
+                          colorScheme.tertiaryContainer,
+                          progress,
+                        ),
+                  gradient: isMaximum
+                      ? LinearGradient(
+                          begin: AlignmentDirectional.centerStart,
+                          end: AlignmentDirectional.centerEnd,
+                          colors: maximumColors,
+                        )
+                      : null,
                   borderRadius: BorderRadius.circular(999),
                   border: Border.all(
-                    color: Color.lerp(
-                      colorScheme.primary,
-                      colorScheme.tertiary,
-                      progress,
-                    )!.withValues(alpha: 0.5),
+                    color: isMaximum
+                        ? Colors.white.withValues(alpha: 0.5)
+                        : Color.lerp(
+                            colorScheme.primary,
+                            colorScheme.tertiary,
+                            progress,
+                          )!.withValues(alpha: 0.5),
                   ),
                   boxShadow: <BoxShadow>[
                     BoxShadow(
-                      color: Color.lerp(
-                        colorScheme.primary,
-                        colorScheme.tertiary,
-                        progress,
-                      )!.withValues(alpha: 0.16),
-                      blurRadius: 16,
+                      color:
+                          (isMaximum
+                                  ? maximumColors.last
+                                  : Color.lerp(
+                                      colorScheme.primary,
+                                      colorScheme.tertiary,
+                                      progress,
+                                    ))!
+                              .withValues(alpha: isMaximum ? 0.3 : 0.16),
+                      blurRadius: isMaximum ? 22 : 16,
                       offset: const Offset(0, 6),
                     ),
                   ],
@@ -230,11 +300,13 @@ class _ReasoningEffortPopupEntryState
                     option.labelForLocaleName(localeName),
                     key: ValueKey<String>(option.value),
                     style: theme.textTheme.labelLarge?.copyWith(
-                      color: Color.lerp(
-                        colorScheme.onPrimaryContainer,
-                        colorScheme.onTertiaryContainer,
-                        progress,
-                      ),
+                      color: isMaximum
+                          ? Colors.white
+                          : Color.lerp(
+                              colorScheme.onPrimaryContainer,
+                              colorScheme.onTertiaryContainer,
+                              progress,
+                            ),
                       fontWeight: FontWeight.w800,
                     ),
                   ),
@@ -320,6 +392,75 @@ class _AnimatedReasoningTrackState extends State<_AnimatedReasoningTrack>
   }
 }
 
+List<Color> _maximumEffortColors(ColorScheme colors) {
+  return _maximumEffortColorsFromSeeds(
+    colors.primary,
+    colors.secondary,
+    colors.tertiary,
+  );
+}
+
+List<Color> _maximumEffortColorsFromSeeds(
+  Color primary,
+  Color secondary,
+  Color tertiary,
+) {
+  final seed = Color.lerp(primary, tertiary, 0.28)!;
+  return <Color>[
+    Color.lerp(_shiftVividHue(seed, -18), primary, 0.22)!,
+    Color.lerp(_shiftVividHue(seed, 82), tertiary, 0.18)!,
+    Color.lerp(_shiftVividHue(seed, 188), secondary, 0.16)!,
+  ];
+}
+
+Color _shiftVividHue(Color color, double degrees) {
+  final hsl = HSLColor.fromColor(color);
+  return hsl
+      .withHue((hsl.hue + degrees) % 360)
+      .withSaturation(math.max(0.72, hsl.saturation).clamp(0.0, 1.0).toDouble())
+      .withLightness(hsl.lightness.clamp(0.46, 0.62).toDouble())
+      .toColor();
+}
+
+const List<_ReasoningParticleSeed> _reasoningParticleSeeds =
+    <_ReasoningParticleSeed>[
+      _ReasoningParticleSeed(0.03, -5.2, 1.2, 0.3, 0.72, 1.4, 1.1),
+      _ReasoningParticleSeed(0.08, 4.1, 0.8, 1.8, 1.14, 2.2, 0.8),
+      _ReasoningParticleSeed(0.14, -0.8, 1.5, 3.1, 0.86, 1.2, 1.7),
+      _ReasoningParticleSeed(0.21, 6.3, 0.7, 4.7, 1.31, 2.8, 1.0),
+      _ReasoningParticleSeed(0.27, -6.8, 1.0, 2.2, 0.67, 1.8, 1.4),
+      _ReasoningParticleSeed(0.34, 2.6, 1.3, 5.4, 1.08, 2.4, 0.9),
+      _ReasoningParticleSeed(0.42, -3.7, 0.7, 0.9, 1.42, 1.3, 1.8),
+      _ReasoningParticleSeed(0.49, 6.9, 1.6, 3.8, 0.78, 2.6, 1.2),
+      _ReasoningParticleSeed(0.57, -7.1, 0.9, 5.9, 1.19, 1.6, 1.5),
+      _ReasoningParticleSeed(0.63, 0.7, 1.2, 1.5, 0.91, 2.1, 1.0),
+      _ReasoningParticleSeed(0.71, 5.4, 0.8, 4.3, 1.36, 2.7, 1.6),
+      _ReasoningParticleSeed(0.78, -4.9, 1.5, 2.7, 0.63, 1.4, 0.8),
+      _ReasoningParticleSeed(0.85, 3.8, 1.0, 5.1, 1.02, 2.3, 1.3),
+      _ReasoningParticleSeed(0.92, -1.8, 1.3, 0.5, 1.27, 1.7, 1.7),
+      _ReasoningParticleSeed(0.97, 6.1, 0.7, 3.5, 0.83, 2.5, 0.9),
+    ];
+
+class _ReasoningParticleSeed {
+  const _ReasoningParticleSeed(
+    this.x,
+    this.y,
+    this.radius,
+    this.phase,
+    this.speed,
+    this.driftX,
+    this.driftY,
+  );
+
+  final double x;
+  final double y;
+  final double radius;
+  final double phase;
+  final double speed;
+  final double driftX;
+  final double driftY;
+}
+
 class _ReasoningTrackPainter extends CustomPainter {
   const _ReasoningTrackPainter({
     required this.progress,
@@ -344,8 +485,8 @@ class _ReasoningTrackPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final centerY = size.height / 2;
-    const left = _kReasoningTrackHorizontalInset;
-    final right = math.max(left, size.width - _kReasoningTrackHorizontalInset);
+    const left = 0.0;
+    final right = math.max(left, size.width);
     final trackRect = RRect.fromRectAndRadius(
       Rect.fromLTRB(left, centerY - 13, right, centerY + 13),
       const Radius.circular(999),
@@ -359,21 +500,51 @@ class _ReasoningTrackPainter extends CustomPainter {
         ..color = outlineColor,
     );
 
-    final thumbX = left + (right - left) * progress;
-    if (thumbX > left) {
+    final thumbLeft = math.min(right, left + _kReasoningThumbRadius);
+    final thumbRight = math.max(thumbLeft, right - _kReasoningThumbRadius);
+    final thumbX = thumbLeft + (thumbRight - thumbLeft) * progress;
+    final activeRight = progress >= 1
+        ? right
+        : progress <= 0
+        ? left
+        : thumbX;
+    final isMaximum = progress >= 0.96;
+    final maximumColors = _maximumEffortColorsFromSeeds(
+      primaryColor,
+      secondaryColor,
+      tertiaryColor,
+    );
+    if (activeRight > left) {
       final activeRect = RRect.fromRectAndRadius(
-        Rect.fromLTRB(left, centerY - 13, thumbX, centerY + 13),
+        Rect.fromLTRB(left, centerY - 13, activeRight, centerY + 13),
         const Radius.circular(999),
       );
+      final fillColors = isMaximum
+          ? maximumColors
+          : <Color>[
+              primaryColor,
+              Color.lerp(primaryColor, tertiaryColor, progress)!,
+              if (progress >= 0.72) secondaryColor,
+            ];
+      if (isMaximum) {
+        canvas.drawRRect(
+          activeRect,
+          Paint()
+            ..shader = LinearGradient(
+              colors: fillColors
+                  .map((color) {
+                    return color.withValues(alpha: 0.72);
+                  })
+                  .toList(growable: false),
+            ).createShader(activeRect.outerRect)
+            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 7),
+        );
+      }
       canvas.drawRRect(
         activeRect,
         Paint()
           ..shader = LinearGradient(
-            colors: <Color>[
-              primaryColor,
-              Color.lerp(primaryColor, tertiaryColor, progress)!,
-              if (progress >= 0.72) secondaryColor,
-            ],
+            colors: fillColors,
           ).createShader(activeRect.outerRect),
       );
     }
@@ -395,43 +566,64 @@ class _ReasoningTrackPainter extends CustomPainter {
 
     if (progress >= 0.72) {
       final energy = ((progress - 0.72) / 0.28).clamp(0.0, 1.0);
-      for (var index = 0; index < 11; index++) {
-        final base = (index * 0.087 + phase * (0.08 + index * 0.002)) % 1;
-        final x = left + (thumbX - left) * base;
-        final wave = math.sin((phase * math.pi * 2) + index * 1.7);
-        final y = centerY + wave * (5 + (index % 3));
-        final alpha = (0.28 + (wave + 1) * 0.22) * energy;
+      final particleRight = math.max(left, activeRight - 3);
+      canvas.save();
+      canvas.clipRRect(trackRect);
+      for (var index = 0; index < _reasoningParticleSeeds.length; index++) {
+        final seed = _reasoningParticleSeeds[index];
+        final theta = phase * math.pi * 2 * seed.speed + seed.phase;
+        final x =
+            left +
+            (particleRight - left) * seed.x +
+            math.sin(theta) * seed.driftX;
+        final y = centerY + seed.y + math.cos(theta * 0.83) * seed.driftY;
+        final pulse = (math.sin(theta * 1.17) + 1) / 2;
+        final alpha = (0.24 + pulse * 0.58) * energy;
+        final particleColor = isMaximum
+            ? Color.lerp(
+                Colors.white,
+                maximumColors[index % maximumColors.length],
+                0.22,
+              )!
+            : Colors.white;
         canvas.drawCircle(
           Offset(x, y),
-          1.2 + (index % 3) * 0.35,
-          Paint()..color = Colors.white.withValues(alpha: alpha),
+          seed.radius * (0.82 + pulse * 0.3),
+          Paint()..color = particleColor.withValues(alpha: alpha),
         );
       }
+      canvas.restore();
     }
 
-    canvas.drawCircle(
-      Offset(thumbX, centerY + 4),
-      _kReasoningThumbRadius,
-      Paint()
-        ..color = Colors.black.withValues(alpha: 0.18)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 9),
-    );
     canvas.drawCircle(
       Offset(thumbX, centerY),
       _kReasoningThumbRadius,
       Paint()..color = Colors.white,
     );
+    final thumbBorderPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = isMaximum ? 2.2 : 1.5;
+    if (isMaximum) {
+      thumbBorderPaint.shader =
+          SweepGradient(
+            colors: <Color>[...maximumColors, maximumColors.first],
+          ).createShader(
+            Rect.fromCircle(
+              center: Offset(thumbX, centerY),
+              radius: _kReasoningThumbRadius,
+            ),
+          );
+    } else {
+      thumbBorderPaint.color = Color.lerp(
+        primaryColor,
+        tertiaryColor,
+        progress,
+      )!.withValues(alpha: 0.32);
+    }
     canvas.drawCircle(
       Offset(thumbX, centerY),
       _kReasoningThumbRadius,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.5
-        ..color = Color.lerp(
-          primaryColor,
-          tertiaryColor,
-          progress,
-        )!.withValues(alpha: 0.32),
+      thumbBorderPaint,
     );
   }
 

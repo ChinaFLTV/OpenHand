@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { useMemo, useRef, useState } from 'preact/hooks';
 import { t } from '../i18n';
 import type { ApiMetaModel, ApiReasoningEffortOption } from '../api/meta';
 import { PopMenu } from './PopMenu';
@@ -7,29 +7,26 @@ export interface ReasoningEffortControlProps {
   model?: ApiMetaModel;
   disabled?: boolean;
   saving?: boolean;
-  onSelect: (effort: string) => Promise<void>;
+  onSelect: (effort: string) => Promise<boolean>;
 }
 
-function ReasoningIcon() {
-  return (
-    <svg
-      width="18"
-      height="18"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-      focusable="false"
-    >
-      <path d="M9.5 4.5a3.5 3.5 0 0 1 5.7 2.7 3.6 3.6 0 0 1 2.4 5.8 3.6 3.6 0 0 1-3.3 5.4H13v2.1" />
-      <path d="M10.6 19.4H9.2a3.7 3.7 0 0 1-3.3-5.3 3.6 3.6 0 0 1 1.8-6.2A3.5 3.5 0 0 1 9.5 4.5v14.9" />
-      <path d="M9.5 8.4c-1.1.1-1.9.7-2.3 1.7M14.8 10.1c-1.2 0-2.2.8-2.5 1.9M9.5 14.4c.9 0 1.7.5 2.1 1.2" />
-    </svg>
-  );
-}
+const REASONING_PARTICLES = [
+  [3, 32, 2.2, -0.7, 2.8],
+  [8, 67, 1.5, -1.8, 3.7],
+  [14, 43, 2.7, -2.6, 3.1],
+  [21, 73, 1.2, -0.2, 4.3],
+  [27, 25, 1.8, -3.4, 2.6],
+  [34, 58, 2.3, -1.1, 3.9],
+  [42, 37, 1.1, -2.1, 4.6],
+  [49, 77, 2.8, -0.4, 3.3],
+  [57, 19, 1.4, -3.8, 4.1],
+  [63, 53, 2.1, -1.5, 2.9],
+  [71, 72, 1.3, -2.9, 3.6],
+  [78, 29, 2.6, -0.9, 4.4],
+  [85, 62, 1.7, -3.1, 3.2],
+  [92, 39, 2.2, -1.3, 4.8],
+  [97, 70, 1.1, -2.4, 2.7],
+] as const;
 
 function selectableOptions(model?: ApiMetaModel): ApiReasoningEffortOption[] {
   if (!model?.reasoning_effort_control_enabled) return [];
@@ -69,32 +66,50 @@ function clampIndex(value: number, options: ApiReasoningEffortOption[]): number 
 function ReasoningEffortPanel({
   options,
   currentValue,
-  close,
   onSelect,
 }: {
   options: ApiReasoningEffortOption[];
   currentValue?: string | null;
-  close: () => void;
-  onSelect: (effort: string) => Promise<void>;
+  onSelect: (effort: string) => Promise<boolean>;
 }) {
   const currentIndex = optionIndex(options, currentValue);
   const [draftIndex, setDraftIndex] = useState(currentIndex);
-  const committedRef = useRef(false);
-  useEffect(() => setDraftIndex(currentIndex), [currentIndex, currentValue]);
+  const persistedValueRef = useRef(options[currentIndex]?.value ?? '');
+  const queuedValueRef = useRef<string | null>(null);
+  const persistingRef = useRef(false);
   const maxIndex = Math.max(1, options.length - 1);
   const selected = options[clampIndex(draftIndex, options)]!;
   const progress = options.length <= 1 ? 1 : draftIndex / maxIndex;
   const energy = progress >= 0.96 ? 'max' : progress >= 0.7 ? 'high' : progress >= 0.38 ? 'balanced' : 'fast';
+  const thumbInset = 22 - 44 * progress;
+  const thumbPosition = `calc(${progress * 100}% + ${thumbInset}px)`;
+  const fillPosition = progress <= 0 ? '0%' : progress >= 1 ? '100%' : thumbPosition;
 
   const commit = (value: number) => {
-    if (committedRef.current) return;
-    committedRef.current = true;
     const next = options[clampIndex(value, options)];
     if (!next) return;
-    close();
-    if (next.value.toLowerCase() !== currentValue?.trim().toLowerCase()) {
-      void onSelect(next.value);
-    }
+    const normalized = next.value.toLowerCase();
+    if (!persistingRef.current && persistedValueRef.current.toLowerCase() === normalized) return;
+    if (queuedValueRef.current?.toLowerCase() === normalized) return;
+    queuedValueRef.current = next.value;
+    if (persistingRef.current) return;
+    persistingRef.current = true;
+    void (async () => {
+      try {
+        while (queuedValueRef.current != null) {
+          const queued = queuedValueRef.current;
+          queuedValueRef.current = null;
+          const saved = await onSelect(queued);
+          if (saved) {
+            persistedValueRef.current = queued;
+          } else if (queuedValueRef.current == null) {
+            setDraftIndex(optionIndex(options, persistedValueRef.current));
+          }
+        }
+      } finally {
+        persistingRef.current = false;
+      }
+    })();
   };
 
   return (
@@ -105,11 +120,29 @@ function ReasoningEffortPanel({
       </div>
       <div
         class="oh-reasoning-effort-track-shell"
-        style={{ '--oh-reasoning-progress': `${progress * 100}%` }}
+        style={{
+          '--oh-reasoning-progress': `${progress * 100}%`,
+          '--oh-reasoning-fill-position': fillPosition,
+          '--oh-reasoning-thumb-position': thumbPosition,
+        }}
       >
         <div class="oh-reasoning-effort-track" aria-hidden="true">
           <span class="oh-reasoning-effort-fill" />
-          <span class="oh-reasoning-effort-sparkles" />
+          <span class="oh-reasoning-effort-sparkles">
+            {REASONING_PARTICLES.map(([left, top, size, delay, duration], index) => (
+              <i
+                key={index}
+                style={{
+                  left: `${left}%`,
+                  top: `${top}%`,
+                  width: `${size}px`,
+                  height: `${size}px`,
+                  animationDelay: `${delay}s`,
+                  animationDuration: `${duration}s`,
+                }}
+              />
+            ))}
+          </span>
           {options.map((option, index) => (
             <span
               key={option.value}
@@ -196,15 +229,15 @@ export function ReasoningEffortControl({
   return (
     <PopMenu
       align="left"
+      verticalPlacement="above"
       width={360}
       wrapperClassName="oh-composer-reasoning-menu"
       panelClassName="oh-reasoning-effort-popover"
       ariaLabel={t('composer.reasoning.title', '推理强度')}
-      content={({ close }) => (
+      content={() => (
         <ReasoningEffortPanel
           options={options}
           currentValue={model?.reasoning_effort}
-          close={close}
           onSelect={onSelect}
         />
       )}
@@ -218,11 +251,7 @@ export function ReasoningEffortControl({
           aria-haspopup={supported ? 'dialog' : undefined}
           title={tooltip}
         >
-          <span class="oh-composer-control-icon">
-            <ReasoningIcon />
-          </span>
           <span key={label} class="oh-soft-replace">{label}</span>
-          {supported ? <span class={`oh-reasoning-energy-dot ${open ? 'is-open' : ''}`} /> : null}
         </button>
       )}
     />

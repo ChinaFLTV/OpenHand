@@ -1405,24 +1405,31 @@ class _ComposerPanelState extends State<_ComposerPanel> {
         .where((option) => option.isSelectable)
         .toList(growable: false);
     if (options.isEmpty) return;
-    final effort = await showReasoningEffortSelector(
+    await showReasoningEffortSelector(
       context: context,
       anchorContext: btnContext,
       options: options,
       currentValue: selected.resolvedReasoningEffort,
-    );
-    if (!mounted || effort == null) return;
-    final saved = await context
-        .read<SettingsController>()
-        .updateAiModelReasoningEffort(selected.id, selected.modelId, effort);
-    if (!mounted || saved) return;
-    showOpenHandErrorSnack(
-      context,
-      openHandLocalizedText(
-        context,
-        zh: '推理强度保存失败，请检查当前模型配置。',
-        en: 'Could not save the reasoning effort. Check this model configuration.',
-      ),
+      onChanged: (effort) async {
+        if (!mounted) return false;
+        final saved = await context
+            .read<SettingsController>()
+            .updateAiModelReasoningEffort(
+              selected.id,
+              selected.modelId,
+              effort,
+            );
+        if (!mounted || saved) return saved;
+        showOpenHandErrorSnack(
+          context,
+          openHandLocalizedText(
+            context,
+            zh: '推理强度保存失败，请检查当前模型配置。',
+            en: 'Could not save the reasoning effort. Check this model configuration.',
+          ),
+        );
+        return false;
+      },
     );
   }
 
@@ -1463,8 +1470,6 @@ class _ComposerPanelState extends State<_ComposerPanel> {
             zh: '不支持推理',
             en: 'No reasoning control',
           );
-    final selectedModelThinkingEnabled =
-        widget.selectedModel?.resolvedThinkingEnabled ?? false;
     final isCompressing = widget.sendPhase == AiSendPhase.compressing;
     final isSendingMessage = widget.sendPhase == AiSendPhase.sendingMessage;
     final isResponding = widget.sendPhase == AiSendPhase.responding;
@@ -1894,7 +1899,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                     return Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        OutlinedButton.icon(
+                        OutlinedButton(
                           onPressed: widget.availableModels.isEmpty
                               ? null
                               : () => _showModelMenu(btnContext),
@@ -1910,24 +1915,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                               ),
                             ),
                           ),
-                          icon: SizedBox(
-                            width: 24,
-                            height: 24,
-                            child: AnimatedSwitcher(
-                              duration: const Duration(milliseconds: 180),
-                              switchInCurve: Curves.easeOutCubic,
-                              switchOutCurve: Curves.easeInCubic,
-                              child: Icon(
-                                selectedModelThinkingEnabled
-                                    ? Icons.psychology_rounded
-                                    : Icons.hub_outlined,
-                                key: ValueKey<bool>(
-                                  selectedModelThinkingEnabled,
-                                ),
-                              ),
-                            ),
-                          ),
-                          label: Text(
+                          child: Text(
                             selectedModelLabel,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -1946,7 +1934,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                                 ),
                           child: SizedBox(
                             height: 52,
-                            child: OutlinedButton.icon(
+                            child: OutlinedButton(
                               onPressed: selectedModelReasoningSupported
                                   ? () => unawaited(
                                       _selectReasoningEffort(btnContext),
@@ -1959,22 +1947,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                                 ),
                                 shape: const RoundedRectangleBorder(),
                               ),
-                              icon: AnimatedSwitcher(
-                                duration: openHandMotionDuration(
-                                  context,
-                                  const Duration(milliseconds: 220),
-                                ),
-                                switchInCurve: Curves.easeOutBack,
-                                switchOutCurve: Curves.easeInCubic,
-                                child: Icon(
-                                  Icons.psychology_alt_rounded,
-                                  key: ValueKey<String>(
-                                    selectedModelReasoningEffortLabel ?? 'off',
-                                  ),
-                                  size: 18,
-                                ),
-                              ),
-                              label: AnimatedSwitcher(
+                              child: AnimatedSwitcher(
                                 duration: openHandMotionDuration(
                                   context,
                                   const Duration(milliseconds: 220),

@@ -17,6 +17,7 @@ import {
   DEFAULT_FLOATING_ANCHOR_GAP,
   DEFAULT_FLOATING_VIEWPORT_PADDING,
   computeAnchoredMenuPosition,
+  type FloatingVerticalPlacement,
 } from '../shared/ui/floating_position';
 import { OverlayPortal } from './OverlayPortal';
 
@@ -46,6 +47,8 @@ export interface PopMenuProps {
   wrapperClassName?: string;
   /** 默认 'right'，菜单从触发器右上角弹出。 */
   align?: 'left' | 'right';
+  /** 垂直方向首选位置；空间不足时自动回退到可用侧。 */
+  verticalPlacement?: FloatingVerticalPlacement;
   /** 可选固定宽度，适合模式选择等短菜单，避免长禁用说明把菜单撑宽。 */
   width?: number;
 }
@@ -54,6 +57,7 @@ interface MenuPos {
   top: number;
   left: number;
   width: number;
+  placedAbove: boolean;
 }
 
 const VIEWPORT_PADDING = DEFAULT_FLOATING_VIEWPORT_PADDING;
@@ -86,6 +90,7 @@ export function PopMenu({
   trigger,
   wrapperClassName = '',
   align = 'right',
+  verticalPlacement = 'auto',
   width,
 }: PopMenuProps) {
   const menuMotion = useDelayedVisibility();
@@ -110,13 +115,21 @@ export function PopMenu({
     const position = computeAnchoredMenuPosition({
       anchor: trig,
       preferredWidth: desiredWidth,
-      measuredHeight: menuRef.current?.getBoundingClientRect().height,
+      // offsetHeight 不受进场 scale 动画影响，避免测到缩放中的高度后
+      // 把“上方显示”的菜单压回触发器区域。
+      measuredHeight: menuRef.current?.offsetHeight,
       align,
+      verticalPlacement,
       viewportPadding: VIEWPORT_PADDING,
       gap: MENU_GAP,
     });
-    setPos({ top: position.top, left: position.left, width: position.width });
-  }, [align, width]);
+    setPos({
+      top: position.top,
+      left: position.left,
+      width: position.width,
+      placedAbove: position.placedAbove,
+    });
+  }, [align, verticalPlacement, width]);
   const { schedule: scheduleRecompute, flush: recomputeNow, cancel: cancelRecompute } = useRafScheduler(recompute);
 
   useLayoutEffect(() => {
@@ -136,17 +149,12 @@ export function PopMenu({
     };
   }, [menuVisible, recompute, recomputeNow, scheduleRecompute, cancelRecompute]);
 
-  // 第一次渲染拿到菜单实际尺寸后再校准一次（避免 minWidth 估算偏差）。
+  // 第一次渲染拿到菜单实际尺寸后再校准一次，确保上方锚定不会因
+  // fallback 高度与真实高度不同而压住触发器。
   useLayoutEffect(() => {
     if (!menuVisible || !pos || !menuRef.current) return;
-    const r = menuRef.current.getBoundingClientRect();
-    const desiredLeft = align === 'right'
-      ? (wrapRef.current?.getBoundingClientRect().right ?? 0) - r.width
-      : pos.left;
-    if (Math.abs(desiredLeft - pos.left) > 1) {
-      setPos((prev) => (prev ? { ...prev, left: Math.max(VIEWPORT_PADDING, desiredLeft) } : prev));
-    }
-  }, [menuVisible, pos?.width]);
+    recomputeNow();
+  }, [menuVisible, pos?.width, recomputeNow]);
 
   const menuNode = menuVisible
     ? (
@@ -165,7 +173,7 @@ export function PopMenu({
             boxShadow: 'var(--m3-elev-3)',
             border: '1px solid var(--m3-outline)',
             visibility: pos ? 'visible' : 'hidden',
-            transformOrigin: align === 'right' ? 'top right' : 'top left',
+            transformOrigin: `${pos?.placedAbove ? 'bottom' : 'top'} ${align}`,
           }}
           role={content ? 'dialog' : 'menu'}
           aria-label={ariaLabel}

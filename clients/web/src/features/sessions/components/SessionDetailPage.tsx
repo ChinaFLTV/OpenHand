@@ -5092,8 +5092,8 @@ export function SessionDetailPage() {
   const attachmentAccept = useMemo(() => attachmentAcceptForModel(selectedModel), [selectedModel]);
   const textAllowed = allowedMessageTypes.includes('text');
 
-  async function changeComposerReasoningEffort(effort: string): Promise<void> {
-    if (!selectedModel || reasoningEffortSaving) return;
+  async function changeComposerReasoningEffort(effort: string): Promise<boolean> {
+    if (!selectedModel || reasoningEffortSaving) return false;
     setReasoningEffortSaving(true);
     let saved = false;
     try {
@@ -5103,8 +5103,9 @@ export function SessionDetailPage() {
       showSnackbar(t('composer.reasoning.saved', '推理强度已更新'), {
         tone: 'success',
       });
+      return true;
     } catch (error) {
-      if (handleAuthError(error)) return;
+      if (handleAuthError(error)) return false;
       if (saved) {
         showSnackbar(
           t(
@@ -5119,6 +5120,7 @@ export function SessionDetailPage() {
           { tone: 'error' },
         );
       }
+      return saved;
     } finally {
       if (mountedRef.current) setReasoningEffortSaving(false);
     }
@@ -7037,9 +7039,6 @@ export function SessionDetailPage() {
                 ) : null}
 
                 <button type="button" onClick={() => setShowComposerModelPicker(true)} disabled={composerSending || allowedModels.length === 0} class="oh-composer-control oh-composer-model-control oh-tap-press disabled:opacity-50 min-w-0" title={selectedModelName && selectedModelProvider ? `${selectedModelName} · ${selectedModelProvider}` : t('composer.model', '模型')}>
-                  <span class="oh-composer-control-icon">
-                    <ComposerIcon name="model" />
-                  </span>
                   <span class="truncate">
                     {selectedModelName || t('composer.modelEmpty', '主控制台未配置模型')}
                     {selectedModelProvider ? <span class="oh-composer-model-provider"> · {selectedModelProvider}</span> : null}
