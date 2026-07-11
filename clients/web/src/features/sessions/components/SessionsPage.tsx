@@ -41,6 +41,10 @@ import { BusyWaitDialog } from '../../../components/BusyWaitDialog';
 import { AnimatedTitleText } from '../../../components/AnimatedTitleText';
 import { BrowserFullscreenButton } from '../../../components/BrowserFullscreenButton';
 import { formatLocalDateTimeMinute } from '../../../shared/util/date_time';
+import {
+  PAGE_SHELL_CLASS,
+  SESSIONS_SHELL_CLASS,
+} from '../../../shared/ui/layout';
 
 const DEFAULT_PAGE_SIZE = 10;
 const PULL_REFRESH_MIN_VISIBLE_MS = 180;
@@ -377,10 +381,10 @@ export function SessionsPage() {
   return (
     <main
       ref={pageRootRef}
-      class="oh-sessions-page h-screen overflow-hidden px-3 sm:px-6 py-4 sm:py-6 flex flex-col"
+      class={`oh-sessions-page ${PAGE_SHELL_CLASS} h-screen overflow-hidden flex flex-col`}
       style={{ background: 'var(--m3-surface)' }}
     >
-      <div class="mx-auto max-w-3xl w-full flex-1 min-h-0 flex flex-col">
+      <div class={`${SESSIONS_SHELL_CLASS} w-full flex-1 min-h-0 flex flex-col`}>
         <PullIndicator
           pulled={pull.pulled}
           refreshing={pull.refreshing}
@@ -445,26 +449,25 @@ export function SessionsPage() {
             </button>
           </div>
         ) : items.length === 0 ? (
-          <div
-            class="text-center py-12 rounded-m3-md"
-            style={{
-              background: 'var(--m3-surface-container)',
-              color: 'var(--m3-on-surface-variant)',
-            }}
-          >
+          <div class="oh-session-empty-state oh-sessions-empty">
+            <span class="oh-session-empty-icon" aria-hidden>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+              </svg>
+            </span>
             <p class="text-sm">
               {t('sessions.empty', '暂无会话，点击右下角加号创建一个吧。')}
             </p>
           </div>
         ) : (
-          <ul class="flex flex-col gap-3">
+          <ul class="oh-sessions-list flex flex-col gap-3 w-full min-w-0">
             {items.map((item, idx) => {
               const row = rowStates[item.id] ?? emptyRow;
               const editing = row.draftTitle !== null;
               return (
                 <Appear as="li" key={item.id} variant="up" index={Math.min(idx + 1, 12)}>
                   <div
-                    class="rounded-m3-md p-4 oh-tap-press"
+                    class="oh-sessions-card rounded-m3-md p-4 oh-tap-press"
                     style={{
                       background: 'var(--m3-surface-container)',
                       boxShadow: 'var(--m3-elev-1)',

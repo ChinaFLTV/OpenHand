@@ -76,6 +76,10 @@ import {
 } from '../../../api/sessions';
 import { ApiError, UnauthorizedError } from '../../../api/client';
 import { ignoreError, isAbortError } from '../../../shared/util/errors';
+import {
+  PAGE_SHELL_CLASS,
+  SESSION_DETAIL_SHELL_CLASS,
+} from '../../../shared/ui/layout';
 import { subscribeSessionEvents, type PendingWriteApproval, type SessionEventSnapshot } from '../../../api/session_events';
 import { listSessions } from '../../../api/sessions';
 import { SessionGoneDialog } from '../../../components/SessionGoneDialog';
@@ -6840,9 +6844,17 @@ export function SessionDetailPage() {
   const isMachineExpertSession = session?.template_id === 'machine_expert';
 
   return (
-    <main ref={pageRootRef} class="oh-session-detail-page h-screen overflow-hidden px-3 sm:px-6 py-4 sm:py-6 flex flex-col" style={{ background: 'var(--m3-surface)' }}>
+    <main
+      ref={pageRootRef}
+      class={`oh-session-detail-page ${PAGE_SHELL_CLASS} h-screen overflow-hidden flex flex-col`}
+      style={{ background: 'var(--m3-surface)' }}
+    >
       <PullIndicator pulled={pull.pulled} refreshing={pull.refreshing} willRelease={pull.willRelease} activationDistance={84} />
-      <div class={`oh-session-detail-shell mx-auto w-full flex-1 min-h-0 ${isMachineExpertSession ? 'oh-machine-workbench is-machine-expert' : 'max-w-3xl flex flex-col'}`}>
+      <div
+        class={`${SESSION_DETAIL_SHELL_CLASS} w-full flex-1 min-h-0 ${
+          isMachineExpertSession ? 'oh-machine-workbench is-machine-expert' : 'flex flex-col'
+        }`}
+      >
         {isMachineExpertSession ? <MachineTerminalPanel sessionId={sessionId} /> : null}
         <div class={isMachineExpertSession ? 'oh-machine-chat-column' : 'oh-session-chat-column'}>
         <SessionTopBar

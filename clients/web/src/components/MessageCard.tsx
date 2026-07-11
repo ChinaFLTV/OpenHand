@@ -76,6 +76,7 @@ import {
   scheduleAfterTranscriptScrollSettles,
 } from '../shared/ui/transcript_scroll_activity';
 import { STREAMING_TURN_IDLE_DEBOUNCE_MS } from '../shared/ui/streaming_turn_timing';
+import { messageBubbleMaxWidth } from '../shared/ui/layout';
 import { formatLocalDateTimeMinute } from '../shared/util/date_time';
 
 const TOOL_LIVE_ELAPSED_TICK_MS = 1000;
@@ -2821,14 +2822,14 @@ function MessageCardImpl({
     message.role === 'system' ||
     message.role === 'tool';
   const bubbleMaxWidth = isWideSystemCard
-    ? 'min(92%, 820px)'
+    ? messageBubbleMaxWidth('wideSystem')
     : isHtmlAssistantCard
-      ? 'min(92%, 860px)'
+      ? messageBubbleMaxWidth('htmlAssistant')
       : isExpertRequestCard
-      ? 'min(88%, 760px)'
+      ? messageBubbleMaxWidth('expertRequest')
       : isUserBubble
-      ? 'min(78%, 640px)'
-      : 'min(82%, 720px)';
+      ? messageBubbleMaxWidth('user')
+      : messageBubbleMaxWidth('assistant');
   const contextChips = [
     ...messageContextChips(message),
     ...(isUserBubble && knowledgeBaseHasReferences(message)

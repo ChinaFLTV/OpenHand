@@ -116,6 +116,71 @@ html, body, #root {
   --oh-dialog-duration: 360ms;
   --oh-dialog-curve: cubic-bezier(0.215, 0.61, 0.355, 1);
   --oh-dialog-exit-curve: cubic-bezier(0.55, 0.055, 0.675, 0.19);
+
+  /* 主工作台：水平铺满视口，仅保留自适应安全边距。 */
+  --oh-page-pad-x: clamp(12px, 1.8vw, 32px);
+  --oh-page-pad-y: clamp(12px, 1.4vw, 24px);
+  --oh-page-gap: clamp(10px, 1vw, 16px);
+  --oh-page-content-max: none;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   页面全宽骨架：会话列表 / 会话详情共用。
+   - 不再使用 max-w-3xl 居中窄栏；内容水平拓展至全屏。
+   - 内边距走 clamp，宽屏更舒展，窄屏仍保留触控安全区。 */
+.oh-page-shell {
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+  min-height: 0;
+  box-sizing: border-box;
+  padding-inline: var(--oh-page-pad-x);
+  padding-block: var(--oh-page-pad-y);
+}
+
+.oh-sessions-shell,
+.oh-session-detail-shell {
+  width: 100%;
+  max-width: var(--oh-page-content-max);
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--oh-page-gap);
+  box-sizing: border-box;
+}
+
+.oh-sessions-page,
+.oh-session-detail-page {
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+}
+
+.oh-sessions-list {
+  width: 100%;
+  min-width: 0;
+}
+
+.oh-sessions-card {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  transition:
+    transform var(--oh-motion-duration-fast) var(--oh-motion-emphasized),
+    box-shadow var(--oh-motion-duration-base) var(--oh-motion-emphasized),
+    background-color var(--oh-motion-duration-base) var(--oh-motion-emphasized);
+}
+
+.oh-sessions-card:hover {
+  box-shadow: var(--m3-elev-2);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .oh-sessions-card:not(:has(input:focus)):hover {
+    transform: translate3d(0, -1px, 0);
+  }
 }
 
 @keyframes oh-appear-up {
@@ -2040,6 +2105,10 @@ button.oh-message-context-capsule {
 
 .oh-topbar {
   position: relative;
+  width: 100%;
+  min-width: 0;
+  flex: 0 0 auto;
+  box-sizing: border-box;
   padding: 12px 14px;
   border: 1px solid color-mix(in srgb, var(--m3-outline-variant) 82%, transparent);
   border-radius: 22px;
@@ -3379,7 +3448,7 @@ button.oh-message-context-capsule {
 }
 
 .oh-session-title-block {
-  width: clamp(150px, 24vw, 260px);
+  width: clamp(160px, 16vw, 360px);
 }
 
 .oh-session-chat-column,
@@ -3390,15 +3459,16 @@ button.oh-message-context-capsule {
   flex: 1 1 auto;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--oh-page-gap, 12px);
 }
 
 .oh-machine-workbench {
-  max-width: min(1760px, 100%);
+  width: 100%;
+  max-width: none;
   display: grid;
   grid-template-columns: minmax(420px, 0.96fr) minmax(500px, 1.04fr);
   align-items: stretch;
-  gap: 14px;
+  gap: var(--oh-page-gap, 14px);
 }
 
 .oh-machine-terminal-panel {
@@ -4192,8 +4262,11 @@ button.oh-message-context-capsule {
 :fullscreen .oh-sessions-page,
 :-webkit-full-screen .oh-sessions-page {
   width: 100vw;
+  max-width: none;
   height: 100vh;
-  padding: 18px 24px;
+  padding:
+    clamp(12px, 1.4vw, 22px)
+    clamp(16px, 2vw, 32px);
   background: var(--m3-surface);
 }
 
@@ -4207,14 +4280,15 @@ button.oh-message-context-capsule {
   background: var(--m3-surface);
 }
 
+/* 全屏同样水平铺满，不再回退到 980px / 1760px 窄栏。 */
 .oh-session-detail-page:fullscreen .oh-session-detail-shell,
-.oh-session-detail-page:-webkit-full-screen .oh-session-detail-shell {
-  max-width: min(980px, calc(100vw - 48px));
-}
-
+.oh-session-detail-page:-webkit-full-screen .oh-session-detail-shell,
 .oh-session-detail-page:fullscreen .oh-session-detail-shell.is-machine-expert,
-.oh-session-detail-page:-webkit-full-screen .oh-session-detail-shell.is-machine-expert {
-  max-width: min(1760px, calc(100vw - 48px));
+.oh-session-detail-page:-webkit-full-screen .oh-session-detail-shell.is-machine-expert,
+.oh-sessions-page:fullscreen .oh-sessions-shell,
+.oh-sessions-page:-webkit-full-screen .oh-sessions-shell {
+  width: 100%;
+  max-width: none;
 }
 
 .oh-session-capsule-rail {
@@ -4338,7 +4412,15 @@ button.oh-message-context-capsule {
   }
 }
 
+.oh-session-topbar {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
 .oh-session-messages {
+  width: 100%;
+  min-width: 0;
   overflow-anchor: none;
   scroll-behavior: auto;
   overscroll-behavior: contain;
@@ -4370,20 +4452,28 @@ button.oh-message-context-capsule {
 
 .oh-session-state-card,
 .oh-session-empty-state {
+  width: 100%;
   min-height: 88px;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 10px;
   margin: 8px 0 14px;
-  padding: 18px;
+  padding: clamp(18px, 2.2vw, 28px);
   border-radius: var(--m3-radius-md);
   border: 1px solid var(--m3-outline-variant);
-  background: color-mix(in srgb, var(--m3-surface-container) 88%, transparent);
+  background:
+    radial-gradient(
+      120% 140% at 50% 0%,
+      color-mix(in srgb, var(--m3-primary-container) 28%, transparent),
+      transparent 58%
+    ),
+    color-mix(in srgb, var(--m3-surface-container) 88%, transparent);
   color: var(--m3-on-surface-variant);
   font-size: 13px;
   font-weight: 650;
   text-align: center;
+  box-sizing: border-box;
 }
 .oh-session-state-card.is-error {
   justify-content: flex-start;
@@ -4418,7 +4508,7 @@ button.oh-message-context-capsule {
 }
 .oh-session-empty-state {
   flex-direction: column;
-  min-height: 180px;
+  min-height: clamp(180px, 28vh, 320px);
   border-style: dashed;
 }
 .oh-session-load-older-button {
@@ -6580,6 +6670,7 @@ button.oh-composer-pill:not(:disabled):hover {
 }
 
 @media (max-width: 720px) {
+  .oh-sessions-page,
   .oh-session-detail-page {
     height: 100dvh;
     padding:
@@ -6588,6 +6679,7 @@ button.oh-composer-pill:not(:disabled):hover {
       calc(12px + env(safe-area-inset-bottom, 0px))
       calc(10px + env(safe-area-inset-left, 0px));
   }
+  .oh-sessions-shell,
   .oh-session-detail-shell {
     max-width: none;
     gap: 10px;
