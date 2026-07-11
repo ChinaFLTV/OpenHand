@@ -92,7 +92,7 @@ class _NavigationPaneState extends State<_NavigationPane> {
       }
       final built = Padding(
         key: ValueKey<String>('he-thread-${record.id}'),
-        padding: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.only(bottom: _kThreadTileGap),
         child: RepaintBoundary(
           child: _HarnessSessionTile(
             title: record.title,
@@ -164,7 +164,7 @@ class _NavigationPaneState extends State<_NavigationPane> {
       final sessionId = session.id;
       final built = Padding(
         key: ValueKey<String>('ai-thread-$sessionId'),
-        padding: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.only(bottom: _kThreadTileGap),
         child: RepaintBoundary(
           child: _ThreadTile(
             session: session,
@@ -248,6 +248,11 @@ class _NavigationPaneState extends State<_NavigationPane> {
         ? liveHeStatus
         : widget.harnessSessionRecord!.status;
 
+    final threadCount = widget.sessions.length +
+        (widget.harnessSessionRecord == null ? 0 : 1);
+    final hasThreads = threadCount > 0;
+    final colorScheme = theme.colorScheme;
+
     return Card(
       clipBehavior: Clip.antiAlias,
       child: ListView(
@@ -274,19 +279,88 @@ class _NavigationPaneState extends State<_NavigationPane> {
               isSelected: widget.selectedSection == destination.section,
               onSelected: widget.onSectionSelected,
             ),
+          // 系统导航与线程列表的分区：细分割 + 轻量区头，避免「大标题压卡片堆」的土气感。
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
-            child: Text(l10n.threads, style: theme.textTheme.titleMedium),
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+            child: Divider(
+              height: 1,
+              thickness: 1,
+              color: colorScheme.outlineVariant.withValues(alpha: 0.55),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 14, 16, 8),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.forum_outlined,
+                  size: 15,
+                  color: colorScheme.onSurfaceVariant.withValues(alpha: 0.88),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    l10n.threads,
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                ),
+                if (hasThreads)
+                  Container(
+                    constraints: const BoxConstraints(minWidth: 22),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: colorScheme.surfaceContainerHighest
+                          .withValues(alpha: 0.72),
+                      borderRadius: _borderRadius999,
+                    ),
+                    child: Text(
+                      '$threadCount',
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w700,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ),
           // Unified thread list: merge AI sessions and HE session,
           // sorted by updatedAt descending (most recently updated first).
-          if (widget.sessions.isEmpty && widget.harnessSessionRecord == null)
+          if (!hasThreads)
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-              child: Text(
-                l10n.threadsEmptyBody,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: colorScheme.surfaceContainerLowest
+                      .withValues(alpha: 0.55),
+                  borderRadius: _borderRadius18,
+                  border: Border.all(
+                    color: colorScheme.outlineVariant.withValues(alpha: 0.45),
+                  ),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 16, 14, 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        l10n.threadsEmptyBody,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                          height: 1.45,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             )
@@ -307,6 +381,9 @@ class _NavigationPaneState extends State<_NavigationPane> {
     );
   }
 }
+
+/// 线程列表项纵向间距：与系统导航胶囊节奏对齐，避免卡片式厚重堆叠。
+const double _kThreadTileGap = 4;
 
 const List<_NavigationDestinationSpec> _kSystemNavigationDestinations =
     <_NavigationDestinationSpec>[

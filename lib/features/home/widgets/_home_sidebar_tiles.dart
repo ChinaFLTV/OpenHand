@@ -31,14 +31,21 @@ class _HarnessSessionTile extends StatelessWidget {
     final colorScheme = theme.colorScheme;
     final backgroundColor = isSelected
         ? colorScheme.primaryContainer
-        : colorScheme.surfaceContainerLow;
+        : Colors.transparent;
     final titleColor = isSelected
         ? colorScheme.onPrimaryContainer
         : colorScheme.onSurface;
+    final iconColor = isSelected
+        ? colorScheme.onPrimaryContainer
+        : colorScheme.onSurfaceVariant;
     final showBadge =
         awaitingApproval ||
         (status != HarnessOrchestratorStatus.idle &&
             status != HarnessOrchestratorStatus.completed);
+    final tileMotionDuration = openHandMotionDuration(
+      context,
+      _kHomeSidebarTileMotionDuration,
+    );
 
     return GestureDetector(
       onSecondaryTapDown: (details) async {
@@ -109,33 +116,52 @@ class _HarnessSessionTile extends StatelessWidget {
         }
         _scheduleOverlayActionAfterMenuDismissal(context, action);
       },
-      child: Material(
-        color: backgroundColor,
-        borderRadius: _borderRadius18,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: _borderRadius18,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            child: Row(
-              children: [
-                Expanded(
-                  child: _AnimatedSessionTitleText(
-                    text: title,
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      color: titleColor,
+      child: AnimatedContainer(
+        duration: tileMotionDuration,
+        curve: _kHomeSidebarTileMotionCurve,
+        decoration: BoxDecoration(
+          color: backgroundColor,
+          borderRadius: _borderRadius999,
+        ),
+        child: Material(
+          color: Colors.transparent,
+          borderRadius: _borderRadius999,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: _borderRadius999,
+            hoverColor: colorScheme.onSurface.withValues(alpha: 0.04),
+            splashColor: colorScheme.primary.withValues(alpha: 0.08),
+            child: Padding(
+              padding: _kThreadTileContentPadding,
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.precision_manufacturing_outlined,
+                    size: 16,
+                    color: iconColor,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _AnimatedSessionTitleText(
+                      text: title,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        color: titleColor,
+                        fontWeight:
+                            isSelected ? FontWeight.w700 : FontWeight.w600,
+                        height: 1.25,
+                      ),
                     ),
                   ),
-                ),
-                if (showBadge) ...[
-                  const SizedBox(width: 12),
-                  _HarnessStatusCapsule(
-                    status: status,
-                    awaitingApproval: awaitingApproval,
-                    isSelected: isSelected,
-                  ),
+                  if (showBadge) ...[
+                    const SizedBox(width: 10),
+                    _HarnessStatusCapsule(
+                      status: status,
+                      awaitingApproval: awaitingApproval,
+                      isSelected: isSelected,
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         ),
@@ -324,12 +350,16 @@ class _ThreadTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    // 与上方系统导航胶囊统一：未选透明、选中 primaryContainer 全圆角，告别灰底卡片堆。
     final backgroundColor = isSelected
         ? colorScheme.primaryContainer
-        : colorScheme.surfaceContainerLow;
+        : Colors.transparent;
     final titleColor = isSelected
         ? colorScheme.onPrimaryContainer
         : colorScheme.onSurface;
+    final iconColor = isSelected
+        ? colorScheme.onPrimaryContainer
+        : colorScheme.onSurfaceVariant;
     final isActive = sendPhase != AiSendPhase.idle;
     final tileMotionDuration = openHandMotionDuration(
       context,
@@ -427,18 +457,28 @@ class _ThreadTile extends StatelessWidget {
         curve: _kHomeSidebarTileMotionCurve,
         decoration: BoxDecoration(
           color: backgroundColor,
-          borderRadius: _borderRadius18,
+          borderRadius: _borderRadius999,
         ),
         child: Material(
           color: Colors.transparent,
-          borderRadius: _borderRadius18,
+          borderRadius: _borderRadius999,
           child: InkWell(
-            borderRadius: _borderRadius18,
+            borderRadius: _borderRadius999,
             onTap: onTap,
+            hoverColor: colorScheme.onSurface.withValues(alpha: 0.04),
+            splashColor: colorScheme.primary.withValues(alpha: 0.08),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              padding: _kThreadTileContentPadding,
               child: Row(
                 children: [
+                  Icon(
+                    isSelected
+                        ? Icons.chat_bubble_rounded
+                        : Icons.chat_bubble_outline_rounded,
+                    size: 16,
+                    color: iconColor,
+                  ),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: TweenAnimationBuilder<Color?>(
                       tween: ColorTween(end: titleColor),
@@ -449,13 +489,16 @@ class _ThreadTile extends StatelessWidget {
                           text: session.title,
                           style: theme.textTheme.titleSmall?.copyWith(
                             color: animatedColor ?? titleColor,
+                            fontWeight:
+                                isSelected ? FontWeight.w700 : FontWeight.w600,
+                            height: 1.25,
                           ),
                         );
                       },
                     ),
                   ),
                   if (isActive) ...[
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 10),
                     _ActiveThreadBadge(
                       key: ValueKey<String>('thread-active-${session.id}'),
                       sendPhase: sendPhase,
@@ -471,6 +514,12 @@ class _ThreadTile extends StatelessWidget {
     );
   }
 }
+
+/// 线程项内边距：略紧凑于旧卡片，贴合系统导航胶囊密度。
+const EdgeInsets _kThreadTileContentPadding = EdgeInsets.symmetric(
+  horizontal: 14,
+  vertical: 11,
+);
 
 class _ActiveThreadBadge extends StatelessWidget {
   const _ActiveThreadBadge({
