@@ -4300,9 +4300,7 @@ button.oh-message-context-capsule {
   max-width: 100%;
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
-  /* 靠右排列时从左侧淡出，避免遮挡标题区。 */
-  mask-image: linear-gradient(to left, black 0, black calc(100% - 18px), transparent 100%);
-  -webkit-mask-image: linear-gradient(to left, black 0, black calc(100% - 18px), transparent 100%);
+  /* 不再对轨道做左侧 mask：否则最左胶囊（会话审计）会被洗成半透明。 */
 }
 .oh-session-capsule-rail::-webkit-scrollbar { display: none; }
 
@@ -4433,6 +4431,20 @@ button.oh-message-context-capsule {
   scroll-behavior: auto;
   overscroll-behavior: contain;
 }
+/* 空会话：把「尚无消息」摆到消息区几何中心。 */
+.oh-session-messages:has(.oh-session-empty-plain) {
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+}
+.oh-session-messages:has(.oh-session-empty-plain) .oh-session-message-content {
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 .oh-session-message-list {
   overflow-anchor: none;
 }
@@ -4507,17 +4519,18 @@ button.oh-message-context-capsule {
   font-size: 12px;
   font-weight: 750;
 }
-/* 会话空消息：纯文案，无卡片底。 */
+/* 会话空消息：纯文案，无卡片底；尺寸由父级居中布局接管。 */
 .oh-session-empty-plain {
   width: 100%;
-  min-height: clamp(120px, 22vh, 220px);
+  max-width: 28rem;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 10px;
-  margin: 8px 0 14px;
-  padding: 12px 8px;
+  margin: 0;
+  padding: 16px 12px;
   color: var(--m3-on-surface-variant);
   font-size: 13px;
   font-weight: 650;
@@ -6748,8 +6761,6 @@ button.oh-composer-pill:not(:disabled):hover {
   .oh-session-capsule-rail {
     flex: 1 1 auto;
     min-width: 0;
-    mask-image: linear-gradient(to left, black 0, black calc(100% - 16px), transparent 100%);
-    -webkit-mask-image: linear-gradient(to left, black 0, black calc(100% - 16px), transparent 100%);
   }
   .oh-session-topbar-actions {
     margin-left: 0;
