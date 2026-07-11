@@ -284,15 +284,7 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
     }
     return HarnessRoleConfig(
       cliName: _selectedCli[role] ?? '',
-      modelId: (() {
-        final cliName = _selectedCli[role] ?? '';
-        final rawModelId = _selectedModel[role] ?? '';
-        final cli = _entryForCli(cliName)?.cli ?? findHarnessCliByName(cliName);
-        if (cli == null) {
-          return rawModelId;
-        }
-        return normalizeHarnessCliModelId(cli, rawModelId);
-      })(),
+      modelId: (_selectedModel[role] ?? '').trim(),
     );
   }
 

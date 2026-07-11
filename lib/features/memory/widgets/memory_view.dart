@@ -314,7 +314,6 @@ class MemoryView extends StatelessWidget {
       kind: OpenHandSnackKind.success,
     );
   }
-
 }
 
 class _MemoryEditorDialog extends StatefulWidget {
@@ -828,9 +827,7 @@ class _MemoryEntryCard extends StatelessWidget {
                   spacing: 8,
                   runSpacing: 8,
                   children: [
-                    // 2026-04-25: 自主学习卡片不再使用单独的顶部胶囊，而是把
-                    // "自主学习" 标签下沉到这里作为标签行的第一项，沿用普通
-                    // Chip 的尺寸与节奏，不再视觉上"特殊化"。
+                    // 自主学习标识与普通标签共用一致的尺寸与排列节奏。
                     if (isAutoLearned)
                       Chip(
                         avatar: Icon(

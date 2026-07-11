@@ -74,10 +74,6 @@ void showOpenHandErrorSnack(
   );
 }
 
-void showOpenHandSnackBar(BuildContext context, SnackBar snackBar) {
-  OpenHandSnackBar.showInContext(context, snackBar);
-}
-
 /// Convenience flash for feature views after async/setState/dialog pop.
 ///
 /// Defaults [postFrame] to `true` so callers avoid showing a snack during

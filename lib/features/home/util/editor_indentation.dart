@@ -445,10 +445,6 @@ EditorCommentStyle? editorCommentStyleForLanguage(String language) {
   };
 }
 
-String? editorLineCommentPrefixForLanguage(String language) {
-  return editorCommentStyleForLanguage(language)?.linePrefix;
-}
-
 EditorIndentationEdit _applyLineIndentation({
   required String text,
   required TextSelection selection,

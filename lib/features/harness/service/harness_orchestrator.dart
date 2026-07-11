@@ -19,7 +19,6 @@ import '../service/harness_api_phase_runner.dart';
 import '../service/harness_cli_catalog.dart';
 import '../service/harness_prompt_builder.dart';
 
-const int kHarnessOrchestratorVersion = 1;
 const String kHarnessOrchestratorDisplayVersion = '1.0.0';
 
 // ─────────────────────────────────────────────────────────────────────────────

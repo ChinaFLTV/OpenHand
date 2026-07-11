@@ -238,84 +238,24 @@ class _AnimationSettingsControl extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            SizedBox(
-              width: 80,
-              child: Text(
-                l10n.settingsAnimationEnter,
-                style: textTheme.labelLarge,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: DropdownButtonFormField<DialogAnimationStyle>(
-                initialValue: current.entranceStyle,
-                decoration: const InputDecoration(
-                  contentPadding: EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
-                  ),
-                  border: OutlineInputBorder(),
-                ),
-                items: DialogAnimationStyle.values
-                    .map(
-                      (style) => DropdownMenuItem(
-                        value: style,
-                        child: Text(
-                          style.label(l10n),
-                          style: const TextStyle(fontSize: 13),
-                        ),
-                      ),
-                    )
-                    .toList(growable: false),
-                onChanged: (value) {
-                  if (value == null) return;
-                  onChanged(current.copyWith(entranceStyle: value));
-                },
-              ),
-            ),
-          ],
+        _buildStyleRow(
+          label: l10n.settingsAnimationEnter,
+          value: current.entranceStyle,
+          textTheme: textTheme,
+          l10n: l10n,
+          onStyleChanged: (value) {
+            onChanged(current.copyWith(entranceStyle: value));
+          },
         ),
         const SizedBox(height: 10),
-        Row(
-          children: [
-            SizedBox(
-              width: 80,
-              child: Text(
-                l10n.settingsAnimationExit,
-                style: textTheme.labelLarge,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: DropdownButtonFormField<DialogAnimationStyle>(
-                initialValue: current.exitStyle,
-                decoration: const InputDecoration(
-                  contentPadding: EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
-                  ),
-                  border: OutlineInputBorder(),
-                ),
-                items: DialogAnimationStyle.values
-                    .map(
-                      (style) => DropdownMenuItem(
-                        value: style,
-                        child: Text(
-                          style.label(l10n),
-                          style: const TextStyle(fontSize: 13),
-                        ),
-                      ),
-                    )
-                    .toList(growable: false),
-                onChanged: (value) {
-                  if (value == null) return;
-                  onChanged(current.copyWith(exitStyle: value));
-                },
-              ),
-            ),
-          ],
+        _buildStyleRow(
+          label: l10n.settingsAnimationExit,
+          value: current.exitStyle,
+          textTheme: textTheme,
+          l10n: l10n,
+          onStyleChanged: (value) {
+            onChanged(current.copyWith(exitStyle: value));
+          },
         ),
         const SizedBox(height: 10),
         Row(
@@ -394,6 +334,44 @@ class _AnimationSettingsControl extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStyleRow({
+    required String label,
+    required DialogAnimationStyle value,
+    required TextTheme textTheme,
+    required AppLocalizations l10n,
+    required ValueChanged<DialogAnimationStyle> onStyleChanged,
+  }) {
+    return Row(
+      children: [
+        SizedBox(width: 80, child: Text(label, style: textTheme.labelLarge)),
+        const SizedBox(width: 8),
+        Expanded(
+          child: DropdownButtonFormField<DialogAnimationStyle>(
+            initialValue: value,
+            decoration: const InputDecoration(
+              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              border: OutlineInputBorder(),
+            ),
+            items: DialogAnimationStyle.values
+                .map(
+                  (style) => DropdownMenuItem(
+                    value: style,
+                    child: Text(
+                      style.label(l10n),
+                      style: const TextStyle(fontSize: 13),
+                    ),
+                  ),
+                )
+                .toList(growable: false),
+            onChanged: (next) {
+              if (next != null) onStyleChanged(next);
+            },
+          ),
         ),
       ],
     );

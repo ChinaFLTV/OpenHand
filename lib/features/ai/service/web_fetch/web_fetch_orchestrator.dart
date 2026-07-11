@@ -198,27 +198,7 @@ class WebFetchOrchestrator {
   ) async {
     final out = <WebFetchEngineResult>[];
     for (final e in engines) {
-      onProgress(
-        WebFetchEngineProgress(
-          kind: e.kind,
-          stage: WebFetchProgressStage.running,
-        ),
-      );
-      final r = await e.run(request);
-      onProgress(
-        WebFetchEngineProgress(
-          kind: e.kind,
-          stage: r.isSuccess
-              ? WebFetchProgressStage.succeeded
-              : WebFetchProgressStage.failed,
-          contentBytes: r.contents.isEmpty
-              ? 0
-              : r.contents.first.content.length,
-          attempt: r.attempts,
-          elapsedMs: r.elapsedMs,
-          message: r.error,
-        ),
-      );
+      final r = await _runEngine(e, request, onProgress);
       out.add(r);
       // 串行模式下首次成功立即短路
       if (r.isSuccess) break;
@@ -234,32 +214,38 @@ class WebFetchOrchestrator {
     final concurrency = settings.parallelWorkers.clamp(1, engines.length);
     final semaphore = WebEngineSemaphore(concurrency);
     final futures = engines.map((e) async {
-      return semaphore.withPermit(() async {
-        onProgress(
-          WebFetchEngineProgress(
-            kind: e.kind,
-            stage: WebFetchProgressStage.running,
-          ),
-        );
-        final r = await e.run(request);
-        onProgress(
-          WebFetchEngineProgress(
-            kind: e.kind,
-            stage: r.isSuccess
-                ? WebFetchProgressStage.succeeded
-                : WebFetchProgressStage.failed,
-            contentBytes: r.contents.isEmpty
-                ? 0
-                : r.contents.first.content.length,
-            attempt: r.attempts,
-            elapsedMs: r.elapsedMs,
-            message: r.error,
-          ),
-        );
-        return r;
-      });
+      return semaphore.withPermit(() => _runEngine(e, request, onProgress));
     });
     return Future.wait(futures);
+  }
+
+  Future<WebFetchEngineResult> _runEngine(
+    WebFetchEngine engine,
+    WebFetchEngineRequest request,
+    WebFetchProgressEmitter onProgress,
+  ) async {
+    onProgress(
+      WebFetchEngineProgress(
+        kind: engine.kind,
+        stage: WebFetchProgressStage.running,
+      ),
+    );
+    final result = await engine.run(request);
+    onProgress(
+      WebFetchEngineProgress(
+        kind: engine.kind,
+        stage: result.isSuccess
+            ? WebFetchProgressStage.succeeded
+            : WebFetchProgressStage.failed,
+        contentBytes: result.contents.isEmpty
+            ? 0
+            : result.contents.first.content.length,
+        attempt: result.attempts,
+        elapsedMs: result.elapsedMs,
+        message: result.error,
+      ),
+    );
+    return result;
   }
 
   /// 选胜：成功结果中综合权重、URL 命中、抓取类型、HTTP 状态与长度信号。

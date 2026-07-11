@@ -6,10 +6,6 @@ import '../../../app/theme/openhand_status_colors.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
 
-const double kKnowledgeDialogSectionSpacing = 12;
-const double kKnowledgeDialogFieldWidth = 212;
-const double kKnowledgeDialogWideFieldWidth = 328;
-
 IconData knowledgeSourceKindIcon(String kind) {
   return switch (kind.trim().toLowerCase()) {
     'markdown' => Icons.notes_rounded,

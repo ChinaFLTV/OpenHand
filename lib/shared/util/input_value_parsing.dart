@@ -780,10 +780,6 @@ double? optionalNonNegativeDoubleFromText(String value) {
   return optionalNonNegativeDoubleFromValue(value);
 }
 
-double? optionalPositiveDoubleFromText(String value) {
-  return optionalPositiveDoubleFromValue(value);
-}
-
 int positiveIntFromText(String value, {required int fallback}) {
   return positiveIntFromValue(value, fallback: fallback);
 }

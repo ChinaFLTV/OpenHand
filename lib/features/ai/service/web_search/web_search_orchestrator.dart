@@ -204,26 +204,7 @@ class WebSearchOrchestrator {
   ) async {
     final out = <WebSearchEngineResult>[];
     for (final e in engines) {
-      onProgress(
-        WebSearchEngineProgress(
-          kind: e.kind,
-          stage: WebSearchProgressStage.running,
-        ),
-      );
-      final r = await e.run(request);
-      onProgress(
-        WebSearchEngineProgress(
-          kind: e.kind,
-          stage: r.isSuccess
-              ? WebSearchProgressStage.succeeded
-              : WebSearchProgressStage.failed,
-          hitCount: r.hits.length,
-          attempt: r.attempts,
-          elapsedMs: r.elapsedMs,
-          message: r.error,
-        ),
-      );
-      out.add(r);
+      out.add(await _runEngine(e, request, onProgress));
     }
     return out;
   }
@@ -236,30 +217,36 @@ class WebSearchOrchestrator {
     final concurrency = settings.parallelWorkers.clamp(1, engines.length);
     final semaphore = WebEngineSemaphore(concurrency);
     final futures = engines.map((e) async {
-      return semaphore.withPermit(() async {
-        onProgress(
-          WebSearchEngineProgress(
-            kind: e.kind,
-            stage: WebSearchProgressStage.running,
-          ),
-        );
-        final r = await e.run(request);
-        onProgress(
-          WebSearchEngineProgress(
-            kind: e.kind,
-            stage: r.isSuccess
-                ? WebSearchProgressStage.succeeded
-                : WebSearchProgressStage.failed,
-            hitCount: r.hits.length,
-            attempt: r.attempts,
-            elapsedMs: r.elapsedMs,
-            message: r.error,
-          ),
-        );
-        return r;
-      });
+      return semaphore.withPermit(() => _runEngine(e, request, onProgress));
     });
     return Future.wait(futures);
+  }
+
+  Future<WebSearchEngineResult> _runEngine(
+    WebSearchEngine engine,
+    WebSearchEngineRequest request,
+    WebSearchProgressEmitter onProgress,
+  ) async {
+    onProgress(
+      WebSearchEngineProgress(
+        kind: engine.kind,
+        stage: WebSearchProgressStage.running,
+      ),
+    );
+    final result = await engine.run(request);
+    onProgress(
+      WebSearchEngineProgress(
+        kind: engine.kind,
+        stage: result.isSuccess
+            ? WebSearchProgressStage.succeeded
+            : WebSearchProgressStage.failed,
+        hitCount: result.hits.length,
+        attempt: result.attempts,
+        elapsedMs: result.elapsedMs,
+        message: result.error,
+      ),
+    );
+    return result;
   }
 
   // ── 内部：合并 & 排序 ─────────────────────────────────────────────────────

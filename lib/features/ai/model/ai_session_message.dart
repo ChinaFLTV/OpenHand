@@ -102,8 +102,6 @@ const int aiSessionExpertRequestCardSchemaVersion = 1;
 const int aiSessionExpertRequestCardMaxFieldCharacters = 1600;
 const int aiSessionMachineExpertRequestCardSchemaVersion =
     aiSessionExpertRequestCardSchemaVersion;
-const int aiSessionMachineExpertRequestCardMaxFieldCharacters =
-    aiSessionExpertRequestCardMaxFieldCharacters;
 const Set<String> _aiSessionTranscriptMediaMetadataKeys = <String>{
   'image_path',
   'image_paths',

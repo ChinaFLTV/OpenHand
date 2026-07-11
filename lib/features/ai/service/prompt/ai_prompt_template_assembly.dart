@@ -651,12 +651,6 @@ bool aiPromptInstructionsHasV4DisciplineMarker(String instructions) {
   return false;
 }
 
-String aiPromptV4DisciplineAssetPath(String instructions) {
-  return aiPromptInstructionsLooksLikeChinese(instructions)
-      ? 'assets/prompts/common/v4_discipline_zh.md'
-      : 'assets/prompts/common/v4_discipline_en.md';
-}
-
 bool aiPromptInstructionsHasMemoryTonePolicy(String instructions) {
   return instructions.toLowerCase().contains(_memoryTonePolicyMarker);
 }

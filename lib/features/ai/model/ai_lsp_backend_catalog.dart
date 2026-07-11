@@ -100,18 +100,6 @@ String normalizeAiLspLanguage(String? language) {
   }
 }
 
-List<String> aiLspSupportedLanguages() {
-  final ordered = <String>[];
-  for (final backend in kAiLspBackendCatalog) {
-    for (final language in backend.languages) {
-      if (!ordered.contains(language)) {
-        ordered.add(language);
-      }
-    }
-  }
-  return List<String>.unmodifiable(ordered);
-}
-
 AiLspBackendDescriptor? aiLspBackendById(String id) {
   final trimmedId = nullIfBlank(id);
   if (trimmedId == null) return null;

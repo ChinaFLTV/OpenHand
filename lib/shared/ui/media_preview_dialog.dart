@@ -1020,11 +1020,3 @@ input[type=range]:hover::-webkit-slider-thumb,input[type=range]:focus-visible::-
         widget.filePath ?? widget.networkUrl ?? widget.mimeType ?? 'OpenHand',
   );
 }
-
-/// 顶层入口：弹出预览弹窗。复用应用统一的 [showAnimatedDialog] 动画。
-Future<void> showMediaPreviewDialog(
-  BuildContext context, {
-  required Widget Function(BuildContext) builder,
-}) {
-  return showAnimatedDialog<void>(context: context, builder: builder);
-}

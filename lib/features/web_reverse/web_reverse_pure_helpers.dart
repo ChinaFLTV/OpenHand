@@ -106,8 +106,3 @@ Map<String, Object?>? cdpJsonMapStringResultValue(Object? response) {
   final raw = cdpStringResultValue(response);
   return raw == null ? null : decodeStringKeyedJsonMap(raw);
 }
-
-List<Object?>? cdpJsonListStringResultValue(Object? response) {
-  final raw = cdpStringResultValue(response);
-  return raw == null ? null : decodeJsonList(raw);
-}

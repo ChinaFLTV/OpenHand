@@ -425,50 +425,12 @@ const List<HarnessCli> kHarnessCliCatalog = [
 const String kHarnessGeminiModelsDocUrl =
     'https://ai.google.dev/gemini-api/docs/models';
 
-const Map<String, String> _harnessGeminiDeprecatedModelSuggestions = {
-  'gemini-1.5-flash': 'gemini-2.5-flash',
-  'gemini-1.5-pro': 'gemini-2.5-pro',
-  'gemini-2.0-flash': 'gemini-2.5-flash',
-  'gemini-2.0-pro': 'gemini-2.5-pro',
-  // Older Gemini 3 aliases drift frequently. Recommend the CLI-managed
-  // default, but never auto-rewrite the user's configured model.
-  'gemini-3-flash': kHarnessGeminiDefaultModelId,
-  'gemini-3-pro-preview': kHarnessGeminiDefaultModelId,
-  'gemini-3.0-flash': kHarnessGeminiDefaultModelId,
-  'gemini-3.0-pro': kHarnessGeminiDefaultModelId,
-  'gemini-3.1-flash': kHarnessGeminiDefaultModelId,
-  'gemini-3.1-flash-lite': kHarnessGeminiDefaultModelId,
-  'gemini-3.1-pro': kHarnessGeminiDefaultModelId,
-};
-
 HarnessCli? findHarnessCliByName(String cliName) {
   final normalized = cliName.trim();
   if (normalized.isEmpty) {
     return null;
   }
   return kHarnessCliCatalog.where((cli) => cli.name == normalized).firstOrNull;
-}
-
-String normalizeHarnessCliModelId(HarnessCli cli, String modelId) {
-  final normalizedModel = modelId.trim();
-  if (normalizedModel.isEmpty) {
-    return '';
-  }
-  return normalizedModel;
-}
-
-String? recommendedHarnessCliModelForDeprecatedId(
-  HarnessCli cli,
-  String modelId,
-) {
-  final normalizedModel = modelId.trim();
-  if (normalizedModel.isEmpty) {
-    return null;
-  }
-  return switch (cli.executable) {
-    'gemini' => _harnessGeminiDeprecatedModelSuggestions[normalizedModel],
-    _ => null,
-  };
 }
 
 bool isHarnessCliDefaultModel(HarnessCli cli, String modelId) {
@@ -523,17 +485,6 @@ String describeHarnessCliModel(
     );
   }
   return normalizedModel;
-}
-
-bool isHarnessCliModelSupported(HarnessCli cli, String modelId) {
-  final normalizedModel = modelId.trim();
-  if (normalizedModel.isEmpty) {
-    return false;
-  }
-  if (cli.knownModels.isEmpty) {
-    return true;
-  }
-  return cli.knownModels.contains(normalizedModel);
 }
 
 List<String> suggestedHarnessCliModels(HarnessCli cli, {int max = 3}) {

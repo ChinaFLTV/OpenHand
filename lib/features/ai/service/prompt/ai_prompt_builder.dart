@@ -390,8 +390,7 @@ class AiPromptBuilder {
       'single_round_tool_call_limit': runtimeContext.singleRoundToolCallLimit,
       'sequential_tool_round_limit': runtimeContext.sequentialToolRoundLimit,
       'platform_name': runtimeContext.platformName,
-      // today_local_date 已移除：日期跨天会变，非紧凑模板存入 metadata
-      // 会导致 [3d] 在午夜改变哈希，破坏 prefix-cache。
+      // 日期会在午夜改变哈希并破坏 prefix-cache，不写入稳定 metadata。
       'time_zone_name': runtimeContext.timeZoneName,
       'write_command_confirmation_enabled':
           runtimeContext.writeCommandConfirmationEnabled,

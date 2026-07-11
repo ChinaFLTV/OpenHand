@@ -33,10 +33,6 @@ bool webReverseCdpRuntimeIsLive(Object? raw) {
       webReverseCdpRuntimeHasLiveLocator(value);
 }
 
-int? webReverseRuntimeInt(Object? raw) {
-  return optionalIntFromValue(raw);
-}
-
 class WebReverseCdpMcpRuntimeStatus {
   const WebReverseCdpMcpRuntimeStatus({
     required this.rawStatus,

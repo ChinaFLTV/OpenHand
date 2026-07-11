@@ -994,22 +994,6 @@ Future<void> showOpenHandInfoDialog({
   );
 }
 
-Future<void> showOpenHandLoadingDialog({
-  required BuildContext context,
-  String? message,
-  Widget? content,
-  bool barrierDismissible = false,
-  bool dismissOnEscape = false,
-}) {
-  return showAnimatedDialog<void>(
-    context: context,
-    barrierDismissible: barrierDismissible,
-    dismissOnEscape: dismissOnEscape,
-    builder: (_) =>
-        buildOpenHandLoadingDialog(message: message, content: content),
-  );
-}
-
 OpenHandDialogSession showOpenHandTrackedLoadingDialog({
   required BuildContext context,
   String? message,
@@ -1361,28 +1345,6 @@ Widget buildOpenHandToolDialogHeader({
         return Row(children: [...leading, ...actionWidgets]);
       },
     ),
-  );
-}
-
-Widget buildOpenHandDialogScrollableContent({
-  required Widget child,
-  EdgeInsetsGeometry padding = EdgeInsets.zero,
-}) {
-  return LayoutBuilder(
-    builder: (context, constraints) {
-      final boundedHeight =
-          constraints.hasBoundedHeight && constraints.maxHeight.isFinite;
-      final content = Padding(padding: padding, child: child);
-      if (!boundedHeight) {
-        return SingleChildScrollView(child: content);
-      }
-      return SingleChildScrollView(
-        child: ConstrainedBox(
-          constraints: BoxConstraints(minHeight: constraints.maxHeight),
-          child: content,
-        ),
-      );
-    },
   );
 }
 

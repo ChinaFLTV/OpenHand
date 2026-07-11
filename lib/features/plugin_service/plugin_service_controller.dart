@@ -229,7 +229,7 @@ class PluginServiceController extends ManagedChangeNotifier {
     notifyListeners();
   }
 
-  /// 安装指定插件。自动处理依赖关系。
+  /// 安装指定插件。安装前校验依赖关系。
   Future<bool> installPlugin(String pluginId) async {
     final plugin = pluginById(pluginId);
     if (plugin == null) return false;
@@ -241,118 +241,66 @@ class PluginServiceController extends ManagedChangeNotifier {
         return false;
       }
     }
-    _isOperating = true;
-    _operationLogs.clear();
-    _updatePluginStatus(pluginId, PluginStatus.installing);
-    notifyListeners();
-    try {
-      final result = switch (pluginId) {
-        'nodejs' => await _lifecycle.installNodeJs(onProgress: _addLog),
-        'playwright' => await _lifecycle.installPlaywright(onProgress: _addLog),
-        PluginCatalogIds.hermesAgent => await _lifecycle.installHermesAgent(
+    return _runPluginLifecycleOperation(
+      pluginId: pluginId,
+      transientStatus: PluginStatus.installing,
+      operation: () => switch (pluginId) {
+        'nodejs' => _lifecycle.installNodeJs(onProgress: _addLog),
+        'playwright' => _lifecycle.installPlaywright(onProgress: _addLog),
+        PluginCatalogIds.hermesAgent => _lifecycle.installHermesAgent(
           onProgress: _addLog,
         ),
-        'python' => await _lifecycle.installPython(onProgress: _addLog),
-        'pip' => await _lifecycle.installPip(onProgress: _addLog),
-        'java' => await _lifecycle.installJava(onProgress: _addLog),
-        'frida' => await _lifecycle.installFrida(onProgress: _addLog),
-        'mitmproxy' => await _lifecycle.installMitmproxy(onProgress: _addLog),
-        'apktool' => await _lifecycle.installApktool(onProgress: _addLog),
-        'jadx' => await _lifecycle.installJadx(onProgress: _addLog),
-        'radare2' => await _lifecycle.installRadare2(onProgress: _addLog),
-        'blutter' => await _lifecycle.installBlutter(onProgress: _addLog),
-        'doldrums' => await _lifecycle.installDoldrums(onProgress: _addLog),
-        'anything_analyzer' => await _lifecycle.installAnythingAnalyzer(
+        'python' => _lifecycle.installPython(onProgress: _addLog),
+        'pip' => _lifecycle.installPip(onProgress: _addLog),
+        'java' => _lifecycle.installJava(onProgress: _addLog),
+        'frida' => _lifecycle.installFrida(onProgress: _addLog),
+        'mitmproxy' => _lifecycle.installMitmproxy(onProgress: _addLog),
+        'apktool' => _lifecycle.installApktool(onProgress: _addLog),
+        'jadx' => _lifecycle.installJadx(onProgress: _addLog),
+        'radare2' => _lifecycle.installRadare2(onProgress: _addLog),
+        'blutter' => _lifecycle.installBlutter(onProgress: _addLog),
+        'doldrums' => _lifecycle.installDoldrums(onProgress: _addLog),
+        'anything_analyzer' => _lifecycle.installAnythingAnalyzer(
           onProgress: _addLog,
         ),
-        'docker' => await _lifecycle.installDocker(onProgress: _addLog),
-        'qdrant' => await _lifecycle.installQdrant(onProgress: _addLog),
-        _ => PluginOperationResult(
-          success: false,
-          message: _unknownPluginMessage(),
-        ),
-      };
-      if (result.success) {
-        _operationSuccessPulse.emit();
-        await rescan();
-        return true;
-      }
-      _updatePluginStatus(
-        pluginId,
-        PluginStatus.error,
-        errorMessage: result.message,
-      );
-      _errorMessage = result.message;
-      notifyListeners();
-      return false;
-    } catch (e) {
-      _updatePluginStatus(pluginId, PluginStatus.error, errorMessage: '$e');
-      _errorMessage = '$e';
-      notifyListeners();
-      return false;
-    } finally {
-      _isOperating = false;
-      notifyListeners();
-    }
+        'docker' => _lifecycle.installDocker(onProgress: _addLog),
+        'qdrant' => _lifecycle.installQdrant(onProgress: _addLog),
+        _ => _unknownPluginOperation(),
+      },
+    );
   }
 
-  /// 更新指定插件。如果有依赖需要连带更新，按顺序执行。
+  /// 更新指定的已安装插件。
   Future<bool> updatePlugin(String pluginId) async {
     final plugin = pluginById(pluginId);
     if (plugin == null || !plugin.isInstalled) return false;
-    _isOperating = true;
-    _operationLogs.clear();
-    _updatePluginStatus(pluginId, PluginStatus.updating);
-    notifyListeners();
-    try {
-      final result = switch (pluginId) {
-        'nodejs' => await _lifecycle.updateNodeJs(onProgress: _addLog),
-        'playwright' => await _lifecycle.updatePlaywright(onProgress: _addLog),
-        PluginCatalogIds.hermesAgent => await _lifecycle.updateHermesAgent(
+    return _runPluginLifecycleOperation(
+      pluginId: pluginId,
+      transientStatus: PluginStatus.updating,
+      operation: () => switch (pluginId) {
+        'nodejs' => _lifecycle.updateNodeJs(onProgress: _addLog),
+        'playwright' => _lifecycle.updatePlaywright(onProgress: _addLog),
+        PluginCatalogIds.hermesAgent => _lifecycle.updateHermesAgent(
           onProgress: _addLog,
         ),
-        'python' => await _lifecycle.updatePython(onProgress: _addLog),
-        'pip' => await _lifecycle.updatePip(onProgress: _addLog),
-        'java' => await _lifecycle.updateJava(onProgress: _addLog),
-        'frida' => await _lifecycle.updateFrida(onProgress: _addLog),
-        'mitmproxy' => await _lifecycle.updateMitmproxy(onProgress: _addLog),
-        'apktool' => await _lifecycle.updateApktool(onProgress: _addLog),
-        'jadx' => await _lifecycle.updateJadx(onProgress: _addLog),
-        'radare2' => await _lifecycle.updateRadare2(onProgress: _addLog),
-        'blutter' => await _lifecycle.updateBlutter(onProgress: _addLog),
-        'doldrums' => await _lifecycle.updateDoldrums(onProgress: _addLog),
-        'anything_analyzer' => await _lifecycle.updateAnythingAnalyzer(
+        'python' => _lifecycle.updatePython(onProgress: _addLog),
+        'pip' => _lifecycle.updatePip(onProgress: _addLog),
+        'java' => _lifecycle.updateJava(onProgress: _addLog),
+        'frida' => _lifecycle.updateFrida(onProgress: _addLog),
+        'mitmproxy' => _lifecycle.updateMitmproxy(onProgress: _addLog),
+        'apktool' => _lifecycle.updateApktool(onProgress: _addLog),
+        'jadx' => _lifecycle.updateJadx(onProgress: _addLog),
+        'radare2' => _lifecycle.updateRadare2(onProgress: _addLog),
+        'blutter' => _lifecycle.updateBlutter(onProgress: _addLog),
+        'doldrums' => _lifecycle.updateDoldrums(onProgress: _addLog),
+        'anything_analyzer' => _lifecycle.updateAnythingAnalyzer(
           onProgress: _addLog,
         ),
-        'docker' => await _lifecycle.updateDocker(onProgress: _addLog),
-        'qdrant' => await _lifecycle.updateQdrant(onProgress: _addLog),
-        _ => PluginOperationResult(
-          success: false,
-          message: _unknownPluginMessage(),
-        ),
-      };
-      if (result.success) {
-        _operationSuccessPulse.emit();
-        await rescan();
-        return true;
-      }
-      _updatePluginStatus(
-        pluginId,
-        PluginStatus.error,
-        errorMessage: result.message,
-      );
-      _errorMessage = result.message;
-      notifyListeners();
-      return false;
-    } catch (e) {
-      _updatePluginStatus(pluginId, PluginStatus.error, errorMessage: '$e');
-      _errorMessage = '$e';
-      notifyListeners();
-      return false;
-    } finally {
-      _isOperating = false;
-      notifyListeners();
-    }
+        'docker' => _lifecycle.updateDocker(onProgress: _addLog),
+        'qdrant' => _lifecycle.updateQdrant(onProgress: _addLog),
+        _ => _unknownPluginOperation(),
+      },
+    );
   }
 
   /// 卸载指定插件。检查是否有其他插件依赖它。
@@ -389,44 +337,50 @@ class PluginServiceController extends ManagedChangeNotifier {
         }
       }
     }
-    _isOperating = true;
-    _operationLogs.clear();
-    _updatePluginStatus(pluginId, PluginStatus.uninstalling);
-    notifyListeners();
-    try {
-      final playwrightInstalled =
-          pluginById('playwright')?.isInstalled ?? false;
-      final result = switch (pluginId) {
-        'nodejs' => await _lifecycle.uninstallNodeJs(
+    final playwrightInstalled = pluginById('playwright')?.isInstalled ?? false;
+    return _runPluginLifecycleOperation(
+      pluginId: pluginId,
+      transientStatus: PluginStatus.uninstalling,
+      operation: () => switch (pluginId) {
+        'nodejs' => _lifecycle.uninstallNodeJs(
           playwrightInstalled: playwrightInstalled,
           onProgress: _addLog,
         ),
-        'playwright' => await _lifecycle.uninstallPlaywright(
+        'playwright' => _lifecycle.uninstallPlaywright(onProgress: _addLog),
+        PluginCatalogIds.hermesAgent => _lifecycle.uninstallHermesAgent(
           onProgress: _addLog,
         ),
-        PluginCatalogIds.hermesAgent => await _lifecycle.uninstallHermesAgent(
+        'python' => _lifecycle.uninstallPython(onProgress: _addLog),
+        'pip' => _lifecycle.uninstallPip(onProgress: _addLog),
+        'java' => _lifecycle.uninstallJava(onProgress: _addLog),
+        'frida' => _lifecycle.uninstallFrida(onProgress: _addLog),
+        'mitmproxy' => _lifecycle.uninstallMitmproxy(onProgress: _addLog),
+        'apktool' => _lifecycle.uninstallApktool(onProgress: _addLog),
+        'jadx' => _lifecycle.uninstallJadx(onProgress: _addLog),
+        'radare2' => _lifecycle.uninstallRadare2(onProgress: _addLog),
+        'blutter' => _lifecycle.uninstallBlutter(onProgress: _addLog),
+        'doldrums' => _lifecycle.uninstallDoldrums(onProgress: _addLog),
+        'anything_analyzer' => _lifecycle.uninstallAnythingAnalyzer(
           onProgress: _addLog,
         ),
-        'python' => await _lifecycle.uninstallPython(onProgress: _addLog),
-        'pip' => await _lifecycle.uninstallPip(onProgress: _addLog),
-        'java' => await _lifecycle.uninstallJava(onProgress: _addLog),
-        'frida' => await _lifecycle.uninstallFrida(onProgress: _addLog),
-        'mitmproxy' => await _lifecycle.uninstallMitmproxy(onProgress: _addLog),
-        'apktool' => await _lifecycle.uninstallApktool(onProgress: _addLog),
-        'jadx' => await _lifecycle.uninstallJadx(onProgress: _addLog),
-        'radare2' => await _lifecycle.uninstallRadare2(onProgress: _addLog),
-        'blutter' => await _lifecycle.uninstallBlutter(onProgress: _addLog),
-        'doldrums' => await _lifecycle.uninstallDoldrums(onProgress: _addLog),
-        'anything_analyzer' => await _lifecycle.uninstallAnythingAnalyzer(
-          onProgress: _addLog,
-        ),
-        'docker' => await _lifecycle.uninstallDocker(onProgress: _addLog),
-        'qdrant' => await _lifecycle.uninstallQdrant(onProgress: _addLog),
-        _ => PluginOperationResult(
-          success: false,
-          message: _unknownPluginMessage(),
-        ),
-      };
+        'docker' => _lifecycle.uninstallDocker(onProgress: _addLog),
+        'qdrant' => _lifecycle.uninstallQdrant(onProgress: _addLog),
+        _ => _unknownPluginOperation(),
+      },
+    );
+  }
+
+  Future<bool> _runPluginLifecycleOperation({
+    required String pluginId,
+    required PluginStatus transientStatus,
+    required Future<PluginOperationResult> Function() operation,
+  }) async {
+    _isOperating = true;
+    _operationLogs.clear();
+    _updatePluginStatus(pluginId, transientStatus);
+    notifyListeners();
+    try {
+      final result = await operation();
       if (result.success) {
         _operationSuccessPulse.emit();
         await rescan();
@@ -449,6 +403,12 @@ class PluginServiceController extends ManagedChangeNotifier {
       _isOperating = false;
       notifyListeners();
     }
+  }
+
+  Future<PluginOperationResult> _unknownPluginOperation() {
+    return Future<PluginOperationResult>.value(
+      PluginOperationResult(success: false, message: _unknownPluginMessage()),
+    );
   }
 
   String _unknownPluginMessage() {

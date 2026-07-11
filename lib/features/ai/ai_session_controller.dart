@@ -7159,7 +7159,7 @@ class AiSessionController extends ChangeNotifier {
         }
       }
 
-      // 优先级：session 会话覆盖 > 全局值（task 4 已删除模板覆盖层）。
+      // 会话级流式节流设置优先于全局设置。
       final sessionThrottleOverride =
           _sessionStreamThrottleOverrides[workingSession.id];
       final effChars =

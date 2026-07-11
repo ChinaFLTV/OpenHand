@@ -4,15 +4,11 @@ const int _kDoubleQuote = 0x22;
 const int _kLessThan = 0x3c;
 const int _kGreaterThan = 0x3e;
 
-String escapeXmlText(String value) {
-  return _escapeXml(value, escapeAttributeQuotes: false);
-}
-
 String escapeXmlAttribute(String value) {
-  return _escapeXml(value, escapeAttributeQuotes: true);
+  return _escapeXmlAttribute(value);
 }
 
-String _escapeXml(String value, {required bool escapeAttributeQuotes}) {
+String _escapeXmlAttribute(String value) {
   StringBuffer? buffer;
   var segmentStart = 0;
   for (var i = 0; i < value.length; i++) {
@@ -20,8 +16,8 @@ String _escapeXml(String value, {required bool escapeAttributeQuotes}) {
       _kAmpersand => '&amp;',
       _kLessThan => '&lt;',
       _kGreaterThan => '&gt;',
-      _kDoubleQuote when escapeAttributeQuotes => '&quot;',
-      _kApostrophe when escapeAttributeQuotes => '&apos;',
+      _kDoubleQuote => '&quot;',
+      _kApostrophe => '&apos;',
       _ => null,
     };
     if (replacement == null) continue;

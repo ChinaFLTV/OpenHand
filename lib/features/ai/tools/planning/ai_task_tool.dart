@@ -269,25 +269,14 @@ class AiTaskTool extends AiTool {
         );
       }
       if (completion == null) {
-        final subagentStopHookResult = await _runSubagentStopHook(
+        return _cancelledTaskResult(
+          startedAt: startedAt,
+          description: description,
           sessionId: subagentSessionId,
           subagentType: canonicalSubagentType,
-          description: description,
-          status: 'cancelled',
-        );
-        return AiToolUtils.cancelledResult(
-          command: '$_toolName $description',
-          durationMs: startedAt.elapsedMilliseconds,
-          metadata: _subagentMetadata(
-            subagentType: canonicalSubagentType,
-            toolCount: subagentCatalog.definitions.length,
-            rounds: round,
-            terminalStatus: 'cancelled',
-            systemReminders: _hookSystemReminders(
-              subagentStartHookResult,
-              subagentStopHookResult,
-            ),
-          ),
+          toolCount: subagentCatalog.definitions.length,
+          rounds: round,
+          startHookResult: subagentStartHookResult,
         );
       }
       final reply = completion.reply.trim();
@@ -330,25 +319,14 @@ class AiTaskTool extends AiTool {
         // after the first tool in a batch does not keep dispatching the
         // remaining tools.
         if (cancelled) {
-          final subagentStopHookResult = await _runSubagentStopHook(
+          return _cancelledTaskResult(
+            startedAt: startedAt,
+            description: description,
             sessionId: subagentSessionId,
             subagentType: canonicalSubagentType,
-            description: description,
-            status: 'cancelled',
-          );
-          return AiToolUtils.cancelledResult(
-            command: '$_toolName $description',
-            durationMs: startedAt.elapsedMilliseconds,
-            metadata: _subagentMetadata(
-              subagentType: canonicalSubagentType,
-              toolCount: subagentCatalog.definitions.length,
-              rounds: round,
-              terminalStatus: 'cancelled',
-              systemReminders: _hookSystemReminders(
-                subagentStartHookResult,
-                subagentStopHookResult,
-              ),
-            ),
+            toolCount: subagentCatalog.definitions.length,
+            rounds: round,
+            startHookResult: subagentStartHookResult,
           );
         }
         final toolCall = completion.toolCalls[index];
@@ -614,6 +592,34 @@ class AiTaskTool extends AiTool {
         terminalStatus: 'failed',
         systemReminders: systemReminders,
         extra: extraMetadata,
+      ),
+    );
+  }
+
+  Future<AiToolExecutionResult> _cancelledTaskResult({
+    required Stopwatch startedAt,
+    required String description,
+    required String sessionId,
+    required String subagentType,
+    required int toolCount,
+    required int rounds,
+    required AiClaudeHookInvocationResult startHookResult,
+  }) async {
+    final stopHookResult = await _runSubagentStopHook(
+      sessionId: sessionId,
+      subagentType: subagentType,
+      description: description,
+      status: 'cancelled',
+    );
+    return AiToolUtils.cancelledResult(
+      command: '$_toolName $description',
+      durationMs: startedAt.elapsedMilliseconds,
+      metadata: _subagentMetadata(
+        subagentType: subagentType,
+        toolCount: toolCount,
+        rounds: rounds,
+        terminalStatus: 'cancelled',
+        systemReminders: _hookSystemReminders(startHookResult, stopHookResult),
       ),
     );
   }

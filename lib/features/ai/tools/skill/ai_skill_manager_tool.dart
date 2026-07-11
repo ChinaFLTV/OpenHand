@@ -335,14 +335,7 @@ class AiSkillManagerTool extends AiTool {
       );
     }
 
-    final String updated;
-    if (replaceAll || occurrences == 1) {
-      updated = original.replaceAll(oldString, newString);
-    } else {
-      // Unreachable; above branch covers single-match replace without
-      // `replace_all`.
-      updated = original;
-    }
+    final updated = original.replaceAll(oldString, newString);
 
     if (patchingSkillMd) {
       final sizeError = _validateContentSize(updated);
