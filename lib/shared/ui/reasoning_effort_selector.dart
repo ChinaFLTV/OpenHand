@@ -11,12 +11,65 @@ import 'animated_menu.dart';
 import 'collision_safe_animated_switcher.dart';
 import 'motion_preference.dart';
 
+// ── Layout ──────────────────────────────────────────────────────────────────
 const double _kReasoningPopupWidth = 356;
 const double _kReasoningPopupEntryHeight = 190;
 const double _kReasoningPopupEstimatedHeight = 206;
 const double _kReasoningPopupGap = 8;
 const double _kReasoningThumbRadius = 22;
+const double _kReasoningTrackHalfHeight = 13;
 
+// ── Energy thresholds ───────────────────────────────────────────────────────
+const double _kEnergyParticleThreshold = 0.72;
+const double _kMaximumProgressThreshold = 0.96;
+
+// ── Motion ──────────────────────────────────────────────────────────────────
+const Duration _kProgressAnimDuration = Duration(milliseconds: 360);
+const Duration _kCapsuleAnimDuration = Duration(milliseconds: 280);
+const Duration _kLabelSwitchDuration = Duration(milliseconds: 220);
+const Duration _kMaximumPulsePeriod = Duration(milliseconds: 1500);
+
+/// Imperial Apex palette — fixed prestige stops so the top tier never
+/// inherits a muddy theme primary (e.g. teal) that makes max look cheap.
+abstract final class _MaximumEffortPalette {
+  static const Color voidCore = Color(0xFF0C0618);
+  static const Color royalAmethyst = Color(0xFF4C1D95);
+  static const Color plasmaViolet = Color(0xFFA855F7);
+  static const Color prestigeGold = Color(0xFFF5C542);
+  static const Color platinum = Color(0xFFFFF4D6);
+  static const Color auroraCyan = Color(0xFF67E8F9);
+
+  static const List<Color> gradientStops = <Color>[
+    voidCore,
+    royalAmethyst,
+    plasmaViolet,
+    prestigeGold,
+  ];
+
+  static const List<Color> particleColors = <Color>[
+    platinum,
+    prestigeGold,
+    auroraCyan,
+    plasmaViolet,
+  ];
+
+  static const List<Color> sweepRing = <Color>[
+    prestigeGold,
+    plasmaViolet,
+    auroraCyan,
+    prestigeGold,
+  ];
+}
+
+bool _isMaximumProgress(double progress) =>
+    progress >= _kMaximumProgressThreshold;
+
+bool _isEnergyProgress(double progress) => progress >= _kEnergyParticleThreshold;
+
+/// Opens the reasoning-effort selector popup above [anchorContext].
+///
+/// Entrance / exit motion follows global menu animation settings via
+/// [showAnimatedMenu] — never hard-coded.
 Future<void> showReasoningEffortSelector({
   required BuildContext context,
   required BuildContext anchorContext,
@@ -90,8 +143,7 @@ class _ReasoningEffortPopupEntry extends PopupMenuEntry<String> {
       _ReasoningEffortPopupEntryState();
 }
 
-class _ReasoningEffortPopupEntryState
-    extends State<_ReasoningEffortPopupEntry> {
+class _ReasoningEffortPopupEntryState extends State<_ReasoningEffortPopupEntry> {
   late int _selectedIndex;
   late String _persistedValue;
   String? _pendingValue;
@@ -137,8 +189,7 @@ class _ReasoningEffortPopupEntryState
         try {
           saved = await widget.onChanged(effort);
         } catch (_) {
-          // The selector must remain usable even if persistence fails. The
-          // caller owns user-facing error reporting; here we safely roll back.
+          // Caller owns error UX; roll back to last persisted value.
         }
         if (saved) {
           _persistedValue = effort;
@@ -167,16 +218,8 @@ class _ReasoningEffortPopupEntryState
     final option = widget.options[_selectedIndex];
     final maxIndex = math.max(1, widget.options.length - 1);
     final progress = _selectedIndex / maxIndex;
-    final isMaximum = progress >= 0.96;
-    final maximumColors = _maximumEffortColors(colorScheme);
-    final capsuleColor = Color.lerp(
-      colorScheme.primaryContainer,
-      colorScheme.tertiaryContainer,
-      progress,
-    )!;
-    final capsuleColors = isMaximum
-        ? maximumColors
-        : List<Color>.filled(maximumColors.length, capsuleColor);
+    final isMaximum = _isMaximumProgress(progress);
+
     return SizedBox(
       width: widget.width,
       child: Padding(
@@ -214,7 +257,7 @@ class _ReasoningEffortPopupEntryState
                     tween: Tween<double>(end: progress),
                     duration: openHandMotionDuration(
                       context,
-                      const Duration(milliseconds: 360),
+                      _kProgressAnimDuration,
                     ),
                     curve: Curves.easeOutBack,
                     builder: (context, animatedProgress, _) =>
@@ -254,71 +297,13 @@ class _ReasoningEffortPopupEntryState
             ),
             const SizedBox(height: 4),
             Center(
-              child: AnimatedContainer(
-                duration: openHandMotionDuration(
-                  context,
-                  const Duration(milliseconds: 280),
-                ),
-                curve: Curves.easeOutBack,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 9,
-                ),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: AlignmentDirectional.centerStart,
-                    end: AlignmentDirectional.centerEnd,
-                    colors: capsuleColors,
-                  ),
-                  borderRadius: BorderRadius.circular(999),
-                  border: Border.all(
-                    color: isMaximum
-                        ? Colors.white.withValues(alpha: 0.5)
-                        : Color.lerp(
-                            colorScheme.primary,
-                            colorScheme.tertiary,
-                            progress,
-                          )!.withValues(alpha: 0.5),
-                  ),
-                  boxShadow: <BoxShadow>[
-                    BoxShadow(
-                      color:
-                          (isMaximum
-                                  ? maximumColors.last
-                                  : Color.lerp(
-                                      colorScheme.primary,
-                                      colorScheme.tertiary,
-                                      progress,
-                                    ))!
-                              .withValues(alpha: isMaximum ? 0.3 : 0.16),
-                      blurRadius: isMaximum ? 22 : 16,
-                      offset: const Offset(0, 6),
-                    ),
-                  ],
-                ),
-                child: AnimatedSwitcher(
-                  duration: openHandMotionDuration(
-                    context,
-                    const Duration(milliseconds: 220),
-                  ),
-                  switchInCurve: Curves.easeOutBack,
-                  switchOutCurve: Curves.easeInCubic,
-                  layoutBuilder: buildCollisionSafeAnimatedSwitcherLayout,
-                  child: Text(
-                    option.labelForLocaleName(localeName),
-                    key: ValueKey<String>(option.value),
-                    style: theme.textTheme.labelLarge?.copyWith(
-                      color: isMaximum
-                          ? Colors.white
-                          : Color.lerp(
-                              colorScheme.onPrimaryContainer,
-                              colorScheme.onTertiaryContainer,
-                              progress,
-                            ),
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
+              child: _ReasoningEffortCapsule(
+                label: option.labelForLocaleName(localeName),
+                valueKey: option.value,
+                progress: progress,
+                isMaximum: isMaximum,
+                colorScheme: colorScheme,
+                textStyle: theme.textTheme.labelLarge,
               ),
             ),
           ],
@@ -327,6 +312,201 @@ class _ReasoningEffortPopupEntryState
     );
   }
 }
+
+// ── Capsule badge (label under the track) ───────────────────────────────────
+
+class _ReasoningEffortCapsule extends StatelessWidget {
+  const _ReasoningEffortCapsule({
+    required this.label,
+    required this.valueKey,
+    required this.progress,
+    required this.isMaximum,
+    required this.colorScheme,
+    required this.textStyle,
+  });
+
+  final String label;
+  final String valueKey;
+  final double progress;
+  final bool isMaximum;
+  final ColorScheme colorScheme;
+  final TextStyle? textStyle;
+
+  List<Color> get _capsuleColors {
+    if (isMaximum) return _MaximumEffortPalette.gradientStops;
+    final solid = Color.lerp(
+      colorScheme.primaryContainer,
+      colorScheme.tertiaryContainer,
+      progress,
+    )!;
+    return List<Color>.filled(
+      _MaximumEffortPalette.gradientStops.length,
+      solid,
+    );
+  }
+
+  Color get _borderColor {
+    if (isMaximum) {
+      return _MaximumEffortPalette.platinum.withValues(alpha: 0.55);
+    }
+    return Color.lerp(
+      colorScheme.primary,
+      colorScheme.tertiary,
+      progress,
+    )!.withValues(alpha: 0.5);
+  }
+
+  Color get _shadowColor {
+    if (isMaximum) return _MaximumEffortPalette.plasmaViolet;
+    return Color.lerp(colorScheme.primary, colorScheme.tertiary, progress)!;
+  }
+
+  Color get _labelColor {
+    if (isMaximum) return Colors.white;
+    return Color.lerp(
+      colorScheme.onPrimaryContainer,
+      colorScheme.onTertiaryContainer,
+      progress,
+    )!;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final badge = AnimatedContainer(
+      duration: openHandMotionDuration(context, _kCapsuleAnimDuration),
+      curve: Curves.easeOutBack,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: AlignmentDirectional.centerStart,
+          end: AlignmentDirectional.centerEnd,
+          colors: _capsuleColors,
+        ),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: _borderColor),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: _shadowColor.withValues(alpha: isMaximum ? 0.36 : 0.16),
+            blurRadius: isMaximum ? 24 : 16,
+            offset: const Offset(0, 6),
+          ),
+          if (isMaximum)
+            BoxShadow(
+              color: _MaximumEffortPalette.prestigeGold.withValues(alpha: 0.22),
+              blurRadius: 18,
+              offset: const Offset(0, 2),
+            ),
+        ],
+      ),
+      child: AnimatedSwitcher(
+        duration: openHandMotionDuration(context, _kLabelSwitchDuration),
+        switchInCurve: Curves.easeOutBack,
+        switchOutCurve: Curves.easeInCubic,
+        layoutBuilder: buildCollisionSafeAnimatedSwitcherLayout,
+        child: Text(
+          label,
+          key: ValueKey<String>(valueKey),
+          style: textStyle?.copyWith(
+            color: _labelColor,
+            fontWeight: FontWeight.w800,
+            letterSpacing: isMaximum ? 0.4 : 0,
+            shadows: isMaximum
+                ? const <Shadow>[
+                    Shadow(
+                      color: Color(0x66000000),
+                      blurRadius: 6,
+                      offset: Offset(0, 1),
+                    ),
+                  ]
+                : null,
+          ),
+        ),
+      ),
+    );
+
+    if (!isMaximum) return badge;
+    return _MaximumPulseAura(child: badge);
+  }
+}
+
+/// Soft dual-tone breathing glow around the max-tier capsule.
+class _MaximumPulseAura extends StatefulWidget {
+  const _MaximumPulseAura({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_MaximumPulseAura> createState() => _MaximumPulseAuraState();
+}
+
+class _MaximumPulseAuraState extends State<_MaximumPulseAura>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _pulse = AnimationController(
+    vsync: this,
+    duration: _kMaximumPulsePeriod,
+  );
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _syncPulse();
+  }
+
+  void _syncPulse() {
+    if (openHandTickerMotionEnabled(context)) {
+      if (!_pulse.isAnimating) _pulse.repeat(reverse: true);
+      return;
+    }
+    _pulse
+      ..stop()
+      ..value = 0;
+  }
+
+  @override
+  void dispose() {
+    _pulse.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    _syncPulse();
+    return AnimatedBuilder(
+      animation: _pulse,
+      builder: (context, child) {
+        final t = Curves.easeInOutCubic.transform(_pulse.value);
+        return Transform.scale(
+          scale: 1.0 + t * 0.04,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(999),
+              boxShadow: <BoxShadow>[
+                BoxShadow(
+                  color: _MaximumEffortPalette.plasmaViolet.withValues(
+                    alpha: 0.28 + t * 0.32,
+                  ),
+                  blurRadius: 16 + t * 22,
+                  spreadRadius: t * 2.2,
+                ),
+                BoxShadow(
+                  color: _MaximumEffortPalette.prestigeGold.withValues(
+                    alpha: 0.16 + t * 0.28,
+                  ),
+                  blurRadius: 22 + t * 26,
+                  spreadRadius: -1 + t * 3,
+                ),
+              ],
+            ),
+            child: child,
+          ),
+        );
+      },
+      child: widget.child,
+    );
+  }
+}
+
+// ── Track ───────────────────────────────────────────────────────────────────
 
 class _AnimatedReasoningTrack extends StatefulWidget {
   const _AnimatedReasoningTrack({
@@ -356,14 +536,16 @@ class _AnimatedReasoningTrackState extends State<_AnimatedReasoningTrack>
   @override
   void didUpdateWidget(covariant _AnimatedReasoningTrack oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if ((oldWidget.progress >= 0.72) != (widget.progress >= 0.72)) {
+    if (_isEnergyProgress(oldWidget.progress) !=
+        _isEnergyProgress(widget.progress)) {
       _syncEnergyAnimation();
     }
   }
 
   void _syncEnergyAnimation() {
     final shouldAnimate =
-        widget.progress >= 0.72 && openHandTickerMotionEnabled(context);
+        _isEnergyProgress(widget.progress) &&
+        openHandTickerMotionEnabled(context);
     if (shouldAnimate && !_energyTicker.isActive) {
       _particles.resetClock();
       _energyTicker.start();
@@ -398,31 +580,6 @@ class _AnimatedReasoningTrackState extends State<_AnimatedReasoningTrack>
   }
 }
 
-List<Color> _maximumEffortColors(ColorScheme colors) {
-  return _maximumEffortColorsFromSeeds(
-    colors.primary,
-    colors.secondary,
-    colors.tertiary,
-  );
-}
-
-List<Color> _maximumEffortColorsFromSeeds(
-  Color primary,
-  Color secondary,
-  Color tertiary,
-) {
-  const obsidianTeal = Color(0xFF082C3A);
-  const abyssalBlue = Color(0xFF0B5870);
-  const royalIndigo = Color(0xFF3348B8);
-  const imperialViolet = Color(0xFF683A88);
-  return <Color>[
-    Color.lerp(primary, obsidianTeal, 0.82)!,
-    Color.lerp(secondary, abyssalBlue, 0.78)!,
-    Color.lerp(primary, royalIndigo, 0.76)!,
-    Color.lerp(tertiary, imperialViolet, 0.78)!,
-  ];
-}
-
 class _ReasoningParticleField extends ChangeNotifier {
   _ReasoningParticleField() {
     for (var index = 0; index < _particleCount; index++) {
@@ -430,12 +587,20 @@ class _ReasoningParticleField extends ChangeNotifier {
     }
   }
 
-  static const int _particleCount = 17;
+  static const int _particleCount = 20;
+  static const double _pulsePeriodSeconds = 1.5;
+
   final math.Random _random = math.Random();
   final List<_ReasoningParticle> particles = <_ReasoningParticle>[];
   Duration? _previousElapsed;
 
-  void resetClock() => _previousElapsed = null;
+  /// Smooth 0→1→0 breathing phase driven by the energy ticker.
+  double pulse = 0;
+
+  void resetClock() {
+    _previousElapsed = null;
+    pulse = 0;
+  }
 
   void advance(Duration elapsed) {
     final previous = _previousElapsed;
@@ -444,6 +609,10 @@ class _ReasoningParticleField extends ChangeNotifier {
     final deltaSeconds = ((elapsed - previous).inMicroseconds / 1000000)
         .clamp(0.001, 0.05)
         .toDouble();
+    // Continuous sine pulse (independent of reverse AnimationController).
+    final seconds = elapsed.inMicroseconds / 1000000;
+    pulse = 0.5 + 0.5 * math.sin(seconds * math.pi * 2 / _pulsePeriodSeconds);
+
     for (var index = 0; index < particles.length; index++) {
       final particle = particles[index];
       particle.life -= deltaSeconds;
@@ -484,7 +653,7 @@ class _ReasoningParticleField extends ChangeNotifier {
       y: 0.14 + _random.nextDouble() * 0.72,
       vx: (_random.nextDouble() - 0.42) * 0.075,
       vy: (_random.nextDouble() - 0.5) * 0.11,
-      radius: 0.75 + _random.nextDouble() * 1.45,
+      radius: 0.75 + _random.nextDouble() * 1.55,
       opacity: initial ? 0.36 + _random.nextDouble() * 0.55 : 0.28,
       age: initial ? 0.4 + _random.nextDouble() * 1.2 : 0,
       life: 1.8 + _random.nextDouble() * 4.6,
@@ -541,7 +710,12 @@ class _ReasoningTrackPainter extends CustomPainter {
     const left = 0.0;
     final right = math.max(left, size.width);
     final trackRect = RRect.fromRectAndRadius(
-      Rect.fromLTRB(left, centerY - 13, right, centerY + 13),
+      Rect.fromLTRB(
+        left,
+        centerY - _kReasoningTrackHalfHeight,
+        right,
+        centerY + _kReasoningTrackHalfHeight,
+      ),
       const Radius.circular(999),
     );
     canvas.drawRRect(trackRect, Paint()..color = surfaceColor);
@@ -561,38 +735,70 @@ class _ReasoningTrackPainter extends CustomPainter {
         : progress <= 0
         ? left
         : thumbX;
-    final isMaximum = progress >= 0.96;
-    final maximumColors = _maximumEffortColorsFromSeeds(
-      primaryColor,
-      secondaryColor,
-      tertiaryColor,
-    );
+    final isMaximum = _isMaximumProgress(progress);
+    final pulse = isMaximum ? particles.pulse : 0.0;
+    const maxStops = _MaximumEffortPalette.gradientStops;
+
     if (activeRight > left) {
       final activeRect = RRect.fromRectAndRadius(
-        Rect.fromLTRB(left, centerY - 13, activeRight, centerY + 13),
+        Rect.fromLTRB(
+          left,
+          centerY - _kReasoningTrackHalfHeight,
+          activeRight,
+          centerY + _kReasoningTrackHalfHeight,
+        ),
         const Radius.circular(999),
       );
       final fillColors = isMaximum
-          ? maximumColors
+          ? maxStops
           : <Color>[
               primaryColor,
               Color.lerp(primaryColor, tertiaryColor, progress)!,
-              if (progress >= 0.72) secondaryColor,
+              if (_isEnergyProgress(progress)) secondaryColor,
             ];
+
       if (isMaximum) {
+        // Outer imperial bloom — breathes with pulse.
+        final bloomRect = RRect.fromRectAndRadius(
+          Rect.fromLTRB(
+            left - 2,
+            centerY - _kReasoningTrackHalfHeight - 4 - pulse * 3,
+            activeRight + 2,
+            centerY + _kReasoningTrackHalfHeight + 4 + pulse * 3,
+          ),
+          const Radius.circular(999),
+        );
+        canvas.drawRRect(
+          bloomRect,
+          Paint()
+            ..shader = LinearGradient(
+              colors: <Color>[
+                _MaximumEffortPalette.plasmaViolet.withValues(
+                  alpha: 0.22 + pulse * 0.28,
+                ),
+                _MaximumEffortPalette.prestigeGold.withValues(
+                  alpha: 0.18 + pulse * 0.26,
+                ),
+              ],
+            ).createShader(bloomRect.outerRect)
+            ..maskFilter = MaskFilter.blur(
+              BlurStyle.normal,
+              10 + pulse * 8,
+            ),
+        );
+        // Inner sheen edge.
         canvas.drawRRect(
           activeRect,
           Paint()
             ..shader = LinearGradient(
-              colors: fillColors
-                  .map((color) {
-                    return color.withValues(alpha: 0.72);
-                  })
+              colors: maxStops
+                  .map((c) => c.withValues(alpha: 0.55 + pulse * 0.25))
                   .toList(growable: false),
             ).createShader(activeRect.outerRect)
-            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 7),
+            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
         );
       }
+
       canvas.drawRRect(
         activeRect,
         Paint()
@@ -600,6 +806,33 @@ class _ReasoningTrackPainter extends CustomPainter {
             colors: fillColors,
           ).createShader(activeRect.outerRect),
       );
+
+      // Sliding highlight band across the max fill.
+      if (isMaximum && activeRight - left > 24) {
+        final sheenWidth = (activeRight - left) * 0.28;
+        final sheenX =
+            left + (activeRight - left - sheenWidth) * pulse.clamp(0.0, 1.0);
+        final sheenRect = Rect.fromLTWH(
+          sheenX,
+          centerY - _kReasoningTrackHalfHeight,
+          sheenWidth,
+          _kReasoningTrackHalfHeight * 2,
+        );
+        canvas.save();
+        canvas.clipRRect(activeRect);
+        canvas.drawRect(
+          sheenRect,
+          Paint()
+            ..shader = LinearGradient(
+              colors: <Color>[
+                Colors.white.withValues(alpha: 0),
+                Colors.white.withValues(alpha: 0.22 + pulse * 0.12),
+                Colors.white.withValues(alpha: 0),
+              ],
+            ).createShader(sheenRect),
+        );
+        canvas.restore();
+      }
     }
 
     final safeDivisions = math.max(1, divisions);
@@ -609,60 +842,98 @@ class _ReasoningTrackPainter extends CustomPainter {
       final active = tickProgress <= progress + 0.001;
       canvas.drawCircle(
         Offset(x, centerY),
-        3,
+        isMaximum && active ? 3.4 : 3,
         Paint()
           ..color = active
-              ? Colors.white.withValues(alpha: 0.52)
+              ? (isMaximum
+                    ? _MaximumEffortPalette.platinum.withValues(
+                        alpha: 0.7 + pulse * 0.25,
+                      )
+                    : Colors.white.withValues(alpha: 0.52))
               : outlineColor.withValues(alpha: 0.86),
       );
     }
 
-    if (progress >= 0.72) {
-      final energy = ((progress - 0.72) / 0.28).clamp(0.0, 1.0);
+    if (_isEnergyProgress(progress)) {
+      final energy =
+          ((progress - _kEnergyParticleThreshold) /
+                  (1 - _kEnergyParticleThreshold))
+              .clamp(0.0, 1.0);
       final particleRight = math.max(left, activeRight - 3);
       canvas.save();
       canvas.clipRRect(trackRect);
+      final particlePalette = isMaximum
+          ? _MaximumEffortPalette.particleColors
+          : null;
       for (var index = 0; index < particles.particles.length; index++) {
         final particle = particles.particles[index];
         final x = left + (particleRight - left) * particle.x;
         final y = centerY - 10 + particle.y * 20;
         final fadeIn = (particle.age / 0.38).clamp(0.0, 1.0);
         final fadeOut = (particle.life / 0.5).clamp(0.0, 1.0);
-        final alpha = particle.opacity * fadeIn * fadeOut * energy;
-        final particleColor = isMaximum
-            ? Color.lerp(
-                Colors.white,
-                maximumColors[index % maximumColors.length],
-                0.16,
-              )!
-            : Colors.white;
+        final alpha =
+            particle.opacity *
+            fadeIn *
+            fadeOut *
+            energy *
+            (isMaximum ? 0.85 + pulse * 0.35 : 1.0);
+        final particleColor = particlePalette == null
+            ? Colors.white
+            : particlePalette[index % particlePalette.length];
         canvas.drawCircle(
           Offset(x, y),
-          particle.radius,
-          Paint()..color = particleColor.withValues(alpha: alpha),
+          particle.radius * (isMaximum ? 1.0 + pulse * 0.25 : 1.0),
+          Paint()
+            ..color = particleColor.withValues(alpha: alpha.clamp(0.0, 1.0))
+            ..maskFilter = isMaximum
+                ? const MaskFilter.blur(BlurStyle.normal, 1.2)
+                : null,
         );
       }
       canvas.restore();
     }
 
-    canvas.drawCircle(
-      Offset(thumbX, centerY),
-      _kReasoningThumbRadius,
-      Paint()..color = Colors.white,
-    );
+    _paintThumb(canvas, Offset(thumbX, centerY), isMaximum, pulse);
+  }
+
+  void _paintThumb(Canvas canvas, Offset center, bool isMaximum, double pulse) {
+    if (isMaximum) {
+      // Soft prestige halo behind the thumb.
+      canvas.drawCircle(
+        center,
+        _kReasoningThumbRadius + 6 + pulse * 5,
+        Paint()
+          ..color = _MaximumEffortPalette.prestigeGold.withValues(
+            alpha: 0.14 + pulse * 0.22,
+          )
+          ..maskFilter = MaskFilter.blur(BlurStyle.normal, 8 + pulse * 6),
+      );
+      canvas.drawCircle(
+        center,
+        _kReasoningThumbRadius + 4 + pulse * 3,
+        Paint()
+          ..color = _MaximumEffortPalette.plasmaViolet.withValues(
+            alpha: 0.16 + pulse * 0.2,
+          )
+          ..maskFilter = MaskFilter.blur(BlurStyle.normal, 6 + pulse * 4),
+      );
+    }
+
+    canvas.drawCircle(center, _kReasoningThumbRadius, Paint()..color = Colors.white);
+
     final thumbBorderPaint = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = isMaximum ? 2.2 : 1.5;
+      ..strokeWidth = isMaximum ? 2.6 : 1.5;
     if (isMaximum) {
-      thumbBorderPaint.shader =
-          SweepGradient(
-            colors: <Color>[...maximumColors, maximumColors.first],
-          ).createShader(
-            Rect.fromCircle(
-              center: Offset(thumbX, centerY),
-              radius: _kReasoningThumbRadius,
-            ),
-          );
+      // Rotating prestige ring driven by pulse phase.
+      final angle = pulse * math.pi * 2;
+      thumbBorderPaint.shader = SweepGradient(
+        startAngle: angle,
+        endAngle: angle + math.pi * 2,
+        colors: _MaximumEffortPalette.sweepRing,
+      ).createShader(
+        Rect.fromCircle(center: center, radius: _kReasoningThumbRadius),
+      );
     } else {
       thumbBorderPaint.color = Color.lerp(
         primaryColor,
@@ -670,11 +941,21 @@ class _ReasoningTrackPainter extends CustomPainter {
         progress,
       )!.withValues(alpha: 0.32);
     }
-    canvas.drawCircle(
-      Offset(thumbX, centerY),
-      _kReasoningThumbRadius,
-      thumbBorderPaint,
-    );
+    canvas.drawCircle(center, _kReasoningThumbRadius, thumbBorderPaint);
+
+    if (isMaximum) {
+      // Inner gold rim for a jewelry-like finish.
+      canvas.drawCircle(
+        center,
+        _kReasoningThumbRadius - 3.5,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.1
+          ..color = _MaximumEffortPalette.prestigeGold.withValues(
+            alpha: 0.35 + pulse * 0.35,
+          ),
+      );
+    }
   }
 
   @override

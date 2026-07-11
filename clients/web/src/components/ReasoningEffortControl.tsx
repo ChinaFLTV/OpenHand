@@ -11,7 +11,7 @@ export interface ReasoningEffortControlProps {
   onSelect: (effort: string) => Promise<boolean>;
 }
 
-const REASONING_PARTICLE_COUNT = 17;
+const REASONING_PARTICLE_COUNT = 20;
 const REASONING_PARTICLE_FRAME_MS = 1000 / 30;
 
 interface ReasoningParticle {

@@ -130,16 +130,15 @@ void main() {
       for (final index in <double>[2, 1, 2, 0]) {
         slider.onChanged!(index);
         await tester.pump(const Duration(milliseconds: 24));
+        final label = index == 2
+            ? '最高'
+            : index == 1
+            ? '高'
+            : '低';
         final capsule = tester.widget<AnimatedContainer>(
           find
               .ancestor(
-                of: find.text(
-                  index == 2
-                      ? '最高'
-                      : index == 1
-                      ? '高'
-                      : '低',
-                ),
+                of: find.text(label),
                 matching: find.byType(AnimatedContainer),
               )
               .first,
@@ -152,23 +151,26 @@ void main() {
         for (final color in colors) {
           expect(color.a, 1);
         }
-        final renderedCapsule = tester.widget<DecoratedBox>(
-          find
-              .ancestor(
-                of: find.text(
-                  index == 2
-                      ? '最高'
-                      : index == 1
-                      ? '高'
-                      : '低',
-                ),
-                matching: find.byType(DecoratedBox),
-              )
-              .first,
-        );
-        final renderedDecoration = renderedCapsule.decoration as BoxDecoration;
+        // Max-tier wraps the capsule with a pulse aura DecoratedBox that only
+        // carries boxShadow — pick the ancestor that actually owns the gradient.
+        final gradientBoxes = find
+            .ancestor(
+              of: find.text(label),
+              matching: find.byWidgetPredicate(
+                (widget) =>
+                    widget is DecoratedBox &&
+                    widget.decoration is BoxDecoration &&
+                    (widget.decoration as BoxDecoration).gradient
+                        is LinearGradient,
+              ),
+            )
+            .evaluate()
+            .toList(growable: false);
+        expect(gradientBoxes, isNotEmpty);
+        final renderedDecoration =
+            (gradientBoxes.first.widget as DecoratedBox).decoration
+                as BoxDecoration;
         expect(renderedDecoration.color, isNull);
-        expect(renderedDecoration.gradient, isA<LinearGradient>());
         for (final color
             in (renderedDecoration.gradient! as LinearGradient).colors) {
           expect(color.a, 1);

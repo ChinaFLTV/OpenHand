@@ -4984,11 +4984,12 @@ button.oh-message-context-capsule {
   --oh-reasoning-accent: color-mix(in srgb, var(--m3-primary) 30%, var(--m3-tertiary));
   --oh-reasoning-end: var(--m3-tertiary);
 }
+/* Imperial Apex — fixed prestige stops so max never inherits a muddy theme primary. */
 .oh-reasoning-effort-panel[data-energy='max'] {
-  --oh-reasoning-start: color-mix(in srgb, var(--m3-primary) 18%, #082c3a);
-  --oh-reasoning-mid: color-mix(in srgb, var(--m3-secondary) 22%, #0b5870);
-  --oh-reasoning-accent: color-mix(in srgb, var(--m3-primary) 24%, #3348b8);
-  --oh-reasoning-end: color-mix(in srgb, var(--m3-tertiary) 22%, #683a88);
+  --oh-reasoning-start: #0c0618;
+  --oh-reasoning-mid: #4c1d95;
+  --oh-reasoning-accent: #a855f7;
+  --oh-reasoning-end: #f5c542;
 }
 .oh-reasoning-effort-heading {
   display: flex;
@@ -5020,6 +5021,7 @@ button.oh-message-context-capsule {
   width: var(--oh-reasoning-fill-position);
   min-width: 2px;
   border-radius: 999px;
+  overflow: hidden;
   background: linear-gradient(
     90deg,
     var(--oh-reasoning-start),
@@ -5035,8 +5037,24 @@ button.oh-message-context-capsule {
 }
 .oh-reasoning-effort-panel[data-energy='max'] .oh-reasoning-effort-fill {
   box-shadow:
-    0 0 16px -7px color-mix(in srgb, #61c9e2 56%, transparent),
-    0 0 24px -10px color-mix(in srgb, #7d77e8 62%, transparent);
+    0 0 14px -4px color-mix(in srgb, #a855f7 70%, transparent),
+    0 0 28px -8px color-mix(in srgb, #f5c542 58%, transparent);
+  animation: oh-reasoning-max-fill-pulse 1500ms ease-in-out infinite alternate;
+}
+.oh-reasoning-effort-panel[data-energy='max'] .oh-reasoning-effort-fill::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    105deg,
+    transparent 28%,
+    rgb(255 255 255 / 22%) 48%,
+    transparent 68%
+  );
+  background-size: 220% 100%;
+  animation: oh-reasoning-max-sheen 1500ms ease-in-out infinite alternate;
+  pointer-events: none;
 }
 .oh-reasoning-effort-tick {
   position: absolute;
@@ -5075,9 +5093,31 @@ button.oh-message-context-capsule {
     box-shadow 300ms var(--oh-motion-emphasized),
     transform 180ms var(--oh-motion-spring);
 }
+.oh-reasoning-effort-panel[data-energy='max'] .oh-reasoning-effort-orb {
+  border: 2.4px solid transparent;
+  background:
+    linear-gradient(#fff, #fff) padding-box,
+    conic-gradient(from 0deg, #f5c542, #a855f7, #67e8f9, #f5c542) border-box;
+  box-shadow:
+    0 10px 24px -10px color-mix(in srgb, var(--m3-on-surface) 38%, transparent),
+    0 0 0 4px color-mix(in srgb, #a855f7 14%, transparent),
+    0 0 18px -2px color-mix(in srgb, #f5c542 42%, transparent),
+    0 0 28px -4px color-mix(in srgb, #a855f7 36%, transparent);
+  animation: oh-reasoning-max-orb-pulse 1500ms ease-in-out infinite alternate;
+}
+.oh-reasoning-effort-panel[data-energy='max'] .oh-reasoning-effort-orb::after {
+  content: '';
+  position: absolute;
+  inset: 5px;
+  border-radius: inherit;
+  border: 1.1px solid color-mix(in srgb, #f5c542 48%, transparent);
+  pointer-events: none;
+  animation: oh-reasoning-max-orb-rim 1500ms ease-in-out infinite alternate;
+}
 .oh-reasoning-effort-track-shell:active .oh-reasoning-effort-orb {
   transform: translate(-50%, -50%) scale(1.06);
   box-shadow: none;
+  animation: none;
 }
 .oh-reasoning-effort-sparkles {
   position: absolute;
@@ -5106,11 +5146,21 @@ button.oh-message-context-capsule {
 .oh-reasoning-effort-panel[data-energy='max'] .oh-reasoning-effort-sparkles {
   opacity: 1;
 }
-.oh-reasoning-effort-panel[data-energy='max'] .oh-reasoning-effort-sparkles > i:nth-child(3n + 1) {
-  background: color-mix(in srgb, #fff 82%, #83d8e9);
+.oh-reasoning-effort-panel[data-energy='max'] .oh-reasoning-effort-sparkles > i:nth-child(4n + 1) {
+  background: color-mix(in srgb, #fff 70%, #fff4d6);
+  box-shadow: 0 0 6px color-mix(in srgb, #fff4d6 55%, transparent);
 }
-.oh-reasoning-effort-panel[data-energy='max'] .oh-reasoning-effort-sparkles > i:nth-child(3n + 2) {
-  background: color-mix(in srgb, #fff 84%, #aaa8f2);
+.oh-reasoning-effort-panel[data-energy='max'] .oh-reasoning-effort-sparkles > i:nth-child(4n + 2) {
+  background: color-mix(in srgb, #fff 55%, #f5c542);
+  box-shadow: 0 0 6px color-mix(in srgb, #f5c542 50%, transparent);
+}
+.oh-reasoning-effort-panel[data-energy='max'] .oh-reasoning-effort-sparkles > i:nth-child(4n + 3) {
+  background: color-mix(in srgb, #fff 55%, #67e8f9);
+  box-shadow: 0 0 6px color-mix(in srgb, #67e8f9 48%, transparent);
+}
+.oh-reasoning-effort-panel[data-energy='max'] .oh-reasoning-effort-sparkles > i:nth-child(4n) {
+  background: color-mix(in srgb, #fff 50%, #a855f7);
+  box-shadow: 0 0 6px color-mix(in srgb, #a855f7 48%, transparent);
 }
 .oh-reasoning-effort-range {
   position: absolute;
@@ -5194,6 +5244,8 @@ button.oh-message-context-capsule {
 }
 .oh-reasoning-effort-panel[data-energy='max'] .oh-reasoning-effort-current > span {
   color: #fff;
+  letter-spacing: 0.04em;
+  text-shadow: 0 1px 6px rgb(0 0 0 / 40%);
   background: linear-gradient(
     110deg,
     var(--oh-reasoning-start),
@@ -5201,14 +5253,70 @@ button.oh-message-context-capsule {
     var(--oh-reasoning-accent) 68%,
     var(--oh-reasoning-end)
   );
-  border-color: color-mix(in srgb, #d7f5ff 38%, var(--oh-reasoning-accent));
+  border-color: color-mix(in srgb, #fff4d6 55%, var(--oh-reasoning-accent));
   box-shadow:
-    0 10px 24px -16px color-mix(in srgb, #2d9db6 66%, transparent),
-    0 12px 30px -18px color-mix(in srgb, #5a54c8 72%, transparent);
+    0 10px 24px -14px color-mix(in srgb, #a855f7 72%, transparent),
+    0 12px 32px -16px color-mix(in srgb, #f5c542 64%, transparent),
+    0 0 18px -4px color-mix(in srgb, #a855f7 40%, transparent);
+  animation: oh-reasoning-max-capsule-pulse 1500ms ease-in-out infinite alternate;
 }
 @keyframes oh-reasoning-control-sweep {
   from { transform: translateX(-60%); }
   to { transform: translateX(60%); }
+}
+@keyframes oh-reasoning-max-fill-pulse {
+  from {
+    box-shadow:
+      0 0 12px -6px color-mix(in srgb, #a855f7 55%, transparent),
+      0 0 20px -10px color-mix(in srgb, #f5c542 42%, transparent);
+  }
+  to {
+    box-shadow:
+      0 0 22px -2px color-mix(in srgb, #a855f7 82%, transparent),
+      0 0 36px -4px color-mix(in srgb, #f5c542 72%, transparent);
+  }
+}
+@keyframes oh-reasoning-max-sheen {
+  from { background-position: 0% 50%; opacity: 0.55; }
+  to { background-position: 100% 50%; opacity: 1; }
+}
+@keyframes oh-reasoning-max-orb-pulse {
+  from {
+    box-shadow:
+      0 10px 24px -10px color-mix(in srgb, var(--m3-on-surface) 38%, transparent),
+      0 0 0 3px color-mix(in srgb, #a855f7 10%, transparent),
+      0 0 12px -4px color-mix(in srgb, #f5c542 30%, transparent),
+      0 0 18px -6px color-mix(in srgb, #a855f7 28%, transparent);
+    filter: brightness(1);
+  }
+  to {
+    box-shadow:
+      0 10px 24px -10px color-mix(in srgb, var(--m3-on-surface) 38%, transparent),
+      0 0 0 6px color-mix(in srgb, #a855f7 18%, transparent),
+      0 0 26px 0 color-mix(in srgb, #f5c542 58%, transparent),
+      0 0 36px -2px color-mix(in srgb, #a855f7 48%, transparent);
+    filter: brightness(1.06);
+  }
+}
+@keyframes oh-reasoning-max-orb-rim {
+  from { border-color: color-mix(in srgb, #f5c542 32%, transparent); opacity: 0.7; }
+  to { border-color: color-mix(in srgb, #f5c542 78%, transparent); opacity: 1; }
+}
+@keyframes oh-reasoning-max-capsule-pulse {
+  from {
+    transform: scale(1);
+    box-shadow:
+      0 10px 24px -14px color-mix(in srgb, #a855f7 55%, transparent),
+      0 12px 28px -16px color-mix(in srgb, #f5c542 48%, transparent),
+      0 0 12px -6px color-mix(in srgb, #a855f7 28%, transparent);
+  }
+  to {
+    transform: scale(1.04);
+    box-shadow:
+      0 12px 30px -10px color-mix(in srgb, #a855f7 86%, transparent),
+      0 14px 36px -12px color-mix(in srgb, #f5c542 78%, transparent),
+      0 0 28px -2px color-mix(in srgb, #a855f7 52%, transparent);
+  }
 }
 .oh-composer-model-provider {
   color: var(--m3-on-surface-variant);
