@@ -2441,7 +2441,6 @@ function ComposerInstructionsStrip({ entries, skipped, disabled, onToggle, onRes
 
   return (
     <div class="oh-composer-instructions-strip mb-3" role="group" aria-label={t('composer.instructions.aria', '当前会话生效的用户指令')}>
-      <span class="oh-composer-instructions-strip-label">{t('composer.instructions.label', '用户指令')}</span>
       <div class="oh-composer-instructions-strip-list">
         {entries.map((entry, index) => {
           const isSkipped = skipped.has(entry.id);
@@ -6980,7 +6979,7 @@ export function SessionDetailPage() {
                 ) : null}
 
                 {sortedMessages.length === 0 ? (
-                  <div class="oh-session-empty-state">
+                  <div class="oh-session-empty-plain" role="status">
                     <span class="oh-session-empty-icon" aria-hidden>
                       <ComposerIcon name="chat" size={20} />
                     </span>

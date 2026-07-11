@@ -246,167 +246,172 @@ export function SessionTopBar(props: SessionTopBarProps) {
       }}
     >
       <div class="oh-session-topbar-row flex items-center gap-2 min-w-0">
-        {onBack ? (
-          <button
-            type="button"
-            onClick={onBack}
-            class="oh-tap-press oh-icon-button oh-session-back-button flex-none"
-            style={{
-              color: 'var(--m3-on-surface-variant)',
-              border: '1px solid var(--m3-outline-variant)',
-              background: 'var(--m3-surface)',
-            }}
-            title={t('detail.backToList', '返回会话列表')}
-          >
-            <TopBarIcon name="back" size={18} />
-          </button>
-        ) : null}
-
-        <div class="oh-session-title-block min-w-0 flex-none">
-          {editing ? (
-            <input
-              ref={titleInputRef}
-              value={draftTitle}
-              onInput={(e) => setDraftTitle((e.currentTarget as HTMLInputElement).value)}
-              onBlur={commitRename}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') void commitRename();
-                if (e.key === 'Escape') {
-                  setEditing(false);
-                  setDraftTitle(title);
-                }
-              }}
-              class="w-full text-sm font-semibold px-2 py-1 rounded-m3-sm"
-              style={{
-                background: 'var(--m3-surface)',
-                color: 'var(--m3-on-surface)',
-                border: '1px solid var(--m3-primary)',
-              }}
-            />
-          ) : (
+        <div class="oh-session-topbar-leading flex items-center gap-2 min-w-0 flex-none">
+          {onBack ? (
             <button
               type="button"
-              onClick={() => onRename && !titleGenerating && setEditing(true)}
-              class="block w-full text-left truncate"
-              disabled={!onRename || renaming || titleGenerating}
-              title={titleGenerating
-                ? t('topbar.titleGenerating', '标题生成中…')
-                : onRename ? t('topbar.renameHint', '点击重命名') : undefined}
-            >
-              <span class="flex items-center gap-1.5 min-w-0">
-                <AnimatedTitleText
-                  text={title}
-                  className="block text-sm font-semibold truncate"
-                  style={{ color: 'var(--m3-on-surface)' }}
-                />
-                {titleGenerating ? (
-                  <span class="oh-title-generating-spinner flex-none" aria-label={t('topbar.titleGenerating', '标题生成中…')}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" class="oh-spin" style={{ color: 'var(--m3-primary)', opacity: 0.7 }}>
-                      <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
-                    </svg>
-                  </span>
-                ) : null}
-              </span>
-            </button>
-          )}
-          {subtitle ? (
-            <p
-              class="text-[11px] truncate mt-0.5"
-              style={{ color: 'var(--m3-on-surface-variant)' }}
-            >
-              {subtitle}
-            </p>
-          ) : null}
-        </div>
-
-        {capsules.length > 0 ? (
-          <div class="oh-session-capsule-rail flex-1 min-w-0 overflow-x-auto">
-            <div class="flex items-center gap-1.5 w-max max-w-none pr-1 py-0.5">
-              {capsules.map((item) => (
-                <ToolbarCapsule key={item.key} capsule={item} />
-              ))}
-            </div>
-          </div>
-        ) : null}
-
-        <div class="oh-session-topbar-actions flex items-center gap-2 flex-none">
-          {onToggleFullscreen ? (
-            <BrowserFullscreenButton
-              active={fullscreenActive}
-              onClick={onToggleFullscreen}
-            />
-          ) : null}
-
-          <div ref={moreMenuAnchorRef} class="relative flex-none">
-            <button
-              type="button"
-              onClick={toggleMoreMenu}
-              class="oh-tap-press oh-icon-button"
+              onClick={onBack}
+              class="oh-tap-press oh-icon-button oh-session-back-button flex-none"
               style={{
                 color: 'var(--m3-on-surface-variant)',
                 border: '1px solid var(--m3-outline-variant)',
                 background: 'var(--m3-surface)',
               }}
-              title={t('topbar.more', '更多')}
+              title={t('detail.backToList', '返回会话列表')}
             >
-              <TopBarIcon name="more" size={17} />
+              <TopBarIcon name="back" size={18} />
             </button>
-            {moreMenuVisible ? (
-              <Menu
-                anchorRef={moreMenuAnchorRef}
-                menuRef={moreMenuPanelRef}
-                closing={closingMore}
+          ) : null}
+
+          <div class="oh-session-title-block min-w-0 flex-none">
+            {editing ? (
+              <input
+                ref={titleInputRef}
+                value={draftTitle}
+                onInput={(e) => setDraftTitle((e.currentTarget as HTMLInputElement).value)}
+                onBlur={commitRename}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') void commitRename();
+                  if (e.key === 'Escape') {
+                    setEditing(false);
+                    setDraftTitle(title);
+                  }
+                }}
+                class="w-full text-sm font-semibold px-2 py-1 rounded-m3-sm"
+                style={{
+                  background: 'var(--m3-surface)',
+                  color: 'var(--m3-on-surface)',
+                  border: '1px solid var(--m3-primary)',
+                }}
+              />
+            ) : (
+              <button
+                type="button"
+                onClick={() => onRename && !titleGenerating && setEditing(true)}
+                class="block w-full text-left truncate"
+                disabled={!onRename || renaming || titleGenerating}
+                title={titleGenerating
+                  ? t('topbar.titleGenerating', '标题生成中…')
+                  : onRename ? t('topbar.renameHint', '点击重命名') : undefined}
               >
-                {onRename ? (
-                  <MenuItem icon="rename" onClick={() => { requestCloseMoreMenu(); setEditing(true); }}>
-                    {t('topbar.rename', '重命名')}
-                  </MenuItem>
-                ) : null}
-                {onExport ? (
-                  <MenuItem icon="export" onClick={() => { requestCloseMoreMenu(); onExport(); }}>
-                    {t('topbar.export', '导出 JSON')}
-                  </MenuItem>
-                ) : null}
-                {onGenerateTitle ? (
-                  <MenuItem icon="rename" onClick={() => { requestCloseMoreMenu(); onGenerateTitle(); }}>
-                    {t('topbar.generateTitle', '获取 AI 摘要标题')}
-                  </MenuItem>
-                ) : null}
-                {onToggleFullscreen ? (
-                  <MenuItem
-                    icon={fullscreenActive ? 'fullscreenExit' : 'fullscreen'}
-                    onClick={() => { requestCloseMoreMenu(); onToggleFullscreen(); }}
-                  >
-                    {fullscreenActive
-                      ? t('topbar.fullscreen.exit', '退出全屏')
-                      : t('topbar.fullscreen.enter', '浏览器全屏')}
-                  </MenuItem>
-                ) : null}
-                {sessionId ? (
-                  <MenuItem
-                    icon="copy"
-                    onClick={async () => {
-                      requestCloseMoreMenu();
-                      await copySessionId();
-                    }}
-                  >
-                    {t('topbar.copyId', '复制会话 ID')}
-                  </MenuItem>
-                ) : null}
-                {onDelete ? (
-                  <MenuItem
-                    icon="trash"
-                    tone="danger"
-                    onClick={() => { requestCloseMoreMenu(); onDelete(); }}
-                  >
-                    {t('topbar.delete', '删除会话')}
-                  </MenuItem>
-                ) : null}
-              </Menu>
+                <span class="flex items-center gap-1.5 min-w-0">
+                  <AnimatedTitleText
+                    text={title}
+                    className="block text-sm font-semibold truncate"
+                    style={{ color: 'var(--m3-on-surface)' }}
+                  />
+                  {titleGenerating ? (
+                    <span class="oh-title-generating-spinner flex-none" aria-label={t('topbar.titleGenerating', '标题生成中…')}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" class="oh-spin" style={{ color: 'var(--m3-primary)', opacity: 0.7 }}>
+                        <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
+                      </svg>
+                    </span>
+                  ) : null}
+                </span>
+              </button>
+            )}
+            {subtitle ? (
+              <p
+                class="text-[11px] truncate mt-0.5"
+                style={{ color: 'var(--m3-on-surface-variant)' }}
+              >
+                {subtitle}
+              </p>
             ) : null}
           </div>
+        </div>
 
-          {trailing}
+        {/* 胶囊紧贴右侧全屏按钮：左标题 / 右胶囊+操作，中间自然留白。 */}
+        <div class="oh-session-topbar-trailing flex items-center gap-2 min-w-0 flex-1 justify-end">
+          {capsules.length > 0 ? (
+            <div class="oh-session-capsule-rail min-w-0 overflow-x-auto">
+              <div class="flex items-center gap-1.5 w-max max-w-none py-0.5">
+                {capsules.map((item) => (
+                  <ToolbarCapsule key={item.key} capsule={item} />
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          <div class="oh-session-topbar-actions flex items-center gap-2 flex-none">
+            {onToggleFullscreen ? (
+              <BrowserFullscreenButton
+                active={fullscreenActive}
+                onClick={onToggleFullscreen}
+              />
+            ) : null}
+
+            <div ref={moreMenuAnchorRef} class="relative flex-none">
+              <button
+                type="button"
+                onClick={toggleMoreMenu}
+                class="oh-tap-press oh-icon-button"
+                style={{
+                  color: 'var(--m3-on-surface-variant)',
+                  border: '1px solid var(--m3-outline-variant)',
+                  background: 'var(--m3-surface)',
+                }}
+                title={t('topbar.more', '更多')}
+              >
+                <TopBarIcon name="more" size={17} />
+              </button>
+              {moreMenuVisible ? (
+                <Menu
+                  anchorRef={moreMenuAnchorRef}
+                  menuRef={moreMenuPanelRef}
+                  closing={closingMore}
+                >
+                  {onRename ? (
+                    <MenuItem icon="rename" onClick={() => { requestCloseMoreMenu(); setEditing(true); }}>
+                      {t('topbar.rename', '重命名')}
+                    </MenuItem>
+                  ) : null}
+                  {onExport ? (
+                    <MenuItem icon="export" onClick={() => { requestCloseMoreMenu(); onExport(); }}>
+                      {t('topbar.export', '导出 JSON')}
+                    </MenuItem>
+                  ) : null}
+                  {onGenerateTitle ? (
+                    <MenuItem icon="rename" onClick={() => { requestCloseMoreMenu(); onGenerateTitle(); }}>
+                      {t('topbar.generateTitle', '获取 AI 摘要标题')}
+                    </MenuItem>
+                  ) : null}
+                  {onToggleFullscreen ? (
+                    <MenuItem
+                      icon={fullscreenActive ? 'fullscreenExit' : 'fullscreen'}
+                      onClick={() => { requestCloseMoreMenu(); onToggleFullscreen(); }}
+                    >
+                      {fullscreenActive
+                        ? t('topbar.fullscreen.exit', '退出全屏')
+                        : t('topbar.fullscreen.enter', '浏览器全屏')}
+                    </MenuItem>
+                  ) : null}
+                  {sessionId ? (
+                    <MenuItem
+                      icon="copy"
+                      onClick={async () => {
+                        requestCloseMoreMenu();
+                        await copySessionId();
+                      }}
+                    >
+                      {t('topbar.copyId', '复制会话 ID')}
+                    </MenuItem>
+                  ) : null}
+                  {onDelete ? (
+                    <MenuItem
+                      icon="trash"
+                      tone="danger"
+                      onClick={() => { requestCloseMoreMenu(); onDelete(); }}
+                    >
+                      {t('topbar.delete', '删除会话')}
+                    </MenuItem>
+                  ) : null}
+                </Menu>
+              ) : null}
+            </div>
+
+            {trailing}
+          </div>
         </div>
       </div>
 

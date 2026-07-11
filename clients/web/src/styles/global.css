@@ -4291,15 +4291,23 @@ button.oh-message-context-capsule {
   max-width: none;
 }
 
+.oh-session-topbar-trailing {
+  min-width: 0;
+}
+
 .oh-session-capsule-rail {
+  flex: 0 1 auto;
+  max-width: 100%;
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
-  mask-image: linear-gradient(to right, black 0, black calc(100% - 16px), transparent 100%);
-  -webkit-mask-image: linear-gradient(to right, black 0, black calc(100% - 16px), transparent 100%);
+  /* 靠右排列时从左侧淡出，避免遮挡标题区。 */
+  mask-image: linear-gradient(to left, black 0, black calc(100% - 18px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to left, black 0, black calc(100% - 18px), transparent 100%);
 }
 .oh-session-capsule-rail::-webkit-scrollbar { display: none; }
 
 .oh-session-capsule-rail > div {
+  margin-left: auto;
   transition: gap var(--oh-motion-duration-fast) var(--oh-motion-spring);
 }
 
@@ -4450,8 +4458,7 @@ button.oh-message-context-capsule {
   border: 1px solid color-mix(in srgb, var(--m3-tertiary) 36%, transparent);
 }
 
-.oh-session-state-card,
-.oh-session-empty-state {
+.oh-session-state-card {
   width: 100%;
   min-height: 88px;
   display: flex;
@@ -4462,13 +4469,7 @@ button.oh-message-context-capsule {
   padding: clamp(18px, 2.2vw, 28px);
   border-radius: var(--m3-radius-md);
   border: 1px solid var(--m3-outline-variant);
-  background:
-    radial-gradient(
-      120% 140% at 50% 0%,
-      color-mix(in srgb, var(--m3-primary-container) 28%, transparent),
-      transparent 58%
-    ),
-    color-mix(in srgb, var(--m3-surface-container) 88%, transparent);
+  background: color-mix(in srgb, var(--m3-surface-container) 88%, transparent);
   color: var(--m3-on-surface-variant);
   font-size: 13px;
   font-weight: 650;
@@ -4506,10 +4507,43 @@ button.oh-message-context-capsule {
   font-size: 12px;
   font-weight: 750;
 }
-.oh-session-empty-state {
+/* 会话空消息：纯文案，无卡片底。 */
+.oh-session-empty-plain {
+  width: 100%;
+  min-height: clamp(120px, 22vh, 220px);
+  display: flex;
   flex-direction: column;
-  min-height: clamp(180px, 28vh, 320px);
-  border-style: dashed;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin: 8px 0 14px;
+  padding: 12px 8px;
+  color: var(--m3-on-surface-variant);
+  font-size: 13px;
+  font-weight: 650;
+  text-align: center;
+  box-sizing: border-box;
+  background: transparent;
+  border: none;
+}
+/* 会话列表空态仍可复用轻微底色，但不再是虚线卡片。 */
+.oh-session-empty-state {
+  width: 100%;
+  min-height: clamp(160px, 24vh, 260px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin: 8px 0 14px;
+  padding: clamp(18px, 2.2vw, 28px);
+  color: var(--m3-on-surface-variant);
+  font-size: 13px;
+  font-weight: 650;
+  text-align: center;
+  box-sizing: border-box;
+  background: transparent;
+  border: none;
 }
 .oh-session-load-older-button {
   min-height: 32px;
@@ -5717,7 +5751,7 @@ button.oh-composer-pill:not(:disabled):hover {
   background: color-mix(in srgb, var(--m3-tertiary-container) 74%, transparent);
   color: var(--m3-on-tertiary-container);
 }
-/* —— 用户指令胶囊（与 App 端 _ComposerInstructionsStrip 1:1 对齐）—— */
+/* —— 用户指令胶囊（与 App 端 _ComposerInstructionsStrip 对齐；不展示「用户指令」前缀文案）—— */
 .oh-composer-instructions-strip {
   display: flex;
   flex-wrap: wrap;
@@ -5726,15 +5760,6 @@ button.oh-composer-pill:not(:disabled):hover {
   overflow: visible;
   padding-top: 3px;
   margin-top: -3px;
-}
-.oh-composer-instructions-strip-label {
-  flex: none;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--m3-on-surface-variant);
-  opacity: 0.78;
 }
 .oh-composer-instructions-strip-list {
   display: flex;
@@ -6706,18 +6731,28 @@ button.oh-composer-pill:not(:disabled):hover {
   .oh-session-topbar {
     border-radius: 22px !important;
   }
-  .oh-session-title-block {
-    width: calc(100% - 140px);
+  .oh-session-topbar-leading {
     flex: 1 1 auto;
+    min-width: 0;
+  }
+  .oh-session-title-block {
+    width: auto;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .oh-session-topbar-trailing {
+    flex: 1 1 100%;
+    order: 10;
+    justify-content: flex-end;
   }
   .oh-session-capsule-rail {
-    order: 10;
-    flex-basis: 100%;
-    mask-image: linear-gradient(to right, black 0, black calc(100% - 16px), transparent 100%);
-    -webkit-mask-image: linear-gradient(to right, black 0, black calc(100% - 16px), transparent 100%);
+    flex: 1 1 auto;
+    min-width: 0;
+    mask-image: linear-gradient(to left, black 0, black calc(100% - 16px), transparent 100%);
+    -webkit-mask-image: linear-gradient(to left, black 0, black calc(100% - 16px), transparent 100%);
   }
   .oh-session-topbar-actions {
-    margin-left: auto;
+    margin-left: 0;
     gap: 6px;
   }
   .oh-session-messages {
@@ -6951,32 +6986,31 @@ button.oh-composer-pill:not(:disabled):hover {
     padding: 8px !important;
   }
   .oh-session-topbar-row {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto;
+    display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 7px;
   }
-  .oh-session-back-button {
-    grid-column: 1;
-    grid-row: 1;
+  .oh-session-topbar-leading {
+    flex: 1 1 auto;
+    min-width: 0;
   }
   .oh-session-title-block {
-    grid-column: 2;
-    grid-row: 1;
     width: auto;
+    min-width: 0;
+  }
+  .oh-session-topbar-trailing {
+    flex: 1 1 100%;
+    justify-content: flex-end;
+    min-width: 0;
   }
   .oh-session-topbar-actions {
-    grid-column: 3;
-    grid-row: 1;
     margin-left: 0;
   }
   .oh-session-capsule-rail {
-    grid-column: 1 / 4;
-    grid-row: 2;
-    order: 0;
-    flex-basis: auto;
+    flex: 1 1 auto;
     min-width: 0;
-    width: 100%;
+    width: auto;
   }
   .oh-session-capsule {
     max-width: min(46vw, 220px);
@@ -7276,7 +7310,6 @@ button.oh-composer-pill:not(:disabled):hover {
     padding: 7px !important;
   }
   .oh-session-topbar-row {
-    grid-template-columns: 32px minmax(0, 1fr) auto;
     gap: 6px;
   }
   .oh-session-title-block p {
