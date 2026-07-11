@@ -239,7 +239,7 @@ class AiPromptTemplatePolicies {
         nameFr: 'Assistant par défaut',
         nameDe: 'Standardassistent',
         nameJa: 'デフォルトアシスタント',
-        iconName: AiThreadTemplateIconNames.autoAwesomeRounded,
+        iconName: AiThreadTemplateIconNames.forumRounded,
         description: 'Claude Code 风格的通用模板，适合工具辅助工作、MCP 使用与本地技能激活。',
         descriptionZhHant: 'Claude Code 風格的通用模板，適合工具輔助工作、MCP 使用與本地技能啟用。',
         descriptionEn:
@@ -370,7 +370,7 @@ class AiPromptTemplatePolicies {
         nameFr: 'Hermes Talker',
         nameDe: 'Hermes Talker',
         nameJa: 'Hermes Talker',
-        iconName: AiThreadTemplateIconNames.forumRounded,
+        iconName: AiThreadTemplateIconNames.autoAwesomeRounded,
         description:
             '在 Default 模板基础上新增 skill_manager 工具与每 5 分钟运行的自我学习能力,持续在对话中积累用户画像与可复用技能。',
         descriptionZhHant:
@@ -439,7 +439,7 @@ class AiPromptTemplatePolicies {
         nameFr: 'Assistant Siri',
         nameDe: 'Siri-Assistent',
         nameJa: 'Siri アシスタント',
-        iconName: AiThreadTemplateIconNames.assistantRounded,
+        iconName: AiThreadTemplateIconNames.recordVoiceOverRounded,
         description: '默认模板的苹果设备特化版本，内置 Siri 风格系统提示词，适合依赖 Apple 生态语义与交互氛围的任务。',
         descriptionZhHant:
             '預設模板的 Apple 裝置特化版本，內建 Siri 風格系統提示詞，適合依賴 Apple 生態語義與互動氛圍的任務。',

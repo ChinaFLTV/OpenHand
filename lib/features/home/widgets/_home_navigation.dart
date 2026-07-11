@@ -155,6 +155,7 @@ class _NavigationPaneState extends State<_NavigationPane> {
       // callback the next tap will still reach the current one.
       if (cached != null &&
           cached.title == session.title &&
+          cached.templateIconName == session.templateIconName &&
           cached.updatedAtMs == session.updatedAt.millisecondsSinceEpoch &&
           cached.sendPhase == sendPhase &&
           cached.isSelected == isSelected) {
@@ -196,6 +197,7 @@ class _NavigationPaneState extends State<_NavigationPane> {
           : built;
       _threadTileCache[sessionId] = _ThreadTileCacheEntry(
         title: session.title,
+        templateIconName: session.templateIconName,
         updatedAtMs: session.updatedAt.millisecondsSinceEpoch,
         sendPhase: sendPhase,
         isSelected: isSelected,
@@ -664,6 +666,7 @@ class _ContentPane extends StatelessWidget {
 class _ThreadTileCacheEntry {
   const _ThreadTileCacheEntry({
     required this.title,
+    required this.templateIconName,
     required this.updatedAtMs,
     required this.sendPhase,
     required this.isSelected,
@@ -671,6 +674,7 @@ class _ThreadTileCacheEntry {
   });
 
   final String title;
+  final String templateIconName;
   final int updatedAtMs;
   final AiSendPhase sendPhase;
   final bool isSelected;

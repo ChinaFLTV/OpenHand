@@ -360,6 +360,7 @@ class _ThreadTile extends StatelessWidget {
     final iconColor = isSelected
         ? colorScheme.onPrimaryContainer
         : colorScheme.onSurfaceVariant;
+    final templateIcon = AiThreadTemplateIcons.resolve(session.templateIconName);
     final isActive = sendPhase != AiSendPhase.idle;
     final tileMotionDuration = openHandMotionDuration(
       context,
@@ -472,9 +473,7 @@ class _ThreadTile extends StatelessWidget {
               child: Row(
                 children: [
                   Icon(
-                    isSelected
-                        ? Icons.chat_bubble_rounded
-                        : Icons.chat_bubble_outline_rounded,
+                    templateIcon,
                     size: 16,
                     color: iconColor,
                   ),

@@ -29,9 +29,11 @@ class AiThreadTemplateIcons {
       AiThreadTemplateIconNames.travelExploreRounded;
   static const String assistantRounded =
       AiThreadTemplateIconNames.assistantRounded;
+  static const String recordVoiceOverRounded =
+      AiThreadTemplateIconNames.recordVoiceOverRounded;
   static const String androidRounded = AiThreadTemplateIconNames.androidRounded;
 
-  static const IconData fallback = Icons.auto_awesome_rounded;
+  static const IconData fallback = Icons.forum_rounded;
 
   static const Map<String, IconData> _byName = <String, IconData>{
     autoAwesomeRounded: Icons.auto_awesome_rounded,
@@ -41,6 +43,7 @@ class AiThreadTemplateIcons {
     codeRounded: Icons.code_rounded,
     travelExploreRounded: Icons.travel_explore_rounded,
     assistantRounded: Icons.assistant_rounded,
+    recordVoiceOverRounded: Icons.record_voice_over_rounded,
     androidRounded: Icons.android_rounded,
   };
 
