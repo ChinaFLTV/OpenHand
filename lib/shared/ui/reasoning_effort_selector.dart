@@ -876,28 +876,29 @@ class _ReasoningTrackPainter extends CustomPainter {
           ).createShader(activeRect.outerRect),
       );
 
-      if (isMaximum && activeRight - left > 24) {
-        final sheenWidth = (activeRight - left) * 0.3;
-        final sheenX =
-            left + (activeRight - left - sheenWidth) * pulse.clamp(0.0, 1.0);
-        final sheenRect = Rect.fromLTWH(
-          sheenX,
+      // Soft top-edge specular — static, color-matched; no gray sweep band.
+      if (isMaximum) {
+        final specular = Rect.fromLTRB(
+          left,
           centerY - _kReasoningTrackHalfHeight,
-          sheenWidth,
-          _kReasoningTrackHalfHeight * 2,
+          activeRight,
+          centerY - _kReasoningTrackHalfHeight + 7,
         );
         canvas.save();
         canvas.clipRRect(activeRect);
         canvas.drawRect(
-          sheenRect,
+          specular,
           Paint()
             ..shader = LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
               colors: <Color>[
-                Colors.white.withValues(alpha: 0),
-                Colors.white.withValues(alpha: 0.26 + pulse * 0.12),
-                Colors.white.withValues(alpha: 0),
+                _MaximumEffortPalette.ice.withValues(
+                  alpha: 0.14 + pulse * 0.08,
+                ),
+                _MaximumEffortPalette.electric.withValues(alpha: 0),
               ],
-            ).createShader(sheenRect),
+            ).createShader(specular),
         );
         canvas.restore();
       }

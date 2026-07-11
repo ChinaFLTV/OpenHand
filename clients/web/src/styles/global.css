@@ -5041,19 +5041,17 @@ button.oh-message-context-capsule {
     0 0 28px -8px color-mix(in srgb, #38bdf8 60%, transparent);
   animation: oh-reasoning-max-fill-pulse 1600ms ease-in-out infinite alternate;
 }
+/* Soft top-edge specular only — no gray/white sweep band. */
 .oh-reasoning-effort-panel[data-energy='max'] .oh-reasoning-effort-fill::after {
   content: '';
   position: absolute;
   inset: 0;
   border-radius: inherit;
   background: linear-gradient(
-    105deg,
-    transparent 28%,
-    rgb(255 255 255 / 24%) 48%,
-    transparent 68%
+    180deg,
+    color-mix(in srgb, #bae6fd 18%, transparent) 0%,
+    transparent 42%
   );
-  background-size: 220% 100%;
-  animation: oh-reasoning-max-sheen 1600ms ease-in-out infinite alternate;
   pointer-events: none;
 }
 .oh-reasoning-effort-tick {
@@ -5283,10 +5281,6 @@ button.oh-message-context-capsule {
       0 0 22px -2px color-mix(in srgb, #1d4ed8 80%, transparent),
       0 0 36px -4px color-mix(in srgb, #38bdf8 70%, transparent);
   }
-}
-@keyframes oh-reasoning-max-sheen {
-  from { background-position: 0% 50%; opacity: 0.55; }
-  to { background-position: 100% 50%; opacity: 1; }
 }
 @keyframes oh-reasoning-max-orb-pulse {
   from {
