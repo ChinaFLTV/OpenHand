@@ -11,8 +11,11 @@ export interface ReasoningEffortControlProps {
   onSelect: (effort: string) => Promise<boolean>;
 }
 
-const REASONING_PARTICLE_COUNT = 20;
+const REASONING_PARTICLE_BASE_COUNT = 18;
+const REASONING_PARTICLE_MAX_COUNT = 42;
 const REASONING_PARTICLE_FRAME_MS = 1000 / 30;
+
+type ParticleKind = 'dust' | 'spark' | 'flare';
 
 interface ReasoningParticle {
   x: number;
@@ -23,24 +26,66 @@ interface ReasoningParticle {
   opacity: number;
   age: number;
   life: number;
+  kind: ParticleKind;
 }
 
-function createReasoningParticle(initial: boolean): ReasoningParticle {
+function pickParticleKind(maximum: boolean): ParticleKind {
+  const roll = Math.random();
+  if (!maximum) return roll < 0.72 ? 'dust' : 'spark';
+  if (roll < 0.52) return 'dust';
+  if (roll < 0.86) return 'spark';
+  return 'flare';
+}
+
+function createReasoningParticle(
+  initial: boolean,
+  maximum: boolean,
+): ReasoningParticle {
+  const kind = pickParticleKind(maximum);
+  const sizeRange =
+    kind === 'dust'
+      ? [1.1, 2.2]
+      : kind === 'spark'
+        ? [2.0, 3.6]
+        : [3.2, 5.2];
+  const lifeRange =
+    kind === 'dust'
+      ? [1.4, 5.2]
+      : kind === 'spark'
+        ? [1.1, 3.9]
+        : [0.7, 2.3];
   return {
     x: Math.random(),
-    y: 0.14 + Math.random() * 0.72,
-    vx: (Math.random() - 0.42) * 0.075,
-    vy: (Math.random() - 0.5) * 0.11,
-    size: 1.4 + Math.random() * 2.4,
-    opacity: initial ? 0.36 + Math.random() * 0.55 : 0.28,
-    age: initial ? 0.4 + Math.random() * 1.2 : 0,
-    life: 1.8 + Math.random() * 4.6,
+    y: 0.1 + Math.random() * 0.8,
+    vx: (Math.random() - 0.28) * (maximum ? 0.12 : 0.075),
+    vy: (Math.random() - 0.5) * (maximum ? 0.16 : 0.11),
+    size: sizeRange[0]! + Math.random() * (sizeRange[1]! - sizeRange[0]!),
+    opacity: initial ? 0.4 + Math.random() * 0.5 : 0.22 + Math.random() * 0.2,
+    age: initial ? 0.35 + Math.random() * 1.3 : 0,
+    life: lifeRange[0]! + Math.random() * (lifeRange[1]! - lifeRange[0]!),
+    kind,
   };
 }
 
-function OrganicReasoningParticles({ active }: { active: boolean }) {
+function applyParticleElement(
+  element: HTMLElement,
+  particle: ReasoningParticle,
+) {
+  element.dataset.kind = particle.kind;
+  element.style.width = `${particle.size}px`;
+  element.style.height = `${particle.size}px`;
+}
+
+function OrganicReasoningParticles({
+  active,
+  maximum = false,
+}: {
+  active: boolean;
+  maximum?: boolean;
+}) {
   const hostRef = useRef<HTMLSpanElement>(null);
   const reducedMotion = useReducedMotion();
+  const count = maximum ? REASONING_PARTICLE_MAX_COUNT : REASONING_PARTICLE_BASE_COUNT;
 
   useEffect(() => {
     const host = hostRef.current;
@@ -48,14 +93,16 @@ function OrganicReasoningParticles({ active }: { active: boolean }) {
     const elements = Array.from(host.children).filter(
       (element): element is HTMLElement => element instanceof HTMLElement,
     );
-    const particles = elements.map(() => createReasoningParticle(true));
+    const particles = elements.map(() => createReasoningParticle(true, maximum));
     particles.forEach((particle, index) => {
-      const element = elements[index]!;
-      element.style.width = `${particle.size}px`;
-      element.style.height = `${particle.size}px`;
+      applyParticleElement(elements[index]!, particle);
     });
     let previousTime = performance.now();
     let animationFrame = 0;
+    const speedBoost = maximum ? 1.55 : 1.0;
+    const flowBias = maximum ? 0.055 : 0.02;
+    const maxVx = maximum ? 0.22 : 0.13;
+    const maxVy = maximum ? 0.28 : 0.2;
 
     const update = (time: number) => {
       const elapsed = time - previousTime;
@@ -70,38 +117,47 @@ function OrganicReasoningParticles({ active }: { active: boolean }) {
         particle.life -= delta;
         if (
           particle.life <= 0 ||
-          particle.x < -0.08 ||
-          particle.x > 1.08 ||
-          particle.y < -0.18 ||
-          particle.y > 1.18
+          particle.x < -0.1 ||
+          particle.x > 1.12 ||
+          particle.y < -0.22 ||
+          particle.y > 1.22
         ) {
-          particle = createReasoningParticle(false);
+          particle = createReasoningParticle(false, maximum);
           particles[index] = particle;
-          const element = elements[index]!;
-          element.style.width = `${particle.size}px`;
-          element.style.height = `${particle.size}px`;
+          applyParticleElement(elements[index]!, particle);
         } else {
+          particle.vx += flowBias * delta;
           particle.vx = Math.max(
-            -0.13,
-            Math.min(0.13, particle.vx + (Math.random() - 0.5) * 0.32 * delta),
+            -maxVx * 0.45,
+            Math.min(
+              maxVx,
+              particle.vx +
+                (Math.random() - 0.5) * (maximum ? 0.55 : 0.32) * delta,
+            ),
           );
           particle.vy = Math.max(
-            -0.2,
-            Math.min(0.2, particle.vy + (Math.random() - 0.5) * 0.46 * delta),
+            -maxVy,
+            Math.min(
+              maxVy,
+              particle.vy +
+                (Math.random() - 0.5) * (maximum ? 0.72 : 0.46) * delta,
+            ),
           );
-          const damping = Math.pow(0.72, delta);
+          const damping = Math.pow(maximum ? 0.78 : 0.72, delta);
           particle.vx *= damping;
           particle.vy *= damping;
-          particle.x += particle.vx * delta;
-          particle.y += particle.vy * delta;
+          particle.x += particle.vx * delta * speedBoost;
+          particle.y += particle.vy * delta * speedBoost;
           particle.age += delta;
+          const floor = particle.kind === 'dust' ? 0.22 : particle.kind === 'spark' ? 0.38 : 0.5;
+          const ceil = particle.kind === 'dust' ? 0.78 : particle.kind === 'spark' ? 0.96 : 1;
           particle.opacity = Math.max(
-            0.28,
-            Math.min(0.96, particle.opacity + (Math.random() - 0.48) * delta * 0.9),
+            floor,
+            Math.min(ceil, particle.opacity + (Math.random() - 0.45) * delta * 1.15),
           );
         }
-        const fadeIn = Math.min(particle.age / 0.38, 1);
-        const fadeOut = Math.min(particle.life / 0.5, 1);
+        const fadeIn = Math.min(particle.age / 0.32, 1);
+        const fadeOut = Math.min(particle.life / 0.45, 1);
         const element = elements[index]!;
         element.style.left = `${particle.x * 100}%`;
         element.style.top = `${particle.y * 100}%`;
@@ -117,11 +173,14 @@ function OrganicReasoningParticles({ active }: { active: boolean }) {
         element.style.opacity = '0';
       });
     };
-  }, [active, reducedMotion]);
+  }, [active, maximum, reducedMotion, count]);
 
   return (
-    <span ref={hostRef} class="oh-reasoning-effort-sparkles">
-      {Array.from({ length: REASONING_PARTICLE_COUNT }, (_, index) => (
+    <span
+      ref={hostRef}
+      class={`oh-reasoning-effort-sparkles${maximum ? ' is-max' : ''}`}
+    >
+      {Array.from({ length: count }, (_, index) => (
         <i key={index} />
       ))}
     </span>
@@ -234,7 +293,10 @@ function ReasoningEffortPanel({
       >
         <div class="oh-reasoning-effort-track" aria-hidden="true">
           <span class="oh-reasoning-effort-fill" />
-          <OrganicReasoningParticles active={energy === 'high' || energy === 'max'} />
+          <OrganicReasoningParticles
+            active={energy === 'high' || energy === 'max'}
+            maximum={energy === 'max'}
+          />
           {options.map((option, index) => (
             <span
               key={option.value}
