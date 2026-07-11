@@ -76,6 +76,111 @@ function applyParticleElement(
   element.style.height = `${particle.size}px`;
 }
 
+/** Radial fireworks from the max-tier thumb — burst on enter + soft embers. */
+function ThumbSparkField({ active }: { active: boolean }) {
+  const hostRef = useRef<HTMLSpanElement>(null);
+  const reducedMotion = useReducedMotion();
+
+  useEffect(() => {
+    const host = hostRef.current;
+    if (!host || !active || reducedMotion) return;
+
+    type Spark = {
+      el: HTMLElement;
+      angle: number;
+      dist: number;
+      speed: number;
+      life: number;
+      maxLife: number;
+      size: number;
+      streak: number;
+    };
+
+    const sparks: Spark[] = [];
+    let previousTime = performance.now();
+    let animationFrame = 0;
+    let emberAcc = 0;
+    let didBurst = false;
+
+    const spawn = (count: number, speedScale: number) => {
+      for (let i = 0; i < count; i += 1) {
+        if (sparks.length >= 64) break;
+        const el = document.createElement('i');
+        el.className = 'oh-reasoning-thumb-spark';
+        host.appendChild(el);
+        const life = 0.35 + Math.random() * 0.55;
+        const size = 1.4 + Math.random() * 2.6;
+        el.style.width = `${size}px`;
+        el.style.height = `${size}px`;
+        sparks.push({
+          el,
+          angle: Math.random() * Math.PI * 2,
+          dist: 12 + Math.random() * 6,
+          speed: (95 + Math.random() * 150) * speedScale,
+          life,
+          maxLife: life,
+          size,
+          streak: 0.35 + Math.random() * 0.85,
+        });
+      }
+    };
+
+    const update = (time: number) => {
+      const elapsed = time - previousTime;
+      if (elapsed < REASONING_PARTICLE_FRAME_MS) {
+        animationFrame = window.requestAnimationFrame(update);
+        return;
+      }
+      const delta = Math.max(0.001, Math.min(elapsed / 1000, 0.05));
+      previousTime = time;
+
+      if (!didBurst) {
+        didBurst = true;
+        spawn(28, 1.15);
+      }
+
+      emberAcc += delta;
+      while (emberAcc >= 0.065) {
+        emberAcc -= 0.065 + Math.random() * 0.04;
+        spawn(1 + Math.floor(Math.random() * 3), 0.45 + Math.random() * 0.35);
+      }
+
+      const drag = Math.pow(0.18, delta);
+      for (let i = sparks.length - 1; i >= 0; i -= 1) {
+        const spark = sparks[i]!;
+        spark.life -= delta;
+        if (spark.life <= 0 || spark.dist > 58) {
+          spark.el.remove();
+          sparks.splice(i, 1);
+          continue;
+        }
+        spark.dist += spark.speed * delta;
+        spark.speed *= drag;
+        spark.angle += (Math.random() - 0.5) * delta * 1.4;
+        const lifeT = Math.max(0, Math.min(1, spark.life / spark.maxLife));
+        const fade = 1 - (1 - lifeT) * (1 - lifeT); // easeOut-ish
+        const x = Math.cos(spark.angle) * spark.dist;
+        const y = Math.sin(spark.angle) * spark.dist;
+        const trail = spark.size * (2.2 + spark.streak * 3.5) * fade;
+        spark.el.style.transform = `translate(-50%, -50%) translate(${x}px, ${y}px)`;
+        spark.el.style.opacity = `${0.15 + fade * 0.85}`;
+        spark.el.style.boxShadow = `0 0 ${4 + trail * 0.15}px color-mix(in srgb, #38bdf8 70%, transparent)`;
+      }
+
+      animationFrame = window.requestAnimationFrame(update);
+    };
+
+    animationFrame = window.requestAnimationFrame(update);
+    return () => {
+      window.cancelAnimationFrame(animationFrame);
+      sparks.forEach((spark) => spark.el.remove());
+      sparks.length = 0;
+    };
+  }, [active, reducedMotion]);
+
+  return <span ref={hostRef} class="oh-reasoning-thumb-sparks" aria-hidden="true" />;
+}
+
 function OrganicReasoningParticles({
   active,
   maximum = false,
@@ -305,6 +410,7 @@ function ReasoningEffortPanel({
             />
           ))}
           <span class="oh-reasoning-effort-orb" />
+          <ThumbSparkField active={energy === 'max'} />
         </div>
         <input
           class="oh-reasoning-effort-range"

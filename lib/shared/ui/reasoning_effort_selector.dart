@@ -27,11 +27,15 @@ const double _kMaximumProgressThreshold = 0.96;
 const Duration _kProgressAnimDuration = Duration(milliseconds: 360);
 const Duration _kCapsuleAnimDuration = Duration(milliseconds: 280);
 const Duration _kLabelSwitchDuration = Duration(milliseconds: 220);
-const Duration _kMaximumPulsePeriod = Duration(milliseconds: 1600);
 
 // ── Particles ───────────────────────────────────────────────────────────────
 const int _kBaseParticleCount = 18;
 const int _kMaximumParticleCount = 42;
+const int _kMaxThumbSparks = 64;
+const int _kThumbBurstCount = 28;
+const double _kThumbRingPeriodSeconds = 10.0;
+const double _kThumbEmberInterval = 0.065;
+const double _kThumbSparkMaxDist = 58;
 
 /// Void Aurora — cool deep-space prestige.
 /// Deep ink → navy → electric blue → ice cyan. No gold/purple "VIP bar" look.
@@ -259,6 +263,7 @@ class _ReasoningEffortPopupEntryState extends State<_ReasoningEffortPopupEntry> 
               child: Stack(
                 fit: StackFit.expand,
                 alignment: Alignment.center,
+                clipBehavior: Clip.none,
                 children: <Widget>[
                   TweenAnimationBuilder<double>(
                     tween: Tween<double>(end: progress),
@@ -448,9 +453,10 @@ class _MaximumPulseAura extends StatefulWidget {
 
 class _MaximumPulseAuraState extends State<_MaximumPulseAura>
     with SingleTickerProviderStateMixin {
-  late final AnimationController _pulse = AnimationController(
+  // Continuous forward clock — multi-harmonic glow, no reverse loop seams.
+  late final AnimationController _clock = AnimationController(
     vsync: this,
-    duration: _kMaximumPulsePeriod,
+    duration: const Duration(seconds: 12),
   );
 
   @override
@@ -461,17 +467,17 @@ class _MaximumPulseAuraState extends State<_MaximumPulseAura>
 
   void _syncPulse() {
     if (openHandTickerMotionEnabled(context)) {
-      if (!_pulse.isAnimating) _pulse.repeat(reverse: true);
+      if (!_clock.isAnimating) _clock.repeat();
       return;
     }
-    _pulse
+    _clock
       ..stop()
       ..value = 0;
   }
 
   @override
   void dispose() {
-    _pulse.dispose();
+    _clock.dispose();
     super.dispose();
   }
 
@@ -479,33 +485,36 @@ class _MaximumPulseAuraState extends State<_MaximumPulseAura>
   Widget build(BuildContext context) {
     _syncPulse();
     return AnimatedBuilder(
-      animation: _pulse,
+      animation: _clock,
       builder: (context, child) {
-        final t = Curves.easeInOutCubic.transform(_pulse.value);
-        return Transform.scale(
-          scale: 1.0 + t * 0.035,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(999),
-              boxShadow: <BoxShadow>[
-                BoxShadow(
-                  color: _MaximumEffortPalette.royalBlue.withValues(
-                    alpha: 0.3 + t * 0.28,
-                  ),
-                  blurRadius: 14 + t * 18,
-                  spreadRadius: t * 1.8,
+        final t = _clock.value * math.pi * 2;
+        final glow =
+            (0.5 +
+                    0.22 * math.sin(t * 1.1) +
+                    0.16 * math.sin(t * 1.87) +
+                    0.1 * math.sin(t * 0.61))
+                .clamp(0.0, 1.0);
+        return DecoratedBox(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(999),
+            boxShadow: <BoxShadow>[
+              BoxShadow(
+                color: _MaximumEffortPalette.royalBlue.withValues(
+                  alpha: 0.28 + glow * 0.22,
                 ),
-                BoxShadow(
-                  color: _MaximumEffortPalette.electric.withValues(
-                    alpha: 0.18 + t * 0.26,
-                  ),
-                  blurRadius: 20 + t * 22,
-                  spreadRadius: -1 + t * 2.4,
+                blurRadius: 14 + glow * 12,
+                spreadRadius: glow * 1.2,
+              ),
+              BoxShadow(
+                color: _MaximumEffortPalette.electric.withValues(
+                  alpha: 0.16 + glow * 0.18,
                 ),
-              ],
-            ),
-            child: child,
+                blurRadius: 20 + glow * 14,
+                spreadRadius: -1 + glow * 1.6,
+              ),
+            ],
           ),
+          child: child,
         );
       },
       child: widget.child,
@@ -600,18 +609,28 @@ class _ReasoningParticleField extends ChangeNotifier {
     }
   }
 
-  static const double _pulsePeriodSeconds = 1.6;
-
   final math.Random _random = math.Random();
   final List<_ReasoningParticle> particles = <_ReasoningParticle>[];
+  final List<_ThumbSpark> thumbSparks = <_ThumbSpark>[];
   Duration? _previousElapsed;
+  bool _wasMaximum = false;
+  double _seconds = 0;
+  double _emberAcc = 0;
 
-  /// Smooth 0→1→0 breathing phase driven by the energy ticker.
-  double pulse = 0;
+  /// Soft multi-harmonic glow (0..1) — no obvious reverse loop.
+  double glow = 0.55;
+
+  /// Continuous ring rotation angle in radians (always forward).
+  double ringAngle = 0;
 
   void resetClock() {
     _previousElapsed = null;
-    pulse = 0;
+    _seconds = 0;
+    _emberAcc = 0;
+    glow = 0.55;
+    ringAngle = 0;
+    _wasMaximum = false;
+    thumbSparks.clear();
   }
 
   void advance(Duration elapsed, {required bool maximum}) {
@@ -621,8 +640,38 @@ class _ReasoningParticleField extends ChangeNotifier {
     final deltaSeconds = ((elapsed - previous).inMicroseconds / 1000000)
         .clamp(0.001, 0.05)
         .toDouble();
-    final seconds = elapsed.inMicroseconds / 1000000;
-    pulse = 0.5 + 0.5 * math.sin(seconds * math.pi * 2 / _pulsePeriodSeconds);
+    _seconds += deltaSeconds;
+
+    // Incommensurate sines → seamless organic breath, no hard loop seams.
+    glow =
+        (0.52 +
+                0.24 * math.sin(_seconds * 1.07) +
+                0.16 * math.sin(_seconds * 1.91) +
+                0.10 * math.sin(_seconds * 0.63))
+            .clamp(0.0, 1.0);
+    ringAngle =
+        (_seconds * math.pi * 2 / _kThumbRingPeriodSeconds) % (math.pi * 2);
+
+    if (maximum && !_wasMaximum) {
+      _emitThumbBurst(count: _kThumbBurstCount, speedScale: 1.15);
+    }
+    _wasMaximum = maximum;
+
+    if (maximum) {
+      _emberAcc += deltaSeconds;
+      while (_emberAcc >= _kThumbEmberInterval) {
+        _emberAcc -=
+            _kThumbEmberInterval + _random.nextDouble() * 0.04;
+        _emitThumbBurst(
+          count: 1 + _random.nextInt(3),
+          speedScale: 0.45 + _random.nextDouble() * 0.35,
+        );
+      }
+      _advanceThumbSparks(deltaSeconds);
+    } else {
+      _emberAcc = 0;
+      if (thumbSparks.isNotEmpty) thumbSparks.clear();
+    }
 
     final activeCount = maximum ? _kMaximumParticleCount : _kBaseParticleCount;
     final speedBoost = maximum ? 1.55 : 1.0;
@@ -646,7 +695,6 @@ class _ReasoningParticleField extends ChangeNotifier {
         continue;
       }
 
-      // Drift toward the thumb (right) so the bar feels energized.
       particle.vx += flowBias * deltaSeconds;
       final jitterX = (_random.nextDouble() - 0.5) * (maximum ? 0.55 : 0.32);
       final jitterY = (_random.nextDouble() - 0.5) * (maximum ? 0.72 : 0.46);
@@ -683,11 +731,53 @@ class _ReasoningParticleField extends ChangeNotifier {
     notifyListeners();
   }
 
+  void _emitThumbBurst({required int count, required double speedScale}) {
+    final room = _kMaxThumbSparks - thumbSparks.length;
+    if (room <= 0) return;
+    final emit = math.min(count, room);
+    for (var i = 0; i < emit; i++) {
+      final angle = _random.nextDouble() * math.pi * 2;
+      final speed =
+          (95 + _random.nextDouble() * 150) * speedScale; // px/s
+      final life = 0.35 + _random.nextDouble() * 0.55;
+      thumbSparks.add(
+        _ThumbSpark(
+          angle: angle,
+          dist: _kReasoningThumbRadius * (0.55 + _random.nextDouble() * 0.25),
+          speed: speed,
+          life: life,
+          maxLife: life,
+          radius: 1.1 + _random.nextDouble() * 2.4,
+          colorIndex: _random.nextInt(
+            _MaximumEffortPalette.particleColors.length,
+          ),
+          streak: 0.35 + _random.nextDouble() * 0.85,
+        ),
+      );
+    }
+  }
+
+  void _advanceThumbSparks(double deltaSeconds) {
+    final drag = math.pow(0.18, deltaSeconds).toDouble();
+    for (var i = thumbSparks.length - 1; i >= 0; i--) {
+      final spark = thumbSparks[i];
+      spark.life -= deltaSeconds;
+      if (spark.life <= 0 || spark.dist > _kThumbSparkMaxDist) {
+        thumbSparks.removeAt(i);
+        continue;
+      }
+      spark.dist += spark.speed * deltaSeconds;
+      spark.speed *= drag;
+      // Slight angular drift for organic scatter.
+      spark.angle +=
+          (_random.nextDouble() - 0.5) * deltaSeconds * 1.4;
+    }
+  }
+
   _ReasoningParticle _newParticle({
     required bool initial,
     required bool maximum,
   }) {
-    // Weighted kinds: mostly dust, some sparks, rare flares at max.
     final roll = _random.nextDouble();
     final kind = !maximum
         ? (roll < 0.72 ? _ParticleKind.dust : _ParticleKind.spark)
@@ -720,7 +810,8 @@ class _ReasoningParticleField extends ChangeNotifier {
       },
       kind: kind,
       colorIndex: _random.nextInt(_MaximumEffortPalette.particleColors.length),
-      spill: maximum && kind != _ParticleKind.dust && _random.nextDouble() < 0.35,
+      spill:
+          maximum && kind != _ParticleKind.dust && _random.nextDouble() < 0.35,
     );
   }
 }
@@ -752,6 +843,29 @@ class _ReasoningParticle {
   final int colorIndex;
   /// When true, may render slightly outside the track clip (spark overflow).
   final bool spill;
+}
+
+/// Radial ember / burst spark emitted from the max-tier thumb.
+class _ThumbSpark {
+  _ThumbSpark({
+    required this.angle,
+    required this.dist,
+    required this.speed,
+    required this.life,
+    required this.maxLife,
+    required this.radius,
+    required this.colorIndex,
+    required this.streak,
+  });
+
+  double angle;
+  double dist;
+  double speed;
+  double life;
+  final double maxLife;
+  final double radius;
+  final int colorIndex;
+  final double streak;
 }
 
 class _ReasoningTrackPainter extends CustomPainter {
@@ -807,7 +921,7 @@ class _ReasoningTrackPainter extends CustomPainter {
         ? left
         : thumbX;
     final isMaximum = _isMaximumProgress(progress);
-    final pulse = isMaximum ? particles.pulse : 0.0;
+    final glow = isMaximum ? particles.glow : 0.0;
     const maxStops = _MaximumEffortPalette.gradientStops;
 
     if (activeRight > left) {
@@ -832,9 +946,9 @@ class _ReasoningTrackPainter extends CustomPainter {
         final bloomRect = RRect.fromRectAndRadius(
           Rect.fromLTRB(
             left - 2,
-            centerY - _kReasoningTrackHalfHeight - 4 - pulse * 3,
+            centerY - _kReasoningTrackHalfHeight - 3 - glow * 2.5,
             activeRight + 2,
-            centerY + _kReasoningTrackHalfHeight + 4 + pulse * 3,
+            centerY + _kReasoningTrackHalfHeight + 3 + glow * 2.5,
           ),
           const Radius.circular(999),
         );
@@ -844,16 +958,16 @@ class _ReasoningTrackPainter extends CustomPainter {
             ..shader = LinearGradient(
               colors: <Color>[
                 _MaximumEffortPalette.royalBlue.withValues(
-                  alpha: 0.26 + pulse * 0.26,
+                  alpha: 0.22 + glow * 0.2,
                 ),
                 _MaximumEffortPalette.electric.withValues(
-                  alpha: 0.22 + pulse * 0.28,
+                  alpha: 0.18 + glow * 0.22,
                 ),
               ],
             ).createShader(bloomRect.outerRect)
             ..maskFilter = MaskFilter.blur(
               BlurStyle.normal,
-              11 + pulse * 8,
+              10 + glow * 6,
             ),
         );
         canvas.drawRRect(
@@ -861,10 +975,10 @@ class _ReasoningTrackPainter extends CustomPainter {
           Paint()
             ..shader = LinearGradient(
               colors: maxStops
-                  .map((c) => c.withValues(alpha: 0.5 + pulse * 0.28))
+                  .map((c) => c.withValues(alpha: 0.48 + glow * 0.2))
                   .toList(growable: false),
             ).createShader(activeRect.outerRect)
-            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
+            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5),
         );
       }
 
@@ -894,7 +1008,7 @@ class _ReasoningTrackPainter extends CustomPainter {
               end: Alignment.bottomCenter,
               colors: <Color>[
                 _MaximumEffortPalette.ice.withValues(
-                  alpha: 0.14 + pulse * 0.08,
+                  alpha: 0.12 + glow * 0.06,
                 ),
                 _MaximumEffortPalette.electric.withValues(alpha: 0),
               ],
@@ -916,7 +1030,7 @@ class _ReasoningTrackPainter extends CustomPainter {
           ..color = active
               ? (isMaximum
                     ? _MaximumEffortPalette.platinum.withValues(
-                        alpha: 0.72 + pulse * 0.22,
+                        alpha: 0.7 + glow * 0.18,
                       )
                     : Colors.white.withValues(alpha: 0.52))
               : outlineColor.withValues(alpha: 0.86),
@@ -931,11 +1045,15 @@ class _ReasoningTrackPainter extends CustomPainter {
         centerY: centerY,
         activeRight: activeRight,
         isMaximum: isMaximum,
-        pulse: pulse,
+        glow: glow,
       );
     }
 
-    _paintThumb(canvas, Offset(thumbX, centerY), isMaximum, pulse);
+    final thumbCenter = Offset(thumbX, centerY);
+    if (isMaximum) {
+      _paintThumbSparks(canvas, thumbCenter);
+    }
+    _paintThumb(canvas, thumbCenter, isMaximum, glow);
   }
 
   void _paintParticles({
@@ -945,7 +1063,7 @@ class _ReasoningTrackPainter extends CustomPainter {
     required double centerY,
     required double activeRight,
     required bool isMaximum,
-    required double pulse,
+    required double glow,
   }) {
     final energy =
         ((progress - _kEnergyParticleThreshold) /
@@ -970,7 +1088,7 @@ class _ReasoningTrackPainter extends CustomPainter {
                   fadeIn *
                   fadeOut *
                   energy *
-                  (isMaximum ? 0.9 + pulse * 0.28 : 0.85) *
+                  (isMaximum ? 0.88 + glow * 0.2 : 0.85) *
                   (clipped ? 1.0 : 0.55))
               .clamp(0.0, 1.0);
       if (alpha < 0.02) return;
@@ -981,7 +1099,7 @@ class _ReasoningTrackPainter extends CustomPainter {
           : Colors.white;
       final radius =
           particle.radius *
-          (isMaximum ? 1.0 + pulse * 0.18 : 1.0) *
+          (isMaximum ? 1.0 + glow * 0.12 : 1.0) *
           (clipped ? 1.0 : 0.85);
       final center = Offset(x, y);
 
@@ -1052,65 +1170,121 @@ class _ReasoningTrackPainter extends CustomPainter {
     }
   }
 
-  void _paintThumb(Canvas canvas, Offset center, bool isMaximum, double pulse) {
+  void _paintThumbSparks(Canvas canvas, Offset center) {
+    for (final spark in particles.thumbSparks) {
+      final lifeT = (spark.life / spark.maxLife).clamp(0.0, 1.0);
+      // Ease-out fade so sparks die softly, not pop off.
+      final fade = Curves.easeOutCubic.transform(lifeT);
+      final color = _MaximumEffortPalette
+          .particleColors[spark.colorIndex %
+              _MaximumEffortPalette.particleColors.length];
+      final dx = math.cos(spark.angle) * spark.dist;
+      final dy = math.sin(spark.angle) * spark.dist;
+      final pos = center + Offset(dx, dy);
+      final alpha = (0.15 + fade * 0.85).clamp(0.0, 1.0);
+
+      // Soft bloom
+      canvas.drawCircle(
+        pos,
+        spark.radius * 2.4,
+        Paint()
+          ..color = color.withValues(alpha: alpha * 0.28)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3.5),
+      );
+
+      // Streak along radial direction (fireworks trail).
+      final trail = spark.radius * (2.2 + spark.streak * 3.5) * fade;
+      final tail = Offset(
+        pos.dx - math.cos(spark.angle) * trail,
+        pos.dy - math.sin(spark.angle) * trail,
+      );
+      canvas.drawLine(
+        tail,
+        pos,
+        Paint()
+          ..color = color.withValues(alpha: alpha * 0.72)
+          ..strokeWidth = math.max(0.8, spark.radius * 0.55)
+          ..strokeCap = StrokeCap.round
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 0.6),
+      );
+
+      // Hot core
+      canvas.drawCircle(
+        pos,
+        spark.radius * (0.55 + fade * 0.45),
+        Paint()..color = Colors.white.withValues(alpha: alpha * 0.92),
+      );
+    }
+  }
+
+  void _paintThumb(Canvas canvas, Offset center, bool isMaximum, double glow) {
     if (isMaximum) {
+      // Soft multi-layer aura — continuous multi-harmonic glow, no hard pulse.
       canvas.drawCircle(
         center,
-        _kReasoningThumbRadius + 7 + pulse * 5,
+        _kReasoningThumbRadius + 10 + glow * 3,
         Paint()
           ..color = _MaximumEffortPalette.electric.withValues(
-            alpha: 0.16 + pulse * 0.2,
+            alpha: 0.1 + glow * 0.12,
           )
-          ..maskFilter = MaskFilter.blur(BlurStyle.normal, 9 + pulse * 6),
+          ..maskFilter = MaskFilter.blur(BlurStyle.normal, 12 + glow * 4),
       );
       canvas.drawCircle(
         center,
-        _kReasoningThumbRadius + 4 + pulse * 3,
+        _kReasoningThumbRadius + 5 + glow * 1.5,
         Paint()
           ..color = _MaximumEffortPalette.royalBlue.withValues(
-            alpha: 0.18 + pulse * 0.18,
+            alpha: 0.14 + glow * 0.1,
           )
-          ..maskFilter = MaskFilter.blur(BlurStyle.normal, 6 + pulse * 4),
+          ..maskFilter = MaskFilter.blur(BlurStyle.normal, 7 + glow * 2.5),
       );
     }
 
+    // Porcelain disc with subtle cool tint edge via outer soft ring.
     canvas.drawCircle(
       center,
       _kReasoningThumbRadius,
       Paint()..color = Colors.white,
     );
 
-    final thumbBorderPaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = isMaximum ? 2.5 : 1.5;
     if (isMaximum) {
-      final angle = pulse * math.pi * 2;
-      thumbBorderPaint.shader = SweepGradient(
-        startAngle: angle,
-        endAngle: angle + math.pi * 2,
-        colors: _MaximumEffortPalette.sweepRing,
-      ).createShader(
-        Rect.fromCircle(center: center, radius: _kReasoningThumbRadius),
-      );
-    } else {
-      thumbBorderPaint.color = Color.lerp(
-        primaryColor,
-        tertiaryColor,
-        progress,
-      )!.withValues(alpha: 0.32);
-    }
-    canvas.drawCircle(center, _kReasoningThumbRadius, thumbBorderPaint);
+      // Continuous forward-rotating prestige ring (linear time, seamless).
+      final ringPaint = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.2
+        ..shader = SweepGradient(
+          startAngle: particles.ringAngle,
+          endAngle: particles.ringAngle + math.pi * 2,
+          colors: _MaximumEffortPalette.sweepRing,
+          stops: const <double>[0, 0.28, 0.52, 0.78, 1],
+        ).createShader(
+          Rect.fromCircle(center: center, radius: _kReasoningThumbRadius),
+        );
+      canvas.drawCircle(center, _kReasoningThumbRadius, ringPaint);
 
-    if (isMaximum) {
+      // Quiet inner ice rim — stable alpha, slightly breathing with glow.
       canvas.drawCircle(
         center,
-        _kReasoningThumbRadius - 3.5,
+        _kReasoningThumbRadius - 4,
         Paint()
           ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.05
+          ..strokeWidth = 0.9
           ..color = _MaximumEffortPalette.ice.withValues(
-            alpha: 0.32 + pulse * 0.38,
+            alpha: 0.28 + glow * 0.16,
           ),
+      );
+    } else {
+      canvas.drawCircle(
+        center,
+        _kReasoningThumbRadius,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.5
+          ..color = Color.lerp(
+            primaryColor,
+            tertiaryColor,
+            progress,
+          )!.withValues(alpha: 0.32),
       );
     }
   }

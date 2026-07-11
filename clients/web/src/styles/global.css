@@ -4950,7 +4950,8 @@ button.oh-message-context-capsule {
 .oh-reasoning-effort-popover {
   padding: 0 !important;
   border-radius: 24px !important;
-  overflow: hidden;
+  /* visible: allow max-tier thumb fireworks to bloom past the track shell */
+  overflow: visible;
   background:
     linear-gradient(
       145deg,
@@ -5004,6 +5005,7 @@ button.oh-message-context-capsule {
   position: relative;
   height: 72px;
   margin-top: 2px;
+  overflow: visible;
 }
 .oh-reasoning-effort-track {
   position: absolute;
@@ -5092,30 +5094,62 @@ button.oh-message-context-capsule {
     transform 180ms var(--oh-motion-spring);
 }
 .oh-reasoning-effort-panel[data-energy='max'] .oh-reasoning-effort-orb {
-  border: 2.4px solid transparent;
+  /* Continuous forward ring spin — no reverse alternate loop seams. */
+  --oh-orb-angle: 0deg;
+  border: 2.2px solid transparent;
   background:
     linear-gradient(#fff, #fff) padding-box,
-    conic-gradient(from 0deg, #38bdf8, #bae6fd, #f8fafc, #60a5fa, #38bdf8) border-box;
+    conic-gradient(
+      from var(--oh-orb-angle),
+      #38bdf8,
+      #bae6fd,
+      #f8fafc,
+      #60a5fa,
+      #38bdf8
+    ) border-box;
   box-shadow:
     0 10px 24px -10px color-mix(in srgb, var(--m3-on-surface) 38%, transparent),
-    0 0 0 4px color-mix(in srgb, #1d4ed8 14%, transparent),
-    0 0 18px -2px color-mix(in srgb, #38bdf8 48%, transparent),
-    0 0 28px -4px color-mix(in srgb, #1d4ed8 34%, transparent);
-  animation: oh-reasoning-max-orb-pulse 1600ms ease-in-out infinite alternate;
+    0 0 0 3px color-mix(in srgb, #1d4ed8 12%, transparent),
+    0 0 16px -2px color-mix(in srgb, #38bdf8 42%, transparent),
+    0 0 28px -6px color-mix(in srgb, #1d4ed8 30%, transparent);
+  animation:
+    oh-reasoning-orb-spin 10s linear infinite,
+    oh-reasoning-max-orb-glow 5.4s ease-in-out infinite;
 }
 .oh-reasoning-effort-panel[data-energy='max'] .oh-reasoning-effort-orb::after {
   content: '';
   position: absolute;
   inset: 5px;
   border-radius: inherit;
-  border: 1.1px solid color-mix(in srgb, #bae6fd 52%, transparent);
+  border: 0.9px solid color-mix(in srgb, #bae6fd 42%, transparent);
   pointer-events: none;
-  animation: oh-reasoning-max-orb-rim 1600ms ease-in-out infinite alternate;
+  opacity: 0.85;
 }
 .oh-reasoning-effort-track-shell:active .oh-reasoning-effort-orb {
   transform: translate(-50%, -50%) scale(1.06);
   box-shadow: none;
   animation: none;
+}
+/* Radial fireworks layer, centered on the thumb. */
+.oh-reasoning-thumb-sparks {
+  position: absolute;
+  top: 50%;
+  left: var(--oh-reasoning-thumb-position);
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  z-index: 3;
+  overflow: visible;
+}
+.oh-reasoning-thumb-spark {
+  position: absolute;
+  left: 0;
+  top: 0;
+  border-radius: 999px;
+  background: radial-gradient(circle, #fff 0%, #bae6fd 45%, #38bdf8 100%);
+  box-shadow: 0 0 6px color-mix(in srgb, #38bdf8 65%, transparent);
+  will-change: transform, opacity;
+  pointer-events: none;
 }
 .oh-reasoning-effort-sparkles {
   position: absolute;
@@ -5264,61 +5298,82 @@ button.oh-message-context-capsule {
     0 10px 24px -14px color-mix(in srgb, #1d4ed8 70%, transparent),
     0 12px 32px -16px color-mix(in srgb, #38bdf8 58%, transparent),
     0 0 18px -4px color-mix(in srgb, #38bdf8 36%, transparent);
-  animation: oh-reasoning-max-capsule-pulse 1600ms ease-in-out infinite alternate;
+  animation: oh-reasoning-max-capsule-glow 6s ease-in-out infinite;
 }
 @keyframes oh-reasoning-control-sweep {
   from { transform: translateX(-60%); }
   to { transform: translateX(60%); }
 }
 @keyframes oh-reasoning-max-fill-pulse {
-  from {
+  0%, 100% {
     box-shadow:
       0 0 12px -6px color-mix(in srgb, #1d4ed8 55%, transparent),
       0 0 20px -10px color-mix(in srgb, #38bdf8 42%, transparent);
   }
-  to {
+  40% {
     box-shadow:
-      0 0 22px -2px color-mix(in srgb, #1d4ed8 80%, transparent),
-      0 0 36px -4px color-mix(in srgb, #38bdf8 70%, transparent);
+      0 0 18px -3px color-mix(in srgb, #1d4ed8 72%, transparent),
+      0 0 28px -6px color-mix(in srgb, #38bdf8 58%, transparent);
+  }
+  70% {
+    box-shadow:
+      0 0 14px -5px color-mix(in srgb, #1d4ed8 60%, transparent),
+      0 0 24px -8px color-mix(in srgb, #38bdf8 50%, transparent);
   }
 }
-@keyframes oh-reasoning-max-orb-pulse {
-  from {
+/* Continuous angle advance — seamless, no reverse hitch. */
+@keyframes oh-reasoning-orb-spin {
+  to { --oh-orb-angle: 360deg; }
+}
+/* Soft multi-stop glow (asymmetric keyframes hide loop seams). */
+@keyframes oh-reasoning-max-orb-glow {
+  0%, 100% {
     box-shadow:
       0 10px 24px -10px color-mix(in srgb, var(--m3-on-surface) 38%, transparent),
-      0 0 0 3px color-mix(in srgb, #1d4ed8 10%, transparent),
-      0 0 12px -4px color-mix(in srgb, #38bdf8 32%, transparent),
-      0 0 18px -6px color-mix(in srgb, #1d4ed8 26%, transparent);
-    filter: brightness(1);
+      0 0 0 3px color-mix(in srgb, #1d4ed8 11%, transparent),
+      0 0 14px -3px color-mix(in srgb, #38bdf8 36%, transparent),
+      0 0 24px -6px color-mix(in srgb, #1d4ed8 26%, transparent);
   }
-  to {
+  35% {
     box-shadow:
       0 10px 24px -10px color-mix(in srgb, var(--m3-on-surface) 38%, transparent),
-      0 0 0 6px color-mix(in srgb, #1d4ed8 16%, transparent),
-      0 0 26px 0 color-mix(in srgb, #38bdf8 58%, transparent),
-      0 0 36px -2px color-mix(in srgb, #1d4ed8 42%, transparent);
-    filter: brightness(1.05);
+      0 0 0 4px color-mix(in srgb, #1d4ed8 14%, transparent),
+      0 0 20px -1px color-mix(in srgb, #38bdf8 50%, transparent),
+      0 0 32px -4px color-mix(in srgb, #1d4ed8 34%, transparent);
+  }
+  62% {
+    box-shadow:
+      0 10px 24px -10px color-mix(in srgb, var(--m3-on-surface) 38%, transparent),
+      0 0 0 3px color-mix(in srgb, #1d4ed8 12%, transparent),
+      0 0 16px -2px color-mix(in srgb, #38bdf8 40%, transparent),
+      0 0 26px -5px color-mix(in srgb, #1d4ed8 28%, transparent);
   }
 }
-@keyframes oh-reasoning-max-orb-rim {
-  from { border-color: color-mix(in srgb, #bae6fd 30%, transparent); opacity: 0.7; }
-  to { border-color: color-mix(in srgb, #bae6fd 78%, transparent); opacity: 1; }
-}
-@keyframes oh-reasoning-max-capsule-pulse {
-  from {
-    transform: scale(1);
+@keyframes oh-reasoning-max-capsule-glow {
+  0%, 100% {
     box-shadow:
       0 10px 24px -14px color-mix(in srgb, #1d4ed8 52%, transparent),
       0 12px 28px -16px color-mix(in srgb, #38bdf8 44%, transparent),
       0 0 12px -6px color-mix(in srgb, #38bdf8 26%, transparent);
   }
-  to {
-    transform: scale(1.035);
+  42% {
     box-shadow:
-      0 12px 30px -10px color-mix(in srgb, #1d4ed8 82%, transparent),
-      0 14px 36px -12px color-mix(in srgb, #38bdf8 72%, transparent),
-      0 0 28px -2px color-mix(in srgb, #38bdf8 48%, transparent);
+      0 12px 28px -12px color-mix(in srgb, #1d4ed8 72%, transparent),
+      0 14px 32px -14px color-mix(in srgb, #38bdf8 58%, transparent),
+      0 0 20px -3px color-mix(in srgb, #38bdf8 38%, transparent);
   }
+  68% {
+    box-shadow:
+      0 10px 24px -14px color-mix(in srgb, #1d4ed8 58%, transparent),
+      0 12px 28px -16px color-mix(in srgb, #38bdf8 48%, transparent),
+      0 0 14px -5px color-mix(in srgb, #38bdf8 30%, transparent);
+  }
+}
+
+@property --oh-orb-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
 }
 .oh-composer-model-provider {
   color: var(--m3-on-surface-variant);
