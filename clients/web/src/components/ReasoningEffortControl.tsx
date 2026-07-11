@@ -345,6 +345,10 @@ function ReasoningEffortPanel({
   const selected = options[clampIndex(draftIndex, options)]!;
   const progress = options.length <= 1 ? 1 : draftIndex / maxIndex;
   const energy = progress >= 0.96 ? 'max' : progress >= 0.7 ? 'high' : progress >= 0.38 ? 'balanced' : 'fast';
+  // Soft ease into max capsule palette — continuous, no hard energy snap.
+  const rawMaxBlend = Math.max(0, Math.min(1, (progress - 0.72) / 0.28));
+  const capsuleBlend =
+    rawMaxBlend * rawMaxBlend * (3 - 2 * rawMaxBlend); // easeInOutCubic
   const thumbInset = 22 - 44 * progress;
   const thumbPosition = `calc(${progress * 100}% + ${thumbInset}px)`;
   const fillPosition = progress <= 0 ? '0%' : progress >= 1 ? '100%' : thumbPosition;
@@ -383,18 +387,28 @@ function ReasoningEffortPanel({
   };
 
   return (
-    <div class="oh-reasoning-effort-panel" data-energy={energy}>
+    <div
+      class="oh-reasoning-effort-panel"
+      data-energy={energy}
+      style={
+        {
+          '--oh-reasoning-progress': `${progress * 100}%`,
+          '--oh-cap-blend': `${capsuleBlend}`,
+        } as Record<string, string>
+      }
+    >
       <div class="oh-reasoning-effort-heading" aria-hidden="true">
         <span>{t('composer.reasoning.faster', '更快')}</span>
         <span>{t('composer.reasoning.smarter', '更智能')}</span>
       </div>
       <div
         class="oh-reasoning-effort-track-shell"
-        style={{
-          '--oh-reasoning-progress': `${progress * 100}%`,
-          '--oh-reasoning-fill-position': fillPosition,
-          '--oh-reasoning-thumb-position': thumbPosition,
-        }}
+        style={
+          {
+            '--oh-reasoning-fill-position': fillPosition,
+            '--oh-reasoning-thumb-position': thumbPosition,
+          } as Record<string, string>
+        }
       >
         <div class="oh-reasoning-effort-track" aria-hidden="true">
           <span class="oh-reasoning-effort-fill" />
@@ -462,8 +476,13 @@ function ReasoningEffortPanel({
         />
       </div>
       <div class="oh-reasoning-effort-current" aria-live="polite">
-        <span key={selected.value} class="oh-soft-replace">
-          {selected.label}
+        <span class="oh-reasoning-effort-capsule">
+          {/* Dual-layer crossfade: theme base ↔ max aurora (smooth, no snap). */}
+          <i class="oh-cap-fill oh-cap-fill-base" aria-hidden="true" />
+          <i class="oh-cap-fill oh-cap-fill-max" aria-hidden="true" />
+          <span key={selected.value} class="oh-cap-label oh-soft-replace">
+            {selected.label}
+          </span>
         </span>
       </div>
     </div>

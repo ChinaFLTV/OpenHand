@@ -135,44 +135,40 @@ void main() {
             : index == 1
             ? '高'
             : '低';
-        final capsule = tester.widget<AnimatedContainer>(
-          find
-              .ancestor(
-                of: find.text(label),
-                matching: find.byType(AnimatedContainer),
-              )
-              .first,
-        );
-        final decoration = capsule.decoration! as BoxDecoration;
+        // Capsule is a Container (or DecoratedBox) with a continuous 4-stop
+        // gradient; max-tier may wrap an outer shadow-only DecoratedBox.
+        final gradientBoxes = find
+            .ancestor(
+              of: find.text(label),
+              matching: find.byWidgetPredicate((widget) {
+                if (widget is DecoratedBox) {
+                  final decoration = widget.decoration;
+                  return decoration is BoxDecoration &&
+                      decoration.gradient is LinearGradient;
+                }
+                if (widget is Container) {
+                  final decoration = widget.decoration;
+                  return decoration is BoxDecoration &&
+                      decoration.gradient is LinearGradient;
+                }
+                return false;
+              }),
+            )
+            .evaluate()
+            .toList(growable: false);
+        expect(gradientBoxes, isNotEmpty);
+        final host = gradientBoxes.first.widget;
+        final BoxDecoration decoration;
+        if (host is DecoratedBox) {
+          decoration = host.decoration as BoxDecoration;
+        } else {
+          decoration = (host as Container).decoration! as BoxDecoration;
+        }
         expect(decoration.color, isNull);
         expect(decoration.gradient, isA<LinearGradient>());
         final colors = (decoration.gradient! as LinearGradient).colors;
         expect(colors, hasLength(4));
         for (final color in colors) {
-          expect(color.a, 1);
-        }
-        // Max-tier wraps the capsule with a pulse aura DecoratedBox that only
-        // carries boxShadow — pick the ancestor that actually owns the gradient.
-        final gradientBoxes = find
-            .ancestor(
-              of: find.text(label),
-              matching: find.byWidgetPredicate(
-                (widget) =>
-                    widget is DecoratedBox &&
-                    widget.decoration is BoxDecoration &&
-                    (widget.decoration as BoxDecoration).gradient
-                        is LinearGradient,
-              ),
-            )
-            .evaluate()
-            .toList(growable: false);
-        expect(gradientBoxes, isNotEmpty);
-        final renderedDecoration =
-            (gradientBoxes.first.widget as DecoratedBox).decoration
-                as BoxDecoration;
-        expect(renderedDecoration.color, isNull);
-        for (final color
-            in (renderedDecoration.gradient! as LinearGradient).colors) {
           expect(color.a, 1);
         }
         expect(tester.takeException(), isNull);

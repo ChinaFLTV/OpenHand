@@ -25,8 +25,10 @@ const double _kMaximumProgressThreshold = 0.96;
 
 // ── Motion ──────────────────────────────────────────────────────────────────
 const Duration _kProgressAnimDuration = Duration(milliseconds: 360);
-const Duration _kCapsuleAnimDuration = Duration(milliseconds: 280);
-const Duration _kLabelSwitchDuration = Duration(milliseconds: 220);
+const Duration _kCapsuleAnimDuration = Duration(milliseconds: 420);
+const Duration _kLabelSwitchDuration = Duration(milliseconds: 280);
+/// Progress at which the capsule starts blending into the max-tier palette.
+const double _kCapsuleMaxBlendStart = 0.72;
 
 // ── Particles ───────────────────────────────────────────────────────────────
 const int _kBaseParticleCount = 18;
@@ -229,7 +231,6 @@ class _ReasoningEffortPopupEntryState extends State<_ReasoningEffortPopupEntry> 
     final option = widget.options[_selectedIndex];
     final maxIndex = math.max(1, widget.options.length - 1);
     final progress = _selectedIndex / maxIndex;
-    final isMaximum = _isMaximumProgress(progress);
 
     return SizedBox(
       width: widget.width,
@@ -313,7 +314,6 @@ class _ReasoningEffortPopupEntryState extends State<_ReasoningEffortPopupEntry> 
                 label: option.labelForLocaleName(localeName),
                 valueKey: option.value,
                 progress: progress,
-                isMaximum: isMaximum,
                 colorScheme: colorScheme,
                 textStyle: theme.textTheme.labelLarge,
               ),
@@ -327,12 +327,52 @@ class _ReasoningEffortPopupEntryState extends State<_ReasoningEffortPopupEntry> 
 
 // ── Capsule badge ───────────────────────────────────────────────────────────
 
+/// 0→1 blend into the max-tier palette. Starts near high energy, fully on at max.
+double _capsuleMaxBlend(double progress) {
+  final raw =
+      ((progress - _kCapsuleMaxBlendStart) / (1 - _kCapsuleMaxBlendStart))
+          .clamp(0.0, 1.0);
+  return Curves.easeInOutCubic.transform(raw);
+}
+
+/// Continuous 4-stop gradient: mid tiers ease through theme containers,
+/// then gently dissolve into Void Aurora as progress approaches 1.
+List<Color> _capsuleGradientStops(double progress, ColorScheme colors) {
+  final blend = _capsuleMaxBlend(progress);
+  final base = <Color>[
+    Color.lerp(
+      colors.primaryContainer,
+      colors.tertiaryContainer,
+      progress * 0.28,
+    )!,
+    Color.lerp(
+      colors.primaryContainer,
+      colors.tertiaryContainer,
+      progress * 0.52,
+    )!,
+    Color.lerp(
+      colors.primaryContainer,
+      colors.tertiaryContainer,
+      progress * 0.74,
+    )!,
+    Color.lerp(
+      colors.primaryContainer,
+      colors.tertiaryContainer,
+      progress,
+    )!,
+  ];
+  const maxStops = _MaximumEffortPalette.gradientStops;
+  return <Color>[
+    for (var i = 0; i < maxStops.length; i++)
+      Color.lerp(base[i], maxStops[i], blend)!,
+  ];
+}
+
 class _ReasoningEffortCapsule extends StatelessWidget {
   const _ReasoningEffortCapsule({
     required this.label,
     required this.valueKey,
     required this.progress,
-    required this.isMaximum,
     required this.colorScheme,
     required this.textStyle,
   });
@@ -340,112 +380,125 @@ class _ReasoningEffortCapsule extends StatelessWidget {
   final String label;
   final String valueKey;
   final double progress;
-  final bool isMaximum;
   final ColorScheme colorScheme;
   final TextStyle? textStyle;
 
-  List<Color> get _capsuleColors {
-    if (isMaximum) return _MaximumEffortPalette.gradientStops;
-    final solid = Color.lerp(
-      colorScheme.primaryContainer,
-      colorScheme.tertiaryContainer,
-      progress,
-    )!;
-    return List<Color>.filled(
-      _MaximumEffortPalette.gradientStops.length,
-      solid,
-    );
-  }
-
-  Color get _borderColor {
-    if (isMaximum) {
-      return _MaximumEffortPalette.ice.withValues(alpha: 0.55);
-    }
-    return Color.lerp(
-      colorScheme.primary,
-      colorScheme.tertiary,
-      progress,
-    )!.withValues(alpha: 0.5);
-  }
-
-  Color get _shadowColor {
-    if (isMaximum) return _MaximumEffortPalette.electric;
-    return Color.lerp(colorScheme.primary, colorScheme.tertiary, progress)!;
-  }
-
-  Color get _labelColor {
-    if (isMaximum) return Colors.white;
-    return Color.lerp(
-      colorScheme.onPrimaryContainer,
-      colorScheme.onTertiaryContainer,
-      progress,
-    )!;
-  }
-
   @override
   Widget build(BuildContext context) {
-    final badge = AnimatedContainer(
+    // Tween discrete slider steps so fill / border / label colors ease together.
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(end: progress.clamp(0.0, 1.0)),
       duration: openHandMotionDuration(context, _kCapsuleAnimDuration),
-      curve: Curves.easeOutBack,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: AlignmentDirectional.centerStart,
-          end: AlignmentDirectional.centerEnd,
-          colors: _capsuleColors,
-        ),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: _borderColor),
-        boxShadow: <BoxShadow>[
-          BoxShadow(
-            color: _shadowColor.withValues(alpha: isMaximum ? 0.38 : 0.16),
-            blurRadius: isMaximum ? 22 : 16,
-            offset: const Offset(0, 6),
-          ),
-          if (isMaximum)
-            BoxShadow(
-              color: _MaximumEffortPalette.ice.withValues(alpha: 0.2),
-              blurRadius: 16,
-              offset: const Offset(0, 2),
-            ),
-        ],
-      ),
-      child: AnimatedSwitcher(
-        duration: openHandMotionDuration(context, _kLabelSwitchDuration),
-        switchInCurve: Curves.easeOutBack,
-        switchOutCurve: Curves.easeInCubic,
-        layoutBuilder: buildCollisionSafeAnimatedSwitcherLayout,
-        child: Text(
-          label,
-          key: ValueKey<String>(valueKey),
-          style: textStyle?.copyWith(
-            color: _labelColor,
-            fontWeight: FontWeight.w800,
-            letterSpacing: isMaximum ? 0.35 : 0,
-            shadows: isMaximum
-                ? const <Shadow>[
-                    Shadow(
-                      color: Color(0x66000000),
-                      blurRadius: 6,
-                      offset: Offset(0, 1),
-                    ),
-                  ]
-                : null,
-          ),
-        ),
-      ),
-    );
+      curve: Curves.easeOutCubic,
+      builder: (context, animatedProgress, _) {
+        final blend = _capsuleMaxBlend(animatedProgress);
+        final stops = _capsuleGradientStops(animatedProgress, colorScheme);
+        final midAccent = Color.lerp(
+          colorScheme.primary,
+          colorScheme.tertiary,
+          animatedProgress,
+        )!;
+        final midOn = Color.lerp(
+          colorScheme.onPrimaryContainer,
+          colorScheme.onTertiaryContainer,
+          animatedProgress,
+        )!;
+        final borderColor = Color.lerp(
+          midAccent.withValues(alpha: 0.5),
+          _MaximumEffortPalette.ice.withValues(alpha: 0.55),
+          blend,
+        )!;
+        final shadowA = Color.lerp(
+          midAccent,
+          _MaximumEffortPalette.electric,
+          blend,
+        )!;
+        final labelColor = Color.lerp(midOn, Colors.white, blend)!;
 
-    if (!isMaximum) return badge;
-    return _MaximumPulseAura(child: badge);
+        // Plain Container: color is already eased by the outer TweenAnimationBuilder.
+        final badge = Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: AlignmentDirectional.centerStart,
+              end: AlignmentDirectional.centerEnd,
+              colors: stops,
+            ),
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: borderColor),
+            // Fixed shadow slots so intensity can fade without layer pop-in.
+            boxShadow: <BoxShadow>[
+              BoxShadow(
+                color: shadowA.withValues(alpha: 0.16 + blend * 0.22),
+                blurRadius: 16 + blend * 6,
+                offset: const Offset(0, 6),
+              ),
+              BoxShadow(
+                color: _MaximumEffortPalette.ice.withValues(
+                  alpha: blend * 0.2,
+                ),
+                blurRadius: 12 + blend * 4,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: AnimatedSwitcher(
+            duration: openHandMotionDuration(context, _kLabelSwitchDuration),
+            switchInCurve: Curves.easeOutCubic,
+            switchOutCurve: Curves.easeInCubic,
+            layoutBuilder: buildCollisionSafeAnimatedSwitcherLayout,
+            transitionBuilder: (child, animation) {
+              return FadeTransition(
+                opacity: animation,
+                child: SlideTransition(
+                  position: Tween<Offset>(
+                    begin: const Offset(0, 0.12),
+                    end: Offset.zero,
+                  ).animate(
+                    CurvedAnimation(
+                      parent: animation,
+                      curve: Curves.easeOutCubic,
+                    ),
+                  ),
+                  child: child,
+                ),
+              );
+            },
+            child: Text(
+              label,
+              key: ValueKey<String>(valueKey),
+              style: textStyle?.copyWith(
+                color: labelColor,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.35 * blend,
+                shadows: blend > 0.08
+                    ? <Shadow>[
+                        Shadow(
+                          color: const Color(
+                            0x66000000,
+                          ).withValues(alpha: 0.4 * blend),
+                          blurRadius: 6,
+                          offset: const Offset(0, 1),
+                        ),
+                      ]
+                    : null,
+              ),
+            ),
+          ),
+        );
+
+        return _MaximumPulseAura(intensity: blend, child: badge);
+      },
+    );
   }
 }
 
-/// Soft dual-tone breathing glow around the max-tier capsule.
+/// Soft dual-tone breathing glow; [intensity] 0 hides it without mount flicker.
 class _MaximumPulseAura extends StatefulWidget {
-  const _MaximumPulseAura({required this.child});
+  const _MaximumPulseAura({required this.child, required this.intensity});
 
   final Widget child;
+  final double intensity;
 
   @override
   State<_MaximumPulseAura> createState() => _MaximumPulseAuraState();
@@ -453,7 +506,6 @@ class _MaximumPulseAura extends StatefulWidget {
 
 class _MaximumPulseAuraState extends State<_MaximumPulseAura>
     with SingleTickerProviderStateMixin {
-  // Continuous forward clock — multi-harmonic glow, no reverse loop seams.
   late final AnimationController _clock = AnimationController(
     vsync: this,
     duration: const Duration(seconds: 12),
@@ -465,8 +517,18 @@ class _MaximumPulseAuraState extends State<_MaximumPulseAura>
     _syncPulse();
   }
 
+  @override
+  void didUpdateWidget(covariant _MaximumPulseAura oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if ((oldWidget.intensity > 0.02) != (widget.intensity > 0.02)) {
+      _syncPulse();
+    }
+  }
+
   void _syncPulse() {
-    if (openHandTickerMotionEnabled(context)) {
+    final want =
+        widget.intensity > 0.02 && openHandTickerMotionEnabled(context);
+    if (want) {
       if (!_clock.isAnimating) _clock.repeat();
       return;
     }
@@ -484,6 +546,9 @@ class _MaximumPulseAuraState extends State<_MaximumPulseAura>
   @override
   Widget build(BuildContext context) {
     _syncPulse();
+    final intensity = widget.intensity.clamp(0.0, 1.0);
+    if (intensity <= 0.001) return widget.child;
+
     return AnimatedBuilder(
       animation: _clock,
       builder: (context, child) {
@@ -500,17 +565,17 @@ class _MaximumPulseAuraState extends State<_MaximumPulseAura>
             boxShadow: <BoxShadow>[
               BoxShadow(
                 color: _MaximumEffortPalette.royalBlue.withValues(
-                  alpha: 0.28 + glow * 0.22,
+                  alpha: (0.28 + glow * 0.22) * intensity,
                 ),
                 blurRadius: 14 + glow * 12,
-                spreadRadius: glow * 1.2,
+                spreadRadius: glow * 1.2 * intensity,
               ),
               BoxShadow(
                 color: _MaximumEffortPalette.electric.withValues(
-                  alpha: 0.16 + glow * 0.18,
+                  alpha: (0.16 + glow * 0.18) * intensity,
                 ),
                 blurRadius: 20 + glow * 14,
-                spreadRadius: -1 + glow * 1.6,
+                spreadRadius: (-1 + glow * 1.6) * intensity,
               ),
             ],
           ),
