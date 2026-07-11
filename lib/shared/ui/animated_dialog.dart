@@ -550,13 +550,14 @@ const Duration kOpenHandDialogRouteAttachTimeout = Duration(seconds: 2);
 /// When the dialog is already gone (ESC / barrier / external pop), [dismiss]
 /// is a no-op. Dismissal targets the captured [Route] only:
 /// - if it is current → [Navigator.pop] so the global exit transition runs;
-/// - else if still active → [Navigator.removeRoute] as a last-resort identity
-///   dismiss (another route sits above it).
+/// - else if still active → defer the pop until it becomes current, preserving
+///   both the route above it and the configured dialog exit transition.
 class OpenHandDialogSession {
   OpenHandDialogSession._(this._future) {
     unawaited(
       _future.whenComplete(() {
         _closed = true;
+        _clearDeferredDismissListener();
         _signalRouteAttached();
       }),
     );
@@ -566,6 +567,9 @@ class OpenHandDialogSession {
   final Completer<void> _routeAttached = Completer<void>();
   Route<Object?>? _route;
   bool _closed = false;
+  Animation<double>? _deferredDismissAnimation;
+  VoidCallback? _deferredDismissListener;
+  bool _deferredDismissPopScheduled = false;
 
   /// Whether the dialog future has already completed.
   bool get isClosed => _closed;
@@ -582,6 +586,48 @@ class OpenHandDialogSession {
     if (_closed) return;
     _route = route;
     _signalRouteAttached();
+  }
+
+  void _clearDeferredDismissListener() {
+    final animation = _deferredDismissAnimation;
+    final listener = _deferredDismissListener;
+    if (animation != null && listener != null) {
+      animation.removeListener(listener);
+    }
+    _deferredDismissAnimation = null;
+    _deferredDismissListener = null;
+  }
+
+  bool _deferAnimatedDismiss(Route<Object?> route) {
+    if (route is! TransitionRoute<Object?>) return false;
+    if (_deferredDismissListener != null) return true;
+    final secondaryAnimation = route.secondaryAnimation;
+    if (secondaryAnimation == null) return false;
+    void listener() => _tryDeferredAnimatedDismiss(route);
+    _deferredDismissAnimation = secondaryAnimation;
+    _deferredDismissListener = listener;
+    secondaryAnimation.addListener(listener);
+    scheduleMicrotask(listener);
+    return true;
+  }
+
+  void _tryDeferredAnimatedDismiss(Route<Object?> route) {
+    if (_closed || !route.isActive) {
+      _clearDeferredDismissListener();
+      return;
+    }
+    final navigator = route.navigator;
+    if (!route.isCurrent || navigator == null || _deferredDismissPopScheduled) {
+      return;
+    }
+    _deferredDismissPopScheduled = true;
+    _clearDeferredDismissListener();
+    scheduleMicrotask(() {
+      _deferredDismissPopScheduled = false;
+      if (!_closed && route.isActive && route.isCurrent) {
+        navigator.pop();
+      }
+    });
   }
 
   Future<Route<Object?>?> _awaitRoute({
@@ -629,8 +675,11 @@ class OpenHandDialogSession {
         // Runs the reverse transition (global dialog exit / Q-bounce when set).
         navigator.pop();
       } else if (route.isActive) {
-        // Not top-most: identity-only removal so we never pop a foreign route.
-        navigator.removeRoute(route);
+        // Never hard-remove a covered dialog: that bypasses its exit motion.
+        // Listen to the secondary route animation and pop this route normally
+        // once it becomes current. Return immediately so callers never wait
+        // indefinitely for the covering route to close.
+        return _deferAnimatedDismiss(route);
       } else {
         return false;
       }

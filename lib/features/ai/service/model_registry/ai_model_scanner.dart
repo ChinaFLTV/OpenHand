@@ -35,10 +35,12 @@ class AiModelScanner {
     AiTransportClient? transport,
   }) : _httpClient =
            httpClient ?? SystemProxyResolver.instance.createHttpClient(),
+       _ownsHttpClient = httpClient == null,
        _router = router ?? const AiEndpointRouter(),
        _transport = transport;
 
   final http.Client _httpClient;
+  final bool _ownsHttpClient;
   final AiEndpointRouter _router;
   final AiTransportClient? _transport;
 
@@ -656,7 +658,9 @@ class AiModelScanner {
   }
 
   void dispose() {
-    _httpClient.close();
+    if (_ownsHttpClient) {
+      _httpClient.close();
+    }
   }
 }
 

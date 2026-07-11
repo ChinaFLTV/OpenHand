@@ -17,10 +17,12 @@ class AiImageEditResult {
 class AiImageEditService {
   AiImageEditService({AiEndpointRouter? router, AiTransportClient? transport})
     : _router = router ?? const AiEndpointRouter(),
-      _transport = transport ?? AiTransportClient();
+      _transport = transport ?? AiTransportClient(),
+      _ownsTransport = transport == null;
 
   final AiEndpointRouter _router;
   final AiTransportClient _transport;
+  final bool _ownsTransport;
 
   Future<AiImageEditResult> editImage({
     required AiModelConfig model,
@@ -90,6 +92,8 @@ class AiImageEditService {
   }
 
   void dispose() {
-    _transport.dispose();
+    if (_ownsTransport) {
+      _transport.dispose();
+    }
   }
 }

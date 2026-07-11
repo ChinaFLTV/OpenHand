@@ -53,10 +53,12 @@ class AiRealtimeConnection {
 class AiRealtimeService {
   AiRealtimeService({AiEndpointRouter? router, AiTransportClient? transport})
     : _router = router ?? const AiEndpointRouter(),
-      _transport = transport ?? AiTransportClient();
+      _transport = transport ?? AiTransportClient(),
+      _ownsTransport = transport == null;
 
   final AiEndpointRouter _router;
   final AiTransportClient _transport;
+  final bool _ownsTransport;
 
   AiRealtimeSessionDescriptor describeSession(AiModelConfig model) {
     final endpoint = _router.resolve(
@@ -177,6 +179,8 @@ class AiRealtimeService {
   }
 
   void dispose() {
-    _transport.dispose();
+    if (_ownsTransport) {
+      _transport.dispose();
+    }
   }
 }

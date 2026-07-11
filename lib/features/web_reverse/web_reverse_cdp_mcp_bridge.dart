@@ -103,7 +103,8 @@ class WebReverseCdpMcpBridge {
     this.catalogTimeout = defaultCatalogTimeout,
     this.catalogCacheTtl = defaultCatalogCacheTtl,
     this.failedCatalogRetryTtl = defaultFailedCatalogRetryTtl,
-  }) : _discoveryService = discoveryService ?? DefaultMcpToolDiscoveryService();
+  }) : _discoveryService = discoveryService ?? DefaultMcpToolDiscoveryService(),
+       _ownsDiscoveryService = discoveryService == null;
 
   static const String templateId = 'web_reverse_expert';
   static const String cdpMcpPackage = 'chrome-devtools-mcp@latest';
@@ -116,6 +117,7 @@ class WebReverseCdpMcpBridge {
       'OpenHand is preparing the transient CDP MCP catalog for this Web Reverse session.';
 
   final McpToolDiscoveryService _discoveryService;
+  final bool _ownsDiscoveryService;
   final Duration catalogTimeout;
   final Duration catalogCacheTtl;
   final Duration failedCatalogRetryTtl;
@@ -252,7 +254,9 @@ class WebReverseCdpMcpBridge {
       stopSession(sessionId);
     }
     _catalogCache.clear();
-    _discoveryService.dispose();
+    if (_ownsDiscoveryService) {
+      _discoveryService.dispose();
+    }
   }
 
   McpServer? _serverFor({

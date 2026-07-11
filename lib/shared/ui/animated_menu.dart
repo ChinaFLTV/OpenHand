@@ -7,6 +7,17 @@ import 'micro_press_feedback.dart';
 import 'motion_preference.dart';
 import 'openhand_safe_scrollbar.dart';
 
+DialogAnimationSettings _resolveAnimatedMenuSettings(
+  BuildContext context,
+  DialogAnimationSettings? settings,
+) {
+  return openHandMotionSettingsOf(
+    context,
+    OpenHandMotionSettingsScope.menu,
+    override: settings,
+  );
+}
+
 /// Shows a popup menu with configurable entrance and exit animations.
 ///
 /// When [settings] is null, the configuration is automatically read from the
@@ -24,11 +35,7 @@ Future<T?> showAnimatedMenu<T>({
   bool useRootNavigator = false,
   bool enableBidirectionalScroll = false,
 }) {
-  final effectiveSettings = openHandMotionSettingsOf(
-    context,
-    OpenHandMotionSettingsScope.menu,
-    override: settings,
-  );
+  final effectiveSettings = _resolveAnimatedMenuSettings(context, settings);
 
   if (openHandMotionDisabled(effectiveSettings)) {
     return showMenu<T>(
@@ -64,6 +71,164 @@ Future<T?> showAnimatedMenu<T>({
       ),
     ),
   );
+}
+
+/// Shows arbitrary interactive content in an anchored popup route while
+/// inheriting the global menu entrance and exit motion settings.
+///
+/// Unlike [MenuAnchor], every dismissal path (selection, escape, and outside
+/// click) pops the route and therefore runs the configured reverse transition.
+Future<T?> showAnimatedAnchoredMenu<T>({
+  required BuildContext context,
+  required WidgetBuilder builder,
+  DialogAnimationSettings? settings,
+  PopupMenuPosition position = PopupMenuPosition.under,
+  Offset offset = Offset.zero,
+  bool useRootNavigator = false,
+}) {
+  final navigator = Navigator.of(context, rootNavigator: useRootNavigator);
+  final anchorObject = context.findRenderObject();
+  final overlayObject = navigator.overlay?.context.findRenderObject();
+  if (anchorObject is! RenderBox ||
+      overlayObject is! RenderBox ||
+      !anchorObject.hasSize ||
+      !overlayObject.hasSize) {
+    return Future<T?>.value();
+  }
+  final anchorRect = _animatedPopupMenuAnchorRect(
+    button: anchorObject,
+    overlay: overlayObject,
+    position: position,
+    offset: offset,
+  );
+  final relativePosition = RelativeRect.fromRect(
+    anchorRect,
+    Offset.zero & overlayObject.size,
+  );
+  final effectiveSettings = _resolveAnimatedMenuSettings(context, settings);
+  return navigator.push<T>(
+    _AnimatedAnchoredMenuRoute<T>(
+      position: relativePosition,
+      animationSettings: effectiveSettings,
+      textDirection: Directionality.of(context),
+      barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
+      capturedThemes: InheritedTheme.capture(
+        from: context,
+        to: navigator.context,
+      ),
+      builder: builder,
+    ),
+  );
+}
+
+class _AnimatedAnchoredMenuRoute<T> extends PopupRoute<T> {
+  _AnimatedAnchoredMenuRoute({
+    required this.position,
+    required this.animationSettings,
+    required this.textDirection,
+    required this.barrierLabel,
+    required this.capturedThemes,
+    required this.builder,
+  });
+
+  final RelativeRect position;
+  final DialogAnimationSettings animationSettings;
+  final TextDirection textDirection;
+  final CapturedThemes capturedThemes;
+  final WidgetBuilder builder;
+
+  @override
+  Duration get transitionDuration => animationSettings.duration;
+
+  @override
+  Duration get reverseTransitionDuration => animationSettings.duration;
+
+  @override
+  bool get barrierDismissible => true;
+
+  @override
+  Color? get barrierColor => null;
+
+  @override
+  final String barrierLabel;
+
+  @override
+  Widget buildTransitions(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    if (openHandMotionDisabled(animationSettings)) return child;
+    return _buildMenuTransition(animation, animationSettings, child);
+  }
+
+  @override
+  Widget buildPage(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+  ) {
+    final mediaPadding = MediaQuery.paddingOf(context);
+    return MediaQuery.removePadding(
+      context: context,
+      removeTop: true,
+      removeBottom: true,
+      removeLeft: true,
+      removeRight: true,
+      child: CustomSingleChildLayout(
+        delegate: _AnchoredMenuRouteLayout(
+          position,
+          textDirection,
+          mediaPadding,
+        ),
+        child: capturedThemes.wrap(Builder(builder: builder)),
+      ),
+    );
+  }
+}
+
+class _AnchoredMenuRouteLayout extends SingleChildLayoutDelegate {
+  const _AnchoredMenuRouteLayout(
+    this.position,
+    this.textDirection,
+    this.padding,
+  );
+
+  final RelativeRect position;
+  final TextDirection textDirection;
+  final EdgeInsets padding;
+
+  @override
+  BoxConstraints getConstraintsForChild(BoxConstraints constraints) {
+    return BoxConstraints.loose(constraints.biggest).deflate(padding);
+  }
+
+  @override
+  Offset getPositionForChild(Size size, Size childSize) {
+    final preferredX = textDirection == TextDirection.rtl
+        ? size.width - position.right - childSize.width
+        : position.left;
+    return Offset(
+      _clampMenuCoordinate(
+        preferredX,
+        lower: padding.left,
+        upper: size.width - childSize.width - padding.right,
+      ),
+      _clampMenuCoordinate(
+        position.top,
+        lower: padding.top,
+        upper: size.height - childSize.height - padding.bottom,
+      ),
+    );
+  }
+
+  @override
+  bool shouldRelayout(covariant _AnchoredMenuRouteLayout oldDelegate) {
+    return position != oldDelegate.position ||
+        textDirection != oldDelegate.textDirection ||
+        padding != oldDelegate.padding;
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -143,6 +143,11 @@ class AiSessionController extends ChangeNotifier {
     required AiClaudeHookService hookService,
     required AiToolRuntimeService toolRuntimeService,
     required AiAttachmentService attachmentService,
+    required bool ownsChatClient,
+    required bool ownsBackgroundChatClient,
+    required bool ownsBashToolService,
+    required bool ownsToolRuntimeService,
+    required McpToolDiscoveryService? ownedMcpToolService,
     required String Function() idGenerator,
     required DateTime Function() clock,
     MachineTerminalService? machineTerminalService,
@@ -156,6 +161,11 @@ class AiSessionController extends ChangeNotifier {
        _hookService = hookService,
        _toolRuntimeService = toolRuntimeService,
        _attachmentService = attachmentService,
+       _ownsChatClient = ownsChatClient,
+       _ownsBackgroundChatClient = ownsBackgroundChatClient,
+       _ownsBashToolService = ownsBashToolService,
+       _ownsToolRuntimeService = ownsToolRuntimeService,
+       _ownedMcpToolService = ownedMcpToolService,
        _idGenerator = idGenerator,
        _clock = clock,
        _machineTerminalService = machineTerminalService,
@@ -328,6 +338,14 @@ class AiSessionController extends ChangeNotifier {
             perSessionAttachmentsDirectoryPath:
                 resolvedStore.perSessionAttachmentsDirectoryPath,
           ),
+      ownsChatClient: chatClient == null,
+      ownsBackgroundChatClient:
+          backgroundChatClient == null && chatClient == null,
+      ownsBashToolService: bashToolService == null,
+      ownsToolRuntimeService: toolRuntimeService == null,
+      ownedMcpToolService: toolRuntimeService == null && mcpToolService == null
+          ? resolvedMcpToolService
+          : null,
       idGenerator: idGenerator ?? const Uuid().v4,
       clock: clock ?? () => DateTime.now().toUtc(),
       machineTerminalService: machineTerminalService,
@@ -759,6 +777,11 @@ class AiSessionController extends ChangeNotifier {
   final HooksExecutor? _userHooksExecutor;
   final AiToolRuntimeService _toolRuntimeService;
   final AiAttachmentService _attachmentService;
+  final bool _ownsChatClient;
+  final bool _ownsBackgroundChatClient;
+  final bool _ownsBashToolService;
+  final bool _ownsToolRuntimeService;
+  final McpToolDiscoveryService? _ownedMcpToolService;
   final String Function() _idGenerator;
   final DateTime Function() _clock;
   final MachineTerminalService? _machineTerminalService;
@@ -6417,11 +6440,20 @@ class AiSessionController extends ChangeNotifier {
         cancelHandler().catchError((Object _, StackTrace stackTrace) {}),
       );
     }
-    if (!identical(_backgroundChatClient, _chatClient)) {
+    if (_ownsBackgroundChatClient &&
+        !identical(_backgroundChatClient, _chatClient)) {
       _backgroundChatClient.dispose();
     }
-    _toolRuntimeService.dispose();
-    _chatClient.dispose();
+    if (_ownsToolRuntimeService) {
+      _toolRuntimeService.dispose();
+    }
+    if (_ownsBashToolService) {
+      _bashToolService.dispose();
+    }
+    _ownedMcpToolService?.dispose();
+    if (_ownsChatClient) {
+      _chatClient.dispose();
+    }
     _loadedMcpToolsTracker.dispose();
     _sessionStreamThrottleSignal.dispose();
     super.dispose();

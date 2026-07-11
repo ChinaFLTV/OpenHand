@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -16,9 +15,7 @@ const Duration _pluginLifecycleDefaultTimeout = Duration(minutes: 3);
 const Duration _pluginLifecycleProbeTimeout = Duration(seconds: 5);
 const Duration _pluginLifecycleVerifyTimeout = Duration(seconds: 8);
 const Duration _pluginLifecycleStreamDrainTimeout = Duration(milliseconds: 800);
-const Duration _pluginLifecycleTerminateGrace = Duration(milliseconds: 500);
 const int _pluginLifecycleMaxCapturedLines = 500;
-const int _pluginLifecycleMaxProgressLineChars = 4000;
 const int _pluginLifecycleMaxErrorMessageChars = 20000;
 const String _hermesAgentNpmPackage = 'hermes-agent';
 const String _hermesAgentPrimaryCommand = 'hermes-agent';
@@ -3052,87 +3049,30 @@ echo "Preserved Qdrant data directory: ${_pluginShellQuote(dataDir)}"
     Duration timeout = _pluginLifecycleDefaultTimeout,
     Map<String, String>? environment,
   }) async {
-    StreamSubscription<String>? stdoutSub;
-    StreamSubscription<String>? stderrSub;
     try {
       final mergedEnv = <String, String>{...?environment, ..._proxyEnv()};
-      final process = await startTrackedProcessInNewGroup(
-        executable,
-        arguments,
-        environment: mergedEnv,
-      );
-      final stdoutLines = _ProgressLineCollector(onProgress: onProgress);
-      final stderrLines = _ProgressLineCollector(onProgress: onProgress);
-      final stdoutDone = Completer<void>();
-      final stderrDone = Completer<void>();
-
-      void complete(Completer<void> completer) {
-        if (!completer.isCompleted) completer.complete();
-      }
-
-      stdoutSub = process.stdout
-          .transform(const SystemEncoding().decoder)
-          .listen(
-            stdoutLines.addChunk,
-            onError: (Object error, StackTrace stack) {
-              silentLog('plugin_lifecycle', 'stdout $executable', error, stack);
-              stdoutLines.close();
-              complete(stdoutDone);
-            },
-            onDone: () {
-              stdoutLines.close();
-              complete(stdoutDone);
-            },
-          );
-      stderrSub = process.stderr
-          .transform(const SystemEncoding().decoder)
-          .listen(
-            stderrLines.addChunk,
-            onError: (Object error, StackTrace stack) {
-              silentLog('plugin_lifecycle', 'stderr $executable', error, stack);
-              stderrLines.close();
-              complete(stderrDone);
-            },
-            onDone: () {
-              stderrLines.close();
-              complete(stderrDone);
-            },
-          );
-
       final effectiveTimeout = timeout <= Duration.zero
           ? _pluginLifecycleDefaultTimeout
           : timeout;
-      var didTimeout = false;
-      final exitCode = await process.exitCode.timeout(
-        effectiveTimeout,
-        onTimeout: () async {
-          didTimeout = true;
-          await terminateTrackedProcessTree(
-            process,
-            gracefulTimeout: _pluginLifecycleTerminateGrace,
-          );
-          return -1;
-        },
+      final result = await runTrackedProcessWithLineLogging(
+        executable,
+        arguments,
+        environment: mergedEnv,
+        timeout: effectiveTimeout,
+        tag: 'plugin_lifecycle',
+        streamDrainTimeout: _pluginLifecycleStreamDrainTimeout,
+        trimStdoutLines: true,
+        maxCapturedLinesPerStream: _pluginLifecycleMaxCapturedLines,
+        onStdoutLine: onProgress,
+        onStderrLine: onProgress,
       );
-      try {
-        await Future.wait<void>([
-          stdoutDone.future,
-          stderrDone.future,
-        ]).timeout(_pluginLifecycleStreamDrainTimeout);
-      } on TimeoutException {
-        silentLog(
-          'plugin_lifecycle',
-          'drain output $executable',
-          TimeoutException('output stream drain timed out'),
-        );
-      }
 
       return _SimpleProcessResult(
-        exitCode: exitCode,
-        stdout: stdoutLines.text,
-        stderr: didTimeout && stderrLines.isEmpty
+        exitCode: result.exitCode,
+        stdout: result.stdout,
+        stderr: result.timedOut && result.stderr.isEmpty
             ? _timeoutMessage(effectiveTimeout)
-            : stderrLines.text,
+            : result.stderr,
       );
     } catch (error, stack) {
       silentLog(
@@ -3142,52 +3082,7 @@ echo "Preserved Qdrant data directory: ${_pluginShellQuote(dataDir)}"
         stack,
       );
       return _SimpleProcessResult(exitCode: -1, stdout: '', stderr: '$error');
-    } finally {
-      await stdoutSub?.cancel();
-      await stderrSub?.cancel();
     }
-  }
-}
-
-class _ProgressLineCollector {
-  _ProgressLineCollector({this.onProgress});
-
-  final void Function(String line)? onProgress;
-  final List<String> _lines = <String>[];
-  String _pending = '';
-
-  bool get isEmpty => _lines.isEmpty && _pending.trim().isEmpty;
-
-  String get text => _lines.join('\n');
-
-  void addChunk(String chunk) {
-    if (chunk.isEmpty) return;
-    final parts = (_pending + chunk).split('\n');
-    _pending = parts.last;
-    for (var index = 0; index < parts.length - 1; index++) {
-      _addLine(parts[index]);
-    }
-  }
-
-  void close() {
-    if (_pending.isNotEmpty) {
-      _addLine(_pending);
-      _pending = '';
-    }
-  }
-
-  void _addLine(String rawLine) {
-    final trimmed = rawLine.trim();
-    if (trimmed.isEmpty) return;
-    final line = clipTextWithEllipsis(
-      trimmed,
-      _pluginLifecycleMaxProgressLineChars,
-    );
-    if (_lines.length >= _pluginLifecycleMaxCapturedLines) {
-      _lines.removeAt(0);
-    }
-    _lines.add(line);
-    onProgress?.call(line);
   }
 }
 

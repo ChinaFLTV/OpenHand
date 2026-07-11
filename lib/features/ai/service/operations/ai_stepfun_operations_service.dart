@@ -88,13 +88,15 @@ class AiStepFunOperationsService {
     AiEndpointRouter? router,
     AiTransportClient? transport,
   }) : _router = router ?? const AiEndpointRouter(),
-       _transport = transport ?? AiTransportClient();
+       _transport = transport ?? AiTransportClient(),
+       _ownsTransport = transport == null;
 
   static const String _messagesCountTokensPath = 'v1/messages/count_tokens';
   static const String _asrQueryPath = 'v1/audio/asr/file/query';
 
   final AiEndpointRouter _router;
   final AiTransportClient _transport;
+  final bool _ownsTransport;
 
   Future<AiStepFunTokenCountResult> countChatTokens({
     required AiModelConfig model,
@@ -773,6 +775,8 @@ class AiStepFunOperationsService {
   }
 
   void dispose() {
-    _transport.dispose();
+    if (_ownsTransport) {
+      _transport.dispose();
+    }
   }
 }

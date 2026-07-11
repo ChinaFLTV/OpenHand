@@ -1,10 +1,12 @@
 import 'dart:async';
+import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
 import '../../features/ai/service/runtime/ai_tool_execution_registry.dart';
 import '../../shared/util/input_value_parsing.dart';
+import '../../shared/util/text_clip.dart';
 import '../../shared/util/timer_safety.dart';
 import 'silent_log.dart';
 import 'url_validation.dart';
@@ -525,11 +527,33 @@ class TrackedProcessLineLogResult {
     required this.pid,
     required this.exitCode,
     required this.timedOut,
+    required this.stdout,
+    required this.stderr,
   });
 
   final int pid;
   final int exitCode;
   final bool timedOut;
+  final String stdout;
+  final String stderr;
+}
+
+class _BoundedProcessLineCapture {
+  _BoundedProcessLineCapture({required int maxLines})
+    : _maxLines = maxLines < 0 ? 0 : maxLines;
+
+  final int _maxLines;
+  final ListQueue<String> _lines = ListQueue<String>();
+
+  void add(String line) {
+    if (_maxLines == 0) return;
+    if (_lines.length >= _maxLines) {
+      _lines.removeFirst();
+    }
+    _lines.add(line);
+  }
+
+  String get text => _lines.join('\n');
 }
 
 /// Starts a tracked process, streams stdout/stderr as decoded text lines, and
@@ -538,7 +562,9 @@ class TrackedProcessLineLogResult {
 /// This is intended for UI install/update flows that need live logs without
 /// duplicating stdout/stderr subscription, timeout, and cleanup code. Stream
 /// errors are logged and do not fail the process run; spawn/exit failures still
-/// propagate to the caller.
+/// propagate to the caller. By default the command starts in a dedicated POSIX
+/// process group, so a timeout terminates the complete command tree instead of
+/// leaving npm/pip/shell descendants behind.
 Future<TrackedProcessLineLogResult> runTrackedProcessWithLineLogging(
   String executable,
   List<String> arguments, {
@@ -552,18 +578,39 @@ Future<TrackedProcessLineLogResult> runTrackedProcessWithLineLogging(
   ProcessLogLineHandler? onStderrLine,
   void Function()? onTimeout,
   Duration streamDrainTimeout = const Duration(milliseconds: 500),
+  Duration gracefulTerminationTimeout = const Duration(milliseconds: 500),
+  bool startInNewProcessGroup = true,
+  bool trimStdoutLines = false,
+  bool trimStderrLines = true,
+  int maxCapturedLinesPerStream = 0,
+  int maxLineCharacters = 4000,
 }) async {
-  final process = await startTrackedProcess(
-    executable,
-    arguments,
-    workingDirectory: workingDirectory,
-    environment: environment,
-    runInShell: runInShell,
-    includeParentEnvironment: includeParentEnvironment,
-  );
+  final process = startInNewProcessGroup
+      ? await startTrackedProcessInNewGroup(
+          executable,
+          arguments,
+          workingDirectory: workingDirectory,
+          environment: environment,
+          runInShell: runInShell,
+          includeParentEnvironment: includeParentEnvironment,
+        )
+      : await startTrackedProcess(
+          executable,
+          arguments,
+          workingDirectory: workingDirectory,
+          environment: environment,
+          runInShell: runInShell,
+          includeParentEnvironment: includeParentEnvironment,
+        );
   var timedOut = false;
   final stdoutDone = Completer<void>();
   final stderrDone = Completer<void>();
+  final stdoutCapture = _BoundedProcessLineCapture(
+    maxLines: maxCapturedLinesPerStream,
+  );
+  final stderrCapture = _BoundedProcessLineCapture(
+    maxLines: maxCapturedLinesPerStream,
+  );
   StreamSubscription<String>? stdoutSub;
   StreamSubscription<String>? stderrSub;
 
@@ -571,10 +618,20 @@ Future<TrackedProcessLineLogResult> runTrackedProcessWithLineLogging(
     if (!completer.isCompleted) completer.complete();
   }
 
-  void handleLine(ProcessLogLineHandler? handler, String line) {
-    if (handler == null || nullIfBlank(line) == null) return;
+  void handleLine(
+    ProcessLogLineHandler? handler,
+    _BoundedProcessLineCapture capture,
+    String line,
+  ) {
+    if (nullIfBlank(line) == null) return;
+    final boundedLine = clipTextWithEllipsis(
+      line,
+      maxLineCharacters < 1 ? 1 : maxLineCharacters,
+    );
+    capture.add(boundedLine);
+    if (handler == null) return;
     try {
-      handler(line);
+      handler(boundedLine);
     } catch (error, stack) {
       silentLog(tag, 'line handler $executable', error, stack);
     }
@@ -585,13 +642,14 @@ Future<TrackedProcessLineLogResult> runTrackedProcessWithLineLogging(
     required String streamName,
     required Completer<void> done,
     required ProcessLogLineHandler? handler,
+    required _BoundedProcessLineCapture capture,
     bool trimLine = false,
   }) {
     return stream
         .transform(const SystemEncoding().decoder)
         .transform(const LineSplitter())
         .listen(
-          (line) => handleLine(handler, trimLine ? line.trim() : line),
+          (line) => handleLine(handler, capture, trimLine ? line.trim() : line),
           onError: (Object error, StackTrace stack) {
             silentLog(tag, '$streamName $executable', error, stack);
             complete(done);
@@ -622,24 +680,30 @@ Future<TrackedProcessLineLogResult> runTrackedProcessWithLineLogging(
       streamName: 'stdout',
       done: stdoutDone,
       handler: onStdoutLine,
+      capture: stdoutCapture,
+      trimLine: trimStdoutLines,
     );
     stderrSub = listenLines(
       stream: process.stderr,
       streamName: 'stderr',
       done: stderrDone,
       handler: onStderrLine,
-      trimLine: true,
+      capture: stderrCapture,
+      trimLine: trimStderrLines,
     );
     final exitCode = await process.exitCode.timeout(
       timeout,
-      onTimeout: () {
+      onTimeout: () async {
         timedOut = true;
         try {
           onTimeout?.call();
         } catch (error, stack) {
           silentLog(tag, 'timeout handler $executable', error, stack);
         }
-        process.kill(ProcessSignal.sigkill);
+        await terminateTrackedProcessTree(
+          process,
+          gracefulTimeout: gracefulTerminationTimeout,
+        );
         return -1;
       },
     );
@@ -648,6 +712,8 @@ Future<TrackedProcessLineLogResult> runTrackedProcessWithLineLogging(
       pid: process.pid,
       exitCode: exitCode,
       timedOut: timedOut,
+      stdout: stdoutCapture.text,
+      stderr: stderrCapture.text,
     );
   } finally {
     await stdoutSub?.cancel();

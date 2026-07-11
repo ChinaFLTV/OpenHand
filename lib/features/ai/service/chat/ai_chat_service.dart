@@ -241,7 +241,9 @@ class AiChatService implements AiChatClient {
     AiImageGenerationService? imageService,
     AiModelScanner? modelScanner,
   }) : _client = client ?? SystemProxyResolver.instance.createHttpClient(),
+       _ownsClient = client == null,
        _imageService = imageService ?? AiImageGenerationService(client: client),
+       _ownsImageService = imageService == null,
        _modelScanner = modelScanner;
 
   static const String _availabilityProbePrompt =
@@ -256,7 +258,9 @@ class AiChatService implements AiChatClient {
   int maxStreamLineBufferBytes = 4 * kBytesPerMiB;
 
   final http.Client _client;
+  final bool _ownsClient;
   final AiImageGenerationService _imageService;
+  final bool _ownsImageService;
   final AiModelScanner? _modelScanner;
   AiResponsesService? _responsesService;
 
@@ -1803,8 +1807,14 @@ class AiChatService implements AiChatClient {
 
   @override
   void dispose() {
-    _imageService.dispose();
-    _client.close();
+    _responsesService?.dispose();
+    _responsesService = null;
+    if (_ownsImageService) {
+      _imageService.dispose();
+    }
+    if (_ownsClient) {
+      _client.close();
+    }
   }
 }
 

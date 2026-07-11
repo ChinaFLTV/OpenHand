@@ -37,7 +37,8 @@ class AiRerankResult {
 class AiRerankService {
   AiRerankService({AiEndpointRouter? router, AiTransportClient? transport})
     : _router = router ?? const AiEndpointRouter(),
-      _transport = transport ?? AiTransportClient();
+      _transport = transport ?? AiTransportClient(),
+      _ownsTransport = transport == null;
 
   static const AiRerankResult _emptyResult = AiRerankResult(
     items: <AiRerankItem>[],
@@ -56,6 +57,7 @@ class AiRerankService {
 
   final AiEndpointRouter _router;
   final AiTransportClient _transport;
+  final bool _ownsTransport;
 
   Future<AiRerankResult> rerank({
     required AiModelConfig model,
@@ -192,7 +194,9 @@ class AiRerankService {
   }
 
   void dispose() {
-    _transport.dispose();
+    if (_ownsTransport) {
+      _transport.dispose();
+    }
   }
 }
 

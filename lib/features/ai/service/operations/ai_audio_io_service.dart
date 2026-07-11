@@ -37,10 +37,12 @@ class AiSpeechResult {
 class AiAudioIoService {
   AiAudioIoService({AiEndpointRouter? router, AiTransportClient? transport})
     : _router = router ?? const AiEndpointRouter(),
-      _transport = transport ?? AiTransportClient();
+      _transport = transport ?? AiTransportClient(),
+      _ownsTransport = transport == null;
 
   final AiEndpointRouter _router;
   final AiTransportClient _transport;
+  final bool _ownsTransport;
 
   Future<AiSpeechResult> createSpeech({
     required AiModelConfig model,
@@ -235,6 +237,8 @@ class AiAudioIoService {
   }
 
   void dispose() {
-    _transport.dispose();
+    if (_ownsTransport) {
+      _transport.dispose();
+    }
   }
 }

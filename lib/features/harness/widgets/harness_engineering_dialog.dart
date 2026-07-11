@@ -1715,7 +1715,7 @@ class _RoleConfigRow extends StatelessWidget {
                 // URL mode: show API model config dropdown.
                 Expanded(
                   flex: 2,
-                  child: _MenuAnchorModelSelector(
+                  child: _SearchableModelSelector(
                     label: openHandLocalizedText(
                       context,
                       zh: 'API 模型',
@@ -2282,7 +2282,7 @@ class _QuickApplyBar extends StatelessWidget {
               // URL mode: API model config dropdown
               Expanded(
                 flex: 2,
-                child: _MenuAnchorModelSelector(
+                child: _SearchableModelSelector(
                   label: openHandLocalizedText(
                     context,
                     zh: 'API 模型',
@@ -2494,11 +2494,11 @@ class _ScanChip extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// MenuAnchor-based model selector (consistent with composer model selector)
+// Searchable model selector (consistent with composer model selector)
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _MenuAnchorModelSelector extends StatefulWidget {
-  const _MenuAnchorModelSelector({
+class _SearchableModelSelector extends StatefulWidget {
+  const _SearchableModelSelector({
     required this.label,
     required this.settingsModels,
     required this.selectedAiModelConfigId,
@@ -2515,11 +2515,11 @@ class _MenuAnchorModelSelector extends StatefulWidget {
   final bool enabled;
 
   @override
-  State<_MenuAnchorModelSelector> createState() =>
-      _MenuAnchorModelSelectorState();
+  State<_SearchableModelSelector> createState() =>
+      _SearchableModelSelectorState();
 }
 
-class _MenuAnchorModelSelectorState extends State<_MenuAnchorModelSelector> {
+class _SearchableModelSelectorState extends State<_SearchableModelSelector> {
   bool _menuOpen = false;
 
   String? get _displayLabel {

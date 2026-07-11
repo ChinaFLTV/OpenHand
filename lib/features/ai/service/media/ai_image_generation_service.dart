@@ -113,12 +113,14 @@ class AiMediaGenerationException implements Exception {
 class AiImageGenerationService {
   AiImageGenerationService({http.Client? client, AiEndpointRouter? router})
     : _client = client ?? SystemProxyResolver.instance.createHttpClient(),
+      _ownsClient = client == null,
       _router = router ?? const AiEndpointRouter();
 
   static final RegExp _pixelSizePattern = RegExp(r'^(\d{2,5})x(\d{2,5})$');
   static final RegExp _base64LikePattern = RegExp(r'^[A-Za-z0-9+/=\r\n]+$');
 
   final http.Client _client;
+  final bool _ownsClient;
   final AiEndpointRouter _router;
 
   /// Returns `true` when [protocol] is known to speak the OpenAI-compatible
@@ -2358,7 +2360,9 @@ class AiImageGenerationService {
   }
 
   void dispose() {
-    _client.close();
+    if (_ownsClient) {
+      _client.close();
+    }
   }
 }
 

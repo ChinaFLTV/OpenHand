@@ -82,7 +82,8 @@ class McpToolCallResult {
 
 class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
   DefaultMcpToolDiscoveryService({http.Client? client})
-    : _client = client ?? SystemProxyResolver.instance.createHttpClient();
+    : _client = client ?? SystemProxyResolver.instance.createHttpClient(),
+      _ownsClient = client == null;
 
   static const Duration _scanTimeout = Duration(seconds: 8);
   // stdio 首次冷启动通常要跑 npx / uvx 拉远端包；chrome-devtools-mcp 这类
@@ -116,6 +117,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
   );
 
   final http.Client _client;
+  final bool _ownsClient;
   int _nextRequestId = 0;
 
   @override
@@ -1341,7 +1343,9 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
 
   @override
   void dispose() {
-    _client.close();
+    if (_ownsClient) {
+      _client.close();
+    }
   }
 }
 

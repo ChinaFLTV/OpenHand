@@ -22,10 +22,12 @@ class AiCompletionResult {
 class AiCompletionsService {
   AiCompletionsService({AiEndpointRouter? router, AiTransportClient? transport})
     : _router = router ?? const AiEndpointRouter(),
-      _transport = transport ?? AiTransportClient();
+      _transport = transport ?? AiTransportClient(),
+      _ownsTransport = transport == null;
 
   final AiEndpointRouter _router;
   final AiTransportClient _transport;
+  final bool _ownsTransport;
 
   Future<AiCompletionResult> complete({
     required AiModelConfig model,
@@ -107,6 +109,8 @@ class AiCompletionsService {
   }
 
   void dispose() {
-    _transport.dispose();
+    if (_ownsTransport) {
+      _transport.dispose();
+    }
   }
 }

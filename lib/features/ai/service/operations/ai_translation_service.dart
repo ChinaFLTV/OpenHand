@@ -51,7 +51,9 @@ class AiTranslationException implements Exception {
 class AiTranslationService {
   AiTranslationService({http.Client? client, AiChatClient? chatClient})
     : _client = client ?? SystemProxyResolver.instance.createHttpClient(),
-      _chatClient = chatClient ?? AiChatService();
+      _ownsClient = client == null,
+      _chatClient = chatClient ?? AiChatService(),
+      _ownsChatClient = chatClient == null;
 
   static const String _aiPromptAsset =
       'assets/prompts/common/ai_translation_system_prompt.md';
@@ -67,7 +69,9 @@ class AiTranslationService {
       <String, Future<AiTranslationResult>>{};
 
   final http.Client _client;
+  final bool _ownsClient;
   final AiChatClient _chatClient;
+  final bool _ownsChatClient;
   Future<String>? _aiPromptFuture;
 
   Future<AiTranslationResult> translate({
@@ -853,7 +857,11 @@ class AiTranslationService {
   }
 
   void dispose() {
-    _client.close();
-    _chatClient.dispose();
+    if (_ownsClient) {
+      _client.close();
+    }
+    if (_ownsChatClient) {
+      _chatClient.dispose();
+    }
   }
 }

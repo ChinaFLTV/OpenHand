@@ -25,7 +25,8 @@ class AiEmbeddingResult {
 class AiEmbeddingsService {
   AiEmbeddingsService({AiEndpointRouter? router, AiTransportClient? transport})
     : _router = router ?? const AiEndpointRouter(),
-      _transport = transport ?? AiTransportClient();
+      _transport = transport ?? AiTransportClient(),
+      _ownsTransport = transport == null;
 
   static const String _geminiDefaultEmbeddingPath =
       'v1beta/models/{model_id}:embedContent';
@@ -51,6 +52,7 @@ class AiEmbeddingsService {
 
   final AiEndpointRouter _router;
   final AiTransportClient _transport;
+  final bool _ownsTransport;
 
   Future<AiEmbeddingResult> createEmbeddings({
     required AiModelConfig model,
@@ -435,7 +437,9 @@ class AiEmbeddingsService {
   }
 
   void dispose() {
-    _transport.dispose();
+    if (_ownsTransport) {
+      _transport.dispose();
+    }
   }
 }
 

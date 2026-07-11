@@ -332,6 +332,7 @@ class AiToolRuntimeService {
        _backgroundChatClient = backgroundChatClient,
        _httpClient =
            httpClient ?? SystemProxyResolver.instance.createHttpClient(),
+       _ownsHttpClient = httpClient == null,
        _scraplingBridge = WebFetchScraplingBridge(),
        _hostLookup = hostLookup ?? ((host) => InternetAddress.lookup(host)),
        _fileTracker = fileTrackerService ?? AiFileTrackerService(),
@@ -404,6 +405,7 @@ class AiToolRuntimeService {
   final McpToolDiscoveryService _mcpToolService;
   final AiChatClient _backgroundChatClient;
   final http.Client _httpClient;
+  final bool _ownsHttpClient;
   final WebFetchScraplingBridge _scraplingBridge;
   final Future<List<InternetAddress>> Function(String host) _hostLookup;
   late final AiToolRegistry _toolRegistry;
@@ -2324,8 +2326,9 @@ class AiToolRuntimeService {
 
   void dispose() {
     unawaited(_scraplingBridge.dispose());
-    _bashToolService.dispose();
-    _httpClient.close();
+    if (_ownsHttpClient) {
+      _httpClient.close();
+    }
   }
 
   static final List<AiResolvedTool> _builtinTools = <AiResolvedTool>[

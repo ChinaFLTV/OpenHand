@@ -69,12 +69,14 @@ class McpController extends ChangeNotifier {
     required McpStore store,
     required McpServerOpsStore opsStore,
     required McpToolDiscoveryService toolDiscoveryService,
+    required bool ownsToolDiscoveryService,
     required Duration healthCheckInterval,
     required int autoProbeConcurrency,
     bool isLoading = false,
   }) : _store = store,
        _opsStore = opsStore,
        _toolDiscoveryService = toolDiscoveryService,
+       _ownsToolDiscoveryService = ownsToolDiscoveryService,
        _healthCheckInterval = healthCheckInterval,
        _autoProbeConcurrency = _normalizeAutoProbeConcurrency(
          autoProbeConcurrency,
@@ -104,6 +106,7 @@ class McpController extends ChangeNotifier {
       ),
       toolDiscoveryService:
           toolDiscoveryService ?? DefaultMcpToolDiscoveryService(),
+      ownsToolDiscoveryService: toolDiscoveryService == null,
       healthCheckInterval: healthCheckInterval,
       autoProbeConcurrency: autoProbeConcurrency,
       isLoading: true,
@@ -125,6 +128,7 @@ class McpController extends ChangeNotifier {
       ),
       toolDiscoveryService:
           toolDiscoveryService ?? DefaultMcpToolDiscoveryService(),
+      ownsToolDiscoveryService: toolDiscoveryService == null,
       healthCheckInterval: healthCheckInterval,
       autoProbeConcurrency: autoProbeConcurrency,
     );
@@ -141,6 +145,7 @@ class McpController extends ChangeNotifier {
   final McpStore _store;
   final McpServerOpsStore _opsStore;
   final McpToolDiscoveryService _toolDiscoveryService;
+  final bool _ownsToolDiscoveryService;
   final Duration _healthCheckInterval;
   int _autoProbeConcurrency;
 
@@ -411,10 +416,12 @@ class McpController extends ChangeNotifier {
     _healthCheckTimer?.cancel();
     _opsSnapshotNotifyTimer?.cancel();
     _cancelQueuedAutoProbeSlots();
-    try {
-      _toolDiscoveryService.dispose();
-    } catch (error, stack) {
-      silentLog('mcp', 'dispose.discoveryService', error, stack);
+    if (_ownsToolDiscoveryService) {
+      try {
+        _toolDiscoveryService.dispose();
+      } catch (error, stack) {
+        silentLog('mcp', 'dispose.discoveryService', error, stack);
+      }
     }
     _saveSuccessSignal.dispose();
     super.dispose();

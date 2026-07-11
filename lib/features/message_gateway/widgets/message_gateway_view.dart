@@ -6,7 +6,6 @@ import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../../app/model/dialog_animation_settings.dart';
 import '../../../app/support/openhand_scroll_physics.dart';
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
@@ -8609,7 +8608,28 @@ class _MultiSelectDropdown<T> extends StatefulWidget {
 }
 
 class _MultiSelectDropdownState<T> extends State<_MultiSelectDropdown<T>> {
-  final MenuController _menuController = MenuController();
+  bool _menuOpen = false;
+
+  Future<void> _showMenu() async {
+    if (_menuOpen || widget.options.isEmpty) return;
+    setState(() => _menuOpen = true);
+    final selected = await showAnimatedAnchoredMenu<Set<T>>(
+      context: context,
+      offset: const Offset(0, 8),
+      builder: (_) => _MultiSelectDropdownMenu<T>(
+        label: widget.label,
+        options: widget.options,
+        selected: widget.selected,
+        emptyMeansAll: widget.emptyMeansAll,
+        noneValue: widget.noneValue,
+      ),
+    );
+    if (!mounted) return;
+    setState(() => _menuOpen = false);
+    if (selected != null) {
+      widget.onChanged(selected);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -8617,48 +8637,30 @@ class _MultiSelectDropdownState<T> extends State<_MultiSelectDropdown<T>> {
     final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
-      child: MenuAnchor(
-        controller: _menuController,
-        alignmentOffset: const Offset(0, 8),
-        menuChildren: [
-          _MultiSelectDropdownMenu<T>(
-            label: widget.label,
-            options: widget.options,
-            selected: widget.selected,
-            emptyMeansAll: widget.emptyMeansAll,
-            noneValue: widget.noneValue,
-            onApply: widget.onChanged,
-            onClose: _menuController.close,
-          ),
-        ],
-        builder: (context, controller, child) {
-          final open = controller.isOpen;
-          return InkWell(
-            borderRadius: BorderRadius.circular(12),
-            onTap: () => open ? controller.close() : controller.open(),
-            child: InputDecorator(
-              decoration:
-                  _gatewayInputDecoration(
-                    context,
-                    widget.emptyMeansAll
-                        ? _gatewayEmptyMeansAllLabel(context, widget.label)
-                        : widget.label,
-                  ).copyWith(
-                    suffixIcon: Icon(
-                      open
-                          ? Icons.arrow_drop_up_rounded
-                          : Icons.arrow_drop_down_rounded,
-                    ),
-                  ),
-              child: Text(
-                _summary(context),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodyMedium,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: _showMenu,
+        child: InputDecorator(
+          decoration:
+              _gatewayInputDecoration(
+                context,
+                widget.emptyMeansAll
+                    ? _gatewayEmptyMeansAllLabel(context, widget.label)
+                    : widget.label,
+              ).copyWith(
+                suffixIcon: Icon(
+                  _menuOpen
+                      ? Icons.arrow_drop_up_rounded
+                      : Icons.arrow_drop_down_rounded,
+                ),
               ),
-            ),
-          );
-        },
+          child: Text(
+            _summary(context),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodyMedium,
+          ),
+        ),
       ),
     );
   }
@@ -8722,8 +8724,6 @@ class _MultiSelectDropdownMenu<T> extends StatefulWidget {
     required this.selected,
     required this.emptyMeansAll,
     required this.noneValue,
-    required this.onApply,
-    required this.onClose,
   });
 
   final String label;
@@ -8731,8 +8731,6 @@ class _MultiSelectDropdownMenu<T> extends StatefulWidget {
   final Set<T> selected;
   final bool emptyMeansAll;
   final T? noneValue;
-  final ValueChanged<Set<T>> onApply;
-  final VoidCallback onClose;
 
   @override
   State<_MultiSelectDropdownMenu<T>> createState() =>
@@ -8740,38 +8738,15 @@ class _MultiSelectDropdownMenu<T> extends StatefulWidget {
 }
 
 class _MultiSelectDropdownMenuState<T>
-    extends State<_MultiSelectDropdownMenu<T>>
-    with SingleTickerProviderStateMixin {
+    extends State<_MultiSelectDropdownMenu<T>> {
   final TextEditingController _searchController = TextEditingController();
-  late final AnimationController _transitionController;
   late Set<T> _selected;
-  bool _closing = false;
-  DialogAnimationSettings? _lastMotionSettings;
 
   @override
   void initState() {
     super.initState();
-    _transitionController = AnimationController(vsync: this);
     _selected = Set<T>.from(widget.selected);
     _searchController.addListener(() => setState(() {}));
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    final settings = _menuMotionSettingsOf(context);
-    _lastMotionSettings = settings;
-    _transitionController
-      ..duration = settings.duration
-      ..reverseDuration = settings.duration;
-    if (_transitionController.value == 0 && !_closing) {
-      if (!openHandTickerMotionEnabled(context) ||
-          settings.duration == Duration.zero) {
-        _transitionController.value = 1;
-      } else {
-        unawaited(_transitionController.forward());
-      }
-    }
   }
 
   @override
@@ -8784,7 +8759,6 @@ class _MultiSelectDropdownMenuState<T>
 
   @override
   void dispose() {
-    _transitionController.dispose();
     _searchController.dispose();
     super.dispose();
   }
@@ -8793,7 +8767,6 @@ class _MultiSelectDropdownMenuState<T>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final settings = _lastMotionSettings ?? _menuMotionSettingsOf(context);
     final query = _searchController.text.trim().toLowerCase();
     final filtered = query.isEmpty
         ? widget.options
@@ -8815,294 +8788,282 @@ class _MultiSelectDropdownMenuState<T>
             de: 'Aktueller Filter: ${filtered.length} Einträge',
             ja: '現在の絞り込み: ${filtered.length} 項目',
           );
-    return Align(
-      alignment: Alignment.topLeft,
-      child: buildAnimationStyleTransition(
-        animation: _transitionController,
-        settings: settings,
-        child: Material(
-          type: MaterialType.card,
-          clipBehavior: Clip.antiAlias,
-          elevation: 14,
-          shadowColor: colorScheme.shadow.withValues(alpha: 0.18),
-          surfaceTintColor: colorScheme.surfaceTint,
-          color: colorScheme.surfaceContainerHigh,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(24),
-            side: BorderSide(
-              color: colorScheme.outlineVariant.withValues(alpha: 0.72),
-            ),
-          ),
-          child: SizedBox(
-            width: 460,
-            height: 410,
-            child: Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 14, 14, 10),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 34,
-                        height: 34,
-                        decoration: BoxDecoration(
-                          color: colorScheme.primaryContainer,
-                          borderRadius: BorderRadius.circular(13),
-                        ),
-                        child: Icon(
-                          Icons.tune_rounded,
-                          size: 18,
-                          color: colorScheme.onPrimaryContainer,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              widget.label,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.titleSmall?.copyWith(
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              _selectionSummaryText(
-                                context,
-                                selectedCount,
-                                totalValues.length,
-                                scopeText,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                color: colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      _GatewayRoundIconActionButton(
-                        tooltip: query.isEmpty
-                            ? openHandLocalizedText(
-                                context,
-                                zh: '全选',
-                                zhHant: '全選',
-                                en: 'Select all',
-                                fr: 'Tout sélectionner',
-                                de: 'Alle auswählen',
-                                ja: 'すべて選択',
-                              )
-                            : openHandLocalizedText(
-                                context,
-                                zh: '当前筛选全选',
-                                zhHant: '目前篩選全選',
-                                en: 'Select filtered',
-                                fr: 'Sélectionner le filtre',
-                                de: 'Gefilterte auswählen',
-                                ja: '絞り込み結果を全選択',
-                              ),
-                        icon: Icons.done_all_rounded,
-                        onPressed: filteredValues.isEmpty
-                            ? null
-                            : () => _selectValues(filteredValues),
-                      ),
-                      const SizedBox(width: 8),
-                      _GatewayRoundIconActionButton(
-                        tooltip: query.isEmpty
-                            ? openHandLocalizedText(
-                                context,
-                                zh: '全不选',
-                                zhHant: '全不選',
-                                en: 'Deselect all',
-                                fr: 'Tout désélectionner',
-                                de: 'Alle abwählen',
-                                ja: 'すべて解除',
-                              )
-                            : openHandLocalizedText(
-                                context,
-                                zh: '当前筛选全不选',
-                                zhHant: '目前篩選全不選',
-                                en: 'Deselect filtered',
-                                fr: 'Désélectionner le filtre',
-                                de: 'Gefilterte abwählen',
-                                ja: '絞り込み結果を全解除',
-                              ),
-                        icon: Icons.remove_done_rounded,
-                        onPressed: filteredValues.isEmpty
-                            ? null
-                            : () => _deselectValues(filteredValues),
-                      ),
-                    ],
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                  child: TextField(
-                    controller: _searchController,
-                    decoration: InputDecoration(
-                      isDense: true,
-                      filled: true,
-                      fillColor: colorScheme.surfaceContainerHighest.withValues(
-                        alpha: 0.58,
-                      ),
-                      prefixIcon: const Icon(Icons.search_rounded, size: 18),
-                      hintText: openHandLocalizedText(
-                        context,
-                        zh: '搜索',
-                        zhHant: '搜尋',
-                        en: 'Search',
-                        fr: 'Rechercher',
-                        de: 'Suchen',
-                        ja: '検索',
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(16),
-                        borderSide: BorderSide(
-                          color: colorScheme.outlineVariant,
-                        ),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(16),
-                        borderSide: BorderSide(
-                          color: colorScheme.outlineVariant.withValues(
-                            alpha: 0.72,
-                          ),
-                        ),
-                      ),
-                      suffixIcon: _searchController.text.isEmpty
-                          ? null
-                          : IconButton(
-                              tooltip: openHandLocalizedText(
-                                context,
-                                zh: '清空搜索',
-                                zhHant: '清空搜尋',
-                                en: 'Clear search',
-                                fr: 'Effacer la recherche',
-                                de: 'Suche leeren',
-                                ja: '検索をクリア',
-                              ),
-                              onPressed: _searchController.clear,
-                              icon: const Icon(Icons.clear_rounded, size: 18),
-                            ),
+    return Material(
+      type: MaterialType.card,
+      clipBehavior: Clip.antiAlias,
+      elevation: 14,
+      shadowColor: colorScheme.shadow.withValues(alpha: 0.18),
+      surfaceTintColor: colorScheme.surfaceTint,
+      color: colorScheme.surfaceContainerHigh,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(24),
+        side: BorderSide(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.72),
+        ),
+      ),
+      child: SizedBox(
+        width: 460,
+        height: 410,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 14, 10),
+              child: Row(
+                children: [
+                  Container(
+                    width: 34,
+                    height: 34,
+                    decoration: BoxDecoration(
+                      color: colorScheme.primaryContainer,
+                      borderRadius: BorderRadius.circular(13),
+                    ),
+                    child: Icon(
+                      Icons.tune_rounded,
+                      size: 18,
+                      color: colorScheme.onPrimaryContainer,
                     ),
                   ),
-                ),
-                Divider(height: 1, color: colorScheme.outlineVariant),
-                Expanded(
-                  child: filtered.isEmpty
-                      ? Center(
-                          child: Text(
-                            openHandLocalizedText(
-                              context,
-                              zh: '没有匹配项',
-                              zhHant: '沒有符合項目',
-                              en: 'No matches',
-                              fr: 'Aucune correspondance',
-                              de: 'Keine Treffer',
-                              ja: '一致する項目はありません',
-                            ),
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: colorScheme.onSurfaceVariant,
-                            ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.label,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w800,
                           ),
-                        )
-                      : ListView.separated(
-                          padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
-                          itemCount: filtered.length,
-                          separatorBuilder: (context, index) =>
-                              const SizedBox(height: 4),
-                          itemBuilder: (context, index) {
-                            final option = filtered[index];
-                            final selected = effectiveSelected.contains(
-                              option.value,
-                            );
-                            return Material(
-                              color: selected
-                                  ? colorScheme.primaryContainer.withValues(
-                                      alpha: 0.36,
-                                    )
-                                  : Colors.transparent,
-                              borderRadius: BorderRadius.circular(14),
-                              child: CheckboxListTile(
-                                dense: true,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
-                                value: selected,
-                                onChanged: (_) => _toggle(option.value),
-                                controlAffinity:
-                                    ListTileControlAffinity.leading,
-                                title: Text(
-                                  option.label,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: theme.textTheme.bodyMedium?.copyWith(
-                                    fontWeight: selected
-                                        ? FontWeight.w700
-                                        : FontWeight.w500,
-                                  ),
-                                ),
-                              ),
-                            );
-                          },
                         ),
-                ),
-                Divider(height: 1, color: colorScheme.outlineVariant),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          query.isEmpty
-                              ? openHandLocalizedText(
-                                  context,
-                                  zh: '对全部条目生效',
-                                  zhHant: '對全部項目生效',
-                                  en: 'Applies to all items',
-                                  fr: 'S’applique à tous les éléments',
-                                  de: 'Gilt für alle Einträge',
-                                  ja: 'すべての項目に適用',
-                                )
-                              : openHandLocalizedText(
-                                  context,
-                                  zh: '仅对当前筛选结果生效',
-                                  zhHant: '僅對目前篩選結果生效',
-                                  en: 'Applies only to filtered results',
-                                  fr: 'S’applique seulement aux résultats filtrés',
-                                  de: 'Gilt nur für gefilterte Ergebnisse',
-                                  ja: '現在の絞り込み結果だけに適用',
-                                ),
+                        const SizedBox(height: 2),
+                        Text(
+                          _selectionSummaryText(
+                            context,
+                            selectedCount,
+                            totalValues.length,
+                            scopeText,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.labelSmall?.copyWith(
                             color: colorScheme.onSurfaceVariant,
                           ),
                         ),
-                      ),
-                      _MenuActionButton(
-                        onPressed: _applyAndClose,
-                        icon: const Icon(Icons.check_rounded, size: 18),
-                        label: Text(
-                          openHandLocalizedText(
-                            context,
-                            zh: '完成',
-                            zhHant: '完成',
-                            en: 'Done',
-                            fr: 'Terminé',
-                            de: 'Fertig',
-                            ja: '完了',
-                          ),
-                        ),
-                        filled: true,
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                  const SizedBox(width: 8),
+                  _GatewayRoundIconActionButton(
+                    tooltip: query.isEmpty
+                        ? openHandLocalizedText(
+                            context,
+                            zh: '全选',
+                            zhHant: '全選',
+                            en: 'Select all',
+                            fr: 'Tout sélectionner',
+                            de: 'Alle auswählen',
+                            ja: 'すべて選択',
+                          )
+                        : openHandLocalizedText(
+                            context,
+                            zh: '当前筛选全选',
+                            zhHant: '目前篩選全選',
+                            en: 'Select filtered',
+                            fr: 'Sélectionner le filtre',
+                            de: 'Gefilterte auswählen',
+                            ja: '絞り込み結果を全選択',
+                          ),
+                    icon: Icons.done_all_rounded,
+                    onPressed: filteredValues.isEmpty
+                        ? null
+                        : () => _selectValues(filteredValues),
+                  ),
+                  const SizedBox(width: 8),
+                  _GatewayRoundIconActionButton(
+                    tooltip: query.isEmpty
+                        ? openHandLocalizedText(
+                            context,
+                            zh: '全不选',
+                            zhHant: '全不選',
+                            en: 'Deselect all',
+                            fr: 'Tout désélectionner',
+                            de: 'Alle abwählen',
+                            ja: 'すべて解除',
+                          )
+                        : openHandLocalizedText(
+                            context,
+                            zh: '当前筛选全不选',
+                            zhHant: '目前篩選全不選',
+                            en: 'Deselect filtered',
+                            fr: 'Désélectionner le filtre',
+                            de: 'Gefilterte abwählen',
+                            ja: '絞り込み結果を全解除',
+                          ),
+                    icon: Icons.remove_done_rounded,
+                    onPressed: filteredValues.isEmpty
+                        ? null
+                        : () => _deselectValues(filteredValues),
+                  ),
+                ],
+              ),
             ),
-          ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              child: TextField(
+                controller: _searchController,
+                decoration: InputDecoration(
+                  isDense: true,
+                  filled: true,
+                  fillColor: colorScheme.surfaceContainerHighest.withValues(
+                    alpha: 0.58,
+                  ),
+                  prefixIcon: const Icon(Icons.search_rounded, size: 18),
+                  hintText: openHandLocalizedText(
+                    context,
+                    zh: '搜索',
+                    zhHant: '搜尋',
+                    en: 'Search',
+                    fr: 'Rechercher',
+                    de: 'Suchen',
+                    ja: '検索',
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide(color: colorScheme.outlineVariant),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide(
+                      color: colorScheme.outlineVariant.withValues(alpha: 0.72),
+                    ),
+                  ),
+                  suffixIcon: _searchController.text.isEmpty
+                      ? null
+                      : IconButton(
+                          tooltip: openHandLocalizedText(
+                            context,
+                            zh: '清空搜索',
+                            zhHant: '清空搜尋',
+                            en: 'Clear search',
+                            fr: 'Effacer la recherche',
+                            de: 'Suche leeren',
+                            ja: '検索をクリア',
+                          ),
+                          onPressed: _searchController.clear,
+                          icon: const Icon(Icons.clear_rounded, size: 18),
+                        ),
+                ),
+              ),
+            ),
+            Divider(height: 1, color: colorScheme.outlineVariant),
+            Expanded(
+              child: filtered.isEmpty
+                  ? Center(
+                      child: Text(
+                        openHandLocalizedText(
+                          context,
+                          zh: '没有匹配项',
+                          zhHant: '沒有符合項目',
+                          en: 'No matches',
+                          fr: 'Aucune correspondance',
+                          de: 'Keine Treffer',
+                          ja: '一致する項目はありません',
+                        ),
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    )
+                  : ListView.separated(
+                      padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+                      itemCount: filtered.length,
+                      separatorBuilder: (context, index) =>
+                          const SizedBox(height: 4),
+                      itemBuilder: (context, index) {
+                        final option = filtered[index];
+                        final selected = effectiveSelected.contains(
+                          option.value,
+                        );
+                        return Material(
+                          color: selected
+                              ? colorScheme.primaryContainer.withValues(
+                                  alpha: 0.36,
+                                )
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(14),
+                          child: CheckboxListTile(
+                            dense: true,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            value: selected,
+                            onChanged: (_) => _toggle(option.value),
+                            controlAffinity: ListTileControlAffinity.leading,
+                            title: Text(
+                              option.label,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                fontWeight: selected
+                                    ? FontWeight.w700
+                                    : FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+            ),
+            Divider(height: 1, color: colorScheme.outlineVariant),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      query.isEmpty
+                          ? openHandLocalizedText(
+                              context,
+                              zh: '对全部条目生效',
+                              zhHant: '對全部項目生效',
+                              en: 'Applies to all items',
+                              fr: 'S’applique à tous les éléments',
+                              de: 'Gilt für alle Einträge',
+                              ja: 'すべての項目に適用',
+                            )
+                          : openHandLocalizedText(
+                              context,
+                              zh: '仅对当前筛选结果生效',
+                              zhHant: '僅對目前篩選結果生效',
+                              en: 'Applies only to filtered results',
+                              fr: 'S’applique seulement aux résultats filtrés',
+                              de: 'Gilt nur für gefilterte Ergebnisse',
+                              ja: '現在の絞り込み結果だけに適用',
+                            ),
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                  _MenuActionButton(
+                    onPressed: _applyAndClose,
+                    icon: const Icon(Icons.check_rounded, size: 18),
+                    label: Text(
+                      openHandLocalizedText(
+                        context,
+                        zh: '完成',
+                        zhHant: '完成',
+                        en: 'Done',
+                        fr: 'Terminé',
+                        de: 'Fertig',
+                        ja: '完了',
+                      ),
+                    ),
+                    filled: true,
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -9156,19 +9117,7 @@ class _MultiSelectDropdownMenuState<T>
   }
 
   void _applyAndClose() {
-    if (_closing) return;
-    widget.onApply(Set<T>.from(_selected));
-    if (!openHandTickerMotionEnabled(context) ||
-        _transitionController.duration == Duration.zero) {
-      widget.onClose();
-      return;
-    }
-    _closing = true;
-    unawaited(
-      _transitionController.reverse().whenComplete(() {
-        if (mounted) widget.onClose();
-      }),
-    );
+    Navigator.of(context).pop(Set<T>.from(_selected));
   }
 
   String _selectionSummaryText(
@@ -9189,13 +9138,6 @@ class _MultiSelectDropdownMenuState<T>
 
 bool _isExplicitNone<T>(Set<T> selected, T? noneValue) {
   return noneValue != null && selected.contains(noneValue);
-}
-
-DialogAnimationSettings _menuMotionSettingsOf(BuildContext context) {
-  return openHandMotionSettingsFallbackOf(
-    context,
-    OpenHandMotionSettingsScope.menu,
-  );
 }
 
 class _GatewayRoundIconActionButton extends StatelessWidget {

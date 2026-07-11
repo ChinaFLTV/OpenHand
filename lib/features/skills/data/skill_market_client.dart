@@ -22,7 +22,8 @@ class SkillMarketException implements Exception {
 
 class SkillMarketClient {
   SkillMarketClient({http.Client? httpClient})
-    : _client = httpClient ?? SystemProxyResolver.instance.createHttpClient();
+    : _client = httpClient ?? SystemProxyResolver.instance.createHttpClient(),
+      _ownsClient = httpClient == null;
 
   static const String _host = 'api.skillhub.cn';
   static const int defaultPageSize = 24;
@@ -32,6 +33,7 @@ class SkillMarketClient {
   static const String _skillManifestPath = 'SKILL.MD';
 
   final http.Client _client;
+  final bool _ownsClient;
   final Map<String, Future<SkillMarketSearchResult>> _searchCache =
       <String, Future<SkillMarketSearchResult>>{};
   final Map<String, Future<SkillMarketDetail>> _detailCache =
@@ -46,7 +48,9 @@ class SkillMarketClient {
       <String, Future<SkillMarketBundle>>{};
 
   void close() {
-    _client.close();
+    if (_ownsClient) {
+      _client.close();
+    }
   }
 
   void clearSearchCache() {

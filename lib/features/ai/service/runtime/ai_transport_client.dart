@@ -21,9 +21,11 @@ class AiMultipartUploadFile {
 
 class AiTransportClient {
   AiTransportClient({http.Client? client})
-    : _client = client ?? SystemProxyResolver.instance.createHttpClient();
+    : _client = client ?? SystemProxyResolver.instance.createHttpClient(),
+      _ownsClient = client == null;
 
   final http.Client _client;
+  final bool _ownsClient;
 
   Future<http.Response> sendJson({
     required Uri uri,
@@ -131,6 +133,8 @@ class AiTransportClient {
   }
 
   void dispose() {
-    _client.close();
+    if (_ownsClient) {
+      _client.close();
+    }
   }
 }
