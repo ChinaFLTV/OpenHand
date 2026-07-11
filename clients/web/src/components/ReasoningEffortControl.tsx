@@ -402,13 +402,23 @@ function ReasoningEffortPanel({
             active={energy === 'high' || energy === 'max'}
             maximum={energy === 'max'}
           />
-          {options.map((option, index) => (
-            <span
-              key={option.value}
-              class={`oh-reasoning-effort-tick ${index <= draftIndex ? 'is-active' : ''}`}
-              style={{ left: `${options.length <= 1 ? 50 : (index / maxIndex) * 100}%` }}
-            />
-          ))}
+          {/* Intermediate ticks only — skip head/tail for clean capsule caps (Codex). */}
+          {options.length > 2 &&
+            options.slice(1, -1).map((option, midIndex) => {
+              const index = midIndex + 1;
+              const tickProgress = index / maxIndex;
+              // Match thumb travel path: inset from rounded ends.
+              const thumbInset = 22 - 44 * tickProgress;
+              return (
+                <span
+                  key={option.value}
+                  class={`oh-reasoning-effort-tick ${index <= draftIndex ? 'is-active' : ''}`}
+                  style={{
+                    left: `calc(${tickProgress * 100}% + ${thumbInset}px)`,
+                  }}
+                />
+              );
+            })}
           <span class="oh-reasoning-effort-orb" />
           <ThumbSparkField active={energy === 'max'} />
         </div>

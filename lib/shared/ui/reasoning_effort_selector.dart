@@ -1018,23 +1018,28 @@ class _ReasoningTrackPainter extends CustomPainter {
       }
     }
 
+    // Intermediate ticks only (Codex-style): skip head/tail so rounded
+    // track caps stay clean — no ugly endpoint dots on either end.
     final safeDivisions = math.max(1, divisions);
-    for (var index = 0; index <= safeDivisions; index++) {
-      final tickProgress = index / safeDivisions;
-      final x = left + (right - left) * tickProgress;
-      final active = tickProgress <= progress + 0.001;
-      canvas.drawCircle(
-        Offset(x, centerY),
-        isMaximum && active ? 3.4 : 3,
-        Paint()
-          ..color = active
-              ? (isMaximum
-                    ? _MaximumEffortPalette.platinum.withValues(
-                        alpha: 0.7 + glow * 0.18,
-                      )
-                    : Colors.white.withValues(alpha: 0.52))
-              : outlineColor.withValues(alpha: 0.86),
-      );
+    if (safeDivisions >= 2) {
+      for (var index = 1; index < safeDivisions; index++) {
+        final tickProgress = index / safeDivisions;
+        // Align with thumb travel path (inset from capsule ends).
+        final x = thumbLeft + (thumbRight - thumbLeft) * tickProgress;
+        final active = tickProgress <= progress + 0.001;
+        canvas.drawCircle(
+          Offset(x, centerY),
+          active ? 2.4 : 2.1,
+          Paint()
+            ..color = active
+                ? (isMaximum
+                      ? _MaximumEffortPalette.platinum.withValues(
+                          alpha: 0.58 + glow * 0.12,
+                        )
+                      : Colors.white.withValues(alpha: 0.55))
+                : outlineColor.withValues(alpha: 0.42),
+        );
+      }
     }
 
     if (_isEnergyProgress(progress)) {

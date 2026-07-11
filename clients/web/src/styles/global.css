@@ -5059,20 +5059,19 @@ button.oh-message-context-capsule {
 .oh-reasoning-effort-tick {
   position: absolute;
   top: 50%;
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--m3-on-surface-variant) 34%, transparent);
-  transform: translate(-50%, -50%) scale(0.86);
+  background: color-mix(in srgb, var(--m3-on-surface-variant) 28%, transparent);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
   transition:
-    transform 260ms var(--oh-motion-spring),
     background-color 220ms var(--oh-motion-emphasized),
-    box-shadow 260ms var(--oh-motion-emphasized);
+    opacity 220ms var(--oh-motion-emphasized);
 }
 .oh-reasoning-effort-tick.is-active {
-  background: color-mix(in srgb, var(--m3-on-primary) 62%, transparent);
-  transform: translate(-50%, -50%) scale(1);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--m3-on-primary) 8%, transparent);
+  background: color-mix(in srgb, #fff 58%, transparent);
+  box-shadow: none;
 }
 .oh-reasoning-effort-orb {
   position: absolute;
