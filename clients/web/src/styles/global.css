@@ -4968,6 +4968,7 @@ button.oh-message-context-capsule {
   --oh-reasoning-thumb-position: 50%;
   --oh-reasoning-start: var(--m3-primary);
   --oh-reasoning-mid: var(--m3-primary);
+  --oh-reasoning-accent: var(--m3-primary);
   --oh-reasoning-end: var(--m3-primary);
   width: 100%;
   padding: 17px 18px 15px;
@@ -4975,16 +4976,19 @@ button.oh-message-context-capsule {
 }
 .oh-reasoning-effort-panel[data-energy='balanced'] {
   --oh-reasoning-mid: color-mix(in srgb, var(--m3-primary) 82%, var(--m3-tertiary));
+  --oh-reasoning-accent: color-mix(in srgb, var(--m3-primary) 70%, var(--m3-tertiary));
   --oh-reasoning-end: color-mix(in srgb, var(--m3-primary) 62%, var(--m3-tertiary));
 }
 .oh-reasoning-effort-panel[data-energy='high'] {
   --oh-reasoning-mid: color-mix(in srgb, var(--m3-primary) 56%, var(--m3-tertiary));
+  --oh-reasoning-accent: color-mix(in srgb, var(--m3-primary) 30%, var(--m3-tertiary));
   --oh-reasoning-end: var(--m3-tertiary);
 }
 .oh-reasoning-effort-panel[data-energy='max'] {
-  --oh-reasoning-start: color-mix(in srgb, var(--m3-primary) 38%, #2878ff);
-  --oh-reasoning-mid: color-mix(in srgb, var(--m3-tertiary) 34%, #875cff);
-  --oh-reasoning-end: color-mix(in srgb, var(--m3-secondary) 32%, #ff46d7);
+  --oh-reasoning-start: color-mix(in srgb, var(--m3-primary) 18%, #082c3a);
+  --oh-reasoning-mid: color-mix(in srgb, var(--m3-secondary) 22%, #0b5870);
+  --oh-reasoning-accent: color-mix(in srgb, var(--m3-primary) 24%, #3348b8);
+  --oh-reasoning-end: color-mix(in srgb, var(--m3-tertiary) 22%, #683a88);
 }
 .oh-reasoning-effort-heading {
   display: flex;
@@ -5019,7 +5023,8 @@ button.oh-message-context-capsule {
   background: linear-gradient(
     90deg,
     var(--oh-reasoning-start),
-    var(--oh-reasoning-mid) 52%,
+    var(--oh-reasoning-mid) 34%,
+    var(--oh-reasoning-accent) 68%,
     var(--oh-reasoning-end)
   );
   box-shadow: 0 8px 22px -13px color-mix(in srgb, var(--oh-reasoning-end) 82%, transparent);
@@ -5029,11 +5034,9 @@ button.oh-message-context-capsule {
     box-shadow 280ms var(--oh-motion-emphasized);
 }
 .oh-reasoning-effort-panel[data-energy='max'] .oh-reasoning-effort-fill {
-  background-size: 220% 100%;
   box-shadow:
-    0 0 18px -5px color-mix(in srgb, var(--oh-reasoning-start) 78%, transparent),
-    0 0 24px -7px color-mix(in srgb, var(--oh-reasoning-end) 80%, transparent);
-  animation: oh-reasoning-aurora 2800ms ease-in-out infinite alternate;
+    0 0 16px -7px color-mix(in srgb, #61c9e2 56%, transparent),
+    0 0 24px -10px color-mix(in srgb, #7d77e8 62%, transparent);
 }
 .oh-reasoning-effort-tick {
   position: absolute;
@@ -5083,6 +5086,7 @@ button.oh-message-context-capsule {
   border-radius: inherit;
   overflow: hidden;
   pointer-events: none;
+  contain: strict;
   opacity: 0;
   transition:
     width 360ms var(--oh-motion-spring),
@@ -5095,20 +5099,18 @@ button.oh-message-context-capsule {
   background: rgb(255 255 255 / 78%);
   box-shadow: 0 0 4px rgb(255 255 255 / 42%);
   transform: translate(-50%, -50%);
-  animation-name: oh-reasoning-particle-float;
-  animation-timing-function: ease-in-out;
-  animation-iteration-count: infinite;
-  animation-direction: alternate;
+  opacity: 0;
+  will-change: left, top, opacity;
 }
 .oh-reasoning-effort-panel[data-energy='high'] .oh-reasoning-effort-sparkles,
 .oh-reasoning-effort-panel[data-energy='max'] .oh-reasoning-effort-sparkles {
   opacity: 1;
 }
 .oh-reasoning-effort-panel[data-energy='max'] .oh-reasoning-effort-sparkles > i:nth-child(3n + 1) {
-  background: color-mix(in srgb, #fff 74%, #8cecff);
+  background: color-mix(in srgb, #fff 82%, #83d8e9);
 }
 .oh-reasoning-effort-panel[data-energy='max'] .oh-reasoning-effort-sparkles > i:nth-child(3n + 2) {
-  background: color-mix(in srgb, #fff 76%, #ffd0fa);
+  background: color-mix(in srgb, #fff 84%, #aaa8f2);
 }
 .oh-reasoning-effort-range {
   position: absolute;
@@ -5172,10 +5174,18 @@ button.oh-message-context-capsule {
   padding: 8px 16px;
   border-radius: 999px;
   color: var(--m3-on-primary-container);
-  background: color-mix(
-    in srgb,
-    var(--m3-primary-container) calc(100% - var(--oh-reasoning-progress)),
-    var(--m3-tertiary-container)
+  background: linear-gradient(
+    110deg,
+    color-mix(
+      in srgb,
+      var(--m3-primary-container) calc(100% - var(--oh-reasoning-progress)),
+      var(--m3-tertiary-container)
+    ),
+    color-mix(
+      in srgb,
+      var(--m3-primary-container) calc(100% - var(--oh-reasoning-progress)),
+      var(--m3-tertiary-container)
+    )
   );
   border: 1px solid color-mix(in srgb, var(--oh-reasoning-end) 44%, var(--m3-outline-variant));
   box-shadow: 0 8px 20px -16px color-mix(in srgb, var(--oh-reasoning-end) 72%, transparent);
@@ -5186,27 +5196,19 @@ button.oh-message-context-capsule {
   color: #fff;
   background: linear-gradient(
     110deg,
-    color-mix(in srgb, var(--m3-primary) 42%, #2878ff),
-    color-mix(in srgb, var(--m3-tertiary) 34%, #875cff) 52%,
-    color-mix(in srgb, var(--m3-secondary) 32%, #ff46d7)
+    var(--oh-reasoning-start),
+    var(--oh-reasoning-mid) 34%,
+    var(--oh-reasoning-accent) 68%,
+    var(--oh-reasoning-end)
   );
-  border-color: color-mix(in srgb, #fff 42%, var(--m3-tertiary));
+  border-color: color-mix(in srgb, #d7f5ff 38%, var(--oh-reasoning-accent));
   box-shadow:
-    0 10px 24px -16px color-mix(in srgb, #2878ff 78%, transparent),
-    0 10px 28px -18px color-mix(in srgb, #ff46d7 76%, transparent);
+    0 10px 24px -16px color-mix(in srgb, #2d9db6 66%, transparent),
+    0 12px 30px -18px color-mix(in srgb, #5a54c8 72%, transparent);
 }
 @keyframes oh-reasoning-control-sweep {
   from { transform: translateX(-60%); }
   to { transform: translateX(60%); }
-}
-@keyframes oh-reasoning-particle-float {
-  0% { opacity: 0.28; transform: translate(-50%, -50%) translate3d(-1px, 2px, 0) scale(0.72); }
-  43% { opacity: 0.92; }
-  100% { opacity: 0.5; transform: translate(-50%, -50%) translate3d(2px, -2px, 0) scale(1.16); }
-}
-@keyframes oh-reasoning-aurora {
-  from { background-position: 0% 50%; filter: saturate(1.02); }
-  to { background-position: 100% 50%; filter: saturate(1.24); }
 }
 .oh-composer-model-provider {
   color: var(--m3-on-surface-variant);

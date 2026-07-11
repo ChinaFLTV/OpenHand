@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 
 import '../../features/ai/model/ai_model_config.dart';
@@ -168,6 +169,14 @@ class _ReasoningEffortPopupEntryState
     final progress = _selectedIndex / maxIndex;
     final isMaximum = progress >= 0.96;
     final maximumColors = _maximumEffortColors(colorScheme);
+    final capsuleColor = Color.lerp(
+      colorScheme.primaryContainer,
+      colorScheme.tertiaryContainer,
+      progress,
+    )!;
+    final capsuleColors = isMaximum
+        ? maximumColors
+        : List<Color>.filled(maximumColors.length, capsuleColor);
     return SizedBox(
       width: widget.width,
       child: Padding(
@@ -256,20 +265,11 @@ class _ReasoningEffortPopupEntryState
                   vertical: 9,
                 ),
                 decoration: BoxDecoration(
-                  color: isMaximum
-                      ? null
-                      : Color.lerp(
-                          colorScheme.primaryContainer,
-                          colorScheme.tertiaryContainer,
-                          progress,
-                        ),
-                  gradient: isMaximum
-                      ? LinearGradient(
-                          begin: AlignmentDirectional.centerStart,
-                          end: AlignmentDirectional.centerEnd,
-                          colors: maximumColors,
-                        )
-                      : null,
+                  gradient: LinearGradient(
+                    begin: AlignmentDirectional.centerStart,
+                    end: AlignmentDirectional.centerEnd,
+                    colors: capsuleColors,
+                  ),
                   borderRadius: BorderRadius.circular(999),
                   border: Border.all(
                     color: isMaximum
@@ -344,10 +344,8 @@ class _AnimatedReasoningTrack extends StatefulWidget {
 
 class _AnimatedReasoningTrackState extends State<_AnimatedReasoningTrack>
     with SingleTickerProviderStateMixin {
-  late final AnimationController _energyController = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 1800),
-  );
+  late final _ReasoningParticleField _particles = _ReasoningParticleField();
+  late final Ticker _energyTicker = createTicker(_particles.advance);
 
   @override
   void didChangeDependencies() {
@@ -366,35 +364,35 @@ class _AnimatedReasoningTrackState extends State<_AnimatedReasoningTrack>
   void _syncEnergyAnimation() {
     final shouldAnimate =
         widget.progress >= 0.72 && openHandTickerMotionEnabled(context);
-    if (shouldAnimate && !_energyController.isAnimating) {
-      _energyController.repeat();
-    } else if (!shouldAnimate && _energyController.isAnimating) {
-      _energyController.stop();
+    if (shouldAnimate && !_energyTicker.isActive) {
+      _particles.resetClock();
+      _energyTicker.start();
+    } else if (!shouldAnimate && _energyTicker.isActive) {
+      _energyTicker.stop();
+      _particles.resetClock();
     }
   }
 
   @override
   void dispose() {
-    _energyController.dispose();
+    _energyTicker.dispose();
+    _particles.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    return AnimatedBuilder(
-      animation: _energyController,
-      builder: (context, _) => CustomPaint(
-        painter: _ReasoningTrackPainter(
-          progress: widget.progress,
-          divisions: widget.divisions,
-          phase: _energyController.value,
-          surfaceColor: colors.surfaceContainerHighest,
-          outlineColor: colors.outlineVariant,
-          primaryColor: colors.primary,
-          secondaryColor: colors.secondary,
-          tertiaryColor: colors.tertiary,
-        ),
+    return CustomPaint(
+      painter: _ReasoningTrackPainter(
+        progress: widget.progress,
+        divisions: widget.divisions,
+        particles: _particles,
+        surfaceColor: colors.surfaceContainerHighest,
+        outlineColor: colors.outlineVariant,
+        primaryColor: colors.primary,
+        secondaryColor: colors.secondary,
+        tertiaryColor: colors.tertiary,
       ),
     );
   }
@@ -413,77 +411,124 @@ List<Color> _maximumEffortColorsFromSeeds(
   Color secondary,
   Color tertiary,
 ) {
-  final seed = Color.lerp(primary, tertiary, 0.28)!;
+  const obsidianTeal = Color(0xFF082C3A);
+  const abyssalBlue = Color(0xFF0B5870);
+  const royalIndigo = Color(0xFF3348B8);
+  const imperialViolet = Color(0xFF683A88);
   return <Color>[
-    Color.lerp(_shiftVividHue(seed, -18), primary, 0.22)!,
-    Color.lerp(_shiftVividHue(seed, 82), tertiary, 0.18)!,
-    Color.lerp(_shiftVividHue(seed, 188), secondary, 0.16)!,
+    Color.lerp(primary, obsidianTeal, 0.82)!,
+    Color.lerp(secondary, abyssalBlue, 0.78)!,
+    Color.lerp(primary, royalIndigo, 0.76)!,
+    Color.lerp(tertiary, imperialViolet, 0.78)!,
   ];
 }
 
-Color _shiftVividHue(Color color, double degrees) {
-  final hsl = HSLColor.fromColor(color);
-  return hsl
-      .withHue((hsl.hue + degrees) % 360)
-      .withSaturation(math.max(0.72, hsl.saturation).clamp(0.0, 1.0).toDouble())
-      .withLightness(hsl.lightness.clamp(0.46, 0.62).toDouble())
-      .toColor();
+class _ReasoningParticleField extends ChangeNotifier {
+  _ReasoningParticleField() {
+    for (var index = 0; index < _particleCount; index++) {
+      particles.add(_newParticle(initial: true));
+    }
+  }
+
+  static const int _particleCount = 17;
+  final math.Random _random = math.Random();
+  final List<_ReasoningParticle> particles = <_ReasoningParticle>[];
+  Duration? _previousElapsed;
+
+  void resetClock() => _previousElapsed = null;
+
+  void advance(Duration elapsed) {
+    final previous = _previousElapsed;
+    _previousElapsed = elapsed;
+    if (previous == null) return;
+    final deltaSeconds = ((elapsed - previous).inMicroseconds / 1000000)
+        .clamp(0.001, 0.05)
+        .toDouble();
+    for (var index = 0; index < particles.length; index++) {
+      final particle = particles[index];
+      particle.life -= deltaSeconds;
+      if (particle.life <= 0 ||
+          particle.x < -0.08 ||
+          particle.x > 1.08 ||
+          particle.y < -0.18 ||
+          particle.y > 1.18) {
+        particles[index] = _newParticle(initial: false);
+        continue;
+      }
+      final randomX = (_random.nextDouble() - 0.5) * 0.32;
+      final randomY = (_random.nextDouble() - 0.5) * 0.46;
+      particle.vx = (particle.vx + randomX * deltaSeconds)
+          .clamp(-0.13, 0.13)
+          .toDouble();
+      particle.vy = (particle.vy + randomY * deltaSeconds)
+          .clamp(-0.2, 0.2)
+          .toDouble();
+      final damping = math.pow(0.72, deltaSeconds).toDouble();
+      particle.vx *= damping;
+      particle.vy *= damping;
+      particle.x += particle.vx * deltaSeconds;
+      particle.y += particle.vy * deltaSeconds;
+      particle.age += deltaSeconds;
+      particle.opacity =
+          (particle.opacity +
+                  (_random.nextDouble() - 0.48) * deltaSeconds * 0.9)
+              .clamp(0.28, 0.96)
+              .toDouble();
+    }
+    notifyListeners();
+  }
+
+  _ReasoningParticle _newParticle({required bool initial}) {
+    return _ReasoningParticle(
+      x: _random.nextDouble(),
+      y: 0.14 + _random.nextDouble() * 0.72,
+      vx: (_random.nextDouble() - 0.42) * 0.075,
+      vy: (_random.nextDouble() - 0.5) * 0.11,
+      radius: 0.75 + _random.nextDouble() * 1.45,
+      opacity: initial ? 0.36 + _random.nextDouble() * 0.55 : 0.28,
+      age: initial ? 0.4 + _random.nextDouble() * 1.2 : 0,
+      life: 1.8 + _random.nextDouble() * 4.6,
+    );
+  }
 }
 
-const List<_ReasoningParticleSeed> _reasoningParticleSeeds =
-    <_ReasoningParticleSeed>[
-      _ReasoningParticleSeed(0.03, -5.2, 1.2, 0.3, 0.72, 1.4, 1.1),
-      _ReasoningParticleSeed(0.08, 4.1, 0.8, 1.8, 1.14, 2.2, 0.8),
-      _ReasoningParticleSeed(0.14, -0.8, 1.5, 3.1, 0.86, 1.2, 1.7),
-      _ReasoningParticleSeed(0.21, 6.3, 0.7, 4.7, 1.31, 2.8, 1.0),
-      _ReasoningParticleSeed(0.27, -6.8, 1.0, 2.2, 0.67, 1.8, 1.4),
-      _ReasoningParticleSeed(0.34, 2.6, 1.3, 5.4, 1.08, 2.4, 0.9),
-      _ReasoningParticleSeed(0.42, -3.7, 0.7, 0.9, 1.42, 1.3, 1.8),
-      _ReasoningParticleSeed(0.49, 6.9, 1.6, 3.8, 0.78, 2.6, 1.2),
-      _ReasoningParticleSeed(0.57, -7.1, 0.9, 5.9, 1.19, 1.6, 1.5),
-      _ReasoningParticleSeed(0.63, 0.7, 1.2, 1.5, 0.91, 2.1, 1.0),
-      _ReasoningParticleSeed(0.71, 5.4, 0.8, 4.3, 1.36, 2.7, 1.6),
-      _ReasoningParticleSeed(0.78, -4.9, 1.5, 2.7, 0.63, 1.4, 0.8),
-      _ReasoningParticleSeed(0.85, 3.8, 1.0, 5.1, 1.02, 2.3, 1.3),
-      _ReasoningParticleSeed(0.92, -1.8, 1.3, 0.5, 1.27, 1.7, 1.7),
-      _ReasoningParticleSeed(0.97, 6.1, 0.7, 3.5, 0.83, 2.5, 0.9),
-    ];
+class _ReasoningParticle {
+  _ReasoningParticle({
+    required this.x,
+    required this.y,
+    required this.vx,
+    required this.vy,
+    required this.radius,
+    required this.opacity,
+    required this.age,
+    required this.life,
+  });
 
-class _ReasoningParticleSeed {
-  const _ReasoningParticleSeed(
-    this.x,
-    this.y,
-    this.radius,
-    this.phase,
-    this.speed,
-    this.driftX,
-    this.driftY,
-  );
-
-  final double x;
-  final double y;
+  double x;
+  double y;
+  double vx;
+  double vy;
   final double radius;
-  final double phase;
-  final double speed;
-  final double driftX;
-  final double driftY;
+  double opacity;
+  double age;
+  double life;
 }
 
 class _ReasoningTrackPainter extends CustomPainter {
   const _ReasoningTrackPainter({
     required this.progress,
     required this.divisions,
-    required this.phase,
+    required this.particles,
     required this.surfaceColor,
     required this.outlineColor,
     required this.primaryColor,
     required this.secondaryColor,
     required this.tertiaryColor,
-  });
+  }) : super(repaint: particles);
 
   final double progress;
   final int divisions;
-  final double phase;
+  final _ReasoningParticleField particles;
   final Color surfaceColor;
   final Color outlineColor;
   final Color primaryColor;
@@ -577,26 +622,23 @@ class _ReasoningTrackPainter extends CustomPainter {
       final particleRight = math.max(left, activeRight - 3);
       canvas.save();
       canvas.clipRRect(trackRect);
-      for (var index = 0; index < _reasoningParticleSeeds.length; index++) {
-        final seed = _reasoningParticleSeeds[index];
-        final theta = phase * math.pi * 2 * seed.speed + seed.phase;
-        final x =
-            left +
-            (particleRight - left) * seed.x +
-            math.sin(theta) * seed.driftX;
-        final y = centerY + seed.y + math.cos(theta * 0.83) * seed.driftY;
-        final pulse = (math.sin(theta * 1.17) + 1) / 2;
-        final alpha = (0.24 + pulse * 0.58) * energy;
+      for (var index = 0; index < particles.particles.length; index++) {
+        final particle = particles.particles[index];
+        final x = left + (particleRight - left) * particle.x;
+        final y = centerY - 10 + particle.y * 20;
+        final fadeIn = (particle.age / 0.38).clamp(0.0, 1.0);
+        final fadeOut = (particle.life / 0.5).clamp(0.0, 1.0);
+        final alpha = particle.opacity * fadeIn * fadeOut * energy;
         final particleColor = isMaximum
             ? Color.lerp(
                 Colors.white,
                 maximumColors[index % maximumColors.length],
-                0.22,
+                0.16,
               )!
             : Colors.white;
         canvas.drawCircle(
           Offset(x, y),
-          seed.radius * (0.82 + pulse * 0.3),
+          particle.radius,
           Paint()..color = particleColor.withValues(alpha: alpha),
         );
       }
@@ -639,7 +681,7 @@ class _ReasoningTrackPainter extends CustomPainter {
   bool shouldRepaint(covariant _ReasoningTrackPainter oldDelegate) {
     return progress != oldDelegate.progress ||
         divisions != oldDelegate.divisions ||
-        phase != oldDelegate.phase ||
+        particles != oldDelegate.particles ||
         surfaceColor != oldDelegate.surfaceColor ||
         outlineColor != oldDelegate.outlineColor ||
         primaryColor != oldDelegate.primaryColor ||

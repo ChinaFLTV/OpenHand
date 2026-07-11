@@ -1,6 +1,7 @@
-import { useMemo, useRef, useState } from 'preact/hooks';
+import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { t } from '../i18n';
 import type { ApiMetaModel, ApiReasoningEffortOption } from '../api/meta';
+import { useReducedMotion } from '../hooks/useReducedMotion';
 import { PopMenu } from './PopMenu';
 
 export interface ReasoningEffortControlProps {
@@ -10,23 +11,122 @@ export interface ReasoningEffortControlProps {
   onSelect: (effort: string) => Promise<boolean>;
 }
 
-const REASONING_PARTICLES = [
-  [3, 32, 2.2, -0.7, 2.8],
-  [8, 67, 1.5, -1.8, 3.7],
-  [14, 43, 2.7, -2.6, 3.1],
-  [21, 73, 1.2, -0.2, 4.3],
-  [27, 25, 1.8, -3.4, 2.6],
-  [34, 58, 2.3, -1.1, 3.9],
-  [42, 37, 1.1, -2.1, 4.6],
-  [49, 77, 2.8, -0.4, 3.3],
-  [57, 19, 1.4, -3.8, 4.1],
-  [63, 53, 2.1, -1.5, 2.9],
-  [71, 72, 1.3, -2.9, 3.6],
-  [78, 29, 2.6, -0.9, 4.4],
-  [85, 62, 1.7, -3.1, 3.2],
-  [92, 39, 2.2, -1.3, 4.8],
-  [97, 70, 1.1, -2.4, 2.7],
-] as const;
+const REASONING_PARTICLE_COUNT = 17;
+const REASONING_PARTICLE_FRAME_MS = 1000 / 30;
+
+interface ReasoningParticle {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  size: number;
+  opacity: number;
+  age: number;
+  life: number;
+}
+
+function createReasoningParticle(initial: boolean): ReasoningParticle {
+  return {
+    x: Math.random(),
+    y: 0.14 + Math.random() * 0.72,
+    vx: (Math.random() - 0.42) * 0.075,
+    vy: (Math.random() - 0.5) * 0.11,
+    size: 1.4 + Math.random() * 2.4,
+    opacity: initial ? 0.36 + Math.random() * 0.55 : 0.28,
+    age: initial ? 0.4 + Math.random() * 1.2 : 0,
+    life: 1.8 + Math.random() * 4.6,
+  };
+}
+
+function OrganicReasoningParticles({ active }: { active: boolean }) {
+  const hostRef = useRef<HTMLSpanElement>(null);
+  const reducedMotion = useReducedMotion();
+
+  useEffect(() => {
+    const host = hostRef.current;
+    if (!host || !active || reducedMotion) return;
+    const elements = Array.from(host.children).filter(
+      (element): element is HTMLElement => element instanceof HTMLElement,
+    );
+    const particles = elements.map(() => createReasoningParticle(true));
+    particles.forEach((particle, index) => {
+      const element = elements[index]!;
+      element.style.width = `${particle.size}px`;
+      element.style.height = `${particle.size}px`;
+    });
+    let previousTime = performance.now();
+    let animationFrame = 0;
+
+    const update = (time: number) => {
+      const elapsed = time - previousTime;
+      if (elapsed < REASONING_PARTICLE_FRAME_MS) {
+        animationFrame = window.requestAnimationFrame(update);
+        return;
+      }
+      const delta = Math.max(0.001, Math.min(elapsed / 1000, 0.05));
+      previousTime = time;
+      for (let index = 0; index < particles.length; index += 1) {
+        let particle = particles[index]!;
+        particle.life -= delta;
+        if (
+          particle.life <= 0 ||
+          particle.x < -0.08 ||
+          particle.x > 1.08 ||
+          particle.y < -0.18 ||
+          particle.y > 1.18
+        ) {
+          particle = createReasoningParticle(false);
+          particles[index] = particle;
+          const element = elements[index]!;
+          element.style.width = `${particle.size}px`;
+          element.style.height = `${particle.size}px`;
+        } else {
+          particle.vx = Math.max(
+            -0.13,
+            Math.min(0.13, particle.vx + (Math.random() - 0.5) * 0.32 * delta),
+          );
+          particle.vy = Math.max(
+            -0.2,
+            Math.min(0.2, particle.vy + (Math.random() - 0.5) * 0.46 * delta),
+          );
+          const damping = Math.pow(0.72, delta);
+          particle.vx *= damping;
+          particle.vy *= damping;
+          particle.x += particle.vx * delta;
+          particle.y += particle.vy * delta;
+          particle.age += delta;
+          particle.opacity = Math.max(
+            0.28,
+            Math.min(0.96, particle.opacity + (Math.random() - 0.48) * delta * 0.9),
+          );
+        }
+        const fadeIn = Math.min(particle.age / 0.38, 1);
+        const fadeOut = Math.min(particle.life / 0.5, 1);
+        const element = elements[index]!;
+        element.style.left = `${particle.x * 100}%`;
+        element.style.top = `${particle.y * 100}%`;
+        element.style.opacity = `${particle.opacity * fadeIn * fadeOut}`;
+      }
+      animationFrame = window.requestAnimationFrame(update);
+    };
+
+    animationFrame = window.requestAnimationFrame(update);
+    return () => {
+      window.cancelAnimationFrame(animationFrame);
+      elements.forEach((element) => {
+        element.style.opacity = '0';
+      });
+    };
+  }, [active, reducedMotion]);
+
+  return (
+    <span ref={hostRef} class="oh-reasoning-effort-sparkles">
+      {Array.from({ length: REASONING_PARTICLE_COUNT }, (_, index) => (
+        <i key={index} />
+      ))}
+    </span>
+  );
+}
 
 function selectableOptions(model?: ApiMetaModel): ApiReasoningEffortOption[] {
   if (!model?.reasoning_effort_control_enabled) return [];
@@ -99,7 +199,13 @@ function ReasoningEffortPanel({
         while (queuedValueRef.current != null) {
           const queued = queuedValueRef.current;
           queuedValueRef.current = null;
-          const saved = await onSelect(queued);
+          let saved = false;
+          try {
+            saved = await onSelect(queued);
+          } catch {
+            // The caller owns user-facing error reporting; keep this control
+            // mounted and roll back to the last persisted value.
+          }
           if (saved) {
             persistedValueRef.current = queued;
           } else if (queuedValueRef.current == null) {
@@ -128,21 +234,7 @@ function ReasoningEffortPanel({
       >
         <div class="oh-reasoning-effort-track" aria-hidden="true">
           <span class="oh-reasoning-effort-fill" />
-          <span class="oh-reasoning-effort-sparkles">
-            {REASONING_PARTICLES.map(([left, top, size, delay, duration], index) => (
-              <i
-                key={index}
-                style={{
-                  left: `${left}%`,
-                  top: `${top}%`,
-                  width: `${size}px`,
-                  height: `${size}px`,
-                  animationDelay: `${delay}s`,
-                  animationDuration: `${duration}s`,
-                }}
-              />
-            ))}
-          </span>
+          <OrganicReasoningParticles active={energy === 'high' || energy === 'max'} />
           {options.map((option, index) => (
             <span
               key={option.value}
