@@ -4159,6 +4159,7 @@ class AiModelCatalog {
         modalities: _textImage,
         context: 500000,
         thinkingEnabled: true,
+        requiresReasoningEcho: true,
         reasoningEffortControlEnabled: true,
         reasoningEffort: 'high',
         reasoningEffortOptions: _effortLowMediumHigh,
@@ -4171,6 +4172,7 @@ class AiModelCatalog {
       return _p(
         name: 'Grok-3 Mini Fast',
         desc: 'Ultra-fast compact reasoning',
+        requiresReasoningEcho: true,
         context: 131072,
         output: 16384,
         thinking: 16384,
@@ -4180,6 +4182,7 @@ class AiModelCatalog {
       return _p(
         name: 'Grok-3 Mini',
         desc: 'Compact reasoning model',
+        requiresReasoningEcho: true,
         context: 131072,
         output: 16384,
         thinking: 16384,

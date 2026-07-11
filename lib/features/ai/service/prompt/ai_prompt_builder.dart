@@ -276,6 +276,14 @@ class AiPromptBuilder {
             : null,
       ),
     );
+    final reasoningHistorySourceCount = historyMessages.where((message) {
+      return message.kind == AiSessionMessageKind.reasoning &&
+          message.content.trim().isNotEmpty;
+    }).length;
+    final reasoningHistoryEchoTurnCount = historyTurns.where((turn) {
+      return turn.role == AiChatRole.assistant &&
+          (turn.reasoningContent?.isNotEmpty ?? false);
+    }).length;
     final latestUserTurns = (latestUserMessage == null || latestUserInline)
         ? const <AiChatTurn>[]
         : _mapUserMessage(
@@ -759,6 +767,12 @@ class AiPromptBuilder {
           cacheAffinityRequiresGatewayForwarding
       ..['cache_background_requests_deferred'] =
           inputCachePolicy.defersBackgroundRequests
+      ..['reasoning_history_echo_required'] = model.requiresReasoningEcho
+      ..['reasoning_history_source_count'] = reasoningHistorySourceCount
+      ..['reasoning_history_echo_turn_count'] = reasoningHistoryEchoTurnCount
+      ..['reasoning_history_echo_complete'] =
+          !model.requiresReasoningEcho ||
+          reasoningHistoryEchoTurnCount >= reasoningHistorySourceCount
       ..['tool_result_prompt_guard_enabled'] =
           historyToolCompressionConfig.guardsFreshToolResults
       ..['tool_result_prompt_threshold_chars'] =

@@ -2232,6 +2232,13 @@ class AiModelConfig {
         )) {
       return true;
     }
+    // xAI multi-turn prompt caching requires reasoning models to receive the
+    // exact prior `reasoning_content`. This is a protocol/history capability,
+    // not a template or user-message heuristic, so apply it uniformly to
+    // native Grok and Grok models exposed through compatible gateways.
+    if (_looksLikeGrokReasoningModel(normalizedModelId)) {
+      return true;
+    }
     if (catalogEcho != null) {
       return catalogEcho;
     }
@@ -2433,6 +2440,14 @@ class AiModelConfig {
             (normalizedModelId.contains('reasoner') ||
                 normalizedModelId.contains('thinking') ||
                 normalizedModelId.contains('think')));
+  }
+
+  static bool _looksLikeGrokReasoningModel(String normalizedModelId) {
+    return normalizedModelId.startsWith('grok-3-mini') ||
+        normalizedModelId.contains('-grok-3-mini') ||
+        normalizedModelId.startsWith('grok-4') ||
+        normalizedModelId.contains('-grok-4') ||
+        normalizedModelId.contains('grok-build-latest');
   }
 
   String get normalizedBaseUrl => _normalizeBaseUrl(baseUrl);
