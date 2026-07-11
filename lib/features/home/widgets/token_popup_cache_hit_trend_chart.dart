@@ -92,18 +92,11 @@ String _cacheHitExclusionHint(
   AppLocalizations l10n,
   SessionCacheHitDisplayData displayData,
 ) {
-  if (displayData.mode == SessionCacheHitDisplayMode.includeExpiredMisses) {
-    final hasFirst = displayData.trend.points.any((point) {
-      return point.isFirstRequest;
-    });
-    if (!hasFirst) return '';
-    return l10n.tokenPopupFirstRequestIgnored;
+  if (displayData.mode == SessionCacheHitDisplayMode.includeExpiredMisses ||
+      displayData.excludedExpiredMissCount <= 0) {
+    return '';
   }
-  if (displayData.excludedPointCount <= 0) return '';
-  if (displayData.excludedExpiredMissCount > 0) {
-    return l10n.tokenPopupExcludedRounds(displayData.excludedPointCount);
-  }
-  return l10n.tokenPopupFirstRequestIgnored;
+  return l10n.tokenPopupExcludedRounds(displayData.excludedPointCount);
 }
 
 class TokenPopupCacheHitTrendChart extends StatefulWidget {
@@ -311,39 +304,42 @@ class _TokenPopupCacheHitTrendChartState
           Row(
             children: [
               Expanded(
-                child: Wrap(
-                  spacing: 8,
-                  runSpacing: 6,
-                  children: [
-                    _CacheHitModeChip(
-                      label: l10n.tokenPopupCacheHitModeExcludeExpired,
-                      selected:
-                          widget.displayMode ==
-                          SessionCacheHitDisplayMode.excludeExpiredMisses,
-                      onTap: () {
-                        _viewport = SessionCacheHitViewport.full(
-                          displayData.trend.points.length,
-                        );
-                        widget.onDisplayModeChanged?.call(
-                          SessionCacheHitDisplayMode.excludeExpiredMisses,
-                        );
-                      },
-                    ),
-                    _CacheHitModeChip(
-                      label: l10n.tokenPopupCacheHitModeIncludeExpired,
-                      selected:
-                          widget.displayMode ==
-                          SessionCacheHitDisplayMode.includeExpiredMisses,
-                      onTap: () {
-                        _viewport = SessionCacheHitViewport.full(
-                          widget.trend.points.length,
-                        );
-                        widget.onDisplayModeChanged?.call(
-                          SessionCacheHitDisplayMode.includeExpiredMisses,
-                        );
-                      },
-                    ),
-                  ],
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _CacheHitModeChip(
+                        label: l10n.tokenPopupCacheHitModeExcludeExpired,
+                        selected:
+                            widget.displayMode ==
+                            SessionCacheHitDisplayMode.excludeExpiredMisses,
+                        onTap: () {
+                          _viewport = SessionCacheHitViewport.full(
+                            displayData.trend.points.length,
+                          );
+                          widget.onDisplayModeChanged?.call(
+                            SessionCacheHitDisplayMode.excludeExpiredMisses,
+                          );
+                        },
+                      ),
+                      const SizedBox(width: 8),
+                      _CacheHitModeChip(
+                        label: l10n.tokenPopupCacheHitModeIncludeExpired,
+                        selected:
+                            widget.displayMode ==
+                            SessionCacheHitDisplayMode.includeExpiredMisses,
+                        onTap: () {
+                          _viewport = SessionCacheHitViewport.full(
+                            widget.trend.points.length,
+                          );
+                          widget.onDisplayModeChanged?.call(
+                            SessionCacheHitDisplayMode.includeExpiredMisses,
+                          );
+                        },
+                      ),
+                    ],
+                  ),
                 ),
               ),
               if (exclusionHint.isNotEmpty) ...[

@@ -13292,7 +13292,7 @@ $tail''';
     final paths = <String>[];
     final trackedHeaders = <String>{
       AiPromptCacheAffinity.grokConversationHeader,
-      AiPromptCacheAffinity.openRouterSessionHeader,
+      AiPromptCacheAffinity.standardSessionAffinityHeader,
     }.map((item) => item.toLowerCase()).toSet();
     final headerKeys =
         headers?.keys.toList(growable: false) ?? const <String>[];

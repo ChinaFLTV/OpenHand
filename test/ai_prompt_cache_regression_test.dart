@@ -1,5 +1,8 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:openhand/features/ai/index.dart';
+import 'package:openhand/features/home/index.dart';
+import 'package:openhand/l10n/app_localizations.dart';
 
 void main() {
   group('Grok multi-turn cache continuity', () {
@@ -105,8 +108,72 @@ void main() {
         request.headers[AiPromptCacheAffinity.grokConversationHeader],
         'session-1',
       );
+      expect(
+        request.headers[AiPromptCacheAffinity.standardSessionAffinityHeader],
+        'session-1',
+      );
+    });
+
+    testWidgets('cache trend mode chips stay inline without first-round hint', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          locale: const Locale('zh'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(
+            body: SizedBox(
+              width: 380,
+              child: TokenPopupCacheHitTrendChart(
+                trend: SessionCacheHitTrend(
+                  points: List<SessionCacheHitTurnPoint>.generate(
+                    6,
+                    _cacheHitPoint,
+                    growable: false,
+                  ),
+                  averageHitRatio: 0,
+                  claudeStyle: false,
+                ),
+                displayMode: SessionCacheHitDisplayMode.includeExpiredMisses,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final excludeChip = find.text('不含过期异常');
+      final includeChip = find.text('含过期异常');
+      expect(excludeChip, findsOneWidget);
+      expect(includeChip, findsOneWidget);
+      expect(
+        tester.getTopLeft(excludeChip).dy,
+        tester.getTopLeft(includeChip).dy,
+      );
+      expect(find.text('首轮不计平均'), findsNothing);
+      expect(tester.takeException(), isNull);
     });
   });
+}
+
+SessionCacheHitTurnPoint _cacheHitPoint(int index) {
+  return SessionCacheHitTurnPoint(
+    turnIndex: index + 1,
+    starterMessageId: 'user-$index',
+    starterMessageKind: 'user',
+    starterOrigin: 'user',
+    timestamp: DateTime.utc(2026, 7, 11, 12, index),
+    hitRatio: 0,
+    averageHitRatio: 0,
+    promptTokens: 100,
+    cacheReadTokens: 0,
+    cacheWriteTokens: 0,
+    idleGapSeconds: index == 0 ? null : 10,
+    ttlSuspected: false,
+    prefixDriftSuspected: false,
+    automaticProviderMissSuspected: index > 0,
+  );
 }
 
 AiModelConfig _grokModel(AiProtocolType protocol, String baseUrl) {

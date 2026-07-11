@@ -710,7 +710,7 @@ class AiPromptCacheAffinity {
     promptCacheKey: '',
   );
   static const String grokConversationHeader = 'x-grok-conv-id';
-  static const String openRouterSessionHeader = 'x-session-id';
+  static const String standardSessionAffinityHeader = 'x-session-id';
   static const String openRouterSessionBodyField = 'session_id';
   static const String openAiPromptCacheKeyBodyField = 'prompt_cache_key';
   static const String messagesBodyField = 'messages';
@@ -721,7 +721,7 @@ class AiPromptCacheAffinity {
   };
   static const Set<String> _headerMarkerNames = <String>{
     grokConversationHeader,
-    openRouterSessionHeader,
+    standardSessionAffinityHeader,
   };
 
   final AiPromptCacheAffinityKind kind;
@@ -794,13 +794,22 @@ class AiPromptCacheAffinity {
     if (!applies) return;
     switch (kind) {
       case AiPromptCacheAffinityKind.grokConversationHeader:
-      case AiPromptCacheAffinityKind.grokCompatibleGateway:
         if (id.isNotEmpty) {
           _putHeaderIfAbsent(headers, grokConversationHeader, id);
         }
+      case AiPromptCacheAffinityKind.grokCompatibleGateway:
+        if (id.isNotEmpty) {
+          // Preserve xAI's upstream routing hint and also expose the standard
+          // session header used by OpenAI-compatible gateways to keep one
+          // downstream conversation on the same credential. Without this,
+          // round-robin credential pools can defeat an otherwise byte-stable
+          // prompt cache before the request reaches xAI.
+          _putHeaderIfAbsent(headers, grokConversationHeader, id);
+          _putHeaderIfAbsent(headers, standardSessionAffinityHeader, id);
+        }
       case AiPromptCacheAffinityKind.openRouterSession:
         if (id.isNotEmpty) {
-          _putHeaderIfAbsent(headers, openRouterSessionHeader, id);
+          _putHeaderIfAbsent(headers, standardSessionAffinityHeader, id);
         }
       case AiPromptCacheAffinityKind.openAiPromptCacheKey:
       case AiPromptCacheAffinityKind.none:
@@ -897,7 +906,7 @@ class AiPromptCacheAffinity {
     final mentionsAffinityField =
         normalized.contains(openAiPromptCacheKeyBodyField) ||
         normalized.contains(openRouterSessionBodyField) ||
-        normalized.contains(openRouterSessionHeader) ||
+        normalized.contains(standardSessionAffinityHeader) ||
         normalized.contains(grokConversationHeader);
     if (mentionsAffinityField) {
       return normalized.contains('unknown') ||
