@@ -1338,8 +1338,50 @@ AiToolDefinition stableToolDefinitionForAiRequest(AiToolDefinition tool) {
   return AiToolDefinition(
     name: tool.name,
     description: tool.description,
-    parameters: stableJsonObjectForAiRequest(tool.parameters),
+    parameters: stableJsonObjectForAiRequest(
+      objectRootToolSchemaForAiRequest(tool.parameters),
+    ),
   );
+}
+
+/// Function-call arguments are always JSON objects. Some OpenAI-compatible
+/// providers validate every root `anyOf` / `oneOf` branch independently and
+/// reject shorthand branches such as `{required: ['command']}` because the
+/// branch does not repeat `type: object`.
+///
+/// Making the object constraint explicit does not change valid object inputs.
+/// Branches that explicitly exclude objects can never match beneath an object
+/// root, so removing them also preserves the schema's effective semantics.
+Map<String, Object?> objectRootToolSchemaForAiRequest(
+  Map<String, Object?> schema,
+) {
+  final normalized = Map<String, Object?>.from(schema)..['type'] = 'object';
+  for (final keyword in const <String>['anyOf', 'oneOf']) {
+    final rawBranches = normalized[keyword];
+    if (rawBranches is! List) continue;
+
+    final objectBranches = <Map<String, Object?>>[];
+    for (final rawBranch in rawBranches) {
+      if (rawBranch == false) continue;
+      final branch = rawBranch is Map
+          ? stringKeyedMapFromValue(rawBranch)
+          : <String, Object?>{};
+      final declaredType = branch['type'];
+      final allowsObject =
+          declaredType == null ||
+          declaredType == 'object' ||
+          (declaredType is List && declaredType.contains('object'));
+      if (!allowsObject) continue;
+      objectBranches.add(<String, Object?>{...branch, 'type': 'object'});
+    }
+
+    if (objectBranches.isEmpty) {
+      normalized.remove(keyword);
+    } else {
+      normalized[keyword] = objectBranches;
+    }
+  }
+  return normalized;
 }
 
 Map<String, Object?> stableJsonObjectForAiRequest(Map<String, Object?> value) {
