@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import '../../features/ai/model/ai_model_config.dart';
 import '../util/localized_text.dart';
 import 'animated_menu.dart';
+import 'collision_safe_animated_switcher.dart';
 import 'motion_preference.dart';
 
 const double _kReasoningPopupWidth = 356;
@@ -131,7 +132,13 @@ class _ReasoningEffortPopupEntryState
       while (_pendingValue != null) {
         final effort = _pendingValue!;
         _pendingValue = null;
-        final saved = await widget.onChanged(effort);
+        var saved = false;
+        try {
+          saved = await widget.onChanged(effort);
+        } catch (_) {
+          // The selector must remain usable even if persistence fails. The
+          // caller owns user-facing error reporting; here we safely roll back.
+        }
         if (saved) {
           _persistedValue = effort;
           continue;
@@ -296,6 +303,7 @@ class _ReasoningEffortPopupEntryState
                   ),
                   switchInCurve: Curves.easeOutBack,
                   switchOutCurve: Curves.easeInCubic,
+                  layoutBuilder: buildCollisionSafeAnimatedSwitcherLayout,
                   child: Text(
                     option.labelForLocaleName(localeName),
                     key: ValueKey<String>(option.value),

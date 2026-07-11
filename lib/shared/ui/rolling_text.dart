@@ -14,6 +14,7 @@
 import 'package:flutter/material.dart';
 
 import 'bounded_animation.dart';
+import 'collision_safe_animated_switcher.dart';
 import 'motion_preference.dart';
 
 class RollingText extends StatelessWidget {
@@ -123,15 +124,7 @@ class _RollingChar extends StatelessWidget {
           ),
         );
       },
-      layoutBuilder: (currentChild, previousChildren) {
-        return Stack(
-          alignment: Alignment.center,
-          children: <Widget>[
-            ...previousChildren,
-            if (currentChild != null) currentChild,
-          ],
-        );
-      },
+      layoutBuilder: buildCollisionSafeAnimatedSwitcherLayout,
       // Slot index 让相同字符在不同位置时也有独立 key，避免
       // "12 KB" → "21 KB" 这种重排被误判为无变化。
       child: _RollingCharText(char: char, slot: slot, style: style),

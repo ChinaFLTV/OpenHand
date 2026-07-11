@@ -1412,14 +1412,21 @@ class _ComposerPanelState extends State<_ComposerPanel> {
       currentValue: selected.resolvedReasoningEffort,
       onChanged: (effort) async {
         if (!mounted) return false;
-        final saved = await context
-            .read<SettingsController>()
-            .updateAiModelReasoningEffort(
-              selected.id,
-              selected.modelId,
-              effort,
-            );
-        if (!mounted || saved) return saved;
+        var saved = false;
+        try {
+          saved = await context
+              .read<SettingsController>()
+              .updateAiModelReasoningEffort(
+                selected.id,
+                selected.modelId,
+                effort,
+              );
+        } catch (_) {
+          // Surface a stable user-facing error below and let the selector
+          // roll back to the last persisted effort.
+        }
+        if (!mounted) return false;
+        if (saved) return true;
         showOpenHandErrorSnack(
           context,
           openHandLocalizedText(
@@ -1954,6 +1961,8 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                                 ),
                                 switchInCurve: Curves.easeOutBack,
                                 switchOutCurve: Curves.easeInCubic,
+                                layoutBuilder:
+                                    buildCollisionSafeAnimatedSwitcherLayout,
                                 child: Text(
                                   selectedModelReasoningButtonLabel,
                                   key: ValueKey<String>(

@@ -57,6 +57,7 @@ import '../../shared/ui/appear_tracker.dart';
 import '../../shared/ui/auto_follow_scroll_guard.dart';
 import '../../shared/ui/bounded_animation.dart';
 import '../../shared/ui/choice_input_dialog.dart';
+import '../../shared/ui/collision_safe_animated_switcher.dart';
 import '../../shared/ui/dialog_motion_css.dart';
 import '../../shared/ui/error_snackbar.dart';
 import '../../shared/ui/export_config_dialog.dart';
