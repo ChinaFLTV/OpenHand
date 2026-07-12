@@ -13,6 +13,8 @@ import '../../../shared/net/http_response_utils.dart';
 import '../../../shared/net/http_status_utils.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
+import '../../../shared/util/path_safety.dart';
+import '../../../shared/util/physical_path_safety.dart';
 import '../model/mcp_http_headers.dart';
 import '../model/mcp_server_ops.dart';
 import 'mcp_ops_endpoint.dart';
@@ -47,6 +49,89 @@ const Duration _mcpOpsRequestBodyTotalTimeout = Duration(seconds: 30);
 const int _mcpOpsMaxConcurrentRequests = 64;
 const int _mcpOpsMaxBatchItems = 128;
 const Duration _mcpOpsRequestProcessingTimeout = Duration(minutes: 2);
+const Duration _mcpOpsWorkspacePathCheckTimeout = Duration(seconds: 2);
+const int _mcpOpsMaxWorkspaceArgumentDepth = 64;
+const int _mcpOpsMaxWorkspaceArgumentNodes = 4096;
+const int _mcpOpsMaxWorkspacePathValues = 256;
+
+final RegExp _mcpOpsArgumentWordBoundary = RegExp(r'([a-z0-9])([A-Z])');
+final RegExp _mcpOpsArgumentKeySeparator = RegExp(r'[^a-z0-9]+');
+const Set<String> _mcpOpsPathArgumentWords = <String>{
+  'path',
+  'paths',
+  'file',
+  'files',
+  'filename',
+  'filenames',
+  'dir',
+  'dirs',
+  'directory',
+  'directories',
+};
+
+class _McpOpsPathArgumentScan {
+  const _McpOpsPathArgumentScan({required this.values, required this.valid});
+
+  final List<String> values;
+  final bool valid;
+}
+
+_McpOpsPathArgumentScan _scanMcpOpsPathArguments(Object? arguments) {
+  final values = <String>[];
+  var visitedNodes = 0;
+  var valid = true;
+
+  void visit(Object? value, String key, int depth) {
+    if (!valid) return;
+    visitedNodes += 1;
+    if (depth > _mcpOpsMaxWorkspaceArgumentDepth ||
+        visitedNodes > _mcpOpsMaxWorkspaceArgumentNodes) {
+      valid = false;
+      return;
+    }
+    if (value is Map) {
+      for (final entry in value.entries) {
+        visit(entry.value, '${entry.key}', depth + 1);
+        if (!valid) return;
+      }
+      return;
+    }
+    if (value is List) {
+      for (final item in value) {
+        visit(item, key, depth + 1);
+        if (!valid) return;
+      }
+      return;
+    }
+    if (value is! String || !_mcpOpsArgumentKeyLooksLikePath(key)) return;
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) return;
+    values.add(trimmed);
+    if (values.length > _mcpOpsMaxWorkspacePathValues) valid = false;
+  }
+
+  visit(arguments, '', 0);
+  return _McpOpsPathArgumentScan(
+    values: List<String>.unmodifiable(values),
+    valid: valid,
+  );
+}
+
+bool _mcpOpsArgumentKeyLooksLikePath(String key) {
+  final normalized = key
+      .replaceAllMapped(
+        _mcpOpsArgumentWordBoundary,
+        (match) => '${match.group(1)}_${match.group(2)}',
+      )
+      .toLowerCase();
+  final words = normalized
+      .split(_mcpOpsArgumentKeySeparator)
+      .where((word) => word.isNotEmpty)
+      .toSet();
+  if (words.any(_mcpOpsPathArgumentWords.contains)) return true;
+  if (normalized == 'cwd' || normalized == 'workspace') return true;
+  return words.contains('workspace') && words.contains('root');
+}
 
 class McpOpsRequestBodyTooLargeException implements Exception {
   const McpOpsRequestBodyTooLargeException({
@@ -1164,17 +1249,17 @@ class McpServerOpsRuntime {
       );
       return _jsonRpcError(id, -32004, 'Write tools are disabled');
     }
-    if (!_argumentsWithinWorkspace(arguments)) {
-      _recordBlocked(
+    if (!await _argumentsWithinWorkspaceBeforeDeadline(
+      arguments,
+      processingDeadline,
+    )) {
+      return _workspaceScopeBlockedResponse(
         request,
+        id,
         inboundBytes: inboundBytes,
-        reason:
-            'Tool arguments reference a path outside the configured workspace.',
-        method: 'tools/call',
         toolName: name,
         arguments: arguments,
       );
-      return _jsonRpcError(id, -32006, 'Path is outside the workspace scope');
     }
     if (tool.isWrite && _config.writeMode == McpOpsWriteMode.approvalRequired) {
       final approvalTimeout = _shorterDuration(
@@ -1213,6 +1298,21 @@ class McpServerOpsRuntime {
           arguments: arguments,
         );
         return _jsonRpcError(id, -32005, 'Write call requires approval');
+      }
+      // Approval can remain open long enough for a workspace directory to be
+      // replaced by a symlink. Re-resolve immediately before invocation so an
+      // approved path cannot inherit a different physical target.
+      if (!await _argumentsWithinWorkspaceBeforeDeadline(
+        arguments,
+        processingDeadline,
+      )) {
+        return _workspaceScopeBlockedResponse(
+          request,
+          id,
+          inboundBytes: inboundBytes,
+          toolName: name,
+          arguments: arguments,
+        );
       }
     }
 
@@ -1484,47 +1584,54 @@ class McpServerOpsRuntime {
     return hour * 60 + minute;
   }
 
-  bool _argumentsWithinWorkspace(Map<String, Object?> arguments) {
+  Future<bool> _argumentsWithinWorkspaceBeforeDeadline(
+    Map<String, Object?> arguments,
+    DateTime processingDeadline,
+  ) {
+    final timeout = _shorterDuration(
+      _mcpOpsWorkspacePathCheckTimeout,
+      _remainingUntil(processingDeadline),
+    );
+    if (timeout <= Duration.zero) return Future<bool>.value(false);
+    return _argumentsWithinWorkspace(
+      arguments,
+    ).timeout(timeout, onTimeout: () => false);
+  }
+
+  Future<bool> _argumentsWithinWorkspace(Map<String, Object?> arguments) async {
     final root = nullIfBlank(_config.workspaceRoot);
     if (root == null) return true;
     final normalizedRoot = p.normalize(p.absolute(root));
-    for (final path in _pathLikeArgumentValues(arguments)) {
+    final pathScan = _scanMcpOpsPathArguments(arguments);
+    if (!pathScan.valid) return false;
+    for (final path in pathScan.values) {
       final normalizedPath = p.normalize(p.absolute(path));
-      if (normalizedPath == normalizedRoot) continue;
-      if (!p.isWithin(normalizedRoot, normalizedPath)) {
+      if (!isPathWithinOrEqual(normalizedRoot, normalizedPath) ||
+          !await isPhysicalPathWithinOrEqual(normalizedRoot, normalizedPath)) {
         return false;
       }
     }
     return true;
   }
 
-  Iterable<String> _pathLikeArgumentValues(
-    Object? value, [
-    String key = '',
-  ]) sync* {
-    if (value is Map) {
-      for (final entry in value.entries) {
-        yield* _pathLikeArgumentValues(entry.value, '${entry.key}');
-      }
-      return;
-    }
-    if (value is List) {
-      for (final item in value) {
-        yield* _pathLikeArgumentValues(item, key);
-      }
-      return;
-    }
-    if (value is! String) return;
-    final lowerKey = key.toLowerCase();
-    final keyLooksPath =
-        lowerKey.contains('path') ||
-        lowerKey.contains('file') ||
-        lowerKey.contains('dir') ||
-        lowerKey.contains('workspace');
-    if (!keyLooksPath) return;
-    final trimmed = value.trim();
-    if (trimmed.isEmpty) return;
-    yield trimmed;
+  Map<String, Object?> _workspaceScopeBlockedResponse(
+    shelf.Request request,
+    Object? id, {
+    required int inboundBytes,
+    required String toolName,
+    required Map<String, Object?> arguments,
+  }) {
+    _recordBlocked(
+      request,
+      inboundBytes: inboundBytes,
+      reason:
+          'Tool arguments reference a path outside the configured workspace '
+          'or the physical path could not be safely resolved.',
+      method: 'tools/call',
+      toolName: toolName,
+      arguments: arguments,
+    );
+    return _jsonRpcError(id, -32006, 'Path is outside the workspace scope');
   }
 
   void _markRequest(shelf.Request request, String method, {String? toolName}) {

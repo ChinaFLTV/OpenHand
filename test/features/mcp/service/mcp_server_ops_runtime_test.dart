@@ -432,6 +432,169 @@ void main() {
       }
     });
   });
+
+  group('McpServerOpsRuntime workspace scope', () {
+    late Directory temporaryDirectory;
+    late Directory workspace;
+
+    setUp(() async {
+      temporaryDirectory = await Directory.systemTemp.createTemp(
+        'openhand-mcp-scope-',
+      );
+      workspace = await Directory(
+        '${temporaryDirectory.path}${Platform.pathSeparator}workspace',
+      ).create();
+    });
+
+    tearDown(() async {
+      if (await temporaryDirectory.exists()) {
+        await temporaryDirectory.delete(recursive: true);
+      }
+    });
+
+    test(
+      'blocks a path that escapes through a workspace symlink',
+      () async {
+        final outside = await Directory(
+          '${temporaryDirectory.path}${Platform.pathSeparator}outside',
+        ).create();
+        final escape = Link('${workspace.path}${Platform.pathSeparator}escape');
+        await escape.create(outside.path);
+        var invoked = false;
+
+        final response = await _callScopedTool(
+          workspaceRoot: workspace.path,
+          arguments: <String, Object?>{
+            'file_path': '${escape.path}${Platform.pathSeparator}new.txt',
+          },
+          onInvoke: () => invoked = true,
+        );
+
+        expect(_jsonRpcErrorCode(response), -32006);
+        expect(invoked, isFalse);
+      },
+      skip: Platform.isWindows
+          ? 'Creating symbolic links requires additional Windows privileges.'
+          : false,
+    );
+
+    test('does not mistake an unrelated profile argument for a path', () async {
+      var invoked = false;
+
+      final response = await _callScopedTool(
+        workspaceRoot: workspace.path,
+        arguments: <String, Object?>{
+          'profile': '${temporaryDirectory.path}${Platform.pathSeparator}admin',
+        },
+        onInvoke: () => invoked = true,
+      );
+
+      expect(response['result'], isA<Map>());
+      expect(invoked, isTrue);
+    });
+
+    test(
+      'rechecks a write path after approval before invoking the tool',
+      () async {
+        final safeDirectory = await Directory(
+          '${workspace.path}${Platform.pathSeparator}safe',
+        ).create();
+        final outside = await Directory(
+          '${temporaryDirectory.path}${Platform.pathSeparator}outside',
+        ).create();
+        final targetPath =
+            '${safeDirectory.path}${Platform.pathSeparator}approved.txt';
+        var invoked = false;
+
+        final response = await _callScopedTool(
+          workspaceRoot: workspace.path,
+          arguments: <String, Object?>{'file_path': targetPath},
+          isWrite: true,
+          approvalGate: (_) async {
+            await safeDirectory.delete();
+            await Link(safeDirectory.path).create(outside.path);
+            return true;
+          },
+          onInvoke: () => invoked = true,
+        );
+
+        expect(_jsonRpcErrorCode(response), -32006);
+        expect(invoked, isFalse);
+      },
+      skip: Platform.isWindows
+          ? 'Creating symbolic links requires additional Windows privileges.'
+          : false,
+    );
+  });
+}
+
+Future<Map<String, Object?>> _callScopedTool({
+  required String workspaceRoot,
+  required Map<String, Object?> arguments,
+  required void Function() onInvoke,
+  bool isWrite = false,
+  Future<bool> Function(McpOpsApprovalRequest request)? approvalGate,
+}) async {
+  final runtime = McpServerOpsRuntime(
+    toolListProvider: () => <McpOpsToolDefinition>[
+      McpOpsToolDefinition(
+        name: 'scoped_tool',
+        title: 'Scoped tool',
+        description: 'Workspace scope test tool.',
+        surface: McpOpsExposureSurface.builtinTools,
+        itemId: 'scoped',
+        endpointId: 'invoke',
+        inputSchema: const <String, Object?>{'type': 'object'},
+        isWrite: isWrite,
+      ),
+    ],
+    toolInvoker: (_, _, _) async {
+      onInvoke();
+      return const McpOpsToolInvocationResult(text: 'ok');
+    },
+    approvalGate: approvalGate ?? (_) async => true,
+    auditSink: (_) {},
+    snapshotSink: (_) {},
+  );
+  await runtime.start(
+    McpOpsConfig(
+      listenPort: 0,
+      workspaceRoot: workspaceRoot,
+      writeMode: isWrite
+          ? McpOpsWriteMode.approvalRequired
+          : McpOpsWriteMode.readOnly,
+    ),
+  );
+  final client = HttpClient();
+  try {
+    final request = await client.postUrl(
+      Uri.parse('http://127.0.0.1:${runtime.snapshot.boundPort}/mcp'),
+    );
+    request.headers.contentType = ContentType.json;
+    request.write(
+      jsonEncode(<String, Object?>{
+        'jsonrpc': '2.0',
+        'id': 1,
+        'method': 'tools/call',
+        'params': <String, Object?>{
+          'name': 'scoped_tool',
+          'arguments': arguments,
+        },
+      }),
+    );
+    final response = await request.close();
+    final body = await response.transform(utf8.decoder).join();
+    expect(response.statusCode, HttpStatus.ok);
+    return Map<String, Object?>.from(jsonDecode(body) as Map);
+  } finally {
+    client.close(force: true);
+    await runtime.stop();
+  }
+}
+
+int? _jsonRpcErrorCode(Map<String, Object?> response) {
+  final error = response['error'];
+  return error is Map ? error['code'] as int? : null;
 }
 
 Future<String> _sendRawHttpRequest(int port, String requestText) async {
