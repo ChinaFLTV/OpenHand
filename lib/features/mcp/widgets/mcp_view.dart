@@ -878,7 +878,6 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
       kind: OpenHandSnackKind.error,
     );
   }
-
 }
 
 List<
@@ -1310,7 +1309,7 @@ class _McpServerEditorDialogState extends State<_McpServerEditorDialog> {
                         const SizedBox(height: 16),
                         SizedBox(
                           width: 320,
-                          child: DropdownButtonFormField<McpServerType>(
+                          child: AnimatedDropdownButtonFormField<McpServerType>(
                             initialValue: _type,
                             decoration: InputDecoration(
                               labelText: l10n.mcpTypeField,
@@ -3025,7 +3024,7 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
                 hint: _policyModeHint(context),
                 child: _McpOpsResponsiveFields(
                   children: [
-                    DropdownButtonFormField<McpOpsNetworkMode>(
+                    AnimatedDropdownButtonFormField<McpOpsNetworkMode>(
                       initialValue: _networkMode,
                       decoration: InputDecoration(
                         labelText: _localizedText(
@@ -3046,7 +3045,7 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
                         if (value != null) setState(() => _networkMode = value);
                       },
                     ),
-                    DropdownButtonFormField<McpOpsInvocationMode>(
+                    AnimatedDropdownButtonFormField<McpOpsInvocationMode>(
                       initialValue: _invocationMode,
                       decoration: InputDecoration(
                         labelText: _localizedText(
@@ -3069,7 +3068,7 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
                         }
                       },
                     ),
-                    DropdownButtonFormField<McpOpsWriteMode>(
+                    AnimatedDropdownButtonFormField<McpOpsWriteMode>(
                       key: ValueKey<String>(
                         'mcp-ops-write-mode-${_writeMode.name}-$_writeModeSelectorRevision',
                       ),
@@ -7551,7 +7550,7 @@ class _McpOpsSchemaFieldEditorCard extends StatelessWidget {
               ),
               SizedBox(
                 width: 156,
-                child: DropdownButtonFormField<String>(
+                child: AnimatedDropdownButtonFormField<String>(
                   initialValue: field.type,
                   isExpanded: true,
                   decoration: _mcpOpsSchemaInputDecoration(
@@ -7615,7 +7614,7 @@ class _McpOpsSchemaFieldEditorCard extends StatelessWidget {
             const SizedBox(height: 10),
             SizedBox(
               width: 180,
-              child: DropdownButtonFormField<String>(
+              child: AnimatedDropdownButtonFormField<String>(
                 initialValue: field.itemType,
                 isExpanded: true,
                 decoration: _mcpOpsSchemaInputDecoration(

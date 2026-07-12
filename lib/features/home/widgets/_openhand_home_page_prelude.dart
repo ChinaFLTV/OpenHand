@@ -266,7 +266,7 @@ void _scheduleOverlayActionAfterMenuDismissal(
   BuildContext context,
   VoidCallback action,
 ) {
-  // showMenu resolves before the popup route is fully torn down. Defer the
+  // Popup menu results resolve before the route is fully torn down. Defer the
   // follow-up dialog to the next frame so two overlay routes do not overlap
   // during teardown/build-scope transitions.
   WidgetsBinding.instance.addPostFrameCallback((_) {

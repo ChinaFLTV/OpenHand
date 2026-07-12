@@ -880,9 +880,7 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
     );
     final schemaMap = c.schemaOverride ?? widget.defaultParameters;
     _schemaOverrideController = TextEditingController(
-      text: schemaMap != null
-          ? prettyPrintJson(schemaMap)
-          : '',
+      text: schemaMap != null ? prettyPrintJson(schemaMap) : '',
     );
     _priorityController = TextEditingController(text: '${c.priority}');
     _maxOutputCharsController = TextEditingController(
@@ -1120,7 +1118,7 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
                           const SizedBox(width: 14),
                           Expanded(
                             child:
-                                DropdownButtonFormField<
+                                AnimatedDropdownButtonFormField<
                                   AiBuiltinToolLoadStrategy
                                 >(
                                   initialValue: _loadStrategy,

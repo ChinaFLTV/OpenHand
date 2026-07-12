@@ -9,6 +9,7 @@ import '../../../app/support/silent_log.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/net/tcp_port_utils.dart';
 import '../../../shared/ui/animated_dialog.dart';
+import '../../../shared/ui/animated_menu.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_model_selector_field.dart';
@@ -3843,7 +3844,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
               const SizedBox(width: 12),
               SizedBox(
                 width: 150,
-                child: DropdownButtonFormField<String>(
+                child: AnimatedDropdownButtonFormField<String>(
                   initialValue: rule.mode,
                   isExpanded: true,
                   decoration: knowledgeDialogInputDecoration(
@@ -4002,7 +4003,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                               },
                             ),
                             const SizedBox(height: 10),
-                            DropdownButtonFormField<String>(
+                            AnimatedDropdownButtonFormField<String>(
                               initialValue: safeTarget,
                               isExpanded: true,
                               decoration: knowledgeDialogInputDecoration(
@@ -4241,7 +4242,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
         return SizedBox(
           width: metrics.itemWidth,
           height: _knowledgeConfigItemHeight,
-          child: DropdownButtonFormField<String>(
+          child: AnimatedDropdownButtonFormField<String>(
             initialValue: values.contains(value) ? value : values.first,
             isExpanded: true,
             decoration: knowledgeDialogInputDecoration(context, label),

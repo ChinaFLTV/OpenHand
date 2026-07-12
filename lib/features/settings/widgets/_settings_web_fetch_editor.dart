@@ -2490,7 +2490,7 @@ class _WebFetchEngineCardState extends State<_WebFetchEngineCard> {
                       ),
                       if (_fetchCanLinkProvider(cfg.kind)) ...[
                         const SizedBox(height: 8),
-                        DropdownButtonFormField<String?>(
+                        AnimatedDropdownButtonFormField<String?>(
                           initialValue: cfg.providerConfigId,
                           isExpanded: true,
                           decoration: InputDecoration(

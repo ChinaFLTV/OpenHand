@@ -36,6 +36,7 @@ import '../../../shared/fps/openhand_fps_monitor.dart';
 import '../../../shared/net/tcp_port_utils.dart';
 import '../../../shared/ui/animated_appearance.dart';
 import '../../../shared/ui/animated_dialog.dart';
+import '../../../shared/ui/animated_menu.dart';
 import '../../../shared/ui/app_update_dialog.dart';
 import '../../../shared/ui/appear_once.dart';
 import '../../../shared/ui/auto_follow_scroll_guard.dart';
@@ -983,7 +984,7 @@ class _SettingsViewState extends State<SettingsView> {
             controlMaxWidth: 440,
             control: SizedBox(
               width: double.infinity,
-              child: DropdownButtonFormField<OpenHandThemePreset>(
+              child: AnimatedDropdownButtonFormField<OpenHandThemePreset>(
                 initialValue: settingsController.themePreset,
                 decoration: InputDecoration(
                   prefixIcon: Padding(
@@ -1032,7 +1033,7 @@ class _SettingsViewState extends State<SettingsView> {
             controlMaxWidth: 440,
             control: SizedBox(
               width: double.infinity,
-              child: DropdownButtonFormField<AppLanguage>(
+              child: AnimatedDropdownButtonFormField<AppLanguage>(
                 initialValue: settingsController.language,
                 decoration: const InputDecoration(
                   prefixIcon: Icon(Icons.translate_outlined),
@@ -1345,7 +1346,7 @@ class _SettingsViewState extends State<SettingsView> {
     );
     final messageContentFormatControl = ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 320),
-      child: DropdownButtonFormField<AiMessageContentFormat>(
+      child: AnimatedDropdownButtonFormField<AiMessageContentFormat>(
         key: const ValueKey<String>('settingsAiMessageContentFormatDropdown'),
         initialValue: settingsController.aiMessageContentFormat,
         items: <DropdownMenuItem<AiMessageContentFormat>>[
@@ -1367,14 +1368,17 @@ class _SettingsViewState extends State<SettingsView> {
           await settingsController.updateAiMessageContentFormat(value);
           if (!context.mounted) return;
           if (value == AiMessageContentFormat.html) {
-            flashOpenHandSnack(context, l10n.aiMessageContentFormatHtmlTokenWarning);
+            flashOpenHandSnack(
+              context,
+              l10n.aiMessageContentFormatHtmlTokenWarning,
+            );
           }
         },
       ),
     );
     final htmlRenderFallbackControl = SizedBox(
       width: double.infinity,
-      child: DropdownButtonFormField<AiHtmlRenderFallback>(
+      child: AnimatedDropdownButtonFormField<AiHtmlRenderFallback>(
         key: const ValueKey<String>('settingsAiHtmlRenderFallbackDropdown'),
         initialValue: settingsController.aiHtmlRenderFallback,
         items: <DropdownMenuItem<AiHtmlRenderFallback>>[
@@ -1395,7 +1399,7 @@ class _SettingsViewState extends State<SettingsView> {
     );
     final htmlContentRichnessControl = SizedBox(
       width: double.infinity,
-      child: DropdownButtonFormField<AiHtmlContentRichness>(
+      child: AnimatedDropdownButtonFormField<AiHtmlContentRichness>(
         key: const ValueKey<String>('settingsAiHtmlContentRichnessDropdown'),
         initialValue: settingsController.aiHtmlContentRichness,
         items: <DropdownMenuItem<AiHtmlContentRichness>>[
@@ -2871,7 +2875,7 @@ class _SettingsViewState extends State<SettingsView> {
                 )!.settingsChooseTheSlidingUnitForThe,
                 control: Align(
                   alignment: Alignment.centerLeft,
-                  child: DropdownButton<String>(
+                  child: AnimatedDropdownButton<String>(
                     key: const ValueKey<String>(
                       'settingsAiInputCacheUpdateModeDropdown',
                     ),
@@ -6136,7 +6140,6 @@ class _SettingsViewState extends State<SettingsView> {
   void _showUpdateCheckDialog(BuildContext context, AppInfo appInfo) {
     showAppUpdateDialog(context: context, appInfo: appInfo);
   }
-
 }
 
 List<Widget> _intersperse(List<Widget> items, Widget separator) {
@@ -6469,7 +6472,7 @@ class _McpKeywordIndexIntervalFormState
         const SizedBox(width: 12),
         Expanded(
           flex: 3,
-          child: DropdownButtonFormField<McpKeywordIndexIntervalUnit>(
+          child: AnimatedDropdownButtonFormField<McpKeywordIndexIntervalUnit>(
             initialValue: widget.intervalUnit,
             decoration: InputDecoration(
               labelText: l10n.mcpKeywordIndexIntervalUnitLabel,

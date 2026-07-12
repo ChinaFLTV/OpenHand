@@ -1,5 +1,9 @@
+import 'dart:async';
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 
 import '../../app/model/dialog_animation_settings.dart';
 import 'animated_dialog.dart';
@@ -34,24 +38,10 @@ Future<T?> showAnimatedMenu<T>({
   DialogAnimationSettings? settings,
   bool useRootNavigator = false,
   bool enableBidirectionalScroll = false,
+  bool barrierDismissible = true,
 }) {
+  if (items.isEmpty) return Future<T?>.value();
   final effectiveSettings = _resolveAnimatedMenuSettings(context, settings);
-
-  if (openHandMotionDisabled(effectiveSettings)) {
-    return showMenu<T>(
-      context: context,
-      position: position,
-      items: items,
-      initialValue: initialValue,
-      elevation: elevation,
-      color: color,
-      shape: shape,
-      constraints: constraints,
-      useRootNavigator: useRootNavigator,
-      popUpAnimationStyle: AnimationStyle.noAnimation,
-    );
-  }
-
   final navigator = Navigator.of(context, rootNavigator: useRootNavigator);
   return navigator.push<T>(
     _AnimatedPopupMenuRoute<T>(
@@ -64,6 +54,7 @@ Future<T?> showAnimatedMenu<T>({
       constraints: constraints,
       animationSettings: effectiveSettings,
       enableBidirectionalScroll: enableBidirectionalScroll,
+      barrierDismissible: barrierDismissible,
       barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
       capturedThemes: InheritedTheme.capture(
         from: context,
@@ -85,6 +76,7 @@ Future<T?> showAnimatedAnchoredMenu<T>({
   PopupMenuPosition position = PopupMenuPosition.under,
   Offset offset = Offset.zero,
   bool useRootNavigator = false,
+  bool barrierDismissible = true,
 }) {
   final navigator = Navigator.of(context, rootNavigator: useRootNavigator);
   final anchorObject = context.findRenderObject();
@@ -111,6 +103,7 @@ Future<T?> showAnimatedAnchoredMenu<T>({
       position: relativePosition,
       animationSettings: effectiveSettings,
       textDirection: Directionality.of(context),
+      barrierDismissible: barrierDismissible,
       barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
       capturedThemes: InheritedTheme.capture(
         from: context,
@@ -126,6 +119,7 @@ class _AnimatedAnchoredMenuRoute<T> extends PopupRoute<T> {
     required this.position,
     required this.animationSettings,
     required this.textDirection,
+    required this.barrierDismissible,
     required this.barrierLabel,
     required this.capturedThemes,
     required this.builder,
@@ -134,6 +128,8 @@ class _AnimatedAnchoredMenuRoute<T> extends PopupRoute<T> {
   final RelativeRect position;
   final DialogAnimationSettings animationSettings;
   final TextDirection textDirection;
+  @override
+  final bool barrierDismissible;
   final CapturedThemes capturedThemes;
   final WidgetBuilder builder;
 
@@ -144,24 +140,10 @@ class _AnimatedAnchoredMenuRoute<T> extends PopupRoute<T> {
   Duration get reverseTransitionDuration => animationSettings.exitDuration;
 
   @override
-  bool get barrierDismissible => true;
-
-  @override
   Color? get barrierColor => null;
 
   @override
   final String barrierLabel;
-
-  @override
-  Widget buildTransitions(
-    BuildContext context,
-    Animation<double> animation,
-    Animation<double> secondaryAnimation,
-    Widget child,
-  ) {
-    if (openHandMotionDisabled(animationSettings)) return child;
-    return _buildMenuTransition(animation, animationSettings, child);
-  }
 
   @override
   Widget buildPage(
@@ -170,6 +152,10 @@ class _AnimatedAnchoredMenuRoute<T> extends PopupRoute<T> {
     Animation<double> secondaryAnimation,
   ) {
     final mediaPadding = MediaQuery.paddingOf(context);
+    var menu = capturedThemes.wrap(Builder(builder: builder));
+    if (!openHandMotionDisabled(animationSettings)) {
+      menu = _buildMenuTransition(animation, animationSettings, menu);
+    }
     return MediaQuery.removePadding(
       context: context,
       removeTop: true,
@@ -182,7 +168,7 @@ class _AnimatedAnchoredMenuRoute<T> extends PopupRoute<T> {
           textDirection,
           mediaPadding,
         ),
-        child: capturedThemes.wrap(Builder(builder: builder)),
+        child: menu,
       ),
     );
   }
@@ -243,6 +229,7 @@ class _AnimatedPopupMenuRoute<T> extends PopupRoute<T> {
     required this.barrierLabel,
     required this.capturedThemes,
     required this.enableBidirectionalScroll,
+    required this.barrierDismissible,
     this.initialValue,
     this.elevation,
     this.color,
@@ -260,6 +247,8 @@ class _AnimatedPopupMenuRoute<T> extends PopupRoute<T> {
   final DialogAnimationSettings animationSettings;
   final CapturedThemes capturedThemes;
   final bool enableBidirectionalScroll;
+  @override
+  final bool barrierDismissible;
   final List<Size?> itemSizes;
 
   @override
@@ -269,23 +258,10 @@ class _AnimatedPopupMenuRoute<T> extends PopupRoute<T> {
   Duration get reverseTransitionDuration => animationSettings.exitDuration;
 
   @override
-  bool get barrierDismissible => true;
-
-  @override
   Color? get barrierColor => null;
 
   @override
   final String barrierLabel;
-
-  @override
-  Widget buildTransitions(
-    BuildContext context,
-    Animation<double> animation,
-    Animation<double> secondaryAnimation,
-    Widget child,
-  ) {
-    return _buildMenuTransition(animation, animationSettings, child);
-  }
 
   @override
   Widget buildPage(
@@ -293,7 +269,14 @@ class _AnimatedPopupMenuRoute<T> extends PopupRoute<T> {
     Animation<double> animation,
     Animation<double> secondaryAnimation,
   ) {
-    final menuContent = capturedThemes.wrap(_PopupMenuContent<T>(route: this));
+    Widget menuContent = capturedThemes.wrap(_PopupMenuContent<T>(route: this));
+    if (!openHandMotionDisabled(animationSettings)) {
+      menuContent = _buildMenuTransition(
+        animation,
+        animationSettings,
+        menuContent,
+      );
+    }
 
     // `paddingOf` only subscribes to padding changes; full `MediaQuery.of`
     // would rebuild this overlay on unrelated viewInsets / textScale events.
@@ -615,14 +598,667 @@ Widget _buildMenuTransition(
   DialogAnimationSettings settings,
   Widget child,
 ) {
-  return Align(
-    alignment: Alignment.topLeft,
-    child: buildAnimationStyleTransition(
-      animation: animation,
-      settings: settings,
-      child: child,
-    ),
+  return buildAnimationStyleTransition(
+    animation: animation,
+    settings: settings,
+    child: child,
   );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Animated dropdowns
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _AnimatedDropdownSelection<T> {
+  const _AnimatedDropdownSelection({required this.index, required this.value});
+
+  final int index;
+  final T? value;
+
+  @override
+  bool operator ==(Object other) {
+    return other is _AnimatedDropdownSelection<T> && other.index == index;
+  }
+
+  @override
+  int get hashCode => index.hashCode;
+}
+
+/// A [DropdownButton] equivalent whose popup always uses the global menu
+/// entrance and exit settings.
+///
+/// The selected value remains caller-owned. Nullable item values are wrapped
+/// internally so selecting `null` stays distinguishable from dismissing the
+/// popup without a selection.
+class AnimatedDropdownButton<T> extends StatefulWidget {
+  const AnimatedDropdownButton({
+    super.key,
+    required this.items,
+    this.selectedItemBuilder,
+    this.value,
+    this.hint,
+    this.disabledHint,
+    required this.onChanged,
+    this.onTap,
+    this.elevation = 8,
+    this.style,
+    this.underline,
+    this.icon,
+    this.iconDisabledColor,
+    this.iconEnabledColor,
+    this.iconSize = 24,
+    this.isDense = false,
+    this.isExpanded = false,
+    this.itemHeight = kMinInteractiveDimension,
+    this.menuWidth,
+    this.focusColor,
+    this.focusNode,
+    this.autofocus = false,
+    this.dropdownColor,
+    this.menuMaxHeight,
+    this.enableFeedback,
+    this.alignment = AlignmentDirectional.centerStart,
+    this.borderRadius,
+    this.padding,
+    this.barrierDismissible = true,
+    this.mouseCursor,
+    this.dropdownMenuItemMouseCursor,
+    this.useRootNavigator = false,
+    this.animationSettings,
+  }) : _inputDecoration = null,
+       _isEmpty = false;
+
+  const AnimatedDropdownButton._formField({
+    required this.items,
+    required this.selectedItemBuilder,
+    required this.value,
+    required this.hint,
+    required this.disabledHint,
+    required this.onChanged,
+    required this.onTap,
+    required this.elevation,
+    required this.style,
+    required this.icon,
+    required this.iconDisabledColor,
+    required this.iconEnabledColor,
+    required this.iconSize,
+    required this.isDense,
+    required this.isExpanded,
+    required this.itemHeight,
+    required this.focusColor,
+    required this.focusNode,
+    required this.autofocus,
+    required this.dropdownColor,
+    required this.menuMaxHeight,
+    required this.enableFeedback,
+    required this.alignment,
+    required this.borderRadius,
+    required this.padding,
+    required this.barrierDismissible,
+    required this.mouseCursor,
+    required this.dropdownMenuItemMouseCursor,
+    required this.useRootNavigator,
+    required this.animationSettings,
+    required InputDecoration inputDecoration,
+    required bool isEmpty,
+  }) : underline = null,
+       menuWidth = null,
+       _inputDecoration = inputDecoration,
+       _isEmpty = isEmpty;
+
+  final List<DropdownMenuItem<T>>? items;
+  final DropdownButtonBuilder? selectedItemBuilder;
+  final T? value;
+  final Widget? hint;
+  final Widget? disabledHint;
+  final ValueChanged<T?>? onChanged;
+  final VoidCallback? onTap;
+  final int elevation;
+  final TextStyle? style;
+  final Widget? underline;
+  final Widget? icon;
+  final Color? iconDisabledColor;
+  final Color? iconEnabledColor;
+  final double iconSize;
+  final bool isDense;
+  final bool isExpanded;
+  final double? itemHeight;
+  final double? menuWidth;
+  final Color? focusColor;
+  final FocusNode? focusNode;
+  final bool autofocus;
+  final Color? dropdownColor;
+  final double? menuMaxHeight;
+  final bool? enableFeedback;
+  final AlignmentGeometry alignment;
+  final BorderRadius? borderRadius;
+  final EdgeInsetsGeometry? padding;
+  final bool barrierDismissible;
+  final MouseCursor? mouseCursor;
+  final MouseCursor? dropdownMenuItemMouseCursor;
+  final bool useRootNavigator;
+  final DialogAnimationSettings? animationSettings;
+  final InputDecoration? _inputDecoration;
+  final bool _isEmpty;
+
+  @override
+  State<AnimatedDropdownButton<T>> createState() =>
+      _AnimatedDropdownButtonState<T>();
+}
+
+class _AnimatedDropdownButtonState<T> extends State<AnimatedDropdownButton<T>> {
+  static const double _defaultMenuMaxWidth = 280;
+
+  bool _menuOpen = false;
+  bool _focused = false;
+  bool _hovering = false;
+  FocusNode? _internalFocusNode;
+
+  bool get _enabled =>
+      widget.onChanged != null && (widget.items?.isNotEmpty ?? false);
+
+  FocusNode get _effectiveFocusNode =>
+      widget.focusNode ??
+      (_internalFocusNode ??= FocusNode(debugLabel: 'animated-dropdown'));
+
+  @override
+  void didUpdateWidget(covariant AnimatedDropdownButton<T> oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.focusNode == null && widget.focusNode != null) {
+      _internalFocusNode?.dispose();
+      _internalFocusNode = null;
+    }
+  }
+
+  @override
+  void dispose() {
+    _internalFocusNode?.dispose();
+    super.dispose();
+  }
+
+  int? get _selectedIndex {
+    final items = widget.items;
+    if (items == null) return null;
+    for (var index = 0; index < items.length; index++) {
+      if (items[index].value == widget.value) return index;
+    }
+    return null;
+  }
+
+  BoxConstraints _menuConstraints(RenderBox button, RenderBox overlay) {
+    final padding = MediaQuery.paddingOf(context);
+    final availableWidth = math.max(
+      0.0,
+      overlay.size.width - padding.horizontal,
+    );
+    final requestedWidth = switch (widget.menuWidth) {
+      final width? when width.isFinite && width > 0 => width,
+      _ => button.size.width,
+    };
+    final preferredMaxWidth =
+        widget.isExpanded || widget._inputDecoration != null
+        ? requestedWidth
+        : math.max(requestedWidth, _defaultMenuMaxWidth);
+    final maxWidth = math.min(preferredMaxWidth, availableWidth);
+    final minWidth = math.min(requestedWidth, maxWidth);
+    final requestedMaxHeight = widget.menuMaxHeight;
+    final maxHeight =
+        requestedMaxHeight != null &&
+            requestedMaxHeight.isFinite &&
+            requestedMaxHeight > 0
+        ? requestedMaxHeight
+        : double.infinity;
+    return BoxConstraints(
+      minWidth: minWidth,
+      maxWidth: maxWidth,
+      maxHeight: maxHeight,
+    );
+  }
+
+  Future<void> _showDropdown() async {
+    if (!_enabled || _menuOpen) return;
+    _effectiveFocusNode.requestFocus();
+    if (widget._inputDecoration != null && widget.enableFeedback != false) {
+      Feedback.forTap(context);
+    }
+    final buttonObject = context.findRenderObject();
+    final navigator = Navigator.of(
+      context,
+      rootNavigator: widget.useRootNavigator,
+    );
+    final overlayObject = navigator.overlay?.context.findRenderObject();
+    if (buttonObject is! RenderBox ||
+        overlayObject is! RenderBox ||
+        !buttonObject.hasSize ||
+        !overlayObject.hasSize) {
+      return;
+    }
+    final sourceItems = widget.items;
+    if (sourceItems == null || sourceItems.isEmpty) return;
+    final selections = <_AnimatedDropdownSelection<T>>[
+      for (var index = 0; index < sourceItems.length; index++)
+        _AnimatedDropdownSelection<T>(
+          index: index,
+          value: sourceItems[index].value,
+        ),
+    ];
+    final menuItems = <PopupMenuEntry<_AnimatedDropdownSelection<T>>>[
+      for (var index = 0; index < sourceItems.length; index++)
+        PopupMenuItem<_AnimatedDropdownSelection<T>>(
+          value: selections[index],
+          enabled: sourceItems[index].enabled,
+          onTap: sourceItems[index].onTap,
+          height: _validItemHeight(widget.itemHeight),
+          textStyle: widget.style,
+          mouseCursor: widget.dropdownMenuItemMouseCursor,
+          child: Align(
+            alignment: sourceItems[index].alignment,
+            child: sourceItems[index].child,
+          ),
+        ),
+    ];
+    final anchorRect = _animatedPopupMenuAnchorRect(
+      button: buttonObject,
+      overlay: overlayObject,
+      position: PopupMenuPosition.under,
+      offset: Offset.zero,
+    );
+    final position = RelativeRect.fromRect(
+      anchorRect,
+      Offset.zero & overlayObject.size,
+    );
+    final selectedIndex = _selectedIndex;
+    if (mounted) setState(() => _menuOpen = true);
+    try {
+      final selectionFuture = showAnimatedMenu<_AnimatedDropdownSelection<T>>(
+        context: context,
+        position: position,
+        items: menuItems,
+        initialValue: selectedIndex == null ? null : selections[selectedIndex],
+        elevation: widget.elevation.toDouble(),
+        color: widget.dropdownColor,
+        shape: widget.borderRadius == null
+            ? null
+            : RoundedRectangleBorder(borderRadius: widget.borderRadius!),
+        constraints: _menuConstraints(buttonObject, overlayObject),
+        settings: widget.animationSettings,
+        useRootNavigator: widget.useRootNavigator,
+        barrierDismissible: widget.barrierDismissible,
+      );
+      try {
+        widget.onTap?.call();
+      } catch (error, stack) {
+        FlutterError.reportError(
+          FlutterErrorDetails(
+            exception: error,
+            stack: stack,
+            library: 'openhand menu',
+            context: ErrorDescription('while opening an animated dropdown'),
+          ),
+        );
+      }
+      final selected = await selectionFuture;
+      if (mounted && selected != null) {
+        try {
+          widget.onChanged?.call(selected.value);
+        } catch (error, stack) {
+          FlutterError.reportError(
+            FlutterErrorDetails(
+              exception: error,
+              stack: stack,
+              library: 'openhand menu',
+              context: ErrorDescription(
+                'while applying an animated dropdown selection',
+              ),
+            ),
+          );
+        }
+      }
+    } finally {
+      if (mounted) setState(() => _menuOpen = false);
+    }
+  }
+
+  double _validItemHeight(double? value) {
+    return value != null && value.isFinite && value > 0
+        ? math.max(value, kMinInteractiveDimension)
+        : kMinInteractiveDimension;
+  }
+
+  Widget _selectedChild(BuildContext context) {
+    final items = widget.items;
+    final selectedIndex = _selectedIndex;
+    if (items != null && selectedIndex != null) {
+      final selectedItems = widget.selectedItemBuilder?.call(context);
+      if (selectedItems != null && selectedIndex < selectedItems.length) {
+        return selectedItems[selectedIndex];
+      }
+      return items[selectedIndex].child;
+    }
+    if (!_enabled && widget.disabledHint != null) {
+      return widget.disabledHint!;
+    }
+    return widget.hint ?? const SizedBox.shrink();
+  }
+
+  Widget _buildContents(BuildContext context) {
+    final theme = Theme.of(context);
+    final effectiveStyle = widget.style ?? theme.textTheme.titleMedium!;
+    final selected = Align(
+      alignment: widget.alignment,
+      widthFactor: widget.isExpanded ? null : 1,
+      child: _selectedChild(context),
+    );
+    final children = <Widget>[
+      if (widget.isExpanded)
+        Expanded(child: selected)
+      else
+        Flexible(child: selected),
+      if (widget._inputDecoration == null) ...<Widget>[
+        const SizedBox(width: 8),
+        _buildMenuIcon(theme),
+      ],
+    ];
+    final row = Row(
+      mainAxisSize: widget.isExpanded ? MainAxisSize.max : MainAxisSize.min,
+      children: children,
+    );
+    final styled = DefaultTextStyle(
+      style: _enabled
+          ? effectiveStyle
+          : effectiveStyle.copyWith(color: theme.disabledColor),
+      child: row,
+    );
+    final itemHeight = widget.itemHeight;
+    if (itemHeight != null && itemHeight.isFinite && itemHeight > 0) {
+      return SizedBox(height: itemHeight, child: styled);
+    }
+    return ConstrainedBox(
+      constraints: BoxConstraints(
+        minHeight: widget.isDense ? 24 : kMinInteractiveDimension,
+      ),
+      child: styled,
+    );
+  }
+
+  Widget _buildMenuIcon(ThemeData theme, {Widget? icon}) {
+    final iconColor = _enabled
+        ? widget.iconEnabledColor ?? theme.colorScheme.onSurfaceVariant
+        : widget.iconDisabledColor ?? theme.disabledColor;
+    return IconTheme(
+      data: IconThemeData(color: iconColor, size: widget.iconSize),
+      child: icon ?? widget.icon ?? const Icon(Icons.arrow_drop_down_rounded),
+    );
+  }
+
+  void _handleFocusChanged(bool focused) {
+    if (mounted && focused != _focused) {
+      setState(() => _focused = focused);
+    }
+  }
+
+  void _handleHoverChanged(bool hovering) {
+    if (mounted && hovering != _hovering) {
+      setState(() => _hovering = hovering);
+    }
+  }
+
+  KeyEventResult _handleFormKeyEvent(FocusNode node, KeyEvent event) {
+    if (!_enabled || event is! KeyDownEvent) return KeyEventResult.ignored;
+    final key = event.logicalKey;
+    if (key != LogicalKeyboardKey.enter &&
+        key != LogicalKeyboardKey.space &&
+        key != LogicalKeyboardKey.arrowDown) {
+      return KeyEventResult.ignored;
+    }
+    unawaited(_showDropdown());
+    return KeyEventResult.handled;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    Widget result = _buildContents(context);
+    final padding = widget.padding;
+    if (padding != null) result = Padding(padding: padding, child: result);
+    final inputDecoration = widget._inputDecoration;
+    if (inputDecoration != null) {
+      final decorationTheme = InputDecorationTheme.of(context);
+      final filled = inputDecoration.filled ?? decorationTheme.filled;
+      final outlined =
+          inputDecoration.border?.isOutline ??
+          decorationTheme.border?.isOutline ??
+          false;
+      final suffixIconEndMargin = filled || outlined ? 12.0 : 0.0;
+      var effectiveDecoration = inputDecoration.copyWith(
+        suffixIconConstraints: BoxConstraints(
+          minWidth: widget.iconSize + suffixIconEndMargin,
+          minHeight: widget.iconSize,
+        ),
+        suffixIcon: Padding(
+          padding: EdgeInsetsDirectional.only(end: suffixIconEndMargin),
+          child: _buildMenuIcon(
+            Theme.of(context),
+            icon: widget.icon ?? inputDecoration.suffixIcon,
+          ),
+        ),
+      );
+      if (_focused) {
+        final focusColor = widget.focusColor ?? effectiveDecoration.focusColor;
+        if (focusColor != null) {
+          effectiveDecoration = effectiveDecoration.copyWith(
+            fillColor: focusColor,
+          );
+        }
+      }
+      result = InputDecorator(
+        decoration: effectiveDecoration,
+        isEmpty: widget._isEmpty,
+        isFocused: _focused,
+        isHovering: _hovering,
+        child: result,
+      );
+      final effectiveMouseCursor = WidgetStateProperty.resolveAs<MouseCursor>(
+        widget.mouseCursor ?? WidgetStateMouseCursor.adaptiveClickable,
+        <WidgetState>{if (!_enabled) WidgetState.disabled},
+      );
+      result = Focus(
+        canRequestFocus: _enabled,
+        focusNode: _effectiveFocusNode,
+        autofocus: widget.autofocus,
+        onFocusChange: _handleFocusChanged,
+        onKeyEvent: _handleFormKeyEvent,
+        child: MouseRegion(
+          cursor: effectiveMouseCursor,
+          onEnter: (_) => _handleHoverChanged(true),
+          onExit: (_) => _handleHoverChanged(false),
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: _enabled ? _showDropdown : null,
+            child: result,
+          ),
+        ),
+      );
+    } else if (!DropdownButtonHideUnderline.at(context)) {
+      result = Column(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          result,
+          widget.underline ??
+              Container(
+                height: 1,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+        ],
+      );
+    }
+    if (inputDecoration == null) {
+      result = InkWell(
+        onTap: _enabled ? _showDropdown : null,
+        onFocusChange: _handleFocusChanged,
+        onHover: _handleHoverChanged,
+        focusNode: _effectiveFocusNode,
+        autofocus: widget.autofocus,
+        focusColor: widget.focusColor,
+        borderRadius: widget.borderRadius,
+        enableFeedback: widget.enableFeedback ?? true,
+        mouseCursor: widget.mouseCursor,
+        child: result,
+      );
+    }
+    return Semantics(
+      button: true,
+      enabled: _enabled,
+      expanded: _menuOpen,
+      child: result,
+    );
+  }
+}
+
+/// Form-integrated counterpart to [AnimatedDropdownButton].
+class AnimatedDropdownButtonFormField<T> extends FormField<T> {
+  AnimatedDropdownButtonFormField({
+    super.key,
+    required List<DropdownMenuItem<T>>? items,
+    DropdownButtonBuilder? selectedItemBuilder,
+    T? value,
+    T? initialValue,
+    Widget? hint,
+    Widget? disabledHint,
+    required this.onChanged,
+    VoidCallback? onTap,
+    int elevation = 8,
+    TextStyle? style,
+    Widget? icon,
+    Color? iconDisabledColor,
+    Color? iconEnabledColor,
+    double iconSize = 24,
+    bool isDense = true,
+    bool isExpanded = false,
+    double? itemHeight,
+    Color? focusColor,
+    FocusNode? focusNode,
+    bool autofocus = false,
+    Color? dropdownColor,
+    InputDecoration? decoration,
+    super.onSaved,
+    super.validator,
+    super.errorBuilder,
+    super.forceErrorText,
+    AutovalidateMode? autovalidateMode,
+    double? menuMaxHeight,
+    bool? enableFeedback,
+    AlignmentGeometry alignment = AlignmentDirectional.centerStart,
+    BorderRadius? borderRadius,
+    EdgeInsetsGeometry? padding,
+    bool barrierDismissible = true,
+    MouseCursor? mouseCursor,
+    MouseCursor? dropdownMenuItemMouseCursor,
+    bool useRootNavigator = false,
+    DialogAnimationSettings? animationSettings,
+  }) : decoration = decoration ?? const InputDecoration(),
+       super(
+         initialValue: initialValue ?? value,
+         autovalidateMode: autovalidateMode ?? AutovalidateMode.disabled,
+         builder: (field) {
+           final state = field as _AnimatedDropdownButtonFormFieldState<T>;
+           var effectiveDecoration = (decoration ?? const InputDecoration())
+               .applyDefaults(InputDecorationTheme.of(field.context));
+           final hasSelectedItem =
+               items?.any((item) => item.value == state.value) ?? false;
+           final enabled = onChanged != null && (items?.isNotEmpty ?? false);
+           final decorationHint = effectiveDecoration.hintText == null
+               ? null
+               : Text(effectiveDecoration.hintText!);
+           final effectiveHint = hint ?? decorationHint;
+           final effectiveDisabledHint = disabledHint ?? effectiveHint;
+           final hasHint = enabled
+               ? effectiveHint != null
+               : effectiveHint != null || effectiveDisabledHint != null;
+           final isEmpty = !hasSelectedItem && !hasHint;
+           if (field.errorText != null ||
+               effectiveDecoration.hintText != null) {
+             final error = field.errorText != null && errorBuilder != null
+                 ? errorBuilder(state.context, field.errorText!)
+                 : null;
+             effectiveDecoration = effectiveDecoration.copyWith(
+               error: error,
+               errorText: error == null ? field.errorText : null,
+               hintText: effectiveDecoration.hintText == null ? null : '',
+             );
+           }
+           return Focus(
+             canRequestFocus: false,
+             skipTraversal: true,
+             child: DropdownButtonHideUnderline(
+               child: AnimatedDropdownButton<T>._formField(
+                 items: items,
+                 selectedItemBuilder: selectedItemBuilder,
+                 value: state.value,
+                 hint: effectiveHint,
+                 disabledHint: effectiveDisabledHint,
+                 onChanged: onChanged == null ? null : state.didChange,
+                 onTap: onTap,
+                 elevation: elevation,
+                 style: style,
+                 icon: icon,
+                 iconDisabledColor: iconDisabledColor,
+                 iconEnabledColor: iconEnabledColor,
+                 iconSize: iconSize,
+                 isDense: isDense,
+                 isExpanded: isExpanded,
+                 itemHeight: itemHeight,
+                 focusColor: focusColor,
+                 focusNode: focusNode,
+                 autofocus: autofocus,
+                 dropdownColor: dropdownColor,
+                 menuMaxHeight: menuMaxHeight,
+                 enableFeedback: enableFeedback,
+                 alignment: alignment,
+                 borderRadius: borderRadius,
+                 padding: padding,
+                 barrierDismissible: barrierDismissible,
+                 mouseCursor: mouseCursor,
+                 dropdownMenuItemMouseCursor: dropdownMenuItemMouseCursor,
+                 useRootNavigator: useRootNavigator,
+                 animationSettings: animationSettings,
+                 inputDecoration: effectiveDecoration,
+                 isEmpty: isEmpty,
+               ),
+             ),
+           );
+         },
+       );
+
+  final ValueChanged<T?>? onChanged;
+  final InputDecoration decoration;
+
+  @override
+  FormFieldState<T> createState() => _AnimatedDropdownButtonFormFieldState<T>();
+}
+
+class _AnimatedDropdownButtonFormFieldState<T> extends FormFieldState<T> {
+  AnimatedDropdownButtonFormField<T> get _formField =>
+      widget as AnimatedDropdownButtonFormField<T>;
+
+  @override
+  void didChange(T? value) {
+    super.didChange(value);
+    _formField.onChanged?.call(value);
+  }
+
+  @override
+  void didUpdateWidget(AnimatedDropdownButtonFormField<T> oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialValue != widget.initialValue) {
+      setValue(widget.initialValue);
+    }
+  }
+
+  @override
+  void reset() {
+    super.reset();
+    _formField.onChanged?.call(value);
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -653,6 +1289,7 @@ class AnimatedPopupMenuButton<T> extends StatefulWidget {
     this.constraints,
     this.buttonConstraints,
     this.useRootNavigator = false,
+    this.barrierDismissible = true,
   });
 
   final PopupMenuItemBuilder<T> itemBuilder;
@@ -674,6 +1311,7 @@ class AnimatedPopupMenuButton<T> extends StatefulWidget {
   final BoxConstraints? constraints;
   final BoxConstraints? buttonConstraints;
   final bool useRootNavigator;
+  final bool barrierDismissible;
 
   @override
   State<AnimatedPopupMenuButton<T>> createState() =>
@@ -720,6 +1358,7 @@ class _AnimatedPopupMenuButtonState<T>
       shape: widget.shape,
       constraints: widget.constraints,
       useRootNavigator: widget.useRootNavigator,
+      barrierDismissible: widget.barrierDismissible,
     ).then((value) {
       if (!mounted) return;
       if (value == null) {

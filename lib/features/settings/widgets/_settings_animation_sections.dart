@@ -311,7 +311,7 @@ class _AnimationSettingsControl extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             Expanded(
-              child: DropdownButtonFormField<DialogAnimationCurve>(
+              child: AnimatedDropdownButtonFormField<DialogAnimationCurve>(
                 initialValue: current.curve,
                 decoration: const InputDecoration(
                   contentPadding: EdgeInsets.symmetric(
@@ -355,7 +355,7 @@ class _AnimationSettingsControl extends StatelessWidget {
         SizedBox(width: 80, child: Text(label, style: textTheme.labelLarge)),
         const SizedBox(width: 8),
         Expanded(
-          child: DropdownButtonFormField<DialogAnimationStyle>(
+          child: AnimatedDropdownButtonFormField<DialogAnimationStyle>(
             initialValue: value,
             decoration: const InputDecoration(
               contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),

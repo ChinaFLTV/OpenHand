@@ -7,6 +7,7 @@ import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../app/theme/openhand_status_colors.dart';
 import '../../../shared/ui/animated_dialog.dart';
+import '../../../shared/ui/animated_menu.dart';
 import '../../../shared/ui/highlight_pulse.dart';
 import '../../../shared/ui/model_search_selector.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
@@ -2058,7 +2059,7 @@ class _CompactDropdown<T> extends StatelessWidget {
         isDense: true,
       ),
       child: DropdownButtonHideUnderline(
-        child: DropdownButton<T>(
+        child: AnimatedDropdownButton<T>(
           isDense: true,
           isExpanded: true,
           value: value,

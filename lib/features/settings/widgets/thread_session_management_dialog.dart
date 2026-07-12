@@ -995,7 +995,7 @@ class _ThreadSessionManagementDialogState
                 ),
               ),
               const SizedBox(width: 12),
-              DropdownButton<_SortMode>(
+              AnimatedDropdownButton<_SortMode>(
                 value: _sortMode,
                 isDense: true,
                 items: [

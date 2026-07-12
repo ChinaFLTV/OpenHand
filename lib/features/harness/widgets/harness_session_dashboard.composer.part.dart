@@ -1007,7 +1007,7 @@ class _HePendingPhaseEditor extends StatelessWidget {
             Row(
               children: [
                 Expanded(
-                  child: DropdownButtonFormField<String>(
+                  child: AnimatedDropdownButtonFormField<String>(
                     initialValue:
                         cliNames.any((c) => c.name == roleConfig.cliName)
                         ? roleConfig.cliName

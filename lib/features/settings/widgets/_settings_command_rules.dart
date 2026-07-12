@@ -424,7 +424,7 @@ class _CommandRuleEditorDialogState<T>
                     },
                   ),
                   const SizedBox(height: 16),
-                  DropdownButtonFormField<AiDenyCommandMatchMode>(
+                  AnimatedDropdownButtonFormField<AiDenyCommandMatchMode>(
                     initialValue: _matchMode,
                     decoration: InputDecoration(
                       labelText: openHandLocalizedText(

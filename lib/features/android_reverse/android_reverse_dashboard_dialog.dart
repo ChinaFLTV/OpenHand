@@ -8297,7 +8297,7 @@ fi
                 SizedBox(
                   width: isZh ? 118 : 126,
                   height: _kDashboardFilterControlHeight,
-                  child: DropdownButtonFormField<String>(
+                  child: AnimatedDropdownButtonFormField<String>(
                     initialValue: _logcatLevel,
                     decoration: InputDecoration(
                       isDense: true,
@@ -8332,7 +8332,7 @@ fi
                 SizedBox(
                   width: isZh ? 112 : 126,
                   height: _kDashboardFilterControlHeight,
-                  child: DropdownButtonFormField<int>(
+                  child: AnimatedDropdownButtonFormField<int>(
                     initialValue: _logcatCacheLimit,
                     decoration: InputDecoration(
                       isDense: true,

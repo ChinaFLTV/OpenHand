@@ -3124,7 +3124,7 @@ class _AgentClusterSettingsEditorState
   }) {
     final effectiveValue = values.contains(value) ? value : values.first;
     return _FormGridItem(
-      child: DropdownButtonFormField<String>(
+      child: AnimatedDropdownButtonFormField<String>(
         initialValue: effectiveValue,
         decoration: InputDecoration(labelText: label),
         items: values
@@ -4791,7 +4791,7 @@ class _AgentKpiEditorDialogState extends State<_AgentKpiEditorDialog> {
               ),
             ),
             const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
+            AnimatedDropdownButtonFormField<String>(
               initialValue: _status,
               decoration: InputDecoration(
                 labelText: openHandLocalizedText(
@@ -10092,7 +10092,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
     required ValueChanged<String> onChanged,
   }) {
     final effectiveValue = values.contains(value) ? value : values.first;
-    return DropdownButtonFormField<String>(
+    return AnimatedDropdownButtonFormField<String>(
       initialValue: effectiveValue,
       decoration: InputDecoration(labelText: label),
       items: values

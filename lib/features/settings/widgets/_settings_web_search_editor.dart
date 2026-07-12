@@ -569,7 +569,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
         Row(
           children: [
             Expanded(
-              child: DropdownButtonFormField<AiWebSearchSummaryDetail>(
+              child: AnimatedDropdownButtonFormField<AiWebSearchSummaryDetail>(
                 initialValue: v.summaryDetail,
                 decoration: InputDecoration(
                   labelText: openHandLocalizedText(
@@ -593,7 +593,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: DropdownButtonFormField<AiWebSearchSummaryStyle>(
+              child: AnimatedDropdownButtonFormField<AiWebSearchSummaryStyle>(
                 initialValue: v.summaryStyle,
                 decoration: InputDecoration(
                   labelText: openHandLocalizedText(
@@ -2019,7 +2019,7 @@ class _WebSearchEngineCardState extends State<_WebSearchEngineCard> {
                       ),
                       if (_canLinkProvider(cfg.kind)) ...[
                         const SizedBox(height: 8),
-                        DropdownButtonFormField<String?>(
+                        AnimatedDropdownButtonFormField<String?>(
                           initialValue: cfg.providerConfigId,
                           isExpanded: true,
                           decoration: InputDecoration(

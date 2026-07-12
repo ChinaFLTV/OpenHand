@@ -2851,7 +2851,7 @@ class _SettingsStringDropdown extends StatelessWidget {
         effectiveOptions.any((option) => option.value == normalized)
         ? normalized
         : effectiveOptions.first.value;
-    return DropdownButtonFormField<String>(
+    return AnimatedDropdownButtonFormField<String>(
       initialValue: selected,
       isExpanded: true,
       decoration: InputDecoration(labelText: label),

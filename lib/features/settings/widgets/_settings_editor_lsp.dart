@@ -156,7 +156,7 @@ extension on _SettingsViewState {
               zh: '代码编辑器会把 Tab 转换为空格，并按这个宽度进行整行缩进或反向缩进。',
               en: 'The code editor converts Tab into spaces and uses this width for both indentation and outdent operations.',
             ),
-            control: DropdownButton<int>(
+            control: AnimatedDropdownButton<int>(
               value: settingsController.editorIndentSpaces,
               underline: const SizedBox.shrink(),
               borderRadius: BorderRadius.circular(12),
@@ -196,7 +196,7 @@ extension on _SettingsViewState {
               zh: '切换代码编辑器的语法高亮配色主题。',
               en: 'Switch the syntax highlighting color theme of the code editor.',
             ),
-            control: DropdownButton<EditorCodeTheme>(
+            control: AnimatedDropdownButton<EditorCodeTheme>(
               value: settingsController.editorCodeTheme,
               underline: const SizedBox.shrink(),
               borderRadius: BorderRadius.circular(12),
@@ -1736,7 +1736,7 @@ class _EditorLspConfigDialogState extends State<_EditorLspConfigDialog> {
                 ),
               ),
               const SizedBox(height: 16),
-              DropdownButtonFormField<String>(
+              AnimatedDropdownButtonFormField<String>(
                 initialValue: _selectedBackendId,
                 decoration: InputDecoration(
                   labelText: openHandLocalizedText(

@@ -867,7 +867,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
         : allowUnset
         ? ''
         : modelIds.first;
-    return DropdownButtonFormField<String>(
+    return AnimatedDropdownButtonFormField<String>(
       key: ValueKey<String>(
         '$label::$initialValue::${modelIds.join('\u0001')}',
       ),
@@ -1003,7 +1003,9 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                               builder: (context, constraints) {
                                 final stacked = constraints.maxWidth < 640;
                                 final authDropdown =
-                                    DropdownButtonFormField<AiAuthScheme>(
+                                    AnimatedDropdownButtonFormField<
+                                      AiAuthScheme
+                                    >(
                                       initialValue: _authScheme,
                                       decoration: InputDecoration(
                                         labelText: l10n.aiModelAuthScheme,
@@ -1033,7 +1035,9 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                             },
                                     );
                                 final protocolDropdown =
-                                    DropdownButtonFormField<AiProtocolType>(
+                                    AnimatedDropdownButtonFormField<
+                                      AiProtocolType
+                                    >(
                                       initialValue: _protocolType,
                                       decoration: InputDecoration(
                                         labelText: l10n.aiModelProtocol,
@@ -1372,7 +1376,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                               builder: (context, constraints) {
                                 final stacked = constraints.maxWidth < 640;
                                 final methodDropdown =
-                                    DropdownButtonFormField<String>(
+                                    AnimatedDropdownButtonFormField<String>(
                                       initialValue: _requestMethod,
                                       decoration: InputDecoration(
                                         labelText: AppLocalizations.of(
@@ -1573,7 +1577,9 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                               builder: (context, constraints) {
                                 final stacked = constraints.maxWidth < 640;
                                 final dialectDropdown =
-                                    DropdownButtonFormField<AiApiDialect>(
+                                    AnimatedDropdownButtonFormField<
+                                      AiApiDialect
+                                    >(
                                       initialValue: _apiDialect,
                                       decoration: InputDecoration(
                                         labelText: openHandLocalizedText(
@@ -1607,7 +1613,9 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                             },
                                     );
                                 final providerKindDropdown =
-                                    DropdownButtonFormField<AiProviderKind>(
+                                    AnimatedDropdownButtonFormField<
+                                      AiProviderKind
+                                    >(
                                       initialValue: _providerKind,
                                       decoration: InputDecoration(
                                         labelText: openHandLocalizedText(
@@ -2052,7 +2060,9 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                   required String value,
                                   required ValueChanged<String?> onChanged,
                                 }) {
-                                  return DropdownButtonFormField<String>(
+                                  return AnimatedDropdownButtonFormField<
+                                    String
+                                  >(
                                     initialValue: value,
                                     decoration: InputDecoration(
                                       labelText: label,
@@ -3900,7 +3910,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        DropdownButtonFormField<String>(
+        AnimatedDropdownButtonFormField<String>(
           key: ValueKey<String?>(
             selectedValue == null ? null : 'reasoning-effort-$selectedValue',
           ),

@@ -919,7 +919,7 @@ class _SandboxFileRuleDialogState extends State<_SandboxFileRuleDialog> {
                     : null,
               ),
               const SizedBox(height: 14),
-              DropdownButtonFormField<AiSandboxFileAccessMode>(
+              AnimatedDropdownButtonFormField<AiSandboxFileAccessMode>(
                 initialValue: _accessMode,
                 decoration: InputDecoration(
                   labelText: openHandLocalizedText(
@@ -943,7 +943,7 @@ class _SandboxFileRuleDialogState extends State<_SandboxFileRuleDialog> {
                 }),
               ),
               const SizedBox(height: 14),
-              DropdownButtonFormField<AiDenyCommandMatchMode>(
+              AnimatedDropdownButtonFormField<AiDenyCommandMatchMode>(
                 initialValue: _matchMode,
                 decoration: InputDecoration(
                   labelText: openHandLocalizedText(
@@ -1078,7 +1078,7 @@ class _SandboxPatternRuleDialogState extends State<_SandboxPatternRuleDialog> {
                     : null,
               ),
               const SizedBox(height: 14),
-              DropdownButtonFormField<AiDenyCommandMatchMode>(
+              AnimatedDropdownButtonFormField<AiDenyCommandMatchMode>(
                 initialValue: _matchMode,
                 decoration: InputDecoration(
                   labelText: openHandLocalizedText(

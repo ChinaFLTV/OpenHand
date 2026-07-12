@@ -965,7 +965,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
               // Run as user
               Text(l10n.cronsRunAsUser, style: theme.textTheme.titleSmall),
               const SizedBox(height: 8),
-              DropdownButtonFormField<String>(
+              AnimatedDropdownButtonFormField<String>(
                 initialValue: _runAsUser,
                 decoration: InputDecoration(
                   hintText: l10n.cronsDefaultCurrentUser,
@@ -1301,7 +1301,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
             Row(
               children: [
                 Flexible(
-                  child: DropdownButtonFormField<CronNotifyType>(
+                  child: AnimatedDropdownButtonFormField<CronNotifyType>(
                     initialValue: notifyType,
                     decoration: const InputDecoration(
                       contentPadding: EdgeInsets.symmetric(
@@ -1322,7 +1322,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                 ),
                 const SizedBox(width: 8),
                 Flexible(
-                  child: DropdownButtonFormField<CronNotifySeverity>(
+                  child: AnimatedDropdownButtonFormField<CronNotifySeverity>(
                     initialValue: severity,
                     decoration: const InputDecoration(
                       contentPadding: EdgeInsets.symmetric(

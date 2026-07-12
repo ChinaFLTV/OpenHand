@@ -57,7 +57,7 @@ class _HeModelDropdown extends StatelessWidget {
       );
     }
 
-    return DropdownButtonFormField<String>(
+    return AnimatedDropdownButtonFormField<String>(
       initialValue: items.any((item) => item.value == configuredModelId)
           ? configuredModelId
           : (models.contains(configuredModelId) ? configuredModelId : null),
