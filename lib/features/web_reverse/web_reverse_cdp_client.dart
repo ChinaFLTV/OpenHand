@@ -17,80 +17,265 @@ import '../../shared/util/input_value_parsing.dart';
 /// - 命令通过 [send] 走 future-based 请求-响应。
 /// - 事件通过 [events] 流给上层订阅。
 ///
-/// 自动重连：当 WebSocket 因网络抖动 / 浏览器 GPU 进程重启等被动断开时，
-/// 触发 [_scheduleReconnect]，使用指数退避（200ms → 400ms → 800ms …，
-/// 上限 5s）尝试最多 [reconnectMaxAttempts] 次。重连成功后会自动 emit
-/// [CdpReconnectEvent] 给上层，上层负责重新 enable 各 domain。
+/// WebSocket 被动断开后使用有上限的指数退避自动重连。成功时发布
+/// `__cdp_reconnected__`，由上层重新启用所需 domain。
+typedef WebReverseCdpConnector = WebReverseCdpTransport Function(Uri endpoint);
+
+class WebReverseCdpTransport {
+  const WebReverseCdpTransport({
+    required this.ready,
+    required this.stream,
+    required this.sink,
+  });
+
+  factory WebReverseCdpTransport.connect(Uri endpoint) {
+    final channel = WebSocketChannel.connect(endpoint);
+    return WebReverseCdpTransport(
+      ready: channel.ready,
+      stream: channel.stream,
+      sink: channel.sink,
+    );
+  }
+
+  final Future<void> ready;
+  final Stream<dynamic> stream;
+  final StreamSink<dynamic> sink;
+}
+
 class WebReverseCdpClient {
-  WebReverseCdpClient({required this.endpoint, this.reconnectMaxAttempts = 6});
+  WebReverseCdpClient({
+    required this.endpoint,
+    this.reconnectMaxAttempts = 6,
+    Duration handshakeTimeout = _defaultHandshakeTimeout,
+    Duration connectionCleanupTimeout = _defaultConnectionCleanupTimeout,
+    Duration reconnectInitialDelay = _defaultReconnectInitialDelay,
+    Duration reconnectMaxDelay = _defaultReconnectMaxDelay,
+    WebReverseCdpConnector? connector,
+  }) : _endpointUri = Uri.parse(endpoint),
+       _handshakeTimeout = handshakeTimeout,
+       _connectionCleanupTimeout = connectionCleanupTimeout,
+       _reconnectInitialDelay = reconnectInitialDelay,
+       _reconnectMaxDelay = reconnectMaxDelay,
+       _connector = connector ?? WebReverseCdpTransport.connect {
+    if ((_endpointUri.scheme != 'ws' && _endpointUri.scheme != 'wss') ||
+        _endpointUri.host.isEmpty) {
+      throw ArgumentError.value(
+        endpoint,
+        'endpoint',
+        'Must be an absolute ws or wss endpoint.',
+      );
+    }
+    if (reconnectMaxAttempts < 0) {
+      throw ArgumentError.value(
+        reconnectMaxAttempts,
+        'reconnectMaxAttempts',
+        'Must not be negative.',
+      );
+    }
+    if (handshakeTimeout <= Duration.zero) {
+      throw ArgumentError.value(
+        handshakeTimeout,
+        'handshakeTimeout',
+        'Must be positive.',
+      );
+    }
+    if (connectionCleanupTimeout.isNegative) {
+      throw ArgumentError.value(
+        connectionCleanupTimeout,
+        'connectionCleanupTimeout',
+        'Must not be negative.',
+      );
+    }
+    if (reconnectInitialDelay.isNegative || reconnectMaxDelay.isNegative) {
+      throw ArgumentError.value(
+        reconnectInitialDelay.isNegative
+            ? reconnectInitialDelay
+            : reconnectMaxDelay,
+        reconnectInitialDelay.isNegative
+            ? 'reconnectInitialDelay'
+            : 'reconnectMaxDelay',
+        'Must not be negative.',
+      );
+    }
+    if (reconnectMaxDelay < reconnectInitialDelay) {
+      throw ArgumentError.value(
+        reconnectMaxDelay,
+        'reconnectMaxDelay',
+        'Must not be shorter than reconnectInitialDelay.',
+      );
+    }
+  }
+
+  static const Duration _defaultHandshakeTimeout = Duration(seconds: 8);
+  static const Duration _defaultConnectionCleanupTimeout = Duration(seconds: 1);
+  static const Duration _defaultReconnectInitialDelay = Duration(
+    milliseconds: 200,
+  );
+  static const Duration _defaultReconnectMaxDelay = Duration(seconds: 5);
+  static const int _maxPendingCommands = 256;
+  static const int _maxIncomingMessageCharacters = 8 * 1024 * 1024;
 
   /// `webSocketDebuggerUrl`，形如 `ws://127.0.0.1:9222/devtools/browser/<uuid>`。
   final String endpoint;
 
-  /// 自动重连最多尝试次数，超过后放弃并抛出最后一次错误。
+  /// 自动重连最多尝试次数，超过后发布 `__cdp_dead__`。
   final int reconnectMaxAttempts;
 
-  WebSocketChannel? _channel;
-  StreamSubscription<dynamic>? _subscription;
-  bool _reconnecting = false;
-  bool _connected = false;
+  final Uri _endpointUri;
+  final Duration _handshakeTimeout;
+  final Duration _connectionCleanupTimeout;
+  final Duration _reconnectInitialDelay;
+  final Duration _reconnectMaxDelay;
+  final WebReverseCdpConnector _connector;
 
-  /// 已发出但尚未收到响应的命令。
+  WebReverseCdpTransport? _transport;
+  WebReverseCdpTransport? _connectingTransport;
+  Completer<void>? _connectingCancellation;
+  StreamSubscription<dynamic>? _subscription;
+  Future<void>? _connectFuture;
+  Future<void>? _closeFuture;
+  int _lifecycleGeneration = 0;
+  int? _reconnectGeneration;
+  bool _connected = false;
+  bool _closed = false;
+
   final Map<int, Completer<Map<String, Object?>>> _pending =
       <int, Completer<Map<String, Object?>>>{};
-
-  /// 事件流（method + params）。Dashboard 用它实时刷新。
   final StreamController<CdpEvent> _eventCtrl =
       StreamController<CdpEvent>.broadcast();
 
   Stream<CdpEvent> get events => _eventCtrl.stream;
+  bool get isClosed => _closed;
+  bool get _isReconnecting => _reconnectGeneration != null;
 
   int _nextId = 1;
-  bool _closed = false;
-  bool get isClosed => _closed;
 
-  /// 建立连接。
-  Future<void> connect() async {
+  /// 建立连接；并发调用共享同一次握手。
+  Future<void> connect() {
     if (_closed) {
-      throw StateError('CDP client is closed');
+      return Future<void>.error(StateError('CDP client is closed'));
     }
-    await _disposeCurrentConnection();
-    final channel = WebSocketChannel.connect(Uri.parse(endpoint));
-    try {
-      await channel.ready;
-    } catch (error, stack) {
-      await _closeChannelQuietly(channel, 'close failed connection');
-      silentLog('web_reverse_cdp_client', 'connect ready', error, stack);
-      rethrow;
-    }
-    if (_closed) {
-      await _closeChannelQuietly(channel, 'close late connection');
-      throw StateError('CDP client is closed');
-    }
-    _channel = channel;
-    _connected = true;
-    _subscription = channel.stream.listen(
-      _onMessage,
-      onError: _onError,
-      onDone: _onDone,
-      cancelOnError: false,
+    if (_connected && _transport != null) return Future<void>.value();
+    final pending = _connectFuture;
+    if (pending != null) return pending;
+
+    final generation = ++_lifecycleGeneration;
+    _reconnectGeneration = null;
+    final completer = Completer<void>();
+    final future = completer.future;
+    _connectFuture = future;
+    unawaited(
+      _connectOnce(generation).then<void>(
+        (_) {
+          if (identical(_connectFuture, future)) _connectFuture = null;
+          completer.complete();
+        },
+        onError: (Object error, StackTrace stack) {
+          if (identical(_connectFuture, future)) _connectFuture = null;
+          completer.completeError(error, stack);
+        },
+      ),
     );
+    return future;
   }
 
-  /// 发送命令，等待响应。`sessionId` 用于多目标场景（attach 到 page target 后必填）。
+  Future<void> _connectOnce(int generation) async {
+    final connecting = _connectingTransport;
+    final connectingCancellation = _connectingCancellation;
+    _connectingTransport = null;
+    _connectingCancellation = null;
+    if (connectingCancellation != null && !connectingCancellation.isCompleted) {
+      connectingCancellation.complete();
+    }
+    await Future.wait<void>(<Future<void>>[
+      _disposeCurrentConnection(),
+      if (connecting != null)
+        _closeTransportQuietly(connecting, 'close superseded connection'),
+    ]);
+    _throwIfSuperseded(generation);
+    await _openTransport(generation);
+  }
+
+  Future<void> _openTransport(int generation) async {
+    _throwIfSuperseded(generation);
+    final transport = _connector(_endpointUri);
+    final cancellation = Completer<void>();
+    StreamSubscription<dynamic>? subscription;
+    _connectingTransport = transport;
+    _connectingCancellation = cancellation;
+    try {
+      final outcome = await Future.any<_CdpHandshakeOutcome>([
+        transport.ready.then((_) => _CdpHandshakeOutcome.ready),
+        cancellation.future.then((_) => _CdpHandshakeOutcome.cancelled),
+      ]).timeout(_handshakeTimeout);
+      if (outcome == _CdpHandshakeOutcome.cancelled) {
+        throw StateError('CDP connection attempt was cancelled');
+      }
+      if (!_ownsConnectingTransport(transport, generation)) {
+        throw StateError('CDP connection attempt was superseded');
+      }
+
+      _connectingTransport = null;
+      _connectingCancellation = null;
+      if (!cancellation.isCompleted) cancellation.complete();
+      _transport = transport;
+      _connected = true;
+      subscription = transport.stream.listen(
+        (raw) => _handleMessage(transport, generation, raw),
+        onError: (Object error, StackTrace stack) =>
+            _handleTransportError(transport, generation, error, stack),
+        onDone: () => _handleTransportDone(transport, generation),
+        cancelOnError: false,
+      );
+      if (!_ownsActiveTransport(transport, generation)) {
+        throw StateError('CDP connection closed while being installed');
+      }
+      _subscription = subscription;
+      _observeSink(transport, generation);
+    } catch (error, stack) {
+      var shouldCloseTransport = false;
+      if (identical(_connectingTransport, transport)) {
+        _connectingTransport = null;
+        shouldCloseTransport = true;
+      }
+      if (identical(_connectingCancellation, cancellation)) {
+        _connectingCancellation = null;
+      }
+      if (identical(_transport, transport)) {
+        _transport = null;
+        _connected = false;
+        shouldCloseTransport = true;
+      }
+      if (!cancellation.isCompleted) cancellation.complete();
+      await Future.wait<void>(<Future<void>>[
+        _cancelSubscriptionQuietly(subscription, 'cancel failed connection'),
+        if (shouldCloseTransport)
+          _closeTransportQuietly(transport, 'close failed connection'),
+      ]);
+      Error.throwWithStackTrace(error, stack);
+    }
+  }
+
+  /// 发送命令，等待响应。`sessionId` 用于 attach 后的多目标场景。
   Future<Map<String, Object?>> send(
     String method, {
     Map<String, Object?>? params,
     String? sessionId,
     Duration timeout = const Duration(seconds: 8),
   }) async {
-    final channel = _channel;
-    if (_closed || channel == null || !_connected) {
-      throw StateError('CDP client is closed');
+    if (timeout.isNegative) {
+      throw ArgumentError.value(timeout, 'timeout', 'Must not be negative.');
     }
-    if (_reconnecting) {
-      throw StateError('CDP client is reconnecting');
+    if (_closed) throw StateError('CDP client is closed');
+    if (_isReconnecting) throw StateError('CDP client is reconnecting');
+    final transport = _transport;
+    if (transport == null || !_connected) {
+      throw StateError('CDP client is not connected');
     }
+    if (_pending.length >= _maxPendingCommands) {
+      throw StateError('Too many pending CDP commands');
+    }
+
     final id = _nextId++;
     final completer = Completer<Map<String, Object?>>();
     _pending[id] = completer;
@@ -101,7 +286,7 @@ class WebReverseCdpClient {
       if (sessionId != null) 'sessionId': sessionId,
     };
     try {
-      channel.sink.add(jsonEncode(payload));
+      transport.sink.add(jsonEncode(payload));
     } catch (error, stack) {
       _pending.remove(id);
       if (!completer.isCompleted) completer.completeError(error, stack);
@@ -115,8 +300,21 @@ class WebReverseCdpClient {
     }
   }
 
-  void _onMessage(dynamic raw) {
-    if (raw is! String) return;
+  void _handleMessage(
+    WebReverseCdpTransport transport,
+    int generation,
+    dynamic raw,
+  ) {
+    if (!_ownsActiveTransport(transport, generation) || raw is! String) return;
+    if (raw.length > _maxIncomingMessageCharacters) {
+      _handleTransportError(
+        transport,
+        generation,
+        StateError('CDP message exceeds the safety limit'),
+        StackTrace.current,
+      );
+      return;
+    }
     try {
       final data = jsonDecode(raw);
       if (data is! Map) return;
@@ -142,143 +340,244 @@ class WebReverseCdpClient {
         }
         return;
       }
+
       final method = map['method'];
-      if (method is String) {
-        final params = map['params'] is Map
-            ? stringKeyedMapFromValue(map['params'])
-            : const <String, Object?>{};
-        final sessionId = map['sessionId'] as String?;
-        if (!_eventCtrl.isClosed) {
-          _eventCtrl.add(
-            CdpEvent(method: method, params: params, sessionId: sessionId),
-          );
-        }
-      }
+      if (method is! String || _eventCtrl.isClosed) return;
+      final params = map['params'] is Map
+          ? stringKeyedMapFromValue(map['params'])
+          : const <String, Object?>{};
+      _eventCtrl.add(
+        CdpEvent(
+          method: method,
+          params: params,
+          sessionId: map['sessionId'] as String?,
+        ),
+      );
     } catch (error, stack) {
-      silentLog('web_reverse_cdp_client', '_onMessage', error, stack);
+      silentLog('web_reverse_cdp_client', 'parse message', error, stack);
     }
   }
 
-  void _onError(Object error, StackTrace stack) {
+  void _handleTransportError(
+    WebReverseCdpTransport transport,
+    int generation,
+    Object error,
+    StackTrace stack,
+  ) {
+    if (!_ownsActiveTransport(transport, generation)) return;
     silentLog('web_reverse_cdp_client', 'ws error', error, stack);
     _connected = false;
-    _failAllPending(error);
-    if (!_closed) {
-      _scheduleReconnect();
-    }
+    _failAllPending(error, stack);
+    _scheduleReconnect(generation);
   }
 
-  void _onDone() {
+  void _handleTransportDone(WebReverseCdpTransport transport, int generation) {
+    if (!_ownsActiveTransport(transport, generation)) return;
     _connected = false;
-    _channel = null;
-    _subscription = null;
     _failAllPending(StateError('CDP WebSocket closed'));
-    if (!_closed) {
-      // 非主动 close → 异常断开，尝试自动重连。
-      _scheduleReconnect();
+    _scheduleReconnect(generation);
+  }
+
+  void _observeSink(WebReverseCdpTransport transport, int generation) {
+    unawaited(
+      transport.sink.done.then<void>(
+        (_) {},
+        onError: (Object error, StackTrace stack) {
+          _handleTransportError(transport, generation, error, stack);
+        },
+      ),
+    );
+  }
+
+  void _scheduleReconnect(int generation) {
+    if (_closed ||
+        generation != _lifecycleGeneration ||
+        _reconnectGeneration != null) {
+      return;
+    }
+    _reconnectGeneration = generation;
+    unawaited(_runReconnectLoop(generation));
+  }
+
+  Future<void> _runReconnectLoop(int generation) async {
+    try {
+      await _disposeCurrentConnection();
+      if (!_ownsReconnect(generation)) return;
+      var delay = _reconnectInitialDelay;
+      for (var attempt = 1; attempt <= reconnectMaxAttempts; attempt += 1) {
+        if (delay > Duration.zero) await Future<void>.delayed(delay);
+        if (!_ownsReconnect(generation)) return;
+        try {
+          await _openTransport(generation);
+          final transport = _transport;
+          if (!_ownsReconnect(generation) ||
+              transport == null ||
+              !_ownsActiveTransport(transport, generation)) {
+            throw StateError('CDP reconnect was superseded');
+          }
+          _reconnectGeneration = null;
+          _emitEvent(
+            CdpEvent(
+              method: '__cdp_reconnected__',
+              params: <String, Object?>{'attempt': attempt},
+            ),
+          );
+          return;
+        } catch (error, stack) {
+          if (!_ownsReconnect(generation)) return;
+          silentLog(
+            'web_reverse_cdp_client',
+            'reconnect attempt $attempt',
+            error,
+            stack,
+          );
+          delay = _nextReconnectDelay(delay);
+        }
+      }
+
+      if (!_ownsReconnect(generation)) return;
+      _reconnectGeneration = null;
+      _closed = true;
+      _connected = false;
+      _lifecycleGeneration += 1;
+      _failAllPending(StateError('CDP reconnect failed'));
+      _emitEvent(
+        const CdpEvent(method: '__cdp_dead__', params: <String, Object?>{}),
+      );
+    } finally {
+      if (_reconnectGeneration == generation) {
+        _reconnectGeneration = null;
+      }
     }
   }
 
-  void _scheduleReconnect() {
-    if (_reconnecting || _closed) return;
-    _reconnecting = true;
-    () async {
-      try {
-        await _disposeCurrentConnection();
-        var delayMs = 200;
-        for (var attempt = 1; attempt <= reconnectMaxAttempts; attempt++) {
-          if (_closed) return;
-          await Future<void>.delayed(Duration(milliseconds: delayMs));
-          if (_closed) return;
-          try {
-            final channel = WebSocketChannel.connect(Uri.parse(endpoint));
-            await channel.ready;
-            if (_closed) {
-              await _closeChannelQuietly(channel, 'close late reconnect');
-              return;
-            }
-            _channel = channel;
-            _connected = true;
-            _subscription = channel.stream.listen(
-              _onMessage,
-              onError: _onError,
-              onDone: _onDone,
-              cancelOnError: false,
-            );
-            if (!_eventCtrl.isClosed) {
-              _eventCtrl.add(
-                CdpEvent(
-                  method: '__cdp_reconnected__',
-                  params: <String, Object?>{'attempt': attempt},
-                ),
-              );
-            }
-            return;
-          } catch (error, stack) {
-            silentLog(
-              'web_reverse_cdp_client',
-              'reconnect attempt $attempt',
-              error,
-              stack,
-            );
-            delayMs = (delayMs * 2).clamp(200, 5000);
-          }
-        }
-        _closed = true;
-        _connected = false;
-        _failAllPending(StateError('CDP reconnect failed'));
-        // 重连彻底失败：上层 controller 据此把状态切换到「浏览器已挂掉」，
-        // UI 拿到事件后展示"重启浏览器"按钮，避免用户停留在静默 placeholder。
-        if (!_eventCtrl.isClosed) {
-          _eventCtrl.add(
-            const CdpEvent(method: '__cdp_dead__', params: <String, Object?>{}),
-          );
-        }
-      } finally {
-        _reconnecting = false;
-      }
-    }();
+  Duration _nextReconnectDelay(Duration current) {
+    final doubled = current.inMicroseconds * 2;
+    return Duration(
+      microseconds: doubled.clamp(
+        _reconnectInitialDelay.inMicroseconds,
+        _reconnectMaxDelay.inMicroseconds,
+      ),
+    );
   }
 
-  void _failAllPending(Object error) {
-    for (final c in _pending.values) {
-      if (!c.isCompleted) c.completeError(error);
+  bool _ownsConnectingTransport(
+    WebReverseCdpTransport transport,
+    int generation,
+  ) {
+    return !_closed &&
+        generation == _lifecycleGeneration &&
+        identical(_connectingTransport, transport);
+  }
+
+  bool _ownsActiveTransport(WebReverseCdpTransport transport, int generation) {
+    return !_closed &&
+        _connected &&
+        generation == _lifecycleGeneration &&
+        identical(_transport, transport);
+  }
+
+  bool _ownsReconnect(int generation) {
+    return !_closed &&
+        generation == _lifecycleGeneration &&
+        _reconnectGeneration == generation;
+  }
+
+  void _throwIfSuperseded(int generation) {
+    if (_closed) throw StateError('CDP client is closed');
+    if (generation != _lifecycleGeneration) {
+      throw StateError('CDP connection attempt was superseded');
+    }
+  }
+
+  void _emitEvent(CdpEvent event) {
+    if (!_eventCtrl.isClosed) _eventCtrl.add(event);
+  }
+
+  void _failAllPending(Object error, [StackTrace? stack]) {
+    for (final completer in _pending.values) {
+      if (!completer.isCompleted) {
+        completer.completeError(error, stack ?? StackTrace.current);
+      }
     }
     _pending.clear();
   }
 
-  Future<void> close() async {
+  Future<void> close() {
+    final existing = _closeFuture;
+    if (existing != null) return existing;
+    final completer = Completer<void>();
+    _closeFuture = completer.future;
+    unawaited(
+      _closeInternal().then<void>(
+        (_) => completer.complete(),
+        onError: (Object error, StackTrace stack) {
+          completer.completeError(error, stack);
+        },
+      ),
+    );
+    return completer.future;
+  }
+
+  Future<void> _closeInternal() async {
     _closed = true;
     _connected = false;
-    await _disposeCurrentConnection();
+    _lifecycleGeneration += 1;
+    _reconnectGeneration = null;
+    final connecting = _connectingTransport;
+    final connectingCancellation = _connectingCancellation;
+    _connectingTransport = null;
+    _connectingCancellation = null;
+    if (connectingCancellation != null && !connectingCancellation.isCompleted) {
+      connectingCancellation.complete();
+    }
+    final active = _transport;
+    await Future.wait<void>(<Future<void>>[
+      _disposeCurrentConnection(),
+      if (connecting != null && !identical(connecting, active))
+        _closeTransportQuietly(connecting, 'close connecting transport'),
+    ]);
     _failAllPending(StateError('CDP client manually closed'));
-    if (!_eventCtrl.isClosed) await _eventCtrl.close();
+    if (!_eventCtrl.isClosed) {
+      try {
+        await _eventCtrl.close().timeout(_connectionCleanupTimeout);
+      } catch (error, stack) {
+        silentLog('web_reverse_cdp_client', 'close event stream', error, stack);
+      }
+    }
   }
 
   Future<void> _disposeCurrentConnection() async {
-    final sub = _subscription;
-    final channel = _channel;
+    final subscription = _subscription;
+    final transport = _transport;
     _subscription = null;
-    _channel = null;
+    _transport = null;
     _connected = false;
+    await Future.wait<void>(<Future<void>>[
+      _cancelSubscriptionQuietly(subscription, 'cancel subscription'),
+      if (transport != null)
+        _closeTransportQuietly(transport, 'close active transport'),
+    ]);
+  }
+
+  Future<void> _cancelSubscriptionQuietly(
+    StreamSubscription<dynamic>? subscription,
+    String where,
+  ) async {
+    if (subscription == null) return;
     try {
-      await sub?.cancel();
+      await subscription.cancel().timeout(_connectionCleanupTimeout);
     } catch (error, stack) {
-      silentLog('web_reverse_cdp_client', 'cancel subscription', error, stack);
-    }
-    try {
-      await channel?.sink.close();
-    } catch (error, stack) {
-      silentLog('web_reverse_cdp_client', 'close sink', error, stack);
+      silentLog('web_reverse_cdp_client', where, error, stack);
     }
   }
 
-  Future<void> _closeChannelQuietly(
-    WebSocketChannel channel,
+  Future<void> _closeTransportQuietly(
+    WebReverseCdpTransport transport,
     String where,
   ) async {
     try {
-      await channel.sink.close();
+      await transport.sink.close().timeout(_connectionCleanupTimeout);
     } catch (error, stack) {
       silentLog('web_reverse_cdp_client', where, error, stack);
     }
@@ -301,3 +600,5 @@ class CdpException implements Exception {
   @override
   String toString() => 'CdpException($code): $message';
 }
+
+enum _CdpHandshakeOutcome { ready, cancelled }
