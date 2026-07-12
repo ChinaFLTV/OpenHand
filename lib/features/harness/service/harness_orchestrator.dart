@@ -9,7 +9,7 @@ import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../app/support/system_proxy.dart';
 import '../../../shared/util/input_value_parsing.dart';
-import '../../../shared/util/timer_safety.dart';
+import '../../../shared/util/text_clip.dart';
 import '../../ai/index.dart';
 import '../model/harness_phase.dart';
 import '../model/harness_phase_context_config.dart';
@@ -21,6 +21,9 @@ import '../service/harness_cli_catalog.dart';
 import '../service/harness_prompt_builder.dart';
 
 const String kHarnessOrchestratorDisplayVersion = '1.0.0';
+const int _kMaxHarnessPhaseLogLines = 4000;
+const int _kMaxHarnessLogLineCharacters = 4000;
+const Duration _kHarnessProcessStartTimeout = Duration(seconds: 10);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Phase-level status & log
@@ -755,31 +758,12 @@ class HarnessOrchestrator extends ChangeNotifier {
   void _killActiveProcess() {
     final process = _activeProcess;
     if (process == null) return;
-    try {
-      process.kill(); // SIGTERM
-    } catch (error, stack) {
-      silentLog(
-        'harness_orchestrator',
-        'SIGTERM active CLI process',
-        error,
-        stack,
-      );
-    }
-    // Escalate to SIGKILL after 3 seconds if the process hasn't exited.
-    startSafeTimer(const Duration(seconds: 3), () {
-      if (_activeProcess == process) {
-        try {
-          process.kill(ProcessSignal.sigkill);
-        } catch (error, stack) {
-          silentLog(
-            'harness_orchestrator',
-            'SIGKILL active CLI process (escalation)',
-            error,
-            stack,
-          );
-        }
-      }
-    });
+    unawaited(
+      terminateTrackedProcessTree(
+        process,
+        gracefulTimeout: const Duration(seconds: 3),
+      ),
+    );
   }
 
   void _completePendingApproval({required bool approved}) {
@@ -1209,16 +1193,9 @@ class HarnessOrchestrator extends ChangeNotifier {
     _isDisposed = true;
     _completePendingApproval(approved: false);
     _cancelActiveApiPhase();
-    // Kill any running process so it doesn't become an orphan.
-    try {
-      _activeProcess?.kill();
-    } catch (error, stack) {
-      silentLog(
-        'harness_orchestrator',
-        'kill active process during dispose',
-        error,
-        stack,
-      );
+    final process = _activeProcess;
+    if (process != null) {
+      unawaited(terminateTrackedProcessTree(process));
     }
     super.dispose();
   }
@@ -2166,11 +2143,30 @@ class HarnessOrchestrator extends ChangeNotifier {
     final quotedWd = _shellSingleQuote(workingDirectory);
     final fullCmd = 'cd $quotedWd && $cmdStr';
 
-    final process = await startTrackedProcess(
+    final spawnFuture = startTrackedProcessInNewGroup(
       resolveHarnessCliShellExecutable(),
       buildHarnessCliShellArgs(fullCmd),
       environment: SystemProxyResolver.instance.resolveSubprocessEnvironment(),
     );
+    late final Process process;
+    try {
+      process = await spawnFuture.timeout(_kHarnessProcessStartTimeout);
+    } on TimeoutException {
+      unawaited(
+        spawnFuture.then<void>(
+          terminateTrackedProcessTree,
+          onError: (Object error, StackTrace stack) {
+            silentLog(
+              'harness_orchestrator',
+              'late CLI process start',
+              error,
+              stack,
+            );
+          },
+        ),
+      );
+      rethrow;
+    }
     _activeProcess = process;
 
     // ── Critical fix: close stdin immediately ──────────────────────────────
@@ -2198,16 +2194,13 @@ class HarnessOrchestrator extends ChangeNotifier {
       try {
         exitCode = await process.exitCode.timeout(timeout);
       } on TimeoutException {
-        // Graceful escalation: SIGTERM first, then SIGKILL after 5 s.
-        process.kill(); // SIGTERM (default)
-        try {
-          exitCode = await process.exitCode.timeout(const Duration(seconds: 5));
-        } catch (_) {
-          process.kill(ProcessSignal.sigkill);
-          exitCode = await process.exitCode
-              .timeout(const Duration(seconds: 2))
-              .catchError((_) => -1);
-        }
+        await terminateTrackedProcessTree(
+          process,
+          gracefulTimeout: const Duration(seconds: 5),
+        );
+        exitCode = await process.exitCode
+            .timeout(const Duration(seconds: 2))
+            .catchError((_) => -1);
         // Drain remaining buffered output before propagating the timeout.
         // catchError ensures we don't fail if the streams errored (e.g.
         // after SIGKILL).
@@ -2221,10 +2214,17 @@ class HarnessOrchestrator extends ChangeNotifier {
       // Drain remaining buffered output.  Time-box this so that a child
       // process that inherited our pipe FDs can never prevent us from
       // returning (e.g. a daemon launched by the CLI that doesn't exit).
-      await Future.wait([
-        stdoutFuture,
-        stderrFuture,
-      ]).timeout(const Duration(seconds: 5), onTimeout: () => []);
+      try {
+        await Future.wait<void>([
+          stdoutFuture,
+          stderrFuture,
+        ]).timeout(const Duration(seconds: 5));
+      } on TimeoutException {
+        await terminateTrackedProcessTree(
+          process,
+          gracefulTimeout: Duration.zero,
+        );
+      }
       return exitCode;
     } finally {
       _activeProcess = null;
@@ -2466,7 +2466,11 @@ class HarnessOrchestrator extends ChangeNotifier {
   }
 
   void _appendLine(HarnessPhaseLog log, String line) {
-    log.lines.add(line);
+    if (log.lines.length >= _kMaxHarnessPhaseLogLines) {
+      log.lines.removeRange(0, _kMaxHarnessPhaseLogLines ~/ 4);
+      log.lines.insert(0, '… earlier phase output truncated …');
+    }
+    log.lines.add(clipTextWithEllipsis(line, _kMaxHarnessLogLineCharacters));
   }
 
   /// Checks whether the mandatory output artifacts for a phase exist.
