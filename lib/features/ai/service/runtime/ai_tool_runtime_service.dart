@@ -2351,6 +2351,16 @@ class AiToolRuntimeService {
   }
 
   void dispose() {
+    unawaited(
+      _toolRegistry.dispose().catchError((Object error, StackTrace stack) {
+        silentLog(
+          'ai_tool_runtime_service',
+          'dispose tool registry',
+          error,
+          stack,
+        );
+      }),
+    );
     unawaited(_scraplingBridge.dispose());
     if (_ownsHttpClient) {
       _httpClient.close();

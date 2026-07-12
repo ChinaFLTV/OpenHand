@@ -256,6 +256,8 @@ class AiToolRegistry {
   AiToolRegistry._();
 
   final Map<AiBuiltinToolKind, AiTool> _tools = {};
+  Future<void>? _disposeFuture;
+  bool _disposed = false;
 
   /// 别名映射表：工具名称字符串 → AiBuiltinToolKind
   /// 由 [register] 在注册时自动填充来自 [AiTool.aliases] 的别名。
@@ -269,6 +271,9 @@ class AiToolRegistry {
   /// 同时将 [AiTool.aliases] 中的每个别名映射到本工具的 [AiTool.kind]，
   /// 以支持向后兼容旧工具名（如 'bash' → AiBuiltinToolKind.bash）。
   void register(AiTool tool) {
+    if (_disposed) {
+      throw StateError('AiToolRegistry is disposed.');
+    }
     _tools[tool.kind] = tool;
     for (final alias in tool.aliases) {
       final normalized = alias.trim();
@@ -300,6 +305,7 @@ class AiToolRegistry {
     AiToolExecutionContext context,
     AiBuiltinToolKind kind,
   ) async {
+    if (_disposed) return null;
     final tool = _tools[kind] ?? _toolFromCallAlias(context.toolCall.name);
     if (tool == null) return null;
     final permResult = await tool.checkPermissions(context);
@@ -334,5 +340,17 @@ class AiToolRegistry {
     final aliasKind = kindFromAlias(name);
     if (aliasKind == null) return null;
     return _tools[aliasKind];
+  }
+
+  Future<void> dispose() {
+    final existing = _disposeFuture;
+    if (existing != null) return existing;
+    _disposed = true;
+    final tools = _tools.values.toSet().toList(growable: false);
+    _tools.clear();
+    _aliasToKind.clear();
+    return _disposeFuture = Future.wait<void>(
+      tools.map((tool) => tool.dispose()),
+    );
   }
 }

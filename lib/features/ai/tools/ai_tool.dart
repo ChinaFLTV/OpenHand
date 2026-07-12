@@ -69,6 +69,10 @@ abstract class AiTool {
   /// Executes the tool logic given the execution context.
   Future<AiToolExecutionResult> execute(AiToolExecutionContext context);
 
+  /// Releases resources owned by this tool. Implementations must be
+  /// idempotent because runtime shutdown can be requested more than once.
+  Future<void> dispose() => Future<void>.value();
+
   /// Determines if the tool supports the kind.
   bool supports(AiBuiltinToolKind kind) => this.kind == kind;
 }

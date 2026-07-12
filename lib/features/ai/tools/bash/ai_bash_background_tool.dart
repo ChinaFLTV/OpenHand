@@ -48,18 +48,26 @@ class AiBashBackgroundTool extends AiTool {
            AiSandboxService();
 
   static const int _maxBufferBytes = 64 * 1024;
+  static const int _maxStdinBytes = 64 * 1024;
   static const int _maxConcurrentSessions = 8;
   static const int _defaultReadBytes = 8192;
   static const int _maxRetainedExitedSessions = 4;
   static const int _defaultTaskOutputTimeoutMs = 30000;
   static const int _maxTaskOutputTimeoutMs = 600000;
   static const int _taskOutputPollMs = 100;
+  static const Duration _processStartTimeout = Duration(seconds: 10);
+  static const Duration _stdinFlushTimeout = Duration(seconds: 2);
+  static const Duration _proxyCleanupTimeout = Duration(seconds: 2);
 
   final Map<String, _BgSession> _sessions = <String, _BgSession>{};
   final AiBashToolService _bashToolService;
   final AiClaudeHookService _hookService;
   final AiSandboxService _sandboxService;
   int _handleCounter = 0;
+  int _pendingStarts = 0;
+  int _lifecycleGeneration = 0;
+  bool _disposed = false;
+  Future<void>? _disposeFuture;
 
   @override
   AiBuiltinToolKind get kind => AiBuiltinToolKind.bashBackground;
@@ -81,15 +89,27 @@ class AiBashBackgroundTool extends AiTool {
   AiToolInterruptBehavior get interruptBehavior =>
       AiToolInterruptBehavior.cancel;
 
-  void dispose() {
-    for (final session in _sessions.values.toList(growable: false)) {
-      unawaited(session.close(kill: true));
-    }
+  @override
+  Future<void> dispose() {
+    final existing = _disposeFuture;
+    if (existing != null) return existing;
+    _disposed = true;
+    _lifecycleGeneration += 1;
+    final sessions = _sessions.values.toList(growable: false);
     _sessions.clear();
+    return _disposeFuture = Future.wait<void>(
+      sessions.map((session) => session.close(kill: true)),
+    );
   }
 
   @override
   Future<AiToolExecutionResult> execute(AiToolExecutionContext context) async {
+    if (_disposed) {
+      return AiToolUtils.invalidResult(
+        'BashBackground',
+        'BashBackground is disposed.',
+      );
+    }
     final args = context.decodedArguments;
     final action = _resolveAction(context, args);
     if (action.isEmpty) {
@@ -106,9 +126,9 @@ class AiBashBackgroundTool extends AiTool {
       case 'read':
         return _read(context, args, toolName: _taskAliasToolName(context));
       case 'stop':
-        return _stop(args, toolName: _taskAliasToolName(context));
+        return _stop(context, args, toolName: _taskAliasToolName(context));
       case 'list':
-        return _list();
+        return _list(context);
       default:
         return AiToolUtils.invalidResult(
           'BashBackground',
@@ -197,13 +217,6 @@ class AiBashBackgroundTool extends AiTool {
           command: cmd,
           metadata: context.metadata,
         );
-    _pruneExitedSessions();
-    if (_activeSessionCount >= _maxConcurrentSessions) {
-      return AiToolUtils.invalidResult(
-        'BashBackground',
-        'Too many active background sessions ($_maxConcurrentSessions). Stop one first.',
-      );
-    }
     final denyRule = _matchDenyRule(cmd, context.denyCommandRules);
     if (denyRule != null) {
       return AiToolExecutionResult(
@@ -267,7 +280,7 @@ class AiBashBackgroundTool extends AiTool {
         writeAnalysisReason: writeAnalysis.reason,
       );
       if (confirmationResult != null) {
-        await launchSpec.proxyLease?.close();
+        await _closeLaunchProxy(launchSpec.proxyLease, 'confirmation rejected');
         return AiToolUtils.withMergedMetadata(confirmationResult, <
           String,
           Object?
@@ -281,10 +294,21 @@ class AiBashBackgroundTool extends AiTool {
         if (forceWriteConfirmation) ...AndroidReverseAdbCommandGuard.metadata,
       };
     }
+    final reservationGeneration = _reserveStart();
+    if (reservationGeneration == null) {
+      await _closeLaunchProxy(launchSpec.proxyLease, 'reservation rejected');
+      return AiToolUtils.invalidResult(
+        'BashBackground',
+        _disposed
+            ? 'BashBackground is disposed.'
+            : 'Too many active background sessions ($_maxConcurrentSessions). Stop one first.',
+      );
+    }
     final startedAt = Stopwatch()..start();
+    late final Future<Process> spawnFuture;
     final Process process;
     try {
-      process = await startTrackedProcessInNewGroup(
+      spawnFuture = startTrackedProcessInNewGroup(
         launchSpec.executable,
         launchSpec.arguments,
         workingDirectory: launchSpec.workingDirectory,
@@ -292,18 +316,48 @@ class AiBashBackgroundTool extends AiTool {
             ? null
             : launchSpec.environment,
       );
+      process = await spawnFuture.timeout(_processStartTimeout);
+    } on TimeoutException catch (error) {
+      await _closeLaunchProxy(launchSpec.proxyLease, 'start timeout');
+      unawaited(
+        spawnFuture.then<void>((lateProcess) async {
+          try {
+            await terminateTrackedProcessTree(lateProcess);
+          } finally {
+            _releaseStartReservation();
+          }
+        }, onError: (Object _, StackTrace _) => _releaseStartReservation()),
+      );
+      return AiToolUtils.invalidResult(
+        'BashBackground',
+        'Process start timed out: $error',
+      );
     } catch (error, stack) {
-      await launchSpec.proxyLease?.close();
+      _releaseStartReservation();
+      await _closeLaunchProxy(launchSpec.proxyLease, 'spawn failed');
       silentLog('ai_bash_background', 'spawn $cmd', error, stack);
       return AiToolUtils.invalidResult(
         'BashBackground',
         'Failed to spawn process: $error',
       );
     }
+    if (_disposed || reservationGeneration != _lifecycleGeneration) {
+      _releaseStartReservation();
+      await Future.wait<void>(<Future<void>>[
+        terminateTrackedProcessTree(process),
+        _closeLaunchProxy(launchSpec.proxyLease, 'late process'),
+      ]);
+      return AiToolUtils.invalidResult(
+        'BashBackground',
+        'BashBackground was disposed while starting the process.',
+      );
+    }
+    _releaseStartReservation();
     _handleCounter += 1;
     final handle = 'bg_$_handleCounter';
     final session = _BgSession(
       handle: handle,
+      ownerSessionId: context.sessionId,
       command: cmd,
       workingDirectory: launchSpec.workingDirectory,
       process: process,
@@ -324,25 +378,49 @@ class AiBashBackgroundTool extends AiTool {
         .listen(
           (data) => session.appendStdout(data, _maxBufferBytes),
           onError: (Object error, StackTrace stack) {
+            session.markStdoutDone();
             silentLog('ai_bash_background', 'stdout $handle', error, stack);
           },
+          onDone: session.markStdoutDone,
         );
     session.stderrSubscription = process.stderr
         .transform(_backgroundOutputDecoder)
         .listen(
           (data) => session.appendStderr(data, _maxBufferBytes),
           onError: (Object error, StackTrace stack) {
+            session.markStderrDone();
             silentLog('ai_bash_background', 'stderr $handle', error, stack);
           },
+          onDone: session.markStderrDone,
         );
     unawaited(
-      process.exitCode.then((code) {
-        session.exitCode = code;
-        session.alive = false;
-        session.touch();
-        unawaited(session.closeProxy());
-        _pruneExitedSessions();
-      }),
+      process.exitCode.then<void>(
+        (code) async {
+          session.exitCode = code;
+          await terminateTrackedProcessTree(
+            process,
+            gracefulTimeout: Duration.zero,
+          );
+          await session.finishOutputAfterExit();
+          session.touch();
+          unawaited(session.closeProxy());
+          _pruneExitedSessions();
+        },
+        onError: (Object error, StackTrace stack) {
+          silentLog('ai_bash_background', 'exit $handle', error, stack);
+          session.exitCode = -1;
+          unawaited(() async {
+            await terminateTrackedProcessTree(
+              process,
+              gracefulTimeout: Duration.zero,
+            );
+            await session.finishOutputAfterExit();
+            session.touch();
+            await session.closeProxy();
+            _pruneExitedSessions();
+          }());
+        },
+      ),
     );
     final output = StringBuffer()
       ..writeln('status: started')
@@ -419,13 +497,30 @@ class AiBashBackgroundTool extends AiTool {
     );
   }
 
+  Future<void> _closeLaunchProxy(
+    AiSandboxProxyLease? lease,
+    String reason,
+  ) async {
+    if (lease == null) return;
+    try {
+      await lease.close().timeout(_proxyCleanupTimeout);
+    } catch (error, stack) {
+      silentLog(
+        'ai_bash_background',
+        'close launch proxy ($reason)',
+        error,
+        stack,
+      );
+    }
+  }
+
   Future<AiToolExecutionResult> _write(
     AiToolExecutionContext context,
     Map<String, Object?> args,
   ) async {
     final handle = AiToolUtils.readString(args['handle']);
     final input = '${args['input'] ?? ''}';
-    final session = _sessions[handle];
+    final session = _sessionForOwner(handle, context.sessionId);
     if (session == null) {
       return AiToolUtils.invalidResult(
         'BashBackground',
@@ -436,6 +531,15 @@ class AiBashBackgroundTool extends AiTool {
       return AiToolUtils.invalidResult(
         'BashBackground',
         'Handle "$handle" already exited (code ${session.exitCode}).',
+      );
+    }
+    final inputBytes = utf8.encode(input);
+    final appendNewline = !input.endsWith('\n');
+    final bytesWritten = inputBytes.length + (appendNewline ? 1 : 0);
+    if (bytesWritten > _maxStdinBytes) {
+      return AiToolUtils.invalidResult(
+        'BashBackground',
+        'stdin input exceeds the $_maxStdinBytes-byte limit.',
       );
     }
     final cdpFirstDecision = WebReverseCdpFirstGuard.evaluateCommand(
@@ -452,11 +556,15 @@ class AiBashBackgroundTool extends AiTool {
       );
     }
     try {
-      session.process.stdin.write(input);
-      if (!input.endsWith('\n')) session.process.stdin.write('\n');
-      await session.process.stdin.flush();
+      await session.writeInput(
+        inputBytes,
+        appendNewline: appendNewline,
+        timeout: _stdinFlushTimeout,
+      );
     } catch (error, stack) {
       silentLog('ai_bash_background', 'stdin write $handle', error, stack);
+      final removed = _sessions.remove(handle);
+      await (removed ?? session).close(kill: true);
       return AiToolUtils.invalidResult(
         'BashBackground',
         'Failed to write stdin: $error',
@@ -464,7 +572,7 @@ class AiBashBackgroundTool extends AiTool {
     }
     return AiToolUtils.simpleSuccessResult(
       command: 'BashBackground write $handle',
-      output: 'status: ok\nhandle: $handle\nbytes_written: ${input.length}',
+      output: 'status: ok\nhandle: $handle\nbytes_written: $bytesWritten',
       durationMs: 0,
       workingDirectory: session.workingDirectory,
       metadata: <String, Object?>{'bg_handle': handle},
@@ -498,7 +606,7 @@ class AiBashBackgroundTool extends AiTool {
     }
     final maxBytes = _normalizeReadBytes(rawMaxBytes);
     final timeoutMs = _normalizeTaskOutputTimeoutMs(rawTimeoutMs);
-    final session = _sessions[handle];
+    final session = _sessionForOwner(handle, context.sessionId);
     if (session == null) {
       return AiToolUtils.invalidResult(
         toolName,
@@ -579,11 +687,13 @@ class AiBashBackgroundTool extends AiTool {
   }
 
   Future<AiToolExecutionResult> _stop(
+    AiToolExecutionContext context,
     Map<String, Object?> args, {
     required String toolName,
   }) async {
     final handle = _handleFromArgs(args);
-    final session = _sessions.remove(handle);
+    final ownedSession = _sessionForOwner(handle, context.sessionId);
+    final session = ownedSession == null ? null : _sessions.remove(handle);
     if (session == null) {
       return AiToolUtils.invalidResult(
         toolName,
@@ -625,9 +735,12 @@ class AiBashBackgroundTool extends AiTool {
     );
   }
 
-  Future<AiToolExecutionResult> _list() async {
+  Future<AiToolExecutionResult> _list(AiToolExecutionContext context) async {
     _pruneExitedSessions();
-    if (_sessions.isEmpty) {
+    final sessions = _sessions.values
+        .where((session) => session.ownerSessionId == context.sessionId)
+        .toList(growable: false);
+    if (sessions.isEmpty) {
       return AiToolUtils.simpleSuccessResult(
         command: 'BashBackground list',
         output: 'status: ok\nsessions: []',
@@ -635,7 +748,7 @@ class AiBashBackgroundTool extends AiTool {
       );
     }
     final lines = <String>['status: ok', 'sessions:'];
-    for (final session in _sessions.values) {
+    for (final session in sessions) {
       lines.add(
         '  - handle: ${session.handle}, pid: ${session.process.pid}, alive: ${session.alive}, '
         'exit_code: ${session.exitCode ?? -1}, cwd: ${session.workingDirectory}, cmd: ${session.command}',
@@ -660,6 +773,25 @@ class AiBashBackgroundTool extends AiTool {
 
   int get _activeSessionCount =>
       _sessions.values.where((session) => session.alive).length;
+
+  _BgSession? _sessionForOwner(String handle, String sessionId) {
+    final session = _sessions[handle];
+    return session?.ownerSessionId == sessionId ? session : null;
+  }
+
+  int? _reserveStart() {
+    _pruneExitedSessions();
+    if (_disposed ||
+        _activeSessionCount + _pendingStarts >= _maxConcurrentSessions) {
+      return null;
+    }
+    _pendingStarts += 1;
+    return _lifecycleGeneration;
+  }
+
+  void _releaseStartReservation() {
+    if (_pendingStarts > 0) _pendingStarts -= 1;
+  }
 
   int _normalizeReadBytes(int? value) {
     final raw = value ?? _defaultReadBytes;
@@ -781,6 +913,7 @@ String _webReverseBashBackgroundCdpFirstStdout({
 class _BgSession {
   _BgSession({
     required this.handle,
+    required this.ownerSessionId,
     required this.command,
     required this.workingDirectory,
     required this.process,
@@ -789,41 +922,99 @@ class _BgSession {
   });
 
   final String handle;
+  final String ownerSessionId;
   final String command;
   final String workingDirectory;
   final Process process;
   final int startedAtMs;
   final AiSandboxProxyLease? proxyLease;
+  static const Duration _cleanupTimeout = Duration(seconds: 2);
   final StringBuffer _stdoutPending = StringBuffer();
   final StringBuffer _stderrPending = StringBuffer();
+  final Completer<void> _stdoutDone = Completer<void>();
+  final Completer<void> _stderrDone = Completer<void>();
+  Future<void> _stdinSerial = Future<void>.value();
   StreamSubscription<String>? stdoutSubscription;
   StreamSubscription<String>? stderrSubscription;
   bool alive = true;
   int? exitCode;
-  bool _proxyClosed = false;
-  bool _closed = false;
+  Future<void>? _proxyCloseFuture;
+  Future<void>? _closeFuture;
   late int lastTouchedAtMs = startedAtMs;
 
   void touch() {
     lastTouchedAtMs = DateTime.now().millisecondsSinceEpoch;
   }
 
-  Future<void> close({required bool kill}) async {
-    if (_closed) return;
-    _closed = true;
-    if (kill && alive) {
-      await terminateTrackedProcessTree(process);
-      alive = false;
-    }
-    await stdoutSubscription?.cancel();
-    await stderrSubscription?.cancel();
-    await closeProxy();
+  void markStdoutDone() {
+    if (!_stdoutDone.isCompleted) _stdoutDone.complete();
   }
 
-  Future<void> closeProxy() async {
-    if (_proxyClosed) return;
-    _proxyClosed = true;
-    await proxyLease?.close();
+  void markStderrDone() {
+    if (!_stderrDone.isCompleted) _stderrDone.complete();
+  }
+
+  Future<void> finishOutputAfterExit() async {
+    try {
+      await Future.wait<void>([
+        _stdoutDone.future,
+        _stderrDone.future,
+      ]).timeout(_cleanupTimeout);
+    } on TimeoutException {
+      // A descendant may still own inherited pipes; keep exit handling bounded.
+    }
+    alive = false;
+  }
+
+  Future<void> writeInput(
+    List<int> bytes, {
+    required bool appendNewline,
+    required Duration timeout,
+  }) {
+    final completer = Completer<void>();
+    _stdinSerial = _stdinSerial.then((_) async {
+      try {
+        if (!alive) throw StateError('Background process has exited.');
+        process.stdin.add(bytes);
+        if (appendNewline) process.stdin.add(const <int>[10]);
+        await process.stdin.flush().timeout(timeout);
+        completer.complete();
+      } catch (error, stack) {
+        completer.completeError(error, stack);
+      }
+    });
+    return completer.future;
+  }
+
+  Future<void> close({required bool kill}) {
+    final existing = _closeFuture;
+    if (existing != null) return existing;
+    final cleanup = <Future<void>>[];
+    if (kill && alive) {
+      alive = false;
+      cleanup.add(
+        terminateTrackedProcessTree(process).timeout(_cleanupTimeout),
+      );
+    }
+    final stdout = stdoutSubscription;
+    final stderr = stderrSubscription;
+    stdoutSubscription = null;
+    stderrSubscription = null;
+    if (stdout != null) cleanup.add(stdout.cancel().timeout(_cleanupTimeout));
+    if (stderr != null) cleanup.add(stderr.cancel().timeout(_cleanupTimeout));
+    markStdoutDone();
+    markStderrDone();
+    cleanup.add(closeProxy());
+    return _closeFuture = Future.wait<void>(cleanup);
+  }
+
+  Future<void> closeProxy() {
+    final existing = _proxyCloseFuture;
+    if (existing != null) return existing;
+    final lease = proxyLease;
+    return _proxyCloseFuture = lease == null
+        ? Future<void>.value()
+        : lease.close().timeout(_cleanupTimeout);
   }
 
   void appendStdout(String chunk, int maxBytes) {
