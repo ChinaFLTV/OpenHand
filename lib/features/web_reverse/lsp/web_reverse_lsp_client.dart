@@ -1,51 +1,108 @@
-// LSP 极简实现：支持把任一 stdio LSP server（默认
-// typescript-language-server --stdio）拉起为子进程，按 JSON-RPC 2.0 over
-// LSP framing（Content-Length 头）做 initialize / textDocument/didOpen /
-// hover / definition / rename 请求。
-// 设计目标：
-// - 默认安装的项目可以零配置直接用；未装 typescript-language-server 时
-//   能优雅退化（status='not_installed'），不阻塞 Sources 面板基础功能。
-// - 单实例同时只起一份 server 子进程；面板 dispose 时关掉进程。
-// - 所有 send 都返回 Future + 唯一 id；超时（默认 8s）resolve null。
-// 不实现：completion / signature help / 增量同步（didChange 用 full
-// content）等高级特性 —— 等用户真有需求再补。
+// 通过 stdio 启动 LSP 服务端并实现 initialize、文档同步、hover、
+// definition 与 rename。单个客户端最多维护一个子进程；启动失败、协议错误
+// 和请求超时均优雅降级，不影响 Sources 面板的基础功能。
 
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../shared/util/input_value_parsing.dart';
+import '../../../shared/util/text_clip.dart';
 
 /// 当前 LSP 子进程状态。
 enum WebReverseLspStatus { idle, starting, ready, notInstalled, failed }
 
 const int _kMaxLspFrameBytes = 8 * 1024 * 1024;
 const int _kMaxLspHeaderBytes = 64 * 1024;
+const int _kMaxLspStderrCharacters = 256;
+const Duration _kDefaultLspRequestTimeout = Duration(seconds: 8);
+const Duration _kDefaultLspStartupTimeout = Duration(seconds: 8);
+const Duration _kLspTerminationTimeout = Duration(seconds: 4);
+const Duration _kLspStreamCancellationTimeout = Duration(seconds: 1);
+final RegExp _lspContentLengthPattern = RegExp(
+  r'Content-Length:\s*(\d+)',
+  caseSensitive: false,
+);
+final int _maxLspContentLengthDigits = _kMaxLspFrameBytes.toString().length;
+
+typedef WebReverseLspProcessStarter =
+    Future<Process> Function(
+      String executable,
+      List<String> arguments, {
+      required bool runInShell,
+      required Map<String, String> environment,
+    });
+typedef WebReverseLspProcessTerminator = Future<void> Function(Process process);
+
+Future<Process> _startWebReverseLspProcess(
+  String executable,
+  List<String> arguments, {
+  required bool runInShell,
+  required Map<String, String> environment,
+}) {
+  return startTrackedProcess(
+    executable,
+    arguments,
+    runInShell: runInShell,
+    environment: environment,
+  );
+}
 
 class WebReverseLspClient {
-  WebReverseLspClient({this.command, this.args});
+  WebReverseLspClient({
+    this.command,
+    this.args,
+    Duration requestTimeout = _kDefaultLspRequestTimeout,
+    Duration startupTimeout = _kDefaultLspStartupTimeout,
+    WebReverseLspProcessStarter processStarter = _startWebReverseLspProcess,
+    WebReverseLspProcessTerminator processTerminator =
+        terminateTrackedProcessTree,
+  }) : _requestTimeout = requestTimeout,
+       _startupTimeout = startupTimeout,
+       _processStarter = processStarter,
+       _processTerminator = processTerminator {
+    if (requestTimeout <= Duration.zero) {
+      throw ArgumentError.value(
+        requestTimeout,
+        'requestTimeout',
+        'Must be positive.',
+      );
+    }
+    if (startupTimeout <= Duration.zero) {
+      throw ArgumentError.value(
+        startupTimeout,
+        'startupTimeout',
+        'Must be positive.',
+      );
+    }
+  }
 
   /// LSP server 可执行命令；默认 'typescript-language-server'。用户可在
   /// 「LSP 设置」对话框里改。
   final String? command;
   final List<String>? args;
+  final Duration _requestTimeout;
+  final Duration _startupTimeout;
+  final WebReverseLspProcessStarter _processStarter;
+  final WebReverseLspProcessTerminator _processTerminator;
 
   Process? _proc;
   StreamSubscription<List<int>>? _stdoutSub;
   StreamSubscription<List<int>>? _stderrSub;
-  final BytesBuilder _buf = BytesBuilder(copy: false);
+  Future<void>? _cleanupFuture;
+  final List<int> _buf = <int>[];
   int _nextId = 1;
   final Map<int, Completer<Map<String, Object?>>> _pending = {};
 
   WebReverseLspStatus status = WebReverseLspStatus.idle;
   String? lastError;
-  // 已 didOpen 过的 uri；didChange 时若不在则先补 didOpen。
-  final Set<String> _opened = <String>{};
+  // 每个服务端会话独立维护文档版本；新会话必须重新发送 didOpen。
+  final Map<String, int> _documentVersions = <String, int>{};
   // initialize 完成 future，避免任何请求在 server 还没握手前就发。
   Completer<bool>? _initDone;
+  int _lifecycleGeneration = 0;
 
   /// 启动子进程并完成 LSP initialize 握手。
   Future<bool> start({String? cmd, List<String>? cmdArgs}) async {
@@ -53,12 +110,25 @@ class WebReverseLspClient {
     if (status == WebReverseLspStatus.starting && _initDone != null) {
       return _initDone!.future;
     }
+    final generation = ++_lifecycleGeneration;
+    final initDone = Completer<bool>();
     status = WebReverseLspStatus.starting;
-    _initDone = Completer<bool>();
+    lastError = null;
+    _initDone = initDone;
+    _buf.clear();
+    _documentVersions.clear();
+    _failPendingRequests('restarted');
+    await _cleanupCurrentProcess();
+    if (generation != _lifecycleGeneration) {
+      _completeInitialization(initDone, false);
+      return false;
+    }
     final c = cmd ?? command ?? 'typescript-language-server';
     final a = cmdArgs ?? args ?? const ['--stdio'];
+    late final Future<Process> spawnFuture;
+    late final Process process;
     try {
-      _proc = await startTrackedProcess(
+      spawnFuture = _processStarter(
         c,
         a,
         runInShell: true,
@@ -69,31 +139,109 @@ class WebReverseLspClient {
         // 让 typescript-language-server / pyright 等命令能直接跑起来。
         environment: _augmentedEnvironment(),
       );
+      process = await spawnFuture.timeout(_startupTimeout);
+    } on TimeoutException {
+      if (generation == _lifecycleGeneration) {
+        status = WebReverseLspStatus.failed;
+        lastError = 'process startup timeout';
+      }
+      _completeInitialization(initDone, false);
+      unawaited(
+        spawnFuture.then<void>(
+          _terminateDetachedProcess,
+          onError: (Object _, StackTrace _) {},
+        ),
+      );
+      return false;
     } catch (e, st) {
-      silentLog('web_reverse_lsp_client', 'spawn', e, st);
-      status = WebReverseLspStatus.notInstalled;
-      lastError = '$e';
-      _initDone!.complete(false);
+      if (generation == _lifecycleGeneration) {
+        silentLog('web_reverse_lsp_client', 'spawn', e, st);
+        status = WebReverseLspStatus.notInstalled;
+        lastError = '$e';
+      }
+      _completeInitialization(initDone, false);
       return false;
     }
-    _proc!.exitCode.then((code) {
-      if (status != WebReverseLspStatus.ready &&
-          status != WebReverseLspStatus.starting) {
-        return;
-      }
-      status = WebReverseLspStatus.failed;
-      lastError = 'exit $code';
-      // 把所有挂起请求 resolve 成 error，避免上层 await 永挂。
-      for (final c in _pending.values) {
-        if (!c.isCompleted) c.complete(<String, Object?>{'error': 'exited'});
-      }
-      _pending.clear();
-    });
-    _stdoutSub = _proc!.stdout.listen(_onStdout);
-    _stderrSub = _proc!.stderr.listen((bytes) {
-      // 限制日志噪音，只记前 256B。
-      lastError = utf8.decode(bytes, allowMalformed: true);
-    });
+    if (generation != _lifecycleGeneration) {
+      await _terminateDetachedProcess(process);
+      _completeInitialization(initDone, false);
+      return false;
+    }
+    _proc = process;
+    unawaited(
+      process.exitCode.then<void>(
+        (code) => _handleProcessExit(process, generation, code),
+        onError: (Object error, StackTrace stack) {
+          if (!identical(_proc, process) ||
+              generation != _lifecycleGeneration) {
+            return;
+          }
+          silentLog(
+            'web_reverse_lsp_client',
+            'observe process exit',
+            error,
+            stack,
+          );
+          _handleProcessExit(process, generation, null);
+        },
+      ),
+    );
+    unawaited(
+      process.stdin.done.then<void>(
+        (_) {
+          if (!identical(_proc, process) ||
+              generation != _lifecycleGeneration) {
+            return;
+          }
+          _failProtocol('LSP stdin closed unexpectedly');
+        },
+        onError: (Object error, StackTrace stack) {
+          if (!identical(_proc, process) ||
+              generation != _lifecycleGeneration) {
+            return;
+          }
+          _failProtocol('LSP stdin failed: $error', stack: stack);
+        },
+      ),
+    );
+    _stdoutSub = process.stdout.listen(
+      (bytes) {
+        if (!identical(_proc, process) || generation != _lifecycleGeneration) {
+          return;
+        }
+        _onStdout(bytes);
+      },
+      onError: (Object error, StackTrace stack) {
+        if (!identical(_proc, process) || generation != _lifecycleGeneration) {
+          return;
+        }
+        _failProtocol('LSP stdout failed: $error', stack: stack);
+      },
+      onDone: () {
+        if (!identical(_proc, process) || generation != _lifecycleGeneration) {
+          return;
+        }
+        _failProtocol('LSP stdout closed unexpectedly');
+      },
+    );
+    _stderrSub = process.stderr.listen(
+      (bytes) {
+        if (!identical(_proc, process) || generation != _lifecycleGeneration) {
+          return;
+        }
+        lastError = clipText(
+          utf8.decode(bytes, allowMalformed: true),
+          _kMaxLspStderrCharacters,
+          suffix: '',
+        );
+      },
+      onError: (Object error, StackTrace stack) {
+        if (!identical(_proc, process) || generation != _lifecycleGeneration) {
+          return;
+        }
+        silentLog('web_reverse_lsp_client', 'stderr stream', error, stack);
+      },
+    );
     final initRes = await _request('initialize', {
       'processId': pid,
       'rootUri': null,
@@ -113,37 +261,153 @@ class WebReverseLspClient {
       },
       'workspaceFolders': null,
     });
+    if (generation != _lifecycleGeneration || !identical(_proc, process)) {
+      _completeInitialization(initDone, false);
+      return false;
+    }
     if (initRes == null) {
       status = WebReverseLspStatus.failed;
       lastError ??= 'initialize timeout';
-      _initDone!.complete(false);
+      await _cleanupCurrentProcess();
+      _completeInitialization(initDone, false);
       return false;
     }
     await _notify('initialized', <String, Object?>{});
+    if (generation != _lifecycleGeneration || !identical(_proc, process)) {
+      _completeInitialization(initDone, false);
+      return false;
+    }
     status = WebReverseLspStatus.ready;
-    _initDone!.complete(true);
+    lastError = null;
+    _completeInitialization(initDone, true);
     return true;
   }
 
+  void _handleProcessExit(Process process, int generation, int? code) {
+    if (!identical(_proc, process) || generation != _lifecycleGeneration) {
+      return;
+    }
+    _lifecycleGeneration += 1;
+    final stdoutSub = _stdoutSub;
+    final stderrSub = _stderrSub;
+    _proc = null;
+    _stdoutSub = null;
+    _stderrSub = null;
+    _buf.clear();
+    _documentVersions.clear();
+    if (status == WebReverseLspStatus.ready ||
+        status == WebReverseLspStatus.starting) {
+      status = WebReverseLspStatus.failed;
+      lastError = code == null
+          ? 'process exit could not be observed'
+          : 'exit $code';
+    }
+    _failPendingRequests('exited');
+    final initDone = _initDone;
+    if (initDone != null) _completeInitialization(initDone, false);
+    unawaited(
+      _enqueueCleanup(
+        () => _releaseDetachedProcess(process, stdoutSub, stderrSub),
+      ),
+    );
+  }
+
+  void _completeInitialization(Completer<bool> completer, bool value) {
+    if (!completer.isCompleted) completer.complete(value);
+    if (identical(_initDone, completer)) _initDone = null;
+  }
+
   Future<void> stop() async {
+    _lifecycleGeneration += 1;
+    final initDone = _initDone;
+    _initDone = null;
+    if (initDone != null && !initDone.isCompleted) initDone.complete(false);
+    status = WebReverseLspStatus.idle;
+    lastError = null;
+    _buf.clear();
+    _documentVersions.clear();
+    _failPendingRequests('stopped');
+    await _cleanupCurrentProcess();
+  }
+
+  Future<void> _cleanupCurrentProcess() {
+    final process = _proc;
+    final stdoutSub = _stdoutSub;
+    final stderrSub = _stderrSub;
+    _proc = null;
+    _stdoutSub = null;
+    _stderrSub = null;
+    if (process == null && stdoutSub == null && stderrSub == null) {
+      return _cleanupFuture ?? Future<void>.value();
+    }
+    return _enqueueCleanup(() {
+      if (process != null) {
+        return _releaseDetachedProcess(process, stdoutSub, stderrSub);
+      }
+      return _cancelSubscriptions(stdoutSub, stderrSub);
+    });
+  }
+
+  Future<void> _enqueueCleanup(Future<void> Function() operation) {
+    final previous = _cleanupFuture;
+    late final Future<void> tracked;
+    tracked =
+        (() async {
+          if (previous != null) await previous;
+          await operation();
+        })().whenComplete(() {
+          if (identical(_cleanupFuture, tracked)) _cleanupFuture = null;
+        });
+    _cleanupFuture = tracked;
+    return tracked;
+  }
+
+  Future<void> _releaseDetachedProcess(
+    Process process,
+    StreamSubscription<List<int>>? stdoutSub,
+    StreamSubscription<List<int>>? stderrSub,
+  ) async {
+    await _terminateDetachedProcess(process);
+    await _cancelSubscriptions(stdoutSub, stderrSub);
+  }
+
+  Future<void> _cancelSubscriptions(
+    StreamSubscription<List<int>>? stdoutSub,
+    StreamSubscription<List<int>>? stderrSub,
+  ) async {
     try {
-      await _stdoutSub?.cancel();
-      await _stderrSub?.cancel();
+      await Future.wait<void>(<Future<void>>[
+        if (stdoutSub != null) stdoutSub.cancel(),
+        if (stderrSub != null) stderrSub.cancel(),
+      ]).timeout(_kLspStreamCancellationTimeout);
     } catch (error, stack) {
       silentLog('web_reverse_lsp_client', 'cancel streams', error, stack);
     }
+  }
+
+  Future<void> _terminateDetachedProcess(Process process) async {
     try {
-      _proc?.kill();
+      await _processTerminator(process).timeout(_kLspTerminationTimeout);
     } catch (error, stack) {
-      silentLog('web_reverse_lsp_client', 'kill process', error, stack);
+      silentLog('web_reverse_lsp_client', 'terminate process', error, stack);
+      try {
+        process.kill(ProcessSignal.sigkill);
+      } catch (killError, killStack) {
+        silentLog(
+          'web_reverse_lsp_client',
+          'force kill process',
+          killError,
+          killStack,
+        );
+      }
     }
-    _proc = null;
-    status = WebReverseLspStatus.idle;
-    _buf.clear();
-    _initDone = null;
-    _opened.clear();
-    for (final c in _pending.values) {
-      if (!c.isCompleted) c.complete(<String, Object?>{'error': 'stopped'});
+  }
+
+  void _failPendingRequests(String error) {
+    for (final completer in _pending.values) {
+      if (!completer.isCompleted) {
+        completer.complete(<String, Object?>{'error': error});
+      }
     }
     _pending.clear();
   }
@@ -197,15 +461,16 @@ class WebReverseLspClient {
     return base;
   }
 
-  /// 第一次访问某文件 → didOpen；之后再访问同 uri 走 didChange (full)。
+  /// 第一次访问某文件发送 didOpen；同一会话内后续访问发送全量 didChange。
   Future<void> openOrChange({
     required String uri,
     required String languageId,
     required String text,
   }) async {
     if (status != WebReverseLspStatus.ready) return;
-    if (!_opened.contains(uri)) {
-      _opened.add(uri);
+    final previousVersion = _documentVersions[uri];
+    if (previousVersion == null) {
+      _documentVersions[uri] = 1;
       await _notify('textDocument/didOpen', <String, Object?>{
         'textDocument': <String, Object?>{
           'uri': uri,
@@ -215,11 +480,10 @@ class WebReverseLspClient {
         },
       });
     } else {
+      final version = previousVersion + 1;
+      _documentVersions[uri] = version;
       await _notify('textDocument/didChange', <String, Object?>{
-        'textDocument': <String, Object?>{
-          'uri': uri,
-          'version': DateTime.now().millisecondsSinceEpoch,
-        },
+        'textDocument': <String, Object?>{'uri': uri, 'version': version},
         'contentChanges': <Object?>[
           <String, Object?>{'text': text},
         ],
@@ -236,15 +500,23 @@ class WebReverseLspClient {
     });
     if (r == null) return null;
     final result = r['result'];
-    if (result == null) return null;
-    final contents = (result as Map)['contents'];
+    if (result is! Map) return null;
+    final contents = result['contents'];
     if (contents is String) return contents;
-    if (contents is Map) return '${contents['value'] ?? ''}';
+    if (contents is Map) {
+      return optionalStringFromValue(contents['value']);
+    }
     if (contents is List) {
-      return contents
-          .map((c) => c is String ? c : '${(c as Map)['value'] ?? ''}')
-          .where((s) => s.isNotEmpty)
-          .join('\n\n');
+      final parts = <String>[];
+      for (final content in contents) {
+        final text = content is String
+            ? content
+            : content is Map
+            ? optionalStringFromValue(content['value'])
+            : null;
+        if (text != null && text.isNotEmpty) parts.add(text);
+      }
+      return parts.isEmpty ? null : parts.join('\n\n');
     }
     return null;
   }
@@ -297,7 +569,7 @@ class WebReverseLspClient {
     });
     if (r == null) return null;
     final result = r['result'];
-    return result is Map ? Map<String, Object?>.from(result) : null;
+    return result is Map ? stringKeyedMapFromValue(result) : null;
   }
 
   // ────────────────────────────────────────────────────────────────────
@@ -307,19 +579,24 @@ class WebReverseLspClient {
   Future<Map<String, Object?>?> _request(
     String method,
     Map<String, Object?> params, {
-    Duration timeout = const Duration(seconds: 8),
+    Duration? timeout,
   }) async {
+    final effectiveTimeout = timeout ?? _requestTimeout;
     final id = _nextId++;
     final completer = Completer<Map<String, Object?>>();
     _pending[id] = completer;
-    _send(<String, Object?>{
+    final sent = _send(<String, Object?>{
       'jsonrpc': '2.0',
       'id': id,
       'method': method,
       'params': params,
     });
+    if (!sent) {
+      _pending.remove(id);
+      return null;
+    }
     try {
-      final res = await completer.future.timeout(timeout);
+      final res = await completer.future.timeout(effectiveTimeout);
       if (res['error'] != null) return null;
       return res;
     } on TimeoutException {
@@ -336,50 +613,51 @@ class WebReverseLspClient {
     });
   }
 
-  void _send(Map<String, Object?> msg) {
+  bool _send(Map<String, Object?> msg) {
     final p = _proc;
-    if (p == null) return;
-    final body = utf8.encode(jsonEncode(msg));
-    final header = 'Content-Length: ${body.length}\r\n\r\n';
+    if (p == null) return false;
     try {
+      final body = utf8.encode(jsonEncode(msg));
+      final header = 'Content-Length: ${body.length}\r\n\r\n';
       p.stdin.add(utf8.encode(header));
       p.stdin.add(body);
+      return true;
     } catch (error, stack) {
-      silentLog('web_reverse_lsp_client', 'send message', error, stack);
+      _failProtocol('LSP stdin write failed: $error', stack: stack);
+      return false;
     }
   }
 
   void _onStdout(List<int> bytes) {
-    _buf.add(bytes);
+    _buf.addAll(bytes);
     while (true) {
-      final all = _buf.toBytes();
-      final end = _findHeaderEnd(all);
+      final end = _findHeaderEnd(_buf);
       if (end < 0) {
-        if (all.length > _kMaxLspHeaderBytes) {
+        if (_buf.length > _kMaxLspHeaderBytes) {
           _failProtocol('LSP header exceeded $_kMaxLspHeaderBytes bytes');
         }
         return;
       }
-      final header = utf8.decode(all.sublist(0, end), allowMalformed: true);
-      final m = RegExp(
-        r'Content-Length:\s*(\d+)',
-        caseSensitive: false,
-      ).firstMatch(header);
+      final header = utf8.decode(_buf.sublist(0, end), allowMalformed: true);
+      final m = _lspContentLengthPattern.firstMatch(header);
       if (m == null) {
         // 不识别头，丢掉之前数据避免死循环。
         _failProtocol('missing Content-Length header');
         return;
       }
-      final clen = int.parse(m.group(1)!);
-      if (clen <= 0 || clen > _kMaxLspFrameBytes) {
-        _failProtocol('invalid Content-Length: $clen');
+      final lengthText = m.group(1)!;
+      final clen = lengthText.length <= _maxLspContentLengthDigits
+          ? int.tryParse(lengthText)
+          : null;
+      if (clen == null || clen <= 0 || clen > _kMaxLspFrameBytes) {
+        _failProtocol('invalid Content-Length: $lengthText');
         return;
       }
       final bodyStart = end + 4;
-      if (all.length < bodyStart + clen) return;
-      final body = all.sublist(bodyStart, bodyStart + clen);
-      _buf.clear();
-      _buf.add(all.sublist(bodyStart + clen));
+      final bodyEnd = bodyStart + clen;
+      if (_buf.length < bodyEnd) return;
+      final body = _buf.sublist(bodyStart, bodyEnd);
+      _buf.removeRange(0, bodyEnd);
       try {
         final decoded = jsonDecode(utf8.decode(body));
         if (decoded is Map && decoded['id'] is num) {
@@ -390,36 +668,44 @@ class WebReverseLspClient {
           }
         }
         // notification（无 id）暂不处理。
-      } catch (e, st) {
-        silentLog('web_reverse_lsp_client', 'parse', e, st);
+      } catch (error, stack) {
+        _failProtocol('invalid JSON-RPC payload: $error', stack: stack);
+        return;
       }
     }
   }
 
-  void _failProtocol(String message) {
+  void _failProtocol(String message, {StackTrace? stack}) {
+    final process = _proc;
+    final stdoutSub = _stdoutSub;
+    final stderrSub = _stderrSub;
+    _lifecycleGeneration += 1;
+    _proc = null;
+    _stdoutSub = null;
+    _stderrSub = null;
     _buf.clear();
+    _documentVersions.clear();
     status = WebReverseLspStatus.failed;
     lastError = message;
-    try {
-      _proc?.kill();
-    } catch (error, stack) {
-      silentLog(
-        'web_reverse_lsp_client',
-        'kill protocol failure',
-        error,
-        stack,
+    _failPendingRequests(message);
+    final initDone = _initDone;
+    if (initDone != null) _completeInitialization(initDone, false);
+    if (process != null) {
+      unawaited(
+        _enqueueCleanup(
+          () => _releaseDetachedProcess(process, stdoutSub, stderrSub),
+        ),
+      );
+    } else {
+      unawaited(
+        _enqueueCleanup(() => _cancelSubscriptions(stdoutSub, stderrSub)),
       );
     }
-    _proc = null;
-    for (final c in _pending.values) {
-      if (!c.isCompleted) c.complete(<String, Object?>{'error': message});
-    }
-    _pending.clear();
     silentLog(
       'web_reverse_lsp_client',
       'protocol',
       message,
-      StackTrace.current,
+      stack ?? StackTrace.current,
     );
   }
 
