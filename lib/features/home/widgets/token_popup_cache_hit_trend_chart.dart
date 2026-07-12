@@ -21,6 +21,19 @@ const double _tokenPopupCacheHitZoomInScale = 1.12;
 const double _tokenPopupCacheHitZoomOutScale = 0.88;
 const double _tokenPopupCacheHitScaleEpsilon = 0.001;
 const double _tokenPopupCacheHitPanEpsilon = 0.01;
+const double _tokenPopupCacheHitTooltipGap = 12;
+const double _tokenPopupCacheHitTooltipWidth = 132;
+const double _tokenPopupCacheHitFirstRequestTooltipWidth = 148;
+const double _tokenPopupCacheHitTooltipHeight = 46;
+const double _tokenPopupCacheHitFirstRequestTooltipHeight = 58;
+
+double _clampTokenPopupOverlayOrigin({
+  required double desired,
+  required double minimum,
+  required double maximum,
+}) {
+  return desired.clamp(minimum, math.max(minimum, maximum)).toDouble();
+}
 
 double _tokenPopupCacheHitTrendAnimationProgress(double t) {
   final clamped = clampUnitInterval(t);
@@ -744,7 +757,9 @@ class _TokenPopupCacheHitTrendChartState
                             // + 浮窗，整组由 [_hoverController] 驱动进退场，
                             // 与全局 DialogAnimationSettings 的方向、时长和
                             // 曲线保持一致。
-                            if (_displayedPointIndex != null)
+                            if (_displayedPointIndex != null &&
+                                !(_hoveredPointIndex == null &&
+                                    hoverSettings.exitDisabled))
                               _buildHoverOverlay(
                                 visiblePoints: visiblePoints,
                                 hoveredIndex: _displayedPointIndex!,
@@ -897,17 +912,27 @@ class _TokenPopupCacheHitTrendChartState
     final firstRequestNote = point.isFirstRequest
         ? l10n.tokenPopupFirstRequestNotAveraged
         : '';
-    final tooltipWidth = point.isFirstRequest ? 148.0 : 132.0;
-    final tooltipHeight = point.isFirstRequest ? 58.0 : 46.0;
+    final tooltipWidth = point.isFirstRequest
+        ? _tokenPopupCacheHitFirstRequestTooltipWidth
+        : _tokenPopupCacheHitTooltipWidth;
+    final tooltipHeight = point.isFirstRequest
+        ? _tokenPopupCacheHitFirstRequestTooltipHeight
+        : _tokenPopupCacheHitTooltipHeight;
     // tooltip 优先放在点的上方；空间不足时翻转到下方。
-    final showAbove = (cy - tooltipHeight - 12) >= chartRect.top;
+    final showAbove =
+        (cy - tooltipHeight - _tokenPopupCacheHitTooltipGap) >= chartRect.top;
     final tooltipTop = showAbove
-        ? cy - tooltipHeight - 12
-        : (cy + 12).clamp(chartRect.top, chartRect.bottom - tooltipHeight);
+        ? cy - tooltipHeight - _tokenPopupCacheHitTooltipGap
+        : _clampTokenPopupOverlayOrigin(
+            desired: cy + _tokenPopupCacheHitTooltipGap,
+            minimum: chartRect.top,
+            maximum: chartRect.bottom - tooltipHeight,
+          );
     // 横向避免超出 chartRect。
-    final tooltipLeft = (cx - tooltipWidth / 2).clamp(
-      chartRect.left,
-      chartRect.right - tooltipWidth,
+    final tooltipLeft = _clampTokenPopupOverlayOrigin(
+      desired: cx - tooltipWidth / 2,
+      minimum: chartRect.left,
+      maximum: chartRect.right - tooltipWidth,
     );
 
     Widget transition(Widget child) => buildAnimationStyleTransition(

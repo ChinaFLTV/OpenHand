@@ -133,6 +133,10 @@ void main() {
 
     update(() => disableAnimations = true);
     await tester.pump();
+    expect(find.text('37%'), findsNothing);
+
+    // The cleanup callback still converges the retained exit state without
+    // briefly rebuilding the now-disabled exit transition at full opacity.
     await tester.pump();
     expect(find.text('37%'), findsNothing);
 
@@ -140,6 +144,27 @@ void main() {
     await tester.pump();
     expect(find.text('37%'), findsOneWidget);
     await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text('37%'), findsOneWidget);
+    await gesture.removePointer();
+  });
+
+  testWidgets('tiny chart height keeps tooltip positioning bounds valid', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _testApp(
+        child: TokenPopupCacheHitTrendChart(
+          trend: _trend(<double>[0.12, 0.37, 0.81]),
+          height: 20,
+          displayMode: SessionCacheHitDisplayMode.includeExpiredMisses,
+        ),
+      ),
+    );
+
+    final gesture = await _hoverChartCenter(tester);
+    await tester.pump();
+
+    expect(tester.takeException(), isNull);
     expect(find.text('37%'), findsOneWidget);
     await gesture.removePointer();
   });
