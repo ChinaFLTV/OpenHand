@@ -7,7 +7,9 @@ import 'package:http/http.dart' as http;
 
 import '../../../app/support/silent_log.dart';
 import '../../../app/support/system_proxy.dart';
+import '../../../shared/net/http_response_utils.dart';
 import '../../../shared/net/http_status_utils.dart';
+import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../model/skill_market.dart';
 
@@ -27,9 +29,13 @@ class SkillMarketClient {
 
   static const String _host = 'api.skillhub.cn';
   static const int defaultPageSize = 24;
-  static const int _maxDownloadBytes = 48 * 1024 * 1024;
+  static const int _maxDownloadBytes = 48 * kBytesPerMiB;
+  static const int _maxJsonResponseBytes = 4 * kBytesPerMiB;
   static const Duration _requestTimeout = Duration(seconds: 14);
   static const Duration _downloadIdleTimeout = Duration(seconds: 18);
+  static const Duration _downloadTotalTimeout = Duration(minutes: 5);
+  static const Duration _discardIdleTimeout = Duration(seconds: 2);
+  static const Duration _discardTotalTimeout = Duration(seconds: 4);
   static const String _skillManifestPath = 'SKILL.MD';
 
   final http.Client _client;
@@ -144,16 +150,17 @@ class SkillMarketClient {
       throw const SkillMarketException('Skill archive is too large.');
     }
 
-    final builder = BytesBuilder(copy: false);
-    var downloadedBytes = 0;
-    await for (final chunk in response.stream.timeout(_downloadIdleTimeout)) {
-      downloadedBytes += chunk.length;
-      if (downloadedBytes > _maxDownloadBytes) {
-        throw const SkillMarketException('Skill archive is too large.');
-      }
-      builder.add(chunk);
+    late final Uint8List bytes;
+    try {
+      bytes = await readBoundedByteStream(
+        response.stream,
+        maxBytes: _maxDownloadBytes,
+        idleTimeout: _downloadIdleTimeout,
+        totalTimeout: _downloadTotalTimeout,
+      );
+    } on HttpException {
+      throw const SkillMarketException('Skill archive is too large.');
     }
-    final bytes = builder.takeBytes();
     if (bytes.isEmpty) {
       throw const SkillMarketException('Downloaded skill archive is empty.');
     }
@@ -382,16 +389,28 @@ class SkillMarketClient {
   String _normalizeVersion(String? version) => nullIfBlank(version) ?? '';
 
   Future<Map<String, Object?>> _getJson(Uri uri) async {
-    final response = await _client
-        .get(
-          uri,
-          headers: <String, String>{
-            HttpHeaders.acceptHeader: 'application/json',
-          },
-        )
-        .timeout(_requestTimeout);
-    _throwHttpFailure(response.statusCode, 'from $uri');
-    final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+    final request = http.Request('GET', uri)
+      ..headers[HttpHeaders.acceptHeader] = 'application/json';
+    final response = await _client.send(request).timeout(_requestTimeout);
+    if (isHttpFailureStatus(response.statusCode)) {
+      await _drainResponseStreamBestEffort(
+        response.stream,
+        reason: 'drain JSON error response',
+      );
+      _throwHttpFailure(response.statusCode, 'from $uri');
+    }
+    late final Uint8List body;
+    try {
+      body = await readBoundedByteStream(
+        response.stream,
+        maxBytes: _maxJsonResponseBytes,
+        idleTimeout: _requestTimeout,
+        totalTimeout: _requestTimeout,
+      );
+    } on HttpException {
+      throw const SkillMarketException('Skill market response is too large.');
+    }
+    final decoded = jsonDecode(utf8.decode(body));
     if (decoded is Map<String, Object?>) {
       return decoded;
     }
@@ -418,7 +437,11 @@ class SkillMarketClient {
     required String reason,
   }) async {
     try {
-      await stream.drain<void>();
+      await drainByteStreamWithTimeout(
+        stream,
+        idleTimeout: _discardIdleTimeout,
+        totalTimeout: _discardTotalTimeout,
+      );
     } catch (error, stack) {
       silentLog('skill_market_client', reason, error, stack);
     }

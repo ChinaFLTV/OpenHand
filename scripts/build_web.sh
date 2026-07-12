@@ -87,6 +87,28 @@ try_existing_pnpm() {
   return 1
 }
 
+try_cached_corepack_pnpm() {
+  local package_manager="$1"
+  local version="${package_manager#pnpm@}"
+  if [[ "$version" == "$package_manager" || -z "$version" || "$version" == */* ]]; then
+    return 1
+  fi
+
+  local candidates=(
+    "$HOME/.cache/node/corepack/v1/pnpm/$version/bin/pnpm.cjs"
+    "$HOME/Library/Caches/node/corepack/v1/pnpm/$version/bin/pnpm.cjs"
+  )
+  local candidate
+  for candidate in "${candidates[@]}"; do
+    [[ -f "$candidate" ]] || continue
+    if node "$candidate" --version >/dev/null 2>&1; then
+      PNPM_CMD=("$(command -v node)" "$candidate")
+      return 0
+    fi
+  done
+  return 1
+}
+
 try_corepack_pnpm() {
   local package_manager="$1"
 
@@ -128,6 +150,10 @@ resolve_pnpm_command() {
 
   if try_existing_pnpm; then
     log "使用 pnpm $(pnpm_version)"
+    return
+  fi
+  if try_cached_corepack_pnpm "$package_manager"; then
+    log "使用 Corepack 本地缓存 pnpm $(pnpm_version)"
     return
   fi
   if try_corepack_pnpm "$package_manager"; then

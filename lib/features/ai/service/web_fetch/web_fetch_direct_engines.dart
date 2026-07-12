@@ -1,11 +1,13 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import '../../../../app/support/silent_log.dart';
+import '../../../../shared/net/http_response_utils.dart';
 import '../../model/ai_web_fetch_settings.dart';
 import '../../tools/ai_tool_utils.dart';
 import 'web_fetch_engine.dart';
+import 'web_fetch_http_utils.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 无 key 直连兜底引擎：duckduckgo / bing。
@@ -25,6 +27,8 @@ class WebFetchDirectHttpEngine extends WebFetchEngine {
     r'<title[^>]*>([\s\S]*?)</title>',
     caseSensitive: false,
   );
+  static const Duration _redirectDrainIdleTimeout = Duration(seconds: 2);
+  static const Duration _redirectDrainTotalTimeout = Duration(seconds: 3);
 
   final String userAgent;
 
@@ -39,18 +43,23 @@ class WebFetchDirectHttpEngine extends WebFetchEngine {
     );
     final status = response.statusCode;
     if (status < 200 || status >= 400) {
+      await _discardResponse(response.stream);
       throw WebEngineHttpException('${kind.name} HTTP $status');
     }
-    final headers = Map<String, String>.from(response.headers);
+    final boundedResponse = await collectBoundedWebFetchResponse(
+      response,
+      responseTimeout: Duration(seconds: config.responseTimeoutSeconds),
+    );
+    final headers = boundedResponse.headers;
     final contentType = (headers['content-type'] ?? '').toLowerCase();
-    final body = utf8.decode(response.bodyBytes, allowMalformed: true);
+    final body = boundedResponse.text();
     final isHtml = contentType.contains('html');
     final text = isHtml ? AiToolUtils.htmlToText(body) : body;
     if (text.isEmpty) return const <WebFetchEngineContent>[];
     final title = isHtml ? _extractTitle(body) : '';
     return [
       WebFetchEngineContent(
-        url: response.request?.url.toString() ?? req.url,
+        url: boundedResponse.requestUrl?.toString() ?? req.url,
         title: title.isEmpty ? req.url : title,
         content: text,
         contentType: contentType,
@@ -60,7 +69,7 @@ class WebFetchDirectHttpEngine extends WebFetchEngine {
     ];
   }
 
-  Future<http.Response> _followRedirects(
+  Future<http.StreamedResponse> _followRedirects(
     Uri uri, {
     required int maxRedirects,
   }) async {
@@ -70,10 +79,12 @@ class WebFetchDirectHttpEngine extends WebFetchEngine {
       request.followRedirects = false;
       request.headers['user-agent'] = userAgent;
       request.headers['accept'] = 'text/html,application/xhtml+xml,*/*;q=0.8';
-      final stream = await httpClient.send(request);
+      final stream = await httpClient
+          .send(request)
+          .timeout(Duration(seconds: config.connectionTimeoutSeconds));
       if (stream.statusCode >= 300 && stream.statusCode < 400) {
         final loc = stream.headers['location'];
-        await stream.stream.drain<void>();
+        await _discardResponse(stream.stream);
         if (loc == null || loc.isEmpty) {
           throw WebEngineHttpException(
             '${kind.name} redirect missing Location',
@@ -82,9 +93,26 @@ class WebFetchDirectHttpEngine extends WebFetchEngine {
         current = current.resolve(loc);
         continue;
       }
-      return http.Response.fromStream(stream);
+      return stream;
     }
     throw WebEngineHttpException('${kind.name} too many redirects');
+  }
+
+  Future<void> _discardResponse(Stream<List<int>> stream) async {
+    try {
+      await drainByteStreamWithTimeout(
+        stream,
+        idleTimeout: _redirectDrainIdleTimeout,
+        totalTimeout: _redirectDrainTotalTimeout,
+      );
+    } catch (error, stack) {
+      silentLog(
+        'web_fetch_direct_engine',
+        'discard HTTP response',
+        error,
+        stack,
+      );
+    }
   }
 
   static String _extractTitle(String html) {

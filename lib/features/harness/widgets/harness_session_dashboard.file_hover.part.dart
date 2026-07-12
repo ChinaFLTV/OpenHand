@@ -17,6 +17,7 @@ class _HeFileHoverPopup extends StatefulWidget {
 
 class _HeFileHoverPopupState extends State<_HeFileHoverPopup> {
   OverlayEntry? _overlayEntry;
+  ValueNotifier<bool>? _overlayVisible;
   bool _isHovered = false;
   bool _showScheduled = false;
   bool _hideScheduled = false;
@@ -30,7 +31,12 @@ class _HeFileHoverPopupState extends State<_HeFileHoverPopup> {
   }
 
   void _showOverlay() {
-    if (widget.isUnresolved || _overlayEntry != null || _showScheduled) return;
+    if (widget.isUnresolved || _showScheduled) return;
+    if (_overlayEntry != null) {
+      _hideScheduled = false;
+      _overlayVisible?.value = true;
+      return;
+    }
     // Defer overlay insertion to avoid mutating the widget tree during
     // MouseTracker._deviceUpdatePhase, which triggers the
     // !_debugDuringDeviceUpdate re-entrancy assertion.
@@ -64,13 +70,18 @@ class _HeFileHoverPopupState extends State<_HeFileHoverPopup> {
 
     final resolvedPath = widget.resolvedPath;
 
-    _overlayEntry = OverlayEntry(
+    final visible = ValueNotifier<bool>(true);
+    _overlayVisible = visible;
+    late final OverlayEntry entry;
+    entry = OverlayEntry(
       builder: (overlayContext) => Positioned(
         left: targetLeft,
         top: targetTop,
         child: IgnorePointer(
           child: AnimatedOverlayContent(
             useMenuSettings: true,
+            visibility: visible,
+            onExitCompleted: () => _finalizeOverlayRemoval(entry, visible),
             child: Material(
               elevation: 4,
               borderRadius: BorderRadius.circular(8),
@@ -160,10 +171,13 @@ class _HeFileHoverPopupState extends State<_HeFileHoverPopup> {
         ),
       ),
     );
+    _overlayEntry = entry;
     try {
-      Overlay.of(context, rootOverlay: true).insert(_overlayEntry!);
+      Overlay.of(context, rootOverlay: true).insert(entry);
     } catch (_) {
       _overlayEntry = null;
+      _overlayVisible = null;
+      visible.dispose();
     }
   }
 
@@ -171,16 +185,52 @@ class _HeFileHoverPopupState extends State<_HeFileHoverPopup> {
     if (_overlayEntry == null && !_showScheduled) return;
     _showScheduled = false;
     final entry = _overlayEntry;
-    _overlayEntry = null;
-    if (entry == null) return;
-    // Defer overlay removal to avoid mutating the widget tree during
-    // MouseTracker._deviceUpdatePhase.
+    final visible = _overlayVisible;
+    if (entry == null || visible == null) return;
+    // Defer the visibility mutation to avoid rebuilding the overlay during
+    // MouseTracker._deviceUpdatePhase. The shared overlay transition removes
+    // the entry only after its globally configured reverse motion completes.
     if (_hideScheduled) return;
     _hideScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_hideScheduled) return;
       _hideScheduled = false;
-      entry.remove();
+      if (!identical(_overlayEntry, entry) ||
+          !identical(_overlayVisible, visible)) {
+        return;
+      }
+      if (!mounted) {
+        _removeOverlayImmediately();
+        return;
+      }
+      visible.value = false;
     });
+  }
+
+  void _finalizeOverlayRemoval(
+    OverlayEntry entry,
+    ValueNotifier<bool> visible,
+  ) {
+    if (!identical(_overlayEntry, entry) ||
+        !identical(_overlayVisible, visible) ||
+        visible.value) {
+      return;
+    }
+    _overlayEntry = null;
+    _overlayVisible = null;
+    entry.remove();
+    visible.dispose();
+  }
+
+  void _removeOverlayImmediately() {
+    _showScheduled = false;
+    _hideScheduled = false;
+    final entry = _overlayEntry;
+    final visible = _overlayVisible;
+    _overlayEntry = null;
+    _overlayVisible = null;
+    entry?.remove();
+    visible?.dispose();
   }
 
   @override
@@ -195,10 +245,7 @@ class _HeFileHoverPopupState extends State<_HeFileHoverPopup> {
   @override
   void deactivate() {
     // Synchronous removal since the widget is leaving the tree.
-    _showScheduled = false;
-    _hideScheduled = false;
-    _overlayEntry?.remove();
-    _overlayEntry = null;
+    _removeOverlayImmediately();
     _isHovered = false;
     super.deactivate();
   }
@@ -221,7 +268,7 @@ class _HeFileHoverPopupState extends State<_HeFileHoverPopup> {
 
   @override
   void dispose() {
-    _hideOverlay();
+    _removeOverlayImmediately();
     HardwareKeyboard.instance.removeHandler(_handleKey);
     super.dispose();
   }

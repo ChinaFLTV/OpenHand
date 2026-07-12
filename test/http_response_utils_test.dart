@@ -1,0 +1,69 @@
+import 'dart:async';
+import 'dart:io';
+
+import 'package:flutter_test/flutter_test.dart';
+import 'package:openhand/shared/net/http_response_utils.dart';
+
+void main() {
+  test('bounded byte streams collect successful chunks', () async {
+    final bytes = await readBoundedByteStream(
+      Stream<List<int>>.fromIterable(const <List<int>>[
+        <int>[1, 2],
+        <int>[3, 4],
+      ]),
+      maxBytes: 4,
+      idleTimeout: const Duration(seconds: 1),
+      totalTimeout: const Duration(seconds: 2),
+    );
+
+    expect(bytes, <int>[1, 2, 3, 4]);
+  });
+
+  test('size overflow cancels the response subscription', () async {
+    final cancelled = Completer<void>();
+    final controller = StreamController<List<int>>(
+      onCancel: () {
+        if (!cancelled.isCompleted) cancelled.complete();
+      },
+    );
+    final read = readBoundedByteStream(
+      controller.stream,
+      maxBytes: 4,
+      idleTimeout: const Duration(seconds: 1),
+      totalTimeout: const Duration(seconds: 2),
+    );
+
+    controller.add(const <int>[1, 2, 3, 4, 5]);
+
+    await expectLater(read, throwsA(isA<HttpException>()));
+    await cancelled.future.timeout(const Duration(seconds: 1));
+    await controller.close();
+  });
+
+  test('total timeout cancels a continuously active stream', () async {
+    final cancelled = Completer<void>();
+    final controller = StreamController<List<int>>(
+      onCancel: () {
+        if (!cancelled.isCompleted) cancelled.complete();
+      },
+    );
+    final timer = Timer.periodic(
+      const Duration(milliseconds: 5),
+      (_) => controller.add(const <int>[1]),
+    );
+    try {
+      await expectLater(
+        drainByteStreamWithTimeout(
+          controller.stream,
+          idleTimeout: const Duration(seconds: 1),
+          totalTimeout: const Duration(milliseconds: 40),
+        ),
+        throwsA(isA<TimeoutException>()),
+      );
+      await cancelled.future.timeout(const Duration(seconds: 1));
+    } finally {
+      timer.cancel();
+      await controller.close();
+    }
+  });
+}

@@ -265,7 +265,8 @@ class _PersistentBashExecution {
   final Completer<_PersistentBashCommandOutcome> outcome =
       Completer<_PersistentBashCommandOutcome>();
 
-  String _stdoutLineBuffer = '';
+  StringBuffer _stdoutLineBuffer = StringBuffer();
+  bool _stdoutLineTruncated = false;
   String? _resolvedWorkingDirectory;
   int? _exitCode;
   bool _awaitingPwdLine = false;
@@ -343,24 +344,72 @@ class _PersistentBashExecution {
       _stallWarningEmitted = false;
     }
     final normalized = chunk.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
-    _stdoutLineBuffer += normalized;
-    while (true) {
-      final lineEnding = _stdoutLineBuffer.indexOf('\n');
-      if (lineEnding == -1) {
-        break;
+    var segmentStart = 0;
+    while (segmentStart < normalized.length) {
+      final lineEnding = normalized.indexOf('\n', segmentStart);
+      if (lineEnding < 0) {
+        _appendStdoutLineSegment(
+          normalized.substring(segmentStart),
+          maxCapturedCharacters,
+        );
+        return;
       }
-      final line = _stdoutLineBuffer.substring(0, lineEnding);
-      _stdoutLineBuffer = _stdoutLineBuffer.substring(lineEnding + 1);
-      _handleStdoutLine('$line\n', maxCapturedCharacters);
+      _appendStdoutLineSegment(
+        normalized.substring(segmentStart, lineEnding),
+        maxCapturedCharacters,
+      );
+      _flushStdoutLine(maxCapturedCharacters, includeNewline: true);
+      segmentStart = lineEnding + 1;
     }
   }
 
   void finalizeStdout(int maxCapturedCharacters) {
-    if (_stdoutLineBuffer.isEmpty) {
+    if (_stdoutLineBuffer.isEmpty && !_stdoutLineTruncated) {
       return;
     }
-    _handleStdoutLine(_stdoutLineBuffer, maxCapturedCharacters);
-    _stdoutLineBuffer = '';
+    _flushStdoutLine(maxCapturedCharacters, includeNewline: false);
+  }
+
+  void _appendStdoutLineSegment(String segment, int maxCapturedCharacters) {
+    if (segment.isEmpty || _stdoutLineTruncated) return;
+    // Protocol markers are short, but they must remain parseable even when
+    // output capture is disabled or configured unusually low. The line
+    // accumulator itself is always bounded so a command that emits an
+    // endless line cannot grow memory or trigger quadratic string copies.
+    const minimumProtocolLineCharacters = 512;
+    final lineLimit = maxCapturedCharacters > minimumProtocolLineCharacters
+        ? maxCapturedCharacters
+        : minimumProtocolLineCharacters;
+    final remaining = lineLimit - _stdoutLineBuffer.length;
+    if (remaining <= 0) {
+      _stdoutLineTruncated = true;
+      return;
+    }
+    if (segment.length <= remaining) {
+      _stdoutLineBuffer.write(segment);
+      return;
+    }
+    _stdoutLineBuffer.write(segment.substring(0, remaining));
+    _stdoutLineTruncated = true;
+  }
+
+  void _flushStdoutLine(
+    int maxCapturedCharacters, {
+    required bool includeNewline,
+  }) {
+    final line = _stdoutLineBuffer.toString();
+    final wasTruncated = _stdoutLineTruncated;
+    _stdoutLineBuffer = StringBuffer();
+    _stdoutLineTruncated = false;
+    _handleStdoutLine(includeNewline ? '$line\n' : line, maxCapturedCharacters);
+    if (wasTruncated) {
+      _appendChunk(
+        stdoutBuffer,
+        '\n...[line truncated]\n',
+        maxCapturedCharacters,
+      );
+      emitUpdate(phase: BashToolExecutionPhase.running);
+    }
   }
 
   void appendStderrChunk(String chunk, int maxCapturedCharacters) {
@@ -461,6 +510,9 @@ class _PersistentBashExecution {
     String chunk,
     int maxCapturedCharacters,
   ) {
+    if (maxCapturedCharacters <= 0) {
+      return;
+    }
     if (buffer.length >= maxCapturedCharacters) {
       return;
     }
@@ -486,6 +538,7 @@ class _PersistentBashSession {
   StreamSubscription<String>? stdoutSubscription;
   StreamSubscription<String>? stderrSubscription;
   _PersistentBashExecution? activeExecution;
+  Future<void>? cleanupFuture;
 }
 
 class _CancelledPersistentBashExecution implements Exception {
@@ -496,6 +549,7 @@ class AiBashToolService {
   AiBashToolService();
 
   static const int defaultTimeoutMs = 120000;
+  static const Duration _subscriptionCancelTimeout = Duration(seconds: 1);
   // 2026-05 — `bashOutputMaxBytes` 设置项：从 SettingsController 注入。
   // 旧默认 32000；放宽到 200_000，与 snapshot.defaultBashOutputMaxBytes 对齐。
   int maxCapturedCharacters = 200000;
@@ -504,9 +558,12 @@ class AiBashToolService {
   final AiSandboxService sandboxService = AiSandboxService();
   final Map<String, _PersistentBashSession> _persistentSessions =
       <String, _PersistentBashSession>{};
+  final Map<String, Future<_PersistentBashSession>> _persistentSessionStarts =
+      <String, Future<_PersistentBashSession>>{};
   int _persistentMarkerCounter = 0;
   int _lastSeenProxyRevision = SystemProxyResolver.instance.revision.value;
   bool _proxyListenerRegistered = false;
+  bool _disposed = false;
 
   /// Lazy 注册：仅当本实例真的会启动 shell 子进程（execute / 持久 session）
   /// 才订阅代理变更。`AiPromptBuilder._bashWriteAnalyzer` 这种只用 analyze
@@ -545,6 +602,9 @@ class AiBashToolService {
     bool dangerouslyDisableSandbox = false,
     bool forceWriteConfirmation = false,
   }) async {
+    if (_disposed) {
+      throw StateError('AiBashToolService has been disposed.');
+    }
     _ensureProxyListenerAttached();
     final normalizedCommand = command.trim();
     final normalizedSessionId = (sessionId ?? '').trim();
@@ -1129,7 +1189,7 @@ class AiBashToolService {
       );
       AiToolExecutionRegistry.instance.attachKiller(
         registeredToolCallId,
-        () async => _closePersistentSession(sessionId),
+        () async => _closePersistentSession(sessionId, expected: session),
       );
     }
 
@@ -1184,7 +1244,7 @@ class AiBashToolService {
     } on TimeoutException {
       execution.finalizeStdout(maxCapturedCharacters);
       execution.stopwatch.stop();
-      await _closePersistentSession(sessionId);
+      await _closePersistentSession(sessionId, expected: session);
       execution.emitUpdate(
         phase: BashToolExecutionPhase.completed,
         force: true,
@@ -1206,7 +1266,7 @@ class AiBashToolService {
     } on _CancelledPersistentBashExecution {
       execution.finalizeStdout(maxCapturedCharacters);
       execution.stopwatch.stop();
-      await _closePersistentSession(sessionId);
+      await _closePersistentSession(sessionId, expected: session);
       execution.emitUpdate(
         phase: BashToolExecutionPhase.completed,
         force: true,
@@ -1228,7 +1288,7 @@ class AiBashToolService {
     } catch (error) {
       execution.finalizeStdout(maxCapturedCharacters);
       execution.stopwatch.stop();
-      await _closePersistentSession(sessionId);
+      await _closePersistentSession(sessionId, expected: session);
       execution.emitUpdate(
         phase: BashToolExecutionPhase.completed,
         force: true,
@@ -1343,10 +1403,35 @@ class AiBashToolService {
     required String sessionId,
     required String initialWorkingDirectory,
   }) async {
+    if (_disposed) {
+      throw StateError('AiBashToolService has been disposed.');
+    }
     final existing = _persistentSessions[sessionId];
     if (existing != null) {
       return existing;
     }
+    final inFlight = _persistentSessionStarts[sessionId];
+    if (inFlight != null) {
+      return inFlight;
+    }
+    final startFuture = _startPersistentSession(
+      sessionId: sessionId,
+      initialWorkingDirectory: initialWorkingDirectory,
+    );
+    _persistentSessionStarts[sessionId] = startFuture;
+    try {
+      return await startFuture;
+    } finally {
+      if (identical(_persistentSessionStarts[sessionId], startFuture)) {
+        _persistentSessionStarts.remove(sessionId);
+      }
+    }
+  }
+
+  Future<_PersistentBashSession> _startPersistentSession({
+    required String sessionId,
+    required String initialWorkingDirectory,
+  }) async {
     final shellExecutable = Platform.isWindows
         ? 'cmd'
         : _resolveShellExecutable();
@@ -1378,56 +1463,78 @@ class AiBashToolService {
       process: process,
       currentWorkingDirectory: initialWorkingDirectory,
     );
-    // For Unix shells, disable glob expansion so that commands containing
-    // special characters (e.g. osascript with AppleScript strings that include
-    // brackets, asterisks, question marks) don't trigger "bad pattern" errors.
-    if (!Platform.isWindows) {
-      process.stdin.write(
-        'set -o noglob 2>/dev/null || setopt noglob 2>/dev/null || true\n',
-      );
-      // Flush so the shell processes the noglob setup before the first command.
-      try {
+    try {
+      if (_disposed) {
+        throw StateError(
+          'AiBashToolService was disposed during shell startup.',
+        );
+      }
+      // For Unix shells, disable glob expansion so commands containing shell
+      // metacharacters do not fail before the per-command wrapper runs.
+      if (!Platform.isWindows) {
+        process.stdin.write(
+          'set -o noglob 2>/dev/null || setopt noglob 2>/dev/null || true\n',
+        );
+        // A failed flush means the shell transport is already unusable; treat
+        // it as a startup failure so the half-initialized process is recycled.
         await process.stdin.flush();
-      } catch (error, stack) {
+      }
+
+      void handleStreamError(Object error, StackTrace stack) {
         silentLog(
           'ai_bash_tool_service',
-          'flush noglob setup to shell stdin',
+          'persistent shell transport',
           error,
           stack,
         );
+        session.activeExecution?.completeError(error, maxCapturedCharacters);
+        unawaited(_closePersistentSession(sessionId, expected: session));
       }
+
+      session.stdoutSubscription = process.stdout
+          .transform(_shellOutputDecoder)
+          .listen(
+            (chunk) {
+              session.activeExecution?.appendStdoutChunk(
+                chunk,
+                maxCapturedCharacters,
+              );
+            },
+            onError: handleStreamError,
+            cancelOnError: true,
+          );
+      session.stderrSubscription = process.stderr
+          .transform(_shellOutputDecoder)
+          .listen(
+            (chunk) {
+              session.activeExecution?.appendStderrChunk(
+                chunk,
+                maxCapturedCharacters,
+              );
+            },
+            onError: handleStreamError,
+            cancelOnError: true,
+          );
+      process.exitCode.then((_) {
+        final activeExecution = session.activeExecution;
+        if (activeExecution != null && !activeExecution.outcome.isCompleted) {
+          activeExecution.completeError(
+            StateError('The persistent bash session exited unexpectedly.'),
+            maxCapturedCharacters,
+          );
+        }
+        // Also terminate any descendants that inherited the shell's pipes.
+        unawaited(_disposePersistentSession(session));
+        if (identical(_persistentSessions[sessionId], session)) {
+          _persistentSessions.remove(sessionId);
+        }
+      });
+      _persistentSessions[sessionId] = session;
+      return session;
+    } catch (_) {
+      await _disposePersistentSession(session);
+      rethrow;
     }
-    session.stdoutSubscription = process.stdout
-        .transform(_shellOutputDecoder)
-        .listen((chunk) {
-          session.activeExecution?.appendStdoutChunk(
-            chunk,
-            maxCapturedCharacters,
-          );
-        });
-    session.stderrSubscription = process.stderr
-        .transform(_shellOutputDecoder)
-        .listen((chunk) {
-          session.activeExecution?.appendStderrChunk(
-            chunk,
-            maxCapturedCharacters,
-          );
-        });
-    process.exitCode.then((_) {
-      final activeExecution = session.activeExecution;
-      if (activeExecution != null && !activeExecution.outcome.isCompleted) {
-        activeExecution.completeError(
-          StateError('The persistent bash session exited unexpectedly.'),
-          maxCapturedCharacters,
-        );
-      }
-      // Cancel subscriptions when process exits to avoid dangling listeners.
-      unawaited(session.stdoutSubscription?.cancel());
-      unawaited(session.stderrSubscription?.cancel());
-      _persistentSessions.remove(sessionId);
-    });
-    _persistentSessions[sessionId] = session;
-    return session;
   }
 
   String _buildPersistentCommandScript({
@@ -1588,15 +1695,52 @@ class AiBashToolService {
     return "'${value.replaceAll("'", r"'\''")}'";
   }
 
-  Future<void> _closePersistentSession(String sessionId) async {
-    final session = _persistentSessions.remove(sessionId);
-    if (session == null) {
+  Future<void> _closePersistentSession(
+    String sessionId, {
+    _PersistentBashSession? expected,
+  }) async {
+    final session = _persistentSessions[sessionId];
+    if (session == null ||
+        (expected != null && !identical(session, expected))) {
       return;
     }
-    // Cancel subscriptions first to avoid reading from a killed process.
-    await session.stdoutSubscription?.cancel();
-    await session.stderrSubscription?.cancel();
-    _killProcess(session.process);
+    _persistentSessions.remove(sessionId);
+    await _disposePersistentSession(session);
+  }
+
+  Future<void> _disposePersistentSession(_PersistentBashSession session) {
+    final activeCleanup = session.cleanupFuture;
+    if (activeCleanup != null) return activeCleanup;
+    final cleanup = _performPersistentSessionCleanup(session);
+    session.cleanupFuture = cleanup;
+    return cleanup;
+  }
+
+  Future<void> _performPersistentSessionCleanup(
+    _PersistentBashSession session,
+  ) async {
+    await Future.wait<void>(<Future<void>>[
+      _cancelPersistentSubscription(session.stdoutSubscription, 'stdout'),
+      _cancelPersistentSubscription(session.stderrSubscription, 'stderr'),
+    ]);
+    await terminateTrackedProcessTree(session.process);
+  }
+
+  Future<void> _cancelPersistentSubscription(
+    StreamSubscription<String>? subscription,
+    String streamName,
+  ) async {
+    if (subscription == null) return;
+    try {
+      await subscription.cancel().timeout(_subscriptionCancelTimeout);
+    } catch (error, stack) {
+      silentLog(
+        'ai_bash_tool_service',
+        'cancel persistent $streamName subscription',
+        error,
+        stack,
+      );
+    }
   }
 
   String _resolveShellExecutable() {
@@ -1676,6 +1820,8 @@ class AiBashToolService {
   }
 
   void dispose() {
+    if (_disposed) return;
+    _disposed = true;
     if (_proxyListenerRegistered) {
       SystemProxyResolver.instance.revision.removeListener(
         _onProxyRevisionChanged,
@@ -1688,10 +1834,7 @@ class AiBashToolService {
       if (session == null) {
         continue;
       }
-      // Cancel subscriptions before killing process to avoid error callbacks.
-      unawaited(session.stdoutSubscription?.cancel());
-      unawaited(session.stderrSubscription?.cancel());
-      _killProcess(session.process);
+      unawaited(_disposePersistentSession(session));
     }
   }
 

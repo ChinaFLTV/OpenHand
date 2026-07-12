@@ -91,25 +91,149 @@ class StdioProcessInfo {
   }
 }
 
+typedef McpStdioProcessStarter =
+    Future<Process> Function(
+      String executable,
+      List<String> arguments, {
+      Map<String, String>? environment,
+    });
+
+Future<Process> _startMcpStdioProcess(
+  String executable,
+  List<String> arguments, {
+  Map<String, String>? environment,
+}) {
+  return startTrackedProcessInNewGroup(
+    executable,
+    arguments,
+    environment: environment,
+  );
+}
+
+Duration _positiveDuration(String name, Duration value) {
+  if (value <= Duration.zero) {
+    throw ArgumentError.value(value, name, 'must be greater than zero');
+  }
+  return value;
+}
+
+Duration _nonNegativeDuration(String name, Duration value) {
+  if (value < Duration.zero) {
+    throw ArgumentError.value(value, name, 'must not be negative');
+  }
+  return value;
+}
+
+int _positiveLimit(String name, int value) {
+  if (value <= 0) {
+    throw ArgumentError.value(value, name, 'must be greater than zero');
+  }
+  return value;
+}
+
 /// 管理 STDIO 类型 MCP 服务的进程生命周期。
 ///
 /// 每个 STDIO MCP 服务可以独立启动/停止，进程日志实时收集，
 /// 应用退出时自动终止所有子进程。
 class McpStdioProcessManager extends ChangeNotifier {
-  McpStdioProcessManager._();
+  McpStdioProcessManager._({
+    McpStdioProcessStarter processStarter = _startMcpStdioProcess,
+    Duration stdinCloseTimeout = _defaultStdinCloseTimeout,
+    Duration gracefulStopTimeout = _defaultGracefulStopTimeout,
+    Duration forceStopTimeout = _defaultForceStopTimeout,
+    Duration processStartTimeout = _defaultProcessStartTimeout,
+    Duration subscriptionCancelTimeout = _defaultSubscriptionCancelTimeout,
+    Duration initializeStartupDelay = _defaultInitializeStartupDelay,
+    Duration initializeResponseTimeout = _defaultInitializeResponseTimeout,
+    int responseBufferLimit = _defaultResponseBufferLimit,
+  }) : _processStarter = processStarter,
+       _stdinCloseTimeout = _positiveDuration(
+         'stdinCloseTimeout',
+         stdinCloseTimeout,
+       ),
+       _gracefulStopTimeout = _positiveDuration(
+         'gracefulStopTimeout',
+         gracefulStopTimeout,
+       ),
+       _forceStopTimeout = _positiveDuration(
+         'forceStopTimeout',
+         forceStopTimeout,
+       ),
+       _processStartTimeout = _positiveDuration(
+         'processStartTimeout',
+         processStartTimeout,
+       ),
+       _subscriptionCancelTimeout = _positiveDuration(
+         'subscriptionCancelTimeout',
+         subscriptionCancelTimeout,
+       ),
+       _initializeStartupDelay = _nonNegativeDuration(
+         'initializeStartupDelay',
+         initializeStartupDelay,
+       ),
+       _initializeResponseTimeout = _positiveDuration(
+         'initializeResponseTimeout',
+         initializeResponseTimeout,
+       ),
+       _responseBufferLimit = _positiveLimit(
+         'responseBufferLimit',
+         responseBufferLimit,
+       );
+
+  /// Creates an isolated manager with deterministic process dependencies.
+  /// Production code should use [instance].
+  McpStdioProcessManager.forTesting({
+    required McpStdioProcessStarter processStarter,
+    Duration stdinCloseTimeout = const Duration(milliseconds: 10),
+    Duration gracefulStopTimeout = const Duration(milliseconds: 10),
+    Duration forceStopTimeout = const Duration(milliseconds: 10),
+    Duration processStartTimeout = const Duration(milliseconds: 100),
+    Duration subscriptionCancelTimeout = const Duration(milliseconds: 20),
+    Duration initializeStartupDelay = Duration.zero,
+    Duration initializeResponseTimeout = const Duration(milliseconds: 100),
+    int responseBufferLimit = _defaultResponseBufferLimit,
+  }) : this._(
+         processStarter: processStarter,
+         stdinCloseTimeout: stdinCloseTimeout,
+         gracefulStopTimeout: gracefulStopTimeout,
+         forceStopTimeout: forceStopTimeout,
+         processStartTimeout: processStartTimeout,
+         subscriptionCancelTimeout: subscriptionCancelTimeout,
+         initializeStartupDelay: initializeStartupDelay,
+         initializeResponseTimeout: initializeResponseTimeout,
+         responseBufferLimit: responseBufferLimit,
+       );
 
   static final McpStdioProcessManager instance = McpStdioProcessManager._();
 
   static const int _maxLogLines = 2000;
-  static const Duration _stdinCloseTimeout = Duration(milliseconds: 400);
-  static const Duration _gracefulStopTimeout = Duration(seconds: 3);
-  static const Duration _forceStopTimeout = Duration(seconds: 2);
-  static const Duration _initializeStartupDelay = Duration(seconds: 2);
-  static const Duration _initializeResponseTimeout = Duration(seconds: 90);
+  static const Duration _defaultStdinCloseTimeout = Duration(milliseconds: 400);
+  static const Duration _defaultGracefulStopTimeout = Duration(seconds: 3);
+  static const Duration _defaultForceStopTimeout = Duration(seconds: 2);
+  static const Duration _defaultProcessStartTimeout = Duration(seconds: 10);
+  static const Duration _defaultSubscriptionCancelTimeout = Duration(
+    milliseconds: 500,
+  );
+  static const Duration _defaultInitializeStartupDelay = Duration(seconds: 2);
+  static const Duration _defaultInitializeResponseTimeout = Duration(
+    seconds: 90,
+  );
   static const Duration _borrowReleaseTimeout = Duration(seconds: 2);
   static const Duration _borrowPollInterval = Duration(milliseconds: 80);
+  static const int _defaultResponseBufferLimit = kBytesPerMiB;
+  static const int _maxLogLineChars = 4 * kBytesPerKiB;
 
   final Map<String, _ManagedProcess> _processes = {};
+  final McpStdioProcessStarter _processStarter;
+  final Duration _stdinCloseTimeout;
+  final Duration _gracefulStopTimeout;
+  final Duration _forceStopTimeout;
+  final Duration _processStartTimeout;
+  final Duration _subscriptionCancelTimeout;
+  final Duration _initializeStartupDelay;
+  final Duration _initializeResponseTimeout;
+  final int _responseBufferLimit;
+  int _nextGeneration = 1;
 
   /// 获取指定服务的进程信息。
   StdioProcessInfo infoFor(String serverName) {
@@ -130,24 +254,36 @@ class McpStdioProcessManager extends ChangeNotifier {
     final existing = _processes[name];
     if (existing != null && !existing.info.isStopped) return;
 
-    _processes[name] = const _ManagedProcess(
-      info: StdioProcessInfo(state: StdioProcessState.starting),
+    final generation = _nextGeneration++;
+    _processes[name] = _ManagedProcess(
+      generation: generation,
+      info: const StdioProcessInfo(state: StdioProcessState.starting),
     );
     notifyListeners();
 
+    Process? process;
+    StreamSubscription<String>? stdoutSubscription;
+    StreamSubscription<String>? stderrSubscription;
     try {
       // 解析实际的可执行文件和参数。对于 npx 命令，尝试直接定位已安装包的
       // 入口脚本用 node 执行，避免 npx 的启动开销和 stdin 转发问题。
       final launch = await _resolveDirectLaunch(server);
+      if (!_isCurrentStart(name, generation)) {
+        return;
+      }
       // npx -y / uvx 等首次拉包 + 后续 MCP 服务运行期出站都依赖同一套
       // 代理环境。把 SystemProxyResolver 解析出的 HTTP(S)/SOCKS 端点注
       // 入子进程，否则在企业代理 / 内网透明代理环境下会 TCP 握手超时。
-      final process = await startTrackedProcess(
+      process = await _startProcessBounded(
         launch.executable,
         launch.args,
         environment: SystemProxyResolver.instance
             .resolveSubprocessEnvironment(),
       );
+      if (!_isCurrentStart(name, generation)) {
+        unawaited(_terminateUnmanagedProcess(process));
+        return;
+      }
 
       final logs = <String>[];
       logs.add('[${_timestamp()}] 进程已启动 (PID: ${process.pid})');
@@ -156,8 +292,12 @@ class McpStdioProcessManager extends ChangeNotifier {
       );
       logs.add('');
 
-      final responseRouter = _ManagedResponseRouter();
+      final responseRouter = _ManagedResponseRouter(
+        maxBufferedChars: _responseBufferLimit,
+      );
+      final handshakeCompleter = Completer<bool>();
       final managed = _ManagedProcess(
+        generation: generation,
         info: StdioProcessInfo(
           state: StdioProcessState.running,
           pid: process.pid,
@@ -166,19 +306,24 @@ class McpStdioProcessManager extends ChangeNotifier {
         ),
         process: process,
         responseRouter: responseRouter,
+        handshakeCompleter: handshakeCompleter,
       );
       _processes[name] = managed;
       notifyListeners();
 
       // 监听 stdout - 同时用于日志、握手响应检测和 discovery 响应路由
-      final handshakeCompleter = Completer<bool>();
-      final stdoutSubscription = process.stdout
+      stdoutSubscription = process.stdout
           .transform(utf8.decoder)
           .listen(
             (data) {
               // 优先尝试路由到 discovery session 的 pending requests
               final routed = responseRouter.tryRoute(data);
-              _appendLog(name, data, isStderr: false);
+              _appendLog(
+                name,
+                data,
+                isStderr: false,
+                expectedGeneration: generation,
+              );
               // 检测 MCP initialize 响应
               if (!handshakeCompleter.isCompleted &&
                   (data.contains('"result"') ||
@@ -190,11 +335,21 @@ class McpStdioProcessManager extends ChangeNotifier {
             },
             onError: (e) {
               responseRouter.failAll(e is Object ? e : StateError('$e'));
-              _appendLog(name, '[stdout error] $e', isStderr: true);
+              _appendLog(
+                name,
+                '[stdout error] $e',
+                isStderr: true,
+                expectedGeneration: generation,
+              );
             },
             onDone: () {
               responseRouter.failAll(StateError('stdout closed'));
-              _appendLog(name, '[stdout closed]', isStderr: false);
+              _appendLog(
+                name,
+                '[stdout closed]',
+                isStderr: false,
+                expectedGeneration: generation,
+              );
               if (!handshakeCompleter.isCompleted) {
                 handshakeCompleter.complete(false);
               }
@@ -202,13 +357,27 @@ class McpStdioProcessManager extends ChangeNotifier {
           );
 
       // 监听 stderr
-      final stderrSubscription = process.stderr
+      stderrSubscription = process.stderr
           .transform(utf8.decoder)
           .listen(
-            (data) => _appendLog(name, data, isStderr: true),
-            onError: (e) =>
-                _appendLog(name, '[stderr error] $e', isStderr: true),
-            onDone: () => _appendLog(name, '[stderr closed]', isStderr: false),
+            (data) => _appendLog(
+              name,
+              data,
+              isStderr: true,
+              expectedGeneration: generation,
+            ),
+            onError: (e) => _appendLog(
+              name,
+              '[stderr error] $e',
+              isStderr: true,
+              expectedGeneration: generation,
+            ),
+            onDone: () => _appendLog(
+              name,
+              '[stderr closed]',
+              isStderr: false,
+              expectedGeneration: generation,
+            ),
           );
 
       // 持有订阅句柄，停止进程时显式 cancel，避免管道未及时关闭时泄漏监听器。
@@ -224,16 +393,34 @@ class McpStdioProcessManager extends ChangeNotifier {
             name,
             '\n[${_timestamp()}] 进程已退出 (exit code: $code)',
             isStderr: false,
+            expectedGeneration: generation,
           );
           responseRouter.failAll(StateError('process exited with code $code'));
+          unawaited(
+            Future.wait<void>(<Future<void>>[
+              _cancelSubscriptionBounded(
+                stdoutSubscription,
+                'cancel exited stdout $name',
+              ),
+              _cancelSubscriptionBounded(
+                stderrSubscription,
+                'cancel exited stderr $name',
+              ),
+            ]),
+          );
           final current = _processes[name];
-          if (current != null) {
+          if (current != null &&
+              current.generation == generation &&
+              identical(current.process, process)) {
+            if (current.info.state != StdioProcessState.stopping) {
+              unawaited(_terminateProcessTreeBounded(process!));
+            }
             _processes[name] = _ManagedProcess(
+              generation: generation,
               info: current.info.copyWith(
                 state: StdioProcessState.stopped,
                 clearPid: true,
               ),
-              responseRouter: current.responseRouter,
             );
             notifyListeners();
           }
@@ -244,34 +431,242 @@ class McpStdioProcessManager extends ChangeNotifier {
       );
 
       // 启动后自动执行 MCP 协议握手
-      unawaited(_initializeMcpProtocol(name, process, handshakeCompleter));
-    } catch (e) {
-      _processes[name] = _ManagedProcess(
-        info: StdioProcessInfo(
-          errorMessage: '$e',
-          logs: ['[${_timestamp()}] 启动失败: $e'],
+      unawaited(
+        _initializeMcpProtocol(
+          name,
+          generation,
+          process,
+          responseRouter,
+          handshakeCompleter,
         ),
       );
-      notifyListeners();
+    } catch (e) {
+      if (process != null) {
+        await _terminateUnmanagedProcess(
+          process,
+          stdoutSubscription: stdoutSubscription,
+          stderrSubscription: stderrSubscription,
+        );
+      }
+      final current = _processes[name];
+      if (current != null &&
+          current.generation == generation &&
+          (current.info.state == StdioProcessState.starting ||
+              identical(current.process, process))) {
+        _processes[name] = _ManagedProcess(
+          generation: generation,
+          info: StdioProcessInfo(
+            errorMessage: '$e',
+            logs: ['[${_timestamp()}] 启动失败: $e'],
+          ),
+        );
+        notifyListeners();
+      }
+    }
+  }
+
+  bool _isCurrentStart(String serverName, int generation) {
+    final current = _processes[serverName];
+    return current != null &&
+        current.generation == generation &&
+        current.info.state == StdioProcessState.starting;
+  }
+
+  Future<Process> _startProcessBounded(
+    String executable,
+    List<String> arguments, {
+    Map<String, String>? environment,
+  }) async {
+    final startFuture = _processStarter(
+      executable,
+      arguments,
+      environment: environment,
+    );
+    var timedOut = false;
+    unawaited(
+      startFuture.then<void>((lateProcess) {
+        if (timedOut) {
+          unawaited(_terminateUnmanagedProcess(lateProcess));
+        }
+      }, onError: (Object _, StackTrace _) {}),
+    );
+    return startFuture.timeout(
+      _processStartTimeout,
+      onTimeout: () {
+        timedOut = true;
+        throw TimeoutException(
+          'MCP stdio process start timed out after '
+          '${_processStartTimeout.inMilliseconds}ms',
+          _processStartTimeout,
+        );
+      },
+    );
+  }
+
+  Future<void> _terminateUnmanagedProcess(
+    Process process, {
+    StreamSubscription<String>? stdoutSubscription,
+    StreamSubscription<String>? stderrSubscription,
+  }) async {
+    StreamSubscription<List<int>>? rawStdoutSubscription;
+    StreamSubscription<List<int>>? rawStderrSubscription;
+    if (stdoutSubscription == null) {
+      try {
+        rawStdoutSubscription = process.stdout.listen(
+          (_) {},
+          onError: (Object _, StackTrace _) {},
+        );
+      } catch (error, stack) {
+        silentLog(
+          'mcp_stdio_process_manager',
+          'attach unmanaged stdout drain',
+          error,
+          stack,
+        );
+      }
+    }
+    if (stderrSubscription == null) {
+      try {
+        rawStderrSubscription = process.stderr.listen(
+          (_) {},
+          onError: (Object _, StackTrace _) {},
+        );
+      } catch (error, stack) {
+        silentLog(
+          'mcp_stdio_process_manager',
+          'attach unmanaged stderr drain',
+          error,
+          stack,
+        );
+      }
+    }
+
+    try {
+      await Future.wait<void>(<Future<void>>[
+        closeMcpStdioSinkQuietly(
+          stdin: process.stdin,
+          timeout: _stdinCloseTimeout,
+          logTag: 'mcp_stdio_process_manager',
+          logWhere: 'close unmanaged stdin',
+        ),
+        _terminateProcessTreeBounded(process),
+      ]);
+    } catch (error, stack) {
+      silentLog(
+        'mcp_stdio_process_manager',
+        'clean unmanaged process',
+        error,
+        stack,
+      );
+    }
+    await Future.wait<void>(<Future<void>>[
+      _cancelSubscriptionBounded(stdoutSubscription, 'cancel unmanaged stdout'),
+      _cancelSubscriptionBounded(stderrSubscription, 'cancel unmanaged stderr'),
+      _cancelSubscriptionBounded(
+        rawStdoutSubscription,
+        'cancel raw unmanaged stdout',
+      ),
+      _cancelSubscriptionBounded(
+        rawStderrSubscription,
+        'cancel raw unmanaged stderr',
+      ),
+    ]);
+  }
+
+  Future<void> _terminateProcessTreeBounded(Process process) async {
+    // Signal the direct process immediately. Descendant enumeration inside
+    // the shared tree terminator is bounded but may still take a moment on a
+    // congested host; Stop must never return before even attempting TERM.
+    try {
+      process.kill();
+    } catch (error, stack) {
+      silentLog(
+        'mcp_stdio_process_manager',
+        'signal process before tree cleanup',
+        error,
+        stack,
+      );
+    }
+    final totalTimeout = Duration(
+      microseconds:
+          _gracefulStopTimeout.inMicroseconds +
+          _forceStopTimeout.inMicroseconds +
+          const Duration(seconds: 3).inMicroseconds,
+    );
+    try {
+      await terminateTrackedProcessTree(
+        process,
+        gracefulTimeout: _gracefulStopTimeout,
+      ).timeout(totalTimeout);
+    } on TimeoutException catch (error, stack) {
+      silentLog(
+        'mcp_stdio_process_manager',
+        'terminate process tree timed out',
+        error,
+        stack,
+      );
+    } catch (error, stack) {
+      silentLog(
+        'mcp_stdio_process_manager',
+        'terminate process tree',
+        error,
+        stack,
+      );
+    }
+  }
+
+  Future<void> _cancelSubscriptionBounded<T>(
+    StreamSubscription<T>? subscription,
+    String where,
+  ) async {
+    if (subscription == null) {
+      return;
+    }
+    try {
+      await subscription.cancel().timeout(_subscriptionCancelTimeout);
+    } on TimeoutException catch (error, stack) {
+      silentLog('mcp_stdio_process_manager', '$where timed out', error, stack);
+    } catch (error, stack) {
+      silentLog('mcp_stdio_process_manager', where, error, stack);
     }
   }
 
   /// 停止指定 STDIO MCP 服务进程。
   Future<void> stopServer(String serverName) async {
     final managed = _processes[serverName];
-    if (managed == null || managed.process == null) return;
+    if (managed == null) return;
     if (managed.info.state == StdioProcessState.stopping) return;
+    if (managed.process == null) {
+      if (managed.info.state == StdioProcessState.starting) {
+        _processes[serverName] = _ManagedProcess(
+          generation: managed.generation,
+          info: managed.info.copyWith(state: StdioProcessState.stopped),
+        );
+        notifyListeners();
+      }
+      return;
+    }
+    final generation = managed.generation;
 
     _processes[serverName] = managed.copyWith(
       info: managed.info.copyWith(state: StdioProcessState.stopping),
     );
     notifyListeners();
 
-    _appendLog(serverName, '\n[${_timestamp()}] 正在停止进程…', isStderr: false);
+    _appendLog(
+      serverName,
+      '\n[${_timestamp()}] 正在停止进程…',
+      isStderr: false,
+      expectedGeneration: generation,
+    );
 
     try {
       managed.responseRouter?.rejectNewWrites(_stoppingException(serverName));
-      await _waitForBorrowedSessions(serverName);
+      final handshakeCompleter = managed.handshakeCompleter;
+      if (handshakeCompleter != null && !handshakeCompleter.isCompleted) {
+        handshakeCompleter.complete(false);
+      }
+      await _waitForBorrowedSessions(serverName, generation);
       await managed.responseRouter?.drainWrites(_stdinCloseTimeout);
       await closeMcpStdioSinkQuietly(
         stdin: managed.process!.stdin,
@@ -279,38 +674,35 @@ class McpStdioProcessManager extends ChangeNotifier {
         logTag: 'mcp_stdio_process_manager',
         logWhere: 'close stdin $serverName',
       );
-
-      // 等待进程退出
-      final exited = await managed.process!.exitCode
-          .timeout(_gracefulStopTimeout)
-          .then((_) => true)
-          .catchError((_) => false);
-
-      if (!exited) {
-        managed.process!.kill();
-        await managed.process!.exitCode.timeout(_forceStopTimeout).catchError((
-          _,
-        ) {
-          if (!Platform.isWindows) {
-            managed.process!.kill(ProcessSignal.sigkill);
-          }
-          return -1;
-        });
-      }
+      await _terminateProcessTreeBounded(managed.process!);
     } catch (e) {
-      _appendLog(serverName, '[${_timestamp()}] 停止异常: $e', isStderr: true);
+      _appendLog(
+        serverName,
+        '[${_timestamp()}] 停止异常: $e',
+        isStderr: true,
+        expectedGeneration: generation,
+      );
     }
 
-    await managed.cancelSubscriptions();
+    await Future.wait<void>(<Future<void>>[
+      _cancelSubscriptionBounded(
+        managed.stdoutSubscription,
+        'cancel stdout $serverName',
+      ),
+      _cancelSubscriptionBounded(
+        managed.stderrSubscription,
+        'cancel stderr $serverName',
+      ),
+    ]);
 
     final current = _processes[serverName];
-    if (current != null && current.info.state != StdioProcessState.stopped) {
-      _processes[serverName] = current.copyWith(
+    if (current != null && current.generation == generation) {
+      _processes[serverName] = _ManagedProcess(
+        generation: generation,
         info: current.info.copyWith(
           state: StdioProcessState.stopped,
           clearPid: true,
         ),
-        clearProcess: true,
       );
       notifyListeners();
     }
@@ -318,7 +710,10 @@ class McpStdioProcessManager extends ChangeNotifier {
 
   /// 停止所有正在运行的进程（应用退出时调用）。
   Future<void> stopAll() async {
-    final names = runningServers;
+    final names = _processes.entries
+        .where((entry) => !entry.value.info.isStopped)
+        .map((entry) => entry.key)
+        .toList(growable: false);
     await Future.wait(names.map(stopServer));
   }
 
@@ -412,14 +807,21 @@ class McpStdioProcessManager extends ChangeNotifier {
     }
   }
 
-  Future<void> _waitForBorrowedSessions(String serverName) async {
+  Future<void> _waitForBorrowedSessions(
+    String serverName,
+    int generation,
+  ) async {
     final deadline = DateTime.now().add(_borrowReleaseTimeout);
     while ((_sessionBorrowCount[serverName] ?? 0) > 0) {
+      if (_processes[serverName]?.generation != generation) {
+        return;
+      }
       if (DateTime.now().isAfter(deadline)) {
         _appendLog(
           serverName,
           '[${_timestamp()}] 停止等待会话归还超时，继续关闭进程',
           isStderr: true,
+          expectedGeneration: generation,
         );
         return;
       }
@@ -427,13 +829,30 @@ class McpStdioProcessManager extends ChangeNotifier {
     }
   }
 
-  void _appendLog(String serverName, String data, {required bool isStderr}) {
+  void _appendLog(
+    String serverName,
+    String data, {
+    required bool isStderr,
+    int? expectedGeneration,
+  }) {
     final managed = _processes[serverName];
-    if (managed == null) return;
+    if (managed == null ||
+        (expectedGeneration != null &&
+            managed.generation != expectedGeneration)) {
+      return;
+    }
 
     final lines = data.split('\n');
     final currentLogs = List<String>.from(managed.info.logs);
-    for (final line in lines) {
+    for (final rawLine in lines) {
+      final wasTruncated = rawLine.length > _maxLogLineChars;
+      final line = wasTruncated
+          ? clipText(
+              rawLine,
+              _maxLogLineChars,
+              suffix: '… [截断，共 ${rawLine.length} 字符]',
+            )
+          : rawLine;
       if (nullIfBlank(line) == null &&
           currentLogs.isNotEmpty &&
           currentLogs.last.isEmpty) {
@@ -444,7 +863,9 @@ class McpStdioProcessManager extends ChangeNotifier {
       } else {
         // stdout: 检测 JSON-RPC 响应并格式化摘要
         final trimmed = line.trim();
-        if (trimmed.startsWith('{') && trimmed.contains('"jsonrpc"')) {
+        if (!wasTruncated &&
+            trimmed.startsWith('{') &&
+            trimmed.contains('"jsonrpc"')) {
           _appendJsonRpcSummary(currentLogs, trimmed);
         } else {
           currentLogs.add(line);
@@ -575,18 +996,26 @@ class McpStdioProcessManager extends ChangeNotifier {
   /// 启动后自动通过 stdin 发送 MCP initialize 请求完成协议握手。
   Future<void> _initializeMcpProtocol(
     String serverName,
+    int generation,
     Process process,
+    _ManagedResponseRouter responseRouter,
     Completer<bool> responseCompleter,
   ) async {
-    _appendLog(serverName, '[${_timestamp()}] MCP 协议握手中…', isStderr: false);
+    _appendLog(
+      serverName,
+      '[${_timestamp()}] MCP 协议握手中…',
+      isStderr: false,
+      expectedGeneration: generation,
+    );
     try {
       // 等待 npx 解析并启动实际的 MCP 服务进程（首次可能需要下载包）
       await Future.delayed(_initializeStartupDelay);
       final managed = _processes[serverName];
-      final responseRouter = managed?.responseRouter;
       if (managed == null ||
+          managed.generation != generation ||
+          !identical(managed.process, process) ||
           !managed.info.isRunning ||
-          responseRouter == null ||
+          !identical(managed.responseRouter, responseRouter) ||
           responseRouter.isClosed) {
         return;
       }
@@ -609,12 +1038,19 @@ class McpStdioProcessManager extends ChangeNotifier {
       );
 
       if (gotResponse) {
-        _appendLog(serverName, '[${_timestamp()}] ✓ MCP 握手成功', isStderr: false);
+        _appendLog(
+          serverName,
+          '[${_timestamp()}] ✓ MCP 握手成功',
+          isStderr: false,
+          expectedGeneration: generation,
+        );
 
         final currentBeforeNotify = _processes[serverName];
         if (currentBeforeNotify == null ||
+            currentBeforeNotify.generation != generation ||
+            !identical(currentBeforeNotify.process, process) ||
             !currentBeforeNotify.info.isRunning ||
-            currentBeforeNotify.responseRouter != responseRouter ||
+            !identical(currentBeforeNotify.responseRouter, responseRouter) ||
             responseRouter.isClosed) {
           return;
         }
@@ -627,30 +1063,34 @@ class McpStdioProcessManager extends ChangeNotifier {
           serverName,
           '[${_timestamp()}] ✓ 服务已就绪，可正常使用',
           isStderr: false,
+          expectedGeneration: generation,
         );
 
         // 标记握手完成，允许 discovery service 复用此进程
         final current = _processes[serverName];
         if (current != null &&
+            current.generation == generation &&
+            identical(current.process, process) &&
             current.info.isRunning &&
-            current.responseRouter == responseRouter &&
+            identical(current.responseRouter, responseRouter) &&
             !responseRouter.isClosed) {
-          _processes[serverName] = _ManagedProcess(
-            info: current.info,
-            process: current.process,
-            handshakeCompleted: true,
-            responseRouter: current.responseRouter,
-          );
+          _processes[serverName] = current.copyWith(handshakeCompleted: true);
         }
       } else {
         _appendLog(
           serverName,
           '[${_timestamp()}] ⚠ 握手超时或进程已退出',
           isStderr: false,
+          expectedGeneration: generation,
         );
       }
     } catch (e) {
-      _appendLog(serverName, '[${_timestamp()}] ⚠ 握手异常: $e', isStderr: false);
+      _appendLog(
+        serverName,
+        '[${_timestamp()}] ⚠ 握手异常: $e',
+        isStderr: false,
+        expectedGeneration: generation,
+      );
     }
   }
 
@@ -855,9 +1295,13 @@ class ManagedStdioSession {
 /// stdout 数据可能跨多个 chunk 到达（尤其是大的 tools/list 响应），
 /// 因此需要内部缓冲并按行边界解析。
 class _ManagedResponseRouter {
+  _ManagedResponseRouter({required int maxBufferedChars})
+    : _maxBufferedChars = maxBufferedChars;
+
   final Map<String, Completer<Map<String, Object?>?>> _pending = {};
   final StringBuffer _lineBuffer = StringBuffer();
   final McpStdioWriteQueue _writeQueue = McpStdioWriteQueue();
+  final int _maxBufferedChars;
   Object? _closedError;
 
   bool get isClosed => _closedError != null;
@@ -906,6 +1350,15 @@ class _ManagedResponseRouter {
   /// 返回 true 表示成功路由了至少一个响应。
   bool tryRoute(String data) {
     if (_pending.isEmpty) return false;
+    if (data.length > _maxBufferedChars - _lineBuffer.length) {
+      rejectNewWrites(
+        StateError(
+          'MCP stdio response exceeded the $_maxBufferedChars character '
+          'buffer limit without a complete line.',
+        ),
+      );
+      return false;
+    }
     _lineBuffer.write(data);
     final buffer = _lineBuffer.toString();
     // 查找最后一个换行符，之前的部分可以尝试解析
@@ -951,18 +1404,22 @@ class _ManagedResponseRouter {
 
 class _ManagedProcess {
   const _ManagedProcess({
+    required this.generation,
     required this.info,
     this.process,
     this.handshakeCompleted = false,
     this.responseRouter,
+    this.handshakeCompleter,
     this.stdoutSubscription,
     this.stderrSubscription,
   });
 
+  final int generation;
   final StdioProcessInfo info;
   final Process? process;
   final bool handshakeCompleted;
   final _ManagedResponseRouter? responseRouter;
+  final Completer<bool>? handshakeCompleter;
   final StreamSubscription<String>? stdoutSubscription;
   final StreamSubscription<String>? stderrSubscription;
 
@@ -971,25 +1428,21 @@ class _ManagedProcess {
     Process? process,
     bool? handshakeCompleted,
     _ManagedResponseRouter? responseRouter,
+    Completer<bool>? handshakeCompleter,
     StreamSubscription<String>? stdoutSubscription,
     StreamSubscription<String>? stderrSubscription,
     bool clearProcess = false,
   }) {
     return _ManagedProcess(
+      generation: generation,
       info: info ?? this.info,
       process: clearProcess ? null : (process ?? this.process),
       handshakeCompleted: handshakeCompleted ?? this.handshakeCompleted,
       responseRouter: responseRouter ?? this.responseRouter,
+      handshakeCompleter: handshakeCompleter ?? this.handshakeCompleter,
       stdoutSubscription: stdoutSubscription ?? this.stdoutSubscription,
       stderrSubscription: stderrSubscription ?? this.stderrSubscription,
     );
-  }
-
-  /// Cancels stdout/stderr subscriptions as an explicit safety net so a process
-  /// whose pipes fail to close on kill does not leak its listeners.
-  Future<void> cancelSubscriptions() async {
-    await stdoutSubscription?.cancel();
-    await stderrSubscription?.cancel();
   }
 }
 

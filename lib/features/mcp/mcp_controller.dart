@@ -20,6 +20,8 @@ import '../ai/index.dart'
         AiResolvedToolCatalog,
         AiToolCall,
         AiToolDefinition,
+        AiToolExecutionKind,
+        AiToolExecutionRegistry,
         AiToolRuntimeService,
         BashToolExecutionStatus,
         agentBuiltinToolCanonicalName;
@@ -978,11 +980,13 @@ class McpController extends ChangeNotifier {
   Future<McpOpsToolInvocationResult> _invokeOpsTool(
     McpOpsToolDefinition tool,
     Map<String, Object?> arguments,
+    McpOpsToolInvocationContext context,
   ) async {
     return switch (tool.surface) {
       McpOpsExposureSurface.builtinTools => _invokeOpsBuiltinTool(
         tool,
         arguments,
+        context,
       ),
       McpOpsExposureSurface.memory => _invokeOpsMemoryTool(tool),
       McpOpsExposureSurface.skills => _invokeOpsSkillTool(tool),
@@ -991,6 +995,7 @@ class McpController extends ChangeNotifier {
       McpOpsExposureSurface.mcpServers => _invokeOpsMcpBridgeTool(
         tool,
         arguments,
+        context,
       ),
     };
   }
@@ -998,6 +1003,7 @@ class McpController extends ChangeNotifier {
   Future<McpOpsToolInvocationResult> _invokeOpsBuiltinTool(
     McpOpsToolDefinition tool,
     Map<String, Object?> arguments,
+    McpOpsToolInvocationContext context,
   ) async {
     final runtime = _opsBindings?.toolRuntimeServiceProvider?.call();
     if (runtime == null) {
@@ -1036,7 +1042,7 @@ class McpController extends ChangeNotifier {
         sessionId: _opsBuiltinSessionId,
         catalog: catalog,
         toolCall: AiToolCall(
-          id: '',
+          id: context.invocationId,
           name: base.name,
           arguments: jsonEncode(arguments),
         ),
@@ -1045,6 +1051,7 @@ class McpController extends ChangeNotifier {
         denyCommandRules: const [],
         requireWriteCommandConfirmation: false,
         confirmWriteCommand: null,
+        cancelSignal: context.cancelSignal,
       );
       final succeeded = result.status == BashToolExecutionStatus.success;
       return McpOpsToolInvocationResult(
@@ -1154,20 +1161,39 @@ class McpController extends ChangeNotifier {
   Future<McpOpsToolInvocationResult> _invokeOpsMcpBridgeTool(
     McpOpsToolDefinition tool,
     Map<String, Object?> arguments,
+    McpOpsToolInvocationContext context,
   ) async {
-    final result = await callTool(
-      serverName: tool.itemId,
-      toolName: tool.endpointId,
-      arguments: arguments,
+    final registry = AiToolExecutionRegistry.instance;
+    registry.register(
+      toolCallId: context.invocationId,
+      sessionId: _opsBuiltinSessionId,
+      kind: AiToolExecutionKind.mcp,
+      displayName: tool.name,
     );
-    return McpOpsToolInvocationResult(
-      text: result.outputText,
-      isError: result.isError,
-      metadata: <String, Object?>{
-        'server': tool.itemId,
-        'tool': tool.endpointId,
-      },
+    unawaited(
+      context.cancelSignal.then(
+        (_) => registry.cancelToolCall(context.invocationId),
+      ),
     );
+    try {
+      final result = await callTool(
+        serverName: tool.itemId,
+        toolName: tool.endpointId,
+        arguments: arguments,
+        toolCallId: context.invocationId,
+        cancelSignal: context.cancelSignal,
+      );
+      return McpOpsToolInvocationResult(
+        text: result.outputText,
+        isError: result.isError,
+        metadata: <String, Object?>{
+          'server': tool.itemId,
+          'tool': tool.endpointId,
+        },
+      );
+    } finally {
+      registry.unregister(context.invocationId);
+    }
   }
 
   bool _opsVisible(
@@ -1596,6 +1622,8 @@ class McpController extends ChangeNotifier {
     required String toolName,
     Map<String, Object?> arguments = const <String, Object?>{},
     Map<String, String>? customHeaders,
+    String? toolCallId,
+    Future<void>? cancelSignal,
   }) async {
     if (_isDisposed) {
       throw StateError('MCP controller has been disposed.');
@@ -1620,6 +1648,8 @@ class McpController extends ChangeNotifier {
       toolName: normalizedToolName,
       arguments: arguments,
       customHeaders: customHeaders,
+      toolCallId: toolCallId,
+      cancelSignal: cancelSignal,
     );
   }
 

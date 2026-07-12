@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
@@ -239,35 +238,24 @@ class AiGitSnapshotService {
     List<String> arguments,
     Duration timeout,
   ) async {
-    final process = await startTrackedProcess(
+    final timeoutMessage =
+        'Git command timed out after ${timeout.inMilliseconds} ms.';
+    final result = await runProcessWithTimeout(
       'git',
       arguments,
+      timeout: timeout,
+      tag: 'ai_git_snapshot_service',
       workingDirectory: workingDirectory,
       environment: SystemProxyResolver.instance.resolveSubprocessEnvironment(),
-    );
-    final stdoutFuture = process.stdout.transform(utf8.decoder).join();
-    final stderrFuture = process.stderr.transform(utf8.decoder).join();
-    try {
-      final exitCode = await process.exitCode.timeout(timeout);
-      return ProcessResult(
-        process.pid,
-        exitCode,
-        await stdoutFuture,
-        await stderrFuture,
-      );
-    } on TimeoutException {
-      process.kill();
-      final stdout = await stdoutFuture.catchError((Object _) => '');
-      final stderr = await stderrFuture.catchError((Object _) => '');
-      final timeoutMessage =
-          'Git command timed out after ${timeout.inMilliseconds} ms.';
-      return ProcessResult(
-        process.pid,
+      timeoutResultBuilder: (pid, stdout, stderr) => ProcessResult(
+        pid,
         124,
         stdout,
         stderr.isEmpty ? timeoutMessage : '$stderr\n$timeoutMessage',
-      );
-    }
+      ),
+    );
+    return result ??
+        ProcessResult(0, 127, '', 'Unable to start the Git command.');
   }
 }
 

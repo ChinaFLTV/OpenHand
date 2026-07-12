@@ -11,6 +11,7 @@ import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../app/support/system_proxy.dart';
 import '../../../shared/net/http_redirect_utils.dart';
+import '../../../shared/net/http_response_utils.dart';
 import '../../../shared/net/http_status_utils.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
@@ -34,6 +35,60 @@ final RegExp _npxPackageVersionSuffixPattern = RegExp(r'@[^/]*$');
 // 各处硬编码不一致。
 const String _kNpmMirrorRegistry = 'https://registry.npmmirror.com';
 const String _kPypiMirrorIndex = 'https://pypi.tuna.tsinghua.edu.cn/simple';
+const int _mcpHttpMaxResponseBytes = 16 * kBytesPerMiB;
+const int _mcpHttpMaxErrorBytes = 64 * kBytesPerKiB;
+const Duration _mcpHttpDiscardTimeout = Duration(seconds: 3);
+
+Future<String> _readMcpHttpResponseBody(
+  http.StreamedResponse response, {
+  required Duration timeout,
+  int maxBytes = _mcpHttpMaxResponseBytes,
+  bool allowMalformed = false,
+}) {
+  return readBoundedByteStreamText(
+    response.stream,
+    maxBytes: maxBytes,
+    idleTimeout: timeout,
+    totalTimeout: timeout,
+    allowMalformed: allowMalformed,
+  );
+}
+
+Future<String> _readMcpHttpErrorBodyBestEffort(
+  http.StreamedResponse response, {
+  required Duration timeout,
+}) async {
+  try {
+    return await _readMcpHttpResponseBody(
+      response,
+      timeout: timeout,
+      maxBytes: _mcpHttpMaxErrorBytes,
+      allowMalformed: true,
+    );
+  } catch (error, stack) {
+    silentLog(
+      'mcp_tool_discovery_service',
+      'read bounded HTTP error response',
+      error,
+      stack,
+    );
+    return '';
+  }
+}
+
+Future<void> _drainMcpHttpResponse(
+  http.StreamedResponse response, {
+  required Duration timeout,
+}) {
+  final totalTimeout = timeout < _mcpHttpDiscardTimeout
+      ? timeout
+      : _mcpHttpDiscardTimeout;
+  return drainByteStreamWithTimeout(
+    response.stream,
+    idleTimeout: totalTimeout,
+    totalTimeout: totalTimeout,
+  );
+}
 
 String _mcpDiscoveryText({
   required String zh,
@@ -63,6 +118,7 @@ abstract class McpToolDiscoveryService {
     Map<String, Object?> arguments = const <String, Object?>{},
     String? toolCallId,
     Map<String, String>? customHeaders,
+    Future<void>? cancelSignal,
   });
 
   void dispose();
@@ -78,6 +134,33 @@ class McpToolCallResult {
   final String outputText;
   final bool isError;
   final Object? rawResult;
+}
+
+class _McpToolCallGuard {
+  _McpToolCallGuard({required Duration timeout, Future<void>? cancelSignal})
+    : _timeout = timeout,
+      _stopwatch = Stopwatch()..start() {
+    cancelSignal?.then(
+      (_) => _cancelled = true,
+      onError: (Object _, StackTrace stackTrace) => _cancelled = true,
+    );
+  }
+
+  final Duration _timeout;
+  final Stopwatch _stopwatch;
+  bool _cancelled = false;
+
+  Duration get remaining {
+    throwIfExpired();
+    final value = _timeout - _stopwatch.elapsed;
+    return value > Duration.zero ? value : const Duration(microseconds: 1);
+  }
+
+  void throwIfExpired() {
+    if (_cancelled || _stopwatch.elapsed >= _timeout) {
+      throw TimeoutException('MCP tool call deadline expired.');
+    }
+  }
 }
 
 class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
@@ -218,7 +301,12 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     Map<String, Object?> arguments = const <String, Object?>{},
     String? toolCallId,
     Map<String, String>? customHeaders,
+    Future<void>? cancelSignal,
   }) async {
+    final guard = _McpToolCallGuard(
+      timeout: _toolCallTimeout,
+      cancelSignal: cancelSignal,
+    );
     late final Map<String, Object?> result;
     try {
       result = await switch (server.type) {
@@ -226,18 +314,21 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
           server,
           toolName,
           arguments,
+          guard: guard,
           customHeaders: customHeaders,
         ),
         McpServerType.sse => _callToolOverLegacySseWithFallback(
           server,
           toolName,
           arguments,
+          guard: guard,
           customHeaders: customHeaders,
         ),
         McpServerType.stdio => _callToolOverStdio(
           server,
           toolName,
           arguments,
+          guard: guard,
           toolCallId: toolCallId,
         ),
       }.timeout(_toolCallTimeout);
@@ -355,9 +446,12 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     McpServer server,
     String toolName,
     Map<String, Object?> arguments, {
+    required _McpToolCallGuard guard,
     Map<String, String>? customHeaders,
   }) async {
+    guard.throwIfExpired();
     final session = await _initializeStreamableHttpSession(server);
+    guard.throwIfExpired();
     final response = await _postJsonRpc(
       server: server,
       uri: session.uri,
@@ -368,7 +462,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
         method: 'tools/call',
         params: <String, Object?>{'name': toolName, 'arguments': arguments},
       ),
-      requestTimeout: _toolCallTimeout,
+      requestTimeout: guard.remaining,
       expectResponse: true,
       customHeaders: customHeaders,
     );
@@ -379,13 +473,16 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     McpServer server,
     String toolName,
     Map<String, Object?> arguments, {
+    required _McpToolCallGuard guard,
     Map<String, String>? customHeaders,
   }) async {
+    guard.throwIfExpired();
     final session = await _initializeLegacySseSession(
       server,
       customHeaders: customHeaders,
     );
     try {
+      guard.throwIfExpired();
       return _extractResult(
         await session.sendRequest(
           _jsonRpcRequest(
@@ -393,7 +490,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
             method: 'tools/call',
             params: <String, Object?>{'name': toolName, 'arguments': arguments},
           ),
-          timeout: _toolCallTimeout,
+          timeout: guard.remaining,
         ),
       );
     } finally {
@@ -405,6 +502,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     McpServer server,
     String toolName,
     Map<String, Object?> arguments, {
+    required _McpToolCallGuard guard,
     Map<String, String>? customHeaders,
   }) {
     return _runLegacySseWithStreamableFallback(
@@ -412,12 +510,14 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
         server,
         toolName,
         arguments,
+        guard: guard,
         customHeaders: customHeaders,
       ),
       fallbackOperation: () => _callToolOverStreamableHttp(
         server,
         toolName,
         arguments,
+        guard: guard,
         customHeaders: customHeaders,
       ),
     );
@@ -427,12 +527,15 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     McpServer server,
     String toolName,
     Map<String, Object?> arguments, {
+    required _McpToolCallGuard guard,
     String? toolCallId,
   }) async {
+    guard.throwIfExpired();
     // 优先复用 process manager 中已运行的进程（确保先启动）
     final processInfo = McpStdioProcessManager.instance.infoFor(server.name);
     if (processInfo.isStopped) {
       await McpStdioProcessManager.instance.startServer(server);
+      guard.throwIfExpired();
     }
     final managedSession = await McpStdioProcessManager.instance
         .borrowSessionForDiscovery(server.name);
@@ -443,8 +546,13 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
         if (pid != null) {
           AiToolExecutionRegistry.instance.attachPid(toolCallId, pid);
         }
+        AiToolExecutionRegistry.instance.attachKiller(
+          toolCallId,
+          () => McpStdioProcessManager.instance.stopServer(server.name),
+        );
       }
       try {
+        guard.throwIfExpired();
         return _extractResult(
           await managedSession.sendRequest(
             _jsonRpcRequest(
@@ -455,7 +563,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
                 'arguments': arguments,
               },
             ),
-            timeout: _toolCallTimeout,
+            timeout: guard.remaining,
           ),
         );
       } finally {
@@ -477,6 +585,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
       );
     }
     try {
+      guard.throwIfExpired();
       return _extractResult(
         await session.sendRequest(
           _jsonRpcRequest(
@@ -484,7 +593,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
             method: 'tools/call',
             params: <String, Object?>{'name': toolName, 'arguments': arguments},
           ),
-          timeout: _toolCallTimeout,
+          timeout: guard.remaining,
         ),
       );
     } finally {
@@ -839,13 +948,14 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
       headers['mcp-session-id'] = normalizedSessionId;
     }
 
+    final effectiveRequestTimeout = requestTimeout ?? _requestTimeout;
     final response = await _sendRequestWithRedirects(
       client: _client,
       method: 'POST',
       uri: uri,
       headers: headers,
       body: jsonEncode(payload),
-      requestTimeout: requestTimeout ?? _requestTimeout,
+      requestTimeout: effectiveRequestTimeout,
       maxRedirects: _maxRedirects,
       additionalSensitiveHeaderNames: _sensitiveHeaderNames(
         customHeaders ?? server.headers,
@@ -854,13 +964,16 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     final responseUri = response.request?.url ?? uri;
     final responseSessionId = _readHeader(response.headers, 'mcp-session-id');
     if (isHttpFailureStatus(response.statusCode)) {
-      final responseBody = await response.stream.bytesToString();
+      final responseBody = await _readMcpHttpErrorBodyBestEffort(
+        response,
+        timeout: effectiveRequestTimeout,
+      );
       throw McpToolDiscoveryException(
         'Tool scan request failed with HTTP ${response.statusCode}${_httpResponseDetail(responseBody)}',
       );
     }
     if (!expectResponse) {
-      await response.stream.drain<void>();
+      await _drainMcpHttpResponse(response, timeout: effectiveRequestTimeout);
       return _JsonRpcHttpResponse(
         sessionId: responseSessionId,
         uri: responseUri,
@@ -868,7 +981,10 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     }
 
     final contentType = _readHeader(response.headers, 'content-type');
-    final body = await response.stream.bytesToString();
+    final body = await _readMcpHttpResponseBody(
+      response,
+      timeout: effectiveRequestTimeout,
+    );
     if (contentType.contains('text/event-stream')) {
       final message = _firstSseJsonRpcMessage(body, payload['id']);
       return _JsonRpcHttpResponse(
@@ -1424,13 +1540,16 @@ Future<http.StreamedResponse> _sendRequestWithRedirects({
       return response;
     }
     if (redirectCount >= maxRedirects) {
-      final responseBody = await response.stream.bytesToString();
+      final responseBody = await _readMcpHttpErrorBodyBestEffort(
+        response,
+        timeout: requestTimeout,
+      );
       throw McpToolDiscoveryException(
         'Tool scan request followed too many redirects (${maxRedirects + 1})${_httpResponseDetail(responseBody)}',
       );
     }
 
-    await response.stream.drain<void>();
+    await _drainMcpHttpResponse(response, timeout: requestTimeout);
     final redirectedUri = currentUri.resolve(redirectLocation);
     if (isCrossOriginRedirect(currentUri, redirectedUri)) {
       _stripSensitiveRedirectHeaders(
@@ -1590,14 +1709,20 @@ class _LegacySseSession {
     );
     final resolvedSseUri = response.request?.url ?? sseUri;
     if (isHttpFailureStatus(response.statusCode)) {
-      final body = await response.stream.bytesToString();
+      final body = await _readMcpHttpErrorBodyBestEffort(
+        response,
+        timeout: requestTimeout,
+      );
       throw McpToolDiscoveryException(
         'Tool scan could not connect to the SSE endpoint (HTTP ${response.statusCode})${_httpResponseDetail(body)}',
       );
     }
     final contentType = readResponseHeader(response.headers, 'content-type');
     if (!contentType.toLowerCase().contains('text/event-stream')) {
-      final body = await response.stream.bytesToString();
+      final body = await _readMcpHttpErrorBodyBestEffort(
+        response,
+        timeout: requestTimeout,
+      );
       throw McpToolDiscoveryException(
         'Tool scan could not connect to the SSE endpoint because the server did not return an event stream${_httpResponseDetail(body)}',
       );
@@ -1733,6 +1858,7 @@ class _LegacySseSession {
   }
 
   Future<void> _post(Map<String, Object?> payload, {Duration? timeout}) async {
+    final effectiveTimeout = timeout ?? _requestTimeout;
     final response = await _sendRequestWithRedirects(
       client: _client,
       method: 'POST',
@@ -1743,17 +1869,20 @@ class _LegacySseSession {
         protectedHeaderNames: const <String>{'content-type'},
       ),
       body: jsonEncode(payload),
-      requestTimeout: timeout ?? _requestTimeout,
+      requestTimeout: effectiveTimeout,
       maxRedirects: DefaultMcpToolDiscoveryService._maxRedirects,
       additionalSensitiveHeaderNames: _sensitiveHeaderNames,
     );
     if (isHttpFailureStatus(response.statusCode)) {
-      final body = await response.stream.bytesToString();
+      final body = await _readMcpHttpErrorBodyBestEffort(
+        response,
+        timeout: effectiveTimeout,
+      );
       throw McpToolDiscoveryException(
         'Tool scan request failed with HTTP ${response.statusCode}${_httpResponseDetail(body)}',
       );
     }
-    await response.stream.drain<void>();
+    await _drainMcpHttpResponse(response, timeout: effectiveTimeout);
   }
 
   Future<void> close() async {

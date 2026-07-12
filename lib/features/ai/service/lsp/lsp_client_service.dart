@@ -304,15 +304,84 @@ class AiLspCompletionItem {
   String get effectiveFilterText => filterText ?? label;
 }
 
+typedef AiLspProcessLauncher =
+    Future<Process> Function({
+      required AiLspBackendResolution backend,
+      Map<String, String>? environment,
+    });
+
+Future<Process> _launchAiLspProcess({
+  required AiLspBackendResolution backend,
+  Map<String, String>? environment,
+}) {
+  return startTrackedProcessInNewGroup(
+    backend.executablePath!,
+    backend.arguments,
+    workingDirectory: backend.rootPath,
+    environment: environment,
+  );
+}
+
 class AiLspClientService {
-  AiLspClientService._();
+  AiLspClientService._({
+    AiLspProcessLauncher processLauncher = _launchAiLspProcess,
+    Duration requestTimeout = _defaultRequestTimeout,
+    Duration initializationSettleDelay = _defaultInitializationSettleDelay,
+    Duration shutdownRequestDelay = _defaultShutdownRequestDelay,
+    Duration shutdownExitDelay = _defaultShutdownExitDelay,
+    Duration startupDisposeWait = _defaultStartupDisposeWait,
+  }) : _processLauncher = processLauncher,
+       _requestTimeout = requestTimeout,
+       _initializationSettleDelay = initializationSettleDelay,
+       _shutdownRequestDelay = shutdownRequestDelay,
+       _shutdownExitDelay = shutdownExitDelay,
+       _startupDisposeWait = startupDisposeWait;
+
+  /// Creates an isolated client with deterministic lifecycle dependencies.
+  ///
+  /// This constructor is intended for lifecycle tests. Production code should
+  /// use [instance] so sessions and backend caches remain process-wide.
+  AiLspClientService.forTesting({
+    required AiLspProcessLauncher processLauncher,
+    Duration requestTimeout = const Duration(milliseconds: 100),
+    Duration initializationSettleDelay = Duration.zero,
+    Duration shutdownRequestDelay = Duration.zero,
+    Duration shutdownExitDelay = Duration.zero,
+    Duration startupDisposeWait = const Duration(milliseconds: 100),
+  }) : this._(
+         processLauncher: processLauncher,
+         requestTimeout: requestTimeout,
+         initializationSettleDelay: initializationSettleDelay,
+         shutdownRequestDelay: shutdownRequestDelay,
+         shutdownExitDelay: shutdownExitDelay,
+         startupDisposeWait: startupDisposeWait,
+       );
 
   static final AiLspClientService instance = AiLspClientService._();
   static final RegExp _markdownFenceStartPattern = RegExp(r'^```[\w-]*\n');
   static final RegExp _markdownFenceEndPattern = RegExp(r'\n```$');
 
+  static const Duration _defaultRequestTimeout = Duration(seconds: 15);
+  static const Duration _defaultInitializationSettleDelay = Duration(
+    milliseconds: 350,
+  );
+  static const Duration _defaultShutdownRequestDelay = Duration(
+    milliseconds: 180,
+  );
+  static const Duration _defaultShutdownExitDelay = Duration(milliseconds: 80);
+  static const Duration _defaultStartupDisposeWait = Duration(seconds: 3);
+
   final Map<String, _AiLspSession> _sessions = <String, _AiLspSession>{};
+  final Map<String, _AiLspSessionStart> _sessionStarts =
+      <String, _AiLspSessionStart>{};
   final Map<String, String?> _commandPathCache = <String, String?>{};
+  final AiLspProcessLauncher _processLauncher;
+  final Duration _requestTimeout;
+  final Duration _initializationSettleDelay;
+  final Duration _shutdownRequestDelay;
+  final Duration _shutdownExitDelay;
+  final Duration _startupDisposeWait;
+  int _sessionGeneration = 0;
   Map<String, AiLspLanguageSettings> _baseLanguageSettings =
       const <String, AiLspLanguageSettings>{};
   Map<String, AiLspLanguageSettings> _projectLanguageSettingsOverride =
@@ -972,27 +1041,112 @@ class AiLspClientService {
   }
 
   Future<void> disposeAll() async {
-    for (final session in _sessions.values) {
-      await session.shutdown();
-    }
+    _sessionGeneration += 1;
+    final sessions = <_AiLspSession>{
+      ..._sessions.values,
+      ..._sessionStarts.values.map((start) => start.session),
+    };
+    final starts = List<_AiLspSessionStart>.of(_sessionStarts.values);
     _sessions.clear();
+    _sessionStarts.clear();
+
+    // Calling shutdown before awaiting startup is intentional: a Process.start
+    // Future may still be pending. The session remembers the cancellation and
+    // tears down a process that arrives after disposal instead of leaking it.
+    final shutdowns = sessions
+        .map((session) => session.shutdown())
+        .toList(growable: false);
+    await Future.wait<void>(<Future<void>>[
+      ...shutdowns,
+      ...starts.map((start) async {
+        try {
+          final session = await start.future.timeout(_startupDisposeWait);
+          await session.shutdown();
+        } on TimeoutException {
+          // Process.start itself is not cancellable. shutdown() above marked
+          // the session, so a process delivered later is still killed by
+          // initialize(); disposal must not wait without a bound meanwhile.
+        } catch (_) {
+          // Initialization failures are returned to their original callers.
+          // Disposal only guarantees that their resources have been released.
+        }
+      }),
+    ]);
   }
 
   Future<_AiLspSession> _getOrCreateSession(
     AiLspBackendResolution backend,
   ) async {
-    final existing = _sessions[backend.cacheKey];
+    final cacheKey = backend.cacheKey;
+    final existing = _sessions[cacheKey];
     if (existing != null && existing.isAlive) {
       existing.touch();
       return existing;
     }
     if (existing != null) {
-      _sessions.remove(backend.cacheKey);
+      _sessions.remove(cacheKey);
+      unawaited(existing.shutdown());
     }
-    final session = _AiLspSession(backend: backend);
-    await session.initialize();
-    _sessions[backend.cacheKey] = session;
-    return session;
+
+    final inFlight = _sessionStarts[cacheKey];
+    if (inFlight != null) {
+      return inFlight.future;
+    }
+
+    final generation = _sessionGeneration;
+    late final _AiLspSession session;
+    session = _AiLspSession(
+      backend: backend,
+      processLauncher: _processLauncher,
+      requestTimeout: _requestTimeout,
+      initializationSettleDelay: _initializationSettleDelay,
+      shutdownRequestDelay: _shutdownRequestDelay,
+      shutdownExitDelay: _shutdownExitDelay,
+      onTerminated: () {
+        if (identical(_sessions[cacheKey], session)) {
+          _sessions.remove(cacheKey);
+        }
+      },
+    );
+    final future = _initializeSession(
+      cacheKey: cacheKey,
+      generation: generation,
+      session: session,
+    );
+    final start = _AiLspSessionStart(session: session, future: future);
+    _sessionStarts[cacheKey] = start;
+    try {
+      return await future;
+    } finally {
+      if (identical(_sessionStarts[cacheKey], start)) {
+        _sessionStarts.remove(cacheKey);
+      }
+    }
+  }
+
+  Future<_AiLspSession> _initializeSession({
+    required String cacheKey,
+    required int generation,
+    required _AiLspSession session,
+  }) async {
+    try {
+      await session.initialize();
+      if (generation != _sessionGeneration) {
+        throw StateError('LSP session was disposed while starting');
+      }
+      if (!session.isAlive) {
+        throw StateError('LSP process exited while the session was starting');
+      }
+
+      // Only this generation may publish the initialized session. A startup
+      // that completes after disposeAll() can therefore never replace a newer
+      // session created for the same cache key.
+      _sessions[cacheKey] = session;
+      return session;
+    } catch (_) {
+      await session.shutdown();
+      rethrow;
+    }
   }
 
   Future<String?> _resolveCommandPath(String executable) async {
@@ -1726,12 +1880,39 @@ class _AiLspHoverPart {
   final String plainText;
 }
 
+class _AiLspSessionStart {
+  const _AiLspSessionStart({required this.session, required this.future});
+
+  final _AiLspSession session;
+  final Future<_AiLspSession> future;
+}
+
 class _AiLspSession {
-  _AiLspSession({required this.backend});
+  _AiLspSession({
+    required this.backend,
+    required AiLspProcessLauncher processLauncher,
+    required Duration requestTimeout,
+    required Duration initializationSettleDelay,
+    required Duration shutdownRequestDelay,
+    required Duration shutdownExitDelay,
+    required void Function() onTerminated,
+  }) : _processLauncher = processLauncher,
+       _requestTimeout = requestTimeout,
+       _initializationSettleDelay = initializationSettleDelay,
+       _shutdownRequestDelay = shutdownRequestDelay,
+       _shutdownExitDelay = shutdownExitDelay,
+       _onTerminated = onTerminated;
 
   final AiLspBackendResolution backend;
+  final AiLspProcessLauncher _processLauncher;
+  final Duration _requestTimeout;
+  final Duration _initializationSettleDelay;
+  final Duration _shutdownRequestDelay;
+  final Duration _shutdownExitDelay;
+  final void Function() _onTerminated;
   Process? _process;
   StreamSubscription<String>? _stdoutSubscription;
+  StreamSubscription<List<int>>? _stderrSubscription;
   int _nextId = 1;
   final Map<int, Completer<Object?>> _pendingRequests =
       <int, Completer<Object?>>{};
@@ -1743,9 +1924,12 @@ class _AiLspSession {
   final Map<String, Completer<List<AiLspDiagnostic>>> _pendingDiagnostics =
       <String, Completer<List<AiLspDiagnostic>>>{};
   Timer? _idleTimer;
+  Future<void>? _shutdownFuture;
+  bool _shutdownRequested = false;
+  bool _terminationNotified = false;
 
   static const Duration _idleTimeout = Duration(seconds: 30);
-  static const Duration _requestTimeout = Duration(seconds: 15);
+  static const Duration _transportCancelTimeout = Duration(seconds: 1);
   // Backstop against pathological LSP server behavior (never responding but
   // also never exiting): refuse to enqueue new requests if the pending map
   // grows beyond this bound. Each request is ≤15s so under normal load it
@@ -1755,14 +1939,29 @@ class _AiLspSession {
     r'Content-Length:\s*(\d+)',
   );
 
-  bool get isAlive => _process != null;
+  bool get isAlive => _process != null && !_shutdownRequested;
 
   void touch() {
+    if (_shutdownRequested) {
+      return;
+    }
     _idleTimer?.cancel();
     _idleTimer = startSafeTimer(_idleTimeout, shutdown);
   }
 
   Future<void> initialize() async {
+    try {
+      await _initializeOnce();
+    } catch (_) {
+      await shutdown();
+      rethrow;
+    }
+  }
+
+  Future<void> _initializeOnce() async {
+    if (_shutdownRequested) {
+      throw StateError('LSP session was disposed before starting');
+    }
     final sdkPath = backend.configuredSdkPath;
     Map<String, String>? environment;
     if (sdkPath != null && sdkPath.isNotEmpty) {
@@ -1775,30 +1974,53 @@ class _AiLspSession {
         environment['GOROOT'] = sdkPath;
       }
     }
-    _process = await startTrackedProcess(
-      backend.executablePath!,
-      backend.arguments,
-      workingDirectory: backend.rootPath,
+    final process = await _processLauncher(
+      backend: backend,
       environment: environment,
     );
+    _process = process;
+    if (_shutdownRequested) {
+      await shutdown();
+      throw StateError('LSP session was disposed while starting');
+    }
+
     // Store the subscription so shutdown() can cancel it; otherwise the
     // listener stays attached after the process is killed and `_onData` may
     // still fire into a session whose buffers/maps have already been cleared,
     // and the underlying stream is never released.
-    _stdoutSubscription = _process!.stdout
+    _stdoutSubscription = process.stdout
         .transform(utf8.decoder)
-        .listen(_onData);
-    // Drain stderr so the LSP server is not blocked writing diagnostics.
-    // Surface any drain failures in debug builds to aid troubleshooting —
-    // they are silently swallowed otherwise.
-    _process!.stderr.drain<void>().catchError((Object error, StackTrace stack) {
-      silentLog(
-        'lsp_client_service',
-        'drain stderr (${backend.language})',
-        error,
-        stack,
-      );
-    });
+        .listen(
+          _onData,
+          onError: (Object error, StackTrace stack) {
+            silentLog('lsp_client_service', 'read LSP stdout', error, stack);
+            _handleTransportFailure(process, error, stack);
+          },
+          onDone: () {
+            _handleTransportFailure(
+              process,
+              StateError('LSP stdout closed unexpectedly'),
+              StackTrace.current,
+            );
+          },
+          cancelOnError: true,
+        );
+    unawaited(_watchProcessExit(process));
+    // Drain stderr so the LSP server is not blocked writing diagnostics, but
+    // retain the subscription so descendants inheriting the pipe cannot keep
+    // this session alive after shutdown.
+    _stderrSubscription = process.stderr.listen(
+      (_) {},
+      onError: (Object error, StackTrace stack) {
+        silentLog(
+          'lsp_client_service',
+          'drain stderr (${backend.language})',
+          error,
+          stack,
+        );
+      },
+      cancelOnError: true,
+    );
 
     final initResult = await _sendRequest('initialize', <String, Object?>{
       'processId': pid,
@@ -1881,7 +2103,10 @@ class _AiLspSession {
 
     _sendNotification('initialized', <String, Object?>{});
     touch();
-    await Future<void>.delayed(const Duration(milliseconds: 350));
+    await Future<void>.delayed(_initializationSettleDelay);
+    if (_shutdownRequested) {
+      throw StateError('LSP session was disposed while starting');
+    }
   }
 
   /// Syncs the document with the LSP server.  Returns `true` if the content
@@ -1892,8 +2117,10 @@ class _AiLspSession {
     required String language,
     String? text,
   }) async {
+    _ensureActive();
     final uri = Uri.file(filePath).toString();
     final currentText = text ?? await File(filePath).readAsString();
+    _ensureActive();
     final existing = _openDocuments[uri];
     if (existing == null) {
       _openDocuments[uri] = _AiLspOpenDocument(
@@ -1939,6 +2166,9 @@ class _AiLspSession {
   }
 
   Future<void> closeDocument(String filePath) async {
+    if (!isAlive) {
+      return;
+    }
     final uri = Uri.file(filePath).toString();
     if (!_openDocuments.containsKey(uri)) {
       return;
@@ -2218,6 +2448,7 @@ class _AiLspSession {
     String method,
     Map<String, Object?> params,
   ) async {
+    _ensureActive();
     if (_pendingRequests.length >= _maxPendingRequests) {
       throw StateError(
         'LSP "${backend.language}" has too many pending requests '
@@ -2227,24 +2458,31 @@ class _AiLspSession {
     final id = _nextId++;
     final completer = Completer<Object?>();
     _pendingRequests[id] = completer;
-    _writeMessage(<String, Object?>{
-      'jsonrpc': '2.0',
-      'id': id,
-      'method': method,
-      'params': params,
-    });
+    try {
+      _writeMessage(<String, Object?>{
+        'jsonrpc': '2.0',
+        'id': id,
+        'method': method,
+        'params': params,
+      });
+    } catch (_) {
+      _pendingRequests.remove(id);
+      rethrow;
+    }
     return completer.future.timeout(
       _requestTimeout,
       onTimeout: () {
         _pendingRequests.remove(id);
         throw TimeoutException(
-          'LSP request "$method" timed out after ${_requestTimeout.inSeconds}s',
+          'LSP request "$method" timed out after '
+          '${_requestTimeout.inMilliseconds}ms',
         );
       },
     );
   }
 
   void _sendNotification(String method, Map<String, Object?> params) {
+    _ensureActive();
     _writeMessage(<String, Object?>{
       'jsonrpc': '2.0',
       'method': method,
@@ -2253,12 +2491,19 @@ class _AiLspSession {
   }
 
   void _writeMessage(Map<String, Object?> message) {
+    final process = _process;
+    if (process == null) {
+      throw StateError('LSP session has no running process');
+    }
     final body = jsonEncode(message);
     final header = 'Content-Length: ${utf8.encode(body).length}\r\n\r\n';
-    _process?.stdin.add(utf8.encode('$header$body'));
+    process.stdin.add(utf8.encode('$header$body'));
   }
 
   void _onData(String chunk) {
+    if (_shutdownRequested) {
+      return;
+    }
     _responseBuffer.write(chunk);
     _processBuffer();
   }
@@ -2319,6 +2564,9 @@ class _AiLspSession {
   }
 
   void _handleResponse(Map<String, Object?> message) {
+    if (_shutdownRequested) {
+      return;
+    }
     final id = message['id'];
     if (id is! int || !_pendingRequests.containsKey(id)) {
       return;
@@ -2335,6 +2583,9 @@ class _AiLspSession {
   }
 
   Future<void> _handleServerRequest(Map<String, Object?> message) async {
+    if (_shutdownRequested) {
+      return;
+    }
     touch();
     final method = '${message['method'] ?? ''}'.trim();
     final id = message['id'];
@@ -2353,6 +2604,9 @@ class _AiLspSession {
           } catch (_) {
             applied = false;
           }
+        }
+        if (_shutdownRequested || _process == null) {
+          return;
         }
         _writeMessage(<String, Object?>{
           'jsonrpc': '2.0',
@@ -2374,6 +2628,9 @@ class _AiLspSession {
   }
 
   void _handleNotification(Map<String, Object?> message) {
+    if (_shutdownRequested) {
+      return;
+    }
     final method = '${message['method'] ?? ''}'.trim();
     if (method != 'textDocument/publishDiagnostics') {
       return;
@@ -2406,12 +2663,74 @@ class _AiLspSession {
     }
   }
 
-  Future<void> shutdown() async {
-    _idleTimer?.cancel();
-    final process = _process;
-    if (process == null) {
+  void _handleTransportFailure(
+    Process process,
+    Object error,
+    StackTrace stack,
+  ) {
+    if (_shutdownRequested || !identical(_process, process)) return;
+    _failPendingRequests(error, stack);
+    unawaited(shutdown());
+  }
+
+  Future<void> _watchProcessExit(Process process) async {
+    late final int exitCode;
+    try {
+      exitCode = await process.exitCode;
+    } catch (error, stack) {
+      if (identical(_process, process)) {
+        _handleTransportFailure(process, error, stack);
+      }
       return;
     }
+    if (!identical(_process, process)) return;
+
+    final wasUnexpected = !_shutdownRequested;
+    _shutdownRequested = true;
+    _idleTimer?.cancel();
+    _idleTimer = null;
+    _process = null;
+    if (wasUnexpected) {
+      _failPendingRequests(
+        StateError('LSP process exited unexpectedly with code $exitCode'),
+        StackTrace.current,
+      );
+      await terminateTrackedProcessTree(
+        process,
+        gracefulTimeout: Duration.zero,
+      );
+    }
+    await _cancelTransportSubscriptions('process exit');
+    _clearSessionState();
+    _notifyTerminated();
+  }
+
+  Future<void> shutdown() {
+    _shutdownRequested = true;
+    _idleTimer?.cancel();
+    _idleTimer = null;
+    final activeShutdown = _shutdownFuture;
+    if (activeShutdown != null) {
+      return activeShutdown;
+    }
+    final process = _process;
+    if (process == null) {
+      _clearSessionState();
+      _notifyTerminated();
+      return Future<void>.value();
+    }
+
+    late final Future<void> shutdownFuture;
+    shutdownFuture = _performShutdown(process).whenComplete(() {
+      if (identical(_shutdownFuture, shutdownFuture)) {
+        _shutdownFuture = null;
+      }
+    });
+    _shutdownFuture = shutdownFuture;
+    return shutdownFuture;
+  }
+
+  Future<void> _performShutdown(Process process) async {
     try {
       _writeMessage(<String, Object?>{
         'jsonrpc': '2.0',
@@ -2419,9 +2738,13 @@ class _AiLspSession {
         'method': 'shutdown',
         'params': null,
       });
-      await Future<void>.delayed(const Duration(milliseconds: 180));
-      _sendNotification('exit', <String, Object?>{});
-      await Future<void>.delayed(const Duration(milliseconds: 80));
+      await Future<void>.delayed(_shutdownRequestDelay);
+      _writeMessage(<String, Object?>{
+        'jsonrpc': '2.0',
+        'method': 'exit',
+        'params': <String, Object?>{},
+      });
+      await Future<void>.delayed(_shutdownExitDelay);
     } catch (error, stack) {
       silentLog(
         'lsp_client_service',
@@ -2430,22 +2753,22 @@ class _AiLspSession {
         stack,
       );
     }
-    _process = null;
-    process.kill();
-    final stdoutSubscription = _stdoutSubscription;
-    _stdoutSubscription = null;
-    if (stdoutSubscription != null) {
-      try {
-        await stdoutSubscription.cancel();
-      } catch (error, stack) {
-        silentLog(
-          'lsp_client_service',
-          'cancel LSP stdout subscription',
-          error,
-          stack,
-        );
-      }
+    if (identical(_process, process)) {
+      _process = null;
     }
+    await terminateTrackedProcessTree(process);
+    await _cancelTransportSubscriptions('shutdown');
+    _clearSessionState();
+    _notifyTerminated();
+  }
+
+  void _ensureActive() {
+    if (_shutdownRequested || _process == null) {
+      throw StateError('LSP session is shut down');
+    }
+  }
+
+  void _clearSessionState() {
     for (final completer in _pendingRequests.values) {
       if (!completer.isCompleted) {
         completer.completeError(StateError('LSP session shut down'));
@@ -2461,6 +2784,49 @@ class _AiLspSession {
     _openDocuments.clear();
     _diagnosticsByUri.clear();
     _responseBuffer.clear();
+  }
+
+  void _failPendingRequests(Object error, StackTrace stack) {
+    for (final completer in _pendingRequests.values) {
+      if (!completer.isCompleted) {
+        completer.completeError(error, stack);
+      }
+    }
+  }
+
+  Future<void> _cancelTransportSubscriptions(String reason) async {
+    final stdoutSubscription = _stdoutSubscription;
+    final stderrSubscription = _stderrSubscription;
+    _stdoutSubscription = null;
+    _stderrSubscription = null;
+
+    Future<void> cancel(
+      StreamSubscription<dynamic>? subscription,
+      String streamName,
+    ) async {
+      if (subscription == null) return;
+      try {
+        await subscription.cancel().timeout(_transportCancelTimeout);
+      } catch (error, stack) {
+        silentLog(
+          'lsp_client_service',
+          'cancel LSP $streamName subscription ($reason)',
+          error,
+          stack,
+        );
+      }
+    }
+
+    await Future.wait<void>(<Future<void>>[
+      cancel(stdoutSubscription, 'stdout'),
+      cancel(stderrSubscription, 'stderr'),
+    ]);
+  }
+
+  void _notifyTerminated() {
+    if (_terminationNotified) return;
+    _terminationNotified = true;
+    _onTerminated();
   }
 
   static List<Map<String, Object?>> _parseCallHierarchyItems(Object? result) {

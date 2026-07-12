@@ -68,21 +68,68 @@ class WebFetchScraplingProbeStatus {
 }
 
 class WebFetchScraplingBridge {
-  WebFetchScraplingBridge();
+  WebFetchScraplingBridge() : this.withDependencies();
+
+  WebFetchScraplingBridge.withDependencies({
+    Future<String?> Function(AiWebFetchScraplingSettings settings)?
+    pythonExecutableResolver,
+    Future<String> Function()? helperPathProvider,
+    Future<Process> Function(String pythonExecutable, String helperPath)?
+    processStarter,
+    Duration? startupTimeoutOverride,
+    Duration processStopTimeout = _defaultProcessStopTimeout,
+    Duration processKillTimeout = _defaultProcessKillTimeout,
+  }) : _pythonExecutableResolver = pythonExecutableResolver,
+       _helperPathProvider = helperPathProvider,
+       _processStarter = processStarter,
+       _startupTimeoutOverride = startupTimeoutOverride,
+       _processStopTimeout = processStopTimeout,
+       _processKillTimeout = processKillTimeout {
+    if (startupTimeoutOverride?.isNegative ?? false) {
+      throw ArgumentError.value(
+        startupTimeoutOverride,
+        'startupTimeoutOverride',
+        'Must not be negative.',
+      );
+    }
+    if (processStopTimeout.isNegative) {
+      throw ArgumentError.value(
+        processStopTimeout,
+        'processStopTimeout',
+        'Must not be negative.',
+      );
+    }
+    if (processKillTimeout.isNegative) {
+      throw ArgumentError.value(
+        processKillTimeout,
+        'processKillTimeout',
+        'Must not be negative.',
+      );
+    }
+  }
 
   static const String _assetPath =
       'assets/tooling/webfetch_scrapling_bridge.py';
   static const String _pythonNotFoundCode = 'python_not_found';
   static const String _pythonNotFoundDetail =
       'Python 3 not found. Install Python 3.10+ or set a custom executable path.';
+  static const Duration _defaultProcessStopTimeout = Duration(seconds: 2);
+  static const Duration _defaultProcessKillTimeout = Duration(
+    milliseconds: 250,
+  );
+  static const int _maxStderrTailLength = 800;
 
-  Process? _process;
-  StreamSubscription<String>? _stdoutSubscription;
-  StreamSubscription<String>? _stderrSubscription;
-  Completer<void>? _readyCompleter;
+  final Future<String?> Function(AiWebFetchScraplingSettings settings)?
+  _pythonExecutableResolver;
+  final Future<String> Function()? _helperPathProvider;
+  final Future<Process> Function(String pythonExecutable, String helperPath)?
+  _processStarter;
+  final Duration? _startupTimeoutOverride;
+  final Duration _processStopTimeout;
+  final Duration _processKillTimeout;
+
+  _ScraplingProcessRuntime? _runtime;
   Future<void> _serial = Future<void>.value();
-  String? _activePythonExecutable;
-  String _stderrTail = '';
   String? _helperPath;
   int _requestSeq = 0;
   WebFetchScraplingProbeStatus _lastProbe = const WebFetchScraplingProbeStatus(
@@ -90,9 +137,6 @@ class WebFetchScraplingBridge {
     code: 'not_started',
     detail: 'Scrapling bridge not started.',
   );
-  final Map<String, Completer<Map<String, Object?>>> _pending =
-      <String, Completer<Map<String, Object?>>>{};
-
   WebFetchScraplingProbeStatus get lastProbe => _lastProbe;
 
   Stream<WebFetchScraplingRuntimeEvent> installRuntimeStreaming({
@@ -251,6 +295,10 @@ class WebFetchScraplingBridge {
   Future<String?> _resolvePythonExecutable(
     AiWebFetchScraplingSettings settings,
   ) async {
+    final resolver = _pythonExecutableResolver;
+    if (resolver != null) {
+      return nullIfBlank(await resolver(settings));
+    }
     final custom = nullIfBlank(settings.pythonExecutable) ?? '';
     if (custom.isNotEmpty) {
       final result = await runTrackedProcessOrFailed(
@@ -283,99 +331,286 @@ class WebFetchScraplingBridge {
     required AiWebFetchScraplingSettings settings,
     required String pythonExecutable,
   }) async {
-    final needRestart =
-        _process == null ||
-        _readyCompleter == null ||
-        _activePythonExecutable != pythonExecutable;
-    if (!needRestart && _process != null && _readyCompleter != null) {
-      await _readyCompleter!.future.timeout(
-        Duration(seconds: settings.startupTimeoutSeconds),
-      );
-      return;
+    final startupTimeout =
+        _startupTimeoutOverride ??
+        Duration(seconds: settings.startupTimeoutSeconds);
+    final current = _runtime;
+    if (current != null &&
+        !current.stopHandlingScheduled &&
+        current.pythonExecutable == pythonExecutable) {
+      try {
+        await current.ready.future.timeout(startupTimeout);
+        if (!identical(_runtime, current)) {
+          throw WebEngineHttpException('scrapling_bridge_restarted');
+        }
+        return;
+      } catch (error, stack) {
+        await _cleanupRuntime(current, cause: error, stackTrace: stack);
+        Error.throwWithStackTrace(error, stack);
+      }
     }
-    await _killProcess();
-    final helperPath = await _ensureHelperScriptWritten();
-    final ready = Completer<void>();
-    _readyCompleter = ready;
-    _activePythonExecutable = pythonExecutable;
-    _stderrTail = '';
-    final process = await startTrackedProcess(
+
+    if (current != null) {
+      await _cleanupRuntime(
+        current,
+        cause: WebEngineHttpException('scrapling_bridge_restarted'),
+        stackTrace: StackTrace.current,
+      );
+    }
+
+    _ScraplingProcessRuntime? startedRuntime;
+    try {
+      final helperPath = await _ensureHelperScriptWritten();
+      final startupStopwatch = Stopwatch()..start();
+      final processStart = _startBridgeProcess(
+        pythonExecutable: pythonExecutable,
+        helperPath: helperPath,
+      );
+      final process = await _awaitBridgeProcessStart(
+        processStart,
+        timeout: _remainingStartupTimeout(startupTimeout, startupStopwatch),
+      );
+      final runtime = _ScraplingProcessRuntime(
+        process: process,
+        pythonExecutable: pythonExecutable,
+      );
+      startedRuntime = runtime;
+      _runtime = runtime;
+      _listenToRuntime(runtime);
+      await runtime.ready.future.timeout(
+        _remainingStartupTimeout(startupTimeout, startupStopwatch),
+      );
+      if (!identical(_runtime, runtime)) {
+        throw WebEngineHttpException('scrapling_bridge_restarted');
+      }
+    } catch (error, stack) {
+      final runtime = startedRuntime;
+      if (runtime != null) {
+        await _cleanupRuntime(runtime, cause: error, stackTrace: stack);
+      }
+      Error.throwWithStackTrace(error, stack);
+    }
+  }
+
+  Duration _remainingStartupTimeout(Duration timeout, Stopwatch stopwatch) {
+    final remaining = timeout - stopwatch.elapsed;
+    return remaining > Duration.zero ? remaining : Duration.zero;
+  }
+
+  Future<Process> _awaitBridgeProcessStart(
+    Future<Process> processStart, {
+    required Duration timeout,
+  }) async {
+    try {
+      return await processStart.timeout(
+        timeout,
+        onTimeout: () => throw _BridgeProcessStartTimeout(timeout),
+      );
+    } on _BridgeProcessStartTimeout {
+      _scheduleUnclaimedProcessCleanup(processStart);
+      rethrow;
+    }
+  }
+
+  void _scheduleUnclaimedProcessCleanup(Future<Process> processStart) {
+    unawaited(
+      processStart.then<void>(
+        _disposeUnclaimedProcess,
+        onError: (Object error, StackTrace stack) {
+          silentLog(
+            'web_fetch_scrapling_bridge',
+            'late process start',
+            error,
+            stack,
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _disposeUnclaimedProcess(Process process) async {
+    try {
+      final drainTimeout = _processStopTimeout + _processKillTimeout;
+      await Future.wait<void>(<Future<void>>[
+        _drainUnclaimedProcessStream(
+          process.stdout,
+          'late process stdout',
+          drainTimeout,
+        ),
+        _drainUnclaimedProcessStream(
+          process.stderr,
+          'late process stderr',
+          drainTimeout,
+        ),
+        _terminateRuntimeProcess(process),
+        _closeRuntimeStdin(process.stdin),
+      ]);
+    } catch (error, stack) {
+      silentLog(
+        'web_fetch_scrapling_bridge',
+        'dispose late process',
+        error,
+        stack,
+      );
+    }
+  }
+
+  Future<void> _drainUnclaimedProcessStream(
+    Stream<List<int>> stream,
+    String streamName,
+    Duration timeout,
+  ) async {
+    try {
+      await stream.drain<void>().timeout(timeout);
+    } catch (error, stack) {
+      silentLog('web_fetch_scrapling_bridge', streamName, error, stack);
+    }
+  }
+
+  Future<Process> _startBridgeProcess({
+    required String pythonExecutable,
+    required String helperPath,
+  }) {
+    final starter = _processStarter;
+    if (starter != null) {
+      return starter(pythonExecutable, helperPath);
+    }
+    return startTrackedProcess(
       pythonExecutable,
       <String>[helperPath],
       workingDirectory: OpenHandPaths.applicationDirectoryPath(),
       environment: SystemProxyResolver.instance.resolveSubprocessEnvironment(),
     );
-    _process = process;
-    _stdoutSubscription = process.stdout
+  }
+
+  void _listenToRuntime(_ScraplingProcessRuntime runtime) {
+    runtime.stdoutSubscription = runtime.process.stdout
+        .transform(utf8.decoder)
+        .transform(const LineSplitter())
+        .listen(
+          (line) => _handleRuntimeStdoutLine(runtime, line),
+          onError: (Object error, StackTrace stack) {
+            if (!identical(_runtime, runtime)) return;
+            silentLog('web_fetch_scrapling_bridge', 'stdout', error, stack);
+            _handleRuntimeFailure(runtime, error, stack);
+          },
+          onDone: () {
+            if (!identical(_runtime, runtime)) return;
+            _scheduleRuntimeStopped(runtime);
+          },
+        );
+    runtime.stderrSubscription = runtime.process.stderr
         .transform(utf8.decoder)
         .transform(const LineSplitter())
         .listen(
           (line) {
-            if (nullIfBlank(line) == null) return;
-            Map<String, Object?> json;
-            try {
-              final decoded = jsonDecode(line);
-              if (decoded is! Map) return;
-              json = stringKeyedMapFromValue(decoded);
-            } catch (_) {
-              return;
-            }
-            if (json['type'] == 'ready') {
-              _lastProbe = _probeFromResponse(
-                json,
-                fallbackPython: pythonExecutable,
-              );
-              if (_lastProbe.ready) {
-                if (!ready.isCompleted) ready.complete();
-              } else {
-                if (!ready.isCompleted) {
-                  ready.completeError(
-                    WebEngineHttpException(
-                      '${_lastProbe.code}: ${_lastProbe.detail}',
-                    ),
-                  );
-                }
-              }
-              return;
-            }
-            final id = optionalStringFromValue(json['id']) ?? '';
-            final pending = _pending.remove(id);
-            if (pending != null && !pending.isCompleted) {
-              pending.complete(json);
-            }
+            if (!identical(_runtime, runtime)) return;
+            final trimmed = nullIfBlank(line);
+            if (trimmed == null) return;
+            runtime.stderrTail = trimmed.length > _maxStderrTailLength
+                ? trimmed.substring(trimmed.length - _maxStderrTailLength)
+                : trimmed;
           },
           onError: (Object error, StackTrace stack) {
-            silentLog('web_fetch_scrapling_bridge', 'stdout', error, stack);
-            if (!ready.isCompleted) ready.completeError(error, stack);
-            _failPending(error, stack);
+            if (!runtime.stderrDone.isCompleted) {
+              runtime.stderrDone.complete();
+            }
+            if (!identical(_runtime, runtime)) return;
+            silentLog('web_fetch_scrapling_bridge', 'stderr', error, stack);
+            _handleRuntimeFailure(runtime, error, stack);
           },
           onDone: () {
-            final error = WebEngineHttpException(
-              _stderrTail.isEmpty
-                  ? 'scrapling_bridge_stopped'
-                  : 'scrapling_bridge_stopped: $_stderrTail',
-            );
-            if (!ready.isCompleted) ready.completeError(error);
-            _failPending(error, StackTrace.current);
+            if (!runtime.stderrDone.isCompleted) {
+              runtime.stderrDone.complete();
+            }
           },
         );
-    _stderrSubscription = process.stderr
-        .transform(utf8.decoder)
-        .transform(const LineSplitter())
-        .listen((line) {
-          final trimmed = nullIfBlank(line);
-          if (trimmed == null) return;
-          _stderrTail = trimmed.length > 800
-              ? trimmed.substring(trimmed.length - 800)
-              : trimmed;
-        });
-    unawaited(
-      process.exitCode.then((_) {
-        _process = null;
-      }),
+    unawaited(_watchRuntimeExit(runtime));
+  }
+
+  void _handleRuntimeStdoutLine(_ScraplingProcessRuntime runtime, String line) {
+    if (!identical(_runtime, runtime) || nullIfBlank(line) == null) return;
+    Map<String, Object?> json;
+    try {
+      final decoded = jsonDecode(line);
+      if (decoded is! Map) return;
+      json = stringKeyedMapFromValue(decoded);
+    } catch (_) {
+      return;
+    }
+    if (json['type'] == 'ready') {
+      _lastProbe = _probeFromResponse(
+        json,
+        fallbackPython: runtime.pythonExecutable,
+      );
+      if (_lastProbe.ready) {
+        if (!runtime.ready.isCompleted) runtime.ready.complete();
+      } else if (!runtime.ready.isCompleted) {
+        runtime.ready.completeError(
+          WebEngineHttpException('${_lastProbe.code}: ${_lastProbe.detail}'),
+        );
+      }
+      return;
+    }
+    final id = optionalStringFromValue(json['id']) ?? '';
+    final pending = runtime.pending.remove(id);
+    if (pending != null && !pending.isCompleted) {
+      pending.complete(json);
+    }
+  }
+
+  Future<void> _watchRuntimeExit(_ScraplingProcessRuntime runtime) async {
+    try {
+      await runtime.process.exitCode;
+      if (!identical(_runtime, runtime)) return;
+      _scheduleRuntimeStopped(runtime);
+    } catch (error, stack) {
+      if (!identical(_runtime, runtime)) return;
+      silentLog('web_fetch_scrapling_bridge', 'exit code', error, stack);
+      _handleRuntimeFailure(runtime, error, stack);
+    }
+  }
+
+  void _scheduleRuntimeStopped(_ScraplingProcessRuntime runtime) {
+    if (!identical(_runtime, runtime) || runtime.stopHandlingScheduled) return;
+    runtime.stopHandlingScheduled = true;
+    unawaited(_finishRuntimeStopped(runtime));
+  }
+
+  Future<void> _finishRuntimeStopped(_ScraplingProcessRuntime runtime) async {
+    try {
+      await runtime.stderrDone.future.timeout(_processKillTimeout);
+    } on TimeoutException {
+      // Preserve any buffered stderr without letting a broken pipe hang cleanup.
+    }
+    if (!identical(_runtime, runtime)) return;
+    _handleRuntimeFailure(
+      runtime,
+      _runtimeStoppedError(runtime),
+      StackTrace.current,
     );
-    await ready.future.timeout(
-      Duration(seconds: settings.startupTimeoutSeconds),
+  }
+
+  void _handleRuntimeFailure(
+    _ScraplingProcessRuntime runtime,
+    Object error,
+    StackTrace stack,
+  ) {
+    if (!identical(_runtime, runtime)) return;
+    if (!runtime.ready.isCompleted) {
+      runtime.ready.completeError(error, stack);
+    }
+    _failPending(runtime, error, stack);
+    unawaited(_cleanupRuntime(runtime, cause: error, stackTrace: stack));
+  }
+
+  WebEngineHttpException _runtimeStoppedError(
+    _ScraplingProcessRuntime runtime,
+  ) {
+    return WebEngineHttpException(
+      runtime.stderrTail.isEmpty
+          ? 'scrapling_bridge_stopped'
+          : 'scrapling_bridge_stopped: ${runtime.stderrTail}',
     );
   }
 
@@ -419,16 +654,16 @@ class WebFetchScraplingBridge {
     required Duration timeout,
     Future<void>? cancelSignal,
   }) async {
-    final process = _process;
-    if (process == null) {
+    final runtime = _runtime;
+    if (runtime == null) {
       throw WebEngineHttpException('scrapling_bridge_not_running');
     }
     final id = 'req_${++_requestSeq}';
     final payload = <String, Object?>{'id': id, ...command};
     final completer = Completer<Map<String, Object?>>();
-    _pending[id] = completer;
+    runtime.pending[id] = completer;
     try {
-      process.stdin.writeln(jsonEncode(payload));
+      runtime.process.stdin.writeln(jsonEncode(payload));
       final commandOutcome = Future.any<Object?>([
         completer.future,
         Future<void>.delayed(
@@ -440,20 +675,31 @@ class WebFetchScraplingBridge {
         cancelSignal: cancelSignal,
       );
       if (result is _TimeoutToken) {
-        _pending.remove(id);
-        await _killProcess();
-        throw WebEngineHttpException('scrapling_bridge_timeout');
+        runtime.pending.remove(id);
+        final error = WebEngineHttpException('scrapling_bridge_timeout');
+        await _cleanupRuntime(
+          runtime,
+          cause: error,
+          stackTrace: StackTrace.current,
+        );
+        throw error;
       }
       if (result == null) {
-        _pending.remove(id);
-        await _killProcess();
-        throw WebEngineHttpException('cancelled');
+        runtime.pending.remove(id);
+        final error = WebEngineHttpException('cancelled');
+        await _cleanupRuntime(
+          runtime,
+          cause: error,
+          stackTrace: StackTrace.current,
+        );
+        throw error;
       }
       return result as Map<String, Object?>;
-    } on StateError {
-      _pending.remove(id);
-      await _killProcess();
-      throw WebEngineHttpException('scrapling_bridge_stdin_closed');
+    } on StateError catch (_, stack) {
+      runtime.pending.remove(id);
+      final error = WebEngineHttpException('scrapling_bridge_stdin_closed');
+      await _cleanupRuntime(runtime, cause: error, stackTrace: stack);
+      Error.throwWithStackTrace(error, stack);
     }
   }
 
@@ -722,6 +968,14 @@ class WebFetchScraplingBridge {
 
   Future<String> _ensureHelperScriptWritten() async {
     if (_helperPath != null) return _helperPath!;
+    final provider = _helperPathProvider;
+    if (provider != null) {
+      final helperPath = nullIfBlank(await provider());
+      if (helperPath == null) {
+        throw StateError('Scrapling helper path must not be blank.');
+      }
+      return _helperPath = helperPath;
+    }
     final bytes = await rootBundle.load(_assetPath);
     final dir = Directory(
       p.join(
@@ -758,9 +1012,15 @@ class WebFetchScraplingBridge {
     return file.path;
   }
 
-  void _failPending(Object error, StackTrace stack) {
-    final pending = List<Completer<Map<String, Object?>>>.from(_pending.values);
-    _pending.clear();
+  void _failPending(
+    _ScraplingProcessRuntime runtime,
+    Object error,
+    StackTrace stack,
+  ) {
+    final pending = List<Completer<Map<String, Object?>>>.from(
+      runtime.pending.values,
+    );
+    runtime.pending.clear();
     for (final completer in pending) {
       if (!completer.isCompleted) {
         completer.completeError(error, stack);
@@ -769,40 +1029,174 @@ class WebFetchScraplingBridge {
   }
 
   Future<void> _killProcess() async {
-    final process = _process;
-    _process = null;
-    _activePythonExecutable = null;
-    final stdoutSub = _stdoutSubscription;
-    final stderrSub = _stderrSubscription;
-    _stdoutSubscription = null;
-    _stderrSubscription = null;
-    _readyCompleter = null;
-    if (stdoutSub != null) {
-      await stdoutSub.cancel();
-    }
-    if (stderrSub != null) {
-      await stderrSub.cancel();
-    }
-    if (process != null) {
-      try {
-        process.kill();
-        await process.exitCode.timeout(const Duration(seconds: 2)).catchError((
-          _,
-        ) async {
-          if (!Platform.isWindows) {
-            process.kill(ProcessSignal.sigkill);
-          }
-          return -1;
-        });
-      } catch (error, stack) {
-        silentLog('web_fetch_scrapling_bridge', 'kill process', error, stack);
-      }
-    }
-    _failPending(
-      WebEngineHttpException('scrapling_bridge_restarted'),
-      StackTrace.current,
+    final runtime = _runtime;
+    if (runtime == null) return;
+    await _cleanupRuntime(
+      runtime,
+      cause: WebEngineHttpException('scrapling_bridge_restarted'),
+      stackTrace: StackTrace.current,
     );
   }
+
+  Future<void> _cleanupRuntime(
+    _ScraplingProcessRuntime runtime, {
+    required Object cause,
+    required StackTrace stackTrace,
+  }) {
+    final existingCleanup = runtime.cleanupFuture;
+    if (existingCleanup != null) return existingCleanup;
+
+    final completer = Completer<void>();
+    runtime.cleanupFuture = completer.future;
+    unawaited(() async {
+      try {
+        await _performRuntimeCleanup(
+          runtime,
+          cause: cause,
+          stackTrace: stackTrace,
+        );
+      } catch (error, stack) {
+        silentLog(
+          'web_fetch_scrapling_bridge',
+          'cleanup runtime',
+          error,
+          stack,
+        );
+      } finally {
+        if (!completer.isCompleted) completer.complete();
+      }
+    }());
+    return completer.future;
+  }
+
+  Future<void> _performRuntimeCleanup(
+    _ScraplingProcessRuntime runtime, {
+    required Object cause,
+    required StackTrace stackTrace,
+  }) async {
+    if (identical(_runtime, runtime)) {
+      _runtime = null;
+    }
+    if (!runtime.ready.isCompleted) {
+      runtime.ready.completeError(cause, stackTrace);
+    }
+    _failPending(runtime, cause, stackTrace);
+
+    final stdoutSubscription = runtime.stdoutSubscription;
+    final stderrSubscription = runtime.stderrSubscription;
+    runtime.stdoutSubscription = null;
+    runtime.stderrSubscription = null;
+    await Future.wait<void>(<Future<void>>[
+      _cancelRuntimeSubscription(stdoutSubscription, 'stdout'),
+      _cancelRuntimeSubscription(stderrSubscription, 'stderr'),
+    ]);
+    if (!runtime.stderrDone.isCompleted) {
+      runtime.stderrDone.complete();
+    }
+    await Future.wait<void>(<Future<void>>[
+      _terminateRuntimeProcess(runtime.process),
+      _closeRuntimeStdin(runtime.process.stdin),
+    ]);
+  }
+
+  Future<void> _cancelRuntimeSubscription(
+    StreamSubscription<String>? subscription,
+    String streamName,
+  ) async {
+    if (subscription == null) return;
+    try {
+      await subscription.cancel().timeout(_processKillTimeout);
+    } catch (error, stack) {
+      silentLog(
+        'web_fetch_scrapling_bridge',
+        'cancel $streamName subscription',
+        error,
+        stack,
+      );
+    }
+  }
+
+  Future<void> _terminateRuntimeProcess(Process process) async {
+    try {
+      process.kill();
+    } catch (error, stack) {
+      silentLog(
+        'web_fetch_scrapling_bridge',
+        'terminate process',
+        error,
+        stack,
+      );
+    }
+    if (await _waitForProcessExit(process, _processStopTimeout)) return;
+
+    try {
+      if (Platform.isWindows) {
+        process.kill();
+      } else {
+        process.kill(ProcessSignal.sigkill);
+      }
+    } catch (error, stack) {
+      silentLog('web_fetch_scrapling_bridge', 'kill process', error, stack);
+    }
+    if (await _waitForProcessExit(process, _processKillTimeout)) return;
+    silentLog(
+      'web_fetch_scrapling_bridge',
+      'wait after forced process termination',
+      TimeoutException(
+        'Scrapling bridge did not exit after forced termination.',
+        _processKillTimeout,
+      ),
+    );
+  }
+
+  Future<bool> _waitForProcessExit(Process process, Duration timeout) async {
+    try {
+      await process.exitCode.timeout(timeout);
+      return true;
+    } on TimeoutException {
+      return false;
+    } catch (error, stack) {
+      silentLog(
+        'web_fetch_scrapling_bridge',
+        'wait for process exit',
+        error,
+        stack,
+      );
+      return false;
+    }
+  }
+
+  Future<void> _closeRuntimeStdin(IOSink stdin) async {
+    try {
+      await stdin.close().timeout(_processKillTimeout);
+    } catch (error, stack) {
+      silentLog(
+        'web_fetch_scrapling_bridge',
+        'close process stdin',
+        error,
+        stack,
+      );
+    }
+  }
+}
+
+class _ScraplingProcessRuntime {
+  _ScraplingProcessRuntime({
+    required this.process,
+    required this.pythonExecutable,
+  });
+
+  final Process process;
+  final String pythonExecutable;
+  final Completer<void> ready = Completer<void>();
+  final Completer<void> stderrDone = Completer<void>();
+  final Map<String, Completer<Map<String, Object?>>> pending =
+      <String, Completer<Map<String, Object?>>>{};
+  StreamSubscription<String>? stdoutSubscription;
+  StreamSubscription<String>? stderrSubscription;
+  String stderrTail = '';
+  bool stopHandlingScheduled = false;
+  Future<void>? cleanupFuture;
 }
 
 class _RuntimeAttemptResult {
@@ -825,4 +1219,9 @@ class _RuntimeAttemptResult {
 
 class _TimeoutToken {
   const _TimeoutToken();
+}
+
+class _BridgeProcessStartTimeout extends TimeoutException {
+  _BridgeProcessStartTimeout(Duration duration)
+    : super('Scrapling bridge process start timed out.', duration);
 }

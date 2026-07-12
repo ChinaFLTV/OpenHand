@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
+import 'dart:typed_data';
 
 import 'package:path/path.dart' as p;
 import 'package:shelf/shelf.dart' as shelf;
@@ -10,6 +11,7 @@ import 'package:shelf_router/shelf_router.dart';
 
 import '../../../shared/net/http_response_utils.dart';
 import '../../../shared/net/http_status_utils.dart';
+import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../model/mcp_http_headers.dart';
 import '../model/mcp_server_ops.dart';
@@ -20,11 +22,148 @@ typedef McpOpsToolInvoker =
     Future<McpOpsToolInvocationResult> Function(
       McpOpsToolDefinition tool,
       Map<String, Object?> arguments,
+      McpOpsToolInvocationContext context,
     );
 typedef McpOpsApprovalGate =
     Future<bool> Function(McpOpsApprovalRequest request);
 typedef McpOpsAuditSink = void Function(McpOpsAuditEntry entry);
 typedef McpOpsSnapshotSink = void Function(McpOpsRuntimeSnapshot snapshot);
+
+class McpOpsToolInvocationContext {
+  const McpOpsToolInvocationContext({
+    required this.invocationId,
+    required this.cancelSignal,
+    required this.deadline,
+  });
+
+  final String invocationId;
+  final Future<void> cancelSignal;
+  final DateTime deadline;
+}
+
+const int _mcpOpsRequestBodyMaxBytes = 4 * kBytesPerMiB;
+const Duration _mcpOpsRequestBodyIdleTimeout = Duration(seconds: 10);
+const Duration _mcpOpsRequestBodyTotalTimeout = Duration(seconds: 30);
+
+class McpOpsRequestBodyTooLargeException implements Exception {
+  const McpOpsRequestBodyTooLargeException({
+    required this.maxBytes,
+    required this.receivedBytes,
+  });
+
+  final int maxBytes;
+  final int receivedBytes;
+
+  @override
+  String toString() {
+    return 'MCP request body exceeded $maxBytes bytes '
+        '(received at least $receivedBytes bytes).';
+  }
+}
+
+/// Collects an MCP request body while enforcing independent byte, idle-time,
+/// and wall-clock limits. Once a limit wins, later chunks are ignored without
+/// being buffered. The owning HTTP handler closes the connection after writing
+/// its 408/413 response; cancelling a `dart:io` request stream before Shelf has
+/// written that response would abort the socket and hide the status from the
+/// client.
+Future<String> readBoundedMcpOpsRequestBody(
+  Stream<List<int>> stream, {
+  required int maxBytes,
+  required Duration idleTimeout,
+  required Duration totalTimeout,
+}) {
+  if (maxBytes < 1) {
+    throw ArgumentError.value(maxBytes, 'maxBytes', 'Must be positive.');
+  }
+  if (idleTimeout <= Duration.zero) {
+    throw ArgumentError.value(idleTimeout, 'idleTimeout', 'Must be positive.');
+  }
+  if (totalTimeout <= Duration.zero) {
+    throw ArgumentError.value(
+      totalTimeout,
+      'totalTimeout',
+      'Must be positive.',
+    );
+  }
+
+  final completer = Completer<String>();
+  final bytes = BytesBuilder(copy: false);
+  Timer? idleTimer;
+  Timer? totalTimer;
+  var receivedBytes = 0;
+  var settled = false;
+
+  void cancelTimers() {
+    idleTimer?.cancel();
+    totalTimer?.cancel();
+    idleTimer = null;
+    totalTimer = null;
+  }
+
+  void fail(Object error, StackTrace stack) {
+    if (settled) return;
+    settled = true;
+    cancelTimers();
+    completer.completeError(error, stack);
+  }
+
+  void resetIdleTimer() {
+    idleTimer?.cancel();
+    idleTimer = Timer(
+      idleTimeout,
+      () => fail(
+        TimeoutException('MCP request body stalled.', idleTimeout),
+        StackTrace.current,
+      ),
+    );
+  }
+
+  totalTimer = Timer(
+    totalTimeout,
+    () => fail(
+      TimeoutException(
+        'MCP request body exceeded its total time limit.',
+        totalTimeout,
+      ),
+      StackTrace.current,
+    ),
+  );
+  stream.listen(
+    (chunk) {
+      if (settled) return;
+      resetIdleTimer();
+      receivedBytes += chunk.length;
+      if (receivedBytes > maxBytes) {
+        fail(
+          McpOpsRequestBodyTooLargeException(
+            maxBytes: maxBytes,
+            receivedBytes: receivedBytes,
+          ),
+          StackTrace.current,
+        );
+        return;
+      }
+      bytes.add(chunk);
+    },
+    onError: (Object error, StackTrace stack) => fail(error, stack),
+    onDone: () {
+      if (settled) return;
+      settled = true;
+      cancelTimers();
+      try {
+        completer.complete(utf8.decode(bytes.takeBytes()));
+      } catch (error, stack) {
+        completer.completeError(error, stack);
+      }
+    },
+    cancelOnError: true,
+  );
+  if (!settled) {
+    resetIdleTimer();
+  }
+  return completer.future;
+}
 
 class McpOpsConnectivityResult {
   const McpOpsConnectivityResult({
@@ -45,11 +184,39 @@ class McpServerOpsRuntime {
     required McpOpsApprovalGate approvalGate,
     required McpOpsAuditSink auditSink,
     required McpOpsSnapshotSink snapshotSink,
+    int maxRequestBodyBytes = _mcpOpsRequestBodyMaxBytes,
+    Duration requestBodyIdleTimeout = _mcpOpsRequestBodyIdleTimeout,
+    Duration requestBodyTotalTimeout = _mcpOpsRequestBodyTotalTimeout,
   }) : _toolListProvider = toolListProvider,
        _toolInvoker = toolInvoker,
        _approvalGate = approvalGate,
        _auditSink = auditSink,
-       _snapshotSink = snapshotSink;
+       _snapshotSink = snapshotSink,
+       _maxRequestBodyBytes = maxRequestBodyBytes,
+       _requestBodyIdleTimeout = requestBodyIdleTimeout,
+       _requestBodyTotalTimeout = requestBodyTotalTimeout {
+    if (maxRequestBodyBytes < 1) {
+      throw ArgumentError.value(
+        maxRequestBodyBytes,
+        'maxRequestBodyBytes',
+        'Must be positive.',
+      );
+    }
+    if (requestBodyIdleTimeout <= Duration.zero) {
+      throw ArgumentError.value(
+        requestBodyIdleTimeout,
+        'requestBodyIdleTimeout',
+        'Must be positive.',
+      );
+    }
+    if (requestBodyTotalTimeout <= Duration.zero) {
+      throw ArgumentError.value(
+        requestBodyTotalTimeout,
+        'requestBodyTotalTimeout',
+        'Must be positive.',
+      );
+    }
+  }
 
   static const String _protocolVersion = '2025-11-25';
   static const String _serverName = 'OpenHand MCP Server';
@@ -82,6 +249,9 @@ class McpServerOpsRuntime {
   final McpOpsApprovalGate _approvalGate;
   final McpOpsAuditSink _auditSink;
   final McpOpsSnapshotSink _snapshotSink;
+  final int _maxRequestBodyBytes;
+  final Duration _requestBodyIdleTimeout;
+  final Duration _requestBodyTotalTimeout;
 
   HttpServer? _server;
   McpOpsConfig _config = const McpOpsConfig();
@@ -594,7 +764,35 @@ class McpServerOpsRuntime {
   }
 
   Future<shelf.Response> _jsonRpc(shelf.Request request) async {
-    final body = await request.readAsString();
+    final declaredLength = int.tryParse(
+      request.headers[HttpHeaders.contentLengthHeader] ?? '',
+    );
+    if (declaredLength != null && declaredLength > _maxRequestBodyBytes) {
+      return _requestBodyFailureResponse(
+        HttpStatus.requestEntityTooLarge,
+        'MCP request body is too large.',
+      );
+    }
+
+    late final String body;
+    try {
+      body = await readBoundedMcpOpsRequestBody(
+        request.read(),
+        maxBytes: _maxRequestBodyBytes,
+        idleTimeout: _requestBodyIdleTimeout,
+        totalTimeout: _requestBodyTotalTimeout,
+      );
+    } on McpOpsRequestBodyTooLargeException {
+      return _requestBodyFailureResponse(
+        HttpStatus.requestEntityTooLarge,
+        'MCP request body is too large.',
+      );
+    } on TimeoutException {
+      return _requestBodyFailureResponse(
+        HttpStatus.requestTimeout,
+        'MCP request body timed out.',
+      );
+    }
     final inboundBytes = utf8.encode(body).length;
     _inboundBytes += inboundBytes;
     Object? decoded;
@@ -648,6 +846,18 @@ class McpServerOpsRuntime {
       );
     }
     return _jsonResponse(response, headers: _sessionHeaders(request));
+  }
+
+  shelf.Response _requestBodyFailureResponse(int statusCode, String message) {
+    return shelf.Response(
+      statusCode,
+      body: message,
+      headers: const <String, String>{
+        ..._corsHeaders,
+        'content-type': 'text/plain; charset=utf-8',
+        'connection': 'close',
+      },
+    );
   }
 
   Future<Map<String, Object?>?> _handleJsonRpcMessage(
@@ -854,14 +1064,24 @@ class McpServerOpsRuntime {
     }
 
     _markRequest(request, 'tools/call', toolName: name);
+    final invocationCancel = Completer<void>();
+    final invocationContext = McpOpsToolInvocationContext(
+      invocationId: 'mcp-ops-${_auditId(started)}',
+      cancelSignal: invocationCancel.future,
+      deadline: DateTime.now().toUtc().add(_config.timeout),
+    );
     try {
-      final result = await _toolInvoker(tool, arguments).timeout(
-        _config.timeout,
-        onTimeout: () => const McpOpsToolInvocationResult(
-          text: 'MCP tool call timed out.',
-          isError: true,
-        ),
-      );
+      final result = await _toolInvoker(tool, arguments, invocationContext)
+          .timeout(
+            _config.timeout,
+            onTimeout: () {
+              if (!invocationCancel.isCompleted) invocationCancel.complete();
+              return const McpOpsToolInvocationResult(
+                text: 'MCP tool call timed out.',
+                isError: true,
+              );
+            },
+          );
       final durationMs = DateTime.now()
           .toUtc()
           .difference(started)

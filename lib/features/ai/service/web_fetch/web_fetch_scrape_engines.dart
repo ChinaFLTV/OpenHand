@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../model/ai_web_fetch_settings.dart';
 import 'web_fetch_engine.dart';
+import 'web_fetch_http_utils.dart';
 import 'web_fetch_scrapling_bridge.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -28,22 +29,26 @@ class WebFetchFirecrawlEngine extends WebFetchEngine {
         ? 'https://api.firecrawl.dev/v1/scrape'
         : '${base.endsWith('/') ? base.substring(0, base.length - 1) : base}'
               '/v1/scrape';
-    final response = await httpClient.post(
-      Uri.parse(endpoint),
-      headers: {
+    final request = http.Request('POST', Uri.parse(endpoint))
+      ..headers.addAll({
         'authorization': 'Bearer ${config.apiKey}',
         'content-type': 'application/json',
-      },
-      body: jsonEncode({
+      })
+      ..body = jsonEncode({
         'url': req.url,
         'formats': ['markdown'],
         'onlyMainContent': true,
         'timeout': 25000,
-      }),
+      });
+    final response = await sendBoundedWebFetchRequest(
+      client: httpClient,
+      request: request,
+      connectionTimeout: Duration(seconds: config.connectionTimeoutSeconds),
+      responseTimeout: Duration(seconds: config.responseTimeoutSeconds),
     );
     if (response.statusCode != 200) {
       throw WebEngineHttpException(
-        'Firecrawl ${response.statusCode}: ${response.body}',
+        'Firecrawl ${response.statusCode}: ${response.errorPreview()}',
       );
     }
     final body = decodeJsonObjectBytes(
@@ -142,33 +147,17 @@ class WebFetchJinaReaderEngine extends WebFetchEngine {
         'accept': 'text/markdown,text/plain,*/*;q=0.8',
         'user-agent': 'OpenHand-WebFetch/1.0',
       });
-    final stream = await httpClient
-        .send(request)
-        .timeout(
-          Duration(seconds: config.connectionTimeoutSeconds),
-          onTimeout: () {
-            throw TimeoutException(
-              'Jina Reader connection timed out after '
-              '${config.connectionTimeoutSeconds}s.',
-            );
-          },
-        );
-    final response = await http.Response.fromStream(stream).timeout(
-      Duration(seconds: config.responseTimeoutSeconds),
-      onTimeout: () {
-        throw TimeoutException(
-          'Jina Reader response timed out after '
-          '${config.responseTimeoutSeconds}s.',
-        );
-      },
+    final response = await sendBoundedWebFetchRequest(
+      client: httpClient,
+      request: request,
+      connectionTimeout: Duration(seconds: config.connectionTimeoutSeconds),
+      responseTimeout: Duration(seconds: config.responseTimeoutSeconds),
     );
     final status = response.statusCode;
     if (status < 200 || status >= 400) {
       throw WebEngineHttpException('Jina Reader HTTP $status');
     }
-    final content = utf8
-        .decode(response.bodyBytes, allowMalformed: true)
-        .trim();
+    final content = response.text().trim();
     if (nullIfBlank(content) == null) {
       return const <WebFetchEngineContent>[];
     }
@@ -228,18 +217,23 @@ class WebFetchTavilyEngine extends WebFetchEngine {
 
   @override
   Future<List<WebFetchEngineContent>> fetch(WebFetchEngineRequest req) async {
-    final response = await httpClient.post(
-      Uri.parse('https://api.tavily.com/extract'),
-      headers: const {'content-type': 'application/json'},
-      body: jsonEncode({
-        'api_key': config.apiKey,
-        'urls': [req.url],
-        'extract_depth': 'advanced',
-      }),
+    final request =
+        http.Request('POST', Uri.parse('https://api.tavily.com/extract'))
+          ..headers['content-type'] = 'application/json'
+          ..body = jsonEncode({
+            'api_key': config.apiKey,
+            'urls': [req.url],
+            'extract_depth': 'advanced',
+          });
+    final response = await sendBoundedWebFetchRequest(
+      client: httpClient,
+      request: request,
+      connectionTimeout: Duration(seconds: config.connectionTimeoutSeconds),
+      responseTimeout: Duration(seconds: config.responseTimeoutSeconds),
     );
     if (response.statusCode != 200) {
       throw WebEngineHttpException(
-        'Tavily-extract ${response.statusCode}: ${response.body}',
+        'Tavily-extract ${response.statusCode}: ${response.errorPreview()}',
       );
     }
     final body = decodeJsonObjectBytes(
@@ -271,21 +265,26 @@ class WebFetchExaEngine extends WebFetchEngine {
 
   @override
   Future<List<WebFetchEngineContent>> fetch(WebFetchEngineRequest req) async {
-    final response = await httpClient.post(
-      Uri.parse('https://api.exa.ai/contents'),
-      headers: {
-        'content-type': 'application/json',
-        'x-api-key': config.apiKey ?? '',
-      },
-      body: jsonEncode({
-        'urls': [req.url],
-        'text': {'maxCharacters': req.maxChars, 'includeHtmlTags': false},
-        'livecrawl': 'always',
-      }),
+    final request =
+        http.Request('POST', Uri.parse('https://api.exa.ai/contents'))
+          ..headers.addAll({
+            'content-type': 'application/json',
+            'x-api-key': config.apiKey ?? '',
+          })
+          ..body = jsonEncode({
+            'urls': [req.url],
+            'text': {'maxCharacters': req.maxChars, 'includeHtmlTags': false},
+            'livecrawl': 'always',
+          });
+    final response = await sendBoundedWebFetchRequest(
+      client: httpClient,
+      request: request,
+      connectionTimeout: Duration(seconds: config.connectionTimeoutSeconds),
+      responseTimeout: Duration(seconds: config.responseTimeoutSeconds),
     );
     if (response.statusCode != 200) {
       throw WebEngineHttpException(
-        'Exa-contents ${response.statusCode}: ${response.body}',
+        'Exa-contents ${response.statusCode}: ${response.errorPreview()}',
       );
     }
     final body = decodeJsonObjectBytes(

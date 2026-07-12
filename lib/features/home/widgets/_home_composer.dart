@@ -3468,59 +3468,12 @@ class _AtMentionOverlayPanel extends StatefulWidget {
   State<_AtMentionOverlayPanel> createState() => _AtMentionOverlayPanelState();
 }
 
-class _AtMentionOverlayPanelState extends State<_AtMentionOverlayPanel>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-  late Animation<double> _animation;
+class _AtMentionOverlayPanelState extends State<_AtMentionOverlayPanel> {
   final ScrollController _listController = ScrollController();
   static const double _estimatedItemExtent = 50.0;
 
   @override
-  void initState() {
-    super.initState();
-    final settings = widget.animationSettings;
-    final baseMs = settings.duration.inMilliseconds;
-    final durationMs = baseMs == 0 ? 0 : baseMs.clamp(120, 420).toInt();
-    _controller = AnimationController(
-      vsync: this,
-      duration: Duration(milliseconds: durationMs),
-    );
-    _animation = CurvedAnimation(
-      parent: _controller,
-      curve: settings.curve.curve,
-      reverseCurve: settings.curve.reverseCurve,
-    );
-    widget.visible.addListener(_handleVisibilityChanged);
-    if (widget.visible.value) {
-      _controller.forward();
-    } else {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        widget.onExitComplete();
-      });
-    }
-    _controller.addStatusListener(_handleAnimationStatus);
-  }
-
-  void _handleVisibilityChanged() {
-    if (!mounted) return;
-    if (widget.visible.value) {
-      _controller.forward();
-    } else {
-      _controller.reverse();
-    }
-  }
-
-  void _handleAnimationStatus(AnimationStatus status) {
-    if (status == AnimationStatus.dismissed && !widget.visible.value) {
-      widget.onExitComplete();
-    }
-  }
-
-  @override
   void dispose() {
-    widget.visible.removeListener(_handleVisibilityChanged);
-    _controller.removeStatusListener(_handleAnimationStatus);
-    _controller.dispose();
     _listController.dispose();
     super.dispose();
   }
@@ -3563,7 +3516,6 @@ class _AtMentionOverlayPanelState extends State<_AtMentionOverlayPanel>
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
-    final motionEnabled = openHandTickerMotionEnabled(context);
     final isLocalFileMode = widget.mode == _AtMentionOverlayMode.localFiles;
     final titleLabel = isLocalFileMode
         ? openHandLocalizedText(
@@ -3862,12 +3814,10 @@ class _AtMentionOverlayPanelState extends State<_AtMentionOverlayPanel>
       ],
     );
 
-    if (!motionEnabled) {
-      return content;
-    }
-    return buildAnimationStyleTransition(
-      animation: _animation,
-      settings: widget.animationSettings,
+    return AnimatedOverlayContent(
+      customSettings: widget.animationSettings,
+      visibility: widget.visible,
+      onExitCompleted: widget.onExitComplete,
       child: content,
     );
   }
@@ -3986,10 +3936,7 @@ class _SkillPickerOverlayPanel extends StatefulWidget {
       _SkillPickerOverlayPanelState();
 }
 
-class _SkillPickerOverlayPanelState extends State<_SkillPickerOverlayPanel>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-  late Animation<double> _animation;
+class _SkillPickerOverlayPanelState extends State<_SkillPickerOverlayPanel> {
   final ScrollController _listController = ScrollController();
   // Approximate pixel height of a single item in the list so keyboard
   // navigation can scroll the highlighted entry into view.  Kept in sync
@@ -3997,60 +3944,7 @@ class _SkillPickerOverlayPanelState extends State<_SkillPickerOverlayPanel>
   static const double _estimatedItemExtent = 54.0;
 
   @override
-  void initState() {
-    super.initState();
-    final settings = widget.animationSettings;
-    // Honour the user-configured duration, but clamp to a snappy range so an
-    // inline picker never feels laggy (>420ms) nor flashes without affordance
-    // (<120ms) for non-zero settings.  Zero preserves instant-show semantics.
-    final baseMs = settings.duration.inMilliseconds;
-    final durationMs = baseMs == 0 ? 0 : baseMs.clamp(120, 420).toInt();
-    _controller = AnimationController(
-      vsync: this,
-      duration: Duration(milliseconds: durationMs),
-    );
-    _animation = _buildAnimation();
-    widget.visible.addListener(_handleVisibilityChanged);
-    if (widget.visible.value) {
-      _controller.forward();
-    } else {
-      // Extremely edge-case: the overlay was asked to exit before it rendered.
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        widget.onExitComplete();
-      });
-    }
-    _controller.addStatusListener(_handleAnimationStatus);
-  }
-
-  CurvedAnimation _buildAnimation() {
-    final curveData = widget.animationSettings.curve;
-    return CurvedAnimation(
-      parent: _controller,
-      curve: curveData.curve,
-      reverseCurve: curveData.reverseCurve,
-    );
-  }
-
-  void _handleVisibilityChanged() {
-    if (!mounted) return;
-    if (widget.visible.value) {
-      _controller.forward();
-    } else {
-      _controller.reverse();
-    }
-  }
-
-  void _handleAnimationStatus(AnimationStatus status) {
-    if (status == AnimationStatus.dismissed && !widget.visible.value) {
-      widget.onExitComplete();
-    }
-  }
-
-  @override
   void dispose() {
-    widget.visible.removeListener(_handleVisibilityChanged);
-    _controller.removeStatusListener(_handleAnimationStatus);
-    _controller.dispose();
     _listController.dispose();
     super.dispose();
   }
@@ -4244,44 +4138,16 @@ class _SkillPickerOverlayPanelState extends State<_SkillPickerOverlayPanel>
           child: TextFieldTapRegion(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 480, maxHeight: 360),
-              child: _SkillPickerTransition(
-                animation: _animation,
-                settings: widget.animationSettings,
+              child: AnimatedOverlayContent(
+                customSettings: widget.animationSettings,
+                visibility: widget.visible,
+                onExitCompleted: widget.onExitComplete,
                 child: panel,
               ),
             ),
           ),
         ),
       ],
-    );
-  }
-}
-
-/// Applies the user-configured dialog entrance/exit transition to the skill
-/// picker overlay so its motion feels cohesive with the rest of the app's
-/// animated surfaces.  The picker is anchored to the bottom-left of the
-/// composer, so directional transitions use a downward origin offset to
-/// suggest the panel is emerging from the `/` caret.
-class _SkillPickerTransition extends StatelessWidget {
-  const _SkillPickerTransition({
-    required this.animation,
-    required this.settings,
-    required this.child,
-  });
-
-  final Animation<double> animation;
-  final DialogAnimationSettings settings;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    if (!openHandTickerMotionEnabled(context)) {
-      return child;
-    }
-    return buildAnimationStyleTransition(
-      animation: animation,
-      settings: settings,
-      child: child,
     );
   }
 }

@@ -14120,6 +14120,7 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
   bool _darkSurface = false;
   int? _hoveredGutterLine;
   OverlayEntry? _diagnosticTooltipEntry;
+  ValueNotifier<bool>? _diagnosticTooltipVisible;
   bool _diagnosticTooltipUpdateQueued = false;
   Timer? _diagnosticTooltipHideTimer;
   bool _hoveringDiagnosticTooltip = false;
@@ -14254,7 +14255,7 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
   @override
   void dispose() {
     _diagnosticTooltipHideTimer?.cancel();
-    _removeDiagnosticTooltip();
+    _removeDiagnosticTooltip(immediately: true);
     widget.scrollController.removeListener(_syncLineNumbers);
     widget.controller.removeListener(_handleSelectionChange);
     _lineNumberScrollController.dispose();
@@ -14683,15 +14684,41 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
     _scheduleDiagnosticTooltipUpdate();
   }
 
-  void _removeDiagnosticTooltip() {
+  void _removeDiagnosticTooltip({bool immediately = false}) {
     _diagnosticTooltipHideTimer?.cancel();
     _diagnosticTooltipHideTimer = null;
     _hoveringDiagnosticTooltip = false;
     _hoveredTextDiagnosticOffset = null;
+    final entry = _diagnosticTooltipEntry;
+    final visible = _diagnosticTooltipVisible;
+    if (entry == null || visible == null) {
+      _hoveredTextDiagnostics = const <_EditorDiagnostic>[];
+      _hoveredTextDiagnosticAnchorRect = null;
+      return;
+    }
+    if (immediately || !mounted) {
+      _finalizeDiagnosticTooltipRemoval(entry, visible, force: true);
+      return;
+    }
+    visible.value = false;
+  }
+
+  void _finalizeDiagnosticTooltipRemoval(
+    OverlayEntry entry,
+    ValueNotifier<bool> visible, {
+    bool force = false,
+  }) {
+    if (!identical(_diagnosticTooltipEntry, entry) ||
+        !identical(_diagnosticTooltipVisible, visible) ||
+        (!force && visible.value)) {
+      return;
+    }
+    _diagnosticTooltipEntry = null;
+    _diagnosticTooltipVisible = null;
     _hoveredTextDiagnostics = const <_EditorDiagnostic>[];
     _hoveredTextDiagnosticAnchorRect = null;
-    _diagnosticTooltipEntry?.remove();
-    _diagnosticTooltipEntry = null;
+    entry.remove();
+    visible.dispose();
   }
 
   void _scheduleDiagnosticTooltipHide() {
@@ -14737,15 +14764,23 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
       _hoveredTextDiagnosticAnchorRect = tooltipState.anchorRect;
       final overlay = Overlay.of(context, rootOverlay: true);
       if (_diagnosticTooltipEntry == null) {
-        _diagnosticTooltipEntry = OverlayEntry(
+        final visible = ValueNotifier<bool>(true);
+        _diagnosticTooltipVisible = visible;
+        late final OverlayEntry entry;
+        entry = OverlayEntry(
           builder: (overlayContext) => AnimatedOverlayContent(
             useMenuSettings: true,
+            visibility: visible,
+            onExitCompleted: () =>
+                _finalizeDiagnosticTooltipRemoval(entry, visible),
             child: _buildDiagnosticTooltipOverlay(overlayContext),
           ),
         );
-        overlay.insert(_diagnosticTooltipEntry!);
+        _diagnosticTooltipEntry = entry;
+        overlay.insert(entry);
         return;
       }
+      _diagnosticTooltipVisible?.value = true;
       if (diagnosticsUnchanged && anchorUnchanged) {
         return;
       }

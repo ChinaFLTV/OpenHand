@@ -3925,6 +3925,7 @@ class _FileHoverPopup extends StatefulWidget {
 
 class _FileHoverPopupState extends State<_FileHoverPopup> {
   OverlayEntry? _overlayEntry;
+  ValueNotifier<bool>? _overlayVisible;
   bool _isHovered = false;
   bool _showScheduled = false;
   bool _hideScheduled = false;
@@ -3941,7 +3942,12 @@ class _FileHoverPopupState extends State<_FileHoverPopup> {
   }
 
   void _showOverlay() {
-    if (widget.isUnresolved || _overlayEntry != null || _showScheduled) return;
+    if (widget.isUnresolved || _showScheduled) return;
+    if (_overlayEntry != null) {
+      _hideScheduled = false;
+      _overlayVisible?.value = true;
+      return;
+    }
     // Defer overlay insertion to avoid mutating the widget tree during
     // MouseTracker._deviceUpdatePhase, which triggers the
     // !_debugDuringDeviceUpdate re-entrancy assertion.
@@ -3976,7 +3982,10 @@ class _FileHoverPopupState extends State<_FileHoverPopup> {
     // Capture the path at the time of showing to avoid stale closure issues.
     final resolvedPath = widget.resolvedPath;
 
-    _overlayEntry = OverlayEntry(
+    final visible = ValueNotifier<bool>(true);
+    _overlayVisible = visible;
+    late final OverlayEntry entry;
+    entry = OverlayEntry(
       builder: (overlayContext) => Positioned(
         left: targetLeft,
         top: targetTop,
@@ -3986,6 +3995,8 @@ class _FileHoverPopupState extends State<_FileHoverPopup> {
         child: IgnorePointer(
           child: AnimatedOverlayContent(
             useMenuSettings: true,
+            visibility: visible,
+            onExitCompleted: () => _finalizeOverlayRemoval(entry, visible),
             child: Material(
               elevation: 4,
               borderRadius: BorderRadius.circular(8),
@@ -4070,10 +4081,13 @@ class _FileHoverPopupState extends State<_FileHoverPopup> {
         ),
       ),
     );
+    _overlayEntry = entry;
     try {
-      Overlay.of(context).insert(_overlayEntry!);
+      Overlay.of(context).insert(entry);
     } catch (_) {
       _overlayEntry = null;
+      _overlayVisible = null;
+      visible.dispose();
     }
   }
 
@@ -4081,16 +4095,52 @@ class _FileHoverPopupState extends State<_FileHoverPopup> {
     if (_overlayEntry == null && !_showScheduled) return;
     _showScheduled = false;
     final entry = _overlayEntry;
-    _overlayEntry = null;
-    if (entry == null) return;
-    // Defer overlay removal to avoid mutating the widget tree during
-    // MouseTracker._deviceUpdatePhase.
+    final visible = _overlayVisible;
+    if (entry == null || visible == null) return;
+    // Defer the visibility mutation to avoid rebuilding the overlay during
+    // MouseTracker._deviceUpdatePhase. AnimatedOverlayContent removes it only
+    // after the globally configured reverse transition completes.
     if (_hideScheduled) return;
     _hideScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_hideScheduled) return;
       _hideScheduled = false;
-      entry.remove();
+      if (!identical(_overlayEntry, entry) ||
+          !identical(_overlayVisible, visible)) {
+        return;
+      }
+      if (!mounted) {
+        _removeOverlayImmediately();
+        return;
+      }
+      visible.value = false;
     });
+  }
+
+  void _finalizeOverlayRemoval(
+    OverlayEntry entry,
+    ValueNotifier<bool> visible,
+  ) {
+    if (!identical(_overlayEntry, entry) ||
+        !identical(_overlayVisible, visible) ||
+        visible.value) {
+      return;
+    }
+    _overlayEntry = null;
+    _overlayVisible = null;
+    entry.remove();
+    visible.dispose();
+  }
+
+  void _removeOverlayImmediately() {
+    _showScheduled = false;
+    _hideScheduled = false;
+    final entry = _overlayEntry;
+    final visible = _overlayVisible;
+    _overlayEntry = null;
+    _overlayVisible = null;
+    entry?.remove();
+    visible?.dispose();
   }
 
   @override
@@ -4107,10 +4157,7 @@ class _FileHoverPopupState extends State<_FileHoverPopup> {
   @override
   void deactivate() {
     // Synchronous removal is safe when the widget is leaving the tree.
-    _showScheduled = false;
-    _hideScheduled = false;
-    _overlayEntry?.remove();
-    _overlayEntry = null;
+    _removeOverlayImmediately();
     _isHovered = false;
     super.deactivate();
   }
@@ -4136,10 +4183,7 @@ class _FileHoverPopupState extends State<_FileHoverPopup> {
   @override
   void dispose() {
     // Synchronous cleanup—widget is being permanently destroyed.
-    _showScheduled = false;
-    _hideScheduled = false;
-    _overlayEntry?.remove();
-    _overlayEntry = null;
+    _removeOverlayImmediately();
     HardwareKeyboard.instance.removeHandler(_handleKey);
     super.dispose();
   }

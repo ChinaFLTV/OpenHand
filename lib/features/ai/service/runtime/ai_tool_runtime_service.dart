@@ -969,7 +969,9 @@ class AiToolRuntimeService {
       defaultMcpTimeout: defaultMcpTimeout,
     );
     final maxRetries = builtinCfg?.effectiveMaxRetries ?? 0;
-    Future<AiToolExecutionResult> dispatchOnce() async {
+    Future<AiToolExecutionResult> dispatchOnce(
+      Future<void>? effectiveCancelSignal,
+    ) async {
       return switch (resolvedTool.source) {
         AiRuntimeToolSource.builtin => _executeBuiltinTool(
           sessionId: sessionId,
@@ -982,7 +984,7 @@ class AiToolRuntimeService {
           denyCommandRules: denyCommandRules,
           requireWriteCommandConfirmation: requireWriteCommandConfirmation,
           confirmWriteCommand: confirmWriteCommand,
-          cancelSignal: cancelSignal,
+          cancelSignal: effectiveCancelSignal,
           onBashUpdate: onBashUpdate,
           metadata: metadata,
         ),
@@ -990,6 +992,7 @@ class AiToolRuntimeService {
           tool: resolvedTool,
           toolCall: toolCall,
           decodedArguments: decodedArguments,
+          cancelSignal: effectiveCancelSignal,
           metadata: metadata,
         ),
         AiRuntimeToolSource.skill => _executeSkillTool(
@@ -1025,38 +1028,59 @@ class AiToolRuntimeService {
     }
 
     Future<AiToolExecutionResult> dispatchWithTimeout() async {
-      final f = dispatchOnce();
       final localTimeout = timeoutDuration;
-      if (localTimeout == null) return f;
+      if (localTimeout == null) return dispatchOnce(cancelSignal);
+      final timeoutCancellation = Completer<void>();
+      final effectiveCancelSignal = cancelSignal == null
+          ? timeoutCancellation.future
+          : Future.any<void>(<Future<void>>[
+              cancelSignal,
+              timeoutCancellation.future,
+            ]);
+      final f = dispatchOnce(effectiveCancelSignal);
+
+      AiToolExecutionResult timedOutResult() => AiToolExecutionResult(
+        status: BashToolExecutionStatus.timedOut,
+        command: resolvedTool.name,
+        workingDirectory: hookWorkingDirectory,
+        stdout: '',
+        stderr:
+            'Tool "${resolvedTool.name}" exceeded the configured '
+            '${localTimeout.inSeconds}s timeout.',
+        durationMs: rawExecutionStartedAt.elapsedMilliseconds,
+        resultText:
+            'status: timed_out\nerror: tool exceeded ${localTimeout.inSeconds}s timeout',
+      );
+
+      Future<void> cancelTimedOutExecution() async {
+        if (!timeoutCancellation.isCompleted) {
+          timeoutCancellation.complete();
+        }
+        if (!shouldRegister) return;
+        try {
+          await AiToolExecutionRegistry.instance
+              .cancelToolCall(toolCall.id)
+              .timeout(const Duration(seconds: 2));
+        } on TimeoutException {
+          silentLog(
+            'ai_tool_runtime_service',
+            'cancel timed-out tool ${toolCall.id}',
+            'Cancellation exceeded 2 seconds.',
+          );
+        }
+      }
+
       try {
         return await f.timeout(
           localTimeout,
-          onTimeout: () => AiToolExecutionResult(
-            status: BashToolExecutionStatus.timedOut,
-            command: resolvedTool.name,
-            workingDirectory: hookWorkingDirectory,
-            stdout: '',
-            stderr:
-                'Tool "${resolvedTool.name}" exceeded the configured '
-                '${localTimeout.inSeconds}s timeout.',
-            durationMs: rawExecutionStartedAt.elapsedMilliseconds,
-            resultText:
-                'status: timed_out\nerror: tool exceeded ${localTimeout.inSeconds}s timeout',
-          ),
+          onTimeout: () async {
+            await cancelTimedOutExecution();
+            return timedOutResult();
+          },
         );
       } on TimeoutException {
-        return AiToolExecutionResult(
-          status: BashToolExecutionStatus.timedOut,
-          command: resolvedTool.name,
-          workingDirectory: hookWorkingDirectory,
-          stdout: '',
-          stderr:
-              'Tool "${resolvedTool.name}" exceeded the configured '
-              '${localTimeout.inSeconds}s timeout.',
-          durationMs: rawExecutionStartedAt.elapsedMilliseconds,
-          resultText:
-              'status: timed_out\nerror: tool exceeded ${localTimeout.inSeconds}s timeout',
-        );
+        await cancelTimedOutExecution();
+        return timedOutResult();
       }
     }
 
@@ -1674,6 +1698,7 @@ class AiToolRuntimeService {
     required AiResolvedTool tool,
     required AiToolCall toolCall,
     required Map<String, Object?> decodedArguments,
+    Future<void>? cancelSignal,
     required Map<String, Object?> metadata,
   }) async {
     final server = tool.mcpServer;
@@ -1695,6 +1720,7 @@ class AiToolRuntimeService {
       toolName: mcpTool.id,
       arguments: decodedArguments,
       toolCallId: toolCall.id,
+      cancelSignal: cancelSignal,
     );
     final outputText =
         nullIfBlank(result.outputText) ?? 'The MCP tool returned no output.';

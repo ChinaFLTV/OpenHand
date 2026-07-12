@@ -8,6 +8,7 @@ import 'package:path/path.dart' as p;
 import '../../../../app/support/silent_log.dart';
 import '../../../../app/support/system_proxy.dart';
 import '../../../../shared/net/http_redirect_utils.dart';
+import '../../../../shared/net/http_response_utils.dart';
 import '../../../../shared/net/http_status_utils.dart';
 import '../../../../shared/ui/structured_error_text.dart';
 import '../../../../shared/util/byte_size_format.dart';
@@ -763,6 +764,9 @@ class AiChatService implements AiChatClient {
     AiInputCacheRuntimeConfig? inputCacheConfig,
     void Function(AiChatRequestTelemetry telemetry)? onRequestStarted,
   }) async {
+    final streamCancellationTimeout = _boundedStreamCancellationTimeout(
+      streamIdleTimeout,
+    );
     _assertCreationModeIsRoutable(model, creationRequest);
     final canUseResponses = _canUseResponsesFamily(
       model: model,
@@ -901,7 +905,12 @@ class AiChatService implements AiChatClient {
         }
         unawaited(
           streamedResponseFuture
-              .then((response) => response.stream.drain<void>())
+              .then(
+                (response) => _cancelLateStreamedResponse(
+                  response,
+                  timeout: streamCancellationTimeout,
+                ),
+              )
               .catchError((Object _, StackTrace stackTrace) {}),
         );
         return null;
@@ -953,7 +962,10 @@ class AiChatService implements AiChatClient {
       );
     }
     if (isHttpFailureStatus(streamedResponse.statusCode)) {
-      final initialErrorBody = await streamedResponse.stream.bytesToString();
+      final initialErrorBody = await _readChatHttpErrorBody(
+        streamedResponse,
+        timeout: streamIdleTimeout,
+      );
       var finalErrorBody = initialErrorBody;
       if (AiPromptCacheAffinity.shouldRetryWithoutMarkers(
         statusCode: streamedResponse.statusCode,
@@ -982,7 +994,10 @@ class AiChatService implements AiChatClient {
           );
         }
         if (isHttpFailureStatus(streamedResponse.statusCode)) {
-          finalErrorBody = await streamedResponse.stream.bytesToString();
+          finalErrorBody = await _readChatHttpErrorBody(
+            streamedResponse,
+            timeout: streamIdleTimeout,
+          );
         }
       }
       if (isHttpFailureStatus(streamedResponse.statusCode) &&
@@ -1010,7 +1025,10 @@ class AiChatService implements AiChatClient {
           );
         }
         if (isHttpFailureStatus(streamedResponse.statusCode)) {
-          finalErrorBody = await streamedResponse.stream.bytesToString();
+          finalErrorBody = await _readChatHttpErrorBody(
+            streamedResponse,
+            timeout: streamIdleTimeout,
+          );
         }
       }
       if (isHttpSuccessStatus(streamedResponse.statusCode)) {
@@ -1041,6 +1059,18 @@ class AiChatService implements AiChatClient {
     String? finishReason;
     final lineBuffer = StringBuffer();
     StreamSubscription<String>? responseSubscription;
+    Future<void>? responseSubscriptionCancelFuture;
+    var discardingOversizedEvent = false;
+
+    Future<void> cancelResponseStream() {
+      final subscription = responseSubscription;
+      if (subscription == null) return Future<void>.value();
+      return responseSubscriptionCancelFuture ??= _cancelStreamSubscription(
+        subscription,
+        timeout: streamCancellationTimeout,
+        logContext: 'cancel chat response stream',
+      );
+    }
 
     bool canEmitEvents() {
       return !resultCompleter.isCompleted && !eventController.isClosed;
@@ -1122,7 +1152,9 @@ class AiChatService implements AiChatClient {
         ),
       );
       if (!eventController.isClosed) {
-        unawaited(eventController.close());
+        if (!eventController.isClosed) {
+          unawaited(eventController.close());
+        }
       }
     }
 
@@ -1137,10 +1169,26 @@ class AiChatService implements AiChatClient {
       final data = dataLines.join('\n');
       if (data == '[DONE]') {
         completeStreamResult('done_marker');
-        unawaited(responseSubscription?.cancel());
+        unawaited(cancelResponseStream());
         return;
       }
-      rawResponseBuffer.writeln(data);
+      if (!_tryAppendRawStreamEvent(rawResponseBuffer, data)) {
+        const message = 'AI response stream exceeded the retained size limit.';
+        resultCompleter.completeError(
+          AiChatException(
+            message,
+            telemetry: telemetrySnapshot(
+              rawResponse: rawResponseBuffer.toString(),
+              finishReason: finishReason,
+              error: message,
+            ),
+          ),
+          StackTrace.current,
+        );
+        unawaited(eventController.close());
+        unawaited(cancelResponseStream());
+        return;
+      }
       late final Object? decoded;
       try {
         decoded = jsonDecode(data);
@@ -1188,7 +1236,7 @@ class AiChatService implements AiChatClient {
           if (!eventController.isClosed) {
             unawaited(eventController.close());
           }
-          unawaited(responseSubscription?.cancel());
+          unawaited(cancelResponseStream());
           return;
         }
       }
@@ -1207,7 +1255,7 @@ class AiChatService implements AiChatClient {
           emitEvent: emitEvent,
           completeStreamResult: (reason) => completeStreamResult(reason),
           cancelSubscription: () {
-            unawaited(responseSubscription?.cancel());
+            unawaited(cancelResponseStream());
           },
           setFinishReason: (value) => finishReason = value,
         );
@@ -1238,22 +1286,17 @@ class AiChatService implements AiChatClient {
 
     void processChunk(String chunk) {
       lineBuffer.write(chunk.replaceAll('\r\n', '\n').replaceAll('\r', '\n'));
-      // Defensive cap: if the buffer exceeds the threshold without a
-      // `\n\n` delimiter, the upstream is misbehaving (or sending a single
-      // event larger than any practical SSE payload). Drop the pending
-      // bytes so we don't keep growing memory while the connection idles.
-      if (lineBuffer.length > maxStreamLineBufferBytes) {
-        lineBuffer.clear();
-        return;
-      }
       while (!resultCompleter.isCompleted) {
-        // Avoid calling toString() on every iteration – check length first.
-        if (lineBuffer.length < 2) {
-          break;
-        }
+        if (lineBuffer.length < 2) break;
         final current = lineBuffer.toString();
         final separatorIndex = current.indexOf('\n\n');
-        if (separatorIndex == -1) {
+        if (separatorIndex < 0) {
+          if (lineBuffer.length > maxStreamLineBufferBytes) {
+            final preserveBoundaryPrefix = current.endsWith('\n');
+            lineBuffer.clear();
+            if (preserveBoundaryPrefix) lineBuffer.write('\n');
+            discardingOversizedEvent = true;
+          }
           break;
         }
         final block = current.substring(0, separatorIndex);
@@ -1261,6 +1304,11 @@ class AiChatService implements AiChatClient {
         lineBuffer
           ..clear()
           ..write(remaining);
+        if (discardingOversizedEvent ||
+            block.length > maxStreamLineBufferBytes) {
+          discardingOversizedEvent = false;
+          continue;
+        }
         processEventBlock(block);
       }
     }
@@ -1292,7 +1340,9 @@ class AiChatService implements AiChatClient {
             }
           },
           onDone: () {
-            if (lineBuffer.isNotEmpty) {
+            if (!discardingOversizedEvent &&
+                lineBuffer.isNotEmpty &&
+                lineBuffer.length <= maxStreamLineBufferBytes) {
               processEventBlock(lineBuffer.toString());
             }
             completeStreamResult('stream_closed');
@@ -1305,7 +1355,7 @@ class AiChatService implements AiChatClient {
       result: resultCompleter.future,
       cancel: () async {
         completeStreamResult('cancelled', wasCancelled: true);
-        await responseSubscription?.cancel();
+        await cancelResponseStream();
       },
     );
   }
@@ -1319,6 +1369,9 @@ class AiChatService implements AiChatClient {
     void Function(AiChatRequestTelemetry telemetry)? onRequestStarted,
     AiInputCacheRuntimeConfig? inputCacheConfig,
   }) async {
+    final streamCancellationTimeout = _boundedStreamCancellationTimeout(
+      streamIdleTimeout,
+    );
     _responsesService ??= AiResponsesService();
     final flattenedInput = trimmedNonEmptyStrings(
       messages.map((item) => '${item.roleName}: ${item.content}'),
@@ -1367,6 +1420,16 @@ class AiChatService implements AiChatClient {
         cancelSignal.then((_) => _cancelledStreamSentinel),
       ]);
       if (identical(firstResult, _cancelledStreamSentinel)) {
+        unawaited(
+          streamedResponseFuture
+              .then(
+                (response) => _cancelLateStreamedResponse(
+                  response,
+                  timeout: streamCancellationTimeout,
+                ),
+              )
+              .catchError((Object _, StackTrace stackTrace) {}),
+        );
         return null;
       }
       return firstResult as http.StreamedResponse;
@@ -1388,7 +1451,10 @@ class AiChatService implements AiChatClient {
     }
     String? responsesErrorBody;
     if (isHttpFailureStatus(streamedResponse.statusCode)) {
-      responsesErrorBody = await streamedResponse.stream.bytesToString();
+      responsesErrorBody = await _readChatHttpErrorBody(
+        streamedResponse,
+        timeout: streamIdleTimeout,
+      );
       if (AiPromptCacheAffinity.shouldRetryWithoutMarkers(
         statusCode: streamedResponse.statusCode,
         errorBody: responsesErrorBody,
@@ -1422,7 +1488,10 @@ class AiChatService implements AiChatClient {
         if (isHttpSuccessStatus(streamedResponse.statusCode)) {
           responsesErrorBody = null;
         } else {
-          responsesErrorBody = await streamedResponse.stream.bytesToString();
+          responsesErrorBody = await _readChatHttpErrorBody(
+            streamedResponse,
+            timeout: streamIdleTimeout,
+          );
         }
       }
     }
@@ -1459,13 +1528,20 @@ class AiChatService implements AiChatClient {
         if (isHttpSuccessStatus(streamedResponse.statusCode)) {
           // Retry succeeded; continue into the normal SSE reader below.
         } else {
-          responsesErrorBody = await streamedResponse.stream.bytesToString();
+          responsesErrorBody = await _readChatHttpErrorBody(
+            streamedResponse,
+            timeout: streamIdleTimeout,
+          );
         }
       }
     }
     if (isHttpFailureStatus(streamedResponse.statusCode)) {
       final errorBody =
-          responsesErrorBody ?? await streamedResponse.stream.bytesToString();
+          responsesErrorBody ??
+          await _readChatHttpErrorBody(
+            streamedResponse,
+            timeout: streamIdleTimeout,
+          );
       throw AiChatException(
         AiTransportDiagnosticMessages.httpStatus(
           streamedResponse.statusCode,
@@ -1498,6 +1574,48 @@ class AiChatService implements AiChatClient {
     final lineBuffer = StringBuffer();
     AiTokenUsage? usage;
     String? finishReason;
+    Future<void>? eventControllerCloseFuture;
+    var discardingOversizedEvent = false;
+
+    Future<void> closeEvents() {
+      return eventControllerCloseFuture ??= eventController.close();
+    }
+
+    late final StreamSubscription<String> responseSubscription;
+    Future<void>? responseSubscriptionCancelFuture;
+
+    Future<void> cancelResponseStream() {
+      return responseSubscriptionCancelFuture ??= _cancelStreamSubscription(
+        responseSubscription,
+        timeout: streamCancellationTimeout,
+        logContext: 'cancel Responses stream',
+      );
+    }
+
+    void completeStreamResult({bool wasCancelled = false}) {
+      if (resultCompleter.isCompleted) return;
+      final endedAt = DateTime.now().toUtc();
+      resultCompleter.complete(
+        AiChatStreamResult(
+          reply: textBuffer.toString().trim(),
+          reasoning: reasoningBuffer.toString().trim(),
+          toolCalls: const <AiToolCall>[],
+          wasCancelled: wasCancelled,
+          usage: usage,
+          rawResponse: rawResponseBuffer.toString(),
+          finishReason: finishReason,
+          requestUrl: request.url,
+          requestMethod: request.method,
+          requestHeaders: capturedHeaders,
+          requestBody: capturedBody,
+          startedAt: streamStartedAt,
+          endedAt: endedAt,
+          durationMs: endedAt.difference(streamStartedAt).inMilliseconds,
+          requestFallbacks: List<String>.unmodifiable(requestFallbacks),
+        ),
+      );
+      unawaited(closeEvents());
+    }
 
     void emitEvent(AiChatStreamEvent event) {
       if (!resultCompleter.isCompleted && !eventController.isClosed) {
@@ -1514,8 +1632,25 @@ class AiChatService implements AiChatClient {
         finishReason ??= 'stop';
         return;
       }
-      rawResponseBuffer.writeln(data);
-      final decoded = jsonDecode(data);
+      if (!_tryAppendRawStreamEvent(rawResponseBuffer, data)) {
+        if (!resultCompleter.isCompleted) {
+          resultCompleter.completeError(
+            const AiChatException(
+              'AI response stream exceeded the retained size limit.',
+            ),
+            StackTrace.current,
+          );
+        }
+        unawaited(closeEvents());
+        unawaited(cancelResponseStream());
+        return;
+      }
+      late final Object? decoded;
+      try {
+        decoded = jsonDecode(data);
+      } catch (_) {
+        return;
+      }
       if (decoded is! Map<String, Object?>) return;
       _responsesService!.parseSseEvent(
         decoded,
@@ -1534,17 +1669,29 @@ class AiChatService implements AiChatClient {
         if (lineBuffer.length < 2) break;
         final current = lineBuffer.toString();
         final separatorIndex = current.indexOf('\n\n');
-        if (separatorIndex == -1) break;
+        if (separatorIndex == -1) {
+          if (lineBuffer.length > maxStreamLineBufferBytes) {
+            final preserveBoundaryPrefix = current.endsWith('\n');
+            lineBuffer.clear();
+            if (preserveBoundaryPrefix) lineBuffer.write('\n');
+            discardingOversizedEvent = true;
+          }
+          break;
+        }
         final block = current.substring(0, separatorIndex);
         final remaining = current.substring(separatorIndex + 2);
         lineBuffer
           ..clear()
           ..write(remaining);
+        if (discardingOversizedEvent ||
+            block.length > maxStreamLineBufferBytes) {
+          discardingOversizedEvent = false;
+          continue;
+        }
         processEventBlock(block);
       }
     }
 
-    late final StreamSubscription<String> responseSubscription;
     responseSubscription = streamedResponse.stream
         .transform(const Utf8Decoder(allowMalformed: true))
         .timeout(streamIdleTimeout)
@@ -1555,39 +1702,16 @@ class AiChatService implements AiChatClient {
               resultCompleter.completeError(error, stackTrace);
             }
             if (!eventController.isClosed) {
-              unawaited(eventController.close());
+              unawaited(closeEvents());
             }
           },
           onDone: () {
-            if (lineBuffer.isNotEmpty) {
+            if (!discardingOversizedEvent &&
+                lineBuffer.isNotEmpty &&
+                lineBuffer.length <= maxStreamLineBufferBytes) {
               processEventBlock(lineBuffer.toString());
             }
-            if (!resultCompleter.isCompleted) {
-              resultCompleter.complete(
-                AiChatStreamResult(
-                  reply: textBuffer.toString().trim(),
-                  reasoning: reasoningBuffer.toString().trim(),
-                  toolCalls: const <AiToolCall>[],
-                  usage: usage,
-                  rawResponse: rawResponseBuffer.toString(),
-                  finishReason: finishReason,
-                  requestUrl: request.url,
-                  requestMethod: request.method,
-                  requestHeaders: capturedHeaders,
-                  requestBody: capturedBody,
-                  startedAt: streamStartedAt,
-                  endedAt: DateTime.now().toUtc(),
-                  durationMs: DateTime.now()
-                      .toUtc()
-                      .difference(streamStartedAt)
-                      .inMilliseconds,
-                  requestFallbacks: List<String>.unmodifiable(requestFallbacks),
-                ),
-              );
-            }
-            if (!eventController.isClosed) {
-              unawaited(eventController.close());
-            }
+            completeStreamResult();
           },
           cancelOnError: true,
         );
@@ -1596,10 +1720,12 @@ class AiChatService implements AiChatClient {
       events: eventController.stream,
       result: resultCompleter.future,
       cancel: () async {
-        await responseSubscription.cancel();
-        if (!eventController.isClosed) {
-          await eventController.close();
-        }
+        completeStreamResult(wasCancelled: true);
+        await cancelResponseStream();
+        // A single-subscription controller's close future does not complete
+        // until a listener observes done. Cancellation must not hang merely
+        // because the caller only awaits `result` and never listens to events.
+        unawaited(closeEvents());
       },
     );
   }
@@ -2350,6 +2476,104 @@ class _MutableToolCall {
 }
 
 const int _maxAiChatRedirects = 4;
+const int _maxChatHttpErrorBytes = kBytesPerMiB;
+const int _maxRetainedStreamResponseCharacters = 16 * kBytesPerMiB;
+const Duration _maxStreamCancellationWait = Duration(seconds: 1);
+const Duration _maxRedirectDrainWait = Duration(seconds: 3);
+
+bool _tryAppendRawStreamEvent(StringBuffer buffer, String data) {
+  final remaining = _maxRetainedStreamResponseCharacters - buffer.length;
+  if (remaining <= 1 || data.length > remaining - 1) return false;
+  buffer.writeln(data);
+  return true;
+}
+
+Future<String> _readChatHttpErrorBody(
+  http.StreamedResponse response, {
+  required Duration timeout,
+  int maxBytes = _maxChatHttpErrorBytes,
+}) async {
+  try {
+    return await readBoundedByteStreamText(
+      response.stream,
+      maxBytes: maxBytes,
+      idleTimeout: timeout,
+      totalTimeout: timeout,
+      allowMalformed: true,
+    );
+  } catch (error, stack) {
+    silentLog(
+      'ai_chat_service',
+      'read bounded HTTP error response',
+      error,
+      stack,
+    );
+    return '';
+  }
+}
+
+Future<void> _drainChatHttpResponse(
+  http.StreamedResponse response, {
+  required Duration timeout,
+}) async {
+  final drainTimeout = timeout < _maxRedirectDrainWait
+      ? timeout
+      : _maxRedirectDrainWait;
+  try {
+    await drainByteStreamWithTimeout(
+      response.stream,
+      idleTimeout: drainTimeout,
+      totalTimeout: drainTimeout,
+    );
+  } catch (error, stack) {
+    silentLog('ai_chat_service', 'drain redirect response', error, stack);
+  }
+}
+
+Duration _boundedStreamCancellationTimeout(Duration streamIdleTimeout) {
+  if (streamIdleTimeout > Duration.zero &&
+      streamIdleTimeout < _maxStreamCancellationWait) {
+    return streamIdleTimeout;
+  }
+  return _maxStreamCancellationWait;
+}
+
+Future<void> _cancelStreamSubscription(
+  StreamSubscription<dynamic> subscription, {
+  required Duration timeout,
+  required String logContext,
+}) async {
+  try {
+    await subscription.cancel().timeout(timeout);
+  } catch (error, stackTrace) {
+    silentLog('ai_chat_service', logContext, error, stackTrace);
+  }
+}
+
+Future<void> _cancelLateStreamedResponse(
+  http.StreamedResponse response, {
+  required Duration timeout,
+}) async {
+  try {
+    final subscription = response.stream.listen(
+      (_) {},
+      onError: (Object _, StackTrace stackTrace) {},
+      cancelOnError: true,
+    );
+    await _cancelStreamSubscription(
+      subscription,
+      timeout: timeout,
+      logContext: 'cancel late streamed response',
+    );
+  } catch (error, stackTrace) {
+    silentLog(
+      'ai_chat_service',
+      'cancel late streamed response',
+      error,
+      stackTrace,
+    );
+  }
+}
 
 Future<http.StreamedResponse> _sendHttpRequestWithRedirects({
   required http.Client client,
@@ -2382,14 +2606,18 @@ Future<http.StreamedResponse> _sendHttpRequestWithRedirects({
       return response;
     }
     if (redirectCount >= _maxAiChatRedirects) {
-      final responseBody = await response.stream.bytesToString();
+      final responseBody = await _readChatHttpErrorBody(
+        response,
+        timeout: timeout,
+        maxBytes: 16 * kBytesPerKiB,
+      );
       final responseText = nullIfBlank(responseBody);
       throw AiChatException(
         'Too many redirects (${_maxAiChatRedirects + 1})${responseText == null ? '' : ': $responseText'}',
       );
     }
 
-    await response.stream.drain<void>();
+    await _drainChatHttpResponse(response, timeout: timeout);
     final redirectedUri = currentUri.resolve(redirectLocation);
     if (isCrossOriginRedirect(currentUri, redirectedUri)) {
       _stripSensitiveRedirectHeaders(currentHeaders);

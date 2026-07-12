@@ -27,12 +27,16 @@ int safeSubprocessDefaultGracefulShutdownMs = 500;
 ///   1) `Process.kill(SIGKILL)` 不需要再 lookup，无 pid 复用风险；
 ///   2) `exitCode` 已被组件代码 await 时，我们也能并行听到。
 final Map<int, Process> _trackedChildren = <int, Process>{};
-final Set<int> _trackedProcessGroupLeaders = <int>{};
+final Expando<bool> _trackedProcessGroupLeaders = Expando<bool>(
+  'openhand.processGroupLeader',
+);
 Future<String?>? _processGroupLauncherProbe;
 
 const Duration _directChildEnumerationTimeout = Duration(seconds: 2);
 const Duration _directChildTerminateGrace = Duration(milliseconds: 120);
 const Duration _processTreeFinalWait = Duration(milliseconds: 250);
+const Duration _processStreamCleanupTimeout = Duration(milliseconds: 500);
+const int _maxDescendantProcesses = 256;
 
 bool _isMissingExecutableProcessException(Object error) {
   if (error is! ProcessException) return false;
@@ -51,12 +55,19 @@ bool _isMissingExecutableProcessException(Object error) {
 
 void _registerTrackedChild(Process process) {
   _trackedChildren[process.pid] = process;
-  // 用 block + void 返回值，避免 dart_async 备忘录里的「whenComplete 返回
-  // 同一 Future 触发 self-await 挂死」陷阱。
   unawaited(
-    process.exitCode.whenComplete(() {
-      _trackedChildren.remove(process.pid);
-    }),
+    process.exitCode.then<void>(
+      (_) => _trackedChildren.remove(process.pid),
+      onError: (Object error, StackTrace stack) {
+        _trackedChildren.remove(process.pid);
+        silentLog(
+          'safe_subprocess',
+          'observe tracked child exit',
+          error,
+          stack,
+        );
+      },
+    ),
   );
 }
 
@@ -76,11 +87,15 @@ Future<Process> startTrackedProcess(
   bool includeParentEnvironment = true,
   ProcessStartMode mode = ProcessStartMode.normal,
 }) async {
+  final argumentSnapshot = List<String>.of(arguments, growable: false);
+  final environmentSnapshot = environment == null
+      ? null
+      : Map<String, String>.of(environment);
   final process = await Process.start(
     executable,
-    arguments,
+    argumentSnapshot,
     workingDirectory: workingDirectory,
-    environment: environment,
+    environment: environmentSnapshot,
     runInShell: runInShell,
     includeParentEnvironment: includeParentEnvironment,
     mode: mode,
@@ -110,29 +125,55 @@ Future<Process> startTrackedProcessInNewGroup(
   bool includeParentEnvironment = true,
   ProcessStartMode mode = ProcessStartMode.normal,
 }) async {
+  return (await _startTrackedProcessInNewGroup(
+    executable,
+    arguments,
+    workingDirectory: workingDirectory,
+    environment: environment,
+    runInShell: runInShell,
+    includeParentEnvironment: includeParentEnvironment,
+    mode: mode,
+  )).process;
+}
+
+Future<_TrackedProcessLaunch> _startTrackedProcessInNewGroup(
+  String executable,
+  List<String> arguments, {
+  String? workingDirectory,
+  Map<String, String>? environment,
+  bool runInShell = false,
+  bool includeParentEnvironment = true,
+  ProcessStartMode mode = ProcessStartMode.normal,
+}) async {
   if (Platform.isWindows ||
       runInShell ||
       (mode != ProcessStartMode.normal &&
           mode != ProcessStartMode.inheritStdio)) {
-    return startTrackedProcess(
-      executable,
-      arguments,
-      workingDirectory: workingDirectory,
-      environment: environment,
-      runInShell: runInShell,
-      includeParentEnvironment: includeParentEnvironment,
-      mode: mode,
+    return _TrackedProcessLaunch(
+      process: await startTrackedProcess(
+        executable,
+        arguments,
+        workingDirectory: workingDirectory,
+        environment: environment,
+        runInShell: runInShell,
+        includeParentEnvironment: includeParentEnvironment,
+        mode: mode,
+      ),
+      isProcessGroupLeader: false,
     );
   }
   final launcher = await _resolveProcessGroupLauncher();
   if (launcher == null) {
-    return startTrackedProcess(
-      executable,
-      arguments,
-      workingDirectory: workingDirectory,
-      environment: environment,
-      includeParentEnvironment: includeParentEnvironment,
-      mode: mode,
+    return _TrackedProcessLaunch(
+      process: await startTrackedProcess(
+        executable,
+        arguments,
+        workingDirectory: workingDirectory,
+        environment: environment,
+        includeParentEnvironment: includeParentEnvironment,
+        mode: mode,
+      ),
+      isProcessGroupLeader: false,
     );
   }
   final process = await startTrackedProcess(
@@ -143,13 +184,21 @@ Future<Process> startTrackedProcessInNewGroup(
     includeParentEnvironment: includeParentEnvironment,
     mode: mode,
   );
-  _trackedProcessGroupLeaders.add(process.pid);
-  unawaited(
-    process.exitCode.whenComplete(() {
-      _trackedProcessGroupLeaders.remove(process.pid);
-    }),
-  );
-  return process;
+  // Keep group identity on the Process handle even after the leader exits.
+  // Descendants may still own inherited pipes at that point; an Expando
+  // avoids both PID-reuse ambiguity and a global set that grows forever.
+  _trackedProcessGroupLeaders[process] = true;
+  return _TrackedProcessLaunch(process: process, isProcessGroupLeader: true);
+}
+
+class _TrackedProcessLaunch {
+  const _TrackedProcessLaunch({
+    required this.process,
+    required this.isProcessGroupLeader,
+  });
+
+  final Process process;
+  final bool isProcessGroupLeader;
 }
 
 /// Terminates a process plus its POSIX process group when the process was
@@ -157,6 +206,14 @@ Future<Process> startTrackedProcessInNewGroup(
 Future<void> terminateTrackedProcessTree(
   Process process, {
   Duration? gracefulTimeout,
+}) async {
+  await _terminateTrackedProcessTree(process, gracefulTimeout: gracefulTimeout);
+}
+
+Future<void> _terminateTrackedProcessTree(
+  Process process, {
+  Duration? gracefulTimeout,
+  bool knownProcessGroupLeader = false,
 }) async {
   if (Platform.isWindows) {
     try {
@@ -168,40 +225,129 @@ Future<void> terminateTrackedProcessTree(
   }
 
   final pid = process.pid;
-  final isGroupLeader = _trackedProcessGroupLeaders.contains(pid);
+  if (pid <= 0) return;
+  final isGroupLeader =
+      knownProcessGroupLeader ||
+      (_trackedProcessGroupLeaders[process] ?? false);
+  final descendants = isGroupLeader
+      ? const <int>[]
+      : await _collectDescendantPids(pid);
+  final effectiveGracefulTimeout =
+      gracefulTimeout ??
+      Duration(milliseconds: safeSubprocessDefaultGracefulShutdownMs);
+  final boundedGracefulTimeout = effectiveGracefulTimeout.isNegative
+      ? Duration.zero
+      : effectiveGracefulTimeout;
+
+  if (isGroupLeader) {
+    await _sendSignalToProcessGroup(pid, 'TERM');
+  } else {
+    _signalProcessIds(
+      descendants.reversed,
+      ProcessSignal.sigterm,
+      where: 'sigterm process descendant',
+    );
+  }
   try {
     process.kill();
   } catch (error, stack) {
     silentLog('safe_subprocess', 'sigterm child', error, stack);
   }
+
+  if (!isGroupLeader && descendants.isEmpty) {
+    try {
+      await process.exitCode.timeout(boundedGracefulTimeout);
+      return;
+    } on TimeoutException {
+      // Escalate below.
+    } catch (error, stack) {
+      silentLog('safe_subprocess', 'wait child after sigterm', error, stack);
+    }
+  } else if (boundedGracefulTimeout > Duration.zero) {
+    // A direct parent's exit does not prove that its descendants stopped.
+    // Give the complete group/snapshot the configured grace before SIGKILL.
+    await Future<void>.delayed(boundedGracefulTimeout);
+  }
+
   if (isGroupLeader) {
-    await _sendSignalToProcessGroup(pid, 'TERM');
-  }
-
-  try {
-    await process.exitCode.timeout(
-      gracefulTimeout ??
-          Duration(milliseconds: safeSubprocessDefaultGracefulShutdownMs),
+    await _sendSignalToProcessGroup(pid, 'KILL');
+  } else {
+    _signalProcessIds(
+      descendants.reversed,
+      ProcessSignal.sigkill,
+      where: 'sigkill process descendant',
     );
-    return;
-  } on TimeoutException {
-    // Escalate below.
-  } catch (error, stack) {
-    silentLog('safe_subprocess', 'wait child after sigterm', error, stack);
   }
-
   try {
     process.kill(ProcessSignal.sigkill);
   } catch (error, stack) {
     silentLog('safe_subprocess', 'sigkill child', error, stack);
   }
-  if (isGroupLeader) {
-    await _sendSignalToProcessGroup(pid, 'KILL');
-  }
   try {
     await process.exitCode.timeout(_processTreeFinalWait);
-  } catch (_) {
-    // Final best-effort path; no caller should block indefinitely here.
+  } catch (error, stack) {
+    silentLog('safe_subprocess', 'final process exit wait', error, stack);
+  }
+}
+
+Future<List<int>> _collectDescendantPids(int rootPid) async {
+  if ((!Platform.isMacOS && !Platform.isLinux) || rootPid <= 0) {
+    return const <int>[];
+  }
+  final pgrep = File('/usr/bin/pgrep').existsSync()
+      ? '/usr/bin/pgrep'
+      : 'pgrep';
+  final pendingParents = ListQueue<int>()..add(rootPid);
+  final descendants = <int>{};
+  final stopwatch = Stopwatch()..start();
+  while (pendingParents.isNotEmpty &&
+      descendants.length < _maxDescendantProcesses) {
+    final remaining = _directChildEnumerationTimeout - stopwatch.elapsed;
+    if (remaining <= Duration.zero) break;
+    final parentPid = pendingParents.removeFirst();
+    try {
+      final result = await Process.run(pgrep, <String>[
+        '-P',
+        '$parentPid',
+      ]).timeout(remaining);
+      if (result.exitCode != 0) continue;
+      for (final childPid in _parseChildPids(
+        result.stdout,
+        parentPid: parentPid,
+      )) {
+        if (descendants.add(childPid)) {
+          pendingParents.add(childPid);
+          if (descendants.length >= _maxDescendantProcesses) break;
+        }
+      }
+    } on TimeoutException {
+      break;
+    } catch (error, stack) {
+      silentLog(
+        'safe_subprocess',
+        'enumerate process descendants',
+        error,
+        stack,
+      );
+      break;
+    }
+  }
+  stopwatch.stop();
+  return List<int>.unmodifiable(descendants);
+}
+
+void _signalProcessIds(
+  Iterable<int> processIds,
+  ProcessSignal signal, {
+  required String where,
+}) {
+  for (final processId in processIds) {
+    if (processId <= 0 || processId == pid) continue;
+    try {
+      Process.killPid(processId, signal);
+    } catch (error, stack) {
+      silentLog('safe_subprocess', where, error, stack);
+    }
   }
 }
 
@@ -222,7 +368,7 @@ Future<void> killAllTrackedChildren({
       // 已退出会抛，忽略即可。
       silentLog('safe_subprocess', 'sigterm tracked child', error, stack);
     }
-    if (_trackedProcessGroupLeaders.contains(p.pid)) {
+    if (_trackedProcessGroupLeaders[p] ?? false) {
       unawaited(_sendSignalToProcessGroup(p.pid, 'TERM'));
     }
   }
@@ -234,7 +380,7 @@ Future<void> killAllTrackedChildren({
     } catch (error, stack) {
       silentLog('safe_subprocess', 'sigkill on graceful exit', error, stack);
     }
-    if (_trackedProcessGroupLeaders.contains(p.pid)) {
+    if (_trackedProcessGroupLeaders[p] ?? false) {
       unawaited(_sendSignalToProcessGroup(p.pid, 'KILL'));
     }
   }
@@ -261,6 +407,7 @@ Future<String?> _resolveProcessGroupLauncher() {
         <String>['-lc', 'command -v setsid 2>/dev/null'],
         timeout: const Duration(seconds: 2),
         tag: 'safe_subprocess.setsid_probe',
+        startInNewProcessGroup: false,
       );
       final path = nullIfBlank(result.stdout as String);
       if (path != null && File(path).existsSync()) return path;
@@ -394,8 +541,11 @@ Future<int> _terminatePidSet(Set<int> pids, {required String tag}) async {
 /// as "TextField in dialogs no longer accepts input or paste" plus
 /// `IMKCFRunLoopWakeUpReliable` console errors.
 ///
-/// Returns null when the command times out, fails to start, or exits with
-/// a non-zero status.  All errors are logged via [silentLog] (debug-only).
+/// Stdout/stderr are drained continuously but retained only up to
+/// [maxStdoutBytes]/[maxStderrBytes], so a noisy process or a descendant that
+/// inherits the pipes cannot grow memory without bound. Returns null when the
+/// command times out or fails to start; non-zero exits remain normal
+/// [ProcessResult] values. All errors are logged via [silentLog] (debug-only).
 ///
 /// **Tool-execution registry integration**: when [toolCallId] is provided
 /// and non-empty, the spawned process registers its pid + a SIGTERM→SIGKILL
@@ -414,66 +564,187 @@ Future<ProcessResult?> runProcessWithTimeout(
   bool includeParentEnvironment = true,
   String? toolCallId,
   int? gracefulShutdownMs,
+  int maxStdoutBytes = 1024 * 1024,
+  int maxStderrBytes = 256 * 1024,
+  bool startInNewProcessGroup = true,
+  ProcessResult Function(int pid, String stdout, String stderr)?
+  timeoutResultBuilder,
 }) async {
-  final effectiveGracefulMs =
+  final configuredGracefulMs =
       gracefulShutdownMs ?? safeSubprocessDefaultGracefulShutdownMs;
+  final effectiveGracefulMs = configuredGracefulMs < 0
+      ? 0
+      : configuredGracefulMs;
+  final effectiveTimeout = timeout.isNegative ? Duration.zero : timeout;
+  final argumentSnapshot = List<String>.of(arguments, growable: false);
+  final environmentSnapshot = environment == null
+      ? null
+      : Map<String, String>.of(environment);
   Process? process;
-  final shouldRegisterKiller = toolCallId != null && toolCallId.isNotEmpty;
-  try {
-    process = await Process.start(
-      executable,
-      arguments,
-      workingDirectory: workingDirectory,
-      environment: environment,
-      runInShell: runInShell,
-      includeParentEnvironment: includeParentEnvironment,
-    );
-    // 登记到全局子进程簿，应用退出时被 [killAllTrackedChildren] 兜底。
-    _registerTrackedChild(process);
-    if (shouldRegisterKiller) {
-      final spawned = process;
-      AiToolExecutionRegistry.instance.attachPid(toolCallId, spawned.pid);
-      AiToolExecutionRegistry.instance.attachKiller(toolCallId, () async {
-        spawned.kill();
-        await Future<void>.delayed(Duration(milliseconds: effectiveGracefulMs));
-        spawned.kill(ProcessSignal.sigkill);
-      });
+  var isProcessGroupLeader = false;
+  var timedOut = false;
+  StreamSubscription<List<int>>? stdoutSubscription;
+  StreamSubscription<List<int>>? stderrSubscription;
+  final stdoutDone = Completer<void>();
+  final stderrDone = Completer<void>();
+  final stdoutBytes = BytesBuilder(copy: false);
+  final stderrBytes = BytesBuilder(copy: false);
+  final normalizedToolCallId = nullIfBlank(toolCallId);
+  final stdoutLimit = maxStdoutBytes < 0 ? 0 : maxStdoutBytes;
+  final stderrLimit = maxStderrBytes < 0 ? 0 : maxStderrBytes;
+  final executionStopwatch = Stopwatch()..start();
+
+  void completeStream(Completer<void> completer) {
+    if (!completer.isCompleted) completer.complete();
+  }
+
+  void collectBounded(BytesBuilder target, List<int> chunk, int maxBytes) {
+    if (maxBytes <= 0 || target.length >= maxBytes) return;
+    final remaining = maxBytes - target.length;
+    target.add(chunk.length <= remaining ? chunk : chunk.sublist(0, remaining));
+  }
+
+  Future<bool> waitForStreams() async {
+    try {
+      await Future.wait<void>([
+        stdoutDone.future,
+        stderrDone.future,
+      ]).timeout(_processStreamCleanupTimeout);
+      return true;
+    } on TimeoutException {
+      // Subscriptions are explicitly cancelled in finally. A descendant that
+      // inherited the pipe therefore cannot keep buffering after this call.
+      return false;
+    } catch (error, stack) {
+      silentLog(tag, 'wait output streams $executable', error, stack);
+      return false;
     }
-    final stdoutFuture = process.stdout.transform(utf8.decoder).join();
-    final stderrFuture = process.stderr.transform(utf8.decoder).join();
-    String stdoutText = '';
-    String stderrText = '';
+  }
+
+  try {
+    final launchFuture = startInNewProcessGroup
+        ? _startTrackedProcessInNewGroup(
+            executable,
+            argumentSnapshot,
+            workingDirectory: workingDirectory,
+            environment: environmentSnapshot,
+            runInShell: runInShell,
+            includeParentEnvironment: includeParentEnvironment,
+          )
+        : startTrackedProcess(
+            executable,
+            argumentSnapshot,
+            workingDirectory: workingDirectory,
+            environment: environmentSnapshot,
+            runInShell: runInShell,
+            includeParentEnvironment: includeParentEnvironment,
+          ).then(
+            (started) => _TrackedProcessLaunch(
+              process: started,
+              isProcessGroupLeader: false,
+            ),
+          );
+    late final _TrackedProcessLaunch launch;
+    try {
+      launch = await launchFuture.timeout(effectiveTimeout);
+    } on TimeoutException {
+      timedOut = true;
+      unawaited(
+        launchFuture.then<void>(
+          (lateLaunch) async {
+            await _terminateTrackedProcessTree(
+              lateLaunch.process,
+              gracefulTimeout: Duration(milliseconds: effectiveGracefulMs),
+              knownProcessGroupLeader: lateLaunch.isProcessGroupLeader,
+            );
+          },
+          onError: (Object error, StackTrace stack) {
+            if (!_isMissingExecutableProcessException(error)) {
+              silentLog(tag, 'late process start $executable', error, stack);
+            }
+          },
+        ),
+      );
+      return timeoutResultBuilder?.call(-1, '', '');
+    }
+    process = launch.process;
+    isProcessGroupLeader = launch.isProcessGroupLeader;
+    if (normalizedToolCallId != null) {
+      final spawned = process;
+      final spawnedAsGroupLeader = isProcessGroupLeader;
+      AiToolExecutionRegistry.instance.attachPid(
+        normalizedToolCallId,
+        spawned.pid,
+      );
+      AiToolExecutionRegistry.instance.attachKiller(
+        normalizedToolCallId,
+        () async {
+          await _terminateTrackedProcessTree(
+            spawned,
+            gracefulTimeout: Duration(milliseconds: effectiveGracefulMs),
+            knownProcessGroupLeader: spawnedAsGroupLeader,
+          );
+        },
+      );
+    }
+    stdoutSubscription = process.stdout.listen(
+      (chunk) => collectBounded(stdoutBytes, chunk, stdoutLimit),
+      onError: (Object error, StackTrace stack) {
+        silentLog(tag, 'stdout $executable', error, stack);
+        completeStream(stdoutDone);
+      },
+      onDone: () => completeStream(stdoutDone),
+      cancelOnError: true,
+    );
+    stderrSubscription = process.stderr.listen(
+      (chunk) => collectBounded(stderrBytes, chunk, stderrLimit),
+      onError: (Object error, StackTrace stack) {
+        silentLog(tag, 'stderr $executable', error, stack);
+        completeStream(stderrDone);
+      },
+      onDone: () => completeStream(stderrDone),
+      cancelOnError: true,
+    );
+    final remainingTimeout = effectiveTimeout - executionStopwatch.elapsed;
     final exitCode = await process.exitCode.timeout(
-      timeout,
-      onTimeout: () {
-        // Crucial: forcibly terminate the lingering child so it cannot
-        // continue talking to other apps via Apple Events / IPC.
-        process?.kill(ProcessSignal.sigkill);
+      remainingTimeout > Duration.zero ? remainingTimeout : Duration.zero,
+      onTimeout: () async {
+        timedOut = true;
+        // Crucial: terminate the complete command tree before returning.
+        await _terminateTrackedProcessTree(
+          process!,
+          gracefulTimeout: Duration(milliseconds: effectiveGracefulMs),
+          knownProcessGroupLeader: isProcessGroupLeader,
+        );
         return -1;
       },
     );
-    try {
-      stdoutText = await stdoutFuture.timeout(
-        const Duration(milliseconds: 200),
-        onTimeout: () => '',
+    final streamsFinished = await waitForStreams();
+    if (!streamsFinished && !timedOut) {
+      await _terminateTrackedProcessTree(
+        process,
+        gracefulTimeout: Duration(milliseconds: effectiveGracefulMs),
+        knownProcessGroupLeader: isProcessGroupLeader,
       );
-    } on TimeoutException {
-      stdoutText = '';
     }
-    try {
-      stderrText = await stderrFuture.timeout(
-        const Duration(milliseconds: 200),
-        onTimeout: () => '',
-      );
-    } on TimeoutException {
-      stderrText = '';
-    }
-    if (exitCode == -1) {
-      return null;
+    final stdoutText = const Utf8Decoder(
+      allowMalformed: true,
+    ).convert(stdoutBytes.takeBytes());
+    final stderrText = const Utf8Decoder(
+      allowMalformed: true,
+    ).convert(stderrBytes.takeBytes());
+    if (timedOut) {
+      return timeoutResultBuilder?.call(process.pid, stdoutText, stderrText);
     }
     return ProcessResult(process.pid, exitCode, stdoutText, stderrText);
   } catch (error, stack) {
-    process?.kill(ProcessSignal.sigkill);
+    if (process != null) {
+      await _terminateTrackedProcessTree(
+        process,
+        gracefulTimeout: Duration(milliseconds: effectiveGracefulMs),
+        knownProcessGroupLeader: isProcessGroupLeader,
+      );
+    }
     if (!_isMissingExecutableProcessException(error)) {
       silentLog(
         tag,
@@ -483,6 +754,24 @@ Future<ProcessResult?> runProcessWithTimeout(
       );
     }
     return null;
+  } finally {
+    await Future.wait<void>(<Future<void>>[
+      _cancelProcessSubscription(stdoutSubscription, tag, 'stdout'),
+      _cancelProcessSubscription(stderrSubscription, tag, 'stderr'),
+    ]);
+  }
+}
+
+Future<void> _cancelProcessSubscription<T>(
+  StreamSubscription<T>? subscription,
+  String tag,
+  String streamName,
+) async {
+  if (subscription == null) return;
+  try {
+    await subscription.cancel().timeout(_processStreamCleanupTimeout);
+  } catch (error, stack) {
+    silentLog(tag, 'cancel $streamName subscription', error, stack);
   }
 }
 
@@ -506,6 +795,7 @@ Future<ProcessResult> runTrackedProcessOrFailed(
   Map<String, String>? environment,
   bool runInShell = false,
   bool includeParentEnvironment = true,
+  bool startInNewProcessGroup = true,
 }) async {
   final r = await runProcessWithTimeout(
     executable,
@@ -516,6 +806,7 @@ Future<ProcessResult> runTrackedProcessOrFailed(
     environment: environment,
     runInShell: runInShell,
     includeParentEnvironment: includeParentEnvironment,
+    startInNewProcessGroup: startInNewProcessGroup,
   );
   return r ?? ProcessResult(-1, -1, '', '');
 }
