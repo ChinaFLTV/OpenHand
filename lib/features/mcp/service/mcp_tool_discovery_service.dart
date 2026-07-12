@@ -725,7 +725,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
   Future<_StdioSession> _initializeStdioSession(McpServer server) async {
     final resolved = await _resolveStdioLaunch(server);
     final session = _StdioSession(
-      process: await startTrackedProcess(
+      process: await startTrackedProcessInNewGroup(
         resolved.executable,
         resolved.args,
         environment: <String, String>{
@@ -2494,9 +2494,12 @@ class _StdioSession {
       }
     });
     unawaited(
-      _process.exitCode.then((code) {
-        _appendTrace('process:exit:$code');
-      }),
+      _process.exitCode.then<void>(
+        (code) => _appendTrace('process:exit:$code'),
+        onError: (Object error, StackTrace stack) {
+          silentLog('mcp.stdio', 'observe process exit', error, stack);
+        },
+      ),
     );
   }
 
@@ -2858,17 +2861,12 @@ class _StdioSession {
   }
 
   Future<void> _waitForExitOrKill() async {
-    if (await _waitForExit()) {
-      return;
-    }
-    _process.kill();
-    if (await _waitForExit()) {
-      return;
-    }
-    if (!Platform.isWindows) {
-      _process.kill(ProcessSignal.sigkill);
-      await _waitForExit();
-    }
+    if (await _waitForExit()) return;
+    await terminateTrackedProcessTree(
+      _process,
+      gracefulTimeout: DefaultMcpToolDiscoveryService._stdioShutdownTimeout,
+    );
+    await _waitForExit();
   }
 
   Future<bool> _waitForExit() async {
@@ -2890,7 +2888,7 @@ class _StdioSession {
     String where,
   ) async {
     try {
-      await subscription.cancel();
+      await subscription.cancel().timeout(_mcpStreamCleanupTimeout);
     } catch (error, stack) {
       silentLog('mcp.stdio', where, error, stack);
     }
