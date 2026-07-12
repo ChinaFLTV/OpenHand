@@ -3,18 +3,26 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:crypto/crypto.dart';
+import 'package:path/path.dart' as p;
+
 import '../../app/support/safe_subprocess.dart';
 import '../util/bounded_file_io.dart';
 
-/// Per-path write lock. All atomic writes that target the same absolute path
-/// are serialized on a single [Future] chain to prevent two concurrent writers
-/// from clobbering each other's `.tmp`/`.bak` files.
+/// Process-local queue for each normalized target. A separate OS file lock is
+/// acquired inside the queue so independent app instances cannot clobber the
+/// shared `.bak` file or interleave their publish/rollback sequence.
 final Map<String, Future<void>> _writeLocks = <String, Future<void>>{};
 const String _atomicTempSuffix = '.tmp';
 const String _atomicBackupSuffix = '.bak';
 const String _atomicWritingMarker = '.writing.';
+const String _atomicProcessLockDirectoryName = 'openhand-atomic-locks-v1';
+const String _atomicProcessLockSuffix = '.lock';
 const Duration _atomicStaleArtifactAge = Duration(minutes: 10);
 const Duration _atomicIoIdleTimeout = Duration(seconds: 30);
+const Duration _atomicProcessLockTimeout = Duration(seconds: 30);
+const Duration _atomicProcessLockAttemptTimeout = Duration(seconds: 2);
+const Duration _atomicProcessLockRetryDelay = Duration(milliseconds: 25);
 const Duration _atomicOperationTotalTimeout = Duration(minutes: 10);
 const Duration _atomicCleanupTimeout = Duration(seconds: 2);
 const int _atomicIoChunkBytes = 64 * 1024;
@@ -92,8 +100,8 @@ Future<void> _recoverAtomicWriteBackupIfNeededLocked(File targetFile) async {
 /// a backup.
 ///
 /// This avoids data loss when the process crashes mid-write. Concurrent calls
-/// targeting the same absolute path are serialized via a per-path lock so that
-/// two writers cannot race on the `.tmp`/`.bak` files.
+/// targeting the same normalized path are serialized in-process and across app
+/// instances so two writers cannot race on the `.tmp`/`.bak` files.
 Future<void> writeFileAtomically(File targetFile, String content) {
   return _runWithAtomicWriteLock(
     targetFile,
@@ -140,11 +148,18 @@ Future<void> _runWithAtomicWriteLock(
   File targetFile,
   Future<void> Function(File targetFile) operation,
 ) {
-  final normalizedTargetFile = targetFile.absolute;
+  final normalizedTargetFile = File(p.normalize(p.absolute(targetFile.path)));
   final key = normalizedTargetFile.path;
   final previous = _writeLocks[key] ?? Future<void>.value();
-  final current = previous.catchError((Object _, StackTrace _) {}).then((_) {
-    return operation(normalizedTargetFile);
+  final current = previous.catchError((Object _, StackTrace _) {}).then<void>((
+    _,
+  ) async {
+    final processLock = await _acquireAtomicProcessLock(normalizedTargetFile);
+    try {
+      await operation(normalizedTargetFile);
+    } finally {
+      await processLock.release();
+    }
   });
   _writeLocks[key] = current;
   // Remove the lock once this write finishes (success or failure) and no
@@ -162,6 +177,145 @@ Future<void> _runWithAtomicWriteLock(
     ),
   );
   return current;
+}
+
+class _AtomicProcessLockLease {
+  _AtomicProcessLockLease(this._file);
+
+  final RandomAccessFile _file;
+  bool _released = false;
+
+  Future<void> release() async {
+    if (_released) return;
+    _released = true;
+    final unlockFuture = _file.unlock();
+    try {
+      await unlockFuture.timeout(_atomicCleanupTimeout);
+    } catch (_) {
+      unawaited(
+        unlockFuture
+            .then<void>((_) {}, onError: (Object _, StackTrace _) {})
+            .whenComplete(() => _closeAtomicProcessLockFile(_file)),
+      );
+      return;
+    }
+    await _closeAtomicProcessLockFile(_file);
+  }
+}
+
+Future<_AtomicProcessLockLease> _acquireAtomicProcessLock(
+  File targetFile,
+) async {
+  final lockFile = await _atomicProcessLockFile(targetFile);
+  final handle = await _openAtomicFile(
+    lockFile,
+    FileMode.append,
+    () => _atomicProcessLockTimeout,
+  );
+  final stopwatch = Stopwatch()..start();
+  while (true) {
+    final remainingMicroseconds =
+        _atomicProcessLockTimeout.inMicroseconds -
+        stopwatch.elapsedMicroseconds;
+    if (remainingMicroseconds <= 0) {
+      await _closeAtomicProcessLockFile(handle);
+      throw _atomicProcessLockTimeoutException();
+    }
+    final remaining = Duration(microseconds: remainingMicroseconds);
+    // The default is a non-blocking exclusive attempt. Retrying it ourselves
+    // keeps cancellation and the total wait budget under application control.
+    final lockFuture = handle.lock();
+    try {
+      await lockFuture.timeout(
+        _shorterAtomicDuration(_atomicProcessLockAttemptTimeout, remaining),
+        onTimeout: () => throw _atomicProcessLockTimeoutException(),
+      );
+      stopwatch.stop();
+      return _AtomicProcessLockLease(handle);
+    } on FileSystemException catch (error) {
+      if (!_isAtomicProcessLockContention(error)) {
+        stopwatch.stop();
+        await _closeAtomicProcessLockFile(handle);
+        rethrow;
+      }
+      final retryBudget =
+          _atomicProcessLockTimeout.inMicroseconds -
+          stopwatch.elapsedMicroseconds;
+      if (retryBudget <= 0) {
+        stopwatch.stop();
+        await _closeAtomicProcessLockFile(handle);
+        throw _atomicProcessLockTimeoutException();
+      }
+      await Future<void>.delayed(
+        _shorterAtomicDuration(
+          _atomicProcessLockRetryDelay,
+          Duration(microseconds: retryBudget),
+        ),
+      );
+    } on TimeoutException {
+      stopwatch.stop();
+      unawaited(_releaseLateAtomicProcessLock(handle, lockFuture));
+      rethrow;
+    } catch (_) {
+      stopwatch.stop();
+      await _closeAtomicProcessLockFile(handle);
+      rethrow;
+    }
+  }
+}
+
+TimeoutException _atomicProcessLockTimeoutException() {
+  return TimeoutException(
+    'Waiting for another atomic writer timed out.',
+    _atomicProcessLockTimeout,
+  );
+}
+
+bool _isAtomicProcessLockContention(FileSystemException error) {
+  final code = error.osError?.errorCode;
+  if (Platform.isWindows) {
+    return code == 33 || code == 36;
+  }
+  return code == 11 || code == 13 || code == 35;
+}
+
+Future<void> _releaseLateAtomicProcessLock(
+  RandomAccessFile handle,
+  Future<RandomAccessFile> lockFuture,
+) async {
+  try {
+    await lockFuture;
+    try {
+      await handle.unlock();
+    } catch (_) {
+      // Closing the descriptor below also releases an acquired lock.
+    }
+  } catch (_) {
+    // The descriptor still needs closing after a late lock failure.
+  }
+  await _closeAtomicProcessLockFile(handle);
+}
+
+Future<File> _atomicProcessLockFile(File targetFile) async {
+  final directory = Directory(
+    p.join(Directory.systemTemp.path, _atomicProcessLockDirectoryName),
+  );
+  if (!await directory.exists().timeout(_atomicProcessLockTimeout)) {
+    await directory.create(recursive: true).timeout(_atomicProcessLockTimeout);
+  }
+  var identity = p.normalize(p.absolute(targetFile.path));
+  if (Platform.isWindows) identity = identity.toLowerCase();
+  final digest = sha256.convert(utf8.encode(identity));
+  return File(p.join(directory.path, '$digest$_atomicProcessLockSuffix'));
+}
+
+Future<void> _closeAtomicProcessLockFile(RandomAccessFile file) async {
+  final closeFuture = file.close();
+  try {
+    await closeFuture.timeout(_atomicCleanupTimeout);
+  } catch (_) {
+    unawaited(closeFuture.catchError((Object _, StackTrace _) {}));
+  }
 }
 
 Future<void> _writeFileAtomicallyLocked(File targetFile, String content) async {
