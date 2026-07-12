@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -8,6 +7,12 @@ import '../../../../app/support/openhand_paths.dart';
 import '../../../../app/support/safe_subprocess.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/path_safety.dart';
+import '../../../../shared/util/text_clip.dart';
+import '../../model/ai_tool_execution_limit_policy.dart';
+
+const int _maxAiHookCapturedOutputBytes = 4 * 1024 * 1024;
+const int _minAiHookCapturedOutputBytes = 16 * 1024;
+const int _maxAiHookPayloadBytes = 4 * 1024 * 1024;
 
 const String aiHookSystemRemindersMetadataKey = 'hook_system_reminders';
 const String aiUserPromptHookFeedbackMetadataKey =
@@ -195,49 +200,77 @@ class AiClaudeHookService {
     required String workingDirectory,
   }) async {
     final shellCommand = _resolveShellCommand(command);
-    final process = await startTrackedProcess(
+    final payloadBytes = _encodeBoundedHookPayload(payload);
+    final previewCharacters =
+        AiToolExecutionLimitPolicy.normalizeMaxHookTextCharacters(
+          maxHookTextCharacters,
+        );
+    final captureBytes = (previewCharacters * 4).clamp(
+      _minAiHookCapturedOutputBytes,
+      _maxAiHookCapturedOutputBytes,
+    );
+    var timedOut = false;
+    final processResult = await runProcessWithTimeout(
       shellCommand.executable,
       shellCommand.arguments,
+      stdinBytes: payloadBytes,
+      timeout: _commandTimeout,
+      tag: 'ai_claude_hook_service',
       workingDirectory: workingDirectory,
+      maxStdoutBytes: captureBytes,
+      maxStderrBytes: captureBytes,
+      timeoutResultBuilder: (pid, stdout, stderr) {
+        timedOut = true;
+        return ProcessResult(pid, 0, stdout, stderr);
+      },
     );
-    final stdoutFuture = _collectTruncatedText(process.stdout);
-    final stderrFuture = _collectTruncatedText(process.stderr);
-    // If the hook process dies before we finish feeding stdin, `write` or
-    // `close` may throw a ProcessException. Swallow the IO error here and
-    // let the exitCode path surface the failure to the caller — surfacing
-    // the stdin write error directly would mask the real exit status.
-    try {
-      process.stdin.write(jsonEncode(payload));
-    } catch (_) {
-      // Process exited while we were writing — proceed to await exit code.
-    }
-    try {
-      await process.stdin.close();
-    } catch (_) {
-      // stdin may already be closed or broken; nothing actionable here.
-    }
-    try {
-      final exitCode = await process.exitCode.timeout(_commandTimeout);
-      return _AiHookCommandResult(
-        exitCode: exitCode,
-        stdout: await stdoutFuture,
-        stderr: await stderrFuture,
-        timedOut: false,
-      );
-    } on TimeoutException {
-      process.kill(ProcessSignal.sigkill);
-      try {
-        await process.exitCode.timeout(const Duration(seconds: 2));
-      } on TimeoutException {
-        // Ignore a second timeout while cleaning up a stuck hook process.
-      }
-      return _AiHookCommandResult(
-        exitCode: null,
-        stdout: await stdoutFuture,
-        stderr: await stderrFuture,
-        timedOut: true,
+    if (processResult == null) {
+      throw ProcessException(
+        shellCommand.executable,
+        shellCommand.arguments,
+        'Hook process could not be executed safely.',
       );
     }
+    return _AiHookCommandResult(
+      exitCode: timedOut ? null : processResult.exitCode,
+      stdout: _formatCapturedText(
+        processResult.stdout as String,
+        previewCharacters: previewCharacters,
+        captureBytes: captureBytes,
+      ),
+      stderr: _formatCapturedText(
+        processResult.stderr as String,
+        previewCharacters: previewCharacters,
+        captureBytes: captureBytes,
+      ),
+      timedOut: timedOut,
+    );
+  }
+
+  List<int> _encodeBoundedHookPayload(Map<String, Object?> payload) {
+    final encoded = utf8.encode(jsonEncode(payload));
+    if (encoded.length <= _maxAiHookPayloadBytes) return encoded;
+
+    String? boundedValue(String key) {
+      final value = payload[key];
+      if (value == null) return null;
+      return clipText('$value', 1024);
+    }
+
+    return utf8.encode(
+      jsonEncode(<String, Object?>{
+        for (final key in <String>[
+          'hook_event_name',
+          'hookEventName',
+          'session_id',
+          'sessionId',
+          'cwd',
+        ])
+          if (boundedValue(key) case final value?) key: value,
+        '_openhand_payload_truncated': true,
+        '_openhand_original_utf8_bytes': encoded.length,
+      }),
+    );
   }
 
   Future<_AiLoadedHooks> _loadHooks({
@@ -521,36 +554,17 @@ class AiClaudeHookService {
     return normalized;
   }
 
-  Future<String> _collectTruncatedText(Stream<List<int>> stream) async {
-    final buffer = StringBuffer();
-    var collectedCharacters = 0;
-    var truncated = false;
-    await for (final chunk in stream.transform(utf8.decoder)) {
-      if (truncated) {
-        continue;
-      }
-      final remainingCharacters = maxHookTextCharacters - collectedCharacters;
-      if (remainingCharacters <= 0) {
-        truncated = true;
-        continue;
-      }
-      if (chunk.length <= remainingCharacters) {
-        buffer.write(chunk);
-        collectedCharacters += chunk.length;
-        continue;
-      }
-      buffer.write(chunk.substring(0, remainingCharacters));
-      collectedCharacters += remainingCharacters;
-      truncated = true;
-    }
-    final trimmed = buffer.toString().trim();
-    if (!truncated) {
-      return trimmed;
-    }
-    if (trimmed.isEmpty) {
-      return '...[truncated]';
-    }
-    return '$trimmed\n...[truncated]';
+  String _formatCapturedText(
+    String capturedText, {
+    required int previewCharacters,
+    required int captureBytes,
+  }) {
+    final normalized = capturedText.trim();
+    final preview = clipText(normalized, previewCharacters, suffix: '').trim();
+    final captureReachedLimit =
+        utf8.encode(capturedText).length >= captureBytes;
+    if (preview == normalized && !captureReachedLimit) return normalized;
+    return preview.isEmpty ? '...[truncated]' : '$preview\n...[truncated]';
   }
 
   List<String> _deduplicate(List<String> items) {

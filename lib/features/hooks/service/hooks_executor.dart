@@ -1,23 +1,25 @@
-import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
+import 'package:uuid/uuid.dart';
 
 import '../../../app/model/hook_config.dart';
 import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../app/support/system_proxy.dart';
+import '../../../shared/util/text_clip.dart';
 import '../hooks_controller.dart';
 
-/// Maximum characters to collect from hook script stdout / stderr.
 const int _maxHookOutputCharacters = 4000;
+const int _maxHookCapturedOutputBytes = 1024 * 1024;
 
-/// Maximum size (bytes) of the context JSON written to the temp file.
-/// Prevents a misconfigured or malicious payload from exhausting disk space.
-const int _maxContextJsonBytes = 512 * 1024; // 512 KB
+const int _maxContextJsonBytes = 512 * 1024;
+const int _maxContextEnvironmentBytes = 32 * 1024;
 const int _maxHookTempLabelCharacters = 32;
+const int _maxHookTempIdentifierCharacters = 64;
 
 final RegExp _unsafeHookTempFileSegmentPattern = RegExp(r'[^\w\-]');
 
@@ -32,15 +34,11 @@ String _safeHookTempLabel(String label) {
 }
 
 String _safeHookTempIdentifier(String value) {
-  return value.replaceAll(_unsafeHookTempFileSegmentPattern, '-');
-}
-
-Future<void> _closeHookStdin(IOSink stdin, String where) async {
-  try {
-    await stdin.close();
-  } catch (error, stack) {
-    silentLog('hooks_executor', where, error, stack);
-  }
+  final safeValue = value.replaceAll(_unsafeHookTempFileSegmentPattern, '-');
+  return safeValue.substring(
+    0,
+    safeValue.length.clamp(0, _maxHookTempIdentifierCharacters),
+  );
 }
 
 Future<void> _deleteHookTempContextFile(File file) async {
@@ -102,10 +100,10 @@ class HookEntryResult {
   final String stdout;
   final String stderr;
 
-  /// Path to file containing the full (non-truncated) stdout, if truncated.
+  /// Path to bounded captured stdout when the preview is truncated.
   final String? stdoutFile;
 
-  /// Path to file containing the full (non-truncated) stderr, if truncated.
+  /// Path to bounded captured stderr when the preview is truncated.
   final String? stderrFile;
   final String? scriptPath;
   final String? scriptContent;
@@ -118,13 +116,19 @@ class HookEntryResult {
 /// [HooksController] each time [executeEvent] is called, ensuring it always
 /// reflects the latest user configuration.
 class HooksExecutor {
-  const HooksExecutor({required HooksController controller})
-    : _controller = controller;
+  HooksExecutor({required HooksController controller})
+    : _enabledHooksForEvent = controller.enabledHooksForEvent;
 
-  final HooksController _controller;
+  @visibleForTesting
+  HooksExecutor.forTesting({
+    required List<HookEntry> Function(HookEvent event) enabledHooksForEvent,
+  }) : _enabledHooksForEvent = enabledHooksForEvent;
+
+  static const Uuid _uuid = Uuid();
+  final List<HookEntry> Function(HookEvent event) _enabledHooksForEvent;
 
   bool hasEnabledHooksForEvent(HookEvent event) {
-    return _controller.enabledHooksForEvent(event).isNotEmpty;
+    return _enabledHooksForEvent(event).isNotEmpty;
   }
 
   /// Maximum age of files left behind in the hooks temp directory. Files
@@ -171,7 +175,7 @@ class HooksExecutor {
     required String sessionId,
     Map<String, Object?> payload = const <String, Object?>{},
   }) async {
-    final hooks = _controller.enabledHooksForEvent(event);
+    final hooks = _enabledHooksForEvent(event);
     if (hooks.isEmpty) {
       return const HookExecutionResult();
     }
@@ -318,17 +322,26 @@ class HooksExecutor {
     final shellCommand = _buildCommand(hook);
     final workingDirectory = OpenHandPaths.applicationDirectoryPath();
 
-    // Serialize context JSON — gracefully degrade on failure.
     String contextJson;
+    var originalContextBytes = 0;
     try {
       contextJson = jsonEncode(payload);
+      originalContextBytes = utf8.encode(contextJson).length;
+      if (originalContextBytes > _maxContextJsonBytes) {
+        contextJson = _contextSummaryJson(
+          payload,
+          originalBytes: originalContextBytes,
+          truncated: true,
+        );
+      }
     } catch (_) {
       contextJson = '{}';
     }
+    final contextBytes = utf8.encode(contextJson);
 
-    // Write context JSON to ~/.openhand/hooks/tmp/{session-id}-{hook-name}-{hook-id}.json
-    // so scripts can safely read it via `jq . "$OPENHAND_HOOK_CONTEXT_FILE"`
-    // without shell escaping issues.
+    // Keep a unique, valid JSON context file for scripts that prefer jq. The
+    // UUID prevents concurrent invocations of the same hook from overwriting
+    // and then deleting each other's context.
     File? contextFile;
     try {
       final tmpDir = Directory(
@@ -339,115 +352,123 @@ class HooksExecutor {
       final safeSessionId = _safeHookTempIdentifier(sessionId);
       final safeHookId = _safeHookTempIdentifier(hook.id);
       contextFile = File(
-        p.join(tmpDir.path, '$safeSessionId-$safeName-$safeHookId.json'),
+        p.join(
+          tmpDir.path,
+          '$safeSessionId-$safeName-$safeHookId-${_uuid.v4()}.json',
+        ),
       );
-      if (contextJson.length > _maxContextJsonBytes) {
-        contextJson =
-            '${contextJson.substring(0, _maxContextJsonBytes)}...[truncated]';
-      }
       await contextFile.writeAsString(contextJson, flush: true);
     } catch (_) {
       // If file creation fails, scripts can still read from stdin.
       contextFile = null;
     }
 
+    final environmentContext =
+        contextBytes.length <= _maxContextEnvironmentBytes
+        ? contextJson
+        : _contextSummaryJson(
+            payload,
+            originalBytes: originalContextBytes,
+            externalized: true,
+            fileAvailable: contextFile != null,
+          );
     final environment = <String, String>{
-      'OPENHAND_HOOK_CONTEXT': contextJson,
+      'OPENHAND_HOOK_CONTEXT': environmentContext,
       if (contextFile != null) 'OPENHAND_HOOK_CONTEXT_FILE': contextFile.path,
     };
 
     try {
-      final process = await startTrackedProcess(
+      var timedOut = false;
+      final processResult = await runProcessWithTimeout(
         shellCommand.executable,
         shellCommand.arguments,
+        stdinBytes: contextBytes,
+        timeout: timeout,
+        tag: 'hooks_executor',
         workingDirectory: workingDirectory,
         environment: <String, String>{
           ...SystemProxyResolver.instance.resolveSubprocessEnvironment(),
           ...environment,
         },
+        maxStderrBytes: _maxHookCapturedOutputBytes,
+        timeoutResultBuilder: (pid, stdout, stderr) {
+          timedOut = true;
+          return ProcessResult(pid, 0, stdout, stderr);
+        },
+      );
+      if (processResult == null) {
+        throw ProcessException(
+          shellCommand.executable,
+          shellCommand.arguments,
+          'Hook process could not be executed safely.',
+        );
+      }
+
+      final stdoutOutput = _prepareCollectedOutput(
+        processResult.stdout as String,
+      );
+      final stderrOutput = _prepareCollectedOutput(
+        processResult.stderr as String,
       );
 
-      final stdoutFuture = _collectOutput(process.stdout);
-      final stderrFuture = _collectOutput(process.stderr);
-
-      try {
-        process.stdin.write(contextJson);
-      } catch (error, stack) {
-        silentLog('hooks_executor', 'write context stdin', error, stack);
-      }
-      await _closeHookStdin(process.stdin, 'close context stdin');
-
-      try {
-        // Wait for the process exit code first, with a timeout that covers
-        // the entire execution window. Output collection completes once the
-        // process exits and its stdout/stderr streams close.
-        final exitCode = await process.exitCode.timeout(timeout);
-
-        // Process exited within the timeout – collect outputs.
-        final stdoutOutput = await stdoutFuture;
-        final stderrOutput = await stderrFuture;
-
-        // Save full output to files when truncated.
-        String? stdoutFile;
-        String? stderrFile;
-        if (stdoutOutput.wasTruncated && stdoutOutput.fullText != null) {
-          stdoutFile = await _saveFullOutputFile(
-            content: stdoutOutput.fullText!,
-            sessionId: sessionId,
-            hookLabel: hook.label,
-            suffix: 'stdout.txt',
-          );
-        }
-        if (stderrOutput.wasTruncated && stderrOutput.fullText != null) {
-          stderrFile = await _saveFullOutputFile(
-            content: stderrOutput.fullText!,
-            sessionId: sessionId,
-            hookLabel: hook.label,
-            suffix: 'stderr.txt',
-          );
-        }
-
-        return _HookScriptResult(
-          exitCode: exitCode,
-          stdout: stdoutOutput.text,
-          stderr: stderrOutput.text,
-          timedOut: false,
-          stdoutFile: stdoutFile,
-          stderrFile: stderrFile,
-        );
-      } on TimeoutException {
-        process.kill(ProcessSignal.sigkill);
-        try {
-          await process.exitCode.timeout(const Duration(seconds: 2));
-        } on TimeoutException {
-          // Best-effort cleanup; the process may remain orphaned on some OSes.
-        }
-
-        // Collect whatever output was produced before the timeout.
-        _CollectedOutput stdoutOutput;
-        _CollectedOutput stderrOutput;
-        try {
-          final results = await Future.wait([
-            stdoutFuture,
-            stderrFuture,
-          ]).timeout(const Duration(seconds: 2));
-          stdoutOutput = results[0];
-          stderrOutput = results[1];
-        } on TimeoutException {
-          stdoutOutput = const _CollectedOutput(text: '...[timed out]');
-          stderrOutput = const _CollectedOutput(text: '');
-        }
-
-        return _HookScriptResult(
-          exitCode: null,
-          stdout: stdoutOutput.text,
-          stderr: stderrOutput.text,
-          timedOut: true,
+      String? stdoutFile;
+      String? stderrFile;
+      if (!timedOut &&
+          stdoutOutput.wasTruncated &&
+          stdoutOutput.capturedText != null) {
+        stdoutFile = await _saveCapturedOutputFile(
+          content: stdoutOutput.capturedText!,
+          sessionId: sessionId,
+          hookLabel: hook.label,
+          suffix: 'stdout.txt',
         );
       }
+      if (!timedOut &&
+          stderrOutput.wasTruncated &&
+          stderrOutput.capturedText != null) {
+        stderrFile = await _saveCapturedOutputFile(
+          content: stderrOutput.capturedText!,
+          sessionId: sessionId,
+          hookLabel: hook.label,
+          suffix: 'stderr.txt',
+        );
+      }
+
+      return _HookScriptResult(
+        exitCode: timedOut ? null : processResult.exitCode,
+        stdout: stdoutOutput.text,
+        stderr: stderrOutput.text,
+        timedOut: timedOut,
+        stdoutFile: stdoutFile,
+        stderrFile: stderrFile,
+      );
     } finally {
       if (contextFile != null) await _deleteHookTempContextFile(contextFile);
     }
+  }
+
+  String _contextSummaryJson(
+    Map<String, Object?> payload, {
+    required int originalBytes,
+    bool truncated = false,
+    bool externalized = false,
+    bool fileAvailable = false,
+  }) {
+    String? boundedValue(String key) {
+      final value = payload[key];
+      if (value == null) return null;
+      return clipText('$value', 256);
+    }
+
+    return jsonEncode(<String, Object?>{
+      if (boundedValue('hook_event_name') case final value?)
+        'hook_event_name': value,
+      if (boundedValue('session_id') case final value?) 'session_id': value,
+      if (truncated) '_openhand_context_truncated': true,
+      if (externalized) '_openhand_context_externalized': true,
+      if (fileAvailable) '_openhand_context_file_available': true,
+      '_openhand_original_utf8_bytes': originalBytes,
+    });
   }
 
   _ShellCommand _buildCommand(HookEntry hook) {
@@ -511,46 +532,33 @@ class HooksExecutor {
     );
   }
 
-  Future<_CollectedOutput> _collectOutput(Stream<List<int>> stream) async {
-    final truncatedBuffer = StringBuffer();
-    final fullBuffer = StringBuffer();
-    var collected = 0;
-    var truncated = false;
-    await for (final chunk in stream.transform(utf8.decoder)) {
-      fullBuffer.write(chunk);
-      if (truncated) continue;
-      final remaining = _maxHookOutputCharacters - collected;
-      if (remaining <= 0) {
-        truncated = true;
-        continue;
-      }
-      if (chunk.length <= remaining) {
-        truncatedBuffer.write(chunk);
-        collected += chunk.length;
-      } else {
-        truncatedBuffer.write(chunk.substring(0, remaining));
-        collected += remaining;
-        truncated = true;
-      }
+  _CollectedOutput _prepareCollectedOutput(String capturedText) {
+    final normalized = capturedText.trim();
+    final preview = clipText(
+      normalized,
+      _maxHookOutputCharacters,
+      suffix: '',
+    ).trim();
+    final captureReachedLimit =
+        utf8.encode(capturedText).length >= _maxHookCapturedOutputBytes;
+    if (preview == normalized && !captureReachedLimit) {
+      return _CollectedOutput(text: normalized);
     }
-    final fullText = fullBuffer.toString().trim();
-    if (!truncated) {
-      return _CollectedOutput(text: fullText);
-    }
-    final truncatedText = truncatedBuffer.toString().trim();
-    final displayText = truncatedText.isEmpty
+    final displayText = preview.isEmpty
         ? '...[truncated]'
-        : '$truncatedText\n...[truncated]';
+        : '$preview\n...[truncated]';
+    final persistedText = captureReachedLimit
+        ? '$normalized\n...[capture capped at $_maxHookCapturedOutputBytes bytes]'
+        : normalized;
     return _CollectedOutput(
       text: displayText,
-      fullText: fullText,
+      capturedText: persistedText,
       wasTruncated: true,
     );
   }
 
-  /// Save [content] to a file in the hooks tmp directory and return the path.
-  /// Returns `null` if the write fails.
-  Future<String?> _saveFullOutputFile({
+  /// Saves bounded captured output and returns its path.
+  Future<String?> _saveCapturedOutputFile({
     required String content,
     required String sessionId,
     required String hookLabel,
@@ -563,9 +571,11 @@ class HooksExecutor {
       await tmpDir.create(recursive: true);
       final safeName = _safeHookTempLabel(hookLabel);
       final safeSessionId = _safeHookTempIdentifier(sessionId);
-      final ts = DateTime.now().microsecondsSinceEpoch;
       final file = File(
-        p.join(tmpDir.path, 'output-$safeSessionId-$safeName-$ts.$suffix'),
+        p.join(
+          tmpDir.path,
+          'output-$safeSessionId-$safeName-${_uuid.v4()}.$suffix',
+        ),
       );
       await file.writeAsString(content, flush: true);
       return file.path;
@@ -590,10 +600,10 @@ class _HookScriptResult {
   final String stderr;
   final bool timedOut;
 
-  /// Path to file containing full stdout when it was truncated.
+  /// Path to bounded captured stdout when the preview was truncated.
   final String? stdoutFile;
 
-  /// Path to file containing full stderr when it was truncated.
+  /// Path to bounded captured stderr when the preview was truncated.
   final String? stderrFile;
 }
 
@@ -607,15 +617,15 @@ class _ShellCommand {
 class _CollectedOutput {
   const _CollectedOutput({
     required this.text,
-    this.fullText,
+    this.capturedText,
     this.wasTruncated = false,
   });
 
   /// Display text (truncated if necessary).
   final String text;
 
-  /// Full text when truncation occurred; `null` if not truncated.
-  final String? fullText;
+  /// Bounded captured text when the preview is truncated.
+  final String? capturedText;
 
   final bool wasTruncated;
 }

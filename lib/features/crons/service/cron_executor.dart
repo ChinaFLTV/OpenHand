@@ -8,12 +8,12 @@ import '../../../app/model/cron_config.dart';
 import '../../../app/support/app_runtime_context.dart';
 import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/safe_subprocess.dart';
-import '../../../app/support/silent_log.dart';
 import '../../../app/support/system_proxy.dart';
 import '../../../shared/util/exponential_backoff.dart';
+import '../../../shared/util/text_clip.dart';
 
-/// Maximum characters to collect from cron script stdout / stderr.
 const int _maxCronOutputCharacters = 8000;
+const int _maxCronOutputBytes = _maxCronOutputCharacters * 4;
 
 /// Handle returned for a running cron execution.
 class CronExecutionHandle {
@@ -295,79 +295,65 @@ class CronExecutor {
     final workDir =
         entry.workingDirectory ?? OpenHandPaths.applicationDirectoryPath();
 
-    final process = await startTrackedProcess(
-      cmd.executable,
-      cmd.arguments,
-      workingDirectory: workDir,
-      environment: <String, String>{
-        ...SystemProxyResolver.instance.resolveSubprocessEnvironment(),
-        if (entry.environment.isNotEmpty) ...entry.environment,
-      },
-      runInShell: entry.runAsUser != null && entry.runAsUser!.isNotEmpty,
-    );
-
-    final pid = process.pid;
-
-    // Assigning the callback here: if cancellation fired in the window
-    // between the pre-start check and now, the token's onCancel setter
-    // invokes the callback retroactively (see _ExecutionCancelToken).
-    cancellationToken.onCancel = () {
-      unawaited(_terminateProcessTree(process, force: false));
-      unawaited(
-        Future<void>.delayed(const Duration(milliseconds: 800), () {
-          return _terminateProcessTree(process, force: true);
-        }),
-      );
-    };
-
-    final stdoutFuture = _collectOutput(process.stdout);
-    final stderrFuture = _collectOutput(process.stderr);
-
-    // Close stdin immediately — cron scripts should not wait for input.
+    ProcessResult? result;
+    int? pid;
+    var timedOut = false;
     try {
-      await process.stdin.close();
-    } catch (error, stack) {
-      silentLog('cron_executor', 'close child stdin', error, stack);
-    }
-
-    bool timedOut = false;
-    bool killed = false;
-    int? exitCode;
-
-    try {
-      exitCode = await process.exitCode.timeout(
-        timeout,
-        onTimeout: () {
+      result = await runProcessWithTimeout(
+        cmd.executable,
+        cmd.arguments,
+        workingDirectory: workDir,
+        environment: <String, String>{
+          ...SystemProxyResolver.instance.resolveSubprocessEnvironment(),
+          if (entry.environment.isNotEmpty) ...entry.environment,
+        },
+        timeout: timeout,
+        tag: 'cron_executor',
+        maxStdoutBytes: _maxCronOutputBytes,
+        maxStderrBytes: _maxCronOutputBytes,
+        outputDecoder: const SystemEncoding().decoder,
+        onProcessStarted: (process) {
+          pid = process.pid;
+          // The setter is retroactive: cancellation during spawn immediately
+          // terminates the process tree once the handle becomes available.
+          cancellationToken.onCancel = () {
+            unawaited(terminateTrackedProcessTree(process));
+          };
+        },
+        timeoutResultBuilder: (processId, stdout, stderr) {
           timedOut = true;
-          unawaited(_terminateProcessTree(process, force: false));
-          unawaited(
-            Future<void>.delayed(const Duration(seconds: 2), () {
-              return _terminateProcessTree(process, force: true);
-            }),
-          );
-          return -1;
+          return ProcessResult(processId, -1, stdout, stderr);
         },
       );
-    } catch (error, stack) {
-      silentLog('cron_executor', 'await process exitCode', error, stack);
-      timedOut = true;
-      await _terminateProcessTree(process, force: true);
+    } finally {
+      cancellationToken.clearOnCancel();
     }
 
-    if (cancellationToken.isCancelled) {
-      killed = true;
+    final killed = cancellationToken.isCancelled;
+    if (result == null) {
+      return _RunResult(
+        killed: killed,
+        error: killed ? null : 'Failed to start cron process',
+        pid: pid,
+      );
     }
-
-    final stdout = await stdoutFuture;
-    final stderr = await stderrFuture;
+    final exitCode = result.exitCode;
 
     return _RunResult(
       exitCode: exitCode,
-      stdout: stdout,
-      stderr: stderr,
-      timedOut: timedOut,
+      stdout: clipText(
+        result.stdout as String,
+        _maxCronOutputCharacters,
+        suffix: '',
+      ),
+      stderr: clipText(
+        result.stderr as String,
+        _maxCronOutputCharacters,
+        suffix: '',
+      ),
+      timedOut: timedOut && !killed,
       killed: killed,
-      pid: pid,
+      pid: pid ?? (result.pid > 0 ? result.pid : null),
     );
   }
 
@@ -406,49 +392,6 @@ class CronExecutor {
       pid: pid,
       triggerType: triggerType,
     );
-  }
-
-  static Future<void> _terminateProcessTree(
-    Process process, {
-    required bool force,
-  }) async {
-    final signal = force ? ProcessSignal.sigkill : ProcessSignal.sigterm;
-    try {
-      process.kill(signal);
-    } catch (error, stack) {
-      silentLog('cron_executor', 'process.kill($signal)', error, stack);
-    }
-
-    final processId = process.pid;
-    if (processId <= 0) return;
-
-    if (Platform.isWindows) {
-      final args = <String>['/PID', '$processId', '/T'];
-      if (force) args.add('/F');
-      try {
-        await runProcessWithTimeout(
-          'taskkill',
-          args,
-          timeout: const Duration(seconds: 5),
-          tag: 'cron_executor',
-        );
-      } catch (error, stack) {
-        silentLog('cron_executor', 'taskkill', error, stack);
-      }
-      return;
-    }
-
-    final signalFlag = force ? '-KILL' : '-TERM';
-    try {
-      await runProcessWithTimeout(
-        'pkill',
-        <String>[signalFlag, '-P', '$processId'],
-        timeout: const Duration(seconds: 5),
-        tag: 'cron_executor',
-      );
-    } catch (error, stack) {
-      silentLog('cron_executor', 'pkill', error, stack);
-    }
   }
 
   static _ShellCommand _buildCommand(CronEntry entry) {
@@ -493,26 +436,6 @@ class CronExecutor {
     }
     return _ShellCommand('bash', ['-c', content]);
   }
-
-  static Future<String> _collectOutput(Stream<List<int>> stream) async {
-    final buffer = StringBuffer();
-    try {
-      await for (final chunk in stream.transform(
-        const SystemEncoding().decoder,
-      )) {
-        if (buffer.length + chunk.length > _maxCronOutputCharacters) {
-          buffer.write(
-            chunk.substring(0, _maxCronOutputCharacters - buffer.length),
-          );
-          break;
-        }
-        buffer.write(chunk);
-      }
-    } catch (error, stack) {
-      silentLog('cron_executor', 'collect process output stream', error, stack);
-    }
-    return buffer.toString();
-  }
 }
 
 class _ShellCommand {
@@ -555,6 +478,8 @@ class _ExecutionCancelToken {
       callback();
     }
   }
+
+  void clearOnCancel() => _onCancel = null;
 
   void cancel() {
     if (isCancelled) return;

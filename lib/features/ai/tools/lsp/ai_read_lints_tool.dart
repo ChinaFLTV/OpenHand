@@ -1,20 +1,16 @@
-import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
 import '../../../../app/support/safe_subprocess.dart';
-import '../../../../app/support/silent_log.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../service/bash/ai_bash_tool_service.dart';
-import '../../service/runtime/ai_tool_execution_registry.dart';
 import '../../service/runtime/ai_tool_runtime_service.dart';
 import '../ai_tool.dart';
 import '../ai_tool_execution_context.dart';
 import '../ai_tool_utils.dart';
 
-/// 2026-04-10 ReadLints 工具 — 对标 Cursor 的 read_lints 诊断工具。
+/// 调用 `dart analyze` 或 `flutter analyze` 获取指定范围的诊断信息。
 ///
 /// 通过调用 `dart analyze` / `flutter analyze` 获取指定文件或目录的
 /// 编译错误、警告和提示信息。
@@ -98,73 +94,32 @@ class AiReadLintsTool extends AiTool {
       }
     }
 
-    // Use Process.start so we can hard-kill the lingering analyzer on
-    // timeout — `Process.run(...).timeout(...)` only abandons the Dart
-    // future while `flutter analyze` keeps consuming CPU/disk for the
-    // remainder of its run.
-    Process? process;
     var timedOut = false;
-    try {
-      process = await startTrackedProcess(
-        executable,
-        analyzeArgs,
-        workingDirectory: workingDirectory,
-      );
-    } on ProcessException catch (error, stack) {
-      silentLog('ai_read_lints_tool', 'spawn $executable', error, stack);
-      throw FormatException(
-        'Failed to launch "$executable analyze": ${error.message}',
-      );
-    }
-    // —— 接入执行登记中心：让 UI 能中止运行中的 analyze。
-    final registeredToolCallId = toolCallId;
-    if (registeredToolCallId != null && registeredToolCallId.isNotEmpty) {
-      final spawned = process;
-      AiToolExecutionRegistry.instance.attachPid(
-        registeredToolCallId,
-        spawned.pid,
-      );
-      AiToolExecutionRegistry.instance.attachKiller(
-        registeredToolCallId,
-        () async {
-          spawned.kill();
-          await Future<void>.delayed(const Duration(milliseconds: 500));
-          spawned.kill(ProcessSignal.sigkill);
-        },
-      );
-    }
-
-    final stdoutFuture = process.stdout
-        .transform(const Utf8Decoder(allowMalformed: true))
-        .join();
-    final stderrFuture = process.stderr
-        .transform(const Utf8Decoder(allowMalformed: true))
-        .join();
-
-    final exitCode = await process.exitCode.timeout(
-      const Duration(seconds: 60),
-      onTimeout: () {
+    final result = await runProcessWithTimeout(
+      executable,
+      analyzeArgs,
+      workingDirectory: workingDirectory,
+      timeout: const Duration(seconds: 60),
+      tag: 'ai_read_lints_tool',
+      toolCallId: toolCallId,
+      maxStdoutBytes: AiToolUtils.maxSearchOutputCharacters * 4,
+      maxStderrBytes: AiToolUtils.maxSearchOutputCharacters * 4,
+      timeoutResultBuilder: (pid, stdout, stderr) {
         timedOut = true;
-        process?.kill(ProcessSignal.sigkill);
-        return 124;
+        return ProcessResult(pid, 124, stdout, stderr);
       },
     );
-
-    final stdoutText = await stdoutFuture.timeout(
-      const Duration(seconds: 1),
-      onTimeout: () => '',
-    );
-    final stderrText = await stderrFuture.timeout(
-      const Duration(seconds: 1),
-      onTimeout: () => '',
-    );
+    if (result == null) {
+      throw FormatException('Failed to launch "$executable analyze".');
+    }
 
     if (timedOut) {
       return 'Analysis timed out after 60 seconds (analyzer process killed)';
     }
 
-    final stdout = stdoutText.trimRight();
-    final stderr = stderrText.trimRight();
+    final stdout = (result.stdout as String).trimRight();
+    final stderr = (result.stderr as String).trimRight();
+    final exitCode = result.exitCode;
 
     // dart/flutter analyze returns exit code 0 for success, non-zero for issues found
     // Both cases are valid — we want to show the diagnostics

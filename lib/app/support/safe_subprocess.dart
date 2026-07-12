@@ -36,6 +36,7 @@ const Duration _directChildEnumerationTimeout = Duration(seconds: 2);
 const Duration _directChildTerminateGrace = Duration(milliseconds: 120);
 const Duration _processTreeFinalWait = Duration(milliseconds: 250);
 const Duration _processStreamCleanupTimeout = Duration(milliseconds: 500);
+const Duration _windowsTaskkillTimeout = Duration(seconds: 2);
 const int _maxDescendantProcesses = 256;
 
 bool _isMissingExecutableProcessException(Object error) {
@@ -225,17 +226,37 @@ Future<void> _terminateTrackedProcessTree(
   Duration? gracefulTimeout,
   bool knownProcessGroupLeader = false,
 }) async {
+  final pid = process.pid;
+  if (pid <= 0) return;
   if (Platform.isWindows) {
+    await _runWindowsTaskkillTree(pid, force: false);
     try {
       process.kill();
     } catch (error, stack) {
       silentLog('safe_subprocess', 'terminate windows child', error, stack);
     }
+    final effectiveGracefulTimeout =
+        gracefulTimeout ??
+        Duration(milliseconds: safeSubprocessDefaultGracefulShutdownMs);
+    final boundedGracefulTimeout = effectiveGracefulTimeout.isNegative
+        ? Duration.zero
+        : effectiveGracefulTimeout;
+    try {
+      await process.exitCode.timeout(boundedGracefulTimeout);
+      return;
+    } on TimeoutException {
+      // Escalate the complete Windows process tree below.
+    } catch (error, stack) {
+      silentLog('safe_subprocess', 'wait windows child', error, stack);
+    }
+    await _runWindowsTaskkillTree(pid, force: true);
+    try {
+      process.kill(ProcessSignal.sigkill);
+    } catch (error, stack) {
+      silentLog('safe_subprocess', 'force kill windows child', error, stack);
+    }
     return;
   }
-
-  final pid = process.pid;
-  if (pid <= 0) return;
   final isGroupLeader =
       knownProcessGroupLeader ||
       (_trackedProcessGroupLeaders[process] ?? false);
@@ -297,6 +318,64 @@ Future<void> _terminateTrackedProcessTree(
     await process.exitCode.timeout(_processTreeFinalWait);
   } catch (error, stack) {
     silentLog('safe_subprocess', 'final process exit wait', error, stack);
+  }
+}
+
+Future<void> _runWindowsTaskkillTree(
+  int processId, {
+  required bool force,
+}) async {
+  if (processId <= 0) return;
+  final launchFuture = startTrackedProcess('taskkill', <String>[
+    '/PID',
+    '$processId',
+    '/T',
+    if (force) '/F',
+  ]);
+  Process? taskkill;
+  StreamSubscription<List<int>>? stdoutSub;
+  StreamSubscription<List<int>>? stderrSub;
+  try {
+    taskkill = await launchFuture.timeout(_windowsTaskkillTimeout);
+    stdoutSub = taskkill.stdout.listen(
+      (_) {},
+      onError: (Object error, StackTrace stack) {
+        silentLog('safe_subprocess', 'taskkill stdout', error, stack);
+      },
+      cancelOnError: true,
+    );
+    stderrSub = taskkill.stderr.listen(
+      (_) {},
+      onError: (Object error, StackTrace stack) {
+        silentLog('safe_subprocess', 'taskkill stderr', error, stack);
+      },
+      cancelOnError: true,
+    );
+    await taskkill.exitCode.timeout(
+      _windowsTaskkillTimeout,
+      onTimeout: () {
+        taskkill?.kill(ProcessSignal.sigkill);
+        return -1;
+      },
+    );
+  } on TimeoutException {
+    unawaited(
+      launchFuture.then<void>((lateProcess) {
+        lateProcess.kill(ProcessSignal.sigkill);
+      }, onError: (Object _, StackTrace _) {}),
+    );
+  } catch (error, stack) {
+    silentLog('safe_subprocess', 'taskkill process tree', error, stack);
+    try {
+      taskkill?.kill(ProcessSignal.sigkill);
+    } catch (killError, killStack) {
+      silentLog('safe_subprocess', 'kill stuck taskkill', killError, killStack);
+    }
+  } finally {
+    await Future.wait<void>(<Future<void>>[
+      _cancelProcessSubscription(stdoutSub, 'safe_subprocess', 'taskkill out'),
+      _cancelProcessSubscription(stderrSub, 'safe_subprocess', 'taskkill err'),
+    ]);
   }
 }
 
@@ -576,6 +655,8 @@ Future<int> _terminatePidSet(Set<int> pids, {required String tag}) async {
 /// [stdinBytes] are written before stdin is always closed, and that work shares
 /// the same wall-clock timeout. [onProcessStarted] runs once after output
 /// subscriptions are installed so cancellable callers can retain a safe handle.
+/// [outputDecoder] defaults to tolerant UTF-8; callers wrapping legacy system
+/// tools may supply [SystemEncoding.decoder] without duplicating collection.
 ///
 /// **Tool-execution registry integration**: when [toolCallId] is provided
 /// and non-empty, the spawned process registers its pid + a SIGTERM→SIGKILL
@@ -597,6 +678,9 @@ Future<ProcessResult?> runProcessWithTimeout(
   int? gracefulShutdownMs,
   int maxStdoutBytes = 1024 * 1024,
   int maxStderrBytes = 256 * 1024,
+  Converter<List<int>, String> outputDecoder = const Utf8Decoder(
+    allowMalformed: true,
+  ),
   bool startInNewProcessGroup = true,
   void Function(Process process)? onProcessStarted,
   ProcessResult Function(int pid, String stdout, String stderr)?
@@ -634,6 +718,16 @@ Future<ProcessResult?> runProcessWithTimeout(
     if (maxBytes <= 0 || target.length >= maxBytes) return;
     final remaining = maxBytes - target.length;
     target.add(chunk.length <= remaining ? chunk : chunk.sublist(0, remaining));
+  }
+
+  String decodeOutput(BytesBuilder source, String streamName) {
+    final bytes = source.takeBytes();
+    try {
+      return outputDecoder.convert(bytes);
+    } catch (error, stack) {
+      silentLog(tag, 'decode $streamName $executable', error, stack);
+      return const Utf8Decoder(allowMalformed: true).convert(bytes);
+    }
   }
 
   Future<bool> waitForStreams() async {
@@ -780,12 +874,8 @@ Future<ProcessResult?> runProcessWithTimeout(
         knownProcessGroupLeader: isProcessGroupLeader,
       );
     }
-    final stdoutText = const Utf8Decoder(
-      allowMalformed: true,
-    ).convert(stdoutBytes.takeBytes());
-    final stderrText = const Utf8Decoder(
-      allowMalformed: true,
-    ).convert(stderrBytes.takeBytes());
+    final stdoutText = decodeOutput(stdoutBytes, 'stdout');
+    final stderrText = decodeOutput(stderrBytes, 'stderr');
     if (timedOut) {
       return timeoutResultBuilder?.call(process.pid, stdoutText, stderrText);
     }
