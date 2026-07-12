@@ -84,6 +84,7 @@ import '../../shared/ui/section_placeholder.dart';
 import '../../shared/ui/streaming_text_reveal.dart';
 import '../../shared/ui/structured_error_text.dart';
 import '../../shared/util/async_concurrency.dart';
+import '../../shared/util/bounded_file_io.dart';
 import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/date_time_format.dart';
 import '../../shared/util/hex_encoding.dart';
@@ -325,6 +326,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     milliseconds: 600,
   );
   static const Duration _composerClipboardReadTimeout = Duration(seconds: 2);
+  static const Duration _composerAttachmentReadIdleTimeout = Duration(
+    seconds: 10,
+  );
+  static const Duration _composerAttachmentReadTotalTimeout = Duration(
+    seconds: 30,
+  );
   int _composerTransitionMeasurePassesRemaining = 0;
   bool _composerTransitionMeasureQueued = false;
   // 2026-06-07 修复：桌面端 WebView 平台视图可能吞掉 PointerScrollEvent，
@@ -6912,7 +6919,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       var resolvedPath = path;
       if (kind == AiAttachmentKind.image) {
         try {
-          final bytes = await File(path).readAsBytes();
+          final bytes = await readBoundedFileBytes(
+            File(path),
+            maxBytes: aiMessageAttachmentMaxFileBytes,
+            idleTimeout: _composerAttachmentReadIdleTimeout,
+            totalTimeout: _composerAttachmentReadTotalTimeout,
+          );
           if (!mounted) {
             return const _AppendComposerAttachmentsResult();
           }
@@ -6937,6 +6949,22 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           final tempFile = File(p.join(tempDir.path, '$basename.$ext'));
           await tempFile.writeAsBytes(editorResult.bytes, flush: true);
           resolvedPath = tempFile.path;
+        } on BoundedFileReadException catch (error, stack) {
+          silentLog('home', 'image attachment bounded read', error, stack);
+          if (error.failure == BoundedFileReadFailure.tooLarge) {
+            oversizedCount += 1;
+          } else {
+            unreadableCount += 1;
+          }
+          continue;
+        } on FileSystemException catch (error, stack) {
+          silentLog('home', 'image attachment file read', error, stack);
+          unreadableCount += 1;
+          continue;
+        } on TimeoutException catch (error, stack) {
+          silentLog('home', 'image attachment read timeout', error, stack);
+          unreadableCount += 1;
+          continue;
         } catch (error, stack) {
           silentLog('home', 'image attachment editor', error, stack);
           resolvedPath = path;
@@ -6946,9 +6974,13 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         continue;
       }
       try {
-        nextAttachments.add(
-          await _ComposerAttachmentDraft.fromPath(resolvedPath),
-        );
+        final draft = await _ComposerAttachmentDraft.fromPath(resolvedPath);
+        if (draft.sizeBytes < 0 ||
+            draft.sizeBytes > aiMessageAttachmentMaxFileBytes) {
+          oversizedCount += 1;
+          continue;
+        }
+        nextAttachments.add(draft);
       } catch (error, stack) {
         silentLog('home', 'attachment draft', error, stack);
         unreadableCount += 1;

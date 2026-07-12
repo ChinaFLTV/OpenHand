@@ -13,7 +13,10 @@ import 'package:uuid/uuid.dart';
 import '../../../../app/support/openhand_paths.dart';
 import '../../../../app/support/safe_subprocess.dart';
 import '../../../../app/support/silent_log.dart';
+import '../../../../app/support/system_proxy.dart';
 import '../../../../shared/net/http_status_utils.dart';
+import '../../../../shared/util/bounded_file_io.dart';
+import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/lifecycle_cache.dart';
 import '../../../../shared/util/text_clip.dart';
@@ -24,6 +27,9 @@ import '../../model/ai_model_config.dart';
 import '../../model/ai_tts_provider_catalog.dart';
 import '../../model/ai_tts_settings.dart';
 import '../media/ai_image_generation_service.dart';
+import '../runtime/ai_transport_client.dart';
+
+typedef AiTtsTransportFactory = AiTransportClient Function();
 
 class AiTtsPlaybackSnapshot {
   const AiTtsPlaybackSnapshot({
@@ -38,10 +44,13 @@ class AiTtsPlaybackSnapshot {
 }
 
 class AiTtsPlaybackService {
-  AiTtsPlaybackService({AiImageGenerationService? mediaGenerationService})
-    : _mediaGenerationService =
-          mediaGenerationService ?? AiImageGenerationService(),
-      _ownsMediaGenerationService = mediaGenerationService == null;
+  AiTtsPlaybackService({
+    AiImageGenerationService? mediaGenerationService,
+    AiTtsTransportFactory? transportFactory,
+  }) : _mediaGenerationService =
+           mediaGenerationService ?? AiImageGenerationService(),
+       _ownsMediaGenerationService = mediaGenerationService == null,
+       _transportFactory = transportFactory ?? (() => AiTransportClient());
 
   static const String settingsTestMessageId = '__settings_tts_test__';
   static const String settingsTestText = '这是一段文本转语音测试。';
@@ -51,9 +60,24 @@ class AiTtsPlaybackService {
   static const int _defaultAiTtsBitRate = 128000;
   static const int _audioCacheMaxEntries = 48;
   static const int _audioCacheMaxBytes = 64 * 1024 * 1024;
+  static const int _maxAudioResponseBytes = _audioCacheMaxBytes;
+  static const int _maxAudioJsonResponseBytes = 96 * kBytesPerMiB;
+  static const int _maxControlResponseBytes = kBytesPerMiB;
+  static const int _maxDoubaoFrameChars = 16 * kBytesPerMiB;
+  static const int _maxWebSocketEventChars = 16 * kBytesPerMiB;
+  static const int _maxVoiceSampleBytes = 10 * kBytesPerMiB;
+  static const Duration _fileReadIdleTimeout = Duration(seconds: 15);
+  static const Duration _networkIdleTimeout = Duration(seconds: 30);
+  static const Duration _resourceCloseTimeout = Duration(seconds: 2);
+  static const Duration _playbackFileIoTimeout = Duration(seconds: 30);
+  static const Duration _stalePlaybackCleanupTimeout = Duration(seconds: 2);
+  static const Duration _stalePlaybackFileAge = Duration(days: 1);
+  static const int _stalePlaybackScanLimit = 256;
+  static const int _stalePlaybackDeleteLimit = 64;
   static const Duration _speechProcessPipeDrainTimeout = Duration(
     milliseconds: 300,
   );
+  static const Duration _speechProcessStartTimeout = Duration(seconds: 10);
   static const Duration _speechProcessTerminateGrace = Duration(
     milliseconds: 500,
   );
@@ -90,12 +114,13 @@ class AiTtsPlaybackService {
 
   final AiImageGenerationService _mediaGenerationService;
   final bool _ownsMediaGenerationService;
+  final AiTtsTransportFactory _transportFactory;
   final ValueNotifier<AiTtsPlaybackSnapshot> state =
       ValueNotifier<AiTtsPlaybackSnapshot>(const AiTtsPlaybackSnapshot());
   int _generation = 0;
-  Process? _activeProcess;
-  WebSocket? _activeWebSocket;
-  http.Client? _activeClient;
+  int _tempFileSerial = 0;
+  _AiTtsOperation? _activeOperation;
+  Future<void>? _stalePlaybackCleanupFuture;
   Future<Set<String>>? _macOsVoiceNamesFuture;
 
   bool isPlayingMessage(String messageId) {
@@ -136,10 +161,22 @@ class AiTtsPlaybackService {
     final content = _normalizeText(text, normalized.maxTextCharacters);
     if (content.isEmpty) return;
     final generation = ++_generation;
+    final synthesisTimeout = Duration(seconds: normalized.timeoutSeconds);
     for (final provider in normalized.providerPriority) {
       if (generation != _generation) return;
       final providerSettings = normalized.provider(provider);
       if (!providerSettings.enabled) continue;
+      final operation = _AiTtsOperation(
+        timeout: synthesisTimeout,
+        transport: _transportFactory(),
+      );
+      _activeOperation = operation;
+      bool isCurrent() {
+        return generation == _generation &&
+            identical(_activeOperation, operation) &&
+            !operation.isCancelled;
+      }
+
       state.value = AiTtsPlaybackSnapshot(
         playing: true,
         messageId: messageId,
@@ -149,20 +186,20 @@ class AiTtsPlaybackService {
         await _speakWithProvider(
           providerSettings,
           content,
-          timeout: Duration(seconds: normalized.timeoutSeconds),
+          operation: operation,
           availableModels: availableModels,
           fallbackModel: fallbackModel,
-          isCurrent: () => generation == _generation,
+          isCurrent: isCurrent,
         );
-        if (generation == _generation) await stop();
+        if (isCurrent()) await stop();
         return;
       } catch (error, stack) {
+        await _releaseOperation(operation);
         if (error is _AiTtsPlaybackCancelled) return;
         if (generation != _generation) return;
         if (!isAiTtsConfigurationError(error)) {
           silentLog('tts', 'provider ${provider.storageKey}', error, stack);
         }
-        await _stopActiveResources(clearState: false);
       }
     }
     if (generation == _generation) {
@@ -185,6 +222,17 @@ class AiTtsPlaybackService {
     }
     final providerSettings = normalized.provider(provider);
     final generation = ++_generation;
+    final operation = _AiTtsOperation(
+      timeout: Duration(seconds: normalized.timeoutSeconds),
+      transport: _transportFactory(),
+    );
+    _activeOperation = operation;
+    bool isCurrent() {
+      return generation == _generation &&
+          identical(_activeOperation, operation) &&
+          !operation.isCancelled;
+    }
+
     state.value = AiTtsPlaybackSnapshot(
       playing: true,
       messageId: settingsTestMessageId,
@@ -194,23 +242,37 @@ class AiTtsPlaybackService {
       await _speakWithProvider(
         providerSettings,
         content,
-        timeout: Duration(seconds: normalized.timeoutSeconds),
+        operation: operation,
         availableModels: availableModels,
         fallbackModel: fallbackModel,
-        isCurrent: () => generation == _generation,
+        isCurrent: isCurrent,
       );
     } on _AiTtsPlaybackCancelled {
       return;
+    } catch (_) {
+      if (!isCurrent()) return;
+      rethrow;
     } finally {
+      await _releaseOperation(operation);
       if (generation == _generation) {
-        await _stopActiveResources(clearState: true);
+        state.value = const AiTtsPlaybackSnapshot();
       }
     }
   }
 
   Future<void> stop() async {
     _generation += 1;
-    await _stopActiveResources(clearState: true);
+    final operation = _activeOperation;
+    _activeOperation = null;
+    if (operation != null) await operation.close();
+    state.value = const AiTtsPlaybackSnapshot();
+  }
+
+  Future<void> _releaseOperation(_AiTtsOperation operation) async {
+    if (identical(_activeOperation, operation)) {
+      _activeOperation = null;
+    }
+    await operation.close();
   }
 
   Future<void> dispose() async {
@@ -243,7 +305,7 @@ class AiTtsPlaybackService {
   Future<void> _speakWithProvider(
     AiTtsProviderSettings provider,
     String text, {
-    required Duration timeout,
+    required _AiTtsOperation operation,
     required List<AiModelConfig> availableModels,
     required AiModelConfig? fallbackModel,
     required bool Function() isCurrent,
@@ -253,7 +315,8 @@ class AiTtsPlaybackService {
       await _speakWithSystem(
         provider,
         text,
-        timeout: timeout,
+        timeout: operation.timeout,
+        operation: operation,
         isCurrent: isCurrent,
       );
       return;
@@ -268,7 +331,7 @@ class AiTtsPlaybackService {
     final cacheKey = await _ttsAudioCacheKey(
       provider: provider,
       text: text,
-      timeout: timeout,
+      timeout: operation.remainingSynthesisTime(),
       availableModels: availableModels,
       fallbackModel: fallbackModel,
     );
@@ -277,19 +340,21 @@ class AiTtsPlaybackService {
       audio = await _synthesizeWithProvider(
         provider,
         text,
-        timeout: timeout,
+        operation: operation,
         availableModels: availableModels,
         fallbackModel: fallbackModel,
       );
       _audioCache.put(cacheKey, audio);
     }
+    operation.throwIfCancelled();
     if (!isCurrent()) throw const _AiTtsPlaybackCancelled();
     await _playAudioBytes(
       audio.bytes,
       extension: audio.extension,
       volume: _playbackVolume(provider, aiModel: resolvedAiModel),
       provider: provider,
-      requestTimeout: timeout,
+      requestTimeout: operation.timeout,
+      operation: operation,
       isCurrent: isCurrent,
     );
   }
@@ -297,7 +362,7 @@ class AiTtsPlaybackService {
   Future<_AiTtsAudioPayload> _synthesizeWithProvider(
     AiTtsProviderSettings provider,
     String text, {
-    required Duration timeout,
+    required _AiTtsOperation operation,
     required List<AiModelConfig> availableModels,
     required AiModelConfig? fallbackModel,
   }) {
@@ -306,7 +371,7 @@ class AiTtsPlaybackService {
         return _synthesizeWithAiModel(
           provider,
           text,
-          timeout: timeout,
+          operation: operation,
           availableModels: availableModels,
           fallbackModel: fallbackModel,
         );
@@ -314,26 +379,26 @@ class AiTtsPlaybackService {
       case AiTtsProvider.apple:
         throw StateError('System TTS is not cacheable.');
       case AiTtsProvider.xfyun:
-        return _synthesizeWithXfyun(provider, text, timeout: timeout);
+        return _synthesizeWithXfyun(provider, text, operation: operation);
       case AiTtsProvider.baidu:
-        return _synthesizeWithBaidu(provider, text, timeout: timeout);
+        return _synthesizeWithBaidu(provider, text, operation: operation);
       case AiTtsProvider.doubao:
-        return _synthesizeWithDoubao(provider, text, timeout: timeout);
+        return _synthesizeWithDoubao(provider, text, operation: operation);
       case AiTtsProvider.mimo:
-        return _synthesizeWithMimo(provider, text, timeout: timeout);
+        return _synthesizeWithMimo(provider, text, operation: operation);
       case AiTtsProvider.youdao:
-        return _synthesizeWithYoudao(provider, text, timeout: timeout);
+        return _synthesizeWithYoudao(provider, text, operation: operation);
       case AiTtsProvider.bing:
-        return _synthesizeWithBing(provider, text, timeout: timeout);
+        return _synthesizeWithBing(provider, text, operation: operation);
       case AiTtsProvider.google:
-        return _synthesizeWithGoogle(provider, text, timeout: timeout);
+        return _synthesizeWithGoogle(provider, text, operation: operation);
     }
   }
 
   Future<_AiTtsAudioPayload> _synthesizeWithAiModel(
     AiTtsProviderSettings settings,
     String text, {
-    required Duration timeout,
+    required _AiTtsOperation operation,
     required List<AiModelConfig> availableModels,
     required AiModelConfig? fallbackModel,
   }) async {
@@ -385,8 +450,9 @@ class AiTtsPlaybackService {
           fallback: _defaultAiTtsBitRate,
         ),
       ),
-      timeout: timeout,
+      timeout: operation.remainingSynthesisTime(),
     );
+    operation.throwIfCancelled();
     final audioReference = _firstMediaReference(result.markdown);
     if (audioReference.isEmpty) {
       throw StateError('AI TTS returned no playable audio.');
@@ -394,7 +460,7 @@ class AiTtsPlaybackService {
     return _audioPayloadFromReference(
       audioReference,
       outputFormat: outputFormat,
-      timeout: timeout,
+      operation: operation,
     );
   }
 
@@ -566,7 +632,7 @@ class AiTtsPlaybackService {
   Future<_AiTtsAudioPayload> _synthesizeWithMimo(
     AiTtsProviderSettings settings,
     String text, {
-    required Duration timeout,
+    required _AiTtsOperation operation,
   }) async {
     if (settings.apiKey.isEmpty) {
       throw StateError('Mimo TTS API key is empty.');
@@ -579,7 +645,7 @@ class AiTtsPlaybackService {
       'format': audioFormat,
       if (_mimoUsesPresetVoice(model)) 'voice': settings.voice.trim(),
       if (_mimoUsesVoiceClone(model))
-        'voice': await _mimoVoiceSampleDataUrl(settings, timeout: timeout),
+        'voice': await _mimoVoiceSampleDataUrl(settings, operation: operation),
       if (!_mimoUsesPresetVoice(model) &&
           _extraBool(settings, 'optimize_text_preview'))
         'optimize_text_preview': true,
@@ -588,85 +654,82 @@ class AiTtsPlaybackService {
         (audio['voice'] as String?)?.isEmpty != false) {
       throw StateError('Mimo TTS voice is empty.');
     }
-    final client = http.Client();
-    _activeClient = client;
-    try {
-      final response = await client
-          .post(
-            uri,
-            headers: <String, String>{
-              HttpHeaders.contentTypeHeader: 'application/json; charset=utf-8',
-              HttpHeaders.acceptHeader: 'application/json',
-              'api-key': settings.apiKey,
-            },
-            body: jsonEncode(<String, Object?>{
-              'model': model,
-              'messages': <Object?>[
-                <String, Object?>{
-                  'role': 'user',
-                  'content': _mimoStylePrompt(settings),
-                },
-                <String, Object?>{'role': 'assistant', 'content': text},
-              ],
-              'audio': audio,
-            }),
-          )
-          .timeout(timeout);
-      if (isHttpFailureStatus(response.statusCode)) {
-        throw HttpException(
-          'Mimo TTS HTTP ${response.statusCode}: ${_shortBody(response)}',
-          uri: uri,
-        );
-      }
-      final audioBytes =
-          await compute(_decodeMimoAudioPayload, <String, Object?>{
-            'body': response.body,
-            'format': audioFormat,
-            'sample_rate': _extraInt(settings, 'sample_rate', fallback: 24000),
-          });
-      return _AiTtsAudioPayload(
-        audioBytes,
-        extension: _mimoAudioExtension(audioFormat),
+    final response = await operation.transport.sendJson(
+      uri: uri,
+      method: 'POST',
+      headers: <String, String>{
+        HttpHeaders.contentTypeHeader: 'application/json; charset=utf-8',
+        HttpHeaders.acceptHeader: 'application/json',
+        'api-key': settings.apiKey,
+      },
+      body: <String, Object?>{
+        'model': model,
+        'messages': <Object?>[
+          <String, Object?>{
+            'role': 'user',
+            'content': _mimoStylePrompt(settings),
+          },
+          <String, Object?>{'role': 'assistant', 'content': text},
+        ],
+        'audio': audio,
+      },
+      timeout: operation.remainingSynthesisTime(),
+      maxResponseBytes: _maxAudioJsonResponseBytes,
+    );
+    if (isHttpFailureStatus(response.statusCode)) {
+      throw HttpException(
+        'Mimo TTS HTTP ${response.statusCode}: ${_shortBody(response)}',
+        uri: uri,
       );
-    } finally {
-      if (identical(_activeClient, client)) _activeClient = null;
-      client.close();
     }
+    operation.throwIfCancelled();
+    final audioBytes = await compute(_decodeMimoAudioPayload, <String, Object?>{
+      'body': response.body,
+      'format': audioFormat,
+      'sample_rate': _extraInt(settings, 'sample_rate', fallback: 24000),
+      'max_audio_bytes': _maxAudioResponseBytes,
+    });
+    operation.throwIfCancelled();
+    return _AiTtsAudioPayload(
+      audioBytes,
+      extension: _mimoAudioExtension(audioFormat),
+    );
   }
 
   Future<String> _mimoVoiceSampleDataUrl(
     AiTtsProviderSettings settings, {
-    required Duration timeout,
+    required _AiTtsOperation operation,
   }) async {
     final path = _extraString(settings, 'voice_sample_path');
     if (path.isEmpty) {
       throw StateError('Mimo TTS voice sample path is empty.');
     }
-    final file = File(path);
-    final exists = await file.exists().timeout(timeout);
-    if (!exists) {
-      throw StateError('Mimo TTS voice sample file does not exist.');
-    }
-    final stat = await file.stat().timeout(timeout);
-    const maxVoiceSampleBytes = 10 * 1024 * 1024;
-    if (stat.size <= 0) {
-      throw StateError('Mimo TTS voice sample file is empty.');
-    }
-    if (stat.size > maxVoiceSampleBytes) {
-      throw StateError('Mimo TTS voice sample file is larger than 10 MB.');
-    }
     final mimeType = _mimoVoiceSampleMimeType(path);
     if (mimeType == null) {
       throw StateError('Mimo TTS voice sample format must be mp3 or wav.');
     }
-    final bytes = await file.readAsBytes().timeout(timeout);
+    final file = File(path);
+    final remaining = operation.remainingSynthesisTime();
+    final bytes = await readBoundedFileBytes(
+      file,
+      maxBytes: _maxVoiceSampleBytes,
+      idleTimeout: remaining < _fileReadIdleTimeout
+          ? remaining
+          : _fileReadIdleTimeout,
+      totalTimeout: remaining,
+      handleOwner: operation,
+    );
+    operation.throwIfCancelled();
+    if (bytes.isEmpty) {
+      throw StateError('Mimo TTS voice sample file is empty.');
+    }
     return 'data:$mimeType;base64,${base64Encode(bytes)}';
   }
 
   Future<_AiTtsAudioPayload> _synthesizeWithDoubao(
     AiTtsProviderSettings settings,
     String text, {
-    required Duration timeout,
+    required _AiTtsOperation operation,
   }) async {
     if (settings.apiKey.isEmpty) {
       throw StateError('Doubao TTS API key is empty.');
@@ -691,79 +754,79 @@ class AiTtsPlaybackService {
     final explicitLanguage = optionalLowercaseStringFromValue(
       settings.language,
     );
-    final request = http.Request('POST', uri)
-      ..headers.addAll(<String, String>{
+    final requestBody = <String, Object?>{
+      'req_params': <String, Object?>{
+        'text': text,
+        'speaker': speaker,
+        if (requestModel.isNotEmpty) 'model': requestModel,
+        'audio_params': <String, Object?>{
+          'format': audioFormat,
+          'sample_rate': _extraInt(settings, 'sample_rate', fallback: 24000),
+          'bit_rate': _extraInt(settings, 'bit_rate', fallback: 128000),
+          'speech_rate': settings.speed.round().clamp(-50, 100),
+          'loudness_rate': settings.volume.round().clamp(-50, 100),
+        },
+        'additions': jsonEncode(<String, Object?>{
+          'disable_markdown_filter': _extraBool(
+            settings,
+            'disable_markdown_filter',
+          ),
+          'disable_emoji_filter': _extraBool(settings, 'disable_emoji_filter'),
+          if (explicitLanguage != null) 'explicit_language': explicitLanguage,
+        }),
+        'post_process': <String, Object?>{
+          'pitch': settings.pitch.round().clamp(-12, 12),
+        },
+      },
+    };
+    return operation.transport.consumeJsonStream<_AiTtsAudioPayload>(
+      uri: uri,
+      method: 'POST',
+      headers: <String, String>{
         HttpHeaders.contentTypeHeader: 'application/json; charset=utf-8',
         HttpHeaders.acceptHeader: 'application/json',
         'X-Api-Key': settings.apiKey,
         'X-Api-Resource-Id': resourceId,
         'X-Api-Request-Id': requestId,
         HttpHeaders.connectionHeader: 'keep-alive',
-      })
-      ..body = jsonEncode(<String, Object?>{
-        'req_params': <String, Object?>{
-          'text': text,
-          'speaker': speaker,
-          if (requestModel.isNotEmpty) 'model': requestModel,
-          'audio_params': <String, Object?>{
-            'format': audioFormat,
-            'sample_rate': _extraInt(settings, 'sample_rate', fallback: 24000),
-            'bit_rate': _extraInt(settings, 'bit_rate', fallback: 128000),
-            'speech_rate': settings.speed.round().clamp(-50, 100),
-            'loudness_rate': settings.volume.round().clamp(-50, 100),
+      },
+      body: requestBody,
+      timeout: operation.remainingSynthesisTime(),
+      maxResponseBytes: _maxAudioJsonResponseBytes,
+      consume: (_, stream) async {
+        final audioBytes = BytesBuilder(copy: false);
+        final parser = _DoubaoJsonObjectParser(
+          maxObjectChars: _maxDoubaoFrameChars,
+          onObject: (payload) {
+            _handleDoubaoPayload(
+              payload,
+              onAudio: (audio) => _appendBoundedBase64Audio(
+                audioBytes,
+                audio,
+                maxBytes: _maxAudioResponseBytes,
+              ),
+            );
           },
-          'additions': jsonEncode(<String, Object?>{
-            'disable_markdown_filter': _extraBool(
-              settings,
-              'disable_markdown_filter',
-            ),
-            'disable_emoji_filter': _extraBool(
-              settings,
-              'disable_emoji_filter',
-            ),
-            if (explicitLanguage != null) 'explicit_language': explicitLanguage,
-          }),
-          'post_process': <String, Object?>{
-            'pitch': settings.pitch.round().clamp(-12, 12),
-          },
-        },
-      });
-    final client = http.Client();
-    _activeClient = client;
-    try {
-      final streamed = await client.send(request).timeout(timeout);
-      if (isHttpFailureStatus(streamed.statusCode)) {
-        throw HttpException('Doubao TTS HTTP ${streamed.statusCode}', uri: uri);
-      }
-      final audioBytes = BytesBuilder(copy: false);
-      final pending = StringBuffer();
-      await for (final chunk in streamed.stream.timeout(timeout)) {
-        final textChunk = utf8.decode(chunk, allowMalformed: true);
-        pending.write(textChunk);
-        _drainDoubaoJsonLines(
-          pending,
-          onAudio: (audio) => audioBytes.add(base64Decode(audio)),
         );
-      }
-      _drainDoubaoJsonLines(
-        pending,
-        flush: true,
-        onAudio: (audio) => audioBytes.add(base64Decode(audio)),
-      );
-      return _AiTtsAudioPayload(
-        audioBytes.takeBytes(),
-        extension: _audioExtension(audioFormat),
-      );
-    } finally {
-      if (identical(_activeClient, client)) _activeClient = null;
-      client.close();
-    }
+        await for (final chunk in stream.transform(utf8.decoder)) {
+          operation.throwIfCancelled();
+          parser.add(chunk);
+        }
+        parser.finish();
+        operation.throwIfCancelled();
+        return _AiTtsAudioPayload(
+          audioBytes.takeBytes(),
+          extension: _audioExtension(audioFormat),
+        );
+      },
+    );
   }
 
   Future<void> _speakWithSystem(
     AiTtsProviderSettings settings,
     String text, {
     required Duration timeout,
+    required _AiTtsOperation operation,
     required bool Function() isCurrent,
   }) async {
     if (!isCurrent()) throw const _AiTtsPlaybackCancelled();
@@ -778,40 +841,47 @@ class AiTtsPlaybackService {
       ).timeout(const Duration(seconds: 2), onTimeout: () => '');
       if (!isCurrent()) throw const _AiTtsPlaybackCancelled();
       if (voice.isNotEmpty) {
-        await _runSpeechProcess('say', <String>[
-          '-v',
-          voice,
-          '-r',
-          '${_systemRate(settings.speed)}',
-          text,
-        ], timeout: playbackTimeout);
+        await _runSpeechProcess(
+          'say',
+          <String>['-v', voice, '-r', '${_systemRate(settings.speed)}', text],
+          timeout: playbackTimeout,
+          operation: operation,
+        );
         return;
       }
-      await _runSpeechProcess('osascript', <String>[
-        '-e',
-        _macOsSpeechScript(text, settings),
-      ], timeout: playbackTimeout);
+      await _runSpeechProcess(
+        'osascript',
+        <String>['-e', _macOsSpeechScript(text, settings)],
+        timeout: playbackTimeout,
+        operation: operation,
+      );
       return;
     }
     if (Platform.isWindows) {
       if (!isCurrent()) throw const _AiTtsPlaybackCancelled();
       final script = _windowsSpeechScript(text, settings);
-      await _runSpeechProcess('powershell', <String>[
-        '-NoProfile',
-        '-ExecutionPolicy',
-        'Bypass',
-        '-Command',
-        script,
-      ], timeout: playbackTimeout);
+      await _runSpeechProcess(
+        'powershell',
+        <String>[
+          '-NoProfile',
+          '-ExecutionPolicy',
+          'Bypass',
+          '-Command',
+          script,
+        ],
+        timeout: playbackTimeout,
+        operation: operation,
+      );
       return;
     }
     if (Platform.isLinux) {
       if (!isCurrent()) throw const _AiTtsPlaybackCancelled();
-      await _runSpeechProcess('spd-say', <String>[
-        '-r',
-        '${_linuxRate(settings.speed)}',
-        text,
-      ], timeout: playbackTimeout);
+      await _runSpeechProcess(
+        'spd-say',
+        <String>['-r', '${_linuxRate(settings.speed)}', text],
+        timeout: playbackTimeout,
+        operation: operation,
+      );
       return;
     }
     throw UnsupportedError('System TTS is not available on this platform.');
@@ -820,7 +890,7 @@ class AiTtsPlaybackService {
   Future<_AiTtsAudioPayload> _synthesizeWithXfyun(
     AiTtsProviderSettings settings,
     String text, {
-    required Duration timeout,
+    required _AiTtsOperation operation,
   }) async {
     if (settings.appId.isEmpty ||
         settings.apiKey.isEmpty ||
@@ -829,63 +899,116 @@ class AiTtsPlaybackService {
     }
     final endpoint = _endpointOrDefault(settings);
     final uri = _xfyunAuthorizedUri(Uri.parse(endpoint), settings);
-    final ws = await WebSocket.connect('$uri').timeout(timeout);
-    _activeWebSocket = ws;
-    final audioBytes = BytesBuilder(copy: false);
-    ws.add(
-      jsonEncode(<String, Object?>{
-        'common': <String, Object?>{'app_id': settings.appId},
-        'business': <String, Object?>{
-          'aue': '${settings.extra['aue'] ?? 'lame'}',
-          'auf': '${settings.extra['auf'] ?? 'audio/L16;rate=16000'}',
-          'vcn': settings.voice.isEmpty ? 'xiaoyan' : settings.voice,
-          'speed': settings.speed.round().clamp(0, 100),
-          'volume': settings.volume.round().clamp(0, 100),
-          'pitch': settings.pitch.round().clamp(0, 100),
-          'tte': 'UTF8',
-        },
-        'data': <String, Object?>{
-          'status': 2,
-          'text': base64Encode(utf8.encode(text)),
-        },
-      }),
+    final connectionBudget = operation.remainingSynthesisTime();
+    final handshakeClient = SystemProxyResolver.instance.createRawHttpClient(
+      connectionTimeout: connectionBudget < _networkIdleTimeout
+          ? connectionBudget
+          : _networkIdleTimeout,
     );
-    await for (final event in ws.timeout(timeout)) {
-      if (event is! String) continue;
-      final decoded = jsonDecode(event);
-      if (decoded is! Map) continue;
-      final code = decoded['code'];
-      if (code is int && code != 0) {
-        throw StateError('Xfyun TTS failed: ${decoded['message'] ?? code}');
-      }
-      final data = decoded['data'];
-      if (data is Map) {
-        final audio = data['audio'];
-        if (audio is String && audio.isNotEmpty) {
-          audioBytes.add(base64Decode(audio));
-        }
-        if (data['status'] == 2) break;
-      }
-    }
+    operation.registerHttpClient(handshakeClient);
+    WebSocket? ws;
     try {
-      await ws.close().timeout(const Duration(seconds: 1));
+      final remaining = operation.remainingSynthesisTime();
+      ws = await operation.acquireWebSocket(
+        WebSocket.connect('$uri', customClient: handshakeClient),
+        timeout: remaining,
+        onTimeout: () => handshakeClient.close(force: true),
+      );
+      final activeWebSocket = ws;
+      final audioBytes = BytesBuilder(copy: false);
+      activeWebSocket.add(
+        jsonEncode(<String, Object?>{
+          'common': <String, Object?>{'app_id': settings.appId},
+          'business': <String, Object?>{
+            'aue': '${settings.extra['aue'] ?? 'lame'}',
+            'auf': '${settings.extra['auf'] ?? 'audio/L16;rate=16000'}',
+            'vcn': settings.voice.isEmpty ? 'xiaoyan' : settings.voice,
+            'speed': settings.speed.round().clamp(0, 100),
+            'volume': settings.volume.round().clamp(0, 100),
+            'pitch': settings.pitch.round().clamp(0, 100),
+            'tte': 'UTF8',
+          },
+          'data': <String, Object?>{
+            'status': 2,
+            'text': base64Encode(utf8.encode(text)),
+          },
+        }),
+      );
+
+      Future<void> consumeEvents() async {
+        final remaining = operation.remainingSynthesisTime();
+        final idleTimeout = remaining < _networkIdleTimeout
+            ? remaining
+            : _networkIdleTimeout;
+        await for (final event in activeWebSocket.timeout(idleTimeout)) {
+          operation.throwIfCancelled();
+          if (event is String) {
+            if (event.length > _maxWebSocketEventChars) {
+              throw const FormatException(
+                'Xfyun TTS event exceeds the safety limit.',
+              );
+            }
+            final decoded = jsonDecode(event);
+            if (decoded is! Map) continue;
+            final code = decoded['code'];
+            if (code is int && code != 0) {
+              throw StateError(
+                'Xfyun TTS failed: ${decoded['message'] ?? code}',
+              );
+            }
+            final data = decoded['data'];
+            if (data is Map) {
+              final audio = data['audio'];
+              if (audio is String && audio.isNotEmpty) {
+                _appendBoundedBase64Audio(
+                  audioBytes,
+                  audio,
+                  maxBytes: _maxAudioResponseBytes,
+                );
+              }
+              if (data['status'] == 2) return;
+            }
+          } else if (event is List<int> &&
+              event.length > _maxWebSocketEventChars) {
+            throw const FormatException(
+              'Xfyun TTS event exceeds the safety limit.',
+            );
+          }
+        }
+      }
+
+      final totalRemaining = operation.remainingSynthesisTime();
+      await consumeEvents().timeout(
+        totalRemaining,
+        onTimeout: () => throw TimeoutException(
+          'Xfyun TTS exceeded its total time limit.',
+          totalRemaining,
+        ),
+      );
+      operation.throwIfCancelled();
+      return _AiTtsAudioPayload(
+        audioBytes.takeBytes(),
+        extension: '${settings.extra['aue'] ?? 'mp3'}' == 'raw'
+            ? '.pcm'
+            : '.mp3',
+      );
     } finally {
-      if (identical(_activeWebSocket, ws)) _activeWebSocket = null;
+      final activeWebSocket = ws;
+      if (activeWebSocket != null) {
+        await operation.releaseWebSocket(activeWebSocket);
+      }
+      operation.releaseHttpClient(handshakeClient);
     }
-    return _AiTtsAudioPayload(
-      audioBytes.takeBytes(),
-      extension: '${settings.extra['aue'] ?? 'mp3'}' == 'raw' ? '.pcm' : '.mp3',
-    );
   }
 
   Future<_AiTtsAudioPayload> _synthesizeWithBaidu(
     AiTtsProviderSettings settings,
     String text, {
-    required Duration timeout,
+    required _AiTtsOperation operation,
   }) async {
     final accessToken = settings.accessToken.isNotEmpty
         ? settings.accessToken
-        : await _fetchBaiduAccessToken(settings, timeout: timeout);
+        : await _fetchBaiduAccessToken(settings, operation: operation);
     final endpoint = _endpointOrDefault(settings);
     final uri = Uri.parse(endpoint).replace(
       queryParameters: <String, String>{
@@ -901,28 +1024,27 @@ class AiTtsPlaybackService {
         'aue': '3',
       },
     );
-    final client = http.Client();
-    _activeClient = client;
-    try {
-      final response = await client.get(uri).timeout(timeout);
-      if (isHttpFailureStatus(response.statusCode)) {
-        throw HttpException('Baidu TTS HTTP ${response.statusCode}', uri: uri);
-      }
-      final contentType = response.headers['content-type'] ?? '';
-      if (!contentType.startsWith('audio/')) {
-        throw StateError('Baidu TTS returned non-audio response.');
-      }
-      return _AiTtsAudioPayload(response.bodyBytes, extension: '.mp3');
-    } finally {
-      if (identical(_activeClient, client)) _activeClient = null;
-      client.close();
+    final response = await operation.transport.get(
+      uri: uri,
+      headers: const <String, String>{HttpHeaders.acceptHeader: 'audio/*'},
+      timeout: operation.remainingSynthesisTime(),
+      maxResponseBytes: _maxAudioResponseBytes,
+    );
+    if (isHttpFailureStatus(response.statusCode)) {
+      throw HttpException('Baidu TTS HTTP ${response.statusCode}', uri: uri);
     }
+    final contentType = response.headers['content-type'] ?? '';
+    if (!contentType.startsWith('audio/')) {
+      throw StateError('Baidu TTS returned non-audio response.');
+    }
+    operation.throwIfCancelled();
+    return _AiTtsAudioPayload(response.bodyBytes, extension: '.mp3');
   }
 
   Future<_AiTtsAudioPayload> _synthesizeWithGoogle(
     AiTtsProviderSettings settings,
     String text, {
-    required Duration timeout,
+    required _AiTtsOperation operation,
   }) async {
     if (settings.apiKey.isEmpty) {
       throw StateError('Google TTS API key is empty.');
@@ -939,57 +1061,55 @@ class AiTtsPlaybackService {
       'audioEncoding',
       fallback: 'MP3',
     );
-    final client = http.Client();
-    _activeClient = client;
-    try {
-      final response = await client
-          .post(
-            uri,
-            headers: const <String, String>{
-              HttpHeaders.contentTypeHeader: 'application/json; charset=utf-8',
-              HttpHeaders.acceptHeader: 'application/json',
-            },
-            body: jsonEncode(<String, Object?>{
-              'input': <String, Object?>{'text': text},
-              'voice': <String, Object?>{
-                'languageCode': settings.language.isEmpty
-                    ? 'zh-CN'
-                    : settings.language,
-                if (settings.voice.isNotEmpty) 'name': settings.voice,
-              },
-              'audioConfig': <String, Object?>{
-                'audioEncoding': audioEncoding,
-                'speakingRate': settings.speed.clamp(0.25, 4.0),
-                'pitch': settings.pitch.clamp(-20.0, 20.0),
-                'volumeGainDb': settings.volume.clamp(-96.0, 16.0),
-              },
-            }),
-          )
-          .timeout(timeout);
-      if (isHttpFailureStatus(response.statusCode)) {
-        throw HttpException(
-          'Google TTS HTTP ${response.statusCode}: ${_shortBody(response)}',
-          uri: uri,
-        );
-      }
-      final decoded = jsonDecode(response.body);
-      if (decoded is! Map || decoded['audioContent'] is! String) {
-        throw StateError('Google TTS returned invalid audio payload.');
-      }
-      return _AiTtsAudioPayload(
-        base64Decode(decoded['audioContent'] as String),
-        extension: _googleAudioExtension(audioEncoding),
+    final response = await operation.transport.sendJson(
+      uri: uri,
+      method: 'POST',
+      headers: const <String, String>{
+        HttpHeaders.contentTypeHeader: 'application/json; charset=utf-8',
+        HttpHeaders.acceptHeader: 'application/json',
+      },
+      body: <String, Object?>{
+        'input': <String, Object?>{'text': text},
+        'voice': <String, Object?>{
+          'languageCode': settings.language.isEmpty
+              ? 'zh-CN'
+              : settings.language,
+          if (settings.voice.isNotEmpty) 'name': settings.voice,
+        },
+        'audioConfig': <String, Object?>{
+          'audioEncoding': audioEncoding,
+          'speakingRate': settings.speed.clamp(0.25, 4.0),
+          'pitch': settings.pitch.clamp(-20.0, 20.0),
+          'volumeGainDb': settings.volume.clamp(-96.0, 16.0),
+        },
+      },
+      timeout: operation.remainingSynthesisTime(),
+      maxResponseBytes: _maxAudioJsonResponseBytes,
+    );
+    if (isHttpFailureStatus(response.statusCode)) {
+      throw HttpException(
+        'Google TTS HTTP ${response.statusCode}: ${_shortBody(response)}',
+        uri: uri,
       );
-    } finally {
-      if (identical(_activeClient, client)) _activeClient = null;
-      client.close();
     }
+    final decoded = jsonDecode(response.body);
+    if (decoded is! Map || decoded['audioContent'] is! String) {
+      throw StateError('Google TTS returned invalid audio payload.');
+    }
+    operation.throwIfCancelled();
+    return _AiTtsAudioPayload(
+      _decodeBoundedAudioBase64(
+        decoded['audioContent'] as String,
+        maxBytes: _maxAudioResponseBytes,
+      ),
+      extension: _googleAudioExtension(audioEncoding),
+    );
   }
 
   Future<_AiTtsAudioPayload> _synthesizeWithBing(
     AiTtsProviderSettings settings,
     String text, {
-    required Duration timeout,
+    required _AiTtsOperation operation,
   }) async {
     if (settings.apiKey.isEmpty) {
       throw StateError('Bing TTS subscription key is empty.');
@@ -1008,42 +1128,37 @@ class AiTtsPlaybackService {
       'outputFormat',
       fallback: 'audio-24khz-48kbitrate-mono-mp3',
     );
-    final client = http.Client();
-    _activeClient = client;
-    try {
-      final response = await client
-          .post(
-            uri,
-            headers: <String, String>{
-              HttpHeaders.contentTypeHeader: 'application/ssml+xml',
-              HttpHeaders.acceptHeader: 'audio/*',
-              'Ocp-Apim-Subscription-Key': settings.apiKey,
-              'X-Microsoft-OutputFormat': outputFormat,
-              'User-Agent': 'OpenHand',
-            },
-            body: _bingSsml(text, settings),
-          )
-          .timeout(timeout);
-      if (isHttpFailureStatus(response.statusCode)) {
-        throw HttpException(
-          'Bing TTS HTTP ${response.statusCode}: ${_shortBody(response)}',
-          uri: uri,
-        );
-      }
-      return _AiTtsAudioPayload(
-        response.bodyBytes,
-        extension: _bingAudioExtension(outputFormat),
+    final response = await operation.transport.sendText(
+      uri: uri,
+      method: 'POST',
+      headers: <String, String>{
+        HttpHeaders.contentTypeHeader: 'application/ssml+xml',
+        HttpHeaders.acceptHeader: 'audio/*',
+        'Ocp-Apim-Subscription-Key': settings.apiKey,
+        'X-Microsoft-OutputFormat': outputFormat,
+        'User-Agent': 'OpenHand',
+      },
+      body: _bingSsml(text, settings),
+      timeout: operation.remainingSynthesisTime(),
+      maxResponseBytes: _maxAudioResponseBytes,
+    );
+    if (isHttpFailureStatus(response.statusCode)) {
+      throw HttpException(
+        'Bing TTS HTTP ${response.statusCode}: ${_shortBody(response)}',
+        uri: uri,
       );
-    } finally {
-      if (identical(_activeClient, client)) _activeClient = null;
-      client.close();
     }
+    operation.throwIfCancelled();
+    return _AiTtsAudioPayload(
+      response.bodyBytes,
+      extension: _bingAudioExtension(outputFormat),
+    );
   }
 
   Future<_AiTtsAudioPayload> _synthesizeWithYoudao(
     AiTtsProviderSettings settings,
     String text, {
-    required Duration timeout,
+    required _AiTtsOperation operation,
   }) async {
     if (settings.apiKey.isEmpty || settings.apiSecret.isEmpty) {
       throw StateError('Youdao TTS credentials are incomplete.');
@@ -1060,46 +1175,39 @@ class AiTtsPlaybackService {
         )
         .toString();
     final uri = Uri.parse(endpoint);
-    final client = http.Client();
-    _activeClient = client;
-    try {
-      final response = await client
-          .post(
-            uri,
-            headers: const <String, String>{
-              HttpHeaders.contentTypeHeader:
-                  'application/x-www-form-urlencoded; charset=utf-8',
-            },
-            body: <String, String>{
-              'q': text,
-              'langType': settings.language.isEmpty
-                  ? 'zh-CHS'
-                  : settings.language,
-              'appKey': settings.apiKey,
-              'salt': salt,
-              'sign': sign,
-              'signType': 'v3',
-              'curtime': '$curtime',
-              if (settings.voice.isNotEmpty) 'voice': settings.voice,
-              'format': 'mp3',
-            },
-          )
-          .timeout(timeout);
-      if (isHttpFailureStatus(response.statusCode)) {
-        throw HttpException(
-          'Youdao TTS HTTP ${response.statusCode}: ${_shortBody(response)}',
-          uri: uri,
-        );
-      }
-      final contentType = response.headers['content-type'] ?? '';
-      if (!contentType.startsWith('audio/')) {
-        throw StateError('Youdao TTS returned non-audio response.');
-      }
-      return _AiTtsAudioPayload(response.bodyBytes, extension: '.mp3');
-    } finally {
-      if (identical(_activeClient, client)) _activeClient = null;
-      client.close();
+    final response = await operation.transport.sendForm(
+      uri: uri,
+      method: 'POST',
+      headers: const <String, String>{
+        HttpHeaders.contentTypeHeader:
+            'application/x-www-form-urlencoded; charset=utf-8',
+      },
+      body: <String, String>{
+        'q': text,
+        'langType': settings.language.isEmpty ? 'zh-CHS' : settings.language,
+        'appKey': settings.apiKey,
+        'salt': salt,
+        'sign': sign,
+        'signType': 'v3',
+        'curtime': '$curtime',
+        if (settings.voice.isNotEmpty) 'voice': settings.voice,
+        'format': 'mp3',
+      },
+      timeout: operation.remainingSynthesisTime(),
+      maxResponseBytes: _maxAudioResponseBytes,
+    );
+    if (isHttpFailureStatus(response.statusCode)) {
+      throw HttpException(
+        'Youdao TTS HTTP ${response.statusCode}: ${_shortBody(response)}',
+        uri: uri,
+      );
     }
+    final contentType = response.headers['content-type'] ?? '';
+    if (!contentType.startsWith('audio/')) {
+      throw StateError('Youdao TTS returned non-audio response.');
+    }
+    operation.throwIfCancelled();
+    return _AiTtsAudioPayload(response.bodyBytes, extension: '.mp3');
   }
 
   Future<void> _playAudioBytes(
@@ -1108,37 +1216,114 @@ class AiTtsPlaybackService {
     required double volume,
     required AiTtsProviderSettings provider,
     required Duration requestTimeout,
+    required _AiTtsOperation operation,
     required bool Function() isCurrent,
-  }) async {
-    if (!isCurrent()) throw const _AiTtsPlaybackCancelled();
-    if (bytes.isEmpty) throw StateError('TTS returned empty audio.');
-    if (!Platform.isMacOS) {
-      throw UnsupportedError('Audio playback is only wired for macOS now.');
-    }
-    final dir = Directory(
-      p.join(OpenHandPaths.defaultCacheDirectoryPath(), 'tts'),
-    );
-    await dir.create(recursive: true);
-    final file = File(
-      p.join(
-        dir.path,
-        'tts_${DateTime.now().microsecondsSinceEpoch}$extension',
-      ),
-    );
-    await file.writeAsBytes(bytes, flush: true);
-    try {
+  }) {
+    return operation.runTrackedActivity(() async {
       if (!isCurrent()) throw const _AiTtsPlaybackCancelled();
-      final playbackTimeout = await _playbackTimeoutForAudioFile(
-        file,
-        byteLength: bytes.length,
-        extension: extension,
-        provider: provider,
-        requestTimeout: requestTimeout,
+      if (bytes.isEmpty) throw StateError('TTS returned empty audio.');
+      if (!Platform.isMacOS) {
+        throw UnsupportedError('Audio playback is only wired for macOS now.');
+      }
+      final dir = Directory(
+        p.join(OpenHandPaths.defaultCacheDirectoryPath(), 'tts'),
       );
-      if (!isCurrent()) throw const _AiTtsPlaybackCancelled();
-      await _playAudioFile(file.path, volume: volume, timeout: playbackTimeout);
+      await (_stalePlaybackCleanupFuture ??= _cleanupStalePlaybackFiles(dir));
+      final file = File(
+        p.join(
+          dir.path,
+          'tts_${DateTime.now().microsecondsSinceEpoch}_${_tempFileSerial++}$extension',
+        ),
+      );
+      RandomAccessFile? output;
+      try {
+        await dir.create(recursive: true).timeout(_playbackFileIoTimeout);
+        final openedOutput = await operation.acquireFile(
+          file.open(mode: FileMode.writeOnly),
+          timeout: _playbackFileIoTimeout,
+        );
+        output = openedOutput;
+        await openedOutput.writeFrom(bytes).timeout(_playbackFileIoTimeout);
+        await openedOutput.flush().timeout(_playbackFileIoTimeout);
+        await operation.releaseFile(openedOutput);
+        output = null;
+        operation.throwIfCancelled();
+        if (!isCurrent()) throw const _AiTtsPlaybackCancelled();
+        final playbackTimeout = await _playbackTimeoutForAudioFile(
+          file,
+          byteLength: bytes.length,
+          extension: extension,
+          provider: provider,
+          requestTimeout: requestTimeout,
+        );
+        operation.throwIfCancelled();
+        if (!isCurrent()) throw const _AiTtsPlaybackCancelled();
+        await _playAudioFile(
+          file.path,
+          volume: volume,
+          timeout: playbackTimeout,
+          operation: operation,
+        );
+      } finally {
+        final activeOutput = output;
+        if (activeOutput != null) {
+          await operation.releaseFile(activeOutput);
+        }
+        try {
+          if (await file.exists().timeout(_resourceCloseTimeout)) {
+            await file.delete().timeout(_resourceCloseTimeout);
+          }
+        } catch (_) {
+          // Cache cleanup is best effort and must not hide playback failures.
+        }
+      }
+    });
+  }
+
+  Future<void> _cleanupStalePlaybackFiles(Directory directory) async {
+    final stopwatch = Stopwatch()..start();
+    final iterator = StreamIterator<FileSystemEntity>(
+      directory.list(followLinks: false),
+    );
+    Duration remaining() {
+      final value =
+          _stalePlaybackCleanupTimeout.inMicroseconds -
+          stopwatch.elapsedMicroseconds;
+      if (value <= 0) {
+        throw TimeoutException('TTS stale-file cleanup timed out.');
+      }
+      return Duration(microseconds: value);
+    }
+
+    var scanned = 0;
+    var deleted = 0;
+    final staleBefore = DateTime.now().subtract(_stalePlaybackFileAge);
+    try {
+      while (scanned < _stalePlaybackScanLimit &&
+          deleted < _stalePlaybackDeleteLimit &&
+          await iterator.moveNext().timeout(remaining())) {
+        scanned += 1;
+        final entity = iterator.current;
+        if (entity is! File || !p.basename(entity.path).startsWith('tts_')) {
+          continue;
+        }
+        final stat = await entity.stat().timeout(remaining());
+        if (stat.type != FileSystemEntityType.file ||
+            !stat.modified.isBefore(staleBefore)) {
+          continue;
+        }
+        await entity.delete().timeout(remaining());
+        deleted += 1;
+      }
+    } catch (_) {
+      // Startup hygiene is best effort and strictly bounded.
     } finally {
-      unawaited(file.delete().catchError((_) => file));
+      stopwatch.stop();
+      try {
+        await iterator.cancel().timeout(_resourceCloseTimeout);
+      } catch (_) {
+        // The directory stream is already done or being cancelled.
+      }
     }
   }
 
@@ -1146,19 +1331,25 @@ class AiTtsPlaybackService {
     String path, {
     required double volume,
     required Duration timeout,
+    required _AiTtsOperation operation,
   }) async {
     if (!Platform.isMacOS) {
       throw UnsupportedError('Audio playback is only wired for macOS now.');
     }
     final file = File(path);
-    if (!await file.exists().timeout(timeout)) {
+    final metadataTimeout = timeout < _playbackFileIoTimeout
+        ? timeout
+        : _playbackFileIoTimeout;
+    if (!await file.exists().timeout(metadataTimeout)) {
       throw StateError('TTS audio file is missing.');
     }
-    await _runSpeechProcess('afplay', <String>[
-      '-v',
-      '${_afplayVolume(volume)}',
-      file.path,
-    ], timeout: timeout);
+    operation.throwIfCancelled();
+    await _runSpeechProcess(
+      'afplay',
+      <String>['-v', '${_afplayVolume(volume)}', file.path],
+      timeout: timeout,
+      operation: operation,
+    );
   }
 
   Future<Duration> _playbackTimeoutForAudioFile(
@@ -1207,7 +1398,7 @@ class AiTtsPlaybackService {
   Future<_AiTtsAudioPayload> _audioPayloadFromReference(
     String reference, {
     required String outputFormat,
-    required Duration timeout,
+    required _AiTtsOperation operation,
   }) async {
     final normalized = reference.trim();
     if (normalized.isEmpty) {
@@ -1219,14 +1410,14 @@ class AiTtsPlaybackService {
         return _audioPayloadFromFile(
           uri.toFilePath(),
           outputFormat: outputFormat,
-          timeout: timeout,
+          operation: operation,
         );
       }
       if (uri.scheme == 'http' || uri.scheme == 'https') {
         return _remoteAudioPayload(
           uri,
           outputFormat: outputFormat,
-          timeout: timeout,
+          operation: operation,
         );
       }
       throw StateError('AI TTS returned unsupported audio reference.');
@@ -1234,21 +1425,29 @@ class AiTtsPlaybackService {
     return _audioPayloadFromFile(
       normalized,
       outputFormat: outputFormat,
-      timeout: timeout,
+      operation: operation,
     );
   }
 
   Future<_AiTtsAudioPayload> _audioPayloadFromFile(
     String path, {
     required String outputFormat,
-    required Duration timeout,
+    required _AiTtsOperation operation,
   }) async {
     final file = File(path);
-    if (!await file.exists().timeout(timeout)) {
-      throw StateError('TTS audio file is missing.');
-    }
+    final remaining = operation.remainingSynthesisTime();
+    final bytes = await readBoundedFileBytes(
+      file,
+      maxBytes: _maxAudioResponseBytes,
+      idleTimeout: remaining < _fileReadIdleTimeout
+          ? remaining
+          : _fileReadIdleTimeout,
+      totalTimeout: remaining,
+      handleOwner: operation,
+    );
+    operation.throwIfCancelled();
     return _AiTtsAudioPayload(
-      await file.readAsBytes().timeout(timeout),
+      bytes,
       extension: _audioExtensionFromPath(path, fallbackFormat: outputFormat),
     );
   }
@@ -1256,62 +1455,62 @@ class AiTtsPlaybackService {
   Future<_AiTtsAudioPayload> _remoteAudioPayload(
     Uri uri, {
     required String outputFormat,
-    required Duration timeout,
+    required _AiTtsOperation operation,
   }) async {
-    final client = http.Client();
-    _activeClient = client;
-    try {
-      final response = await client
-          .get(
-            uri,
-            headers: const <String, String>{
-              HttpHeaders.acceptHeader: 'audio/*',
-            },
-          )
-          .timeout(timeout);
-      if (isHttpFailureStatus(response.statusCode)) {
-        throw HttpException(
-          'AI TTS audio download HTTP ${response.statusCode}',
-          uri: uri,
-        );
-      }
-      final contentType = _responseContentType(response.headers);
-      if (!_isPlayableAudioContentType(contentType)) {
-        throw StateError('AI TTS audio URL returned non-audio content.');
-      }
-      return _AiTtsAudioPayload(
-        response.bodyBytes,
-        extension: _audioExtensionFromUri(uri, fallbackFormat: outputFormat),
+    final response = await operation.transport.get(
+      uri: uri,
+      headers: const <String, String>{HttpHeaders.acceptHeader: 'audio/*'},
+      timeout: operation.remainingSynthesisTime(),
+      maxResponseBytes: _maxAudioResponseBytes,
+    );
+    if (isHttpFailureStatus(response.statusCode)) {
+      throw HttpException(
+        'AI TTS audio download HTTP ${response.statusCode}',
+        uri: uri,
       );
-    } finally {
-      if (identical(_activeClient, client)) _activeClient = null;
-      client.close();
     }
+    final contentType = _responseContentType(response.headers);
+    if (!_isPlayableAudioContentType(contentType)) {
+      throw StateError('AI TTS audio URL returned non-audio content.');
+    }
+    operation.throwIfCancelled();
+    return _AiTtsAudioPayload(
+      response.bodyBytes,
+      extension: _audioExtensionFromUri(uri, fallbackFormat: outputFormat),
+    );
   }
 
   Future<void> _runSpeechProcess(
     String executable,
     List<String> args, {
     required Duration timeout,
+    required _AiTtsOperation operation,
   }) async {
-    final process = await startTrackedProcessInNewGroup(executable, args);
-    _activeProcess = process;
+    final process = await operation.acquireProcess(
+      startTrackedProcessInNewGroup(executable, args),
+      timeout: timeout < _speechProcessStartTimeout
+          ? timeout
+          : _speechProcessStartTimeout,
+    );
     final stderrBuffer = StringBuffer();
-    final stderrDone = process.stderr
-        .transform(utf8.decoder)
-        .listen((chunk) {
-          if (stderrBuffer.length < 1000) stderrBuffer.write(chunk);
-        })
-        .asFuture<void>()
-        .catchError((_) {});
-    final stdoutDone = process.stdout.drain<void>().catchError((_) {});
+    final stderrSubscription = process.stderr.transform(utf8.decoder).listen((
+      chunk,
+    ) {
+      const maxChars = 1000;
+      final remaining = maxChars - stderrBuffer.length;
+      if (remaining <= 0) return;
+      stderrBuffer.write(
+        chunk.length <= remaining ? chunk : chunk.substring(0, remaining),
+      );
+    }, onError: (Object _, StackTrace _) {});
+    final stdoutSubscription = process.stdout.listen(
+      (_) {},
+      onError: (Object _, StackTrace _) {},
+    );
     try {
       final exitCode = await process.exitCode.timeout(timeout);
-      await _drainSpeechProcessStreams(stderrDone, stdoutDone);
+      operation.throwIfCancelled();
       if (exitCode != 0) {
-        if (!identical(_activeProcess, process)) {
-          throw const _AiTtsPlaybackCancelled();
-        }
         final stderrText = stderrBuffer.toString().trim();
         throw ProcessException(
           executable,
@@ -1323,66 +1522,26 @@ class AiTtsPlaybackService {
         );
       }
     } on TimeoutException {
-      final cancelled = !identical(_activeProcess, process);
-      await terminateTrackedProcessTree(
-        process,
-        gracefulTimeout: _speechProcessTerminateGrace,
-      );
-      await _drainSpeechProcessStreams(stderrDone, stdoutDone);
+      final cancelled = operation.isCancelled;
+      await operation.terminateProcess(process);
       if (cancelled) throw const _AiTtsPlaybackCancelled();
       throw TimeoutException('TTS process timed out.', timeout);
     } finally {
-      if (identical(_activeProcess, process)) _activeProcess = null;
+      operation.unregisterProcess(process);
+      await Future.wait<void>(<Future<void>>[
+        _cancelTtsSubscription(stderrSubscription),
+        _cancelTtsSubscription(stdoutSubscription),
+      ]);
     }
   }
 
-  static Future<void> _drainSpeechProcessStreams(
-    Future<void> stderrDone,
-    Future<void> stdoutDone,
-  ) {
-    return Future.wait<void>([
-      stderrDone.timeout(_speechProcessPipeDrainTimeout, onTimeout: () {}),
-      stdoutDone.timeout(_speechProcessPipeDrainTimeout, onTimeout: () {}),
-    ]);
-  }
-
-  Future<void> _stopActiveResources({required bool clearState}) async {
-    final process = _activeProcess;
-    _activeProcess = null;
-    if (process != null) {
-      try {
-        await terminateTrackedProcessTree(
-          process,
-          gracefulTimeout: _speechProcessTerminateGrace,
-        );
-      } catch (error, stack) {
-        silentLog(
-          'ai_tts_playback_service',
-          'kill active process',
-          error,
-          stack,
-        );
-      }
-    }
-    final ws = _activeWebSocket;
-    _activeWebSocket = null;
-    if (ws != null) {
-      try {
-        await ws.close().timeout(const Duration(seconds: 1));
-      } catch (error, stack) {
-        silentLog(
-          'ai_tts_playback_service',
-          'close active websocket',
-          error,
-          stack,
-        );
-      }
-    }
-    final client = _activeClient;
-    _activeClient = null;
-    client?.close();
-    if (clearState) {
-      state.value = const AiTtsPlaybackSnapshot();
+  static Future<void> _cancelTtsSubscription<T>(
+    StreamSubscription<T> subscription,
+  ) async {
+    try {
+      await subscription.cancel().timeout(_speechProcessPipeDrainTimeout);
+    } catch (_) {
+      // The process has already exited or been terminated.
     }
   }
 
@@ -1409,7 +1568,7 @@ class AiTtsPlaybackService {
 
   Future<String> _fetchBaiduAccessToken(
     AiTtsProviderSettings settings, {
-    required Duration timeout,
+    required _AiTtsOperation operation,
   }) async {
     if (settings.apiKey.isEmpty || settings.apiSecret.isEmpty) {
       throw StateError('Baidu TTS API key or secret is empty.');
@@ -1421,25 +1580,26 @@ class AiTtsPlaybackService {
         'client_secret': settings.apiSecret,
       },
     );
-    final client = http.Client();
-    _activeClient = client;
-    try {
-      final response = await client.post(uri).timeout(timeout);
-      if (isHttpFailureStatus(response.statusCode)) {
-        throw HttpException(
-          'Baidu token HTTP ${response.statusCode}: ${_shortBody(response)}',
-          uri: uri,
-        );
-      }
-      final decoded = jsonDecode(response.body);
-      if (decoded is! Map || decoded['access_token'] is! String) {
-        throw StateError('Baidu token response is invalid.');
-      }
-      return decoded['access_token'] as String;
-    } finally {
-      if (identical(_activeClient, client)) _activeClient = null;
-      client.close();
+    final response = await operation.transport.sendText(
+      uri: uri,
+      method: 'POST',
+      headers: const <String, String>{},
+      body: '',
+      timeout: operation.remainingSynthesisTime(),
+      maxResponseBytes: _maxControlResponseBytes,
+    );
+    if (isHttpFailureStatus(response.statusCode)) {
+      throw HttpException(
+        'Baidu token HTTP ${response.statusCode}: ${_shortBody(response)}',
+        uri: uri,
+      );
     }
+    final decoded = jsonDecode(response.body);
+    if (decoded is! Map || decoded['access_token'] is! String) {
+      throw StateError('Baidu token response is invalid.');
+    }
+    operation.throwIfCancelled();
+    return decoded['access_token'] as String;
   }
 
   Future<String> _resolveMacOsVoice(String configuredVoice) async {
@@ -1693,63 +1853,6 @@ class AiTtsPlaybackService {
     return ((speed - 1.0) * 100).round().clamp(-100, 100);
   }
 
-  static void _drainDoubaoJsonLines(
-    StringBuffer pending, {
-    bool flush = false,
-    required void Function(String audioBase64) onAudio,
-  }) {
-    final source = pending.toString();
-    final payloads = <String>[];
-    var start = -1;
-    var depth = 0;
-    var inString = false;
-    var escaped = false;
-    for (var i = 0; i < source.length; i++) {
-      final code = source.codeUnitAt(i);
-      if (start < 0) {
-        if (code == 123) {
-          start = i;
-          depth = 1;
-        }
-        continue;
-      }
-      if (inString) {
-        if (escaped) {
-          escaped = false;
-        } else if (code == 92) {
-          escaped = true;
-        } else if (code == 34) {
-          inString = false;
-        }
-        continue;
-      }
-      if (code == 34) {
-        inString = true;
-      } else if (code == 123) {
-        depth += 1;
-      } else if (code == 125) {
-        depth -= 1;
-        if (depth == 0) {
-          payloads.add(source.substring(start, i + 1));
-          start = -1;
-        }
-      }
-    }
-
-    final remaining = start >= 0 ? source.substring(start) : '';
-    pending
-      ..clear()
-      ..write(remaining);
-    for (final payload in payloads) {
-      _handleDoubaoPayload(payload, onAudio: onAudio);
-    }
-    if (!flush) return;
-    final tail = pending.toString().trim();
-    if (tail.isEmpty) return;
-    _handleDoubaoPayload(tail, onAudio: onAudio);
-    pending.clear();
-  }
-
   static void _handleDoubaoPayload(
     String payload, {
     required void Function(String audioBase64) onAudio,
@@ -1772,20 +1875,65 @@ class AiTtsPlaybackService {
     }
   }
 
+  static Uint8List _decodeBoundedAudioBase64(
+    String encoded, {
+    required int maxBytes,
+  }) {
+    if (maxBytes < 1) {
+      throw StateError('TTS audio exceeds the configured safety limit.');
+    }
+    final maxEncodedChars = ((maxBytes + 2) ~/ 3) * 4 + 4096;
+    if (encoded.length > maxEncodedChars) {
+      throw StateError(
+        'TTS audio exceeds the ${formatByteSize(maxBytes)} safety limit.',
+      );
+    }
+    final decoded = base64Decode(encoded);
+    if (decoded.length > maxBytes) {
+      throw StateError(
+        'TTS audio exceeds the ${formatByteSize(maxBytes)} safety limit.',
+      );
+    }
+    return decoded;
+  }
+
+  static void _appendBoundedBase64Audio(
+    BytesBuilder destination,
+    String encoded, {
+    required int maxBytes,
+  }) {
+    final remaining = maxBytes - destination.length;
+    final decoded = _decodeBoundedAudioBase64(encoded, maxBytes: remaining);
+    destination.add(decoded);
+  }
+
+  static Future<void> _closeWebSocketBounded(WebSocket socket) async {
+    try {
+      await socket.close().timeout(_resourceCloseTimeout);
+    } catch (_) {
+      // The operation-owned HttpClient is force-closed by its owner.
+    }
+  }
+
   static Uint8List _decodeMimoAudioPayload(Map<String, Object?> input) {
     final body = input['body'];
     final format = '${input['format'] ?? 'wav'}';
     final sampleRate = input['sample_rate'] is int
         ? input['sample_rate'] as int
         : 24000;
+    final maxAudioBytes = input['max_audio_bytes'] is int
+        ? input['max_audio_bytes'] as int
+        : _maxAudioResponseBytes;
     if (body is! String || nullIfBlank(body) == null) {
       throw StateError('Mimo TTS returned empty response.');
     }
     final decoded = jsonDecode(body);
-    final bytes = base64Decode(
+    final pcm16 = _isPcm16Format(format);
+    final bytes = _decodeBoundedAudioBase64(
       _chatCompletionAudioData(decoded, providerName: 'Mimo TTS'),
+      maxBytes: pcm16 ? maxAudioBytes - 44 : maxAudioBytes,
     );
-    if (_isPcm16Format(format)) {
+    if (pcm16) {
       return _wavBytesFromPcm16(bytes, sampleRate: sampleRate);
     }
     return bytes;
@@ -2081,15 +2229,383 @@ class AiTtsPlaybackService {
   }
 }
 
+class _DoubaoJsonObjectParser {
+  _DoubaoJsonObjectParser({
+    required this.maxObjectChars,
+    required this.onObject,
+  });
+
+  final int maxObjectChars;
+  final void Function(String payload) onObject;
+  final StringBuffer _current = StringBuffer();
+  int _depth = 0;
+  bool _inString = false;
+  bool _escaped = false;
+
+  void add(String chunk) {
+    for (var index = 0; index < chunk.length; index++) {
+      final code = chunk.codeUnitAt(index);
+      if (_depth == 0) {
+        if (code != 0x7b) continue;
+        _current.writeCharCode(code);
+        _depth = 1;
+        _inString = false;
+        _escaped = false;
+        continue;
+      }
+
+      _current.writeCharCode(code);
+      if (_current.length > maxObjectChars) {
+        throw FormatException(
+          'Doubao TTS event exceeds the $maxObjectChars character limit.',
+        );
+      }
+      if (_inString) {
+        if (_escaped) {
+          _escaped = false;
+        } else if (code == 0x5c) {
+          _escaped = true;
+        } else if (code == 0x22) {
+          _inString = false;
+        }
+        continue;
+      }
+      if (code == 0x22) {
+        _inString = true;
+      } else if (code == 0x7b) {
+        _depth += 1;
+      } else if (code == 0x7d) {
+        _depth -= 1;
+        if (_depth == 0) {
+          final payload = _current.toString();
+          _current.clear();
+          onObject(payload);
+        }
+      }
+    }
+  }
+
+  void finish() {
+    if (_depth != 0 || _current.isNotEmpty) {
+      throw const FormatException('Doubao TTS returned incomplete JSON.');
+    }
+  }
+}
+
+class _AiTtsOperation implements BoundedFileHandleOwner {
+  _AiTtsOperation({required this.timeout, required this.transport})
+    : _stopwatch = Stopwatch()..start();
+
+  final Duration timeout;
+  final AiTransportClient transport;
+  final Stopwatch _stopwatch;
+  final Set<Process> _processes = <Process>{};
+  final Map<Process, Future<void>> _processTerminations =
+      <Process, Future<void>>{};
+  final Set<WebSocket> _webSockets = <WebSocket>{};
+  final Map<WebSocket, Future<void>> _webSocketCloses =
+      <WebSocket, Future<void>>{};
+  final Set<HttpClient> _httpClients = <HttpClient>{};
+  final Set<RandomAccessFile> _files = <RandomAccessFile>{};
+  final Map<RandomAccessFile, Future<void>> _fileCloses =
+      <RandomAccessFile, Future<void>>{};
+  final Set<Future<void>> _pendingAcquisitions = <Future<void>>{};
+  final Set<Future<void>> _activeActivities = <Future<void>>{};
+  bool _cancelled = false;
+  Future<void>? _closeFuture;
+
+  bool get isCancelled => _cancelled;
+
+  void throwIfCancelled() {
+    if (_cancelled) throw const _AiTtsPlaybackCancelled();
+  }
+
+  Duration remainingSynthesisTime() {
+    throwIfCancelled();
+    final remaining = timeout.inMicroseconds - _stopwatch.elapsedMicroseconds;
+    if (remaining <= 0) {
+      throw TimeoutException('TTS synthesis exceeded its total time limit.');
+    }
+    return Duration(microseconds: remaining);
+  }
+
+  void registerHttpClient(HttpClient client) {
+    if (_cancelled) {
+      client.close(force: true);
+      throw const _AiTtsPlaybackCancelled();
+    }
+    _httpClients.add(client);
+  }
+
+  void releaseHttpClient(HttpClient client) {
+    if (_httpClients.remove(client)) client.close(force: true);
+  }
+
+  Future<WebSocket> acquireWebSocket(
+    Future<WebSocket> acquisition, {
+    required Duration timeout,
+    required VoidCallback onTimeout,
+  }) {
+    final guarded = () async {
+      final WebSocket socket;
+      try {
+        socket = await acquisition.timeout(
+          timeout,
+          onTimeout: () {
+            onTimeout();
+            unawaited(
+              acquisition.then<void>(
+                AiTtsPlaybackService._closeWebSocketBounded,
+                onError: (Object _, StackTrace _) {},
+              ),
+            );
+            throw TimeoutException(
+              'TTS WebSocket handshake timed out.',
+              timeout,
+            );
+          },
+        );
+      } catch (_) {
+        rethrow;
+      }
+      if (_cancelled) {
+        await AiTtsPlaybackService._closeWebSocketBounded(socket);
+        throw const _AiTtsPlaybackCancelled();
+      }
+      _webSockets.add(socket);
+      return socket;
+    }();
+    _trackAcquisition(guarded);
+    return guarded;
+  }
+
+  Future<void> releaseWebSocket(WebSocket socket) async {
+    if (_webSockets.remove(socket)) {
+      await _closeTrackedWebSocket(socket);
+      return;
+    }
+    await (_webSocketCloses[socket] ?? Future<void>.value());
+  }
+
+  @override
+  Future<RandomAccessFile> acquireFile(
+    Future<RandomAccessFile> acquisition, {
+    required Duration timeout,
+  }) {
+    final guarded = () async {
+      final RandomAccessFile file;
+      try {
+        file = await acquisition.timeout(
+          timeout,
+          onTimeout: () {
+            unawaited(
+              acquisition.then<void>(
+                _closeFileSilently,
+                onError: (Object _, StackTrace _) {},
+              ),
+            );
+            throw TimeoutException('TTS file open timed out.', timeout);
+          },
+        );
+      } catch (_) {
+        rethrow;
+      }
+      if (_cancelled) {
+        await _closeFileSilently(file);
+        throw const _AiTtsPlaybackCancelled();
+      }
+      _files.add(file);
+      return file;
+    }();
+    _trackAcquisition(guarded);
+    return guarded;
+  }
+
+  @override
+  Future<void> releaseFile(RandomAccessFile file) async {
+    if (_files.remove(file)) {
+      await _closeTrackedFile(file);
+      return;
+    }
+    await (_fileCloses[file] ?? Future<void>.value());
+  }
+
+  Future<T> runTrackedActivity<T>(Future<T> Function() activity) async {
+    throwIfCancelled();
+    final completion = Completer<void>();
+    final tracked = completion.future;
+    _activeActivities.add(tracked);
+    try {
+      return await activity();
+    } finally {
+      if (!completion.isCompleted) completion.complete();
+      _activeActivities.remove(tracked);
+    }
+  }
+
+  Future<Process> acquireProcess(
+    Future<Process> acquisition, {
+    required Duration timeout,
+  }) {
+    final guarded = () async {
+      final Process process;
+      try {
+        process = await acquisition.timeout(
+          timeout,
+          onTimeout: () {
+            unawaited(
+              acquisition.then<void>(
+                _terminateProcessOnce,
+                onError: (Object _, StackTrace _) {},
+              ),
+            );
+            throw TimeoutException('TTS process start timed out.', timeout);
+          },
+        );
+      } catch (_) {
+        rethrow;
+      }
+      if (_cancelled) {
+        await _terminateProcessOnce(process);
+        throw const _AiTtsPlaybackCancelled();
+      }
+      _processes.add(process);
+      return process;
+    }();
+    _trackAcquisition(guarded);
+    return guarded;
+  }
+
+  void unregisterProcess(Process process) {
+    _processes.remove(process);
+  }
+
+  Future<void> terminateProcess(Process process) async {
+    _processes.remove(process);
+    await _terminateProcessOnce(process);
+  }
+
+  void _trackAcquisition<T>(Future<T> acquisition) {
+    late final Future<void> completion;
+    completion = acquisition.then<void>(
+      (_) {},
+      onError: (Object _, StackTrace _) {},
+    );
+    _pendingAcquisitions.add(completion);
+    unawaited(
+      completion.whenComplete(() => _pendingAcquisitions.remove(completion)),
+    );
+  }
+
+  Future<void> close() {
+    if (!_cancelled) {
+      _cancelled = true;
+      _stopwatch.stop();
+      transport.dispose();
+      for (final client in _httpClients) {
+        client.close(force: true);
+      }
+      _httpClients.clear();
+    }
+    return _closeFuture ??= _closeResources();
+  }
+
+  Future<void> _closeResources() async {
+    final sockets = _webSockets.toList(growable: false);
+    _webSockets.clear();
+    final processes = _processes.toList(growable: false);
+    _processes.clear();
+    final files = _files.toList(growable: false);
+    _files.clear();
+    final resourceCloses =
+        <Future<void>>{
+            for (final socket in sockets) _closeTrackedWebSocket(socket),
+            for (final process in processes) _terminateProcessOnce(process),
+            for (final file in files) _closeTrackedFile(file),
+          }
+          ..addAll(_webSocketCloses.values)
+          ..addAll(_processTerminations.values)
+          ..addAll(_fileCloses.values);
+    await Future.wait<void>(resourceCloses).timeout(
+      AiTtsPlaybackService._resourceCloseTimeout,
+      onTimeout: () => <void>[],
+    );
+    final pending = _pendingAcquisitions.toList(growable: false);
+    if (pending.isNotEmpty) {
+      await Future.wait<void>(pending).timeout(
+        AiTtsPlaybackService._resourceCloseTimeout,
+        onTimeout: () => <void>[],
+      );
+    }
+    final activities = _activeActivities.toList(growable: false);
+    if (activities.isNotEmpty) {
+      await Future.wait<void>(activities).timeout(
+        AiTtsPlaybackService._resourceCloseTimeout,
+        onTimeout: () => <void>[],
+      );
+    }
+  }
+
+  static Future<void> _closeFileSilently(RandomAccessFile file) async {
+    try {
+      await file.close().timeout(AiTtsPlaybackService._resourceCloseTimeout);
+    } catch (_) {
+      // The operation is already stopping; cleanup remains bounded.
+    }
+  }
+
+  Future<void> _closeTrackedFile(RandomAccessFile file) {
+    return _fileCloses.putIfAbsent(file, () {
+      return _closeFileSilently(
+        file,
+      ).whenComplete(() => _fileCloses.remove(file));
+    });
+  }
+
+  Future<void> _closeTrackedWebSocket(WebSocket socket) {
+    return _webSocketCloses.putIfAbsent(socket, () {
+      return AiTtsPlaybackService._closeWebSocketBounded(
+        socket,
+      ).whenComplete(() => _webSocketCloses.remove(socket));
+    });
+  }
+
+  Future<void> _terminateProcessOnce(Process process) {
+    return _processTerminations.putIfAbsent(process, () {
+      return _terminateProcessSilently(
+        process,
+      ).whenComplete(() => _processTerminations.remove(process));
+    });
+  }
+
+  static Future<void> _terminateProcessSilently(Process process) async {
+    try {
+      await terminateTrackedProcessTree(
+        process,
+        gracefulTimeout: AiTtsPlaybackService._speechProcessTerminateGrace,
+      );
+    } catch (_) {
+      // Cancellation cleanup is best effort and bounded by the caller.
+    }
+  }
+}
+
 class _AiTtsPlaybackCancelled implements Exception {
   const _AiTtsPlaybackCancelled();
 }
 
 class _AiTtsAudioPayload {
   _AiTtsAudioPayload(List<int> sourceBytes, {required String extension})
-    : bytes = Uint8List.fromList(sourceBytes),
+    : bytes = sourceBytes is Uint8List
+          ? sourceBytes
+          : Uint8List.fromList(sourceBytes),
       extension = _normalizeExtension(extension) {
     if (bytes.isEmpty) throw StateError('TTS returned empty audio.');
+    if (bytes.length > AiTtsPlaybackService._maxAudioResponseBytes) {
+      throw StateError(
+        'TTS audio exceeds the ${formatByteSize(AiTtsPlaybackService._maxAudioResponseBytes)} safety limit.',
+      );
+    }
   }
 
   final Uint8List bytes;

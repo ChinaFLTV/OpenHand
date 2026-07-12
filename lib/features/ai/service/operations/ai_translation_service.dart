@@ -7,8 +7,8 @@ import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:uuid/uuid.dart';
 
-import '../../../../app/support/system_proxy.dart';
 import '../../../../shared/net/http_status_utils.dart';
+import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/lifecycle_cache.dart';
 import '../../../../shared/util/text_clip.dart';
@@ -18,6 +18,7 @@ import '../../model/ai_model_config.dart';
 import '../../model/ai_translation_settings.dart';
 import '../chat/ai_chat_service.dart';
 import '../chat/ai_protocol_adapter.dart';
+import '../runtime/ai_transport_client.dart';
 
 final RegExp _aiTranslationFencePattern = RegExp(
   r'^```(?:[a-zA-Z0-9_-]+)?\s*([\s\S]*?)\s*```$',
@@ -50,8 +51,7 @@ class AiTranslationException implements Exception {
 
 class AiTranslationService {
   AiTranslationService({http.Client? client, AiChatClient? chatClient})
-    : _client = client ?? SystemProxyResolver.instance.createHttpClient(),
-      _ownsClient = client == null,
+    : _transport = AiTransportClient(client: client),
       _chatClient = chatClient ?? AiChatService(),
       _ownsChatClient = chatClient == null;
 
@@ -59,6 +59,7 @@ class AiTranslationService {
       'assets/prompts/common/ai_translation_system_prompt.md';
   static const int _networkPreviewLength = 180;
   static const int _doubaoSuccessCode = 20000000;
+  static const int _maxTranslationResponseBytes = kBytesPerMiB;
   static const String _doubaoDefaultResourceId = 'volc.speech.mt';
   static const int _translationCacheMaxEntries = 512;
   static final LifecycleLruCache<AiTranslationResult> _translationCache =
@@ -68,8 +69,7 @@ class AiTranslationService {
   static final Map<String, Future<AiTranslationResult>> _translationInFlight =
       <String, Future<AiTranslationResult>>{};
 
-  final http.Client _client;
-  final bool _ownsClient;
+  final AiTransportClient _transport;
   final AiChatClient _chatClient;
   final bool _ownsChatClient;
   Future<String>? _aiPromptFuture;
@@ -314,24 +314,25 @@ class AiTranslationService {
         salt +
         curtime +
         providerSettings.apiSecret;
-    final response = await _client
-        .post(
-          Uri.parse(_endpointOrDefault(providerSettings)),
-          headers: const <String, String>{
-            'content-type': 'application/x-www-form-urlencoded',
-          },
-          body: <String, String>{
-            'q': text,
-            'from': _youdaoLanguage(settings.sourceLanguage),
-            'to': _youdaoLanguage(settings.targetLanguage),
-            'appKey': providerSettings.apiKey,
-            'salt': salt,
-            'sign': sha256.convert(utf8.encode(signText)).toString(),
-            'signType': 'v3',
-            'curtime': curtime,
-          },
-        )
-        .timeout(timeout);
+    final response = await _transport.sendForm(
+      uri: Uri.parse(_endpointOrDefault(providerSettings)),
+      method: 'POST',
+      headers: const <String, String>{
+        'content-type': 'application/x-www-form-urlencoded',
+      },
+      body: <String, String>{
+        'q': text,
+        'from': _youdaoLanguage(settings.sourceLanguage),
+        'to': _youdaoLanguage(settings.targetLanguage),
+        'appKey': providerSettings.apiKey,
+        'salt': salt,
+        'sign': sha256.convert(utf8.encode(signText)).toString(),
+        'signType': 'v3',
+        'curtime': curtime,
+      },
+      timeout: timeout,
+      maxResponseBytes: _maxTranslationResponseBytes,
+    );
     final json = _decodeObject(response, AiTranslationProvider.youdao);
     final errorCode = '${json['errorCode'] ?? ''}';
     if (errorCode.isNotEmpty && errorCode != '0') {
@@ -369,15 +370,16 @@ class AiTranslationService {
       if (settings.sourceLanguage != 'auto')
         'source': _googleLanguage(settings.sourceLanguage),
     };
-    final response = await _client
-        .post(
-          uri,
-          headers: const <String, String>{
-            'content-type': 'application/json; charset=utf-8',
-          },
-          body: jsonEncode(body),
-        )
-        .timeout(timeout);
+    final response = await _transport.sendJson(
+      uri: uri,
+      method: 'POST',
+      headers: const <String, String>{
+        'content-type': 'application/json; charset=utf-8',
+      },
+      body: body,
+      timeout: timeout,
+      maxResponseBytes: _maxTranslationResponseBytes,
+    );
     final json = _decodeObject(response, AiTranslationProvider.google);
     final data = json['data'];
     if (data is Map) {
@@ -409,20 +411,21 @@ class AiTranslationService {
       if (settings.sourceLanguage != 'auto')
         'from': _bingLanguage(settings.sourceLanguage),
     };
-    final response = await _client
-        .post(
-          _withQuery(Uri.parse(_endpointOrDefault(providerSettings)), query),
-          headers: <String, String>{
-            'content-type': 'application/json; charset=utf-8',
-            'Ocp-Apim-Subscription-Key': providerSettings.apiKey,
-            if (nullIfBlank(providerSettings.region) case final region?)
-              'Ocp-Apim-Subscription-Region': region,
-          },
-          body: jsonEncode(<Map<String, String>>[
-            <String, String>{'Text': text},
-          ]),
-        )
-        .timeout(timeout);
+    final response = await _transport.sendJson(
+      uri: _withQuery(Uri.parse(_endpointOrDefault(providerSettings)), query),
+      method: 'POST',
+      headers: <String, String>{
+        'content-type': 'application/json; charset=utf-8',
+        'Ocp-Apim-Subscription-Key': providerSettings.apiKey,
+        if (nullIfBlank(providerSettings.region) case final region?)
+          'Ocp-Apim-Subscription-Region': region,
+      },
+      body: <Map<String, String>>[
+        <String, String>{'Text': text},
+      ],
+      timeout: timeout,
+      maxResponseBytes: _maxTranslationResponseBytes,
+    );
     final decoded = _decodeJson(response, AiTranslationProvider.bing);
     if (decoded is List && decoded.isNotEmpty) {
       final first = decoded.first;
@@ -465,17 +468,18 @@ class AiTranslationService {
       if (nullIfBlank(providerSettings.accessToken) case final accessToken?)
         'authorization': 'Bearer $accessToken',
     };
-    final response = await _client
-        .post(
-          Uri.parse(endpoint),
-          headers: headers,
-          body: jsonEncode(<String, Object?>{
-            'text': text,
-            'source_language': settings.sourceLanguage,
-            'target_language': settings.targetLanguage,
-          }),
-        )
-        .timeout(timeout);
+    final response = await _transport.sendJson(
+      uri: Uri.parse(endpoint),
+      method: 'POST',
+      headers: headers,
+      body: <String, Object?>{
+        'text': text,
+        'source_language': settings.sourceLanguage,
+        'target_language': settings.targetLanguage,
+      },
+      timeout: timeout,
+      maxResponseBytes: _maxTranslationResponseBytes,
+    );
     final json = _decodeObject(response, AiTranslationProvider.apple);
     return _readTranslatedText(json);
   }
@@ -497,22 +501,23 @@ class AiTranslationService {
     final salt = DateTime.now().microsecondsSinceEpoch.toString();
     final signText =
         providerSettings.appId + text + salt + providerSettings.apiSecret;
-    final response = await _client
-        .post(
-          Uri.parse(_endpointOrDefault(providerSettings)),
-          headers: const <String, String>{
-            'content-type': 'application/x-www-form-urlencoded',
-          },
-          body: <String, String>{
-            'q': text,
-            'from': _baiduLanguage(settings.sourceLanguage),
-            'to': _baiduLanguage(settings.targetLanguage),
-            'appid': providerSettings.appId,
-            'salt': salt,
-            'sign': md5.convert(utf8.encode(signText)).toString(),
-          },
-        )
-        .timeout(timeout);
+    final response = await _transport.sendForm(
+      uri: Uri.parse(_endpointOrDefault(providerSettings)),
+      method: 'POST',
+      headers: const <String, String>{
+        'content-type': 'application/x-www-form-urlencoded',
+      },
+      body: <String, String>{
+        'q': text,
+        'from': _baiduLanguage(settings.sourceLanguage),
+        'to': _baiduLanguage(settings.targetLanguage),
+        'appid': providerSettings.appId,
+        'salt': salt,
+        'sign': md5.convert(utf8.encode(signText)).toString(),
+      },
+      timeout: timeout,
+      maxResponseBytes: _maxTranslationResponseBytes,
+    );
     final json = _decodeObject(response, AiTranslationProvider.baidu);
     if (json['error_code'] != null) {
       throw AiTranslationException(
@@ -570,13 +575,14 @@ class AiTranslationService {
       if (apiKey == null && appId != null) 'X-Api-App-Key': appId,
       if (apiKey == null && accessKey != null) 'X-Api-Access-Key': accessKey,
     };
-    final response = await _client
-        .post(
-          Uri.parse(_endpointOrDefault(providerSettings)),
-          headers: headers,
-          body: jsonEncode(body),
-        )
-        .timeout(timeout);
+    final response = await _transport.sendJson(
+      uri: Uri.parse(_endpointOrDefault(providerSettings)),
+      method: 'POST',
+      headers: headers,
+      body: body,
+      timeout: timeout,
+      maxResponseBytes: _maxTranslationResponseBytes,
+    );
     final json = _decodeObject(response, AiTranslationProvider.doubao);
     final code = _intValue(json['code']);
     if (code != null && code != _doubaoSuccessCode) {
@@ -857,9 +863,7 @@ class AiTranslationService {
   }
 
   void dispose() {
-    if (_ownsClient) {
-      _client.close();
-    }
+    _transport.dispose();
     if (_ownsChatClient) {
       _chatClient.dispose();
     }

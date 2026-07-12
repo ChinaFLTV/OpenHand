@@ -50,6 +50,24 @@ void main() {
     expect(settings.maxFileSizeMb, 256);
   });
 
+  test('direct settings cannot bypass the parser hard cap', () async {
+    final file = File('${tempDirectory.path}/hard-cap.txt');
+    final handle = await file.open(mode: FileMode.write);
+    await handle.setPosition(256 * 1024 * 1024);
+    await handle.writeByte(0);
+    await handle.close();
+    final request = KnowledgeDocumentParseRequest(
+      file: file,
+      settings: const KnowledgeBaseSettings(maxFileSizeMb: 10240),
+      stat: await file.stat(),
+    );
+
+    await expectLater(
+      const KnowledgeDocumentParserRegistry().parse(request),
+      throwsA(isA<StateError>()),
+    );
+  });
+
   test('parser rejects oversized XML metadata before expanding it', () async {
     final archive = Archive()
       ..addFile(

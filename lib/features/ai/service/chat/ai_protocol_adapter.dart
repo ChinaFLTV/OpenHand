@@ -6,10 +6,12 @@ import 'package:path/path.dart' as p;
 
 import '../../../../app/support/silent_log.dart';
 import '../../../../shared/net/http_error_message.dart';
+import '../../../../shared/util/bounded_file_io.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/text_normalization.dart';
 import '../../model/ai_api_dialect.dart';
 import '../../model/ai_api_family.dart';
+import '../../model/ai_attachment.dart';
 import '../../model/ai_input_cache_runtime_config.dart';
 import '../../model/ai_model_config.dart';
 import '../../model/ai_token_usage.dart';
@@ -19,6 +21,8 @@ import '../session_io/ai_token_usage_parser.dart';
 
 final RegExp _dataUriMimePattern = RegExp(r'data:([^;]+)');
 final RegExp _markdownSeparatorTailPattern = RegExp(r'-+$');
+const Duration _inlineImageReadIdleTimeout = Duration(seconds: 15);
+const Duration _inlineImageReadTotalTimeout = Duration(minutes: 1);
 
 abstract final class AiThinkingRequestPolicy {
   static const int _defaultThinkingBudget = 8192;
@@ -1304,8 +1308,17 @@ abstract class AiProtocolAdapter {
     required String filePath,
     required String mimeType,
   }) async {
-    final bytes = await File(filePath).readAsBytes();
-    return 'data:$mimeType;base64,${base64Encode(bytes)}';
+    return 'data:$mimeType;base64,${await encodeFileAsBase64(filePath)}';
+  }
+
+  Future<String> encodeFileAsBase64(String filePath) async {
+    final bytes = await readBoundedFileBytes(
+      File(filePath),
+      maxBytes: aiMessageAttachmentMaxFileBytes,
+      idleTimeout: _inlineImageReadIdleTimeout,
+      totalTimeout: _inlineImageReadTotalTimeout,
+    );
+    return base64Encode(bytes);
   }
 
   Future<String> parseAssistantMessage(String rawResponse);
@@ -2494,13 +2507,12 @@ class ClaudeProtocolAdapter extends AiProtocolAdapter {
           if (filePath.isEmpty || mimeType.isEmpty) {
             continue;
           }
-          final bytes = await File(filePath).readAsBytes();
           payload.add(<String, Object?>{
             'type': 'image',
             'source': <String, Object?>{
               'type': 'base64',
               'media_type': mimeType,
-              'data': base64Encode(bytes),
+              'data': await encodeFileAsBase64(filePath),
             },
           });
       }
@@ -2840,11 +2852,10 @@ class GeminiProtocolAdapter extends AiProtocolAdapter {
           if (filePath.isEmpty || mimeType.isEmpty) {
             continue;
           }
-          final bytes = await File(filePath).readAsBytes();
           payload.add(<String, Object?>{
             'inline_data': <String, Object?>{
               'mime_type': mimeType,
-              'data': base64Encode(bytes),
+              'data': await encodeFileAsBase64(filePath),
             },
           });
       }

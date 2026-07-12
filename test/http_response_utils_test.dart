@@ -112,4 +112,60 @@ void main() {
       await controller.close();
     }
   });
+
+  test(
+    'streaming limits cancel trickle traffic at the total deadline',
+    () async {
+      final cancelled = Completer<void>();
+      final controller = StreamController<List<int>>(
+        onCancel: () {
+          if (!cancelled.isCompleted) cancelled.complete();
+        },
+      );
+      final timer = Timer.periodic(
+        const Duration(milliseconds: 5),
+        (_) => controller.add(const <int>[1]),
+      );
+      try {
+        await expectLater(
+          limitByteStream(
+            controller.stream,
+            maxBytes: 1024,
+            idleTimeout: const Duration(seconds: 1),
+            totalTimeout: const Duration(milliseconds: 40),
+          ).drain<void>(),
+          throwsA(isA<TimeoutException>()),
+        );
+        await cancelled.future.timeout(const Duration(seconds: 1));
+      } finally {
+        timer.cancel();
+        await controller.close();
+      }
+    },
+  );
+
+  test('stream boundaries do not wait for a stalled source cancel', () async {
+    final cancelStarted = Completer<void>();
+    final cancelNeverCompletes = Completer<void>();
+    final controller = StreamController<List<int>>(
+      onCancel: () {
+        if (!cancelStarted.isCompleted) cancelStarted.complete();
+        return cancelNeverCompletes.future;
+      },
+    );
+    final stopwatch = Stopwatch()..start();
+    final read = limitByteStream(
+      controller.stream,
+      maxBytes: 1024,
+      idleTimeout: const Duration(seconds: 1),
+      totalTimeout: const Duration(milliseconds: 40),
+    ).drain<void>();
+
+    await expectLater(read, throwsA(isA<TimeoutException>()));
+    stopwatch.stop();
+    expect(stopwatch.elapsed, lessThan(const Duration(milliseconds: 300)));
+    await cancelStarted.future.timeout(const Duration(seconds: 1));
+    cancelNeverCompletes.complete();
+    await controller.close();
+  });
 }

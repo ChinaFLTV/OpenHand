@@ -55,6 +55,30 @@ class AiTransportFileDownloadResult {
   bool get isSuccess => isHttpSuccessStatus(statusCode);
 }
 
+class AiTransportResponseException implements Exception {
+  const AiTransportResponseException({
+    required this.statusCode,
+    required this.body,
+    required this.uri,
+    this.reasonPhrase,
+  });
+
+  final int statusCode;
+  final String body;
+  final Uri uri;
+  final String? reasonPhrase;
+
+  @override
+  String toString() {
+    final reason = nullIfBlank(reasonPhrase);
+    final preview = nullIfBlank(body);
+    return [
+      'HTTP $statusCode${reason == null ? '' : ' $reason'}',
+      if (preview != null) preview,
+    ].join(': ');
+  }
+}
+
 class AiTransportClient {
   AiTransportClient({
     http.Client? client,
@@ -67,31 +91,166 @@ class AiTransportClient {
   final http.Client _client;
   final bool _ownsClient;
   final AiMultipartFileLengthReader _multipartFileLengthReader;
+  final Set<Completer<void>> _activeAborts = <Completer<void>>{};
+  bool _disposed = false;
 
   Future<http.Response> sendJson({
     required Uri uri,
     required String method,
     required Map<String, String> headers,
-    required Map<String, Object?> body,
+    required Object? body,
     required Duration timeout,
     int maxResponseBytes = defaultAiTransportResponseMaxBytes,
   }) async {
     _requirePositive(maxResponseBytes, 'maxResponseBytes');
-    final abort = Completer<void>();
-    final request =
-        http.AbortableRequest(
-            method.toUpperCase(),
-            uri,
-            abortTrigger: abort.future,
-          )
-          ..headers.addAll(headers)
-          ..body = jsonEncode(body);
-    return _send(
-      request,
-      abort: abort,
-      timeout: timeout,
-      maxResponseBytes: maxResponseBytes,
-    );
+    final encodedBody = jsonEncode(body);
+    return _runAbortable((abort) {
+      final request =
+          http.AbortableRequest(
+              method.toUpperCase(),
+              uri,
+              abortTrigger: abort.future,
+            )
+            ..headers.addAll(headers)
+            ..body = encodedBody;
+      return _send(
+        request,
+        abort: abort,
+        timeout: timeout,
+        maxResponseBytes: maxResponseBytes,
+      );
+    });
+  }
+
+  Future<http.Response> sendForm({
+    required Uri uri,
+    required String method,
+    required Map<String, String> headers,
+    required Map<String, String> body,
+    required Duration timeout,
+    int maxResponseBytes = defaultAiTransportResponseMaxBytes,
+  }) async {
+    _requirePositive(maxResponseBytes, 'maxResponseBytes');
+    return _runAbortable((abort) {
+      final request =
+          http.AbortableRequest(
+              method.toUpperCase(),
+              uri,
+              abortTrigger: abort.future,
+            )
+            ..headers.addAll(headers)
+            ..bodyFields = body;
+      return _send(
+        request,
+        abort: abort,
+        timeout: timeout,
+        maxResponseBytes: maxResponseBytes,
+      );
+    });
+  }
+
+  Future<http.Response> sendText({
+    required Uri uri,
+    required String method,
+    required Map<String, String> headers,
+    required String body,
+    required Duration timeout,
+    Encoding encoding = utf8,
+    int maxResponseBytes = defaultAiTransportResponseMaxBytes,
+  }) async {
+    _requirePositive(maxResponseBytes, 'maxResponseBytes');
+    return _runAbortable((abort) {
+      final request = http.AbortableRequest(
+        method.toUpperCase(),
+        uri,
+        abortTrigger: abort.future,
+      )..headers.addAll(headers);
+      if (body.isNotEmpty) {
+        request
+          ..encoding = encoding
+          ..body = body;
+      }
+      return _send(
+        request,
+        abort: abort,
+        timeout: timeout,
+        maxResponseBytes: maxResponseBytes,
+      );
+    });
+  }
+
+  /// Sends JSON and lets [consume] process a bounded successful response
+  /// incrementally. HTTP failures are converted to a bounded
+  /// [AiTransportResponseException].
+  Future<T> consumeJsonStream<T>({
+    required Uri uri,
+    required String method,
+    required Map<String, String> headers,
+    required Object? body,
+    required Duration timeout,
+    required int maxResponseBytes,
+    required Future<T> Function(
+      http.StreamedResponse response,
+      Stream<List<int>> stream,
+    )
+    consume,
+  }) async {
+    _requirePositive(maxResponseBytes, 'maxResponseBytes');
+    final encodedBody = jsonEncode(body);
+    return _runAbortable((abort) {
+      final request =
+          http.AbortableRequest(
+              method.toUpperCase(),
+              uri,
+              abortTrigger: abort.future,
+            )
+            ..headers.addAll(headers)
+            ..body = encodedBody;
+      return _executeRequest(
+        request,
+        abort: abort,
+        timeout: timeout,
+        consume: (streamed, remainingBudget) async {
+          if (isHttpFailureStatus(streamed.statusCode)) {
+            final response = await _collectResponse(
+              streamed,
+              requestUrl: uri,
+              remainingBudget: remainingBudget,
+              maxResponseBytes: maxResponseBytes,
+            );
+            throw AiTransportResponseException(
+              statusCode: response.statusCode,
+              body: response.body,
+              uri: uri,
+              reasonPhrase: response.reasonPhrase,
+            );
+          }
+          _rejectOversizedDeclaredResponse(
+            streamed,
+            responseLimit: maxResponseBytes,
+            requestUrl: uri,
+          );
+          final remaining = _requireRemainingBudget(remainingBudget);
+          final stream = limitByteStream(
+            streamed.stream,
+            maxBytes: maxResponseBytes,
+            idleTimeout: _shorterDuration(_responseIdleTimeout, remaining),
+            totalTimeout: remaining,
+          );
+          try {
+            return await consume(streamed, stream).timeout(
+              remaining,
+              onTimeout: () => throw TimeoutException(
+                'HTTP response exceeded the request time limit.',
+                remaining,
+              ),
+            );
+          } finally {
+            _cancelResponseStream(streamed.stream);
+          }
+        },
+      );
+    });
   }
 
   Future<http.Response> sendMultipart({
@@ -108,21 +267,87 @@ class AiTransportClient {
     _requirePositive(maxFileBytes, 'maxFileBytes');
     _requirePositive(maxTotalBytes, 'maxTotalBytes');
     final effectiveTimeout = _effectiveRequestTimeout(timeout);
-    final preparation = Stopwatch()..start();
-    final abort = Completer<void>();
-    try {
-      final request = http.AbortableMultipartRequest(
-        method.toUpperCase(),
-        uri,
-        abortTrigger: abort.future,
-      );
-      headers.forEach((key, value) {
-        if (lowercaseStringFromValue(key) == _contentTypeHeaderName) return;
-        request.headers[key] = value;
-      });
-      var totalFileBytes = 0;
+    return _runAbortable((abort) async {
+      final preparation = Stopwatch()..start();
+      try {
+        final request = http.AbortableMultipartRequest(
+          method.toUpperCase(),
+          uri,
+          abortTrigger: abort.future,
+        );
+        headers.forEach((key, value) {
+          if (lowercaseStringFromValue(key) == _contentTypeHeaderName) return;
+          request.headers[key] = value;
+        });
+        var totalFileBytes = 0;
 
-      Future<void> addFile(String field, AiMultipartUploadFile upload) async {
+        Future<void> addFile(String field, AiMultipartUploadFile upload) async {
+          final remaining = effectiveTimeout - preparation.elapsed;
+          if (remaining <= Duration.zero) {
+            throw TimeoutException(
+              'Multipart request preparation exceeded its time limit.',
+              effectiveTimeout,
+            );
+          }
+          final length = await _multipartFileLengthReader(upload.filePath)
+              .timeout(
+                remaining,
+                onTimeout: () => throw TimeoutException(
+                  'Multipart file inspection exceeded the request time limit.',
+                  effectiveTimeout,
+                ),
+              );
+          if (length < 0) {
+            throw FileSystemException(
+              'Multipart file reported an invalid negative size.',
+              upload.filePath,
+            );
+          }
+          if (length > maxFileBytes) {
+            throw HttpException(
+              'Multipart file exceeds the $maxFileBytes byte limit.',
+              uri: Uri.file(upload.filePath),
+            );
+          }
+          if (totalFileBytes > maxTotalBytes - length) {
+            throw HttpException(
+              'Multipart files exceed the $maxTotalBytes byte total limit.',
+              uri: uri,
+            );
+          }
+          totalFileBytes += length;
+          request.files.add(
+            http.MultipartFile(
+              field,
+              File(upload.filePath).openRead(0, length),
+              length,
+              filename: upload.filename ?? p.basename(upload.filePath),
+            ),
+          );
+        }
+
+        for (final entry in body.entries) {
+          final key = entry.key;
+          final value = entry.value;
+          if (value == null) continue;
+          if (value is AiMultipartUploadFile) {
+            await addFile(key, value);
+            continue;
+          }
+          if (value is List<AiMultipartUploadFile>) {
+            for (final item in value) {
+              await addFile(key, item);
+            }
+            continue;
+          }
+          request.fields[key] = _multipartFieldValue(value);
+        }
+        if (request.contentLength > maxTotalBytes) {
+          throw HttpException(
+            'Multipart request exceeds the $maxTotalBytes byte total limit.',
+            uri: uri,
+          );
+        }
         final remaining = effectiveTimeout - preparation.elapsed;
         if (remaining <= Duration.zero) {
           throw TimeoutException(
@@ -130,82 +355,16 @@ class AiTransportClient {
             effectiveTimeout,
           );
         }
-        final length = await _multipartFileLengthReader(upload.filePath)
-            .timeout(
-              remaining,
-              onTimeout: () => throw TimeoutException(
-                'Multipart file inspection exceeded the request time limit.',
-                effectiveTimeout,
-              ),
-            );
-        if (length < 0) {
-          throw FileSystemException(
-            'Multipart file reported an invalid negative size.',
-            upload.filePath,
-          );
-        }
-        if (length > maxFileBytes) {
-          throw HttpException(
-            'Multipart file exceeds the $maxFileBytes byte limit.',
-            uri: Uri.file(upload.filePath),
-          );
-        }
-        if (totalFileBytes > maxTotalBytes - length) {
-          throw HttpException(
-            'Multipart files exceed the $maxTotalBytes byte total limit.',
-            uri: uri,
-          );
-        }
-        totalFileBytes += length;
-        request.files.add(
-          http.MultipartFile(
-            field,
-            File(upload.filePath).openRead(0, length),
-            length,
-            filename: upload.filename ?? p.basename(upload.filePath),
-          ),
+        return await _send(
+          request,
+          abort: abort,
+          timeout: remaining,
+          maxResponseBytes: maxResponseBytes,
         );
+      } finally {
+        preparation.stop();
       }
-
-      for (final entry in body.entries) {
-        final key = entry.key;
-        final value = entry.value;
-        if (value == null) continue;
-        if (value is AiMultipartUploadFile) {
-          await addFile(key, value);
-          continue;
-        }
-        if (value is List<AiMultipartUploadFile>) {
-          for (final item in value) {
-            await addFile(key, item);
-          }
-          continue;
-        }
-        request.fields[key] = _multipartFieldValue(value);
-      }
-      if (request.contentLength > maxTotalBytes) {
-        throw HttpException(
-          'Multipart request exceeds the $maxTotalBytes byte total limit.',
-          uri: uri,
-        );
-      }
-      final remaining = effectiveTimeout - preparation.elapsed;
-      if (remaining <= Duration.zero) {
-        throw TimeoutException(
-          'Multipart request preparation exceeded its time limit.',
-          effectiveTimeout,
-        );
-      }
-      return await _send(
-        request,
-        abort: abort,
-        timeout: remaining,
-        maxResponseBytes: maxResponseBytes,
-      );
-    } finally {
-      _abort(abort);
-      preparation.stop();
-    }
+    });
   }
 
   Future<http.Response> get({
@@ -253,58 +412,59 @@ class AiTransportClient {
   }) {
     _requirePositive(maxBytes, 'maxBytes');
     _requirePositive(maxJsonBytes, 'maxJsonBytes');
-    final abort = Completer<void>();
-    final request = http.AbortableRequest(
-      'GET',
-      uri,
-      abortTrigger: abort.future,
-    )..headers.addAll(headers);
-    return _executeRequest(
-      request,
-      abort: abort,
-      timeout: timeout,
-      consume: (streamed, remainingBudget) async {
-        if (isHttpFailureStatus(streamed.statusCode)) {
-          final response = await _collectResponse(
+    return _runAbortable((abort) {
+      final request = http.AbortableRequest(
+        'GET',
+        uri,
+        abortTrigger: abort.future,
+      )..headers.addAll(headers);
+      return _executeRequest(
+        request,
+        abort: abort,
+        timeout: timeout,
+        consume: (streamed, remainingBudget) async {
+          if (isHttpFailureStatus(streamed.statusCode)) {
+            final response = await _collectResponse(
+              streamed,
+              requestUrl: uri,
+              remainingBudget: remainingBudget,
+              maxResponseBytes: maxJsonBytes,
+            );
+            return AiTransportFileDownloadResult(
+              statusCode: response.statusCode,
+              headers: Map<String, String>.unmodifiable(response.headers),
+              bytesWritten: 0,
+              errorBody: response.body,
+              reasonPhrase: response.reasonPhrase,
+            );
+          }
+
+          final contentType = _headerValue(streamed.headers, 'content-type');
+          final responseLimit = _isJsonContentType(contentType)
+              ? _smallerInt(maxBytes, maxJsonBytes)
+              : maxBytes;
+          _rejectOversizedDeclaredResponse(
             streamed,
+            responseLimit: responseLimit,
             requestUrl: uri,
+          );
+          final bytesWritten = await _writeResponseToFile(
+            streamed,
+            destination: destination,
+            responseLimit: responseLimit,
             remainingBudget: remainingBudget,
-            maxResponseBytes: maxJsonBytes,
           );
           return AiTransportFileDownloadResult(
-            statusCode: response.statusCode,
-            headers: Map<String, String>.unmodifiable(response.headers),
-            bytesWritten: 0,
-            errorBody: response.body,
-            reasonPhrase: response.reasonPhrase,
+            statusCode: streamed.statusCode,
+            headers: Map<String, String>.unmodifiable(streamed.headers),
+            bytesWritten: bytesWritten,
+            errorBody: '',
+            filePath: destination.path,
+            reasonPhrase: streamed.reasonPhrase,
           );
-        }
-
-        final contentType = _headerValue(streamed.headers, 'content-type');
-        final responseLimit = _isJsonContentType(contentType)
-            ? _smallerInt(maxBytes, maxJsonBytes)
-            : maxBytes;
-        _rejectOversizedDeclaredResponse(
-          streamed,
-          responseLimit: responseLimit,
-          requestUrl: uri,
-        );
-        final bytesWritten = await _writeResponseToFile(
-          streamed,
-          destination: destination,
-          responseLimit: responseLimit,
-          remainingBudget: remainingBudget,
-        );
-        return AiTransportFileDownloadResult(
-          statusCode: streamed.statusCode,
-          headers: Map<String, String>.unmodifiable(streamed.headers),
-          bytesWritten: bytesWritten,
-          errorBody: '',
-          filePath: destination.path,
-          reasonPhrase: streamed.reasonPhrase,
-        );
-      },
-    );
+        },
+      );
+    });
   }
 
   Future<http.Response> _send(
@@ -414,18 +574,19 @@ class AiTransportClient {
     required Duration timeout,
     required int maxResponseBytes,
   }) {
-    final abort = Completer<void>();
-    final request = http.AbortableRequest(
-      'GET',
-      uri,
-      abortTrigger: abort.future,
-    )..headers.addAll(headers);
-    return _send(
-      request,
-      abort: abort,
-      timeout: timeout,
-      maxResponseBytes: maxResponseBytes,
-    );
+    return _runAbortable((abort) {
+      final request = http.AbortableRequest(
+        'GET',
+        uri,
+        abortTrigger: abort.future,
+      )..headers.addAll(headers);
+      return _send(
+        request,
+        abort: abort,
+        timeout: timeout,
+        maxResponseBytes: maxResponseBytes,
+      );
+    });
   }
 
   Future<int> _writeResponseToFile(
@@ -615,8 +776,29 @@ class AiTransportClient {
     return first < second ? first : second;
   }
 
+  Future<T> _runAbortable<T>(
+    Future<T> Function(Completer<void> abort) operation,
+  ) async {
+    final abort = _createAbort();
+    try {
+      return await operation(abort);
+    } finally {
+      _abort(abort);
+    }
+  }
+
+  Completer<void> _createAbort() {
+    if (_disposed) {
+      throw StateError('AI transport client has been disposed.');
+    }
+    final abort = Completer<void>();
+    _activeAborts.add(abort);
+    return abort;
+  }
+
   void _abort(Completer<void> abort) {
     if (!abort.isCompleted) abort.complete();
+    _activeAborts.remove(abort);
   }
 
   void _cancelResponseStream(Stream<List<int>> stream) {
@@ -658,6 +840,13 @@ class AiTransportClient {
   }
 
   void dispose() {
+    if (_disposed) return;
+    _disposed = true;
+    final aborts = _activeAborts.toList(growable: false);
+    _activeAborts.clear();
+    for (final abort in aborts) {
+      if (!abort.isCompleted) abort.complete();
+    }
     if (_ownsClient) {
       _client.close();
     }

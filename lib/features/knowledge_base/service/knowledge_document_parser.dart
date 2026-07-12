@@ -10,6 +10,7 @@ import 'package:xml/xml.dart' as xml;
 import 'package:yaml/yaml.dart';
 
 import '../../../shared/net/http_response_utils.dart';
+import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/text_normalization.dart';
 import '../model/knowledge_base_settings.dart';
@@ -232,7 +233,8 @@ class KnowledgeDocumentParserRegistry {
 
 int _documentByteLimit(KnowledgeBaseSettings settings) {
   return math.min(
-    settings.maxFileSizeMb * _knowledgeBytesPerMiB,
+    KnowledgeBaseSettingRanges.maxFileSizeMb.normalize(settings.maxFileSizeMb) *
+        _knowledgeBytesPerMiB,
     _maxKnowledgeDocumentBytes,
   );
 }
@@ -250,17 +252,18 @@ void _validateDocumentSize(KnowledgeDocumentParseRequest request, int size) {
 Future<Uint8List> _readDocumentBytes(
   KnowledgeDocumentParseRequest request,
 ) async {
-  final currentSize = await request.file.length();
-  _validateDocumentSize(request, currentSize);
   try {
-    return await readBoundedByteStream(
-      request.file.openRead(),
+    return await readBoundedFileBytes(
+      request.file,
       maxBytes: _documentByteLimit(request.settings),
       idleTimeout: _knowledgeFileReadIdleTimeout,
       totalTimeout: _knowledgeFileReadTotalTimeout,
     );
-  } on HttpException {
-    throw StateError('读取期间文件增长并超过知识库安全上限：${p.basename(request.file.path)}。');
+  } on BoundedFileReadException catch (error) {
+    final detail = error.failure == BoundedFileReadFailure.tooLarge
+        ? '文件超过知识库安全上限'
+        : '读取期间文件发生变化';
+    throw StateError('$detail：${p.basename(request.file.path)}。');
   }
 }
 

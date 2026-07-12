@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -20,6 +21,148 @@ void main() {
       throwsArgumentError,
     );
     transport.dispose();
+  });
+
+  test('form requests share abortable bounded transport semantics', () async {
+    final aborted = Completer<void>();
+    final client = _CallbackClient((request) async {
+      _observeAbort(request, aborted);
+      expect(request, isA<http.Request>());
+      expect((request as http.Request).bodyFields, <String, String>{
+        'q': 'hello world',
+      });
+      return http.StreamedResponse(
+        Stream<List<int>>.value('ok'.codeUnits),
+        200,
+        request: request,
+      );
+    });
+    final transport = AiTransportClient(client: client);
+
+    final response = await transport.sendForm(
+      uri: uri,
+      method: 'POST',
+      headers: const <String, String>{
+        'content-type': 'application/x-www-form-urlencoded',
+      },
+      body: const <String, String>{'q': 'hello world'},
+      timeout: const Duration(seconds: 1),
+      maxResponseBytes: 2,
+    );
+
+    expect(response.body, 'ok');
+    await aborted.future.timeout(const Duration(seconds: 1));
+  });
+
+  test('JSON transport accepts a non-object root value', () async {
+    final client = _CallbackClient((request) async {
+      expect(jsonDecode((request as http.Request).body), <Object?>['first', 2]);
+      return http.StreamedResponse(
+        Stream<List<int>>.value('[]'.codeUnits),
+        200,
+        request: request,
+      );
+    });
+    final transport = AiTransportClient(client: client);
+
+    final response = await transport.sendJson(
+      uri: uri,
+      method: 'POST',
+      headers: const <String, String>{'content-type': 'application/json'},
+      body: const <Object?>['first', 2],
+      timeout: const Duration(seconds: 1),
+      maxResponseBytes: 2,
+    );
+
+    expect(response.body, '[]');
+  });
+
+  test(
+    'synchronous request construction failures do not poison reuse',
+    () async {
+      var sendCount = 0;
+      final client = _CallbackClient((request) async {
+        sendCount += 1;
+        return http.StreamedResponse(
+          Stream<List<int>>.value('ok'.codeUnits),
+          200,
+          request: request,
+        );
+      });
+      final transport = AiTransportClient(client: client);
+      final cyclic = <Object?>[];
+      cyclic.add(cyclic);
+
+      await expectLater(
+        transport.sendJson(
+          uri: uri,
+          method: 'POST',
+          headers: const <String, String>{'content-type': 'application/json'},
+          body: cyclic,
+          timeout: const Duration(seconds: 1),
+        ),
+        throwsA(isA<JsonCyclicError>()),
+      );
+      await expectLater(
+        transport.sendForm(
+          uri: uri,
+          method: 'POST',
+          headers: const <String, String>{'content-type': 'application/json'},
+          body: const <String, String>{'q': 'invalid-content-type'},
+          timeout: const Duration(seconds: 1),
+        ),
+        throwsStateError,
+      );
+
+      final response = await transport.sendText(
+        uri: uri,
+        method: 'POST',
+        headers: const <String, String>{},
+        body: 'valid',
+        timeout: const Duration(seconds: 1),
+        maxResponseBytes: 2,
+      );
+      expect(response.body, 'ok');
+      expect(sendCount, 1);
+      transport.dispose();
+    },
+  );
+
+  test('dispose aborts active requests without owning the client', () async {
+    final aborted = Completer<void>();
+    final headers = Completer<http.StreamedResponse>();
+    final client = _CallbackClient((request) {
+      if (request case http.Abortable(:final abortTrigger?)) {
+        abortTrigger.whenComplete(() {
+          if (!aborted.isCompleted) aborted.complete();
+          if (!headers.isCompleted) {
+            headers.completeError(
+              http.ClientException('transport disposed', request.url),
+            );
+          }
+        });
+      }
+      return headers.future;
+    });
+    final transport = AiTransportClient(client: client);
+    final response = transport.get(
+      uri: uri,
+      headers: const <String, String>{},
+      timeout: const Duration(seconds: 5),
+    );
+
+    transport.dispose();
+
+    await aborted.future.timeout(const Duration(seconds: 1));
+    await expectLater(response, throwsA(isA<http.ClientException>()));
+    await expectLater(
+      transport.get(
+        uri: uri,
+        headers: const <String, String>{},
+        timeout: const Duration(seconds: 1),
+      ),
+      throwsStateError,
+    );
   });
 
   test(
@@ -102,6 +245,39 @@ void main() {
       aborted.future,
       cancelled.future,
     ]).timeout(const Duration(seconds: 1));
+    await controller.close();
+  });
+
+  test('stream consumers cannot leave an unread response attached', () async {
+    final cancelled = Completer<void>();
+    final controller = StreamController<List<int>>(
+      onCancel: () {
+        if (!cancelled.isCompleted) cancelled.complete();
+      },
+    );
+    final transport = AiTransportClient(
+      client: _CallbackClient(
+        (request) async => http.StreamedResponse(
+          controller.stream,
+          200,
+          request: request,
+          headers: const <String, String>{'content-type': 'application/json'},
+        ),
+      ),
+    );
+
+    final result = await transport.consumeJsonStream<String>(
+      uri: uri,
+      method: 'POST',
+      headers: const <String, String>{'content-type': 'application/json'},
+      body: const <String, Object?>{},
+      timeout: const Duration(seconds: 1),
+      maxResponseBytes: 1024,
+      consume: (_, _) async => 'done',
+    );
+
+    expect(result, 'done');
+    await cancelled.future.timeout(const Duration(seconds: 1));
     await controller.close();
   });
 

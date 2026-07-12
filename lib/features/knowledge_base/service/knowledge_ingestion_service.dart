@@ -6,6 +6,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../../app/support/openhand_paths.dart';
 import '../../../shared/db/atomic_file_operations.dart';
+import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/reader_file_type.dart';
 import '../../../shared/util/stable_hash.dart';
@@ -46,6 +47,8 @@ class KnowledgeIngestionService {
   final KnowledgeReaderConversionService _readerConversionService;
   final bool _ownsReaderConversionService;
   final Uuid _uuid = const Uuid();
+  static const Duration _readerFileIdleTimeout = Duration(seconds: 30);
+  static const Duration _readerFileTotalTimeout = Duration(minutes: 5);
 
   Future<KnowledgeSource> importFile({
     required String filePath,
@@ -69,9 +72,12 @@ class KnowledgeIngestionService {
     }
     final stat = await file.stat();
     cancelToken?.throwIfCancelled();
-    final maxBytes = settings.maxFileSizeMb * 1024 * 1024;
+    final maxFileSizeMb = KnowledgeBaseSettingRanges.maxFileSizeMb.normalize(
+      settings.maxFileSizeMb,
+    );
+    final maxBytes = maxFileSizeMb * 1024 * 1024;
     if (stat.size > maxBytes) {
-      throw StateError('文件超过知识库最大单文件大小 ${settings.maxFileSizeMb}MB。');
+      throw StateError('文件超过知识库最大单文件大小 ${maxFileSizeMb}MB。');
     }
     report(
       KnowledgeIndexingProgress(
@@ -89,6 +95,7 @@ class KnowledgeIngestionService {
       request: parseRequest,
       readerModels: readerModels,
       cancelToken: cancelToken,
+      maxBytes: maxBytes,
     );
     cancelToken?.throwIfCancelled();
     final now = DateTime.now().toUtc();
@@ -327,6 +334,7 @@ class KnowledgeIngestionService {
     required KnowledgeDocumentParseRequest request,
     required List<AiModelConfig> readerModels,
     required KnowledgeIndexingCancelToken? cancelToken,
+    required int maxBytes,
   }) async {
     final sourceType = ReaderFileType.normalize(p.extension(request.file.path));
     final rule = request.settings.readerRuleForSourceType(sourceType);
@@ -352,7 +360,9 @@ class KnowledgeIngestionService {
       final localParsed = ReaderFileType.isTextLikeSource(sourceType)
           ? null
           : await _parserRegistry.parse(request);
-      final sourceText = localParsed?.text ?? await _readTextFile(request.file);
+      final sourceText =
+          localParsed?.text ??
+          await _readTextFile(request.file, maxBytes: maxBytes);
       final sourceTitle = _titleOrFallback(
         localParsed?.title,
         p.basename(request.file.path),
@@ -448,8 +458,13 @@ class KnowledgeIngestionService {
     );
   }
 
-  Future<String> _readTextFile(File file) async {
-    final bytes = await file.readAsBytes();
+  Future<String> _readTextFile(File file, {required int maxBytes}) async {
+    final bytes = await readBoundedFileBytes(
+      file,
+      maxBytes: maxBytes,
+      idleTimeout: _readerFileIdleTimeout,
+      totalTimeout: _readerFileTotalTimeout,
+    );
     return String.fromCharCodes(bytes).trim().isEmpty
         ? ''
         : const Utf8Decoder(allowMalformed: true).convert(bytes);
