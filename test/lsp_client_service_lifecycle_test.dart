@@ -222,6 +222,178 @@ void main() {
       }
     },
   );
+
+  test('uses callbacks owned by the isolated service instance', () async {
+    late _FakeLspProcess process;
+    final service = await _createService(
+      executablePath: executablePath,
+      launcher: ({required backend, environment}) async {
+        process = _FakeLspProcess(_InitializeBehavior.success);
+        return process;
+      },
+    );
+    final diagnosticsPushed = Completer<String>();
+    final editHandled = Completer<void>();
+    service.diagnosticsPushCallback = (filePath, diagnostics) {
+      if (!diagnosticsPushed.isCompleted) diagnosticsPushed.complete(filePath);
+    };
+    service.workspaceEditHandler = (edit) async {
+      if (!editHandled.isCompleted) editHandled.complete();
+      return true;
+    };
+
+    try {
+      await service.syncDocument(
+        filePath: sourcePath,
+        documentText: 'void main() {}\n',
+        language: 'dart',
+      );
+      final uri = Uri.file(sourcePath).toString();
+      process.emitMessage(<String, Object?>{
+        'jsonrpc': '2.0',
+        'method': 'textDocument/publishDiagnostics',
+        'params': <String, Object?>{
+          'uri': uri,
+          'diagnostics': const <Object?>[],
+        },
+      });
+      expect(
+        await diagnosticsPushed.future.timeout(
+          const Duration(milliseconds: 200),
+        ),
+        sourcePath,
+      );
+
+      process.emitMessage(_workspaceApplyEditRequest(uri: uri, id: 700));
+      await editHandled.future.timeout(const Duration(milliseconds: 200));
+      await _waitUntil(
+        () => process.receivedMessages.any(
+          (message) =>
+              message['id'] == 700 &&
+              (message['result'] as Map?)?['applied'] == true,
+        ),
+      );
+    } finally {
+      await service.disposeAll();
+    }
+  });
+
+  test('bounds and serializes server workspace edit requests', () async {
+    late _FakeLspProcess process;
+    final service = await _createService(
+      executablePath: executablePath,
+      launcher: ({required backend, environment}) async {
+        process = _FakeLspProcess(_InitializeBehavior.success);
+        return process;
+      },
+    );
+    final releaseFirst = Completer<void>();
+    var handlerCalls = 0;
+    var activeHandlers = 0;
+    var maxActiveHandlers = 0;
+    service.workspaceEditHandler = (edit) async {
+      handlerCalls += 1;
+      activeHandlers += 1;
+      if (activeHandlers > maxActiveHandlers) {
+        maxActiveHandlers = activeHandlers;
+      }
+      if (handlerCalls == 1) await releaseFirst.future;
+      await Future<void>.delayed(Duration.zero);
+      activeHandlers -= 1;
+      return true;
+    };
+
+    try {
+      await service.syncDocument(
+        filePath: sourcePath,
+        documentText: 'void main() {}\n',
+        language: 'dart',
+      );
+      final uri = Uri.file(sourcePath).toString();
+      for (var index = 0; index < 40; index += 1) {
+        process.emitMessage(
+          _workspaceApplyEditRequest(uri: uri, id: 800 + index),
+        );
+      }
+      await _waitUntil(
+        () =>
+            process.receivedMessages
+                .where(
+                  (message) =>
+                      message['id'] is int &&
+                      (message['id'] as int) >= 800 &&
+                      (message['error'] as Map?)?['code'] == -32000,
+                )
+                .length ==
+            8,
+      );
+
+      expect(handlerCalls, 1);
+      expect(maxActiveHandlers, 1);
+
+      releaseFirst.complete();
+      await _waitUntil(
+        () =>
+            process.receivedMessages
+                .where(
+                  (message) =>
+                      message['id'] is int &&
+                      (message['id'] as int) >= 800 &&
+                      (message['id'] as int) < 840 &&
+                      (message.containsKey('result') ||
+                          message.containsKey('error')),
+                )
+                .length ==
+            40,
+      );
+      expect(handlerCalls, 32);
+      expect(maxActiveHandlers, 1);
+    } finally {
+      if (!releaseFirst.isCompleted) releaseFirst.complete();
+      await service.disposeAll();
+    }
+  });
+
+  test(
+    'rejects an oversized protocol header and releases the session',
+    () async {
+      late _FakeLspProcess process;
+      final service = await _createService(
+        executablePath: executablePath,
+        requestTimeout: const Duration(seconds: 1),
+        launcher: ({required backend, environment}) async {
+          process = _FakeLspProcess(_InitializeBehavior.success);
+          return process;
+        },
+      );
+
+      try {
+        await service.syncDocument(
+          filePath: sourcePath,
+          documentText: 'void main() {}\n',
+          language: 'dart',
+        );
+        final request = service.request(
+          operation: 'goToDefinition',
+          filePath: sourcePath,
+          line: 1,
+          character: 1,
+          language: 'dart',
+          documentText: 'void main() {}\n',
+        );
+        await _waitUntil(
+          () => process.receivedMethods.contains('textDocument/definition'),
+        );
+        final rejected = expectLater(request, throwsA(isA<FormatException>()));
+        process.emitRaw(List<int>.filled(64 * 1024 + 1, 65));
+
+        await rejected;
+        await _waitUntil(() => process.wasKilled);
+      } finally {
+        await service.disposeAll();
+      }
+    },
+  );
 }
 
 Future<AiLspClientService> _createService({
@@ -257,6 +429,32 @@ Future<void> _waitUntil(bool Function() condition) async {
   fail('Condition was not reached before the test deadline');
 }
 
+Map<String, Object?> _workspaceApplyEditRequest({
+  required String uri,
+  required int id,
+}) {
+  return <String, Object?>{
+    'jsonrpc': '2.0',
+    'id': id,
+    'method': 'workspace/applyEdit',
+    'params': <String, Object?>{
+      'edit': <String, Object?>{
+        'changes': <String, Object?>{
+          uri: <Object?>[
+            <String, Object?>{
+              'range': <String, Object?>{
+                'start': <String, Object?>{'line': 0, 'character': 0},
+                'end': <String, Object?>{'line': 0, 'character': 0},
+              },
+              'newText': '// updated\n',
+            },
+          ],
+        },
+      },
+    },
+  };
+}
+
 enum _InitializeBehavior { success, noResponse }
 
 class _FakeLspProcess implements Process {
@@ -280,10 +478,11 @@ class _FakeLspProcess implements Process {
   final Completer<int> _exitCode = Completer<int>();
   late final StreamSubscription<List<int>> _stdinSubscription;
   late final IOSink _stdin = IOSink(_stdinController.sink);
-  String _inputBuffer = '';
+  final List<int> _inputBuffer = <int>[];
 
   bool wasKilled = false;
   final List<String> receivedMethods = <String>[];
+  final List<Map<String, Object?>> receivedMessages = <Map<String, Object?>>[];
 
   @override
   Future<int> get exitCode => _exitCode.future;
@@ -317,47 +516,69 @@ class _FakeLspProcess implements Process {
   }
 
   void _receiveInput(List<int> bytes) {
-    _inputBuffer += utf8.decode(bytes);
+    _inputBuffer.addAll(bytes);
     while (true) {
-      final headerEnd = _inputBuffer.indexOf('\r\n\r\n');
-      if (headerEnd < 0) {
-        return;
-      }
+      final headerEnd = _findHeaderEnd(_inputBuffer);
+      if (headerEnd < 0) return;
       final lengthMatch = _contentLengthPattern.firstMatch(
-        _inputBuffer.substring(0, headerEnd),
+        latin1.decode(_inputBuffer.sublist(0, headerEnd)),
       );
-      if (lengthMatch == null) {
-        return;
-      }
+      if (lengthMatch == null) return;
       final contentLength = int.parse(lengthMatch.group(1)!);
       final bodyStart = headerEnd + 4;
       final bodyEnd = bodyStart + contentLength;
-      if (_inputBuffer.length < bodyEnd) {
-        return;
-      }
+      if (_inputBuffer.length < bodyEnd) return;
       final message =
-          jsonDecode(_inputBuffer.substring(bodyStart, bodyEnd))
+          jsonDecode(utf8.decode(_inputBuffer.sublist(bodyStart, bodyEnd)))
               as Map<String, Object?>;
-      _inputBuffer = _inputBuffer.substring(bodyEnd);
+      _inputBuffer.removeRange(0, bodyEnd);
       _handleMessage(message);
     }
   }
 
   void _handleMessage(Map<String, Object?> message) {
+    receivedMessages.add(message);
     receivedMethods.add('${message['method'] ?? ''}');
     if (message['method'] != 'initialize' ||
         initializeBehavior == _InitializeBehavior.noResponse) {
       return;
     }
-    final response = jsonEncode(<String, Object?>{
+    emitMessage(<String, Object?>{
       'jsonrpc': '2.0',
       'id': message['id'],
-      'result': <String, Object?>{'capabilities': <String, Object?>{}},
+      'result': <String, Object?>{
+        'capabilities': <String, Object?>{},
+        'serverInfo': <String, Object?>{'name': '测试🙂 LSP'},
+      },
     });
-    final framed =
-        'Content-Length: ${utf8.encode(response).length}\r\n\r\n'
-        '$response';
-    _stdoutController.add(utf8.encode(framed));
+  }
+
+  void emitMessage(Map<String, Object?> message) {
+    final body = utf8.encode(jsonEncode(message));
+    final frame = <int>[
+      ...utf8.encode('Content-Length: ${body.length}\r\n\r\n'),
+      ...body,
+    ];
+    const firstSplit = 7;
+    final secondSplit = frame.length ~/ 2;
+    _stdoutController
+      ..add(frame.sublist(0, firstSplit))
+      ..add(frame.sublist(firstSplit, secondSplit))
+      ..add(frame.sublist(secondSplit));
+  }
+
+  void emitRaw(List<int> bytes) => _stdoutController.add(bytes);
+
+  int _findHeaderEnd(List<int> bytes) {
+    for (var index = 0; index + 3 < bytes.length; index += 1) {
+      if (bytes[index] == 13 &&
+          bytes[index + 1] == 10 &&
+          bytes[index + 2] == 13 &&
+          bytes[index + 3] == 10) {
+        return index;
+      }
+    }
+    return -1;
   }
 
   void completeExit([int code = 0]) {

@@ -1102,6 +1102,8 @@ class AiLspClientService {
       initializationSettleDelay: _initializationSettleDelay,
       shutdownRequestDelay: _shutdownRequestDelay,
       shutdownExitDelay: _shutdownExitDelay,
+      workspaceEditHandlerProvider: () => _workspaceEditHandler,
+      diagnosticsPushCallbackProvider: () => _diagnosticsPushCallback,
       onTerminated: () {
         if (identical(_sessions[cacheKey], session)) {
           _sessions.remove(cacheKey);
@@ -1895,12 +1897,19 @@ class _AiLspSession {
     required Duration initializationSettleDelay,
     required Duration shutdownRequestDelay,
     required Duration shutdownExitDelay,
+    required Future<bool> Function(AiLspWorkspaceEdit edit)? Function()
+    workspaceEditHandlerProvider,
+    required void Function(String filePath, List<AiLspDiagnostic> diagnostics)?
+    Function()
+    diagnosticsPushCallbackProvider,
     required void Function() onTerminated,
   }) : _processLauncher = processLauncher,
        _requestTimeout = requestTimeout,
        _initializationSettleDelay = initializationSettleDelay,
        _shutdownRequestDelay = shutdownRequestDelay,
        _shutdownExitDelay = shutdownExitDelay,
+       _workspaceEditHandlerProvider = workspaceEditHandlerProvider,
+       _diagnosticsPushCallbackProvider = diagnosticsPushCallbackProvider,
        _onTerminated = onTerminated;
 
   final AiLspBackendResolution backend;
@@ -1909,24 +1918,32 @@ class _AiLspSession {
   final Duration _initializationSettleDelay;
   final Duration _shutdownRequestDelay;
   final Duration _shutdownExitDelay;
+  final Future<bool> Function(AiLspWorkspaceEdit edit)? Function()
+  _workspaceEditHandlerProvider;
+  final void Function(String filePath, List<AiLspDiagnostic> diagnostics)?
+  Function()
+  _diagnosticsPushCallbackProvider;
   final void Function() _onTerminated;
   Process? _process;
-  StreamSubscription<String>? _stdoutSubscription;
+  StreamSubscription<List<int>>? _stdoutSubscription;
   StreamSubscription<List<int>>? _stderrSubscription;
   int _nextId = 1;
   final Map<int, Completer<Object?>> _pendingRequests =
       <int, Completer<Object?>>{};
-  final StringBuffer _responseBuffer = StringBuffer();
+  final List<int> _responseBuffer = <int>[];
   final Map<String, _AiLspOpenDocument> _openDocuments =
       <String, _AiLspOpenDocument>{};
   final Map<String, List<AiLspDiagnostic>> _diagnosticsByUri =
       <String, List<AiLspDiagnostic>>{};
   final Map<String, Completer<List<AiLspDiagnostic>>> _pendingDiagnostics =
       <String, Completer<List<AiLspDiagnostic>>>{};
+  Future<void> _serverRequestSerial = Future<void>.value();
+  int _queuedServerRequests = 0;
   Timer? _idleTimer;
   Future<void>? _shutdownFuture;
   bool _shutdownRequested = false;
   bool _terminationNotified = false;
+  bool _bufferDrainScheduled = false;
 
   static const Duration _idleTimeout = Duration(seconds: 30);
   static const Duration _transportCancelTimeout = Duration(seconds: 1);
@@ -1935,9 +1952,14 @@ class _AiLspSession {
   // grows beyond this bound. Each request is ≤15s so under normal load it
   // is exceedingly unlikely to reach this ceiling.
   static const int _maxPendingRequests = 256;
-  static final RegExp _contentLengthHeaderPattern = RegExp(
-    r'Content-Length:\s*(\d+)',
-  );
+  static const int _maxLspFrameBytes = 8 * 1024 * 1024;
+  static const int _maxLspHeaderBytes = 64 * 1024;
+  static const int _maxMessagesPerDrain = 64;
+  static const int _maxQueuedServerRequests = 32;
+  static const Duration _serverRequestResponseTimeout = Duration(seconds: 15);
+  static final int _maxContentLengthDigits = _maxLspFrameBytes
+      .toString()
+      .length;
 
   bool get isAlive => _process != null && !_shutdownRequested;
 
@@ -1983,28 +2005,40 @@ class _AiLspSession {
       await shutdown();
       throw StateError('LSP session was disposed while starting');
     }
+    unawaited(
+      process.stdin.done.then<void>(
+        (_) {
+          _handleTransportFailure(
+            process,
+            StateError('LSP stdin closed unexpectedly'),
+            StackTrace.current,
+          );
+        },
+        onError: (Object error, StackTrace stack) {
+          _handleTransportFailure(process, error, stack);
+        },
+      ),
+    );
 
     // Store the subscription so shutdown() can cancel it; otherwise the
     // listener stays attached after the process is killed and `_onData` may
     // still fire into a session whose buffers/maps have already been cleared,
     // and the underlying stream is never released.
-    _stdoutSubscription = process.stdout
-        .transform(utf8.decoder)
-        .listen(
-          _onData,
-          onError: (Object error, StackTrace stack) {
-            silentLog('lsp_client_service', 'read LSP stdout', error, stack);
-            _handleTransportFailure(process, error, stack);
-          },
-          onDone: () {
-            _handleTransportFailure(
-              process,
-              StateError('LSP stdout closed unexpectedly'),
-              StackTrace.current,
-            );
-          },
-          cancelOnError: true,
+    _stdoutSubscription = process.stdout.listen(
+      _onData,
+      onError: (Object error, StackTrace stack) {
+        silentLog('lsp_client_service', 'read LSP stdout', error, stack);
+        _handleTransportFailure(process, error, stack);
+      },
+      onDone: () {
+        _handleTransportFailure(
+          process,
+          StateError('LSP stdout closed unexpectedly'),
+          StackTrace.current,
         );
+      },
+      cancelOnError: true,
+    );
     unawaited(_watchProcessExit(process));
     // Drain stderr so the LSP server is not blocked writing diagnostics, but
     // retain the subscription so descendants inheriting the pipe cannot keep
@@ -2174,6 +2208,11 @@ class _AiLspSession {
       return;
     }
     _openDocuments.remove(uri);
+    _diagnosticsByUri.remove(uri);
+    final pendingDiagnostics = _pendingDiagnostics.remove(uri);
+    if (pendingDiagnostics != null && !pendingDiagnostics.isCompleted) {
+      pendingDiagnostics.complete(const <AiLspDiagnostic>[]);
+    }
     _sendNotification('textDocument/didClose', <String, Object?>{
       'textDocument': <String, Object?>{'uri': uri},
     });
@@ -2431,7 +2470,9 @@ class _AiLspSession {
     return completer.future.timeout(
       timeout,
       onTimeout: () {
-        _pendingDiagnostics.remove(uri);
+        if (identical(_pendingDiagnostics[uri], completer)) {
+          _pendingDiagnostics.remove(uri);
+        }
         return diagnosticsForFile(filePath);
       },
     );
@@ -2495,72 +2536,127 @@ class _AiLspSession {
     if (process == null) {
       throw StateError('LSP session has no running process');
     }
-    final body = jsonEncode(message);
-    final header = 'Content-Length: ${utf8.encode(body).length}\r\n\r\n';
-    process.stdin.add(utf8.encode('$header$body'));
+    final body = utf8.encode(jsonEncode(message));
+    process.stdin.add(utf8.encode('Content-Length: ${body.length}\r\n\r\n'));
+    process.stdin.add(body);
   }
 
-  void _onData(String chunk) {
-    if (_shutdownRequested) {
-      return;
-    }
-    _responseBuffer.write(chunk);
+  void _onData(List<int> chunk) {
+    if (_shutdownRequested || chunk.isEmpty) return;
+    _responseBuffer.addAll(chunk);
+    if (_bufferDrainScheduled) return;
     _processBuffer();
   }
 
   void _processBuffer() {
-    final data = _responseBuffer.toString();
-    var offset = 0;
-
-    while (offset < data.length) {
-      final headerEnd = data.indexOf('\r\n\r\n', offset);
+    var processedMessages = 0;
+    while (!_shutdownRequested && _responseBuffer.isNotEmpty) {
+      final headerEnd = _findHeaderEnd(_responseBuffer);
       if (headerEnd < 0) {
-        break;
+        if (_responseBuffer.length > _maxLspHeaderBytes) {
+          _failProtocol(
+            const FormatException(
+              'LSP header exceeded $_maxLspHeaderBytes bytes',
+            ),
+          );
+        }
+        return;
       }
-      final header = data.substring(offset, headerEnd);
-      final lengthMatch = _contentLengthHeaderPattern.firstMatch(header);
-      if (lengthMatch == null) {
-        break;
+      if (headerEnd > _maxLspHeaderBytes) {
+        _failProtocol(
+          const FormatException(
+            'LSP header exceeded $_maxLspHeaderBytes bytes',
+          ),
+        );
+        return;
       }
-      final contentLength = int.parse(lengthMatch.group(1)!);
+
+      final contentLength = _parseContentLength(headerEnd);
+      if (contentLength == null ||
+          contentLength <= 0 ||
+          contentLength > _maxLspFrameBytes) {
+        _failProtocol(const FormatException('Invalid Content-Length header'));
+        return;
+      }
       final bodyStart = headerEnd + 4;
       final bodyEnd = bodyStart + contentLength;
-      if (bodyEnd > data.length) {
-        break;
-      }
-
-      final bodyStr = data.substring(bodyStart, bodyEnd);
-      offset = bodyEnd;
+      if (bodyEnd > _responseBuffer.length) return;
+      final body = _responseBuffer.sublist(bodyStart, bodyEnd);
+      _responseBuffer.removeRange(0, bodyEnd);
 
       try {
-        final message = jsonDecode(bodyStr);
-        if (message is! Map<String, Object?>) {
-          continue;
-        }
+        final decoded = jsonDecode(utf8.decode(body));
+        if (decoded is! Map) continue;
+        final message = stringKeyedMapFromValue(decoded);
         if (message.containsKey('id') && message.containsKey('method')) {
-          unawaited(_handleServerRequest(message));
+          _enqueueServerRequest(message);
         } else if (message.containsKey('id')) {
           _handleResponse(message);
         } else {
           _handleNotification(message);
         }
       } catch (error, stack) {
-        // Malformed LSP messages should not crash the reader loop.
-        silentLog(
-          'lsp_client_service',
-          'process message (${backend.language})',
-          error,
-          stack,
-        );
+        _failProtocol(error, stack: stack);
+        return;
       }
-    }
 
-    if (offset > 0) {
-      _responseBuffer.clear();
-      if (offset < data.length) {
-        _responseBuffer.write(data.substring(offset));
+      processedMessages += 1;
+      if (processedMessages >= _maxMessagesPerDrain) {
+        _bufferDrainScheduled = true;
+        scheduleMicrotask(() {
+          _bufferDrainScheduled = false;
+          if (!_shutdownRequested) _processBuffer();
+        });
+        return;
       }
     }
+  }
+
+  int? _parseContentLength(int headerEnd) {
+    final header = latin1.decode(_responseBuffer.sublist(0, headerEnd));
+    int? contentLength;
+    for (final line in header.split('\r\n')) {
+      final separator = line.indexOf(':');
+      if (separator <= 0 ||
+          line.substring(0, separator).trim().toLowerCase() !=
+              'content-length') {
+        continue;
+      }
+      if (contentLength != null) return null;
+      final value = line.substring(separator + 1).trim();
+      if (value.isEmpty ||
+          value.length > _maxContentLengthDigits ||
+          value.codeUnits.any((unit) => unit < 48 || unit > 57)) {
+        return null;
+      }
+      contentLength = int.tryParse(value);
+    }
+    return contentLength;
+  }
+
+  int _findHeaderEnd(List<int> bytes) {
+    for (var index = 0; index + 3 < bytes.length; index += 1) {
+      if (bytes[index] == 13 &&
+          bytes[index + 1] == 10 &&
+          bytes[index + 2] == 13 &&
+          bytes[index + 3] == 10) {
+        return index;
+      }
+    }
+    return -1;
+  }
+
+  void _failProtocol(Object error, {StackTrace? stack}) {
+    final process = _process;
+    if (process == null || _shutdownRequested) return;
+    final effectiveStack = stack ?? StackTrace.current;
+    silentLog(
+      'lsp_client_service',
+      'protocol (${backend.language})',
+      error,
+      effectiveStack,
+    );
+    _handleTransportFailure(process, error, effectiveStack);
   }
 
   void _handleResponse(Map<String, Object?> message) {
@@ -2582,6 +2678,61 @@ class _AiLspSession {
     completer.complete(message['result']);
   }
 
+  void _enqueueServerRequest(Map<String, Object?> message) {
+    if (_shutdownRequested) return;
+    if (_queuedServerRequests >= _maxQueuedServerRequests) {
+      _sendServerRequestError(
+        message['id'],
+        code: -32000,
+        message: 'LSP client request queue is full',
+      );
+      return;
+    }
+    _queuedServerRequests += 1;
+    _serverRequestSerial = _serverRequestSerial
+        .then((_) => _handleServerRequestSafely(message))
+        .whenComplete(() => _queuedServerRequests -= 1);
+  }
+
+  Future<void> _handleServerRequestSafely(Map<String, Object?> message) async {
+    if (_shutdownRequested) return;
+    try {
+      await _handleServerRequest(message);
+    } catch (error, stack) {
+      silentLog(
+        'lsp_client_service',
+        'server request (${backend.language})',
+        error,
+        stack,
+      );
+      if (!_shutdownRequested) {
+        _sendServerRequestError(
+          message['id'],
+          code: -32603,
+          message: 'LSP client request failed',
+        );
+      }
+    }
+  }
+
+  void _sendServerRequestError(
+    Object? id, {
+    required int code,
+    required String message,
+  }) {
+    final process = _process;
+    if (_shutdownRequested || id == null || process == null) return;
+    try {
+      _writeMessage(<String, Object?>{
+        'jsonrpc': '2.0',
+        'id': id,
+        'error': <String, Object?>{'code': code, 'message': message},
+      });
+    } catch (error, stack) {
+      _handleTransportFailure(process, error, stack);
+    }
+  }
+
   Future<void> _handleServerRequest(Map<String, Object?> message) async {
     if (_shutdownRequested) {
       return;
@@ -2597,13 +2748,33 @@ class _AiLspSession {
         final params = message['params'] as Map<String, Object?>?;
         final edit = AiLspClientService.parseWorkspaceEdit(params?['edit']);
         var applied = false;
-        final handler = AiLspClientService.instance._workspaceEditHandler;
+        final handler = _workspaceEditHandlerProvider();
         if (!edit.isEmpty && handler != null) {
-          try {
-            applied = await handler(edit);
-          } catch (_) {
-            applied = false;
+          final handlerFuture = handler(edit).then<Object?>(
+            (result) => result,
+            onError: (Object _, StackTrace _) => false,
+          );
+          final outcome = await Future.any<Object?>([
+            handlerFuture,
+            Future<void>.delayed(
+              _serverRequestResponseTimeout,
+            ).then<Object?>((_) => const _ServerRequestTimeoutToken()),
+          ]);
+          if (outcome is _ServerRequestTimeoutToken) {
+            if (!_shutdownRequested && _process != null) {
+              _writeMessage(<String, Object?>{
+                'jsonrpc': '2.0',
+                'id': id,
+                'result': <String, Object?>{
+                  'applied': false,
+                  'failureReason': 'Workspace edit handler timed out',
+                },
+              });
+            }
+            await handlerFuture;
+            return;
           }
+          applied = outcome == true;
         }
         if (_shutdownRequested || _process == null) {
           return;
@@ -2615,14 +2786,11 @@ class _AiLspSession {
         });
         return;
       default:
-        _writeMessage(<String, Object?>{
-          'jsonrpc': '2.0',
-          'id': id,
-          'error': <String, Object?>{
-            'code': -32601,
-            'message': 'Unsupported client request: $method',
-          },
-        });
+        _sendServerRequestError(
+          id,
+          code: -32601,
+          message: 'Unsupported client request: $method',
+        );
         return;
     }
   }
@@ -2637,9 +2805,7 @@ class _AiLspSession {
     }
     final params = message['params'] as Map<String, Object?>?;
     final uri = params?['uri'] as String?;
-    if (uri == null) {
-      return;
-    }
+    if (uri == null || !_openDocuments.containsKey(uri)) return;
     final diagnostics =
         (params?['diagnostics'] as List?)
             ?.whereType<Map<String, Object?>>()
@@ -2653,7 +2819,7 @@ class _AiLspSession {
     }
 
     // Push real-time diagnostics to the editor if a listener is registered.
-    final pushCb = AiLspClientService.instance._diagnosticsPushCallback;
+    final pushCb = _diagnosticsPushCallbackProvider();
     if (pushCb != null) {
       // Convert URI back to file path for the editor.
       final parsed = Uri.tryParse(uri);
@@ -2784,6 +2950,7 @@ class _AiLspSession {
     _openDocuments.clear();
     _diagnosticsByUri.clear();
     _responseBuffer.clear();
+    _bufferDrainScheduled = false;
   }
 
   void _failPendingRequests(Object error, StackTrace stack) {
@@ -2849,4 +3016,8 @@ class _AiLspOpenDocument {
   final String language;
   String text;
   int version;
+}
+
+class _ServerRequestTimeoutToken {
+  const _ServerRequestTimeoutToken();
 }
