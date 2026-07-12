@@ -305,7 +305,6 @@ class _KnowledgeImportDialogState extends State<KnowledgeImportDialog> {
       }
       showKnowledgeBaseErrorSnack(context, '$error');
     } finally {
-      progressController.dispose();
       if (mounted) setState(() => _saving = false);
     }
   }

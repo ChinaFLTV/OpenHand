@@ -161,40 +161,35 @@ class KnowledgeBaseView extends StatelessWidget {
         sourceTitle: p.basename(file.path),
       ),
     );
-    KnowledgeSource? source;
-    try {
-      source = await runKnowledgeIndexingProgressTask<KnowledgeSource>(
-        context: context,
-        controller: progressController,
-        title: openHandLocalizedText(
-          context,
-          zh: '构建知识库向量',
-          zhHant: '建立知識庫向量',
-          en: 'Building Knowledge Vectors',
-          fr: 'Construction des vecteurs',
-          de: 'Wissensvektoren werden erstellt',
-          ja: 'ナレッジベースベクトルを構築',
-        ),
-        subtitle: openHandLocalizedText(
-          context,
-          zh: '正在准备导入文件。',
-          zhHant: '正在準備匯入檔案。',
-          en: 'Preparing to import the file.',
-          fr: 'Préparation de l’import du fichier.',
-          de: 'Dateiimport wird vorbereitet.',
-          ja: 'ファイルのインポートを準備しています。',
-        ),
-        task: () => controller.importFile(
-          filePath: file.path,
-          embeddingModel: embeddingModel,
-          readerModels: aiModels,
-          cancelToken: cancelToken,
-          onProgress: progressController.updateProgress,
-        ),
-      );
-    } finally {
-      progressController.dispose();
-    }
+    final source = await runKnowledgeIndexingProgressTask<KnowledgeSource>(
+      context: context,
+      controller: progressController,
+      title: openHandLocalizedText(
+        context,
+        zh: '构建知识库向量',
+        zhHant: '建立知識庫向量',
+        en: 'Building Knowledge Vectors',
+        fr: 'Construction des vecteurs',
+        de: 'Wissensvektoren werden erstellt',
+        ja: 'ナレッジベースベクトルを構築',
+      ),
+      subtitle: openHandLocalizedText(
+        context,
+        zh: '正在准备导入文件。',
+        zhHant: '正在準備匯入檔案。',
+        en: 'Preparing to import the file.',
+        fr: 'Préparation de l’import du fichier.',
+        de: 'Dateiimport wird vorbereitet.',
+        ja: 'ファイルのインポートを準備しています。',
+      ),
+      task: () => controller.importFile(
+        filePath: file.path,
+        embeddingModel: embeddingModel,
+        readerModels: aiModels,
+        cancelToken: cancelToken,
+        onProgress: progressController.updateProgress,
+      ),
+    );
     if (!context.mounted) return;
     if (cancelToken.isCancelled) {
       showKnowledgeBaseInfoSnack(

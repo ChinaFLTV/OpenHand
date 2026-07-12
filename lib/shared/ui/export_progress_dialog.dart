@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../features/ai/service/session_io/ai_session_jsonl_exporter.dart';
@@ -17,23 +19,31 @@ class ExportProgressController extends ChangeNotifier {
 
   bool _finished = false;
   bool get finished => _finished;
+  bool _disposed = false;
 
   void updateProgress(ExportProgress next) {
-    if (_finished) return;
+    if (_finished || _disposed) return;
     _progress = next;
     notifyListeners();
   }
 
   void markFinished() {
-    if (_finished) return;
+    if (_finished || _disposed) return;
     _finished = true;
     notifyListeners();
   }
 
   void requestCancel() {
-    if (_finished) return;
+    if (_finished || _disposed) return;
     cancelToken.cancel();
     notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    if (_disposed) return;
+    _disposed = true;
+    super.dispose();
   }
 }
 
@@ -122,16 +132,16 @@ class ExportProgressDialog extends StatelessWidget {
   }
 }
 
-/// Convenience helper that opens the progress dialog using
-/// [showAnimatedDialog] so it inherits the global dialog animation settings.
-Future<void> showExportProgressDialog({
+/// Opens a tracked progress dialog and owns [controller] until that exact
+/// route closes. Unexpected route teardown cancels the export before cleanup.
+OpenHandDialogSession<void> showExportProgressDialog({
   required BuildContext context,
   required ExportProgressController controller,
   required String title,
   required String subtitle,
   required String cancelLabel,
 }) {
-  return showAnimatedDialog<void>(
+  final session = showTrackedAnimatedDialog<void>(
     context: context,
     barrierDismissible: false,
     dismissOnEscape: false,
@@ -142,4 +152,11 @@ Future<void> showExportProgressDialog({
       cancelLabel: cancelLabel,
     ),
   );
+  unawaited(
+    session.closed.whenComplete(() {
+      if (!controller.finished) controller.cancelToken.cancel();
+      controller.dispose();
+    }),
+  );
+  return session;
 }

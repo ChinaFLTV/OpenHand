@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:isolate';
 import 'dart:math' as math;
@@ -1375,53 +1376,43 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
 
   // ─────────────── Processing overlay (shown during heavy image ops) ──────
 
-  BuildContext? _processingDialogContext;
-  bool _processingDialogVisible = false;
-  bool _processingDialogCloseRequested = false;
+  OpenHandDialogSession<void>? _processingDialogSession;
 
   void _showProcessingOverlay() {
-    if (!mounted || _processingDialogVisible) {
+    final activeSession = _processingDialogSession;
+    if (!mounted ||
+        (activeSession != null &&
+            !activeSession.isClosed &&
+            !activeSession.isDismissRequested)) {
       return;
     }
-    _processingDialogVisible = true;
-    _processingDialogCloseRequested = false;
     final processingMessage =
         AppLocalizations.of(context)?.imageEditorProcessing ?? '处理中…';
-    showAnimatedDialog<void>(
+    final session = showTrackedAnimatedDialog<void>(
       context: context,
       barrierDismissible: false,
       dismissOnEscape: false,
-      builder: (dialogContext) {
-        _processingDialogContext = dialogContext;
-        if (_processingDialogCloseRequested) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (!dialogContext.mounted) {
-              return;
-            }
-            Navigator.of(dialogContext, rootNavigator: true).pop();
-          });
+      builder: (_) => _ProcessingDialog(message: processingMessage),
+    );
+    _processingDialogSession = session;
+    unawaited(
+      session.closed.whenComplete(() {
+        if (identical(_processingDialogSession, session)) {
+          _processingDialogSession = null;
         }
-        return _ProcessingDialog(message: processingMessage);
-      },
-    ).whenComplete(() {
-      _processingDialogContext = null;
-      _processingDialogVisible = false;
-      _processingDialogCloseRequested = false;
-    });
+      }),
+    );
   }
 
   void _dismissProcessingOverlay() {
-    if (!_processingDialogVisible) {
-      return;
-    }
-    _processingDialogVisible = false;
-    final dialogContext = _processingDialogContext;
-    if (dialogContext == null || !dialogContext.mounted) {
-      _processingDialogCloseRequested = true;
-      return;
-    }
-    _processingDialogContext = null;
-    Navigator.of(dialogContext, rootNavigator: true).pop();
+    final session = _processingDialogSession;
+    if (session == null || session.isDismissRequested) return;
+    unawaited(
+      session.dismiss(
+        logTag: 'image_editor',
+        logAction: 'dismissProcessingOverlay',
+      ),
+    );
   }
 
   // ──────────────────────────────── Apply (bake edits) / Undo ────────────

@@ -359,7 +359,7 @@ class _ThreadSessionManagementDialogState
     final progressController = ExportProgressController(
       cancelToken: cancelToken,
     );
-    final dialogFuture = showExportProgressDialog(
+    final dialogSession = showExportProgressDialog(
       context: context,
       controller: progressController,
       title: AppLocalizations.of(context)!.tsmExportSessionDataTitle,
@@ -380,11 +380,10 @@ class _ThreadSessionManagementDialogState
       result = ExportResult(kind: ExportResultKind.failure, error: error);
     }
     progressController.markFinished();
-    if (mounted && Navigator.of(context, rootNavigator: true).canPop()) {
-      Navigator.of(context, rootNavigator: true).pop();
-    }
-    await dialogFuture;
-    progressController.dispose();
+    await dialogSession.dismiss(
+      logTag: 'thread_session_management_dialog',
+      logAction: 'export.dismissProgress',
+    );
     if (!mounted) return;
     final ok = result.kind == ExportResultKind.success;
     final l10n = AppLocalizations.of(context)!;
@@ -431,7 +430,7 @@ class _ThreadSessionManagementDialogState
     final progressController = ExportProgressController(
       cancelToken: cancelToken,
     );
-    final dialogFuture = showExportProgressDialog(
+    final dialogSession = showExportProgressDialog(
       context: context,
       controller: progressController,
       title: AppLocalizations.of(context)!.tsmBatchExportTitle,
@@ -493,11 +492,10 @@ class _ThreadSessionManagementDialogState
       }
     }
     progressController.markFinished();
-    if (mounted && Navigator.of(context, rootNavigator: true).canPop()) {
-      Navigator.of(context, rootNavigator: true).pop();
-    }
-    await dialogFuture;
-    progressController.dispose();
+    await dialogSession.dismiss(
+      logTag: 'thread_session_management_dialog',
+      logAction: 'batchExport.dismissProgress',
+    );
     if (!mounted) return;
     final batchMessage = AppLocalizations.of(
       context,

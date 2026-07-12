@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../shared/ui/animated_dialog.dart';
@@ -21,24 +23,32 @@ class KnowledgeIndexingProgressController extends ChangeNotifier {
 
   bool _finished = false;
   bool get finished => _finished;
+  bool _disposed = false;
 
   void updateProgress(KnowledgeIndexingProgress next) {
-    if (_finished) return;
+    if (_finished || _disposed) return;
     _progress = next;
     notifyListeners();
   }
 
   void requestCancel() {
-    if (_finished || cancelToken.isCancelled) return;
+    if (_finished || _disposed || cancelToken.isCancelled) return;
     cancelToken.cancel();
     _progress = _progress.copyWith(phase: KnowledgeIndexingPhase.cancelling);
     notifyListeners();
   }
 
   void markFinished() {
-    if (_finished) return;
+    if (_finished || _disposed) return;
     _finished = true;
     notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    if (_disposed) return;
+    _disposed = true;
+    super.dispose();
   }
 }
 
@@ -49,35 +59,33 @@ Future<T?> runKnowledgeIndexingProgressTask<T>({
   required String subtitle,
   required Future<T?> Function() task,
 }) async {
-  var dialogClosed = false;
-  final dialogFuture = showKnowledgeIndexingProgressDialog(
+  final dialogSession = showKnowledgeIndexingProgressDialog(
     context: context,
     controller: controller,
     title: title,
     subtitle: subtitle,
-  ).whenComplete(() => dialogClosed = true);
+  );
   try {
     return await task();
   } finally {
     controller.markFinished();
-    var requestedClose = false;
-    if (!dialogClosed && context.mounted) {
-      requestedClose = true;
-      Navigator.of(context, rootNavigator: true).pop();
-    }
-    if (requestedClose) {
-      await dialogFuture;
-    }
+    await dialogSession.dismiss(
+      logTag: 'knowledge_indexing',
+      logAction: 'dismissProgress',
+    );
   }
 }
 
-Future<void> showKnowledgeIndexingProgressDialog({
+/// Opens a tracked indexing dialog and owns [controller] until that exact
+/// route closes. If the route disappears unexpectedly, indexing is cancelled
+/// before the controller is released.
+OpenHandDialogSession<void> showKnowledgeIndexingProgressDialog({
   required BuildContext context,
   required KnowledgeIndexingProgressController controller,
   required String title,
   required String subtitle,
 }) {
-  return showAnimatedDialog<void>(
+  final session = showTrackedAnimatedDialog<void>(
     context: context,
     barrierDismissible: false,
     dismissOnEscape: false,
@@ -87,6 +95,13 @@ Future<void> showKnowledgeIndexingProgressDialog({
       subtitle: subtitle,
     ),
   );
+  unawaited(
+    session.closed.whenComplete(() {
+      if (!controller.finished) controller.cancelToken.cancel();
+      controller.dispose();
+    }),
+  );
+  return session;
 }
 
 class _KnowledgeIndexingProgressDialog extends StatelessWidget {

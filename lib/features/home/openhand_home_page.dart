@@ -8258,7 +8258,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   }) async {
     final cancelCompleter = Completer<void>();
     var userCancelled = false;
-    var progressCloseRequested = false;
 
     void cancelTitleGeneration() {
       userCancelled = true;
@@ -8267,38 +8266,33 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       }
     }
 
-    late final Future<bool?> progressFuture;
+    late final OpenHandDialogSession<bool> progressSession;
     Future<void> closeProgressDialog() async {
-      if (!progressCloseRequested) {
-        progressCloseRequested = true;
-        if (mounted) {
-          Navigator.of(context, rootNavigator: true).pop();
-        }
-      }
-      try {
-        await progressFuture;
-      } catch (_) {
-        // Dialog futures should not fail, but closing progress must never mask
-        // the original title generation outcome.
-      }
+      await progressSession.dismiss(
+        logTag: 'openhand_home_page',
+        logAction: '_executeGenerateTitle.dismissProgress',
+      );
     }
 
-    progressFuture = showAnimatedDialog<bool>(
+    progressSession = showTrackedAnimatedDialog<bool>(
       context: context,
       barrierDismissible: false,
       dismissOnEscape: false,
-      builder: (dialogContext) => _TitleGenerationProgressDialog(
+      builder: (_) => _TitleGenerationProgressDialog(
         onCancel: () {
           cancelTitleGeneration();
-          if (!progressCloseRequested) {
-            progressCloseRequested = true;
-            Navigator.of(dialogContext).pop(true);
-          }
+          unawaited(
+            progressSession.dismiss(
+              result: true,
+              logTag: 'openhand_home_page',
+              logAction: '_executeGenerateTitle.cancelProgress',
+            ),
+          );
         },
       ),
     );
     unawaited(
-      progressFuture.then<void>((cancelled) {
+      progressSession.result.then<void>((cancelled) {
         if (cancelled == true) {
           cancelTitleGeneration();
         }
@@ -8340,9 +8334,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         ),
       );
     } finally {
-      if (!progressCloseRequested && mounted) {
-        await closeProgressDialog();
-      }
+      await closeProgressDialog();
     }
   }
 
@@ -8563,7 +8555,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       cancelToken: cancelToken,
     );
 
-    final dialogFuture = showExportProgressDialog(
+    final dialogSession = showExportProgressDialog(
       context: context,
       controller: progressController,
       title: openHandLocalizedText(
@@ -8601,11 +8593,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       result = ExportResult(kind: ExportResultKind.failure, error: error);
     }
     progressController.markFinished();
-    if (mounted && Navigator.of(context, rootNavigator: true).canPop()) {
-      Navigator.of(context, rootNavigator: true).pop();
-    }
-    await dialogFuture;
-    progressController.dispose();
+    await dialogSession.dismiss(
+      logTag: 'openhand_home_page',
+      logAction: '_exportSession.dismissProgress',
+    );
 
     if (!mounted) return;
     _showExportResultSnackBar(result, destinationPath);
@@ -8659,7 +8650,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       cancelToken: cancelToken,
     );
 
-    final dialogFuture = showExportProgressDialog(
+    final dialogSession = showExportProgressDialog(
       context: context,
       controller: progressController,
       title: openHandLocalizedText(
@@ -8702,11 +8693,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       result = ExportResult(kind: ExportResultKind.failure, error: error);
     }
     progressController.markFinished();
-    if (mounted && Navigator.of(context, rootNavigator: true).canPop()) {
-      Navigator.of(context, rootNavigator: true).pop();
-    }
-    await dialogFuture;
-    progressController.dispose();
+    await dialogSession.dismiss(
+      logTag: 'openhand_home_page',
+      logAction: '_exportHarnessSession.dismissProgress',
+    );
 
     if (!mounted) return;
     _showExportResultSnackBar(result, destinationPath);
