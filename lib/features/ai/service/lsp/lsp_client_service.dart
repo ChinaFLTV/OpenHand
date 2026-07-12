@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
@@ -1937,8 +1938,9 @@ class _AiLspSession {
       <String, List<AiLspDiagnostic>>{};
   final Map<String, Completer<List<AiLspDiagnostic>>> _pendingDiagnostics =
       <String, Completer<List<AiLspDiagnostic>>>{};
-  Future<void> _serverRequestSerial = Future<void>.value();
-  int _queuedServerRequests = 0;
+  final ListQueue<Map<String, Object?>> _serverRequestQueue =
+      ListQueue<Map<String, Object?>>();
+  bool _serverRequestActive = false;
   Timer? _idleTimer;
   Future<void>? _shutdownFuture;
   bool _shutdownRequested = false;
@@ -2586,7 +2588,12 @@ class _AiLspSession {
 
       try {
         final decoded = jsonDecode(utf8.decode(body));
-        if (decoded is! Map) continue;
+        if (decoded is! Map) {
+          _failProtocol(
+            const FormatException('LSP JSON-RPC payload must be an object'),
+          );
+          return;
+        }
         final message = stringKeyedMapFromValue(decoded);
         if (message.containsKey('id') && message.containsKey('method')) {
           _enqueueServerRequest(message);
@@ -2680,7 +2687,9 @@ class _AiLspSession {
 
   void _enqueueServerRequest(Map<String, Object?> message) {
     if (_shutdownRequested) return;
-    if (_queuedServerRequests >= _maxQueuedServerRequests) {
+    final outstanding =
+        _serverRequestQueue.length + (_serverRequestActive ? 1 : 0);
+    if (outstanding >= _maxQueuedServerRequests) {
       _sendServerRequestError(
         message['id'],
         code: -32000,
@@ -2688,10 +2697,24 @@ class _AiLspSession {
       );
       return;
     }
-    _queuedServerRequests += 1;
-    _serverRequestSerial = _serverRequestSerial
-        .then((_) => _handleServerRequestSafely(message))
-        .whenComplete(() => _queuedServerRequests -= 1);
+    _serverRequestQueue.addLast(message);
+    _drainServerRequestQueue();
+  }
+
+  void _drainServerRequestQueue() {
+    if (_shutdownRequested ||
+        _serverRequestActive ||
+        _serverRequestQueue.isEmpty) {
+      return;
+    }
+    final message = _serverRequestQueue.removeFirst();
+    _serverRequestActive = true;
+    unawaited(
+      _handleServerRequestSafely(message).whenComplete(() {
+        _serverRequestActive = false;
+        _drainServerRequestQueue();
+      }),
+    );
   }
 
   Future<void> _handleServerRequestSafely(Map<String, Object?> message) async {
@@ -2750,16 +2773,31 @@ class _AiLspSession {
         var applied = false;
         final handler = _workspaceEditHandlerProvider();
         if (!edit.isEmpty && handler != null) {
-          final handlerFuture = handler(edit).then<Object?>(
-            (result) => result,
-            onError: (Object _, StackTrace _) => false,
+          final outcomeCompleter = Completer<Object?>();
+          unawaited(
+            handler(edit).then<void>(
+              (result) {
+                if (!outcomeCompleter.isCompleted) {
+                  outcomeCompleter.complete(result);
+                }
+              },
+              onError: (Object _, StackTrace _) {
+                if (!outcomeCompleter.isCompleted) {
+                  outcomeCompleter.complete(false);
+                }
+              },
+            ),
           );
-          final outcome = await Future.any<Object?>([
-            handlerFuture,
-            Future<void>.delayed(
-              _serverRequestResponseTimeout,
-            ).then<Object?>((_) => const _ServerRequestTimeoutToken()),
-          ]);
+          final timeoutTimer = startSafeTimer(
+            _serverRequestResponseTimeout,
+            () {
+              if (!outcomeCompleter.isCompleted) {
+                outcomeCompleter.complete(const _ServerRequestTimeoutToken());
+              }
+            },
+          );
+          final outcome = await outcomeCompleter.future;
+          timeoutTimer.cancel();
           if (outcome is _ServerRequestTimeoutToken) {
             if (!_shutdownRequested && _process != null) {
               _writeMessage(<String, Object?>{
@@ -2771,7 +2809,8 @@ class _AiLspSession {
                 },
               });
             }
-            await handlerFuture;
+            _serverRequestQueue.clear();
+            unawaited(shutdown());
             return;
           }
           applied = outcome == true;
@@ -2947,6 +2986,7 @@ class _AiLspSession {
     }
     _pendingRequests.clear();
     _pendingDiagnostics.clear();
+    _serverRequestQueue.clear();
     _openDocuments.clear();
     _diagnosticsByUri.clear();
     _responseBuffer.clear();
