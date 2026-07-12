@@ -30,7 +30,7 @@ final Map<int, Process> _trackedChildren = <int, Process>{};
 final Expando<bool> _trackedProcessGroupLeaders = Expando<bool>(
   'openhand.processGroupLeader',
 );
-Future<String?>? _processGroupLauncherProbe;
+Future<_ProcessGroupLauncher?>? _processGroupLauncherProbe;
 
 const Duration _directChildEnumerationTimeout = Duration(seconds: 2);
 const Duration _directChildTerminateGrace = Duration(milliseconds: 120);
@@ -177,8 +177,8 @@ Future<_TrackedProcessLaunch> _startTrackedProcessInNewGroup(
     );
   }
   final process = await startTrackedProcess(
-    launcher,
-    <String>[executable, ...arguments],
+    launcher.executable,
+    <String>[...launcher.prefixArguments, executable, ...arguments],
     workingDirectory: workingDirectory,
     environment: environment,
     includeParentEnvironment: includeParentEnvironment,
@@ -199,6 +199,16 @@ class _TrackedProcessLaunch {
 
   final Process process;
   final bool isProcessGroupLeader;
+}
+
+class _ProcessGroupLauncher {
+  const _ProcessGroupLauncher(
+    this.executable, [
+    this.prefixArguments = const <String>[],
+  ]);
+
+  final String executable;
+  final List<String> prefixArguments;
 }
 
 /// Terminates a process plus its POSIX process group when the process was
@@ -390,7 +400,7 @@ Future<void> killAllTrackedChildren({
 List<int> trackedChildPidsSnapshot() =>
     List<int>.unmodifiable(_trackedChildren.keys);
 
-Future<String?> _resolveProcessGroupLauncher() {
+Future<_ProcessGroupLauncher?> _resolveProcessGroupLauncher() {
   if (_processGroupLauncherProbe != null) return _processGroupLauncherProbe!;
   _processGroupLauncherProbe = () async {
     const candidates = <String>[
@@ -399,7 +409,9 @@ Future<String?> _resolveProcessGroupLauncher() {
       '/opt/homebrew/bin/setsid',
     ];
     for (final candidate in candidates) {
-      if (File(candidate).existsSync()) return candidate;
+      if (File(candidate).existsSync()) {
+        return _ProcessGroupLauncher(candidate);
+      }
     }
     try {
       final result = await runTrackedProcessOrFailed(
@@ -410,9 +422,24 @@ Future<String?> _resolveProcessGroupLauncher() {
         startInNewProcessGroup: false,
       );
       final path = nullIfBlank(result.stdout as String);
-      if (path != null && File(path).existsSync()) return path;
+      if (path != null && File(path).existsSync()) {
+        return _ProcessGroupLauncher(path);
+      }
     } catch (error, stack) {
       silentLog('safe_subprocess', 'resolve setsid', error, stack);
+    }
+    // macOS does not ship coreutils `setsid`. System Perl exposes the same
+    // syscall, so use a direct argv-preserving exec shim rather than silently
+    // losing process-tree cleanup on the primary desktop platform.
+    const perl = '/usr/bin/perl';
+    if (Platform.isMacOS && File(perl).existsSync()) {
+      return const _ProcessGroupLauncher(perl, <String>[
+        '-MPOSIX',
+        '-e',
+        'defined POSIX::setsid() or die "setsid failed: \$!"; '
+            'exec @ARGV; die "exec failed: \$!";',
+        '--',
+      ]);
     }
     return null;
   }();
@@ -546,6 +573,9 @@ Future<int> _terminatePidSet(Set<int> pids, {required String tag}) async {
 /// inherits the pipes cannot grow memory without bound. Returns null when the
 /// command times out or fails to start; non-zero exits remain normal
 /// [ProcessResult] values. All errors are logged via [silentLog] (debug-only).
+/// [stdinBytes] are written before stdin is always closed, and that work shares
+/// the same wall-clock timeout. [onProcessStarted] runs once after output
+/// subscriptions are installed so cancellable callers can retain a safe handle.
 ///
 /// **Tool-execution registry integration**: when [toolCallId] is provided
 /// and non-empty, the spawned process registers its pid + a SIGTERM→SIGKILL
@@ -556,6 +586,7 @@ Future<int> _terminatePidSet(Set<int> pids, {required String tag}) async {
 Future<ProcessResult?> runProcessWithTimeout(
   String executable,
   List<String> arguments, {
+  List<int> stdinBytes = const <int>[],
   Duration timeout = const Duration(seconds: 4),
   String tag = 'safe_subprocess',
   String? workingDirectory,
@@ -567,6 +598,7 @@ Future<ProcessResult?> runProcessWithTimeout(
   int maxStdoutBytes = 1024 * 1024,
   int maxStderrBytes = 256 * 1024,
   bool startInNewProcessGroup = true,
+  void Function(Process process)? onProcessStarted,
   ProcessResult Function(int pid, String stdout, String stderr)?
   timeoutResultBuilder,
 }) async {
@@ -705,20 +737,41 @@ Future<ProcessResult?> runProcessWithTimeout(
       onDone: () => completeStream(stderrDone),
       cancelOnError: true,
     );
+    onProcessStarted?.call(process);
+
+    Future<void> closeStdin() async {
+      try {
+        if (stdinBytes.isNotEmpty) process!.stdin.add(stdinBytes);
+        await process!.stdin.flush();
+      } catch (error, stack) {
+        silentLog(tag, 'write stdin $executable', error, stack);
+      } finally {
+        try {
+          await process!.stdin.close();
+        } catch (error, stack) {
+          silentLog(tag, 'close stdin $executable', error, stack);
+        }
+      }
+    }
+
     final remainingTimeout = effectiveTimeout - executionStopwatch.elapsed;
-    final exitCode = await process.exitCode.timeout(
-      remainingTimeout > Duration.zero ? remainingTimeout : Duration.zero,
-      onTimeout: () async {
-        timedOut = true;
-        // Crucial: terminate the complete command tree before returning.
-        await _terminateTrackedProcessTree(
-          process!,
-          gracefulTimeout: Duration(milliseconds: effectiveGracefulMs),
-          knownProcessGroupLeader: isProcessGroupLeader,
+    final exitCode =
+        await (() async {
+          await closeStdin();
+          return process!.exitCode;
+        })().timeout(
+          remainingTimeout > Duration.zero ? remainingTimeout : Duration.zero,
+          onTimeout: () async {
+            timedOut = true;
+            // Crucial: terminate the complete command tree before returning.
+            await _terminateTrackedProcessTree(
+              process!,
+              gracefulTimeout: Duration(milliseconds: effectiveGracefulMs),
+              knownProcessGroupLeader: isProcessGroupLeader,
+            );
+            return -1;
+          },
         );
-        return -1;
-      },
-    );
     final streamsFinished = await waitForStreams();
     if (!streamsFinished && !timedOut) {
       await _terminateTrackedProcessTree(
@@ -847,6 +900,53 @@ class _BoundedProcessLineCapture {
   String get text => _lines.join('\n');
 }
 
+class _BoundedProcessLineDecoder {
+  _BoundedProcessLineDecoder({required int maxCharacters, required this.onLine})
+    : _maxCharacters = maxCharacters < 1 ? 1 : maxCharacters;
+
+  final int _maxCharacters;
+  final void Function(String line) onLine;
+  final StringBuffer _buffer = StringBuffer();
+  bool _truncated = false;
+
+  void add(String chunk) {
+    var start = 0;
+    while (start < chunk.length) {
+      final lineEnd = chunk.indexOf('\n', start);
+      if (lineEnd < 0) {
+        _append(chunk.substring(start));
+        return;
+      }
+      _append(chunk.substring(start, lineEnd));
+      _emit();
+      start = lineEnd + 1;
+    }
+  }
+
+  void close() {
+    if (_buffer.isNotEmpty || _truncated) _emit();
+  }
+
+  void _append(String segment) {
+    if (segment.isEmpty || _truncated) return;
+    final candidate = '${_buffer.toString()}$segment';
+    final bounded = clipText(candidate, _maxCharacters, suffix: '');
+    _truncated = bounded != candidate;
+    _buffer
+      ..clear()
+      ..write(bounded);
+  }
+
+  void _emit() {
+    var line = _buffer.toString();
+    if (line.endsWith('\r')) line = line.substring(0, line.length - 1);
+    if (_truncated) line = '$line…';
+    onLine(line);
+    _buffer.clear();
+    _truncated = false;
+  }
+}
+
 /// Starts a tracked process, streams stdout/stderr as decoded text lines, and
 /// kills the process when [timeout] expires.
 ///
@@ -876,24 +976,13 @@ Future<TrackedProcessLineLogResult> runTrackedProcessWithLineLogging(
   int maxCapturedLinesPerStream = 0,
   int maxLineCharacters = 4000,
 }) async {
-  final process = startInNewProcessGroup
-      ? await startTrackedProcessInNewGroup(
-          executable,
-          arguments,
-          workingDirectory: workingDirectory,
-          environment: environment,
-          runInShell: runInShell,
-          includeParentEnvironment: includeParentEnvironment,
-        )
-      : await startTrackedProcess(
-          executable,
-          arguments,
-          workingDirectory: workingDirectory,
-          environment: environment,
-          runInShell: runInShell,
-          includeParentEnvironment: includeParentEnvironment,
-        );
+  final effectiveTimeout = timeout.isNegative ? Duration.zero : timeout;
+  final effectiveDrainTimeout = streamDrainTimeout.isNegative
+      ? Duration.zero
+      : streamDrainTimeout;
+  final executionStopwatch = Stopwatch()..start();
   var timedOut = false;
+  Process? process;
   final stdoutDone = Completer<void>();
   final stderrDone = Completer<void>();
   final stdoutCapture = _BoundedProcessLineCapture(
@@ -904,6 +993,14 @@ Future<TrackedProcessLineLogResult> runTrackedProcessWithLineLogging(
   );
   StreamSubscription<String>? stdoutSub;
   StreamSubscription<String>? stderrSub;
+
+  void notifyTimeout() {
+    try {
+      onTimeout?.call();
+    } catch (error, stack) {
+      silentLog(tag, 'timeout handler $executable', error, stack);
+    }
+  }
 
   void complete(Completer<void> completer) {
     if (!completer.isCompleted) completer.complete();
@@ -936,36 +1033,92 @@ Future<TrackedProcessLineLogResult> runTrackedProcessWithLineLogging(
     required _BoundedProcessLineCapture capture,
     bool trimLine = false,
   }) {
+    late final _BoundedProcessLineDecoder decoder;
+    decoder = _BoundedProcessLineDecoder(
+      maxCharacters: maxLineCharacters,
+      onLine: (line) =>
+          handleLine(handler, capture, trimLine ? line.trim() : line),
+    );
     return stream
         .transform(const SystemEncoding().decoder)
-        .transform(const LineSplitter())
         .listen(
-          (line) => handleLine(handler, capture, trimLine ? line.trim() : line),
+          decoder.add,
           onError: (Object error, StackTrace stack) {
             silentLog(tag, '$streamName $executable', error, stack);
             complete(done);
           },
-          onDone: () => complete(done),
+          onDone: () {
+            decoder.close();
+            complete(done);
+          },
           cancelOnError: false,
         );
   }
 
-  Future<void> waitForStreamDrain() async {
+  Future<bool> waitForStreamDrain() async {
     try {
       await Future.wait<void>([
         stdoutDone.future,
         stderrDone.future,
-      ]).timeout(streamDrainTimeout);
+      ]).timeout(effectiveDrainTimeout);
+      return true;
     } on TimeoutException {
       silentLog(
         tag,
         'stream drain timeout',
         '$executable ${arguments.take(1).join(' ')}',
       );
+      return false;
+    } catch (error, stack) {
+      silentLog(tag, 'wait output streams $executable', error, stack);
+      return false;
     }
   }
 
   try {
+    final launchFuture = startInNewProcessGroup
+        ? startTrackedProcessInNewGroup(
+            executable,
+            arguments,
+            workingDirectory: workingDirectory,
+            environment: environment,
+            runInShell: runInShell,
+            includeParentEnvironment: includeParentEnvironment,
+          )
+        : startTrackedProcess(
+            executable,
+            arguments,
+            workingDirectory: workingDirectory,
+            environment: environment,
+            runInShell: runInShell,
+            includeParentEnvironment: includeParentEnvironment,
+          );
+    try {
+      process = await launchFuture.timeout(effectiveTimeout);
+    } on TimeoutException {
+      timedOut = true;
+      notifyTimeout();
+      unawaited(
+        launchFuture.then<void>(
+          (lateProcess) => terminateTrackedProcessTree(
+            lateProcess,
+            gracefulTimeout: gracefulTerminationTimeout,
+          ),
+          onError: (Object error, StackTrace stack) {
+            if (!_isMissingExecutableProcessException(error)) {
+              silentLog(tag, 'late process start $executable', error, stack);
+            }
+          },
+        ),
+      );
+      return TrackedProcessLineLogResult(
+        pid: -1,
+        exitCode: -1,
+        timedOut: true,
+        stdout: stdoutCapture.text,
+        stderr: stderrCapture.text,
+      );
+    }
     stdoutSub = listenLines(
       stream: process.stdout,
       streamName: 'stdout',
@@ -982,23 +1135,34 @@ Future<TrackedProcessLineLogResult> runTrackedProcessWithLineLogging(
       capture: stderrCapture,
       trimLine: trimStderrLines,
     );
-    final exitCode = await process.exitCode.timeout(
-      timeout,
-      onTimeout: () async {
-        timedOut = true;
-        try {
-          onTimeout?.call();
-        } catch (error, stack) {
-          silentLog(tag, 'timeout handler $executable', error, stack);
-        }
-        await terminateTrackedProcessTree(
-          process,
-          gracefulTimeout: gracefulTerminationTimeout,
+    final remainingTimeout = effectiveTimeout - executionStopwatch.elapsed;
+    final exitCode =
+        await (() async {
+          try {
+            await process!.stdin.close();
+          } catch (error, stack) {
+            silentLog(tag, 'close stdin $executable', error, stack);
+          }
+          return process!.exitCode;
+        })().timeout(
+          remainingTimeout > Duration.zero ? remainingTimeout : Duration.zero,
+          onTimeout: () async {
+            timedOut = true;
+            notifyTimeout();
+            await terminateTrackedProcessTree(
+              process!,
+              gracefulTimeout: gracefulTerminationTimeout,
+            );
+            return -1;
+          },
         );
-        return -1;
-      },
-    );
-    await waitForStreamDrain();
+    final streamsFinished = await waitForStreamDrain();
+    if (!streamsFinished) {
+      await terminateTrackedProcessTree(
+        process,
+        gracefulTimeout: gracefulTerminationTimeout,
+      );
+    }
     return TrackedProcessLineLogResult(
       pid: process.pid,
       exitCode: exitCode,
@@ -1006,9 +1170,19 @@ Future<TrackedProcessLineLogResult> runTrackedProcessWithLineLogging(
       stdout: stdoutCapture.text,
       stderr: stderrCapture.text,
     );
+  } catch (_) {
+    if (process != null) {
+      await terminateTrackedProcessTree(
+        process,
+        gracefulTimeout: gracefulTerminationTimeout,
+      );
+    }
+    rethrow;
   } finally {
-    await stdoutSub?.cancel();
-    await stderrSub?.cancel();
+    await Future.wait<void>(<Future<void>>[
+      _cancelProcessSubscription(stdoutSub, tag, 'stdout'),
+      _cancelProcessSubscription(stderrSub, tag, 'stderr'),
+    ]);
   }
 }
 
