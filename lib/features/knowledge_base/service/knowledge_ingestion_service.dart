@@ -101,7 +101,7 @@ class KnowledgeIngestionService {
       ),
     );
     final storedPath = settings.copyImportedFiles
-        ? await _copyToKnowledgeStorage(file, sourceId)
+        ? await _copyToKnowledgeStorage(file, sourceId, maxBytes: maxBytes)
         : file.path;
     var source = KnowledgeSource(
       id: sourceId,
@@ -306,7 +306,11 @@ class KnowledgeIngestionService {
     }
   }
 
-  Future<String> _copyToKnowledgeStorage(File file, String sourceId) async {
+  Future<String> _copyToKnowledgeStorage(
+    File file,
+    String sourceId, {
+    required int maxBytes,
+  }) async {
     final root = Directory(
       '${OpenHandPaths.homeDirectoryPath()}/.openhand/knowledge/sources',
     );
@@ -315,7 +319,7 @@ class KnowledgeIngestionService {
     }
     final ext = p.extension(file.path);
     final target = File(p.join(root.path, '$sourceId$ext'));
-    await writeFileBytesAtomically(target, await file.readAsBytes());
+    await copyFileAtomically(file, target, maxBytes: maxBytes);
     return target.path;
   }
 

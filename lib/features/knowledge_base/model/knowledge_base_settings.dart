@@ -102,7 +102,7 @@ class KnowledgeBaseSettingRanges {
   static const IntValueRange maxFileSizeMb = IntValueRange(
     fallback: defaultMaxFileSizeMb,
     min: 1,
-    max: 10240,
+    max: 256,
   );
   static const IntValueRange targetTokens = IntValueRange(
     fallback: defaultTargetTokens,

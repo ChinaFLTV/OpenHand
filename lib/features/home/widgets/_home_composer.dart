@@ -207,8 +207,11 @@ class _ComposerPanel extends StatefulWidget {
 class _ComposerPanelState extends State<_ComposerPanel> {
   final LayerLink _atMentionLayerLink = LayerLink();
   final LayerLink _skillPickerLayerLink = LayerLink();
+  final AnimatedOverlayEntryController _atMentionOverlay =
+      AnimatedOverlayEntryController();
+  final AnimatedOverlayEntryController _skillPickerOverlay =
+      AnimatedOverlayEntryController();
   bool _composerFocusListenerAttached = false;
-  OverlayEntry? _atMentionOverlay;
   List<_AtMentionItem> _atMentionResults = const [];
   int _atMentionSelectedIndex = 0;
   int _atMentionTriggerOffset = -1;
@@ -227,8 +230,6 @@ class _ComposerPanelState extends State<_ComposerPanel> {
   _ComposerTriggerDismissal? _atMentionDismissal;
   // Project file/directory references selected via the @ mention overlay.
   List<_AtMentionItem> _projectFileReferences = [];
-  // Drives the @‑mention overlay exit animation.
-  ValueNotifier<bool>? _atMentionVisible;
 
   // ── Skill picker (leading `/` slash trigger) ──
   // When the text in the composer begins with '/', a picker overlay is
@@ -244,12 +245,6 @@ class _ComposerPanelState extends State<_ComposerPanel> {
   List<LocalSkill> _skillPickerResults = const <LocalSkill>[];
   int _skillPickerSelectedIndex = 0;
   bool _skillPickerLoading = false;
-  OverlayEntry? _skillPickerOverlay;
-  // Drives the skill picker overlay's enter/exit transitions.  A single
-  // ValueNotifier is shared between the composer state and the overlay
-  // widget so the overlay can reverse its animation before being removed
-  // from the overlay stack.  `null` means the overlay is not mounted.
-  ValueNotifier<bool>? _skillPickerVisible;
 
   @override
   void initState() {
@@ -281,8 +276,8 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     widget.controller.removeListener(_handleTextChangedForAtMention);
     widget.controller.removeListener(_handleTextChangedForSlashSkill);
     _detachComposerFocusListener(widget.focusNode);
-    _dismissAtMentionOverlay();
-    _dismissSkillPickerOverlay(remember: false);
+    _atMentionOverlay.dispose();
+    _skillPickerOverlay.dispose();
     super.dispose();
   }
 
@@ -300,10 +295,10 @@ class _ComposerPanelState extends State<_ComposerPanel> {
 
   void _handleComposerFocusChanged() {
     if (!mounted || widget.focusNode.hasFocus) return;
-    if (_atMentionOverlay != null) {
+    if (_atMentionOverlay.hasEntry) {
       _userDismissAtMentionOverlay();
     }
-    if (_skillPickerOverlay != null) {
+    if (_skillPickerOverlay.hasEntry) {
       _userDismissSkillPickerOverlay();
     }
   }
@@ -714,17 +709,10 @@ class _ComposerPanelState extends State<_ComposerPanel> {
   }
 
   void _showAtMentionOverlay() {
-    if (_atMentionOverlay != null) {
-      _atMentionVisible?.value = true;
-      _atMentionOverlay!.markNeedsBuild();
-      return;
-    }
-    final overlay = Overlay.of(context, rootOverlay: true);
-    final visible = ValueNotifier<bool>(true);
-    _atMentionVisible = visible;
     final animationSettings = _resolveDialogAnimationSettingsSafe();
-    _atMentionOverlay = OverlayEntry(
-      builder: (ctx) {
+    _atMentionOverlay.show(
+      overlay: Overlay.of(context, rootOverlay: true),
+      builder: (context, visibility, onExitCompleted) {
         return _AtMentionOverlayPanel(
           link: _atMentionLayerLink,
           items: _atMentionResults,
@@ -737,13 +725,12 @@ class _ComposerPanelState extends State<_ComposerPanel> {
           onDrillDown: _handleAtMentionDrillDown,
           onBreadcrumbTap: _handleAtMentionBreadcrumbTap,
           onDismiss: _userDismissAtMentionOverlay,
-          visible: visible,
+          visible: visibility,
           animationSettings: animationSettings,
-          onExitComplete: _finalizeAtMentionOverlayRemoval,
+          onExitComplete: onExitCompleted,
         );
       },
     );
-    overlay.insert(_atMentionOverlay!);
   }
 
   /// Dismiss triggered by user action (click outside / Escape).
@@ -766,15 +753,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
   }
 
   void _dismissAtMentionOverlay() {
-    // Trigger exit animation via ValueNotifier; the panel rebuilds with
-    // AnimatedOpacity reversing to 0.  When the overlay is being disposed
-    // synchronously (widget tree torn down), fall back to instant removal.
-    final visible = _atMentionVisible;
-    if (visible == null || _atMentionOverlay == null || !mounted) {
-      _finalizeAtMentionOverlayRemoval();
-    } else {
-      visible.value = false;
-    }
+    _atMentionOverlay.close(immediately: !mounted);
     _invalidateAtMentionSearch();
     _atMentionResults = const [];
     _atMentionSelectedIndex = 0;
@@ -783,15 +762,6 @@ class _ComposerPanelState extends State<_ComposerPanel> {
       _atMentionCurrentDirectory = '';
       _atMentionBreadcrumbs = const [];
     }
-  }
-
-  void _finalizeAtMentionOverlayRemoval() {
-    final entry = _atMentionOverlay;
-    _atMentionOverlay = null;
-    entry?.remove();
-    final visible = _atMentionVisible;
-    _atMentionVisible = null;
-    visible?.dispose();
   }
 
   void _handleAtMentionSelect(_AtMentionItem item) {
@@ -1004,19 +974,10 @@ class _ComposerPanelState extends State<_ComposerPanel> {
   }
 
   void _showSkillPickerOverlay() {
-    if (_skillPickerOverlay != null) {
-      // Already mounted — ensure it is visible (e.g. user re-typed '/' while
-      // a reverse animation was in flight) and rebuild with fresh results.
-      _skillPickerVisible?.value = true;
-      _skillPickerOverlay!.markNeedsBuild();
-      return;
-    }
-    final overlay = Overlay.of(context, rootOverlay: true);
-    final visible = ValueNotifier<bool>(true);
-    _skillPickerVisible = visible;
     final animationSettings = _resolveDialogAnimationSettingsSafe();
-    _skillPickerOverlay = OverlayEntry(
-      builder: (_) {
+    _skillPickerOverlay.show(
+      overlay: Overlay.of(context, rootOverlay: true),
+      builder: (context, visibility, onExitCompleted) {
         return _SkillPickerOverlayPanel(
           link: _skillPickerLayerLink,
           items: _skillPickerResults,
@@ -1024,13 +985,12 @@ class _ComposerPanelState extends State<_ComposerPanel> {
           loading: _skillPickerLoading,
           onSelect: _handleSkillPickerSelect,
           onDismiss: _userDismissSkillPickerOverlay,
-          visible: visible,
+          visible: visibility,
           animationSettings: animationSettings,
-          onExitComplete: _finalizeSkillPickerOverlayRemoval,
+          onExitComplete: onExitCompleted,
         );
       },
     );
-    overlay.insert(_skillPickerOverlay!);
   }
 
   void _userDismissSkillPickerOverlay() {
@@ -1052,31 +1012,11 @@ class _ComposerPanelState extends State<_ComposerPanel> {
             _readSlashDismissalAtOffset(_slashTriggerOffset) ?? _slashDismissal;
       }
     }
-    // Ask the overlay panel to reverse its animation; it will invoke
-    // [_finalizeSkillPickerOverlayRemoval] when the exit transition ends.
-    // During widget disposal we cannot wait for an animation tick, so fall
-    // back to synchronous removal.
-    final visible = _skillPickerVisible;
-    if (visible == null || _skillPickerOverlay == null || !mounted) {
-      _finalizeSkillPickerOverlayRemoval();
-    } else {
-      visible.value = false;
-    }
+    _skillPickerOverlay.close(immediately: !mounted);
     _skillPickerResults = const <LocalSkill>[];
     _skillPickerSelectedIndex = 0;
     _skillPickerLoading = false;
     _slashTriggerOffset = -1;
-  }
-
-  /// Removes the overlay entry from the root overlay and disposes the
-  /// visibility notifier.  Safe to call multiple times.
-  void _finalizeSkillPickerOverlayRemoval() {
-    final entry = _skillPickerOverlay;
-    _skillPickerOverlay = null;
-    entry?.remove();
-    final visible = _skillPickerVisible;
-    _skillPickerVisible = null;
-    visible?.dispose();
   }
 
   Future<void> _handleSkillPickerSelect(LocalSkill skill) async {
@@ -1131,18 +1071,18 @@ class _ComposerPanelState extends State<_ComposerPanel> {
   }
 
   void _moveAtMentionSelection(int delta) {
-    if (_atMentionOverlay == null) return;
+    if (!_atMentionOverlay.hasEntry) return;
     final total = _atMentionResults.length;
     if (total == 0) return;
     final next = (_atMentionSelectedIndex + delta) % total;
     setState(() {
       _atMentionSelectedIndex = next < 0 ? next + total : next;
     });
-    _atMentionOverlay?.markNeedsBuild();
+    _atMentionOverlay.markNeedsBuild();
   }
 
   bool _commitAtMentionSelection() {
-    if (_atMentionOverlay == null) return false;
+    if (!_atMentionOverlay.hasEntry) return false;
     if (_atMentionLoading) return false;
     if (_atMentionResults.isEmpty) return false;
     final index = _atMentionSelectedIndex;
@@ -1152,7 +1092,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
   }
 
   bool _openSelectedAtMentionDirectory() {
-    if (_atMentionOverlay == null) return false;
+    if (!_atMentionOverlay.hasEntry) return false;
     if (_atMentionLoading) return false;
     if (_atMentionResults.isEmpty) return false;
     final index = _atMentionSelectedIndex;
@@ -1164,7 +1104,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
   }
 
   bool _navigateAtMentionToParentDirectory() {
-    if (_atMentionOverlay == null) return false;
+    if (!_atMentionOverlay.hasEntry) return false;
     if (_atMentionLoading) return false;
     if (_atMentionCurrentDirectory.isEmpty) return false;
     _handleAtMentionBreadcrumbTap(_atMentionBreadcrumbs.length - 2);
@@ -1175,20 +1115,20 @@ class _ComposerPanelState extends State<_ComposerPanel> {
   /// Invoked by the parent focus node key handler when the user presses the
   /// up/down arrow keys while the picker overlay is visible.
   void _moveSkillPickerSelection(int delta) {
-    if (_skillPickerOverlay == null) return;
+    if (!_skillPickerOverlay.hasEntry) return;
     final total = _skillPickerResults.length;
     if (total == 0) return;
     final next = (_skillPickerSelectedIndex + delta) % total;
     setState(() {
       _skillPickerSelectedIndex = next < 0 ? next + total : next;
     });
-    _skillPickerOverlay?.markNeedsBuild();
+    _skillPickerOverlay.markNeedsBuild();
   }
 
   /// Commits the currently highlighted skill picker entry.  Returns true
   /// when a selection was made (so the caller can swallow the key event).
   bool _commitSkillPickerSelection() {
-    if (_skillPickerOverlay == null) return false;
+    if (!_skillPickerOverlay.hasEntry) return false;
     if (_skillPickerLoading) return false;
     if (_skillPickerResults.isEmpty) return false;
     final index = _skillPickerSelectedIndex;

@@ -16,6 +16,7 @@ import '../model/harness_phase_context_config.dart';
 import '../model/harness_role_config.dart';
 import '../model/harness_session_config.dart';
 import '../service/harness_api_phase_runner.dart';
+import '../service/harness_bounded_file_io.dart';
 import '../service/harness_cli_catalog.dart';
 import '../service/harness_prompt_builder.dart';
 
@@ -1341,14 +1342,14 @@ class HarnessOrchestrator extends ChangeNotifier {
       notifyListeners();
 
       // 2b. Snapshot working directory before execution.
-      Map<String, _FileSnapshot> preSnapshot;
+      HarnessDirectorySnapshot preSnapshot;
       if (_stopRequested) {
-        preSnapshot = <String, _FileSnapshot>{};
+        preSnapshot = HarnessDirectorySnapshot.incomplete();
       } else {
         try {
           preSnapshot = await _snapshotWorkingDirectory();
         } catch (_) {
-          preSnapshot = <String, _FileSnapshot>{};
+          preSnapshot = HarnessDirectorySnapshot.incomplete();
         }
       }
       if (_isDisposed || _stopRequested) {
@@ -1395,7 +1396,7 @@ class HarnessOrchestrator extends ChangeNotifier {
       }
 
       final postSnapshot = await _snapshotWorkingDirectory();
-      log.changedFiles = _computeChangedFiles(preSnapshot, postSnapshot);
+      _recordChangedFiles(log, preSnapshot, postSnapshot);
 
       if (result.success) {
         log.exitCode = 0;
@@ -1538,7 +1539,7 @@ class HarnessOrchestrator extends ChangeNotifier {
 
       // 2b. Snapshot working directory files before execution.
       final preSnapshot = _stopRequested
-          ? <String, _FileSnapshot>{}
+          ? HarnessDirectorySnapshot.incomplete()
           : await _snapshotWorkingDirectory();
       if (_isDisposed || _stopRequested) {
         if (log.status != HarnessPhaseStatus.cancelled) {
@@ -1574,7 +1575,7 @@ class HarnessOrchestrator extends ChangeNotifier {
       }
 
       final postSnapshot = await _snapshotWorkingDirectory();
-      log.changedFiles = _computeChangedFiles(preSnapshot, postSnapshot);
+      _recordChangedFiles(log, preSnapshot, postSnapshot);
 
       log.exitCode = exitCode;
 
@@ -1748,37 +1749,65 @@ class HarnessOrchestrator extends ChangeNotifier {
 
   // ── Prompt construction ──────────────────────────────────────────────────
 
+  static final HarnessFileIoLimits _promptContextIoLimits = HarnessFileIoLimits(
+    maxScannedFiles: 1024,
+    maxTextFiles: 40,
+    maxDirectoryEntries: 1024,
+    maxFileBytes: 512 * 1024,
+    maxTotalBytes: 4 * 1024 * 1024,
+    totalTimeout: const Duration(seconds: 5),
+    operationTimeout: const Duration(seconds: 1),
+  );
+  static const int _maxLessonContextFiles = 32;
+  static const int _maxLessonContextBytes = 1536 * 1024;
+
   Future<String> _buildPhasePrompt(HarnessPhase phase) async {
     final steeringDir = p.join(config.persistenceDirectory, 'steering');
     final contextConfig = getPhaseContextConfig(phase);
 
-    String readIfExists(String path) {
-      try {
-        final f = File(path);
-        return f.existsSync() ? f.readAsStringSync() : '';
-      } catch (_) {
-        return '';
-      }
-    }
+    final contextFileIo = HarnessBoundedFileIo(_promptContextIoLimits);
+    Future<String> readContextFile(String path) async =>
+        (await contextFileIo.readText(File(path)))?.text ?? '';
 
     // 按阶段配置条件加载上下文
     final archContent = contextConfig.includeArchitecture
-        ? readIfExists(p.join(steeringDir, 'meta', 'architecture.md'))
+        ? await readContextFile(p.join(steeringDir, 'meta', 'architecture.md'))
         : '';
     final convContent = contextConfig.includeConventions
-        ? readIfExists(p.join(steeringDir, 'meta', 'conventions.md'))
+        ? await readContextFile(p.join(steeringDir, 'meta', 'conventions.md'))
         : '';
+
+    // Load the latest plan and feedback before the potentially larger lesson
+    // collection so essential current-phase context retains budget priority.
+    String planContent = '';
+    if (contextConfig.includePlan) {
+      try {
+        planContent = await contextFileIo.readLexicographicallyLatestText(
+          Directory(p.join(steeringDir, 'plan')),
+        );
+      } catch (error, stack) {
+        silentLog('harness_orchestrator', 'read plan', error, stack);
+      }
+    }
+
+    String feedbackContent = '';
+    if (contextConfig.includeFeedback || _reviewRetryCount > 0) {
+      try {
+        feedbackContent = await contextFileIo.readLexicographicallyLatestText(
+          Directory(p.join(steeringDir, 'feedback')),
+        );
+      } catch (error, stack) {
+        silentLog('harness_orchestrator', 'read feedback', error, stack);
+      }
+    }
 
     // Latest handoff document.
     String handoffContent = '';
     if (contextConfig.includeHandoff) {
       try {
-        final handoffDir = Directory(p.join(steeringDir, 'handoff'));
-        if (handoffDir.existsSync()) {
-          final files = handoffDir.listSync().whereType<File>().toList()
-            ..sort((a, b) => a.path.compareTo(b.path));
-          if (files.isNotEmpty) handoffContent = files.last.readAsStringSync();
-        }
+        handoffContent = await contextFileIo.readLexicographicallyLatestText(
+          Directory(p.join(steeringDir, 'handoff')),
+        );
       } catch (error, stack) {
         silentLog('harness_orchestrator', 'read handoff', error, stack);
       }
@@ -1788,54 +1817,21 @@ class HarnessOrchestrator extends ChangeNotifier {
     String lessonsContent = '';
     if (contextConfig.lessonsMode != HarnessLessonInclusionMode.none) {
       try {
-        final lessonDir = Directory(p.join(steeringDir, 'lesson'));
-        if (lessonDir.existsSync()) {
-          final files = lessonDir.listSync().whereType<File>().toList();
-          if (files.isNotEmpty) {
-            final fullContent = files
-                .map((f) => f.readAsStringSync())
-                .join('\n\n---\n\n');
-            // Use summary mode for lessons when configured
-            lessonsContent =
-                contextConfig.lessonsMode == HarnessLessonInclusionMode.summary
-                ? harnessPromptBuilder.renderLessonsSummary(fullContent)
-                : fullContent;
-          }
+        final fullContent = await contextFileIo.readJoinedTextFiles(
+          Directory(p.join(steeringDir, 'lesson')),
+          separator: '\n\n---\n\n',
+          maxJoinedBytes: _maxLessonContextBytes,
+          maxFiles: _maxLessonContextFiles,
+        );
+        if (fullContent.isNotEmpty) {
+          // Use summary mode for lessons when configured
+          lessonsContent =
+              contextConfig.lessonsMode == HarnessLessonInclusionMode.summary
+              ? harnessPromptBuilder.renderLessonsSummary(fullContent)
+              : fullContent;
         }
       } catch (error, stack) {
         silentLog('harness_orchestrator', 'read lessons', error, stack);
-      }
-    }
-
-    // Latest plan (based on config).
-    String planContent = '';
-    if (contextConfig.includePlan) {
-      try {
-        final planDir = Directory(p.join(steeringDir, 'plan'));
-        if (planDir.existsSync()) {
-          final files = planDir.listSync().whereType<File>().toList()
-            ..sort((a, b) => b.path.compareTo(a.path)); // newest first
-          if (files.isNotEmpty) planContent = files.first.readAsStringSync();
-        }
-      } catch (error, stack) {
-        silentLog('harness_orchestrator', 'read plan', error, stack);
-      }
-    }
-
-    // Latest reviewer feedback (based on config + retry state).
-    String feedbackContent = '';
-    if (contextConfig.includeFeedback || _reviewRetryCount > 0) {
-      try {
-        final feedbackDir = Directory(p.join(steeringDir, 'feedback'));
-        if (feedbackDir.existsSync()) {
-          final files = feedbackDir.listSync().whereType<File>().toList()
-            ..sort((a, b) => b.path.compareTo(a.path)); // newest first
-          if (files.isNotEmpty) {
-            feedbackContent = files.first.readAsStringSync();
-          }
-        }
-      } catch (error, stack) {
-        silentLog('harness_orchestrator', 'read feedback', error, stack);
       }
     }
 
@@ -2540,52 +2536,40 @@ class HarnessOrchestrator extends ChangeNotifier {
   /// Max file size to capture content for diff (1 MB).
   static const int _maxDiffFileSize = 1024 * 1024;
 
-  /// Takes a lightweight snapshot of the working directory:
-  /// returns a map of relativePath → (lastModified, size, content).
-  Future<Map<String, _FileSnapshot>> _snapshotWorkingDirectory() async {
-    final result = <String, _FileSnapshot>{};
-    final workDir = Directory(_config.workingDirectory);
-    if (!workDir.existsSync()) return result;
+  static final HarnessFileIoLimits _snapshotIoLimits = HarnessFileIoLimits(
+    maxScannedFiles: 5000,
+    maxTextFiles: 5000,
+    maxDirectoryEntries: 10000,
+    maxFileBytes: _maxDiffFileSize,
+    maxTotalBytes: 16 * 1024 * 1024,
+    totalTimeout: const Duration(seconds: 12),
+    operationTimeout: const Duration(seconds: 2),
+  );
 
-    try {
-      await for (final entity in workDir.list(
-        recursive: true,
-        followLinks: false,
-      )) {
-        if (entity is! File) continue;
-        final rel = p.relative(entity.path, from: _config.workingDirectory);
-        // Skip ignored directories
-        final parts = p.split(rel);
-        if (parts.any((part) => _snapshotIgnoredDirs.contains(part))) continue;
+  /// Takes a bounded snapshot of working-directory metadata and diff content.
+  Future<HarnessDirectorySnapshot> _snapshotWorkingDirectory() {
+    return HarnessBoundedFileIo(_snapshotIoLimits).snapshotDirectory(
+      Directory(_config.workingDirectory),
+      ignoredNames: _snapshotIgnoredDirs,
+    );
+  }
 
-        try {
-          final stat = entity.statSync();
-          String? content;
-          if (stat.size <= _maxDiffFileSize) {
-            try {
-              content = entity.readAsStringSync();
-            } catch (_) {
-              // binary file — skip content
-            }
-          }
-          result[rel] = _FileSnapshot(
-            modified: stat.modified,
-            size: stat.size,
-            content: content,
-          );
-        } catch (_) {
-          // Permission denied or gone — skip
-        }
-      }
-    } catch (e) {
-      // Silently fail on snapshot errors
+  void _recordChangedFiles(
+    HarnessPhaseLog log,
+    HarnessDirectorySnapshot before,
+    HarnessDirectorySnapshot after,
+  ) {
+    if (!before.complete || !after.complete) {
+      log.changedFiles = const <HarnessChangedFile>[];
+      _appendLine(log, '⚠ 工作目录快照达到安全上限或读取异常，已跳过文件变更明细。');
+      return;
     }
-    return result;
+    log.changedFiles = _computeChangedFiles(before.files, after.files);
   }
 
   List<HarnessChangedFile> _computeChangedFiles(
-    Map<String, _FileSnapshot> before,
-    Map<String, _FileSnapshot> after,
+    Map<String, HarnessFileSnapshot> before,
+    Map<String, HarnessFileSnapshot> after,
   ) {
     final changes = <HarnessChangedFile>[];
 
@@ -2634,15 +2618,4 @@ class HarnessOrchestrator extends ChangeNotifier {
     changes.sort((a, b) => a.relativePath.compareTo(b.relativePath));
     return changes;
   }
-}
-
-class _FileSnapshot {
-  const _FileSnapshot({
-    required this.modified,
-    required this.size,
-    this.content,
-  });
-  final DateTime modified;
-  final int size;
-  final String? content;
 }

@@ -4,7 +4,6 @@ import 'dart:io';
 
 import 'package:http/http.dart' as http;
 
-import '../../../../app/support/system_proxy.dart';
 import '../../../../shared/ui/structured_error_text.dart';
 import '../../../../shared/util/localized_text.dart';
 import '../../model/ai_api_family.dart';
@@ -33,21 +32,25 @@ class AiModelScanner {
     http.Client? httpClient,
     AiEndpointRouter? router,
     AiTransportClient? transport,
-  }) : _httpClient =
-           httpClient ?? SystemProxyResolver.instance.createHttpClient(),
-       _ownsHttpClient = httpClient == null,
-       _router = router ?? const AiEndpointRouter(),
-       _transport = transport;
+  }) : _transport = _resolveTransport(httpClient, transport),
+       _ownsTransport = transport == null,
+       _router = router ?? const AiEndpointRouter();
 
-  final http.Client _httpClient;
-  final bool _ownsHttpClient;
+  final AiTransportClient _transport;
+  final bool _ownsTransport;
   final AiEndpointRouter _router;
-  final AiTransportClient? _transport;
 
   static const Duration _defaultTimeout = Duration(seconds: 15);
 
-  AiTransportClient get _effectiveTransport =>
-      _transport ?? AiTransportClient(client: _httpClient);
+  static AiTransportClient _resolveTransport(
+    http.Client? httpClient,
+    AiTransportClient? transport,
+  ) {
+    if (httpClient != null && transport != null) {
+      throw ArgumentError('Provide either httpClient or transport, not both.');
+    }
+    return transport ?? AiTransportClient(client: httpClient);
+  }
 
   /// Attempts to list all models available at the provider defined by [config].
   ///
@@ -158,14 +161,13 @@ class AiModelScanner {
     required Duration timeout,
   }) async {
     final headers = _buildHeaders(config);
-    final transport = _effectiveTransport;
     AiModelScanResult? lastFailure;
     final candidates = <String>[
       _router.resolve(config, AiApiFamily.models, method: 'GET').url,
     ];
 
     for (final modelsUrl in candidates) {
-      final response = await transport.get(
+      final response = await _transport.get(
         uri: Uri.parse(modelsUrl),
         headers: headers,
         timeout: timeout,
@@ -238,9 +240,11 @@ class AiModelScanner {
       tagsUrl = '$baseUrl/api/tags';
     }
 
-    final response = await _httpClient
-        .get(Uri.parse(tagsUrl), headers: _buildHeaders(config))
-        .timeout(timeout);
+    final response = await _transport.get(
+      uri: Uri.parse(tagsUrl),
+      headers: _buildHeaders(config),
+      timeout: timeout,
+    );
 
     if (response.statusCode != 200) {
       return AiModelScanResult(
@@ -313,9 +317,11 @@ class AiModelScanner {
       }
       uri = uri.replace(queryParameters: queryParams);
 
-      final response = await _httpClient
-          .get(uri, headers: headers)
-          .timeout(timeout);
+      final response = await _transport.get(
+        uri: uri,
+        headers: headers,
+        timeout: timeout,
+      );
 
       if (response.statusCode == 401 || response.statusCode == 403) {
         return AiModelScanResult(
@@ -408,9 +414,11 @@ class AiModelScanner {
         }
         uri = uri.replace(queryParameters: queryParams);
 
-        final response = await _httpClient
-            .get(uri, headers: headers)
-            .timeout(timeout);
+        final response = await _transport.get(
+          uri: uri,
+          headers: headers,
+          timeout: timeout,
+        );
 
         if (response.statusCode == 401 || response.statusCode == 403) {
           return AiModelScanResult(
@@ -555,9 +563,11 @@ class AiModelScanner {
     final modelsUrl = _seedModelsUrl(config.normalizedBaseUrl);
 
     final headers = _buildHeaders(config);
-    final response = await _httpClient
-        .get(Uri.parse(modelsUrl), headers: headers)
-        .timeout(timeout);
+    final response = await _transport.get(
+      uri: Uri.parse(modelsUrl),
+      headers: headers,
+      timeout: timeout,
+    );
 
     if (response.statusCode == 401 || response.statusCode == 403) {
       return AiModelScanResult(
@@ -658,8 +668,8 @@ class AiModelScanner {
   }
 
   void dispose() {
-    if (_ownsHttpClient) {
-      _httpClient.close();
+    if (_ownsTransport) {
+      _transport.dispose();
     }
   }
 }

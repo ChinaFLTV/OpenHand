@@ -1,15 +1,31 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
+import 'dart:typed_data';
 
 import 'package:archive/archive.dart' show Archive, ArchiveFile, ZipDecoder;
 import 'package:path/path.dart' as p;
 import 'package:xml/xml.dart' as xml;
 import 'package:yaml/yaml.dart';
 
+import '../../../shared/net/http_response_utils.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/text_normalization.dart';
 import '../model/knowledge_base_settings.dart';
+
+const int _knowledgeBytesPerMiB = 1024 * 1024;
+const int _maxKnowledgeDocumentBytes = 256 * _knowledgeBytesPerMiB;
+const int _maxKnowledgeArchiveEntries = 4096;
+const int _maxKnowledgeArchiveEntryBytes = 32 * _knowledgeBytesPerMiB;
+const int _maxKnowledgeArchiveXmlBytes = 128 * _knowledgeBytesPerMiB;
+const int _maxKnowledgeExtractedTextChars = 64 * _knowledgeBytesPerMiB;
+const int _maxKnowledgePdfDecodedStreamBytes = 16 * _knowledgeBytesPerMiB;
+const int _maxKnowledgePdfDecodedTotalBytes = 64 * _knowledgeBytesPerMiB;
+const Duration _knowledgeFileReadIdleTimeout = Duration(seconds: 30);
+const Duration _knowledgeFileReadTotalTimeout = Duration(minutes: 5);
+const Duration _knowledgePdfDecodeIdleTimeout = Duration(seconds: 10);
+const Duration _knowledgePdfDecodeTotalTimeout = Duration(seconds: 30);
 
 final RegExp _knowledgeLineBreakPattern = RegExp(r'[\r\n]');
 final RegExp _knowledgeExcessiveBlankLinesPattern = RegExp(r'\n{3,}');
@@ -179,12 +195,19 @@ class KnowledgeDocumentParserRegistry {
   Future<KnowledgeDocumentParseResult> parse(
     KnowledgeDocumentParseRequest request,
   ) async {
+    _validateDocumentSize(request, request.stat.size);
     final extension = _extension(request.file.path);
     final parser = _parserFor(extension);
     final result = await parser.parse(request);
     final text = _compactBlankLines(result.text);
     if (text.trim().isEmpty) {
       throw StateError('未能从 ${p.basename(request.file.path)} 提取可索引文本。');
+    }
+    if (text.length > _maxKnowledgeExtractedTextChars) {
+      throw StateError(
+        '文档解析文本超过约 ${_maxKnowledgeExtractedTextChars ~/ _knowledgeBytesPerMiB} Mi 字符安全上限：'
+        '${p.basename(request.file.path)}。',
+      );
     }
     return KnowledgeDocumentParseResult(
       text: text,
@@ -207,6 +230,40 @@ class KnowledgeDocumentParserRegistry {
   }
 }
 
+int _documentByteLimit(KnowledgeBaseSettings settings) {
+  return math.min(
+    settings.maxFileSizeMb * _knowledgeBytesPerMiB,
+    _maxKnowledgeDocumentBytes,
+  );
+}
+
+void _validateDocumentSize(KnowledgeDocumentParseRequest request, int size) {
+  final maxBytes = _documentByteLimit(request.settings);
+  if (size < 0 || size > maxBytes) {
+    throw StateError(
+      '文件超过知识库最大单文件大小 ${maxBytes ~/ _knowledgeBytesPerMiB} MiB：'
+      '${p.basename(request.file.path)}。',
+    );
+  }
+}
+
+Future<Uint8List> _readDocumentBytes(
+  KnowledgeDocumentParseRequest request,
+) async {
+  final currentSize = await request.file.length();
+  _validateDocumentSize(request, currentSize);
+  try {
+    return await readBoundedByteStream(
+      request.file.openRead(),
+      maxBytes: _documentByteLimit(request.settings),
+      idleTimeout: _knowledgeFileReadIdleTimeout,
+      totalTimeout: _knowledgeFileReadTotalTimeout,
+    );
+  } on HttpException {
+    throw StateError('读取期间文件增长并超过知识库安全上限：${p.basename(request.file.path)}。');
+  }
+}
+
 class MarkdownKnowledgeDocumentParser extends KnowledgeDocumentParser {
   const MarkdownKnowledgeDocumentParser();
 
@@ -220,7 +277,7 @@ class MarkdownKnowledgeDocumentParser extends KnowledgeDocumentParser {
   Future<KnowledgeDocumentParseResult> parse(
     KnowledgeDocumentParseRequest request,
   ) async {
-    final text = _decodeText(await request.file.readAsBytes());
+    final text = _decodeText(await _readDocumentBytes(request));
     return KnowledgeDocumentParseResult(
       text: text,
       kind: 'markdown',
@@ -254,7 +311,7 @@ class PlainTextKnowledgeDocumentParser extends KnowledgeDocumentParser {
   Future<KnowledgeDocumentParseResult> parse(
     KnowledgeDocumentParseRequest request,
   ) async {
-    final text = _decodeText(await request.file.readAsBytes());
+    final text = _decodeText(await _readDocumentBytes(request));
     return KnowledgeDocumentParseResult(
       text: text,
       kind: 'text',
@@ -310,7 +367,7 @@ class CodeKnowledgeDocumentParser extends KnowledgeDocumentParser {
     KnowledgeDocumentParseRequest request,
   ) async {
     final extension = _extension(request.file.path);
-    final text = _decodeText(await request.file.readAsBytes());
+    final text = _decodeText(await _readDocumentBytes(request));
     return KnowledgeDocumentParseResult(
       text: '```$extension\n${text.trimRight()}\n```',
       kind: 'code',
@@ -338,7 +395,7 @@ class HtmlKnowledgeDocumentParser extends KnowledgeDocumentParser {
   Future<KnowledgeDocumentParseResult> parse(
     KnowledgeDocumentParseRequest request,
   ) async {
-    final raw = _decodeText(await request.file.readAsBytes());
+    final raw = _decodeText(await _readDocumentBytes(request));
     final title = _htmlTitle(raw).ifEmpty(p.basename(request.file.path));
     final text = request.settings.htmlParsingMode == 'plain_text'
         ? _compactBlankLines(
@@ -374,7 +431,7 @@ class CsvKnowledgeDocumentParser extends KnowledgeDocumentParser {
   ) async {
     final extension = _extension(request.file.path);
     final rows = _parseDelimitedRows(
-      _decodeText(await request.file.readAsBytes()),
+      _decodeText(await _readDocumentBytes(request)),
       delimiter: extension == 'tsv' ? '\t' : ',',
     );
     final title = p.basename(request.file.path);
@@ -407,7 +464,7 @@ class JsonKnowledgeDocumentParser extends KnowledgeDocumentParser {
   Future<KnowledgeDocumentParseResult> parse(
     KnowledgeDocumentParseRequest request,
   ) async {
-    final raw = _decodeText(await request.file.readAsBytes());
+    final raw = _decodeText(await _readDocumentBytes(request));
     final Object? decoded;
     try {
       decoded = jsonDecode(raw);
@@ -457,7 +514,7 @@ class YamlKnowledgeDocumentParser extends KnowledgeDocumentParser {
   Future<KnowledgeDocumentParseResult> parse(
     KnowledgeDocumentParseRequest request,
   ) async {
-    final raw = _decodeText(await request.file.readAsBytes());
+    final raw = _decodeText(await _readDocumentBytes(request));
     final Object? decoded;
     try {
       decoded = _yamlToPlain(loadYaml(raw));
@@ -512,7 +569,7 @@ class TomlKnowledgeDocumentParser extends KnowledgeDocumentParser {
   Future<KnowledgeDocumentParseResult> parse(
     KnowledgeDocumentParseRequest request,
   ) async {
-    final raw = _decodeText(await request.file.readAsBytes());
+    final raw = _decodeText(await _readDocumentBytes(request));
     final title = p.basename(request.file.path);
     return KnowledgeDocumentParseResult(
       text: _tomlToMarkdown(title, raw),
@@ -542,7 +599,7 @@ class DocxKnowledgeDocumentParser extends KnowledgeDocumentParser {
   Future<KnowledgeDocumentParseResult> parse(
     KnowledgeDocumentParseRequest request,
   ) async {
-    final archive = _zip(await request.file.readAsBytes(), request.file.path);
+    final archive = _zip(await _readDocumentBytes(request), request.file.path);
     final document = _xmlArchiveFile(archive, 'word/document.xml');
     final title = _corePropertyTitle(
       archive,
@@ -589,7 +646,7 @@ class XlsxKnowledgeDocumentParser extends KnowledgeDocumentParser {
   Future<KnowledgeDocumentParseResult> parse(
     KnowledgeDocumentParseRequest request,
   ) async {
-    final archive = _zip(await request.file.readAsBytes(), request.file.path);
+    final archive = _zip(await _readDocumentBytes(request), request.file.path);
     final title = _corePropertyTitle(
       archive,
     ).ifEmpty(p.basename(request.file.path));
@@ -654,7 +711,7 @@ class PptxKnowledgeDocumentParser extends KnowledgeDocumentParser {
   Future<KnowledgeDocumentParseResult> parse(
     KnowledgeDocumentParseRequest request,
   ) async {
-    final archive = _zip(await request.file.readAsBytes(), request.file.path);
+    final archive = _zip(await _readDocumentBytes(request), request.file.path);
     final title = _corePropertyTitle(
       archive,
     ).ifEmpty(p.basename(request.file.path));
@@ -716,8 +773,8 @@ class PdfKnowledgeDocumentParser extends KnowledgeDocumentParser {
   Future<KnowledgeDocumentParseResult> parse(
     KnowledgeDocumentParseRequest request,
   ) async {
-    final bytes = await request.file.readAsBytes();
-    final text = _extractPdfText(bytes);
+    final bytes = await _readDocumentBytes(request);
+    final text = await _extractPdfText(bytes);
     final header = latin1
         .decode(bytes.take(24).toList(growable: false), allowInvalid: true)
         .split(_knowledgeLineBreakPattern)
@@ -741,7 +798,24 @@ class PdfKnowledgeDocumentParser extends KnowledgeDocumentParser {
 
 Archive _zip(List<int> bytes, String path) {
   try {
-    return ZipDecoder().decodeBytes(bytes);
+    final archive = ZipDecoder().decodeBytes(bytes);
+    if (archive.length > _maxKnowledgeArchiveEntries) {
+      throw const FormatException('压缩文档条目数量超过安全上限。');
+    }
+    var xmlBytes = 0;
+    for (final file in archive.files) {
+      if (!file.isFile || !file.name.toLowerCase().endsWith('.xml')) {
+        continue;
+      }
+      if (file.size < 0 || file.size > _maxKnowledgeArchiveEntryBytes) {
+        throw FormatException('压缩文档 XML 条目过大：${file.name}。');
+      }
+      xmlBytes += file.size;
+      if (xmlBytes > _maxKnowledgeArchiveXmlBytes) {
+        throw const FormatException('压缩文档 XML 展开总量超过安全上限。');
+      }
+    }
+    return archive;
   } catch (error) {
     throw FormatException('无法解析压缩文档：${p.basename(path)}。$error');
   }
@@ -797,6 +871,9 @@ List<String> _xlsxSheetNames(Archive archive) {
 }
 
 String _archiveFileText(ArchiveFile file) {
+  if (file.size < 0 || file.size > _maxKnowledgeArchiveEntryBytes) {
+    throw FormatException('压缩文档条目超过安全上限：${file.name}。');
+  }
   return _decodeText(file.readBytes() ?? const <int>[]);
 }
 
@@ -1172,9 +1249,10 @@ String _tomlToMarkdown(String title, String raw) {
   return buffer.toString();
 }
 
-String _extractPdfText(List<int> bytes) {
+Future<String> _extractPdfText(Uint8List bytes) async {
   final latin = latin1.decode(bytes, allowInvalid: true);
   final buffer = StringBuffer();
+  var decodedTotalBytes = 0;
   for (final match in _pdfStreamStartPattern.allMatches(latin)) {
     final end = latin.indexOf('endstream', match.end);
     if (end <= match.end) continue;
@@ -1186,9 +1264,13 @@ String _extractPdfText(List<int> bytes) {
     }
     final dictionaryStart = math.max(0, match.start - 900);
     final dictionary = latin.substring(dictionaryStart, match.start);
-    final raw = bytes.sublist(match.end, contentEnd);
-    final decoded = _decodePdfStream(raw, dictionary);
+    final raw = Uint8List.sublistView(bytes, match.end, contentEnd);
+    final decoded = await _decodePdfStream(raw, dictionary);
     if (decoded == null || decoded.isEmpty) continue;
+    decodedTotalBytes += decoded.length;
+    if (decodedTotalBytes > _maxKnowledgePdfDecodedTotalBytes) {
+      throw const FormatException('PDF 解压文本流累计大小超过安全上限。');
+    }
     final extracted = _extractPdfContentText(
       latin1.decode(decoded, allowInvalid: true),
     );
@@ -1201,10 +1283,24 @@ String _extractPdfText(List<int> bytes) {
   return _compactBlankLines(buffer.toString());
 }
 
-List<int>? _decodePdfStream(List<int> bytes, String dictionary) {
-  if (!dictionary.contains('/FlateDecode')) return bytes;
+Future<Uint8List?> _decodePdfStream(Uint8List bytes, String dictionary) async {
+  if (!dictionary.contains('/FlateDecode')) {
+    if (bytes.length > _maxKnowledgePdfDecodedStreamBytes) {
+      throw const FormatException('PDF 文本流大小超过安全上限。');
+    }
+    return bytes;
+  }
   try {
-    return ZLibDecoder().convert(bytes);
+    return await readBoundedByteStream(
+      ZLibDecoder().bind(Stream<List<int>>.value(bytes)),
+      maxBytes: _maxKnowledgePdfDecodedStreamBytes,
+      idleTimeout: _knowledgePdfDecodeIdleTimeout,
+      totalTimeout: _knowledgePdfDecodeTotalTimeout,
+    );
+  } on HttpException {
+    throw const FormatException('PDF 解压文本流大小超过安全上限。');
+  } on TimeoutException {
+    throw const FormatException('PDF 解压文本流处理超时。');
   } catch (_) {
     return null;
   }

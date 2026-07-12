@@ -2735,16 +2735,16 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final composerState = _composerPanelState;
     // Escape dismisses the @ mention overlay if it is showing.
     if (event.logicalKey == LogicalKeyboardKey.escape) {
-      if (composerState != null && composerState._atMentionOverlay != null) {
+      if (composerState != null && composerState._atMentionOverlay.hasEntry) {
         composerState._userDismissAtMentionOverlay();
         return KeyEventResult.handled;
       }
-      if (composerState != null && composerState._skillPickerOverlay != null) {
+      if (composerState != null && composerState._skillPickerOverlay.hasEntry) {
         composerState._userDismissSkillPickerOverlay();
         return KeyEventResult.handled;
       }
     }
-    if (composerState != null && composerState._atMentionOverlay != null) {
+    if (composerState != null && composerState._atMentionOverlay.hasEntry) {
       if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
         composerState._moveAtMentionSelection(1);
         return KeyEventResult.handled;
@@ -2774,7 +2774,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     // selection highlight and Enter commit the current selection.  This
     // mirrors Codex / GitHub Copilot Chat behaviour and makes skill lookup
     // an efficient keyboard-only workflow.
-    if (composerState != null && composerState._skillPickerOverlay != null) {
+    if (composerState != null && composerState._skillPickerOverlay.hasEntry) {
       if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
         composerState._moveSkillPickerSelection(1);
         return KeyEventResult.handled;

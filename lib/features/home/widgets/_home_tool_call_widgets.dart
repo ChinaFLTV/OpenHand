@@ -3924,8 +3924,8 @@ class _FileHoverPopup extends StatefulWidget {
 }
 
 class _FileHoverPopupState extends State<_FileHoverPopup> {
-  OverlayEntry? _overlayEntry;
-  ValueNotifier<bool>? _overlayVisible;
+  final AnimatedOverlayEntryController _overlay =
+      AnimatedOverlayEntryController();
   bool _isHovered = false;
   bool _showScheduled = false;
   bool _hideScheduled = false;
@@ -3943,9 +3943,9 @@ class _FileHoverPopupState extends State<_FileHoverPopup> {
 
   void _showOverlay() {
     if (widget.isUnresolved || _showScheduled) return;
-    if (_overlayEntry != null) {
+    if (_overlay.hasEntry) {
       _hideScheduled = false;
-      _overlayVisible?.value = true;
+      _overlay.reopen();
       return;
     }
     // Defer overlay insertion to avoid mutating the widget tree during
@@ -3954,13 +3954,13 @@ class _FileHoverPopupState extends State<_FileHoverPopup> {
     _showScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _showScheduled = false;
-      if (!mounted || !_isHovered || _overlayEntry != null) return;
+      if (!mounted || !_isHovered || _overlay.hasEntry) return;
       _showOverlayNow();
     });
   }
 
   void _showOverlayNow() {
-    if (widget.isUnresolved || _overlayEntry != null) return;
+    if (widget.isUnresolved || _overlay.hasEntry) return;
     final renderBox = context.findRenderObject() as RenderBox?;
     if (renderBox == null || !renderBox.hasSize) return;
     final size = renderBox.size;
@@ -3982,121 +3982,114 @@ class _FileHoverPopupState extends State<_FileHoverPopup> {
     // Capture the path at the time of showing to avoid stale closure issues.
     final resolvedPath = widget.resolvedPath;
 
-    final visible = ValueNotifier<bool>(true);
-    _overlayVisible = visible;
-    late final OverlayEntry entry;
-    entry = OverlayEntry(
-      builder: (overlayContext) => Positioned(
-        left: targetLeft,
-        top: targetTop,
-        // IgnorePointer: the popup is read-only metadata; it must not consume
-        // pointer events so that the chip and underlying widgets remain
-        // interactive (e.g. clicking the chip still opens Finder).
-        child: IgnorePointer(
-          child: AnimatedOverlayContent(
-            useMenuSettings: true,
-            visibility: visible,
-            onExitCompleted: () => _finalizeOverlayRemoval(entry, visible),
-            child: Material(
-              elevation: 4,
-              borderRadius: BorderRadius.circular(8),
-              child: Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Theme.of(
-                    overlayContext,
-                  ).colorScheme.surfaceContainerHigh,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: Theme.of(overlayContext).dividerColor,
+    try {
+      _overlay.show(
+        overlay: Overlay.of(context),
+        builder: (overlayContext, visibility, onExitCompleted) => Positioned(
+          left: targetLeft,
+          top: targetTop,
+          // IgnorePointer: the popup is read-only metadata; it must not consume
+          // pointer events so that the chip and underlying widgets remain
+          // interactive (e.g. clicking the chip still opens Finder).
+          child: IgnorePointer(
+            child: AnimatedOverlayContent(
+              useMenuSettings: true,
+              visibility: visibility,
+              onExitCompleted: onExitCompleted,
+              child: Material(
+                elevation: 4,
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Theme.of(
+                      overlayContext,
+                    ).colorScheme.surfaceContainerHigh,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: Theme.of(overlayContext).dividerColor,
+                    ),
                   ),
-                ),
-                width: 320,
-                child: FutureBuilder<FileStat>(
-                  future: FileStat.stat(resolvedPath),
-                  builder: (context, snapshot) {
-                    final theme = Theme.of(context);
-                    final colorScheme = theme.colorScheme;
-                    final hasData = snapshot.hasData;
-                    return AnimatedSize(
-                      duration: openHandMotionDuration(
-                        context,
-                        _kToolPreviewSizeDuration,
-                      ),
-                      curve: _kToolCardMotionCurve,
-                      alignment: Alignment.topLeft,
-                      child: AnimatedSwitcher(
+                  width: 320,
+                  child: FutureBuilder<FileStat>(
+                    future: FileStat.stat(resolvedPath),
+                    builder: (context, snapshot) {
+                      final theme = Theme.of(context);
+                      final colorScheme = theme.colorScheme;
+                      final hasData = snapshot.hasData;
+                      return AnimatedSize(
                         duration: openHandMotionDuration(
                           context,
-                          _kToolCompactMotionDuration,
+                          _kToolPreviewSizeDuration,
                         ),
-                        switchInCurve: _kToolCardMotionCurve,
-                        switchOutCurve: Curves.easeInCubic,
-                        child: !hasData
-                            ? const SizedBox(
-                                key: ValueKey<String>('loading'),
-                                height: 40,
-                                child: Center(
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                ),
-                              )
-                            : Column(
-                                key: const ValueKey<String>('loaded'),
-                                mainAxisSize: MainAxisSize.min,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    resolvedPath,
-                                    style: theme.textTheme.bodyMedium?.copyWith(
-                                      fontWeight: FontWeight.bold,
-                                      color: colorScheme.onSurface,
+                        curve: _kToolCardMotionCurve,
+                        alignment: Alignment.topLeft,
+                        child: AnimatedSwitcher(
+                          duration: openHandMotionDuration(
+                            context,
+                            _kToolCompactMotionDuration,
+                          ),
+                          switchInCurve: _kToolCardMotionCurve,
+                          switchOutCurve: Curves.easeInCubic,
+                          child: !hasData
+                              ? const SizedBox(
+                                  key: ValueKey<String>('loading'),
+                                  height: 40,
+                                  child: Center(
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
                                     ),
                                   ),
-                                  const SizedBox(height: 12),
-                                  _StatRow(
-                                    AppLocalizations.of(context)!.tlCallType,
-                                    snapshot.data!.type.toString(),
-                                  ),
-                                  _StatRow(
-                                    AppLocalizations.of(context)!.tlCallSize,
-                                    '${snapshot.data!.size} bytes',
-                                  ),
-                                  _StatRow(
-                                    AppLocalizations.of(
-                                      context,
-                                    )!.tlCallModified,
-                                    '${snapshot.data!.modified}',
-                                  ),
-                                ],
-                              ),
-                      ),
-                    );
-                  },
+                                )
+                              : Column(
+                                  key: const ValueKey<String>('loaded'),
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      resolvedPath,
+                                      style: theme.textTheme.bodyMedium
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.bold,
+                                            color: colorScheme.onSurface,
+                                          ),
+                                    ),
+                                    const SizedBox(height: 12),
+                                    _StatRow(
+                                      AppLocalizations.of(context)!.tlCallType,
+                                      snapshot.data!.type.toString(),
+                                    ),
+                                    _StatRow(
+                                      AppLocalizations.of(context)!.tlCallSize,
+                                      '${snapshot.data!.size} bytes',
+                                    ),
+                                    _StatRow(
+                                      AppLocalizations.of(
+                                        context,
+                                      )!.tlCallModified,
+                                      '${snapshot.data!.modified}',
+                                    ),
+                                  ],
+                                ),
+                        ),
+                      );
+                    },
+                  ),
                 ),
               ),
             ),
           ),
         ),
-      ),
-    );
-    _overlayEntry = entry;
-    try {
-      Overlay.of(context).insert(entry);
+      );
     } catch (_) {
-      _overlayEntry = null;
-      _overlayVisible = null;
-      visible.dispose();
+      // The owner may be deactivating while the deferred show callback runs.
     }
   }
 
   void _hideOverlay() {
-    if (_overlayEntry == null && !_showScheduled) return;
+    if (!_overlay.hasEntry && !_showScheduled) return;
     _showScheduled = false;
-    final entry = _overlayEntry;
-    final visible = _overlayVisible;
-    if (entry == null || visible == null) return;
+    if (!_overlay.hasEntry) return;
     // Defer the visibility mutation to avoid rebuilding the overlay during
     // MouseTracker._deviceUpdatePhase. AnimatedOverlayContent removes it only
     // after the globally configured reverse transition completes.
@@ -4105,42 +4098,18 @@ class _FileHoverPopupState extends State<_FileHoverPopup> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_hideScheduled) return;
       _hideScheduled = false;
-      if (!identical(_overlayEntry, entry) ||
-          !identical(_overlayVisible, visible)) {
-        return;
-      }
       if (!mounted) {
         _removeOverlayImmediately();
         return;
       }
-      visible.value = false;
+      _overlay.close();
     });
-  }
-
-  void _finalizeOverlayRemoval(
-    OverlayEntry entry,
-    ValueNotifier<bool> visible,
-  ) {
-    if (!identical(_overlayEntry, entry) ||
-        !identical(_overlayVisible, visible) ||
-        visible.value) {
-      return;
-    }
-    _overlayEntry = null;
-    _overlayVisible = null;
-    entry.remove();
-    visible.dispose();
   }
 
   void _removeOverlayImmediately() {
     _showScheduled = false;
     _hideScheduled = false;
-    final entry = _overlayEntry;
-    final visible = _overlayVisible;
-    _overlayEntry = null;
-    _overlayVisible = null;
-    entry?.remove();
-    visible?.dispose();
+    _overlay.close(immediately: true);
   }
 
   @override
@@ -4183,7 +4152,9 @@ class _FileHoverPopupState extends State<_FileHoverPopup> {
   @override
   void dispose() {
     // Synchronous cleanup—widget is being permanently destroyed.
-    _removeOverlayImmediately();
+    _showScheduled = false;
+    _hideScheduled = false;
+    _overlay.dispose();
     HardwareKeyboard.instance.removeHandler(_handleKey);
     super.dispose();
   }

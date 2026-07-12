@@ -3583,6 +3583,7 @@ class AiInlineMedia {
 /// of a fresh `createTemp` per call) means stale files can be pruned as a
 /// batch and we don't leak one directory per rendered media asset.
 Directory? _inlineMediaDir;
+int _inlineMediaFileSequence = 0;
 Future<Directory> _ensureInlineMediaDir() async {
   final existing = _inlineMediaDir;
   if (existing != null && await existing.exists()) return existing;
@@ -3615,6 +3616,38 @@ Future<void> pruneInlineMediaCache() async {
   }
 }
 
+Future<File> createInlineMediaOutputFile({required String mimeType}) async {
+  final media = AiInlineMedia(mimeType: mimeType, base64Data: '');
+  final tempDir = await _ensureInlineMediaDir();
+  final id =
+      '${DateTime.now().microsecondsSinceEpoch}_'
+      '${_inlineMediaFileSequence++}';
+  return File(
+    p.join(tempDir.path, '${media.mediaKind}_$id${media.fileExtension}'),
+  );
+}
+
+String inlineMediaFileMarkdown({
+  required String filePath,
+  required String mimeType,
+  String? label,
+}) {
+  final media = AiInlineMedia(mimeType: mimeType, base64Data: '');
+  final displayLabel = sanitizeMarkdownAltText(
+    label ?? 'AI Generated ${media.mediaKind}',
+  );
+  if (mimeType.startsWith('image/')) {
+    return '![$displayLabel]($filePath)';
+  }
+  if (mimeType.startsWith('audio/')) {
+    return '[🔊 $displayLabel]($filePath)';
+  }
+  if (mimeType.startsWith('video/')) {
+    return '[🎬 $displayLabel]($filePath)';
+  }
+  return '[📎 $displayLabel]($filePath)';
+}
+
 /// Saves an [AiInlineMedia] to a temp file and returns a markdown reference.
 ///
 /// Images are rendered as `![...](file_path)` so the markdown renderer can
@@ -3623,29 +3656,25 @@ Future<String> saveInlineMediaToMarkdown(
   AiInlineMedia media, {
   String? label,
 }) async {
+  File? file;
   try {
     final bytes = base64Decode(media.base64Data);
     if (bytes.isEmpty) return '';
-    final tempDir = await _ensureInlineMediaDir();
-    final id = DateTime.now().microsecondsSinceEpoch.toString();
-    final fileName = '${media.mediaKind}_$id${media.fileExtension}';
-    final file = File(p.join(tempDir.path, fileName));
+    file = await createInlineMediaOutputFile(mimeType: media.mimeType);
     await file.writeAsBytes(bytes);
-    final filePath = file.path;
-    final displayLabel = sanitizeMarkdownAltText(
-      label ?? 'AI Generated ${media.mediaKind}',
+    return inlineMediaFileMarkdown(
+      filePath: file.path,
+      mimeType: media.mimeType,
+      label: label,
     );
-    if (media.mimeType.startsWith('image/')) {
-      return '![$displayLabel]($filePath)';
-    }
-    if (media.mimeType.startsWith('audio/')) {
-      return '[🔊 $displayLabel]($filePath)';
-    }
-    if (media.mimeType.startsWith('video/')) {
-      return '[🎬 $displayLabel]($filePath)';
-    }
-    return '[📎 $displayLabel]($filePath)';
   } catch (error, stack) {
+    if (file != null) {
+      try {
+        if (await file.exists()) await file.delete();
+      } on FileSystemException {
+        // Preserve the primary decode/write failure.
+      }
+    }
     silentLog(
       'ai_protocol_adapter',
       'save inline media to markdown',

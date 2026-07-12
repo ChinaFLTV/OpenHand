@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../model/ai_api_family.dart';
 import '../../model/ai_model_config.dart';
@@ -43,6 +44,8 @@ class AiAudioIoService {
   final AiEndpointRouter _router;
   final AiTransportClient _transport;
   final bool _ownsTransport;
+
+  static const int _maxSpeechResponseBytes = 64 * kBytesPerMiB;
 
   Future<AiSpeechResult> createSpeech({
     required AiModelConfig model,
@@ -101,6 +104,7 @@ class AiAudioIoService {
       body: body,
       timeout: timeout,
       acceptJson: true,
+      maxResponseBytes: _maxSpeechResponseBytes,
     );
     AiOperationHttp.throwIfFailed(
       statusCode: response.statusCode,

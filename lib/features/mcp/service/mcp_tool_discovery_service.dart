@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart' show ChangeNotifier;
 import 'package:http/http.dart' as http;
@@ -37,7 +38,10 @@ const String _kNpmMirrorRegistry = 'https://registry.npmmirror.com';
 const String _kPypiMirrorIndex = 'https://pypi.tuna.tsinghua.edu.cn/simple';
 const int _mcpHttpMaxResponseBytes = 16 * kBytesPerMiB;
 const int _mcpHttpMaxErrorBytes = 64 * kBytesPerKiB;
+const int _mcpLegacySseMaxLineBytes = 4 * kBytesPerMiB;
+const int _mcpLegacySseMaxEventBytes = 4 * kBytesPerMiB;
 const Duration _mcpHttpDiscardTimeout = Duration(seconds: 3);
+const Duration _mcpStreamCleanupTimeout = Duration(milliseconds: 500);
 
 Future<String> _readMcpHttpResponseBody(
   http.StreamedResponse response, {
@@ -1667,7 +1671,7 @@ class _LegacySseSession {
     required Map<String, String> headers,
     required Set<String> sensitiveHeaderNames,
     required StreamController<Map<String, Object?>> messages,
-    required StreamSubscription<String> subscription,
+    required StreamSubscription<_SseEvent> subscription,
     required Duration requestTimeout,
   }) : _client = client,
        _endpointUri = endpointUri,
@@ -1682,7 +1686,7 @@ class _LegacySseSession {
   final Map<String, String> _headers;
   final Set<String> _sensitiveHeaderNames;
   final StreamController<Map<String, Object?>> _messages;
-  final StreamSubscription<String> _subscription;
+  final StreamSubscription<_SseEvent> _subscription;
   final Duration _requestTimeout;
   String instructions = '';
 
@@ -1732,25 +1736,18 @@ class _LegacySseSession {
     final messages = StreamController<Map<String, Object?>>.broadcast(
       sync: true,
     );
-    var eventName = '';
-    final dataLines = <String>[];
-
-    void emitEvent() {
-      if (dataLines.isEmpty) {
-        eventName = '';
-        return;
-      }
-      final data = dataLines.join('\n');
-      if (eventName == 'endpoint' && !endpointCompleter.isCompleted) {
+    void handleEvent(_SseEvent event) {
+      if (event.name == 'endpoint' && !endpointCompleter.isCompleted) {
+        final data = event.data;
         final endpoint = Uri.tryParse(data.trim());
         if (endpoint != null) {
           endpointCompleter.complete(
             endpoint.hasScheme ? endpoint : resolvedSseUri.resolveUri(endpoint),
           );
         }
-      } else if (eventName.isEmpty || eventName == 'message') {
+      } else if (event.name.isEmpty || event.name == 'message') {
         try {
-          final decoded = jsonDecode(data);
+          final decoded = jsonDecode(event.data);
           for (final message in _jsonRpcMessagesFromDecoded(decoded)) {
             if (messages.isClosed) {
               break;
@@ -1766,38 +1763,33 @@ class _LegacySseSession {
           );
         }
       }
-      eventName = '';
-      dataLines.clear();
     }
 
-    late final StreamSubscription<String> subscription;
+    late final StreamSubscription<_SseEvent> subscription;
     subscription = response.stream
-        .transform(utf8.decoder)
-        .transform(const LineSplitter())
+        .transform(
+          const _BoundedSseEventTransformer(
+            maxLineBytes: _mcpLegacySseMaxLineBytes,
+            maxEventBytes: _mcpLegacySseMaxEventBytes,
+          ),
+        )
         .listen(
-          (line) {
-            if (line.isEmpty) {
-              emitEvent();
-              return;
-            }
-            if (line.startsWith('event:')) {
-              eventName = line.substring(6).trim();
-              return;
-            }
-            if (line.startsWith('data:')) {
-              dataLines.add(line.substring(5).trim());
-            }
-          },
+          handleEvent,
           onError: (Object error, StackTrace stackTrace) {
             if (!endpointCompleter.isCompleted) {
               endpointCompleter.completeError(error, stackTrace);
             }
             if (!messages.isClosed) {
               messages.addError(error, stackTrace);
+              unawaited(
+                _closeMcpStreamController(
+                  messages,
+                  where: 'legacy SSE error messages',
+                ),
+              );
             }
           },
           onDone: () {
-            emitEvent();
             if (!endpointCompleter.isCompleted) {
               endpointCompleter.completeError(
                 const McpToolDiscoveryException(
@@ -1806,10 +1798,15 @@ class _LegacySseSession {
               );
             }
             if (!messages.isClosed) {
-              unawaited(messages.close());
+              unawaited(
+                _closeMcpStreamController(
+                  messages,
+                  where: 'legacy SSE completed messages',
+                ),
+              );
             }
           },
-          cancelOnError: false,
+          cancelOnError: true,
         );
     try {
       final endpointUri = await endpointCompleter.future.timeout(
@@ -1825,10 +1822,14 @@ class _LegacySseSession {
         requestTimeout: requestTimeout,
       );
     } catch (_) {
-      await subscription.cancel();
-      if (!messages.isClosed) {
-        await messages.close();
-      }
+      await _cancelMcpStreamSubscription(
+        subscription,
+        where: 'legacy SSE connect',
+      );
+      await _closeMcpStreamController(
+        messages,
+        where: 'legacy SSE connect messages',
+      );
       rethrow;
     }
   }
@@ -1886,10 +1887,14 @@ class _LegacySseSession {
   }
 
   Future<void> close() async {
-    await _subscription.cancel();
-    if (!_messages.isClosed) {
-      await _messages.close();
-    }
+    await _cancelMcpStreamSubscription(
+      _subscription,
+      where: 'legacy SSE session',
+    );
+    await _closeMcpStreamController(
+      _messages,
+      where: 'legacy SSE session messages',
+    );
   }
 }
 
@@ -2889,6 +2894,289 @@ class _StdioSession {
     } catch (error, stack) {
       silentLog('mcp.stdio', where, error, stack);
     }
+  }
+}
+
+Future<void> _cancelMcpStreamSubscription<T>(
+  StreamSubscription<T> subscription, {
+  required String where,
+}) async {
+  try {
+    await subscription.cancel().timeout(_mcpStreamCleanupTimeout);
+  } catch (error, stack) {
+    silentLog('mcp_tool_discovery_service', 'cancel $where', error, stack);
+  }
+}
+
+Future<void> _closeMcpStreamController<T>(
+  StreamController<T> controller, {
+  required String where,
+}) async {
+  if (controller.isClosed) return;
+  try {
+    await controller.close().timeout(_mcpStreamCleanupTimeout);
+  } catch (error, stack) {
+    silentLog('mcp_tool_discovery_service', 'close $where', error, stack);
+  }
+}
+
+class _BoundedSseEventTransformer
+    extends StreamTransformerBase<List<int>, _SseEvent> {
+  const _BoundedSseEventTransformer({
+    required this.maxLineBytes,
+    required this.maxEventBytes,
+  });
+
+  final int maxLineBytes;
+  final int maxEventBytes;
+
+  @override
+  Stream<_SseEvent> bind(Stream<List<int>> stream) {
+    final parser = _BoundedSseEventParser(
+      maxLineBytes: maxLineBytes,
+      maxEventBytes: maxEventBytes,
+    );
+    StreamSubscription<List<int>>? sourceSubscription;
+    Future<void>? sourceCancellation;
+    var cancelPending = false;
+    var terminated = false;
+
+    Future<void> cancelSource() {
+      final active = sourceSubscription;
+      if (active == null) {
+        cancelPending = true;
+        return Future<void>.value();
+      }
+      return sourceCancellation ??= _cancelMcpStreamSubscription(
+        active,
+        where: 'legacy SSE response stream',
+      );
+    }
+
+    late final StreamController<_SseEvent> output;
+
+    void emit(_SseEvent event) {
+      if (!terminated && !output.isClosed) {
+        output.add(event);
+      }
+    }
+
+    void fail(Object error, StackTrace stack) {
+      if (terminated) return;
+      terminated = true;
+      if (!output.isClosed) {
+        output.addError(error, stack);
+        unawaited(output.close());
+      }
+      unawaited(cancelSource());
+    }
+
+    output = StreamController<_SseEvent>(
+      sync: true,
+      onListen: () {
+        try {
+          sourceSubscription = stream.listen(
+            (chunk) {
+              if (terminated) return;
+              try {
+                parser.addChunk(chunk, emit);
+              } catch (error, stack) {
+                fail(error, stack);
+              }
+            },
+            onError: (Object error, StackTrace stack) => fail(error, stack),
+            onDone: () {
+              if (terminated) return;
+              try {
+                parser.finish(emit);
+                terminated = true;
+                unawaited(output.close());
+              } catch (error, stack) {
+                fail(error, stack);
+              }
+            },
+            cancelOnError: false,
+          );
+          if (cancelPending || terminated) {
+            unawaited(cancelSource());
+          }
+        } catch (error, stack) {
+          fail(error, stack);
+        }
+      },
+      onPause: () => sourceSubscription?.pause(),
+      onResume: () => sourceSubscription?.resume(),
+      onCancel: () {
+        terminated = true;
+        return cancelSource();
+      },
+    );
+    return output.stream;
+  }
+}
+
+class _BoundedSseEventParser {
+  _BoundedSseEventParser({
+    required this.maxLineBytes,
+    required this.maxEventBytes,
+  }) : assert(maxLineBytes > 0),
+       assert(maxEventBytes > 0);
+
+  static const int _carriageReturn = 0x0d;
+  static const int _lineFeed = 0x0a;
+  static const int _colon = 0x3a;
+  static const int _space = 0x20;
+
+  final int maxLineBytes;
+  final int maxEventBytes;
+  final BytesBuilder _line = BytesBuilder();
+  final BytesBuilder _data = BytesBuilder();
+  String _eventName = '';
+  int _eventNameBytes = 0;
+  bool _hasData = false;
+  bool _skipLeadingLineFeed = false;
+
+  void addChunk(List<int> chunk, void Function(_SseEvent event) emit) {
+    var start = 0;
+    if (_skipLeadingLineFeed && chunk.isNotEmpty) {
+      _skipLeadingLineFeed = false;
+      if (chunk.first == _lineFeed) {
+        start = 1;
+      }
+    }
+    while (start < chunk.length) {
+      var delimiter = -1;
+      for (var i = start; i < chunk.length; i++) {
+        if (chunk[i] == _lineFeed || chunk[i] == _carriageReturn) {
+          delimiter = i;
+          break;
+        }
+      }
+      if (delimiter < 0) {
+        _appendLineBytes(chunk, start, chunk.length);
+        return;
+      }
+      _appendLineBytes(chunk, start, delimiter);
+      _finishLine(emit);
+      final delimiterByte = chunk[delimiter];
+      start = delimiter + 1;
+      if (delimiterByte == _carriageReturn) {
+        if (start < chunk.length && chunk[start] == _lineFeed) {
+          start++;
+        } else if (start == chunk.length) {
+          _skipLeadingLineFeed = true;
+        }
+      }
+    }
+  }
+
+  void finish(void Function(_SseEvent event) emit) {
+    if (_line.isNotEmpty) {
+      _finishLine(emit);
+    }
+    _emitEvent(emit);
+  }
+
+  void _appendLineBytes(List<int> chunk, int start, int end) {
+    final addedBytes = end - start;
+    if (addedBytes <= 0) return;
+    if (_line.length + addedBytes > maxLineBytes) {
+      throw McpToolDiscoveryException(
+        'MCP SSE line exceeds the ${formatByteSize(maxLineBytes)} safety limit.',
+      );
+    }
+    if (chunk is Uint8List) {
+      _line.add(Uint8List.sublistView(chunk, start, end));
+    } else {
+      _line.add(chunk.sublist(start, end));
+    }
+  }
+
+  void _finishLine(void Function(_SseEvent event) emit) {
+    final line = _line.takeBytes();
+    final end = line.length;
+    if (end == 0) {
+      _emitEvent(emit);
+      return;
+    }
+    if (line[0] == _colon) return;
+
+    var colon = -1;
+    for (var i = 0; i < end; i++) {
+      if (line[i] == _colon) {
+        colon = i;
+        break;
+      }
+    }
+    final fieldEnd = colon < 0 ? end : colon;
+    var valueStart = colon < 0 ? end : colon + 1;
+    if (valueStart < end && line[valueStart] == _space) {
+      valueStart++;
+    }
+
+    if (_isEventField(line, fieldEnd)) {
+      final valueBytes = end - valueStart;
+      _ensureEventCapacity(_data.length + valueBytes, replacingEventName: true);
+      _eventName = utf8.decode(Uint8List.sublistView(line, valueStart, end));
+      _eventNameBytes = valueBytes;
+      return;
+    }
+    if (!_isDataField(line, fieldEnd)) return;
+
+    final separatorBytes = _hasData ? 1 : 0;
+    final valueBytes = end - valueStart;
+    _ensureEventCapacity(
+      _data.length + separatorBytes + valueBytes,
+      replacingEventName: false,
+    );
+    if (_hasData) {
+      _data.addByte(_lineFeed);
+    }
+    if (valueBytes > 0) {
+      _data.add(Uint8List.sublistView(line, valueStart, end));
+    }
+    _hasData = true;
+  }
+
+  void _ensureEventCapacity(
+    int prospectiveDataBytes, {
+    required bool replacingEventName,
+  }) {
+    final prospectiveBytes =
+        prospectiveDataBytes + (replacingEventName ? 0 : _eventNameBytes);
+    if (prospectiveBytes > maxEventBytes) {
+      throw McpToolDiscoveryException(
+        'MCP SSE event exceeds the ${formatByteSize(maxEventBytes)} safety limit.',
+      );
+    }
+  }
+
+  void _emitEvent(void Function(_SseEvent event) emit) {
+    if (_hasData) {
+      emit(_SseEvent(name: _eventName, data: utf8.decode(_data.takeBytes())));
+    } else {
+      _data.clear();
+    }
+    _eventName = '';
+    _eventNameBytes = 0;
+    _hasData = false;
+  }
+
+  bool _isEventField(Uint8List line, int end) {
+    return end == 5 &&
+        line[0] == 0x65 &&
+        line[1] == 0x76 &&
+        line[2] == 0x65 &&
+        line[3] == 0x6e &&
+        line[4] == 0x74;
+  }
+
+  bool _isDataField(Uint8List line, int end) {
+    return end == 4 &&
+        line[0] == 0x64 &&
+        line[1] == 0x61 &&
+        line[2] == 0x74 &&
+        line[3] == 0x61;
   }
 }
 

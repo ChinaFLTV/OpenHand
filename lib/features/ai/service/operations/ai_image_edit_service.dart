@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../model/ai_api_family.dart';
 import '../../model/ai_model_config.dart';
@@ -23,6 +24,8 @@ class AiImageEditService {
   final AiEndpointRouter _router;
   final AiTransportClient _transport;
   final bool _ownsTransport;
+
+  static const int _maxImageResponseBytes = 128 * kBytesPerMiB;
 
   Future<AiImageEditResult> editImage({
     required AiModelConfig model,
@@ -75,6 +78,7 @@ class AiImageEditService {
       ),
       body: body,
       timeout: timeout,
+      maxResponseBytes: _maxImageResponseBytes,
     );
     AiOperationHttp.throwIfFailed(
       statusCode: response.statusCode,

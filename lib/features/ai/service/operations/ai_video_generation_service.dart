@@ -1,9 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
+import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../model/ai_api_family.dart';
 import '../../model/ai_model_config.dart';
+import '../chat/ai_protocol_adapter.dart';
 import '../runtime/ai_endpoint_router.dart';
 import '../runtime/ai_transport_client.dart';
 import 'ai_operation_http.dart';
@@ -24,16 +27,28 @@ class AiVideoGenerationResult {
 
 class AiVideoContentResult {
   const AiVideoContentResult({
-    required this.bytes,
+    required this.byteLength,
     required this.rawResponse,
     required this.contentType,
+    this.filePath,
     this.payload = const <String, Object?>{},
   });
 
-  final List<int> bytes;
+  final int byteLength;
   final String rawResponse;
   final String contentType;
+  final String? filePath;
   final Map<String, Object?> payload;
+
+  bool get hasFile => filePath != null;
+
+  Stream<List<int>> openRead() {
+    final path = filePath;
+    if (path == null) {
+      return Stream<List<int>>.value(utf8.encode(rawResponse));
+    }
+    return File(path).openRead(0, byteLength);
+  }
 }
 
 class AiVideoGenerationService {
@@ -62,6 +77,7 @@ class AiVideoGenerationService {
   static const String _jimengVersion = '2022-08-31';
   static const String _jimengSubmitAction = 'CVSync2AsyncSubmitTask';
   static const String _jimengResultAction = 'CVSync2AsyncGetResult';
+  static const int _maxVideoContentBytes = 2 * kBytesPerGiB;
 
   Future<AiVideoGenerationResult> createVideoGeneration({
     required AiModelConfig model,
@@ -127,7 +143,10 @@ class AiVideoGenerationService {
       fallbackPath: 'v1/videos/{id}/content',
       id: id,
     );
-    final response = await _transport.get(
+    final destination = await createInlineMediaOutputFile(
+      mimeType: 'video/mp4',
+    );
+    final response = await _transport.downloadToFile(
       uri: AiOperationHttp.uriWithExtraQuery(endpoint.url, model, _family),
       headers: AiOperationHttp.buildHeaders(
         model: model,
@@ -136,25 +155,57 @@ class AiVideoGenerationService {
         includeJsonContentType: false,
       ),
       timeout: timeout,
+      destination: destination,
+      maxBytes: _maxVideoContentBytes,
     );
     AiOperationHttp.throwIfFailed(
       statusCode: response.statusCode,
-      body: response.body,
+      body: response.errorBody,
       contextHint: contextHint,
     );
     final contentType = (response.headers['content-type'] ?? '').trim();
-    final payload = contentType.toLowerCase().contains('json')
-        ? AiOperationHttp.jsonMapOrEmpty(
-            AiOperationHttp.decodeJsonResponse(
-              response.body,
-              contextHint: contextHint,
-            ),
-          )
-        : const <String, Object?>{};
+    final filePath = response.filePath;
+    if (filePath == null) {
+      throw StateError('Successful video download did not create a file.');
+    }
+    if (response.bytesWritten == 0) {
+      try {
+        await File(filePath).delete();
+      } on FileSystemException {
+        // Preserve the empty-content result even if cleanup fails.
+      }
+      return AiVideoContentResult(
+        byteLength: 0,
+        rawResponse: '',
+        contentType: contentType,
+      );
+    }
+    var rawResponse = '';
+    var payload = const <String, Object?>{};
+    String? retainedFilePath = filePath;
+    if (contentType.toLowerCase().contains('json')) {
+      try {
+        rawResponse = await File(filePath).readAsString();
+        payload = AiOperationHttp.jsonMapOrEmpty(
+          AiOperationHttp.decodeJsonResponse(
+            rawResponse,
+            contextHint: contextHint,
+          ),
+        );
+      } finally {
+        try {
+          await File(filePath).delete();
+        } on FileSystemException {
+          // The JSON payload remains bounded; cleanup is best effort.
+        }
+        retainedFilePath = null;
+      }
+    }
     return AiVideoContentResult(
-      bytes: response.bodyBytes,
-      rawResponse: response.body,
+      byteLength: response.bytesWritten,
+      rawResponse: rawResponse,
       contentType: contentType,
+      filePath: retainedFilePath,
       payload: payload,
     );
   }

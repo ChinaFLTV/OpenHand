@@ -16,8 +16,8 @@ class _HeFileHoverPopup extends StatefulWidget {
 }
 
 class _HeFileHoverPopupState extends State<_HeFileHoverPopup> {
-  OverlayEntry? _overlayEntry;
-  ValueNotifier<bool>? _overlayVisible;
+  final AnimatedOverlayEntryController _overlay =
+      AnimatedOverlayEntryController();
   bool _isHovered = false;
   bool _showScheduled = false;
   bool _hideScheduled = false;
@@ -32,9 +32,9 @@ class _HeFileHoverPopupState extends State<_HeFileHoverPopup> {
 
   void _showOverlay() {
     if (widget.isUnresolved || _showScheduled) return;
-    if (_overlayEntry != null) {
+    if (_overlay.hasEntry) {
       _hideScheduled = false;
-      _overlayVisible?.value = true;
+      _overlay.reopen();
       return;
     }
     // Defer overlay insertion to avoid mutating the widget tree during
@@ -43,13 +43,13 @@ class _HeFileHoverPopupState extends State<_HeFileHoverPopup> {
     _showScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _showScheduled = false;
-      if (!mounted || !_isHovered || _overlayEntry != null) return;
+      if (!mounted || !_isHovered || _overlay.hasEntry) return;
       _showOverlayNow();
     });
   }
 
   void _showOverlayNow() {
-    if (widget.isUnresolved || _overlayEntry != null) return;
+    if (widget.isUnresolved || _overlay.hasEntry) return;
     final renderBox = context.findRenderObject() as RenderBox?;
     if (renderBox == null || !renderBox.hasSize) return;
     final size = renderBox.size;
@@ -70,123 +70,115 @@ class _HeFileHoverPopupState extends State<_HeFileHoverPopup> {
 
     final resolvedPath = widget.resolvedPath;
 
-    final visible = ValueNotifier<bool>(true);
-    _overlayVisible = visible;
-    late final OverlayEntry entry;
-    entry = OverlayEntry(
-      builder: (overlayContext) => Positioned(
-        left: targetLeft,
-        top: targetTop,
-        child: IgnorePointer(
-          child: AnimatedOverlayContent(
-            useMenuSettings: true,
-            visibility: visible,
-            onExitCompleted: () => _finalizeOverlayRemoval(entry, visible),
-            child: Material(
-              elevation: 4,
-              borderRadius: BorderRadius.circular(8),
-              child: Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Theme.of(
-                    overlayContext,
-                  ).colorScheme.surfaceContainerHigh,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: Theme.of(overlayContext).dividerColor,
+    try {
+      _overlay.show(
+        overlay: Overlay.of(context, rootOverlay: true),
+        builder: (overlayContext, visibility, onExitCompleted) => Positioned(
+          left: targetLeft,
+          top: targetTop,
+          child: IgnorePointer(
+            child: AnimatedOverlayContent(
+              useMenuSettings: true,
+              visibility: visibility,
+              onExitCompleted: onExitCompleted,
+              child: Material(
+                elevation: 4,
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Theme.of(
+                      overlayContext,
+                    ).colorScheme.surfaceContainerHigh,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: Theme.of(overlayContext).dividerColor,
+                    ),
                   ),
-                ),
-                width: 320,
-                child: FutureBuilder<FileStat>(
-                  future: FileStat.stat(resolvedPath),
-                  builder: (ctx, snapshot) {
-                    final theme = Theme.of(ctx);
-                    final colorScheme = theme.colorScheme;
+                  width: 320,
+                  child: FutureBuilder<FileStat>(
+                    future: FileStat.stat(resolvedPath),
+                    builder: (ctx, snapshot) {
+                      final theme = Theme.of(ctx);
+                      final colorScheme = theme.colorScheme;
 
-                    if (!snapshot.hasData) {
-                      return const SizedBox(
-                        height: 40,
-                        child: Center(
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
+                      if (!snapshot.hasData) {
+                        return const SizedBox(
+                          height: 40,
+                          child: Center(
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        );
+                      }
+
+                      final stat = snapshot.data!;
+                      return Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            resolvedPath,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: colorScheme.onSurface,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          _HeStatRow(
+                            openHandLocalizedText(
+                              ctx,
+                              zh: '类型',
+                              en: 'Type',
+                              zhHant: '類型',
+                              fr: 'Type',
+                              de: 'Typ',
+                              ja: '種類',
+                            ),
+                            stat.type.toString(),
+                          ),
+                          _HeStatRow(
+                            openHandLocalizedText(
+                              ctx,
+                              zh: '大小',
+                              en: 'Size',
+                              zhHant: '大小',
+                              fr: 'Taille',
+                              de: 'Größe',
+                              ja: 'サイズ',
+                            ),
+                            '${stat.size} bytes',
+                          ),
+                          _HeStatRow(
+                            openHandLocalizedText(
+                              ctx,
+                              zh: '修改于',
+                              en: 'Modified',
+                              zhHant: '修改於',
+                              fr: 'Modifié',
+                              de: 'Geändert',
+                              ja: '更新日時',
+                            ),
+                            '${stat.modified}',
+                          ),
+                        ],
                       );
-                    }
-
-                    final stat = snapshot.data!;
-                    return Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          resolvedPath,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: colorScheme.onSurface,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        _HeStatRow(
-                          openHandLocalizedText(
-                            ctx,
-                            zh: '类型',
-                            en: 'Type',
-                            zhHant: '類型',
-                            fr: 'Type',
-                            de: 'Typ',
-                            ja: '種類',
-                          ),
-                          stat.type.toString(),
-                        ),
-                        _HeStatRow(
-                          openHandLocalizedText(
-                            ctx,
-                            zh: '大小',
-                            en: 'Size',
-                            zhHant: '大小',
-                            fr: 'Taille',
-                            de: 'Größe',
-                            ja: 'サイズ',
-                          ),
-                          '${stat.size} bytes',
-                        ),
-                        _HeStatRow(
-                          openHandLocalizedText(
-                            ctx,
-                            zh: '修改于',
-                            en: 'Modified',
-                            zhHant: '修改於',
-                            fr: 'Modifié',
-                            de: 'Geändert',
-                            ja: '更新日時',
-                          ),
-                          '${stat.modified}',
-                        ),
-                      ],
-                    );
-                  },
+                    },
+                  ),
                 ),
               ),
             ),
           ),
         ),
-      ),
-    );
-    _overlayEntry = entry;
-    try {
-      Overlay.of(context, rootOverlay: true).insert(entry);
+      );
     } catch (_) {
-      _overlayEntry = null;
-      _overlayVisible = null;
-      visible.dispose();
+      // The owner may be deactivating while the deferred show callback runs.
     }
   }
 
   void _hideOverlay() {
-    if (_overlayEntry == null && !_showScheduled) return;
+    if (!_overlay.hasEntry && !_showScheduled) return;
     _showScheduled = false;
-    final entry = _overlayEntry;
-    final visible = _overlayVisible;
-    if (entry == null || visible == null) return;
+    if (!_overlay.hasEntry) return;
     // Defer the visibility mutation to avoid rebuilding the overlay during
     // MouseTracker._deviceUpdatePhase. The shared overlay transition removes
     // the entry only after its globally configured reverse motion completes.
@@ -195,42 +187,18 @@ class _HeFileHoverPopupState extends State<_HeFileHoverPopup> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_hideScheduled) return;
       _hideScheduled = false;
-      if (!identical(_overlayEntry, entry) ||
-          !identical(_overlayVisible, visible)) {
-        return;
-      }
       if (!mounted) {
         _removeOverlayImmediately();
         return;
       }
-      visible.value = false;
+      _overlay.close();
     });
-  }
-
-  void _finalizeOverlayRemoval(
-    OverlayEntry entry,
-    ValueNotifier<bool> visible,
-  ) {
-    if (!identical(_overlayEntry, entry) ||
-        !identical(_overlayVisible, visible) ||
-        visible.value) {
-      return;
-    }
-    _overlayEntry = null;
-    _overlayVisible = null;
-    entry.remove();
-    visible.dispose();
   }
 
   void _removeOverlayImmediately() {
     _showScheduled = false;
     _hideScheduled = false;
-    final entry = _overlayEntry;
-    final visible = _overlayVisible;
-    _overlayEntry = null;
-    _overlayVisible = null;
-    entry?.remove();
-    visible?.dispose();
+    _overlay.close(immediately: true);
   }
 
   @override
@@ -268,7 +236,9 @@ class _HeFileHoverPopupState extends State<_HeFileHoverPopup> {
 
   @override
   void dispose() {
-    _removeOverlayImmediately();
+    _showScheduled = false;
+    _hideScheduled = false;
+    _overlay.dispose();
     HardwareKeyboard.instance.removeHandler(_handleKey);
     super.dispose();
   }

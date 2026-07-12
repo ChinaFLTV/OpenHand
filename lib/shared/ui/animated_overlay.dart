@@ -9,6 +9,159 @@ const double _kDefaultOverlayScaleBegin = 0.95;
 const double _kMinOverlayScaleBegin = 0.5;
 const double _kMaxOverlayScaleBegin = 1.0;
 
+/// Builds one animated overlay entry owned by an
+/// [AnimatedOverlayEntryController].
+///
+/// The supplied visibility signal and exit callback should be forwarded to
+/// [AnimatedOverlayContent].
+typedef AnimatedOverlayEntryBuilder =
+    Widget Function(
+      BuildContext context,
+      ValueListenable<bool> visibility,
+      VoidCallback onExitCompleted,
+    );
+
+/// Owns an [OverlayEntry] and its animated visibility signal as one resource.
+///
+/// Calling [show] while an exit is in flight reopens the same entry. [close]
+/// reverses its transition, while [dispose] removes it synchronously. Late
+/// completion callbacks are guarded by both session identity and generation,
+/// so they cannot remove a replacement entry.
+class AnimatedOverlayEntryController {
+  _AnimatedOverlayEntrySession? _session;
+  int _generation = 0;
+  bool _disposed = false;
+
+  bool get hasEntry => _session != null;
+
+  /// Reopens the current entry without creating a replacement.
+  bool reopen({bool rebuild = false}) {
+    if (_disposed) return false;
+    final session = _session;
+    if (session == null) return false;
+    if (!session.visibility.value) {
+      session.visibility.value = true;
+    }
+    if (rebuild) {
+      session.entry.markNeedsBuild();
+    }
+    return true;
+  }
+
+  /// Inserts a new entry, or reopens and rebuilds the current entry.
+  ///
+  /// Returns false after this controller has been disposed. Insert failures
+  /// are rethrown after the controller releases the uninserted session.
+  bool show({
+    required OverlayState overlay,
+    required AnimatedOverlayEntryBuilder builder,
+    VoidCallback? onRemoved,
+    bool rebuildIfPresent = true,
+  }) {
+    if (_disposed) return false;
+    final current = _session;
+    if (current != null) {
+      current.builder = builder;
+      current.onRemoved = onRemoved;
+      reopen();
+      if (rebuildIfPresent) {
+        current.entry.markNeedsBuild();
+      }
+      return true;
+    }
+
+    final session = _AnimatedOverlayEntrySession(
+      generation: ++_generation,
+      builder: builder,
+      onRemoved: onRemoved,
+    );
+    session.onExitCompleted = () => _completeExit(session);
+    session.entry = OverlayEntry(
+      builder: (context) =>
+          session.builder(context, session.visibility, session.onExitCompleted),
+    );
+    _session = session;
+    try {
+      overlay.insert(session.entry);
+    } catch (_) {
+      if (identical(_session, session)) {
+        _session = null;
+        _generation += 1;
+      }
+      session.entry.dispose();
+      session.visibility.dispose();
+      rethrow;
+    }
+    return true;
+  }
+
+  /// Rebuilds the current entry without changing its visibility.
+  void markNeedsBuild() => _session?.entry.markNeedsBuild();
+
+  /// Starts the reverse transition, or removes the entry synchronously when
+  /// [immediately] is true. Repeated calls are safe.
+  void close({bool immediately = false}) {
+    final session = _session;
+    if (session == null) return;
+    if (immediately || _disposed) {
+      _removeSession(session);
+      return;
+    }
+    if (session.visibility.value) {
+      session.visibility.value = false;
+    }
+  }
+
+  void _completeExit(_AnimatedOverlayEntrySession session) {
+    if (_disposed ||
+        !identical(_session, session) ||
+        session.generation != _generation ||
+        session.visibility.value) {
+      return;
+    }
+    _removeSession(session);
+  }
+
+  void _removeSession(_AnimatedOverlayEntrySession session) {
+    if (!identical(_session, session) || session.generation != _generation) {
+      return;
+    }
+    _session = null;
+    _generation += 1;
+    session.entry.remove();
+    session.entry.dispose();
+    session.visibility.dispose();
+    session.onRemoved?.call();
+  }
+
+  /// Permanently releases the owned entry. Repeated calls are safe.
+  void dispose() {
+    if (_disposed) return;
+    _disposed = true;
+    final session = _session;
+    if (session != null) {
+      _removeSession(session);
+    } else {
+      _generation += 1;
+    }
+  }
+}
+
+class _AnimatedOverlayEntrySession {
+  _AnimatedOverlayEntrySession({
+    required this.generation,
+    required this.builder,
+    required this.onRemoved,
+  });
+
+  final int generation;
+  final ValueNotifier<bool> visibility = ValueNotifier<bool>(true);
+  AnimatedOverlayEntryBuilder builder;
+  VoidCallback? onRemoved;
+  late final OverlayEntry entry;
+  late final VoidCallback onExitCompleted;
+}
+
 /// Provides animated entrance and exit effects for overlay content (hover
 /// popups, tooltips, autocomplete panels, etc.).
 ///
@@ -78,6 +231,8 @@ class _AnimatedOverlayContentState extends State<AnimatedOverlayContent>
   );
   bool _animationsDisabled = false;
   bool _exitCompletionScheduled = false;
+  bool _exitCompletionDelivered = false;
+  int _exitCompletionGeneration = 0;
 
   bool get _isVisible => widget.visibility?.value ?? true;
 
@@ -101,14 +256,23 @@ class _AnimatedOverlayContentState extends State<AnimatedOverlayContent>
     if (oldWidget.visibility != widget.visibility) {
       oldWidget.visibility?.removeListener(_handleVisibilityChanged);
       widget.visibility?.addListener(_handleVisibilityChanged);
-      _exitCompletionScheduled = false;
+      _cancelExitCompletion();
+      _exitCompletionDelivered = false;
+    }
+    if (oldWidget.onExitCompleted != widget.onExitCompleted &&
+        !_exitCompletionDelivered) {
+      // A pending post-frame completion must never retain an obsolete owner.
+      // Resetting here makes a dismissed overlay schedule the current callback
+      // from [_syncAnimationPreference] below.
+      _cancelExitCompletion();
     }
     if (oldWidget.useMenuSettings != widget.useMenuSettings ||
         oldWidget.customDuration != widget.customDuration ||
         oldWidget.customCurve != widget.customCurve ||
         oldWidget.customSettings != widget.customSettings ||
         oldWidget.enableScaleAnimation != widget.enableScaleAnimation ||
-        oldWidget.visibility != widget.visibility) {
+        oldWidget.visibility != widget.visibility ||
+        oldWidget.onExitCompleted != widget.onExitCompleted) {
       _syncAnimationPreference();
     }
   }
@@ -158,7 +322,8 @@ class _AnimatedOverlayContentState extends State<AnimatedOverlayContent>
   void _handleVisibilityChanged() {
     if (!mounted) return;
     if (_isVisible) {
-      _exitCompletionScheduled = false;
+      _cancelExitCompletion();
+      _exitCompletionDelivered = false;
     }
     if (_animationsDisabled) {
       _controller.value = _isVisible ? 1.0 : 0.0;
@@ -191,23 +356,37 @@ class _AnimatedOverlayContentState extends State<AnimatedOverlayContent>
   }
 
   void _scheduleExitCompletion() {
-    if (_exitCompletionScheduled || _isVisible) return;
+    if (_exitCompletionScheduled || _exitCompletionDelivered || _isVisible) {
+      return;
+    }
     final callback = widget.onExitCompleted;
     if (callback == null) return;
     _exitCompletionScheduled = true;
+    final generation = ++_exitCompletionGeneration;
     final visibility = widget.visibility;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted ||
           !_exitCompletionScheduled ||
+          generation != _exitCompletionGeneration ||
           widget.visibility != visibility) {
         return;
       }
       if (!_isVisible) {
+        _exitCompletionScheduled = false;
+        _exitCompletionDelivered = true;
         callback();
       } else {
-        _exitCompletionScheduled = false;
+        _cancelExitCompletion();
       }
     });
+    // A disabled transition has no ticker to request another frame. Ensure
+    // the post-frame completion still runs so the entry cannot get stuck.
+    WidgetsBinding.instance.ensureVisualUpdate();
+  }
+
+  void _cancelExitCompletion() {
+    _exitCompletionScheduled = false;
+    _exitCompletionGeneration += 1;
   }
 
   @override

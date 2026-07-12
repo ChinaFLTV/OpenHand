@@ -6,9 +6,10 @@ import 'dart:math' as math;
 import 'package:http/http.dart' as http;
 
 import '../../../../app/support/silent_log.dart';
-import '../../../../app/support/system_proxy.dart';
 import '../../../../shared/net/http_error_message.dart';
+import '../../../../shared/net/http_response_utils.dart';
 import '../../../../shared/net/http_status_utils.dart';
+import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../model/ai_api_family.dart';
 import '../../model/ai_creation_mode.dart';
@@ -21,6 +22,7 @@ import '../chat/ai_transport_diagnostic_messages.dart';
 import '../operations/ai_operation_http.dart';
 import '../operations/ai_stepfun_audio_policy.dart';
 import '../runtime/ai_endpoint_router.dart';
+import '../runtime/ai_transport_client.dart';
 
 enum _GeneratedMediaKind {
   image('image', 'Image'),
@@ -47,6 +49,15 @@ const Duration _pollRequestTimeoutCap = Duration(seconds: 15);
 const Duration _retryAfterDelayCap = Duration(seconds: 30);
 const Duration _soraContentMinDownloadTimeout = Duration(seconds: 30);
 const Duration _remoteMediaDownloadTimeout = Duration(seconds: 60);
+const int _mediaJsonResponseMaxBytes = 64 * kBytesPerMiB;
+const int _imageResponseMaxBytes = 128 * kBytesPerMiB;
+const int _audioResponseMaxBytes = 64 * kBytesPerMiB;
+const int _videoDownloadMaxBytes = 2 * kBytesPerGiB;
+const int _referenceImageMaxBytes = 32 * kBytesPerMiB;
+const int _referenceImagesMaxTotalBytes = 64 * kBytesPerMiB;
+const int _referenceImageMaxCount = 8;
+const Duration _referenceImageReadIdleTimeout = Duration(seconds: 15);
+const Duration _referenceImageReadTotalTimeout = Duration(minutes: 1);
 const int _pollWarmupAttemptLimit = 6;
 const int _pollSteadyAttemptLimit = 16;
 const int _pollWarmupDelayMs = 1500;
@@ -112,15 +123,13 @@ class AiMediaGenerationException implements Exception {
 /// DALL·E 3's quality/style flags, …) without destabilising the chat path.
 class AiImageGenerationService {
   AiImageGenerationService({http.Client? client, AiEndpointRouter? router})
-    : _client = client ?? SystemProxyResolver.instance.createHttpClient(),
-      _ownsClient = client == null,
+    : _transport = AiTransportClient(client: client),
       _router = router ?? const AiEndpointRouter();
 
   static final RegExp _pixelSizePattern = RegExp(r'^(\d{2,5})x(\d{2,5})$');
   static final RegExp _base64LikePattern = RegExp(r'^[A-Za-z0-9+/=\r\n]+$');
 
-  final http.Client _client;
-  final bool _ownsClient;
+  final AiTransportClient _transport;
   final AiEndpointRouter _router;
 
   /// Returns `true` when [protocol] is known to speak the OpenAI-compatible
@@ -360,9 +369,14 @@ class AiImageGenerationService {
     final startedAt = DateTime.now().toUtc();
     final http.Response response;
     try {
-      response = await _client
-          .post(uri, headers: headers, body: jsonEncode(body))
-          .timeout(timeout);
+      response = await _transport.sendJson(
+        uri: uri,
+        method: 'POST',
+        headers: headers,
+        body: body,
+        timeout: timeout,
+        maxResponseBytes: _imageResponseMaxBytes,
+      );
     } on TimeoutException {
       throw AiMediaGenerationException(
         _MediaErrorMessages.timeout(_GeneratedMediaKind.image, timeout),
@@ -378,6 +392,10 @@ class AiImageGenerationService {
     } on SocketException catch (error) {
       throw AiMediaGenerationException(
         _MediaErrorMessages.socket(_GeneratedMediaKind.image, error),
+      );
+    } on HttpException catch (error) {
+      throw AiMediaGenerationException(
+        _MediaErrorMessages.response(_GeneratedMediaKind.image, error),
       );
     } on http.ClientException catch (error) {
       throw AiMediaGenerationException(
@@ -551,16 +569,23 @@ class AiImageGenerationService {
         // require multipart/form-data for `POST /v1/videos`. Sending a
         // JSON body causes the server to see all fields as missing because
         // the FastAPI form parser cannot decode JSON.
-        response = await _postMultipartMediaRequest(
+        response = await _transport.sendMultipart(
           uri: uri,
+          method: 'POST',
           headers: headers,
           body: body,
           timeout: timeout,
+          maxResponseBytes: _maxResponseBytesFor(kind),
         );
       } else {
-        response = await _client
-            .post(uri, headers: headers, body: jsonEncode(body))
-            .timeout(timeout);
+        response = await _transport.sendJson(
+          uri: uri,
+          method: 'POST',
+          headers: headers,
+          body: body,
+          timeout: timeout,
+          maxResponseBytes: _maxResponseBytesFor(kind),
+        );
       }
     } on TimeoutException {
       throw AiMediaGenerationException(
@@ -574,6 +599,10 @@ class AiImageGenerationService {
       throw AiMediaGenerationException(_MediaErrorMessages.tls(kind, error));
     } on SocketException catch (error) {
       throw AiMediaGenerationException(_MediaErrorMessages.socket(kind, error));
+    } on HttpException catch (error) {
+      throw AiMediaGenerationException(
+        _MediaErrorMessages.response(kind, error),
+      );
     } on http.ClientException catch (error) {
       throw AiMediaGenerationException(
         _MediaErrorMessages.httpClient(kind, error),
@@ -667,6 +696,14 @@ class AiImageGenerationService {
       _GeneratedMediaKind.image => AiApiFamily.imageGeneration,
       _GeneratedMediaKind.video => AiApiFamily.videoGeneration,
       _GeneratedMediaKind.audio => AiApiFamily.audioSpeech,
+    };
+  }
+
+  int _maxResponseBytesFor(_GeneratedMediaKind kind) {
+    return switch (kind) {
+      _GeneratedMediaKind.image => _imageResponseMaxBytes,
+      _GeneratedMediaKind.video => _mediaJsonResponseMaxBytes,
+      _GeneratedMediaKind.audio => _audioResponseMaxBytes,
     };
   }
 
@@ -774,33 +811,6 @@ class AiImageGenerationService {
     // Both OpenAI Sora 2 and grok2api expose `POST /v1/videos` as multipart
     // form-data — JSON body yields `model/prompt missing, input: None`.
     return protocol == AiProtocolType.openai || protocol == AiProtocolType.grok;
-  }
-
-  Future<http.Response> _postMultipartMediaRequest({
-    required Uri uri,
-    required Map<String, String> headers,
-    required Map<String, Object?> body,
-    required Duration timeout,
-  }) async {
-    final request = http.MultipartRequest('POST', uri);
-    headers.forEach((key, value) {
-      // Let MultipartRequest set its own boundary-aware Content-Type;
-      // forward auth/accept/custom headers verbatim.
-      if (lowercaseStringFromValue(key) == 'content-type') return;
-      request.headers[key] = value;
-    });
-    body.forEach((key, value) {
-      if (value == null) return;
-      // Multipart fields are strings only; arrays/maps must be serialized.
-      final fieldValue = value is String
-          ? value
-          : (value is num || value is bool
-                ? value.toString()
-                : jsonEncode(value));
-      request.fields[key] = fieldValue;
-    });
-    final streamed = await _client.send(request).timeout(timeout);
-    return http.Response.fromStream(streamed).timeout(timeout);
   }
 
   Map<String, Object?> _buildMediaBody({
@@ -1254,8 +1264,14 @@ class AiImageGenerationService {
   ) async {
     if (!kind.isImage && !kind.isVideo) return const <String>[];
     final dataUrls = <String>[];
+    var totalBytes = 0;
     for (final part in referenceImages) {
       if (part.kind != AiChatContentPartKind.imageFile) continue;
+      if (dataUrls.length >= _referenceImageMaxCount) {
+        throw const AiMediaGenerationException(
+          'Reference image count exceeds the $_referenceImageMaxCount image limit.',
+        );
+      }
       final filePath = nullIfBlank(part.filePath);
       if (filePath == null) continue;
       final mimeType = nullIfBlank(part.mimeType) ?? _mimeFromUrl(filePath);
@@ -1265,6 +1281,12 @@ class AiImageGenerationService {
           'Reference image "$filePath" is empty.',
         );
       }
+      if (totalBytes > _referenceImagesMaxTotalBytes - bytes.length) {
+        throw AiMediaGenerationException(
+          'Reference images exceed the ${formatByteSize(_referenceImagesMaxTotalBytes)} total limit.',
+        );
+      }
+      totalBytes += bytes.length;
       dataUrls.add('data:$mimeType;base64,${base64Encode(bytes)}');
     }
     return dataUrls.toList(growable: false);
@@ -1274,8 +1296,30 @@ class AiImageGenerationService {
     String filePath,
     _GeneratedMediaKind kind,
   ) async {
+    final file = File(filePath);
     try {
-      return await File(filePath).readAsBytes();
+      final size = await file.length().timeout(_referenceImageReadIdleTimeout);
+      if (size > _referenceImageMaxBytes) {
+        throw AiMediaGenerationException(
+          'Reference image exceeds the ${formatByteSize(_referenceImageMaxBytes)} per-file limit.',
+        );
+      }
+      return await readBoundedByteStream(
+        file.openRead(),
+        maxBytes: _referenceImageMaxBytes,
+        idleTimeout: _referenceImageReadIdleTimeout,
+        totalTimeout: _referenceImageReadTotalTimeout,
+      );
+    } on AiMediaGenerationException {
+      rethrow;
+    } on HttpException {
+      throw AiMediaGenerationException(
+        'Reference image grew beyond the ${formatByteSize(_referenceImageMaxBytes)} per-file limit while reading.',
+      );
+    } on TimeoutException {
+      throw AiMediaGenerationException(
+        'Reference image read timed out for ${kind.storageValue} generation.',
+      );
     } on FileSystemException catch (error) {
       throw AiMediaGenerationException(
         'Unable to read reference image for ${kind.storageValue} generation: '
@@ -1820,9 +1864,12 @@ class AiImageGenerationService {
           : _pollRequestTimeoutCap;
       final pollingHeaders = Map<String, String>.from(requestHeaders)
         ..['accept'] = 'application/json';
-      final response = await _client
-          .get(Uri.parse(operationUrl), headers: pollingHeaders)
-          .timeout(effectiveTimeout);
+      final response = await _transport.get(
+        uri: Uri.parse(operationUrl),
+        headers: pollingHeaders,
+        timeout: effectiveTimeout,
+        maxResponseBytes: _mediaJsonResponseMaxBytes,
+      );
       lastBody = response.body;
       if (isHttpFailureStatus(response.statusCode)) {
         if (_isTransientPollStatus(response.statusCode) &&
@@ -1943,28 +1990,48 @@ class AiImageGenerationService {
     final downloadTimeout = effectiveTimeout < _soraContentMinDownloadTimeout
         ? _soraContentMinDownloadTimeout
         : effectiveTimeout;
-    final response = await _client
-        .get(contentUri, headers: downloadHeaders)
-        .timeout(downloadTimeout);
-    if (isHttpFailureStatus(response.statusCode)) {
+    final destination = await createInlineMediaOutputFile(
+      mimeType: 'video/mp4',
+    );
+    final response = await _transport.downloadToFile(
+      uri: contentUri,
+      headers: downloadHeaders,
+      timeout: downloadTimeout,
+      destination: destination,
+      maxBytes: _videoDownloadMaxBytes,
+      maxJsonBytes: _mediaJsonResponseMaxBytes,
+    );
+    if (!response.isSuccess) {
       throw AiMediaGenerationException(
         _MediaErrorMessages.httpStatus(
           _GeneratedMediaKind.video,
           response.statusCode,
-          serverMessage: _extractError(response.body),
+          serverMessage: _extractError(response.errorBody),
           contextHint: 'GET /content',
         ),
-        rawResponseBody: response.body,
+        rawResponseBody: response.errorBody,
       );
     }
-    if (response.bodyBytes.isEmpty) return '';
+    final filePath = response.filePath;
+    if (response.bytesWritten == 0 || filePath == null) {
+      await _deleteFileIfPresent(destination);
+      return '';
+    }
     final mimeType = _responseContentType(response.headers);
+    if (_jsonContentTypes.contains(mimeType)) {
+      final body = await File(filePath).readAsString();
+      await _deleteFileIfPresent(destination);
+      throw AiMediaGenerationException(
+        'Video content endpoint returned JSON instead of media: '
+        '${_extractError(body)}',
+        rawResponseBody: body,
+      );
+    }
     final effectiveMime = mimeType.startsWith('video/')
         ? mimeType
         : 'video/mp4';
-    return _saveBinaryMediaBytes(
-      kind: _GeneratedMediaKind.video,
-      bytes: response.bodyBytes,
+    return inlineMediaFileMarkdown(
+      filePath: filePath,
       mimeType: effectiveMime,
       label: label,
     );
@@ -1996,9 +2063,12 @@ class AiImageGenerationService {
       ..['accept'] = 'application/json';
     http.Response? response;
     for (var i = 0; i < _miniMaxFileRetrieveAttempts; i++) {
-      response = await _client
-          .get(retrieveUri, headers: pollingHeaders)
-          .timeout(effectiveTimeout);
+      response = await _transport.get(
+        uri: retrieveUri,
+        headers: pollingHeaders,
+        timeout: effectiveTimeout,
+        maxResponseBytes: _mediaJsonResponseMaxBytes,
+      );
       if (isHttpSuccessStatus(response.statusCode)) break;
       if (!_isTransientPollStatus(response.statusCode) ||
           i == _miniMaxFileRetrieveAttempts - 1) {
@@ -2289,6 +2359,14 @@ class AiImageGenerationService {
     );
   }
 
+  Future<void> _deleteFileIfPresent(File file) async {
+    try {
+      if (await file.exists()) await file.delete();
+    } on FileSystemException {
+      // Empty/invalid generated media cleanup is best effort.
+    }
+  }
+
   String? _headerValue(Map<String, String> headers, String name) {
     final normalizedName = lowercaseStringFromValue(name);
     for (final entry in headers.entries) {
@@ -2324,12 +2402,11 @@ class AiImageGenerationService {
 
   Future<List<int>?> _downloadBytes(String url) async {
     try {
-      final response = await _client
-          .get(Uri.parse(url))
-          .timeout(_remoteMediaDownloadTimeout);
-      if (isHttpSuccessStatus(response.statusCode)) {
-        return response.bodyBytes;
-      }
+      return await _transport.downloadBytes(
+        uri: Uri.parse(url),
+        headers: const <String, String>{},
+        timeout: _remoteMediaDownloadTimeout,
+      );
     } catch (error, stack) {
       silentLog(
         'ai_image_generation_service',
@@ -2360,9 +2437,7 @@ class AiImageGenerationService {
   }
 
   void dispose() {
-    if (_ownsClient) {
-      _client.close();
-    }
+    _transport.dispose();
   }
 }
 
@@ -2422,6 +2497,9 @@ class _MediaErrorMessages {
 
   static String httpClient(_GeneratedMediaKind kind, http.ClientException e) =>
       AiTransportDiagnosticMessages.httpClient(e, contextLabel: _label(kind));
+
+  static String response(_GeneratedMediaKind kind, HttpException error) =>
+      '${kind.displayName} response could not be processed: ${error.message}';
 
   static String timeout(_GeneratedMediaKind kind, Duration limit) =>
       AiTransportDiagnosticMessages.timeout(limit, contextLabel: _label(kind));

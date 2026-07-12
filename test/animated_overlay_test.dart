@@ -95,4 +95,193 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
     visibility.dispose();
   });
+
+  testWidgets('entry controller reopens and rejects stale exit callbacks', (
+    tester,
+  ) async {
+    final controller = AnimatedOverlayEntryController();
+    late BuildContext hostContext;
+    VoidCallback? firstSessionCompletion;
+    VoidCallback? replacementCompletion;
+    var animatedExitCount = 0;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) {
+            hostContext = context;
+            return const SizedBox.expand();
+          },
+        ),
+      ),
+    );
+
+    AnimatedOverlayEntryBuilder entryBuilder({required bool replacement}) {
+      return (context, visibility, onExitCompleted) {
+        if (replacement) {
+          replacementCompletion = onExitCompleted;
+        } else {
+          firstSessionCompletion ??= onExitCompleted;
+        }
+        return AnimatedOverlayContent(
+          customSettings: const DialogAnimationSettings(
+            entranceStyle: DialogAnimationStyle.fade,
+            exitStyle: DialogAnimationStyle.fade,
+            durationMs: 120,
+          ),
+          visibility: visibility,
+          onExitCompleted: () {
+            animatedExitCount += 1;
+            onExitCompleted();
+          },
+          child: Text(replacement ? 'replacement' : 'first'),
+        );
+      };
+    }
+
+    controller.show(
+      overlay: Overlay.of(hostContext, rootOverlay: true),
+      builder: entryBuilder(replacement: false),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('first'), findsOneWidget);
+
+    controller.close();
+    await tester.pump(const Duration(milliseconds: 60));
+    controller.show(
+      overlay: Overlay.of(hostContext, rootOverlay: true),
+      builder: entryBuilder(replacement: false),
+    );
+    await tester.pumpAndSettle();
+    expect(animatedExitCount, 0);
+    expect(controller.hasEntry, isTrue);
+    expect(find.text('first'), findsOneWidget);
+
+    controller.close();
+    await tester.pumpAndSettle();
+    expect(animatedExitCount, 1);
+    expect(controller.hasEntry, isFalse);
+    expect(find.text('first'), findsNothing);
+
+    controller.show(
+      overlay: Overlay.of(hostContext, rootOverlay: true),
+      builder: entryBuilder(replacement: true),
+    );
+    await tester.pumpAndSettle();
+    firstSessionCompletion!.call();
+    await tester.pump();
+    expect(controller.hasEntry, isTrue);
+    expect(find.text('replacement'), findsOneWidget);
+    expect(replacementCompletion, isNotNull);
+
+    controller.dispose();
+    await tester.pump();
+  });
+
+  testWidgets('entry controller removes disabled motion without delay', (
+    tester,
+  ) async {
+    final controller = AnimatedOverlayEntryController();
+    late BuildContext hostContext;
+    var removedCount = 0;
+    var exitCompletionCount = 0;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) {
+            hostContext = context;
+            return const SizedBox.expand();
+          },
+        ),
+      ),
+    );
+    controller.show(
+      overlay: Overlay.of(hostContext, rootOverlay: true),
+      onRemoved: () => removedCount += 1,
+      builder: (context, visibility, onExitCompleted) => AnimatedOverlayContent(
+        customSettings: const DialogAnimationSettings(
+          entranceStyle: DialogAnimationStyle.none,
+          exitStyle: DialogAnimationStyle.none,
+          durationMs: 0,
+        ),
+        visibility: visibility,
+        onExitCompleted: () {
+          exitCompletionCount += 1;
+          onExitCompleted();
+        },
+        child: const Text('no-motion-entry'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('no-motion-entry'), findsOneWidget);
+
+    controller.close();
+    await tester.pumpAndSettle();
+    expect(exitCompletionCount, 1);
+    expect(controller.hasEntry, isFalse);
+    expect(removedCount, 1);
+    expect(find.text('no-motion-entry'), findsNothing);
+
+    controller.close();
+    controller.dispose();
+    controller.dispose();
+    expect(removedCount, 1);
+  });
+
+  testWidgets('entry controller dispose cancels an in-flight close', (
+    tester,
+  ) async {
+    final controller = AnimatedOverlayEntryController();
+    late BuildContext hostContext;
+    VoidCallback? completion;
+    var removedCount = 0;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) {
+            hostContext = context;
+            return const SizedBox.expand();
+          },
+        ),
+      ),
+    );
+    controller.show(
+      overlay: Overlay.of(hostContext, rootOverlay: true),
+      onRemoved: () => removedCount += 1,
+      builder: (context, visibility, onExitCompleted) {
+        completion = onExitCompleted;
+        return AnimatedOverlayContent(
+          customSettings: const DialogAnimationSettings(durationMs: 300),
+          visibility: visibility,
+          onExitCompleted: onExitCompleted,
+          child: const Text('disposing-entry'),
+        );
+      },
+    );
+    await tester.pumpAndSettle();
+
+    controller.close();
+    await tester.pump(const Duration(milliseconds: 80));
+    controller.dispose();
+    controller.close();
+    controller.dispose();
+    await tester.pumpAndSettle();
+    expect(controller.hasEntry, isFalse);
+    expect(removedCount, 1);
+    expect(find.text('disposing-entry'), findsNothing);
+
+    // A completion retained by the unmounted animation is harmless, and a
+    // disposed controller can never allocate another entry.
+    completion!.call();
+    expect(
+      controller.show(
+        overlay: Overlay.of(hostContext, rootOverlay: true),
+        builder: (context, visibility, onExitCompleted) => const SizedBox(),
+      ),
+      isFalse,
+    );
+    expect(removedCount, 1);
+  });
 }

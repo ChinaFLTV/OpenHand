@@ -14,6 +14,7 @@ import '../l10n/app_localizations.dart';
 import '../shared/ui/openhand_safe_scrollbar.dart';
 import '../shared/ui/openhand_snack_bar.dart';
 import '../shared/ui/openhand_tooltip_dismissal.dart';
+import '../shared/util/timer_safety.dart';
 import 'model/app_language.dart';
 import 'state/settings_controller.dart';
 import 'support/input_repair_service.dart';
@@ -347,15 +348,21 @@ class _McpOpsApprovalHostState extends State<_McpOpsApprovalHost> {
     }
     _dialogRetryTimer?.cancel();
     _scheduledDialogId = approval.id;
-    _dialogRetryTimer = Timer(_navigatorRetryDelay, () {
-      _dialogRetryTimer = null;
-      if (_scheduledDialogId == approval.id) {
-        _scheduledDialogId = null;
-      }
-      if (mounted) {
-        _handleApprovalsChanged();
-      }
-    });
+    _dialogRetryTimer = startSafeTimer(
+      _navigatorRetryDelay,
+      () {
+        _dialogRetryTimer = null;
+        if (_scheduledDialogId == approval.id) {
+          _scheduledDialogId = null;
+        }
+        if (mounted) {
+          _handleApprovalsChanged();
+        }
+      },
+      onError: (error, stack) {
+        silentLog('openhand_app', 'retry approval dialog', error, stack);
+      },
+    );
   }
 
   @override

@@ -67,6 +67,7 @@ final class AiOperationHttp {
     required Duration timeout,
     bool includeJsonContentType = true,
     bool acceptJson = false,
+    int maxResponseBytes = defaultAiTransportResponseMaxBytes,
   }) {
     return transport.sendJson(
       uri: uriWithExtraQuery(endpoint.url, model, family),
@@ -80,6 +81,7 @@ final class AiOperationHttp {
       ),
       body: body,
       timeout: timeout,
+      maxResponseBytes: maxResponseBytes,
     );
   }
 

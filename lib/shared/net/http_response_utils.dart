@@ -55,11 +55,15 @@ Future<String> readBoundedHttpResponseText(
 /// Collects a package:http or dart:io byte stream with explicit memory and
 /// timing bounds. The subscription is cancelled when any limit wins, so a
 /// timed-out producer cannot keep buffering in the background.
+/// When [truncateOnOverflow] is true, the byte limit returns a prefix instead
+/// of throwing and completes as soon as the limit is reached; this is intended
+/// for bounded diagnostic/error previews.
 Future<Uint8List> readBoundedByteStream(
   Stream<List<int>> stream, {
   required int maxBytes,
   required Duration idleTimeout,
   Duration? totalTimeout,
+  bool truncateOnOverflow = false,
 }) {
   return _consumeByteStream(
     stream,
@@ -67,6 +71,7 @@ Future<Uint8List> readBoundedByteStream(
     idleTimeout: idleTimeout,
     totalTimeout: totalTimeout,
     retainBytes: true,
+    truncateOnOverflow: truncateOnOverflow,
   );
 }
 
@@ -86,6 +91,36 @@ Future<String> readBoundedByteStreamText(
   return utf8.decode(bytes, allowMalformed: allowMalformed);
 }
 
+/// Streams bytes to an asynchronous sink with backpressure while enforcing
+/// the same idle, total, and size bounds as in-memory response collection.
+Future<int> writeBoundedByteStream(
+  Stream<List<int>> stream, {
+  required Future<void> Function(List<int> chunk) writeChunk,
+  required int maxBytes,
+  required Duration idleTimeout,
+  required Duration totalTimeout,
+}) async {
+  if (maxBytes < 1) {
+    throw ArgumentError.value(maxBytes, 'maxBytes', 'Must be positive.');
+  }
+  var writtenBytes = 0;
+  final writeStream = stream.asyncMap<List<int>>((chunk) async {
+    final nextByteCount = writtenBytes + chunk.length;
+    if (nextByteCount > maxBytes) {
+      throw HttpException('HTTP response exceeds the $maxBytes byte limit.');
+    }
+    await writeChunk(chunk);
+    writtenBytes = nextByteCount;
+    return const <int>[];
+  });
+  await drainByteStreamWithTimeout(
+    writeStream,
+    idleTimeout: idleTimeout,
+    totalTimeout: totalTimeout,
+  );
+  return writtenBytes;
+}
+
 /// Discards a response stream while retaining connection-pool hygiene without
 /// allowing a hostile peer to hold the caller forever.
 Future<void> drainByteStreamWithTimeout(
@@ -98,6 +133,7 @@ Future<void> drainByteStreamWithTimeout(
     idleTimeout: idleTimeout,
     totalTimeout: totalTimeout,
     retainBytes: false,
+    truncateOnOverflow: false,
   );
 }
 
@@ -107,6 +143,7 @@ Future<Uint8List> _consumeByteStream(
   required Duration idleTimeout,
   Duration? totalTimeout,
   required bool retainBytes,
+  required bool truncateOnOverflow,
 }) {
   if (maxBytes != null && maxBytes < 1) {
     throw ArgumentError.value(maxBytes, 'maxBytes', 'Must be positive.');
@@ -185,14 +222,28 @@ Future<Uint8List> _consumeByteStream(
       (chunk) {
         if (settled) return;
         resetIdleTimer();
-        receivedBytes += chunk.length;
-        if (maxBytes != null && receivedBytes > maxBytes) {
+        final nextByteCount = receivedBytes + chunk.length;
+        if (maxBytes != null &&
+            truncateOnOverflow &&
+            nextByteCount >= maxBytes) {
+          final remaining = maxBytes - receivedBytes;
+          if (remaining > 0) {
+            bytes?.add(chunk.take(remaining).toList(growable: false));
+          }
+          settled = true;
+          cancelTimers();
+          cancelSubscription();
+          completer.complete(bytes?.takeBytes() ?? Uint8List(0));
+          return;
+        }
+        if (maxBytes != null && nextByteCount > maxBytes) {
           fail(
             HttpException('HTTP response exceeds the $maxBytes byte limit.'),
             StackTrace.current,
           );
           return;
         }
+        receivedBytes = nextByteCount;
         bytes?.add(chunk);
       },
       onError: (Object error, StackTrace stack) => fail(error, stack),

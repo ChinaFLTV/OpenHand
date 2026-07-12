@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import '../../app/support/safe_subprocess.dart';
+import '../net/http_response_utils.dart';
 
 /// Per-path write lock. All atomic writes that target the same absolute path
 /// are serialized on a single [Future] chain to prevent two concurrent writers
@@ -10,6 +11,9 @@ final Map<String, Future<void>> _writeLocks = <String, Future<void>>{};
 const String _atomicTempSuffix = '.tmp';
 const String _atomicBackupSuffix = '.bak';
 const Duration _atomicStaleArtifactAge = Duration(minutes: 10);
+const Duration _atomicCopyIdleTimeout = Duration(seconds: 30);
+const Duration _atomicCopyTotalTimeout = Duration(minutes: 10);
+const Duration _atomicCopyCloseTimeout = Duration(seconds: 2);
 const Duration _openDirectoryCommandTimeout = Duration(seconds: 6);
 const String _openDirectoryProcessTag = 'atomic_file_ops';
 int _atomicTempSerial = 0;
@@ -101,6 +105,28 @@ Future<void> writeFileBytesAtomically(File targetFile, List<int> bytes) {
   );
 }
 
+/// Copies [sourceFile] to [targetFile] without materializing the source in
+/// memory, while preserving the same atomic rename and rollback guarantees as
+/// the write helpers. [maxBytes] is enforced while streaming, so a source that
+/// grows during copying cannot consume unbounded memory or disk space.
+Future<void> copyFileAtomically(
+  File sourceFile,
+  File targetFile, {
+  required int maxBytes,
+}) {
+  if (maxBytes < 1) {
+    throw ArgumentError.value(maxBytes, 'maxBytes', 'Must be positive.');
+  }
+  return _runWithAtomicWriteLock(
+    targetFile,
+    (targetFile) => _copyFileAtomicallyLocked(
+      sourceFile.absolute,
+      targetFile,
+      maxBytes: maxBytes,
+    ),
+  );
+}
+
 Future<void> _runWithAtomicWriteLock(
   File targetFile,
   Future<void> Function(File targetFile) operation,
@@ -146,6 +172,75 @@ Future<void> _writeFileBytesAtomicallyLocked(
   );
 }
 
+Future<void> _copyFileAtomicallyLocked(
+  File sourceFile,
+  File targetFile, {
+  required int maxBytes,
+}) async {
+  await _writeAtomicallyLocked(targetFile, (tempFile) async {
+    final stopwatch = Stopwatch()..start();
+    Duration remainingBudget() {
+      final remaining =
+          _atomicCopyTotalTimeout.inMicroseconds -
+          stopwatch.elapsedMicroseconds;
+      if (remaining <= 0) {
+        throw TimeoutException(
+          'Atomic file copy exceeded its time limit.',
+          _atomicCopyTotalTimeout,
+        );
+      }
+      return Duration(microseconds: remaining);
+    }
+
+    final sourceLength = await sourceFile.length().timeout(remainingBudget());
+    if (sourceLength > maxBytes) {
+      throw FileSystemException(
+        'Source file exceeded the $maxBytes byte copy limit.',
+        sourceFile.path,
+      );
+    }
+
+    RandomAccessFile? output;
+    var operationFailed = false;
+    try {
+      final openedOutput = await tempFile
+          .open(mode: FileMode.writeOnly)
+          .timeout(remainingBudget());
+      output = openedOutput;
+      final streamBudget = remainingBudget();
+      await writeBoundedByteStream(
+        sourceFile.openRead(),
+        writeChunk: openedOutput.writeFrom,
+        maxBytes: maxBytes,
+        idleTimeout: streamBudget < _atomicCopyIdleTimeout
+            ? streamBudget
+            : _atomicCopyIdleTimeout,
+        totalTimeout: streamBudget,
+      );
+      await openedOutput.flush().timeout(remainingBudget());
+    } on HttpException {
+      operationFailed = true;
+      throw FileSystemException(
+        'Source file exceeded the $maxBytes byte copy limit.',
+        sourceFile.path,
+      );
+    } catch (_) {
+      operationFailed = true;
+      rethrow;
+    } finally {
+      stopwatch.stop();
+      final activeOutput = output;
+      if (activeOutput != null) {
+        try {
+          await activeOutput.close().timeout(_atomicCopyCloseTimeout);
+        } catch (_) {
+          if (!operationFailed) rethrow;
+        }
+      }
+    }
+  });
+}
+
 Future<void> _writeAtomicallyLocked(
   File targetFile,
   Future<void> Function(File tempFile) writeTempFile,
@@ -154,10 +249,9 @@ Future<void> _writeAtomicallyLocked(
 
   final tempFile = _newAtomicTempFile(targetFile);
   final backupFile = _atomicBackupFile(targetFile);
-  await writeTempFile(tempFile);
-
   var movedExistingFile = false;
   try {
+    await writeTempFile(tempFile);
     if (!await tempFile.exists()) {
       throw FileSystemException(
         'Atomic temp file disappeared before rename.',
@@ -175,7 +269,7 @@ Future<void> _writeAtomicallyLocked(
     if (await backupFile.exists()) {
       await backupFile.delete();
     }
-  } on FileSystemException {
+  } catch (_) {
     // Best-effort cleanup: remove temp and restore backup. Errors during
     // cleanup must not prevent the backup restoration or shadow the
     // original exception.
