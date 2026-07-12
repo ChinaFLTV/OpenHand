@@ -435,7 +435,7 @@ class _SettingsViewState extends State<SettingsView> {
         settings: settings,
         phase: AnimatedAppearancePhase.exit,
       ),
-      duration: settings.duration,
+      duration: settings.exitDuration,
     );
   }
 
@@ -449,7 +449,7 @@ class _SettingsViewState extends State<SettingsView> {
     if (listState == null) {
       return;
     }
-    listState.insertItem(index, duration: settings.duration);
+    listState.insertItem(index, duration: settings.entranceDuration);
   }
 
   Widget _buildAnimatedAiModelRow(

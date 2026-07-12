@@ -11,9 +11,16 @@ import '../../../shared/util/input_value_parsing.dart';
 import '../model/session_cache_hit_trend.dart';
 
 const Curve _tokenPopupCacheHitTrendEntranceCurve = Curves.easeOutCubic;
+const Duration _tokenPopupCacheHitTrendEntranceDuration = Duration(
+  milliseconds: 560,
+);
 const Duration _tokenPopupCacheHitModeChipDuration = Duration(
   milliseconds: 220,
 );
+const double _tokenPopupCacheHitZoomInScale = 1.12;
+const double _tokenPopupCacheHitZoomOutScale = 0.88;
+const double _tokenPopupCacheHitScaleEpsilon = 0.001;
+const double _tokenPopupCacheHitPanEpsilon = 0.01;
 
 double _tokenPopupCacheHitTrendAnimationProgress(double t) {
   final clamped = clampUnitInterval(t);
@@ -99,6 +106,32 @@ String _cacheHitExclusionHint(
   return l10n.tokenPopupExcludedRounds(displayData.excludedPointCount);
 }
 
+bool _sameCacheHitTrendPointIdentity(
+  List<SessionCacheHitTurnPoint> previous,
+  List<SessionCacheHitTurnPoint> current,
+) {
+  if (identical(previous, current)) return true;
+  if (previous.length != current.length) return false;
+  for (var index = 0; index < previous.length; index += 1) {
+    final left = previous[index];
+    final right = current[index];
+    if (left.turnIndex != right.turnIndex ||
+        left.starterMessageId != right.starterMessageId) {
+      return false;
+    }
+  }
+  return true;
+}
+
+SessionCacheHitViewport _fullCacheHitViewport(
+  SessionCacheHitTrend trend,
+  SessionCacheHitDisplayMode mode,
+) {
+  return SessionCacheHitViewport.full(
+    trend.displayData(mode).trend.points.length,
+  );
+}
+
 class TokenPopupCacheHitTrendChart extends StatefulWidget {
   const TokenPopupCacheHitTrendChart({
     super.key,
@@ -125,78 +158,167 @@ class _TokenPopupCacheHitTrendChartState
   late SessionCacheHitViewport _viewport;
   late final AnimationController _controller;
   // hover 状态专用的进退场控制器：
-  // - 悬停进入：0 → 1（沿用全局 DialogAnimationSettings.springScale，
-  //   带 easeOutBack 微弹）；
+  // - 悬停进入：0 → 1（沿用全局 DialogAnimationSettings）；
   // - 悬停退出：1 → 0（同一曲线的 reverse）；
   // - 移动到不同点：data 立即更新但 controller 保持 1.0，不重启。
   late final AnimationController _hoverController;
-  // 缓存上一次应用到控制器的 hover 设置，避免每帧重设 duration /
-  // reverseDuration（Flutter 内部会清零 _lastElapsedDuration，存在动画
-  // 中点被踩扁的理论风险）。
+  // 缓存上一次应用的 hover 设置，用于跳过重复同步，并识别需要按当前
+  // 进度重启的方向动画。
   DialogAnimationSettings? _lastAppliedHoverSettings;
-  double _wheelScaleAccumulator = 1;
+  int _hoverMotionGeneration = 0;
+  double _gestureAppliedScale = 1;
   int? _hoveredPointIndex;
+  int? _displayedPointIndex;
 
   @override
   void initState() {
     super.initState();
-    _viewport = SessionCacheHitViewport.full(widget.trend.points.length);
+    _viewport = _fullCacheHitViewport(widget.trend, widget.displayMode);
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 560),
+      duration: _tokenPopupCacheHitTrendEntranceDuration,
     )..forward();
     _hoverController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 240),
-      reverseDuration: const Duration(milliseconds: 200),
+      duration: Duration.zero,
+      reverseDuration: Duration.zero,
       value: 0.0,
-    );
+    )..addStatusListener(_handleHoverAnimationStatus);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!openHandTickerMotionEnabled(context) && !_controller.isCompleted) {
+      _controller
+        ..stop()
+        ..value = 1.0;
+    }
   }
 
   @override
   void didUpdateWidget(covariant TokenPopupCacheHitTrendChart oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.trend.points.length != widget.trend.points.length) {
-      _viewport = SessionCacheHitViewport.full(widget.trend.points.length);
-      _controller
-        ..reset()
-        ..forward();
-      // 数据集换新时立刻让浮窗退场，避免残留（旧 points 索引可能越界
-      // 新数据集，悬停态必须复位）。
-      if (_hoveredPointIndex != null) {
-        _hoveredPointIndex = null;
-        _hoverController.value = 0.0;
+    final previousVisiblePoints = oldWidget.trend
+        .displayData(oldWidget.displayMode)
+        .trend
+        .points;
+    final currentVisiblePoints = widget.trend
+        .displayData(widget.displayMode)
+        .trend
+        .points;
+    final viewportSourceChanged =
+        oldWidget.displayMode != widget.displayMode ||
+        !_sameCacheHitTrendPointIdentity(
+          previousVisiblePoints,
+          currentVisiblePoints,
+        );
+    if (viewportSourceChanged) {
+      _viewport = _fullCacheHitViewport(widget.trend, widget.displayMode);
+      _controller.reset();
+      if (openHandTickerMotionEnabled(context)) {
+        _controller.forward();
+      } else {
+        _controller.value = 1.0;
       }
-      _lastAppliedHoverSettings = null;
+    }
+    if (viewportSourceChanged) {
+      // 数据集或展示口径换新时立刻清理浮窗。即使点数未变，旧索引也
+      // 可能已指向另一轮数据；继续展示会把旧命中态套到新数据上。
+      _resetHoverTooltip();
     }
   }
 
   @override
   void dispose() {
+    _hoverController.removeStatusListener(_handleHoverAnimationStatus);
     _controller.dispose();
     _hoverController.dispose();
     super.dispose();
   }
 
   void _zoom(double anchor, double scale) {
+    _resetHoverTooltip();
     setState(() {
       _viewport = _viewport.zoomAround(anchor: anchor, scale: scale);
     });
   }
 
-  /// Hover tooltip uses spring-scale while inheriting global duration / curve.
+  /// Hover tooltip follows the global dialog motion in both directions.
   DialogAnimationSettings _hoverSettingsFor(BuildContext context) {
-    final global = openHandMotionSettingsOf(
+    return openHandMotionSettingsOf(
       context,
       OpenHandMotionSettingsScope.dialog,
     );
-    return global.copyWith(
-      entranceStyle: DialogAnimationStyle.springScale,
-      exitStyle: DialogAnimationStyle.springScale,
-    );
+  }
+
+  void _handleHoverAnimationStatus(AnimationStatus status) {
+    if (!mounted ||
+        status != AnimationStatus.dismissed ||
+        _hoveredPointIndex != null ||
+        _displayedPointIndex == null) {
+      return;
+    }
+    setState(() => _displayedPointIndex = null);
+  }
+
+  void _hideHoverTooltip() {
+    if (_hoveredPointIndex == null) return;
+    _hoverMotionGeneration += 1;
+    setState(() => _hoveredPointIndex = null);
+    _hoverController.reverse();
+  }
+
+  void _resetHoverTooltip() {
+    _hoverMotionGeneration += 1;
+    _hoveredPointIndex = null;
+    _displayedPointIndex = null;
+    _hoverController
+      ..stop()
+      ..value = 0.0;
+    _lastAppliedHoverSettings = null;
+  }
+
+  void _applyHoverSettings(DialogAnimationSettings settings) {
+    final previous = _lastAppliedHoverSettings;
+    if (previous == settings) return;
+    _hoverController
+      ..duration = settings.entranceDuration
+      ..reverseDuration = settings.exitDuration;
+    _lastAppliedHoverSettings = settings;
+    if (previous == null ||
+        (_hoveredPointIndex == null && _displayedPointIndex == null)) {
+      return;
+    }
+    final activeDirectionTimingChanged = _hoveredPointIndex != null
+        ? previous.entranceDuration != settings.entranceDuration
+        : previous.exitDuration != settings.exitDuration;
+    if (!activeDirectionTimingChanged) return;
+    final generation = ++_hoverMotionGeneration;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || generation != _hoverMotionGeneration) return;
+      if (_hoveredPointIndex != null) {
+        if (settings.entranceDisabled) {
+          _hoverController
+            ..stop()
+            ..value = 1.0;
+        } else if (!_hoverController.isCompleted) {
+          _hoverController.forward();
+        }
+      } else if (_displayedPointIndex != null) {
+        if (settings.exitDisabled) {
+          _hoverController
+            ..stop()
+            ..value = 0.0;
+        } else if (!_hoverController.isDismissed) {
+          _hoverController.reverse();
+        }
+      }
+    });
   }
 
   void _pan(double deltaPoints) {
+    _resetHoverTooltip();
     setState(() {
       _viewport = _viewport.panBy(deltaPoints);
     });
@@ -208,6 +330,8 @@ class _TokenPopupCacheHitTrendChartState
     final colorScheme = theme.colorScheme;
     final l10n = AppLocalizations.of(context)!;
     final motionDisabled = !openHandTickerMotionEnabled(context);
+    final hoverSettings = _hoverSettingsFor(context);
+    _applyHoverSettings(hoverSettings);
     final displayData = widget.trend.displayData(widget.displayMode);
     final exclusionHint = _cacheHitExclusionHint(l10n, displayData);
     final effectiveViewport =
@@ -276,9 +400,10 @@ class _TokenPopupCacheHitTrendChartState
                 const SizedBox(width: 8),
                 InkWell(
                   onTap: () {
+                    _resetHoverTooltip();
                     setState(() {
                       _viewport = SessionCacheHitViewport.full(
-                        widget.trend.points.length,
+                        displayData.trend.points.length,
                       );
                     });
                   },
@@ -315,9 +440,6 @@ class _TokenPopupCacheHitTrendChartState
                             widget.displayMode ==
                             SessionCacheHitDisplayMode.excludeExpiredMisses,
                         onTap: () {
-                          _viewport = SessionCacheHitViewport.full(
-                            displayData.trend.points.length,
-                          );
                           widget.onDisplayModeChanged?.call(
                             SessionCacheHitDisplayMode.excludeExpiredMisses,
                           );
@@ -330,9 +452,6 @@ class _TokenPopupCacheHitTrendChartState
                             widget.displayMode ==
                             SessionCacheHitDisplayMode.includeExpiredMisses,
                         onTap: () {
-                          _viewport = SessionCacheHitViewport.full(
-                            widget.trend.points.length,
-                          );
                           widget.onDisplayModeChanged?.call(
                             SessionCacheHitDisplayMode.includeExpiredMisses,
                           );
@@ -427,25 +546,16 @@ class _TokenPopupCacheHitTrendChartState
                                   visiblePoints[firstRequestIndex].hitRatio,
                                 );
                   return Listener(
-                    onPointerPanZoomStart: (_) {
-                      _wheelScaleAccumulator = 1;
-                    },
-                    onPointerPanZoomUpdate: (event) {
-                      final localDx = (event.localPosition.dx - chartRect.left)
-                          .clamp(0.0, chartRect.width);
-                      final anchor =
-                          _viewport.start +
-                          (chartRect.width <= 0
-                              ? 0
-                              : localDx / chartRect.width * _viewport.span);
-                      if ((event.scale - 1).abs() > 0.02) {
-                        _zoom(anchor, event.scale);
-                      }
-                    },
                     onPointerSignal: (event) {
                       if (event is PointerScrollEvent) {
                         final direction = event.scrollDelta.dy;
-                        final scale = direction > 0 ? 0.88 : 1.12;
+                        if (direction.abs() <=
+                            _tokenPopupCacheHitScaleEpsilon) {
+                          return;
+                        }
+                        final scale = direction > 0
+                            ? _tokenPopupCacheHitZoomOutScale
+                            : _tokenPopupCacheHitZoomInScale;
                         final localDx =
                             (event.localPosition.dx - chartRect.left).clamp(
                               0.0,
@@ -456,13 +566,14 @@ class _TokenPopupCacheHitTrendChartState
                             (chartRect.width <= 0
                                 ? 0
                                 : localDx / chartRect.width * _viewport.span);
-                        _wheelScaleAccumulator *= scale;
-                        _zoom(anchor, _wheelScaleAccumulator);
-                        _wheelScaleAccumulator = 1;
+                        _zoom(anchor, scale);
                       }
                     },
                     child: GestureDetector(
                       behavior: HitTestBehavior.opaque,
+                      onScaleStart: (_) {
+                        _gestureAppliedScale = 1;
+                      },
                       onScaleUpdate: (details) {
                         final localDx =
                             (details.localFocalPoint.dx - chartRect.left).clamp(
@@ -474,8 +585,14 @@ class _TokenPopupCacheHitTrendChartState
                             (chartRect.width <= 0
                                 ? 0
                                 : localDx / chartRect.width * _viewport.span);
-                        if ((details.scale - 1).abs() > 0.02) {
-                          _zoom(anchor, details.scale);
+                        final incrementalScale =
+                            details.scale / _gestureAppliedScale;
+                        if (details.scale.isFinite &&
+                            details.scale > 0 &&
+                            (incrementalScale - 1).abs() >
+                                _tokenPopupCacheHitScaleEpsilon) {
+                          _gestureAppliedScale = details.scale;
+                          _zoom(anchor, incrementalScale);
                           return;
                         }
                         final deltaPoints = chartRect.width <= 0
@@ -483,9 +600,12 @@ class _TokenPopupCacheHitTrendChartState
                             : -details.focalPointDelta.dx /
                                   chartRect.width *
                                   _viewport.span;
-                        if (deltaPoints.abs() > 0.01) {
+                        if (deltaPoints.abs() > _tokenPopupCacheHitPanEpsilon) {
                           _pan(deltaPoints);
                         }
+                      },
+                      onScaleEnd: (_) {
+                        _gestureAppliedScale = 1;
                       },
                       child: MouseRegion(
                         onHover: (event) {
@@ -493,24 +613,19 @@ class _TokenPopupCacheHitTrendChartState
                           // 已守住，但作为 onHover 顶层保护，避免驱动空动画
                           // 与 setState 不必要的 rebuild）。
                           if (visiblePoints.isEmpty) {
-                            if (_hoveredPointIndex != null) {
-                              setState(() => _hoveredPointIndex = null);
-                              _hoverController.reverse();
-                            }
+                            _hideHoverTooltip();
                             return;
                           }
-                          final localDx =
-                              (event.localPosition.dx - chartRect.left).clamp(
-                                0.0,
-                                chartRect.width,
-                              );
-                          if (localDx < 0 || localDx > chartRect.width) {
-                            if (_hoveredPointIndex != null) {
-                              setState(() => _hoveredPointIndex = null);
-                              _hoverController.reverse();
-                            }
+                          final rawLocalDx =
+                              event.localPosition.dx - chartRect.left;
+                          if (rawLocalDx < 0 || rawLocalDx > chartRect.width) {
+                            _hideHoverTooltip();
                             return;
                           }
+                          final localDx = rawLocalDx.clamp(
+                            0.0,
+                            chartRect.width,
+                          );
                           // 把鼠标横向位置映射到 visiblePoints 索引。
                           final span = visiblePoints.length <= 1
                               ? 0.0
@@ -525,21 +640,22 @@ class _TokenPopupCacheHitTrendChartState
                               .toInt();
                           if (_hoveredPointIndex != idx) {
                             final wasHovering = _hoveredPointIndex != null;
-                            setState(() => _hoveredPointIndex = idx);
+                            setState(() {
+                              _hoveredPointIndex = idx;
+                              _displayedPointIndex = idx;
+                            });
                             if (!wasHovering) {
                               // 第一次入场或退场中再次入场：从当前值 forward，
                               // 已完全显示时（value==1）forward 是 no-op，
                               // 退场中（0<value<1）则继续推进到 1，保证
                               // 进出衔接自然不闪。
+                              _hoverMotionGeneration += 1;
                               _hoverController.forward();
                             }
                           }
                         },
                         onExit: (_) {
-                          if (_hoveredPointIndex != null) {
-                            setState(() => _hoveredPointIndex = null);
-                            _hoverController.reverse();
-                          }
+                          _hideHoverTooltip();
                         },
                         child: Stack(
                           clipBehavior: Clip.none,
@@ -625,18 +741,17 @@ class _TokenPopupCacheHitTrendChartState
                               ),
                             // hover 高亮 + tooltip：把鼠标位置
                             // 映射到最近的 visiblePoints 索引，叠一个发光圆点
-                            // + 浮窗，整组走 springScale 的 Q 弹进退场（由
-                            // [_hoverController] 驱动 forward / reverse），与
-                            // 全局 DialogAnimationSettings 的时长 / 曲线保持
-                            // 一致。
-                            if (_hoveredPointIndex != null)
+                            // + 浮窗，整组由 [_hoverController] 驱动进退场，
+                            // 与全局 DialogAnimationSettings 的方向、时长和
+                            // 曲线保持一致。
+                            if (_displayedPointIndex != null)
                               _buildHoverOverlay(
                                 visiblePoints: visiblePoints,
-                                hoveredIndex: _hoveredPointIndex!,
+                                hoveredIndex: _displayedPointIndex!,
                                 chartRect: chartRect,
                                 colorScheme: colorScheme,
                                 l10n: l10n,
-                                hoverSettings: _hoverSettingsFor(context),
+                                hoverSettings: hoverSettings,
                               ),
                             Positioned(
                               left: 0,
@@ -750,13 +865,10 @@ class _TokenPopupCacheHitTrendChartState
 
   /// hover 高亮 + tooltip：
   /// - 渲染当前鼠标位置对应的数据点（发光圆 + tooltip 浮窗）；
-  /// - 圆点 + 浮窗共用 [_hoverController] 走 springScale 风格的 Q 弹
-  ///   进退场（_SpringScaleTransition 内部用 Curves.easeOutBack / easeInBack
-  ///   ，带微弹），时长 / 曲线沿用全局 DialogAnimationSettings 并尊重
-  ///   全局 motion preference 走 0ms 关闭动画；
-  /// - tooltip 内部"上方 / 下方"翻转时由 springScale 的 alignment 决定
-  ///   scale 锚点（上方时从底部中心展开、避免侵入 chart 上沿；下方时
-  ///   从顶部中心展开、避免侵入 chart 下沿）。
+  /// - 圆点 + 浮窗共用 [_hoverController] 和全局 DialogAnimationSettings，
+  ///   并按方向尊重 0ms motion preference；
+  /// - tooltip 内部“上方 / 下方”翻转时沿用共享 transition 的缩放锚点，
+  ///   避免侵入 chart 边缘。
   Widget _buildHoverOverlay({
     required List<SessionCacheHitTurnPoint> visiblePoints,
     required int hoveredIndex,
@@ -797,31 +909,29 @@ class _TokenPopupCacheHitTrendChartState
       chartRect.left,
       chartRect.right - tooltipWidth,
     );
-    // 仅在 hoverSettings 实际变化时把 duration /
-    // reverseDuration 同步到控制器。Flutter 内部对 controller.duration
-    // 的 setter 会清零 _lastElapsedDuration，若每帧重设同一值虽然
-    // 视觉无跳变，但属于无谓写入；这里加一个等价性 cache 规避。
-    if (_lastAppliedHoverSettings != hoverSettings) {
-      _hoverController.duration = hoverSettings.duration;
-      _hoverController.reverseDuration = hoverSettings.duration ~/ 5 * 4;
-      _lastAppliedHoverSettings = hoverSettings;
-    }
+
+    Widget transition(Widget child) => buildAnimationStyleTransition(
+      animation: _hoverController,
+      settings: hoverSettings,
+      child: child,
+    );
 
     return Stack(
       clipBehavior: Clip.none,
       children: [
-        // 命中点发光圆 + 实心圆：套在同一个 springScale transition 内，
-        // 与 tooltip 同步 Q 弹进退场。
+        // 命中点发光圆 + 实心圆与 tooltip 同步进退场。
         Positioned(
           left: cx - 9,
           top: cy - 9,
           child: IgnorePointer(
-            child: Container(
-              width: 18,
-              height: 18,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: colorScheme.primary.withValues(alpha: 0.18),
+            child: transition(
+              Container(
+                width: 18,
+                height: 18,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: colorScheme.primary.withValues(alpha: 0.18),
+                ),
               ),
             ),
           ),
@@ -830,13 +940,15 @@ class _TokenPopupCacheHitTrendChartState
           left: cx - 4,
           top: cy - 4,
           child: IgnorePointer(
-            child: Container(
-              width: 8,
-              height: 8,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: colorScheme.primary,
-                border: Border.all(color: colorScheme.surface, width: 1.4),
+            child: transition(
+              Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: colorScheme.primary,
+                  border: Border.all(color: colorScheme.surface, width: 1.4),
+                ),
               ),
             ),
           ),
@@ -849,10 +961,8 @@ class _TokenPopupCacheHitTrendChartState
             child: SizedBox(
               width: tooltipWidth,
               height: tooltipHeight,
-              child: buildAnimationStyleTransition(
-                animation: _hoverController,
-                settings: hoverSettings,
-                child: Container(
+              child: transition(
+                Container(
                   width: tooltipWidth,
                   height: tooltipHeight,
                   padding: const EdgeInsets.symmetric(

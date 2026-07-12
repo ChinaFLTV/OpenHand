@@ -60,6 +60,7 @@ class SettingsStore {
   SettingsStore();
 
   static const String _dbSettingsKey = 'app_settings_json';
+  static const int _currentSchemaVersion = 5;
 
   /// Retained for backward compatibility with controllers that expose a path.
   String get settingsFilePath => 'db://app_settings';
@@ -131,7 +132,7 @@ class SettingsStore {
   // JSON serialization for AppSettingsSnapshot
   static Map<String, Object?> _snapshotToJson(AppSettingsSnapshot snapshot) {
     return <String, Object?>{
-      'version': 4,
+      'version': _currentSchemaVersion,
       'theme_mode': _themeModeToStorage(snapshot.themeMode),
       'theme_preset': snapshot.themePreset.storageValue,
       'language': snapshot.language.storageValue,
@@ -836,6 +837,7 @@ class SettingsStore {
       json,
       'dialog_animation_settings',
       fallback: OpenHandMotionDefaults.dialog,
+      schemaVersion: schemaVersion,
       legacyDefaults: const <DialogAnimationSettings>[
         DialogAnimationSettings.legacyFadeScale,
         DialogAnimationSettings(
@@ -847,6 +849,7 @@ class SettingsStore {
       json,
       'menu_animation_settings',
       fallback: OpenHandMotionDefaults.menu,
+      schemaVersion: schemaVersion,
       legacyDefaults: const <DialogAnimationSettings>[
         DialogAnimationSettings.legacyFadeScale,
         DialogAnimationSettings(
@@ -859,6 +862,7 @@ class SettingsStore {
       json,
       'page_animation_settings',
       fallback: OpenHandMotionDefaults.page,
+      schemaVersion: schemaVersion,
       replaceDisabledWithFallback: true,
       legacyDefaults: const <DialogAnimationSettings>[
         DialogAnimationSettings(
@@ -878,6 +882,7 @@ class SettingsStore {
       json,
       'panel_animation_settings',
       fallback: OpenHandMotionDefaults.panel,
+      schemaVersion: schemaVersion,
       replaceDisabledWithFallback: true,
       legacyDefaults: const <DialogAnimationSettings>[
         DialogAnimationSettings.legacyFadeScale,
@@ -887,11 +892,13 @@ class SettingsStore {
       json,
       'chip_animation_settings',
       fallback: OpenHandMotionDefaults.chip,
+      schemaVersion: schemaVersion,
     );
     final listItemAnimationSettings = _animationSettingsFromStorage(
       json,
       'list_item_animation_settings',
       fallback: OpenHandMotionDefaults.listItem,
+      schemaVersion: schemaVersion,
     );
 
     // Builtin tool configs.
@@ -1155,24 +1162,30 @@ DialogAnimationSettings _dialogAnimationFromValue(
   required DialogAnimationSettings fallback,
 }) {
   if (value is! Map) return fallback;
-  return DialogAnimationSettings.fromJson(stringKeyedMapFromValue(value));
+  return DialogAnimationSettings.fromJson(
+    stringKeyedMapFromValue(value),
+    fallbackDurationMs: fallback.configuredDurationMs,
+  );
 }
 
 DialogAnimationSettings _animationSettingsFromStorage(
   Map<String, Object?> json,
   String key, {
   required DialogAnimationSettings fallback,
+  required int schemaVersion,
   Iterable<DialogAnimationSettings> legacyDefaults =
       const <DialogAnimationSettings>[],
   bool replaceDisabledWithFallback = false,
 }) {
   final settings = _dialogAnimationFromValue(json[key], fallback: fallback);
-  if (replaceDisabledWithFallback && settings.disablesAnimation) {
-    return fallback;
-  }
-  for (final legacyDefault in legacyDefaults) {
-    if (settings == legacyDefault) {
+  if (schemaVersion < SettingsStore._currentSchemaVersion) {
+    if (replaceDisabledWithFallback && settings.disablesAnimation) {
       return fallback;
+    }
+    for (final legacyDefault in legacyDefaults) {
+      if (settings == legacyDefault) {
+        return fallback;
+      }
     }
   }
   return settings;

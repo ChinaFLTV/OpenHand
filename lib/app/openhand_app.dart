@@ -102,10 +102,9 @@ class _OpenHandAppState extends State<OpenHandApp> {
           ? Duration.zero
           : const Duration(milliseconds: 220),
       scrollBehavior: const _SafeScrollBehavior(),
-      // 2026-05 — 用户层 reduceMotion 通过 MediaQuery.disableAnimations 同步
-      // 给框架（Hero/PageRoute/Theme 等内置动画自动归零），同时也是自研
-      // 动画组件（AnimatedExpandable / AppearOnce 等）的统一信号源。OS-level
-      // reduceMotion 仍然由 Flutter 的 PlatformDispatcher 自动并入。
+      // 用户层 reduceMotion 通过 MediaQuery.disableAnimations 向会读取该
+      // 信号的框架能力和自研动画组件统一传播；系统级偏好仍由 Flutter
+      // 的 PlatformDispatcher 合并进 MediaQuery。
       builder: (context, child) {
         Provider.of<MessageGatewayController?>(
           context,
@@ -113,14 +112,10 @@ class _OpenHandAppState extends State<OpenHandApp> {
         )?.updateTheme(Theme.of(context));
         final media = MediaQuery.of(context);
         final disable = reduceMotion || media.disableAnimations;
-        final routedChild = disable == media.disableAnimations
-            ? (child ?? const SizedBox.shrink())
-            : MediaQuery(
-                data: media.copyWith(disableAnimations: disable),
-                child: child ?? const SizedBox.shrink(),
-              );
-        final builtChild = _OverlayPortalStabilityBoundary(child: routedChild);
-        return Stack(
+        final builtChild = _OverlayPortalStabilityBoundary(
+          child: child ?? const SizedBox.shrink(),
+        );
+        final appStack = Stack(
           fit: StackFit.expand,
           children: [
             _McpOpsApprovalHost(navigatorKey: _navigatorKey, child: builtChild),
@@ -133,6 +128,12 @@ class _OpenHandAppState extends State<OpenHandApp> {
             const OpenHandGlobalSnackBarHost(),
           ],
         );
+        return disable == media.disableAnimations
+            ? appStack
+            : MediaQuery(
+                data: media.copyWith(disableAnimations: disable),
+                child: appStack,
+              );
       },
       home: InputRepairSentinelScope(
         focusNode: _inputRepairSentinelFocusNode,

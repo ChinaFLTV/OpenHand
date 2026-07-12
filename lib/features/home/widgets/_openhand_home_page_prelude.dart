@@ -64,10 +64,8 @@ const Duration _editorTabsPersistenceDebounce = Duration(milliseconds: 500);
 const Duration _harnessSessionPersistenceDebounce = Duration(milliseconds: 320);
 const Duration _webReverseRuntimeMetadataDebounce = Duration(milliseconds: 500);
 const int _workspaceSwitchMaxDurationMs = 800;
-const int _disabledSwitchBookkeepingDurationMs = 200;
 const double _workspaceSidebarPaneSlideDistance = 38;
 const double _workspaceSidebarPaneScaleBegin = 0.974;
-const double _workspaceSidebarPaneExitScaleEnd = 0.988;
 const double _workspacePaneFadeScaleBegin = 0.985;
 const double _workspacePaneExpandScaleBegin = 0.96;
 const double _workspacePaneRotateScaleBegin = 0.96;
@@ -174,61 +172,20 @@ Widget _buildWorkspaceSidebarTransition({
   required Animation<double> animation,
   DialogAnimationSettings settings = const DialogAnimationSettings(),
 }) {
-  if (openHandMotionDisabled(settings)) {
-    return child;
-  }
-  final childKey = switch (child.key) {
-    ValueKey<String>(:final value) => value,
-    _ => null,
-  };
-  final isNavigationPane = childKey == 'navigation-pane';
-  final entering =
-      animation.status == AnimationStatus.forward ||
-      animation.status == AnimationStatus.completed;
-  final direction = isNavigationPane ? -1.0 : 1.0;
-  final slideBegin = Offset(
-    (entering ? direction : -direction) * _workspaceSidebarPaneSlideDistance,
-    entering ? 8 : -4,
-  );
-  final curved = openHandCurveAnimation(
-    parent: OpenHandBoundedDoubleAnimation(animation),
-    curve: settings.curve.curve,
-    reverseCurve: settings.curve.reverseCurve,
-  );
-  final fade = openHandBoundedCurveAnimation(
-    parent: animation,
-    curve: Curves.easeOutCubic,
-    reverseCurve: Curves.easeInCubic,
-  );
-  final scale = Tween<double>(
-    begin: entering
-        ? _workspaceSidebarPaneScaleBegin
-        : _workspaceSidebarPaneExitScaleEnd,
-    end: 1,
-  ).animate(curved);
-  final offset = Tween<Offset>(
-    begin: slideBegin,
-    end: Offset.zero,
-  ).animate(curved);
-  return ClipRect(
-    child: FadeTransition(
-      opacity: fade,
-      child: AnimatedBuilder(
-        animation: curved,
-        child: ScaleTransition(
-          scale: scale,
-          alignment: Alignment.topCenter,
-          child: child,
-        ),
-        builder: (context, animatedChild) {
-          return Transform.translate(
-            offset: offset.value,
-            transformHitTests: false,
-            child: animatedChild,
-          );
-        },
-      ),
+  return buildAnimationStyleTransition(
+    animation: animation,
+    settings: settings,
+    profile: const OpenHandAnimationTransitionProfile(
+      alignment: Alignment.topCenter,
+      fadeScaleBegin: _workspaceSidebarPaneScaleBegin,
+      expandScaleBegin: _workspaceSidebarPaneScaleBegin,
+      slideMode: OpenHandSlideTransitionMode.paintOffset,
+      slideUpOffset: Offset(0, 8),
+      slideDownOffset: Offset(0, -8),
+      slideLeftOffset: Offset(-_workspaceSidebarPaneSlideDistance, 0),
+      slideRightOffset: Offset(_workspaceSidebarPaneSlideDistance, 0),
     ),
+    child: child,
   );
 }
 
@@ -289,21 +246,20 @@ Widget _buildWorkspaceSettingsAwareTransition({
   );
 }
 
-Duration _effectiveSwitchDuration(DialogAnimationSettings settings) {
-  // Keep switcher bookkeeping stable while clamping persisted or user-entered
-  // values to a responsive range for page and panel transitions.
-  final clamped = settings.durationMs
+Duration _effectiveSwitchDuration(
+  Duration duration, {
+  int minimumAnimatedDurationMs = 0,
+}) {
+  if (duration <= Duration.zero) return Duration.zero;
+  final clamped = duration.inMilliseconds
       .clamp(
         DialogAnimationSettings.minAnimatedDurationMs,
         _workspaceSwitchMaxDurationMs,
       )
       .toInt();
-  final minMs =
-      (settings.entranceStyle == DialogAnimationStyle.none &&
-          settings.exitStyle == DialogAnimationStyle.none)
-      ? _disabledSwitchBookkeepingDurationMs
-      : clamped;
-  return Duration(milliseconds: clamped < minMs ? minMs : clamped);
+  return Duration(
+    milliseconds: math.max(clamped, minimumAnimatedDurationMs),
+  );
 }
 
 void _scheduleOverlayActionAfterMenuDismissal(

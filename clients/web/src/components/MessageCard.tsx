@@ -42,7 +42,12 @@ import {
   useStreamingStagedText,
 } from '../hooks/useStreamingReveal';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
-import { getDialogMotionDurationMs } from '../hooks/useDialogMotionSettings';
+import {
+  getDialogEnterDurationMs,
+  getDialogExitDurationMs,
+  getDialogMotionCurve,
+  getDialogMotionExitCurve,
+} from '../hooks/useDialogMotionSettings';
 import { useStickyBottom } from '../hooks/useStickyBottom';
 import { useDelayedVisibility } from '../hooks/useDelayedVisibility';
 import { useDelayedFalse } from '../hooks/useDelayedFalse';
@@ -2076,11 +2081,11 @@ function useMessageSizeMotion(signal: string, enabled: boolean) {
 
     const growing = delta > 0;
     const overshoot = growing ? clampNumber(delta * 0.12, 2, 10) : 0;
-    // 高度动画节奏跟随全局弹窗设置：展开略长收一点弹性，折叠略短偏精准。
-    const baseDuration = getDialogMotionDurationMs() || 280;
-    const duration = growing
-      ? clampNumber(Math.round(baseDuration * 1.15), 260, 420)
-      : clampNumber(Math.round(baseDuration * 0.8), 180, 300);
+    // 展开与折叠分别服从全局弹窗的方向时长与曲线。
+    const baseDuration = growing
+      ? getDialogEnterDurationMs()
+      : getDialogExitDurationMs();
+    if (baseDuration <= 0) return;
     overflowBeforeAnimationRef.current = element.style.overflow;
     element.style.overflow = 'clip';
     const animation = element.animate(
@@ -2095,8 +2100,8 @@ function useMessageSizeMotion(signal: string, enabled: boolean) {
             { height: `${nextHeight}px`, offset: 1 },
           ],
       {
-        duration,
-        easing: growing ? 'cubic-bezier(0.22, 1.22, 0.36, 1)' : 'cubic-bezier(0.2, 0, 0, 1)',
+        duration: baseDuration,
+        easing: growing ? getDialogMotionCurve() : getDialogMotionExitCurve(),
       },
     );
     animationRef.current = animation;

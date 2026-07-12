@@ -109,30 +109,18 @@ function normalizeCurve(value: string | undefined): DialogMotionCurve {
     : DEFAULT_DIALOG_MOTION_SETTINGS.curve;
 }
 
-function dialogMotionDisabled(
-  entranceStyle: DialogMotionStyle,
-  exitStyle: DialogMotionStyle,
-): boolean {
-  return entranceStyle === 'none' && exitStyle === 'none';
-}
-
-function normalizeDuration(
-  value: number | string | undefined,
-  entranceStyle: DialogMotionStyle,
-  exitStyle: DialogMotionStyle,
-): number {
+function normalizeDuration(value: number | string | undefined): number {
   const numericValue = finiteNumberOrNullFromUnknown(value);
-  if (numericValue == null) {
-    return dialogMotionDisabled(entranceStyle, exitStyle)
-      ? 0
-      : DEFAULT_DIALOG_MOTION_SETTINGS.durationMs;
-  }
-  if (dialogMotionDisabled(entranceStyle, exitStyle)) return 0;
-  return normalizeDurationMs(numericValue, {
-    fallback: DEFAULT_DIALOG_MOTION_SETTINGS.durationMs,
-    min: DIALOG_MOTION_MIN_ANIMATED_DURATION_MS,
-    max: DIALOG_MOTION_MAX_DURATION_MS,
-  });
+  return normalizeDurationMs(
+    numericValue == null || numericValue <= 0
+      ? DEFAULT_DIALOG_MOTION_SETTINGS.durationMs
+      : numericValue,
+    {
+      fallback: DEFAULT_DIALOG_MOTION_SETTINGS.durationMs,
+      min: DIALOG_MOTION_MIN_ANIMATED_DURATION_MS,
+      max: DIALOG_MOTION_MAX_DURATION_MS,
+    },
+  );
 }
 
 function curveToCss(curve: DialogMotionCurve): string {
@@ -151,7 +139,10 @@ function applyDialogMotionSettingsToDocument(): void {
   const root = document.documentElement;
   root.dataset.dialogEnter = currentSettings.entranceStyle;
   root.dataset.dialogExit = currentSettings.exitStyle;
-  root.style.setProperty('--oh-dialog-duration', `${currentSettings.durationMs}ms`);
+  root.style.setProperty(
+    '--oh-dialog-duration',
+    `${getDialogMotionDurationMs()}ms`,
+  );
   root.style.setProperty('--oh-dialog-curve', curveToCss(currentSettings.curve));
   root.style.setProperty('--oh-dialog-exit-curve', reverseCurveToCss(currentSettings.curve));
 }
@@ -174,7 +165,7 @@ export function normalizeDialogMotionSettings(
   return {
     entranceStyle,
     exitStyle,
-    durationMs: normalizeDuration(raw?.duration_ms, entranceStyle, exitStyle),
+    durationMs: normalizeDuration(raw?.duration_ms),
     curve: normalizeCurve(stringFromUnknown(raw?.curve, { coerce: false })),
   };
 }

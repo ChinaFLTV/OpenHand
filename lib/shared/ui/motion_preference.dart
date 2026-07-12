@@ -86,8 +86,8 @@ AnimationStyle openHandAnimationStyle(DialogAnimationSettings settings) {
     return AnimationStyle.noAnimation;
   }
   return AnimationStyle(
-    duration: settings.duration,
-    reverseDuration: settings.duration,
+    duration: settings.entranceDuration,
+    reverseDuration: settings.exitDuration,
     curve: settings.curve.curve,
     reverseCurve: settings.curve.reverseCurve,
   );

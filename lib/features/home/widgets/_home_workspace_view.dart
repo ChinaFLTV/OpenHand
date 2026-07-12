@@ -457,12 +457,14 @@ class _WorkspaceEmptyState extends StatefulWidget {
 class _WorkspaceEmptyStateState extends State<_WorkspaceEmptyState>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
+  late final CurvedAnimation _curved;
   late Animation<double> _fade;
   late Animation<double> _scale;
   late Animation<Offset> _slide;
+  bool _entranceStarted = false;
 
   DialogAnimationSettings _resolveSettings() {
-    return openHandMotionSettingsFallbackOf(
+    return openHandMotionSettingsOf(
       context,
       OpenHandMotionSettingsScope.dialog,
     );
@@ -471,29 +473,41 @@ class _WorkspaceEmptyStateState extends State<_WorkspaceEmptyState>
   @override
   void initState() {
     super.initState();
-    final settings = _resolveSettings();
-    // Use the user-configured dialog duration but clamp to a range that
-    // looks graceful for an inline hero placeholder rather than a modal
-    // dialog (which can afford longer transitions).
-    final baseMs = settings.duration.inMilliseconds;
-    final durationMs = baseMs == 0 ? 0 : baseMs.clamp(240, 520).toInt();
-    _controller = AnimationController(
-      vsync: this,
-      duration: Duration(milliseconds: durationMs),
-    );
-    final curveData = settings.curve;
-    final curved = CurvedAnimation(
+    _controller = AnimationController(vsync: this, duration: Duration.zero);
+    _curved = CurvedAnimation(
       parent: _controller,
-      curve: curveData.curve,
-      reverseCurve: curveData.reverseCurve,
+      curve: Curves.easeOutCubic,
+      reverseCurve: Curves.easeInCubic,
     );
-    _fade = Tween<double>(begin: 0.0, end: 1.0).animate(curved);
-    _scale = Tween<double>(begin: 0.92, end: 1.0).animate(curved);
+    _fade = Tween<double>(begin: 0.0, end: 1.0).animate(_curved);
+    _scale = Tween<double>(begin: 0.92, end: 1.0).animate(_curved);
     _slide = Tween<Offset>(
       begin: const Offset(0, 0.06),
       end: Offset.zero,
-    ).animate(curved);
-    _controller.forward();
+    ).animate(_curved);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final settings = _resolveSettings();
+    final baseMs = settings.entranceDuration.inMilliseconds;
+    final durationMs = baseMs == 0 ? 0 : baseMs.clamp(240, 520).toInt();
+    final duration = Duration(milliseconds: durationMs);
+    final durationChanged = _controller.duration != duration;
+    _controller.duration = duration;
+    _curved
+      ..curve = settings.curve.curve
+      ..reverseCurve = settings.curve.reverseCurve;
+    if (durationMs == 0) {
+      _controller.value = 1;
+      _entranceStarted = true;
+    } else if (!_entranceStarted) {
+      _entranceStarted = true;
+      _controller.forward();
+    } else if (durationChanged && _controller.isAnimating) {
+      _controller.forward();
+    }
   }
 
   @override
@@ -609,15 +623,21 @@ class _WorkspacePrimarySwitcher extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final settings = openHandMotionSettingsFallbackOf(
+    final settings = openHandMotionSettingsOf(
       context,
       OpenHandMotionSettingsScope.page,
     );
-    final baseDuration = _effectiveSwitchDuration(settings);
+    final entranceDuration = _effectiveSwitchDuration(
+      settings.entranceDuration,
+      minimumAnimatedDurationMs: 280,
+    );
+    final exitDuration = _effectiveSwitchDuration(
+      settings.exitDuration,
+      minimumAnimatedDurationMs: 280,
+    );
     return AnimatedSwitcher(
-      duration: Duration(
-        milliseconds: math.max(baseDuration.inMilliseconds, 280),
-      ),
+      duration: entranceDuration,
+      reverseDuration: exitDuration,
       layoutBuilder: (currentChild, previousChildren) {
         final safePreviousChildren = previousChildren.where((previousChild) {
           return _transitionAllowsOutgoingOverlap(previousChild);
@@ -636,6 +656,7 @@ class _WorkspacePrimarySwitcher extends StatelessWidget {
           child: _buildWorkspaceContentTransition(
             child: animatedChild,
             animation: animation,
+            settings: settings,
           ),
         );
       },

@@ -206,16 +206,19 @@ class _OpenHandGlobalSnackBarHostState extends State<OpenHandGlobalSnackBarHost>
     if (!mounted || _currentSnackBar != null || _queue.isEmpty) return;
     final next = _queue.removeFirst();
     final settings = _resolveMotionSettings();
-    final motionEnabled = _motionEnabled(settings);
+    final tickerEnabled = openHandTickerMotionEnabled(context);
+    final entranceMotionEnabled = tickerEnabled && !settings.entranceDisabled;
     _dismissTimer?.cancel();
     _isDismissing = false;
     _visibleNotified = false;
-    _controller.duration = motionEnabled ? settings.duration : Duration.zero;
-    _controller.reverseDuration = motionEnabled
-        ? settings.duration
+    _controller.duration = tickerEnabled
+        ? settings.entranceDuration
+        : Duration.zero;
+    _controller.reverseDuration = tickerEnabled
+        ? settings.exitDuration
         : Duration.zero;
     setState(() => _currentSnackBar = next);
-    if (!motionEnabled) {
+    if (!entranceMotionEnabled) {
       _visibleNotified = true;
       _controller.value = 1;
       next.onVisible?.call();
@@ -246,7 +249,12 @@ class _OpenHandGlobalSnackBarHostState extends State<OpenHandGlobalSnackBarHost>
     if (current == null || _isDismissing) return;
     _dismissTimer?.cancel();
     final settings = _resolveMotionSettings();
-    if (!_motionEnabled(settings) || _controller.value <= 0) {
+    final exitMotionEnabled =
+        openHandTickerMotionEnabled(context) && !settings.exitDisabled;
+    _controller.reverseDuration = exitMotionEnabled
+        ? settings.exitDuration
+        : Duration.zero;
+    if (!exitMotionEnabled || _controller.value <= 0) {
       _removeCurrentAndContinue();
       return;
     }
@@ -262,11 +270,6 @@ class _OpenHandGlobalSnackBarHostState extends State<OpenHandGlobalSnackBarHost>
     _controller.value = 0;
     setState(() => _currentSnackBar = null);
     _showNextIfIdle();
-  }
-
-  bool _motionEnabled(DialogAnimationSettings settings) {
-    return !openHandMotionDisabled(settings) &&
-        openHandTickerMotionEnabled(context);
   }
 
   @override

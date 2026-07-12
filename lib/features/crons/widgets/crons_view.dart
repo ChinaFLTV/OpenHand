@@ -2047,30 +2047,42 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
     with SingleTickerProviderStateMixin {
   bool _expanded = false;
   late final AnimationController _animController;
-  late final Animation<double> _fadeAnimation;
+  late final CurvedAnimation _fadeAnimation;
 
   @override
   void initState() {
     super.initState();
-    final settings = openHandMotionSettingsFallbackOf(
-      context,
-      OpenHandMotionSettingsScope.dialog,
-    );
-    final duration = openHandMotionDisabled(settings)
-        ? Duration.zero
-        : Duration(milliseconds: (settings.durationMs * 0.8).round());
     _animController = AnimationController(
       vsync: this,
-      duration: duration,
-      reverseDuration: Duration(
-        milliseconds: (duration.inMilliseconds * 0.6).round(),
-      ),
+      duration: Duration.zero,
+      reverseDuration: Duration.zero,
     );
     _fadeAnimation = CurvedAnimation(
       parent: _animController,
-      curve: settings.curve.curve,
-      reverseCurve: settings.curve.reverseCurve,
+      curve: Curves.easeOutCubic,
+      reverseCurve: Curves.easeInCubic,
     );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final settings = openHandMotionSettingsOf(
+      context,
+      OpenHandMotionSettingsScope.dialog,
+    );
+    final durationChanged =
+        _animController.duration != settings.entranceDuration ||
+        _animController.reverseDuration != settings.exitDuration;
+    _animController
+      ..duration = settings.entranceDuration
+      ..reverseDuration = settings.exitDuration;
+    _fadeAnimation
+      ..curve = settings.curve.curve
+      ..reverseCurve = settings.curve.reverseCurve;
+    if (durationChanged && _animController.isAnimating) {
+      _expanded ? _animController.forward() : _animController.reverse();
+    }
   }
 
   @override
@@ -2126,8 +2138,12 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
         : colorScheme.outlineVariant.withValues(alpha: 0.22);
 
     return AnimatedContainer(
-      duration: _animController.duration ?? const Duration(milliseconds: 250),
-      curve: Curves.easeOutCubic,
+      duration: _expanded
+          ? (_animController.duration ?? Duration.zero)
+          : (_animController.reverseDuration ?? Duration.zero),
+      curve: _expanded
+          ? _fadeAnimation.curve
+          : (_fadeAnimation.reverseCurve ?? _fadeAnimation.curve),
       decoration: BoxDecoration(
         color: tileBackground,
         borderRadius: BorderRadius.circular(16),
@@ -2236,10 +2252,13 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
                     const SizedBox(width: 4),
                     AnimatedRotation(
                       turns: _expanded ? 0.5 : 0.0,
-                      duration:
-                          _animController.duration ??
-                          const Duration(milliseconds: 250),
-                      curve: Curves.easeOutCubic,
+                      duration: _expanded
+                          ? (_animController.duration ?? Duration.zero)
+                          : (_animController.reverseDuration ?? Duration.zero),
+                      curve: _expanded
+                          ? _fadeAnimation.curve
+                          : (_fadeAnimation.reverseCurve ??
+                                _fadeAnimation.curve),
                       child: Icon(
                         Icons.expand_more_rounded,
                         size: 18,

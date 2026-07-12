@@ -288,7 +288,7 @@ class SettingsAwareAppearOnce extends StatelessWidget {
         return child;
     }
     return AppearOnce(
-      duration: settings.duration,
+      duration: settings.entranceDuration,
       slideOffset: slide,
       child: child,
     );

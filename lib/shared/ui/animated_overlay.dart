@@ -306,8 +306,8 @@ class _AnimatedOverlayContentState extends State<AnimatedOverlayContent>
     _settings = resolved;
     _animationsDisabled = disabled;
     _controller
-      ..duration = resolved.duration
-      ..reverseDuration = resolved.duration;
+      ..duration = resolved.entranceDuration
+      ..reverseDuration = resolved.exitDuration;
     if (disabled) {
       _controller.stop();
       _controller.value = _isVisible ? 1.0 : 0.0;

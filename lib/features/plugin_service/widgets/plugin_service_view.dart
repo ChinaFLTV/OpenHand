@@ -678,12 +678,12 @@ class _PluginCard extends StatelessWidget {
 
   /// Progress shell for long plugin ops: non-dismissible (tap + ESC) and
   /// tracked so completion only removes this route, never the host page.
-  OpenHandDialogSession _showOperationDialog(
+  OpenHandDialogSession<void> _showOperationDialog(
     BuildContext context,
     String action,
     String pluginName,
   ) {
-    return showTrackedAnimatedDialog(
+    return showTrackedAnimatedDialog<void>(
       context: context,
       barrierDismissible: false,
       dismissOnEscape: false,

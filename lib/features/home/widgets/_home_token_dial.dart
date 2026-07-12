@@ -62,6 +62,7 @@ class _TokenDialState extends State<_TokenDial>
   late final AnimationController _transitionController;
   Timer? _hideTimer;
   bool _showQueued = false;
+  int _popupGeneration = 0;
 
   void _runAfterFrame(VoidCallback callback) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -97,11 +98,15 @@ class _TokenDialState extends State<_TokenDial>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _transitionController.duration = _dialogSettings(context).duration;
+    final settings = _dialogSettings(context);
+    _transitionController
+      ..duration = settings.entranceDuration
+      ..reverseDuration = settings.exitDuration;
   }
 
   @override
   void dispose() {
+    _popupGeneration += 1;
     _hideTimer?.cancel();
     _transitionController.dispose();
     super.dispose();
@@ -110,8 +115,9 @@ class _TokenDialState extends State<_TokenDial>
   void _showPopup() {
     _hideTimer?.cancel();
     _showQueued = true;
+    final generation = ++_popupGeneration;
     _runAfterFrame(() {
-      if (!_showQueued) return;
+      if (!_showQueued || generation != _popupGeneration) return;
       if (!_portalController.isShowing) {
         _portalController.show();
       }
@@ -123,10 +129,19 @@ class _TokenDialState extends State<_TokenDial>
     _hideTimer?.cancel();
     _showQueued = false;
     _webClickPinned = false;
+    final generation = ++_popupGeneration;
     _hideTimer = startSafeTimer(const Duration(milliseconds: 60), () {
       _runAfterFrame(() async {
-        await _transitionController.reverse();
-        if (!mounted || _showQueued) return;
+        try {
+          await _transitionController.reverse().orCancel;
+        } on TickerCanceled {
+          return;
+        }
+        if (!mounted ||
+            _showQueued ||
+            generation != _popupGeneration) {
+          return;
+        }
         if (_portalController.isShowing) {
           _portalController.hide();
         }

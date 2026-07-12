@@ -620,10 +620,10 @@ class _InputRepairSectionState extends State<_InputRepairSection> {
         context,
         OpenHandMotionSettingsScope.dialog,
       );
-      if (openHandMotionDisabled(settings)) {
+      if (settings.exitDisabled) {
         return Duration.zero;
       }
-      return settings.duration + const Duration(milliseconds: 40);
+      return settings.exitDuration + const Duration(milliseconds: 40);
     } catch (_) {
       return const Duration(milliseconds: 400);
     }

@@ -273,11 +273,15 @@ class _AnimationSettingsControl extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Slider(
-                      value: current.durationMs.toDouble().clamp(100.0, 800.0),
-                      min: 100,
-                      max: 800,
-                      divisions: 14,
-                      label: '${current.durationMs}ms',
+                      value: current.configuredDurationMs.toDouble(),
+                      min: DialogAnimationSettings.minAnimatedDurationMs
+                          .toDouble(),
+                      max: DialogAnimationSettings.maxDurationMs.toDouble(),
+                      divisions:
+                          (DialogAnimationSettings.maxDurationMs -
+                              DialogAnimationSettings.minAnimatedDurationMs) ~/
+                          40,
+                      label: '${current.configuredDurationMs}ms',
                       onChanged: (value) {
                         onChanged(current.copyWith(durationMs: value.round()));
                       },
@@ -286,7 +290,7 @@ class _AnimationSettingsControl extends StatelessWidget {
                   SizedBox(
                     width: 54,
                     child: Text(
-                      '${current.durationMs}ms',
+                      '${current.configuredDurationMs}ms',
                       style: textTheme.labelMedium,
                     ),
                   ),

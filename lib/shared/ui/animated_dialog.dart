@@ -552,21 +552,24 @@ const Duration kOpenHandDialogRouteAttachTimeout = Duration(seconds: 2);
 /// - if it is current → [Navigator.pop] so the global exit transition runs;
 /// - else if still active → defer the pop until it becomes current, preserving
 ///   both the route above it and the configured dialog exit transition.
-class OpenHandDialogSession {
-  OpenHandDialogSession._(this._future) {
-    unawaited(
-      _future.whenComplete(() {
-        _closed = true;
-        _clearDeferredDismissListener();
-        _signalRouteAttached();
-      }),
+class OpenHandDialogSession<T extends Object?> {
+  OpenHandDialogSession._(this._result) {
+    _result.then<void>(
+      (_) => _completeClosed(),
+      onError: (Object _, StackTrace _) => _completeClosed(),
     );
   }
 
-  final Future<void> _future;
+  final Future<T?> _result;
+  final Completer<void> _closedSignal = Completer<void>();
   final Completer<void> _routeAttached = Completer<void>();
-  Route<Object?>? _route;
+  Route<T>? _route;
   bool _closed = false;
+  bool _dismissRequested = false;
+  T? _dismissResult;
+  Future<bool>? _dismissInFlight;
+  String _dismissLogTag = 'dialog';
+  String _dismissLogAction = 'dismissTrackedDialog';
   Animation<double>? _deferredDismissAnimation;
   VoidCallback? _deferredDismissListener;
   bool _deferredDismissPopScheduled = false;
@@ -574,7 +577,22 @@ class OpenHandDialogSession {
   /// Whether the dialog future has already completed.
   bool get isClosed => _closed;
 
-  Future<void> get future => _future;
+  bool get isDismissRequested => _dismissRequested;
+
+  Future<T?> get result => _result;
+
+  Future<void> get future async {
+    await _result;
+  }
+
+  Future<void> get closed => _closedSignal.future;
+
+  void _completeClosed() {
+    _closed = true;
+    _clearDeferredDismissListener();
+    _signalRouteAttached();
+    if (!_closedSignal.isCompleted) _closedSignal.complete();
+  }
 
   void _signalRouteAttached() {
     if (!_routeAttached.isCompleted) {
@@ -582,7 +600,7 @@ class OpenHandDialogSession {
     }
   }
 
-  void _attachRoute(Route<Object?> route) {
+  void _attachRoute(Route<T> route) {
     if (_closed) return;
     _route = route;
     _signalRouteAttached();
@@ -598,8 +616,8 @@ class OpenHandDialogSession {
     _deferredDismissListener = null;
   }
 
-  bool _deferAnimatedDismiss(Route<Object?> route) {
-    if (route is! TransitionRoute<Object?>) return false;
+  bool _deferAnimatedDismiss(Route<T> route) {
+    if (route is! TransitionRoute<T>) return false;
     if (_deferredDismissListener != null) return true;
     final secondaryAnimation = route.secondaryAnimation;
     if (secondaryAnimation == null) return false;
@@ -611,7 +629,7 @@ class OpenHandDialogSession {
     return true;
   }
 
-  void _tryDeferredAnimatedDismiss(Route<Object?> route) {
+  void _tryDeferredAnimatedDismiss(Route<T> route) {
     if (_closed || !route.isActive) {
       _clearDeferredDismissListener();
       return;
@@ -625,12 +643,18 @@ class OpenHandDialogSession {
     scheduleMicrotask(() {
       _deferredDismissPopScheduled = false;
       if (!_closed && route.isActive && route.isCurrent) {
-        navigator.pop();
+        try {
+          navigator.pop<T>(_dismissResult);
+        } catch (error, stack) {
+          _dismissRequested = false;
+          _dismissResult = null;
+          silentLog(_dismissLogTag, _dismissLogAction, error, stack);
+        }
       }
     });
   }
 
-  Future<Route<Object?>?> _awaitRoute({
+  Future<Route<T>?> _awaitRoute({
     Duration timeout = kOpenHandDialogRouteAttachTimeout,
   }) async {
     if (_closed) return null;
@@ -653,39 +677,83 @@ class OpenHandDialogSession {
   /// Returns `true` only when this session successfully requested close of
   /// its own route.
   Future<bool> dismiss({
+    T? result,
     String logTag = 'dialog',
     String logAction = 'dismissTrackedDialog',
     Duration attachTimeout = kOpenHandDialogRouteAttachTimeout,
+  }) {
+    if (attachTimeout <= Duration.zero) {
+      throw ArgumentError.value(
+        attachTimeout,
+        'attachTimeout',
+        'Must be positive.',
+      );
+    }
+    if (_closed) return Future<bool>.value(false);
+    final activeDismiss = _dismissInFlight;
+    if (activeDismiss != null) return activeDismiss;
+    if (_dismissRequested) return Future<bool>.value(true);
+    _dismissRequested = true;
+    _dismissResult = result;
+    _dismissLogTag = logTag;
+    _dismissLogAction = logAction;
+    late final Future<bool> dismissFuture;
+    dismissFuture =
+        _dismiss(
+          logTag: logTag,
+          logAction: logAction,
+          attachTimeout: attachTimeout,
+        ).whenComplete(() {
+          if (identical(_dismissInFlight, dismissFuture)) {
+            _dismissInFlight = null;
+          }
+        });
+    _dismissInFlight = dismissFuture;
+    return dismissFuture;
+  }
+
+  Future<bool> _dismiss({
+    required String logTag,
+    required String logAction,
+    required Duration attachTimeout,
   }) async {
-    if (_closed) return false;
     final route = await _awaitRoute(timeout: attachTimeout);
     if (_closed) return false;
-    if (route == null) return false;
-    if (!route.isActive) {
-      _closed = true;
+    if (route == null || !route.isActive || route.navigator == null) {
+      _dismissRequested = false;
+      _dismissResult = null;
       return false;
     }
-    final navigator = route.navigator;
-    if (navigator == null) {
-      _closed = true;
-      return false;
-    }
+    final navigator = route.navigator!;
     try {
       if (route.isCurrent) {
         // Runs the reverse transition (global dialog exit / Q-bounce when set).
-        navigator.pop();
+        navigator.pop<T>(_dismissResult);
       } else if (route.isActive) {
         // Never hard-remove a covered dialog: that bypasses its exit motion.
         // Listen to the secondary route animation and pop this route normally
         // once it becomes current. Return immediately so callers never wait
         // indefinitely for the covering route to close.
-        return _deferAnimatedDismiss(route);
+        final deferred = _deferAnimatedDismiss(route);
+        if (!deferred) {
+          _dismissRequested = false;
+          _dismissResult = null;
+        }
+        return deferred;
       } else {
+        _dismissRequested = false;
+        _dismissResult = null;
         return false;
       }
-      await _future;
+      try {
+        await _result;
+      } catch (error, stack) {
+        silentLog(logTag, logAction, error, stack);
+      }
       return true;
     } catch (error, stack) {
+      _dismissRequested = false;
+      _dismissResult = null;
       silentLog(logTag, logAction, error, stack);
       return false;
     }
@@ -694,7 +762,7 @@ class OpenHandDialogSession {
 
 /// Presents an animated dialog and returns a [OpenHandDialogSession] that can
 /// dismiss only that dialog later (safe after async work).
-OpenHandDialogSession showTrackedAnimatedDialog({
+OpenHandDialogSession<T> showTrackedAnimatedDialog<T extends Object?>({
   required BuildContext context,
   required WidgetBuilder builder,
   DialogAnimationSettings? settings,
@@ -710,8 +778,8 @@ OpenHandDialogSession showTrackedAnimatedDialog({
 }) {
   // Holder so the route builder can attach even if it runs after this returns
   // (normal for showGeneralDialog) or, rarely, before session assignment.
-  final sessionHolder = <OpenHandDialogSession?>[null];
-  final future = showAnimatedDialog<void>(
+  final sessionHolder = <OpenHandDialogSession<T>?>[null];
+  final future = showAnimatedDialog<T>(
     context: context,
     settings: settings,
     transitionProfile: transitionProfile,
@@ -723,8 +791,8 @@ OpenHandDialogSession showTrackedAnimatedDialog({
     routeSettings: routeSettings,
     alignment: alignment,
     builder: (dialogContext) {
-      final route = ModalRoute.of(dialogContext);
-      void attach(Route<Object?> r) {
+      final route = ModalRoute.of<T>(dialogContext);
+      void attach(Route<T> r) {
         final session = sessionHolder[0];
         if (session != null && !session.isClosed) {
           session._attachRoute(r);
@@ -740,7 +808,7 @@ OpenHandDialogSession showTrackedAnimatedDialog({
       return builder(dialogContext);
     },
   );
-  final session = OpenHandDialogSession._(future);
+  final session = OpenHandDialogSession<T>._(future);
   sessionHolder[0] = session;
   return session;
 }
@@ -781,47 +849,16 @@ Future<T?> showAnimatedDialog<T>({
     context,
     override: settings,
   );
-  if (openHandMotionDisabled(effectiveSettings)) {
-    return showDialog<T>(
-      context: context,
-      builder: themedBuilder,
-      barrierDismissible: barrierDismissible,
-      barrierLabel: barrierLabel,
-      barrierColor: resolveAnimatedDialogBarrierColor(
-        context,
-        override: barrierColor,
-      ),
-      useRootNavigator: useRootNavigator,
-      routeSettings: routeSettings,
-      requestFocus: true,
-      animationStyle: AnimationStyle.noAnimation,
-    );
-  }
-
-  return showGeneralDialog<T>(
-    context: context,
+  return _pushOpenHandDialogRoute<T>(
+    navigator: Navigator.of(context, rootNavigator: useRootNavigator),
+    sourceContext: context,
+    builder: themedBuilder,
+    settings: effectiveSettings,
+    transitionProfile: transitionProfile,
     barrierDismissible: barrierDismissible,
-    barrierLabel:
-        barrierLabel ??
-        MaterialLocalizations.of(context).modalBarrierDismissLabel,
-    barrierColor: resolveAnimatedDialogBarrierColor(
-      context,
-      override: barrierColor,
-    ),
-    useRootNavigator: useRootNavigator,
+    barrierLabel: barrierLabel,
+    barrierColor: barrierColor,
     routeSettings: routeSettings,
-    requestFocus: true,
-    transitionDuration: effectiveSettings.duration,
-    transitionBuilder: (context, animation, secondaryAnimation, child) {
-      return buildAnimationStyleTransition(
-        animation: animation,
-        settings: effectiveSettings,
-        profile: transitionProfile,
-        child: child,
-      );
-    },
-    pageBuilder: (context, animation, secondaryAnimation) =>
-        themedBuilder(context),
   );
 }
 
@@ -858,42 +895,88 @@ Future<T?> showAnimatedDialogOnNavigator<T>({
     context,
     override: settings,
   );
-  final motionDisabled = openHandMotionDisabled(effectiveSettings);
+  return _pushOpenHandDialogRoute<T>(
+    navigator: navigator,
+    sourceContext: context,
+    builder: themedBuilder,
+    settings: effectiveSettings,
+    transitionProfile: transitionProfile,
+    barrierDismissible: barrierDismissible,
+    barrierLabel: barrierLabel,
+    barrierColor: barrierColor,
+    routeSettings: routeSettings,
+  );
+}
+
+Future<T?> _pushOpenHandDialogRoute<T>({
+  required NavigatorState navigator,
+  required BuildContext sourceContext,
+  required WidgetBuilder builder,
+  required DialogAnimationSettings settings,
+  required OpenHandAnimationTransitionProfile transitionProfile,
+  required bool barrierDismissible,
+  required String? barrierLabel,
+  required Color? barrierColor,
+  required RouteSettings? routeSettings,
+}) {
+  final capturedThemes = InheritedTheme.capture(
+    from: sourceContext,
+    to: navigator.context,
+  );
   final resolvedBarrierLabel =
       barrierLabel ??
       Localizations.of<MaterialLocalizations>(
-        context,
+        sourceContext,
         MaterialLocalizations,
       )?.modalBarrierDismissLabel ??
       'Dismiss';
   return navigator.push<T>(
-    RawDialogRoute<T>(
+    _OpenHandRawDialogRoute<T>(
       pageBuilder: (routeContext, animation, secondaryAnimation) =>
-          themedBuilder(routeContext),
-      barrierDismissible: barrierDismissible,
-      barrierLabel: resolvedBarrierLabel,
-      barrierColor: resolveAnimatedDialogBarrierColor(
-        context,
-        override: barrierColor,
-      ),
-      transitionDuration: motionDisabled
-          ? Duration.zero
-          : effectiveSettings.duration,
+          capturedThemes.wrap(builder(routeContext)),
       transitionBuilder: (routeContext, animation, secondaryAnimation, child) {
-        if (motionDisabled) {
-          return child;
-        }
+        if (openHandMotionDisabled(settings)) return child;
         return buildAnimationStyleTransition(
           animation: animation,
-          settings: effectiveSettings,
+          settings: settings,
           profile: transitionProfile,
           child: child,
         );
       },
+      entranceDuration: settings.entranceDuration,
+      exitDuration: settings.exitDuration,
+      barrierDismissible: barrierDismissible,
+      barrierLabel: resolvedBarrierLabel,
+      barrierColor: resolveAnimatedDialogBarrierColor(
+        sourceContext,
+        override: barrierColor,
+      ),
       settings: routeSettings,
-      requestFocus: true,
     ),
   );
+}
+
+class _OpenHandRawDialogRoute<T> extends RawDialogRoute<T> {
+  _OpenHandRawDialogRoute({
+    required super.pageBuilder,
+    required RouteTransitionsBuilder transitionBuilder,
+    required Duration entranceDuration,
+    required Duration exitDuration,
+    required super.barrierDismissible,
+    required super.barrierLabel,
+    required super.barrierColor,
+    required super.settings,
+  }) : _exitDuration = exitDuration,
+       super(
+         transitionBuilder: transitionBuilder,
+         transitionDuration: entranceDuration,
+         requestFocus: true,
+       );
+
+  final Duration _exitDuration;
+
+  @override
+  Duration get reverseTransitionDuration => _exitDuration;
 }
 
 Widget buildOpenHandDialogMotionSurface({
@@ -994,14 +1077,14 @@ Future<void> showOpenHandInfoDialog({
   );
 }
 
-OpenHandDialogSession showOpenHandTrackedLoadingDialog({
+OpenHandDialogSession<void> showOpenHandTrackedLoadingDialog({
   required BuildContext context,
   String? message,
   Widget? content,
   bool barrierDismissible = false,
   bool dismissOnEscape = false,
 }) {
-  return showTrackedAnimatedDialog(
+  return showTrackedAnimatedDialog<void>(
     context: context,
     barrierDismissible: barrierDismissible,
     dismissOnEscape: dismissOnEscape,

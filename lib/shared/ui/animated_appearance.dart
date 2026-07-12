@@ -71,37 +71,44 @@ class _AnimatedAppearanceState extends State<AnimatedAppearance>
     with SingleTickerProviderStateMixin {
   late final AnimationController _ctrl;
   bool _dismissCallbackQueued = false;
+  bool _suppressImmediateDismissCallback = false;
+  int _dismissCallbackGeneration = 0;
 
   @override
   void initState() {
     super.initState();
     _ctrl = AnimationController(
       vsync: this,
-      duration: widget.settings.duration,
-      reverseDuration: widget.settings.duration,
-      value: widget.present ? 0.0 : 1.0,
+      duration: widget.settings.entranceDuration,
+      reverseDuration: widget.settings.exitDuration,
+      value: 0.0,
     );
     _ctrl.addStatusListener(_onStatus);
     if (widget.present) {
-      _ctrl.forward();
+      if (widget.settings.entranceDisabled) {
+        _showImmediately();
+      } else {
+        _ctrl.forward();
+      }
+    } else {
+      // A node that starts absent was never presented, so making it flash in
+      // merely to play an exit would violate the meaning of [present].
+      _dismissImmediately();
     }
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (!_motionAvailable(context)) {
-      _ctrl
-        ..stop()
-        ..value = widget.present ? 1.0 : 0.0;
-      if (!widget.present) {
-        _notifyDismissedSoon();
-      }
+    if (!_directionMotionAvailable(context, entering: widget.present)) {
+      widget.present ? _showImmediately() : _dismissImmediately();
     }
   }
 
   void _onStatus(AnimationStatus status) {
-    if (status == AnimationStatus.dismissed && !widget.present) {
+    if (!_suppressImmediateDismissCallback &&
+        status == AnimationStatus.dismissed &&
+        !widget.present) {
       _notifyDismissedNow();
     }
   }
@@ -109,27 +116,35 @@ class _AnimatedAppearanceState extends State<AnimatedAppearance>
   @override
   void didUpdateWidget(covariant AnimatedAppearance oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.settings.duration != oldWidget.settings.duration) {
-      _ctrl.duration = widget.settings.duration;
-      _ctrl.reverseDuration = widget.settings.duration;
+    final durationsChanged =
+        widget.settings.entranceDuration !=
+            oldWidget.settings.entranceDuration ||
+        widget.settings.exitDuration != oldWidget.settings.exitDuration;
+    if (durationsChanged) {
+      _ctrl.duration = widget.settings.entranceDuration;
+      _ctrl.reverseDuration = widget.settings.exitDuration;
+    }
+    if (widget.present && !oldWidget.present) {
+      _cancelPendingDismissCallback();
+    }
+    if (!_directionMotionAvailable(context, entering: widget.present)) {
+      widget.present ? _showImmediately() : _dismissImmediately();
+      return;
     }
     if (widget.present != oldWidget.present) {
       if (widget.present) {
-        _dismissCallbackQueued = false;
-      }
-      if (!_motionAvailable(context)) {
-        _ctrl
-          ..stop()
-          ..value = widget.present ? 1.0 : 0.0;
-        if (!widget.present) {
-          _notifyDismissedSoon();
-        }
-        return;
-      }
-      if (widget.present) {
         _ctrl.forward();
       } else {
-        _ctrl.reverse();
+        _startExit();
+      }
+    } else if (durationsChanged) {
+      // AnimationController snapshots the duration when a simulation starts;
+      // restart from the current value so a live preference change takes
+      // effect instead of waiting out the stale duration.
+      if (widget.present && !_ctrl.isCompleted) {
+        _ctrl.forward();
+      } else if (!widget.present && !_ctrl.isDismissed) {
+        _startExit();
       }
     }
   }
@@ -145,11 +160,54 @@ class _AnimatedAppearanceState extends State<AnimatedAppearance>
     return _animatedAppearanceMotionAvailable(context, widget.settings);
   }
 
+  bool _directionMotionAvailable(
+    BuildContext context, {
+    required bool entering,
+  }) {
+    if (!_motionAvailable(context)) return false;
+    return entering
+        ? !widget.settings.entranceDisabled
+        : !widget.settings.exitDisabled;
+  }
+
+  void _showImmediately() {
+    _ctrl
+      ..stop()
+      ..value = 1.0;
+  }
+
+  void _dismissImmediately() {
+    _suppressImmediateDismissCallback = true;
+    _ctrl
+      ..stop()
+      ..value = 0.0;
+    _suppressImmediateDismissCallback = false;
+    _notifyDismissedSoon();
+  }
+
+  void _startExit() {
+    if (_ctrl.value <= _ctrl.lowerBound) {
+      _dismissImmediately();
+    } else {
+      _ctrl.reverse();
+    }
+  }
+
+  void _cancelPendingDismissCallback() {
+    _dismissCallbackGeneration += 1;
+    _dismissCallbackQueued = false;
+  }
+
   void _notifyDismissedSoon() {
     if (_dismissCallbackQueued) return;
     _dismissCallbackQueued = true;
+    final generation = ++_dismissCallbackGeneration;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || widget.present) return;
+      if (!mounted ||
+          widget.present ||
+          generation != _dismissCallbackGeneration) {
+        return;
+      }
       widget.onDismissed?.call();
     });
   }
@@ -157,12 +215,17 @@ class _AnimatedAppearanceState extends State<AnimatedAppearance>
   void _notifyDismissedNow() {
     if (_dismissCallbackQueued) return;
     _dismissCallbackQueued = true;
+    _dismissCallbackGeneration += 1;
     widget.onDismissed?.call();
   }
 
   @override
   Widget build(BuildContext context) {
-    if (!_motionAvailable(context)) {
+    if (!widget.present && _ctrl.isDismissed) {
+      _notifyDismissedSoon();
+      return const SizedBox.shrink();
+    }
+    if (!_directionMotionAvailable(context, entering: widget.present)) {
       if (!widget.present) {
         _notifyDismissedSoon();
         return const SizedBox.shrink();
@@ -225,6 +288,7 @@ class AnimatedListAppearance extends StatelessWidget {
       AnimatedAppearancePhase.enter => settings.entranceStyle,
       AnimatedAppearancePhase.exit => settings.exitStyle,
     };
+    if (style == DialogAnimationStyle.none) return child;
     final transitionSettings = settings.copyWith(
       entranceStyle: style,
       exitStyle: style,

@@ -5475,8 +5475,8 @@ input[type=range]:hover::-webkit-slider-thumb,input[type=range]:focus-visible::-
       final returnedTime = await navigator.push<double>(
         PageRouteBuilder<double>(
           fullscreenDialog: true,
-          transitionDuration: settings.duration,
-          reverseTransitionDuration: settings.duration * 0.85,
+          transitionDuration: settings.entranceDuration,
+          reverseTransitionDuration: settings.exitDuration,
           pageBuilder: (context, animation, secondaryAnimation) =>
               _FullscreenVideoPage(
                 source: widget.source,

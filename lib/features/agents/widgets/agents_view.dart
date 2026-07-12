@@ -18,6 +18,7 @@ import '../../../shared/ui/animated_appearance.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/animated_menu.dart';
 import '../../../shared/ui/appear_once.dart';
+import '../../../shared/ui/bounded_animation.dart';
 import '../../../shared/ui/feature_page_shell.dart';
 import '../../../shared/ui/feature_state_card.dart';
 import '../../../shared/ui/image_editor_dialog.dart';
@@ -879,21 +880,13 @@ class _AgentDraftKpiList extends StatelessWidget {
             ],
           );
     return AnimatedSwitcher(
-      duration: settings.duration,
-      reverseDuration: settings.duration,
-      switchInCurve: settings.curve.curve,
-      switchOutCurve: settings.curve.reverseCurve,
-      transitionBuilder: (child, animation) {
-        return SizeTransition(
-          axisAlignment: -1,
-          sizeFactor: animation,
-          child: buildAnimationStyleTransition(
-            animation: animation,
-            settings: settings,
-            child: child,
-          ),
-        );
-      },
+      duration: settings.entranceDuration,
+      reverseDuration: settings.exitDuration,
+      transitionBuilder: (child, animation) => _agentDialogSwitchTransition(
+        settings: settings,
+        animation: animation,
+        child: child,
+      ),
       child: child,
     );
   }
@@ -2622,10 +2615,8 @@ class _AgentClusterDialogContentState
               builder: (context) {
                 final motionSettings = _agentDialogAnimationSettings(context);
                 return AnimatedSwitcher(
-                  duration: motionSettings.duration,
-                  reverseDuration: motionSettings.duration,
-                  switchInCurve: motionSettings.curve.curve,
-                  switchOutCurve: motionSettings.curve.reverseCurve,
+                  duration: motionSettings.entranceDuration,
+                  reverseDuration: motionSettings.exitDuration,
                   transitionBuilder: (child, animation) =>
                       _agentDialogSwitchTransition(
                         settings: motionSettings,
@@ -5245,10 +5236,8 @@ class _AgentResourceLiveSummary extends StatelessWidget {
         ),
         const SizedBox(height: 7),
         AnimatedSwitcher(
-          duration: settings.duration,
-          reverseDuration: settings.duration,
-          switchInCurve: settings.curve.curve,
-          switchOutCurve: settings.curve.reverseCurve,
+          duration: settings.entranceDuration,
+          reverseDuration: settings.exitDuration,
           transitionBuilder: (child, animation) => _agentDialogSwitchTransition(
             settings: settings,
             animation: animation,
@@ -5287,10 +5276,8 @@ class _AgentResourceLiveSummary extends StatelessWidget {
           ),
           Positioned.fill(
             child: AnimatedSwitcher(
-              duration: settings.duration,
-              reverseDuration: settings.duration,
-              switchInCurve: settings.curve.curve,
-              switchOutCurve: settings.curve.reverseCurve,
+              duration: settings.entranceDuration,
+              reverseDuration: settings.exitDuration,
               layoutBuilder: (currentChild, previousChildren) => Stack(
                 alignment: Alignment.center,
                 children: [
@@ -6027,10 +6014,8 @@ class _AgentResourcePressureCard extends StatelessWidget {
                         ),
                       );
                       final valueText = AnimatedSwitcher(
-                        duration: settings.duration,
-                        reverseDuration: settings.duration,
-                        switchInCurve: settings.curve.curve,
-                        switchOutCurve: settings.curve.reverseCurve,
+                        duration: settings.entranceDuration,
+                        reverseDuration: settings.exitDuration,
                         transitionBuilder: (child, animation) =>
                             _agentDialogSwitchTransition(
                               settings: settings,
@@ -6635,10 +6620,8 @@ class _MetricTile extends StatelessWidget {
               Text(label, style: theme.textTheme.labelMedium),
               const SizedBox(height: 8),
               AnimatedSwitcher(
-                duration: settings.duration,
-                reverseDuration: settings.duration,
-                switchInCurve: settings.curve.curve,
-                switchOutCurve: settings.curve.reverseCurve,
+                duration: settings.entranceDuration,
+                reverseDuration: settings.exitDuration,
                 transitionBuilder: (child, animation) =>
                     _agentDialogSwitchTransition(
                       settings: settings,
@@ -7473,10 +7456,8 @@ class _AgentTaskDetailHero extends StatelessWidget {
                           ),
                           const SizedBox(height: 3),
                           AnimatedSwitcher(
-                            duration: settings.duration,
-                            reverseDuration: settings.duration,
-                            switchInCurve: settings.curve.curve,
-                            switchOutCurve: settings.curve.reverseCurve,
+                            duration: settings.entranceDuration,
+                            reverseDuration: settings.exitDuration,
                             transitionBuilder: (child, animation) =>
                                 _agentDialogSwitchTransition(
                                   settings: settings,
@@ -7771,10 +7752,8 @@ class _AgentDialogMetricTile extends StatelessWidget {
             ),
             const SizedBox(height: 9),
             AnimatedSwitcher(
-              duration: settings.duration,
-              reverseDuration: settings.duration,
-              switchInCurve: settings.curve.curve,
-              switchOutCurve: settings.curve.reverseCurve,
+              duration: settings.entranceDuration,
+              reverseDuration: settings.exitDuration,
               transitionBuilder: (child, animation) =>
                   _agentDialogSwitchTransition(
                     settings: settings,
@@ -8639,10 +8618,8 @@ class _AgentDialogFooterSlot extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AnimatedSwitcher(
-      duration: settings.duration,
-      reverseDuration: settings.duration,
-      switchInCurve: settings.curve.curve,
-      switchOutCurve: settings.curve.reverseCurve,
+      duration: settings.entranceDuration,
+      reverseDuration: settings.exitDuration,
       transitionBuilder: (child, animation) => _agentDialogSwitchTransition(
         settings: settings,
         animation: animation,
@@ -8704,9 +8681,14 @@ Widget _agentDialogSwitchTransition({
   required Animation<double> animation,
   required Widget child,
 }) {
+  final sizeAnimation = openHandBoundedCurveAnimation(
+    parent: animation,
+    curve: settings.curve.curve,
+    reverseCurve: settings.curve.reverseCurve,
+  );
   return SizeTransition(
     axisAlignment: -1,
-    sizeFactor: animation,
+    sizeFactor: sizeAnimation,
     child: buildAnimationStyleTransition(
       animation: animation,
       settings: settings,
@@ -11298,21 +11280,13 @@ class _AgentChipStripSwitcher extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AnimatedSwitcher(
-      duration: settings.duration,
-      reverseDuration: settings.duration,
-      switchInCurve: settings.curve.curve,
-      switchOutCurve: settings.curve.reverseCurve,
-      transitionBuilder: (child, animation) {
-        return SizeTransition(
-          axisAlignment: -1,
-          sizeFactor: animation,
-          child: buildAnimationStyleTransition(
-            animation: animation,
-            settings: settings,
-            child: child,
-          ),
-        );
-      },
+      duration: settings.entranceDuration,
+      reverseDuration: settings.exitDuration,
+      transitionBuilder: (child, animation) => _agentDialogSwitchTransition(
+        settings: settings,
+        animation: animation,
+        child: child,
+      ),
       child: child,
     );
   }

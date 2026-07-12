@@ -138,10 +138,10 @@ class _AnimatedAnchoredMenuRoute<T> extends PopupRoute<T> {
   final WidgetBuilder builder;
 
   @override
-  Duration get transitionDuration => animationSettings.duration;
+  Duration get transitionDuration => animationSettings.entranceDuration;
 
   @override
-  Duration get reverseTransitionDuration => animationSettings.duration;
+  Duration get reverseTransitionDuration => animationSettings.exitDuration;
 
   @override
   bool get barrierDismissible => true;
@@ -263,10 +263,10 @@ class _AnimatedPopupMenuRoute<T> extends PopupRoute<T> {
   final List<Size?> itemSizes;
 
   @override
-  Duration get transitionDuration => animationSettings.duration;
+  Duration get transitionDuration => animationSettings.entranceDuration;
 
   @override
-  Duration get reverseTransitionDuration => animationSettings.duration;
+  Duration get reverseTransitionDuration => animationSettings.exitDuration;
 
   @override
   bool get barrierDismissible => true;

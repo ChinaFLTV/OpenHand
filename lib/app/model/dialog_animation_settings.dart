@@ -141,7 +141,10 @@ class DialogAnimationSettings {
     this.curve = DialogAnimationCurve.easeOutCubic,
   });
 
-  factory DialogAnimationSettings.fromJson(Map<String, dynamic>? json) {
+  factory DialogAnimationSettings.fromJson(
+    Map<String, dynamic>? json, {
+    int fallbackDurationMs = defaultDurationMs,
+  }) {
     if (json == null) return defaults;
     final entranceStyle = DialogAnimationStyle.fromStorage(
       nullIfBlank('${json['entrance_style'] ?? ''}'),
@@ -154,8 +157,7 @@ class DialogAnimationSettings {
       exitStyle: exitStyle,
       durationMs: durationMsFromValue(
         json['duration_ms'],
-        entranceStyle: entranceStyle,
-        exitStyle: exitStyle,
+        fallbackDurationMs: fallbackDurationMs,
       ),
       curve: DialogAnimationCurve.fromStorage(
         nullIfBlank('${json['curve'] ?? ''}'),
@@ -180,47 +182,50 @@ class DialogAnimationSettings {
 
   static int durationMsFromValue(
     Object? value, {
-    required DialogAnimationStyle entranceStyle,
-    required DialogAnimationStyle exitStyle,
+    int fallbackDurationMs = defaultDurationMs,
   }) {
-    return normalizeDurationMs(
-      _animatedDurationMsRange.fromValue(value),
-      entranceStyle: entranceStyle,
-      exitStyle: exitStyle,
-    );
+    final parsed = optionalIntegralIntFromValue(value);
+    final candidate = parsed == null || parsed <= 0
+        ? fallbackDurationMs
+        : parsed;
+    return _animatedDurationMsRange.normalize(candidate);
   }
 
-  static int normalizeDurationMs(
-    int durationMs, {
-    required DialogAnimationStyle entranceStyle,
-    required DialogAnimationStyle exitStyle,
-  }) {
-    return _normalizedDurationMs(
-      entranceStyle: entranceStyle,
-      exitStyle: exitStyle,
-      durationMs: durationMs,
-    );
-  }
+  static int normalizeDurationMs(int durationMs) =>
+      _animatedDurationMsRange.normalize(durationMs);
 
   final DialogAnimationStyle entranceStyle;
   final DialogAnimationStyle exitStyle;
   final int durationMs;
   final DialogAnimationCurve curve;
 
-  bool get disablesAnimation =>
-      entranceStyle == DialogAnimationStyle.none &&
-      exitStyle == DialogAnimationStyle.none;
+  bool get entranceDisabled => entranceStyle == DialogAnimationStyle.none;
 
-  int get effectiveDurationMs => _normalizedDurationMs(
-    entranceStyle: entranceStyle,
-    exitStyle: exitStyle,
-    durationMs: durationMs,
-  );
+  bool get exitDisabled => exitStyle == DialogAnimationStyle.none;
+
+  bool get disablesAnimation => entranceDisabled && exitDisabled;
+
+  /// The persisted user preference, independent from either direction being
+  /// disabled. Keeping this value prevents a temporary `none/none` choice
+  /// from destroying the duration restored when motion is re-enabled.
+  int get configuredDurationMs => normalizeDurationMs(durationMs);
+
+  int get effectiveDurationMs => disablesAnimation ? 0 : configuredDurationMs;
+
+  int get effectiveEntranceDurationMs =>
+      entranceDisabled ? 0 : configuredDurationMs;
+
+  int get effectiveExitDurationMs => exitDisabled ? 0 : configuredDurationMs;
 
   Duration get duration => Duration(milliseconds: effectiveDurationMs);
 
+  Duration get entranceDuration =>
+      Duration(milliseconds: effectiveEntranceDurationMs);
+
+  Duration get exitDuration => Duration(milliseconds: effectiveExitDurationMs);
+
   DialogAnimationSettings normalized() {
-    final normalizedDurationMs = effectiveDurationMs;
+    final normalizedDurationMs = configuredDurationMs;
     if (durationMs == normalizedDurationMs) {
       return this;
     }
@@ -241,7 +246,7 @@ class DialogAnimationSettings {
     return DialogAnimationSettings(
       entranceStyle: entranceStyle ?? this.entranceStyle,
       exitStyle: exitStyle ?? this.exitStyle,
-      durationMs: durationMs ?? this.durationMs,
+      durationMs: durationMs ?? configuredDurationMs,
       curve: curve ?? this.curve,
     ).normalized();
   }
@@ -267,20 +272,6 @@ class DialogAnimationSettings {
 
   @override
   int get hashCode => Object.hash(entranceStyle, exitStyle, durationMs, curve);
-
-  static int _normalizedDurationMs({
-    required DialogAnimationStyle entranceStyle,
-    required DialogAnimationStyle exitStyle,
-    required int durationMs,
-  }) {
-    final disabled =
-        entranceStyle == DialogAnimationStyle.none &&
-        exitStyle == DialogAnimationStyle.none;
-    if (disabled) {
-      return 0;
-    }
-    return _animatedDurationMsRange.normalize(durationMs);
-  }
 }
 
 /// Centralized motion presets used by settings defaults and runtime fallbacks.

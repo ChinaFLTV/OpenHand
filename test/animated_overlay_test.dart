@@ -27,6 +27,7 @@ void main() {
     await tester.pumpAndSettle();
 
     visibility.value = false;
+    await tester.pump();
     await tester.pump(const Duration(milliseconds: 60));
     expect(exitCount, 0);
 
@@ -93,6 +94,65 @@ void main() {
     expect(exitCount, 1);
 
     await tester.pumpWidget(const SizedBox.shrink());
+    visibility.dispose();
+  });
+
+  testWidgets('exit none completes without waiting for entrance duration', (
+    tester,
+  ) async {
+    final visibility = ValueNotifier<bool>(true);
+    var exitCount = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AnimatedOverlayContent(
+          customSettings: const DialogAnimationSettings(
+            entranceStyle: DialogAnimationStyle.fade,
+            exitStyle: DialogAnimationStyle.none,
+            durationMs: 300,
+          ),
+          visibility: visibility,
+          onExitCompleted: () => exitCount += 1,
+          child: const Text('instant-overlay-exit'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    visibility.value = false;
+    await tester.pump();
+
+    expect(exitCount, 1);
+    visibility.dispose();
+  });
+
+  testWidgets('entrance none keeps the configured animated exit', (
+    tester,
+  ) async {
+    final visibility = ValueNotifier<bool>(true);
+    var exitCount = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AnimatedOverlayContent(
+          customSettings: const DialogAnimationSettings(
+            entranceStyle: DialogAnimationStyle.none,
+            exitStyle: DialogAnimationStyle.fade,
+            durationMs: 120,
+          ),
+          visibility: visibility,
+          onExitCompleted: () => exitCount += 1,
+          child: const Text('animated-overlay-exit'),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    visibility.value = false;
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 60));
+    expect(exitCount, 0);
+    await tester.pump(const Duration(milliseconds: 70));
+    await tester.pump();
+    expect(exitCount, 1);
     visibility.dispose();
   });
 

@@ -9157,17 +9157,18 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
                     context,
                     OpenHandMotionSettingsScope.panel,
                   );
-                  final leftPaneDuration = Duration(
-                    milliseconds: math.max(
-                      _effectiveSwitchDuration(panelSettings).inMilliseconds,
-                      240,
-                    ),
+                  final leftPaneEntranceDuration = _effectiveSwitchDuration(
+                    panelSettings.entranceDuration,
+                    minimumAnimatedDurationMs: 240,
+                  );
+                  final leftPaneExitDuration = _effectiveSwitchDuration(
+                    panelSettings.exitDuration,
+                    minimumAnimatedDurationMs: 240,
                   );
                   final Widget leftPane = ClipRect(
                     child: AnimatedSwitcher(
-                      duration: leftPaneDuration,
-                      switchInCurve: Curves.easeOutCubic,
-                      switchOutCurve: Curves.easeInCubic,
+                      duration: leftPaneEntranceDuration,
+                      reverseDuration: leftPaneExitDuration,
                       layoutBuilder: (currentChild, previousChildren) {
                         return Stack(
                           fit: StackFit.expand,
@@ -9219,20 +9220,22 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
                       _selectedSection == AppSection.workspace &&
                       _activeFilePath != null &&
                       _openFilePaths.isNotEmpty;
-                  final pageSettings = context
-                      .read<SettingsController>()
-                      .pageAnimationSettings;
-                  final rightPaneDuration = Duration(
-                    milliseconds: math.max(
-                      _effectiveSwitchDuration(pageSettings).inMilliseconds,
-                      280,
-                    ),
+                  final pageSettings = openHandMotionSettingsOf(
+                    context,
+                    OpenHandMotionSettingsScope.page,
+                  );
+                  final rightPaneEntranceDuration = _effectiveSwitchDuration(
+                    pageSettings.entranceDuration,
+                    minimumAnimatedDurationMs: 280,
+                  );
+                  final rightPaneExitDuration = _effectiveSwitchDuration(
+                    pageSettings.exitDuration,
+                    minimumAnimatedDurationMs: 280,
                   );
                   final Widget rightPane = ClipRect(
                     child: AnimatedSwitcher(
-                      duration: rightPaneDuration,
-                      switchInCurve: Curves.easeOutCubic,
-                      switchOutCurve: Curves.easeInCubic,
+                      duration: rightPaneEntranceDuration,
+                      reverseDuration: rightPaneExitDuration,
                       layoutBuilder: (currentChild, previousChildren) {
                         return Stack(
                           alignment: Alignment.topCenter,
