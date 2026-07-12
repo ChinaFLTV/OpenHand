@@ -368,7 +368,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   String? _scheduledWriteApprovalDialogId;
   String? _presentingWriteApprovalDialogId;
   String? _presentingWriteApprovalSessionId;
-  BuildContext? _activeWriteApprovalDialogContext;
+  OpenHandDialogSession<BashCommandApprovalDecision>? _writeApprovalSession;
   bool _suppressWriteApprovalDialogResponse = false;
   AiSessionMode _detachedComposerMode = AiSessionMode.chat;
   bool _detachedFullAccessPermission = false;
@@ -1004,6 +1004,17 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     );
     _writeApprovalSubscription?.cancel();
     _writeApprovalSubscription = null;
+    _suppressWriteApprovalDialogResponse = true;
+    final writeApprovalSession = _writeApprovalSession;
+    _writeApprovalSession = null;
+    if (writeApprovalSession != null) {
+      unawaited(
+        writeApprovalSession.dismiss(
+          logTag: 'home',
+          logAction: 'dismiss write approval on home disposal',
+        ),
+      );
+    }
     _observedMessageGatewayController = null;
     _messageScrollController.removeListener(_handleMessageScroll);
     HardwareKeyboard.instance.removeHandler(_handleGlobalShortcutKeyEvent);
@@ -1223,18 +1234,48 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       return;
     }
     _suppressWriteApprovalDialogResponse = true;
-    final dialogContext = _activeWriteApprovalDialogContext;
-    if (dialogContext != null && Navigator.of(dialogContext).canPop()) {
-      Navigator.of(dialogContext).pop();
+    final session = _writeApprovalSession;
+    if (session != null) {
+      unawaited(
+        session.dismiss(
+          logTag: 'home',
+          logAction: 'dismiss write approval after session change',
+        ),
+      );
     }
   }
 
   void _handlePendingWriteApprovalsChanged(
     List<WebWriteApprovalRequest> approvals,
   ) {
-    if (!mounted ||
-        _presentingWriteApprovalDialogId != null ||
-        _scheduledWriteApprovalDialogId != null) {
+    if (!mounted) return;
+    final pendingIds = approvals.map((item) => item.id).toSet();
+    final scheduledId = _scheduledWriteApprovalDialogId;
+    if (scheduledId != null && !pendingIds.contains(scheduledId)) {
+      _scheduledWriteApprovalDialogId = null;
+    }
+    _handledWriteApprovalDialogIds.removeWhere(
+      (id) =>
+          !pendingIds.contains(id) &&
+          id != _presentingWriteApprovalDialogId &&
+          id != _scheduledWriteApprovalDialogId,
+    );
+    final presentingId = _presentingWriteApprovalDialogId;
+    if (presentingId != null) {
+      if (!pendingIds.contains(presentingId)) {
+        final session = _writeApprovalSession;
+        if (session != null) {
+          unawaited(
+            session.dismiss(
+              logTag: 'home',
+              logAction: 'dismiss externally resolved write approval',
+            ),
+          );
+        }
+      }
+      return;
+    }
+    if (_scheduledWriteApprovalDialogId != null) {
       return;
     }
     final currentSessionId = _observedSessionController?.currentSessionId;
@@ -1287,39 +1328,51 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     _presentingWriteApprovalSessionId = approval.sessionId;
     _suppressWriteApprovalDialogResponse = false;
     _handledWriteApprovalDialogIds.add(approval.id);
-    var resolvedElsewhere = false;
-    late final StreamSubscription<List<WebWriteApprovalRequest>> sub;
-    sub = gatewayController.pendingWriteApprovalsStream.listen((items) {
-      if (items.any((item) => item.id == approval.id)) {
-        return;
-      }
-      resolvedElsewhere = true;
-      final contextToClose = _activeWriteApprovalDialogContext;
-      if (contextToClose != null &&
-          contextToClose.mounted &&
-          Navigator.of(contextToClose).canPop()) {
-        Navigator.of(contextToClose).pop();
-      }
-    });
+    var responseAttempted = false;
+    OpenHandDialogSession<BashCommandApprovalDecision>? dialogSession;
     try {
-      final decision = await showWriteCommandConfirmationDialog(
+      final session = showWriteCommandConfirmationDialogSession(
         context,
         request: approval.toBashCommandApprovalRequest(),
-        onDialogContext: (context) {
-          _activeWriteApprovalDialogContext = context;
-        },
       );
+      dialogSession = session;
+      _writeApprovalSession = session;
+      final decision = await session.result;
       if (!mounted ||
-          resolvedElsewhere ||
-          _suppressWriteApprovalDialogResponse) {
+          _suppressWriteApprovalDialogResponse ||
+          !gatewayController.pendingWriteApprovals.any(
+            (item) => item.id == approval.id,
+          )) {
         return;
       }
+      responseAttempted = true;
       gatewayController.respondWriteApproval(
         approval.id,
         decision: decision ?? BashCommandApprovalDecision.dismissed,
       );
+    } catch (error, stack) {
+      silentLog('home', 'present shared write approval', error, stack);
+      if (!responseAttempted &&
+          mounted &&
+          !_suppressWriteApprovalDialogResponse &&
+          gatewayController.pendingWriteApprovals.any(
+            (item) => item.id == approval.id,
+          )) {
+        try {
+          gatewayController.respondWriteApproval(
+            approval.id,
+            decision: BashCommandApprovalDecision.dismissed,
+          );
+        } catch (fallbackError, fallbackStack) {
+          silentLog(
+            'home',
+            'dismiss failed shared write approval',
+            fallbackError,
+            fallbackStack,
+          );
+        }
+      }
     } finally {
-      await sub.cancel();
       final suppressed = _suppressWriteApprovalDialogResponse;
       if (suppressed) {
         _handledWriteApprovalDialogIds.remove(approval.id);
@@ -1330,7 +1383,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       if (_presentingWriteApprovalSessionId == approval.sessionId) {
         _presentingWriteApprovalSessionId = null;
       }
-      _activeWriteApprovalDialogContext = null;
+      if (identical(_writeApprovalSession, dialogSession)) {
+        _writeApprovalSession = null;
+      }
       _suppressWriteApprovalDialogResponse = false;
       if (mounted) {
         _handlePendingWriteApprovalsChanged(
@@ -7783,8 +7838,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         context,
         request: request,
       );
-      // null = barrier 之外触发关闭（理论上 barrierDismissible: false 已禁用，
-      // 但 root navigator pop 的兜底场景仍可能发生）。视为 dismissed。
+      // null 仅来自 Session 外部关闭或 Route 树销毁，统一视为 dismissed。
       return decision ?? BashCommandApprovalDecision.dismissed;
     } finally {
       if (effectiveSessionId != null) {

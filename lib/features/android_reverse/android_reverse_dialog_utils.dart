@@ -30,7 +30,6 @@ Future<T?> showAndroidReverseToolDialog<T>({
   bool useRootNavigator = true,
   RouteSettings? routeSettings,
   AlignmentGeometry alignment = Alignment.center,
-  bool surfaceMotion = false,
 }) {
   return showOpenHandProfiledDialog<T>(
     context: context,
@@ -43,7 +42,6 @@ Future<T?> showAndroidReverseToolDialog<T>({
     useRootNavigator: useRootNavigator,
     routeSettings: routeSettings,
     alignment: alignment,
-    surfaceMotion: surfaceMotion,
     builder: builder,
   );
 }

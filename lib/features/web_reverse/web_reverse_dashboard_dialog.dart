@@ -179,7 +179,6 @@ Future<void> showWebReverseDashboardDialog(
 }) {
   return showWebReverseToolDialog<void>(
     context: context,
-    surfaceMotion: true,
     builder: (_) => _WebReverseDashboardDialog(
       controller: controller,
       sessionId: sessionId,

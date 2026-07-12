@@ -231,7 +231,6 @@ Future<void> showAndroidReverseDashboardDialog(
 }) {
   return showAndroidReverseToolDialog<void>(
     context: context,
-    surfaceMotion: true,
     builder: (_) => _AndroidReverseDashboardDialog(
       controller: controller,
       sessionId: sessionId,

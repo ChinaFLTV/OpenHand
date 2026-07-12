@@ -15,7 +15,6 @@ import '../../../shared/util/localized_text.dart';
 import '../../../shared/util/timer_safety.dart';
 import '../model/mcp_server_ops.dart';
 
-const double _approvalDialogMaxWidth = 860;
 const int _approvalPayloadMaxDepth = 8;
 const int _approvalPayloadPreviewItemsPerLevel = 12;
 const int _approvalPayloadMaxItemsPerLevel = 80;
@@ -24,41 +23,68 @@ const int _approvalPayloadExpandedMaxChars = 12000;
 Future<bool?> showMcpOpsWriteApprovalDialog(
   BuildContext context, {
   required McpOpsApprovalRequest request,
-  ValueChanged<BuildContext>? onDialogContext,
 }) {
-  return showAnimatedDialog<bool>(
-    context: context,
-    barrierDismissible: false,
-    dismissOnEscape: false,
-    builder: (dialogContext) {
-      onDialogContext?.call(dialogContext);
-      return _McpOpsWriteApprovalDialog(request: request);
-    },
-  );
+  return _showMcpOpsWriteApprovalSession(
+    request: request,
+    present: (builder) => showTrackedAnimatedDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      dismissOnEscape: false,
+      builder: builder,
+    ),
+  ).result;
 }
 
-Future<bool?> showMcpOpsWriteApprovalDialogOnNavigator(
+OpenHandDialogSession<bool> showMcpOpsWriteApprovalDialogOnNavigator(
   NavigatorState navigator, {
   required BuildContext context,
   required McpOpsApprovalRequest request,
-  ValueChanged<BuildContext>? onDialogContext,
 }) {
-  return showAnimatedDialogOnNavigator<bool>(
-    navigator: navigator,
-    context: context,
-    barrierDismissible: false,
-    dismissOnEscape: false,
-    builder: (dialogContext) {
-      onDialogContext?.call(dialogContext);
-      return _McpOpsWriteApprovalDialog(request: request);
-    },
+  return _showMcpOpsWriteApprovalSession(
+    request: request,
+    present: (builder) => showTrackedAnimatedDialogOnNavigator<bool>(
+      navigator: navigator,
+      context: context,
+      barrierDismissible: false,
+      dismissOnEscape: false,
+      builder: builder,
+    ),
   );
 }
 
+OpenHandDialogSession<bool> _showMcpOpsWriteApprovalSession({
+  required McpOpsApprovalRequest request,
+  required OpenHandDialogSession<bool> Function(WidgetBuilder builder) present,
+}) {
+  final sessionHolder = <OpenHandDialogSession<bool>?>[null];
+  final session = present(
+    (_) => _McpOpsWriteApprovalDialog(
+      request: request,
+      onDecision: (approved) {
+        final activeSession = sessionHolder[0];
+        if (activeSession == null) return;
+        unawaited(
+          activeSession.dismiss(
+            result: approved,
+            logTag: 'mcp',
+            logAction: 'resolve ops write approval dialog',
+          ),
+        );
+      },
+    ),
+  );
+  sessionHolder[0] = session;
+  return session;
+}
+
 class _McpOpsWriteApprovalDialog extends StatefulWidget {
-  const _McpOpsWriteApprovalDialog({required this.request});
+  const _McpOpsWriteApprovalDialog({
+    required this.request,
+    required this.onDecision,
+  });
 
   final McpOpsApprovalRequest request;
+  final ValueChanged<bool> onDecision;
 
   @override
   State<_McpOpsWriteApprovalDialog> createState() =>
@@ -73,6 +99,7 @@ class _McpOpsWriteApprovalDialogState
   final FocusNode _shortcutFocusNode = FocusNode();
   Timer? _timer;
   bool _isExpanded = false;
+  bool _decisionRequested = false;
   DateTime _now = DateTime.now().toUtc();
 
   String get _argumentsPreview => widget.request.argumentsPreview.trim();
@@ -94,8 +121,10 @@ class _McpOpsWriteApprovalDialogState
   }
 
   void _closeWith(bool approved) {
-    if (!mounted) return;
-    Navigator.of(context).pop(approved);
+    if (!mounted || _decisionRequested) return;
+    _decisionRequested = true;
+    _timer?.cancel();
+    widget.onDecision(approved);
   }
 
   @override
@@ -127,10 +156,13 @@ class _McpOpsWriteApprovalDialogState
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final accent = cs.primary;
-    return Focus(
+    final dialog = Focus(
       focusNode: _shortcutFocusNode,
       autofocus: true,
       onKeyEvent: (_, event) {
+        if (event.logicalKey == LogicalKeyboardKey.escape) {
+          return KeyEventResult.handled;
+        }
         if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
           return KeyEventResult.ignored;
         }
@@ -143,7 +175,7 @@ class _McpOpsWriteApprovalDialogState
       },
       child: buildOpenHandResponsiveDialogShell(
         context: context,
-        maxWidth: _approvalDialogMaxWidth,
+        maxWidth: kOpenHandApprovalDialogMaxWidth,
         maxHeightFraction: 0.82,
         safeAreaMinimum: const EdgeInsets.symmetric(
           horizontal: 28,
@@ -340,6 +372,7 @@ class _McpOpsWriteApprovalDialogState
         ),
       ),
     );
+    return PopScope<bool>(canPop: false, child: dialog);
   }
 }
 

@@ -4,7 +4,7 @@ part of '../openhand_home_page.dart';
 /// * [BashCommandApprovalDecision.approved] —— 用户点击「允许执行」或敲回车
 /// * [BashCommandApprovalDecision.rejected] —— 用户点击「取消」按钮
 /// * [BashCommandApprovalDecision.timedOut] —— 审批倒计时结束自动拒绝
-/// * `null` —— 调用方主动 pop（如外部 cancel），视为 dismissed 由调用方解释
+/// * `null` —— 调用方通过 Session 外部关闭，视为 dismissed 由调用方解释
 ///
 /// 弹窗显式禁用 barrierDismissible + dismissOnEscape：点击外部空白处与
 /// 按 Esc 均不会关闭，必须用户显式点击「允许执行」或「取消」按钮才能
@@ -12,23 +12,52 @@ part of '../openhand_home_page.dart';
 Future<BashCommandApprovalDecision?> showWriteCommandConfirmationDialog(
   BuildContext context, {
   required BashCommandApprovalRequest request,
-  ValueChanged<BuildContext>? onDialogContext,
 }) {
-  return showAnimatedDialog<BashCommandApprovalDecision>(
+  return showWriteCommandConfirmationDialogSession(
+    context,
+    request: request,
+  ).result;
+}
+
+OpenHandDialogSession<BashCommandApprovalDecision>
+showWriteCommandConfirmationDialogSession(
+  BuildContext context, {
+  required BashCommandApprovalRequest request,
+}) {
+  final sessionHolder = <OpenHandDialogSession<BashCommandApprovalDecision>?>[
+    null,
+  ];
+  final session = showTrackedAnimatedDialog<BashCommandApprovalDecision>(
     context: context,
     barrierDismissible: false,
-    dismissOnEscape: false, // 由弹窗内部 Focus/onKeyEvent 显式处理 Esc
-    builder: (dialogContext) {
-      onDialogContext?.call(dialogContext);
-      return _WriteCommandConfirmationDialog(request: request);
-    },
+    dismissOnEscape: false, // 内部 Focus 消费 Esc，避免继续传播至上层快捷键
+    builder: (_) => _WriteCommandConfirmationDialog(
+      request: request,
+      onDecision: (decision) {
+        final activeSession = sessionHolder[0];
+        if (activeSession == null) return;
+        unawaited(
+          activeSession.dismiss(
+            result: decision,
+            logTag: 'home',
+            logAction: 'resolve write command approval dialog',
+          ),
+        );
+      },
+    ),
   );
+  sessionHolder[0] = session;
+  return session;
 }
 
 class _WriteCommandConfirmationDialog extends StatefulWidget {
-  const _WriteCommandConfirmationDialog({required this.request});
+  const _WriteCommandConfirmationDialog({
+    required this.request,
+    required this.onDecision,
+  });
 
   final BashCommandApprovalRequest request;
+  final ValueChanged<BashCommandApprovalDecision> onDecision;
 
   @override
   State<_WriteCommandConfirmationDialog> createState() =>
@@ -43,6 +72,7 @@ class _WriteCommandConfirmationDialogState
   final FocusNode _shortcutFocusNode = FocusNode();
   Timer? _timer;
   bool _isExpanded = false;
+  bool _decisionRequested = false;
   DateTime _now = DateTime.now().toUtc();
 
   DateTime? get _requestedAt => widget.request.requestedAt?.toUtc();
@@ -87,10 +117,10 @@ class _WriteCommandConfirmationDialogState
   }
 
   void _closeWith(BashCommandApprovalDecision decision) {
-    if (!mounted) {
-      return;
-    }
-    Navigator.of(context).pop(decision);
+    if (!mounted || _decisionRequested) return;
+    _decisionRequested = true;
+    _timer?.cancel();
+    widget.onDecision(decision);
   }
 
   void _updateCountdown() {
@@ -137,15 +167,17 @@ class _WriteCommandConfirmationDialogState
     final accent = cs.primary;
     final remaining = _remaining;
     final progress = _remainingProgress;
-    return Focus(
+    final dialog = Focus(
       focusNode: _shortcutFocusNode,
       autofocus: true,
       onKeyEvent: (node, event) {
+        if (event.logicalKey == LogicalKeyboardKey.escape) {
+          return KeyEventResult.handled;
+        }
         if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
           return KeyEventResult.ignored;
         }
-        // Esc 故意不响应：写命令确认弹窗必须用户显式点击「允许执行」
-        // 或「取消」按钮才能关闭，避免误触意外丢弃。
+        // Esc 已在上方消费：必须明确允许或取消，避免误触意外丢弃。
         if (event.logicalKey == LogicalKeyboardKey.enter ||
             event.logicalKey == LogicalKeyboardKey.numpadEnter) {
           _closeWith(BashCommandApprovalDecision.approved);
@@ -155,7 +187,7 @@ class _WriteCommandConfirmationDialogState
       },
       child: buildOpenHandResponsiveDialogShell(
         context: context,
-        maxWidth: 860,
+        maxWidth: kOpenHandApprovalDialogMaxWidth,
         maxHeight: double.infinity,
         maxHeightFraction: 0.78,
         safeAreaMinimum: const EdgeInsets.symmetric(
@@ -392,6 +424,7 @@ class _WriteCommandConfirmationDialogState
         ),
       ),
     );
+    return PopScope<BashCommandApprovalDecision>(canPop: false, child: dialog);
   }
 }
 

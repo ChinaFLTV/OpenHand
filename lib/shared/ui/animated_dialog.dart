@@ -21,6 +21,7 @@ const double kOpenHandDialogDefaultMaxWidth = 520;
 const double kOpenHandDialogDefaultRadius = 28;
 const double kOpenHandDialogFormRadius = 16;
 const double kOpenHandDialogActionSpacing = 8;
+const double kOpenHandApprovalDialogMaxWidth = 860;
 const double kOpenHandToolDialogRadius = 20;
 const double kOpenHandToolDialogDefaultMaxWidth = 900;
 const double kOpenHandToolDialogDefaultMaxHeight = 720;
@@ -776,38 +777,85 @@ OpenHandDialogSession<T> showTrackedAnimatedDialog<T extends Object?>({
   RouteSettings? routeSettings,
   AlignmentGeometry alignment = Alignment.center,
 }) {
+  return _trackAnimatedDialogPresentation<T>(
+    builder: builder,
+    present: (trackedBuilder) => showAnimatedDialog<T>(
+      context: context,
+      settings: settings,
+      transitionProfile: transitionProfile,
+      barrierDismissible: barrierDismissible,
+      dismissOnEscape: dismissOnEscape,
+      barrierLabel: barrierLabel,
+      barrierColor: barrierColor,
+      useRootNavigator: useRootNavigator,
+      routeSettings: routeSettings,
+      alignment: alignment,
+      builder: trackedBuilder,
+    ),
+  );
+}
+
+/// Navigator-resolved counterpart to [showTrackedAnimatedDialog].
+///
+/// App-level hosts can use this without deriving a navigator from a context
+/// above [MaterialApp], while retaining precise, route-owned dismissal.
+OpenHandDialogSession<T>
+showTrackedAnimatedDialogOnNavigator<T extends Object?>({
+  required NavigatorState navigator,
+  required BuildContext context,
+  required WidgetBuilder builder,
+  DialogAnimationSettings? settings,
+  OpenHandAnimationTransitionProfile transitionProfile =
+      const OpenHandAnimationTransitionProfile(),
+  bool barrierDismissible = true,
+  bool dismissOnEscape = true,
+  String? barrierLabel,
+  Color? barrierColor,
+  RouteSettings? routeSettings,
+  AlignmentGeometry alignment = Alignment.center,
+}) {
+  return _trackAnimatedDialogPresentation<T>(
+    builder: builder,
+    present: (trackedBuilder) => showAnimatedDialogOnNavigator<T>(
+      navigator: navigator,
+      context: context,
+      settings: settings,
+      transitionProfile: transitionProfile,
+      barrierDismissible: barrierDismissible,
+      dismissOnEscape: dismissOnEscape,
+      barrierLabel: barrierLabel,
+      barrierColor: barrierColor,
+      routeSettings: routeSettings,
+      alignment: alignment,
+      builder: trackedBuilder,
+    ),
+  );
+}
+
+OpenHandDialogSession<T> _trackAnimatedDialogPresentation<T extends Object?>({
+  required WidgetBuilder builder,
+  required Future<T?> Function(WidgetBuilder trackedBuilder) present,
+}) {
   // Holder so the route builder can attach even if it runs after this returns
   // (normal for showGeneralDialog) or, rarely, before session assignment.
   final sessionHolder = <OpenHandDialogSession<T>?>[null];
-  final future = showAnimatedDialog<T>(
-    context: context,
-    settings: settings,
-    transitionProfile: transitionProfile,
-    barrierDismissible: barrierDismissible,
-    dismissOnEscape: dismissOnEscape,
-    barrierLabel: barrierLabel,
-    barrierColor: barrierColor,
-    useRootNavigator: useRootNavigator,
-    routeSettings: routeSettings,
-    alignment: alignment,
-    builder: (dialogContext) {
-      final route = ModalRoute.of<T>(dialogContext);
-      void attach(Route<T> r) {
-        final session = sessionHolder[0];
-        if (session != null && !session.isClosed) {
-          session._attachRoute(r);
-        }
+  final future = present((dialogContext) {
+    final route = ModalRoute.of<T>(dialogContext);
+    void attach(Route<T> r) {
+      final session = sessionHolder[0];
+      if (session != null && !session.isClosed) {
+        session._attachRoute(r);
       }
+    }
 
-      if (route != null) {
-        attach(route);
-        if (sessionHolder[0] == null) {
-          scheduleMicrotask(() => attach(route));
-        }
+    if (route != null) {
+      attach(route);
+      if (sessionHolder[0] == null) {
+        scheduleMicrotask(() => attach(route));
       }
-      return builder(dialogContext);
-    },
-  );
+    }
+    return builder(dialogContext);
+  });
   final session = OpenHandDialogSession<T>._(future);
   sessionHolder[0] = session;
   return session;
@@ -979,33 +1027,6 @@ class _OpenHandRawDialogRoute<T> extends RawDialogRoute<T> {
   Duration get reverseTransitionDuration => _exitDuration;
 }
 
-Widget buildOpenHandDialogMotionSurface({
-  required BuildContext context,
-  required Widget child,
-  OpenHandAnimationTransitionProfile transitionProfile =
-      const OpenHandAnimationTransitionProfile(),
-}) {
-  final settings = _resolveDialogMotionSettings(context);
-  final routeAnimation = ModalRoute.of(context)?.animation;
-  if (routeAnimation == null ||
-      openHandMotionDisabled(settings) ||
-      settings.duration <= Duration.zero) {
-    return child;
-  }
-  return AnimatedBuilder(
-    animation: routeAnimation,
-    child: child,
-    builder: (context, child) {
-      return buildAnimationStyleTransition(
-        animation: routeAnimation,
-        settings: settings,
-        profile: transitionProfile,
-        child: child!,
-      );
-    },
-  );
-}
-
 /// Shows a dialog with a caller-provided motion profile.
 ///
 /// Feature modules use this when a family of dialogs needs one tuned geometry
@@ -1023,7 +1044,6 @@ Future<T?> showOpenHandProfiledDialog<T>({
   bool useRootNavigator = true,
   RouteSettings? routeSettings,
   AlignmentGeometry alignment = Alignment.center,
-  bool surfaceMotion = false,
 }) {
   return showAnimatedDialog<T>(
     context: context,
@@ -1036,13 +1056,7 @@ Future<T?> showOpenHandProfiledDialog<T>({
     useRootNavigator: useRootNavigator,
     routeSettings: routeSettings,
     alignment: alignment,
-    builder: surfaceMotion
-        ? (dialogContext) => buildOpenHandDialogMotionSurface(
-            context: dialogContext,
-            transitionProfile: transitionProfile,
-            child: builder(dialogContext),
-          )
-        : builder,
+    builder: builder,
   );
 }
 

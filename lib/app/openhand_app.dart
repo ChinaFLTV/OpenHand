@@ -11,6 +11,7 @@ import '../features/mcp/model/mcp_server_ops.dart';
 import '../features/mcp/widgets/mcp_ops_approval_dialog.dart';
 import '../features/message_gateway/index.dart';
 import '../l10n/app_localizations.dart';
+import '../shared/ui/animated_dialog.dart';
 import '../shared/ui/openhand_safe_scrollbar.dart';
 import '../shared/ui/openhand_snack_bar.dart';
 import '../shared/ui/openhand_tooltip_dismissal.dart';
@@ -161,7 +162,8 @@ class _McpOpsApprovalHostState extends State<_McpOpsApprovalHost> {
   Timer? _dialogRetryTimer;
   String? _scheduledDialogId;
   String? _presentingDialogId;
-  BuildContext? _activeDialogContext;
+  OpenHandDialogSession<bool>? _activeDialogSession;
+  VoidCallback? _detachActiveDialogListener;
 
   @override
   void didChangeDependencies() {
@@ -175,6 +177,7 @@ class _McpOpsApprovalHostState extends State<_McpOpsApprovalHost> {
     if (identical(_controller, controller)) {
       return;
     }
+    _dismissActiveApprovalDialog('controller changed');
     _controller?.removeListener(_handleApprovalsChanged);
     _controller = controller;
     _controller?.addListener(_handleApprovalsChanged);
@@ -184,10 +187,24 @@ class _McpOpsApprovalHostState extends State<_McpOpsApprovalHost> {
   @override
   void dispose() {
     _dialogRetryTimer?.cancel();
+    _dismissActiveApprovalDialog('host disposed');
     _controller?.removeListener(_handleApprovalsChanged);
     _controller = null;
-    _activeDialogContext = null;
     super.dispose();
+  }
+
+  void _dismissActiveApprovalDialog(String reason) {
+    _detachActiveDialogListener?.call();
+    _detachActiveDialogListener = null;
+    final session = _activeDialogSession;
+    _activeDialogSession = null;
+    if (session == null) return;
+    unawaited(
+      session.dismiss(
+        logTag: 'openhand_app',
+        logAction: 'dismiss MCP ops approval: $reason',
+      ),
+    );
   }
 
   void _handleApprovalsChanged() {
@@ -253,6 +270,7 @@ class _McpOpsApprovalHostState extends State<_McpOpsApprovalHost> {
     var rescheduled = false;
     var resolvedElsewhere = false;
     var listenerAttached = false;
+    OpenHandDialogSession<bool>? dialogSession;
     late final VoidCallback listener;
     void detachListener() {
       if (!listenerAttached) {
@@ -262,42 +280,48 @@ class _McpOpsApprovalHostState extends State<_McpOpsApprovalHost> {
       listenerAttached = false;
     }
 
-    listener = () {
-      final stillPending = controller.opsApprovalRequests.any(
-        (item) => item.id == approval.id,
-      );
-      if (stillPending) {
-        return;
-      }
-      resolvedElsewhere = true;
-      final dialogContext = _activeDialogContext;
-      final navigator = dialogContext == null || !dialogContext.mounted
-          ? null
-          : Navigator.maybeOf(dialogContext, rootNavigator: true);
-      if (navigator != null && navigator.canPop()) {
-        navigator.pop();
-      }
-    };
-    controller.addListener(listener);
-    listenerAttached = true;
-
     try {
-      final approved = await showMcpOpsWriteApprovalDialogOnNavigator(
+      final session = showMcpOpsWriteApprovalDialogOnNavigator(
         navigator,
         context: context,
         request: approval,
-        onDialogContext: (dialogContext) {
-          _activeDialogContext = dialogContext;
-        },
       );
-      _activeDialogContext = null;
-      if (!mounted || resolvedElsewhere) {
+      dialogSession = session;
+      _activeDialogSession = session;
+      listener = () {
+        final stillPending = controller.opsApprovalRequests.any(
+          (item) => item.id == approval.id,
+        );
+        if (stillPending) return;
+        resolvedElsewhere = true;
+        detachListener();
+        unawaited(
+          session.dismiss(
+            logTag: 'openhand_app',
+            logAction: 'dismiss externally resolved MCP ops approval',
+          ),
+        );
+      };
+      controller.addListener(listener);
+      listenerAttached = true;
+      _detachActiveDialogListener = detachListener;
+      // Recheck after listener registration so an approval resolved between
+      // the initial pending check and route presentation cannot get stranded.
+      listener();
+
+      final approved = await session.result;
+      if (!mounted ||
+          resolvedElsewhere ||
+          !identical(_controller, controller)) {
         return;
       }
       detachListener();
       controller.resolveOpsApproval(approval.id, approved: approved == true);
     } catch (error, stack) {
       silentLog('openhand_app', 'present MCP ops approval', error, stack);
+      if (!mounted || !identical(_controller, controller)) {
+        return;
+      }
       if (!resolvedElsewhere && _approvalStillPending(controller, approval)) {
         rescheduled = true;
         _rescheduleApprovalDialog(controller, approval);
@@ -311,7 +335,10 @@ class _McpOpsApprovalHostState extends State<_McpOpsApprovalHost> {
       if (_presentingDialogId == approval.id) {
         _presentingDialogId = null;
       }
-      _activeDialogContext = null;
+      if (identical(_activeDialogSession, dialogSession)) {
+        _activeDialogSession = null;
+        _detachActiveDialogListener = null;
+      }
       if (mounted && !rescheduled) {
         _handleApprovalsChanged();
       }
@@ -343,7 +370,6 @@ class _McpOpsApprovalHostState extends State<_McpOpsApprovalHost> {
     if (_presentingDialogId == approval.id) {
       _presentingDialogId = null;
     }
-    _activeDialogContext = null;
     if (!_approvalStillPending(controller, approval)) {
       return;
     }
