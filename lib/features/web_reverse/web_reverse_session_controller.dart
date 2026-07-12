@@ -3479,12 +3479,6 @@ class WebReverseSessionController extends ChangeNotifier {
   /// dashboard 网络/控制台缓冲全部保留以便回看。
   Future<void> stopBrowser() async {
     if (_stopped) return;
-    silentLog(
-      'web_reverse_session_controller',
-      'stopBrowser',
-      'user requested',
-      StackTrace.current,
-    );
     _stopAliveWatchdog();
     // 关 screencast → 关 CDP → kill 进程；artifacts / dock 不动。
     if (_screencastActive) {
@@ -3573,12 +3567,6 @@ class WebReverseSessionController extends ChangeNotifier {
     final restoreScreencastWidth = _screencastWidth;
     final restoreScreencastHeight = _screencastHeight;
     final restoreScreencastQuality = _screencastQuality;
-    silentLog(
-      'web_reverse_session_controller',
-      'restartBrowser',
-      'user requested',
-      StackTrace.current,
-    );
     try {
       // 先确保旧资源完全释放。
       await stopBrowser();

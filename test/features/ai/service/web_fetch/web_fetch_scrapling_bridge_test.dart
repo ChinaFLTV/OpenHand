@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:openhand/app/support/safe_subprocess.dart';
 import 'package:openhand/features/ai/model/ai_web_fetch_settings.dart';
 import 'package:openhand/features/ai/service/web_engine/web_engine_http_exception.dart';
 import 'package:openhand/features/ai/service/web_fetch/web_fetch_scrapling_bridge.dart';
@@ -198,15 +199,147 @@ void main() {
       expect(currentProcess.receivedCommands, hasLength(2));
     });
   });
+
+  group('WebFetchScraplingBridge runtime commands', () {
+    test('serializes install and uninstall commands', () async {
+      final firstStarted = Completer<void>();
+      final releaseFirst = Completer<void>();
+      var invocationCount = 0;
+      var activeCount = 0;
+      var maxActiveCount = 0;
+      final bridge = _createBridge(
+        (_, _) async => _successfulProcess(pid: 501),
+        runtimeCommandRunner:
+            ({
+              required executable,
+              required arguments,
+              required timeout,
+              required tag,
+              required workingDirectory,
+              required environment,
+              required onStdoutLine,
+              required onStderrLine,
+            }) async {
+              invocationCount += 1;
+              activeCount += 1;
+              if (activeCount > maxActiveCount) maxActiveCount = activeCount;
+              if (invocationCount == 1) {
+                firstStarted.complete();
+                await releaseFirst.future;
+              }
+              activeCount -= 1;
+              return _successfulRuntimeCommandResult(invocationCount);
+            },
+      );
+      addTearDown(() => bridge.dispose());
+
+      final install = bridge.installRuntime(settings: _settings);
+      await firstStarted.future;
+      final uninstall = bridge.uninstallRuntime(settings: _settings);
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+
+      expect(invocationCount, 1);
+      expect(maxActiveCount, 1);
+
+      releaseFirst.complete();
+      await Future.wait<void>([install, uninstall]);
+
+      expect(invocationCount, 2);
+      expect(maxActiveCount, 1);
+      expect(bridge.lastProbe.runtimeInstalled, isFalse);
+    });
+
+    test('keeps fetch queued until a runtime command finishes', () async {
+      final commandStarted = Completer<void>();
+      final releaseCommand = Completer<void>();
+      var bridgeStartCount = 0;
+      final bridge = _createBridge(
+        (_, _) async {
+          bridgeStartCount += 1;
+          return _successfulProcess(pid: 502);
+        },
+        runtimeCommandRunner:
+            ({
+              required executable,
+              required arguments,
+              required timeout,
+              required tag,
+              required workingDirectory,
+              required environment,
+              required onStdoutLine,
+              required onStderrLine,
+            }) async {
+              commandStarted.complete();
+              await releaseCommand.future;
+              return _successfulRuntimeCommandResult(1);
+            },
+      );
+      addTearDown(() => bridge.dispose());
+
+      final install = bridge.installRuntime(settings: _settings);
+      await commandStarted.future;
+      final fetch = _fetch(bridge);
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+
+      expect(bridgeStartCount, 0);
+
+      releaseCommand.complete();
+      await install;
+      expect((await fetch).content, 'fake content');
+      expect(bridgeStartCount, 1);
+    });
+
+    test('bounds retained runtime events and individual lines', () async {
+      final bridge = _createBridge(
+        (_, _) async => _successfulProcess(pid: 503),
+        runtimeCommandRunner:
+            ({
+              required executable,
+              required arguments,
+              required timeout,
+              required tag,
+              required workingDirectory,
+              required environment,
+              required onStdoutLine,
+              required onStderrLine,
+            }) async {
+              for (var index = 0; index < 449; index += 1) {
+                onStdoutLine('line-$index');
+              }
+              onStdoutLine('x' * 5000);
+              return _successfulRuntimeCommandResult(1);
+            },
+      );
+      addTearDown(() => bridge.dispose());
+
+      final events = await bridge
+          .installRuntimeStreaming(settings: _settings)
+          .toList();
+      final stdoutEvents = events
+          .where(
+            (event) => event.type == WebFetchScraplingRuntimeEventType.stdout,
+          )
+          .toList();
+
+      expect(stdoutEvents, hasLength(399));
+      expect(stdoutEvents.first.line, 'line-51');
+      expect(stdoutEvents.last.line, endsWith('…'));
+      expect(stdoutEvents.last.line.length, 4001);
+      expect(events.length, lessThanOrEqualTo(403));
+    });
+  });
 }
 
 WebFetchScraplingBridge _createBridge(
-  Future<Process> Function(String pythonExecutable, String helperPath) starter,
-) {
+  Future<Process> Function(String pythonExecutable, String helperPath)
+  starter, {
+  WebFetchScraplingRuntimeCommandRunner? runtimeCommandRunner,
+}) {
   return WebFetchScraplingBridge.withDependencies(
     pythonExecutableResolver: (_) async => 'fake-python',
     helperPathProvider: () async => '/fake/bridge.py',
     processStarter: starter,
+    runtimeCommandRunner: runtimeCommandRunner,
     startupTimeoutOverride: const Duration(milliseconds: 30),
     processStopTimeout: const Duration(milliseconds: 10),
     processKillTimeout: const Duration(milliseconds: 10),
@@ -253,6 +386,16 @@ _FakeProcess _successfulProcess({required int pid}) {
     });
   });
   return process;
+}
+
+TrackedProcessLineLogResult _successfulRuntimeCommandResult(int pid) {
+  return TrackedProcessLineLogResult(
+    pid: pid,
+    exitCode: 0,
+    timedOut: false,
+    stdout: '',
+    stderr: '',
+  );
 }
 
 class _FakeProcess implements Process {
