@@ -14284,6 +14284,10 @@ class _McpFormattedResultPanelState extends State<_McpFormattedResultPanel> {
   String? _formatBadge;
   String? _truncationNote;
   bool _isFormatting = false;
+  int _formatRevision = 0;
+  String? _pendingFormatText;
+  int? _pendingFormatRevision;
+  Future<void>? _formatWorker;
 
   @override
   void initState() {
@@ -14299,8 +14303,14 @@ class _McpFormattedResultPanelState extends State<_McpFormattedResultPanel> {
     }
   }
 
-  Future<void> _processResult() async {
+  void _processResult() {
+    final revision = ++_formatRevision;
     final rawText = _extractMcpContentForDisplay(widget.result);
+
+    // 同步结果优先，并丢弃尚未开始的旧格式化任务。已经进入 isolate 的任务
+    // 无法取消，但 revision 会阻止其迟到结果覆盖当前内容。
+    _pendingFormatText = null;
+    _pendingFormatRevision = null;
 
     // 超大响应直接跳过格式化，截断展示原始文本
     if (rawText.length > _kSkipFormatThreshold) {
@@ -14308,6 +14318,7 @@ class _McpFormattedResultPanelState extends State<_McpFormattedResultPanel> {
         rawText.substring(0, _kMaxDisplaySize),
         null,
         _kTruncationNote(rawText.length),
+        revision,
       );
       return;
     }
@@ -14320,36 +14331,78 @@ class _McpFormattedResultPanelState extends State<_McpFormattedResultPanel> {
         display,
         _formatBadgeLabel(formatted),
         truncated ? _kTruncationNote(formatted.text.length) : null,
+        revision,
       );
       return;
     }
 
-    // 大内容切到 isolate 格式化，避免卡 UI
+    // 每个面板最多保留一个 isolate 任务，并只处理最新待办，避免快速结果
+    // 更新时无界派生并行格式化任务。
     if (!mounted) return;
     setState(() => _isFormatting = true);
-
-    final formattedMap = await Isolate.run(
-      () => formatStructuredTextForDisplay(rawText).toMap(),
-    );
-    if (!mounted) return;
-
-    final formatted = StructuredTextFormatResult.fromMap(formattedMap);
-    final (display, truncated) = _capDisplay(formatted.text);
-    _applyDisplay(
-      display,
-      _formatBadgeLabel(formatted),
-      truncated ? _kTruncationNote(formatted.text.length) : null,
-    );
+    _pendingFormatText = rawText;
+    _pendingFormatRevision = revision;
+    _formatWorker ??= _drainFormatQueue();
   }
 
-  void _applyDisplay(String text, String? badge, String? truncation) {
-    if (!mounted) return;
+  Future<void> _drainFormatQueue() async {
+    while (mounted) {
+      final rawText = _pendingFormatText;
+      final revision = _pendingFormatRevision;
+      if (rawText == null || revision == null) break;
+      _pendingFormatText = null;
+      _pendingFormatRevision = null;
+
+      try {
+        final formattedMap = await Isolate.run(
+          () => formatStructuredTextForDisplay(rawText).toMap(),
+        );
+        if (!mounted || revision != _formatRevision) continue;
+
+        final formatted = StructuredTextFormatResult.fromMap(formattedMap);
+        final (display, truncated) = _capDisplay(formatted.text);
+        _applyDisplay(
+          display,
+          _formatBadgeLabel(formatted),
+          truncated ? _kTruncationNote(formatted.text.length) : null,
+          revision,
+        );
+      } catch (error, stack) {
+        silentLog('mcp_view', 'format tool result', error, stack);
+        if (!mounted || revision != _formatRevision) continue;
+        final (display, truncated) = _capDisplay(rawText);
+        _applyDisplay(
+          display,
+          null,
+          truncated ? _kTruncationNote(rawText.length) : null,
+          revision,
+        );
+      }
+    }
+    _formatWorker = null;
+  }
+
+  void _applyDisplay(
+    String text,
+    String? badge,
+    String? truncation,
+    int revision,
+  ) {
+    if (!mounted || revision != _formatRevision) return;
     setState(() {
       _displayText = text;
       _formatBadge = badge;
       _truncationNote = truncation;
       _isFormatting = false;
     });
+  }
+
+  @override
+  void dispose() {
+    _formatRevision += 1;
+    _pendingFormatText = null;
+    _pendingFormatRevision = null;
+    super.dispose();
   }
 
   static (String, bool) _capDisplay(String text) {
