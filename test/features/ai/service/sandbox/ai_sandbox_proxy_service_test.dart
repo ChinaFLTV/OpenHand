@@ -19,6 +19,10 @@ void main() {
         () => AiSandboxProxyService(maxConcurrentConnections: 0),
         throwsArgumentError,
       );
+      expect(
+        () => AiSandboxProxyService(maxHttpRequestBodyBytes: 0),
+        throwsArgumentError,
+      );
     });
 
     test('forwards HTTP with normalized target and proxy headers', () async {
@@ -87,6 +91,230 @@ void main() {
       expect(request, isNot(contains('should-not-be-forwarded.invalid')));
       expect(request, isNot(contains('Proxy-Authorization')));
       expect(request, endsWith('data'));
+    });
+
+    test(
+      'drops a pipelined request after one validated HTTP request',
+      () async {
+        final upstream = await ServerSocket.bind(
+          InternetAddress.loopbackIPv4,
+          0,
+        );
+        addTearDown(upstream.close);
+        final upstreamRequest = Completer<String>();
+        final upstreamSubscription = upstream.listen((socket) {
+          unawaited(() async {
+            final reader = _TestSocketReader(socket);
+            try {
+              final header = await reader.readHeader();
+              final remainder = await reader.readToEnd();
+              upstreamRequest.complete('$header${latin1.decode(remainder)}');
+              socket.add(
+                latin1.encode(
+                  'HTTP/1.1 200 OK\r\n'
+                  'Content-Length: 2\r\n'
+                  'Connection: close\r\n'
+                  '\r\n'
+                  'ok',
+                ),
+              );
+              await socket.close();
+            } catch (error, stack) {
+              if (!upstreamRequest.isCompleted) {
+                upstreamRequest.completeError(error, stack);
+              }
+              socket.destroy();
+            } finally {
+              await reader.cancel();
+            }
+          }());
+        });
+        addTearDown(upstreamSubscription.cancel);
+
+        final lease = await _startProxy();
+        addTearDown(lease.close);
+        final client = await Socket.connect(
+          InternetAddress.loopbackIPv4,
+          lease.httpPort,
+        );
+        addTearDown(client.destroy);
+        final reader = _TestSocketReader(client);
+        addTearDown(reader.cancel);
+        client.add(
+          latin1.encode(
+            'GET http://127.0.0.1:${upstream.port}/allowed HTTP/1.1\r\n'
+            'Host: 127.0.0.1:${upstream.port}\r\n'
+            'Connection: keep-alive\r\n'
+            '\r\n'
+            'GET http://blocked.invalid/secret HTTP/1.1\r\n'
+            'Host: blocked.invalid\r\n'
+            '\r\n',
+          ),
+        );
+
+        final response = latin1.decode(
+          await reader.readToEnd().timeout(const Duration(seconds: 2)),
+        );
+        final forwarded = await upstreamRequest.future.timeout(
+          const Duration(seconds: 2),
+        );
+        expect(response, contains('HTTP/1.1 200 OK'));
+        expect(forwarded, startsWith('GET /allowed HTTP/1.1\r\n'));
+        expect(forwarded, contains('Connection: close\r\n'));
+        expect(forwarded, isNot(contains('blocked.invalid')));
+        expect(forwarded, isNot(contains('/secret')));
+      },
+    );
+
+    test('bounds chunked forwarding to one validated request', () async {
+      final upstream = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(upstream.close);
+      final upstreamRequest = Completer<String>();
+      final upstreamSubscription = upstream.listen((socket) {
+        unawaited(() async {
+          final reader = _TestSocketReader(socket);
+          try {
+            final header = await reader.readHeader();
+            final body = await reader.readToEnd();
+            upstreamRequest.complete('$header${latin1.decode(body)}');
+            socket.add(
+              latin1.encode(
+                'HTTP/1.1 200 OK\r\n'
+                'Content-Length: 2\r\n'
+                'Connection: close\r\n'
+                '\r\n'
+                'ok',
+              ),
+            );
+            await socket.close();
+          } catch (error, stack) {
+            if (!upstreamRequest.isCompleted) {
+              upstreamRequest.completeError(error, stack);
+            }
+            socket.destroy();
+          } finally {
+            await reader.cancel();
+          }
+        }());
+      });
+      addTearDown(upstreamSubscription.cancel);
+
+      final lease = await _startProxy();
+      addTearDown(lease.close);
+      final client = await Socket.connect(
+        InternetAddress.loopbackIPv4,
+        lease.httpPort,
+      );
+      addTearDown(client.destroy);
+      final reader = _TestSocketReader(client);
+      addTearDown(reader.cancel);
+      client.add(
+        latin1.encode(
+          'POST http://127.0.0.1:${upstream.port}/upload HTTP/1.1\r\n'
+          'Host: 127.0.0.1:${upstream.port}\r\n'
+          'Transfer-Encoding: chunked\r\n'
+          'Trailer: X-Result, Authorization\r\n'
+          '\r\n'
+          '4 \t; trace \t= "safe\\ value"\r\ndata\r\n'
+          '0\r\nX-Result: complete\r\nAuthorization: secret\r\n\r\n'
+          'GET http://blocked.invalid/secret HTTP/1.1\r\n'
+          'Host: blocked.invalid\r\n'
+          '\r\n',
+        ),
+      );
+
+      final response = latin1.decode(
+        await reader.readToEnd().timeout(const Duration(seconds: 2)),
+      );
+      final forwarded = await upstreamRequest.future.timeout(
+        const Duration(seconds: 2),
+      );
+      expect(response, contains('HTTP/1.1 200 OK'));
+      expect(forwarded, contains('4\r\ndata\r\n'));
+      expect(forwarded, isNot(contains('trace')));
+      expect(forwarded, contains('0\r\n\r\n'));
+      expect(forwarded, isNot(contains('X-Result')));
+      expect(forwarded, isNot(contains('Authorization: secret')));
+      expect(forwarded, isNot(contains('Trailer:')));
+      expect(forwarded, isNot(contains('blocked.invalid')));
+    });
+
+    test('rejects malformed chunk extensions before forwarding data', () async {
+      final upstream = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(upstream.close);
+      final upstreamRequest = Completer<String>();
+      final upstreamSubscription = upstream.listen((socket) {
+        unawaited(() async {
+          final reader = _TestSocketReader(socket);
+          try {
+            final header = await reader.readHeader();
+            final body = await reader.readToEnd();
+            upstreamRequest.complete('$header${latin1.decode(body)}');
+          } catch (error, stack) {
+            if (!upstreamRequest.isCompleted) {
+              upstreamRequest.completeError(error, stack);
+            }
+          } finally {
+            await reader.cancel();
+            socket.destroy();
+          }
+        }());
+      });
+      addTearDown(upstreamSubscription.cancel);
+
+      final lease = await _startProxy();
+      addTearDown(lease.close);
+      final client = await Socket.connect(
+        InternetAddress.loopbackIPv4,
+        lease.httpPort,
+      );
+      addTearDown(client.destroy);
+      final reader = _TestSocketReader(client);
+      addTearDown(reader.cancel);
+      client.add(
+        latin1.encode(
+          'POST http://127.0.0.1:${upstream.port}/upload HTTP/1.1\r\n'
+          'Host: 127.0.0.1:${upstream.port}\r\n'
+          'Transfer-Encoding: chunked\r\n'
+          '\r\n'
+          '4;broken="unterminated\r\ndata\r\n0\r\n\r\n',
+        ),
+      );
+
+      await reader.readToEnd().timeout(const Duration(seconds: 2));
+      final forwarded = await upstreamRequest.future.timeout(
+        const Duration(seconds: 2),
+      );
+      expect(forwarded, isNot(contains('broken=')));
+      expect(forwarded, isNot(contains('data')));
+    });
+
+    test('rejects an oversized declared HTTP request body', () async {
+      final lease = await _startProxy(
+        service: AiSandboxProxyService(maxHttpRequestBodyBytes: 4),
+      );
+      addTearDown(lease.close);
+      final client = await Socket.connect(
+        InternetAddress.loopbackIPv4,
+        lease.httpPort,
+      );
+      addTearDown(client.destroy);
+      final reader = _TestSocketReader(client);
+      addTearDown(reader.cancel);
+      client.add(
+        latin1.encode(
+          'POST http://127.0.0.1:9/upload HTTP/1.1\r\n'
+          'Host: 127.0.0.1:9\r\n'
+          'Content-Length: 5\r\n'
+          '\r\n'
+          '12345',
+        ),
+      );
+
+      final response = latin1.decode(
+        await reader.readToEnd().timeout(const Duration(seconds: 1)),
+      );
+      expect(response, startsWith('HTTP/1.1 413 '));
     });
 
     test('rejects a header whose terminator exceeds the limit', () async {
@@ -224,6 +452,121 @@ void main() {
         await reader.readToEnd().timeout(const Duration(seconds: 1)),
       );
       expect(response, startsWith('HTTP/1.1 400 '));
+    });
+
+    test('rejects Connection tokens that remove request framing', () async {
+      final lease = await _startProxy();
+      addTearDown(lease.close);
+
+      for (final framingHeader in <String>[
+        'content-length',
+        'transfer-encoding',
+      ]) {
+        final client = await Socket.connect(
+          InternetAddress.loopbackIPv4,
+          lease.httpPort,
+        );
+        final reader = _TestSocketReader(client);
+        try {
+          client.add(
+            latin1.encode(
+              'POST http://127.0.0.1:9/ HTTP/1.1\r\n'
+              'Host: 127.0.0.1:9\r\n'
+              'Connection: $framingHeader\r\n'
+              '${framingHeader == 'content-length' ? 'Content-Length: 4\r\n' : 'Transfer-Encoding: chunked\r\n'}'
+              '\r\n',
+            ),
+          );
+
+          final response = latin1.decode(
+            await reader.readToEnd().timeout(const Duration(seconds: 1)),
+          );
+          expect(response, startsWith('HTTP/1.1 400 '));
+        } finally {
+          await reader.cancel();
+          client.destroy();
+        }
+      }
+    });
+
+    test('rejects duplicate Connection headers before filtering', () async {
+      final lease = await _startProxy();
+      addTearDown(lease.close);
+      final client = await Socket.connect(
+        InternetAddress.loopbackIPv4,
+        lease.httpPort,
+      );
+      addTearDown(client.destroy);
+      final reader = _TestSocketReader(client);
+      addTearDown(reader.cancel);
+      client.add(
+        latin1.encode(
+          'POST http://127.0.0.1:9/ HTTP/1.1\r\n'
+          'Host: 127.0.0.1:9\r\n'
+          'Connection: content-length\r\n'
+          'Connection: close\r\n'
+          'Content-Length: 4\r\n'
+          '\r\n',
+        ),
+      );
+
+      final response = latin1.decode(
+        await reader.readToEnd().timeout(const Duration(seconds: 1)),
+      );
+      expect(response, startsWith('HTTP/1.1 400 '));
+    });
+
+    test('requires canonical HTTP request framing numbers', () async {
+      final lease = await _startProxy();
+      addTearDown(lease.close);
+
+      for (final contentLength in <String>['+4', '-0']) {
+        final client = await Socket.connect(
+          InternetAddress.loopbackIPv4,
+          lease.httpPort,
+        );
+        final reader = _TestSocketReader(client);
+        try {
+          client.add(
+            latin1.encode(
+              'POST http://127.0.0.1:9/ HTTP/1.1\r\n'
+              'Host: 127.0.0.1:9\r\n'
+              'Content-Length: $contentLength\r\n'
+              '\r\n',
+            ),
+          );
+          final response = latin1.decode(
+            await reader.readToEnd().timeout(const Duration(seconds: 1)),
+          );
+          expect(response, startsWith('HTTP/1.1 400 '));
+        } finally {
+          await reader.cancel();
+          client.destroy();
+        }
+      }
+
+      final client = await Socket.connect(
+        InternetAddress.loopbackIPv4,
+        lease.httpPort,
+      );
+      final reader = _TestSocketReader(client);
+      try {
+        client.add(
+          latin1.encode(
+            'POST http://127.0.0.1:9/ HTTP/1.0\r\n'
+            'Host: 127.0.0.1:9\r\n'
+            'Transfer-Encoding: chunked\r\n'
+            '\r\n',
+          ),
+        );
+        final response = latin1.decode(
+          await reader.readToEnd().timeout(const Duration(seconds: 1)),
+        );
+        expect(response, startsWith('HTTP/1.1 400 '));
+      } finally {
+        await reader.cancel();
+        client.destroy();
+      }
     });
 
     test('bounds a stalled handshake and closes the client', () async {

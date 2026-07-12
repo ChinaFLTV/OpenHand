@@ -6304,11 +6304,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     required AiModelConfig selectedModel,
   }) {
     final settingsController = context.read<SettingsController>();
-    final menuAnimationSettings = settingsController.menuAnimationSettings;
     final colorScheme = Theme.of(context).colorScheme;
     return showAnimatedDialog<_GoalStartDialogResult>(
       context: context,
-      settings: menuAnimationSettings,
       barrierColor: colorScheme.scrim.withValues(alpha: 0.38),
       builder: (dialogContext) => _GoalStartOptionsDialog(
         availableModels: settingsController.aiModels,
@@ -6334,36 +6332,19 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       settingsController,
       sessionController.currentSession,
     );
-    final menuAnimationSettings = settingsController.menuAnimationSettings;
     final colorScheme = Theme.of(context).colorScheme;
-    return showAnimatedDialog<AiCreationOptions>(
+    return showAnimatedModalSheet<AiCreationOptions>(
       context: context,
-      settings: menuAnimationSettings,
       barrierColor: colorScheme.scrim.withValues(alpha: 0.38),
-      builder: (dialogContext) {
-        final dialogColorScheme = Theme.of(dialogContext).colorScheme;
-        return Align(
-          alignment: Alignment.bottomCenter,
-          child: SafeArea(
-            top: false,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
-              child: Material(
-                elevation: 14,
-                clipBehavior: Clip.antiAlias,
-                color: dialogColorScheme.surfaceContainerHigh,
-                surfaceTintColor: dialogColorScheme.surfaceTint,
-                borderRadius: BorderRadius.circular(28),
-                child: _CreationOptionsSheet(
-                  mode: mode,
-                  initial: initial,
-                  selectedModel: selectedModel,
-                ),
-              ),
-            ),
-          ),
-        );
-      },
+      showDragHandle: false,
+      elevation: 14,
+      margin: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+      builder: (dialogContext) => _CreationOptionsSheet(
+        mode: mode,
+        initial: initial,
+        selectedModel: selectedModel,
+      ),
     );
   }
 

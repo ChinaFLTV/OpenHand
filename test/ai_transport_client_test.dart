@@ -567,6 +567,43 @@ void main() {
   });
 
   test(
+    'multipart bounds zero-length files before exhausting handles',
+    () async {
+      final tempDir = await Directory.systemTemp.createTemp('transport_count_');
+      final empty = File('${tempDir.path}/empty.bin');
+      await empty.create();
+      var sendCount = 0;
+      final transport = AiTransportClient(
+        client: _CallbackClient((_) {
+          sendCount += 1;
+          throw StateError('HTTP must not start above the file-count limit.');
+        }),
+      );
+      try {
+        await expectLater(
+          transport.sendMultipart(
+            uri: uri,
+            method: 'POST',
+            headers: const <String, String>{},
+            body: <String, Object?>{
+              'files': List<AiMultipartUploadFile>.filled(
+                3,
+                AiMultipartUploadFile(filePath: empty.path),
+              ),
+            },
+            timeout: const Duration(seconds: 1),
+            maxFiles: 2,
+          ),
+          throwsA(isA<HttpException>()),
+        );
+        expect(sendCount, 0);
+      } finally {
+        await tempDir.delete(recursive: true);
+      }
+    },
+  );
+
+  test(
     'multipart file inspection consumes the request timeout budget',
     () async {
       var sendCount = 0;
@@ -594,21 +631,50 @@ void main() {
     },
   );
 
-  test('multipart upload is locked to the inspected file length', () async {
+  test('multipart streams a stable file from one inspected handle', () async {
+    final tempDir = await Directory.systemTemp.createTemp('transport_stable_');
+    final upload = File('${tempDir.path}/upload.bin');
+    await upload.writeAsBytes(const <int>[1, 2, 3, 4]);
+    int? declaredLength;
+    int? emittedLength;
+    final transport = AiTransportClient(
+      client: _CallbackClient((request) async {
+        declaredLength = request.contentLength;
+        emittedLength = (await request.finalize().toBytes()).length;
+        return http.StreamedResponse(
+          Stream<List<int>>.value('{}'.codeUnits),
+          200,
+          request: request,
+          headers: const <String, String>{'content-type': 'application/json'},
+        );
+      }),
+    );
+    try {
+      final response = await transport.sendMultipart(
+        uri: uri,
+        method: 'POST',
+        headers: const <String, String>{},
+        body: <String, Object?>{
+          'file': AiMultipartUploadFile(filePath: upload.path),
+        },
+        timeout: const Duration(seconds: 1),
+      );
+
+      expect(response.statusCode, 200);
+      expect(emittedLength, declaredLength);
+    } finally {
+      await tempDir.delete(recursive: true);
+    }
+  });
+
+  test('multipart rejects growth between inspection and handle open', () async {
     final tempDir = await Directory.systemTemp.createTemp('transport_growth_');
     final upload = File('${tempDir.path}/upload.bin');
     await upload.writeAsBytes(const <int>[1, 2]);
-    int? declaredLength;
-    int? emittedLength;
+    var sendCount = 0;
     final client = _CallbackClient((request) async {
-      declaredLength = request.contentLength;
-      emittedLength = (await request.finalize().toBytes()).length;
-      return http.StreamedResponse(
-        Stream<List<int>>.value('{}'.codeUnits),
-        200,
-        request: request,
-        headers: const <String, String>{'content-type': 'application/json'},
-      );
+      sendCount += 1;
+      throw StateError('A changed upload must be rejected before HTTP.');
     });
     final transport = AiTransportClient(
       client: client,
@@ -621,7 +687,47 @@ void main() {
       },
     );
     try {
-      await transport.sendMultipart(
+      await expectLater(
+        transport.sendMultipart(
+          uri: uri,
+          method: 'POST',
+          headers: const <String, String>{},
+          body: <String, Object?>{
+            'file': AiMultipartUploadFile(filePath: upload.path),
+          },
+          timeout: const Duration(seconds: 1),
+        ),
+        throwsA(isA<FileSystemException>()),
+      );
+
+      expect(sendCount, 0);
+      expect(await upload.length(), 5);
+    } finally {
+      await tempDir.delete(recursive: true);
+    }
+  });
+
+  test('multipart growth cannot extend the declared upload snapshot', () async {
+    final tempDir = await Directory.systemTemp.createTemp('transport_stream_');
+    final upload = File('${tempDir.path}/upload.bin');
+    await upload.writeAsBytes(const <int>[1, 2]);
+    int? declaredLength;
+    int? emittedLength;
+    final transport = AiTransportClient(
+      client: _CallbackClient((request) async {
+        await upload.writeAsBytes(const <int>[3], mode: FileMode.append);
+        declaredLength = request.contentLength;
+        emittedLength = (await request.finalize().toBytes()).length;
+        return http.StreamedResponse(
+          Stream<List<int>>.value('{}'.codeUnits),
+          200,
+          request: request,
+          headers: const <String, String>{'content-type': 'application/json'},
+        );
+      }),
+    );
+    try {
+      final response = await transport.sendMultipart(
         uri: uri,
         method: 'POST',
         headers: const <String, String>{},
@@ -631,8 +737,38 @@ void main() {
         timeout: const Duration(seconds: 1),
       );
 
+      expect(response.statusCode, 200);
       expect(emittedLength, declaredLength);
-      expect(await upload.length(), 5);
+      expect(await upload.length(), 3);
+    } finally {
+      await tempDir.delete(recursive: true);
+    }
+  });
+
+  test('multipart rejects same-length changes after inspection', () async {
+    final tempDir = await Directory.systemTemp.createTemp('transport_mutate_');
+    final upload = File('${tempDir.path}/upload.bin');
+    await upload.writeAsBytes(const <int>[1, 2, 3, 4]);
+    final transport = AiTransportClient(
+      client: _CallbackClient((request) async {
+        await upload.writeAsBytes(const <int>[4, 3, 2, 1]);
+        await request.finalize().drain<void>();
+        throw StateError('A changed upload must not complete HTTP sending.');
+      }),
+    );
+    try {
+      await expectLater(
+        transport.sendMultipart(
+          uri: uri,
+          method: 'POST',
+          headers: const <String, String>{},
+          body: <String, Object?>{
+            'file': AiMultipartUploadFile(filePath: upload.path),
+          },
+          timeout: const Duration(seconds: 1),
+        ),
+        throwsA(isA<FileSystemException>()),
+      );
     } finally {
       await tempDir.delete(recursive: true);
     }

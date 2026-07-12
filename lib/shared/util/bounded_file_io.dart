@@ -20,6 +20,121 @@ abstract interface class BoundedFileHandleOwner {
   Future<void> releaseFile(RandomAccessFile file);
 }
 
+/// Serializes timed asynchronous operations on one [RandomAccessFile] and
+/// defers release when a timed-out operation is still pending. Dart forbids a
+/// second async operation (including close) on the same handle until the first
+/// settles, so immediate cleanup after [Future.timeout] can otherwise leak the
+/// handle permanently.
+final class BoundedRandomAccessFileLease {
+  BoundedRandomAccessFileLease(
+    this.file, {
+    Future<void> Function(RandomAccessFile file)? release,
+    Duration cleanupTimeout = _boundedFileCleanupTimeout,
+  }) : _release = release,
+       _cleanupTimeout = cleanupTimeout {
+    if (cleanupTimeout <= Duration.zero) {
+      throw ArgumentError.value(
+        cleanupTimeout,
+        'cleanupTimeout',
+        'Must be positive.',
+      );
+    }
+  }
+
+  final RandomAccessFile file;
+  final Future<void> Function(RandomAccessFile file)? _release;
+  final Duration _cleanupTimeout;
+  Future<void>? _pendingOperation;
+  Future<void>? _releaseFuture;
+  bool _lateReleaseScheduled = false;
+  bool _cleanupRequested = false;
+
+  Future<T> run<T>(
+    Future<T> Function(RandomAccessFile file) operation, {
+    required Duration timeout,
+  }) async {
+    if (timeout <= Duration.zero) {
+      throw ArgumentError.value(timeout, 'timeout', 'Must be positive.');
+    }
+    if (_cleanupRequested ||
+        _pendingOperation != null ||
+        _releaseFuture != null) {
+      throw StateError('Random-access file lease is not available.');
+    }
+    final operationFuture = operation(file);
+    final settled = operationFuture.then<void>(
+      (_) {},
+      onError: (Object _, StackTrace _) {},
+    );
+    _pendingOperation = settled;
+    var deadlineExpired = false;
+    try {
+      return await operationFuture.timeout(
+        timeout,
+        onTimeout: () {
+          deadlineExpired = true;
+          throw TimeoutException(
+            'Random-access file operation timed out.',
+            timeout,
+          );
+        },
+      );
+    } finally {
+      if (!deadlineExpired && identical(_pendingOperation, settled)) {
+        _pendingOperation = null;
+      }
+    }
+  }
+
+  Future<void> close({required Duration timeout}) {
+    if (timeout <= Duration.zero) {
+      throw ArgumentError.value(timeout, 'timeout', 'Must be positive.');
+    }
+    if (_pendingOperation != null) {
+      throw StateError(
+        'Cannot close a random-access file while an operation is pending.',
+      );
+    }
+    _cleanupRequested = true;
+    return _releaseFile().timeout(timeout);
+  }
+
+  /// Releases now when idle, or schedules one release after a timed-out
+  /// operation settles. Cleanup errors stay secondary to the caller's result.
+  Future<void> cleanup() async {
+    _cleanupRequested = true;
+    final pending = _pendingOperation;
+    if (pending != null) {
+      if (!_lateReleaseScheduled) {
+        _lateReleaseScheduled = true;
+        unawaited(_releaseAfterPending(pending));
+      }
+      return;
+    }
+    try {
+      await _releaseFile().timeout(_cleanupTimeout);
+    } catch (_) {
+      // Cleanup must not replace the primary file or timeout failure.
+    }
+  }
+
+  Future<void> _releaseAfterPending(Future<void> pending) async {
+    await pending;
+    _pendingOperation = null;
+    try {
+      await _releaseFile().timeout(_cleanupTimeout);
+    } catch (_) {
+      // The original operation has already timed out.
+    }
+  }
+
+  Future<void> _releaseFile() {
+    return _releaseFuture ??= Future<void>.sync(
+      () => _release?.call(file) ?? file.close(),
+    );
+  }
+}
+
 /// A deterministic safety failure while retaining a local file in memory.
 final class BoundedFileReadException implements IOException {
   const BoundedFileReadException({
@@ -85,33 +200,42 @@ Future<Uint8List> readBoundedFileBytes(
     return remaining < idleTimeout ? remaining : idleTimeout;
   }
 
-  RandomAccessFile? input;
-  Future<void>? closeFuture;
+  BoundedRandomAccessFileLease? lease;
   try {
     final preflightStat = await file.stat().timeout(nextOperationTimeout());
-    if (!_isRegularFile(preflightStat)) {
+    if (!isRegularFileStat(preflightStat)) {
       throw FileSystemException('Path is not a regular file.', file.path);
     }
     final openFuture = file.open();
     if (handleOwner != null) {
-      input = await handleOwner.acquireFile(
+      final input = await handleOwner.acquireFile(
         openFuture,
         timeout: nextOperationTimeout(),
       );
+      lease = BoundedRandomAccessFileLease(
+        input,
+        release: handleOwner.releaseFile,
+      );
     } else {
       try {
-        input = await openFuture.timeout(nextOperationTimeout());
+        lease = BoundedRandomAccessFileLease(
+          await openFuture.timeout(nextOperationTimeout()),
+        );
       } on TimeoutException {
         unawaited(_closeLateFile(openFuture));
         rethrow;
       }
     }
+    final activeLease = lease;
 
     final initialStat = await file.stat().timeout(nextOperationTimeout());
-    if (!_isRegularFile(initialStat)) {
+    if (!isRegularFileStat(initialStat)) {
       throw FileSystemException('Path is not a regular file.', file.path);
     }
-    final initialLength = await input.length().timeout(nextOperationTimeout());
+    final initialLength = await activeLease.run(
+      (input) => input.length(),
+      timeout: nextOperationTimeout(),
+    );
     if (initialLength < 0 || initialLength > maxBytes) {
       throw BoundedFileReadException(
         filePath: file.path,
@@ -126,9 +250,10 @@ Future<Uint8List> readBoundedFileBytes(
       final end = offset + _boundedFileReadChunkBytes < initialLength
           ? offset + _boundedFileReadChunkBytes
           : initialLength;
-      final read = await input
-          .readInto(bytes, offset, end)
-          .timeout(nextOperationTimeout());
+      final read = await activeLease.run(
+        (input) => input.readInto(bytes, offset, end),
+        timeout: nextOperationTimeout(),
+      );
       if (read <= 0) {
         throw BoundedFileReadException(
           filePath: file.path,
@@ -139,7 +264,10 @@ Future<Uint8List> readBoundedFileBytes(
       offset += read;
     }
 
-    final finalLength = await input.length().timeout(nextOperationTimeout());
+    final finalLength = await activeLease.run(
+      (input) => input.length(),
+      timeout: nextOperationTimeout(),
+    );
     if (finalLength != initialLength) {
       throw BoundedFileReadException(
         filePath: file.path,
@@ -150,7 +278,7 @@ Future<Uint8List> readBoundedFileBytes(
 
     if (verifyUnchanged) {
       final finalStat = await file.stat().timeout(nextOperationTimeout());
-      if (!_isRegularFile(finalStat) ||
+      if (!isRegularFileStat(finalStat) ||
           finalStat.size != initialLength ||
           finalStat.modified != initialStat.modified ||
           finalStat.changed != initialStat.changed) {
@@ -162,29 +290,18 @@ Future<Uint8List> readBoundedFileBytes(
       }
     }
 
-    final activeInput = input;
-    closeFuture = handleOwner?.releaseFile(activeInput) ?? activeInput.close();
-    await closeFuture.timeout(nextOperationTimeout());
-    input = null;
-    closeFuture = null;
+    await activeLease.close(timeout: nextOperationTimeout());
+    lease = null;
     return bytes;
   } finally {
     stopwatch.stop();
-    final activeInput = input;
-    if (activeInput != null) {
-      try {
-        await (closeFuture ??
-                handleOwner?.releaseFile(activeInput) ??
-                activeInput.close())
-            .timeout(_boundedFileCleanupTimeout);
-      } catch (_) {
-        // Preserve the primary file, size, or timeout error.
-      }
-    }
+    await lease?.cleanup();
   }
 }
 
-bool _isRegularFile(FileStat stat) {
+/// Distinguishes regular files from FIFOs/devices on POSIX while preserving
+/// the portable [FileSystemEntityType] check on Windows.
+bool isRegularFileStat(FileStat stat) {
   if (stat.type != FileSystemEntityType.file) return false;
   if (Platform.isWindows) return true;
   return (stat.mode & _posixFileTypeMask) == _posixRegularFileType;

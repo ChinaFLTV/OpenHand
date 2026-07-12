@@ -1,13 +1,16 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
+import 'package:crypto/crypto.dart';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 
 import '../../../../app/support/system_proxy.dart';
 import '../../../../shared/net/http_response_utils.dart';
 import '../../../../shared/net/http_status_utils.dart';
+import '../../../../shared/util/bounded_file_io.dart';
 import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 
@@ -15,18 +18,16 @@ const String _contentTypeHeaderName = 'content-type';
 const Duration _fallbackRequestTimeout = Duration(seconds: 60);
 const Duration _responseIdleTimeout = Duration(seconds: 30);
 const Duration _fileCleanupTimeout = Duration(seconds: 2);
+const int _multipartReadChunkBytes = 64 * 1024;
 const int defaultAiTransportResponseMaxBytes = 16 * kBytesPerMiB;
 const int defaultAiTransportErrorResponseMaxBytes = kBytesPerMiB;
 const int defaultAiTransportDownloadMaxBytes = 64 * kBytesPerMiB;
 const int defaultAiTransportFileDownloadMaxBytes = 512 * kBytesPerMiB;
 const int defaultAiMultipartFileMaxBytes = 256 * kBytesPerMiB;
 const int defaultAiMultipartTotalMaxBytes = 512 * kBytesPerMiB;
+const int defaultAiMultipartMaxFiles = 128;
 
 typedef AiMultipartFileLengthReader = Future<int> Function(String filePath);
-
-Future<int> _readMultipartFileLength(String filePath) {
-  return File(filePath).length();
-}
 
 class AiMultipartUploadFile {
   const AiMultipartUploadFile({required this.filePath, this.filename});
@@ -53,6 +54,18 @@ class AiTransportFileDownloadResult {
   final String? reasonPhrase;
 
   bool get isSuccess => isHttpSuccessStatus(statusCode);
+}
+
+class _AiMultipartFileLease {
+  _AiMultipartFileLease({required this.file, required RandomAccessFile input})
+    : input = BoundedRandomAccessFileLease(input);
+
+  final File file;
+  final BoundedRandomAccessFileLease input;
+  late final int length;
+  late final List<String> chunkDigests;
+
+  Future<void> close() => input.cleanup();
 }
 
 class AiTransportResponseException implements Exception {
@@ -85,12 +98,11 @@ class AiTransportClient {
     AiMultipartFileLengthReader? multipartFileLengthReader,
   }) : _client = client ?? SystemProxyResolver.instance.createHttpClient(),
        _ownsClient = client == null,
-       _multipartFileLengthReader =
-           multipartFileLengthReader ?? _readMultipartFileLength;
+       _multipartFileLengthReader = multipartFileLengthReader;
 
   final http.Client _client;
   final bool _ownsClient;
-  final AiMultipartFileLengthReader _multipartFileLengthReader;
+  final AiMultipartFileLengthReader? _multipartFileLengthReader;
   final Set<Completer<void>> _activeAborts = <Completer<void>>{};
   bool _disposed = false;
 
@@ -262,13 +274,27 @@ class AiTransportClient {
     int maxResponseBytes = defaultAiTransportResponseMaxBytes,
     int maxFileBytes = defaultAiMultipartFileMaxBytes,
     int maxTotalBytes = defaultAiMultipartTotalMaxBytes,
+    int maxFiles = defaultAiMultipartMaxFiles,
   }) async {
     _requirePositive(maxResponseBytes, 'maxResponseBytes');
     _requirePositive(maxFileBytes, 'maxFileBytes');
     _requirePositive(maxTotalBytes, 'maxTotalBytes');
+    _requirePositive(maxFiles, 'maxFiles');
     final effectiveTimeout = _effectiveRequestTimeout(timeout);
     return _runAbortable((abort) async {
       final preparation = Stopwatch()..start();
+      final fileLeases = <_AiMultipartFileLease>{};
+      Duration remainingPreparation() {
+        final remaining = effectiveTimeout - preparation.elapsed;
+        if (remaining <= Duration.zero) {
+          throw TimeoutException(
+            'Multipart request preparation exceeded its time limit.',
+            effectiveTimeout,
+          );
+        }
+        return remaining;
+      }
+
       try {
         final request = http.AbortableMultipartRequest(
           method.toUpperCase(),
@@ -280,33 +306,77 @@ class AiTransportClient {
           request.headers[key] = value;
         });
         var totalFileBytes = 0;
+        var fileCount = 0;
 
         Future<void> addFile(String field, AiMultipartUploadFile upload) async {
-          final remaining = effectiveTimeout - preparation.elapsed;
-          if (remaining <= Duration.zero) {
-            throw TimeoutException(
-              'Multipart request preparation exceeded its time limit.',
-              effectiveTimeout,
-            );
-          }
-          final length = await _multipartFileLengthReader(upload.filePath)
-              .timeout(
-                remaining,
-                onTimeout: () => throw TimeoutException(
-                  'Multipart file inspection exceeded the request time limit.',
-                  effectiveTimeout,
-                ),
-              );
-          if (length < 0) {
-            throw FileSystemException(
-              'Multipart file reported an invalid negative size.',
-              upload.filePath,
-            );
-          }
-          if (length > maxFileBytes) {
+          if (fileCount >= maxFiles) {
             throw HttpException(
-              'Multipart file exceeds the $maxFileBytes byte limit.',
-              uri: Uri.file(upload.filePath),
+              'Multipart request exceeds the $maxFiles file limit.',
+              uri: uri,
+            );
+          }
+          fileCount += 1;
+          final file = File(upload.filePath);
+          final reader = _multipartFileLengthReader;
+          int? inspectedLength;
+          if (reader != null) {
+            inspectedLength = await reader(upload.filePath).timeout(
+              remainingPreparation(),
+              onTimeout: () => throw TimeoutException(
+                'Multipart file inspection exceeded the request time limit.',
+                effectiveTimeout,
+              ),
+            );
+            _validateMultipartFileLength(
+              inspectedLength,
+              file: file,
+              maxFileBytes: maxFileBytes,
+              requestUri: uri,
+            );
+          }
+
+          final preflightStat = await file.stat().timeout(
+            remainingPreparation(),
+          );
+          if (!isRegularFileStat(preflightStat)) {
+            throw FileSystemException(
+              'Multipart upload path is not a regular file.',
+              file.path,
+            );
+          }
+          final input = await _openMultipartInput(file, remainingPreparation);
+          final lease = _AiMultipartFileLease(file: file, input: input);
+          fileLeases.add(lease);
+          final initialStat = await file.stat().timeout(remainingPreparation());
+          if (!isRegularFileStat(initialStat) ||
+              initialStat.size != preflightStat.size ||
+              initialStat.modified != preflightStat.modified ||
+              initialStat.changed != preflightStat.changed) {
+            throw FileSystemException(
+              'Multipart upload path changed before it was opened.',
+              file.path,
+            );
+          }
+          final length = await lease.input.run(
+            (input) => input.length(),
+            timeout: remainingPreparation(),
+          );
+          _validateMultipartFileLength(
+            length,
+            file: file,
+            maxFileBytes: maxFileBytes,
+            requestUri: uri,
+          );
+          if (length != initialStat.size) {
+            throw FileSystemException(
+              'Multipart upload path changed before it was opened.',
+              file.path,
+            );
+          }
+          if (inspectedLength != null && inspectedLength != length) {
+            throw FileSystemException(
+              'Multipart upload file changed during inspection.',
+              file.path,
             );
           }
           if (totalFileBytes > maxTotalBytes - length) {
@@ -316,10 +386,16 @@ class AiTransportClient {
             );
           }
           totalFileBytes += length;
+          lease.length = length;
+          lease.chunkDigests = await _snapshotMultipartFile(
+            lease,
+            initialStat: initialStat,
+            remainingBudget: remainingPreparation,
+          );
           request.files.add(
             http.MultipartFile(
               field,
-              File(upload.filePath).openRead(0, length),
+              _readMultipartFile(lease),
               length,
               filename: upload.filename ?? p.basename(upload.filePath),
             ),
@@ -348,13 +424,7 @@ class AiTransportClient {
             uri: uri,
           );
         }
-        final remaining = effectiveTimeout - preparation.elapsed;
-        if (remaining <= Duration.zero) {
-          throw TimeoutException(
-            'Multipart request preparation exceeded its time limit.',
-            effectiveTimeout,
-          );
-        }
+        final remaining = remainingPreparation();
         return await _send(
           request,
           abort: abort,
@@ -363,8 +433,183 @@ class AiTransportClient {
         );
       } finally {
         preparation.stop();
+        await _closeMultipartFileLeases(fileLeases);
       }
     });
+  }
+
+  void _validateMultipartFileLength(
+    int length, {
+    required File file,
+    required int maxFileBytes,
+    required Uri requestUri,
+  }) {
+    if (length < 0) {
+      throw FileSystemException(
+        'Multipart file reported an invalid negative size.',
+        file.path,
+      );
+    }
+    if (length > maxFileBytes) {
+      throw HttpException(
+        'Multipart file exceeds the $maxFileBytes byte limit.',
+        uri: file.path.isEmpty ? requestUri : Uri.file(file.path),
+      );
+    }
+  }
+
+  Future<RandomAccessFile> _openMultipartInput(
+    File file,
+    Duration Function() remainingBudget,
+  ) async {
+    final timeout = remainingBudget();
+    final openFuture = file.open();
+    try {
+      return await openFuture.timeout(
+        timeout,
+        onTimeout: () => throw TimeoutException(
+          'Opening a multipart upload file timed out.',
+          timeout,
+        ),
+      );
+    } on TimeoutException {
+      unawaited(_closeLateMultipartInput(openFuture));
+      rethrow;
+    }
+  }
+
+  Stream<List<int>> _readMultipartFile(_AiMultipartFileLease lease) async* {
+    try {
+      var remaining = lease.length;
+      var chunkIndex = 0;
+      while (remaining > 0) {
+        final chunkLength = remaining < _multipartReadChunkBytes
+            ? remaining
+            : _multipartReadChunkBytes;
+        final chunk = await _readExactMultipartChunk(
+          lease,
+          chunkLength,
+          () => _responseIdleTimeout,
+        );
+        if (chunkIndex >= lease.chunkDigests.length ||
+            sha256.convert(chunk).toString() !=
+                lease.chunkDigests[chunkIndex]) {
+          throw FileSystemException(
+            'Multipart upload file changed after it was inspected.',
+            lease.file.path,
+          );
+        }
+        remaining -= chunk.length;
+        chunkIndex += 1;
+        yield chunk;
+      }
+      if (chunkIndex != lease.chunkDigests.length) {
+        throw FileSystemException(
+          'Multipart upload snapshot is inconsistent.',
+          lease.file.path,
+        );
+      }
+    } finally {
+      try {
+        await lease.close().timeout(_fileCleanupTimeout);
+      } catch (_) {
+        // The request result remains primary; outer lease cleanup retries the
+        // same in-flight close without retaining a second file handle.
+      }
+    }
+  }
+
+  Future<List<String>> _snapshotMultipartFile(
+    _AiMultipartFileLease lease, {
+    required FileStat initialStat,
+    required Duration Function() remainingBudget,
+  }) async {
+    Duration nextOperationTimeout() =>
+        _shorterDuration(_responseIdleTimeout, remainingBudget());
+
+    final digests = <String>[];
+    var remaining = lease.length;
+    while (remaining > 0) {
+      final chunkLength = remaining < _multipartReadChunkBytes
+          ? remaining
+          : _multipartReadChunkBytes;
+      final chunk = await _readExactMultipartChunk(
+        lease,
+        chunkLength,
+        nextOperationTimeout,
+      );
+      remaining -= chunk.length;
+      digests.add(sha256.convert(chunk).toString());
+    }
+
+    final finalLength = await lease.input.run(
+      (input) => input.length(),
+      timeout: nextOperationTimeout(),
+    );
+    final finalStat = await lease.file.stat().timeout(nextOperationTimeout());
+    if (finalLength != lease.length ||
+        !isRegularFileStat(finalStat) ||
+        finalStat.size != lease.length ||
+        finalStat.modified != initialStat.modified ||
+        finalStat.changed != initialStat.changed) {
+      throw FileSystemException(
+        'Multipart upload file changed while it was inspected.',
+        lease.file.path,
+      );
+    }
+    await lease.input.run(
+      (input) => input.setPosition(0),
+      timeout: nextOperationTimeout(),
+    );
+    return List<String>.unmodifiable(digests);
+  }
+
+  Future<Uint8List> _readExactMultipartChunk(
+    _AiMultipartFileLease lease,
+    int length,
+    Duration Function() nextOperationTimeout,
+  ) async {
+    final chunk = Uint8List(length);
+    var offset = 0;
+    while (offset < length) {
+      final read = await lease.input.run(
+        (input) => input.readInto(chunk, offset, length),
+        timeout: nextOperationTimeout(),
+      );
+      if (read <= 0) {
+        throw FileSystemException(
+          'Multipart upload file changed while it was being read.',
+          lease.file.path,
+        );
+      }
+      offset += read;
+    }
+    return chunk;
+  }
+
+  Future<void> _closeLateMultipartInput(
+    Future<RandomAccessFile> openFuture,
+  ) async {
+    try {
+      final input = await openFuture;
+      await input.close().timeout(_fileCleanupTimeout);
+    } catch (_) {
+      // Preparation has already failed; late cleanup stays best effort.
+    }
+  }
+
+  Future<void> _closeMultipartFileLeases(
+    Set<_AiMultipartFileLease> leases,
+  ) async {
+    await Future.wait<void>(<Future<void>>[
+      for (final lease in leases)
+        lease.close().timeout(_fileCleanupTimeout).catchError((
+          Object _,
+          StackTrace _,
+        ) {
+          // Preserve the primary request/preparation result.
+        }),
+    ]);
   }
 
   Future<http.Response> get({

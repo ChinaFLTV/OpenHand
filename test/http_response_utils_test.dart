@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:openhand/shared/net/http_response_utils.dart';
@@ -35,7 +34,7 @@ void main() {
 
     controller.add(const <int>[1, 2, 3, 4, 5]);
 
-    await expectLater(read, throwsA(isA<HttpException>()));
+    await expectLater(read, throwsA(isA<ByteStreamSizeLimitException>()));
     await cancelled.future.timeout(const Duration(seconds: 1));
     await controller.close();
   });

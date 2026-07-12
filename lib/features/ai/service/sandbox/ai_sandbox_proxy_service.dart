@@ -5,6 +5,7 @@ import 'dart:typed_data';
 
 import '../../../../app/support/silent_log.dart';
 import '../../../../shared/net/tcp_port_utils.dart';
+import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../model/ai_deny_command_rule.dart';
 import '../../model/ai_sandbox_settings.dart';
@@ -49,12 +50,14 @@ class AiSandboxProxyService {
     Duration idleTimeout = const Duration(minutes: 10),
     Duration maxConnectionDuration = const Duration(hours: 6),
     int maxConcurrentConnections = 128,
+    int maxHttpRequestBodyBytes = 512 * kBytesPerMiB,
   }) : _limits = _SandboxProxyLimits(
          handshakeTimeout: handshakeTimeout,
          connectionTimeout: connectionTimeout,
          idleTimeout: idleTimeout,
          maxConnectionDuration: maxConnectionDuration,
          maxConcurrentConnections: maxConcurrentConnections,
+         maxHttpRequestBodyBytes: maxHttpRequestBodyBytes,
        );
 
   final _SandboxProxyLimits _limits;
@@ -74,6 +77,7 @@ class _SandboxProxyLimits {
     required this.idleTimeout,
     required this.maxConnectionDuration,
     required this.maxConcurrentConnections,
+    required this.maxHttpRequestBodyBytes,
   }) {
     if (handshakeTimeout <= Duration.zero) {
       throw ArgumentError.value(
@@ -110,6 +114,13 @@ class _SandboxProxyLimits {
         'Must be positive.',
       );
     }
+    if (maxHttpRequestBodyBytes < 1) {
+      throw ArgumentError.value(
+        maxHttpRequestBodyBytes,
+        'maxHttpRequestBodyBytes',
+        'Must be positive.',
+      );
+    }
   }
 
   final Duration handshakeTimeout;
@@ -117,12 +128,16 @@ class _SandboxProxyLimits {
   final Duration idleTimeout;
   final Duration maxConnectionDuration;
   final int maxConcurrentConnections;
+  final int maxHttpRequestBodyBytes;
 }
 
 class _SandboxProxyInstance {
   _SandboxProxyInstance(this.settings, this.limits);
 
   static const Duration _resourceCloseTimeout = Duration(seconds: 2);
+  static const int _httpBodyChunkBytes = 64 * 1024;
+  static const int _httpChunkLineMaxBytes = 8 * 1024;
+  static const int _httpTrailerMaxBytes = 64 * 1024;
 
   final AiSandboxSettings settings;
   final _SandboxProxyLimits limits;
@@ -370,6 +385,12 @@ class _SandboxProxyInstance {
     _SocketReadBuffer reader,
     _HttpProxyRequest request,
   ) async {
+    final contentLength = request.contentLength;
+    if (contentLength != null &&
+        contentLength > limits.maxHttpRequestBodyBytes) {
+      _writeHttpError(client, 413, 'Proxy request body is too large.');
+      return;
+    }
     final remote = await Socket.connect(
       request.host,
       request.port,
@@ -382,10 +403,141 @@ class _SandboxProxyInstance {
     try {
       remote.add(latin1.encode(request.forwardHeader));
       await remote.flush().timeout(limits.connectionTimeout);
-      _startTunnel(client: client, remote: remote, reader: reader);
+      _startTunnel(
+        client: client,
+        remote: remote,
+        reader: reader,
+        clientInput: _readSingleHttpRequestBody(reader, request),
+      );
     } catch (_) {
       if (!reader.isHandedOff) remote.destroy();
       rethrow;
+    }
+  }
+
+  Stream<Uint8List> _readSingleHttpRequestBody(
+    _SocketReadBuffer reader,
+    _HttpProxyRequest request,
+  ) async* {
+    final contentLength = request.contentLength;
+    if (contentLength != null) {
+      var remaining = contentLength;
+      while (remaining > 0) {
+        reader.restartReadWindow(limits.idleTimeout);
+        final chunk = await reader.readExactly(
+          remaining < _httpBodyChunkBytes ? remaining : _httpBodyChunkBytes,
+        );
+        if (chunk == null) {
+          throw const SocketException(
+            'Proxy client closed before sending its declared request body.',
+          );
+        }
+        remaining -= chunk.length;
+        yield chunk;
+      }
+      return;
+    }
+    if (!request.isChunked) return;
+
+    var bodyBytes = 0;
+    while (true) {
+      reader.restartReadWindow(limits.idleTimeout);
+      final sizeLine = await reader.readLine(maxBytes: _httpChunkLineMaxBytes);
+      if (sizeLine == null) {
+        throw const SocketException(
+          'Proxy client closed before completing a chunked request body.',
+        );
+      }
+      final sizeText = latin1.decode(sizeLine.sublist(0, sizeLine.length - 2));
+      if (_HttpProxyRequest._containsInvalidHeaderText(
+        sizeText,
+        allowTab: true,
+      )) {
+        throw const FormatException('Invalid HTTP chunk extension.');
+      }
+      final extensionIndex = sizeText.indexOf(';');
+      var chunkSizeEnd = extensionIndex < 0 ? sizeText.length : extensionIndex;
+      if (extensionIndex >= 0) {
+        while (chunkSizeEnd > 0 &&
+            _HttpProxyRequest.isHttpBadWhitespace(
+              sizeText.codeUnitAt(chunkSizeEnd - 1),
+            )) {
+          chunkSizeEnd -= 1;
+        }
+      }
+      final chunkSizeText = sizeText.substring(0, chunkSizeEnd);
+      if (chunkSizeText.length > 16 ||
+          !_HttpProxyRequest._chunkSizePattern.hasMatch(chunkSizeText)) {
+        throw const FormatException('Invalid HTTP chunk size.');
+      }
+      if (extensionIndex >= 0 &&
+          !_HttpProxyRequest.isValidChunkExtensions(
+            sizeText.substring(extensionIndex),
+          )) {
+        throw const FormatException('Invalid HTTP chunk extension.');
+      }
+      final chunkSize = int.tryParse(chunkSizeText, radix: 16);
+      if (chunkSize == null || chunkSize < 0) {
+        throw const FormatException('Invalid HTTP chunk size.');
+      }
+      if (chunkSize > limits.maxHttpRequestBodyBytes - bodyBytes) {
+        throw const FormatException('Proxy request body is too large.');
+      }
+      // Chunk extensions are hop-by-hop metadata. Strip them after validating
+      // their grammar so the upstream parser receives canonical framing.
+      yield Uint8List.fromList(latin1.encode('$chunkSizeText\r\n'));
+      if (chunkSize == 0) {
+        var trailerBytes = 0;
+        while (true) {
+          reader.restartReadWindow(limits.idleTimeout);
+          final trailer = await reader.readLine(
+            maxBytes: _httpChunkLineMaxBytes,
+          );
+          if (trailer == null) {
+            throw const SocketException(
+              'Proxy client closed before completing HTTP trailers.',
+            );
+          }
+          trailerBytes += trailer.length;
+          if (trailerBytes > _httpTrailerMaxBytes) {
+            throw const FormatException('HTTP trailers are too large.');
+          }
+          if (trailer.length == 2) {
+            yield Uint8List.fromList(const <int>[13, 10]);
+            return;
+          }
+          if (!_HttpProxyRequest.isValidTrailerLine(
+            latin1.decode(trailer.sublist(0, trailer.length - 2)),
+          )) {
+            throw const FormatException('Invalid HTTP trailer.');
+          }
+          // Request trailers can alter routing, authentication, or payload
+          // interpretation in parser-specific ways. Consume them within the
+          // bounded trailer budget but never forward them across the sandbox.
+        }
+      }
+
+      var remaining = chunkSize;
+      while (remaining > 0) {
+        reader.restartReadWindow(limits.idleTimeout);
+        final chunk = await reader.readExactly(
+          remaining < _httpBodyChunkBytes ? remaining : _httpBodyChunkBytes,
+        );
+        if (chunk == null) {
+          throw const SocketException(
+            'Proxy client closed before completing an HTTP chunk.',
+          );
+        }
+        remaining -= chunk.length;
+        yield chunk;
+      }
+      reader.restartReadWindow(limits.idleTimeout);
+      final terminator = await reader.readExactly(2);
+      if (terminator == null || terminator[0] != 13 || terminator[1] != 10) {
+        throw const FormatException('Invalid HTTP chunk terminator.');
+      }
+      yield terminator;
+      bodyBytes += chunkSize;
     }
   }
 
@@ -600,7 +752,9 @@ class _SandboxProxyInstance {
     required Socket client,
     required Socket remote,
     required _SocketReadBuffer reader,
+    Stream<Uint8List>? clientInput,
   }) {
+    if (clientInput != null) reader.claimManagedRead();
     late final _SocketTunnel tunnel;
     tunnel = _SocketTunnel(
       client: client,
@@ -610,11 +764,14 @@ class _SandboxProxyInstance {
       onClosed: () {
         _tunnels.remove(tunnel);
         _clientSockets.remove(client);
+        if (clientInput != null) {
+          unawaited(reader.cancel(destroySocket: false));
+        }
       },
     );
     _tunnels.add(tunnel);
     try {
-      tunnel.start(reader.handOff());
+      tunnel.start(clientInput ?? reader.handOff());
     } catch (_) {
       unawaited(tunnel.close());
       rethrow;
@@ -625,6 +782,7 @@ class _SandboxProxyInstance {
     final reason = switch (status) {
       400 => 'Bad Request',
       403 => 'Forbidden',
+      413 => 'Payload Too Large',
       431 => 'Request Header Fields Too Large',
       502 => 'Bad Gateway',
       504 => 'Gateway Timeout',
@@ -788,18 +946,28 @@ class _SocketTunnel {
 
   void _halfClose(Socket socket) {
     unawaited(
-      socket.close().catchError((Object error, StackTrace stack) {
-        if (!_closed) {
-          silentLog('ai_sandbox_proxy', 'half close', error, stack);
-        }
-        socket.destroy();
-      }),
+      socket
+          .close()
+          .timeout(
+            _cancelTimeout,
+            onTimeout: () {
+              socket.destroy();
+            },
+          )
+          .catchError((Object error, StackTrace stack) {
+            if (!_closed) {
+              silentLog('ai_sandbox_proxy', 'half close', error, stack);
+            }
+            socket.destroy();
+          }),
     );
   }
 
   void _onPipeError(String where, Object error, StackTrace stack) {
     if (_closed) return;
-    silentLog('ai_sandbox_proxy', where, error, stack);
+    if (error is! FormatException && error is! SocketException) {
+      silentLog('ai_sandbox_proxy', where, error, stack);
+    }
     unawaited(close());
   }
 
@@ -849,6 +1017,8 @@ class _HttpProxyRequest {
     required this.port,
     required this.forwardTarget,
     required this.forwardHostHeader,
+    required this.contentLength,
+    required this.isChunked,
   });
 
   final String method;
@@ -859,6 +1029,8 @@ class _HttpProxyRequest {
   final int port;
   final String forwardTarget;
   final String forwardHostHeader;
+  final int? contentLength;
+  final bool isChunked;
 
   static final RegExp _headerLineSeparatorPattern = RegExp(r'\r?\n');
   static final RegExp _requestLineWhitespacePattern = RegExp(r'\s+');
@@ -866,20 +1038,44 @@ class _HttpProxyRequest {
   static final RegExp _headerNamePattern = RegExp(
     r"^[!#$%&'*+.^_`|~0-9A-Za-z-]+$",
   );
+  static final RegExp _contentLengthPattern = RegExp(r'^[0-9]+$');
+  static final RegExp _chunkSizePattern = RegExp(r'^[0-9A-Fa-f]+$');
 
   bool get isConnect => method.toUpperCase() == 'CONNECT';
 
   String get forwardHeader {
     final buffer = StringBuffer()..writeln('$method $forwardTarget $version');
+    final connectionHeaders = <String>{
+      'connection',
+      'keep-alive',
+      'proxy-authenticate',
+      'proxy-authorization',
+      'proxy-connection',
+      'te',
+      'trailer',
+    };
+    for (final line in headerLines) {
+      final separator = line.indexOf(':');
+      if (separator <= 0 ||
+          lowercaseStringFromValue(line.substring(0, separator)) !=
+              'connection') {
+        continue;
+      }
+      connectionHeaders.addAll(
+        line
+            .substring(separator + 1)
+            .split(',')
+            .map(lowercaseStringFromValue)
+            .where((name) => name.isNotEmpty),
+      );
+    }
     var wroteHost = false;
     for (final line in headerLines) {
       final separator = line.indexOf(':');
       final name = separator < 0
           ? ''
           : lowercaseStringFromValue(line.substring(0, separator));
-      if (name == 'proxy-connection' || name == 'proxy-authorization') {
-        continue;
-      }
+      if (connectionHeaders.contains(name)) continue;
       if (name == 'host') {
         if (!wroteHost) buffer.writeln('Host: $forwardHostHeader');
         wroteHost = true;
@@ -888,6 +1084,7 @@ class _HttpProxyRequest {
       buffer.writeln(line);
     }
     if (!wroteHost) buffer.writeln('Host: $forwardHostHeader');
+    buffer.writeln('Connection: close');
     buffer.writeln();
     return buffer.toString().replaceAll('\n', '\r\n');
   }
@@ -916,7 +1113,9 @@ class _HttpProxyRequest {
       if (!_headerNamePattern.hasMatch(rawName)) return null;
       final name = lowercaseStringFromValue(rawName);
       if (name == 'host' && headers.containsKey(name)) return null;
-      if ((name == 'content-length' || name == 'transfer-encoding') &&
+      if ((name == 'connection' ||
+              name == 'content-length' ||
+              name == 'transfer-encoding') &&
           headers.containsKey(name)) {
         return null;
       }
@@ -928,9 +1127,11 @@ class _HttpProxyRequest {
         headers.containsKey('transfer-encoding')) {
       return null;
     }
-    final contentLength = headers['content-length'];
-    if (contentLength != null) {
-      final parsedContentLength = int.tryParse(contentLength);
+    final rawContentLength = headers['content-length'];
+    int? parsedContentLength;
+    if (rawContentLength != null) {
+      if (!_contentLengthPattern.hasMatch(rawContentLength)) return null;
+      parsedContentLength = int.tryParse(rawContentLength);
       if (parsedContentLength == null || parsedContentLength < 0) return null;
     }
     final transferEncoding = lowercaseStringFromValue(
@@ -939,8 +1140,24 @@ class _HttpProxyRequest {
     if (transferEncoding.isNotEmpty && transferEncoding != 'chunked') {
       return null;
     }
+    final isChunked = transferEncoding == 'chunked';
+    if (isChunked && version == 'HTTP/1.0') return null;
+    final isConnect = method.toUpperCase() == 'CONNECT';
+    final connectionTokens = lowercaseStringFromValue(
+      headers['connection'],
+    ).split(',').map((item) => item.trim()).toSet();
+    if (connectionTokens.contains('host') ||
+        connectionTokens.contains('content-length') ||
+        connectionTokens.contains('transfer-encoding')) {
+      return null;
+    }
+    if (!isConnect &&
+        (nullIfBlank(headers['upgrade']) != null ||
+            connectionTokens.contains('upgrade'))) {
+      return null;
+    }
 
-    if (method.toUpperCase() == 'CONNECT') {
+    if (isConnect) {
       final authority = _HostPort.parse(target, defaultPort: 443);
       if (authority == null) return null;
       return _HttpProxyRequest(
@@ -956,6 +1173,8 @@ class _HttpProxyRequest {
           authority.port,
           443,
         ),
+        contentLength: parsedContentLength,
+        isChunked: isChunked,
       );
     }
 
@@ -963,6 +1182,9 @@ class _HttpProxyRequest {
     if (uri != null && uri.hasScheme && uri.host.isNotEmpty) {
       final scheme = uri.scheme.toLowerCase();
       if (scheme != 'http' && scheme != 'https') return null;
+      // HTTPS proxying must use CONNECT; forwarding an absolute HTTPS URI as
+      // plaintext would both fail and misrepresent the policy boundary.
+      if (scheme == 'https') return null;
       if (!_HostPort._isValidHost(uri.host)) return null;
       final defaultPort = scheme == 'https' ? 443 : 80;
       final int port;
@@ -981,6 +1203,8 @@ class _HttpProxyRequest {
         port: port,
         forwardTarget: _originForm(uri),
         forwardHostHeader: _formatHostHeader(uri.host, port, defaultPort),
+        contentLength: parsedContentLength,
+        isChunked: isChunked,
       );
     }
 
@@ -997,6 +1221,8 @@ class _HttpProxyRequest {
       port: authority.port,
       forwardTarget: target.isEmpty ? '/' : target,
       forwardHostHeader: _formatHostHeader(authority.host, authority.port, 80),
+      contentLength: parsedContentLength,
+      isChunked: isChunked,
     );
   }
 
@@ -1022,6 +1248,123 @@ class _HttpProxyRequest {
       }
     }
     return false;
+  }
+
+  static bool isValidTrailerLine(String line) {
+    if (_containsInvalidHeaderText(line, allowTab: true)) return false;
+    final separator = line.indexOf(':');
+    if (separator <= 0 ||
+        !_headerNamePattern.hasMatch(line.substring(0, separator))) {
+      return false;
+    }
+    final name = lowercaseStringFromValue(line.substring(0, separator));
+    return name != 'content-length' &&
+        name != 'host' &&
+        name != 'transfer-encoding';
+  }
+
+  static bool isValidChunkExtensions(String value) {
+    var index = 0;
+    while (index < value.length) {
+      index = _skipHttpBadWhitespace(value, index);
+      if (index == value.length) return true;
+      if (value.codeUnitAt(index) != 0x3b) return false;
+      index += 1;
+      index = _skipHttpBadWhitespace(value, index);
+      final nameStart = index;
+      while (index < value.length &&
+          !isHttpBadWhitespace(value.codeUnitAt(index)) &&
+          value.codeUnitAt(index) != 0x3b &&
+          value.codeUnitAt(index) != 0x3d) {
+        index += 1;
+      }
+      if (nameStart == index ||
+          !_headerNamePattern.hasMatch(value.substring(nameStart, index))) {
+        return false;
+      }
+      index = _skipHttpBadWhitespace(value, index);
+      if (index == value.length || value.codeUnitAt(index) == 0x3b) {
+        continue;
+      }
+      if (value.codeUnitAt(index) != 0x3d) return false;
+
+      index += 1;
+      index = _skipHttpBadWhitespace(value, index);
+      if (index == value.length) return false;
+      if (value.codeUnitAt(index) != 0x22) {
+        final tokenStart = index;
+        while (index < value.length &&
+            !isHttpBadWhitespace(value.codeUnitAt(index)) &&
+            value.codeUnitAt(index) != 0x3b) {
+          index += 1;
+        }
+        if (tokenStart == index ||
+            !_headerNamePattern.hasMatch(value.substring(tokenStart, index))) {
+          return false;
+        }
+        index = _skipHttpBadWhitespace(value, index);
+        if (index < value.length && value.codeUnitAt(index) != 0x3b) {
+          return false;
+        }
+        continue;
+      }
+
+      index += 1;
+      var closed = false;
+      while (index < value.length) {
+        final codeUnit = value.codeUnitAt(index);
+        if (codeUnit == 0x22) {
+          index += 1;
+          closed = true;
+          break;
+        }
+        if (codeUnit == 0x5c) {
+          index += 1;
+          if (index == value.length ||
+              !_isValidQuotedPairCodeUnit(value.codeUnitAt(index))) {
+            return false;
+          }
+          index += 1;
+          continue;
+        }
+        if (!_isValidQuotedTextCodeUnit(codeUnit)) return false;
+        index += 1;
+      }
+      index = _skipHttpBadWhitespace(value, index);
+      if (!closed ||
+          (index < value.length && value.codeUnitAt(index) != 0x3b)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  static bool _isValidQuotedTextCodeUnit(int value) {
+    return value == 0x09 ||
+        value == 0x20 ||
+        value == 0x21 ||
+        (value >= 0x23 && value <= 0x5b) ||
+        (value >= 0x5d && value <= 0x7e) ||
+        (value >= 0x80 && value <= 0xff);
+  }
+
+  static bool _isValidQuotedPairCodeUnit(int value) {
+    return value == 0x09 ||
+        value == 0x20 ||
+        (value >= 0x21 && value <= 0x7e) ||
+        (value >= 0x80 && value <= 0xff);
+  }
+
+  static bool isHttpBadWhitespace(int value) {
+    return value == 0x20 || value == 0x09;
+  }
+
+  static int _skipHttpBadWhitespace(String value, int index) {
+    while (index < value.length &&
+        isHttpBadWhitespace(value.codeUnitAt(index))) {
+      index += 1;
+    }
+    return index;
   }
 }
 
@@ -1114,7 +1457,7 @@ class _SocketReadBuffer {
   static const Duration _cancelTimeout = Duration(seconds: 2);
 
   final Socket socket;
-  final Duration readTimeout;
+  Duration readTimeout;
   final Stopwatch _readStopwatch;
   late final StreamSubscription<Uint8List> _subscription;
   final List<int> _buffer = <int>[];
@@ -1124,11 +1467,32 @@ class _SocketReadBuffer {
   bool _paused = false;
   bool _cancelled = false;
   bool _handedOff = false;
+  bool _managedRead = false;
   bool _done = false;
   Object? _error;
   StackTrace? _stack;
 
-  bool get isHandedOff => _handedOff;
+  bool get isHandedOff => _handedOff || _managedRead;
+
+  void claimManagedRead() {
+    if (_operationActive || _handedOff || _managedRead || _cancelled) {
+      throw StateError('Proxy socket reader cannot be claimed.');
+    }
+    _managedRead = true;
+  }
+
+  void restartReadWindow(Duration timeout) {
+    if (timeout <= Duration.zero) {
+      throw ArgumentError.value(timeout, 'timeout', 'Must be positive.');
+    }
+    if (_operationActive || _handedOff || _cancelled) {
+      throw StateError('Proxy socket reader is not available.');
+    }
+    readTimeout = timeout;
+    _readStopwatch
+      ..reset()
+      ..start();
+  }
 
   Future<String?> readHeader({int maxBytes = _defaultMaxHeaderBytes}) async {
     final effectiveMaxBytes = maxBytes > 0 ? maxBytes : _defaultMaxHeaderBytes;
@@ -1177,8 +1541,38 @@ class _SocketReadBuffer {
     });
   }
 
+  Future<Uint8List?> readLine({required int maxBytes}) async {
+    if (maxBytes < 1 || maxBytes > _defaultMaxHeaderBytes) {
+      throw RangeError.range(maxBytes, 1, _defaultMaxHeaderBytes, 'maxBytes');
+    }
+    return _readBounded(maxBytes + _maxReadAheadBytes, () async {
+      var scannedLength = 0;
+      while (true) {
+        _throwIfErrored();
+        final end = _findCrlf(
+          _buffer,
+          startIndex: scannedLength > 1 ? scannedLength - 1 : 0,
+        );
+        if (end >= 0) {
+          if (end > maxBytes) {
+            throw const FormatException('Proxy line is too large.');
+          }
+          final line = Uint8List.fromList(_buffer.sublist(0, end + 2));
+          _buffer.removeRange(0, end + 2);
+          return line;
+        }
+        if (_buffer.length > maxBytes + 1) {
+          throw const FormatException('Proxy line is too large.');
+        }
+        if (_done) return null;
+        scannedLength = _buffer.length;
+        await _waitForData();
+      }
+    });
+  }
+
   Stream<Uint8List> handOff() {
-    if (_operationActive || _handedOff || _cancelled) {
+    if (_operationActive || _handedOff || _managedRead || _cancelled) {
       throw StateError('Proxy socket reader cannot be handed off.');
     }
     _handedOff = true;
@@ -1238,10 +1632,16 @@ class _SocketReadBuffer {
         await _abortTimedOutRead();
         return null;
       }
-      return await action().timeout(remaining);
-    } on TimeoutException {
-      await _abortTimedOutRead();
-      return null;
+      var deadlineExpired = false;
+      final result = await action().timeout(
+        remaining,
+        onTimeout: () {
+          deadlineExpired = true;
+          return null;
+        },
+      );
+      if (deadlineExpired) await _abortTimedOutRead();
+      return result;
     } finally {
       _activeBufferLimit = 0;
       _operationActive = false;
@@ -1318,6 +1718,14 @@ class _SocketReadBuffer {
       if (bytes[index - 1] == 10 && bytes[index] == 10) {
         return index + 1;
       }
+    }
+    return -1;
+  }
+
+  int _findCrlf(List<int> bytes, {int startIndex = 0}) {
+    final start = startIndex > 0 ? startIndex : 0;
+    for (var index = start; index + 1 < bytes.length; index++) {
+      if (bytes[index] == 13 && bytes[index + 1] == 10) return index;
     }
     return -1;
   }

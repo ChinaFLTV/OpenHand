@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -147,6 +148,114 @@ void main() {
       throwsArgumentError,
     );
   });
+
+  test('lease defers release until a timed-out operation settles', () async {
+    final file = File('${tempDirectory.path}/deferred.bin');
+    await file.writeAsBytes(const <int>[1]);
+    final handle = await file.open();
+    final operation = Completer<int>();
+    final released = Completer<void>();
+    var releaseCount = 0;
+    final lease = BoundedRandomAccessFileLease(
+      handle,
+      release: (file) async {
+        releaseCount += 1;
+        await file.close();
+        released.complete();
+      },
+    );
+
+    await expectLater(
+      lease.run(
+        (_) => operation.future,
+        timeout: const Duration(milliseconds: 20),
+      ),
+      throwsA(isA<TimeoutException>()),
+    );
+    await lease.cleanup();
+    await lease.cleanup();
+    expect(released.isCompleted, isFalse);
+
+    operation.complete(1);
+    await released.future.timeout(const Duration(seconds: 1));
+    await lease.cleanup();
+    expect(releaseCount, 1);
+  });
+
+  test('lease releases after a timed-out operation fails late', () async {
+    final file = File('${tempDirectory.path}/late-error.bin');
+    await file.writeAsBytes(const <int>[1]);
+    final handle = await file.open();
+    final operation = Completer<int>();
+    final released = Completer<void>();
+    final lease = BoundedRandomAccessFileLease(
+      handle,
+      release: (file) async {
+        await file.close();
+        released.complete();
+      },
+    );
+
+    await expectLater(
+      lease.run(
+        (_) => operation.future,
+        timeout: const Duration(milliseconds: 20),
+      ),
+      throwsA(isA<TimeoutException>()),
+    );
+    await lease.cleanup();
+    operation.completeError(StateError('late failure'));
+
+    await released.future.timeout(const Duration(seconds: 1));
+  });
+
+  test(
+    'lease rejects operations after cleanup without invoking them',
+    () async {
+      final file = File('${tempDirectory.path}/closed.bin');
+      await file.writeAsBytes(const <int>[1]);
+      final lease = BoundedRandomAccessFileLease(await file.open());
+      var invoked = false;
+
+      await lease.cleanup();
+
+      await expectLater(
+        lease.run((_) async {
+          invoked = true;
+          return 1;
+        }, timeout: const Duration(seconds: 1)),
+        throwsStateError,
+      );
+      expect(invoked, isFalse);
+    },
+  );
+
+  test(
+    'lease distinguishes an operation TimeoutException from its deadline',
+    () async {
+      final file = File('${tempDirectory.path}/source-timeout.bin');
+      await file.writeAsBytes(const <int>[1]);
+      final lease = BoundedRandomAccessFileLease(await file.open());
+
+      await expectLater(
+        lease.run<int>(
+          (_) => Future<int>.error(
+            TimeoutException('The underlying operation timed out.'),
+          ),
+          timeout: const Duration(seconds: 1),
+        ),
+        throwsA(isA<TimeoutException>()),
+      );
+      expect(
+        await lease.run(
+          (input) => input.length(),
+          timeout: const Duration(seconds: 1),
+        ),
+        1,
+      );
+      await lease.close(timeout: const Duration(seconds: 1));
+    },
+  );
 }
 
 class _RecordingFileHandleOwner implements BoundedFileHandleOwner {

@@ -5,6 +5,13 @@ import 'dart:typed_data';
 
 const Duration _byteStreamCancelTimeout = Duration(milliseconds: 500);
 
+final class ByteStreamSizeLimitException extends HttpException {
+  ByteStreamSizeLimitException(this.maxBytes)
+    : super('Byte stream exceeds the $maxBytes byte limit.');
+
+  final int maxBytes;
+}
+
 /// Reads an HTTP response into memory with explicit idle, total, and size
 /// limits. Callers remain responsible for closing the owning [HttpClient].
 Future<Uint8List> readBoundedHttpResponseBytes(
@@ -27,7 +34,7 @@ Future<Uint8List> readBoundedHttpResponseBytes(
     );
   }
   if (response.contentLength > maxBytes) {
-    throw HttpException('HTTP response exceeds the $maxBytes byte limit.');
+    throw ByteStreamSizeLimitException(maxBytes);
   }
 
   return readBoundedByteStream(
@@ -188,9 +195,7 @@ Stream<List<int>> limitByteStream(
             resetIdleTimer();
             if (chunk.length > maxBytes - receivedBytes) {
               terminate(
-                HttpException(
-                  'HTTP response exceeds the $maxBytes byte limit.',
-                ),
+                ByteStreamSizeLimitException(maxBytes),
                 StackTrace.current,
               );
               return;
@@ -369,10 +374,7 @@ Future<Uint8List> _consumeByteStream(
           return;
         }
         if (maxBytes != null && nextByteCount > maxBytes) {
-          fail(
-            HttpException('HTTP response exceeds the $maxBytes byte limit.'),
-            StackTrace.current,
-          );
+          fail(ByteStreamSizeLimitException(maxBytes), StackTrace.current);
           return;
         }
         receivedBytes = nextByteCount;

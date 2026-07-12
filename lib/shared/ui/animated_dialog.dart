@@ -1441,10 +1441,12 @@ Future<T?> showAnimatedModalSheet<T>({
   bool useRootNavigator = true,
   RouteSettings? routeSettings,
   bool showDragHandle = true,
+  double elevation = 8,
   Color? backgroundColor,
   ShapeBorder? shape,
   EdgeInsetsGeometry margin = const EdgeInsets.fromLTRB(8, 0, 8, 8),
 }) {
+  assert(elevation >= 0, 'Modal sheet elevation must be non-negative.');
   return showAnimatedDialog<T>(
     context: context,
     settings: settings,
@@ -1487,7 +1489,7 @@ Future<T?> showAnimatedModalSheet<T>({
             constraints: BoxConstraints.tightFor(width: sheetWidth),
             child: Material(
               type: MaterialType.card,
-              elevation: 8,
+              elevation: elevation,
               color: backgroundColor ?? colorScheme.surfaceContainerHigh,
               surfaceTintColor: colorScheme.surfaceTint,
               shape: sheetShape,

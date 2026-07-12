@@ -44,6 +44,9 @@ class McpOpsToolInvocationContext {
 const int _mcpOpsRequestBodyMaxBytes = 4 * kBytesPerMiB;
 const Duration _mcpOpsRequestBodyIdleTimeout = Duration(seconds: 10);
 const Duration _mcpOpsRequestBodyTotalTimeout = Duration(seconds: 30);
+const int _mcpOpsMaxConcurrentRequests = 64;
+const int _mcpOpsMaxBatchItems = 128;
+const Duration _mcpOpsRequestProcessingTimeout = Duration(minutes: 2);
 
 class McpOpsRequestBodyTooLargeException implements Exception {
   const McpOpsRequestBodyTooLargeException({
@@ -187,6 +190,8 @@ class McpServerOpsRuntime {
     int maxRequestBodyBytes = _mcpOpsRequestBodyMaxBytes,
     Duration requestBodyIdleTimeout = _mcpOpsRequestBodyIdleTimeout,
     Duration requestBodyTotalTimeout = _mcpOpsRequestBodyTotalTimeout,
+    int maxConcurrentRequests = _mcpOpsMaxConcurrentRequests,
+    int maxBatchItems = _mcpOpsMaxBatchItems,
   }) : _toolListProvider = toolListProvider,
        _toolInvoker = toolInvoker,
        _approvalGate = approvalGate,
@@ -194,7 +199,9 @@ class McpServerOpsRuntime {
        _snapshotSink = snapshotSink,
        _maxRequestBodyBytes = maxRequestBodyBytes,
        _requestBodyIdleTimeout = requestBodyIdleTimeout,
-       _requestBodyTotalTimeout = requestBodyTotalTimeout {
+       _requestBodyTotalTimeout = requestBodyTotalTimeout,
+       _maxConcurrentRequests = maxConcurrentRequests,
+       _maxBatchItems = maxBatchItems {
     if (maxRequestBodyBytes < 1) {
       throw ArgumentError.value(
         maxRequestBodyBytes,
@@ -216,6 +223,20 @@ class McpServerOpsRuntime {
         'Must be positive.',
       );
     }
+    if (maxConcurrentRequests < 1) {
+      throw ArgumentError.value(
+        maxConcurrentRequests,
+        'maxConcurrentRequests',
+        'Must be positive.',
+      );
+    }
+    if (maxBatchItems < 1) {
+      throw ArgumentError.value(
+        maxBatchItems,
+        'maxBatchItems',
+        'Must be positive.',
+      );
+    }
   }
 
   static const String _protocolVersion = '2025-11-25';
@@ -227,21 +248,16 @@ class McpServerOpsRuntime {
   static const Duration _sseKeepAliveInterval = Duration(seconds: 15);
   static const int _sseKeepAliveTicks = 480;
   static const int _maxSseStreams = 32;
+  static const int _maxSessionIds = 1024;
+  static const int _maxMetricDistributionKeys = 256;
+  static const int _maxMetricKeyChars = 160;
+  static const String _metricOverflowKey = 'other';
   static const int _latencyWindow = 512;
   static const int _rateWindowSeconds = 60;
   static const String _connectionInfoContextKey = 'shelf.io.connection_info';
-  static const List<String> _sourcePortHeaders = <String>[
-    'x-forwarded-source-port',
-    'x-real-port',
-    'x-client-port',
-    'x-openhand-client-port',
-  ];
-  static const Map<String, String> _corsHeaders = <String, String>{
-    'access-control-allow-origin': '*',
-    'access-control-allow-methods': 'GET, POST, DELETE, OPTIONS, HEAD',
-    'access-control-allow-headers':
-        'accept, authorization, content-type, mcp-protocol-version, mcp-session-id, x-openhand-client, x-openhand-mcp-token, x-openhand-model, x-model',
-    'access-control-expose-headers': 'mcp-protocol-version, mcp-session-id',
+  static const Map<String, String> _responseHeaders = <String, String>{
+    'cache-control': 'no-store',
+    'x-content-type-options': 'nosniff',
   };
 
   final McpOpsToolListProvider _toolListProvider;
@@ -252,6 +268,8 @@ class McpServerOpsRuntime {
   final int _maxRequestBodyBytes;
   final Duration _requestBodyIdleTimeout;
   final Duration _requestBodyTotalTimeout;
+  final int _maxConcurrentRequests;
+  final int _maxBatchItems;
 
   HttpServer? _server;
   McpOpsConfig _config = const McpOpsConfig();
@@ -259,8 +277,8 @@ class McpServerOpsRuntime {
   Future<void>? _lifecycleTask;
   final List<DateTime> _requestTimes = <DateTime>[];
   final List<int> _latencies = <int>[];
-  int _activeRequests = 0;
-  int _activeSseStreams = 0;
+  final Set<Object> _activeRequestTokens = <Object>{};
+  final Set<Object> _activeSseTokens = <Object>{};
   int _requestTotal = 0;
   int _blockedTotal = 0;
   int _failedTotal = 0;
@@ -434,8 +452,8 @@ class McpServerOpsRuntime {
     try {
       await server.close(force: true).timeout(_shutdownTimeout);
     } finally {
-      _activeRequests = 0;
-      _activeSseStreams = 0;
+      _activeRequestTokens.clear();
+      _activeSseTokens.clear();
       _setSnapshot(
         _snapshot.copyWith(
           lifecycle: McpOpsLifecycleState.stopped,
@@ -596,8 +614,26 @@ class McpServerOpsRuntime {
   shelf.Middleware _telemetryMiddleware() {
     return (innerHandler) {
       return (request) async {
+        if (_activeRequests >= _maxConcurrentRequests) {
+          _recordBlocked(
+            request,
+            inboundBytes: 0,
+            reason: 'Concurrent request limit exceeded.',
+            method: 'request/concurrency',
+          );
+          return shelf.Response(
+            HttpStatus.tooManyRequests,
+            body: 'Too many concurrent OpenHand MCP requests.',
+            headers: const <String, String>{
+              ..._responseHeaders,
+              'content-type': 'text/plain; charset=utf-8',
+              'connection': 'close',
+            },
+          );
+        }
+        final requestToken = Object();
         final startedAt = DateTime.now().toUtc();
-        _activeRequests += 1;
+        _activeRequestTokens.add(requestToken);
         _setSnapshot(
           _snapshot.copyWith(
             activeRequests: _activeRequests,
@@ -617,7 +653,7 @@ class McpServerOpsRuntime {
             _latencies.removeRange(0, _latencies.length - _latencyWindow);
           }
           _recordTrafficLatency(durationMs);
-          _activeRequests = math.max(0, _activeRequests - 1);
+          _activeRequestTokens.remove(requestToken);
           _setSnapshot(
             _snapshot.copyWith(
               activeRequests: _activeRequests,
@@ -645,12 +681,29 @@ class McpServerOpsRuntime {
   }
 
   shelf.Response _options(shelf.Request request) {
-    return shelf.Response(HttpStatus.noContent, headers: _corsHeaders);
+    return shelf.Response(HttpStatus.noContent, headers: _responseHeaders);
   }
 
   /// Single entrypoint for the Streamable HTTP endpoint, dispatching by method
   /// regardless of the request path so `/`, `/mcp` and `/mcp/` behave alike.
   FutureOr<shelf.Response> _dispatchMcp(shelf.Request request) {
+    if (_isBrowserInitiatedRequest(request)) {
+      _recordBlocked(
+        request,
+        inboundBytes: 0,
+        reason: 'Browser-originated MCP requests are not accepted.',
+        method: 'browser/request',
+      );
+      return shelf.Response(
+        HttpStatus.forbidden,
+        body: 'Browser-originated MCP requests are not accepted.',
+        headers: const <String, String>{
+          ..._responseHeaders,
+          'content-type': 'text/plain; charset=utf-8',
+          'connection': 'close',
+        },
+      );
+    }
     switch (request.method) {
       case 'POST':
         return _jsonRpc(request);
@@ -664,7 +717,7 @@ class McpServerOpsRuntime {
         return shelf.Response(
           HttpStatus.noContent,
           headers: <String, String>{
-            ..._corsHeaders,
+            ..._responseHeaders,
             ..._sessionHeaders(request),
           },
         );
@@ -673,7 +726,7 @@ class McpServerOpsRuntime {
           HttpStatus.methodNotAllowed,
           body: 'Method not allowed on the OpenHand MCP endpoint',
           headers: const <String, String>{
-            ..._corsHeaders,
+            ..._responseHeaders,
             'allow': 'GET, POST, DELETE, OPTIONS, HEAD',
             'content-type': 'text/plain; charset=utf-8',
           },
@@ -681,17 +734,48 @@ class McpServerOpsRuntime {
     }
   }
 
+  bool _isBrowserInitiatedRequest(shelf.Request request) {
+    return nullIfBlank(request.headers['origin']) != null ||
+        nullIfBlank(request.headers['sec-fetch-site']) != null ||
+        nullIfBlank(request.headers['sec-fetch-mode']) != null;
+  }
+
   shelf.Response _terminateSession(shelf.Request request) {
+    const method = 'session/delete';
+    if (!_requestAllowed(request, method, 0)) {
+      return shelf.Response(
+        HttpStatus.forbidden,
+        body: 'Request blocked by OpenHand policy',
+        headers: const <String, String>{
+          ..._responseHeaders,
+          'content-type': 'text/plain; charset=utf-8',
+        },
+      );
+    }
     _recordLifecycle(
       request,
-      method: 'session/delete',
+      method: method,
       started: DateTime.now().toUtc(),
       inboundBytes: 0,
       outboundBytes: 0,
     );
+    final providedSessionId = nullIfBlank(request.headers['mcp-session-id']);
+    final validSessionId =
+        providedSessionId != null &&
+            isValidMcpHttpHeaderValue(providedSessionId)
+        ? providedSessionId
+        : null;
+    if (validSessionId != null) {
+      _sessionIds.remove(validSessionId);
+      _publishConnectionSnapshot();
+    }
     return shelf.Response(
       HttpStatus.noContent,
-      headers: <String, String>{..._corsHeaders, ..._sessionHeaders(request)},
+      headers: <String, String>{
+        ..._responseHeaders,
+        'mcp-protocol-version': _protocolVersion,
+        if (validSessionId != null) 'mcp-session-id': validSessionId,
+      },
     );
   }
 
@@ -703,7 +787,7 @@ class McpServerOpsRuntime {
         HttpStatus.forbidden,
         body: 'Request blocked by OpenHand policy',
         headers: const <String, String>{
-          ..._corsHeaders,
+          ..._responseHeaders,
           'content-type': 'text/plain; charset=utf-8',
         },
       );
@@ -721,7 +805,7 @@ class McpServerOpsRuntime {
         HttpStatus.tooManyRequests,
         body: 'Too many OpenHand MCP streams',
         headers: const <String, String>{
-          ..._corsHeaders,
+          ..._responseHeaders,
           'content-type': 'text/plain; charset=utf-8',
         },
       );
@@ -733,12 +817,13 @@ class McpServerOpsRuntime {
       inboundBytes: 0,
       outboundBytes: 0,
     );
-    _activeSseStreams += 1;
+    final streamToken = Object();
+    _activeSseTokens.add(streamToken);
     _publishConnectionSnapshot();
     return shelf.Response.ok(
-      _sseKeepAliveStream(),
+      _sseKeepAliveStream(streamToken),
       headers: <String, String>{
-        ..._corsHeaders,
+        ..._responseHeaders,
         ..._sessionHeaders(request),
         'content-type': 'text/event-stream; charset=utf-8',
         'cache-control': 'no-cache, no-transform',
@@ -748,7 +833,7 @@ class McpServerOpsRuntime {
     );
   }
 
-  Stream<List<int>> _sseKeepAliveStream() async* {
+  Stream<List<int>> _sseKeepAliveStream(Object streamToken) async* {
     try {
       yield utf8.encode(': OpenHand MCP stream ready\n\n');
       for (var index = 0; index < _sseKeepAliveTicks; index++) {
@@ -758,12 +843,23 @@ class McpServerOpsRuntime {
         );
       }
     } finally {
-      _activeSseStreams = math.max(0, _activeSseStreams - 1);
+      _activeSseTokens.remove(streamToken);
       _publishConnectionSnapshot();
     }
   }
 
   Future<shelf.Response> _jsonRpc(shelf.Request request) async {
+    if (!_requestTransportAllowed(request, 'request/preflight', 0)) {
+      return shelf.Response(
+        HttpStatus.forbidden,
+        body: 'Request blocked by OpenHand policy',
+        headers: const <String, String>{
+          ..._responseHeaders,
+          'content-type': 'text/plain; charset=utf-8',
+          'connection': 'close',
+        },
+      );
+    }
     final declaredLength = int.tryParse(
       request.headers[HttpHeaders.contentLengthHeader] ?? '',
     );
@@ -792,9 +888,22 @@ class McpServerOpsRuntime {
         HttpStatus.requestTimeout,
         'MCP request body timed out.',
       );
+    } on FormatException {
+      return _requestBodyFailureResponse(
+        HttpStatus.badRequest,
+        'MCP request body is not valid UTF-8.',
+      );
+    } on IOException {
+      return _requestBodyFailureResponse(
+        HttpStatus.badRequest,
+        'MCP request body was interrupted.',
+      );
     }
     final inboundBytes = utf8.encode(body).length;
     _inboundBytes += inboundBytes;
+    final processingDeadline = DateTime.now().toUtc().add(
+      _mcpOpsRequestProcessingTimeout,
+    );
     Object? decoded;
     try {
       decoded = jsonDecode(body);
@@ -813,12 +922,34 @@ class McpServerOpsRuntime {
     }
 
     if (decoded is List) {
+      if (decoded.isEmpty || decoded.length > _maxBatchItems) {
+        _recordBlocked(
+          request,
+          inboundBytes: inboundBytes,
+          reason: decoded.isEmpty
+              ? 'JSON-RPC batch is empty.'
+              : 'JSON-RPC batch exceeds the $_maxBatchItems item limit.',
+          method: 'batch/invalid',
+        );
+        return _jsonResponse(
+          _jsonRpcError(null, -32600, 'Invalid JSON-RPC batch'),
+          statusCode: HttpStatus.badRequest,
+          headers: _sessionHeaders(request),
+        );
+      }
       final responses = <Object?>[];
       for (final item in decoded) {
+        if (!DateTime.now().toUtc().isBefore(processingDeadline)) {
+          responses.add(
+            _jsonRpcError(null, -32008, 'MCP request processing timed out'),
+          );
+          break;
+        }
         final response = await _handleJsonRpcMessage(
           request,
           item,
           inboundBytes: inboundBytes,
+          processingDeadline: processingDeadline,
         );
         if (response != null) responses.add(response);
       }
@@ -826,7 +957,7 @@ class McpServerOpsRuntime {
         return shelf.Response(
           HttpStatus.accepted,
           headers: <String, String>{
-            ..._corsHeaders,
+            ..._responseHeaders,
             ..._sessionHeaders(request),
           },
         );
@@ -838,11 +969,15 @@ class McpServerOpsRuntime {
       request,
       decoded,
       inboundBytes: inboundBytes,
+      processingDeadline: processingDeadline,
     );
     if (response == null) {
       return shelf.Response(
         HttpStatus.accepted,
-        headers: <String, String>{..._corsHeaders, ..._sessionHeaders(request)},
+        headers: <String, String>{
+          ..._responseHeaders,
+          ..._sessionHeaders(request),
+        },
       );
     }
     return _jsonResponse(response, headers: _sessionHeaders(request));
@@ -853,7 +988,7 @@ class McpServerOpsRuntime {
       statusCode,
       body: message,
       headers: const <String, String>{
-        ..._corsHeaders,
+        ..._responseHeaders,
         'content-type': 'text/plain; charset=utf-8',
         'connection': 'close',
       },
@@ -864,6 +999,7 @@ class McpServerOpsRuntime {
     shelf.Request request,
     Object? raw, {
     required int inboundBytes,
+    required DateTime processingDeadline,
   }) async {
     final message = raw is Map ? stringKeyedMapFromValue(raw) : null;
     if (message == null) {
@@ -888,6 +1024,10 @@ class McpServerOpsRuntime {
     }
     final started = DateTime.now().toUtc();
     final isNotification = !message.containsKey('id');
+    if (!_requestAllowed(request, method, inboundBytes)) {
+      if (isNotification) return null;
+      return _jsonRpcError(id, -32003, 'Request blocked by OpenHand policy');
+    }
     if (method.startsWith('notifications/')) {
       // Notifications carry no id and expect no response; still audit them so
       // the console shows client-side lifecycle signals (initialized, etc.).
@@ -899,10 +1039,6 @@ class McpServerOpsRuntime {
         outboundBytes: 0,
       );
       return null;
-    }
-    if (!_requestAllowed(request, method, inboundBytes)) {
-      if (isNotification) return null;
-      return _jsonRpcError(id, -32003, 'Request blocked by OpenHand policy');
     }
 
     switch (method) {
@@ -969,6 +1105,7 @@ class McpServerOpsRuntime {
           id,
           message,
           inboundBytes: inboundBytes,
+          processingDeadline: processingDeadline,
         );
       default:
         _recordBlocked(
@@ -988,6 +1125,7 @@ class McpServerOpsRuntime {
     Object? id,
     Map<String, Object?> message, {
     required int inboundBytes,
+    required DateTime processingDeadline,
   }) async {
     final started = DateTime.now().toUtc();
     final params = message['params'] is Map
@@ -1039,6 +1177,21 @@ class McpServerOpsRuntime {
       return _jsonRpcError(id, -32006, 'Path is outside the workspace scope');
     }
     if (tool.isWrite && _config.writeMode == McpOpsWriteMode.approvalRequired) {
+      final approvalTimeout = _shorterDuration(
+        _config.approvalTimeout,
+        _remainingUntil(processingDeadline),
+      );
+      if (approvalTimeout <= Duration.zero) {
+        _recordBlocked(
+          request,
+          inboundBytes: inboundBytes,
+          reason: 'Request processing deadline reached before approval.',
+          method: 'tools/call',
+          toolName: name,
+          arguments: arguments,
+        );
+        return _jsonRpcError(id, -32008, 'MCP request processing timed out');
+      }
       final approved = await _approvalGate(
         McpOpsApprovalRequest(
           id: _auditId(started),
@@ -1046,10 +1199,10 @@ class McpServerOpsRuntime {
           clientName: _clientName(request),
           ipAddress: _peerAddress(request).label,
           requestedAt: started,
-          expiresAt: started.add(_config.approvalTimeout),
+          expiresAt: DateTime.now().toUtc().add(approvalTimeout),
           argumentsPreview: mcpOpsClipAuditText(arguments),
         ),
-      ).timeout(_config.approvalTimeout, onTimeout: () => false);
+      ).timeout(approvalTimeout, onTimeout: () => false);
       if (!approved) {
         _recordBlocked(
           request,
@@ -1063,17 +1216,32 @@ class McpServerOpsRuntime {
       }
     }
 
+    final invocationTimeout = _shorterDuration(
+      _config.timeout,
+      _remainingUntil(processingDeadline),
+    );
+    if (invocationTimeout <= Duration.zero) {
+      _recordBlocked(
+        request,
+        inboundBytes: inboundBytes,
+        reason: 'Request processing deadline reached before invocation.',
+        method: 'tools/call',
+        toolName: name,
+        arguments: arguments,
+      );
+      return _jsonRpcError(id, -32008, 'MCP request processing timed out');
+    }
     _markRequest(request, 'tools/call', toolName: name);
     final invocationCancel = Completer<void>();
     final invocationContext = McpOpsToolInvocationContext(
       invocationId: 'mcp-ops-${_auditId(started)}',
       cancelSignal: invocationCancel.future,
-      deadline: DateTime.now().toUtc().add(_config.timeout),
+      deadline: DateTime.now().toUtc().add(invocationTimeout),
     );
     try {
       final result = await _toolInvoker(tool, arguments, invocationContext)
           .timeout(
-            _config.timeout,
+            invocationTimeout,
             onTimeout: () {
               if (!invocationCancel.isCompleted) invocationCancel.complete();
               return const McpOpsToolInvocationResult(
@@ -1160,16 +1328,33 @@ class McpServerOpsRuntime {
       );
       return false;
     }
-    if (!_networkAllowsIp(_ipAddress(request))) {
+    if (!_requestTransportAllowed(request, method, inboundBytes, now: now)) {
+      return false;
+    }
+    _requestTimes.add(now);
+    return true;
+  }
+
+  bool _requestTransportAllowed(
+    shelf.Request request,
+    String method,
+    int inboundBytes, {
+    DateTime? now,
+  }) {
+    final checkedAt = now ?? DateTime.now().toUtc();
+    final socketPeer = _socketPeerAddress(request);
+    if (socketPeer == null || !_networkAllowsIp(socketPeer.ipAddress)) {
       _recordBlocked(
         request,
         inboundBytes: inboundBytes,
-        reason: 'IP address is outside the configured network mode.',
+        reason: socketPeer == null
+            ? 'Socket peer identity is unavailable.'
+            : 'IP address is outside the configured network mode.',
         method: method,
       );
       return false;
     }
-    if (!_timeWindowAllows(now.toLocal())) {
+    if (!_timeWindowAllows(checkedAt.toLocal())) {
       _recordBlocked(
         request,
         inboundBytes: inboundBytes,
@@ -1207,7 +1392,6 @@ class McpServerOpsRuntime {
         return false;
       }
     }
-    _requestTimes.add(now);
     return true;
   }
 
@@ -1533,6 +1717,10 @@ class McpServerOpsRuntime {
 
   int get _currentConnections => _activeRequests + _activeSseStreams;
 
+  int get _activeRequests => _activeRequestTokens.length;
+
+  int get _activeSseStreams => _activeSseTokens.length;
+
   void _publishConnectionSnapshot() {
     _setSnapshot(
       _snapshot.copyWith(
@@ -1574,7 +1762,7 @@ class McpServerOpsRuntime {
       statusCode,
       body: body,
       headers: <String, String>{
-        ..._corsHeaders,
+        ..._responseHeaders,
         'content-type': 'application/json; charset=utf-8',
         ...headers,
       },
@@ -1603,16 +1791,20 @@ class McpServerOpsRuntime {
   String _sessionIdForRequest(shelf.Request request) {
     final provided = nullIfBlank(request.headers['mcp-session-id']);
     if (provided != null && isValidMcpHttpHeaderValue(provided)) {
-      _sessionIds.add(provided);
+      _trackSessionId(provided);
       return provided;
     }
     final generated =
         'openhand-${DateTime.now().microsecondsSinceEpoch}-${math.Random().nextInt(1 << 20)}';
-    _sessionIds.add(generated);
-    if (_sessionIds.length > 1024) {
+    _trackSessionId(generated);
+    return generated;
+  }
+
+  void _trackSessionId(String sessionId) {
+    _sessionIds.add(sessionId);
+    while (_sessionIds.length > _maxSessionIds) {
       _sessionIds.remove(_sessionIds.first);
     }
-    return generated;
   }
 
   String _requestToken(shelf.Request request) {
@@ -1624,24 +1816,8 @@ class McpServerOpsRuntime {
     return '';
   }
 
-  String _ipAddress(shelf.Request request) => _peerAddress(request).ipAddress;
-
   _McpOpsPeerAddress _peerAddress(shelf.Request request) {
-    final socketPeer = _socketPeerAddress(request);
-    final forwardedPeer =
-        _forwardedForPeer(request.headers['x-forwarded-for']) ??
-        _forwardedHeaderPeer(request.headers['forwarded']) ??
-        _forwardedForPeer(request.headers['x-real-ip']);
-    if (forwardedPeer != null) {
-      final forwardedPort =
-          forwardedPeer.port ??
-          _sourcePortFromHeaders(request) ??
-          (_sameIpAddress(forwardedPeer.ipAddress, socketPeer?.ipAddress)
-              ? socketPeer?.port
-              : null);
-      return forwardedPeer.copyWith(port: forwardedPort);
-    }
-    return socketPeer ?? const _McpOpsPeerAddress.unknown();
+    return _socketPeerAddress(request) ?? const _McpOpsPeerAddress.unknown();
   }
 
   _McpOpsPeerAddress? _socketPeerAddress(shelf.Request request) {
@@ -1653,86 +1829,9 @@ class McpServerOpsRuntime {
     );
   }
 
-  _McpOpsPeerAddress? _forwardedForPeer(String? raw) {
-    final header = nullIfBlank(raw);
-    if (header == null) return null;
-    return _parsePeerAddressToken(header.split(',').first);
-  }
-
-  _McpOpsPeerAddress? _forwardedHeaderPeer(String? raw) {
-    final header = nullIfBlank(raw);
-    if (header == null) return null;
-    final first = header.split(',').first;
-    for (final part in first.split(';')) {
-      final normalized = part.trim();
-      final separator = normalized.indexOf('=');
-      if (separator <= 0) continue;
-      final key = normalized.substring(0, separator).trim().toLowerCase();
-      if (key != 'for') continue;
-      return _parsePeerAddressToken(normalized.substring(separator + 1));
-    }
-    return null;
-  }
-
-  _McpOpsPeerAddress? _parsePeerAddressToken(String raw) {
-    var value = _stripQuotes(raw.trim());
-    if (value.isEmpty || value.toLowerCase() == 'unknown') return null;
-    if (value.startsWith('[')) {
-      final end = value.indexOf(']');
-      if (end > 1) {
-        final ip = value.substring(1, end).trim();
-        final port = value.length > end + 1 && value[end + 1] == ':'
-            ? _validPort(int.tryParse(value.substring(end + 2)))
-            : null;
-        return ip.isEmpty
-            ? null
-            : _McpOpsPeerAddress(ipAddress: ip, port: port);
-      }
-    }
-    final firstColon = value.indexOf(':');
-    if (firstColon > 0 && firstColon == value.lastIndexOf(':')) {
-      final ip = value.substring(0, firstColon).trim();
-      final port = _validPort(int.tryParse(value.substring(firstColon + 1)));
-      if (ip.isNotEmpty && port != null) {
-        return _McpOpsPeerAddress(ipAddress: ip, port: port);
-      }
-    }
-    return _McpOpsPeerAddress(ipAddress: value);
-  }
-
-  int? _sourcePortFromHeaders(shelf.Request request) {
-    for (final header in _sourcePortHeaders) {
-      final port = _validPort(int.tryParse(request.headers[header] ?? ''));
-      if (port != null) return port;
-    }
-    return null;
-  }
-
   int? _validPort(int? value) {
     if (value == null || value <= 0 || value > 65535) return null;
     return value;
-  }
-
-  String _stripQuotes(String value) {
-    if (value.length < 2) return value;
-    final first = value[0];
-    final last = value[value.length - 1];
-    if ((first == '"' && last == '"') || (first == "'" && last == "'")) {
-      return value.substring(1, value.length - 1).trim();
-    }
-    return value;
-  }
-
-  bool _sameIpAddress(String? left, String? right) {
-    final a = nullIfBlank(left);
-    final b = nullIfBlank(right);
-    if (a == null || b == null) return false;
-    final parsedA = InternetAddress.tryParse(a);
-    final parsedB = InternetAddress.tryParse(b);
-    if (parsedA != null && parsedB != null) {
-      return parsedA.address == parsedB.address;
-    }
-    return a.toLowerCase() == b.toLowerCase();
   }
 
   String _clientName(shelf.Request request) {
@@ -1783,9 +1882,30 @@ class McpServerOpsRuntime {
     return math.max(1, (text.length / 4).ceil());
   }
 
+  Duration _remainingUntil(DateTime deadline) {
+    final remaining = deadline.difference(DateTime.now().toUtc());
+    return remaining > Duration.zero ? remaining : Duration.zero;
+  }
+
+  Duration _shorterDuration(Duration first, Duration second) {
+    return first < second ? first : second;
+  }
+
   void _increment(Map<String, int> map, String key) {
-    final normalized = nullIfBlank(key) ?? 'unknown';
-    map[normalized] = (map[normalized] ?? 0) + 1;
+    var normalized = nullIfBlank(key) ?? 'unknown';
+    if (normalized.length > _maxMetricKeyChars) {
+      normalized = normalized.substring(0, _maxMetricKeyChars);
+    }
+    final existing = map[normalized];
+    if (existing != null) {
+      map[normalized] = existing + 1;
+      return;
+    }
+    if (map.length < _maxMetricDistributionKeys - 1) {
+      map[normalized] = 1;
+      return;
+    }
+    map[_metricOverflowKey] = (map[_metricOverflowKey] ?? 0) + 1;
   }
 
   /// Tallies a request outcome into the current minute bucket, pruning buckets
@@ -1857,10 +1977,6 @@ class _McpOpsPeerAddress {
     final sourcePort = port;
     if (host == 'unknown' || sourcePort == null) return host;
     return mcpOpsAuthority(host, sourcePort);
-  }
-
-  _McpOpsPeerAddress copyWith({int? port}) {
-    return _McpOpsPeerAddress(ipAddress: ipAddress, port: port ?? this.port);
   }
 }
 

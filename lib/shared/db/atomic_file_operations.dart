@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import '../../app/support/safe_subprocess.dart';
-import '../net/http_response_utils.dart';
+import '../util/bounded_file_io.dart';
 
 /// Per-path write lock. All atomic writes that target the same absolute path
 /// are serialized on a single [Future] chain to prevent two concurrent writers
@@ -10,10 +12,13 @@ import '../net/http_response_utils.dart';
 final Map<String, Future<void>> _writeLocks = <String, Future<void>>{};
 const String _atomicTempSuffix = '.tmp';
 const String _atomicBackupSuffix = '.bak';
+const String _atomicWritingMarker = '.writing.';
 const Duration _atomicStaleArtifactAge = Duration(minutes: 10);
-const Duration _atomicCopyIdleTimeout = Duration(seconds: 30);
-const Duration _atomicCopyTotalTimeout = Duration(minutes: 10);
-const Duration _atomicCopyCloseTimeout = Duration(seconds: 2);
+const Duration _atomicIoIdleTimeout = Duration(seconds: 30);
+const Duration _atomicOperationTotalTimeout = Duration(minutes: 10);
+const Duration _atomicCleanupTimeout = Duration(seconds: 2);
+const int _atomicIoChunkBytes = 64 * 1024;
+const int _atomicTextChunkCodeUnits = 64 * 1024;
 const Duration _openDirectoryCommandTimeout = Duration(seconds: 6);
 const String _openDirectoryProcessTag = 'atomic_file_ops';
 int _atomicTempSerial = 0;
@@ -99,9 +104,13 @@ Future<void> writeFileAtomically(File targetFile, String content) {
 /// Writes binary [bytes] to [targetFile] with the same lock/rename/rollback
 /// behavior as [writeFileAtomically].
 Future<void> writeFileBytesAtomically(File targetFile, List<int> bytes) {
+  // Capture caller-owned mutable data before the first asynchronous boundary.
+  // Otherwise an in-flight mutation can silently publish a mixed payload even
+  // when the list length remains unchanged.
+  final snapshot = Uint8List.fromList(bytes);
   return _runWithAtomicWriteLock(
     targetFile,
-    (targetFile) => _writeFileBytesAtomicallyLocked(targetFile, bytes),
+    (targetFile) => _writeFileBytesAtomicallyLocked(targetFile, snapshot),
   );
 }
 
@@ -158,18 +167,95 @@ Future<void> _runWithAtomicWriteLock(
 Future<void> _writeFileAtomicallyLocked(File targetFile, String content) async {
   await _writeAtomicallyLocked(
     targetFile,
-    (tempFile) => tempFile.writeAsString(content, flush: true),
+    (tempFile, remainingBudget) => _writeAtomicTempFile(
+      tempFile,
+      remainingBudget,
+      (output, nextOperationTimeout) async {
+        var offset = 0;
+        while (offset < content.length) {
+          var end = offset + _atomicTextChunkCodeUnits;
+          if (end >= content.length) {
+            end = content.length;
+          } else if (_isHighSurrogate(content.codeUnitAt(end - 1)) &&
+              _isLowSurrogate(content.codeUnitAt(end))) {
+            end += 1;
+          }
+          final chunk = utf8.encode(content.substring(offset, end));
+          await output.run(
+            (file) => file.writeFrom(chunk),
+            timeout: nextOperationTimeout(),
+          );
+          offset = end;
+        }
+      },
+    ),
   );
 }
 
 Future<void> _writeFileBytesAtomicallyLocked(
   File targetFile,
-  List<int> bytes,
+  Uint8List bytes,
 ) async {
   await _writeAtomicallyLocked(
     targetFile,
-    (tempFile) => tempFile.writeAsBytes(bytes, flush: true),
+    (tempFile, remainingBudget) => _writeAtomicTempFile(
+      tempFile,
+      remainingBudget,
+      (output, nextOperationTimeout) async {
+        final length = bytes.length;
+        var offset = 0;
+        while (offset < length) {
+          final end = offset + _atomicIoChunkBytes < length
+              ? offset + _atomicIoChunkBytes
+              : length;
+          await output.run(
+            (file) => file.writeFrom(bytes, offset, end),
+            timeout: nextOperationTimeout(),
+          );
+          offset = end;
+        }
+      },
+    ),
   );
+}
+
+bool _isHighSurrogate(int codeUnit) => codeUnit >= 0xD800 && codeUnit <= 0xDBFF;
+
+bool _isLowSurrogate(int codeUnit) => codeUnit >= 0xDC00 && codeUnit <= 0xDFFF;
+
+Future<void> _writeAtomicTempFile(
+  File tempFile,
+  Duration Function() remainingBudget,
+  Future<void> Function(
+    BoundedRandomAccessFileLease output,
+    Duration Function() nextOperationTimeout,
+  )
+  writeChunks,
+) async {
+  Duration nextOperationTimeout() =>
+      _shorterAtomicDuration(_atomicIoIdleTimeout, remainingBudget());
+
+  BoundedRandomAccessFileLease? output;
+  try {
+    final openedOutput = BoundedRandomAccessFileLease(
+      await _openAtomicFile(
+        tempFile,
+        FileMode.writeOnly,
+        nextOperationTimeout,
+        deleteIfOpenCompletesLate: true,
+      ),
+    );
+    output = openedOutput;
+    await writeChunks(openedOutput, nextOperationTimeout);
+    await openedOutput.run(
+      (file) => file.flush(),
+      timeout: nextOperationTimeout(),
+    );
+    await openedOutput.close(timeout: nextOperationTimeout());
+    output = null;
+  } finally {
+    await output?.cleanup();
+  }
 }
 
 Future<void> _copyFileAtomicallyLocked(
@@ -177,125 +263,277 @@ Future<void> _copyFileAtomicallyLocked(
   File targetFile, {
   required int maxBytes,
 }) async {
-  await _writeAtomicallyLocked(targetFile, (tempFile) async {
-    final stopwatch = Stopwatch()..start();
-    Duration remainingBudget() {
-      final remaining =
-          _atomicCopyTotalTimeout.inMicroseconds -
-          stopwatch.elapsedMicroseconds;
-      if (remaining <= 0) {
-        throw TimeoutException(
-          'Atomic file copy exceeded its time limit.',
-          _atomicCopyTotalTimeout,
+  await _writeAtomicallyLocked(targetFile, (tempFile, remainingBudget) async {
+    Duration nextOperationTimeout() =>
+        _shorterAtomicDuration(_atomicIoIdleTimeout, remainingBudget());
+
+    final preflightStat = await sourceFile.stat().timeout(
+      nextOperationTimeout(),
+    );
+    if (!isRegularFileStat(preflightStat)) {
+      throw FileSystemException(
+        'Source path is not a regular file.',
+        sourceFile.path,
+      );
+    }
+
+    BoundedRandomAccessFileLease? input;
+    BoundedRandomAccessFileLease? output;
+    try {
+      final openedInput = BoundedRandomAccessFileLease(
+        await _openAtomicFile(sourceFile, FileMode.read, nextOperationTimeout),
+      );
+      input = openedInput;
+      final initialStat = await sourceFile.stat().timeout(
+        nextOperationTimeout(),
+      );
+      if (!isRegularFileStat(initialStat) ||
+          initialStat.size != preflightStat.size ||
+          initialStat.modified != preflightStat.modified ||
+          initialStat.changed != preflightStat.changed) {
+        throw FileSystemException(
+          'Source path changed before it was opened.',
+          sourceFile.path,
         );
       }
-      return Duration(microseconds: remaining);
-    }
-
-    final sourceLength = await sourceFile.length().timeout(remainingBudget());
-    if (sourceLength > maxBytes) {
-      throw FileSystemException(
-        'Source file exceeded the $maxBytes byte copy limit.',
-        sourceFile.path,
+      final sourceLength = await openedInput.run(
+        (file) => file.length(),
+        timeout: nextOperationTimeout(),
       );
-    }
-
-    RandomAccessFile? output;
-    var operationFailed = false;
-    try {
-      final openedOutput = await tempFile
-          .open(mode: FileMode.writeOnly)
-          .timeout(remainingBudget());
-      output = openedOutput;
-      final streamBudget = remainingBudget();
-      await writeBoundedByteStream(
-        sourceFile.openRead(),
-        writeChunk: openedOutput.writeFrom,
-        maxBytes: maxBytes,
-        idleTimeout: streamBudget < _atomicCopyIdleTimeout
-            ? streamBudget
-            : _atomicCopyIdleTimeout,
-        totalTimeout: streamBudget,
-      );
-      await openedOutput.flush().timeout(remainingBudget());
-    } on HttpException {
-      operationFailed = true;
-      throw FileSystemException(
-        'Source file exceeded the $maxBytes byte copy limit.',
-        sourceFile.path,
-      );
-    } catch (_) {
-      operationFailed = true;
-      rethrow;
-    } finally {
-      stopwatch.stop();
-      final activeOutput = output;
-      if (activeOutput != null) {
-        try {
-          await activeOutput.close().timeout(_atomicCopyCloseTimeout);
-        } catch (_) {
-          if (!operationFailed) rethrow;
-        }
+      if (sourceLength < 0 || sourceLength > maxBytes) {
+        throw FileSystemException(
+          'Source file exceeded the $maxBytes byte copy limit.',
+          sourceFile.path,
+        );
       }
+      if (sourceLength != initialStat.size) {
+        throw FileSystemException(
+          'Source path changed before it was opened.',
+          sourceFile.path,
+        );
+      }
+
+      final openedOutput = BoundedRandomAccessFileLease(
+        await _openAtomicFile(
+          tempFile,
+          FileMode.writeOnly,
+          nextOperationTimeout,
+          deleteIfOpenCompletesLate: true,
+        ),
+      );
+      output = openedOutput;
+      var remaining = sourceLength;
+      while (remaining > 0) {
+        final chunk = await openedInput.run(
+          (file) => file.read(
+            remaining < _atomicIoChunkBytes ? remaining : _atomicIoChunkBytes,
+          ),
+          timeout: nextOperationTimeout(),
+        );
+        if (chunk.isEmpty) {
+          throw FileSystemException(
+            'Source file changed while it was being copied.',
+            sourceFile.path,
+          );
+        }
+        await openedOutput.run(
+          (file) => file.writeFrom(chunk),
+          timeout: nextOperationTimeout(),
+        );
+        remaining -= chunk.length;
+      }
+
+      final finalLength = await openedInput.run(
+        (file) => file.length(),
+        timeout: nextOperationTimeout(),
+      );
+      final finalStat = await sourceFile.stat().timeout(nextOperationTimeout());
+      if (finalLength != sourceLength ||
+          !isRegularFileStat(finalStat) ||
+          finalStat.size != sourceLength ||
+          finalStat.modified != initialStat.modified ||
+          finalStat.changed != initialStat.changed) {
+        throw FileSystemException(
+          'Source file changed while it was being copied.',
+          sourceFile.path,
+        );
+      }
+      await openedOutput.run(
+        (file) => file.flush(),
+        timeout: nextOperationTimeout(),
+      );
+      await openedOutput.close(timeout: nextOperationTimeout());
+      output = null;
+      await openedInput.close(timeout: nextOperationTimeout());
+      input = null;
+    } finally {
+      await Future.wait<void>(<Future<void>>[
+        if (output != null) output.cleanup(),
+        if (input != null) input.cleanup(),
+      ]);
     }
   });
 }
 
+Future<RandomAccessFile> _openAtomicFile(
+  File file,
+  FileMode mode,
+  Duration Function() remainingBudget, {
+  bool deleteIfOpenCompletesLate = false,
+}) async {
+  final timeout = remainingBudget();
+  final openFuture = file.open(mode: mode);
+  try {
+    return await openFuture.timeout(
+      timeout,
+      onTimeout: () => throw TimeoutException(
+        'Opening an atomic file operation timed out.',
+        timeout,
+      ),
+    );
+  } on TimeoutException {
+    unawaited(
+      _closeLateAtomicFile(
+        openFuture,
+        incompleteFile: deleteIfOpenCompletesLate ? file : null,
+      ),
+    );
+    rethrow;
+  }
+}
+
+Future<void> _closeLateAtomicFile(
+  Future<RandomAccessFile> openFuture, {
+  File? incompleteFile,
+}) async {
+  try {
+    final file = await openFuture;
+    // This runs outside the caller's critical path. Await the real close so a
+    // synthetic timeout cannot leave a newly-created working file behind.
+    await file.close();
+  } catch (_) {
+    // The primary operation has already timed out; cleanup remains best effort.
+  }
+  if (incompleteFile != null) {
+    try {
+      if (await incompleteFile.exists()) {
+        await incompleteFile.delete();
+      }
+    } on FileSystemException {
+      // Stale-artifact cleanup remains the final fallback.
+    }
+  }
+}
+
+Duration _shorterAtomicDuration(Duration first, Duration second) {
+  return first < second ? first : second;
+}
+
 Future<void> _writeAtomicallyLocked(
   File targetFile,
-  Future<void> Function(File tempFile) writeTempFile,
+  Future<void> Function(File tempFile, Duration Function() remainingBudget)
+  writeTempFile,
 ) async {
-  await _ensureAtomicParentDirectory(targetFile);
+  final stopwatch = Stopwatch()..start();
+  Duration remainingBudget() {
+    final remaining =
+        _atomicOperationTotalTimeout.inMicroseconds -
+        stopwatch.elapsedMicroseconds;
+    if (remaining <= 0) {
+      throw TimeoutException(
+        'Atomic file operation exceeded its time limit.',
+        _atomicOperationTotalTimeout,
+      );
+    }
+    return Duration(microseconds: remaining);
+  }
 
-  final tempFile = _newAtomicTempFile(targetFile);
+  final tempFiles = _newAtomicTempFiles(targetFile);
+  final workingFile = tempFiles.working;
+  final tempFile = tempFiles.ready;
   final backupFile = _atomicBackupFile(targetFile);
   var movedExistingFile = false;
   try {
-    await writeTempFile(tempFile);
-    if (!await tempFile.exists()) {
+    await _ensureAtomicParentDirectory(targetFile).timeout(remainingBudget());
+    await writeTempFile(workingFile, remainingBudget);
+    if (!await workingFile.exists().timeout(remainingBudget())) {
+      throw FileSystemException(
+        'Atomic working file disappeared before it was finalized.',
+        workingFile.path,
+      );
+    }
+    // File-system mutations are not cancellable. Await the three atomic
+    // switch operations to completion so a late rename cannot race rollback
+    // or a subsequent writer after a synthetic Future.timeout failure.
+    await workingFile.rename(tempFile.path);
+    if (!await tempFile.exists().timeout(remainingBudget())) {
       throw FileSystemException(
         'Atomic temp file disappeared before rename.',
         tempFile.path,
       );
     }
-    if (await backupFile.exists()) {
+    if (await backupFile.exists().timeout(remainingBudget())) {
       await backupFile.delete();
     }
-    if (await targetFile.exists()) {
+    if (await targetFile.exists().timeout(remainingBudget())) {
       await targetFile.rename(backupFile.path);
       movedExistingFile = true;
     }
     await tempFile.rename(targetFile.path);
-    if (await backupFile.exists()) {
-      await backupFile.delete();
+    try {
+      if (await backupFile.exists().timeout(remainingBudget())) {
+        final discardFile = _newAtomicDiscardFile(targetFile);
+        await backupFile.rename(discardFile.path);
+        try {
+          await discardFile.delete().timeout(_atomicCleanupTimeout);
+        } catch (_) {
+          // The unique discard path cannot collide with a later writer and is
+          // collected with other incomplete temp artifacts once it is stale.
+        }
+      }
+    } catch (_) {
+      // The new target is already published; backup cleanup is best effort.
     }
   } catch (_) {
     // Best-effort cleanup: remove temp and restore backup. Errors during
     // cleanup must not prevent the backup restoration or shadow the
     // original exception.
-    try {
-      if (await tempFile.exists()) {
-        await tempFile.delete();
+    for (final artifact in <File>[workingFile, tempFile]) {
+      try {
+        if (await artifact.exists().timeout(_atomicCleanupTimeout)) {
+          await artifact.delete().timeout(_atomicCleanupTimeout);
+        }
+      } catch (_) {
+        // Ignore cleanup failure. Incomplete working files are never selected
+        // by recovery; a complete ready file remains a safe recovery option.
       }
-    } on FileSystemException {
-      // Ignore cleanup failure.
     }
-    if (movedExistingFile && await backupFile.exists()) {
+    var backupExists = false;
+    if (movedExistingFile) {
+      try {
+        backupExists = await backupFile.exists();
+      } catch (_) {
+        // Keep the primary failure when metadata cannot be inspected.
+      }
+    }
+    if (backupExists) {
       try {
         if (await targetFile.exists()) {
           await targetFile.delete();
         }
-      } on FileSystemException {
+      } catch (_) {
         // Ignore — proceed with restoration attempt anyway.
       }
       try {
         await backupFile.rename(targetFile.path);
-      } on FileSystemException {
+      } catch (_) {
         // If even the rollback fails, fall through and rethrow the original
         // exception so the caller can surface the problem.
       }
     }
     rethrow;
+  } finally {
+    stopwatch.stop();
   }
 }
 
@@ -315,10 +553,24 @@ File _atomicBackupFile(File targetFile) {
   return File('${targetFile.path}$_atomicBackupSuffix');
 }
 
-File _newAtomicTempFile(File targetFile) {
+({File working, File ready}) _newAtomicTempFiles(File targetFile) {
   final serial = _atomicTempSerial++;
   final stamp = DateTime.now().microsecondsSinceEpoch;
-  return File('${targetFile.path}$_atomicTempSuffix.$pid.$stamp.$serial');
+  final suffix = '$pid.$stamp.$serial';
+  final base = '${targetFile.path}$_atomicTempSuffix';
+  return (
+    working: File('$base$_atomicWritingMarker$suffix'),
+    ready: File('$base.$suffix'),
+  );
+}
+
+File _newAtomicDiscardFile(File targetFile) {
+  final serial = _atomicTempSerial++;
+  final stamp = DateTime.now().microsecondsSinceEpoch;
+  return File(
+    '${targetFile.path}$_atomicTempSuffix$_atomicWritingMarker'
+    'discard.$pid.$stamp.$serial',
+  );
 }
 
 Future<File?> _newestAtomicTempArtifact(File targetFile) async {
@@ -343,7 +595,10 @@ Future<File?> _newestAtomicTempArtifact(File targetFile) async {
 
 Future<void> _deleteStaleAtomicTempArtifacts(File targetFile) async {
   final cutoff = DateTime.now().subtract(_atomicStaleArtifactAge);
-  for (final file in await _atomicTempArtifacts(targetFile)) {
+  for (final file in await _atomicTempArtifacts(
+    targetFile,
+    includeIncomplete: true,
+  )) {
     try {
       final stat = await file.stat();
       if (stat.modified.isAfter(cutoff)) {
@@ -356,13 +611,17 @@ Future<void> _deleteStaleAtomicTempArtifacts(File targetFile) async {
   }
 }
 
-Future<List<File>> _atomicTempArtifacts(File targetFile) async {
+Future<List<File>> _atomicTempArtifacts(
+  File targetFile, {
+  bool includeIncomplete = false,
+}) async {
   final parent = targetFile.parent;
   if (!await parent.exists()) {
     return const <File>[];
   }
   final legacyTempPath = '${targetFile.path}$_atomicTempSuffix';
   final uniqueTempPrefix = '$legacyTempPath.';
+  final incompleteTempPrefix = '$legacyTempPath$_atomicWritingMarker';
   final artifacts = <File>[];
   try {
     await for (final entity in parent.list(followLinks: false)) {
@@ -371,6 +630,10 @@ Future<List<File>> _atomicTempArtifacts(File targetFile) async {
       }
       if (entity.path == legacyTempPath ||
           entity.path.startsWith(uniqueTempPrefix)) {
+        if (!includeIncomplete &&
+            entity.path.startsWith(incompleteTempPrefix)) {
+          continue;
+        }
         artifacts.add(entity);
       }
     }

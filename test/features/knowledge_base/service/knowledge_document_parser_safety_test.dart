@@ -138,6 +138,87 @@ void main() {
     },
   );
 
+  test('atomic file copy rejects a FIFO before blocking open', () async {
+    if (!Platform.isMacOS && !Platform.isLinux) return;
+    final sourcePath = '${tempDirectory.path}/source.fifo';
+    final created = await Process.run('mkfifo', <String>[
+      sourcePath,
+    ]).timeout(const Duration(seconds: 1));
+    expect(created.exitCode, 0, reason: '${created.stderr}');
+    final target = File('${tempDirectory.path}/target.bin');
+    final stopwatch = Stopwatch()..start();
+
+    await expectLater(
+      copyFileAtomically(File(sourcePath), target, maxBytes: 1024),
+      throwsA(isA<FileSystemException>()),
+    );
+    stopwatch.stop();
+    expect(stopwatch.elapsed, lessThan(const Duration(milliseconds: 500)));
+    expect(await target.exists(), isFalse);
+  });
+
+  test('atomic text writes preserve Unicode at a chunk boundary', () async {
+    const chunkBoundary = 64 * 1024;
+    final target = File('${tempDirectory.path}/unicode.txt');
+    await target.writeAsString('previous');
+    final content =
+        '${List<String>.filled(chunkBoundary - 1, 'a').join()}'
+        '😃tail';
+
+    await writeFileAtomically(target, content);
+
+    expect(await target.readAsString(), content);
+    expect(await File('${target.path}.bak').exists(), isFalse);
+  });
+
+  test('atomic byte writes preserve data across chunk boundaries', () async {
+    const chunkBoundary = 64 * 1024;
+    final target = File('${tempDirectory.path}/bytes.bin');
+    final bytes = Uint8List.fromList(
+      List<int>.generate(chunkBoundary + 17, (index) => index & 0xFF),
+    );
+
+    await writeFileBytesAtomically(target, bytes);
+
+    expect(await target.readAsBytes(), orderedEquals(bytes));
+  });
+
+  test('atomic byte writes snapshot caller-owned mutable data', () async {
+    final target = File('${tempDirectory.path}/snapshot.bin');
+    final bytes = Uint8List.fromList(<int>[1, 2, 3, 4]);
+
+    final write = writeFileBytesAtomically(target, bytes);
+    bytes.fillRange(0, bytes.length, 9);
+    await write;
+
+    expect(await target.readAsBytes(), orderedEquals(const <int>[1, 2, 3, 4]));
+  });
+
+  test('atomic file copy publishes a stable source exactly once', () async {
+    final source = File('${tempDirectory.path}/stable-source.bin');
+    final target = File('${tempDirectory.path}/stable-target.bin');
+    final bytes = Uint8List.fromList(
+      List<int>.generate(128 * 1024 + 3, (index) => index & 0xFF),
+    );
+    await source.writeAsBytes(bytes);
+
+    await copyFileAtomically(source, target, maxBytes: bytes.length);
+
+    expect(await target.readAsBytes(), orderedEquals(bytes));
+  });
+
+  test('atomic recovery never publishes an incomplete working file', () async {
+    final target = File('${tempDirectory.path}/recover.json');
+    final backup = File('${target.path}.bak');
+    final incomplete = File('${target.path}.tmp.writing.interrupted');
+    await backup.writeAsString('previous');
+    await incomplete.writeAsString('partial');
+
+    await recoverAtomicWriteBackupIfNeeded(target);
+
+    expect(await target.readAsString(), 'previous');
+  });
+
   test('bounded parser still accepts a normal markdown document', () async {
     final file = File('${tempDirectory.path}/notes.md');
     await file.writeAsString('# Notes\n\nSafe content.');
