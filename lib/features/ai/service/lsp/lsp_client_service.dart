@@ -8,6 +8,7 @@ import 'package:path/path.dart' as p;
 
 import '../../../../app/support/safe_subprocess.dart';
 import '../../../../app/support/silent_log.dart';
+import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/path_safety.dart';
 import '../../../../shared/util/timer_safety.dart';
@@ -3011,17 +3012,16 @@ class _AiLspSession {
       StreamSubscription<dynamic>? subscription,
       String streamName,
     ) async {
-      if (subscription == null) return;
-      try {
-        await subscription.cancel().timeout(_transportCancelTimeout);
-      } catch (error, stack) {
-        silentLog(
+      await cancelStreamSubscriptionBounded<dynamic>(
+        subscription,
+        timeout: _transportCancelTimeout,
+        onError: (error, stack) => silentLog(
           'lsp_client_service',
           'cancel LSP $streamName subscription ($reason)',
           error,
           stack,
-        );
-      }
+        ),
+      );
     }
 
     await Future.wait<void>(<Future<void>>[

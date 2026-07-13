@@ -12,6 +12,7 @@ import '../../../../shared/net/http_redirect_utils.dart';
 import '../../../../shared/net/http_response_utils.dart';
 import '../../../../shared/net/http_status_utils.dart';
 import '../../../../shared/ui/structured_error_text.dart';
+import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../model/ai_api_dialect.dart';
@@ -2911,11 +2912,12 @@ Future<void> _cancelStreamSubscription(
   required Duration timeout,
   required String logContext,
 }) async {
-  try {
-    await subscription.cancel().timeout(timeout);
-  } catch (error, stackTrace) {
-    silentLog('ai_chat_service', logContext, error, stackTrace);
-  }
+  await cancelStreamSubscriptionBounded<dynamic>(
+    subscription,
+    timeout: timeout,
+    onError: (error, stack) =>
+        silentLog('ai_chat_service', logContext, error, stack),
+  );
 }
 
 Future<void> _cancelLateStreamedResponse(

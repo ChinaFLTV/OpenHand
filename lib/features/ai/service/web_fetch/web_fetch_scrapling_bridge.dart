@@ -1180,17 +1180,16 @@ class WebFetchScraplingBridge {
     StreamSubscription<T>? subscription,
     String streamName,
   ) async {
-    if (subscription == null) return;
-    try {
-      await subscription.cancel().timeout(_processKillTimeout);
-    } catch (error, stack) {
-      silentLog(
+    await cancelStreamSubscriptionBounded<T>(
+      subscription,
+      timeout: _processKillTimeout,
+      onError: (error, stack) => silentLog(
         'web_fetch_scrapling_bridge',
         'cancel $streamName subscription',
         error,
         stack,
-      );
-    }
+      ),
+    );
   }
 
   Future<void> _terminateRuntimeProcess(Process process) async {

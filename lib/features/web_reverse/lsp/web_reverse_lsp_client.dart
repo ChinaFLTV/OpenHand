@@ -8,6 +8,7 @@ import 'dart:io';
 
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
+import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/text_clip.dart';
 
@@ -375,14 +376,20 @@ class WebReverseLspClient {
     StreamSubscription<List<int>>? stdoutSub,
     StreamSubscription<List<int>>? stderrSub,
   ) async {
-    try {
-      await Future.wait<void>(<Future<void>>[
-        if (stdoutSub != null) stdoutSub.cancel(),
-        if (stderrSub != null) stderrSub.cancel(),
-      ]).timeout(_kLspStreamCancellationTimeout);
-    } catch (error, stack) {
-      silentLog('web_reverse_lsp_client', 'cancel streams', error, stack);
-    }
+    await Future.wait<bool>(<Future<bool>>[
+      cancelStreamSubscriptionBounded<List<int>>(
+        stdoutSub,
+        timeout: _kLspStreamCancellationTimeout,
+        onError: (error, stack) =>
+            silentLog('web_reverse_lsp_client', 'cancel stdout', error, stack),
+      ),
+      cancelStreamSubscriptionBounded<List<int>>(
+        stderrSub,
+        timeout: _kLspStreamCancellationTimeout,
+        onError: (error, stack) =>
+            silentLog('web_reverse_lsp_client', 'cancel stderr', error, stack),
+      ),
+    ]);
   }
 
   Future<void> _terminateDetachedProcess(Process process) async {

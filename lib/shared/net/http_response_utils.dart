@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import '../util/async_concurrency.dart';
+
 const Duration _byteStreamCancelTimeout = Duration(milliseconds: 500);
 
 final class ByteStreamSizeLimitException extends HttpException {
@@ -141,12 +143,10 @@ Stream<List<int>> limitByteStream(
     StreamSubscription<List<int>>? target,
   ]) async {
     final active = target ?? subscription;
-    if (active == null) return;
-    try {
-      await active.cancel().timeout(_byteStreamCancelTimeout);
-    } catch (_) {
-      // Cancellation is cleanup; it must not delay the primary boundary.
-    }
+    await cancelStreamSubscriptionBounded<List<int>>(
+      active,
+      timeout: _byteStreamCancelTimeout,
+    );
   }
 
   void terminate([Object? error, StackTrace? stack]) {

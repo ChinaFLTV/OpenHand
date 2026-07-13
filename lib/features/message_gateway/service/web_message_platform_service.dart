@@ -21,6 +21,7 @@ import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/net/http_response_utils.dart';
+import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/lifecycle_cache.dart';
@@ -632,10 +633,16 @@ class WebMessagePlatformService {
 
   Future<void> start(WebMessagePlatformConfig config) async {
     await ensurePersistedOpsDataLoaded();
-    _config = config;
     if (_server != null) {
       await stop();
+      if (_server != null) {
+        _state = WebGatewayRuntimeState.crashed;
+        throw StateError(
+          'The existing Web message gateway could not be stopped safely.',
+        );
+      }
     }
+    _config = config;
     if (!config.enabled) {
       _state = WebGatewayRuntimeState.stopped;
       return;
@@ -707,6 +714,21 @@ class WebMessagePlatformService {
         }
       }());
     } catch (error, stack) {
+      final failedServer = _server;
+      if (failedServer != null) {
+        final released = await runAsyncCleanupBounded(
+          () => failedServer.close(force: true),
+          onError: (closeError, closeStack) => silentLog(
+            'web_message_platform_service',
+            'close server after failed start',
+            closeError,
+            closeStack,
+          ),
+        );
+        if (released && identical(_server, failedServer)) {
+          _server = null;
+        }
+      }
       _state = WebGatewayRuntimeState.crashed;
       _crashCount++;
       _lastError = _startupFailureMessage(config, error);
@@ -731,21 +753,29 @@ class WebMessagePlatformService {
     }
     _state = WebGatewayRuntimeState.stopping;
     _log(WebGatewayLogLevel.warn, 'OPS', '正在停止 Web 服务');
-    _server = null;
-    try {
-      await server.close(force: true);
+    Object? closeError;
+    final closed = await runAsyncCleanupBounded(
+      () => server.close(force: true),
+      onError: (error, stack) {
+        closeError = error;
+        silentLog('web_message_platform_service', 'stop', error, stack);
+      },
+    );
+    if (closed) {
+      if (identical(_server, server)) {
+        _server = null;
+      }
       _state = WebGatewayRuntimeState.stopped;
       _startedAt = null;
       _authSessions.clear();
       _queuedGoalYieldLeasesBySessionId.clear();
       _log(WebGatewayLogLevel.success, 'OPS', 'Web 服务已停止');
-    } catch (error, stack) {
-      _state = WebGatewayRuntimeState.crashed;
-      _crashCount++;
-      _lastError = '$error';
-      _log(WebGatewayLogLevel.error, 'OPS', '停止 Web 服务失败: $error');
-      silentLog('web_message_platform_service', 'stop', error, stack);
+      return;
     }
+    _state = WebGatewayRuntimeState.crashed;
+    _crashCount++;
+    _lastError = '${closeError ?? 'HTTP server shutdown timed out'}';
+    _log(WebGatewayLogLevel.error, 'OPS', '停止 Web 服务失败: $_lastError');
   }
 
   Future<void> restart(WebMessagePlatformConfig config) async {
@@ -761,11 +791,12 @@ class WebMessagePlatformService {
         config.enabled != _config.enabled ||
         config.listenHost != _config.listenHost ||
         config.listenPort != _config.listenPort;
-    _config = config;
-    _log(WebGatewayLogLevel.info, 'OPS', '配置已重新加载');
     if (needsRestart) {
       await restart(config);
+    } else {
+      _config = config;
     }
+    _log(WebGatewayLogLevel.info, 'OPS', '配置已重新加载');
   }
 
   Future<void> dispose() async {

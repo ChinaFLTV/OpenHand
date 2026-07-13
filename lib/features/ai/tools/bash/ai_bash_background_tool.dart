@@ -989,32 +989,67 @@ class _BgSession {
   Future<void> close({required bool kill}) {
     final existing = _closeFuture;
     if (existing != null) return existing;
-    final cleanup = <Future<void>>[];
+    final cleanup = <Future<bool>>[];
     if (kill && alive) {
       alive = false;
       cleanup.add(
-        terminateTrackedProcessTree(process).timeout(_cleanupTimeout),
+        runAsyncCleanupBounded(
+          () => terminateTrackedProcessTree(process),
+          onError: (error, stack) => silentLog(
+            'ai_bash_background_tool',
+            'terminate background process',
+            error,
+            stack,
+          ),
+        ),
       );
     }
     final stdout = stdoutSubscription;
     final stderr = stderrSubscription;
     stdoutSubscription = null;
     stderrSubscription = null;
-    if (stdout != null) cleanup.add(stdout.cancel().timeout(_cleanupTimeout));
-    if (stderr != null) cleanup.add(stderr.cancel().timeout(_cleanupTimeout));
+    cleanup.add(
+      cancelStreamSubscriptionBounded<String>(
+        stdout,
+        onError: (error, stack) => silentLog(
+          'ai_bash_background_tool',
+          'cancel background stdout',
+          error,
+          stack,
+        ),
+      ),
+    );
+    cleanup.add(
+      cancelStreamSubscriptionBounded<String>(
+        stderr,
+        onError: (error, stack) => silentLog(
+          'ai_bash_background_tool',
+          'cancel background stderr',
+          error,
+          stack,
+        ),
+      ),
+    );
     markStdoutDone();
     markStderrDone();
-    cleanup.add(closeProxy());
-    return _closeFuture = Future.wait<void>(cleanup);
+    cleanup.add(closeProxy().then<bool>((_) => true));
+    return _closeFuture = Future.wait<bool>(cleanup).then<void>((_) {});
   }
 
   Future<void> closeProxy() {
     final existing = _proxyCloseFuture;
     if (existing != null) return existing;
     final lease = proxyLease;
-    return _proxyCloseFuture = lease == null
-        ? Future<void>.value()
-        : lease.close().timeout(_cleanupTimeout);
+    if (lease == null) return _proxyCloseFuture = Future<void>.value();
+    return _proxyCloseFuture = runAsyncCleanupBounded(
+      lease.close,
+      onError: (error, stack) => silentLog(
+        'ai_bash_background_tool',
+        'close background proxy',
+        error,
+        stack,
+      ),
+    ).then<void>((_) {});
   }
 
   void appendStdout(String chunk, int maxBytes) {

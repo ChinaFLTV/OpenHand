@@ -6,6 +6,7 @@ import '../../../../app/support/openhand_paths.dart';
 import '../../../../app/support/safe_subprocess.dart';
 import '../../../../app/support/silent_log.dart';
 import '../../../../app/support/system_proxy.dart';
+import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/timer_safety.dart';
 import '../../model/ai_deny_command_rule.dart';
@@ -1040,8 +1041,10 @@ class AiBashToolService {
     } finally {
       progressTimer.cancel();
       stallTimer.cancel();
-      await stdoutSubscription.cancel();
-      await stderrSubscription.cancel();
+      await Future.wait<void>(<Future<void>>[
+        _cancelProcessOutputSubscription(stdoutSubscription, 'stdout'),
+        _cancelProcessOutputSubscription(stderrSubscription, 'stderr'),
+      ]);
       stopwatch.stop();
       await closeLaunchProxy();
     }
@@ -1720,27 +1723,26 @@ class AiBashToolService {
     _PersistentBashSession session,
   ) async {
     await Future.wait<void>(<Future<void>>[
-      _cancelPersistentSubscription(session.stdoutSubscription, 'stdout'),
-      _cancelPersistentSubscription(session.stderrSubscription, 'stderr'),
+      _cancelProcessOutputSubscription(session.stdoutSubscription, 'stdout'),
+      _cancelProcessOutputSubscription(session.stderrSubscription, 'stderr'),
     ]);
     await terminateTrackedProcessTree(session.process);
   }
 
-  Future<void> _cancelPersistentSubscription(
+  Future<void> _cancelProcessOutputSubscription(
     StreamSubscription<String>? subscription,
     String streamName,
   ) async {
-    if (subscription == null) return;
-    try {
-      await subscription.cancel().timeout(_subscriptionCancelTimeout);
-    } catch (error, stack) {
-      silentLog(
+    await cancelStreamSubscriptionBounded<String>(
+      subscription,
+      timeout: _subscriptionCancelTimeout,
+      onError: (error, stack) => silentLog(
         'ai_bash_tool_service',
-        'cancel persistent $streamName subscription',
+        'cancel process $streamName subscription',
         error,
         stack,
-      );
-    }
+      ),
+    );
   }
 
   String _resolveShellExecutable() {

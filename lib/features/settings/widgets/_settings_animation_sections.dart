@@ -1,10 +1,7 @@
 part of 'settings_view.dart';
 
-/// Compact "Restore animation defaults" action row that resets all four
-/// animation buckets (dialog / menu / page / panel) to the lively built-in
-/// defaults defined in [AppSettingsSnapshot.defaults]. Useful when a user
-/// has tweaked individual fields and wants to re-experience the curated
-/// out-of-box motion design without manually replaying every dropdown.
+/// Compact action row that restores every animation bucket to the curated
+/// built-in motion defaults in one persisted transaction.
 class _AnimationRestoreDefaultsSection extends StatelessWidget {
   const _AnimationRestoreDefaultsSection({required this.settingsController});
 
@@ -33,30 +30,10 @@ class _AnimationRestoreDefaultsSection extends StatelessWidget {
             if (!confirmed || !context.mounted) {
               return;
             }
-            final defaults = AppSettingsSnapshot.defaults();
-            final results = await Future.wait([
-              settingsController.updateDialogAnimationSettings(
-                defaults.dialogAnimationSettings,
-              ),
-              settingsController.updateMenuAnimationSettings(
-                defaults.menuAnimationSettings,
-              ),
-              settingsController.updatePageAnimationSettings(
-                defaults.pageAnimationSettings,
-              ),
-              settingsController.updatePanelAnimationSettings(
-                defaults.panelAnimationSettings,
-              ),
-              settingsController.updateChipAnimationSettings(
-                defaults.chipAnimationSettings,
-              ),
-              settingsController.updateListItemAnimationSettings(
-                defaults.listItemAnimationSettings,
-              ),
-            ]);
+            final saved = await settingsController
+                .restoreDefaultAnimationSettings();
             if (!context.mounted) return;
-            final allSaved = results.every((r) => r);
-            if (allSaved) {
+            if (saved) {
               _showSettingsSuccessSnack(
                 context,
                 l10n.settingsAnimationRestoreSuccess,
@@ -64,7 +41,7 @@ class _AnimationRestoreDefaultsSection extends StatelessWidget {
             } else {
               _showSettingsErrorSnack(
                 context,
-                l10n.settingsAnimationRestorePartialFailure,
+                l10n.settingsPersistenceSaveFailedTitle,
               );
             }
           },

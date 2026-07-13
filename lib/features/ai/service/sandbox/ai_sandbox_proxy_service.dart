@@ -5,6 +5,7 @@ import 'dart:typed_data';
 
 import '../../../../app/support/silent_log.dart';
 import '../../../../shared/net/tcp_port_utils.dart';
+import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../model/ai_deny_command_rule.dart';
@@ -1454,7 +1455,6 @@ class _SocketReadBuffer {
   static const int _defaultMaxHeaderBytes = 64 * 1024;
   static const int _maxReadAheadBytes = 64 * 1024;
   static const int _maxExactReadBytes = 64 * 1024;
-  static const Duration _cancelTimeout = Duration(seconds: 2);
 
   final Socket socket;
   Duration readTimeout;
@@ -1696,11 +1696,15 @@ class _SocketReadBuffer {
     _done = true;
     _readStopwatch.stop();
     _wakeWaiter();
-    try {
-      await _subscription.cancel().timeout(_cancelTimeout);
-    } catch (error, stack) {
-      silentLog('ai_sandbox_proxy', 'cancel handshake reader', error, stack);
-    }
+    await cancelStreamSubscriptionBounded<Uint8List>(
+      _subscription,
+      onError: (error, stack) => silentLog(
+        'ai_sandbox_proxy',
+        'cancel handshake reader',
+        error,
+        stack,
+      ),
+    );
   }
 
   int _findHeaderEnd(List<int> bytes, {int startIndex = 0}) {

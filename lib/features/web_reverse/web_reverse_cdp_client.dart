@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 import '../../app/support/silent_log.dart';
+import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/input_value_parsing.dart';
 
 /// CDP（Chrome DevTools Protocol）轻量客户端：连 WebSocket、发命令、订阅事件。
@@ -564,12 +565,12 @@ class WebReverseCdpClient {
     StreamSubscription<dynamic>? subscription,
     String where,
   ) async {
-    if (subscription == null) return;
-    try {
-      await subscription.cancel().timeout(_connectionCleanupTimeout);
-    } catch (error, stack) {
-      silentLog('web_reverse_cdp_client', where, error, stack);
-    }
+    await cancelStreamSubscriptionBounded<dynamic>(
+      subscription,
+      timeout: _connectionCleanupTimeout,
+      onError: (error, stack) =>
+          silentLog('web_reverse_cdp_client', where, error, stack),
+    );
   }
 
   Future<void> _closeTransportQuietly(

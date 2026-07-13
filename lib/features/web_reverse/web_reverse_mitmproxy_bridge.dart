@@ -5,6 +5,7 @@ import 'dart:typed_data';
 
 import '../../app/support/safe_subprocess.dart';
 import '../../app/support/silent_log.dart';
+import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/input_value_parsing.dart';
 
 /// mitmproxy 桥接：通过 spawn `mitmdump` 子进程 + 自定义 inline addon，
@@ -194,9 +195,17 @@ class WebReverseMitmproxyBridge {
       ]);
     } catch (error, stack) {
       silentLog('web_reverse_mitmproxy_bridge', 'spawn', error, stack);
-      await serverSub.cancel();
-      await cbServer.close(force: true);
-      await controller.close();
+      await _cancelSubscription(
+        serverSub,
+        'cancel callback server after spawn',
+      );
+      await Future.wait<bool>(<Future<bool>>[
+        _closeResource(
+          () => cbServer.close(force: true),
+          'close callback server after spawn',
+        ),
+        _closeResource(controller.close, 'close event stream after spawn'),
+      ]);
       await _deleteAddon(addonPath);
       return null;
     }
@@ -215,11 +224,18 @@ class WebReverseMitmproxyBridge {
         'early exit',
         'mitmdump exited with code $earlyExit',
       );
-      await stdoutSub.cancel();
-      await stderrSub.cancel();
-      await serverSub.cancel();
-      await cbServer.close(force: true);
-      await controller.close();
+      await Future.wait<bool>(<Future<bool>>[
+        _cancelSubscription(stdoutSub, 'cancel stdout after early exit'),
+        _cancelSubscription(stderrSub, 'cancel stderr after early exit'),
+        _cancelSubscription(serverSub, 'cancel callback after early exit'),
+      ]);
+      await Future.wait<bool>(<Future<bool>>[
+        _closeResource(
+          () => cbServer.close(force: true),
+          'close callback server after early exit',
+        ),
+        _closeResource(controller.close, 'close stream after early exit'),
+      ]);
       await _deleteAddon(addonPath);
       return null;
     }
@@ -329,54 +345,44 @@ def response(flow):
     }
   }
 
+  static Future<bool> _cancelSubscription<T>(
+    StreamSubscription<T>? subscription,
+    String where,
+  ) {
+    return cancelStreamSubscriptionBounded<T>(
+      subscription,
+      onError: (error, stack) =>
+          silentLog('web_reverse_mitmproxy_bridge', where, error, stack),
+    );
+  }
+
+  static Future<bool> _closeResource(
+    FutureOr<void> Function() close,
+    String where,
+  ) {
+    return runAsyncCleanupBounded(
+      close,
+      onError: (error, stack) =>
+          silentLog('web_reverse_mitmproxy_bridge', where, error, stack),
+    );
+  }
+
   Future<void> close() async {
     if (_closed) return;
     _closed = true;
-    try {
-      _process.kill();
-    } catch (error, stack) {
-      silentLog('web_reverse_mitmproxy_bridge', 'kill process', error, stack);
-    }
-    try {
-      await _process.exitCode.timeout(const Duration(milliseconds: 1500));
-    } catch (error, stack) {
-      silentLog(
-        'web_reverse_mitmproxy_bridge',
-        'wait process exit',
-        error,
-        stack,
-      );
-    }
-    try {
-      await _stdoutSub.cancel();
-    } catch (error, stack) {
-      silentLog('web_reverse_mitmproxy_bridge', 'cancel stdout', error, stack);
-    }
-    try {
-      await _stderrSub.cancel();
-    } catch (error, stack) {
-      silentLog('web_reverse_mitmproxy_bridge', 'cancel stderr', error, stack);
-    }
-    try {
-      await _serverSub.cancel();
-    } catch (error, stack) {
-      silentLog(
-        'web_reverse_mitmproxy_bridge',
-        'cancel server sub',
-        error,
-        stack,
-      );
-    }
-    try {
-      await _server.close(force: true);
-    } catch (error, stack) {
-      silentLog('web_reverse_mitmproxy_bridge', 'close server', error, stack);
-    }
-    try {
-      await _controller.close();
-    } catch (error, stack) {
-      silentLog('web_reverse_mitmproxy_bridge', 'close stream', error, stack);
-    }
+    await terminateTrackedProcessTree(
+      _process,
+      gracefulTimeout: const Duration(milliseconds: 1500),
+    );
+    await Future.wait<bool>(<Future<bool>>[
+      _cancelSubscription(_stdoutSub, 'cancel stdout'),
+      _cancelSubscription(_stderrSub, 'cancel stderr'),
+      _cancelSubscription(_serverSub, 'cancel callback server'),
+    ]);
+    await Future.wait<bool>(<Future<bool>>[
+      _closeResource(() => _server.close(force: true), 'close server'),
+      _closeResource(_controller.close, 'close event stream'),
+    ]);
     await _deleteAddon(_addonPath);
   }
 }

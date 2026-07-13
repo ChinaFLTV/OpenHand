@@ -5,6 +5,7 @@ import 'dart:io';
 import '../../app/support/safe_subprocess.dart';
 import '../../app/support/silent_log.dart';
 import '../../shared/net/tcp_port_utils.dart';
+import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/input_value_parsing.dart';
 
 const String _kTag = 'android_reverse_adb_client';
@@ -915,13 +916,30 @@ class AndroidReverseAdbClient {
       if (!completer.isCompleted) completer.complete();
     }
 
+    Future<bool> cancelOutput(
+      StreamSubscription<String>? subscription,
+      String streamName,
+    ) {
+      return cancelStreamSubscriptionBounded<String>(
+        subscription,
+        onError: (error, stack) => silentLog(
+          _kTag,
+          'cancel adb $streamName subscription',
+          error,
+          stack,
+        ),
+      );
+    }
+
     Future<void> drainOutput() async {
       await Future.wait<void>(<Future<void>>[
         stdoutDone.future,
         stderrDone.future,
       ]).timeout(const Duration(milliseconds: 350), onTimeout: () => <void>[]);
-      if (!stdoutDone.isCompleted) await stdoutSub?.cancel();
-      if (!stderrDone.isCompleted) await stderrSub?.cancel();
+      await Future.wait<bool>(<Future<bool>>[
+        if (!stdoutDone.isCompleted) cancelOutput(stdoutSub, 'stdout'),
+        if (!stderrDone.isCompleted) cancelOutput(stderrSub, 'stderr'),
+      ]);
     }
 
     try {
@@ -970,8 +988,10 @@ class AndroidReverseAdbClient {
       );
     } catch (e, st) {
       process?.kill(ProcessSignal.sigkill);
-      await stdoutSub?.cancel();
-      await stderrSub?.cancel();
+      await Future.wait<bool>(<Future<bool>>[
+        cancelOutput(stdoutSub, 'stdout'),
+        cancelOutput(stderrSub, 'stderr'),
+      ]);
       silentLog(_kTag, 'adb ${args.join(' ')} failed', e, st);
       final stdout = stdoutBuffer.toString();
       final stderr = nullIfBlank(stderrBuffer.toString());

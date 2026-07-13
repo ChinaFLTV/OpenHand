@@ -2,9 +2,56 @@ import 'dart:async';
 import 'dart:collection';
 
 typedef OpenHandAsyncContinuePredicate = bool Function();
+typedef OpenHandAsyncCleanupErrorHandler =
+    void Function(Object error, StackTrace stackTrace);
 
 const int kOpenHandMaxAsyncConcurrency = 64;
+const Duration kOpenHandDefaultAsyncCleanupTimeout = Duration(seconds: 2);
+const Duration kOpenHandMaxAsyncCleanupTimeout = Duration(seconds: 30);
 const Duration _kOpenHandAsyncDelayCheckInterval = Duration(milliseconds: 50);
+
+/// Runs best-effort asynchronous cleanup without allowing a broken resource to
+/// hold shutdown forever.
+///
+/// Failures are delivered to [onError] and converted to `false`. Oversized
+/// caller-provided timeouts are capped so settings or dependency injection
+/// cannot reintroduce an effectively unbounded shutdown path.
+Future<bool> runAsyncCleanupBounded(
+  FutureOr<void> Function() cleanup, {
+  Duration timeout = kOpenHandDefaultAsyncCleanupTimeout,
+  OpenHandAsyncCleanupErrorHandler? onError,
+}) async {
+  final effectiveTimeout = timeout <= Duration.zero
+      ? Duration.zero
+      : timeout > kOpenHandMaxAsyncCleanupTimeout
+      ? kOpenHandMaxAsyncCleanupTimeout
+      : timeout;
+  try {
+    await Future<void>.sync(cleanup).timeout(effectiveTimeout);
+    return true;
+  } catch (error, stack) {
+    try {
+      onError?.call(error, stack);
+    } catch (_) {
+      // A cleanup logger must never replace the primary shutdown result.
+    }
+    return false;
+  }
+}
+
+/// Cancels a stream subscription through [runAsyncCleanupBounded].
+Future<bool> cancelStreamSubscriptionBounded<T>(
+  StreamSubscription<T>? subscription, {
+  Duration timeout = kOpenHandDefaultAsyncCleanupTimeout,
+  OpenHandAsyncCleanupErrorHandler? onError,
+}) {
+  if (subscription == null) return Future<bool>.value(true);
+  return runAsyncCleanupBounded(
+    subscription.cancel,
+    timeout: timeout,
+    onError: onError,
+  );
+}
 
 /// Small FIFO semaphore for bounded async fan-out.
 ///

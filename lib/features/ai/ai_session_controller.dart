@@ -7496,7 +7496,15 @@ class AiSessionController extends ChangeNotifier {
         try {
           await eventDrain.timeout(const Duration(milliseconds: 800));
         } on TimeoutException {
-          await subscription.cancel();
+          await cancelStreamSubscriptionBounded<AiChatStreamEvent>(
+            subscription,
+            onError: (error, stack) => silentLog(
+              'ai_session_controller',
+              'cancel delayed assistant event stream',
+              error,
+              stack,
+            ),
+          );
           flushPreview();
         }
       } catch (error) {
@@ -7532,7 +7540,15 @@ class AiSessionController extends ChangeNotifier {
         _activeAiThroughputSamplers.remove(workingSession.id);
         _sessionStreamThrottleSignal.value =
             _sessionStreamThrottleSignal.value + 1;
-        await subscription.cancel();
+        await cancelStreamSubscriptionBounded<AiChatStreamEvent>(
+          subscription,
+          onError: (cancelError, stack) => silentLog(
+            'ai_session_controller',
+            'cancel failed assistant event stream',
+            cancelError,
+            stack,
+          ),
+        );
         _setSessionCancelHandler(workingSession.id, null);
         materializePendingReasoningPreview();
         streamedSession = setReasoningStreamingState(streamedSession, false);

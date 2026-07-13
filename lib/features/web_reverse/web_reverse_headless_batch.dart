@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import '../../app/support/silent_log.dart';
+import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/path_safety.dart';
 import '../../shared/util/text_clip.dart';
@@ -386,7 +387,15 @@ class WebReverseHeadlessBatch {
       silentLog('web_reverse_headless_batch', '_runOne', e, st);
       return HeadlessBatchUrlResult(url: url, ok: false, error: '$e');
     } finally {
-      await sub?.cancel();
+      await cancelStreamSubscriptionBounded<CdpEvent>(
+        sub,
+        onError: (error, stack) => silentLog(
+          'web_reverse_headless_batch',
+          'cancel target event subscription',
+          error,
+          stack,
+        ),
+      );
       if (targetId != null) {
         try {
           await cdp.send(

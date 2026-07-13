@@ -294,8 +294,7 @@ class _ResendRequestDialogState extends State<_ResendRequestDialog> {
   Future<void> _sendViaHttpClient(Uri uri, int generation) async {
     final client = HttpClient()
       ..connectionTimeout = const Duration(seconds: 12)
-      ..idleTimeout = const Duration(seconds: 6)
-      ..badCertificateCallback = (_, _, _) => true;
+      ..idleTimeout = const Duration(seconds: 6);
     _activeClient = client;
     final sw = Stopwatch()..start();
     try {

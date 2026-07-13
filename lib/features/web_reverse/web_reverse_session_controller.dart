@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../app/support/safe_subprocess.dart';
 import '../../app/support/silent_log.dart';
+import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/localized_text.dart';
 import '../../shared/util/text_clip.dart';
@@ -537,7 +538,7 @@ class WebReverseSessionController extends ChangeNotifier {
     // 当前 target 换了，上轮拿到的 hook scriptId 在新 target 上
     // 无意义，重新沿着新 _pageSessionId 装载 enabled hook。
     await _reapplyEnabledHooks();
-    await _pageEventsSub?.cancel();
+    await _cancelRuntimeSubscription(_pageEventsSub, 'replace page events');
     _pageEventsSub = cdp.events
         .where((ev) => ev.sessionId == null || ev.sessionId == _pageSessionId)
         .listen(_onCdpEvent);
@@ -848,7 +849,7 @@ class WebReverseSessionController extends ChangeNotifier {
       );
       return null;
     } finally {
-      await sub?.cancel();
+      await _cancelRuntimeSubscription(sub, 'heap snapshot events');
     }
   }
 
@@ -936,7 +937,7 @@ class WebReverseSessionController extends ChangeNotifier {
       silentLog('web_reverse_session_controller', 'recordTrace', error, stack);
       return null;
     } finally {
-      await sub?.cancel();
+      await _cancelRuntimeSubscription(sub, 'performance trace events');
     }
   }
 
@@ -1486,7 +1487,7 @@ class WebReverseSessionController extends ChangeNotifier {
       );
       return const [];
     } finally {
-      await sub?.cancel();
+      await _cancelRuntimeSubscription(sub, 'service worker events');
     }
   }
 
@@ -3498,7 +3499,7 @@ class WebReverseSessionController extends ChangeNotifier {
       }
     }
     _resetScreencastRuntimeState(resetRefCount: false);
-    await _pageEventsSub?.cancel();
+    await _cancelRuntimeSubscription(_pageEventsSub, 'stop page events');
     _pageEventsSub = null;
     _pageSessionId = null;
     await _closeAuxiliaryServices();
@@ -3623,7 +3624,7 @@ class WebReverseSessionController extends ChangeNotifier {
       }
     }
     _resetScreencastRuntimeState(resetRefCount: true);
-    await _pageEventsSub?.cancel();
+    await _cancelRuntimeSubscription(_pageEventsSub, 'shutdown page events');
     await _closeAuxiliaryServices();
     _pageEventsSub = null;
     _pageSessionId = null;
@@ -3672,7 +3673,7 @@ class WebReverseSessionController extends ChangeNotifier {
   }
 
   Future<void> _closeAuxiliaryServices() async {
-    await _mitmSub?.cancel();
+    await _cancelRuntimeSubscription(_mitmSub, 'shutdown mitm events');
     _mitmSub = null;
     final br = _mitmBridge;
     _mitmBridge = null;
@@ -6888,7 +6889,7 @@ class WebReverseSessionController extends ChangeNotifier {
     final br = _mitmBridge;
     if (br == null) return;
     _mitmBridge = null;
-    await _mitmSub?.cancel();
+    await _cancelRuntimeSubscription(_mitmSub, 'stop mitm events');
     _mitmSub = null;
     _safeNotify();
     await br.close();
@@ -7375,6 +7376,21 @@ class WebReverseSessionController extends ChangeNotifier {
   /// dispose 后再 notifyListeners 会抛 assertion。所有内部状态变更点统一走
   /// 这一层，避免任何回调（CDP 事件 / 异步收尾）在 controller 已 dispose
   /// 后再触发监听器。
+  Future<void> _cancelRuntimeSubscription<T>(
+    StreamSubscription<T>? subscription,
+    String where,
+  ) async {
+    await cancelStreamSubscriptionBounded<T>(
+      subscription,
+      onError: (error, stack) => silentLog(
+        'web_reverse_session_controller',
+        'cancel $where',
+        error,
+        stack,
+      ),
+    );
+  }
+
   void _safeNotify() {
     if (_disposed) return;
     notifyListeners();

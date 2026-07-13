@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart' show ChangeNotifier;
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../app/support/system_proxy.dart';
+import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
@@ -619,16 +620,12 @@ class McpStdioProcessManager extends ChangeNotifier {
     StreamSubscription<T>? subscription,
     String where,
   ) async {
-    if (subscription == null) {
-      return;
-    }
-    try {
-      await subscription.cancel().timeout(_subscriptionCancelTimeout);
-    } on TimeoutException catch (error, stack) {
-      silentLog('mcp_stdio_process_manager', '$where timed out', error, stack);
-    } catch (error, stack) {
-      silentLog('mcp_stdio_process_manager', where, error, stack);
-    }
+    await cancelStreamSubscriptionBounded<T>(
+      subscription,
+      timeout: _subscriptionCancelTimeout,
+      onError: (error, stack) =>
+          silentLog('mcp_stdio_process_manager', where, error, stack),
+    );
   }
 
   /// 停止指定 STDIO MCP 服务进程。

@@ -5,6 +5,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import '../../features/ai/service/runtime/ai_tool_execution_registry.dart';
+import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/text_clip.dart';
 import '../../shared/util/timer_safety.dart';
@@ -910,12 +911,12 @@ Future<void> _cancelProcessSubscription<T>(
   String tag,
   String streamName,
 ) async {
-  if (subscription == null) return;
-  try {
-    await subscription.cancel().timeout(_processStreamCleanupTimeout);
-  } catch (error, stack) {
-    silentLog(tag, 'cancel $streamName subscription', error, stack);
-  }
+  await cancelStreamSubscriptionBounded<T>(
+    subscription,
+    timeout: _processStreamCleanupTimeout,
+    onError: (error, stack) =>
+        silentLog(tag, 'cancel $streamName subscription', error, stack),
+  );
 }
 
 /// 兼容 `Process.run(...).timeout(...)` 写法的封装：永远返回非空
@@ -1393,8 +1394,10 @@ Future<ProcessResult?> runBinaryProcessWithTimeout(
     }
     return null;
   } finally {
-    await stdoutSub?.cancel();
-    await stderrSub?.cancel();
+    await Future.wait<void>(<Future<void>>[
+      _cancelProcessSubscription(stdoutSub, tag, 'stdout'),
+      _cancelProcessSubscription(stderrSub, tag, 'stderr'),
+    ]);
   }
 }
 

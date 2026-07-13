@@ -12,6 +12,7 @@ import 'package:xterm/xterm.dart';
 import '../../app/support/openhand_paths.dart';
 import '../../app/support/silent_log.dart';
 import '../../shared/db/atomic_file_operations.dart';
+import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/timer_safety.dart';
 
@@ -1530,9 +1531,7 @@ class MachineTerminalSession {
               _pid = null;
               final outputSubscription = _outputSubscription;
               _outputSubscription = null;
-              if (outputSubscription != null) {
-                unawaited(outputSubscription.cancel());
-              }
+              unawaited(_cancelOutputSubscription(outputSubscription));
               if (_status != MachineTerminalStatus.failed) {
                 _status = MachineTerminalStatus.stopped;
               }
@@ -1584,12 +1583,24 @@ class MachineTerminalSession {
     } catch (error, stack) {
       silentLog('machine_terminal', 'stop pty', error, stack);
     } finally {
-      if (outputSubscription != null) {
-        unawaited(outputSubscription.cancel());
-      }
+      unawaited(_cancelOutputSubscription(outputSubscription));
       _status = MachineTerminalStatus.stopped;
       _touch();
     }
+  }
+
+  Future<void> _cancelOutputSubscription(
+    StreamSubscription<String>? subscription,
+  ) async {
+    await cancelStreamSubscriptionBounded<String>(
+      subscription,
+      onError: (error, stack) => silentLog(
+        'machine_terminal',
+        'cancel PTY output subscription',
+        error,
+        stack,
+      ),
+    );
   }
 
   Future<void> restart() async {

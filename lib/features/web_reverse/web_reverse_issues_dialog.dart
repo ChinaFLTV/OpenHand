@@ -13,6 +13,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/motion_preference.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
+import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/timer_safety.dart';
 import 'web_reverse_cdp_client.dart';
@@ -57,7 +58,10 @@ Future<void> _bindIssueStream(WebReverseSessionController controller) async {
   final bindingKey =
       '${identityHashCode(controller)}:${controller.artifactsRootDir}:${controller.cdpConnectionGeneration}';
   if (_issueBindingKey != bindingKey) {
-    await _issueGlobalSub?.cancel();
+    await _cancelIssueSubscription(
+      _issueGlobalSub,
+      'replace global issue subscription',
+    );
     _issueGlobalSub = null;
     _issueBindingKey = bindingKey;
     _issueDomainEnabled = false;
@@ -79,7 +83,18 @@ void _resetIssueBinding(String bindingKey) {
   _issueGlobalSub = null;
   _issueBindingKey = null;
   _issueDomainEnabled = false;
-  unawaited(sub?.cancel());
+  unawaited(_cancelIssueSubscription(sub, 'reset global issue subscription'));
+}
+
+Future<void> _cancelIssueSubscription(
+  StreamSubscription<CdpEvent>? subscription,
+  String where,
+) async {
+  await cancelStreamSubscriptionBounded<CdpEvent>(
+    subscription,
+    onError: (error, stack) =>
+        silentLog('web_reverse_issues_dialog', where, error, stack),
+  );
 }
 
 void _handleIssueEvent(CdpEvent ev) {

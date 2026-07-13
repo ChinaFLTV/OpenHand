@@ -2,6 +2,7 @@ import 'dart:async';
 
 import '../../../app/state/settings_controller.dart';
 import '../../../app/support/silent_log.dart';
+import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/timer_safety.dart';
 import 'throttle_cloud_sync_service.dart';
@@ -91,7 +92,15 @@ class ThrottleAutoSyncService {
     _pullDebounceTimer = null;
     _bootPullTimer?.cancel();
     _bootPullTimer = null;
-    await _cloudChangesSub?.cancel();
+    await cancelStreamSubscriptionBounded<void>(
+      _cloudChangesSub,
+      onError: (error, stack) => silentLog(
+        'throttle_auto_sync',
+        'cancel cloud changes subscription',
+        error,
+        stack,
+      ),
+    );
     _cloudChangesSub = null;
     if (_started) {
       _settingsController.removeListener(_onSettingsChanged);

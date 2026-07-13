@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart' as http_io;
 
 import '../../app/support/silent_log.dart';
+import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/input_value_parsing.dart';
 import 'web_reverse_browser_kind.dart';
 import 'web_reverse_cdp_http.dart';
@@ -43,6 +44,7 @@ class WebReverseBrowserLauncher {
   static const int _firstCdpPort = 9222;
   static const int _lastCdpPortExclusive = 9322;
   static const Duration _handshakeTimeout = Duration(seconds: 30);
+  static const Duration _streamCleanupTimeout = Duration(seconds: 1);
 
   /// 创建一个**强制绕过任何系统/用户级代理**的 HTTP 客户端。
   /// CDP 探测目标是 127.0.0.1，如果走 HTTP/SOCKS 代理会被路由到外网拒绝
@@ -286,8 +288,7 @@ class WebReverseBrowserLauncher {
           stack,
         );
       }
-      await errSub?.cancel();
-      await outSub?.cancel();
+      await _cancelProcessOutputSubscriptions(errSub, outSub);
       final err = stderrBuf.toString().trim();
       final hint = err.isEmpty
           ? ''
@@ -305,8 +306,7 @@ class WebReverseBrowserLauncher {
       );
     }
     // 握手成功后把 stderr/stdout 订阅释放，避免长跑时占用句柄。
-    await errSub?.cancel();
-    await outSub?.cancel();
+    await _cancelProcessOutputSubscriptions(errSub, outSub);
     return WebReverseLaunchResult(
       process: process,
       cdpPort: port,
@@ -314,6 +314,34 @@ class WebReverseBrowserLauncher {
       browserVersion: version,
       webSocketDebuggerUrl: wsUrl,
     );
+  }
+
+  Future<void> _cancelProcessOutputSubscriptions(
+    StreamSubscription<String>? stderrSubscription,
+    StreamSubscription<List<int>>? stdoutSubscription,
+  ) async {
+    await Future.wait<bool>(<Future<bool>>[
+      cancelStreamSubscriptionBounded<String>(
+        stderrSubscription,
+        timeout: _streamCleanupTimeout,
+        onError: (error, stack) => silentLog(
+          'web_reverse_browser_launcher',
+          'cancel stderr subscription',
+          error,
+          stack,
+        ),
+      ),
+      cancelStreamSubscriptionBounded<List<int>>(
+        stdoutSubscription,
+        timeout: _streamCleanupTimeout,
+        onError: (error, stack) => silentLog(
+          'web_reverse_browser_launcher',
+          'cancel stdout subscription',
+          error,
+          stack,
+        ),
+      ),
+    ]);
   }
 }
 

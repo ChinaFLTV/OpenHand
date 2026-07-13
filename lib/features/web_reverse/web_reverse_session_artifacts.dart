@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import '../../app/support/silent_log.dart';
+import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/text_clip.dart';
 import '../../shared/util/timer_safety.dart';
@@ -218,9 +219,7 @@ class WebReverseSessionArtifacts {
     try {
       final ts = DateTime.now().toUtc().toIso8601String().replaceAll(':', '-');
       final path = '$rootDir/har/$ts.har';
-      await File(
-        path,
-      ).writeAsString(prettyPrintJson(har));
+      await File(path).writeAsString(prettyPrintJson(har));
       return path;
     } catch (error, stack) {
       silentLog('web_reverse_artifacts', 'exportHar', error, stack);
@@ -232,19 +231,29 @@ class WebReverseSessionArtifacts {
     _flushTimer?.cancel();
     _flushTimer = null;
     _flush();
-    try {
-      await _networkSink?.flush();
-      await _networkSink?.close();
-    } catch (error, stack) {
-      silentLog('web_reverse_artifacts', 'close network sink', error, stack);
-    }
-    try {
-      await _consoleSink?.flush();
-      await _consoleSink?.close();
-    } catch (error, stack) {
-      silentLog('web_reverse_artifacts', 'close console sink', error, stack);
-    }
+    final networkSink = _networkSink;
+    final consoleSink = _consoleSink;
+    _networkSink = null;
+    _consoleSink = null;
     _ready = false;
+    await Future.wait<bool>(<Future<bool>>[
+      _closeSink(networkSink, 'network'),
+      _closeSink(consoleSink, 'console'),
+    ]);
+  }
+
+  Future<bool> _closeSink(IOSink? sink, String streamName) {
+    if (sink == null) return Future<bool>.value(true);
+    // IOSink.close flushes buffered data before releasing the file handle.
+    return runAsyncCleanupBounded(
+      sink.close,
+      onError: (error, stack) => silentLog(
+        'web_reverse_artifacts',
+        'close $streamName sink',
+        error,
+        stack,
+      ),
+    );
   }
 
   static List<Map<String, Object?>> _harHeaders(Map<String, Object?>? headers) {

@@ -2328,6 +2328,28 @@ class SettingsController extends ChangeNotifier {
     );
   }
 
+  /// Restores every motion bucket as one persisted transaction so observers
+  /// never see a partially reset animation configuration.
+  Future<bool> restoreDefaultAnimationSettings() {
+    return _commitMutation(() {
+      if (_dialogAnimationSettings == OpenHandMotionDefaults.dialog &&
+          _menuAnimationSettings == OpenHandMotionDefaults.menu &&
+          _pageAnimationSettings == OpenHandMotionDefaults.page &&
+          _panelAnimationSettings == OpenHandMotionDefaults.panel &&
+          _chipAnimationSettings == OpenHandMotionDefaults.chip &&
+          _listItemAnimationSettings == OpenHandMotionDefaults.listItem) {
+        return _MutationDisposition.successNoChange;
+      }
+      _dialogAnimationSettings = OpenHandMotionDefaults.dialog;
+      _menuAnimationSettings = OpenHandMotionDefaults.menu;
+      _pageAnimationSettings = OpenHandMotionDefaults.page;
+      _panelAnimationSettings = OpenHandMotionDefaults.panel;
+      _chipAnimationSettings = OpenHandMotionDefaults.chip;
+      _listItemAnimationSettings = OpenHandMotionDefaults.listItem;
+      return _MutationDisposition.apply;
+    });
+  }
+
   Future<bool> _updateAnimationSettings({
     required DialogAnimationSettings value,
     required DialogAnimationSettings Function() current,

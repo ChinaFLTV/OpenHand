@@ -9,6 +9,7 @@ import 'package:path/path.dart' as p;
 
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
+import '../util/async_concurrency.dart';
 import '../util/input_value_parsing.dart';
 import '../util/timer_safety.dart';
 import 'animated_menu.dart';
@@ -365,9 +366,19 @@ class _MediaKitPlaybackEngine implements _NativeAudioPlaybackEngine {
 
   @override
   Future<void> dispose() async {
-    for (final subscription in _subscriptions) {
-      await subscription.cancel();
-    }
+    await Future.wait<bool>(
+      _subscriptions.map(
+        (subscription) => cancelStreamSubscriptionBounded<dynamic>(
+          subscription,
+          onError: (error, stack) => silentLog(
+            'native_audio_preview',
+            'cancel playback engine subscription',
+            error,
+            stack,
+          ),
+        ),
+      ),
+    );
     await _stateController.close();
     await _player.dispose();
   }
@@ -492,7 +503,17 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
     _progressPollTimer?.cancel();
     if (widget.controller?._state == this) widget.controller?._state = null;
     for (final subscription in _subscriptions) {
-      unawaited(subscription.cancel());
+      unawaited(
+        cancelStreamSubscriptionBounded<dynamic>(
+          subscription,
+          onError: (error, stack) => silentLog(
+            'native_audio_preview',
+            'cancel preview subscription',
+            error,
+            stack,
+          ),
+        ),
+      );
     }
     unawaited(_disposePlayerAndTemp());
     super.dispose();

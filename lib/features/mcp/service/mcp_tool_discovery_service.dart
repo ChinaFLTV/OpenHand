@@ -14,6 +14,7 @@ import '../../../app/support/system_proxy.dart';
 import '../../../shared/net/http_redirect_utils.dart';
 import '../../../shared/net/http_response_utils.dart';
 import '../../../shared/net/http_status_utils.dart';
+import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
@@ -2887,11 +2888,11 @@ class _StdioSession {
     StreamSubscription<T> subscription,
     String where,
   ) async {
-    try {
-      await subscription.cancel().timeout(_mcpStreamCleanupTimeout);
-    } catch (error, stack) {
-      silentLog('mcp.stdio', where, error, stack);
-    }
+    await cancelStreamSubscriptionBounded<T>(
+      subscription,
+      timeout: _mcpStreamCleanupTimeout,
+      onError: (error, stack) => silentLog('mcp.stdio', where, error, stack),
+    );
   }
 }
 
@@ -2899,11 +2900,12 @@ Future<void> _cancelMcpStreamSubscription<T>(
   StreamSubscription<T> subscription, {
   required String where,
 }) async {
-  try {
-    await subscription.cancel().timeout(_mcpStreamCleanupTimeout);
-  } catch (error, stack) {
-    silentLog('mcp_tool_discovery_service', 'cancel $where', error, stack);
-  }
+  await cancelStreamSubscriptionBounded<T>(
+    subscription,
+    timeout: _mcpStreamCleanupTimeout,
+    onError: (error, stack) =>
+        silentLog('mcp_tool_discovery_service', 'cancel $where', error, stack),
+  );
 }
 
 Future<void> _closeMcpStreamController<T>(

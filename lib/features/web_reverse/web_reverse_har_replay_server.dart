@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import '../../app/support/silent_log.dart';
+import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/text_clip.dart';
 
@@ -309,13 +310,15 @@ class WebReverseHarReplayServer {
     _closed = true;
     final subscription = _requestSubscription;
     _requestSubscription = null;
-    if (subscription != null) {
-      try {
-        await subscription.cancel().timeout(_closeTimeout);
-      } catch (_) {
-        // HttpServer.close below remains the authoritative shutdown path.
-      }
-    }
+    await cancelStreamSubscriptionBounded<HttpRequest>(
+      subscription,
+      onError: (error, stack) => silentLog(
+        'web_reverse_har_replay_server',
+        'cancel request subscription',
+        error,
+        stack,
+      ),
+    );
     try {
       await _server.close(force: true).timeout(_closeTimeout);
     } catch (error, stack) {
