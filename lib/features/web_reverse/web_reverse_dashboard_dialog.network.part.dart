@@ -189,7 +189,7 @@ class _NetworkBody extends StatelessWidget {
         ),
         Divider(height: 1, color: cs.outlineVariant),
         Expanded(
-          // 2026-05-17 — 详情面板进出动画：用 AnimatedSwitcher 把"列表
+          // 详情面板进出动画：用 AnimatedSwitcher 把"列表
           // 独占" 与 "列表 + 详情" 两种 layout 之间的切换包裹起来，
           // 详情侧从右滑入并淡入；关闭时反向滑出。同时面板宽度由
           // AnimatedSize 缓动，避免直接 size jump 导致的视觉硬切。

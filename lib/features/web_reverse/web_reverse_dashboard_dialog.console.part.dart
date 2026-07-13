@@ -28,7 +28,7 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
   // history cursor: -1 表示当前没在历史里；0..len-1 指向某条历史。
   int _historyCursor = -1;
 
-  // 2026-05-25 — 退场动画：维护一份「显示用槽位」列表。当 controller
+  // 退场动画：维护一份「显示用槽位」列表。当 controller
   // 的 consoleMessages 移除某条（cap 截断 / 清空）时，对应槽位标记
   // isExiting=true 并启动 240ms 计时器；到期后真正从 _slots 移除。
   // build 中按身份 identical(slot.entry, e) 与最新列表对齐，过滤命中

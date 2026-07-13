@@ -726,7 +726,7 @@ class HarnessApiPhaseRunner {
       );
     }
 
-    // 2026-04-13 Enhanced substantive output detection:
+    // Enhanced substantive output detection:
     // - Tool execution outputs (indented with "  ") count as substantive
     // - Pure status lines (ℹ, ⚙, ⚠) alone do not count
     // - Empty or whitespace-only lines do not count
@@ -752,7 +752,7 @@ class HarnessApiPhaseRunner {
 
     if (!hasSubstantiveOutput) {
       emit('');
-      // 2026-04-13 Enhanced diagnostic message
+      // Enhanced diagnostic message
       final mcpNoticeCount = outputLines
           .where((l) => l.trim().startsWith('ℹ MCP '))
           .length;

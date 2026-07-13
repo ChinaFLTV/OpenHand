@@ -255,7 +255,7 @@ class DatabaseService {
       )
     ''');
 
-    // 2026-04-25 — 用户指令表（【指令】模块）。
+    // 用户指令表（【指令】模块）。
     // 充当调用者可编辑的"全局提示词碎片"，启用后会被拼装到所
     // 有线程模板的 system prompt 中。
     batch.execute(_createUserInstructionsTableSql);
@@ -375,7 +375,7 @@ class DatabaseService {
     int oldVersion,
     int newVersion,
   ) async {
-    // 2026-04-25: schema v2 — add `title` column to memories so the AI
+    // schema v2 — add `title` column to memories so the AI
     // self-learning sub-agent can keep a separate, readable title alongside
     // each memory's full content. Existing rows default to an empty title;
     // UI falls back to deriving a preview from `content` when title is
@@ -385,13 +385,13 @@ class DatabaseService {
         "ALTER TABLE memories ADD COLUMN title TEXT NOT NULL DEFAULT ''",
       );
     }
-    // 2026-04-25: schema v3 — introduce the user_instructions table for the
+    // schema v3 — introduce the user_instructions table for the
     // 【指令】 module. Old installs simply gain an empty table.
     if (oldVersion < 3) {
       await db.execute(_createUserInstructionsTableSql);
       await db.execute(_createUserInstructionsSortIndexSql);
     }
-    // 2026-04-26: schema v4 — add display_order to sessions for the
+    // schema v4 — add display_order to sessions for the
     // 'Thread Session Management' dialog's drag-reorder feature. Null
     // means "no manual order"; sessions sort by updated_at DESC for
     // those rows. Manual rows sort by display_order ASC first.
@@ -423,7 +423,7 @@ class DatabaseService {
         'ON sessions(archived)',
       );
     }
-    // 2026-06-19: schema v6 — persist semantic Bash action categories
+    // schema v6 — persist semantic Bash action categories
     // collected by ExitPlanMode.allowed_prompts for the currently pending
     // plan. This records implementation intent only; runtime permissions and
     // write-command confirmation remain authoritative.

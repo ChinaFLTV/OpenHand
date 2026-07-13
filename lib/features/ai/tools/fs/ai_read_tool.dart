@@ -81,7 +81,7 @@ class AiReadTool extends AiTool {
     }
     final pdfPages = pdfPagesResult.pages;
 
-    // 2026-04-12: 从 metadata 获取追踪服务
+    // 从 metadata 获取追踪服务
     final fileTracker =
         context.metadata['file_tracker'] as AiFileTrackerService?;
 

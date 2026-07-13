@@ -4,7 +4,7 @@ import 'openhand_palette.dart';
 import 'openhand_theme_preset.dart';
 
 abstract final class OpenHandTheme {
-  // 2026-04-25 perf — ThemeData construction (ColorScheme.fromSeed +
+  // ThemeData construction (ColorScheme.fromSeed +
   // OpenHandPalette + ~30 component sub-themes) is non-trivial and runs on
   // every OpenHandApp.build(). MaterialApp rebuilds frequently from
   // SettingsController notifications even when neither brightness nor
@@ -107,7 +107,7 @@ abstract final class OpenHandTheme {
       chipTheme: baseTheme.chipTheme.copyWith(
         backgroundColor: colorScheme.surfaceContainerHigh,
         selectedColor: colorScheme.primaryContainer,
-        // 2026-05-05: 选中态统一对齐全局 highlight（= colorScheme.primary，
+        // 选中态统一对齐全局 highlight（= colorScheme.primary，
         // 即 sidebar 高亮 / 主操作按钮 / 输入框聚焦边框的同色系）。早期
         // 用 secondaryContainer，在 expressive 调度下会偏到互补色（橄
         // 榄主色 → 粉/淡紫 secondary），与应用其它"被选中/激活"控件
@@ -293,7 +293,7 @@ abstract final class OpenHandTheme {
       ),
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
-        // 2026-06-07 修复：inverseSurface 在深色主题下是浅灰色（M3 默认），
+        // inverseSurface 在深色主题下是浅灰色（M3 默认），
         // 与深色主题整体配色不协调。改用 surfaceContainerHigh 在深色主题下
         // 呈现深色调，保持视觉一致性；亮色主题继续用 inverseSurface。
         backgroundColor: isDark
@@ -303,11 +303,12 @@ abstract final class OpenHandTheme {
           color: isDark ? colorScheme.onSurface : colorScheme.onInverseSurface,
           fontWeight: FontWeight.w500,
         ),
-        actionTextColor: isDark ? colorScheme.primary : colorScheme.inversePrimary,
-        closeIconColor: (isDark
-                ? colorScheme.onSurface
-                : colorScheme.onInverseSurface)
-            .withValues(alpha: 0.7),
+        actionTextColor: isDark
+            ? colorScheme.primary
+            : colorScheme.inversePrimary,
+        closeIconColor:
+            (isDark ? colorScheme.onSurface : colorScheme.onInverseSurface)
+                .withValues(alpha: 0.7),
         // 禁用框架内置的 close icon（它在 M3 下有不可控的白色背景），
         // 改由 OpenHandSnackBar._ensureMotionWrapped 注入无背景的自定义关闭按钮。
         showCloseIcon: false,

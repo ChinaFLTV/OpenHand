@@ -4860,7 +4860,7 @@ class _AiModelTile extends StatefulWidget {
 class _AiModelTileState extends State<_AiModelTile> {
   bool _modelChipsExpanded = false;
 
-  /// 2026-05-19 — APP 运行期间稳定的胶囊排序。冷启动后第一次构建本卡片
+  /// APP 运行期间稳定的胶囊排序。冷启动后第一次构建本卡片
   /// 时按"活跃模型优先"排好；之后用户切换活跃模型，胶囊位置不再动 —
   /// 仅高亮跟随。只有当模型列表本身（增/删/重命名）变了，或卡片重挂载
   /// 时才会按新顺序重新快照。

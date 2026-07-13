@@ -370,8 +370,8 @@ class AiBuiltinToolConfig {
     this.webFetchSettings,
   });
 
-  /// 单次工具调用未在用户层面显式覆盖时使用的默认超时秒数（2026-04-29）。
-  /// 之前为 null 时由调用方各自决定，现在统一为 20s 以避免内建工具长时间挂起。
+  /// 单次工具调用未在用户层面显式覆盖时使用的默认超时秒数。
+  /// 统一默认值可避免调用方遗漏边界而长时间挂起。
   static const int defaultTimeoutSeconds = 20;
 
   /// 单次工具调用可配置超时下限。

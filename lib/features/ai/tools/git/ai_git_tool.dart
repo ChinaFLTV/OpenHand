@@ -5,7 +5,7 @@ import '../ai_tool.dart';
 import '../ai_tool_execution_context.dart';
 import '../ai_tool_utils.dart';
 
-/// 2026-04-10 Git 工具 — 提供结构化 Git 操作，对标 Cursor Agent 的 Git 集成。
+/// Git 工具 — 提供结构化 Git 操作，对标 Cursor Agent 的 Git 集成。
 ///
 /// 支持操作：status, diff, log, blame, show, branch, stash_list.
 /// 比 Bash 执行 raw git 命令更安全（只读操作、无交互模式）且输出更结构化。

@@ -485,7 +485,7 @@ class CronsStore {
     );
   }
 
-  /// 2026-04-25 — 删除所有 [cutoff] 之前的历史记录，返回受影响行数。
+  /// 删除所有 [cutoff] 之前的历史记录，返回受影响行数。
   /// 用于冷启动时的自动清理 worker。
   /// 注意：started_at 列存的是 ISO8601 字符串，字典序与时间序一致，
   /// 因此可直接用字符串比较，无需 datetime() 函数。
@@ -497,14 +497,14 @@ class CronsStore {
     );
   }
 
-  /// 2026-04-26 — 清空全部 cron 执行历史记录。返回受影响行数。
+  /// 清空全部 cron 执行历史记录。返回受影响行数。
   /// 仅由全局设置中的"日志清理 / 全部数据清空"使用；调用方负责同步刷新
   /// 内存缓存。
   Future<int> deleteAllHistory() async {
     return _db.delete(_historyTable);
   }
 
-  /// 2026-04-26 — 估算 cron 执行历史在数据库中占用的近似字节数。
+  /// 估算 cron 执行历史在数据库中占用的近似字节数。
   /// 仅汇总主要 TEXT 列（stdout/stderr/cron_id/started_at），用于"日志清理"
   /// 设置面板的人类友好大小展示。
   Future<({int rowCount, int approxBytes})> historyApproxSize() async {

@@ -257,7 +257,7 @@ class DataCleanupService {
     );
   }
 
-  /// 2026-05-03 文件变动 ledger 体积（`~/.openhand/file_history/`）。
+  /// 文件变动 ledger 体积（`~/.openhand/file_history/`）。
   /// 阶段 ⑦a：itemCount 用 ledger 自带的 statsSnapshot 报回 record 行数，
   /// 让 UI 主卡片 subtitle 直接显示 N 项，且与高级控制头部数字一致。
   Future<DataCleanupSizeReport> measureMutationLedger() async {
@@ -446,7 +446,7 @@ class DataCleanupService {
     );
   }
 
-  /// 2026-05-03 清空文件变动 ledger（所有会话的 jsonl + state +
+  /// 清空文件变动 ledger（所有会话的 jsonl + state +
   /// blob）。调用后卡片侧 undo/redo 会退化为 metadata-only 列表。
   Future<void> cleanMutationLedger() async {
     try {

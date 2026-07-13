@@ -151,7 +151,7 @@ class MemoryView extends StatelessWidget {
       );
     }
 
-    // 2026-04-25: 用户画像条目已迁移至 全局设置 → AI 设置 → 会话设置 中独立
+    // 用户画像条目已迁移至 全局设置 → AI 设置 → 会话设置 中独立
     // 维护，记忆面板不再展示，仅在分流时跳过首个 userProfile 条目。
     final autoLearned = <UserMemoryEntry>[];
     final regular = <UserMemoryEntry>[];
@@ -397,7 +397,7 @@ class _MemoryEditorDialogState extends State<_MemoryEditorDialog> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // 2026-04-25: 标题字段（可选）。AI 自我学习写入与
+                        // 标题字段（可选）。AI 自我学习写入与
                         // 用户编辑都共用此字段；空字符串表示未设置（卡片
                         // 头部会回退到正文 preview）。
                         TextFormField(
@@ -768,7 +768,7 @@ class _MemoryEntryCard extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // 2026-04-25: 优先展示 [UserMemoryEntry.title]
+                          // 优先展示 [UserMemoryEntry.title]
                           // (AI 自我学习生成 / 用户编辑保存)。当 title 为空时
                           // 退化到 [_shouldShowTitle] 判断 preview 是否值得展示。
                           if (entry.title.trim().isNotEmpty) ...[

@@ -209,7 +209,7 @@ Future<void> _bootstrap() async {
   final knowledgeBaseModuleFuture = KnowledgeBaseModule.bootstrap();
   // 预加载输出格式控制 Prompt 片段；未就绪时 AiPromptBuilder 会回退到内置兜底。
   unawaited(AiOutputFormatPrompts.ensureLoaded());
-  // 2026-05-03: kick off system-proxy detection in parallel with the
+  // kick off system-proxy detection in parallel with the
   // controllers — internal HTTP clients (WebSearch / WebFetch) consult
   // SystemProxyResolver lazily, so this is purely best-effort.
   final systemProxyFuture = SystemProxyResolver.instance.initialize();

@@ -3,7 +3,7 @@ import 'ai_stream_throttle_policy.dart';
 
 /// Per-thread-template override for stream output throttle settings.
 ///
-/// 2026-05-17 — 流式输出节流的「每个线程模板独立覆盖」。当用户希望某
+/// 流式输出节流的「每个线程模板独立覆盖」。当用户希望某
 /// 个线程模板（比如 Hermes Talker）使用与全局不同的节流速率时，可以在
 /// 设置面板里给该模板写一份覆盖；运行时按 templateId 查表，命中即用，
 /// 未命中或字段为空时回退到全局值。
@@ -22,7 +22,7 @@ class AiStreamThrottleOverride {
   /// 每秒最多向当前会话追加多少新卡片；null = 沿用全局。
   final int? cardsPerSecond;
 
-  /// 2026-05-19 — 会话级「启用节流」开关：
+  /// 会话级「启用节流」开关：
   ///   * null  → 沿用全局 `aiStreamThrottleEnabled`；
   ///   * false → 强制关闭节流（即便全局已开启），全速 pass-through；
   ///   * true  → 强制开启节流（即便全局已关闭），按 chars/cards 限速。

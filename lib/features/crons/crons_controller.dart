@@ -557,7 +557,7 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
     });
   }
 
-  /// 2026-04-25 — 删除所有 [cutoff] 之前的执行历史，返回受影响的行数。
+  /// 删除所有 [cutoff] 之前的执行历史，返回受影响的行数。
   /// 同步刷新内存缓存以避免 UI 看到陈旧数据。
   /// 这是一个"尽力而为"的清理，调用方负责自身的异常兜底；
   /// 失败时返回 0，不抛异常。
@@ -582,7 +582,7 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
     return affected;
   }
 
-  /// 2026-04-26 — 清空全部 cron 执行历史。返回受影响行数；失败返回 0
+  /// 清空全部 cron 执行历史。返回受影响行数；失败返回 0
   /// 并 silentLog，不抛异常。仅由全局设置中的"日志清理 / 全部数据清空"
   /// 触发，调用方负责弹窗二次确认。
   Future<int> clearAllHistory() async {
@@ -600,7 +600,7 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
     return affected;
   }
 
-  /// 2026-05-23 — 清空全部"非系统"cron 任务（保留 Hermes Talker / MCP
+  /// 清空全部"非系统"cron 任务（保留 Hermes Talker / MCP
   /// 关键词索引等带 [systemTag] 的内置条目，避免清理后丢失自学习能力）。
   /// 同步取消调度、清理历史缓存，返回受影响条目数。
   Future<int> clearAllNonSystemCrons() async {

@@ -426,7 +426,7 @@ class AiSessionController extends ChangeNotifier {
   /// Maximum number of consecutive auto-continuations when the model keeps
   /// hitting its output token limit (finish_reason: "length" / "max_tokens").
   /// This prevents infinite loops when the model is stuck in a truncation cycle.
-  /// 2026-04-29: 该上限现在由 [_effectiveMaxTruncationContinuations] 在
+  /// 该上限现在由 [_effectiveMaxTruncationContinuations] 在
   /// 运行时读取 runtimeContext。
 
   /// Tracks how many consecutive times the current conversation loop has
@@ -434,7 +434,7 @@ class AiSessionController extends ChangeNotifier {
   /// model completes normally or produces tool calls.
   var _truncationContinuationCount = 0;
 
-  /// 2026-05-04 — ToolSearch 懒加载状态。键为 sessionId，值为该会话已通过
+  /// ToolSearch 懒加载状态。键为 sessionId，值为该会话已通过
   /// `ToolSearch` 主动加载并允许直接调用的 runtime tool 名称；同时承载
   /// 向 UI 广播加载事件的 [ValueListenable]。
   /// 会话被 dispose 时清理。
@@ -460,7 +460,7 @@ class AiSessionController extends ChangeNotifier {
   int clearLoadedMcpToolsForSession(String sessionId) =>
       _loadedMcpToolsTracker.clearSession(sessionId);
 
-  /// 2026-04-29 — Group A 设置项缓存。每当方法接收到 [runtimeContext] 时
+  /// Group A 设置项缓存。每当方法接收到 [runtimeContext] 时
   /// 写入本字段；helper 在自身没有 runtimeContext 入参的场景下从中读取
   /// 用户配置，缺省时回落到 [AppSettingsSnapshot] 默认值。
   AiSessionRuntimeContext? _latestRuntimeContext;
@@ -839,31 +839,31 @@ class AiSessionController extends ChangeNotifier {
       <String, AiStreamThrottleOverride>{};
   final ValueNotifier<int> _sessionStreamThrottleSignal = ValueNotifier<int>(0);
 
-  /// 2026-05-17 — 会话级活跃 cardThrottle 引用，仅在该会话流式中存在；
+  /// 会话级活跃 cardThrottle 引用，仅在该会话流式中存在；
   /// 用于 TopBar 节流胶囊读取当前积压卡片数。streaming 结束后由控制器
   /// 清理。
   final Map<String, _StreamCardThrottle> _activeCardThrottles =
       <String, _StreamCardThrottle>{};
 
-  /// 2026-05-18 — 会话级活跃 charThrottle 引用，仅在该会话流式中存在；
+  /// 会话级活跃 charThrottle 引用，仅在该会话流式中存在；
   /// 保留 UI 放出侧吞吐，作为 AI 侧采样器缺席时的兼容回退。
   final Map<String, _StreamCharThrottle> _activeCharThrottles =
       <String, _StreamCharThrottle>{};
 
-  /// 2026-05-21 — 会话级 AI 原始流入侧吞吐采样器。stream event 一到就
+  /// 会话级 AI 原始流入侧吞吐采样器。stream event 一到就
   /// 记录 text / reasoning / tool-call argument 的 grapheme 数，供本会话
   /// 节流弹窗秒级展示真实模型侧输出速率，不再受 UI 字符节流、reasoning
   /// 排空顺序或卡片限速影响。
   final Map<String, _StreamThroughputSampler> _activeAiThroughputSamplers =
       <String, _StreamThroughputSampler>{};
 
-  /// 2026-05-19 — 会话级活跃 reasoning charThrottle 引用，仅在思考流式
+  /// 会话级活跃 reasoning charThrottle 引用，仅在思考流式
   /// 段存在。会话弹窗 Apply 速率/启用变更时需要把变更同步到这一份，
   /// 否则推理仍按旧速率追加。
   final Map<String, _StreamCharThrottle> _activeReasoningCharThrottles =
       <String, _StreamCharThrottle>{};
 
-  /// 2026-05-19 — 会话开启流式时，若全局节流处于「启用且速率 > 0」状
+  /// 会话开启流式时，若全局节流处于「启用且速率 > 0」状
   /// 态，则把 sessionId 写入这个集合。之后即便用户在会话弹窗里把节流
   /// 关闭（`enabled=false`），TopBar 节流胶囊也应继续显示（灰色），以
   /// 便随时再次打开；而从未启用过节流的会话则永远不显示胶囊。
@@ -872,7 +872,7 @@ class AiSessionController extends ChangeNotifier {
   /// 也算作「初始已节流」，否则重启后胶囊会消失）。
   final Set<String> _sessionsInitiallyThrottled = <String>{};
 
-  /// 2026-05-24 — 最近一次流式结束时 dump 的展示侧吞吐桶，用于
+  /// 最近一次流式结束时 dump 的展示侧吞吐桶，用于
   /// 「会话非流式时打开节流弹窗也能看见上一次的吞吐曲线」。
   /// key=sessionId，value=immutable buckets（桶 0 = 当时的当前秒）。
   final Map<String, _CachedStreamThroughputSnapshot>
@@ -980,7 +980,7 @@ class AiSessionController extends ChangeNotifier {
     return throttle.pendingCount;
   }
 
-  /// 2026-05-18 — 当前会话最近 30s 展示侧字符吞吐快照（每秒一个桶，桶 0
+  /// 当前会话最近 30s 展示侧字符吞吐快照（每秒一个桶，桶 0
   /// = 当前秒）。旧 Web 网关仍消费这个窄窗口；APP 弹窗使用
   /// [sessionStreamThroughputSnapshot] 获取长窗口 + 原始流入辅助数据。
   List<int> sessionStreamCharThroughputSnapshot(String sessionId) {
@@ -1079,7 +1079,7 @@ class AiSessionController extends ChangeNotifier {
     return List<int>.unmodifiable(List<int>.filled(window, 0));
   }
 
-  /// 2026-05-17 — 当前会话的字符节流"持续时长"是否已耗尽。
+  /// 当前会话的字符节流"持续时长"是否已耗尽。
   /// 仅在 streaming 中、且配置了正向 duration 时才会为 true；UI 据此
   /// 把胶囊渲染成灰色以暗示「剩余响应正按真实速率追加」。
   bool sessionStreamThrottleDurationExpired(String sessionId) {
@@ -1094,7 +1094,7 @@ class AiSessionController extends ChangeNotifier {
 
   /// 设置或清除某个会话的字符节流覆盖。`value == null` 表示清除该字段；
   /// 当两个字段都被清除时，整个 entry 移除。
-  /// 2026-05-24 — 新增双重副作用：
+  /// 同时执行两项同步操作：
   ///   ① 把覆盖刷到当前活跃 _StreamCharThrottle，让 Apply 立即生效；
   ///   ② 异步落到 session.metadata['stream_throttle_override']，下次
   ///      打开会话或重启 App 都能复原。
@@ -1119,7 +1119,7 @@ class AiSessionController extends ChangeNotifier {
     if (activeChar != null && clamped != null) {
       activeChar.maxCharsPerSecond = clamped;
     }
-    // 2026-05-19 — reasoning throttle 也要同步，否则推理仍按旧速率追加。
+    // reasoning throttle 也要同步，否则推理仍按旧速率追加。
     final activeReasoning = _activeReasoningCharThrottles[sessionId];
     if (activeReasoning != null && clamped != null) {
       activeReasoning.maxCharsPerSecond = clamped;
@@ -1154,7 +1154,7 @@ class AiSessionController extends ChangeNotifier {
     _sessionStreamThrottleSignal.value = _sessionStreamThrottleSignal.value + 1;
   }
 
-  /// 2026-05-19 — 设置或清除某个会话的「启用节流」开关覆盖。
+  /// 设置或清除某个会话的「启用节流」开关覆盖。
   /// `value == null` 表示清除覆盖、回退到全局开关；`false` 强制关闭、
   /// `true` 强制开启。立即把变更推给活跃 throttle，使弹窗 Apply 后正
   /// 在输出的字符能立刻全速放出（关闭）或重新进入限速桶（开启）。
@@ -1183,7 +1183,7 @@ class AiSessionController extends ChangeNotifier {
     _sessionStreamThrottleSignal.value = _sessionStreamThrottleSignal.value + 1;
   }
 
-  /// 2026-05-19 — 该会话历史上是否曾经处于节流态。胶囊可见性判据之一。
+  /// 该会话历史上是否曾经处于节流态。胶囊可见性判据之一。
   bool sessionWasInitiallyThrottled(String sessionId) =>
       _sessionsInitiallyThrottled.contains(sessionId);
 
@@ -2142,7 +2142,7 @@ class AiSessionController extends ChangeNotifier {
     }
     final now = _clock().toUtc();
     _lastErrorMessage = null;
-    // 2026-04-14: 创建新会话时清理文件追踪器，避免跨会话的脏写检测误判
+    // 创建新会话时清理文件追踪器，避免跨会话的脏写检测误判
     _toolRuntimeService.fileTracker.clearAllTracking();
     final sessionMetadata = metadata == null
         ? await _buildDefaultSessionMetadata(runtimeContext)
@@ -4815,7 +4815,7 @@ class AiSessionController extends ChangeNotifier {
     _approvalPreviousPhases.remove(sessionId);
     _previewCancelledPendingToolCalls(sessionId);
     notifyListeners();
-    // 2026-05-09: 同时级联取消该 session 名下注册中心里所有正在执行的工具调用，
+    // 同时级联取消该 session 名下注册中心里所有正在执行的工具调用，
     // 让 Bash / 其他派生子进程能即刻收到 SIGTERM（500ms 后 SIGKILL）。
     // 这是会话级 cancel Future 的"硬件级"补充——前者只解开 Dart Future 等待，
     // 后者真正向 OS 发信号杀掉子进程，避免后台残留 awk/python 等进程。
@@ -6490,7 +6490,7 @@ class AiSessionController extends ChangeNotifier {
     );
     final adapter = AiProtocolRegistry.adapterFor(model.protocolType);
     final supportsNativeToolCalls = adapter.supportsToolCalls;
-    // 2026-04-26: Even when the protocol adapter cannot ferry tool definitions
+    // Even when the protocol adapter cannot ferry tool definitions
     // through the native function-calling channel, we still resolve the full
     // catalog and surface it to the model via the system-prompt + DSML fallback
     // (see `useDsmlToolCalls` below). This prevents weak models from inventing
@@ -6553,7 +6553,7 @@ class AiSessionController extends ChangeNotifier {
     var toolCatalog = applyRuntimeLazyLoadingForCurrentSession();
     var activeLatestUserMessageId = latestUserMessageId;
     var activeRoundAnchorMessageId = latestUserMessageId;
-    // 2026-05-04 阶段⑰：累积当前轮次（非 AI 侧消息：用户显式消息或
+    // 阶段⑰：累积当前轮次（非 AI 侧消息：用户显式消息或
     // OpenHand 程序侧工具结果/MCP/Skill 结果 + 后续 AI 响应）内全部
     // 工具调用 id，用于回合结束时统一向 ledger 反查文件变动并合成
     // 「本轮文件变动汇总」状态卡。保留插入顺序便于呈现执行轨迹。
@@ -6590,7 +6590,7 @@ class AiSessionController extends ChangeNotifier {
         return true;
       }
       toolCatalog = applyRuntimeLazyLoadingForCurrentSession();
-      // 2026-05-23 v6 — 「等待计划批准」的轮次仍然要在 prompt 里渲染「完整目录」，
+      // 「等待计划批准」的轮次仍然要在 prompt 里渲染「完整目录」，
       // 但给 SDK / DSML 验证层的实际可用工具是空；避免全调用与 [2] 文本随
       // awaitingPlanApproval 反转而变动，从而保护 prefix cache。
       final fullCatalogForDisplay = _toolCatalogForRound(
@@ -7251,7 +7251,7 @@ class AiSessionController extends ChangeNotifier {
             }
             aiThroughputSampler.recordText(delta);
             assistantRawBuffer.write(delta);
-            // 2026-05-17 — 顺序保护：思考还没排空时不创建 assistant 卡片，
+            // 顺序保护：思考还没排空时不创建 assistant 卡片，
             // raw 缓冲已记下来；reasoning 完成后会回放 renderAssistantBuffered。
             if (!reasoningDrained()) {
               return;
@@ -8699,7 +8699,7 @@ class AiSessionController extends ChangeNotifier {
     return _sessionById(session.id) ?? session;
   }
 
-  /// 2026-05-04 — When a `ToolSearch` invocation succeeds it stamps the
+  /// When a `ToolSearch` invocation succeeds it stamps the
   /// matched runtime tool names into `result.metadata['tool_search_loaded_names']`.
   /// Promote those names into the per-session loaded set so the current serial
   /// batch can refresh its execution catalog and the next model request can
@@ -9056,7 +9056,7 @@ class AiSessionController extends ChangeNotifier {
     );
   }
 
-  /// 2026-05-04 — MCP lazy loading is delegated to
+  /// MCP lazy loading is delegated to
   /// [McpLazyLoadingApplier.apply]. Built-in lazy/deferred tools are layered on
   /// top in the assistant loop so already-pulled tools stay live across turns.
 

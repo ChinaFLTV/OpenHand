@@ -1,4 +1,4 @@
-// 2026-05-24 — 输出格式控制 Prompt 片段的运行时缓存。
+// 输出格式控制 Prompt 片段的运行时缓存。
 // 真正的可维护内容存放在 [assets/prompts/_shared/output_format_html_*.md] 与
 // [assets/prompts/_shared/output_format_plaintext.md]。本类负责在 app boot
 // 阶段把它们一次性加载进进程内常量，供 [AiPromptBuilder] 同步读取。
@@ -52,9 +52,9 @@ class AiOutputFormatPrompts {
     }
   }
 
-  /// 2026-06-06 — 根据当前应用主题生成 theme_context 提示词片段。
+  /// 根据当前应用主题生成 theme_context 提示词片段。
   /// 在 HTML 模式下注入到 prompt，引导模型生成与当前界面亮度/配色一致的内容。
-  /// 2026-06-08 — 主题元数据已同时写入 [3s] Static Session State (theme 字段)，
+  /// 主题元数据已同时写入 [3s] Static Session State (theme 字段)，
   /// 此处仅保留 HTML 专属的视觉指令，避免信息重复。
   static String themeContextFor({
     required String brightness,

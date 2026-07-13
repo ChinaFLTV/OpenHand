@@ -1075,7 +1075,7 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
       zh: _mermaidViewActive ? '代码' : '视图',
       en: _mermaidViewActive ? 'Code' : 'View',
     );
-    // 修复：将 border 移至 foregroundDecoration，确保边框绘制在子组件
+    // 将 border 移至 foregroundDecoration，确保边框绘制在子组件
     // 之上，避免 header 背景色在圆角处覆盖 border。
     // decoration 仅负责背景色 + 圆角裁剪；foregroundDecoration 负责边框。
     return Container(
@@ -4104,7 +4104,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
     // 关键：toARGB32() 返回 0xAARRGGBB，CSS 8位 hex 是 #RRGGBBAA，
     // 直接 toRadixString(16) 会把 alpha(ff) 当 red 用 → #FF1E1E24
     // 在浏览器里变成 R=FF 亮红，导致整个 Mermaid 视图背景"深红色"。
-    // 修复：只取后 6 位 RRGGBB（颜色必定不透明，alpha 直接丢弃）。
+    // 只取后 6 位 RRGGBB（颜色必定不透明，alpha 直接丢弃）。
     String cssHex(Color c) {
       final hex = c.toARGB32().toRadixString(16).padLeft(8, '0');
       return hex.length >= 7 ? hex.substring(hex.length - 6) : hex;

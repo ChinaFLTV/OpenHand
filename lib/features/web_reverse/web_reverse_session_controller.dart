@@ -399,7 +399,7 @@ class WebReverseSessionController extends ChangeNotifier {
   final List<CdpPageTargetSnapshot> _pageTargets = <CdpPageTargetSnapshot>[];
   String? _currentTargetId;
 
-  /// 2026-05-24 — 每个 page target 的 panel 缓冲快照：切走时保存，切回时
+  /// 每个 page target 的 panel 缓冲快照：切走时保存，切回时
   /// 恢复，避免"切走再切回 → 现场全没了"的体验断裂。Sources 缓存的源码
   /// 体积可能 MB 级，所以最多保留 8 个最近活跃 target，LRU 淘汰旧的。
   final Map<String, _PerTargetBuffer> _targetBuffers =
@@ -501,7 +501,7 @@ class WebReverseSessionController extends ChangeNotifier {
     _longTaskObserverInstalled = false;
     _rtcInstalled = false;
     _zoomScriptId = null;
-    // 2026-05-24 — Per-tab buffer：切 tab 前先把当前 target 的 panel 缓冲
+    // Per-tab buffer：切 tab 前先把当前 target 的 panel 缓冲
     // 快照存到 _targetBuffers，切到目标 tab 后再 restore；新建 / 首次访问
     // 的 target 没有快照就只清空。Sources 端的 _userBreakpoints 仍按
     // (url,line) 维度持久化在 metadata 里，不在这里动。
@@ -518,7 +518,7 @@ class WebReverseSessionController extends ChangeNotifier {
     );
     _pageSessionId = attachResult['sessionId'] as String?;
     _currentTargetId = targetId;
-    // 2026-05-24 — 还原该 target 上次切走时保存的 panel 缓冲。新 target /
+    // 还原该 target 上次切走时保存的 panel 缓冲。新 target /
     // 第一次进入则跳过；网络 enable 之后再立刻补入，让 navigation 事件
     // 流接着累计。
     _restoreBufferForTarget(targetId);
@@ -4431,7 +4431,7 @@ class WebReverseSessionController extends ChangeNotifier {
   /// 设备模拟预设：移动 / 平板 / 桌面三档；底层走
   /// `Emulation.setDeviceMetricsOverride` + `Emulation.setUserAgentOverride`。
   /// 传 `null` 则 `Emulation.clearDeviceMetricsOverride`。
-  /// 2026-05-24 — 让分辨率档位真正影响页面渲染：传入 cssWidth/cssHeight/
+  /// 让分辨率档位真正影响页面渲染：传入 cssWidth/cssHeight/
   /// deviceScaleFactor=0 表示清除 override（恢复浏览器原生窗口尺寸）；其
   /// 它值则下发 Emulation.setDeviceMetricsOverride，让页面真正按该 CSS
   /// 尺寸 reflow，而不是只 cap 帧尺寸。

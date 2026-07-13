@@ -12,7 +12,7 @@ import '../ai_tool.dart';
 import '../ai_tool_execution_context.dart';
 import '../ai_tool_utils.dart';
 
-/// 2026-04-25 SkillManager tool — manages AI skills on disk.
+/// SkillManager tool — manages AI skills on disk.
 ///
 /// Supports the following actions (specified via `args['action']`):
 /// - `create`      : create a new skill directory with SKILL.md

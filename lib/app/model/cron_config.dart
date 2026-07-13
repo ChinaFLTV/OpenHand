@@ -42,7 +42,7 @@ int clampCronRetryDelaySeconds(int value) {
 enum CronScriptType {
   command('command'),
   script('script'),
-  // 2026-04-25 system-managed Agent entries (Hermes Talker self-learning).
+  // system-managed Agent entries (Hermes Talker self-learning).
   // These dispatch to an in-process agent handler rather than spawning a
   // shell process. UI must render them read-only with a lock icon.
   agent('agent');

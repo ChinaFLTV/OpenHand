@@ -297,8 +297,8 @@ class AiToolRegistry {
     return _aliasToKind[alias.trim()];
   }
 
-  // 2026-04-01 10:27:21 L1: 别名兼容层
-  // 2026-04-01 10:31:10 P1-3: 集成权限门 —— execute 前先调用 checkPermissions。
+  // 10:27:21 L1: 别名兼容层
+  // 10:31:10 P1-3: 集成权限门 —— execute 前先调用 checkPermissions。
   // AiToolPermissionAllowed → 继续执行。
   // AiToolPermissionDenied  → 构造拒绝结果直接返回，不调用 execute()。
   Future<AiToolExecutionResult?> tryExecute(

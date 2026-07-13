@@ -126,7 +126,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
     _bootstrap();
     _sourceScroll.addListener(_syncSourceLineScroll);
     widget.controller.addListener(_onCtrlChanged);
-    // 2026-05-19 — Cmd+P / Ctrl+P 全局快速打开脚本/跳行（类 VSCode/Chrome
+    // Cmd+P / Ctrl+P 全局快速打开脚本/跳行（类 VSCode/Chrome
     // DevTools）。挂在 HardwareKeyboard 上避免 TextField 焦点抢键。
     HardwareKeyboard.instance.addHandler(_handleQuickOpenKey);
   }

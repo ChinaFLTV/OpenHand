@@ -40,7 +40,7 @@ class AiWriteTool extends AiTool {
     final file = File(filePath);
     final fileExists = await file.exists();
 
-    // 2026-04-13: 写操作权限确认检查
+    // 写操作权限确认检查
     final confirmationResult = await AiToolUtils.requestWriteConfirmation(
       toolName: 'Write',
       operationDescription: fileExists
@@ -56,7 +56,7 @@ class AiWriteTool extends AiTool {
       return confirmationResult;
     }
 
-    // 2026-04-12: 从 metadata 获取追踪服务（遵循 AiToolExecutionContext 冻结约束）
+    // 从 metadata 获取追踪服务（遵循 AiToolExecutionContext 冻结约束）
     final fileTracker =
         context.metadata['file_tracker'] as AiFileTrackerService?;
     final fileHistory =
@@ -71,7 +71,7 @@ class AiWriteTool extends AiTool {
     );
     if (readValidation != null) return readValidation;
 
-    // 2026-04-12: 保存历史版本（仅对已存在的文件）
+    // 保存历史版本（仅对已存在的文件）
     String? versionId;
     String? beforeContentForLedger;
     if (fileExists) {
@@ -96,7 +96,7 @@ class AiWriteTool extends AiTool {
     );
     if (guardedWrite != null) return guardedWrite;
 
-    // 2026-04-12: 添加写入验证 - 读回文件确认修改已生效
+    // 读回文件确认写入已生效。
     final String verificationContent;
     try {
       verificationContent = await file.readAsString();
@@ -107,7 +107,7 @@ class AiWriteTool extends AiTool {
       );
     }
     final verificationPassed = verificationContent == content;
-    // 2026-04-14: 修复验证逻辑 - 只要内容不匹配就报错（之前错误地要求同时满足字符数不匹配）
+    // 任意内容不匹配都视为验证失败。
     if (!verificationPassed) {
       return AiToolUtils.invalidResult(
         'Write',
@@ -117,7 +117,7 @@ class AiWriteTool extends AiTool {
       );
     }
 
-    // 2026-05-03: 新型 ledger 记录双快照
+    // Ledger 同时记录写入前后的快照。
     final mutationLedger =
         context.metadata['mutation_ledger'] as AiFileMutationLedger?;
     final ledgerRecordId = await AiToolUtils.recordFileMutationToLedger(

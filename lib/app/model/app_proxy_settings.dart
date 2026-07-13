@@ -1,4 +1,4 @@
-// 2026-05-03: Proxy configuration model. Backs the new "系统 / System"
+// Proxy configuration model. Backs the new "系统 / System"
 // settings card and is consumed by `SystemProxyResolver`. Persisted as
 // a JSON object under the `proxy` key in `app_settings.json`.
 // Privacy: the password field is stored verbatim in the settings file
@@ -167,7 +167,7 @@ class AppProxySettings {
   static const int maxPort = kTcpPortMax;
   static const int defaultPort = 7890;
 
-  /// 2026-05-04 — 代理连通性测试默认 URL。Google generate_204
+  /// 代理连通性测试默认 URL。Google generate_204
   /// 是历史上最稳的 "204 No Content" 探针，响应体 0 字节、
   /// 不会被透明压缩、不会被 UA 鉴权拦截。
   static const String defaultTestEndpoint =

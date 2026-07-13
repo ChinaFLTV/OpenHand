@@ -936,7 +936,7 @@ _HeToolPresentation _heToolPresentationForSegment(
   final role = (segment.roleLabel ?? '').trim().toLowerCase();
   final command = (parsedHeader?.command ?? '').toLowerCase();
 
-  // 2026-04-13: Match roleLabel set by _heParseOutputSegments for
+  // Match roleLabel set by _heParseOutputSegments for
   // tool calls detected via '⚙ 工具调用：{ToolName}' format.
   if (role == 'bash' ||
       role == 'exec' ||
@@ -1488,7 +1488,7 @@ int? _heExtractToolExitCode(List<String> lines) {
   return null;
 }
 
-/// 2026-04-13: Extracts status from tool output lines.
+/// Extracts status from tool output lines.
 /// Matches patterns like 'status: denied', 'status: success', etc.
 final RegExp _heToolOutputStatusPattern = RegExp(
   r'^\s*status\s*:\s*(\w+)',

@@ -74,7 +74,7 @@ class AiNotebookEditTool extends AiTool {
       if (payloadSizeValidation != null) return payloadSizeValidation;
     }
 
-    // 2026-04-13: 写操作权限确认检查
+    // 写操作权限确认检查
     final confirmationResult = await AiToolUtils.requestWriteConfirmation(
       toolName: 'NotebookEdit',
       operationDescription: '$editMode cell in notebook',
@@ -88,7 +88,7 @@ class AiNotebookEditTool extends AiTool {
       return confirmationResult;
     }
 
-    // 2026-04-12: 从 metadata 获取追踪服务
+    // 从 metadata 获取追踪服务
     final fileTracker =
         context.metadata['file_tracker'] as AiFileTrackerService?;
     final fileHistory =
@@ -102,7 +102,7 @@ class AiNotebookEditTool extends AiTool {
     );
     if (readValidation != null) return readValidation;
 
-    // 2026-04-12: 保存历史版本
+    // 保存历史版本
     final versionId = await AiToolUtils.saveFileVersionBeforeMutation(
       filePath: notebookPath,
       sessionId: context.sessionId,
@@ -110,7 +110,7 @@ class AiNotebookEditTool extends AiTool {
       fileHistory: fileHistory,
     );
 
-    // 2026-05-03: 双快照中的 before 捕获
+    // 双快照中的 before 捕获
     final mutationLedger =
         context.metadata['mutation_ledger'] as AiFileMutationLedger?;
     final beforeContentForLedger = await AiToolUtils.readFileContentForLedger(
@@ -198,7 +198,7 @@ class AiNotebookEditTool extends AiTool {
     );
     if (guardedWrite != null) return guardedWrite;
 
-    // 2026-05-03: ledger 记录双快照
+    // ledger 记录双快照
     final afterContentForLedger = await AiToolUtils.readFileContentForLedger(
       notebookPath,
     );

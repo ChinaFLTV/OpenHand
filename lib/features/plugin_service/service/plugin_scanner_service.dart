@@ -100,6 +100,19 @@ class PluginScannerService {
       <String, Future<String?>>{};
   Future<String?>? _latestPipVersionProbe;
 
+  Future<T> _runWithFallback<T>({
+    required String operation,
+    required T fallback,
+    required Future<T> Function() operationBody,
+  }) async {
+    try {
+      return await operationBody();
+    } catch (error, stack) {
+      silentLog('plugin_scanner', operation, error, stack);
+      return fallback;
+    }
+  }
+
   static String _pickShell() {
     final shell = Platform.environment['SHELL'];
     if (shell != null && shell.isNotEmpty) return shell;
@@ -754,14 +767,12 @@ class PluginScannerService {
     return _nodeNotInstalled;
   }
 
-  Future<PluginInfo> scanPython() async {
-    try {
-      return _pythonInfoFromRuntime(await _resolvePythonRuntime());
-    } catch (e) {
-      silentLog('PluginScanner', 'scanPython', e);
-    }
-    return _pythonNotInstalled;
-  }
+  Future<PluginInfo> scanPython() => _runWithFallback(
+    operation: 'scanPython',
+    fallback: _pythonNotInstalled,
+    operationBody: () async =>
+        _pythonInfoFromRuntime(await _resolvePythonRuntime()),
+  );
 
   Future<PluginInfo> _scanPipWithRuntime(_PythonRuntimeScan? runtime) async {
     if (runtime == null) return _pipNotInstalled;
@@ -796,14 +807,12 @@ class PluginScannerService {
     );
   }
 
-  Future<PluginInfo> scanPip() async {
-    try {
-      return _scanPipWithRuntime(await _resolvePythonRuntime());
-    } catch (e) {
-      silentLog('PluginScanner', 'scanPip', e);
-    }
-    return _pipNotInstalled;
-  }
+  Future<PluginInfo> scanPip() => _runWithFallback(
+    operation: 'scanPip',
+    fallback: _pipNotInstalled,
+    operationBody: () async =>
+        _scanPipWithRuntime(await _resolvePythonRuntime()),
+  );
 
   Future<PluginInfo> scanPlaywright() async {
     try {
@@ -848,170 +857,141 @@ class PluginScannerService {
     return _playwrightNotInstalled;
   }
 
-  Future<PluginInfo> scanHermesAgent() async {
-    try {
-      return _scanCommandPlugin(
-        id: PluginCatalogIds.hermesAgent,
-        name: 'Hermes Agent',
-        description: 'Hermes Agent 运行时，用于智能体编排、自我学习与技能沉淀',
-        commands: const <String>[hermesAgentCommand, hermesAgentAltCommand],
-        versionArgs: const <String>['--version'],
-        versionParser: _extractLooseVersion,
-        latestNpmPackage: hermesAgentPackageName,
-        dependencies: const <String>[PluginCatalogIds.nodejs],
-      );
-    } catch (e) {
-      silentLog('PluginScanner', 'scanHermesAgent', e);
-    }
-    return _hermesAgentNotInstalled;
-  }
+  Future<PluginInfo> scanHermesAgent() => _runWithFallback(
+    operation: 'scanHermesAgent',
+    fallback: _hermesAgentNotInstalled,
+    operationBody: () => _scanCommandPlugin(
+      id: PluginCatalogIds.hermesAgent,
+      name: 'Hermes Agent',
+      description: 'Hermes Agent 运行时，用于智能体编排、自我学习与技能沉淀',
+      commands: const <String>[hermesAgentCommand, hermesAgentAltCommand],
+      versionArgs: const <String>['--version'],
+      versionParser: _extractLooseVersion,
+      latestNpmPackage: hermesAgentPackageName,
+      dependencies: const <String>[PluginCatalogIds.nodejs],
+    ),
+  );
 
-  Future<PluginInfo> scanJava() async {
-    try {
-      return _scanCommandPlugin(
-        id: 'java',
-        name: 'Java',
-        description: 'JDK 运行时，用于 apktool / jadx 等 Android 静态分析工具',
-        commands: const <String>['java'],
-        versionArgs: const <String>['-version'],
-        versionParser: _extractJavaVersion,
-        latestBrewFormula: 'openjdk',
-        dependents: const <String>['apktool', 'jadx'],
-      );
-    } catch (e) {
-      silentLog('PluginScanner', 'scanJava', e);
-    }
-    return _javaNotInstalled;
-  }
+  Future<PluginInfo> scanJava() => _runWithFallback(
+    operation: 'scanJava',
+    fallback: _javaNotInstalled,
+    operationBody: () => _scanCommandPlugin(
+      id: 'java',
+      name: 'Java',
+      description: 'JDK 运行时，用于 apktool / jadx 等 Android 静态分析工具',
+      commands: const <String>['java'],
+      versionArgs: const <String>['-version'],
+      versionParser: _extractJavaVersion,
+      latestBrewFormula: 'openjdk',
+      dependents: const <String>['apktool', 'jadx'],
+    ),
+  );
 
-  Future<PluginInfo> scanFrida() async {
-    try {
-      return _scanCommandPlugin(
-        id: 'frida',
-        name: 'Frida',
-        description: '动态插桩与 Hook 工具链，用于 Android 运行时验证',
-        commands: const <String>['frida'],
-        versionArgs: const <String>['--version'],
-        versionParser: _extractLooseVersion,
-        latestPypiPackage: 'frida-tools',
-        dependencies: const <String>['python', 'pip'],
-      );
-    } catch (e) {
-      silentLog('PluginScanner', 'scanFrida', e);
-    }
-    return _fridaNotInstalled;
-  }
+  Future<PluginInfo> scanFrida() => _runWithFallback(
+    operation: 'scanFrida',
+    fallback: _fridaNotInstalled,
+    operationBody: () => _scanCommandPlugin(
+      id: 'frida',
+      name: 'Frida',
+      description: '动态插桩与 Hook 工具链，用于 Android 运行时验证',
+      commands: const <String>['frida'],
+      versionArgs: const <String>['--version'],
+      versionParser: _extractLooseVersion,
+      latestPypiPackage: 'frida-tools',
+      dependencies: const <String>['python', 'pip'],
+    ),
+  );
 
-  Future<PluginInfo> scanMitmproxy() async {
-    try {
-      return _scanCommandPlugin(
-        id: 'mitmproxy',
-        name: 'mitmproxy',
-        description: 'HTTP(S) 代理抓包工具，用于 Web / Android 流量取证',
-        commands: const <String>['mitmdump', 'mitmproxy'],
-        versionArgs: const <String>['--version'],
-        versionParser: _extractLooseVersion,
-        latestBrewFormula: 'mitmproxy',
-      );
-    } catch (e) {
-      silentLog('PluginScanner', 'scanMitmproxy', e);
-    }
-    return _mitmproxyNotInstalled;
-  }
+  Future<PluginInfo> scanMitmproxy() => _runWithFallback(
+    operation: 'scanMitmproxy',
+    fallback: _mitmproxyNotInstalled,
+    operationBody: () => _scanCommandPlugin(
+      id: 'mitmproxy',
+      name: 'mitmproxy',
+      description: 'HTTP(S) 代理抓包工具，用于 Web / Android 流量取证',
+      commands: const <String>['mitmdump', 'mitmproxy'],
+      versionArgs: const <String>['--version'],
+      versionParser: _extractLooseVersion,
+      latestBrewFormula: 'mitmproxy',
+    ),
+  );
 
-  Future<PluginInfo> scanApktool() async {
-    try {
-      return _scanCommandPlugin(
-        id: 'apktool',
-        name: 'apktool',
-        description: 'APK 解包与 smali 分析工具',
-        commands: const <String>['apktool'],
-        versionArgs: const <String>['--version'],
-        versionParser: _extractLooseVersion,
-        latestBrewFormula: 'apktool',
-        dependencies: const <String>['java'],
-      );
-    } catch (e) {
-      silentLog('PluginScanner', 'scanApktool', e);
-    }
-    return _apktoolNotInstalled;
-  }
+  Future<PluginInfo> scanApktool() => _runWithFallback(
+    operation: 'scanApktool',
+    fallback: _apktoolNotInstalled,
+    operationBody: () => _scanCommandPlugin(
+      id: 'apktool',
+      name: 'apktool',
+      description: 'APK 解包与 smali 分析工具',
+      commands: const <String>['apktool'],
+      versionArgs: const <String>['--version'],
+      versionParser: _extractLooseVersion,
+      latestBrewFormula: 'apktool',
+      dependencies: const <String>['java'],
+    ),
+  );
 
-  Future<PluginInfo> scanJadx() async {
-    try {
-      return _scanCommandPlugin(
-        id: 'jadx',
-        name: 'jadx',
-        description: 'DEX / APK Java 反编译工具',
-        commands: const <String>['jadx'],
-        versionArgs: const <String>['--version'],
-        versionParser: _extractLooseVersion,
-        latestBrewFormula: 'jadx',
-        dependencies: const <String>['java'],
-      );
-    } catch (e) {
-      silentLog('PluginScanner', 'scanJadx', e);
-    }
-    return _jadxNotInstalled;
-  }
+  Future<PluginInfo> scanJadx() => _runWithFallback(
+    operation: 'scanJadx',
+    fallback: _jadxNotInstalled,
+    operationBody: () => _scanCommandPlugin(
+      id: 'jadx',
+      name: 'jadx',
+      description: 'DEX / APK Java 反编译工具',
+      commands: const <String>['jadx'],
+      versionArgs: const <String>['--version'],
+      versionParser: _extractLooseVersion,
+      latestBrewFormula: 'jadx',
+      dependencies: const <String>['java'],
+    ),
+  );
 
-  Future<PluginInfo> scanRadare2() async {
-    try {
-      return _scanCommandPlugin(
-        id: 'radare2',
-        name: 'radare2',
-        description: '二进制静态分析与 ELF / native so 逆向工具',
-        commands: const <String>['r2', 'radare2'],
-        versionArgs: const <String>['-v'],
-        versionParser: _extractLooseVersion,
-        latestBrewFormula: 'radare2',
-      );
-    } catch (e) {
-      silentLog('PluginScanner', 'scanRadare2', e);
-    }
-    return _radare2NotInstalled;
-  }
+  Future<PluginInfo> scanRadare2() => _runWithFallback(
+    operation: 'scanRadare2',
+    fallback: _radare2NotInstalled,
+    operationBody: () => _scanCommandPlugin(
+      id: 'radare2',
+      name: 'radare2',
+      description: '二进制静态分析与 ELF / native so 逆向工具',
+      commands: const <String>['r2', 'radare2'],
+      versionArgs: const <String>['-v'],
+      versionParser: _extractLooseVersion,
+      latestBrewFormula: 'radare2',
+    ),
+  );
 
-  Future<PluginInfo> scanBlutter() async {
-    try {
-      return _scanCommandPlugin(
-        id: 'blutter',
-        name: 'blutter',
-        description: 'Flutter Dart AOT 快速还原工具，用于 libapp.so 分析',
-        commands: <String>['blutter', _openHandToolBin('blutter')],
-        versionArgs: const <String>['--help'],
-        versionParser: (_) => null,
-        dependencies: const <String>['python', 'pip'],
-      );
-    } catch (e) {
-      silentLog('PluginScanner', 'scanBlutter', e);
-    }
-    return _blutterNotInstalled;
-  }
+  Future<PluginInfo> scanBlutter() => _runWithFallback(
+    operation: 'scanBlutter',
+    fallback: _blutterNotInstalled,
+    operationBody: () => _scanCommandPlugin(
+      id: 'blutter',
+      name: 'blutter',
+      description: 'Flutter Dart AOT 快速还原工具，用于 libapp.so 分析',
+      commands: <String>['blutter', _openHandToolBin('blutter')],
+      versionArgs: const <String>['--help'],
+      versionParser: (_) => null,
+      dependencies: const <String>['python', 'pip'],
+    ),
+  );
 
-  Future<PluginInfo> scanDoldrums() async {
-    try {
-      return _scanCommandPlugin(
-        id: 'doldrums',
-        name: 'Doldrums',
-        description: 'Flutter snapshot / ELF 辅助分析工具',
-        commands: <String>[
-          'doldrums',
-          'Doldrums',
-          _openHandToolBin('doldrums'),
-        ],
-        versionArgs: const <String>['--help'],
-        versionParser: (_) => null,
-        dependencies: const <String>['python', 'pip'],
-      );
-    } catch (e) {
-      silentLog('PluginScanner', 'scanDoldrums', e);
-    }
-    return _doldrumsNotInstalled;
-  }
+  Future<PluginInfo> scanDoldrums() => _runWithFallback(
+    operation: 'scanDoldrums',
+    fallback: _doldrumsNotInstalled,
+    operationBody: () => _scanCommandPlugin(
+      id: 'doldrums',
+      name: 'Doldrums',
+      description: 'Flutter snapshot / ELF 辅助分析工具',
+      commands: <String>['doldrums', 'Doldrums', _openHandToolBin('doldrums')],
+      versionArgs: const <String>['--help'],
+      versionParser: (_) => null,
+      dependencies: const <String>['python', 'pip'],
+    ),
+  );
 
-  Future<PluginInfo> scanAnythingAnalyzer() async {
-    try {
+  Future<PluginInfo> scanAnythingAnalyzer() => _runWithFallback(
+    operation: 'scanAnythingAnalyzer',
+    fallback: _anythingAnalyzerNotInstalled,
+    operationBody: () async {
       final commandScan = await _scanCommandPlugin(
         id: 'anything_analyzer',
         name: 'Anything Analyzer',
@@ -1035,11 +1015,9 @@ class PluginScannerService {
           );
         }
       }
-    } catch (e) {
-      silentLog('PluginScanner', 'scanAnythingAnalyzer', e);
-    }
-    return _anythingAnalyzerNotInstalled;
-  }
+      return _anythingAnalyzerNotInstalled;
+    },
+  );
 
   Future<PluginInfo> scanDocker() async {
     try {
@@ -1461,20 +1439,17 @@ class PluginScannerService {
     final anythingAnalyzer = await anythingAnalyzerFuture;
     final docker = await dockerFuture;
     final qdrant = await scanQdrant();
-    _PythonRuntimeScan? pythonRuntime;
-    try {
-      pythonRuntime = await pythonRuntimeFuture;
-    } catch (error, stack) {
-      silentLog('PluginScanner', 'resolvePythonRuntime', error, stack);
-    }
+    final pythonRuntime = await _runWithFallback<_PythonRuntimeScan?>(
+      operation: 'resolvePythonRuntime',
+      fallback: null,
+      operationBody: () => pythonRuntimeFuture,
+    );
     final python = _pythonInfoFromRuntime(pythonRuntime);
-    PluginInfo pip;
-    try {
-      pip = await _scanPipWithRuntime(pythonRuntime);
-    } catch (error, stack) {
-      silentLog('PluginScanner', 'scanPip', error, stack);
-      pip = _pipNotInstalled;
-    }
+    final pip = await _runWithFallback(
+      operation: 'scanPip',
+      fallback: _pipNotInstalled,
+      operationBody: () => _scanPipWithRuntime(pythonRuntime),
+    );
     final updatedNodeJs = nodeJs.copyWith(
       dependents: <String>[
         if (playwright.isInstalled) PluginCatalogIds.playwright,

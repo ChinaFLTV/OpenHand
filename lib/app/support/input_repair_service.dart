@@ -117,7 +117,7 @@ class _InputRepairParticipant {
   final InputRepairParticipantCallback onRepair;
 }
 
-/// 2026-06-02 — [SafeTextEditingController] 在 [TextEditingController] 之上做
+/// [SafeTextEditingController] 在 [TextEditingController] 之上做
 /// 两层加固：
 ///   1. setter 阶段强制把 selection / composing 钳到 [0, text.length] 区间内，
 ///      避免外部误用（比如我们自己 `_replaceComposerText` 写入了带陈旧
@@ -207,7 +207,7 @@ class InputRepairService {
   InputRepairReport? _lastReport;
   InputRepairReport? get lastReport => _lastReport;
 
-  // 2026-06-02 — 软恢复钩子：用于在不重建 IME 连接的前提下，对 composer
+  // 软恢复钩子：用于在不重建 IME 连接的前提下，对 composer
   // 文本输入做一次轻量级"重置 + 复位"（典型做法：临时 unfocus 再
   // requestFocus），把可能已经脱钩的平台 IME 选区/组合态与 controller
   // 重新对齐。当 `FlutterError.onError` 捕获到

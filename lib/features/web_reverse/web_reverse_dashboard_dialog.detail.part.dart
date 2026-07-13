@@ -96,7 +96,7 @@ class _RequestDetailPanelState extends State<_RequestDetailPanel> {
   }
 
   Widget _buildHeader(ThemeData theme, ColorScheme cs, bool isZh) {
-    // 2026-05-17 — 关闭按钮 + URL + 复制菜单同一行；显式 center 对齐确
+    // 关闭按钮 + URL + 复制菜单同一行；显式 center 对齐确
     // 保关闭图标永远视觉居中，URL 限制为单行 + 省略号避免双行换行后
     // 图标看起来偏上；给 URL 一个固定 height + center 包裹再加一道
     // 双层保险，即便后续主题字体变更也能稳定居中。

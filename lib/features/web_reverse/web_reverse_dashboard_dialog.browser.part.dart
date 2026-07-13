@@ -128,7 +128,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
   // 两指捂合 → 页面缩放：记录上次派发缩放事件的“scale”快照。
   // 只有增量 > 4% 才应用一次，避免频繁设置 zoomFactor。
   double _lastPanZoomScale = 1;
-  // 2026-05-24 — 自然停止动效：手势结束后用指数衰减把残余速度继续派发，
+  // 自然停止动效：手势结束后用指数衰减把残余速度继续派发，
   // 直到接近 0 或用户再次开始滑动手势。让滚动有 macOS / iOS 般的惯性。
   Timer? _scrollInertiaTimer;
   Offset _scrollInertiaVelocity = Offset.zero;
@@ -144,7 +144,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
   TextInputConnection? _imeConnection;
   TextEditingValue _lastImeValue = TextEditingValue.empty;
   InputRepairParticipantToken? _inputRepairParticipantToken;
-  // 2026-06-04 — CJK 输入模式开关。默认关闭：所有按键经 HardwareKeyboard
+  // CJK 输入模式开关。默认关闭：所有按键经 HardwareKeyboard
   // → `_handleKey` → CDP 透传，Backspace / 方向键 / 标点都生效，但 macOS
   // 输入法激活时无法在内嵌页面打中文 / 日文 / 韩文。开启后挂 TextInput
   // connection 走 [updateEditingValue] diff，CJK 候选词上屏可用，但部分
@@ -441,7 +441,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
         w = autoW;
         h = autoH;
       }
-      // 2026-05-24 — 仅 cap 帧尺寸不会改变页面渲染尺寸（screencast 帧最终
+      // 仅 cap 帧尺寸不会改变页面渲染尺寸（screencast 帧最终
       // 会被 BoxFit 拉到面板大小，看起来就"分辨率没生效"）；分辨率档位
       // 有效时同步下发 Emulation.setDeviceMetricsOverride，让页面真的按
       // 该尺寸渲染。device preset 自己已经管 emulation，保留原路径不动；
@@ -485,7 +485,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
     if (renderSize.width <= 0 || renderSize.height <= 0) {
       return Offset.zero;
     }
-    // 2026-05-24 — 设备模拟激活后帧用 BoxFit.contain 渲染，画面只占面板
+    // 设备模拟激活后帧用 BoxFit.contain 渲染，画面只占面板
     // 中央一片，需要把鼠标 local 折算回去。计算思路：image 的宽高比 vs
     // renderSize 比，长边占满，短边居中留白；命中点先减去留白偏移再做
     // 比例换算。BoxFit.fill 路径下 letterbox = 0，等价旧逻辑。
@@ -741,7 +741,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
 
   void _handlePanZoomEnd(PointerPanZoomEndEvent e, Size renderSize) {
     _panZoomActive = false;
-    // 2026-05-24 — 自然停止：松手后按指数衰减把残余速度继续以 16ms 间隔
+    // 自然停止：松手后按指数衰减把残余速度继续以 16ms 间隔
     // 下发，模仿 macOS / iOS trackpad 的惯性。≈300ms 内把速度衰到接近 0。
     if (_scrollInertiaVelocity.distance < 1.5) {
       _scrollInertiaVelocity = Offset.zero;
@@ -780,7 +780,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
   }
 
   KeyEventResult _handleKey(FocusNode node, KeyEvent event) {
-    // 2026-06-04 — ESC 是唯一不下发到浏览器的按键：交给外层
+    // ESC 是唯一不下发到浏览器的按键：交给外层
     // `_EscapeDismissDialogScope` 关闭整个 Web 逆向调试弹窗（find bar 已开
     // 时优先关 find bar）。其它所有按键统一通过 CDP `Input.dispatchKeyEvent`
     // 透传给浏览器侧 —— 不再走 IME 中转，因为 macOS IMK 会吞 Backspace /
@@ -811,7 +811,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
       final cmd = Platform.isMacOS ? hasMeta : hasCtrl;
       if (cmd) {
         final key = event.logicalKey;
-        // 2026-06-04 — Cmd/Ctrl+V 走系统剪贴板透传：读取 Flutter 端
+        // Cmd/Ctrl+V 走系统剪贴板透传：读取 Flutter 端
         // `Clipboard.getData('text/plain')`，通过 CDP `Input.insertText`
         // 注入到当前焦点输入框。直接模拟 Cmd+V 的旧路径只能让浏览器拿到
         // 它自己进程里的剪贴板（headless Chromium 通常是空的），剪贴桥
@@ -871,7 +871,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
       final ch = event.character;
       final hasPrintable =
           ch != null && ch.isNotEmpty && ch.codeUnitAt(0) >= 0x20;
-      // 2026-06-05 — keyDown 一律不带 text；可打印字符通过紧随其后的 char
+      // keyDown 一律不带 text；可打印字符通过紧随其后的 char
       // 事件写入文本节点。若 keyDown 也带 text，Chromium 会同时触发 keydown
       // 的默认插入路径 + char 的 textInput 路径，导致每个字符被写入两次
       // （bug：输入 "h" 浏览器显示 "hh"）。
@@ -1057,7 +1057,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
 
   void _onSurfaceFocusChanged() {
     if (!mounted) return;
-    // 2026-06-04 — 默认不随焦点挂 IME（macOS IMK 会吞 Backspace / 方向键 /
+    // 默认不随焦点挂 IME（macOS IMK 会吞 Backspace / 方向键 /
     // 标点 / Enter）；仅在用户显式开启 CJK 输入模式时，surface 拿焦才挂
     // TextInput connection，丢焦立即断。
     if (_cjkInputEnabled && _surfaceFocus.hasFocus) {
@@ -1714,7 +1714,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
         _buildAddressBar(theme, cs, ctrl),
         const SizedBox(height: 8),
         Expanded(
-          // 2026-06-04 — LayoutBuilder 必须包在 Padding 内部，否则 constraints
+          // LayoutBuilder 必须包在 Padding 内部，否则 constraints
           // 是 Padding 外层尺寸（含 12+12 横向、12 纵向留白），而 Listener 实际
           // 命中区是 Padding 内层；二者错位导致 `_toViewport` 把右下角的点击
           // 投影到画面之外，"点不到截图边缘按钮"。
@@ -2820,7 +2820,7 @@ class _TabStripState extends State<_TabStrip> {
                                       child: Row(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
-                                          // 2026-05-24 — 在 tab 左侧加一个独立 drag
+                                          // 在 tab 左侧加一个独立 drag
                                           // handle，使用 ReorderableDragStartListener
                                           // 即点即拖，不再需要等长按（之前的 long-
                                           // press 在桌面下被 InkWell 抢走 / 体验差）。

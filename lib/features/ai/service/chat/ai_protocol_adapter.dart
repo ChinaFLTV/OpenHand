@@ -2201,7 +2201,7 @@ class ClaudeProtocolAdapter extends AiProtocolAdapter {
     required AiInputCacheRuntimeConfig config,
   }) {
     if (budget <= 0 || requestMessages.isEmpty) return;
-    // 2026-05-04 — 优先尊重用户自定义的前 N-1 个静态缓存点位置。
+    // 优先尊重用户自定义的前 N-1 个静态缓存点位置。
     // 当 positions 长度匹配 (breakpointCount-1) 时：
     //   * 前 N-1 个断点 = positions[i] * (msgs.length-1) round 后的索引；
     //   * 最后一个断点 = msgs.length-1 (固定落在尾部)；
@@ -2223,7 +2223,7 @@ class ClaudeProtocolAdapter extends AiProtocolAdapter {
       return;
     }
     // 候选索引从尾部回溯，按 mode 过滤；保证最少打到最后一条消息。
-    // 2026-06-09 — 不再把剩余断点全部花在滑动尾部。长线程里尾部常常包含
+    // 不再把剩余断点全部花在滑动尾部。长线程里尾部常常包含
     // 刚读到的大工具结果、连续“继续”、或失败工具调用；只缓存尾部会让服务端
     // 在一次尾部形态变化后失去可复用的稳定会话前缀。默认布点改为：
     // 1. 首个非空消息前缀（稳定锚点）

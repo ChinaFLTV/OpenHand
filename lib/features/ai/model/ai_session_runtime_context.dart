@@ -106,7 +106,7 @@ class AiSessionRuntimeContext {
     this.toolResultCompressionHeadTailWindowChars = 256,
     this.toolResultCompressionMaxPathHits = 12,
     this.writeToolSummaryMaxChars = 280,
-    // 2026-06-01 — 与 AppSettingsSnapshot.defaultAiInputCacheEnabled
+    // 与 AppSettingsSnapshot.defaultAiInputCacheEnabled
     // 同步改为 true：绝大多数用户依赖 Claude 协议前缀缓存降低成本；
     // 关闭后 Claude native 不再注入显式 cache_control 断点。手动关闭入口
     // 仍在"输入缓存"设置页。
@@ -423,52 +423,52 @@ class AiSessionRuntimeContext {
   /// 保持稳定摘要形态，避免跨轮改写旧工具结果破坏输入缓存前缀命中。
   final bool microCompressionEnabled;
 
-  /// 2026-05-24 — 助手消息渲染格式（Markdown / 纯文本 / HTML）。
+  /// 助手消息渲染格式（Markdown / 纯文本 / HTML）。
   /// `AiPromptBuilder` 会在非 Markdown 模式下于 [3d] 后追加
   /// `output_format` reminder，告知模型当轮输出需遵守的约束。
   final AiMessageContentFormat messageContentFormat;
 
-  /// 2026-05-24 — HTML 渲染失败时的回退策略，仅在
+  /// HTML 渲染失败时的回退策略，仅在
   /// [messageContentFormat] 为 `AiMessageContentFormat.html` 时生效。
   final AiHtmlRenderFallback htmlRenderFallback;
 
-  /// 2026-05-25 — HTML 内容丰富度。仅在 [messageContentFormat] 为 HTML 时生效；
+  /// HTML 内容丰富度。仅在 [messageContentFormat] 为 HTML 时生效；
   /// `AiPromptBuilder` 根据该值选择不同强度的 `output_format` reminder。
   final AiHtmlContentRichness htmlContentRichness;
 
-  /// 2026-06-06 — 当前应用界面的亮度模式（light / dark）。
+  /// 当前应用界面的亮度模式（light / dark）。
   /// 在 HTML 模式下通过 theme_context 告知模型，避免生成与当前主题基调冲突的内容。
   final String appThemeBrightness;
 
-  /// 2026-06-06 — 当前应用主题预设的名称（如 deepSeaBlue / frostMorningBlue）。
+  /// 当前应用主题预设的名称（如 deepSeaBlue / frostMorningBlue）。
   /// 在 HTML 模式下通过 theme_context 告知模型，让其在保持基调的前提下
   /// 结合主题配色做更丰富的视觉表达。
   final String appThemePresetName;
 
-  /// 2026-06-06 — 当前应用主题预设的主色 seed color（如 #2D63B8）。
+  /// 当前应用主题预设的主色 seed color（如 #2D63B8）。
   /// 在 HTML 模式下通过 theme_context 告知模型，引导其在需要强调色时
   /// 优先使用与当前主题协调的色彩。
   final String appThemePrimaryColor;
 
-  /// 2026-04-27 — 压缩摘要首尾片段窗口长度（字符）。
+  /// 压缩摘要首尾片段窗口长度（字符）。
   final int toolResultCompressionHeadTailWindowChars;
 
-  /// 2026-04-27 — 压缩摘要中提取的文件路径条数上限。
+  /// 压缩摘要中提取的文件路径条数上限。
   final int toolResultCompressionMaxPathHits;
 
-  /// 2026-04-27 — 写类工具摘要中保留 result_text 的字符上限。
+  /// 写类工具摘要中保留 result_text 的字符上限。
   final int writeToolSummaryMaxChars;
 
-  /// 2026-05-01 — 是否启用输入缓存 (Anthropic prompt caching 等)。
+  /// 是否启用输入缓存 (Anthropic prompt caching 等)。
   final bool aiInputCacheEnabled;
 
-  /// 2026-05-01 — 缓存断点更新模式: allMessages / userMessages / tokens。
+  /// 缓存断点更新模式: allMessages / userMessages / tokens。
   final String aiInputCacheUpdateMode;
 
-  /// 2026-05-01 — 缓存断点更新间隔。
+  /// 缓存断点更新间隔。
   final int aiInputCacheUpdateInterval;
 
-  /// 2026-05-01 — Anthropic cache breakpoint 最大数量 (1..4)。
+  /// Anthropic cache breakpoint 最大数量 (1..4)。
   final int aiInputCacheBreakpointCount;
 
   /// 用户自定义的前 N-1 个静态缓存点位置（百分比 0..1，升序）。
@@ -630,10 +630,10 @@ class AiSessionRuntimeContext {
   final List<McpServer> availableMcpServers;
   final Map<String, McpToolCatalog> mcpToolCatalogsByServerName;
 
-  /// 2026-05-03 — MCP 工具懒加载模式（disabled / auto / enabled）。
+  /// MCP 工具懒加载模式（disabled / auto / enabled）。
   final McpLazyLoadingMode mcpLazyLoadingMode;
 
-  /// 2026-05-03 — auto 模式下的 token 阈值：当所有 MCP 工具描述估算 token
+  /// auto 模式下的 token 阈值：当所有 MCP 工具描述估算 token
   /// 总量超过此值时则启用懒加载。默认值保持偏保守，优先降低反复发送
   /// 大工具目录造成的上下文成本与缓存失效风险。
   final int mcpLazyLoadingThresholdTokens;
@@ -641,7 +641,7 @@ class AiSessionRuntimeContext {
   final List<AiBuiltinToolConfig> builtinToolConfigs;
   final List<AiWorkspaceInstructionDocument> workspaceInstructionDocuments;
 
-  /// 2026-04-25 — 【指令】模块注入。包含全部指令（含禁用），prompt
+  /// 【指令】模块注入。包含全部指令（含禁用），prompt
   /// builder 会只拼装 enabled 且不在 [skippedInstructionIds] 中的条目。
   final List<UserInstructionEntry> userInstructions;
 

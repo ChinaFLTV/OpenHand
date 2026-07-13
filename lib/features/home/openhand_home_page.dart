@@ -154,7 +154,7 @@ part 'widgets/_home_motion_tokens.dart';
 part 'widgets/_openhand_home_page_helpers.dart';
 part 'widgets/_openhand_home_page_prelude.dart';
 
-/// 2026-06-07：HTML WebView 抽搐 bug 真凶的关键协调信号。
+/// HTML WebView 抽搐 bug 真凶的关键协调信号。
 /// 外层 ListView 检测到"用户正在主动滚动"时标记 active，滚动结束（含
 /// 宽限期）后标记 inactive。`_HtmlBubbleWebView` 订阅此信号：
 /// active 期间只缓存最新高度、不调用 setState，避免平台视图异步测高
@@ -249,7 +249,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   // on macOS, where the system menu bar's "Settings…" item should drive the
   // in-app navigation to the Settings pane.
   MethodChannel? _macosMenuChannel;
-  // 2026-04-25 — 当前会话窗口下，本轮临时取消的【指令】ID 集合。
+  // 当前会话窗口下，本轮临时取消的【指令】ID 集合。
   // 切换会话或发送完成后通常重置；UI 上用胶囊条配合 X / + 切换。
   final Set<String> _skippedInstructionIds = <String>{};
   AiCreationOptions _creationOptions = AiCreationOptions.empty;
@@ -291,23 +291,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   int _scrollToBottomStableFrames = 0;
   bool _composerScrollCompensationInProgress = false;
   DateTime? _lastPointerSignalScrollAt;
-  // 2026-05-17：trackpad / 鼠标滚轮等 pointer-signal 滚动每个 tick 都会
-  // 完整经历 ScrollStart → Update → ScrollEnd，而非整段手势包裹一次。
-  // 慢速滚动时两个 tick 之间会出现 _userScrollInProgress=false 的空窗，
-  // 让 layout-change / composer 折叠 / 流式新消息触发的 jumpTo 抢到一帧，
-  // 表现为视口被一股力反复拽回底部，呈现"抽搐/鬼畜"。给 scroll-end 加上
-  // 1200 ms 宽限：宽限期内任何新的 scroll start 都会续期；超时未再发生
-  // 滚动活动才视为用户真正松手。快速滑动时 ballistic 持续 → scroll-end
-  // 推迟到松手才发，不依赖此宽限。
-  // 2026-05-26 — 420→800 ms：极慢速触控板滚动时单 tick 间隔可超 420 ms，
-  // 导致宽限期在两 tick 间过期→_userScrollInProgress 抖回 false→自动跟随
-  // 抢一帧 jumpTo 把视口拽回底部→用户再拉回→往复振荡抽搐。
-  // 2026-06-19 — 800→1200 ms：加载更早消息后，慢速上滑会不断物化
-  // 可变高度旧消息；过早释放滚动活动会让 HTML 高度回写和 Sliver 估算
-  // 修正插入到 tick 间隙，表现为整列消息轻微震动、滚动条长度漂移。
-  // 2026-06-28 — 1200→1800 ms：极慢速滚轮 / 触控板上滑时，tick 间隔
-  // 仍可能超过 1200 ms。延长宽限并配合 ScrollPosition 活跃检测，避免
-  // 用户还在读历史时恢复尺寸回写 / 自动贴底，造成消息卡片上下抽搐。
+  // Pointer-signal scrolling emits a complete start/update/end sequence per
+  // tick. Keep a grace window between slow ticks so layout updates cannot
+  // re-arm auto-follow while the user is still reading history.
   late final OpenHandDebouncer _userScrollGraceDebouncer = OpenHandDebouncer(
     delay: _userScrollEndGraceDuration,
   );
@@ -334,7 +320,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   );
   int _composerTransitionMeasurePassesRemaining = 0;
   bool _composerTransitionMeasureQueued = false;
-  // 2026-06-07 修复：桌面端 WebView 平台视图可能吞掉 PointerScrollEvent，
+  // 桌面端 WebView 平台视图可能吞掉 PointerScrollEvent，
   // 导致 _userScrollInProgress 未被置位。用 _lastScrollActivityAt 兜底记录
   // 外层 ListView 的 ScrollUpdateNotification，作为独立的后备检测源。
   DateTime? _lastScrollActivityAt;
@@ -869,7 +855,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
             return const InputRepairParticipantResult.success();
           },
         );
-    // 2026-06-02 — 当平台 IME 反向回调 `updateEditingState` 触发
+    // 当平台 IME 反向回调 `updateEditingState` 触发
     // `Range start ... is out of text of length ...` 断言时，由
     // `FlutterError.onError` 摘调这个轻量钩子做一次 composer 焦点重置，
     // 避免每次都把完整的 `repair()` 全套（killTrackedChildren +
@@ -884,7 +870,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     _appLifecycleState = state;
-    // 2026-04-13: Flush pending Harness session state to disk whenever the
+    // Flush pending Harness session state to disk whenever the
     // app enters background / inactive states. This ensures the session record
     // survives if the OS terminates the process before dispose() runs.
     if (state == AppLifecycleState.paused ||
@@ -1102,7 +1088,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   void _markUserScrollInProgress() {
     _userScrollGraceDebouncer.cancel();
     _userScrollInProgress = true;
-    // 2026-06-07：广播给订阅者（如 `_HtmlBubbleWebView`），让其在
+    // 广播给订阅者（如 `_HtmlBubbleWebView`），让其在
     // 用户滚动期间冻结高度应用，避免异步测高把 viewport 拽回底部。
     _transcriptScrollActivity.markActive();
   }
@@ -2247,7 +2233,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     }
     _activeComposerSessionId = nextSessionId;
 
-    // 2026-04-13 BUG FIX: 当目标会话正在发送消息时，不要恢复草稿内容。
+    // BUG FIX: 当目标会话正在发送消息时，不要恢复草稿内容。
     // 草稿是在 _submitTextToSession 中保存的，用于发送失败后恢复用户输入。
     // 但在正常发送过程中，AiSessionController 状态变化会触发本方法被调用，
     // 如果此时恢复草稿，就会出现消息已发送但输入框仍显示消息内容的问题。
@@ -2344,7 +2330,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (nextPaused == _autoFollowPaused) {
       return;
     }
-    // 2026-04-27 (修复): 滚动通知有时会在 ListView 的 performLayout 阶段
+    // 滚动通知有时会在 ListView 的 performLayout 阶段
     // 派发（例如 viewport 在 layout 中调用 applyContentDimensions →
     // dispatchScrollStartNotification）。此时直接 setState 会触发
     // "Build scheduled during frame" 断言。当当前正处于 layout / paint /
@@ -2390,7 +2376,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   bool _shouldDeferAutoFollowScheduling() {
     return !_isAppLifecycleActive() ||
         _resumeAutoFollowSuppressionFrames > 0 ||
-        // 2026-05-17：用户正在拖动 transcript 时，禁止任何 layout-change /
+        // 用户正在拖动 transcript 时，禁止任何 layout-change /
         // composer 折叠 / 流式 token 触发的 auto-follow 调度，避免那道
         // "把视口往下拽" 的力与用户上滑手势产生拉锯，造成抽搐 / 鬼畜。
         _isUserMessageScrollActivityActive();
@@ -2459,12 +2445,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (_isProgrammaticMessageScrollCommandBusy()) {
       return;
     }
-    // 2026-05-26 (重构): 彻底移除 listener 中的 delta 判定逻辑。
     // ScrollController listener 无法可靠区分「用户上滑」和「弹簧回弹/布局沉降」，
-    // 基于 delta 的启发式检测已经历多轮修补仍无法根除误判。根本原因是 listener
-    // 缺少 ScrollNotification 携带的 dragDetails / UserScrollNotification.direction
-    // 等精确元数据。此后 listener 不再越俎代庖做暂停/恢复决策，该职责完全交给
-    // _handleMessageScrollNotification，它拥有完整的用户意图分类信息。
+    // 暂停/恢复决策统一交给携带 dragDetails / direction 的
+    // _handleMessageScrollNotification。
     // listener 仅保留同步 _syncAutoFollowPausedState（UI 状态一致性）职责。
     // 物理模拟期间（isScrollingNotifier && !_userDragActive）完全跳过，避免
     // 弹簧回弹/fling 减速产生的像素变化触发不必要的 UI 刷新。
@@ -2516,7 +2499,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         notification is ScrollEndNotification ||
         (notification is UserScrollNotification &&
             notification.direction == ScrollDirection.idle);
-    // 2026-05-21：只有 Listener 真实捕获到 PointerScrollEvent 后，才把
+    // 只有 Listener 真实捕获到 PointerScrollEvent 后，才把
     // 无 dragDetails 的 start/update/overscroll 归类为鼠标滚轮 / 触控板
     // 滚动。流式内容增高、Sliver 几何修正同样会产生无 dragDetails 的
     // scroll notification；若继续一概当作用户输入，会把贴底跟随误判成
@@ -2527,7 +2510,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         (notification is ScrollStartNotification ||
             notification is ScrollUpdateNotification ||
             notification is OverscrollNotification);
-    // 2026-06-28：WebView / 桌面平台视图有时吞掉 PointerSignal，导致
+    // WebView / 桌面平台视图有时吞掉 PointerSignal，导致
     // recentPointerSignalScroll 与 dragDetails 都缺失；但外层 ScrollPosition
     // 仍处于 scrolling，且 ScrollUpdateNotification 携带了非零 delta。
     // 这类 tick 只有在确实向历史方向移动时才计入用户滚动活动；否则
@@ -2542,7 +2525,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         notification.metrics.maxScrollExtent - notification.metrics.pixels;
     final previousDistanceToBottom = _lastMessageDistanceToBottom;
     _lastMessageDistanceToBottom = distanceToBottom;
-    // 2026-06-28: 不再单押 UserScrollNotification.direction。Flutter 的
+    // 不再单押 UserScrollNotification.direction。Flutter 的
     // forward/reverse 语义容易和“内容视觉方向”混淆，且部分平台视图会缺失
     // pointer metadata。用距底部距离是否增大作为主判据；有 scrollDelta 时
     // 再用负 delta 兜底覆盖首个 tick。
@@ -2591,7 +2574,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       _syncAutoFollowPausedState();
       return false;
     }
-    // 2026-05-24 「暂停」阈值采用滞回：只有距离底部 > 96 px 才算「真
+    // 「暂停」阈值采用滞回：只有距离底部 > 96 px 才算「真
     // 的离开底部」。加载更多历史后，markdown / 高亮异步完成会让
     // `maxScrollExtent` 在数十像素间反复变动；没有滞回的话，`distanceToBottom`
     // 会在 32 阈值上下反复穿越，造成「靠近底部/离开底部」高频反转、
@@ -2630,7 +2613,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     }
     setState(() {
       _selectedSection = section;
-      // 2026-05-19 — 切回 workspace 板块时强制清掉残留的「转换中」遮罩。
+      // 切回 workspace 板块时强制清掉残留的「转换中」遮罩。
       // 当用户从 workspace（曾经触发过一次 prep 流程）切到其他板块、再
       // 切回 workspace 时，`_WorkspaceView` 是一棵刚 mount 的全新子树，
       // 老 `_SessionTranscript` 早已被 dispose。新 transcript 在
@@ -2707,13 +2690,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       return false;
     }
     final focusContext = FocusManager.instance.primaryFocus?.context;
-    // 2026-04-26: Removed the previous `currentRoute != focusedRoute` check.
-    // It silently swallowed shortcuts whenever the focused widget lived in
-    // an overlay (e.g. @-mention, skill picker) or a child Navigator, which
-    // surfaced as the composer "border flash and nothing happens" bug. We
-    // now rely solely on section + editable-focus gating, which is enough
-    // because we only act on shortcuts that explicitly target the composer
-    // (sendMessage / toggleComposer) when an editable widget has focus.
+    // Section and editable-focus gating keep composer shortcuts available in
+    // overlays and child Navigators without leaking them to other sections.
     final isEditableFocused = _isEditableTextFocused(focusContext);
     if (!isEditableFocused && _isPlainCopyShortcut(event)) {
       if (HtmlSelectionBridgeClipboard.hasSelection) {
@@ -2750,7 +2728,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       if (!composerShortcutAllowed && !harnessComposerShortcutAllowed) {
         return false;
       }
-      // 2026-04-28: Single-source-of-truth dispatch.
+      // Single-source-of-truth dispatch.
       // Returning true from a HardwareKeyboard handler does NOT skip the
       // focus-tree dispatch in the current Flutter pipeline – BOTH this
       // HW handler AND the focused FocusNode.onKeyEvent fire for the
@@ -2852,7 +2830,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         }
       }
     }
-    // 2026-04-28: Composer shortcut consumption (no action).
+    // Composer shortcut consumption (no action).
     // _handleGlobalShortcutKeyEvent (HardwareKeyboard) is the sole
     // executor of send-message / toggle-composer.  Here we only need to
     // CONSUME the matching keystroke in the focus tree so that
@@ -3486,7 +3464,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         createdAt: now,
         updatedAt: now,
       );
-      // 2026-04-13: Await initial save to ensure the record is persisted
+      // Await initial save to ensure the record is persisted
       // before starting the orchestrator, preventing data loss if the app
       // closes before the async save completes.
       try {
@@ -6686,7 +6664,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     _replaceComposerTextAndRefocus(value, requestFocusAfter: false);
   }
 
-  /// 2026-06-02 — 程序化改写 composer 文本的统一入口。
+  /// 程序化改写 composer 文本的统一入口。
   ///
   /// 直接 `_composerController.value = ...` 会在 IME 正在组合（composing）
   /// 期间把陈旧的 selection 推给 framework 与平台 IME，下一次
@@ -6715,7 +6693,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     }
   }
 
-  /// 2026-06-02 — 给 [InputRepairService] 注册的软恢复钩子：当 framework
+  /// 给 [InputRepairService] 注册的软恢复钩子：当 framework
   /// 在 `TextInputClient.updateEditingState` 里检测到平台 IME 选区越界
   /// 时，由 `FlutterError.onError` 触发本钩子，做一次"摘焦点 → 下一帧再
   /// focus"动作，把 IME 的陈旧 composing/selection 状态清掉，重新与
@@ -7538,7 +7516,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (nextSignature == null) {
       return;
     }
-    // 2026-05-04 (修复): 仅当用户当前仍处于"贴底跟随"状态时，才在新消息
+    // 仅当用户当前仍处于"贴底跟随"状态时，才在新消息
     // 到达时重新装填强制滚到底的请求。如果用户已经手动上滑导致
     // `_shouldAutoFollowMessages` 被置为 false（自动跟随暂停），
     // 那么本次 session 变更不应越权把视口拉回底部 —— 必须等用户
@@ -9464,7 +9442,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         availableModels: settingsController.aiModels,
         recentModelSelections: settingsController.recentModelSelections,
         onModelSelected: (providerConfigId, modelId) {
-          // 2026-05-01 — 输入缓存锁定守卫: 启用缓存且本会话已有 assistant
+          // 输入缓存锁定守卫: 启用缓存且本会话已有 assistant
           // 回复后, 切换 provider/model 会让命中的 cache_control 前缀全部
           // 失效；显式拦截并提示。
           final session = sessionController.currentSession;

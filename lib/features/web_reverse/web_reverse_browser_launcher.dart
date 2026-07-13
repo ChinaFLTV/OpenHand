@@ -52,8 +52,7 @@ class WebReverseBrowserLauncher {
     return http_io.IOClient(inner);
   }
 
-  /// 在 [9222, 9322) 区间挑一个空闲端口（百端口区间，支持上百个并发会话）。
-  /// 之前用 9222-9242（20 个）容易在多会话场景碰撞。
+  /// 在 [9222, 9322) 区间挑一个空闲端口，支持多会话并发。
   ///
   /// 检测策略：
   /// 1. 先尝试 HTTP GET `http://127.0.0.1:<port>/json/version` —— 200 就是别人的 CDP，跳过；
@@ -124,7 +123,7 @@ class WebReverseBrowserLauncher {
     final proxyArg = nullIfBlank(proxy);
     await Directory(normalizedUserDataDir).create(recursive: true);
     final args = <String>[
-      // 2026-05-17 — CDP 关键参数务必排在最前，确保 Chrome 解析到这些
+      // CDP 关键参数务必排在最前，确保 Chrome 解析到这些
       // 参数前不会因为别的初始化阶段卡住（部分 Chrome 版本对参数顺序
       // 敏感）。`--remote-debugging-pipe` 不用，因为我们要用 HTTP 探测。
       '--remote-debugging-port=$port',

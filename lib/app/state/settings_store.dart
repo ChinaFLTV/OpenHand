@@ -253,7 +253,7 @@ class SettingsStore {
           snapshot.aiStreamThrottleCloudSyncToken,
       'ai_stream_throttle_config_updated_at_ms':
           snapshot.aiStreamThrottleConfigUpdatedAtMs,
-      // 2026-05-22 — v3 schema 起，按线程模板覆盖节流参数已下线，
+      // v3 schema 起，按线程模板覆盖节流参数已下线，
       // 持久化层不再写出 `ai_stream_throttle_template_overrides`；
       // read 路径会静默丢弃任何老 doc 上的同名字段。
       'ai_auto_title_enabled': snapshot.aiAutoTitleEnabled,
@@ -534,7 +534,7 @@ class SettingsStore {
       min: AppSettingsSnapshot.minAiInputCacheBreakpointCount,
       max: AppSettingsSnapshot.maxAiInputCacheBreakpointCount,
     );
-    // 2026-05-04 — 用户自定义前 N-1 个静态缓存点位置（百分比 0..1，升序）。
+    // 用户自定义前 N-1 个静态缓存点位置（百分比 0..1，升序）。
     // JSON 形如 [0.25, 0.5, 0.75]；非法元素直接忽略，越界 clamp 至 [0,1]。
     final List<double> aiInputCacheBreakpointPositions = () {
       final raw = json['ai_input_cache_breakpoint_positions'];
@@ -723,7 +723,7 @@ class SettingsStore {
         AppSettingsSnapshot.aiStreamMaxMessageCardsPerSecondFromValue(
           json['ai_stream_max_message_cards_per_second'],
         );
-    // 2026-05-22 — v3 schema 起，按线程模板覆盖节流参数已下线。
+    // v3 schema 起，按线程模板覆盖节流参数已下线。
     // 老 settings.json 上仍可能携带 `ai_stream_throttle_template_overrides`
     // 字段（v1/v2 残留），这里完全忽略：不再读、不再透传给 snapshot，
     // write 路径也不会再写出。任何形状的旧 value（Map/null/异常类型）都
@@ -1103,7 +1103,7 @@ class SettingsStore {
       aiStreamThrottleCloudSyncEndpoint: aiStreamThrottleCloudSyncEndpoint,
       aiStreamThrottleCloudSyncToken: aiStreamThrottleCloudSyncToken,
       aiStreamThrottleConfigUpdatedAtMs: aiStreamThrottleConfigUpdatedAtMs,
-      // 2026-05-22 — v3 schema 起，`aiStreamThrottleTemplateOverrides`
+      // v3 schema 起，`aiStreamThrottleTemplateOverrides`
       // 字段已从 AppSettingsSnapshot 上移除（task 4.1），此处不再透传。
       aiAutoTitleEnabled: aiAutoTitleEnabled,
       aiAutoTitleFetchMode: aiAutoTitleFetchMode,

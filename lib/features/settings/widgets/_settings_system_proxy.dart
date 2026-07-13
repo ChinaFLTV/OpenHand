@@ -1,4 +1,4 @@
-// 2026-05-03: 系统级代理设置卡片。三档模式（无代理 / 自动发现代理
+// 系统级代理设置卡片。三档模式（无代理 / 自动发现代理
 // (默认) / 手动配置代理）+ 多协议复选 + 主机/端口 + 鉴权 + 例外名单
 // （IP / CIDR / 域名 / `*.glob` / `/regex/`）。所有变更通过
 // `SettingsController.updateProxySettings(...)` 持久化，再由 main.dart
@@ -15,7 +15,7 @@ class _SystemProxySection extends StatefulWidget {
 }
 
 class _SystemProxySectionState extends State<_SystemProxySection> {
-  /// 2026-05-04 (代理诊断): 默认测试端点从模型层读取，
+  /// 代理诊断的默认测试端点从模型层读取，
   /// 避免在 UI 层重复定义。Google generate_204 是历史最稳的
   /// "204 No Content" 探针。
   static const String _defaultTestEndpoint =
@@ -301,7 +301,7 @@ class _SystemProxySectionState extends State<_SystemProxySection> {
                   ],
                 ),
                 const SizedBox(height: 16),
-                // 2026-05-19 — 自动模式下虽然字段禁用，但仍把 SystemProxyResolver
+                // 自动模式下虽然字段禁用，但仍把 SystemProxyResolver
                 // 探测到的 host:port 实时回填到文本框，方便用户校验"系统现在
                 // 走的哪条代理"。手动模式下保留用户自填值。
                 ValueListenableBuilder<int>(

@@ -7,7 +7,7 @@ import '../../../../shared/util/input_value_parsing.dart';
 /// judgement in subtly different code paths. Keeping the truth-table in a
 /// single file prevents the two copies from drifting (a known regression
 /// vector — bare "继续" was missing from the controller copy on
-/// 2026-04-28, which left the next turn's tool catalog empty and made the
+/// , which left the next turn's tool catalog empty and made the
 /// model hallucinate `Write` / `TodoWrite` calls).
 abstract final class AiPlanApprovalDetector {
   /// Returns `true` when the trimmed [content] should be interpreted as the

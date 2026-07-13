@@ -337,7 +337,7 @@ String _sanitizeVisibleModelContent(String value) {
 /// native API tool-call events.  Without this filter the tags appear as ugly
 /// raw XML in the chat bubble.
 ///
-/// 2026-04-13 Also strips internal "Tool call: ToolName" labels that some
+/// Also strips internal "Tool call: ToolName" labels that some
 /// models output as reasoning artifacts. These are prompt-history notation
 /// and should not appear in user-facing content.
 String _stripRawToolCallMarkup(String value) {
@@ -373,7 +373,7 @@ final RegExp _rawToolCallBlockPattern = RegExp(
   r'<\s*tool_call\b[^>]*>[\s\S]*?<\s*/\s*tool_call\s*>',
   caseSensitive: false,
 );
-// 2026-04-21 Also strip the plural `<tool_calls>…</tool_calls>` wrapper that
+// Also strip the plural `<tool_calls>…</tool_calls>` wrapper that
 // some reasoning models echo as a scaffold (e.g. DeepSeek Reasoner) — this
 // previously leaked into the visible reasoning bubble because the stripper
 // only recognized the singular `<tool_call>` variant.
@@ -395,7 +395,7 @@ final RegExp _rawToolCallLooseTagPattern = RegExp(
 );
 final RegExp _excessiveNewlinePatternToolCall = RegExp(r'\n{3,}');
 
-/// 2026-04-13 Pattern to match internal "Tool call: ToolName" label lines.
+/// Pattern to match internal "Tool call: ToolName" label lines.
 /// Matches lines like:
 ///   - "Tool call: Bash"
 ///   - "Tool call: Read -> /path/file"

@@ -368,7 +368,7 @@ class _CronEntryCard extends StatelessWidget {
                   },
                 ),
                 const SizedBox(width: 8),
-                // 2026-04-25 — system entries (e.g. Hermes Talker self-
+                // system entries (e.g. Hermes Talker self-
                 // learning) no longer show a lock icon. Toggle stays
                 // enabled, but edit/delete remain disabled below to keep
                 // the cron parameters immutable.
@@ -2365,7 +2365,7 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
             ),
           ],
           if (record.appContext.isNotEmpty) ...[
-            // 2026-04-25: Prefer the Hermes Talker rich panel for structured
+            // Prefer the Hermes Talker rich panel for structured
             // reports and hide the consumed JSON keys from the raw context
             // list, avoiding duplicate noisy payloads in the UI.
             if (record.appContext.containsKey(

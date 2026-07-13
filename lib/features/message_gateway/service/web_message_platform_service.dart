@@ -4655,7 +4655,7 @@ class WebMessagePlatformService {
       );
     }
     if (hasEnabled) {
-      // 2026-05-19 — 会话级启用开关：null 清除覆盖；true/false 立即生效。
+      // 会话级启用开关：null 清除覆盖；true/false 立即生效。
       final raw = body['enabled'];
       _sessionController.setSessionStreamEnabledOverride(
         session.id,
@@ -4866,7 +4866,7 @@ class WebMessagePlatformService {
       final lastMessage = messageWindow.messages.isEmpty
           ? null
           : messageWindow.messages.last;
-      // 2026-05-17 — 把当前会话生效的字符 / 卡片节流速率推给前端，让 Web
+      // 把当前会话生效的字符 / 卡片节流速率推给前端，让 Web
       // 端的 TopBar 节流指示器可以无需额外接口直接展示绿/灰状态。
       final throttleOverride = _sessionController.sessionStreamThrottleOverride(
         live.id,
@@ -4902,17 +4902,17 @@ class WebMessagePlatformService {
           'chars_per_second': effChars,
           'cards_per_second': effCards,
           'has_session_override': throttleOverride != null,
-          // 2026-05-19 — 启用态：会话级 > 全局。前端据此渲染 Switch 与
+          // 启用态：会话级 > 全局。前端据此渲染 Switch 与
           // 灰色胶囊。
           'enabled':
               throttleOverride?.enabled ??
               _settingsController.aiStreamThrottleEnabled,
-          // 2026-05-19 — 会话历史上是否曾节流。胶囊可见性所需。
+          // 会话历史上是否曾节流。胶囊可见性所需。
           'was_initially_throttled': _sessionController
               .sessionWasInitiallyThrottled(live.id),
           'duration_expired': _sessionController
               .sessionStreamThrottleDurationExpired(live.id),
-          // 2026-05-24 — 字符吞吐 30s 桶（桶 0 = 当前秒），让 Web 端节流弹
+          // 字符吞吐 30s 桶（桶 0 = 当前秒），让 Web 端节流弹
           // 窗渲染和 App 端一致的柱状图。非流式 / 从未流式时也会回填全 0。
           'throughput_buckets': _sessionController
               .sessionStreamCharThroughputSnapshot(live.id),
@@ -6230,7 +6230,7 @@ class WebMessagePlatformService {
     return null;
   }
 
-  /// 2026-06-08 — 每次序列化会话时，只要累积 cache 数据明确有值，就用
+  /// 每次序列化会话时，只要累积 cache 数据明确有值，就用
   /// SessionCacheHitTrend 的当前过滤规则刷新展示口径；优先复用已持久化趋势点。
   /// 长/部分水合会话只用聚合 token 给出轻量比例，避免摘要/SSE 回扫全量消息。
   Map<String, Object?> _ensureCacheHitStats(AiSession session) {

@@ -14,7 +14,7 @@ import '../../../shared/util/text_clip.dart';
 
 /// 节流配置云端同步 provider 类型。
 ///
-/// 2026-05-18 — 三种供选：
+/// 三种供选：
 ///   * [custom]：自定义 HTTP endpoint（PUT 推、GET 拉，Bearer token），
 ///     当前版本的真实实现，零依赖、零鉴权耦合，可指向 Gist / S3 /
 ///     Cloudflare KV 等任何裸 HTTP 后端；
@@ -23,7 +23,7 @@ import '../../../shared/util/text_clip.dart';
 ///   * [oauth]：OAuth 鉴权 (例如 Google Drive / GitHub Gist)，需要
 ///     native sdk 嵌入与跳转流，本期作为占位入口预留。
 ///   * [gistGitHub]：GitHub Gist 同步（personal access token + gist id），
-///     纯 HTTPS，0 依赖，2026-05-19 新增；token 应为细粒度 PAT，仅授
+///     纯 HTTPS，0 依赖；token 应为细粒度 PAT，仅授
 ///     `gist` scope。
 enum ThrottleCloudSyncProvider {
   custom,
@@ -57,7 +57,7 @@ enum ThrottleCloudSyncProvider {
 
 /// 同步操作结果。`ok=false` 时 `message` 给可读错误信息。
 ///
-/// 2026-05-19 — 增补 `updatedAtMs` 字段：拉取成功且远端 payload 内含
+/// 增补 `updatedAtMs` 字段：拉取成功且远端 payload 内含
 /// `updated_at_ms` 时透传给上层，自动同步以此判定是否覆盖本地。
 class ThrottleCloudSyncResult {
   const ThrottleCloudSyncResult._({
@@ -98,12 +98,12 @@ class ThrottleCloudSyncResult {
 
 /// 节流配置云端同步 service。
 ///
-/// 2026-05-18 — service 不感知 SettingsController 的存在；调用方负责
+/// service 不感知 SettingsController 的存在；调用方负责
 /// 把要 push 的 config 序列化好，把 pull 回来的 Map 喂给
 /// `SettingsController.importAiStreamThrottleConfig`。这样 service
 /// 单纯做"网络 IO + JSON 编解码"，方便被脚本工具复用。
 ///
-/// 2026-05-19 — 新增 [cloudChanges] Stream：当 native 端收到
+/// [cloudChanges] 在 native 端收到
 /// `NSUbiquitousKeyValueStoreDidChangeExternallyNotification`（即用户
 /// 在另一台设备改了节流配置，iCloud 推送过来）时主动调
 /// `cloudConfigChanged` method，service 转换为 Stream 事件让上层
@@ -326,7 +326,7 @@ class ThrottleCloudSyncService {
     return 0;
   }
 
-  /// 2026-05-18 — iCloud 桥接：调 native CloudSyncBridge。
+  /// iCloud 桥接：调 native CloudSyncBridge。
   /// macOS / iOS 走 NSUbiquitousKeyValueStore（key-value，1MB 上限）；
   /// 其他平台没有实现，channel 抛 MissingPluginException → 转换为
   /// 友好错误信息。
@@ -426,7 +426,7 @@ class ThrottleCloudSyncService {
     }
   }
 
-  /// 2026-05-19 — GitHub Gist 同步实现：
+  /// GitHub Gist 同步实现：
   ///   * 已配置 [gistId] → PATCH /gists/{id} 更新指定 gist 的
   ///     `openhand_throttle.json` 文件；
   ///   * [gistId] 为空 → POST /gists 新建一个 secret gist，并把

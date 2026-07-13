@@ -1810,7 +1810,7 @@ class _SettingsViewState extends State<SettingsView> {
             context,
           )!.settingsConfigureDefaultBehaviourForNewSessions,
           child: Column(
-            // 2026-05-19 — 强制左对齐：默认 CrossAxisAlignment.center 会
+            // 强制左对齐：默认 CrossAxisAlignment.center 会
             // 把"节流参数"独立的 title / body Text 居中渲染，与上下方
             // _ResponsiveSettingRow（内部 Row+Column start 对齐）视觉断裂。
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -2030,7 +2030,7 @@ class _SettingsViewState extends State<SettingsView> {
                 ),
               ),
               const SizedBox(height: 18),
-              // 2026-05-17 — 流式输出节流：每秒最多向卡片追加渲染的字符数
+              // 流式输出节流：每秒最多向卡片追加渲染的字符数
               _ResponsiveSettingRow(
                 title: openHandLocalizedText(
                   context,
@@ -2110,7 +2110,7 @@ class _SettingsViewState extends State<SettingsView> {
                 controlMaxWidth: 360,
               ),
               const SizedBox(height: 18),
-              // 2026-05-17 — 卡片限速：每秒最多新追加多少张消息卡片
+              // 卡片限速：每秒最多新追加多少张消息卡片
               _ResponsiveSettingRow(
                 title: openHandLocalizedText(
                   context,
@@ -2190,7 +2190,7 @@ class _SettingsViewState extends State<SettingsView> {
                 ),
                 controlMaxWidth: 360,
               ),
-              // 2026-05-17 — 节流持续时长入口。
+              // 节流持续时长入口。
               const SizedBox(height: 18),
               _ResponsiveSettingRow(
                 title: openHandLocalizedText(
@@ -2272,7 +2272,7 @@ class _SettingsViewState extends State<SettingsView> {
                 controlMaxWidth: 360,
               ),
               const SizedBox(height: 18),
-              // 2026-05-18 — 节流配置 export / import 入口；带云端同步预留
+              // 节流配置 export / import 入口；带云端同步预留
               _ResponsiveSettingRow(
                 title: openHandLocalizedText(
                   context,
@@ -2332,7 +2332,7 @@ class _SettingsViewState extends State<SettingsView> {
                 controlMaxWidth: 360,
               ),
               const SizedBox(height: 18),
-              // 2026-05-18 — 节流配置云端同步入口；custom 走真实 HTTP
+              // 节流配置云端同步入口；custom 走真实 HTTP
               // PUT/GET，iCloud / OAuth 留占位入口
               _ResponsiveSettingRow(
                 title: openHandLocalizedText(
@@ -4690,7 +4690,7 @@ class _SettingsViewState extends State<SettingsView> {
     );
   }
 
-  /// 2026-05-17 — 保存节流持续时长（秒）。0 = 持续节流。
+  /// 保存节流持续时长（秒）。0 = 持续节流。
   Future<void> _saveStreamThrottleDurationSeconds(
     BuildContext context,
     String rawValue,
@@ -4716,7 +4716,7 @@ class _SettingsViewState extends State<SettingsView> {
     );
   }
 
-  /// 2026-05-18 — 把当前节流配置序列化为 JSON 文件。
+  /// 把当前节流配置序列化为 JSON 文件。
   Future<void> _exportAiStreamThrottleConfig(BuildContext context) async {
     final controller = context.read<SettingsController>();
     final ts = DateTime.now()
@@ -4803,7 +4803,7 @@ class _SettingsViewState extends State<SettingsView> {
     );
   }
 
-  /// 2026-05-18 — 从 JSON 文件 import 节流配置；缺失字段保持现值。
+  /// 从 JSON 文件 import 节流配置；缺失字段保持现值。
   Future<void> _importAiStreamThrottleConfig(BuildContext context) async {
     final controller = context.read<SettingsController>();
     const typeGroup = XTypeGroup(label: 'JSON', extensions: <String>['json']);
@@ -4871,9 +4871,9 @@ class _SettingsViewState extends State<SettingsView> {
       return;
     }
     if (!context.mounted) return;
-    // 2026-05-18 — 应用前先弹「冲突预览」对话框，让用户看清哪些字段
+    // 应用前先弹「冲突预览」对话框，让用户看清哪些字段
     // 会被覆盖；用户确认后才真正写入。
-    // 2026-05-17 — 跨版本兼容：老 doc（v1）缺 `duration_seconds` 时，
+    // 跨版本兼容：老 doc（v1）缺 `duration_seconds` 时，
     // 先 migrate 到当前 schema 再做 diff，避免预览里出现 5→— 这种
     // 容易被误读为"清空"的展示。migrate 不会破坏未识别字段，向前兼容。
     final current = controller.exportAiStreamThrottleConfig();
@@ -4974,7 +4974,7 @@ class _SettingsViewState extends State<SettingsView> {
     }
   }
 
-  /// 2026-05-18 — 把 current 和 incoming 两份节流配置拍平后逐字段对
+  /// 把 current 和 incoming 两份节流配置拍平后逐字段对
   /// 比，返回 (label, current, next) 三元组。仅返回值发生变化的项；
   /// 顺序固定（开关→自动→字符→卡片→各模板覆盖）方便预览阅读。
   List<_ThrottleDiffRow> _diffThrottleConfig(
@@ -5181,7 +5181,7 @@ class _SettingsViewState extends State<SettingsView> {
     );
   }
 
-  // 2026-05-06 — 单会话预算输入：去掉小数尾零，0 显示为 "0"。
+  // 单会话预算输入：去掉小数尾零，0 显示为 "0"。
   static String _formatBudgetUsd(double value) {
     if (value <= 0) return '0';
     final fixed = value.toStringAsFixed(2);
@@ -5221,7 +5221,7 @@ class _SettingsViewState extends State<SettingsView> {
     );
   }
 
-  /// 2026-05-04 — 缓存断点位置滑块行：N-1 个可拖拽拇指 + 末尾固定锚。
+  /// 缓存断点位置滑块行：N-1 个可拖拽拇指 + 末尾固定锚。
   /// 拖拽实时更新本地草稿，松手时通过 SettingsController 持久化。
   Widget _buildAiInputCacheBreakpointPositionsRow(BuildContext context) {
     final controller = context.watch<SettingsController>();
@@ -6624,7 +6624,7 @@ class _McpLazyLoadingHelpBanner extends StatelessWidget {
 
 /// 节流被关闭（rate=0）时显示的醒目提示徽章。
 ///
-/// 2026-05-17 — 用户在设置面板把「每秒最大输出渲染字符」或「每秒最大输
+/// 用户在设置面板把「每秒最大输出渲染字符」或「每秒最大输
 /// 出消息卡片数」改成 0 后，应用端就完全跳过了对应方向的背压。这条徽
 /// 章高亮当前状态，避免用户在排查"输出卡顿/抽搐"时误以为节流仍在生效。
 class _ThrottleDisabledBadge extends StatelessWidget {
@@ -6664,7 +6664,7 @@ class _ThrottleDisabledBadge extends StatelessWidget {
 
 /// 自动模式开启时显示的"实时 FPS"小指示器。
 ///
-/// 2026-05-18 — 直接读 [OpenHandFpsMonitor.recentFps]，1s 一次刷新。
+/// 直接读 [OpenHandFpsMonitor.recentFps]，1s 一次刷新。
 /// FPS < 55 时染红并附「已降速」提示，方便用户判断当前是否处于卡顿
 /// 自适应区间。
 class _AutoModeFpsIndicator extends StatefulWidget {
@@ -6752,7 +6752,7 @@ class _ThrottleDiffRow {
 
 /// 节流配置 import 冲突预览弹窗：列出 diff，用户确认后再 apply。
 ///
-/// 2026-05-18 — 直接 apply 容易让用户误覆盖未察觉的字段；先把所有差异
+/// 直接 apply 容易让用户误覆盖未察觉的字段；先把所有差异
 /// 项以 「key · before → after」 行形式展示，并提供 取消 / 应用 两个
 /// OpenHandDialogActionButton 让用户做最后决策。
 class _ThrottleImportDiffDialog extends StatelessWidget {
@@ -6924,7 +6924,7 @@ class _ThrottleImportDiffContent extends StatelessWidget {
 /// 节流配置云端同步编辑器：provider 选择 + endpoint / token 输入 +
 /// push / pull 按钮。
 ///
-/// 2026-05-18 — provider=custom 走真实 HTTP；icloud / oauth 仅显示占
+/// provider=custom 走真实 HTTP；icloud / oauth 仅显示占
 /// 位说明，触发 push / pull 时返回明确的"尚未实现"消息。
 class _ThrottleCloudSyncEditor extends StatefulWidget {
   const _ThrottleCloudSyncEditor();

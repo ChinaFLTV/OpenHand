@@ -277,7 +277,7 @@ class AiToolUtils {
     for (final entry in rawExtracted.entries) {
       result.putIfAbsent(entry.key, () => entry.value);
     }
-    // 2026-05-02: tolerance — weaker models often over-wrap parameter
+    // tolerance — weaker models often over-wrap parameter
     // payloads as `{key: {key: [...]}}` (e.g. `todos: {todos: [...]}`)
     // when shoe-horning JSON into DSML parameters. Detect this single
     // case and unwrap once so downstream tools see the canonical shape.
@@ -307,7 +307,7 @@ class AiToolUtils {
   }) {
     if (value is String) {
       final stripped = _stripCdata(value);
-      // 2026-05-02: tolerance — weaker models frequently emit JSON-shaped
+      // tolerance — weaker models frequently emit JSON-shaped
       // strings (`"[{...}, ...]"`, `"{\"todos\":[...]}"`) inside DSML
       // parameter slots that the downstream tool expects to receive as
       // a typed List/Map. Decode only when the current tool schema asks for
@@ -866,7 +866,7 @@ class AiToolUtils {
       );
     }
 
-    // 2026-04-12: 脏写检测 - 检查文件是否在读取后被外部修改
+    // 脏写检测 - 检查文件是否在读取后被外部修改
     if (fileTracker != null) {
       final dirtyWriteError = await fileTracker.validateSafeToWrite(filePath);
       if (dirtyWriteError != null) {
@@ -879,7 +879,7 @@ class AiToolUtils {
 
   /// 在文件修改前保存历史版本
   ///
-  /// 2026-04-12: 实现 OpenCode 历史版本机制
+  /// 实现 OpenCode 历史版本机制
   static Future<String?> saveFileVersionBeforeMutation({
     required String filePath,
     required String sessionId,
@@ -896,7 +896,7 @@ class AiToolUtils {
 
   /// 在文件修改后更新追踪器
   ///
-  /// 2026-04-12: 写入成功后更新 lastReadTime
+  /// 写入成功后更新 lastReadTime
   static Future<void> updateTrackerAfterMutation({
     required String filePath,
     AiFileTrackerService? fileTracker,
@@ -905,7 +905,7 @@ class AiToolUtils {
     await fileTracker.updateAfterWrite(filePath);
   }
 
-  /// 2026-05-03 — 把一次工具产生的文件级变动写入新的 [AiFileMutationLedger]，
+  /// 把一次工具产生的文件级变动写入新的 [AiFileMutationLedger]，
   /// 同时落 before/after 两份内容，供 UI 层 diff/undo/redo 使用。
   ///
   /// 调用契约（任一字段缺失都会优雅降级）：
@@ -1330,7 +1330,7 @@ class AiToolUtils {
   }) => awaitWithCancelSignal(future, cancelSignal: cancelSignal);
 
   // ────────────────────────────────────────────────────────────
-  // 2026-04-13: ripgrep (rg) 命令路径解析
+  // ripgrep (rg) 命令路径解析
   // 优先使用应用内嵌入的 rg，确保用户无需预装 ripgrep
   // ────────────────────────────────────────────────────────────
 
@@ -1685,11 +1685,11 @@ class AiToolUtils {
   }
 
   // ══════════════════════════════════════════════════════════════════════════
-  // 2026-04-13 写操作权限确认支持
+  // 写操作权限确认支持
   // ══════════════════════════════════════════════════════════════════════════
 
   /// 写操作权限确认默认超时时间（5分钟）。
-  /// 2026-04-29 — Group B: 调用方可传 [timeoutMs] 覆盖默认值。
+  /// Group B: 调用方可传 [timeoutMs] 覆盖默认值。
   static const int _writeConfirmationTimeoutMs = 300000;
 
   static Map<String, Object?> _writeConfirmationMetadata(
@@ -1908,7 +1908,7 @@ class AiToolUtils {
   }
 }
 
-/// 2026-04-13 写确认结果内部类型。
+/// 写确认结果内部类型。
 class _WriteConfirmationOutcome {
   const _WriteConfirmationOutcome.fromDecision(this.decision);
 

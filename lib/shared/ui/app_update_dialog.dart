@@ -1,4 +1,4 @@
-// 2026-05-13 — 检查更新弹窗，带 Q 弹动画进度条和流畅的状态切换。
+// 检查更新弹窗，带 Q 弹动画进度条和流畅的状态切换。
 import 'dart:async';
 
 import 'package:flutter/material.dart';

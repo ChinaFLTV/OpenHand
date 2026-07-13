@@ -1460,7 +1460,7 @@ class _MemoryPanelState extends State<_MemoryPanel> {
   final List<double> _heapUsed = <double>[];
   final List<double> _heapTotal = <double>[];
   static const int _heapHistoryLen = 80;
-  // 2026-05-19 — 采样期间的每 tick 分配增量（used.t - used.t-1，取正值）。
+  // 采样期间的每 tick 分配增量（used.t - used.t-1，取正值）。
   // 配合 Switch 形式的「采样开关」让用户在采样窗口内直观看到分配压力曲
   // 线；停止后会冻结，待下次开启再清空。
   final List<double> _samplingDeltas = <double>[];
@@ -1485,7 +1485,7 @@ class _MemoryPanelState extends State<_MemoryPanel> {
           silentLog('web_reverse_dashboard', 'sample heap', error, stack),
     );
     unawaited(_sampleHeap());
-    // 2026-05-24 — 读回 session metadata 中保存的最近两次堆快照，让用户
+    // 读回 session metadata 中保存的最近两次堆快照，让用户
     // 关闭 Dashboard 再打开仍能直接「比较」，不必重新采集。
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -1520,7 +1520,7 @@ class _MemoryPanelState extends State<_MemoryPanel> {
         _heapTotal.removeAt(0);
       }
       _heapBreached = breached;
-      // 2026-05-19 — 采样窗口内追加每 tick 分配增量（正值；GC 回收当 0），
+      // 采样窗口内追加每 tick 分配增量（正值；GC 回收当 0），
       // 让下方 sparkline 实时反映分配压力。
       if (widget.controller.isMemorySampling) {
         final prev = _samplingLastUsed ?? r.used;
@@ -1600,7 +1600,7 @@ class _MemoryPanelState extends State<_MemoryPanel> {
       } else {
         setState(() {
           _samplingResult = null;
-          // 2026-05-19 — 清空旧的采样窗口序列，sparkline 从 0 重新累计。
+          // 清空旧的采样窗口序列，sparkline 从 0 重新累计。
           _samplingDeltas.clear();
           _samplingLastUsed = null;
         });
@@ -1767,7 +1767,7 @@ class _MemoryPanelState extends State<_MemoryPanel> {
             onThresholdChanged: (v) => setState(() => _heapWarnThresholdMb = v),
           ),
           const SizedBox(height: 10),
-          // 2026-05-19 — 「采样开关 + 实时 sparkline」整合卡片：开关切换会
+          // 「采样开关 + 实时 sparkline」整合卡片：开关切换会
           // 触发 startSampling / stopSampling；采样窗口内 1.5s 拍一根条柱，
           // 高度 = 该 tick 的 used 增量（>=0），自动归一化。停止后冻结便
           // 于回顾，下次开启自动清空。
@@ -5073,9 +5073,7 @@ class _RecorderPanelState extends State<_RecorderPanel> {
     }
     if (location == null) return;
     try {
-      await File(
-        location.path,
-      ).writeAsString(prettyPrintJson(steps));
+      await File(location.path).writeAsString(prettyPrintJson(steps));
       if (!mounted) return;
       showWebReverseSuccessSnack(context, _savedToFileMessage(location.path));
     } catch (error, stack) {
@@ -5829,7 +5827,7 @@ class _DiffRow extends StatelessWidget {
 
 /// 把 Tracing.dataCollected JSON 转成简化火焰图的弹窗。
 ///
-/// 2026-05-24 Stage D 增强：
+/// Stage D 增强：
 ///   ① 横轴贴出时间标尺（5 等分时间刻度，单位 ms）；
 ///   ② 点击任一矩形弹出该 event 的完整 args / cat / pid 详情；
 ///   ③ 右侧侧栏列出按 dur 降序的 Top 30 事件，点击即在火焰图里把对应
@@ -6476,7 +6474,7 @@ _HeapAggResult _aggregateHeap(String src) {
 /// 快照对比弹窗：上方两行 raw bytes / 节点数 / 自有大小 delta，下方
 /// DataTable 列出 top growth constructor（默认按字节增长降序）。
 ///
-/// 2026-05-24 Stage E 增强：点击表格任一行 → 右侧弹出「保持者链」侧栏，
+/// Stage E 增强：点击表格任一行 → 右侧弹出「保持者链」侧栏，
 /// 后台 isolate 解析 snapshot.edges 反向构造邻接表，从该 ctor 的代表实
 /// 例往上走最多 5 跳，把可达的 retainer 链路渲染成树形列表。
 class _SnapshotDiffDialog extends StatefulWidget {

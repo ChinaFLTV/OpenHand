@@ -1664,9 +1664,7 @@ Future<void> _showCdpPaletteDialog(
                   useSession: useSession.value,
                 );
                 if (!dialogContext.mounted) return;
-                result.value = r == null
-                    ? '(null)'
-                    : prettyPrintJson(r);
+                result.value = r == null ? '(null)' : prettyPrintJson(r);
               } catch (error, stack) {
                 silentLog(
                   'web_reverse_dashboard_dialog',
@@ -2405,11 +2403,11 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
   int _selected = 0;
   // 0 = 图表，1 = ICE 拓扑，2 = SDP Diff，3 = 事件流。
   int _tab = 0;
-  // 2026-05-24 Stage C 增强：ICE 候选项 + 连接状态历史，按 PC 维护。
+  // Stage C 增强：ICE 候选项 + 连接状态历史，按 PC 维护。
   final Map<int, List<_IceEntry>> _iceLog = <int, List<_IceEntry>>{};
   // SDP 历史：每个 PC 维护 local / remote 各两份（最新 + 上一份），用于 diff。
   final Map<int, _SdpPair> _sdps = <int, _SdpPair>{};
-  // 2026-05-24 — ICE tab 的「时序 / 图」视图切换。默认时序列表，用户切到
+  // ICE tab 的「时序 / 图」视图切换。默认时序列表，用户切到
   // 图模式后用 _IceTopologyGraph 渲染当前 PC 的有向拓扑。
   bool _iceGraphMode = false;
 
@@ -2456,7 +2454,7 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
             _selected = _series.keys.first;
           }
         } else {
-          // 2026-05-24 Stage C：把控制平面事件（pc.create / track /
+          // Stage C：把控制平面事件（pc.create / track /
           // datachannel / icecandidate / connectionstatechange / SDP
           // result）分类塞进 _iceLog 与 _sdps；原始 JSON 仍保留事件
           // 流 tab 用。
@@ -2868,7 +2866,7 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
   /// （typ host）用 primary 色点；srflx / relay 用 tertiary；远端候选不
   /// 区分单独标 secondary。datachannel / track 单列前缀图标。
   ///
-  /// 2026-05-24 — 顶部加「时序 / 图」切换：图模式用 CustomPainter 把
+  /// 顶部加「时序 / 图」切换：图模式用 CustomPainter 把
   /// candidate / track / datachannel 节点按 typ 分组围着 PC 节点展开成有
   /// 向图，箭头由 candidate 指向 PC、track 由 PC 指向 stream，让用户一眼
   /// 看清拓扑。

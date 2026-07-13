@@ -1977,7 +1977,7 @@ class _ShellWriteCommandAnalyzer {
     // macOS terminal automation commands – these talk to terminal apps but
     // don't mutate the local filesystem.  Machine-expert workflows rely on
     // osascript heavily for sending keystrokes and reading screen buffers.
-    // 2026-04-21 SECURITY FIX: `osascript` is NOT listed here because it can
+    // SECURITY FIX: `osascript` is NOT listed here because it can
     // execute arbitrary shell commands via `do shell script`, inject commands
     // into other terminal applications via `write text` / `do script` /
     // `keystroke`, and otherwise produce side effects indistinguishable from
@@ -2355,7 +2355,7 @@ class _ShellWriteCommandAnalyzer {
     if (commandName == 'defaults') {
       return _analyzeDefaultsInvocation(invocation);
     }
-    // 2026-04-21 osascript / osacompile are powerful and can execute arbitrary
+    // osascript / osacompile are powerful and can execute arbitrary
     // shell commands (`do shell script`), inject keystrokes into other apps
     // (`keystroke`, `key code`, `key down/up`), or drive terminal emulators
     // (`write text`, `do script`).  Treating every osascript invocation as a

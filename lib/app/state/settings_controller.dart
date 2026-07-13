@@ -40,12 +40,12 @@ enum _MutationDisposition { apply, successNoChange, reject }
 
 /// 当前 AI 流式节流配置文档的 schema 版本号。
 ///
-/// * v1 (2026-05-18)：`throttle_enabled` / `auto_mode` /
+/// * v1：`throttle_enabled` / `auto_mode` /
 ///   `max_chars_per_second` / `max_message_cards_per_second` /
 ///   `template_overrides` / `cloud_sync` 等字段。
-/// * v2 (2026-05-17)：新增 `duration_seconds`（0 = 持续节流）。导入老版本
+/// * v2：新增 `duration_seconds`（0 = 持续节流）。导入老版本
 ///   时由 [migrateAiStreamThrottleConfig] 自动补默认值，向后兼容。
-/// * v3 (2026-05-22)：移除 `template_overrides` 字段（按线程模板覆盖节流
+/// * v3：移除 `template_overrides` 字段（按线程模板覆盖节流
 ///   参数下线）。v1/v2 → v3 的迁移路径会静默丢弃 `template_overrides`，
 ///   保留全局节流字段不变。
 const int aiStreamThrottleConfigSchemaVersion = 3;
@@ -66,7 +66,7 @@ Map<String, Object?> migrateAiStreamThrottleConfig(Map<String, Object?> doc) {
     migrated['duration_seconds'] =
         AppSettingsSnapshot.defaultAiStreamThrottleDurationSeconds;
   }
-  // v3 (2026-05-22)：drop 老 doc 里的 `template_overrides`，无论 v1 / v2
+  // v3 会丢弃旧文档里的 `template_overrides`，无论 v1 / v2
   // 来源都收敛到「不再带模板级覆盖」的口径。导入路径不直接操作原始
   // map，所以这里 remove 不会污染调用方的对象。
   migrated.remove('template_overrides');
@@ -446,7 +446,7 @@ class SettingsController extends ChangeNotifier {
   int get aiInputCacheUpdateInterval => _aiInputCacheUpdateInterval;
   int get aiInputCacheBreakpointCount => _aiInputCacheBreakpointCount;
 
-  /// 2026-05-04 — 用户自定义的前 N-1 个静态缓存点位置（百分比 0..1，升序）。
+  /// 用户自定义的前 N-1 个静态缓存点位置（百分比 0..1，升序）。
   /// 空列表表示沿用 mode-based 自动布点。
   List<double> get aiInputCacheBreakpointPositions =>
       _aiInputCacheBreakpointPositions;
@@ -501,7 +501,7 @@ class SettingsController extends ChangeNotifier {
       _aiStreamThrottleCloudSyncEndpoint;
   String get aiStreamThrottleCloudSyncToken => _aiStreamThrottleCloudSyncToken;
 
-  /// 2026-05-19 — 节流配置最近一次本地修改时间戳（epoch ms）。0 表示
+  /// 节流配置最近一次本地修改时间戳（epoch ms）。0 表示
   /// 尚未修改过；自动同步用它和远端 updated_at 比对决定胜负。
   int get aiStreamThrottleConfigUpdatedAtMs =>
       _aiStreamThrottleConfigUpdatedAtMs;
@@ -527,7 +527,7 @@ class SettingsController extends ChangeNotifier {
 
   /// 自动模式按平台返回字符速率：桌面端较快，移动端 / Web 端略保守。
   ///
-  /// 2026-05-18 — 接入 [OpenHandFpsMonitor]：当最近一秒平均 FPS 低于
+  /// 接入 [OpenHandFpsMonitor]：当最近一秒平均 FPS 低于
   /// 55 时再砍 50%，让卡顿设备自动降速，避免雪上加霜；FPS 60 附近
   /// 维持平台预设，保留头部体验。
   int _autoStreamMaxCharsPerSecond() {
@@ -620,10 +620,10 @@ class SettingsController extends ChangeNotifier {
   /// background scheduler.
   bool get showSelfLearningMessages => _showSelfLearningMessages;
 
-  /// 2026-04-25 — 是否在冷启动时自动清理超过保留期的 cron 执行历史。
+  /// 是否在冷启动时自动清理超过保留期的 cron 执行历史。
   bool get cronAutoCleanupEnabled => _cronAutoCleanupEnabled;
 
-  /// 2026-04-25 — cron 执行历史保留天数；超过该天数的记录会被异步 worker
+  /// cron 执行历史保留天数；超过该天数的记录会被异步 worker
   /// 清理。
   int get cronAutoCleanupRetentionDays => _cronAutoCleanupRetentionDays;
 
@@ -1112,7 +1112,7 @@ class SettingsController extends ChangeNotifier {
     });
   }
 
-  /// 2026-05-04 — 提交用户拖拽得到的前 N-1 个缓存点位置。空列表表示
+  /// 提交用户拖拽得到的前 N-1 个缓存点位置。空列表表示
   /// 撤销自定义、回到 mode-based 自动布点。
   Future<bool> updateAiInputCacheBreakpointPositions(
     List<double> positions,
@@ -1129,7 +1129,7 @@ class SettingsController extends ChangeNotifier {
     });
   }
 
-  /// 2026-05-06 — 单会话 USD 预算上限。0 表示关闭预算告警。
+  /// 单会话 USD 预算上限。0 表示关闭预算告警。
   Future<bool> updateAiBudgetUsdPerSession(double value) async {
     final clamped = (value.isFinite && !value.isNaN)
         ? value.clamp(
@@ -1657,7 +1657,7 @@ class SettingsController extends ChangeNotifier {
     });
   }
 
-  /// 2026-05-18 — 节流配置云端同步 provider 标识。
+  /// 节流配置云端同步 provider 标识。
   Future<bool> updateAiStreamThrottleCloudSyncProvider(String value) async {
     final normalized = value.trim();
     if (normalized.isEmpty) return false;
@@ -1692,7 +1692,7 @@ class SettingsController extends ChangeNotifier {
     });
   }
 
-  /// 2026-05-18 — 节流配置 export：把全局节流参数序列化为一份 JSON
+  /// 节流配置 export：把全局节流参数序列化为一份 JSON
   /// 文档，方便用户在多设备之间手动同步。
   ///
   /// 文档结构（v3）：
@@ -1714,11 +1714,11 @@ class SettingsController extends ChangeNotifier {
   /// 静默丢弃，导出不再写入。
   Map<String, Object?> exportAiStreamThrottleConfig() {
     return <String, Object?>{
-      // 2026-05-22 — v3 移除 template_overrides 字段；v1/v2 → v3 的
+      // v3 移除 template_overrides 字段；v1/v2 → v3 的
       // 迁移由 migrateAiStreamThrottleConfig 在导入侧统一处理。
       'version': aiStreamThrottleConfigSchemaVersion,
       'exported_at': DateTime.now().toUtc().toIso8601String(),
-      // 2026-05-19 — 携带本地最近一次有效修改的 epoch ms。自动同步会
+      // 携带本地最近一次有效修改的 epoch ms。自动同步会
       // 用 max(remote, local) 决定哪一方覆盖另一方，避免老覆新。
       'updated_at_ms': _aiStreamThrottleConfigUpdatedAtMs,
       'throttle_enabled': _aiStreamThrottleEnabled,
@@ -1731,7 +1731,7 @@ class SettingsController extends ChangeNotifier {
     };
   }
 
-  /// 2026-05-18 — 节流配置 import：把外部 JSON 文档解析后写入控制器。
+  /// 节流配置 import：把外部 JSON 文档解析后写入控制器。
   /// 缺失字段保持现值；不合法字段静默跳过；返回是否产生了变更。
   ///
   /// [overrideUpdatedAtMs] 用于自动同步场景：远端文档已经携带自己的
@@ -2435,7 +2435,7 @@ class SettingsController extends ChangeNotifier {
     });
   }
 
-  // 2026-04-25 — 定时任务（cron）执行历史的冷启动自动清理设置。
+  // 定时任务（cron）执行历史的冷启动自动清理设置。
   Future<bool> updateCronAutoCleanupEnabled(bool value) async {
     return _commitMutation(() {
       if (_cronAutoCleanupEnabled == value) {

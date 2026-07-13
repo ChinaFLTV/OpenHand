@@ -200,7 +200,7 @@ class AiPromptBuilder {
     bool useDsmlToolCalls = false,
     bool planModeExecutionApprovedForSend = false,
     bool? planModeRecoveryInspectionRequired,
-    // 2026-05-23 v6 — 供调用方（AiSessionController）在「等待计划批准」
+    // 供调用方（AiSessionController）在「等待计划批准」
     // 轮次传入「完整目录」，让 [2] Tool Catalog 文本跨轮保持字节一致，
     // 仅靠 [3d] 里的 plan.awaiting_approval 告诉模型「本轮不能调用工具」。
     // 同时 availableTools 可以保持为空，让 SDK 层 / 本地验证层拒绝任何工具调用。
@@ -336,7 +336,7 @@ class AiPromptBuilder {
       recoveryInspectionRequired: effectivePlanModeRecoveryInspectionRequired,
     );
     final goalModeReminder = _buildGoalModeReminder(session);
-    // 2026-05-30 — metadata 中删除「纯遥测」字段：
+    // metadata 中删除「纯遥测」字段：
     //   * session_updated_at：UI 元数据，模型无消费但会每轮变。
     //   * session_total_token_count / session_prompt_token_count /
     //     session_completion_token_count / session_message_counts：纯统计每轮
@@ -366,7 +366,7 @@ class AiPromptBuilder {
       'failed_todos': failedTodos,
       'recent_plan_tool_failure': _hasRecentPlanToolFailure(session),
       'plan_recovery_required': planRecoveryRequired,
-      // 2026-05-30 — todo_write_recommended / todo_write_reason 移除：
+      // todo_write_recommended / todo_write_reason 移除：
       // 与独立的 "# System Reminder" 块内容重复，且每轮变动会污染 [3d]。
       'tool_catalog_authoritative': true,
       'current_tool_count': availableToolNames.length,
@@ -525,13 +525,12 @@ class AiPromptBuilder {
         AiPromptSectionHeaders.developerInstructions,
         templateBundle.developerInstructions,
       ),
-      // 2026-05-23 v4 → v5（prefix-extension cache 架构）
-      // Session State 拆分为静态/动态两部分：
+      // Prefix-extension cache 架构将 Session State 拆成静态/动态两部分：
       // - [3s] Static（session 标识、环境、限制、workspace_instructions）— 会话内不变。
       // - [3d] Dynamic（todos、plan、mode）— 仅包含会话内真正可变字段，留在
       //   latest user 之后的 volatile tail。
       //   date/git 已移至 [3s] 或移除：跨天/每次写文件后改变 hash 破坏 prefix-cache。
-      // 修复：静态块固定在 history 之前，动态块固定在 latest user 之后。
+      // 静态块固定在 history 之前，动态块固定在 latest user 之后。
       // 相邻轮次尽量满足 "Turn N+1 = Turn N tokens ++ [asst_N][user_N+1]"
       // 的前缀扩展性质；真正会变的提醒只污染当前轮尾部。Hook system-reminder
       // （从用户消息中提取、每轮不同）同样保留在 prompt 尾部。
@@ -541,8 +540,8 @@ class AiPromptBuilder {
         '${_renderUserProfileSection(promptMemoryEntries, runtimeContext.memoryEnabled, compact: true)}'
         '${_renderUserMemory(promptMemoryEntries, runtimeContext.memoryEnabled)}',
       ),
-      // 2026-04-25 — 【指令】模块注入。
-      // 2026-05-23 v6 — 为了不让「本轮临时跳过某条指令」的勾选击穿
+      // 【指令】模块注入。
+      // 为了不让「本轮临时跳过某条指令」的勾选击穿
       // [4.5] 这块的 prefix cache，[4.5] 始终渲染「全部 enabled 指令」，本轮
       // 要忽略哪几条由 [3d] Dynamic Session State 的
       // `skipped_user_instruction_ids` 告诉模型。渲染时会在每条指令标
@@ -558,7 +557,7 @@ class AiPromptBuilder {
         AiPromptSectionHeaders.conversationContext,
         _renderCompressionSummary(session, latestCompressionPoint),
       ),
-      // 2026-05-23 v3 — restored contexts 移至 history 之前：
+      // restored contexts 移至 history 之前：
       // 它们在压缩点前保持稳定，放在此前缀区可增加缓存命中 token。
       ..._optionalSystemSectionTurns(<_PromptSection>[
         _PromptSection(
@@ -1108,7 +1107,7 @@ class AiPromptBuilder {
     required Map<String, String> mcpServerInstructionsByName,
     required AiSessionMessage? latestCompressionPoint,
   }) {
-    // 2026-05-30 — 未发生压缩时返回空 map：这是「恢复上下文清单」，没压缩点就
+    // 未发生压缩时返回空 map：这是「恢复上下文清单」，没压缩点就
     // 没必要把工具数 / MCP / agent_types 等会话级近静态数据塞进 [3d]，每轮多
     // 上千 token 体积只会增加 prefix-cache 抖动风险。
     if (latestCompressionPoint == null) return const <String, Object?>{};
@@ -1319,7 +1318,7 @@ class AiPromptBuilder {
         : runtimeContext.workingDirectory.trim();
 
     final staticState = <String, Object?>{
-      // 2026-05-23 v5 — session.mode 不会一生不变（用户随时可在 plan / normal
+      // session.mode 不会一生不变（用户随时可在 plan / normal
       // 之间切换），迁到 [3d] Dynamic；避免切换模式就抹掉所有 prefix cache。
       'context': <String, Object?>{
         'cwd': workingDirectory,
@@ -1380,7 +1379,7 @@ class AiPromptBuilder {
   }) {
     final dynamicState = <String, Object?>{};
 
-    // 2026-05-30 — 缓存友好策略：[3d] 只保留「会话内会变 && 模型实际会用」的字段。
+    // 缓存友好策略：[3d] 只保留「会话内会变 && 模型实际会用」的字段。
     // session.title 与 git 快照不进入 prompt：标题对执行无约束价值，git
     // 状态可由工具按需读取；二者进入稳定前缀会让新线程无法复用内置 Prompt
     // 缓存，进入动态尾部则会破坏前缀延展。
@@ -1388,7 +1387,7 @@ class AiPromptBuilder {
       dynamicState['mode'] = session.mode.storageValue;
     }
 
-    // 2026-05-30 — 仅在真实存在压缩点（active=true）时注入 rehydration 块。
+    // 仅在真实存在压缩点（active=true）时注入 rehydration 块。
     // 否则该块会把会话级近静态数据（工具数 / MCP 列表 / agent_types 等）每轮带进
     // [3d]，徒增体积而无实际"恢复上下文"语义。
     final rehydrationActive = postCompactRehydration['active'] == true;
@@ -1442,13 +1441,13 @@ class AiPromptBuilder {
       };
     }
 
-    // 2026-05-30 — todoReminder / planModeReminder 不再写入 [3d]：
+    // todoReminder / planModeReminder 不再写入 [3d]：
     // 它们每轮都可能新增 / 失效 / 改写，强行塞进位于 prefix 的 [3d] 会让
     // 整段 history 缓存失效。统一改为 history 之后的独立 system 块
     // (# System Reminder / # Plan Mode Reminder)，与其它 volatile tail
     // 提醒共享一份"不入 prefix"的策略。
 
-    // 2026-05-23 v6 — 本轮被临时跳过的用户指令 id 列表，让 [4.5] 保持
+    // 本轮被临时跳过的用户指令 id 列表，让 [4.5] 保持
     // 字节稳定（缓存友好），实际忽略哪几条从 [3d] 读取。
     if (runtimeContext.skippedInstructionIds.isNotEmpty) {
       final ids = runtimeContext.skippedInstructionIds.toList()..sort();
@@ -1751,7 +1750,7 @@ class AiPromptBuilder {
               : '## Builtin Tools (baseline)',
         );
       for (final tool in builtinTools) {
-        // 2026-04-26: Render builtin tools with their full description and
+        // Render builtin tools with their full description and
         // required-args list even in compact mode. Some reasoner models
         // (e.g. deepseek-expert-reasoner) ignore the API-level tools array
         // and rely solely on the system-prompt catalog; the previous
@@ -3746,7 +3745,7 @@ $tail''';
     if (!memoryEnabled) {
       return 'Memory is disabled for the current runtime request.';
     }
-    // 2026-04-25: 用户画像由专门的 [User Profile] 段单独渲染（见
+    // 用户画像由专门的 [User Profile] 段单独渲染（见
     // [_renderUserProfileSection]），此处需要排除掉 user_profile 条目，
     // 以免在系统提示中重复出现同一段画像内容。
     final filtered = memoryEntries
@@ -3908,7 +3907,7 @@ $tail''';
       final name = entry.name.trim().isEmpty
           ? 'Instruction'
           : entry.name.trim();
-      // 2026-05-23 v6 — 携带 id，供 [3d] Dynamic State 中的
+      // 携带 id，供 [3d] Dynamic State 中的
       // `skipped_user_instruction_ids` 精准定位。
       buf.writeln('## ${i + 1}. $name (v${entry.version}, id=${entry.id})');
       if (entry.description.trim().isNotEmpty) {
@@ -5234,7 +5233,7 @@ $content
     }
     final arguments = _decodeToolArgumentsMap(toolCall.arguments);
     final targetPath = _toolCallTargetPath(arguments);
-    // 2026-04-27 (修复): Bash 命令体不再被丢弃；仅原生 Write/Edit 系列工具
+    // Bash 命令体必须保留；仅原生 Write/Edit 系列工具
     // 才标注 "payload omitted"。否则模型会以为自己执行的 shell 命令也被
     // 截断，产生不必要的"再写一次"重试。
     final writeLike = _isFileEditingToolName(normalizedName);
@@ -5299,7 +5298,7 @@ $content
       if (knowledgeResult != null) {
         return knowledgeResult;
       }
-      // 2026-04-27: 通用工具调用结果压缩。当工具返回内容超过阈值时，
+      // 通用工具调用结果压缩。当工具返回内容超过阈值时，
       // 提炼受影响文件路径 + 行号 + 工具自述目的（purpose/intent/goal/
       // description/reason），保留首尾片段作为结构性补充信息，避免
       // conversation history 被海量原文淹没。
@@ -5619,7 +5618,7 @@ $content
     return '${raw ?? ''}'.trim();
   }
 
-  /// 2026-05-23 — 仅在摘要检查点 prompt 内补做微压缩：为 [messages] 中
+  /// 仅在摘要检查点 prompt 内补做微压缩：为 [messages] 中
   /// 已被消费的旧工具结果计算 [old_tool_result_cleared] 摘要，返回
   /// messageId → 摘要的映射。
   ///
@@ -5783,10 +5782,7 @@ $content
             ),
         });
       case 'bash':
-        // 2026-04-27 (修复): 之前对"写文件类 Bash"完全省略命令体，导致模型
-        // 在后续轮次完全忘记自己执行了什么 shell（heredoc 内容、脚本逻辑都
-        // 被丢弃），从而把"我刚写过的小文件"误判为被截断。Bash 命令本身
-        // 即"我做了什么"的语义载体，不能丢。这里改为：保留完整命令；只
+        // Bash 命令是"我做了什么"的语义载体，必须保留完整命令；只
         // 在命令体超大时（>8KB）做 head/tail 截断，并附上 stored locally
         // 提示便于审计。
         final command = '${arguments['cmd'] ?? arguments['command'] ?? ''}';
@@ -6407,7 +6403,7 @@ class _MappedToolExchange {
   final int nextIndex;
 }
 
-/// 2026-04-27 — 工具调用结果压缩相关的运行期配置。从 [AiSessionRuntimeContext]
+/// 工具调用结果压缩相关的运行期配置。从 [AiSessionRuntimeContext]
 /// 派生，统一传入历史映射函数链，避免逐层传递 5 个独立参数。
 class _ToolCompressionConfig {
   const _ToolCompressionConfig({

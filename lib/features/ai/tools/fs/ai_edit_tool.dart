@@ -57,7 +57,7 @@ class AiEditTool extends AiTool {
       );
     }
 
-    // 2026-04-13: 写操作权限确认检查
+    // 写操作权限确认检查
     final confirmationResult = await AiToolUtils.requestWriteConfirmation(
       toolName: 'Edit',
       operationDescription:
@@ -72,7 +72,7 @@ class AiEditTool extends AiTool {
       return confirmationResult;
     }
 
-    // 2026-04-12: 从 metadata 获取追踪服务（遵循 AiToolExecutionContext 冻结约束）
+    // 从 metadata 获取追踪服务（遵循 AiToolExecutionContext 冻结约束）
     final fileTracker =
         context.metadata['file_tracker'] as AiFileTrackerService?;
     final fileHistory =
@@ -87,7 +87,7 @@ class AiEditTool extends AiTool {
     );
     if (readValidation != null) return readValidation;
 
-    // 2026-04-12: 保存历史版本（在修改前）
+    // 保存历史版本（在修改前）
     String? versionId;
     if (fileExists) {
       versionId = await AiToolUtils.saveFileVersionBeforeMutation(
@@ -98,7 +98,7 @@ class AiEditTool extends AiTool {
       );
     }
 
-    // 2026-05-03: 新型 ledger — 双快照捕获 before 内容
+    // 新型 ledger — 双快照捕获 before 内容
     final mutationLedger =
         context.metadata['mutation_ledger'] as AiFileMutationLedger?;
     final beforeContentForLedger = fileExists
@@ -142,7 +142,7 @@ class AiEditTool extends AiTool {
     );
     if (guardedWrite != null) return guardedWrite;
 
-    // 2026-04-12: 添加写入验证 - 读回文件确认修改已生效
+    // 添加写入验证 - 读回文件确认修改已生效
     final String verificationContent;
     try {
       verificationContent = await file.readAsString();
@@ -168,7 +168,7 @@ class AiEditTool extends AiTool {
         ? 'Updated $filePath (replaced $replacementCount occurrence${replacementCount > 1 ? 's' : ''}, verified)'
         : 'Updated $filePath (verified)';
 
-    // 2026-05-03: ledger 记录双快照
+    // ledger 记录双快照
     final ledgerRecordId = await AiToolUtils.recordFileMutationToLedger(
       ledger: mutationLedger,
       sessionId: context.sessionId,

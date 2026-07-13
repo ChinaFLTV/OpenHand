@@ -10,7 +10,7 @@ import '../ai_tool.dart';
 import '../ai_tool_execution_context.dart';
 import '../ai_tool_utils.dart';
 
-/// 2026-04-10 Codebase Search 工具 — 对标 Cursor 的 codebase_search 语义搜索。
+/// Codebase Search 工具 — 对标 Cursor 的 codebase_search 语义搜索。
 ///
 /// 实现策略：多信号加权搜索（Multi-Signal Weighted Search）。
 /// 1. 将用户自然语言 query 拆解为关键词集合
@@ -295,7 +295,7 @@ class AiCodebaseSearchTool extends AiTool {
     return fragments.where((f) => seen.add(f.toLowerCase())).toList();
   }
 
-  // 2026-04-13: 修复 rg 命令路径解析问题，使用共享工具方法
+  // 修复 rg 命令路径解析问题，使用共享工具方法
   Future<List<_SearchResult>> _ripgrepSearch(
     String searchRoot,
     String pattern, {

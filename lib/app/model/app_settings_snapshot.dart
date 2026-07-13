@@ -362,8 +362,8 @@ class AppSettingsSnapshot {
     return _aiMessageCompressionThresholdCharsRange.normalize(value);
   }
 
-  /// 2026-04-27 — 工具调用输出在压缩提示词中的字符上限。
-  /// 2026-06-13 — 普通 conversation history 保留原文以稳定跨轮
+  /// 工具调用输出在压缩提示词中的字符上限。
+  /// 普通 conversation history 保留原文以稳定跨轮
   /// prefix-cache；超过该上限的工具返回只在主动/被动压缩提示词中
   /// 被压缩为结构化摘要，避免生成检查点时上下文爆窗。默认 1024 字符。
   static const int defaultAiToolResultCompressionThresholdChars = 1024;
@@ -383,35 +383,32 @@ class AppSettingsSnapshot {
     return _aiToolResultCompressionThresholdCharsRange.normalize(value);
   }
 
-  /// 2026-04-27 — 压缩摘要首尾片段窗口（字符）。越大保留越多 raw
+  /// 压缩摘要首尾片段窗口（字符）。越大保留越多 raw
   /// 上下文，但会占用更多 tokens。0 表示不保留首尾片段。
   static const int defaultAiToolResultCompressionHeadTailWindowChars = 256;
   static const int minAiToolResultCompressionHeadTailWindowChars = 0;
   static const int maxAiToolResultCompressionHeadTailWindowChars = 8192;
 
-  /// 2026-04-27 — 压缩摘要中提取的文件路径条数上限。0 表示不提取。
+  /// 压缩摘要中提取的文件路径条数上限。0 表示不提取。
   static const int defaultAiToolResultCompressionMaxPathHits = 12;
   static const int minAiToolResultCompressionMaxPathHits = 0;
   static const int maxAiToolResultCompressionMaxPathHits = 200;
 
   static const bool defaultAiMicroCompressionEnabled = true;
 
-  /// 2026-05-02 — 成本控制：是否启用输入缓存优化。开启后，Prompt
+  /// 成本控制：是否启用输入缓存优化。开启后，Prompt
   /// Builder 统一保持静态前缀（系统指令/工具/技能/MCP/记忆/指令）稳定
   /// 前置；Anthropic native 注入 cache_control 断点，OpenAI-compatible
   /// 请求注入稳定的会话/Prompt 亲和键并保持 messages 位于请求体末尾，
   /// 同时在用户首条消息发出后锁定服务商/模型选择，降低跨轮缓存击穿概率。
   ///
-  /// 2026-06-01 — 默认改为 `true`：
-  /// 旧默认 `false` 导致绝大多数用户从未开启；从第 2 轮起无法享受
-  /// Anthropic / OpenAI-compatible prefix cache 命中，token 费用直线上升。
-  /// 开启后 Claude 协议会在对应 Claude provider 开关开启时注入
+  /// 默认为 `true`。Claude 协议会在对应 provider 开关开启时注入
   /// `cache_control: {type: ephemeral}` 断点；OpenAI-compatible 协议会使用
   /// 稳定亲和键与请求体顺序优化。少数场景需要关闭时再在"输入缓存"设置里
   /// 手动关闭。
   static const bool defaultAiInputCacheEnabled = true;
 
-  /// 2026-05-02 — 缓存断点更新模式：allMessages | userMessages | tokens。
+  /// 缓存断点更新模式：allMessages | userMessages | tokens。
   static const String aiInputCacheUpdateModeAllMessages = 'allMessages';
   static const String aiInputCacheUpdateModeUserMessages = 'userMessages';
   static const String aiInputCacheUpdateModeTokens = 'tokens';
@@ -423,32 +420,32 @@ class AppSettingsSnapshot {
     aiInputCacheUpdateModeTokens,
   };
 
-  /// 2026-05-02 — 缓存断点更新间隔。单位由 [aiInputCacheUpdateMode] 决定：
+  /// 缓存断点更新间隔。单位由 [aiInputCacheUpdateMode] 决定：
   /// allMessages → 每 N 条用户+助手消息；userMessages → 每 N 条用户消息；
   /// tokens → 每累计 N tokens 移动一次断点。
   static const int defaultAiInputCacheUpdateInterval = 10;
   static const int minAiInputCacheUpdateInterval = 1;
   static const int maxAiInputCacheUpdateInterval = 200000;
 
-  /// 2026-05-02 — Anthropic cache_control 断点数量上限（协议侧硬上限 4）。
+  /// Anthropic cache_control 断点数量上限（协议侧硬上限 4）。
   /// 第 N 个断点固定用于动态消息侧，前 N-1 个用于静态前缀切片。
   static const int defaultAiInputCacheBreakpointCount = 4;
   static const int minAiInputCacheBreakpointCount = 1;
   static const int maxAiInputCacheBreakpointCount = 4;
 
-  /// 2026-05-04 — 用户自定义的前 N-1 个静态缓存点位置，单位是消息流的
+  /// 用户自定义的前 N-1 个静态缓存点位置，单位是消息流的
   /// 百分比 [0, 1]。空列表表示沿用 mode-based 自动布点；非空时长度应 ==
   /// `aiInputCacheBreakpointCount - 1`，最后一个断点固定落在末尾消息。
   static const List<double> defaultAiInputCacheBreakpointPositions = <double>[];
 
-  /// 2026-05-06 — 单会话 USD 预算上限。0 表示关闭预算告警；超过该阈值时
+  /// 单会话 USD 预算上限。0 表示关闭预算告警；超过该阈值时
   /// TopBar 与会话元数据对话框将以警示样式提示用户当前会话累计成本已破
   /// 预算。仅作为软提醒，不会中断对话或限制发送。
   static const double defaultAiBudgetUsdPerSession = 0;
   static const double minAiBudgetUsdPerSession = 0;
   static const double maxAiBudgetUsdPerSession = 100000;
 
-  /// 2026-04-27 — 写类工具结果摘要中保留原始 summary 文本的字符上限。
+  /// 写类工具结果摘要中保留原始 summary 文本的字符上限。
   /// 超过该上限的 result_text 会被刪除（不进入 prompt history）。
   static const int defaultAiWriteToolSummaryMaxChars = 280;
   static const int minAiWriteToolSummaryMaxChars = 0;
@@ -488,7 +485,7 @@ class AppSettingsSnapshot {
     return AiToolCallLimitPolicy.normalizeSequentialRound(value);
   }
 
-  /// 2026-04-29 — Group A: AI 会话控制参数。
+  /// Group A: AI 会话控制参数。
   static const int defaultAiMaxRecentErrors = 20;
   static const int minAiMaxRecentErrors = 0;
   static const int maxAiMaxRecentErrors = 1000;
@@ -505,7 +502,7 @@ class AppSettingsSnapshot {
   static const int minAiEstimatedCharactersPerToken = 1;
   static const int maxAiEstimatedCharactersPerToken = 32;
 
-  /// 2026-04-29 — Group B: 工具调用与确认参数。
+  /// Group B: 工具调用与确认参数。
   static const int defaultAiMaxToolOutputChars =
       AiToolExecutionLimitPolicy.defaultMaxToolOutputChars;
   static const int minAiMaxToolOutputChars =
@@ -574,7 +571,7 @@ class AppSettingsSnapshot {
     return AiToolExecutionLimitPolicy.normalizeMaxHookTextCharacters(value);
   }
 
-  /// 2026-04-29 — Group C: 附件与流式缓冲参数。
+  /// Group C: 附件与流式缓冲参数。
   static const int defaultAiAttachmentMaxInlineImageDimension = 1568;
   static const int minAiAttachmentMaxInlineImageDimension = 64;
   static const int maxAiAttachmentMaxInlineImageDimension = 16384;
@@ -752,13 +749,13 @@ class AppSettingsSnapshot {
     return AiStreamThrottlePolicy.normalizeDurationSeconds(value);
   }
 
-  /// 2026-05-18 — 节流配置云端同步默认值；当前 provider/endpoint/token
+  /// 节流配置云端同步默认值；当前 provider/endpoint/token
   /// 均空表示功能关闭。
   static const String defaultAiStreamThrottleCloudSyncProvider = 'custom';
   static const String defaultAiStreamThrottleCloudSyncEndpoint = '';
   static const String defaultAiStreamThrottleCloudSyncToken = '';
 
-  /// 2026-05-19 — 节流配置最近一次本地修改的 epoch millis；自动同步比对
+  /// 节流配置最近一次本地修改的 epoch millis；自动同步比对
   /// 远端 updated_at 决定 push / apply 顺序，避免老覆新。
   static const int defaultAiStreamThrottleConfigUpdatedAtMs = 0;
 
@@ -821,7 +818,7 @@ class AppSettingsSnapshot {
   /// Default session mode string: 'chat' or 'plan'.
   static const String defaultAiDefaultSessionMode = 'chat';
 
-  /// 2026-05-03 — MCP 工具懒加载默认配置。
+  /// MCP 工具懒加载默认配置。
   ///   - 默认 [McpLazyLoadingMode.auto]：仅在 MCP 工具体量超过阈值时启用。
   ///   - 默认阈值 16 000 tokens：中大型 MCP 工具目录默认延后加载，避免
   ///     每轮把大工具 schema 作为原生 tools 重复发送，拖低前缀缓存收益。
@@ -839,7 +836,7 @@ class AppSettingsSnapshot {
   static const int minMcpAutoProbeConcurrency = 1;
   static const int maxMcpAutoProbeConcurrency = 32;
 
-  /// 2026-05-04 — MCP 关键词倒排索引的更新模式 / 周期 / 计划时间默认值。
+  /// MCP 关键词倒排索引的更新模式 / 周期 / 计划时间默认值。
   static const McpKeywordIndexUpdateMode defaultMcpKeywordIndexUpdateMode =
       McpKeywordIndexUpdateMode.coldStart;
   static const int defaultMcpKeywordIndexIntervalValue = 6;
@@ -856,21 +853,21 @@ class AppSettingsSnapshot {
   final bool mcpEnabled;
   final String mcpServersFilePath;
 
-  /// 2026-05-03 — MCP 工具懒加载模式（关闭/自动/开启）。
+  /// MCP 工具懒加载模式（关闭/自动/开启）。
   /// 启用后会在系统提示词中剥离 MCP 工具 schema，改用 ToolSearch 内建工具按需检索。
   final McpLazyLoadingMode mcpLazyLoadingMode;
 
-  /// 2026-05-03 — MCP 工具懒加载阈值（token 数）。仅在 [mcpLazyLoadingMode]
+  /// MCP 工具懒加载阈值（token 数）。仅在 [mcpLazyLoadingMode]
   /// = auto 时生效：当所有 MCP 工具描述合计 token 数（按字符 / 估算系数）超过
   /// 此阈值时，自动启用懒加载。
   final int mcpLazyLoadingThresholdTokens;
 
-  /// 2026-06-17 — 内建工具 schema 懒加载模式（关闭/自动/开启）。
+  /// 内建工具 schema 懒加载模式（关闭/自动/开启）。
   /// auto 模式会使用内建工具专用阈值，并以 [mcpLazyLoadingThresholdTokens]
   /// 作为用户配置上限；需要完全直带 schema 时应显式设为 disabled。
   final AiBuiltinToolLazyLoadingMode builtinToolLazyLoadingMode;
 
-  /// 2026-05-04 — stdio MCP 包管理器镜像源模式。
+  /// stdio MCP 包管理器镜像源模式。
   /// 决策顺序：`OPENHAND_MCP_MIRROR` 环变 > 该设置 > Platform.localeName。
   final McpStdioMirrorMode mcpStdioMirrorMode;
 
@@ -878,7 +875,7 @@ class AppSettingsSnapshot {
   /// 默认 5，避免慢服务把整批检查串行拖住；范围限制防止资源被打满。
   final int mcpAutoProbeConcurrency;
 
-  /// 2026-05-04 — MCP 关键词倒排索引的更新模式。仅在 [interval]/[scheduled]
+  /// MCP 关键词倒排索引的更新模式。仅在 [interval]/[scheduled]
   /// 模式下，内建 cron 任务 `mcp_keyword_index.rebuild` 才会被启用。
   final McpKeywordIndexUpdateMode mcpKeywordIndexUpdateMode;
 
@@ -900,52 +897,52 @@ class AppSettingsSnapshot {
   final int aiMessageCompressionThresholdChars;
   final int aiToolResultCompressionThresholdChars;
 
-  /// 2026-04-27 — 总开关：关闭后工具调用输出不再进行压缩。
+  /// 总开关：关闭后工具调用输出不再进行压缩。
   final bool aiToolResultCompressionEnabled;
 
-  /// 2026-07-05 — 摘要检查点 prompt 是否启用工具结果微压缩。正常对话
+  /// 摘要检查点 prompt 是否启用工具结果微压缩。正常对话
   /// history 始终保持稳定摘要形态，避免跨轮改写旧工具结果破坏输入缓存。
   final bool aiMicroCompressionEnabled;
 
-  /// 2026-05-24 — 助手消息内容渲染格式（Markdown / 纯文本 / HTML）。
+  /// 助手消息内容渲染格式（Markdown / 纯文本 / HTML）。
   /// 非 Markdown 模式会在 Prompt 末尾注入对应 `output_format` 片段。
   final AiMessageContentFormat aiMessageContentFormat;
 
-  /// 2026-05-24 — HTML 渲染失败时的回退策略，仅在
+  /// HTML 渲染失败时的回退策略，仅在
   /// [aiMessageContentFormat] 为 HTML 时生效。
   final AiHtmlRenderFallback aiHtmlRenderFallback;
 
-  /// 2026-05-25 — HTML 内容丰富度。仅在 [aiMessageContentFormat] 为 HTML 时
+  /// HTML 内容丰富度。仅在 [aiMessageContentFormat] 为 HTML 时
   /// 生效；prompt builder 会根据该值选择不同强度的 `output_format` reminder。
   final AiHtmlContentRichness aiHtmlContentRichness;
 
-  /// 2026-04-27 — 压缩摘要首尾片段窗口长度（字符）。
+  /// 压缩摘要首尾片段窗口长度（字符）。
   final int aiToolResultCompressionHeadTailWindowChars;
 
-  /// 2026-04-27 — 压缩摘要中提取的文件路径条数上限。
+  /// 压缩摘要中提取的文件路径条数上限。
   final int aiToolResultCompressionMaxPathHits;
 
-  /// 2026-05-02 — 成本控制：是否启用输入缓存优化（稳定静态前缀 + 模型锁
+  /// 成本控制：是否启用输入缓存优化（稳定静态前缀 + 模型锁
   /// + Claude cache_control + OpenAI-compatible 稳定亲和键/请求体顺序优化）。
   final bool aiInputCacheEnabled;
 
-  /// 2026-05-02 — 缓存断点更新模式（allMessages / userMessages / tokens）。
+  /// 缓存断点更新模式（allMessages / userMessages / tokens）。
   final String aiInputCacheUpdateMode;
 
-  /// 2026-05-02 — 缓存断点更新间隔（含义由模式决定）。
+  /// 缓存断点更新间隔（含义由模式决定）。
   final int aiInputCacheUpdateInterval;
 
-  /// 2026-05-02 — cache_control 断点数量（1-4）。
+  /// cache_control 断点数量（1-4）。
   final int aiInputCacheBreakpointCount;
 
-  /// 2026-05-04 — 用户自定义的前 N-1 个断点位置（百分比 0..1，升序）。
+  /// 用户自定义的前 N-1 个断点位置（百分比 0..1，升序）。
   /// 空列表表示沿用 mode-based 自动布点。
   final List<double> aiInputCacheBreakpointPositions;
 
-  /// 2026-05-06 — 单会话 USD 预算上限（0 = 关闭）。
+  /// 单会话 USD 预算上限（0 = 关闭）。
   final double aiBudgetUsdPerSession;
 
-  /// 2026-04-27 — 写类工具摘要中 result_text 的字符上限。
+  /// 写类工具摘要中 result_text 的字符上限。
   final int aiWriteToolSummaryMaxChars;
   final int aiSingleRoundToolCallLimit;
   final int aiSequentialToolRoundLimit;
@@ -1025,19 +1022,19 @@ class AppSettingsSnapshot {
   /// 用户阅读节奏。0 = 持续节流（不限时）。
   final int aiStreamThrottleDurationSeconds;
 
-  /// 2026-05-18 — 节流配置云端同步 provider 标识 (custom / icloud /
+  /// 节流配置云端同步 provider 标识 (custom / icloud /
   /// oauth)；当前仅 custom 走真实网络 IO，其余作为占位入口。
   final String aiStreamThrottleCloudSyncProvider;
 
-  /// 2026-05-18 — 节流配置云端同步 endpoint（custom provider 走 HTTP
+  /// 节流配置云端同步 endpoint（custom provider 走 HTTP
   /// PUT/GET）。
   final String aiStreamThrottleCloudSyncEndpoint;
 
-  /// 2026-05-18 — 节流配置云端同步 Bearer token；为空表示不发送
+  /// 节流配置云端同步 Bearer token；为空表示不发送
   /// Authorization header。
   final String aiStreamThrottleCloudSyncToken;
 
-  /// 2026-05-19 — 节流配置最近一次本地修改的 epoch millis（UTC）；
+  /// 节流配置最近一次本地修改的 epoch millis（UTC）；
   /// 自动同步比对远端 updated_at 决定 push / apply 顺序。0 表示尚未
   /// 修改过。
   final int aiStreamThrottleConfigUpdatedAtMs;
@@ -1085,11 +1082,11 @@ class AppSettingsSnapshot {
   /// visibility. Default true.
   final bool showSelfLearningMessages;
 
-  /// 2026-04-25 — 冷启动后是否异步清理过期 cron 执行历史。
+  /// 冷启动后是否异步清理过期 cron 执行历史。
   /// 默认 true，免得历史表不受控增长。
   final bool cronAutoCleanupEnabled;
 
-  /// 2026-04-25 — 保留上限天数；超过该天数的条目在冷启动起动
+  /// 保留上限天数；超过该天数的条目在冷启动起动
   /// 的 worker 里被删除。[minCronAutoCleanupRetentionDays] 与
   /// [maxCronAutoCleanupRetentionDays] 是输入安全护栏。
   final int cronAutoCleanupRetentionDays;

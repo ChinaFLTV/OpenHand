@@ -253,7 +253,7 @@ SelfLearningLlmDispatcher buildSelfLearningDispatcher({
     var skillCallsOk = 0;
     var skillCallsError = 0;
     final toolCallsLog = <Map<String, Object?>>[];
-    // 2026-04-25: 把每一次成功的工具调用拆成 {id, summary} 卡片项，分别归类到
+    // 把每一次成功的工具调用拆成 {id, summary} 卡片项，分别归类到
     // memory_changes / profile_changes / skill_changes，供 _SelfLearningCard
     // 渲染。仅记录成功的调用——失败的会进 toolCallsLog 但不影响 UI 摘要。
     final memoryChanges = <Map<String, Object?>>[];
@@ -310,7 +310,7 @@ SelfLearningLlmDispatcher buildSelfLearningDispatcher({
       }
       lastReply = result.reply.trim();
 
-      // 2026-04-25 — Streaming fallback. 部分后端（或部分模型，例如关闭了
+      // Streaming fallback. 部分后端（或部分模型，例如关闭了
       // streaming / 用 buffered SSE 的 OpenAI 兼容代理）只在最后一帧给出
       // 完整 reply / reasoning，并不会发出 textDelta / reasoningDelta 事件。
       // 此时 roundResponse / roundReasoning 会保持为空，导致卡片完全没有
@@ -334,7 +334,7 @@ SelfLearningLlmDispatcher buildSelfLearningDispatcher({
 
       // No tool calls → done.
       if (result.toolCalls.isEmpty) {
-        // 2026-04-29 — Recovery: 若模型在思考/回复里明显**描述**了要更新画像
+        // Recovery: 若模型在思考/回复里明显**描述**了要更新画像
         // /记忆/技能（出现 upsert_profile / append / memory / skill_manager
         // 等关键词）但**没有**真正发起工具调用，认定为"光说不做"。给模型
         // 追加一条强提醒并再跑一轮，让它实际动手。最多重试 1 次以避免循环。
@@ -494,7 +494,7 @@ SelfLearningLlmDispatcher buildSelfLearningDispatcher({
       terminatedReason = 'max_rounds';
     }
 
-    // 2026-04-25 — diagnostic: 当一整轮跑完，模型既没产出任何文本/思考，
+    // diagnostic: 当一整轮跑完，模型既没产出任何文本/思考，
     // 也未调用任何工具时（responseBuffer + reasoningBuffer 全空、
     // memoryCallsOk + skillCallsOk == 0、lastReply 也空），把
     // model/usage/terminated_reason 等关键状态打印到 silentLog，便于

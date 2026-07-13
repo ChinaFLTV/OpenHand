@@ -66,7 +66,7 @@ class AiMultiEditTool extends AiTool {
       );
     }
 
-    // 2026-04-13: 写操作权限确认检查
+    // 写操作权限确认检查
     final confirmationResult = await AiToolUtils.requestWriteConfirmation(
       toolName: 'MultiEdit',
       operationDescription:
@@ -81,7 +81,7 @@ class AiMultiEditTool extends AiTool {
       return confirmationResult;
     }
 
-    // 2026-04-12: 从 metadata 获取追踪服务（遵循 AiToolExecutionContext 冻结约束）
+    // 从 metadata 获取追踪服务（遵循 AiToolExecutionContext 冻结约束）
     final fileTracker =
         context.metadata['file_tracker'] as AiFileTrackerService?;
     final fileHistory =
@@ -96,7 +96,7 @@ class AiMultiEditTool extends AiTool {
     );
     if (readValidation != null) return readValidation;
 
-    // 2026-04-12: 保存历史版本（仅对已存在的文件）
+    // 保存历史版本（仅对已存在的文件）
     String? versionId;
     String? beforeContentForLedger;
     if (fileExists) {
@@ -177,7 +177,7 @@ class AiMultiEditTool extends AiTool {
     );
     if (guardedWrite != null) return guardedWrite;
 
-    // 2026-04-12: 添加写入验证 - 读回文件确认修改已生效
+    // 添加写入验证 - 读回文件确认修改已生效
     final String verificationContent;
     try {
       verificationContent = await file.readAsString();
@@ -196,7 +196,7 @@ class AiMultiEditTool extends AiTool {
       );
     }
 
-    // 2026-05-03: ledger 记录双快照
+    // ledger 记录双快照
     final mutationLedger =
         context.metadata['mutation_ledger'] as AiFileMutationLedger?;
     final ledgerRecordId = await AiToolUtils.recordFileMutationToLedger(

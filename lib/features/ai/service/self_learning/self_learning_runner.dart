@@ -91,7 +91,7 @@ class SelfLearningOutcome {
 /// 用于 Crons UI 在 Hermes Talker 历史卡片里展示"影响了哪些会话 / 改了
 /// 哪些画像-记忆-技能 / AI 思考与回复"等富信息。
 ///
-/// 2026-04-25 / Phase 4-Hermes-Talker-history.
+/// / Phase 4-Hermes-Talker-history.
 class SelfLearningSessionReport {
   const SelfLearningSessionReport({
     required this.sessionId,
@@ -176,7 +176,7 @@ class SelfLearningRunner {
   /// 流式累计文本写入卡片的最小间隔。设置过小会引起频繁 sqflite 写入；
   /// 设置过大会让 UI 看起来不够丝滑。
   ///
-  /// 2026-04-29 — 由 250ms 调高到 600ms 默认值。原值与"用户在自主学习流式
+  /// 由 250ms 调高到 600ms 默认值。原值与"用户在自主学习流式
   /// 期间发出新消息"的场景叠加时，会让中段流式卡片每秒重绘 4 次，与
   /// transcript 的 auto-follow 一起把视图反复推到底部，外观上像抽搐。
   /// 设为可由设置面板覆盖（`updateSelfLearningStreamFlushIntervalMs`），
@@ -200,14 +200,8 @@ class SelfLearningRunner {
       final slice = _buildConversationSlice(latest);
       final sliceMessageCount = _countSliceMessages(latest);
       if (sliceMessageCount < minConversationTurns) {
-        // 2026-04-25 — BUG fix: 此前会写一条 status='skipped' 的 selfLearning
-        // 卡片，但该卡片本身就是一个 selfLearning checkpoint：下一轮
-        // [_countSliceMessages] / [_buildConversationSlice] 会把"已写入卡片之
-        // 后"作为新的统计起点，于是真实对话没有积累就被这条占位卡片重置，
-        // 用户需要再积累 minConversationTurns 轮**之后**才会真正学习一次，
-        // 误以为前面的对话都已被认真学习。修复策略：未达到门槛时彻底跳过
-        // 任何持久化写入（含 placeholder / 卡片），仅在 debug 日志里留痕，
-        // 让真正的对话轮次能持续累积。
+        // 门槛未满足时不得写入占位卡片，否则它会成为新的 checkpoint，
+        // 提前截断仍在累积的真实对话窗口。
         silentLog(
           'self_learning_runner',
           'runForSession.skipped (insufficient turns)',

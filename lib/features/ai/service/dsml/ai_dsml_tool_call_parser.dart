@@ -65,7 +65,7 @@ AiDsmlToolCallExtractionResult extractDsmlToolCalls(
         treatAsString: dsmlParameterTreatsValueAsString(parameterAttributes),
       );
     }
-    // 2026-04-26: Fallback — when the model produced `<DSML:invoke ...>`
+    // Fallback — when the model produced `<DSML:invoke ...>`
     // wrappers but populated parameters with raw `<key>value</whatever>`
     // tags (mismatched closing tags), salvage them by scanning the invoke
     // body for any open-tag/close-tag pair and treating the open-tag name
@@ -134,7 +134,7 @@ final RegExp _trailingIncompleteDsmlPattern = RegExp(
   caseSensitive: false,
 );
 
-// 2026-05-03: widened to `[|｜]+` (was `[|｜]\s*` = exactly one) so we
+// widened to `[|｜]+` (was `[|｜]\s*` = exactly one) so we
 // match doubled-pipe variants like `<｜｜DSML｜｜...>` emitted by some
 // fine-tunes (observed: deepseek-style `<｜｜DSML｜｜tool_calls>`,
 // `<｜｜DSML｜｜invoke name="…">`, `<｜｜DSML｜｜parameter …>`). Without
@@ -144,7 +144,7 @@ final RegExp _dsmlTagPrefixPattern = RegExp(
   r'<\s*(/?)\s*[|｜]+\s*DSML\s*[|｜]+\s*',
   caseSensitive: false,
 );
-// 2026-05-03: full-width / multi-bracket DSML wrappers used by some weak
+// full-width / multi-bracket DSML wrappers used by some weak
 // fine-tunes that don't produce protocol-native tool calls. Treat any
 // run of bracket-like opening characters (`<<`, `[`, `(`, `《`, `【`,
 // `「`, `『`, `〔`, `〘`) followed by `DSML` followed by closing
@@ -155,13 +155,13 @@ final RegExp _dsmlBracketWrapPattern = RegExp(
   r'<\s*(/?)\s*[\[(《【「『〔〘<]+\s*DSML\s*[\])》】」』〕〙>]+\s*',
   caseSensitive: false,
 );
-// 2026-05-03: some models emit `<DSML:tool_calls>` instead of the
+// some models emit `<DSML:tool_calls>` instead of the
 // canonical `<DSML:function_calls>`. Treat both as identical wrappers.
 final RegExp _dsmlToolCallsAliasPattern = RegExp(
   r'<(/?)DSML:tool_calls\b([^>]*)>',
   caseSensitive: false,
 );
-// 2026-05-03: namespace-prefixed invoke/function_calls/parameter tags.
+// namespace-prefixed invoke/function_calls/parameter tags.
 // Covers `<functions.invoke …>`, `<tools.invoke …>`,
 // `<openai.invoke …>`, `<anthropic:invoke …>` and the like — anything
 // of the form `<{ns}{sep}{kind}>` where `kind` is one of our known
@@ -190,7 +190,7 @@ final RegExp _dsmlParameterPattern = RegExp(
   r'<DSML:parameter\b([^>]*)>([\s\S]*?)</DSML:parameter>',
   caseSensitive: false,
 );
-// 2026-04-26: Tolerant pattern for salvaging parameters whose closing
+// Tolerant pattern for salvaging parameters whose closing
 // tag does not match the opening tag (e.g. `<query>foo</path>`). Only
 // used as a fallback inside an invoke body when the strict parameter
 // extraction yielded nothing.
@@ -202,7 +202,7 @@ final RegExp _dsmlLooseTagPattern = RegExp(
   caseSensitive: false,
 );
 final RegExp _dsmlAttributePattern = RegExp(
-  // 2026-05-03: tolerate unquoted attribute values
+  // tolerate unquoted attribute values
   // (e.g. `<DSML:invoke name=Bash>`). Tries quoted forms first, then
   // a bareword fallback that stops at whitespace / `>`.
   r"""([A-Za-z_:][\w:.-]*)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+))""",
@@ -219,7 +219,7 @@ final RegExp _dsmlAttributePattern = RegExp(
 String canonicalizeDsmlMarkup(String value) => _canonicalizeDsmlMarkup(value);
 
 String _canonicalizeDsmlMarkup(String value) {
-  // 2026-04-26: Some weaker models (notably ones that pretend to follow a
+  // Some weaker models (notably ones that pretend to follow a
   // generic "agent" protocol they were trained on) emit tool calls inside
   // a `##TOOL_CALL## { "name": "...", "input": {...} } ##END_CALL##`
   // envelope instead of using protocol-native tool_calls or our DSML
@@ -235,7 +235,7 @@ String _canonicalizeDsmlMarkup(String value) {
       .replaceAll('</｜DSML｜', '</DSML:')
       .replaceAll('<｜dsml｜', '<DSML:')
       .replaceAll('</｜dsml｜', '</DSML:')
-      // 2026-05-03: doubled fullwidth pipes (deepseek-style envelope).
+      // doubled fullwidth pipes (deepseek-style envelope).
       .replaceAll('<｜｜DSML｜｜', '<DSML:')
       .replaceAll('</｜｜DSML｜｜', '</DSML:')
       .replaceAll('<｜｜dsml｜｜', '<DSML:')
@@ -244,7 +244,7 @@ String _canonicalizeDsmlMarkup(String value) {
     final isClosing = (match.group(1) ?? '').trim().isNotEmpty;
     return isClosing ? '</DSML:' : '<DSML:';
   });
-  // 2026-05-03: full-width / multi-bracket DSML wrappers (e.g.
+  // full-width / multi-bracket DSML wrappers (e.g.
   // `<【DSML】invoke …>`, `《DSML》tool_calls`, `<<DSML>>parameter …>`).
   // Apply *before* the alias step so the suffix (`tool_calls`/etc.) is
   // already canonicalized to `DSML:`.
@@ -252,7 +252,7 @@ String _canonicalizeDsmlMarkup(String value) {
     final isClosing = (match.group(1) ?? '').trim().isNotEmpty;
     return isClosing ? '</DSML:' : '<DSML:';
   });
-  // 2026-05-03: `<DSML:tool_calls>` -> `<DSML:function_calls>` so the
+  // `<DSML:tool_calls>` -> `<DSML:function_calls>` so the
   // downstream sanitizer / extractor treats it the same as the canonical
   // group wrapper.
   normalized = normalized.replaceAllMapped(_dsmlToolCallsAliasPattern, (m) {
@@ -303,7 +303,7 @@ String _canonicalizeDsmlMarkup(String value) {
             ? '</DSML:parameter>'
             : '<DSML:parameter$attrs>';
       });
-  // 2026-05-03: namespace-prefixed forms — `<functions.invoke …>`,
+  // namespace-prefixed forms — `<functions.invoke …>`,
   // `<tools:invoke …>`, `<openai.parameter …>`, etc. — get folded into
   // canonical DSML so the same extractor / sanitizer pipeline applies.
   normalized = normalized
@@ -325,7 +325,7 @@ String _canonicalizeDsmlMarkup(String value) {
             ? '</DSML:parameter>'
             : '<DSML:parameter$attrs>';
       });
-  // 2026-05-04: sweep up stray pipe characters (`|` / `｜`) that some
+  // sweep up stray pipe characters (`|` / `｜`) that some
   // weak fine-tunes leave between the last attribute (or element name)
   // and the closing `>` of *any* DSML tag — observed pattern is the
   // model wrapping every node in `<|DSML|name|>...</|DSML|name|>`. The
@@ -403,7 +403,7 @@ Object? decodeDsmlParameterValue(
   String rawValue, {
   required bool treatAsString,
 }) {
-  // 2026-04-26: strip <![CDATA[ ... ]]> wrappers up front. Some weaker
+  // strip <![CDATA[ ... ]]> wrappers up front. Some weaker
   // models emit CDATA inside DSML parameters which would otherwise be
   // treated as opaque text and confuse downstream tools.
   final unwrapped = _stripCdataWrappers(rawValue);
@@ -447,7 +447,7 @@ String _stripCdataWrappers(String value) {
   return value.replaceAllMapped(_cdataPattern, (m) => m.group(1) ?? '');
 }
 
-// 2026-04-26: Recognize the `##TOOL_CALL## ... ##END_CALL##` envelope that
+// Recognize the `##TOOL_CALL## ... ##END_CALL##` envelope that
 // some weak models emit instead of native protocol tool calls or our DSML
 // tags. Convert each well-formed envelope into a DSML invoke block so the
 // downstream extractor + sanitizer treat it like any other tool call.
@@ -469,7 +469,7 @@ final RegExp _hashTagToolCallDanglingPattern = RegExp(
   caseSensitive: false,
 );
 
-// 2026-05-03: additional JSON-envelope variants that surface in weaker
+// additional JSON-envelope variants that surface in weaker
 // model output. Each pattern's group(1) captures the JSON body.
 //   - [TOOL_CALL] {...} [/TOOL_CALL]
 //   - [OPENAI_FN] {...} [/OPENAI_FN]
@@ -512,7 +512,7 @@ final RegExp _codeFenceEnvelopePattern = RegExp(
   caseSensitive: false,
 );
 
-// 2026-05-03: YAML code-fence envelope (```yaml ...```). Conservative:
+// YAML code-fence envelope (```yaml ...```). Conservative:
 // the body MUST contain a top-level `name:` / `tool_name:` /
 // `function:` line; otherwise we leave the fence untouched (it's
 // almost certainly the user's own YAML content). The actual decode +
@@ -526,7 +526,7 @@ final RegExp _yamlEnvelopeNameKeyPattern = RegExp(
   multiLine: true,
 );
 
-// 2026-05-03: multi-segment hash envelope —
+// multi-segment hash envelope —
 //   ##invoke## name: Bash ##args## command: ls ##end##
 // The body contains an `##args##` separator (case-insensitive). We
 // rebuild it as YAML (`name: Bash\nargs:\n  command: ls`) and let the
@@ -551,7 +551,7 @@ final RegExp _linePrefixEnvelopePattern = RegExp(
 );
 
 String _convertHashTagToolCalls(String value) {
-  // 2026-05-03: extended from `##TOOL_CALL##` only to a family of
+  // extended from `##TOOL_CALL##` only to a family of
   // envelope conventions emitted by weaker fine-tunes that haven't
   // learned protocol-native tool calls.
   var current = value;
@@ -585,7 +585,7 @@ String _convertHashTagToolCalls(String value) {
       (m) => _renderEnvelopeAsDsml(m.group(1) ?? ''),
     );
   }
-  // 2026-05-03: YAML fence — convert ONLY when the body looks like an
+  // YAML fence — convert ONLY when the body looks like an
   // envelope (top-level `name`/`tool_name`/`function` key). Otherwise
   // leave the original fence verbatim so we don't clobber unrelated
   // YAML content.
@@ -600,7 +600,7 @@ String _convertHashTagToolCalls(String value) {
       return dsml.isEmpty ? m.group(0)! : dsml;
     });
   }
-  // 2026-05-03: multi-segment hash envelope (`##invoke## ... ##end##`).
+  // multi-segment hash envelope (`##invoke## ... ##end##`).
   // Rebuild as YAML so the YAML fallback parser handles the body.
   if (current.contains('##invoke##') ||
       RegExp(r'##\s*invoke\s*##', caseSensitive: false).hasMatch(current)) {
@@ -662,7 +662,7 @@ String _renderEnvelopeAsDsml(String rawBody) {
   } catch (_) {
     decoded = null;
   }
-  // 2026-05-03: fall back to YAML when JSON fails — covers YAML-shaped
+  // fall back to YAML when JSON fails — covers YAML-shaped
   // envelopes (`name: Bash\nargs:\n  command: ls`) emitted by some
   // weaker fine-tunes. Only proceed when the YAML decode yields a Map
   // with a `name`/`tool_name`/`function` key (otherwise we'd silently

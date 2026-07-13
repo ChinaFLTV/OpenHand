@@ -132,7 +132,7 @@ class WebReverseLspClient {
         c,
         a,
         runInShell: true,
-        // 2026-05-24 — macOS GUI 启动的 Flutter 进程 PATH 默认是
+        // macOS GUI 启动的 Flutter 进程 PATH 默认是
         // /usr/bin:/bin:/usr/sbin:/sbin，找不到 npm 全局 bin（Apple
         // Silicon 在 /opt/homebrew/bin、Intel 在 /usr/local/bin、nvm 在
         // ~/.nvm/versions/node/.../bin）。这里按常见路径拼一份扩展 PATH，

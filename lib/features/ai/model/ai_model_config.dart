@@ -601,7 +601,7 @@ class AiModelProfile {
   /// `true` / `false` = user override.
   final bool? supportsAttachments;
 
-  /// 2026-05-04 — 成本控制：每百万 token 的价格（单位 USD）。
+  /// 成本控制：每百万 token 的价格（单位 USD）。
   /// `null` = 未配置，成本推算将被跳过。由用户手动填入厄商官方
   /// pricing 页的数据，应避免 LLM 凭空估算。
   final double? inputUsdPer1M;

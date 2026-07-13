@@ -1,4 +1,4 @@
-/// 2026-05-04 — 单轮 / 多轮聚合的 USD 成本拆解。
+/// 单轮 / 多轮聚合的 USD 成本拆解。
 ///
 /// 计算约定：
 ///   * `inputUsd`        来源于 [AiTokenUsage.promptTokens]

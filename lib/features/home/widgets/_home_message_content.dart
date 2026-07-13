@@ -1,11 +1,7 @@
 part of '../openhand_home_page.dart';
 
-// 触发「折叠 + 渐变预览」的字符 / 行阈值再下调一档，让 60+
-// 条历史会话首次打开时大部分长消息只解析 2000 字预览块（_previewCharCap），
-// 完整 markdown 解析推迟到用户主动展开时再触发。
-// 5000 → 2400 字符：覆盖典型 GPT-4 / Claude 长答的 ~1200 token 输出。
-// 1200 → 800：tool_result 压缩更激进 (Bash/grep 输出常以行计算)。
-// 90 → 45 行：长答列表 / 大段代码即时折叠。
+// Long messages parse only a bounded preview until the user expands them,
+// keeping initial rendering of large transcripts responsive.
 const int _messageMarkdownCollapseCharThreshold = 2400;
 const int _toolResultMarkdownCollapseCharThreshold = 800;
 const int _messageMarkdownCollapseLineThreshold = 45;
@@ -1609,18 +1605,8 @@ class _SafeMarkdownBody extends StatefulWidget {
   State<_SafeMarkdownBody> createState() => _SafeMarkdownBodyState();
 }
 
-// Markdown bodies above this size get a one-frame delayed parse: on the
-// first frame we paint a cheap placeholder so the transcript reveal / scroll
-// lands instantly, then upgrade to the rich Markdown widget tree on the next
-// frame.
-// 从 1.5 KiB 下调到 800 字节：含多代码块的消息（如截图所示
-// 3个bash代码块）总字符数通常在 1000–3000 范围，但 markdown 解析 +
-// MarkdownBuilder.build() + 每个代码块的 widget 构造叠加起来就是
-// 主线程的致命负担。将阈值降到 800 字节让几乎所有含代码块的消息都
-// 走 deferred 路径，首帧仅渲染轻量占位，下一帧再构建富文本树。
-// 800 → 400：用户反馈 60+ 条历史消息会话首次打开仍卡顿，原因
-// 是历史里很多 ~600 字节的中等长度消息绕过了 deferred 路径，几张同帧
-// 同步解析就把 16 ms 帧预算撑爆。再降一档把更多消息纳入帧节流。
+// Larger Markdown bodies paint a cheap placeholder for one frame, then build
+// the rich widget tree under the shared frame budget.
 const int _markdownDeferredParseThresholdChars = 400;
 
 // 流式追加时更早进入 deferred 路径，并把富文本树重建合并到稳定节奏；
@@ -2799,7 +2785,7 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
             children: children,
           );
     if (!widget.selectable) return body;
-    // 修复：跨多行 select 选中 BUG。
+    // 跨多行 select 选中 BUG。
     // 旧实现直接用 `SelectionArea(child: body)`，但 `SelectionArea` 内部
     // 是 `SelectableRegion`，其 `add(Selectable)` 强制 `assert(_selectable == null)`，
     // 一棵子树里只能注册一个 `Selectable`。而 `flutter_markdown_plus` 的
@@ -2807,7 +2793,7 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
     // 一个独立带 `UniqueKey()` 的 `SelectableText.rich`，多个 `Selectable`
     // 同时竞争 `SelectableRegion` 的注册 — 只有最后一个能成功，其余全部
     // 沦为「选择孤岛」，用户在孤岛之间拖拽就会被卡死，体感是「只能选一行」。
-    // 修复策略：在 `SelectionArea` 与 body 之间再嵌一层 `SelectionContainer`，
+    // 在 `SelectionArea` 与 body 之间再嵌一层 `SelectionContainer`，
     // 它本身是一个 `Selectable` 节点，对外层 `SelectionArea` 暴露为唯一
     // 注册项；其 delegate 维护内部 N 个 `Selectable`（各 `SelectableText.rich`
     // + 代码块内 `SelectableText.rich`），把跨节点的 selection event 派发到
@@ -4815,26 +4801,15 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   static const double _kMinHeightClamp = 24.0;
   static const double _kMaxHeightClamp = 50000.0;
   static const double _kFirstMeasurementSkipThreshold = 5000.0;
-  // 1.0 → 8.0。WebView 测高受 DPR/字体子像素/DOM 抖动影响，
-  // 1px 阈值下任何微小 CSS reflow 都会触发 setState。结合滚动期间冻结，
-  // 进一步在稳态下过滤掉测量噪声，避免 maxScrollExtent 持续抖动。
+  // Filter DPR, font-subpixel and DOM measurement noise in steady state.
   static const double _kMinHeightDelta = 8.0;
   static const double _kLargeChangeRatio = 0.30;
   static const Duration _kMinHeightApplyInterval = Duration(milliseconds: 300);
-  // 96 → 512。长会话（>96 条 HTML 消息）下滑回来时，被淘汰
-  // 的旧消息 cachedHeight 丢失，会走 shimmer → actual 路径触发 maxScroll
-  // Extent 抖动。更大的 cache 让绝大多数用户场景下缓存命中，避免重建。
+  // Retain enough measured heights to avoid rebuilding HTML placeholders when
+  // a long transcript scrolls back into view.
   static const int _kHeightCacheMaxSize = 512;
-  // 移除 stability 检查 + 5 秒超时兜底。stability 检查
-  // 试图用 Flutter 端逻辑去判断 WebView 异步渲染状态根本不可靠——
-  // 一旦后续 reflow 触发了大幅变化（图片懒加载、字体回退）导致
-  // stability 翻转，shimmer 会重新出现；且 timer 取消后从未重启，
-  // 5 秒超时失效，shimmer 永久卡死。改回简单条件 + 首次测量 outlier
-  // 检查：`_height == null && cachedHeight == null` 才显示 shimmer，
-  // 几百毫秒内 _height 被设置后即切到 WebView，逻辑可靠。
-  // 防抖时长 500ms → 250ms。WebView 内部 reflow（图片懒
-  // 加载、字体回退）通常在 200ms 内收敛，500ms 防抖让 shimmer 多停
-  // 留 300ms 显得拖沓；250ms 既能滤掉高频回调、又不让用户等太久。
+  // Debounce image/font reflow measurements without keeping the placeholder
+  // visible after the WebView has settled.
   static const Duration _kHeightDebounceDuration = Duration(milliseconds: 250);
   // 渲染占位高度估算常量：HTML 文本在 14px 字体下平均每行约容纳 80
   // 字符、24 像素高。占位时按内容长度给出一个不至于"突然伸长"的
@@ -5273,11 +5248,8 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   // 已渲染 HTML 卡片重新显示骨架屏。
   static final LinkedHashMap<int, double> _revealedHeightCache =
       LinkedHashMap<int, double>();
-  // HTML 文档字符串缓存。`_buildDocument()` 在每次 build 都会
-  // 拼装 1-2KB HTML 字符串（多次 RegExp.match、字符串切片、模板拼接），
-  // 长会话首屏 8-15 个 HTML 气泡同帧 build 时叠加，单帧 ~5-15ms 浪费
-  // 在重复拼装同一份文档上。改为按内容/颜色/正文样式在 State 维度内缓存，
-  // 避免普通 rebuild 反复重建 HTML 文档。
+  // Cache the assembled document by content and effective styling so ordinary
+  // rebuilds do not repeat regex and template work.
   String? _documentCacheData;
   Color? _documentCacheTextColor;
   Color? _documentCacheBackgroundColor;
@@ -5295,13 +5267,8 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   Timer? _heightDebounceTimer;
   Timer? _initialRevealFallbackTimer;
   Timer? _postScrollHeightApplyTimer;
-  // HTML WebView 通过 ResizeObserver
-  // + rAF 在 macOS focus/blur、JS 二次布局、scrollIntoView 触发时都会重新
-  // 测高，每帧 16-30ms 一次。原来的 100ms 防抖每次都被新一轮测量重置、
-  // 永远不触发，结果 maxScrollExtent 在 7544 ↔ 4971 之间反复回流，用户实测
-  // 日志里 applyCD#N d=+28/-31/-72/-26/-15/... 持续几十帧，整张消息列表跟
-  // 着上下抖。改用「累积最新测量 + 500ms 一次性定时器」：后续新测量只更新
-  // _pendingHeight，**不重置**定时器，确保 500ms 后必然触发、应用终值。
+  // ResizeObserver updates only replace the pending value; they do not reset
+  // the one-shot timer, guaranteeing that continuous reflow eventually lands.
   double? _pendingHeight;
   // 限制高度应用间隔，阻断 WebView resize → setState → 再次 resize 闭环振荡。
   DateTime? _lastHeightApplyTime;

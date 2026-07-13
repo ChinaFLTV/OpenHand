@@ -166,7 +166,7 @@ class AiResolvedTool {
   final LocalSkill? skill;
 
   /// 用户层面的内建工具配置（仅 builtin 来源）。携带 timeout / retry 等
-  /// 运行时策略；execute() 据此包裹超时与重试逻辑（2026-04-29）。
+  /// 运行时策略；execute() 据此包裹超时与重试逻辑。
   final AiBuiltinToolConfig? builtinConfig;
 
   /// Per-catalog sidecar used only by the built-in ToolSearch tool.
@@ -341,7 +341,7 @@ class AiToolRuntimeService {
        _agentsControllerProvider = agentsControllerProvider,
        _machineTerminalService = machineTerminalService,
        _toolOutputDirectoryProvider = toolOutputDirectoryProvider {
-    // 2026-04-01 02:02:39 初始化完整服务依赖注入的多态工具注册中心
+    // 02:02:39 初始化完整服务依赖注入的多态工具注册中心
     _toolRegistry = AiToolRegistry.withServiceDependencies(
       bashToolService: _bashToolService,
       hookService: _hookService,
@@ -413,7 +413,7 @@ class AiToolRuntimeService {
   /// 暴露给 [AiSessionController]，用于同步需要随设置变化更新的工具实例。
   AiToolRegistry get toolRegistry => _toolRegistry;
 
-  // 2026-04-12: 文件追踪和历史版本服务
+  // 文件追踪和历史版本服务
   final AiFileTrackerService _fileTracker;
   final AiFileHistoryService _fileHistory;
   final AiFileMutationLedger _mutationLedger;
@@ -427,7 +427,7 @@ class AiToolRuntimeService {
   /// 获取文件历史服务（供外部访问，如回滚功能）
   AiFileHistoryService get fileHistory => _fileHistory;
 
-  /// 2026-05-03 — 新型文件变动 ledger（全局单例，供工具钩子/UI
+  /// 新型文件变动 ledger（全局单例，供工具钩子/UI
   /// 联动 undo/redo 使用）。
   AiFileMutationLedger get mutationLedger => _mutationLedger;
 
@@ -458,9 +458,9 @@ class AiToolRuntimeService {
   WebFetchScraplingProbeStatus get lastWebFetchScraplingProbe =>
       _scraplingBridge.lastProbe;
 
-  /// 2026-04-01 工具输出单轮最大字符数限制。
+  /// 工具输出单轮最大字符数限制。
   /// 超过此限制时截断并附刚抽提提示，防止 Context 溢出和 API token 超限。
-  /// 2026-04-29 — Group B: 由用户设置注入，可运行时调整。
+  /// Group B: 由用户设置注入，可运行时调整。
   int maxToolOutputChars = 150000;
 
   /// Template ID for which `skill_manager` is exposed as a builtin. All other
@@ -687,7 +687,7 @@ class AiToolRuntimeService {
       definitions.add(tool.definition);
     }
 
-    // 2026-04-08 能力调用优先级：Skill > MCP > Builtin
+    // 能力调用优先级：Skill > MCP > Builtin
     // 按优先级从高到低注册，同名时高优先级工具胜出。
     // 工具目录（definitions 列表）的呈现顺序也遵循此优先级，
     // 让模型在工具列表中首先看到 Skill、其次 MCP、最后 Builtin。
@@ -772,7 +772,7 @@ class AiToolRuntimeService {
       definitions.add(tool.definition);
     }
 
-    // 2026-04-08 能力调用优先级：Skill > MCP > Builtin（与 resolveCatalog 保持一致）
+    // 能力调用优先级：Skill > MCP > Builtin（与 resolveCatalog 保持一致）
 
     // ── 第一优先级：Skill 工具 ─────────────────────────────────────
     for (final skill in _sortedSkills(runtimeContext.availableSkills)) {
@@ -858,7 +858,7 @@ class AiToolRuntimeService {
   }) async {
     final resolvedTool = catalog.find(toolCall.name);
     if (resolvedTool == null) {
-      // 2026-04-28: 工具未命中时，给模型一份可操作的引导，而不是只丢一句
+      // 工具未命中时，给模型一份可操作的引导，而不是只丢一句
       // “Unsupported tool name”。常见两种诱因：
       //   1) 模型在 plan 待批准轮次幻觉调用 Write/TodoWrite —— 此时 catalog
       //      被刻意清空，应提示先调用 ExitPlanMode 或等待用户批准；
@@ -931,7 +931,7 @@ class AiToolRuntimeService {
     }
 
     final rawExecutionStartedAt = Stopwatch()..start();
-    // 2026-05-09: 登记到全局执行中心，以支持 UI 可观测与独立中断。
+    // 登记到全局执行中心，以支持 UI 可观测与独立中断。
     // 取消在 finally 中反注销；Bash 子进程启动后会从
     // ai_bash_tool_service 里重新 attachKiller / attachPid 以支持真正
     // 发信号。不同 source 使用不同 kind；skill / mcp 默认 killer 为 no-op。
@@ -950,7 +950,7 @@ class AiToolRuntimeService {
       );
     }
     late AiToolExecutionResult rawResult;
-    // 2026-04-29 — 用户层 timeout / retry 策略包裹真正的 dispatch。
+    // 用户层 timeout / retry 策略包裹真正的 dispatch。
     // 仅当工具来自 builtin 且携带 [builtinConfig] 时启用：
     //   • timeout: 仅包裹无副作用 builtin；Task/Bash/写工具使用各自可控边界。
     //   • retry: 仅对无副作用工具的瞬时失败启用。Task、写文件、Bash、
@@ -1189,7 +1189,7 @@ class AiToolRuntimeService {
     }
   }
 
-  // 2026-04-01 工具输出 budget 保护。
+  // 工具输出 budget 保护。
   // 对 resultText 进行字符数上限保护，超限时先尝试持久化完整结果，
   // 再向模型返回 head/tail 预算内预览和恢复提示。
   // 这防止了单次工具调用将大量输出（如 WebFetch 、Bash cat 大文件）直接塑进 API 上下文。
@@ -1641,8 +1641,8 @@ class AiToolRuntimeService {
         'routed_to_tool': 'BashBackground',
       };
     }
-    // 2026-04-01 优先通过多态 Registry 路由（轻量工具已迁移）
-    // 2026-04-12 通过 metadata 传递文件追踪和历史服务（遵循 AiToolExecutionContext 冻结约束）
+    // 优先通过多态 Registry 路由（轻量工具已迁移）
+    // 通过 metadata 传递文件追踪和历史服务（遵循 AiToolExecutionContext 冻结约束）
     final registryContext = AiToolExecutionContext(
       sessionId: sessionId,
       catalog: catalog,
@@ -1674,7 +1674,7 @@ class AiToolRuntimeService {
       if (dispatchMetadata.isEmpty) return registryResult;
       return AiToolUtils.withMergedMetadata(registryResult, dispatchMetadata);
     }
-    // 2026-04-01 所有工具均已通过 Registry 注册，此路径不可达。
+    // 所有工具均已通过 Registry 注册，此路径不可达。
     return _invalidToolResult(
       toolCall.name,
       'No registered handler found for builtin tool: ${kind.name}',
@@ -2026,7 +2026,7 @@ class AiToolRuntimeService {
     return nullIfBlank(value) ?? fallback;
   }
 
-  // 2026-04-01 10:27:21
+  // 10:27:21
   // H1: 移除 camelCase 双写字段（hookEventName / sessionId / toolName / toolInput / toolOutput）
   //     外部 hook 脚本统一使用 snake_case 字段，序列化体积减少约 50%。
   // M2: 新增 tool_source 字段，hook 脚本可按 builtin/mcp/skill 路由处理逻辑。
@@ -4684,7 +4684,7 @@ class AiToolRuntimeService {
     required String description,
     required Map<String, Object?> parameters,
   }) {
-    // 2026-04-27: 统一为所有内建工具注入可选 purpose 字段。
+    // 统一为所有内建工具注入可选 purpose 字段。
     // AI 在发起任何工具调用时都可以填写一句话目的/目标/动作概述，
     // 我们会把它作为 conversation history 压缩后的补充信息保留下来，
     // 既能让模型有意识地表达意图，也能在长上下文里维持可追溯性。

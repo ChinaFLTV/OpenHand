@@ -453,7 +453,7 @@ List<_HeOutputSegment> _heParseOutputSegments(List<String> rawLines) {
       continue;
     }
 
-    // 2026-04-13: Detect tool call markers: ⚙ 工具调用：{ToolName}
+    // Detect tool call markers: ⚙ 工具调用：{ToolName}
     // These are emitted by HarnessApiPhaseRunner.
     if (trimmed.startsWith('⚙ 工具调用：') || trimmed.startsWith('⚙ Tool call: ')) {
       flushCurrent();
@@ -1032,8 +1032,7 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
       AutoFollowProgrammaticScrollWindow();
   bool _userFeedScrollInProgress = false;
   DateTime? _lastFeedPointerSignalScrollAt;
-  // 2026-05-17：与 home transcript 同样的 trackpad / 滚轮 tick 抖动
-  // 问题——慢速滚动期间每个 pointer-signal tick 都包成 start→update→end，
+  // 慢速滚动期间每个 pointer-signal tick 都包成 start→update→end，
   // 中途 _userFeedScrollInProgress=false 会让 layout-change / 流式 feed
   // 触发的 jumpTo 抢到一帧，造成视口抽搐。给 scroll-end 加 220 ms 宽限，
   // 期间任何新的滚动活动都续期。
@@ -1613,7 +1612,7 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
     FocusNode node,
     KeyEvent event,
   ) {
-    // 2026-04-28: Composer shortcut consumption (no action).
+    // Composer shortcut consumption (no action).
     // _handleGlobalShortcutKeyEvent (HardwareKeyboard) in the home page
     // is the sole executor of send-message / toggle-composer.  Previously
     // this FocusNode handler ALSO performed the action, so the composer
@@ -1895,8 +1894,8 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
     if (!_autoFollowEnabled) {
       return;
     }
-    // 2026-05-17：与 home transcript 对齐——用户拖动 / trackpad tick 进行中
-    // 不允许在 pixel 监听里偷偷 re-arm 自动跟随，否则一旦贴近底部就会
+    // 用户拖动 / trackpad tick 进行中时不允许 pixel 监听重新启用自动跟随，
+    // 否则一旦贴近底部就会
     // 在下一帧把视口拉走。
     if (_userFeedScrollInProgress) {
       return;
@@ -2302,13 +2301,9 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
           child: ListView.builder(
             controller: _feedController,
             padding: const EdgeInsets.fromLTRB(0, 0, 0, 24),
-            // Phase cards are tall + carry tool-trace / markdown subtrees.
-            // 2026-05-01: lowered 1000 → 400 to stop pre-building two extra
-            // off-screen phase cards (each runs synchronous markdown / code
-            // highlight passes) when the dashboard first opens; the smaller
-            // cache still absorbs short scroll movements without re-layout.
-            // 2026-05-17 进一步提升到 1800：与 home transcript 同步收敛
-            // cacheExtent 边界抽搐问题；详见 _home_transcript.dart 同步备注。
+            // Phase cards carry expensive tool-trace and Markdown subtrees.
+            // This cache absorbs desktop scroll bursts without prebuilding an
+            // excessive number of off-screen cards.
             cacheExtent: 1800,
             // +1 if awaiting approval (for the approval banner).
             itemCount:
@@ -2559,7 +2554,3 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
     }
   }
 }
-
-// Session header — matches _SessionToolbar visual language exactly:
-//   Container(surfaceContainerHigh, br:16, pad h:14 v:6)
-//   Row( title + scrollable info pills | token dial )

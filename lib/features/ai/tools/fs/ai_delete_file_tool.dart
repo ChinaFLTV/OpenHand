@@ -11,7 +11,7 @@ import '../ai_tool.dart';
 import '../ai_tool_execution_context.dart';
 import '../ai_tool_utils.dart';
 
-/// 2026-04-10 DeleteFile 工具 — 对标 Cursor 的 delete_file。
+/// DeleteFile 工具 — 对标 Cursor 的 delete_file。
 ///
 /// 删除指定路径的文件。操作在以下情况下会优雅失败：
 /// - 文件不存在
@@ -87,7 +87,7 @@ class AiDeleteFileTool extends AiTool {
     );
     if (readValidation != null) return readValidation;
 
-    // 2026-04-13: 写操作权限确认检查（删除为不可逆破坏性操作）
+    // 写操作权限确认检查（删除为不可逆破坏性操作）
     final confirmationResult = await AiToolUtils.requestWriteConfirmation(
       toolName: 'DeleteFile',
       operationDescription: 'Delete file (irreversible)',
@@ -109,7 +109,7 @@ class AiDeleteFileTool extends AiTool {
         fileHistory: fileHistory,
       );
 
-      // 2026-05-03: 在删除前抓取 before 内容入 ledger
+      // 在删除前抓取 before 内容入 ledger
       final mutationLedger =
           context.metadata['mutation_ledger'] as AiFileMutationLedger?;
       final beforeContentForLedger = await AiToolUtils.readFileContentForLedger(

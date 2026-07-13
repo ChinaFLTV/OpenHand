@@ -70,7 +70,7 @@ Map<String, String> _parseAttributes(String raw) {
 /// Scan [buffer] for DSML invoke blocks, including a possibly-partial
 /// trailing one. Cheap enough to call on every text delta.
 ///
-/// 2026-05-03: now applies the same canonicalization the post-stream
+/// now applies the same canonicalization the post-stream
 /// extractor uses (`canonicalizeDsmlMarkup`) BEFORE scanning, so weak
 /// fine-tunes that emit ASCII-pipe (`<|DSML|invoke …>`), fullwidth-pipe
 /// (`<｜DSML｜invoke …>`), bracket-wrapped (`<<DSML>>`, `<【DSML】>`),

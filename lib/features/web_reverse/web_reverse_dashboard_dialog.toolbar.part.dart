@@ -1716,7 +1716,7 @@ class _ToolbarSearchFieldState extends State<_ToolbarSearchField> {
                 ),
                 decoration: InputDecoration(
                   isDense: true,
-                  // 2026-05-17 — 全局 InputDecorationTheme 默认 filled:true
+                  // 全局 InputDecorationTheme 默认 filled:true
                   // 会让搜索胶囊内部再叠一层 fill，看起来像「胶囊里又套
                   // 一只胶囊」。这里强制 filled:false + border:none，让
                   // 文本输入区与外层 AnimatedContainer 的圆角胶囊融为一
@@ -1799,7 +1799,7 @@ class _ToolbarTogglePill extends StatelessWidget {
             : const Duration(milliseconds: 180),
         curve: Curves.easeOutCubic,
         decoration: BoxDecoration(
-          // 2026-05-17 — 与全局主色保持一致：选中态用 primaryContainer
+          // 与全局主色保持一致：选中态用 primaryContainer
           // (而不是 secondaryContainer)，避免和会话顶部胶囊 / 设置项中
           // "已启用并注入" 的绿调风格出现两套主题。
           color: selected ? cs.primaryContainer : Colors.transparent,
@@ -2252,7 +2252,7 @@ class _HarChangeRow extends StatelessWidget {
             style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
           ),
           children: [
-            // 2026-05-24 — body 文本不同时走行级 unified diff（LCS-based），
+            // body 文本不同时走行级 unified diff（LCS-based），
             // 两份都为空 / 同时只有一边有内容 → 退化到双列截断预览。
             if (c.textChanged &&
                 c.a.bodyText.isNotEmpty &&

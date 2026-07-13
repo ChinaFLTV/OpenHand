@@ -185,7 +185,7 @@ class _ScreenshotMarkupDialogState extends State<_ScreenshotMarkupDialog> {
   }
 
   Widget _buildToolbar(ThemeData theme, ColorScheme cs) {
-    // 2026-05-19 — 深色模式下原本直接贴 surfaceContainer 视觉太平；这里
+    // 深色模式下原本直接贴 surfaceContainer 视觉太平；这里
     // 抬到 surfaceContainerHighest + 一道底分割线，给工具栏一个明确视
     // 觉层级，颜色/工具按钮的对比度同时提升。
     final loc = AppLocalizations.of(context);

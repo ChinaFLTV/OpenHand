@@ -67,7 +67,7 @@ class SystemProxyResolver {
   bool _initialized = false;
   bool get isInitialized => _initialized;
 
-  /// 2026-05-19 — 自动模式下从环境变量 / `scutil --proxy` 推断到的端点
+  /// 自动模式下从环境变量 / `scutil --proxy` 推断到的端点
   /// （格式 `host:port`），供"系统设置 → 代理"卡片在禁用文本框里
   /// 实时回填显示。优先级：HTTPS > HTTP > SOCKS。无任何探测结果返回 null。
   String? get detectedAutomaticEndpoint {

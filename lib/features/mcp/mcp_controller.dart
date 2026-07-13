@@ -377,7 +377,7 @@ class McpController extends ChangeNotifier {
     if (_isDisposed) {
       return;
     }
-    // 2026-05-19 — tree-lock 防护：当 setPageActive(false) 在
+    // tree-lock 防护：当 setPageActive(false) 在
     // _McpViewState.dispose 期间被调用，会经由 _cancelQueuedAutoProbeSlots
     // → _notifyAutoProbeMetricsChanged → notifyListeners 触发
     // _InheritedProviderScope.markNeedsBuild，而此时 BuildOwner 处于
