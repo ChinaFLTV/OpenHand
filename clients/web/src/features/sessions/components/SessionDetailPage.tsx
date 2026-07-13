@@ -210,6 +210,18 @@ function nonEmptyString(value: unknown): string {
   return stringFromUnknown(value);
 }
 
+function positiveIntegerOr(value: unknown, fallback: number): number {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value > 0
+    ? value
+    : fallback;
+}
+
+function decodedBase64Size(encoded: string): number {
+  if (!encoded) return 0;
+  const padding = encoded.endsWith('==') ? 2 : encoded.endsWith('=') ? 1 : 0;
+  return Math.max(0, Math.floor(encoded.length / 4) * 3 - padding);
+}
+
 const LOAD_OLDER_RENDER_SETTLE_MS = 160;
 const AUTO_FOLLOW_NEAR_BOTTOM_PX = 64;
 const AUTO_FOLLOW_SCROLL_TOP_EPSILON_PX = 0.05;
@@ -237,9 +249,9 @@ const TTS_PLAYBACK_POLL_TIMEOUT_MS = 10_000;
 // SSE 连续失败 N 次以上才彻底切到 polling，避免短暂网络抖动造成体验切换。
 const SSE_FAIL_THRESHOLD = 3;
 
-// 单条附件最大字节数；真正的硬上限以 service 端响应为准。
-const ATTACHMENT_MAX_BYTES = 8 * 1024 * 1024;
-const ATTACHMENT_MAX_COUNT = 20;
+const DEFAULT_ATTACHMENT_MAX_BYTES = 10 * 1024 * 1024;
+const DEFAULT_ATTACHMENT_MAX_TOTAL_BYTES = 16 * 1024 * 1024;
+const DEFAULT_ATTACHMENT_MAX_COUNT = 20;
 const ATTACHMENT_RESTORE_TIMEOUT_MS = 30_000;
 const COMPOSER_ITEM_EXIT_MS = 190;
 const QUEUE_SEND_SETTLE_MS = 600;
@@ -5097,6 +5109,18 @@ export function SessionDetailPage() {
   // 模型/模式默认值与 meta 同步：拿到 meta.models 第一项做默认；模式取 meta.conversation_modes
   // 第一项（通常是 normal）作为默认。
   const meta = auth.meta;
+  const attachmentMaxBytes = positiveIntegerOr(
+    meta?.attachments?.max_file_bytes,
+    DEFAULT_ATTACHMENT_MAX_BYTES,
+  );
+  const attachmentMaxTotalBytes = positiveIntegerOr(
+    meta?.attachments?.max_total_bytes,
+    DEFAULT_ATTACHMENT_MAX_TOTAL_BYTES,
+  );
+  const attachmentMaxCount = positiveIntegerOr(
+    meta?.attachments?.max_count,
+    DEFAULT_ATTACHMENT_MAX_COUNT,
+  );
   const allowedModels = useMemo<ApiMetaModel[]>(() => meta?.models ?? [], [meta]);
   const allowedModes = useMemo<string[]>(() => meta?.conversation_modes ?? ['normal'], [meta]);
   // 与 App 端 _ComposerInstructionsStrip 1:1 对齐：meta.instructions 已在
@@ -5199,8 +5223,15 @@ export function SessionDetailPage() {
     if (attachments.length > 0 && (!allowedMessageTypes.includes('attachment') || model?.supports_attachments === false)) {
       return t('composer.error.attachmentNotAllowed', '当前 service 禁用了附件');
     }
-    if (attachments.length > ATTACHMENT_MAX_COUNT) {
-      return t('composer.error.attachmentLimit', '单条消息最多携带 20 个附件');
+    if (attachments.length > attachmentMaxCount) {
+      return `${t('composer.error.attachmentCountLimit', '单条消息附件数量已达上限')} (${attachmentMaxCount})`;
+    }
+    const attachmentBytes = attachments.reduce(
+      (total, attachment) => total + decodedBase64Size(attachment.data_base64),
+      0,
+    );
+    if (attachmentBytes > attachmentMaxTotalBytes) {
+      return `${t('composer.error.attachmentTotalLimit', '单条消息附件总大小已达上限')} (${(attachmentMaxTotalBytes / (1024 * 1024)).toFixed(0)} MiB)`;
     }
     const unsupported = attachments.some((attachment) => !modelSupportsAttachmentKind(
       model,
@@ -6039,8 +6070,13 @@ export function SessionDetailPage() {
     if (assets.length === 0) return;
     const restoredAttachments: SendMessageAttachment[] = [];
     const restoredPreviews: { mime: string; dataUrl: string; size: number }[] = [];
+    let restoredBytes = 0;
     let failed = 0;
     for (const asset of assets) {
+      if (restoredAttachments.length >= attachmentMaxCount) {
+        failed += 1;
+        continue;
+      }
       const timed = createTimedAbortController(ATTACHMENT_RESTORE_TIMEOUT_MS);
       try {
         const res = await fetch(buildSessionAssetUrl(requestSessionId, asset.path), {
@@ -6049,8 +6085,11 @@ export function SessionDetailPage() {
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const blob = await res.blob();
-        if (blob.size > ATTACHMENT_MAX_BYTES) {
-          throw new Error(t('composer.attachment.tooLarge', '附件超过 ') + (ATTACHMENT_MAX_BYTES / (1024 * 1024)).toFixed(0) + ' MiB');
+        if (blob.size > attachmentMaxBytes) {
+          throw new Error(t('composer.attachment.tooLarge', '附件超过 ') + (attachmentMaxBytes / (1024 * 1024)).toFixed(0) + ' MiB');
+        }
+        if (restoredBytes + blob.size > attachmentMaxTotalBytes) {
+          throw new Error(t('composer.error.attachmentTotalLimit', '单条消息附件总大小已达上限'));
         }
         const file = new File([blob], asset.name, {
           type: asset.mime || blob.type || 'application/octet-stream',
@@ -6062,6 +6101,7 @@ export function SessionDetailPage() {
           dataUrl: item.dataUrl,
           size: blob.size,
         });
+        restoredBytes += blob.size;
       } catch {
         failed += 1;
       } finally {
@@ -6140,11 +6180,15 @@ export function SessionDetailPage() {
     const nextAtt: SendMessageAttachment[] = [...composerAttachments];
     const nextPv: { mime: string; dataUrl: string; size: number }[] = [...attachmentPreviews];
     const nextIds = [...composerAttachmentIds];
+    let nextTotalBytes = nextAtt.reduce(
+      (total, attachment) => total + decodedBase64Size(attachment.data_base64),
+      0,
+    );
     let unsupportedCount = 0;
     let limitSkippedCount = 0;
     for (const file of files) {
       if (!ownsSessionAsyncResult(requestSessionId)) return;
-      if (nextAtt.length >= ATTACHMENT_MAX_COUNT) {
+      if (nextAtt.length >= attachmentMaxCount) {
         limitSkippedCount += 1;
         continue;
       }
@@ -6153,9 +6197,13 @@ export function SessionDetailPage() {
         unsupportedCount += 1;
         continue;
       }
-      if (file.size > ATTACHMENT_MAX_BYTES) {
+      if (file.size > attachmentMaxBytes) {
         if (!ownsSessionAsyncResult(requestSessionId)) return;
-        setComposerError(t('composer.attachment.tooLarge', '附件超过 ') + (ATTACHMENT_MAX_BYTES / (1024 * 1024)).toFixed(0) + ' MiB');
+        setComposerError(t('composer.attachment.tooLarge', '附件超过 ') + (attachmentMaxBytes / (1024 * 1024)).toFixed(0) + ' MiB');
+        continue;
+      }
+      if (nextTotalBytes + file.size > attachmentMaxTotalBytes) {
+        setComposerError(t('composer.error.attachmentTotalLimit', '单条消息附件总大小已达上限'));
         continue;
       }
       try {
@@ -6170,8 +6218,12 @@ export function SessionDetailPage() {
           });
           if (!ownsSessionAsyncResult(requestSessionId)) return;
           if (!edited) continue;
-          if (edited.size > ATTACHMENT_MAX_BYTES) {
-            setComposerError(t('composer.attachment.tooLarge', '附件超过 ') + (ATTACHMENT_MAX_BYTES / (1024 * 1024)).toFixed(0) + ' MiB');
+          if (edited.size > attachmentMaxBytes) {
+            setComposerError(t('composer.attachment.tooLarge', '附件超过 ') + (attachmentMaxBytes / (1024 * 1024)).toFixed(0) + ' MiB');
+            continue;
+          }
+          if (nextTotalBytes + edited.size > attachmentMaxTotalBytes) {
+            setComposerError(t('composer.error.attachmentTotalLimit', '单条消息附件总大小已达上限'));
             continue;
           }
           nextAtt.push({ name: edited.name, data_base64: edited.dataBase64 });
@@ -6181,10 +6233,12 @@ export function SessionDetailPage() {
             size: edited.size,
           });
           nextIds.push(nextAttachmentUiId());
+          nextTotalBytes += edited.size;
         } else {
           nextAtt.push(r.att);
           nextPv.push({ mime: r.mime, dataUrl: r.dataUrl, size: file.size });
           nextIds.push(nextAttachmentUiId());
+          nextTotalBytes += file.size;
         }
       } catch (e: unknown) {
         if (!ownsSessionAsyncResult(requestSessionId)) return;
@@ -6196,7 +6250,7 @@ export function SessionDetailPage() {
     setComposerAttachmentIds(nextIds);
     setAttachmentPreviews(nextPv);
     if (limitSkippedCount > 0) {
-      setComposerError(t('composer.error.attachmentLimit', '单条消息最多携带 20 个附件'));
+      setComposerError(`${t('composer.error.attachmentCountLimit', '单条消息附件数量已达上限')} (${attachmentMaxCount})`);
     } else if (unsupportedCount > 0) {
       setComposerError(t('composer.error.attachmentTypeNotSupported', '当前模型不支持所选附件类型'));
     }
@@ -6243,8 +6297,16 @@ export function SessionDetailPage() {
     });
     if (!edited) return;
     if (!ownsSessionAsyncResult(requestSessionId)) return;
-    if (edited.size > ATTACHMENT_MAX_BYTES) {
-      setComposerError(t('composer.attachment.tooLarge', '附件超过 ') + (ATTACHMENT_MAX_BYTES / (1024 * 1024)).toFixed(0) + ' MiB');
+    if (edited.size > attachmentMaxBytes) {
+      setComposerError(t('composer.attachment.tooLarge', '附件超过 ') + (attachmentMaxBytes / (1024 * 1024)).toFixed(0) + ' MiB');
+      return;
+    }
+    const retainedBytes = attachmentPreviews.reduce(
+      (total, item, itemIndex) => total + (itemIndex === idx ? 0 : item.size),
+      0,
+    );
+    if (retainedBytes + edited.size > attachmentMaxTotalBytes) {
+      setComposerError(t('composer.error.attachmentTotalLimit', '单条消息附件总大小已达上限'));
       return;
     }
     setComposerAttachments((prev) => prev.map((item, i) => (i === idx ? { name: edited.name, data_base64: edited.dataBase64 } : item)));

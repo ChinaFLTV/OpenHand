@@ -37,6 +37,12 @@ interface ApiMetaWorkspaceFiles {
   allowed_extensions?: string[];
 }
 
+interface ApiMetaAttachments {
+  max_count?: number;
+  max_file_bytes?: number;
+  max_total_bytes?: number;
+}
+
 interface ApiMetaPreferences {
   reduce_motion?: boolean;
   locale?: string;
@@ -145,6 +151,7 @@ export interface ApiMetaResponse {
   service?: ApiMetaService;
   message_content_settings?: ApiMetaMessageContentSettings;
   workspace_files?: ApiMetaWorkspaceFiles;
+  attachments?: ApiMetaAttachments;
   preferences?: ApiMetaPreferences;
   shortcut_bindings?: Record<string, ApiMetaShortcutBinding>;
   theme?: ApiMetaThemeRaw;

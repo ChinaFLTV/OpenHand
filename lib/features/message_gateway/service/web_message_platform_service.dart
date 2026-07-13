@@ -22,6 +22,7 @@ import '../../../app/support/silent_log.dart';
 import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/net/http_response_utils.dart';
 import '../../../shared/util/async_concurrency.dart';
+import '../../../shared/util/bounded_base64.dart';
 import '../../../shared/util/bounded_directory_io.dart';
 import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/date_time_format.dart';
@@ -295,9 +296,12 @@ class WebMessagePlatformService {
   static const int _maxWorkspaceDirectoryScanEntries = 10000;
   static const int _maxProcessFileHandleScanEntries = 65536;
   static const int _maxRetainedUploadCacheFiles = 4096;
+  static const int _maxUploadCacheScanEntries = 100000;
   static const int _uploadCacheCandidatePruneThreshold =
       _maxRetainedUploadCacheFiles * 2;
   static const int _maxUploadDirectoryCleanupCandidates = 4096;
+  static const Duration _uploadCacheScanIdleTimeout = Duration(seconds: 3);
+  static const Duration _uploadCacheScanTotalTimeout = Duration(seconds: 30);
   static const Duration _requestBodyIdleTimeout = Duration(seconds: 30);
   static const Duration _requestBodyTotalTimeout = Duration(minutes: 2);
   static const int _connectivityProbeMinTimeoutMs = 500;
@@ -2759,6 +2763,11 @@ class WebMessagePlatformService {
         'max_file_bytes': _config.workspaceFileMaxBytes,
         'allowed_extensions': _config.workspaceFileAllowedExtensions,
       },
+      'attachments': <String, Object?>{
+        'max_count': aiMessageAttachmentLimit,
+        'max_file_bytes': kWebGatewayAttachmentMaxFileBytes,
+        'max_total_bytes': kWebGatewayAttachmentMaxTotalBytes,
+      },
       'agents': _webAgentSummaryJson(),
       'preferences': <String, Object?>{
         'reduce_motion': _settingsController.reduceMotion,
@@ -3742,7 +3751,10 @@ class WebMessagePlatformService {
         'error': 'session_message_limit_reached',
       });
     }
-    final body = await _readJsonBody(request, maxBytes: 24 * 1024 * 1024);
+    final body = await _readJsonBody(
+      request,
+      maxBytes: kWebGatewayMessageRequestMaxBytes,
+    );
     final content = _string(body['content'], '').trim();
     final estimatedTokens = (content.length / 4).ceil();
     if (estimatedTokens > _config.singleMessageTokenLimit) {
@@ -7324,24 +7336,94 @@ class WebMessagePlatformService {
     String sessionId,
     Object? raw,
   ) async {
-    if (raw is! List || raw.isEmpty) return const <String>[];
-    final output = <String>[];
-    final dir = Directory(p.join(_uploadCacheDirectoryPath, sessionId));
-    await dir.create(recursive: true);
-    for (final item in raw) {
-      if (item is! Map) continue;
-      final map = stringKeyedMapFromValue(item);
-      final name = _safeFileName(_string(map['name'], 'attachment.bin'));
-      final data = _string(map['data_base64'], '').trim();
-      if (data.isEmpty) continue;
-      final bytes = base64Decode(data);
-      final file = File(
-        p.join(dir.path, '${DateTime.now().microsecondsSinceEpoch}-$name'),
+    if (raw == null) return const <String>[];
+    if (raw is! List) {
+      throw const _WebGatewayRequestException(
+        HttpStatus.badRequest,
+        'invalid_attachments',
       );
-      await file.writeAsBytes(bytes);
-      output.add(file.path);
     }
-    return output;
+    if (raw.isEmpty) return const <String>[];
+    if (raw.length > aiMessageAttachmentLimit) {
+      throw const _WebGatewayRequestException(
+        HttpStatus.badRequest,
+        'too_many_attachments',
+      );
+    }
+    final normalizedSessionId = sessionId.trim();
+    if (normalizedSessionId.isEmpty ||
+        p.basename(normalizedSessionId) != normalizedSessionId ||
+        normalizedSessionId == '.' ||
+        normalizedSessionId == '..') {
+      throw const _WebGatewayRequestException(
+        HttpStatus.badRequest,
+        'invalid_session_id',
+      );
+    }
+    final output = <String>[];
+    final dir = Directory(
+      p.join(_uploadCacheDirectoryPath, normalizedSessionId),
+    );
+    var totalBytes = 0;
+    try {
+      for (var index = 0; index < raw.length; index++) {
+        final item = raw[index];
+        if (item is! Map) {
+          throw const _WebGatewayRequestException(
+            HttpStatus.badRequest,
+            'invalid_attachment_payload',
+          );
+        }
+        final map = stringKeyedMapFromValue(item);
+        final name = _safeFileName(_string(map['name'], 'attachment.bin'));
+        final data = _string(map['data_base64'], '').trim();
+        if (data.isEmpty) {
+          throw const _WebGatewayRequestException(
+            HttpStatus.badRequest,
+            'invalid_attachment_payload',
+          );
+        }
+        late final Uint8List bytes;
+        try {
+          bytes = decodeBase64Bounded(
+            data,
+            maxDecodedBytes: kWebGatewayAttachmentMaxFileBytes,
+          );
+        } on BoundedBase64SizeException {
+          throw const _WebGatewayRequestException(
+            HttpStatus.requestEntityTooLarge,
+            'attachment_too_large',
+          );
+        } on BoundedBase64FormatException {
+          throw const _WebGatewayRequestException(
+            HttpStatus.badRequest,
+            'invalid_attachment_payload',
+          );
+        }
+        totalBytes += bytes.length;
+        if (totalBytes > kWebGatewayAttachmentMaxTotalBytes) {
+          throw const _WebGatewayRequestException(
+            HttpStatus.requestEntityTooLarge,
+            'attachments_too_large',
+          );
+        }
+        if (output.isEmpty) {
+          await dir.create(recursive: true);
+        }
+        final file = File(
+          p.join(
+            dir.path,
+            '${DateTime.now().microsecondsSinceEpoch}-$index-$name',
+          ),
+        );
+        await file.writeAsBytes(bytes, flush: true);
+        output.add(file.path);
+      }
+      return output;
+    } catch (_) {
+      await _deleteMaterializedAttachments(output);
+      rethrow;
+    }
   }
 
   Future<void> _deleteMaterializedAttachments(List<String> paths) async {
@@ -7371,7 +7453,19 @@ class WebMessagePlatformService {
     final root = Directory(_uploadCacheDirectoryPath);
     if (!await root.exists()) return const _CleanupStats();
     if (!expiredOnly) {
-      final stats = await _measureDirectory(root);
+      final usage = await measureDirectoryBounded(
+        root,
+        maxEntries: _maxUploadCacheScanEntries,
+        totalTimeout: _uploadCacheScanTotalTimeout,
+      );
+      final stats = _CleanupStats(
+        deletedFiles: usage.fileCount,
+        deletedDirectories: usage.directoryCount,
+        bytesFreed: usage.totalBytes,
+      );
+      if (usage.truncated) {
+        _logUploadCacheScanLimit('measure before full cleanup');
+      }
       await root.delete(recursive: true);
       return stats.copyWith(deletedDirectories: stats.deletedDirectories + 1);
     }
@@ -7380,11 +7474,10 @@ class WebMessagePlatformService {
     );
     var stats = const _CleanupStats();
     final parentDirectories = <String>{};
-    await for (final entity in root.list(recursive: true, followLinks: false)) {
-      if (entity is! File) continue;
+    final scan = await _visitUploadCacheFiles(root, (entity) async {
       try {
         final stat = await entity.stat();
-        if (stat.modified.isAfter(cutoff)) continue;
+        if (stat.modified.isAfter(cutoff)) return;
         await entity.delete();
         stats += _CleanupStats(deletedFiles: 1, bytesFreed: stat.size);
         _rememberUploadParent(parentDirectories, entity.parent.path);
@@ -7396,6 +7489,12 @@ class WebMessagePlatformService {
           stack,
         );
       }
+    });
+    if (!scan.complete) {
+      _logUploadCacheScanLimit(
+        'remove expired uploads',
+        scannedEntries: scan.scannedEntries,
+      );
     }
     stats += await _deleteEmptyUploadDirectories(root, parentDirectories);
     return stats + await _enforceUploadCacheMaxBytes();
@@ -7445,8 +7544,7 @@ class WebMessagePlatformService {
       candidates = retained;
     }
 
-    await for (final entity in root.list(recursive: true, followLinks: false)) {
-      if (entity is! File) continue;
+    final scan = await _visitUploadCacheFiles(root, (entity) async {
       try {
         final stat = await entity.stat();
         candidates.add((
@@ -7465,9 +7563,67 @@ class WebMessagePlatformService {
           stack,
         );
       }
+    });
+    if (!scan.complete) {
+      _logUploadCacheScanLimit(
+        'enforce upload cache capacity',
+        scannedEntries: scan.scannedEntries,
+      );
     }
     await pruneCandidates(enforceByteLimit: true);
     return stats + await _deleteEmptyUploadDirectories(root, parentDirectories);
+  }
+
+  Future<({bool complete, int scannedEntries})> _visitUploadCacheFiles(
+    Directory root,
+    Future<void> Function(File file) visitor,
+  ) async {
+    var scannedEntries = 0;
+    var complete = true;
+    final stopwatch = Stopwatch()..start();
+    try {
+      await for (final entity
+          in root
+              .list(recursive: true, followLinks: false)
+              .timeout(_uploadCacheScanIdleTimeout)) {
+        if (scannedEntries >= _maxUploadCacheScanEntries ||
+            stopwatch.elapsed >= _uploadCacheScanTotalTimeout) {
+          complete = false;
+          break;
+        }
+        scannedEntries += 1;
+        if (entity is File) {
+          await visitor(entity);
+        }
+      }
+    } on TimeoutException {
+      complete = false;
+    } on FileSystemException catch (error, stack) {
+      complete = false;
+      silentLog(
+        'web_message_platform_service',
+        'scan upload cache ${root.path}',
+        error,
+        stack,
+      );
+    } finally {
+      stopwatch.stop();
+    }
+    return (complete: complete, scannedEntries: scannedEntries);
+  }
+
+  void _logUploadCacheScanLimit(String operation, {int? scannedEntries}) {
+    _log(
+      WebGatewayLogLevel.warn,
+      'CLEANUP',
+      '上传缓存扫描达到安全上限，剩余内容将在后续清理中继续处理',
+      <String, Object?>{
+        'operation': operation,
+        'scanned_entries': scannedEntries,
+        'max_entries': _maxUploadCacheScanEntries,
+        'timeout_seconds': _uploadCacheScanTotalTimeout.inSeconds,
+      },
+    );
   }
 
   void _rememberUploadParent(Set<String> paths, String path) {
@@ -7504,32 +7660,6 @@ class WebMessagePlatformService {
       }
     }
     return _CleanupStats(deletedDirectories: deletedDirectories);
-  }
-
-  Future<_CleanupStats> _measureDirectory(Directory directory) async {
-    var stats = const _CleanupStats();
-    if (!await directory.exists()) return stats;
-    await for (final entity in directory.list(
-      recursive: true,
-      followLinks: false,
-    )) {
-      try {
-        final stat = await entity.stat();
-        if (entity is File) {
-          stats += _CleanupStats(deletedFiles: 1, bytesFreed: stat.size);
-        } else if (entity is Directory) {
-          stats += const _CleanupStats(deletedDirectories: 1);
-        }
-      } catch (error, stack) {
-        silentLog(
-          'web_message_platform_service',
-          'measure ${entity.path}',
-          error,
-          stack,
-        );
-      }
-    }
-    return stats;
   }
 
   /// 读取并解析 JSON 请求体；非法、超时和超限输入由中间件映射为

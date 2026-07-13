@@ -63,6 +63,7 @@ void main() {
       );
 
       expect(result.fileCount, 2);
+      expect(result.directoryCount, 1);
       expect(result.totalBytes, 10);
       expect(result.scannedEntries, 3);
       expect(result.truncated, isFalse);

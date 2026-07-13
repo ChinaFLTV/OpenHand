@@ -18,12 +18,14 @@ class BoundedDirectoryUsage {
   const BoundedDirectoryUsage({
     required this.totalBytes,
     required this.fileCount,
+    required this.directoryCount,
     required this.scannedEntries,
     required this.truncated,
   });
 
   final int totalBytes;
   final int fileCount;
+  final int directoryCount;
   final int scannedEntries;
   final bool truncated;
 }
@@ -92,6 +94,7 @@ Future<BoundedDirectoryUsage> measureDirectoryBounded(
 
   var totalBytes = 0;
   var fileCount = 0;
+  var directoryCount = 0;
   var scannedEntries = 0;
   var truncated = false;
   final stopwatch = Stopwatch()..start();
@@ -105,6 +108,10 @@ Future<BoundedDirectoryUsage> measureDirectoryBounded(
         break;
       }
       scannedEntries += 1;
+      if (entry is Directory) {
+        directoryCount += 1;
+        continue;
+      }
       if (entry is! File) {
         continue;
       }
@@ -140,6 +147,7 @@ Future<BoundedDirectoryUsage> measureDirectoryBounded(
   return BoundedDirectoryUsage(
     totalBytes: totalBytes,
     fileCount: fileCount,
+    directoryCount: directoryCount,
     scannedEntries: scannedEntries,
     truncated: truncated,
   );
