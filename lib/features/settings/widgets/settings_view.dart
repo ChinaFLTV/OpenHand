@@ -2273,7 +2273,7 @@ class _SettingsViewState extends State<SettingsView> {
                 controlMaxWidth: 360,
               ),
               const SizedBox(height: 18),
-              // 节流配置 export / import 入口；带云端同步预留
+              // 节流配置 export / import 入口。
               _ResponsiveSettingRow(
                 title: openHandLocalizedText(
                   context,
@@ -2286,13 +2286,13 @@ class _SettingsViewState extends State<SettingsView> {
                 ),
                 subtitle: openHandLocalizedText(
                   context,
-                  zh: '把全局开关 / 自动模式 / 字符 / 卡片速率 / 模板覆盖打包为 JSON 文件，方便多设备同步。文档保留 cloud_sync 字段，用于后续接入远端同步。',
+                  zh: '将全局开关、自动模式、持续时间及字符/卡片速率导出为 JSON，便于备份和跨设备同步；云端连接凭据不会写入文档。',
                   zhHant:
-                      '把全域開關 / 自動模式 / 字元 / 卡片速率 / 模板覆蓋打包為 JSON 檔案，方便多裝置同步。文件保留 cloud_sync 欄位，用於後續接入遠端同步。',
-                  en: 'Bundle global switch / auto / chars / cards / template overrides as a JSON document for cross-device sync. The cloud_sync field is reserved for future remote sync.',
-                  fr: 'Regroupe interrupteur global, auto, caractères, cartes et remplacements de modèles dans un JSON pour la synchro multi-appareils. Le champ cloud_sync est réservé.',
-                  de: 'Packt globalen Schalter, Auto, Zeichen, Karten und Template-Overrides als JSON für geräteübergreifende Synchronisierung. cloud_sync ist reserviert.',
-                  ja: 'グローバルスイッチ、自動モード、文字/カード速度、テンプレート上書きを JSON にまとめ、複数デバイス同期に使えます。cloud_sync フィールドは将来用に予約されています。',
+                      '將全域開關、自動模式、持續時間及字元/卡片速率匯出為 JSON，方便備份與跨裝置同步；雲端連線憑證不會寫入文件。',
+                  en: 'Export the global switch, auto mode, duration, and character/card rates as JSON for backup or cross-device sync. Cloud credentials are excluded.',
+                  fr: 'Exporte l’interrupteur global, le mode auto, la durée et les débits en JSON pour la sauvegarde ou la synchronisation. Les identifiants cloud sont exclus.',
+                  de: 'Exportiert globalen Schalter, Automatikmodus, Dauer und Raten als JSON für Sicherung oder Gerätesynchronisierung. Cloud-Zugangsdaten werden ausgeschlossen.',
+                  ja: '全体スイッチ、自動モード、継続時間、文字/カード速度を JSON に書き出します。クラウド認証情報は含まれません。',
                 ),
                 control: Wrap(
                   spacing: 8,
@@ -4923,30 +4923,43 @@ class _SettingsViewState extends State<SettingsView> {
     if (!confirmed) return;
     if (!context.mounted) return;
     try {
-      final changed = await controller.importAiStreamThrottleConfig(nextDoc);
+      final outcome = await controller.importAiStreamThrottleConfig(nextDoc);
       if (!context.mounted) return;
       flashOpenHandSnack(
         context,
-        changed
-            ? openHandLocalizedText(
-                context,
-                zh: '节流配置已导入并应用。',
-                zhHant: '節流設定已匯入並套用。',
-                en: 'Throttle config imported.',
-                fr: 'Configuration de limitation importée.',
-                de: 'Drosselungskonfiguration importiert.',
-                ja: 'スロットリング設定をインポートして適用しました。',
-              )
-            : openHandLocalizedText(
-                context,
-                zh: '配置无变化。',
-                zhHant: '設定無變化。',
-                en: 'No changes detected.',
-                fr: 'Aucune modification détectée.',
-                de: 'Keine Änderungen erkannt.',
-                ja: '変更はありません。',
-              ),
-        kind: OpenHandSnackKind.success,
+        switch (outcome) {
+          AiStreamThrottleConfigImportOutcome.applied => openHandLocalizedText(
+            context,
+            zh: '节流配置已导入并应用。',
+            zhHant: '節流設定已匯入並套用。',
+            en: 'Throttle config imported.',
+            fr: 'Configuration de limitation importée.',
+            de: 'Drosselungskonfiguration importiert.',
+            ja: 'スロットリング設定をインポートして適用しました。',
+          ),
+          AiStreamThrottleConfigImportOutcome.unchanged =>
+            openHandLocalizedText(
+              context,
+              zh: '配置无变化。',
+              zhHant: '設定無變化。',
+              en: 'No changes detected.',
+              fr: 'Aucune modification détectée.',
+              de: 'Keine Änderungen erkannt.',
+              ja: '変更はありません。',
+            ),
+          AiStreamThrottleConfigImportOutcome.failed => openHandLocalizedText(
+            context,
+            zh: '导入失败，配置未能保存。',
+            zhHant: '匯入失敗，設定未能儲存。',
+            en: 'Import failed. The settings could not be saved.',
+            fr: 'Échec de l’importation. Les réglages n’ont pas été enregistrés.',
+            de: 'Import fehlgeschlagen. Die Einstellungen konnten nicht gespeichert werden.',
+            ja: 'インポートに失敗しました。設定を保存できませんでした。',
+          ),
+        },
+        kind: outcome == AiStreamThrottleConfigImportOutcome.failed
+            ? OpenHandSnackKind.error
+            : OpenHandSnackKind.success,
       );
     } catch (error, stack) {
       silentLog(
@@ -4974,7 +4987,7 @@ class _SettingsViewState extends State<SettingsView> {
 
   /// 把 current 和 incoming 两份节流配置拍平后逐字段对
   /// 比，返回 (label, current, next) 三元组。仅返回值发生变化的项；
-  /// 顺序固定（开关→自动→字符→卡片→各模板覆盖）方便预览阅读。
+  /// 顺序固定（开关→自动→持续时间→字符→卡片）方便预览阅读。
   List<_ThrottleDiffRow> _diffThrottleConfig(
     Map<String, Object?> current,
     Map<String, Object?> next,
@@ -7079,33 +7092,43 @@ class _ThrottleCloudSyncEditorState extends State<_ThrottleCloudSyncEditor> {
     );
     if (confirmed != true || !mounted) return;
     setState(() => _busy = true);
-    final changed = await c.importAiStreamThrottleConfig(
+    final outcome = await c.importAiStreamThrottleConfig(
       result.config!,
       overrideUpdatedAtMs: result.updatedAtMs > 0 ? result.updatedAtMs : null,
     );
     if (!mounted) return;
     setState(() {
       _busy = false;
-      _statusError = false;
-      _status = changed
-          ? openHandLocalizedText(
-              context,
-              zh: '已应用云端配置。',
-              zhHant: '已套用雲端設定。',
-              en: 'Cloud config applied.',
-              fr: 'Configuration cloud appliquée.',
-              de: 'Cloud-Konfiguration angewendet.',
-              ja: 'クラウド設定を適用しました。',
-            )
-          : openHandLocalizedText(
-              context,
-              zh: '配置无变化。',
-              zhHant: '設定無變化。',
-              en: 'No changes detected.',
-              fr: 'Aucune modification détectée.',
-              de: 'Keine Änderungen erkannt.',
-              ja: '変更はありません。',
-            );
+      _statusError = outcome == AiStreamThrottleConfigImportOutcome.failed;
+      _status = switch (outcome) {
+        AiStreamThrottleConfigImportOutcome.applied => openHandLocalizedText(
+          context,
+          zh: '已应用云端配置。',
+          zhHant: '已套用雲端設定。',
+          en: 'Cloud config applied.',
+          fr: 'Configuration cloud appliquée.',
+          de: 'Cloud-Konfiguration angewendet.',
+          ja: 'クラウド設定を適用しました。',
+        ),
+        AiStreamThrottleConfigImportOutcome.unchanged => openHandLocalizedText(
+          context,
+          zh: '配置无变化。',
+          zhHant: '設定無變化。',
+          en: 'No changes detected.',
+          fr: 'Aucune modification détectée.',
+          de: 'Keine Änderungen erkannt.',
+          ja: '変更はありません。',
+        ),
+        AiStreamThrottleConfigImportOutcome.failed => openHandLocalizedText(
+          context,
+          zh: '应用失败，配置未能保存。',
+          zhHant: '套用失敗，設定未能儲存。',
+          en: 'Apply failed. The settings could not be saved.',
+          fr: 'Échec de l’application. Les réglages n’ont pas été enregistrés.',
+          de: 'Anwenden fehlgeschlagen. Die Einstellungen konnten nicht gespeichert werden.',
+          ja: '適用に失敗しました。設定を保存できませんでした。',
+        ),
+      };
     });
   }
 

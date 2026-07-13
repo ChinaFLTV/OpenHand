@@ -1,4 +1,7 @@
 import 'dart:async';
+import 'dart:convert';
+
+import 'package:flutter/foundation.dart';
 
 import '../../../app/state/settings_controller.dart';
 import '../../../app/support/silent_log.dart';
@@ -7,92 +10,100 @@ import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/timer_safety.dart';
 import 'throttle_cloud_sync_service.dart';
 
-/// 节流配置自动同步服务。
-///
-/// 用户期望：
-///   * 应用启动后静默从云端 pull 一次，让多设备无感同步；
-///   * 设置变更时 debounce 5s 自动 push，避免每次按键都打一次接口；
-///   * 仅在所选 provider 的必要参数齐全时执行。
-///
-/// 强化为「双向冲突解决」：
-///   * 远端 payload 携带 `updated_at_ms`（epoch ms）；
-///   * 本地 [SettingsController.aiStreamThrottleConfigUpdatedAtMs] 由
-///     `_commitThrottleMutation` 自动 bump；
-///   * pull 后若 remote_ms <= local_ms，则跳过 apply 并触发 push 把
-///     本地新版本同步到云端，避免老覆新；
-///   * native 端外部变更通知（`cloudConfigChanged`）会主动触发一次
-///     pull，做到多设备实时联动。
-///
-/// 设计目标：
-///   * 单 service，接管所有"自动"路径，UI 端不感知；
-///   * 失败仅记入 silentLog，不打扰用户；
-///   * dispose 时清理 Timer 与 listener，避免泄漏。
+typedef _ThrottleSyncTarget = ({
+  ThrottleCloudSyncProvider provider,
+  String endpoint,
+  String token,
+  String gistId,
+});
+
+/// Keeps the global stream-throttle configuration synchronized in the
+/// background. Pull and push requests share one coalescing queue so an older
+/// response cannot race a newer operation and overwrite it.
 class ThrottleAutoSyncService {
   ThrottleAutoSyncService({
     required SettingsController settingsController,
     ThrottleCloudSyncService? cloudSyncService,
-  }) : _settingsController = settingsController,
+    Duration bootPullDelay = const Duration(seconds: 1),
+    Duration pushDebounce = const Duration(seconds: 5),
+    Duration cloudChangeDebounce = const Duration(milliseconds: 600),
+    Duration disposeTimeout = kOpenHandDefaultAsyncCleanupTimeout,
+  }) : assert(!bootPullDelay.isNegative),
+       assert(!pushDebounce.isNegative),
+       assert(!cloudChangeDebounce.isNegative),
+       assert(!disposeTimeout.isNegative),
+       _settingsController = settingsController,
        _cloudSyncService = cloudSyncService ?? ThrottleCloudSyncService(),
-       _ownsService = cloudSyncService == null;
+       _ownsService = cloudSyncService == null,
+       _bootPullDelay = bootPullDelay,
+       _pushDebounce = pushDebounce,
+       _cloudChangeDebounce = cloudChangeDebounce,
+       _disposeTimeout = disposeTimeout;
+
+  static const Set<String> _signatureMetadataKeys = <String>{
+    'exported_at',
+    'updated_at_ms',
+    'version',
+  };
 
   final SettingsController _settingsController;
   final ThrottleCloudSyncService _cloudSyncService;
   final bool _ownsService;
+  final Duration _bootPullDelay;
+  final Duration _pushDebounce;
+  final Duration _cloudChangeDebounce;
+  final Duration _disposeTimeout;
+  final Completer<void> _disposeSignal = Completer<void>();
 
-  Timer? _debounceTimer;
+  Timer? _pushDebounceTimer;
   Timer? _pullDebounceTimer;
   Timer? _bootPullTimer;
   StreamSubscription<void>? _cloudChangesSub;
+  Future<void>? _syncLoop;
+  _ThrottleSyncTarget? _lastSyncTarget;
   String? _lastConfigSignature;
+  bool _pullPending = false;
+  bool _pushPending = false;
+  bool _applyingRemote = false;
   bool _started = false;
   bool _disposed = false;
 
-  /// 内部锁：apply 远端配置时设置为 true，避免 listener 把这次 import
-  /// 当作本地变更再 push 回去（虽然 timestamp 比对会兜底，但能省一次
-  /// push 网络 IO）。
-  bool _applyingRemote = false;
-
-  static const Duration _bootPullDelay = Duration(seconds: 1);
-  static const Duration _pushDebounce = Duration(seconds: 5);
-
-  /// 启动 service：注册 settings listener；1s 后静默 pull 一次。
-  /// 多次调用安全（仅首次生效）。
+  /// Registers listeners and schedules one delayed startup pull. Repeated
+  /// calls are safe and have no effect.
   void start() {
     if (_started || _disposed) return;
     _started = true;
     _settingsController.addListener(_onSettingsChanged);
-    // 记录初始签名，避免初始化触发 listener 时被当成 push 信号。
-    _lastConfigSignature = _signatureFor(
+    _lastConfigSignature = signatureForConfig(
       _settingsController.exportAiStreamThrottleConfig(),
     );
-    // 监听 native 推送的远端变更通知；订阅自身节流防止短时间内多次 pull。
-    _cloudChangesSub = _cloudSyncService.cloudChanges.listen((_) {
-      _pullDebounceTimer?.cancel();
-      _pullDebounceTimer = startSafeTimer(
-        const Duration(milliseconds: 600),
-        () {
-          if (_disposed) return;
-          unawaited(_pullSilently());
-        },
-      );
-    });
-    _bootPullTimer = startSafeTimer(_bootPullDelay, () {
-      if (_disposed) return;
-      unawaited(_pullSilently());
-    });
+    _lastSyncTarget = _readSyncTarget();
+    _cloudChangesSub = _cloudSyncService.cloudChanges.listen(
+      (_) => _schedulePullAfter(_cloudChangeDebounce),
+      onError: (Object error, StackTrace stack) =>
+          silentLog('throttle_auto_sync', 'cloud changes stream', error, stack),
+    );
+    _bootPullTimer = startSafeTimer(_bootPullDelay, _requestPull);
   }
 
+  /// Stops every trigger and logically cancels the active operation. The
+  /// worker is awaited with a bounded deadline so shutdown cannot hang on an
+  /// injected client or platform channel that ignores cancellation.
   Future<void> dispose() async {
     if (_disposed) return;
     _disposed = true;
-    _debounceTimer?.cancel();
-    _debounceTimer = null;
+    if (!_disposeSignal.isCompleted) _disposeSignal.complete();
+    _pullPending = false;
+    _pushPending = false;
+    _pushDebounceTimer?.cancel();
+    _pushDebounceTimer = null;
     _pullDebounceTimer?.cancel();
     _pullDebounceTimer = null;
     _bootPullTimer?.cancel();
     _bootPullTimer = null;
     await cancelStreamSubscriptionBounded<void>(
       _cloudChangesSub,
+      timeout: _disposeTimeout,
       onError: (error, stack) => silentLog(
         'throttle_auto_sync',
         'cancel cloud changes subscription',
@@ -107,168 +118,258 @@ class ThrottleAutoSyncService {
     if (_ownsService) {
       await _cloudSyncService.dispose();
     }
+    final syncLoop = _syncLoop;
+    if (syncLoop != null) {
+      await runAsyncCleanupBounded(
+        () => syncLoop,
+        timeout: _disposeTimeout,
+        onError: (error, stack) => silentLog(
+          'throttle_auto_sync',
+          'await sync loop shutdown',
+          error,
+          stack,
+        ),
+      );
+    }
   }
 
   void _onSettingsChanged() {
-    if (_disposed || _applyingRemote) return;
-    final config = _settingsController.exportAiStreamThrottleConfig();
-    final signature = _signatureFor(config);
+    if (_disposed) return;
+
+    final target = _readSyncTarget();
+    if (target != _lastSyncTarget) {
+      _lastSyncTarget = target;
+      // Never send a pending edit to a newly selected target before checking
+      // which side has the newer timestamp.
+      _pushDebounceTimer?.cancel();
+      _pushDebounceTimer = null;
+      _pushPending = false;
+      if (_isTargetReady(target)) {
+        _schedulePullAfter(_cloudChangeDebounce);
+      }
+    }
+
+    final signature = signatureForConfig(
+      _settingsController.exportAiStreamThrottleConfig(),
+    );
     if (signature == _lastConfigSignature) return;
     _lastConfigSignature = signature;
-    // 仅当配置发生有效变化时，重置 debounce timer。
-    _debounceTimer?.cancel();
-    _debounceTimer = startSafeTimer(_pushDebounce, () {
-      if (_disposed) return;
-      unawaited(_pushSilently());
-    });
+    if (_applyingRemote) return;
+    _pushDebounceTimer?.cancel();
+    _pushDebounceTimer = startSafeTimer(_pushDebounce, _requestPush);
+  }
+
+  void _schedulePullAfter(Duration delay) {
+    if (_disposed) return;
+    _pullDebounceTimer?.cancel();
+    _pullDebounceTimer = startSafeTimer(delay, _requestPull);
+  }
+
+  void _requestPull() {
+    if (_disposed) return;
+    _pullPending = true;
+    _ensureSyncLoop();
+  }
+
+  void _requestPush() {
+    if (_disposed) return;
+    _pushPending = true;
+    _ensureSyncLoop();
+  }
+
+  void _ensureSyncLoop() {
+    if (_disposed || _syncLoop != null) return;
+    final loop = Future<void>.microtask(_drainSyncQueue);
+    _syncLoop = loop;
+    unawaited(
+      loop.then<void>(
+        (_) => _finishSyncLoop(loop),
+        onError: (Object error, StackTrace stack) {
+          silentLog('throttle_auto_sync', 'sync loop', error, stack);
+          _finishSyncLoop(loop);
+        },
+      ),
+    );
+  }
+
+  void _finishSyncLoop(Future<void> loop) {
+    if (!identical(_syncLoop, loop)) return;
+    _syncLoop = null;
+    if (!_disposed && (_pullPending || _pushPending)) {
+      _ensureSyncLoop();
+    }
+  }
+
+  Future<void> _drainSyncQueue() async {
+    while (!_disposed) {
+      if (_pullPending) {
+        _pullPending = false;
+        await _pullSilently();
+        continue;
+      }
+      if (_pushPending) {
+        _pushPending = false;
+        await _pushSilently();
+        continue;
+      }
+      return;
+    }
   }
 
   Future<void> _pullSilently() async {
-    final provider = ThrottleCloudSyncProvider.fromStorage(
-      _settingsController.aiStreamThrottleCloudSyncProvider,
-    );
-    final endpoint =
-        nullIfBlank(_settingsController.aiStreamThrottleCloudSyncEndpoint) ??
-        '';
-    final token =
-        nullIfBlank(_settingsController.aiStreamThrottleCloudSyncToken) ?? '';
-    if (!_isProviderReady(provider, endpoint, token)) {
-      return;
-    }
+    final target = _readSyncTarget();
+    if (!_isTargetReady(target)) return;
     try {
-      final result = await _cloudSyncService.pull(
-        provider: provider,
-        endpoint: endpoint,
-        token: token,
-        // gistGitHub provider 复用 endpoint 字段保存 gist id（避免再加
-        // 一个独立字段）；其它 provider 这个值传了也无害。
-        gistId: provider == ThrottleCloudSyncProvider.gistGitHub
-            ? endpoint
-            : '',
+      final result = await awaitWithCancelSignal(
+        _cloudSyncService.pull(
+          provider: target.provider,
+          endpoint: target.endpoint,
+          token: target.token,
+          gistId: target.gistId,
+        ),
+        cancelSignal: _disposeSignal.future,
       );
-      if (!result.ok || result.config == null) return;
-      final remoteSig = _signatureFor(result.config!);
-      final localSig = _signatureFor(
-        _settingsController.exportAiStreamThrottleConfig(),
-      );
-      if (remoteSig == localSig) return;
-      // 冲突解决：远端 timestamp 必须严格大于本地，才允许覆盖；
-      // 远端无 timestamp（旧文档 / 0）时也允许覆盖（首次同步 / 兼容）。
-      final localMs = _settingsController.aiStreamThrottleConfigUpdatedAtMs;
-      final remoteMs = result.updatedAtMs;
-      if (remoteMs > 0 && localMs > 0 && remoteMs <= localMs) {
-        // 本地更新 → 反过来把本地推上去，让远端追上来。
-        unawaited(_pushSilently());
+      if (result == null || _disposed || target != _readSyncTarget()) return;
+      if (!result.ok || result.config == null) {
+        silentLog(
+          'throttle_auto_sync',
+          'pull',
+          result.message,
+          StackTrace.current,
+        );
         return;
       }
+
+      final remoteSignature = signatureForConfig(result.config!);
+      final localSignature = signatureForConfig(
+        _settingsController.exportAiStreamThrottleConfig(),
+      );
+      if (remoteSignature == localSignature) {
+        _lastConfigSignature = localSignature;
+        return;
+      }
+
+      final localUpdatedAtMs =
+          _settingsController.aiStreamThrottleConfigUpdatedAtMs;
+      final remoteUpdatedAtMs = result.updatedAtMs;
+      if (localUpdatedAtMs > 0 &&
+          (remoteUpdatedAtMs <= 0 || remoteUpdatedAtMs <= localUpdatedAtMs)) {
+        _requestPush();
+        return;
+      }
+
       _applyingRemote = true;
+      late final AiStreamThrottleConfigImportOutcome outcome;
       try {
-        await _settingsController.importAiStreamThrottleConfig(
+        outcome = await _settingsController.importAiStreamThrottleConfig(
           result.config!,
-          overrideUpdatedAtMs: remoteMs > 0 ? remoteMs : null,
+          overrideUpdatedAtMs: remoteUpdatedAtMs > 0 ? remoteUpdatedAtMs : null,
         );
       } finally {
         _applyingRemote = false;
       }
-      _lastConfigSignature = remoteSig;
+      if (outcome == AiStreamThrottleConfigImportOutcome.failed) {
+        silentLog(
+          'throttle_auto_sync',
+          'persist pulled config',
+          'settings persistence failed',
+          StackTrace.current,
+        );
+        return;
+      }
+      _lastConfigSignature = signatureForConfig(
+        _settingsController.exportAiStreamThrottleConfig(),
+      );
     } catch (error, stack) {
-      silentLog('throttle_auto_sync', 'pullSilently', error, stack);
+      silentLog('throttle_auto_sync', 'pull', error, stack);
     }
   }
 
   Future<void> _pushSilently() async {
-    final provider = ThrottleCloudSyncProvider.fromStorage(
-      _settingsController.aiStreamThrottleCloudSyncProvider,
-    );
-    final endpoint =
-        nullIfBlank(_settingsController.aiStreamThrottleCloudSyncEndpoint) ??
-        '';
-    final token =
-        nullIfBlank(_settingsController.aiStreamThrottleCloudSyncToken) ?? '';
-    if (!_isProviderReady(provider, endpoint, token)) {
-      return;
-    }
+    final target = _readSyncTarget();
+    if (!_isTargetReady(target)) return;
     try {
       final config = _settingsController.exportAiStreamThrottleConfig();
-      final result = await _cloudSyncService.push(
-        provider: provider,
-        endpoint: endpoint,
-        token: token,
-        config: config,
-        updatedAtMs: _settingsController.aiStreamThrottleConfigUpdatedAtMs,
-        gistId: provider == ThrottleCloudSyncProvider.gistGitHub
-            ? endpoint
-            : '',
+      final result = await awaitWithCancelSignal(
+        _cloudSyncService.push(
+          provider: target.provider,
+          endpoint: target.endpoint,
+          token: target.token,
+          config: config,
+          updatedAtMs: _settingsController.aiStreamThrottleConfigUpdatedAtMs,
+          gistId: target.gistId,
+        ),
+        cancelSignal: _disposeSignal.future,
       );
+      if (result == null || _disposed || target != _readSyncTarget()) return;
       if (!result.ok) {
         silentLog(
           'throttle_auto_sync',
-          'pushSilently',
+          'push',
           result.message,
           StackTrace.current,
         );
       }
     } catch (error, stack) {
-      silentLog('throttle_auto_sync', 'pushSilently', error, stack);
+      silentLog('throttle_auto_sync', 'push', error, stack);
     }
   }
 
-  bool _isProviderReady(
-    ThrottleCloudSyncProvider provider,
-    String endpoint,
-    String token,
-  ) {
-    switch (provider) {
-      case ThrottleCloudSyncProvider.custom:
-        return nullIfBlank(endpoint) != null;
-      case ThrottleCloudSyncProvider.iCloud:
-        return true;
-      case ThrottleCloudSyncProvider.gistGitHub:
-        // endpoint 复用为 gist id；token 是 PAT。
-        return nullIfBlank(endpoint) != null && nullIfBlank(token) != null;
-    }
+  _ThrottleSyncTarget _readSyncTarget() {
+    final provider = ThrottleCloudSyncProvider.fromStorage(
+      _settingsController.aiStreamThrottleCloudSyncProvider,
+    );
+    final endpoint =
+        nullIfBlank(_settingsController.aiStreamThrottleCloudSyncEndpoint) ??
+        '';
+    final token =
+        nullIfBlank(_settingsController.aiStreamThrottleCloudSyncToken) ?? '';
+    return (
+      provider: provider,
+      endpoint: endpoint,
+      token: token,
+      gistId: provider == ThrottleCloudSyncProvider.gistGitHub ? endpoint : '',
+    );
   }
 
-  /// 把 config 拍平成稳定签名字符串：内部排序后用 ; 拼接 key=val。
-  /// 仅用于"是否有变化"的等值判断，不需要严格 JSON 序列化。
-  String _signatureFor(Map<String, Object?> config) {
-    final keys = config.keys.toList()..sort();
-    final buffer = StringBuffer();
-    for (final k in keys) {
-      // exported_at / updated_at_ms 都是时间戳类辅助字段，跳过避免
-      // 假阳性变更（updated_at_ms 在每次 commit 都会 bump，但配置内
-      // 容若没动我们也不该判定为"变更"）。
-      // version 是 schema 标记位，不属于"用户数据"；跨版本时 migrate
-      // 已经把缺失字段补齐，签名只要数据等价就视为相同，避免老远端
-      // 触发不必要的 push/pull 循环。
-      if (k == 'exported_at' || k == 'updated_at_ms' || k == 'version') {
-        continue;
-      }
-      final v = config[k];
-      buffer
-        ..write(k)
-        ..write('=')
-        ..write(_stringify(v))
-        ..write(';');
-    }
-    return buffer.toString();
+  bool _isTargetReady(_ThrottleSyncTarget target) {
+    return switch (target.provider) {
+      ThrottleCloudSyncProvider.custom => target.endpoint.isNotEmpty,
+      ThrottleCloudSyncProvider.iCloud => true,
+      ThrottleCloudSyncProvider.gistGitHub =>
+        target.gistId.isNotEmpty && target.token.isNotEmpty,
+    };
   }
 
-  String _stringify(Object? v) {
-    if (v == null) return 'null';
-    if (v is Map) {
-      final keys = v.keys.toList()..sort((a, b) => '$a'.compareTo('$b'));
-      final inner = StringBuffer('{');
-      for (final k in keys) {
-        inner
-          ..write(k)
-          ..write('=')
-          ..write(_stringify(v[k]))
-          ..write(',');
-      }
-      inner.write('}');
-      return inner.toString();
+  /// Produces escaped canonical JSON so delimiters inside values cannot make
+  /// two different configurations share a signature.
+  @visibleForTesting
+  static String signatureForConfig(Map<String, Object?> config) {
+    final keys =
+        config.keys
+            .where((key) => !_signatureMetadataKeys.contains(key))
+            .toList(growable: false)
+          ..sort();
+    return jsonEncode(<String, Object?>{
+      for (final key in keys) key: _canonicalJsonValue(config[key]),
+    });
+  }
+
+  static Object? _canonicalJsonValue(Object? value) {
+    if (value is Map) {
+      final entries = value.entries.toList(growable: false)
+        ..sort((a, b) => '${a.key}'.compareTo('${b.key}'));
+      return <String, Object?>{
+        for (final entry in entries)
+          '${entry.key}': _canonicalJsonValue(entry.value),
+      };
     }
-    return '$v';
+    if (value is Iterable) {
+      return value.map<Object?>(_canonicalJsonValue).toList(growable: false);
+    }
+    if (value == null || value is num || value is bool || value is String) {
+      return value;
+    }
+    return '$value';
   }
 }

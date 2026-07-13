@@ -223,8 +223,6 @@ Future<void> _bootstrap() async {
   settingsController.addListener(() {
     SystemProxyResolver.instance.applyConfig(settingsController.proxySettings);
   });
-  // 节流配置自动同步：开机静默 pull，配置变更后 debounce push。
-  ThrottleAutoSyncService(settingsController: settingsController).start();
   // 用 top-level 变量把 stdio MCP 镜像源模式同步给 discovery service。
   mcpStdioMirrorModeOverride = settingsController.mcpStdioMirrorMode;
   settingsController.addListener(() {
@@ -451,6 +449,9 @@ Future<void> _bootstrap() async {
   unawaited(WebSearchCacheStore.instance.prewarm());
   unawaited(WebFetchCacheStore.instance.prewarm());
   final templateRuntimeLinkageController = TemplateRuntimeLinkageController();
+  final throttleAutoSyncService = ThrottleAutoSyncService(
+    settingsController: settingsController,
+  )..start();
 
   runApp(
     MultiProvider(
@@ -477,7 +478,7 @@ Future<void> _bootstrap() async {
         ),
         Provider<AppInfo>.value(value: appInfo),
       ],
-      child: const OpenHandApp(),
+      child: OpenHandApp(onShutdown: throttleAutoSyncService.dispose),
     ),
   );
   developer.Timeline.instantSync('openhand.boot.runApp_called');

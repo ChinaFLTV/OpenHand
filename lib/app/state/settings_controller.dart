@@ -38,6 +38,8 @@ import 'settings_store.dart';
 
 enum _MutationDisposition { apply, successNoChange, reject }
 
+enum AiStreamThrottleConfigImportOutcome { applied, unchanged, failed }
+
 /// 当前 AI 流式节流配置文档的 schema 版本号。
 ///
 /// * v1：`throttle_enabled` / `auto_mode` /
@@ -45,16 +47,15 @@ enum _MutationDisposition { apply, successNoChange, reject }
 ///   `template_overrides` / `cloud_sync` 等字段。
 /// * v2：新增 `duration_seconds`（0 = 持续节流）。导入老版本
 ///   时由 [migrateAiStreamThrottleConfig] 自动补默认值，向后兼容。
-/// * v3：移除 `template_overrides` 字段（按线程模板覆盖节流
-///   参数下线）。v1/v2 → v3 的迁移路径会静默丢弃 `template_overrides`，
-///   保留全局节流字段不变。
-const int aiStreamThrottleConfigSchemaVersion = 3;
+/// * v3：移除已下线的 `template_overrides` 字段。
+/// * v4：移除从未生效的 `cloud_sync` 占位字段；云端连接凭据属于设备
+///   设置，不进入可同步的节流文档。
+const int aiStreamThrottleConfigSchemaVersion = 4;
 
 /// 把任意旧版/新版节流配置文档归一化为当前 schema：
 ///
 ///   * 老 doc（v1）缺 `duration_seconds` → 注入默认 0（持续节流）；
-///   * 老 doc（v1/v2）若仍携带 `template_overrides` → 一律 drop（按线程
-///     模板覆盖节流参数自 v3 起下线）；
+///   * 丢弃已下线的 `template_overrides` 和无语义的 `cloud_sync`；
 ///   * `version` 字段统一改写为当前版本号，方便上层 hash / diff 一致；
 ///   * 不破坏未识别字段（forward-compatible，预留给未来 schema 扩展）。
 ///
@@ -70,6 +71,7 @@ Map<String, Object?> migrateAiStreamThrottleConfig(Map<String, Object?> doc) {
   // 来源都收敛到「不再带模板级覆盖」的口径。导入路径不直接操作原始
   // map，所以这里 remove 不会污染调用方的对象。
   migrated.remove('template_overrides');
+  migrated.remove('cloud_sync');
   migrated['version'] = aiStreamThrottleConfigSchemaVersion;
   return migrated;
 }
@@ -1696,7 +1698,7 @@ class SettingsController extends ChangeNotifier {
   /// 节流配置 export：把全局节流参数序列化为一份 JSON
   /// 文档，方便用户在多设备之间手动同步。
   ///
-  /// 文档结构（v3）：
+  /// 文档结构（v4）：
   /// ```json
   /// {
   ///   "version": 3,
@@ -1705,8 +1707,7 @@ class SettingsController extends ChangeNotifier {
   ///   "auto_mode": false,
   ///   "duration_seconds": 0,
   ///   "max_chars_per_second": 5,
-  ///   "max_message_cards_per_second": 1,
-  ///   "cloud_sync": { "enabled": false, "endpoint": "" }
+  ///   "max_message_cards_per_second": 1
   /// }
   /// ```
   ///
@@ -1715,7 +1716,7 @@ class SettingsController extends ChangeNotifier {
   /// 静默丢弃，导出不再写入。
   Map<String, Object?> exportAiStreamThrottleConfig() {
     return <String, Object?>{
-      // v3 移除 template_overrides 字段；v1/v2 → v3 的
+      // v3 移除 template_overrides，v4 移除 cloud_sync；旧文档的
       // 迁移由 migrateAiStreamThrottleConfig 在导入侧统一处理。
       'version': aiStreamThrottleConfigSchemaVersion,
       'exported_at': DateTime.now().toUtc().toIso8601String(),
@@ -1727,20 +1728,18 @@ class SettingsController extends ChangeNotifier {
       'duration_seconds': _aiStreamThrottleDurationSeconds,
       'max_chars_per_second': _aiStreamMaxCharsPerSecond,
       'max_message_cards_per_second': _aiStreamMaxMessageCardsPerSecond,
-      // 云端同步预留：当前版本不读不写远端，但留下字段方便后续扩展。
-      'cloud_sync': const <String, Object?>{'enabled': false, 'endpoint': ''},
     };
   }
 
-  /// 节流配置 import：把外部 JSON 文档解析后写入控制器。
-  /// 缺失字段保持现值；不合法字段静默跳过；返回是否产生了变更。
+  /// 节流配置 import：把外部 JSON 文档作为一次原子 mutation 写入。
+  /// 缺失字段保持现值；不合法字段静默跳过；返回应用、无变化或失败。
   ///
   /// [overrideUpdatedAtMs] 用于自动同步场景：远端文档已经携带自己的
   /// `updated_at_ms`，调用方判定其更新后，把该值传进来直接覆盖本地
   /// 时间戳，避免「import 完又把 timestamp bump 成本地 now」造成的
   /// 反复 push。手动 import / UI 触发时不传，沿用 throttle mutation
   /// 的自动 bump 逻辑。
-  Future<bool> importAiStreamThrottleConfig(
+  Future<AiStreamThrottleConfigImportOutcome> importAiStreamThrottleConfig(
     Map<String, Object?> doc, {
     int? overrideUpdatedAtMs,
   }) async {
@@ -1749,40 +1748,70 @@ class SettingsController extends ChangeNotifier {
     // 静默丢弃。导入路径不直接操作原始 map，避免上层把 migrate 副作
     // 用带回到自己持有的对象。
     final migrated = migrateAiStreamThrottleConfig(doc);
-    var anyChange = false;
-    final enabled = migrated['throttle_enabled'];
-    if (enabled is bool) {
-      anyChange = await updateAiStreamThrottleEnabled(enabled) || anyChange;
-    }
-    final auto = migrated['auto_mode'];
-    if (auto is bool) {
-      anyChange = await updateAiStreamThrottleAutoMode(auto) || anyChange;
-    }
-    final durationSec = migrated['duration_seconds'];
-    if (durationSec is int) {
-      anyChange =
-          await updateAiStreamThrottleDurationSeconds(durationSec) || anyChange;
-    }
-    final maxChars = migrated['max_chars_per_second'];
-    if (maxChars is int) {
-      anyChange = await updateAiStreamMaxCharsPerSecond(maxChars) || anyChange;
-    }
-    final maxCards = migrated['max_message_cards_per_second'];
-    if (maxCards is int) {
-      anyChange =
-          await updateAiStreamMaxMessageCardsPerSecond(maxCards) || anyChange;
-    }
-    if (anyChange && overrideUpdatedAtMs != null && overrideUpdatedAtMs > 0) {
-      // 远端 timestamp 直接落盘：用 _commitMutation 走持久化通道。
-      await _commitMutation(() {
-        if (_aiStreamThrottleConfigUpdatedAtMs == overrideUpdatedAtMs) {
-          return _MutationDisposition.successNoChange;
+    var applied = false;
+    final persisted = await _commitMutation(() {
+      var changed = false;
+      final enabled = migrated['throttle_enabled'];
+      if (enabled is bool && enabled != _aiStreamThrottleEnabled) {
+        _aiStreamThrottleEnabled = enabled;
+        changed = true;
+      }
+      final auto = migrated['auto_mode'];
+      if (auto is bool && auto != _aiStreamThrottleAutoMode) {
+        _aiStreamThrottleAutoMode = auto;
+        changed = true;
+      }
+      final durationSec = migrated['duration_seconds'];
+      if (durationSec is int) {
+        final normalized =
+            AppSettingsSnapshot.normalizeAiStreamThrottleDurationSeconds(
+              durationSec,
+            );
+        if (normalized != _aiStreamThrottleDurationSeconds) {
+          _aiStreamThrottleDurationSeconds = normalized;
+          changed = true;
         }
-        _aiStreamThrottleConfigUpdatedAtMs = overrideUpdatedAtMs;
-        return _MutationDisposition.apply;
-      });
-    }
-    return anyChange;
+      }
+      final maxChars = migrated['max_chars_per_second'];
+      if (maxChars is int) {
+        final normalized =
+            AppSettingsSnapshot.normalizeAiStreamMaxCharsPerSecond(maxChars);
+        if (normalized != _aiStreamMaxCharsPerSecond) {
+          _aiStreamMaxCharsPerSecond = normalized;
+          changed = true;
+        }
+      }
+      final maxCards = migrated['max_message_cards_per_second'];
+      if (maxCards is int) {
+        final normalized =
+            AppSettingsSnapshot.normalizeAiStreamMaxMessageCardsPerSecond(
+              maxCards,
+            );
+        if (normalized != _aiStreamMaxMessageCardsPerSecond) {
+          _aiStreamMaxMessageCardsPerSecond = normalized;
+          changed = true;
+        }
+      }
+
+      final remoteUpdatedAtMs = overrideUpdatedAtMs;
+      if (remoteUpdatedAtMs != null && remoteUpdatedAtMs > 0) {
+        if (remoteUpdatedAtMs != _aiStreamThrottleConfigUpdatedAtMs) {
+          _aiStreamThrottleConfigUpdatedAtMs = remoteUpdatedAtMs;
+          changed = true;
+        }
+      } else if (changed) {
+        _aiStreamThrottleConfigUpdatedAtMs = DateTime.now()
+            .toUtc()
+            .millisecondsSinceEpoch;
+      }
+      if (!changed) return _MutationDisposition.successNoChange;
+      applied = true;
+      return _MutationDisposition.apply;
+    });
+    if (!persisted) return AiStreamThrottleConfigImportOutcome.failed;
+    return applied
+        ? AiStreamThrottleConfigImportOutcome.applied
+        : AiStreamThrottleConfigImportOutcome.unchanged;
   }
 
   Future<bool> updateAiAutoTitleEnabled(bool value) async {

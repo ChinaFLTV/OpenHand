@@ -8,9 +8,18 @@ import 'package:http/http.dart' as http;
 import '../../../app/state/settings_controller.dart'
     show aiStreamThrottleConfigSchemaVersion, migrateAiStreamThrottleConfig;
 import '../../../app/support/silent_log.dart';
+import '../../../shared/net/http_response_utils.dart';
 import '../../../shared/net/http_status_utils.dart';
+import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/text_clip.dart';
+
+final class _ThrottleHttpResponse {
+  const _ThrottleHttpResponse({required this.statusCode, required this.body});
+
+  final int statusCode;
+  final String body;
+}
 
 /// 节流配置云端同步 provider 类型。
 ///
@@ -97,8 +106,11 @@ class ThrottleCloudSyncResult {
 class ThrottleCloudSyncService {
   ThrottleCloudSyncService({
     http.Client? client,
+    http.Client Function()? clientFactory,
     bool registerCloudChangeHandler = true,
-  }) : _client = client,
+  }) : assert(client == null || clientFactory == null),
+       _client = client,
+       _clientFactory = clientFactory ?? http.Client.new,
        _registerCloudChangeHandler = registerCloudChangeHandler {
     if (_registerCloudChangeHandler) {
       _icloudChannel.setMethodCallHandler(_handleNativeCall);
@@ -106,7 +118,10 @@ class ThrottleCloudSyncService {
   }
 
   final http.Client? _client;
+  final http.Client Function() _clientFactory;
   final bool _registerCloudChangeHandler;
+  final Set<http.Client> _activeOwnedClients = <http.Client>{};
+  bool _disposed = false;
 
   final StreamController<void> _cloudChangesController =
       StreamController<void>.broadcast();
@@ -117,6 +132,7 @@ class ThrottleCloudSyncService {
   Stream<void> get cloudChanges => _cloudChangesController.stream;
 
   Future<dynamic> _handleNativeCall(MethodCall call) async {
+    if (_disposed) return null;
     switch (call.method) {
       case 'cloudConfigChanged':
         if (!_cloudChangesController.isClosed) {
@@ -129,11 +145,25 @@ class ThrottleCloudSyncService {
   }
 
   Future<void> dispose() async {
-    if (!_cloudChangesController.isClosed) {
-      await _cloudChangesController.close();
+    if (_disposed) return;
+    _disposed = true;
+    for (final client in _activeOwnedClients.toList(growable: false)) {
+      client.close();
     }
+    _activeOwnedClients.clear();
     if (_registerCloudChangeHandler) {
       _icloudChannel.setMethodCallHandler(null);
+    }
+    if (!_cloudChangesController.isClosed) {
+      await runAsyncCleanupBounded(
+        _cloudChangesController.close,
+        onError: (error, stack) => silentLog(
+          'throttle_cloud_sync',
+          'close cloud changes stream',
+          error,
+          stack,
+        ),
+      );
     }
   }
 
@@ -145,13 +175,17 @@ class ThrottleCloudSyncService {
   /// 所有云端 HTTP 请求的统一超时阈值。15s 兼顾跨国 Gist / S3 链路上
   /// 偶发的 TCP RTT 抖动，又能在用户网络明显异常时尽快回到 UI 兜底
   /// 提示，避免长时间无反馈。
-  static const Duration _httpRequestTimeout = Duration(seconds: 15);
+  static const Duration _remoteRequestTimeout = Duration(seconds: 15);
+  static const Duration _responseIdleTimeout = Duration(seconds: 5);
+  static const int _maxRequestBytes = 1024 * 1024;
+  static const int _maxResponseBytes = 2 * 1024 * 1024;
   static const int _httpErrorPreviewLength = 256;
   static const String _gistFileName = 'openhand_throttle.json';
   static const String _gistApiUrl = 'https://api.github.com/gists';
   static const String _githubApiVersion = '2022-11-28';
   static const String _githubUserAgent = 'OpenHand-throttle-sync/1';
   static const String _customClientHeader = 'throttle-sync/1';
+  static const String _disposedMessage = 'cloud sync service is disposed';
 
   /// 把 [config] 推送到云端。`provider == iCloud` 时走 native 端的
   /// NSUbiquitousKeyValueStore。
@@ -166,6 +200,7 @@ class ThrottleCloudSyncService {
     int updatedAtMs = 0,
     String gistId = '',
   }) async {
+    if (_disposed) return ThrottleCloudSyncResult.failure(_disposedMessage);
     switch (provider) {
       case ThrottleCloudSyncProvider.iCloud:
         return _pushIcloud(config, updatedAtMs);
@@ -185,15 +220,18 @@ class ThrottleCloudSyncService {
     }
     return _runHttpRequest('push', (client) async {
       final body = jsonEncode(_configPayload(config, updatedAtMs));
-      final resp = await client.put(
-        target.uri!,
+      final bodyBytes = utf8.encode(body);
+      final resp = await _sendHttpRequest(
+        client,
+        method: 'PUT',
+        uri: target.uri!,
         headers: <String, String>{
           HttpHeaders.contentTypeHeader: 'application/json; charset=utf-8',
           if (target.bearerToken != null)
             HttpHeaders.authorizationHeader: 'Bearer ${target.bearerToken}',
           'X-OpenHand-Client': _customClientHeader,
         },
-        body: utf8.encode(body),
+        bodyBytes: bodyBytes,
       );
       if (isHttpFailureStatus(resp.statusCode)) {
         return ThrottleCloudSyncResult.failure(
@@ -202,7 +240,7 @@ class ThrottleCloudSyncService {
         );
       }
       return ThrottleCloudSyncResult.success(
-        message: 'Pushed ${utf8.encode(body).length} bytes',
+        message: 'Pushed ${bodyBytes.length} bytes',
       );
     });
   }
@@ -214,6 +252,7 @@ class ThrottleCloudSyncService {
     required String token,
     String gistId = '',
   }) async {
+    if (_disposed) return ThrottleCloudSyncResult.failure(_disposedMessage);
     switch (provider) {
       case ThrottleCloudSyncProvider.iCloud:
         return _pullIcloud();
@@ -227,8 +266,10 @@ class ThrottleCloudSyncService {
       return ThrottleCloudSyncResult.failure(target.error!);
     }
     return _runHttpRequest('pull', (client) async {
-      final resp = await client.get(
-        target.uri!,
+      final resp = await _sendHttpRequest(
+        client,
+        method: 'GET',
+        uri: target.uri!,
         headers: <String, String>{
           HttpHeaders.acceptHeader: 'application/json',
           if (target.bearerToken != null)
@@ -279,20 +320,61 @@ class ThrottleCloudSyncService {
     String logAction,
     Future<ThrottleCloudSyncResult> Function(http.Client client) request,
   ) async {
+    if (_disposed) return ThrottleCloudSyncResult.failure(_disposedMessage);
     final ownsClient = _client == null;
-    final client = _client ?? http.Client();
+    final client = _client ?? _clientFactory();
+    if (ownsClient) {
+      if (_disposed) {
+        client.close();
+        return ThrottleCloudSyncResult.failure(_disposedMessage);
+      }
+      _activeOwnedClients.add(client);
+    }
     try {
-      return await request(client).timeout(_httpRequestTimeout);
+      final result = await request(client).timeout(_remoteRequestTimeout);
+      return _disposed
+          ? ThrottleCloudSyncResult.failure(_disposedMessage)
+          : result;
     } on TimeoutException {
       return ThrottleCloudSyncResult.failure(
-        'timeout after ${_httpRequestTimeout.inSeconds}s',
+        'timeout after ${_remoteRequestTimeout.inSeconds}s',
+      );
+    } on ByteStreamSizeLimitException catch (error) {
+      return ThrottleCloudSyncResult.failure(error.message);
+    } on FormatException catch (error) {
+      return ThrottleCloudSyncResult.failure(
+        'invalid JSON: ${clipTextWithEllipsis(error.message.toString(), _httpErrorPreviewLength)}',
       );
     } catch (error, stack) {
       silentLog('throttle_cloud_sync', logAction, error, stack);
       return ThrottleCloudSyncResult.failure('$error');
     } finally {
-      if (ownsClient) client.close();
+      if (ownsClient && _activeOwnedClients.remove(client)) {
+        client.close();
+      }
     }
+  }
+
+  Future<_ThrottleHttpResponse> _sendHttpRequest(
+    http.Client client, {
+    required String method,
+    required Uri uri,
+    required Map<String, String> headers,
+    List<int>? bodyBytes,
+  }) async {
+    if (bodyBytes != null && bodyBytes.length > _maxRequestBytes) {
+      throw ByteStreamSizeLimitException(_maxRequestBytes);
+    }
+    final request = http.Request(method, uri)..headers.addAll(headers);
+    if (bodyBytes != null) request.bodyBytes = bodyBytes;
+    final response = await client.send(request);
+    final body = await readBoundedByteStreamText(
+      response.stream,
+      maxBytes: _maxResponseBytes,
+      idleTimeout: _responseIdleTimeout,
+      totalTimeout: _remoteRequestTimeout,
+    );
+    return _ThrottleHttpResponse(statusCode: response.statusCode, body: body);
   }
 
   Map<String, Object?> _configPayload(
@@ -320,12 +402,14 @@ class ThrottleCloudSyncService {
   /// 兼容多层级位置：顶层 `updated_at_ms`、内层 `config.updated_at_ms`。
   static int _readUpdatedAtMs(Map outer, Map<String, Object?>? inner) {
     final outerVal = outer['updated_at_ms'];
-    if (outerVal is int && outerVal > 0) return outerVal;
-    if (outerVal is num) return outerVal.toInt();
+    if (outerVal is num && outerVal.isFinite && outerVal > 0) {
+      return outerVal.toInt();
+    }
     if (inner != null) {
       final innerVal = inner['updated_at_ms'];
-      if (innerVal is int && innerVal > 0) return innerVal;
-      if (innerVal is num) return innerVal.toInt();
+      if (innerVal is num && innerVal.isFinite && innerVal > 0) {
+        return innerVal.toInt();
+      }
     }
     return 0;
   }
@@ -351,10 +435,19 @@ class ThrottleCloudSyncService {
         'updated_at': DateTime.now().toUtc().toIso8601String(),
       };
       final json = prettyPrintJson(payload);
-      final result = await _icloudChannel.invokeMapMethod<String, dynamic>(
-        'pushIcloud',
-        <String, dynamic>{'config_json': json},
-      );
+      if (utf8.encode(json).length > _maxRequestBytes) {
+        return ThrottleCloudSyncResult.failure(
+          'iCloud payload exceeds $_maxRequestBytes bytes',
+        );
+      }
+      final result = await _icloudChannel
+          .invokeMapMethod<String, dynamic>('pushIcloud', <String, dynamic>{
+            'config_json': json,
+          })
+          .timeout(_remoteRequestTimeout);
+      if (_disposed) {
+        return ThrottleCloudSyncResult.failure(_disposedMessage);
+      }
       final ok = result?['ok'] == true;
       final synced = result?['synchronized'] == true;
       if (!ok) {
@@ -373,6 +466,10 @@ class ThrottleCloudSyncService {
       return ThrottleCloudSyncResult.failure(
         'iCloud channel not registered (host platform missing bridge).',
       );
+    } on TimeoutException {
+      return ThrottleCloudSyncResult.failure(
+        'iCloud timeout after ${_remoteRequestTimeout.inSeconds}s',
+      );
     } catch (error, stack) {
       silentLog('throttle_cloud_sync', 'pushIcloud', error, stack);
       return ThrottleCloudSyncResult.failure('$error');
@@ -386,14 +483,22 @@ class ThrottleCloudSyncService {
       );
     }
     try {
-      final result = await _icloudChannel.invokeMapMethod<String, dynamic>(
-        'pullIcloud',
-      );
+      final result = await _icloudChannel
+          .invokeMapMethod<String, dynamic>('pullIcloud')
+          .timeout(_remoteRequestTimeout);
+      if (_disposed) {
+        return ThrottleCloudSyncResult.failure(_disposedMessage);
+      }
       final ok = result?['ok'] == true;
       final raw = (result?['config_json'] as String?) ?? '';
       if (!ok || raw.isEmpty) {
         return ThrottleCloudSyncResult.failure(
           'iCloud has no throttle config yet for this account.',
+        );
+      }
+      if (utf8.encode(raw).length > _maxResponseBytes) {
+        return ThrottleCloudSyncResult.failure(
+          'iCloud payload exceeds $_maxResponseBytes bytes',
         );
       }
       final decoded = jsonDecode(raw);
@@ -412,6 +517,10 @@ class ThrottleCloudSyncService {
     } on MissingPluginException {
       return ThrottleCloudSyncResult.failure(
         'iCloud channel not registered (host platform missing bridge).',
+      );
+    } on TimeoutException {
+      return ThrottleCloudSyncResult.failure(
+        'iCloud timeout after ${_remoteRequestTimeout.inSeconds}s',
       );
     } catch (error, stack) {
       silentLog('throttle_cloud_sync', 'pullIcloud', error, stack);
@@ -453,18 +562,22 @@ class ThrottleCloudSyncService {
         'User-Agent': _githubUserAgent,
       };
       final id = nullIfBlank(gistId);
-      final http.Response resp;
+      final _ThrottleHttpResponse resp;
       if (id == null) {
-        resp = await client.post(
-          Uri.parse(_gistApiUrl),
+        resp = await _sendHttpRequest(
+          client,
+          method: 'POST',
+          uri: Uri.parse(_gistApiUrl),
           headers: headers,
-          body: utf8.encode(body),
+          bodyBytes: utf8.encode(body),
         );
       } else {
-        resp = await client.patch(
-          Uri.parse('$_gistApiUrl/$id'),
+        resp = await _sendHttpRequest(
+          client,
+          method: 'PATCH',
+          uri: Uri.parse('$_gistApiUrl/$id'),
           headers: headers,
-          body: utf8.encode(body),
+          bodyBytes: utf8.encode(body),
         );
       }
       if (isHttpFailureStatus(resp.statusCode)) {
@@ -502,8 +615,10 @@ class ThrottleCloudSyncService {
       return ThrottleCloudSyncResult.failure('GitHub PAT is required');
     }
     return _runHttpRequest('pullGist', (client) async {
-      final resp = await client.get(
-        Uri.parse('$_gistApiUrl/$id'),
+      final resp = await _sendHttpRequest(
+        client,
+        method: 'GET',
+        uri: Uri.parse('$_gistApiUrl/$id'),
         headers: <String, String>{
           HttpHeaders.acceptHeader: 'application/vnd.github+json',
           HttpHeaders.authorizationHeader: 'Bearer $pat',

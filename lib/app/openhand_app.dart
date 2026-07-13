@@ -25,9 +25,14 @@ import 'theme/openhand_theme.dart';
 import 'theme/openhand_theme_preset.dart';
 
 class OpenHandApp extends StatefulWidget {
-  const OpenHandApp({super.key, this.home = const OpenHandHomePage()});
+  const OpenHandApp({
+    super.key,
+    this.home = const OpenHandHomePage(),
+    this.onShutdown,
+  });
 
   final Widget home;
+  final Future<void> Function()? onShutdown;
 
   @override
   State<OpenHandApp> createState() => _OpenHandAppState();
@@ -35,6 +40,7 @@ class OpenHandApp extends StatefulWidget {
 
 class _OpenHandAppState extends State<OpenHandApp> {
   late final AppLifecycleListener _lifecycleListener;
+  Future<void>? _shutdownFuture;
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
   final FocusNode _inputRepairSentinelFocusNode = FocusNode(
     debugLabel: 'input-repair-sentinel',
@@ -50,6 +56,7 @@ class _OpenHandAppState extends State<OpenHandApp> {
     // 前会被 await，所以我们等 `killAllTrackedChildren` 完成再放行。
     _lifecycleListener = AppLifecycleListener(
       onExitRequested: () async {
+        await _shutdownRuntime();
         try {
           await killAllTrackedChildren();
         } catch (error, stack) {
@@ -67,9 +74,22 @@ class _OpenHandAppState extends State<OpenHandApp> {
 
   @override
   void dispose() {
+    unawaited(_shutdownRuntime());
     _lifecycleListener.dispose();
     _inputRepairSentinelFocusNode.dispose();
     super.dispose();
+  }
+
+  Future<void> _shutdownRuntime() {
+    return _shutdownFuture ??= _performShutdown();
+  }
+
+  Future<void> _performShutdown() async {
+    try {
+      await widget.onShutdown?.call();
+    } catch (error, stack) {
+      silentLog('openhand_app', 'shutdown runtime', error, stack);
+    }
   }
 
   @override
