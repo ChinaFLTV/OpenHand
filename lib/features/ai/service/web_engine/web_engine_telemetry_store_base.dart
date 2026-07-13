@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
@@ -7,6 +6,7 @@ import 'package:path/path.dart' as p;
 import '../../../../app/support/openhand_paths.dart';
 import '../../../../app/support/silent_log.dart';
 import '../../../../shared/util/input_value_parsing.dart';
+import 'web_engine_persistence_io.dart';
 import 'web_engine_value_parsing.dart';
 
 /// WebSearch / WebFetch 调用日志的共用 cooldown 阈值配置。
@@ -129,6 +129,8 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
   WebEngineCooldownConfig cooldownConfig = const WebEngineCooldownConfig();
 
   Future<void> _chain = Future.value();
+  static const int _maxPersistedCalls = 2000;
+  static const int _maxPersistedHistorySamples = 2000;
 
   static final RegExp _quotaErrorPattern = RegExp(
     r'\b(429|too many requests|rate[\s_-]?limit|quota|exceeded|throttl)\b',
@@ -150,8 +152,7 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
     final f = File(p.join(defaultDirectoryPath(), 'calls.json'));
     if (!await f.exists()) return const [];
     try {
-      final raw = await f.readAsString();
-      final decoded = jsonDecode(raw);
+      final decoded = await readWebEngineJsonFile(f);
       if (decoded is! List) return const [];
       return stringKeyedMapListFromValue(decoded);
     } catch (error, stack) {
@@ -173,8 +174,7 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
     final f = File(p.join(defaultDirectoryPath(), 'engines.json'));
     if (!await f.exists()) return const {};
     try {
-      final raw = await f.readAsString();
-      final decoded = jsonDecode(raw);
+      final decoded = await readWebEngineJsonFile(f);
       if (decoded is! Map) return const {};
       final out = <String, Map<String, Object?>>{};
       for (final entry in decoded.entries) {
@@ -194,8 +194,7 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
     final f = File(p.join(defaultDirectoryPath(), 'engine_history.json'));
     if (!await f.exists()) return const {};
     try {
-      final raw = await f.readAsString();
-      final decoded = jsonDecode(raw);
+      final decoded = await readWebEngineJsonFile(f);
       if (decoded is! Map) return const {};
       final out = <String, List<Map<String, Object?>>>{};
       for (final entry in decoded.entries) {
@@ -242,8 +241,7 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
       final f = File(p.join(defaultDirectoryPath(), 'engines.json'));
       if (!await f.exists()) return;
       try {
-        final raw = await f.readAsString();
-        final decoded = jsonDecode(raw);
+        final decoded = await readWebEngineJsonFile(f);
         if (decoded is! Map) return;
         final agg = <String, Map<String, Object?>>{};
         for (final entry in decoded.entries) {
@@ -256,7 +254,7 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
         cur.remove('cooldown_until_ms');
         cur['consecutive_failures'] = 0;
         agg[kind.name] = cur;
-        await f.writeAsString(jsonEncode(agg), flush: true);
+        await writeWebEngineJsonFile(f, agg);
       } catch (error, stack) {
         silentLog(logTag, 'clearEngineCooldown', error, stack);
       }
@@ -294,14 +292,19 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
     int maxRecentCalls = 200,
     int maxHistorySamples = 200,
   }) async {
+    final retainedCalls = maxRecentCalls.clamp(0, _maxPersistedCalls);
+    final retainedHistory = maxHistorySamples.clamp(
+      0,
+      _maxPersistedHistorySamples,
+    );
     _chain = _chain
         .then(
           (_) => _writeCallRaw(
             callJson: callJson,
             timestampMs: timestampMs,
             perEngine: perEngine,
-            maxRecentCalls: maxRecentCalls,
-            maxHistorySamples: maxHistorySamples,
+            maxRecentCalls: retainedCalls,
+            maxHistorySamples: retainedHistory,
           ),
         )
         .catchError((Object error, StackTrace stack) {
@@ -325,8 +328,7 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
     final calls = <Map<String, Object?>>[];
     if (await callsFile.exists()) {
       try {
-        final raw = await callsFile.readAsString();
-        final decoded = jsonDecode(raw);
+        final decoded = await readWebEngineJsonFile(callsFile);
         if (decoded is List) {
           for (final item in decoded) {
             if (item is Map) calls.add(stringKeyedMapFromValue(item));
@@ -338,15 +340,14 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
     }
     calls.add(_jsonSafeTelemetryMap(callJson));
     _keepNewestEntries(calls, maxRecentCalls);
-    await callsFile.writeAsString(jsonEncode(calls), flush: true);
+    await writeWebEngineJsonFile(callsFile, calls);
 
     // 2) engines.json
     final enginesFile = File(p.join(dir.path, 'engines.json'));
     final agg = <String, Map<String, Object?>>{};
     if (await enginesFile.exists()) {
       try {
-        final raw = await enginesFile.readAsString();
-        final decoded = jsonDecode(raw);
+        final decoded = await readWebEngineJsonFile(enginesFile);
         if (decoded is Map) {
           for (final entry in decoded.entries) {
             if (entry.value is Map) {
@@ -427,7 +428,7 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
       }
       agg[key] = updated;
     }
-    await enginesFile.writeAsString(jsonEncode(agg), flush: true);
+    await writeWebEngineJsonFile(enginesFile, agg);
 
     // 3) engine_history.json
     if (perEngine.isNotEmpty) {
@@ -435,8 +436,7 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
       final hist = <String, List<Map<String, Object?>>>{};
       if (await histFile.exists()) {
         try {
-          final raw = await histFile.readAsString();
-          final decoded = jsonDecode(raw);
+          final decoded = await readWebEngineJsonFile(histFile);
           if (decoded is Map) {
             for (final entry in decoded.entries) {
               if (entry.value is List) {
@@ -467,7 +467,7 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
         _keepNewestEntries(list, maxHistorySamples);
         hist[key] = list;
       }
-      await histFile.writeAsString(jsonEncode(hist), flush: true);
+      await writeWebEngineJsonFile(histFile, hist);
     }
   }
 }

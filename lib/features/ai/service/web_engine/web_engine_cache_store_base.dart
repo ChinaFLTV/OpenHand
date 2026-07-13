@@ -6,7 +6,9 @@ import 'package:path/path.dart' as p;
 
 import '../../../../app/support/openhand_paths.dart';
 import '../../../../app/support/silent_log.dart';
+import '../../../../shared/db/atomic_file_operations.dart';
 import '../../../../shared/util/input_value_parsing.dart';
+import 'web_engine_persistence_io.dart';
 import 'web_engine_value_parsing.dart';
 
 /// WebSearch / WebFetch 共用的「prewarm/cleanup 报告」数据。
@@ -154,8 +156,7 @@ abstract class WebEngineCacheStoreBase<TSettings> {
           Map<String, Object?> root = <String, Object?>{};
           if (await indexFile.exists()) {
             try {
-              final raw = await indexFile.readAsString();
-              final decoded = jsonDecode(raw);
+              final decoded = await readWebEngineJsonFile(indexFile);
               if (decoded is Map) root = stringKeyedMapFromValue(decoded);
             } catch (_) {
               /* corrupt index: 视作空 */
@@ -178,22 +179,23 @@ abstract class WebEngineCacheStoreBase<TSettings> {
               value['expires_at'],
             );
             final payloadRel = '${value[payloadPathField] ?? ''}'.trim();
+            final expectedPayload = webEngineCachePayloadFileName(entry.key);
+            if (expectedPayload == null || payloadRel != expectedPayload) {
+              keysToRemove.add(entry.key);
+              removedOrphanEntries++;
+              continue;
+            }
             if (expiresAt <= now) {
               keysToRemove.add(entry.key);
-              if (payloadRel.isNotEmpty) {
-                final f = File(p.join(dir.path, payloadRel));
-                if (await f.exists()) {
-                  try {
-                    await f.delete();
-                  } catch (_) {
-                    /* tolerate */
-                  }
+              final f = File(p.join(dir.path, payloadRel));
+              if (await f.exists()) {
+                try {
+                  await f.delete();
+                } catch (_) {
+                  /* tolerate */
                 }
               }
               removedExpired++;
-            } else if (payloadRel.isEmpty) {
-              keysToRemove.add(entry.key);
-              removedOrphanEntries++;
             } else {
               final f = File(p.join(dir.path, payloadRel));
               if (!await f.exists()) {
@@ -227,10 +229,7 @@ abstract class WebEngineCacheStoreBase<TSettings> {
 
           root['entries'] = entries;
           try {
-            await indexFile.writeAsString(
-              jsonEncode(_jsonSafeCacheMap(root)),
-              flush: true,
-            );
+            await writeWebEngineJsonFile(indexFile, _jsonSafeCacheMap(root));
           } catch (error, stack) {
             silentLog(logTag, 'prewarm/writeIndex', error, stack);
           }
@@ -264,14 +263,15 @@ abstract class WebEngineCacheStoreBase<TSettings> {
     required String key,
     required TSettings settings,
   }) async {
-    if (!isCacheEnabled(settings)) return null;
+    if (!isCacheEnabled(settings) || !isValidWebEngineCacheKey(key)) {
+      return null;
+    }
     final dir = Directory(defaultDirectoryPath());
     if (!await dir.exists()) return null;
     final indexFile = File(p.join(dir.path, 'index.json'));
     if (!await indexFile.exists()) return null;
     try {
-      final raw = await indexFile.readAsString();
-      final decoded = jsonDecode(raw);
+      final decoded = await readWebEngineJsonFile(indexFile);
       if (decoded is! Map) return null;
       final entries = stringKeyedMapFromValue(
         stringKeyedMapFromValue(decoded)['entries'],
@@ -282,10 +282,10 @@ abstract class WebEngineCacheStoreBase<TSettings> {
       final now = DateTime.now().millisecondsSinceEpoch;
       if (expiresAt <= now) return null;
       final payloadRel = '${entry[payloadPathField] ?? ''}'.trim();
-      if (payloadRel.isEmpty) return null;
+      if (payloadRel != webEngineCachePayloadFileName(key)) return null;
       final payloadFile = File(p.join(dir.path, payloadRel));
       if (!await payloadFile.exists()) return null;
-      final payload = await payloadFile.readAsString();
+      final payload = await readWebEnginePayloadFile(payloadFile);
       chain = chain.then((_) => _touchAccess(key)).catchError((_) {});
       return WebEngineCacheRawLookup(
         payload: payload,
@@ -315,7 +315,7 @@ abstract class WebEngineCacheStoreBase<TSettings> {
     required String payload,
     required Map<String, Object?> extraEntryFields,
   }) async {
-    if (!isCacheEnabled(settings)) return;
+    if (!isCacheEnabled(settings) || !isValidWebEngineCacheKey(key)) return;
     if (nullIfBlank(payload) == null) return;
     chain = chain
         .then(
@@ -341,17 +341,22 @@ abstract class WebEngineCacheStoreBase<TSettings> {
     final dir = Directory(defaultDirectoryPath());
     if (!await dir.exists()) await dir.create(recursive: true);
 
-    final payloadRel = '$key.txt';
+    final payloadRel = webEngineCachePayloadFileName(key);
+    if (payloadRel == null) return;
     final payloadFile = File(p.join(dir.path, payloadRel));
     final encoded = utf8.encode(payload);
-    await payloadFile.writeAsBytes(encoded, flush: true);
+    final configuredCap = cacheMaxBytes(settings);
+    final payloadLimit = configuredCap > 0
+        ? configuredCap.clamp(1, webEngineMaxPayloadFileBytes)
+        : webEngineMaxPayloadFileBytes;
+    if (encoded.length > payloadLimit) return;
+    await writeFileAtomically(payloadFile, payload);
 
     final indexFile = File(p.join(dir.path, 'index.json'));
     Map<String, Object?> root = <String, Object?>{};
     if (await indexFile.exists()) {
       try {
-        final raw = await indexFile.readAsString();
-        final decoded = jsonDecode(raw);
+        final decoded = await readWebEngineJsonFile(indexFile);
         if (decoded is Map) root = stringKeyedMapFromValue(decoded);
       } catch (_) {
         /* keep empty root */
@@ -375,10 +380,7 @@ abstract class WebEngineCacheStoreBase<TSettings> {
     };
 
     root['entries'] = entries;
-    await indexFile.writeAsString(
-      jsonEncode(_jsonSafeCacheMap(root)),
-      flush: true,
-    );
+    await writeWebEngineJsonFile(indexFile, _jsonSafeCacheMap(root));
 
     final cap = cacheMaxBytes(settings);
     if (cap > 0) {
@@ -391,8 +393,7 @@ abstract class WebEngineCacheStoreBase<TSettings> {
     final indexFile = File(p.join(dir.path, 'index.json'));
     if (!await indexFile.exists()) return;
     try {
-      final raw = await indexFile.readAsString();
-      final decoded = jsonDecode(raw);
+      final decoded = await readWebEngineJsonFile(indexFile);
       if (decoded is! Map) return;
       final root = stringKeyedMapFromValue(decoded);
       final entries = Map<String, Object?>.of(
@@ -404,10 +405,7 @@ abstract class WebEngineCacheStoreBase<TSettings> {
       updated['last_accessed_at'] = DateTime.now().millisecondsSinceEpoch;
       entries[key] = updated;
       root['entries'] = entries;
-      await indexFile.writeAsString(
-        jsonEncode(_jsonSafeCacheMap(root)),
-        flush: true,
-      );
+      await writeWebEngineJsonFile(indexFile, _jsonSafeCacheMap(root));
     } catch (error, stack) {
       silentLog(logTag, 'touchAccess', error, stack);
     }
@@ -423,8 +421,7 @@ abstract class WebEngineCacheStoreBase<TSettings> {
     if (!await indexFile.exists()) return;
     Map<String, Object?> root;
     try {
-      final raw = await indexFile.readAsString();
-      final decoded = jsonDecode(raw);
+      final decoded = await readWebEngineJsonFile(indexFile);
       root = decoded is Map ? stringKeyedMapFromValue(decoded) : {};
     } catch (_) {
       return;
@@ -440,6 +437,7 @@ abstract class WebEngineCacheStoreBase<TSettings> {
         entry[payloadBytesField],
       );
     }
+    estimatedTotal += utf8.encode(jsonEncode(_jsonSafeCacheMap(root))).length;
     if (estimatedTotal <= maxBytes) return;
 
     // 估算超阈值，再做真实磁盘读用于淘汰决策（孤儿文件 / index 字节字段缺失
@@ -471,7 +469,7 @@ abstract class WebEngineCacheStoreBase<TSettings> {
         continue;
       }
       final payloadRel = '${value[payloadPathField] ?? ''}'.trim();
-      if (payloadRel.isNotEmpty) {
+      if (payloadRel == webEngineCachePayloadFileName(entry.key)) {
         final f = File(p.join(dir.path, payloadRel));
         if (await f.exists()) {
           try {
@@ -487,10 +485,7 @@ abstract class WebEngineCacheStoreBase<TSettings> {
 
     root['entries'] = entries;
     try {
-      await indexFile.writeAsString(
-        jsonEncode(_jsonSafeCacheMap(root)),
-        flush: true,
-      );
+      await writeWebEngineJsonFile(indexFile, _jsonSafeCacheMap(root));
     } catch (error, stack) {
       silentLog(logTag, 'enforceCap/writeIndex', error, stack);
     }

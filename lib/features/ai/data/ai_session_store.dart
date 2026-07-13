@@ -9,6 +9,8 @@ import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/db/database_service.dart';
+import '../../../shared/util/bounded_file_io.dart';
+import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../knowledge_base/index.dart';
 import '../model/ai_session.dart';
@@ -86,7 +88,20 @@ class AiSessionCompactMemorySidecar {
 class AiSessionStore {
   AiSessionStore({String? sessionsDirectoryPath})
     : _sessionsDirectoryPath =
-          sessionsDirectoryPath ?? OpenHandPaths.defaultSessionsDirectoryPath();
+          sessionsDirectoryPath ??
+          OpenHandPaths.defaultSessionsDirectoryPath() {
+    if (sessionsDirectoryPath != null &&
+        nullIfBlank(sessionsDirectoryPath) == null) {
+      throw ArgumentError.value(
+        sessionsDirectoryPath,
+        'sessionsDirectoryPath',
+        'Must not be blank.',
+      );
+    }
+  }
+
+  static const int _compactMemoryMarkdownMaxBytes = 16 * kBytesPerMiB;
+  static const int _compactMemoryMetadataMaxBytes = 2 * kBytesPerMiB;
 
   final String _sessionsDirectoryPath;
 
@@ -159,27 +174,39 @@ class AiSessionStore {
       'checkpoint_metadata': checkpoint.metadata,
       'updated_at': DateTime.now().toUtc().toIso8601String(),
     };
-    final markdown = StringBuffer()
-      ..writeln('# OpenHand Session Compact Memory')
-      ..writeln()
-      ..writeln('- schema: openhand.compact_memory.v1')
-      ..writeln('- session_id: ${session.id}')
-      ..writeln('- session_title: ${session.title}')
-      ..writeln('- template_id: ${session.templateId}')
-      ..writeln('- checkpoint_message_id: ${checkpoint.id}')
-      ..writeln(
-        '- checkpoint_created_at: ${checkpoint.createdAt.toUtc().toIso8601String()}',
-      )
-      ..writeln('- checkpoint_character_count: ${checkpoint.characterCount}')
-      ..writeln()
-      ..writeln('## Summary')
-      ..writeln()
-      ..writeln(checkpoint.content.trim());
-    await writeFileAtomically(File(markdownPath), markdown.toString());
-    await writeFileAtomically(
-      File(metadataPath),
-      prettyPrintJson(metadata),
-    );
+    final markdown =
+        (StringBuffer()
+              ..writeln('# OpenHand Session Compact Memory')
+              ..writeln()
+              ..writeln('- schema: openhand.compact_memory.v1')
+              ..writeln('- session_id: ${session.id}')
+              ..writeln('- session_title: ${session.title}')
+              ..writeln('- template_id: ${session.templateId}')
+              ..writeln('- checkpoint_message_id: ${checkpoint.id}')
+              ..writeln(
+                '- checkpoint_created_at: ${checkpoint.createdAt.toUtc().toIso8601String()}',
+              )
+              ..writeln(
+                '- checkpoint_character_count: ${checkpoint.characterCount}',
+              )
+              ..writeln()
+              ..writeln('## Summary')
+              ..writeln()
+              ..writeln(checkpoint.content.trim()))
+            .toString();
+    final metadataJson = prettyPrintJson(metadata);
+    if (utf8.encode(markdown).length > _compactMemoryMarkdownMaxBytes) {
+      throw const FileSystemException(
+        'Compact memory markdown exceeds the 16 MiB limit.',
+      );
+    }
+    if (utf8.encode(metadataJson).length > _compactMemoryMetadataMaxBytes) {
+      throw const FileSystemException(
+        'Compact memory metadata exceeds the 2 MiB limit.',
+      );
+    }
+    await writeFileAtomically(File(markdownPath), markdown);
+    await writeFileAtomically(File(metadataPath), metadataJson);
   }
 
   Future<AiSessionCompactMemorySidecar?> loadCompressionMemorySidecar(
@@ -194,12 +221,29 @@ class AiSessionStore {
     if (!await markdownFile.exists()) {
       return null;
     }
-    final markdown = await markdownFile.readAsString();
+    final markdown = await readBoundedFileString(
+      markdownFile,
+      maxBytes: _compactMemoryMarkdownMaxBytes,
+    );
     Map<String, Object?> metadata = const <String, Object?>{};
     if (await metadataFile.exists()) {
-      final decoded = jsonDecode(await metadataFile.readAsString());
-      if (decoded is Map) {
-        metadata = stringKeyedMapFromValue(decoded);
+      try {
+        final decoded = jsonDecode(
+          await readBoundedFileString(
+            metadataFile,
+            maxBytes: _compactMemoryMetadataMaxBytes,
+          ),
+        );
+        if (decoded is Map) {
+          metadata = stringKeyedMapFromValue(decoded);
+        }
+      } catch (error, stack) {
+        silentLog(
+          'ai_session_store',
+          'load compact memory metadata',
+          error,
+          stack,
+        );
       }
     }
     return AiSessionCompactMemorySidecar(
