@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -758,11 +757,19 @@ class HarnessOrchestrator extends ChangeNotifier {
   void _killActiveProcess() {
     final process = _activeProcess;
     if (process == null) return;
+    _activeProcess = null;
     unawaited(
       terminateTrackedProcessTree(
         process,
         gracefulTimeout: const Duration(seconds: 3),
-      ),
+      ).catchError((Object error, StackTrace stack) {
+        silentLog(
+          'harness_orchestrator',
+          'terminate active CLI process',
+          error,
+          stack,
+        );
+      }),
     );
   }
 
@@ -1191,12 +1198,10 @@ class HarnessOrchestrator extends ChangeNotifier {
   @override
   void dispose() {
     _isDisposed = true;
+    _stopRequested = true;
     _completePendingApproval(approved: false);
     _cancelActiveApiPhase();
-    final process = _activeProcess;
-    if (process != null) {
-      unawaited(terminateTrackedProcessTree(process));
-    }
+    _killActiveProcess();
     super.dispose();
   }
 
@@ -2142,92 +2147,48 @@ class HarnessOrchestrator extends ChangeNotifier {
   }) async {
     final quotedWd = _shellSingleQuote(workingDirectory);
     final fullCmd = 'cd $quotedWd && $cmdStr';
-
-    final spawnFuture = startTrackedProcessInNewGroup(
-      resolveHarnessCliShellExecutable(),
-      buildHarnessCliShellArgs(fullCmd),
-      environment: SystemProxyResolver.instance.resolveSubprocessEnvironment(),
-    );
-    late final Process process;
+    Process? startedProcess;
     try {
-      process = await spawnFuture.timeout(_kHarnessProcessStartTimeout);
-    } on TimeoutException {
-      unawaited(
-        spawnFuture.then<void>(
-          terminateTrackedProcessTree,
-          onError: (Object error, StackTrace stack) {
-            silentLog(
-              'harness_orchestrator',
-              'late CLI process start',
-              error,
-              stack,
+      final result = await runTrackedProcessWithLineLogging(
+        resolveHarnessCliShellExecutable(),
+        buildHarnessCliShellArgs(fullCmd),
+        timeout: timeout,
+        processStartTimeout: _kHarnessProcessStartTimeout,
+        tag: 'harness_orchestrator',
+        environment: SystemProxyResolver.instance
+            .resolveSubprocessEnvironment(),
+        onStdoutLine: onLine,
+        onStderrLine: onLine,
+        onProcessStarted: (process) {
+          startedProcess = process;
+          if (_isDisposed || _stopRequested) {
+            unawaited(
+              terminateTrackedProcessTree(
+                process,
+                gracefulTimeout: const Duration(seconds: 3),
+              ).catchError((Object error, StackTrace stack) {
+                silentLog(
+                  'harness_orchestrator',
+                  'terminate cancelled late CLI process',
+                  error,
+                  stack,
+                );
+              }),
             );
-          },
-        ),
+            return;
+          }
+          _activeProcess = process;
+        },
       );
-      rethrow;
-    }
-    _activeProcess = process;
-
-    // ── Critical fix: close stdin immediately ──────────────────────────────
-    // When spawned by the app the child's stdin is a live pipe (not a TTY).
-    // Several CLI tools (and the Rust `rmcp` MCP transport library used by
-    // codex) poll stdin for protocol framing or readline input.  Since the
-    // app never writes to the pipe the child blocks indefinitely waiting for
-    // data.  Sending EOF removes that block without affecting execution.
-    unawaited(process.stdin.close());
-
-    final stdoutFuture = process.stdout
-        .transform(const Utf8Decoder(allowMalformed: true))
-        .transform(const LineSplitter())
-        .listen(onLine)
-        .asFuture<void>();
-
-    final stderrFuture = process.stderr
-        .transform(const Utf8Decoder(allowMalformed: true))
-        .transform(const LineSplitter())
-        .listen(onLine)
-        .asFuture<void>();
-
-    try {
-      int exitCode;
-      try {
-        exitCode = await process.exitCode.timeout(timeout);
-      } on TimeoutException {
-        await terminateTrackedProcessTree(
-          process,
-          gracefulTimeout: const Duration(seconds: 5),
-        );
-        exitCode = await process.exitCode
-            .timeout(const Duration(seconds: 2))
-            .catchError((_) => -1);
-        // Drain remaining buffered output before propagating the timeout.
-        // catchError ensures we don't fail if the streams errored (e.g.
-        // after SIGKILL).
-        await Future.wait([
-          stdoutFuture.catchError((_) {}),
-          stderrFuture.catchError((_) {}),
-        ]).timeout(const Duration(seconds: 5), onTimeout: () => []);
-        rethrow; // Propagated as TimeoutException → _runPhase catch block.
-      }
-
-      // Drain remaining buffered output.  Time-box this so that a child
-      // process that inherited our pipe FDs can never prevent us from
-      // returning (e.g. a daemon launched by the CLI that doesn't exit).
-      try {
-        await Future.wait<void>([
-          stdoutFuture,
-          stderrFuture,
-        ]).timeout(const Duration(seconds: 5));
-      } on TimeoutException {
-        await terminateTrackedProcessTree(
-          process,
-          gracefulTimeout: Duration.zero,
+      if (result.timedOut) {
+        throw TimeoutException(
+          'CLI process exceeded its startup or execution deadline.',
+          timeout,
         );
       }
-      return exitCode;
+      return result.exitCode;
     } finally {
-      _activeProcess = null;
+      if (identical(_activeProcess, startedProcess)) _activeProcess = null;
     }
   }
 

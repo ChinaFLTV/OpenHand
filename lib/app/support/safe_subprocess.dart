@@ -1048,11 +1048,14 @@ class _BoundedProcessLineDecoder {
 /// process group, so a timeout terminates the complete command tree instead of
 /// leaving npm/pip/shell descendants behind. [onProcessStarted] runs after both
 /// output subscriptions are installed so interactive callers can retain a safe
-/// cancellation handle without reimplementing stream ownership.
+/// cancellation handle without reimplementing stream ownership. An optional
+/// [processStartTimeout] can cap only the launch phase while [timeout] remains
+/// the total wall-clock deadline.
 Future<TrackedProcessLineLogResult> runTrackedProcessWithLineLogging(
   String executable,
   List<String> arguments, {
   required Duration timeout,
+  Duration? processStartTimeout,
   String tag = 'safe_subprocess',
   String? workingDirectory,
   Map<String, String>? environment,
@@ -1071,6 +1074,14 @@ Future<TrackedProcessLineLogResult> runTrackedProcessWithLineLogging(
   int maxLineCharacters = 4000,
 }) async {
   final effectiveTimeout = timeout.isNegative ? Duration.zero : timeout;
+  final configuredStartTimeout = processStartTimeout;
+  final effectiveStartTimeout = configuredStartTimeout == null
+      ? effectiveTimeout
+      : configuredStartTimeout.isNegative
+      ? Duration.zero
+      : configuredStartTimeout > effectiveTimeout
+      ? effectiveTimeout
+      : configuredStartTimeout;
   final effectiveDrainTimeout = streamDrainTimeout.isNegative
       ? Duration.zero
       : streamDrainTimeout;
@@ -1188,7 +1199,7 @@ Future<TrackedProcessLineLogResult> runTrackedProcessWithLineLogging(
             includeParentEnvironment: includeParentEnvironment,
           );
     try {
-      process = await launchFuture.timeout(effectiveTimeout);
+      process = await launchFuture.timeout(effectiveStartTimeout);
     } on TimeoutException {
       timedOut = true;
       notifyTimeout();
