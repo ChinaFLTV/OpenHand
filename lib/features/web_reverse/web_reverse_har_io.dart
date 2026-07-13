@@ -1,20 +1,13 @@
-import 'dart:io';
-
 import 'package:file_selector/file_selector.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
-import '../../shared/net/http_response_utils.dart';
-import '../../shared/util/bounded_file_io.dart';
+import '../../shared/util/bounded_xfile_io.dart';
 import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/localized_text.dart';
 
 const int kWebReverseHarFileMaxBytes = 32 * kBytesPerMiB;
 const int kWebReverseHarDiffEntryLimit = 1000;
 const int kWebReverseHarDiffBodyPreviewChars = 4096;
-const Duration _harReadIdleTimeout = Duration(seconds: 30);
-const Duration _harReadTotalTimeout = Duration(minutes: 2);
-const Duration _harMetadataTimeout = Duration(seconds: 5);
 
 class WebReverseHarReadResult {
   const WebReverseHarReadResult._({
@@ -35,55 +28,21 @@ class WebReverseHarReadResult {
 }
 
 Future<WebReverseHarReadResult> readWebReverseHarFile(XFile file) async {
-  if (!kIsWeb && file.path.trim().isNotEmpty) {
-    return readWebReverseHarPath(file.path);
-  }
-  final knownLength = await _safeLength(file);
-  if (knownLength != null && knownLength > kWebReverseHarFileMaxBytes) {
-    return WebReverseHarReadResult.tooLarge(knownLength);
-  }
   try {
-    final bytes = await readBoundedByteStream(
-      file.openRead(),
+    final bytes = await readBoundedXFileBytes(
+      file,
       maxBytes: kWebReverseHarFileMaxBytes,
-      idleTimeout: _harReadIdleTimeout,
-      totalTimeout: _harReadTotalTimeout,
     );
     return WebReverseHarReadResult.ok(bytes);
-  } on ByteStreamSizeLimitException {
+  } on BoundedXFileSizeException catch (error) {
     return WebReverseHarReadResult.tooLarge(
-      knownLength != null && knownLength > kWebReverseHarFileMaxBytes
-          ? knownLength
-          : kWebReverseHarFileMaxBytes + 1,
+      error.actualBytes ?? kWebReverseHarFileMaxBytes + 1,
     );
   }
 }
 
 Future<WebReverseHarReadResult> readWebReverseHarPath(String path) async {
-  final file = File(path);
-  final stat = await file.stat().timeout(_harMetadataTimeout);
-  if (!isRegularFileStat(stat)) {
-    throw FileSystemException('HAR path is not a regular file.', file.path);
-  }
-  if (stat.size > kWebReverseHarFileMaxBytes) {
-    return WebReverseHarReadResult.tooLarge(stat.size);
-  }
-  try {
-    final bytes = await readBoundedFileBytes(
-      file,
-      maxBytes: kWebReverseHarFileMaxBytes,
-      idleTimeout: _harReadIdleTimeout,
-      totalTimeout: _harReadTotalTimeout,
-    );
-    return WebReverseHarReadResult.ok(bytes);
-  } on BoundedFileReadException catch (error) {
-    if (error.failure != BoundedFileReadFailure.tooLarge) rethrow;
-    return WebReverseHarReadResult.tooLarge(
-      stat.size > kWebReverseHarFileMaxBytes
-          ? stat.size
-          : kWebReverseHarFileMaxBytes + 1,
-    );
-  }
+  return readWebReverseHarFile(XFile(path));
 }
 
 String webReverseHarTooLargeMessage(
@@ -129,12 +88,4 @@ String webReverseHarDiffCappedMessage(
   return isZh
       ? '已按上限解析 $shown / $total 条 HAR 记录'
       : 'Parsed $shown of $total HAR entries (capped)';
-}
-
-Future<int?> _safeLength(XFile file) async {
-  try {
-    return await file.length().timeout(_harMetadataTimeout);
-  } catch (_) {
-    return null;
-  }
 }

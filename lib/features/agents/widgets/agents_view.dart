@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
+
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -10157,35 +10158,28 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
 
   Future<void> _pickAvatarImage() async {
     try {
-      final file = await openFile(
-        acceptedTypeGroups: const <XTypeGroup>[
-          XTypeGroup(label: 'Images', extensions: _agentImageExtensions),
-        ],
-      );
-      if (file == null || !mounted) return;
-      final bytes = await file.readAsBytes();
-      if (!mounted) return;
-      final edited = await showImageEditorDialog(
+      final picked = await pickAndEditImage(
         context,
-        imageBytes: bytes,
+        acceptedExtensions: _agentImageExtensions,
         imageSizeLimitBytes: 512 * 1024,
       );
-      if (edited == null || !mounted) return;
+      if (picked == null || !mounted) return;
       final path = await _persistAvatarImage(
-        sourceName: file.name,
-        bytes: edited.bytes,
-        format: edited.format,
+        sourceName: picked.sourceFile.name,
+        bytes: picked.editedImage.bytes,
+        format: picked.editedImage.format,
       );
       if (!mounted) return;
       setState(() => _avatar.text = path);
-    } catch (error) {
+    } catch (error, stack) {
+      silentLog('agents_view', 'pick avatar image', error, stack);
       if (!mounted) return;
       _showAgentErrorSnack(
         context,
         openHandLocalizedText(
           context,
-          zh: '无法处理所选头像：$error',
-          en: 'Could not process the selected avatar: $error',
+          zh: '无法处理所选头像，请确认图片有效且未超过大小限制。',
+          en: 'Could not process the selected avatar. Check that the image is valid and within the size limit.',
         ),
       );
     }

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import '../../app/support/silent_log.dart';
 import '../../shared/util/input_value_parsing.dart';
@@ -19,16 +20,38 @@ class WebReverseHarReplayServer {
     required this.port,
     required HttpServer server,
     required this.entryCount,
-  }) : _server = server;
+    required Map<String, _HarHit> replayMap,
+  }) : _server = server,
+       _replayMap = replayMap;
 
   final int port;
   final int entryCount;
   final HttpServer _server;
+  final Map<String, _HarHit> _replayMap;
 
   static const int _maxReplayEntries = 1000;
   static const int _maxReplayHeaders = 128;
   static const int _maxReplayHeaderValueChars = 8192;
-  static const int _maxReplayBodyChars = 5 * 1024 * 1024;
+  static const int _maxReplayBodyBytes = 5 * 1024 * 1024;
+  static const int _maxConcurrentRequests = 64;
+  static const Duration _closeTimeout = Duration(seconds: 2);
+  static const Set<String> _hopByHopHeaders = <String>{
+    'connection',
+    'content-length',
+    'keep-alive',
+    'proxy-authenticate',
+    'proxy-authorization',
+    'te',
+    'trailer',
+    'transfer-encoding',
+    'upgrade',
+  };
+
+  final Set<Future<void>> _pendingRequests = <Future<void>>{};
+  StreamSubscription<HttpRequest>? _requestSubscription;
+  int _activeRequests = 0;
+  bool _closed = false;
+  Future<void>? _closeFuture;
 
   /// 从 HAR 字节启动一个本地 mock。失败返回 null。
   /// [requestedPort] 为 0 时让 OS 随机分配。
@@ -37,6 +60,7 @@ class WebReverseHarReplayServer {
     int requestedPort = 0,
   }) async {
     Map<String, _HarHit> map;
+    late int replayEntryCount;
     try {
       final raw = utf8.decode(harBytes);
       final decoded = jsonDecode(raw);
@@ -45,6 +69,7 @@ class WebReverseHarReplayServer {
       final log = stringKeyedMapFromValue(har['log']);
       final entries = stringKeyedMapListFromValue(log['entries']);
       map = <String, _HarHit>{};
+      final uniqueReplayKeys = <String>{};
       var accepted = 0;
       for (final entry in entries) {
         if (accepted >= _maxReplayEntries) break;
@@ -57,22 +82,28 @@ class WebReverseHarReplayServer {
         if (url.isEmpty) continue;
         final fullKey = _normalizeKey(url);
         final pathKey = _pathKey(url);
-        final headers = <String, String>{};
+        final headers = <_HarHeader>[];
         for (final h in stringKeyedMapListFromValue(
           res['headers'],
         ).take(_maxReplayHeaders)) {
           final name = stringFromValue(h['name']);
           if (name.isEmpty) continue;
-          headers[name] = clipText(
-            stringFromValue(h['value']),
-            _maxReplayHeaderValueChars,
+          headers.add(
+            _HarHeader(
+              name: name,
+              value: clipText(
+                stringFromValue(h['value']),
+                _maxReplayHeaderValueChars,
+              ),
+            ),
           );
         }
         final content = stringKeyedMapFromValue(res['content']);
         final bodyRaw = content['text']?.toString() ?? '';
         final isB64 =
             stringFromValue(content['encoding']).toLowerCase() == 'base64';
-        final body = _clipReplayBody(bodyRaw, isBase64: isB64);
+        final body = _decodeReplayBody(bodyRaw, isBase64: isB64);
+        if (body == null) continue;
         final hit = _HarHit(
           status: clampedIntFromValue(
             res['status'],
@@ -80,21 +111,23 @@ class WebReverseHarReplayServer {
             min: 100,
             max: 599,
           ),
-          headers: headers,
-          body: body,
-          isBase64: isB64,
+          headers: List<_HarHeader>.unmodifiable(headers),
+          bodyBytes: body.bytes,
           mime: stringFromValue(
             content['mimeType'],
             fallback: 'application/octet-stream',
           ),
-          truncated: body.length < bodyRaw.length,
+          truncated: body.truncated,
         );
         // 同时按 full URL 与 path-only 两种 key 存：远端 origin 的 mock 走 full，
         // 本地复现脚本走 127.0.0.1:N/<path> 走 path-only。
         map[fullKey] = hit;
         if (pathKey.isNotEmpty) map[pathKey] = hit;
+        uniqueReplayKeys.add(fullKey);
         accepted++;
       }
+      if (uniqueReplayKeys.isEmpty) return null;
+      replayEntryCount = uniqueReplayKeys.length;
     } catch (error, stack) {
       silentLog('web_reverse_har_replay_server', 'parse', error, stack);
       return null;
@@ -113,77 +146,195 @@ class WebReverseHarReplayServer {
     final instance = WebReverseHarReplayServer._(
       port: boundPort,
       server: server,
-      entryCount: map.length,
+      entryCount: replayEntryCount,
+      replayMap: Map<String, _HarHit>.unmodifiable(map),
     );
-    server.listen((req) async {
-      final key = _normalizeKey(req.requestedUri.toString());
-      final hit = map[key];
-      // 兜底：去掉 host 部分用 path+query 再查一次。
-      final fallbackKey =
-          '${req.requestedUri.path}?${_sortedQuery(req.requestedUri.queryParameters)}';
-      final byPath = hit ?? map[fallbackKey];
-      if (byPath == null) {
-        req.response.statusCode = 404;
-        req.response.headers.contentType = ContentType(
-          'application',
-          'json',
-          charset: 'utf-8',
+    instance._listen();
+    return instance;
+  }
+
+  void _listen() {
+    _requestSubscription = _server.listen(
+      _dispatchRequest,
+      onError: (Object error, StackTrace stack) {
+        silentLog(
+          'web_reverse_har_replay_server',
+          'server request stream',
+          error,
+          stack,
         );
-        req.response.write(jsonEncode({'error': 'no har entry', 'key': key}));
-        await req.response.close();
+      },
+    );
+  }
+
+  void _dispatchRequest(HttpRequest request) {
+    if (_closed) {
+      unawaited(
+        _respondJson(request, HttpStatus.serviceUnavailable, const {
+          'error': 'server_closing',
+        }),
+      );
+      return;
+    }
+    if (_activeRequests >= _maxConcurrentRequests) {
+      unawaited(
+        _respondJson(request, HttpStatus.serviceUnavailable, const {
+          'error': 'too_many_requests',
+        }),
+      );
+      return;
+    }
+
+    _activeRequests++;
+    if (_activeRequests >= _maxConcurrentRequests) {
+      _requestSubscription?.pause();
+    }
+    late final Future<void> operation;
+    operation = _handleRequest(request).whenComplete(() {
+      _activeRequests--;
+      _pendingRequests.remove(operation);
+      if (!_closed && _activeRequests < _maxConcurrentRequests) {
+        _requestSubscription?.resume();
+      }
+    });
+    _pendingRequests.add(operation);
+    unawaited(operation);
+  }
+
+  Future<void> _handleRequest(HttpRequest request) async {
+    try {
+      if (request.method != 'GET') {
+        request.response.headers.set(HttpHeaders.allowHeader, 'GET');
+        await _respondJson(request, HttpStatus.methodNotAllowed, const {
+          'error': 'method_not_allowed',
+        });
         return;
       }
-      req.response.statusCode = byPath.status;
-      byPath.headers.forEach((k, v) {
-        // 跳过 hop-by-hop headers。
-        final lk = k.toLowerCase();
-        if (lk == 'transfer-encoding' ||
-            lk == 'content-length' ||
-            lk == 'connection') {
-          return;
+
+      final key = _normalizeKey(request.requestedUri.toString());
+      final hit = _replayMap[key];
+      final byPath = hit ?? _replayMap[_pathKeyForUri(request.requestedUri)];
+      if (byPath == null) {
+        await _respondJson(request, HttpStatus.notFound, {
+          'error': 'no_har_entry',
+          'key': key,
+        });
+        return;
+      }
+
+      final response = request.response;
+      response.statusCode = byPath.status;
+      var hasContentType = false;
+      final blockedHeaders = <String>{..._hopByHopHeaders};
+      for (final header in byPath.headers) {
+        if (header.name.toLowerCase() != HttpHeaders.connectionHeader) {
+          continue;
         }
+        blockedHeaders.addAll(
+          header.value
+              .split(',')
+              .map((value) => value.trim().toLowerCase())
+              .where((value) => value.isNotEmpty),
+        );
+      }
+      for (final header in byPath.headers) {
+        final normalizedName = header.name.toLowerCase();
+        if (blockedHeaders.contains(normalizedName)) continue;
         try {
-          req.response.headers.set(k, v);
+          response.headers.add(header.name, header.value);
+          if (normalizedName == HttpHeaders.contentTypeHeader) {
+            hasContentType = true;
+          }
         } catch (error, stack) {
           silentLog(
             'web_reverse_har_replay_server',
-            'set response header $k',
+            'set response header ${header.name}',
             error,
             stack,
           );
         }
-      });
+      }
+      if (!hasContentType) {
+        response.headers.set(HttpHeaders.contentTypeHeader, byPath.mime);
+      }
       if (byPath.truncated) {
-        req.response.headers.set('x-openhand-har-body-truncated', '1');
+        response.headers.set('x-openhand-har-body-truncated', '1');
       }
-      try {
-        if (byPath.isBase64) {
-          req.response.add(base64Decode(byPath.body));
-        } else {
-          req.response.write(byPath.body);
-        }
-      } catch (error, stack) {
-        silentLog(
-          'web_reverse_har_replay_server',
-          'write response body',
-          error,
-          stack,
-        );
-      }
-      await req.response.close();
-    });
-    return instance;
+      response.add(byPath.bodyBytes);
+      await response.close();
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_har_replay_server',
+        'handle request',
+        error,
+        stack,
+      );
+      await _closeResponseAfterFailure(request);
+    }
   }
 
-  Future<void> close() async {
-    await _server.close(force: true);
+  Future<void> _respondJson(
+    HttpRequest request,
+    int statusCode,
+    Map<String, Object?> body,
+  ) async {
+    try {
+      final response = request.response;
+      response.statusCode = statusCode;
+      response.headers.contentType = ContentType.json;
+      response.write(jsonEncode(body));
+      await response.close();
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_har_replay_server',
+        'write JSON response',
+        error,
+        stack,
+      );
+      await _closeResponseAfterFailure(request);
+    }
+  }
+
+  Future<void> _closeResponseAfterFailure(HttpRequest request) async {
+    try {
+      await request.response.close().timeout(_closeTimeout);
+    } catch (_) {
+      // The client may already be gone; server shutdown remains authoritative.
+    }
+  }
+
+  Future<void> close() => _closeFuture ??= _close();
+
+  Future<void> _close() async {
+    _closed = true;
+    final subscription = _requestSubscription;
+    _requestSubscription = null;
+    if (subscription != null) {
+      try {
+        await subscription.cancel().timeout(_closeTimeout);
+      } catch (_) {
+        // HttpServer.close below remains the authoritative shutdown path.
+      }
+    }
+    try {
+      await _server.close(force: true).timeout(_closeTimeout);
+    } catch (error, stack) {
+      silentLog('web_reverse_har_replay_server', 'close server', error, stack);
+    }
+    final pending = _pendingRequests.toList(growable: false);
+    if (pending.isEmpty) return;
+    try {
+      await Future.wait(pending).timeout(_closeTimeout);
+    } catch (_) {
+      // Forced server close is the final lifecycle boundary.
+    }
   }
 
   static String _normalizeKey(String url) {
     try {
       final uri = Uri.parse(url);
-      final qs = _sortedQuery(uri.queryParameters);
-      return uri.replace(query: qs).toString();
+      final qs = _sortedQuery(uri.queryParametersAll);
+      return uri.replace(query: qs, fragment: '').toString();
     } catch (_) {
       return url;
     }
@@ -192,47 +343,108 @@ class WebReverseHarReplayServer {
   static String _pathKey(String url) {
     try {
       final uri = Uri.parse(url);
-      final qs = _sortedQuery(uri.queryParameters);
-      return '${uri.path}?$qs';
+      return _pathKeyForUri(uri);
     } catch (_) {
       return '';
     }
   }
 
-  static String _sortedQuery(Map<String, String> params) {
-    final keys = params.keys.toList()..sort();
-    return keys
+  static String _pathKeyForUri(Uri uri) {
+    final query = _sortedQuery(uri.queryParametersAll);
+    return query.isEmpty ? uri.path : '${uri.path}?$query';
+  }
+
+  static String _sortedQuery(Map<String, List<String>> params) {
+    final pairs = <(String, String)>[];
+    for (final entry in params.entries) {
+      final values = entry.value.isEmpty ? const <String>[''] : entry.value;
+      for (final value in values) {
+        pairs.add((entry.key, value));
+      }
+    }
+    pairs.sort((a, b) {
+      final byName = a.$1.compareTo(b.$1);
+      return byName != 0 ? byName : a.$2.compareTo(b.$2);
+    });
+    return pairs
         .map(
-          (k) =>
-              '${Uri.encodeQueryComponent(k)}=${Uri.encodeQueryComponent(params[k] ?? '')}',
+          (pair) =>
+              '${Uri.encodeQueryComponent(pair.$1)}=${Uri.encodeQueryComponent(pair.$2)}',
         )
         .join('&');
   }
 
-  static String _clipReplayBody(String body, {required bool isBase64}) {
-    if (body.length <= _maxReplayBodyChars) return body;
-    var keep = _maxReplayBodyChars;
-    if (isBase64) {
-      keep -= keep % 4;
+  static _DecodedReplayBody? _decodeReplayBody(
+    String body, {
+    required bool isBase64,
+  }) {
+    try {
+      if (isBase64) {
+        const encodedLimit = ((_maxReplayBodyBytes + 2) ~/ 3) * 4;
+        final clippedLength = body.length <= encodedLimit
+            ? body.length
+            : encodedLimit - encodedLimit % 4;
+        final decoded = base64Decode(body.substring(0, clippedLength));
+        final bytes = decoded.length <= _maxReplayBodyBytes
+            ? decoded
+            : _copyPrefix(decoded, _maxReplayBodyBytes);
+        return _DecodedReplayBody(
+          bytes: bytes,
+          truncated:
+              clippedLength < body.length ||
+              decoded.length > _maxReplayBodyBytes,
+        );
+      }
+      final encoded = utf8.encode(body);
+      return _DecodedReplayBody(
+        bytes: encoded.length <= _maxReplayBodyBytes
+            ? Uint8List.fromList(encoded)
+            : _copyPrefix(encoded, _maxReplayBodyBytes),
+        truncated: encoded.length > _maxReplayBodyBytes,
+      );
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_har_replay_server',
+        'decode replay body',
+        error,
+        stack,
+      );
+      return null;
     }
-    if (keep <= 0) return '';
-    return body.substring(0, keep);
   }
+
+  static Uint8List _copyPrefix(List<int> bytes, int length) {
+    final result = Uint8List(length);
+    result.setRange(0, length, bytes);
+    return result;
+  }
+}
+
+class _DecodedReplayBody {
+  const _DecodedReplayBody({required this.bytes, required this.truncated});
+
+  final Uint8List bytes;
+  final bool truncated;
 }
 
 class _HarHit {
   _HarHit({
     required this.status,
     required this.headers,
-    required this.body,
-    required this.isBase64,
+    required this.bodyBytes,
     required this.mime,
     required this.truncated,
   });
   final int status;
-  final Map<String, String> headers;
-  final String body;
-  final bool isBase64;
+  final List<_HarHeader> headers;
+  final Uint8List bodyBytes;
   final String mime;
   final bool truncated;
+}
+
+class _HarHeader {
+  const _HarHeader({required this.name, required this.value});
+
+  final String name;
+  final String value;
 }

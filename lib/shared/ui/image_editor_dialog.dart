@@ -15,6 +15,8 @@ import '../../app/support/safe_subprocess.dart';
 import '../../app/support/silent_log.dart';
 import '../../app/theme/openhand_status_colors.dart';
 import '../../l10n/app_localizations.dart';
+import '../util/bounded_xfile_io.dart';
+import '../util/byte_size_format.dart';
 import '../util/input_value_parsing.dart';
 import 'animated_dialog.dart';
 import 'highlight_pulse.dart';
@@ -32,6 +34,52 @@ class ImageEditorResult {
 
   final Uint8List bytes;
   final String format; // 'png' | 'jpg'
+}
+
+typedef PickedImageEditorResult = ({
+  ImageEditorResult editedImage,
+  XFile sourceFile,
+});
+
+const List<String> kImageEditorSupportedExtensions = <String>[
+  'png',
+  'jpg',
+  'jpeg',
+  'webp',
+  'gif',
+];
+const int kImageEditorSourceMaxBytes = 32 * kBytesPerMiB;
+const int _imageEditorMaxOutputLongSide = 2048;
+const int _imageEditorMaxSourceDimension = 32768;
+const int _imageEditorMaxSourcePixels = 64 * 1024 * 1024;
+
+/// Selects, bounds, and edits an image through the shared animated editor.
+/// Callers only apply the returned domain-specific state update.
+Future<PickedImageEditorResult?> pickAndEditImage(
+  BuildContext context, {
+  List<String> acceptedExtensions = kImageEditorSupportedExtensions,
+  int sourceMaxBytes = kImageEditorSourceMaxBytes,
+  int? imageSizeLimitBytes,
+}) async {
+  final sourceFile = await openFile(
+    acceptedTypeGroups: <XTypeGroup>[
+      XTypeGroup(label: 'Images', extensions: acceptedExtensions),
+    ],
+  );
+  if (sourceFile == null || !context.mounted) return null;
+
+  final sourceBytes = await readBoundedXFileBytes(
+    sourceFile,
+    maxBytes: sourceMaxBytes,
+  );
+  if (!context.mounted) return null;
+  final editedImage = await showImageEditorDialog(
+    context,
+    imageBytes: sourceBytes,
+    imageSizeLimitBytes: imageSizeLimitBytes,
+  );
+  if (editedImage == null || !context.mounted) return null;
+  return (sourceFile: sourceFile, editedImage: editedImage);
 }
 
 /// Available crop aspect ratios.
@@ -96,7 +144,6 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
   static const double _previewMaxWidth = 720;
   static const double _previewHeight = 420;
   static const double _minCropSide = 64;
-  static const int _maxOutputLongSide = 2048;
 
   /// Width / height of the oriented source image. All actual pixel data
   /// lives exclusively in [_previewBytes] (PNG-encoded) and is only decoded
@@ -1199,34 +1246,22 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
       _errorMessage = null;
     });
     try {
-      // Decode on the main thread: a single decode+bake is typically well
-      // under 200ms even for multi-megapixel photos and is far simpler /
-      // more reliable than spawning an isolate (closures around
-      // `Isolate.run` are fragile — if the enclosing scope inadvertently
-      // becomes non-sendable the whole spawn silently fails). Only the
-      // truly heavy pipeline (convolutions, gaussian blur, etc.) still runs
-      // in a background isolate — see `_renderInIsolate`.
-      // We yield to the event loop once via `Future.microtask` so the
-      // progress indicator has a chance to paint before we block.
-      await Future<void>.delayed(Duration.zero);
-      final decoded = img.decodeImage(widget.imageBytes);
-      if (decoded == null) {
+      final prepared = await _runPrepareImageInIsolate(widget.imageBytes);
+      if (prepared == null) {
         if (!mounted) return;
         setState(() {
           _errorMessage = AppLocalizations.of(context)!.imageEditorLoadFailed;
         });
         return;
       }
-      final baked = img.bakeOrientation(decoded);
-      final pngBytes = Uint8List.fromList(img.encodePng(baked));
       if (!mounted) return;
       setState(() {
-        _previewBytes = pngBytes;
-        _originalPreviewBytes = Uint8List.fromList(pngBytes);
-        _imageWidth = baked.width;
-        _imageHeight = baked.height;
-        _originalImageWidth = baked.width;
-        _originalImageHeight = baked.height;
+        _previewBytes = prepared.$1;
+        _originalPreviewBytes = Uint8List.fromList(prepared.$1);
+        _imageWidth = prepared.$2;
+        _imageHeight = prepared.$3;
+        _originalImageWidth = prepared.$2;
+        _originalImageHeight = prepared.$3;
         _undoStack.clear();
         _hasBakedChanges = false;
         _showOriginalPreview = false;
@@ -2268,7 +2303,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
         watermarkColorArgb: _currentWatermarkColor.toARGB32(),
         isCircle: _aspect == _CropAspect.circle,
         forcePng: false,
-        maxOutputLongSide: _maxOutputLongSide,
+        maxOutputLongSide: _imageEditorMaxOutputLongSide,
         imageSizeLimitBytes: hasWatermark ? null : widget.imageSizeLimitBytes,
       );
 
@@ -2466,6 +2501,44 @@ class _CropOverlayPainter extends CustomPainter {
 // ═══════════════════════════════════════════════════════════════════════════
 //  Isolate-safe rendering pipeline
 // ═══════════════════════════════════════════════════════════════════════════
+
+/// Decodes only the first frame, rejects pathological dimensions before pixel
+/// allocation, and normalizes the working image to the editor's output bound.
+(Uint8List, int, int)? _prepareImage(Uint8List sourceBytes) {
+  final decoder = img.findDecoderForData(sourceBytes);
+  if (decoder == null) return null;
+  final info = decoder.startDecode(sourceBytes);
+  if (info == null || info.width < 1 || info.height < 1) return null;
+  if (info.width > _imageEditorMaxSourceDimension ||
+      info.height > _imageEditorMaxSourceDimension ||
+      info.width > _imageEditorMaxSourcePixels ~/ info.height) {
+    throw const FormatException('Image dimensions exceed the editor limit.');
+  }
+
+  final decoded = decoder.decode(sourceBytes, frame: 0);
+  if (decoded == null) return null;
+  var prepared = img.bakeOrientation(decoded);
+  final longSide = math.max(prepared.width, prepared.height);
+  if (longSide > _imageEditorMaxOutputLongSide) {
+    prepared = prepared.width >= prepared.height
+        ? img.copyResize(prepared, width: _imageEditorMaxOutputLongSide)
+        : img.copyResize(prepared, height: _imageEditorMaxOutputLongSide);
+  }
+  return (
+    Uint8List.fromList(img.encodePng(prepared)),
+    prepared.width,
+    prepared.height,
+  );
+}
+
+Future<(Uint8List, int, int)?> _runPrepareImageInIsolate(
+  Uint8List sourceBytes,
+) {
+  final message = <String, Object>{'sourceBytes': sourceBytes};
+  return Isolate.run<(Uint8List, int, int)?>(() {
+    return _prepareImage(message['sourceBytes']! as Uint8List);
+  });
+}
 
 /// Top-level isolate-safe helper: decode PNG bytes, rotate by [angle]
 /// degrees, re-encode as PNG and return `(pngBytes, width, height)`.

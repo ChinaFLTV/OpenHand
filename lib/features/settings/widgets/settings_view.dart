@@ -53,6 +53,7 @@ import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/persistence_issue_card.dart';
 import '../../../shared/ui/rolling_text.dart';
+import '../../../shared/util/bounded_xfile_io.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
@@ -99,6 +100,7 @@ typedef _SettingsPathOperation = Future<bool> Function(String path);
 const int _kSettingsToolResultCompressionWindowMaxChars = 8192;
 const int _kSettingsToolResultCompressionMaxPathHits = 200;
 const int _kSettingsWriteToolSummaryMaxChars = 8192;
+const int _kThrottleConfigImportMaxBytes = 1 * kBytesPerMiB;
 const Duration _settingsRevealSizeDuration = Duration(milliseconds: 420);
 const Duration _settingsRevealSizeReverseDuration = Duration(milliseconds: 260);
 const Duration _settingsRevealSwitcherDuration = Duration(milliseconds: 320);
@@ -4834,7 +4836,11 @@ class _SettingsViewState extends State<SettingsView> {
     if (file == null) return;
     Map<String, Object?> nextDoc;
     try {
-      final raw = await file.readAsString();
+      final bytes = await readBoundedXFileBytes(
+        file,
+        maxBytes: _kThrottleConfigImportMaxBytes,
+      );
+      final raw = utf8.decode(bytes);
       final decoded = jsonDecode(raw);
       if (decoded is! Map) {
         throw const FormatException('Root must be a JSON object');
@@ -4848,16 +4854,17 @@ class _SettingsViewState extends State<SettingsView> {
         stack,
       );
       if (!context.mounted) return;
+      final maxSize = formatByteSize(_kThrottleConfigImportMaxBytes);
       flashOpenHandSnack(
         context,
         openHandLocalizedText(
           context,
-          zh: '导入失败：${error.toString()}',
-          zhHant: '匯入失敗：${error.toString()}',
-          en: 'Import failed: $error',
-          fr: 'Échec de l’importation : $error',
-          de: 'Import fehlgeschlagen: $error',
-          ja: 'インポートに失敗しました: $error',
+          zh: '导入失败，请确认 JSON 配置有效且未超过 $maxSize。',
+          zhHant: '匯入失敗，請確認 JSON 設定有效且未超過 $maxSize。',
+          en: 'Import failed. Check that the JSON configuration is valid and no larger than $maxSize.',
+          fr: 'Échec de l’importation. Vérifiez que la configuration JSON est valide et ne dépasse pas $maxSize.',
+          de: 'Import fehlgeschlagen. Die JSON-Konfiguration muss gültig und höchstens $maxSize groß sein.',
+          ja: 'インポートに失敗しました。JSON 設定が有効で $maxSize 以下か確認してください。',
         ),
         kind: OpenHandSnackKind.error,
       );

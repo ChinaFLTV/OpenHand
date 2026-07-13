@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:file_selector/file_selector.dart';
@@ -13,11 +14,16 @@ import '../../../shared/ui/animated_menu.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
+import '../../../shared/util/bounded_xfile_io.dart';
+import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
+import '../../../shared/util/localized_text.dart';
 import '../../ai/index.dart';
 import '../service/tool_search_history_export_prefs.dart';
 import '../service/tool_search_history_serializer.dart';
 import 'mcp_dialog_utils.dart';
+
+const int _toolSearchHistoryImportMaxBytes = 8 * kBytesPerMiB;
 
 Future<void> showToolSearchLoadedDialog(
   BuildContext context, {
@@ -342,7 +348,6 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
   /// 让用户挑一个由 [ToolSearchHistorySerializer.toJson] 生成的 JSON 文件，
   /// 解析失败时 SnackBar 提示，成功时弹一个只读 preview dialog 列出条目。
   Future<void> _handleImportHistoryFromJson() async {
-    final l10n = AppLocalizations.of(context)!;
     XFile? picked;
     try {
       picked = await openFile(
@@ -363,38 +368,56 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
     if (picked == null || !mounted) return;
     String raw;
     try {
-      raw = await File(picked.path).readAsString();
+      final bytes = await readBoundedXFileBytes(
+        picked,
+        maxBytes: _toolSearchHistoryImportMaxBytes,
+      );
+      raw = utf8.decode(bytes);
     } catch (error, stack) {
       silentLog(
         'tool_search_loaded_dialog',
-        '_handleImportHistoryFromJson.readAsString',
+        '_handleImportHistoryFromJson.read',
         error,
         stack,
       );
-      if (!mounted) return;
-      flashOpenHandSnack(
-        context,
-        l10n.toolSearchLoadedHistoryImportDialogParseFailed('$error'),
-        kind: OpenHandSnackKind.error,
-      );
+      _showHistoryImportFailure();
       return;
     }
     List<AiToolSearchLoadHistoryEntry> entries;
     try {
       entries = ToolSearchHistorySerializer.fromJson(raw);
-    } catch (error) {
-      if (!mounted) return;
-      flashOpenHandSnack(
-        context,
-        l10n.toolSearchLoadedHistoryImportDialogParseFailed('$error'),
-        kind: OpenHandSnackKind.error,
+    } catch (error, stack) {
+      silentLog(
+        'tool_search_loaded_dialog',
+        '_handleImportHistoryFromJson.parse',
+        error,
+        stack,
       );
+      _showHistoryImportFailure();
       return;
     }
     if (!mounted) return;
     await showAnimatedDialog<void>(
       context: context,
       builder: (ctx) => _ToolSearchHistoryImportPreviewDialog(entries: entries),
+    );
+  }
+
+  void _showHistoryImportFailure() {
+    if (!mounted) return;
+    final maxSize = formatByteSize(_toolSearchHistoryImportMaxBytes);
+    flashOpenHandSnack(
+      context,
+      openHandLocalizedText(
+        context,
+        zh: '无法导入历史记录，请确认 JSON 文件有效且未超过 $maxSize。',
+        zhHant: '無法匯入歷史記錄，請確認 JSON 檔案有效且未超過 $maxSize。',
+        en: 'Could not import history. Check that the JSON file is valid and no larger than $maxSize.',
+        fr: 'Import impossible. Vérifiez que le fichier JSON est valide et ne dépasse pas $maxSize.',
+        de: 'Verlauf konnte nicht importiert werden. Die JSON-Datei muss gültig und höchstens $maxSize groß sein.',
+        ja: '履歴をインポートできません。JSON ファイルが有効で $maxSize 以下か確認してください。',
+      ),
+      kind: OpenHandSnackKind.error,
     );
   }
 

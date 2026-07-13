@@ -568,7 +568,6 @@ class _SkillsViewState extends State<SkillsView> {
       );
     }
   }
-
 }
 
 class _EditSkillDialog extends StatefulWidget {
@@ -991,34 +990,13 @@ class _EditSkillDialogState extends State<_EditSkillDialog> {
   }
 
   Future<void> _pickLocalImage(FormFieldState<bool> field) async {
-    final selectedFile = await openFile(
-      acceptedTypeGroups: const <XTypeGroup>[
-        XTypeGroup(
-          label: 'images',
-          extensions: <String>['png', 'jpg', 'jpeg', 'webp', 'gif'],
-        ),
-      ],
-    );
-    if (!mounted || selectedFile == null) {
-      return;
-    }
-
     try {
-      final sourceBytes = await selectedFile.readAsBytes();
-      if (!mounted) {
-        return;
-      }
-      final editedImage = await showImageEditorDialog(
-        context,
-        imageBytes: sourceBytes,
-      );
-      if (!mounted || editedImage == null) {
-        return;
-      }
+      final picked = await pickAndEditImage(context);
+      if (!mounted || picked == null) return;
       field.didChange(true);
       setState(() {
         _selectedEmoji = null;
-        _selectedImageBytes = editedImage.bytes;
+        _selectedImageBytes = picked.editedImage.bytes;
         _existingIconPath = null;
         _existingIconKind = null;
         _errorMessage = null;
@@ -1357,34 +1335,13 @@ class _CreateSkillDialogState extends State<_CreateSkillDialog> {
   }
 
   Future<void> _pickLocalImage(FormFieldState<bool> field) async {
-    final selectedFile = await openFile(
-      acceptedTypeGroups: const <XTypeGroup>[
-        XTypeGroup(
-          label: 'images',
-          extensions: <String>['png', 'jpg', 'jpeg', 'webp', 'gif'],
-        ),
-      ],
-    );
-    if (!mounted || selectedFile == null) {
-      return;
-    }
-
     try {
-      final sourceBytes = await selectedFile.readAsBytes();
-      if (!mounted) {
-        return;
-      }
-      final editedImage = await showImageEditorDialog(
-        context,
-        imageBytes: sourceBytes,
-      );
-      if (!mounted || editedImage == null) {
-        return;
-      }
+      final picked = await pickAndEditImage(context);
+      if (!mounted || picked == null) return;
       field.didChange(true);
       setState(() {
         _selectedEmoji = null;
-        _selectedImageBytes = editedImage.bytes;
+        _selectedImageBytes = picked.editedImage.bytes;
         _errorMessage = null;
       });
     } catch (e) {

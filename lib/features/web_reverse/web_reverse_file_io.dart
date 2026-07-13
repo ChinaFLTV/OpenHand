@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/widgets.dart';
 
+import '../../shared/util/bounded_xfile_io.dart';
 import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/localized_text.dart';
 
@@ -30,15 +31,14 @@ Future<WebReverseTextFileReadResult> readWebReverseTextFile(
   XFile file, {
   int maxBytes = kWebReverseJsonFileMaxBytes,
 }) async {
-  final knownLength = await _safeLength(file);
-  if (knownLength != null && knownLength > maxBytes) {
-    return WebReverseTextFileReadResult.tooLarge(knownLength);
+  try {
+    final bytes = await readBoundedXFileBytes(file, maxBytes: maxBytes);
+    return WebReverseTextFileReadResult.ok(utf8.decode(bytes));
+  } on BoundedXFileSizeException catch (error) {
+    return WebReverseTextFileReadResult.tooLarge(
+      error.actualBytes ?? maxBytes + 1,
+    );
   }
-  final bytes = await file.readAsBytes();
-  if (bytes.length > maxBytes) {
-    return WebReverseTextFileReadResult.tooLarge(bytes.length);
-  }
-  return WebReverseTextFileReadResult.ok(utf8.decode(bytes));
 }
 
 String webReverseTextFileTooLargeMessage(
@@ -63,12 +63,4 @@ String webReverseTextFileTooLargeMessage(
   return isZh
       ? 'JSON 文件过大：$size，上限 $max'
       : 'JSON file is too large: $size (limit $max)';
-}
-
-Future<int?> _safeLength(XFile file) async {
-  try {
-    return await file.length();
-  } catch (_) {
-    return null;
-  }
 }
