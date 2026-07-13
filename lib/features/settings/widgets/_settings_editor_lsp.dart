@@ -2165,46 +2165,72 @@ class _EditorLspInstallRunnerDialog extends StatefulWidget {
 
 class _EditorLspInstallRunnerDialogState
     extends State<_EditorLspInstallRunnerDialog> {
+  static const Duration _installTimeout = Duration(minutes: 10);
+  static const Duration _processStartTimeout = Duration(seconds: 10);
+  static const Duration _processStopGracePeriod = Duration(milliseconds: 500);
+  static const int _maxLogLines = 2000;
+
   final List<String> _logLines = <String>[];
+  final List<String> _pendingLogLines = <String>[];
   final ScrollController _scrollController = ScrollController();
   final AutoFollowScrollGuard _scrollGuard = AutoFollowScrollGuard();
   Process? _process;
+  Timer? _logFlushTimer;
+  int _runGeneration = 0;
+  bool _disposed = false;
   bool _running = true;
   bool _success = false;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _startInstall());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && !_disposed) _startInstall();
+    });
   }
 
   @override
   void dispose() {
-    try {
-      _process?.kill();
-    } catch (error, stack) {
-      silentLog(
-        'settings_editor_lsp',
-        'kill install process on dispose',
-        error,
-        stack,
-      );
-    }
+    _disposed = true;
+    _runGeneration += 1;
+    _logFlushTimer?.cancel();
+    _logFlushTimer = null;
+    _pendingLogLines.clear();
+    _stopCurrentProcess('dispose install process');
     _scrollController.dispose();
     super.dispose();
   }
 
   void _appendLine(String value) {
-    if (!mounted) {
+    if (!mounted || _disposed) return;
+    _pendingLogLines.add(value);
+    final pendingOverflow = _pendingLogLines.length - _maxLogLines;
+    if (pendingOverflow > 0) {
+      _pendingLogLines.removeRange(0, pendingOverflow);
+    }
+    _logFlushTimer ??= startSafeTimer(
+      kOpenHandFramePeriodicTimerInterval,
+      _flushPendingLogLines,
+      onError: (error, stack) =>
+          silentLog('settings_editor_lsp', 'flush install logs', error, stack),
+    );
+  }
+
+  void _flushPendingLogLines() {
+    _logFlushTimer = null;
+    if (!mounted || _disposed || _pendingLogLines.isEmpty) {
+      _pendingLogLines.clear();
       return;
     }
+    final pending = List<String>.of(_pendingLogLines, growable: false);
+    _pendingLogLines.clear();
     setState(() {
-      _logLines.add(value);
+      _logLines.addAll(pending);
+      final overflow = _logLines.length - _maxLogLines;
+      if (overflow > 0) _logLines.removeRange(0, overflow);
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
       _scrollGuard.followToBottom(
         _scrollController,
         animated: true,
@@ -2216,60 +2242,127 @@ class _EditorLspInstallRunnerDialogState
     });
   }
 
-  Future<void> _startInstall() async {
-    await Directory(widget.plan.installRootPath).create(recursive: true);
-    _appendLine('\$ ${widget.plan.previewCommand}');
-    _appendLine('');
+  bool _isRunActive(int generation) {
+    return mounted && !_disposed && generation == _runGeneration;
+  }
+
+  void _claimProcess(Process process, int generation) {
+    if (!_isRunActive(generation)) {
+      unawaited(_terminateProcess(process, 'terminate late install process'));
+      return;
+    }
+    _process = process;
+  }
+
+  void _stopCurrentProcess(String action) {
+    final process = _process;
+    _process = null;
+    if (process != null) unawaited(_terminateProcess(process, action));
+  }
+
+  Future<void> _terminateProcess(Process process, String action) async {
     try {
-      final process = await _spawnProcess(widget.plan.shellCommand);
-      _process = process;
-      final stdoutDone = process.stdout
-          .transform(const Utf8Decoder(allowMalformed: true))
-          .transform(const LineSplitter())
-          .listen(_appendLine)
-          .asFuture<void>();
-      final stderrDone = process.stderr
-          .transform(const Utf8Decoder(allowMalformed: true))
-          .transform(const LineSplitter())
-          .listen(_appendLine)
-          .asFuture<void>();
-      final exitCode = await process.exitCode;
-      await Future.wait([stdoutDone, stderrDone]);
-      if (!mounted) {
-        return;
-      }
+      await terminateTrackedProcessTree(
+        process,
+        gracefulTimeout: _processStopGracePeriod,
+      );
+    } catch (error, stack) {
+      silentLog('settings_editor_lsp', action, error, stack);
+    }
+  }
+
+  Future<void> _startInstall() async {
+    final generation = ++_runGeneration;
+    Process? startedProcess;
+    try {
+      await Directory(widget.plan.installRootPath).create(recursive: true);
+      if (!mounted || !_isRunActive(generation)) return;
+      _appendLine('\$ ${widget.plan.previewCommand}');
+      _appendLine('');
+
+      final launch = _buildInstallLaunch(widget.plan.shellCommand);
+      final result = await runTrackedProcessWithLineLogging(
+        launch.executable,
+        launch.arguments,
+        timeout: _installTimeout,
+        processStartTimeout: _processStartTimeout,
+        tag: 'settings_editor_lsp',
+        runInShell: launch.runInShell,
+        environment: <String, String>{
+          'FORCE_COLOR': '1',
+          ...SystemProxyResolver.instance.resolveSubprocessEnvironment(),
+        },
+        onStdoutLine: _appendLine,
+        onStderrLine: _appendLine,
+        onProcessStarted: (process) {
+          startedProcess = process;
+          _claimProcess(process, generation);
+        },
+      );
+      if (!mounted || !_isRunActive(generation)) return;
       setState(() {
         _running = false;
-        _success = exitCode == 0;
+        _success = !result.timedOut && result.exitCode == 0;
       });
       _appendLine('');
-      _appendLine(
-        _success
-            ? '✓ Install completed'
-            : '✗ Install failed (exit code: $exitCode)',
-      );
-    } catch (error) {
-      if (!mounted) {
-        return;
+      if (result.timedOut) {
+        _appendLine(
+          openHandLocalizedText(
+            context,
+            zh: '✗ 安装超时（超过 ${_installTimeout.inMinutes} 分钟）',
+            en: '✗ Installation timed out after ${_installTimeout.inMinutes} minutes',
+          ),
+        );
+      } else if (_success) {
+        _appendLine(
+          openHandLocalizedText(
+            context,
+            zh: '✓ 安装完成',
+            en: '✓ Installation completed',
+          ),
+        );
+      } else {
+        _appendLine(
+          openHandLocalizedText(
+            context,
+            zh: '✗ 安装失败（退出码：${result.exitCode}）',
+            en: '✗ Installation failed (exit code: ${result.exitCode})',
+          ),
+        );
       }
+    } catch (error) {
+      if (!_isRunActive(generation)) return;
       setState(() {
         _running = false;
         _success = false;
       });
       _appendLine('');
       _appendLine('✗ $error');
+    } finally {
+      if (identical(_process, startedProcess)) _process = null;
     }
   }
 
-  Future<Process> _spawnProcess(String shellCommand) {
+  ({String executable, List<String> arguments, bool runInShell})
+  _buildInstallLaunch(String shellCommand) {
     if (Platform.isWindows) {
-      return startTrackedProcess('cmd', ['/c', shellCommand], runInShell: true);
+      return (
+        executable: 'cmd',
+        arguments: <String>['/c', shellCommand],
+        runInShell: true,
+      );
     }
-    return startTrackedProcess(
-      resolveHarnessCliShellExecutable(),
-      buildHarnessCliShellArgs(shellCommand),
-      environment: const <String, String>{'FORCE_COLOR': '1'},
+    return (
+      executable: resolveHarnessCliShellExecutable(),
+      arguments: buildHarnessCliShellArgs(shellCommand),
+      runInShell: false,
     );
+  }
+
+  void _cancelAndClose() {
+    _runGeneration += 1;
+    _stopCurrentProcess('cancel install process');
+    Navigator.of(context).pop(false);
   }
 
   Color _terminalLineColor(String line) {
@@ -2431,19 +2524,7 @@ class _EditorLspInstallRunnerDialogState
       actions: [
         if (_running)
           OpenHandDialogActionButton.secondary(
-            onPressed: () {
-              try {
-                _process?.kill();
-              } catch (error, stack) {
-                silentLog(
-                  'settings_editor_lsp',
-                  'kill install process on cancel',
-                  error,
-                  stack,
-                );
-              }
-              Navigator.of(context).pop(false);
-            },
+            onPressed: _cancelAndClose,
             label: AppLocalizations.of(context)!.commonCancel,
           )
         else
