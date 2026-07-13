@@ -67,10 +67,14 @@ class WebReverseSessionController extends ChangeNotifier {
   bool _started = false;
   bool _stopped = false;
   bool _disposed = false;
+  bool _notifierDisposed = false;
+  bool _resourcesStopped = false;
   bool _preserveLog = true;
   bool _reattachAfterReconnectInFlight = false;
   bool _reattachAfterReconnectQueued = false;
   Future<void>? _restartBrowserTask;
+  Future<void>? _safeStopTask;
+  Future<void>? _shutdownFuture;
   String? _errorMessage;
   String? get errorMessage => _errorMessage;
 
@@ -230,10 +234,16 @@ class WebReverseSessionController extends ChangeNotifier {
 
   static const int _kInitialTargetPickAttempts = 16;
   static const Duration _kInitialTargetPickDelay = Duration(milliseconds: 150);
+  static const Duration _browserStopGrace = Duration(milliseconds: 500);
+  static const Duration _browserCleanupTimeout = Duration(seconds: 3);
 
   Future<void> start() async {
+    if (_disposed) {
+      throw StateError('Web reverse session has been disposed');
+    }
     if (_started) return;
     _started = true;
+    _resourcesStopped = false;
     try {
       await _artifacts.init();
       if (_stopped || _disposed) {
@@ -3469,7 +3479,11 @@ class WebReverseSessionController extends ChangeNotifier {
   }
 
   Future<void> stop() async {
-    if (_stopped) return;
+    if (_stopped) {
+      final stopping = _safeStopTask;
+      if (stopping != null) await stopping;
+      return;
+    }
     _stopped = true;
     await _safeStop();
     _safeNotify();
@@ -3526,19 +3540,10 @@ class WebReverseSessionController extends ChangeNotifier {
     }
     _browserCdp = null;
     final p = _launchResult?.process;
-    if (p != null) {
-      try {
-        p.kill();
-      } catch (error, stack) {
-        silentLog(
-          'web_reverse_session_controller',
-          'kill browser process',
-          error,
-          stack,
-        );
-      }
-    }
     _launchResult = null;
+    if (p != null) {
+      await _terminateBrowserProcess(p, 'stop browser process');
+    }
     _errorMessage = null;
     _safeNotify();
   }
@@ -3602,7 +3607,22 @@ class WebReverseSessionController extends ChangeNotifier {
     }
   }
 
-  Future<void> _safeStop() async {
+  Future<void> _safeStop() {
+    if (_resourcesStopped) return Future<void>.value();
+    final active = _safeStopTask;
+    if (active != null) return active;
+    late final Future<void> stopping;
+    stopping = _safeStopUncached().whenComplete(() {
+      _resourcesStopped = true;
+      if (identical(_safeStopTask, stopping)) {
+        _safeStopTask = null;
+      }
+    });
+    _safeStopTask = stopping;
+    return stopping;
+  }
+
+  Future<void> _safeStopUncached() async {
     _stopAliveWatchdog();
     // 主动停 screencast：进程将被 kill，事件流也会断；提前 stop 防止
     // 浏览器侧 ack 队列卡住影响下次拉起。
@@ -3651,17 +3671,9 @@ class WebReverseSessionController extends ChangeNotifier {
     }
     _browserCdp = null;
     final p = _launchResult?.process;
+    _launchResult = null;
     if (p != null) {
-      try {
-        p.kill();
-      } catch (error, stack) {
-        silentLog(
-          'web_reverse_session_controller',
-          'safe kill browser process',
-          error,
-          stack,
-        );
-      }
+      await _terminateBrowserProcess(p, 'shutdown browser process');
     }
     // 收尾产物：先导 HAR（用 in-memory drafts），再关 artifacts。
     try {
@@ -3670,6 +3682,18 @@ class WebReverseSessionController extends ChangeNotifier {
       silentLog('web_reverse_session_controller', 'export HAR', error, stack);
     }
     await _artifacts.close();
+  }
+
+  Future<void> _terminateBrowserProcess(Process process, String where) async {
+    await runAsyncCleanupBounded(
+      () => terminateTrackedProcessTree(
+        process,
+        gracefulTimeout: _browserStopGrace,
+      ),
+      timeout: _browserCleanupTimeout,
+      onError: (error, stack) =>
+          silentLog('web_reverse_session_controller', where, error, stack),
+    );
   }
 
   Future<void> _closeAuxiliaryServices() async {
@@ -7152,17 +7176,46 @@ class WebReverseSessionController extends ChangeNotifier {
     return 'Other';
   }
 
-  @override
-  void dispose() {
+  /// Releases browser/CDP processes, auxiliary servers, subscriptions, and the
+  /// raw event bus through one idempotent shutdown future.
+  Future<void> shutdown() {
+    final active = _shutdownFuture;
+    if (active != null) return active;
     _disposed = true;
+    _stopped = true;
     for (final t in _cronTimers.values) {
       t.cancel();
     }
     _cronTimers.clear();
-    // 不阻塞 dispose；safeStop 内部所有调用都已对 _disposed 做了短路。
-    unawaited(_safeStop());
+    final shutdown =
+        () async {
+          try {
+            await _safeStop();
+          } finally {
+            await runAsyncCleanupBounded(
+              _rawCdpEventBus.close,
+              timeout: _browserCleanupTimeout,
+              onError: (error, stack) => silentLog(
+                'web_reverse_session_controller',
+                'close raw CDP event bus',
+                error,
+                stack,
+              ),
+            );
+          }
+        }().catchError((Object error, StackTrace stack) {
+          silentLog('web_reverse_session_controller', 'shutdown', error, stack);
+        });
+    _shutdownFuture = shutdown;
+    return shutdown;
+  }
+
+  @override
+  void dispose() {
+    if (_notifierDisposed) return;
+    _notifierDisposed = true;
+    unawaited(shutdown());
     screencastFrameNotifier.dispose();
-    unawaited(_rawCdpEventBus.close());
     super.dispose();
   }
 

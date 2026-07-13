@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart' as http_io;
 
+import '../../app/support/safe_subprocess.dart';
 import '../../app/support/silent_log.dart';
 import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/input_value_parsing.dart';
@@ -159,11 +160,7 @@ class WebReverseBrowserLauncher {
     ];
     Process process;
     try {
-      process = await Process.start(
-        executablePath,
-        args,
-        mode: ProcessStartMode.detachedWithStdio,
-      );
+      process = await startTrackedProcessInNewGroup(executablePath, args);
     } catch (error, stack) {
       silentLog(
         'web_reverse_browser_launcher',
@@ -178,11 +175,8 @@ class WebReverseBrowserLauncher {
     }
     // 收集 stderr 前 32KB，握手失败时把这段打到错误信息里，方便定位
     // "Profile 锁占用 / SUID sandbox / GPU init crash" 等真实根因。
-    // 注意：detachedWithStdio 模式下访问 [Process.exitCode] 会抛
-    // `Bad state: Process is detached`。我们改为用 stdout / stderr 流的
-    // 关闭事件推断进程退出（管道关闭即意味着子进程已退出）；任一管道
-    // 先关闭即认为已退出，并把 exitCode 标记为 null（OS 没把退出码透
-    // 到我们这里）。
+    // 管道关闭可在握手阶段快速识别浏览器提前退出；进程本身由
+    // safe_subprocess 登记并尽量放入独立进程组，应用退出时可整树终止。
     final stderrBuf = StringBuffer();
     var processExited = false;
     StreamSubscription<String>? errSub;
@@ -263,16 +257,18 @@ class WebReverseBrowserLauncher {
       client.close();
     }
     if (wsUrl == null) {
-      try {
-        process.kill();
-      } catch (error, stack) {
-        silentLog(
+      await runAsyncCleanupBounded(
+        () => terminateTrackedProcessTree(
+          process,
+          gracefulTimeout: const Duration(milliseconds: 500),
+        ),
+        onError: (error, stack) => silentLog(
           'web_reverse_browser_launcher',
           'kill failed launch',
           error,
           stack,
-        );
-      }
+        ),
+      );
       // 确认子进程退出，避免悬挂；最多等 1.5s。detached 模式无法
       // await exitCode，改为等任一 stdio 管道 done 即认为已退出。
       try {

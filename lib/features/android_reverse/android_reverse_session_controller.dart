@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 import '../../app/support/safe_subprocess.dart';
 import '../../app/support/silent_log.dart';
 import '../../shared/net/tcp_port_utils.dart';
+import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/timer_safety.dart';
 import 'android_reverse_adb_client.dart';
@@ -26,6 +27,7 @@ const Duration _kLocalScriptTimeout = Duration(seconds: 30);
 const Duration _kLocalShellActionTimeout = Duration(seconds: 20);
 const Duration _kNetworkCaptureStartupProbe = Duration(milliseconds: 900);
 const Duration _kNetworkCaptureStopGrace = Duration(milliseconds: 800);
+const Duration _kRuntimeCleanupTimeout = Duration(seconds: 5);
 const Duration _kStaticArtifactReadTimeout = Duration(seconds: 8);
 const Duration _kStaticIdentityTimeout = Duration(seconds: 16);
 const Duration _kStaticStringsTimeout = Duration(seconds: 24);
@@ -192,7 +194,13 @@ class AndroidReverseSessionController extends ChangeNotifier {
   String? get errorMessage => _errorMessage;
 
   bool _disposed = false;
+  bool _notifierDisposed = false;
   Timer? _watchdogTimer;
+  StreamSubscription<String>? _networkCaptureStdoutSub;
+  StreamSubscription<String>? _networkCaptureStderrSub;
+  Future<AdbCommandResult>? _networkCaptureStartFuture;
+  Future<void>? _networkCaptureStopFuture;
+  Future<void>? _shutdownFuture;
 
   bool get isRunning => _state == AndroidReverseSessionState.running;
 
@@ -203,7 +211,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
   }
 
   Future<void> start() async {
-    if (_state != AndroidReverseSessionState.idle) return;
+    if (_disposed || _state != AndroidReverseSessionState.idle) return;
     await _ensureArtifactDirectories();
     await _writeMcpLinkageArtifacts(updateError: false);
     if (_state == AndroidReverseSessionState.stopped || _disposed) return;
@@ -219,28 +227,46 @@ class AndroidReverseSessionController extends ChangeNotifier {
   }
 
   Future<void> stop() async {
-    if (_state == AndroidReverseSessionState.stopped) return;
     _watchdogTimer?.cancel();
     _watchdogTimer = null;
     _state = AndroidReverseSessionState.stopped;
+    await _stopNetworkCaptureResources();
     _safeNotify();
+  }
+
+  /// Stops timers, stream subscriptions, and the tracked mitmdump process.
+  /// Repeated calls share one bounded cleanup future.
+  Future<void> shutdown() {
+    final active = _shutdownFuture;
+    if (active != null) return active;
+    _disposed = true;
+    _watchdogTimer?.cancel();
+    _watchdogTimer = null;
+    _state = AndroidReverseSessionState.stopped;
+    final shutdown =
+        () async {
+          final starting = _networkCaptureStartFuture;
+          if (starting != null) {
+            await runAsyncCleanupBounded(
+              () => starting,
+              timeout: _kRuntimeCleanupTimeout,
+              onError: (error, stack) =>
+                  silentLog(_kTag, 'await network capture start', error, stack),
+            );
+          }
+          await _stopNetworkCaptureResources();
+        }().catchError((Object error, StackTrace stack) {
+          silentLog(_kTag, 'shutdown', error, stack);
+        });
+    _shutdownFuture = shutdown;
+    return shutdown;
   }
 
   @override
   void dispose() {
-    _disposed = true;
-    _watchdogTimer?.cancel();
-    _watchdogTimer = null;
-    final networkCapture = _networkCaptureProcess;
-    _networkCaptureProcess = null;
-    if (networkCapture != null) {
-      unawaited(
-        terminateTrackedProcessTree(
-          networkCapture,
-          gracefulTimeout: _kNetworkCaptureStopGrace,
-        ),
-      );
-    }
+    if (_notifierDisposed) return;
+    _notifierDisposed = true;
+    unawaited(shutdown());
     super.dispose();
   }
 
@@ -354,9 +380,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
       );
       await Future.wait(<Future<void>>[
         File(markdownPath).writeAsString(markdown),
-        File(
-          jsonPath,
-        ).writeAsString(prettyPrintJson(json)),
+        File(jsonPath).writeAsString(prettyPrintJson(json)),
       ]);
       return AdbCommandResult(
         args: <String>['package-report', normalizedPackage],
@@ -446,9 +470,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
       };
       await Future.wait(<Future<void>>[
         File(txtPath).writeAsString(text.isEmpty ? '(empty)\n' : '$text\n'),
-        File(
-          jsonPath,
-        ).writeAsString(prettyPrintJson(json)),
+        File(jsonPath).writeAsString(prettyPrintJson(json)),
       ]);
       return AdbCommandResult(
         args: <String>['logcat-snapshot'],
@@ -623,9 +645,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
       };
       await Future.wait(<Future<void>>[
         File(scriptPath).writeAsString('$normalizedScript\n'),
-        File(
-          jsonPath,
-        ).writeAsString(prettyPrintJson(metadata)),
+        File(jsonPath).writeAsString(prettyPrintJson(metadata)),
       ]);
       return AdbCommandResult(
         args: const <String>['frida-script-save'],
@@ -780,9 +800,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
       );
       await Future.wait(<Future<void>>[
         File(markdownPath).writeAsString(markdown),
-        File(
-          jsonPath,
-        ).writeAsString(prettyPrintJson(json)),
+        File(jsonPath).writeAsString(prettyPrintJson(json)),
       ]);
       return AdbCommandResult(
         args: <String>['device-report', reportSerial],
@@ -1178,7 +1196,31 @@ class AndroidReverseSessionController extends ChangeNotifier {
     );
   }
 
-  Future<AdbCommandResult> startNetworkCapture({int port = 8080}) async {
+  Future<AdbCommandResult> startNetworkCapture({int port = 8080}) {
+    final active = _networkCaptureStartFuture;
+    if (active != null) return active;
+    late final Future<AdbCommandResult> starting;
+    starting = _startNetworkCapture(port: port).whenComplete(() {
+      if (identical(_networkCaptureStartFuture, starting)) {
+        _networkCaptureStartFuture = null;
+      }
+    });
+    _networkCaptureStartFuture = starting;
+    return starting;
+  }
+
+  Future<AdbCommandResult> _startNetworkCapture({required int port}) async {
+    final stopping = _networkCaptureStopFuture;
+    if (stopping != null) await stopping;
+    if (_disposed || _state == AndroidReverseSessionState.stopped) {
+      return const AdbCommandResult(
+        args: <String>['network-capture', 'start'],
+        exitCode: -1,
+        stdout: '',
+        stderr: 'Android reverse session is stopped.',
+        displayCommand: 'start mitmdump capture',
+      );
+    }
     if (!isValidTcpPort(port)) {
       return AdbCommandResult(
         args: <String>['network-capture', 'start'],
@@ -1236,16 +1278,33 @@ class AndroidReverseSessionController extends ChangeNotifier {
           'OPENHAND_NETWORK_JSONL': networkJsonlPath,
         },
       );
+      if (_disposed || _state == AndroidReverseSessionState.stopped) {
+        await terminateTrackedProcessTree(
+          process,
+          gracefulTimeout: _kNetworkCaptureStopGrace,
+        );
+        return const AdbCommandResult(
+          args: <String>['network-capture', 'start'],
+          exitCode: -1,
+          stdout: '',
+          stderr:
+              'Android reverse session stopped while mitmdump was starting.',
+          displayCommand: 'start mitmdump capture',
+        );
+      }
       _networkCaptureProcess = process;
       _networkCaptureStartedAt = DateTime.now();
-      _wireNetworkCaptureStreams(process);
+      await _wireNetworkCaptureStreams(process);
       _safeNotify();
       try {
         final exitCode = await process.exitCode.timeout(
           _kNetworkCaptureStartupProbe,
         );
         final stdoutText = networkCaptureTranscript;
-        _networkCaptureProcess = null;
+        if (identical(_networkCaptureProcess, process)) {
+          _networkCaptureProcess = null;
+          _networkCaptureStartedAt = null;
+        }
         _safeNotify();
         return AdbCommandResult(
           args: const <String>['network-capture', 'start'],
@@ -1298,10 +1357,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
         displayCommand: 'stop mitmdump capture',
       );
     }
-    await terminateTrackedProcessTree(
-      process,
-      gracefulTimeout: _kNetworkCaptureStopGrace,
-    );
+    await _stopNetworkCaptureResources();
     int exitCode = 0;
     try {
       exitCode = await process.exitCode.timeout(
@@ -1310,7 +1366,6 @@ class AndroidReverseSessionController extends ChangeNotifier {
     } catch (_) {
       exitCode = -1;
     }
-    _networkCaptureProcess = null;
     _safeNotify();
     return AdbCommandResult(
       args: const <String>['network-capture', 'stop'],
@@ -1646,8 +1701,10 @@ class AndroidReverseSessionController extends ChangeNotifier {
     return path;
   }
 
-  void _wireNetworkCaptureStreams(Process process) {
-    process.stdout
+  Future<void> _wireNetworkCaptureStreams(Process process) async {
+    await _cancelNetworkCaptureSubscriptions();
+    if (_disposed || !identical(_networkCaptureProcess, process)) return;
+    _networkCaptureStdoutSub = process.stdout
         .transform(utf8.decoder)
         .transform(const LineSplitter())
         .listen(
@@ -1655,8 +1712,9 @@ class AndroidReverseSessionController extends ChangeNotifier {
           onError: (Object error, StackTrace stack) {
             silentLog(_kTag, 'mitmdump stdout stream', error, stack);
           },
+          cancelOnError: true,
         );
-    process.stderr
+    _networkCaptureStderrSub = process.stderr
         .transform(utf8.decoder)
         .transform(const LineSplitter())
         .listen(
@@ -1664,19 +1722,76 @@ class AndroidReverseSessionController extends ChangeNotifier {
           onError: (Object error, StackTrace stack) {
             silentLog(_kTag, 'mitmdump stderr stream', error, stack);
           },
+          cancelOnError: true,
         );
     unawaited(
-      process.exitCode.then((exitCode) {
-        _appendNetworkCaptureLine(
-          exitCode == 0 ? _networkCaptureStdout : _networkCaptureStderr,
-          'mitmdump exited with code $exitCode',
-        );
-        if (_networkCaptureProcess?.pid == process.pid) {
-          _networkCaptureProcess = null;
-          _safeNotify();
-        }
-      }),
+      process.exitCode.then<void>(
+        (exitCode) {
+          _appendNetworkCaptureLine(
+            exitCode == 0 ? _networkCaptureStdout : _networkCaptureStderr,
+            'mitmdump exited with code $exitCode',
+          );
+          if (_networkCaptureProcess?.pid == process.pid) {
+            _networkCaptureProcess = null;
+            _networkCaptureStartedAt = null;
+            _safeNotify();
+          }
+        },
+        onError: (Object error, StackTrace stack) {
+          silentLog(_kTag, 'mitmdump exit', error, stack);
+        },
+      ),
     );
+  }
+
+  Future<void> _stopNetworkCaptureResources() async {
+    final active = _networkCaptureStopFuture;
+    if (active != null) return active;
+    late final Future<void> stopping;
+    stopping = _stopNetworkCaptureResourcesUncached().whenComplete(() {
+      if (identical(_networkCaptureStopFuture, stopping)) {
+        _networkCaptureStopFuture = null;
+      }
+    });
+    _networkCaptureStopFuture = stopping;
+    return stopping;
+  }
+
+  Future<void> _stopNetworkCaptureResourcesUncached() async {
+    final process = _networkCaptureProcess;
+    _networkCaptureProcess = null;
+    _networkCaptureStartedAt = null;
+    if (process != null) {
+      await runAsyncCleanupBounded(
+        () => terminateTrackedProcessTree(
+          process,
+          gracefulTimeout: _kNetworkCaptureStopGrace,
+        ),
+        timeout: _kDeviceReportTimeout,
+        onError: (error, stack) =>
+            silentLog(_kTag, 'terminate network capture', error, stack),
+      );
+    }
+    await _cancelNetworkCaptureSubscriptions();
+  }
+
+  Future<void> _cancelNetworkCaptureSubscriptions() async {
+    final stdoutSub = _networkCaptureStdoutSub;
+    final stderrSub = _networkCaptureStderrSub;
+    _networkCaptureStdoutSub = null;
+    _networkCaptureStderrSub = null;
+    await Future.wait<bool>(<Future<bool>>[
+      cancelStreamSubscriptionBounded<String>(
+        stdoutSub,
+        onError: (error, stack) =>
+            silentLog(_kTag, 'cancel mitmdump stdout', error, stack),
+      ),
+      cancelStreamSubscriptionBounded<String>(
+        stderrSub,
+        onError: (error, stack) =>
+            silentLog(_kTag, 'cancel mitmdump stderr', error, stack),
+      ),
+    ]);
   }
 
   void _appendNetworkCaptureLine(StringBuffer buffer, String line) {
