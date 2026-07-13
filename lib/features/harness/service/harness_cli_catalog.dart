@@ -880,7 +880,7 @@ Future<Process> startHarnessCliInteractiveProcess({
 }) {
   final normalizedWorkingDirectory = workingDirectory?.trim();
   if (Platform.isWindows) {
-    return startTrackedProcess(
+    return startTrackedProcessInNewGroup(
       executable,
       args,
       workingDirectory: normalizedWorkingDirectory?.isNotEmpty == true
@@ -903,7 +903,7 @@ Future<Process> startHarnessCliInteractiveProcess({
       'cd ${_q(normalizedWorkingDirectory)}',
     'exec ${formatHarnessCliCommandPreview(executable, args)}',
   ];
-  return startTrackedProcess(
+  return startTrackedProcessInNewGroup(
     shell,
     buildHarnessCliShellArgs(shellFragments.join(' && ')),
     environment: <String, String>{

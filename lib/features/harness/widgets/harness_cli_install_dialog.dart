@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -14,6 +13,7 @@ import '../../../shared/ui/highlight_pulse.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
+import '../../../shared/util/timer_safety.dart';
 import '../service/harness_cli_catalog.dart';
 import 'harness_dialog_utils.dart';
 
@@ -30,7 +30,12 @@ class HarnessCliInstallDialog extends StatefulWidget {
 }
 
 class _HarnessCliInstallDialogState extends State<HarnessCliInstallDialog> {
-  final List<String> _logLines = [];
+  static const Duration _installTimeout = Duration(minutes: 5);
+  static const Duration _processStopGracePeriod = Duration(milliseconds: 500);
+  static const int _maxLogLines = 2000;
+
+  final List<String> _logLines = <String>[];
+  final List<String> _pendingLogLines = <String>[];
   bool _running = true;
   bool _success = false;
   bool _cancelled = false;
@@ -39,6 +44,9 @@ class _HarnessCliInstallDialogState extends State<HarnessCliInstallDialog> {
   // Set to true after the user has tried the elevated retry once.
   bool _elevatedRetryAttempted = false;
   Process? _process;
+  Timer? _logFlushTimer;
+  int _runGeneration = 0;
+  bool _disposed = false;
   final ScrollController _scrollController = ScrollController();
   final AutoFollowScrollGuard _scrollGuard = AutoFollowScrollGuard();
 
@@ -67,21 +75,19 @@ class _HarnessCliInstallDialogState extends State<HarnessCliInstallDialog> {
   void initState() {
     super.initState();
     // Defer to next frame so the dialog is fully built before async work starts.
-    WidgetsBinding.instance.addPostFrameCallback((_) => _startInstall());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && !_disposed) _startInstall();
+    });
   }
 
   @override
   void dispose() {
-    try {
-      _process?.kill();
-    } catch (error, stack) {
-      silentLog(
-        'harness_cli_install_dialog',
-        'kill process on dispose',
-        error,
-        stack,
-      );
-    }
+    _disposed = true;
+    _runGeneration += 1;
+    _logFlushTimer?.cancel();
+    _logFlushTimer = null;
+    _pendingLogLines.clear();
+    _stopCurrentProcess('dispose install process');
     _scrollController.dispose();
     _successPulse.dispose();
     _errorPulse.dispose();
@@ -89,7 +95,7 @@ class _HarnessCliInstallDialogState extends State<HarnessCliInstallDialog> {
   }
 
   void _appendLine(String line) {
-    if (!mounted) return;
+    if (!mounted || _disposed) return;
     // Detect permission / EACCES errors so we can offer the elevated retry.
     if (!_isPermissionError) {
       final lower = line.toLowerCase();
@@ -100,7 +106,32 @@ class _HarnessCliInstallDialogState extends State<HarnessCliInstallDialog> {
         _isPermissionError = true;
       }
     }
-    setState(() => _logLines.add(line));
+    _pendingLogLines.add(line);
+    _logFlushTimer ??= startSafeTimer(
+      kOpenHandFramePeriodicTimerInterval,
+      _flushPendingLogLines,
+      onError: (error, stack) => silentLog(
+        'harness_cli_install_dialog',
+        'flush install logs',
+        error,
+        stack,
+      ),
+    );
+  }
+
+  void _flushPendingLogLines() {
+    _logFlushTimer = null;
+    if (!mounted || _disposed || _pendingLogLines.isEmpty) {
+      _pendingLogLines.clear();
+      return;
+    }
+    final pending = List<String>.of(_pendingLogLines, growable: false);
+    _pendingLogLines.clear();
+    setState(() {
+      _logLines.addAll(pending);
+      final overflow = _logLines.length - _maxLogLines;
+      if (overflow > 0) _logLines.removeRange(0, overflow);
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _scrollGuard.followToBottom(
@@ -115,44 +146,75 @@ class _HarnessCliInstallDialogState extends State<HarnessCliInstallDialog> {
     });
   }
 
+  bool _isRunActive(int generation) {
+    return mounted && !_disposed && !_cancelled && generation == _runGeneration;
+  }
+
+  void _claimProcess(Process process, int generation) {
+    if (!_isRunActive(generation)) {
+      unawaited(_terminateProcess(process, 'terminate late install process'));
+      return;
+    }
+    _process = process;
+  }
+
+  void _stopCurrentProcess(String action) {
+    final process = _process;
+    _process = null;
+    if (process != null) unawaited(_terminateProcess(process, action));
+  }
+
+  Future<void> _terminateProcess(Process process, String action) async {
+    try {
+      await terminateTrackedProcessTree(
+        process,
+        gracefulTimeout: _processStopGracePeriod,
+      );
+    } catch (error, stack) {
+      silentLog('harness_cli_install_dialog', action, error, stack);
+    }
+  }
+
   Future<void> _startInstall() async {
     final cmd = widget.cli.installCommand!;
+    final generation = ++_runGeneration;
     _appendLine('> ${cmd.join(' ')}');
     _appendLine('');
 
+    Process? startedProcess;
     try {
-      final process = await _spawnProcess(cmd);
-      _process = process;
+      final launch = _buildInstallLaunch(cmd);
+      final result = await runTrackedProcessWithLineLogging(
+        launch.executable,
+        launch.arguments,
+        timeout: _installTimeout,
+        tag: 'harness_cli_install_dialog',
+        runInShell: launch.runInShell,
+        onStdoutLine: _appendLine,
+        onStderrLine: _appendLine,
+        onProcessStarted: (process) {
+          startedProcess = process;
+          _claimProcess(process, generation);
+        },
+      );
 
-      // Stream stdout and stderr concurrently.
-      final stdoutDone = process.stdout
-          .transform(const Utf8Decoder(allowMalformed: true))
-          .transform(const LineSplitter())
-          .listen(_appendLine)
-          .asFuture<void>();
-      final stderrDone = process.stderr
-          .transform(const Utf8Decoder(allowMalformed: true))
-          .transform(const LineSplitter())
-          .listen(_appendLine)
-          .asFuture<void>();
-
-      final exitCode = await process.exitCode;
-      await Future.wait([stdoutDone, stderrDone]);
-
-      if (!mounted || _cancelled) return;
+      if (!_isRunActive(generation)) return;
       setState(() {
         _running = false;
-        _success = exitCode == 0;
+        _success = !result.timedOut && result.exitCode == 0;
       });
       _appendLine('');
-      if (_success) {
+      if (result.timedOut) {
+        _appendLine(_l10n.harnessCliInstallTimeoutManual);
+        _appendLine('  ${cmd.join(' ')}');
+      } else if (_success) {
         _appendLine(_l10n.harnessCliInstallLogSuccess);
       } else {
-        _appendLine(_l10n.harnessCliInstallLogFailureExitCode(exitCode));
-        _appendInstallHint(cmd[0], exitCode);
+        _appendLine(_l10n.harnessCliInstallLogFailureExitCode(result.exitCode));
+        _appendInstallHint(cmd[0], result.exitCode);
       }
     } on ProcessException catch (e) {
-      if (!mounted) return;
+      if (!_isRunActive(generation)) return;
       setState(() {
         _running = false;
         _success = false;
@@ -161,29 +223,33 @@ class _HarnessCliInstallDialogState extends State<HarnessCliInstallDialog> {
       _appendLine(_l10n.harnessCliInstallLogStartProcessFailed(e.message));
       _appendInstallHint(cmd[0], null);
     } catch (e) {
-      if (!mounted) return;
+      if (!_isRunActive(generation)) return;
       setState(() {
         _running = false;
         _success = false;
       });
       _appendLine('');
       _appendLine(_l10n.harnessCliInstallLogGenericError('$e'));
+    } finally {
+      if (identical(_process, startedProcess)) _process = null;
     }
   }
 
-  /// Spawns the install process.
+  /// Builds the install process launch.
   /// On macOS/Linux: wraps command in an interactive login shell so user-managed
   /// runtimes such as nvm / pyenv / conda match the orchestrator runtime.
   /// On Windows: runs directly with runInShell=true.
-  Future<Process> _spawnProcess(List<String> cmd) async {
+  ({String executable, List<String> arguments, bool runInShell})
+  _buildInstallLaunch(List<String> cmd) {
     if (Platform.isWindows) {
-      return startTrackedProcess(cmd[0], cmd.sublist(1), runInShell: true);
+      return (executable: cmd[0], arguments: cmd.sublist(1), runInShell: true);
     }
     // Single-quote each arg to prevent word splitting.
     final cmdStr = cmd.map(_shellQuote).join(' ');
-    return startTrackedProcess(
-      resolveHarnessCliShellExecutable(),
-      buildHarnessCliShellArgs(cmdStr),
+    return (
+      executable: resolveHarnessCliShellExecutable(),
+      arguments: buildHarnessCliShellArgs(cmdStr),
+      runInShell: false,
     );
   }
 
@@ -238,16 +304,8 @@ class _HarnessCliInstallDialogState extends State<HarnessCliInstallDialog> {
 
   void _cancel() {
     if (!_running) return;
-    try {
-      _process?.kill();
-    } catch (error, stack) {
-      silentLog(
-        'harness_cli_install_dialog',
-        'kill process on cancel',
-        error,
-        stack,
-      );
-    }
+    _runGeneration += 1;
+    _stopCurrentProcess('cancel install process');
     setState(() {
       _cancelled = true;
       _running = false;
@@ -259,11 +317,17 @@ class _HarnessCliInstallDialogState extends State<HarnessCliInstallDialog> {
   // ── Elevated install (macOS: osascript; others: display manual command) ─────
 
   Future<void> _retryWithAdminPrivileges() async {
+    final generation = ++_runGeneration;
+    _logFlushTimer?.cancel();
+    _logFlushTimer = null;
+    _pendingLogLines.clear();
     setState(() {
       _running = true;
       _success = false;
+      _cancelled = false;
       _isPermissionError = false;
       _elevatedRetryAttempted = true;
+      _pulsedOutcome = false;
       _logLines.clear();
     });
 
@@ -302,6 +366,7 @@ class _HarnessCliInstallDialogState extends State<HarnessCliInstallDialog> {
         stack,
       );
     }
+    if (!_isRunActive(generation)) return;
 
     final shellCmdStr = ([
       installerPath,
@@ -325,6 +390,7 @@ class _HarnessCliInstallDialogState extends State<HarnessCliInstallDialog> {
           '1; echo __EC__:\$?" '
           'with administrator privileges';
 
+      Process? startedProcess;
       try {
         // Use the safe subprocess wrapper: `Process.run(...).timeout(...)`
         // is a TRAP — Future.timeout only abandons the Dart future while the
@@ -340,11 +406,15 @@ class _HarnessCliInstallDialogState extends State<HarnessCliInstallDialog> {
         final result = await runProcessWithTimeout(
           'osascript',
           ['-e', appleScript],
-          timeout: const Duration(minutes: 5),
+          timeout: _installTimeout,
           tag: 'harness_cli_install_dialog',
+          onProcessStarted: (process) {
+            startedProcess = process;
+            _claimProcess(process, generation);
+          },
         );
 
-        if (!mounted || _cancelled) return;
+        if (!_isRunActive(generation)) return;
 
         if (result == null) {
           // Timed out (child SIGKILLed) or failed to launch.
@@ -400,7 +470,7 @@ class _HarnessCliInstallDialogState extends State<HarnessCliInstallDialog> {
 
         // Re-probe to confirm the binary is now reachable in the login shell.
         final probe = await probeCliInstallation(widget.cli);
-        if (!mounted) return;
+        if (!_isRunActive(generation)) return;
         setState(() {
           _running = false;
           _success = probe.installed;
@@ -431,7 +501,7 @@ class _HarnessCliInstallDialogState extends State<HarnessCliInstallDialog> {
           if (mounted) setState(() => _success = true);
         }
       } on TimeoutException {
-        if (!mounted) return;
+        if (!_isRunActive(generation)) return;
         setState(() {
           _running = false;
           _success = false;
@@ -439,19 +509,21 @@ class _HarnessCliInstallDialogState extends State<HarnessCliInstallDialog> {
         _appendLine(_l10n.harnessCliInstallTimeoutManual);
         _appendLine('  sudo ${cmd.join(' ')}');
       } on ProcessException catch (e) {
-        if (!mounted) return;
+        if (!_isRunActive(generation)) return;
         setState(() {
           _running = false;
           _success = false;
         });
         _appendLine(_l10n.harnessCliInstallOsascriptStartFailed(e.message));
       } catch (e) {
-        if (!mounted) return;
+        if (!_isRunActive(generation)) return;
         setState(() {
           _running = false;
           _success = false;
         });
         _appendLine(_l10n.harnessCliInstallLogGenericError('$e'));
+      } finally {
+        if (identical(_process, startedProcess)) _process = null;
       }
     } else {
       // Linux: no GUI sudo helper — show manual command to copy.

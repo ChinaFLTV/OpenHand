@@ -1046,7 +1046,9 @@ class _BoundedProcessLineDecoder {
 /// errors are logged and do not fail the process run; spawn/exit failures still
 /// propagate to the caller. By default the command starts in a dedicated POSIX
 /// process group, so a timeout terminates the complete command tree instead of
-/// leaving npm/pip/shell descendants behind.
+/// leaving npm/pip/shell descendants behind. [onProcessStarted] runs after both
+/// output subscriptions are installed so interactive callers can retain a safe
+/// cancellation handle without reimplementing stream ownership.
 Future<TrackedProcessLineLogResult> runTrackedProcessWithLineLogging(
   String executable,
   List<String> arguments, {
@@ -1058,6 +1060,7 @@ Future<TrackedProcessLineLogResult> runTrackedProcessWithLineLogging(
   bool includeParentEnvironment = true,
   ProcessLogLineHandler? onStdoutLine,
   ProcessLogLineHandler? onStderrLine,
+  void Function(Process process)? onProcessStarted,
   void Function()? onTimeout,
   Duration streamDrainTimeout = const Duration(milliseconds: 500),
   Duration gracefulTerminationTimeout = const Duration(milliseconds: 500),
@@ -1226,6 +1229,7 @@ Future<TrackedProcessLineLogResult> runTrackedProcessWithLineLogging(
       capture: stderrCapture,
       trimLine: trimStderrLines,
     );
+    onProcessStarted?.call(process);
     final remainingTimeout = effectiveTimeout - executionStopwatch.elapsed;
     final exitCode =
         await (() async {

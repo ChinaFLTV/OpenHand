@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 import '../../../app/support/safe_subprocess.dart';
+import '../../../app/support/silent_log.dart';
 import '../../../app/theme/openhand_status_colors.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/animated_dialog.dart';
@@ -12,6 +13,7 @@ import '../../../shared/ui/auto_follow_scroll_guard.dart';
 import '../../../shared/ui/highlight_pulse.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
+import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/timer_safety.dart';
 import '../service/harness_cli_catalog.dart';
 import 'harness_dialog_utils.dart';
@@ -28,6 +30,8 @@ class HarnessCliLoginDialog extends StatefulWidget {
 class _HarnessCliLoginDialogState extends State<HarnessCliLoginDialog> {
   static const int _maxBufferedChars = 120000;
   static const Duration _noOutputHintDelay = Duration(seconds: 8);
+  static const Duration _processStopGracePeriod = Duration(milliseconds: 500);
+  static const Duration _streamDrainTimeout = Duration(milliseconds: 500);
 
   final ScrollController _scrollController = ScrollController();
   final AutoFollowScrollGuard _scrollGuard = AutoFollowScrollGuard();
@@ -37,6 +41,11 @@ class _HarnessCliLoginDialogState extends State<HarnessCliLoginDialog> {
   StreamSubscription<String>? _stdoutSubscription;
   StreamSubscription<String>? _stderrSubscription;
   Timer? _noOutputTimer;
+  Timer? _outputFlushTimer;
+  final StringBuffer _pendingOutput = StringBuffer();
+  Future<void>? _shutdownFuture;
+  int _runGeneration = 0;
+  bool _disposed = false;
   bool _starting = true;
   bool _finished = false;
   int? _exitCode;
@@ -66,45 +75,71 @@ class _HarnessCliLoginDialogState extends State<HarnessCliLoginDialog> {
 
   @override
   void dispose() {
+    _disposed = true;
+    _runGeneration += 1;
     _noOutputTimer?.cancel();
-    _stdoutSubscription?.cancel();
-    _stderrSubscription?.cancel();
+    _outputFlushTimer?.cancel();
+    _outputFlushTimer = null;
+    _pendingOutput.clear();
+    unawaited(_shutdownProcess());
     _inputController.dispose();
     _scrollController.dispose();
     _successPulse.dispose();
     _errorPulse.dispose();
-    final process = _process;
-    _process = null;
-    if (process != null) {
-      process.kill();
-    }
     super.dispose();
   }
 
   Future<void> _startInteractiveLogin() async {
+    final generation = ++_runGeneration;
+    Process? startedProcess;
     try {
       final process = await startHarnessCliInteractiveProcess(
         executable: _executable,
         args: _loginArgs,
       );
-      if (!mounted) {
-        process.kill();
+      startedProcess = process;
+      if (!_isRunActive(generation)) {
+        unawaited(_terminateProcess(process, 'terminate late login process'));
         return;
       }
 
       _process = process;
 
-      void onStreamError(Object error) {
-        if (!mounted) return;
-        _appendOutput('${_l10n.harnessCliLoginStreamError('$error')}\n');
+      final stdoutDone = Completer<void>();
+      final stderrDone = Completer<void>();
+
+      void complete(Completer<void> completer) {
+        if (!completer.isCompleted) completer.complete();
+      }
+
+      void onStreamError(Object error, Completer<void> done) {
+        if (_isRunActive(generation)) {
+          _appendOutput('${_l10n.harnessCliLoginStreamError('$error')}\n');
+        }
+        complete(done);
       }
 
       _stdoutSubscription = process.stdout
           .transform(const Utf8Decoder(allowMalformed: true))
-          .listen(_appendOutput, onError: onStreamError);
+          .listen(
+            _appendOutput,
+            onError: (Object error, StackTrace _) =>
+                onStreamError(error, stdoutDone),
+            onDone: () => complete(stdoutDone),
+          );
       _stderrSubscription = process.stderr
           .transform(const Utf8Decoder(allowMalformed: true))
-          .listen(_appendOutput, onError: onStreamError);
+          .listen(
+            _appendOutput,
+            onError: (Object error, StackTrace _) =>
+                onStreamError(error, stderrDone),
+            onDone: () => complete(stderrDone),
+          );
+
+      if (!_isRunActive(generation)) {
+        await _shutdownProcess();
+        return;
+      }
 
       setState(() {
         _starting = false;
@@ -113,19 +148,27 @@ class _HarnessCliLoginDialogState extends State<HarnessCliLoginDialog> {
       // Watchdog: if no output arrives within 8 seconds, show a diagnostic
       // hint so the user is not left staring at a blank screen.
       _noOutputTimer = startSafeTimer(_noOutputHintDelay, () {
-        if (!mounted || _output.isNotEmpty || _finished) return;
+        if (!_isRunActive(generation) ||
+            _output.isNotEmpty ||
+            _pendingOutput.isNotEmpty ||
+            _finished) {
+          return;
+        }
         _appendOutput(_l10n.harnessCliLoginNoOutputHint);
       });
 
       final exitCode = await process.exitCode;
       _noOutputTimer?.cancel();
-      if (!mounted) return;
+      await _waitForOutputDrain(stdoutDone, stderrDone);
+      if (identical(_process, process)) _process = null;
+      if (!_isRunActive(generation)) return;
+      _flushPendingOutput();
 
       // If the process exited almost instantly with no output, it likely
       // crashed or was misconfigured.  Run diagnostics and display them.
       if (_output.isEmpty && exitCode != 0) {
         final diags = await collectHarnessCliFailureDiagnostics(_executable);
-        if (diags.isNotEmpty && mounted) {
+        if (diags.isNotEmpty && _isRunActive(generation)) {
           _appendOutput(diags.join('\n'));
           _appendOutput('\n');
         }
@@ -140,7 +183,7 @@ class _HarnessCliLoginDialogState extends State<HarnessCliLoginDialog> {
         _appendOutput(_l10n.harnessCliLoginTtyRequiredHint);
       }
 
-      if (!mounted) return;
+      if (!_isRunActive(generation)) return;
       setState(() {
         _finished = true;
         _exitCode = exitCode;
@@ -151,7 +194,8 @@ class _HarnessCliLoginDialogState extends State<HarnessCliLoginDialog> {
         _errorPulse.value = _errorPulse.value + 1;
       }
     } on ProcessException catch (error) {
-      if (!mounted) return;
+      if (startedProcess != null) await _shutdownProcess();
+      if (!_isRunActive(generation)) return;
       setState(() {
         _starting = false;
         _finished = true;
@@ -161,34 +205,145 @@ class _HarnessCliLoginDialogState extends State<HarnessCliLoginDialog> {
       });
       _errorPulse.value = _errorPulse.value + 1;
     } catch (error) {
-      if (!mounted) {
-        return;
-      }
+      if (!_isRunActive(generation)) return;
+      await _shutdownProcess();
+      if (!_isRunActive(generation)) return;
       setState(() {
         _starting = false;
         _finished = true;
         _errorMessage = '$error';
       });
       _errorPulse.value = _errorPulse.value + 1;
+    } finally {
+      if (identical(_process, startedProcess) && _finished) _process = null;
+    }
+  }
+
+  bool _isRunActive(int generation) {
+    return mounted && !_disposed && generation == _runGeneration;
+  }
+
+  Future<void> _waitForOutputDrain(
+    Completer<void> stdoutDone,
+    Completer<void> stderrDone,
+  ) async {
+    try {
+      await Future.wait<void>(<Future<void>>[
+        stdoutDone.future,
+        stderrDone.future,
+      ]).timeout(_streamDrainTimeout);
+    } on TimeoutException {
+      // A descendant can inherit the pipes after the login process exits.
+    } finally {
+      await _cancelOutputSubscriptions();
+    }
+  }
+
+  Future<void> _cancelOutputSubscriptions() async {
+    final stdoutSubscription = _stdoutSubscription;
+    final stderrSubscription = _stderrSubscription;
+    _stdoutSubscription = null;
+    _stderrSubscription = null;
+    await Future.wait<bool>(<Future<bool>>[
+      cancelStreamSubscriptionBounded<String>(
+        stdoutSubscription,
+        onError: (error, stack) => silentLog(
+          'harness_cli_login_dialog',
+          'cancel stdout subscription',
+          error,
+          stack,
+        ),
+      ),
+      cancelStreamSubscriptionBounded<String>(
+        stderrSubscription,
+        onError: (error, stack) => silentLog(
+          'harness_cli_login_dialog',
+          'cancel stderr subscription',
+          error,
+          stack,
+        ),
+      ),
+    ]);
+  }
+
+  Future<void> _shutdownProcess() {
+    final existing = _shutdownFuture;
+    if (existing != null) return existing;
+    final process = _process;
+    _process = null;
+    _noOutputTimer?.cancel();
+    _noOutputTimer = null;
+
+    late final Future<void> shutdown;
+    shutdown =
+        () async {
+          await Future.wait<void>(<Future<void>>[
+            _cancelOutputSubscriptions(),
+            if (process != null) ...<Future<void>>[
+              runAsyncCleanupBounded(
+                process.stdin.close,
+                onError: (error, stack) => silentLog(
+                  'harness_cli_login_dialog',
+                  'close login process stdin',
+                  error,
+                  stack,
+                ),
+              ).then((_) {}),
+              _terminateProcess(process, 'terminate login process'),
+            ],
+          ]);
+        }().whenComplete(() {
+          if (identical(_shutdownFuture, shutdown)) _shutdownFuture = null;
+        });
+    _shutdownFuture = shutdown;
+    return shutdown;
+  }
+
+  Future<void> _terminateProcess(Process process, String action) async {
+    try {
+      await terminateTrackedProcessTree(
+        process,
+        gracefulTimeout: _processStopGracePeriod,
+      );
+    } catch (error, stack) {
+      silentLog('harness_cli_login_dialog', action, error, stack);
     }
   }
 
   void _appendOutput(String chunk) {
+    if (!mounted || _disposed) return;
     final normalized = stripHarnessCliTerminalSequences(
       chunk,
     ).replaceAll('\r\n', '\n').replaceAll('\r', '\n');
-    if (normalized.isEmpty) {
-      return;
-    }
+    if (normalized.isEmpty) return;
 
-    final nextOutput = _truncateOutput('$_output$normalized');
-    if (!mounted) {
-      _output = nextOutput;
-      return;
+    _pendingOutput.write(normalized);
+    if (_pendingOutput.length > _maxBufferedChars) {
+      final boundedPending = _truncateOutput(_pendingOutput.toString());
+      _pendingOutput
+        ..clear()
+        ..write(boundedPending);
     }
+    _outputFlushTimer ??= startSafeTimer(
+      kOpenHandFramePeriodicTimerInterval,
+      _flushPendingOutput,
+      onError: (error, stack) => silentLog(
+        'harness_cli_login_dialog',
+        'flush login output',
+        error,
+        stack,
+      ),
+    );
+  }
 
+  void _flushPendingOutput() {
+    _outputFlushTimer?.cancel();
+    _outputFlushTimer = null;
+    if (!mounted || _disposed || _pendingOutput.isEmpty) return;
+    final pending = _pendingOutput.toString();
+    _pendingOutput.clear();
     setState(() {
-      _output = nextOutput;
+      _output = _truncateOutput('$_output$pending');
     });
     _scrollToBottom();
   }
@@ -275,20 +430,19 @@ class _HarnessCliLoginDialogState extends State<HarnessCliLoginDialog> {
               'bash',
               '-c',
               '$_commandPreview; exec bash',
-            ]);
+            ], mode: ProcessStartMode.detached);
             break;
           } catch (_) {
             continue;
           }
         }
       } else if (Platform.isWindows) {
-        await startTrackedProcess('cmd', [
-          '/c',
-          'start',
+        await startTrackedProcess(
           'cmd',
-          '/k',
-          _commandPreview,
-        ], runInShell: true);
+          ['/c', 'start', 'cmd', '/k', _commandPreview],
+          runInShell: true,
+          mode: ProcessStartMode.detached,
+        );
       }
     } catch (e) {
       if (!mounted) return;
@@ -297,11 +451,7 @@ class _HarnessCliLoginDialogState extends State<HarnessCliLoginDialog> {
   }
 
   Future<void> _closeDialog() async {
-    final process = _process;
-    _process = null;
-    if (process != null && !_finished) {
-      process.kill();
-    }
+    if (!_finished) unawaited(_shutdownProcess());
     if (!mounted) {
       return;
     }
