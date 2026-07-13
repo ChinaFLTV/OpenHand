@@ -649,191 +649,194 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
     final usesResponsesRouting = _apiDialect == AiApiDialect.openAiCompat;
     return Padding(
       padding: const EdgeInsetsDirectional.fromSTEB(0, 0, 0, 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  openHandLocalizedText(
-                    context,
-                    zh: '自动补全 Base URL',
-                    en: 'Auto-complete Base URL',
-                  ),
-                  style: theme.textTheme.titleSmall,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  _autoCompleteBaseUrl
-                      ? openHandLocalizedText(
-                          context,
-                          zh: '开启时按协议补默认版本路径，例如 OpenAI 兼容接口会追加 v1。',
-                          en: 'Adds the protocol default version path, such as v1 for OpenAI-compatible endpoints.',
-                        )
-                      : openHandLocalizedText(
-                          context,
-                          zh: '关闭时严格使用你填写的 Base URL，只继续拼接资源路径。',
-                          en: 'Uses the Base URL exactly, then appends only the resource path.',
-                        ),
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                AnimatedSize(
-                  duration: duration,
-                  curve: Curves.easeOutCubic,
-                  alignment: Alignment.topCenter,
-                  child: AnimatedSwitcher(
-                    duration: duration,
-                    switchInCurve: Curves.easeOutCubic,
-                    switchOutCurve: Curves.easeInCubic,
-                    transitionBuilder: (child, animation) => FadeTransition(
-                      opacity: animation,
-                      child: SizeTransition(
-                        sizeFactor: animation,
-                        axisAlignment: -1,
-                        child: child,
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      openHandLocalizedText(
+                        context,
+                        zh: '自动补全 Base URL',
+                        en: 'Auto-complete Base URL',
+                      ),
+                      style: theme.textTheme.titleSmall,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _autoCompleteBaseUrl
+                          ? openHandLocalizedText(
+                              context,
+                              zh: '开启时按协议补默认版本路径，例如 OpenAI 兼容接口会追加 v1。',
+                              en: 'Adds the protocol default version path, such as v1 for OpenAI-compatible endpoints.',
+                            )
+                          : openHandLocalizedText(
+                              context,
+                              zh: '关闭时严格使用你填写的 Base URL，只继续拼接资源路径。',
+                              en: 'Uses the Base URL exactly, then appends only the resource path.',
+                            ),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
                       ),
                     ),
-                    child: preview.chat.isEmpty
-                        ? const SizedBox.shrink(
-                            key: ValueKey<String>('endpoint-preview-empty'),
-                          )
-                        : Container(
-                            key: ValueKey<String>(
-                              '$usesResponsesRouting|${preview.responses}|${preview.chat}',
-                            ),
-                            width: double.infinity,
-                            margin: const EdgeInsets.only(top: 10),
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: colorScheme.primaryContainer.withValues(
-                                alpha: 0.22,
-                              ),
-                              borderRadius: BorderRadius.circular(14),
-                              border: Border.all(
-                                color: colorScheme.primary.withValues(
-                                  alpha: 0.2,
-                                ),
-                              ),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  usesResponsesRouting
-                                      ? preview.responses.isNotEmpty
-                                            ? openHandLocalizedText(
-                                                context,
-                                                zh: '运行时优先使用 Responses；确认不兼容后自动回退。',
-                                                zhHant:
-                                                    '執行時優先使用 Responses；確認不相容後自動回退。',
-                                                en: 'Responses is preferred at runtime, with automatic compatibility fallback.',
-                                                fr: 'Responses est prioritaire, avec repli automatique en cas d’incompatibilité.',
-                                                de: 'Responses wird bevorzugt, mit automatischem Kompatibilitäts-Fallback.',
-                                                ja: '実行時は Responses を優先し、非互換時は自動的にフォールバックします。',
-                                              )
-                                            : openHandLocalizedText(
-                                                context,
-                                                zh: 'Responses 已禁用，运行时使用 Chat Completions。',
-                                                zhHant:
-                                                    'Responses 已停用，執行時使用 Chat Completions。',
-                                                en: 'Responses is disabled; Chat Completions is used at runtime.',
-                                                fr: 'Responses est désactivé ; Chat Completions est utilisé.',
-                                                de: 'Responses ist deaktiviert; Chat Completions wird verwendet.',
-                                                ja: 'Responses は無効です。Chat Completions を使用します。',
-                                              )
-                                      : openHandLocalizedText(
-                                          context,
-                                          zh: '根据当前协议展示实际请求端点。',
-                                          zhHant: '依照目前協定顯示實際請求端點。',
-                                          en: 'Shows the effective endpoint for the selected protocol.',
-                                          fr: 'Affiche le endpoint effectif du protocole sélectionné.',
-                                          de: 'Zeigt den effektiven Endpunkt des gewählten Protokolls.',
-                                          ja: '選択したプロトコルの実際のエンドポイントを表示します。',
-                                        ),
-                                  style: theme.textTheme.labelMedium?.copyWith(
-                                    color: colorScheme.onPrimaryContainer,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                                if (usesResponsesRouting &&
-                                    preview.responses.isNotEmpty) ...[
-                                  const SizedBox(height: 10),
-                                  _EndpointPreviewRow(
-                                    icon: Icons.auto_awesome_rounded,
-                                    label: openHandLocalizedText(
-                                      context,
-                                      zh: '首选 · Responses',
-                                      zhHant: '首選 · Responses',
-                                      en: 'Preferred · Responses',
-                                      fr: 'Prioritaire · Responses',
-                                      de: 'Bevorzugt · Responses',
-                                      ja: '優先 · Responses',
-                                    ),
-                                    url: preview.responses,
-                                    color: colorScheme.primary,
-                                  ),
-                                ],
-                                const SizedBox(height: 8),
-                                _EndpointPreviewRow(
-                                  icon:
-                                      !usesResponsesRouting ||
-                                          preview.responses.isEmpty
-                                      ? Icons.route_rounded
-                                      : Icons.swap_horiz_rounded,
-                                  label: !usesResponsesRouting
+                  ],
+                ),
+              ),
+              const SizedBox(width: 16),
+              Switch(
+                value: _autoCompleteBaseUrl,
+                onChanged: _isSaving
+                    ? null
+                    : (value) {
+                        setState(() {
+                          _autoCompleteBaseUrl = value;
+                        });
+                      },
+              ),
+            ],
+          ),
+          AnimatedSize(
+            duration: duration,
+            curve: Curves.easeOutCubic,
+            alignment: Alignment.topCenter,
+            child: AnimatedSwitcher(
+              duration: duration,
+              switchInCurve: Curves.easeOutCubic,
+              switchOutCurve: Curves.easeInCubic,
+              transitionBuilder: (child, animation) => FadeTransition(
+                opacity: animation,
+                child: SizeTransition(
+                  sizeFactor: animation,
+                  axisAlignment: -1,
+                  child: child,
+                ),
+              ),
+              child: preview.chat.isEmpty
+                  ? const SizedBox.shrink(
+                      key: ValueKey<String>('endpoint-preview-empty'),
+                    )
+                  : Container(
+                      key: ValueKey<String>(
+                        '$usesResponsesRouting|${preview.responses}|${preview.chat}',
+                      ),
+                      width: double.infinity,
+                      margin: const EdgeInsets.only(top: 10),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: colorScheme.primaryContainer.withValues(
+                          alpha: 0.22,
+                        ),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: colorScheme.primary.withValues(alpha: 0.2),
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            usesResponsesRouting
+                                ? preview.responses.isNotEmpty
                                       ? openHandLocalizedText(
                                           context,
-                                          zh: '当前 · 协议端点',
-                                          zhHant: '目前 · 協定端點',
-                                          en: 'Active · Protocol Endpoint',
-                                          fr: 'Actif · Endpoint du protocole',
-                                          de: 'Aktiv · Protokollendpunkt',
-                                          ja: '使用中 · プロトコルエンドポイント',
-                                        )
-                                      : preview.responses.isEmpty
-                                      ? openHandLocalizedText(
-                                          context,
-                                          zh: '当前 · Chat Completions',
-                                          zhHant: '目前 · Chat Completions',
-                                          en: 'Active · Chat Completions',
-                                          fr: 'Actif · Chat Completions',
-                                          de: 'Aktiv · Chat Completions',
-                                          ja: '使用中 · Chat Completions',
+                                          zh: '运行时优先使用 Responses；确认不兼容后自动回退。',
+                                          zhHant:
+                                              '執行時優先使用 Responses；確認不相容後自動回退。',
+                                          en: 'Responses is preferred at runtime, with automatic compatibility fallback.',
+                                          fr: 'Responses est prioritaire, avec repli automatique en cas d’incompatibilité.',
+                                          de: 'Responses wird bevorzugt, mit automatischem Kompatibilitäts-Fallback.',
+                                          ja: '実行時は Responses を優先し、非互換時は自動的にフォールバックします。',
                                         )
                                       : openHandLocalizedText(
                                           context,
-                                          zh: '回退 · Chat Completions',
-                                          zhHant: '回退 · Chat Completions',
-                                          en: 'Fallback · Chat Completions',
-                                          fr: 'Repli · Chat Completions',
-                                          de: 'Fallback · Chat Completions',
-                                          ja: 'フォールバック · Chat Completions',
-                                        ),
-                                  url: preview.chat,
-                                  color: colorScheme.onSurfaceVariant,
-                                ),
-                              ],
+                                          zh: 'Responses 已禁用，运行时使用 Chat Completions。',
+                                          zhHant:
+                                              'Responses 已停用，執行時使用 Chat Completions。',
+                                          en: 'Responses is disabled; Chat Completions is used at runtime.',
+                                          fr: 'Responses est désactivé ; Chat Completions est utilisé.',
+                                          de: 'Responses ist deaktiviert; Chat Completions wird verwendet.',
+                                          ja: 'Responses は無効です。Chat Completions を使用します。',
+                                        )
+                                : openHandLocalizedText(
+                                    context,
+                                    zh: '根据当前协议展示实际请求端点。',
+                                    zhHant: '依照目前協定顯示實際請求端點。',
+                                    en: 'Shows the effective endpoint for the selected protocol.',
+                                    fr: 'Affiche le endpoint effectif du protocole sélectionné.',
+                                    de: 'Zeigt den effektiven Endpunkt des gewählten Protokolls.',
+                                    ja: '選択したプロトコルの実際のエンドポイントを表示します。',
+                                  ),
+                            style: theme.textTheme.labelMedium?.copyWith(
+                              color: colorScheme.onPrimaryContainer,
+                              fontWeight: FontWeight.w700,
                             ),
                           ),
-                  ),
-                ),
-              ],
+                          if (usesResponsesRouting &&
+                              preview.responses.isNotEmpty) ...[
+                            const SizedBox(height: 10),
+                            _EndpointPreviewRow(
+                              icon: Icons.auto_awesome_rounded,
+                              label: openHandLocalizedText(
+                                context,
+                                zh: '首选 · Responses',
+                                zhHant: '首選 · Responses',
+                                en: 'Preferred · Responses',
+                                fr: 'Prioritaire · Responses',
+                                de: 'Bevorzugt · Responses',
+                                ja: '優先 · Responses',
+                              ),
+                              url: preview.responses,
+                              color: colorScheme.primary,
+                            ),
+                          ],
+                          const SizedBox(height: 8),
+                          _EndpointPreviewRow(
+                            icon:
+                                !usesResponsesRouting ||
+                                    preview.responses.isEmpty
+                                ? Icons.route_rounded
+                                : Icons.swap_horiz_rounded,
+                            label: !usesResponsesRouting
+                                ? openHandLocalizedText(
+                                    context,
+                                    zh: '当前 · 协议端点',
+                                    zhHant: '目前 · 協定端點',
+                                    en: 'Active · Protocol Endpoint',
+                                    fr: 'Actif · Endpoint du protocole',
+                                    de: 'Aktiv · Protokollendpunkt',
+                                    ja: '使用中 · プロトコルエンドポイント',
+                                  )
+                                : preview.responses.isEmpty
+                                ? openHandLocalizedText(
+                                    context,
+                                    zh: '当前 · Chat Completions',
+                                    zhHant: '目前 · Chat Completions',
+                                    en: 'Active · Chat Completions',
+                                    fr: 'Actif · Chat Completions',
+                                    de: 'Aktiv · Chat Completions',
+                                    ja: '使用中 · Chat Completions',
+                                  )
+                                : openHandLocalizedText(
+                                    context,
+                                    zh: '回退 · Chat Completions',
+                                    zhHant: '回退 · Chat Completions',
+                                    en: 'Fallback · Chat Completions',
+                                    fr: 'Repli · Chat Completions',
+                                    de: 'Fallback · Chat Completions',
+                                    ja: 'フォールバック · Chat Completions',
+                                  ),
+                            url: preview.chat,
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ],
+                      ),
+                    ),
             ),
-          ),
-          const SizedBox(width: 16),
-          Switch(
-            value: _autoCompleteBaseUrl,
-            onChanged: _isSaving
-                ? null
-                : (value) {
-                    setState(() {
-                      _autoCompleteBaseUrl = value;
-                    });
-                  },
           ),
         ],
       ),
