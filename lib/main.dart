@@ -14,6 +14,7 @@ import 'package:provider/provider.dart';
 import 'app/model/app_info.dart';
 import 'app/openhand_app.dart';
 import 'app/state/settings_controller.dart';
+import 'app/support/app_runtime_cleanup_registry.dart';
 import 'app/support/app_runtime_context.dart';
 import 'app/support/input_repair_service.dart';
 import 'app/support/safe_subprocess.dart';
@@ -67,6 +68,9 @@ Future<void> main() async {
 
 Future<void> _bootstrap() async {
   WidgetsFlutterBinding.ensureInitialized();
+  final runtimeCleanup = AppRuntimeCleanupRegistry(
+    cleanupTimeout: const Duration(seconds: 5),
+  );
   MediaKit.ensureInitialized();
   iaw.PlatformInAppWebViewController.debugLoggingSettings.enabled = false;
   // 节流自动模式与 UI 卡顿降级会读取 recentFps。
@@ -74,13 +78,15 @@ Future<void> _bootstrap() async {
 
   // 异常退出时先清理登记过的子进程，避免残留进程继续持有系统输入上下文。
   // 正常退出由 OpenHandApp 内的 AppLifecycleListener 处理。
+  final signalSubscriptions = <StreamSubscription<ProcessSignal>>[];
   if (!Platform.isWindows) {
     for (final sig in <ProcessSignal>[
       ProcessSignal.sigint,
       ProcessSignal.sigterm,
     ]) {
       try {
-        sig.watch().listen((_) async {
+        final subscription = sig.watch().listen((_) async {
+          await runtimeCleanup.dispose();
           try {
             await killAllTrackedChildren();
           } catch (error, stack) {
@@ -88,6 +94,7 @@ Future<void> _bootstrap() async {
           }
           exit(0);
         });
+        signalSubscriptions.add(subscription);
       } catch (error, stack) {
         // 某些 sandbox / test 环境不允许装信号 handler，忽略。
         silentLog('main', 'install signal handler', error, stack);
@@ -208,7 +215,10 @@ Future<void> _bootstrap() async {
   final pluginServiceModuleFuture = PluginServiceModule.bootstrap();
   final knowledgeBaseModuleFuture = KnowledgeBaseModule.bootstrap();
   // 预加载输出格式控制 Prompt 片段；未就绪时 AiPromptBuilder 会回退到内置兜底。
-  unawaited(AiOutputFormatPrompts.ensureLoaded());
+  _runMainBackgroundTask(
+    AiOutputFormatPrompts.ensureLoaded(),
+    'load output format prompts',
+  );
   // kick off system-proxy detection in parallel with the
   // controllers — internal HTTP clients (WebSearch / WebFetch) consult
   // SystemProxyResolver lazily, so this is purely best-effort.
@@ -218,16 +228,10 @@ Future<void> _bootstrap() async {
   final settingsController = await settingsControllerFuture;
   final hooks = await hooksModuleFuture;
   developer.Timeline.finishSync();
-  // 设置变更通过 listener 同步给代理 resolver，全程不需要重启。
+  // 启动阶段先写入一次；统一 listener 会在所有运行时依赖就绪后注册。
   SystemProxyResolver.instance.applyConfig(settingsController.proxySettings);
-  settingsController.addListener(() {
-    SystemProxyResolver.instance.applyConfig(settingsController.proxySettings);
-  });
   // 用 top-level 变量把 stdio MCP 镜像源模式同步给 discovery service。
   mcpStdioMirrorModeOverride = settingsController.mcpStdioMirrorMode;
-  settingsController.addListener(() {
-    mcpStdioMirrorModeOverride = settingsController.mcpStdioMirrorMode;
-  });
   // MemoryController 懒加载完成后再暴露给 AI 内建 Memory 工具。
   MemoryController? memoryControllerHandle;
   AgentsController? agentsControllerHandle;
@@ -247,11 +251,6 @@ Future<void> _bootstrap() async {
   AiLspClientService.instance.updateLanguageSettings(
     settingsController.editorLspSettings,
   );
-  settingsController.addListener(() {
-    AiLspClientService.instance.updateLanguageSettings(
-      settingsController.editorLspSettings,
-    );
-  });
   final skillsModuleFuture = SkillsModule.bootstrap(
     initialStoragePath: settingsController.skillsStoragePath,
   );
@@ -260,27 +259,27 @@ Future<void> _bootstrap() async {
     autoProbeConcurrency: settingsController.mcpAutoProbeConcurrency,
   );
   final skills = await skillsModuleFuture;
-  unawaited(skills.controller.refresh());
+  _runMainBackgroundTask(skills.controller.refresh(), 'refresh skills');
   final mcp = await mcpModuleFuture;
-  unawaited(mcp.controller.refresh());
+  _runMainBackgroundTask(mcp.controller.refresh(), 'refresh MCP servers');
   // MemoryController 只在用户动作路径使用，刷新放到后台以缩短冷启动关键路径。
   final memory = await memoryModuleFuture;
-  unawaited(memory.controller.refresh());
+  _runMainBackgroundTask(memory.controller.refresh(), 'refresh memory');
   final agents = await agentsModuleFuture;
   agentsControllerHandle = agents.controller;
-  unawaited(agents.controller.refresh());
+  _runMainBackgroundTask(agents.controller.refresh(), 'refresh agents');
   // CronsController 先注册 agent handler，再把数据库加载和调度器启动放到后台。
   final crons = await cronsModuleFuture;
   final cronsController = crons.controller;
   // InstructionsController 不是首屏关键路径，后台刷新即可。
   final instructions = await instructionsModuleFuture;
   instructionsControllerHandle = instructions.controller;
-  unawaited(instructions.controller.refresh());
+  _runMainBackgroundTask(
+    instructions.controller.refresh(),
+    'refresh instructions',
+  );
   final appInfo = await appInfoFuture;
   AppRuntimeContext.initialize(appInfo, appLocale: settingsController.locale);
-  settingsController.addListener(() {
-    AppRuntimeContext.updateAppLocale(settingsController.locale);
-  });
   developer.Timeline.startSync('openhand.boot.await_remaining_controllers');
   memoryControllerHandle = memory.controller;
   final ai = await aiModuleFuture;
@@ -288,7 +287,7 @@ Future<void> _bootstrap() async {
   developer.Timeline.finishSync();
   // Make sure system-proxy detection has resolved before the user can
   // hit WebSearch/WebFetch. Best-effort — failures fall back to DIRECT.
-  unawaited(systemProxyFuture);
+  _runMainBackgroundTask(systemProxyFuture, 'initialize system proxy');
 
   // 自学习调度器只暴露 Memory / SkillManager 工具，并把流式过程写入自学习卡片。
   final selfLearningChatClient = AiChatService();
@@ -356,7 +355,13 @@ Future<void> _bootstrap() async {
       stdout: 'noop: unknown agent tag (${entry.tags.join(",")})',
     );
   });
-  settingsController.addListener(() {
+  void syncRuntimeSettings() {
+    SystemProxyResolver.instance.applyConfig(settingsController.proxySettings);
+    mcpStdioMirrorModeOverride = settingsController.mcpStdioMirrorMode;
+    AiLspClientService.instance.updateLanguageSettings(
+      settingsController.editorLspSettings,
+    );
+    AppRuntimeContext.updateAppLocale(settingsController.locale);
     mcp.controller.updateAutoProbeConcurrency(
       settingsController.mcpAutoProbeConcurrency,
     );
@@ -365,7 +370,7 @@ Future<void> _bootstrap() async {
     );
     SelfLearningRunner.streamFlushIntervalMs =
         settingsController.selfLearningStreamFlushIntervalMs;
-    unawaited(
+    _runMainBackgroundTask(
       cronsController.updateMcpKeywordIndexSchedule(
         mode: settingsController.mcpKeywordIndexUpdateMode,
         intervalValue: settingsController.mcpKeywordIndexIntervalValue,
@@ -373,14 +378,20 @@ Future<void> _bootstrap() async {
         scheduledTimeOfDay:
             settingsController.mcpKeywordIndexScheduledTimeOfDay,
       ),
+      'update MCP keyword index schedule',
     );
-  });
+  }
+
+  settingsController.addListener(syncRuntimeSettings);
   // 启动期同步一次，避免首次 listener 触发前的 race。
   SelfLearningRunner.streamFlushIntervalMs =
       settingsController.selfLearningStreamFlushIntervalMs;
   // agent handler 注册后再初始化 cron；启动期主动同步一次 MCP 关键词索引计划。
-  unawaited(mcp.controller.ensureKeywordIndexLoaded());
-  unawaited(() async {
+  _runMainBackgroundTask(
+    mcp.controller.ensureKeywordIndexLoaded(),
+    'load MCP keyword index',
+  );
+  _runMainBackgroundTask(() async {
     await cronsController.initialize();
     await cronsController.updateMcpKeywordIndexSchedule(
       mode: settingsController.mcpKeywordIndexUpdateMode,
@@ -388,7 +399,7 @@ Future<void> _bootstrap() async {
       intervalUnit: settingsController.mcpKeywordIndexIntervalUnit,
       scheduledTimeOfDay: settingsController.mcpKeywordIndexScheduledTimeOfDay,
     );
-  }());
+  }(), 'initialize crons');
 
   final knowledgeBase = await knowledgeBaseModuleFuture;
   knowledgeBaseControllerHandle = knowledgeBase.controller;
@@ -419,39 +430,104 @@ Future<void> _bootstrap() async {
     machineTerminalService: machineTerminalService,
     appInfo: appInfo,
   );
-  unawaited(messageGateway.controller.initialize());
+  _runMainBackgroundTask(
+    messageGateway.controller.initialize(),
+    'initialize message gateway',
+  );
 
   final pluginService = await pluginServiceModuleFuture;
-  unawaited(pluginService.controller.initialize());
+  _runMainBackgroundTask(
+    pluginService.controller.initialize(),
+    'initialize plugin service',
+  );
   agents.controller.setRuntimeAvailabilityProvider(
     () => AgentRuntimeAvailability.fromHermesPlugin(
       pluginService.controller.pluginById(PluginCatalogIds.hermesAgent),
       isLoading: pluginService.controller.isLoading,
     ),
   );
-  pluginService.controller.addListener(
-    agents.controller.notifyRuntimeAvailabilityChanged,
-  );
+  final pluginAvailabilityListener =
+      agents.controller.notifyRuntimeAvailabilityChanged;
+  pluginService.controller.addListener(pluginAvailabilityListener);
   messageGateway.controller.pluginServiceController = pluginService.controller;
-  unawaited(knowledgeBase.controller.initialize());
+  _runMainBackgroundTask(
+    knowledgeBase.controller.initialize(),
+    'initialize knowledge base',
+  );
 
   // 冷启动后异步触发一次 cron 历史清理，不干扰 UI 启动。
-  unawaited(
+  _runMainBackgroundTask(
     runCronHistoryCleanupOnce(
       settings: settingsController,
       crons: cronsController,
     ),
+    'clean cron history',
   );
 
   // 2026-05 — WebSearch 缓存预热 / 自愈：扫描 ~/.openhand/cache/web_search/
   // 删除已过期、孤儿 entry 与孤儿 .txt，重建 index.json。fire-and-forget,
   // 全部失败 silentLog；不阻塞 UI 启动。
-  unawaited(WebSearchCacheStore.instance.prewarm());
-  unawaited(WebFetchCacheStore.instance.prewarm());
+  _runMainBackgroundTask(
+    WebSearchCacheStore.instance.prewarm(),
+    'prewarm WebSearch cache',
+  );
+  _runMainBackgroundTask(
+    WebFetchCacheStore.instance.prewarm(),
+    'prewarm WebFetch cache',
+  );
   final templateRuntimeLinkageController = TemplateRuntimeLinkageController();
   final throttleAutoSyncService = ThrottleAutoSyncService(
     settingsController: settingsController,
   )..start();
+
+  // These instances are created outside Provider, so `.value` providers do
+  // not own them. Register base dependencies first and tear them down in the
+  // reverse order when the root app exits.
+  runtimeCleanup
+    ..register('database', DatabaseService.instance.close)
+    ..register('settings controller', settingsController.dispose)
+    ..register('hooks controller', hooks.controller.dispose)
+    ..register('skills controller', skills.controller.dispose)
+    ..register('memory controller', memory.controller.dispose)
+    ..register('agents controller', agents.controller.dispose)
+    ..register('instructions controller', instructions.controller.dispose)
+    ..register(
+      'template runtime linkage controller',
+      templateRuntimeLinkageController.dispose,
+    )
+    ..register('plugin service controller', pluginService.controller.dispose)
+    ..register('knowledge base controller', knowledgeBase.controller.dispose)
+    ..register('MCP controller', mcp.controller.dispose)
+    ..register('self-learning chat client', selfLearningChatClient.dispose)
+    ..register('AI session controller', aiSessionController.dispose)
+    ..register('AI LSP sessions', AiLspClientService.instance.disposeAll)
+    ..register('machine terminal service', () async {
+      await machineTerminalService.shutdown();
+      machineTerminalService.dispose();
+    })
+    ..register('crons controller', cronsController.dispose)
+    ..register('message gateway controller', () async {
+      messageGateway.controller.pluginServiceController = null;
+      await messageGateway.controller.shutdown();
+    })
+    ..register('FPS monitor', OpenHandFpsMonitor.instance.stop);
+  for (final subscription in signalSubscriptions) {
+    runtimeCleanup.register('process signal subscription', subscription.cancel);
+  }
+  runtimeCleanup
+    ..register(
+      'cron agent handler',
+      () => cronsController.registerAgentHandler(null),
+    )
+    ..register(
+      'plugin availability listener',
+      () => pluginService.controller.removeListener(pluginAvailabilityListener),
+    )
+    ..register(
+      'runtime settings listener',
+      () => settingsController.removeListener(syncRuntimeSettings),
+    )
+    ..register('throttle auto sync', throttleAutoSyncService.dispose);
 
   runApp(
     MultiProvider(
@@ -478,7 +554,7 @@ Future<void> _bootstrap() async {
         ),
         Provider<AppInfo>.value(value: appInfo),
       ],
-      child: OpenHandApp(onShutdown: throttleAutoSyncService.dispose),
+      child: OpenHandApp(onShutdown: runtimeCleanup.dispose),
     ),
   );
   developer.Timeline.instantSync('openhand.boot.runApp_called');
@@ -487,9 +563,26 @@ Future<void> _bootstrap() async {
   // first frame is painted so it never competes with controller init or
   // first-paint work for the event loop.
   WidgetsBinding.instance.addPostFrameCallback((_) {
-    unawaited(HooksExecutor.pruneStaleTempFiles());
-    unawaited(ai_protocol_adapter.pruneInlineMediaCache());
+    _runMainBackgroundTask(
+      HooksExecutor.pruneStaleTempFiles(),
+      'prune hook temp files',
+    );
+    _runMainBackgroundTask(
+      ai_protocol_adapter.pruneInlineMediaCache(),
+      'prune inline media cache',
+    );
   });
+}
+
+void _runMainBackgroundTask<T>(Future<T> task, String action) {
+  unawaited(
+    task.then<void>(
+      (_) {},
+      onError: (Object error, StackTrace stack) {
+        silentLog('main', action, error, stack);
+      },
+    ),
+  );
 }
 
 Future<AppInfo> _loadAppInfo() async {

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../../app/model/app_info.dart';
 import '../../app/state/settings_controller.dart';
+import '../../app/support/silent_log.dart';
 import '../../shared/core/managed_change_notifier.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/timer_safety.dart';
@@ -118,6 +119,8 @@ class MessageGatewayController extends ManagedChangeNotifier {
   final MessageGatewayStore _store;
   final WebMessagePlatformService _service;
   late final StreamSubscription<WebGatewayLogEntry> _logSub;
+  Future<void>? _shutdownFuture;
+  bool _disposed = false;
   late final OpenHandDebouncer _logNotifyDebouncer = OpenHandDebouncer(
     delay: _logNotifyDelay,
   );
@@ -568,12 +571,29 @@ class MessageGatewayController extends ManagedChangeNotifier {
     _service.pluginServiceController = controller;
   }
 
+  /// Disposes the notifier and waits for the HTTP server, subscriptions, and
+  /// owned media services to release their resources. Safe to call repeatedly.
+  Future<void> shutdown() {
+    if (!_disposed) dispose();
+    return _shutdownFuture ?? Future<void>.value();
+  }
+
   @override
   void dispose() {
+    if (_disposed) return;
+    _disposed = true;
     _logNotifyDebouncer.dispose();
-    _logSub.cancel();
     _saveSuccessPulse.dispose();
-    unawaited(_service.dispose());
+    _shutdownFuture = () async {
+      try {
+        await Future.wait<void>(<Future<void>>[
+          _logSub.cancel(),
+          _service.dispose(),
+        ]);
+      } catch (error, stack) {
+        silentLog('message_gateway', 'shutdown', error, stack);
+      }
+    }();
     super.dispose();
   }
 

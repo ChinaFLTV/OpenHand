@@ -52,6 +52,7 @@ class KnowledgeBaseController extends ChangeNotifier {
   bool _busy = false;
   String _query = '';
   String? _error;
+  bool _isDisposed = false;
 
   KnowledgeBaseSettings get settings => _settings;
   List<KnowledgeSource> get sources => _sources;
@@ -526,7 +527,15 @@ class KnowledgeBaseController extends ChangeNotifier {
   }
 
   @override
+  void notifyListeners() {
+    if (_isDisposed) return;
+    super.notifyListeners();
+  }
+
+  @override
   void dispose() {
+    if (_isDisposed) return;
+    _isDisposed = true;
     _embeddingService.dispose();
     super.dispose();
   }

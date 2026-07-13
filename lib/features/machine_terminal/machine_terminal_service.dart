@@ -49,6 +49,8 @@ const Duration _commandPollInterval = Duration(milliseconds: 80);
 const Duration _metadataPersistDebounce = Duration(milliseconds: 700);
 const Duration _historyPersistDebounce = Duration(milliseconds: 650);
 const Duration _terminalStopGraceDuration = Duration(milliseconds: 900);
+const int _shutdownConcurrency = 4;
+const Duration _shutdownStepTimeout = Duration(milliseconds: 1500);
 const String _machineTerminalSurface = 'openhand_machine_terminal';
 const String _machineTerminalWorkflow = 'builtin_terminal_panel';
 const String _machineTerminalWorkspacePrefix = 'machine-terminal';
@@ -485,10 +487,12 @@ class MachineTerminalService extends ChangeNotifier {
       <String, Future<void>>{};
   final Map<String, String> _lastPersistedHistoryDigestBySession =
       <String, String>{};
+  Future<void>? _shutdownFuture;
 
   int _terminalCounter = 0;
   int _commandCounter = 0;
   bool _isDisposed = false;
+  bool _notifierDisposed = false;
   bool _notificationScheduled = false;
   MachineTerminalMetadataPersister? _metadataPersister;
 
@@ -551,23 +555,45 @@ class MachineTerminalService extends ChangeNotifier {
     final normalizedSessionId = nullIfBlank(sessionId);
     if (normalizedSessionId == null) return;
     _metadataPersistTimers.remove(normalizedSessionId)?.cancel();
-    _metadataPersistChains.remove(normalizedSessionId);
+    final pendingMetadataPersist = _metadataPersistChains.remove(
+      normalizedSessionId,
+    );
     _historyPersistTimers.remove(normalizedSessionId)?.cancel();
     final pendingHistoryPersist = _historyPersistChains.remove(
       normalizedSessionId,
     );
+    for (final pending in <Future<void>>[
+      if (pendingMetadataPersist != null) pendingMetadataPersist,
+      if (pendingHistoryPersist != null) pendingHistoryPersist,
+    ]) {
+      await runAsyncCleanupBounded(
+        () => pending,
+        timeout: _shutdownStepTimeout,
+        onError: (error, stack) => silentLog(
+          'machine_terminal',
+          'dispose workspace persist',
+          error,
+          stack,
+        ),
+      );
+    }
     _lastPersistedMetadataDigestBySession.remove(normalizedSessionId);
     _lastPersistedHistoryDigestBySession.remove(normalizedSessionId);
     _metadataCreatedAtBySession.remove(normalizedSessionId);
     _metadataWorkingDirectoryBySession.remove(normalizedSessionId);
     final workspace = _workspaces.remove(normalizedSessionId);
     if (workspace != null) {
-      await workspace.shutdown();
-    }
-    if (pendingHistoryPersist != null) {
-      await pendingHistoryPersist.catchError((Object error, StackTrace stack) {
-        silentLog('machine_terminal', 'dispose history persist', error, stack);
-      });
+      await runAsyncCleanupBounded(
+        workspace.shutdown,
+        timeout: _shutdownStepTimeout,
+        onError: (error, stack) => silentLog(
+          'machine_terminal',
+          'dispose workspace terminals',
+          error,
+          stack,
+        ),
+      );
+      workspace.dispose();
     }
     await _deleteWorkspaceHistoryFile(normalizedSessionId);
     _notifyListenersSafely();
@@ -907,30 +933,103 @@ class MachineTerminalService extends ChangeNotifier {
     return metadata;
   }
 
-  @override
-  void dispose() {
+  /// Flushes metadata/history and waits for all owned PTYs to stop. Repeated
+  /// calls share one future so root shutdown and notifier disposal cannot race.
+  Future<void> shutdown() {
+    final active = _shutdownFuture;
+    if (active != null) return active;
     _isDisposed = true;
+    final shutdown = () async {
+      try {
+        await _shutdownResources();
+      } catch (error, stack) {
+        silentLog('machine_terminal', 'shutdown', error, stack);
+      }
+    }();
+    _shutdownFuture = shutdown;
+    return shutdown;
+  }
+
+  Future<void> _shutdownResources() async {
     for (final timer in _metadataPersistTimers.values) {
       timer.cancel();
     }
     for (final timer in _historyPersistTimers.values) {
       timer.cancel();
     }
-    for (final sessionId in _workspaces.keys.toList(growable: false)) {
-      unawaited(_persistWorkspaceHistoryNow(sessionId));
-    }
     _metadataPersistTimers.clear();
-    _metadataPersistChains.clear();
     _historyPersistTimers.clear();
-    _historyPersistChains.clear();
-    _lastPersistedMetadataDigestBySession.clear();
-    _lastPersistedHistoryDigestBySession.clear();
-    _metadataCreatedAtBySession.clear();
-    _metadataWorkingDirectoryBySession.clear();
-    for (final workspace in _workspaces.values) {
-      workspace.dispose();
+
+    final pendingPersists = <Future<void>>[
+      ..._metadataPersistChains.values,
+      ..._historyPersistChains.values,
+    ];
+    try {
+      await forEachIndexWithConcurrencyLimit(
+        itemCount: pendingPersists.length,
+        maxConcurrency: _shutdownConcurrency,
+        task: (index) async {
+          await runAsyncCleanupBounded(
+            () => pendingPersists[index],
+            timeout: _shutdownStepTimeout,
+            onError: (error, stack) => silentLog(
+              'machine_terminal',
+              'await pending persist',
+              error,
+              stack,
+            ),
+          );
+        },
+      );
+      final sessionIds = _workspaces.keys.toList(growable: false);
+      await forEachIndexWithConcurrencyLimit(
+        itemCount: sessionIds.length,
+        maxConcurrency: _shutdownConcurrency,
+        task: (index) async {
+          final sessionId = sessionIds[index];
+          await runAsyncCleanupBounded(
+            () async {
+              await _persistWorkspaceHistoryNow(sessionId);
+              await _persistSessionMetadataNow(sessionId);
+            },
+            timeout: _shutdownStepTimeout,
+            onError: (error, stack) =>
+                silentLog('machine_terminal', 'flush workspace', error, stack),
+          );
+        },
+      );
+      final workspaces = _workspaces.values.toList(growable: false);
+      await forEachIndexWithConcurrencyLimit(
+        itemCount: workspaces.length,
+        maxConcurrency: _shutdownConcurrency,
+        task: (index) async {
+          await runAsyncCleanupBounded(
+            workspaces[index].shutdown,
+            timeout: _shutdownStepTimeout,
+            onError: (error, stack) =>
+                silentLog('machine_terminal', 'stop workspace', error, stack),
+          );
+        },
+      );
+    } finally {
+      for (final workspace in _workspaces.values) {
+        workspace.dispose();
+      }
+      _metadataPersistChains.clear();
+      _historyPersistChains.clear();
+      _lastPersistedMetadataDigestBySession.clear();
+      _lastPersistedHistoryDigestBySession.clear();
+      _metadataCreatedAtBySession.clear();
+      _metadataWorkingDirectoryBySession.clear();
+      _workspaces.clear();
     }
-    _workspaces.clear();
+  }
+
+  @override
+  void dispose() {
+    if (_notifierDisposed) return;
+    _notifierDisposed = true;
+    unawaited(shutdown());
     super.dispose();
   }
 
@@ -959,6 +1058,9 @@ class MachineTerminalService extends ChangeNotifier {
     required String sessionId,
     String? workingDirectory,
   }) {
+    if (_isDisposed) {
+      throw StateError('MachineTerminalService is shut down.');
+    }
     final normalizedSessionId = _normalizeSessionId(sessionId);
     return _workspaces.putIfAbsent(normalizedSessionId, () {
       final defaultWorkingDirectory =
