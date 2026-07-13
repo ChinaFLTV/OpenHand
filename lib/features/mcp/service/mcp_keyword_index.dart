@@ -6,6 +6,8 @@ import 'package:path/path.dart' as p;
 
 import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/silent_log.dart';
+import '../../../shared/db/atomic_file_operations.dart';
+import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../model/mcp_server.dart';
 import '../model/mcp_tool.dart';
@@ -175,14 +177,27 @@ typedef McpServerToolsResolver =
 ///
 /// 防抖：上层应自行节流（按钮上锁 / 单飞 Future）。
 class McpKeywordIndexService {
-  McpKeywordIndexService({Directory? storageDir})
-    : _storageDir =
-          storageDir ?? Directory(OpenHandPaths.defaultMcpDirectoryPath());
+  McpKeywordIndexService({
+    Directory? storageDir,
+    int maxPersistedBytes = _defaultMaxPersistedBytes,
+  }) : _storageDir =
+           storageDir ?? Directory(OpenHandPaths.defaultMcpDirectoryPath()),
+       _maxPersistedBytes = maxPersistedBytes {
+    if (maxPersistedBytes < 1) {
+      throw ArgumentError.value(
+        maxPersistedBytes,
+        'maxPersistedBytes',
+        'Must be positive.',
+      );
+    }
+  }
 
   final Directory _storageDir;
+  final int _maxPersistedBytes;
   Future<McpKeywordIndexBuildResult>? _inflight;
 
   static const String _fileName = 'keyword_index.json';
+  static const int _defaultMaxPersistedBytes = 32 * 1024 * 1024;
 
   File get _file => File(p.join(_storageDir.path, _fileName));
 
@@ -201,10 +216,17 @@ class McpKeywordIndexService {
       onProgress: onProgress,
     );
     _inflight = fut;
-    fut.whenComplete(() {
-      _inflight = null;
-    });
+    unawaited(
+      fut.then<void>(
+        (_) => _clearInflight(fut),
+        onError: (Object _, StackTrace _) => _clearInflight(fut),
+      ),
+    );
     return fut;
+  }
+
+  void _clearInflight(Future<McpKeywordIndexBuildResult> completed) {
+    if (identical(_inflight, completed)) _inflight = null;
   }
 
   /// 当前是否有正在进行中的构建。
@@ -297,7 +319,7 @@ class McpKeywordIndexService {
       builtAt: DateTime.now(),
       durationMs: stopwatch.elapsedMilliseconds,
     );
-    unawaited(_persist(index));
+    await _persist(index);
     return McpKeywordIndexBuildResult(
       index: index,
       skippedServers: skipped,
@@ -338,11 +360,11 @@ class McpKeywordIndexService {
       if (!await _storageDir.exists()) {
         await _storageDir.create(recursive: true);
       }
-      // Atomic-ish: write to .tmp, rename. Avoids leaving a half-written
-      // index if the process is killed mid-flush.
-      final tmp = File('${_file.path}.tmp');
-      await tmp.writeAsString(jsonEncode(index.toJson()), flush: true);
-      await tmp.rename(_file.path);
+      final content = jsonEncode(index.toJson());
+      if (utf8.encode(content).length + 1 > _maxPersistedBytes) {
+        throw StateError('MCP keyword index exceeds its persistence limit.');
+      }
+      await writeFileAtomically(_file, '$content\n');
     } catch (e, s) {
       silentLog('mcp_keyword_index', 'persist', e, s);
     }
@@ -352,7 +374,10 @@ class McpKeywordIndexService {
   Future<McpKeywordIndex?> loadFromDisk() async {
     try {
       if (!await _file.exists()) return null;
-      final raw = await _file.readAsString();
+      final raw = await readBoundedFileString(
+        _file,
+        maxBytes: _maxPersistedBytes,
+      );
       final decoded = jsonDecode(raw);
       if (decoded is! Map) return null;
       return McpKeywordIndex.fromJson(stringKeyedMapFromValue(decoded));

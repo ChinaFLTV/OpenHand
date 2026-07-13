@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:image/image.dart' as img;
 import 'package:path/path.dart' as p;
 
+import '../../../../shared/util/bounded_file_io.dart';
 import '../../../../shared/util/hex_encoding.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../ai_tool_utils.dart';
@@ -56,7 +57,12 @@ class AiFileReadRenderer {
           totalByteSize: fileLength,
         );
       }
-      final bytes = await file.readAsBytes();
+      final bytes = await readBoundedFileBytes(
+        file,
+        maxBytes: AiToolUtils.maxStructuredReadBytes,
+        idleTimeout: defaultBoundedFileReadIdleTimeout,
+        totalTimeout: defaultBoundedFileReadTotalTimeout,
+      );
       return _renderImage(bytes, filePath, extension);
     }
     if (extension == '.pdf') {
@@ -69,7 +75,12 @@ class AiFileReadRenderer {
           pdfPages: pdfPages,
         );
       }
-      final bytes = await file.readAsBytes();
+      final bytes = await readBoundedFileBytes(
+        file,
+        maxBytes: AiToolUtils.maxStructuredReadBytes,
+        idleTimeout: defaultBoundedFileReadIdleTimeout,
+        totalTimeout: defaultBoundedFileReadTotalTimeout,
+      );
       return _renderPdf(bytes, filePath, pageRange: pdfPages);
     }
     final bytes = await AiToolUtils.readFilePrefix(file, fileLength);
@@ -161,7 +172,12 @@ class AiFileReadRenderer {
   Future<String> _renderNotebookForRead(File file) async {
     final Object? decoded;
     try {
-      decoded = jsonDecode(await file.readAsString());
+      decoded = jsonDecode(
+        await readBoundedFileString(
+          file,
+          maxBytes: AiToolUtils.maxStructuredReadBytes,
+        ),
+      );
     } catch (_) {
       return '';
     }

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
 
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_pty/flutter_pty.dart';
@@ -13,6 +14,7 @@ import '../../app/support/openhand_paths.dart';
 import '../../app/support/silent_log.dart';
 import '../../shared/db/atomic_file_operations.dart';
 import '../../shared/util/async_concurrency.dart';
+import '../../shared/util/bounded_file_io.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/timer_safety.dart';
 
@@ -56,6 +58,7 @@ const String _machineTerminalWorkflow = 'builtin_terminal_panel';
 const String _machineTerminalWorkspacePrefix = 'machine-terminal';
 const String _machineTerminalHistoryFileName = 'machine-terminal-history.json';
 const int _machineTerminalHistoryStorageSchemaVersion = 1;
+const int _machineTerminalHistoryMaxBytes = 32 * 1024 * 1024;
 
 typedef MachineTerminalMetadataPersister =
     Future<void> Function(String sessionId, Map<String, Object?> metadata);
@@ -472,6 +475,11 @@ abstract final class MachineTerminalSessionMetadata {
 }
 
 class MachineTerminalService extends ChangeNotifier {
+  MachineTerminalService({String? sessionsDirectoryPath})
+    : _sessionsDirectoryPath =
+          sessionsDirectoryPath ?? OpenHandPaths.defaultSessionsDirectoryPath();
+
+  final String _sessionsDirectoryPath;
   final Map<String, _MachineTerminalWorkspace> _workspaces =
       <String, _MachineTerminalWorkspace>{};
   final Map<String, String> _metadataCreatedAtBySession = <String, String>{};
@@ -1176,7 +1184,12 @@ class MachineTerminalService extends ChangeNotifier {
     try {
       _recoverAtomicWriteBackupIfNeededSync(file);
       if (!file.existsSync()) return null;
-      final decoded = jsonDecode(file.readAsStringSync());
+      final decoded = jsonDecode(
+        readBoundedFileStringSync(
+          file,
+          maxBytes: _machineTerminalHistoryMaxBytes,
+        ),
+      );
       final raw = stringKeyedMapFromValue(decoded);
       final terminalsJson = raw['terminals'];
       if (terminalsJson is! List || terminalsJson.isEmpty) return null;
@@ -1218,7 +1231,15 @@ class MachineTerminalService extends ChangeNotifier {
           );
         }
       }
-      _lastPersistedHistoryDigestBySession[sessionId] = jsonEncode(raw);
+      final snapshot = workspace.snapshot();
+      final persistedTerminals = _retainedPersistedTerminals(
+        snapshot.terminals,
+      ).map((terminal) => terminal.toJson()).toList(growable: false);
+      _lastPersistedHistoryDigestBySession[sessionId] = _workspaceHistoryDigest(
+        sessionId: sessionId,
+        activeTerminalId: snapshot.activeTerminalId,
+        terminals: persistedTerminals,
+      );
       return workspace;
     } catch (error, stack) {
       silentLog('machine_terminal', 'restore terminal history', error, stack);
@@ -1271,20 +1292,29 @@ class MachineTerminalService extends ChangeNotifier {
     if (workspace == null) return;
     final snapshot = workspace.snapshot();
     final terminals = _retainedPersistedTerminals(snapshot.terminals);
+    final terminalsJson = terminals
+        .map((terminal) => terminal.toJson())
+        .toList(growable: false);
+    final digest = _workspaceHistoryDigest(
+      sessionId: snapshot.sessionId,
+      activeTerminalId: snapshot.activeTerminalId,
+      terminals: terminalsJson,
+    );
+    if (_lastPersistedHistoryDigestBySession[sessionId] == digest) return;
     final payload = <String, Object?>{
       'schema_version': _machineTerminalHistoryStorageSchemaVersion,
       'session_id': snapshot.sessionId,
       'active_terminal_id': snapshot.activeTerminalId,
       'updated_at': DateTime.now().toUtc().toIso8601String(),
-      'terminals': terminals
-          .map((terminal) => terminal.toJson())
-          .toList(growable: false),
+      'terminals': terminalsJson,
     };
     final content = '${jsonEncode(payload)}\n';
-    if (_lastPersistedHistoryDigestBySession[sessionId] == content) return;
     try {
+      if (utf8.encode(content).length > _machineTerminalHistoryMaxBytes) {
+        throw StateError('Machine terminal history exceeds its size limit.');
+      }
       await writeFileAtomically(_workspaceHistoryFile(sessionId), content);
-      _lastPersistedHistoryDigestBySession[sessionId] = content;
+      _lastPersistedHistoryDigestBySession[sessionId] = digest;
     } catch (error, stack) {
       silentLog('machine_terminal', 'persist terminal history', error, stack);
     }
@@ -1307,6 +1337,20 @@ class MachineTerminalService extends ChangeNotifier {
         .toList(growable: false);
   }
 
+  String _workspaceHistoryDigest({
+    required String sessionId,
+    required String activeTerminalId,
+    required List<Map<String, Object?>> terminals,
+  }) {
+    final stablePayload = <String, Object?>{
+      'schema_version': _machineTerminalHistoryStorageSchemaVersion,
+      'session_id': sessionId,
+      'active_terminal_id': activeTerminalId,
+      'terminals': terminals,
+    };
+    return sha256.convert(utf8.encode(jsonEncode(stablePayload))).toString();
+  }
+
   Future<void> _deleteWorkspaceHistoryFile(String sessionId) async {
     final file = _workspaceHistoryFile(sessionId);
     try {
@@ -1326,7 +1370,7 @@ class MachineTerminalService extends ChangeNotifier {
   File _workspaceHistoryFile(String sessionId) {
     return File(
       p.join(
-        OpenHandPaths.defaultSessionsDirectoryPath(),
+        _sessionsDirectoryPath,
         _safeSessionStorageSegment(sessionId),
         _machineTerminalHistoryFileName,
       ),

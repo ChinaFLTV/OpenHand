@@ -20,8 +20,10 @@ import '../../app/model/app_settings_snapshot.dart';
 import '../../app/support/openhand_paths.dart';
 import '../../app/support/safe_subprocess.dart';
 import '../../app/support/silent_log.dart';
+import '../../shared/db/atomic_file_operations.dart';
 import '../../shared/ui/structured_error_text.dart';
 import '../../shared/util/async_concurrency.dart';
+import '../../shared/util/bounded_file_io.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/stable_hash.dart';
 import '../../shared/util/text_normalization.dart';
@@ -86,6 +88,9 @@ part 'state/_ai_session_models.dart';
 part 'state/_ai_session_runtime_types.dart';
 part 'state/_ai_session_stream_throttle.dart';
 part 'state/_ai_session_utils.dart';
+
+const int _deviceIdFileMaxBytes = 4 * 1024;
+final RegExp _deviceIdPattern = RegExp(r'^[A-Za-z0-9._:-]{1,256}$');
 
 typedef WriteCommandConfirmationCallback =
     Future<BashCommandApprovalDecision> Function(
@@ -2277,11 +2282,14 @@ class AiSessionController extends ChangeNotifier {
       await dir.create(recursive: true);
       final file = File('${dir.path}/device_id');
       if (await file.exists()) {
-        final existing = (await file.readAsString()).trim();
-        if (existing.isNotEmpty) return existing;
+        final existing = (await readBoundedFileString(
+          file,
+          maxBytes: _deviceIdFileMaxBytes,
+        )).trim();
+        if (_deviceIdPattern.hasMatch(existing)) return existing;
       }
       final next = 'openhand-${_idGenerator()}';
-      await file.writeAsString('$next\n');
+      await writeFileAtomically(file, '$next\n');
       return next;
     } catch (error, stack) {
       silentLog('ai_session_controller', 'read/create device id', error, stack);

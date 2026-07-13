@@ -6,12 +6,14 @@ import 'dart:ui' show Locale;
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../app/support/system_proxy.dart';
+import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
 
 enum HarnessCliAuthProbeMode { commandExitCode, localStateFile }
 
 final RegExp _nodeMajorVersionPattern = RegExp(r'^v?(\d+)');
+const int _localAuthStateMaxBytes = 2 * 1024 * 1024;
 
 /// Describes a known AI CLI client usable in Harness Engineering.
 class HarnessCli {
@@ -621,7 +623,10 @@ Future<bool?> _probeCliAuthFromLocalState(HarnessCli cli) async {
   }
 
   try {
-    final raw = await file.readAsString();
+    final raw = await readBoundedFileString(
+      file,
+      maxBytes: _localAuthStateMaxBytes,
+    );
     if (nullIfBlank(raw) == null) {
       return false;
     }

@@ -5,6 +5,7 @@ import 'dart:io';
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../app/support/system_proxy.dart';
+import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/version_compare.dart';
 import '../model/plugin_info.dart';
@@ -64,6 +65,7 @@ class PluginScannerService {
   static const String qdrantContainerName = 'openhand-qdrant';
   static const int qdrantRestPort = 6333;
   static const int qdrantGrpcPort = 6334;
+  static const int _nvmAliasMaxBytes = 4 * 1024;
   static final RegExp _nvmMajorAliasPattern = RegExp(r'^v?\d+$');
   static final RegExp _nvmFullVersionAliasPattern = RegExp(
     r'^v?\d+\.\d+\.\d+$',
@@ -163,7 +165,10 @@ class PluginScannerService {
     try {
       final aliasFile = File('$nvmDir/alias/default');
       if (aliasFile.existsSync()) {
-        final alias = aliasFile.readAsStringSync().trim();
+        final alias = readBoundedFileStringSync(
+          aliasFile,
+          maxBytes: _nvmAliasMaxBytes,
+        ).trim();
         if (alias.isNotEmpty) return alias;
       }
     } catch (error, stack) {

@@ -51,4 +51,31 @@ void main() {
       throwsA(isA<FormatException>()),
     );
   });
+
+  test('synchronous bounded string reader enforces the byte limit', () async {
+    final file = File('${temporaryDirectory.path}/sync.txt');
+    await file.writeAsString('12345');
+
+    expect(
+      () => readBoundedFileStringSync(file, maxBytes: 4),
+      throwsA(
+        isA<BoundedFileReadException>().having(
+          (error) => error.failure,
+          'failure',
+          BoundedFileReadFailure.tooLarge,
+        ),
+      ),
+    );
+    expect(readBoundedFileStringSync(file, maxBytes: 5), '12345');
+  });
+
+  test('synchronous bounded string reader rejects malformed UTF-8', () async {
+    final file = File('${temporaryDirectory.path}/sync-malformed.txt');
+    await file.writeAsBytes(<int>[0xc3, 0x28]);
+
+    expect(
+      () => readBoundedFileStringSync(file, maxBytes: 16),
+      throwsA(isA<FormatException>()),
+    );
+  });
 }

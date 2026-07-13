@@ -22,10 +22,12 @@ import '../../../app/support/silent_log.dart';
 import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/net/http_response_utils.dart';
 import '../../../shared/util/async_concurrency.dart';
+import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/lifecycle_cache.dart';
 import '../../../shared/util/path_safety.dart';
+import '../../../shared/util/serial_task_queue.dart';
 import '../../../shared/util/text_clip.dart';
 import '../../../shared/util/text_fingerprint.dart';
 import '../../../shared/util/timer_safety.dart';
@@ -5580,14 +5582,28 @@ class WebMessagePlatformService {
         'error': 'file_extension_not_allowed',
       });
     }
-    final stat = await File(filePath).stat();
-    if (stat.size > _config.workspaceFileMaxBytes) {
+    final file = File(filePath);
+    final Uint8List bytes;
+    final FileStat stat;
+    try {
+      bytes = await readBoundedFileBytes(
+        file,
+        maxBytes: _config.workspaceFileMaxBytes,
+        idleTimeout: defaultBoundedFileReadIdleTimeout,
+        totalTimeout: defaultBoundedFileReadTotalTimeout,
+      );
+      stat = await file.stat();
+    } on BoundedFileReadException catch (error) {
+      if (error.failure != BoundedFileReadFailure.tooLarge) rethrow;
       return _json(HttpStatus.badRequest, <String, Object?>{
         'error': 'file_too_large',
         'limit_bytes': _config.workspaceFileMaxBytes,
       });
+    } on FileSystemException {
+      return _json(HttpStatus.notFound, <String, Object?>{
+        'error': 'file_not_found',
+      });
     }
-    final bytes = await File(filePath).readAsBytes();
     if (_looksBinary(bytes)) {
       return _json(HttpStatus.badRequest, <String, Object?>{
         'error': 'binary_file_not_supported',

@@ -2,7 +2,9 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+import '../../../../shared/util/bounded_file_io.dart';
 import '../../../../shared/util/input_value_parsing.dart';
+import '../../../../shared/util/lifecycle_cache.dart';
 import '../../../../shared/util/path_safety.dart';
 import '../../model/ai_session_runtime_context.dart';
 
@@ -14,14 +16,26 @@ class AiWorkspaceInstructionService {
        _cacheTtl = cacheTtl;
 
   int maxDocumentCharacters = 16000;
+  static const int _maxDocumentBytes = 256 * 1024;
+  static const int _maxRuleFilesPerDirectory = 128;
+  static const int _maxDocuments = 256;
+  static const int _maxCacheEntries = 64;
+  static const int _maxCachedCharacters = 2 * 1024 * 1024;
   static const List<String> _workspaceInstructionFiles = <String>[
     'AGENTS.md',
     'CLAUDE.md',
   ];
   final DateTime Function() _clock;
   final Duration _cacheTtl;
-  final Map<String, _CachedWorkspaceInstructions> _cache =
-      <String, _CachedWorkspaceInstructions>{};
+  final LifecycleLruCache<_CachedWorkspaceInstructions> _cache =
+      LifecycleLruCache<_CachedWorkspaceInstructions>(
+        maxEntries: _maxCacheEntries,
+        maxCost: _maxCachedCharacters,
+        costOf: (entry) => entry.documents.fold<int>(
+          0,
+          (total, document) => total + document.content.length,
+        ),
+      );
   final Map<String, Future<List<AiWorkspaceInstructionDocument>>> _inFlight =
       <String, Future<List<AiWorkspaceInstructionDocument>>>{};
 
@@ -69,6 +83,7 @@ class AiWorkspaceInstructionService {
     final documents = <AiWorkspaceInstructionDocument>[];
 
     Future<void> addDocument(String filePath) async {
+      if (documents.length >= _maxDocuments) return;
       final normalizedPath = p.normalize(filePath);
       if (!seenPaths.add(normalizedPath)) {
         return;
@@ -78,7 +93,10 @@ class AiWorkspaceInstructionService {
         return;
       }
       try {
-        final content = await file.readAsString();
+        final content = await readBoundedFileString(
+          file,
+          maxBytes: _maxDocumentBytes,
+        );
         final trimmedContent = content.trimRight();
         if (trimmedContent.isEmpty) {
           return;
@@ -90,7 +108,9 @@ class AiWorkspaceInstructionService {
             content: _truncate(trimmedContent),
           ),
         );
-      } on FileSystemException {
+      } on IOException {
+        return;
+      } on FormatException {
         return;
       }
     }
@@ -122,7 +142,7 @@ class AiWorkspaceInstructionService {
     if (_cacheTtl <= Duration.zero) {
       return null;
     }
-    final cached = _cache[cacheKey];
+    final cached = _cache.get(cacheKey);
     if (cached == null) {
       return null;
     }
@@ -141,9 +161,12 @@ class AiWorkspaceInstructionService {
     final immutableDocuments =
         List<AiWorkspaceInstructionDocument>.unmodifiable(documents);
     if (_cacheTtl > Duration.zero) {
-      _cache[cacheKey] = _CachedWorkspaceInstructions(
-        documents: immutableDocuments,
-        cachedAt: _clock().toUtc(),
+      _cache.put(
+        cacheKey,
+        _CachedWorkspaceInstructions(
+          documents: immutableDocuments,
+          cachedAt: _clock().toUtc(),
+        ),
       );
     }
     return immutableDocuments;
@@ -163,6 +186,7 @@ class AiWorkspaceInstructionService {
       final normalizedPath = p.normalize(item.path);
       if (normalizedPath.toLowerCase().endsWith('.md')) {
         ruleFiles.add(normalizedPath);
+        if (ruleFiles.length >= _maxRuleFilesPerDirectory) break;
       }
     }
     ruleFiles.sort();

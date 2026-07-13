@@ -11,6 +11,7 @@ import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
+import '../../../shared/util/node_package_manifest.dart';
 import '../../../shared/util/text_clip.dart';
 import '../../../shared/util/version_compare.dart';
 import '../model/mcp_server.dart';
@@ -1545,7 +1546,7 @@ Future<_ResolvedNpxPackage?> _resolveNpxPackagePath(String packageName) async {
         final packageDir =
             '$nvmDir/versions/node/$version/lib/node_modules/$cleanName';
         if (File(nodeBin).existsSync() && Directory(packageDir).existsSync()) {
-          final entry = _findBinEntry(packageDir);
+          final entry = resolveNodePackageBinEntry(packageDir);
           if (entry != null) {
             return _ResolvedNpxPackage(nodeBin: nodeBin, entryScript: entry);
           }
@@ -1561,7 +1562,7 @@ Future<_ResolvedNpxPackage?> _resolveNpxPackagePath(String packageName) async {
       if (Directory(voltaPkgDir).existsSync()) {
         final voltaNode = '$home/.volta/bin/node';
         if (File(voltaNode).existsSync()) {
-          final entry = _findBinEntry(voltaPkgDir);
+          final entry = resolveNodePackageBinEntry(voltaPkgDir);
           if (entry != null) {
             return _ResolvedNpxPackage(nodeBin: voltaNode, entryScript: entry);
           }
@@ -1589,7 +1590,7 @@ Future<_ResolvedNpxPackage?> _resolveNpxPackagePath(String packageName) async {
             File(nodeBin).existsSync()) {
           final packageDir = '$globalRoot/$cleanName';
           if (Directory(packageDir).existsSync()) {
-            final entry = _findBinEntry(packageDir);
+            final entry = resolveNodePackageBinEntry(packageDir);
             if (entry != null) {
               return _ResolvedNpxPackage(nodeBin: nodeBin, entryScript: entry);
             }
@@ -1606,33 +1607,6 @@ Future<_ResolvedNpxPackage?> _resolveNpxPackagePath(String packageName) async {
     );
   }
 
-  return null;
-}
-
-/// 从 package.json 的 bin 字段解析入口脚本路径。
-String? _findBinEntry(String packageDir) {
-  try {
-    final pkgJsonFile = File('$packageDir/package.json');
-    if (!pkgJsonFile.existsSync()) return null;
-    final pkgJson = jsonDecode(pkgJsonFile.readAsStringSync());
-    final bin = pkgJson['bin'];
-    String? entryScript;
-    if (bin is String) {
-      entryScript = '$packageDir/$bin';
-    } else if (bin is Map && bin.isNotEmpty) {
-      entryScript = '$packageDir/${bin.values.first}';
-    }
-    if (entryScript != null && File(entryScript).existsSync()) {
-      return entryScript;
-    }
-  } catch (error, stack) {
-    silentLog(
-      'mcp_stdio_process_manager',
-      'read bin entry $packageDir',
-      error,
-      stack,
-    );
-  }
   return null;
 }
 

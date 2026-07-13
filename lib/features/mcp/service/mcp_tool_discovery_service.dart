@@ -18,6 +18,7 @@ import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
+import '../../../shared/util/node_package_manifest.dart';
 import '../../../shared/util/text_clip.dart';
 import '../../ai/index.dart';
 import '../model/mcp_http_headers.dart';
@@ -3275,7 +3276,7 @@ _NpxPackageResolution? _resolveNpxPackageDirectly(
       final packageDir =
           '$nvmDir/versions/node/$version/lib/node_modules/$cleanName';
       if (File(nodeBin).existsSync() && Directory(packageDir).existsSync()) {
-        final entry = _findPackageBinEntry(packageDir);
+        final entry = resolveNodePackageBinEntry(packageDir);
         if (entry != null) {
           return _NpxPackageResolution(nodeBin: nodeBin, entryScript: entry);
         }
@@ -3294,7 +3295,7 @@ _NpxPackageResolution? _resolveNpxPackageDirectly(
               '${entity.path}/installation/lib/node_modules/$cleanName';
           if (File(nodeBin).existsSync() &&
               Directory(packageDir).existsSync()) {
-            final entry = _findPackageBinEntry(packageDir);
+            final entry = resolveNodePackageBinEntry(packageDir);
             if (entry != null) {
               return _NpxPackageResolution(
                 nodeBin: nodeBin,
@@ -3322,7 +3323,7 @@ _NpxPackageResolution? _resolveNpxPackageDirectly(
       const systemNodes = ['/usr/local/bin/node', '/usr/bin/node'];
       for (final nodeBin in systemNodes) {
         if (File(nodeBin).existsSync()) {
-          final entry = _findPackageBinEntry(packageDir);
+          final entry = resolveNodePackageBinEntry(packageDir);
           if (entry != null) {
             return _NpxPackageResolution(nodeBin: nodeBin, entryScript: entry);
           }
@@ -3340,28 +3341,6 @@ List<int> _nvmVersionSegments(String version) {
       .split('.')
       .map((segment) => optionalIntFromValue(segment) ?? 0)
       .toList(growable: false);
-}
-
-/// 从 package.json 的 bin 字段解析入口脚本绝对路径。
-String? _findPackageBinEntry(String packageDir) {
-  try {
-    final pkgJsonFile = File('$packageDir/package.json');
-    if (!pkgJsonFile.existsSync()) return null;
-    final pkgJson = jsonDecode(pkgJsonFile.readAsStringSync());
-    final bin = pkgJson['bin'];
-    String? relative;
-    if (bin is String) {
-      relative = bin;
-    } else if (bin is Map && bin.isNotEmpty) {
-      relative = '${bin.values.first}';
-    }
-    if (relative == null || relative.isEmpty) return null;
-    final full = '$packageDir/$relative';
-    return File(full).existsSync() ? full : null;
-  } catch (error, stack) {
-    silentLog('mcp_tool_discovery', 'read MCP package bin entry', error, stack);
-    return null;
-  }
 }
 
 /// 把 MCP 服务发现 / 健康检查阶段的底层异常翻译成「现象 / 原因 / 建议」

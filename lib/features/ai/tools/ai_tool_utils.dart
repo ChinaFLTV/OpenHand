@@ -8,6 +8,7 @@ import 'package:path/path.dart' as p;
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../shared/util/async_concurrency.dart';
+import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/path_safety.dart';
@@ -742,16 +743,27 @@ class AiToolUtils {
   }
 
   static Future<AiEditableTextSnapshot> readEditableTextFile(File file) async {
-    final stat = await file.stat();
-    if (stat.size > maxEditableTextFileBytes) {
+    try {
+      final rawContent = await readBoundedFileString(
+        file,
+        maxBytes: maxEditableTextFileBytes,
+      );
+      return AiEditableTextSnapshot.fromRaw(rawContent);
+    } on BoundedFileReadException catch (error) {
+      if (error.failure != BoundedFileReadFailure.tooLarge) rethrow;
+      var sizeBytes = maxEditableTextFileBytes + 1;
+      try {
+        final currentSize = await file.length();
+        if (currentSize > maxEditableTextFileBytes) sizeBytes = currentSize;
+      } on FileSystemException {
+        // Preserve the deterministic size-limit error from the bounded read.
+      }
       throw AiEditableTextFileTooLargeException(
         filePath: file.path,
-        sizeBytes: stat.size,
+        sizeBytes: sizeBytes,
         limitBytes: maxEditableTextFileBytes,
       );
     }
-    final rawContent = await file.readAsString();
-    return AiEditableTextSnapshot.fromRaw(rawContent);
   }
 
   static String normalizeTextLineEndings(String value) {
@@ -994,11 +1006,7 @@ class AiToolUtils {
     try {
       final f = File(filePath);
       if (!await f.exists()) return null;
-      final stat = await f.stat();
-      if (stat.type != FileSystemEntityType.file) return null;
-      // 限制单文件 16 MB，超过则放弃捕获（避免 OOM）。
-      if (stat.size > maxLedgerCaptureBytes) return null;
-      return await f.readAsString();
+      return await readBoundedFileString(f, maxBytes: maxLedgerCaptureBytes);
     } catch (error, stack) {
       silentLog('ai_tool_utils', 'readFileContentForLedger', error, stack);
       return null;
@@ -1103,7 +1111,11 @@ class AiToolUtils {
   }) async {
     final String actualContent;
     try {
-      actualContent = await file.readAsString();
+      final expectedBytes = utf8.encode(expectedContent).length;
+      actualContent = await readBoundedFileString(
+        file,
+        maxBytes: expectedBytes == 0 ? 1 : expectedBytes,
+      );
     } catch (error) {
       return invalidResult(
         toolName,

@@ -50,6 +50,14 @@ class _WebGatewayRotatingLogger {
       );
 
   final String directoryPath;
+  final SerialTaskQueue _operations = SerialTaskQueue();
+
+  static const int _maxExportFiles = 16;
+  static const int _maxExportBytesPerFile = 8 * 1024 * 1024;
+  static const int _maxExportBundleBytes = 32 * 1024 * 1024;
+  static const Duration _exportReadIdleTimeout = Duration(seconds: 3);
+  static const Duration _exportReadTotalTimeout = Duration(seconds: 10);
+
   String get filePath => p.join(directoryPath, 'web-platform.log');
 
   int get currentSizeBytes {
@@ -68,7 +76,11 @@ class _WebGatewayRotatingLogger {
     }
   }
 
-  Future<void> write(
+  Future<void> write(WebGatewayLogEntry entry, WebGatewayLogConfig config) {
+    return _operations.enqueue(() => _write(entry, config));
+  }
+
+  Future<void> _write(
     WebGatewayLogEntry entry,
     WebGatewayLogConfig config,
   ) async {
@@ -84,7 +96,11 @@ class _WebGatewayRotatingLogger {
     }
   }
 
-  Future<_CleanupStats> clear() async {
+  Future<_CleanupStats> clear() {
+    return _operations.enqueue(_clear);
+  }
+
+  Future<_CleanupStats> _clear() async {
     final dir = Directory(directoryPath);
     if (!await dir.exists()) return const _CleanupStats();
     var stats = const _CleanupStats();
@@ -109,7 +125,11 @@ class _WebGatewayRotatingLogger {
     return stats;
   }
 
-  Future<_CleanupStats> prune(WebGatewayLogConfig config) async {
+  Future<_CleanupStats> prune(WebGatewayLogConfig config) {
+    return _operations.enqueue(() => _prune(config));
+  }
+
+  Future<_CleanupStats> _prune(WebGatewayLogConfig config) async {
     final dir = Directory(directoryPath);
     if (!await dir.exists()) return const _CleanupStats();
     final cutoff = DateTime.now().subtract(Duration(days: config.rotationDays));
@@ -157,7 +177,11 @@ class _WebGatewayRotatingLogger {
     return stats;
   }
 
-  Future<List<Map<String, Object?>>> readBundle() async {
+  Future<List<Map<String, Object?>>> readBundle() {
+    return _operations.enqueue(_readBundle);
+  }
+
+  Future<List<Map<String, Object?>>> _readBundle() async {
     final dir = Directory(directoryPath);
     if (!await dir.exists()) return const <Map<String, Object?>>[];
     final files =
@@ -170,13 +194,23 @@ class _WebGatewayRotatingLogger {
             (a, b) => b.statSync().modified.compareTo(a.statSync().modified),
           );
     final items = <Map<String, Object?>>[];
+    var remainingBytes = _maxExportBundleBytes;
     for (final file in files) {
+      if (items.length >= _maxExportFiles || remainingBytes <= 0) break;
       try {
         final stat = await file.stat();
-        final bytes = await file.readAsBytes();
+        final readLimit = math.min(_maxExportBytesPerFile, remainingBytes);
+        final bytes = await _readLogTail(
+          file,
+          fileSize: stat.size,
+          maxBytes: readLimit,
+        );
+        remainingBytes -= bytes.length;
         items.add(<String, Object?>{
           'name': p.basename(file.path),
           'size': stat.size,
+          'exported_size': bytes.length,
+          'truncated': stat.size > bytes.length,
           'modified_at': stat.modified.toUtc().toIso8601String(),
           'content': utf8.decode(bytes, allowMalformed: true),
         });
@@ -192,11 +226,34 @@ class _WebGatewayRotatingLogger {
     return items;
   }
 
-  Future<String> readCurrentLogText() async {
+  Future<String> readCurrentLogText() {
+    return _operations.enqueue(_readCurrentLogText);
+  }
+
+  Future<String> _readCurrentLogText() async {
     final file = File(filePath);
     if (!await file.exists()) return '';
-    final bytes = await file.readAsBytes();
+    final stat = await file.stat();
+    final bytes = await _readLogTail(
+      file,
+      fileSize: stat.size,
+      maxBytes: _maxExportBytesPerFile,
+    );
     return utf8.decode(bytes, allowMalformed: true);
+  }
+
+  Future<Uint8List> _readLogTail(
+    File file, {
+    required int fileSize,
+    required int maxBytes,
+  }) {
+    final start = math.max(0, fileSize - maxBytes);
+    return readBoundedByteStream(
+      file.openRead(start, fileSize),
+      maxBytes: maxBytes,
+      idleTimeout: _exportReadIdleTimeout,
+      totalTimeout: _exportReadTotalTimeout,
+    );
   }
 
   Future<void> _rotateIfNeeded(WebGatewayLogConfig config) async {

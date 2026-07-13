@@ -5,7 +5,9 @@ import 'package:path/path.dart' as p;
 
 import '../../../../app/support/openhand_paths.dart';
 import '../../../../app/support/safe_subprocess.dart';
+import '../../../../shared/util/bounded_file_io.dart';
 import '../../../../shared/util/input_value_parsing.dart';
+import '../../../../shared/util/lifecycle_cache.dart';
 import '../../../../shared/util/path_safety.dart';
 import '../../../../shared/util/text_clip.dart';
 import '../../model/ai_tool_execution_limit_policy.dart';
@@ -13,6 +15,8 @@ import '../../model/ai_tool_execution_limit_policy.dart';
 const int _maxAiHookCapturedOutputBytes = 4 * 1024 * 1024;
 const int _minAiHookCapturedOutputBytes = 16 * 1024;
 const int _maxAiHookPayloadBytes = 4 * 1024 * 1024;
+const int _maxAiHookConfigBytes = 2 * 1024 * 1024;
+const int _maxAiHookPresenceCacheEntries = 128;
 
 const String aiHookSystemRemindersMetadataKey = 'hook_system_reminders';
 const String aiUserPromptHookFeedbackMetadataKey =
@@ -88,8 +92,10 @@ class AiClaudeHookService {
   final Duration _commandTimeout;
   final Duration _configPresenceCacheTtl;
   final DateTime Function() _clock;
-  final Map<String, _AiCachedHookConfigPresence> _configPresenceCache =
-      <String, _AiCachedHookConfigPresence>{};
+  final LifecycleLruCache<_AiCachedHookConfigPresence> _configPresenceCache =
+      LifecycleLruCache<_AiCachedHookConfigPresence>(
+        maxEntries: _maxAiHookPresenceCacheEntries,
+      );
 
   Future<AiClaudeHookInvocationResult> runHooks({
     required String eventName,
@@ -170,7 +176,7 @@ class AiClaudeHookService {
 
   Future<bool> _hasAnyHookConfigFile(String cwd) async {
     if (_configPresenceCacheTtl > Duration.zero) {
-      final cached = _configPresenceCache[cwd];
+      final cached = _configPresenceCache.get(cwd);
       if (cached != null &&
           _clock().toUtc().difference(cached.cachedAt) <=
               _configPresenceCacheTtl) {
@@ -186,9 +192,12 @@ class AiClaudeHookService {
       }
     }
     if (_configPresenceCacheTtl > Duration.zero) {
-      _configPresenceCache[cwd] = _AiCachedHookConfigPresence(
-        hasConfig: hasConfig,
-        cachedAt: _clock().toUtc(),
+      _configPresenceCache.put(
+        cwd,
+        _AiCachedHookConfigPresence(
+          hasConfig: hasConfig,
+          cachedAt: _clock().toUtc(),
+        ),
       );
     }
     return hasConfig;
@@ -286,7 +295,10 @@ class AiClaudeHookService {
         continue;
       }
       try {
-        final rawContent = await file.readAsString();
+        final rawContent = await readBoundedFileString(
+          file,
+          maxBytes: _maxAiHookConfigBytes,
+        );
         final decoded = jsonDecode(rawContent);
         if (decoded is! Map) {
           continue;
@@ -324,7 +336,7 @@ class AiClaudeHookService {
             entries.add(_AiConfiguredHookEntry(command: command));
           }
         }
-      } on FileSystemException {
+      } on IOException {
         continue;
       } on FormatException {
         continue;
