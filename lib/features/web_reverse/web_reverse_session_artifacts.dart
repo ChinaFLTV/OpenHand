@@ -4,6 +4,7 @@ import 'dart:io';
 
 import '../../app/support/silent_log.dart';
 import '../../shared/util/async_concurrency.dart';
+import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/text_clip.dart';
 import '../../shared/util/timer_safety.dart';
@@ -30,11 +31,15 @@ class WebReverseSessionArtifacts {
   IOSink? _networkSink;
   IOSink? _consoleSink;
   bool _ready = false;
+  bool _closed = false;
   Timer? _flushTimer;
+  Future<void>? _initFuture;
+  Future<void>? _closeFuture;
 
   // 写缓冲：保存待 flush 的字符串行；flush 时合并写入。
   final StringBuffer _networkBuf = StringBuffer();
   final StringBuffer _consoleBuf = StringBuffer();
+  final Set<String> _reportedBufferDrops = <String>{};
 
   // HAR 草稿：每条 request/response 元数据按 requestId 累积，stop 时聚合。
   final Map<String, _HarEntryDraft> _harDrafts = <String, _HarEntryDraft>{};
@@ -43,25 +48,61 @@ class WebReverseSessionArtifacts {
   static const int _maxHarHeaders = 128;
   static const int _maxHarHeaderValueChars = 8192;
   static const int _maxHarPostDataChars = 256 * 1024;
+  static const int _maxJsonlEventChars = 1 * kBytesPerMiB;
+  static const int _maxJsonlPendingChars = 4 * kBytesPerMiB;
 
-  Future<void> init() async {
-    if (_ready) return;
+  Future<void> init() {
+    if (_closed || _ready) return Future<void>.value();
+    final existing = _initFuture;
+    if (existing != null) return existing;
+    late final Future<void> initializing;
+    initializing = _initialize().whenComplete(() {
+      if (identical(_initFuture, initializing)) _initFuture = null;
+    });
+    _initFuture = initializing;
+    return initializing;
+  }
+
+  Future<void> _initialize() async {
+    IOSink? networkSink;
+    IOSink? consoleSink;
     try {
       await Directory(rootDir).create(recursive: true);
       await Directory('$rootDir/network').create(recursive: true);
       await Directory('$rootDir/scripts').create(recursive: true);
       await Directory('$rootDir/screenshots').create(recursive: true);
       await Directory('$rootDir/har').create(recursive: true);
-      _networkSink = File(
+      if (_closed) return;
+      networkSink = File(
         '$rootDir/network.jsonl',
       ).openWrite(mode: FileMode.append);
-      _consoleSink = File(
+      consoleSink = File(
         '$rootDir/console.jsonl',
       ).openWrite(mode: FileMode.append);
+      if (_closed) {
+        await Future.wait<bool>(<Future<bool>>[
+          _closeSink(networkSink, 'late network'),
+          _closeSink(consoleSink, 'late console'),
+        ]);
+        return;
+      }
+      _networkSink = networkSink;
+      _consoleSink = consoleSink;
       _ready = true;
       _flushTimer = startSafePeriodicTimer(_flushInterval, (_) => _flush());
+      networkSink = null;
+      consoleSink = null;
     } catch (error, stack) {
+      _flushTimer?.cancel();
+      _flushTimer = null;
+      _networkSink = null;
+      _consoleSink = null;
+      _ready = false;
       silentLog('web_reverse_artifacts', 'init', error, stack);
+      await Future.wait<bool>(<Future<bool>>[
+        _closeSink(networkSink, 'failed network'),
+        _closeSink(consoleSink, 'failed console'),
+      ]);
     }
   }
 
@@ -69,13 +110,11 @@ class WebReverseSessionArtifacts {
   ///   - `kind`: 'request' | 'response' | 'failed'
   ///   - `request_id`, `url`, `method`, `status`, `mime`, `error`, `ts`
   void appendNetwork(Map<String, Object?> event) {
-    if (!_ready) return;
-    _networkBuf.writeln(jsonEncode(event));
+    _appendJsonLine(_networkBuf, event, 'network');
   }
 
   void appendConsole(Map<String, Object?> event) {
-    if (!_ready) return;
-    _consoleBuf.writeln(jsonEncode(event));
+    _appendJsonLine(_consoleBuf, event, 'console');
   }
 
   /// 累积 HAR 草稿：CDP `Network.requestWillBeSent` / `responseReceived` /
@@ -88,6 +127,7 @@ class WebReverseSessionArtifacts {
     String? postData,
     required DateTime startedAt,
   }) {
+    if (_closed) return;
     final draft = _harDrafts.putIfAbsent(
       requestId,
       () => _HarEntryDraft(requestId: requestId),
@@ -108,6 +148,7 @@ class WebReverseSessionArtifacts {
     required Map<String, Object?> headers,
     int? bodySize,
   }) {
+    if (_closed) return;
     final draft = _harDrafts[requestId];
     if (draft == null) return;
     draft.status = status;
@@ -118,12 +159,14 @@ class WebReverseSessionArtifacts {
   }
 
   void recordHarFinished(String requestId, DateTime finishedAt) {
+    if (_closed) return;
     final draft = _harDrafts[requestId];
     if (draft == null) return;
     draft.finishedAt = finishedAt;
   }
 
   void recordHarFailed(String requestId, String errorText, DateTime failedAt) {
+    if (_closed) return;
     final draft = _harDrafts[requestId];
     if (draft == null) return;
     draft.errorText = errorText;
@@ -131,33 +174,65 @@ class WebReverseSessionArtifacts {
   }
 
   void evictHarDraft(String requestId) {
+    if (_closed) return;
     _harDrafts.remove(requestId);
+  }
+
+  void _appendJsonLine(
+    StringBuffer buffer,
+    Map<String, Object?> event,
+    String streamName,
+  ) {
+    if (!_ready || _closed) return;
+    try {
+      final line = jsonEncode(event);
+      if (line.length > _maxJsonlEventChars) {
+        _logBufferDropOnce(streamName, 'oversized event');
+        return;
+      }
+      if (buffer.length + line.length + 1 > _maxJsonlPendingChars) {
+        _logBufferDropOnce(streamName, 'pending buffer full');
+        return;
+      }
+      buffer.writeln(line);
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_artifacts',
+        'encode $streamName event',
+        error,
+        stack,
+      );
+    }
+  }
+
+  void _logBufferDropOnce(String streamName, String reason) {
+    final key = '$streamName:$reason';
+    if (!_reportedBufferDrops.add(key)) return;
+    silentLog('web_reverse_artifacts', 'drop $streamName event', reason);
   }
 
   void _flush() {
     if (!_ready) return;
-    if (_networkBuf.isNotEmpty) {
-      try {
-        _networkSink?.write(_networkBuf.toString());
-        _networkBuf.clear();
-      } catch (error, stack) {
-        silentLog('web_reverse_artifacts', 'flush network', error, stack);
-      }
-    }
-    if (_consoleBuf.isNotEmpty) {
-      try {
-        _consoleSink?.write(_consoleBuf.toString());
-        _consoleBuf.clear();
-      } catch (error, stack) {
-        silentLog('web_reverse_artifacts', 'flush console', error, stack);
-      }
+    _flushBuffer(_networkBuf, _networkSink, 'network');
+    _flushBuffer(_consoleBuf, _consoleSink, 'console');
+  }
+
+  void _flushBuffer(StringBuffer buffer, IOSink? sink, String streamName) {
+    if (buffer.isEmpty) return;
+    final pending = buffer.toString();
+    buffer.clear();
+    _reportedBufferDrops.removeWhere((key) => key.startsWith('$streamName:'));
+    try {
+      sink?.write(pending);
+    } catch (error, stack) {
+      silentLog('web_reverse_artifacts', 'flush $streamName', error, stack);
     }
   }
 
   /// 将 HAR 草稿合成为 HAR 1.2 文档并写到 `<rootDir>/har/<timestamp>.har`。
   /// 返回写出的文件路径；失败返回 null。
   Future<String?> exportHar() async {
-    if (!_ready) return null;
+    if (!_ready || _closed) return null;
     final entries = <Map<String, Object?>>[];
     for (final draft in _harDrafts.values) {
       if (draft.url.isEmpty) continue;
@@ -227,7 +302,16 @@ class WebReverseSessionArtifacts {
     }
   }
 
-  Future<void> close() async {
+  Future<void> close() {
+    _closed = true;
+    final existing = _closeFuture;
+    if (existing != null) return existing;
+    final closing = _performClose();
+    _closeFuture = closing;
+    return closing;
+  }
+
+  Future<void> _performClose() async {
     _flushTimer?.cancel();
     _flushTimer = null;
     _flush();
@@ -236,6 +320,10 @@ class WebReverseSessionArtifacts {
     _networkSink = null;
     _consoleSink = null;
     _ready = false;
+    _networkBuf.clear();
+    _consoleBuf.clear();
+    _reportedBufferDrops.clear();
+    _harDrafts.clear();
     await Future.wait<bool>(<Future<bool>>[
       _closeSink(networkSink, 'network'),
       _closeSink(consoleSink, 'console'),
