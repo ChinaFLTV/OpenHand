@@ -18,6 +18,8 @@ class _DataCleanupSection extends StatefulWidget {
 }
 
 class _DataCleanupSectionState extends State<_DataCleanupSection> {
+  static const int _maxConcurrentMeasurements = 3;
+
   late final DataCleanupService _service;
   bool _serviceReady = false;
 
@@ -95,34 +97,43 @@ class _DataCleanupSectionState extends State<_DataCleanupSection> {
       });
     }
 
-    // 并发跑：每个 isolate 工作互不依赖。
-    await Future.wait(<Future<void>>[
-      measureOne(DataCleanupCategory.multimedia, _service.measureMultimedia),
-      measureOne(DataCleanupCategory.sessions, _service.measureSessions),
-      measureOne(DataCleanupCategory.appCache, _service.measureAppCache),
-      measureOne(DataCleanupCategory.logs, _service.measureLogs),
-      measureOne(DataCleanupCategory.userMemory, _service.measureUserMemory),
-      measureOne(DataCleanupCategory.mcpConfig, _service.measureMcpConfig),
-      measureOne(DataCleanupCategory.mcpOpsCache, _service.measureMcpOpsCache),
-      measureOne(
+    final measurements = <Future<void> Function()>[
+      () => measureOne(
+        DataCleanupCategory.multimedia,
+        _service.measureMultimedia,
+      ),
+      () => measureOne(DataCleanupCategory.sessions, _service.measureSessions),
+      () => measureOne(DataCleanupCategory.appCache, _service.measureAppCache),
+      () => measureOne(DataCleanupCategory.logs, _service.measureLogs),
+      () => measureOne(
+        DataCleanupCategory.userMemory,
+        _service.measureUserMemory,
+      ),
+      () =>
+          measureOne(DataCleanupCategory.mcpConfig, _service.measureMcpConfig),
+      () => measureOne(
+        DataCleanupCategory.mcpOpsCache,
+        _service.measureMcpOpsCache,
+      ),
+      () => measureOne(
         DataCleanupCategory.webGatewayOpsCache,
         _service.measureWebGatewayOpsCache,
       ),
-      measureOne(DataCleanupCategory.hooks, _service.measureHooks),
-      measureOne(DataCleanupCategory.crons, _service.measureCrons),
-      measureOne(
+      () => measureOne(DataCleanupCategory.hooks, _service.measureHooks),
+      () => measureOne(DataCleanupCategory.crons, _service.measureCrons),
+      () => measureOne(
         DataCleanupCategory.instructions,
         _service.measureInstructions,
       ),
-      measureOne(
+      () => measureOne(
         DataCleanupCategory.skillsDirectory,
         _service.measureSkillsDirectory,
       ),
-      measureOne(
+      () => measureOne(
         DataCleanupCategory.lspDirectory,
         _service.measureLspDirectory,
       ),
-      measureOne(
+      () => measureOne(
         DataCleanupCategory.fileMutationLedger,
         _service.measureMutationLedger,
       ),
@@ -138,7 +149,7 @@ class _DataCleanupSectionState extends State<_DataCleanupSection> {
           if (!mounted || token != _measureToken) return;
           setState(() => _webSearchCacheBytes = 0);
         }
-      }(),
+      },
       () async {
         try {
           final bytes = await WebFetchCacheStore.instance.totalBytesOnDisk();
@@ -149,7 +160,7 @@ class _DataCleanupSectionState extends State<_DataCleanupSection> {
           if (!mounted || token != _measureToken) return;
           setState(() => _webFetchCacheBytes = 0);
         }
-      }(),
+      },
       () async {
         try {
           final stats = await MediaCacheService.measureCache();
@@ -160,8 +171,14 @@ class _DataCleanupSectionState extends State<_DataCleanupSection> {
           if (!mounted || token != _measureToken) return;
           setState(() => _mediaCacheBytes = 0);
         }
-      }(),
-    ]);
+      },
+    ];
+    await forEachIndexWithConcurrencyLimit(
+      itemCount: measurements.length,
+      maxConcurrency: _maxConcurrentMeasurements,
+      shouldContinue: () => mounted && token == _measureToken,
+      task: (index) => measurements[index](),
+    );
     if (!mounted || token != _measureToken) {
       return;
     }

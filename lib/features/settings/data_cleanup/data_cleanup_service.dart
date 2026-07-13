@@ -11,6 +11,7 @@
 ///    附件文件。
 library;
 
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -542,18 +543,80 @@ class DataCleanupService {
   }
 }
 
+@visibleForTesting
+abstract final class DataCleanupFileWorker {
+  static Future<DataCleanupSizeReport> measureDirectory(String path) {
+    return _isolateMeasureDirectory(path);
+  }
+
+  static Future<DataCleanupSizeReport> measureDirectoryExcluding(
+    List<String> paths,
+  ) {
+    return _isolateMeasureDirectoryExcluding(paths);
+  }
+
+  static Future<void> deleteDirectoryContents(String path) {
+    return _isolateDeleteDirectoryContents(path);
+  }
+
+  static Future<void> deleteDirectoryContentsExcluding(List<String> paths) {
+    return _isolateDeleteDirectoryContentsExcluding(paths);
+  }
+
+  static bool isSafeDeleteTarget(String path) => _isSafeDeleteTarget(path);
+}
+
 // Isolate worker functions（必须是顶层或静态以便序列化）
 /// 在 isolate 内统计 sessions 目录下所有 `attachments/` 子目录的体积与
 /// 文件数。
-DataCleanupSizeReport _isolateMeasureAttachments(String sessionsRoot) {
+const int _maxDataCleanupScanEntries = 1000000;
+const Duration _dataCleanupScanIdleTimeout = Duration(seconds: 10);
+const Duration _dataCleanupScanTotalTimeout = Duration(minutes: 2);
+const String _dataCleanupPartialScanError =
+    'Directory scan stopped at its safety limit.';
+
+class _DataCleanupScanBudget {
+  _DataCleanupScanBudget()
+    : remainingEntries = _maxDataCleanupScanEntries,
+      stopwatch = (Stopwatch()..start());
+
+  int remainingEntries;
+  final Stopwatch stopwatch;
+  bool _interrupted = false;
+
+  bool get incomplete =>
+      _interrupted ||
+      remainingEntries <= 0 ||
+      stopwatch.elapsed >= _dataCleanupScanTotalTimeout;
+
+  void markInterrupted() {
+    _interrupted = true;
+  }
+
+  bool takeEntry() {
+    if (remainingEntries <= 0 ||
+        stopwatch.elapsed >= _dataCleanupScanTotalTimeout) {
+      return false;
+    }
+    remainingEntries -= 1;
+    return true;
+  }
+}
+
+Future<DataCleanupSizeReport> _isolateMeasureAttachments(
+  String sessionsRoot,
+) async {
   final root = Directory(sessionsRoot);
-  if (!root.existsSync()) {
+  if (!await root.exists()) {
     return DataCleanupSizeReport.empty;
   }
   int totalBytes = 0;
   int totalFiles = 0;
+  final budget = _DataCleanupScanBudget();
   try {
-    for (final entity in root.listSync(followLinks: false)) {
+    await for (final entity
+        in root.list(followLinks: false).timeout(_dataCleanupScanIdleTimeout)) {
+      if (!budget.takeEntry()) break;
       if (entity is! Directory) {
         continue;
       }
@@ -561,41 +624,50 @@ DataCleanupSizeReport _isolateMeasureAttachments(String sessionsRoot) {
       // 自身就是一个匹配项（其名字就是 `attachments`）。
       final attachmentsName = p.basename(entity.path);
       if (attachmentsName == 'attachments') {
-        final stats = _walkDirectoryStats(entity);
+        final stats = await _walkDirectoryStats(entity, budget: budget);
         totalBytes += stats.bytes;
         totalFiles += stats.files;
         continue;
       }
       final perSession = Directory(p.join(entity.path, 'attachments'));
-      if (perSession.existsSync()) {
-        final stats = _walkDirectoryStats(perSession);
+      if (await perSession.exists()) {
+        final stats = await _walkDirectoryStats(perSession, budget: budget);
         totalBytes += stats.bytes;
         totalFiles += stats.files;
       }
     }
   } catch (error, stack) {
+    budget.markInterrupted();
     // 子目录不可读：保留已经累计的部分，避免一棵坏分支吞掉全部统计。
     silentLog('data_cleanup', 'walk attachments', error, stack);
   }
-  return DataCleanupSizeReport(bytes: totalBytes, itemCount: totalFiles);
+  return DataCleanupSizeReport(
+    bytes: totalBytes,
+    itemCount: totalFiles,
+    error: budget.incomplete ? _dataCleanupPartialScanError : null,
+  );
 }
 
 /// 在 isolate 内统计 sessions 目录下"非附件"内容（例如旧版 JSON）。
-DataCleanupSizeReport _isolateMeasureSessionsExcludingAttachments(
+Future<DataCleanupSizeReport> _isolateMeasureSessionsExcludingAttachments(
   String sessionsRoot,
-) {
+) async {
   final root = Directory(sessionsRoot);
-  if (!root.existsSync()) {
+  if (!await root.exists()) {
     return const DataCleanupSizeReport(bytes: 0);
   }
   int totalBytes = 0;
+  final budget = _DataCleanupScanBudget();
   try {
-    for (final entity in root.listSync(followLinks: false)) {
+    await for (final entity
+        in root.list(followLinks: false).timeout(_dataCleanupScanIdleTimeout)) {
+      if (!budget.takeEntry()) break;
       if (entity is File) {
         // 旧版 `session-*.json`。
         try {
           totalBytes += entity.lengthSync();
         } catch (error, stack) {
+          budget.markInterrupted();
           // 文件被并发删除等：忽略。
           silentLog('data_cleanup', 'len session json', error, stack);
         }
@@ -608,10 +680,11 @@ DataCleanupSizeReport _isolateMeasureSessionsExcludingAttachments(
           continue;
         }
         // per-session 子目录：跳过其下的 `attachments/`，统计其它文件。
-        for (final inner in entity.listSync(
-          recursive: true,
-          followLinks: false,
-        )) {
+        await for (final inner
+            in entity
+                .list(recursive: true, followLinks: false)
+                .timeout(_dataCleanupScanIdleTimeout)) {
+          if (!budget.takeEntry()) break;
           if (inner is! File) {
             continue;
           }
@@ -621,36 +694,57 @@ DataCleanupSizeReport _isolateMeasureSessionsExcludingAttachments(
           try {
             totalBytes += inner.lengthSync();
           } catch (error, stack) {
+            budget.markInterrupted();
             silentLog('data_cleanup', 'len inner session file', error, stack);
           }
         }
       }
     }
   } catch (error, stack) {
+    budget.markInterrupted();
     // 兜底：保留累计。
     silentLog('data_cleanup', 'walk sessions excl attachments', error, stack);
   }
-  return DataCleanupSizeReport(bytes: totalBytes);
+  return DataCleanupSizeReport(
+    bytes: totalBytes,
+    error: budget.incomplete ? _dataCleanupPartialScanError : null,
+  );
 }
 
-DataCleanupSizeReport _isolateMeasureDirectory(String dir) {
+Future<DataCleanupSizeReport> _isolateMeasureDirectory(String dir) async {
   final root = Directory(dir);
-  if (!root.existsSync()) {
+  if (!await root.exists()) {
     return DataCleanupSizeReport.empty;
   }
-  final stats = _walkDirectoryStats(root);
-  return DataCleanupSizeReport(bytes: stats.bytes, itemCount: stats.files);
+  final budget = _DataCleanupScanBudget();
+  final stats = await _walkDirectoryStats(root, budget: budget);
+  return DataCleanupSizeReport(
+    bytes: stats.bytes,
+    itemCount: stats.files,
+    error: budget.incomplete ? _dataCleanupPartialScanError : null,
+  );
 }
 
-DataCleanupSizeReport _isolateMeasureDirectoryExcluding(List<String> args) {
+Future<DataCleanupSizeReport> _isolateMeasureDirectoryExcluding(
+  List<String> args,
+) async {
   if (args.isEmpty) return DataCleanupSizeReport.empty;
   final root = Directory(args.first);
-  if (!root.existsSync()) {
+  if (!await root.exists()) {
     return DataCleanupSizeReport.empty;
   }
   final excludedRoots = args.skip(1).map(p.normalize).toList(growable: false);
-  final stats = _walkDirectoryStats(root, excludedRoots: excludedRoots);
-  return DataCleanupSizeReport(bytes: stats.bytes, itemCount: stats.files);
+  final budget = _DataCleanupScanBudget();
+  final stats = await _walkDirectoryStats(
+    root,
+    excludedRoots: excludedRoots,
+    budget: budget,
+  );
+  return DataCleanupSizeReport(
+    bytes: stats.bytes,
+    itemCount: stats.files,
+    error: budget.incomplete ? _dataCleanupPartialScanError : null,
+  );
 }
 
 DataCleanupSizeReport _isolateMeasureFile(String path) {
@@ -666,43 +760,44 @@ DataCleanupSizeReport _isolateMeasureFile(String path) {
   }
 }
 
-void _isolateDeleteFile(String path) {
+Future<void> _isolateDeleteFile(String path) async {
   if (!_isSafeDeleteTarget(path)) {
     return;
   }
   final file = File(path);
-  if (!file.existsSync()) {
+  if (!await file.exists()) {
     return;
   }
   try {
-    file.deleteSync();
+    await file.delete();
   } catch (error, stack) {
     // 上层会通过 controller refresh 兜底，单文件删除失败不致命。
     silentLog('data_cleanup', 'delete file', error, stack);
   }
 }
 
-void _isolateDeleteAttachments(String sessionsRoot) {
+Future<void> _isolateDeleteAttachments(String sessionsRoot) async {
   if (!_isSafeDeleteTarget(sessionsRoot)) {
     return;
   }
   final root = Directory(sessionsRoot);
-  if (!root.existsSync()) {
+  if (!await root.exists()) {
     return;
   }
   try {
-    for (final entity in root.listSync(followLinks: false)) {
+    await for (final entity
+        in root.list(followLinks: false).timeout(_dataCleanupScanIdleTimeout)) {
       if (entity is! Directory) {
         continue;
       }
       final name = p.basename(entity.path);
       if (name == 'attachments') {
-        _safeDeleteDirectoryAndRecreate(entity);
+        await _safeDeleteDirectoryAndRecreate(entity);
         continue;
       }
       final perSession = Directory(p.join(entity.path, 'attachments'));
-      if (perSession.existsSync()) {
-        _safeDeleteDirectoryAndRecreate(perSession);
+      if (await perSession.exists()) {
+        await _safeDeleteDirectoryAndRecreate(perSession);
       }
     }
   } catch (error, stack) {
@@ -711,21 +806,22 @@ void _isolateDeleteAttachments(String sessionsRoot) {
   }
 }
 
-void _isolateDeleteDirectoryContents(String dir) {
+Future<void> _isolateDeleteDirectoryContents(String dir) async {
   if (!_isSafeDeleteTarget(dir)) {
     return;
   }
   final root = Directory(dir);
-  if (!root.existsSync()) {
+  if (!await root.exists()) {
     return;
   }
   try {
-    for (final entity in root.listSync(followLinks: false)) {
+    await for (final entity
+        in root.list(followLinks: false).timeout(_dataCleanupScanIdleTimeout)) {
       try {
         if (entity is Directory) {
-          entity.deleteSync(recursive: true);
+          await entity.delete(recursive: true);
         } else {
-          entity.deleteSync();
+          await entity.delete();
         }
       } catch (error, stack) {
         // 单个文件删除失败：忽略，继续下一个。
@@ -738,27 +834,28 @@ void _isolateDeleteDirectoryContents(String dir) {
   }
 }
 
-void _isolateDeleteDirectoryContentsExcluding(List<String> args) {
+Future<void> _isolateDeleteDirectoryContentsExcluding(List<String> args) async {
   if (args.isEmpty) return;
   final dir = args.first;
   if (!_isSafeDeleteTarget(dir)) {
     return;
   }
   final root = Directory(dir);
-  if (!root.existsSync()) {
+  if (!await root.exists()) {
     return;
   }
   final excludedRoots = args.skip(1).map(p.normalize).toList(growable: false);
   try {
-    for (final entity in root.listSync(followLinks: false)) {
+    await for (final entity
+        in root.list(followLinks: false).timeout(_dataCleanupScanIdleTimeout)) {
       if (_isExcludedPath(entity.path, excludedRoots)) {
         continue;
       }
       try {
         if (entity is Directory) {
-          _deleteDirectoryTreeExcluding(entity, excludedRoots);
+          await _deleteDirectoryTreeExcluding(entity, excludedRoots);
         } else {
-          entity.deleteSync();
+          await entity.delete();
         }
       } catch (error, stack) {
         silentLog('data_cleanup', 'delete dir entry excluding', error, stack);
@@ -780,6 +877,9 @@ bool _isSafeDeleteTarget(String path) {
     return false;
   }
   final normalized = p.normalize(path);
+  if (!p.isAbsolute(normalized)) {
+    return false;
+  }
   // 单字符根、相对当前目录、或 path-segment 数量过少的路径一律拒绝。
   if (normalized == '/' ||
       normalized == '\\' ||
@@ -809,15 +909,15 @@ bool _isSafeDeleteTarget(String path) {
   return true;
 }
 
-void _safeDeleteDirectoryAndRecreate(Directory dir) {
+Future<void> _safeDeleteDirectoryAndRecreate(Directory dir) async {
   try {
-    dir.deleteSync(recursive: true);
+    await dir.delete(recursive: true);
   } catch (error, stack) {
     // 删除失败时仍尝试 recreate：保持调用方期望的"目录存在"语义。
     silentLog('data_cleanup', 'delete dir', error, stack);
   }
   try {
-    dir.createSync(recursive: true);
+    await dir.create(recursive: true);
   } catch (error, stack) {
     // recreate 失败也不抛——下游写入时会自行重试。
     silentLog('data_cleanup', 'recreate dir', error, stack);
@@ -830,14 +930,20 @@ class _DirStats {
   final int files;
 }
 
-_DirStats _walkDirectoryStats(
+Future<_DirStats> _walkDirectoryStats(
   Directory dir, {
   List<String> excludedRoots = const <String>[],
-}) {
+  _DataCleanupScanBudget? budget,
+}) async {
   int bytes = 0;
   int files = 0;
+  final activeBudget = budget ?? _DataCleanupScanBudget();
   try {
-    for (final entity in dir.listSync(recursive: true, followLinks: false)) {
+    await for (final entity
+        in dir
+            .list(recursive: true, followLinks: false)
+            .timeout(_dataCleanupScanIdleTimeout)) {
+      if (!activeBudget.takeEntry()) break;
       if (entity is! File) {
         continue;
       }
@@ -848,11 +954,13 @@ _DirStats _walkDirectoryStats(
         bytes += entity.lengthSync();
         files++;
       } catch (error, stack) {
+        activeBudget.markInterrupted();
         // 文件并发被删 / 权限不足：跳过。
         silentLog('data_cleanup', 'len walk entity', error, stack);
       }
     }
   } catch (error, stack) {
+    activeBudget.markInterrupted();
     // 列表失败：返回已经累计的部分。
     silentLog('data_cleanup', 'walk dir list', error, stack);
   }
@@ -883,20 +991,24 @@ bool _containsExcludedPath(Directory dir, List<String> excludedRoots) {
   return false;
 }
 
-void _deleteDirectoryTreeExcluding(Directory dir, List<String> excludedRoots) {
+Future<void> _deleteDirectoryTreeExcluding(
+  Directory dir,
+  List<String> excludedRoots,
+) async {
   if (_isExcludedPath(dir.path, excludedRoots)) return;
   if (!_containsExcludedPath(dir, excludedRoots)) {
-    dir.deleteSync(recursive: true);
+    await dir.delete(recursive: true);
     return;
   }
-  for (final entity in dir.listSync(followLinks: false)) {
+  await for (final entity
+      in dir.list(followLinks: false).timeout(_dataCleanupScanIdleTimeout)) {
     if (_isExcludedPath(entity.path, excludedRoots)) {
       continue;
     }
     if (entity is Directory) {
-      _deleteDirectoryTreeExcluding(entity, excludedRoots);
+      await _deleteDirectoryTreeExcluding(entity, excludedRoots);
     } else {
-      entity.deleteSync();
+      await entity.delete();
     }
   }
 }
