@@ -32,13 +32,37 @@ class LifecycleLruCache<V> {
     if (maxEntries <= 0) return;
     final cost = _entryCost(value);
     final costLimit = maxCost;
-    if (costLimit != null && cost > costLimit) return;
-
     final previous = _entries.remove(key);
     if (previous != null) _totalCost -= previous.cost;
+    if (costLimit != null && cost > costLimit) return;
     _entries[key] = _LifecycleCacheEntry<V>(value, cost);
     _totalCost += cost;
     _evictOverflow();
+  }
+
+  V putIfAbsent(String key, V Function() create) {
+    final cached = get(key);
+    if (cached != null) return cached;
+    final value = create();
+    put(key, value);
+    return value;
+  }
+
+  V? remove(String key) {
+    final removed = _entries.remove(key);
+    if (removed == null) return null;
+    _totalCost -= removed.cost;
+    return removed.value;
+  }
+
+  void removeWhere(bool Function(String key, V value) test) {
+    final keys = <String>[];
+    for (final entry in _entries.entries) {
+      if (test(entry.key, entry.value.value)) keys.add(entry.key);
+    }
+    for (final key in keys) {
+      remove(key);
+    }
   }
 
   void clear() {

@@ -9,6 +9,7 @@ import 'package:path/path.dart' as p;
 import '../../../../app/support/openhand_paths.dart';
 import '../../../../app/support/silent_log.dart';
 import '../../../../app/support/system_proxy.dart';
+import '../../../../shared/util/bounded_file_io.dart';
 import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/path_safety.dart';
@@ -1512,8 +1513,10 @@ class AiToolRuntimeService {
         }
         String? after;
         try {
-          after = await file.readAsString();
-          if (after.length > _maxPostHocLedgerCaptureBytes) after = null;
+          after = await readBoundedFileString(
+            file,
+            maxBytes: _maxPostHocLedgerCaptureBytes,
+          );
         } catch (error, stack) {
           silentLog(
             'AiToolRuntimeService',
@@ -1914,11 +1917,14 @@ class AiToolRuntimeService {
         optionalStringFromValue(decodedArguments['prompt']);
     final String manifestContent;
     try {
-      manifestContent = await File(skill.manifestPath).readAsString();
-    } on FileSystemException catch (error) {
+      manifestContent = await readBoundedFileString(
+        File(skill.manifestPath),
+        maxBytes: skillManifestMaxBytes,
+      );
+    } catch (error) {
       return _invalidToolResult(
         toolCall.name,
-        'Failed to read skill manifest at "${skill.manifestPath}": ${error.message}',
+        'Failed to read skill manifest at "${skill.manifestPath}": $error',
       );
     }
     final linkedResources = await _loadSkillLinkedResources(

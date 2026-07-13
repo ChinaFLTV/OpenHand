@@ -1,5 +1,8 @@
 import '../../../app/support/openhand_paths.dart';
+import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
+
+const int skillManifestMaxBytes = 2 * kBytesPerMiB;
 
 enum LocalSkillIconKind { svg, raster }
 

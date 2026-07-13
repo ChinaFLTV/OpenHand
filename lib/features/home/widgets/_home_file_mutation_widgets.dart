@@ -8,6 +8,7 @@ String _fileMutationKind(AiSessionMessage message) =>
     '${message.metadata['file_mutation_kind'] ?? ''}'.trim();
 
 const int _kFileMutationUndoConcurrency = 4;
+const int _kFileMutationDiffReadMaxBytes = 16 * kBytesPerMiB;
 const Color _kFileMutationAddedColor = Color(0xFF2E7D32);
 const double _kFileMutationLineDeltaGap = 4;
 const Duration _kFileMutationOverlaySwitchDuration = Duration(
@@ -2292,7 +2293,10 @@ class _FileDiffDialogState extends State<_FileDiffDialog> {
         // No history, try to read current file content as 'after'.
         final file = File(widget.filePath);
         if (await file.exists()) {
-          final content = await file.readAsString();
+          final content = await readBoundedFileString(
+            file,
+            maxBytes: _kFileMutationDiffReadMaxBytes,
+          );
           if (!mounted) return;
           setState(() {
             _beforeContent = null;
@@ -2330,7 +2334,10 @@ class _FileDiffDialogState extends State<_FileDiffDialog> {
       String? afterContent;
       final currentFile = File(widget.filePath);
       if (await currentFile.exists()) {
-        afterContent = await currentFile.readAsString();
+        afterContent = await readBoundedFileString(
+          currentFile,
+          maxBytes: _kFileMutationDiffReadMaxBytes,
+        );
       }
 
       if (!mounted) return;

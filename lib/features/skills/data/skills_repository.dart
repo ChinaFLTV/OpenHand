@@ -35,7 +35,6 @@ class SkillsRepository {
   static const int _maxSkillScanDepth = 32;
   static const Duration _skillScanIdleTimeout = Duration(seconds: 3);
   static const Duration _skillScanTotalTimeout = Duration(seconds: 20);
-  static const int _maxManifestBytes = 2 * kBytesPerMiB;
   static const int _maxMetadataBytes = 512 * kBytesPerKiB;
   static const int _maxOptionalAssetBytes = 32 * kBytesPerMiB;
   static final RegExp _whitespacePattern = RegExp(r'\s+');
@@ -252,7 +251,7 @@ class SkillsRepository {
   Future<String> readSkillManifest(LocalSkill skill) {
     return readBoundedFileString(
       File(skill.manifestPath),
-      maxBytes: _maxManifestBytes,
+      maxBytes: skillManifestMaxBytes,
     );
   }
 
@@ -274,7 +273,7 @@ class SkillsRepository {
     );
     final previousManifestContent = await readBoundedFileString(
       manifestFile,
-      maxBytes: _maxManifestBytes,
+      maxBytes: skillManifestMaxBytes,
     );
     final previousMetadataBytes = await _readOptionalFileBytes(metadataPath);
 
@@ -355,7 +354,7 @@ class SkillsRepository {
     );
     final previousManifestContent = await readBoundedFileString(
       manifestFile,
-      maxBytes: _maxManifestBytes,
+      maxBytes: skillManifestMaxBytes,
     );
     final previousMetadataBytes = await _readOptionalFileBytes(metadataPath);
     final previousEmojiIconBytes = await _readOptionalFileBytes(
@@ -441,7 +440,7 @@ class SkillsRepository {
   Future<LocalSkill> _parseSkill(File manifestFile, String storagePath) async {
     final lines = (await readBoundedFileString(
       manifestFile,
-      maxBytes: _maxManifestBytes,
+      maxBytes: skillManifestMaxBytes,
     )).split('\n');
     final metadata = _extractFrontMatter(lines);
     final directoryPath = manifestFile.parent.path;

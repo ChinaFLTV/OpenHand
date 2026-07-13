@@ -1,13 +1,18 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as p;
 
 import '../../../../app/support/openhand_paths.dart';
 import '../../../../app/support/silent_log.dart';
 import '../../../../shared/db/atomic_file_operations.dart';
+import '../../../../shared/util/bounded_file_io.dart';
+import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/input_value_parsing.dart';
+import '../../../../shared/util/path_safety.dart';
 import '../../../../shared/util/rolling_hash.dart';
+import '../../../../shared/util/text_clip.dart';
 
 /// 文件编辑历史版本服务
 ///
@@ -17,15 +22,39 @@ import '../../../../shared/util/rolling_hash.dart';
 /// 3. 支持回滚到指定版本
 class AiFileHistoryService {
   AiFileHistoryService({String? historyDirectory, this.maxVersionsPerFile = 10})
-    : _historyDirectory = historyDirectory;
+    : _historyDirectory = historyDirectory == null
+          ? null
+          : p.normalize(historyDirectory.trim()) {
+    if (historyDirectory != null && nullIfBlank(historyDirectory) == null) {
+      throw ArgumentError.value(
+        historyDirectory,
+        'historyDirectory',
+        'Must not be blank.',
+      );
+    }
+    if (maxVersionsPerFile < 1 || maxVersionsPerFile > _maxVersionsPerFile) {
+      throw ArgumentError.value(
+        maxVersionsPerFile,
+        'maxVersionsPerFile',
+        'Must be between 1 and $_maxVersionsPerFile.',
+      );
+    }
+  }
 
   static final RegExp _unsafeHistoryPathBasenamePattern = RegExp(
     r'[^a-zA-Z0-9_-]',
   );
   static const int _historyPathBasenamePrefixLength = 20;
+  static const int _maxVersionsPerFile = 1000;
+  static const int _maxVersionSuffixCharacters = 80;
+  static const int _maxVersionIdCharacters = 160;
+  static const int _maxMetadataIdentifierCharacters = 512;
+  static const int _maxHistoryContentBytes = 16 * kBytesPerMiB;
+  static const int _maxHistoryMetadataBytes = 64 * kBytesPerKiB;
 
   final String? _historyDirectory;
   final int maxVersionsPerFile;
+  int _versionSerial = 0;
 
   /// 获取历史版本存储目录
   ///
@@ -67,20 +96,41 @@ class AiFileHistoryService {
 
       // 版本 ID = 时间戳 + UUID 后缀
       final timestamp = DateTime.now().toUtc();
+      final normalizedToolCallId = nullIfBlank(toolCallId);
+      final suffix = sanitizePortableFileNamePart(
+        normalizedToolCallId ?? 'manual',
+        fallback: 'manual',
+        maxCharacters: _maxVersionSuffixCharacters,
+        collapseReplacement: true,
+        trimBoundaryReplacement: true,
+      );
       final versionId =
-          '${timestamp.millisecondsSinceEpoch}_${toolCallId ?? 'manual'}';
+          '${timestamp.microsecondsSinceEpoch}_${_versionSerial++}_$suffix';
 
       // 读取当前内容
-      final content = await file.readAsString();
+      final content = await readBoundedFileString(
+        file,
+        maxBytes: _maxHistoryContentBytes,
+      );
 
       // 保存版本元数据
       final versionMetadata = <String, Object?>{
         'version_id': versionId,
         'file_path': location.normalizedPath,
-        'session_id': sessionId,
-        'tool_call_id': toolCallId,
+        'session_id': clipText(
+          sessionId,
+          _maxMetadataIdentifierCharacters,
+          suffix: '',
+        ),
+        'tool_call_id': normalizedToolCallId == null
+            ? null
+            : clipText(
+                normalizedToolCallId,
+                _maxMetadataIdentifierCharacters,
+                suffix: '',
+              ),
         'created_at': timestamp.toIso8601String(),
-        'file_size_bytes': content.length,
+        'file_size_bytes': utf8.encode(content).length,
       };
 
       // 保存内容文件
@@ -120,9 +170,17 @@ class AiFileHistoryService {
       await for (final entity in fileHistoryDir.list(followLinks: false)) {
         if (entity is File && entity.path.endsWith('.meta.json')) {
           try {
-            final metaContent = await entity.readAsString();
+            final metaContent = await readBoundedFileString(
+              entity,
+              maxBytes: _maxHistoryMetadataBytes,
+            );
             final info = _decodeVersionInfo(metaContent);
-            if (info != null) versions.add(info);
+            if (info != null &&
+                _isSafeVersionId(info.versionId) &&
+                p.basename(entity.path) == '${info.versionId}.meta.json' &&
+                p.equals(info.filePath, p.normalize(filePath))) {
+              versions.add(info);
+            }
           } catch (_) {
             // 跳过损坏的元数据文件
           }
@@ -142,27 +200,35 @@ class AiFileHistoryService {
     required String filePath,
     required String versionId,
   }) async {
+    if (!_isSafeVersionId(versionId)) {
+      return const RollbackResult.failure('Invalid version ID');
+    }
     try {
-      final location = await _resolveFileHistoryLocation(filePath);
-      final fileHistoryDir = location.directory;
-
-      final contentFile = File(
-        p.join(fileHistoryDir.path, '$versionId.content'),
+      final (historicContent, _) = await readVersionContent(
+        filePath: filePath,
+        versionId: versionId,
       );
-      if (!await contentFile.exists()) {
+      if (historicContent == null) {
         return const RollbackResult.failure('Version not found');
       }
 
-      // 先保存当前版本（作为回滚前的备份）
-      await saveVersion(
-        filePath: filePath,
-        sessionId: 'rollback-backup',
-        toolCallId: 'pre-rollback-${DateTime.now().millisecondsSinceEpoch}',
-      );
+      final location = await _resolveFileHistoryLocation(filePath);
+      final targetFile = File(location.normalizedPath);
+      if (await targetFile.exists()) {
+        final backupId = await saveVersion(
+          filePath: filePath,
+          sessionId: 'rollback-backup',
+          toolCallId: 'pre-rollback-${DateTime.now().millisecondsSinceEpoch}',
+        );
+        if (backupId == null) {
+          return const RollbackResult.failure(
+            'Could not save the current file before rollback',
+          );
+        }
+      }
 
       // 恢复历史版本
-      final historicContent = await contentFile.readAsString();
-      await File(location.normalizedPath).writeAsString(historicContent);
+      await writeFileAtomically(targetFile, historicContent);
 
       return RollbackResult.success(versionId);
     } catch (e) {
@@ -209,12 +275,21 @@ class AiFileHistoryService {
     }
   }
 
-  /// 生成路径哈希（用于创建子目录）
-  String _hashPath(String path) {
+  String _historyDirectoryName(String path) {
+    final digest = sha256.convert(utf8.encode(path)).toString();
+    return '${_historyDirectoryPrefix(path)}_$digest';
+  }
+
+  /// Retains compatibility with directories created before SHA-256 keys.
+  String _legacyHistoryDirectoryName(String path) {
     final hash = rollingHashPositive31Bit(
       path.codeUnits,
       (codeUnit) => codeUnit,
     );
+    return '${_historyDirectoryPrefix(path)}_$hash';
+  }
+
+  String _historyDirectoryPrefix(String path) {
     final basename = p.basenameWithoutExtension(path);
     final safeBasename = basename.replaceAll(
       _unsafeHistoryPathBasenamePattern,
@@ -226,7 +301,7 @@ class AiFileHistoryService {
             0,
             safeBasename.length.clamp(0, _historyPathBasenamePrefixLength),
           );
-    return '${prefix}_$hash';
+    return prefix;
   }
 
   Future<({Directory directory, String normalizedPath})>
@@ -234,8 +309,16 @@ class AiFileHistoryService {
     final historyDir = await _getHistoryDir();
     final normalizedPath = p.normalize(filePath);
     final directory = Directory(
-      p.join(historyDir.path, _hashPath(normalizedPath)),
+      p.join(historyDir.path, _historyDirectoryName(normalizedPath)),
     );
+    if (!await directory.exists()) {
+      final legacyDirectory = Directory(
+        p.join(historyDir.path, _legacyHistoryDirectoryName(normalizedPath)),
+      );
+      if (await legacyDirectory.exists()) {
+        return (directory: legacyDirectory, normalizedPath: normalizedPath);
+      }
+    }
     if (create && !await directory.exists()) {
       await directory.create(recursive: true);
     }
@@ -249,10 +332,12 @@ class AiFileHistoryService {
     required String filePath,
     required String versionId,
   }) async {
+    if (!_isSafeVersionId(versionId)) {
+      return (null, null);
+    }
     try {
-      final fileHistoryDir = (await _resolveFileHistoryLocation(
-        filePath,
-      )).directory;
+      final location = await _resolveFileHistoryLocation(filePath);
+      final fileHistoryDir = location.directory;
 
       final contentFile = File(
         p.join(fileHistoryDir.path, '$versionId.content'),
@@ -261,29 +346,35 @@ class AiFileHistoryService {
         return (null, null);
       }
 
-      final content = await contentFile.readAsString();
-
-      // 尝试读取元数据
-      FileVersionInfo? metadata;
       final metaFile = File(
         p.join(fileHistoryDir.path, '$versionId.meta.json'),
       );
-      if (await metaFile.exists()) {
-        try {
-          final metaContent = await metaFile.readAsString();
-          metadata = _decodeVersionInfo(metaContent);
-        } catch (error, stack) {
-          silentLog(
-            'ai_file_history_service',
-            'parse version meta',
-            error,
-            stack,
-          );
-        }
+      if (!await metaFile.exists()) {
+        return (null, null);
       }
+      final metaContent = await readBoundedFileString(
+        metaFile,
+        maxBytes: _maxHistoryMetadataBytes,
+      );
+      final metadata = _decodeVersionInfo(metaContent);
+      if (metadata == null ||
+          metadata.versionId != versionId ||
+          !p.equals(metadata.filePath, location.normalizedPath)) {
+        return (null, null);
+      }
+      final content = await readBoundedFileString(
+        contentFile,
+        maxBytes: _maxHistoryContentBytes,
+      );
 
       return (content, metadata);
-    } catch (_) {
+    } catch (error, stack) {
+      silentLog(
+        'ai_file_history_service',
+        'read version content',
+        error,
+        stack,
+      );
       return (null, null);
     }
   }
@@ -297,12 +388,17 @@ class AiFileHistoryService {
         await for (final file in pathDir.list()) {
           if (file is! File || !file.path.endsWith('.meta.json')) continue;
           try {
-            final content = await file.readAsString();
+            final content = await readBoundedFileString(
+              file,
+              maxBytes: _maxHistoryMetadataBytes,
+            );
             final info = _decodeVersionInfo(content);
-            if (info?.sessionId == sessionId) {
+            if (info?.sessionId == sessionId &&
+                _isSafeVersionId(info!.versionId) &&
+                p.basename(file.path) == '${info.versionId}.meta.json') {
               await file.delete();
               final contentFile = File(
-                p.join(pathDir.path, '${info!.versionId}.content'),
+                p.join(pathDir.path, '${info.versionId}.content'),
               );
               if (await contentFile.exists()) {
                 await contentFile.delete();
@@ -326,6 +422,19 @@ class AiFileHistoryService {
         stack,
       );
     }
+  }
+
+  bool _isSafeVersionId(String versionId) {
+    if (versionId.isEmpty ||
+        versionId.length > _maxVersionIdCharacters ||
+        versionId == '.' ||
+        versionId == '..' ||
+        versionId.contains('\u0000')) {
+      return false;
+    }
+    return p.basename(versionId) == versionId &&
+        p.posix.basename(versionId) == versionId &&
+        p.windows.basename(versionId) == versionId;
   }
 }
 

@@ -4762,6 +4762,18 @@ String _formatSelfLearningElapsed(BuildContext context, DateTime createdAt) {
 /// 把文件差异预览加载失败的常见 dart:io 异常翻译成简短用户文案，
 /// 替代直接 `e.toString()` 把 `FileSystemException(...)` 暴露给用户。
 String _friendlyFileDiffError(BuildContext context, Object error) {
+  if (error is BoundedFileReadException) {
+    final limit = formatByteSize(error.maxBytes);
+    return openHandLocalizedText(
+      context,
+      zh: '文件超过 $limit，无法安全生成差异预览。',
+      zhHant: '檔案超過 $limit，無法安全產生差異預覽。',
+      en: 'The file exceeds $limit and cannot be previewed safely.',
+      fr: 'Le fichier dépasse $limit et ne peut pas être prévisualisé en toute sécurité.',
+      de: 'Die Datei überschreitet $limit und kann nicht sicher angezeigt werden.',
+      ja: 'ファイルが $limit を超えているため、安全にプレビューできません。',
+    );
+  }
   final raw = error.toString();
   if (raw.startsWith('PathNotFoundException') ||
       raw.contains('No such file or directory')) {
