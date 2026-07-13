@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as p;
@@ -106,19 +105,6 @@ Future<void> writeFileAtomically(File targetFile, String content) {
   return _runWithAtomicWriteLock(
     targetFile,
     (targetFile) => _writeFileAtomicallyLocked(targetFile, content),
-  );
-}
-
-/// Writes binary [bytes] to [targetFile] with the same lock/rename/rollback
-/// behavior as [writeFileAtomically].
-Future<void> writeFileBytesAtomically(File targetFile, List<int> bytes) {
-  // Capture caller-owned mutable data before the first asynchronous boundary.
-  // Otherwise an in-flight mutation can silently publish a mixed payload even
-  // when the list length remains unchanged.
-  final snapshot = Uint8List.fromList(bytes);
-  return _runWithAtomicWriteLock(
-    targetFile,
-    (targetFile) => _writeFileBytesAtomicallyLocked(targetFile, snapshot),
   );
 }
 
@@ -337,33 +323,6 @@ Future<void> _writeFileAtomicallyLocked(File targetFile, String content) async {
           final chunk = utf8.encode(content.substring(offset, end));
           await output.run(
             (file) => file.writeFrom(chunk),
-            timeout: nextOperationTimeout(),
-          );
-          offset = end;
-        }
-      },
-    ),
-  );
-}
-
-Future<void> _writeFileBytesAtomicallyLocked(
-  File targetFile,
-  Uint8List bytes,
-) async {
-  await _writeAtomicallyLocked(
-    targetFile,
-    (tempFile, remainingBudget) => _writeAtomicTempFile(
-      tempFile,
-      remainingBudget,
-      (output, nextOperationTimeout) async {
-        final length = bytes.length;
-        var offset = 0;
-        while (offset < length) {
-          final end = offset + _atomicIoChunkBytes < length
-              ? offset + _atomicIoChunkBytes
-              : length;
-          await output.run(
-            (file) => file.writeFrom(bytes, offset, end),
             timeout: nextOperationTimeout(),
           );
           offset = end;

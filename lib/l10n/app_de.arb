@@ -13,20 +13,10 @@
   },
   "settings": "Einstellungen",
   "threads": "Konversationen",
-  "workspaceHeadline": "Mit dem Aufbau beginnen",
   "composerHint": "Frage OpenHand alles, nutze / für Aktionen und @ für Kontext",
   "composerSend": "Senden",
   "chatSending": "Senden",
   "chatRequestFailed": "Modellanfrage fehlgeschlagen. Modellkonfiguration, Netzwerkverbindung oder Protokolltyp prüfen.",
-  "composerUnavailable": "Dies ist das Grundgerüst. Ausführungsfunktionen sind noch nicht angeschlossen.",
-  "workspaceReadyTitle": "Das Fundament steht",
-  "workspaceReadyBody": "Desktop-Layout, Themenwechsel, Sprachwechsel und die Einstellungen-Infrastruktur sind vorhanden. Weitere Module können jetzt darauf aufbauen.",
-  "quickActionsTitle": "Empfohlene Startpunkte",
-  "quickActionCreateShell": "Desktop-App-Grundgerüst erstellen",
-  "quickActionThemeLanguage": "Thema und Sprache konfigurieren",
-  "quickActionPlanModules": "Künftige Module planen",
-  "skillsHeadline": "Grundgerüst für das Skills-Center",
-  "skillsBody": "Dieser Bereich ist für Plugins, Prompt-Vorlagen und Entwicklerhilfen reserviert.",
   "placeholderComingSoon": "Weitere Module werden hier schrittweise ergänzt.",
   "settingsTitle": "Einstellungszentrum",
   "settingsSubtitle": "Hier verwaltest du Thema, Sprache und App-Informationen.",
@@ -90,16 +80,6 @@
       "type": {}
     }
   },
-  "previewSectionTitle": "Designrichtung",
-  "previewSectionBody": "Entwickelt nach Material 3 Expressive mit geschichteten Flächen, großzügigen Abständen, runden Formen, weichem Licht und klarem Informationsrhythmus.",
-  "threadPrimary": "OpenHand",
-  "@threadPrimary": {
-    "description": "Default conversation thread title; same as the application brand \"OpenHand\"."
-  },
-  "threadShell": "Desktop-App-Grundgerüst",
-  "threadSettings": "Einstellungen und Lokalisierung",
-  "threadRoadmap": "Planung künftiger Module",
-  "switchToWorkspace": "Zurück zur Arbeitsfläche",
   "modelLabel": "OpenHand-Skelett",
   "platformLabel": "Desktop",
   "permissionLabel": "Voller Zugriff",
@@ -1091,7 +1071,6 @@
       }
     }
   },
-  "settingsGeneralTitle": "Allgemein",
   "settingsGeneralSubtitle": "Verwalte Thema, Sprache und grundlegende App-Informationen.",
   "settingsAiSubtitle": "Chat-Modelle, Authentifizierung und Protokolladapter verwalten.",
   "settingsActiveToolCallsTitle": "Aktive Tool-Aufrufe",
@@ -1111,7 +1090,6 @@
   "settingsMaxConcurrentToolsLabel": "Parallele Tool-Aufrufe",
   "settingsMaxConcurrentToolsBody": "Maximale gleichzeitig ausgeführte Tool-Aufrufe pro Sitzung. Bereich 1–64.",
   "settingsToolHardeningInvalid": "Bitte ganze Zahl im Bereich eingeben",
-  "settingsSkillsTitle": "Fähigkeiten",
   "settingsSkillsSubtitle": "Verwalte das lokale Skill-Verzeichnis, Vorlagen und installierte Skills.",
   "settingsMemorySubtitle": "Schalter für Nutzer-Speicher und Persistenz-Dateipfad verwalten.",
   "settingsPersistenceRecoveredTitle": "Einstellungsdatei wiederhergestellt",
@@ -1128,7 +1106,6 @@
   "settingsAnimationRestoreConfirmMessage": "Alle Animationen für Dialoge, Menüs, Seiten/Module, Arbeitsbereichspanels, Chips und Listenelemente werden zurückgesetzt. Eigene Werte werden überschrieben.",
   "settingsAnimationRestoreConfirm": "Wiederherstellen",
   "settingsAnimationRestoreSuccess": "Animationsvorgaben wiederhergestellt",
-  "settingsAnimationRestorePartialFailure": "Einige Einstellungen konnten nicht gespeichert werden. Bitte erneut versuchen.",
   "settingsDialogAnimationTitle": "Dialoganimation",
   "settingsDialogAnimationSubtitle": "Eingangs-/Ausgangsstil, Dauer und Kurve für alle Dialoge konfigurieren.",
   "settingsMenuAnimationTitle": "Menüanimation",
@@ -1371,8 +1348,6 @@
   "aiModelOpenWebsiteTooltip": "Website öffnen",
   "aiModelAuthScheme": "Authentifizierungsschema",
   "aiModelToken": "Token",
-  "aiModelIdField": "Modell-ID",
-  "aiModelIdRequired": "Modell-ID eingeben.",
   "aiModelProtocol": "Protokoll",
   "aiModelSaveSuccess": "Modellanbieter-Konfiguration gespeichert.",
   "aiModelDeleteConfirmTitle": "Modellanbieter löschen",
@@ -1406,23 +1381,6 @@
   "aiModelSelectionRequired": "Fügen Sie zuerst in den Einstellungen einen KI-Modellanbieter hinzu und wählen Sie ihn aus.",
   "aiModelScanButton": "Modelle scannen",
   "aiModelScanning": "Verfügbare Modelle werden gescannt …",
-  "aiModelScanSuccess": "{count} Modelle gefunden.",
-  "@aiModelScanSuccess": {
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
-  },
-  "aiModelScanFailed": "Scan fehlgeschlagen: {reason}",
-  "@aiModelScanFailed": {
-    "placeholders": {
-      "reason": {
-        "type": "String"
-      }
-    }
-  },
-  "aiModelScanEmpty": "Bei diesem Anbieter wurden keine Modelle gefunden.",
   "aiModelAvailableModels": "Verfügbare Modelle",
   "aiModelManualIdHint": "Modell-ID manuell hinzufügen",
   "aiModelManualIdAdd": "Hinzufügen",
@@ -1525,7 +1483,6 @@
   },
   "skillsPageTitle": "Fähigkeiten",
   "skillsPageSubtitle": "Gib OpenHand mehr Erweiterbarkeit mit einer einheitlichen Ansicht installierter lokaler Skills und Vorlagen.",
-  "skillsInstalledSectionTitle": "Installiert",
   "skillsSearchHint": "Skills suchen",
   "skillsRefresh": "Aktualisieren",
   "skillsOpenDirectory": "Ordner öffnen",
@@ -1533,12 +1490,8 @@
   "skillsNewSkill": "Neuer Skill",
   "skillsEmptyTitle": "Noch keine Skills installiert",
   "skillsEmptyBody": "Im aktuellen Skill-Verzeichnis wurden keine SKILL.md-Dateien gefunden. Erstelle eine Vorlage oder wechsle zu einem vorhandenen Verzeichnis.",
-  "skillsEmptyActionCreate": "Vorlage erstellen",
-  "skillsEmptyActionOpenDirectory": "Ordner öffnen",
   "skillsNoResultsTitle": "Keine passenden Skills gefunden",
   "skillsNoResultsBody": "Versuche einen anderen Suchbegriff oder leere die Suche, um alle Skills erneut anzuzeigen.",
-  "skillsFolderLabel": "Speicherort",
-  "skillsCardOpen": "Skill-Ordner öffnen",
   "skillTemplateCreated": "Neue Skill-Vorlage erstellt",
   "skillOperationFailed": "Die Skill-Aktion ist fehlgeschlagen. Bitte versuche es erneut.",
   "skillsImportSuccess": "Skill importiert",
@@ -1570,7 +1523,6 @@
   "imageEditorReset": "Zurücksetzen",
   "imageEditorLoadFailed": "Das ausgewählte Bild konnte nicht geladen werden.",
   "imageEditorProcessFailed": "Das ausgewählte Bild konnte nicht verarbeitet werden.",
-  "imageEditorSectionBasic": "Grundanpassungen",
   "imageEditorSectionColor": "Farbe (Farbtemperatur / Farbton / Gamma)",
   "imageEditorSectionSplitToning": "Split Toning (HSL)",
   "imageEditorSectionDetail": "Details (Klarheit / Schärfe / Rauschunterdrückung / Körnung)",
@@ -1595,7 +1547,6 @@
   "imageEditorWatermarkOpacityLabel": "Deckkraft",
   "imageEditorWatermarkPositionLabel": "Position",
   "imageEditorWatermarkColorLight": "Hell",
-  "imageEditorWatermarkColorDark": "Dunkel",
   "imageEditorAdvancedApplyHint": "Anpassungen in den erweiterten Bereichen werden beim Speichern auf das Originalbild angewendet.",
   "skillsEditorSave": "Speichern",
   "skillsEditorCancel": "Abbrechen",
@@ -1604,7 +1555,6 @@
   "skillsDeleteConfirmBody": "Beim Löschen werden das Skill-Verzeichnis und dessen SKILL.md-Inhalt dauerhaft entfernt.",
   "skillsDeleteConfirmAction": "Löschen",
   "skillsDeleteSuccess": "Skill gelöscht",
-  "skillsStorageSectionTitle": "Skill-Speicherort",
   "skillsStorageSectionBody": "Konfiguriere das lokale Verzeichnis, das OpenHand nach Skills durchsucht. Standardmäßig wird ~/.openhand/skills verwendet und bei Bedarf erstellt.",
   "skillsStorageDefaultPath": "Standardpfad",
   "skillsStorageCurrentPath": "Aktueller Pfad",
@@ -1612,10 +1562,6 @@
   "skillsStorageBrowse": "Ordner wählen",
   "skillsStorageReset": "Standard wiederherstellen",
   "skillsStorageOpen": "Speicherort öffnen",
-  "skillsStorageSummaryTitle": "Skill-Zusammenfassung",
-  "skillsStorageSummaryBody": "Das aktuelle Verzeichnis, die Anzahl installierter Skills und der Scan-Status werden hier in Echtzeit angezeigt.",
-  "skillsStorageStatusReady": "Status",
-  "skillsStorageStatusLoading": "Scan läuft",
   "skillsStorageStatusError": "Skill-Verzeichnis konnte nicht gelesen werden",
   "skillsPathSaved": "Der Skill-Speicherort wurde aktualisiert",
   "instructionPageTitle": "Anweisungen",
@@ -1672,11 +1618,7 @@
   "userMemoryFileLabel": "Nutzer-Speicherdatei",
   "memoryFileBody": "Konfigurieren Sie die JSON-Datei für Nutzer-Erinnerungen. Standardmäßig zeigt sie auf .openhand/memory/user-memory.json im aktuellen App-Verzeichnis.",
   "memoryFileDefaultPath": "Standarddatei",
-  "memoryFileSave": "Pfad speichern",
-  "memoryFileBrowse": "Datei wählen",
-  "memoryFileReset": "Standard wiederherstellen",
   "memoryOpenDirectory": "Verzeichnis öffnen",
-  "memoryPathSaved": "Pfad der Nutzer-Speicherdatei aktualisiert",
   "memoryDisabledTitle": "Speicher ist derzeit deaktiviert",
   "memoryDisabledBody": "Sie können Nutzer-Erinnerungen hier weiterhin verwalten. Um sie zur Laufzeit zu nutzen, aktivieren Sie den Speicher unter Einstellungen > Speicher.",
   "memoryCreatedAtLabel": "Erstellt am",
@@ -1815,7 +1757,6 @@
   "aiCompressionThresholdSaved": "Schwellwert für KI-Nachrichtenkompression aktualisiert.",
   "aiCompressionThresholdInvalid": "Gültigen positiven ganzzahligen Schwellwert eingeben.",
   "aiToolResultCompressionThresholdLabel": "Schwellwert für Werkzeugaufruf-Ausgabekompression",
-  "aiToolResultCompressionThresholdBody": "Schwellwert für Werkzeugergebnisse im Gesprächsverlauf. Sehr große, noch nicht verbrauchte neue Ergebnisse verwenden eine begrenzte Vorschau; ältere verbrauchte Ergebnisse über dem Schwellenwert werden strukturiert zusammengefasst. Standard: 1024.",
   "aiToolResultCompressionThresholdSave": "Schwellwert speichern",
   "aiToolResultCompressionThresholdSaved": "Schwellwert für Werkzeugaufruf-Ausgabekompression aktualisiert.",
   "aiToolResultCompressionThresholdInvalid": "Gültigen positiven ganzzahligen Schwellwert eingeben.",
@@ -1874,82 +1815,6 @@
   "aiEstimatedCharactersPerTokenSave": "Verhältnis speichern",
   "aiEstimatedCharactersPerTokenSaved": "Geschätztes Verhältnis Zeichen pro Token aktualisiert.",
   "aiEstimatedCharactersPerTokenInvalid": "Ganzzahl zwischen 1 und 32 eingeben.",
-  "aiMaxToolOutputCharsLabel": "Max. Zeichen für Werkzeugausgabe",
-  "aiMaxToolOutputCharsBody": "Standard 150000. Schneidet Werkzeugergebnisse oberhalb dieser Länge ab, damit der API-Kontext niemals überläuft.",
-  "aiMaxToolOutputCharsSave": "Limit speichern",
-  "aiMaxToolOutputCharsSaved": "Zeichenlimit der Werkzeugausgabe gespeichert.",
-  "aiMaxToolOutputCharsInvalid": "Ganzzahl zwischen 1000 und 10000000 eingeben.",
-  "aiWriteConfirmationTimeoutMsLabel": "Schreibbestätigungs-Timeout (ms)",
-  "aiWriteConfirmationTimeoutMsBody": "Standard 300000 (5 Min). Maximale Wartezeit, bis der Nutzer einen Schreibbefehl genehmigt.",
-  "aiWriteConfirmationTimeoutMsSave": "Timeout speichern",
-  "aiWriteConfirmationTimeoutMsSaved": "Schreibbestätigungs-Timeout gespeichert.",
-  "aiWriteConfirmationTimeoutMsInvalid": "Ganzzahl zwischen 1000 und 3600000 eingeben.",
-  "aiFastPathWriteAnalysisThresholdLabel": "Fast-Path-Schreibanalyse-Schwellwert",
-  "aiFastPathWriteAnalysisThresholdBody": "Standard 512 Zeichen. Befehle oberhalb dieser Länge nutzen einen groben Heuristik-Schnellpfad statt einer vollständigen Grammatikanalyse.",
-  "aiFastPathWriteAnalysisThresholdSave": "Schwellwert speichern",
-  "aiFastPathWriteAnalysisThresholdSaved": "Fast-Path-Schwellwert gespeichert.",
-  "aiFastPathWriteAnalysisThresholdInvalid": "Ganzzahl zwischen 0 und 100000 eingeben.",
-  "aiMaxHookTextCharactersLabel": "Limit für Hook-Textausgabe",
-  "aiMaxHookTextCharactersBody": "Standard 4000. Gesamt-Zeichenlimit, wenn Claude Hook stdout-/stderr-Ausgaben zusammenführt.",
-  "aiMaxHookTextCharactersSave": "Limit speichern",
-  "aiMaxHookTextCharactersSaved": "Hook-Textlimit gespeichert.",
-  "aiMaxHookTextCharactersInvalid": "Ganzzahl zwischen 100 und 1000000 eingeben.",
-  "aiAttachmentMaxInlineImageDimensionLabel": "Anhang max. Inline-Bildmaße",
-  "aiAttachmentMaxInlineImageDimensionBody": "Standard 1568. An Netzwerk- oder Anhangsbedarf anpassen.",
-  "aiAttachmentMaxInlineImageDimensionSave": "Speichern",
-  "aiAttachmentMaxInlineImageDimensionSaved": "Anhang max. Inline-Bildmaße gespeichert.",
-  "aiAttachmentMaxInlineImageDimensionInvalid": "Gültige Ganzzahl eingeben.",
-  "aiAttachmentMaxTextRawBytesLabel": "Anhang max. Textroh-Bytes",
-  "aiAttachmentMaxTextRawBytesBody": "Standard 1597152 (~1,5 MB). An Netzwerk- oder Anhangsbedarf anpassen.",
-  "aiAttachmentMaxTextRawBytesSave": "Speichern",
-  "aiAttachmentMaxTextRawBytesSaved": "Anhang max. Textroh-Bytes gespeichert.",
-  "aiAttachmentMaxTextRawBytesInvalid": "Gültige Ganzzahl eingeben.",
-  "aiAttachmentMaxPdfRawBytesLabel": "Anhang max. PDF-Roh-Bytes",
-  "aiAttachmentMaxPdfRawBytesBody": "Standard 1597152 (~1,5 MB). An Netzwerk- oder Anhangsbedarf anpassen.",
-  "aiAttachmentMaxPdfRawBytesSave": "Speichern",
-  "aiAttachmentMaxPdfRawBytesSaved": "Anhang max. PDF-Roh-Bytes gespeichert.",
-  "aiAttachmentMaxPdfRawBytesInvalid": "Gültige Ganzzahl eingeben.",
-  "aiAttachmentMaxImageRawBytesLabel": "Anhang max. Bild-Roh-Bytes",
-  "aiAttachmentMaxImageRawBytesBody": "Standard 52428800 (50 MB). An Netzwerk- oder Anhangsbedarf anpassen.",
-  "aiAttachmentMaxImageRawBytesSave": "Speichern",
-  "aiAttachmentMaxImageRawBytesSaved": "Anhang max. Bild-Roh-Bytes gespeichert.",
-  "aiAttachmentMaxImageRawBytesInvalid": "Gültige Ganzzahl eingeben.",
-  "aiChatMaxStreamLineBufferBytesLabel": "Chat max. Stream-Zeilenpuffer-Bytes",
-  "aiChatMaxStreamLineBufferBytesBody": "Standard 4194304 (4 MB). An Netzwerk- oder Anhangsbedarf anpassen.",
-  "aiChatMaxStreamLineBufferBytesSave": "Speichern",
-  "aiChatMaxStreamLineBufferBytesSaved": "Chat max. Stream-Zeilenpuffer-Bytes gespeichert.",
-  "aiChatMaxStreamLineBufferBytesInvalid": "Gültige Ganzzahl eingeben.",
-  "aiFallbackTitleMaxCharactersLabel": "Max. Zeichen für Fallback-Titel",
-  "aiFallbackTitleMaxCharactersBody": "Standard 15. Ableitung des Sitzungstitels anpassen.",
-  "aiFallbackTitleMaxCharactersSave": "Speichern",
-  "aiFallbackTitleMaxCharactersSaved": "Max. Zeichen für Fallback-Titel gespeichert.",
-  "aiFallbackTitleMaxCharactersInvalid": "Gültige Ganzzahl eingeben.",
-  "aiGeneratedTitleMaxCharactersLabel": "Max. Zeichen für generierten Titel",
-  "aiGeneratedTitleMaxCharactersBody": "Standard 15. Ableitung des Sitzungstitels anpassen.",
-  "aiGeneratedTitleMaxCharactersSave": "Speichern",
-  "aiGeneratedTitleMaxCharactersSaved": "Max. Zeichen für generierten Titel gespeichert.",
-  "aiGeneratedTitleMaxCharactersInvalid": "Gültige Ganzzahl eingeben.",
-  "aiMinimumMeaningfulTitleCharactersLabel": "Mindestzeichen für sinnvollen Titel",
-  "aiMinimumMeaningfulTitleCharactersBody": "Standard 4. Ableitung des Sitzungstitels anpassen.",
-  "aiMinimumMeaningfulTitleCharactersSave": "Speichern",
-  "aiMinimumMeaningfulTitleCharactersSaved": "Mindestzeichen für sinnvollen Titel gespeichert.",
-  "aiMinimumMeaningfulTitleCharactersInvalid": "Gültige Ganzzahl eingeben.",
-  "aiMinimumMeaningfulLatinTitleWordsLabel": "Mindestwörter für sinnvollen lateinischen Titel",
-  "aiMinimumMeaningfulLatinTitleWordsBody": "Standard 2. Ableitung des Sitzungstitels anpassen.",
-  "aiMinimumMeaningfulLatinTitleWordsSave": "Speichern",
-  "aiMinimumMeaningfulLatinTitleWordsSaved": "Mindestwörter für sinnvollen lateinischen Titel gespeichert.",
-  "aiMinimumMeaningfulLatinTitleWordsInvalid": "Gültige Ganzzahl eingeben.",
-  "aiMaxSkillContentLengthLabel": "Max. Inhaltslänge der Skill-Datei",
-  "aiMaxSkillContentLengthBody": "Standard 100000. Größe von Skill-/Arbeitsbereichsdokumenten anpassen.",
-  "aiMaxSkillContentLengthSave": "Speichern",
-  "aiMaxSkillContentLengthSaved": "Max. Inhaltslänge der Skill-Datei gespeichert.",
-  "aiMaxSkillContentLengthInvalid": "Gültige Ganzzahl eingeben.",
-  "aiMaxWorkspaceDocumentCharactersLabel": "Max. Zeichen für Arbeitsbereichsdokument",
-  "aiMaxWorkspaceDocumentCharactersBody": "Standard 16000. Größe von Skill-/Arbeitsbereichsdokumenten anpassen.",
-  "aiMaxWorkspaceDocumentCharactersSave": "Speichern",
-  "aiMaxWorkspaceDocumentCharactersSaved": "Max. Zeichen für Arbeitsbereichsdokument gespeichert.",
-  "aiMaxWorkspaceDocumentCharactersInvalid": "Gültige Ganzzahl eingeben.",
-  "aiImageSizeLimitLabel": "Bildgrößen-Limit",
   "aiImageSizeLimitBody": "Wenn der Nutzer ein Bild größer als dieses Limit anhängt, komprimiert OpenHand es automatisch (Qualität + Auflösung) vor dem Senden. Akzeptiert MB-Dezimalwerte; Bereich 0,0625 MB (64 KB) bis 64 MB.",
   "aiImageSizeLimitFieldLabel": "Limit (MB)",
   "aiImageSizeLimitSave": "Limit speichern",
@@ -2302,7 +2167,6 @@
   "tokenPopupCostCacheWrite": "Zwischenspeicher-Schreiben",
   "tokenPopupCostTotal": "Gesamt",
   "tokenDialUnit": "Token",
-  "tokenDialTotal": "Gesamt",
   "tokenPopupInputHeading": "Eingabe",
   "tokenPopupPrompt": "Eingabetext",
   "tokenPopupCacheRead": "Zwischenspeicher-Treffer",
@@ -2318,7 +2182,6 @@
   "tokenPopupPromptChars": "Eingabezeichen",
   "tokenPopupCacheHitModeExcludeExpired": "Ohne Ablauf-Ausreißer",
   "tokenPopupCacheHitModeIncludeExpired": "Mit Ablauf-Ausreißern",
-  "tokenPopupFirstRequestIgnored": "Erste Anfrage ignoriert",
   "tokenPopupExcludedRounds": "{count} ausgeschlossen",
   "@tokenPopupExcludedRounds": {
     "placeholders": {
@@ -2468,15 +2331,6 @@
   "toolSearchLoadedHistoryImportDialogTitle": "ToolSearch-Verlaufsimport-Vorschau",
   "@toolSearchLoadedHistoryImportDialogTitle": {
     "description": "Title of the preview dialog shown after a successful JSON import."
-  },
-  "toolSearchLoadedHistoryImportDialogParseFailed": "JSON-Parsing fehlgeschlagen: {error}",
-  "@toolSearchLoadedHistoryImportDialogParseFailed": {
-    "description": "Snackbar/error text when JSON cannot be parsed.",
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
   },
   "toolSearchLoadedHistoryImportDialogCount": "{count, plural, =0{keine Einträge} =1{1 Eintrag} other{{count} Einträge}}",
   "@toolSearchLoadedHistoryImportDialogCount": {
@@ -2633,13 +2487,6 @@
   "tlCallThereIsNoToolOutputYet": "Noch keine Werkzeugausgabe.",
   "tlCallViewInDialog": "Im Dialog anzeigen",
   "tlCallEmptyContent": "Leerer Inhalt",
-  "tlCallWrite": "Schreiben",
-  "tlCallEdit": "Bearbeiten",
-  "tlCallMultiEdit": "Mehrfach-Bearbeitung",
-  "tlCallNotebookEdit": "Notebook-Bearbeitung",
-  "tlCallBashWrite": "Bash-Schreiben",
-  "tlCallFileChanged": "Datei geändert",
-  "tlCallChangedFile": "Geänderte Datei",
   "fileMutationSection": "Dateiänderungen",
   "fileMutationFilesChanged": "{count, plural, =1{1 Datei geändert} other{{count} Dateien geändert}}",
   "@fileMutationFilesChanged": {
@@ -2686,8 +2533,6 @@
   "fileMutationUndoFailed": "Rückgängig fehlgeschlagen",
   "fileMutationRedoFailed": "Wiederherstellen fehlgeschlagen",
   "fileMutationSnapshotUnavailable": "Inhalts-Snapshot nicht verfügbar",
-  "dataCleanupFileMutationLedgerTitle": "Datei-Mutations-Ledger",
-  "dataCleanupFileMutationLedgerSubtitle": "Datei-Mutations-Ledger unter ~/.openhand/file_history/ (Vorher/Nachher-Blobs + jsonl). Nach der Bereinigung zeigen historische Karten möglicherweise keine Rückgängig-Steuerelemente mehr.",
   "tlCallTool": "Werkzeug",
   "tlCallSkill": "Fähigkeit",
   "tlCallStopped": "Gestoppt",
@@ -3178,14 +3023,6 @@
   "tlCallWrapLines": "Zeilen umbrechen",
   "tlCallViewCompressedContent": "Komprimierten Inhalt anzeigen",
   "tlCallViewFullContent": "Vollständigen Inhalt anzeigen",
-  "tlCallMultiEditEditcount": "Mehrfach-Bearbeitung ×{editCount}",
-  "@tlCallMultiEditEditcount": {
-    "placeholders": {
-      "editCount": {
-        "type": "Object"
-      }
-    }
-  },
   "tlCallPreparing": "Wird vorbereitet",
   "tlCallPreparingAlt": "Wird vorbereitet",
   "tlCallRunningAlt": "Läuft",
@@ -7264,24 +7101,12 @@
   "@agentsSubtitle": {
     "description": "OpenHand localized UI text."
   },
-  "agentsOpenFolder": "Ordner öffnen",
-  "@agentsOpenFolder": {
-    "description": "OpenHand localized UI text."
-  },
   "agentsCreateAgent": "Agent erstellen",
   "@agentsCreateAgent": {
     "description": "OpenHand localized UI text."
   },
   "agentsEditAgent": "Agent bearbeiten",
   "@agentsEditAgent": {
-    "description": "OpenHand localized UI text."
-  },
-  "agentsWorkspaceTitle": "Hermes-Agent-Arbeitsbereich",
-  "@agentsWorkspaceTitle": {
-    "description": "OpenHand localized UI text."
-  },
-  "agentsWorkspaceBody": "Aktivierte Agenten stellen Aufgabenvergabe, Nachverfolgung und Ergebnisse bereit. Hier konfigurieren Sie Umfang, Rechte, Cluster und Governance.",
-  "@agentsWorkspaceBody": {
     "description": "OpenHand localized UI text."
   },
   "agentsLoadFailed": "Agenten konnten nicht geladen werden",
@@ -7350,10 +7175,6 @@
   },
   "agentsResources": "Ressourcen",
   "@agentsResources": {
-    "description": "OpenHand localized UI text."
-  },
-  "agentsEditConfig": "Bearbeiten",
-  "@agentsEditConfig": {
     "description": "OpenHand localized UI text."
   },
   "agentsDeleteAgent": "Agent löschen",
@@ -7745,10 +7566,6 @@
   "@agentsTaskLabelsLabel": {
     "description": "OpenHand localized UI text."
   },
-  "agentsCommaSeparatedHint": "Kommagetrennt",
-  "@agentsCommaSeparatedHint": {
-    "description": "OpenHand localized UI text."
-  },
   "agentsFieldName": "Name",
   "@agentsFieldName": {
     "description": "OpenHand localized UI text."
@@ -7757,16 +7574,8 @@
   "@agentsFieldTarget": {
     "description": "OpenHand localized UI text."
   },
-  "agentsMetadataJsonLabel": "Metadaten-JSON",
-  "@agentsMetadataJsonLabel": {
-    "description": "OpenHand localized UI text."
-  },
   "agentsMetadataInfoTitle": "Berechtigungs- und Profilmetadaten",
   "@agentsMetadataInfoTitle": {
-    "description": "OpenHand localized UI text."
-  },
-  "agentsMetadataInfoBody": "Erweiterungsfelder liegen hier. Ungültiges JSON wird gemeldet und die Bearbeitung bleibt erhalten.",
-  "@agentsMetadataInfoBody": {
     "description": "OpenHand localized UI text."
   },
   "agentsNoOptionsAvailable": "Keine Optionen verfügbar.",
@@ -8076,66 +7885,6 @@
   },
   "memoryTitleHint": "Fassen Sie diese Erinnerung in einem Satz zusammen; leer lassen für eine Inhaltsvorschau",
   "@memoryTitleHint": {
-    "description": "OpenHand localized UI text."
-  },
-  "machineExpertDialogTitle": "Maschinenexperten-Vorlage",
-  "@machineExpertDialogTitle": {
-    "description": "OpenHand localized UI text."
-  },
-  "machineExpertDialogBody": "Wählen Sie Terminalfenster und Aufgabe. Der Maschinenexperte führt Befehle in dieser Umgebung aus.",
-  "@machineExpertDialogBody": {
-    "description": "OpenHand localized UI text."
-  },
-  "machineExpertTerminalProgram": "Terminal-App",
-  "@machineExpertTerminalProgram": {
-    "description": "OpenHand localized UI text."
-  },
-  "machineExpertWindow": "Fenster",
-  "@machineExpertWindow": {
-    "description": "OpenHand localized UI text."
-  },
-  "machineExpertTab": "Tab",
-  "@machineExpertTab": {
-    "description": "OpenHand localized UI text."
-  },
-  "machineExpertSession": "Sitzung",
-  "@machineExpertSession": {
-    "description": "OpenHand localized UI text."
-  },
-  "machineExpertModelOptional": "Modell (optional)",
-  "@machineExpertModelOptional": {
-    "description": "OpenHand localized UI text."
-  },
-  "machineExpertModelChoose": "Modell auswählen",
-  "@machineExpertModelChoose": {
-    "description": "OpenHand localized UI text."
-  },
-  "machineExpertModelNotConfiguredDefault": "Keine Modelle konfiguriert; das aktuelle Standardmodell wird verwendet",
-  "@machineExpertModelNotConfiguredDefault": {
-    "description": "OpenHand localized UI text."
-  },
-  "machineExpertModelHelperWithModels": "Gilt nur für diese neue Maschinenexperten-Sitzung. Ohne Auswahl bleibt das aktive Modell erhalten.",
-  "@machineExpertModelHelperWithModels": {
-    "description": "OpenHand localized UI text."
-  },
-  "machineExpertModelHelperNoModels": "In den Einstellungen sind keine Modelle konfiguriert. Diese Sitzung nutzt das aktuelle aktive Standardmodell.",
-  "@machineExpertModelHelperNoModels": {
-    "description": "OpenHand localized UI text."
-  },
-  "machineExpertTaskRequirement": "Aufgabenanforderung",
-  "@machineExpertTaskRequirement": {
-    "description": "OpenHand localized UI text."
-  },
-  "machineExpertTaskRequirementHint": "Beschreiben Sie die Aufgabe, z. B. Dateien im aktuellen Ordner prüfen, Projekt bauen oder auf einen Server deployen...",
-  "@machineExpertTaskRequirementHint": {
-    "description": "OpenHand localized UI text."
-  },
-  "machineExpertTaskRequirementHelper": "Der Maschinenexperte führt interaktiv anhand dieser Anforderung und des Terminalkontexts aus.",
-  "@machineExpertTaskRequirementHelper": {
-    "description": "OpenHand localized UI text."
-  },
-  "machineExpertStartExecution": "Ausführung starten",
-  "@machineExpertStartExecution": {
     "description": "OpenHand localized UI text."
   },
   "commonRetry": "Erneut versuchen",

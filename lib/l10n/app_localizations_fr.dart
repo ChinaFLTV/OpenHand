@@ -34,9 +34,6 @@ class AppLocalizationsFr extends AppLocalizations {
   String get threads => 'Fils';
 
   @override
-  String get workspaceHeadline => 'Commencer à créer';
-
-  @override
   String get composerHint =>
       'Demandez n\'importe quoi à OpenHand, utilisez / pour les actions et @ pour le contexte';
 
@@ -49,36 +46,6 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get chatRequestFailed =>
       'Échec de la requête au modèle. Vérifiez la configuration du modèle, la connexion réseau ou le type de protocole.';
-
-  @override
-  String get composerUnavailable =>
-      'Il s\'agit de l\'ossature de base. Les capacités d\'exécution ne sont pas encore connectées.';
-
-  @override
-  String get workspaceReadyTitle => 'La base est prête';
-
-  @override
-  String get workspaceReadyBody =>
-      'La disposition bureau, le changement de thème, le changement de langue et l\'infrastructure des paramètres sont en place. Les modules futurs peuvent maintenant s\'y ajouter.';
-
-  @override
-  String get quickActionsTitle => 'Points de départ suggérés';
-
-  @override
-  String get quickActionCreateShell => 'Créer l\'ossature de l\'application';
-
-  @override
-  String get quickActionThemeLanguage => 'Configurer le thème et la langue';
-
-  @override
-  String get quickActionPlanModules => 'Planifier les modules futurs';
-
-  @override
-  String get skillsHeadline => 'Ossature du centre de compétences';
-
-  @override
-  String get skillsBody =>
-      'Cette zone est réservée aux plugins de capacité, aux modèles d\'invite et aux assistants de développement.';
 
   @override
   String get placeholderComingSoon =>
@@ -249,28 +216,6 @@ class AppLocalizationsFr extends AppLocalizations {
   String knowledgeReaderNoModelForType(Object type) {
     return 'Aucun modèle Reader ne peut lire $type.';
   }
-
-  @override
-  String get previewSectionTitle => 'Direction du design';
-
-  @override
-  String get previewSectionBody =>
-      'Conçu autour de Material 3 Expressive, avec des surfaces superposées, de larges espacements, des formes arrondies, une lumière douce et un rythme d\'information clair.';
-
-  @override
-  String get threadPrimary => 'OpenHand';
-
-  @override
-  String get threadShell => 'Ossature de l\'application bureau';
-
-  @override
-  String get threadSettings => 'Paramètres et localisation';
-
-  @override
-  String get threadRoadmap => 'Planification des futurs modules';
-
-  @override
-  String get switchToWorkspace => 'Retour à l\'espace de travail';
 
   @override
   String get modelLabel => 'Squelette OpenHand';
@@ -1570,9 +1515,6 @@ class AppLocalizationsFr extends AppLocalizations {
       'Lorsque le chargement différé est actif, les descriptions des outils MCP sont repliées en un index de noms. L\'outil intégré ToolSearch récupère le schéma JSON complet à la demande via trois formes :\n• select:NAME (sélection directe, multi-sélection séparée par espaces)\n• mot-clé (scoré sur name/description)\n• +MOTCLE (terme requis pour filtrer le bruit)\nLes outils résolus sont ajoutés à l\'ensemble chargé de la session afin que le tour suivant les appelle directement.';
 
   @override
-  String get settingsGeneralTitle => 'Général';
-
-  @override
   String get settingsGeneralSubtitle =>
       'Gérez le thème, la langue et les informations principales de l\'application.';
 
@@ -1641,9 +1583,6 @@ class AppLocalizationsFr extends AppLocalizations {
       'Veuillez saisir un entier dans l’intervalle';
 
   @override
-  String get settingsSkillsTitle => 'Compétences';
-
-  @override
   String get settingsSkillsSubtitle =>
       'Gérez le dossier local des compétences, la création de modèles et les compétences installées.';
 
@@ -1703,10 +1642,6 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get settingsAnimationRestoreSuccess =>
       'Animations par défaut restaurées';
-
-  @override
-  String get settingsAnimationRestorePartialFailure =>
-      'Certains paramètres n’ont pas été enregistrés. Réessayez.';
 
   @override
   String get settingsDialogAnimationTitle => 'Animation des dialogues';
@@ -2470,12 +2405,6 @@ class AppLocalizationsFr extends AppLocalizations {
   String get aiModelToken => 'Jeton';
 
   @override
-  String get aiModelIdField => 'ID du modèle';
-
-  @override
-  String get aiModelIdRequired => 'Saisissez un ID de modèle.';
-
-  @override
   String get aiModelProtocol => 'Protocole';
 
   @override
@@ -2530,19 +2459,6 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get aiModelScanning => 'Analyse des modèles disponibles…';
-
-  @override
-  String aiModelScanSuccess(int count) {
-    return '$count modèles trouvés.';
-  }
-
-  @override
-  String aiModelScanFailed(String reason) {
-    return 'Échec de l’analyse : $reason';
-  }
-
-  @override
-  String get aiModelScanEmpty => 'Aucun modèle trouvé chez ce fournisseur.';
 
   @override
   String get aiModelAvailableModels => 'Modèles disponibles';
@@ -2644,9 +2560,6 @@ class AppLocalizationsFr extends AppLocalizations {
       'Donnez à OpenHand une plus grande extensibilité grâce à une vue unifiée des compétences locales installées et des modèles.';
 
   @override
-  String get skillsInstalledSectionTitle => 'Installées';
-
-  @override
   String get skillsSearchHint => 'Rechercher des compétences';
 
   @override
@@ -2669,23 +2582,11 @@ class AppLocalizationsFr extends AppLocalizations {
       'Aucun fichier SKILL.md n\'a été trouvé dans le dossier actuel. Créez un modèle ou basculez vers un dossier existant.';
 
   @override
-  String get skillsEmptyActionCreate => 'Créer un modèle';
-
-  @override
-  String get skillsEmptyActionOpenDirectory => 'Ouvrir le dossier';
-
-  @override
   String get skillsNoResultsTitle => 'Aucune compétence correspondante';
 
   @override
   String get skillsNoResultsBody =>
       'Essayez un autre mot-clé ou effacez la recherche pour revoir toutes les compétences.';
-
-  @override
-  String get skillsFolderLabel => 'Emplacement';
-
-  @override
-  String get skillsCardOpen => 'Ouvrir le dossier de la compétence';
 
   @override
   String get skillTemplateCreated => 'Nouveau modèle de compétence créé';
@@ -2786,9 +2687,6 @@ class AppLocalizationsFr extends AppLocalizations {
       'Impossible de traiter l’image sélectionnée.';
 
   @override
-  String get imageEditorSectionBasic => 'Réglages de base';
-
-  @override
   String get imageEditorSectionColor =>
       'Couleur (température / teinte / gamma)';
 
@@ -2866,9 +2764,6 @@ class AppLocalizationsFr extends AppLocalizations {
   String get imageEditorWatermarkColorLight => 'Clair';
 
   @override
-  String get imageEditorWatermarkColorDark => 'Sombre';
-
-  @override
   String get imageEditorAdvancedApplyHint =>
       'Les réglages des panneaux étendus sont appliqués à l’image d’origine lors de l’enregistrement.';
 
@@ -2896,9 +2791,6 @@ class AppLocalizationsFr extends AppLocalizations {
   String get skillsDeleteSuccess => 'Compétence supprimée';
 
   @override
-  String get skillsStorageSectionTitle => 'Emplacement des compétences';
-
-  @override
   String get skillsStorageSectionBody =>
       'Configurez le dossier local analysé par OpenHand pour les compétences. Par défaut, ~/.openhand/skills est utilisé et créé si nécessaire.';
 
@@ -2919,19 +2811,6 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get skillsStorageOpen => 'Ouvrir l\'emplacement';
-
-  @override
-  String get skillsStorageSummaryTitle => 'Résumé des compétences';
-
-  @override
-  String get skillsStorageSummaryBody =>
-      'Le dossier actuel, le nombre installé et l\'état d\'analyse sont affichés ici en temps réel.';
-
-  @override
-  String get skillsStorageStatusReady => 'Statut';
-
-  @override
-  String get skillsStorageStatusLoading => 'Analyse en cours';
 
   @override
   String get skillsStorageStatusError =>
@@ -3121,20 +3000,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get memoryFileDefaultPath => 'Fichier par défaut';
 
   @override
-  String get memoryFileSave => 'Enregistrer le chemin';
-
-  @override
-  String get memoryFileBrowse => 'Choisir un fichier';
-
-  @override
-  String get memoryFileReset => 'Restaurer par défaut';
-
-  @override
   String get memoryOpenDirectory => 'Ouvrir le dossier';
-
-  @override
-  String get memoryPathSaved =>
-      'Chemin du fichier de mémoire utilisateur mis à jour';
 
   @override
   String get memoryDisabledTitle => 'La mémoire est actuellement désactivée';
@@ -3388,10 +3254,6 @@ class AppLocalizationsFr extends AppLocalizations {
       'Seuil de compression de la sortie d’appel d’outil';
 
   @override
-  String get aiToolResultCompressionThresholdBody =>
-      'Seuil utilisé pour les résultats d’outils dans l’historique de conversation. Les très grands résultats récents non consommés utilisent un aperçu borné ; les anciens résultats consommés au-dessus du seuil sont résumés de façon structurée. Par défaut 1024.';
-
-  @override
   String get aiToolResultCompressionThresholdSave => 'Enregistrer le seuil';
 
   @override
@@ -3601,291 +3463,6 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get aiEstimatedCharactersPerTokenInvalid =>
       'Saisissez un entier entre 1 et 32.';
-
-  @override
-  String get aiMaxToolOutputCharsLabel =>
-      'Caractères maximaux de la sortie d’outil';
-
-  @override
-  String get aiMaxToolOutputCharsBody =>
-      'Par défaut 150000. Tronque les résultats d’outils dépassant cette longueur pour que le contexte API ne déborde jamais.';
-
-  @override
-  String get aiMaxToolOutputCharsSave => 'Enregistrer la limite';
-
-  @override
-  String get aiMaxToolOutputCharsSaved =>
-      'Limite de caractères de la sortie d’outil enregistrée.';
-
-  @override
-  String get aiMaxToolOutputCharsInvalid =>
-      'Saisissez un entier entre 1000 et 10000000.';
-
-  @override
-  String get aiWriteConfirmationTimeoutMsLabel =>
-      'Délai d’approbation d’écriture (ms)';
-
-  @override
-  String get aiWriteConfirmationTimeoutMsBody =>
-      'Par défaut 300000 (5 min). Temps maximal d’attente de l’approbation utilisateur pour une commande d’écriture.';
-
-  @override
-  String get aiWriteConfirmationTimeoutMsSave => 'Enregistrer le délai';
-
-  @override
-  String get aiWriteConfirmationTimeoutMsSaved =>
-      'Délai d’approbation d’écriture enregistré.';
-
-  @override
-  String get aiWriteConfirmationTimeoutMsInvalid =>
-      'Saisissez un entier entre 1000 et 3600000.';
-
-  @override
-  String get aiFastPathWriteAnalysisThresholdLabel =>
-      'Seuil d’analyse d’écriture en chemin rapide';
-
-  @override
-  String get aiFastPathWriteAnalysisThresholdBody =>
-      'Par défaut 512 caractères. Les commandes au-delà de cette longueur prennent une heuristique de chemin rapide grossière au lieu d’une analyse grammaticale complète.';
-
-  @override
-  String get aiFastPathWriteAnalysisThresholdSave => 'Enregistrer le seuil';
-
-  @override
-  String get aiFastPathWriteAnalysisThresholdSaved =>
-      'Seuil de chemin rapide enregistré.';
-
-  @override
-  String get aiFastPathWriteAnalysisThresholdInvalid =>
-      'Saisissez un entier entre 0 et 100000.';
-
-  @override
-  String get aiMaxHookTextCharactersLabel => 'Limite de sortie de texte Hook';
-
-  @override
-  String get aiMaxHookTextCharactersBody =>
-      'Par défaut 4000. Plafond total de caractères lorsque Claude Hook fusionne les sorties stdout/stderr.';
-
-  @override
-  String get aiMaxHookTextCharactersSave => 'Enregistrer la limite';
-
-  @override
-  String get aiMaxHookTextCharactersSaved =>
-      'Limite de texte Hook enregistrée.';
-
-  @override
-  String get aiMaxHookTextCharactersInvalid =>
-      'Saisissez un entier entre 100 et 1000000.';
-
-  @override
-  String get aiAttachmentMaxInlineImageDimensionLabel =>
-      'Dimension max. d’image inline en pièce jointe';
-
-  @override
-  String get aiAttachmentMaxInlineImageDimensionBody =>
-      'Par défaut 1568. Ajustez selon vos besoins réseau ou de pièces jointes.';
-
-  @override
-  String get aiAttachmentMaxInlineImageDimensionSave => 'Enregistrer';
-
-  @override
-  String get aiAttachmentMaxInlineImageDimensionSaved =>
-      'Dimension max. d’image inline en pièce jointe enregistrée.';
-
-  @override
-  String get aiAttachmentMaxInlineImageDimensionInvalid =>
-      'Saisissez un entier valide.';
-
-  @override
-  String get aiAttachmentMaxTextRawBytesLabel =>
-      'Octets bruts de texte max. en pièce jointe';
-
-  @override
-  String get aiAttachmentMaxTextRawBytesBody =>
-      'Par défaut 1597152 (~1,5 Mo). Ajustez selon vos besoins réseau ou de pièces jointes.';
-
-  @override
-  String get aiAttachmentMaxTextRawBytesSave => 'Enregistrer';
-
-  @override
-  String get aiAttachmentMaxTextRawBytesSaved =>
-      'Octets bruts de texte max. en pièce jointe enregistrés.';
-
-  @override
-  String get aiAttachmentMaxTextRawBytesInvalid =>
-      'Saisissez un entier valide.';
-
-  @override
-  String get aiAttachmentMaxPdfRawBytesLabel =>
-      'Octets bruts de PDF max. en pièce jointe';
-
-  @override
-  String get aiAttachmentMaxPdfRawBytesBody =>
-      'Par défaut 1597152 (~1,5 Mo). Ajustez selon vos besoins réseau ou de pièces jointes.';
-
-  @override
-  String get aiAttachmentMaxPdfRawBytesSave => 'Enregistrer';
-
-  @override
-  String get aiAttachmentMaxPdfRawBytesSaved =>
-      'Octets bruts de PDF max. en pièce jointe enregistrés.';
-
-  @override
-  String get aiAttachmentMaxPdfRawBytesInvalid => 'Saisissez un entier valide.';
-
-  @override
-  String get aiAttachmentMaxImageRawBytesLabel =>
-      'Octets bruts d’image max. en pièce jointe';
-
-  @override
-  String get aiAttachmentMaxImageRawBytesBody =>
-      'Par défaut 52428800 (50 Mo). Ajustez selon vos besoins réseau ou de pièces jointes.';
-
-  @override
-  String get aiAttachmentMaxImageRawBytesSave => 'Enregistrer';
-
-  @override
-  String get aiAttachmentMaxImageRawBytesSaved =>
-      'Octets bruts d’image max. en pièce jointe enregistrés.';
-
-  @override
-  String get aiAttachmentMaxImageRawBytesInvalid =>
-      'Saisissez un entier valide.';
-
-  @override
-  String get aiChatMaxStreamLineBufferBytesLabel =>
-      'Octets max. du tampon de ligne de flux Chat';
-
-  @override
-  String get aiChatMaxStreamLineBufferBytesBody =>
-      'Par défaut 4194304 (4 Mo). Ajustez selon vos besoins réseau ou de pièces jointes.';
-
-  @override
-  String get aiChatMaxStreamLineBufferBytesSave => 'Enregistrer';
-
-  @override
-  String get aiChatMaxStreamLineBufferBytesSaved =>
-      'Octets max. du tampon de ligne de flux Chat enregistrés.';
-
-  @override
-  String get aiChatMaxStreamLineBufferBytesInvalid =>
-      'Saisissez un entier valide.';
-
-  @override
-  String get aiFallbackTitleMaxCharactersLabel =>
-      'Caractères max. du titre de repli';
-
-  @override
-  String get aiFallbackTitleMaxCharactersBody =>
-      'Par défaut 15. Ajuste la dérivation du titre de session.';
-
-  @override
-  String get aiFallbackTitleMaxCharactersSave => 'Enregistrer';
-
-  @override
-  String get aiFallbackTitleMaxCharactersSaved =>
-      'Caractères max. du titre de repli enregistrés.';
-
-  @override
-  String get aiFallbackTitleMaxCharactersInvalid =>
-      'Saisissez un entier valide.';
-
-  @override
-  String get aiGeneratedTitleMaxCharactersLabel =>
-      'Caractères max. du titre généré';
-
-  @override
-  String get aiGeneratedTitleMaxCharactersBody =>
-      'Par défaut 15. Ajuste la dérivation du titre de session.';
-
-  @override
-  String get aiGeneratedTitleMaxCharactersSave => 'Enregistrer';
-
-  @override
-  String get aiGeneratedTitleMaxCharactersSaved =>
-      'Caractères max. du titre généré enregistrés.';
-
-  @override
-  String get aiGeneratedTitleMaxCharactersInvalid =>
-      'Saisissez un entier valide.';
-
-  @override
-  String get aiMinimumMeaningfulTitleCharactersLabel =>
-      'Caractères minimum pour un titre significatif';
-
-  @override
-  String get aiMinimumMeaningfulTitleCharactersBody =>
-      'Par défaut 4. Ajuste la dérivation du titre de session.';
-
-  @override
-  String get aiMinimumMeaningfulTitleCharactersSave => 'Enregistrer';
-
-  @override
-  String get aiMinimumMeaningfulTitleCharactersSaved =>
-      'Caractères minimum pour un titre significatif enregistrés.';
-
-  @override
-  String get aiMinimumMeaningfulTitleCharactersInvalid =>
-      'Saisissez un entier valide.';
-
-  @override
-  String get aiMinimumMeaningfulLatinTitleWordsLabel =>
-      'Mots minimum pour un titre latin significatif';
-
-  @override
-  String get aiMinimumMeaningfulLatinTitleWordsBody =>
-      'Par défaut 2. Ajuste la dérivation du titre de session.';
-
-  @override
-  String get aiMinimumMeaningfulLatinTitleWordsSave => 'Enregistrer';
-
-  @override
-  String get aiMinimumMeaningfulLatinTitleWordsSaved =>
-      'Mots minimum pour un titre latin significatif enregistrés.';
-
-  @override
-  String get aiMinimumMeaningfulLatinTitleWordsInvalid =>
-      'Saisissez un entier valide.';
-
-  @override
-  String get aiMaxSkillContentLengthLabel =>
-      'Longueur max. du contenu du fichier de compétence';
-
-  @override
-  String get aiMaxSkillContentLengthBody =>
-      'Par défaut 100000. Ajuste la taille des documents de compétence / d’espace de travail.';
-
-  @override
-  String get aiMaxSkillContentLengthSave => 'Enregistrer';
-
-  @override
-  String get aiMaxSkillContentLengthSaved =>
-      'Longueur max. du contenu du fichier de compétence enregistrée.';
-
-  @override
-  String get aiMaxSkillContentLengthInvalid => 'Saisissez un entier valide.';
-
-  @override
-  String get aiMaxWorkspaceDocumentCharactersLabel =>
-      'Caractères max. du document d’espace de travail';
-
-  @override
-  String get aiMaxWorkspaceDocumentCharactersBody =>
-      'Par défaut 16000. Ajuste la taille des documents de compétence / d’espace de travail.';
-
-  @override
-  String get aiMaxWorkspaceDocumentCharactersSave => 'Enregistrer';
-
-  @override
-  String get aiMaxWorkspaceDocumentCharactersSaved =>
-      'Caractères max. du document d’espace de travail enregistrés.';
-
-  @override
-  String get aiMaxWorkspaceDocumentCharactersInvalid =>
-      'Saisissez un entier valide.';
-
-  @override
-  String get aiImageSizeLimitLabel => 'Limite de taille d’image';
 
   @override
   String get aiImageSizeLimitBody =>
@@ -4459,9 +4036,6 @@ class AppLocalizationsFr extends AppLocalizations {
   String get tokenDialUnit => 'Jeton';
 
   @override
-  String get tokenDialTotal => 'Total';
-
-  @override
   String get tokenPopupInputHeading => 'Entrée';
 
   @override
@@ -4505,9 +4079,6 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get tokenPopupCacheHitModeIncludeExpired => 'Avec anomalies expirées';
-
-  @override
-  String get tokenPopupFirstRequestIgnored => 'Première requête ignorée';
 
   @override
   String tokenPopupExcludedRounds(int count) {
@@ -4868,11 +4439,6 @@ class AppLocalizationsFr extends AppLocalizations {
       'Aperçu de l’import d’historique ToolSearch';
 
   @override
-  String toolSearchLoadedHistoryImportDialogParseFailed(String error) {
-    return 'Échec de l’analyse JSON : $error';
-  }
-
-  @override
   String toolSearchLoadedHistoryImportDialogCount(int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,
@@ -5187,27 +4753,6 @@ class AppLocalizationsFr extends AppLocalizations {
   String get tlCallEmptyContent => 'Contenu vide';
 
   @override
-  String get tlCallWrite => 'Écrire';
-
-  @override
-  String get tlCallEdit => 'Modifier';
-
-  @override
-  String get tlCallMultiEdit => 'Édition multiple';
-
-  @override
-  String get tlCallNotebookEdit => 'Édition de notebook';
-
-  @override
-  String get tlCallBashWrite => 'Écriture Bash';
-
-  @override
-  String get tlCallFileChanged => 'Fichier modifié';
-
-  @override
-  String get tlCallChangedFile => 'Fichier modifié';
-
-  @override
   String get fileMutationSection => 'Modifications de fichiers';
 
   @override
@@ -5310,14 +4855,6 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get fileMutationSnapshotUnavailable =>
       'Instantané du contenu indisponible';
-
-  @override
-  String get dataCleanupFileMutationLedgerTitle =>
-      'Journal des modifications de fichiers';
-
-  @override
-  String get dataCleanupFileMutationLedgerSubtitle =>
-      'Journal des modifications de fichiers sous ~/.openhand/file_history/ (blobs avant/après + jsonl). Après le nettoyage, les cartes historiques peuvent ne plus exposer les contrôles d\'annulation.';
 
   @override
   String get tlCallTool => 'Outil';
@@ -6944,11 +6481,6 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get tlCallViewFullContent => 'Voir le contenu complet';
-
-  @override
-  String tlCallMultiEditEditcount(Object editCount) {
-    return 'Édition multiple ×$editCount';
-  }
 
   @override
   String get tlCallPreparing => 'Préparation';
@@ -10138,20 +9670,10 @@ class AppLocalizationsFr extends AppLocalizations {
       'Gérez les employés numériques Hermes Agent, leurs droits, tâches, clusters, audits et KPI.';
 
   @override
-  String get agentsOpenFolder => 'Ouvrir le dossier';
-
-  @override
   String get agentsCreateAgent => 'Créer un agent';
 
   @override
   String get agentsEditAgent => 'Modifier l’agent';
-
-  @override
-  String get agentsWorkspaceTitle => 'Espace Hermes Agent';
-
-  @override
-  String get agentsWorkspaceBody =>
-      'Les agents activés exposent la publication, le suivi et les résultats des tâches ; configurez ici le périmètre, les droits, le cluster et la gouvernance.';
 
   @override
   String get agentsLoadFailed => 'Échec du chargement des agents';
@@ -10204,9 +9726,6 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get agentsResources => 'Ressources';
-
-  @override
-  String get agentsEditConfig => 'Modifier';
 
   @override
   String get agentsDeleteAgent => 'Supprimer l’agent';
@@ -10472,23 +9991,13 @@ class AppLocalizationsFr extends AppLocalizations {
   String get agentsTaskLabelsLabel => 'Étiquettes de tâche';
 
   @override
-  String get agentsCommaSeparatedHint => 'Séparé par des virgules';
-
-  @override
   String get agentsFieldName => 'Nom';
 
   @override
   String get agentsFieldTarget => 'Objectif';
 
   @override
-  String get agentsMetadataJsonLabel => 'JSON des métadonnées';
-
-  @override
   String get agentsMetadataInfoTitle => 'Métadonnées de droits et profil';
-
-  @override
-  String get agentsMetadataInfoBody =>
-      'Les champs d’extension sont ici. Un JSON invalide affiche une erreur et conserve vos modifications.';
 
   @override
   String get agentsNoOptionsAvailable => 'Aucune option disponible.';
@@ -10729,57 +10238,6 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get memoryTitleHint =>
       'Résumez ce souvenir en une phrase ; laissez vide pour utiliser l’aperçu du contenu';
-
-  @override
-  String get machineExpertDialogTitle => 'Modèle Expert machine';
-
-  @override
-  String get machineExpertDialogBody =>
-      'Choisissez la fenêtre de terminal cible et la tâche. Expert machine exécutera les commandes dans cet espace.';
-
-  @override
-  String get machineExpertTerminalProgram => 'Terminal';
-
-  @override
-  String get machineExpertWindow => 'Fenêtre';
-
-  @override
-  String get machineExpertTab => 'Onglet';
-
-  @override
-  String get machineExpertSession => 'Session';
-
-  @override
-  String get machineExpertModelOptional => 'Modèle (facultatif)';
-
-  @override
-  String get machineExpertModelChoose => 'Touchez pour choisir un modèle';
-
-  @override
-  String get machineExpertModelNotConfiguredDefault =>
-      'Aucun modèle configuré ; le modèle par défaut actuel sera utilisé';
-
-  @override
-  String get machineExpertModelHelperWithModels =>
-      'S’applique uniquement à cette nouvelle session Expert machine. Sans sélection, le modèle actif est conservé.';
-
-  @override
-  String get machineExpertModelHelperNoModels =>
-      'Aucun modèle n’est configuré dans les réglages. Cette session utilisera le modèle actif par défaut.';
-
-  @override
-  String get machineExpertTaskRequirement => 'Besoin de tâche';
-
-  @override
-  String get machineExpertTaskRequirementHint =>
-      'Décrivez la tâche : lister les fichiers du dossier courant, compiler le projet, déployer sur un serveur distant...';
-
-  @override
-  String get machineExpertTaskRequirementHelper =>
-      'Expert machine exécutera de façon interactive à partir de cette demande et du contexte terminal.';
-
-  @override
-  String get machineExpertStartExecution => 'Démarrer';
 
   @override
   String get commonRetry => 'Réessayer';

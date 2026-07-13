@@ -33,9 +33,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get threads => 'スレッド';
 
   @override
-  String get workspaceHeadline => '構築を始める';
-
-  @override
   String get composerHint => 'OpenHand に質問し、/ でアクション、@ でコンテキストを指定します';
 
   @override
@@ -47,34 +44,6 @@ class AppLocalizationsJa extends AppLocalizations {
   @override
   String get chatRequestFailed =>
       'モデルリクエストに失敗しました。モデル設定、ネットワーク接続、またはプロトコル種別を確認してください。';
-
-  @override
-  String get composerUnavailable => '現在はベース骨格のみで、実行機能はまだ接続されていません。';
-
-  @override
-  String get workspaceReadyTitle => '基盤の準備が整いました';
-
-  @override
-  String get workspaceReadyBody =>
-      'デスクトップレイアウト、テーマ切替、言語切替、設定基盤の実装が完了しています。今後の機能はこの上に拡張できます。';
-
-  @override
-  String get quickActionsTitle => 'おすすめの開始ポイント';
-
-  @override
-  String get quickActionCreateShell => 'デスクトップアプリ骨格を作成';
-
-  @override
-  String get quickActionThemeLanguage => 'テーマと言語を設定';
-
-  @override
-  String get quickActionPlanModules => '今後のモジュールを計画';
-
-  @override
-  String get skillsHeadline => 'スキルセンターの骨格';
-
-  @override
-  String get skillsBody => 'この領域は機能プラグイン、プロンプトテンプレート、開発補助ツールのために予約されています。';
 
   @override
   String get placeholderComingSoon => '追加モジュールはここに段階的に追加されます。';
@@ -241,28 +210,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String knowledgeReaderNoModelForType(Object type) {
     return '$type を読み取れる reader モデルがありません。';
   }
-
-  @override
-  String get previewSectionTitle => 'デザイン方針';
-
-  @override
-  String get previewSectionBody =>
-      'Material 3 Expressive の考え方に基づき、レイヤー構造、広い余白、丸みのある形、柔らかな光感、明確な情報リズムを重視しています。';
-
-  @override
-  String get threadPrimary => 'OpenHand';
-
-  @override
-  String get threadShell => 'デスクトップアプリ骨格';
-
-  @override
-  String get threadSettings => '設定と言語対応';
-
-  @override
-  String get threadRoadmap => '今後のモジュール計画';
-
-  @override
-  String get switchToWorkspace => 'ワークスペースに戻る';
 
   @override
   String get modelLabel => 'OpenHand スケルトン';
@@ -1538,9 +1485,6 @@ class AppLocalizationsJa extends AppLocalizations {
       '遅延読み込みが有効な間、MCP ツールの説明は名前インデックスに折りたたまれ、組み込みの ToolSearch ツールが必要に応じて完全な JSON Schema を取得します。3 つのクエリ形式に対応：\n• select:NAME（直接選択、空白区切りで複数指定可）\n• キーワード（name/description にスコアリング）\n• +KEYWORD（ノイズ除去のための必須語）\n解決済みツールはセッションのロード済みセットに追加され、次ターンでは追加検索なしで直接呼び出せます。';
 
   @override
-  String get settingsGeneralTitle => '一般';
-
-  @override
   String get settingsGeneralSubtitle => 'テーマ、言語、アプリの基本情報を管理します。';
 
   @override
@@ -1604,9 +1548,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get settingsToolHardeningInvalid => '範囲内の整数を入力してください';
 
   @override
-  String get settingsSkillsTitle => 'スキル';
-
-  @override
   String get settingsSkillsSubtitle =>
       'ローカルのスキルディレクトリ、テンプレート作成、インストール済みスキルを管理します。';
 
@@ -1659,10 +1600,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get settingsAnimationRestoreSuccess => '既定のアニメーションに戻しました';
-
-  @override
-  String get settingsAnimationRestorePartialFailure =>
-      '一部の設定を保存できませんでした。再試行してください。';
 
   @override
   String get settingsDialogAnimationTitle => 'ダイアログアニメーション';
@@ -2404,12 +2341,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get aiModelToken => 'トークン';
 
   @override
-  String get aiModelIdField => 'モデル ID';
-
-  @override
-  String get aiModelIdRequired => 'モデル ID を入力してください。';
-
-  @override
   String get aiModelProtocol => 'プロトコル';
 
   @override
@@ -2460,19 +2391,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get aiModelScanning => '利用可能なモデルをスキャン中…';
-
-  @override
-  String aiModelScanSuccess(int count) {
-    return '$count 件のモデルが見つかりました。';
-  }
-
-  @override
-  String aiModelScanFailed(String reason) {
-    return 'スキャンに失敗しました：$reason';
-  }
-
-  @override
-  String get aiModelScanEmpty => 'このプロバイダーからはモデルが見つかりませんでした。';
 
   @override
   String get aiModelAvailableModels => '利用可能なモデル';
@@ -2574,9 +2492,6 @@ class AppLocalizationsJa extends AppLocalizations {
       'OpenHand の拡張性を高めるため、ローカルにインストールされたスキルとテンプレートを一元管理します。';
 
   @override
-  String get skillsInstalledSectionTitle => 'インストール済み';
-
-  @override
   String get skillsSearchHint => 'スキルを検索';
 
   @override
@@ -2599,22 +2514,10 @@ class AppLocalizationsJa extends AppLocalizations {
       '現在のスキルディレクトリに SKILL.md が見つかりません。テンプレートを作成するか、既存のスキルディレクトリに切り替えてください。';
 
   @override
-  String get skillsEmptyActionCreate => 'テンプレートを作成';
-
-  @override
-  String get skillsEmptyActionOpenDirectory => 'ディレクトリを開く';
-
-  @override
   String get skillsNoResultsTitle => '一致するスキルが見つかりません';
 
   @override
   String get skillsNoResultsBody => '検索キーワードを変更するか、検索をクリアしてすべてのスキルを再表示してください。';
-
-  @override
-  String get skillsFolderLabel => '保存場所';
-
-  @override
-  String get skillsCardOpen => 'スキルディレクトリを開く';
 
   @override
   String get skillTemplateCreated => '新しいスキルテンプレートを作成しました';
@@ -2711,9 +2614,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get imageEditorProcessFailed => '選択した画像を処理できませんでした。';
 
   @override
-  String get imageEditorSectionBasic => '基本調整';
-
-  @override
   String get imageEditorSectionColor => '色（色温度／ティント／ガンマ）';
 
   @override
@@ -2786,9 +2686,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get imageEditorWatermarkColorLight => 'ライト';
 
   @override
-  String get imageEditorWatermarkColorDark => 'ダーク';
-
-  @override
   String get imageEditorAdvancedApplyHint => '展開パネル内の調整は、保存時に元の画像へ適用されます。';
 
   @override
@@ -2814,9 +2711,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get skillsDeleteSuccess => 'スキルを削除しました';
 
   @override
-  String get skillsStorageSectionTitle => 'スキル保存場所';
-
-  @override
   String get skillsStorageSectionBody =>
       'OpenHand がスキルをスキャンするローカルディレクトリを設定します。既定では ~/.openhand/skills を使用し、必要に応じて自動作成します。';
 
@@ -2837,19 +2731,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get skillsStorageOpen => '場所を開く';
-
-  @override
-  String get skillsStorageSummaryTitle => 'スキル概要';
-
-  @override
-  String get skillsStorageSummaryBody =>
-      '現在のスキルディレクトリ、インストール数、スキャン状態をここでリアルタイムに確認できます。';
-
-  @override
-  String get skillsStorageStatusReady => 'ステータス';
-
-  @override
-  String get skillsStorageStatusLoading => 'スキャン中';
 
   @override
   String get skillsStorageStatusError => 'スキルディレクトリを読み込めません';
@@ -3025,19 +2906,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get memoryFileDefaultPath => '既定のファイル';
 
   @override
-  String get memoryFileSave => 'パスを保存';
-
-  @override
-  String get memoryFileBrowse => 'ファイルを選択';
-
-  @override
-  String get memoryFileReset => '既定に戻す';
-
-  @override
   String get memoryOpenDirectory => 'ディレクトリを開く';
-
-  @override
-  String get memoryPathSaved => 'ユーザーメモリファイルのパスを更新しました';
 
   @override
   String get memoryDisabledTitle => 'メモリは現在無効です';
@@ -3281,10 +3150,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get aiToolResultCompressionThresholdLabel => 'ツール呼び出し出力の圧縮閾値';
 
   @override
-  String get aiToolResultCompressionThresholdBody =>
-      '会話履歴に入るツール結果の要約しきい値です。未消費の最新の大きな結果は制限付きプレビューを使い、消費済みの古い結果はしきい値超過時に構造化サマリへ圧縮されます。既定値は 1024 です。';
-
-  @override
   String get aiToolResultCompressionThresholdSave => '閾値を保存';
 
   @override
@@ -3472,253 +3337,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get aiEstimatedCharactersPerTokenInvalid => '1 から 32 までの整数を入力してください。';
-
-  @override
-  String get aiMaxToolOutputCharsLabel => 'ツール出力の最大文字数';
-
-  @override
-  String get aiMaxToolOutputCharsBody =>
-      '既定値 150000。この長さを超えるツール結果を切り詰めて、API コンテキストがオーバーフローしないようにします。';
-
-  @override
-  String get aiMaxToolOutputCharsSave => '上限を保存';
-
-  @override
-  String get aiMaxToolOutputCharsSaved => 'ツール出力の文字数上限を保存しました。';
-
-  @override
-  String get aiMaxToolOutputCharsInvalid => '1000 から 10000000 までの整数を入力してください。';
-
-  @override
-  String get aiWriteConfirmationTimeoutMsLabel => '書き込み承認タイムアウト (ms)';
-
-  @override
-  String get aiWriteConfirmationTimeoutMsBody =>
-      '既定値 300000 (5 分)。書き込みコマンドの承認をユーザーに求める最大待機時間。';
-
-  @override
-  String get aiWriteConfirmationTimeoutMsSave => 'タイムアウトを保存';
-
-  @override
-  String get aiWriteConfirmationTimeoutMsSaved => '書き込み承認タイムアウトを保存しました。';
-
-  @override
-  String get aiWriteConfirmationTimeoutMsInvalid =>
-      '1000 から 3600000 までの整数を入力してください。';
-
-  @override
-  String get aiFastPathWriteAnalysisThresholdLabel => '高速パス書き込み解析閾値';
-
-  @override
-  String get aiFastPathWriteAnalysisThresholdBody =>
-      '既定値 512 文字。この長さを超えるコマンドは、完全な文法解析の代わりに粗いヒューリスティックの高速パスを取ります。';
-
-  @override
-  String get aiFastPathWriteAnalysisThresholdSave => '閾値を保存';
-
-  @override
-  String get aiFastPathWriteAnalysisThresholdSaved => '高速パス閾値を保存しました。';
-
-  @override
-  String get aiFastPathWriteAnalysisThresholdInvalid =>
-      '0 から 100000 までの整数を入力してください。';
-
-  @override
-  String get aiMaxHookTextCharactersLabel => 'Hook テキスト出力の上限';
-
-  @override
-  String get aiMaxHookTextCharactersBody =>
-      '既定値 4000。Claude Hook が stdout/stderr 出力をマージする際の合計文字数上限。';
-
-  @override
-  String get aiMaxHookTextCharactersSave => '上限を保存';
-
-  @override
-  String get aiMaxHookTextCharactersSaved => 'Hook テキスト上限を保存しました。';
-
-  @override
-  String get aiMaxHookTextCharactersInvalid => '100 から 1000000 までの整数を入力してください。';
-
-  @override
-  String get aiAttachmentMaxInlineImageDimensionLabel => '添付ファイル インライン画像の最大寸法';
-
-  @override
-  String get aiAttachmentMaxInlineImageDimensionBody =>
-      '既定値 1568。ネットワークや添付ファイルのニーズに合わせて調整します。';
-
-  @override
-  String get aiAttachmentMaxInlineImageDimensionSave => '保存';
-
-  @override
-  String get aiAttachmentMaxInlineImageDimensionSaved =>
-      '添付ファイル インライン画像の最大寸法を保存しました。';
-
-  @override
-  String get aiAttachmentMaxInlineImageDimensionInvalid => '有効な整数を入力してください。';
-
-  @override
-  String get aiAttachmentMaxTextRawBytesLabel => '添付ファイル テキストの生バイト数上限';
-
-  @override
-  String get aiAttachmentMaxTextRawBytesBody =>
-      '既定値 1597152 (約 1.5MB)。ネットワークや添付ファイルのニーズに合わせて調整します。';
-
-  @override
-  String get aiAttachmentMaxTextRawBytesSave => '保存';
-
-  @override
-  String get aiAttachmentMaxTextRawBytesSaved => '添付ファイル テキストの生バイト数上限を保存しました。';
-
-  @override
-  String get aiAttachmentMaxTextRawBytesInvalid => '有効な整数を入力してください。';
-
-  @override
-  String get aiAttachmentMaxPdfRawBytesLabel => '添付ファイル PDF の生バイト数上限';
-
-  @override
-  String get aiAttachmentMaxPdfRawBytesBody =>
-      '既定値 1597152 (約 1.5MB)。ネットワークや添付ファイルのニーズに合わせて調整します。';
-
-  @override
-  String get aiAttachmentMaxPdfRawBytesSave => '保存';
-
-  @override
-  String get aiAttachmentMaxPdfRawBytesSaved => '添付ファイル PDF の生バイト数上限を保存しました。';
-
-  @override
-  String get aiAttachmentMaxPdfRawBytesInvalid => '有効な整数を入力してください。';
-
-  @override
-  String get aiAttachmentMaxImageRawBytesLabel => '添付ファイル 画像の生バイト数上限';
-
-  @override
-  String get aiAttachmentMaxImageRawBytesBody =>
-      '既定値 52428800 (50MB)。ネットワークや添付ファイルのニーズに合わせて調整します。';
-
-  @override
-  String get aiAttachmentMaxImageRawBytesSave => '保存';
-
-  @override
-  String get aiAttachmentMaxImageRawBytesSaved => '添付ファイル 画像の生バイト数上限を保存しました。';
-
-  @override
-  String get aiAttachmentMaxImageRawBytesInvalid => '有効な整数を入力してください。';
-
-  @override
-  String get aiChatMaxStreamLineBufferBytesLabel => 'チャット ストリーム行バッファの最大バイト数';
-
-  @override
-  String get aiChatMaxStreamLineBufferBytesBody =>
-      '既定値 4194304 (4MB)。ネットワークや添付ファイルのニーズに合わせて調整します。';
-
-  @override
-  String get aiChatMaxStreamLineBufferBytesSave => '保存';
-
-  @override
-  String get aiChatMaxStreamLineBufferBytesSaved =>
-      'チャット ストリーム行バッファの最大バイト数を保存しました。';
-
-  @override
-  String get aiChatMaxStreamLineBufferBytesInvalid => '有効な整数を入力してください。';
-
-  @override
-  String get aiFallbackTitleMaxCharactersLabel => 'フォールバックタイトル最大文字数';
-
-  @override
-  String get aiFallbackTitleMaxCharactersBody => '既定値 15。セッションタイトルの導出を調整します。';
-
-  @override
-  String get aiFallbackTitleMaxCharactersSave => '保存';
-
-  @override
-  String get aiFallbackTitleMaxCharactersSaved => 'フォールバックタイトル最大文字数を保存しました。';
-
-  @override
-  String get aiFallbackTitleMaxCharactersInvalid => '有効な整数を入力してください。';
-
-  @override
-  String get aiGeneratedTitleMaxCharactersLabel => '生成タイトル最大文字数';
-
-  @override
-  String get aiGeneratedTitleMaxCharactersBody => '既定値 15。セッションタイトルの導出を調整します。';
-
-  @override
-  String get aiGeneratedTitleMaxCharactersSave => '保存';
-
-  @override
-  String get aiGeneratedTitleMaxCharactersSaved => '生成タイトル最大文字数を保存しました。';
-
-  @override
-  String get aiGeneratedTitleMaxCharactersInvalid => '有効な整数を入力してください。';
-
-  @override
-  String get aiMinimumMeaningfulTitleCharactersLabel => '意味のあるタイトルの最小文字数';
-
-  @override
-  String get aiMinimumMeaningfulTitleCharactersBody =>
-      '既定値 4。セッションタイトルの導出を調整します。';
-
-  @override
-  String get aiMinimumMeaningfulTitleCharactersSave => '保存';
-
-  @override
-  String get aiMinimumMeaningfulTitleCharactersSaved =>
-      '意味のあるタイトルの最小文字数を保存しました。';
-
-  @override
-  String get aiMinimumMeaningfulTitleCharactersInvalid => '有効な整数を入力してください。';
-
-  @override
-  String get aiMinimumMeaningfulLatinTitleWordsLabel => '意味のあるラテン文字タイトルの最小単語数';
-
-  @override
-  String get aiMinimumMeaningfulLatinTitleWordsBody =>
-      '既定値 2。セッションタイトルの導出を調整します。';
-
-  @override
-  String get aiMinimumMeaningfulLatinTitleWordsSave => '保存';
-
-  @override
-  String get aiMinimumMeaningfulLatinTitleWordsSaved =>
-      '意味のあるラテン文字タイトルの最小単語数を保存しました。';
-
-  @override
-  String get aiMinimumMeaningfulLatinTitleWordsInvalid => '有効な整数を入力してください。';
-
-  @override
-  String get aiMaxSkillContentLengthLabel => 'スキルファイルの最大文字数';
-
-  @override
-  String get aiMaxSkillContentLengthBody =>
-      '既定値 100000。スキル / ワークスペース文書のサイズを調整します。';
-
-  @override
-  String get aiMaxSkillContentLengthSave => '保存';
-
-  @override
-  String get aiMaxSkillContentLengthSaved => 'スキルファイルの最大文字数を保存しました。';
-
-  @override
-  String get aiMaxSkillContentLengthInvalid => '有効な整数を入力してください。';
-
-  @override
-  String get aiMaxWorkspaceDocumentCharactersLabel => 'ワークスペース文書の最大文字数';
-
-  @override
-  String get aiMaxWorkspaceDocumentCharactersBody =>
-      '既定値 16000。スキル / ワークスペース文書のサイズを調整します。';
-
-  @override
-  String get aiMaxWorkspaceDocumentCharactersSave => '保存';
-
-  @override
-  String get aiMaxWorkspaceDocumentCharactersSaved => 'ワークスペース文書の最大文字数を保存しました。';
-
-  @override
-  String get aiMaxWorkspaceDocumentCharactersInvalid => '有効な整数を入力してください。';
-
-  @override
-  String get aiImageSizeLimitLabel => '画像サイズの上限';
 
   @override
   String get aiImageSizeLimitBody =>
@@ -4284,9 +3902,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get tokenDialUnit => 'トークン';
 
   @override
-  String get tokenDialTotal => '合計';
-
-  @override
   String get tokenPopupInputHeading => '入力';
 
   @override
@@ -4330,9 +3945,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get tokenPopupCacheHitModeIncludeExpired => '期限切れ異常を含む';
-
-  @override
-  String get tokenPopupFirstRequestIgnored => '初回は平均外';
 
   @override
   String tokenPopupExcludedRounds(int count) {
@@ -4666,11 +4278,6 @@ class AppLocalizationsJa extends AppLocalizations {
       'ToolSearch 履歴インポートプレビュー';
 
   @override
-  String toolSearchLoadedHistoryImportDialogParseFailed(String error) {
-    return 'JSON 解析に失敗しました: $error';
-  }
-
-  @override
   String toolSearchLoadedHistoryImportDialogCount(int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,
@@ -4972,27 +4579,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get tlCallEmptyContent => '内容なし';
 
   @override
-  String get tlCallWrite => '書き込み';
-
-  @override
-  String get tlCallEdit => '編集';
-
-  @override
-  String get tlCallMultiEdit => '複数編集';
-
-  @override
-  String get tlCallNotebookEdit => 'ノートブック編集';
-
-  @override
-  String get tlCallBashWrite => 'Bash 書き込み';
-
-  @override
-  String get tlCallFileChanged => 'ファイル変更あり';
-
-  @override
-  String get tlCallChangedFile => '変更されたファイル';
-
-  @override
   String get fileMutationSection => 'ファイル変更';
 
   @override
@@ -5082,13 +4668,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get fileMutationSnapshotUnavailable => 'コンテンツのスナップショットがありません';
-
-  @override
-  String get dataCleanupFileMutationLedgerTitle => 'ファイル変更履歴';
-
-  @override
-  String get dataCleanupFileMutationLedgerSubtitle =>
-      '~/.openhand/file_history/ 配下のファイル変更 ledger（before/after スナップショット + jsonl）。クリア後、過去のカードは元に戻すコントロールを表示しなくなる場合があります。';
 
   @override
   String get tlCallTool => 'ツール';
@@ -6649,11 +6228,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get tlCallViewFullContent => '完全なコンテンツを表示';
-
-  @override
-  String tlCallMultiEditEditcount(Object editCount) {
-    return '複数編集 ×$editCount';
-  }
 
   @override
   String get tlCallPreparing => '準備中';
@@ -9781,20 +9355,10 @@ class AppLocalizationsJa extends AppLocalizations {
       'Hermes Agent のデジタル従業員、権限、タスク、クラスタ、監査、KPI を管理します。';
 
   @override
-  String get agentsOpenFolder => 'フォルダを開く';
-
-  @override
   String get agentsCreateAgent => 'エージェントを作成';
 
   @override
   String get agentsEditAgent => 'エージェントを編集';
-
-  @override
-  String get agentsWorkspaceTitle => 'Hermes Agent ワークスペース';
-
-  @override
-  String get agentsWorkspaceBody =>
-      '有効なエージェントはタスクの発行、追跡、結果取得を提供します。ここで範囲、権限、クラスタ、ガバナンスを設定します。';
 
   @override
   String get agentsLoadFailed => 'エージェントを読み込めませんでした';
@@ -9846,9 +9410,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get agentsResources => 'リソース';
-
-  @override
-  String get agentsEditConfig => '編集';
 
   @override
   String get agentsDeleteAgent => 'エージェントを削除';
@@ -10107,23 +9668,13 @@ class AppLocalizationsJa extends AppLocalizations {
   String get agentsTaskLabelsLabel => 'タスクラベル';
 
   @override
-  String get agentsCommaSeparatedHint => 'カンマ区切り';
-
-  @override
   String get agentsFieldName => '名前';
 
   @override
   String get agentsFieldTarget => '目標';
 
   @override
-  String get agentsMetadataJsonLabel => 'メタデータ JSON';
-
-  @override
   String get agentsMetadataInfoTitle => '権限とプロフィールメタデータ';
-
-  @override
-  String get agentsMetadataInfoBody =>
-      '拡張フィールドを保存します。JSON が不正な場合はエラーを表示し、編集内容を保持します。';
 
   @override
   String get agentsNoOptionsAvailable => '利用可能な項目はありません。';
@@ -10357,57 +9908,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get memoryTitleHint => 'このメモリの要点を一文で要約します。空欄なら本文プレビューを使います';
-
-  @override
-  String get machineExpertDialogTitle => 'マシンエキスパートテンプレート';
-
-  @override
-  String get machineExpertDialogBody =>
-      '対象のターミナルウィンドウとタスクを指定してください。マシンエキスパートがその環境でコマンドを実行します。';
-
-  @override
-  String get machineExpertTerminalProgram => 'ターミナルアプリ';
-
-  @override
-  String get machineExpertWindow => 'ウィンドウ';
-
-  @override
-  String get machineExpertTab => 'タブ';
-
-  @override
-  String get machineExpertSession => 'セッション';
-
-  @override
-  String get machineExpertModelOptional => '使用モデル（任意）';
-
-  @override
-  String get machineExpertModelChoose => 'モデルを選択';
-
-  @override
-  String get machineExpertModelNotConfiguredDefault =>
-      '利用可能なモデルが未設定です。現在の既定モデルを使用します';
-
-  @override
-  String get machineExpertModelHelperWithModels =>
-      'この新規マシンエキスパートセッションにのみ適用されます。未選択の場合は現在の有効モデルを使います。';
-
-  @override
-  String get machineExpertModelHelperNoModels =>
-      '設定にモデルがありません。このセッションでは現在の有効な既定モデルを使います。';
-
-  @override
-  String get machineExpertTaskRequirement => 'タスク要件';
-
-  @override
-  String get machineExpertTaskRequirementHint =>
-      '実行したいタスクを説明してください。例: 現在のディレクトリのファイル一覧確認、プロジェクトのビルド、リモートサーバーへのデプロイ...';
-
-  @override
-  String get machineExpertTaskRequirementHelper =>
-      'マシンエキスパートはこの要件とターミナル状況に基づいて対話的に実行します。';
-
-  @override
-  String get machineExpertStartExecution => '実行開始';
 
   @override
   String get commonRetry => '再試行';

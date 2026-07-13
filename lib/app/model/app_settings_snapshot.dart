@@ -457,10 +457,6 @@ class AppSettingsSnapshot {
   static const int maxTelemetryMaxPayloadChars = 2000000;
   static const int defaultAiSingleRoundToolCallLimit =
       AiToolCallLimitPolicy.defaultSingleRoundToolCallLimit;
-  static const int minAiSingleRoundToolCallLimit =
-      AiToolCallLimitPolicy.minSingleRoundToolCallLimit;
-  static const int maxAiSingleRoundToolCallLimit =
-      AiToolCallLimitPolicy.maxSingleRoundToolCallLimit;
 
   static int aiSingleRoundToolCallLimitFromValue(Object? value) {
     return AiToolCallLimitPolicy.singleRoundFromValue(value);
@@ -472,10 +468,6 @@ class AppSettingsSnapshot {
 
   static const int defaultAiSequentialToolRoundLimit =
       AiToolCallLimitPolicy.defaultSequentialToolRoundLimit;
-  static const int minAiSequentialToolRoundLimit =
-      AiToolCallLimitPolicy.minSequentialToolRoundLimit;
-  static const int maxAiSequentialToolRoundLimit =
-      AiToolCallLimitPolicy.maxSequentialToolRoundLimit;
 
   static int aiSequentialToolRoundLimitFromValue(Object? value) {
     return AiToolCallLimitPolicy.sequentialRoundFromValue(value);
@@ -505,10 +497,6 @@ class AppSettingsSnapshot {
   /// Group B: 工具调用与确认参数。
   static const int defaultAiMaxToolOutputChars =
       AiToolExecutionLimitPolicy.defaultMaxToolOutputChars;
-  static const int minAiMaxToolOutputChars =
-      AiToolExecutionLimitPolicy.minMaxToolOutputChars;
-  static const int maxAiMaxToolOutputChars =
-      AiToolExecutionLimitPolicy.maxMaxToolOutputChars;
 
   static int aiMaxToolOutputCharsFromValue(Object? value) {
     return AiToolExecutionLimitPolicy.maxToolOutputCharsFromValue(value);
@@ -520,10 +508,6 @@ class AppSettingsSnapshot {
 
   static const int defaultAiWriteConfirmationTimeoutMs =
       AiToolExecutionLimitPolicy.defaultWriteConfirmationTimeoutMs;
-  static const int minAiWriteConfirmationTimeoutMs =
-      AiToolExecutionLimitPolicy.minWriteConfirmationTimeoutMs;
-  static const int maxAiWriteConfirmationTimeoutMs =
-      AiToolExecutionLimitPolicy.maxWriteConfirmationTimeoutMs;
 
   static int aiWriteConfirmationTimeoutMsFromValue(Object? value) {
     return AiToolExecutionLimitPolicy.writeConfirmationTimeoutMsFromValue(
@@ -539,10 +523,6 @@ class AppSettingsSnapshot {
 
   static const int defaultAiFastPathWriteAnalysisThreshold =
       AiToolExecutionLimitPolicy.defaultFastPathWriteAnalysisThreshold;
-  static const int minAiFastPathWriteAnalysisThreshold =
-      AiToolExecutionLimitPolicy.minFastPathWriteAnalysisThreshold;
-  static const int maxAiFastPathWriteAnalysisThreshold =
-      AiToolExecutionLimitPolicy.maxFastPathWriteAnalysisThreshold;
 
   static int aiFastPathWriteAnalysisThresholdFromValue(Object? value) {
     return AiToolExecutionLimitPolicy.fastPathWriteAnalysisThresholdFromValue(
@@ -558,10 +538,6 @@ class AppSettingsSnapshot {
 
   static const int defaultAiMaxHookTextCharacters =
       AiToolExecutionLimitPolicy.defaultMaxHookTextCharacters;
-  static const int minAiMaxHookTextCharacters =
-      AiToolExecutionLimitPolicy.minMaxHookTextCharacters;
-  static const int maxAiMaxHookTextCharacters =
-      AiToolExecutionLimitPolicy.maxMaxHookTextCharacters;
 
   static int aiMaxHookTextCharactersFromValue(Object? value) {
     return AiToolExecutionLimitPolicy.maxHookTextCharactersFromValue(value);

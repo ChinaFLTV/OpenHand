@@ -13,20 +13,10 @@
   },
   "settings": "設定",
   "threads": "スレッド",
-  "workspaceHeadline": "構築を始める",
   "composerHint": "OpenHand に質問し、/ でアクション、@ でコンテキストを指定します",
   "composerSend": "送信",
   "chatSending": "送信中",
   "chatRequestFailed": "モデルリクエストに失敗しました。モデル設定、ネットワーク接続、またはプロトコル種別を確認してください。",
-  "composerUnavailable": "現在はベース骨格のみで、実行機能はまだ接続されていません。",
-  "workspaceReadyTitle": "基盤の準備が整いました",
-  "workspaceReadyBody": "デスクトップレイアウト、テーマ切替、言語切替、設定基盤の実装が完了しています。今後の機能はこの上に拡張できます。",
-  "quickActionsTitle": "おすすめの開始ポイント",
-  "quickActionCreateShell": "デスクトップアプリ骨格を作成",
-  "quickActionThemeLanguage": "テーマと言語を設定",
-  "quickActionPlanModules": "今後のモジュールを計画",
-  "skillsHeadline": "スキルセンターの骨格",
-  "skillsBody": "この領域は機能プラグイン、プロンプトテンプレート、開発補助ツールのために予約されています。",
   "placeholderComingSoon": "追加モジュールはここに段階的に追加されます。",
   "settingsTitle": "設定センター",
   "settingsSubtitle": "ここでテーマ、言語、アプリ情報を管理します。",
@@ -90,16 +80,6 @@
       "type": {}
     }
   },
-  "previewSectionTitle": "デザイン方針",
-  "previewSectionBody": "Material 3 Expressive の考え方に基づき、レイヤー構造、広い余白、丸みのある形、柔らかな光感、明確な情報リズムを重視しています。",
-  "threadPrimary": "OpenHand",
-  "@threadPrimary": {
-    "description": "Default conversation thread title; same as the application brand \"OpenHand\"."
-  },
-  "threadShell": "デスクトップアプリ骨格",
-  "threadSettings": "設定と言語対応",
-  "threadRoadmap": "今後のモジュール計画",
-  "switchToWorkspace": "ワークスペースに戻る",
   "modelLabel": "OpenHand スケルトン",
   "platformLabel": "デスクトップ",
   "permissionLabel": "フルアクセス",
@@ -1091,7 +1071,6 @@
       }
     }
   },
-  "settingsGeneralTitle": "一般",
   "settingsGeneralSubtitle": "テーマ、言語、アプリの基本情報を管理します。",
   "settingsAiSubtitle": "チャットモデル、認証、プロトコルアダプターを管理します。",
   "settingsActiveToolCallsTitle": "実行中のツール呼び出し",
@@ -1111,7 +1090,6 @@
   "settingsMaxConcurrentToolsLabel": "並行ツール呼び出し上限",
   "settingsMaxConcurrentToolsBody": "同一セッションで並行してディスパッチされるツール呼び出しの最大数。範囲 1–64。",
   "settingsToolHardeningInvalid": "範囲内の整数を入力してください",
-  "settingsSkillsTitle": "スキル",
   "settingsSkillsSubtitle": "ローカルのスキルディレクトリ、テンプレート作成、インストール済みスキルを管理します。",
   "settingsMemorySubtitle": "ユーザーメモリのスイッチと永続化ファイルパスを管理します。",
   "settingsPersistenceRecoveredTitle": "設定ファイルを復旧しました",
@@ -1128,7 +1106,6 @@
   "settingsAnimationRestoreConfirmMessage": "ダイアログ、メニュー、ページ/モジュール、ワークスペースパネル、チップ、リスト項目のアニメーションをすべて既定値に戻します。カスタム値は上書きされます。",
   "settingsAnimationRestoreConfirm": "戻す",
   "settingsAnimationRestoreSuccess": "既定のアニメーションに戻しました",
-  "settingsAnimationRestorePartialFailure": "一部の設定を保存できませんでした。再試行してください。",
   "settingsDialogAnimationTitle": "ダイアログアニメーション",
   "settingsDialogAnimationSubtitle": "すべてのダイアログの入場/退場スタイル、時間、カーブを設定します。",
   "settingsMenuAnimationTitle": "メニューアニメーション",
@@ -1371,8 +1348,6 @@
   "aiModelOpenWebsiteTooltip": "公式サイトを開く",
   "aiModelAuthScheme": "認証方式",
   "aiModelToken": "トークン",
-  "aiModelIdField": "モデル ID",
-  "aiModelIdRequired": "モデル ID を入力してください。",
   "aiModelProtocol": "プロトコル",
   "aiModelSaveSuccess": "モデルプロバイダー設定を保存しました。",
   "aiModelDeleteConfirmTitle": "モデルプロバイダーを削除",
@@ -1406,23 +1381,6 @@
   "aiModelSelectionRequired": "まず設定で AI モデルプロバイダーを追加して選択してください。",
   "aiModelScanButton": "モデルをスキャン",
   "aiModelScanning": "利用可能なモデルをスキャン中…",
-  "aiModelScanSuccess": "{count} 件のモデルが見つかりました。",
-  "@aiModelScanSuccess": {
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
-  },
-  "aiModelScanFailed": "スキャンに失敗しました：{reason}",
-  "@aiModelScanFailed": {
-    "placeholders": {
-      "reason": {
-        "type": "String"
-      }
-    }
-  },
-  "aiModelScanEmpty": "このプロバイダーからはモデルが見つかりませんでした。",
   "aiModelAvailableModels": "利用可能なモデル",
   "aiModelManualIdHint": "モデル ID を手動で追加",
   "aiModelManualIdAdd": "追加",
@@ -1525,7 +1483,6 @@
   },
   "skillsPageTitle": "スキル",
   "skillsPageSubtitle": "OpenHand の拡張性を高めるため、ローカルにインストールされたスキルとテンプレートを一元管理します。",
-  "skillsInstalledSectionTitle": "インストール済み",
   "skillsSearchHint": "スキルを検索",
   "skillsRefresh": "更新",
   "skillsOpenDirectory": "ディレクトリを開く",
@@ -1533,12 +1490,8 @@
   "skillsNewSkill": "新規スキル",
   "skillsEmptyTitle": "まだスキルがありません",
   "skillsEmptyBody": "現在のスキルディレクトリに SKILL.md が見つかりません。テンプレートを作成するか、既存のスキルディレクトリに切り替えてください。",
-  "skillsEmptyActionCreate": "テンプレートを作成",
-  "skillsEmptyActionOpenDirectory": "ディレクトリを開く",
   "skillsNoResultsTitle": "一致するスキルが見つかりません",
   "skillsNoResultsBody": "検索キーワードを変更するか、検索をクリアしてすべてのスキルを再表示してください。",
-  "skillsFolderLabel": "保存場所",
-  "skillsCardOpen": "スキルディレクトリを開く",
   "skillTemplateCreated": "新しいスキルテンプレートを作成しました",
   "skillOperationFailed": "スキル操作に失敗しました。しばらくしてから再試行してください。",
   "skillsImportSuccess": "スキルを取り込みました",
@@ -1570,7 +1523,6 @@
   "imageEditorReset": "リセット",
   "imageEditorLoadFailed": "選択した画像を読み込めませんでした。",
   "imageEditorProcessFailed": "選択した画像を処理できませんでした。",
-  "imageEditorSectionBasic": "基本調整",
   "imageEditorSectionColor": "色（色温度／ティント／ガンマ）",
   "imageEditorSectionSplitToning": "スプリットトーン (HSL)",
   "imageEditorSectionDetail": "ディテール（明瞭度／シャープネス／ノイズ除去／粒子）",
@@ -1595,7 +1547,6 @@
   "imageEditorWatermarkOpacityLabel": "不透明度",
   "imageEditorWatermarkPositionLabel": "位置",
   "imageEditorWatermarkColorLight": "ライト",
-  "imageEditorWatermarkColorDark": "ダーク",
   "imageEditorAdvancedApplyHint": "展開パネル内の調整は、保存時に元の画像へ適用されます。",
   "skillsEditorSave": "保存",
   "skillsEditorCancel": "キャンセル",
@@ -1604,7 +1555,6 @@
   "skillsDeleteConfirmBody": "削除すると、スキルディレクトリとその SKILL.md 内容は完全に取り除かれます。",
   "skillsDeleteConfirmAction": "削除する",
   "skillsDeleteSuccess": "スキルを削除しました",
-  "skillsStorageSectionTitle": "スキル保存場所",
   "skillsStorageSectionBody": "OpenHand がスキルをスキャンするローカルディレクトリを設定します。既定では ~/.openhand/skills を使用し、必要に応じて自動作成します。",
   "skillsStorageDefaultPath": "既定のパス",
   "skillsStorageCurrentPath": "現在のパス",
@@ -1612,10 +1562,6 @@
   "skillsStorageBrowse": "ディレクトリを選択",
   "skillsStorageReset": "既定に戻す",
   "skillsStorageOpen": "場所を開く",
-  "skillsStorageSummaryTitle": "スキル概要",
-  "skillsStorageSummaryBody": "現在のスキルディレクトリ、インストール数、スキャン状態をここでリアルタイムに確認できます。",
-  "skillsStorageStatusReady": "ステータス",
-  "skillsStorageStatusLoading": "スキャン中",
   "skillsStorageStatusError": "スキルディレクトリを読み込めません",
   "skillsPathSaved": "スキル保存場所を更新しました",
   "instructionPageTitle": "指示",
@@ -1672,11 +1618,7 @@
   "userMemoryFileLabel": "ユーザーメモリファイル",
   "memoryFileBody": "ユーザーメモリに使用する JSON ファイルを設定します。デフォルトではアプリディレクトリ配下の .openhand/memory/user-memory.json が指定されます。",
   "memoryFileDefaultPath": "既定のファイル",
-  "memoryFileSave": "パスを保存",
-  "memoryFileBrowse": "ファイルを選択",
-  "memoryFileReset": "既定に戻す",
   "memoryOpenDirectory": "ディレクトリを開く",
-  "memoryPathSaved": "ユーザーメモリファイルのパスを更新しました",
   "memoryDisabledTitle": "メモリは現在無効です",
   "memoryDisabledBody": "ここでもユーザーメモリを管理できます。実行時に利用するには、設定 > メモリ でメモリを有効化してください。",
   "memoryCreatedAtLabel": "作成日時",
@@ -1815,7 +1757,6 @@
   "aiCompressionThresholdSaved": "AI メッセージ圧縮の閾値を更新しました。",
   "aiCompressionThresholdInvalid": "有効な正の整数の閾値を入力してください。",
   "aiToolResultCompressionThresholdLabel": "ツール呼び出し出力の圧縮閾値",
-  "aiToolResultCompressionThresholdBody": "会話履歴に入るツール結果の要約しきい値です。未消費の最新の大きな結果は制限付きプレビューを使い、消費済みの古い結果はしきい値超過時に構造化サマリへ圧縮されます。既定値は 1024 です。",
   "aiToolResultCompressionThresholdSave": "閾値を保存",
   "aiToolResultCompressionThresholdSaved": "ツール呼び出し出力の圧縮閾値を更新しました。",
   "aiToolResultCompressionThresholdInvalid": "有効な正の整数の閾値を入力してください。",
@@ -1874,82 +1815,6 @@
   "aiEstimatedCharactersPerTokenSave": "比率を保存",
   "aiEstimatedCharactersPerTokenSaved": "トークン文字数推定比を更新しました。",
   "aiEstimatedCharactersPerTokenInvalid": "1 から 32 までの整数を入力してください。",
-  "aiMaxToolOutputCharsLabel": "ツール出力の最大文字数",
-  "aiMaxToolOutputCharsBody": "既定値 150000。この長さを超えるツール結果を切り詰めて、API コンテキストがオーバーフローしないようにします。",
-  "aiMaxToolOutputCharsSave": "上限を保存",
-  "aiMaxToolOutputCharsSaved": "ツール出力の文字数上限を保存しました。",
-  "aiMaxToolOutputCharsInvalid": "1000 から 10000000 までの整数を入力してください。",
-  "aiWriteConfirmationTimeoutMsLabel": "書き込み承認タイムアウト (ms)",
-  "aiWriteConfirmationTimeoutMsBody": "既定値 300000 (5 分)。書き込みコマンドの承認をユーザーに求める最大待機時間。",
-  "aiWriteConfirmationTimeoutMsSave": "タイムアウトを保存",
-  "aiWriteConfirmationTimeoutMsSaved": "書き込み承認タイムアウトを保存しました。",
-  "aiWriteConfirmationTimeoutMsInvalid": "1000 から 3600000 までの整数を入力してください。",
-  "aiFastPathWriteAnalysisThresholdLabel": "高速パス書き込み解析閾値",
-  "aiFastPathWriteAnalysisThresholdBody": "既定値 512 文字。この長さを超えるコマンドは、完全な文法解析の代わりに粗いヒューリスティックの高速パスを取ります。",
-  "aiFastPathWriteAnalysisThresholdSave": "閾値を保存",
-  "aiFastPathWriteAnalysisThresholdSaved": "高速パス閾値を保存しました。",
-  "aiFastPathWriteAnalysisThresholdInvalid": "0 から 100000 までの整数を入力してください。",
-  "aiMaxHookTextCharactersLabel": "Hook テキスト出力の上限",
-  "aiMaxHookTextCharactersBody": "既定値 4000。Claude Hook が stdout/stderr 出力をマージする際の合計文字数上限。",
-  "aiMaxHookTextCharactersSave": "上限を保存",
-  "aiMaxHookTextCharactersSaved": "Hook テキスト上限を保存しました。",
-  "aiMaxHookTextCharactersInvalid": "100 から 1000000 までの整数を入力してください。",
-  "aiAttachmentMaxInlineImageDimensionLabel": "添付ファイル インライン画像の最大寸法",
-  "aiAttachmentMaxInlineImageDimensionBody": "既定値 1568。ネットワークや添付ファイルのニーズに合わせて調整します。",
-  "aiAttachmentMaxInlineImageDimensionSave": "保存",
-  "aiAttachmentMaxInlineImageDimensionSaved": "添付ファイル インライン画像の最大寸法を保存しました。",
-  "aiAttachmentMaxInlineImageDimensionInvalid": "有効な整数を入力してください。",
-  "aiAttachmentMaxTextRawBytesLabel": "添付ファイル テキストの生バイト数上限",
-  "aiAttachmentMaxTextRawBytesBody": "既定値 1597152 (約 1.5MB)。ネットワークや添付ファイルのニーズに合わせて調整します。",
-  "aiAttachmentMaxTextRawBytesSave": "保存",
-  "aiAttachmentMaxTextRawBytesSaved": "添付ファイル テキストの生バイト数上限を保存しました。",
-  "aiAttachmentMaxTextRawBytesInvalid": "有効な整数を入力してください。",
-  "aiAttachmentMaxPdfRawBytesLabel": "添付ファイル PDF の生バイト数上限",
-  "aiAttachmentMaxPdfRawBytesBody": "既定値 1597152 (約 1.5MB)。ネットワークや添付ファイルのニーズに合わせて調整します。",
-  "aiAttachmentMaxPdfRawBytesSave": "保存",
-  "aiAttachmentMaxPdfRawBytesSaved": "添付ファイル PDF の生バイト数上限を保存しました。",
-  "aiAttachmentMaxPdfRawBytesInvalid": "有効な整数を入力してください。",
-  "aiAttachmentMaxImageRawBytesLabel": "添付ファイル 画像の生バイト数上限",
-  "aiAttachmentMaxImageRawBytesBody": "既定値 52428800 (50MB)。ネットワークや添付ファイルのニーズに合わせて調整します。",
-  "aiAttachmentMaxImageRawBytesSave": "保存",
-  "aiAttachmentMaxImageRawBytesSaved": "添付ファイル 画像の生バイト数上限を保存しました。",
-  "aiAttachmentMaxImageRawBytesInvalid": "有効な整数を入力してください。",
-  "aiChatMaxStreamLineBufferBytesLabel": "チャット ストリーム行バッファの最大バイト数",
-  "aiChatMaxStreamLineBufferBytesBody": "既定値 4194304 (4MB)。ネットワークや添付ファイルのニーズに合わせて調整します。",
-  "aiChatMaxStreamLineBufferBytesSave": "保存",
-  "aiChatMaxStreamLineBufferBytesSaved": "チャット ストリーム行バッファの最大バイト数を保存しました。",
-  "aiChatMaxStreamLineBufferBytesInvalid": "有効な整数を入力してください。",
-  "aiFallbackTitleMaxCharactersLabel": "フォールバックタイトル最大文字数",
-  "aiFallbackTitleMaxCharactersBody": "既定値 15。セッションタイトルの導出を調整します。",
-  "aiFallbackTitleMaxCharactersSave": "保存",
-  "aiFallbackTitleMaxCharactersSaved": "フォールバックタイトル最大文字数を保存しました。",
-  "aiFallbackTitleMaxCharactersInvalid": "有効な整数を入力してください。",
-  "aiGeneratedTitleMaxCharactersLabel": "生成タイトル最大文字数",
-  "aiGeneratedTitleMaxCharactersBody": "既定値 15。セッションタイトルの導出を調整します。",
-  "aiGeneratedTitleMaxCharactersSave": "保存",
-  "aiGeneratedTitleMaxCharactersSaved": "生成タイトル最大文字数を保存しました。",
-  "aiGeneratedTitleMaxCharactersInvalid": "有効な整数を入力してください。",
-  "aiMinimumMeaningfulTitleCharactersLabel": "意味のあるタイトルの最小文字数",
-  "aiMinimumMeaningfulTitleCharactersBody": "既定値 4。セッションタイトルの導出を調整します。",
-  "aiMinimumMeaningfulTitleCharactersSave": "保存",
-  "aiMinimumMeaningfulTitleCharactersSaved": "意味のあるタイトルの最小文字数を保存しました。",
-  "aiMinimumMeaningfulTitleCharactersInvalid": "有効な整数を入力してください。",
-  "aiMinimumMeaningfulLatinTitleWordsLabel": "意味のあるラテン文字タイトルの最小単語数",
-  "aiMinimumMeaningfulLatinTitleWordsBody": "既定値 2。セッションタイトルの導出を調整します。",
-  "aiMinimumMeaningfulLatinTitleWordsSave": "保存",
-  "aiMinimumMeaningfulLatinTitleWordsSaved": "意味のあるラテン文字タイトルの最小単語数を保存しました。",
-  "aiMinimumMeaningfulLatinTitleWordsInvalid": "有効な整数を入力してください。",
-  "aiMaxSkillContentLengthLabel": "スキルファイルの最大文字数",
-  "aiMaxSkillContentLengthBody": "既定値 100000。スキル / ワークスペース文書のサイズを調整します。",
-  "aiMaxSkillContentLengthSave": "保存",
-  "aiMaxSkillContentLengthSaved": "スキルファイルの最大文字数を保存しました。",
-  "aiMaxSkillContentLengthInvalid": "有効な整数を入力してください。",
-  "aiMaxWorkspaceDocumentCharactersLabel": "ワークスペース文書の最大文字数",
-  "aiMaxWorkspaceDocumentCharactersBody": "既定値 16000。スキル / ワークスペース文書のサイズを調整します。",
-  "aiMaxWorkspaceDocumentCharactersSave": "保存",
-  "aiMaxWorkspaceDocumentCharactersSaved": "ワークスペース文書の最大文字数を保存しました。",
-  "aiMaxWorkspaceDocumentCharactersInvalid": "有効な整数を入力してください。",
-  "aiImageSizeLimitLabel": "画像サイズの上限",
   "aiImageSizeLimitBody": "ユーザーがこの上限を超える画像を添付すると、OpenHand は自動的に圧縮（品質＋解像度）して送信します。MB 単位の小数値を受け付け、範囲は 0.0625 MB (64 KB) から 64 MB です。",
   "aiImageSizeLimitFieldLabel": "上限 (MB)",
   "aiImageSizeLimitSave": "上限を保存",
@@ -2302,7 +2167,6 @@
   "tokenPopupCostCacheWrite": "キャッシュ書込",
   "tokenPopupCostTotal": "合計",
   "tokenDialUnit": "トークン",
-  "tokenDialTotal": "合計",
   "tokenPopupInputHeading": "入力",
   "tokenPopupPrompt": "プロンプト",
   "tokenPopupCacheRead": "キャッシュ読込",
@@ -2318,7 +2182,6 @@
   "tokenPopupPromptChars": "プロンプト文字数",
   "tokenPopupCacheHitModeExcludeExpired": "期限切れ異常を除外",
   "tokenPopupCacheHitModeIncludeExpired": "期限切れ異常を含む",
-  "tokenPopupFirstRequestIgnored": "初回は平均外",
   "tokenPopupExcludedRounds": "{count} 件除外",
   "@tokenPopupExcludedRounds": {
     "placeholders": {
@@ -2468,15 +2331,6 @@
   "toolSearchLoadedHistoryImportDialogTitle": "ToolSearch 履歴インポートプレビュー",
   "@toolSearchLoadedHistoryImportDialogTitle": {
     "description": "Title of the preview dialog shown after a successful JSON import."
-  },
-  "toolSearchLoadedHistoryImportDialogParseFailed": "JSON 解析に失敗しました: {error}",
-  "@toolSearchLoadedHistoryImportDialogParseFailed": {
-    "description": "Snackbar/error text when JSON cannot be parsed.",
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
   },
   "toolSearchLoadedHistoryImportDialogCount": "{count, plural, =0{エントリなし} other{{count} 件}}",
   "@toolSearchLoadedHistoryImportDialogCount": {
@@ -2633,13 +2487,6 @@
   "tlCallThereIsNoToolOutputYet": "まだツール出力はありません。",
   "tlCallViewInDialog": "ダイアログで表示",
   "tlCallEmptyContent": "内容なし",
-  "tlCallWrite": "書き込み",
-  "tlCallEdit": "編集",
-  "tlCallMultiEdit": "複数編集",
-  "tlCallNotebookEdit": "ノートブック編集",
-  "tlCallBashWrite": "Bash 書き込み",
-  "tlCallFileChanged": "ファイル変更あり",
-  "tlCallChangedFile": "変更されたファイル",
   "fileMutationSection": "ファイル変更",
   "fileMutationFilesChanged": "{count, plural, other{{count} 件のファイルを変更しました}}",
   "@fileMutationFilesChanged": {
@@ -2686,8 +2533,6 @@
   "fileMutationUndoFailed": "元に戻すのに失敗",
   "fileMutationRedoFailed": "やり直しに失敗",
   "fileMutationSnapshotUnavailable": "コンテンツのスナップショットがありません",
-  "dataCleanupFileMutationLedgerTitle": "ファイル変更履歴",
-  "dataCleanupFileMutationLedgerSubtitle": "~/.openhand/file_history/ 配下のファイル変更 ledger（before/after スナップショット + jsonl）。クリア後、過去のカードは元に戻すコントロールを表示しなくなる場合があります。",
   "tlCallTool": "ツール",
   "tlCallSkill": "スキル",
   "tlCallStopped": "停止",
@@ -3178,14 +3023,6 @@
   "tlCallWrapLines": "行を折り返す",
   "tlCallViewCompressedContent": "圧縮されたコンテンツを表示",
   "tlCallViewFullContent": "完全なコンテンツを表示",
-  "tlCallMultiEditEditcount": "複数編集 ×{editCount}",
-  "@tlCallMultiEditEditcount": {
-    "placeholders": {
-      "editCount": {
-        "type": "Object"
-      }
-    }
-  },
   "tlCallPreparing": "準備中",
   "tlCallPreparingAlt": "準備中",
   "tlCallRunningAlt": "実行中",
@@ -7264,24 +7101,12 @@
   "@agentsSubtitle": {
     "description": "OpenHand localized UI text."
   },
-  "agentsOpenFolder": "フォルダを開く",
-  "@agentsOpenFolder": {
-    "description": "OpenHand localized UI text."
-  },
   "agentsCreateAgent": "エージェントを作成",
   "@agentsCreateAgent": {
     "description": "OpenHand localized UI text."
   },
   "agentsEditAgent": "エージェントを編集",
   "@agentsEditAgent": {
-    "description": "OpenHand localized UI text."
-  },
-  "agentsWorkspaceTitle": "Hermes Agent ワークスペース",
-  "@agentsWorkspaceTitle": {
-    "description": "OpenHand localized UI text."
-  },
-  "agentsWorkspaceBody": "有効なエージェントはタスクの発行、追跡、結果取得を提供します。ここで範囲、権限、クラスタ、ガバナンスを設定します。",
-  "@agentsWorkspaceBody": {
     "description": "OpenHand localized UI text."
   },
   "agentsLoadFailed": "エージェントを読み込めませんでした",
@@ -7350,10 +7175,6 @@
   },
   "agentsResources": "リソース",
   "@agentsResources": {
-    "description": "OpenHand localized UI text."
-  },
-  "agentsEditConfig": "編集",
-  "@agentsEditConfig": {
     "description": "OpenHand localized UI text."
   },
   "agentsDeleteAgent": "エージェントを削除",
@@ -7745,10 +7566,6 @@
   "@agentsTaskLabelsLabel": {
     "description": "OpenHand localized UI text."
   },
-  "agentsCommaSeparatedHint": "カンマ区切り",
-  "@agentsCommaSeparatedHint": {
-    "description": "OpenHand localized UI text."
-  },
   "agentsFieldName": "名前",
   "@agentsFieldName": {
     "description": "OpenHand localized UI text."
@@ -7757,16 +7574,8 @@
   "@agentsFieldTarget": {
     "description": "OpenHand localized UI text."
   },
-  "agentsMetadataJsonLabel": "メタデータ JSON",
-  "@agentsMetadataJsonLabel": {
-    "description": "OpenHand localized UI text."
-  },
   "agentsMetadataInfoTitle": "権限とプロフィールメタデータ",
   "@agentsMetadataInfoTitle": {
-    "description": "OpenHand localized UI text."
-  },
-  "agentsMetadataInfoBody": "拡張フィールドを保存します。JSON が不正な場合はエラーを表示し、編集内容を保持します。",
-  "@agentsMetadataInfoBody": {
     "description": "OpenHand localized UI text."
   },
   "agentsNoOptionsAvailable": "利用可能な項目はありません。",
@@ -8076,66 +7885,6 @@
   },
   "memoryTitleHint": "このメモリの要点を一文で要約します。空欄なら本文プレビューを使います",
   "@memoryTitleHint": {
-    "description": "OpenHand localized UI text."
-  },
-  "machineExpertDialogTitle": "マシンエキスパートテンプレート",
-  "@machineExpertDialogTitle": {
-    "description": "OpenHand localized UI text."
-  },
-  "machineExpertDialogBody": "対象のターミナルウィンドウとタスクを指定してください。マシンエキスパートがその環境でコマンドを実行します。",
-  "@machineExpertDialogBody": {
-    "description": "OpenHand localized UI text."
-  },
-  "machineExpertTerminalProgram": "ターミナルアプリ",
-  "@machineExpertTerminalProgram": {
-    "description": "OpenHand localized UI text."
-  },
-  "machineExpertWindow": "ウィンドウ",
-  "@machineExpertWindow": {
-    "description": "OpenHand localized UI text."
-  },
-  "machineExpertTab": "タブ",
-  "@machineExpertTab": {
-    "description": "OpenHand localized UI text."
-  },
-  "machineExpertSession": "セッション",
-  "@machineExpertSession": {
-    "description": "OpenHand localized UI text."
-  },
-  "machineExpertModelOptional": "使用モデル（任意）",
-  "@machineExpertModelOptional": {
-    "description": "OpenHand localized UI text."
-  },
-  "machineExpertModelChoose": "モデルを選択",
-  "@machineExpertModelChoose": {
-    "description": "OpenHand localized UI text."
-  },
-  "machineExpertModelNotConfiguredDefault": "利用可能なモデルが未設定です。現在の既定モデルを使用します",
-  "@machineExpertModelNotConfiguredDefault": {
-    "description": "OpenHand localized UI text."
-  },
-  "machineExpertModelHelperWithModels": "この新規マシンエキスパートセッションにのみ適用されます。未選択の場合は現在の有効モデルを使います。",
-  "@machineExpertModelHelperWithModels": {
-    "description": "OpenHand localized UI text."
-  },
-  "machineExpertModelHelperNoModels": "設定にモデルがありません。このセッションでは現在の有効な既定モデルを使います。",
-  "@machineExpertModelHelperNoModels": {
-    "description": "OpenHand localized UI text."
-  },
-  "machineExpertTaskRequirement": "タスク要件",
-  "@machineExpertTaskRequirement": {
-    "description": "OpenHand localized UI text."
-  },
-  "machineExpertTaskRequirementHint": "実行したいタスクを説明してください。例: 現在のディレクトリのファイル一覧確認、プロジェクトのビルド、リモートサーバーへのデプロイ...",
-  "@machineExpertTaskRequirementHint": {
-    "description": "OpenHand localized UI text."
-  },
-  "machineExpertTaskRequirementHelper": "マシンエキスパートはこの要件とターミナル状況に基づいて対話的に実行します。",
-  "@machineExpertTaskRequirementHelper": {
-    "description": "OpenHand localized UI text."
-  },
-  "machineExpertStartExecution": "実行開始",
-  "@machineExpertStartExecution": {
     "description": "OpenHand localized UI text."
   },
   "commonRetry": "再試行",

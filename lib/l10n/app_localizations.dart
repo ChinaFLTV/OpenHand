@@ -153,12 +153,6 @@ abstract class AppLocalizations {
   /// **'线程'**
   String get threads;
 
-  /// No description provided for @workspaceHeadline.
-  ///
-  /// In zh, this message translates to:
-  /// **'开始构建'**
-  String get workspaceHeadline;
-
   /// No description provided for @composerHint.
   ///
   /// In zh, this message translates to:
@@ -182,60 +176,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'模型请求失败，请检查模型配置、网络连通性或接口协议。'**
   String get chatRequestFailed;
-
-  /// No description provided for @composerUnavailable.
-  ///
-  /// In zh, this message translates to:
-  /// **'当前为基础骨架，暂未接入实际执行能力。'**
-  String get composerUnavailable;
-
-  /// No description provided for @workspaceReadyTitle.
-  ///
-  /// In zh, this message translates to:
-  /// **'基础骨架已就绪'**
-  String get workspaceReadyTitle;
-
-  /// No description provided for @workspaceReadyBody.
-  ///
-  /// In zh, this message translates to:
-  /// **'当前已经完成桌面端主布局、主题切换、语言切换与设置页基础能力，后续模块可以在此逐步扩展。'**
-  String get workspaceReadyBody;
-
-  /// No description provided for @quickActionsTitle.
-  ///
-  /// In zh, this message translates to:
-  /// **'建议从这里开始'**
-  String get quickActionsTitle;
-
-  /// No description provided for @quickActionCreateShell.
-  ///
-  /// In zh, this message translates to:
-  /// **'创建桌面应用骨架'**
-  String get quickActionCreateShell;
-
-  /// No description provided for @quickActionThemeLanguage.
-  ///
-  /// In zh, this message translates to:
-  /// **'配置主题与语言'**
-  String get quickActionThemeLanguage;
-
-  /// No description provided for @quickActionPlanModules.
-  ///
-  /// In zh, this message translates to:
-  /// **'规划功能模块'**
-  String get quickActionPlanModules;
-
-  /// No description provided for @skillsHeadline.
-  ///
-  /// In zh, this message translates to:
-  /// **'技能中心骨架'**
-  String get skillsHeadline;
-
-  /// No description provided for @skillsBody.
-  ///
-  /// In zh, this message translates to:
-  /// **'后续可在这里管理能力插件、提示模板和开发辅助工具。'**
-  String get skillsBody;
 
   /// No description provided for @placeholderComingSoon.
   ///
@@ -560,48 +500,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'没有可读取 {type} 的 reader 模型。'**
   String knowledgeReaderNoModelForType(Object type);
-
-  /// No description provided for @previewSectionTitle.
-  ///
-  /// In zh, this message translates to:
-  /// **'设计方向'**
-  String get previewSectionTitle;
-
-  /// No description provided for @previewSectionBody.
-  ///
-  /// In zh, this message translates to:
-  /// **'遵循 Material 3 Expressive 设计理念，强调层次、留白、圆角、柔和光感与清晰的信息节奏。'**
-  String get previewSectionBody;
-
-  /// Default conversation thread title; same as the application brand "OpenHand".
-  ///
-  /// In zh, this message translates to:
-  /// **'OpenHand'**
-  String get threadPrimary;
-
-  /// No description provided for @threadShell.
-  ///
-  /// In zh, this message translates to:
-  /// **'桌面应用骨架'**
-  String get threadShell;
-
-  /// No description provided for @threadSettings.
-  ///
-  /// In zh, this message translates to:
-  /// **'设置与本地化'**
-  String get threadSettings;
-
-  /// No description provided for @threadRoadmap.
-  ///
-  /// In zh, this message translates to:
-  /// **'后续模块规划'**
-  String get threadRoadmap;
-
-  /// No description provided for @switchToWorkspace.
-  ///
-  /// In zh, this message translates to:
-  /// **'返回主工作台'**
-  String get switchToWorkspace;
 
   /// No description provided for @modelLabel.
   ///
@@ -2701,12 +2599,6 @@ abstract class AppLocalizations {
   /// **'懒加载启用时：MCP 工具描述被折叠为名称索引，模型通过内置 ToolSearch 工具按需取回完整 JSON Schema。支持三种查询：\n• select:NAME（直接选取，可空格分隔多个）\n• 关键字（按 name/description 评分匹配）\n• +KEYWORD（必含词，用于过滤噪声）\n命中工具会写入当前会话已加载列表，下一轮即可直接调用，无需再次查询。'**
   String get mcpLazyLoadingHowItWorks;
 
-  /// No description provided for @settingsGeneralTitle.
-  ///
-  /// In zh, this message translates to:
-  /// **'常规'**
-  String get settingsGeneralTitle;
-
   /// No description provided for @settingsGeneralSubtitle.
   ///
   /// In zh, this message translates to:
@@ -2821,12 +2713,6 @@ abstract class AppLocalizations {
   /// **'请输入范围内的整数'**
   String get settingsToolHardeningInvalid;
 
-  /// No description provided for @settingsSkillsTitle.
-  ///
-  /// In zh, this message translates to:
-  /// **'技能'**
-  String get settingsSkillsTitle;
-
   /// No description provided for @settingsSkillsSubtitle.
   ///
   /// In zh, this message translates to:
@@ -2922,12 +2808,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'已恢复默认动画设置'**
   String get settingsAnimationRestoreSuccess;
-
-  /// No description provided for @settingsAnimationRestorePartialFailure.
-  ///
-  /// In zh, this message translates to:
-  /// **'部分设置保存失败，请重试'**
-  String get settingsAnimationRestorePartialFailure;
 
   /// No description provided for @settingsDialogAnimationTitle.
   ///
@@ -4302,18 +4182,6 @@ abstract class AppLocalizations {
   /// **'令牌'**
   String get aiModelToken;
 
-  /// No description provided for @aiModelIdField.
-  ///
-  /// In zh, this message translates to:
-  /// **'模型 ID'**
-  String get aiModelIdField;
-
-  /// No description provided for @aiModelIdRequired.
-  ///
-  /// In zh, this message translates to:
-  /// **'请输入模型 ID'**
-  String get aiModelIdRequired;
-
   /// No description provided for @aiModelProtocol.
   ///
   /// In zh, this message translates to:
@@ -4409,24 +4277,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'正在扫描可用模型…'**
   String get aiModelScanning;
-
-  /// No description provided for @aiModelScanSuccess.
-  ///
-  /// In zh, this message translates to:
-  /// **'发现 {count} 个模型。'**
-  String aiModelScanSuccess(int count);
-
-  /// No description provided for @aiModelScanFailed.
-  ///
-  /// In zh, this message translates to:
-  /// **'扫描失败：{reason}'**
-  String aiModelScanFailed(String reason);
-
-  /// No description provided for @aiModelScanEmpty.
-  ///
-  /// In zh, this message translates to:
-  /// **'未从该提供商扫描到模型。'**
-  String get aiModelScanEmpty;
 
   /// No description provided for @aiModelAvailableModels.
   ///
@@ -4620,12 +4470,6 @@ abstract class AppLocalizations {
   /// **'为 OpenHand 提供更强大的扩展能力，统一管理本地已安装技能与模板。'**
   String get skillsPageSubtitle;
 
-  /// No description provided for @skillsInstalledSectionTitle.
-  ///
-  /// In zh, this message translates to:
-  /// **'已安装'**
-  String get skillsInstalledSectionTitle;
-
   /// No description provided for @skillsSearchHint.
   ///
   /// In zh, this message translates to:
@@ -4668,18 +4512,6 @@ abstract class AppLocalizations {
   /// **'当前技能目录中未发现任何 SKILL.md。你可以先创建模板，或切换到已有技能目录。'**
   String get skillsEmptyBody;
 
-  /// No description provided for @skillsEmptyActionCreate.
-  ///
-  /// In zh, this message translates to:
-  /// **'创建模板'**
-  String get skillsEmptyActionCreate;
-
-  /// No description provided for @skillsEmptyActionOpenDirectory.
-  ///
-  /// In zh, this message translates to:
-  /// **'打开目录'**
-  String get skillsEmptyActionOpenDirectory;
-
   /// No description provided for @skillsNoResultsTitle.
   ///
   /// In zh, this message translates to:
@@ -4691,18 +4523,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'尝试修改搜索关键词，或清空搜索后重新查看全部技能。'**
   String get skillsNoResultsBody;
-
-  /// No description provided for @skillsFolderLabel.
-  ///
-  /// In zh, this message translates to:
-  /// **'存放位置'**
-  String get skillsFolderLabel;
-
-  /// No description provided for @skillsCardOpen.
-  ///
-  /// In zh, this message translates to:
-  /// **'打开技能目录'**
-  String get skillsCardOpen;
 
   /// No description provided for @skillTemplateCreated.
   ///
@@ -4890,12 +4710,6 @@ abstract class AppLocalizations {
   /// **'无法处理所选图片'**
   String get imageEditorProcessFailed;
 
-  /// No description provided for @imageEditorSectionBasic.
-  ///
-  /// In zh, this message translates to:
-  /// **'基础调整'**
-  String get imageEditorSectionBasic;
-
   /// No description provided for @imageEditorSectionColor.
   ///
   /// In zh, this message translates to:
@@ -5040,12 +4854,6 @@ abstract class AppLocalizations {
   /// **'浅色'**
   String get imageEditorWatermarkColorLight;
 
-  /// No description provided for @imageEditorWatermarkColorDark.
-  ///
-  /// In zh, this message translates to:
-  /// **'深色'**
-  String get imageEditorWatermarkColorDark;
-
   /// No description provided for @imageEditorAdvancedApplyHint.
   ///
   /// In zh, this message translates to:
@@ -5094,12 +4902,6 @@ abstract class AppLocalizations {
   /// **'技能已删除'**
   String get skillsDeleteSuccess;
 
-  /// No description provided for @skillsStorageSectionTitle.
-  ///
-  /// In zh, this message translates to:
-  /// **'技能存放位置'**
-  String get skillsStorageSectionTitle;
-
   /// No description provided for @skillsStorageSectionBody.
   ///
   /// In zh, this message translates to:
@@ -5141,30 +4943,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'打开位置'**
   String get skillsStorageOpen;
-
-  /// No description provided for @skillsStorageSummaryTitle.
-  ///
-  /// In zh, this message translates to:
-  /// **'技能摘要'**
-  String get skillsStorageSummaryTitle;
-
-  /// No description provided for @skillsStorageSummaryBody.
-  ///
-  /// In zh, this message translates to:
-  /// **'当前技能目录、安装数量与扫描状态会在这里实时展示。'**
-  String get skillsStorageSummaryBody;
-
-  /// No description provided for @skillsStorageStatusReady.
-  ///
-  /// In zh, this message translates to:
-  /// **'状态'**
-  String get skillsStorageStatusReady;
-
-  /// No description provided for @skillsStorageStatusLoading.
-  ///
-  /// In zh, this message translates to:
-  /// **'扫描中'**
-  String get skillsStorageStatusLoading;
 
   /// No description provided for @skillsStorageStatusError.
   ///
@@ -5502,35 +5280,11 @@ abstract class AppLocalizations {
   /// **'默认文件'**
   String get memoryFileDefaultPath;
 
-  /// No description provided for @memoryFileSave.
-  ///
-  /// In zh, this message translates to:
-  /// **'保存路径'**
-  String get memoryFileSave;
-
-  /// No description provided for @memoryFileBrowse.
-  ///
-  /// In zh, this message translates to:
-  /// **'选择文件'**
-  String get memoryFileBrowse;
-
-  /// No description provided for @memoryFileReset.
-  ///
-  /// In zh, this message translates to:
-  /// **'恢复默认'**
-  String get memoryFileReset;
-
   /// No description provided for @memoryOpenDirectory.
   ///
   /// In zh, this message translates to:
   /// **'打开目录'**
   String get memoryOpenDirectory;
-
-  /// No description provided for @memoryPathSaved.
-  ///
-  /// In zh, this message translates to:
-  /// **'用户记忆文件路径已更新'**
-  String get memoryPathSaved;
 
   /// No description provided for @memoryDisabledTitle.
   ///
@@ -5958,12 +5712,6 @@ abstract class AppLocalizations {
   /// **'工具调用输出压缩阈值'**
   String get aiToolResultCompressionThresholdLabel;
 
-  /// No description provided for @aiToolResultCompressionThresholdBody.
-  ///
-  /// In zh, this message translates to:
-  /// **'工具结果进入对话历史时使用的摘要阈值。最新未消费的超大工具结果会使用有界预览；已消费的旧工具结果超过阈值后会压成结构化摘要。默认 1024。'**
-  String get aiToolResultCompressionThresholdBody;
-
   /// No description provided for @aiToolResultCompressionThresholdSave.
   ///
   /// In zh, this message translates to:
@@ -6311,462 +6059,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'请输入 1~32 之间的整数。'**
   String get aiEstimatedCharactersPerTokenInvalid;
-
-  /// No description provided for @aiMaxToolOutputCharsLabel.
-  ///
-  /// In zh, this message translates to:
-  /// **'工具单次输出字符上限'**
-  String get aiMaxToolOutputCharsLabel;
-
-  /// No description provided for @aiMaxToolOutputCharsBody.
-  ///
-  /// In zh, this message translates to:
-  /// **'默认 150000。单次工具调用结果若超过这个字符数会截断，避免 Context 溢出。'**
-  String get aiMaxToolOutputCharsBody;
-
-  /// No description provided for @aiMaxToolOutputCharsSave.
-  ///
-  /// In zh, this message translates to:
-  /// **'保存上限'**
-  String get aiMaxToolOutputCharsSave;
-
-  /// No description provided for @aiMaxToolOutputCharsSaved.
-  ///
-  /// In zh, this message translates to:
-  /// **'工具输出字符上限已保存。'**
-  String get aiMaxToolOutputCharsSaved;
-
-  /// No description provided for @aiMaxToolOutputCharsInvalid.
-  ///
-  /// In zh, this message translates to:
-  /// **'请输入 1000~10000000 之间的整数。'**
-  String get aiMaxToolOutputCharsInvalid;
-
-  /// No description provided for @aiWriteConfirmationTimeoutMsLabel.
-  ///
-  /// In zh, this message translates to:
-  /// **'写命令确认超时（毫秒）'**
-  String get aiWriteConfirmationTimeoutMsLabel;
-
-  /// No description provided for @aiWriteConfirmationTimeoutMsBody.
-  ///
-  /// In zh, this message translates to:
-  /// **'默认 300000（5 分钟）。等待用户审批写命令的最长时间。'**
-  String get aiWriteConfirmationTimeoutMsBody;
-
-  /// No description provided for @aiWriteConfirmationTimeoutMsSave.
-  ///
-  /// In zh, this message translates to:
-  /// **'保存超时'**
-  String get aiWriteConfirmationTimeoutMsSave;
-
-  /// No description provided for @aiWriteConfirmationTimeoutMsSaved.
-  ///
-  /// In zh, this message translates to:
-  /// **'写命令确认超时已保存。'**
-  String get aiWriteConfirmationTimeoutMsSaved;
-
-  /// No description provided for @aiWriteConfirmationTimeoutMsInvalid.
-  ///
-  /// In zh, this message translates to:
-  /// **'请输入 1000~3600000 之间的整数。'**
-  String get aiWriteConfirmationTimeoutMsInvalid;
-
-  /// No description provided for @aiFastPathWriteAnalysisThresholdLabel.
-  ///
-  /// In zh, this message translates to:
-  /// **'Fast-path 写命令分析阈值'**
-  String get aiFastPathWriteAnalysisThresholdLabel;
-
-  /// No description provided for @aiFastPathWriteAnalysisThresholdBody.
-  ///
-  /// In zh, this message translates to:
-  /// **'默认 512 字符。命令长度超过此值会走快速路径粗判，避免昂贵的语法分析。'**
-  String get aiFastPathWriteAnalysisThresholdBody;
-
-  /// No description provided for @aiFastPathWriteAnalysisThresholdSave.
-  ///
-  /// In zh, this message translates to:
-  /// **'保存阈值'**
-  String get aiFastPathWriteAnalysisThresholdSave;
-
-  /// No description provided for @aiFastPathWriteAnalysisThresholdSaved.
-  ///
-  /// In zh, this message translates to:
-  /// **'Fast-path 阈值已保存。'**
-  String get aiFastPathWriteAnalysisThresholdSaved;
-
-  /// No description provided for @aiFastPathWriteAnalysisThresholdInvalid.
-  ///
-  /// In zh, this message translates to:
-  /// **'请输入 0~100000 之间的整数。'**
-  String get aiFastPathWriteAnalysisThresholdInvalid;
-
-  /// No description provided for @aiMaxHookTextCharactersLabel.
-  ///
-  /// In zh, this message translates to:
-  /// **'Hook 文本输出上限'**
-  String get aiMaxHookTextCharactersLabel;
-
-  /// No description provided for @aiMaxHookTextCharactersBody.
-  ///
-  /// In zh, this message translates to:
-  /// **'默认 4000。Claude Hook 在合并 stdout/stderr 文本时的总字符上限。'**
-  String get aiMaxHookTextCharactersBody;
-
-  /// No description provided for @aiMaxHookTextCharactersSave.
-  ///
-  /// In zh, this message translates to:
-  /// **'保存上限'**
-  String get aiMaxHookTextCharactersSave;
-
-  /// No description provided for @aiMaxHookTextCharactersSaved.
-  ///
-  /// In zh, this message translates to:
-  /// **'Hook 文本上限已保存。'**
-  String get aiMaxHookTextCharactersSaved;
-
-  /// No description provided for @aiMaxHookTextCharactersInvalid.
-  ///
-  /// In zh, this message translates to:
-  /// **'请输入 100~1000000 之间的整数。'**
-  String get aiMaxHookTextCharactersInvalid;
-
-  /// No description provided for @aiAttachmentMaxInlineImageDimensionLabel.
-  ///
-  /// In zh, this message translates to:
-  /// **'附件图片最大边长（像素）'**
-  String get aiAttachmentMaxInlineImageDimensionLabel;
-
-  /// No description provided for @aiAttachmentMaxInlineImageDimensionBody.
-  ///
-  /// In zh, this message translates to:
-  /// **'默认 1568。调整以适配你的网络与附件需求。'**
-  String get aiAttachmentMaxInlineImageDimensionBody;
-
-  /// No description provided for @aiAttachmentMaxInlineImageDimensionSave.
-  ///
-  /// In zh, this message translates to:
-  /// **'保存'**
-  String get aiAttachmentMaxInlineImageDimensionSave;
-
-  /// No description provided for @aiAttachmentMaxInlineImageDimensionSaved.
-  ///
-  /// In zh, this message translates to:
-  /// **'附件图片最大边长（像素）已保存。'**
-  String get aiAttachmentMaxInlineImageDimensionSaved;
-
-  /// No description provided for @aiAttachmentMaxInlineImageDimensionInvalid.
-  ///
-  /// In zh, this message translates to:
-  /// **'请输入有效整数。'**
-  String get aiAttachmentMaxInlineImageDimensionInvalid;
-
-  /// No description provided for @aiAttachmentMaxTextRawBytesLabel.
-  ///
-  /// In zh, this message translates to:
-  /// **'附件文本读取上限（字节）'**
-  String get aiAttachmentMaxTextRawBytesLabel;
-
-  /// No description provided for @aiAttachmentMaxTextRawBytesBody.
-  ///
-  /// In zh, this message translates to:
-  /// **'默认 1597152（2MB）。调整以适配你的网络与附件需求。'**
-  String get aiAttachmentMaxTextRawBytesBody;
-
-  /// No description provided for @aiAttachmentMaxTextRawBytesSave.
-  ///
-  /// In zh, this message translates to:
-  /// **'保存'**
-  String get aiAttachmentMaxTextRawBytesSave;
-
-  /// No description provided for @aiAttachmentMaxTextRawBytesSaved.
-  ///
-  /// In zh, this message translates to:
-  /// **'附件文本读取上限（字节）已保存。'**
-  String get aiAttachmentMaxTextRawBytesSaved;
-
-  /// No description provided for @aiAttachmentMaxTextRawBytesInvalid.
-  ///
-  /// In zh, this message translates to:
-  /// **'请输入有效整数。'**
-  String get aiAttachmentMaxTextRawBytesInvalid;
-
-  /// No description provided for @aiAttachmentMaxPdfRawBytesLabel.
-  ///
-  /// In zh, this message translates to:
-  /// **'附件 PDF 读取上限（字节）'**
-  String get aiAttachmentMaxPdfRawBytesLabel;
-
-  /// No description provided for @aiAttachmentMaxPdfRawBytesBody.
-  ///
-  /// In zh, this message translates to:
-  /// **'默认 1597152（2MB）。调整以适配你的网络与附件需求。'**
-  String get aiAttachmentMaxPdfRawBytesBody;
-
-  /// No description provided for @aiAttachmentMaxPdfRawBytesSave.
-  ///
-  /// In zh, this message translates to:
-  /// **'保存'**
-  String get aiAttachmentMaxPdfRawBytesSave;
-
-  /// No description provided for @aiAttachmentMaxPdfRawBytesSaved.
-  ///
-  /// In zh, this message translates to:
-  /// **'附件 PDF 读取上限（字节）已保存。'**
-  String get aiAttachmentMaxPdfRawBytesSaved;
-
-  /// No description provided for @aiAttachmentMaxPdfRawBytesInvalid.
-  ///
-  /// In zh, this message translates to:
-  /// **'请输入有效整数。'**
-  String get aiAttachmentMaxPdfRawBytesInvalid;
-
-  /// No description provided for @aiAttachmentMaxImageRawBytesLabel.
-  ///
-  /// In zh, this message translates to:
-  /// **'附件图片读取上限（字节）'**
-  String get aiAttachmentMaxImageRawBytesLabel;
-
-  /// No description provided for @aiAttachmentMaxImageRawBytesBody.
-  ///
-  /// In zh, this message translates to:
-  /// **'默认 52428800（50MB）。调整以适配你的网络与附件需求。'**
-  String get aiAttachmentMaxImageRawBytesBody;
-
-  /// No description provided for @aiAttachmentMaxImageRawBytesSave.
-  ///
-  /// In zh, this message translates to:
-  /// **'保存'**
-  String get aiAttachmentMaxImageRawBytesSave;
-
-  /// No description provided for @aiAttachmentMaxImageRawBytesSaved.
-  ///
-  /// In zh, this message translates to:
-  /// **'附件图片读取上限（字节）已保存。'**
-  String get aiAttachmentMaxImageRawBytesSaved;
-
-  /// No description provided for @aiAttachmentMaxImageRawBytesInvalid.
-  ///
-  /// In zh, this message translates to:
-  /// **'请输入有效整数。'**
-  String get aiAttachmentMaxImageRawBytesInvalid;
-
-  /// No description provided for @aiChatMaxStreamLineBufferBytesLabel.
-  ///
-  /// In zh, this message translates to:
-  /// **'Chat 流缓冲字节上限'**
-  String get aiChatMaxStreamLineBufferBytesLabel;
-
-  /// No description provided for @aiChatMaxStreamLineBufferBytesBody.
-  ///
-  /// In zh, this message translates to:
-  /// **'默认 4194304（4MB）。调整以适配你的网络与附件需求。'**
-  String get aiChatMaxStreamLineBufferBytesBody;
-
-  /// No description provided for @aiChatMaxStreamLineBufferBytesSave.
-  ///
-  /// In zh, this message translates to:
-  /// **'保存'**
-  String get aiChatMaxStreamLineBufferBytesSave;
-
-  /// No description provided for @aiChatMaxStreamLineBufferBytesSaved.
-  ///
-  /// In zh, this message translates to:
-  /// **'Chat 流缓冲字节上限已保存。'**
-  String get aiChatMaxStreamLineBufferBytesSaved;
-
-  /// No description provided for @aiChatMaxStreamLineBufferBytesInvalid.
-  ///
-  /// In zh, this message translates to:
-  /// **'请输入有效整数。'**
-  String get aiChatMaxStreamLineBufferBytesInvalid;
-
-  /// No description provided for @aiFallbackTitleMaxCharactersLabel.
-  ///
-  /// In zh, this message translates to:
-  /// **'回退标题最大字符数'**
-  String get aiFallbackTitleMaxCharactersLabel;
-
-  /// No description provided for @aiFallbackTitleMaxCharactersBody.
-  ///
-  /// In zh, this message translates to:
-  /// **'默认 15。调整以匹配会话标题派生策略。'**
-  String get aiFallbackTitleMaxCharactersBody;
-
-  /// No description provided for @aiFallbackTitleMaxCharactersSave.
-  ///
-  /// In zh, this message translates to:
-  /// **'保存'**
-  String get aiFallbackTitleMaxCharactersSave;
-
-  /// No description provided for @aiFallbackTitleMaxCharactersSaved.
-  ///
-  /// In zh, this message translates to:
-  /// **'回退标题最大字符数已保存。'**
-  String get aiFallbackTitleMaxCharactersSaved;
-
-  /// No description provided for @aiFallbackTitleMaxCharactersInvalid.
-  ///
-  /// In zh, this message translates to:
-  /// **'请输入有效整数。'**
-  String get aiFallbackTitleMaxCharactersInvalid;
-
-  /// No description provided for @aiGeneratedTitleMaxCharactersLabel.
-  ///
-  /// In zh, this message translates to:
-  /// **'自动标题最大字符数'**
-  String get aiGeneratedTitleMaxCharactersLabel;
-
-  /// No description provided for @aiGeneratedTitleMaxCharactersBody.
-  ///
-  /// In zh, this message translates to:
-  /// **'默认 15。调整以匹配会话标题派生策略。'**
-  String get aiGeneratedTitleMaxCharactersBody;
-
-  /// No description provided for @aiGeneratedTitleMaxCharactersSave.
-  ///
-  /// In zh, this message translates to:
-  /// **'保存'**
-  String get aiGeneratedTitleMaxCharactersSave;
-
-  /// No description provided for @aiGeneratedTitleMaxCharactersSaved.
-  ///
-  /// In zh, this message translates to:
-  /// **'自动标题最大字符数已保存。'**
-  String get aiGeneratedTitleMaxCharactersSaved;
-
-  /// No description provided for @aiGeneratedTitleMaxCharactersInvalid.
-  ///
-  /// In zh, this message translates to:
-  /// **'请输入有效整数。'**
-  String get aiGeneratedTitleMaxCharactersInvalid;
-
-  /// No description provided for @aiMinimumMeaningfulTitleCharactersLabel.
-  ///
-  /// In zh, this message translates to:
-  /// **'中文有效标题最小字符数'**
-  String get aiMinimumMeaningfulTitleCharactersLabel;
-
-  /// No description provided for @aiMinimumMeaningfulTitleCharactersBody.
-  ///
-  /// In zh, this message translates to:
-  /// **'默认 4。调整以匹配会话标题派生策略。'**
-  String get aiMinimumMeaningfulTitleCharactersBody;
-
-  /// No description provided for @aiMinimumMeaningfulTitleCharactersSave.
-  ///
-  /// In zh, this message translates to:
-  /// **'保存'**
-  String get aiMinimumMeaningfulTitleCharactersSave;
-
-  /// No description provided for @aiMinimumMeaningfulTitleCharactersSaved.
-  ///
-  /// In zh, this message translates to:
-  /// **'中文有效标题最小字符数已保存。'**
-  String get aiMinimumMeaningfulTitleCharactersSaved;
-
-  /// No description provided for @aiMinimumMeaningfulTitleCharactersInvalid.
-  ///
-  /// In zh, this message translates to:
-  /// **'请输入有效整数。'**
-  String get aiMinimumMeaningfulTitleCharactersInvalid;
-
-  /// No description provided for @aiMinimumMeaningfulLatinTitleWordsLabel.
-  ///
-  /// In zh, this message translates to:
-  /// **'拉丁有效标题最小词数'**
-  String get aiMinimumMeaningfulLatinTitleWordsLabel;
-
-  /// No description provided for @aiMinimumMeaningfulLatinTitleWordsBody.
-  ///
-  /// In zh, this message translates to:
-  /// **'默认 2。调整以匹配会话标题派生策略。'**
-  String get aiMinimumMeaningfulLatinTitleWordsBody;
-
-  /// No description provided for @aiMinimumMeaningfulLatinTitleWordsSave.
-  ///
-  /// In zh, this message translates to:
-  /// **'保存'**
-  String get aiMinimumMeaningfulLatinTitleWordsSave;
-
-  /// No description provided for @aiMinimumMeaningfulLatinTitleWordsSaved.
-  ///
-  /// In zh, this message translates to:
-  /// **'拉丁有效标题最小词数已保存。'**
-  String get aiMinimumMeaningfulLatinTitleWordsSaved;
-
-  /// No description provided for @aiMinimumMeaningfulLatinTitleWordsInvalid.
-  ///
-  /// In zh, this message translates to:
-  /// **'请输入有效整数。'**
-  String get aiMinimumMeaningfulLatinTitleWordsInvalid;
-
-  /// No description provided for @aiMaxSkillContentLengthLabel.
-  ///
-  /// In zh, this message translates to:
-  /// **'技能文件内容字符上限'**
-  String get aiMaxSkillContentLengthLabel;
-
-  /// No description provided for @aiMaxSkillContentLengthBody.
-  ///
-  /// In zh, this message translates to:
-  /// **'默认 100000。调整以适配技能与工作区文档大小。'**
-  String get aiMaxSkillContentLengthBody;
-
-  /// No description provided for @aiMaxSkillContentLengthSave.
-  ///
-  /// In zh, this message translates to:
-  /// **'保存'**
-  String get aiMaxSkillContentLengthSave;
-
-  /// No description provided for @aiMaxSkillContentLengthSaved.
-  ///
-  /// In zh, this message translates to:
-  /// **'技能文件内容字符上限已保存。'**
-  String get aiMaxSkillContentLengthSaved;
-
-  /// No description provided for @aiMaxSkillContentLengthInvalid.
-  ///
-  /// In zh, this message translates to:
-  /// **'请输入有效整数。'**
-  String get aiMaxSkillContentLengthInvalid;
-
-  /// No description provided for @aiMaxWorkspaceDocumentCharactersLabel.
-  ///
-  /// In zh, this message translates to:
-  /// **'工作区指令文档字符上限'**
-  String get aiMaxWorkspaceDocumentCharactersLabel;
-
-  /// No description provided for @aiMaxWorkspaceDocumentCharactersBody.
-  ///
-  /// In zh, this message translates to:
-  /// **'默认 16000。调整以适配技能与工作区文档大小。'**
-  String get aiMaxWorkspaceDocumentCharactersBody;
-
-  /// No description provided for @aiMaxWorkspaceDocumentCharactersSave.
-  ///
-  /// In zh, this message translates to:
-  /// **'保存'**
-  String get aiMaxWorkspaceDocumentCharactersSave;
-
-  /// No description provided for @aiMaxWorkspaceDocumentCharactersSaved.
-  ///
-  /// In zh, this message translates to:
-  /// **'工作区指令文档字符上限已保存。'**
-  String get aiMaxWorkspaceDocumentCharactersSaved;
-
-  /// No description provided for @aiMaxWorkspaceDocumentCharactersInvalid.
-  ///
-  /// In zh, this message translates to:
-  /// **'请输入有效整数。'**
-  String get aiMaxWorkspaceDocumentCharactersInvalid;
-
-  /// No description provided for @aiImageSizeLimitLabel.
-  ///
-  /// In zh, this message translates to:
-  /// **'图片大小上限'**
-  String get aiImageSizeLimitLabel;
 
   /// No description provided for @aiImageSizeLimitBody.
   ///
@@ -7770,12 +7062,6 @@ abstract class AppLocalizations {
   /// **'Token'**
   String get tokenDialUnit;
 
-  /// No description provided for @tokenDialTotal.
-  ///
-  /// In zh, this message translates to:
-  /// **'总计'**
-  String get tokenDialTotal;
-
   /// No description provided for @tokenPopupInputHeading.
   ///
   /// In zh, this message translates to:
@@ -7865,12 +7151,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'含过期异常'**
   String get tokenPopupCacheHitModeIncludeExpired;
-
-  /// No description provided for @tokenPopupFirstRequestIgnored.
-  ///
-  /// In zh, this message translates to:
-  /// **'首轮不计平均'**
-  String get tokenPopupFirstRequestIgnored;
 
   /// No description provided for @tokenPopupExcludedRounds.
   ///
@@ -8484,12 +7764,6 @@ abstract class AppLocalizations {
   /// **'ToolSearch 历史导入预览'**
   String get toolSearchLoadedHistoryImportDialogTitle;
 
-  /// Snackbar/error text when JSON cannot be parsed.
-  ///
-  /// In zh, this message translates to:
-  /// **'JSON 解析失败：{error}'**
-  String toolSearchLoadedHistoryImportDialogParseFailed(String error);
-
   /// Pluralized count summary shown above the preview list.
   ///
   /// In zh, this message translates to:
@@ -9042,48 +8316,6 @@ abstract class AppLocalizations {
   /// **'内容为空'**
   String get tlCallEmptyContent;
 
-  /// No description provided for @tlCallWrite.
-  ///
-  /// In zh, this message translates to:
-  /// **'写入'**
-  String get tlCallWrite;
-
-  /// No description provided for @tlCallEdit.
-  ///
-  /// In zh, this message translates to:
-  /// **'编辑'**
-  String get tlCallEdit;
-
-  /// No description provided for @tlCallMultiEdit.
-  ///
-  /// In zh, this message translates to:
-  /// **'多处编辑'**
-  String get tlCallMultiEdit;
-
-  /// No description provided for @tlCallNotebookEdit.
-  ///
-  /// In zh, this message translates to:
-  /// **'Notebook 编辑'**
-  String get tlCallNotebookEdit;
-
-  /// No description provided for @tlCallBashWrite.
-  ///
-  /// In zh, this message translates to:
-  /// **'命令写入'**
-  String get tlCallBashWrite;
-
-  /// No description provided for @tlCallFileChanged.
-  ///
-  /// In zh, this message translates to:
-  /// **'文件变更'**
-  String get tlCallFileChanged;
-
-  /// No description provided for @tlCallChangedFile.
-  ///
-  /// In zh, this message translates to:
-  /// **'文件变动'**
-  String get tlCallChangedFile;
-
   /// No description provided for @fileMutationSection.
   ///
   /// In zh, this message translates to:
@@ -9233,18 +8465,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'内容快照不可用'**
   String get fileMutationSnapshotUnavailable;
-
-  /// No description provided for @dataCleanupFileMutationLedgerTitle.
-  ///
-  /// In zh, this message translates to:
-  /// **'文件变动历史'**
-  String get dataCleanupFileMutationLedgerTitle;
-
-  /// No description provided for @dataCleanupFileMutationLedgerSubtitle.
-  ///
-  /// In zh, this message translates to:
-  /// **'~/.openhand/file_history/ 下的文件变动 ledger（before/after 快照 + jsonl 记录）。清理后历史卡片可能不再展示可撤销状态。'**
-  String get dataCleanupFileMutationLedgerSubtitle;
 
   /// No description provided for @tlCallTool.
   ///
@@ -12125,12 +11345,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'查看完整内容'**
   String get tlCallViewFullContent;
-
-  /// No description provided for @tlCallMultiEditEditcount.
-  ///
-  /// In zh, this message translates to:
-  /// **'多处编辑 ×{editCount}'**
-  String tlCallMultiEditEditcount(Object editCount);
 
   /// No description provided for @tlCallPreparing.
   ///
@@ -17586,12 +16800,6 @@ abstract class AppLocalizations {
   /// OpenHand localized UI text.
   ///
   /// In zh, this message translates to:
-  /// **'打开目录'**
-  String get agentsOpenFolder;
-
-  /// OpenHand localized UI text.
-  ///
-  /// In zh, this message translates to:
   /// **'创建智能体'**
   String get agentsCreateAgent;
 
@@ -17600,18 +16808,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'编辑智能体'**
   String get agentsEditAgent;
-
-  /// OpenHand localized UI text.
-  ///
-  /// In zh, this message translates to:
-  /// **'Hermes Agent 工作台'**
-  String get agentsWorkspaceTitle;
-
-  /// OpenHand localized UI text.
-  ///
-  /// In zh, this message translates to:
-  /// **'智能体开启后会暴露任务发布、追踪和结果获取能力；当前页用于配置职责、权限、集群与治理边界。'**
-  String get agentsWorkspaceBody;
 
   /// OpenHand localized UI text.
   ///
@@ -17714,12 +16910,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'资源管理'**
   String get agentsResources;
-
-  /// OpenHand localized UI text.
-  ///
-  /// In zh, this message translates to:
-  /// **'编辑配置'**
-  String get agentsEditConfig;
 
   /// OpenHand localized UI text.
   ///
@@ -18180,12 +17370,6 @@ abstract class AppLocalizations {
   /// OpenHand localized UI text.
   ///
   /// In zh, this message translates to:
-  /// **'逗号分隔'**
-  String get agentsCommaSeparatedHint;
-
-  /// OpenHand localized UI text.
-  ///
-  /// In zh, this message translates to:
   /// **'名称'**
   String get agentsFieldName;
 
@@ -18198,20 +17382,8 @@ abstract class AppLocalizations {
   /// OpenHand localized UI text.
   ///
   /// In zh, this message translates to:
-  /// **'元数据 JSON'**
-  String get agentsMetadataJsonLabel;
-
-  /// OpenHand localized UI text.
-  ///
-  /// In zh, this message translates to:
   /// **'权限与轮廓元数据'**
   String get agentsMetadataInfoTitle;
-
-  /// OpenHand localized UI text.
-  ///
-  /// In zh, this message translates to:
-  /// **'这里保存扩展字段。格式错误时会提示并保留当前编辑内容。'**
-  String get agentsMetadataInfoBody;
 
   /// OpenHand localized UI text.
   ///
@@ -18668,96 +17840,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'一句话浓缩本条记忆的主旨；留空则使用正文预览'**
   String get memoryTitleHint;
-
-  /// OpenHand localized UI text.
-  ///
-  /// In zh, this message translates to:
-  /// **'机器专家模板配置'**
-  String get machineExpertDialogTitle;
-
-  /// OpenHand localized UI text.
-  ///
-  /// In zh, this message translates to:
-  /// **'请指定目标终端窗口与具体任务需求，机器专家将在此工作环境中自动为您执行命令。'**
-  String get machineExpertDialogBody;
-
-  /// OpenHand localized UI text.
-  ///
-  /// In zh, this message translates to:
-  /// **'终端程序'**
-  String get machineExpertTerminalProgram;
-
-  /// OpenHand localized UI text.
-  ///
-  /// In zh, this message translates to:
-  /// **'窗口'**
-  String get machineExpertWindow;
-
-  /// OpenHand localized UI text.
-  ///
-  /// In zh, this message translates to:
-  /// **'标签页'**
-  String get machineExpertTab;
-
-  /// OpenHand localized UI text.
-  ///
-  /// In zh, this message translates to:
-  /// **'会话'**
-  String get machineExpertSession;
-
-  /// OpenHand localized UI text.
-  ///
-  /// In zh, this message translates to:
-  /// **'使用模型（可选）'**
-  String get machineExpertModelOptional;
-
-  /// OpenHand localized UI text.
-  ///
-  /// In zh, this message translates to:
-  /// **'点击选择模型'**
-  String get machineExpertModelChoose;
-
-  /// OpenHand localized UI text.
-  ///
-  /// In zh, this message translates to:
-  /// **'未配置可用模型，将沿用当前默认模型'**
-  String get machineExpertModelNotConfiguredDefault;
-
-  /// OpenHand localized UI text.
-  ///
-  /// In zh, this message translates to:
-  /// **'仅影响本次新建的机器专家线程；若不选，则沿用当前已激活模型。'**
-  String get machineExpertModelHelperWithModels;
-
-  /// OpenHand localized UI text.
-  ///
-  /// In zh, this message translates to:
-  /// **'尚未在设置中配置模型；本次将继续使用当前激活的默认模型。'**
-  String get machineExpertModelHelperNoModels;
-
-  /// OpenHand localized UI text.
-  ///
-  /// In zh, this message translates to:
-  /// **'任务需求'**
-  String get machineExpertTaskRequirement;
-
-  /// OpenHand localized UI text.
-  ///
-  /// In zh, this message translates to:
-  /// **'描述你想要执行的任务，例如：检查当前目录的文件列表，编译项目，部署到远程服务器等...'**
-  String get machineExpertTaskRequirementHint;
-
-  /// OpenHand localized UI text.
-  ///
-  /// In zh, this message translates to:
-  /// **'机器专家将根据该需求和终端现场进行交互式执行。'**
-  String get machineExpertTaskRequirementHelper;
-
-  /// OpenHand localized UI text.
-  ///
-  /// In zh, this message translates to:
-  /// **'开始执行'**
-  String get machineExpertStartExecution;
 
   /// OpenHand localized UI text.
   ///

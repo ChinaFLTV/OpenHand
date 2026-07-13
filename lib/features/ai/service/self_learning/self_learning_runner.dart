@@ -90,8 +90,6 @@ class SelfLearningOutcome {
 /// 在终态时返回，供调度器聚合，最终通过 cron `appContext` 写入历史记录，
 /// 用于 Crons UI 在 Hermes Talker 历史卡片里展示"影响了哪些会话 / 改了
 /// 哪些画像-记忆-技能 / AI 思考与回复"等富信息。
-///
-/// / Phase 4-Hermes-Talker-history.
 class SelfLearningSessionReport {
   const SelfLearningSessionReport({
     required this.sessionId,

@@ -33,9 +33,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get threads => '线程';
 
   @override
-  String get workspaceHeadline => '开始构建';
-
-  @override
   String get composerHint => '询问 OpenHand 任何内容，使用 / 触发动作，使用 @ 引用上下文';
 
   @override
@@ -46,34 +43,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get chatRequestFailed => '模型请求失败，请检查模型配置、网络连通性或接口协议。';
-
-  @override
-  String get composerUnavailable => '当前为基础骨架，暂未接入实际执行能力。';
-
-  @override
-  String get workspaceReadyTitle => '基础骨架已就绪';
-
-  @override
-  String get workspaceReadyBody =>
-      '当前已经完成桌面端主布局、主题切换、语言切换与设置页基础能力，后续模块可以在此逐步扩展。';
-
-  @override
-  String get quickActionsTitle => '建议从这里开始';
-
-  @override
-  String get quickActionCreateShell => '创建桌面应用骨架';
-
-  @override
-  String get quickActionThemeLanguage => '配置主题与语言';
-
-  @override
-  String get quickActionPlanModules => '规划功能模块';
-
-  @override
-  String get skillsHeadline => '技能中心骨架';
-
-  @override
-  String get skillsBody => '后续可在这里管理能力插件、提示模板和开发辅助工具。';
 
   @override
   String get placeholderComingSoon => '后续功能模块将在这里逐步扩展。';
@@ -240,28 +209,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String knowledgeReaderNoModelForType(Object type) {
     return '没有可读取 $type 的 reader 模型。';
   }
-
-  @override
-  String get previewSectionTitle => '设计方向';
-
-  @override
-  String get previewSectionBody =>
-      '遵循 Material 3 Expressive 设计理念，强调层次、留白、圆角、柔和光感与清晰的信息节奏。';
-
-  @override
-  String get threadPrimary => 'OpenHand';
-
-  @override
-  String get threadShell => '桌面应用骨架';
-
-  @override
-  String get threadSettings => '设置与本地化';
-
-  @override
-  String get threadRoadmap => '后续模块规划';
-
-  @override
-  String get switchToWorkspace => '返回主工作台';
 
   @override
   String get modelLabel => 'OpenHand Skeleton';
@@ -1523,9 +1470,6 @@ class AppLocalizationsZh extends AppLocalizations {
       '懒加载启用时：MCP 工具描述被折叠为名称索引，模型通过内置 ToolSearch 工具按需取回完整 JSON Schema。支持三种查询：\n• select:NAME（直接选取，可空格分隔多个）\n• 关键字（按 name/description 评分匹配）\n• +KEYWORD（必含词，用于过滤噪声）\n命中工具会写入当前会话已加载列表，下一轮即可直接调用，无需再次查询。';
 
   @override
-  String get settingsGeneralTitle => '常规';
-
-  @override
   String get settingsGeneralSubtitle => '管理主题、语言与应用基础信息。';
 
   @override
@@ -1588,9 +1532,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsToolHardeningInvalid => '请输入范围内的整数';
 
   @override
-  String get settingsSkillsTitle => '技能';
-
-  @override
   String get settingsSkillsSubtitle => '管理本地技能目录、模板创建与已安装技能展示。';
 
   @override
@@ -1642,9 +1583,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get settingsAnimationRestoreSuccess => '已恢复默认动画设置';
-
-  @override
-  String get settingsAnimationRestorePartialFailure => '部分设置保存失败，请重试';
 
   @override
   String get settingsDialogAnimationTitle => '弹窗动画';
@@ -2373,12 +2311,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiModelToken => '令牌';
 
   @override
-  String get aiModelIdField => '模型 ID';
-
-  @override
-  String get aiModelIdRequired => '请输入模型 ID';
-
-  @override
   String get aiModelProtocol => '协议类型';
 
   @override
@@ -2429,19 +2361,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get aiModelScanning => '正在扫描可用模型…';
-
-  @override
-  String aiModelScanSuccess(int count) {
-    return '发现 $count 个模型。';
-  }
-
-  @override
-  String aiModelScanFailed(String reason) {
-    return '扫描失败：$reason';
-  }
-
-  @override
-  String get aiModelScanEmpty => '未从该提供商扫描到模型。';
 
   @override
   String get aiModelAvailableModels => '可用模型';
@@ -2542,9 +2461,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get skillsPageSubtitle => '为 OpenHand 提供更强大的扩展能力，统一管理本地已安装技能与模板。';
 
   @override
-  String get skillsInstalledSectionTitle => '已安装';
-
-  @override
   String get skillsSearchHint => '搜索技能';
 
   @override
@@ -2566,22 +2482,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get skillsEmptyBody => '当前技能目录中未发现任何 SKILL.md。你可以先创建模板，或切换到已有技能目录。';
 
   @override
-  String get skillsEmptyActionCreate => '创建模板';
-
-  @override
-  String get skillsEmptyActionOpenDirectory => '打开目录';
-
-  @override
   String get skillsNoResultsTitle => '未找到匹配的技能';
 
   @override
   String get skillsNoResultsBody => '尝试修改搜索关键词，或清空搜索后重新查看全部技能。';
-
-  @override
-  String get skillsFolderLabel => '存放位置';
-
-  @override
-  String get skillsCardOpen => '打开技能目录';
 
   @override
   String get skillTemplateCreated => '已创建新技能';
@@ -2678,9 +2582,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get imageEditorProcessFailed => '无法处理所选图片';
 
   @override
-  String get imageEditorSectionBasic => '基础调整';
-
-  @override
   String get imageEditorSectionColor => '色彩（色温 / 色调 / 伽马）';
 
   @override
@@ -2753,9 +2654,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get imageEditorWatermarkColorLight => '浅色';
 
   @override
-  String get imageEditorWatermarkColorDark => '深色';
-
-  @override
   String get imageEditorAdvancedApplyHint => '展开面板中的调整会在“保存”时一次性应用到原图。';
 
   @override
@@ -2780,9 +2678,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get skillsDeleteSuccess => '技能已删除';
 
   @override
-  String get skillsStorageSectionTitle => '技能存放位置';
-
-  @override
   String get skillsStorageSectionBody =>
       '配置 OpenHand 扫描技能的本地目录。默认会使用 ~/.openhand/skills，并在需要时自动创建。';
 
@@ -2803,18 +2698,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get skillsStorageOpen => '打开位置';
-
-  @override
-  String get skillsStorageSummaryTitle => '技能摘要';
-
-  @override
-  String get skillsStorageSummaryBody => '当前技能目录、安装数量与扫描状态会在这里实时展示。';
-
-  @override
-  String get skillsStorageStatusReady => '状态';
-
-  @override
-  String get skillsStorageStatusLoading => '扫描中';
 
   @override
   String get skillsStorageStatusError => '技能目录读取失败';
@@ -2987,19 +2870,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get memoryFileDefaultPath => '默认文件';
 
   @override
-  String get memoryFileSave => '保存路径';
-
-  @override
-  String get memoryFileBrowse => '选择文件';
-
-  @override
-  String get memoryFileReset => '恢复默认';
-
-  @override
   String get memoryOpenDirectory => '打开目录';
-
-  @override
-  String get memoryPathSaved => '用户记忆文件路径已更新';
 
   @override
   String get memoryDisabledTitle => '记忆能力当前已关闭';
@@ -3239,10 +3110,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiToolResultCompressionThresholdLabel => '工具调用输出压缩阈值';
 
   @override
-  String get aiToolResultCompressionThresholdBody =>
-      '工具结果进入对话历史时使用的摘要阈值。最新未消费的超大工具结果会使用有界预览；已消费的旧工具结果超过阈值后会压成结构化摘要。默认 1024。';
-
-  @override
   String get aiToolResultCompressionThresholdSave => '保存阈值';
 
   @override
@@ -3428,244 +3295,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get aiEstimatedCharactersPerTokenInvalid => '请输入 1~32 之间的整数。';
-
-  @override
-  String get aiMaxToolOutputCharsLabel => '工具单次输出字符上限';
-
-  @override
-  String get aiMaxToolOutputCharsBody =>
-      '默认 150000。单次工具调用结果若超过这个字符数会截断，避免 Context 溢出。';
-
-  @override
-  String get aiMaxToolOutputCharsSave => '保存上限';
-
-  @override
-  String get aiMaxToolOutputCharsSaved => '工具输出字符上限已保存。';
-
-  @override
-  String get aiMaxToolOutputCharsInvalid => '请输入 1000~10000000 之间的整数。';
-
-  @override
-  String get aiWriteConfirmationTimeoutMsLabel => '写命令确认超时（毫秒）';
-
-  @override
-  String get aiWriteConfirmationTimeoutMsBody =>
-      '默认 300000（5 分钟）。等待用户审批写命令的最长时间。';
-
-  @override
-  String get aiWriteConfirmationTimeoutMsSave => '保存超时';
-
-  @override
-  String get aiWriteConfirmationTimeoutMsSaved => '写命令确认超时已保存。';
-
-  @override
-  String get aiWriteConfirmationTimeoutMsInvalid => '请输入 1000~3600000 之间的整数。';
-
-  @override
-  String get aiFastPathWriteAnalysisThresholdLabel => 'Fast-path 写命令分析阈值';
-
-  @override
-  String get aiFastPathWriteAnalysisThresholdBody =>
-      '默认 512 字符。命令长度超过此值会走快速路径粗判，避免昂贵的语法分析。';
-
-  @override
-  String get aiFastPathWriteAnalysisThresholdSave => '保存阈值';
-
-  @override
-  String get aiFastPathWriteAnalysisThresholdSaved => 'Fast-path 阈值已保存。';
-
-  @override
-  String get aiFastPathWriteAnalysisThresholdInvalid => '请输入 0~100000 之间的整数。';
-
-  @override
-  String get aiMaxHookTextCharactersLabel => 'Hook 文本输出上限';
-
-  @override
-  String get aiMaxHookTextCharactersBody =>
-      '默认 4000。Claude Hook 在合并 stdout/stderr 文本时的总字符上限。';
-
-  @override
-  String get aiMaxHookTextCharactersSave => '保存上限';
-
-  @override
-  String get aiMaxHookTextCharactersSaved => 'Hook 文本上限已保存。';
-
-  @override
-  String get aiMaxHookTextCharactersInvalid => '请输入 100~1000000 之间的整数。';
-
-  @override
-  String get aiAttachmentMaxInlineImageDimensionLabel => '附件图片最大边长（像素）';
-
-  @override
-  String get aiAttachmentMaxInlineImageDimensionBody =>
-      '默认 1568。调整以适配你的网络与附件需求。';
-
-  @override
-  String get aiAttachmentMaxInlineImageDimensionSave => '保存';
-
-  @override
-  String get aiAttachmentMaxInlineImageDimensionSaved => '附件图片最大边长（像素）已保存。';
-
-  @override
-  String get aiAttachmentMaxInlineImageDimensionInvalid => '请输入有效整数。';
-
-  @override
-  String get aiAttachmentMaxTextRawBytesLabel => '附件文本读取上限（字节）';
-
-  @override
-  String get aiAttachmentMaxTextRawBytesBody =>
-      '默认 1597152（2MB）。调整以适配你的网络与附件需求。';
-
-  @override
-  String get aiAttachmentMaxTextRawBytesSave => '保存';
-
-  @override
-  String get aiAttachmentMaxTextRawBytesSaved => '附件文本读取上限（字节）已保存。';
-
-  @override
-  String get aiAttachmentMaxTextRawBytesInvalid => '请输入有效整数。';
-
-  @override
-  String get aiAttachmentMaxPdfRawBytesLabel => '附件 PDF 读取上限（字节）';
-
-  @override
-  String get aiAttachmentMaxPdfRawBytesBody =>
-      '默认 1597152（2MB）。调整以适配你的网络与附件需求。';
-
-  @override
-  String get aiAttachmentMaxPdfRawBytesSave => '保存';
-
-  @override
-  String get aiAttachmentMaxPdfRawBytesSaved => '附件 PDF 读取上限（字节）已保存。';
-
-  @override
-  String get aiAttachmentMaxPdfRawBytesInvalid => '请输入有效整数。';
-
-  @override
-  String get aiAttachmentMaxImageRawBytesLabel => '附件图片读取上限（字节）';
-
-  @override
-  String get aiAttachmentMaxImageRawBytesBody =>
-      '默认 52428800（50MB）。调整以适配你的网络与附件需求。';
-
-  @override
-  String get aiAttachmentMaxImageRawBytesSave => '保存';
-
-  @override
-  String get aiAttachmentMaxImageRawBytesSaved => '附件图片读取上限（字节）已保存。';
-
-  @override
-  String get aiAttachmentMaxImageRawBytesInvalid => '请输入有效整数。';
-
-  @override
-  String get aiChatMaxStreamLineBufferBytesLabel => 'Chat 流缓冲字节上限';
-
-  @override
-  String get aiChatMaxStreamLineBufferBytesBody =>
-      '默认 4194304（4MB）。调整以适配你的网络与附件需求。';
-
-  @override
-  String get aiChatMaxStreamLineBufferBytesSave => '保存';
-
-  @override
-  String get aiChatMaxStreamLineBufferBytesSaved => 'Chat 流缓冲字节上限已保存。';
-
-  @override
-  String get aiChatMaxStreamLineBufferBytesInvalid => '请输入有效整数。';
-
-  @override
-  String get aiFallbackTitleMaxCharactersLabel => '回退标题最大字符数';
-
-  @override
-  String get aiFallbackTitleMaxCharactersBody => '默认 15。调整以匹配会话标题派生策略。';
-
-  @override
-  String get aiFallbackTitleMaxCharactersSave => '保存';
-
-  @override
-  String get aiFallbackTitleMaxCharactersSaved => '回退标题最大字符数已保存。';
-
-  @override
-  String get aiFallbackTitleMaxCharactersInvalid => '请输入有效整数。';
-
-  @override
-  String get aiGeneratedTitleMaxCharactersLabel => '自动标题最大字符数';
-
-  @override
-  String get aiGeneratedTitleMaxCharactersBody => '默认 15。调整以匹配会话标题派生策略。';
-
-  @override
-  String get aiGeneratedTitleMaxCharactersSave => '保存';
-
-  @override
-  String get aiGeneratedTitleMaxCharactersSaved => '自动标题最大字符数已保存。';
-
-  @override
-  String get aiGeneratedTitleMaxCharactersInvalid => '请输入有效整数。';
-
-  @override
-  String get aiMinimumMeaningfulTitleCharactersLabel => '中文有效标题最小字符数';
-
-  @override
-  String get aiMinimumMeaningfulTitleCharactersBody => '默认 4。调整以匹配会话标题派生策略。';
-
-  @override
-  String get aiMinimumMeaningfulTitleCharactersSave => '保存';
-
-  @override
-  String get aiMinimumMeaningfulTitleCharactersSaved => '中文有效标题最小字符数已保存。';
-
-  @override
-  String get aiMinimumMeaningfulTitleCharactersInvalid => '请输入有效整数。';
-
-  @override
-  String get aiMinimumMeaningfulLatinTitleWordsLabel => '拉丁有效标题最小词数';
-
-  @override
-  String get aiMinimumMeaningfulLatinTitleWordsBody => '默认 2。调整以匹配会话标题派生策略。';
-
-  @override
-  String get aiMinimumMeaningfulLatinTitleWordsSave => '保存';
-
-  @override
-  String get aiMinimumMeaningfulLatinTitleWordsSaved => '拉丁有效标题最小词数已保存。';
-
-  @override
-  String get aiMinimumMeaningfulLatinTitleWordsInvalid => '请输入有效整数。';
-
-  @override
-  String get aiMaxSkillContentLengthLabel => '技能文件内容字符上限';
-
-  @override
-  String get aiMaxSkillContentLengthBody => '默认 100000。调整以适配技能与工作区文档大小。';
-
-  @override
-  String get aiMaxSkillContentLengthSave => '保存';
-
-  @override
-  String get aiMaxSkillContentLengthSaved => '技能文件内容字符上限已保存。';
-
-  @override
-  String get aiMaxSkillContentLengthInvalid => '请输入有效整数。';
-
-  @override
-  String get aiMaxWorkspaceDocumentCharactersLabel => '工作区指令文档字符上限';
-
-  @override
-  String get aiMaxWorkspaceDocumentCharactersBody =>
-      '默认 16000。调整以适配技能与工作区文档大小。';
-
-  @override
-  String get aiMaxWorkspaceDocumentCharactersSave => '保存';
-
-  @override
-  String get aiMaxWorkspaceDocumentCharactersSaved => '工作区指令文档字符上限已保存。';
-
-  @override
-  String get aiMaxWorkspaceDocumentCharactersInvalid => '请输入有效整数。';
-
-  @override
-  String get aiImageSizeLimitLabel => '图片大小上限';
 
   @override
   String get aiImageSizeLimitBody =>
@@ -4228,9 +3857,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get tokenDialUnit => 'Token';
 
   @override
-  String get tokenDialTotal => '总计';
-
-  @override
   String get tokenPopupInputHeading => '输入';
 
   @override
@@ -4274,9 +3900,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get tokenPopupCacheHitModeIncludeExpired => '含过期异常';
-
-  @override
-  String get tokenPopupFirstRequestIgnored => '首轮不计平均';
 
   @override
   String tokenPopupExcludedRounds(int count) {
@@ -4604,11 +4227,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get toolSearchLoadedHistoryImportDialogTitle => 'ToolSearch 历史导入预览';
 
   @override
-  String toolSearchLoadedHistoryImportDialogParseFailed(String error) {
-    return 'JSON 解析失败：$error';
-  }
-
-  @override
   String toolSearchLoadedHistoryImportDialogCount(int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,
@@ -4904,27 +4522,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get tlCallEmptyContent => '内容为空';
 
   @override
-  String get tlCallWrite => '写入';
-
-  @override
-  String get tlCallEdit => '编辑';
-
-  @override
-  String get tlCallMultiEdit => '多处编辑';
-
-  @override
-  String get tlCallNotebookEdit => 'Notebook 编辑';
-
-  @override
-  String get tlCallBashWrite => '命令写入';
-
-  @override
-  String get tlCallFileChanged => '文件变更';
-
-  @override
-  String get tlCallChangedFile => '文件变动';
-
-  @override
   String get fileMutationSection => '文件变动';
 
   @override
@@ -5014,13 +4611,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get fileMutationSnapshotUnavailable => '内容快照不可用';
-
-  @override
-  String get dataCleanupFileMutationLedgerTitle => '文件变动历史';
-
-  @override
-  String get dataCleanupFileMutationLedgerSubtitle =>
-      '~/.openhand/file_history/ 下的文件变动 ledger（before/after 快照 + jsonl 记录）。清理后历史卡片可能不再展示可撤销状态。';
 
   @override
   String get tlCallTool => '工具';
@@ -6542,11 +6132,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get tlCallViewFullContent => '查看完整内容';
-
-  @override
-  String tlCallMultiEditEditcount(Object editCount) {
-    return '多处编辑 ×$editCount';
-  }
 
   @override
   String get tlCallPreparing => '准备执行';
@@ -9656,20 +9241,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get agentsSubtitle => '统一管理 Hermes Agent 数字员工的档案、权限、任务、集群、审计与 KPI。';
 
   @override
-  String get agentsOpenFolder => '打开目录';
-
-  @override
   String get agentsCreateAgent => '创建智能体';
 
   @override
   String get agentsEditAgent => '编辑智能体';
-
-  @override
-  String get agentsWorkspaceTitle => 'Hermes Agent 工作台';
-
-  @override
-  String get agentsWorkspaceBody =>
-      '智能体开启后会暴露任务发布、追踪和结果获取能力；当前页用于配置职责、权限、集群与治理边界。';
 
   @override
   String get agentsLoadFailed => '智能体配置加载失败';
@@ -9721,9 +9296,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get agentsResources => '资源管理';
-
-  @override
-  String get agentsEditConfig => '编辑配置';
 
   @override
   String get agentsDeleteAgent => '删除智能体';
@@ -9982,22 +9554,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get agentsTaskLabelsLabel => '任务标签';
 
   @override
-  String get agentsCommaSeparatedHint => '逗号分隔';
-
-  @override
   String get agentsFieldName => '名称';
 
   @override
   String get agentsFieldTarget => '目标';
 
   @override
-  String get agentsMetadataJsonLabel => '元数据 JSON';
-
-  @override
   String get agentsMetadataInfoTitle => '权限与轮廓元数据';
-
-  @override
-  String get agentsMetadataInfoBody => '这里保存扩展字段。格式错误时会提示并保留当前编辑内容。';
 
   @override
   String get agentsNoOptionsAvailable => '暂无可选项。';
@@ -10232,54 +9795,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get memoryTitleHint => '一句话浓缩本条记忆的主旨；留空则使用正文预览';
-
-  @override
-  String get machineExpertDialogTitle => '机器专家模板配置';
-
-  @override
-  String get machineExpertDialogBody =>
-      '请指定目标终端窗口与具体任务需求，机器专家将在此工作环境中自动为您执行命令。';
-
-  @override
-  String get machineExpertTerminalProgram => '终端程序';
-
-  @override
-  String get machineExpertWindow => '窗口';
-
-  @override
-  String get machineExpertTab => '标签页';
-
-  @override
-  String get machineExpertSession => '会话';
-
-  @override
-  String get machineExpertModelOptional => '使用模型（可选）';
-
-  @override
-  String get machineExpertModelChoose => '点击选择模型';
-
-  @override
-  String get machineExpertModelNotConfiguredDefault => '未配置可用模型，将沿用当前默认模型';
-
-  @override
-  String get machineExpertModelHelperWithModels =>
-      '仅影响本次新建的机器专家线程；若不选，则沿用当前已激活模型。';
-
-  @override
-  String get machineExpertModelHelperNoModels => '尚未在设置中配置模型；本次将继续使用当前激活的默认模型。';
-
-  @override
-  String get machineExpertTaskRequirement => '任务需求';
-
-  @override
-  String get machineExpertTaskRequirementHint =>
-      '描述你想要执行的任务，例如：检查当前目录的文件列表，编译项目，部署到远程服务器等...';
-
-  @override
-  String get machineExpertTaskRequirementHelper => '机器专家将根据该需求和终端现场进行交互式执行。';
-
-  @override
-  String get machineExpertStartExecution => '开始执行';
 
   @override
   String get commonRetry => '重试';
@@ -11151,9 +10666,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get threads => '執行緒';
 
   @override
-  String get workspaceHeadline => '開始構建';
-
-  @override
   String get composerHint => '詢問 OpenHand 任何內容，使用 / 觸發動作，使用 @ 引用上下文';
 
   @override
@@ -11164,33 +10676,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get chatRequestFailed => '模型請求失敗，請檢查模型配置、網路連通性或介面協議。';
-
-  @override
-  String get composerUnavailable => '目前為基礎骨架，尚未接入實際執行能力。';
-
-  @override
-  String get workspaceReadyTitle => '基礎骨架已就緒';
-
-  @override
-  String get workspaceReadyBody => '目前已完成桌面端主佈局、主題切換、語言切換與設定頁基礎能力，後續模組可在此逐步擴展。';
-
-  @override
-  String get quickActionsTitle => '建議從這裡開始';
-
-  @override
-  String get quickActionCreateShell => '建立桌面應用骨架';
-
-  @override
-  String get quickActionThemeLanguage => '配置主題與語言';
-
-  @override
-  String get quickActionPlanModules => '規劃功能模組';
-
-  @override
-  String get skillsHeadline => '技能中心骨架';
-
-  @override
-  String get skillsBody => '後續可在這裡管理能力外掛、提示模板與開發輔助工具。';
 
   @override
   String get placeholderComingSoon => '後續功能模組將在這裡逐步擴展。';
@@ -11357,28 +10842,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String knowledgeReaderNoModelForType(Object type) {
     return '沒有可讀取 $type 的 reader 模型。';
   }
-
-  @override
-  String get previewSectionTitle => '設計方向';
-
-  @override
-  String get previewSectionBody =>
-      '遵循 Material 3 Expressive 設計理念，強調層次、留白、圓角、柔和光感與清晰的資訊節奏。';
-
-  @override
-  String get threadPrimary => 'OpenHand';
-
-  @override
-  String get threadShell => '桌面應用骨架';
-
-  @override
-  String get threadSettings => '設定與在地化';
-
-  @override
-  String get threadRoadmap => '後續模組規劃';
-
-  @override
-  String get switchToWorkspace => '返回主工作台';
 
   @override
   String get modelLabel => 'OpenHand Skeleton';
@@ -12642,9 +12105,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
       '懶載入啟用時：MCP 工具描述被折疊為名稱索引，模型透過內建 ToolSearch 工具按需取回完整 JSON Schema。支援三種查詢：\n• select:NAME（直接選取，可空格分隔多個）\n• 關鍵字（按 name/description 評分配對）\n• +KEYWORD（必含詞，用於過濾雜訊）\n命中工具會寫入目前會話已載入清單，下一輪即可直接呼叫，無需再次查詢。';
 
   @override
-  String get settingsGeneralTitle => '常規';
-
-  @override
   String get settingsGeneralSubtitle => '管理主題、語言與應用基礎資訊。';
 
   @override
@@ -12707,9 +12167,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get settingsToolHardeningInvalid => '請輸入範圍內的整數';
 
   @override
-  String get settingsSkillsTitle => '技能';
-
-  @override
   String get settingsSkillsSubtitle => '管理本地技能目錄、模板建立與已安裝技能展示。';
 
   @override
@@ -12761,9 +12218,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get settingsAnimationRestoreSuccess => '已恢復預設動畫設定';
-
-  @override
-  String get settingsAnimationRestorePartialFailure => '部分設定儲存失敗，請重試';
 
   @override
   String get settingsDialogAnimationTitle => '彈窗動畫';
@@ -13492,12 +12946,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get aiModelToken => '權杖';
 
   @override
-  String get aiModelIdField => '模型 ID';
-
-  @override
-  String get aiModelIdRequired => '請輸入模型 ID';
-
-  @override
   String get aiModelProtocol => '協議類型';
 
   @override
@@ -13548,19 +12996,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get aiModelScanning => '正在掃描可用模型…';
-
-  @override
-  String aiModelScanSuccess(int count) {
-    return '發現 $count 個模型。';
-  }
-
-  @override
-  String aiModelScanFailed(String reason) {
-    return '掃描失敗：$reason';
-  }
-
-  @override
-  String get aiModelScanEmpty => '未從該提供者掃描到模型。';
 
   @override
   String get aiModelAvailableModels => '可用模型';
@@ -13661,9 +13096,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get skillsPageSubtitle => '為 OpenHand 提供更強大的擴展能力，統一管理本地已安裝技能與模板。';
 
   @override
-  String get skillsInstalledSectionTitle => '已安裝';
-
-  @override
   String get skillsSearchHint => '搜尋技能';
 
   @override
@@ -13685,22 +13117,10 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get skillsEmptyBody => '目前技能目錄中未發現任何 SKILL.md。你可以先建立模板，或切換到既有技能目錄。';
 
   @override
-  String get skillsEmptyActionCreate => '建立模板';
-
-  @override
-  String get skillsEmptyActionOpenDirectory => '打開目錄';
-
-  @override
   String get skillsNoResultsTitle => '找不到符合條件的技能';
 
   @override
   String get skillsNoResultsBody => '請嘗試修改搜尋關鍵字，或清除搜尋後重新查看全部技能。';
-
-  @override
-  String get skillsFolderLabel => '存放位置';
-
-  @override
-  String get skillsCardOpen => '打開技能目錄';
 
   @override
   String get skillTemplateCreated => '已建立新的技能模板';
@@ -13797,9 +13217,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get imageEditorProcessFailed => '無法處理所選圖片';
 
   @override
-  String get imageEditorSectionBasic => '基礎調整';
-
-  @override
   String get imageEditorSectionColor => '色彩（色溫 / 色調 / 伽瑪）';
 
   @override
@@ -13872,9 +13289,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get imageEditorWatermarkColorLight => '淺色';
 
   @override
-  String get imageEditorWatermarkColorDark => '深色';
-
-  @override
   String get imageEditorAdvancedApplyHint => '展開面板中的調整會在“儲存”時一次性套用到原圖。';
 
   @override
@@ -13899,9 +13313,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get skillsDeleteSuccess => '技能已刪除';
 
   @override
-  String get skillsStorageSectionTitle => '技能存放位置';
-
-  @override
   String get skillsStorageSectionBody =>
       '設定 OpenHand 掃描技能的本地目錄。預設會使用 ~/.openhand/skills，並在需要時自動建立。';
 
@@ -13922,18 +13333,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get skillsStorageOpen => '打開位置';
-
-  @override
-  String get skillsStorageSummaryTitle => '技能摘要';
-
-  @override
-  String get skillsStorageSummaryBody => '目前技能目錄、安裝數量與掃描狀態會在這裡即時顯示。';
-
-  @override
-  String get skillsStorageStatusReady => '狀態';
-
-  @override
-  String get skillsStorageStatusLoading => '掃描中';
 
   @override
   String get skillsStorageStatusError => '技能目錄讀取失敗';
@@ -14106,19 +13505,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get memoryFileDefaultPath => '預設檔案';
 
   @override
-  String get memoryFileSave => '儲存路徑';
-
-  @override
-  String get memoryFileBrowse => '選擇檔案';
-
-  @override
-  String get memoryFileReset => '恢復預設';
-
-  @override
   String get memoryOpenDirectory => '打開目錄';
-
-  @override
-  String get memoryPathSaved => '用戶記憶檔案路徑已更新';
 
   @override
   String get memoryDisabledTitle => '記憶能力目前已關閉';
@@ -14358,10 +13745,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get aiToolResultCompressionThresholdLabel => '工具呼叫輸出壓縮閾值';
 
   @override
-  String get aiToolResultCompressionThresholdBody =>
-      '工具結果進入對話歷史時使用的摘要閾值。最新未消費的超大工具結果會使用有界預覽；已消費的舊工具結果超過閾值後會壓成結構化摘要。預設 1024。';
-
-  @override
   String get aiToolResultCompressionThresholdSave => '儲存閾值';
 
   @override
@@ -14547,244 +13930,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get aiEstimatedCharactersPerTokenInvalid => '請輸入 1~32 之間的整數。';
-
-  @override
-  String get aiMaxToolOutputCharsLabel => '工具單次輸出字元上限';
-
-  @override
-  String get aiMaxToolOutputCharsBody =>
-      '預設 150000。單次工具呼叫結果若超過此字元數會截斷，避免 Context 溢出。';
-
-  @override
-  String get aiMaxToolOutputCharsSave => '儲存上限';
-
-  @override
-  String get aiMaxToolOutputCharsSaved => '工具輸出字元上限已儲存。';
-
-  @override
-  String get aiMaxToolOutputCharsInvalid => '請輸入 1000~10000000 之間的整數。';
-
-  @override
-  String get aiWriteConfirmationTimeoutMsLabel => '寫命令確認逾時（毫秒）';
-
-  @override
-  String get aiWriteConfirmationTimeoutMsBody =>
-      '預設 300000（5 分鐘）。等待使用者審核寫命令的最長時間。';
-
-  @override
-  String get aiWriteConfirmationTimeoutMsSave => '儲存逾時';
-
-  @override
-  String get aiWriteConfirmationTimeoutMsSaved => '寫命令確認逾時已儲存。';
-
-  @override
-  String get aiWriteConfirmationTimeoutMsInvalid => '請輸入 1000~3600000 之間的整數。';
-
-  @override
-  String get aiFastPathWriteAnalysisThresholdLabel => 'Fast-path 寫命令分析閾值';
-
-  @override
-  String get aiFastPathWriteAnalysisThresholdBody =>
-      '預設 512 字元。命令長度超過此值會走快速路徑粗判，避免昂貴的語法分析。';
-
-  @override
-  String get aiFastPathWriteAnalysisThresholdSave => '儲存閾值';
-
-  @override
-  String get aiFastPathWriteAnalysisThresholdSaved => 'Fast-path 閾值已儲存。';
-
-  @override
-  String get aiFastPathWriteAnalysisThresholdInvalid => '請輸入 0~100000 之間的整數。';
-
-  @override
-  String get aiMaxHookTextCharactersLabel => 'Hook 文字輸出上限';
-
-  @override
-  String get aiMaxHookTextCharactersBody =>
-      '預設 4000。Claude Hook 在合併 stdout/stderr 文字時的總字元上限。';
-
-  @override
-  String get aiMaxHookTextCharactersSave => '儲存上限';
-
-  @override
-  String get aiMaxHookTextCharactersSaved => 'Hook 文字上限已儲存。';
-
-  @override
-  String get aiMaxHookTextCharactersInvalid => '請輸入 100~1000000 之間的整數。';
-
-  @override
-  String get aiAttachmentMaxInlineImageDimensionLabel => '附件圖片最大邊長（像素）';
-
-  @override
-  String get aiAttachmentMaxInlineImageDimensionBody =>
-      '默认 1568。調整以適配你的網路與附件需求。';
-
-  @override
-  String get aiAttachmentMaxInlineImageDimensionSave => '儲存';
-
-  @override
-  String get aiAttachmentMaxInlineImageDimensionSaved => '附件圖片最大邊長（像素）已儲存。';
-
-  @override
-  String get aiAttachmentMaxInlineImageDimensionInvalid => '請輸入有效整數。';
-
-  @override
-  String get aiAttachmentMaxTextRawBytesLabel => '附件文字讀取上限（位元組）';
-
-  @override
-  String get aiAttachmentMaxTextRawBytesBody =>
-      '默认 1597152（2MB）。調整以適配你的網路與附件需求。';
-
-  @override
-  String get aiAttachmentMaxTextRawBytesSave => '儲存';
-
-  @override
-  String get aiAttachmentMaxTextRawBytesSaved => '附件文字讀取上限（位元組）已儲存。';
-
-  @override
-  String get aiAttachmentMaxTextRawBytesInvalid => '請輸入有效整數。';
-
-  @override
-  String get aiAttachmentMaxPdfRawBytesLabel => '附件 PDF 讀取上限（位元組）';
-
-  @override
-  String get aiAttachmentMaxPdfRawBytesBody =>
-      '默认 1597152（2MB）。調整以適配你的網路與附件需求。';
-
-  @override
-  String get aiAttachmentMaxPdfRawBytesSave => '儲存';
-
-  @override
-  String get aiAttachmentMaxPdfRawBytesSaved => '附件 PDF 讀取上限（位元組）已儲存。';
-
-  @override
-  String get aiAttachmentMaxPdfRawBytesInvalid => '請輸入有效整數。';
-
-  @override
-  String get aiAttachmentMaxImageRawBytesLabel => '附件圖片讀取上限（位元組）';
-
-  @override
-  String get aiAttachmentMaxImageRawBytesBody =>
-      '默认 52428800（50MB）。調整以適配你的網路與附件需求。';
-
-  @override
-  String get aiAttachmentMaxImageRawBytesSave => '儲存';
-
-  @override
-  String get aiAttachmentMaxImageRawBytesSaved => '附件圖片讀取上限（位元組）已儲存。';
-
-  @override
-  String get aiAttachmentMaxImageRawBytesInvalid => '請輸入有效整數。';
-
-  @override
-  String get aiChatMaxStreamLineBufferBytesLabel => 'Chat 串流緩衝位元組上限';
-
-  @override
-  String get aiChatMaxStreamLineBufferBytesBody =>
-      '默认 4194304（4MB）。調整以適配你的網路與附件需求。';
-
-  @override
-  String get aiChatMaxStreamLineBufferBytesSave => '儲存';
-
-  @override
-  String get aiChatMaxStreamLineBufferBytesSaved => 'Chat 串流緩衝位元組上限已儲存。';
-
-  @override
-  String get aiChatMaxStreamLineBufferBytesInvalid => '請輸入有效整數。';
-
-  @override
-  String get aiFallbackTitleMaxCharactersLabel => '回退標題最大字元數';
-
-  @override
-  String get aiFallbackTitleMaxCharactersBody => '默认 15。調整以符合會話標題派生策略。';
-
-  @override
-  String get aiFallbackTitleMaxCharactersSave => '儲存';
-
-  @override
-  String get aiFallbackTitleMaxCharactersSaved => '回退標題最大字元數已儲存。';
-
-  @override
-  String get aiFallbackTitleMaxCharactersInvalid => '請輸入有效整數。';
-
-  @override
-  String get aiGeneratedTitleMaxCharactersLabel => '自動標題最大字元數';
-
-  @override
-  String get aiGeneratedTitleMaxCharactersBody => '默认 15。調整以符合會話標題派生策略。';
-
-  @override
-  String get aiGeneratedTitleMaxCharactersSave => '儲存';
-
-  @override
-  String get aiGeneratedTitleMaxCharactersSaved => '自動標題最大字元數已儲存。';
-
-  @override
-  String get aiGeneratedTitleMaxCharactersInvalid => '請輸入有效整數。';
-
-  @override
-  String get aiMinimumMeaningfulTitleCharactersLabel => '中文有效標題最小字元數';
-
-  @override
-  String get aiMinimumMeaningfulTitleCharactersBody => '默认 4。調整以符合會話標題派生策略。';
-
-  @override
-  String get aiMinimumMeaningfulTitleCharactersSave => '儲存';
-
-  @override
-  String get aiMinimumMeaningfulTitleCharactersSaved => '中文有效標題最小字元數已儲存。';
-
-  @override
-  String get aiMinimumMeaningfulTitleCharactersInvalid => '請輸入有效整數。';
-
-  @override
-  String get aiMinimumMeaningfulLatinTitleWordsLabel => '拉丁有效標題最小詞數';
-
-  @override
-  String get aiMinimumMeaningfulLatinTitleWordsBody => '默认 2。調整以符合會話標題派生策略。';
-
-  @override
-  String get aiMinimumMeaningfulLatinTitleWordsSave => '儲存';
-
-  @override
-  String get aiMinimumMeaningfulLatinTitleWordsSaved => '拉丁有效標題最小詞數已儲存。';
-
-  @override
-  String get aiMinimumMeaningfulLatinTitleWordsInvalid => '請輸入有效整數。';
-
-  @override
-  String get aiMaxSkillContentLengthLabel => '技能檔案內容字元上限';
-
-  @override
-  String get aiMaxSkillContentLengthBody => '默认 100000。調整以符合技能與工作區文件大小。';
-
-  @override
-  String get aiMaxSkillContentLengthSave => '儲存';
-
-  @override
-  String get aiMaxSkillContentLengthSaved => '技能檔案內容字元上限已儲存。';
-
-  @override
-  String get aiMaxSkillContentLengthInvalid => '請輸入有效整數。';
-
-  @override
-  String get aiMaxWorkspaceDocumentCharactersLabel => '工作區指令文件字元上限';
-
-  @override
-  String get aiMaxWorkspaceDocumentCharactersBody =>
-      '默认 16000。調整以符合技能與工作區文件大小。';
-
-  @override
-  String get aiMaxWorkspaceDocumentCharactersSave => '儲存';
-
-  @override
-  String get aiMaxWorkspaceDocumentCharactersSaved => '工作區指令文件字元上限已儲存。';
-
-  @override
-  String get aiMaxWorkspaceDocumentCharactersInvalid => '請輸入有效整數。';
-
-  @override
-  String get aiImageSizeLimitLabel => '圖片大小上限';
 
   @override
   String get aiImageSizeLimitBody =>
@@ -15347,9 +14492,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get tokenDialUnit => 'Token';
 
   @override
-  String get tokenDialTotal => '總計';
-
-  @override
   String get tokenPopupInputHeading => '輸入';
 
   @override
@@ -15393,9 +14535,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get tokenPopupCacheHitModeIncludeExpired => '含過期異常';
-
-  @override
-  String get tokenPopupFirstRequestIgnored => '首輪不計平均';
 
   @override
   String tokenPopupExcludedRounds(int count) {
@@ -15723,11 +14862,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get toolSearchLoadedHistoryImportDialogTitle => 'ToolSearch 歷史匯入預覽';
 
   @override
-  String toolSearchLoadedHistoryImportDialogParseFailed(String error) {
-    return 'JSON 解析失敗：$error';
-  }
-
-  @override
   String toolSearchLoadedHistoryImportDialogCount(int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,
@@ -16023,27 +15157,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get tlCallEmptyContent => '内容为空';
 
   @override
-  String get tlCallWrite => '写入';
-
-  @override
-  String get tlCallEdit => '编辑';
-
-  @override
-  String get tlCallMultiEdit => '多处编辑';
-
-  @override
-  String get tlCallNotebookEdit => 'Notebook 编辑';
-
-  @override
-  String get tlCallBashWrite => '命令写入';
-
-  @override
-  String get tlCallFileChanged => '文件变更';
-
-  @override
-  String get tlCallChangedFile => '文件变动';
-
-  @override
   String get fileMutationSection => '檔案變動';
 
   @override
@@ -16133,13 +15246,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get fileMutationSnapshotUnavailable => '內容快照不可用';
-
-  @override
-  String get dataCleanupFileMutationLedgerTitle => '檔案變動歷史';
-
-  @override
-  String get dataCleanupFileMutationLedgerSubtitle =>
-      '~/.openhand/file_history/ 下的檔案變動 ledger（before/after 快照 + jsonl 紀錄）。清理後歷史卡片可能不再顯示可復原狀態。';
 
   @override
   String get tlCallTool => '工具';
@@ -17658,11 +16764,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get tlCallViewFullContent => '查看完整内容';
-
-  @override
-  String tlCallMultiEditEditcount(Object editCount) {
-    return '多处编辑 ×$editCount';
-  }
 
   @override
   String get tlCallPreparing => '准备执行';
@@ -20772,20 +19873,10 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get agentsSubtitle => '統一管理 Hermes Agent 數位員工的檔案、權限、任務、叢集、稽核與 KPI。';
 
   @override
-  String get agentsOpenFolder => '開啟目錄';
-
-  @override
   String get agentsCreateAgent => '建立智慧體';
 
   @override
   String get agentsEditAgent => '編輯智慧體';
-
-  @override
-  String get agentsWorkspaceTitle => 'Hermes Agent 工作台';
-
-  @override
-  String get agentsWorkspaceBody =>
-      '智慧體啟用後會提供任務發布、追蹤與結果取得能力；此頁用於設定職責、權限、叢集與治理邊界。';
 
   @override
   String get agentsLoadFailed => '智慧體設定載入失敗';
@@ -20837,9 +19928,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get agentsResources => '資源管理';
-
-  @override
-  String get agentsEditConfig => '編輯設定';
 
   @override
   String get agentsDeleteAgent => '刪除智慧體';
@@ -21098,22 +20186,13 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get agentsTaskLabelsLabel => '任務標籤';
 
   @override
-  String get agentsCommaSeparatedHint => '逗號分隔';
-
-  @override
   String get agentsFieldName => '名稱';
 
   @override
   String get agentsFieldTarget => '目標';
 
   @override
-  String get agentsMetadataJsonLabel => '中繼資料 JSON';
-
-  @override
   String get agentsMetadataInfoTitle => '權限與輪廓中繼資料';
-
-  @override
-  String get agentsMetadataInfoBody => '這裡儲存擴充欄位。格式錯誤時會提示並保留目前編輯內容。';
 
   @override
   String get agentsNoOptionsAvailable => '暫無可選項。';
@@ -21348,54 +20427,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get memoryTitleHint => '用一句話濃縮此記憶主旨；留空則使用正文預覽';
-
-  @override
-  String get machineExpertDialogTitle => '機器專家範本設定';
-
-  @override
-  String get machineExpertDialogBody =>
-      '請指定目標終端視窗與具體任務需求，機器專家將在此工作環境中自動為您執行命令。';
-
-  @override
-  String get machineExpertTerminalProgram => '終端程式';
-
-  @override
-  String get machineExpertWindow => '視窗';
-
-  @override
-  String get machineExpertTab => '分頁';
-
-  @override
-  String get machineExpertSession => '會話';
-
-  @override
-  String get machineExpertModelOptional => '使用模型（可選）';
-
-  @override
-  String get machineExpertModelChoose => '點擊選擇模型';
-
-  @override
-  String get machineExpertModelNotConfiguredDefault => '未設定可用模型，將沿用目前預設模型';
-
-  @override
-  String get machineExpertModelHelperWithModels =>
-      '僅影響本次新建的機器專家執行緒；若不選，則沿用目前啟用模型。';
-
-  @override
-  String get machineExpertModelHelperNoModels => '尚未在設定中配置模型；本次將繼續使用目前啟用的預設模型。';
-
-  @override
-  String get machineExpertTaskRequirement => '任務需求';
-
-  @override
-  String get machineExpertTaskRequirementHint =>
-      '描述你想要執行的任務，例如：檢查目前目錄的檔案清單、編譯專案、部署到遠端伺服器等...';
-
-  @override
-  String get machineExpertTaskRequirementHelper => '機器專家將根據此需求與終端現場進行互動式執行。';
-
-  @override
-  String get machineExpertStartExecution => '開始執行';
 
   @override
   String get commonRetry => '重試';

@@ -833,8 +833,7 @@ class AiSessionController extends ChangeNotifier {
 
   /// 会话级节流覆盖。用户在线程会话顶部胶囊里调整字符 / 卡片限速后，
   /// 覆盖会写入 session metadata，重启后继续生效。优先级：
-  /// session > global（task 4 删除了模板覆盖层，runtime
-  /// context 的 `effectiveStreamMaxCharsPerSecond` 已退化为只读全局）。
+  /// session > global；runtime context 仅提供全局节流基线。
   final Map<String, AiStreamThrottleOverride> _sessionStreamThrottleOverrides =
       <String, AiStreamThrottleOverride>{};
   final ValueNotifier<int> _sessionStreamThrottleSignal = ValueNotifier<int>(0);

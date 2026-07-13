@@ -25,7 +25,6 @@ class AiToolUtils {
   static const int maxFileCharacters = 64000;
   static const int maxReadBytes = maxFileCharacters * 4;
   static const int maxSearchOutputCharacters = 24000;
-  static const int maxWebContentCharacters = 20000;
   static const int maxReadLineLength = 2000;
   static const int defaultReadLimit = 2000;
   static const int maxReadLimit = 20000;

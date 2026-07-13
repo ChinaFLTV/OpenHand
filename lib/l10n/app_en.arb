@@ -13,20 +13,10 @@
   },
   "settings": "Settings",
   "threads": "Threads",
-  "workspaceHeadline": "Start Building",
   "composerHint": "Ask OpenHand anything, use / for actions, and @ for context",
   "composerSend": "Send",
   "chatSending": "Sending",
   "chatRequestFailed": "Model request failed. Check the model configuration, network connectivity, or protocol type.",
-  "composerUnavailable": "This is the base shell. Execution features are not connected yet.",
-  "workspaceReadyTitle": "The foundation is ready",
-  "workspaceReadyBody": "The desktop layout, theme switching, language switching, and settings infrastructure are in place. Future modules can now be added on top.",
-  "quickActionsTitle": "Suggested starting points",
-  "quickActionCreateShell": "Create the desktop app shell",
-  "quickActionThemeLanguage": "Configure theme and language",
-  "quickActionPlanModules": "Plan future modules",
-  "skillsHeadline": "Skills center shell",
-  "skillsBody": "This area is reserved for capability plugins, prompt templates, and developer helpers.",
   "placeholderComingSoon": "Additional modules will be added here step by step.",
   "settingsTitle": "Settings Center",
   "settingsSubtitle": "Manage general preferences, AI models, MCP services, skill storage, memory, and app information here.",
@@ -90,16 +80,6 @@
       "type": {}
     }
   },
-  "previewSectionTitle": "Design Direction",
-  "previewSectionBody": "Built around Material 3 Expressive, with layered surfaces, generous spacing, rounded forms, soft lighting, and clear information rhythm.",
-  "threadPrimary": "OpenHand",
-  "@threadPrimary": {
-    "description": "Default conversation thread title; same as the application brand \"OpenHand\"."
-  },
-  "threadShell": "Desktop App Shell",
-  "threadSettings": "Settings and Localization",
-  "threadRoadmap": "Future Module Planning",
-  "switchToWorkspace": "Back to Workspace",
   "modelLabel": "OpenHand Skeleton",
   "platformLabel": "Desktop",
   "permissionLabel": "Full Access",
@@ -1091,7 +1071,6 @@
       }
     }
   },
-  "settingsGeneralTitle": "General",
   "settingsGeneralSubtitle": "Manage theme, language, and core application information.",
   "settingsAiSubtitle": "Manage chat models, authentication, and protocol adapters.",
   "settingsActiveToolCallsTitle": "Active tool calls",
@@ -1111,7 +1090,6 @@
   "settingsMaxConcurrentToolsLabel": "Concurrent tool calls",
   "settingsMaxConcurrentToolsBody": "Maximum tool calls dispatched in parallel within a session. Range 1–64.",
   "settingsToolHardeningInvalid": "Please enter an integer within range",
-  "settingsSkillsTitle": "Skills",
   "settingsSkillsSubtitle": "Manage the local skills directory, template creation, and installed skills.",
   "settingsMemorySubtitle": "Manage the user-memory switch and the persistence file path.",
   "settingsPersistenceRecoveredTitle": "Settings File Recovered",
@@ -1128,7 +1106,6 @@
   "settingsAnimationRestoreConfirmMessage": "Dialog, menu, page/module, workspace panel, chip, and list item animations will all be reset to defaults. Customized values will be overwritten and this cannot be undone.",
   "settingsAnimationRestoreConfirm": "Restore",
   "settingsAnimationRestoreSuccess": "Animation defaults restored",
-  "settingsAnimationRestorePartialFailure": "Some settings failed to persist, please retry",
   "settingsDialogAnimationTitle": "Dialog Animation",
   "settingsDialogAnimationSubtitle": "Configure entrance/exit animation style, duration, and easing curve for all dialogs.",
   "settingsMenuAnimationTitle": "Menu Animation",
@@ -1371,8 +1348,6 @@
   "aiModelOpenWebsiteTooltip": "Open website",
   "aiModelAuthScheme": "Auth Scheme",
   "aiModelToken": "Token",
-  "aiModelIdField": "Model ID",
-  "aiModelIdRequired": "Enter a model ID.",
   "aiModelProtocol": "Protocol",
   "aiModelSaveSuccess": "Model provider configuration saved.",
   "aiModelDeleteConfirmTitle": "Delete Model Provider",
@@ -1406,23 +1381,6 @@
   "aiModelSelectionRequired": "Add and select an AI model provider in Settings first.",
   "aiModelScanButton": "Scan Models",
   "aiModelScanning": "Scanning available models…",
-  "aiModelScanSuccess": "Found {count} models.",
-  "@aiModelScanSuccess": {
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
-  },
-  "aiModelScanFailed": "Scan failed: {reason}",
-  "@aiModelScanFailed": {
-    "placeholders": {
-      "reason": {
-        "type": "String"
-      }
-    }
-  },
-  "aiModelScanEmpty": "No models found from this provider.",
   "aiModelAvailableModels": "Available Models",
   "aiModelManualIdHint": "Add model ID manually",
   "aiModelManualIdAdd": "Add",
@@ -1525,7 +1483,6 @@
   },
   "skillsPageTitle": "Skills",
   "skillsPageSubtitle": "Give OpenHand stronger extensibility with a unified view of installed local skills and templates.",
-  "skillsInstalledSectionTitle": "Installed",
   "skillsSearchHint": "Search skills",
   "skillsRefresh": "Refresh",
   "skillsOpenDirectory": "Open Directory",
@@ -1533,12 +1490,8 @@
   "skillsNewSkill": "New Skill",
   "skillsEmptyTitle": "No skills installed yet",
   "skillsEmptyBody": "No SKILL.md files were found in the current skills directory. Create a template or switch to an existing skills directory.",
-  "skillsEmptyActionCreate": "Create Template",
-  "skillsEmptyActionOpenDirectory": "Open Directory",
   "skillsNoResultsTitle": "No matching skills found",
   "skillsNoResultsBody": "Try a different search keyword or clear the search to see all skills again.",
-  "skillsFolderLabel": "Storage",
-  "skillsCardOpen": "Open skill directory",
   "skillTemplateCreated": "Skill created",
   "skillOperationFailed": "The skill action failed. Please try again.",
   "skillsImportSuccess": "Skill imported",
@@ -1570,7 +1523,6 @@
   "imageEditorReset": "Reset",
   "imageEditorLoadFailed": "Unable to load the selected image.",
   "imageEditorProcessFailed": "Unable to process the selected image.",
-  "imageEditorSectionBasic": "Basic adjustments",
   "imageEditorSectionColor": "Color (temperature / tint / gamma)",
   "imageEditorSectionSplitToning": "Split toning (HSL)",
   "imageEditorSectionDetail": "Detail (clarity / sharpness / denoise / grain)",
@@ -1595,7 +1547,6 @@
   "imageEditorWatermarkOpacityLabel": "Opacity",
   "imageEditorWatermarkPositionLabel": "Position",
   "imageEditorWatermarkColorLight": "Light",
-  "imageEditorWatermarkColorDark": "Dark",
   "imageEditorAdvancedApplyHint": "Adjustments in expanded panels are applied to the original image when you save.",
   "skillsEditorSave": "Save",
   "skillsEditorCancel": "Cancel",
@@ -1604,7 +1555,6 @@
   "skillsDeleteConfirmBody": "Deleting will permanently remove the skill directory and its SKILL.md content.",
   "skillsDeleteConfirmAction": "Delete",
   "skillsDeleteSuccess": "Skill deleted",
-  "skillsStorageSectionTitle": "Skills Storage",
   "skillsStorageSectionBody": "Configure the local directory that OpenHand scans for skills. By default it uses ~/.openhand/skills and creates it when needed.",
   "skillsStorageDefaultPath": "Default Path",
   "skillsStorageCurrentPath": "Current Path",
@@ -1612,10 +1562,6 @@
   "skillsStorageBrowse": "Choose Directory",
   "skillsStorageReset": "Restore Default",
   "skillsStorageOpen": "Open Location",
-  "skillsStorageSummaryTitle": "Skills Summary",
-  "skillsStorageSummaryBody": "The current skills directory, installed count, and scan status are shown here in real time.",
-  "skillsStorageStatusReady": "Status",
-  "skillsStorageStatusLoading": "Scanning",
   "skillsStorageStatusError": "Failed to read the skills directory",
   "skillsPathSaved": "The skills storage location has been updated",
   "instructionPageTitle": "Instructions",
@@ -1672,11 +1618,7 @@
   "userMemoryFileLabel": "User Memory File",
   "memoryFileBody": "Configure the JSON file used for user memories. By default it points to .openhand/memory/user-memory.json under the current app directory.",
   "memoryFileDefaultPath": "Default File",
-  "memoryFileSave": "Save Path",
-  "memoryFileBrowse": "Choose File",
-  "memoryFileReset": "Restore Default",
   "memoryOpenDirectory": "Open Directory",
-  "memoryPathSaved": "The user memory file path has been updated",
   "memoryDisabledTitle": "Memory is currently disabled",
   "memoryDisabledBody": "You can still manage user memories here. To use them at runtime, turn Memory on in Settings > Memory.",
   "memoryCreatedAtLabel": "Created At",
@@ -1815,7 +1757,6 @@
   "aiCompressionThresholdSaved": "The AI message compression threshold has been updated.",
   "aiCompressionThresholdInvalid": "Enter a valid positive integer threshold.",
   "aiToolResultCompressionThresholdLabel": "Tool Call Output Compression Threshold",
-  "aiToolResultCompressionThresholdBody": "Threshold used when tool results enter conversation history. Very large latest unconsumed results use a bounded preview; older consumed results over the threshold are condensed into structured summaries. Defaults to 1024.",
   "aiToolResultCompressionThresholdSave": "Save Threshold",
   "aiToolResultCompressionThresholdSaved": "The tool call output compression threshold has been updated.",
   "aiToolResultCompressionThresholdInvalid": "Enter a valid positive integer threshold.",
@@ -1874,82 +1815,6 @@
   "aiEstimatedCharactersPerTokenSave": "Save Ratio",
   "aiEstimatedCharactersPerTokenSaved": "Token char estimation ratio updated.",
   "aiEstimatedCharactersPerTokenInvalid": "Enter an integer between 1 and 32.",
-  "aiMaxToolOutputCharsLabel": "Max Tool Output Chars",
-  "aiMaxToolOutputCharsBody": "Defaults to 150000. Truncates tool results above this length so the API context never overflows.",
-  "aiMaxToolOutputCharsSave": "Save Limit",
-  "aiMaxToolOutputCharsSaved": "Tool output character limit saved.",
-  "aiMaxToolOutputCharsInvalid": "Enter an integer between 1000 and 10000000.",
-  "aiWriteConfirmationTimeoutMsLabel": "Write Confirmation Timeout (ms)",
-  "aiWriteConfirmationTimeoutMsBody": "Defaults to 300000 (5 min). Maximum time spent waiting for the user to approve a write command.",
-  "aiWriteConfirmationTimeoutMsSave": "Save Timeout",
-  "aiWriteConfirmationTimeoutMsSaved": "Write confirmation timeout saved.",
-  "aiWriteConfirmationTimeoutMsInvalid": "Enter an integer between 1000 and 3600000.",
-  "aiFastPathWriteAnalysisThresholdLabel": "Fast-path Write Analysis Threshold",
-  "aiFastPathWriteAnalysisThresholdBody": "Defaults to 512 characters. Commands above this length take a coarse fast-path heuristic instead of full grammar analysis.",
-  "aiFastPathWriteAnalysisThresholdSave": "Save Threshold",
-  "aiFastPathWriteAnalysisThresholdSaved": "Fast-path threshold saved.",
-  "aiFastPathWriteAnalysisThresholdInvalid": "Enter an integer between 0 and 100000.",
-  "aiMaxHookTextCharactersLabel": "Hook Text Output Limit",
-  "aiMaxHookTextCharactersBody": "Defaults to 4000. Total character cap when Claude Hook merges stdout/stderr output.",
-  "aiMaxHookTextCharactersSave": "Save Limit",
-  "aiMaxHookTextCharactersSaved": "Hook text limit saved.",
-  "aiMaxHookTextCharactersInvalid": "Enter an integer between 100 and 1000000.",
-  "aiAttachmentMaxInlineImageDimensionLabel": "Attachment Max Inline Image Dimension",
-  "aiAttachmentMaxInlineImageDimensionBody": "Defaults to 1568. Tune for your network or attachment needs.",
-  "aiAttachmentMaxInlineImageDimensionSave": "Save",
-  "aiAttachmentMaxInlineImageDimensionSaved": "Attachment Max Inline Image Dimension saved.",
-  "aiAttachmentMaxInlineImageDimensionInvalid": "Enter a valid integer.",
-  "aiAttachmentMaxTextRawBytesLabel": "Attachment Max Text Raw Bytes",
-  "aiAttachmentMaxTextRawBytesBody": "Defaults to 1597152 (2MB). Tune for your network or attachment needs.",
-  "aiAttachmentMaxTextRawBytesSave": "Save",
-  "aiAttachmentMaxTextRawBytesSaved": "Attachment Max Text Raw Bytes saved.",
-  "aiAttachmentMaxTextRawBytesInvalid": "Enter a valid integer.",
-  "aiAttachmentMaxPdfRawBytesLabel": "Attachment Max PDF Raw Bytes",
-  "aiAttachmentMaxPdfRawBytesBody": "Defaults to 1597152 (2MB). Tune for your network or attachment needs.",
-  "aiAttachmentMaxPdfRawBytesSave": "Save",
-  "aiAttachmentMaxPdfRawBytesSaved": "Attachment Max PDF Raw Bytes saved.",
-  "aiAttachmentMaxPdfRawBytesInvalid": "Enter a valid integer.",
-  "aiAttachmentMaxImageRawBytesLabel": "Attachment Max Image Raw Bytes",
-  "aiAttachmentMaxImageRawBytesBody": "Defaults to 52428800 (50MB). Tune for your network or attachment needs.",
-  "aiAttachmentMaxImageRawBytesSave": "Save",
-  "aiAttachmentMaxImageRawBytesSaved": "Attachment Max Image Raw Bytes saved.",
-  "aiAttachmentMaxImageRawBytesInvalid": "Enter a valid integer.",
-  "aiChatMaxStreamLineBufferBytesLabel": "Chat Max Stream Line Buffer Bytes",
-  "aiChatMaxStreamLineBufferBytesBody": "Defaults to 4194304 (4MB). Tune for your network or attachment needs.",
-  "aiChatMaxStreamLineBufferBytesSave": "Save",
-  "aiChatMaxStreamLineBufferBytesSaved": "Chat Max Stream Line Buffer Bytes saved.",
-  "aiChatMaxStreamLineBufferBytesInvalid": "Enter a valid integer.",
-  "aiFallbackTitleMaxCharactersLabel": "Fallback Title Max Characters",
-  "aiFallbackTitleMaxCharactersBody": "Defaults to 15. Tune session title derivation.",
-  "aiFallbackTitleMaxCharactersSave": "Save",
-  "aiFallbackTitleMaxCharactersSaved": "Fallback Title Max Characters saved.",
-  "aiFallbackTitleMaxCharactersInvalid": "Enter a valid integer.",
-  "aiGeneratedTitleMaxCharactersLabel": "Generated Title Max Characters",
-  "aiGeneratedTitleMaxCharactersBody": "Defaults to 15. Tune session title derivation.",
-  "aiGeneratedTitleMaxCharactersSave": "Save",
-  "aiGeneratedTitleMaxCharactersSaved": "Generated Title Max Characters saved.",
-  "aiGeneratedTitleMaxCharactersInvalid": "Enter a valid integer.",
-  "aiMinimumMeaningfulTitleCharactersLabel": "Minimum Meaningful Title Characters",
-  "aiMinimumMeaningfulTitleCharactersBody": "Defaults to 4. Tune session title derivation.",
-  "aiMinimumMeaningfulTitleCharactersSave": "Save",
-  "aiMinimumMeaningfulTitleCharactersSaved": "Minimum Meaningful Title Characters saved.",
-  "aiMinimumMeaningfulTitleCharactersInvalid": "Enter a valid integer.",
-  "aiMinimumMeaningfulLatinTitleWordsLabel": "Minimum Meaningful Latin Title Words",
-  "aiMinimumMeaningfulLatinTitleWordsBody": "Defaults to 2. Tune session title derivation.",
-  "aiMinimumMeaningfulLatinTitleWordsSave": "Save",
-  "aiMinimumMeaningfulLatinTitleWordsSaved": "Minimum Meaningful Latin Title Words saved.",
-  "aiMinimumMeaningfulLatinTitleWordsInvalid": "Enter a valid integer.",
-  "aiMaxSkillContentLengthLabel": "Skill File Max Content Length",
-  "aiMaxSkillContentLengthBody": "Defaults to 100000. Tune skill / workspace document size.",
-  "aiMaxSkillContentLengthSave": "Save",
-  "aiMaxSkillContentLengthSaved": "Skill File Max Content Length saved.",
-  "aiMaxSkillContentLengthInvalid": "Enter a valid integer.",
-  "aiMaxWorkspaceDocumentCharactersLabel": "Workspace Document Max Characters",
-  "aiMaxWorkspaceDocumentCharactersBody": "Defaults to 16000. Tune skill / workspace document size.",
-  "aiMaxWorkspaceDocumentCharactersSave": "Save",
-  "aiMaxWorkspaceDocumentCharactersSaved": "Workspace Document Max Characters saved.",
-  "aiMaxWorkspaceDocumentCharactersInvalid": "Enter a valid integer.",
-  "aiImageSizeLimitLabel": "Image Size Limit",
   "aiImageSizeLimitBody": "When the user attaches an image larger than this cap, OpenHand automatically compresses it (quality + resolution) before sending. Accepts decimal MB values; range 0.0625 MB (64 KB) to 64 MB.",
   "aiImageSizeLimitFieldLabel": "Limit (MB)",
   "aiImageSizeLimitSave": "Save Limit",
@@ -2302,7 +2167,6 @@
   "tokenPopupCostCacheWrite": "Cache write",
   "tokenPopupCostTotal": "Total",
   "tokenDialUnit": "Token",
-  "tokenDialTotal": "Total",
   "tokenPopupInputHeading": "Input",
   "tokenPopupPrompt": "Prompt",
   "tokenPopupCacheRead": "Cache Read",
@@ -2318,7 +2182,6 @@
   "tokenPopupPromptChars": "Prompt Chars",
   "tokenPopupCacheHitModeExcludeExpired": "Exclude expiry anomalies",
   "tokenPopupCacheHitModeIncludeExpired": "Include expiry anomalies",
-  "tokenPopupFirstRequestIgnored": "First request ignored",
   "tokenPopupExcludedRounds": "{count} excluded",
   "@tokenPopupExcludedRounds": {
     "placeholders": {
@@ -2468,15 +2331,6 @@
   "toolSearchLoadedHistoryImportDialogTitle": "Imported ToolSearch history",
   "@toolSearchLoadedHistoryImportDialogTitle": {
     "description": "Title of the preview dialog shown after a successful JSON import."
-  },
-  "toolSearchLoadedHistoryImportDialogParseFailed": "Failed to parse JSON: {error}",
-  "@toolSearchLoadedHistoryImportDialogParseFailed": {
-    "description": "Snackbar/error text when JSON cannot be parsed.",
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
   },
   "toolSearchLoadedHistoryImportDialogCount": "{count, plural, =0{no entries} =1{1 entry} other{{count} entries}}",
   "@toolSearchLoadedHistoryImportDialogCount": {
@@ -2635,13 +2489,6 @@
   "tlCallThereIsNoToolOutputYet": "There is no tool output yet.",
   "tlCallViewInDialog": "View in Dialog",
   "tlCallEmptyContent": "Empty content",
-  "tlCallWrite": "Write",
-  "tlCallEdit": "Edit",
-  "tlCallMultiEdit": "Multi-edit",
-  "tlCallNotebookEdit": "Notebook Edit",
-  "tlCallBashWrite": "Bash Write",
-  "tlCallFileChanged": "File Changed",
-  "tlCallChangedFile": "Changed File",
   "fileMutationSection": "File changes",
   "fileMutationFilesChanged": "{count, plural, =1{1 file changed} other{{count} files changed}}",
   "@fileMutationFilesChanged": {
@@ -2688,8 +2535,6 @@
   "fileMutationUndoFailed": "Undo failed",
   "fileMutationRedoFailed": "Redo failed",
   "fileMutationSnapshotUnavailable": "Content snapshot unavailable",
-  "dataCleanupFileMutationLedgerTitle": "File Mutation Ledger",
-  "dataCleanupFileMutationLedgerSubtitle": "File mutation ledger under ~/.openhand/file_history/ (before/after blobs + jsonl). After cleanup, historical cards may no longer expose undo controls.",
   "tlCallTool": "Tool",
   "tlCallSkill": "Skill",
   "tlCallStopped": "Stopped",
@@ -3180,14 +3025,6 @@
   "tlCallWrapLines": "Wrap Lines",
   "tlCallViewCompressedContent": "View Compressed Content",
   "tlCallViewFullContent": "View Full Content",
-  "tlCallMultiEditEditcount": "Multi-edit ×{editCount}",
-  "@tlCallMultiEditEditcount": {
-    "placeholders": {
-      "editCount": {
-        "type": "Object"
-      }
-    }
-  },
   "tlCallPreparing": "Preparing",
   "tlCallPreparingAlt": "Preparing",
   "tlCallRunningAlt": "Running",
@@ -7266,24 +7103,12 @@
   "@agentsSubtitle": {
     "description": "OpenHand localized UI text."
   },
-  "agentsOpenFolder": "Open folder",
-  "@agentsOpenFolder": {
-    "description": "OpenHand localized UI text."
-  },
   "agentsCreateAgent": "Create agent",
   "@agentsCreateAgent": {
     "description": "OpenHand localized UI text."
   },
   "agentsEditAgent": "Edit agent",
   "@agentsEditAgent": {
-    "description": "OpenHand localized UI text."
-  },
-  "agentsWorkspaceTitle": "Hermes Agent workspace",
-  "@agentsWorkspaceTitle": {
-    "description": "OpenHand localized UI text."
-  },
-  "agentsWorkspaceBody": "Enabled agents expose task publishing, tracking, and result retrieval; configure scope, permissions, cluster, and governance here.",
-  "@agentsWorkspaceBody": {
     "description": "OpenHand localized UI text."
   },
   "agentsLoadFailed": "Failed to load agents",
@@ -7352,10 +7177,6 @@
   },
   "agentsResources": "Resources",
   "@agentsResources": {
-    "description": "OpenHand localized UI text."
-  },
-  "agentsEditConfig": "Edit",
-  "@agentsEditConfig": {
     "description": "OpenHand localized UI text."
   },
   "agentsDeleteAgent": "Delete agent",
@@ -7747,10 +7568,6 @@
   "@agentsTaskLabelsLabel": {
     "description": "OpenHand localized UI text."
   },
-  "agentsCommaSeparatedHint": "Comma separated",
-  "@agentsCommaSeparatedHint": {
-    "description": "OpenHand localized UI text."
-  },
   "agentsFieldName": "Name",
   "@agentsFieldName": {
     "description": "OpenHand localized UI text."
@@ -7759,16 +7576,8 @@
   "@agentsFieldTarget": {
     "description": "OpenHand localized UI text."
   },
-  "agentsMetadataJsonLabel": "Metadata JSON",
-  "@agentsMetadataJsonLabel": {
-    "description": "OpenHand localized UI text."
-  },
   "agentsMetadataInfoTitle": "Permission and profile metadata",
   "@agentsMetadataInfoTitle": {
-    "description": "OpenHand localized UI text."
-  },
-  "agentsMetadataInfoBody": "Extension fields live here. Invalid JSON shows an error and keeps your edits.",
-  "@agentsMetadataInfoBody": {
     "description": "OpenHand localized UI text."
   },
   "agentsNoOptionsAvailable": "No options available.",
@@ -8078,66 +7887,6 @@
   },
   "memoryTitleHint": "Summarize this memory in one sentence; leave blank to use a content preview",
   "@memoryTitleHint": {
-    "description": "OpenHand localized UI text."
-  },
-  "machineExpertDialogTitle": "Machine Expert Template",
-  "@machineExpertDialogTitle": {
-    "description": "OpenHand localized UI text."
-  },
-  "machineExpertDialogBody": "Choose the target terminal window and task. Machine Expert will run commands in that workspace.",
-  "@machineExpertDialogBody": {
-    "description": "OpenHand localized UI text."
-  },
-  "machineExpertTerminalProgram": "Terminal app",
-  "@machineExpertTerminalProgram": {
-    "description": "OpenHand localized UI text."
-  },
-  "machineExpertWindow": "Window",
-  "@machineExpertWindow": {
-    "description": "OpenHand localized UI text."
-  },
-  "machineExpertTab": "Tab",
-  "@machineExpertTab": {
-    "description": "OpenHand localized UI text."
-  },
-  "machineExpertSession": "Session",
-  "@machineExpertSession": {
-    "description": "OpenHand localized UI text."
-  },
-  "machineExpertModelOptional": "Model (optional)",
-  "@machineExpertModelOptional": {
-    "description": "OpenHand localized UI text."
-  },
-  "machineExpertModelChoose": "Tap to choose a model",
-  "@machineExpertModelChoose": {
-    "description": "OpenHand localized UI text."
-  },
-  "machineExpertModelNotConfiguredDefault": "No models configured; current default model will be used",
-  "@machineExpertModelNotConfiguredDefault": {
-    "description": "OpenHand localized UI text."
-  },
-  "machineExpertModelHelperWithModels": "Applies only to this new Machine Expert session. If not selected, the current active model is kept.",
-  "@machineExpertModelHelperWithModels": {
-    "description": "OpenHand localized UI text."
-  },
-  "machineExpertModelHelperNoModels": "No models are configured in Settings. This session will keep using the current active default model.",
-  "@machineExpertModelHelperNoModels": {
-    "description": "OpenHand localized UI text."
-  },
-  "machineExpertTaskRequirement": "Task requirement",
-  "@machineExpertTaskRequirement": {
-    "description": "OpenHand localized UI text."
-  },
-  "machineExpertTaskRequirementHint": "Describe the task, for example: list files in the current directory, build the project, or deploy to a remote server...",
-  "@machineExpertTaskRequirementHint": {
-    "description": "OpenHand localized UI text."
-  },
-  "machineExpertTaskRequirementHelper": "Machine Expert will execute interactively from this request and terminal context.",
-  "@machineExpertTaskRequirementHelper": {
-    "description": "OpenHand localized UI text."
-  },
-  "machineExpertStartExecution": "Start execution",
-  "@machineExpertStartExecution": {
     "description": "OpenHand localized UI text."
   },
   "commonRetry": "Retry",

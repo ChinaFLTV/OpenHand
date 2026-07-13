@@ -6,20 +6,9 @@ import '../../shared/util/input_value_parsing.dart';
 
 abstract final class OpenHandPaths {
   static const String defaultSkillsDirectoryLabel = '~/.openhand/skills';
-  static const String defaultLspDirectoryLabel = '~/.openhand/lsp';
 
   static const String defaultMcpServersFileLabel =
       '~/.openhand/mcp/mcp_servers.json';
-  static const String defaultSessionsDirectoryLabel = '~/.openhand/sessions';
-  static const String defaultSessionAttachmentsDirectoryLabel =
-      '~/.openhand/sessions/attachments';
-  static const String defaultCacheDirectoryLabel = '~/.openhand/cache';
-  static const String defaultMediaCacheDirectoryLabel =
-      '~/.openhand/cache/media';
-  static const String defaultLogsDirectoryLabel = '~/.openhand/logs';
-  static const String defaultMessageGatewayDirectoryLabel =
-      '~/.openhand/message_gateway';
-  static const String defaultRootDirectoryLabel = '~/.openhand';
 
   static String homeDirectoryPath() {
     final home = nullIfBlank(Platform.environment['HOME']);

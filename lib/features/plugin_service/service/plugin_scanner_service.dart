@@ -62,8 +62,6 @@ class PluginScannerService {
   static const String hermesAgentCommand = 'hermes-agent';
   static const String hermesAgentAltCommand = 'hermes';
   static const String qdrantContainerName = 'openhand-qdrant';
-  static const String qdrantImageName = 'qdrant/qdrant';
-  static const String qdrantDefaultTag = 'latest';
   static const int qdrantRestPort = 6333;
   static const int qdrantGrpcPort = 6334;
   static final RegExp _nvmMajorAliasPattern = RegExp(r'^v?\d+$');

@@ -163,8 +163,6 @@ class AppProxySettings {
   /// 代理连通性测试使用的 URL。空字符串同于默认值。
   final String testEndpoint;
 
-  static const int minPort = kTcpPortMin;
-  static const int maxPort = kTcpPortMax;
   static const int defaultPort = 7890;
 
   /// 代理连通性测试默认 URL。Google generate_204

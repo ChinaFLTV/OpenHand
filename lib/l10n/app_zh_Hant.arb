@@ -13,20 +13,10 @@
   },
   "settings": "設定",
   "threads": "執行緒",
-  "workspaceHeadline": "開始構建",
   "composerHint": "詢問 OpenHand 任何內容，使用 / 觸發動作，使用 @ 引用上下文",
   "composerSend": "送出",
   "chatSending": "傳送中",
   "chatRequestFailed": "模型請求失敗，請檢查模型配置、網路連通性或介面協議。",
-  "composerUnavailable": "目前為基礎骨架，尚未接入實際執行能力。",
-  "workspaceReadyTitle": "基礎骨架已就緒",
-  "workspaceReadyBody": "目前已完成桌面端主佈局、主題切換、語言切換與設定頁基礎能力，後續模組可在此逐步擴展。",
-  "quickActionsTitle": "建議從這裡開始",
-  "quickActionCreateShell": "建立桌面應用骨架",
-  "quickActionThemeLanguage": "配置主題與語言",
-  "quickActionPlanModules": "規劃功能模組",
-  "skillsHeadline": "技能中心骨架",
-  "skillsBody": "後續可在這裡管理能力外掛、提示模板與開發輔助工具。",
   "placeholderComingSoon": "後續功能模組將在這裡逐步擴展。",
   "settingsTitle": "設定中心",
   "settingsSubtitle": "在這裡管理主題、語言與應用資訊。",
@@ -90,16 +80,6 @@
       "type": {}
     }
   },
-  "previewSectionTitle": "設計方向",
-  "previewSectionBody": "遵循 Material 3 Expressive 設計理念，強調層次、留白、圓角、柔和光感與清晰的資訊節奏。",
-  "threadPrimary": "OpenHand",
-  "@threadPrimary": {
-    "description": "Default conversation thread title; same as the application brand \"OpenHand\"."
-  },
-  "threadShell": "桌面應用骨架",
-  "threadSettings": "設定與在地化",
-  "threadRoadmap": "後續模組規劃",
-  "switchToWorkspace": "返回主工作台",
   "modelLabel": "OpenHand Skeleton",
   "platformLabel": "桌面端",
   "permissionLabel": "完全訪問權限",
@@ -1091,7 +1071,6 @@
     }
   },
   "mcpLazyLoadingHowItWorks": "懶載入啟用時：MCP 工具描述被折疊為名稱索引，模型透過內建 ToolSearch 工具按需取回完整 JSON Schema。支援三種查詢：\n• select:NAME（直接選取，可空格分隔多個）\n• 關鍵字（按 name/description 評分配對）\n• +KEYWORD（必含詞，用於過濾雜訊）\n命中工具會寫入目前會話已載入清單，下一輪即可直接呼叫，無需再次查詢。",
-  "settingsGeneralTitle": "常規",
   "settingsGeneralSubtitle": "管理主題、語言與應用基礎資訊。",
   "settingsAiSubtitle": "管理聊天模型、驗證方式與協議適配。",
   "settingsActiveToolCallsTitle": "執行中的工具呼叫",
@@ -1111,7 +1090,6 @@
   "settingsMaxConcurrentToolsLabel": "並發工具呼叫上限",
   "settingsMaxConcurrentToolsBody": "同會話內同時派發的工具呼叫最大數量。範圍 1–64。",
   "settingsToolHardeningInvalid": "請輸入範圍內的整數",
-  "settingsSkillsTitle": "技能",
   "settingsSkillsSubtitle": "管理本地技能目錄、模板建立與已安裝技能展示。",
   "settingsMemorySubtitle": "管理用戶記憶開關與持久化檔案位置。",
   "settingsPersistenceRecoveredTitle": "設定檔案已自動恢復",
@@ -1128,7 +1106,6 @@
   "settingsAnimationRestoreConfirmMessage": "將把彈窗、選單、頁面 / 模組、工作區面板、膠囊、列表項六組動畫全部重設為預設值，已自訂的設定會被覆蓋，此操作無法復原。",
   "settingsAnimationRestoreConfirm": "恢復",
   "settingsAnimationRestoreSuccess": "已恢復預設動畫設定",
-  "settingsAnimationRestorePartialFailure": "部分設定儲存失敗，請重試",
   "settingsDialogAnimationTitle": "彈窗動畫",
   "settingsDialogAnimationSubtitle": "設定全域彈窗的進場動畫、退場動畫、時長和速率曲線。",
   "settingsMenuAnimationTitle": "選單動畫",
@@ -1371,8 +1348,6 @@
   "aiModelOpenWebsiteTooltip": "打開官網地址",
   "aiModelAuthScheme": "驗證方式",
   "aiModelToken": "權杖",
-  "aiModelIdField": "模型 ID",
-  "aiModelIdRequired": "請輸入模型 ID",
   "aiModelProtocol": "協議類型",
   "aiModelSaveSuccess": "模型提供者配置已儲存。",
   "aiModelDeleteConfirmTitle": "刪除模型提供者",
@@ -1406,23 +1381,6 @@
   "aiModelSelectionRequired": "請先在設定中添加并選擇一個 AI 模型提供者。",
   "aiModelScanButton": "掃描模型",
   "aiModelScanning": "正在掃描可用模型…",
-  "aiModelScanSuccess": "發現 {count} 個模型。",
-  "@aiModelScanSuccess": {
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
-  },
-  "aiModelScanFailed": "掃描失敗：{reason}",
-  "@aiModelScanFailed": {
-    "placeholders": {
-      "reason": {
-        "type": "String"
-      }
-    }
-  },
-  "aiModelScanEmpty": "未從該提供者掃描到模型。",
   "aiModelAvailableModels": "可用模型",
   "aiModelManualIdHint": "手動輸入模型 ID",
   "aiModelManualIdAdd": "添加",
@@ -1525,7 +1483,6 @@
   },
   "skillsPageTitle": "技能",
   "skillsPageSubtitle": "為 OpenHand 提供更強大的擴展能力，統一管理本地已安裝技能與模板。",
-  "skillsInstalledSectionTitle": "已安裝",
   "skillsSearchHint": "搜尋技能",
   "skillsRefresh": "重新整理",
   "skillsOpenDirectory": "打開目錄",
@@ -1533,12 +1490,8 @@
   "skillsNewSkill": "新技能",
   "skillsEmptyTitle": "尚未安裝任何技能",
   "skillsEmptyBody": "目前技能目錄中未發現任何 SKILL.md。你可以先建立模板，或切換到既有技能目錄。",
-  "skillsEmptyActionCreate": "建立模板",
-  "skillsEmptyActionOpenDirectory": "打開目錄",
   "skillsNoResultsTitle": "找不到符合條件的技能",
   "skillsNoResultsBody": "請嘗試修改搜尋關鍵字，或清除搜尋後重新查看全部技能。",
-  "skillsFolderLabel": "存放位置",
-  "skillsCardOpen": "打開技能目錄",
   "skillTemplateCreated": "已建立新的技能模板",
   "skillOperationFailed": "技能操作失敗，請稍後再試。",
   "skillsImportSuccess": "已匯入技能",
@@ -1570,7 +1523,6 @@
   "imageEditorReset": "重置",
   "imageEditorLoadFailed": "無法載入所選圖片",
   "imageEditorProcessFailed": "無法處理所選圖片",
-  "imageEditorSectionBasic": "基礎調整",
   "imageEditorSectionColor": "色彩（色溫 / 色調 / 伽瑪）",
   "imageEditorSectionSplitToning": "色調分離（HSL）",
   "imageEditorSectionDetail": "細節（清晰度 / 銳利度 / 降噪 / 顆粒）",
@@ -1595,7 +1547,6 @@
   "imageEditorWatermarkOpacityLabel": "不透明度",
   "imageEditorWatermarkPositionLabel": "位置",
   "imageEditorWatermarkColorLight": "淺色",
-  "imageEditorWatermarkColorDark": "深色",
   "imageEditorAdvancedApplyHint": "展開面板中的調整會在“儲存”時一次性套用到原圖。",
   "skillsEditorSave": "儲存",
   "skillsEditorCancel": "取消",
@@ -1604,7 +1555,6 @@
   "skillsDeleteConfirmBody": "刪除後將永久移除該技能目錄及其 SKILL.md 內容。",
   "skillsDeleteConfirmAction": "確認刪除",
   "skillsDeleteSuccess": "技能已刪除",
-  "skillsStorageSectionTitle": "技能存放位置",
   "skillsStorageSectionBody": "設定 OpenHand 掃描技能的本地目錄。預設會使用 ~/.openhand/skills，並在需要時自動建立。",
   "skillsStorageDefaultPath": "預設路徑",
   "skillsStorageCurrentPath": "目前路徑",
@@ -1612,10 +1562,6 @@
   "skillsStorageBrowse": "選擇目錄",
   "skillsStorageReset": "恢復預設",
   "skillsStorageOpen": "打開位置",
-  "skillsStorageSummaryTitle": "技能摘要",
-  "skillsStorageSummaryBody": "目前技能目錄、安裝數量與掃描狀態會在這裡即時顯示。",
-  "skillsStorageStatusReady": "狀態",
-  "skillsStorageStatusLoading": "掃描中",
   "skillsStorageStatusError": "技能目錄讀取失敗",
   "skillsPathSaved": "技能存放位置已更新",
   "instructionPageTitle": "指令",
@@ -1672,11 +1618,7 @@
   "userMemoryFileLabel": "用戶記憶檔案",
   "memoryFileBody": "配置用戶記憶 JSON 檔案位置。預設會使用目前程序目錄下的 .openhand/memory/user-memory.json。",
   "memoryFileDefaultPath": "預設檔案",
-  "memoryFileSave": "儲存路徑",
-  "memoryFileBrowse": "選擇檔案",
-  "memoryFileReset": "恢復預設",
   "memoryOpenDirectory": "打開目錄",
-  "memoryPathSaved": "用戶記憶檔案路徑已更新",
   "memoryDisabledTitle": "記憶能力目前已關閉",
   "memoryDisabledBody": "你仍然可以在這裡維護用戶記憶內容；如需在運行時啟用，請到設定頁記憶板塊打開記憶開關。",
   "memoryCreatedAtLabel": "建立時間",
@@ -1815,7 +1757,6 @@
   "aiCompressionThresholdSaved": "AI 訊息壓縮閾值已更新。",
   "aiCompressionThresholdInvalid": "請輸入有效的正整數閾值。",
   "aiToolResultCompressionThresholdLabel": "工具呼叫輸出壓縮閾值",
-  "aiToolResultCompressionThresholdBody": "工具結果進入對話歷史時使用的摘要閾值。最新未消費的超大工具結果會使用有界預覽；已消費的舊工具結果超過閾值後會壓成結構化摘要。預設 1024。",
   "aiToolResultCompressionThresholdSave": "儲存閾值",
   "aiToolResultCompressionThresholdSaved": "工具呼叫輸出壓縮閾值已更新。",
   "aiToolResultCompressionThresholdInvalid": "請輸入有效的正整數閾值。",
@@ -1874,82 +1815,6 @@
   "aiEstimatedCharactersPerTokenSave": "儲存係數",
   "aiEstimatedCharactersPerTokenSaved": "Token 字元估算係數已更新。",
   "aiEstimatedCharactersPerTokenInvalid": "請輸入 1~32 之間的整數。",
-  "aiMaxToolOutputCharsLabel": "工具單次輸出字元上限",
-  "aiMaxToolOutputCharsBody": "預設 150000。單次工具呼叫結果若超過此字元數會截斷，避免 Context 溢出。",
-  "aiMaxToolOutputCharsSave": "儲存上限",
-  "aiMaxToolOutputCharsSaved": "工具輸出字元上限已儲存。",
-  "aiMaxToolOutputCharsInvalid": "請輸入 1000~10000000 之間的整數。",
-  "aiWriteConfirmationTimeoutMsLabel": "寫命令確認逾時（毫秒）",
-  "aiWriteConfirmationTimeoutMsBody": "預設 300000（5 分鐘）。等待使用者審核寫命令的最長時間。",
-  "aiWriteConfirmationTimeoutMsSave": "儲存逾時",
-  "aiWriteConfirmationTimeoutMsSaved": "寫命令確認逾時已儲存。",
-  "aiWriteConfirmationTimeoutMsInvalid": "請輸入 1000~3600000 之間的整數。",
-  "aiFastPathWriteAnalysisThresholdLabel": "Fast-path 寫命令分析閾值",
-  "aiFastPathWriteAnalysisThresholdBody": "預設 512 字元。命令長度超過此值會走快速路徑粗判，避免昂貴的語法分析。",
-  "aiFastPathWriteAnalysisThresholdSave": "儲存閾值",
-  "aiFastPathWriteAnalysisThresholdSaved": "Fast-path 閾值已儲存。",
-  "aiFastPathWriteAnalysisThresholdInvalid": "請輸入 0~100000 之間的整數。",
-  "aiMaxHookTextCharactersLabel": "Hook 文字輸出上限",
-  "aiMaxHookTextCharactersBody": "預設 4000。Claude Hook 在合併 stdout/stderr 文字時的總字元上限。",
-  "aiMaxHookTextCharactersSave": "儲存上限",
-  "aiMaxHookTextCharactersSaved": "Hook 文字上限已儲存。",
-  "aiMaxHookTextCharactersInvalid": "請輸入 100~1000000 之間的整數。",
-  "aiAttachmentMaxInlineImageDimensionLabel": "附件圖片最大邊長（像素）",
-  "aiAttachmentMaxInlineImageDimensionBody": "默认 1568。調整以適配你的網路與附件需求。",
-  "aiAttachmentMaxInlineImageDimensionSave": "儲存",
-  "aiAttachmentMaxInlineImageDimensionSaved": "附件圖片最大邊長（像素）已儲存。",
-  "aiAttachmentMaxInlineImageDimensionInvalid": "請輸入有效整數。",
-  "aiAttachmentMaxTextRawBytesLabel": "附件文字讀取上限（位元組）",
-  "aiAttachmentMaxTextRawBytesBody": "默认 1597152（2MB）。調整以適配你的網路與附件需求。",
-  "aiAttachmentMaxTextRawBytesSave": "儲存",
-  "aiAttachmentMaxTextRawBytesSaved": "附件文字讀取上限（位元組）已儲存。",
-  "aiAttachmentMaxTextRawBytesInvalid": "請輸入有效整數。",
-  "aiAttachmentMaxPdfRawBytesLabel": "附件 PDF 讀取上限（位元組）",
-  "aiAttachmentMaxPdfRawBytesBody": "默认 1597152（2MB）。調整以適配你的網路與附件需求。",
-  "aiAttachmentMaxPdfRawBytesSave": "儲存",
-  "aiAttachmentMaxPdfRawBytesSaved": "附件 PDF 讀取上限（位元組）已儲存。",
-  "aiAttachmentMaxPdfRawBytesInvalid": "請輸入有效整數。",
-  "aiAttachmentMaxImageRawBytesLabel": "附件圖片讀取上限（位元組）",
-  "aiAttachmentMaxImageRawBytesBody": "默认 52428800（50MB）。調整以適配你的網路與附件需求。",
-  "aiAttachmentMaxImageRawBytesSave": "儲存",
-  "aiAttachmentMaxImageRawBytesSaved": "附件圖片讀取上限（位元組）已儲存。",
-  "aiAttachmentMaxImageRawBytesInvalid": "請輸入有效整數。",
-  "aiChatMaxStreamLineBufferBytesLabel": "Chat 串流緩衝位元組上限",
-  "aiChatMaxStreamLineBufferBytesBody": "默认 4194304（4MB）。調整以適配你的網路與附件需求。",
-  "aiChatMaxStreamLineBufferBytesSave": "儲存",
-  "aiChatMaxStreamLineBufferBytesSaved": "Chat 串流緩衝位元組上限已儲存。",
-  "aiChatMaxStreamLineBufferBytesInvalid": "請輸入有效整數。",
-  "aiFallbackTitleMaxCharactersLabel": "回退標題最大字元數",
-  "aiFallbackTitleMaxCharactersBody": "默认 15。調整以符合會話標題派生策略。",
-  "aiFallbackTitleMaxCharactersSave": "儲存",
-  "aiFallbackTitleMaxCharactersSaved": "回退標題最大字元數已儲存。",
-  "aiFallbackTitleMaxCharactersInvalid": "請輸入有效整數。",
-  "aiGeneratedTitleMaxCharactersLabel": "自動標題最大字元數",
-  "aiGeneratedTitleMaxCharactersBody": "默认 15。調整以符合會話標題派生策略。",
-  "aiGeneratedTitleMaxCharactersSave": "儲存",
-  "aiGeneratedTitleMaxCharactersSaved": "自動標題最大字元數已儲存。",
-  "aiGeneratedTitleMaxCharactersInvalid": "請輸入有效整數。",
-  "aiMinimumMeaningfulTitleCharactersLabel": "中文有效標題最小字元數",
-  "aiMinimumMeaningfulTitleCharactersBody": "默认 4。調整以符合會話標題派生策略。",
-  "aiMinimumMeaningfulTitleCharactersSave": "儲存",
-  "aiMinimumMeaningfulTitleCharactersSaved": "中文有效標題最小字元數已儲存。",
-  "aiMinimumMeaningfulTitleCharactersInvalid": "請輸入有效整數。",
-  "aiMinimumMeaningfulLatinTitleWordsLabel": "拉丁有效標題最小詞數",
-  "aiMinimumMeaningfulLatinTitleWordsBody": "默认 2。調整以符合會話標題派生策略。",
-  "aiMinimumMeaningfulLatinTitleWordsSave": "儲存",
-  "aiMinimumMeaningfulLatinTitleWordsSaved": "拉丁有效標題最小詞數已儲存。",
-  "aiMinimumMeaningfulLatinTitleWordsInvalid": "請輸入有效整數。",
-  "aiMaxSkillContentLengthLabel": "技能檔案內容字元上限",
-  "aiMaxSkillContentLengthBody": "默认 100000。調整以符合技能與工作區文件大小。",
-  "aiMaxSkillContentLengthSave": "儲存",
-  "aiMaxSkillContentLengthSaved": "技能檔案內容字元上限已儲存。",
-  "aiMaxSkillContentLengthInvalid": "請輸入有效整數。",
-  "aiMaxWorkspaceDocumentCharactersLabel": "工作區指令文件字元上限",
-  "aiMaxWorkspaceDocumentCharactersBody": "默认 16000。調整以符合技能與工作區文件大小。",
-  "aiMaxWorkspaceDocumentCharactersSave": "儲存",
-  "aiMaxWorkspaceDocumentCharactersSaved": "工作區指令文件字元上限已儲存。",
-  "aiMaxWorkspaceDocumentCharactersInvalid": "請輸入有效整數。",
-  "aiImageSizeLimitLabel": "圖片大小上限",
   "aiImageSizeLimitBody": "當用戶添加的圖片附件超過該上限時，OpenHand 會自動按質量 + 尺寸兩級壓縮後再傳送。支持小數 MB；範圍 0.0625 MB（64 KB）至 64 MB。",
   "aiImageSizeLimitFieldLabel": "上限 (MB)",
   "aiImageSizeLimitSave": "儲存上限",
@@ -2302,7 +2167,6 @@
   "tokenPopupCostCacheWrite": "快取寫入",
   "tokenPopupCostTotal": "總計",
   "tokenDialUnit": "Token",
-  "tokenDialTotal": "總計",
   "tokenPopupInputHeading": "輸入",
   "tokenPopupPrompt": "提示詞",
   "tokenPopupCacheRead": "快取命中",
@@ -2318,7 +2182,6 @@
   "tokenPopupPromptChars": "提示詞字元",
   "tokenPopupCacheHitModeExcludeExpired": "不含過期異常",
   "tokenPopupCacheHitModeIncludeExpired": "含過期異常",
-  "tokenPopupFirstRequestIgnored": "首輪不計平均",
   "tokenPopupExcludedRounds": "已排除 {count} 輪",
   "@tokenPopupExcludedRounds": {
     "placeholders": {
@@ -2469,15 +2332,6 @@
   "toolSearchLoadedHistoryImportDialogTitle": "ToolSearch 歷史匯入預覽",
   "@toolSearchLoadedHistoryImportDialogTitle": {
     "description": "Title of the preview dialog shown after a successful JSON import."
-  },
-  "toolSearchLoadedHistoryImportDialogParseFailed": "JSON 解析失敗：{error}",
-  "@toolSearchLoadedHistoryImportDialogParseFailed": {
-    "description": "Snackbar/error text when JSON cannot be parsed.",
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
   },
   "toolSearchLoadedHistoryImportDialogCount": "{count, plural, =0{無條目} other{{count} 條記錄}}",
   "@toolSearchLoadedHistoryImportDialogCount": {
@@ -2635,13 +2489,6 @@
   "tlCallThereIsNoToolOutputYet": "当前还没有工具输出。",
   "tlCallViewInDialog": "在弹窗里查看完整内容",
   "tlCallEmptyContent": "内容为空",
-  "tlCallWrite": "写入",
-  "tlCallEdit": "编辑",
-  "tlCallMultiEdit": "多处编辑",
-  "tlCallNotebookEdit": "Notebook 编辑",
-  "tlCallBashWrite": "命令写入",
-  "tlCallFileChanged": "文件变更",
-  "tlCallChangedFile": "文件变动",
   "fileMutationSection": "檔案變動",
   "fileMutationFilesChanged": "{count, plural, other{已更改 {count} 個檔案}}",
   "@fileMutationFilesChanged": {
@@ -2688,8 +2535,6 @@
   "fileMutationUndoFailed": "復原失敗",
   "fileMutationRedoFailed": "重做失敗",
   "fileMutationSnapshotUnavailable": "內容快照不可用",
-  "dataCleanupFileMutationLedgerTitle": "檔案變動歷史",
-  "dataCleanupFileMutationLedgerSubtitle": "~/.openhand/file_history/ 下的檔案變動 ledger（before/after 快照 + jsonl 紀錄）。清理後歷史卡片可能不再顯示可復原狀態。",
   "tlCallTool": "工具",
   "tlCallSkill": "技能",
   "tlCallStopped": "已停止",
@@ -3180,14 +3025,6 @@
   "tlCallWrapLines": "自动换行",
   "tlCallViewCompressedContent": "查看压缩内容",
   "tlCallViewFullContent": "查看完整内容",
-  "tlCallMultiEditEditcount": "多处编辑 ×{editCount}",
-  "@tlCallMultiEditEditcount": {
-    "placeholders": {
-      "editCount": {
-        "type": "Object"
-      }
-    }
-  },
   "tlCallPreparing": "准备执行",
   "tlCallPreparingAlt": "准备调用",
   "tlCallRunningAlt": "调用中",
@@ -7266,24 +7103,12 @@
   "@agentsSubtitle": {
     "description": "OpenHand localized UI text."
   },
-  "agentsOpenFolder": "開啟目錄",
-  "@agentsOpenFolder": {
-    "description": "OpenHand localized UI text."
-  },
   "agentsCreateAgent": "建立智慧體",
   "@agentsCreateAgent": {
     "description": "OpenHand localized UI text."
   },
   "agentsEditAgent": "編輯智慧體",
   "@agentsEditAgent": {
-    "description": "OpenHand localized UI text."
-  },
-  "agentsWorkspaceTitle": "Hermes Agent 工作台",
-  "@agentsWorkspaceTitle": {
-    "description": "OpenHand localized UI text."
-  },
-  "agentsWorkspaceBody": "智慧體啟用後會提供任務發布、追蹤與結果取得能力；此頁用於設定職責、權限、叢集與治理邊界。",
-  "@agentsWorkspaceBody": {
     "description": "OpenHand localized UI text."
   },
   "agentsLoadFailed": "智慧體設定載入失敗",
@@ -7352,10 +7177,6 @@
   },
   "agentsResources": "資源管理",
   "@agentsResources": {
-    "description": "OpenHand localized UI text."
-  },
-  "agentsEditConfig": "編輯設定",
-  "@agentsEditConfig": {
     "description": "OpenHand localized UI text."
   },
   "agentsDeleteAgent": "刪除智慧體",
@@ -7747,10 +7568,6 @@
   "@agentsTaskLabelsLabel": {
     "description": "OpenHand localized UI text."
   },
-  "agentsCommaSeparatedHint": "逗號分隔",
-  "@agentsCommaSeparatedHint": {
-    "description": "OpenHand localized UI text."
-  },
   "agentsFieldName": "名稱",
   "@agentsFieldName": {
     "description": "OpenHand localized UI text."
@@ -7759,16 +7576,8 @@
   "@agentsFieldTarget": {
     "description": "OpenHand localized UI text."
   },
-  "agentsMetadataJsonLabel": "中繼資料 JSON",
-  "@agentsMetadataJsonLabel": {
-    "description": "OpenHand localized UI text."
-  },
   "agentsMetadataInfoTitle": "權限與輪廓中繼資料",
   "@agentsMetadataInfoTitle": {
-    "description": "OpenHand localized UI text."
-  },
-  "agentsMetadataInfoBody": "這裡儲存擴充欄位。格式錯誤時會提示並保留目前編輯內容。",
-  "@agentsMetadataInfoBody": {
     "description": "OpenHand localized UI text."
   },
   "agentsNoOptionsAvailable": "暫無可選項。",
@@ -8078,66 +7887,6 @@
   },
   "memoryTitleHint": "用一句話濃縮此記憶主旨；留空則使用正文預覽",
   "@memoryTitleHint": {
-    "description": "OpenHand localized UI text."
-  },
-  "machineExpertDialogTitle": "機器專家範本設定",
-  "@machineExpertDialogTitle": {
-    "description": "OpenHand localized UI text."
-  },
-  "machineExpertDialogBody": "請指定目標終端視窗與具體任務需求，機器專家將在此工作環境中自動為您執行命令。",
-  "@machineExpertDialogBody": {
-    "description": "OpenHand localized UI text."
-  },
-  "machineExpertTerminalProgram": "終端程式",
-  "@machineExpertTerminalProgram": {
-    "description": "OpenHand localized UI text."
-  },
-  "machineExpertWindow": "視窗",
-  "@machineExpertWindow": {
-    "description": "OpenHand localized UI text."
-  },
-  "machineExpertTab": "分頁",
-  "@machineExpertTab": {
-    "description": "OpenHand localized UI text."
-  },
-  "machineExpertSession": "會話",
-  "@machineExpertSession": {
-    "description": "OpenHand localized UI text."
-  },
-  "machineExpertModelOptional": "使用模型（可選）",
-  "@machineExpertModelOptional": {
-    "description": "OpenHand localized UI text."
-  },
-  "machineExpertModelChoose": "點擊選擇模型",
-  "@machineExpertModelChoose": {
-    "description": "OpenHand localized UI text."
-  },
-  "machineExpertModelNotConfiguredDefault": "未設定可用模型，將沿用目前預設模型",
-  "@machineExpertModelNotConfiguredDefault": {
-    "description": "OpenHand localized UI text."
-  },
-  "machineExpertModelHelperWithModels": "僅影響本次新建的機器專家執行緒；若不選，則沿用目前啟用模型。",
-  "@machineExpertModelHelperWithModels": {
-    "description": "OpenHand localized UI text."
-  },
-  "machineExpertModelHelperNoModels": "尚未在設定中配置模型；本次將繼續使用目前啟用的預設模型。",
-  "@machineExpertModelHelperNoModels": {
-    "description": "OpenHand localized UI text."
-  },
-  "machineExpertTaskRequirement": "任務需求",
-  "@machineExpertTaskRequirement": {
-    "description": "OpenHand localized UI text."
-  },
-  "machineExpertTaskRequirementHint": "描述你想要執行的任務，例如：檢查目前目錄的檔案清單、編譯專案、部署到遠端伺服器等...",
-  "@machineExpertTaskRequirementHint": {
-    "description": "OpenHand localized UI text."
-  },
-  "machineExpertTaskRequirementHelper": "機器專家將根據此需求與終端現場進行互動式執行。",
-  "@machineExpertTaskRequirementHelper": {
-    "description": "OpenHand localized UI text."
-  },
-  "machineExpertStartExecution": "開始執行",
-  "@machineExpertStartExecution": {
     "description": "OpenHand localized UI text."
   },
   "commonRetry": "重試",

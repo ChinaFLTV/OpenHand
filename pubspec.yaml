@@ -60,7 +60,6 @@ flutter:
   uses-material-design: true
   generate: true
   assets:
-    - assets/prompts/
     - assets/prompts/_shared/
     - assets/prompts/common/
     - assets/prompts/agents/

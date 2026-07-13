@@ -373,22 +373,10 @@ class AiSessionRuntimeContext {
 
   static const int defaultStreamMaxCharsPerSecond =
       AiStreamThrottlePolicy.defaultMaxCharsPerSecond;
-  static const int minStreamMaxCharsPerSecond =
-      AiStreamThrottlePolicy.minMaxCharsPerSecond;
-  static const int maxStreamMaxCharsPerSecond =
-      AiStreamThrottlePolicy.maxMaxCharsPerSecond;
   static const int defaultStreamMaxMessageCardsPerSecond =
       AiStreamThrottlePolicy.defaultMaxMessageCardsPerSecond;
-  static const int minStreamMaxMessageCardsPerSecond =
-      AiStreamThrottlePolicy.minMaxMessageCardsPerSecond;
-  static const int maxStreamMaxMessageCardsPerSecond =
-      AiStreamThrottlePolicy.maxMaxMessageCardsPerSecond;
   static const int defaultStreamThrottleDurationSeconds =
       AiStreamThrottlePolicy.defaultDurationSeconds;
-  static const int minStreamThrottleDurationSeconds =
-      AiStreamThrottlePolicy.minDurationSeconds;
-  static const int maxStreamThrottleDurationSeconds =
-      AiStreamThrottlePolicy.maxDurationSeconds;
 
   static int normalizeStreamMaxCharsPerSecond(int value) {
     return AiStreamThrottlePolicy.normalizeMaxCharsPerSecond(value);

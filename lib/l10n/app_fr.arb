@@ -13,20 +13,10 @@
   },
   "settings": "Paramètres",
   "threads": "Fils",
-  "workspaceHeadline": "Commencer à créer",
   "composerHint": "Demandez n'importe quoi à OpenHand, utilisez / pour les actions et @ pour le contexte",
   "composerSend": "Envoyer",
   "chatSending": "Envoi",
   "chatRequestFailed": "Échec de la requête au modèle. Vérifiez la configuration du modèle, la connexion réseau ou le type de protocole.",
-  "composerUnavailable": "Il s'agit de l'ossature de base. Les capacités d'exécution ne sont pas encore connectées.",
-  "workspaceReadyTitle": "La base est prête",
-  "workspaceReadyBody": "La disposition bureau, le changement de thème, le changement de langue et l'infrastructure des paramètres sont en place. Les modules futurs peuvent maintenant s'y ajouter.",
-  "quickActionsTitle": "Points de départ suggérés",
-  "quickActionCreateShell": "Créer l'ossature de l'application",
-  "quickActionThemeLanguage": "Configurer le thème et la langue",
-  "quickActionPlanModules": "Planifier les modules futurs",
-  "skillsHeadline": "Ossature du centre de compétences",
-  "skillsBody": "Cette zone est réservée aux plugins de capacité, aux modèles d'invite et aux assistants de développement.",
   "placeholderComingSoon": "Des modules supplémentaires seront ajoutés ici progressivement.",
   "settingsTitle": "Centre des paramètres",
   "settingsSubtitle": "Gérez ici le thème, la langue et les informations de l'application.",
@@ -90,16 +80,6 @@
       "type": {}
     }
   },
-  "previewSectionTitle": "Direction du design",
-  "previewSectionBody": "Conçu autour de Material 3 Expressive, avec des surfaces superposées, de larges espacements, des formes arrondies, une lumière douce et un rythme d'information clair.",
-  "threadPrimary": "OpenHand",
-  "@threadPrimary": {
-    "description": "Default conversation thread title; same as the application brand \"OpenHand\"."
-  },
-  "threadShell": "Ossature de l'application bureau",
-  "threadSettings": "Paramètres et localisation",
-  "threadRoadmap": "Planification des futurs modules",
-  "switchToWorkspace": "Retour à l'espace de travail",
   "modelLabel": "Squelette OpenHand",
   "platformLabel": "Bureau",
   "permissionLabel": "Accès complet",
@@ -1091,7 +1071,6 @@
       }
     }
   },
-  "settingsGeneralTitle": "Général",
   "settingsGeneralSubtitle": "Gérez le thème, la langue et les informations principales de l'application.",
   "settingsAiSubtitle": "Gérer les modèles de chat, l’authentification et les adaptateurs de protocole.",
   "settingsActiveToolCallsTitle": "Appels d’outils actifs",
@@ -1111,7 +1090,6 @@
   "settingsMaxConcurrentToolsLabel": "Appels d’outils concurrents",
   "settingsMaxConcurrentToolsBody": "Nombre maximal d’appels d’outils exécutés en parallèle dans une session. Plage 1–64.",
   "settingsToolHardeningInvalid": "Veuillez saisir un entier dans l’intervalle",
-  "settingsSkillsTitle": "Compétences",
   "settingsSkillsSubtitle": "Gérez le dossier local des compétences, la création de modèles et les compétences installées.",
   "settingsMemorySubtitle": "Gérer le commutateur de mémoire utilisateur et le chemin du fichier de persistance.",
   "settingsPersistenceRecoveredTitle": "Fichier de paramètres récupéré",
@@ -1128,7 +1106,6 @@
   "settingsAnimationRestoreConfirmMessage": "Toutes les animations des boîtes de dialogue, menus, pages/modules, panneaux, chips et éléments de liste seront réinitialisées. Les valeurs personnalisées seront remplacées.",
   "settingsAnimationRestoreConfirm": "Restaurer",
   "settingsAnimationRestoreSuccess": "Animations par défaut restaurées",
-  "settingsAnimationRestorePartialFailure": "Certains paramètres n’ont pas été enregistrés. Réessayez.",
   "settingsDialogAnimationTitle": "Animation des dialogues",
   "settingsDialogAnimationSubtitle": "Configure le style d’entrée/sortie, la durée et la courbe de toutes les boîtes de dialogue.",
   "settingsMenuAnimationTitle": "Animation des menus",
@@ -1371,8 +1348,6 @@
   "aiModelOpenWebsiteTooltip": "Ouvrir le site",
   "aiModelAuthScheme": "Schéma d’authentification",
   "aiModelToken": "Jeton",
-  "aiModelIdField": "ID du modèle",
-  "aiModelIdRequired": "Saisissez un ID de modèle.",
   "aiModelProtocol": "Protocole",
   "aiModelSaveSuccess": "Configuration du fournisseur de modèle enregistrée.",
   "aiModelDeleteConfirmTitle": "Supprimer le fournisseur de modèle",
@@ -1406,23 +1381,6 @@
   "aiModelSelectionRequired": "Ajoutez et sélectionnez d’abord un fournisseur de modèle IA dans les paramètres.",
   "aiModelScanButton": "Analyser les modèles",
   "aiModelScanning": "Analyse des modèles disponibles…",
-  "aiModelScanSuccess": "{count} modèles trouvés.",
-  "@aiModelScanSuccess": {
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
-  },
-  "aiModelScanFailed": "Échec de l’analyse : {reason}",
-  "@aiModelScanFailed": {
-    "placeholders": {
-      "reason": {
-        "type": "String"
-      }
-    }
-  },
-  "aiModelScanEmpty": "Aucun modèle trouvé chez ce fournisseur.",
   "aiModelAvailableModels": "Modèles disponibles",
   "aiModelManualIdHint": "Ajouter un ID de modèle manuellement",
   "aiModelManualIdAdd": "Ajouter",
@@ -1525,7 +1483,6 @@
   },
   "skillsPageTitle": "Compétences",
   "skillsPageSubtitle": "Donnez à OpenHand une plus grande extensibilité grâce à une vue unifiée des compétences locales installées et des modèles.",
-  "skillsInstalledSectionTitle": "Installées",
   "skillsSearchHint": "Rechercher des compétences",
   "skillsRefresh": "Actualiser",
   "skillsOpenDirectory": "Ouvrir le dossier",
@@ -1533,12 +1490,8 @@
   "skillsNewSkill": "Nouvelle compétence",
   "skillsEmptyTitle": "Aucune compétence installée",
   "skillsEmptyBody": "Aucun fichier SKILL.md n'a été trouvé dans le dossier actuel. Créez un modèle ou basculez vers un dossier existant.",
-  "skillsEmptyActionCreate": "Créer un modèle",
-  "skillsEmptyActionOpenDirectory": "Ouvrir le dossier",
   "skillsNoResultsTitle": "Aucune compétence correspondante",
   "skillsNoResultsBody": "Essayez un autre mot-clé ou effacez la recherche pour revoir toutes les compétences.",
-  "skillsFolderLabel": "Emplacement",
-  "skillsCardOpen": "Ouvrir le dossier de la compétence",
   "skillTemplateCreated": "Nouveau modèle de compétence créé",
   "skillOperationFailed": "L'action sur la compétence a échoué. Veuillez réessayer.",
   "skillsImportSuccess": "Compétence importée",
@@ -1570,7 +1523,6 @@
   "imageEditorReset": "Réinitialiser",
   "imageEditorLoadFailed": "Impossible de charger l’image sélectionnée.",
   "imageEditorProcessFailed": "Impossible de traiter l’image sélectionnée.",
-  "imageEditorSectionBasic": "Réglages de base",
   "imageEditorSectionColor": "Couleur (température / teinte / gamma)",
   "imageEditorSectionSplitToning": "Tonalité fractionnée (HSL)",
   "imageEditorSectionDetail": "Détail (clarté / netteté / réduction du bruit / grain)",
@@ -1595,7 +1547,6 @@
   "imageEditorWatermarkOpacityLabel": "Opacité",
   "imageEditorWatermarkPositionLabel": "Position",
   "imageEditorWatermarkColorLight": "Clair",
-  "imageEditorWatermarkColorDark": "Sombre",
   "imageEditorAdvancedApplyHint": "Les réglages des panneaux étendus sont appliqués à l’image d’origine lors de l’enregistrement.",
   "skillsEditorSave": "Enregistrer",
   "skillsEditorCancel": "Annuler",
@@ -1604,7 +1555,6 @@
   "skillsDeleteConfirmBody": "La suppression retirera définitivement le dossier de la compétence et son contenu SKILL.md.",
   "skillsDeleteConfirmAction": "Supprimer",
   "skillsDeleteSuccess": "Compétence supprimée",
-  "skillsStorageSectionTitle": "Emplacement des compétences",
   "skillsStorageSectionBody": "Configurez le dossier local analysé par OpenHand pour les compétences. Par défaut, ~/.openhand/skills est utilisé et créé si nécessaire.",
   "skillsStorageDefaultPath": "Chemin par défaut",
   "skillsStorageCurrentPath": "Chemin actuel",
@@ -1612,10 +1562,6 @@
   "skillsStorageBrowse": "Choisir un dossier",
   "skillsStorageReset": "Réinitialiser",
   "skillsStorageOpen": "Ouvrir l'emplacement",
-  "skillsStorageSummaryTitle": "Résumé des compétences",
-  "skillsStorageSummaryBody": "Le dossier actuel, le nombre installé et l'état d'analyse sont affichés ici en temps réel.",
-  "skillsStorageStatusReady": "Statut",
-  "skillsStorageStatusLoading": "Analyse en cours",
   "skillsStorageStatusError": "Impossible de lire le dossier des compétences",
   "skillsPathSaved": "L'emplacement des compétences a été mis à jour",
   "instructionPageTitle": "Instructions",
@@ -1672,11 +1618,7 @@
   "userMemoryFileLabel": "Fichier de mémoire utilisateur",
   "memoryFileBody": "Configurez le fichier JSON utilisé pour les mémoires utilisateur. Par défaut, il pointe vers .openhand/memory/user-memory.json dans le dossier d’application actuel.",
   "memoryFileDefaultPath": "Fichier par défaut",
-  "memoryFileSave": "Enregistrer le chemin",
-  "memoryFileBrowse": "Choisir un fichier",
-  "memoryFileReset": "Restaurer par défaut",
   "memoryOpenDirectory": "Ouvrir le dossier",
-  "memoryPathSaved": "Chemin du fichier de mémoire utilisateur mis à jour",
   "memoryDisabledTitle": "La mémoire est actuellement désactivée",
   "memoryDisabledBody": "Vous pouvez toujours gérer ici les mémoires utilisateur. Pour les utiliser à l’exécution, activez la mémoire dans Paramètres > Mémoire.",
   "memoryCreatedAtLabel": "Créé le",
@@ -1815,7 +1757,6 @@
   "aiCompressionThresholdSaved": "Le seuil de compression des messages IA a été mis à jour.",
   "aiCompressionThresholdInvalid": "Saisissez un seuil entier positif valide.",
   "aiToolResultCompressionThresholdLabel": "Seuil de compression de la sortie d’appel d’outil",
-  "aiToolResultCompressionThresholdBody": "Seuil utilisé pour les résultats d’outils dans l’historique de conversation. Les très grands résultats récents non consommés utilisent un aperçu borné ; les anciens résultats consommés au-dessus du seuil sont résumés de façon structurée. Par défaut 1024.",
   "aiToolResultCompressionThresholdSave": "Enregistrer le seuil",
   "aiToolResultCompressionThresholdSaved": "Le seuil de compression de la sortie d’appel d’outil a été mis à jour.",
   "aiToolResultCompressionThresholdInvalid": "Saisissez un seuil entier positif valide.",
@@ -1874,82 +1815,6 @@
   "aiEstimatedCharactersPerTokenSave": "Enregistrer le ratio",
   "aiEstimatedCharactersPerTokenSaved": "Ratio estimé caractères par jeton mis à jour.",
   "aiEstimatedCharactersPerTokenInvalid": "Saisissez un entier entre 1 et 32.",
-  "aiMaxToolOutputCharsLabel": "Caractères maximaux de la sortie d’outil",
-  "aiMaxToolOutputCharsBody": "Par défaut 150000. Tronque les résultats d’outils dépassant cette longueur pour que le contexte API ne déborde jamais.",
-  "aiMaxToolOutputCharsSave": "Enregistrer la limite",
-  "aiMaxToolOutputCharsSaved": "Limite de caractères de la sortie d’outil enregistrée.",
-  "aiMaxToolOutputCharsInvalid": "Saisissez un entier entre 1000 et 10000000.",
-  "aiWriteConfirmationTimeoutMsLabel": "Délai d’approbation d’écriture (ms)",
-  "aiWriteConfirmationTimeoutMsBody": "Par défaut 300000 (5 min). Temps maximal d’attente de l’approbation utilisateur pour une commande d’écriture.",
-  "aiWriteConfirmationTimeoutMsSave": "Enregistrer le délai",
-  "aiWriteConfirmationTimeoutMsSaved": "Délai d’approbation d’écriture enregistré.",
-  "aiWriteConfirmationTimeoutMsInvalid": "Saisissez un entier entre 1000 et 3600000.",
-  "aiFastPathWriteAnalysisThresholdLabel": "Seuil d’analyse d’écriture en chemin rapide",
-  "aiFastPathWriteAnalysisThresholdBody": "Par défaut 512 caractères. Les commandes au-delà de cette longueur prennent une heuristique de chemin rapide grossière au lieu d’une analyse grammaticale complète.",
-  "aiFastPathWriteAnalysisThresholdSave": "Enregistrer le seuil",
-  "aiFastPathWriteAnalysisThresholdSaved": "Seuil de chemin rapide enregistré.",
-  "aiFastPathWriteAnalysisThresholdInvalid": "Saisissez un entier entre 0 et 100000.",
-  "aiMaxHookTextCharactersLabel": "Limite de sortie de texte Hook",
-  "aiMaxHookTextCharactersBody": "Par défaut 4000. Plafond total de caractères lorsque Claude Hook fusionne les sorties stdout/stderr.",
-  "aiMaxHookTextCharactersSave": "Enregistrer la limite",
-  "aiMaxHookTextCharactersSaved": "Limite de texte Hook enregistrée.",
-  "aiMaxHookTextCharactersInvalid": "Saisissez un entier entre 100 et 1000000.",
-  "aiAttachmentMaxInlineImageDimensionLabel": "Dimension max. d’image inline en pièce jointe",
-  "aiAttachmentMaxInlineImageDimensionBody": "Par défaut 1568. Ajustez selon vos besoins réseau ou de pièces jointes.",
-  "aiAttachmentMaxInlineImageDimensionSave": "Enregistrer",
-  "aiAttachmentMaxInlineImageDimensionSaved": "Dimension max. d’image inline en pièce jointe enregistrée.",
-  "aiAttachmentMaxInlineImageDimensionInvalid": "Saisissez un entier valide.",
-  "aiAttachmentMaxTextRawBytesLabel": "Octets bruts de texte max. en pièce jointe",
-  "aiAttachmentMaxTextRawBytesBody": "Par défaut 1597152 (~1,5 Mo). Ajustez selon vos besoins réseau ou de pièces jointes.",
-  "aiAttachmentMaxTextRawBytesSave": "Enregistrer",
-  "aiAttachmentMaxTextRawBytesSaved": "Octets bruts de texte max. en pièce jointe enregistrés.",
-  "aiAttachmentMaxTextRawBytesInvalid": "Saisissez un entier valide.",
-  "aiAttachmentMaxPdfRawBytesLabel": "Octets bruts de PDF max. en pièce jointe",
-  "aiAttachmentMaxPdfRawBytesBody": "Par défaut 1597152 (~1,5 Mo). Ajustez selon vos besoins réseau ou de pièces jointes.",
-  "aiAttachmentMaxPdfRawBytesSave": "Enregistrer",
-  "aiAttachmentMaxPdfRawBytesSaved": "Octets bruts de PDF max. en pièce jointe enregistrés.",
-  "aiAttachmentMaxPdfRawBytesInvalid": "Saisissez un entier valide.",
-  "aiAttachmentMaxImageRawBytesLabel": "Octets bruts d’image max. en pièce jointe",
-  "aiAttachmentMaxImageRawBytesBody": "Par défaut 52428800 (50 Mo). Ajustez selon vos besoins réseau ou de pièces jointes.",
-  "aiAttachmentMaxImageRawBytesSave": "Enregistrer",
-  "aiAttachmentMaxImageRawBytesSaved": "Octets bruts d’image max. en pièce jointe enregistrés.",
-  "aiAttachmentMaxImageRawBytesInvalid": "Saisissez un entier valide.",
-  "aiChatMaxStreamLineBufferBytesLabel": "Octets max. du tampon de ligne de flux Chat",
-  "aiChatMaxStreamLineBufferBytesBody": "Par défaut 4194304 (4 Mo). Ajustez selon vos besoins réseau ou de pièces jointes.",
-  "aiChatMaxStreamLineBufferBytesSave": "Enregistrer",
-  "aiChatMaxStreamLineBufferBytesSaved": "Octets max. du tampon de ligne de flux Chat enregistrés.",
-  "aiChatMaxStreamLineBufferBytesInvalid": "Saisissez un entier valide.",
-  "aiFallbackTitleMaxCharactersLabel": "Caractères max. du titre de repli",
-  "aiFallbackTitleMaxCharactersBody": "Par défaut 15. Ajuste la dérivation du titre de session.",
-  "aiFallbackTitleMaxCharactersSave": "Enregistrer",
-  "aiFallbackTitleMaxCharactersSaved": "Caractères max. du titre de repli enregistrés.",
-  "aiFallbackTitleMaxCharactersInvalid": "Saisissez un entier valide.",
-  "aiGeneratedTitleMaxCharactersLabel": "Caractères max. du titre généré",
-  "aiGeneratedTitleMaxCharactersBody": "Par défaut 15. Ajuste la dérivation du titre de session.",
-  "aiGeneratedTitleMaxCharactersSave": "Enregistrer",
-  "aiGeneratedTitleMaxCharactersSaved": "Caractères max. du titre généré enregistrés.",
-  "aiGeneratedTitleMaxCharactersInvalid": "Saisissez un entier valide.",
-  "aiMinimumMeaningfulTitleCharactersLabel": "Caractères minimum pour un titre significatif",
-  "aiMinimumMeaningfulTitleCharactersBody": "Par défaut 4. Ajuste la dérivation du titre de session.",
-  "aiMinimumMeaningfulTitleCharactersSave": "Enregistrer",
-  "aiMinimumMeaningfulTitleCharactersSaved": "Caractères minimum pour un titre significatif enregistrés.",
-  "aiMinimumMeaningfulTitleCharactersInvalid": "Saisissez un entier valide.",
-  "aiMinimumMeaningfulLatinTitleWordsLabel": "Mots minimum pour un titre latin significatif",
-  "aiMinimumMeaningfulLatinTitleWordsBody": "Par défaut 2. Ajuste la dérivation du titre de session.",
-  "aiMinimumMeaningfulLatinTitleWordsSave": "Enregistrer",
-  "aiMinimumMeaningfulLatinTitleWordsSaved": "Mots minimum pour un titre latin significatif enregistrés.",
-  "aiMinimumMeaningfulLatinTitleWordsInvalid": "Saisissez un entier valide.",
-  "aiMaxSkillContentLengthLabel": "Longueur max. du contenu du fichier de compétence",
-  "aiMaxSkillContentLengthBody": "Par défaut 100000. Ajuste la taille des documents de compétence / d’espace de travail.",
-  "aiMaxSkillContentLengthSave": "Enregistrer",
-  "aiMaxSkillContentLengthSaved": "Longueur max. du contenu du fichier de compétence enregistrée.",
-  "aiMaxSkillContentLengthInvalid": "Saisissez un entier valide.",
-  "aiMaxWorkspaceDocumentCharactersLabel": "Caractères max. du document d’espace de travail",
-  "aiMaxWorkspaceDocumentCharactersBody": "Par défaut 16000. Ajuste la taille des documents de compétence / d’espace de travail.",
-  "aiMaxWorkspaceDocumentCharactersSave": "Enregistrer",
-  "aiMaxWorkspaceDocumentCharactersSaved": "Caractères max. du document d’espace de travail enregistrés.",
-  "aiMaxWorkspaceDocumentCharactersInvalid": "Saisissez un entier valide.",
-  "aiImageSizeLimitLabel": "Limite de taille d’image",
   "aiImageSizeLimitBody": "Lorsque l’utilisateur joint une image dépassant ce plafond, OpenHand la compresse automatiquement (qualité + résolution) avant l’envoi. Accepte des valeurs décimales en Mo ; plage 0,0625 Mo (64 Ko) à 64 Mo.",
   "aiImageSizeLimitFieldLabel": "Limite (Mo)",
   "aiImageSizeLimitSave": "Enregistrer la limite",
@@ -2302,7 +2167,6 @@
   "tokenPopupCostCacheWrite": "Écriture du cache",
   "tokenPopupCostTotal": "Total",
   "tokenDialUnit": "Jeton",
-  "tokenDialTotal": "Total",
   "tokenPopupInputHeading": "Entrée",
   "tokenPopupPrompt": "Invite",
   "tokenPopupCacheRead": "Lecture du cache",
@@ -2318,7 +2182,6 @@
   "tokenPopupPromptChars": "Caractères d'invite",
   "tokenPopupCacheHitModeExcludeExpired": "Sans anomalies expirées",
   "tokenPopupCacheHitModeIncludeExpired": "Avec anomalies expirées",
-  "tokenPopupFirstRequestIgnored": "Première requête ignorée",
   "tokenPopupExcludedRounds": "{count} exclues",
   "@tokenPopupExcludedRounds": {
     "placeholders": {
@@ -2468,15 +2331,6 @@
   "toolSearchLoadedHistoryImportDialogTitle": "Aperçu de l’import d’historique ToolSearch",
   "@toolSearchLoadedHistoryImportDialogTitle": {
     "description": "Title of the preview dialog shown after a successful JSON import."
-  },
-  "toolSearchLoadedHistoryImportDialogParseFailed": "Échec de l’analyse JSON : {error}",
-  "@toolSearchLoadedHistoryImportDialogParseFailed": {
-    "description": "Snackbar/error text when JSON cannot be parsed.",
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
   },
   "toolSearchLoadedHistoryImportDialogCount": "{count, plural, =0{aucune entrée} =1{1 entrée} other{{count} entrées}}",
   "@toolSearchLoadedHistoryImportDialogCount": {
@@ -2633,13 +2487,6 @@
   "tlCallThereIsNoToolOutputYet": "Aucune sortie d’outil pour l’instant.",
   "tlCallViewInDialog": "Afficher dans la boîte de dialogue",
   "tlCallEmptyContent": "Contenu vide",
-  "tlCallWrite": "Écrire",
-  "tlCallEdit": "Modifier",
-  "tlCallMultiEdit": "Édition multiple",
-  "tlCallNotebookEdit": "Édition de notebook",
-  "tlCallBashWrite": "Écriture Bash",
-  "tlCallFileChanged": "Fichier modifié",
-  "tlCallChangedFile": "Fichier modifié",
   "fileMutationSection": "Modifications de fichiers",
   "fileMutationFilesChanged": "{count, plural, =1{1 fichier modifié} other{{count} fichiers modifiés}}",
   "@fileMutationFilesChanged": {
@@ -2686,8 +2533,6 @@
   "fileMutationUndoFailed": "Échec de l'annulation",
   "fileMutationRedoFailed": "Échec du rétablissement",
   "fileMutationSnapshotUnavailable": "Instantané du contenu indisponible",
-  "dataCleanupFileMutationLedgerTitle": "Journal des modifications de fichiers",
-  "dataCleanupFileMutationLedgerSubtitle": "Journal des modifications de fichiers sous ~/.openhand/file_history/ (blobs avant/après + jsonl). Après le nettoyage, les cartes historiques peuvent ne plus exposer les contrôles d'annulation.",
   "tlCallTool": "Outil",
   "tlCallSkill": "Compétence",
   "tlCallStopped": "Arrêté",
@@ -3178,14 +3023,6 @@
   "tlCallWrapLines": "Renvoyer les lignes à la ligne",
   "tlCallViewCompressedContent": "Voir le contenu compressé",
   "tlCallViewFullContent": "Voir le contenu complet",
-  "tlCallMultiEditEditcount": "Édition multiple ×{editCount}",
-  "@tlCallMultiEditEditcount": {
-    "placeholders": {
-      "editCount": {
-        "type": "Object"
-      }
-    }
-  },
   "tlCallPreparing": "Préparation",
   "tlCallPreparingAlt": "Préparation",
   "tlCallRunningAlt": "En cours",
@@ -7264,24 +7101,12 @@
   "@agentsSubtitle": {
     "description": "OpenHand localized UI text."
   },
-  "agentsOpenFolder": "Ouvrir le dossier",
-  "@agentsOpenFolder": {
-    "description": "OpenHand localized UI text."
-  },
   "agentsCreateAgent": "Créer un agent",
   "@agentsCreateAgent": {
     "description": "OpenHand localized UI text."
   },
   "agentsEditAgent": "Modifier l’agent",
   "@agentsEditAgent": {
-    "description": "OpenHand localized UI text."
-  },
-  "agentsWorkspaceTitle": "Espace Hermes Agent",
-  "@agentsWorkspaceTitle": {
-    "description": "OpenHand localized UI text."
-  },
-  "agentsWorkspaceBody": "Les agents activés exposent la publication, le suivi et les résultats des tâches ; configurez ici le périmètre, les droits, le cluster et la gouvernance.",
-  "@agentsWorkspaceBody": {
     "description": "OpenHand localized UI text."
   },
   "agentsLoadFailed": "Échec du chargement des agents",
@@ -7350,10 +7175,6 @@
   },
   "agentsResources": "Ressources",
   "@agentsResources": {
-    "description": "OpenHand localized UI text."
-  },
-  "agentsEditConfig": "Modifier",
-  "@agentsEditConfig": {
     "description": "OpenHand localized UI text."
   },
   "agentsDeleteAgent": "Supprimer l’agent",
@@ -7745,10 +7566,6 @@
   "@agentsTaskLabelsLabel": {
     "description": "OpenHand localized UI text."
   },
-  "agentsCommaSeparatedHint": "Séparé par des virgules",
-  "@agentsCommaSeparatedHint": {
-    "description": "OpenHand localized UI text."
-  },
   "agentsFieldName": "Nom",
   "@agentsFieldName": {
     "description": "OpenHand localized UI text."
@@ -7757,16 +7574,8 @@
   "@agentsFieldTarget": {
     "description": "OpenHand localized UI text."
   },
-  "agentsMetadataJsonLabel": "JSON des métadonnées",
-  "@agentsMetadataJsonLabel": {
-    "description": "OpenHand localized UI text."
-  },
   "agentsMetadataInfoTitle": "Métadonnées de droits et profil",
   "@agentsMetadataInfoTitle": {
-    "description": "OpenHand localized UI text."
-  },
-  "agentsMetadataInfoBody": "Les champs d’extension sont ici. Un JSON invalide affiche une erreur et conserve vos modifications.",
-  "@agentsMetadataInfoBody": {
     "description": "OpenHand localized UI text."
   },
   "agentsNoOptionsAvailable": "Aucune option disponible.",
@@ -8076,66 +7885,6 @@
   },
   "memoryTitleHint": "Résumez ce souvenir en une phrase ; laissez vide pour utiliser l’aperçu du contenu",
   "@memoryTitleHint": {
-    "description": "OpenHand localized UI text."
-  },
-  "machineExpertDialogTitle": "Modèle Expert machine",
-  "@machineExpertDialogTitle": {
-    "description": "OpenHand localized UI text."
-  },
-  "machineExpertDialogBody": "Choisissez la fenêtre de terminal cible et la tâche. Expert machine exécutera les commandes dans cet espace.",
-  "@machineExpertDialogBody": {
-    "description": "OpenHand localized UI text."
-  },
-  "machineExpertTerminalProgram": "Terminal",
-  "@machineExpertTerminalProgram": {
-    "description": "OpenHand localized UI text."
-  },
-  "machineExpertWindow": "Fenêtre",
-  "@machineExpertWindow": {
-    "description": "OpenHand localized UI text."
-  },
-  "machineExpertTab": "Onglet",
-  "@machineExpertTab": {
-    "description": "OpenHand localized UI text."
-  },
-  "machineExpertSession": "Session",
-  "@machineExpertSession": {
-    "description": "OpenHand localized UI text."
-  },
-  "machineExpertModelOptional": "Modèle (facultatif)",
-  "@machineExpertModelOptional": {
-    "description": "OpenHand localized UI text."
-  },
-  "machineExpertModelChoose": "Touchez pour choisir un modèle",
-  "@machineExpertModelChoose": {
-    "description": "OpenHand localized UI text."
-  },
-  "machineExpertModelNotConfiguredDefault": "Aucun modèle configuré ; le modèle par défaut actuel sera utilisé",
-  "@machineExpertModelNotConfiguredDefault": {
-    "description": "OpenHand localized UI text."
-  },
-  "machineExpertModelHelperWithModels": "S’applique uniquement à cette nouvelle session Expert machine. Sans sélection, le modèle actif est conservé.",
-  "@machineExpertModelHelperWithModels": {
-    "description": "OpenHand localized UI text."
-  },
-  "machineExpertModelHelperNoModels": "Aucun modèle n’est configuré dans les réglages. Cette session utilisera le modèle actif par défaut.",
-  "@machineExpertModelHelperNoModels": {
-    "description": "OpenHand localized UI text."
-  },
-  "machineExpertTaskRequirement": "Besoin de tâche",
-  "@machineExpertTaskRequirement": {
-    "description": "OpenHand localized UI text."
-  },
-  "machineExpertTaskRequirementHint": "Décrivez la tâche : lister les fichiers du dossier courant, compiler le projet, déployer sur un serveur distant...",
-  "@machineExpertTaskRequirementHint": {
-    "description": "OpenHand localized UI text."
-  },
-  "machineExpertTaskRequirementHelper": "Expert machine exécutera de façon interactive à partir de cette demande et du contexte terminal.",
-  "@machineExpertTaskRequirementHelper": {
-    "description": "OpenHand localized UI text."
-  },
-  "machineExpertStartExecution": "Démarrer",
-  "@machineExpertStartExecution": {
     "description": "OpenHand localized UI text."
   },
   "commonRetry": "Réessayer",

@@ -13,10 +13,6 @@ int? validTcpPort(int? port) {
   return isValidTcpPort(port) ? port : null;
 }
 
-int tcpPortOr(int? port, {required int fallback}) {
-  return validTcpPort(port) ?? fallback;
-}
-
 int clampTcpPort(int port) {
   return port.clamp(kTcpPortMin, kTcpPortMax).toInt();
 }

@@ -1103,8 +1103,7 @@ class SettingsStore {
       aiStreamThrottleCloudSyncEndpoint: aiStreamThrottleCloudSyncEndpoint,
       aiStreamThrottleCloudSyncToken: aiStreamThrottleCloudSyncToken,
       aiStreamThrottleConfigUpdatedAtMs: aiStreamThrottleConfigUpdatedAtMs,
-      // v3 schema 起，`aiStreamThrottleTemplateOverrides`
-      // 字段已从 AppSettingsSnapshot 上移除（task 4.1），此处不再透传。
+      // 模板级节流覆盖已从设置模型移除；会话覆盖由会话元数据管理。
       aiAutoTitleEnabled: aiAutoTitleEnabled,
       aiAutoTitleFetchMode: aiAutoTitleFetchMode,
       aiDefaultSessionMode: aiDefaultSessionMode,
