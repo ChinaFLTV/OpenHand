@@ -48,6 +48,7 @@ import '../../../shared/ui/micro_press_feedback.dart';
 import '../../../shared/ui/model_search_selector.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_clipboard.dart';
+import '../../../shared/ui/openhand_deferred_slider.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
@@ -2430,7 +2431,7 @@ class _SettingsViewState extends State<SettingsView> {
                 control: Row(
                   children: [
                     Expanded(
-                      child: Slider(
+                      child: OpenHandDeferredSlider(
                         value: settingsController.aiAutoTitleMaxRetryCount
                             .toDouble(),
                         min: AppSettingsSnapshot.minAiAutoTitleMaxRetryCount
@@ -2440,7 +2441,7 @@ class _SettingsViewState extends State<SettingsView> {
                         divisions:
                             AppSettingsSnapshot.maxAiAutoTitleMaxRetryCount -
                             AppSettingsSnapshot.minAiAutoTitleMaxRetryCount,
-                        onChanged: (value) => settingsController
+                        onCommit: (value) => settingsController
                             .updateAiAutoTitleMaxRetryCount(value.round()),
                       ),
                     ),
@@ -3447,13 +3448,13 @@ class _SettingsViewState extends State<SettingsView> {
           )!.settingsRetentionWindowRetentionDayS(retention),
           style: Theme.of(context).textTheme.bodyMedium,
         ),
-        Slider(
+        OpenHandDeferredSlider(
           min: minR.toDouble(),
-          max: 30,
-          divisions: 29,
-          value: retention.clamp(minR, 30).toDouble(),
-          label: '$retention',
-          onChanged: enabled
+          max: maxR.toDouble(),
+          divisions: maxR - minR,
+          value: retention.clamp(minR, maxR).toDouble(),
+          labelBuilder: (value) => '${value.round()}',
+          onCommit: enabled
               ? (value) async {
                   final saved = await settingsController
                       .updateCronAutoCleanupRetentionDays(value.round());
@@ -3511,13 +3512,13 @@ class _SettingsViewState extends State<SettingsView> {
           )!.settingsConcurrentWorkersConcurrency(concurrency),
           style: Theme.of(context).textTheme.bodyMedium,
         ),
-        Slider(
+        OpenHandDeferredSlider(
           min: minC.toDouble(),
           max: maxC.toDouble(),
           divisions: maxC - minC,
           value: concurrency.toDouble(),
-          label: '$concurrency',
-          onChanged: enabled
+          labelBuilder: (value) => '${value.round()}',
+          onCommit: enabled
               ? (value) async {
                   final saved = await settingsController
                       .updateSelfLearningConcurrency(value.round());
@@ -3539,7 +3540,7 @@ class _SettingsViewState extends State<SettingsView> {
           AppLocalizations.of(context)!.selfLearningFlushIntervalLabel(flushMs),
           style: Theme.of(context).textTheme.bodyMedium,
         ),
-        Slider(
+        OpenHandDeferredSlider(
           min: minFlushMs.toDouble(),
           max: maxFlushMs.toDouble(),
           divisions: ((maxFlushMs - minFlushMs) ~/ 100),
@@ -3547,8 +3548,8 @@ class _SettingsViewState extends State<SettingsView> {
             minFlushMs.toDouble(),
             maxFlushMs.toDouble(),
           ),
-          label: '${flushMs}ms',
-          onChanged: (value) async {
+          labelBuilder: (value) => '${value.round()}ms',
+          onCommit: (value) async {
             final saved = await settingsController
                 .updateSelfLearningStreamFlushIntervalMs(value.round());
             if (!context.mounted || saved) return;
@@ -4311,13 +4312,13 @@ class _SettingsViewState extends State<SettingsView> {
               if (!context.mounted || saved) return;
               _showPersistenceFailureSnackBar(context);
             },
-            buildSlider: (context, value) => Slider(
+            buildSlider: (context, value) => OpenHandDeferredSlider(
               min: minCap.toDouble(),
               max: maxCap.toDouble(),
               divisions: maxCap - minCap,
               value: value.clamp(minCap, maxCap).toDouble(),
-              label: '$value',
-              onChanged: (v) async {
+              labelBuilder: (current) => '${current.round()}',
+              onCommit: (v) async {
                 final saved = await settingsController
                     .updateHarnessToolSearchHistoryMaxPhases(v.round());
                 if (!context.mounted || saved) return;
@@ -4391,13 +4392,13 @@ class _SettingsViewState extends State<SettingsView> {
               if (!context.mounted || saved) return;
               _showPersistenceFailureSnackBar(context);
             },
-            buildSlider: (context, value) => Slider(
+            buildSlider: (context, value) => OpenHandDeferredSlider(
               min: minSec.toDouble(),
               max: maxSec.toDouble(),
               divisions: maxSec - minSec,
               value: value.clamp(minSec, maxSec).toDouble(),
-              label: '${value}s',
-              onChanged: (v) async {
+              labelBuilder: (current) => '${current.round()}s',
+              onCommit: (v) async {
                 final saved = await settingsController
                     .updateToolSearchReplayCancelWindowSeconds(v.round());
                 if (!context.mounted || saved) return;

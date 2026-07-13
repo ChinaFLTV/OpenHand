@@ -667,6 +667,7 @@ class SettingsController extends ChangeNotifier {
 
   @override
   void dispose() {
+    if (_isDisposed) return;
     _isDisposed = true;
     _saveSuccessSignal.dispose();
     super.dispose();
@@ -3027,6 +3028,7 @@ class SettingsController extends ChangeNotifier {
   }
 
   Future<bool> _commitMutation(_MutationDisposition Function() mutation) async {
+    if (_isDisposed) return false;
     final completer = Completer<bool>();
     _mutationQueue = _mutationQueue
         .catchError((Object error, StackTrace stack) {
@@ -3039,6 +3041,10 @@ class SettingsController extends ChangeNotifier {
         })
         .then((_) async {
           try {
+            if (_isDisposed) {
+              completer.complete(false);
+              return;
+            }
             final previousSnapshot = _snapshot();
             final disposition = mutation();
             if (disposition == _MutationDisposition.successNoChange) {
@@ -3060,7 +3066,9 @@ class SettingsController extends ChangeNotifier {
               // so subscribed surfaces (currently the settings panel) can
               // flash a soft confirmation without each `_save*` call site
               // needing its own per-row notifier.
-              _saveSuccessSignal.value = _saveSuccessSignal.value + 1;
+              if (!_isDisposed) {
+                _saveSuccessSignal.value = _saveSuccessSignal.value + 1;
+              }
               completer.complete(true);
             } catch (error) {
               try {

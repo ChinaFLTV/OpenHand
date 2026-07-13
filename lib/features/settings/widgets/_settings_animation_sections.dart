@@ -249,7 +249,7 @@ class _AnimationSettingsControl extends StatelessWidget {
               child: Row(
                 children: [
                   Expanded(
-                    child: Slider(
+                    child: OpenHandDeferredSlider(
                       value: current.configuredDurationMs.toDouble(),
                       min: DialogAnimationSettings.minAnimatedDurationMs
                           .toDouble(),
@@ -258,8 +258,8 @@ class _AnimationSettingsControl extends StatelessWidget {
                           (DialogAnimationSettings.maxDurationMs -
                               DialogAnimationSettings.minAnimatedDurationMs) ~/
                           40,
-                      label: '${current.configuredDurationMs}ms',
-                      onChanged: (value) {
+                      labelBuilder: (value) => '${value.round()}ms',
+                      onCommit: (value) {
                         onChanged(current.copyWith(durationMs: value.round()));
                       },
                     ),
