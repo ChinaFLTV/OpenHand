@@ -4,6 +4,8 @@ import 'package:path/path.dart' as p;
 
 import '../../../app/support/openhand_paths.dart';
 import '../../../shared/db/atomic_file_operations.dart';
+import '../../../shared/util/bounded_file_io.dart';
+import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../model/agent_models.dart';
 
@@ -18,6 +20,7 @@ class AgentsStore {
           );
 
   static const String _rootKey = 'agents';
+  static const int _maxStoreBytes = 32 * kBytesPerMiB;
 
   final String _filePath;
 
@@ -30,7 +33,7 @@ class AgentsStore {
       await save(const <AgentProfile>[]);
       return const <AgentProfile>[];
     }
-    final raw = await file.readAsString();
+    final raw = await readBoundedFileString(file, maxBytes: _maxStoreBytes);
     final decoded = optionalStringKeyedMapFromJsonText(raw);
     if (decoded == null) {
       final backup = File(
@@ -57,11 +60,9 @@ class AgentsStore {
     if (!await file.parent.exists()) {
       await file.parent.create(recursive: true);
     }
-    final content = prettyPrintJson(
-      <String, Object?>{
-        _rootKey: agents.map((agent) => agent.toJson()).toList(growable: false),
-      },
-    );
+    final content = prettyPrintJson(<String, Object?>{
+      _rootKey: agents.map((agent) => agent.toJson()).toList(growable: false),
+    });
     await writeFileAtomically(file, '$content\n');
   }
 }

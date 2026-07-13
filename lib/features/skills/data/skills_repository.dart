@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:collection';
 import 'dart:io';
 
 import 'package:archive/archive.dart';
@@ -9,6 +11,8 @@ import 'package:yaml/yaml.dart';
 import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../shared/db/atomic_file_operations.dart';
+import '../../../shared/util/bounded_file_io.dart';
+import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/directory_cleanup.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/path_safety.dart';
@@ -27,6 +31,13 @@ class SkillsRepository {
   static const String _generatedImageIconFileName = 'skill-icon.png';
   static const int _maxArchiveEntries = 2000;
   static const int _maxExtractedArchiveBytes = 160 * 1024 * 1024;
+  static const int _maxInstalledSkillScanEntries = 20000;
+  static const int _maxSkillScanDepth = 32;
+  static const Duration _skillScanIdleTimeout = Duration(seconds: 3);
+  static const Duration _skillScanTotalTimeout = Duration(seconds: 20);
+  static const int _maxManifestBytes = 2 * kBytesPerMiB;
+  static const int _maxMetadataBytes = 512 * kBytesPerKiB;
+  static const int _maxOptionalAssetBytes = 32 * kBytesPerMiB;
   static final RegExp _whitespacePattern = RegExp(r'\s+');
   static final RegExp _windowsDrivePrefixPattern = RegExp(r'^[a-zA-Z]:');
   static final RegExp _titleSegmentSeparatorPattern = RegExp(r'[-_]+');
@@ -43,50 +54,25 @@ class SkillsRepository {
 
   Future<List<LocalSkill>> loadInstalledSkills(String storagePath) async {
     final directory = await ensureStorageDirectory(storagePath);
-    final skillFiles = await directory
-        .list(recursive: true, followLinks: false)
-        .where(
-          (entity) =>
-              entity is File && p.basename(entity.path) == _manifestFileName,
-        )
-        .cast<File>()
-        .toList();
-    skillFiles.sort((left, right) {
-      final normalizedLeftDirectory = p.normalize(left.parent.path);
-      final normalizedRightDirectory = p.normalize(right.parent.path);
-      final depthComparison = p
-          .split(normalizedLeftDirectory)
-          .length
-          .compareTo(p.split(normalizedRightDirectory).length);
-      if (depthComparison != 0) {
-        return depthComparison;
-      }
-      return normalizedLeftDirectory.compareTo(normalizedRightDirectory);
-    });
-
     final skills = <LocalSkill>[];
-    final loadedSkillDirectories = <String>{};
-    for (final file in skillFiles) {
-      final normalizedDirectoryPath = p.normalize(file.parent.path);
-      if (_isNestedUnderLoadedSkill(
-        normalizedDirectoryPath,
-        loadedSkillDirectories,
-      )) {
-        continue;
-      }
-      try {
-        skills.add(await _parseSkill(file, storagePath));
-        loadedSkillDirectories.add(normalizedDirectoryPath);
-      } catch (error, stack) {
-        silentLog(
-          'skills_repository',
-          'parse installed skill ${file.path}',
-          error,
-          stack,
-        );
-        continue;
-      }
-    }
+    await _scanSkillManifests(
+      directory,
+      maxEntries: _maxInstalledSkillScanEntries,
+      acceptManifest: (file) async {
+        try {
+          skills.add(await _parseSkill(file, storagePath));
+          return true;
+        } catch (error, stack) {
+          silentLog(
+            'skills_repository',
+            'parse installed skill ${file.path}',
+            error,
+            stack,
+          );
+          return false;
+        }
+      },
+    );
 
     skills.sort(
       (left, right) =>
@@ -264,7 +250,10 @@ class SkillsRepository {
   }
 
   Future<String> readSkillManifest(LocalSkill skill) {
-    return File(skill.manifestPath).readAsString();
+    return readBoundedFileString(
+      File(skill.manifestPath),
+      maxBytes: _maxManifestBytes,
+    );
   }
 
   Future<LocalSkill> updateSkillManifest(
@@ -283,7 +272,10 @@ class SkillsRepository {
       skillDirectoryPath,
       _openAiMetadataRelativePath,
     );
-    final previousManifestContent = await manifestFile.readAsString();
+    final previousManifestContent = await readBoundedFileString(
+      manifestFile,
+      maxBytes: _maxManifestBytes,
+    );
     final previousMetadataBytes = await _readOptionalFileBytes(metadataPath);
 
     try {
@@ -361,7 +353,10 @@ class SkillsRepository {
       _openAiAssetsRelativePath,
       _generatedImageIconFileName,
     );
-    final previousManifestContent = await manifestFile.readAsString();
+    final previousManifestContent = await readBoundedFileString(
+      manifestFile,
+      maxBytes: _maxManifestBytes,
+    );
     final previousMetadataBytes = await _readOptionalFileBytes(metadataPath);
     final previousEmojiIconBytes = await _readOptionalFileBytes(
       generatedEmojiIconPath,
@@ -444,7 +439,10 @@ class SkillsRepository {
   }
 
   Future<LocalSkill> _parseSkill(File manifestFile, String storagePath) async {
-    final lines = await manifestFile.readAsLines();
+    final lines = (await readBoundedFileString(
+      manifestFile,
+      maxBytes: _maxManifestBytes,
+    )).split('\n');
     final metadata = _extractFrontMatter(lines);
     final directoryPath = manifestFile.parent.path;
     final relativeDirectoryPath = p.relative(directoryPath, from: storagePath);
@@ -556,7 +554,10 @@ class SkillsRepository {
     }
 
     try {
-      final rawContent = await metadataFile.readAsString();
+      final rawContent = await readBoundedFileString(
+        metadataFile,
+        maxBytes: _maxMetadataBytes,
+      );
       final decoded = loadYaml(rawContent);
       if (decoded is! YamlMap) {
         return null;
@@ -1083,30 +1084,84 @@ class SkillsRepository {
   }
 
   Future<File?> _findFirstSkillManifest(Directory directory) async {
-    final manifests = await directory
-        .list(recursive: true, followLinks: false)
-        .where(
-          (entity) =>
-              entity is File && p.basename(entity.path) == _manifestFileName,
-        )
-        .cast<File>()
-        .toList();
-    if (manifests.isEmpty) {
-      return null;
-    }
-    manifests.sort((left, right) {
-      final leftDirectory = p.normalize(left.parent.path);
-      final rightDirectory = p.normalize(right.parent.path);
-      final depthComparison = p
-          .split(leftDirectory)
-          .length
-          .compareTo(p.split(rightDirectory).length);
-      if (depthComparison != 0) {
-        return depthComparison;
+    final manifests = await _scanSkillManifests(
+      directory,
+      maxEntries: _maxArchiveEntries,
+    );
+    return manifests.isEmpty ? null : manifests.first;
+  }
+
+  Future<List<File>> _scanSkillManifests(
+    Directory root, {
+    required int maxEntries,
+    Future<bool> Function(File manifest)? acceptManifest,
+  }) async {
+    final pending = Queue<({Directory directory, int depth})>()
+      ..add((directory: root, depth: 0));
+    final manifests = <File>[];
+    final stopwatch = Stopwatch()..start();
+    var visitedEntries = 0;
+
+    void checkTotalTimeout() {
+      if (stopwatch.elapsed >= _skillScanTotalTimeout) {
+        throw TimeoutException(
+          'Skill directory scan exceeded its total time limit.',
+          _skillScanTotalTimeout,
+        );
       }
-      return leftDirectory.compareTo(rightDirectory);
-    });
-    return manifests.first;
+    }
+
+    try {
+      while (pending.isNotEmpty) {
+        checkTotalTimeout();
+        final node = pending.removeFirst();
+        final childDirectories = <Directory>[];
+        File? manifest;
+        await for (final entity
+            in node.directory
+                .list(followLinks: false)
+                .timeout(_skillScanIdleTimeout)) {
+          checkTotalTimeout();
+          visitedEntries += 1;
+          if (visitedEntries > maxEntries) {
+            throw FileSystemException(
+              'Skill directory exceeds the $maxEntries entry scan limit.',
+              root.path,
+            );
+          }
+          if (entity is File && p.basename(entity.path) == _manifestFileName) {
+            manifest = entity;
+          } else if (entity is Directory) {
+            childDirectories.add(entity);
+          }
+        }
+        if (manifest != null) {
+          final accepted =
+              acceptManifest == null || await acceptManifest(manifest);
+          checkTotalTimeout();
+          if (accepted) {
+            manifests.add(manifest);
+            continue;
+          }
+        }
+        if (childDirectories.isNotEmpty && node.depth >= _maxSkillScanDepth) {
+          throw FileSystemException(
+            'Skill directory exceeds the $_maxSkillScanDepth level depth limit.',
+            node.directory.path,
+          );
+        }
+        childDirectories.sort(
+          (left, right) =>
+              p.normalize(left.path).compareTo(p.normalize(right.path)),
+        );
+        for (final child in childDirectories) {
+          pending.add((directory: child, depth: node.depth + 1));
+        }
+      }
+      return manifests;
+    } finally {
+      stopwatch.stop();
+    }
   }
 
   Future<void> _deleteDirectoryIfExists(Directory directory) async {
@@ -1122,24 +1177,17 @@ class SkillsRepository {
     }
   }
 
-  bool _isNestedUnderLoadedSkill(
-    String directoryPath,
-    Set<String> loadedSkillDirectories,
-  ) {
-    for (final loadedSkillDirectory in loadedSkillDirectories) {
-      if (isPathWithinOrEqual(loadedSkillDirectory, directoryPath)) {
-        return true;
-      }
-    }
-    return false;
-  }
-
   Future<Uint8List?> _readOptionalFileBytes(String filePath) async {
     final file = File(filePath);
     if (!await file.exists()) {
       return null;
     }
-    return Uint8List.fromList(await file.readAsBytes());
+    return readBoundedFileBytes(
+      file,
+      maxBytes: _maxOptionalAssetBytes,
+      idleTimeout: defaultBoundedFileReadIdleTimeout,
+      totalTimeout: defaultBoundedFileReadTotalTimeout,
+    );
   }
 
   Future<void> _restoreOptionalFile(

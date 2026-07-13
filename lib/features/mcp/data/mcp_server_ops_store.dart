@@ -3,7 +3,10 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 
 import '../../../shared/db/atomic_file_operations.dart';
+import '../../../shared/util/bounded_file_io.dart';
+import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
+import '../../../shared/util/serial_task_queue.dart';
 import '../model/mcp_server_ops.dart';
 
 class McpServerOpsStore {
@@ -13,9 +16,10 @@ class McpServerOpsStore {
   static const String _configKey = 'config';
   static const String _runtimeKey = 'runtime';
   static const String _updatedAtKey = 'updated_at';
+  static const int _maxStoreBytes = 16 * kBytesPerMiB;
 
   final String _filePath;
-  Future<void> _writeQueue = Future<void>.value();
+  final SerialTaskQueue _writeQueue = SerialTaskQueue();
 
   String get filePath => _filePath;
 
@@ -87,9 +91,7 @@ class McpServerOpsStore {
   }
 
   Future<T> _enqueueWrite<T>(Future<T> Function() task) {
-    final next = _writeQueue.then((_) => task());
-    _writeQueue = next.then<void>((_) {}, onError: (_, _) {});
-    return next;
+    return _writeQueue.enqueue(task);
   }
 
   Future<Map<String, Object?>?> _readRoot() async {
@@ -101,7 +103,7 @@ class McpServerOpsStore {
     if (!await file.exists()) {
       return null;
     }
-    final raw = await file.readAsString();
+    final raw = await readBoundedFileString(file, maxBytes: _maxStoreBytes);
     return optionalStringKeyedMapFromJsonText(raw);
   }
 

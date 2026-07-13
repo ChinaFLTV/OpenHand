@@ -15,6 +15,7 @@ import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/path_safety.dart';
 import '../../../shared/util/physical_path_safety.dart';
+import '../../../shared/util/serial_task_queue.dart';
 import '../model/mcp_http_headers.dart';
 import '../model/mcp_server_ops.dart';
 import 'mcp_ops_endpoint.dart';
@@ -327,6 +328,7 @@ class McpServerOpsRuntime {
   static const String _protocolVersion = '2025-11-25';
   static const String _serverName = 'OpenHand MCP Server';
   static const String _serverVersion = '1.0.0';
+  static const Duration _startupTimeout = Duration(seconds: 10);
   static const Duration _shutdownTimeout = Duration(seconds: 5);
   static const Duration _connectivityTimeout = Duration(seconds: 3);
   static const int _maxConnectivityResponseBytes = 1024 * 1024;
@@ -359,7 +361,7 @@ class McpServerOpsRuntime {
   HttpServer? _server;
   McpOpsConfig _config = const McpOpsConfig();
   McpOpsRuntimeSnapshot _snapshot = const McpOpsRuntimeSnapshot();
-  Future<void>? _lifecycleTask;
+  final SerialTaskQueue _lifecycleQueue = SerialTaskQueue();
   final List<DateTime> _requestTimes = <DateTime>[];
   final List<int> _latencies = <int>[];
   final Set<Object> _activeRequestTokens = <Object>{};
@@ -487,11 +489,17 @@ class McpServerOpsRuntime {
       final handler = const shelf.Pipeline()
           .addMiddleware(_telemetryMiddleware())
           .addHandler(router.call);
-      _server = await shelf_io.serve(
+      final serverFuture = shelf_io.serve(
         handler,
         mcpOpsListenAddress(config.listenHost),
         config.listenPort,
       );
+      try {
+        _server = await serverFuture.timeout(_startupTimeout);
+      } on TimeoutException {
+        unawaited(_closeLateServer(serverFuture));
+        rethrow;
+      }
       final bound = _server!;
       _setSnapshot(
         _snapshot.copyWith(
@@ -584,21 +592,16 @@ class McpServerOpsRuntime {
     return normalized;
   }
 
-  Future<void> _runLifecycleLocked(Future<void> Function() action) async {
-    while (_lifecycleTask != null) {
-      await _lifecycleTask;
-    }
-    final completer = Completer<void>();
-    _lifecycleTask = completer.future;
+  Future<void> _runLifecycleLocked(Future<void> Function() action) {
+    return _lifecycleQueue.enqueue(action);
+  }
+
+  Future<void> _closeLateServer(Future<HttpServer> serverFuture) async {
     try {
-      await action();
-    } finally {
-      if (identical(_lifecycleTask, completer.future)) {
-        _lifecycleTask = null;
-      }
-      if (!completer.isCompleted) {
-        completer.complete();
-      }
+      final server = await serverFuture;
+      await server.close(force: true).timeout(_shutdownTimeout);
+    } catch (_) {
+      // The startup caller has already received its primary timeout failure.
     }
   }
 

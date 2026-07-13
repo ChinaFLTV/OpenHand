@@ -5,6 +5,8 @@ import 'package:path/path.dart' as p;
 import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/url_validation.dart';
 import '../../../shared/db/atomic_file_operations.dart';
+import '../../../shared/util/bounded_file_io.dart';
+import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../model/mcp_http_headers.dart';
 import '../model/mcp_server.dart';
@@ -40,6 +42,7 @@ class McpStore {
           serversFilePath ?? OpenHandPaths.defaultMcpServersFilePath();
 
   static const String _serversRootKey = 'mcpServers';
+  static const int _maxServersFileBytes = 4 * kBytesPerMiB;
 
   final String _serversFilePath;
 
@@ -69,7 +72,10 @@ class McpStore {
 
     late final String rawContent;
     try {
-      rawContent = await targetFile.readAsString();
+      rawContent = await readBoundedFileString(
+        targetFile,
+        maxBytes: _maxServersFileBytes,
+      );
     } catch (error) {
       return McpLoadResult(
         servers: const <McpServer>[],

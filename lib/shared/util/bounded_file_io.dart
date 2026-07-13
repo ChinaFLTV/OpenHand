@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -6,6 +7,8 @@ import 'byte_size_format.dart';
 
 const int _boundedFileReadChunkBytes = 64 * 1024;
 const Duration _boundedFileCleanupTimeout = Duration(seconds: 2);
+const Duration defaultBoundedFileReadIdleTimeout = Duration(seconds: 3);
+const Duration defaultBoundedFileReadTotalTimeout = Duration(seconds: 10);
 const int _posixFileTypeMask = 0xF000;
 const int _posixRegularFileType = 0x8000;
 
@@ -297,6 +300,28 @@ Future<Uint8List> readBoundedFileBytes(
     stopwatch.stop();
     await lease?.cleanup();
   }
+}
+
+/// Reads and decodes a bounded text file without first allowing an arbitrary
+/// file to be retained in memory by [File.readAsString].
+Future<String> readBoundedFileString(
+  File file, {
+  required int maxBytes,
+  Duration idleTimeout = defaultBoundedFileReadIdleTimeout,
+  Duration totalTimeout = defaultBoundedFileReadTotalTimeout,
+  Encoding encoding = utf8,
+  bool verifyUnchanged = true,
+  BoundedFileHandleOwner? handleOwner,
+}) async {
+  final bytes = await readBoundedFileBytes(
+    file,
+    maxBytes: maxBytes,
+    idleTimeout: idleTimeout,
+    totalTimeout: totalTimeout,
+    verifyUnchanged: verifyUnchanged,
+    handleOwner: handleOwner,
+  );
+  return encoding.decode(bytes);
 }
 
 /// Distinguishes regular files from FIFOs/devices on POSIX while preserving

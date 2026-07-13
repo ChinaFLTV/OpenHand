@@ -6,6 +6,8 @@ import 'package:path/path.dart' as p;
 import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../shared/db/atomic_file_operations.dart';
+import '../../../shared/util/bounded_file_io.dart';
+import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../model/web_gateway_runtime.dart';
 
@@ -26,6 +28,7 @@ class WebGatewayOpsStore {
   static const String _logsKey = 'logs';
   static const String _cleanupHistoryKey = 'cleanup_history';
   static const String _updatedAtKey = 'updated_at';
+  static const int _maxStoreBytes = 32 * kBytesPerMiB;
 
   final String filePath;
 
@@ -37,7 +40,7 @@ class WebGatewayOpsStore {
     }
     try {
       final decoded = optionalStringKeyedMapFromJsonText(
-        await file.readAsString(),
+        await readBoundedFileString(file, maxBytes: _maxStoreBytes),
       );
       if (decoded == null) {
         return const WebGatewayOpsHistoryData();

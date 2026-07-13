@@ -5,6 +5,8 @@ import 'package:path/path.dart' as p;
 import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../shared/db/atomic_file_operations.dart';
+import '../../../shared/util/bounded_file_io.dart';
+import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../model/web_message_platform_config.dart';
 
@@ -17,6 +19,8 @@ class MessageGatewayStore {
             'web_message_platform.json',
           );
 
+  static const int _maxConfigFileBytes = 4 * kBytesPerMiB;
+
   final String filePath;
 
   Future<WebMessagePlatformConfig> load() async {
@@ -26,7 +30,10 @@ class MessageGatewayStore {
       return const WebMessagePlatformConfig();
     }
     try {
-      final raw = await file.readAsString();
+      final raw = await readBoundedFileString(
+        file,
+        maxBytes: _maxConfigFileBytes,
+      );
       final decoded = optionalStringKeyedMapFromJsonText(raw);
       if (decoded != null) {
         return WebMessagePlatformConfig.fromJson(decoded);
@@ -40,10 +47,7 @@ class MessageGatewayStore {
   Future<void> save(WebMessagePlatformConfig config) async {
     final file = File(filePath);
     try {
-      await writeFileAtomically(
-        file,
-        '${prettyPrintJson(config.toJson())}\n',
-      );
+      await writeFileAtomically(file, '${prettyPrintJson(config.toJson())}\n');
     } catch (error, stack) {
       silentLog('message_gateway_store', 'save config', error, stack);
       rethrow;
