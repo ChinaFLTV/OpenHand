@@ -16,6 +16,8 @@ const int _atMentionShallowResultLimit = 50;
 const int _atMentionDeepSearchSoftLimit = 20;
 const int _atMentionDeepSearchResultLimit = 80;
 const int _atMentionDeepSearchMaxDepth = 8;
+const int _atMentionDirectoryEntryLimit = 5000;
+const int _atMentionDeepSearchEntryLimit = 20000;
 const double _composerActionControlGap = 10;
 const double _composerActionControlHeight = 52;
 final RegExp _composerTriggerWindowsDrivePattern = RegExp(r'^[A-Za-z]:');
@@ -528,7 +530,10 @@ class _ComposerPanelState extends State<_ComposerPanel> {
         _showAtMentionOverlay();
         return;
       }
-      final entries = await dir.list().toList();
+      final entries = (await listDirectoryBounded(
+        dir,
+        maxEntries: _atMentionDirectoryEntryLimit,
+      )).entries.toList(growable: false);
       if (!_isAtMentionSearchStillActive(
         searchGeneration: searchGeneration,
         triggerOffset: triggerOffset,
@@ -587,6 +592,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
           triggerOffset: triggerOffset,
           triggerQuery: query,
           currentDirectory: currentDirectory,
+          budget: _DirectoryScanBudget(_atMentionDeepSearchEntryLimit),
         );
       }
     } catch (error, stack) {
@@ -630,9 +636,11 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     required int triggerOffset,
     required String triggerQuery,
     required String currentDirectory,
+    required _DirectoryScanBudget budget,
   }) async {
     if (depth > _atMentionDeepSearchMaxDepth ||
-        results.length >= _atMentionDeepSearchResultLimit) {
+        results.length >= _atMentionDeepSearchResultLimit ||
+        budget.remaining <= 0) {
       return;
     }
     if (!_isAtMentionSearchStillActive(
@@ -645,7 +653,10 @@ class _ComposerPanelState extends State<_ComposerPanel> {
       return;
     }
     try {
-      final entries = await dir.list().toList();
+      final entries = (await listDirectoryBounded(
+        dir,
+        maxEntries: math.min(_atMentionDirectoryEntryLimit, budget.remaining),
+      )).entries;
       if (!_isAtMentionSearchStillActive(
         searchGeneration: searchGeneration,
         triggerOffset: triggerOffset,
@@ -656,6 +667,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
         return;
       }
       for (final entry in entries) {
+        if (!budget.consume()) return;
         if (!_isAtMentionSearchStillActive(
           searchGeneration: searchGeneration,
           triggerOffset: triggerOffset,
@@ -693,6 +705,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
             triggerOffset: triggerOffset,
             triggerQuery: triggerQuery,
             currentDirectory: currentDirectory,
+            budget: budget,
           );
         }
       }

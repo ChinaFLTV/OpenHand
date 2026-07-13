@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
@@ -38,31 +39,47 @@ class AiGlobTool extends AiTool {
       );
     }
     var hitLimit = false;
+    var hitScanLimit = false;
+    var scannedEntries = 0;
     final matches = <_GlobMatch>[];
-    await for (final entity in Directory(
-      rootPath,
-    ).list(recursive: true, followLinks: false)) {
-      if (entity is! File) {
-        continue;
-      }
-      final normalizedPath = p.normalize(entity.path);
-      final relativePath = p
-          .relative(normalizedPath, from: rootPath)
-          .replaceAll('\\', '/');
-      if (AiToolUtils.globMatches(relativePath, pattern)) {
-        DateTime modified;
-        try {
-          modified = (await FileStat.stat(normalizedPath)).modified;
-        } catch (_) {
-          modified = DateTime.fromMillisecondsSinceEpoch(0);
+    final scanStopwatch = Stopwatch()..start();
+    try {
+      await for (final entity
+          in Directory(rootPath)
+              .list(recursive: true, followLinks: false)
+              .timeout(AiToolUtils.fileTreeScanIdleTimeout)) {
+        scannedEntries += 1;
+        if (scannedEntries > AiToolUtils.maxFileTreeScanEntries ||
+            scanStopwatch.elapsed >= AiToolUtils.fileTreeScanTotalTimeout) {
+          hitScanLimit = true;
+          break;
         }
-        matches.add(_GlobMatch(path: normalizedPath, modified: modified));
-        if (matches.length > _maxMatches) {
-          hitLimit = true;
-          matches.sort(_compareGlobMatches);
-          matches.removeLast();
+        if (entity is! File) {
+          continue;
+        }
+        final normalizedPath = p.normalize(entity.path);
+        final relativePath = p
+            .relative(normalizedPath, from: rootPath)
+            .replaceAll('\\', '/');
+        if (AiToolUtils.globMatches(relativePath, pattern)) {
+          DateTime modified;
+          try {
+            modified = (await FileStat.stat(normalizedPath)).modified;
+          } catch (_) {
+            modified = DateTime.fromMillisecondsSinceEpoch(0);
+          }
+          matches.add(_GlobMatch(path: normalizedPath, modified: modified));
+          if (matches.length > _maxMatches) {
+            hitLimit = true;
+            matches.sort(_compareGlobMatches);
+            matches.removeLast();
+          }
         }
       }
+    } on TimeoutException {
+      hitScanLimit = true;
+    } finally {
+      scanStopwatch.stop();
     }
     matches.sort(_compareGlobMatches);
     final workingDirectory = AiToolUtils.defaultWorkingDirectory();
@@ -74,6 +91,10 @@ class AiGlobTool extends AiTool {
     if (hitLimit) {
       output +=
           '\n(Results are truncated. Consider using a more specific path or pattern.)';
+    }
+    if (hitScanLimit) {
+      output +=
+          '\n(Directory scan reached its safety limit. Use a narrower path.)';
     }
     if (output.length > AiToolUtils.maxSearchOutputCharacters) {
       output =
@@ -89,6 +110,8 @@ class AiGlobTool extends AiTool {
         'glob_root_path': rootPath,
         'glob_result_count': outputPaths.length,
         'glob_result_truncated': hitLimit,
+        'glob_scan_truncated': hitScanLimit,
+        'glob_scanned_entries': scannedEntries,
         'glob_result_relative_to': workingDirectory,
         'glob_max_results': _maxMatches,
       },
@@ -96,7 +119,7 @@ class AiGlobTool extends AiTool {
   }
 
   static int _compareGlobMatches(_GlobMatch left, _GlobMatch right) {
-    final modifiedComparison = left.modified.compareTo(right.modified);
+    final modifiedComparison = right.modified.compareTo(left.modified);
     if (modifiedComparison != 0) return modifiedComparison;
     return left.path.compareTo(right.path);
   }

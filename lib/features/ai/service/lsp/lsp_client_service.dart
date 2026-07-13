@@ -9,6 +9,7 @@ import 'package:path/path.dart' as p;
 import '../../../../app/support/safe_subprocess.dart';
 import '../../../../app/support/silent_log.dart';
 import '../../../../shared/util/async_concurrency.dart';
+import '../../../../shared/util/bounded_file_io.dart';
 import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/path_safety.dart';
@@ -21,6 +22,8 @@ enum AiLspBackendAvailability {
   unsupportedLanguage,
   executableNotFound,
 }
+
+const int _maxLspDocumentBytes = 16 * 1024 * 1024;
 
 class AiLspBackendResolution {
   const AiLspBackendResolution({
@@ -2146,7 +2149,12 @@ class _AiLspSession {
   }) async {
     _ensureActive();
     final uri = Uri.file(filePath).toString();
-    final currentText = text ?? await File(filePath).readAsString();
+    final currentText =
+        text ??
+        await readBoundedFileString(
+          File(filePath),
+          maxBytes: _maxLspDocumentBytes,
+        );
     _ensureActive();
     final existing = _openDocuments[uri];
     if (existing == null) {

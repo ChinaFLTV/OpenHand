@@ -15,6 +15,7 @@ import '../../../shared/net/http_redirect_utils.dart';
 import '../../../shared/net/http_response_utils.dart';
 import '../../../shared/net/http_status_utils.dart';
 import '../../../shared/util/async_concurrency.dart';
+import '../../../shared/util/bounded_directory_io.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
@@ -2094,7 +2095,7 @@ Future<_ResolvedStdioLaunch> _resolveStdioLaunch(McpServer server) async {
   final packageArgIndex = isNpxCommand ? _firstNpxPackageArgIndex(args) : -1;
   if (isNpxCommand && packageArgIndex >= 0 && !Platform.isWindows) {
     final packageName = args[packageArgIndex];
-    final resolved = _resolveNpxPackageDirectly(packageName, home);
+    final resolved = await _resolveNpxPackageDirectly(packageName, home);
     if (resolved != null) {
       final extraArgs = packageArgIndex + 1 < args.length
           ? args.sublist(packageArgIndex + 1)
@@ -3231,10 +3232,10 @@ class _NpxPackageResolution {
   final String entryScript;
 }
 
-_NpxPackageResolution? _resolveNpxPackageDirectly(
+Future<_NpxPackageResolution?> _resolveNpxPackageDirectly(
   String packageName,
   String? home,
-) {
+) async {
   if (home == null || home.isEmpty) return null;
   // 清理包名（移除 @version 后缀，如 @playwright/mcp@latest → @playwright/mcp）
   final cleanName = packageName.replaceAll(_npxPackageVersionSuffixPattern, '');
@@ -3246,7 +3247,8 @@ _NpxPackageResolution? _resolveNpxPackageDirectly(
   if (versionsDir.existsSync()) {
     final versions = <String>[];
     try {
-      for (final entity in versionsDir.listSync()) {
+      final listing = await listDirectoryBounded(versionsDir, maxEntries: 256);
+      for (final entity in listing.entries) {
         if (entity is Directory &&
             entity.path.split('/').last.startsWith('v')) {
           versions.add(entity.path.split('/').last);
@@ -3288,7 +3290,11 @@ _NpxPackageResolution? _resolveNpxPackageDirectly(
   final fnmDir = '$home/Library/Application Support/fnm/node-versions';
   if (Directory(fnmDir).existsSync()) {
     try {
-      for (final entity in Directory(fnmDir).listSync()) {
+      final listing = await listDirectoryBounded(
+        Directory(fnmDir),
+        maxEntries: 256,
+      );
+      for (final entity in listing.entries) {
         if (entity is Directory) {
           final nodeBin = '${entity.path}/installation/bin/node';
           final packageDir =

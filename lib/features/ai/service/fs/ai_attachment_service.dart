@@ -8,6 +8,7 @@ import 'package:path/path.dart' as p;
 import 'package:xml/xml.dart' as xml;
 
 import '../../../../app/support/silent_log.dart';
+import '../../../../shared/util/bounded_file_io.dart';
 import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/directory_cleanup.dart';
 import '../../../../shared/util/input_value_parsing.dart';
@@ -440,7 +441,20 @@ class AiAttachmentService {
     }
     final extension = p.extension(sourceName).toLowerCase();
     final originalSize = fileStat.size;
-    final sourceBytes = await sourceFile.readAsBytes();
+    final Uint8List sourceBytes;
+    try {
+      sourceBytes = await readBoundedFileBytes(
+        sourceFile,
+        maxBytes: maxImageRawBytes,
+        idleTimeout: defaultBoundedFileReadIdleTimeout,
+        totalTimeout: defaultBoundedFileReadTotalTimeout,
+      );
+    } on BoundedFileReadException catch (error) {
+      if (error.failure != BoundedFileReadFailure.tooLarge) rethrow;
+      throw AiAttachmentException(
+        'Image file exceeds the ${aiFormatBytes(maxImageRawBytes)} limit.',
+      );
+    }
     final attachmentId = idGenerator();
     final decodedImage = extension == '.svg'
         ? null
@@ -918,7 +932,12 @@ class AiAttachmentService {
       if (fileLength > _maxSpreadsheetArchiveBytes) {
         return 'XLSX preview skipped because the archive exceeds ${aiFormatBytes(_maxSpreadsheetArchiveBytes)}.';
       }
-      final bytes = await file.readAsBytes();
+      final bytes = await readBoundedFileBytes(
+        file,
+        maxBytes: _maxSpreadsheetArchiveBytes,
+        idleTimeout: defaultBoundedFileReadIdleTimeout,
+        totalTimeout: defaultBoundedFileReadTotalTimeout,
+      );
       final archive = _ZipArchiveReader(
         Uint8List.fromList(bytes),
         maxEntryBytes: _maxZipEntryBytes,

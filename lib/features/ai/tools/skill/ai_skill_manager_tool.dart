@@ -5,6 +5,7 @@ import 'package:yaml/yaml.dart';
 
 import '../../../../app/support/silent_log.dart';
 import '../../../../shared/db/atomic_file_operations.dart';
+import '../../../../shared/util/bounded_file_io.dart';
 import '../../../../shared/util/directory_cleanup.dart';
 import '../../../../shared/util/path_safety.dart';
 import '../../service/runtime/ai_tool_runtime_service.dart';
@@ -622,14 +623,27 @@ class AiSkillManagerTool extends AiTool {
         stat.type != FileSystemEntityType.link) {
       return _TextFileReadResult(error: 'Target is not a file: ${file.path}');
     }
-    if (!isSkillManifest && stat.size > _maxSidecarContentLength) {
+    final maxBytes = isSkillManifest
+        ? maxSkillContentLength * 4
+        : _maxSidecarContentLength;
+    if (stat.size > maxBytes) {
       return _TextFileReadResult(
         error:
             'Target file is too large to patch safely '
-            '(${stat.size} bytes, limit $_maxSidecarContentLength).',
+            '(${stat.size} bytes, limit $maxBytes).',
       );
     }
-    return _TextFileReadResult(content: await file.readAsString());
+    try {
+      return _TextFileReadResult(
+        content: await readBoundedFileString(file, maxBytes: maxBytes),
+      );
+    } on IOException catch (error) {
+      return _TextFileReadResult(error: 'Unable to read ${file.path}: $error');
+    } on FormatException catch (error) {
+      return _TextFileReadResult(
+        error: 'Unable to decode ${file.path}: $error',
+      );
+    }
   }
 
   Future<void> _deleteEmptyAncestorDirs({

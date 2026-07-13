@@ -36,6 +36,9 @@ class AiToolUtils {
   static const int maxEditableTextFileBytes = 128 * kBytesPerMiB;
   static const int maxGeneratedTextPayloadCharacters = 10 * kBytesPerMiB;
   static const int maxMissingPathSuggestionScanEntries = 256;
+  static const int maxFileTreeScanEntries = 100000;
+  static const Duration fileTreeScanIdleTimeout = Duration(seconds: 3);
+  static const Duration fileTreeScanTotalTimeout = Duration(seconds: 10);
   static const Duration _metadataProcessTimeout = Duration(seconds: 2);
   static const Duration _searchProcessTimeout = Duration(seconds: 30);
 

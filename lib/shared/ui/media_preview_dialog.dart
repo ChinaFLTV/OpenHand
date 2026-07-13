@@ -13,6 +13,7 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../net/http_response_utils.dart';
 import '../net/http_status_utils.dart';
+import '../util/bounded_file_io.dart';
 import '../util/byte_size_format.dart';
 import 'animated_dialog.dart';
 import 'dialog_motion_css.dart';
@@ -430,7 +431,12 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
       }
       try {
         await Pasteboard.writeImage(
-          await file.readAsBytes().timeout(_kClipboardTimeout),
+          await readBoundedFileBytes(
+            file,
+            maxBytes: _kClipboardMaxBytes,
+            idleTimeout: _kClipboardTimeout,
+            totalTimeout: _kClipboardTimeout,
+          ),
         ).timeout(_kClipboardTimeout);
         return true;
       } catch (_) {

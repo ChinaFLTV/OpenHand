@@ -53,6 +53,7 @@ class _WebGatewayRotatingLogger {
   final SerialTaskQueue _operations = SerialTaskQueue();
 
   static const int _maxExportFiles = 16;
+  static const int _maxDirectoryEntries = 1024;
   static const int _maxExportBytesPerFile = 8 * 1024 * 1024;
   static const int _maxExportBundleBytes = 32 * 1024 * 1024;
   static const Duration _exportReadIdleTimeout = Duration(seconds: 3);
@@ -104,10 +105,11 @@ class _WebGatewayRotatingLogger {
     final dir = Directory(directoryPath);
     if (!await dir.exists()) return const _CleanupStats();
     var stats = const _CleanupStats();
-    final files = dir
-        .listSync(followLinks: false)
-        .whereType<File>()
-        .where((item) => p.basename(item.path).startsWith('web-platform'));
+    final files =
+        (await listDirectoryBounded(dir, maxEntries: _maxDirectoryEntries))
+            .entries
+            .whereType<File>()
+            .where((item) => p.basename(item.path).startsWith('web-platform'));
     for (final file in files) {
       try {
         final stat = await file.stat();
@@ -135,8 +137,8 @@ class _WebGatewayRotatingLogger {
     final cutoff = DateTime.now().subtract(Duration(days: config.rotationDays));
     var stats = const _CleanupStats();
     final files =
-        dir
-            .listSync(followLinks: false)
+        (await listDirectoryBounded(dir, maxEntries: _maxDirectoryEntries))
+            .entries
             .whereType<File>()
             .where((item) => p.basename(item.path).startsWith('web-platform'))
             .toList(growable: false)
@@ -185,8 +187,8 @@ class _WebGatewayRotatingLogger {
     final dir = Directory(directoryPath);
     if (!await dir.exists()) return const <Map<String, Object?>>[];
     final files =
-        dir
-            .listSync(followLinks: false)
+        (await listDirectoryBounded(dir, maxEntries: _maxDirectoryEntries))
+            .entries
             .whereType<File>()
             .where((item) => p.basename(item.path).startsWith('web-platform'))
             .toList(growable: false)
@@ -271,8 +273,10 @@ class _WebGatewayRotatingLogger {
         .replaceAll('.', '-');
     await file.rename(p.join(directoryPath, 'web-platform-$stamp.log'));
     final logs =
-        Directory(directoryPath)
-            .listSync(followLinks: false)
+        (await listDirectoryBounded(
+              Directory(directoryPath),
+              maxEntries: _maxDirectoryEntries,
+            )).entries
             .whereType<File>()
             .where((item) => p.basename(item.path).startsWith('web-platform'))
             .toList(growable: false)

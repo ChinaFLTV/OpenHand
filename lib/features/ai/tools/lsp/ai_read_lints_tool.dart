@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 
 import '../../../../app/support/safe_subprocess.dart';
+import '../../../../shared/util/bounded_file_io.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../service/bash/ai_bash_tool_service.dart';
 import '../../service/runtime/ai_tool_runtime_service.dart';
@@ -19,6 +20,8 @@ import '../ai_tool_utils.dart';
 /// - 指定 paths 数组限定范围（推荐：只对编辑过的文件调用）
 /// - 不指定 paths 则分析整个工作区（较慢，应谨慎使用）
 class AiReadLintsTool extends AiTool {
+  static const int _maxPubspecBytes = 2 * 1024 * 1024;
+
   @override
   AiBuiltinToolKind get kind => AiBuiltinToolKind.readLints;
 
@@ -148,7 +151,10 @@ class AiReadLintsTool extends AiTool {
 
   bool _pubspecMentionsFlutter(String pubspecPath) {
     try {
-      final content = File(pubspecPath).readAsStringSync();
+      final content = readBoundedFileStringSync(
+        File(pubspecPath),
+        maxBytes: _maxPubspecBytes,
+      );
       return content.contains('flutter:') || content.contains('sdk: flutter');
     } catch (_) {
       return false;

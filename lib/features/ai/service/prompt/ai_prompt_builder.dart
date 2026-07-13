@@ -6,6 +6,7 @@ import 'package:path/path.dart' as p;
 
 import '../../../../app/support/openhand_paths.dart';
 import '../../../../app/support/silent_log.dart';
+import '../../../../shared/util/bounded_file_io.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/stable_hash.dart';
 import '../../../../shared/util/text_clip.dart';
@@ -4405,7 +4406,10 @@ $content
         return null;
       }
       return _truncateRestoredFileContent(
-        file.readAsStringSync(),
+        readBoundedFileStringSync(
+          file,
+          maxBytes: _postCompactRestoreMaxFileBytes,
+        ),
         _postCompactRestoreMaxCharsPerFile,
       );
     } catch (error, stackTrace) {
@@ -4526,7 +4530,12 @@ $content
       }
       buffer
         ..writeln('manifest:')
-        ..writeln(manifestFile.readAsStringSync().trimRight());
+        ..writeln(
+          readBoundedFileStringSync(
+            manifestFile,
+            maxBytes: _postCompactRestoreMaxFileBytes,
+          ).trimRight(),
+        );
       return _truncateRestoredFileContent(
         buffer.toString().trimRight(),
         _postCompactRestoreMaxSkillChars,

@@ -9,6 +9,7 @@ const Duration _kToolCompactMotionDuration = Duration(milliseconds: 220);
 const Duration _kToolConstructingPulseDuration = Duration(milliseconds: 1100);
 const Duration _kToolPreviewSizeDuration = Duration(milliseconds: 200);
 const Curve _kToolCardMotionCurve = Curves.easeOutCubic;
+const int _kToolFullContentMaxBytes = 32 * 1024 * 1024;
 
 class _ToolCallBody extends StatefulWidget {
   const _ToolCallBody({required this.message, required this.selectable});
@@ -1133,7 +1134,10 @@ class _ToolContentFullDialogState extends State<_ToolContentFullDialog> {
         setState(() => _loadingFile = false);
         return;
       }
-      final raw = await file.readAsString();
+      final raw = await readBoundedFileString(
+        file,
+        maxBytes: _kToolFullContentMaxBytes,
+      );
       if (!mounted) return;
       setState(() {
         _fileContent = _formatToolContent(raw);

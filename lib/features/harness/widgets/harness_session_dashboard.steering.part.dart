@@ -1,5 +1,7 @@
 part of 'harness_session_dashboard.dart';
 
+const int _harnessSteeringFileMaxBytes = 4 * 1024 * 1024;
+
 class _HeSteeringAssetsDialog extends StatefulWidget {
   const _HeSteeringAssetsDialog({required this.steeringRoot});
 
@@ -542,7 +544,10 @@ class _HeSteeringFileEditorDialogState
 
   Future<void> _loadFile() async {
     try {
-      final content = await File(widget.filePath).readAsString();
+      final content = await readBoundedFileString(
+        File(widget.filePath),
+        maxBytes: _harnessSteeringFileMaxBytes,
+      );
       if (!mounted) return;
       setState(() {
         _controller.text = content;

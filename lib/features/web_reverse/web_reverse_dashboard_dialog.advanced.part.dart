@@ -3711,7 +3711,7 @@ Future<String> _readWebcrackOutputFile(
       ja: '[webcrack 出力が大きすぎます: $bytes bytes, limit $_kWebcrackMaxOutputBytes bytes]',
     );
   }
-  return file.readAsString();
+  return readBoundedFileString(file, maxBytes: _kWebcrackMaxOutputBytes);
 }
 
 Future<void> _showInterceptRulesDialog(

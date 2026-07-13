@@ -1871,7 +1871,12 @@ Future<Uint8List> _readLocalClipboardBytes(
   if (stat.size > maxBytes) {
     throw FileSystemException('File is too large for clipboard.', filePath);
   }
-  return file.readAsBytes().timeout(_mediaClipboardOperationTimeout);
+  return readBoundedFileBytes(
+    file,
+    maxBytes: maxBytes,
+    idleTimeout: _mediaClipboardOperationTimeout,
+    totalTimeout: _mediaClipboardOperationTimeout,
+  );
 }
 
 Future<Uint8List> _downloadClipboardBytes(

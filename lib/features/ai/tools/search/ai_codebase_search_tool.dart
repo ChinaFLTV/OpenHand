@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
@@ -431,10 +432,17 @@ class AiCodebaseSearchTool extends AiTool {
 
     try {
       final dir = Directory(searchRoot);
-      await for (final entity in dir.list(
-        recursive: true,
-        followLinks: false,
-      )) {
+      final stopwatch = Stopwatch()..start();
+      var scannedEntries = 0;
+      await for (final entity
+          in dir
+              .list(recursive: true, followLinks: false)
+              .timeout(AiToolUtils.fileTreeScanIdleTimeout)) {
+        scannedEntries += 1;
+        if (scannedEntries > AiToolUtils.maxFileTreeScanEntries ||
+            stopwatch.elapsed >= AiToolUtils.fileTreeScanTotalTimeout) {
+          break;
+        }
         if (entity is File) {
           final basename = p.basename(entity.path).toLowerCase();
           // Skip hidden files, build artifacts, node_modules
@@ -453,6 +461,8 @@ class AiCodebaseSearchTool extends AiTool {
           }
         }
       }
+    } on TimeoutException {
+      return results;
     } catch (error, stack) {
       silentLog(
         'ai_codebase_search_tool',

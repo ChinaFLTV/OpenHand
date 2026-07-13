@@ -262,28 +262,19 @@ class AiApplyFileDiffsTool extends AiTool {
         );
       }
 
-      // 写后读回校验
-      String verify;
-      try {
-        verify = await plan.file.readAsString();
-      } catch (e) {
+      final verificationError = await AiToolUtils.verifyTextFileWrite(
+        toolName: 'ApplyFileDiffs',
+        file: plan.file,
+        expectedContent: plan.newContent,
+      );
+      if (verificationError != null) {
         final rollback = await _rollbackAppliedPlans(
           applied,
           fileTracker: fileTracker,
         );
         return AiToolUtils.invalidResult(
           'ApplyFileDiffs',
-          'File was written but verification read failed for ${plan.filePath}: $e$rollback',
-        );
-      }
-      if (verify != plan.newContent) {
-        final rollback = await _rollbackAppliedPlans(
-          applied,
-          fileTracker: fileTracker,
-        );
-        return AiToolUtils.invalidResult(
-          'ApplyFileDiffs',
-          'Verification mismatch after write for ${plan.filePath}.$rollback',
+          '${verificationError.stderr} Path: ${plan.filePath}$rollback',
         );
       }
     }

@@ -5,12 +5,14 @@ import 'package:path/path.dart' as p;
 
 import '../../../../app/support/openhand_paths.dart';
 import '../../../../shared/db/atomic_file_operations.dart';
+import '../../../../shared/util/bounded_file_io.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../model/ai_lsp_backend_catalog.dart';
 import '../../model/ai_lsp_language_settings.dart';
 
 const String _managedInstallManifestFileName =
     '.openhand-lsp-managed-install.json';
+const int _managedInstallManifestMaxBytes = 64 * 1024;
 
 class AiLspManagedInstallPlan {
   const AiLspManagedInstallPlan({
@@ -67,7 +69,12 @@ class AiLspManagedInstallManifest {
       if (!manifestFile.existsSync()) {
         return null;
       }
-      final decoded = jsonDecode(manifestFile.readAsStringSync());
+      final decoded = jsonDecode(
+        readBoundedFileStringSync(
+          manifestFile,
+          maxBytes: _managedInstallManifestMaxBytes,
+        ),
+      );
       if (decoded is! Map<String, Object?>) {
         return null;
       }

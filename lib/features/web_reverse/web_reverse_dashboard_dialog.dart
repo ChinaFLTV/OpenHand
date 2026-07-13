@@ -28,6 +28,7 @@ import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_editor_scroll_behavior.dart';
 import '../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../shared/ui/resizable_splitter.dart';
+import '../../shared/util/bounded_file_io.dart';
 import '../../shared/util/date_time_format.dart';
 import '../../shared/util/hex_encoding.dart';
 import '../../shared/util/input_value_parsing.dart';

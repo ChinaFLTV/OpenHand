@@ -247,7 +247,12 @@ class AiAudioIoService {
         'MiMo ASR Base64 payload exceeds ${formatByteSize(_mimoMaxAsrBase64Bytes)}.',
       );
     }
-    final bytes = await file.readAsBytes().timeout(timeout);
+    final bytes = await readBoundedFileBytes(
+      file,
+      maxBytes: maxRawBytes,
+      idleTimeout: timeout,
+      totalTimeout: timeout,
+    );
     final endpoint = _router.resolveProviderPath(
       model,
       family,

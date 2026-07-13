@@ -5,6 +5,7 @@ import 'dart:io';
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../app/support/system_proxy.dart';
+import '../../../shared/util/bounded_directory_io.dart';
 import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/version_compare.dart';
@@ -187,7 +188,8 @@ class PluginScannerService {
 
     final versions = <String>[];
     try {
-      await for (final entity in versionsDir.list()) {
+      final listing = await listDirectoryBounded(versionsDir, maxEntries: 256);
+      for (final entity in listing.entries) {
         if (entity is Directory) {
           final name = entity.path.split('/').last;
           if (name.startsWith('v')) versions.add(name);

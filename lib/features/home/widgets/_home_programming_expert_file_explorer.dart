@@ -11,6 +11,23 @@ const double _kFileTreeIndentPerLevel = 16;
 const double _kFileTreeActiveBorderWidth = 2.5;
 const double _kFileTreeRowTrailingPadding = 16;
 const int _kEditorUnifiedDiffMaxMyersLineTotal = 10000;
+const int _kFileExplorerDirectoryEntryLimit = 5000;
+const int _kFileExplorerPopupEntryLimit = 500;
+const int _kFileExplorerSearchEntryLimit = 20000;
+const int _kProgrammingExplorerMaxEditableFileBytes = 2 * 1024 * 1024;
+const int _kProgrammingExplorerLspPreviewMaxBytes = 4 * 1024 * 1024;
+
+class _DirectoryScanBudget {
+  _DirectoryScanBudget(this.remaining);
+
+  int remaining;
+
+  bool consume() {
+    if (remaining <= 0) return false;
+    remaining -= 1;
+    return true;
+  }
+}
 
 Future<void> _setProgrammingExplorerClipboardText(
   String text, {
@@ -180,7 +197,13 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
       setState(() => _searchLoading = true);
     }
     final results = <_FileNode>[];
-    await _searchDirectory(Directory(widget.rootPath), trimmed, results, 0);
+    await _searchDirectory(
+      Directory(widget.rootPath),
+      trimmed,
+      results,
+      0,
+      _DirectoryScanBudget(_kFileExplorerSearchEntryLimit),
+    );
     if (!mounted) return;
     setState(() {
       _searchResults = results;
@@ -193,10 +216,18 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
     String query,
     List<_FileNode> results,
     int depth,
+    _DirectoryScanBudget budget,
   ) async {
-    if (depth > 12 || results.length >= 100) return;
+    if (depth > 12 || results.length >= 100 || budget.remaining <= 0) return;
     try {
-      final entries = await dir.list().toList();
+      final listing = await listDirectoryBounded(
+        dir,
+        maxEntries: math.min(
+          _kFileExplorerDirectoryEntryLimit,
+          budget.remaining,
+        ),
+      );
+      final entries = listing.entries.toList(growable: false);
       entries.sort((a, b) {
         final aIsDir = a is Directory;
         final bIsDir = b is Directory;
@@ -207,6 +238,7 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
             .compareTo(p.basename(b.path).toLowerCase());
       });
       for (final entry in entries) {
+        if (!budget.consume()) return;
         if (results.length >= 100) return;
         final name = p.basename(entry.path);
         if (_isHiddenOrIgnored(name)) continue;
@@ -220,7 +252,7 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
           );
         }
         if (entry is Directory) {
-          await _searchDirectory(entry, query, results, depth + 1);
+          await _searchDirectory(entry, query, results, depth + 1, budget);
         }
       }
     } catch (error, stack) {
@@ -281,7 +313,10 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
     if (!node.isDirectory || node.childrenLoaded) return;
     try {
       final dir = Directory(node.path);
-      final entries = await dir.list().toList();
+      final entries = (await listDirectoryBounded(
+        dir,
+        maxEntries: _kFileExplorerDirectoryEntryLimit,
+      )).entries.toList(growable: false);
       entries.sort((a, b) {
         final aIsDir = a is Directory;
         final bIsDir = b is Directory;
@@ -2507,7 +2542,12 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         return cached;
       }
       final controller = _textControllers[filePath];
-      final text = controller?.text ?? await File(filePath).readAsString();
+      final text =
+          controller?.text ??
+          await readBoundedFileString(
+            File(filePath),
+            maxBytes: _kProgrammingExplorerLspPreviewMaxBytes,
+          );
       final lines = const LineSplitter().convert(text);
       fileLinesCache[filePath] = lines;
       return lines;
@@ -2683,7 +2723,12 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       final file = File(fileEdit.filePath);
       final originalText =
           controller?.text ??
-          (await file.exists() ? await file.readAsString() : '');
+          (await file.exists()
+              ? await readBoundedFileString(
+                  file,
+                  maxBytes: _kProgrammingExplorerMaxEditableFileBytes,
+                )
+              : '');
       final updatedText = _applyTextEdits(originalText, fileEdit.edits);
       final diffLines = originalText == updatedText
           ? const <String>[]
@@ -9528,12 +9573,15 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       final file = File(filePath);
       if (await file.exists()) {
         final stat = await file.stat();
-        if (stat.size > 2 * 1024 * 1024) {
+        if (stat.size > _kProgrammingExplorerMaxEditableFileBytes) {
           _fileContents[filePath] = null;
           if (mounted) setState(() => _fileLoading[filePath] = false);
           return;
         }
-        final content = await file.readAsString();
+        final content = await readBoundedFileString(
+          file,
+          maxBytes: _kProgrammingExplorerMaxEditableFileBytes,
+        );
         _fileContents[filePath] = content;
         final controller = _HighlightingTextController(
           initialText: content,
@@ -12386,7 +12434,10 @@ class _BreadcrumbSegment extends StatelessWidget {
       if (!await dir.exists()) return;
       List<FileSystemEntity> entries;
       try {
-        entries = await dir.list().toList();
+        entries = (await listDirectoryBounded(
+          dir,
+          maxEntries: _kFileExplorerPopupEntryLimit,
+        )).entries.toList(growable: false);
       } catch (_) {
         return;
       }

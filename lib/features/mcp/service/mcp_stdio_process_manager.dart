@@ -8,6 +8,7 @@ import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../app/support/system_proxy.dart';
 import '../../../shared/util/async_concurrency.dart';
+import '../../../shared/util/bounded_directory_io.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
@@ -1525,7 +1526,11 @@ Future<_ResolvedNpxPackage?> _resolveNpxPackagePath(String packageName) async {
       // 找到最新版本的 node
       final versions = <String>[];
       try {
-        for (final entity in versionsDir.listSync()) {
+        final listing = await listDirectoryBounded(
+          versionsDir,
+          maxEntries: 256,
+        );
+        for (final entity in listing.entries) {
           if (entity is Directory &&
               entity.path.split('/').last.startsWith('v')) {
             versions.add(entity.path.split('/').last);

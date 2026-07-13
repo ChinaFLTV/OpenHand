@@ -22,6 +22,7 @@ import '../../../app/support/silent_log.dart';
 import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/net/http_response_utils.dart';
 import '../../../shared/util/async_concurrency.dart';
+import '../../../shared/util/bounded_directory_io.dart';
 import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
@@ -291,6 +292,11 @@ class WebMessagePlatformService {
   static const int _storedMessageWindowExpandedScanContext = 16;
   static const int _storedMessageWindowExpandedScanLimit = 96;
   static const int _maxHealthCheckResponseBytes = 1024 * 1024;
+  static const int _maxWorkspaceDirectoryScanEntries = 10000;
+  static const int _maxRetainedUploadCacheFiles = 4096;
+  static const int _uploadCacheCandidatePruneThreshold =
+      _maxRetainedUploadCacheFiles * 2;
+  static const int _maxUploadDirectoryCleanupCandidates = 4096;
   static const Duration _requestBodyIdleTimeout = Duration(seconds: 30);
   static const Duration _requestBodyTotalTimeout = Duration(minutes: 2);
   static const int _connectivityProbeMinTimeoutMs = 500;
@@ -5516,7 +5522,11 @@ class WebMessagePlatformService {
       });
     }
     final root = _workspaceDirectoryPath;
-    final entries = Directory(dir).listSync(followLinks: false)
+    final listing = await listDirectoryBounded(
+      Directory(dir),
+      maxEntries: _maxWorkspaceDirectoryScanEntries,
+    );
+    final entries = listing.entries.toList(growable: false)
       ..sort((a, b) {
         final aDir = a is Directory;
         final bDir = b is Directory;
@@ -5560,6 +5570,7 @@ class WebMessagePlatformService {
       'root': root,
       'path': _relativeWorkspacePath(dir),
       'items': items,
+      'truncated': listing.truncated || items.length >= 300,
       'query': query,
       'type': typeFilter,
       'operations_enabled': _config.workspaceFileWriteEnabled,
@@ -5732,8 +5743,7 @@ class WebMessagePlatformService {
     }
     if (type == FileSystemEntityType.directory) {
       // 不递归：让用户明确清空再删（避免一次误调清掉整棵子树）。
-      final entries = Directory(resolved).listSync(followLinks: false);
-      if (entries.isNotEmpty) {
+      if (!await Directory(resolved).list(followLinks: false).isEmpty) {
         return _json(HttpStatus.conflict, <String, Object?>{
           'error': 'directory_not_empty',
         });
@@ -7367,24 +7377,16 @@ class WebMessagePlatformService {
     final cutoff = DateTime.now().subtract(
       Duration(days: _config.uploadCacheRetentionDays),
     );
-    final entities = await root
-        .list(recursive: true, followLinks: false)
-        .toList();
-    entities.sort((a, b) => b.path.length.compareTo(a.path.length));
     var stats = const _CleanupStats();
-    for (final entity in entities) {
+    final parentDirectories = <String>{};
+    await for (final entity in root.list(recursive: true, followLinks: false)) {
+      if (entity is! File) continue;
       try {
         final stat = await entity.stat();
         if (stat.modified.isAfter(cutoff)) continue;
-        if (entity is File) {
-          stats += _CleanupStats(deletedFiles: 1, bytesFreed: stat.size);
-          await entity.delete();
-        } else if (entity is Directory) {
-          final isEmpty = await entity.list(followLinks: false).isEmpty;
-          if (!isEmpty) continue;
-          stats += const _CleanupStats(deletedDirectories: 1);
-          await entity.delete();
-        }
+        await entity.delete();
+        stats += _CleanupStats(deletedFiles: 1, bytesFreed: stat.size);
+        _rememberUploadParent(parentDirectories, entity.parent.path);
       } catch (error, stack) {
         silentLog(
           'web_message_platform_service',
@@ -7394,20 +7396,66 @@ class WebMessagePlatformService {
         );
       }
     }
+    stats += await _deleteEmptyUploadDirectories(root, parentDirectories);
     return stats + await _enforceUploadCacheMaxBytes();
   }
 
   Future<_CleanupStats> _enforceUploadCacheMaxBytes() async {
     final root = Directory(_uploadCacheDirectoryPath);
     if (!await root.exists()) return const _CleanupStats();
-    final files = <File>[];
-    var totalBytes = 0;
+    var candidates = <({File file, int size, DateTime modified})>[];
+    var stats = const _CleanupStats();
+    final parentDirectories = <String>{};
+
+    Future<void> pruneCandidates({required bool enforceByteLimit}) async {
+      candidates.sort((a, b) {
+        final modifiedOrder = b.modified.compareTo(a.modified);
+        return modifiedOrder != 0
+            ? modifiedOrder
+            : b.file.path.compareTo(a.file.path);
+      });
+      final retained = <({File file, int size, DateTime modified})>[];
+      var nextRetainedBytes = 0;
+      var overflowed = false;
+      for (final candidate in candidates) {
+        if (!overflowed &&
+            retained.length < _maxRetainedUploadCacheFiles &&
+            (!enforceByteLimit ||
+                nextRetainedBytes + candidate.size <=
+                    _config.uploadCacheMaxBytes)) {
+          retained.add(candidate);
+          nextRetainedBytes += candidate.size;
+          continue;
+        }
+        overflowed = true;
+        try {
+          await candidate.file.delete();
+          stats += _CleanupStats(deletedFiles: 1, bytesFreed: candidate.size);
+          _rememberUploadParent(parentDirectories, candidate.file.parent.path);
+        } catch (error, stack) {
+          silentLog(
+            'web_message_platform_service',
+            'enforce upload cache max bytes',
+            error,
+            stack,
+          );
+        }
+      }
+      candidates = retained;
+    }
+
     await for (final entity in root.list(recursive: true, followLinks: false)) {
       if (entity is! File) continue;
       try {
         final stat = await entity.stat();
-        totalBytes += stat.size;
-        files.add(entity);
+        candidates.add((
+          file: entity,
+          size: stat.size,
+          modified: stat.modified,
+        ));
+        if (candidates.length >= _uploadCacheCandidatePruneThreshold) {
+          await pruneCandidates(enforceByteLimit: false);
+        }
       } catch (error, stack) {
         silentLog(
           'web_message_platform_service',
@@ -7417,31 +7465,44 @@ class WebMessagePlatformService {
         );
       }
     }
-    if (totalBytes <= _config.uploadCacheMaxBytes) {
-      return const _CleanupStats();
+    await pruneCandidates(enforceByteLimit: true);
+    return stats + await _deleteEmptyUploadDirectories(root, parentDirectories);
+  }
+
+  void _rememberUploadParent(Set<String> paths, String path) {
+    if (paths.length < _maxUploadDirectoryCleanupCandidates) {
+      paths.add(p.normalize(path));
     }
-    files.sort(
-      (a, b) => a.statSync().modified.compareTo(b.statSync().modified),
-    );
-    var stats = const _CleanupStats();
-    var remainingBytes = totalBytes;
-    for (final file in files) {
-      if (remainingBytes <= _config.uploadCacheMaxBytes) break;
+  }
+
+  Future<_CleanupStats> _deleteEmptyUploadDirectories(
+    Directory root,
+    Set<String> paths,
+  ) async {
+    final normalizedRoot = p.normalize(p.absolute(root.path));
+    final orderedPaths = paths.toList(growable: false)
+      ..sort((a, b) => b.length.compareTo(a.length));
+    var deletedDirectories = 0;
+    for (final path in orderedPaths) {
+      final normalizedPath = p.normalize(p.absolute(path));
+      if (!p.isWithin(normalizedRoot, normalizedPath)) continue;
+      final directory = Directory(normalizedPath);
       try {
-        final stat = await file.stat();
-        await file.delete();
-        remainingBytes -= stat.size;
-        stats += _CleanupStats(deletedFiles: 1, bytesFreed: stat.size);
+        if (await directory.exists() &&
+            await directory.list(followLinks: false).isEmpty) {
+          await directory.delete();
+          deletedDirectories += 1;
+        }
       } catch (error, stack) {
         silentLog(
           'web_message_platform_service',
-          'enforce upload cache max bytes',
+          'delete empty upload cache directory',
           error,
           stack,
         );
       }
     }
-    return stats;
+    return _CleanupStats(deletedDirectories: deletedDirectories);
   }
 
   Future<_CleanupStats> _measureDirectory(Directory directory) async {
