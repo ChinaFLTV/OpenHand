@@ -9,6 +9,7 @@ import 'package:path/path.dart' as p;
 import '../../../../app/support/safe_subprocess.dart';
 import '../../../../app/support/silent_log.dart';
 import '../../../../shared/util/async_concurrency.dart';
+import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/path_safety.dart';
 import '../../../../shared/util/timer_safety.dart';
@@ -372,6 +373,9 @@ class AiLspClientService {
   );
   static const Duration _defaultShutdownExitDelay = Duration(milliseconds: 80);
   static const Duration _defaultStartupDisposeWait = Duration(seconds: 3);
+  static const Duration _commandPathLookupTimeout = Duration(seconds: 3);
+  static const int _commandPathMaxStdoutBytes = 64 * kBytesPerKiB;
+  static const int _commandPathMaxStderrBytes = 16 * kBytesPerKiB;
 
   final Map<String, _AiLspSession> _sessions = <String, _AiLspSession>{};
   final Map<String, _AiLspSessionStart> _sessionStarts =
@@ -1162,32 +1166,18 @@ class AiLspClientService {
     // mount in PATH) from wedging LSP startup. We distinguish "timed out"
     // (don't cache, allow retry next call) from "not found" (cache the
     // null so we don't re-shell on every LSP request).
-    Process? process;
     var timedOut = false;
-    try {
-      process = await startTrackedProcess(
-        Platform.isWindows ? 'where' : 'which',
-        <String>[executable],
-      );
-    } on ProcessException catch (error, stack) {
-      silentLog('lsp_client_service', 'spawn which/where', error, stack);
-      _commandPathCache[executable] = null;
-      return null;
-    }
-    final stdoutFuture = process.stdout
-        .transform(const Utf8Decoder(allowMalformed: true))
-        .join();
-    final exitCode = await process.exitCode.timeout(
-      const Duration(seconds: 3),
-      onTimeout: () {
+    final result = await runProcessWithTimeout(
+      Platform.isWindows ? 'where' : 'which',
+      <String>[executable],
+      timeout: _commandPathLookupTimeout,
+      tag: 'lsp_client_service.path_lookup',
+      maxStdoutBytes: _commandPathMaxStdoutBytes,
+      maxStderrBytes: _commandPathMaxStderrBytes,
+      timeoutResultBuilder: (pid, stdout, stderr) {
         timedOut = true;
-        process?.kill(ProcessSignal.sigkill);
-        return -1;
+        return ProcessResult(pid, -1, stdout, stderr);
       },
-    );
-    final output = await stdoutFuture.timeout(
-      const Duration(milliseconds: 200),
-      onTimeout: () => '',
     );
     if (timedOut) {
       // Slow PATH (network mount, fuse, etc.) — leave cache untouched
@@ -1199,8 +1189,8 @@ class AiLspClientService {
       );
       return null;
     }
-    if (exitCode == 0) {
-      final trimmed = output.trim();
+    if (result?.exitCode == 0) {
+      final trimmed = '${result!.stdout}'.trim();
       if (trimmed.isNotEmpty) {
         final path = const LineSplitter().convert(trimmed).first.trim();
         _commandPathCache[executable] = path;
