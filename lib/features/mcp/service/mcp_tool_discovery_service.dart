@@ -1935,6 +1935,8 @@ class _ResolvedStdioLaunch {
 String? _cachedLoginShellPath;
 Completer<String>? _loginShellPathProbe;
 const Duration _loginShellProbeTimeout = Duration(seconds: 3);
+const int _loginShellProbeMaxStdoutBytes = 64 * kBytesPerKiB;
+const int _loginShellProbeMaxStderrBytes = 16 * kBytesPerKiB;
 
 int _firstNpxPackageArgIndex(List<String> args) {
   for (var i = 0; i < args.length; i++) {
@@ -1964,41 +1966,25 @@ Future<String> _probeLoginShellPath() {
       // `-i` 让 zsh 当成交互式 (会读 .zshrc)，`-l` 当成登录 shell (读 .zprofile)。
       // 加 `-i` 并不会真的等待终端输入，因为我们重定向到 stdout / stdin 的管道。
       final shell = Platform.environment['SHELL']?.trim();
-      final fallbackShells = <String>[
+      final fallbackShells = <String>{
         if (shell != null && shell.isNotEmpty) shell,
         '/bin/zsh',
         '/bin/bash',
-      ];
+      };
       for (final candidate in fallbackShells) {
         if (!File(candidate).existsSync()) continue;
         try {
-          final proc = await startTrackedProcess(candidate, const [
-            '-ilc',
-            'printf %s "\$PATH"',
-          ]);
-          // 关闭 stdin 防止 shell 等待输入。
-          await proc.stdin.close();
-          final stdoutFuture = proc.stdout
-              .transform(utf8.decoder)
-              .join()
-              .timeout(_loginShellProbeTimeout, onTimeout: () => '');
-          // 直接 drop stderr，避免 .zshrc noisy print 把超时撑爆。
-          final stderrSink = proc.stderr.drain<void>();
-          final exitCodeFuture = proc.exitCode.timeout(
-            _loginShellProbeTimeout,
-            onTimeout: () {
-              proc.kill(ProcessSignal.sigkill);
-              return -1;
-            },
+          final probe = await runProcessWithTimeout(
+            candidate,
+            const <String>['-ilc', 'printf %s "\$PATH"'],
+            timeout: _loginShellProbeTimeout,
+            tag: 'mcp.stdio.login_shell_path',
+            maxStdoutBytes: _loginShellProbeMaxStdoutBytes,
+            maxStderrBytes: _loginShellProbeMaxStderrBytes,
           );
-          final out = await stdoutFuture;
-          await exitCodeFuture;
-          await stderrSink.timeout(
-            const Duration(milliseconds: 200),
-            onTimeout: () {},
-          );
-          if (out.trim().isNotEmpty) {
-            result = out.trim();
+          final path = probe == null ? null : nullIfBlank('${probe.stdout}');
+          if (path != null) {
+            result = path;
             break;
           }
         } catch (error, stack) {
