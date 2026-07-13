@@ -15,7 +15,7 @@ import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/text_clip.dart';
 import '../../model/ai_web_fetch_settings.dart';
 import '../web_engine/web_engine_http_exception.dart';
-import 'web_fetch_value_parsing.dart';
+import '../web_engine/web_engine_value_parsing.dart';
 
 enum WebFetchScraplingRuntimeEventType {
   command,
@@ -292,7 +292,7 @@ class WebFetchScraplingBridge {
         content: '${response['content'] ?? ''}',
         contentType:
             '${response['content_type'] ?? headers['content-type'] ?? 'text/html'}',
-        statusCode: webFetchHttpStatusFromValue(response['status_code']),
+        statusCode: webEngineHttpStatusFromValue(response['status_code']),
         responseHeaders: headers,
       );
     });

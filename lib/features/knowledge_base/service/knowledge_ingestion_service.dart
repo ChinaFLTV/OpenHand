@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -10,6 +11,7 @@ import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/reader_file_type.dart';
 import '../../../shared/util/stable_hash.dart';
+import '../../../shared/util/timer_safety.dart';
 import '../../ai/index.dart';
 import '../data/knowledge_base_store.dart';
 import '../model/knowledge_base_settings.dart';
@@ -49,6 +51,10 @@ class KnowledgeIngestionService {
   final Uuid _uuid = const Uuid();
   static const Duration _readerFileIdleTimeout = Duration(seconds: 30);
   static const Duration _readerFileTotalTimeout = Duration(minutes: 5);
+  static const Duration _partialIndexCleanupTimeout = Duration(seconds: 10);
+  static const Duration _partialIndexCleanupSettleTimeout = Duration(
+    seconds: 12,
+  );
 
   Future<KnowledgeSource> importFile({
     required String filePath,
@@ -298,19 +304,36 @@ class KnowledgeIngestionService {
     required String sourceId,
     required String collectionName,
   }) async {
-    try {
-      await _vectorStore.deleteBySource(
-        collectionName: collectionName,
-        sourceId: sourceId,
-      );
-    } catch (_) {
-      // Preserve the original ingestion failure.
-    }
-    try {
-      await _store.replaceChunks(sourceId: sourceId, chunks: const []);
-    } catch (_) {
-      // Preserve the original ingestion failure.
-    }
+    final remoteCleanupDeadline = Completer<void>();
+    final remoteCleanupTimer = startSafeTimer(
+      _partialIndexCleanupTimeout,
+      remoteCleanupDeadline.complete,
+    );
+    final remoteCleanup = () async {
+      try {
+        await _vectorStore
+            .deleteBySource(
+              collectionName: collectionName,
+              sourceId: sourceId,
+              cancelSignal: remoteCleanupDeadline.future,
+            )
+            .timeout(_partialIndexCleanupSettleTimeout);
+      } catch (_) {
+        // Preserve the original ingestion failure.
+      } finally {
+        remoteCleanupTimer.cancel();
+      }
+    }();
+    final localCleanup = () async {
+      try {
+        await _store
+            .replaceChunks(sourceId: sourceId, chunks: const [])
+            .timeout(_partialIndexCleanupTimeout);
+      } catch (_) {
+        // Preserve the original ingestion failure.
+      }
+    }();
+    await Future.wait<void>(<Future<void>>[remoteCleanup, localCleanup]);
   }
 
   Future<String> _copyToKnowledgeStorage(

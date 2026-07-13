@@ -8,9 +8,11 @@ cd "$(dirname "$0")/.."
 readonly WEB_DIR="clients/web"
 readonly OUT_DIR="assets/web"
 readonly DEFAULT_PNPM_PACKAGE_MANAGER="pnpm@11.7.0"
+readonly MIN_WEB_NODE_MAJOR=22
 readonly COREPACK_BUGGY_NODE_MAJOR=26
 
 PNPM_CMD=()
+NODE_CMD=""
 BACKUP_DIR=""
 OUT_DIR_TOUCHED=0
 BUILD_OK=0
@@ -28,12 +30,50 @@ if [[ ! -d "$WEB_DIR" ]]; then
   fail "找不到 $WEB_DIR"
 fi
 
-resolve_pnpm_package_manager() {
-  if ! command -v node >/dev/null 2>&1; then
-    printf '%s' "$DEFAULT_PNPM_PACKAGE_MANAGER"
-    return
+node_major_for() {
+  local candidate="$1"
+  "$candidate" -p "Number(process.versions.node.split('.')[0]) || 0" \
+    2>/dev/null || printf '0'
+}
+
+resolve_node_command() {
+  local candidates=()
+  local current_node
+  current_node="$(command -v node 2>/dev/null || true)"
+  [[ -n "$current_node" ]] && candidates+=("$current_node")
+  [[ -n "${NVM_BIN:-}" ]] && candidates+=("$NVM_BIN/node")
+  candidates+=("$HOME/.nvm/versions/node"/v*/bin/node)
+
+  local candidate
+  local major
+  local preferred=""
+  local preferred_major=0
+  local fallback=""
+  local fallback_major=0
+  for candidate in "${candidates[@]}"; do
+    [[ -x "$candidate" ]] || continue
+    major="$(node_major_for "$candidate")"
+    (( major >= MIN_WEB_NODE_MAJOR )) || continue
+    if (( major < COREPACK_BUGGY_NODE_MAJOR && major > preferred_major )); then
+      preferred="$candidate"
+      preferred_major="$major"
+    elif (( major > fallback_major )); then
+      fallback="$candidate"
+      fallback_major="$major"
+    fi
+  done
+
+  NODE_CMD="${preferred:-$fallback}"
+  if [[ -z "$NODE_CMD" ]]; then
+    fail "Web 构建需要 Node.js ${MIN_WEB_NODE_MAJOR}+；请安装兼容版本"
   fi
-  node - "$WEB_DIR/package.json" "$DEFAULT_PNPM_PACKAGE_MANAGER" <<'NODE'
+  if [[ "$NODE_CMD" != "$current_node" ]]; then
+    log "使用兼容 Node $($NODE_CMD -v) ($NODE_CMD)"
+  fi
+}
+
+resolve_pnpm_package_manager() {
+  "$NODE_CMD" - "$WEB_DIR/package.json" "$DEFAULT_PNPM_PACKAGE_MANAGER" <<'NODE'
 const fs = require('fs');
 const [, , packageJsonPath, fallback] = process.argv;
 try {
@@ -49,11 +89,7 @@ NODE
 }
 
 node_major_version() {
-  if ! command -v node >/dev/null 2>&1; then
-    printf '0'
-    return
-  fi
-  node -p "Number(process.versions.node.split('.')[0]) || 0" 2>/dev/null || printf '0'
+  node_major_for "$NODE_CMD"
 }
 
 is_safe_out_dir() {
@@ -77,10 +113,13 @@ try_existing_pnpm() {
   if ! command -v pnpm >/dev/null 2>&1; then
     return 1
   fi
+  local node_dir
+  node_dir="$(dirname "$NODE_CMD")"
   pushd "$WEB_DIR" >/dev/null
-  if COREPACK_ENABLE_DOWNLOAD_PROMPT=0 pnpm --version >/dev/null 2>&1; then
+  if PATH="$node_dir:$PATH" COREPACK_ENABLE_DOWNLOAD_PROMPT=0 \
+    pnpm --version >/dev/null 2>&1; then
     popd >/dev/null
-    PNPM_CMD=(pnpm)
+    PNPM_CMD=(env "PATH=$node_dir:$PATH" pnpm)
     return 0
   fi
   popd >/dev/null
@@ -101,8 +140,8 @@ try_cached_corepack_pnpm() {
   local candidate
   for candidate in "${candidates[@]}"; do
     [[ -f "$candidate" ]] || continue
-    if node "$candidate" --version >/dev/null 2>&1; then
-      PNPM_CMD=("$(command -v node)" "$candidate")
+    if "$NODE_CMD" "$candidate" --version >/dev/null 2>&1; then
+      PNPM_CMD=("$NODE_CMD" "$candidate")
       return 0
     fi
   done
@@ -111,20 +150,26 @@ try_cached_corepack_pnpm() {
 
 try_corepack_pnpm() {
   local package_manager="$1"
+  local node_dir
+  node_dir="$(dirname "$NODE_CMD")"
+  local corepack_command="$node_dir/corepack"
 
-  if ! command -v corepack >/dev/null 2>&1; then
-    return 1
+  if [[ ! -x "$corepack_command" ]]; then
+    corepack_command="$(command -v corepack 2>/dev/null || true)"
+    [[ -n "$corepack_command" ]] || return 1
   fi
 
   if (( "$(node_major_version)" >= COREPACK_BUGGY_NODE_MAJOR )); then
-    log "检测到 Node $(node -v)；跳过 Corepack 自动下载，避免已知的代理/undici 兼容问题"
+    log "检测到 Node $($NODE_CMD -v)；跳过 Corepack 自动下载，避免已知的代理/undici 兼容问题"
     return 1
   fi
 
   log "未检测到可用 pnpm，使用 corepack 激活 $package_manager"
-  if COREPACK_ENABLE_DOWNLOAD_PROMPT=0 corepack prepare "$package_manager" --activate >/dev/null \
-    && COREPACK_ENABLE_DOWNLOAD_PROMPT=0 corepack pnpm --version >/dev/null 2>&1; then
-    PNPM_CMD=(corepack pnpm)
+  if PATH="$node_dir:$PATH" COREPACK_ENABLE_DOWNLOAD_PROMPT=0 \
+      "$corepack_command" prepare "$package_manager" --activate >/dev/null \
+    && PATH="$node_dir:$PATH" COREPACK_ENABLE_DOWNLOAD_PROMPT=0 \
+      "$corepack_command" pnpm --version >/dev/null 2>&1; then
+    PNPM_CMD=(env "PATH=$node_dir:$PATH" "$corepack_command" pnpm)
     return 0
   fi
   log "Corepack 已激活但 pnpm 无法启动，继续尝试其他工具链"
@@ -133,14 +178,20 @@ try_corepack_pnpm() {
 
 try_npm_exec_pnpm() {
   local package_manager="$1"
+  local node_dir
+  node_dir="$(dirname "$NODE_CMD")"
+  local npm_command="$node_dir/npm"
 
-  if ! command -v npm >/dev/null 2>&1; then
-    return 1
+  if [[ ! -x "$npm_command" ]]; then
+    npm_command="$(command -v npm 2>/dev/null || true)"
+    [[ -n "$npm_command" ]] || return 1
   fi
 
   log "改用 npm exec 临时运行 $package_manager"
-  if npm exec --yes --package "$package_manager" -- pnpm --version >/dev/null 2>&1; then
-    PNPM_CMD=(npm exec --yes --package "$package_manager" -- pnpm)
+  if PATH="$node_dir:$PATH" "$npm_command" exec --yes \
+      --package "$package_manager" -- pnpm --version >/dev/null 2>&1; then
+    PNPM_CMD=(env "PATH=$node_dir:$PATH" "$npm_command" exec --yes \
+      --package "$package_manager" -- pnpm)
     return 0
   fi
   return 1
@@ -167,7 +218,7 @@ resolve_pnpm_command() {
     return
   fi
 
-  fail "缺少可用 pnpm；请安装 $package_manager，或检查 npm/corepack 网络与代理配置"
+  fail "缺少可用 pnpm；请安装 ${package_manager}，或检查 npm/corepack 网络与代理配置"
 }
 
 install_web_dependencies() {
@@ -236,6 +287,7 @@ build_web_client() {
 }
 
 # ---- 工具链 -----------------------------------------------------------------
+resolve_node_command
 resolve_pnpm_command
 install_web_dependencies
 

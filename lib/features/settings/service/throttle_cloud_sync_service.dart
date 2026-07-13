@@ -14,18 +14,15 @@ import '../../../shared/util/text_clip.dart';
 
 /// 节流配置云端同步 provider 类型。
 ///
-/// 支持自定义 HTTP、iCloud 原生桥接和 GitHub Gist；OAuth provider
-/// 仅保留为未实现的兼容入口。
+/// 支持自定义 HTTP、iCloud 原生桥接和 GitHub Gist。
 enum ThrottleCloudSyncProvider {
   custom,
   iCloud,
-  oauth,
   gistGitHub;
 
   String get storageValue => switch (this) {
     ThrottleCloudSyncProvider.custom => 'custom',
     ThrottleCloudSyncProvider.iCloud => 'icloud',
-    ThrottleCloudSyncProvider.oauth => 'oauth',
     ThrottleCloudSyncProvider.gistGitHub => 'gist_github',
   };
 
@@ -33,8 +30,6 @@ enum ThrottleCloudSyncProvider {
     switch ((nullIfBlank(value) ?? '').toLowerCase()) {
       case 'icloud':
         return ThrottleCloudSyncProvider.iCloud;
-      case 'oauth':
-        return ThrottleCloudSyncProvider.oauth;
       case 'gist_github':
       case 'gist':
       case 'github_gist':
@@ -159,7 +154,7 @@ class ThrottleCloudSyncService {
   static const String _customClientHeader = 'throttle-sync/1';
 
   /// 把 [config] 推送到云端。`provider == iCloud` 时走 native 端的
-  /// NSUbiquitousKeyValueStore；`oauth` 仍未实现，直接 fail-fast。
+  /// NSUbiquitousKeyValueStore。
   ///
   /// [updatedAtMs] 由调用方传入本地最近一次配置修改的 epoch ms，会写
   /// 入 payload 顶层 `updated_at_ms` 字段供后续 pull 解析比较。
@@ -174,10 +169,6 @@ class ThrottleCloudSyncService {
     switch (provider) {
       case ThrottleCloudSyncProvider.iCloud:
         return _pushIcloud(config, updatedAtMs);
-      case ThrottleCloudSyncProvider.oauth:
-        return ThrottleCloudSyncResult.failure(
-          'OAuth sync requires native SDK; use Gist instead.',
-        );
       case ThrottleCloudSyncProvider.gistGitHub:
         return _pushGist(
           gistId: gistId,
@@ -226,10 +217,6 @@ class ThrottleCloudSyncService {
     switch (provider) {
       case ThrottleCloudSyncProvider.iCloud:
         return _pullIcloud();
-      case ThrottleCloudSyncProvider.oauth:
-        return ThrottleCloudSyncResult.failure(
-          'OAuth sync requires native SDK; use Gist instead.',
-        );
       case ThrottleCloudSyncProvider.gistGitHub:
         return _pullGist(gistId: gistId, token: token);
       case ThrottleCloudSyncProvider.custom:

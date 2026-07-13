@@ -1,20 +1,11 @@
-import 'dart:convert';
-import 'dart:io';
-
-import '../../../shared/net/http_response_utils.dart';
-import '../../../shared/net/http_status_utils.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../model/knowledge_base_settings.dart';
+import 'qdrant_http_client.dart';
 
 const Duration _qdrantAdminConnectionTimeout = Duration(seconds: 5);
 const Duration _qdrantAdminRequestTimeout = Duration(seconds: 15);
 const Duration _qdrantAdminResponseIdleTimeout = Duration(seconds: 5);
 const int _qdrantAdminMaxResponseBytes = 16 * 1024 * 1024;
-
-/// Upper bound for the retained operation-log ring. The service lives as long
-/// as its owning controller, so the log must evict oldest entries instead of
-/// growing without limit on long-running sessions.
-const int _kQdrantAdminMaxLogEntries = 200;
 
 List<Map<String, Object?>> qdrantCollectionsFromResponse(Object? response) {
   final root = stringKeyedMapFromValue(response);
@@ -38,6 +29,14 @@ class QdrantAdminService {
   final List<QdrantAdminOperationLog> _logs = <QdrantAdminOperationLog>[];
 
   List<QdrantAdminOperationLog> get logs => List.unmodifiable(_logs);
+
+  void trimLogs(int maxEntries) {
+    final limit = KnowledgeBaseSettingRanges.qdrantLogRetainLines.normalize(
+      maxEntries,
+    );
+    final overflow = _logs.length - limit;
+    if (overflow > 0) _logs.removeRange(0, overflow);
+  }
 
   Future<List<Map<String, Object?>>> listCollections(
     KnowledgeBaseSettings settings,
@@ -187,42 +186,30 @@ class QdrantAdminService {
     Map<String, Object?>? body,
     String? action,
   }) async {
-    final client = HttpClient()
-      ..connectionTimeout = _qdrantAdminConnectionTimeout;
-    try {
-      final request = await client
-          .openUrl(method, settings.qdrantBaseUri.replace(path: path))
-          .timeout(_qdrantAdminConnectionTimeout);
-      request.headers.contentType = ContentType.json;
-      if (body != null) request.write(jsonEncode(body));
-      final response = await request.close().timeout(
-        _qdrantAdminRequestTimeout,
+    final response = await sendQdrantJsonRequest(
+      method: method,
+      uri: settings.qdrantBaseUri.replace(path: path),
+      connectionTimeout: _qdrantAdminConnectionTimeout,
+      openTimeout: _qdrantAdminConnectionTimeout,
+      responseTimeout: _qdrantAdminRequestTimeout,
+      responseIdleTimeout: _qdrantAdminResponseIdleTimeout,
+      maxResponseBytes: _qdrantAdminMaxResponseBytes,
+      body: body,
+    );
+    if (action != null) {
+      final retention = KnowledgeBaseSettingRanges.qdrantLogRetainLines
+          .normalize(settings.qdrantLogRetainLines);
+      final overflow = _logs.length - retention + 1;
+      if (overflow > 0) _logs.removeRange(0, overflow);
+      _logs.add(
+        QdrantAdminOperationLog(
+          action: action,
+          createdAt: DateTime.now().toUtc(),
+          detail: '$method $path',
+        ),
       );
-      final text = await readBoundedHttpResponseText(
-        response,
-        maxBytes: _qdrantAdminMaxResponseBytes,
-        idleTimeout: _qdrantAdminResponseIdleTimeout,
-        totalTimeout: _qdrantAdminRequestTimeout,
-      );
-      if (isHttpFailureStatus(response.statusCode)) {
-        throw HttpException('Qdrant ${response.statusCode}: $text');
-      }
-      if (action != null) {
-        if (_logs.length >= _kQdrantAdminMaxLogEntries) {
-          _logs.removeAt(0);
-        }
-        _logs.add(
-          QdrantAdminOperationLog(
-            action: action,
-            createdAt: DateTime.now().toUtc(),
-            detail: '$method $path',
-          ),
-        );
-      }
-      if (text.trim().isEmpty) return const <String, Object?>{};
-      return stringKeyedMapFromJsonText(text);
-    } finally {
-      client.close(force: true);
     }
+    if (response.body.trim().isEmpty) return const <String, Object?>{};
+    return stringKeyedMapFromJsonText(response.body);
   }
 }

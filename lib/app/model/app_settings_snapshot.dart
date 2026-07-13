@@ -998,8 +998,7 @@ class AppSettingsSnapshot {
   /// 用户阅读节奏。0 = 持续节流（不限时）。
   final int aiStreamThrottleDurationSeconds;
 
-  /// 节流配置云端同步 provider 标识：custom、icloud、gist_github 或 oauth。
-  /// OAuth 仅保留为尚未实现的兼容入口。
+  /// 节流配置云端同步 provider 标识：custom、icloud 或 gist_github。
   final String aiStreamThrottleCloudSyncProvider;
 
   /// 节流配置云端同步 endpoint（custom provider 走 HTTP

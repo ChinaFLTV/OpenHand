@@ -2344,13 +2344,12 @@ class _SettingsViewState extends State<SettingsView> {
                 ),
                 subtitle: openHandLocalizedText(
                   context,
-                  zh: '支持通过自定义 HTTP、iCloud 或 GitHub Gist 推送 / 拉取节流配置；OAuth 暂未实现。',
-                  zhHant:
-                      '支援透過自訂 HTTP、iCloud 或 GitHub Gist 推送 / 拉取節流設定；OAuth 尚未實作。',
-                  en: 'Push or pull throttle settings through custom HTTP, iCloud, or GitHub Gist. OAuth is not implemented yet.',
-                  fr: 'Synchronisez la limitation via HTTP personnalisé, iCloud ou GitHub Gist. OAuth n’est pas encore disponible.',
-                  de: 'Drosselungseinstellungen über eigenes HTTP, iCloud oder GitHub Gist synchronisieren. OAuth ist noch nicht implementiert.',
-                  ja: 'カスタム HTTP、iCloud、GitHub Gist でスロットリング設定を同期できます。OAuth は未実装です。',
+                  zh: '支持通过自定义 HTTP、iCloud 或 GitHub Gist 推送 / 拉取节流配置。',
+                  zhHant: '支援透過自訂 HTTP、iCloud 或 GitHub Gist 推送 / 拉取節流設定。',
+                  en: 'Push or pull throttle settings through custom HTTP, iCloud, or GitHub Gist.',
+                  fr: 'Synchronisez la limitation via HTTP personnalisé, iCloud ou GitHub Gist.',
+                  de: 'Drosselungseinstellungen über eigenes HTTP, iCloud oder GitHub Gist synchronisieren.',
+                  ja: 'カスタム HTTP、iCloud、GitHub Gist でスロットリング設定を同期できます。',
                 ),
                 control: const _ThrottleCloudSyncEditor(),
                 controlMaxWidth: 720,
@@ -6922,7 +6921,7 @@ class _ThrottleImportDiffContent extends StatelessWidget {
 /// 节流配置云端同步编辑器：provider 选择 + endpoint / token 输入 +
 /// push / pull 按钮。
 ///
-/// 支持 custom、iCloud 和 GitHub Gist；OAuth 会返回明确的未实现结果。
+/// 支持 custom、iCloud 和 GitHub Gist。
 class _ThrottleCloudSyncEditor extends StatefulWidget {
   const _ThrottleCloudSyncEditor();
 
@@ -7136,16 +7135,6 @@ class _ThrottleCloudSyncEditorState extends State<_ThrottleCloudSyncEditor> {
           de: 'iCloud-Synchronisierung ist nur für macOS/iOS verfügbar; verwenden Sie auf dieser Plattform Custom HTTP oder GitHub Gist.',
           ja: 'iCloud 同期は macOS / iOS のみ対応です。このプラットフォームではカスタム HTTP または GitHub Gist を使ってください。',
         );
-      case ThrottleCloudSyncProvider.oauth:
-        return openHandLocalizedText(
-          context,
-          zh: 'OAuth 同步入口已预留；当前版本暂未接入 native SDK，请改用 GitHub Gist。',
-          zhHant: 'OAuth 同步入口已預留；目前版本尚未接入 native SDK，請改用 GitHub Gist。',
-          en: 'OAuth sync placeholder; native SDK not wired up yet — use GitHub Gist instead.',
-          fr: 'La synchro OAuth est réservée ; le SDK natif n’est pas encore branché. Utilisez GitHub Gist.',
-          de: 'OAuth-Synchronisierung ist reserviert; das native SDK ist noch nicht angebunden. Verwenden Sie GitHub Gist.',
-          ja: 'OAuth 同期は予約済みです。現バージョンでは native SDK 未接続のため GitHub Gist を使ってください。',
-        );
       case ThrottleCloudSyncProvider.gistGitHub:
         return openHandLocalizedText(
           context,
@@ -7247,11 +7236,6 @@ class _ThrottleCloudSyncEditorState extends State<_ThrottleCloudSyncEditor> {
                 value: ThrottleCloudSyncProvider.gistGitHub,
                 icon: Icon(Icons.code_rounded, size: 16),
                 label: Text('Gist'),
-              ),
-              const ButtonSegment(
-                value: ThrottleCloudSyncProvider.oauth,
-                icon: Icon(Icons.lock_outline_rounded, size: 16),
-                label: Text('OAuth'),
               ),
             ],
             selected: <ThrottleCloudSyncProvider>{providerEnum},

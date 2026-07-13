@@ -76,5 +76,6 @@ abstract class KnowledgeVectorStore {
   Future<void> deleteBySource({
     required String collectionName,
     required String sourceId,
+    Future<void>? cancelSignal,
   });
 }

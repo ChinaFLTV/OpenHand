@@ -87,8 +87,9 @@ class KnowledgeBaseController extends ChangeNotifier {
   }
 
   Future<void> updateSettings(KnowledgeBaseSettings settings) async {
-    _settings = settings;
     await _settingsStore.save(settings);
+    _settings = settings;
+    _qdrantAdminService.trimLogs(settings.qdrantLogRetainLines);
     notifyListeners();
   }
 

@@ -12,7 +12,7 @@ import 'throttle_cloud_sync_service.dart';
 /// 用户期望：
 ///   * 应用启动后静默从云端 pull 一次，让多设备无感同步；
 ///   * 设置变更时 debounce 5s 自动 push，避免每次按键都打一次接口；
-///   * 仅在所选 provider 的必要参数齐全时执行；OAuth 尚未实现。
+///   * 仅在所选 provider 的必要参数齐全时执行。
 ///
 /// 强化为「双向冲突解决」：
 ///   * 远端 payload 携带 `updated_at_ms`（epoch ms）；
@@ -226,8 +226,6 @@ class ThrottleAutoSyncService {
       case ThrottleCloudSyncProvider.gistGitHub:
         // endpoint 复用为 gist id；token 是 PAT。
         return nullIfBlank(endpoint) != null && nullIfBlank(token) != null;
-      case ThrottleCloudSyncProvider.oauth:
-        return false;
     }
   }
 

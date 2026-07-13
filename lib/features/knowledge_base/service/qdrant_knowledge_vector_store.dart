@@ -1,16 +1,12 @@
-import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:uuid/uuid.dart';
 
-import '../../../shared/net/http_response_utils.dart';
-import '../../../shared/net/http_status_utils.dart';
-import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../model/knowledge_base_settings.dart';
 import 'knowledge_indexing_control.dart';
 import 'knowledge_vector_store.dart';
+import 'qdrant_http_client.dart';
 
 const Uuid _qdrantPointUuid = Uuid();
 const int _qdrantVectorMaxResponseBytes = 32 * 1024 * 1024;
@@ -195,6 +191,7 @@ class QdrantKnowledgeVectorStore implements KnowledgeVectorStore {
   Future<void> deleteBySource({
     required String collectionName,
     required String sourceId,
+    Future<void>? cancelSignal,
   }) async {
     await _send(
       method: 'POST',
@@ -213,6 +210,7 @@ class QdrantKnowledgeVectorStore implements KnowledgeVectorStore {
           ],
         },
       },
+      cancelSignal: cancelSignal,
     );
   }
 
@@ -223,42 +221,26 @@ class QdrantKnowledgeVectorStore implements KnowledgeVectorStore {
     bool tolerateNotFound = false,
     Future<void>? cancelSignal,
   }) async {
-    final client = HttpClient()..connectionTimeout = const Duration(seconds: 8);
-    Future<_QdrantResponse> send() async {
-      final request = await client
-          .openUrl(method, uri)
-          .timeout(const Duration(seconds: 12));
-      request.headers.contentType = ContentType.json;
-      if (body != null) {
-        request.write(jsonEncode(body));
-      }
-      final requestTimeout = Duration(seconds: settings.requestTimeoutSeconds);
-      final response = await request.close().timeout(requestTimeout);
-      final text = await readBoundedHttpResponseText(
-        response,
-        maxBytes: _qdrantVectorMaxResponseBytes,
-        idleTimeout: requestTimeout,
-        totalTimeout: requestTimeout,
+    final requestTimeout = Duration(seconds: settings.requestTimeoutSeconds);
+    try {
+      final response = await sendQdrantJsonRequest(
+        method: method,
+        uri: uri,
+        connectionTimeout: const Duration(seconds: 8),
+        openTimeout: const Duration(seconds: 12),
+        responseTimeout: requestTimeout,
+        responseIdleTimeout: requestTimeout,
+        maxResponseBytes: _qdrantVectorMaxResponseBytes,
+        body: body,
+        toleratedFailureStatuses: tolerateNotFound
+            ? const <int>{HttpStatus.notFound}
+            : const <int>{},
+        cancelSignal: cancelSignal,
       );
-      if (response.statusCode == 404 && tolerateNotFound) {
-        return _QdrantResponse(response.statusCode, text);
-      }
-      if (isHttpFailureStatus(response.statusCode)) {
-        throw HttpException('Qdrant ${response.statusCode}: $text', uri: uri);
-      }
-      return _QdrantResponse(response.statusCode, text);
-    }
-
-    final requestFuture = send().whenComplete(() => client.close(force: true));
-    final result = await awaitWithCancelSignal(
-      requestFuture,
-      cancelSignal: cancelSignal,
-    );
-    if (result == null) {
-      client.close(force: true);
+      return _QdrantResponse(response.statusCode, response.body);
+    } on QdrantRequestCancelledException {
       throw const KnowledgeIndexingCancelledException();
     }
-    return result;
   }
 
   Map<String, Object?> _decode(String body) {

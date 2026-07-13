@@ -1,11 +1,9 @@
 import 'dart:convert';
-import 'dart:io';
 
-import '../../../shared/net/http_response_utils.dart';
-import '../../../shared/net/http_status_utils.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../data/knowledge_base_store.dart';
 import '../model/knowledge_base_settings.dart';
+import 'qdrant_http_client.dart';
 
 const Duration _qdrantMonitoringConnectionTimeout = Duration(seconds: 3);
 const Duration _qdrantMonitoringRequestTimeout = Duration(seconds: 8);
@@ -216,34 +214,21 @@ class QdrantMonitoringService {
     String path, {
     Map<String, Object?>? body,
   }) async {
-    final client = HttpClient()
-      ..connectionTimeout = _qdrantMonitoringConnectionTimeout;
     try {
       final uri = settings.qdrantBaseUri.replace(path: path);
-      final request = await client
-          .openUrl(method, uri)
-          .timeout(_qdrantMonitoringConnectionTimeout);
-      if (body != null) {
-        request.headers.contentType = ContentType.json;
-        request.write(jsonEncode(body));
-      }
-      final response = await request.close().timeout(
-        _qdrantMonitoringRequestTimeout,
+      final response = await sendQdrantJsonRequest(
+        method: method,
+        uri: uri,
+        connectionTimeout: _qdrantMonitoringConnectionTimeout,
+        openTimeout: _qdrantMonitoringConnectionTimeout,
+        responseTimeout: _qdrantMonitoringRequestTimeout,
+        responseIdleTimeout: _qdrantMonitoringResponseIdleTimeout,
+        maxResponseBytes: _qdrantMonitoringMaxResponseBytes,
+        body: body,
       );
-      if (isHttpFailureStatus(response.statusCode)) {
-        return const <String, Object?>{};
-      }
-      final text = await readBoundedHttpResponseText(
-        response,
-        maxBytes: _qdrantMonitoringMaxResponseBytes,
-        idleTimeout: _qdrantMonitoringResponseIdleTimeout,
-        totalTimeout: _qdrantMonitoringRequestTimeout,
-      );
-      return stringKeyedMapFromJsonText(text);
+      return stringKeyedMapFromJsonText(response.body);
     } catch (_) {
       return const <String, Object?>{};
-    } finally {
-      client.close(force: true);
     }
   }
 }

@@ -315,10 +315,10 @@ Future<Uint8List> _consumeByteStream(
     final active = subscription;
     if (active == null) return;
     unawaited(
-      active.cancel().catchError((Object _, StackTrace _) {
-        // The primary response/limit result must not be replaced by a cleanup
-        // failure from a transport that is already being discarded.
-      }),
+      cancelStreamSubscriptionBounded<List<int>>(
+        active,
+        timeout: _byteStreamCancelTimeout,
+      ),
     );
   }
 

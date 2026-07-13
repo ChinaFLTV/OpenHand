@@ -5841,15 +5841,6 @@ class _SettingsSavePulse extends StatelessWidget {
   }
 }
 
-/// 给整数滑杆补一个无障碍微调入口：
-///   - 焦点在滑杆上时按 ←/→ 触发 ±[step]，并发一次轻微 [HapticFeedback.selectionClick]
-///   - 鼠标点击仍走 [Slider.onChanged]，行为不变
-/// 用法：包一层 `KeyTweakableSlider(value:..., min:..., max:..., onChanged:...)`，
-/// `_buildSlider` 闭包负责把 value 透传到内部 [Slider]，避免每个调用点都重写 Focus
-/// + onKeyEvent 样板。
-///
-/// 真身已抽到 `lib/shared/ui/key_tweakable_slider.dart`，这里仅保留注释作历史索引。
-
 /// 带弹性进退场动效的设置行显示/隐藏容器。
 ///
 /// 用 [AnimatedSize]（高度弹性伸缩，easeOutBack 曲线）+ [AnimatedSwitcher]

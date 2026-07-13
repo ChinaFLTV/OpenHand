@@ -48,6 +48,7 @@ class KnowledgeBaseSettingRanges {
   static const int defaultMaxPromptTokens = 6000;
   static const int defaultQdrantMetricsRefreshSeconds = 10;
   static const int defaultQdrantLogRetainLines = 300;
+  static const int maxQdrantLogRetainLines = 10000;
 
   static const IntValueRange dimensions = IntValueRange(
     fallback: defaultDimensions,
@@ -207,7 +208,7 @@ class KnowledgeBaseSettingRanges {
   static const IntValueRange qdrantLogRetainLines = IntValueRange(
     fallback: defaultQdrantLogRetainLines,
     min: 1,
-    max: 1000000,
+    max: maxQdrantLogRetainLines,
   );
 }
 
