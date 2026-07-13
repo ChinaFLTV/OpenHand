@@ -32,37 +32,64 @@ class AiTokenUsageParser {
   ///   * prompt_cache_miss_tokens（DeepSeek KV Cache miss，代表本轮未命中
   ///     并按常规输入计费的 prompt tokens，下一轮可成为缓存命中）
   static AiTokenUsage? parseOpenAi(Map<String, Object?> usageMap) {
-    final promptTokens =
-        _readInt(usageMap['prompt_tokens']) ??
-        _readInt(usageMap['input_tokens']);
-    final completionTokens =
-        _readInt(usageMap['completion_tokens']) ??
-        _readInt(usageMap['output_tokens']);
-    final totalTokens = _readInt(usageMap['total_tokens']);
+    final promptTokens = _firstInt(<Object?>[
+      usageMap['prompt_tokens'],
+      usageMap['input_tokens'],
+      usageMap['promptTokens'],
+      usageMap['inputTokens'],
+    ]);
+    final completionTokens = _firstInt(<Object?>[
+      usageMap['completion_tokens'],
+      usageMap['output_tokens'],
+      usageMap['completionTokens'],
+      usageMap['outputTokens'],
+    ]);
+    final totalTokens = _firstInt(<Object?>[
+      usageMap['total_tokens'],
+      usageMap['totalTokens'],
+    ]);
 
-    final promptDetails = _readMap(usageMap['prompt_tokens_details']);
-    final inputDetails = _readMap(usageMap['input_tokens_details']);
-    final completionDetails = _readMap(usageMap['completion_tokens_details']);
-    final outputDetails = _readMap(usageMap['output_tokens_details']);
+    final promptDetails =
+        _readMap(usageMap['prompt_tokens_details']) ??
+        _readMap(usageMap['promptTokensDetails']);
+    final inputDetails =
+        _readMap(usageMap['input_tokens_details']) ??
+        _readMap(usageMap['inputTokensDetails']);
+    final completionDetails =
+        _readMap(usageMap['completion_tokens_details']) ??
+        _readMap(usageMap['completionTokensDetails']);
+    final outputDetails =
+        _readMap(usageMap['output_tokens_details']) ??
+        _readMap(usageMap['outputTokensDetails']);
 
     final cacheRead = _firstInt([
       promptDetails?['cached_tokens'],
+      promptDetails?['cachedTokens'],
       promptDetails?['cache_read_tokens'],
+      promptDetails?['cacheReadTokens'],
       inputDetails?['cached_tokens'],
+      inputDetails?['cachedTokens'],
       inputDetails?['cache_read_tokens'],
+      inputDetails?['cacheReadTokens'],
       usageMap['prompt_cache_hit_tokens'],
       usageMap['cached_tokens'],
       usageMap['cache_read_input_tokens'],
       usageMap['cache_read_tokens'],
       usageMap['cached_prompt_tokens'],
+      usageMap['cacheReadTokens'],
+      usageMap['cachedTokens'],
     ]);
 
     final cacheWrite = _firstInt([
       promptDetails?['cache_creation_tokens'],
+      promptDetails?['cacheCreationTokens'],
       promptDetails?['cache_write_tokens'],
+      promptDetails?['cacheWriteTokens'],
       promptDetails?['cache_miss_tokens'],
       inputDetails?['cache_creation_tokens'],
+      inputDetails?['cacheCreationTokens'],
       inputDetails?['cache_write_tokens'],
+      inputDetails?['cacheWriteTokens'],
       inputDetails?['cache_miss_tokens'],
       usageMap['cache_creation_input_tokens'],
       usageMap['cache_creation_tokens'],
@@ -70,6 +97,8 @@ class AiTokenUsageParser {
       usageMap['prompt_cache_miss_tokens'],
       usageMap['cache_miss_tokens'],
       usageMap['cached_creation_tokens'],
+      usageMap['cacheCreationTokens'],
+      usageMap['cacheWriteTokens'],
     ]);
 
     // Reasoning / thinking 阶段计费量。在 OpenAI o-系列、DeepSeek-R1、Z.AI 思考模式
@@ -77,11 +106,15 @@ class AiTokenUsageParser {
     // 到 usage 顶层（非官方约定，但兜底解析）。
     final reasoning = _firstInt([
       completionDetails?['reasoning_tokens'],
+      completionDetails?['reasoningTokens'],
       completionDetails?['thinking_tokens'],
       outputDetails?['reasoning_tokens'],
+      outputDetails?['reasoningTokens'],
       outputDetails?['thinking_tokens'],
       usageMap['reasoning_tokens'],
       usageMap['thinking_tokens'],
+      usageMap['reasoningTokens'],
+      usageMap['thinkingTokens'],
     ]);
 
     if (promptTokens == null &&

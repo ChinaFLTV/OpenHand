@@ -7,6 +7,7 @@ import 'package:path/path.dart' as p;
 
 import '../../../../app/support/silent_log.dart';
 import '../../../../app/support/system_proxy.dart';
+import '../../../../shared/net/http_error_message.dart';
 import '../../../../shared/net/http_redirect_utils.dart';
 import '../../../../shared/net/http_response_utils.dart';
 import '../../../../shared/net/http_status_utils.dart';
@@ -23,6 +24,7 @@ import '../dsml/ai_dsml_tool_call_parser.dart';
 import '../media/ai_image_generation_service.dart';
 import '../model_registry/ai_model_scanner.dart';
 import '../operations/ai_responses_service.dart';
+import '../runtime/ai_endpoint_router.dart';
 import '../session_io/ai_token_usage_parser.dart';
 import 'ai_protocol_adapter.dart';
 import 'ai_sse_data_parser.dart';
@@ -32,6 +34,8 @@ const String aiChatRequestFallbackCacheAffinityRejected =
     'cache_affinity_rejected';
 const String aiChatRequestFallbackThinkingMarkersRejected =
     'thinking_markers_rejected';
+const String aiChatRequestFallbackResponsesUnsupported =
+    'responses_unsupported';
 
 abstract class AiChatClient {
   Future<AiChatCompletion> sendMessage({
@@ -264,6 +268,13 @@ class AiChatService implements AiChatClient {
   final bool _ownsImageService;
   final AiModelScanner? _modelScanner;
   AiResponsesService? _responsesService;
+  static const AiEndpointRouter _endpointRouter = AiEndpointRouter();
+  static const Duration _responsesCompatibilityCacheTtl = Duration(minutes: 10);
+  static const int _responsesCompatibilityCacheMaxEntries = 64;
+  final Map<String, DateTime> _unsupportedResponsesEndpoints =
+      <String, DateTime>{};
+  final Map<String, DateTime> _unsupportedResponsesRequestShapes =
+      <String, DateTime>{};
 
   /// Returns true when [creationRequest] asks for media output and the
   /// selected model exposes the matching generation capability. Gemini keeps
@@ -297,46 +308,167 @@ class AiChatService implements AiChatClient {
     required List<String> responseModalities,
     required AiCreationRequest creationRequest,
   }) {
+    final capabilityStatus = lowercaseStringFromValue(
+      model.capabilityStatusFor(AiApiFamily.responses),
+    );
     if (model.apiDialect != AiApiDialect.openAiCompat ||
-        creationRequest.mode != AiCreationMode.none ||
-        tools.isNotEmpty ||
-        responseModalities.isNotEmpty) {
+        creationRequest.mode == AiCreationMode.video ||
+        creationRequest.mode == AiCreationMode.audio ||
+        capabilityStatus == 'disabled') {
       return false;
     }
-    if (!_hasExplicitResponsesCapability(model)) {
+    if (capabilityStatus == 'supported') return true;
+    final endpointKey = _responsesEndpointKey(model);
+    if (_hasFreshResponsesCompatibilityEntry(
+      _unsupportedResponsesEndpoints,
+      endpointKey,
+    )) {
       return false;
     }
-    return messages.every(
-      (item) =>
-          item.effectiveParts.isEmpty ||
-          item.effectiveParts.every(
-            (part) => part.kind == AiChatContentPartKind.text,
-          ),
+    return !_hasFreshResponsesCompatibilityEntry(
+      _unsupportedResponsesRequestShapes,
+      _responsesRequestShapeKey(
+        endpointKey: endpointKey,
+        modelId: model.resolveOperationModelId(AiApiFamily.responses),
+        messages: messages,
+        tools: tools,
+        responseModalities: responseModalities,
+        creationRequest: creationRequest,
+      ),
     );
   }
 
-  bool _hasExplicitResponsesCapability(AiModelConfig model) {
-    if (model.providerKind == AiProviderKind.openai) {
-      return true;
-    }
-    if (model.endpointOverrides.containsKey(AiApiFamily.responses)) {
-      return true;
-    }
-    final responsesModelId = model.operationRouting.responsesModelId;
-    return nullIfBlank(responsesModelId) != null;
+  bool _hasFreshResponsesCompatibilityEntry(
+    Map<String, DateTime> cache,
+    String key,
+  ) {
+    final expiresAt = cache[key];
+    if (expiresAt == null) return false;
+    if (expiresAt.isAfter(DateTime.now().toUtc())) return true;
+    cache.remove(key);
+    return false;
   }
 
-  String _effectiveRequestMethod(AiModelConfig model) {
-    return nullIfBlank(model.requestMethod) ?? 'POST';
+  void _cacheResponsesIncompatibility(Map<String, DateTime> cache, String key) {
+    final now = DateTime.now().toUtc();
+    cache.removeWhere((_, expiresAt) => !expiresAt.isAfter(now));
+    cache.remove(key);
+    while (cache.length >= _responsesCompatibilityCacheMaxEntries) {
+      cache.remove(cache.keys.first);
+    }
+    cache[key] = now.add(_responsesCompatibilityCacheTtl);
   }
 
-  bool _shouldFallbackFromResponsesStream(AiChatException error) {
-    final requestUrl = error.telemetry?.requestUrl?.toLowerCase() ?? '';
-    if (!requestUrl.contains('/responses')) {
-      return false;
+  String _responsesEndpointKey(AiModelConfig model) {
+    final endpoint = _endpointRouter.resolve(model, AiApiFamily.responses).url;
+    return '${model.id}|$endpoint';
+  }
+
+  String _responsesRequestShapeKey({
+    required String endpointKey,
+    required String modelId,
+    required List<AiChatTurn> messages,
+    required List<AiToolDefinition> tools,
+    required List<String> responseModalities,
+    required AiCreationRequest creationRequest,
+  }) {
+    final hasImages = messages.any(
+      (turn) => turn.effectiveParts.any(
+        (part) => part.kind == AiChatContentPartKind.imageFile,
+      ),
+    );
+    final hasToolHistory = messages.any(
+      (turn) => turn.role == AiChatRole.tool || turn.toolCalls.isNotEmpty,
+    );
+    final modalities = responseModalities.toSet().toList(growable: false)
+      ..sort();
+    return '$endpointKey|model:$modelId'
+        '|tools:${tools.isNotEmpty || hasToolHistory}'
+        '|images:$hasImages|creation:${creationRequest.mode.storageValue}'
+        '|modalities:${modalities.join(',')}';
+  }
+
+  void _rememberResponsesIncompatibility({
+    required AiModelConfig model,
+    required List<AiChatTurn> messages,
+    required List<AiToolDefinition> tools,
+    required List<String> responseModalities,
+    required AiCreationRequest creationRequest,
+    required AiResponsesHttpException error,
+  }) {
+    final endpointKey = _responsesEndpointKey(model);
+    if (error.isEndpointIncompatible) {
+      _cacheResponsesIncompatibility(
+        _unsupportedResponsesEndpoints,
+        endpointKey,
+      );
+      return;
     }
-    final message = error.message.toLowerCase();
-    return message.contains('404') || message.contains('405');
+    _cacheResponsesIncompatibility(
+      _unsupportedResponsesRequestShapes,
+      _responsesRequestShapeKey(
+        endpointKey: endpointKey,
+        modelId: model.resolveOperationModelId(AiApiFamily.responses),
+        messages: messages,
+        tools: tools,
+        responseModalities: responseModalities,
+        creationRequest: creationRequest,
+      ),
+    );
+  }
+
+  String _effectiveRequestMethod(AiModelConfig model) =>
+      nullIfBlank(model.requestMethod) ?? 'POST';
+
+  AiChatException _chatExceptionFromResponses(AiResponsesHttpException error) {
+    return AiChatException(
+      error.message,
+      telemetry: AiChatRequestTelemetry(
+        requestUrl: error.request.url,
+        requestMethod: error.request.method,
+        requestHeaders: error.request.headers,
+        requestBody: error.request.body,
+        rawResponse: error.body,
+        startedAt: error.startedAt,
+        endedAt: error.endedAt,
+        durationMs: error.endedAt.difference(error.startedAt).inMilliseconds,
+        error: error.message,
+        requestFallbacks: error.requestFallbacks,
+      ),
+    );
+  }
+
+  AiChatException _chatExceptionFromResponsesPayload(
+    AiResponsesPayloadException error,
+  ) {
+    final request = error.request;
+    final startedAt = error.startedAt;
+    final endedAt = error.endedAt;
+    return AiChatException(
+      error.message,
+      telemetry: request == null
+          ? null
+          : AiChatRequestTelemetry(
+              requestUrl: request.url,
+              requestMethod: request.method,
+              requestHeaders: request.headers,
+              requestBody: request.body,
+              rawResponse: error.body,
+              startedAt: startedAt,
+              endedAt: endedAt,
+              durationMs: startedAt == null || endedAt == null
+                  ? null
+                  : endedAt.difference(startedAt).inMilliseconds,
+              error: error.message,
+              requestFallbacks: error.requestFallbacks,
+            ),
+    );
+  }
+
+  AiChatException _imageResponsesUnavailable(AiModelConfig model) {
+    return AiChatException(
+      '当前模型 "${model.modelId}" 的 Responses 图片工具不可用，且未配置兼容的专用图片生成端点。',
+    );
   }
 
   void _addRequestFallback(List<String> fallbacks, String reason) {
@@ -444,6 +576,7 @@ class AiChatService implements AiChatClient {
     required List<AiChatTurn> messages,
     required AiCreationRequest creationRequest,
     required Duration timeout,
+    List<String> requestFallbacks = const <String>[],
   }) async {
     final prompt = _latestUserPromptFromTurns(messages);
     final referenceImages = _latestUserImagePartsFromTurns(messages);
@@ -484,6 +617,7 @@ class AiChatService implements AiChatClient {
       endedAt: result.endedAt,
       durationMs: result.durationMs,
       usage: result.usage,
+      requestFallbacks: List<String>.unmodifiable(requestFallbacks),
     );
   }
 
@@ -500,6 +634,87 @@ class AiChatService implements AiChatClient {
     void Function(AiChatRequestTelemetry telemetry)? onRequestStarted,
   }) async {
     _assertCreationModeIsRoutable(model, creationRequest);
+    final canUseResponses = _canUseResponsesFamily(
+      model: model,
+      messages: messages,
+      tools: tools,
+      responseModalities: responseModalities,
+      creationRequest: creationRequest,
+    );
+    final routeFallbacks = <String>[];
+    if (canUseResponses) {
+      try {
+        _responsesService ??= AiResponsesService(client: _client);
+        final response = await _awaitWithCancelSignal(
+          _responsesService!.createChatResponse(
+            model: model,
+            messages: messages,
+            tools: tools,
+            imageGenerationOptions: creationRequest.mode == AiCreationMode.image
+                ? creationRequest.options
+                : null,
+            timeout: timeout,
+            inputCacheConfig: inputCacheConfig,
+            onRequestStarted: (request) {
+              onRequestStarted?.call(
+                AiChatRequestTelemetry(
+                  requestUrl: request.url,
+                  requestMethod: request.method,
+                  requestHeaders: request.headers,
+                  requestBody: request.body,
+                  startedAt: DateTime.now().toUtc(),
+                ),
+              );
+            },
+          ),
+          cancelSignal,
+        );
+        final dsmlExtraction = extractDsmlToolCalls(response.text);
+        return AiChatCompletion(
+          reply: dsmlExtraction.sanitizedText,
+          reasoningContent: response.reasoning,
+          usage: response.usage,
+          rawResponse: response.rawResponse,
+          toolCalls: response.toolCalls.isNotEmpty
+              ? response.toolCalls
+              : dsmlExtraction.toolCalls,
+          requestUrl: response.requestUrl,
+          requestMethod: response.requestMethod,
+          requestHeaders: response.requestHeaders,
+          requestBody: response.requestBody,
+          startedAt: response.startedAt,
+          endedAt: response.endedAt,
+          durationMs: response.durationMs,
+          requestFallbacks: <String>[
+            ...routeFallbacks,
+            ...response.requestFallbacks,
+          ],
+        );
+      } on AiChatCancelledException {
+        rethrow;
+      } on AiResponsesHttpException catch (error) {
+        if (!error.isCompatibilityFailure) {
+          throw _chatExceptionFromResponses(error);
+        }
+        _rememberResponsesIncompatibility(
+          model: model,
+          messages: messages,
+          tools: tools,
+          responseModalities: responseModalities,
+          creationRequest: creationRequest,
+          error: error,
+        );
+        for (final reason in error.requestFallbacks) {
+          _addRequestFallback(routeFallbacks, reason);
+        }
+        _addRequestFallback(
+          routeFallbacks,
+          aiChatRequestFallbackResponsesUnsupported,
+        );
+      } on AiResponsesPayloadException catch (error) {
+        throw _chatExceptionFromResponsesPayload(error);
+      }
+    }
     if (_shouldDivertToMediaEndpoint(model, creationRequest)) {
       try {
         return await _awaitWithCancelSignal(
@@ -508,6 +723,7 @@ class AiChatService implements AiChatClient {
             messages: messages,
             creationRequest: creationRequest,
             timeout: timeout,
+            requestFallbacks: routeFallbacks,
           ),
           cancelSignal,
         );
@@ -515,45 +731,9 @@ class AiChatService implements AiChatClient {
         throw AiChatException(error.message);
       }
     }
-    final canUseResponses = _canUseResponsesFamily(
-      model: model,
-      messages: messages,
-      tools: tools,
-      responseModalities: responseModalities,
-      creationRequest: creationRequest,
-    );
-    if (canUseResponses) {
-      final flattenedInput = trimmedNonEmptyStrings(
-        messages.map((item) => '${item.roleName}: ${item.content}'),
-      ).join('\n\n');
-      try {
-        _responsesService ??= AiResponsesService();
-        final response = await _awaitWithCancelSignal(
-          _responsesService!.createResponse(
-            model: model,
-            input: flattenedInput,
-            timeout: timeout,
-            inputCacheConfig: inputCacheConfig,
-          ),
-          cancelSignal,
-        );
-        return AiChatCompletion(
-          reply: response.text,
-          reasoningContent: response.reasoning,
-          usage: response.usage,
-          rawResponse: response.rawResponse,
-          requestUrl: response.requestUrl,
-          requestMethod: response.requestMethod,
-          requestHeaders: response.requestHeaders,
-          requestBody: response.requestBody,
-          requestFallbacks: response.requestFallbacks,
-        );
-      } on AiChatCancelledException {
-        rethrow;
-      } catch (_) {
-        // Fall back to the existing chat/completions path when the provider
-        // does not actually expose a compatible /responses family yet.
-      }
+    if (creationRequest.mode == AiCreationMode.image &&
+        model.apiDialect == AiApiDialect.openAiCompat) {
+      throw _imageResponsesUnavailable(model);
     }
     try {
       final adapter = AiProtocolRegistry.adapterFor(model.protocolType);
@@ -566,7 +746,7 @@ class AiChatService implements AiChatClient {
       );
       final effectiveMethod = _effectiveRequestMethod(model);
       final startedAt = DateTime.now().toUtc();
-      final requestFallbacks = <String>[];
+      final requestFallbacks = <String>[...routeFallbacks];
       AiChatRequestTelemetry telemetry({
         String? rawResponse,
         DateTime? endedAt,
@@ -775,21 +955,57 @@ class AiChatService implements AiChatClient {
       responseModalities: responseModalities,
       creationRequest: creationRequest,
     );
+    final routeFallbacks = <String>[];
+    if (canUseResponses && creationRequest.mode == AiCreationMode.image) {
+      // Responses image output contains a large base64 payload. Keep it out of
+      // the bounded SSE event buffer and expose the one-shot result through the
+      // same synthetic stream contract used by dedicated media endpoints.
+      return _sendMessageAsSyntheticStream(
+        model: model,
+        messages: messages,
+        tools: tools,
+        responseModalities: responseModalities,
+        creationRequest: creationRequest,
+        timeout: timeout,
+        cancelSignal: cancelSignal,
+        onRequestStarted: onRequestStarted,
+        inputCacheConfig: inputCacheConfig,
+        routeThroughChatRouting: true,
+      );
+    }
     if (canUseResponses) {
       try {
-        return await _sendResponsesStream(
+        final response = await _sendResponsesStream(
           model: model,
           messages: messages,
+          tools: tools,
+          creationRequest: creationRequest,
           timeout: timeout,
           streamIdleTimeout: streamIdleTimeout,
           cancelSignal: cancelSignal,
           onRequestStarted: onRequestStarted,
           inputCacheConfig: inputCacheConfig,
         );
-      } on AiChatException catch (error) {
-        if (!_shouldFallbackFromResponsesStream(error)) {
-          rethrow;
+        return response;
+      } on AiResponsesHttpException catch (error) {
+        if (!error.isCompatibilityFailure) {
+          throw _chatExceptionFromResponses(error);
         }
+        _rememberResponsesIncompatibility(
+          model: model,
+          messages: messages,
+          tools: tools,
+          responseModalities: responseModalities,
+          creationRequest: creationRequest,
+          error: error,
+        );
+        for (final reason in error.requestFallbacks) {
+          _addRequestFallback(routeFallbacks, reason);
+        }
+        _addRequestFallback(
+          routeFallbacks,
+          aiChatRequestFallbackResponsesUnsupported,
+        );
       }
     }
     // Media generation is a one-shot or bounded-poll protocol on dedicated
@@ -806,7 +1022,12 @@ class AiChatService implements AiChatClient {
         cancelSignal: cancelSignal,
         onRequestStarted: onRequestStarted,
         inputCacheConfig: inputCacheConfig,
+        initialRequestFallbacks: routeFallbacks,
       );
+    }
+    if (creationRequest.mode == AiCreationMode.image &&
+        model.apiDialect == AiApiDialect.openAiCompat) {
+      throw _imageResponsesUnavailable(model);
     }
     final adapter = AiProtocolRegistry.adapterFor(model.protocolType);
     if (!adapter.supportsServerStreaming) {
@@ -834,7 +1055,7 @@ class AiChatService implements AiChatClient {
       inputCacheConfig: inputCacheConfig,
     );
     final effectiveMethod = _effectiveRequestMethod(model);
-    final requestFallbacks = <String>[];
+    final requestFallbacks = <String>[...routeFallbacks];
     late DateTime streamStartedAt;
     late Map<String, String> capturedHeaders;
     late Map<String, Object?> capturedBody;
@@ -1363,6 +1584,8 @@ class AiChatService implements AiChatClient {
   Future<AiChatStreamingResponse> _sendResponsesStream({
     required AiModelConfig model,
     required List<AiChatTurn> messages,
+    required List<AiToolDefinition> tools,
+    required AiCreationRequest creationRequest,
     required Duration timeout,
     required Duration streamIdleTimeout,
     Future<void>? cancelSignal,
@@ -1372,13 +1595,14 @@ class AiChatService implements AiChatClient {
     final streamCancellationTimeout = _boundedStreamCancellationTimeout(
       streamIdleTimeout,
     );
-    _responsesService ??= AiResponsesService();
-    final flattenedInput = trimmedNonEmptyStrings(
-      messages.map((item) => '${item.roleName}: ${item.content}'),
-    ).join('\n\n');
-    var request = _responsesService!.buildRequest(
+    _responsesService ??= AiResponsesService(client: _client);
+    var request = await _responsesService!.buildChatRequest(
       model: model,
-      input: flattenedInput,
+      messages: messages,
+      tools: tools,
+      imageGenerationOptions: creationRequest.mode == AiCreationMode.image
+          ? creationRequest.options
+          : null,
       stream: true,
       inputCacheConfig: inputCacheConfig,
     );
@@ -1542,27 +1766,14 @@ class AiChatService implements AiChatClient {
             streamedResponse,
             timeout: streamIdleTimeout,
           );
-      throw AiChatException(
-        AiTransportDiagnosticMessages.httpStatus(
-          streamedResponse.statusCode,
-          serverMessage: errorBody,
-          contextHint: 'responses',
-        ),
-        telemetry: AiChatRequestTelemetry(
-          requestUrl: request.url,
-          requestMethod: request.method,
-          requestHeaders: capturedHeaders,
-          requestBody: capturedBody,
-          rawResponse: errorBody,
-          startedAt: streamStartedAt,
-          endedAt: DateTime.now().toUtc(),
-          durationMs: DateTime.now()
-              .toUtc()
-              .difference(streamStartedAt)
-              .inMilliseconds,
-          error: errorBody,
-          requestFallbacks: List<String>.unmodifiable(requestFallbacks),
-        ),
+      final endedAt = DateTime.now().toUtc();
+      throw AiResponsesHttpException(
+        statusCode: streamedResponse.statusCode,
+        body: errorBody,
+        request: request,
+        startedAt: streamStartedAt,
+        endedAt: endedAt,
+        requestFallbacks: List<String>.unmodifiable(requestFallbacks),
       );
     }
 
@@ -1570,10 +1781,12 @@ class AiChatService implements AiChatClient {
     final resultCompleter = Completer<AiChatStreamResult>();
     final textBuffer = StringBuffer();
     final reasoningBuffer = StringBuffer();
+    final toolCalls = <int, AiResponsesStreamToolCall>{};
     final rawResponseBuffer = StringBuffer();
     final lineBuffer = StringBuffer();
     AiTokenUsage? usage;
     String? finishReason;
+    Map<String, Object?>? completedResponse;
     Future<void>? eventControllerCloseFuture;
     var discardingOversizedEvent = false;
 
@@ -1583,6 +1796,7 @@ class AiChatService implements AiChatClient {
 
     late final StreamSubscription<String> responseSubscription;
     Future<void>? responseSubscriptionCancelFuture;
+    var finalizing = false;
 
     Future<void> cancelResponseStream() {
       return responseSubscriptionCancelFuture ??= _cancelStreamSubscription(
@@ -1592,18 +1806,127 @@ class AiChatService implements AiChatClient {
       );
     }
 
-    void completeStreamResult({bool wasCancelled = false}) {
+    void emitEvent(AiChatStreamEvent event) {
+      if (!resultCompleter.isCompleted && !eventController.isClosed) {
+        eventController.add(event);
+      }
+    }
+
+    void appendFinalText(String value) {
+      final normalized = value.trim();
+      if (normalized.isEmpty) return;
+      final current = textBuffer.toString();
+      if (current.trim().isEmpty) {
+        textBuffer
+          ..clear()
+          ..write(normalized);
+        emitEvent(AiChatStreamEvent.textDelta(normalized));
+        return;
+      }
+      if (normalized == current.trim()) return;
+      if (!normalized.startsWith(current)) {
+        textBuffer
+          ..clear()
+          ..write(normalized);
+        return;
+      }
+      final delta = normalized.substring(current.length);
+      if (delta.isEmpty) return;
+      textBuffer.write(delta);
+      emitEvent(AiChatStreamEvent.textDelta(delta));
+    }
+
+    void appendFinalReasoning(String? value) {
+      final normalized = nullIfBlank(value);
+      if (normalized == null) return;
+      final current = reasoningBuffer.toString();
+      if (current.trim().isEmpty) {
+        reasoningBuffer
+          ..clear()
+          ..write(normalized);
+        emitEvent(AiChatStreamEvent.reasoningDelta(normalized));
+        return;
+      }
+      if (normalized == current.trim()) return;
+      if (!normalized.startsWith(current)) {
+        reasoningBuffer
+          ..clear()
+          ..write(normalized);
+        return;
+      }
+      final delta = normalized.substring(current.length);
+      if (delta.isEmpty) return;
+      reasoningBuffer.write(delta);
+      emitEvent(AiChatStreamEvent.reasoningDelta(delta));
+    }
+
+    Future<void> completeStreamResult({bool wasCancelled = false}) async {
+      if (resultCompleter.isCompleted || finalizing) return;
+      finalizing = true;
+      AiResponsesParsedPayload? parsed;
+      if (!wasCancelled && completedResponse != null) {
+        try {
+          parsed = await _responsesService!.parseResponsePayload(
+            completedResponse,
+          );
+          appendFinalText(parsed.text);
+          appendFinalReasoning(parsed.reasoning);
+          if (parsed.usage != null && !parsed.usage!.isEmpty) {
+            usage = AiTokenUsageParser.carryForward(usage, parsed.usage!);
+          }
+          finishReason ??= parsed.finishReason;
+        } catch (error, stackTrace) {
+          if (!resultCompleter.isCompleted) {
+            resultCompleter.completeError(error, stackTrace);
+          }
+          unawaited(closeEvents());
+          return;
+        }
+      }
       if (resultCompleter.isCompleted) return;
+      final streamedToolCalls = toolCalls.entries.toList(growable: false)
+        ..sort((left, right) => left.key.compareTo(right.key));
+      final parsedStreamToolCalls = streamedToolCalls
+          .map((entry) => entry.value.toToolCall(entry.key))
+          .whereType<AiToolCall>()
+          .toList(growable: false);
+      final replyExtraction = extractDsmlToolCalls(textBuffer.toString());
+      final resolvedToolCalls = parsed?.toolCalls.isNotEmpty == true
+          ? parsed!.toolCalls
+          : parsedStreamToolCalls.isNotEmpty
+          ? parsedStreamToolCalls
+          : replyExtraction.toolCalls;
+      if (!wasCancelled &&
+          completedResponse == null &&
+          replyExtraction.sanitizedText.isEmpty &&
+          reasoningBuffer.toString().trim().isEmpty &&
+          resolvedToolCalls.isEmpty) {
+        resultCompleter.completeError(
+          const AiResponsesPayloadException(
+            'Responses API stream returned no assistant content or tool calls.',
+          ),
+          StackTrace.current,
+        );
+        unawaited(closeEvents());
+        return;
+      }
+      final effectiveFinishReason =
+          finishReason ??
+          (resolvedToolCalls.isNotEmpty
+              ? 'tool_calls'
+              : replyExtraction.hasTrailingIncompleteMarkup
+              ? 'length'
+              : null);
       final endedAt = DateTime.now().toUtc();
       resultCompleter.complete(
         AiChatStreamResult(
-          reply: textBuffer.toString().trim(),
+          reply: replyExtraction.sanitizedText,
           reasoning: reasoningBuffer.toString().trim(),
-          toolCalls: const <AiToolCall>[],
+          toolCalls: resolvedToolCalls,
           wasCancelled: wasCancelled,
           usage: usage,
           rawResponse: rawResponseBuffer.toString(),
-          finishReason: finishReason,
+          finishReason: effectiveFinishReason,
           requestUrl: request.url,
           requestMethod: request.method,
           requestHeaders: capturedHeaders,
@@ -1615,12 +1938,6 @@ class AiChatService implements AiChatClient {
         ),
       );
       unawaited(closeEvents());
-    }
-
-    void emitEvent(AiChatStreamEvent event) {
-      if (!resultCompleter.isCompleted && !eventController.isClosed) {
-        eventController.add(event);
-      }
     }
 
     void processEventBlock(String block) {
@@ -1652,14 +1969,47 @@ class AiChatService implements AiChatClient {
         return;
       }
       if (decoded is! Map<String, Object?>) return;
+      final eventType = '${decoded['type'] ?? ''}';
+      if (eventType == 'response.failed' || eventType == 'error') {
+        final responseError =
+            decoded['response'] ?? decoded['error'] ?? decoded;
+        final message = extractApiErrorMessage(
+          jsonEncode(responseError),
+          emptyFallback: 'Responses API stream failed.',
+        );
+        if (!resultCompleter.isCompleted) {
+          resultCompleter.completeError(
+            AiChatException(
+              message,
+              telemetry: AiChatRequestTelemetry(
+                requestUrl: request.url,
+                requestMethod: request.method,
+                requestHeaders: capturedHeaders,
+                requestBody: capturedBody,
+                rawResponse: rawResponseBuffer.toString(),
+                startedAt: streamStartedAt,
+                endedAt: DateTime.now().toUtc(),
+                error: message,
+                requestFallbacks: List<String>.unmodifiable(requestFallbacks),
+              ),
+            ),
+            StackTrace.current,
+          );
+        }
+        unawaited(closeEvents());
+        unawaited(cancelResponseStream());
+        return;
+      }
       _responsesService!.parseSseEvent(
         decoded,
         textBuffer: textBuffer,
         reasoningBuffer: reasoningBuffer,
+        toolCalls: toolCalls,
         usage: () => usage,
         setUsage: (value) => usage = value,
         emitEvent: emitEvent,
         setFinishReason: (value) => finishReason = value,
+        setCompletedResponse: (value) => completedResponse = value,
       );
     }
 
@@ -1711,7 +2061,7 @@ class AiChatService implements AiChatClient {
                 lineBuffer.length <= maxStreamLineBufferBytes) {
               processEventBlock(lineBuffer.toString());
             }
-            completeStreamResult();
+            unawaited(completeStreamResult());
           },
           cancelOnError: true,
         );
@@ -1720,7 +2070,7 @@ class AiChatService implements AiChatClient {
       events: eventController.stream,
       result: resultCompleter.future,
       cancel: () async {
-        completeStreamResult(wasCancelled: true);
+        await completeStreamResult(wasCancelled: true);
         await cancelResponseStream();
         // A single-subscription controller's close future does not complete
         // until a listener observes done. Cancellation must not hang merely
@@ -1740,6 +2090,8 @@ class AiChatService implements AiChatClient {
     Future<void>? cancelSignal,
     void Function(AiChatRequestTelemetry telemetry)? onRequestStarted,
     AiInputCacheRuntimeConfig? inputCacheConfig,
+    List<String> initialRequestFallbacks = const <String>[],
+    bool routeThroughChatRouting = false,
   }) async {
     final controller = StreamController<AiChatStreamEvent>(sync: true);
     final completer = Completer<AiChatStreamResult>();
@@ -1774,16 +2126,27 @@ class AiChatService implements AiChatClient {
 
     unawaited(() async {
       try {
-        final completionFuture = sendMessage(
-          model: model,
-          messages: messages,
-          tools: tools,
-          responseModalities: responseModalities,
-          creationRequest: creationRequest,
-          timeout: timeout,
-          onRequestStarted: onRequestStarted,
-          inputCacheConfig: inputCacheConfig,
-        );
+        final Future<AiChatCompletion> completionFuture;
+        if (!routeThroughChatRouting &&
+            _shouldDivertToMediaEndpoint(model, creationRequest)) {
+          completionFuture = _sendMediaGenerationCompletion(
+            model: model,
+            messages: messages,
+            creationRequest: creationRequest,
+            timeout: timeout,
+          );
+        } else {
+          completionFuture = sendMessage(
+            model: model,
+            messages: messages,
+            tools: tools,
+            responseModalities: responseModalities,
+            creationRequest: creationRequest,
+            timeout: timeout,
+            onRequestStarted: onRequestStarted,
+            inputCacheConfig: inputCacheConfig,
+          );
+        }
         // Race the actual completion against (a) the caller's cancel
         // signal, and (b) our internal signal raised by `cancel()`.
         // Either branch resolves immediately so the synthetic stream
@@ -1828,7 +2191,10 @@ class AiChatService implements AiChatClient {
               startedAt: completion.startedAt,
               endedAt: completion.endedAt,
               durationMs: completion.durationMs,
-              requestFallbacks: completion.requestFallbacks,
+              requestFallbacks: <String>[
+                ...initialRequestFallbacks,
+                ...completion.requestFallbacks,
+              ],
             ),
           );
         }
@@ -1933,6 +2299,8 @@ class AiChatService implements AiChatClient {
 
   @override
   void dispose() {
+    _unsupportedResponsesEndpoints.clear();
+    _unsupportedResponsesRequestShapes.clear();
     _responsesService?.dispose();
     _responsesService = null;
     if (_ownsImageService) {

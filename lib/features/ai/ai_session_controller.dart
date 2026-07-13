@@ -12958,6 +12958,9 @@ $tail''';
         'thinking_markers_degraded': result.requestFallbacks.contains(
           aiChatRequestFallbackThinkingMarkersRejected,
         ),
+        'responses_api_degraded': result.requestFallbacks.contains(
+          aiChatRequestFallbackResponsesUnsupported,
+        ),
       },
       if (result.requestBody != null)
         'request_payload': _sanitizeTelemetryMapPreservingOrder(
@@ -13022,6 +13025,9 @@ $tail''';
         ),
         'thinking_markers_degraded': telemetry.requestFallbacks.contains(
           aiChatRequestFallbackThinkingMarkersRejected,
+        ),
+        'responses_api_degraded': telemetry.requestFallbacks.contains(
+          aiChatRequestFallbackResponsesUnsupported,
         ),
       },
       if (telemetry?.requestBody != null)
@@ -13246,6 +13252,9 @@ $tail''';
         'thinking_markers_degraded': telemetry.requestFallbacks.contains(
           aiChatRequestFallbackThinkingMarkersRejected,
         ),
+        'responses_api_degraded': telemetry.requestFallbacks.contains(
+          aiChatRequestFallbackResponsesUnsupported,
+        ),
       },
       if (telemetry.requestBody != null) ...<String, Object?>{
         ..._cacheControlTelemetry(telemetry.requestBody!),
@@ -13411,6 +13420,13 @@ $tail''';
         final messageUsage = message['usage'];
         if (messageUsage is Map) {
           maps.add(stringKeyedMapFromValue(messageUsage));
+        }
+      }
+      final response = map['response'];
+      if (response is Map) {
+        final responseUsage = response['usage'];
+        if (responseUsage is Map) {
+          maps.add(stringKeyedMapFromValue(responseUsage));
         }
       }
     }

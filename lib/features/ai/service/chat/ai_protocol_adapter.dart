@@ -828,7 +828,7 @@ class AiPromptCacheAffinity {
     switch (kind) {
       case AiPromptCacheAffinityKind.openRouterSession:
         if (id.isEmpty) return body;
-        return _putBodyFieldBeforeMessages(
+        return _putBodyFieldBeforeConversationInput(
           body,
           openRouterSessionBodyField,
           id,
@@ -837,7 +837,7 @@ class AiPromptCacheAffinity {
       case AiPromptCacheAffinityKind.grokCompatibleGateway:
         final bodyKey = _bodyPromptCacheKey;
         if (bodyKey.isEmpty) return body;
-        return _putBodyFieldBeforeMessages(
+        return _putBodyFieldBeforeConversationInput(
           body,
           openAiPromptCacheKeyBodyField,
           bodyKey,
@@ -987,23 +987,26 @@ class AiPromptCacheAffinity {
     return updated;
   }
 
-  static Map<String, Object?> withMessagesLast(Map<String, Object?> body) {
-    if (!body.containsKey(messagesBodyField)) {
-      return body;
-    }
-    final messages = body[messagesBodyField];
+  static Map<String, Object?> withConversationInputLast(
+    Map<String, Object?> body,
+  ) {
+    final field = body.containsKey(messagesBodyField)
+        ? messagesBodyField
+        : body.containsKey('input')
+        ? 'input'
+        : null;
+    if (field == null) return body;
+    final conversationInput = body[field];
     final updated = <String, Object?>{};
     for (final entry in body.entries) {
-      if (entry.key == messagesBodyField) {
-        continue;
-      }
+      if (entry.key == field) continue;
       updated[entry.key] = entry.value;
     }
-    updated[messagesBodyField] = messages;
+    updated[field] = conversationInput;
     return updated;
   }
 
-  static Map<String, Object?> _putBodyFieldBeforeMessages(
+  static Map<String, Object?> _putBodyFieldBeforeConversationInput(
     Map<String, Object?> body,
     String field,
     String value,
@@ -1014,7 +1017,8 @@ class AiPromptCacheAffinity {
     final updated = <String, Object?>{};
     var inserted = false;
     for (final entry in body.entries) {
-      if (!inserted && entry.key == 'messages') {
+      if (!inserted &&
+          (entry.key == messagesBodyField || entry.key == 'input')) {
         updated[field] = value;
         inserted = true;
       }
@@ -1183,7 +1187,7 @@ abstract class AiProtocolAdapter {
     );
     cacheAffinity.applyToHeaders(headers);
     final bodyWithExtras = AiOperationHttp.mergeBodyExtras(model, family, body);
-    final cacheAwareBody = AiPromptCacheAffinity.withMessagesLast(
+    final cacheAwareBody = AiPromptCacheAffinity.withConversationInputLast(
       cacheAffinity.applyToBody(bodyWithExtras),
     );
     return AiRequestBlueprint(

@@ -43,6 +43,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
   late final TextEditingController _realtimeUrlOverrideController;
   late final TextEditingController _endpointOverridesController;
   late final TextEditingController _operationExtrasController;
+  late String _responsesCapabilityStatus;
   late String _realtimeCapabilityStatus;
   late String _filesCapabilityStatus;
   late String _fineTunesCapabilityStatus;
@@ -165,6 +166,12 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
         emptyMapAsBlank: true,
       ),
     );
+    _responsesCapabilityStatus = switch (widget.initialModel
+        ?.capabilityStatusFor(AiApiFamily.responses)) {
+      'supported' => 'supported',
+      'disabled' => 'disabled',
+      _ => 'auto',
+    };
     _realtimeCapabilityStatus =
         widget.initialModel?.capabilityStatusFor(AiApiFamily.realtime) ??
         'experimental';
@@ -583,10 +590,10 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
     }
   }
 
-  String _previewChatEndpoint() {
+  ({String responses, String chat}) _previewChatEndpoints() {
     final baseUrl = _baseUrlController.text.trim();
     if (baseUrl.isEmpty || !isValidHttpUrl(baseUrl)) {
-      return '';
+      return (responses: '', chat: '');
     }
     try {
       final adapter = AiProtocolRegistry.adapterFor(_protocolType);
@@ -603,11 +610,14 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
         providerKind: _providerKind,
         customHeaders: _collectCustomHeaders(),
         requestMethod: _requestMethod,
+        operationRouting: AiOperationRouting(
+          responsesModelId: nullIfBlank(_responsesModelIdController.text),
+        ),
         endpointOverrides: parseAiEndpointOverrides(
           _tryDecodeJsonObject(_endpointOverridesController.text),
         ),
       );
-      return _endpointPreviewRouter
+      final chat = _endpointPreviewRouter
           .resolve(
             config,
             adapter.operationFamily,
@@ -615,8 +625,16 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
             method: _requestMethod,
           )
           .url;
+      final responses =
+          _apiDialect == AiApiDialect.openAiCompat &&
+              _responsesCapabilityStatus != 'disabled'
+          ? _endpointPreviewRouter
+                .resolve(config, AiApiFamily.responses, method: _requestMethod)
+                .url
+          : '';
+      return (responses: responses, chat: chat);
     } catch (_) {
-      return '';
+      return (responses: '', chat: '');
     }
   }
 
@@ -627,7 +645,8 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
       context,
       const Duration(milliseconds: 180),
     );
-    final previewUrl = _previewChatEndpoint();
+    final preview = _previewChatEndpoints();
+    final usesResponsesRouting = _apiDialect == AiApiDialect.openAiCompat;
     return Padding(
       padding: const EdgeInsetsDirectional.fromSTEB(0, 0, 0, 4),
       child: Row(
@@ -662,31 +681,145 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                     color: colorScheme.onSurfaceVariant,
                   ),
                 ),
-                AnimatedSwitcher(
+                AnimatedSize(
                   duration: duration,
-                  switchInCurve: Curves.easeOutCubic,
-                  switchOutCurve: Curves.easeInCubic,
-                  child: previewUrl.isEmpty
-                      ? const SizedBox.shrink(
-                          key: ValueKey<String>('endpoint-preview-empty'),
-                        )
-                      : Padding(
-                          key: ValueKey<String>(previewUrl),
-                          padding: const EdgeInsets.only(top: 6),
-                          child: Text(
-                            openHandLocalizedText(
-                              context,
-                              zh: '预览：$previewUrl',
-                              en: 'Preview: $previewUrl',
+                  curve: Curves.easeOutCubic,
+                  alignment: Alignment.topCenter,
+                  child: AnimatedSwitcher(
+                    duration: duration,
+                    switchInCurve: Curves.easeOutCubic,
+                    switchOutCurve: Curves.easeInCubic,
+                    transitionBuilder: (child, animation) => FadeTransition(
+                      opacity: animation,
+                      child: SizeTransition(
+                        sizeFactor: animation,
+                        axisAlignment: -1,
+                        child: child,
+                      ),
+                    ),
+                    child: preview.chat.isEmpty
+                        ? const SizedBox.shrink(
+                            key: ValueKey<String>('endpoint-preview-empty'),
+                          )
+                        : Container(
+                            key: ValueKey<String>(
+                              '$usesResponsesRouting|${preview.responses}|${preview.chat}',
                             ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: colorScheme.primary,
-                              fontWeight: FontWeight.w600,
+                            width: double.infinity,
+                            margin: const EdgeInsets.only(top: 10),
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: colorScheme.primaryContainer.withValues(
+                                alpha: 0.22,
+                              ),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: colorScheme.primary.withValues(
+                                  alpha: 0.2,
+                                ),
+                              ),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  usesResponsesRouting
+                                      ? preview.responses.isNotEmpty
+                                            ? openHandLocalizedText(
+                                                context,
+                                                zh: '运行时优先使用 Responses；确认不兼容后自动回退。',
+                                                zhHant:
+                                                    '執行時優先使用 Responses；確認不相容後自動回退。',
+                                                en: 'Responses is preferred at runtime, with automatic compatibility fallback.',
+                                                fr: 'Responses est prioritaire, avec repli automatique en cas d’incompatibilité.',
+                                                de: 'Responses wird bevorzugt, mit automatischem Kompatibilitäts-Fallback.',
+                                                ja: '実行時は Responses を優先し、非互換時は自動的にフォールバックします。',
+                                              )
+                                            : openHandLocalizedText(
+                                                context,
+                                                zh: 'Responses 已禁用，运行时使用 Chat Completions。',
+                                                zhHant:
+                                                    'Responses 已停用，執行時使用 Chat Completions。',
+                                                en: 'Responses is disabled; Chat Completions is used at runtime.',
+                                                fr: 'Responses est désactivé ; Chat Completions est utilisé.',
+                                                de: 'Responses ist deaktiviert; Chat Completions wird verwendet.',
+                                                ja: 'Responses は無効です。Chat Completions を使用します。',
+                                              )
+                                      : openHandLocalizedText(
+                                          context,
+                                          zh: '根据当前协议展示实际请求端点。',
+                                          zhHant: '依照目前協定顯示實際請求端點。',
+                                          en: 'Shows the effective endpoint for the selected protocol.',
+                                          fr: 'Affiche le endpoint effectif du protocole sélectionné.',
+                                          de: 'Zeigt den effektiven Endpunkt des gewählten Protokolls.',
+                                          ja: '選択したプロトコルの実際のエンドポイントを表示します。',
+                                        ),
+                                  style: theme.textTheme.labelMedium?.copyWith(
+                                    color: colorScheme.onPrimaryContainer,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                if (usesResponsesRouting &&
+                                    preview.responses.isNotEmpty) ...[
+                                  const SizedBox(height: 10),
+                                  _EndpointPreviewRow(
+                                    icon: Icons.auto_awesome_rounded,
+                                    label: openHandLocalizedText(
+                                      context,
+                                      zh: '首选 · Responses',
+                                      zhHant: '首選 · Responses',
+                                      en: 'Preferred · Responses',
+                                      fr: 'Prioritaire · Responses',
+                                      de: 'Bevorzugt · Responses',
+                                      ja: '優先 · Responses',
+                                    ),
+                                    url: preview.responses,
+                                    color: colorScheme.primary,
+                                  ),
+                                ],
+                                const SizedBox(height: 8),
+                                _EndpointPreviewRow(
+                                  icon:
+                                      !usesResponsesRouting ||
+                                          preview.responses.isEmpty
+                                      ? Icons.route_rounded
+                                      : Icons.swap_horiz_rounded,
+                                  label: !usesResponsesRouting
+                                      ? openHandLocalizedText(
+                                          context,
+                                          zh: '当前 · 协议端点',
+                                          zhHant: '目前 · 協定端點',
+                                          en: 'Active · Protocol Endpoint',
+                                          fr: 'Actif · Endpoint du protocole',
+                                          de: 'Aktiv · Protokollendpunkt',
+                                          ja: '使用中 · プロトコルエンドポイント',
+                                        )
+                                      : preview.responses.isEmpty
+                                      ? openHandLocalizedText(
+                                          context,
+                                          zh: '当前 · Chat Completions',
+                                          zhHant: '目前 · Chat Completions',
+                                          en: 'Active · Chat Completions',
+                                          fr: 'Actif · Chat Completions',
+                                          de: 'Aktiv · Chat Completions',
+                                          ja: '使用中 · Chat Completions',
+                                        )
+                                      : openHandLocalizedText(
+                                          context,
+                                          zh: '回退 · Chat Completions',
+                                          zhHant: '回退 · Chat Completions',
+                                          en: 'Fallback · Chat Completions',
+                                          fr: 'Repli · Chat Completions',
+                                          de: 'Fallback · Chat Completions',
+                                          ja: 'フォールバック · Chat Completions',
+                                        ),
+                                  url: preview.chat,
+                                  color: colorScheme.onSurfaceVariant,
+                                ),
+                              ],
                             ),
                           ),
-                        ),
+                  ),
                 ),
               ],
             ),
@@ -2055,10 +2188,18 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                             LayoutBuilder(
                               builder: (context, constraints) {
                                 final stacked = constraints.maxWidth < 640;
+                                final showsResponsesRouting =
+                                    _apiDialect == AiApiDialect.openAiCompat;
                                 Widget dropdown({
                                   required String label,
                                   required String value,
                                   required ValueChanged<String?> onChanged,
+                                  String? helperText,
+                                  List<String> values = const <String>[
+                                    'supported',
+                                    'experimental',
+                                    'disabled',
+                                  ],
                                 }) {
                                   return AnimatedDropdownButtonFormField<
                                     String
@@ -2066,25 +2207,53 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                     initialValue: value,
                                     decoration: InputDecoration(
                                       labelText: label,
+                                      helperText: helperText,
                                     ),
-                                    items: const <DropdownMenuItem<String>>[
-                                      DropdownMenuItem<String>(
-                                        value: 'supported',
-                                        child: Text('supported'),
-                                      ),
-                                      DropdownMenuItem<String>(
-                                        value: 'experimental',
-                                        child: Text('experimental'),
-                                      ),
-                                      DropdownMenuItem<String>(
-                                        value: 'disabled',
-                                        child: Text('disabled'),
-                                      ),
-                                    ],
+                                    items: values
+                                        .map(
+                                          (item) => DropdownMenuItem<String>(
+                                            value: item,
+                                            child: Text(item),
+                                          ),
+                                        )
+                                        .toList(growable: false),
                                     onChanged: _isSaving ? null : onChanged,
                                   );
                                 }
 
+                                final responsesDropdown = dropdown(
+                                  label: openHandLocalizedText(
+                                    context,
+                                    zh: 'Responses 路由策略',
+                                    zhHant: 'Responses 路由策略',
+                                    en: 'Responses Routing',
+                                    fr: 'Routage Responses',
+                                    de: 'Responses-Routing',
+                                    ja: 'Responses ルーティング',
+                                  ),
+                                  value: _responsesCapabilityStatus,
+                                  helperText: openHandLocalizedText(
+                                    context,
+                                    zh: 'auto 自动探测并短期记忆；supported 始终优先；disabled 直接使用回退端点。',
+                                    zhHant:
+                                        'auto 自動探測並短期記憶；supported 始終優先；disabled 直接使用回退端點。',
+                                    en: 'auto probes and briefly remembers; supported always prefers it; disabled uses fallback directly.',
+                                    fr: 'auto détecte et mémorise brièvement ; supported le privilégie toujours ; disabled utilise directement le repli.',
+                                    de: 'auto prüft und merkt kurz; supported bevorzugt es immer; disabled nutzt direkt den Fallback.',
+                                    ja: 'auto は検出結果を一時保持し、supported は常に優先、disabled は直接フォールバックします。',
+                                  ),
+                                  values: const <String>[
+                                    'auto',
+                                    'supported',
+                                    'disabled',
+                                  ],
+                                  onChanged: (value) {
+                                    if (value == null) return;
+                                    setState(() {
+                                      _responsesCapabilityStatus = value;
+                                    });
+                                  },
+                                );
                                 final realtimeDropdown = dropdown(
                                   label: openHandLocalizedText(
                                     context,
@@ -2144,6 +2313,10 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
+                                      if (showsResponsesRouting) ...[
+                                        responsesDropdown,
+                                        const SizedBox(height: 12),
+                                      ],
                                       realtimeDropdown,
                                       const SizedBox(height: 12),
                                       filesDropdown,
@@ -2152,17 +2325,40 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                     ],
                                   );
                                 }
+                                if (!showsResponsesRouting) {
+                                  return Column(
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Expanded(child: realtimeDropdown),
+                                          const SizedBox(width: 16),
+                                          Expanded(child: filesDropdown),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 12),
+                                      fineTunesDropdown,
+                                    ],
+                                  );
+                                }
                                 return Column(
                                   children: [
                                     Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
-                                        Expanded(child: realtimeDropdown),
+                                        Expanded(child: responsesDropdown),
                                         const SizedBox(width: 16),
-                                        Expanded(child: filesDropdown),
+                                        Expanded(child: realtimeDropdown),
                                       ],
                                     ),
                                     const SizedBox(height: 12),
-                                    fineTunesDropdown,
+                                    Row(
+                                      children: [
+                                        Expanded(child: filesDropdown),
+                                        const SizedBox(width: 16),
+                                        Expanded(child: fineTunesDropdown),
+                                      ],
+                                    ),
                                   ],
                                 );
                               },
@@ -2375,6 +2571,8 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
       ),
       endpointOverrides: parseAiEndpointOverrides(endpointOverridesJson),
       capabilityOverrides: <AiApiFamily, String>{
+        if (_apiDialect == AiApiDialect.openAiCompat)
+          AiApiFamily.responses: _responsesCapabilityStatus,
         AiApiFamily.realtime: _realtimeCapabilityStatus,
         AiApiFamily.files: _filesCapabilityStatus,
         AiApiFamily.fineTunes: _fineTunesCapabilityStatus,
@@ -5769,6 +5967,66 @@ class _ReasoningEffortOptionsSnapshot {
   final List<AiReasoningEffortOption> options;
   final bool hasIncompleteRow;
   final String? duplicateValue;
+}
+
+class _EndpointPreviewRow extends StatelessWidget {
+  const _EndpointPreviewRow({
+    required this.icon,
+    required this.label,
+    required this.url,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final String url;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 28,
+          height: 28,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(9),
+          ),
+          child: Icon(icon, size: 16, color: color),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: color,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                url,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurface,
+                  fontFamily: 'monospace',
+                  height: 1.25,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 class _ReasoningEffortOptionDraft {

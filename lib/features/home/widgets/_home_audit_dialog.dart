@@ -713,6 +713,12 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
       relatedMetadata['request_body'],
       if (relatedTelemetry is Map) relatedTelemetry['request_payload'],
     ]);
+    final requestFallbacks = _auditFirstList([
+      metadata['request_fallbacks'],
+      if (telemetry is Map) telemetry['request_fallbacks'],
+      relatedMetadata['request_fallbacks'],
+      if (relatedTelemetry is Map) relatedTelemetry['request_fallbacks'],
+    ]);
     final responseRaw = _auditFirstAny([
       metadata['response_raw'],
       metadata['raw_response'],
@@ -1312,6 +1318,21 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
                         label: AppLocalizations.of(context)!.auditMethod,
                         value: _auditFormatOrDash(requestMethod),
                       ),
+                      if (requestFallbacks != null &&
+                          requestFallbacks.isNotEmpty)
+                        _AuditJsonBlock(
+                          label: openHandLocalizedText(
+                            context,
+                            zh: '路由与兼容性调整',
+                            zhHant: '路由與相容性調整',
+                            en: 'Routing and Compatibility Adjustments',
+                            fr: 'Ajustements de routage et de compatibilité',
+                            de: 'Routing- und Kompatibilitätsanpassungen',
+                            ja: 'ルーティングと互換性の調整',
+                          ),
+                          json: requestFallbacks,
+                          initiallyExpanded: true,
+                        ),
                       _AuditJsonBlock(
                         label: AppLocalizations.of(context)!.auditHeaders,
                         json: requestHeaders,
