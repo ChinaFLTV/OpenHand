@@ -5,6 +5,7 @@ import 'package:path/path.dart' as p;
 
 import '../../../../app/support/openhand_paths.dart';
 import '../../../../shared/db/atomic_file_operations.dart';
+import '../../../../shared/util/bounded_directory_io.dart';
 import '../../../../shared/util/bounded_file_io.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../model/ai_lsp_backend_catalog.dart';
@@ -119,11 +120,11 @@ abstract final class AiLspManagedInstallService {
     return AiLspManagedInstallManifest.tryRead(rootPath);
   }
 
-  static String? validateInstallRoot({
+  static Future<String?> validateInstallRoot({
     required String language,
     required AiLspBackendDescriptor backend,
     required AiLspLanguageSettings settings,
-  }) {
+  }) async {
     if (!supportsManagedInstall(backend)) {
       return 'This backend does not support in-app managed installation on the current platform.';
     }
@@ -133,28 +134,42 @@ abstract final class AiLspManagedInstallService {
     if (normalizedRoot.isEmpty) {
       return 'Choose an install root before starting the download.';
     }
-    final entityType = FileSystemEntity.typeSync(
-      normalizedRoot,
-      followLinks: false,
-    );
-    if (entityType == FileSystemEntityType.file) {
-      return 'The selected install root points to a file instead of a directory.';
+    late final FileSystemEntityType entityType;
+    try {
+      entityType = await FileSystemEntity.type(
+        normalizedRoot,
+        followLinks: false,
+      );
+    } on FileSystemException {
+      return 'The selected install root could not be inspected. Check its permissions and try again.';
+    }
+    if (entityType != FileSystemEntityType.notFound &&
+        entityType != FileSystemEntityType.directory) {
+      return 'The selected install root must be a real directory, not a file or symbolic link.';
     }
     if (_isDangerousInstallRoot(normalizedRoot, language: language)) {
       return 'Choose a dedicated subdirectory for this LSP install instead of a shared or top-level folder.';
     }
     final manifest = readManifest(normalizedRoot);
-    final directory = Directory(normalizedRoot);
-    if (!directory.existsSync()) {
+    if (entityType == FileSystemEntityType.notFound) {
       return null;
     }
-    final entries = directory.listSync(followLinks: false);
-    final nonManifestEntries = entries
-        .where(
-          (entry) => p.basename(entry.path) != _managedInstallManifestFileName,
-        )
-        .toList(growable: false);
-    if (nonManifestEntries.isEmpty) {
+    late final BoundedDirectoryListing listing;
+    try {
+      listing = await listDirectoryBounded(
+        Directory(normalizedRoot),
+        maxEntries: 2,
+      );
+    } on FileSystemException {
+      return 'The selected install root could not be inspected. Check its permissions and try again.';
+    }
+    final hasNonManifestEntry = listing.entries.any(
+      (entry) => p.basename(entry.path) != _managedInstallManifestFileName,
+    );
+    if (!hasNonManifestEntry && listing.truncated) {
+      return 'The selected install root could not be inspected completely. Choose a local folder or try again.';
+    }
+    if (!hasNonManifestEntry) {
       return null;
     }
     if (manifest == null) {
@@ -193,6 +208,15 @@ abstract final class AiLspManagedInstallService {
 
   static Future<void> deleteManagedInstall(String rootPath) async {
     final normalizedRoot = OpenHandPaths.normalizeOptionalPath(rootPath);
+    final entityType = await FileSystemEntity.type(
+      normalizedRoot,
+      followLinks: false,
+    );
+    if (entityType != FileSystemEntityType.directory) {
+      throw StateError(
+        'The selected path is not a real managed-install directory.',
+      );
+    }
     final manifest = readManifest(normalizedRoot);
     if (manifest == null) {
       throw StateError(
@@ -200,9 +224,7 @@ abstract final class AiLspManagedInstallService {
       );
     }
     final directory = Directory(normalizedRoot);
-    if (directory.existsSync()) {
-      await directory.delete(recursive: true);
-    }
+    await directory.delete(recursive: true);
   }
 
   static AiLspManagedInstallPlan? buildInstallPlan(

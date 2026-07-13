@@ -133,8 +133,16 @@ class _ProgrammingExpertProjectDialogState
     delay: _projectRootDraftDebounce,
   );
   static const Duration _projectRootDraftDebounce = Duration(milliseconds: 220);
+  static const int _projectLanguageProbeMaxEntriesPerDirectory = 256;
+  static const Duration _projectLanguageProbeTimeout = Duration(seconds: 3);
+  static const Duration _projectLanguageProbeIdleTimeout = Duration(
+    milliseconds: 500,
+  );
   bool _suspendProjectRootDraftListener = false;
   bool _suspendToolchainDraftListener = false;
+  int _projectLanguageProbeGeneration = 0;
+  String _detectedProjectRoot = '';
+  String _detectedProjectLanguage = 'mixed';
   String? _autoSelectedLanguage;
   String _autoSelectedSdkPath = '';
   String _autoSelectedLspPath = '';
@@ -150,6 +158,7 @@ class _ProgrammingExpertProjectDialogState
 
   @override
   void dispose() {
+    _projectLanguageProbeGeneration += 1;
     _projectRootDraftDebouncer.dispose();
     _pathController.removeListener(_handleProjectRootTextChanged);
     _sdkController.removeListener(_handleToolchainDraftChanged);
@@ -164,13 +173,16 @@ class _ProgrammingExpertProjectDialogState
     if (_suspendProjectRootDraftListener) {
       return;
     }
-    _projectRootDraftDebouncer.schedule(_syncProjectRootDraftState);
+    _projectRootDraftDebouncer.schedule(() {
+      unawaited(_syncProjectRootDraftState());
+    });
   }
 
   void _handleToolchainDraftChanged() {
     if (_suspendToolchainDraftListener) {
       return;
     }
+    _projectLanguageProbeGeneration += 1;
     if (_autoSelectedLanguage != null && !_isFollowingAutomaticSelection) {
       setState(_clearAutomaticSelectionState);
       return;
@@ -213,7 +225,7 @@ class _ProgrammingExpertProjectDialogState
     _autoSelectedLspPath = lspPath.trim();
   }
 
-  void _syncProjectRootDraftState() {
+  Future<void> _syncProjectRootDraftState() async {
     if (!mounted || _suspendProjectRootDraftListener) {
       return;
     }
@@ -221,15 +233,20 @@ class _ProgrammingExpertProjectDialogState
       _pathController.text,
     );
     if (normalized.isEmpty) {
+      _invalidateProjectLanguageProbe();
       setState(() {});
       return;
     }
     final recentConfig = _recentConfigForProjectRoot(normalized);
     if (_canAutoBackfillProjectDefaults && recentConfig != null) {
+      _invalidateProjectLanguageProbe();
       _applyProjectConfig(recentConfig, syncProjectRoot: false);
       return;
     }
-    final detectedLanguage = _detectProjectLanguage(normalized);
+    final detectedLanguage = await _probeCurrentProjectLanguage(normalized);
+    if (detectedLanguage == null) {
+      return;
+    }
     if (_canAutoBackfillProjectDefaults && detectedLanguage != 'mixed') {
       _applyAutomaticLanguageSelection(language: detectedLanguage);
       return;
@@ -247,7 +264,7 @@ class _ProgrammingExpertProjectDialogState
       initialDirectory: current.isNotEmpty ? current : null,
     );
     if (result != null && mounted) {
-      _applyProjectRootSelection(result);
+      await _applyProjectRootSelection(result);
     }
   }
 
@@ -321,43 +338,97 @@ class _ProgrammingExpertProjectDialogState
         _lspController.text.trim().isEmpty;
   }
 
-  String _detectProjectLanguage(String projectRoot) {
+  void _invalidateProjectLanguageProbe() {
+    _projectLanguageProbeGeneration += 1;
+    _detectedProjectRoot = '';
+    _detectedProjectLanguage = 'mixed';
+  }
+
+  Future<String?> _probeCurrentProjectLanguage(String projectRoot) async {
+    final normalized = OpenHandPaths.normalizeOptionalPath(projectRoot);
+    final generation = ++_projectLanguageProbeGeneration;
+    final detected = await _detectProjectLanguage(normalized);
+    if (!mounted ||
+        generation != _projectLanguageProbeGeneration ||
+        OpenHandPaths.normalizeOptionalPath(_pathController.text) !=
+            normalized) {
+      return null;
+    }
+    _detectedProjectRoot = normalized;
+    _detectedProjectLanguage = detected;
+    return detected;
+  }
+
+  Future<String> _detectProjectLanguage(String projectRoot) async {
     final normalized = OpenHandPaths.normalizeOptionalPath(projectRoot);
     if (normalized.isEmpty) {
       return 'mixed';
     }
-    final root = Directory(normalized);
-    if (!root.existsSync()) {
-      return 'mixed';
-    }
+    final stopwatch = Stopwatch()..start();
 
-    bool hasEntry(String relativePath) {
-      final file = File(p.join(normalized, relativePath));
-      if (file.existsSync()) {
-        return true;
+    Duration remainingProbeTime() =>
+        _projectLanguageProbeTimeout - stopwatch.elapsed;
+
+    Future<FileSystemEntityType> entryType(String relativePath) async {
+      final remaining = remainingProbeTime();
+      if (remaining <= Duration.zero) {
+        return FileSystemEntityType.notFound;
       }
-      return Directory(p.join(normalized, relativePath)).existsSync();
+      final operationTimeout = remaining < _projectLanguageProbeIdleTimeout
+          ? remaining
+          : _projectLanguageProbeIdleTimeout;
+      try {
+        return await FileSystemEntity.type(
+          relativePath.isEmpty ? normalized : p.join(normalized, relativePath),
+          followLinks: false,
+        ).timeout(operationTimeout);
+      } on TimeoutException {
+        return FileSystemEntityType.notFound;
+      } on FileSystemException {
+        return FileSystemEntityType.notFound;
+      }
     }
 
-    bool hasExtension(List<String> extensions) {
+    Future<bool> hasEntry(String relativePath) async =>
+        await entryType(relativePath) != FileSystemEntityType.notFound;
+
+    Set<String>? extensionCache;
+    Future<Set<String>> projectExtensions() async {
+      final cached = extensionCache;
+      if (cached != null) {
+        return cached;
+      }
+      final extensions = <String>{};
       const candidateDirs = <String>['', 'lib', 'src', 'app', 'bin', 'test'];
       for (final relativeDir in candidateDirs) {
-        final dir = Directory(
-          relativeDir.isEmpty ? normalized : p.join(normalized, relativeDir),
-        );
-        if (!dir.existsSync()) {
+        final remaining = remainingProbeTime();
+        if (remaining <= Duration.zero) {
+          break;
+        }
+        final directoryPath = relativeDir.isEmpty
+            ? normalized
+            : p.join(normalized, relativeDir);
+        if (await entryType(relativeDir) != FileSystemEntityType.directory) {
           continue;
         }
         try {
-          for (final entry in dir.listSync(followLinks: false)) {
-            if (entry is! File) {
-              continue;
-            }
-            if (extensions.contains(p.extension(entry.path).toLowerCase())) {
-              return true;
-            }
+          final listingBudget = remainingProbeTime();
+          if (listingBudget <= Duration.zero) {
+            break;
           }
-        } catch (error, stack) {
+          final idleTimeout = listingBudget < _projectLanguageProbeIdleTimeout
+              ? listingBudget
+              : _projectLanguageProbeIdleTimeout;
+          final listing = await listDirectoryBounded(
+            Directory(directoryPath),
+            maxEntries: _projectLanguageProbeMaxEntriesPerDirectory,
+            idleTimeout: idleTimeout,
+            totalTimeout: listingBudget,
+          );
+          for (final entry in listing.entries.whereType<File>()) {
+            extensions.add(p.extension(entry.path).toLowerCase());
+          }
+        } on FileSystemException catch (error, stack) {
           silentLog(
             'project_dialog',
             'list directory for language probe',
@@ -366,73 +437,89 @@ class _ProgrammingExpertProjectDialogState
           );
         }
       }
-      return false;
+      extensionCache = extensions;
+      return extensions;
     }
 
-    if (hasEntry('pubspec.yaml')) {
+    bool containsAny(Set<String> extensions, Set<String> candidates) =>
+        extensions.any(candidates.contains);
+
+    if (await entryType('') != FileSystemEntityType.directory) {
+      return 'mixed';
+    }
+    if (await hasEntry('pubspec.yaml')) {
       return 'dart';
     }
-    if (hasEntry('go.mod')) {
+    if (await hasEntry('go.mod')) {
       return 'go';
     }
-    if (hasEntry('Cargo.toml')) {
+    if (await hasEntry('Cargo.toml')) {
       return 'rust';
     }
-    if (hasEntry('Package.swift')) {
+    if (await hasEntry('Package.swift')) {
       return 'swift';
     }
-    if (hasEntry('composer.json')) {
+    if (await hasEntry('composer.json')) {
       return 'php';
     }
-    if (hasEntry('Gemfile')) {
+    if (await hasEntry('Gemfile')) {
       return 'ruby';
     }
-    if (hasEntry('tsconfig.json')) {
+    if (await hasEntry('tsconfig.json')) {
       return 'typescript';
     }
-    if (hasEntry('package.json')) {
-      return hasExtension(const <String>['.ts', '.tsx'])
+    if (await hasEntry('package.json')) {
+      final extensions = await projectExtensions();
+      return containsAny(extensions, const <String>{'.ts', '.tsx'})
           ? 'typescript'
           : 'javascript';
     }
-    if (hasEntry('pom.xml') ||
-        hasEntry('build.gradle') ||
-        hasEntry('build.gradle.kts') ||
-        hasEntry('settings.gradle') ||
-        hasEntry('settings.gradle.kts')) {
-      if (hasEntry('src/main/kotlin') || hasEntry('app/src/main/kotlin')) {
+    if (await hasEntry('pom.xml') ||
+        await hasEntry('build.gradle') ||
+        await hasEntry('build.gradle.kts') ||
+        await hasEntry('settings.gradle') ||
+        await hasEntry('settings.gradle.kts')) {
+      if (await hasEntry('src/main/kotlin') ||
+          await hasEntry('app/src/main/kotlin')) {
         return 'kotlin';
       }
       return 'java';
     }
-    if (hasExtension(const <String>['.csproj', '.sln', '.cs'])) {
+    final extensions = await projectExtensions();
+    if (containsAny(extensions, const <String>{'.csproj', '.sln', '.cs'})) {
       return 'csharp';
     }
-    if (hasExtension(const <String>['.kt', '.kts'])) {
+    if (containsAny(extensions, const <String>{'.kt', '.kts'})) {
       return 'kotlin';
     }
-    if (hasExtension(const <String>['.dart'])) {
+    if (extensions.contains('.dart')) {
       return 'dart';
     }
-    if (hasExtension(const <String>['.py'])) {
+    if (extensions.contains('.py')) {
       return 'python';
     }
-    if (hasExtension(const <String>['.java'])) {
+    if (extensions.contains('.java')) {
       return 'java';
     }
-    if (hasExtension(const <String>['.go'])) {
+    if (extensions.contains('.go')) {
       return 'go';
     }
-    if (hasExtension(const <String>['.rs'])) {
+    if (extensions.contains('.rs')) {
       return 'rust';
     }
-    if (hasExtension(const <String>['.cpp', '.cc', '.cxx', '.hpp', '.h'])) {
+    if (containsAny(extensions, const <String>{
+      '.cpp',
+      '.cc',
+      '.cxx',
+      '.hpp',
+      '.h',
+    })) {
       return 'cpp';
     }
-    if (hasExtension(const <String>['.js', '.jsx'])) {
+    if (containsAny(extensions, const <String>{'.js', '.jsx'})) {
       return 'javascript';
     }
-    if (hasExtension(const <String>['.sh', '.bash', '.zsh'])) {
+    if (containsAny(extensions, const <String>{'.sh', '.bash', '.zsh'})) {
       return 'shell';
     }
     return 'mixed';
@@ -615,15 +702,19 @@ class _ProgrammingExpertProjectDialogState
     );
   }
 
-  void _applyDetectedLanguageForProjectRoot(String projectRoot) {
-    final detectedLanguage = _detectProjectLanguage(projectRoot);
+  Future<void> _applyDetectedLanguageForProjectRoot(String projectRoot) async {
+    final detectedLanguage = await _probeCurrentProjectLanguage(projectRoot);
+    if (detectedLanguage == null) {
+      return;
+    }
     if (detectedLanguage == 'mixed') {
+      setState(() {});
       return;
     }
     _applyAutomaticLanguageSelection(language: detectedLanguage);
   }
 
-  void _applyProjectRootSelection(String projectRoot) {
+  Future<void> _applyProjectRootSelection(String projectRoot) async {
     final normalized = OpenHandPaths.normalizeOptionalPath(projectRoot);
     if (normalized.isEmpty) {
       return;
@@ -631,10 +722,14 @@ class _ProgrammingExpertProjectDialogState
     _setProjectRootText(normalized);
     final recentConfig = _recentConfigForProjectRoot(normalized);
     if (_canAutoBackfillProjectDefaults && recentConfig != null) {
+      _invalidateProjectLanguageProbe();
       _applyProjectConfig(recentConfig);
       return;
     }
-    final detectedLanguage = _detectProjectLanguage(normalized);
+    final detectedLanguage = await _probeCurrentProjectLanguage(normalized);
+    if (detectedLanguage == null) {
+      return;
+    }
     if (_canAutoBackfillProjectDefaults && detectedLanguage != 'mixed') {
       _applyAutomaticLanguageSelection(language: detectedLanguage);
       return;
@@ -650,6 +745,7 @@ class _ProgrammingExpertProjectDialogState
     if (_selectedLanguage == language) {
       return;
     }
+    _projectLanguageProbeGeneration += 1;
     _clearAutomaticSelectionState();
     _applyLanguageSelection(
       language: language,
@@ -732,7 +828,9 @@ class _ProgrammingExpertProjectDialogState
     );
     final detectedProjectLanguage =
         recentProjectConfig?.language ??
-        _detectProjectLanguage(normalizedProjectRoot);
+        (_detectedProjectRoot == normalizedProjectRoot
+            ? _detectedProjectLanguage
+            : 'mixed');
     final isFollowingRecentProjectConfig =
         recentProjectConfig != null &&
         _selectedLanguage ==
@@ -1018,8 +1116,10 @@ class _ProgrammingExpertProjectDialogState
                         FilledButton.tonalIcon(
                           onPressed: currentWorkspaceExists
                               ? () {
-                                  _applyProjectRootSelection(
-                                    currentWorkspacePath,
+                                  unawaited(
+                                    _applyProjectRootSelection(
+                                      currentWorkspacePath,
+                                    ),
                                   );
                                 }
                               : null,
@@ -1159,8 +1259,10 @@ class _ProgrammingExpertProjectDialogState
                                       ),
                               ),
                               onPressed: () {
-                                _applyDetectedLanguageForProjectRoot(
-                                  normalizedProjectRoot,
+                                unawaited(
+                                  _applyDetectedLanguageForProjectRoot(
+                                    normalizedProjectRoot,
+                                  ),
                                 );
                               },
                             ),
@@ -1460,10 +1562,13 @@ class _ProgrammingExpertProjectDialogState
                               child: InkWell(
                                 borderRadius: BorderRadius.circular(8),
                                 onTap: () {
-                                  _applyProjectRootSelection(path);
+                                  unawaited(_applyProjectRootSelection(path));
                                 },
-                                onDoubleTap: () {
-                                  _applyProjectRootSelection(path);
+                                onDoubleTap: () async {
+                                  await _applyProjectRootSelection(path);
+                                  if (!mounted) {
+                                    return;
+                                  }
                                   _submit();
                                 },
                                 child: Container(

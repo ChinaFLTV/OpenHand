@@ -6,11 +6,15 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:path/path.dart' as p;
+
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../shared/util/async_concurrency.dart';
+import '../../../shared/util/bounded_directory_io.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/text_clip.dart';
+import '../../../shared/util/version_compare.dart';
 
 /// 当前 LSP 子进程状态。
 enum WebReverseLspStatus { idle, starting, ready, notInstalled, failed }
@@ -129,6 +133,11 @@ class WebReverseLspClient {
     late final Future<Process> spawnFuture;
     late final Process process;
     try {
+      final environment = await _augmentedEnvironment();
+      if (generation != _lifecycleGeneration) {
+        _completeInitialization(initDone, false);
+        return false;
+      }
       spawnFuture = _processStarter(
         c,
         a,
@@ -138,7 +147,7 @@ class WebReverseLspClient {
         // Silicon 在 /opt/homebrew/bin、Intel 在 /usr/local/bin、nvm 在
         // ~/.nvm/versions/node/.../bin）。这里按常见路径拼一份扩展 PATH，
         // 让 typescript-language-server / pyright 等命令能直接跑起来。
-        environment: _augmentedEnvironment(),
+        environment: environment,
       );
       process = await spawnFuture.timeout(_startupTimeout);
     } on TimeoutException {
@@ -422,7 +431,7 @@ class WebReverseLspClient {
   /// 把当前进程 PATH 与常见的 LSP 安装目录拼起来，避免 GUI 启动的 Flutter
   /// 子进程因为 PATH 不全导致 npm/brew 全局 bin 命令都找不到。仅在 macOS
   /// 与 Linux 下生效，Windows 直接返回原样让 PowerShell 自己解析。
-  Map<String, String> _augmentedEnvironment() {
+  Future<Map<String, String>> _augmentedEnvironment() async {
     final base = Map<String, String>.from(Platform.environment);
     if (Platform.isWindows) return base;
     final home = base['HOME'] ?? '';
@@ -443,15 +452,23 @@ class WebReverseLspClient {
     if (home.isNotEmpty) {
       try {
         final nvmRoot = Directory('$home/.nvm/versions/node');
-        if (nvmRoot.existsSync()) {
+        if (await nvmRoot.exists()) {
+          final listing = await listDirectoryBounded(
+            nvmRoot,
+            maxEntries: 256,
+            idleTimeout: const Duration(milliseconds: 500),
+            totalTimeout: const Duration(seconds: 1),
+          );
           final versions =
-              nvmRoot
-                  .listSync()
+              listing.entries
                   .whereType<Directory>()
-                  .map((d) => d.path)
-                  .toList()
-                ..sort();
-          if (versions.isNotEmpty) extras.add('${versions.last}/bin');
+                  .map((directory) => p.basename(directory.path))
+                  .where((version) => version.startsWith('v'))
+                  .toList(growable: false)
+                ..sort(compareSemanticVersions);
+          if (versions.isNotEmpty) {
+            extras.add(p.join(nvmRoot.path, versions.last, 'bin'));
+          }
         }
       } catch (error, stack) {
         silentLog('web_reverse_lsp_client', 'scan nvm path', error, stack);

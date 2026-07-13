@@ -7,6 +7,7 @@ import 'package:path/path.dart' as p;
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../app/support/system_proxy.dart';
+import '../../../shared/util/bounded_directory_io.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/text_clip.dart';
 import '../../ai/index.dart';
@@ -1389,7 +1390,7 @@ class HarnessOrchestrator extends ChangeNotifier {
         // reviewing) must actually produce them. A "success" from the
         // API runner only means the model replied — it doesn't guarantee
         // the expected files were written.
-        final missingArtifacts = _checkMandatoryArtifacts(log.phase);
+        final missingArtifacts = await _checkMandatoryArtifacts(log.phase);
         if (missingArtifacts.isNotEmpty) {
           _appendLine(log, '');
           _appendLine(log, '⚠ 阶段产物验证失败：以下必需文件未被创建：');
@@ -1590,7 +1591,7 @@ class HarnessOrchestrator extends ChangeNotifier {
         log.status = HarnessPhaseStatus.completed;
 
         // ── Post-completion artifact verification (CLI path) ──────────
-        final missingArtifacts = _checkMandatoryArtifacts(log.phase);
+        final missingArtifacts = await _checkMandatoryArtifacts(log.phase);
         if (missingArtifacts.isNotEmpty) {
           _appendLine(log, '');
           _appendLine(log, '⚠ 阶段产物验证失败：以下必需文件未被创建：');
@@ -2439,7 +2440,7 @@ class HarnessOrchestrator extends ChangeNotifier {
   /// Returns a list of missing file paths (empty list = all present).
   /// Phases with no mandatory artifacts (reading, implementing) always
   /// return an empty list.
-  List<String> _checkMandatoryArtifacts(HarnessPhase phase) {
+  Future<List<String>> _checkMandatoryArtifacts(HarnessPhase phase) async {
     final steeringDir = p.join(config.persistenceDirectory, 'steering');
     final missing = <String>[];
 
@@ -2447,25 +2448,17 @@ class HarnessOrchestrator extends ChangeNotifier {
       case HarnessPhase.metaCollection:
         final archPath = p.join(steeringDir, 'meta', 'architecture.md');
         final convPath = p.join(steeringDir, 'meta', 'conventions.md');
-        if (!File(archPath).existsSync()) missing.add(archPath);
-        if (!File(convPath).existsSync()) missing.add(convPath);
+        if (!await File(archPath).exists()) missing.add(archPath);
+        if (!await File(convPath).exists()) missing.add(convPath);
       case HarnessPhase.planning:
         final planDir = Directory(p.join(steeringDir, 'plan'));
-        final hasPlanFile =
-            planDir.existsSync() &&
-            planDir.listSync().whereType<File>().any(
-              (f) => f.path.endsWith('.md'),
-            );
+        final hasPlanFile = await _containsMarkdownArtifact(planDir);
         if (!hasPlanFile) {
           missing.add('${planDir.path}/*.md (no plan file found)');
         }
       case HarnessPhase.reviewing:
         final feedbackDir = Directory(p.join(steeringDir, 'feedback'));
-        final hasFeedbackFile =
-            feedbackDir.existsSync() &&
-            feedbackDir.listSync().whereType<File>().any(
-              (f) => f.path.endsWith('.md'),
-            );
+        final hasFeedbackFile = await _containsMarkdownArtifact(feedbackDir);
         if (!hasFeedbackFile) {
           missing.add('${feedbackDir.path}/*.md (no feedback file found)');
         }
@@ -2474,6 +2467,30 @@ class HarnessOrchestrator extends ChangeNotifier {
         break; // No mandatory artifacts
     }
     return missing;
+  }
+
+  Future<bool> _containsMarkdownArtifact(Directory directory) async {
+    if (!await directory.exists()) {
+      return false;
+    }
+    try {
+      final listing = await listDirectoryBounded(
+        directory,
+        maxEntries: 512,
+        totalTimeout: const Duration(seconds: 3),
+      );
+      return listing.entries.whereType<File>().any(
+        (file) => p.extension(file.path).toLowerCase() == '.md',
+      );
+    } on FileSystemException catch (error, stack) {
+      silentLog(
+        'harness_orchestrator',
+        'inspect mandatory artifacts ${directory.path}',
+        error,
+        stack,
+      );
+      return false;
+    }
   }
 
   /// POSIX single-quote a string, safely escaping embedded single quotes.

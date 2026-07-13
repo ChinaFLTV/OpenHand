@@ -8083,6 +8083,7 @@ class _UserSkillSelectionChip extends StatelessWidget {
 /// which has historically caused jank/ANR on macOS. Subsequent requesters
 /// queue and inherit the slot when the previous capture finishes.
 class _VideoThumbnailManager {
+  static const int _failedCacheLimit = 512;
   static final OpenHandAsyncSemaphore _semaphore = OpenHandAsyncSemaphore(
     1,
     maxAllowedPermits: 1,
@@ -8093,8 +8094,21 @@ class _VideoThumbnailManager {
 
   static String thumbnailPathFor(String videoPath) => '$videoPath.thumb.png';
 
-  static bool isMarkedFailed(String videoPath) => _failed.contains(videoPath);
-  static void _markFailed(String videoPath) => _failed.add(videoPath);
+  static bool isMarkedFailed(String videoPath) {
+    if (!_failed.remove(videoPath)) {
+      return false;
+    }
+    _failed.add(videoPath);
+    return true;
+  }
+
+  static void _markFailed(String videoPath) {
+    _failed.remove(videoPath);
+    _failed.add(videoPath);
+    while (_failed.length > _failedCacheLimit) {
+      _failed.remove(_failed.first);
+    }
+  }
 
   static Future<void> _acquireSlot() => _semaphore.acquire();
 

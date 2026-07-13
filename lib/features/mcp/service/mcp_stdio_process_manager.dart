@@ -225,6 +225,9 @@ class McpStdioProcessManager extends ChangeNotifier {
   static const Duration _borrowPollInterval = Duration(milliseconds: 80);
   static const int _defaultResponseBufferLimit = kBytesPerMiB;
   static const int _maxLogLineChars = 4 * kBytesPerKiB;
+  static const int _maxRuntimeCacheScanEntries = 20000;
+  static const Duration _runtimeCacheScanTimeout = Duration(seconds: 5);
+  static const Duration _runtimeCacheStatTimeout = Duration(milliseconds: 500);
 
   final Map<String, _ManagedProcess> _processes = {};
   final McpStdioProcessStarter _processStarter;
@@ -1171,19 +1174,19 @@ class McpStdioProcessManager extends ChangeNotifier {
     // 隔离缓存目录信息
     final cacheRoot = mcpStdioIsolatedCacheRoot();
     final cacheDir = Directory(cacheRoot);
-    info['隔离缓存'] = cacheDir.existsSync() ? cacheRoot : '(未创建)';
-    if (cacheDir.existsSync()) {
+    final cacheExists = await cacheDir.exists();
+    info['隔离缓存'] = cacheExists ? cacheRoot : '(未创建)';
+    if (cacheExists) {
       try {
-        int totalSize = 0;
-        int fileCount = 0;
-        await for (final entity in cacheDir.list(recursive: true)) {
-          if (entity is File) {
-            totalSize += await entity.length();
-            fileCount++;
-          }
-        }
-        info['缓存大小'] = formatByteSize(totalSize);
-        info['缓存文件数'] = '$fileCount';
+        final usage = await measureDirectoryBounded(
+          cacheDir,
+          maxEntries: _maxRuntimeCacheScanEntries,
+          totalTimeout: _runtimeCacheScanTimeout,
+          operationTimeout: _runtimeCacheStatTimeout,
+        );
+        final partialSuffix = usage.truncated ? '（部分统计）' : '';
+        info['缓存大小'] = '${formatByteSize(usage.totalBytes)}$partialSuffix';
+        info['缓存文件数'] = '${usage.fileCount}$partialSuffix';
       } catch (error, stack) {
         silentLog(
           'mcp_stdio_process_manager',

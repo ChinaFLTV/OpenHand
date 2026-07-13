@@ -3319,6 +3319,7 @@ class _RoundFileMutationSummaryCardState
   static final Set<String> _collapsedPathGroups = <String>{};
   // 超过 _virtualRowCap 时仅展示前 N 行；记忆"已展开"消息。
   static final Set<String> _expandedFullList = <String>{};
+  static const int _summaryStateCacheLimit = 500;
   static const int _virtualRowCap = 30;
   static const int _pathSubgroupThreshold = 8;
 
@@ -3326,6 +3327,14 @@ class _RoundFileMutationSummaryCardState
   String _diffKey(String recordId) => '${widget.message.id}#$recordId';
   String _pathGroupKey(String toolName, String dir) =>
       '${widget.message.id}::$toolName::$dir';
+
+  static void _rememberSummaryState(Set<String> cache, String key) {
+    cache.remove(key);
+    cache.add(key);
+    while (cache.length > _summaryStateCacheLimit) {
+      cache.remove(cache.first);
+    }
+  }
 
   /// 取 path 的目录前缀（去掉最后一段文件名）。空目录返回 `<root>`。
   static String _topDir(String filePath) {
@@ -4046,7 +4055,7 @@ class _RoundFileMutationSummaryCardState
                 if (collapsed) {
                   _collapsedGroups.remove(groupKey);
                 } else {
-                  _collapsedGroups.add(groupKey);
+                  _rememberSummaryState(_collapsedGroups, groupKey);
                 }
               });
             },
@@ -4099,7 +4108,9 @@ class _RoundFileMutationSummaryCardState
                 style: theme.textTheme.labelMedium,
               ),
               onPressed: () {
-                setState(() => _expandedFullList.add(msgKey));
+                setState(() {
+                  _rememberSummaryState(_expandedFullList, msgKey);
+                });
               },
             ),
           ),
@@ -4196,7 +4207,7 @@ class _RoundFileMutationSummaryCardState
               if (pathCollapsed) {
                 _collapsedPathGroups.remove(pathKey);
               } else {
-                _collapsedPathGroups.add(pathKey);
+                _rememberSummaryState(_collapsedPathGroups, pathKey);
               }
             });
           },
@@ -4217,7 +4228,7 @@ class _RoundFileMutationSummaryCardState
       if (_expandedDiffRows.contains(key)) {
         _expandedDiffRows.remove(key);
       } else {
-        _expandedDiffRows.add(key);
+        _rememberSummaryState(_expandedDiffRows, key);
       }
     });
   }

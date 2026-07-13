@@ -471,11 +471,15 @@ extension on _SettingsViewState {
         );
         return;
       }
-      final validationMessage = AiLspManagedInstallService.validateInstallRoot(
-        language: language,
-        backend: installBackend,
-        settings: settings,
-      );
+      final validationMessage =
+          await AiLspManagedInstallService.validateInstallRoot(
+            language: language,
+            backend: installBackend,
+            settings: settings,
+          );
+      if (!context.mounted) {
+        return;
+      }
       if (validationMessage != null) {
         flashOpenHandSnack(
           context,
@@ -1335,6 +1339,10 @@ class _EditorLspConfigDialogState extends State<_EditorLspConfigDialog> {
   late final TextEditingController _sdkController;
   late String _selectedBackendId;
   Timer? _sdkVersionDetectionTimer;
+  Timer? _installRootValidationTimer;
+  int _installRootValidationGeneration = 0;
+  bool _installRootValidationPending = true;
+  String? _installRootValidationMessage;
   bool _sdkVersionDetecting = false;
   bool _sdkVersionDetectionFailed = false;
   bool _sdkVersionAppliedToLspVersion = false;
@@ -1360,24 +1368,27 @@ class _EditorLspConfigDialogState extends State<_EditorLspConfigDialog> {
     );
     _versionController.addListener(_handleControllerChanged);
     _versionController.addListener(_handleVersionControllerChanged);
-    _pathController.addListener(_handleControllerChanged);
+    _pathController.addListener(_handleInstallRootChanged);
     _sdkController.addListener(_handleControllerChanged);
     _sdkController.addListener(_handleSdkPathChanged);
-    if (_sdkController.text.trim().isNotEmpty) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _scheduleInstallRootValidation(immediate: true);
+        if (_sdkController.text.trim().isNotEmpty) {
           _scheduleSdkVersionDetection(immediate: true);
         }
-      });
-    }
+      }
+    });
   }
 
   @override
   void dispose() {
     _sdkVersionDetectionTimer?.cancel();
+    _installRootValidationTimer?.cancel();
+    _installRootValidationGeneration += 1;
     _versionController.removeListener(_handleControllerChanged);
     _versionController.removeListener(_handleVersionControllerChanged);
-    _pathController.removeListener(_handleControllerChanged);
+    _pathController.removeListener(_handleInstallRootChanged);
     _sdkController.removeListener(_handleControllerChanged);
     _sdkController.removeListener(_handleSdkPathChanged);
     _versionController.dispose();
@@ -1391,6 +1402,58 @@ class _EditorLspConfigDialogState extends State<_EditorLspConfigDialog> {
       return;
     }
     setState(() {});
+  }
+
+  void _handleInstallRootChanged() {
+    _scheduleInstallRootValidation();
+  }
+
+  void _scheduleInstallRootValidation({bool immediate = false}) {
+    if (!mounted) {
+      return;
+    }
+    _installRootValidationTimer?.cancel();
+    final generation = ++_installRootValidationGeneration;
+    setState(() {
+      _installRootValidationPending = true;
+      _installRootValidationMessage = null;
+    });
+    if (immediate) {
+      unawaited(_refreshInstallRootValidation(generation));
+      return;
+    }
+    _installRootValidationTimer = startSafeTimer(
+      const Duration(milliseconds: 220),
+      () => unawaited(_refreshInstallRootValidation(generation)),
+    );
+  }
+
+  Future<void> _refreshInstallRootValidation(int generation) async {
+    final backend = aiLspBackendById(_selectedBackendId);
+    String? message;
+    if (backend != null &&
+        AiLspManagedInstallService.supportsManagedInstall(backend)) {
+      final rootPath = _pathController.text.trim().isEmpty
+          ? widget.defaultInstallRoot
+          : _pathController.text;
+      message = await AiLspManagedInstallService.validateInstallRoot(
+        language: widget.language,
+        backend: backend,
+        settings: AiLspLanguageSettings(
+          backendId: _selectedBackendId,
+          rootPath: rootPath,
+          sdkPath: _sdkController.text.trim(),
+          version: _versionController.text.trim(),
+        ),
+      );
+    }
+    if (!mounted || generation != _installRootValidationGeneration) {
+      return;
+    }
+    setState(() {
+      _installRootValidationPending = false;
+      _installRootValidationMessage = message;
+    });
   }
 
   void _handleSdkPathChanged() {
@@ -1612,19 +1675,11 @@ class _EditorLspConfigDialogState extends State<_EditorLspConfigDialog> {
     final effectiveInstallRoot = normalizedRoot.isEmpty
         ? widget.defaultInstallRoot
         : normalizedRoot;
-    final draftSettings = AiLspLanguageSettings(
-      backendId: _selectedBackendId,
-      rootPath: effectiveInstallRoot,
-      sdkPath: normalizedSdkPath,
-      version: _versionController.text.trim(),
-    );
-    final installValidationMessage = backend != null && supportsManagedInstall
-        ? AiLspManagedInstallService.validateInstallRoot(
-            language: widget.language,
-            backend: backend,
-            settings: draftSettings,
-          )
+    final installValidationMessage = supportsManagedInstall
+        ? _installRootValidationMessage
         : null;
+    final installValidationPending =
+        supportsManagedInstall && _installRootValidationPending;
     final showDefaultRootShortcut =
         effectiveInstallRoot != widget.defaultInstallRoot ||
         normalizedRoot.isEmpty;
@@ -1770,6 +1825,7 @@ class _EditorLspConfigDialogState extends State<_EditorLspConfigDialog> {
                           )
                         : false;
                   });
+                  _scheduleInstallRootValidation();
                 },
               ),
               const SizedBox(height: 14),
@@ -1939,7 +1995,21 @@ class _EditorLspConfigDialogState extends State<_EditorLspConfigDialog> {
                 ],
               ),
               const SizedBox(height: 12),
-              if (installValidationMessage != null)
+              if (installValidationPending)
+                _EditorLspInlineNotice(
+                  icon: Icons.sync_rounded,
+                  color: colorScheme.primary,
+                  text: openHandLocalizedText(
+                    context,
+                    zh: '正在检查托管安装目录边界…',
+                    zhHant: '正在檢查托管安裝目錄邊界…',
+                    en: 'Checking the managed-install directory boundary…',
+                    fr: 'Vérification des limites du dossier d’installation gérée…',
+                    de: 'Das Verzeichnis für die verwaltete Installation wird geprüft…',
+                    ja: '管理インストール先のディレクトリ境界を確認しています…',
+                  ),
+                )
+              else if (installValidationMessage != null)
                 _EditorLspInlineNotice(
                   icon: Icons.warning_amber_rounded,
                   color: colorScheme.error,

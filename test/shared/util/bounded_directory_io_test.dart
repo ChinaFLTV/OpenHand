@@ -48,4 +48,39 @@ void main() {
       throwsArgumentError,
     );
   });
+
+  test(
+    'directory usage measures nested files without retaining entries',
+    () async {
+      final nested = Directory('${temporaryDirectory.path}/nested');
+      await nested.create();
+      await File('${temporaryDirectory.path}/root.txt').writeAsString('1234');
+      await File('${nested.path}/child.txt').writeAsString('123456');
+
+      final result = await measureDirectoryBounded(
+        temporaryDirectory,
+        maxEntries: 10,
+      );
+
+      expect(result.fileCount, 2);
+      expect(result.totalBytes, 10);
+      expect(result.scannedEntries, 3);
+      expect(result.truncated, isFalse);
+    },
+  );
+
+  test('directory usage stops at the configured entry limit', () async {
+    for (var index = 0; index < 5; index++) {
+      await File('${temporaryDirectory.path}/$index.txt').writeAsString('x');
+    }
+
+    final result = await measureDirectoryBounded(
+      temporaryDirectory,
+      maxEntries: 2,
+    );
+
+    expect(result.scannedEntries, 2);
+    expect(result.fileCount, lessThanOrEqualTo(2));
+    expect(result.truncated, isTrue);
+  });
 }

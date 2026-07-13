@@ -4,6 +4,7 @@ part of 'web_reverse_dashboard_dialog.dart';
 /// 调用图聚合 / 对比模式 / Service Worker 干预"等低频但有用的入口。
 const int _kWebcrackMaxInputChars = 2 * 1024 * 1024;
 const int _kWebcrackMaxOutputBytes = 8 * 1024 * 1024;
+const int _kWebcrackMaxOutputEntries = 512;
 
 String _advancedTextForLocale(
   Locale locale, {
@@ -3632,7 +3633,12 @@ Future<String> _runWebcrack(String src, {required Locale locale}) async {
     // 兜底：把整个 outDir 下所有 .js 拼起来。
     final buf = StringBuffer();
     var totalBytes = 0;
-    for (final entity in tmpDir.listSync(recursive: true)) {
+    final listing = await listDirectoryBounded(
+      tmpDir,
+      maxEntries: _kWebcrackMaxOutputEntries,
+      recursive: true,
+    );
+    for (final entity in listing.entries) {
       if (entity is File && entity.path.endsWith('.js')) {
         final bytes = await entity.length();
         if (totalBytes + bytes > _kWebcrackMaxOutputBytes) {
@@ -3656,6 +3662,19 @@ Future<String> _runWebcrack(String src, {required Locale locale}) async {
           ..writeln(await _readWebcrackOutputFile(entity, locale: locale))
           ..writeln();
       }
+    }
+    if (listing.truncated) {
+      buf.writeln(
+        _advancedTextForLocale(
+          locale,
+          zh: '[webcrack 输出目录扫描达到安全上限，结果可能不完整]',
+          zhHant: '[webcrack 輸出目錄掃描達到安全上限，結果可能不完整]',
+          en: '[webcrack output scan reached its safety limit; results may be incomplete]',
+          fr: '[l’analyse de la sortie webcrack a atteint sa limite de sécurité ; le résultat peut être incomplet]',
+          de: '[Die webcrack-Ausgabesuche hat ihr Sicherheitslimit erreicht; das Ergebnis kann unvollständig sein]',
+          ja: '[webcrack 出力の走査が安全上限に達したため、結果が不完全な可能性があります]',
+        ),
+      );
     }
     final s = buf.toString();
     return s.isEmpty

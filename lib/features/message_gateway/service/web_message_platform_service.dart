@@ -293,6 +293,7 @@ class WebMessagePlatformService {
   static const int _storedMessageWindowExpandedScanLimit = 96;
   static const int _maxHealthCheckResponseBytes = 1024 * 1024;
   static const int _maxWorkspaceDirectoryScanEntries = 10000;
+  static const int _maxProcessFileHandleScanEntries = 65536;
   static const int _maxRetainedUploadCacheFiles = 4096;
   static const int _uploadCacheCandidatePruneThreshold =
       _maxRetainedUploadCacheFiles * 2;
@@ -7988,7 +7989,13 @@ class WebMessagePlatformService {
     }
     int? fileHandleCount;
     try {
-      fileHandleCount = Directory('/proc/self/fd').listSync().length;
+      final listing = await listDirectoryBounded(
+        Directory('/proc/self/fd'),
+        maxEntries: _maxProcessFileHandleScanEntries,
+        idleTimeout: const Duration(milliseconds: 250),
+        totalTimeout: const Duration(seconds: 1),
+      );
+      fileHandleCount = listing.entries.length;
     } catch (error, stack) {
       silentLog(
         'web_message_platform_service',
