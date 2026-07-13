@@ -3990,6 +3990,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tokenPopupPrompt => 'Prompt';
 
   @override
+  String get tokenPopupAudioInput => 'Audio input';
+
+  @override
+  String get tokenPopupImageInput => 'Image input';
+
+  @override
+  String get tokenPopupVideoInput => 'Video input';
+
+  @override
   String get tokenPopupCacheRead => 'Cache Read';
 
   @override
@@ -4003,6 +4012,15 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get tokenPopupReasoning => 'Reasoning';
+
+  @override
+  String get tokenPopupWebSearchHeading => 'Web search';
+
+  @override
+  String get tokenPopupWebSearchCalls => 'Tool calls';
+
+  @override
+  String get tokenPopupWebSearchPages => 'Pages';
 
   @override
   String get tokenPopupGrandTotal => 'Total';

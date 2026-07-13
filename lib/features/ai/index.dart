@@ -72,6 +72,7 @@ export 'service/operations/ai_embeddings_service.dart';
 export 'service/operations/ai_files_service.dart';
 export 'service/operations/ai_fine_tunes_service.dart';
 export 'service/operations/ai_image_edit_service.dart';
+export 'service/operations/ai_minimax_service.dart';
 export 'service/operations/ai_models_service.dart';
 export 'service/operations/ai_moderations_service.dart';
 export 'service/operations/ai_realtime_service.dart';

@@ -15,14 +15,14 @@ export interface McpServerSummary {
   template_associations?: TemplateMcpAssociation[];
 }
 
-export interface TemplateMcpAssociation {
+interface TemplateMcpAssociation {
   template_id: string;
   label_zh?: string;
   label_en?: string;
   capabilities?: TemplateMcpCapability[];
 }
 
-export interface TemplateMcpCapability {
+interface TemplateMcpCapability {
   id: string;
   label_zh?: string;
   label_en?: string;

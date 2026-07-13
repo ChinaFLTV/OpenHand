@@ -42,7 +42,7 @@ function MediaGeneratingIcon({ mode }: { mode: MediaGenerationMode }) {
   }
 }
 
-export function MediaGeneratingPlaceholder({ mode }: MediaGeneratingPlaceholderProps) {
+function MediaGeneratingPlaceholder({ mode }: MediaGeneratingPlaceholderProps) {
   const config = MODE_CONFIG[mode] ?? MODE_CONFIG.image;
   const label = t(config.labelKey, config.fallback);
 

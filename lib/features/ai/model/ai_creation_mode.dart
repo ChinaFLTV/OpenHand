@@ -60,6 +60,17 @@ class AiCreationOptions {
     this.bitrate,
     this.volume,
     this.pitch,
+    this.languageBoost,
+    this.emotion,
+    this.textNormalization,
+    this.latexRead,
+    this.channel,
+    this.forceCbr,
+    this.subtitleEnable,
+    this.subtitleType,
+    this.pronunciationTone = const <String>[],
+    this.timbreWeights = const <Map<String, Object?>>[],
+    this.voiceModify = const <String, Object?>{},
   });
 
   /// e.g. `"1024x1024"`, `"1024x1792"`. Leave `null` to let the provider pick.
@@ -128,6 +139,22 @@ class AiCreationOptions {
   /// Audio pitch offset where supported.
   final double? pitch;
 
+  /// MiniMax language/dialect boost (`Chinese`, `English`, `auto`, ...).
+  final String? languageBoost;
+
+  /// Provider-supported speech emotion.
+  final String? emotion;
+
+  final bool? textNormalization;
+  final bool? latexRead;
+  final int? channel;
+  final bool? forceCbr;
+  final bool? subtitleEnable;
+  final String? subtitleType;
+  final List<String> pronunciationTone;
+  final List<Map<String, Object?>> timbreWeights;
+  final Map<String, Object?> voiceModify;
+
   static const AiCreationOptions empty = AiCreationOptions();
 
   AiCreationOptions copyWith({
@@ -153,6 +180,17 @@ class AiCreationOptions {
     int? bitrate,
     double? volume,
     double? pitch,
+    String? languageBoost,
+    String? emotion,
+    bool? textNormalization,
+    bool? latexRead,
+    int? channel,
+    bool? forceCbr,
+    bool? subtitleEnable,
+    String? subtitleType,
+    List<String>? pronunciationTone,
+    List<Map<String, Object?>>? timbreWeights,
+    Map<String, Object?>? voiceModify,
   }) {
     return AiCreationOptions(
       size: size ?? this.size,
@@ -179,6 +217,17 @@ class AiCreationOptions {
       bitrate: normalizeBitrate(bitrate ?? this.bitrate),
       volume: normalizeVolume(volume ?? this.volume),
       pitch: normalizePitch(pitch ?? this.pitch),
+      languageBoost: languageBoost ?? this.languageBoost,
+      emotion: emotion ?? this.emotion,
+      textNormalization: textNormalization ?? this.textNormalization,
+      latexRead: latexRead ?? this.latexRead,
+      channel: channel ?? this.channel,
+      forceCbr: forceCbr ?? this.forceCbr,
+      subtitleEnable: subtitleEnable ?? this.subtitleEnable,
+      subtitleType: subtitleType ?? this.subtitleType,
+      pronunciationTone: pronunciationTone ?? this.pronunciationTone,
+      timbreWeights: timbreWeights ?? this.timbreWeights,
+      voiceModify: voiceModify ?? this.voiceModify,
     );
   }
 
@@ -218,6 +267,17 @@ class AiCreationOptions {
       if (normalizedBitrate != null) 'bitrate': normalizedBitrate,
       if (normalizedVolume != null) 'volume': normalizedVolume,
       if (normalizedPitch != null) 'pitch': normalizedPitch,
+      if (languageBoost != null) 'language_boost': languageBoost,
+      if (emotion != null) 'emotion': emotion,
+      if (textNormalization != null) 'text_normalization': textNormalization,
+      if (latexRead != null) 'latex_read': latexRead,
+      if (channel != null) 'channel': channel,
+      if (forceCbr != null) 'force_cbr': forceCbr,
+      if (subtitleEnable != null) 'subtitle_enable': subtitleEnable,
+      if (subtitleType != null) 'subtitle_type': subtitleType,
+      if (pronunciationTone.isNotEmpty) 'pronunciation_tone': pronunciationTone,
+      if (timbreWeights.isNotEmpty) 'timbre_weights': timbreWeights,
+      if (voiceModify.isNotEmpty) 'voice_modify': voiceModify,
     };
   }
 
@@ -254,6 +314,24 @@ class AiCreationOptions {
       bitrate: bitrateFromValue(map['bitrate']),
       volume: volumeFromValue(map['volume']) ?? volumeFromValue(map['vol']),
       pitch: pitchFromValue(map['pitch']),
+      languageBoost: optionalStringFromValue(map['language_boost']),
+      emotion: optionalStringFromValue(map['emotion']),
+      textNormalization: optionalBoolFromValue(map['text_normalization']),
+      latexRead: optionalBoolFromValue(map['latex_read']),
+      channel: optionalPositiveIntFromValue(map['channel']),
+      forceCbr: optionalBoolFromValue(map['force_cbr']),
+      subtitleEnable: optionalBoolFromValue(map['subtitle_enable']),
+      subtitleType: optionalStringFromValue(map['subtitle_type']),
+      pronunciationTone: stringListFromListValue(map['pronunciation_tone']),
+      timbreWeights: map['timbre_weights'] is List
+          ? (map['timbre_weights'] as List)
+                .whereType<Map>()
+                .map(stringKeyedMapFromValue)
+                .toList(growable: false)
+          : const <Map<String, Object?>>[],
+      voiceModify: map['voice_modify'] is Map
+          ? stringKeyedMapFromValue(map['voice_modify'])
+          : const <String, Object?>{},
     );
   }
 

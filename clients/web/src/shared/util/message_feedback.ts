@@ -8,7 +8,7 @@ import {
   recordOrNullFromUnknown,
 } from './value';
 
-export function normalizeMessageFeedback(
+function normalizeMessageFeedback(
   value: unknown,
 ): SessionMessageFeedback | null {
   return value === 'liked' || value === 'needs_improvement' ? value : null;

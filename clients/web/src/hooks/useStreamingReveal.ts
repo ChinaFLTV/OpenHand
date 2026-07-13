@@ -340,8 +340,3 @@ export function useStreamingReveal(
 
   return { containerRef, streamingClass };
 }
-
-/// 稳定态 mask（停流后无障碍模式使用）。
-export function getStableMask(): string {
-  return 'linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 100%)';
-}

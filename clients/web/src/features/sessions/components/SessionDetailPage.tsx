@@ -254,6 +254,8 @@ const COMPOSER_TRIGGER_ROOT_OFFSET = 0;
 const COMPOSER_TRIGGER_WINDOWS_DRIVE_RE = /^[A-Za-z]:/;
 const EMPTY_SESSION_MESSAGES: SessionMessage[] = [];
 const IMAGE_ATTACHMENT_EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg']);
+const VIDEO_ATTACHMENT_EXTENSIONS = new Set(['mp4', 'avi', 'mov', 'mkv', 'wmv']);
+const AUDIO_ATTACHMENT_EXTENSIONS = new Set(['mp3', 'wav', 'flac', 'm4a', 'ogg']);
 const FILE_ATTACHMENT_EXTENSIONS = new Set([
   'txt',
   'md',
@@ -528,11 +530,11 @@ function isRunningPhase(phase: string | null | undefined): boolean {
   return Boolean(phase && phase !== 'idle');
 }
 
-export function shouldApplyPollingMessageWindow(sseLive: boolean, pollSendPhase: string | null | undefined): boolean {
+function shouldApplyPollingMessageWindow(sseLive: boolean, pollSendPhase: string | null | undefined): boolean {
   return !sseLive || !isRunningPhase(pollSendPhase);
 }
 
-export function shouldApplySessionAsyncResult(currentSessionId: string, requestSessionId: string, componentMounted = true): boolean {
+function shouldApplySessionAsyncResult(currentSessionId: string, requestSessionId: string, componentMounted = true): boolean {
   return componentMounted && requestSessionId.length > 0 && currentSessionId === requestSessionId;
 }
 
@@ -666,6 +668,11 @@ function usageRenderFingerprint(message: SessionMessage): string {
     usage.cache_read_tokens ?? '',
     usage.cache_creation_tokens ?? '',
     usage.reasoning_tokens ?? '',
+    usage.audio_input_tokens ?? '',
+    usage.image_input_tokens ?? '',
+    usage.video_input_tokens ?? '',
+    usage.web_search_tool_usage ?? '',
+    usage.web_search_page_usage ?? '',
   ].join(':');
 }
 
@@ -696,7 +703,7 @@ function messagesEquivalentForRender(a: SessionMessage, b: SessionMessage): bool
   return messageRenderSignature(a) === messageRenderSignature(b);
 }
 
-export function messageFollowSignature(message: SessionMessage): string {
+function messageFollowSignature(message: SessionMessage): string {
   return messageRenderSignature(message);
 }
 
@@ -728,7 +735,7 @@ function shouldKeepLongerStreamingMessage(existing: SessionMessage | undefined, 
 /// 流式增量合并：保留与上一次 snapshot 相同的对象引用，仅替换发生变化的尾巴消息。
 /// 使 `<MessageCard memo>` 在 SSE 80ms 推流期间跳过不变前缀的重新 diff，
 /// 让流式更新感觉真正像"逐字增长"而不是"全帧重排"。
-export function mergeStream(prev: SessionMessage[], next: SessionMessage[], options: MergeServerWindowOptions = {}): SessionMessage[] {
+function mergeStream(prev: SessionMessage[], next: SessionMessage[], options: MergeServerWindowOptions = {}): SessionMessage[] {
   if (prev === next) return prev;
   if (prev.length === 0 || next.length === 0) return next;
   // 长度变化或前缀 id 不一致 → 走完整替换；其他场景按 id+content+metadata 比较保留引用。
@@ -769,7 +776,7 @@ function appendLocalStreamingTail(prev: SessionMessage[], merged: SessionMessage
   return [...merged, ...suffix];
 }
 
-export function mergeServerWindowResult(prev: SessionMessage[], latest: SessionMessage[], currentOffset: number, nextOffset: number, options: MergeServerWindowOptions = {}): MergeServerWindowResult {
+function mergeServerWindowResult(prev: SessionMessage[], latest: SessionMessage[], currentOffset: number, nextOffset: number, options: MergeServerWindowOptions = {}): MergeServerWindowResult {
   if (prev.length === 0) return { items: latest, offset: nextOffset };
   if (options.preserveLocalStreamingTail && latest.length === 0) {
     return { items: prev, offset: currentOffset };
@@ -823,10 +830,6 @@ export function mergeServerWindowResult(prev: SessionMessage[], latest: SessionM
     items: options.preserveLocalStreamingTail ? appendLocalStreamingTail(prev, merged) : merged,
     offset: currentOffset,
   };
-}
-
-export function mergeServerWindow(prev: SessionMessage[], latest: SessionMessage[], currentOffset: number, nextOffset: number, options: MergeServerWindowOptions = {}): SessionMessage[] {
-  return mergeServerWindowResult(prev, latest, currentOffset, nextOffset, options).items;
 }
 
 function sessionModeLabel(mode: string): string {
@@ -1482,6 +1485,8 @@ const MACHINE_TERMINAL_XTERM_THEME = {
   brightCyan: '#8FEAF2',
   brightWhite: '#FFFFFF',
 } as const;
+const MACHINE_TERMINAL_POLL_INTERVAL_MS = 1200;
+const MACHINE_TERMINAL_POLL_TIMEOUT_MS = 15_000;
 
 function MachineTerminalPanel({ sessionId }: { sessionId: string }) {
   const shellRef = useRef<HTMLDivElement | null>(null);
@@ -1507,15 +1512,15 @@ function MachineTerminalPanel({ sessionId }: { sessionId: string }) {
     requestTerminalFitRef.current?.();
   }, [active?.terminal_id]);
 
-  const syncTerminal = useCallback(async (
+  const fetchTerminal = useCallback(async (
     start = true,
-    options: { includeHistory?: boolean } = {},
+    options: { includeHistory?: boolean; signal?: AbortSignal } = {},
   ) => {
     const res = await getMachineTerminal(sessionId, {
       start,
       includeHistory: options.includeHistory,
+      signal: options.signal,
     });
-    setWorkspace(res.terminal);
     return res.terminal;
   }, [sessionId]);
 
@@ -1547,6 +1552,7 @@ function MachineTerminalPanel({ sessionId }: { sessionId: string }) {
     const dataDisposable = terminal.onData((data) => {
       void writeMachineTerminal(sessionId, { data })
         .then((res) => {
+          writeErrorShownRef.current = false;
           if (res.terminal) setWorkspace(res.terminal);
         })
         .catch((error) => {
@@ -1599,7 +1605,6 @@ function MachineTerminalPanel({ sessionId }: { sessionId: string }) {
     if (root.parentElement) resizeObserver?.observe(root.parentElement);
     window.addEventListener('resize', scheduleResize);
     scheduleResize();
-    void syncTerminal(true);
     return () => {
       dataDisposable.dispose();
       resizeObserver?.disconnect();
@@ -1614,38 +1619,35 @@ function MachineTerminalPanel({ sessionId }: { sessionId: string }) {
       requestTerminalFitRef.current = null;
       lastAnsiOutputRef.current = '';
     };
-  }, [sessionId, syncTerminal]);
+  }, [sessionId]);
 
-  useEffect(() => {
-    let alive = true;
-    const tick = async () => {
-      try {
-        const next = await syncTerminal(true, { includeHistory: historyDetailsActive });
-        if (!alive) return;
-        const activeTerminal = next.active_terminal ?? null;
-        const ansiOutput = activeTerminal?.ansi_output ?? activeTerminal?.output ?? '';
-        const terminal = terminalRef.current;
-        if (!terminal) return;
-        const previous = lastAnsiOutputRef.current;
-        if (ansiOutput.startsWith(previous)) {
-          const delta = ansiOutput.slice(previous.length);
-          if (delta) terminal.write(delta);
-        } else {
-          terminal.reset();
-          if (ansiOutput) terminal.write(ansiOutput);
-        }
-        lastAnsiOutputRef.current = ansiOutput;
-      } catch {
-        // The surrounding detail page already surfaces API failures.
+  useAsyncPolling(
+    async (isActive, signal) => {
+      const next = await fetchTerminal(true, {
+        includeHistory: historyDetailsActive,
+        signal,
+      });
+      if (!isActive()) return;
+      setWorkspace(next);
+      const activeTerminal = next.active_terminal ?? null;
+      const ansiOutput = activeTerminal?.ansi_output ?? activeTerminal?.output ?? '';
+      const terminal = terminalRef.current;
+      if (!terminal) return;
+      const previous = lastAnsiOutputRef.current;
+      if (ansiOutput.startsWith(previous)) {
+        const delta = ansiOutput.slice(previous.length);
+        if (delta) terminal.write(delta);
+      } else {
+        terminal.reset();
+        if (ansiOutput) terminal.write(ansiOutput);
       }
-    };
-    void tick();
-    const timer = window.setInterval(() => void tick(), 1200);
-    return () => {
-      alive = false;
-      window.clearInterval(timer);
-    };
-  }, [historyDetailsActive, syncTerminal]);
+      lastAnsiOutputRef.current = ansiOutput;
+    },
+    {
+      intervalMs: MACHINE_TERMINAL_POLL_INTERVAL_MS,
+      taskTimeoutMs: MACHINE_TERMINAL_POLL_TIMEOUT_MS,
+    },
+  );
 
   async function runControl(
     action: string,
@@ -1683,7 +1685,8 @@ function MachineTerminalPanel({ sessionId }: { sessionId: string }) {
     setHistoryOpen(true);
     setHistoryRefreshing(true);
     try {
-      await syncTerminal(false, { includeHistory: true });
+      const next = await fetchTerminal(false, { includeHistory: true });
+      setWorkspace(next);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       showSnackbar(`${t('terminal.history.sync.failed', '同步终端历史失败')}：${message}`, { tone: 'error' });
@@ -2942,7 +2945,7 @@ function modelSupportsMode(model: ApiMetaModel | undefined, mode: string): boole
   }
 }
 
-type ComposerAttachmentKind = 'image' | 'file' | 'unsupported';
+type ComposerAttachmentKind = 'image' | 'video' | 'audio' | 'file' | 'unsupported';
 
 function extensionFromName(name: string): string {
   const normalized = name.trim().toLowerCase();
@@ -2955,6 +2958,12 @@ function composerAttachmentKind(name: string, mime?: string): ComposerAttachment
   const extension = extensionFromName(name);
   if (normalizedMime.startsWith('image/') || IMAGE_ATTACHMENT_EXTENSIONS.has(extension)) {
     return 'image';
+  }
+  if (normalizedMime.startsWith('video/') || VIDEO_ATTACHMENT_EXTENSIONS.has(extension)) {
+    return 'video';
+  }
+  if (normalizedMime.startsWith('audio/') || AUDIO_ATTACHMENT_EXTENSIONS.has(extension)) {
+    return 'audio';
   }
   if (FILE_ATTACHMENT_EXTENSIONS.has(extension)) {
     return 'file';
@@ -2977,6 +2986,26 @@ function mimeForAttachmentName(name: string): string | null {
       return 'image/bmp';
     case 'svg':
       return 'image/svg+xml';
+    case 'mp4':
+      return 'video/mp4';
+    case 'avi':
+      return 'video/x-msvideo';
+    case 'mov':
+      return 'video/mov';
+    case 'mkv':
+      return 'video/x-matroska';
+    case 'wmv':
+      return 'video/x-ms-wmv';
+    case 'mp3':
+      return 'audio/mpeg';
+    case 'wav':
+      return 'audio/wav';
+    case 'flac':
+      return 'audio/flac';
+    case 'm4a':
+      return 'audio/mp4';
+    case 'ogg':
+      return 'audio/ogg';
     case 'pdf':
       return 'application/pdf';
     case 'csv':
@@ -3001,18 +3030,37 @@ function mimeForAttachmentName(name: string): string | null {
   }
 }
 
-function modelSupportsAttachmentKind(model: ApiMetaModel | undefined, kind: ComposerAttachmentKind): boolean {
+function modelSupportsAttachmentKind(
+  model: ApiMetaModel | undefined,
+  kind: ComposerAttachmentKind,
+  name?: string,
+): boolean {
   if (!model || model.supports_attachments === false) return false;
+  if (name && model.attachment_extensions?.length) {
+    const extension = extensionFromName(name);
+    if (!model.attachment_extensions.includes(extension)) return false;
+  }
   if (kind === 'image') return model.supports_image_input === true;
+  if (kind === 'video') return model.supports_video_input === true;
+  if (kind === 'audio') return model.supports_audio_input === true;
   if (kind === 'file') return model.supports_file_input !== false;
   return false;
 }
 
 function attachmentAcceptForModel(model: ApiMetaModel | undefined): string {
   if (!model || model.supports_attachments === false) return '';
+  if (model.attachment_extensions?.length) {
+    return Array.from(new Set(model.attachment_extensions.map((extension) => `.${extension}`))).join(',');
+  }
   const extensions: string[] = [];
   if (model.supports_image_input === true) {
     extensions.push(...Array.from(IMAGE_ATTACHMENT_EXTENSIONS).map((ext) => `.${ext}`));
+  }
+  if (model.supports_video_input === true) {
+    extensions.push(...Array.from(VIDEO_ATTACHMENT_EXTENSIONS).map((ext) => `.${ext}`));
+  }
+  if (model.supports_audio_input === true) {
+    extensions.push(...Array.from(AUDIO_ATTACHMENT_EXTENSIONS).map((ext) => `.${ext}`));
   }
   if (model.supports_file_input !== false) {
     extensions.push(...Array.from(FILE_ATTACHMENT_EXTENSIONS).map((ext) => `.${ext}`));
@@ -3129,12 +3177,16 @@ interface MessageTtsPlaybackViewState {
   playing: boolean;
   messageId: string | null;
   provider: string | null;
+  error: string | null;
+  failureId: string | null;
 }
 
 const EMPTY_TTS_PLAYBACK: MessageTtsPlaybackViewState = {
   playing: false,
   messageId: null,
   provider: null,
+  error: null,
+  failureId: null,
 };
 
 function normalizeTtsPlaybackState(
@@ -3142,10 +3194,14 @@ function normalizeTtsPlaybackState(
 ): MessageTtsPlaybackViewState {
   const messageId = strictStringFromUnknown(playback?.message_id);
   const provider = strictStringFromUnknown(playback?.provider);
+  const error = strictStringFromUnknown(playback?.error);
+  const failureId = strictStringFromUnknown(playback?.failure_id);
   return {
     playing: Boolean(playback?.playing),
     messageId: messageId || null,
     provider: provider || null,
+    error: error || null,
+    failureId: failureId || null,
   };
 }
 
@@ -3155,7 +3211,9 @@ function sameTtsPlaybackState(
 ): boolean {
   return a.playing === b.playing &&
     a.messageId === b.messageId &&
-    a.provider === b.provider;
+    a.provider === b.provider &&
+    a.error === b.error &&
+    a.failureId === b.failureId;
 }
 
 function normalizeMetaMessageContentFormat(
@@ -3164,33 +3222,6 @@ function normalizeMetaMessageContentFormat(
   return value === 'markdown' || value === 'plain_text' || value === 'html'
     ? value
     : undefined;
-}
-
-export interface ComposerCollapsedSummaryState {
-  textLength: number;
-  attachmentCount: number;
-  queuedCount: number;
-  editing: boolean;
-  responseRunning: boolean;
-}
-
-export interface ComposerCollapsedSummaryLabels {
-  draft: string;
-  charUnit: string;
-  attachments: string;
-  queue: string;
-  editing: string;
-  running: string;
-}
-
-export function composerCollapsedSummaryParts(state: ComposerCollapsedSummaryState, labels: ComposerCollapsedSummaryLabels): string[] {
-  const parts: string[] = [];
-  if (state.editing) parts.push(labels.editing);
-  if (state.responseRunning) parts.push(labels.running);
-  if (state.queuedCount > 0) parts.push(`${labels.queue} ${state.queuedCount}`);
-  if (state.attachmentCount > 0) parts.push(`${labels.attachments} ${state.attachmentCount}`);
-  if (state.textLength > 0) parts.push(`${labels.draft} ${state.textLength.toLocaleString()} ${labels.charUnit}`);
-  return parts;
 }
 
 export function SessionDetailPage() {
@@ -3398,6 +3429,7 @@ export function SessionDetailPage() {
   const [forkBusy, setForkBusy] = useState(false);
   const [messageTranslations, setMessageTranslations] = useState<Record<string, MessageTranslationState>>({});
   const [ttsPlayback, setTtsPlayback] = useState<MessageTtsPlaybackViewState>(EMPTY_TTS_PLAYBACK);
+  const shownTtsFailureIdRef = useRef<string | null>(null);
   const [feedbackBusyMessageIds, setFeedbackBusyMessageIds] = useState<Set<string>>(() => new Set());
   const [regeneratingMessageIds, setRegeneratingMessageIds] = useState<Set<string>>(() => new Set());
   const [pendingSessionDelete, setPendingSessionDelete] = useState(false);
@@ -3405,6 +3437,10 @@ export function SessionDetailPage() {
 
   const applyTtsPlayback = useCallback((playback: MessageTtsPlaybackState | null | undefined) => {
     const next = normalizeTtsPlaybackState(playback);
+    if (next.error && next.failureId && shownTtsFailureIdRef.current !== next.failureId) {
+      shownTtsFailureIdRef.current = next.failureId;
+      showSnackbar(`${t('message.tts.failed', '朗读失败')}：${next.error}`, { tone: 'error' });
+    }
     setTtsPlayback((current) => (sameTtsPlaybackState(current, next) ? current : next));
   }, []);
 
@@ -5166,7 +5202,11 @@ export function SessionDetailPage() {
     if (attachments.length > ATTACHMENT_MAX_COUNT) {
       return t('composer.error.attachmentLimit', '单条消息最多携带 20 个附件');
     }
-    const unsupported = attachments.some((attachment) => !modelSupportsAttachmentKind(model, composerAttachmentKind(attachment.name)));
+    const unsupported = attachments.some((attachment) => !modelSupportsAttachmentKind(
+      model,
+      composerAttachmentKind(attachment.name),
+      attachment.name,
+    ));
     if (unsupported) {
       return t('composer.error.attachmentTypeNotSupported', '当前模型不支持所选附件类型');
     }
@@ -6109,7 +6149,7 @@ export function SessionDetailPage() {
         continue;
       }
       const kind = composerAttachmentKind(file.name, file.type);
-      if (!modelSupportsAttachmentKind(selectedModel, kind)) {
+      if (!modelSupportsAttachmentKind(selectedModel, kind, file.name)) {
         unsupportedCount += 1;
         continue;
       }
@@ -8299,6 +8339,11 @@ interface SessionTokenStatsViewModel {
   promptTokens: number;
   completionTokens: number;
   reasoningTokens: number;
+  audioInputTokens: number;
+  imageInputTokens: number;
+  videoInputTokens: number;
+  webSearchToolUsage: number;
+  webSearchPageUsage: number;
   totalTokens: number;
   totalMessageCount: number;
   promptBuildCount: number;
@@ -8313,6 +8358,11 @@ function buildSessionTokenStatsViewModel(session: SessionSummary): SessionTokenS
   const promptTokens = clampNumber(promptTokensTotal - firstPrompt, 0, promptTokensTotal);
   const completionTokens = readStatNumber(stats['total_completion_tokens'], session.total_completion_tokens);
   const reasoningTokens = readStatNumber(stats['reasoning_tokens'], 0);
+  const audioInputTokens = readStatNumber(stats['audio_input_tokens'], 0);
+  const imageInputTokens = readStatNumber(stats['image_input_tokens'], 0);
+  const videoInputTokens = readStatNumber(stats['video_input_tokens'], 0);
+  const webSearchToolUsage = readStatNumber(stats['web_search_tool_usage'], 0);
+  const webSearchPageUsage = readStatNumber(stats['web_search_page_usage'], 0);
   const totalTokens = readStatNumber(stats['total_tokens'], session.total_tokens ?? promptTokensTotal + completionTokens);
   const totalMessageCount = readStatNumber(stats['total_message_count'], session.message_count);
   const promptBuildCount = readStatNumber(stats['prompt_build_count'], 0);
@@ -8325,6 +8375,11 @@ function buildSessionTokenStatsViewModel(session: SessionSummary): SessionTokenS
     promptTokens,
     completionTokens,
     reasoningTokens,
+    audioInputTokens,
+    imageInputTokens,
+    videoInputTokens,
+    webSearchToolUsage,
+    webSearchPageUsage,
     totalTokens,
     totalMessageCount,
     promptBuildCount,
@@ -8346,6 +8401,11 @@ function SessionTokenStatsContent({
     promptTokens,
     completionTokens,
     reasoningTokens,
+    audioInputTokens,
+    imageInputTokens,
+    videoInputTokens,
+    webSearchToolUsage,
+    webSearchPageUsage,
     totalTokens,
     totalMessageCount,
     promptBuildCount,
@@ -8391,9 +8451,18 @@ function SessionTokenStatsContent({
     <>
       <TokenStatsSection title={t('tokenPopup.input', '输入')}>
         <TokenStatsRow label={t('tokenPopup.prompt', '提示词')} value={promptTokens} />
+        {audioInputTokens > 0 ? <TokenStatsRow label={t('tokenPopup.audioInput', '音频输入')} value={audioInputTokens} /> : null}
+        {imageInputTokens > 0 ? <TokenStatsRow label={t('tokenPopup.imageInput', '图片输入')} value={imageInputTokens} /> : null}
+        {videoInputTokens > 0 ? <TokenStatsRow label={t('tokenPopup.videoInput', '视频输入')} value={videoInputTokens} /> : null}
         <TokenStatsRow label={t('tokenPopup.cacheRead', '缓存命中')} value={cacheReadTokens} tone="accent" />
         <TokenStatsRow label={t('tokenPopup.cacheWrite', '缓存写入')} value={cacheWriteTokens} tone="accent" />
       </TokenStatsSection>
+      {webSearchToolUsage > 0 || webSearchPageUsage > 0 ? (
+        <TokenStatsSection title={t('tokenPopup.webSearch', '联网搜索')}>
+          {webSearchToolUsage > 0 ? <TokenStatsRow label={t('tokenPopup.webSearchCalls', '调用次数')} value={webSearchToolUsage} tone="accent" /> : null}
+          {webSearchPageUsage > 0 ? <TokenStatsRow label={t('tokenPopup.webSearchPages', '返回页面')} value={webSearchPageUsage} tone="accent" /> : null}
+        </TokenStatsSection>
+      ) : null}
       <TokenStatsSection title={t('tokenPopup.output', '输出')}>
         <TokenStatsRow label={t('tokenPopup.completion', '回复')} value={completionTokens} />
         {reasoningTokens > 0 ? <TokenStatsRow label={t('tokenPopup.reasoning', '推理')} value={reasoningTokens} /> : null}

@@ -24,6 +24,7 @@ import {
   setHtmlRenderFallback,
 } from '../../../hooks/useMessageContentFormat';
 import {
+  MIMO_DEFAULT_AUDIO_FORMAT,
   normalizeTtsSettings,
   saveTtsSettings,
   stopTtsPlayback,
@@ -356,6 +357,7 @@ const TTS_PROVIDER_CATALOG: Record<TtsProvider, TtsProviderCatalog> = {
   },
   mimo: {
     voices: [
+      { value: 'mimo_default', label: 'MiMo 默认音色（随部署区域）' },
       { value: '冰糖', label: '冰糖 - 中文女声' },
       { value: '茉莉', label: '茉莉 - 中文女声' },
       { value: '苏打', label: '苏打 - 中文男声' },
@@ -377,9 +379,8 @@ const TTS_PROVIDER_CATALOG: Record<TtsProvider, TtsProviderCatalog> = {
       { value: 'mimo-v2.5-tts-voiceclone', label: 'MiMo V2.5 TTS Voice Clone' },
     ],
     formats: [
-      { value: 'wav', label: 'WAV' },
+      { value: MIMO_DEFAULT_AUDIO_FORMAT, label: 'WAV' },
       { value: 'mp3', label: 'MP3' },
-      { value: 'pcm16', label: 'PCM 16-bit' },
     ],
   },
 };
@@ -999,6 +1000,9 @@ function TtsProviderCard(props: {
 }) {
   const [testing, setTesting] = useState(false);
   const catalog = TTS_PROVIDER_CATALOG[props.provider];
+  const mimoModel = String(props.settings.extra.model ?? 'mimo-v2.5-tts');
+  const usesMimoPresetVoice =
+    props.provider !== 'mimo' || mimoModel === 'mimo-v2.5-tts';
   const test = async () => {
     if (testing) return;
     setTesting(true);
@@ -1066,21 +1070,27 @@ function TtsProviderCard(props: {
         <div class="oh-settings-tts-provider-body">
           <TtsProviderSection title={t('settings.tts.voice.section', '声音参数')}>
             <div class="oh-settings-tts-provider-fields">
-              <SelectSetting
-                label={t('settings.tts.voice', '音色/发音人')}
-                value={props.settings.voice}
-                options={catalog.voices}
-                onCommit={(voice) => props.onChange({ voice })}
-              />
+              {usesMimoPresetVoice ? (
+                <SelectSetting
+                  label={t('settings.tts.voice', '音色/发音人')}
+                  value={props.settings.voice}
+                  options={catalog.voices}
+                  onCommit={(voice) => props.onChange({ voice })}
+                />
+              ) : null}
               <SelectSetting
                 label={t('settings.tts.language', '语言')}
                 value={props.settings.language}
                 options={catalog.languages}
                 onCommit={(language) => props.onChange({ language })}
               />
-              <NumberSetting label={t('settings.tts.speed', '语速')} value={props.settings.speed} min={0} max={200} onCommit={(speed) => props.onChange({ speed })} />
+              {props.provider !== 'mimo' ? (
+                <NumberSetting label={t('settings.tts.speed', '语速')} value={props.settings.speed} min={0} max={200} onCommit={(speed) => props.onChange({ speed })} />
+              ) : null}
               <NumberSetting label={t('settings.tts.volume', '音量')} value={props.settings.volume} min={0} max={100} onCommit={(volume) => props.onChange({ volume })} />
-              <NumberSetting label={t('settings.tts.pitch', '音调')} value={props.settings.pitch} min={-20} max={100} onCommit={(pitch) => props.onChange({ pitch })} />
+              {props.provider !== 'mimo' ? (
+                <NumberSetting label={t('settings.tts.pitch', '音调')} value={props.settings.pitch} min={-20} max={100} onCommit={(pitch) => props.onChange({ pitch })} />
+              ) : null}
             </div>
           </TtsProviderSection>
           {providerNeedsEndpoint(props.provider) || providerNeedsCredentials(props.provider) ? (
@@ -1140,33 +1150,40 @@ function TtsProviderCard(props: {
                 />
                 <SelectSetting
                   label={t('settings.tts.format', '音频格式')}
-                  value={String(props.settings.extra.format ?? 'wav')}
+                  value={String(props.settings.extra.format ?? MIMO_DEFAULT_AUDIO_FORMAT)}
                   options={catalog.formats ?? []}
-                  onCommit={(value) => props.onChange({ extra: { ...props.settings.extra, format: value || 'wav' } })}
+                  onCommit={(value) => props.onChange({ extra: { ...props.settings.extra, format: value || MIMO_DEFAULT_AUDIO_FORMAT } })}
                 />
                 <TextSetting
                   label={t('settings.tts.stylePrompt', '风格提示')}
                   value={String(props.settings.extra.style_prompt ?? '自然清晰，语速适中，语气友好。')}
                   onCommit={(value) => props.onChange({ extra: { ...props.settings.extra, style_prompt: value || '自然清晰，语速适中，语气友好。' } })}
                 />
-                <TextSetting
-                  label={t('settings.tts.voiceSamplePath', '克隆样本路径')}
-                  value={String(props.settings.extra.voice_sample_path ?? '')}
-                  onCommit={(value) => props.onChange({ extra: { ...props.settings.extra, voice_sample_path: value } })}
-                />
-                <TextSetting
-                  label={t('settings.tts.sampleRate', 'PCM 采样率')}
-                  value={String(props.settings.extra.sample_rate ?? 24000)}
-                  onCommit={(value) => {
-                    const parsed = finiteNumberOrNullFromUnknown(value);
-                    props.onChange({
-                      extra: {
-                        ...props.settings.extra,
-                        sample_rate: parsed == null ? 24000 : Math.round(parsed),
-                      },
-                    });
-                  }}
-                />
+                {mimoModel === 'mimo-v2.5-tts-voicedesign' ? (
+                  <label class="oh-settings-switch">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(props.settings.extra.optimize_text_preview)}
+                      onChange={(event) => props.onChange({
+                        extra: {
+                          ...props.settings.extra,
+                          optimize_text_preview: (event.currentTarget as HTMLInputElement).checked,
+                        },
+                      })}
+                    />
+                    <span class="oh-settings-switch-track"><span /></span>
+                    <span class="oh-settings-control-label">
+                      {t('settings.tts.optimizeTextPreview', '优化文本预览')}
+                    </span>
+                  </label>
+                ) : null}
+                {mimoModel === 'mimo-v2.5-tts-voiceclone' ? (
+                  <TextSetting
+                    label={t('settings.tts.voiceSamplePath', '克隆样本路径')}
+                    value={String(props.settings.extra.voice_sample_path ?? '')}
+                    onCommit={(value) => props.onChange({ extra: { ...props.settings.extra, voice_sample_path: value } })}
+                  />
+                ) : null}
               </div>
             </TtsProviderSection>
           ) : null}

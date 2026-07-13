@@ -1,28 +1,23 @@
-// Web 端 i18n 入口：四语词表 + Intl 全套（复数 / 数字 / 字节 / 日期 / 相对时间 / 时长）+ RTL 方向钩子。
+// Web 端 i18n 入口：四语词表 + Intl 格式化（复数 / 数字 / 字节 / 日期时间 / 时长）+ RTL 方向钩子。
 //
 // 设计要点：
 // - dict_zh / dict_zhHant / dict_en / dict_ja 拆分为独立模块，键集合一一对应。
 // - currentLang 维护在模块级，所有 t(key) 调用直接读取，无需 Context。
-// - subscribe / setLang 通过简单的发布订阅触发 Preact 组件重渲染（useLang hook）。
 // - 首次启动从 localStorage 读取，缺省时按浏览器 navigator.language 自动判断。
 // - dict[key] 缺词时回退顺序：当前语言 → zh → 调用方 fallback → key 本身。
-// - Intl 适配器（PluralRules / NumberFormat / DateTimeFormat / RelativeTimeFormat）
+// - Intl 适配器（PluralRules / NumberFormat / DateTimeFormat）
 //   按 BCP-47 标签每语言一份并缓存，避免在每次渲染时重新构造。
-// - RTL：当前 4 语全 LTR；通过 RTL_LANGS Set + dirOf() 钩子留好扩展点
-//   （添加阿拉伯语 / 希伯来语时只需把 Lang 加入 RTL_LANGS 并在 setLang 同步 <html dir>）。
+// - RTL：当前 4 语全 LTR；添加阿拉伯语 / 希伯来语时扩展 RTL_LANGS。
 
-import { useEffect, useState } from 'preact/hooks';
 import { dict_zh } from './dict_zh';
 import { dict_zhHant } from './dict_zhHant';
 import { dict_en } from './dict_en';
 import { dict_ja } from './dict_ja';
 import {
   readBrowserStorage,
-  writeBrowserStorage,
 } from '../shared/util/browser_storage';
 
-export type Lang = 'zh' | 'zh-Hant' | 'en' | 'ja';
-export const SUPPORTED_LANGS: readonly Lang[] = ['zh', 'zh-Hant', 'en', 'ja'];
+type Lang = 'zh' | 'zh-Hant' | 'en' | 'ja';
 
 const STORAGE_KEY = 'openhand_web_lang';
 const dicts: Record<Lang, Record<string, string>> = {
@@ -77,20 +72,15 @@ function toBcp47(lang: Lang): string {
 
 // 文字方向：当前 4 语全是 LTR；新增阿拉伯语 / 希伯来语时把 Lang 加入此 Set 即可。
 const RTL_LANGS: ReadonlySet<Lang> = new Set<Lang>();
-export function dirOf(lang: Lang): 'ltr' | 'rtl' {
+function dirOf(lang: Lang): 'ltr' | 'rtl' {
   return RTL_LANGS.has(lang) ? 'rtl' : 'ltr';
-}
-export function getDir(): 'ltr' | 'rtl' {
-  return dirOf(currentLang);
 }
 
 // Intl 适配器：每语言一份，懒构造、缓存复用。
 type IntlBundle = {
   pluralRules: Intl.PluralRules;
   number: Intl.NumberFormat;
-  relativeTime: Intl.RelativeTimeFormat;
   dateTime: Intl.DateTimeFormat;
-  date: Intl.DateTimeFormat;
   time: Intl.DateTimeFormat;
 };
 const intlCache = new Map<Lang, IntlBundle>();
@@ -101,10 +91,7 @@ function intlOf(lang: Lang): IntlBundle {
   const bundle: IntlBundle = {
     pluralRules: new Intl.PluralRules(tag),
     number: new Intl.NumberFormat(tag),
-    // numeric:'auto' 让 "今天 / 昨天" 自动取代 "0 天前 / 1 天前"。
-    relativeTime: new Intl.RelativeTimeFormat(tag, { numeric: 'auto' }),
     dateTime: new Intl.DateTimeFormat(tag, { dateStyle: 'medium', timeStyle: 'medium' }),
-    date: new Intl.DateTimeFormat(tag, { dateStyle: 'medium' }),
     time: new Intl.DateTimeFormat(tag, { timeStyle: 'medium', hour12: false }),
   };
   intlCache.set(lang, bundle);
@@ -112,19 +99,11 @@ function intlOf(lang: Lang): IntlBundle {
 }
 
 let currentLang: Lang = detectInitialLang();
-const listeners = new Set<(lang: Lang) => void>();
 
-export function getLang(): Lang {
-  return currentLang;
-}
-
-function setLangInternal(lang: Lang, persist: boolean): void {
+function setLangInternal(lang: Lang): void {
   if (!isLang(lang)) return;
   if (lang === currentLang) return;
   currentLang = lang;
-  if (persist) {
-    writeBrowserStorage(STORAGE_KEY, lang);
-  }
   // 同步设置 <html lang> 便于浏览器 / 屏幕阅读器识别。
   try {
     document.documentElement.lang = toBcp47(lang);
@@ -133,20 +112,9 @@ function setLangInternal(lang: Lang, persist: boolean): void {
   } catch {
     // 忽略：非浏览器环境。
   }
-  for (const fn of listeners) {
-    try {
-      fn(lang);
-    } catch {
-      // 单个订阅者抛错不应影响其他订阅者。
-    }
-  }
 }
 
-export function setLang(lang: Lang): void {
-  setLangInternal(lang, true);
-}
-
-export function langFromAppPreferences(
+function langFromAppPreferences(
   languageStorageValue?: string,
   locale?: string,
 ): Lang | null {
@@ -186,14 +154,7 @@ export function syncLangFromAppPreferences(
   locale?: string,
 ): void {
   const lang = langFromAppPreferences(languageStorageValue, locale);
-  if (lang) setLangInternal(lang, false);
-}
-
-export function subscribeLang(fn: (lang: Lang) => void): () => void {
-  listeners.add(fn);
-  return () => {
-    listeners.delete(fn);
-  };
+  if (lang) setLangInternal(lang);
 }
 
 export function t(key: string, fallback?: string): string {
@@ -276,11 +237,7 @@ function toDate(v: Date | string | number | null | undefined): Date | null {
   return Number.isNaN(dt.getTime()) ? null : dt;
 }
 
-// 本地化日期 / 时间 / 日期时间。空值与非法输入统一返回 '—'。
-export function tDate(d: Date | string | number | null | undefined): string {
-  const dt = toDate(d);
-  return dt ? intlOf(currentLang).date.format(dt) : '—';
-}
+// 本地化时间 / 日期时间。空值与非法输入统一返回 '—'。
 export function tTime(d: Date | string | number | null | undefined): string {
   const dt = toDate(d);
   return dt ? intlOf(currentLang).time.format(dt) : '—';
@@ -288,29 +245,6 @@ export function tTime(d: Date | string | number | null | undefined): string {
 export function tDateTime(d: Date | string | number | null | undefined): string {
   const dt = toDate(d);
   return dt ? intlOf(currentLang).dateTime.format(dt) : '—';
-}
-
-// 相对时间："3 分钟前 / 昨天 / 2 周后"。base 默认 now，便于注入测试时间。
-export function tRelativeTime(d: Date | string | number, base: Date = new Date()): string {
-  const dt = toDate(d);
-  if (!dt) return '—';
-  const diffMs = dt.getTime() - base.getTime();
-  const abs = Math.abs(diffMs);
-  const fmt = intlOf(currentLang).relativeTime;
-  const SEC = 1000,
-    MIN = 60 * SEC,
-    HOUR = 60 * MIN,
-    DAY = 24 * HOUR,
-    WEEK = 7 * DAY,
-    MONTH = 30 * DAY,
-    YEAR = 365 * DAY;
-  if (abs < MIN) return fmt.format(Math.round(diffMs / SEC), 'second');
-  if (abs < HOUR) return fmt.format(Math.round(diffMs / MIN), 'minute');
-  if (abs < DAY) return fmt.format(Math.round(diffMs / HOUR), 'hour');
-  if (abs < WEEK) return fmt.format(Math.round(diffMs / DAY), 'day');
-  if (abs < MONTH) return fmt.format(Math.round(diffMs / WEEK), 'week');
-  if (abs < YEAR) return fmt.format(Math.round(diffMs / MONTH), 'month');
-  return fmt.format(Math.round(diffMs / YEAR), 'year');
 }
 
 // 持续时长（ms → "1 天 2 时 3 分 4 秒" / "1d 2h 3m 4s"）。各单位文案从词表读取。
@@ -330,16 +264,6 @@ export function tDuration(ms: number): string {
   if (mins) parts.push(`${mins}${t('common.duration.minute')}`);
   parts.push(`${secs}${t('common.duration.second')}`);
   return parts.join(' ');
-}
-
-// Preact hook：在组件中订阅当前语言，语言切换后自动重渲染。
-export function useLang(): Lang {
-  const [lang, setLangState] = useState<Lang>(currentLang);
-  useEffect(() => {
-    const off = subscribeLang((next) => setLangState(next));
-    return off;
-  }, []);
-  return lang;
 }
 
 // 启动时立刻同步 <html lang> / <html dir>，便于浏览器加载首屏时即生效。

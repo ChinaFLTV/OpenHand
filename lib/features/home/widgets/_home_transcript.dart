@@ -1362,6 +1362,35 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     widget.onProgrammaticScrollCorrection(() => position.jumpTo(target));
   }
 
+  Future<void> _toggleMessageSpeech(
+    AiSessionMessage message,
+    AiTtsSettings settings,
+  ) async {
+    final settingsController = context.read<SettingsController>();
+    try {
+      await widget.ttsPlaybackService.toggleMessage(
+        messageId: message.id,
+        text: message.content,
+        settings: settings,
+        availableModels: settingsController.aiModels,
+        fallbackModel: _translationFallbackModel(settingsController),
+      );
+    } catch (error, stack) {
+      silentLog('tts', 'toggle message playback', error, stack);
+      if (!mounted) return;
+      flashHomeSnack(
+        context,
+        openHandLocalizedText(
+          context,
+          zh: '朗读失败：${_friendlyMessageActionUiError(error)}',
+          en: 'Read aloud failed: ${_friendlyMessageActionUiError(error)}',
+        ),
+        kind: OpenHandSnackKind.error,
+        duration: const Duration(seconds: 4),
+      );
+    }
+  }
+
   Future<void> _toggleMessageTranslation(
     AiSessionMessage message,
     AiTranslationSettings settings,
@@ -1417,8 +1446,8 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         context,
         openHandLocalizedText(
           context,
-          zh: '翻译失败：${_friendlyTranslationUiError(error)}',
-          en: 'Translation failed: ${_friendlyTranslationUiError(error)}',
+          zh: '翻译失败：${_friendlyMessageActionUiError(error)}',
+          en: 'Translation failed: ${_friendlyMessageActionUiError(error)}',
         ),
         kind: OpenHandSnackKind.error,
         duration: const Duration(seconds: 3),
@@ -1819,7 +1848,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     return false;
   }
 
-  String _friendlyTranslationUiError(Object error) {
+  String _friendlyMessageActionUiError(Object error) {
     final raw = error.toString().replaceFirst(RegExp(r'^[^:]+:\s*'), '');
     final normalized = collapseInlineWhitespace(raw);
     if (normalized.isEmpty) return 'unknown error';
@@ -2489,13 +2518,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         speechEnabled: speechEnabled,
         speechPlaying: speechPlaying,
         onToggleSpeech: speechEnabled
-            ? () => widget.ttsPlaybackService.toggleMessage(
-                messageId: message.id,
-                text: message.content,
-                settings: ttsSettings,
-                availableModels: settingsController.aiModels,
-                fallbackModel: _translationFallbackModel(settingsController),
-              )
+            ? () => _toggleMessageSpeech(message, ttsSettings)
             : null,
         translationEnabled: translationEnabled,
         translationLoading: translationLoading,

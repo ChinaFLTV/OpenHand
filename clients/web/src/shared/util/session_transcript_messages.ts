@@ -138,7 +138,7 @@ function messagesAreChronological(items: SessionMessage[]): boolean {
   return true;
 }
 
-export function messagesInDisplayOrder(items: SessionMessage[]): SessionMessage[] {
+function messagesInDisplayOrder(items: SessionMessage[]): SessionMessage[] {
   return messagesAreChronological(items) ? items : [...items].sort(compareMessageCreatedAt);
 }
 

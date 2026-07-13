@@ -7,7 +7,7 @@
 
 import { apiRequest, type ApiRequestSignalOptions } from './client';
 
-export interface OpsRuntimeProcess {
+interface OpsRuntimeProcess {
   pid: number;
   current_rss_bytes: number;
   max_rss_bytes: number;
@@ -23,7 +23,7 @@ export interface OpsRuntimeProcess {
   host_name?: string;
 }
 
-export interface OpsLatencyStats {
+interface OpsLatencyStats {
   sample_count: number;
   avg_ms: number;
   p50_ms: number;
@@ -32,12 +32,12 @@ export interface OpsLatencyStats {
   max_ms: number;
 }
 
-export interface OpsTopRoute {
+interface OpsTopRoute {
   path: string;
   count: number;
 }
 
-export interface OpsRecentSlowRequest {
+interface OpsRecentSlowRequest {
   path: string;
   method: string;
   status_code: number;
@@ -91,7 +91,7 @@ export interface OpsRuntimeSnapshot {
   mcp_server_total_count?: number;
 }
 
-export interface OpsRecentError {
+interface OpsRecentError {
   at: string;
   method: string;
   path: string;

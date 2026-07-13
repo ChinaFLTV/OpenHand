@@ -2815,7 +2815,10 @@ class WebMessagePlatformService {
               'label': item.label,
               'supports_attachments': item.supportsAttachments,
               'supports_image_input': item.supportsImageInput,
+              'supports_video_input': item.supportsVideoInput,
+              'supports_audio_input': item.supportsAudioInput,
               'supports_file_input': item.supportsFileInput,
+              'attachment_extensions': item.attachmentExtensions,
               'supports_image_generation': item.supportsImageGeneration,
               'supports_video_generation': item.supportsVideoGeneration,
               'supports_audio_generation': item.supportsAudioGeneration,
@@ -3786,11 +3789,7 @@ class WebMessagePlatformService {
     }
     final attachmentCapabilities = resolveAiAttachmentInputCapabilities(model);
     final unsupportedAttachmentCount = attachments
-        .where(
-          (path) => !attachmentCapabilities.supportsKind(
-            aiAttachmentKindForPath(path),
-          ),
-        )
+        .where((path) => !attachmentCapabilities.supportsPath(path))
         .length;
     if (unsupportedAttachmentCount > 0) {
       await _deleteMaterializedAttachments(attachments);
@@ -5941,6 +5940,8 @@ class WebMessagePlatformService {
       'playing': snapshot.playing,
       'message_id': snapshot.messageId,
       'provider': snapshot.provider?.storageKey,
+      'error': snapshot.error,
+      'failure_id': snapshot.failureId?.toString(),
     };
   }
 
@@ -7160,7 +7161,12 @@ class WebMessagePlatformService {
             label: '${provider.providerLabel} / $modelId',
             supportsAttachments: attachmentCapabilities.supportsAny,
             supportsImageInput: attachmentCapabilities.supportsImageInput,
+            supportsVideoInput: attachmentCapabilities.supportsVideoInput,
+            supportsAudioInput: attachmentCapabilities.supportsAudioInput,
             supportsFileInput: attachmentCapabilities.supportsFileInput,
+            attachmentExtensions: aiAttachmentPickerExtensionsForCapabilities(
+              attachmentCapabilities,
+            ),
             supportsImageGeneration:
                 AiImageGenerationService.supportsImageGenerationForModel(
                   resolved,
@@ -8020,7 +8026,10 @@ class _AllowedWebModel {
     required this.label,
     required this.supportsAttachments,
     required this.supportsImageInput,
+    required this.supportsVideoInput,
+    required this.supportsAudioInput,
     required this.supportsFileInput,
+    required this.attachmentExtensions,
     required this.supportsImageGeneration,
     required this.supportsVideoGeneration,
     required this.supportsAudioGeneration,
@@ -8042,7 +8051,10 @@ class _AllowedWebModel {
   final String label;
   final bool supportsAttachments;
   final bool supportsImageInput;
+  final bool supportsVideoInput;
+  final bool supportsAudioInput;
   final bool supportsFileInput;
+  final List<String> attachmentExtensions;
   final bool supportsImageGeneration;
   final bool supportsVideoGeneration;
   final bool supportsAudioGeneration;

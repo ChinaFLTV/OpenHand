@@ -356,6 +356,28 @@ class AiAttachmentService {
         promptCharacterLimit: promptCharacterLimit,
         imageSizeLimitBytes: imageSizeLimitBytes,
       ),
+      AiAttachmentKind.video => _importOpaqueAttachment(
+        sourceFile: sourceFile,
+        targetDirectory: targetDirectory,
+        sourceName: normalizedName,
+        sequence: sequence,
+        messageId: messageId,
+        idGenerator: idGenerator,
+        kind: AiAttachmentKind.video,
+        summaryText:
+            'Video attachment: $normalizedName (${aiFormatBytes(stat.size)}).',
+      ),
+      AiAttachmentKind.audio => _importOpaqueAttachment(
+        sourceFile: sourceFile,
+        targetDirectory: targetDirectory,
+        sourceName: normalizedName,
+        sequence: sequence,
+        messageId: messageId,
+        idGenerator: idGenerator,
+        kind: AiAttachmentKind.audio,
+        summaryText:
+            'Audio attachment: $normalizedName (${aiFormatBytes(stat.size)}).',
+      ),
       AiAttachmentKind.text => _importTextAttachment(
         sourceFile: sourceFile,
         targetDirectory: targetDirectory,
@@ -383,14 +405,16 @@ class AiAttachmentService {
         idGenerator: idGenerator,
         promptCharacterLimit: promptCharacterLimit,
       ),
-      AiAttachmentKind.binary => _importBinaryAttachment(
+      AiAttachmentKind.binary => _importOpaqueAttachment(
         sourceFile: sourceFile,
         targetDirectory: targetDirectory,
         sourceName: normalizedName,
         sequence: sequence,
         messageId: messageId,
         idGenerator: idGenerator,
-        fileSizeBytes: stat.size,
+        kind: AiAttachmentKind.binary,
+        summaryText:
+            'Binary attachment: $normalizedName (${aiFormatBytes(stat.size)}). No structured preview is available in this runtime.',
       ),
     };
   }
@@ -650,14 +674,15 @@ class AiAttachmentService {
     );
   }
 
-  Future<AiMessageAttachment> _importBinaryAttachment({
+  Future<AiMessageAttachment> _importOpaqueAttachment({
     required File sourceFile,
     required Directory targetDirectory,
     required String sourceName,
     required int sequence,
     required String messageId,
     required String Function() idGenerator,
-    required int fileSizeBytes,
+    required AiAttachmentKind kind,
+    required String summaryText,
   }) async {
     final attachmentId = idGenerator();
     final targetFile = await _copyFile(
@@ -670,13 +695,11 @@ class AiAttachmentService {
         attachmentId: attachmentId,
       ),
     );
-    final summaryText =
-        'Binary attachment: $sourceName (${aiFormatBytes(fileSizeBytes)}). No structured preview is available in this runtime.';
     return AiMessageAttachment(
       id: attachmentId,
       name: sourceName,
       storagePath: targetFile.path,
-      kind: AiAttachmentKind.binary,
+      kind: kind,
       mimeType: aiMimeTypeForPath(sourceFile.path),
       sizeBytes: await targetFile.length(),
       promptText: summaryText,

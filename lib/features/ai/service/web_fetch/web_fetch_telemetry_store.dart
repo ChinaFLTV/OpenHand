@@ -203,19 +203,19 @@ class WebFetchPerEngineLog {
   };
 }
 
-class WebFetchEngineStat {
+class WebFetchEngineStat extends WebEngineStatBase {
   const WebFetchEngineStat({
-    required this.totalCalls,
-    required this.successCalls,
-    required this.totalDurationMs,
+    required super.totalCalls,
+    required super.successCalls,
+    required super.totalDurationMs,
     required this.totalBytes,
-    this.lastError,
-    this.lastFailureAt,
-    this.lastInvokedAt,
-    this.consecutiveFailures = 0,
-    this.cooldownUntilMs,
-    this.lastQuotaError,
-    this.lastQuotaAt,
+    super.lastError,
+    super.lastFailureAt,
+    super.lastInvokedAt,
+    super.consecutiveFailures,
+    super.cooldownUntilMs,
+    super.lastQuotaError,
+    super.lastQuotaAt,
   });
 
   factory WebFetchEngineStat.fromJson(
@@ -242,38 +242,16 @@ class WebFetchEngineStat {
     lastQuotaAt: webEngineOptionalNonNegativeIntFromValue(m['last_quota_at']),
   );
 
-  final int totalCalls;
-  final int successCalls;
-  final int totalDurationMs;
   final int totalBytes;
-  final String? lastError;
-  final int? lastFailureAt;
-  final int? lastInvokedAt;
-  final int consecutiveFailures;
-  final int? cooldownUntilMs;
-  final String? lastQuotaError;
-  final int? lastQuotaAt;
-
-  double get successRate => totalCalls == 0 ? 0 : successCalls / totalCalls;
-  double get avgDurationMs =>
-      totalCalls == 0 ? 0 : totalDurationMs / totalCalls;
-
-  bool isInCooldown([int? nowMs]) {
-    final now = nowMs ?? DateTime.now().millisecondsSinceEpoch;
-    return cooldownUntilMs != null && cooldownUntilMs! > now;
-  }
 }
 
-class WebFetchEngineSample {
+class WebFetchEngineSample extends WebEngineSampleBase {
   const WebFetchEngineSample({
-    required this.timestampMs,
-    required this.durationMs,
-    required this.success,
+    required super.timestampMs,
+    required super.durationMs,
+    required super.success,
     required this.contentBytes,
   });
 
-  final int timestampMs;
-  final int durationMs;
-  final bool success;
   final int contentBytes;
 }

@@ -1,6 +1,6 @@
 import { clampNumber } from '../util/number';
 
-export type FloatingHorizontalAlign = 'left' | 'right';
+type FloatingHorizontalAlign = 'left' | 'right';
 export type FloatingVerticalPlacement = 'auto' | 'above' | 'below';
 
 export interface AnchoredMenuPosition {
@@ -24,8 +24,8 @@ export interface AnchoredMenuPositionOptions {
 
 export const DEFAULT_FLOATING_VIEWPORT_PADDING = 8;
 export const DEFAULT_FLOATING_ANCHOR_GAP = 4;
-export const DEFAULT_FLOATING_MIN_WIDTH = 160;
-export const DEFAULT_FLOATING_FALLBACK_HEIGHT = 160;
+const DEFAULT_FLOATING_MIN_WIDTH = 160;
+const DEFAULT_FLOATING_FALLBACK_HEIGHT = 160;
 
 export function computeAnchoredMenuPosition({
   anchor,

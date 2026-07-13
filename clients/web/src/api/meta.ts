@@ -3,7 +3,7 @@ import { tFmt } from '../i18n';
 import type { ApiDialogAnimationSettings } from '../hooks/useDialogMotionSettings';
 import { apiRequest } from './client';
 
-export interface ApiMetaService {
+interface ApiMetaService {
   listen_host?: string;
   listen_port?: number;
   bound_url?: string;
@@ -29,7 +29,7 @@ export interface ApiMetaService {
   description?: string;
 }
 
-export interface ApiMetaWorkspaceFiles {
+interface ApiMetaWorkspaceFiles {
   enabled?: boolean;
   operations_enabled?: boolean;
   write_enabled?: boolean;
@@ -37,14 +37,14 @@ export interface ApiMetaWorkspaceFiles {
   allowed_extensions?: string[];
 }
 
-export interface ApiMetaPreferences {
+interface ApiMetaPreferences {
   reduce_motion?: boolean;
   locale?: string;
   language_storage_value?: string;
   dialog_animation_settings?: ApiDialogAnimationSettings;
 }
 
-export interface ApiMetaMessageContentSettings {
+interface ApiMetaMessageContentSettings {
   tts_enabled?: boolean;
   translation_enabled?: boolean;
   translation_settings_fingerprint?: string;
@@ -105,7 +105,10 @@ export interface ApiMetaModel {
   label: string;
   supports_attachments?: boolean;
   supports_image_input?: boolean;
+  supports_video_input?: boolean;
+  supports_audio_input?: boolean;
   supports_file_input?: boolean;
+  attachment_extensions?: string[];
   supports_image_generation?: boolean;
   supports_video_generation?: boolean;
   supports_audio_generation?: boolean;

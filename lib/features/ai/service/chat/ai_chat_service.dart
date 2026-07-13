@@ -318,6 +318,16 @@ class AiChatService implements AiChatClient {
         capabilityStatus == 'disabled') {
       return false;
     }
+    if (model.protocolType == AiProtocolType.mimo &&
+        messages.any(
+          (turn) => turn.effectiveParts.any(
+            (part) =>
+                part.kind == AiChatContentPartKind.videoFile ||
+                part.kind == AiChatContentPartKind.audioFile,
+          ),
+        )) {
+      return false;
+    }
     if (capabilityStatus == 'supported') return true;
     final endpointKey = _responsesEndpointKey(model);
     if (_hasFreshResponsesCompatibilityEntry(
@@ -378,6 +388,16 @@ class AiChatService implements AiChatClient {
         (part) => part.kind == AiChatContentPartKind.imageFile,
       ),
     );
+    final hasVideos = messages.any(
+      (turn) => turn.effectiveParts.any(
+        (part) => part.kind == AiChatContentPartKind.videoFile,
+      ),
+    );
+    final hasAudio = messages.any(
+      (turn) => turn.effectiveParts.any(
+        (part) => part.kind == AiChatContentPartKind.audioFile,
+      ),
+    );
     final hasToolHistory = messages.any(
       (turn) => turn.role == AiChatRole.tool || turn.toolCalls.isNotEmpty,
     );
@@ -385,7 +405,8 @@ class AiChatService implements AiChatClient {
       ..sort();
     return '$endpointKey|model:$modelId'
         '|tools:${tools.isNotEmpty || hasToolHistory}'
-        '|images:$hasImages|creation:${creationRequest.mode.storageValue}'
+        '|images:$hasImages|videos:$hasVideos|audio:$hasAudio'
+        '|creation:${creationRequest.mode.storageValue}'
         '|modalities:${modalities.join(',')}';
   }
 
@@ -737,7 +758,7 @@ class AiChatService implements AiChatClient {
       throw _imageResponsesUnavailable(model);
     }
     try {
-      final adapter = AiProtocolRegistry.adapterFor(model.protocolType);
+      final adapter = AiProtocolRegistry.adapterForModel(model);
       var blueprint = await adapter.buildChatRequest(
         model: model,
         messages: messages,
@@ -921,11 +942,31 @@ class AiChatService implements AiChatClient {
       final decoded = jsonDecode(rawResponse);
       if (decoded is! Map<String, Object?>) return null;
       final choices = decoded['choices'];
-      if (choices is! List || choices.isEmpty) return null;
-      final message = (choices.first as Map<String, Object?>?)?['message'];
-      if (message is! Map<String, Object?>) return null;
-      final reasoning = message['reasoning_content'] ?? message['reasoning'];
-      if (reasoning is String) return nullIfBlank(reasoning);
+      if (choices is List && choices.isNotEmpty) {
+        final first = choices.first;
+        final message = first is Map ? first['message'] : null;
+        if (message is Map) {
+          final reasoning =
+              message['reasoning_content'] ?? message['reasoning'];
+          if (reasoning is String) return nullIfBlank(reasoning);
+        }
+      }
+      final content = decoded['content'];
+      if (content is List) {
+        final reasoning = content
+            .whereType<Map>()
+            .where(
+              (block) => lowercaseStringFromValue(block['type']) == 'thinking',
+            )
+            .map(
+              (block) =>
+                  optionalStringFromValue(block['thinking']) ??
+                  optionalStringFromValue(block['text']),
+            )
+            .whereType<String>()
+            .join('\n');
+        return nullIfBlank(reasoning);
+      }
     } catch (error, stack) {
       silentLog('ai_chat_service', 'extract reasoning_content', error, stack);
     }
@@ -1030,7 +1071,7 @@ class AiChatService implements AiChatClient {
         model.apiDialect == AiApiDialect.openAiCompat) {
       throw _imageResponsesUnavailable(model);
     }
-    final adapter = AiProtocolRegistry.adapterFor(model.protocolType);
+    final adapter = AiProtocolRegistry.adapterForModel(model);
     if (!adapter.supportsServerStreaming) {
       return _sendMessageAsSyntheticStream(
         model: model,
@@ -1277,8 +1318,10 @@ class AiChatService implements AiChatClient {
     final rawResponseBuffer = StringBuffer();
     final toolCalls = <int, _MutableToolCall>{};
     final emittedMediaUrls = <String>{};
+    final citations = <String, String>{};
     AiTokenUsage? usage;
     String? finishReason;
+    String? providerWarning;
     final lineBuffer = StringBuffer();
     StreamSubscription<String>? responseSubscription;
     Future<void>? responseSubscriptionCancelFuture;
@@ -1323,6 +1366,23 @@ class AiChatService implements AiChatClient {
     void completeStreamResult(String reason, {bool wasCancelled = false}) {
       if (resultCompleter.isCompleted) {
         return;
+      }
+      if (citations.isNotEmpty) {
+        final prefix = textBuffer.isEmpty ? '' : '\n\n';
+        final sources = <String>[
+          '$prefix### Sources',
+          ...citations.entries.map(
+            (entry) => '- [${entry.value}](${entry.key})',
+          ),
+        ].join('\n');
+        textBuffer.write(sources);
+        emitEvent(AiChatStreamEvent.textDelta(sources));
+      }
+      if (providerWarning != null) {
+        final warning =
+            '${textBuffer.isEmpty ? '' : '\n\n'}> 联网搜索提示：$providerWarning';
+        textBuffer.write(warning);
+        emitEvent(AiChatStreamEvent.textDelta(warning));
       }
       final resolvedToolCalls = toolCalls.entries.toList(growable: false)
         ..sort((left, right) => left.key.compareTo(right.key));
@@ -1422,6 +1482,9 @@ class AiChatService implements AiChatClient {
         emitGeneratedMediaIfPresent(decoded);
         return;
       }
+      if (model.protocolType == AiProtocolType.mimo) {
+        providerWarning ??= _mimoWebSearchWarningFromPayload(decoded);
+      }
 
       // ── Detect in-stream error objects ──────────────────────────────────
       // Some API providers (especially third-party OpenAI-compatible ones)
@@ -1462,6 +1525,23 @@ class AiChatService implements AiChatClient {
           return;
         }
       }
+      final providerError = _providerStreamErrorMessage(decoded);
+      if (providerError != null) {
+        resultCompleter.completeError(
+          AiChatException(
+            providerError,
+            telemetry: telemetrySnapshot(
+              rawResponse: rawResponseBuffer.toString(),
+              finishReason: finishReason,
+              error: providerError,
+            ),
+          ),
+          StackTrace.current,
+        );
+        unawaited(eventController.close());
+        unawaited(cancelResponseStream());
+        return;
+      }
 
       emitGeneratedMediaIfPresent(decoded);
 
@@ -1498,6 +1578,8 @@ class AiChatService implements AiChatClient {
           textBuffer: textBuffer,
           reasoningBuffer: reasoningBuffer,
           toolCalls: toolCalls,
+          citations: citations,
+          collectCitations: model.protocolType == AiProtocolType.mimo,
           usage: () => usage,
           setUsage: (value) => usage = value,
           emitEvent: emitEvent,
@@ -1970,6 +2052,29 @@ class AiChatService implements AiChatClient {
         return;
       }
       if (decoded is! Map<String, Object?>) return;
+      final providerError = _providerStreamErrorMessage(decoded);
+      if (providerError != null) {
+        resultCompleter.completeError(
+          AiChatException(
+            providerError,
+            telemetry: AiChatRequestTelemetry(
+              requestUrl: request.url,
+              requestMethod: request.method,
+              requestHeaders: capturedHeaders,
+              requestBody: capturedBody,
+              rawResponse: rawResponseBuffer.toString(),
+              startedAt: streamStartedAt,
+              endedAt: DateTime.now().toUtc(),
+              error: providerError,
+              requestFallbacks: List<String>.unmodifiable(requestFallbacks),
+            ),
+          ),
+          StackTrace.current,
+        );
+        unawaited(closeEvents());
+        unawaited(cancelResponseStream());
+        return;
+      }
       final eventType = '${decoded['type'] ?? ''}';
       if (eventType == 'response.failed' || eventType == 'error') {
         final responseError =
@@ -2318,12 +2423,45 @@ const Object _cancelledStreamSentinel = Object();
 
 class _SyntheticStreamCancelledException implements Exception {}
 
+String? _providerStreamErrorMessage(Map<String, Object?> payload) {
+  final baseResponse = payload['base_resp'];
+  if (baseResponse is! Map) return null;
+  final values = stringKeyedMapFromValue(baseResponse);
+  final statusCode = optionalIntFromValue(values['status_code']);
+  if (statusCode == null || statusCode == 0) return null;
+  final statusMessage =
+      optionalStringFromValue(values['status_msg']) ??
+      'Provider request failed.';
+  return 'Provider stream failed ($statusCode): $statusMessage';
+}
+
+String? _mimoWebSearchWarningFromPayload(Map<String, Object?> payload) {
+  final candidates = <Object?>[payload['web_search'], payload['webSearch']];
+  final choices = payload['choices'];
+  if (choices is List && choices.isNotEmpty && choices.first is Map) {
+    final choice = choices.first as Map;
+    candidates.add(choice['delta'] ?? choice['message']);
+  }
+  for (final candidate in candidates) {
+    if (candidate is! Map) continue;
+    final values = stringKeyedMapFromValue(candidate);
+    final message =
+        optionalStringFromValue(values['error_message']) ??
+        optionalStringFromValue(values['errorMessage']) ??
+        optionalStringFromValue(values['message']);
+    if (message != null) return message;
+  }
+  return null;
+}
+
 /// Processes a single SSE event block in OpenAI-compatible format.
 void _processOpenAiStreamEvent(
   Map<String, Object?> decoded, {
   required StringBuffer textBuffer,
   required StringBuffer reasoningBuffer,
   required Map<int, _MutableToolCall> toolCalls,
+  required Map<String, String> citations,
+  required bool collectCitations,
   required AiTokenUsage? Function() usage,
   required void Function(AiTokenUsage?) setUsage,
   required void Function(AiChatStreamEvent) emitEvent,
@@ -2373,6 +2511,9 @@ void _processOpenAiStreamEvent(
     if (reasoningDelta.isNotEmpty) {
       reasoningBuffer.write(reasoningDelta);
       emitEvent(AiChatStreamEvent.reasoningDelta(reasoningDelta));
+    }
+    if (collectCitations) {
+      _collectStreamCitations(delta['annotations'], citations);
     }
     final toolCallJson = delta['tool_calls'];
     if (toolCallJson is! List) {
@@ -2436,6 +2577,27 @@ void _processOpenAiStreamEvent(
         );
       }
     }
+  }
+}
+
+void _collectStreamCitations(
+  Object? rawAnnotations,
+  Map<String, String> citations,
+) {
+  if (rawAnnotations is! List) return;
+  for (final raw in rawAnnotations) {
+    if (raw is! Map) continue;
+    final annotation = stringKeyedMapFromValue(raw);
+    final citation = annotation['url_citation'] is Map
+        ? stringKeyedMapFromValue(annotation['url_citation'])
+        : annotation;
+    final url = optionalStringFromValue(citation['url']);
+    if (url == null || citations.containsKey(url)) continue;
+    final rawTitle =
+        optionalStringFromValue(citation['title']) ??
+        optionalStringFromValue(citation['site_name']) ??
+        url;
+    citations[url] = rawTitle.replaceAll('[', '').replaceAll(']', '');
   }
 }
 

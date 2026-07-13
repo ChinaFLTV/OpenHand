@@ -34,21 +34,15 @@ export interface TtsSettings {
   providers: Record<TtsProvider, TtsProviderSettings>;
 }
 
-export interface TtsPlaybackState {
-  playing: boolean;
-  messageId: string | null;
-  provider: TtsProvider | null;
-}
-
 const STORAGE_KEY = 'openhand_tts_settings';
 const EVENT_NAME = 'openhand:tts-settings-changed';
-const PLAYBACK_EVENT_NAME = 'openhand:tts-playback-changed';
 const MIN_TIMEOUT_SECONDS = 3;
 const MAX_TIMEOUT_SECONDS = 120;
 const MIN_TEXT_CHARS = 20;
 const MAX_TEXT_CHARS = 20000;
+export const MIMO_DEFAULT_AUDIO_FORMAT = 'wav';
 
-export const TTS_PROVIDERS: readonly TtsProvider[] = [
+const TTS_PROVIDERS: readonly TtsProvider[] = [
   'system',
   'apple',
   'xfyun',
@@ -196,7 +190,7 @@ function defaultProviderSettings(provider: TtsProvider): TtsProviderSettings {
     case 'mimo':
       return {
         enabled: false,
-        voice: '冰糖',
+        voice: 'mimo_default',
         language: 'zh-CN',
         speed: 1,
         volume: 1,
@@ -209,7 +203,7 @@ function defaultProviderSettings(provider: TtsProvider): TtsProviderSettings {
         region: '',
         extra: {
           model: 'mimo-v2.5-tts',
-          format: 'wav',
+          format: MIMO_DEFAULT_AUDIO_FORMAT,
           style_prompt: '自然清晰，语速适中，语气友好。',
           sample_rate: 24000,
           voice_sample_path: '',
@@ -240,7 +234,7 @@ function defaultProviders(): Record<TtsProvider, TtsProviderSettings> {
   ) as Record<TtsProvider, TtsProviderSettings>;
 }
 
-export function defaultTtsSettings(): TtsSettings {
+function defaultTtsSettings(): TtsSettings {
   return {
     enabled: false,
     timeoutSeconds: 30,
@@ -258,6 +252,11 @@ function normalizeProviderSettings(
   const raw = recordFromUnknown(value);
   if (Object.keys(raw).length === 0) return defaults;
   const extra = recordFromUnknown(raw.extra);
+  const normalizedExtra = { ...defaults.extra, ...extra };
+  if (provider === 'mimo') {
+    const format = stringFromUnknown(normalizedExtra.format).trim().toLowerCase();
+    normalizedExtra.format = format === 'mp3' ? 'mp3' : MIMO_DEFAULT_AUDIO_FORMAT;
+  }
   const voice = stringField(raw, 'voice', defaults.voice);
   const language = stringField(raw, 'language', defaults.language);
   return {
@@ -273,7 +272,7 @@ function normalizeProviderSettings(
     apiSecret: stringFromUnknown(raw.apiSecret ?? raw.api_secret, { coerce: false }),
     accessToken: stringFromUnknown(raw.accessToken ?? raw.access_token, { coerce: false }),
     region: stringField(raw, 'region', defaults.region),
-    extra: { ...defaults.extra, ...extra },
+    extra: normalizedExtra,
   };
 }
 
@@ -352,18 +351,8 @@ export function useTtsSettings(): TtsSettings {
   return settings;
 }
 
-let playbackState: TtsPlaybackState = {
-  playing: false,
-  messageId: null,
-  provider: null,
-};
 let speechGeneration = 0;
 let speechTimeout: number | null = null;
-
-function emitPlaybackState(next: TtsPlaybackState): void {
-  playbackState = next;
-  window.dispatchEvent(new CustomEvent(PLAYBACK_EVENT_NAME));
-}
 
 function clearSpeechTimer(): void {
   if (speechTimeout != null) {
@@ -378,9 +367,8 @@ export function stopTtsPlayback(): void {
   try {
     window.speechSynthesis?.cancel();
   } catch {
-    // Ignore browser engine failures; state is still cleared below.
+    // Ignore browser engine failures.
   }
-  emitPlaybackState({ playing: false, messageId: null, provider: null });
 }
 
 function normalizeSpeechText(text: string, maxCharacters: number): string {
@@ -413,9 +401,7 @@ function browserVoiceFor(settings: TtsProviderSettings): SpeechSynthesisVoice | 
 }
 
 async function speakWithBrowserSystem(
-  messageId: string,
   text: string,
-  provider: TtsProvider,
   providerSettings: TtsProviderSettings,
   timeoutMs: number,
   generation: number,
@@ -443,9 +429,6 @@ async function speakWithBrowserSystem(
       settled = true;
       clearSpeechTimer();
       cleanupUtterance();
-      if (generation === speechGeneration) {
-        emitPlaybackState({ playing: false, messageId: null, provider: null });
-      }
       if (error) reject(error);
       else resolve();
     };
@@ -464,7 +447,6 @@ async function speakWithBrowserSystem(
         // Ignore; timeout still ends this attempt.
       }
     }, timeoutMs);
-    emitPlaybackState({ playing: true, messageId, provider });
     try {
       window.speechSynthesis.cancel();
       window.speechSynthesis.speak(utterance);
@@ -475,7 +457,6 @@ async function speakWithBrowserSystem(
 }
 
 async function speakWithProvider(
-  messageId: string,
   text: string,
   provider: TtsProvider,
   settings: TtsProviderSettings,
@@ -483,54 +464,9 @@ async function speakWithProvider(
   generation: number,
 ): Promise<void> {
   if (provider === 'system' || provider === 'apple') {
-    return speakWithBrowserSystem(messageId, text, provider, settings, timeoutMs, generation);
+    return speakWithBrowserSystem(text, settings, timeoutMs, generation);
   }
   throw new Error(`${provider} TTS playback is not available in the browser runtime.`);
-}
-
-export async function toggleTtsPlayback(
-  messageId: string,
-  text: string,
-  settings: TtsSettings,
-): Promise<void> {
-  if (playbackState.playing && playbackState.messageId === messageId) {
-    stopTtsPlayback();
-    return;
-  }
-  stopTtsPlayback();
-  const normalized = normalizeTtsSettings(settings);
-  if (!normalized.enabled) return;
-  const speechText = normalizeSpeechText(text, normalized.maxTextCharacters);
-  if (!speechText) return;
-  const generation = ++speechGeneration;
-  const timeoutMs = normalized.timeoutSeconds * 1000;
-  for (const provider of normalized.providerPriority) {
-    if (generation !== speechGeneration) return;
-    const providerSettings = normalized.providers[provider];
-    if (!providerSettings.enabled) continue;
-    try {
-      await speakWithProvider(
-        messageId,
-        speechText,
-        provider,
-        providerSettings,
-        timeoutMs,
-        generation,
-      );
-      return;
-    } catch {
-      if (generation !== speechGeneration) return;
-      clearSpeechTimer();
-      try {
-        window.speechSynthesis?.cancel();
-      } catch {
-        // Continue to the next configured provider.
-      }
-    }
-  }
-  if (generation === speechGeneration) {
-    emitPlaybackState({ playing: false, messageId: null, provider: null });
-  }
 }
 
 export async function testTtsProvider(
@@ -550,21 +486,10 @@ export async function testTtsProvider(
   if (!speechText) throw new Error('TTS test text is empty.');
   const generation = ++speechGeneration;
   await speakWithProvider(
-    '__settings_tts_test__',
     speechText,
     provider,
     normalized.providers[provider],
     normalized.timeoutSeconds * 1000,
     generation,
   );
-}
-
-export function useTtsPlaybackState(): TtsPlaybackState {
-  const [state, setState] = useState<TtsPlaybackState>(playbackState);
-  useEffect(() => {
-    const refresh = () => setState(playbackState);
-    window.addEventListener(PLAYBACK_EVENT_NAME, refresh);
-    return () => window.removeEventListener(PLAYBACK_EVENT_NAME, refresh);
-  }, []);
-  return state;
 }

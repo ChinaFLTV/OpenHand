@@ -230,14 +230,14 @@ class MarkdownFrameScheduler {
 const markdownFrameScheduler = new MarkdownFrameScheduler();
 const htmlFrameScheduler = new MarkdownFrameScheduler();
 
-export function isLocalMediaReference(raw: unknown): boolean {
+function isLocalMediaReference(raw: unknown): boolean {
   if (typeof raw !== 'string') return false;
   const value = normalizeMarkdownDestination(raw);
   if (!value || /^(?:https?:|data:|blob:|\/api\/sessions\/)/i.test(value)) return false;
   return value.includes('openhand_media') || LOCAL_MEDIA_EXT.test(value);
 }
 
-export function stripLocalMediaReferences(source: string): string {
+function stripLocalMediaReferences(source: string): string {
   return source
     .replace(MARKDOWN_MEDIA_REF, (match: string, destination: string) => (
       isLocalMediaReference(destination) ? '' : match
@@ -415,7 +415,7 @@ function looksLikeRenderableHtml(value: string): boolean {
   return hasHtmlLikeTags || (!hasHtmlLikeTags && hasHtmlTagStructure(value));
 }
 
-export { looksLikeHtml, looksLikeRenderableHtml };
+export { looksLikeRenderableHtml };
 
 interface HtmlRenderProfile {
   renderCost: number;
@@ -536,10 +536,6 @@ function htmlRenderProfile(source: string): HtmlRenderProfile {
   };
   rememberLru(htmlRenderProfileCache, key, profile, HTML_RENDER_PROFILE_CACHE_LIMIT);
   return profile;
-}
-
-export function estimateHtmlRenderCost(source: string): number {
-  return htmlRenderProfile(source).renderCost;
 }
 
 /// 将一段 HTML 源码以 Blob URL 形式在新标签页打开。与 APP 端

@@ -96,23 +96,13 @@ class AiWebFetchTool extends AiTool {
             ? 'mode: parallel (workers=${settings.parallelWorkers})'
             : 'mode: serial',
       );
-
-    void emit(String stage, String detail) {
-      if (progress.isNotEmpty) progress.writeln();
-      progress
-        ..writeln('stage: $stage')
-        ..write('detail: $detail');
-      context.onBashUpdate?.call(
-        BashToolExecutionUpdate(
-          phase: BashToolExecutionPhase.running,
-          command: command,
-          workingDirectory: workingDirectory,
-          stdout: progress.toString().trimRight(),
-          stderr: '',
-          durationMs: stopwatch.elapsedMilliseconds,
-        ),
-      );
-    }
+    final progressReporter = AiToolProgressReporter(
+      progress: progress,
+      command: command,
+      workingDirectory: workingDirectory,
+      stopwatch: stopwatch,
+      onUpdate: context.onBashUpdate,
+    );
 
     Map<String, Object?> meta({
       int? contentChars,
@@ -129,25 +119,12 @@ class AiWebFetchTool extends AiTool {
       };
     }
 
-    AiToolExecutionResult timedOut(String message) => AiToolExecutionResult(
-      status: BashToolExecutionStatus.timedOut,
-      command: command,
-      workingDirectory: workingDirectory,
-      stdout: progress.toString().trimRight(),
-      stderr: message,
-      durationMs: stopwatch.elapsedMilliseconds,
-      resultText: 'status: timed_out\nerror: $message',
-      metadata: meta(),
-    );
-
-    AiToolExecutionResult failed(String message) => AiToolExecutionResult(
-      status: BashToolExecutionStatus.failed,
-      command: command,
-      workingDirectory: workingDirectory,
-      stdout: progress.toString().trimRight(),
-      stderr: message,
-      durationMs: stopwatch.elapsedMilliseconds,
-      resultText: 'status: failed\nerror: $message',
+    AiToolExecutionResult errorResult(
+      BashToolExecutionStatus status,
+      String message,
+    ) => progressReporter.errorResult(
+      status: status,
+      message: message,
       metadata: meta(),
     );
 
@@ -208,7 +185,7 @@ class AiWebFetchTool extends AiTool {
       settings: settings,
     );
     if (cached != null) {
-      emit(
+      progressReporter.emit(
         'cache.hit',
         'Reused cached fetch (${cached.content.length} chars, '
             'expires ${cached.expiresAt.toIso8601String()}).',
@@ -237,7 +214,7 @@ class AiWebFetchTool extends AiTool {
       );
     }
 
-    emit('fetching', 'Dispatching to enabled fetch engines.');
+    progressReporter.emit('fetching', 'Dispatching to enabled fetch engines.');
 
     // 2) Orchestrator fan-out。
     final orchestrator = WebFetchOrchestrator(
@@ -254,7 +231,7 @@ class AiWebFetchTool extends AiTool {
         prompt: prompt,
         cancelSignal: context.cancelSignal,
         onProgress: (p) {
-          emit(
+          progressReporter.emit(
             'engine.${p.kind.name}.${p.stage.name}',
             p.message ??
                 (p.stage == WebFetchProgressStage.succeeded
@@ -270,7 +247,10 @@ class AiWebFetchTool extends AiTool {
         contentChars: 0,
         errorMessage: 'orchestrator_timeout',
       );
-      return timedOut('WebFetch timed out while contacting fetch engines.');
+      return errorResult(
+        BashToolExecutionStatus.timedOut,
+        'WebFetch timed out while contacting fetch engines.',
+      );
     } catch (error) {
       recordTelemetry(
         cacheStatus: 'bypass',
@@ -278,7 +258,8 @@ class AiWebFetchTool extends AiTool {
         contentChars: 0,
         errorMessage: '$error',
       );
-      return failed(
+      return errorResult(
+        BashToolExecutionStatus.failed,
         AiTransportDiagnosticMessages.friendlyTransportError(
           error,
           contextLabel: 'WebFetch',
@@ -295,7 +276,7 @@ class AiWebFetchTool extends AiTool {
           ? 'All enabled fetch engines failed. '
                 'See `engines` metadata for per-engine diagnostics.'
           : 'No content extracted from any fetch engine.';
-      emit('completed', detail);
+      progressReporter.emit('completed', detail);
       recordTelemetry(
         cacheStatus: settings.cacheEnabled ? 'miss-empty' : 'disabled',
         success: false,
@@ -320,7 +301,7 @@ class AiWebFetchTool extends AiTool {
       );
     }
 
-    emit(
+    progressReporter.emit(
       'extracted',
       'Winner: ${orchestrationResult.winningKind?.name} '
           '(${winner.content.length} chars). Asking model to focus on prompt.',
@@ -364,7 +345,10 @@ class AiWebFetchTool extends AiTool {
         orchestration: orchestrationResult,
         errorMessage: 'focus_timeout',
       );
-      return timedOut('WebFetch timed out while focusing on the fetched page.');
+      return errorResult(
+        BashToolExecutionStatus.timedOut,
+        'WebFetch timed out while focusing on the fetched page.',
+      );
     } on AiChatException catch (error) {
       final msg = error.message.trim();
       recordTelemetry(
@@ -375,8 +359,14 @@ class AiWebFetchTool extends AiTool {
         errorMessage: msg,
       );
       return AiToolUtils.looksLikeTimeoutMessage(msg)
-          ? timedOut('WebFetch timed out while focusing on the fetched page.')
-          : failed('WebFetch failed while focusing on the fetched page: $msg');
+          ? errorResult(
+              BashToolExecutionStatus.timedOut,
+              'WebFetch timed out while focusing on the fetched page.',
+            )
+          : errorResult(
+              BashToolExecutionStatus.failed,
+              'WebFetch failed while focusing on the fetched page: $msg',
+            );
     } catch (error) {
       final msg = '$error';
       recordTelemetry(
@@ -387,8 +377,12 @@ class AiWebFetchTool extends AiTool {
         errorMessage: msg,
       );
       return AiToolUtils.looksLikeTimeoutMessage(msg)
-          ? timedOut('WebFetch timed out while focusing on the fetched page.')
-          : failed(
+          ? errorResult(
+              BashToolExecutionStatus.timedOut,
+              'WebFetch timed out while focusing on the fetched page.',
+            )
+          : errorResult(
+              BashToolExecutionStatus.failed,
               AiTransportDiagnosticMessages.friendlyTransportError(
                 error,
                 contextLabel: 'WebFetch',
@@ -412,7 +406,7 @@ class AiWebFetchTool extends AiTool {
         ? winner.content
         : completion.reply.trim();
 
-    emit('completed', 'Fetch + focus answer ready.');
+    progressReporter.emit('completed', 'Fetch + focus answer ready.');
 
     final engineSummaries = orchestrationResult.engineRuns
         .map(

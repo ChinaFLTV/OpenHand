@@ -42,7 +42,7 @@ class AiTtsProviderCatalogs {
   static const String qwenDefaultVoice = 'Cherry';
   static const String minimaxDefaultVoice = 'female-shaonv';
   static const String doubaoDefaultVoice = 'zh_female_vv_uranus_bigtts';
-  static const String mimoDefaultVoice = '冰糖';
+  static const String mimoDefaultVoice = 'mimo_default';
   static const String stepFunDefaultFormat = 'mp3';
   static const String _mimoPresetModelId = 'mimo-v2.5-tts';
   static const String _stepAudio25ModelPrefix = 'stepaudio-2.5-tts';
@@ -189,10 +189,11 @@ class AiTtsProviderCatalogs {
     required String modelId,
   }) {
     final normalized = _normalizedLookupValue(modelId);
-    return protocol == AiProtocolType.minimax ||
-        normalized.startsWith('speech-') ||
+    return normalized.startsWith('speech-') ||
         normalized.startsWith('minimax/speech-') ||
-        normalized.contains('/speech-');
+        normalized.contains('/speech-') ||
+        normalized.startsWith('t2a') ||
+        (protocol == AiProtocolType.minimax && normalized.contains('speech'));
   }
 
   static bool usesSeedSpeech({
@@ -519,6 +520,36 @@ class AiTtsProviderCatalogs {
     AiTtsCatalogOption('presenter_female', '女性主持人', 'Female Presenter'),
     AiTtsCatalogOption('audiobook_male_1', '有声书男声 1', 'Audiobook Male 1'),
     AiTtsCatalogOption('audiobook_female_1', '有声书女声 1', 'Audiobook Female 1'),
+    AiTtsCatalogOption(
+      'Chinese (Mandarin)_Lyrical_Voice',
+      '中文抒情女声',
+      'Chinese Lyrical Voice',
+    ),
+    AiTtsCatalogOption(
+      'Chinese (Mandarin)_HK_Flight_Attendant',
+      '中文空乘女声',
+      'Chinese Flight Attendant',
+    ),
+    AiTtsCatalogOption(
+      'English_Graceful_Lady',
+      '英文优雅女声',
+      'English Graceful Lady',
+    ),
+    AiTtsCatalogOption(
+      'English_Insightful_Speaker',
+      '英文睿智讲述',
+      'English Insightful Speaker',
+    ),
+    AiTtsCatalogOption(
+      'English_Persuasive_Man',
+      '英文说服力男声',
+      'English Persuasive Man',
+    ),
+    AiTtsCatalogOption(
+      'Japanese_Whisper_Belle',
+      '日文轻语女声',
+      'Japanese Whisper Belle',
+    ),
   ];
 
   static const List<AiTtsCatalogOption> _aiFormats = <AiTtsCatalogOption>[
@@ -535,7 +566,69 @@ class AiTtsProviderCatalogs {
     AiTtsCatalogOption('wav', 'WAV'),
     AiTtsCatalogOption('pcm', 'PCM'),
     AiTtsCatalogOption('flac', 'FLAC'),
+    AiTtsCatalogOption('opus', 'Ogg/Opus'),
+    AiTtsCatalogOption('pcmu_raw', 'G.711 μ-law Raw'),
+    AiTtsCatalogOption('pcmu_wav', 'G.711 μ-law WAV'),
   ];
+
+  static const List<AiTtsCatalogOption> miniMaxLanguageOptions =
+      <AiTtsCatalogOption>[
+        AiTtsCatalogOption('auto', '自动识别', 'Auto Detect'),
+        AiTtsCatalogOption('Chinese', '中文', 'Chinese'),
+        AiTtsCatalogOption('Chinese,Yue', '粤语', 'Cantonese'),
+        AiTtsCatalogOption('English', '英语', 'English'),
+        AiTtsCatalogOption('Japanese', '日语', 'Japanese'),
+        AiTtsCatalogOption('Korean', '韩语', 'Korean'),
+        AiTtsCatalogOption('French', '法语', 'French'),
+        AiTtsCatalogOption('German', '德语', 'German'),
+        AiTtsCatalogOption('Spanish', '西班牙语', 'Spanish'),
+        AiTtsCatalogOption('Portuguese', '葡萄牙语', 'Portuguese'),
+        AiTtsCatalogOption('Italian', '意大利语', 'Italian'),
+        AiTtsCatalogOption('Russian', '俄语', 'Russian'),
+        AiTtsCatalogOption('Arabic', '阿拉伯语', 'Arabic'),
+        AiTtsCatalogOption('Thai', '泰语', 'Thai'),
+        AiTtsCatalogOption('Vietnamese', '越南语', 'Vietnamese'),
+        AiTtsCatalogOption('Indonesian', '印度尼西亚语', 'Indonesian'),
+        AiTtsCatalogOption('Hindi', '印地语', 'Hindi'),
+        AiTtsCatalogOption('Turkish', '土耳其语', 'Turkish'),
+        AiTtsCatalogOption('Dutch', '荷兰语', 'Dutch'),
+        AiTtsCatalogOption('Polish', '波兰语', 'Polish'),
+        AiTtsCatalogOption('Ukrainian', '乌克兰语', 'Ukrainian'),
+        AiTtsCatalogOption('Romanian', '罗马尼亚语', 'Romanian'),
+        AiTtsCatalogOption('Greek', '希腊语', 'Greek'),
+        AiTtsCatalogOption('Czech', '捷克语', 'Czech'),
+        AiTtsCatalogOption('Finnish', '芬兰语', 'Finnish'),
+        AiTtsCatalogOption('Bulgarian', '保加利亚语', 'Bulgarian'),
+        AiTtsCatalogOption('Danish', '丹麦语', 'Danish'),
+        AiTtsCatalogOption('Hebrew', '希伯来语', 'Hebrew'),
+        AiTtsCatalogOption('Malay', '马来语', 'Malay'),
+        AiTtsCatalogOption('Persian', '波斯语', 'Persian'),
+        AiTtsCatalogOption('Slovak', '斯洛伐克语', 'Slovak'),
+        AiTtsCatalogOption('Swedish', '瑞典语', 'Swedish'),
+        AiTtsCatalogOption('Croatian', '克罗地亚语', 'Croatian'),
+        AiTtsCatalogOption('Filipino', '菲律宾语', 'Filipino'),
+        AiTtsCatalogOption('Hungarian', '匈牙利语', 'Hungarian'),
+        AiTtsCatalogOption('Norwegian', '挪威语', 'Norwegian'),
+        AiTtsCatalogOption('Slovenian', '斯洛文尼亚语', 'Slovenian'),
+        AiTtsCatalogOption('Catalan', '加泰罗尼亚语', 'Catalan'),
+        AiTtsCatalogOption('Nynorsk', '新挪威语', 'Nynorsk'),
+        AiTtsCatalogOption('Tamil', '泰米尔语', 'Tamil'),
+        AiTtsCatalogOption('Afrikaans', '南非荷兰语', 'Afrikaans'),
+      ];
+
+  static const List<AiTtsCatalogOption> miniMaxEmotionOptions =
+      <AiTtsCatalogOption>[
+        AiTtsCatalogOption('', '自动匹配', 'Automatic'),
+        AiTtsCatalogOption('happy', '高兴', 'Happy'),
+        AiTtsCatalogOption('sad', '悲伤', 'Sad'),
+        AiTtsCatalogOption('angry', '愤怒', 'Angry'),
+        AiTtsCatalogOption('fearful', '害怕', 'Fearful'),
+        AiTtsCatalogOption('disgusted', '厌恶', 'Disgusted'),
+        AiTtsCatalogOption('surprised', '惊讶', 'Surprised'),
+        AiTtsCatalogOption('calm', '中性', 'Calm'),
+        AiTtsCatalogOption('fluent', '生动', 'Fluent'),
+        AiTtsCatalogOption('whisper', '低语', 'Whisper'),
+      ];
 
   static const List<AiTtsCatalogOption> _stepFunFormats = <AiTtsCatalogOption>[
     AiTtsCatalogOption('mp3', 'MP3'),
@@ -647,6 +740,11 @@ class AiTtsProviderCatalogs {
   ];
 
   static const List<AiTtsCatalogOption> _mimoVoices = <AiTtsCatalogOption>[
+    AiTtsCatalogOption(
+      'mimo_default',
+      'MiMo 默认音色（随部署区域）',
+      'MiMo default voice (region-aware)',
+    ),
     AiTtsCatalogOption('冰糖', '冰糖 - 中文女声', 'Bingtang - Chinese female'),
     AiTtsCatalogOption('茉莉', '茉莉 - 中文女声', 'Moli - Chinese female'),
     AiTtsCatalogOption('苏打', '苏打 - 中文男声', 'Soda - Chinese male'),
@@ -762,9 +860,8 @@ class AiTtsProviderCatalogs {
             ),
           ],
           formatOptions: <AiTtsCatalogOption>[
-            AiTtsCatalogOption('wav', 'WAV'),
-            AiTtsCatalogOption('mp3', 'MP3'),
-            AiTtsCatalogOption('pcm16', 'PCM 16-bit'),
+            AiTtsCatalogOption(aiMimoDefaultAudioFormat, 'WAV', 'WAV'),
+            AiTtsCatalogOption('mp3', 'MP3', 'MP3'),
           ],
         ),
         AiTtsProvider.apple: AiTtsProviderCatalog(

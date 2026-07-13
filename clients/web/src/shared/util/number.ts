@@ -17,7 +17,7 @@ const STRICT_POSITIVE_NUMBER_RE = /^(?:[1-9]\d*(?:\.\d+)?|0?\.\d+)$/;
 
 export const MAX_BROWSER_TIMEOUT_MS = 2_147_483_647;
 
-export function finiteNumberOr(
+function finiteNumberOr(
   value: number | null | undefined,
   fallback: number,
 ): number {
@@ -73,7 +73,7 @@ export function strictPositiveIntegerFromText(value: string): number | null {
   return Number.isSafeInteger(parsed) ? parsed : null;
 }
 
-export function strictPositiveNumberFromText(value: string): number | null {
+function strictPositiveNumberFromText(value: string): number | null {
   const trimmed = value.trim();
   if (!STRICT_POSITIVE_NUMBER_RE.test(trimmed)) return null;
   const parsed = Number(trimmed);

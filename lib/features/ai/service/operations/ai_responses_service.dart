@@ -1,11 +1,14 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:http/http.dart' as http;
 
 import '../../../../shared/net/http_status_utils.dart';
 import '../../../../shared/util/input_value_parsing.dart';
+import '../../../../shared/util/stable_hash.dart';
 import '../../model/ai_api_family.dart';
+import '../../model/ai_attachment.dart';
 import '../../model/ai_creation_mode.dart';
 import '../../model/ai_input_cache_runtime_config.dart';
 import '../../model/ai_model_config.dart';
@@ -67,6 +70,18 @@ class AiResponsesResult {
   final DateTime? endedAt;
   final int? durationMs;
   final List<String> requestFallbacks;
+}
+
+class AiResponsesInputTokensResult {
+  const AiResponsesInputTokensResult({
+    required this.inputTokens,
+    required this.rawResponse,
+    required this.payload,
+  });
+
+  final int inputTokens;
+  final String rawResponse;
+  final Map<String, Object?> payload;
 }
 
 class AiResponsesHttpException implements Exception {
@@ -257,6 +272,21 @@ class AiResponsesService {
     final instructionsValue = nullIfBlank(instructions);
     final previousResponseIdValue = nullIfBlank(previousResponseId);
     final userValue = nullIfBlank(user);
+    final mimo = model.protocolType == AiProtocolType.mimo;
+    if (mimo &&
+        !lowercaseStringFromValue(model.modelId).contains('mimo-v2.5')) {
+      throw ArgumentError.value(
+        model.modelId,
+        'modelId',
+        'MiMo official API only supports the V2.5 model family.',
+      );
+    }
+    final reasoningValue =
+        reasoning ?? AiThinkingRequestPolicy.responsesReasoningFor(model);
+    final mimoThinkingEnabled =
+        mimo &&
+        reasoningValue is Map &&
+        lowercaseStringFromValue(reasoningValue['effort']) != 'none';
     final endpoint = _router.resolve(
       model,
       family,
@@ -265,27 +295,27 @@ class AiResponsesService {
     final baseBody = <String, Object?>{
       'model': model.resolveOperationModelId(family),
       if (instructionsValue != null) 'instructions': instructionsValue,
-      if (previousResponseIdValue != null)
+      if (!mimo && previousResponseIdValue != null)
         'previous_response_id': previousResponseIdValue,
-      if (store != null) 'store': store,
-      if (metadata != null && metadata.isNotEmpty) 'metadata': metadata,
-      if (temperature != null && temperature.isFinite)
+      if (!mimo && store != null) 'store': store,
+      if (!mimo && metadata != null && metadata.isNotEmpty)
+        'metadata': metadata,
+      if (!mimoThinkingEnabled && temperature != null && temperature.isFinite)
         'temperature': temperature,
-      if (temperature == null && model.temperature != null)
+      if (!mimoThinkingEnabled &&
+          temperature == null &&
+          model.temperature != null)
         'temperature': model.temperature,
       if (maxOutputTokens != null && maxOutputTokens > 0)
         'max_output_tokens': maxOutputTokens,
       if (maxOutputTokens == null && model.maxTokens != null)
         'max_output_tokens': model.maxTokens,
-      if (topP != null && topP.isFinite) 'top_p': topP,
-      if (reasoning != null)
-        'reasoning': reasoning
-      else if (AiThinkingRequestPolicy.responsesReasoningFor(model) != null)
-        'reasoning': AiThinkingRequestPolicy.responsesReasoningFor(model),
+      if (!mimoThinkingEnabled && topP != null && topP.isFinite) 'top_p': topP,
+      if (reasoningValue != null) 'reasoning': reasoningValue,
       if (text != null) 'text': text,
       if (tools != null) 'tools': tools,
       if (toolChoice != null) 'tool_choice': toolChoice,
-      if (userValue != null) 'user': userValue,
+      if (!mimo && userValue != null) 'user': userValue,
       if (stream) 'stream': true,
       // Keep the growing conversation input last so provider-side prefix
       // caches see a stable request prefix across turns.
@@ -306,6 +336,7 @@ class AiResponsesService {
         AiOperationHttp.mergeBodyExtras(model, family, baseBody),
       ),
     );
+    if (mimo) _normalizeMimoRequestBody(body);
     return AiResponsesRequestBlueprint(
       url: AiOperationHttp.uriWithExtraQuery(
         endpoint.url,
@@ -318,6 +349,155 @@ class AiResponsesService {
     );
   }
 
+  static void _normalizeMimoRequestBody(Map<String, Object?> body) {
+    for (final field in const <String>{
+      'background',
+      'context_management',
+      'metadata',
+      'previous_response_id',
+      'store',
+      'user',
+    }) {
+      body.remove(field);
+    }
+    final reasoning = body['reasoning'];
+    final thinkingEnabled =
+        reasoning is Map &&
+        lowercaseStringFromValue(reasoning['effort']) != 'none';
+    if (thinkingEnabled) {
+      body.remove('temperature');
+      body.remove('top_p');
+    }
+    final text = body['text'];
+    if (text != null) {
+      if (text is! Map) {
+        throw ArgumentError.value(
+          text,
+          'text',
+          'MiMo Responses text configuration must be an object.',
+        );
+      }
+      final textConfig = Map<String, Object?>.from(
+        stringKeyedMapFromValue(text),
+      );
+      final format = textConfig['format'];
+      if (format != null) {
+        if (format is! Map) {
+          throw ArgumentError.value(
+            format,
+            'text.format',
+            'MiMo Responses text.format must be an object.',
+          );
+        }
+        final type = lowercaseStringFromValue(format['type']);
+        if (type != 'text' && type != 'json_object' && type != 'json_schema') {
+          throw ArgumentError.value(
+            format['type'],
+            'text.format.type',
+            'MiMo Responses only supports text and json_object formats.',
+          );
+        }
+        textConfig['format'] = <String, Object?>{
+          'type': type == 'json_schema' ? 'json_object' : type,
+        };
+      }
+      body['text'] = textConfig;
+    }
+    if (body['tools'] is List && (body['tools']! as List).isNotEmpty) {
+      body['tool_choice'] = 'auto';
+    } else {
+      body.remove('tool_choice');
+    }
+  }
+
+  Future<AiResponsesInputTokensResult> estimateInputTokens({
+    required AiModelConfig model,
+    required Object input,
+    Duration timeout = AiOperationHttp.defaultRequestTimeout,
+    String? instructions,
+    Object? reasoning,
+    Object? text,
+    Object? tools,
+    Object? toolChoice,
+  }) async {
+    const family = AiApiFamily.responses;
+    final endpoint = _router.resolve(
+      model,
+      family,
+      fallbackPath: 'v1/responses',
+    );
+    final body = AiOperationHttp.mergeBodyExtras(
+      model,
+      family,
+      <String, Object?>{
+        'model': model.resolveOperationModelId(family),
+        if (nullIfBlank(instructions) case final value?) 'instructions': value,
+        if (tools != null) 'tools': tools,
+        if (toolChoice != null) 'tool_choice': toolChoice,
+        if (text != null) 'text': text,
+        if (reasoning != null)
+          'reasoning': reasoning
+        else if (AiThinkingRequestPolicy.responsesReasoningFor(model) != null)
+          'reasoning': AiThinkingRequestPolicy.responsesReasoningFor(model),
+        'input': input,
+      },
+    );
+    final uri = AiOperationHttp.uriWithExtraQuery(
+      _responsesInputTokensUrl(endpoint.url),
+      model,
+      family,
+    );
+    final response = await _transport.sendJson(
+      uri: uri,
+      method: endpoint.method,
+      headers: AiOperationHttp.buildHeaders(
+        model: model,
+        endpointHeaders: endpoint.headers,
+        family: family,
+        acceptJson: true,
+      ),
+      body: body,
+      timeout: timeout,
+    );
+    final payload = AiOperationHttp.decodeSuccessfulJsonMap(
+      statusCode: response.statusCode,
+      body: response.body,
+      contextHint: 'responses/input_tokens',
+    );
+    AiOperationHttp.throwIfProviderFailed(
+      payload,
+      contextHint: 'responses/input_tokens',
+    );
+    final inputTokens = optionalNonNegativeIntFromValue(
+      payload['input_tokens'],
+    );
+    if (inputTokens == null) {
+      throw const AiResponsesPayloadException(
+        'Responses input-token API returned no valid token count.',
+      );
+    }
+    return AiResponsesInputTokensResult(
+      inputTokens: inputTokens,
+      rawResponse: response.body,
+      payload: Map<String, Object?>.unmodifiable(payload),
+    );
+  }
+
+  String _responsesInputTokensUrl(String responsesUrl) {
+    final uri = Uri.parse(responsesUrl);
+    final segments = uri.pathSegments
+        .where((segment) => segment.isNotEmpty)
+        .toList(growable: true);
+    if (segments.isNotEmpty && segments.last == 'input_tokens') {
+      return uri.toString();
+    }
+    if (segments.isEmpty || segments.last != 'responses') {
+      segments.add('responses');
+    }
+    segments.add('input_tokens');
+    return uri.replace(pathSegments: segments).toString();
+  }
+
   Future<AiResponsesRequestBlueprint> buildChatRequest({
     required AiModelConfig model,
     required List<AiChatTurn> messages,
@@ -326,6 +506,9 @@ class AiResponsesService {
     bool stream = false,
     AiInputCacheRuntimeConfig? inputCacheConfig,
   }) async {
+    if (model.protocolType == AiProtocolType.mimo) {
+      _validateMimoChatInput(model, messages);
+    }
     final stableTools = stableToolDefinitionsForAiRequest(tools);
     final responseTools = <Map<String, Object?>>[
       ...stableTools.map(
@@ -334,6 +517,7 @@ class AiResponsesService {
           'name': tool.name,
           'description': tool.description,
           'parameters': tool.parameters,
+          if (tool.strict != null) 'strict': tool.strict,
         },
       ),
       if (imageGenerationOptions != null)
@@ -341,7 +525,7 @@ class AiResponsesService {
     ];
     return buildRequest(
       model: model,
-      input: await _mapConversationInput(messages),
+      input: await _mapConversationInput(messages, model: model),
       stream: stream,
       tools: responseTools.isEmpty ? null : responseTools,
       toolChoice: imageGenerationOptions != null
@@ -351,6 +535,53 @@ class AiResponsesService {
           : 'auto',
       inputCacheConfig: inputCacheConfig,
     );
+  }
+
+  static void _validateMimoChatInput(
+    AiModelConfig model,
+    List<AiChatTurn> messages,
+  ) {
+    const imageMimeTypes = <String>{
+      'image/jpeg',
+      'image/png',
+      'image/gif',
+      'image/webp',
+      'image/bmp',
+    };
+    for (final part in messages.expand((message) => message.effectiveParts)) {
+      if (part.kind == AiChatContentPartKind.text) continue;
+      final imageSupported =
+          part.kind == AiChatContentPartKind.imageFile &&
+          model.profileFor(model.modelId).supportsAttachments != false &&
+          imageMimeTypes.contains(lowercaseStringFromValue(part.mimeType));
+      if (!imageSupported) {
+        throw ArgumentError.value(
+          part.filePath,
+          'filePath',
+          'MiMo Responses API only supports JPEG, PNG, GIF, WebP, and BMP image input.',
+        );
+      }
+      final path = part.filePath;
+      if (path == null) continue;
+      final file = File(path);
+      if (!file.existsSync()) continue;
+      final rawBytes = file.lengthSync();
+      if (rawBytes <= 0) {
+        throw ArgumentError.value(
+          path,
+          'filePath',
+          'MiMo image input cannot be empty.',
+        );
+      }
+      final encodedBytes = ((rawBytes + 2) ~/ 3) * 4;
+      if (encodedBytes > 50 * 1024 * 1024) {
+        throw ArgumentError.value(
+          path,
+          'filePath',
+          'MiMo image Base64 payload exceeds 50 MB.',
+        );
+      }
+    }
   }
 
   Future<AiResponsesResult> createResponse({
@@ -577,8 +808,9 @@ class AiResponsesService {
   }
 
   Future<List<Map<String, Object?>>> _mapConversationInput(
-    List<AiChatTurn> messages,
-  ) async {
+    List<AiChatTurn> messages, {
+    required AiModelConfig model,
+  }) async {
     final input = <Map<String, Object?>>[];
     final knownToolCallIds = <String>{};
     final outstandingToolCallIds = <String>{};
@@ -622,7 +854,21 @@ class AiResponsesService {
         pendingToolReminders.clear();
       }
 
-      final content = await _mapMessageContent(turn);
+      final content = await _mapMessageContent(turn, model: model);
+      final reasoning =
+          turn.role == AiChatRole.assistant && model.requiresReasoningEcho
+          ? nullIfBlank(turn.reasoningContent)
+          : null;
+      if (reasoning != null) {
+        input.add(<String, Object?>{
+          'id': 'rs_${stableSha256Hex(reasoning, length: 24)}',
+          'type': 'reasoning',
+          'status': 'completed',
+          'content': <Map<String, Object?>>[
+            <String, Object?>{'type': 'reasoning_text', 'text': reasoning},
+          ],
+        });
+      }
       if (content != null) {
         input.add(<String, Object?>{'role': turn.roleName, 'content': content});
       }
@@ -664,7 +910,10 @@ class AiResponsesService {
     return input;
   }
 
-  Future<Object?> _mapMessageContent(AiChatTurn turn) async {
+  Future<Object?> _mapMessageContent(
+    AiChatTurn turn, {
+    required AiModelConfig model,
+  }) async {
     final parts = turn.effectiveParts;
     if (parts.isEmpty) return nullIfBlank(turn.content);
     if (parts.every((part) => part.kind == AiChatContentPartKind.text)) {
@@ -689,12 +938,51 @@ class AiResponsesService {
           final filePath = nullIfBlank(part.filePath);
           final mimeType = nullIfBlank(part.mimeType);
           if (filePath == null || mimeType == null) continue;
+          final dataUrl =
+              await const OpenAiProtocolAdapter(
+                AiProtocolType.openai,
+              ).encodeFileAsDataUrl(
+                filePath: filePath,
+                mimeType: mimeType,
+                maxBytes: model.protocolType == AiProtocolType.mimo
+                    ? aiMimoUnderstandingMaxRawBytes
+                    : aiMessageAttachmentMaxFileBytes,
+              );
           content.add(<String, Object?>{
             'type': 'input_image',
-            'image_url': await const OpenAiProtocolAdapter(
-              AiProtocolType.openai,
-            ).encodeFileAsDataUrl(filePath: filePath, mimeType: mimeType),
-            'detail': 'auto',
+            if (model.protocolType == AiProtocolType.minimax)
+              'image_url': <String, Object?>{
+                'url': dataUrl,
+                'detail': 'default',
+              }
+            else ...<String, Object?>{'image_url': dataUrl, 'detail': 'auto'},
+          });
+        case AiChatContentPartKind.videoFile:
+          final filePath = nullIfBlank(part.filePath);
+          final mimeType = nullIfBlank(part.mimeType);
+          if (filePath == null || mimeType == null) continue;
+          final dataUrl = await const OpenAiProtocolAdapter(
+            AiProtocolType.openai,
+          ).encodeFileAsDataUrl(filePath: filePath, mimeType: mimeType);
+          content.add(<String, Object?>{
+            'type': 'input_video',
+            if (model.protocolType == AiProtocolType.minimax)
+              'video_url': <String, Object?>{
+                'url': dataUrl,
+                'detail': 'default',
+              }
+            else ...<String, Object?>{'video_url': dataUrl, 'detail': 'auto'},
+          });
+        case AiChatContentPartKind.audioFile:
+          final filePath = nullIfBlank(part.filePath);
+          final mimeType = nullIfBlank(part.mimeType);
+          if (filePath == null || mimeType == null) continue;
+          final dataUrl = await const OpenAiProtocolAdapter(
+            AiProtocolType.openai,
+          ).encodeFileAsDataUrl(filePath: filePath, mimeType: mimeType);
+          content.add(<String, Object?>{
+            'type': 'input_audio',
+            'input_audio': <String, Object?>{'data': dataUrl},
           });
       }
     }

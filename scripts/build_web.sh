@@ -122,10 +122,12 @@ try_corepack_pnpm() {
   fi
 
   log "未检测到可用 pnpm，使用 corepack 激活 $package_manager"
-  if COREPACK_ENABLE_DOWNLOAD_PROMPT=0 corepack prepare "$package_manager" --activate >/dev/null; then
+  if COREPACK_ENABLE_DOWNLOAD_PROMPT=0 corepack prepare "$package_manager" --activate >/dev/null \
+    && COREPACK_ENABLE_DOWNLOAD_PROMPT=0 corepack pnpm --version >/dev/null 2>&1; then
     PNPM_CMD=(corepack pnpm)
     return 0
   fi
+  log "Corepack 已激活但 pnpm 无法启动，继续尝试其他工具链"
   return 1
 }
 

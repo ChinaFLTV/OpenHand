@@ -1,5 +1,5 @@
-import '../../../../shared/util/input_value_parsing.dart';
 import '../runtime/ai_tool_runtime_service.dart';
+import 'mcp_reverse_tool_policy_utils.dart';
 
 class WebReverseMcpToolPolicy {
   const WebReverseMcpToolPolicy._();
@@ -9,69 +9,42 @@ class WebReverseMcpToolPolicy {
   );
 
   static Set<String> forceVisibleToolNames(AiResolvedToolCatalog catalog) {
-    final names = <String>{};
-    for (final entry in catalog.toolsByName.entries) {
-      if (_shouldForceVisibleTool(entry.value, catalogName: entry.key)) {
-        names.add(entry.key);
-      }
-    }
-    return names;
+    return forceVisibleMcpToolNames(
+      catalog,
+      (tool, catalogName) =>
+          _shouldForceVisibleTool(tool, catalogName: catalogName),
+    );
   }
 
   static bool _shouldForceVisibleTool(
     AiResolvedTool tool, {
-    String? catalogName,
+    required String catalogName,
   }) {
     if (tool.source != AiRuntimeToolSource.mcp) return false;
 
-    final server = tool.mcpServer;
-    final mcpTool = tool.mcpTool;
-    final identity = _joinParts(<Object?>[
-      catalogName,
-      tool.name,
-      tool.definition.name,
-      server?.name,
-      server?.summary,
-      server?.command,
-      if (server != null) ...server.args,
-      server?.url,
-      mcpTool?.id,
-      mcpTool?.name,
-    ]);
-    final descriptive = _joinParts(<Object?>[
-      identity,
-      tool.definition.description,
-      mcpTool?.description,
-      mcpTool?.outputDescription,
-      mcpTool?.annotations,
-      mcpTool?.execution,
-      mcpTool?.rawMetadata,
-    ]);
-    final launchIdentity = _joinParts(<Object?>[
-      server?.command,
-      if (server != null) ...server.args,
-      server?.url,
-    ]);
+    final text = mcpReverseToolSearchText(tool, catalogName: catalogName);
+    final identity = text.identity;
 
     final chromeDevtoolsByIdentity = _hasChromeDevtoolsSignal(identity);
     final jsReverseByIdentity = _hasJsReverseSignal(identity);
-    final chromeDevtoolsMcpLaunch = launchIdentity.contains(
+    final chromeDevtoolsMcpLaunch = text.launchIdentity.contains(
       'chrome-devtools-mcp',
     );
-    final nonCdpAutomationByIdentity = _containsAny(identity, const <String>[
-      '@playwright/mcp',
-      'playwright',
-      'puppeteer',
-      'selenium',
-      'webdriver',
-      'browserless',
-    ]);
+    final nonCdpAutomationByIdentity =
+        mcpToolSearchTextContainsAny(identity, const <String>[
+          '@playwright/mcp',
+          'playwright',
+          'puppeteer',
+          'selenium',
+          'webdriver',
+          'browserless',
+        ]);
     if (nonCdpAutomationByIdentity && !chromeDevtoolsMcpLaunch) return false;
 
     final browserControlIdentity = _hasBrowserControlIdentity(identity);
     final cdpByIdentity = _hasCdpSignal(identity) && browserControlIdentity;
     final cdpByDescription =
-        _hasCdpSignal(descriptive) && browserControlIdentity;
+        _hasCdpSignal(text.descriptive) && browserControlIdentity;
 
     return chromeDevtoolsMcpLaunch ||
         (chromeDevtoolsByIdentity && browserControlIdentity) ||
@@ -81,7 +54,7 @@ class WebReverseMcpToolPolicy {
   }
 
   static bool _hasChromeDevtoolsSignal(String value) {
-    return _containsAny(value, const <String>[
+    return mcpToolSearchTextContainsAny(value, const <String>[
           'chrome-devtools',
           'chrome_devtools',
           'chrome devtools',
@@ -94,14 +67,14 @@ class WebReverseMcpToolPolicy {
     return _cdpTokenPattern.hasMatch(value) ||
         _hasChromeDevtoolsSignal(value) ||
         _hasJsReverseSignal(value) ||
-        _containsAny(value, const <String>[
+        mcpToolSearchTextContainsAny(value, const <String>[
           'devtools protocol',
           'remote debugging protocol',
         ]);
   }
 
   static bool _hasJsReverseSignal(String value) {
-    return _containsAny(value, const <String>[
+    return mcpToolSearchTextContainsAny(value, const <String>[
       'js-reverse',
       'js_reverse',
       'javascript reverse',
@@ -112,7 +85,7 @@ class WebReverseMcpToolPolicy {
   static bool _hasBrowserControlIdentity(String value) {
     final hasBrowserHost =
         _hasCdpSignal(value) ||
-        _containsAny(value, const <String>[
+        mcpToolSearchTextContainsAny(value, const <String>[
           'browser',
           'chrome',
           'chromium',
@@ -121,7 +94,7 @@ class WebReverseMcpToolPolicy {
         ]);
     if (!hasBrowserHost) return false;
 
-    return _containsAny(value, const <String>[
+    return mcpToolSearchTextContainsAny(value, const <String>[
       'call',
       'click',
       'close',
@@ -165,16 +138,5 @@ class WebReverseMcpToolPolicy {
       'wait',
       'websocket',
     ]);
-  }
-
-  static bool _containsAny(String value, Iterable<String> needles) {
-    for (final needle in needles) {
-      if (value.contains(needle)) return true;
-    }
-    return false;
-  }
-
-  static String _joinParts(Iterable<Object?> parts) {
-    return trimmedNonEmptyStrings(parts).join('\n').toLowerCase();
   }
 }

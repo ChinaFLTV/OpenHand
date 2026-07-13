@@ -1,6 +1,6 @@
 import { useEffect } from 'preact/hooks';
 
-export interface DismissibleOverlayTarget {
+interface DismissibleOverlayTarget {
   readonly current: HTMLElement | null;
 }
 

@@ -3,12 +3,11 @@
 //   GET /api/logs/export         — 整包 JSON 下载（含 memory + disk 日志）
 
 import {
-  ApiError,
   DEFAULT_API_REQUEST_TIMEOUT_MS,
-  UnauthorizedError,
   apiRequest,
+  throwIfApiResponseFailed,
 } from './client';
-import { clearAuthStorage, readToken, ensureDeviceId } from '../state/storage';
+import { readToken, ensureDeviceId } from '../state/storage';
 import { clientEnvironmentHeaders } from '../utils/client_env';
 import { downloadBlobWithAnchor } from '../utils/save_blob';
 import { createTimedAbortController } from '../utils/timed_abort';
@@ -66,14 +65,7 @@ export async function exportLogsBundle(): Promise<void> {
   } finally {
     timed.clear();
   }
-  if (res.status === 401) {
-    clearAuthStorage();
-    throw new UnauthorizedError(null);
-  }
-  if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new ApiError(res.status, text || null);
-  }
+  await throwIfApiResponseFailed(res);
   const blob = await res.blob();
   downloadBlobWithAnchor(blob, 'openhand-web-gateway-logs.json');
 }

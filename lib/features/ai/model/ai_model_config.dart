@@ -1333,6 +1333,7 @@ class AiModelConfig {
       providerKind: providerKind,
       explicitPromptCacheEnabled: _readExplicitPromptCacheEnabled(
         protocolType: protocolType,
+        apiDialect: apiDialect,
         value: json[_explicitPromptCacheEnabledJsonKey],
       ),
       maxContextTokens: _readNullablePositiveInt(json['max_context_tokens']),
@@ -1388,7 +1389,8 @@ class AiModelConfig {
     this.operationExtras = const <String, Object?>{},
     this.realtime = const AiRealtimeConfig(),
   }) : explicitPromptCacheEnabled =
-           protocolType == AiProtocolType.claude &&
+           (protocolType == AiProtocolType.claude ||
+               apiDialect == AiApiDialect.anthropicNative) &&
            (explicitPromptCacheEnabled ?? true);
 
   static final RegExp _reasoningModelIdSeparatorPattern = RegExp(r'[^a-z0-9]+');
@@ -2070,7 +2072,8 @@ class AiModelConfig {
   }
 
   bool get supportsExplicitPromptCacheControl =>
-      protocolType == AiProtocolType.claude;
+      protocolType == AiProtocolType.claude ||
+      apiDialect == AiApiDialect.anthropicNative;
 
   bool get effectiveExplicitPromptCacheEnabled =>
       supportsExplicitPromptCacheControl && explicitPromptCacheEnabled;
@@ -2686,9 +2689,12 @@ class AiModelConfig {
 
   static bool _readExplicitPromptCacheEnabled({
     required AiProtocolType protocolType,
+    required AiApiDialect apiDialect,
     required Object? value,
   }) {
-    final supported = protocolType == AiProtocolType.claude;
+    final supported =
+        protocolType == AiProtocolType.claude ||
+        apiDialect == AiApiDialect.anthropicNative;
     if (!supported) {
       return false;
     }

@@ -2,9 +2,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
-import '../../service/fs/ai_file_history_service.dart';
 import '../../service/fs/ai_file_mutation_ledger.dart';
-import '../../service/fs/ai_file_tracker_service.dart';
 import '../../service/runtime/ai_tool_runtime_service.dart';
 import '../ai_tool.dart';
 import '../ai_tool_execution_context.dart';
@@ -40,51 +38,16 @@ class AiWriteTool extends AiTool {
     final file = File(filePath);
     final fileExists = await file.exists();
 
-    // 写操作权限确认检查
-    final confirmationResult = await AiToolUtils.requestWriteConfirmation(
+    final preparation = await AiToolUtils.prepareFileMutation(
+      context: context,
       toolName: 'Write',
       operationDescription: fileExists
           ? 'Overwrite file with ${content.length} characters'
           : 'Create new file with ${content.length} characters',
-      targetPath: filePath,
-      requireWriteConfirmation: context.requireWriteCommandConfirmation,
-      confirmWriteCommand: context.confirmWriteCommand,
-      cancelSignal: context.cancelSignal,
-      timeoutMs: context.metadata['write_confirmation_timeout_ms'] as int?,
-    );
-    if (confirmationResult != null) {
-      return confirmationResult;
-    }
-
-    // 从 metadata 获取追踪服务（遵循 AiToolExecutionContext 冻结约束）
-    final fileTracker =
-        context.metadata['file_tracker'] as AiFileTrackerService?;
-    final fileHistory =
-        context.metadata['file_history'] as AiFileHistoryService?;
-
-    final readValidation = await AiToolUtils.validateReadBeforeMutation(
-      toolName: 'Write',
       filePath: filePath,
-      previouslyReadFiles: context.previouslyReadFiles,
-      requireExistingFileRead: fileExists,
-      fileTracker: fileTracker,
+      fileExists: fileExists,
     );
-    if (readValidation != null) return readValidation;
-
-    // 保存历史版本（仅对已存在的文件）
-    String? versionId;
-    String? beforeContentForLedger;
-    if (fileExists) {
-      versionId = await AiToolUtils.saveFileVersionBeforeMutation(
-        filePath: filePath,
-        sessionId: context.sessionId,
-        toolCallId: context.toolCall.id,
-        fileHistory: fileHistory,
-      );
-      beforeContentForLedger = await AiToolUtils.readFileContentForLedger(
-        filePath,
-      );
-    }
+    if (preparation.error != null) return preparation.error!;
 
     final guardedWrite = await AiToolUtils.writeTextFileWithMutationGuard(
       toolName: 'Write',
@@ -92,30 +55,16 @@ class AiWriteTool extends AiTool {
       content: content,
       previouslyReadFiles: context.previouslyReadFiles,
       requireExistingFileRead: fileExists,
-      fileTracker: fileTracker,
+      fileTracker: preparation.fileTracker,
     );
     if (guardedWrite != null) return guardedWrite;
 
-    // 读回文件确认写入已生效。
-    final String verificationContent;
-    try {
-      verificationContent = await file.readAsString();
-    } catch (e) {
-      return AiToolUtils.invalidResult(
-        'Write',
-        'File was written but verification read failed: $e',
-      );
-    }
-    final verificationPassed = verificationContent == content;
-    // 任意内容不匹配都视为验证失败。
-    if (!verificationPassed) {
-      return AiToolUtils.invalidResult(
-        'Write',
-        'File was written but verification failed: content mismatch. '
-            'Expected ${content.length} chars, got ${verificationContent.length} chars. '
-            'This may indicate a write permission issue or concurrent modification.',
-      );
-    }
+    final verificationError = await AiToolUtils.verifyTextFileWrite(
+      toolName: 'Write',
+      file: file,
+      expectedContent: content,
+    );
+    if (verificationError != null) return verificationError;
 
     // Ledger 同时记录写入前后的快照。
     final mutationLedger =
@@ -127,7 +76,7 @@ class AiWriteTool extends AiTool {
       toolName: 'Write',
       filePath: filePath,
       kind: fileExists ? FileMutationKind.modify : FileMutationKind.create,
-      beforeContent: beforeContentForLedger,
+      beforeContent: preparation.beforeContent,
       afterContent: content,
     );
 
@@ -142,8 +91,9 @@ class AiWriteTool extends AiTool {
         'file_mutation_kind': 'write',
         'file_mutation_path': filePath,
         'file_mutation_content_char_count': content.length,
-        'file_mutation_verified': verificationPassed,
-        if (versionId != null) 'file_mutation_history_version_id': versionId,
+        'file_mutation_verified': true,
+        if (preparation.historyVersionId != null)
+          'file_mutation_history_version_id': preparation.historyVersionId,
         if (ledgerRecordId != null)
           'file_mutation_ledger_record_id': ledgerRecordId,
       },

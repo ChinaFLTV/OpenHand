@@ -21,7 +21,7 @@ import {
 } from '../shared/ui/floating_position';
 import { OverlayPortal } from './OverlayPortal';
 
-export interface PopMenuItem {
+interface PopMenuItem {
   key: string;
   label: string;
   onClick: () => void;

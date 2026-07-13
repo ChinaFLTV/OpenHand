@@ -4042,6 +4042,15 @@ class AppLocalizationsFr extends AppLocalizations {
   String get tokenPopupPrompt => 'Invite';
 
   @override
+  String get tokenPopupAudioInput => 'Entrée audio';
+
+  @override
+  String get tokenPopupImageInput => 'Entrée image';
+
+  @override
+  String get tokenPopupVideoInput => 'Entrée vidéo';
+
+  @override
   String get tokenPopupCacheRead => 'Lecture du cache';
 
   @override
@@ -4055,6 +4064,15 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get tokenPopupReasoning => 'Raisonnement';
+
+  @override
+  String get tokenPopupWebSearchHeading => 'Recherche web';
+
+  @override
+  String get tokenPopupWebSearchCalls => 'Appels';
+
+  @override
+  String get tokenPopupWebSearchPages => 'Pages';
 
   @override
   String get tokenPopupGrandTotal => 'Total général';

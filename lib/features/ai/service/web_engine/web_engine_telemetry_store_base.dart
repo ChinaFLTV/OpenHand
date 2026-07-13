@@ -57,6 +57,53 @@ class WebEngineCallEvent {
   final Map<String, Object?> historyExtras;
 }
 
+abstract class WebEngineStatBase {
+  const WebEngineStatBase({
+    required this.totalCalls,
+    required this.successCalls,
+    required this.totalDurationMs,
+    this.lastError,
+    this.lastFailureAt,
+    this.lastInvokedAt,
+    this.consecutiveFailures = 0,
+    this.cooldownUntilMs,
+    this.lastQuotaError,
+    this.lastQuotaAt,
+  });
+
+  final int totalCalls;
+  final int successCalls;
+  final int totalDurationMs;
+  final String? lastError;
+  final int? lastFailureAt;
+  final int? lastInvokedAt;
+  final int consecutiveFailures;
+  final int? cooldownUntilMs;
+  final String? lastQuotaError;
+  final int? lastQuotaAt;
+
+  double get successRate => totalCalls == 0 ? 0 : successCalls / totalCalls;
+  double get avgDurationMs =>
+      totalCalls == 0 ? 0 : totalDurationMs / totalCalls;
+
+  bool isInCooldown([int? nowMs]) {
+    final now = nowMs ?? DateTime.now().millisecondsSinceEpoch;
+    return cooldownUntilMs != null && cooldownUntilMs! > now;
+  }
+}
+
+abstract class WebEngineSampleBase {
+  const WebEngineSampleBase({
+    required this.timestampMs,
+    required this.durationMs,
+    required this.success,
+  });
+
+  final int timestampMs;
+  final int durationMs;
+  final bool success;
+}
+
 /// WebSearch / WebFetch telemetry 持久化的公共骨架：
 ///
 /// * 目录：`<openhand_cache>/<subdir>/telemetry/`

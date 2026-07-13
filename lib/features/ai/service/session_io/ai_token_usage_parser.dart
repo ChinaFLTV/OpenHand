@@ -116,13 +116,47 @@ class AiTokenUsageParser {
       usageMap['reasoningTokens'],
       usageMap['thinkingTokens'],
     ]);
+    final audioInputTokens = _firstInt(<Object?>[
+      promptDetails?['audio_tokens'],
+      promptDetails?['audioTokens'],
+      inputDetails?['audio_tokens'],
+      inputDetails?['audioTokens'],
+    ]);
+    final imageInputTokens = _firstInt(<Object?>[
+      promptDetails?['image_tokens'],
+      promptDetails?['imageTokens'],
+      inputDetails?['image_tokens'],
+      inputDetails?['imageTokens'],
+    ]);
+    final videoInputTokens = _firstInt(<Object?>[
+      promptDetails?['video_tokens'],
+      promptDetails?['videoTokens'],
+      inputDetails?['video_tokens'],
+      inputDetails?['videoTokens'],
+    ]);
+    final webSearchUsage =
+        _readMap(usageMap['web_search_usage']) ??
+        _readMap(usageMap['webSearchUsage']);
+    final webSearchToolUsage = _firstInt(<Object?>[
+      webSearchUsage?['tool_usage'],
+      webSearchUsage?['toolUsage'],
+    ]);
+    final webSearchPageUsage = _firstInt(<Object?>[
+      webSearchUsage?['page_usage'],
+      webSearchUsage?['pageUsage'],
+    ]);
 
     if (promptTokens == null &&
         completionTokens == null &&
         totalTokens == null &&
         cacheRead == null &&
         cacheWrite == null &&
-        reasoning == null) {
+        reasoning == null &&
+        audioInputTokens == null &&
+        imageInputTokens == null &&
+        videoInputTokens == null &&
+        webSearchToolUsage == null &&
+        webSearchPageUsage == null) {
       return null;
     }
 
@@ -137,6 +171,11 @@ class AiTokenUsageParser {
       cacheReadTokens: cacheRead,
       cacheCreationTokens: cacheWrite,
       reasoningTokens: reasoning,
+      audioInputTokens: audioInputTokens,
+      imageInputTokens: imageInputTokens,
+      videoInputTokens: videoInputTokens,
+      webSearchToolUsage: webSearchToolUsage,
+      webSearchPageUsage: webSearchPageUsage,
     );
   }
 
@@ -266,6 +305,26 @@ class AiTokenUsageParser {
       reasoningTokens: maxNullable(
         previous.reasoningTokens,
         incoming.reasoningTokens,
+      ),
+      audioInputTokens: maxNullable(
+        previous.audioInputTokens,
+        incoming.audioInputTokens,
+      ),
+      imageInputTokens: maxNullable(
+        previous.imageInputTokens,
+        incoming.imageInputTokens,
+      ),
+      videoInputTokens: maxNullable(
+        previous.videoInputTokens,
+        incoming.videoInputTokens,
+      ),
+      webSearchToolUsage: maxNullable(
+        previous.webSearchToolUsage,
+        incoming.webSearchToolUsage,
+      ),
+      webSearchPageUsage: maxNullable(
+        previous.webSearchPageUsage,
+        incoming.webSearchPageUsage,
       ),
     );
   }

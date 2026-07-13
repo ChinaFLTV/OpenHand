@@ -13,10 +13,45 @@ const Duration _aiTtsDragOpacityDuration = Duration(milliseconds: 180);
 const double _aiTtsDragHandleSize = 34;
 const double _aiTtsCardActionSize = 40;
 const double _aiTtsDragFeedbackMaxHeight = 240;
-const int _aiTtsMimoDefaultSampleRate = 24000;
 const double _settingsStandardFieldWidth = 360;
 const String _translationSettingsTestText = 'Hello, OpenHand.';
 const bool _settingsProviderCardDefaultExpanded = false;
+const List<AiTtsCatalogOption> _miniMaxSampleRateOptions = <AiTtsCatalogOption>[
+  AiTtsCatalogOption('8000', '8 kHz'),
+  AiTtsCatalogOption('16000', '16 kHz'),
+  AiTtsCatalogOption('22050', '22.05 kHz'),
+  AiTtsCatalogOption('24000', '24 kHz'),
+  AiTtsCatalogOption('32000', '32 kHz'),
+  AiTtsCatalogOption('44100', '44.1 kHz'),
+];
+const List<AiTtsCatalogOption> _miniMaxChannelOptions = <AiTtsCatalogOption>[
+  AiTtsCatalogOption('1', 'Mono · 1'),
+  AiTtsCatalogOption('2', 'Stereo · 2'),
+];
+const List<AiTtsCatalogOption> _miniMaxBitrateOptions = <AiTtsCatalogOption>[
+  AiTtsCatalogOption('32000', '32 kbps'),
+  AiTtsCatalogOption('64000', '64 kbps'),
+  AiTtsCatalogOption('128000', '128 kbps'),
+  AiTtsCatalogOption('256000', '256 kbps'),
+];
+const List<AiTtsCatalogOption> _miniMaxSubtitleTypeOptions =
+    <AiTtsCatalogOption>[
+      AiTtsCatalogOption('sentence', '句级时间戳', 'Sentence Timestamps'),
+      AiTtsCatalogOption('word', '词级时间戳', 'Word Timestamps'),
+      AiTtsCatalogOption(
+        'word_streaming',
+        '流式词级时间戳',
+        'Streaming Word Timestamps',
+      ),
+    ];
+const List<AiTtsCatalogOption> _miniMaxSoundEffectOptions =
+    <AiTtsCatalogOption>[
+      AiTtsCatalogOption('', '无音效', 'No Effect'),
+      AiTtsCatalogOption('spacious_echo', '空旷回音', 'Spacious Echo'),
+      AiTtsCatalogOption('auditorium_echo', '礼堂广播', 'Auditorium Echo'),
+      AiTtsCatalogOption('lofi_telephone', '电话失真', 'Lo-fi Telephone'),
+      AiTtsCatalogOption('robotic', '电音', 'Robotic'),
+    ];
 
 class _PaneHeader extends StatelessWidget {
   const _PaneHeader({required this.title, required this.subtitle});
@@ -1547,8 +1582,11 @@ class _AiTtsProviderCard extends StatefulWidget {
 
 class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
   bool _testing = false;
+  bool _loadingMiniMaxVoices = false;
   bool _expanded = _settingsProviderCardDefaultExpanded;
   AiTtsProviderSettings? _latestProviderSettings;
+  String? _miniMaxVoiceModelKey;
+  List<AiTtsCatalogOption> _miniMaxVoiceOptions = const <AiTtsCatalogOption>[];
 
   AiTtsProviderSettings get _effectiveProviderSettings =>
       _normalizeProviderSettingsForCurrentModel(
@@ -1775,6 +1813,18 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
       protocol: modelProtocol,
       modelId: modelId,
     );
+    final usesMiniMaxSpeech = AiTtsProviderCatalogs.usesMiniMaxSpeech(
+      protocol: modelProtocol,
+      modelId: modelId,
+    );
+    final usesMiniMaxNativeSpeech =
+        modelProtocol == AiProtocolType.minimax && usesMiniMaxSpeech;
+    final modelKey = model == null ? null : '${model.id}|${model.modelId}';
+    final effectiveVoiceOptions =
+        _settingsUniqueTtsOptions(<AiTtsCatalogOption>[
+          ...voiceOptions,
+          if (modelKey == _miniMaxVoiceModelKey) ..._miniMaxVoiceOptions,
+        ]);
     final formatOptions = AiTtsProviderCatalogs.formatOptionsForAiModel(
       protocol: modelProtocol,
       modelId: modelId,
@@ -1788,6 +1838,9 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
             providerSettings.extra['format'],
           )
         : '${providerSettings.extra['format'] ?? 'mp3'}';
+    final miniMaxVoiceModify = providerSettings.extra['voice_modify'] is Map
+        ? stringKeyedMapFromValue(providerSettings.extra['voice_modify'])
+        : const <String, Object?>{};
     final selectedLabel = _selectedProviderModelLabel(
       configId: providerSettings.modelConfigId,
       modelId: providerSettings.modelId,
@@ -1801,18 +1854,53 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          FilledButton.tonalIcon(
-            onPressed: hasAudioModels ? _pickAiModel : null,
-            icon: const Icon(Icons.manage_search_rounded),
-            label: Text(
-              selectedLabel ??
-                  openHandLocalizedText(
-                    context,
-                    zh: '选择语音模型',
-                    en: 'Select model',
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              FilledButton.tonalIcon(
+                onPressed: hasAudioModels ? _pickAiModel : null,
+                icon: const Icon(Icons.manage_search_rounded),
+                label: Text(
+                  selectedLabel ??
+                      openHandLocalizedText(
+                        context,
+                        zh: '选择语音模型',
+                        en: 'Select model',
+                      ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              if (usesMiniMaxNativeSpeech && model != null)
+                OutlinedButton.icon(
+                  onPressed: _loadingMiniMaxVoices
+                      ? null
+                      : () => _loadMiniMaxVoices(model),
+                  icon: AnimatedSwitcher(
+                    duration: _settingsMotionDuration(
+                      context,
+                      const Duration(milliseconds: 220),
+                    ),
+                    child: _loadingMiniMaxVoices
+                        ? const SizedBox.square(
+                            key: ValueKey<String>('loading'),
+                            dimension: 17,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(
+                            Icons.sync_rounded,
+                            key: ValueKey<String>('idle'),
+                          ),
                   ),
-              overflow: TextOverflow.ellipsis,
-            ),
+                  label: Text(
+                    openHandLocalizedText(
+                      context,
+                      zh: '同步 MiniMax 音色',
+                      en: 'Sync MiniMax voices',
+                    ),
+                  ),
+                ),
+            ],
           ),
           const SizedBox(height: 8),
           Text(
@@ -1841,7 +1929,7 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
                   en: 'Voice',
                 ),
                 value: providerSettings.voice,
-                options: voiceOptions,
+                options: effectiveVoiceOptions,
                 onChanged: (value) => _updateCurrent((current) {
                   return current.copyWith(voice: value);
                 }),
@@ -1876,11 +1964,268 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
                   return current.copyWith(volume: value);
                 }),
               ),
+              _AiTtsProviderNumberField(
+                label: openHandLocalizedText(context, zh: '音调', en: 'Pitch'),
+                value: providerSettings.pitch,
+                range: _aiTtsNumberRangeForModel(
+                  protocol: modelProtocol,
+                  modelId: modelId,
+                  kind: _TtsNumberKind.pitch,
+                ),
+                onChanged: (value) => _updateCurrent((current) {
+                  return current.copyWith(pitch: value);
+                }),
+              ),
+              if (usesMiniMaxNativeSpeech) ...[
+                _AiTtsDropdown(
+                  label: openHandLocalizedText(
+                    context,
+                    zh: '语言增强',
+                    en: 'Language Boost',
+                  ),
+                  value:
+                      '${providerSettings.extra['language_boost'] ?? 'auto'}',
+                  options: AiTtsProviderCatalogs.miniMaxLanguageOptions,
+                  onChanged: (value) => _updateExtra('language_boost', value),
+                ),
+                _AiTtsDropdown(
+                  label: openHandLocalizedText(
+                    context,
+                    zh: '情绪',
+                    en: 'Emotion',
+                  ),
+                  value: '${providerSettings.extra['emotion'] ?? ''}',
+                  options: AiTtsProviderCatalogs.miniMaxEmotionOptions,
+                  onChanged: (value) => _updateExtra('emotion', value),
+                ),
+                _AiTtsDropdown(
+                  label: openHandLocalizedText(
+                    context,
+                    zh: '采样率',
+                    en: 'Sample Rate',
+                  ),
+                  value: '${providerSettings.extra['sample_rate'] ?? 32000}',
+                  options: _miniMaxSampleRateOptions,
+                  onChanged: (value) =>
+                      _updateExtra('sample_rate', int.parse(value)),
+                ),
+                _AiTtsDropdown(
+                  label: openHandLocalizedText(
+                    context,
+                    zh: '比特率',
+                    en: 'Bitrate',
+                  ),
+                  value: '${providerSettings.extra['bit_rate'] ?? 128000}',
+                  options: _miniMaxBitrateOptions,
+                  onChanged: (value) =>
+                      _updateExtra('bit_rate', int.parse(value)),
+                ),
+                _AiTtsDropdown(
+                  label: openHandLocalizedText(
+                    context,
+                    zh: '声道',
+                    en: 'Channels',
+                  ),
+                  value: '${providerSettings.extra['channel'] ?? 1}',
+                  options: _miniMaxChannelOptions,
+                  onChanged: (value) =>
+                      _updateExtra('channel', int.parse(value)),
+                ),
+                _AiTtsToggleField(
+                  label: openHandLocalizedText(
+                    context,
+                    zh: '文本规范化',
+                    en: 'Text Normalization',
+                  ),
+                  value:
+                      optionalBoolFromValue(
+                        providerSettings.extra['text_normalization'],
+                      ) ??
+                      false,
+                  onChanged: (value) =>
+                      _updateExtra('text_normalization', value),
+                ),
+                _AiTtsToggleField(
+                  label: openHandLocalizedText(
+                    context,
+                    zh: '朗读 LaTeX',
+                    en: 'Read LaTeX',
+                  ),
+                  value:
+                      optionalBoolFromValue(
+                        providerSettings.extra['latex_read'],
+                      ) ??
+                      false,
+                  onChanged: (value) => _updateExtra('latex_read', value),
+                ),
+                _AiTtsToggleField(
+                  label: openHandLocalizedText(
+                    context,
+                    zh: '生成字幕',
+                    en: 'Generate Subtitles',
+                  ),
+                  value:
+                      optionalBoolFromValue(
+                        providerSettings.extra['subtitle_enable'],
+                      ) ??
+                      false,
+                  onChanged: (value) => _updateExtra('subtitle_enable', value),
+                ),
+                if (optionalBoolFromValue(
+                      providerSettings.extra['subtitle_enable'],
+                    ) ==
+                    true)
+                  _AiTtsDropdown(
+                    label: openHandLocalizedText(
+                      context,
+                      zh: '字幕粒度',
+                      en: 'Subtitle Detail',
+                    ),
+                    value:
+                        '${providerSettings.extra['subtitle_type'] ?? 'sentence'}',
+                    options: _miniMaxSubtitleTypeOptions,
+                    onChanged: (value) => _updateExtra('subtitle_type', value),
+                  ),
+                _AiTtsToggleField(
+                  label: openHandLocalizedText(
+                    context,
+                    zh: '恒定比特率（流式 MP3）',
+                    en: 'Constant Bitrate (Streaming MP3)',
+                  ),
+                  value:
+                      optionalBoolFromValue(
+                        providerSettings.extra['force_cbr'],
+                      ) ??
+                      false,
+                  onChanged: (value) => _updateExtra('force_cbr', value),
+                ),
+                _AiTtsProviderTextField(
+                  label: openHandLocalizedText(
+                    context,
+                    zh: '自定义发音（使用 ; 分隔）',
+                    en: 'Pronunciations (separate with ;)',
+                  ),
+                  value: stringListFromListValue(
+                    providerSettings.extra['pronunciation_tone'],
+                  ).join('; '),
+                  maxLines: 2,
+                  onSubmitted: (value) => _updateExtra(
+                    'pronunciation_tone',
+                    _miniMaxDelimitedValues(value, separator: ';'),
+                  ),
+                ),
+                _AiTtsProviderTextField(
+                  label: openHandLocalizedText(
+                    context,
+                    zh: '混合音色（voice_id:权重，最多 4 个）',
+                    en: 'Voice Mix (voice_id:weight, max 4)',
+                  ),
+                  value: _miniMaxTimbreWeightsText(
+                    providerSettings.extra['timbre_weights'],
+                  ),
+                  maxLines: 2,
+                  onSubmitted: (value) =>
+                      unawaited(_updateMiniMaxTimbreWeights(value)),
+                ),
+                _AiTtsProviderNumberField(
+                  label: openHandLocalizedText(
+                    context,
+                    zh: '效果器 · 音高',
+                    en: 'Effect · Pitch',
+                  ),
+                  value:
+                      optionalDoubleFromValue(miniMaxVoiceModify['pitch']) ?? 0,
+                  range: const _TtsNumberRange(-100, 100),
+                  onChanged: (value) =>
+                      _updateMiniMaxVoiceModify('pitch', value.round()),
+                ),
+                _AiTtsProviderNumberField(
+                  label: openHandLocalizedText(
+                    context,
+                    zh: '效果器 · 强度',
+                    en: 'Effect · Intensity',
+                  ),
+                  value:
+                      optionalDoubleFromValue(
+                        miniMaxVoiceModify['intensity'],
+                      ) ??
+                      0,
+                  range: const _TtsNumberRange(-100, 100),
+                  onChanged: (value) =>
+                      _updateMiniMaxVoiceModify('intensity', value.round()),
+                ),
+                _AiTtsProviderNumberField(
+                  label: openHandLocalizedText(
+                    context,
+                    zh: '效果器 · 音色',
+                    en: 'Effect · Timbre',
+                  ),
+                  value:
+                      optionalDoubleFromValue(miniMaxVoiceModify['timbre']) ??
+                      0,
+                  range: const _TtsNumberRange(-100, 100),
+                  onChanged: (value) =>
+                      _updateMiniMaxVoiceModify('timbre', value.round()),
+                ),
+                _AiTtsDropdown(
+                  label: openHandLocalizedText(
+                    context,
+                    zh: '效果器 · 场景',
+                    en: 'Effect · Scene',
+                  ),
+                  value: '${miniMaxVoiceModify['sound_effects'] ?? ''}',
+                  options: _miniMaxSoundEffectOptions,
+                  onChanged: (value) =>
+                      _updateMiniMaxVoiceModify('sound_effects', value),
+                ),
+              ],
             ],
           ),
         ],
       ),
     );
+  }
+
+  Future<void> _loadMiniMaxVoices(AiModelConfig model) async {
+    if (_loadingMiniMaxVoices) return;
+    setState(() => _loadingMiniMaxVoices = true);
+    final service = AiMiniMaxService();
+    try {
+      final response = await service.getVoices(model: model);
+      final options = _miniMaxVoiceOptionsFromPayload(response.payload);
+      if (options.isEmpty) {
+        throw StateError('MiniMax returned no available voices.');
+      }
+      if (!mounted) return;
+      setState(() {
+        _miniMaxVoiceModelKey = '${model.id}|${model.modelId}';
+        _miniMaxVoiceOptions = options;
+      });
+      _showSettingsSuccessSnack(
+        context,
+        openHandLocalizedText(
+          context,
+          zh: '已同步 ${options.length} 个 MiniMax 音色',
+          en: 'Synced ${options.length} MiniMax voices',
+        ),
+      );
+    } catch (error, stack) {
+      silentLog('tts-settings', 'sync MiniMax voices', error, stack);
+      if (!mounted) return;
+      _showSettingsTestErrorDialog(
+        context: context,
+        title: openHandLocalizedText(
+          context,
+          zh: 'MiniMax 音色同步失败',
+          en: 'MiniMax Voice Sync Failed',
+        ),
+        targetLabel: 'MiniMax Voice API',
+        error: error,
+      );
+    } finally {
+      service.dispose();
+      if (mounted) setState(() => _loadingMiniMaxVoices = false);
+    }
   }
 
   Widget _buildNativeProviderSections(
@@ -1889,6 +2234,9 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
     AiTtsProviderSettings providerSettings,
     AiTtsProviderCatalog catalog,
   ) {
+    final mimoModel = '${providerSettings.extra['model'] ?? 'mimo-v2.5-tts'}';
+    final usesMimoPresetVoice =
+        provider != AiTtsProvider.mimo || mimoModel == 'mimo-v2.5-tts';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1896,18 +2244,19 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
           title: openHandLocalizedText(context, zh: '声音参数', en: 'Voice'),
           child: _AiTtsProviderFieldGrid(
             children: [
-              _AiTtsDropdown(
-                label: openHandLocalizedText(
-                  context,
-                  zh: '音色/发音人',
-                  en: 'Voice',
+              if (usesMimoPresetVoice)
+                _AiTtsDropdown(
+                  label: openHandLocalizedText(
+                    context,
+                    zh: '音色/发音人',
+                    en: 'Voice',
+                  ),
+                  value: providerSettings.voice,
+                  options: catalog.voiceOptions,
+                  onChanged: (value) => _updateCurrent((current) {
+                    return current.copyWith(voice: value);
+                  }),
                 ),
-                value: providerSettings.voice,
-                options: catalog.voiceOptions,
-                onChanged: (value) => _updateCurrent((current) {
-                  return current.copyWith(voice: value);
-                }),
-              ),
               _AiTtsDropdown(
                 label: openHandLocalizedText(context, zh: '语言', en: 'Language'),
                 value: providerSettings.language,
@@ -1916,14 +2265,15 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
                   return current.copyWith(language: value);
                 }),
               ),
-              _AiTtsProviderNumberField(
-                label: openHandLocalizedText(context, zh: '语速', en: 'Speed'),
-                value: providerSettings.speed,
-                range: _ttsNumberRange(provider, _TtsNumberKind.speed),
-                onChanged: (value) => _updateCurrent((current) {
-                  return current.copyWith(speed: value);
-                }),
-              ),
+              if (provider != AiTtsProvider.mimo)
+                _AiTtsProviderNumberField(
+                  label: openHandLocalizedText(context, zh: '语速', en: 'Speed'),
+                  value: providerSettings.speed,
+                  range: _ttsNumberRange(provider, _TtsNumberKind.speed),
+                  onChanged: (value) => _updateCurrent((current) {
+                    return current.copyWith(speed: value);
+                  }),
+                ),
               _AiTtsProviderNumberField(
                 label: openHandLocalizedText(context, zh: '音量', en: 'Volume'),
                 value: providerSettings.volume,
@@ -1932,14 +2282,15 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
                   return current.copyWith(volume: value);
                 }),
               ),
-              _AiTtsProviderNumberField(
-                label: openHandLocalizedText(context, zh: '音调', en: 'Pitch'),
-                value: providerSettings.pitch,
-                range: _ttsNumberRange(provider, _TtsNumberKind.pitch),
-                onChanged: (value) => _updateCurrent((current) {
-                  return current.copyWith(pitch: value);
-                }),
-              ),
+              if (provider != AiTtsProvider.mimo)
+                _AiTtsProviderNumberField(
+                  label: openHandLocalizedText(context, zh: '音调', en: 'Pitch'),
+                  value: providerSettings.pitch,
+                  range: _ttsNumberRange(provider, _TtsNumberKind.pitch),
+                  onChanged: (value) => _updateCurrent((current) {
+                    return current.copyWith(pitch: value);
+                  }),
+                ),
             ],
           ),
         ),
@@ -2065,7 +2416,8 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
                     zh: '音频格式',
                     en: 'Format',
                   ),
-                  value: '${providerSettings.extra['format'] ?? 'wav'}',
+                  value:
+                      '${providerSettings.extra['format'] ?? aiMimoDefaultAudioFormat}',
                   options: catalog.formatOptions,
                   onChanged: (value) => _updateExtra('format', value),
                 ),
@@ -2079,32 +2431,33 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
                       '${providerSettings.extra['style_prompt'] ?? '自然清晰，语速适中，语气友好。'}',
                   onSubmitted: (value) => _updateExtra('style_prompt', value),
                 ),
-                _AiTtsProviderTextField(
-                  label: openHandLocalizedText(
-                    context,
-                    zh: '克隆样本路径',
-                    en: 'Clone Sample Path',
-                  ),
-                  value: '${providerSettings.extra['voice_sample_path'] ?? ''}',
-                  onSubmitted: (value) =>
-                      _updateExtra('voice_sample_path', value),
-                ),
-                _AiTtsProviderTextField(
-                  label: openHandLocalizedText(
-                    context,
-                    zh: 'PCM 采样率',
-                    en: 'PCM Sample Rate',
-                  ),
-                  value:
-                      '${providerSettings.extra['sample_rate'] ?? _aiTtsMimoDefaultSampleRate}',
-                  onSubmitted: (value) => _updateExtra(
-                    'sample_rate',
-                    positiveIntFromText(
-                      value,
-                      fallback: _aiTtsMimoDefaultSampleRate,
+                if ('${providerSettings.extra['model']}' ==
+                    'mimo-v2.5-tts-voicedesign')
+                  _AiTtsToggleField(
+                    label: openHandLocalizedText(
+                      context,
+                      zh: '优化文本预览',
+                      en: 'Optimize Text Preview',
                     ),
+                    value: boolFromValue(
+                      providerSettings.extra['optimize_text_preview'],
+                    ),
+                    onChanged: (value) =>
+                        _updateExtra('optimize_text_preview', value),
                   ),
-                ),
+                if ('${providerSettings.extra['model']}' ==
+                    'mimo-v2.5-tts-voiceclone')
+                  _AiTtsProviderTextField(
+                    label: openHandLocalizedText(
+                      context,
+                      zh: '克隆样本路径',
+                      en: 'Clone Sample Path',
+                    ),
+                    value:
+                        '${providerSettings.extra['voice_sample_path'] ?? ''}',
+                    onSubmitted: (value) =>
+                        _updateExtra('voice_sample_path', value),
+                  ),
               ],
             ),
           ),
@@ -2245,6 +2598,39 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
     final extra = Map<String, Object?>.from(current.extra);
     extra[key] = value;
     await _update(current.copyWith(extra: extra));
+  }
+
+  Future<void> _updateMiniMaxVoiceModify(String key, Object? value) async {
+    final current = _effectiveProviderSettings;
+    final voiceModify = current.extra['voice_modify'] is Map
+        ? Map<String, Object?>.from(
+            stringKeyedMapFromValue(current.extra['voice_modify']),
+          )
+        : <String, Object?>{};
+    if (value == null || (value is String && value.trim().isEmpty)) {
+      voiceModify.remove(key);
+    } else {
+      voiceModify[key] = value;
+    }
+    await _updateExtra('voice_modify', voiceModify);
+  }
+
+  Future<void> _updateMiniMaxTimbreWeights(String raw) async {
+    try {
+      await _updateExtra('timbre_weights', _parseMiniMaxTimbreWeights(raw));
+    } catch (error) {
+      if (!mounted) return;
+      _showSettingsTestErrorDialog(
+        context: context,
+        title: openHandLocalizedText(
+          context,
+          zh: '混合音色格式无效',
+          en: 'Invalid Voice Mix',
+        ),
+        targetLabel: 'MiniMax timbre_weights',
+        error: error,
+      );
+    }
   }
 
   Future<void> _pickAiModel() async {
@@ -2771,6 +3157,49 @@ class _AiTtsProviderFieldGrid extends StatelessWidget {
   }
 }
 
+class _AiTtsToggleField extends StatelessWidget {
+  const _AiTtsToggleField({
+    required this.label,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final String label;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      constraints: const BoxConstraints(minHeight: 56),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+        border: Border.all(
+          color: value
+              ? theme.colorScheme.primary.withValues(alpha: 0.32)
+              : theme.colorScheme.outlineVariant.withValues(alpha: 0.58),
+        ),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          _SettingsSwitch(value: value, onChanged: onChanged),
+        ],
+      ),
+    );
+  }
+}
+
 class _AiTtsDropdown extends StatelessWidget {
   const _AiTtsDropdown({
     required this.label,
@@ -2876,12 +3305,14 @@ class _AiTtsProviderTextField extends StatefulWidget {
     required this.value,
     required this.onSubmitted,
     this.obscure = false,
+    this.maxLines = 1,
   });
 
   final String label;
   final String value;
   final ValueChanged<String> onSubmitted;
   final bool obscure;
+  final int maxLines;
 
   @override
   State<_AiTtsProviderTextField> createState() =>
@@ -2928,6 +3359,7 @@ class _AiTtsProviderTextFieldState extends State<_AiTtsProviderTextField> {
       focusNode: _focusNode,
       decoration: InputDecoration(labelText: widget.label),
       obscureText: widget.obscure,
+      maxLines: widget.obscure ? 1 : widget.maxLines,
       enableSuggestions: !widget.obscure,
       autocorrect: !widget.obscure,
       onChanged: _scheduleCommit,
@@ -3657,6 +4089,16 @@ _TtsNumberRange _aiTtsNumberRangeForModel({
   required String modelId,
   required _TtsNumberKind kind,
 }) {
+  if (AiTtsProviderCatalogs.usesMiniMaxSpeech(
+    protocol: protocol,
+    modelId: modelId,
+  )) {
+    return switch (kind) {
+      _TtsNumberKind.speed => const _TtsNumberRange(0.5, 2, step: 0.05),
+      _TtsNumberKind.volume => const _TtsNumberRange(0.1, 10, step: 0.1),
+      _TtsNumberKind.pitch => const _TtsNumberRange(-12, 12),
+    };
+  }
   if (!AiTtsProviderCatalogs.usesStepFunSpeech(
     protocol: protocol,
     modelId: modelId,
@@ -3668,6 +4110,99 @@ _TtsNumberRange _aiTtsNumberRangeForModel({
     _TtsNumberKind.volume => const _TtsNumberRange(0.1, 2, step: 0.05),
     _TtsNumberKind.pitch => _ttsNumberRange(AiTtsProvider.ai, kind),
   };
+}
+
+List<AiTtsCatalogOption> _miniMaxVoiceOptionsFromPayload(
+  Map<String, Object?> payload,
+) {
+  final options = <AiTtsCatalogOption>[];
+  for (final section in const <String>[
+    'system_voice',
+    'voice_cloning',
+    'voice_generation',
+  ]) {
+    final entries = payload[section];
+    if (entries is! List) continue;
+    for (final raw in entries) {
+      if (raw is! Map) continue;
+      final voice = stringKeyedMapFromValue(raw);
+      final id = optionalStringFromValue(voice['voice_id']);
+      if (id == null) continue;
+      final name = optionalStringFromValue(voice['voice_name']);
+      final descriptions = stringListFromListValue(voice['description']);
+      final label = <String>[
+        name ?? id,
+        if (descriptions.isNotEmpty) descriptions.first,
+      ].join(' · ');
+      options.add(AiTtsCatalogOption(id, label, label));
+    }
+  }
+  return _settingsUniqueTtsOptions(options);
+}
+
+List<String> _miniMaxDelimitedValues(String raw, {required String separator}) {
+  return raw
+      .split(separator)
+      .map((value) => value.trim())
+      .where((value) => value.isNotEmpty)
+      .toSet()
+      .take(100)
+      .toList(growable: false);
+}
+
+String _miniMaxTimbreWeightsText(Object? raw) {
+  if (raw is! List) return '';
+  return raw
+      .whereType<Map>()
+      .map(stringKeyedMapFromValue)
+      .map((item) {
+        final voiceId = optionalStringFromValue(item['voice_id']);
+        final weight = optionalIntFromValue(item['weight']);
+        return voiceId == null || weight == null ? null : '$voiceId:$weight';
+      })
+      .whereType<String>()
+      .join(', ');
+}
+
+List<Map<String, Object?>> _parseMiniMaxTimbreWeights(String raw) {
+  final normalized = raw.trim();
+  if (normalized.isEmpty) return const <Map<String, Object?>>[];
+  final entries = normalized
+      .replaceAll('，', ',')
+      .split(RegExp(r'[,\n]+'))
+      .map((value) => value.trim())
+      .where((value) => value.isNotEmpty)
+      .toList(growable: false);
+  if (entries.length > 4) {
+    throw const FormatException('最多只能混合 4 个音色。');
+  }
+  final result = <Map<String, Object?>>[];
+  final seen = <String>{};
+  for (final entry in entries) {
+    final separator = entry.lastIndexOf(':');
+    if (separator <= 0 || separator >= entry.length - 1) {
+      throw FormatException('请使用 voice_id:权重 格式：$entry');
+    }
+    final voiceId = entry.substring(0, separator).trim();
+    final weight = int.tryParse(entry.substring(separator + 1).trim());
+    if (voiceId.isEmpty || weight == null || weight < 1 || weight > 100) {
+      throw FormatException('音色权重必须为 1–100：$entry');
+    }
+    if (!seen.add(voiceId)) {
+      throw FormatException('音色不可重复：$voiceId');
+    }
+    result.add(<String, Object?>{'voice_id': voiceId, 'weight': weight});
+  }
+  return result;
+}
+
+List<AiTtsCatalogOption> _settingsUniqueTtsOptions(
+  Iterable<AiTtsCatalogOption> options,
+) {
+  final seen = <String>{};
+  return options
+      .where((option) => seen.add(option.value))
+      .toList(growable: false);
 }
 
 String _primaryCredentialLabel(AiTtsProvider provider) {

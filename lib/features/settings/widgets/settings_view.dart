@@ -2332,8 +2332,6 @@ class _SettingsViewState extends State<SettingsView> {
                 controlMaxWidth: 360,
               ),
               const SizedBox(height: 18),
-              // 节流配置云端同步入口；custom 走真实 HTTP
-              // PUT/GET，iCloud / OAuth 留占位入口
               _ResponsiveSettingRow(
                 title: openHandLocalizedText(
                   context,
@@ -2346,13 +2344,13 @@ class _SettingsViewState extends State<SettingsView> {
                 ),
                 subtitle: openHandLocalizedText(
                   context,
-                  zh: '把节流配置推送 / 拉取到自定义 HTTP 端点。token 走 Authorization Bearer header；iCloud / OAuth 入口为后续接入预留。',
+                  zh: '支持通过自定义 HTTP、iCloud 或 GitHub Gist 推送 / 拉取节流配置；OAuth 暂未实现。',
                   zhHant:
-                      '把節流設定推送 / 拉取到自訂 HTTP 端點。token 會走 Authorization Bearer header；iCloud / OAuth 入口為後續接入預留。',
-                  en: 'Push / pull throttle config to a custom HTTP endpoint via Bearer token. iCloud / OAuth are reserved for future native bridging.',
-                  fr: 'Pousse / récupère la config de limitation via un endpoint HTTP personnalisé avec token Bearer. iCloud / OAuth sont réservés.',
-                  de: 'Push/Pull der Drosselungskonfiguration an einen eigenen HTTP-Endpunkt per Bearer-Token. iCloud/OAuth sind reserviert.',
-                  ja: 'Bearer トークン付きのカスタム HTTP エンドポイントへスロットリング設定をプッシュ/プルします。iCloud / OAuth は将来連携用です。',
+                      '支援透過自訂 HTTP、iCloud 或 GitHub Gist 推送 / 拉取節流設定；OAuth 尚未實作。',
+                  en: 'Push or pull throttle settings through custom HTTP, iCloud, or GitHub Gist. OAuth is not implemented yet.',
+                  fr: 'Synchronisez la limitation via HTTP personnalisé, iCloud ou GitHub Gist. OAuth n’est pas encore disponible.',
+                  de: 'Drosselungseinstellungen über eigenes HTTP, iCloud oder GitHub Gist synchronisieren. OAuth ist noch nicht implementiert.',
+                  ja: 'カスタム HTTP、iCloud、GitHub Gist でスロットリング設定を同期できます。OAuth は未実装です。',
                 ),
                 control: const _ThrottleCloudSyncEditor(),
                 controlMaxWidth: 720,
@@ -6924,8 +6922,7 @@ class _ThrottleImportDiffContent extends StatelessWidget {
 /// 节流配置云端同步编辑器：provider 选择 + endpoint / token 输入 +
 /// push / pull 按钮。
 ///
-/// provider=custom 走真实 HTTP；icloud / oauth 仅显示占
-/// 位说明，触发 push / pull 时返回明确的"尚未实现"消息。
+/// 支持 custom、iCloud 和 GitHub Gist；OAuth 会返回明确的未实现结果。
 class _ThrottleCloudSyncEditor extends StatefulWidget {
   const _ThrottleCloudSyncEditor();
 
@@ -6939,6 +6936,7 @@ class _ThrottleCloudSyncEditorState extends State<_ThrottleCloudSyncEditor> {
   late final TextEditingController _tokenCtrl;
   late final FocusNode _endpointFocus;
   late final FocusNode _tokenFocus;
+  late final ThrottleCloudSyncService _cloudSyncService;
   bool _busy = false;
   String _status = '';
   bool _statusError = false;
@@ -6953,6 +6951,9 @@ class _ThrottleCloudSyncEditorState extends State<_ThrottleCloudSyncEditor> {
     _tokenCtrl = TextEditingController(text: c.aiStreamThrottleCloudSyncToken);
     _endpointFocus = FocusNode();
     _tokenFocus = FocusNode();
+    _cloudSyncService = ThrottleCloudSyncService(
+      registerCloudChangeHandler: false,
+    );
   }
 
   @override
@@ -6961,6 +6962,7 @@ class _ThrottleCloudSyncEditorState extends State<_ThrottleCloudSyncEditor> {
     _tokenCtrl.dispose();
     _endpointFocus.dispose();
     _tokenFocus.dispose();
+    unawaited(_cloudSyncService.dispose());
     super.dispose();
   }
 
@@ -6981,7 +6983,7 @@ class _ThrottleCloudSyncEditorState extends State<_ThrottleCloudSyncEditor> {
     final provider = ThrottleCloudSyncProvider.fromStorage(
       c.aiStreamThrottleCloudSyncProvider,
     );
-    final result = await ThrottleCloudSyncService().push(
+    final result = await _cloudSyncService.push(
       provider: provider,
       endpoint: c.aiStreamThrottleCloudSyncEndpoint,
       token: c.aiStreamThrottleCloudSyncToken,
@@ -7028,7 +7030,7 @@ class _ThrottleCloudSyncEditorState extends State<_ThrottleCloudSyncEditor> {
     final provider = ThrottleCloudSyncProvider.fromStorage(
       c.aiStreamThrottleCloudSyncProvider,
     );
-    final result = await ThrottleCloudSyncService().pull(
+    final result = await _cloudSyncService.pull(
       provider: provider,
       endpoint: c.aiStreamThrottleCloudSyncEndpoint,
       token: c.aiStreamThrottleCloudSyncToken,

@@ -11,7 +11,7 @@ export interface ApiDialogAnimationSettings {
   curve?: string;
 }
 
-export const DIALOG_MOTION_STYLE_VALUES = [
+const DIALOG_MOTION_STYLE_VALUES = [
   'none',
   'fade',
   'fade_scale',
@@ -26,9 +26,9 @@ export const DIALOG_MOTION_STYLE_VALUES = [
   'flip_x',
 ] as const;
 
-export type DialogMotionStyle = (typeof DIALOG_MOTION_STYLE_VALUES)[number];
+type DialogMotionStyle = (typeof DIALOG_MOTION_STYLE_VALUES)[number];
 
-export const DIALOG_MOTION_CURVE_VALUES = [
+const DIALOG_MOTION_CURVE_VALUES = [
   'ease_in_out',
   'ease_out',
   'ease_out_cubic',
@@ -38,18 +38,18 @@ export const DIALOG_MOTION_CURVE_VALUES = [
   'decelerate',
 ] as const;
 
-export type DialogMotionCurve = (typeof DIALOG_MOTION_CURVE_VALUES)[number];
+type DialogMotionCurve = (typeof DIALOG_MOTION_CURVE_VALUES)[number];
 
 export const DIALOG_MOTION_DEFAULT_DURATION_MS = 360;
-export const DIALOG_MOTION_MIN_ANIMATED_DURATION_MS = 80;
-export const DIALOG_MOTION_MAX_DURATION_MS = 1200;
-export const DIALOG_MOTION_DEFAULT_STYLE: DialogMotionStyle = 'spring_scale';
-export const DIALOG_MOTION_DEFAULT_CURVE: DialogMotionCurve = 'ease_out_cubic';
+const DIALOG_MOTION_MIN_ANIMATED_DURATION_MS = 80;
+const DIALOG_MOTION_MAX_DURATION_MS = 1200;
+const DIALOG_MOTION_DEFAULT_STYLE: DialogMotionStyle = 'spring_scale';
+const DIALOG_MOTION_DEFAULT_CURVE: DialogMotionCurve = 'ease_out_cubic';
 const DIALOG_MOTION_DEFAULT_CSS_CURVE = 'cubic-bezier(0.215, 0.61, 0.355, 1)';
 const DIALOG_MOTION_DEFAULT_REVERSE_CSS_CURVE =
   'cubic-bezier(0.55, 0.055, 0.675, 0.19)';
 
-export interface DialogMotionSettings {
+interface DialogMotionSettings {
   entranceStyle: DialogMotionStyle;
   exitStyle: DialogMotionStyle;
   durationMs: number;
@@ -59,7 +59,7 @@ export interface DialogMotionSettings {
 const styleValues = new Set<string>(DIALOG_MOTION_STYLE_VALUES);
 const curveValues = new Set<string>(DIALOG_MOTION_CURVE_VALUES);
 
-export const DEFAULT_DIALOG_MOTION_SETTINGS: DialogMotionSettings = {
+const DEFAULT_DIALOG_MOTION_SETTINGS: DialogMotionSettings = {
   entranceStyle: DIALOG_MOTION_DEFAULT_STYLE,
   exitStyle: DIALOG_MOTION_DEFAULT_STYLE,
   durationMs: DIALOG_MOTION_DEFAULT_DURATION_MS,
@@ -151,7 +151,7 @@ export function initDialogMotionSettingsAttribute(): void {
   applyDialogMotionSettingsToDocument();
 }
 
-export function normalizeDialogMotionSettings(
+function normalizeDialogMotionSettings(
   raw: ApiDialogAnimationSettings | null | undefined,
 ): DialogMotionSettings {
   const entranceStyle = normalizeStyle(
@@ -197,7 +197,7 @@ export function getDialogEnterDurationMs(): number {
 
 // 供折叠面板等复用：同时反映进场 + 退场 duration（取较大值作
 // 为“一个交互的完整节奏”）。避免 collapse 与 expand 节奏相差过大。
-export function getDialogMotionDurationMs(): number {
+function getDialogMotionDurationMs(): number {
   const enter = getDialogEnterDurationMs();
   const exit = getDialogExitDurationMs();
   return enter === 0 && exit === 0 ? 0 : Math.max(enter, exit);

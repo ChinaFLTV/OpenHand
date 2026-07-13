@@ -2,7 +2,7 @@ import type { ComponentChildren } from 'preact';
 import { createPortal } from 'preact/compat';
 import { useEffect, useState } from 'preact/hooks';
 
-export function getOverlayPortalTarget(): HTMLElement | null {
+function getOverlayPortalTarget(): HTMLElement | null {
   if (typeof document === 'undefined') return null;
   const fullscreenElement = document.fullscreenElement;
   if (fullscreenElement instanceof HTMLElement) {

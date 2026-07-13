@@ -3402,8 +3402,17 @@ $tail''';
     if (attachments.isEmpty) {
       return const <AiChatContentPart>[];
     }
-    final adapter = AiProtocolRegistry.adapterFor(model.protocolType);
+    final adapter = AiProtocolRegistry.adapterForModel(model);
     final supportsInlineImages = adapter.supportsAttachmentsForModel(model);
+    final modelProfile = model.profileFor(model.modelId);
+    final supportsInlineVideos =
+        modelProfile.supportsAttachments != false &&
+        modelProfile.isMultimodal != false &&
+        modelProfile.supportedModalities.contains(AiModelModality.video);
+    final supportsInlineAudio =
+        modelProfile.supportsAttachments != false &&
+        modelProfile.isMultimodal != false &&
+        modelProfile.supportedModalities.contains(AiModelModality.audio);
     final parts = <AiChatContentPart>[];
     for (final attachment in attachments) {
       if (attachment.isImage) {
@@ -3473,6 +3482,90 @@ $tail''';
         }
         parts.add(
           AiChatContentPart.imageFile(
+            filePath: storagePath,
+            mimeType: mimeType,
+          ),
+        );
+        continue;
+      }
+      if (attachment.isVideo) {
+        final storagePath = attachment.storagePath.trim();
+        final mimeType = attachment.mimeType.trim();
+        final metadataText =
+            '[Video attachment]\nid=${attachment.id}\n'
+            '${attachment.name} (${attachment.mimeType}, ${aiFormatBytes(attachment.sizeBytes)})';
+        if (!isLatestUserMessage) {
+          parts.add(AiChatContentPart.text(metadataText));
+          continue;
+        }
+        final hasLocalVideoFile =
+            _isTrustedAttachmentStoragePath(session, attachment) &&
+            storagePath.isNotEmpty &&
+            mimeType.startsWith('video/') &&
+            FileSystemEntity.typeSync(storagePath, followLinks: false) ==
+                FileSystemEntityType.file &&
+            File(storagePath).existsSync();
+        parts.add(AiChatContentPart.text(metadataText));
+        if (!hasLocalVideoFile) {
+          parts.add(
+            const AiChatContentPart.text(
+              '[Video attachment is unavailable in local storage.]',
+            ),
+          );
+          continue;
+        }
+        if (!supportsInlineVideos) {
+          parts.add(
+            const AiChatContentPart.text(
+              '[The current model does not support direct video input.]',
+            ),
+          );
+          continue;
+        }
+        parts.add(
+          AiChatContentPart.videoFile(
+            filePath: storagePath,
+            mimeType: mimeType,
+          ),
+        );
+        continue;
+      }
+      if (attachment.isAudio) {
+        final storagePath = attachment.storagePath.trim();
+        final mimeType = attachment.mimeType.trim();
+        final metadataText =
+            '[Audio attachment]\nid=${attachment.id}\n'
+            '${attachment.name} (${attachment.mimeType}, ${aiFormatBytes(attachment.sizeBytes)})';
+        if (!isLatestUserMessage) {
+          parts.add(AiChatContentPart.text(metadataText));
+          continue;
+        }
+        final hasLocalAudioFile =
+            _isTrustedAttachmentStoragePath(session, attachment) &&
+            storagePath.isNotEmpty &&
+            mimeType.startsWith('audio/') &&
+            FileSystemEntity.typeSync(storagePath, followLinks: false) ==
+                FileSystemEntityType.file &&
+            File(storagePath).existsSync();
+        parts.add(AiChatContentPart.text(metadataText));
+        if (!hasLocalAudioFile) {
+          parts.add(
+            const AiChatContentPart.text(
+              '[Audio attachment is unavailable in local storage.]',
+            ),
+          );
+          continue;
+        }
+        if (!supportsInlineAudio) {
+          parts.add(
+            const AiChatContentPart.text(
+              '[The current model does not support direct audio input.]',
+            ),
+          );
+          continue;
+        }
+        parts.add(
+          AiChatContentPart.audioFile(
             filePath: storagePath,
             mimeType: mimeType,
           ),
@@ -3712,6 +3805,9 @@ $tail''';
     }
     if (attachment.isImage) {
       return '[image] ${attachment.name} (${attachment.mimeType})';
+    }
+    if (attachment.isVideo) {
+      return '[video] ${attachment.name} (${attachment.mimeType})';
     }
     final promptText = attachment.promptText.trim();
     if (promptText.isNotEmpty) {

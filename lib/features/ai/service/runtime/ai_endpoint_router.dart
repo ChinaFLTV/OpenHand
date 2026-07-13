@@ -26,6 +26,34 @@ class AiResolvedEndpoint {
 class AiEndpointRouter {
   const AiEndpointRouter();
 
+  /// Resolves a fixed provider-native path while still applying the same base
+  /// URL cleanup, API-version overlap handling, and model placeholders as the
+  /// normal family router. Endpoint overrides are intentionally ignored: a
+  /// native operation such as MiniMax voice cloning must not accidentally
+  /// inherit the provider's unrelated generic `/audio/speech` override.
+  AiResolvedEndpoint resolveProviderPath(
+    AiModelConfig config,
+    AiApiFamily family, {
+    required String path,
+    String method = _defaultEndpointMethod,
+    String transport = _defaultEndpointTransport,
+  }) {
+    return AiResolvedEndpoint(
+      url: _resolveUrl(
+        config.normalizedBaseUrl,
+        config,
+        family,
+        null,
+        fallbackPath: path,
+      ),
+      method: (nullIfBlank(method) ?? _defaultEndpointMethod).toUpperCase(),
+      transport: lowercaseStringFromValue(
+        transport,
+        fallback: _defaultEndpointTransport,
+      ),
+    );
+  }
+
   AiResolvedEndpoint resolve(
     AiModelConfig config,
     AiApiFamily family, {

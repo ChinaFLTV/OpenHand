@@ -65,7 +65,29 @@ class HooksStore {
   }
 
   Future<void> save(HookEntry entry, int sortOrder) async {
-    await _db.insert(_tableName, <String, Object?>{
+    await _db.insert(
+      _tableName,
+      _entryValues(entry, sortOrder),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<void> saveAll(List<HookEntry> entries) async {
+    final batch = _db.batch();
+    batch.delete(_tableName);
+    for (var i = 0; i < entries.length; i++) {
+      final entry = entries[i];
+      batch.insert(_tableName, _entryValues(entry, i));
+    }
+    await batch.commit(noResult: true);
+  }
+
+  Future<void> delete(String id) async {
+    await _db.delete(_tableName, where: 'id = ?', whereArgs: <Object?>[id]);
+  }
+
+  Map<String, Object?> _entryValues(HookEntry entry, int sortOrder) {
+    return <String, Object?>{
       'id': entry.id,
       'event': entry.event.storageValue,
       'label': entry.label,
@@ -76,31 +98,6 @@ class HooksStore {
         entry.timeoutSeconds,
       ),
       'sort_order': sortOrder,
-    }, conflictAlgorithm: ConflictAlgorithm.replace);
-  }
-
-  Future<void> saveAll(List<HookEntry> entries) async {
-    final batch = _db.batch();
-    batch.delete(_tableName);
-    for (var i = 0; i < entries.length; i++) {
-      final entry = entries[i];
-      batch.insert(_tableName, <String, Object?>{
-        'id': entry.id,
-        'event': entry.event.storageValue,
-        'label': entry.label,
-        'script_path': entry.scriptPath ?? '',
-        'script_content': entry.scriptContent ?? '',
-        'enabled': entry.enabled ? 1 : 0,
-        'timeout_seconds': HookEntry.normalizeTimeoutSeconds(
-          entry.timeoutSeconds,
-        ),
-        'sort_order': i,
-      });
-    }
-    await batch.commit(noResult: true);
-  }
-
-  Future<void> delete(String id) async {
-    await _db.delete(_tableName, where: 'id = ?', whereArgs: <Object?>[id]);
+    };
   }
 }

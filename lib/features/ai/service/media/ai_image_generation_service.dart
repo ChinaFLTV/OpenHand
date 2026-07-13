@@ -56,6 +56,7 @@ const int _videoDownloadMaxBytes = 2 * kBytesPerGiB;
 const int _referenceImageMaxBytes = 32 * kBytesPerMiB;
 const int _referenceImagesMaxTotalBytes = 64 * kBytesPerMiB;
 const int _referenceImageMaxCount = 8;
+const Set<String> _miniMaxImageStyles = <String>{'漫画', '元气', '中世纪', '水彩'};
 const Duration _referenceImageReadIdleTimeout = Duration(seconds: 15);
 const Duration _referenceImageReadTotalTimeout = Duration(minutes: 1);
 const int _pollWarmupAttemptLimit = 6;
@@ -151,7 +152,6 @@ class AiImageGenerationService {
       case AiProtocolType.joycode:
       case AiProtocolType.wenxin:
       case AiProtocolType.meta:
-      case AiProtocolType.mimo:
       case AiProtocolType.hunyuan:
       case AiProtocolType.vllm:
       case AiProtocolType.sglang:
@@ -159,6 +159,7 @@ class AiImageGenerationService {
         return true;
       case AiProtocolType.gemini:
       case AiProtocolType.claude:
+      case AiProtocolType.mimo:
         return false;
     }
   }
@@ -329,6 +330,12 @@ class AiImageGenerationService {
         'Refusing to call the image endpoint with an empty prompt.',
       );
     }
+    if (model.protocolType == AiProtocolType.minimax &&
+        trimmedPrompt.length > 1500) {
+      throw const AiMediaGenerationException(
+        'MiniMax image prompts cannot exceed 1500 characters.',
+      );
+    }
     final imageModelId = resolveImageModelId(model, AiCreationMode.image);
     const family = AiApiFamily.imageGeneration;
     final useStepFunImageToImage =
@@ -349,7 +356,8 @@ class AiImageGenerationService {
     );
     final referenceImageDataUrls =
         (_usesAgnesMediaApi(model.protocolType, imageModelId) ||
-            useStepFunImageToImage)
+            useStepFunImageToImage ||
+            model.protocolType == AiProtocolType.minimax)
         ? await _referenceImageDataUrls(
             referenceImages,
             _GeneratedMediaKind.image,
@@ -414,6 +422,12 @@ class AiImageGenerationService {
       );
     }
     final decoded = _decodeJson(response.body);
+    _throwIfMiniMaxProviderFailed(
+      decoded,
+      kind: _GeneratedMediaKind.image,
+      protocol: model.protocolType,
+      rawResponseBody: response.body,
+    );
     final markdown = await _buildMarkdownFromResponse(
       decoded: decoded,
       altText: trimmedPrompt,
@@ -492,6 +506,15 @@ class AiImageGenerationService {
         'Refusing to call the ${kind.storageValue} endpoint with an empty prompt.',
       );
     }
+    if (model.protocolType == AiProtocolType.minimax) {
+      final maxCharacters = kind.isVideo ? 2000 : 9999;
+      if (trimmedPrompt.length > maxCharacters) {
+        throw AiMediaGenerationException(
+          'MiniMax ${kind.storageValue} input cannot exceed '
+          '$maxCharacters characters.',
+        );
+      }
+    }
     final modelId = switch (kind) {
       _GeneratedMediaKind.image => resolveImageModelId(
         model,
@@ -541,7 +564,8 @@ class AiImageGenerationService {
       }
     }
     final referenceImageDataUrls =
-        _usesAgnesMediaApi(model.protocolType, modelId)
+        (_usesAgnesMediaApi(model.protocolType, modelId) ||
+            model.protocolType == AiProtocolType.minimax)
         ? await _referenceImageDataUrls(referenceImages, kind)
         : const <String>[];
     final body = AiOperationHttp.mergeBodyExtras(
@@ -646,6 +670,12 @@ class AiImageGenerationService {
     }
 
     final decoded = _decodeJsonForKind(response.body, kind);
+    _throwIfMiniMaxProviderFailed(
+      decoded,
+      kind: kind,
+      protocol: model.protocolType,
+      rawResponseBody: response.body,
+    );
     final initialMarkdown = await _buildMarkdownFromMediaResponse(
       decoded: decoded,
       kind: kind,
@@ -762,11 +792,16 @@ class AiImageGenerationService {
     if (kind.isAudio) {
       return switch (protocol) {
         // MiniMax T2A v2 endpoint.
+        AiProtocolType.minimax when _isMiniMaxMusicModel(modelId) =>
+          const <String>['music_generation'],
         AiProtocolType.minimax => const <String>['t2a_v2'],
         _ => const <String>['audio', 'speech'],
       };
     }
-    return const <String>['images', 'generations'];
+    return switch (protocol) {
+      AiProtocolType.minimax => const <String>['image_generation'],
+      _ => const <String>['images', 'generations'],
+    };
   }
 
   Map<String, String> _buildHeaders(
@@ -892,6 +927,61 @@ class AiImageGenerationService {
       }
       return body;
     }
+    if (protocol == AiProtocolType.minimax) {
+      final requestedFormat = optionalLowercaseStringFromValue(
+        options.outputFormat,
+      );
+      final responseFormat =
+          requestedFormat == 'base64' || requestedFormat == 'b64_json'
+          ? 'base64'
+          : 'url';
+      final body = <String, Object?>{
+        'model': modelId,
+        'prompt': prompt,
+        'response_format': responseFormat,
+        'n': options.count.clamp(1, 9).toInt(),
+        if (options.promptEnhance != null)
+          'prompt_optimizer': options.promptEnhance,
+        if (options.watermark != null) 'aigc_watermark': options.watermark,
+        if (options.seed != null) 'seed': options.seed,
+      };
+      final aspectRatio = nullIfBlank(options.aspectRatio);
+      if (aspectRatio != null) {
+        body['aspect_ratio'] = aspectRatio;
+      } else {
+        final size = _parsePixelSize(options.size);
+        if (size != null &&
+            size.width >= 512 &&
+            size.width <= 2048 &&
+            size.height >= 512 &&
+            size.height <= 2048 &&
+            size.width % 8 == 0 &&
+            size.height % 8 == 0) {
+          body['width'] = size.width;
+          body['height'] = size.height;
+        }
+      }
+      final style = nullIfBlank(options.style);
+      if (modelId.toLowerCase() == 'image-01-live' &&
+          style != null &&
+          _miniMaxImageStyles.contains(style)) {
+        body['style'] = <String, Object?>{
+          'style_type': style,
+          'style_weight': 0.8,
+        };
+      }
+      if (referenceImageDataUrls.isNotEmpty) {
+        body['subject_reference'] = referenceImageDataUrls
+            .map(
+              (image) => <String, Object?>{
+                'type': 'character',
+                'image_file': image,
+              },
+            )
+            .toList(growable: false);
+      }
+      return body;
+    }
     final body = <String, Object?>{
       'model': modelId,
       'prompt': prompt,
@@ -972,13 +1062,35 @@ class AiImageGenerationService {
         }
         return body;
       case AiProtocolType.minimax:
-        // MiniMax `/v1/video_generation`:
-        //   `{model, prompt, prompt_optimizer}` — no `n`/`response_format`.
-        return <String, Object?>{
+        final normalizedModelId = lowercaseStringFromValue(modelId);
+        final subjectReference = normalizedModelId.startsWith('s2v-');
+        final body = <String, Object?>{
           'model': modelId,
           'prompt': prompt,
           'prompt_optimizer': options.promptEnhance ?? true,
+          if (options.watermark != null) 'aigc_watermark': options.watermark,
         };
+        if (subjectReference && referenceImageDataUrls.isNotEmpty) {
+          body['subject_reference'] = <Map<String, Object?>>[
+            <String, Object?>{
+              'type': 'character',
+              'image': <String>[referenceImageDataUrls.first],
+            },
+          ];
+          return body;
+        }
+        if (referenceImageDataUrls.isNotEmpty) {
+          body['first_frame_image'] = referenceImageDataUrls.first;
+        }
+        if (referenceImageDataUrls.length > 1) {
+          body['last_frame_image'] = referenceImageDataUrls[1];
+        }
+        if (options.durationSeconds != null) {
+          body['duration'] = options.durationSeconds;
+        }
+        final resolution = nullIfBlank(options.resolution);
+        if (resolution != null) body['resolution'] = resolution.toUpperCase();
+        return body;
       case AiProtocolType.qwen:
         // DashScope native shape (works through compatible-mode passthrough):
         //   `{model, input:{prompt}, parameters:{size, duration}}`.
@@ -1336,6 +1448,10 @@ class AiImageGenerationService {
     return lowercaseStringFromValue(modelId).startsWith('agnes-');
   }
 
+  static bool _isMiniMaxMusicModel(String modelId) {
+    return lowercaseStringFromValue(modelId).contains('music');
+  }
+
   Map<String, Object?> _buildAudioBody({
     required String modelId,
     required String prompt,
@@ -1390,6 +1506,21 @@ class AiImageGenerationService {
           'parameters': parameters,
         };
       case AiProtocolType.minimax:
+        if (_isMiniMaxMusicModel(modelId)) {
+          return <String, Object?>{
+            'model': modelId,
+            'prompt': prompt,
+            'stream': false,
+            'output_format': 'url',
+            'is_instrumental': true,
+            'audio_setting': <String, Object?>{
+              'sample_rate': options.sampleRate ?? 44100,
+              'bitrate': options.bitrate ?? 256000,
+              'format': format == 'pcm' ? 'wav' : format,
+            },
+            if (options.watermark != null) 'aigc_watermark': options.watermark,
+          };
+        }
         // MiniMax T2A v2 (`/v1/t2a_v2`):
         //   `{model, text, voice_setting:{voice_id, speed, vol, pitch},
         //     audio_setting:{sample_rate, bitrate, format}}`.
@@ -1397,16 +1528,43 @@ class AiImageGenerationService {
           'model': modelId,
           'text': prompt,
           'voice_setting': <String, Object?>{
-            'voice_id': voice ?? 'female-shaonv',
+            'voice_id': options.timbreWeights.isEmpty
+                ? voice ?? 'female-shaonv'
+                : '',
             'speed': options.speed ?? 1.0,
             'vol': options.volume ?? 1.0,
-            'pitch': options.pitch ?? 0,
+            'pitch': (options.pitch ?? 0).round(),
+            if (nullIfBlank(options.emotion) != null)
+              'emotion': options.emotion,
+            if (options.textNormalization != null)
+              'text_normalization': options.textNormalization,
+            if (options.latexRead != null) 'latex_read': options.latexRead,
           },
           'audio_setting': <String, Object?>{
             'sample_rate': options.sampleRate ?? 32000,
             'bitrate': options.bitrate ?? 128000,
             'format': format,
+            if (options.channel != null) 'channel': options.channel,
+            if (options.forceCbr != null) 'force_cbr': options.forceCbr,
           },
+          if (options.pronunciationTone.isNotEmpty)
+            'pronunciation_dict': <String, Object?>{
+              'tone': options.pronunciationTone,
+            },
+          if (options.timbreWeights.isNotEmpty)
+            'timbre_weights': options.timbreWeights,
+          if (nullIfBlank(options.languageBoost) != null)
+            'language_boost': options.languageBoost,
+          if (options.voiceModify.isNotEmpty)
+            'voice_modify': options.voiceModify,
+          if (options.subtitleEnable != null)
+            'subtitle_enable': options.subtitleEnable,
+          if (nullIfBlank(options.subtitleType) != null)
+            'subtitle_type': options.subtitleType,
+          // URL output avoids retaining a very large hexadecimal response in
+          // memory and lets the bounded media downloader validate the bytes.
+          'output_format': 'url',
+          if (options.watermark != null) 'aigc_watermark': options.watermark,
         };
       case AiProtocolType.seed:
       case AiProtocolType.wenxin:
@@ -1544,9 +1702,25 @@ class AiImageGenerationService {
     required String altText,
   }) async {
     final raw = decoded['data'];
-    if (raw is! List || raw.isEmpty) return '';
+    final List<Object?> entries;
+    if (raw is List) {
+      entries = List<Object?>.from(raw);
+    } else if (raw is Map) {
+      final data = stringKeyedMapFromValue(raw);
+      entries = <Object?>[
+        ..._mediaStrings(
+          data['image_urls'],
+        ).map((url) => <String, Object?>{'url': url}),
+        ..._mediaStrings(
+          data['image_base64'],
+        ).map((value) => <String, Object?>{'b64_json': value}),
+      ];
+    } else {
+      return '';
+    }
+    if (entries.isEmpty) return '';
     final buffer = StringBuffer();
-    for (final entry in raw) {
+    for (final entry in entries) {
       if (entry is! Map) continue;
       final map = entry.cast<String, Object?>();
       // Some providers (DALL·E, Qwen) return a `revised_prompt` that is
@@ -1895,6 +2069,12 @@ class AiImageGenerationService {
       }
       transientFailures = 0;
       final decoded = _decodeJsonForKind(response.body, kind);
+      _throwIfMiniMaxProviderFailed(
+        decoded,
+        kind: kind,
+        protocol: protocol,
+        rawResponseBody: response.body,
+      );
       // MiniMax video task: status==Success carries `file_id` instead of a
       // direct URL. Resolve via /files/retrieve before returning.
       if (protocol == AiProtocolType.minimax && kind.isVideo) {
@@ -2086,8 +2266,15 @@ class AiImageGenerationService {
     }
     try {
       final decoded = jsonDecode(response.body);
-      if (decoded is Map<String, Object?>) {
-        final url = _findFirstString(decoded, const <String>[
+      if (decoded is Map) {
+        final payload = stringKeyedMapFromValue(decoded);
+        _throwIfMiniMaxProviderFailed(
+          payload,
+          kind: _GeneratedMediaKind.video,
+          protocol: AiProtocolType.minimax,
+          rawResponseBody: response.body,
+        );
+        final url = _findFirstString(payload, const <String>[
           'download_url',
           'downloadUrl',
           'backup_download_url',
@@ -2310,6 +2497,33 @@ class AiImageGenerationService {
       }
     }
     return null;
+  }
+
+  List<String> _mediaStrings(Object? value) {
+    if (value is! List) return const <String>[];
+    return value
+        .map(optionalStringFromValue)
+        .whereType<String>()
+        .toList(growable: false);
+  }
+
+  void _throwIfMiniMaxProviderFailed(
+    Map<String, Object?> payload, {
+    required _GeneratedMediaKind kind,
+    required AiProtocolType protocol,
+    required String rawResponseBody,
+  }) {
+    if (protocol != AiProtocolType.minimax) return;
+    final baseResponse = AiOperationHttp.stringKeyedMap(payload['base_resp']);
+    final statusCode = optionalIntFromValue(baseResponse['status_code']);
+    if (statusCode == null || statusCode == 0) return;
+    final statusMessage =
+        optionalStringFromValue(baseResponse['status_msg']) ??
+        'MiniMax request failed.';
+    throw AiMediaGenerationException(
+      '${kind.displayName} generation failed ($statusCode): $statusMessage',
+      rawResponseBody: rawResponseBody,
+    );
   }
 
   String _operationStatus(Map<String, Object?> payload) {

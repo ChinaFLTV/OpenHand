@@ -1,7 +1,7 @@
 import { normalizeDurationMs } from '../util/number';
 
-export const TRANSCRIPT_SCROLL_ACTIVITY_ATTR = 'data-transcript-scroll-active';
-export const TRANSCRIPT_SCROLL_ACTIVITY_SETTLE_MS = 360;
+const TRANSCRIPT_SCROLL_ACTIVITY_ATTR = 'data-transcript-scroll-active';
+const TRANSCRIPT_SCROLL_ACTIVITY_SETTLE_MS = 360;
 const TRANSCRIPT_SCROLL_ACTIVITY_MIN_MS = 80;
 const TRANSCRIPT_SCROLL_ACTIVITY_MAX_MS = 2_000;
 const TRANSCRIPT_SCROLL_ACTIVITY_MAX_WAIT_MS = 3_000;

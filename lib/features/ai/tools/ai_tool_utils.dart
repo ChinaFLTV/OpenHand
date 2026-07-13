@@ -18,6 +18,7 @@ import '../service/fs/ai_file_history_service.dart';
 import '../service/fs/ai_file_mutation_ledger.dart';
 import '../service/fs/ai_file_tracker_service.dart';
 import '../service/runtime/ai_tool_runtime_service.dart';
+import 'ai_tool_execution_context.dart';
 
 class AiToolUtils {
   AiToolUtils._();
@@ -876,6 +877,57 @@ class AiToolUtils {
     return null;
   }
 
+  static Future<AiFileMutationPreparation> prepareFileMutation({
+    required AiToolExecutionContext context,
+    required String toolName,
+    required String operationDescription,
+    required String filePath,
+    required bool fileExists,
+  }) async {
+    final confirmationResult = await requestWriteConfirmation(
+      toolName: toolName,
+      operationDescription: operationDescription,
+      targetPath: filePath,
+      requireWriteConfirmation: context.requireWriteCommandConfirmation,
+      confirmWriteCommand: context.confirmWriteCommand,
+      cancelSignal: context.cancelSignal,
+      timeoutMs: context.metadata['write_confirmation_timeout_ms'] as int?,
+    );
+    if (confirmationResult != null) {
+      return AiFileMutationPreparation(error: confirmationResult);
+    }
+
+    final fileTracker =
+        context.metadata['file_tracker'] as AiFileTrackerService?;
+    final readValidation = await validateReadBeforeMutation(
+      toolName: toolName,
+      filePath: filePath,
+      previouslyReadFiles: context.previouslyReadFiles,
+      requireExistingFileRead: fileExists,
+      fileTracker: fileTracker,
+    );
+    if (readValidation != null) {
+      return AiFileMutationPreparation(error: readValidation);
+    }
+
+    String? versionId;
+    String? beforeContent;
+    if (fileExists) {
+      versionId = await saveFileVersionBeforeMutation(
+        filePath: filePath,
+        sessionId: context.sessionId,
+        toolCallId: context.toolCall.id,
+        fileHistory: context.metadata['file_history'] as AiFileHistoryService?,
+      );
+      beforeContent = await readFileContentForLedger(filePath);
+    }
+    return AiFileMutationPreparation(
+      fileTracker: fileTracker,
+      historyVersionId: versionId,
+      beforeContent: beforeContent,
+    );
+  }
+
   /// 在文件修改前保存历史版本
   ///
   /// 实现 OpenCode 历史版本机制
@@ -1042,6 +1094,30 @@ class AiToolUtils {
       );
       return null;
     });
+  }
+
+  static Future<AiToolExecutionResult?> verifyTextFileWrite({
+    required String toolName,
+    required File file,
+    required String expectedContent,
+  }) async {
+    final String actualContent;
+    try {
+      actualContent = await file.readAsString();
+    } catch (error) {
+      return invalidResult(
+        toolName,
+        'File was written but verification read failed: $error',
+      );
+    }
+    if (actualContent == expectedContent) return null;
+    return invalidResult(
+      toolName,
+      'File was written but verification failed: expected '
+      '${expectedContent.length} characters, read back '
+      '${actualContent.length}. This may indicate a permission issue or '
+      'concurrent modification.',
+    );
   }
 
   static Future<T> _runWithFileMutationLock<T>(
@@ -1688,7 +1764,7 @@ class AiToolUtils {
   // ══════════════════════════════════════════════════════════════════════════
 
   /// 写操作权限确认默认超时时间（5分钟）。
-  /// Group B: 调用方可传 [timeoutMs] 覆盖默认值。
+  /// 调用方可传 [timeoutMs] 覆盖默认值。
   static const int _writeConfirmationTimeoutMs = 300000;
 
   static Map<String, Object?> _writeConfirmationMetadata(
@@ -1905,6 +1981,72 @@ class AiToolUtils {
       metadata: metadata,
     );
   }
+}
+
+class AiToolProgressReporter {
+  AiToolProgressReporter({
+    required StringBuffer progress,
+    required this.command,
+    required this.workingDirectory,
+    required this.stopwatch,
+    required this.onUpdate,
+  }) : _progress = progress;
+
+  final StringBuffer _progress;
+  final String command;
+  final String workingDirectory;
+  final Stopwatch stopwatch;
+  final void Function(BashToolExecutionUpdate update)? onUpdate;
+
+  String get output => _progress.toString().trimRight();
+
+  void emit(String stage, String detail) {
+    if (_progress.isNotEmpty) _progress.writeln();
+    _progress
+      ..writeln('stage: $stage')
+      ..write('detail: $detail');
+    onUpdate?.call(
+      BashToolExecutionUpdate(
+        phase: BashToolExecutionPhase.running,
+        command: command,
+        workingDirectory: workingDirectory,
+        stdout: output,
+        stderr: '',
+        durationMs: stopwatch.elapsedMilliseconds,
+      ),
+    );
+  }
+
+  AiToolExecutionResult errorResult({
+    required BashToolExecutionStatus status,
+    required String message,
+    Map<String, Object?> metadata = const <String, Object?>{},
+  }) {
+    return AiToolExecutionResult(
+      status: status,
+      command: command,
+      workingDirectory: workingDirectory,
+      stdout: output,
+      stderr: message,
+      durationMs: stopwatch.elapsedMilliseconds,
+      resultText: 'status: ${status.storageValue}\nerror: $message',
+      metadata: metadata,
+    );
+  }
+}
+
+class AiFileMutationPreparation {
+  const AiFileMutationPreparation({
+    this.fileTracker,
+    this.historyVersionId,
+    this.beforeContent,
+    this.error,
+  });
+
+  final AiFileTrackerService? fileTracker;
+  final String? historyVersionId;
+  final String? beforeContent;
+  final AiToolExecutionResult? error;
 }
 
 /// 写确认结果内部类型。

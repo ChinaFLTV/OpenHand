@@ -282,13 +282,7 @@ export function SessionsPage() {
       showSnackbar(t('topbar.rename.ok', '已重命名会话'), { tone: 'success' });
       void refresh();
     } catch (e: unknown) {
-      if (e instanceof UnauthorizedError) {
-        location.route('/login', true);
-        return;
-      }
-      const message = e instanceof Error ? e.message : String(e);
-      patchRow(item.id, { busy: false, error: message });
-      showSnackbar(`${t('topbar.rename.failed', '重命名失败')}：${message}`, { tone: 'error' });
+      reportRowActionError(item, e, t('topbar.rename.failed', '重命名失败'));
     }
   }
 
@@ -304,19 +298,24 @@ export function SessionsPage() {
       showSnackbar(t('topbar.delete.ok', '已删除会话'), { tone: 'success' });
       void refresh();
     } catch (e: unknown) {
-      if (e instanceof UnauthorizedError) {
-        location.route('/login', true);
-        return;
-      }
-      const message = e instanceof Error ? e.message : String(e);
-      patchRow(item.id, {
-        busy: false,
-        error: message,
-      });
-      showSnackbar(`${t('topbar.delete.failed', '删除会话失败')}：${message}`, { tone: 'error' });
+      reportRowActionError(item, e, t('topbar.delete.failed', '删除会话失败'));
     } finally {
       setDeleteBusy(false);
     }
+  }
+
+  function reportRowActionError(
+    item: SessionSummary,
+    error: unknown,
+    failureLabel: string,
+  ): void {
+    if (error instanceof UnauthorizedError) {
+      location.route('/login', true);
+      return;
+    }
+    const message = error instanceof Error ? error.message : String(error);
+    patchRow(item.id, { busy: false, error: message });
+    showSnackbar(`${failureLabel}：${message}`, { tone: 'error' });
   }
 
   async function handleExport(item: SessionSummary): Promise<void> {

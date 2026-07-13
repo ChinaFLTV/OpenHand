@@ -36,6 +36,14 @@ class AiSkillManagerTool extends AiTool {
   static const int _maxDescriptionLength = 1024;
   static const int _maxSkillScanEntities = 5000;
   static const int _maxSidecarContentLength = 2 * 1024 * 1024;
+  static const List<String> _supportedActions = <String>[
+    'create',
+    'edit',
+    'delete',
+    'patch',
+    'write_file',
+    'remove_file',
+  ];
   int maxSkillContentLength = 100000;
   static final RegExp _nameRegex = RegExp(r'^[a-z0-9][a-z0-9._-]*$');
   static const Set<String> _allowedWriteSubdirs = <String>{
@@ -57,15 +65,14 @@ class AiSkillManagerTool extends AiTool {
     return run(context.decodedArguments);
   }
 
-  /// Package-private entry point used by tests to exercise the core logic
-  /// without needing to construct a full [AiToolExecutionContext].
+  /// Direct entry point for callers that already have decoded arguments.
   Future<AiToolExecutionResult> run(Map<String, Object?> args) async {
     final startedAt = Stopwatch()..start();
     final action = AiToolUtils.readString(args['action']);
     if (action.isEmpty) {
       return AiToolUtils.invalidResult(
         _toolName,
-        'action is required (one of: create, edit, delete, patch, write_file, remove_file).',
+        'action is required (one of: ${_supportedActions.join(', ')}).',
       );
     }
 
@@ -76,26 +83,32 @@ class AiSkillManagerTool extends AiTool {
         'skills directory is not configured.',
       );
     }
+    if (!_supportedActions.contains(action)) {
+      return AiToolUtils.invalidResult(_toolName, 'Unknown action: $action.');
+    }
+
+    final name = AiToolUtils.readString(args['name']);
+    final nameError = _validateName(name);
+    if (nameError != null) {
+      return AiToolUtils.invalidResult(_toolName, nameError);
+    }
 
     try {
       switch (action) {
         case 'create':
-          return await _create(args, skillsRoot, startedAt);
+          return await _create(args, skillsRoot, name, startedAt);
         case 'edit':
-          return await _edit(args, skillsRoot, startedAt);
+          return await _edit(args, skillsRoot, name, startedAt);
         case 'delete':
-          return await _delete(args, skillsRoot, startedAt);
+          return await _delete(skillsRoot, name, startedAt);
         case 'patch':
-          return await _patch(args, skillsRoot, startedAt);
+          return await _patch(args, skillsRoot, name, startedAt);
         case 'write_file':
-          return await _writeFile(args, skillsRoot, startedAt);
+          return await _writeFile(args, skillsRoot, name, startedAt);
         case 'remove_file':
-          return await _removeFile(args, skillsRoot, startedAt);
+          return await _removeFile(args, skillsRoot, name, startedAt);
         default:
-          return AiToolUtils.invalidResult(
-            _toolName,
-            'Unknown action: $action.',
-          );
+          throw StateError('Unsupported validated action: $action');
       }
     } catch (error, stack) {
       return AiToolUtils.invalidResult(
@@ -112,16 +125,12 @@ class AiSkillManagerTool extends AiTool {
   Future<AiToolExecutionResult> _create(
     Map<String, Object?> args,
     String skillsRoot,
+    String name,
     Stopwatch startedAt,
   ) async {
-    final name = AiToolUtils.readString(args['name']);
     final category = AiToolUtils.readString(args['category']);
     final content = '${args['content'] ?? ''}';
 
-    final nameError = _validateName(name);
-    if (nameError != null) {
-      return AiToolUtils.invalidResult(_toolName, nameError);
-    }
     if (category.isNotEmpty) {
       final categoryError = _validateCategory(category);
       if (categoryError != null) {
@@ -172,15 +181,11 @@ class AiSkillManagerTool extends AiTool {
   Future<AiToolExecutionResult> _edit(
     Map<String, Object?> args,
     String skillsRoot,
+    String name,
     Stopwatch startedAt,
   ) async {
-    final name = AiToolUtils.readString(args['name']);
     final content = '${args['content'] ?? ''}';
 
-    final nameError = _validateName(name);
-    if (nameError != null) {
-      return AiToolUtils.invalidResult(_toolName, nameError);
-    }
     final sizeError = _validateContentSize(content);
     if (sizeError != null) {
       return AiToolUtils.invalidResult(_toolName, sizeError);
@@ -214,16 +219,10 @@ class AiSkillManagerTool extends AiTool {
   }
 
   Future<AiToolExecutionResult> _delete(
-    Map<String, Object?> args,
     String skillsRoot,
+    String name,
     Stopwatch startedAt,
   ) async {
-    final name = AiToolUtils.readString(args['name']);
-    final nameError = _validateName(name);
-    if (nameError != null) {
-      return AiToolUtils.invalidResult(_toolName, nameError);
-    }
-
     final skillContextResult = await _locateSkillContext(skillsRoot, name);
     if (skillContextResult.error != null) {
       return AiToolUtils.invalidResult(_toolName, skillContextResult.error!);
@@ -264,18 +263,14 @@ class AiSkillManagerTool extends AiTool {
   Future<AiToolExecutionResult> _patch(
     Map<String, Object?> args,
     String skillsRoot,
+    String name,
     Stopwatch startedAt,
   ) async {
-    final name = AiToolUtils.readString(args['name']);
     final oldString = '${args['old_string'] ?? ''}';
     final newString = '${args['new_string'] ?? ''}';
     final replaceAll = AiToolUtils.readBool(args['replace_all']) == true;
     final filePathArg = AiToolUtils.readString(args['file_path']);
 
-    final nameError = _validateName(name);
-    if (nameError != null) {
-      return AiToolUtils.invalidResult(_toolName, nameError);
-    }
     if (oldString.isEmpty) {
       return AiToolUtils.invalidResult(
         _toolName,
@@ -374,34 +369,26 @@ class AiSkillManagerTool extends AiTool {
   Future<AiToolExecutionResult> _writeFile(
     Map<String, Object?> args,
     String skillsRoot,
+    String name,
     Stopwatch startedAt,
   ) async {
-    final name = AiToolUtils.readString(args['name']);
-    final filePathArg = AiToolUtils.readString(args['file_path']);
     final content = '${args['content'] ?? ''}';
 
-    final nameError = _validateName(name);
-    if (nameError != null) {
-      return AiToolUtils.invalidResult(_toolName, nameError);
-    }
     final contentSizeError = _validateSidecarContentSize(content);
     if (contentSizeError != null) {
       return AiToolUtils.invalidResult(_toolName, contentSizeError);
     }
-    if (filePathArg.isEmpty) {
-      return AiToolUtils.invalidResult(_toolName, 'file_path is required.');
-    }
-    final skillContextResult = await _locateSkillContext(skillsRoot, name);
-    if (skillContextResult.error != null) {
-      return AiToolUtils.invalidResult(_toolName, skillContextResult.error!);
-    }
-    final skillContext = skillContextResult.context!;
-    final resolved = _resolveSkillSubFile(skillContext, filePathArg);
-    if (resolved.error != null) {
-      return AiToolUtils.invalidResult(_toolName, resolved.error!);
+    final targetResult = await _locateRequiredSkillSubFile(
+      args,
+      skillsRoot,
+      name,
+    );
+    if (targetResult.error != null) {
+      return AiToolUtils.invalidResult(_toolName, targetResult.error!);
     }
 
-    final target = resolved.file!;
+    final skillContext = targetResult.context!;
+    final target = targetResult.file!;
     await writeFileAtomically(target, content);
 
     return AiToolUtils.simpleSuccessResult(
@@ -422,33 +409,24 @@ class AiSkillManagerTool extends AiTool {
   Future<AiToolExecutionResult> _removeFile(
     Map<String, Object?> args,
     String skillsRoot,
+    String name,
     Stopwatch startedAt,
   ) async {
-    final name = AiToolUtils.readString(args['name']);
-    final filePathArg = AiToolUtils.readString(args['file_path']);
-
-    final nameError = _validateName(name);
-    if (nameError != null) {
-      return AiToolUtils.invalidResult(_toolName, nameError);
-    }
-    if (filePathArg.isEmpty) {
-      return AiToolUtils.invalidResult(_toolName, 'file_path is required.');
-    }
-    final skillContextResult = await _locateSkillContext(skillsRoot, name);
-    if (skillContextResult.error != null) {
-      return AiToolUtils.invalidResult(_toolName, skillContextResult.error!);
-    }
-    final skillContext = skillContextResult.context!;
-    final resolved = _resolveSkillSubFile(skillContext, filePathArg);
-    if (resolved.error != null) {
-      return AiToolUtils.invalidResult(_toolName, resolved.error!);
+    final targetResult = await _locateRequiredSkillSubFile(
+      args,
+      skillsRoot,
+      name,
+    );
+    if (targetResult.error != null) {
+      return AiToolUtils.invalidResult(_toolName, targetResult.error!);
     }
 
-    final target = resolved.file!;
+    final skillContext = targetResult.context!;
+    final target = targetResult.file!;
     if (!await target.exists()) {
       return AiToolUtils.invalidResult(
         _toolName,
-        'file_path "$filePathArg" does not exist in skill "$name".',
+        'file_path "${targetResult.relativePath}" does not exist in skill "$name".',
       );
     }
     await target.delete();
@@ -581,6 +559,37 @@ class AiSkillManagerTool extends AiTool {
       );
     }
     return _SkillSubFileResolution(file: File(resolved));
+  }
+
+  Future<_SkillSubFileTargetResult> _locateRequiredSkillSubFile(
+    Map<String, Object?> args,
+    String skillsRoot,
+    String name,
+  ) async {
+    final relativePath = AiToolUtils.readString(args['file_path']);
+    if (relativePath.isEmpty) {
+      return const _SkillSubFileTargetResult(error: 'file_path is required.');
+    }
+    final contextResult = await _locateSkillContext(skillsRoot, name);
+    if (contextResult.error != null) {
+      return _SkillSubFileTargetResult(
+        relativePath: relativePath,
+        error: contextResult.error,
+      );
+    }
+    final context = contextResult.context!;
+    final fileResult = _resolveSkillSubFile(context, relativePath);
+    if (fileResult.error != null) {
+      return _SkillSubFileTargetResult(
+        relativePath: relativePath,
+        error: fileResult.error,
+      );
+    }
+    return _SkillSubFileTargetResult(
+      context: context,
+      file: fileResult.file,
+      relativePath: relativePath,
+    );
   }
 
   /// Validates a sub-path relative to a skill directory. Allowed values are
@@ -756,6 +765,20 @@ class _SkillSubFileResolution {
   const _SkillSubFileResolution({this.file, this.error});
 
   final File? file;
+  final String? error;
+}
+
+class _SkillSubFileTargetResult {
+  const _SkillSubFileTargetResult({
+    this.context,
+    this.file,
+    this.relativePath = '',
+    this.error,
+  });
+
+  final _SkillFileContext? context;
+  final File? file;
+  final String relativePath;
   final String? error;
 }
 

@@ -3,9 +3,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 
 import '../../../../shared/util/input_value_parsing.dart';
-import '../../service/fs/ai_file_history_service.dart';
 import '../../service/fs/ai_file_mutation_ledger.dart';
-import '../../service/fs/ai_file_tracker_service.dart';
 import '../../service/runtime/ai_tool_runtime_service.dart';
 import '../ai_tool.dart';
 import '../ai_tool_execution_context.dart';
@@ -66,50 +64,15 @@ class AiMultiEditTool extends AiTool {
       );
     }
 
-    // 写操作权限确认检查
-    final confirmationResult = await AiToolUtils.requestWriteConfirmation(
+    final preparation = await AiToolUtils.prepareFileMutation(
+      context: context,
       toolName: 'MultiEdit',
       operationDescription:
           'Apply ${edits.length} edit${edits.length > 1 ? 's' : ''} to file',
-      targetPath: filePath,
-      requireWriteConfirmation: context.requireWriteCommandConfirmation,
-      confirmWriteCommand: context.confirmWriteCommand,
-      cancelSignal: context.cancelSignal,
-      timeoutMs: context.metadata['write_confirmation_timeout_ms'] as int?,
-    );
-    if (confirmationResult != null) {
-      return confirmationResult;
-    }
-
-    // 从 metadata 获取追踪服务（遵循 AiToolExecutionContext 冻结约束）
-    final fileTracker =
-        context.metadata['file_tracker'] as AiFileTrackerService?;
-    final fileHistory =
-        context.metadata['file_history'] as AiFileHistoryService?;
-
-    final readValidation = await AiToolUtils.validateReadBeforeMutation(
-      toolName: 'MultiEdit',
       filePath: filePath,
-      previouslyReadFiles: context.previouslyReadFiles,
-      requireExistingFileRead: fileExists,
-      fileTracker: fileTracker,
+      fileExists: fileExists,
     );
-    if (readValidation != null) return readValidation;
-
-    // 保存历史版本（仅对已存在的文件）
-    String? versionId;
-    String? beforeContentForLedger;
-    if (fileExists) {
-      versionId = await AiToolUtils.saveFileVersionBeforeMutation(
-        filePath: filePath,
-        sessionId: context.sessionId,
-        toolCallId: context.toolCall.id,
-        fileHistory: fileHistory,
-      );
-      beforeContentForLedger = await AiToolUtils.readFileContentForLedger(
-        filePath,
-      );
-    }
+    if (preparation.error != null) return preparation.error!;
 
     final AiEditableTextSnapshot editableText;
     if (fileExists) {
@@ -173,28 +136,16 @@ class AiMultiEditTool extends AiTool {
       content: writeContent,
       previouslyReadFiles: context.previouslyReadFiles,
       requireExistingFileRead: fileExists,
-      fileTracker: fileTracker,
+      fileTracker: preparation.fileTracker,
     );
     if (guardedWrite != null) return guardedWrite;
 
-    // 添加写入验证 - 读回文件确认修改已生效
-    final String verificationContent;
-    try {
-      verificationContent = await file.readAsString();
-    } catch (e) {
-      return AiToolUtils.invalidResult(
-        'MultiEdit',
-        'File was written but verification read failed: $e',
-      );
-    }
-    final verificationPassed = verificationContent == writeContent;
-    if (!verificationPassed) {
-      return AiToolUtils.invalidResult(
-        'MultiEdit',
-        'File was written but verification failed: content mismatch after write. '
-            'This may indicate a write permission issue or concurrent modification.',
-      );
-    }
+    final verificationError = await AiToolUtils.verifyTextFileWrite(
+      toolName: 'MultiEdit',
+      file: file,
+      expectedContent: writeContent,
+    );
+    if (verificationError != null) return verificationError;
 
     // ledger 记录双快照
     final mutationLedger =
@@ -206,8 +157,8 @@ class AiMultiEditTool extends AiTool {
       toolName: 'MultiEdit',
       filePath: filePath,
       kind: fileExists ? FileMutationKind.modify : FileMutationKind.create,
-      beforeContent: beforeContentForLedger,
-      afterContent: verificationContent,
+      beforeContent: preparation.beforeContent,
+      afterContent: writeContent,
     );
 
     return AiToolUtils.simpleSuccessResult(
@@ -222,8 +173,9 @@ class AiMultiEditTool extends AiTool {
         'file_mutation_kind': 'multi_edit',
         'file_mutation_path': filePath,
         'file_mutation_edit_count': edits.length,
-        'file_mutation_verified': verificationPassed,
-        if (versionId != null) 'file_mutation_history_version_id': versionId,
+        'file_mutation_verified': true,
+        if (preparation.historyVersionId != null)
+          'file_mutation_history_version_id': preparation.historyVersionId,
         if (ledgerRecordId != null)
           'file_mutation_ledger_record_id': ledgerRecordId,
       },

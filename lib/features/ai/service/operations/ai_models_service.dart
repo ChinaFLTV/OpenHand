@@ -56,7 +56,70 @@ class AiModelsService {
       );
     }
     const family = AiApiFamily.models;
-    final endpoint = _router.resolve(model, family, method: 'GET');
+    final endpoint = model.protocolType == AiProtocolType.minimax
+        ? _router.resolveProviderPath(
+            model,
+            family,
+            path: 'v1/models',
+            method: 'GET',
+          )
+        : _router.resolve(model, family, method: 'GET');
+    final result = await _getModelsJson(
+      model: model,
+      endpoint: endpoint,
+      timeout: timeout,
+      contextHint: 'models',
+    );
+    return AiModelsListResult(
+      models: _parseModelRecords(result.payload),
+      rawResponse: result.rawResponse,
+      payload: result.payload,
+    );
+  }
+
+  Future<AiModelRecord?> retrieveModel({
+    required AiModelConfig model,
+    required String modelId,
+    Duration timeout = AiOperationHttp.defaultRequestTimeout,
+  }) async {
+    final normalizedModelId = nullIfBlank(modelId);
+    if (normalizedModelId == null) {
+      throw ArgumentError.value(modelId, 'modelId', 'Model ID is empty.');
+    }
+    const family = AiApiFamily.models;
+    final modelPath = 'v1/models/${Uri.encodeComponent(normalizedModelId)}';
+    final endpoint = model.protocolType == AiProtocolType.minimax
+        ? _router.resolveProviderPath(
+            model,
+            family,
+            path: modelPath,
+            method: 'GET',
+          )
+        : _router.resolve(
+            model,
+            family,
+            method: 'GET',
+            fallbackPath: modelPath,
+          );
+    final result = await _getModelsJson(
+      model: model,
+      endpoint: endpoint,
+      timeout: timeout,
+      contextHint: 'models/retrieve',
+    );
+    final id = _normalizeModelId(
+      optionalStringFromValue(result.payload['id']) ?? normalizedModelId,
+    );
+    return id == null ? null : AiModelRecord(id: id, payload: result.payload);
+  }
+
+  Future<({Map<String, Object?> payload, String rawResponse})> _getModelsJson({
+    required AiModelConfig model,
+    required AiResolvedEndpoint endpoint,
+    required Duration timeout,
+    required String contextHint,
+  }) async {
+    const family = AiApiFamily.models;
     final response = await _transport.get(
       uri: AiOperationHttp.uriWithExtraQuery(endpoint.url, model, family),
       headers: AiOperationHttp.buildHeaders(
@@ -71,13 +134,10 @@ class AiModelsService {
     final payload = AiOperationHttp.decodeSuccessfulJsonMap(
       statusCode: response.statusCode,
       body: response.body,
-      contextHint: 'models',
+      contextHint: contextHint,
     );
-    return AiModelsListResult(
-      models: _parseModelRecords(payload),
-      rawResponse: response.body,
-      payload: payload,
-    );
+    AiOperationHttp.throwIfProviderFailed(payload, contextHint: contextHint);
+    return (payload: payload, rawResponse: response.body);
   }
 
   Future<AiModelsListResult> _listGeminiModels({

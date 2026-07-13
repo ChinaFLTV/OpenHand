@@ -14,6 +14,7 @@ import '../../../../app/support/openhand_paths.dart';
 import '../../../../app/support/safe_subprocess.dart';
 import '../../../../app/support/silent_log.dart';
 import '../../../../app/support/system_proxy.dart';
+import '../../../../shared/net/http_error_message.dart';
 import '../../../../shared/net/http_status_utils.dart';
 import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/bounded_file_io.dart';
@@ -37,11 +38,15 @@ class AiTtsPlaybackSnapshot {
     this.playing = false,
     this.messageId,
     this.provider,
+    this.error,
+    this.failureId,
   });
 
   final bool playing;
   final String? messageId;
   final AiTtsProvider? provider;
+  final String? error;
+  final int? failureId;
 }
 
 class AiTtsPlaybackService {
@@ -66,7 +71,9 @@ class AiTtsPlaybackService {
   static const int _maxControlResponseBytes = kBytesPerMiB;
   static const int _maxDoubaoFrameChars = 16 * kBytesPerMiB;
   static const int _maxWebSocketEventChars = 16 * kBytesPerMiB;
-  static const int _maxVoiceSampleBytes = 10 * kBytesPerMiB;
+  static const int _mimoMaxVoiceSampleBase64Bytes = 10 * kBytesPerMiB;
+  static const int _mimoMaxVoiceSampleRawBytes =
+      (_mimoMaxVoiceSampleBase64Bytes ~/ 4) * 3;
   static const Duration _fileReadIdleTimeout = Duration(seconds: 15);
   static const Duration _networkIdleTimeout = Duration(seconds: 30);
   static const Duration _resourceCloseTimeout = Duration(seconds: 2);
@@ -94,6 +101,7 @@ class AiTtsPlaybackService {
   static const int _minCompressedAudioBitRate = 24000;
   static const int _maxCompressedAudioBitRate = 320000;
   static const int _pcm16BytesPerSample = 2;
+  static const int _minimumWavBytes = 44;
   static final RegExp _markdownMediaLinkPattern = RegExp(r'\]\(([^)]+)\)');
   static final RegExp _markdownLinkTitlePattern = RegExp(r'\s+"');
   static final RegExp _afinfoDurationPattern = RegExp(
@@ -119,6 +127,7 @@ class AiTtsPlaybackService {
   final ValueNotifier<AiTtsPlaybackSnapshot> state =
       ValueNotifier<AiTtsPlaybackSnapshot>(const AiTtsPlaybackSnapshot());
   int _generation = 0;
+  int _failureSerial = 0;
   int _tempFileSerial = 0;
   _AiTtsOperation? _activeOperation;
   Future<void>? _stalePlaybackCleanupFuture;
@@ -163,10 +172,14 @@ class AiTtsPlaybackService {
     if (content.isEmpty) return;
     final generation = ++_generation;
     final synthesisTimeout = Duration(seconds: normalized.timeoutSeconds);
+    Object? lastError;
+    StackTrace? lastStack;
+    var attemptedProvider = false;
     for (final provider in normalized.providerPriority) {
       if (generation != _generation) return;
       final providerSettings = normalized.provider(provider);
       if (!providerSettings.enabled) continue;
+      attemptedProvider = true;
       final operation = _AiTtsOperation(
         timeout: synthesisTimeout,
         transport: _transportFactory(),
@@ -198,13 +211,27 @@ class AiTtsPlaybackService {
         await _releaseOperation(operation);
         if (error is _AiTtsPlaybackCancelled) return;
         if (generation != _generation) return;
+        lastError = error;
+        lastStack = stack;
         if (!isAiTtsConfigurationError(error)) {
           silentLog('tts', 'provider ${provider.storageKey}', error, stack);
         }
       }
     }
     if (generation == _generation) {
-      state.value = const AiTtsPlaybackSnapshot();
+      final error =
+          lastError ??
+          StateError(
+            attemptedProvider
+                ? 'All configured TTS providers failed.'
+                : 'No enabled TTS provider is available.',
+          );
+      state.value = AiTtsPlaybackSnapshot(
+        messageId: messageId,
+        error: _playbackFailureMessage(error),
+        failureId: ++_failureSerial,
+      );
+      Error.throwWithStackTrace(error, lastStack ?? StackTrace.current);
     }
   }
 
@@ -284,12 +311,36 @@ class AiTtsPlaybackService {
     state.dispose();
   }
 
+  @visibleForTesting
+  Future<void> releaseTrackedFileForTesting(RandomAccessFile file) async {
+    final operation = _AiTtsOperation(
+      timeout: _resourceCloseTimeout,
+      transport: _transportFactory(),
+    );
+    try {
+      final acquired = await operation.acquireFile(
+        Future<RandomAccessFile>.value(file),
+        timeout: _resourceCloseTimeout,
+      );
+      await operation.releaseFile(acquired);
+    } finally {
+      await operation.close();
+    }
+  }
+
   static bool supportsAudioGenerationModel(
     AiModelConfig config,
     String modelId,
   ) {
     final normalizedModelId = modelId.trim();
     if (normalizedModelId.isEmpty) return false;
+    if (config.protocolType == AiProtocolType.minimax &&
+        !AiTtsProviderCatalogs.usesMiniMaxSpeech(
+          protocol: config.protocolType,
+          modelId: normalizedModelId,
+        )) {
+      return false;
+    }
     final candidate = config.copyWith(modelId: normalizedModelId);
     final profile = candidate.profileFor(normalizedModelId);
     final modalities = profile.supportedModalities;
@@ -337,6 +388,15 @@ class AiTtsPlaybackService {
       fallbackModel: fallbackModel,
     );
     var audio = _audioCache.get(cacheKey);
+    if (audio != null &&
+        provider.provider == AiTtsProvider.mimo &&
+        _mimoUsesWavOutput(provider)) {
+      try {
+        _validateMimoWavAudio(audio.bytes);
+      } catch (_) {
+        audio = null;
+      }
+    }
     if (audio == null) {
       audio = await _synthesizeWithProvider(
         provider,
@@ -345,6 +405,10 @@ class AiTtsPlaybackService {
         availableModels: availableModels,
         fallbackModel: fallbackModel,
       );
+      if (provider.provider == AiTtsProvider.mimo &&
+          _mimoUsesWavOutput(provider)) {
+        _validateMimoWavAudio(audio.bytes);
+      }
       _audioCache.put(cacheKey, audio);
     }
     operation.throwIfCancelled();
@@ -450,6 +514,30 @@ class AiTtsPlaybackService {
           'bit_rate',
           fallback: _defaultAiTtsBitRate,
         ),
+        languageBoost: _extraString(settings, 'language_boost'),
+        emotion: _extraString(settings, 'emotion'),
+        textNormalization: _extraBool(settings, 'text_normalization'),
+        latexRead: _extraBool(settings, 'latex_read'),
+        channel: _extraInt(settings, 'channel', fallback: 1),
+        forceCbr: _extraBool(settings, 'force_cbr'),
+        subtitleEnable: _extraBool(settings, 'subtitle_enable'),
+        subtitleType: _extraString(
+          settings,
+          'subtitle_type',
+          fallback: 'sentence',
+        ),
+        pronunciationTone: stringListFromListValue(
+          settings.extra['pronunciation_tone'],
+        ),
+        timbreWeights: settings.extra['timbre_weights'] is List
+            ? (settings.extra['timbre_weights'] as List)
+                  .whereType<Map>()
+                  .map(stringKeyedMapFromValue)
+                  .toList(growable: false)
+            : const <Map<String, Object?>>[],
+        voiceModify: settings.extra['voice_modify'] is Map
+            ? stringKeyedMapFromValue(settings.extra['voice_modify'])
+            : const <String, Object?>{},
       ),
       timeout: operation.remainingSynthesisTime(),
     );
@@ -641,7 +729,13 @@ class AiTtsPlaybackService {
     final endpoint = _endpointOrDefault(settings);
     final uri = Uri.parse(endpoint);
     final model = _extraString(settings, 'model', fallback: 'mimo-v2.5-tts');
-    final audioFormat = _extraString(settings, 'format', fallback: 'wav');
+    final requestedFormat = lowercaseStringFromValue(
+      settings.extra['format'],
+      fallback: aiMimoDefaultAudioFormat,
+    );
+    final audioFormat = requestedFormat == 'mp3'
+        ? 'mp3'
+        : aiMimoDefaultAudioFormat;
     final audio = <String, Object?>{
       'format': audioFormat,
       if (_mimoUsesPresetVoice(model)) 'voice': settings.voice.trim(),
@@ -665,6 +759,7 @@ class AiTtsPlaybackService {
       },
       body: <String, Object?>{
         'model': model,
+        'stream': false,
         'messages': <Object?>[
           <String, Object?>{
             'role': 'user',
@@ -713,7 +808,7 @@ class AiTtsPlaybackService {
     final remaining = operation.remainingSynthesisTime();
     final bytes = await readBoundedFileBytes(
       file,
-      maxBytes: _maxVoiceSampleBytes,
+      maxBytes: _mimoMaxVoiceSampleRawBytes,
       idleTimeout: remaining < _fileReadIdleTimeout
           ? remaining
           : _fileReadIdleTimeout,
@@ -1923,16 +2018,53 @@ class AiTtsPlaybackService {
     if (body is! String || nullIfBlank(body) == null) {
       throw StateError('Mimo TTS returned empty response.');
     }
-    final decoded = jsonDecode(body);
+    final Object? decoded;
+    try {
+      decoded = jsonDecode(body);
+    } on FormatException catch (error) {
+      throw StateError('Mimo TTS returned invalid JSON: ${error.message}');
+    }
+    final businessError = _mimoBusinessError(decoded);
+    if (businessError != null) {
+      throw StateError('Mimo TTS failed: $businessError');
+    }
     final pcm16 = _isPcm16Format(format);
-    final bytes = _decodeBoundedAudioBase64(
-      _chatCompletionAudioData(decoded, providerName: 'Mimo TTS'),
-      maxBytes: pcm16 ? maxAudioBytes - 44 : maxAudioBytes,
-    );
+    final encoded = _chatCompletionAudioData(decoded, providerName: 'Mimo TTS');
+    final Uint8List bytes;
+    try {
+      bytes = _decodeBoundedAudioBase64(
+        _base64AudioData(encoded),
+        maxBytes: pcm16 ? maxAudioBytes - _minimumWavBytes : maxAudioBytes,
+      );
+    } on FormatException {
+      throw StateError('Mimo TTS returned invalid Base64 audio.');
+    }
     if (pcm16) {
+      _validatePcm16Audio(bytes, providerName: 'Mimo TTS');
       return _wavBytesFromPcm16(bytes, sampleRate: sampleRate);
     }
+    final normalizedFormat = lowercaseStringFromValue(format);
+    if (normalizedFormat == 'wav') {
+      _validateMimoWavAudio(bytes);
+    } else if (normalizedFormat == 'mp3') {
+      _validateMimoMp3Audio(bytes);
+    }
     return bytes;
+  }
+
+  @visibleForTesting
+  static Uint8List decodeMimoAudioPayloadForTesting({
+    required String body,
+    String format = aiMimoDefaultAudioFormat,
+    int sampleRate = _defaultAiTtsSampleRate,
+    int maxAudioBytes = _maxAudioResponseBytes,
+  }) {
+    return _decodeMimoAudioPayload(<String, Object?>{
+      'body': body,
+      'format': format,
+      'sample_rate': sampleRate,
+      'max_audio_bytes': maxAudioBytes,
+    });
   }
 
   static String _chatCompletionAudioData(
@@ -1969,6 +2101,144 @@ class AiTtsPlaybackService {
     if (audio is! Map) return null;
     final data = audio['data'] ?? audio['audio'] ?? audio['audio_data'];
     return optionalStringFromValue(data);
+  }
+
+  static String? _mimoBusinessError(Object? decoded) {
+    if (decoded is! Map) return null;
+    final error = decoded['error'];
+    if (error != null) {
+      return extractApiErrorMessage(
+        jsonEncode(<String, Object?>{'error': error}),
+        maxLength: 500,
+        emptyFallback: 'unknown service error',
+      );
+    }
+    final choices = decoded['choices'];
+    if (choices is List && choices.isNotEmpty) return null;
+    final message =
+        optionalStringFromValue(decoded['message']) ??
+        optionalStringFromValue(decoded['msg']) ??
+        optionalStringFromValue(decoded['detail']);
+    final code = optionalStringFromValue(decoded['code']);
+    if (message == null && code == null) return null;
+    return <String>[
+      if (code != null) code,
+      if (message != null) message,
+    ].join(': ');
+  }
+
+  static String _base64AudioData(String value) {
+    final normalized = value.trim();
+    if (!normalized.toLowerCase().startsWith('data:')) return normalized;
+    final separator = normalized.indexOf(',');
+    final metadata = separator < 0
+        ? ''
+        : normalized.substring(0, separator).toLowerCase();
+    if (separator < 0 || !metadata.contains(';base64')) {
+      throw const FormatException('Invalid audio data URL.');
+    }
+    return normalized.substring(separator + 1).trim();
+  }
+
+  static void _validatePcm16Audio(
+    Uint8List bytes, {
+    required String providerName,
+  }) {
+    if (bytes.length < _pcm16BytesPerSample || bytes.length.isOdd) {
+      throw StateError('$providerName returned invalid PCM16 audio.');
+    }
+    final data = ByteData.sublistView(bytes);
+    for (var offset = 0; offset < bytes.length; offset += 2) {
+      if (data.getInt16(offset, Endian.little) != 0) return;
+    }
+    throw StateError('$providerName returned silent PCM16 audio.');
+  }
+
+  static void _validateMimoWavAudio(Uint8List bytes) {
+    if (bytes.length < _minimumWavBytes ||
+        !_asciiEquals(bytes, 0, 'RIFF') ||
+        !_asciiEquals(bytes, 8, 'WAVE')) {
+      throw StateError('Mimo TTS returned invalid WAV audio.');
+    }
+    final data = ByteData.sublistView(bytes);
+    final riffEnd = data.getUint32(4, Endian.little) + 8;
+    if (riffEnd < _minimumWavBytes || riffEnd > bytes.length) {
+      throw StateError('Mimo TTS returned truncated WAV audio.');
+    }
+    var offset = 12;
+    var pcmFormat = false;
+    var blockAlign = 0;
+    var bitsPerSample = 0;
+    var dataOffset = -1;
+    var dataLength = 0;
+    while (offset + 8 <= riffEnd) {
+      final chunkSize = data.getUint32(offset + 4, Endian.little);
+      final chunkDataOffset = offset + 8;
+      final chunkEnd = chunkDataOffset + chunkSize;
+      if (chunkEnd > riffEnd) {
+        throw StateError('Mimo TTS returned malformed WAV chunks.');
+      }
+      if (_asciiEquals(bytes, offset, 'fmt ')) {
+        if (chunkSize < 16) {
+          throw StateError('Mimo TTS returned invalid WAV format metadata.');
+        }
+        final formatTag = data.getUint16(chunkDataOffset, Endian.little);
+        final channels = data.getUint16(chunkDataOffset + 2, Endian.little);
+        final sampleRate = data.getUint32(chunkDataOffset + 4, Endian.little);
+        final byteRate = data.getUint32(chunkDataOffset + 8, Endian.little);
+        blockAlign = data.getUint16(chunkDataOffset + 12, Endian.little);
+        bitsPerSample = data.getUint16(chunkDataOffset + 14, Endian.little);
+        if (channels == 0 ||
+            sampleRate == 0 ||
+            byteRate == 0 ||
+            blockAlign == 0 ||
+            bitsPerSample == 0) {
+          throw StateError('Mimo TTS returned unusable WAV metadata.');
+        }
+        pcmFormat = formatTag == 1;
+      } else if (_asciiEquals(bytes, offset, 'data') && chunkSize > 0) {
+        dataOffset = chunkDataOffset;
+        dataLength = chunkSize;
+      }
+      offset = chunkEnd + (chunkSize.isOdd ? 1 : 0);
+    }
+    if (blockAlign == 0 ||
+        dataOffset < 0 ||
+        dataLength < blockAlign ||
+        dataLength % blockAlign != 0) {
+      throw StateError('Mimo TTS returned empty or incomplete WAV audio.');
+    }
+    if (pcmFormat && bitsPerSample == 16) {
+      final audio = ByteData.sublistView(
+        bytes,
+        dataOffset,
+        dataOffset + dataLength,
+      );
+      for (var sample = 0; sample < dataLength; sample += 2) {
+        if (audio.getInt16(sample, Endian.little) != 0) return;
+      }
+      throw StateError('Mimo TTS returned silent WAV audio.');
+    }
+  }
+
+  static void _validateMimoMp3Audio(Uint8List bytes) {
+    if (bytes.length < 4) {
+      throw StateError('Mimo TTS returned truncated MP3 audio.');
+    }
+    final hasId3Header =
+        bytes[0] == 0x49 && bytes[1] == 0x44 && bytes[2] == 0x33;
+    final hasFrameSync = bytes[0] == 0xff && (bytes[1] & 0xe0) == 0xe0;
+    if (!hasId3Header && !hasFrameSync) {
+      throw StateError('Mimo TTS returned invalid MP3 audio.');
+    }
+  }
+
+  static bool _asciiEquals(Uint8List bytes, int offset, String value) {
+    if (offset < 0 || offset + value.length > bytes.length) return false;
+    for (var index = 0; index < value.length; index += 1) {
+      if (bytes[offset + index] != value.codeUnitAt(index)) return false;
+    }
+    return true;
   }
 
   static bool _isPcm16Format(String format) {
@@ -2084,6 +2354,14 @@ class AiTtsPlaybackService {
     return normalized == null || normalized == 'mimo-v2.5-tts';
   }
 
+  static bool _mimoUsesWavOutput(AiTtsProviderSettings settings) {
+    return lowercaseStringFromValue(
+          settings.extra['format'],
+          fallback: aiMimoDefaultAudioFormat,
+        ) !=
+        'mp3';
+  }
+
   static bool _mimoUsesVoiceClone(String model) {
     return nullIfBlank(model) == 'mimo-v2.5-tts-voiceclone';
   }
@@ -2176,6 +2454,21 @@ class AiTtsPlaybackService {
   static String _shortBody(http.Response response) {
     final body = collapseInlineWhitespace(response.body);
     return clipText(body, 180);
+  }
+
+  static String _playbackFailureMessage(Object error) {
+    final raw = switch (error) {
+      StateError() => error.message,
+      HttpException() => error.message,
+      ProcessException() => error.message,
+      TimeoutException() => error.message ?? 'TTS operation timed out.',
+      _ => error.toString().replaceFirst(RegExp(r'^[^:]+:\s*'), ''),
+    };
+    final normalized = collapseInlineWhitespace(raw);
+    return clipText(
+      normalized.isEmpty ? 'TTS playback failed.' : normalized,
+      400,
+    );
   }
 
   static String _appleScriptString(String value) {
@@ -2552,25 +2845,27 @@ class _AiTtsOperation implements BoundedFileHandleOwner {
 
   Future<void> _closeTrackedFile(RandomAccessFile file) {
     return _fileCloses.putIfAbsent(file, () {
-      return _closeFileSilently(
-        file,
-      ).whenComplete(() => _fileCloses.remove(file));
+      return _closeFileSilently(file).whenComplete(() {
+        _fileCloses.remove(file);
+      });
     });
   }
 
   Future<void> _closeTrackedWebSocket(WebSocket socket) {
     return _webSocketCloses.putIfAbsent(socket, () {
-      return AiTtsPlaybackService._closeWebSocketBounded(
-        socket,
-      ).whenComplete(() => _webSocketCloses.remove(socket));
+      return AiTtsPlaybackService._closeWebSocketBounded(socket).whenComplete(
+        () {
+          _webSocketCloses.remove(socket);
+        },
+      );
     });
   }
 
   Future<void> _terminateProcessOnce(Process process) {
     return _processTerminations.putIfAbsent(process, () {
-      return _terminateProcessSilently(
-        process,
-      ).whenComplete(() => _processTerminations.remove(process));
+      return _terminateProcessSilently(process).whenComplete(() {
+        _processTerminations.remove(process);
+      });
     });
   }
 

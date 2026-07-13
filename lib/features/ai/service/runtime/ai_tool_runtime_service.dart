@@ -341,7 +341,6 @@ class AiToolRuntimeService {
        _agentsControllerProvider = agentsControllerProvider,
        _machineTerminalService = machineTerminalService,
        _toolOutputDirectoryProvider = toolOutputDirectoryProvider {
-    // 02:02:39 初始化完整服务依赖注入的多态工具注册中心
     _toolRegistry = AiToolRegistry.withServiceDependencies(
       bashToolService: _bashToolService,
       hookService: _hookService,
@@ -2026,10 +2025,7 @@ class AiToolRuntimeService {
     return nullIfBlank(value) ?? fallback;
   }
 
-  // 10:27:21
-  // H1: 移除 camelCase 双写字段（hookEventName / sessionId / toolName / toolInput / toolOutput）
-  //     外部 hook 脚本统一使用 snake_case 字段，序列化体积减少约 50%。
-  // M2: 新增 tool_source 字段，hook 脚本可按 builtin/mcp/skill 路由处理逻辑。
+  // Hook payloads use one snake_case schema across all tool sources.
   Map<String, Object?> _toolHookPayload({
     required String eventName,
     required String toolName,

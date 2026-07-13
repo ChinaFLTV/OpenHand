@@ -2,12 +2,12 @@ import { LONG_API_REQUEST_TIMEOUT_MS, apiRequest, type ApiRequestSignalOptions }
 import { normalizeInteger } from '../shared/util/number';
 
 export const KNOWLEDGE_VECTOR_DEFAULT_MAX_POINTS = 600;
-export const KNOWLEDGE_VECTOR_MIN_POINTS = 1;
-export const KNOWLEDGE_VECTOR_MAX_POINTS = 2000;
+const KNOWLEDGE_VECTOR_MIN_POINTS = 1;
+const KNOWLEDGE_VECTOR_MAX_POINTS = 2000;
 
-export type KnowledgeVectorPointKind = 'corpus' | 'match' | 'query';
+type KnowledgeVectorPointKind = 'corpus' | 'match' | 'query';
 
-export interface KnowledgeVectorDistributionPointDto {
+interface KnowledgeVectorDistributionPointDto {
   id: string;
   kind: KnowledgeVectorPointKind;
   title?: string;

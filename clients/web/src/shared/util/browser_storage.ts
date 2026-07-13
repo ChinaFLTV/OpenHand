@@ -1,4 +1,4 @@
-export function getBrowserStorage(): Storage | null {
+function getBrowserStorage(): Storage | null {
   try {
     if (typeof window !== 'undefined') {
       return window.localStorage ?? null;

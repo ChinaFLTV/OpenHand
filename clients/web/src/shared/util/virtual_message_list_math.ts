@@ -8,12 +8,12 @@ export const MESSAGE_LIST_DEFAULT_INITIAL_PAGE_SIZE = 10;
 export const MESSAGE_LIST_VIRTUALIZATION_THRESHOLD = 24;
 export const MESSAGE_LIST_VIRTUALIZATION_OVERSCAN_PX = 560;
 export const MESSAGE_LIST_ESTIMATED_ROW_HEIGHT_PX = 188;
-export const MESSAGE_LIST_MIN_ROW_HEIGHT_PX = 44;
-export const MESSAGE_LIST_MAX_ROW_HEIGHT_PX = 1400;
+const MESSAGE_LIST_MIN_ROW_HEIGHT_PX = 44;
+const MESSAGE_LIST_MAX_ROW_HEIGHT_PX = 1400;
 export const MESSAGE_LIST_GAP_PX = 12;
 /** Open/scroll first range: ~viewport rows + overscan, always from the tail. */
-export const MESSAGE_LIST_INITIAL_VISIBLE_ROWS = 8;
-export const MESSAGE_LIST_INITIAL_OVERSCAN_ROWS = 4;
+const MESSAGE_LIST_INITIAL_VISIBLE_ROWS = 8;
+const MESSAGE_LIST_INITIAL_OVERSCAN_ROWS = 4;
 
 export interface VirtualMessageRange {
   start: number;
@@ -53,7 +53,7 @@ export function virtualMessageTop(
   return prefix[index]! + index * gapPx;
 }
 
-export function virtualMessageBottom(
+function virtualMessageBottom(
   prefix: number[],
   heights: number[],
   index: number,

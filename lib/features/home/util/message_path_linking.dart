@@ -82,34 +82,11 @@ MessageResolvedPath? resolveExistingMessagePath(
   String rawPath,
   List<String> candidateRoots,
 ) {
-  final displayPath = rawPath.trim();
-  if (displayPath.isEmpty || !looksLikeResolvableMessagePath(displayPath)) {
-    return null;
-  }
-  final cacheKey = '${candidateRoots.join('|')}::$displayPath';
+  final request = _prepareMessagePathResolution(rawPath, candidateRoots);
+  if (request == null) return null;
+  final (:displayPath, :cacheKey, :candidates) = request;
   if (_resolvedMessagePathCache.containsKey(cacheKey)) {
     return _resolvedMessagePathCache[cacheKey];
-  }
-
-  final candidates = <String>{};
-  if (displayPath == '~' ||
-      displayPath.startsWith('~/') ||
-      displayPath.startsWith(r'~\')) {
-    candidates.add(
-      OpenHandPaths.normalizePath(
-        displayPath,
-        defaultPath: OpenHandPaths.homeDirectoryPath(),
-      ),
-    );
-  } else if (looksLikeAbsoluteMessagePath(displayPath)) {
-    candidates.add(p.normalize(displayPath));
-  } else {
-    for (final root in candidateRoots) {
-      if (root.trim().isEmpty) {
-        continue;
-      }
-      candidates.add(p.normalize(p.join(root, displayPath)));
-    }
   }
 
   MessageResolvedPath? resolved;
@@ -129,6 +106,43 @@ MessageResolvedPath? resolveExistingMessagePath(
   _rememberResolvedMessagePath(cacheKey, resolved);
   return resolved;
 }
+
+({String displayPath, String cacheKey, Set<String> candidates})?
+_prepareMessagePathResolution(String rawPath, List<String> candidateRoots) {
+  final displayPath = rawPath.trim();
+  if (displayPath.isEmpty || !looksLikeResolvableMessagePath(displayPath)) {
+    return null;
+  }
+
+  final candidates = <String>{};
+  if (displayPath == '~' ||
+      displayPath.startsWith('~/') ||
+      displayPath.startsWith(r'~\')) {
+    candidates.add(
+      OpenHandPaths.normalizePath(
+        displayPath,
+        defaultPath: OpenHandPaths.homeDirectoryPath(),
+      ),
+    );
+  } else if (looksLikeAbsoluteMessagePath(displayPath)) {
+    candidates.add(p.normalize(displayPath));
+  } else {
+    for (final root in candidateRoots) {
+      if (root.trim().isEmpty) continue;
+      candidates.add(p.normalize(p.join(root, displayPath)));
+    }
+  }
+  return (
+    displayPath: displayPath,
+    cacheKey: _resolvedMessagePathCacheKey(displayPath, candidateRoots),
+    candidates: candidates,
+  );
+}
+
+String _resolvedMessagePathCacheKey(
+  String displayPath,
+  List<String> candidateRoots,
+) => '${candidateRoots.join('|')}::$displayPath';
 
 void _rememberResolvedMessagePath(String cacheKey, MessageResolvedPath? value) {
   if (_resolvedMessagePathCache.length >= _resolvedMessagePathCacheLimit) {
@@ -153,7 +167,7 @@ void _rememberResolvedMessagePath(String cacheKey, MessageResolvedPath? value) {
   if (displayPath.isEmpty) {
     return (hit: false, value: null);
   }
-  final cacheKey = '${candidateRoots.join('|')}::$displayPath';
+  final cacheKey = _resolvedMessagePathCacheKey(displayPath, candidateRoots);
   if (_resolvedMessagePathCache.containsKey(cacheKey)) {
     return (hit: true, value: _resolvedMessagePathCache[cacheKey]);
   }
@@ -242,34 +256,11 @@ Future<MessageResolvedPath?> resolveExistingMessagePathAsync(
   String rawPath,
   List<String> candidateRoots,
 ) async {
-  final displayPath = rawPath.trim();
-  if (displayPath.isEmpty || !looksLikeResolvableMessagePath(displayPath)) {
-    return null;
-  }
-  final cacheKey = '${candidateRoots.join('|')}::$displayPath';
+  final request = _prepareMessagePathResolution(rawPath, candidateRoots);
+  if (request == null) return null;
+  final (:displayPath, :cacheKey, :candidates) = request;
   if (_resolvedMessagePathCache.containsKey(cacheKey)) {
     return _resolvedMessagePathCache[cacheKey];
-  }
-
-  final candidates = <String>{};
-  if (displayPath == '~' ||
-      displayPath.startsWith('~/') ||
-      displayPath.startsWith(r'~\')) {
-    candidates.add(
-      OpenHandPaths.normalizePath(
-        displayPath,
-        defaultPath: OpenHandPaths.homeDirectoryPath(),
-      ),
-    );
-  } else if (looksLikeAbsoluteMessagePath(displayPath)) {
-    candidates.add(p.normalize(displayPath));
-  } else {
-    for (final root in candidateRoots) {
-      if (root.trim().isEmpty) {
-        continue;
-      }
-      candidates.add(p.normalize(p.join(root, displayPath)));
-    }
   }
 
   MessageResolvedPath? resolved;
@@ -278,11 +269,10 @@ Future<MessageResolvedPath?> resolveExistingMessagePathAsync(
     if (type == FileSystemEntityType.notFound) {
       continue;
     }
-    final isDirectory = await FileSystemEntity.isDirectory(candidate);
     resolved = MessageResolvedPath(
       displayPath: displayPath,
       resolvedPath: p.normalize(candidate),
-      isDirectory: isDirectory,
+      isDirectory: type == FileSystemEntityType.directory,
     );
     break;
   }
@@ -313,7 +303,10 @@ class MessagePathCodeSyntax extends md.InlineSyntax {
     }
 
     final trailing = text.substring(normalizedPath.length);
-    final resolvedPathCacheKey = '${candidateRoots.join('|')}::$normalizedPath';
+    final resolvedPathCacheKey = _resolvedMessagePathCacheKey(
+      normalizedPath,
+      candidateRoots,
+    );
 
     if (_resolvedMessagePathCache.containsKey(resolvedPathCacheKey)) {
       final resolvedPath = _resolvedMessagePathCache[resolvedPathCacheKey];

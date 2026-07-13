@@ -19,6 +19,7 @@ final class AiOperationHttp {
   static const String _contentTypeHeader = 'content-type';
   static const String _jsonMimeType = 'application/json';
   static const String _xApiKeyHeader = 'x-api-key';
+  static const String _apiKeyHeader = 'api-key';
   static const String _xGoogApiKeyHeader = 'x-goog-api-key';
   static const Duration defaultRequestTimeout = Duration(seconds: 60);
 
@@ -51,6 +52,8 @@ final class AiOperationHttp {
     final headerName = switch (model.authScheme) {
       AiAuthScheme.apiKey when model.protocolType == AiProtocolType.gemini =>
         _xGoogApiKeyHeader,
+      AiAuthScheme.apiKey when model.protocolType == AiProtocolType.mimo =>
+        _apiKeyHeader,
       AiAuthScheme.apiKey => _xApiKeyHeader,
       _ => _authorizationHeader,
     };
@@ -134,6 +137,25 @@ final class AiOperationHttp {
         contextHint: contextHint,
       ),
     );
+  }
+
+  /// Throws when a provider reports an application-level failure inside a
+  /// successful HTTP response. MiniMax consistently returns these failures in
+  /// `base_resp.status_code`, so checking only the HTTP status would otherwise
+  /// turn a useful provider error into a misleading "empty payload" error.
+  static void throwIfProviderFailed(
+    Map<String, Object?> payload, {
+    required String contextHint,
+  }) {
+    final baseResponse = stringKeyedMap(payload['base_resp']);
+    if (baseResponse.isEmpty) return;
+    final statusCode = optionalIntFromValue(baseResponse['status_code']);
+    if (statusCode == null || statusCode == 0) return;
+    final message =
+        optionalStringFromValue(baseResponse['status_msg']) ??
+        optionalStringFromValue(payload['message']) ??
+        'Provider request failed.';
+    throw Exception('$contextHint failed ($statusCode): $message');
   }
 
   static Map<String, Object?> jsonMapOrEmpty(Object? decoded) {

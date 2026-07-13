@@ -1112,6 +1112,11 @@ class AiSessionStatistics {
       cacheCreationTokens: cacheCreationTokens,
       cacheReadTokens: cacheReadTokens,
       reasoningTokens: _readNullableInt(json['reasoning_tokens']),
+      audioInputTokens: _readNullableInt(json['audio_input_tokens']),
+      imageInputTokens: _readNullableInt(json['image_input_tokens']),
+      videoInputTokens: _readNullableInt(json['video_input_tokens']),
+      webSearchToolUsage: _readNullableInt(json['web_search_tool_usage']),
+      webSearchPageUsage: _readNullableInt(json['web_search_page_usage']),
       firstPromptTokens: _readNullableInt(json['first_prompt_tokens']),
       lastPromptSystemMessageCount: _readInt(
         json['last_prompt_system_message_count'],
@@ -1145,6 +1150,11 @@ class AiSessionStatistics {
     this.cacheCreationTokens,
     this.cacheReadTokens,
     this.reasoningTokens,
+    this.audioInputTokens,
+    this.imageInputTokens,
+    this.videoInputTokens,
+    this.webSearchToolUsage,
+    this.webSearchPageUsage,
     this.firstPromptTokens,
     this.lastPromptSystemMessageCount = 0,
     this.lastPromptHistoryMessageCount = 0,
@@ -1172,6 +1182,11 @@ class AiSessionStatistics {
       cacheCreationTokens = null,
       cacheReadTokens = null,
       reasoningTokens = null,
+      audioInputTokens = null,
+      imageInputTokens = null,
+      videoInputTokens = null,
+      webSearchToolUsage = null,
+      webSearchPageUsage = null,
       firstPromptTokens = null,
       lastPromptSystemMessageCount = 0,
       lastPromptHistoryMessageCount = 0,
@@ -1197,6 +1212,11 @@ class AiSessionStatistics {
   final int? cacheCreationTokens;
   final int? cacheReadTokens;
   final int? reasoningTokens;
+  final int? audioInputTokens;
+  final int? imageInputTokens;
+  final int? videoInputTokens;
+  final int? webSearchToolUsage;
+  final int? webSearchPageUsage;
 
   /// 第一轮后台 prompt 的 token 数，主要用于会话累计 Prompt 展示时扣除
   /// 自动标题等非对话请求；缓存命中率趋势按真实模型请求逐点计算。
@@ -1237,6 +1257,11 @@ class AiSessionStatistics {
     int? cacheCreationTokens,
     int? cacheReadTokens,
     int? reasoningTokens,
+    int? audioInputTokens,
+    int? imageInputTokens,
+    int? videoInputTokens,
+    int? webSearchToolUsage,
+    int? webSearchPageUsage,
     int? firstPromptTokens,
     int? lastPromptSystemMessageCount,
     int? lastPromptHistoryMessageCount,
@@ -1268,6 +1293,11 @@ class AiSessionStatistics {
       cacheCreationTokens: cacheCreationTokens ?? this.cacheCreationTokens,
       cacheReadTokens: cacheReadTokens ?? this.cacheReadTokens,
       reasoningTokens: reasoningTokens ?? this.reasoningTokens,
+      audioInputTokens: audioInputTokens ?? this.audioInputTokens,
+      imageInputTokens: imageInputTokens ?? this.imageInputTokens,
+      videoInputTokens: videoInputTokens ?? this.videoInputTokens,
+      webSearchToolUsage: webSearchToolUsage ?? this.webSearchToolUsage,
+      webSearchPageUsage: webSearchPageUsage ?? this.webSearchPageUsage,
       firstPromptTokens: firstPromptTokens ?? this.firstPromptTokens,
       lastPromptSystemMessageCount:
           lastPromptSystemMessageCount ?? this.lastPromptSystemMessageCount,
@@ -1300,6 +1330,11 @@ class AiSessionStatistics {
       'cache_creation_tokens': cacheCreationTokens,
       'cache_read_tokens': cacheReadTokens,
       'reasoning_tokens': reasoningTokens,
+      'audio_input_tokens': audioInputTokens,
+      'image_input_tokens': imageInputTokens,
+      'video_input_tokens': videoInputTokens,
+      'web_search_tool_usage': webSearchToolUsage,
+      'web_search_page_usage': webSearchPageUsage,
       'first_prompt_tokens': firstPromptTokens,
       'last_prompt_system_message_count': lastPromptSystemMessageCount,
       'last_prompt_history_message_count': lastPromptHistoryMessageCount,
@@ -1392,6 +1427,11 @@ class AiSessionStatistics {
       cacheCreationTokens: totalUsage.cacheCreationTokens,
       cacheReadTokens: totalUsage.cacheReadTokens,
       reasoningTokens: totalUsage.reasoningTokens,
+      audioInputTokens: totalUsage.audioInputTokens,
+      imageInputTokens: totalUsage.imageInputTokens,
+      videoInputTokens: totalUsage.videoInputTokens,
+      webSearchToolUsage: totalUsage.webSearchToolUsage,
+      webSearchPageUsage: totalUsage.webSearchPageUsage,
       firstPromptTokens: firstPromptTokens,
       lastPromptSystemMessageCount: lastPromptSystemMessageCount,
       lastPromptHistoryMessageCount: lastPromptHistoryMessageCount,

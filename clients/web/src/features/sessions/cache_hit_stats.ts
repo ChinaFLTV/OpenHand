@@ -29,14 +29,14 @@ export interface CacheHitDisplayData {
 export const DEFAULT_CACHE_HIT_DISPLAY_MODE: CacheHitDisplayMode =
   'excludeExpiredMisses';
 
-export const CACHE_HIT_EXPIRY_IDLE_GAP_SECONDS = 30 * 60;
-export const CACHE_HIT_EXPIRY_RATIO_THRESHOLD = 0.03;
+const CACHE_HIT_EXPIRY_IDLE_GAP_SECONDS = 30 * 60;
+const CACHE_HIT_EXPIRY_RATIO_THRESHOLD = 0.03;
 
 export function isFirstCacheHitRequest(point: CacheHitTrendPoint): boolean {
   return point.turnIndex <= 1;
 }
 
-export function isExpiredCacheMiss(point: CacheHitTrendPoint): boolean {
+function isExpiredCacheMiss(point: CacheHitTrendPoint): boolean {
   const gap = point.idleGapSeconds ?? 0;
   return (
     gap > CACHE_HIT_EXPIRY_IDLE_GAP_SECONDS &&
@@ -44,7 +44,7 @@ export function isExpiredCacheMiss(point: CacheHitTrendPoint): boolean {
   );
 }
 
-export function trendPointUncachedPromptTokens(
+function trendPointUncachedPromptTokens(
   point: CacheHitTrendPoint,
   claudeStyle: boolean,
 ): number {
@@ -55,7 +55,7 @@ export function trendPointUncachedPromptTokens(
   return Math.max(0, prompt - read - write);
 }
 
-export function cacheHitAverageRatio(
+function cacheHitAverageRatio(
   points: CacheHitTrendPoint[],
   claudeStyle: boolean,
   fallback = 0,

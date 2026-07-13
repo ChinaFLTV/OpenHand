@@ -214,19 +214,19 @@ class WebSearchPerEngineLog {
   };
 }
 
-class WebSearchEngineStat {
+class WebSearchEngineStat extends WebEngineStatBase {
   const WebSearchEngineStat({
-    required this.totalCalls,
-    required this.successCalls,
-    required this.totalDurationMs,
+    required super.totalCalls,
+    required super.successCalls,
+    required super.totalDurationMs,
     required this.totalHits,
-    this.lastError,
-    this.lastFailureAt,
-    this.lastInvokedAt,
-    this.consecutiveFailures = 0,
-    this.cooldownUntilMs,
-    this.lastQuotaError,
-    this.lastQuotaAt,
+    super.lastError,
+    super.lastFailureAt,
+    super.lastInvokedAt,
+    super.consecutiveFailures,
+    super.cooldownUntilMs,
+    super.lastQuotaError,
+    super.lastQuotaAt,
   });
 
   factory WebSearchEngineStat.fromJson(
@@ -253,39 +253,16 @@ class WebSearchEngineStat {
     lastQuotaAt: webEngineOptionalNonNegativeIntFromValue(m['last_quota_at']),
   );
 
-  final int totalCalls;
-  final int successCalls;
-  final int totalDurationMs;
   final int totalHits;
-  final String? lastError;
-  final int? lastFailureAt;
-  final int? lastInvokedAt;
-  final int consecutiveFailures;
-  final int? cooldownUntilMs;
-  final String? lastQuotaError;
-  final int? lastQuotaAt;
-
-  double get successRate => totalCalls == 0 ? 0 : successCalls / totalCalls;
-  double get avgDurationMs =>
-      totalCalls == 0 ? 0 : totalDurationMs / totalCalls;
-
-  bool isInCooldown([int? nowMs]) {
-    final now = nowMs ?? DateTime.now().millisecondsSinceEpoch;
-    return cooldownUntilMs != null && cooldownUntilMs! > now;
-  }
 }
 
-/// 单次引擎调用采样（趋势图用）。
-class WebSearchEngineSample {
+class WebSearchEngineSample extends WebEngineSampleBase {
   const WebSearchEngineSample({
-    required this.timestampMs,
-    required this.durationMs,
-    required this.success,
+    required super.timestampMs,
+    required super.durationMs,
+    required super.success,
     required this.hitCount,
   });
 
-  final int timestampMs;
-  final int durationMs;
-  final bool success;
   final int hitCount;
 }

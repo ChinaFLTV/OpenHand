@@ -102,23 +102,13 @@ class AiWebSearchTool extends AiTool {
           ? 'mode: parallel (workers=${settings.parallelWorkers})'
           : 'mode: serial',
     );
-
-    void emit(String stage, String detail) {
-      if (progress.isNotEmpty) progress.writeln();
-      progress
-        ..writeln('stage: $stage')
-        ..write('detail: $detail');
-      context.onBashUpdate?.call(
-        BashToolExecutionUpdate(
-          phase: BashToolExecutionPhase.running,
-          command: command,
-          workingDirectory: workingDirectory,
-          stdout: progress.toString().trimRight(),
-          stderr: '',
-          durationMs: stopwatch.elapsedMilliseconds,
-        ),
-      );
-    }
+    final progressReporter = AiToolProgressReporter(
+      progress: progress,
+      command: command,
+      workingDirectory: workingDirectory,
+      stopwatch: stopwatch,
+      onUpdate: context.onBashUpdate,
+    );
 
     Map<String, Object?> meta({
       int? resultCount,
@@ -185,29 +175,19 @@ class AiWebSearchTool extends AiTool {
       );
     }
 
-    AiToolExecutionResult timedOut(String message) => AiToolExecutionResult(
-      status: BashToolExecutionStatus.timedOut,
-      command: command,
-      workingDirectory: workingDirectory,
-      stdout: progress.toString().trimRight(),
-      stderr: message,
-      durationMs: stopwatch.elapsedMilliseconds,
-      resultText: 'status: timed_out\nerror: $message',
+    AiToolExecutionResult errorResult(
+      BashToolExecutionStatus status,
+      String message,
+    ) => progressReporter.errorResult(
+      status: status,
+      message: message,
       metadata: meta(),
     );
 
-    AiToolExecutionResult failed(String message) => AiToolExecutionResult(
-      status: BashToolExecutionStatus.failed,
-      command: command,
-      workingDirectory: workingDirectory,
-      stdout: progress.toString().trimRight(),
-      stderr: message,
-      durationMs: stopwatch.elapsedMilliseconds,
-      resultText: 'status: failed\nerror: $message',
-      metadata: meta(),
+    progressReporter.emit(
+      'searching',
+      'Dispatching to enabled search engines.',
     );
-
-    emit('searching', 'Dispatching to enabled search engines.');
 
     // 优先查本地缓存：同一 query+设置在 TTL 内直接复用 summary。
     final cacheKey = WebSearchCacheStore.computeKey(
@@ -222,7 +202,7 @@ class AiWebSearchTool extends AiTool {
       settings: settings,
     );
     if (cached != null) {
-      emit(
+      progressReporter.emit(
         'cache.hit',
         'Reused cached summary (${cached.summary.length} chars, '
             'expires ${cached.expiresAt.toIso8601String()}).',
@@ -265,7 +245,7 @@ class AiWebSearchTool extends AiTool {
         blockedDomains: blockedDomains,
         cancelSignal: context.cancelSignal,
         onProgress: (p) {
-          emit(
+          progressReporter.emit(
             'engine.${p.kind.name}.${p.stage.name}',
             p.message ??
                 (p.stage == WebSearchProgressStage.succeeded
@@ -281,7 +261,10 @@ class AiWebSearchTool extends AiTool {
         summaryChars: 0,
         errorMessage: 'orchestrator_timeout',
       );
-      return timedOut('WebSearch timed out while contacting search engines.');
+      return errorResult(
+        BashToolExecutionStatus.timedOut,
+        'WebSearch timed out while contacting search engines.',
+      );
     } catch (error) {
       recordTelemetry(
         cacheStatus: 'bypass',
@@ -289,7 +272,8 @@ class AiWebSearchTool extends AiTool {
         summaryChars: 0,
         errorMessage: '$error',
       );
-      return failed(
+      return errorResult(
+        BashToolExecutionStatus.failed,
         AiTransportDiagnosticMessages.friendlyTransportError(
           error,
           contextLabel: 'WebSearch',
@@ -306,7 +290,7 @@ class AiWebSearchTool extends AiTool {
           ? 'All enabled engines returned no results or errored. '
                 'See `engines` metadata for per-engine diagnostics.'
           : 'No search results matched the current filters.';
-      emit('completed', detail);
+      progressReporter.emit('completed', detail);
       recordTelemetry(
         cacheStatus: settings.cacheEnabled ? 'miss-empty' : 'disabled',
         success: !allFailed,
@@ -331,7 +315,10 @@ class AiWebSearchTool extends AiTool {
       );
     }
 
-    emit('summarizing', 'Asking summary model to compose the final answer.');
+    progressReporter.emit(
+      'summarizing',
+      'Asking summary model to compose the final answer.',
+    );
 
     final summaryModel = _resolveSummaryModel(
       settings: settings,
@@ -372,7 +359,10 @@ class AiWebSearchTool extends AiTool {
         summaryModel: summaryModel,
         errorMessage: 'summary_timeout',
       );
-      return timedOut('WebSearch timed out while summarizing the results.');
+      return errorResult(
+        BashToolExecutionStatus.timedOut,
+        'WebSearch timed out while summarizing the results.',
+      );
     } on AiChatException catch (error) {
       final msg = error.message.trim();
       recordTelemetry(
@@ -384,8 +374,14 @@ class AiWebSearchTool extends AiTool {
         errorMessage: msg,
       );
       return AiToolUtils.looksLikeTimeoutMessage(msg)
-          ? timedOut('WebSearch timed out while summarizing the results.')
-          : failed('WebSearch failed while summarizing the results: $msg');
+          ? errorResult(
+              BashToolExecutionStatus.timedOut,
+              'WebSearch timed out while summarizing the results.',
+            )
+          : errorResult(
+              BashToolExecutionStatus.failed,
+              'WebSearch failed while summarizing the results: $msg',
+            );
     } catch (error) {
       final msg = '$error';
       recordTelemetry(
@@ -397,8 +393,12 @@ class AiWebSearchTool extends AiTool {
         errorMessage: msg,
       );
       return AiToolUtils.looksLikeTimeoutMessage(msg)
-          ? timedOut('WebSearch timed out while summarizing the results.')
-          : failed(
+          ? errorResult(
+              BashToolExecutionStatus.timedOut,
+              'WebSearch timed out while summarizing the results.',
+            )
+          : errorResult(
+              BashToolExecutionStatus.failed,
               AiTransportDiagnosticMessages.friendlyTransportError(
                 error,
                 contextLabel: 'WebSearch',
@@ -409,7 +409,7 @@ class AiWebSearchTool extends AiTool {
     final summary = completion.reply.trim();
     final body = summary.isEmpty ? prompt.rawHits : summary;
 
-    emit('completed', 'Search summary is ready.');
+    progressReporter.emit('completed', 'Search summary is ready.');
 
     final engineSummaries = orchestrationResult.engineRuns
         .map(

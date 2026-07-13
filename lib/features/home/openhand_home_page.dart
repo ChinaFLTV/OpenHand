@@ -66,6 +66,7 @@ import '../../shared/ui/highlight_pulse.dart';
 import '../../shared/ui/image_editor_dialog.dart';
 import '../../shared/ui/interactive_image_preview.dart';
 import '../../shared/ui/markdown_math.dart';
+import '../../shared/ui/media_preview_dialog.dart';
 import '../../shared/ui/micro_press_feedback.dart';
 import '../../shared/ui/model_search_selector.dart';
 import '../../shared/ui/motion_preference.dart';
@@ -2191,7 +2192,18 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         left.sampleRate == right.sampleRate &&
         left.bitrate == right.bitrate &&
         left.volume == right.volume &&
-        left.pitch == right.pitch;
+        left.pitch == right.pitch &&
+        left.languageBoost == right.languageBoost &&
+        left.emotion == right.emotion &&
+        left.textNormalization == right.textNormalization &&
+        left.latexRead == right.latexRead &&
+        left.channel == right.channel &&
+        left.forceCbr == right.forceCbr &&
+        left.subtitleEnable == right.subtitleEnable &&
+        left.subtitleType == right.subtitleType &&
+        listEquals(left.pronunciationTone, right.pronunciationTone) &&
+        jsonEncode(left.timbreWeights) == jsonEncode(right.timbreWeights) &&
+        jsonEncode(left.voiceModify) == jsonEncode(right.voiceModify);
   }
 
   void _syncComposerDraftForSession(String? nextSessionId) {
@@ -6017,7 +6029,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       return;
     }
     final unsupportedAttachmentCount = pendingAttachments
-        .where((item) => !attachmentCapabilities.supportsKind(item.kind))
+        .where((item) => !attachmentCapabilities.supportsPath(item.filePath))
         .length;
     if (unsupportedAttachmentCount > 0) {
       _showAttachmentAppendNotices(
@@ -6415,14 +6427,14 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       selectedModel,
     );
     if (pendingAttachments.any(
-      (item) => !attachmentCapabilities.supportsKind(item.kind),
+      (item) => !attachmentCapabilities.supportsPath(item.filePath),
     )) {
       if (mounted) {
         _showAttachmentAppendNotices(
           _AppendComposerAttachmentsResult(
             unsupported: pendingAttachments
                 .where(
-                  (item) => !attachmentCapabilities.supportsKind(item.kind),
+                  (item) => !attachmentCapabilities.supportsPath(item.filePath),
                 )
                 .length,
           ),
@@ -6912,7 +6924,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         continue;
       }
       final kind = aiAttachmentKindForPath(path);
-      if (!capabilities.supportsKind(kind)) {
+      if (!capabilities.supportsPath(path)) {
         unsupportedCount += 1;
         continue;
       }

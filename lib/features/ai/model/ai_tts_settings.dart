@@ -1,5 +1,7 @@
 import '../../../shared/util/input_value_parsing.dart';
 
+const String aiMimoDefaultAudioFormat = 'wav';
+
 const Set<String> _aiTtsConfigurationErrorMarkers = <String>{
   'credentials are incomplete',
   'api key is empty',
@@ -236,7 +238,7 @@ class AiTtsProviderSettings {
         return const AiTtsProviderSettings(
           provider: AiTtsProvider.mimo,
           enabled: false,
-          voice: '冰糖',
+          voice: 'mimo_default',
           language: 'zh-CN',
           speed: 1.0,
           volume: 1.0,
@@ -251,7 +253,7 @@ class AiTtsProviderSettings {
           modelId: '',
           extra: <String, Object?>{
             'model': 'mimo-v2.5-tts',
-            'format': 'wav',
+            'format': aiMimoDefaultAudioFormat,
             'style_prompt': '自然清晰，语速适中，语气友好。',
             'sample_rate': 24000,
             'voice_sample_path': '',
@@ -368,6 +370,16 @@ class AiTtsProviderSettings {
     final defaults = AiTtsProviderSettings.defaults(provider);
     final normalizedVoice = voice.trim();
     final normalizedLanguage = language.trim();
+    final normalizedExtra = Map<String, Object?>.from(extra);
+    if (provider == AiTtsProvider.mimo) {
+      final format = lowercaseStringFromValue(
+        normalizedExtra['format'],
+        fallback: aiMimoDefaultAudioFormat,
+      );
+      normalizedExtra['format'] = format == 'mp3'
+          ? 'mp3'
+          : aiMimoDefaultAudioFormat;
+    }
     return copyWith(
       voice: normalizedVoice.isEmpty ? defaults.voice : normalizedVoice,
       language: normalizedLanguage.isEmpty
@@ -384,7 +396,7 @@ class AiTtsProviderSettings {
       region: region.trim(),
       modelConfigId: modelConfigId.trim(),
       modelId: modelId.trim(),
-      extra: Map<String, Object?>.unmodifiable(extra),
+      extra: Map<String, Object?>.unmodifiable(normalizedExtra),
     );
   }
 

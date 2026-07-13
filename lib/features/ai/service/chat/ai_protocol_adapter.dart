@@ -66,6 +66,23 @@ abstract final class AiThinkingRequestPolicy {
     final protocol = model.protocolType;
     final normalizedModelId = lowercaseStringFromValue(model.modelId);
 
+    if (protocol == AiProtocolType.mimo) {
+      body[_thinkingField] = <String, Object?>{
+        'type': enabled ? 'enabled' : 'disabled',
+      };
+      return;
+    }
+
+    // MiniMax's OpenAI-compatible API deliberately uses Anthropic-style
+    // adaptive thinking rather than `reasoning_effort` or
+    // `thinking:{type:enabled}`.
+    if (protocol == AiProtocolType.minimax) {
+      body[_thinkingField] = <String, Object?>{
+        'type': enabled ? 'adaptive' : 'disabled',
+      };
+      return;
+    }
+
     if (_prefersEnableThinking(protocol) ||
         parameters.contains(_enableThinkingField)) {
       _setEnableThinking(body, enabled);
@@ -119,7 +136,17 @@ abstract final class AiThinkingRequestPolicy {
 
   static Object? responsesReasoningFor(AiModelConfig model) {
     if (!shouldApply(model)) return null;
-    if (!model.resolvedThinkingEnabled) return null;
+    if (!model.resolvedThinkingEnabled) {
+      return model.protocolType == AiProtocolType.minimax ||
+              model.protocolType == AiProtocolType.mimo
+          ? const <String, Object?>{'effort': 'none'}
+          : null;
+    }
+    if (model.protocolType == AiProtocolType.minimax) {
+      return <String, Object?>{
+        'effort': model.resolvedReasoningEffort ?? 'medium',
+      };
+    }
     if (!model.resolvedReasoningEffortControlEnabled) return null;
     return <String, Object?>{
       'effort': model.resolvedReasoningEffort ?? 'medium',
@@ -138,6 +165,11 @@ abstract final class AiThinkingRequestPolicy {
     required int maxTokens,
   }) {
     if (!shouldApply(model)) return null;
+    if (model.protocolType == AiProtocolType.minimax) {
+      return <String, Object?>{
+        'type': model.resolvedThinkingEnabled ? 'adaptive' : 'disabled',
+      };
+    }
     // Fable 5 / Mythos 5 reject `thinking: {type: "disabled"}` and use
     // adaptive thinking whenever the field is omitted.
     if (_usesAlwaysOnClaudeAdaptiveThinking(model)) return null;
@@ -327,10 +359,8 @@ abstract final class AiThinkingRequestPolicy {
       AiProtocolType.openai ||
       AiProtocolType.grok ||
       AiProtocolType.deepseek ||
-      AiProtocolType.minimax ||
       AiProtocolType.glm ||
-      AiProtocolType.stepfun ||
-      AiProtocolType.mimo => true,
+      AiProtocolType.stepfun => true,
       AiProtocolType.kimi when normalizedModelId.contains('kimi-k2') => true,
       _ => false,
     };
@@ -346,7 +376,8 @@ abstract final class AiThinkingRequestPolicy {
       AiProtocolType.seed ||
       AiProtocolType.stepfun ||
       AiProtocolType.longcat ||
-      AiProtocolType.hunyuan => true,
+      AiProtocolType.hunyuan ||
+      AiProtocolType.mimo => true,
       AiProtocolType.kimi when !normalizedModelId.contains('kimi-k2') => true,
       _ => false,
     };
@@ -547,11 +578,13 @@ class AiToolDefinition {
     required this.name,
     required this.description,
     required this.parameters,
+    this.strict,
   });
 
   final String name;
   final String description;
   final Map<String, Object?> parameters;
+  final bool? strict;
 
   Map<String, Object?> toOpenAiJson() {
     return <String, Object?>{
@@ -560,6 +593,7 @@ class AiToolDefinition {
         'name': name,
         'description': description,
         'parameters': parameters,
+        if (strict != null) 'strict': strict,
       },
     };
   }
@@ -575,7 +609,7 @@ class AiToolDefinition {
   }
 }
 
-enum AiChatContentPartKind { text, imageFile }
+enum AiChatContentPartKind { text, imageFile, videoFile, audioFile }
 
 class AiChatContentPart {
   const AiChatContentPart._({
@@ -593,6 +627,24 @@ class AiChatContentPart {
     required String mimeType,
   }) : this._(
          kind: AiChatContentPartKind.imageFile,
+         filePath: filePath,
+         mimeType: mimeType,
+       );
+
+  const AiChatContentPart.videoFile({
+    required String filePath,
+    required String mimeType,
+  }) : this._(
+         kind: AiChatContentPartKind.videoFile,
+         filePath: filePath,
+         mimeType: mimeType,
+       );
+
+  const AiChatContentPart.audioFile({
+    required String filePath,
+    required String mimeType,
+  }) : this._(
+         kind: AiChatContentPartKind.audioFile,
          filePath: filePath,
          mimeType: mimeType,
        );
@@ -661,6 +713,8 @@ class AiChatTurn {
       total += switch (part.kind) {
         AiChatContentPartKind.text => part.text?.length ?? 0,
         AiChatContentPartKind.imageFile => 64,
+        AiChatContentPartKind.videoFile => 256,
+        AiChatContentPartKind.audioFile => 128,
       };
     }
     return total;
@@ -1311,14 +1365,18 @@ abstract class AiProtocolAdapter {
   Future<String> encodeFileAsDataUrl({
     required String filePath,
     required String mimeType,
+    int maxBytes = aiMessageAttachmentMaxFileBytes,
   }) async {
-    return 'data:$mimeType;base64,${await encodeFileAsBase64(filePath)}';
+    return 'data:$mimeType;base64,${await encodeFileAsBase64(filePath, maxBytes: maxBytes)}';
   }
 
-  Future<String> encodeFileAsBase64(String filePath) async {
+  Future<String> encodeFileAsBase64(
+    String filePath, {
+    int maxBytes = aiMessageAttachmentMaxFileBytes,
+  }) async {
     final bytes = await readBoundedFileBytes(
       File(filePath),
-      maxBytes: aiMessageAttachmentMaxFileBytes,
+      maxBytes: maxBytes,
       idleTimeout: _inlineImageReadIdleTimeout,
       totalTimeout: _inlineImageReadTotalTimeout,
     );
@@ -1367,6 +1425,7 @@ AiToolDefinition stableToolDefinitionForAiRequest(AiToolDefinition tool) {
     parameters: stableJsonObjectForAiRequest(
       objectRootToolSchemaForAiRequest(tool.parameters),
     ),
+    strict: tool.strict,
   );
 }
 
@@ -1580,6 +1639,9 @@ class OpenAiProtocolAdapter extends AiProtocolAdapter {
     List<AiChatContentPart> parts,
   ) async {
     final payload = <Map<String, Object?>>[];
+    final inlineMaxBytes = protocolType == AiProtocolType.mimo
+        ? aiMimoUnderstandingMaxRawBytes
+        : aiMessageAttachmentMaxFileBytes;
     for (final part in parts) {
       switch (part.kind) {
         case AiChatContentPartKind.text:
@@ -1600,8 +1662,51 @@ class OpenAiProtocolAdapter extends AiProtocolAdapter {
               'url': await encodeFileAsDataUrl(
                 filePath: filePath,
                 mimeType: mimeType,
+                maxBytes: inlineMaxBytes,
               ),
-              'detail': 'auto',
+              'detail': protocolType == AiProtocolType.minimax
+                  ? 'default'
+                  : 'auto',
+            },
+          });
+        case AiChatContentPartKind.videoFile:
+          final filePath = (part.filePath ?? '').trim();
+          final mimeType = (part.mimeType ?? '').trim();
+          if (filePath.isEmpty || mimeType.isEmpty) {
+            continue;
+          }
+          payload.add(<String, Object?>{
+            'type': 'video_url',
+            'video_url': <String, Object?>{
+              'url': await encodeFileAsDataUrl(
+                filePath: filePath,
+                mimeType: mimeType,
+                maxBytes: inlineMaxBytes,
+              ),
+              'detail': protocolType == AiProtocolType.minimax
+                  ? 'default'
+                  : 'auto',
+            },
+          });
+        case AiChatContentPartKind.audioFile:
+          final filePath = (part.filePath ?? '').trim();
+          final mimeType = (part.mimeType ?? '').trim();
+          if (filePath.isEmpty || mimeType.isEmpty) {
+            continue;
+          }
+          payload.add(<String, Object?>{
+            'type': 'input_audio',
+            'input_audio': <String, Object?>{
+              if (protocolType == AiProtocolType.mimo)
+                'data': await encodeFileAsDataUrl(
+                  filePath: filePath,
+                  mimeType: mimeType,
+                  maxBytes: inlineMaxBytes,
+                )
+              else ...<String, Object?>{
+                'data': await encodeFileAsBase64(filePath),
+                'format': _audioFormatForMimeType(mimeType),
+              },
             },
           });
       }
@@ -1955,6 +2060,14 @@ class OpenAiProtocolAdapter extends AiProtocolAdapter {
     if (decoded is! Map<String, Object?>) {
       throw const FormatException('Unexpected response payload.');
     }
+    try {
+      AiOperationHttp.throwIfProviderFailed(
+        decoded,
+        contextHint: 'chat/completions',
+      );
+    } catch (error) {
+      throw FormatException('$error'.replaceFirst('Exception: ', ''));
+    }
     final choices = decoded['choices'];
     if (choices is! List<dynamic> || choices.isEmpty) {
       throw const FormatException('Missing response choices.');
@@ -2058,6 +2171,510 @@ class OpenAiProtocolAdapter extends AiProtocolAdapter {
         })
         .whereType<AiToolCall>()
         .toList(growable: false);
+  }
+}
+
+/// Xiaomi MiMo's Chat Completions surface is OpenAI-shaped but deliberately
+/// accepts a smaller, stricter field set than OpenAI. Keep its normalization
+/// isolated so generic compatible gateways retain their existing behaviour.
+void _validateMimoModelId(AiModelConfig model) {
+  if (!lowercaseStringFromValue(model.modelId).contains('mimo-v2.5')) {
+    throw ArgumentError.value(
+      model.modelId,
+      'modelId',
+      'MiMo official API only supports the V2.5 model family.',
+    );
+  }
+}
+
+const Set<String> _mimoImageMimeTypes = <String>{
+  'image/jpeg',
+  'image/png',
+  'image/gif',
+  'image/webp',
+  'image/bmp',
+};
+const Set<String> _mimoAudioExtensions = <String>{
+  '.mp3',
+  '.wav',
+  '.flac',
+  '.m4a',
+  '.ogg',
+};
+const Set<String> _mimoAsrExtensions = <String>{'.mp3', '.wav'};
+const int _mimoAsrMaxBase64Bytes = 10 * 1024 * 1024;
+const int aiMimoUnderstandingMaxBase64Bytes = 50 * 1024 * 1024;
+const int aiMimoUnderstandingMaxRawBytes =
+    (aiMimoUnderstandingMaxBase64Bytes ~/ 4) * 3;
+const Set<String> _mimoVideoExtensions = <String>{
+  '.mp4',
+  '.mov',
+  '.avi',
+  '.wmv',
+};
+
+void _validateMimoContentParts(
+  AiModelConfig model,
+  List<AiChatTurn> messages, {
+  bool imagesOnly = false,
+}) {
+  final asrModel = lowercaseStringFromValue(model.modelId) == 'mimo-v2.5-asr';
+  for (final part in messages.expand((message) => message.effectiveParts)) {
+    if (part.kind == AiChatContentPartKind.text) continue;
+    if (model.profileFor(model.modelId).supportsAttachments == false) {
+      throw ArgumentError.value(
+        model.modelId,
+        'modelId',
+        'This MiMo model does not support media input.',
+      );
+    }
+    final mimeType = lowercaseStringFromValue(part.mimeType);
+    final extension = p.extension(part.filePath ?? '').toLowerCase();
+    final supported = asrModel
+        ? part.kind == AiChatContentPartKind.audioFile &&
+              _mimoAsrExtensions.contains(extension)
+        : switch (part.kind) {
+            AiChatContentPartKind.imageFile => _mimoImageMimeTypes.contains(
+              mimeType,
+            ),
+            AiChatContentPartKind.audioFile =>
+              !imagesOnly && _mimoAudioExtensions.contains(extension),
+            AiChatContentPartKind.videoFile =>
+              !imagesOnly && _mimoVideoExtensions.contains(extension),
+            AiChatContentPartKind.text => true,
+          };
+    if (!supported) {
+      throw ArgumentError.value(
+        part.filePath,
+        'filePath',
+        imagesOnly
+            ? 'MiMo Anthropic API only supports JPEG, PNG, GIF, WebP, and BMP images.'
+            : 'Unsupported MiMo media format.',
+      );
+    }
+    final filePath = part.filePath;
+    if (filePath != null) {
+      final file = File(filePath);
+      if (!file.existsSync()) continue;
+      final rawBytes = file.lengthSync();
+      if (rawBytes <= 0) {
+        throw ArgumentError.value(
+          filePath,
+          'filePath',
+          'MiMo media input cannot be empty.',
+        );
+      }
+      final maxBase64Bytes = asrModel
+          ? _mimoAsrMaxBase64Bytes
+          : aiMimoUnderstandingMaxBase64Bytes;
+      final encodedBytes = ((rawBytes + 2) ~/ 3) * 4;
+      if (encodedBytes > maxBase64Bytes) {
+        throw ArgumentError.value(
+          filePath,
+          'filePath',
+          asrModel
+              ? 'MiMo ASR Base64 payload exceeds 10 MB.'
+              : 'MiMo multimodal Base64 payload exceeds 50 MB.',
+        );
+      }
+    }
+  }
+}
+
+class MimoOpenAiProtocolAdapter extends OpenAiProtocolAdapter {
+  const MimoOpenAiProtocolAdapter()
+    : super(
+        AiProtocolType.mimo,
+        visionModelPatterns: const <String>['mimo-v2.5'],
+      );
+
+  static const String _webSearchExtraKey = 'mimo_web_search';
+  static const String _videoExtraKey = 'mimo_video';
+
+  static bool _isAsrModel(AiModelConfig model) =>
+      lowercaseStringFromValue(model.modelId) == 'mimo-v2.5-asr';
+
+  @override
+  Future<Map<String, Object?>> buildBody(
+    AiModelConfig model,
+    List<AiChatTurn> messages, {
+    List<AiToolDefinition> tools = const <AiToolDefinition>[],
+    List<String> responseModalities = const <String>[],
+    bool stream = false,
+    AiInputCacheRuntimeConfig? inputCacheConfig,
+  }) async {
+    _validateMimoModelId(model);
+    final requestMessages = _isAsrModel(model)
+        ? _asrMessages(messages)
+        : messages;
+    _validateMimoContentParts(model, requestMessages);
+    final body = await super.buildBody(
+      model,
+      requestMessages,
+      tools: tools,
+      responseModalities: responseModalities,
+      stream: stream,
+      inputCacheConfig: inputCacheConfig,
+    );
+    _normalizeBody(body, model);
+    return body;
+  }
+
+  @override
+  Future<AiRequestBlueprint> buildChatRequest({
+    required AiModelConfig model,
+    required List<AiChatTurn> messages,
+    List<AiToolDefinition> tools = const <AiToolDefinition>[],
+    List<String> responseModalities = const <String>[],
+    bool stream = false,
+    AiInputCacheRuntimeConfig? inputCacheConfig,
+  }) async {
+    final request = await super.buildChatRequest(
+      model: model,
+      messages: messages,
+      tools: tools,
+      responseModalities: responseModalities,
+      stream: stream,
+      inputCacheConfig: inputCacheConfig,
+    );
+    final body = Map<String, Object?>.from(request.body);
+    final videoOptions = _videoOptions(body.remove(_videoExtraKey));
+    _normalizeBody(
+      body,
+      model,
+      videoFps: videoOptions.$1,
+      videoResolution: videoOptions.$2,
+    );
+    final searchConfig = body.remove(_webSearchExtraKey);
+    final webSearch = _webSearchTool(searchConfig);
+    if (webSearch != null) {
+      final existingTools = body['tools'] is List
+          ? List<Object?>.from(body['tools']! as List)
+          : <Object?>[];
+      existingTools.add(webSearch);
+      body['tools'] = existingTools;
+      body['tool_choice'] = 'auto';
+    }
+    return AiRequestBlueprint(
+      url: request.url,
+      headers: request.headers,
+      body: body,
+    );
+  }
+
+  static void _normalizeBody(
+    Map<String, Object?> body,
+    AiModelConfig model, {
+    double videoFps = 2,
+    String videoResolution = 'default',
+  }) {
+    if (_isAsrModel(model)) {
+      final asrOptions = body['asr_options'] is Map
+          ? stringKeyedMapFromValue(body['asr_options'])
+          : <String, Object?>{'language': 'auto'};
+      final language = lowercaseStringFromValue(
+        asrOptions['language'],
+        fallback: 'auto',
+      );
+      if (language != 'auto' && language != 'zh' && language != 'en') {
+        throw ArgumentError.value(
+          language,
+          'asr_options.language',
+          'MiMo ASR language must be auto, zh, or en.',
+        );
+      }
+      body
+        ..removeWhere(
+          (key, _) =>
+              key != 'model' &&
+              key != 'messages' &&
+              key != 'stream' &&
+              key != 'asr_options',
+        )
+        ..['asr_options'] = <String, Object?>{'language': language};
+      return;
+    }
+    final maxTokens = body.remove('max_tokens');
+    if (maxTokens != null && body['max_completion_tokens'] == null) {
+      body['max_completion_tokens'] = maxTokens;
+    }
+    body.remove('stream_options');
+    body.remove('reasoning_effort');
+    body['thinking'] = <String, Object?>{
+      'type': model.resolvedThinkingEnabled ? 'enabled' : 'disabled',
+    };
+    if (model.resolvedThinkingEnabled) {
+      body.remove('temperature');
+      body.remove('top_p');
+    }
+    _normalizeResponseFormat(body);
+    if (body['tools'] is List && (body['tools']! as List).isNotEmpty) {
+      body['tool_choice'] = 'auto';
+    } else {
+      body.remove('tool_choice');
+    }
+    _normalizeVideoParts(
+      body['messages'],
+      fps: videoFps,
+      mediaResolution: videoResolution,
+    );
+  }
+
+  static void _normalizeResponseFormat(Map<String, Object?> body) {
+    final raw = body['response_format'];
+    if (raw == null) return;
+    if (raw is! Map) {
+      throw ArgumentError.value(
+        raw,
+        'response_format',
+        'MiMo response_format must be an object.',
+      );
+    }
+    final type = lowercaseStringFromValue(raw['type']);
+    if (type == 'json_schema') {
+      body['response_format'] = const <String, Object?>{'type': 'json_object'};
+      return;
+    }
+    if (type != 'text' && type != 'json_object') {
+      throw ArgumentError.value(
+        raw['type'],
+        'response_format.type',
+        'MiMo only supports text and json_object response formats.',
+      );
+    }
+    body['response_format'] = <String, Object?>{'type': type};
+  }
+
+  static List<AiChatTurn> _asrMessages(List<AiChatTurn> messages) {
+    final audioParts = messages
+        .where((message) => message.role == AiChatRole.user)
+        .expand((message) => message.effectiveParts)
+        .where((part) => part.kind == AiChatContentPartKind.audioFile)
+        .toList(growable: false);
+    if (audioParts.length != 1) {
+      throw ArgumentError.value(
+        audioParts.length,
+        'messages',
+        'MiMo ASR requires exactly one MP3 or WAV audio input.',
+      );
+    }
+    return <AiChatTurn>[
+      AiChatTurn(role: AiChatRole.user, content: '', parts: audioParts),
+    ];
+  }
+
+  static (double, String) _videoOptions(Object? raw) {
+    if (raw == null) return (2, 'default');
+    if (raw is! Map) {
+      throw ArgumentError.value(raw, _videoExtraKey, 'Expected an object.');
+    }
+    final config = stringKeyedMapFromValue(raw);
+    final fps = optionalDoubleFromValue(config['fps']) ?? 2;
+    final mediaResolution = lowercaseStringFromValue(
+      config['media_resolution'],
+      fallback: 'default',
+    );
+    if (!fps.isFinite || fps < 0.1 || fps > 10) {
+      throw ArgumentError.value(fps, 'fps', 'MiMo video fps must be 0.1–10.');
+    }
+    if (mediaResolution != 'default' && mediaResolution != 'max') {
+      throw ArgumentError.value(
+        mediaResolution,
+        'media_resolution',
+        'MiMo video resolution must be default or max.',
+      );
+    }
+    return (fps, mediaResolution);
+  }
+
+  @override
+  Future<String> parseAssistantMessage(String rawResponse) async {
+    final text = await super.parseAssistantMessage(rawResponse);
+    final citations = _mimoCitations(rawResponse);
+    final warning = _mimoWebSearchWarning(rawResponse);
+    return trimmedNonEmptyStrings(<String?>[
+      text,
+      if (warning != null) '> 联网搜索提示：$warning',
+      if (citations.isNotEmpty)
+        <String>['### Sources', ...citations].join('\n'),
+    ]).join('\n\n');
+  }
+
+  static void _normalizeVideoParts(
+    Object? rawMessages, {
+    required double fps,
+    required String mediaResolution,
+  }) {
+    if (rawMessages is! List) return;
+    for (final rawMessage in rawMessages) {
+      if (rawMessage is! Map) continue;
+      final content = rawMessage['content'];
+      if (content is! List) continue;
+      for (final rawPart in content) {
+        if (rawPart is! Map) continue;
+        if (rawPart['type'] == 'image_url') {
+          final image = rawPart['image_url'];
+          if (image is Map) image.remove('detail');
+          continue;
+        }
+        if (rawPart['type'] == 'video_url') {
+          final video = rawPart['video_url'];
+          if (video is Map) video.remove('detail');
+          rawPart['fps'] = fps;
+          rawPart['media_resolution'] = mediaResolution;
+        }
+      }
+    }
+  }
+
+  static Map<String, Object?>? _webSearchTool(Object? raw) {
+    if (raw == true) return const <String, Object?>{'type': 'web_search'};
+    if (raw is! Map) return null;
+    final config = stringKeyedMapFromValue(raw);
+    if (optionalBoolFromValue(config['enabled']) == false) return null;
+    int? boundedInt(String key) {
+      final value = config[key];
+      if (value == null) return null;
+      final parsed = optionalPositiveIntFromValue(value);
+      if (parsed == null || parsed > 50) {
+        throw ArgumentError.value(
+          value,
+          key,
+          'MiMo Web Search $key must be an integer from 1 to 50.',
+        );
+      }
+      return parsed;
+    }
+
+    final maxKeyword = boundedInt('max_keyword');
+    final limit = boundedInt('limit');
+    final forceSearch = config['force_search'];
+    if (forceSearch != null && forceSearch is! bool) {
+      throw ArgumentError.value(
+        forceSearch,
+        'force_search',
+        'MiMo Web Search force_search must be boolean.',
+      );
+    }
+    final location = _webSearchLocation(config['user_location']);
+    return <String, Object?>{
+      'type': 'web_search',
+      if (maxKeyword != null) 'max_keyword': maxKeyword,
+      if (forceSearch is bool) 'force_search': forceSearch,
+      if (limit != null) 'limit': limit,
+      if (location.isNotEmpty) 'user_location': location,
+    };
+  }
+
+  static Map<String, Object?> _webSearchLocation(Object? raw) {
+    if (raw == null) return const <String, Object?>{};
+    if (raw is! Map) {
+      throw ArgumentError.value(
+        raw,
+        'user_location',
+        'MiMo Web Search user_location must be an object.',
+      );
+    }
+    final source = stringKeyedMapFromValue(raw);
+    final type = lowercaseStringFromValue(
+      source['type'],
+      fallback: 'approximate',
+    );
+    if (type != 'approximate') {
+      throw ArgumentError.value(
+        type,
+        'user_location.type',
+        'MiMo Web Search only supports approximate locations.',
+      );
+    }
+    double? coordinate(String key, double min, double max) {
+      final value = source[key];
+      if (value == null) return null;
+      final parsed = optionalDoubleFromValue(value);
+      if (parsed == null || !parsed.isFinite || parsed < min || parsed > max) {
+        throw ArgumentError.value(
+          value,
+          'user_location.$key',
+          'MiMo Web Search $key must be from $min to $max.',
+        );
+      }
+      return parsed;
+    }
+
+    final country = optionalStringFromValue(source['country']);
+    final region = optionalStringFromValue(source['region']);
+    final city = optionalStringFromValue(source['city']);
+    final district = optionalStringFromValue(source['district']);
+    final longitude = coordinate('longitude', -180, 180);
+    final latitude = coordinate('latitude', -90, 90);
+    return <String, Object?>{
+      'type': 'approximate',
+      if (country != null) 'country': country,
+      if (region != null) 'region': region,
+      if (city != null) 'city': city,
+      if (district != null) 'district': district,
+      if (longitude != null) 'longitude': longitude,
+      if (latitude != null) 'latitude': latitude,
+    };
+  }
+
+  static List<String> _mimoCitations(String rawResponse) {
+    try {
+      final decoded = jsonDecode(rawResponse);
+      if (decoded is! Map) return const <String>[];
+      final choices = decoded['choices'];
+      if (choices is! List || choices.isEmpty || choices.first is! Map) {
+        return const <String>[];
+      }
+      final message = (choices.first as Map)['message'];
+      if (message is! Map || message['annotations'] is! List) {
+        return const <String>[];
+      }
+      final seen = <String>{};
+      final citations = <String>[];
+      for (final raw in message['annotations'] as List) {
+        if (raw is! Map) continue;
+        final citation = raw['url_citation'] is Map
+            ? stringKeyedMapFromValue(raw['url_citation'])
+            : stringKeyedMapFromValue(raw);
+        final url = optionalStringFromValue(citation['url']);
+        if (url == null || !seen.add(url)) continue;
+        final title =
+            optionalStringFromValue(citation['title']) ??
+            optionalStringFromValue(citation['site_name']) ??
+            url;
+        citations.add('- [$title]($url)');
+      }
+      return citations;
+    } catch (_) {
+      return const <String>[];
+    }
+  }
+
+  static String? _mimoWebSearchWarning(String rawResponse) {
+    try {
+      final decoded = jsonDecode(rawResponse);
+      if (decoded is! Map) return null;
+      for (final candidate in <Object?>[
+        if (decoded['choices'] is List &&
+            (decoded['choices'] as List).isNotEmpty &&
+            (decoded['choices'] as List).first is Map)
+          ((decoded['choices'] as List).first as Map)['message'],
+        decoded['web_search'],
+        decoded['webSearch'],
+      ]) {
+        if (candidate is! Map) continue;
+        final values = stringKeyedMapFromValue(candidate);
+        final message =
+            optionalStringFromValue(values['error_message']) ??
+            optionalStringFromValue(values['errorMessage']) ??
+            optionalStringFromValue(values['message']);
+        if (message != null) return message;
+      }
+    } catch (_) {
+      return null;
+    }
+    return null;
   }
 }
 
@@ -2369,6 +2986,13 @@ class ClaudeProtocolAdapter extends AiProtocolAdapter {
       if (turn.role == AiChatRole.assistant && turn.toolCalls.isNotEmpty) {
         // Assistant message that made tool calls — emit content blocks.
         final contentBlocks = <Map<String, Object?>>[];
+        final reasoning = nullIfBlank(turn.reasoningContent);
+        if (reasoning != null) {
+          contentBlocks.add(<String, Object?>{
+            'type': 'thinking',
+            'thinking': reasoning,
+          });
+        }
         final text = turn.content.trim();
         if (text.isNotEmpty) {
           contentBlocks.add(<String, Object?>{'type': 'text', 'text': text});
@@ -2477,19 +3101,39 @@ class ClaudeProtocolAdapter extends AiProtocolAdapter {
 
   Future<Map<String, Object?>> _mapClaudeMessage(AiChatTurn item) async {
     final contentParts = item.effectiveParts;
+    final reasoning = item.role == AiChatRole.assistant
+        ? nullIfBlank(item.reasoningContent)
+        : null;
     if (contentParts.isEmpty ||
         contentParts.every((part) => part.kind == AiChatContentPartKind.text)) {
       final textContent = contentParts.isEmpty
           ? item.content
           : contentParts.map((part) => part.text ?? '').join('\n\n').trim();
+      if (reasoning != null) {
+        return <String, Object?>{
+          'role': item.role == AiChatRole.user ? 'user' : 'assistant',
+          'content': <Map<String, Object?>>[
+            <String, Object?>{'type': 'thinking', 'thinking': reasoning},
+            if (textContent.isNotEmpty)
+              <String, Object?>{'type': 'text', 'text': textContent},
+          ],
+        };
+      }
       return <String, Object?>{
         'role': item.role == AiChatRole.user ? 'user' : 'assistant',
         'content': textContent,
       };
     }
+    final mappedParts = await _mapClaudeContentParts(contentParts);
+    if (reasoning != null) {
+      mappedParts.insert(0, <String, Object?>{
+        'type': 'thinking',
+        'thinking': reasoning,
+      });
+    }
     return <String, Object?>{
       'role': item.role == AiChatRole.user ? 'user' : 'assistant',
-      'content': await _mapClaudeContentParts(contentParts),
+      'content': mappedParts,
     };
   }
 
@@ -2513,6 +3157,34 @@ class ClaudeProtocolAdapter extends AiProtocolAdapter {
           }
           payload.add(<String, Object?>{
             'type': 'image',
+            'source': <String, Object?>{
+              'type': 'base64',
+              'media_type': mimeType,
+              'data': await encodeFileAsBase64(filePath),
+            },
+          });
+        case AiChatContentPartKind.videoFile:
+          final filePath = (part.filePath ?? '').trim();
+          final mimeType = (part.mimeType ?? '').trim();
+          if (filePath.isEmpty || mimeType.isEmpty) {
+            continue;
+          }
+          payload.add(<String, Object?>{
+            'type': 'video',
+            'source': <String, Object?>{
+              'type': 'base64',
+              'media_type': mimeType,
+              'data': await encodeFileAsBase64(filePath),
+            },
+          });
+        case AiChatContentPartKind.audioFile:
+          final filePath = (part.filePath ?? '').trim();
+          final mimeType = (part.mimeType ?? '').trim();
+          if (filePath.isEmpty || mimeType.isEmpty) {
+            continue;
+          }
+          payload.add(<String, Object?>{
+            'type': 'input_audio',
             'source': <String, Object?>{
               'type': 'base64',
               'media_type': mimeType,
@@ -2545,6 +3217,11 @@ class ClaudeProtocolAdapter extends AiProtocolAdapter {
     final decoded = jsonDecode(rawResponse);
     if (decoded is! Map<String, Object?>) {
       throw const FormatException('Unexpected response payload.');
+    }
+    try {
+      AiOperationHttp.throwIfProviderFailed(decoded, contextHint: 'messages');
+    } catch (error) {
+      throw FormatException('$error'.replaceFirst('Exception: ', ''));
     }
     final content = decoded['content'];
     if (content is! List<dynamic> || content.isEmpty) {
@@ -2619,6 +3296,99 @@ class ClaudeProtocolAdapter extends AiProtocolAdapter {
       calls.add(AiToolCall(id: id, name: name, arguments: arguments));
     }
     return calls;
+  }
+}
+
+/// MiniMax's Anthropic-compatible surface uses the same Messages schema and
+/// stream events as Claude, but is mounted at `/anthropic/v1/messages`.
+class MiniMaxAnthropicProtocolAdapter extends ClaudeProtocolAdapter {
+  const MiniMaxAnthropicProtocolAdapter();
+
+  @override
+  AiProtocolType get protocolType => AiProtocolType.minimax;
+
+  @override
+  String get endpointPath => 'anthropic/v1/messages';
+}
+
+/// MiMo mounts the Anthropic-compatible Messages API below `/anthropic` and
+/// accepts `thinking.type` without Anthropic's budget field.
+class MimoAnthropicProtocolAdapter extends ClaudeProtocolAdapter {
+  const MimoAnthropicProtocolAdapter();
+
+  @override
+  AiProtocolType get protocolType => AiProtocolType.mimo;
+
+  @override
+  String get endpointPath => 'anthropic/v1/messages';
+
+  @override
+  Future<Map<String, Object?>> buildBody(
+    AiModelConfig model,
+    List<AiChatTurn> messages, {
+    List<AiToolDefinition> tools = const <AiToolDefinition>[],
+    List<String> responseModalities = const <String>[],
+    bool stream = false,
+    AiInputCacheRuntimeConfig? inputCacheConfig,
+  }) async {
+    _validateMimoModelId(model);
+    _validateMimoContentParts(model, messages, imagesOnly: true);
+    final body = await super.buildBody(
+      model,
+      messages,
+      tools: tools,
+      responseModalities: responseModalities,
+      stream: stream,
+      inputCacheConfig: inputCacheConfig,
+    );
+    _normalizeBody(body, model);
+    return body;
+  }
+
+  @override
+  Future<AiRequestBlueprint> buildChatRequest({
+    required AiModelConfig model,
+    required List<AiChatTurn> messages,
+    List<AiToolDefinition> tools = const <AiToolDefinition>[],
+    List<String> responseModalities = const <String>[],
+    bool stream = false,
+    AiInputCacheRuntimeConfig? inputCacheConfig,
+  }) async {
+    final request = await super.buildChatRequest(
+      model: model,
+      messages: messages,
+      tools: tools,
+      responseModalities: responseModalities,
+      stream: stream,
+      inputCacheConfig: inputCacheConfig,
+    );
+    final body = Map<String, Object?>.from(request.body);
+    _normalizeBody(body, model);
+    return AiRequestBlueprint(
+      url: request.url,
+      headers: request.headers,
+      body: body,
+    );
+  }
+
+  static void _normalizeBody(Map<String, Object?> body, AiModelConfig model) {
+    body['thinking'] = <String, Object?>{
+      'type': model.resolvedThinkingEnabled ? 'enabled' : 'disabled',
+    };
+    body.remove('output_config');
+    final thinking = body['thinking'];
+    if (thinking is Map) thinking.remove('budget_tokens');
+    if (model.resolvedThinkingEnabled) {
+      body.remove('temperature');
+      body.remove('top_p');
+    }
+  }
+
+  @override
+  bool supportsAttachmentsForModel(AiModelConfig model) {
+    final profile = model.profileFor(model.modelId);
+    return profile.supportsAttachments != false &&
+        profile.supportedModalities.contains(AiModelModality.image);
   }
 }
 
@@ -2851,6 +3621,30 @@ class GeminiProtocolAdapter extends AiProtocolAdapter {
           }
           payload.add(<String, Object?>{'text': text});
         case AiChatContentPartKind.imageFile:
+          final filePath = (part.filePath ?? '').trim();
+          final mimeType = (part.mimeType ?? '').trim();
+          if (filePath.isEmpty || mimeType.isEmpty) {
+            continue;
+          }
+          payload.add(<String, Object?>{
+            'inline_data': <String, Object?>{
+              'mime_type': mimeType,
+              'data': await encodeFileAsBase64(filePath),
+            },
+          });
+        case AiChatContentPartKind.videoFile:
+          final filePath = (part.filePath ?? '').trim();
+          final mimeType = (part.mimeType ?? '').trim();
+          if (filePath.isEmpty || mimeType.isEmpty) {
+            continue;
+          }
+          payload.add(<String, Object?>{
+            'inline_data': <String, Object?>{
+              'mime_type': mimeType,
+              'data': await encodeFileAsBase64(filePath),
+            },
+          });
+        case AiChatContentPartKind.audioFile:
           final filePath = (part.filePath ?? '').trim();
           final mimeType = (part.mimeType ?? '').trim();
           if (filePath.isEmpty || mimeType.isEmpty) {
@@ -3215,11 +4009,14 @@ abstract final class AiProtocolRegistry {
     'vl',
   ];
 
-  /// MIMO: Vision-capable model IDs.
-  static const _mimoVisionPatterns = <String>['vision', 'vl'];
-
   /// MiniMax: M-series text models plus explicit vision/VL variants.
-  static const _minimaxVisionPatterns = <String>['vision', 'vl', 'm2-vl'];
+  static const _minimaxVisionPatterns = <String>[
+    'minimax-m3',
+    'minimax_m3',
+    'vision',
+    'vl',
+    'm2-vl',
+  ];
 
   /// LongCat / JoyCode are OpenAI-compatible providers; treat only explicit
   /// vision model IDs as attachment-capable.
@@ -3325,10 +4122,7 @@ abstract final class AiProtocolRegistry {
           AiProtocolType.meta,
           visionModelPatterns: _metaVisionPatterns,
         ),
-        AiProtocolType.mimo: const OpenAiProtocolAdapter(
-          AiProtocolType.mimo,
-          visionModelPatterns: _mimoVisionPatterns,
-        ),
+        AiProtocolType.mimo: const MimoOpenAiProtocolAdapter(),
         AiProtocolType.hunyuan: const OpenAiProtocolAdapter(
           AiProtocolType.hunyuan,
           visionModelPatterns: _hunyuanVisionPatterns,
@@ -3341,10 +4135,24 @@ abstract final class AiProtocolRegistry {
     return _adapters[protocolType] ?? _adapters[AiProtocolType.openai]!;
   }
 
+  static AiProtocolAdapter adapterForModel(AiModelConfig model) {
+    return switch (model.apiDialect) {
+      AiApiDialect.anthropicNative
+          when model.protocolType == AiProtocolType.minimax =>
+        const MiniMaxAnthropicProtocolAdapter(),
+      AiApiDialect.anthropicNative
+          when model.protocolType == AiProtocolType.mimo =>
+        const MimoAnthropicProtocolAdapter(),
+      AiApiDialect.anthropicNative => const ClaudeProtocolAdapter(),
+      AiApiDialect.geminiNative => const GeminiProtocolAdapter(),
+      AiApiDialect.openAiCompat => adapterFor(model.protocolType),
+    };
+  }
+
   /// Returns `true` when [model] is expected to accept inline image content
   /// parts (e.g. base64-encoded images in the message body).
   static bool supportsInlineImages(AiModelConfig model) {
-    return adapterFor(model.protocolType).supportsAttachmentsForModel(model);
+    return adapterForModel(model).supportsAttachmentsForModel(model);
   }
 }
 
@@ -3539,6 +4347,17 @@ Future<String> _markdownFromOpenAiMediaPayload(
     return '[${sanitizeMarkdownAltText(nullIfBlank(label) ?? fallbackLabel)}]($url)';
   }
   return '';
+}
+
+String _audioFormatForMimeType(String mimeType) {
+  return switch (lowercaseStringFromValue(mimeType)) {
+    'audio/mpeg' || 'audio/mp3' => 'mp3',
+    'audio/wav' || 'audio/wave' || 'audio/x-wav' => 'wav',
+    'audio/flac' || 'audio/x-flac' => 'flac',
+    'audio/mp4' || 'audio/m4a' || 'audio/x-m4a' => 'm4a',
+    'audio/ogg' || 'audio/opus' => 'ogg',
+    _ => 'wav',
+  };
 }
 
 int? _readInt(Object? value) {

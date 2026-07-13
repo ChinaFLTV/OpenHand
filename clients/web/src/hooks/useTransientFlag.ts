@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'preact/hooks';
 import { useTimeoutController } from './useTimeoutController';
 
-export const DEFAULT_TRANSIENT_FEEDBACK_RESET_MS = 1600;
+const DEFAULT_TRANSIENT_FEEDBACK_RESET_MS = 1600;
 
 export interface TransientFlagController {
   active: boolean;

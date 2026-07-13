@@ -10,6 +10,11 @@ class AiTokenUsage {
       cacheCreationTokens: _readInt(json['cache_creation_tokens']),
       cacheReadTokens: _readInt(json['cache_read_tokens']),
       reasoningTokens: _readInt(json['reasoning_tokens']),
+      audioInputTokens: _readInt(json['audio_input_tokens']),
+      imageInputTokens: _readInt(json['image_input_tokens']),
+      videoInputTokens: _readInt(json['video_input_tokens']),
+      webSearchToolUsage: _readInt(json['web_search_tool_usage']),
+      webSearchPageUsage: _readInt(json['web_search_page_usage']),
     );
   }
   const AiTokenUsage({
@@ -19,6 +24,11 @@ class AiTokenUsage {
     this.cacheCreationTokens,
     this.cacheReadTokens,
     this.reasoningTokens,
+    this.audioInputTokens,
+    this.imageInputTokens,
+    this.videoInputTokens,
+    this.webSearchToolUsage,
+    this.webSearchPageUsage,
   });
 
   final int? promptTokens;
@@ -38,13 +48,28 @@ class AiTokenUsage {
   ///   单独区分 reasoning_tokens，此字段保持为 null。
   final int? reasoningTokens;
 
+  final int? audioInputTokens;
+  final int? imageInputTokens;
+  final int? videoInputTokens;
+
+  /// Provider-native Web Search API invocations for this response.
+  final int? webSearchToolUsage;
+
+  /// Web pages returned by the provider-native Web Search API.
+  final int? webSearchPageUsage;
+
   bool get isEmpty =>
       promptTokens == null &&
       completionTokens == null &&
       totalTokens == null &&
       cacheCreationTokens == null &&
       cacheReadTokens == null &&
-      reasoningTokens == null;
+      reasoningTokens == null &&
+      audioInputTokens == null &&
+      imageInputTokens == null &&
+      videoInputTokens == null &&
+      webSearchToolUsage == null &&
+      webSearchPageUsage == null;
 
   Map<String, Object?> toJson() {
     return <String, Object?>{
@@ -54,6 +79,11 @@ class AiTokenUsage {
       'cache_creation_tokens': cacheCreationTokens,
       'cache_read_tokens': cacheReadTokens,
       'reasoning_tokens': reasoningTokens,
+      'audio_input_tokens': audioInputTokens,
+      'image_input_tokens': imageInputTokens,
+      'video_input_tokens': videoInputTokens,
+      'web_search_tool_usage': webSearchToolUsage,
+      'web_search_page_usage': webSearchPageUsage,
     };
   }
 
@@ -68,6 +98,17 @@ class AiTokenUsage {
       ),
       cacheReadTokens: _sumNullable(cacheReadTokens, other.cacheReadTokens),
       reasoningTokens: _sumNullable(reasoningTokens, other.reasoningTokens),
+      audioInputTokens: _sumNullable(audioInputTokens, other.audioInputTokens),
+      imageInputTokens: _sumNullable(imageInputTokens, other.imageInputTokens),
+      videoInputTokens: _sumNullable(videoInputTokens, other.videoInputTokens),
+      webSearchToolUsage: _sumNullable(
+        webSearchToolUsage,
+        other.webSearchToolUsage,
+      ),
+      webSearchPageUsage: _sumNullable(
+        webSearchPageUsage,
+        other.webSearchPageUsage,
+      ),
     );
   }
 

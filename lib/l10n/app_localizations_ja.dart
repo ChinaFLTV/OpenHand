@@ -3908,6 +3908,15 @@ class AppLocalizationsJa extends AppLocalizations {
   String get tokenPopupPrompt => 'プロンプト';
 
   @override
+  String get tokenPopupAudioInput => '音声入力';
+
+  @override
+  String get tokenPopupImageInput => '画像入力';
+
+  @override
+  String get tokenPopupVideoInput => '動画入力';
+
+  @override
   String get tokenPopupCacheRead => 'キャッシュ読込';
 
   @override
@@ -3921,6 +3930,15 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get tokenPopupReasoning => '推論';
+
+  @override
+  String get tokenPopupWebSearchHeading => 'ウェブ検索';
+
+  @override
+  String get tokenPopupWebSearchCalls => '呼び出し回数';
+
+  @override
+  String get tokenPopupWebSearchPages => '参照ページ';
 
   @override
   String get tokenPopupGrandTotal => '合計';

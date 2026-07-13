@@ -273,8 +273,21 @@ class AiTranslationService {
       );
     }
     final systemPrompt = await _loadAiPrompt();
+    final translationModel = model.protocolType == AiProtocolType.mimo
+        ? model.copyWith(
+            modelProfiles: <String, AiModelProfile>{
+              ...model.modelProfiles,
+              model.modelId: model
+                  .profileFor(model.modelId)
+                  .copyWith(
+                    thinkingEnabled: false,
+                    reasoningEffortControlEnabled: false,
+                  ),
+            },
+          )
+        : model;
     final completion = await _chatClient.sendMessage(
-      model: model,
+      model: translationModel,
       messages: <AiChatTurn>[
         AiChatTurn(role: AiChatRole.system, content: systemPrompt),
         AiChatTurn(

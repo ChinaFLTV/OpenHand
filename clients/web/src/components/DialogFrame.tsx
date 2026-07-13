@@ -1,19 +1,19 @@
 import type { ComponentChildren, JSX } from 'preact';
-import { useEffect } from 'preact/hooks';
+import { useEffect, useRef } from 'preact/hooks';
 import { classNames } from '../shared/util/class_names';
 import { clampNumber, normalizeInteger } from '../shared/util/number';
 import { strictStringFromUnknown } from '../shared/util/value';
 import { OverlayPortal } from './OverlayPortal';
 
 type DialogPanelAnimation = 'pop' | 'slideUp' | 'none';
-export type DialogOverlayTone =
+type DialogOverlayTone =
   | 'default'
   | 'soft'
   | 'strong'
   | 'intense'
   | 'inverse'
   | 'scrim';
-export type DialogPanelBorder =
+type DialogPanelBorder =
   | 'default'
   | 'outline'
   | 'outlineVariant'
@@ -42,7 +42,7 @@ export const DIALOG_OVERLAY_CENTER_COMPACT_CLASS =
 export const DIALOG_OVERLAY_EDGE_SHEET_CLASS =
   'fixed inset-0 flex items-end justify-center';
 
-export interface DialogOverlayStyleOptions {
+interface DialogOverlayStyleOptions {
   background?: string;
   blurPx?: number;
   zIndex?: number;
@@ -60,6 +60,20 @@ const DIALOG_SCROLL_LOCK_STYLE_VALUE = 'hidden';
 const DIALOG_SCROLL_LOCK_DATASET_KEY = 'dialogScrollLocked';
 const DIALOG_SCROLL_LOCK_OVERSCROLL_PROPERTY = 'overscroll-behavior';
 const DIALOG_SCROLL_LOCK_OVERSCROLL_VALUE = 'none';
+const DIALOG_FOCUSABLE_SELECTOR = [
+  '[autofocus]',
+  'a[href]',
+  'area[href]',
+  'button:not([disabled])',
+  'input:not([disabled]):not([type="hidden"])',
+  'select:not([disabled])',
+  'textarea:not([disabled])',
+  'iframe',
+  'object',
+  'embed',
+  '[contenteditable="true"]',
+  '[tabindex]:not([tabindex="-1"])',
+].join(',');
 
 interface DialogPanelSurfaceStyleOptions {
   background?: string;
@@ -268,7 +282,7 @@ function panelMotionClass(animation: DialogPanelAnimation, closing: boolean): st
   }
 }
 
-export function DialogCloseIcon({ size = 16 }: { size?: number }) {
+function DialogCloseIcon({ size = 16 }: { size?: number }) {
   return (
     <svg
       width={size}
@@ -339,7 +353,7 @@ export interface DialogHeaderProps {
   borderColor?: string;
 }
 
-export type DialogActionButtonTone =
+type DialogActionButtonTone =
   | 'primary'
   | 'secondary'
   | 'ghost'
@@ -489,6 +503,14 @@ let previousDocumentOverflow = '';
 let previousBodyOverscrollBehavior = '';
 let previousDocumentOverscrollBehavior = '';
 
+interface DialogFocusEntry {
+  readonly panel: () => HTMLElement | null;
+  readonly previousFocus: HTMLElement | null;
+}
+
+let dialogFocusStack: DialogFocusEntry[] = [];
+let dialogFocusListenerAttached = false;
+
 function restoreStyleProperty(
   style: CSSStyleDeclaration,
   property: string,
@@ -556,6 +578,108 @@ function acquireDialogScrollLock(): () => void {
   };
 }
 
+function isAvailableDialogFocusTarget(element: HTMLElement): boolean {
+  if (
+    !element.isConnected
+    || element.hidden
+    || element.matches(':disabled')
+    || element.getAttribute('aria-hidden') === 'true'
+    || element.getAttribute('aria-disabled') === 'true'
+  ) return false;
+  const style = window.getComputedStyle(element);
+  return style.display !== 'none' && style.visibility !== 'hidden';
+}
+
+function dialogFocusTargets(panel: HTMLElement): HTMLElement[] {
+  return [...panel.querySelectorAll<HTMLElement>(DIALOG_FOCUSABLE_SELECTOR)]
+    .filter(isAvailableDialogFocusTarget);
+}
+
+function focusDialogEntry(entry: DialogFocusEntry): void {
+  if (dialogFocusStack[dialogFocusStack.length - 1] !== entry) return;
+  const panel = entry.panel();
+  if (panel == null) return;
+  const active = document.activeElement;
+  if (active instanceof Node && panel.contains(active)) return;
+  const autofocusTarget = panel.querySelector<HTMLElement>('[autofocus]');
+  const target =
+    autofocusTarget != null && isAvailableDialogFocusTarget(autofocusTarget)
+      ? autofocusTarget
+      : dialogFocusTargets(panel)[0] ?? panel;
+  target.focus({ preventScroll: true });
+}
+
+function handleGlobalDialogFocusKeyDown(event: KeyboardEvent): void {
+  if (event.defaultPrevented || event.key !== 'Tab') return;
+  const entry = dialogFocusStack[dialogFocusStack.length - 1];
+  if (!entry) return;
+  const panel = entry.panel();
+  if (panel == null) return;
+  const targets = dialogFocusTargets(panel);
+  if (targets.length === 0) {
+    event.preventDefault();
+    panel.focus({ preventScroll: true });
+    return;
+  }
+  const active = document.activeElement;
+  const activeIndex = active instanceof HTMLElement
+    ? targets.indexOf(active)
+    : -1;
+  const movingBeforeStart = event.shiftKey && activeIndex <= 0;
+  const movingAfterEnd = !event.shiftKey && activeIndex === targets.length - 1;
+  const focusOutsideDialog =
+    !(active instanceof Node) || !panel.contains(active);
+  if (!movingBeforeStart && !movingAfterEnd && !focusOutsideDialog) return;
+  event.preventDefault();
+  const target = event.shiftKey ? targets[targets.length - 1] : targets[0];
+  target.focus({ preventScroll: true });
+}
+
+function attachDialogFocusListener(): void {
+  if (dialogFocusListenerAttached || typeof window === 'undefined') return;
+  window.addEventListener('keydown', handleGlobalDialogFocusKeyDown, true);
+  dialogFocusListenerAttached = true;
+}
+
+function detachDialogFocusListenerIfIdle(): void {
+  if (
+    !dialogFocusListenerAttached
+    || dialogFocusStack.length > 0
+    || typeof window === 'undefined'
+  ) return;
+  window.removeEventListener('keydown', handleGlobalDialogFocusKeyDown, true);
+  dialogFocusListenerAttached = false;
+}
+
+function registerDialogFocus(panel: () => HTMLElement | null): () => void {
+  const active = document.activeElement;
+  const entry: DialogFocusEntry = {
+    panel,
+    previousFocus: active instanceof HTMLElement ? active : null,
+  };
+  dialogFocusStack.push(entry);
+  attachDialogFocusListener();
+  queueMicrotask(() => focusDialogEntry(entry));
+  return () => {
+    const wasTop = dialogFocusStack[dialogFocusStack.length - 1] === entry;
+    dialogFocusStack = dialogFocusStack.filter((item) => item !== entry);
+    detachDialogFocusListenerIfIdle();
+    if (!wasTop) return;
+    const nextTop = dialogFocusStack[dialogFocusStack.length - 1];
+    const nextPanel = nextTop?.panel() ?? null;
+    const previousFocus = entry.previousFocus;
+    if (
+      previousFocus != null
+      && previousFocus.isConnected
+      && (nextTop == null || nextPanel?.contains(previousFocus) === true)
+    ) {
+      previousFocus.focus({ preventScroll: true });
+      return;
+    }
+    if (nextTop != null) focusDialogEntry(nextTop);
+  };
+}
+
 export function DialogFrame({
   children,
   closing,
@@ -569,7 +693,9 @@ export function DialogFrame({
   ariaLabel,
   ariaLabelledBy,
 }: DialogFrameProps) {
+  const panelRef = useRef<HTMLElement | null>(null);
   useEffect(() => acquireDialogScrollLock(), []);
+  useEffect(() => registerDialogFocus(() => panelRef.current), []);
 
   const overlayMotionClass = closing ? 'oh-dialog-fade-out' : 'oh-dialog-fade-in';
   const panelClass = panelMotionClass(panelAnimation, closing);
@@ -596,8 +722,10 @@ export function DialogFrame({
         data-closing={closing ? 'true' : undefined}
       >
         <section
+          ref={panelRef}
           role="dialog"
           aria-modal="true"
+          tabIndex={-1}
           aria-label={ariaLabel}
           aria-labelledby={ariaLabelledBy}
           class={sectionClass}

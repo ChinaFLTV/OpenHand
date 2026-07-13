@@ -3863,6 +3863,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get tokenPopupPrompt => '提示词';
 
   @override
+  String get tokenPopupAudioInput => '音频输入';
+
+  @override
+  String get tokenPopupImageInput => '图片输入';
+
+  @override
+  String get tokenPopupVideoInput => '视频输入';
+
+  @override
   String get tokenPopupCacheRead => '缓存命中';
 
   @override
@@ -3876,6 +3885,15 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get tokenPopupReasoning => '推理';
+
+  @override
+  String get tokenPopupWebSearchHeading => '联网搜索';
+
+  @override
+  String get tokenPopupWebSearchCalls => '调用次数';
+
+  @override
+  String get tokenPopupWebSearchPages => '返回页面';
 
   @override
   String get tokenPopupGrandTotal => '总计';
@@ -14498,6 +14516,15 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get tokenPopupPrompt => '提示詞';
 
   @override
+  String get tokenPopupAudioInput => '音訊輸入';
+
+  @override
+  String get tokenPopupImageInput => '圖片輸入';
+
+  @override
+  String get tokenPopupVideoInput => '影片輸入';
+
+  @override
   String get tokenPopupCacheRead => '快取命中';
 
   @override
@@ -14511,6 +14538,15 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get tokenPopupReasoning => '推理';
+
+  @override
+  String get tokenPopupWebSearchHeading => '網路搜尋';
+
+  @override
+  String get tokenPopupWebSearchCalls => '呼叫次數';
+
+  @override
+  String get tokenPopupWebSearchPages => '返回頁面';
 
   @override
   String get tokenPopupGrandTotal => '總計';

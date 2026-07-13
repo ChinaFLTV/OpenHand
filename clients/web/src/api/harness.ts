@@ -17,14 +17,14 @@ export type HarnessPhaseStatus =
   | 'failed'
   | 'skipped';
 
-export type HarnessOrchestratorStatus =
+type HarnessOrchestratorStatus =
   | 'idle'
   | 'running'
   | 'completed'
   | 'failed'
   | 'cancelled';
 
-export interface HarnessChangedFile {
+interface HarnessChangedFile {
   relative_path: string;
   absolute_path: string;
   change_type: 'added' | 'modified' | 'deleted';
@@ -38,12 +38,6 @@ export interface HarnessPhaseLogSnapshot {
   saved_log_path: string | null;
   changed_files: HarnessChangedFile[];
   review_verdict_fail: boolean;
-}
-
-export interface HarnessRoleConfig {
-  cli_executable?: string;
-  model_id?: string;
-  // 还有更多字段, 这里只暴露常用的, 完整 raw JSON 通过 record.config 透传。
 }
 
 export interface HarnessSessionRecord {

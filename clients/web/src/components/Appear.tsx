@@ -8,7 +8,7 @@ import type { ComponentChildren } from 'preact';
 import type { JSX } from 'preact';
 import { classNames } from '../shared/util/class_names';
 
-export type AppearVariant = 'up' | 'pop' | 'page';
+type AppearVariant = 'up' | 'pop' | 'page';
 
 interface AppearProps {
   children: ComponentChildren;

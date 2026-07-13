@@ -40,7 +40,7 @@ export interface SessionToolbarCapsule {
   onClick?: () => void;
 }
 
-export type SessionToolbarIconName =
+type SessionToolbarIconName =
   | 'mode'
   | 'goal'
   | 'runtime'

@@ -15,7 +15,7 @@ const DEFAULT_TASK_TIMEOUT_MS = 30_000;
 const MIN_TASK_TIMEOUT_MS = 1_000;
 const MAX_TASK_TIMEOUT_MS = 120_000;
 
-export class AsyncPollingTimeoutError extends Error {
+class AsyncPollingTimeoutError extends Error {
   constructor(public readonly timeoutMs: number) {
     super(`Polling task timed out after ${timeoutMs}ms`);
     this.name = 'AsyncPollingTimeoutError';

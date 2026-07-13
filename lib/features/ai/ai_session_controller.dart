@@ -6487,7 +6487,7 @@ class AiSessionController extends ChangeNotifier {
       runtimeContext: runtimeContext,
       templateId: session.templateId,
     );
-    final adapter = AiProtocolRegistry.adapterFor(model.protocolType);
+    final adapter = AiProtocolRegistry.adapterForModel(model);
     final supportsNativeToolCalls = adapter.supportsToolCalls;
     // Even when the protocol adapter cannot ferry tool definitions
     // through the native function-calling channel, we still resolve the full
@@ -11937,6 +11937,11 @@ $tail''';
       cacheCreationTokens: statistics.cacheCreationTokens,
       cacheReadTokens: statistics.cacheReadTokens,
       reasoningTokens: statistics.reasoningTokens,
+      audioInputTokens: statistics.audioInputTokens,
+      imageInputTokens: statistics.imageInputTokens,
+      videoInputTokens: statistics.videoInputTokens,
+      webSearchToolUsage: statistics.webSearchToolUsage,
+      webSearchPageUsage: statistics.webSearchPageUsage,
     );
   }
 
@@ -13411,6 +13416,18 @@ $tail''';
             lastParsedUsage!.cacheCreationTokens,
       if (lastParsedUsage?.reasoningTokens != null)
         'response_usage_reasoning_tokens': lastParsedUsage!.reasoningTokens,
+      if (lastParsedUsage?.audioInputTokens != null)
+        'response_usage_audio_input_tokens': lastParsedUsage!.audioInputTokens,
+      if (lastParsedUsage?.imageInputTokens != null)
+        'response_usage_image_input_tokens': lastParsedUsage!.imageInputTokens,
+      if (lastParsedUsage?.videoInputTokens != null)
+        'response_usage_video_input_tokens': lastParsedUsage!.videoInputTokens,
+      if (lastParsedUsage?.webSearchToolUsage != null)
+        'response_usage_web_search_tool_usage':
+            lastParsedUsage!.webSearchToolUsage,
+      if (lastParsedUsage?.webSearchPageUsage != null)
+        'response_usage_web_search_page_usage':
+            lastParsedUsage!.webSearchPageUsage,
     };
   }
 

@@ -39,6 +39,17 @@ export interface ApiOptions {
 
 export type ApiRequestSignalOptions = Pick<ApiOptions, 'signal' | 'timeoutMs'>;
 
+export async function throwIfApiResponseFailed(response: Response): Promise<void> {
+  if (response.status === 401) {
+    clearAuthStorage();
+    throw new UnauthorizedError(null);
+  }
+  if (!response.ok) {
+    const text = await response.text().catch(() => '');
+    throw new ApiError(response.status, text || null);
+  }
+}
+
 interface ApiAbortSignal {
   signal?: AbortSignal;
   timed?: TimedAbortController;

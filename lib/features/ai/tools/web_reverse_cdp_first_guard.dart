@@ -90,29 +90,11 @@ class WebReverseCdpFirstGuard {
     required Uri requestedUri,
     required Map<String, Object?> metadata,
   }) {
-    final runtime = _webReverseRuntimeFromMetadata(metadata);
-    if (runtime == null ||
-        !webReverseRuntimeBoolTrue(runtime['cdp_first_required'])) {
-      return null;
-    }
-
-    final route = _webReverseCdpRoute(runtime);
-    if (route == null) return null;
-
-    for (final targetUri in _webReverseTargetUris(runtime)) {
-      if (_isSameHttpTargetHost(requestedUri, targetUri)) {
-        return WebReverseCdpFirstDecision(
-          requestedUri: requestedUri,
-          targetUri: targetUri,
-          routeKind: route.kind,
-          toolNames: route.toolNames,
-          requiresToolSearch: route.requiresToolSearch,
-          fallbackToolLabel: route.fallbackToolLabel,
-          nextActionOverride: route.nextActionOverride,
-        );
-      }
-    }
-    return null;
+    return _evaluateTargets(
+      metadata: metadata,
+      matches: (targetUri) => _isSameHttpTargetHost(requestedUri, targetUri),
+      requestedUriFor: (_) => requestedUri,
+    );
   }
 
   static WebReverseCdpFirstDecision? evaluateCommand({
@@ -142,6 +124,19 @@ class WebReverseCdpFirstGuard {
     required String command,
     required Map<String, Object?> metadata,
   }) {
+    return _evaluateTargets(
+      metadata: metadata,
+      matches: (targetUri) =>
+          _commandContainsTargetHostReference(command, targetUri.host),
+      requestedUriFor: (targetUri) => targetUri,
+    );
+  }
+
+  static WebReverseCdpFirstDecision? _evaluateTargets({
+    required Map<String, Object?> metadata,
+    required bool Function(Uri targetUri) matches,
+    required Uri Function(Uri targetUri) requestedUriFor,
+  }) {
     final runtime = _webReverseRuntimeFromMetadata(metadata);
     if (runtime == null ||
         !webReverseRuntimeBoolTrue(runtime['cdp_first_required'])) {
@@ -152,19 +147,31 @@ class WebReverseCdpFirstGuard {
     if (route == null) return null;
 
     for (final targetUri in _webReverseTargetUris(runtime)) {
-      if (_commandContainsTargetHostReference(command, targetUri.host)) {
-        return WebReverseCdpFirstDecision(
-          requestedUri: targetUri,
+      if (matches(targetUri)) {
+        return _decision(
+          requestedUri: requestedUriFor(targetUri),
           targetUri: targetUri,
-          routeKind: route.kind,
-          toolNames: route.toolNames,
-          requiresToolSearch: route.requiresToolSearch,
-          fallbackToolLabel: route.fallbackToolLabel,
-          nextActionOverride: route.nextActionOverride,
+          route: route,
         );
       }
     }
     return null;
+  }
+
+  static WebReverseCdpFirstDecision _decision({
+    required Uri requestedUri,
+    required Uri targetUri,
+    required _WebReverseCdpRoute route,
+  }) {
+    return WebReverseCdpFirstDecision(
+      requestedUri: requestedUri,
+      targetUri: targetUri,
+      routeKind: route.kind,
+      toolNames: route.toolNames,
+      requiresToolSearch: route.requiresToolSearch,
+      fallbackToolLabel: route.fallbackToolLabel,
+      nextActionOverride: route.nextActionOverride,
+    );
   }
 
   static const List<String> _networkCommandNamePatterns = <String>[

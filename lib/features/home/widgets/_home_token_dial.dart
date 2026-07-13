@@ -137,9 +137,7 @@ class _TokenDialState extends State<_TokenDial>
         } on TickerCanceled {
           return;
         }
-        if (!mounted ||
-            _showQueued ||
-            generation != _popupGeneration) {
+        if (!mounted || _showQueued || generation != _popupGeneration) {
           return;
         }
         if (_portalController.isShowing) {
@@ -559,6 +557,11 @@ class _TokenDialPopupState extends State<_TokenDialPopup> {
     final cacheRead = widget.statistics.cacheReadTokens ?? 0;
     final cacheWrite = widget.statistics.cacheCreationTokens ?? 0;
     final reasoning = widget.statistics.reasoningTokens ?? 0;
+    final audioInput = widget.statistics.audioInputTokens ?? 0;
+    final imageInput = widget.statistics.imageInputTokens ?? 0;
+    final videoInput = widget.statistics.videoInputTokens ?? 0;
+    final webSearchCalls = widget.statistics.webSearchToolUsage ?? 0;
+    final webSearchPages = widget.statistics.webSearchPageUsage ?? 0;
     final total = widget.statistics.totalTokens ?? 0;
     final trend = SessionCacheHitTrend.fromStatisticsOrSession(
       widget.session,
@@ -613,6 +616,27 @@ class _TokenDialPopupState extends State<_TokenDialPopup> {
           keyStyle: keyStyle,
           valueStyle: valueStyle,
         ),
+        if (audioInput > 0)
+          _PopupRow(
+            label: AppLocalizations.of(context)!.tokenPopupAudioInput,
+            value: audioInput,
+            keyStyle: keyStyle,
+            valueStyle: valueStyle,
+          ),
+        if (imageInput > 0)
+          _PopupRow(
+            label: AppLocalizations.of(context)!.tokenPopupImageInput,
+            value: imageInput,
+            keyStyle: keyStyle,
+            valueStyle: valueStyle,
+          ),
+        if (videoInput > 0)
+          _PopupRow(
+            label: AppLocalizations.of(context)!.tokenPopupVideoInput,
+            value: videoInput,
+            keyStyle: keyStyle,
+            valueStyle: valueStyle,
+          ),
         if (hasCacheUsageTelemetry) ...[
           _PopupRow(
             label: AppLocalizations.of(context)!.tokenPopupCacheRead,
@@ -646,6 +670,30 @@ class _TokenDialPopupState extends State<_TokenDialPopup> {
             keyStyle: keyStyle,
             valueStyle: valueStyle,
           ),
+        if (webSearchCalls > 0 || webSearchPages > 0) ...[
+          const SizedBox(height: 10),
+          Text(
+            AppLocalizations.of(
+              context,
+            )!.tokenPopupWebSearchHeading.toUpperCase(),
+            style: headStyle,
+          ),
+          const SizedBox(height: 6),
+          if (webSearchCalls > 0)
+            _PopupRow(
+              label: AppLocalizations.of(context)!.tokenPopupWebSearchCalls,
+              value: webSearchCalls,
+              keyStyle: keyStyle,
+              valueStyle: accentValueStyle,
+            ),
+          if (webSearchPages > 0)
+            _PopupRow(
+              label: AppLocalizations.of(context)!.tokenPopupWebSearchPages,
+              value: webSearchPages,
+              keyStyle: keyStyle,
+              valueStyle: accentValueStyle,
+            ),
+        ],
         Container(
           margin: const EdgeInsets.symmetric(vertical: 10),
           height: 1,

@@ -30,6 +30,11 @@ class AiModelCatalog {
   static AiModelProfile? lookup(String modelId, AiProtocolType protocolType) {
     final id = optionalLowercaseStringFromValue(modelId);
     if (id == null) return null;
+    if (protocolType == AiProtocolType.mimo &&
+        id.contains('mimo-v2') &&
+        !id.contains('mimo-v2.5')) {
+      return null;
+    }
 
     final exact = _exactModelProfiles[id];
     if (exact != null) {
@@ -4507,27 +4512,128 @@ class AiModelCatalog {
     if (id.contains('image')) {
       return _p(
         name: 'MiniMax Image',
-        desc: 'Image generation model',
+        desc: 'MiniMax image-01 / image-01-live generation model',
         capabilities: _imageGen,
+        supportedParameters: const <String>[
+          'prompt',
+          'style',
+          'aspect_ratio',
+          'width',
+          'height',
+          'response_format',
+          'seed',
+          'n',
+          'prompt_optimizer',
+          'aigc_watermark',
+          'subject_reference',
+        ],
       );
     }
-    if (id.contains('video')) {
+    if (id.contains('video') ||
+        id.contains('hailuo') ||
+        id.startsWith('t2v-') ||
+        id.startsWith('i2v-') ||
+        id.startsWith('s2v-')) {
       return _p(
         name: 'MiniMax Video',
         desc: 'Video generation model',
         capabilities: _videoGen,
+        supportedParameters: const <String>[
+          'prompt',
+          'first_frame_image',
+          'last_frame_image',
+          'subject_reference',
+          'prompt_optimizer',
+          'fast_pretreatment',
+          'duration',
+          'resolution',
+          'callback_url',
+          'aigc_watermark',
+        ],
       );
     }
-    if (id.contains('speech') ||
-        id.contains('audio') ||
-        id.contains('music') ||
-        id.startsWith('t2a')) {
+    if (id.contains('music')) {
       return _p(
-        name: 'MiniMax Audio',
-        desc: 'Audio generation model',
+        name: 'MiniMax Music',
+        desc: 'MiniMax music generation and cover model',
+        multimodal: true,
+        modalities: const <AiModelModality>{
+          AiModelModality.text,
+          AiModelModality.audio,
+        },
         capabilities: const <AiModelCapability>{
           AiModelCapability.audioGeneration,
         },
+        supportedParameters: const <String>[
+          'prompt',
+          'lyrics',
+          'stream',
+          'output_format',
+          'audio_setting',
+          'aigc_watermark',
+          'lyrics_optimizer',
+          'is_instrumental',
+          'audio_url',
+          'audio_base64',
+          'cover_feature_id',
+        ],
+      );
+    }
+    if (id.contains('speech') || id.contains('audio') || id.startsWith('t2a')) {
+      return _p(
+        name: 'MiniMax Audio',
+        desc: 'MiniMax speech synthesis model',
+        multimodal: true,
+        modalities: const <AiModelModality>{
+          AiModelModality.text,
+          AiModelModality.audio,
+        },
+        capabilities: const <AiModelCapability>{
+          AiModelCapability.audioGeneration,
+        },
+        supportedParameters: const <String>[
+          'text',
+          'stream',
+          'stream_options',
+          'voice_setting',
+          'audio_setting',
+          'pronunciation_dict',
+          'timbre_weights',
+          'language_boost',
+          'voice_modify',
+          'subtitle_enable',
+          'subtitle_type',
+          'output_format',
+          'aigc_watermark',
+        ],
+      );
+    }
+    if (id.contains('m3')) {
+      return _p(
+        name: 'MiniMax M3',
+        desc: 'MiniMax frontier coding, agentic, and multimodal model.',
+        multimodal: true,
+        supportsAttachments: true,
+        modalities: _textImageVideo,
+        context: 1000000,
+        output: 131072,
+        thinking: 131072,
+        thinkingEnabled: true,
+        reasoningEffortControlEnabled: true,
+        reasoningEffort: 'medium',
+        reasoningEffortOptions: _effortMinimalLowMediumHigh,
+        supportedParameters: const <String>[
+          'service_tier',
+          'thinking',
+          'reasoning_split',
+          'stream',
+          'stream_options',
+          'max_completion_tokens',
+          'temperature',
+          'top_p',
+          'tools',
+          'tool_choice',
+        ],
       );
     }
     if (id.contains('m2.7') || id.contains('m2-7')) {
@@ -5050,6 +5156,39 @@ class AiModelCatalog {
   // ═══════════════════════════════════════════════════════════════════════════
 
   static AiModelProfile? _mimo(String id) {
+    if (id.contains('mimo-v2.5-asr')) {
+      return _p(
+        name: 'MiMo V2.5 ASR',
+        desc: '小米语音识别模型，支持中英文、自动语种检测与中文方言。',
+        multimodal: true,
+        supportsAttachments: true,
+        modalities: const <AiModelModality>{
+          AiModelModality.audio,
+          AiModelModality.text,
+        },
+        output: 8192,
+        thinkingEnabled: false,
+        supportedParameters: const <String>['asr_options', 'stream'],
+      );
+    }
+    if (id.contains('mimo-v2.5-tts')) {
+      return _p(
+        name: id.contains('voicedesign')
+            ? 'MiMo V2.5 TTS Voice Design'
+            : id.contains('voiceclone')
+            ? 'MiMo V2.5 TTS Voice Clone'
+            : 'MiMo V2.5 TTS',
+        desc: '小米语音合成模型。',
+        supportsAttachments: false,
+        modalities: const <AiModelModality>{
+          AiModelModality.text,
+          AiModelModality.audio,
+        },
+        output: 8192,
+        thinkingEnabled: false,
+        supportedParameters: const <String>['audio', 'stream'],
+      );
+    }
     if (id.contains('mimo-v2.5-pro')) {
       return _p(
         name: 'MiMo V2.5 Pro',
@@ -5058,6 +5197,12 @@ class AiModelCatalog {
         context: 1048576,
         output: 131072,
         thinking: 131072,
+        requiresReasoningEcho: true,
+        supportedParameters: const <String>[
+          'thinking',
+          'response_format',
+          'tools',
+        ],
         inputUsdPer1M: 0.435,
         outputUsdPer1M: 0.87,
         cacheReadUsdPer1M: 0.0036,
@@ -5069,59 +5214,24 @@ class AiModelCatalog {
         desc: '小米原生全模态模型，支持图像、音频与视频输入。',
         multimodal: true,
         supportsAttachments: true,
-        modalities: _allModalities,
+        modalities: const <AiModelModality>{
+          AiModelModality.text,
+          AiModelModality.image,
+          AiModelModality.audio,
+          AiModelModality.video,
+        },
         context: 1048576,
-        output: 131072,
+        output: 32768,
+        thinking: 32768,
+        requiresReasoningEcho: true,
+        supportedParameters: const <String>[
+          'thinking',
+          'response_format',
+          'tools',
+        ],
         inputUsdPer1M: 0.14,
         outputUsdPer1M: 0.28,
         cacheReadUsdPer1M: 0.0028,
-      );
-    }
-    if (id.contains('mimo-v2-omni')) {
-      return _p(
-        name: 'MiMo V2 Omni',
-        desc: '小米前代全模态模型，支持图像、音频与视频输入。',
-        multimodal: true,
-        supportsAttachments: true,
-        modalities: _allModalities,
-        context: 262144,
-        output: 65536,
-        inputUsdPer1M: 0.40,
-        outputUsdPer1M: 2.00,
-        cacheReadUsdPer1M: 0.08,
-      );
-    }
-    if (id.contains('mimo-v2-pro')) {
-      return _p(
-        name: 'MiMo V2 Pro',
-        desc: '小米大参数长上下文文本模型。',
-        supportsAttachments: false,
-        context: 1048576,
-        output: 131072,
-        inputUsdPer1M: 1.00,
-        outputUsdPer1M: 3.00,
-        cacheReadUsdPer1M: 0.20,
-      );
-    }
-    if (id.contains('mimo-v2-flash')) {
-      return _p(
-        name: 'MiMo V2 Flash',
-        desc: '小米高速文本模型。',
-        supportsAttachments: false,
-        context: 262144,
-        output: 65536,
-        inputUsdPer1M: 0.10,
-        outputUsdPer1M: 0.30,
-        cacheReadUsdPer1M: 0.01,
-      );
-    }
-    if (id.startsWith('mimo') || id.startsWith('mi-')) {
-      return _p(
-        name: 'MiMo',
-        desc: '小米推理模型',
-        context: 262144,
-        output: 65536,
-        thinking: 65536,
       );
     }
     return null;

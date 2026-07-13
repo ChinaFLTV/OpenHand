@@ -5,6 +5,8 @@ import '../../../shared/util/input_value_parsing.dart';
 
 enum AiAttachmentKind {
   image('image'),
+  video('video'),
+  audio('audio'),
   text('text'),
   spreadsheet('spreadsheet'),
   pdf('pdf'),
@@ -36,6 +38,8 @@ const int aiMessageAttachmentMaxFileBytes = 10 * kBytesPerMiB;
 List<String> aiAttachmentPickerExtensions() {
   final extensions = <String>{
     ..._imageExtensions,
+    ..._videoExtensions,
+    ..._audioExtensions,
     ..._textExtensions,
     ..._spreadsheetExtensions,
     '.pdf',
@@ -111,6 +115,10 @@ class AiMessageAttachment {
   final double? compressionRatio;
 
   bool get isImage => kind == AiAttachmentKind.image;
+
+  bool get isVideo => kind == AiAttachmentKind.video;
+
+  bool get isAudio => kind == AiAttachmentKind.audio;
 
   String get extension => p.extension(name).toLowerCase();
 
@@ -192,6 +200,12 @@ AiAttachmentKind aiAttachmentKindForPath(String path) {
   if (_imageExtensions.contains(extension)) {
     return AiAttachmentKind.image;
   }
+  if (_videoExtensions.contains(extension)) {
+    return AiAttachmentKind.video;
+  }
+  if (_audioExtensions.contains(extension)) {
+    return AiAttachmentKind.audio;
+  }
   if (_textExtensions.contains(extension)) {
     return AiAttachmentKind.text;
   }
@@ -213,6 +227,16 @@ String aiMimeTypeForPath(String path) {
     '.webp' => 'image/webp',
     '.bmp' => 'image/bmp',
     '.svg' => 'image/svg+xml',
+    '.mp4' => 'video/mp4',
+    '.avi' => 'video/x-msvideo',
+    '.mov' => 'video/mov',
+    '.mkv' => 'video/x-matroska',
+    '.wmv' => 'video/x-ms-wmv',
+    '.mp3' => 'audio/mpeg',
+    '.wav' => 'audio/wav',
+    '.flac' => 'audio/flac',
+    '.m4a' => 'audio/mp4',
+    '.ogg' => 'audio/ogg',
     '.md' || '.markdown' => 'text/markdown',
     '.txt' => 'text/plain',
     '.json' => 'application/json',
@@ -251,6 +275,22 @@ const Set<String> _imageExtensions = <String>{
   '.webp',
   '.bmp',
   '.svg',
+};
+
+const Set<String> _videoExtensions = <String>{
+  '.mp4',
+  '.avi',
+  '.mov',
+  '.mkv',
+  '.wmv',
+};
+
+const Set<String> _audioExtensions = <String>{
+  '.mp3',
+  '.wav',
+  '.flac',
+  '.m4a',
+  '.ogg',
 };
 
 const Set<String> _textExtensions = <String>{

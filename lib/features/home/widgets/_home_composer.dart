@@ -4256,6 +4256,8 @@ class _AppendComposerAttachmentsResult {
 IconData _iconForAttachmentKind(AiAttachmentKind kind) {
   return switch (kind) {
     AiAttachmentKind.image => Icons.image_outlined,
+    AiAttachmentKind.video => Icons.videocam_outlined,
+    AiAttachmentKind.audio => Icons.audiotrack_outlined,
     AiAttachmentKind.text => Icons.description_outlined,
     AiAttachmentKind.spreadsheet => Icons.table_chart_outlined,
     AiAttachmentKind.pdf => Icons.picture_as_pdf_outlined,

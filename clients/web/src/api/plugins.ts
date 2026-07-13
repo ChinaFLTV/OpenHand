@@ -32,7 +32,7 @@ export interface PluginSummary {
   template_associations?: TemplateAssociation[];
 }
 
-export interface TemplateAssociation {
+interface TemplateAssociation {
   template_id: string;
   label_zh?: string;
   label_en?: string;

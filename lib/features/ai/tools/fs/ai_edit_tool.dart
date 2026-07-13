@@ -3,9 +3,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 
 import '../../../../shared/util/text_clip.dart';
-import '../../service/fs/ai_file_history_service.dart';
 import '../../service/fs/ai_file_mutation_ledger.dart';
-import '../../service/fs/ai_file_tracker_service.dart';
 import '../../service/runtime/ai_tool_runtime_service.dart';
 import '../ai_tool.dart';
 import '../ai_tool_execution_context.dart';
@@ -57,53 +55,18 @@ class AiEditTool extends AiTool {
       );
     }
 
-    // 写操作权限确认检查
-    final confirmationResult = await AiToolUtils.requestWriteConfirmation(
+    final preparation = await AiToolUtils.prepareFileMutation(
+      context: context,
       toolName: 'Edit',
       operationDescription:
           'Replace "${clipText(oldString, 50)}" with new content',
-      targetPath: filePath,
-      requireWriteConfirmation: context.requireWriteCommandConfirmation,
-      confirmWriteCommand: context.confirmWriteCommand,
-      cancelSignal: context.cancelSignal,
-      timeoutMs: context.metadata['write_confirmation_timeout_ms'] as int?,
-    );
-    if (confirmationResult != null) {
-      return confirmationResult;
-    }
-
-    // 从 metadata 获取追踪服务（遵循 AiToolExecutionContext 冻结约束）
-    final fileTracker =
-        context.metadata['file_tracker'] as AiFileTrackerService?;
-    final fileHistory =
-        context.metadata['file_history'] as AiFileHistoryService?;
-
-    final readValidation = await AiToolUtils.validateReadBeforeMutation(
-      toolName: 'Edit',
       filePath: filePath,
-      previouslyReadFiles: context.previouslyReadFiles,
-      requireExistingFileRead: fileExists,
-      fileTracker: fileTracker,
+      fileExists: fileExists,
     );
-    if (readValidation != null) return readValidation;
+    if (preparation.error != null) return preparation.error!;
 
-    // 保存历史版本（在修改前）
-    String? versionId;
-    if (fileExists) {
-      versionId = await AiToolUtils.saveFileVersionBeforeMutation(
-        filePath: filePath,
-        sessionId: context.sessionId,
-        toolCallId: context.toolCall.id,
-        fileHistory: fileHistory,
-      );
-    }
-
-    // 新型 ledger — 双快照捕获 before 内容
     final mutationLedger =
         context.metadata['mutation_ledger'] as AiFileMutationLedger?;
-    final beforeContentForLedger = fileExists
-        ? await AiToolUtils.readFileContentForLedger(filePath)
-        : null;
 
     final AiEditableTextSnapshot editableText;
     if (fileExists) {
@@ -138,28 +101,16 @@ class AiEditTool extends AiTool {
       content: writeContent,
       previouslyReadFiles: context.previouslyReadFiles,
       requireExistingFileRead: fileExists,
-      fileTracker: fileTracker,
+      fileTracker: preparation.fileTracker,
     );
     if (guardedWrite != null) return guardedWrite;
 
-    // 添加写入验证 - 读回文件确认修改已生效
-    final String verificationContent;
-    try {
-      verificationContent = await file.readAsString();
-    } catch (e) {
-      return AiToolUtils.invalidResult(
-        'Edit',
-        'File was written but verification read failed: $e',
-      );
-    }
-    final verificationPassed = verificationContent == writeContent;
-    if (!verificationPassed) {
-      return AiToolUtils.invalidResult(
-        'Edit',
-        'File was written but verification failed: content mismatch after write. '
-            'This may indicate a concurrent modification.',
-      );
-    }
+    final verificationError = await AiToolUtils.verifyTextFileWrite(
+      toolName: 'Edit',
+      file: file,
+      expectedContent: writeContent,
+    );
+    if (verificationError != null) return verificationError;
 
     final replacementCount = replacement.replacementCount;
     final outputMessage = !fileExists
@@ -176,8 +127,8 @@ class AiEditTool extends AiTool {
       toolName: 'Edit',
       filePath: filePath,
       kind: fileExists ? FileMutationKind.modify : FileMutationKind.create,
-      beforeContent: beforeContentForLedger,
-      afterContent: verificationContent,
+      beforeContent: preparation.beforeContent,
+      afterContent: writeContent,
     );
 
     return AiToolUtils.simpleSuccessResult(
@@ -194,8 +145,9 @@ class AiEditTool extends AiTool {
         'file_mutation_new_string_char_count': newString.length,
         'file_mutation_replace_all': replaceAll,
         'file_mutation_replacement_count': replacementCount,
-        'file_mutation_verified': verificationPassed,
-        if (versionId != null) 'file_mutation_history_version_id': versionId,
+        'file_mutation_verified': true,
+        if (preparation.historyVersionId != null)
+          'file_mutation_history_version_id': preparation.historyVersionId,
         if (ledgerRecordId != null)
           'file_mutation_ledger_record_id': ledgerRecordId,
       },

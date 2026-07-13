@@ -55,7 +55,7 @@ export function knowledgeBaseResultsUsedByAnswer(
   return used;
 }
 
-export function knowledgeBaseHitTokenEstimate(hit: Record<string, unknown>): number {
+function knowledgeBaseHitTokenEstimate(hit: Record<string, unknown>): number {
   return roundedNonNegativeIntegerFromUnknown(hit['token_estimate']);
 }
 

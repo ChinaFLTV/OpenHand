@@ -218,13 +218,11 @@ class AiLspTool extends AiTool {
       if (item is! Map<String, Object?>) {
         continue;
       }
-      final name = item['name'] ?? '?';
-      final kind = _symbolKindName(item['kind'] as int? ?? 0);
-      final uri = item['uri'] as String? ?? '';
-      final range = item['range'] as Map<String, Object?>?;
-      final start = range?['start'] as Map<String, Object?>?;
-      final line = ((start?['line'] as int?) ?? 0) + 1;
-      buffer.writeln('  [$kind] $name (${_uriToPath(uri)}:$line)');
+      final location = _callHierarchyLocation(item);
+      buffer.writeln(
+        '  [${location.kind}] ${location.name} '
+        '(${location.path}:${location.line})',
+      );
     }
     return buffer.toString().trimRight();
   }
@@ -244,15 +242,26 @@ class AiLspTool extends AiTool {
       if (target == null) {
         continue;
       }
-      final name = target['name'] ?? '?';
-      final kind = _symbolKindName(target['kind'] as int? ?? 0);
-      final uri = target['uri'] as String? ?? '';
-      final range = target['range'] as Map<String, Object?>?;
-      final start = range?['start'] as Map<String, Object?>?;
-      final line = ((start?['line'] as int?) ?? 0) + 1;
-      buffer.writeln('  [$kind] $name (${_uriToPath(uri)}:$line)');
+      final location = _callHierarchyLocation(target);
+      buffer.writeln(
+        '  [${location.kind}] ${location.name} '
+        '(${location.path}:${location.line})',
+      );
     }
     return buffer.toString().trimRight();
+  }
+
+  ({Object name, String kind, String path, int line}) _callHierarchyLocation(
+    Map<String, Object?> item,
+  ) {
+    final range = item['range'] as Map<String, Object?>?;
+    final start = range?['start'] as Map<String, Object?>?;
+    return (
+      name: item['name'] ?? '?',
+      kind: _symbolKindName(item['kind'] as int? ?? 0),
+      path: _uriToPath(item['uri'] as String? ?? ''),
+      line: ((start?['line'] as int?) ?? 0) + 1,
+    );
   }
 
   String _uriToPath(String uri) {

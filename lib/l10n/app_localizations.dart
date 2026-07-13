@@ -7074,6 +7074,24 @@ abstract class AppLocalizations {
   /// **'提示词'**
   String get tokenPopupPrompt;
 
+  /// No description provided for @tokenPopupAudioInput.
+  ///
+  /// In zh, this message translates to:
+  /// **'音频输入'**
+  String get tokenPopupAudioInput;
+
+  /// No description provided for @tokenPopupImageInput.
+  ///
+  /// In zh, this message translates to:
+  /// **'图片输入'**
+  String get tokenPopupImageInput;
+
+  /// No description provided for @tokenPopupVideoInput.
+  ///
+  /// In zh, this message translates to:
+  /// **'视频输入'**
+  String get tokenPopupVideoInput;
+
   /// No description provided for @tokenPopupCacheRead.
   ///
   /// In zh, this message translates to:
@@ -7103,6 +7121,24 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'推理'**
   String get tokenPopupReasoning;
+
+  /// No description provided for @tokenPopupWebSearchHeading.
+  ///
+  /// In zh, this message translates to:
+  /// **'联网搜索'**
+  String get tokenPopupWebSearchHeading;
+
+  /// No description provided for @tokenPopupWebSearchCalls.
+  ///
+  /// In zh, this message translates to:
+  /// **'调用次数'**
+  String get tokenPopupWebSearchCalls;
+
+  /// No description provided for @tokenPopupWebSearchPages.
+  ///
+  /// In zh, this message translates to:
+  /// **'返回页面'**
+  String get tokenPopupWebSearchPages;
 
   /// No description provided for @tokenPopupGrandTotal.
   ///

@@ -10,8 +10,8 @@
 //
 // 任何接口的 401 都会被 apiRequest 自动转成 UnauthorizedError + 清理本地 token。
 
-import { ApiError, UnauthorizedError, apiRequest, type ApiRequestSignalOptions } from './client';
-import { clearAuthStorage, ensureDeviceId, readToken } from '../state/storage';
+import { apiRequest, throwIfApiResponseFailed, type ApiRequestSignalOptions } from './client';
+import { ensureDeviceId, readToken } from '../state/storage';
 import type { PendingWriteApproval } from './session_events';
 import { clientEnvironmentHeaders } from '../utils/client_env';
 import { jsonlExportPickerSuggestedName, normalizeJsonlExportFilename } from '../shared/util/export_filename';
@@ -25,7 +25,7 @@ export interface SessionTodoItem {
   status: string;
 }
 
-export interface SessionPlanRecord {
+interface SessionPlanRecord {
   id: string;
   created_at: string;
   updated_at: string;
@@ -38,7 +38,7 @@ export type SessionMode = 'chat' | 'plan' | 'goal' | (string & {});
 
 export const KNOWLEDGE_BASE_MESSAGE_METADATA_KEY = 'knowledge_base';
 
-export const GOAL_MODE_BLOCKED_TEMPLATE_IDS = new Set([
+const GOAL_MODE_BLOCKED_TEMPLATE_IDS = new Set([
   'machine_expert',
   'harness_engineering',
   'web_reverse_expert',
@@ -52,7 +52,7 @@ export function isGoalModeAllowedForTemplate(templateId: string | null | undefin
   return !GOAL_MODE_BLOCKED_TEMPLATE_IDS.has((templateId ?? '').trim());
 }
 
-export type SessionGoalStatus =
+type SessionGoalStatus =
   | 'running'
   | 'paused'
   | 'completed'
@@ -62,7 +62,7 @@ export type SessionGoalStatus =
   | 'token_budget_reached'
   | (string & {});
 
-export interface SessionGoalEvaluationRecord {
+interface SessionGoalEvaluationRecord {
   id: string;
   created_at: string;
   round_index: number;
@@ -116,7 +116,7 @@ export interface GoalStartOptions {
   token_budget?: number | null;
 }
 
-export interface SessionErrorRecord {
+interface SessionErrorRecord {
   id: string;
   created_at: string;
   stage: string;
@@ -190,7 +190,7 @@ export interface SessionDetailResponse {
   };
 }
 
-export type MachineTerminalStatus =
+type MachineTerminalStatus =
   | 'idle'
   | 'starting'
   | 'running'
@@ -224,7 +224,7 @@ export interface MachineTerminalSnapshot {
   error_message?: string | null;
 }
 
-export interface MachineTerminalCommandHistoryEntry {
+interface MachineTerminalCommandHistoryEntry {
   id: string;
   terminal_id: string;
   command: string;
@@ -244,80 +244,18 @@ export interface MachineTerminalWorkspace {
   active_terminal?: MachineTerminalSnapshot | null;
 }
 
-export const MACHINE_TERMINAL_METADATA_KEY = 'machine_terminal';
-export const MACHINE_TERMINAL_METADATA_SCHEMA_VERSION = 2;
-
-export interface MachineTerminalMetadataSnapshot {
-  terminal_id: string;
-  identity: string;
-  status: MachineTerminalStatus;
-  shell: string;
-  working_directory: string;
-  rows: number;
-  columns: number;
-  output_characters: number;
-  history_output_characters?: number;
-  command_count?: number;
-  started_at: string;
-  updated_at: string;
-  pid?: number | null;
-  exit_code?: number | null;
-  error_message?: string | null;
-}
-
-export interface MachineTerminalSessionMetadata {
-  schema_version: typeof MACHINE_TERMINAL_METADATA_SCHEMA_VERSION | number;
-  template_id: 'machine_expert' | (string & {});
-  surface: 'openhand_machine_terminal' | (string & {});
-  workflow: 'builtin_terminal_panel' | (string & {});
-  session_id: string;
-  terminal_workspace_id: string;
-  active_terminal_id: string;
-  default_working_directory: string;
-  created_at: string;
-  updated_at: string;
-  terminal_defaults: Record<string, unknown>;
-  capabilities: Record<string, boolean | string | number | null | undefined>;
-  ui: Record<string, unknown>;
-  tool_names: string[];
-  runtime: {
-    status: MachineTerminalStatus;
-    terminal_count: number;
-    active_terminal_id: string;
-    active_terminal?: MachineTerminalMetadataSnapshot | null;
-    terminals: MachineTerminalMetadataSnapshot[];
-  };
-}
-
-export interface MachineTerminalCommandResult {
-  terminal_id: string;
-  command: string;
-  output: string;
-  exit_code?: number | null;
-  status: MachineTerminalStatus;
-  duration_ms: number;
-  timed_out: boolean;
-  error?: string | null;
-}
-
 export interface MachineTerminalResponse {
   terminal: MachineTerminalWorkspace;
 }
 
-export interface MachineTerminalExecuteResponse {
-  ok: boolean;
-  result: MachineTerminalCommandResult;
-  terminal?: MachineTerminalWorkspace | null;
-}
-
-export type SessionMessageSenderOrigin =
+type SessionMessageSenderOrigin =
   | 'explicit_user'
   | 'openhand_background'
   | 'ai_model'
   | 'openhand_system'
   | (string & {});
 
-export type SessionMessageConversationSide =
+type SessionMessageConversationSide =
   | 'non_ai'
   | 'ai'
   | 'system'
@@ -342,16 +280,21 @@ export interface SessionMessage {
   metadata?: Record<string, unknown>;
 }
 
-export interface SessionMessageUsage {
+interface SessionMessageUsage {
   prompt_tokens?: number | null;
   completion_tokens?: number | null;
   total_tokens?: number | null;
   cache_read_tokens?: number | null;
   cache_creation_tokens?: number | null;
   reasoning_tokens?: number | null;
+  audio_input_tokens?: number | null;
+  image_input_tokens?: number | null;
+  video_input_tokens?: number | null;
+  web_search_tool_usage?: number | null;
+  web_search_page_usage?: number | null;
 }
 
-export interface SessionStatistics {
+interface SessionStatistics {
   total_message_count?: number;
   user_message_count?: number;
   assistant_message_count?: number;
@@ -370,6 +313,11 @@ export interface SessionStatistics {
   cache_read_tokens?: number | null;
   cache_creation_tokens?: number | null;
   reasoning_tokens?: number | null;
+  audio_input_tokens?: number | null;
+  image_input_tokens?: number | null;
+  video_input_tokens?: number | null;
+  web_search_tool_usage?: number | null;
+  web_search_page_usage?: number | null;
   first_prompt_tokens?: number | null;
   // 后端预计算字段：默认剔除首轮冷请求与过期异常，避免 WEB 端独立
   // walk messages 重算导致跨端计算口径漂移。`null` 表示无任何 token 数据。
@@ -500,29 +448,6 @@ export function writeMachineTerminal(
         data: input.data,
         ...(input.terminalId ? { terminal_id: input.terminalId } : {}),
         ...(input.appendNewline ? { append_newline: true } : {}),
-        ...(input.includeHistory ? { include_history: true } : {}),
-      },
-    },
-  );
-}
-
-export function executeMachineTerminal(
-  id: string,
-  input: {
-    command: string;
-    terminalId?: string;
-    timeoutMs?: number;
-    includeHistory?: boolean;
-  },
-): Promise<MachineTerminalExecuteResponse> {
-  return apiRequest<MachineTerminalExecuteResponse>(
-    `/api/sessions/${encodeURIComponent(id)}/terminal/execute`,
-    {
-      method: 'POST',
-      body: {
-        command: input.command,
-        ...(input.terminalId ? { terminal_id: input.terminalId } : {}),
-        ...(input.timeoutMs ? { timeout_ms: input.timeoutMs } : {}),
         ...(input.includeHistory ? { include_history: true } : {}),
       },
     },
@@ -666,7 +591,7 @@ export interface SendMessageInput {
   allowQueuedGoalInterruption?: boolean;
 }
 
-export interface SendMessageSelectedSkill {
+interface SendMessageSelectedSkill {
   name: string;
   relative_directory_path: string;
 }
@@ -907,6 +832,8 @@ export interface MessageTtsPlaybackState {
   playing: boolean;
   message_id?: string | null;
   provider?: string | null;
+  error?: string | null;
+  failure_id?: string | null;
 }
 
 export async function fetchMessageTtsPlayback(
@@ -1035,14 +962,7 @@ export async function exportSessionDownload(
   } finally {
     timed.clear();
   }
-  if (res.status === 401) {
-    clearAuthStorage();
-    throw new UnauthorizedError(null);
-  }
-  if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new ApiError(res.status, text || null);
-  }
+  await throwIfApiResponseFailed(res);
   // 优先用响应里 Content-Disposition 的 filename；缺失时 fallback 到调用方给的名字。
   let filename = normalizeJsonlExportFilename(`${fallbackName}.jsonl`);
   const parsedFilename = filenameFromContentDisposition(res.headers.get('Content-Disposition'));

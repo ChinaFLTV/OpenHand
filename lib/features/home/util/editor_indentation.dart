@@ -11,6 +11,11 @@ class EditorIndentationEdit {
     required this.didChange,
   });
 
+  const EditorIndentationEdit.unchanged({
+    required this.text,
+    required this.selection,
+  }) : didChange = false;
+
   final String text;
   final TextSelection selection;
   final bool didChange;
@@ -53,22 +58,14 @@ EditorIndentationEdit applyEditorIndentation({
   bool outdent = false,
 }) {
   if (!selection.isValid) {
-    return EditorIndentationEdit(
-      text: text,
-      selection: selection,
-      didChange: false,
-    );
+    return EditorIndentationEdit.unchanged(text: text, selection: selection);
   }
 
   final normalizedIndentSpaces = normalizeEditorIndentSpaces(indentSpaces);
-  final baseOffset = selection.baseOffset.clamp(0, text.length);
-  final extentOffset = selection.extentOffset.clamp(0, text.length);
-  final normalizedSelection = selection.copyWith(
-    baseOffset: baseOffset,
-    extentOffset: extentOffset,
-  );
-  final startOffset = math.min(baseOffset, extentOffset);
-  final endOffset = math.max(baseOffset, extentOffset);
+  final range = _normalizedSelectionRange(text, selection);
+  final startOffset = range.startOffset;
+  final endOffset = range.endOffset;
+  final normalizedSelection = range.selection;
 
   if (!outdent && !_selectionSpansMultipleLines(text, startOffset, endOffset)) {
     if (normalizedSelection.isCollapsed) {
@@ -114,18 +111,13 @@ EditorIndentationEdit applyEditorAutoIndentNewline({
   String? language,
 }) {
   if (!selection.isValid) {
-    return EditorIndentationEdit(
-      text: text,
-      selection: selection,
-      didChange: false,
-    );
+    return EditorIndentationEdit.unchanged(text: text, selection: selection);
   }
 
   final normalizedIndentSpaces = normalizeEditorIndentSpaces(indentSpaces);
-  final baseOffset = selection.baseOffset.clamp(0, text.length);
-  final extentOffset = selection.extentOffset.clamp(0, text.length);
-  final startOffset = math.min(baseOffset, extentOffset);
-  final endOffset = math.max(baseOffset, extentOffset);
+  final range = _normalizedSelectionRange(text, selection);
+  final startOffset = range.startOffset;
+  final endOffset = range.endOffset;
   final lineStart = _lineStartOffset(text, startOffset);
   final lineEnd = _lineEndOffset(text, startOffset);
   final lineText = text.substring(lineStart, lineEnd);
@@ -176,11 +168,7 @@ EditorIndentationEdit applyEditorToggleComment({
       blockCommentEnd: commentStyle.blockCommentEnd!,
     );
   }
-  return EditorIndentationEdit(
-    text: text,
-    selection: selection,
-    didChange: false,
-  );
+  return EditorIndentationEdit.unchanged(text: text, selection: selection);
 }
 
 EditorIndentationEdit applyEditorToggleLineComment({
@@ -189,21 +177,15 @@ EditorIndentationEdit applyEditorToggleLineComment({
   required String commentPrefix,
 }) {
   if (!selection.isValid || commentPrefix.trim().isEmpty) {
-    return EditorIndentationEdit(
-      text: text,
-      selection: selection,
-      didChange: false,
-    );
+    return EditorIndentationEdit.unchanged(text: text, selection: selection);
   }
 
-  final baseOffset = selection.baseOffset.clamp(0, text.length);
-  final extentOffset = selection.extentOffset.clamp(0, text.length);
-  final normalizedSelection = selection.copyWith(
-    baseOffset: baseOffset,
-    extentOffset: extentOffset,
-  );
-  final startOffset = math.min(baseOffset, extentOffset);
-  final endOffset = math.max(baseOffset, extentOffset);
+  final range = _normalizedSelectionRange(text, selection);
+  final baseOffset = range.baseOffset;
+  final extentOffset = range.extentOffset;
+  final startOffset = range.startOffset;
+  final endOffset = range.endOffset;
+  final normalizedSelection = range.selection;
   final blockStart = _lineStartOffset(text, startOffset);
   final effectiveEndOffset = _effectiveBlockEndOffset(
     text,
@@ -304,10 +286,9 @@ EditorIndentationEdit applyEditorToggleLineComment({
 
   final nextText = buffer.toString();
   if (!changed) {
-    return EditorIndentationEdit(
+    return EditorIndentationEdit.unchanged(
       text: text,
       selection: normalizedSelection,
-      didChange: false,
     );
   }
   return EditorIndentationEdit(
@@ -329,34 +310,26 @@ EditorIndentationEdit _applyEditorToggleBlockComment({
   if (!selection.isValid ||
       blockCommentStart.trim().isEmpty ||
       blockCommentEnd.trim().isEmpty) {
-    return EditorIndentationEdit(
-      text: text,
-      selection: selection,
-      didChange: false,
-    );
+    return EditorIndentationEdit.unchanged(text: text, selection: selection);
   }
 
-  final baseOffset = selection.baseOffset.clamp(0, text.length);
-  final extentOffset = selection.extentOffset.clamp(0, text.length);
-  final normalizedSelection = selection.copyWith(
-    baseOffset: baseOffset,
-    extentOffset: extentOffset,
-  );
+  final normalizedSelection = _normalizedSelectionRange(
+    text,
+    selection,
+  ).selection;
   final target = _blockCommentTargetForSelection(text, normalizedSelection);
   if (target.end <= target.start) {
-    return EditorIndentationEdit(
+    return EditorIndentationEdit.unchanged(
       text: text,
       selection: normalizedSelection,
-      didChange: false,
     );
   }
 
   final targetText = text.substring(target.start, target.end);
   if (targetText.isEmpty) {
-    return EditorIndentationEdit(
+    return EditorIndentationEdit.unchanged(
       text: text,
       selection: normalizedSelection,
-      didChange: false,
     );
   }
 
@@ -372,10 +345,9 @@ EditorIndentationEdit _applyEditorToggleBlockComment({
           : '$blockCommentStart $targetText $blockCommentEnd');
   final nextText = text.replaceRange(target.start, target.end, replacement);
   if (nextText == text) {
-    return EditorIndentationEdit(
+    return EditorIndentationEdit.unchanged(
       text: text,
       selection: normalizedSelection,
-      didChange: false,
     );
   }
 
@@ -511,11 +483,7 @@ EditorIndentationEdit _applyLineIndentation({
 
   final nextText = buffer.toString();
   if (!changed) {
-    return EditorIndentationEdit(
-      text: text,
-      selection: selection,
-      didChange: false,
-    );
+    return EditorIndentationEdit.unchanged(text: text, selection: selection);
   }
   return EditorIndentationEdit(
     text: nextText,
@@ -524,6 +492,28 @@ EditorIndentationEdit _applyLineIndentation({
       extentOffset: nextExtentOffset.clamp(0, nextText.length),
     ),
     didChange: true,
+  );
+}
+
+({
+  int baseOffset,
+  int extentOffset,
+  int startOffset,
+  int endOffset,
+  TextSelection selection,
+})
+_normalizedSelectionRange(String text, TextSelection selection) {
+  final baseOffset = selection.baseOffset.clamp(0, text.length);
+  final extentOffset = selection.extentOffset.clamp(0, text.length);
+  return (
+    baseOffset: baseOffset,
+    extentOffset: extentOffset,
+    startOffset: math.min(baseOffset, extentOffset),
+    endOffset: math.max(baseOffset, extentOffset),
+    selection: selection.copyWith(
+      baseOffset: baseOffset,
+      extentOffset: extentOffset,
+    ),
   );
 }
 

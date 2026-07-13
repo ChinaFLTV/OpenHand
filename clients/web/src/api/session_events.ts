@@ -59,7 +59,7 @@ export interface SessionEventSnapshot {
   served_at: string;
 }
 
-export interface SessionDeletedEvent {
+interface SessionDeletedEvent {
   error: 'session_deleted_or_not_found';
   session_id: string;
   served_at: string;

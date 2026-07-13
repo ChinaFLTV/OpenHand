@@ -2100,6 +2100,34 @@ Future<void> _openAttachment(
     return;
   }
 
+  if (attachment.isVideo) {
+    if (!context.mounted) return;
+    showAnimatedDialog<void>(
+      context: context,
+      builder: (dialogContext) => MediaPreviewDialog.file(
+        filePath: storagePath,
+        title: attachment.name,
+        mimeType: attachment.mimeType,
+        kind: MediaPreviewKind.video,
+      ),
+    );
+    return;
+  }
+
+  if (attachment.isAudio) {
+    if (!context.mounted) return;
+    showAnimatedDialog<void>(
+      context: context,
+      builder: (dialogContext) => MediaPreviewDialog.file(
+        filePath: storagePath,
+        title: attachment.name,
+        mimeType: attachment.mimeType,
+        kind: MediaPreviewKind.audio,
+      ),
+    );
+    return;
+  }
+
   if (!context.mounted) return;
   showAnimatedDialog<void>(
     context: context,
@@ -2191,7 +2219,7 @@ Future<void> _openComposerAttachment(
       storagePath: draft.filePath,
       kind: draft.kind,
       name: draft.name,
-      mimeType: '',
+      mimeType: aiMimeTypeForPath(draft.filePath),
       sizeBytes: draft.sizeBytes,
     ),
   );

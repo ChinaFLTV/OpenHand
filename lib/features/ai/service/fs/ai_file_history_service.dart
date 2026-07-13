@@ -59,15 +59,11 @@ class AiFileHistoryService {
     if (!await file.exists()) return null;
 
     try {
-      final historyDir = await _getHistoryDir();
-      final normalizedPath = p.normalize(filePath);
-
-      // 生成文件哈希作为子目录名（避免路径冲突）
-      final pathHash = _hashPath(normalizedPath);
-      final fileHistoryDir = Directory(p.join(historyDir.path, pathHash));
-      if (!await fileHistoryDir.exists()) {
-        await fileHistoryDir.create(recursive: true);
-      }
+      final location = await _resolveFileHistoryLocation(
+        filePath,
+        create: true,
+      );
+      final fileHistoryDir = location.directory;
 
       // 版本 ID = 时间戳 + UUID 后缀
       final timestamp = DateTime.now().toUtc();
@@ -80,7 +76,7 @@ class AiFileHistoryService {
       // 保存版本元数据
       final versionMetadata = <String, Object?>{
         'version_id': versionId,
-        'file_path': normalizedPath,
+        'file_path': location.normalizedPath,
         'session_id': sessionId,
         'tool_call_id': toolCallId,
         'created_at': timestamp.toIso8601String(),
@@ -103,7 +99,7 @@ class AiFileHistoryService {
       await _pruneOldVersions(fileHistoryDir);
 
       return versionId;
-    } catch (e) {
+    } catch (_) {
       // 历史版本保存失败不应阻断编辑操作
       return null;
     }
@@ -112,10 +108,9 @@ class AiFileHistoryService {
   /// 获取文件的版本历史列表
   Future<List<FileVersionInfo>> getVersionHistory(String filePath) async {
     try {
-      final historyDir = await _getHistoryDir();
-      final normalizedPath = p.normalize(filePath);
-      final pathHash = _hashPath(normalizedPath);
-      final fileHistoryDir = Directory(p.join(historyDir.path, pathHash));
+      final fileHistoryDir = (await _resolveFileHistoryLocation(
+        filePath,
+      )).directory;
 
       if (!await fileHistoryDir.exists()) {
         return const <FileVersionInfo>[];
@@ -137,7 +132,7 @@ class AiFileHistoryService {
       // 按时间倒序排列
       versions.sort((a, b) => b.createdAt.compareTo(a.createdAt));
       return versions;
-    } catch (e) {
+    } catch (_) {
       return const <FileVersionInfo>[];
     }
   }
@@ -148,10 +143,8 @@ class AiFileHistoryService {
     required String versionId,
   }) async {
     try {
-      final historyDir = await _getHistoryDir();
-      final normalizedPath = p.normalize(filePath);
-      final pathHash = _hashPath(normalizedPath);
-      final fileHistoryDir = Directory(p.join(historyDir.path, pathHash));
+      final location = await _resolveFileHistoryLocation(filePath);
+      final fileHistoryDir = location.directory;
 
       final contentFile = File(
         p.join(fileHistoryDir.path, '$versionId.content'),
@@ -169,8 +162,7 @@ class AiFileHistoryService {
 
       // 恢复历史版本
       final historicContent = await contentFile.readAsString();
-      final targetFile = File(normalizedPath);
-      await targetFile.writeAsString(historicContent);
+      await File(location.normalizedPath).writeAsString(historicContent);
 
       return RollbackResult.success(versionId);
     } catch (e) {
@@ -237,6 +229,19 @@ class AiFileHistoryService {
     return '${prefix}_$hash';
   }
 
+  Future<({Directory directory, String normalizedPath})>
+  _resolveFileHistoryLocation(String filePath, {bool create = false}) async {
+    final historyDir = await _getHistoryDir();
+    final normalizedPath = p.normalize(filePath);
+    final directory = Directory(
+      p.join(historyDir.path, _hashPath(normalizedPath)),
+    );
+    if (create && !await directory.exists()) {
+      await directory.create(recursive: true);
+    }
+    return (directory: directory, normalizedPath: normalizedPath);
+  }
+
   /// 读取指定版本的文件内容
   ///
   /// 返回 (内容, 元数据)，如果版本不存在则返回 (null, null)
@@ -245,10 +250,9 @@ class AiFileHistoryService {
     required String versionId,
   }) async {
     try {
-      final historyDir = await _getHistoryDir();
-      final normalizedPath = p.normalize(filePath);
-      final pathHash = _hashPath(normalizedPath);
-      final fileHistoryDir = Directory(p.join(historyDir.path, pathHash));
+      final fileHistoryDir = (await _resolveFileHistoryLocation(
+        filePath,
+      )).directory;
 
       final contentFile = File(
         p.join(fileHistoryDir.path, '$versionId.content'),
@@ -279,7 +283,7 @@ class AiFileHistoryService {
       }
 
       return (content, metadata);
-    } catch (e) {
+    } catch (_) {
       return (null, null);
     }
   }

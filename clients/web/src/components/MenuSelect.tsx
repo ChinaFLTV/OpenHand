@@ -16,7 +16,7 @@ import { useRafScheduler } from '../hooks/useRafScheduler';
 import { clampNumber } from '../shared/util/number';
 import { OverlayPortal } from './OverlayPortal';
 
-export interface MenuOption<T extends string = string> {
+interface MenuOption<T extends string = string> {
   value: T;
   label: string;
   /** 可选副文本，渲染在 label 下方。 */

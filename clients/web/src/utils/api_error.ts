@@ -4,8 +4,6 @@ import {
   nonBlankStringFromUnknown,
   recordOrNullFromUnknown,
 } from '../shared/util/value';
-export { isAbortError } from '../shared/util/errors';
-
 interface ApiErrorBody {
   error?: unknown;
   message?: unknown;

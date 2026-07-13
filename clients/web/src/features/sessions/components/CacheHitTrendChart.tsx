@@ -8,7 +8,7 @@ import {
   type CacheHitTrendPoint,
 } from '../cache_hit_stats';
 
-export type { CacheHitDisplayMode, CacheHitTrendPoint };
+export type { CacheHitDisplayMode };
 
 interface CacheHitTrendChartProps {
   points: CacheHitTrendPoint[];
