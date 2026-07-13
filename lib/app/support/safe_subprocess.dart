@@ -656,6 +656,8 @@ Future<int> _terminatePidSet(Set<int> pids, {required String tag}) async {
 /// [stdinBytes] are written before stdin is always closed, and that work shares
 /// the same wall-clock timeout. [onProcessStarted] runs once after output
 /// subscriptions are installed so cancellable callers can retain a safe handle.
+/// [onFailure] observes launch/runtime failures before this helper converts them
+/// to `null`; callback failures are isolated from process cleanup.
 /// [outputDecoder] defaults to tolerant UTF-8; callers wrapping legacy system
 /// tools may supply [SystemEncoding.decoder] without duplicating collection.
 ///
@@ -684,6 +686,7 @@ Future<ProcessResult?> runProcessWithTimeout(
   ),
   bool startInNewProcessGroup = true,
   void Function(Process process)? onProcessStarted,
+  void Function(Object error, StackTrace stack)? onFailure,
   ProcessResult Function(int pid, String stdout, String stderr)?
   timeoutResultBuilder,
 }) async {
@@ -887,6 +890,16 @@ Future<ProcessResult?> runProcessWithTimeout(
         process,
         gracefulTimeout: Duration(milliseconds: effectiveGracefulMs),
         knownProcessGroupLeader: isProcessGroupLeader,
+      );
+    }
+    try {
+      onFailure?.call(error, stack);
+    } catch (callbackError, callbackStack) {
+      silentLog(
+        tag,
+        'process failure callback $executable',
+        callbackError,
+        callbackStack,
       );
     }
     if (!_isMissingExecutableProcessException(error)) {

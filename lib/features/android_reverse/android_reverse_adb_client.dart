@@ -1,11 +1,10 @@
-import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
 import '../../app/support/safe_subprocess.dart';
 import '../../app/support/silent_log.dart';
 import '../../shared/net/tcp_port_utils.dart';
-import '../../shared/util/async_concurrency.dart';
+import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/input_value_parsing.dart';
 
 const String _kTag = 'android_reverse_adb_client';
@@ -16,6 +15,8 @@ const Duration _kAdbPidLookupTimeout = Duration(seconds: 3);
 const Duration _kAdbShellQuickReadTimeout = Duration(seconds: 6);
 const Duration _kAdbShellReadTimeout = Duration(seconds: 8);
 const Duration _kAdbShellDumpsysTimeout = Duration(seconds: 12);
+const int _kMaxAdbStdoutBytes = 4 * kBytesPerMiB;
+const int _kMaxAdbStderrBytes = 512 * kBytesPerKiB;
 const int _kMaxLogcatLines = 2000;
 const int _kMinTcpPort = kTcpPortMin;
 const int _kMaxTcpPort = kTcpPortMax;
@@ -904,104 +905,42 @@ class AndroidReverseAdbClient {
     Duration? timeout,
   }) async {
     final effectiveTimeout = timeout ?? _kAdbCommandTimeout;
-    Process? process;
-    StreamSubscription<String>? stdoutSub;
-    StreamSubscription<String>? stderrSub;
-    final stdoutBuffer = StringBuffer();
-    final stderrBuffer = StringBuffer();
-    final stdoutDone = Completer<void>();
-    final stderrDone = Completer<void>();
-
-    void complete(Completer<void> completer) {
-      if (!completer.isCompleted) completer.complete();
-    }
-
-    Future<bool> cancelOutput(
-      StreamSubscription<String>? subscription,
-      String streamName,
-    ) {
-      return cancelStreamSubscriptionBounded<String>(
-        subscription,
-        onError: (error, stack) => silentLog(
-          _kTag,
-          'cancel adb $streamName subscription',
-          error,
-          stack,
-        ),
-      );
-    }
-
-    Future<void> drainOutput() async {
-      await Future.wait<void>(<Future<void>>[
-        stdoutDone.future,
-        stderrDone.future,
-      ]).timeout(const Duration(milliseconds: 350), onTimeout: () => <void>[]);
-      await Future.wait<bool>(<Future<bool>>[
-        if (!stdoutDone.isCompleted) cancelOutput(stdoutSub, 'stdout'),
-        if (!stderrDone.isCompleted) cancelOutput(stderrSub, 'stderr'),
-      ]);
-    }
-
-    try {
-      process = await startTrackedProcess(adbPath, args);
-      stdoutSub = process.stdout
-          .transform(const Utf8Decoder(allowMalformed: true))
-          .listen(
-            stdoutBuffer.write,
-            onError: (Object error, StackTrace stackTrace) {
-              complete(stdoutDone);
-            },
-            onDone: () => complete(stdoutDone),
-          );
-      stderrSub = process.stderr
-          .transform(const Utf8Decoder(allowMalformed: true))
-          .listen(
-            stderrBuffer.write,
-            onError: (Object error, StackTrace stackTrace) {
-              complete(stderrDone);
-            },
-            onDone: () => complete(stderrDone),
-          );
-      var timedOut = false;
-      late int exitCode;
-      try {
-        exitCode = await process.exitCode.timeout(effectiveTimeout);
-      } on TimeoutException {
+    var timedOut = false;
+    Object? failure;
+    final result = await runProcessWithTimeout(
+      adbPath,
+      args,
+      timeout: effectiveTimeout,
+      tag: _kTag,
+      maxStdoutBytes: _kMaxAdbStdoutBytes,
+      maxStderrBytes: _kMaxAdbStderrBytes,
+      onFailure: (error, _) => failure = error,
+      timeoutResultBuilder: (pid, stdout, stderr) {
         timedOut = true;
-        exitCode = -1;
-        process.kill();
-        await Future<void>.delayed(const Duration(milliseconds: 180));
-        process.kill(ProcessSignal.sigkill);
-      }
-      await drainOutput();
-      final stdout = stdoutBuffer.toString();
-      var stderr = stderrBuffer.toString();
-      if (timedOut && nullIfBlank(stderr) == null) {
-        stderr = 'ADB command timed out before completion.';
-      }
-      return AdbCommandResult(
-        args: List<String>.unmodifiable(args),
-        exitCode: exitCode,
-        stdout: stdout,
-        stderr: stderr,
-        timedOut: timedOut,
-      );
-    } catch (e, st) {
-      process?.kill(ProcessSignal.sigkill);
-      await Future.wait<bool>(<Future<bool>>[
-        cancelOutput(stdoutSub, 'stdout'),
-        cancelOutput(stderrSub, 'stderr'),
-      ]);
-      silentLog(_kTag, 'adb ${args.join(' ')} failed', e, st);
-      final stdout = stdoutBuffer.toString();
-      final stderr = nullIfBlank(stderrBuffer.toString());
+        return ProcessResult(pid, -1, stdout, stderr);
+      },
+    );
+    if (result == null) {
+      final error = failure ?? 'ADB command failed before producing a result.';
       return AdbCommandResult(
         args: List<String>.unmodifiable(args),
         exitCode: -1,
-        stdout: stdout,
-        stderr: stderr == null ? '$e' : '$stderr\n$e',
+        stdout: '',
+        stderr: '$error',
       );
     }
+    final stdout = result.stdout as String;
+    var stderr = result.stderr as String;
+    if (timedOut && nullIfBlank(stderr) == null) {
+      stderr = 'ADB command timed out before completion.';
+    }
+    return AdbCommandResult(
+      args: List<String>.unmodifiable(args),
+      exitCode: result.exitCode,
+      stdout: stdout,
+      stderr: stderr,
+      timedOut: timedOut,
+    );
   }
 
   Future<String?> _runDevice(List<String> args, {Duration? timeout}) {

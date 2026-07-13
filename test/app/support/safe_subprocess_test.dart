@@ -55,4 +55,22 @@ void main() {
     expect(result.timedOut, isFalse);
     expect(result.exitCode, isNot(0));
   });
+
+  test(
+    'bounded process runner reports launch failures to the caller',
+    () async {
+      Object? failure;
+
+      final result = await runProcessWithTimeout(
+        'openhand-command-that-does-not-exist',
+        const <String>[],
+        timeout: const Duration(seconds: 1),
+        startInNewProcessGroup: false,
+        onFailure: (error, _) => failure = error,
+      );
+
+      expect(result, isNull);
+      expect(failure, isA<ProcessException>());
+    },
+  );
 }
