@@ -2464,23 +2464,12 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
   Widget _buildMarkdownImage(Uri uri, String? title, String? alt) {
     final label = (alt ?? title ?? uri.toString()).trim();
     final resolvedFilePath = _resolveMarkdownImageFilePath(uri);
-    if (resolvedFilePath != null &&
-        _cachedMarkdownImageFileExists(resolvedFilePath)) {
+    if (resolvedFilePath != null) {
       final previewTitle = label.isEmpty ? p.basename(resolvedFilePath) : label;
       return _wrapMarkdownImageTap(
         semanticsLabel: previewTitle,
-        onTap: () {
-          if (!mounted) {
-            return;
-          }
-          showAnimatedDialog<void>(
-            context: context,
-            builder: (ctx) => _ImagePreviewDialog.file(
-              filePath: resolvedFilePath,
-              title: previewTitle,
-            ),
-          );
-        },
+        onTap: () =>
+            unawaited(_openMarkdownImageFile(resolvedFilePath, previewTitle)),
         child: _buildMarkdownImageFrame(
           context,
           Image.file(
@@ -2590,6 +2579,26 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
     return Text(label.isEmpty ? uri.toString() : label);
   }
 
+  Future<void> _openMarkdownImageFile(String path, String title) async {
+    if (!await isRegularFilePath(path)) {
+      if (!mounted) return;
+      showHomeErrorSnack(
+        context,
+        openHandLocalizedText(
+          context,
+          zh: '图片文件不存在或已被移动。',
+          en: 'Image file not found or has been moved.',
+        ),
+      );
+      return;
+    }
+    if (!mounted) return;
+    showAnimatedDialog<void>(
+      context: context,
+      builder: (ctx) => _ImagePreviewDialog.file(filePath: path, title: title),
+    );
+  }
+
   String? _resolveMarkdownImageFilePath(Uri uri) {
     if (uri.scheme == 'file') {
       try {
@@ -2611,6 +2620,7 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
       if (resolved != null && !resolved.isDirectory) {
         return resolved.resolvedPath;
       }
+      return firstMessagePathCandidate(href, widget.pathRoots);
     }
     return null;
   }
@@ -2723,22 +2733,41 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
   GestureRecognizer createLink(String text, String? href, String title) {
     final recognizer = TapGestureRecognizer();
     _recognizers.add(recognizer);
-    final resolvedPath = resolveMarkdownMessageLinkPath(href, widget.pathRoots);
-    if (resolvedPath != null) {
-      recognizer.onTap = () {
-        _BubbleHtmlInteractiveScope.maybeOf(context)?.markInteractiveTap();
-        unawaited(_openResolvedMessagePath(context, resolvedPath));
-      };
-      return recognizer;
-    }
-    final externalUri = parseSupportedMessageLinkUri(href);
-    if (externalUri != null) {
-      recognizer.onTap = () {
-        _BubbleHtmlInteractiveScope.maybeOf(context)?.markInteractiveTap();
-        unawaited(_openMessageLinkUri(context, externalUri));
-      };
-    }
+    recognizer.onTap = () {
+      _BubbleHtmlInteractiveScope.maybeOf(context)?.markInteractiveTap();
+      unawaited(_openMarkdownLink(href));
+    };
     return recognizer;
+  }
+
+  Future<void> _openMarkdownLink(String? href) async {
+    final normalizedHref = (href ?? '').trim();
+    if (normalizedHref.isEmpty) return;
+    final externalUri = parseSupportedMessageLinkUri(normalizedHref);
+    if (externalUri != null && externalUri.scheme != 'file') {
+      if (mounted) await _openMessageLinkUri(context, externalUri);
+      return;
+    }
+    var pathText = normalizedHref;
+    if (normalizedHref.startsWith('file://')) {
+      try {
+        pathText = Uri.parse(normalizedHref).toFilePath();
+      } catch (_) {
+        pathText = normalizedHref;
+      }
+    }
+    final resolvedPath = await resolveExistingMessagePathAsync(
+      pathText,
+      widget.pathRoots,
+    );
+    if (!mounted) return;
+    if (resolvedPath != null) {
+      await _openResolvedMessagePath(context, resolvedPath);
+      return;
+    }
+    if (externalUri != null && mounted) {
+      await _openMessageLinkUri(context, externalUri);
+    }
   }
 
   static final RegExp _trailingNewlinePattern = RegExp(r'\n$');
@@ -3159,44 +3188,6 @@ class _MarkdownSelectionContainerState
   Widget build(BuildContext context) {
     return SelectionContainer(delegate: _delegate, child: widget.child);
   }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Cached file existence probe for markdown image rendering.
-// During AI streaming the message bubble rebuilds many times per second. Each
-// rebuild previously ran `File(path).existsSync()` for every inline image URL,
-// which is a blocking syscall per image per frame. This TTL cache collapses
-// hundreds of syscalls per second into one per path per short window while
-// still picking up newly created/deleted files within ~2s.
-// ─────────────────────────────────────────────────────────────────────────────
-const Duration _markdownImageExistsTtl = Duration(seconds: 2);
-const int _markdownImageExistsCacheCap = 256;
-final Map<String, _MarkdownImageExistsCacheEntry> _markdownImageExistsCache =
-    <String, _MarkdownImageExistsCacheEntry>{};
-
-class _MarkdownImageExistsCacheEntry {
-  const _MarkdownImageExistsCacheEntry(this.exists, this.checkedAt);
-
-  final bool exists;
-  final DateTime checkedAt;
-}
-
-bool _cachedMarkdownImageFileExists(String path) {
-  final now = DateTime.now();
-  final cached = _markdownImageExistsCache[path];
-  if (cached != null &&
-      now.difference(cached.checkedAt) < _markdownImageExistsTtl) {
-    return cached.exists;
-  }
-  final exists = File(path).existsSync();
-  _markdownImageExistsCache[path] = _MarkdownImageExistsCacheEntry(exists, now);
-  if (_markdownImageExistsCache.length > _markdownImageExistsCacheCap) {
-    final oldestKey = _markdownImageExistsCache.entries
-        .reduce((a, b) => a.value.checkedAt.isBefore(b.value.checkedAt) ? a : b)
-        .key;
-    _markdownImageExistsCache.remove(oldestKey);
-  }
-  return exists;
 }
 
 /// 用户消息纯文本渲染体 - 不对用户输入内容做 Markdown 解析，

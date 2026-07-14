@@ -78,4 +78,18 @@ void main() {
       throwsA(isA<FormatException>()),
     );
   });
+
+  test('regular file probe rejects missing paths and symbolic links', () async {
+    final target = File('${temporaryDirectory.path}/target.txt');
+    await target.writeAsString('content');
+    final link = Link('${temporaryDirectory.path}/linked.txt');
+    await link.create(target.path);
+
+    expect(await isRegularFilePath(target.path), isTrue);
+    expect(await isRegularFilePath(link.path), isFalse);
+    expect(
+      await isRegularFilePath('${temporaryDirectory.path}/missing.txt'),
+      isFalse,
+    );
+  });
 }

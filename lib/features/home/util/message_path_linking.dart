@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:markdown/markdown.dart' as md;
@@ -8,6 +9,9 @@ import '../../../app/support/openhand_paths.dart';
 import '../../ai/index.dart';
 
 const int _resolvedMessagePathCacheLimit = 512;
+const int _messagePathProbeCandidateLimit = 64;
+const Duration _messagePathProbeIdleTimeout = Duration(seconds: 3);
+const Duration _messagePathProbeTotalTimeout = Duration(seconds: 10);
 
 final Map<String, MessageResolvedPath?> _resolvedMessagePathCache =
     <String, MessageResolvedPath?>{};
@@ -84,27 +88,13 @@ MessageResolvedPath? resolveExistingMessagePath(
 ) {
   final request = _prepareMessagePathResolution(rawPath, candidateRoots);
   if (request == null) return null;
-  final (:displayPath, :cacheKey, :candidates) = request;
-  if (_resolvedMessagePathCache.containsKey(cacheKey)) {
-    return _resolvedMessagePathCache[cacheKey];
-  }
+  return _resolvedMessagePathCache[request.cacheKey];
+}
 
-  MessageResolvedPath? resolved;
-  for (final candidate in candidates) {
-    final entityType = FileSystemEntity.typeSync(candidate);
-    if (entityType == FileSystemEntityType.notFound) {
-      continue;
-    }
-    final isDirectory = entityType == FileSystemEntityType.directory;
-    resolved = MessageResolvedPath(
-      displayPath: displayPath,
-      resolvedPath: p.normalize(candidate),
-      isDirectory: isDirectory,
-    );
-    break;
-  }
-  _rememberResolvedMessagePath(cacheKey, resolved);
-  return resolved;
+/// Returns the first normalized lexical candidate without touching disk.
+String? firstMessagePathCandidate(String rawPath, List<String> candidateRoots) {
+  final request = _prepareMessagePathResolution(rawPath, candidateRoots);
+  return request?.candidates.firstOrNull;
 }
 
 ({String displayPath, String cacheKey, Set<String> candidates})?
@@ -264,8 +254,24 @@ Future<MessageResolvedPath?> resolveExistingMessagePathAsync(
   }
 
   MessageResolvedPath? resolved;
-  for (final candidate in candidates) {
-    final type = await FileSystemEntity.type(candidate);
+  final stopwatch = Stopwatch()..start();
+  for (final candidate in candidates.take(_messagePathProbeCandidateLimit)) {
+    final remainingMicroseconds =
+        _messagePathProbeTotalTimeout.inMicroseconds -
+        stopwatch.elapsedMicroseconds;
+    if (remainingMicroseconds <= 0) break;
+    final remaining = Duration(microseconds: remainingMicroseconds);
+    final timeout = remaining < _messagePathProbeIdleTimeout
+        ? remaining
+        : _messagePathProbeIdleTimeout;
+    FileSystemEntityType type;
+    try {
+      type = await FileSystemEntity.type(candidate).timeout(timeout);
+    } on FileSystemException {
+      continue;
+    } on TimeoutException {
+      continue;
+    }
     if (type == FileSystemEntityType.notFound) {
       continue;
     }

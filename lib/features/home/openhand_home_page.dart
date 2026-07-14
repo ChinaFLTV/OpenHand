@@ -8800,7 +8800,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final restoredAttachments = <_ComposerAttachmentDraft>[];
     for (final attachment in result.attachments) {
       final path = attachment.storagePath.trim();
-      if (path.isNotEmpty && File(path).existsSync()) {
+      if (path.isNotEmpty && await isRegularFilePath(path)) {
         restoredAttachments.add(
           _ComposerAttachmentDraft(
             filePath: path,

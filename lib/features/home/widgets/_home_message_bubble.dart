@@ -2079,8 +2079,7 @@ Future<void> _openAttachment(
   if (storagePath.isEmpty) {
     return;
   }
-  final file = File(storagePath);
-  if (!file.existsSync()) {
+  if (!await isRegularFilePath(storagePath)) {
     if (!context.mounted) return;
     showHomeErrorSnack(
       context,
@@ -3225,7 +3224,7 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog> {
       final sourceFilePath = widget.filePath;
       if (sourceFilePath != null) {
         final source = File(sourceFilePath);
-        if (!source.existsSync()) {
+        if (!await isRegularFilePath(sourceFilePath)) {
           throw FileSystemException(
             'Image source file is missing.',
             source.path,
@@ -4629,7 +4628,7 @@ class _MediaPreviewDialogState extends State<_MediaPreviewDialog> {
     final controller = _controller;
     if (controller == null) return;
     final localPath = widget.source.filePath;
-    if (localPath != null && File(localPath).existsSync()) {
+    if (localPath != null && await isRegularFilePath(localPath)) {
       try {
         final dir = p.dirname(localPath);
         final tempName =
@@ -5593,7 +5592,7 @@ input[type=range]:hover::-webkit-slider-thumb,input[type=range]:focus-visible::-
       final filePath = widget.source.filePath;
       if (filePath != null) {
         final source = File(filePath);
-        if (!source.existsSync()) {
+        if (!await isRegularFilePath(filePath)) {
           throw FileSystemException('Media source file is missing.', filePath);
         }
         await source.copy(location.path);
@@ -5810,9 +5809,7 @@ _GeneratedMediaSource? _resolveGeneratedMediaSource(
     try {
       final filePath = parsed.toFilePath();
       final kind = _generatedMediaKindForText(filePath) ?? kindHint;
-      if (kind == null || !_cachedMarkdownImageFileExists(filePath)) {
-        return null;
-      }
+      if (kind == null) return null;
       return _GeneratedMediaSource(
         kind: kind,
         uri: Uri.file(filePath),
@@ -5824,7 +5821,7 @@ _GeneratedMediaSource? _resolveGeneratedMediaSource(
   }
   if (decodedHref.startsWith('/')) {
     final kind = _generatedMediaKindForText(decodedHref) ?? kindHint;
-    if (kind != null && _cachedMarkdownImageFileExists(decodedHref)) {
+    if (kind != null) {
       return _GeneratedMediaSource(
         kind: kind,
         uri: Uri.file(decodedHref),
@@ -5833,17 +5830,17 @@ _GeneratedMediaSource? _resolveGeneratedMediaSource(
     }
   }
   final resolvedPath = resolveMarkdownMessageLinkPath(decodedHref, pathRoots);
-  if (resolvedPath == null || resolvedPath.isDirectory) return null;
-  final kind =
-      _generatedMediaKindForText(resolvedPath.resolvedPath) ?? kindHint;
-  if (kind == null ||
-      !_cachedMarkdownImageFileExists(resolvedPath.resolvedPath)) {
-    return null;
-  }
+  if (resolvedPath?.isDirectory == true) return null;
+  final localPath =
+      resolvedPath?.resolvedPath ??
+      firstMessagePathCandidate(decodedHref, pathRoots);
+  if (localPath == null) return null;
+  final kind = _generatedMediaKindForText(localPath) ?? kindHint;
+  if (kind == null) return null;
   return _GeneratedMediaSource(
     kind: kind,
-    uri: Uri.file(resolvedPath.resolvedPath),
-    filePath: resolvedPath.resolvedPath,
+    uri: Uri.file(localPath),
+    filePath: localPath,
   );
 }
 
@@ -8499,7 +8496,7 @@ class _FullscreenVideoPageState extends State<_FullscreenVideoPage> {
 
   Future<void> _bootstrap() async {
     final localPath = widget.source.filePath;
-    if (localPath != null && File(localPath).existsSync()) {
+    if (localPath != null && await isRegularFilePath(localPath)) {
       try {
         final dir = p.dirname(localPath);
         final tempName =

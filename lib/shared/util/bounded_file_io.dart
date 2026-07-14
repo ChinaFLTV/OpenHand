@@ -404,6 +404,33 @@ bool isRegularFileStat(FileStat stat) {
   return (stat.mode & _posixFileTypeMask) == _posixRegularFileType;
 }
 
+/// Asynchronously checks whether [path] is a regular file without following a
+/// leaf symbolic link. Metadata failures and timeouts are treated as a missing
+/// file so UI event handlers can fail closed without blocking the main isolate.
+Future<bool> isRegularFilePath(
+  String path, {
+  Duration timeout = defaultBoundedFileReadIdleTimeout,
+  bool followLinks = false,
+}) async {
+  if (path.trim().isEmpty) return false;
+  if (timeout <= Duration.zero) {
+    throw ArgumentError.value(timeout, 'timeout', 'Must be positive.');
+  }
+  try {
+    return await FileSystemEntity.type(
+          path,
+          followLinks: followLinks,
+        ).timeout(timeout) ==
+        FileSystemEntityType.file;
+  } on FileSystemException {
+    return false;
+  } on TimeoutException {
+    return false;
+  } on ArgumentError {
+    return false;
+  }
+}
+
 Future<void> _closeLateFile(Future<RandomAccessFile> openFuture) async {
   try {
     final input = await openFuture;
