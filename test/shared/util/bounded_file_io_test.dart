@@ -42,6 +42,20 @@ void main() {
     },
   );
 
+  test(
+    'bounded prefix reader accepts a larger file without over-reading',
+    () async {
+      final file = File('${temporaryDirectory.path}/large-preview.bin');
+      await file.writeAsBytes(<int>[1, 2, 3, 4, 5]);
+
+      expect(await readBoundedFilePrefixBytes(file, maxBytes: 3), <int>[
+        1,
+        2,
+        3,
+      ]);
+    },
+  );
+
   test('bounded string reader rejects malformed UTF-8', () async {
     final file = File('${temporaryDirectory.path}/malformed.txt');
     await file.writeAsBytes(<int>[0xc3, 0x28]);

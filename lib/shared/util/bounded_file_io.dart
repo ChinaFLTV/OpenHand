@@ -172,6 +172,7 @@ Future<Uint8List> readBoundedFileBytes(
   required Duration idleTimeout,
   required Duration totalTimeout,
   bool verifyUnchanged = true,
+  bool truncateToMaxBytes = false,
   BoundedFileHandleOwner? handleOwner,
 }) async {
   if (maxBytes < 1) {
@@ -239,7 +240,8 @@ Future<Uint8List> readBoundedFileBytes(
       (input) => input.length(),
       timeout: nextOperationTimeout(),
     );
-    if (initialLength < 0 || initialLength > maxBytes) {
+    if (initialLength < 0 ||
+        (!truncateToMaxBytes && initialLength > maxBytes)) {
       throw BoundedFileReadException(
         filePath: file.path,
         maxBytes: maxBytes,
@@ -247,12 +249,13 @@ Future<Uint8List> readBoundedFileBytes(
       );
     }
 
-    final bytes = Uint8List(initialLength);
+    final retainedLength = initialLength < maxBytes ? initialLength : maxBytes;
+    final bytes = Uint8List(retainedLength);
     var offset = 0;
-    while (offset < initialLength) {
-      final end = offset + _boundedFileReadChunkBytes < initialLength
+    while (offset < retainedLength) {
+      final end = offset + _boundedFileReadChunkBytes < retainedLength
           ? offset + _boundedFileReadChunkBytes
-          : initialLength;
+          : retainedLength;
       final read = await activeLease.run(
         (input) => input.readInto(bytes, offset, end),
         timeout: nextOperationTimeout(),
@@ -300,6 +303,30 @@ Future<Uint8List> readBoundedFileBytes(
     stopwatch.stop();
     await lease?.cleanup();
   }
+}
+
+/// Reads at most [maxBytes] from the start of a regular file.
+///
+/// Unlike [readBoundedFileBytes], a larger file is accepted and only its
+/// prefix is retained. The same idle, total-time, handle, and mutation checks
+/// still apply, making this suitable for large-file previews.
+Future<Uint8List> readBoundedFilePrefixBytes(
+  File file, {
+  required int maxBytes,
+  Duration idleTimeout = defaultBoundedFileReadIdleTimeout,
+  Duration totalTimeout = defaultBoundedFileReadTotalTimeout,
+  bool verifyUnchanged = true,
+  BoundedFileHandleOwner? handleOwner,
+}) {
+  return readBoundedFileBytes(
+    file,
+    maxBytes: maxBytes,
+    idleTimeout: idleTimeout,
+    totalTimeout: totalTimeout,
+    verifyUnchanged: verifyUnchanged,
+    truncateToMaxBytes: true,
+    handleOwner: handleOwner,
+  );
 }
 
 /// Reads and decodes a bounded text file without first allowing an arbitrary

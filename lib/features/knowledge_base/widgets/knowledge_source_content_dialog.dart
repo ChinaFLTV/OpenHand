@@ -12,6 +12,7 @@ import 'package:provider/provider.dart';
 import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
+import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
@@ -1562,9 +1563,11 @@ class _KnowledgeSourceContentSnapshot {
     final preferredFile = await _resolveReadableFile(source);
     if (preferredFile != null && _shouldReadFile(source)) {
       try {
-        final stat = await preferredFile.stat();
+        final stat = await preferredFile.stat().timeout(
+          defaultBoundedFileReadIdleTimeout,
+        );
         final truncated = stat.size > _kMaxFilePreviewBytes;
-        final bytes = await _readPreviewBytes(preferredFile, stat.size);
+        final bytes = await _readPreviewBytes(preferredFile);
         final text = utf8.decode(bytes, allowMalformed: true);
         return _KnowledgeSourceContentSnapshot(
           source: source,
@@ -1682,16 +1685,8 @@ bool _shouldReadFile(KnowledgeSource source) {
   }.contains(extension);
 }
 
-Future<Uint8List> _readPreviewBytes(File file, int fileSize) async {
-  final end = math.min(fileSize, _kMaxFilePreviewBytes);
-  final builder = await file.openRead(0, end).fold<BytesBuilder>(
-    BytesBuilder(copy: false),
-    (builder, chunk) {
-      builder.add(chunk);
-      return builder;
-    },
-  );
-  return builder.takeBytes();
+Future<Uint8List> _readPreviewBytes(File file) {
+  return readBoundedFilePrefixBytes(file, maxBytes: _kMaxFilePreviewBytes);
 }
 
 String _chunksToText(List<KnowledgeChunk> chunks) {
