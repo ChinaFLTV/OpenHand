@@ -19,6 +19,116 @@ Map<String, Object?> _samplingNode(
 }
 
 void main() {
+  test('page target normalization clips, deduplicates and retains current', () {
+    final raw =
+        List<Map<String, Object?>>.generate(
+          6,
+          (index) => <String, Object?>{
+            'type': 'page',
+            'targetId': 'target-$index',
+            'url': 'u' * 40,
+            'title': 't' * 20,
+            'unused': 'discarded',
+          },
+        )..insert(1, <String, Object?>{
+          'type': 'page',
+          'targetId': 'target-0',
+          'url': 'duplicate',
+          'title': 'duplicate',
+        });
+
+    final targets = normalizeWebReversePageTargets(
+      raw,
+      preferredId: 'target-5',
+      maxEntries: 2,
+      maxIdChars: 32,
+      maxUrlChars: 12,
+      maxTitleChars: 8,
+    );
+
+    expect(targets, hasLength(2));
+    expect(targets.map((target) => target.id), contains('target-5'));
+    expect(targets.every((target) => target.url.length == 12), isTrue);
+    expect(targets.every((target) => target.title.length == 8), isTrue);
+  });
+
+  test('service worker compaction joins scopes and keeps only UI fields', () {
+    final workers = compactWebReverseServiceWorkers(
+      <Object?>[
+        <String, Object?>{
+          'versionId': 'version-1',
+          'registrationId': 'registration-1',
+          'scriptURL': 'https://example.com/worker-one.js',
+          'runningStatus': 'running',
+          'status': 'installed',
+          'largeUnusedPayload': 'x' * 10000,
+        },
+        <String, Object?>{
+          'versionId': 'version-1',
+          'registrationId': 'registration-1',
+          'scriptURL': 'https://example.com/worker-two.js',
+          'runningStatus': 'stopped',
+          'status': 'activated',
+        },
+        <String, Object?>{
+          'versionId': 'version-2',
+          'scriptURL': 'https://example.com/worker-three.js',
+        },
+        <String, Object?>{
+          'versionId': 'version-3',
+          'scriptURL': 'https://example.com/worker-four.js',
+        },
+      ],
+      rawRegistrations: <Object?>[
+        <String, Object?>{
+          'registrationId': 'registration-1',
+          'scopeURL': 'https://example.com/a-very-long-scope/',
+        },
+      ],
+      maxEntries: 2,
+      maxIdChars: 32,
+      maxUrlChars: 24,
+      maxStatusChars: 16,
+    );
+
+    expect(workers, hasLength(2));
+    expect(workers.first['status'], 'activated');
+    expect(workers.first['scopeURL'], hasLength(24));
+    expect(workers.first, isNot(contains('largeUnusedPayload')));
+    expect(workers.map((worker) => worker['versionId']), [
+      'version-1',
+      'version-2',
+    ]);
+  });
+
+  test('cache and persisted tab metadata normalization stay bounded', () {
+    final cacheNames = normalizeWebReverseCacheStorageNames(
+      <Object?>[
+        <String, Object?>{'cacheName': 'cache-a'},
+        <String, Object?>{'cacheName': 'cache-a'},
+        <String, Object?>{'cacheName': 'cache-name-is-long'},
+        <String, Object?>{'cacheName': 'cache-c'},
+      ],
+      maxEntries: 2,
+      maxNameChars: 8,
+    );
+    final restoreUrls = normalizeWebReverseTabRestoreUrls(
+      <Object?>['tab-a', 'tab-blank', 'tab-a', 'tab-b', 'tab-c'],
+      <String, Object?>{
+        'tab-a': 'https://example.com/first',
+        'tab-blank': 'about:blank',
+        'tab-b': 'https://example.com/second',
+        'tab-c': 'https://example.com/third',
+      },
+      maxEntries: 2,
+      maxIdChars: 16,
+      maxUrlChars: 20,
+    );
+
+    expect(cacheNames, ['cache-a', 'cache-na']);
+    expect(restoreUrls, ['https://example.com/', 'https://example.com/']);
+  });
+
   test(
     'sampling profile summary aggregates functions and preserves top stack',
     () {

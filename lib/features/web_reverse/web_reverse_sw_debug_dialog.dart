@@ -1,14 +1,13 @@
 /// Service Worker 调试面板。
 ///
 /// `ServiceWorker` 域比应用 tab 的简单列表更深入：
-/// - 列出所有 registration（scope + scriptURL + status）
+/// - 列出 registration scope 与运行状态
 /// - 启动 / 停止 worker（startWorker / stopWorker）
 /// - 强制更新（updateRegistration）/ 注销（unregister）
-/// - 触发 sync / periodicSync 事件（dispatchSyncEvent / dispatchPeriodicSyncEvent）
-/// - 传 push 通知（deliverPushMessage）
+/// - 触发 sync 事件、传 push 通知
 /// - 切换 setForceUpdateOnPageLoad（每次访问页都强制取新版本）
 ///
-/// `Page` 域提供注册数据，`ServiceWorker.workerVersionUpdated` 事件给运行态。
+/// 注册与运行态统一由 controller 的有界 ServiceWorker 事件快照提供。
 library;
 
 import 'dart:convert';
@@ -23,49 +22,43 @@ import 'web_reverse_session_controller.dart';
 Future<void> showWebReverseSwDebugDialog(
   BuildContext context, {
   required WebReverseSessionController controller,
-  required bool isZh,
 }) {
   return showWebReverseToolDialog<void>(
     context: context,
-    builder: (_) => _SwDebugDialog(controller: controller, isZh: isZh),
+    builder: (_) => _SwDebugDialog(controller: controller),
   );
 }
 
 class _SwReg {
-  _SwReg({
-    required this.registrationId,
-    required this.scopeURL,
-    required this.isDeleted,
-  });
+  _SwReg({required this.registrationId, required this.scopeURL});
   final String registrationId;
   final String scopeURL;
-  final bool isDeleted;
 }
 
 class _SwVersion {
   _SwVersion({
     required this.versionId,
     required this.registrationId,
-    required this.scriptURL,
     required this.runningStatus,
     required this.status,
   });
   final String versionId;
   final String registrationId;
-  final String scriptURL;
   final String runningStatus;
   final String status;
 }
 
 class _SwDebugDialog extends StatefulWidget {
-  const _SwDebugDialog({required this.controller, required this.isZh});
+  const _SwDebugDialog({required this.controller});
   final WebReverseSessionController controller;
-  final bool isZh;
   @override
   State<_SwDebugDialog> createState() => _SwDebugDialogState();
 }
 
 class _SwDebugDialogState extends State<_SwDebugDialog> {
+  static const int _maxSyncTagChars = 256;
+  static const int _maxPushDataChars = 64 * 1024;
+
   bool _loading = false;
   bool _forceUpdate = false;
   List<_SwReg> _regs = const [];
@@ -82,7 +75,7 @@ class _SwDebugDialogState extends State<_SwDebugDialog> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _enableAndRefresh());
+    WidgetsBinding.instance.addPostFrameCallback((_) => _refresh());
   }
 
   @override
@@ -92,21 +85,8 @@ class _SwDebugDialogState extends State<_SwDebugDialog> {
     super.dispose();
   }
 
-  Future<void> _enableAndRefresh() async {
-    final loc = AppLocalizations.of(context);
-    setState(() {
-      _loading = true;
-      _status = loc?.webReverseSwDebugEnabling ?? 'Enable ServiceWorker...';
-    });
-    await widget.controller.sendRawCdp(
-      method: 'ServiceWorker.enable',
-      paramsJson: '{}',
-      useSession: false,
-    );
-    await _refresh();
-  }
-
   Future<void> _refresh() async {
+    if (!mounted) return;
     final loc = AppLocalizations.of(context);
     setState(() {
       _loading = true;
@@ -114,54 +94,33 @@ class _SwDebugDialogState extends State<_SwDebugDialog> {
           loc?.webReverseSwDebugFetchingRegs ?? 'Fetching registrations...';
     });
     try {
-      final r = await widget.controller.sendRawCdp(
-        method: 'ServiceWorker.dispatchSyncEvent',
-        paramsJson: '{}',
-        useSession: false,
-      );
-      // 上面只为触发一次响应；真正的列表通过事件回传，我们直接读应用 tab
-      // 已有的缓存接口（reverse controller 暴露）+ 主动拉一次：
-      // 这里改走 Storage.getTrustTokens 风格，使用 Page.getResourceTree 取 frames
-      // 然后调用 Network.getAllCookies → no。直接走 ServiceWorker.* 没有 listRegistrations，
-      // 我们以 Storage.getRelatedWebsiteSets 之外的命令：调用浏览器 chrome:// 不可行。
-      // 替代方案：使用 Target.getTargets 过滤 type=service_worker。
-      // 注：r 仅用于错误检测，不依赖其内容。
-      if (r != null && r['error'] != null) {
-        // 忽略，可能 SW 域未实现该方法
-      }
-      final t = await widget.controller.sendRawCdp(
-        method: 'Target.getTargets',
-        paramsJson: '{}',
-        useSession: false,
-      );
-      final regs = <_SwReg>[];
+      final workers = await widget.controller.listServiceWorkers();
+      if (!mounted) return;
+      final regsById = <String, _SwReg>{};
       final vers = <_SwVersion>[];
-      if (t != null && t['targetInfos'] is List) {
-        for (final info in (t['targetInfos'] as List)) {
-          if (info is! Map) continue;
-          final type = '${info['type']}';
-          if (type != 'service_worker') continue;
-          final id = '${info['targetId']}';
-          final url = '${info['url']}';
-          final attached = info['attached'] == true;
-          regs.add(_SwReg(registrationId: id, scopeURL: url, isDeleted: false));
-          vers.add(
-            _SwVersion(
-              versionId: id,
-              registrationId: id,
-              scriptURL: url,
-              runningStatus: attached ? 'attached' : 'detached',
-              status: 'activated',
-            ),
-          );
-        }
+      for (final worker in workers) {
+        final registrationId = '${worker['registrationId'] ?? ''}';
+        if (registrationId.isEmpty) continue;
+        final scope = '${worker['scopeURL'] ?? ''}';
+        regsById.putIfAbsent(
+          registrationId,
+          () => _SwReg(registrationId: registrationId, scopeURL: scope),
+        );
+        vers.add(
+          _SwVersion(
+            versionId: '${worker['versionId'] ?? ''}',
+            registrationId: registrationId,
+            runningStatus: '${worker['runningStatus'] ?? ''}',
+            status: '${worker['status'] ?? ''}',
+          ),
+        );
       }
-      _regs = regs;
-      _versions = vers;
+      _regs = List<_SwReg>.unmodifiable(regsById.values);
+      _versions = List<_SwVersion>.unmodifiable(vers);
       setState(
         () => _status =
-            loc?.webReverseSwDebugWorkersCount(regs.length) ??
-            '${regs.length} Service Workers',
+            loc?.webReverseSwDebugWorkersCount(_regs.length) ??
+            '${_regs.length} Service Workers',
       );
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -191,19 +150,22 @@ class _SwDebugDialogState extends State<_SwDebugDialog> {
     );
   }
 
-  Future<void> _runForScope(
-    String method,
-    String scope, {
-    Map<String, Object?>? extra,
-  }) async {
-    await _runCdpMethod(method, <String, Object?>{
-      'scopeURL': scope,
-      ...?extra,
-    });
+  Future<void> _runForScope(String method, String scope) async {
+    if (scope.isEmpty) return;
+    await _runCdpMethod(method, <String, Object?>{'scopeURL': scope});
   }
 
   Future<void> _runForVersion(String method, String versionId) async {
+    if (versionId.isEmpty) return;
     await _runCdpMethod(method, <String, Object?>{'versionId': versionId});
+  }
+
+  String? _httpOriginForScope(String scope) {
+    final uri = Uri.tryParse(scope);
+    if (uri == null || uri.host.isEmpty) return null;
+    final scheme = uri.scheme.toLowerCase();
+    if (scheme != 'http' && scheme != 'https') return null;
+    return uri.origin;
   }
 
   Future<void> _runCdpMethod(String method, Map<String, Object?> params) async {
@@ -304,12 +266,13 @@ class _SwDebugDialogState extends State<_SwDebugDialog> {
                         Divider(height: 1, color: cs.outlineVariant),
                     itemBuilder: (_, i) {
                       final reg = _regs[i];
+                      final origin = _httpOriginForScope(reg.scopeURL);
+                      final hasScope = reg.scopeURL.isNotEmpty;
                       final v = _versions.firstWhere(
                         (x) => x.registrationId == reg.registrationId,
                         orElse: () => _SwVersion(
                           versionId: '',
                           registrationId: reg.registrationId,
-                          scriptURL: '',
                           runningStatus: '',
                           status: '',
                         ),
@@ -318,44 +281,51 @@ class _SwDebugDialogState extends State<_SwDebugDialog> {
                         reg: reg,
                         ver: v,
                         loc: loc,
-                        onStart: () => _runForScope(
-                          'ServiceWorker.startWorker',
-                          reg.scopeURL,
-                        ),
+                        onStart: hasScope
+                            ? () => _runForScope(
+                                'ServiceWorker.startWorker',
+                                reg.scopeURL,
+                              )
+                            : null,
                         onStop: v.versionId.isEmpty
                             ? null
                             : () => _runForVersion(
                                 'ServiceWorker.stopWorker',
                                 v.versionId,
                               ),
-                        onUpdate: () => _runForScope(
-                          'ServiceWorker.updateRegistration',
-                          reg.scopeURL,
-                        ),
-                        onUnregister: () => _runForScope(
-                          'ServiceWorker.unregister',
-                          reg.scopeURL,
-                        ),
-                        onSync: () => _runForScope(
-                          'ServiceWorker.dispatchSyncEvent',
-                          reg.scopeURL,
-                          extra: {
-                            'registrationId': reg.registrationId,
-                            'tag': _syncTag.text.trim(),
-                            'lastChance': false,
-                          },
-                        ),
-                        onPush: () => _runForScope(
-                          'ServiceWorker.deliverPushMessage',
-                          reg.scopeURL,
-                          extra: {
-                            'origin':
-                                Uri.tryParse(reg.scopeURL)?.origin ??
+                        onUpdate: hasScope
+                            ? () => _runForScope(
+                                'ServiceWorker.updateRegistration',
                                 reg.scopeURL,
-                            'registrationId': reg.registrationId,
-                            'data': _pushData.text,
-                          },
-                        ),
+                              )
+                            : null,
+                        onUnregister: hasScope
+                            ? () => _runForScope(
+                                'ServiceWorker.unregister',
+                                reg.scopeURL,
+                              )
+                            : null,
+                        onSync: origin == null
+                            ? null
+                            : () => _runCdpMethod(
+                                'ServiceWorker.dispatchSyncEvent',
+                                <String, Object?>{
+                                  'origin': origin,
+                                  'registrationId': reg.registrationId,
+                                  'tag': _syncTag.text.trim(),
+                                  'lastChance': false,
+                                },
+                              ),
+                        onPush: origin == null
+                            ? null
+                            : () => _runCdpMethod(
+                                'ServiceWorker.deliverPushMessage',
+                                <String, Object?>{
+                                  'origin': origin,
+                                  'registrationId': reg.registrationId,
+                                  'data': _pushData.text,
+                                },
+                              ),
                       );
                     },
                   ),
@@ -369,8 +339,10 @@ class _SwDebugDialogState extends State<_SwDebugDialog> {
                   width: 200,
                   child: TextField(
                     controller: _syncTag,
+                    maxLength: _maxSyncTagChars,
                     decoration: const InputDecoration(
                       labelText: 'sync tag',
+                      counterText: '',
                       isDense: true,
                       border: OutlineInputBorder(),
                     ),
@@ -384,11 +356,13 @@ class _SwDebugDialogState extends State<_SwDebugDialog> {
                 Expanded(
                   child: TextField(
                     controller: _pushData,
+                    maxLength: _maxPushDataChars,
                     decoration: InputDecoration(
                       labelText:
                           loc?.webReverseSwDebugPushDataLabel ??
                           'push data (string)',
                       isDense: true,
+                      counterText: '',
                       border: const OutlineInputBorder(),
                     ),
                     style: const TextStyle(
@@ -426,12 +400,12 @@ class _RegTile extends StatelessWidget {
   final _SwReg reg;
   final _SwVersion ver;
   final AppLocalizations? loc;
-  final VoidCallback onStart;
+  final VoidCallback? onStart;
   final VoidCallback? onStop;
-  final VoidCallback onUpdate;
-  final VoidCallback onUnregister;
-  final VoidCallback onSync;
-  final VoidCallback onPush;
+  final VoidCallback? onUpdate;
+  final VoidCallback? onUnregister;
+  final VoidCallback? onSync;
+  final VoidCallback? onPush;
 
   @override
   Widget build(BuildContext context) {
@@ -448,7 +422,7 @@ class _RegTile extends StatelessWidget {
                 width: 8,
                 height: 8,
                 decoration: BoxDecoration(
-                  color: ver.runningStatus == 'attached'
+                  color: ver.runningStatus == 'running'
                       ? Colors.green
                       : cs.outlineVariant,
                   shape: BoxShape.circle,

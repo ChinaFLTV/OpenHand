@@ -838,11 +838,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
         ),
         onTap: () async {
           Navigator.of(context).pop();
-          await showWebReverseSwDebugDialog(
-            context,
-            controller: controller,
-            isZh: isZh,
-          );
+          await showWebReverseSwDebugDialog(context, controller: controller);
         },
       ),
       _AdvancedEntry(

@@ -29,6 +29,7 @@ import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_editor_scroll_behavior.dart';
 import '../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../shared/ui/resizable_splitter.dart';
+import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/bounded_delete.dart';
 import '../../shared/util/bounded_directory_io.dart';
 import '../../shared/util/bounded_file_io.dart';
@@ -228,6 +229,9 @@ enum _Tab {
 
 class _WebReverseDashboardDialogState
     extends State<_WebReverseDashboardDialog> {
+  static const int _browserTabRestoreConcurrency = 4;
+  static const Duration _browserTabRestoreCommandTimeout = Duration(seconds: 6);
+  static const Duration _browserTabRestoreTotalTimeout = Duration(seconds: 45);
   static const _kLastTabMetaKey = 'web_reverse_dashboard_last_tab';
   static const _kBrowserTabOrderMetaKey = 'web_reverse_browser_tab_order';
   static const _kBrowserTabUrlsMetaKey = 'web_reverse_browser_tab_urls';
@@ -243,6 +247,8 @@ class _WebReverseDashboardDialogState
       'web_reverse_event_listener_breakpoints';
   static const _kDomBreakpointsMetaKey = 'web_reverse_dom_breakpoints';
   static const _kCspBreakpointsMetaKey = 'web_reverse_csp_breakpoints';
+  Future<void>? _browserTabRestoreTask;
+  int? _browserTabsRestoredGeneration;
   static const _kPauseExceptionsMetaKey = 'web_reverse_pause_on_exceptions';
   static const _kInterceptRulesMetaKey = 'web_reverse_intercept_rules';
   static const _kLspCommandMetaKey = 'web_reverse_lsp_command';
@@ -319,8 +325,7 @@ class _WebReverseDashboardDialogState
       // 应用上次记录的 tab 顺序。
       final orderRaw = session.metadata[_kBrowserTabOrderMetaKey];
       if (orderRaw is List) {
-        final order = orderRaw.whereType<String>().toList(growable: false);
-        if (order.isNotEmpty) widget.controller.applyPageTargetOrder(order);
+        widget.controller.applyPageTargetOrder(orderRaw);
       }
       // 恢复 REPL 命令历史。
       final replRaw = session.metadata[_kReplHistoryMetaKey];
@@ -570,28 +575,47 @@ class _WebReverseDashboardDialogState
   /// `Page.navigate` / `createTarget` 恢复到当前浏览器实例。已有的第一个
   /// target 复用 navigate；其余全部 createTarget。单 target 超时 6s 兜底，
   /// 整体不阻塞 UI。
-  Future<void> restoreBrowserTabs() async {
+  Future<void> restoreBrowserTabs() {
+    if (!mounted || !widget.controller.isBrowserAlive) {
+      return Future<void>.value();
+    }
+    final generation = widget.controller.cdpConnectionGeneration;
+    if (_browserTabsRestoredGeneration == generation) {
+      return Future<void>.value();
+    }
+    final pending = _browserTabRestoreTask;
+    if (pending != null) return pending;
+    late final Future<void> task;
+    task = _restoreBrowserTabs().whenComplete(() {
+      if (identical(_browserTabRestoreTask, task)) {
+        _browserTabRestoreTask = null;
+      }
+      if (widget.controller.cdpConnectionGeneration == generation) {
+        _browserTabsRestoredGeneration = generation;
+      } else if (mounted && widget.controller.isBrowserAlive) {
+        unawaited(restoreBrowserTabs());
+      }
+    });
+    _browserTabRestoreTask = task;
+    return task;
+  }
+
+  Future<void> _restoreBrowserTabs() async {
     if (!mounted) return;
     final session = _dashboardSession();
     if (session == null) return;
     final urlsRaw = session.metadata[_kBrowserTabUrlsMetaKey];
     final orderRaw = session.metadata[_kBrowserTabOrderMetaKey];
-    if (urlsRaw is! Map || urlsRaw.isEmpty) return;
-    final order = orderRaw is List
-        ? orderRaw.whereType<String>().toList(growable: false)
-        : <String>[];
-    final urls = <String, String>{
-      for (final entry in urlsRaw.entries) '${entry.key}': '${entry.value}',
-    };
-    final wantUrls = stringListFromValue(
-      order.map((id) => urls[id]).toList(),
-    ).where((url) => !url.startsWith('about:')).toList(growable: false);
+    final wantUrls = normalizeWebReverseTabRestoreUrls(orderRaw, urlsRaw);
     if (wantUrls.isEmpty) return;
     final ctrl = widget.controller;
     final hasFirst = ctrl.pageTargets.isNotEmpty;
+    final restoreStopwatch = Stopwatch()..start();
     if (hasFirst) {
       try {
-        await ctrl.navigate(wantUrls.first).timeout(const Duration(seconds: 6));
+        await ctrl
+            .navigate(wantUrls.first)
+            .timeout(_browserTabRestoreCommandTimeout);
       } catch (error, stack) {
         silentLog(
           'web_reverse_dashboard_dialog',
@@ -601,20 +625,30 @@ class _WebReverseDashboardDialogState
         );
       }
     }
-    for (var i = hasFirst ? 1 : 0; i < wantUrls.length; i++) {
-      try {
-        await ctrl
-            .createPageTarget(url: wantUrls[i])
-            .timeout(const Duration(seconds: 6));
-      } catch (error, stack) {
-        silentLog(
-          'web_reverse_dashboard_dialog',
-          'restore page ${wantUrls[i]}',
-          error,
-          stack,
-        );
-      }
-    }
+    final startIndex = hasFirst ? 1 : 0;
+    await forEachIndexWithConcurrencyLimit(
+      itemCount: wantUrls.length - startIndex,
+      maxConcurrency: _browserTabRestoreConcurrency,
+      shouldContinue: () =>
+          mounted &&
+          ctrl.isBrowserAlive &&
+          restoreStopwatch.elapsed < _browserTabRestoreTotalTimeout,
+      task: (offset) async {
+        final url = wantUrls[startIndex + offset];
+        try {
+          await ctrl
+              .createPageTarget(url: url)
+              .timeout(_browserTabRestoreCommandTimeout);
+        } catch (error, stack) {
+          silentLog(
+            'web_reverse_dashboard_dialog',
+            'restore page $url',
+            error,
+            stack,
+          );
+        }
+      },
+    );
   }
 
   /// 持久化 console REPL 历史到 session metadata，控制台面板每次执行命令

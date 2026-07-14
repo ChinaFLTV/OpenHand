@@ -8,6 +8,19 @@ import 'package:openhand/features/web_reverse/web_reverse_session_controller.dar
 import '../../support/test_directory.dart';
 
 void main() {
+  test('session config rejects oversized target URLs', () {
+    final config = WebReverseSessionConfig.fromJson(<String, Object?>{
+      'target_url':
+          'x' * (WebReverseSessionController.maxPageTargetUrlChars + 1),
+      'objective': 'test',
+      'cdp_port': 9222,
+      'user_data_dir': '/tmp/openhand-profile',
+      'browser_kind': WebReverseBrowserKind.chromium.id,
+    });
+
+    expect(config, isNull);
+  });
+
   test('source map reports retained character cost for bounded caching', () {
     final info = WebReverseSourceMapInfo(
       scriptUrl: 'script.js',
@@ -303,6 +316,43 @@ void main() {
         WebReverseSessionController.maxRecorderStepTextChars,
       ),
     );
+
+    controller.replacePageTargets(<CdpPageTargetSnapshot>[
+      CdpPageTargetSnapshot(
+        id: 'x' * (WebReverseSessionController.maxPageTargetIdChars + 1),
+        url: 'https://invalid.example',
+        title: 'Invalid ID',
+      ),
+      for (var i = 0; i < WebReverseSessionController.maxPageTargets + 2; i++)
+        CdpPageTargetSnapshot(
+          id: 'target-$i',
+          url: i == 0
+              ? 'u' * (WebReverseSessionController.maxPageTargetUrlChars + 1)
+              : 'https://example.com/$i',
+          title: i == 0
+              ? 't' * (WebReverseSessionController.maxPageTargetTitleChars + 1)
+              : 'Page $i',
+        ),
+    ]);
+    expect(
+      controller.pageTargets,
+      hasLength(WebReverseSessionController.maxPageTargets),
+    );
+    expect(
+      controller.pageTargets.first.url,
+      hasLength(WebReverseSessionController.maxPageTargetUrlChars),
+    );
+    expect(
+      controller.pageTargets.first.title,
+      hasLength(WebReverseSessionController.maxPageTargetTitleChars),
+    );
+    controller.applyPageTargetOrder(const <Object?>['target-2', 'target-0']);
+    expect(controller.pageTargetOrder.take(4), <String>[
+      'target-2',
+      'target-0',
+      'target-1',
+      'target-3',
+    ]);
 
     await controller.shutdown();
     controller.dispose();

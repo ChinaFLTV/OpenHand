@@ -1,5 +1,6 @@
 import '../../shared/util/input_value_parsing.dart';
 import 'web_reverse_browser_kind.dart';
+import 'web_reverse_pure_helpers.dart';
 
 /// Web 逆向会话的运行时配置，序列化进 session metadata。
 ///
@@ -86,7 +87,12 @@ class WebReverseSessionConfig {
     final browserKind = WebReverseBrowserKind.fromId(
       stringFromValue(map['browser_kind']),
     );
-    if (targetUrl.isEmpty || cdpPort <= 0 || browserKind == null) return null;
+    if (targetUrl.isEmpty ||
+        targetUrl.length > kWebReverseMaxPageUrlChars ||
+        cdpPort <= 0 ||
+        browserKind == null) {
+      return null;
+    }
     return WebReverseSessionConfig(
       targetUrl: targetUrl,
       objective: objective,

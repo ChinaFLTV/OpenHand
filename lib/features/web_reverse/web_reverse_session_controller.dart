@@ -185,6 +185,12 @@ class WebReverseSessionController extends ChangeNotifier {
   static const int maxRecorderImportBytes = 16 * kBytesPerMiB;
   static const int maxPendingFetchRequests = 200;
   static const int fetchInterceptPendingTimeoutSeconds = 60;
+  static const int maxPageTargets = kWebReverseMaxPageTargets;
+  static const int maxPageTargetIdChars = kWebReverseMaxPageTargetIdChars;
+  static const int maxPageTargetUrlChars = kWebReverseMaxPageUrlChars;
+  static const int maxPageTargetTitleChars = kWebReverseMaxPageTitleChars;
+  static const int maxServiceWorkers = kWebReverseMaxServiceWorkers;
+  static const int maxCacheStorageNames = kWebReverseMaxCacheStorageNames;
   static const int maxEditedRequestBodyChars = 2 * kBytesPerMiB;
   static const int maxEditedRequestBodyBase64Chars = 8 * kBytesPerMiB;
   static const int maxAccountSnapshotNameChars = 256;
@@ -319,6 +325,10 @@ class WebReverseSessionController extends ChangeNotifier {
     _started = true;
     _resourcesStopped = false;
     try {
+      final startUrl = _validatedPageUrlInput(config.targetUrl);
+      if (startUrl == null) {
+        throw const FormatException('Invalid or oversized target URL.');
+      }
       await _artifacts.init();
       if (_stopped || _disposed) {
         _started = false;
@@ -329,7 +339,7 @@ class WebReverseSessionController extends ChangeNotifier {
         executablePath: executablePath,
         browserKind: config.browserKind,
         userDataDir: config.userDataDir,
-        startUrl: config.targetUrl,
+        startUrl: startUrl,
         proxy: config.proxy,
       );
       if (_stopped || _disposed) {
@@ -369,11 +379,11 @@ class WebReverseSessionController extends ChangeNotifier {
     // 列出所有 page target，优先挑 config.targetUrl 同 origin 的目标页。
     // Chrome 冷启动时可能先暴露 about:blank / 恢复页；短暂轮询后仍未命中
     // 再回退到第一个可用 page，避免无限等待。
-    List<Object?> infos = const <Object?>[];
-    Map<String, Object?>? chosen;
+    List<WebReversePageTargetData> infos = const <WebReversePageTargetData>[];
+    WebReversePageTargetData? chosen;
     for (var attempt = 0; attempt < _kInitialTargetPickAttempts; attempt++) {
       final targets = await cdp.send('Target.getTargets');
-      infos = (targets['targetInfos'] as List?) ?? const <Object?>[];
+      infos = normalizeWebReversePageTargets(targets['targetInfos']);
       chosen = _chooseInitialPageTarget(
         infos,
         allowFallback: attempt == _kInitialTargetPickAttempts - 1,
@@ -397,21 +407,7 @@ class WebReverseSessionController extends ChangeNotifier {
         ),
       );
     }
-    final targetId = '${chosen['targetId'] ?? ''}';
-    if (targetId.isEmpty) {
-      throw CdpException(
-        code: -1,
-        message: openHandLocalizedTextForLocaleName(
-          Platform.localeName,
-          zh: '目标 page target 缺少 targetId',
-          zhHant: '目標 page target 缺少 targetId',
-          en: 'The target page target is missing targetId.',
-          fr: 'La cible page target ne contient pas targetId.',
-          de: 'Dem Ziel-page target fehlt targetId.',
-          ja: '対象の page target に targetId がありません。',
-        ),
-      );
-    }
+    final targetId = chosen.id;
     // 订阅 page target 的创建 / 销毁 / 信息变化，让 dashboard 实时更新 tab strip。
     await cdp.send(
       'Target.setDiscoverTargets',
@@ -419,25 +415,19 @@ class WebReverseSessionController extends ChangeNotifier {
     );
     await _attachToTargetInternal(targetId);
     // 首次拉满当前所有 page target。
-    _refreshTargetsFromInfos(infos);
+    _replacePageTargetsFromData(infos);
   }
 
-  Map<String, Object?>? _chooseInitialPageTarget(
-    List<Object?> infos, {
+  WebReversePageTargetData? _chooseInitialPageTarget(
+    List<WebReversePageTargetData> pages, {
     required bool allowFallback,
   }) {
-    final pages = infos
-        .whereType<Map>()
-        .where((t) => t['type'] == 'page')
-        .map((t) => Map<String, Object?>.from(t))
-        .where((t) => '${t['targetId'] ?? ''}'.isNotEmpty)
-        .toList(growable: false);
     if (pages.isEmpty) return null;
 
     final targetUri = _tryHttpUri(config.targetUrl);
     if (targetUri != null) {
       for (final page in pages) {
-        final pageUri = _tryHttpUri('${page['url'] ?? ''}');
+        final pageUri = _tryHttpUri(page.url);
         if (pageUri != null && _sameHttpOrigin(pageUri, targetUri)) {
           return page;
         }
@@ -446,7 +436,7 @@ class WebReverseSessionController extends ChangeNotifier {
     }
 
     for (final page in pages) {
-      if (_isUsefulInitialPageUrl('${page['url'] ?? ''}')) {
+      if (_isUsefulInitialPageUrl(page.url)) {
         return page;
       }
     }
@@ -454,6 +444,7 @@ class WebReverseSessionController extends ChangeNotifier {
   }
 
   Uri? _tryHttpUri(String raw) {
+    if (raw.length > maxPageTargetUrlChars) return null;
     final uri = Uri.tryParse(raw.trim());
     if (uri == null || uri.host.isEmpty) return null;
     final scheme = uri.scheme.toLowerCase();
@@ -479,9 +470,28 @@ class WebReverseSessionController extends ChangeNotifier {
         value != 'chrome://newtab/';
   }
 
+  String? _validatedPageTargetId(Object? raw) {
+    if (raw is! String) return null;
+    final normalized = raw.trim();
+    if (normalized.isEmpty || normalized.length > maxPageTargetIdChars) {
+      return null;
+    }
+    return normalized;
+  }
+
+  String? _validatedPageUrlInput(String raw) {
+    final normalized = raw.trim();
+    if (normalized.isEmpty || normalized.length > maxPageTargetUrlChars) {
+      return null;
+    }
+    return normalized;
+  }
+
   /// 多标签页：dashboard 浏览器面板的 tab strip 数据源。每条 entry 反映一个
   /// CDP page target，包含 id / url / title / favicon。
   final List<CdpPageTargetSnapshot> _pageTargets = <CdpPageTargetSnapshot>[];
+  final Map<String, int> _pageTargetFirstSeenOrder = <String, int>{};
+  int _nextPageTargetFirstSeenOrder = 0;
   String? _currentTargetId;
 
   /// 每个 page target 的 panel 缓冲快照：切走时保存，切回时
@@ -558,22 +568,73 @@ class WebReverseSessionController extends ChangeNotifier {
     }
   }
 
-  void _refreshTargetsFromInfos(List<dynamic> infos) {
-    _pageTargets.clear();
-    for (final t in infos.whereType<Map>()) {
-      if (t['type'] != 'page') continue;
-      _pageTargets.add(
-        CdpPageTargetSnapshot(
-          id: '${t['targetId'] ?? ''}',
-          url: '${t['url'] ?? ''}',
-          title: '${t['title'] ?? ''}',
-        ),
+  void _replacePageTargetsFromData(List<WebReversePageTargetData> next) {
+    final retainedIds = next.map((target) => target.id).toSet();
+    _pageTargetFirstSeenOrder.removeWhere(
+      (targetId, _) => !retainedIds.contains(targetId),
+    );
+    _pageTargets
+      ..clear()
+      ..addAll(
+        next.map((target) {
+          _pageTargetFirstSeenOrder.putIfAbsent(
+            target.id,
+            () => _nextPageTargetFirstSeenOrder++,
+          );
+          return CdpPageTargetSnapshot(
+            id: target.id,
+            url: target.url,
+            title: target.title,
+          );
+        }),
       );
-    }
     _safeNotify();
   }
 
+  int _oldestEvictablePageTargetIndex() {
+    var oldestIndex = -1;
+    var oldestOrder = 1 << 62;
+    for (var index = 0; index < _pageTargets.length; index++) {
+      final target = _pageTargets[index];
+      if (target.id == _currentTargetId) continue;
+      final firstSeen = _pageTargetFirstSeenOrder[target.id] ?? -1;
+      if (firstSeen < oldestOrder) {
+        oldestIndex = index;
+        oldestOrder = firstSeen;
+      }
+    }
+    return oldestIndex;
+  }
+
+  void _upsertPageTarget(WebReversePageTargetData target) {
+    final existingIndex = _pageTargets.indexWhere(
+      (item) => item.id == target.id,
+    );
+    final snapshot = CdpPageTargetSnapshot(
+      id: target.id,
+      url: target.url,
+      title: target.title,
+    );
+    if (existingIndex >= 0) {
+      _pageTargets[existingIndex] = snapshot;
+      return;
+    }
+    if (_pageTargets.length >= maxPageTargets) {
+      final evictAt = _oldestEvictablePageTargetIndex();
+      if (evictAt < 0) return;
+      final removed = _pageTargets.removeAt(evictAt);
+      _pageTargetFirstSeenOrder.remove(removed.id);
+      _targetBuffers.remove(removed.id);
+    }
+    _pageTargetFirstSeenOrder[target.id] = _nextPageTargetFirstSeenOrder++;
+    _pageTargets.add(snapshot);
+  }
+
   Future<void> _attachToTargetInternal(String targetId) async {
+    final normalizedTargetId = _validatedPageTargetId(targetId);
+    if (normalizedTargetId == null) {
+      throw const FormatException('Invalid page target ID.');
+    }
     final cdp = _browserCdp!;
     // 切换前主动 detach 旧 session（如果有），避免事件流叠加。
     if (_pageSessionId != null) {
@@ -612,14 +673,17 @@ class WebReverseSessionController extends ChangeNotifier {
     _bpIdByKey.clear();
     final attachResult = await cdp.send(
       'Target.attachToTarget',
-      params: <String, Object?>{'targetId': targetId, 'flatten': true},
+      params: <String, Object?>{
+        'targetId': normalizedTargetId,
+        'flatten': true,
+      },
     );
     _pageSessionId = attachResult['sessionId'] as String?;
-    _currentTargetId = targetId;
+    _currentTargetId = normalizedTargetId;
     // 还原该 target 上次切走时保存的 panel 缓冲。新 target /
     // 第一次进入则跳过；网络 enable 之后再立刻补入，让 navigation 事件
     // 流接着累计。
-    _restoreBufferForTarget(targetId);
+    _restoreBufferForTarget(normalizedTargetId);
     await cdp.send(
       'Network.enable',
       params: const <String, Object?>{
@@ -644,7 +708,10 @@ class WebReverseSessionController extends ChangeNotifier {
 
   /// 切换当前活跃的 page target。会重启 screencast（若已激活）。
   Future<void> switchToPageTarget(String targetId) async {
-    if (_currentTargetId == targetId) return;
+    final normalizedTargetId = _validatedPageTargetId(targetId);
+    if (normalizedTargetId == null || _currentTargetId == normalizedTargetId) {
+      return;
+    }
     final cdp = _browserCdp;
     if (cdp == null) return;
     final wasActive = _screencastActive;
@@ -664,11 +731,11 @@ class WebReverseSessionController extends ChangeNotifier {
       _lastScreencastFrameAt = null;
     }
     try {
-      await _attachToTargetInternal(targetId);
+      await _attachToTargetInternal(normalizedTargetId);
     } catch (error, stack) {
       silentLog(
         'web_reverse_session_controller',
-        'switchToPageTarget $targetId',
+        'switchToPageTarget $normalizedTargetId',
         error,
         stack,
       );
@@ -721,36 +788,76 @@ class WebReverseSessionController extends ChangeNotifier {
       _pageTargets.map((e) => e.id).toList(growable: false);
 
   /// 用持久化过的顺序重排现有 `_pageTargets`：未在列表中的保留原序追加在末尾。
-  void applyPageTargetOrder(List<String> order) {
-    if (order.isEmpty || _pageTargets.isEmpty) return;
-    final indexById = <String, int>{
-      for (var i = 0; i < order.length; i++) order[i]: i,
+  void applyPageTargetOrder(Iterable<Object?> order) {
+    if (_pageTargets.isEmpty) return;
+    final existingIds = _pageTargets.map((target) => target.id).toSet();
+    final indexById = <String, int>{};
+    var inspected = 0;
+    for (final rawId in order) {
+      if (inspected++ >= maxPageTargets * 4 ||
+          indexById.length >= maxPageTargets) {
+        break;
+      }
+      final id = _validatedPageTargetId(rawId);
+      if (id == null || !existingIds.contains(id)) continue;
+      indexById.putIfAbsent(id, () => indexById.length);
+    }
+    if (indexById.isEmpty) return;
+    final originalIndexById = <String, int>{
+      for (var index = 0; index < _pageTargets.length; index++)
+        _pageTargets[index].id: index,
     };
     _pageTargets.sort((a, b) {
-      final ai = indexById[a.id] ?? (1 << 30);
-      final bi = indexById[b.id] ?? (1 << 30);
-      return ai.compareTo(bi);
+      final ai = indexById[a.id];
+      final bi = indexById[b.id];
+      if (ai != null && bi != null) return ai.compareTo(bi);
+      if (ai != null) return -1;
+      if (bi != null) return 1;
+      return (originalIndexById[a.id] ?? 0).compareTo(
+        originalIndexById[b.id] ?? 0,
+      );
     });
     _safeNotify();
   }
 
-  /// 用新快照整体替换 [_pageTargets]，调用方保证元素对齐。
+  /// 用新快照整体替换 [_pageTargets]，并统一执行数量、字段与当前页保护。
   void replacePageTargets(List<CdpPageTargetSnapshot> next) {
-    _pageTargets
-      ..clear()
-      ..addAll(next);
-    _safeNotify();
+    final currentSnapshot = _pageTargets
+        .where((target) => target.id == _currentTargetId)
+        .firstOrNull;
+    final normalized = normalizeWebReversePageTargets(
+      next.map(
+        (target) => <String, Object?>{
+          'type': 'page',
+          'targetId': target.id,
+          'url': target.url,
+          'title': target.title,
+        },
+      ),
+      preferredId: _currentTargetId,
+    ).toList(growable: true);
+    if (currentSnapshot != null &&
+        !normalized.any((target) => target.id == currentSnapshot.id)) {
+      if (normalized.length >= maxPageTargets) normalized.removeAt(0);
+      normalized.add((
+        id: currentSnapshot.id,
+        url: currentSnapshot.url,
+        title: currentSnapshot.title,
+      ));
+    }
+    _replacePageTargetsFromData(normalized);
   }
 
   Future<String?> createPageTarget({String url = 'about:blank'}) async {
     final cdp = _browserCdp;
-    if (cdp == null) return null;
+    final normalizedUrl = _validatedPageUrlInput(url);
+    if (cdp == null || normalizedUrl == null) return null;
     try {
       final r = await cdp.send(
         'Target.createTarget',
-        params: <String, Object?>{'url': url},
+        params: <String, Object?>{'url': normalizedUrl},
       );
-      return r['targetId'] as String?;
+      return _validatedPageTargetId(r['targetId']);
     } catch (error, stack) {
       silentLog(
         'web_reverse_session_controller',
@@ -765,11 +872,12 @@ class WebReverseSessionController extends ChangeNotifier {
   /// 关闭指定 page target。若正在被使用，先切到下一个再关。
   Future<void> closePageTarget(String targetId) async {
     final cdp = _browserCdp;
-    if (cdp == null) return;
-    if (_currentTargetId == targetId && _pageTargets.length > 1) {
+    final normalizedTargetId = _validatedPageTargetId(targetId);
+    if (cdp == null || normalizedTargetId == null) return;
+    if (_currentTargetId == normalizedTargetId && _pageTargets.length > 1) {
       // 选下一个不同 id 的 target 切过去。
       final next = _pageTargets.firstWhere(
-        (t) => t.id != targetId,
+        (t) => t.id != normalizedTargetId,
         orElse: () => const CdpPageTargetSnapshot(id: '', url: '', title: ''),
       );
       if (next.id.isNotEmpty) await switchToPageTarget(next.id);
@@ -777,12 +885,12 @@ class WebReverseSessionController extends ChangeNotifier {
     try {
       await cdp.send(
         'Target.closeTarget',
-        params: <String, Object?>{'targetId': targetId},
+        params: <String, Object?>{'targetId': normalizedTargetId},
       );
     } catch (error, stack) {
       silentLog(
         'web_reverse_session_controller',
-        'closePageTarget $targetId',
+        'closePageTarget $normalizedTargetId',
         error,
         stack,
       );
@@ -1480,13 +1588,7 @@ class WebReverseSessionController extends ChangeNotifier {
         params: <String, Object?>{'securityOrigin': origin},
         sessionId: _pageSessionId,
       );
-      final list = r['caches'] as List?;
-      return list
-              ?.whereType<Map>()
-              .map((m) => '${m['cacheName'] ?? ''}')
-              .where((n) => n.isNotEmpty)
-              .toList(growable: false) ??
-          const <String>[];
+      return normalizeWebReverseCacheStorageNames(r['caches']);
     } catch (error, stack) {
       silentLog(
         'web_reverse_session_controller',
@@ -1504,12 +1606,13 @@ class WebReverseSessionController extends ChangeNotifier {
   /// `unregister` 走 `ServiceWorker.unregister`。
   Future<bool> registerServiceWorker(String scopeURL) async {
     final cdp = _browserCdp;
-    if (cdp == null) return false;
+    final normalizedScope = _validatedServiceWorkerScope(scopeURL);
+    if (cdp == null || normalizedScope == null) return false;
     try {
       await cdp.send('ServiceWorker.enable');
       await cdp.send(
         'ServiceWorker.startRegistration',
-        params: <String, Object?>{'scopeURL': scopeURL},
+        params: <String, Object?>{'scopeURL': normalizedScope},
       );
       return true;
     } catch (error, stack) {
@@ -1520,11 +1623,12 @@ class WebReverseSessionController extends ChangeNotifier {
 
   Future<bool> updateServiceWorker(String scopeURL) async {
     final cdp = _browserCdp;
-    if (cdp == null) return false;
+    final normalizedScope = _validatedServiceWorkerScope(scopeURL);
+    if (cdp == null || normalizedScope == null) return false;
     try {
       await cdp.send(
         'ServiceWorker.updateRegistration',
-        params: <String, Object?>{'scopeURL': scopeURL},
+        params: <String, Object?>{'scopeURL': normalizedScope},
       );
       return true;
     } catch (error, stack) {
@@ -1535,11 +1639,12 @@ class WebReverseSessionController extends ChangeNotifier {
 
   Future<bool> unregisterServiceWorker(String scopeURL) async {
     final cdp = _browserCdp;
-    if (cdp == null) return false;
+    final normalizedScope = _validatedServiceWorkerScope(scopeURL);
+    if (cdp == null || normalizedScope == null) return false;
     try {
       await cdp.send(
         'ServiceWorker.unregister',
-        params: <String, Object?>{'scopeURL': scopeURL},
+        params: <String, Object?>{'scopeURL': normalizedScope},
       );
       return true;
     } catch (error, stack) {
@@ -1554,29 +1659,68 @@ class WebReverseSessionController extends ChangeNotifier {
   Future<List<Map<String, Object?>>> listServiceWorkers() async {
     final cdp = _browserCdp;
     if (cdp == null) return const [];
-    final list = <Map<String, Object?>>[];
+    final versionsByKey = <String, Map<String, Object?>>{};
+    final registrationsById = <String, Map<String, Object?>>{};
+    var anonymousVersionSequence = 0;
+    var remainingVersionInspections = maxServiceWorkers * 4;
+    var remainingRegistrationInspections = maxServiceWorkers * 4;
     StreamSubscription<CdpEvent>? sub;
     try {
-      // 监听 30ms 收集；超过 250ms 强制 cut 防卡。
+      // 首次 enable 会推送 registration / version 快照；监听窗口有固定上限，
+      // 每类数据也独立限量，避免异常事件流在短时间内撑大内存。
       sub = cdp.events.listen((e) {
-        if (e.method == 'ServiceWorker.workerVersionUpdated') {
-          final versions = e.params['versions'] as List?;
-          if (versions == null) return;
-          for (final v in versions.whereType<Map>()) {
-            list.add(Map<String, Object?>.from(v));
+        if (e.method == 'ServiceWorker.workerRegistrationUpdated') {
+          final registrations = e.params['registrations'];
+          if (registrations is! Iterable) return;
+          for (final raw in registrations) {
+            if (remainingRegistrationInspections-- <= 0) break;
+            if (raw is! Map) continue;
+            final id = _validatedPageTargetId(raw['registrationId']);
+            if (id == null) continue;
+            if (raw['isDeleted'] == true) {
+              registrationsById.remove(id);
+              continue;
+            }
+            if (!registrationsById.containsKey(id) &&
+                registrationsById.length >= maxServiceWorkers) {
+              continue;
+            }
+            registrationsById[id] = <String, Object?>{
+              'registrationId': id,
+              'scopeURL': _capPlainWebReverseText(
+                '${raw['scopeURL'] ?? ''}',
+                maxPageTargetUrlChars,
+              ),
+            };
           }
+          return;
+        }
+        if (e.method != 'ServiceWorker.workerVersionUpdated') return;
+        final versions = e.params['versions'];
+        if (versions is! Iterable) return;
+        for (final raw in versions) {
+          if (remainingVersionInspections-- <= 0) break;
+          if (raw is! Map) continue;
+          final compact = compactWebReverseServiceWorkers(<Object?>[raw]);
+          if (compact.isEmpty) continue;
+          final version = compact.single;
+          final versionId = version['versionId'];
+          final key = versionId is String && versionId.isNotEmpty
+              ? versionId
+              : '#anonymous-${anonymousVersionSequence++}';
+          if (!versionsByKey.containsKey(key) &&
+              versionsByKey.length >= maxServiceWorkers) {
+            continue;
+          }
+          versionsByKey[key] = version;
         }
       });
       await cdp.send('ServiceWorker.enable');
       await Future<void>.delayed(const Duration(milliseconds: 250));
-      // 去重（按 versionId）。
-      final seen = <String>{};
-      final dedup = <Map<String, Object?>>[];
-      for (final v in list) {
-        final id = '${v['versionId'] ?? ''}';
-        if (id.isEmpty || seen.add(id)) dedup.add(v);
-      }
-      return dedup;
+      return compactWebReverseServiceWorkers(
+        versionsByKey.values,
+        rawRegistrations: registrationsById.values,
+      );
     } catch (error, stack) {
       silentLog(
         'web_reverse_session_controller',
@@ -1588,6 +1732,12 @@ class WebReverseSessionController extends ChangeNotifier {
     } finally {
       await _cancelRuntimeSubscription(sub, 'service worker events');
     }
+  }
+
+  String? _validatedServiceWorkerScope(String raw) {
+    final normalized = _validatedPageUrlInput(raw);
+    if (normalized == null || _tryHttpUri(normalized) == null) return null;
+    return normalized;
   }
 
   // ── Security ─────────────────────────────────────────────────────────
@@ -2363,7 +2513,10 @@ class WebReverseSessionController extends ChangeNotifier {
     final frame = p['frame'] as Map?;
     if (frame == null) return;
     if (frame['parentId'] != null) return;
-    final url = '${frame['url'] ?? ''}';
+    final url = _capPlainWebReverseText(
+      '${frame['url'] ?? ''}',
+      maxPageTargetUrlChars,
+    );
     if (url.isNotEmpty && !url.startsWith('chrome-error://')) {
       // 维护本会话访问历史：去掉相邻重复，最多保留最近 200 条。
       if (_navigationHistory.isEmpty || _navigationHistory.last != url) {
@@ -2403,8 +2556,11 @@ class WebReverseSessionController extends ChangeNotifier {
       final result = r['result'] as Map?;
       final value = result?['value'];
       if (value is! String) return;
-      final title = value.trim();
-      if (title.isEmpty) return;
+      if (_pageSessionId != sid || _currentTargetId != targetId) return;
+      final title = _capPlainWebReverseText(
+        value.trim(),
+        maxPageTargetTitleChars,
+      );
       final idx = _pageTargets.indexWhere((e) => e.id == targetId);
       if (idx < 0) return;
       if (_pageTargets[idx].title == title) return;
@@ -2429,28 +2585,31 @@ class WebReverseSessionController extends ChangeNotifier {
   void _onTargetUpserted(Map<String, Object?> p) {
     final t = p['targetInfo'] as Map?;
     if (t == null) return;
-    if ('${t['type'] ?? ''}' != 'page') return;
-    final id = '${t['targetId'] ?? ''}';
-    if (id.isEmpty) return;
-    final url = '${t['url'] ?? ''}';
-    final title = '${t['title'] ?? ''}';
-    final idx = _pageTargets.indexWhere((e) => e.id == id);
-    if (idx < 0) {
-      _pageTargets.add(CdpPageTargetSnapshot(id: id, url: url, title: title));
-    } else {
-      _pageTargets[idx] = CdpPageTargetSnapshot(id: id, url: url, title: title);
-    }
+    final normalized = normalizeWebReversePageTargets(<Object?>[
+      t,
+    ], preferredId: _currentTargetId);
+    if (normalized.isEmpty) return;
+    _upsertPageTarget(normalized.single);
     _safeNotify();
   }
 
   void _onTargetDestroyed(Map<String, Object?> p) {
-    final id = '${p['targetId'] ?? ''}';
-    if (id.isEmpty) return;
+    final id = _validatedPageTargetId(p['targetId']);
+    if (id == null) return;
     final before = _pageTargets.length;
     _pageTargets.removeWhere((e) => e.id == id);
     if (_pageTargets.length != before) {
-      if (id == _currentTargetId && _pageTargets.isNotEmpty) {
-        unawaited(switchToPageTarget(_pageTargets.first.id));
+      _pageTargetFirstSeenOrder.remove(id);
+      _targetBuffers.remove(id);
+      if (id == _currentTargetId) {
+        if (_pageTargets.isNotEmpty) {
+          unawaited(switchToPageTarget(_pageTargets.first.id));
+        } else {
+          _currentTargetId = null;
+          _pageSessionId = null;
+          _clearPendingFetchRequests();
+          _samplingProfileRunning = false;
+        }
       }
       _safeNotify();
     }
@@ -4513,18 +4672,19 @@ class WebReverseSessionController extends ChangeNotifier {
   /// 把页面导航到 [url]。内嵌浏览器地址栏回车 / 下拉历史均走这里。
   Future<void> navigate(String url) async {
     final cdp = _browserCdp;
-    if (cdp == null || _pageSessionId == null) return;
+    final normalizedUrl = _validatedPageUrlInput(url);
+    if (cdp == null || _pageSessionId == null || normalizedUrl == null) return;
     try {
       await cdp.send(
         'Page.navigate',
-        params: <String, Object?>{'url': url},
+        params: <String, Object?>{'url': normalizedUrl},
         sessionId: _pageSessionId,
         timeout: const Duration(seconds: 10),
       );
     } catch (error, stack) {
       silentLog(
         'web_reverse_session_controller',
-        'navigate $url',
+        'navigate $normalizedUrl',
         error,
         stack,
       );
@@ -4947,7 +5107,9 @@ class WebReverseSessionController extends ChangeNotifier {
         timeout: const Duration(seconds: 3),
       );
       final value = cdpResultValue(r);
-      return value is String ? value : null;
+      return value is String
+          ? _capPlainWebReverseText(value, maxPageTargetUrlChars)
+          : null;
     } catch (error, stack) {
       silentLog(
         'web_reverse_session_controller',
