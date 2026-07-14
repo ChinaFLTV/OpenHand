@@ -1,6 +1,7 @@
 part of 'harness_session_dashboard.dart';
 
 const int _harnessSteeringFileMaxBytes = 4 * 1024 * 1024;
+const int _harnessSteeringDirectoryMaxEntries = 1000;
 
 class _HeSteeringAssetsDialog extends StatefulWidget {
   const _HeSteeringAssetsDialog({required this.steeringRoot});
@@ -21,12 +22,13 @@ class _HeSteeringAssetsDialogState extends State<_HeSteeringAssetsDialog> {
 
   /// Whether we're still scanning.
   bool _loading = true;
+  int _scanGeneration = 0;
 
   @override
   void initState() {
     super.initState();
     _pathSegments = [];
-    _scanDirectory();
+    unawaited(_scanDirectory());
   }
 
   String get _currentAbsolutePath => _pathSegments.isEmpty
@@ -38,15 +40,22 @@ class _HeSteeringAssetsDialogState extends State<_HeSteeringAssetsDialog> {
       _pathSegments = List.of(segments);
       _loading = true;
     });
-    _scanDirectory();
+    unawaited(_scanDirectory());
   }
 
   Future<void> _scanDirectory() async {
-    final dir = Directory(_currentAbsolutePath);
+    final generation = ++_scanGeneration;
+    final directoryPath = _currentAbsolutePath;
+    final dir = Directory(directoryPath);
     final entries = <_HeSteeringEntry>[];
     try {
       if (await dir.exists()) {
-        await for (final entity in dir.list()) {
+        final listing = await listDirectoryBounded(
+          dir,
+          maxEntries: _harnessSteeringDirectoryMaxEntries,
+          totalTimeout: const Duration(seconds: 3),
+        );
+        for (final entity in listing.entries) {
           final name = p.basename(entity.path);
           if (name.startsWith('.')) continue;
           final isDir = entity is Directory;
@@ -76,7 +85,7 @@ class _HeSteeringAssetsDialogState extends State<_HeSteeringAssetsDialog> {
       }
       return a.name.compareTo(b.name);
     });
-    if (!mounted) return;
+    if (!mounted || generation != _scanGeneration) return;
     setState(() {
       _entries = entries;
       _loading = false;

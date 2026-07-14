@@ -10,6 +10,7 @@ import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../app/support/system_proxy.dart';
+import '../../../shared/util/bounded_directory_io.dart';
 import '../../../shared/util/text_clip.dart';
 import '../hooks_controller.dart';
 
@@ -20,6 +21,7 @@ const int _maxContextJsonBytes = 512 * 1024;
 const int _maxContextEnvironmentBytes = 32 * 1024;
 const int _maxHookTempLabelCharacters = 32;
 const int _maxHookTempIdentifierCharacters = 64;
+const int _maxHookTempCleanupEntries = 10000;
 
 final RegExp _unsafeHookTempFileSegmentPattern = RegExp(r'[^\w\-]');
 
@@ -146,7 +148,11 @@ class HooksExecutor {
       );
       if (!await tmpDir.exists()) return;
       final cutoff = DateTime.now().subtract(_tmpFileMaxAge);
-      await for (final entity in tmpDir.list(followLinks: false)) {
+      final listing = await listDirectoryBounded(
+        tmpDir,
+        maxEntries: _maxHookTempCleanupEntries,
+      );
+      for (final entity in listing.entries) {
         if (entity is! File) continue;
         try {
           final stat = await entity.stat();

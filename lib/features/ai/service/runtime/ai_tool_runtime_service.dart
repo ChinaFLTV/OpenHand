@@ -9,6 +9,7 @@ import 'package:path/path.dart' as p;
 import '../../../../app/support/openhand_paths.dart';
 import '../../../../app/support/silent_log.dart';
 import '../../../../app/support/system_proxy.dart';
+import '../../../../shared/util/bounded_directory_io.dart';
 import '../../../../shared/util/bounded_file_io.dart';
 import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/input_value_parsing.dart';
@@ -43,6 +44,8 @@ import 'ai_tool_execution_registry.dart';
 enum AiRuntimeToolSource { builtin, mcp, skill }
 
 const int _maxPostHocLedgerCaptureBytes = 16 * kBytesPerMiB;
+const int _maxSkillLinkedResources = 32;
+const int _maxSkillLinkedDirectoryEntries = 256;
 const int _minToolOutputTruncationPayloadChars = 40;
 const String _toolResultsSubdirectoryName = 'tool-results';
 const String _toolOutputTruncationStrategyHeadTail = 'head_tail';
@@ -2142,7 +2145,7 @@ class AiToolRuntimeService {
       return '';
     }
     final buffer = StringBuffer();
-    for (final linkedPath in linkedPaths) {
+    for (final linkedPath in linkedPaths.take(_maxSkillLinkedResources)) {
       if (p.isAbsolute(linkedPath) ||
           safeRelativePathError(linkedPath) != null) {
         continue;
@@ -2151,19 +2154,27 @@ class AiToolRuntimeService {
       if (!isPathWithinOrEqual(skillDirectoryPath, resolvedPath)) {
         continue;
       }
-      final entityType = FileSystemEntity.typeSync(resolvedPath);
+      final entityType = await FileSystemEntity.type(
+        resolvedPath,
+        followLinks: false,
+      );
       if (entityType == FileSystemEntityType.notFound) {
         continue;
       }
       buffer.writeln('- path: $linkedPath');
       if (entityType == FileSystemEntityType.directory) {
-        final entries = await Directory(
-          resolvedPath,
-        ).list(followLinks: false).toList();
+        final entries = (await listDirectoryBounded(
+          Directory(resolvedPath),
+          maxEntries: _maxSkillLinkedDirectoryEntries,
+          totalTimeout: const Duration(seconds: 3),
+        )).entries.toList(growable: false);
         entries.sort((left, right) => left.path.compareTo(right.path));
         for (final entry in entries.take(20)) {
           buffer.writeln('  - ${p.basename(entry.path)}');
         }
+        continue;
+      }
+      if (entityType != FileSystemEntityType.file) {
         continue;
       }
       try {

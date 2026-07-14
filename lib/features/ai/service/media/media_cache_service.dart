@@ -18,6 +18,7 @@ import '../../../../app/support/openhand_paths.dart';
 import '../../../../app/support/silent_log.dart';
 import '../../../../app/support/system_proxy.dart';
 import '../../../../shared/net/http_status_utils.dart';
+import '../../../../shared/util/bounded_directory_io.dart';
 import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 
@@ -67,6 +68,8 @@ class MediaCacheService {
   static const Duration _responseChunkTimeout = Duration(seconds: 30);
   static const Duration _fileOperationTimeout = Duration(seconds: 30);
   static const Duration _cleanupTimeout = Duration(seconds: 5);
+  static const Duration _cacheScanTimeout = Duration(seconds: 15);
+  static const int _maxCacheScanEntries = 100000;
   static const Duration _imageDownloadDeadline = Duration(minutes: 5);
   static const Duration _audioDownloadDeadline = Duration(minutes: 8);
   static const Duration _videoDownloadDeadline = Duration(minutes: 20);
@@ -407,31 +410,32 @@ class MediaCacheService {
 
   static Future<MediaCacheStats> _measureDirectory(Directory dir) async {
     if (!await dir.exists()) return MediaCacheStats.empty;
-    var totalBytes = 0;
-    var fileCount = 0;
     try {
-      await for (final entity in dir.list(
-        recursive: true,
-        followLinks: false,
-      )) {
-        if (entity is! File) continue;
-        try {
-          totalBytes += await entity.length();
-          fileCount++;
-        } catch (error, stack) {
-          silentLog('media_cache', 'read cached file length', error, stack);
-        }
-      }
+      final usage = await measureDirectoryBounded(
+        dir,
+        maxEntries: _maxCacheScanEntries,
+        totalTimeout: _cacheScanTimeout,
+        operationTimeout: _cleanupTimeout,
+      );
+      return MediaCacheStats(
+        bytes: usage.totalBytes,
+        fileCount: usage.fileCount,
+      );
     } catch (error, stack) {
       silentLog('media_cache', 'list cache directory size', error, stack);
+      return MediaCacheStats.empty;
     }
-    return MediaCacheStats(bytes: totalBytes, fileCount: fileCount);
   }
 
   static Future<void> _clearDirectoryContents(Directory dir) async {
     if (!await dir.exists()) return;
     try {
-      await for (final entity in dir.list(followLinks: false)) {
+      final listing = await listDirectoryBounded(
+        dir,
+        maxEntries: _maxCacheScanEntries,
+        totalTimeout: _cacheScanTimeout,
+      );
+      for (final entity in listing.entries) {
         await _deleteEntity(entity, 'delete cached media entity');
       }
     } catch (error, stack) {

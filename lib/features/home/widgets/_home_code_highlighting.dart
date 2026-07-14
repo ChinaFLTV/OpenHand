@@ -2094,6 +2094,7 @@ class _HtmlPreviewDialogState extends State<_HtmlPreviewDialog> {
   static const double _maxDialogHeight = 900.0;
   static const double _contentWidthChrome = 56.0;
   static const double _contentHeightChrome = 92.0;
+  static const int _maxTempHtmlCleanupEntries = 4096;
 
   void _applyZoom(double next) {
     final clamped = next.clamp(_zoomMin, _zoomMax);
@@ -2348,7 +2349,12 @@ class _HtmlPreviewDialogState extends State<_HtmlPreviewDialog> {
     try {
       final tempDir = Directory.systemTemp;
       int deletedCount = 0;
-      await for (final entity in tempDir.list()) {
+      final listing = await listDirectoryBounded(
+        tempDir,
+        maxEntries: _maxTempHtmlCleanupEntries,
+        totalTimeout: const Duration(seconds: 3),
+      );
+      for (final entity in listing.entries) {
         if (entity is Directory &&
             p.basename(entity.path).startsWith('openhand_html_')) {
           try {

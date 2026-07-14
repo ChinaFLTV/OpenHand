@@ -8,6 +8,7 @@ import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
+import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 
 import '../../../app/state/settings_controller.dart';
@@ -30,6 +31,7 @@ import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_inline_notice.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/persistence_issue_card.dart';
+import '../../../shared/util/bounded_directory_io.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
@@ -68,6 +70,7 @@ const double _mcpToolDebugMenuItemInset = 8;
 const double _mcpToolDebugMenuItemRadius = 10;
 const Duration _mcpForceProbeResetDelay = Duration(milliseconds: 200);
 const Duration _mcpToolPreviewExpandDuration = Duration(milliseconds: 220);
+const int _mcpNpxCacheCleanupMaxEntries = 20000;
 
 Duration _mcpMotionDuration(BuildContext context, Duration duration) {
   return openHandMotionDuration(context, duration);
@@ -604,10 +607,17 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
   ) async {
     final l10n = AppLocalizations.of(context)!;
     try {
+      final packageSegments = packageName.split('/');
+      if (packageSegments.any(
+            (segment) => segment.isEmpty || segment == '.' || segment == '..',
+          ) ||
+          packageName.contains('\\')) {
+        throw const FormatException('Invalid npm package name.');
+      }
       // 1. 卸载全局包
       final result = await runTrackedProcessOrFailed(
         'npm',
-        ['uninstall', '-g', packageName],
+        ['uninstall', '-g', '--', packageName],
         timeout: const Duration(seconds: 30),
         environment: SystemProxyResolver.instance
             .resolveSubprocessEnvironment(),
@@ -616,14 +626,43 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
       // 2. 清理该服务在隔离缓存中的残留
       final cacheRoot = mcpStdioIsolatedCacheRoot();
       final cacheDir = Directory(cacheRoot);
-      if (cacheDir.existsSync()) {
-        // 尝试清理与该包名相关的缓存子目录
+      if (await cacheDir.exists()) {
         try {
-          await for (final entity in cacheDir.list()) {
-            if (entity is Directory &&
-                entity.path.contains(packageName.replaceAll('/', '-'))) {
-              await entity.delete(recursive: true);
+          bool matchesPackageSegments(List<String> candidate) {
+            if (candidate.length != packageSegments.length) return false;
+            for (var index = 0; index < candidate.length; index++) {
+              if (candidate[index] != packageSegments[index]) return false;
             }
+            return true;
+          }
+
+          final listing = await listDirectoryBounded(
+            cacheDir,
+            maxEntries: _mcpNpxCacheCleanupMaxEntries,
+            recursive: true,
+          );
+          final installRoots = <String>{};
+          for (final entity in listing.entries.whereType<Directory>()) {
+            final relativeParts = p.split(
+              p.relative(entity.path, from: cacheRoot),
+            );
+            final nodeModulesIndex = relativeParts.lastIndexOf('node_modules');
+            if (nodeModulesIndex < 2 ||
+                relativeParts[nodeModulesIndex - 2] != '_npx' ||
+                !matchesPackageSegments(
+                  relativeParts.sublist(nodeModulesIndex + 1),
+                )) {
+              continue;
+            }
+            installRoots.add(
+              p.joinAll(<String>[
+                cacheRoot,
+                ...relativeParts.take(nodeModulesIndex),
+              ]),
+            );
+          }
+          for (final rootPath in installRoots) {
+            await Directory(rootPath).delete(recursive: true);
           }
         } catch (error, stack) {
           silentLog(

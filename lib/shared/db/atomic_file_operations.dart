@@ -6,6 +6,7 @@ import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as p;
 
 import '../../app/support/safe_subprocess.dart';
+import '../util/bounded_directory_io.dart';
 import '../util/bounded_file_io.dart';
 
 /// Process-local queue for each normalized target. A separate OS file lock is
@@ -26,6 +27,8 @@ const Duration _atomicOperationTotalTimeout = Duration(minutes: 10);
 const Duration _atomicCleanupTimeout = Duration(seconds: 2);
 const int _atomicIoChunkBytes = 64 * 1024;
 const int _atomicTextChunkCodeUnits = 64 * 1024;
+const int _atomicArtifactScanMaxEntries = 10000;
+const Duration _atomicArtifactScanTimeout = Duration(seconds: 3);
 const Duration _openDirectoryCommandTimeout = Duration(seconds: 6);
 const String _openDirectoryProcessTag = 'atomic_file_ops';
 int _atomicTempSerial = 0;
@@ -737,7 +740,12 @@ Future<List<File>> _atomicTempArtifacts(
   final incompleteTempPrefix = '$legacyTempPath$_atomicWritingMarker';
   final artifacts = <File>[];
   try {
-    await for (final entity in parent.list(followLinks: false)) {
+    final listing = await listDirectoryBounded(
+      parent,
+      maxEntries: _atomicArtifactScanMaxEntries,
+      totalTimeout: _atomicArtifactScanTimeout,
+    );
+    for (final entity in listing.entries) {
       if (entity is! File) {
         continue;
       }
