@@ -6614,7 +6614,7 @@ class AiSessionController extends ChangeNotifier {
           workingSession.activeConversationMessagesForPrompt;
       preRequestTimingsMs['prompt_history_build'] =
           promptHistoryStopwatch.elapsedMilliseconds;
-      final promptResult = _promptBuilder.buildSessionPrompt(
+      final promptResult = await _promptBuilder.buildSessionPrompt(
         templateBundle: templateBundle,
         session: workingSession,
         model: model,

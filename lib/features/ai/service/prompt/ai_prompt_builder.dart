@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
@@ -131,6 +132,14 @@ class AiPromptBuilder {
   static const int _postCompactRestoreMaxSkills = 3;
   static const int _postCompactRestoreMaxSkillChars = 8000;
   static const int _postCompactRestoreTotalSkillChars = 20000;
+  static const Duration _postCompactRestoreReadIdleTimeout = Duration(
+    seconds: 3,
+  );
+  static const Duration _postCompactRestoreReadTotalTimeout = Duration(
+    seconds: 10,
+  );
+  static const Duration _attachmentProbeIdleTimeout = Duration(seconds: 3);
+  static const Duration _attachmentProbeTotalTimeout = Duration(seconds: 10);
   static const int _postCompactRestoreMaxPlanChars = 12000;
   static const int _postCompactRestoreMaxMcpChars = 12000;
   static const int _postCompactRestoreMaxMcpInstructionChars = 4000;
@@ -153,7 +162,7 @@ class AiPromptBuilder {
       '</openhand_runtime_context>';
   static const String _runtimeContextEnvelopeIntro =
       'OpenHand runtime context for this turn; follow it unless higher-priority instructions conflict.';
-  AiPromptBuildResult buildConversationPrompt({
+  Future<AiPromptBuildResult> buildConversationPrompt({
     required AiPromptTemplateBundle templateBundle,
     required AiSession session,
     required AiModelConfig model,
@@ -166,7 +175,7 @@ class AiPromptBuilder {
         const <String, AiResolvedTool>{},
     Map<String, String> mcpServerInstructionsByName = const <String, String>{},
     bool useDsmlToolCalls = false,
-  }) {
+  }) async {
     final sessionMessages = <AiSessionMessage>[
       ...historyMessages,
       latestUserMessage,
@@ -186,7 +195,7 @@ class AiPromptBuilder {
     );
   }
 
-  AiPromptBuildResult buildSessionPrompt({
+  Future<AiPromptBuildResult> buildSessionPrompt({
     required AiPromptTemplateBundle templateBundle,
     required AiSession session,
     required AiModelConfig model,
@@ -206,7 +215,7 @@ class AiPromptBuilder {
     // 仅靠 [3d] 里的 plan.awaiting_approval 告诉模型「本轮不能调用工具」。
     // 同时 availableTools 可以保持为空，让 SDK 层 / 本地验证层拒绝任何工具调用。
     List<AiToolDefinition>? displayCatalogOverride,
-  }) {
+  }) async {
     final templatePolicy = AiPromptTemplatePolicies.resolve(
       templateBundle.template.id,
     );
@@ -264,6 +273,9 @@ class AiPromptBuilder {
       // 没有续写场景：把 latestUser 从 history 里剥离，走原来的“附加到末尾”路径。
       historyMessages.removeAt(latestUserHistoryIndex);
     }
+    final latestUserAttachmentAvailability = latestUserMessage == null
+        ? const <String, bool>{}
+        : await _probeAttachmentAvailability(latestUserMessage, session);
     final historyToolCompressionConfig =
         _ToolCompressionConfig.forConversationHistory(runtimeContext);
     final historyTurns = _sanitizeToolSequence(
@@ -275,6 +287,7 @@ class AiPromptBuilder {
         latestUserMessageIdForInlineAttachments: latestUserInline
             ? latestUserMessage.id
             : null,
+        latestUserAttachmentAvailability: latestUserAttachmentAvailability,
       ),
     );
     final reasoningHistorySourceCount = historyMessages.where((message) {
@@ -293,6 +306,7 @@ class AiPromptBuilder {
             model: model,
             content: _promptContentForMessage(latestUserMessage),
             isLatestUserMessage: true,
+            attachmentAvailability: latestUserAttachmentAvailability,
           );
     final failedTodos = session.todoItems
         .where((item) => AiSessionTodoState.isFailureStatus(item.status))
@@ -456,15 +470,19 @@ class AiPromptBuilder {
             historyMessages: historyMessages,
             latestUserMessage: latestUserMessage,
           );
-    final restoredFileContext = _renderPostCompactRestoredFileContext(
-      historyMessages: historyMessages,
-      latestCompressionPoint: latestCompressionPoint,
-    );
-    final restoredSkillContext = _renderPostCompactRestoredSkillContext(
-      historyMessages: historyMessages,
-      runtimeContext: runtimeContext,
-      latestCompressionPoint: latestCompressionPoint,
-    );
+    final restoredDiskContexts = await Future.wait<String>(<Future<String>>[
+      _renderPostCompactRestoredFileContext(
+        historyMessages: historyMessages,
+        latestCompressionPoint: latestCompressionPoint,
+      ),
+      _renderPostCompactRestoredSkillContext(
+        historyMessages: historyMessages,
+        runtimeContext: runtimeContext,
+        latestCompressionPoint: latestCompressionPoint,
+      ),
+    ]);
+    final restoredFileContext = restoredDiskContexts[0];
+    final restoredSkillContext = restoredDiskContexts[1];
     final restoredPlanContext = _renderPostCompactRestoredPlanContext(
       session: session,
       latestCompressionPoint: latestCompressionPoint,
@@ -2927,6 +2945,7 @@ $identity''';
     AiModelConfig model,
     _ToolCompressionConfig compressionConfig, {
     String? latestUserMessageIdForInlineAttachments,
+    Map<String, bool> latestUserAttachmentAvailability = const <String, bool>{},
     bool preferInlineSystemReminders = false,
     bool preferInlineSystemArtifacts = false,
   }) {
@@ -3001,6 +3020,9 @@ $identity''';
         index += 1;
         continue;
       }
+      final isLatestUserInline =
+          latestUserMessageIdForInlineAttachments != null &&
+          message.id == latestUserMessageIdForInlineAttachments;
       final mapped = _mapNonToolHistoryMessage(
         message,
         session,
@@ -3008,9 +3030,10 @@ $identity''';
         compressionConfig,
         messageIndex: index,
         lastConsumerIndex: stableConsumerBoundary,
-        isLatestUserInline:
-            latestUserMessageIdForInlineAttachments != null &&
-            message.id == latestUserMessageIdForInlineAttachments,
+        isLatestUserInline: isLatestUserInline,
+        attachmentAvailability: isLatestUserInline
+            ? latestUserAttachmentAvailability
+            : const <String, bool>{},
         preferInlineSystemReminders: preferInlineSystemReminders,
         preferInlineSystemArtifacts: preferInlineSystemArtifacts,
       );
@@ -3218,6 +3241,7 @@ $identity''';
     required int messageIndex,
     required int lastConsumerIndex,
     bool isLatestUserInline = false,
+    Map<String, bool> attachmentAvailability = const <String, bool>{},
     bool preferInlineSystemReminders = false,
     bool preferInlineSystemArtifacts = false,
   }) {
@@ -3233,6 +3257,7 @@ $identity''';
           model: model,
           content: promptContent,
           isLatestUserMessage: isLatestUserInline,
+          attachmentAvailability: attachmentAvailability,
           stripSystemReminders: true,
         );
       case AiSessionMessageKind.assistant:
@@ -3294,6 +3319,7 @@ $identity''';
     required AiModelConfig model,
     required String content,
     bool isLatestUserMessage = false,
+    Map<String, bool> attachmentAvailability = const <String, bool>{},
     bool stripSystemReminders = false,
     bool inlineSystemReminders = false,
   }) {
@@ -3305,6 +3331,7 @@ $identity''';
         session,
         model,
         isLatestUserMessage: isLatestUserMessage,
+        attachmentAvailability: attachmentAvailability,
       ),
       stripSystemReminders: stripSystemReminders,
       inlineSystemReminders: inlineSystemReminders,
@@ -3393,11 +3420,58 @@ $identity''';
 $tail''';
   }
 
+  Future<Map<String, bool>> _probeAttachmentAvailability(
+    AiSessionMessage message,
+    AiSession session,
+  ) async {
+    final attachments = _readAttachments(message.metadata);
+    if (attachments.isEmpty) return const <String, bool>{};
+    final availability = <String, bool>{};
+    final stopwatch = Stopwatch()..start();
+    for (final attachment in attachments) {
+      if (!attachment.isImage && !attachment.isVideo && !attachment.isAudio) {
+        continue;
+      }
+      final path = attachment.storagePath.trim();
+      if (path.isEmpty ||
+          availability.containsKey(path) ||
+          !_isTrustedAttachmentStoragePath(session, attachment)) {
+        continue;
+      }
+      final remainingMicroseconds =
+          _attachmentProbeTotalTimeout.inMicroseconds -
+          stopwatch.elapsedMicroseconds;
+      if (remainingMicroseconds <= 0) break;
+      final remaining = Duration(microseconds: remainingMicroseconds);
+      final timeout = remaining < _attachmentProbeIdleTimeout
+          ? remaining
+          : _attachmentProbeIdleTimeout;
+      try {
+        availability[path] =
+            await FileSystemEntity.type(
+              path,
+              followLinks: false,
+            ).timeout(timeout) ==
+            FileSystemEntityType.file;
+      } catch (error, stackTrace) {
+        availability[path] = false;
+        silentLog(
+          'AiPromptBuilder',
+          'probe attachment file',
+          error,
+          stackTrace,
+        );
+      }
+    }
+    return availability;
+  }
+
   List<AiChatContentPart> _attachmentPartsForMessage(
     AiSessionMessage message,
     AiSession session,
     AiModelConfig model, {
     bool isLatestUserMessage = false,
+    Map<String, bool> attachmentAvailability = const <String, bool>{},
   }) {
     final attachments = _readAttachments(message.metadata);
     if (attachments.isEmpty) {
@@ -3439,9 +3513,7 @@ $tail''';
             hasTrustedStoragePath &&
             storagePath.isNotEmpty &&
             mimeType.isNotEmpty &&
-            FileSystemEntity.typeSync(storagePath, followLinks: false) ==
-                FileSystemEntityType.file &&
-            File(storagePath).existsSync();
+            attachmentAvailability[storagePath] == true;
         final detailText = summaryText.isNotEmpty ? summaryText : promptText;
         // Always expose the attachment id so the assistant can emit a matching
         // <image_summary attachment_id="..."> block per the prompt contract.
@@ -3503,9 +3575,7 @@ $tail''';
             _isTrustedAttachmentStoragePath(session, attachment) &&
             storagePath.isNotEmpty &&
             mimeType.startsWith('video/') &&
-            FileSystemEntity.typeSync(storagePath, followLinks: false) ==
-                FileSystemEntityType.file &&
-            File(storagePath).existsSync();
+            attachmentAvailability[storagePath] == true;
         parts.add(AiChatContentPart.text(metadataText));
         if (!hasLocalVideoFile) {
           parts.add(
@@ -3545,9 +3615,7 @@ $tail''';
             _isTrustedAttachmentStoragePath(session, attachment) &&
             storagePath.isNotEmpty &&
             mimeType.startsWith('audio/') &&
-            FileSystemEntity.typeSync(storagePath, followLinks: false) ==
-                FileSystemEntityType.file &&
-            File(storagePath).existsSync();
+            attachmentAvailability[storagePath] == true;
         parts.add(AiChatContentPart.text(metadataText));
         if (!hasLocalAudioFile) {
           parts.add(
@@ -3832,7 +3900,7 @@ $tail''';
   List<AiMessageAttachment> _readAttachments(Map<String, Object?> metadata) {
     return AiMessageAttachment.listFromMetadata(
       metadata[aiSessionMessageAttachmentsMetadataKey],
-    );
+    ).take(aiMessageAttachmentLimit).toList(growable: false);
   }
 
   String _renderUserMemory(
@@ -4331,10 +4399,10 @@ $tail''';
     return omitted > 0 ? '$preview, +$omitted more' : preview;
   }
 
-  String _renderPostCompactRestoredFileContext({
+  Future<String> _renderPostCompactRestoredFileContext({
     required List<AiSessionMessage> historyMessages,
     required AiSessionMessage? latestCompressionPoint,
-  }) {
+  }) async {
     if (latestCompressionPoint == null) {
       return '';
     }
@@ -4354,6 +4422,7 @@ $tail''';
 
     final sections = <String>[];
     var usedChars = 0;
+    final readStopwatch = Stopwatch()..start();
     for (final anchor in anchors) {
       if (usedChars >= _postCompactRestoreTotalChars) {
         break;
@@ -4362,7 +4431,12 @@ $tail''';
       if (path.isEmpty) {
         continue;
       }
-      final restored = _tryReadPostCompactRestoredFile(path);
+      final readBudget = _remainingPostCompactReadBudget(readStopwatch);
+      if (readBudget == null) break;
+      final restored = await _tryReadPostCompactRestoredFile(
+        path,
+        totalTimeout: readBudget,
+      );
       if (restored == null || restored.isEmpty) {
         continue;
       }
@@ -4396,20 +4470,18 @@ $content
     return 'Recent file snapshots restored after compaction. These bounded snapshots come from files previously read or mutated before the latest checkpoint.\n\n${sections.join('\n\n')}';
   }
 
-  String? _tryReadPostCompactRestoredFile(String path) {
+  Future<String?> _tryReadPostCompactRestoredFile(
+    String path, {
+    required Duration totalTimeout,
+  }) async {
     try {
-      final file = File(path);
-      final stat = file.statSync();
-      if (stat.type != FileSystemEntityType.file ||
-          stat.size <= 0 ||
-          stat.size > _postCompactRestoreMaxFileBytes) {
-        return null;
-      }
+      final restored = await _readPostCompactRestoreFile(
+        File(path),
+        totalTimeout: totalTimeout,
+      );
+      if (restored == null || restored.isEmpty) return null;
       return _truncateRestoredFileContent(
-        readBoundedFileStringSync(
-          file,
-          maxBytes: _postCompactRestoreMaxFileBytes,
-        ),
+        restored,
         _postCompactRestoreMaxCharsPerFile,
       );
     } catch (error, stackTrace) {
@@ -4447,11 +4519,11 @@ $content
     return '$head\n[$marker: omitted $omitted chars]';
   }
 
-  String _renderPostCompactRestoredSkillContext({
+  Future<String> _renderPostCompactRestoredSkillContext({
     required List<AiSessionMessage> historyMessages,
     required AiSessionRuntimeContext runtimeContext,
     required AiSessionMessage? latestCompressionPoint,
-  }) {
+  }) async {
     if (latestCompressionPoint == null) {
       return '';
     }
@@ -4474,6 +4546,7 @@ $content
     };
     final sections = <String>[];
     var usedChars = 0;
+    final readStopwatch = Stopwatch()..start();
     for (final anchor in anchors) {
       if (sections.length >= _postCompactRestoreMaxSkills ||
           usedChars >= _postCompactRestoreTotalSkillChars) {
@@ -4484,7 +4557,12 @@ $content
       if (skill == null) {
         continue;
       }
-      final restored = _tryReadPostCompactRestoredSkill(skill);
+      final readBudget = _remainingPostCompactReadBudget(readStopwatch);
+      if (readBudget == null) break;
+      final restored = await _tryReadPostCompactRestoredSkill(
+        skill,
+        totalTimeout: readBudget,
+      );
       if (restored == null || restored.trim().isEmpty) {
         continue;
       }
@@ -4511,15 +4589,17 @@ $content
     return 'Skills restored after compaction. These are bounded snapshots of skills invoked before the latest checkpoint.\n\n${sections.join('\n\n')}';
   }
 
-  String? _tryReadPostCompactRestoredSkill(LocalSkill skill) {
+  Future<String?> _tryReadPostCompactRestoredSkill(
+    LocalSkill skill, {
+    required Duration totalTimeout,
+  }) async {
     try {
       final manifestFile = File(skill.manifestPath);
-      final stat = manifestFile.statSync();
-      if (stat.type != FileSystemEntityType.file ||
-          stat.size <= 0 ||
-          stat.size > _postCompactRestoreMaxFileBytes) {
-        return null;
-      }
+      final manifest = await _readPostCompactRestoreFile(
+        manifestFile,
+        totalTimeout: totalTimeout,
+      );
+      if (manifest == null || manifest.isEmpty) return null;
       final buffer = StringBuffer();
       final defaultPrompt = (skill.defaultPrompt ?? '').trim();
       if (defaultPrompt.isNotEmpty) {
@@ -4530,12 +4610,7 @@ $content
       }
       buffer
         ..writeln('manifest:')
-        ..writeln(
-          readBoundedFileStringSync(
-            manifestFile,
-            maxBytes: _postCompactRestoreMaxFileBytes,
-          ).trimRight(),
-        );
+        ..writeln(manifest.trimRight());
       return _truncateRestoredFileContent(
         buffer.toString().trimRight(),
         _postCompactRestoreMaxSkillChars,
@@ -4549,6 +4624,51 @@ $content
       );
       return null;
     }
+  }
+
+  Duration? _remainingPostCompactReadBudget(Stopwatch stopwatch) {
+    final microseconds =
+        _postCompactRestoreReadTotalTimeout.inMicroseconds -
+        stopwatch.elapsedMicroseconds;
+    return microseconds <= 0 ? null : Duration(microseconds: microseconds);
+  }
+
+  Future<String?> _readPostCompactRestoreFile(
+    File file, {
+    required Duration totalTimeout,
+  }) async {
+    if (totalTimeout <= Duration.zero) return null;
+    final stopwatch = Stopwatch()..start();
+    Duration remainingBudget() {
+      final microseconds =
+          totalTimeout.inMicroseconds - stopwatch.elapsedMicroseconds;
+      if (microseconds <= 0) {
+        throw TimeoutException(
+          'Post-compaction restore read exceeded its time limit.',
+          totalTimeout,
+        );
+      }
+      return Duration(microseconds: microseconds);
+    }
+
+    Duration nextOperationTimeout() {
+      final remaining = remainingBudget();
+      return remaining < _postCompactRestoreReadIdleTimeout
+          ? remaining
+          : _postCompactRestoreReadIdleTimeout;
+    }
+
+    final type = await FileSystemEntity.type(
+      file.path,
+      followLinks: false,
+    ).timeout(nextOperationTimeout());
+    if (type != FileSystemEntityType.file) return null;
+    return readBoundedFileString(
+      file,
+      maxBytes: _postCompactRestoreMaxFileBytes,
+      idleTimeout: nextOperationTimeout(),
+      totalTimeout: remainingBudget(),
+    );
   }
 
   List<Map<String, Object?>> _recentInvokedSkillAnchors(
