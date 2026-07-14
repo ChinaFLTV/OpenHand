@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:http/http.dart' as http;
 
@@ -507,7 +506,11 @@ class AiResponsesService {
     AiInputCacheRuntimeConfig? inputCacheConfig,
   }) async {
     if (model.protocolType == AiProtocolType.mimo) {
-      _validateMimoChatInput(model, messages);
+      await validateMimoContentParts(
+        model,
+        messages,
+        surface: AiMimoMediaSurface.responses,
+      );
     }
     final stableTools = stableToolDefinitionsForAiRequest(tools);
     final responseTools = <Map<String, Object?>>[
@@ -535,53 +538,6 @@ class AiResponsesService {
           : 'auto',
       inputCacheConfig: inputCacheConfig,
     );
-  }
-
-  static void _validateMimoChatInput(
-    AiModelConfig model,
-    List<AiChatTurn> messages,
-  ) {
-    const imageMimeTypes = <String>{
-      'image/jpeg',
-      'image/png',
-      'image/gif',
-      'image/webp',
-      'image/bmp',
-    };
-    for (final part in messages.expand((message) => message.effectiveParts)) {
-      if (part.kind == AiChatContentPartKind.text) continue;
-      final imageSupported =
-          part.kind == AiChatContentPartKind.imageFile &&
-          model.profileFor(model.modelId).supportsAttachments != false &&
-          imageMimeTypes.contains(lowercaseStringFromValue(part.mimeType));
-      if (!imageSupported) {
-        throw ArgumentError.value(
-          part.filePath,
-          'filePath',
-          'MiMo Responses API only supports JPEG, PNG, GIF, WebP, and BMP image input.',
-        );
-      }
-      final path = part.filePath;
-      if (path == null) continue;
-      final file = File(path);
-      if (!file.existsSync()) continue;
-      final rawBytes = file.lengthSync();
-      if (rawBytes <= 0) {
-        throw ArgumentError.value(
-          path,
-          'filePath',
-          'MiMo image input cannot be empty.',
-        );
-      }
-      final encodedBytes = ((rawBytes + 2) ~/ 3) * 4;
-      if (encodedBytes > 50 * 1024 * 1024) {
-        throw ArgumentError.value(
-          path,
-          'filePath',
-          'MiMo image Base64 payload exceeds 50 MB.',
-        );
-      }
-    }
   }
 
   Future<AiResponsesResult> createResponse({

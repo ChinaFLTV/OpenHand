@@ -2212,6 +2212,8 @@ const int _mimoAsrMaxBase64Bytes = 10 * 1024 * 1024;
 const int aiMimoUnderstandingMaxBase64Bytes = 50 * 1024 * 1024;
 const int aiMimoUnderstandingMaxRawBytes =
     (aiMimoUnderstandingMaxBase64Bytes ~/ 4) * 3;
+const Duration _mimoMediaValidationIdleTimeout = Duration(seconds: 3);
+const Duration _mimoMediaValidationTotalTimeout = Duration(seconds: 10);
 const Set<String> _mimoVideoExtensions = <String>{
   '.mp4',
   '.mov',
@@ -2219,15 +2221,38 @@ const Set<String> _mimoVideoExtensions = <String>{
   '.wmv',
 };
 
-void _validateMimoContentParts(
+enum AiMimoMediaSurface { chat, anthropic, responses }
+
+Future<void> validateMimoContentParts(
   AiModelConfig model,
   List<AiChatTurn> messages, {
-  bool imagesOnly = false,
-}) {
+  AiMimoMediaSurface surface = AiMimoMediaSurface.chat,
+}) async {
   final asrModel = lowercaseStringFromValue(model.modelId) == 'mimo-v2.5-asr';
+  final imagesOnly = surface != AiMimoMediaSurface.chat;
+  final asrAudioInput = asrModel && !imagesOnly;
+  final supportsAttachments =
+      model.profileFor(model.modelId).supportsAttachments != false;
+  final stopwatch = Stopwatch()..start();
+  Duration nextOperationTimeout() {
+    final microseconds =
+        _mimoMediaValidationTotalTimeout.inMicroseconds -
+        stopwatch.elapsedMicroseconds;
+    if (microseconds <= 0) {
+      throw TimeoutException(
+        'MiMo media validation exceeded its time limit.',
+        _mimoMediaValidationTotalTimeout,
+      );
+    }
+    final remaining = Duration(microseconds: microseconds);
+    return remaining < _mimoMediaValidationIdleTimeout
+        ? remaining
+        : _mimoMediaValidationIdleTimeout;
+  }
+
   for (final part in messages.expand((message) => message.effectiveParts)) {
     if (part.kind == AiChatContentPartKind.text) continue;
-    if (model.profileFor(model.modelId).supportsAttachments == false) {
+    if (!supportsAttachments && surface != AiMimoMediaSurface.responses) {
       throw ArgumentError.value(
         model.modelId,
         'modelId',
@@ -2236,7 +2261,11 @@ void _validateMimoContentParts(
     }
     final mimeType = lowercaseStringFromValue(part.mimeType);
     final extension = p.extension(part.filePath ?? '').toLowerCase();
-    final supported = asrModel
+    final supported = surface == AiMimoMediaSurface.responses
+        ? supportsAttachments &&
+              part.kind == AiChatContentPartKind.imageFile &&
+              _mimoImageMimeTypes.contains(mimeType)
+        : asrAudioInput
         ? part.kind == AiChatContentPartKind.audioFile &&
               _mimoAsrExtensions.contains(extension)
         : switch (part.kind) {
@@ -2250,27 +2279,48 @@ void _validateMimoContentParts(
             AiChatContentPartKind.text => true,
           };
     if (!supported) {
-      throw ArgumentError.value(
-        part.filePath,
-        'filePath',
-        imagesOnly
-            ? 'MiMo Anthropic API only supports JPEG, PNG, GIF, WebP, and BMP images.'
-            : 'Unsupported MiMo media format.',
-      );
+      throw ArgumentError.value(part.filePath, 'filePath', switch (surface) {
+        AiMimoMediaSurface.anthropic =>
+          'MiMo Anthropic API only supports JPEG, PNG, GIF, WebP, and BMP images.',
+        AiMimoMediaSurface.responses =>
+          'MiMo Responses API only supports JPEG, PNG, GIF, WebP, and BMP image input.',
+        AiMimoMediaSurface.chat => 'Unsupported MiMo media format.',
+      });
     }
-    final filePath = part.filePath;
+    final filePath = nullIfBlank(part.filePath);
     if (filePath != null) {
       final file = File(filePath);
-      if (!file.existsSync()) continue;
-      final rawBytes = file.lengthSync();
+      final type = await FileSystemEntity.type(
+        filePath,
+        followLinks: false,
+      ).timeout(nextOperationTimeout());
+      if (type == FileSystemEntityType.notFound) continue;
+      if (type != FileSystemEntityType.file) {
+        throw ArgumentError.value(
+          filePath,
+          'filePath',
+          'MiMo media input must be a regular file.',
+        );
+      }
+      final stat = await file.stat().timeout(nextOperationTimeout());
+      if (!isRegularFileStat(stat)) {
+        throw ArgumentError.value(
+          filePath,
+          'filePath',
+          'MiMo media input must be a regular file.',
+        );
+      }
+      final rawBytes = stat.size;
       if (rawBytes <= 0) {
         throw ArgumentError.value(
           filePath,
           'filePath',
-          'MiMo media input cannot be empty.',
+          surface == AiMimoMediaSurface.responses
+              ? 'MiMo image input cannot be empty.'
+              : 'MiMo media input cannot be empty.',
         );
       }
-      final maxBase64Bytes = asrModel
+      final maxBase64Bytes = asrAudioInput
           ? _mimoAsrMaxBase64Bytes
           : aiMimoUnderstandingMaxBase64Bytes;
       final encodedBytes = ((rawBytes + 2) ~/ 3) * 4;
@@ -2278,7 +2328,9 @@ void _validateMimoContentParts(
         throw ArgumentError.value(
           filePath,
           'filePath',
-          asrModel
+          surface == AiMimoMediaSurface.responses
+              ? 'MiMo image Base64 payload exceeds 50 MB.'
+              : asrAudioInput
               ? 'MiMo ASR Base64 payload exceeds 10 MB.'
               : 'MiMo multimodal Base64 payload exceeds 50 MB.',
         );
@@ -2313,7 +2365,7 @@ class MimoOpenAiProtocolAdapter extends OpenAiProtocolAdapter {
     final requestMessages = _isAsrModel(model)
         ? _asrMessages(messages)
         : messages;
-    _validateMimoContentParts(model, requestMessages);
+    await validateMimoContentParts(model, requestMessages);
     final body = await super.buildBody(
       model,
       requestMessages,
@@ -3338,7 +3390,11 @@ class MimoAnthropicProtocolAdapter extends ClaudeProtocolAdapter {
     AiInputCacheRuntimeConfig? inputCacheConfig,
   }) async {
     _validateMimoModelId(model);
-    _validateMimoContentParts(model, messages, imagesOnly: true);
+    await validateMimoContentParts(
+      model,
+      messages,
+      surface: AiMimoMediaSurface.anthropic,
+    );
     final body = await super.buildBody(
       model,
       messages,
