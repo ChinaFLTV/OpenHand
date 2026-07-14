@@ -199,8 +199,9 @@ class MessageGatewayController extends ManagedChangeNotifier {
   List<AiThreadTemplate> get templates => _sessionController.availableTemplates;
   List<String> get skillNames =>
       _cleanStringValues(_skillsController.skills.map((skill) => skill.name));
-  List<String> get mcpServerNames =>
-      _cleanStringValues(_mcpController.servers.map((server) => server.name));
+  List<String> get mcpServerNames => _cleanStringValues(
+    _mcpController.runtimeServers.map((server) => server.name),
+  );
   List<String> get memoryIds =>
       _cleanStringValues(_memoryController.entries.map((entry) => entry.id));
   List<String> get builtinToolNames => _cleanStringValues(

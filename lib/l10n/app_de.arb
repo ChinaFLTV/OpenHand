@@ -1740,10 +1740,6 @@
   "@mcpTransportStdio": {
     "description": "MCP standard I/O transport. Acronym; keep as \"STDIO\" untranslated."
   },
-  "mcpPersistenceRecoveredTitle": "MCP-Konfiguration wiederhergestellt",
-  "mcpPersistenceRecoveredBody": "OpenHand hat erkannt, dass die MCP-Konfigurationsdatei beschädigt oder manipuliert wurde, ein Backup erstellt und eine leere Konfiguration wiederhergestellt.",
-  "mcpPersistenceSanitizedTitle": "MCP-Konfiguration bereinigt",
-  "mcpPersistenceSanitizedBody": "OpenHand hat ungültige MCP-Dienstfelder erkannt, fehlerhafte Einträge ignoriert und eine gültige Konfiguration neu geschrieben.",
   "mcpPersistenceSaveFailedTitle": "Speichern der MCP-Konfiguration fehlgeschlagen",
   "mcpPersistenceSaveFailedBody": "Das Schreiben der MCP-Konfigurationsdatei ist fehlgeschlagen. Die Oberfläche wurde auf die letzte gültige Konfiguration zurückgesetzt. Dateiberechtigungen oder Festplattenzustand prüfen.",
   "threadsEmptyBody": "Noch keine Konversationsfäden. Erstellen Sie einen neuen Faden, um zu beginnen.",

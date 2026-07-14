@@ -1740,10 +1740,6 @@
   "@mcpTransportStdio": {
     "description": "MCP standard I/O transport. Acronym; keep as \"STDIO\" untranslated."
   },
-  "mcpPersistenceRecoveredTitle": "MCP Config Recovered",
-  "mcpPersistenceRecoveredBody": "OpenHand detected that the MCP config file was damaged or tampered with, backed it up, and restored an empty configuration.",
-  "mcpPersistenceSanitizedTitle": "MCP Config Sanitized",
-  "mcpPersistenceSanitizedBody": "OpenHand detected invalid MCP service fields, ignored the bad entries, and rewrote a valid configuration.",
   "mcpPersistenceSaveFailedTitle": "MCP Config Save Failed",
   "mcpPersistenceSaveFailedBody": "Writing the MCP config file failed. The UI has been rolled back to the last valid configuration. Check file permissions or disk state.",
   "threadsEmptyBody": "No conversation threads yet. Create a new thread to start.",

@@ -3081,20 +3081,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get mcpTransportStdio => 'STDIO';
 
   @override
-  String get mcpPersistenceRecoveredTitle => 'MCP 設定を復旧しました';
-
-  @override
-  String get mcpPersistenceRecoveredBody =>
-      'MCP 設定ファイルの破損または改ざんを検出したため、バックアップを作成し、空の構成に復元しました。';
-
-  @override
-  String get mcpPersistenceSanitizedTitle => 'MCP 設定をサニタイズしました';
-
-  @override
-  String get mcpPersistenceSanitizedBody =>
-      '無効な MCP サービス項目を検出したため、不正なエントリを無視し、有効な構成を書き直しました。';
-
-  @override
   String get mcpPersistenceSaveFailedTitle => 'MCP 設定の保存に失敗';
 
   @override

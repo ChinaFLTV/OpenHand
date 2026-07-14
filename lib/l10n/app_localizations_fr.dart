@@ -3182,20 +3182,6 @@ class AppLocalizationsFr extends AppLocalizations {
   String get mcpTransportStdio => 'STDIO';
 
   @override
-  String get mcpPersistenceRecoveredTitle => 'Configuration MCP récupérée';
-
-  @override
-  String get mcpPersistenceRecoveredBody =>
-      'OpenHand a détecté que le fichier de configuration MCP était endommagé ou modifié, l’a sauvegardé et a restauré une configuration vide.';
-
-  @override
-  String get mcpPersistenceSanitizedTitle => 'Configuration MCP assainie';
-
-  @override
-  String get mcpPersistenceSanitizedBody =>
-      'OpenHand a détecté des champs de service MCP invalides, a ignoré les entrées défectueuses et a réécrit une configuration valide.';
-
-  @override
   String get mcpPersistenceSaveFailedTitle =>
       'Échec de l’enregistrement de la configuration MCP';
 

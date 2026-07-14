@@ -3041,20 +3041,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get mcpTransportStdio => 'STDIO';
 
   @override
-  String get mcpPersistenceRecoveredTitle => 'MCP 配置文件已自动恢复';
-
-  @override
-  String get mcpPersistenceRecoveredBody =>
-      '检测到 MCP 配置文件内容损坏或被篡改，OpenHand 已备份异常文件并恢复为空配置。';
-
-  @override
-  String get mcpPersistenceSanitizedTitle => 'MCP 配置内容已自动修正';
-
-  @override
-  String get mcpPersistenceSanitizedBody =>
-      '检测到部分 MCP 服务字段无效，OpenHand 已忽略异常条目并重新写回有效配置。';
-
-  @override
   String get mcpPersistenceSaveFailedTitle => 'MCP 配置保存失败';
 
   @override
@@ -13665,20 +13651,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get mcpTransportStdio => 'STDIO';
-
-  @override
-  String get mcpPersistenceRecoveredTitle => 'MCP 配置檔案已自動恢復';
-
-  @override
-  String get mcpPersistenceRecoveredBody =>
-      '檢測到 MCP 配置檔案內容損壞或被竄改，OpenHand 已備份異常檔案并恢復為空配置。';
-
-  @override
-  String get mcpPersistenceSanitizedTitle => 'MCP 配置內容已自動修正';
-
-  @override
-  String get mcpPersistenceSanitizedBody =>
-      '檢測到部分 MCP 服務欄位無效，OpenHand 已忽略異常條目并重新寫回有效配置。';
 
   @override
   String get mcpPersistenceSaveFailedTitle => 'MCP 配置儲存失敗';

@@ -19,7 +19,6 @@ import 'mcp_stdio_cache.dart';
 import 'mcp_stdio_io_utils.dart';
 import 'mcp_tool_discovery_exception.dart';
 
-final RegExp _stdioCommandTokenSeparatorPattern = RegExp(r'\s+');
 const int _jsonRpcMalformedLinePreviewChars = 200;
 const int _jsonRpcCompactLinePreviewChars = 120;
 const int _jsonRpcToolDescriptionPreviewChars = 60;
@@ -172,13 +171,18 @@ class McpStdioProcessManager extends ChangeNotifier {
   Future<void> startServer(McpServer server) async {
     if (server.type != McpServerType.stdio) return;
     final name = server.name;
+    final fingerprint = _serverFingerprint(server);
 
     final existing = _processes[name];
-    if (existing != null && !existing.info.isStopped) return;
+    if (existing != null && !existing.info.isStopped) {
+      if (existing.configFingerprint == fingerprint) return;
+      await stopServer(name);
+    }
 
     final generation = _nextGeneration++;
     _processes[name] = _ManagedProcess(
       generation: generation,
+      configFingerprint: fingerprint,
       info: const StdioProcessInfo(state: StdioProcessState.starting),
     );
     notifyListeners();
@@ -193,14 +197,19 @@ class McpStdioProcessManager extends ChangeNotifier {
       if (!_isCurrentStart(name, generation)) {
         return;
       }
+      final runtimeEnvironment = await mcpStdioIsolatedCacheEnv();
+      if (!_isCurrentStart(name, generation)) return;
       // npx -y / uvx 等首次拉包 + 后续 MCP 服务运行期出站都依赖同一套
       // 代理环境。把 SystemProxyResolver 解析出的 HTTP(S)/SOCKS 端点注
       // 入子进程，否则在企业代理 / 内网透明代理环境下会 TCP 握手超时。
       process = await _startProcessBounded(
         launch.executable,
         launch.args,
-        environment: SystemProxyResolver.instance
-            .resolveSubprocessEnvironment(),
+        environment: <String, String>{
+          ...SystemProxyResolver.instance.resolveSubprocessEnvironment(),
+          ...runtimeEnvironment,
+          ...server.environment,
+        },
       );
       if (!_isCurrentStart(name, generation)) {
         unawaited(_terminateUnmanagedProcess(process));
@@ -220,6 +229,7 @@ class McpStdioProcessManager extends ChangeNotifier {
       final handshakeCompleter = Completer<bool>();
       final managed = _ManagedProcess(
         generation: generation,
+        configFingerprint: fingerprint,
         info: StdioProcessInfo(
           state: StdioProcessState.running,
           pid: process.pid,
@@ -339,6 +349,7 @@ class McpStdioProcessManager extends ChangeNotifier {
             }
             _processes[name] = _ManagedProcess(
               generation: generation,
+              configFingerprint: current.configFingerprint,
               info: current.info.copyWith(
                 state: StdioProcessState.stopped,
                 clearPid: true,
@@ -377,6 +388,7 @@ class McpStdioProcessManager extends ChangeNotifier {
               identical(current.process, process))) {
         _processes[name] = _ManagedProcess(
           generation: generation,
+          configFingerprint: fingerprint,
           info: StdioProcessInfo(
             errorMessage: '$e',
             logs: ['[${_timestamp()}] 启动失败: $e'],
@@ -558,6 +570,7 @@ class McpStdioProcessManager extends ChangeNotifier {
       if (managed.info.state == StdioProcessState.starting) {
         _processes[serverName] = _ManagedProcess(
           generation: managed.generation,
+          configFingerprint: managed.configFingerprint,
           info: managed.info.copyWith(state: StdioProcessState.stopped),
         );
         notifyListeners();
@@ -617,6 +630,7 @@ class McpStdioProcessManager extends ChangeNotifier {
     if (current != null && current.generation == generation) {
       _processes[serverName] = _ManagedProcess(
         generation: generation,
+        configFingerprint: current.configFingerprint,
         info: current.info.copyWith(
           state: StdioProcessState.stopped,
           clearPid: true,
@@ -637,6 +651,13 @@ class McpStdioProcessManager extends ChangeNotifier {
       maxConcurrency: _stopAllConcurrency,
       task: (index) => stopServer(names[index]),
     );
+  }
+
+  Future<void> removeServer(String serverName) async {
+    await stopServer(serverName);
+    _processes.remove(serverName);
+    _sessionBorrowCount.remove(serverName);
+    notifyListeners();
   }
 
   /// 清除指定服务的日志。
@@ -1380,6 +1401,7 @@ class _ManagedResponseRouter {
 class _ManagedProcess {
   const _ManagedProcess({
     required this.generation,
+    required this.configFingerprint,
     required this.info,
     this.process,
     this.handshakeCompleted = false,
@@ -1390,6 +1412,7 @@ class _ManagedProcess {
   });
 
   final int generation;
+  final String configFingerprint;
   final StdioProcessInfo info;
   final Process? process;
   final bool handshakeCompleted;
@@ -1410,6 +1433,7 @@ class _ManagedProcess {
   }) {
     return _ManagedProcess(
       generation: generation,
+      configFingerprint: configFingerprint,
       info: info ?? this.info,
       process: clearProcess ? null : (process ?? this.process),
       handshakeCompleted: handshakeCompleted ?? this.handshakeCompleted,
@@ -1419,6 +1443,17 @@ class _ManagedProcess {
       stderrSubscription: stderrSubscription ?? this.stderrSubscription,
     );
   }
+}
+
+String _serverFingerprint(McpServer server) {
+  final environmentKeys = server.environment.keys.toList()..sort();
+  return jsonEncode(<String, Object?>{
+    'command': server.command,
+    'args': server.args,
+    'environment': <String, String>{
+      for (final key in environmentKeys) key: server.environment[key]!,
+    },
+  });
 }
 
 class _DirectLaunch {
@@ -1434,7 +1469,7 @@ class _DirectLaunch {
 Future<_DirectLaunch> _resolveDirectLaunch(McpServer server) async {
   final command = server.command.trim();
   // 拆词：兼容 command="npx pkg@latest" 的写法
-  final tokens = command.split(_stdioCommandTokenSeparatorPattern);
+  final tokens = tokenizeMcpShellCommand(command);
   final executable = tokens.first;
   final inlineArgs = tokens.length > 1 ? tokens.sublist(1) : const <String>[];
   final allArgs = [...inlineArgs, ...server.args];

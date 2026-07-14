@@ -1740,10 +1740,6 @@
   "@mcpTransportStdio": {
     "description": "MCP standard I/O transport. Acronym; keep as \"STDIO\" untranslated."
   },
-  "mcpPersistenceRecoveredTitle": "MCP 設定を復旧しました",
-  "mcpPersistenceRecoveredBody": "MCP 設定ファイルの破損または改ざんを検出したため、バックアップを作成し、空の構成に復元しました。",
-  "mcpPersistenceSanitizedTitle": "MCP 設定をサニタイズしました",
-  "mcpPersistenceSanitizedBody": "無効な MCP サービス項目を検出したため、不正なエントリを無視し、有効な構成を書き直しました。",
   "mcpPersistenceSaveFailedTitle": "MCP 設定の保存に失敗",
   "mcpPersistenceSaveFailedBody": "MCP 設定ファイルの書き込みに失敗しました。UI は最後の有効な構成にロールバックされています。ファイルの権限やディスクの状態を確認してください。",
   "threadsEmptyBody": "まだスレッドがありません。新規スレッドを作成して開始してください。",

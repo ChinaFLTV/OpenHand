@@ -198,28 +198,35 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
           label: Text(l10n.mcpOpenDirectory),
         ),
         OutlinedButton.icon(
-          onPressed: () => _showSnapshotExportMenu(context),
+          onPressed: mcpSnapshot.errorMessage == null
+              ? () => _showSnapshotExportMenu(context)
+              : null,
           icon: const Icon(Icons.ios_share_rounded),
           label: Text(
             _localizedText(context, zh: '导出快照', en: 'Export snapshot'),
           ),
         ),
         OutlinedButton.icon(
-          onPressed: mcpController.isBuildingKeywordIndex
+          onPressed:
+              mcpSnapshot.errorMessage != null ||
+                  mcpController.isBuildingKeywordIndex
               ? null
               : () => _buildKeywordIndex(context),
           icon: const Icon(Icons.travel_explore_rounded),
           label: Text(l10n.mcpBuildKeywordIndex),
         ),
         OutlinedButton.icon(
-          onPressed: mcpSnapshot.servers.isEmpty
+          onPressed:
+              mcpSnapshot.errorMessage != null || mcpSnapshot.servers.isEmpty
               ? null
               : () => _showProbeDetailsDialog(context),
           icon: const Icon(Icons.radar_rounded),
           label: Text(_localizedText(context, zh: '探测详情', en: 'Probe Details')),
         ),
         FilledButton.icon(
-          onPressed: () => _showServerDialog(context),
+          onPressed: mcpSnapshot.errorMessage == null
+              ? () => _showServerDialog(context)
+              : null,
           icon: const Icon(Icons.add_rounded),
           label: Text(l10n.mcpNewServer),
         ),
@@ -1528,15 +1535,30 @@ class _McpServerEditorDialogState extends State<_McpServerEditorDialog> {
       _headerErrorMessage = null;
     });
 
-    final server = McpServer(
-      name: _nameController.text.trim(),
-      type: _type,
-      enabled: _enabled,
-      url: _urlController.text.trim(),
-      command: _commandController.text.trim(),
-      args: splitTrimmedNonEmpty(_argsController.text, separator: '\n'),
-      headers: headerParseResult.headers,
-    );
+    final initial = widget.initialServer;
+    final args =
+        initial != null && _argsController.text == initial.args.join('\n')
+        ? initial.args
+        : splitTrimmedNonEmpty(_argsController.text, separator: '\n');
+    final server =
+        initial?.copyWith(
+          name: _nameController.text.trim(),
+          type: _type,
+          enabled: _enabled,
+          url: _urlController.text,
+          command: _commandController.text,
+          args: args,
+          headers: headerParseResult.headers,
+        ) ??
+        McpServer(
+          name: _nameController.text.trim(),
+          type: _type,
+          enabled: _enabled,
+          url: _urlController.text,
+          command: _commandController.text,
+          args: args,
+          headers: headerParseResult.headers,
+        );
 
     late final bool saved;
     try {
@@ -14621,13 +14643,10 @@ class _McpPersistenceIssueCard extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     final shortPath = OpenHandPaths.shortenHomePath(issue.filePath);
     final (title, body) = switch (issue.kind) {
-      McpPersistenceIssueKind.recoveredInvalidFile => (
-        l10n.mcpPersistenceRecoveredTitle,
-        '${l10n.mcpPersistenceRecoveredBody}\n$shortPath',
-      ),
-      McpPersistenceIssueKind.sanitizedInvalidContent => (
-        l10n.mcpPersistenceSanitizedTitle,
-        '${l10n.mcpPersistenceSanitizedBody}\n$shortPath',
+      McpPersistenceIssueKind.loadFailed ||
+      McpPersistenceIssueKind.invalidContent => (
+        l10n.mcpLoadFailedTitle,
+        '${issue.detail ?? l10n.settingsPersistenceLoadFailedBody}\n$shortPath',
       ),
       McpPersistenceIssueKind.saveFailed => (
         l10n.mcpPersistenceSaveFailedTitle,

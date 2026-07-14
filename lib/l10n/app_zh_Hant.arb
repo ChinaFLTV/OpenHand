@@ -1740,10 +1740,6 @@
   "@mcpTransportStdio": {
     "description": "MCP standard I/O transport. Acronym; keep as \"STDIO\" untranslated."
   },
-  "mcpPersistenceRecoveredTitle": "MCP 配置檔案已自動恢復",
-  "mcpPersistenceRecoveredBody": "檢測到 MCP 配置檔案內容損壞或被竄改，OpenHand 已備份異常檔案并恢復為空配置。",
-  "mcpPersistenceSanitizedTitle": "MCP 配置內容已自動修正",
-  "mcpPersistenceSanitizedBody": "檢測到部分 MCP 服務欄位無效，OpenHand 已忽略異常條目并重新寫回有效配置。",
   "mcpPersistenceSaveFailedTitle": "MCP 配置儲存失敗",
   "mcpPersistenceSaveFailedBody": "寫入 MCP 配置檔案失敗，界面已回復到上一次有效配置，請檢查檔案權限或磁碟狀態。",
   "threadsEmptyBody": "目前還沒有任何對話執行緒，建立一個新執行緒即可開始。",

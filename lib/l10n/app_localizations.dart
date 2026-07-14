@@ -5592,30 +5592,6 @@ abstract class AppLocalizations {
   /// **'STDIO'**
   String get mcpTransportStdio;
 
-  /// No description provided for @mcpPersistenceRecoveredTitle.
-  ///
-  /// In zh, this message translates to:
-  /// **'MCP 配置文件已自动恢复'**
-  String get mcpPersistenceRecoveredTitle;
-
-  /// No description provided for @mcpPersistenceRecoveredBody.
-  ///
-  /// In zh, this message translates to:
-  /// **'检测到 MCP 配置文件内容损坏或被篡改，OpenHand 已备份异常文件并恢复为空配置。'**
-  String get mcpPersistenceRecoveredBody;
-
-  /// No description provided for @mcpPersistenceSanitizedTitle.
-  ///
-  /// In zh, this message translates to:
-  /// **'MCP 配置内容已自动修正'**
-  String get mcpPersistenceSanitizedTitle;
-
-  /// No description provided for @mcpPersistenceSanitizedBody.
-  ///
-  /// In zh, this message translates to:
-  /// **'检测到部分 MCP 服务字段无效，OpenHand 已忽略异常条目并重新写回有效配置。'**
-  String get mcpPersistenceSanitizedBody;
-
   /// No description provided for @mcpPersistenceSaveFailedTitle.
   ///
   /// In zh, this message translates to:

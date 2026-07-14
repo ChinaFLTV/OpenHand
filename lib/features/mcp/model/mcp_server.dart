@@ -1,5 +1,3 @@
-import '../../../shared/util/input_value_parsing.dart';
-
 enum McpServerType {
   streamableHttp('streamable_http'),
   sse('sse'),
@@ -41,6 +39,8 @@ class McpServer {
     this.command = '',
     this.args = const <String>[],
     this.headers = const <String, String>{},
+    this.environment = const <String, String>{},
+    this.extraFields = const <String, Object?>{},
   });
 
   final String name;
@@ -57,6 +57,8 @@ class McpServer {
   final String command;
   final List<String> args;
   final Map<String, String> headers;
+  final Map<String, String> environment;
+  final Map<String, Object?> extraFields;
 
   String get initials {
     final trimmed = name.trim();
@@ -69,9 +71,9 @@ class McpServer {
   String get summary {
     return switch (type) {
       McpServerType.streamableHttp || McpServerType.sse => url.trim(),
-      McpServerType.stdio => [
+      McpServerType.stdio => <String>[
         command.trim(),
-        ...stringListFromValue(args),
+        ...args,
       ].where((item) => item.isNotEmpty).join(' '),
     };
   }
@@ -85,6 +87,8 @@ class McpServer {
     String? command,
     List<String>? args,
     Map<String, String>? headers,
+    Map<String, String>? environment,
+    Map<String, Object?>? extraFields,
   }) {
     return McpServer(
       name: name ?? this.name,
@@ -95,6 +99,8 @@ class McpServer {
       command: command ?? this.command,
       args: args ?? this.args,
       headers: headers ?? this.headers,
+      environment: environment ?? this.environment,
+      extraFields: extraFields ?? this.extraFields,
     );
   }
 }

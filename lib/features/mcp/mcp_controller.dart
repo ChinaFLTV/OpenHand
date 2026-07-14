@@ -153,6 +153,7 @@ class McpController extends ChangeNotifier {
 
   bool _isLoading;
   String? _errorMessage;
+  bool _hasTrustedSnapshot = false;
   List<McpServer> _servers = const <McpServer>[];
   List<McpServer> _serversView = const <McpServer>[];
   final Map<String, McpToolCatalog> _toolCatalogByServerName =
@@ -276,7 +277,10 @@ class McpController extends ChangeNotifier {
   Future<McpKeywordIndexBuildResult> buildKeywordIndex({
     void Function(McpKeywordIndexProgress)? onProgress,
   }) async {
-    final snapshot = List<McpServer>.unmodifiable(_servers);
+    if (!_hasTrustedSnapshot) {
+      throw StateError('MCP configuration is not available.');
+    }
+    final snapshot = List<McpServer>.unmodifiable(runtimeServers);
     final result = await _keywordIndexService.build(
       servers: snapshot,
       resolveTools: (server) async {
@@ -302,6 +306,8 @@ class McpController extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
   List<McpServer> get servers => _serversView;
+  List<McpServer> get runtimeServers =>
+      _hasTrustedSnapshot ? _serversView : const <McpServer>[];
   String get serversFilePath => _store.serversFilePath;
   String get storageDirectoryPath => _store.storageDirectoryPath;
   McpPersistenceIssue? get persistenceIssue => _persistenceIssue;
@@ -337,7 +343,7 @@ class McpController extends ChangeNotifier {
 
   /// 推算下次自动健康探测的 UTC 时间；当前没有可用信息时返回 null。
   DateTime? get nextScheduledProbeAt {
-    if (_isDisposed || !_isPageActive) {
+    if (_isDisposed || !_hasTrustedSnapshot || !_isPageActive) {
       return null;
     }
     if (!_servers.any((server) => server.enabled)) {
@@ -455,38 +461,55 @@ class McpController extends ChangeNotifier {
   }
 
   Future<void> refresh() async {
-    await _enqueueOperation(() async {
-      _isLoading = true;
-      _errorMessage = null;
-      _persistenceIssue = null;
-      notifyListeners();
-
-      try {
-        final loadResult = await _store.load();
-        await _ensureOpsPersistenceLoaded(force: true);
-        _setServers(loadResult.servers);
-        _syncToolCatalogsWithServers(_servers);
-        _syncHealthStatusesWithServers(_servers);
-        _persistenceIssue = loadResult.issue;
-      } catch (error) {
-        _setServers(const <McpServer>[]);
-        _toolCatalogByServerName.clear();
-        _toolRefreshGenerationByServerName.clear();
-        _healthByServerName.clear();
-        _healthCheckGenerationByServerName.clear();
-        _errorMessage = '$error';
-      } finally {
-        _isLoading = false;
-        notifyListeners();
-      }
-    });
-    if (_isPageActive) {
+    await _enqueueOperation(_loadServersLocked);
+    if (_hasTrustedSnapshot && _isPageActive) {
       _autoRefreshEnabledServerTools(force: true);
       _autoCheckEnabledServerHealth(force: true);
     }
     _reconcileHealthCheckTimer();
     if (_opsConfig.autoStart && !_isDisposed) {
       _runDetached(startMcpOpsServer(), 'start MCP ops server');
+    }
+  }
+
+  Future<bool> _loadServersLocked() async {
+    _isLoading = true;
+    _hasTrustedSnapshot = false;
+    _errorMessage = null;
+    _persistenceIssue = null;
+    _invalidateToolRefreshGenerations();
+    _invalidateHealthCheckGenerations();
+    _reconcileHealthCheckTimer();
+    notifyListeners();
+    try {
+      final loadResult = await _store.load();
+      await _ensureOpsPersistenceLoaded(force: true);
+      if (!loadResult.canPersist) {
+        _persistenceIssue = loadResult.issue;
+        _errorMessage =
+            loadResult.issue?.detail ?? 'MCP configuration is invalid.';
+        return false;
+      }
+      final previousServers = List<McpServer>.from(_servers);
+      await _reconcileStdioProcesses(previousServers, loadResult.servers);
+      _setServers(loadResult.servers);
+      _syncToolCatalogsWithServers(_servers);
+      _syncHealthStatusesWithServers(_servers);
+      _hasTrustedSnapshot = true;
+      return true;
+    } catch (error) {
+      _hasTrustedSnapshot = false;
+      _errorMessage = '$error';
+      _persistenceIssue = McpPersistenceIssue(
+        kind: McpPersistenceIssueKind.loadFailed,
+        filePath: _store.serversFilePath,
+        detail: '$error',
+      );
+      return false;
+    } finally {
+      _isLoading = false;
+      _reconcileHealthCheckTimer();
+      notifyListeners();
     }
   }
 
@@ -930,7 +953,7 @@ class McpController extends ChangeNotifier {
 
   List<McpOpsToolDefinition> _opsMcpBridgeToolDefinitions() {
     const surface = McpOpsExposureSurface.mcpServers;
-    if (!_opsConfig.surfaceEnabled(surface)) {
+    if (!_hasTrustedSnapshot || !_opsConfig.surfaceEnabled(surface)) {
       return const <McpOpsToolDefinition>[];
     }
     final tools = <McpOpsToolDefinition>[];
@@ -1284,6 +1307,7 @@ class McpController extends ChangeNotifier {
       return false;
     }
     return _enqueueOperation(() async {
+      if (!await _ensureTrustedSnapshotLocked()) return false;
       final updatedServers = List<McpServer>.from(_servers);
       final normalizedPreviousName = previousName?.trim();
       if (normalizedPreviousName != null && normalizedPreviousName.isNotEmpty) {
@@ -1316,6 +1340,7 @@ class McpController extends ChangeNotifier {
 
   Future<bool> deleteServer(McpServer server) async {
     return _enqueueOperation(() async {
+      if (!await _ensureTrustedSnapshotLocked()) return false;
       final updatedServers = _servers
           .where((item) => item.name != server.name)
           .toList(growable: false);
@@ -1328,6 +1353,7 @@ class McpController extends ChangeNotifier {
 
   Future<bool> updateServerEnabled(String name, bool enabled) async {
     return _enqueueOperation(() async {
+      if (!await _ensureTrustedSnapshotLocked()) return false;
       final normalizedName = _normalizeServerName(name);
       final index = _servers.indexWhere((item) => item.name == normalizedName);
       if (index == -1) {
@@ -1357,6 +1383,7 @@ class McpController extends ChangeNotifier {
   /// 切换服务的探测启用状态（不影响服务本身的 enabled）。
   Future<bool> updateServerProbeEnabled(String name, bool probeEnabled) async {
     return _enqueueOperation(() async {
+      if (!await _ensureTrustedSnapshotLocked()) return false;
       final normalizedName = _normalizeServerName(name);
       final index = _servers.indexWhere((item) => item.name == normalizedName);
       if (index == -1) {
@@ -1393,6 +1420,7 @@ class McpController extends ChangeNotifier {
     if (normalizedServerName.isEmpty) {
       return;
     }
+    if (_serverByName(normalizedServerName) == null) return;
     final previousHealth = healthStatusFor(normalizedServerName);
     _healthByServerName[normalizedServerName] = previousHealth.copyWith(
       recentProbes: const <McpHealthProbeRecord>[],
@@ -1433,6 +1461,8 @@ class McpController extends ChangeNotifier {
       if (_isDisposed || requirePageActive && !_isPageActive) {
         return;
       }
+      final current = _serverByName(normalizedServerName);
+      if (current == null || !_sameServerConnection(server, current)) return;
     }
 
     final nextGeneration =
@@ -1452,7 +1482,8 @@ class McpController extends ChangeNotifier {
       if (_isDisposed ||
           requirePageActive && !_isPageActive ||
           _toolRefreshGenerationByServerName[normalizedServerName] !=
-              nextGeneration) {
+              nextGeneration ||
+          !_sameServerConnection(server, _serverByName(normalizedServerName))) {
         return;
       }
       if (_isLifecycleCancelledCatalog(discoveredCatalog)) {
@@ -1469,7 +1500,8 @@ class McpController extends ChangeNotifier {
       if (_isDisposed ||
           requirePageActive && !_isPageActive ||
           _toolRefreshGenerationByServerName[normalizedServerName] !=
-              nextGeneration) {
+              nextGeneration ||
+          !_sameServerConnection(server, _serverByName(normalizedServerName))) {
         return;
       }
       if (isExpectedMcpToolDiscoveryLifecycleError(error)) {
@@ -1518,7 +1550,8 @@ class McpController extends ChangeNotifier {
       if (_isDisposed ||
           !_isPageActive ||
           _healthCheckGenerationByServerName[normalizedServerName] !=
-              nextGeneration) {
+              nextGeneration ||
+          !_sameServerConnection(server, _serverByName(normalizedServerName))) {
         return;
       }
       final latencyMs = stopwatch.elapsedMilliseconds;
@@ -1556,7 +1589,8 @@ class McpController extends ChangeNotifier {
       if (_isDisposed ||
           !_isPageActive ||
           _healthCheckGenerationByServerName[normalizedServerName] !=
-              nextGeneration) {
+              nextGeneration ||
+          !_sameServerConnection(server, _serverByName(normalizedServerName))) {
         return;
       }
       if (isExpectedMcpToolDiscoveryLifecycleError(error)) {
@@ -1642,44 +1676,37 @@ class McpController extends ChangeNotifier {
     bool resetChangedServerToolCatalog = false,
     bool resetChangedServerHealth = false,
   }) async {
+    if (!_hasTrustedSnapshot) return false;
     final previousServers = List<McpServer>.from(_servers);
-    final previousToolCatalogByServerName = Map<String, McpToolCatalog>.from(
-      _toolCatalogByServerName,
-    );
-    final previousToolRefreshGenerationByServerName = Map<String, int>.from(
-      _toolRefreshGenerationByServerName,
-    );
-    final previousHealthByServerName = Map<String, McpServerHealth>.from(
-      _healthByServerName,
-    );
-    final previousHealthCheckGenerationByServerName = Map<String, int>.from(
-      _healthCheckGenerationByServerName,
-    );
-    _setServers(nextServers);
-    _syncToolCatalogsWithServers(nextServers);
-    _syncHealthStatusesWithServers(nextServers);
-    if (previousServerName != null && previousServerName != changedServerName) {
-      _toolCatalogByServerName.remove(previousServerName);
-      _toolRefreshGenerationByServerName.remove(previousServerName);
-      _healthByServerName.remove(previousServerName);
-      _healthCheckGenerationByServerName.remove(previousServerName);
-    }
-    if (resetChangedServerToolCatalog && changedServerName != null) {
-      _toolCatalogByServerName[changedServerName] = const McpToolCatalog();
-      _invalidateToolRefreshGeneration(changedServerName);
-    }
-    if (resetChangedServerHealth && changedServerName != null) {
-      _healthByServerName[changedServerName] = const McpServerHealth();
-      _invalidateHealthCheckGeneration(changedServerName);
-    }
+    _hasTrustedSnapshot = false;
     _errorMessage = null;
+    _invalidateToolRefreshGenerations();
+    _invalidateHealthCheckGenerations();
+    _reconcileHealthCheckTimer();
     notifyListeners();
     try {
       await _store.save(nextServers);
-      if (_persistenceIssue != null) {
-        _persistenceIssue = null;
-        notifyListeners();
+      await _reconcileStdioProcesses(previousServers, nextServers);
+      _setServers(nextServers);
+      _syncToolCatalogsWithServers(nextServers);
+      _syncHealthStatusesWithServers(nextServers);
+      if (previousServerName != null &&
+          previousServerName != changedServerName) {
+        _toolCatalogByServerName.remove(previousServerName);
+        _toolRefreshGenerationByServerName.remove(previousServerName);
+        _healthByServerName.remove(previousServerName);
+        _healthCheckGenerationByServerName.remove(previousServerName);
       }
+      if (resetChangedServerToolCatalog && changedServerName != null) {
+        _toolCatalogByServerName[changedServerName] = const McpToolCatalog();
+        _invalidateToolRefreshGeneration(changedServerName);
+      }
+      if (resetChangedServerHealth && changedServerName != null) {
+        _healthByServerName[changedServerName] = const McpServerHealth();
+        _invalidateHealthCheckGeneration(changedServerName);
+      }
+      _hasTrustedSnapshot = true;
+      _persistenceIssue = null;
       _saveSuccessSignal.value = _saveSuccessSignal.value + 1;
       _reconcileHealthCheckTimer();
       if (_isPageActive &&
@@ -1698,19 +1725,8 @@ class McpController extends ChangeNotifier {
       }
       return true;
     } catch (error) {
-      _setServers(previousServers);
-      _toolCatalogByServerName
-        ..clear()
-        ..addAll(previousToolCatalogByServerName);
-      _toolRefreshGenerationByServerName
-        ..clear()
-        ..addAll(previousToolRefreshGenerationByServerName);
-      _healthByServerName
-        ..clear()
-        ..addAll(previousHealthByServerName);
-      _healthCheckGenerationByServerName
-        ..clear()
-        ..addAll(previousHealthCheckGenerationByServerName);
+      _hasTrustedSnapshot = false;
+      _errorMessage = '$error';
       _persistenceIssue = McpPersistenceIssue(
         kind: McpPersistenceIssueKind.saveFailed,
         filePath: _store.serversFilePath,
@@ -1718,6 +1734,34 @@ class McpController extends ChangeNotifier {
       );
       notifyListeners();
       return false;
+    }
+  }
+
+  Future<bool> _ensureTrustedSnapshotLocked() async {
+    if (_hasTrustedSnapshot) return true;
+    return _loadServersLocked();
+  }
+
+  Future<void> _reconcileStdioProcesses(
+    List<McpServer> previousServers,
+    List<McpServer> nextServers,
+  ) async {
+    final nextByName = <String, McpServer>{
+      for (final server in nextServers) server.name: server,
+    };
+    for (final previous in previousServers) {
+      final next = nextByName[previous.name];
+      if (next == null || next.type != McpServerType.stdio) {
+        await McpStdioProcessManager.instance.removeServer(previous.name);
+        continue;
+      }
+      if (!next.enabled ||
+          previous.type != McpServerType.stdio ||
+          previous.command != next.command ||
+          !listEquals(previous.args, next.args) ||
+          !mapEquals(previous.environment, next.environment)) {
+        await McpStdioProcessManager.instance.stopServer(previous.name);
+      }
     }
   }
 
@@ -1777,7 +1821,7 @@ class McpController extends ChangeNotifier {
   }
 
   void _autoRefreshEnabledServerTools({bool force = false}) {
-    if (_autoToolRefreshInProgress) {
+    if (!_hasTrustedSnapshot || _autoToolRefreshInProgress) {
       return;
     }
     _autoToolRefreshInProgress = true;
@@ -1815,7 +1859,7 @@ class McpController extends ChangeNotifier {
   }
 
   void _autoCheckEnabledServerHealth({bool force = false}) {
-    if (_autoHealthCheckInProgress) {
+    if (!_hasTrustedSnapshot || _autoHealthCheckInProgress) {
       return;
     }
     _autoHealthCheckInProgress = true;
@@ -1874,7 +1918,8 @@ class McpController extends ChangeNotifier {
     await forEachIndexWithConcurrencyLimit(
       itemCount: targets.length,
       maxConcurrency: _autoProbeConcurrency,
-      shouldContinue: () => !_isDisposed && _isPageActive,
+      shouldContinue: () =>
+          !_isDisposed && _hasTrustedSnapshot && _isPageActive,
       delayBetweenItems: _autoProbeGap,
       task: (index) async {
         try {
@@ -1892,7 +1937,7 @@ class McpController extends ChangeNotifier {
       return;
     }
     try {
-      if (!_isDisposed && _isPageActive) {
+      if (!_isDisposed && _hasTrustedSnapshot && _isPageActive) {
         await operation();
       }
     } finally {
@@ -1901,7 +1946,7 @@ class McpController extends ChangeNotifier {
   }
 
   Future<bool> _acquireAutoProbeSlot() {
-    if (_isDisposed || !_isPageActive) {
+    if (_isDisposed || !_hasTrustedSnapshot || !_isPageActive) {
       return Future<bool>.value(false);
     }
     if (_activeAutoProbeSlots < _autoProbeConcurrency) {
@@ -1926,6 +1971,7 @@ class McpController extends ChangeNotifier {
   void _drainAutoProbeSlotQueue() {
     var didChange = false;
     while (!_isDisposed &&
+        _hasTrustedSnapshot &&
         _isPageActive &&
         _autoProbeSlotWaiters.isNotEmpty &&
         _activeAutoProbeSlots < _autoProbeConcurrency) {
@@ -1985,6 +2031,7 @@ class McpController extends ChangeNotifier {
     _healthCheckTimer?.cancel();
     _healthCheckTimer = null;
     if (_isDisposed ||
+        !_hasTrustedSnapshot ||
         !_isPageActive ||
         !_servers.any((server) => server.enabled)) {
       return;
@@ -1995,6 +2042,7 @@ class McpController extends ChangeNotifier {
   }
 
   McpServer? _serverByName(String serverName) {
+    if (!_hasTrustedSnapshot) return null;
     final normalizedServerName = _normalizeServerName(serverName);
     if (normalizedServerName.isEmpty) {
       return null;
@@ -2005,6 +2053,19 @@ class McpController extends ChangeNotifier {
       }
     }
     return null;
+  }
+
+  bool _sameServerConnection(McpServer expected, McpServer? current) {
+    return current != null &&
+        expected.name == current.name &&
+        expected.type == current.type &&
+        expected.enabled == current.enabled &&
+        expected.probeEnabled == current.probeEnabled &&
+        expected.url == current.url &&
+        expected.command == current.command &&
+        listEquals(expected.args, current.args) &&
+        mapEquals(expected.headers, current.headers) &&
+        mapEquals(expected.environment, current.environment);
   }
 
   String _normalizeServerName(String serverName) {

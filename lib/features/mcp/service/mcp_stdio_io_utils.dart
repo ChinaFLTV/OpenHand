@@ -5,6 +5,54 @@ import 'dart:io';
 import '../../../app/support/silent_log.dart';
 
 const int kMcpStdioMaxPendingRequests = 256;
+final RegExp _mcpShellWhitespacePattern = RegExp(r'\s');
+
+List<String> tokenizeMcpShellCommand(String input) {
+  final trimmed = input.trim();
+  if (trimmed.isEmpty) return const <String>[];
+  if (!trimmed.contains(_mcpShellWhitespacePattern)) return <String>[trimmed];
+  final tokens = <String>[];
+  final buffer = StringBuffer();
+  var inSingle = false;
+  var inDouble = false;
+  var hasContent = false;
+  for (var index = 0; index < trimmed.length; index++) {
+    final character = trimmed[index];
+    if (!inSingle &&
+        !inDouble &&
+        character == '\\' &&
+        index + 1 < trimmed.length) {
+      buffer.write(trimmed[++index]);
+      hasContent = true;
+      continue;
+    }
+    if (!inDouble && character == "'") {
+      inSingle = !inSingle;
+      hasContent = true;
+      continue;
+    }
+    if (!inSingle && character == '"') {
+      inDouble = !inDouble;
+      hasContent = true;
+      continue;
+    }
+    if (!inSingle &&
+        !inDouble &&
+        _mcpShellWhitespacePattern.hasMatch(character)) {
+      if (hasContent) {
+        tokens.add(buffer.toString());
+        buffer.clear();
+        hasContent = false;
+      }
+      continue;
+    }
+    buffer.write(character);
+    hasContent = true;
+  }
+  if (inSingle || inDouble) return <String>[trimmed];
+  if (hasContent) tokens.add(buffer.toString());
+  return tokens.isEmpty ? <String>[trimmed] : tokens;
+}
 
 /// Serializes writes to an MCP stdio stdin pipe.
 ///

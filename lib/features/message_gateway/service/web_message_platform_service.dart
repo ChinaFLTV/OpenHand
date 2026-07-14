@@ -1063,10 +1063,10 @@ class WebMessagePlatformService {
       memoryEntryCount: _settingsController.memoryEnabled
           ? _memoryController.entries.length
           : 0,
-      mcpServerEnabledCount: _mcpController.servers
+      mcpServerEnabledCount: _mcpController.runtimeServers
           .where((s) => s.enabled)
           .length,
-      mcpServerTotalCount: _mcpController.servers.length,
+      mcpServerTotalCount: _mcpController.runtimeServers.length,
     );
   }
 
@@ -2337,7 +2337,7 @@ class WebMessagePlatformService {
 
   /// Toolbox: 列出当前已加载 MCP 服务器（含 enabled / type / 摘要）。
   Future<shelf.Response> _listMcpServersHandler() async {
-    final items = _mcpController.servers
+    final items = _mcpController.runtimeServers
         .map(
           (server) => <String, Object?>{
             'name': server.name,
@@ -7243,7 +7243,7 @@ class WebMessagePlatformService {
   }) {
     final now = DateTime.now().toLocal();
     final mcpToolCatalogsByServerName = <String, McpToolCatalog>{
-      for (final server in _mcpController.servers)
+      for (final server in _mcpController.runtimeServers)
         server.name: _mcpController.toolCatalogFor(server.name),
     };
     return AiSessionRuntimeContext(
@@ -7293,8 +7293,8 @@ class WebMessagePlatformService {
           webGatewayIsDenyAllSelection(_config.allowedMcpServerNames)
           ? const []
           : _config.allowedMcpServerNames.isEmpty
-          ? _mcpController.servers
-          : _mcpController.servers
+          ? _mcpController.runtimeServers
+          : _mcpController.runtimeServers
                 .where(
                   (server) =>
                       _config.allowedMcpServerNames.contains(server.name),

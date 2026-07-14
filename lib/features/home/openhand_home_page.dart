@@ -4441,7 +4441,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       final capabilityRows = <Map<String, Object?>>[];
       for (final capability in spec.mcpCapabilities) {
         final matchedServers = <Map<String, Object?>>[];
-        for (final server in mcpController.servers) {
+        for (final server in mcpController.runtimeServers) {
           final catalog = mcpController.toolCatalogFor(server.name);
           final text = StringBuffer()
             ..write(server.name)
@@ -4490,7 +4490,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       return <String, Object?>{
         'servers_file_path': mcpController.serversFilePath,
         'storage_dir': mcpController.storageDirectoryPath,
-        'server_count': mcpController.servers.length,
+        'server_count': mcpController.runtimeServers.length,
         'tool_search_recommended_query': spec.toolSearchFallbackQuery,
         'capabilities': capabilityRows,
         if (mcpController.errorMessage?.trim().isNotEmpty ?? false)
@@ -4595,7 +4595,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       final relatedServers = <Map<String, Object?>>[];
       final toolSearchNames = <String>{};
       var relatedToolCount = 0;
-      for (final server in mcpController.servers) {
+      for (final server in mcpController.runtimeServers) {
         final catalog = mcpController.toolCatalogFor(server.name);
         final health = mcpController.healthStatusFor(server.name);
         final matchedTools = catalog.tools
@@ -4655,7 +4655,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       return <String, Object?>{
         'servers_file_path': mcpController.serversFilePath,
         'storage_dir': mcpController.storageDirectoryPath,
-        'server_count': mcpController.servers.length,
+        'server_count': mcpController.runtimeServers.length,
         'related_server_count': relatedServers.length,
         'related_tool_count': relatedToolCount,
         'tool_search_recommended_query': toolSearchNames.isEmpty
@@ -5544,7 +5544,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           startDirectory: OpenHandPaths.applicationDirectoryPath(),
           homeDirectory: OpenHandPaths.homeDirectoryPath(),
         );
-    final baseMcpServers = mcpController.servers;
+    final baseMcpServers = mcpController.runtimeServers;
     final currentSession = sessionController.currentSession;
     final currentWebReverseController = currentSession == null
         ? null
@@ -5710,7 +5710,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final allowCommandRules = settingsController.aiAllowCommandRules;
     final builtinToolConfigs = settingsController.builtinToolConfigs;
     final availableSkills = skillsController.skills;
-    final baseMcpServers = mcpController.servers;
+    final baseMcpServers = mcpController.runtimeServers;
     final webReverseCdpMcpSnapshot = _webReverseCdpMcpBridge.cachedSnapshot(
       enabled: _webReverseCdpMcpEnabledForSession(session),
       sessionId: session.id,
@@ -5958,9 +5958,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           allowCommandRules ?? settingsController.aiAllowCommandRules,
       sandboxSettings: settingsController.aiSandboxSettings,
       availableSkills: availableSkills ?? skillsController.skills,
-      availableMcpServers: availableMcpServers ?? mcpController.servers,
+      availableMcpServers: availableMcpServers ?? mcpController.runtimeServers,
       mcpToolCatalogsByServerName: <String, McpToolCatalog>{
-        for (final server in availableMcpServers ?? mcpController.servers)
+        for (final server
+            in availableMcpServers ?? mcpController.runtimeServers)
           server.name: mcpController.toolCatalogFor(server.name),
       },
       builtinToolConfigs:

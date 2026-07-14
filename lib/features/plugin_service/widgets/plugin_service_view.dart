@@ -1695,13 +1695,23 @@ class _PluginMcpDialogState extends State<_PluginMcpDialog> {
       if (action == _PluginServiceAction.install ||
           action == _PluginServiceAction.update) {
         // 注册/更新 MCP 服务到 MCP 板块
-        const server = McpServer(
-          name: mcpName,
-          type: McpServerType.stdio,
-          enabled: true,
-          command: 'npx',
-          args: ['@playwright/mcp'],
-        );
+        final existing = mcpController.servers
+            .where((server) => server.name == mcpName)
+            .firstOrNull;
+        final server =
+            existing?.copyWith(
+              type: McpServerType.stdio,
+              enabled: true,
+              command: 'npx',
+              args: const <String>['@playwright/mcp'],
+            ) ??
+            const McpServer(
+              name: mcpName,
+              type: McpServerType.stdio,
+              enabled: true,
+              command: 'npx',
+              args: <String>['@playwright/mcp'],
+            );
         mcpController.saveServer(server, previousName: mcpName);
       } else if (action == _PluginServiceAction.uninstall) {
         // 从 MCP 板块移除

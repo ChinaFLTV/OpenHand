@@ -28,7 +28,6 @@ import '../model/mcp_tool.dart';
 import 'mcp_node_package_resolver.dart';
 import 'mcp_stdio_cache.dart';
 import 'mcp_stdio_io_utils.dart';
-import 'mcp_stdio_mirror_policy.dart';
 import 'mcp_stdio_process_manager.dart';
 import 'mcp_tool_discovery_exception.dart';
 
@@ -39,21 +38,19 @@ export 'mcp_tool_discovery_exception.dart'
         isExpectedMcpToolDiscoveryLifecycleError,
         kMcpStdioSessionClosingMessage;
 
-final RegExp _shellWhitespacePattern = RegExp(r'\s');
 final RegExp _stdioLineBreakPattern = RegExp(r'[\r\n]');
 final RegExp _stdioLineBreaksPattern = RegExp(r'[\r\n]+');
 
 // 国内最稳的 npm / PyPI 镜像源。集中定义，避免注入逻辑与多语言提示文案
 // 各处硬编码不一致。
-const String _kNpmMirrorRegistry = 'https://registry.npmmirror.com';
-const String _kPypiMirrorIndex = 'https://pypi.tuna.tsinghua.edu.cn/simple';
+const String _kNpmMirrorRegistry = mcpNpmMirrorRegistry;
 const int _mcpHttpMaxResponseBytes = 16 * kBytesPerMiB;
 const int _mcpHttpMaxErrorBytes = 64 * kBytesPerKiB;
 const int _mcpLegacySseMaxLineBytes = 4 * kBytesPerMiB;
 const int _mcpLegacySseMaxEventBytes = 4 * kBytesPerMiB;
 const Duration _mcpHttpDiscardTimeout = Duration(seconds: 3);
 const Duration _mcpStreamCleanupTimeout = Duration(milliseconds: 500);
-const Duration _mcpStdioFileOperationTimeout = Duration(seconds: 3);
+const Duration _mcpStdioFileOperationTimeout = mcpStdioFileOperationTimeout;
 const int _mcpStdioPathProbeLimit = 256;
 const BoundedDeletePolicy _mcpCacheDeletePolicy = BoundedDeletePolicy(
   maxEntries: 500000,
@@ -769,6 +766,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
         environment: <String, String>{
           ...SystemProxyResolver.instance.resolveSubprocessEnvironment(),
           ...resolved.environment,
+          ...server.environment,
         },
         // Windows .cmd / .bat / .ps1 launchers (e.g. `npx.cmd`) only resolve
         // through the shell. On macOS / Linux we already resolved an absolute
@@ -2118,7 +2116,7 @@ Future<_ResolvedStdioLaunch> _resolveStdioLaunch(McpServer server) async {
   // "启动命令" 字段，而不是只填可执行文件名。这里 POSIX 风格拆词：第一段
   // 当作真正的可执行名，剩下的 token 作为 args 前缀拼到用户手填的 args 前。
   // 同时支持单 / 双引号包裹的 token，比如 `"node /path with space/x.js"`。
-  final tokens = _tokenizeShellCommand(rawCommandField);
+  final tokens = tokenizeMcpShellCommand(rawCommandField);
   final rawCommand = tokens.isNotEmpty ? tokens.first : rawCommandField;
   final inlineArgs = tokens.length > 1 ? tokens.sublist(1) : const <String>[];
 
@@ -2214,84 +2212,6 @@ Future<_ResolvedStdioLaunch> _resolveStdioLaunch(McpServer server) async {
     },
     augmentedPath: mergedPath,
   );
-}
-
-/// 构建 stdio MCP 隔离包缓存的环境变量映射。
-/// 自动创建所需目录，注入 npm/pnpm/yarn/bun/deno/uv/pip 的缓存隔离路径。
-/// 公开给 process manager 复用，避免路径不一致。
-Future<Map<String, String>> mcpStdioIsolatedCacheEnv() async {
-  try {
-    final root = mcpStdioIsolatedCacheRoot();
-    final npmCache = p.join(root, 'npm');
-    final npmPrefix = p.join(root, 'npm-prefix');
-    final uvCache = p.join(root, 'uv');
-    final pipCache = p.join(root, 'pip');
-    final bunInstall = p.join(root, 'bun');
-    final denoDir = p.join(root, 'deno');
-    final pnpmStore = p.join(root, 'pnpm-store');
-    final yarnCache = p.join(root, 'yarn');
-    await Future.wait<Directory>(
-      <String>[
-        root,
-        npmCache,
-        npmPrefix,
-        // npm/npx 需要 prefix/lib 目录存在，否则 lstat 报 ENOENT。
-        p.join(npmPrefix, 'lib'),
-        uvCache,
-        pipCache,
-        bunInstall,
-        denoDir,
-        pnpmStore,
-        yarnCache,
-      ].map(
-        (path) => Directory(
-          path,
-        ).create(recursive: true).timeout(_mcpStdioFileOperationTimeout),
-      ),
-    );
-    final env = <String, String>{
-      // npm / npx 系列
-      'npm_config_cache': npmCache,
-      'npm_config_prefix': npmPrefix,
-      // npx 在隔离缓存中首次运行时需要下载包，自动确认安装（跳过交互式 y/n 提示）
-      'npm_config_yes': 'true',
-      // pnpm
-      'PNPM_HOME': pnpmStore,
-      // yarn classic
-      'YARN_CACHE_FOLDER': yarnCache,
-      // bun
-      'BUN_INSTALL': bunInstall,
-      // deno
-      'DENO_DIR': denoDir,
-      // uv / uvx
-      'UV_CACHE_DIR': uvCache,
-      // pip / pipx
-      'PIP_CACHE_DIR': pipCache,
-    };
-    if (_shouldInjectChinaMirror()) {
-      // npm/pnpm/yarn 都识别 npm_config_registry；uv 用 UV_DEFAULT_INDEX；
-      // pip / pipx 用 PIP_INDEX_URL。这些变量对不识别的工具是 no-op，
-      // 所以无副作用、可以一次性全注入。npmmirror.com / 清华 PyPI 都是
-      // 国内最稳的镜像之一。
-      env['npm_config_registry'] = _kNpmMirrorRegistry;
-      env['UV_DEFAULT_INDEX'] = _kPypiMirrorIndex;
-      env['PIP_INDEX_URL'] = _kPypiMirrorIndex;
-    }
-    return env;
-  } catch (error, stack) {
-    silentLog('mcp.stdio', 'isolatedPackageCacheEnv', error, stack);
-    return const <String, String>{};
-  }
-}
-
-/// 是否给 stdio MCP 注入中国镜像源。
-/// 决策表（自上而下，命中即返回）：
-///   1. `OPENHAND_MCP_MIRROR=on/off` 环境变量 → 最高优先级，便于临时调试
-///   2. 设置页的 `mcpStdioMirrorModeOverride`（forceOn / forceOff）
-///   3. auto / 未设置 → 看系统 locale 是否 zh*
-/// 让中国大陆用户开箱即用，又给海外/已配企业镜像/手动覆盖三种诉求都留口子。
-bool _shouldInjectChinaMirror() {
-  return shouldInjectMcpChinaMirror();
 }
 
 /// 删除整个隔离缓存目录；目录不存在视为成功。
@@ -2413,58 +2333,6 @@ String _diagnoseStdioStderr(String stderr) {
         '  · 确认 Node.js / npm 已正确安装且在 PATH 中';
   }
   return '';
-}
-
-/// 极简 POSIX 风格命令行拆词。支持 `'...'` / `"..."` 引号包裹（不展开变量），
-/// 以及反斜杠转义下一个字符。**仅** 用于解析 stdio MCP "启动命令" 字段里
-/// 用户误粘的整条命令行（如 `"npx chrome-devtools-mcp@latest"`）。空白
-/// 之外保留原字符；非贪婪、出错回退为整串原样返回单 token，绝不抛出。
-List<String> _tokenizeShellCommand(String input) {
-  final trimmed = input.trim();
-  if (trimmed.isEmpty) return const <String>[];
-  if (!trimmed.contains(_shellWhitespacePattern)) {
-    return <String>[trimmed];
-  }
-  final tokens = <String>[];
-  final buffer = StringBuffer();
-  bool inSingle = false;
-  bool inDouble = false;
-  bool hasContent = false;
-  for (int i = 0; i < trimmed.length; i++) {
-    final ch = trimmed[i];
-    if (!inSingle && !inDouble && ch == '\\' && i + 1 < trimmed.length) {
-      buffer.write(trimmed[i + 1]);
-      i++;
-      hasContent = true;
-      continue;
-    }
-    if (!inDouble && ch == "'") {
-      inSingle = !inSingle;
-      hasContent = true;
-      continue;
-    }
-    if (!inSingle && ch == '"') {
-      inDouble = !inDouble;
-      hasContent = true;
-      continue;
-    }
-    if (!inSingle && !inDouble && (ch == ' ' || ch == '\t' || ch == '\n')) {
-      if (hasContent) {
-        tokens.add(buffer.toString());
-        buffer.clear();
-        hasContent = false;
-      }
-      continue;
-    }
-    buffer.write(ch);
-    hasContent = true;
-  }
-  if (inSingle || inDouble) {
-    // 引号没闭合：保守起见按原样回退，避免把命令切坏。
-    return <String>[trimmed];
-  }
-  if (hasContent) tokens.add(buffer.toString());
-  return tokens.isEmpty ? <String>[trimmed] : tokens;
 }
 
 class _StdioSession {
