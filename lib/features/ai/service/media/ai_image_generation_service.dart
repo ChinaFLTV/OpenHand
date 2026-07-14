@@ -9,6 +9,7 @@ import '../../../../app/support/silent_log.dart';
 import '../../../../shared/net/http_error_message.dart';
 import '../../../../shared/net/http_response_utils.dart';
 import '../../../../shared/net/http_status_utils.dart';
+import '../../../../shared/util/bounded_file_io.dart';
 import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../model/ai_api_family.dart';
@@ -2199,13 +2200,19 @@ class AiImageGenerationService {
     }
     final mimeType = _responseContentType(response.headers);
     if (_jsonContentTypes.contains(mimeType)) {
-      final body = await File(filePath).readAsString();
-      await _deleteFileIfPresent(destination);
-      throw AiMediaGenerationException(
-        'Video content endpoint returned JSON instead of media: '
-        '${_extractError(body)}',
-        rawResponseBody: body,
-      );
+      try {
+        final body = await readBoundedFileString(
+          File(filePath),
+          maxBytes: _mediaJsonResponseMaxBytes,
+        );
+        throw AiMediaGenerationException(
+          'Video content endpoint returned JSON instead of media: '
+          '${_extractError(body)}',
+          rawResponseBody: body,
+        );
+      } finally {
+        await _deleteFileIfPresent(destination);
+      }
     }
     final effectiveMime = mimeType.startsWith('video/')
         ? mimeType

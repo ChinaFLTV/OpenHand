@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 
 import '../../../../app/support/silent_log.dart';
+import '../../../../shared/util/bounded_file_io.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../service/bash/ai_bash_tool_service.dart';
 import '../../service/runtime/ai_tool_runtime_service.dart';
@@ -44,7 +45,18 @@ class AiCodebaseSearchTool extends AiTool {
     final searchRoot = _resolveSearchRoot(args);
     final filePattern = AiToolUtils.readString(args['file_pattern']);
     final explanation = AiToolUtils.readString(args['explanation']);
-    final rootType = FileSystemEntity.typeSync(searchRoot);
+    FileSystemEntityType rootType;
+    try {
+      rootType = await FileSystemEntity.type(
+        searchRoot,
+        followLinks: false,
+      ).timeout(AiToolUtils.fileTreeScanIdleTimeout);
+    } on TimeoutException {
+      return AiToolUtils.invalidResult(
+        'CodebaseSearch',
+        'Search path metadata lookup timed out: $searchRoot',
+      );
+    }
     if (rootType == FileSystemEntityType.notFound) {
       return AiToolUtils.invalidResult(
         'CodebaseSearch',
@@ -197,13 +209,22 @@ class AiCodebaseSearchTool extends AiTool {
       for (final filePath in fileResults) {
         // Read first 20 lines as context
         final file = File(filePath);
-        if (!await file.exists()) continue;
-        final lines = await file.readAsLines();
-        final preview = lines.take(20).toList();
+        String preview;
+        try {
+          final content = await readBoundedFileString(
+            file,
+            maxBytes: AiToolUtils.maxReadBytes,
+          );
+          preview = content.split('\n').take(20).join('\n');
+        } on IOException {
+          continue;
+        } on FormatException {
+          continue;
+        }
         final result = _SearchResult(
           filePath: filePath,
           lineNumber: 1,
-          context: preview.join('\n'),
+          context: preview,
           weight: 2,
         );
         final key = '$filePath:1';

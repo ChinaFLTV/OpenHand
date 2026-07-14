@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import '../../../../shared/util/bounded_file_io.dart';
 import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../model/ai_api_family.dart';
@@ -185,7 +186,10 @@ class AiVideoGenerationService {
     String? retainedFilePath = filePath;
     if (contentType.toLowerCase().contains('json')) {
       try {
-        rawResponse = await File(filePath).readAsString();
+        rawResponse = await readBoundedFileString(
+          File(filePath),
+          maxBytes: defaultAiTransportResponseMaxBytes,
+        );
         payload = AiOperationHttp.jsonMapOrEmpty(
           AiOperationHttp.decodeJsonResponse(
             rawResponse,

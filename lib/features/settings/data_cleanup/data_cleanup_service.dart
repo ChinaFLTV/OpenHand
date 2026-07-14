@@ -593,6 +593,20 @@ class _DataCleanupScanBudget {
     _interrupted = true;
   }
 
+  Duration nextOperationTimeout() {
+    final remaining =
+        _dataCleanupScanTotalTimeout.inMicroseconds -
+        stopwatch.elapsedMicroseconds;
+    if (remaining <= 0) {
+      _interrupted = true;
+      throw TimeoutException('Data cleanup scan timed out.');
+    }
+    final remainingDuration = Duration(microseconds: remaining);
+    return remainingDuration < _dataCleanupScanIdleTimeout
+        ? remainingDuration
+        : _dataCleanupScanIdleTimeout;
+  }
+
   bool takeEntry() {
     if (remainingEntries <= 0 ||
         stopwatch.elapsed >= _dataCleanupScanTotalTimeout) {
@@ -665,7 +679,9 @@ Future<DataCleanupSizeReport> _isolateMeasureSessionsExcludingAttachments(
       if (entity is File) {
         // 旧版 `session-*.json`。
         try {
-          totalBytes += entity.lengthSync();
+          totalBytes += await entity.length().timeout(
+            budget.nextOperationTimeout(),
+          );
         } catch (error, stack) {
           budget.markInterrupted();
           // 文件被并发删除等：忽略。
@@ -692,7 +708,9 @@ Future<DataCleanupSizeReport> _isolateMeasureSessionsExcludingAttachments(
             continue;
           }
           try {
-            totalBytes += inner.lengthSync();
+            totalBytes += await inner.length().timeout(
+              budget.nextOperationTimeout(),
+            );
           } catch (error, stack) {
             budget.markInterrupted();
             silentLog('data_cleanup', 'len inner session file', error, stack);
@@ -747,13 +765,16 @@ Future<DataCleanupSizeReport> _isolateMeasureDirectoryExcluding(
   );
 }
 
-DataCleanupSizeReport _isolateMeasureFile(String path) {
+Future<DataCleanupSizeReport> _isolateMeasureFile(String path) async {
   final file = File(path);
-  if (!file.existsSync()) {
+  if (!await file.exists().timeout(_dataCleanupScanIdleTimeout)) {
     return DataCleanupSizeReport.empty;
   }
   try {
-    return DataCleanupSizeReport(bytes: file.lengthSync(), itemCount: 1);
+    return DataCleanupSizeReport(
+      bytes: await file.length().timeout(_dataCleanupScanIdleTimeout),
+      itemCount: 1,
+    );
   } catch (error, stack) {
     silentLog('data_cleanup', 'measure file len', error, stack);
     return DataCleanupSizeReport.unknown;
@@ -951,7 +972,9 @@ Future<_DirStats> _walkDirectoryStats(
         continue;
       }
       try {
-        bytes += entity.lengthSync();
+        bytes += await entity.length().timeout(
+          activeBudget.nextOperationTimeout(),
+        );
         files++;
       } catch (error, stack) {
         activeBudget.markInterrupted();

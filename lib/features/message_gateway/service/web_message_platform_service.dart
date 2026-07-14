@@ -295,7 +295,10 @@ class WebMessagePlatformService {
   static const int _storedMessageWindowExpandedScanLimit = 96;
   static const int _maxHealthCheckResponseBytes = 1024 * 1024;
   static const int _maxWorkspaceDirectoryScanEntries = 10000;
+  static const Duration _workspaceMetadataTimeout = Duration(seconds: 2);
+  static const Duration _workspaceMetadataTotalTimeout = Duration(seconds: 10);
   static const int _maxProcessFileHandleScanEntries = 65536;
+  static const int _maxProcDiagnosticsFileBytes = 256 * 1024;
   static const int _maxRetainedUploadCacheFiles = 4096;
   static const int _maxUploadCacheScanEntries = 100000;
   static const int _uploadCacheCandidatePruneThreshold =
@@ -5555,6 +5558,8 @@ class WebMessagePlatformService {
             .compareTo(p.basename(b.path).toLowerCase());
       });
     final items = <Map<String, Object?>>[];
+    var metadataTruncated = listing.truncated;
+    final metadataStopwatch = Stopwatch()..start();
     for (final entry in entries) {
       final isDirectory = entry is Directory;
       final entryType = isDirectory ? 'directory' : 'file';
@@ -5571,7 +5576,24 @@ class WebMessagePlatformService {
           !relativePath.toLowerCase().contains(query)) {
         continue;
       }
-      final stat = entry.statSync();
+      final remaining =
+          _workspaceMetadataTotalTimeout - metadataStopwatch.elapsed;
+      if (remaining <= Duration.zero) {
+        metadataTruncated = true;
+        break;
+      }
+      final statTimeout = remaining < _workspaceMetadataTimeout
+          ? remaining
+          : _workspaceMetadataTimeout;
+      FileStat stat;
+      try {
+        stat = await entry.stat().timeout(statTimeout);
+      } on TimeoutException {
+        metadataTruncated = true;
+        break;
+      } on FileSystemException {
+        continue;
+      }
       items.add(<String, Object?>{
         'name': name,
         'path': relativePath,
@@ -5584,11 +5606,12 @@ class WebMessagePlatformService {
       });
       if (items.length >= 300) break;
     }
+    metadataStopwatch.stop();
     return _json(HttpStatus.ok, <String, Object?>{
       'root': root,
       'path': _relativeWorkspacePath(dir),
       'items': items,
-      'truncated': listing.truncated || items.length >= 300,
+      'truncated': metadataTruncated || items.length >= 300,
       'query': query,
       'type': typeFilter,
       'operations_enabled': _config.workspaceFileWriteEnabled,
@@ -8099,8 +8122,11 @@ class WebMessagePlatformService {
     int? threadCount;
     int? swapBytes;
     try {
-      final status = await File('/proc/self/status').readAsLines();
-      for (final line in status) {
+      final status = await readBoundedFileString(
+        File('/proc/self/status'),
+        maxBytes: _maxProcDiagnosticsFileBytes,
+      );
+      for (final line in const LineSplitter().convert(status)) {
         if (line.startsWith('Threads:')) {
           threadCount = optionalNonNegativeIntFromValue(
             line.split(RegExp(r'\s+')).last,
@@ -8163,7 +8189,10 @@ class WebMessagePlatformService {
 
   Future<_LinuxCpuSample?> _readLinuxCpuSample() async {
     try {
-      final processStat = await File('/proc/self/stat').readAsString();
+      final processStat = await readBoundedFileString(
+        File('/proc/self/stat'),
+        maxBytes: _maxProcDiagnosticsFileBytes,
+      );
       final processEnd = processStat.lastIndexOf(')');
       if (processEnd < 0) return null;
       final processFields = processStat
@@ -8175,11 +8204,13 @@ class WebMessagePlatformService {
       final systemTicks = optionalNonNegativeIntFromValue(processFields[12]);
       if (userTicks == null || systemTicks == null) return null;
 
-      final statLines = await File('/proc/stat').readAsLines();
-      final cpuLine = statLines.firstWhere(
-        (line) => line.startsWith('cpu '),
-        orElse: () => '',
+      final stat = await readBoundedFileString(
+        File('/proc/stat'),
+        maxBytes: _maxProcDiagnosticsFileBytes,
       );
+      final cpuLine = const LineSplitter()
+          .convert(stat)
+          .firstWhere((line) => line.startsWith('cpu '), orElse: () => '');
       if (cpuLine.isEmpty) return null;
       var totalTicks = 0;
       for (final part in cpuLine.trim().split(RegExp(r'\s+')).skip(1)) {

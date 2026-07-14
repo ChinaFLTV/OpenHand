@@ -33,6 +33,8 @@ class _CleanupStats {
   }
 }
 
+typedef _LogFileSnapshot = ({File file, FileStat stat});
+
 /// 文件日志轮转 + 持久化 + 离线读取。
 ///
 /// 行为：
@@ -51,6 +53,7 @@ class _WebGatewayRotatingLogger {
 
   final String directoryPath;
   final SerialTaskQueue _operations = SerialTaskQueue();
+  int _currentSizeBytes = 0;
 
   static const int _maxExportFiles = 16;
   static const int _maxDirectoryEntries = 1024;
@@ -58,24 +61,12 @@ class _WebGatewayRotatingLogger {
   static const int _maxExportBundleBytes = 32 * 1024 * 1024;
   static const Duration _exportReadIdleTimeout = Duration(seconds: 3);
   static const Duration _exportReadTotalTimeout = Duration(seconds: 10);
+  static const Duration _metadataTimeout = Duration(seconds: 2);
+  static const Duration _metadataTotalTimeout = Duration(seconds: 10);
 
   String get filePath => p.join(directoryPath, 'web-platform.log');
 
-  int get currentSizeBytes {
-    try {
-      final file = File(filePath);
-      if (!file.existsSync()) return 0;
-      return file.lengthSync();
-    } catch (error, stack) {
-      silentLog(
-        'web_message_platform_logger',
-        'read current log size',
-        error,
-        stack,
-      );
-      return 0;
-    }
-  }
+  int get currentSizeBytes => _currentSizeBytes;
 
   Future<void> write(WebGatewayLogEntry entry, WebGatewayLogConfig config) {
     return _operations.enqueue(() => _write(entry, config));
@@ -89,9 +80,9 @@ class _WebGatewayRotatingLogger {
       final dir = Directory(directoryPath);
       await dir.create(recursive: true);
       await _rotateIfNeeded(config);
-      await File(
-        filePath,
-      ).writeAsString('${entry.toLogLine()}\n', mode: FileMode.append);
+      final line = '${entry.toLogLine()}\n';
+      await File(filePath).writeAsString(line, mode: FileMode.append);
+      _currentSizeBytes += utf8.encode(line).length;
     } catch (error, stack) {
       silentLog('web_gateway_logger', 'write', error, stack);
     }
@@ -114,6 +105,9 @@ class _WebGatewayRotatingLogger {
       try {
         final stat = await file.stat();
         await file.delete();
+        if (p.equals(file.path, filePath)) {
+          _currentSizeBytes = 0;
+        }
         stats += _CleanupStats(deletedFiles: 1, bytesFreed: stat.size);
       } catch (error, stack) {
         silentLog(
@@ -136,21 +130,13 @@ class _WebGatewayRotatingLogger {
     if (!await dir.exists()) return const _CleanupStats();
     final cutoff = DateTime.now().subtract(Duration(days: config.rotationDays));
     var stats = const _CleanupStats();
-    final files =
-        (await listDirectoryBounded(dir, maxEntries: _maxDirectoryEntries))
-            .entries
-            .whereType<File>()
-            .where((item) => p.basename(item.path).startsWith('web-platform'))
-            .toList(growable: false)
-          ..sort(
-            (a, b) => b.statSync().modified.compareTo(a.statSync().modified),
-          );
+    final files = await _logFilesNewestFirst(dir);
 
-    Future<void> deleteFile(File file) async {
+    Future<void> deleteFile(_LogFileSnapshot item) async {
+      final file = item.file;
       try {
-        final stat = await file.stat();
         await file.delete();
-        stats += _CleanupStats(deletedFiles: 1, bytesFreed: stat.size);
+        stats += _CleanupStats(deletedFiles: 1, bytesFreed: item.stat.size);
       } catch (error, stack) {
         silentLog(
           'web_gateway_logger',
@@ -162,18 +148,19 @@ class _WebGatewayRotatingLogger {
     }
 
     final deleted = <String>{};
-    for (final file in files) {
+    for (final item in files) {
+      final file = item.file;
       if (p.equals(file.path, filePath)) continue;
-      if (file.statSync().modified.isBefore(cutoff)) {
-        await deleteFile(file);
+      if (item.stat.modified.isBefore(cutoff)) {
+        await deleteFile(item);
         deleted.add(file.path);
       }
     }
     final remaining = files
-        .where((file) => !deleted.contains(file.path))
+        .where((item) => !deleted.contains(item.file.path))
         .toList(growable: false);
     for (final old in remaining.skip(config.maxFiles)) {
-      if (p.equals(old.path, filePath)) continue;
+      if (p.equals(old.file.path, filePath)) continue;
       await deleteFile(old);
     }
     return stats;
@@ -186,34 +173,29 @@ class _WebGatewayRotatingLogger {
   Future<List<Map<String, Object?>>> _readBundle() async {
     final dir = Directory(directoryPath);
     if (!await dir.exists()) return const <Map<String, Object?>>[];
-    final files =
-        (await listDirectoryBounded(dir, maxEntries: _maxDirectoryEntries))
-            .entries
-            .whereType<File>()
-            .where((item) => p.basename(item.path).startsWith('web-platform'))
-            .toList(growable: false)
-          ..sort(
-            (a, b) => b.statSync().modified.compareTo(a.statSync().modified),
-          );
+    final files = await _logFilesNewestFirst(dir);
     final items = <Map<String, Object?>>[];
     var remainingBytes = _maxExportBundleBytes;
-    for (final file in files) {
+    for (final item in files) {
       if (items.length >= _maxExportFiles || remainingBytes <= 0) break;
+      final file = item.file;
       try {
-        final stat = await file.stat();
         final readLimit = math.min(_maxExportBytesPerFile, remainingBytes);
         final bytes = await _readLogTail(
           file,
-          fileSize: stat.size,
+          fileSize: item.stat.size,
           maxBytes: readLimit,
         );
+        if (p.equals(file.path, filePath)) {
+          _currentSizeBytes = item.stat.size;
+        }
         remainingBytes -= bytes.length;
         items.add(<String, Object?>{
           'name': p.basename(file.path),
-          'size': stat.size,
+          'size': item.stat.size,
           'exported_size': bytes.length,
-          'truncated': stat.size > bytes.length,
-          'modified_at': stat.modified.toUtc().toIso8601String(),
+          'truncated': item.stat.size > bytes.length,
+          'modified_at': item.stat.modified.toUtc().toIso8601String(),
           'content': utf8.decode(bytes, allowMalformed: true),
         });
       } catch (error, stack) {
@@ -236,6 +218,7 @@ class _WebGatewayRotatingLogger {
     final file = File(filePath);
     if (!await file.exists()) return '';
     final stat = await file.stat();
+    _currentSizeBytes = stat.size;
     final bytes = await _readLogTail(
       file,
       fileSize: stat.size,
@@ -260,8 +243,12 @@ class _WebGatewayRotatingLogger {
 
   Future<void> _rotateIfNeeded(WebGatewayLogConfig config) async {
     final file = File(filePath);
-    if (!await file.exists()) return;
+    if (!await file.exists()) {
+      _currentSizeBytes = 0;
+      return;
+    }
     final stat = await file.stat();
+    _currentSizeBytes = stat.size;
     final tooLarge = stat.size >= config.fileMaxBytes;
     final tooOld =
         DateTime.now().difference(stat.modified).inDays >= config.rotationDays;
@@ -272,28 +259,55 @@ class _WebGatewayRotatingLogger {
         .replaceAll(':', '-')
         .replaceAll('.', '-');
     await file.rename(p.join(directoryPath, 'web-platform-$stamp.log'));
-    final logs =
-        (await listDirectoryBounded(
-              Directory(directoryPath),
-              maxEntries: _maxDirectoryEntries,
-            )).entries
-            .whereType<File>()
-            .where((item) => p.basename(item.path).startsWith('web-platform'))
-            .toList(growable: false)
-          ..sort(
-            (a, b) => b.statSync().modified.compareTo(a.statSync().modified),
-          );
+    _currentSizeBytes = 0;
+    final logs = await _logFilesNewestFirst(Directory(directoryPath));
     for (final old in logs.skip(config.maxFiles)) {
       try {
-        await old.delete();
+        await old.file.delete();
       } catch (error, stack) {
         silentLog(
           'web_gateway_logger',
-          'trim rotated ${old.path}',
+          'trim rotated ${old.file.path}',
           error,
           stack,
         );
       }
     }
+  }
+
+  Future<List<_LogFileSnapshot>> _logFilesNewestFirst(
+    Directory directory,
+  ) async {
+    final files =
+        (await listDirectoryBounded(
+          directory,
+          maxEntries: _maxDirectoryEntries,
+        )).entries.whereType<File>().where(
+          (item) => p.basename(item.path).startsWith('web-platform'),
+        );
+    final snapshots = <_LogFileSnapshot>[];
+    final stopwatch = Stopwatch()..start();
+    try {
+      for (final file in files) {
+        final remaining = _metadataTotalTimeout - stopwatch.elapsed;
+        if (remaining <= Duration.zero) break;
+        final timeout = remaining < _metadataTimeout
+            ? remaining
+            : _metadataTimeout;
+        try {
+          snapshots.add((file: file, stat: await file.stat().timeout(timeout)));
+        } on TimeoutException {
+          break;
+        } on FileSystemException {
+          continue;
+        }
+      }
+    } finally {
+      stopwatch.stop();
+    }
+    snapshots.sort(
+      (left, right) => right.stat.modified.compareTo(left.stat.modified),
+    );
+    return snapshots;
   }
 }

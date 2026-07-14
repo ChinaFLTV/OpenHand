@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+import '../../../../shared/util/bounded_file_io.dart';
 import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../model/ai_api_family.dart';
@@ -368,8 +369,11 @@ class AiFilesService {
       response.headers['content-type'],
     );
     if (miniMax && contentType.contains('json')) {
-      final body = await File(filePath).readAsString();
       try {
+        final body = await readBoundedFileString(
+          File(filePath),
+          maxBytes: defaultAiTransportResponseMaxBytes,
+        );
         final payload = AiOperationHttp.decodeSuccessfulJsonMap(
           statusCode: response.statusCode,
           body: body,
