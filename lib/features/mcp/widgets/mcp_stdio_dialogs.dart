@@ -9,6 +9,7 @@ import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/auto_follow_scroll_guard.dart';
 import '../../../shared/ui/motion_preference.dart';
+import '../../../shared/util/bounded_log_buffer.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/timer_safety.dart';
 import '../model/mcp_server.dart';
@@ -758,7 +759,8 @@ class _StdioDepsDialog extends StatefulWidget {
 class _StdioDepsDialogState extends State<_StdioDepsDialog> {
   final ScrollController _logScroll = ScrollController();
   final AutoFollowScrollGuard _logGuard = AutoFollowScrollGuard();
-  final List<String> _logs = [];
+  final BoundedLogBuffer _logs = BoundedLogBuffer();
+  bool _logUpdateScheduled = false;
   bool _operating = false;
   bool _checking = true;
   bool _packageInstalled = false;
@@ -819,20 +821,21 @@ class _StdioDepsDialogState extends State<_StdioDepsDialog> {
 
   void _addLog(String line) {
     _logs.add(line);
-    if (mounted) {
-      setState(() {});
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        _logGuard.followToBottom(
-          _logScroll,
-          animated: true,
-          animationDuration: openHandMotionDuration(
-            context,
-            const Duration(milliseconds: 150),
-          ),
-        );
-      });
-    }
+    if (!mounted || _logUpdateScheduled) return;
+    _logUpdateScheduled = true;
+    setState(() {});
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _logUpdateScheduled = false;
+      if (!mounted) return;
+      _logGuard.followToBottom(
+        _logScroll,
+        animated: true,
+        animationDuration: openHandMotionDuration(
+          context,
+          const Duration(milliseconds: 150),
+        ),
+      );
+    });
   }
 
   Future<void> _checkDepsStatus() async {

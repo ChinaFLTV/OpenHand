@@ -16,6 +16,7 @@ import '../../../shared/ui/feature_state_card.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_inline_notice.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
+import '../../../shared/util/bounded_log_buffer.dart';
 import '../../ai/index.dart' show AiPromptTemplatePolicies;
 import '../../mcp/index.dart';
 import '../../thread_template_runtime/index.dart';
@@ -737,7 +738,8 @@ class _PluginOperationProgressDialogState
   final ScrollController _scrollController = ScrollController();
   final AutoFollowScrollGuard _scrollGuard = AutoFollowScrollGuard();
   late final AnimationController _pulseController;
-  int _lastLogCount = 0;
+  int _lastLogRevision = 0;
+  bool _updateScheduled = false;
 
   @override
   void initState() {
@@ -746,27 +748,29 @@ class _PluginOperationProgressDialogState
       vsync: this,
       duration: const Duration(milliseconds: 1200),
     );
+    _lastLogRevision = widget.controller.operationLogRevision;
     widget.controller.addListener(_onControllerUpdate);
   }
 
   void _onControllerUpdate() {
-    if (!mounted) return;
+    if (!mounted || _updateScheduled) return;
+    _updateScheduled = true;
     setState(() {});
-    final logs = widget.controller.operationLogs;
-    if (logs.length > _lastLogCount) {
-      _lastLogCount = logs.length;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        _scrollGuard.followToBottom(
-          _scrollController,
-          animated: true,
-          animationDuration: openHandMotionDuration(
-            context,
-            const Duration(milliseconds: 200),
-          ),
-        );
-      });
-    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _updateScheduled = false;
+      if (!mounted) return;
+      final revision = widget.controller.operationLogRevision;
+      if (revision == _lastLogRevision) return;
+      _lastLogRevision = revision;
+      _scrollGuard.followToBottom(
+        _scrollController,
+        animated: true,
+        animationDuration: openHandMotionDuration(
+          context,
+          const Duration(milliseconds: 200),
+        ),
+      );
+    });
   }
 
   @override
@@ -1534,9 +1538,10 @@ class _PluginMcpDialogState extends State<_PluginMcpDialog> {
   String? _mcpVersion;
   bool _operating = false;
   String? _error;
-  final List<String> _logs = [];
+  final BoundedLogBuffer _logs = BoundedLogBuffer();
   final ScrollController _logScroll = ScrollController();
   final AutoFollowScrollGuard _logGuard = AutoFollowScrollGuard();
+  bool _logUpdateScheduled = false;
 
   @override
   void initState() {
@@ -1552,20 +1557,21 @@ class _PluginMcpDialogState extends State<_PluginMcpDialog> {
 
   void _addLog(String line) {
     _logs.add(line);
-    if (mounted) {
-      setState(() {});
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        _logGuard.followToBottom(
-          _logScroll,
-          animated: true,
-          animationDuration: openHandMotionDuration(
-            context,
-            const Duration(milliseconds: 200),
-          ),
-        );
-      });
-    }
+    if (!mounted || _logUpdateScheduled) return;
+    _logUpdateScheduled = true;
+    setState(() {});
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _logUpdateScheduled = false;
+      if (!mounted) return;
+      _logGuard.followToBottom(
+        _logScroll,
+        animated: true,
+        animationDuration: openHandMotionDuration(
+          context,
+          const Duration(milliseconds: 200),
+        ),
+      );
+    });
   }
 
   Future<void> _checkMcpStatus() async {

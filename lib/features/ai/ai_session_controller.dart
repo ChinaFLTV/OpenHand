@@ -3582,19 +3582,16 @@ class AiSessionController extends ChangeNotifier {
       final deletedSession = _sessionById(sessionId);
       final wasSending = _sessionSendPhases.containsKey(sessionId);
       final cancelHandler = _sessionCancelHandlers[sessionId];
-      final deletionNotice =
-          deletedSession != null &&
-              previousCurrentSessionId == sessionId &&
-              deletionSource != 'app'
-          ? AiSessionDeletionNotice(
+      final deletionNotice = deletedSession == null
+          ? null
+          : AiSessionDeletionNotice(
               sessionId: deletedSession.id,
               sessionTitle: deletedSession.title,
               deletedByLabel: deletedByLabel.trim(),
               source: deletionSource,
               deletedAt: _clock().toUtc(),
-              wasCurrentSession: true,
-            )
-          : null;
+              wasCurrentSession: previousCurrentSessionId == sessionId,
+            );
       final updatedSessions = _sessions
           .where((session) => session.id != sessionId)
           .toList(growable: false);

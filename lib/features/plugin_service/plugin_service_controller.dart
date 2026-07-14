@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../../shared/core/managed_change_notifier.dart';
+import '../../shared/util/bounded_log_buffer.dart';
 import '../../shared/util/localized_text.dart';
 import 'model/plugin_info.dart';
 import 'service/plugin_lifecycle_service.dart';
@@ -45,7 +46,7 @@ class PluginServiceController extends ManagedChangeNotifier {
   String? _checkingPluginId;
   String? _errorMessage;
   Future<void>? _refreshAllPluginsFuture;
-  final List<String> _operationLogs = [];
+  final BoundedLogBuffer _operationLogs = BoundedLogBuffer();
   final ChangePulse _operationSuccessPulse = ChangePulse();
 
   List<PluginInfo> get plugins => _plugins;
@@ -53,7 +54,8 @@ class PluginServiceController extends ManagedChangeNotifier {
   bool get isOperating => _isOperating;
   String? get checkingPluginId => _checkingPluginId;
   String? get errorMessage => _errorMessage;
-  List<String> get operationLogs => List.unmodifiable(_operationLogs);
+  List<String> get operationLogs => _operationLogs.snapshot();
+  int get operationLogRevision => _operationLogs.revision;
   ValueListenable<int> get operationSuccessSignal =>
       _operationSuccessPulse.listenable;
 

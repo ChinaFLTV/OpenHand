@@ -348,7 +348,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   final Map<String, AiSessionGoalStartOptions>
   _pendingGoalStartOptionsBySessionId = <String, AiSessionGoalStartOptions>{};
   final Map<String, bool> _collapsedPlanTimelinesBySessionId = <String, bool>{};
-  final Set<String> _handledSessionDeletionNoticeKeys = <String>{};
+  AiSessionDeletionNotice? _handledSessionDeletionNotice;
   int? _runtimeToolPreviewCacheKey;
   AiRuntimeToolPreview? _runtimeToolPreviewCacheValue;
   AiSessionController? _observedSessionController;
@@ -1228,7 +1228,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       return;
     }
     final sessionController = _observedSessionController;
-    _maybePresentExternalSessionDeletionNotice(sessionController);
+    _handleSessionDeletionNotice(sessionController);
     _dismissWriteApprovalDialogIfSessionChanged(
       sessionController?.currentSessionId,
     );
@@ -1416,14 +1416,14 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     }
   }
 
-  void _maybePresentExternalSessionDeletionNotice(
-    AiSessionController? sessionController,
-  ) {
+  void _handleSessionDeletionNotice(AiSessionController? sessionController) {
     final notice = sessionController?.lastDeletionNotice;
-    if (notice == null || !notice.wasCurrentSession) return;
-    if (notice.source == 'app') return;
-    final key = '${notice.sessionId}:${notice.deletedAt.toIso8601String()}';
-    if (!_handledSessionDeletionNoticeKeys.add(key)) return;
+    if (notice == null || identical(_handledSessionDeletionNotice, notice)) {
+      return;
+    }
+    _handledSessionDeletionNotice = notice;
+    _releaseDeletedSessionState(notice.sessionId);
+    if (!notice.wasCurrentSession || notice.source == 'app') return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final deletedBy = notice.deletedByLabel.trim().isEmpty
@@ -1447,6 +1447,40 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         ),
       );
     });
+  }
+
+  void _releaseDeletedSessionState(String sessionId) {
+    _activeSubmissionSerialsBySessionId.remove(sessionId);
+    _locallyStoppedSubmissionSerialsBySessionId.remove(sessionId);
+    _locallyStoppedPendingSubmissionSessionIds.remove(sessionId);
+    _queuedMessagesBySessionId.remove(sessionId);
+    _autoQueuedMessageDispatchSessionIds.remove(sessionId);
+    _queuedGuidanceSessionIds.remove(sessionId);
+    _queuedGoalResumeSessionIds.remove(sessionId);
+    _failedQueuedMessageIdsBySessionId.remove(sessionId);
+    _pendingGoalStartOptionsBySessionId.remove(sessionId);
+    _collapsedPlanTimelinesBySessionId.remove(sessionId);
+    _removeComposerDraftForSession(sessionId);
+    _visibleMachineTerminalPanelSessionIds.remove(sessionId);
+    if (_submittingSessionId == sessionId) {
+      _submittingSessionId = null;
+    }
+
+    final webReverseController = _webReverseControllers.remove(sessionId);
+    _webReverseRuntimeMetadataSignatures.remove(sessionId);
+    _webReverseCdpMcpBridge.stopSession(sessionId);
+    if (webReverseController != null) {
+      _disposeWebReverseControllerAfterStop(sessionId, webReverseController);
+    }
+
+    final androidReverseController = _androidReverseControllers.remove(
+      sessionId,
+    );
+    _androidReverseRuntimeMetadataSignatures.remove(sessionId);
+    if (androidReverseController != null) {
+      _disposeAndroidReverseController(sessionId, androidReverseController);
+    }
+    _removeTemplateRuntimeLinkage(sessionId);
   }
 
   /// 监听 [AiSessionController.toolSearchLoadedSignal]：当模型成功通过
@@ -8430,26 +8464,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     }
     final controller = context.read<AiSessionController>();
     final deleted = await controller.deleteSession(session.id);
-    if (!mounted || deleted) {
-      if (deleted) {
-        _removeComposerDraftForSession(session.id);
-        _visibleMachineTerminalPanelSessionIds.remove(session.id);
-        // 释放该会话挂着的 Web 逆向 controller（停 dock / 关 CDP / 关浏览器进程）。
-        final wr = _webReverseControllers.remove(session.id);
-        _webReverseRuntimeMetadataSignatures.remove(session.id);
-        _webReverseCdpMcpBridge.stopSession(session.id);
-        if (wr != null) {
-          _disposeWebReverseControllerAfterStop(session.id, wr);
-        }
-        final ar = _androidReverseControllers.remove(session.id);
-        _androidReverseRuntimeMetadataSignatures.remove(session.id);
-        if (ar != null) {
-          _disposeAndroidReverseController(session.id, ar);
-        }
-        _removeTemplateRuntimeLinkage(session.id);
-      }
-      return;
-    }
+    if (!mounted || deleted) return;
     showHomeErrorSnack(
       context,
       controller.lastErrorMessage ??
