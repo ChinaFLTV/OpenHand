@@ -132,6 +132,7 @@ class MessageGatewayController extends ManagedChangeNotifier {
   bool _isLoading = true;
   bool _isSaving = false;
   String? _errorMessage;
+  bool _hasTrustedSnapshot = false;
   bool _hasPendingRuntimeConfig = false;
   final ChangePulse _saveSuccessPulse = ChangePulse();
   static const Set<AiBuiltinToolKind> _knowledgeBaseBuiltinToolKinds =
@@ -276,12 +277,14 @@ class MessageGatewayController extends ManagedChangeNotifier {
 
   Future<void> _initializeLocked() async {
     _isLoading = true;
+    _hasTrustedSnapshot = false;
     _errorMessage = null;
     notifyListeners();
     try {
       await _service.loadPersistedOpsData();
       final loaded = await _store.load();
       _config = _normalizeAgainstRuntimeOptions(loaded);
+      _hasTrustedSnapshot = true;
       if (_config.autoStartOnLaunch && !_service.isRunning) {
         final startupConfig = _config.copyWith(enabled: true);
         await _service.start(startupConfig);
@@ -289,6 +292,7 @@ class MessageGatewayController extends ManagedChangeNotifier {
         _hasPendingRuntimeConfig = false;
       }
     } catch (error) {
+      _hasTrustedSnapshot = false;
       _errorMessage = '$error';
     } finally {
       _isLoading = false;
@@ -309,7 +313,11 @@ class MessageGatewayController extends ManagedChangeNotifier {
     WebMessagePlatformConfig config, {
     bool forceRuntimeApply = false,
   }) async {
+    if (!await _ensureTrustedSnapshotLocked()) {
+      throw StateError('Message gateway configuration is not available.');
+    }
     _isSaving = true;
+    _hasTrustedSnapshot = false;
     _errorMessage = null;
     notifyListeners();
     final normalized = _normalizeAgainstRuntimeOptions(config);
@@ -317,6 +325,7 @@ class MessageGatewayController extends ManagedChangeNotifier {
       await _store.save(normalized);
       final previous = _config;
       _config = normalized;
+      _hasTrustedSnapshot = true;
       if (forceRuntimeApply || normalized.autoReloadOnChange) {
         await _applyRuntimeConfig(previous, normalized);
         _hasPendingRuntimeConfig = false;
@@ -325,11 +334,27 @@ class MessageGatewayController extends ManagedChangeNotifier {
       }
       _saveSuccessPulse.emit();
     } catch (error) {
+      _hasTrustedSnapshot = false;
       _errorMessage = '$error';
       rethrow;
     } finally {
       _isSaving = false;
       notifyListeners();
+    }
+  }
+
+  Future<bool> _ensureTrustedSnapshotLocked({bool forceReload = false}) async {
+    if (_hasTrustedSnapshot && !forceReload) return true;
+    try {
+      _config = _normalizeAgainstRuntimeOptions(await _store.load());
+      _hasTrustedSnapshot = true;
+      _errorMessage = null;
+      return true;
+    } catch (error) {
+      _hasTrustedSnapshot = false;
+      _errorMessage = '$error';
+      notifyListeners();
+      return false;
     }
   }
 
@@ -356,6 +381,9 @@ class MessageGatewayController extends ManagedChangeNotifier {
   }
 
   Future<void> _restartServiceLocked() async {
+    if (!await _ensureTrustedSnapshotLocked(forceReload: true)) {
+      throw StateError('Message gateway configuration is not available.');
+    }
     if (!_config.enabled) {
       await _saveConfigLocked(
         _config.copyWith(enabled: true),
@@ -373,6 +401,9 @@ class MessageGatewayController extends ManagedChangeNotifier {
   }
 
   Future<void> _reloadConfigLocked() async {
+    if (!await _ensureTrustedSnapshotLocked(forceReload: true)) {
+      throw StateError('Message gateway configuration is not available.');
+    }
     await _service.reloadConfig(_config);
     _hasPendingRuntimeConfig = false;
     notifyListeners();
