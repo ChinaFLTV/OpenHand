@@ -3111,7 +3111,7 @@ class WebMessagePlatformService {
       );
     }
     if (templateId == kMachineExpertTemplateId) {
-      final terminalMetadata = _machineTerminalService.initialMetadata(
+      final terminalMetadata = await _machineTerminalService.initialMetadata(
         sessionId: session.id,
         workingDirectory: _workspaceDirectoryPath,
         existingMetadata: session.metadata[kMachineTerminalMetadataKey],
@@ -3180,7 +3180,7 @@ class WebMessagePlatformService {
     _rememberMachineTerminalSessionMetadata(session);
     final start = request.requestedUri.queryParameters['start'] != 'false';
     final includeHistory = _includeTerminalHistory(request);
-    final snapshot = _machineTerminalService.ensureWorkspace(
+    final snapshot = await _machineTerminalService.ensureWorkspace(
       sessionId: session.id,
       workingDirectory: _machineTerminalWorkingDirectory(session),
       start: start,

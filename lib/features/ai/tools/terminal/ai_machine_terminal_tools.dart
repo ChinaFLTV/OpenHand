@@ -57,7 +57,7 @@ class AiMachineTerminalReadTool extends AiMachineTerminalToolBase {
     final stopwatch = Stopwatch()..start();
     final args = context.decodedArguments;
     final terminalId = readTerminalId(args);
-    final snapshot = service.ensureWorkspace(
+    final snapshot = await service.ensureWorkspace(
       sessionId: context.sessionId,
       start: AiToolUtils.readBool(args['start_if_needed']) != false,
     );

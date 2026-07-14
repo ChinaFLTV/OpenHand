@@ -51,6 +51,7 @@ const Duration _commandPollInterval = Duration(milliseconds: 80);
 const Duration _metadataPersistDebounce = Duration(milliseconds: 700);
 const Duration _historyPersistDebounce = Duration(milliseconds: 650);
 const Duration _terminalStopGraceDuration = Duration(milliseconds: 900);
+const Duration _terminalFilesystemProbeTimeout = Duration(seconds: 3);
 const int _shutdownConcurrency = 4;
 const Duration _shutdownStepTimeout = Duration(milliseconds: 1500);
 const String _machineTerminalSurface = 'openhand_machine_terminal';
@@ -358,7 +359,7 @@ abstract final class MachineTerminalSessionMetadata {
     final raw = stringKeyedMapFromValue(existingMetadata);
     final timestamp = DateTime.now().toUtc();
     final createdAt = createdAtFrom(raw) ?? timestamp.toIso8601String();
-    final resolvedWorkingDirectory = _safeWorkingDirectory(
+    final resolvedWorkingDirectory = _normalizedWorkingDirectory(
       nullIfBlank(workingDirectory) ??
           defaultWorkingDirectoryFrom(raw) ??
           snapshot?.activeTerminal?.workingDirectory ??
@@ -482,6 +483,11 @@ class MachineTerminalService extends ChangeNotifier {
   final String _sessionsDirectoryPath;
   final Map<String, _MachineTerminalWorkspace> _workspaces =
       <String, _MachineTerminalWorkspace>{};
+  final Map<String, Future<_MachineTerminalWorkspace>> _workspaceLoads =
+      <String, Future<_MachineTerminalWorkspace>>{};
+  final Map<String, Future<void>> _workspaceDisposals =
+      <String, Future<void>>{};
+  final Map<String, int> _workspaceLoadGenerations = <String, int>{};
   final Map<String, String> _metadataCreatedAtBySession = <String, String>{};
   final Map<String, String> _metadataWorkingDirectoryBySession =
       <String, String>{};
@@ -519,21 +525,24 @@ class MachineTerminalService extends ChangeNotifier {
         MachineTerminalSessionMetadata.defaultWorkingDirectoryFrom(metadata);
     if (workingDirectory != null) {
       _metadataWorkingDirectoryBySession[normalizedSessionId] =
-          _safeWorkingDirectory(workingDirectory);
+          _normalizedWorkingDirectory(workingDirectory);
     }
   }
 
-  MachineTerminalWorkspaceSnapshot ensureWorkspace({
+  Future<MachineTerminalWorkspaceSnapshot> ensureWorkspace({
     required String sessionId,
     String? workingDirectory,
     bool start = true,
-  }) {
+  }) async {
     final normalizedSessionId = _normalizeSessionId(sessionId);
     final isNewWorkspace = !_workspaces.containsKey(normalizedSessionId);
-    final workspace = _workspaceFor(
+    final workspace = await _workspaceFor(
       sessionId: normalizedSessionId,
       workingDirectory: workingDirectory,
     );
+    if (_isDisposed) {
+      throw StateError('MachineTerminalService is shut down.');
+    }
     if (start) {
       final active = workspace.activeTerminal;
       if (active != null && !active.isRunningOrStarting) {
@@ -559,9 +568,29 @@ class MachineTerminalService extends ChangeNotifier {
     return _workspaces[sessionId.trim()]?.activeTerminal;
   }
 
-  Future<void> disposeWorkspace(String sessionId) async {
+  Future<void> disposeWorkspace(String sessionId) {
     final normalizedSessionId = nullIfBlank(sessionId);
-    if (normalizedSessionId == null) return;
+    if (normalizedSessionId == null) return Future<void>.value();
+    final active = _workspaceDisposals[normalizedSessionId];
+    if (active != null) return active;
+    if (_isDisposed) return _shutdownFuture ?? Future<void>.value();
+
+    late final Future<void> tracked;
+    tracked = _disposeWorkspace(normalizedSessionId).whenComplete(() {
+      if (identical(_workspaceDisposals[normalizedSessionId], tracked)) {
+        _workspaceDisposals.remove(normalizedSessionId);
+      }
+      if (!_workspaceLoads.containsKey(normalizedSessionId)) {
+        _workspaceLoadGenerations.remove(normalizedSessionId);
+      }
+    });
+    _workspaceDisposals[normalizedSessionId] = tracked;
+    return tracked;
+  }
+
+  Future<void> _disposeWorkspace(String normalizedSessionId) async {
+    _workspaceLoadGenerations[normalizedSessionId] =
+        (_workspaceLoadGenerations[normalizedSessionId] ?? 0) + 1;
     _metadataPersistTimers.remove(normalizedSessionId)?.cancel();
     final pendingMetadataPersist = _metadataPersistChains.remove(
       normalizedSessionId,
@@ -612,7 +641,7 @@ class MachineTerminalService extends ChangeNotifier {
     String? workingDirectory,
     bool start = true,
   }) async {
-    final workspace = _workspaceFor(
+    final workspace = await _workspaceFor(
       sessionId: sessionId,
       workingDirectory: workingDirectory,
     );
@@ -635,7 +664,7 @@ class MachineTerminalService extends ChangeNotifier {
     required String sessionId,
     String? terminalId,
   }) async {
-    final workspace = _requireWorkspace(sessionId);
+    final workspace = await _requireWorkspace(sessionId);
     final source =
         workspace.terminalById(terminalId) ?? workspace.activeTerminal;
     return newTerminal(
@@ -649,7 +678,7 @@ class MachineTerminalService extends ChangeNotifier {
     required String sessionId,
     required String terminalId,
   }) async {
-    final workspace = _requireWorkspace(sessionId);
+    final workspace = await _requireWorkspace(sessionId);
     workspace.select(terminalId);
     _scheduleMetadataPersist(workspace.sessionId);
     _scheduleHistoryPersist(workspace.sessionId);
@@ -660,7 +689,7 @@ class MachineTerminalService extends ChangeNotifier {
     required String sessionId,
     String? terminalId,
   }) async {
-    final workspace = _requireWorkspace(sessionId);
+    final workspace = await _requireWorkspace(sessionId);
     final terminal =
         workspace.terminalById(terminalId) ?? workspace.activeTerminal;
     if (terminal == null) return;
@@ -688,7 +717,7 @@ class MachineTerminalService extends ChangeNotifier {
     required String terminalId,
     bool start = true,
   }) async {
-    final workspace = _requireWorkspace(sessionId);
+    final workspace = await _requireWorkspace(sessionId);
     final terminal = workspace.terminalById(terminalId, includeDetached: true);
     if (terminal == null) {
       throw StateError('Terminal not found: $terminalId.');
@@ -706,7 +735,7 @@ class MachineTerminalService extends ChangeNotifier {
     required String sessionId,
     required String terminalId,
   }) async {
-    final workspace = _requireWorkspace(sessionId);
+    final workspace = await _requireWorkspace(sessionId);
     final terminal = workspace.terminalById(terminalId, includeDetached: true);
     if (terminal == null) return;
     await terminal.stop(force: true);
@@ -728,7 +757,7 @@ class MachineTerminalService extends ChangeNotifier {
     required String sessionId,
     String? terminalId,
   }) async {
-    final terminal = _requireTerminal(sessionId, terminalId);
+    final terminal = await _requireTerminal(sessionId, terminalId);
     await terminal.start();
     _scheduleMetadataPersist(terminal.sessionId);
     _scheduleHistoryPersist(terminal.sessionId);
@@ -739,7 +768,7 @@ class MachineTerminalService extends ChangeNotifier {
     String? terminalId,
     bool force = false,
   }) async {
-    final terminal = _requireTerminal(sessionId, terminalId);
+    final terminal = await _requireTerminal(sessionId, terminalId);
     await terminal.stop(force: force);
     _scheduleMetadataPersist(terminal.sessionId);
     _scheduleHistoryPersist(terminal.sessionId);
@@ -749,26 +778,29 @@ class MachineTerminalService extends ChangeNotifier {
     required String sessionId,
     String? terminalId,
   }) async {
-    final terminal = _requireTerminal(sessionId, terminalId);
+    final terminal = await _requireTerminal(sessionId, terminalId);
     await terminal.restart();
     _scheduleMetadataPersist(terminal.sessionId);
     _scheduleHistoryPersist(terminal.sessionId);
   }
 
-  void clearTerminal({required String sessionId, String? terminalId}) {
-    final terminal = _requireTerminal(sessionId, terminalId);
+  Future<void> clearTerminal({
+    required String sessionId,
+    String? terminalId,
+  }) async {
+    final terminal = await _requireTerminal(sessionId, terminalId);
     terminal.clear();
     _scheduleMetadataPersist(terminal.sessionId);
     _scheduleHistoryPersist(terminal.sessionId);
   }
 
-  void resizeTerminal({
+  Future<void> resizeTerminal({
     required String sessionId,
     String? terminalId,
     required int columns,
     required int rows,
-  }) {
-    final terminal = _requireTerminal(sessionId, terminalId);
+  }) async {
+    final terminal = await _requireTerminal(sessionId, terminalId);
     terminal.resize(columns: columns, rows: rows);
     _scheduleMetadataPersist(terminal.sessionId);
     _scheduleHistoryPersist(terminal.sessionId);
@@ -780,7 +812,7 @@ class MachineTerminalService extends ChangeNotifier {
     String? terminalId,
     bool appendNewline = false,
   }) async {
-    final terminal = _requireTerminal(sessionId, terminalId);
+    final terminal = await _requireTerminal(sessionId, terminalId);
     var started = false;
     if (!terminal.isRunningOrStarting) {
       await terminal.start();
@@ -799,7 +831,7 @@ class MachineTerminalService extends ChangeNotifier {
     String? terminalId,
     Duration timeout = kMachineTerminalDefaultCommandTimeout,
   }) async {
-    final terminal = _requireTerminal(sessionId, terminalId);
+    final terminal = await _requireTerminal(sessionId, terminalId);
     if (!terminal.isRunningOrStarting) {
       await terminal.start();
     }
@@ -844,14 +876,14 @@ class MachineTerminalService extends ChangeNotifier {
       case 'restart':
         await restartTerminal(sessionId: sessionId, terminalId: terminalId);
       case 'clear':
-        clearTerminal(sessionId: sessionId, terminalId: terminalId);
+        await clearTerminal(sessionId: sessionId, terminalId: terminalId);
       case 'resize':
         final safeColumns = columns;
         final safeRows = rows;
         if (safeColumns == null || safeRows == null) {
           throw ArgumentError('resize requires columns and rows.');
         }
-        resizeTerminal(
+        await resizeTerminal(
           sessionId: sessionId,
           terminalId: terminalId,
           columns: safeColumns,
@@ -902,13 +934,13 @@ class MachineTerminalService extends ChangeNotifier {
     );
   }
 
-  Map<String, Object?> initialMetadata({
+  Future<Map<String, Object?>> initialMetadata({
     required String sessionId,
     String? workingDirectory,
     Object? existingMetadata,
-  }) {
+  }) async {
     rememberSessionMetadata(sessionId: sessionId, metadata: existingMetadata);
-    final snapshot = ensureWorkspace(
+    final snapshot = await ensureWorkspace(
       sessionId: sessionId,
       workingDirectory: workingDirectory,
       start: false,
@@ -967,6 +999,27 @@ class MachineTerminalService extends ChangeNotifier {
     }
     _metadataPersistTimers.clear();
     _historyPersistTimers.clear();
+
+    final pendingWorkspaceOperations = <Future<void>>[
+      ..._workspaceLoads.values.map((load) => load.then<void>((_) {})),
+      ..._workspaceDisposals.values,
+    ];
+    await forEachIndexWithConcurrencyLimit(
+      itemCount: pendingWorkspaceOperations.length,
+      maxConcurrency: _shutdownConcurrency,
+      task: (index) async {
+        await runAsyncCleanupBounded(
+          () => pendingWorkspaceOperations[index],
+          timeout: _shutdownStepTimeout,
+          onError: (error, stack) => silentLog(
+            'machine_terminal',
+            'await workspace load',
+            error,
+            stack,
+          ),
+        );
+      },
+    );
 
     final pendingPersists = <Future<void>>[
       ..._metadataPersistChains.values,
@@ -1029,6 +1082,9 @@ class MachineTerminalService extends ChangeNotifier {
       _lastPersistedHistoryDigestBySession.clear();
       _metadataCreatedAtBySession.clear();
       _metadataWorkingDirectoryBySession.clear();
+      _workspaceLoads.clear();
+      _workspaceDisposals.clear();
+      _workspaceLoadGenerations.clear();
       _workspaces.clear();
     }
   }
@@ -1062,7 +1118,7 @@ class MachineTerminalService extends ChangeNotifier {
     }
   }
 
-  _MachineTerminalWorkspace _workspaceFor({
+  Future<_MachineTerminalWorkspace> _workspaceFor({
     required String sessionId,
     String? workingDirectory,
   }) {
@@ -1070,39 +1126,79 @@ class MachineTerminalService extends ChangeNotifier {
       throw StateError('MachineTerminalService is shut down.');
     }
     final normalizedSessionId = _normalizeSessionId(sessionId);
-    return _workspaces.putIfAbsent(normalizedSessionId, () {
-      final defaultWorkingDirectory =
-          nullIfBlank(workingDirectory) ??
-          _metadataWorkingDirectoryBySession[normalizedSessionId] ??
-          OpenHandPaths.applicationDirectoryPath();
-      final restored = _restoreWorkspaceFromDisk(
-        sessionId: normalizedSessionId,
-        defaultWorkingDirectory: defaultWorkingDirectory,
-      );
-      if (restored != null) return restored;
-      final workspace = _MachineTerminalWorkspace(
-        sessionId: normalizedSessionId,
-        defaultWorkingDirectory: defaultWorkingDirectory,
-      );
-      workspace.add(
-        _createTerminal(
+    if (_workspaceDisposals.containsKey(normalizedSessionId)) {
+      throw StateError('Machine terminal workspace is being disposed.');
+    }
+    final loaded = _workspaces[normalizedSessionId];
+    if (loaded != null) return Future<_MachineTerminalWorkspace>.value(loaded);
+    final activeLoad = _workspaceLoads[normalizedSessionId];
+    if (activeLoad != null) return activeLoad;
+
+    final generation = _workspaceLoadGenerations[normalizedSessionId] ?? 0;
+    late final Future<_MachineTerminalWorkspace> tracked;
+    tracked =
+        _loadWorkspace(
           sessionId: normalizedSessionId,
-          workingDirectory: workspace.defaultWorkingDirectory,
-        ),
-      );
-      return workspace;
-    });
+          workingDirectory: workingDirectory,
+          generation: generation,
+        ).whenComplete(() {
+          if (identical(_workspaceLoads[normalizedSessionId], tracked)) {
+            _workspaceLoads.remove(normalizedSessionId);
+          }
+          if (!_workspaces.containsKey(normalizedSessionId) &&
+              !_workspaceDisposals.containsKey(normalizedSessionId)) {
+            _workspaceLoadGenerations.remove(normalizedSessionId);
+          }
+        });
+    _workspaceLoads[normalizedSessionId] = tracked;
+    return tracked;
   }
 
-  _MachineTerminalWorkspace _requireWorkspace(String sessionId) {
+  Future<_MachineTerminalWorkspace> _loadWorkspace({
+    required String sessionId,
+    required int generation,
+    String? workingDirectory,
+  }) async {
+    final defaultWorkingDirectory =
+        nullIfBlank(workingDirectory) ??
+        _metadataWorkingDirectoryBySession[sessionId] ??
+        OpenHandPaths.applicationDirectoryPath();
+    final restored = await _restoreWorkspaceFromDisk(
+      sessionId: sessionId,
+      defaultWorkingDirectory: defaultWorkingDirectory,
+    );
+    final workspace =
+        restored ??
+        (_MachineTerminalWorkspace(
+          sessionId: sessionId,
+          defaultWorkingDirectory: defaultWorkingDirectory,
+        )..add(
+          _createTerminal(
+            sessionId: sessionId,
+            workingDirectory: defaultWorkingDirectory,
+          ),
+        ));
+    if (_isDisposed ||
+        _workspaceDisposals.containsKey(sessionId) ||
+        (_workspaceLoadGenerations[sessionId] ?? 0) != generation) {
+      workspace.dispose();
+      throw StateError('Machine terminal workspace load was cancelled.');
+    }
+    _workspaces[sessionId] = workspace;
+    _workspaceLoadGenerations.remove(sessionId);
+    _notifyListenersSafely();
+    return workspace;
+  }
+
+  Future<_MachineTerminalWorkspace> _requireWorkspace(String sessionId) {
     return _workspaceFor(sessionId: sessionId);
   }
 
-  MachineTerminalSession _requireTerminal(
+  Future<MachineTerminalSession> _requireTerminal(
     String sessionId,
     String? terminalId,
-  ) {
-    final workspace = _requireWorkspace(sessionId);
+  ) async {
+    final workspace = await _requireWorkspace(sessionId);
     final terminal =
         workspace.terminalById(terminalId) ?? workspace.activeTerminal;
     if (terminal == null) {
@@ -1176,16 +1272,26 @@ class MachineTerminalService extends ChangeNotifier {
     return seed.isEmpty ? null : seed;
   }
 
-  _MachineTerminalWorkspace? _restoreWorkspaceFromDisk({
+  Future<_MachineTerminalWorkspace?> _restoreWorkspaceFromDisk({
     required String sessionId,
     required String defaultWorkingDirectory,
-  }) {
+  }) async {
     final file = _workspaceHistoryFile(sessionId);
+    await recoverAtomicWriteBackupIfNeeded(file);
+    final type = await FileSystemEntity.type(
+      file.path,
+      followLinks: false,
+    ).timeout(defaultBoundedFileReadIdleTimeout);
+    if (type == FileSystemEntityType.notFound) return null;
+    if (type != FileSystemEntityType.file) {
+      throw FileSystemException(
+        'Machine terminal history is not a regular file.',
+        file.path,
+      );
+    }
     try {
-      _recoverAtomicWriteBackupIfNeededSync(file);
-      if (!file.existsSync()) return null;
       final decoded = jsonDecode(
-        readBoundedFileStringSync(
+        await readBoundedFileString(
           file,
           maxBytes: _machineTerminalHistoryMaxBytes,
         ),
@@ -1241,6 +1347,10 @@ class MachineTerminalService extends ChangeNotifier {
         terminals: persistedTerminals,
       );
       return workspace;
+    } on TimeoutException {
+      rethrow;
+    } on FileSystemException {
+      rethrow;
     } catch (error, stack) {
       silentLog('machine_terminal', 'restore terminal history', error, stack);
       return null;
@@ -1377,43 +1487,6 @@ class MachineTerminalService extends ChangeNotifier {
     );
   }
 
-  void _recoverAtomicWriteBackupIfNeededSync(File targetFile) {
-    final tempFile = File('${targetFile.path}.tmp');
-    final backupFile = File('${targetFile.path}.bak');
-    if (targetFile.existsSync()) {
-      if (tempFile.existsSync()) {
-        try {
-          tempFile.deleteSync();
-        } on FileSystemException {
-          // Best-effort cleanup only.
-        }
-      }
-      if (backupFile.existsSync()) {
-        try {
-          backupFile.deleteSync();
-        } on FileSystemException {
-          // Best-effort cleanup only.
-        }
-      }
-      return;
-    }
-    if (tempFile.existsSync()) {
-      try {
-        tempFile.renameSync(targetFile.path);
-        return;
-      } on FileSystemException {
-        try {
-          tempFile.deleteSync();
-        } on FileSystemException {
-          // Best-effort cleanup only.
-        }
-      }
-    }
-    if (backupFile.existsSync()) {
-      backupFile.renameSync(targetFile.path);
-    }
-  }
-
   void _scheduleMetadataPersist(String sessionId) {
     final normalizedSessionId = nullIfBlank(sessionId);
     if (normalizedSessionId == null || _metadataPersister == null) return;
@@ -1507,6 +1580,7 @@ class MachineTerminalSession {
   int? _exitCode;
   int _rows = _defaultRows;
   int _columns = _defaultColumns;
+  int _startGeneration = 0;
   String _output = '';
   String _historyOutput = _welcomeBanner();
   final List<MachineTerminalCommandRecord> _commandHistory =
@@ -1634,16 +1708,24 @@ class MachineTerminalSession {
 
   Future<void> start() async {
     if (isRunningOrStarting) return;
+    final generation = ++_startGeneration;
     _status = MachineTerminalStatus.starting;
     _errorMessage = null;
     _exitCode = null;
     _startedAt = DateTime.now();
     _touch();
     try {
+      final resolvedWorkingDirectory = await _existingWorkingDirectory(
+        workingDirectory,
+      );
+      if (generation != _startGeneration ||
+          _status != MachineTerminalStatus.starting) {
+        return;
+      }
       final pty = Pty.start(
         shell,
         arguments: _shellArguments(shell),
-        workingDirectory: _safeWorkingDirectory(workingDirectory),
+        workingDirectory: resolvedWorkingDirectory,
         rows: _rows,
         columns: _columns,
         environment: const <String, String>{
@@ -1660,6 +1742,7 @@ class MachineTerminalSession {
           .listen(
             _handleOutput,
             onError: (Object error, StackTrace stack) {
+              if (!identical(_pty, pty)) return;
               _status = MachineTerminalStatus.failed;
               _errorMessage = '$error';
               silentLog('machine_terminal', 'pty output', error, stack);
@@ -1685,6 +1768,7 @@ class MachineTerminalSession {
               _touch();
             })
             .catchError((Object error, StackTrace stack) {
+              if (!identical(_pty, pty)) return;
               _status = MachineTerminalStatus.failed;
               _errorMessage = '$error';
               silentLog('machine_terminal', 'pty exitCode', error, stack);
@@ -1702,6 +1786,7 @@ class MachineTerminalSession {
   }
 
   Future<void> stop({bool force = false}) async {
+    _startGeneration += 1;
     final pty = _pty;
     if (pty == null) {
       _status = MachineTerminalStatus.stopped;
@@ -2181,21 +2266,23 @@ List<String> _shellArguments(String shell) {
   return const <String>[];
 }
 
-String _safeWorkingDirectory(String value) {
-  final normalized =
-      nullIfBlank(value) ?? OpenHandPaths.applicationDirectoryPath();
-  if (_directoryExists(normalized)) return Directory(normalized).path;
-  return OpenHandPaths.applicationDirectoryPath();
+String _normalizedWorkingDirectory(String value) {
+  return Directory(
+    nullIfBlank(value) ?? OpenHandPaths.applicationDirectoryPath(),
+  ).path;
 }
 
-bool _directoryExists(String path) {
+Future<String> _existingWorkingDirectory(String value) async {
+  final normalized = _normalizedWorkingDirectory(value);
   try {
-    return Directory(path).existsSync();
-  } on FileSystemException {
-    return false;
-  } on ArgumentError {
-    return false;
+    final type = await FileSystemEntity.type(
+      normalized,
+    ).timeout(_terminalFilesystemProbeTimeout);
+    if (type == FileSystemEntityType.directory) return normalized;
+  } catch (_) {
+    // The application directory below is the stable fallback.
   }
+  return OpenHandPaths.applicationDirectoryPath();
 }
 
 TerminalTargetPlatform _terminalTargetPlatform() {

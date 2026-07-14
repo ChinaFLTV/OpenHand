@@ -3357,7 +3357,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       return created;
     }
     final terminalService = context.read<MachineTerminalService>();
-    final metadata = terminalService.initialMetadata(
+    final metadata = await terminalService.initialMetadata(
       sessionId: session.id,
       workingDirectory: resolvedRuntimeContext.workingDirectory,
       existingMetadata: session.metadata[kMachineTerminalMetadataKey],

@@ -32,7 +32,9 @@ class _MachineExpertTerminalPanelState
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _ensureTerminal());
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => unawaited(_ensureTerminal()),
+    );
   }
 
   @override
@@ -40,7 +42,9 @@ class _MachineExpertTerminalPanelState
     super.didUpdateWidget(oldWidget);
     if (oldWidget.sessionId != widget.sessionId) {
       _initializedSessionId = null;
-      WidgetsBinding.instance.addPostFrameCallback((_) => _ensureTerminal());
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => unawaited(_ensureTerminal()),
+      );
     }
   }
 
@@ -51,31 +55,49 @@ class _MachineExpertTerminalPanelState
     super.dispose();
   }
 
-  void _ensureTerminal() {
+  Future<void> _ensureTerminal() async {
     if (!mounted || _initializedSessionId == widget.sessionId) return;
-    _initializedSessionId = widget.sessionId;
+    final sessionId = widget.sessionId;
+    _initializedSessionId = sessionId;
     final sessionController = context.read<AiSessionController>();
     AiSession? session;
     for (final candidate in sessionController.sessions) {
-      if (candidate.id == widget.sessionId) {
+      if (candidate.id == sessionId) {
         session = candidate;
         break;
       }
     }
     final terminalMetadata = session?.metadata[kMachineTerminalMetadataKey];
     final terminalService = context.read<MachineTerminalService>();
-    terminalService.rememberSessionMetadata(
-      sessionId: widget.sessionId,
-      metadata: terminalMetadata,
-    );
-    terminalService.ensureWorkspace(
-      sessionId: widget.sessionId,
-      workingDirectory:
-          MachineTerminalSessionMetadata.defaultWorkingDirectoryFrom(
-            terminalMetadata,
-          ),
-    );
-    unawaited(terminalService.startTerminal(sessionId: widget.sessionId));
+    try {
+      terminalService.rememberSessionMetadata(
+        sessionId: sessionId,
+        metadata: terminalMetadata,
+      );
+      await terminalService.ensureWorkspace(
+        sessionId: sessionId,
+        workingDirectory:
+            MachineTerminalSessionMetadata.defaultWorkingDirectoryFrom(
+              terminalMetadata,
+            ),
+        start: false,
+      );
+      if (!mounted || widget.sessionId != sessionId) return;
+      await terminalService.startTerminal(sessionId: sessionId);
+    } catch (error, stack) {
+      silentLog('openhand_home', 'initialize machine terminal', error, stack);
+      if (!mounted || widget.sessionId != sessionId) return;
+      _initializedSessionId = null;
+      showFriendlyErrorSnackBar(
+        context,
+        message: '$error',
+        fallback: openHandLocalizedText(
+          context,
+          zh: '终端初始化失败。',
+          en: 'Terminal initialization failed.',
+        ),
+      );
+    }
   }
 
   void _followBottom() {
