@@ -24,7 +24,6 @@ class McpToolCatalog {
       status == McpToolCatalogStatus.failed &&
       nullIfBlank(errorMessage) != null;
   bool get hasWarning => nullIfBlank(warningMessage) != null;
-  bool get hasServerInstructions => nullIfBlank(serverInstructions) != null;
 
   McpToolCatalog copyWith({
     McpToolCatalogStatus? status,
@@ -86,7 +85,6 @@ class McpTool {
   final String? metadataWarning;
 
   bool get hasMetadataWarning => nullIfBlank(metadataWarning) != null;
-  bool get hasOutputDescription => nullIfBlank(outputDescription) != null;
   bool get hasOutputSchema =>
       rawOutputSchema != null ||
       (outputSchema != null && outputSchema!.isNotEmpty);

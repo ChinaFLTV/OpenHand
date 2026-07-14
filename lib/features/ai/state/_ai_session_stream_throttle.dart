@@ -67,8 +67,6 @@ class _StreamThroughputSampler {
     return List<int>.unmodifiable(_buckets.take(window));
   }
 
-  int get currentSecondValue => _buckets[0];
-
   void _advanceByWallClock() {
     if (_bucketSecond == 0) return;
     final nowSec = DateTime.now().millisecondsSinceEpoch ~/ 1000;
@@ -304,9 +302,6 @@ class _StreamCharThrottle {
   List<int> throughputSnapshot({int windowSeconds = 30}) {
     return _displayThroughput.snapshot(windowSeconds: windowSeconds);
   }
-
-  /// 当前秒（桶 0）累计已放出的 grapheme 数。
-  int get currentSecondEmitted => _displayThroughput.currentSecondValue;
 
   void _scheduleDrain() {
     if (_drainTimer != null || _disposed) {

@@ -43,8 +43,6 @@ abstract final class AppRuntimeContext {
 
   static Locale get appLocale => _appLocale;
 
-  static bool get isChineseLocale => _appLocale.languageCode == 'zh';
-
   static String pickText({
     required String zh,
     required String en,

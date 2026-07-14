@@ -1052,17 +1052,7 @@ class AiToolRuntimeService {
           timeoutCancellation.complete();
         }
         if (!shouldRegister) return;
-        try {
-          await AiToolExecutionRegistry.instance
-              .cancelToolCall(toolCall.id)
-              .timeout(const Duration(seconds: 2));
-        } on TimeoutException {
-          silentLog(
-            'ai_tool_runtime_service',
-            'cancel timed-out tool ${toolCall.id}',
-            'Cancellation exceeded 2 seconds.',
-          );
-        }
+        await AiToolExecutionRegistry.instance.cancelToolCall(toolCall.id);
       }
 
       try {

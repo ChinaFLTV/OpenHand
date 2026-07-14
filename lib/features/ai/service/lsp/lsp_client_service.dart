@@ -329,39 +329,13 @@ Future<Process> _launchAiLspProcess({
 }
 
 class AiLspClientService {
-  AiLspClientService._({
-    AiLspProcessLauncher processLauncher = _launchAiLspProcess,
-    Duration requestTimeout = _defaultRequestTimeout,
-    Duration initializationSettleDelay = _defaultInitializationSettleDelay,
-    Duration shutdownRequestDelay = _defaultShutdownRequestDelay,
-    Duration shutdownExitDelay = _defaultShutdownExitDelay,
-    Duration startupDisposeWait = _defaultStartupDisposeWait,
-  }) : _processLauncher = processLauncher,
-       _requestTimeout = requestTimeout,
-       _initializationSettleDelay = initializationSettleDelay,
-       _shutdownRequestDelay = shutdownRequestDelay,
-       _shutdownExitDelay = shutdownExitDelay,
-       _startupDisposeWait = startupDisposeWait;
-
-  /// Creates an isolated client with deterministic lifecycle dependencies.
-  ///
-  /// This constructor is intended for lifecycle tests. Production code should
-  /// use [instance] so sessions and backend caches remain process-wide.
-  AiLspClientService.forTesting({
-    required AiLspProcessLauncher processLauncher,
-    Duration requestTimeout = const Duration(milliseconds: 100),
-    Duration initializationSettleDelay = Duration.zero,
-    Duration shutdownRequestDelay = Duration.zero,
-    Duration shutdownExitDelay = Duration.zero,
-    Duration startupDisposeWait = const Duration(milliseconds: 100),
-  }) : this._(
-         processLauncher: processLauncher,
-         requestTimeout: requestTimeout,
-         initializationSettleDelay: initializationSettleDelay,
-         shutdownRequestDelay: shutdownRequestDelay,
-         shutdownExitDelay: shutdownExitDelay,
-         startupDisposeWait: startupDisposeWait,
-       );
+  AiLspClientService._()
+    : _processLauncher = _launchAiLspProcess,
+      _requestTimeout = _defaultRequestTimeout,
+      _initializationSettleDelay = _defaultInitializationSettleDelay,
+      _shutdownRequestDelay = _defaultShutdownRequestDelay,
+      _shutdownExitDelay = _defaultShutdownExitDelay,
+      _startupDisposeWait = _defaultStartupDisposeWait;
 
   static final AiLspClientService instance = AiLspClientService._();
   static final RegExp _markdownFenceStartPattern = RegExp(r'^```[\w-]*\n');

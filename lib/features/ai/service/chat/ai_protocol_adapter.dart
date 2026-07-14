@@ -921,17 +921,6 @@ class AiPromptCacheAffinity {
     }
   }
 
-  bool get usesBodyAffinityMarker {
-    return switch (kind) {
-      AiPromptCacheAffinityKind.openRouterSession ||
-      AiPromptCacheAffinityKind.openAiPromptCacheKey ||
-      AiPromptCacheAffinityKind.openAiCompatibleGateway ||
-      AiPromptCacheAffinityKind.grokCompatibleGateway => applies,
-      AiPromptCacheAffinityKind.grokConversationHeader ||
-      AiPromptCacheAffinityKind.none => false,
-    };
-  }
-
   static bool kindUsesBodyAffinityMarker(AiPromptCacheAffinityKind kind) {
     return switch (kind) {
       AiPromptCacheAffinityKind.openRouterSession ||

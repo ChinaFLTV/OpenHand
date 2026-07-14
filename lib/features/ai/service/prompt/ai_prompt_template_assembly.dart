@@ -185,10 +185,6 @@ class AiPromptTemplateCatalogEntry {
   final AiPromptTemplatePolicy policy;
 
   String get id => policy.templateId;
-
-  bool get isConsistent =>
-      info.id == policy.templateId &&
-      info.promptAssetDirectory == policy.promptAssetDirectory;
 }
 
 class AiPromptTemplatePolicies {

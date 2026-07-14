@@ -174,12 +174,6 @@ class WebFetchScraplingBridge {
     );
   }
 
-  Future<void> installRuntime({
-    required AiWebFetchScraplingSettings settings,
-  }) async {
-    await for (final _ in installRuntimeStreaming(settings: settings)) {}
-  }
-
   Stream<WebFetchScraplingRuntimeEvent> uninstallRuntimeStreaming({
     required AiWebFetchScraplingSettings settings,
   }) {
@@ -193,12 +187,6 @@ class WebFetchScraplingBridge {
       runtimeInstalledOnSuccess: false,
       successCode: 'scrapling_not_installed',
     );
-  }
-
-  Future<void> uninstallRuntime({
-    required AiWebFetchScraplingSettings settings,
-  }) async {
-    await for (final _ in uninstallRuntimeStreaming(settings: settings)) {}
   }
 
   Future<WebFetchScraplingProbeStatus> probe({

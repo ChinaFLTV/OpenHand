@@ -22,10 +22,6 @@ class HtmlWebViewMountLimiter {
       Queue<HtmlWebViewMountPermit>();
   int _nextId = 0;
 
-  int get activeCount => _activeIds.length;
-
-  int get waitingCount => _waiting.length;
-
   HtmlWebViewMountPermit request(
     void Function() onGranted, {
     bool priority = false,

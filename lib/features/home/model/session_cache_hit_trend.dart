@@ -193,7 +193,6 @@ class SessionCacheHitTrend {
   final bool claudeStyle;
 
   bool get hasEnoughPoints => points.length >= 2;
-  bool get hasExpiredCacheMisses => points.any(_isExpiredCacheMiss);
 
   SessionCacheHitDisplayData displayData(SessionCacheHitDisplayMode mode) {
     // A cache point is one model request + one model response. Tool-result

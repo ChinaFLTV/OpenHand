@@ -74,10 +74,6 @@ class OpenHandAsyncSemaphore {
   int _available;
   final Queue<Completer<void>> _waiters = Queue<Completer<void>>();
 
-  int get availableCount => _available;
-
-  int get waitingCount => _waiters.length;
-
   Future<void> acquire() {
     if (_available > 0) {
       _available -= 1;

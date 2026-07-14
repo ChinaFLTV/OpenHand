@@ -164,12 +164,6 @@ final class AiOperationHttp {
     return const <String, Object?>{};
   }
 
-  static List<Object?> jsonListOrEmpty(Object? decoded) {
-    if (decoded is List<Object?>) return decoded;
-    if (decoded is List) return List<Object?>.from(decoded);
-    return const <Object?>[];
-  }
-
   static Map<String, Object?> stringKeyedMap(Object? raw) {
     if (raw is Map) {
       return Map<String, Object?>.from(stringKeyedMapFromValue(raw));

@@ -110,13 +110,6 @@ class AndroidReverseToolchainProbeResult {
     return nullIfBlank(stderr) ?? 'NOT_FOUND';
   }
 
-  String installHint(bool isZh) {
-    if (isZh) {
-      return installHintForLocale(const Locale('zh'));
-    }
-    return installHintForLocale(const Locale('en'));
-  }
-
   String installHintForLocale(Locale locale) => openHandLocalizedTextForLocale(
     locale,
     zh: probe.installHintZh,

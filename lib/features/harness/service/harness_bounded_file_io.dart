@@ -114,9 +114,6 @@ class HarnessBoundedFileIo {
   int _bytesRead = 0;
   int _directoryEntriesVisited = 0;
 
-  int get filesRead => _filesRead;
-  int get bytesRead => _bytesRead;
-
   bool get isExpired => _remainingTime <= Duration.zero;
 
   /// Reads one UTF-8 file without ever retaining more than the configured

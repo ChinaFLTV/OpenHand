@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:uuid/uuid.dart';
 
@@ -75,8 +74,6 @@ class HookExecutionResult {
   final String? blockReason;
   final List<String> errors;
   final List<HookEntryResult> hookResults;
-
-  bool get hasErrors => errors.isNotEmpty;
 }
 
 /// Detailed result for a single hook execution.
@@ -121,11 +118,6 @@ class HookEntryResult {
 class HooksExecutor {
   HooksExecutor({required HooksController controller})
     : _enabledHooksForEvent = controller.enabledHooksForEvent;
-
-  @visibleForTesting
-  HooksExecutor.forTesting({
-    required List<HookEntry> Function(HookEvent event) enabledHooksForEvent,
-  }) : _enabledHooksForEvent = enabledHooksForEvent;
 
   static const Uuid _uuid = Uuid();
   final List<HookEntry> Function(HookEvent event) _enabledHooksForEvent;

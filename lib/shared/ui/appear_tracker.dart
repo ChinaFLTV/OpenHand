@@ -6,10 +6,6 @@ class AppearTracker {
   final Set<String> _seen = <String>{};
   bool _initialBuildDone = false;
 
-  /// True iff [shouldAnimate] would return `true` for an id that has not
-  /// been seen yet.
-  bool get isInitialBuildDone => _initialBuildDone;
-
   /// Mark the initial population as done. Calls to [shouldAnimate] only
   /// return `true` once the initial build has completed — so the very
   /// first frame of an app launch never animates an existing list.

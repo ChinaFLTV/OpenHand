@@ -456,9 +456,6 @@ class HarnessOrchestrator extends ChangeNotifier {
     notifyListeners();
   }
 
-  bool canExecutePhase(HarnessPhase phase) =>
-      phaseExecutionBlocker(phase) == null;
-
   HarnessPhaseExecutionBlocker? phaseExecutionBlocker(HarnessPhase phase) {
     final roleConfig = _roleConfigForPhase(phase);
     if (!roleConfig.isConfigured) {

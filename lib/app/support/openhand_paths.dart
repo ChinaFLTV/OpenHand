@@ -62,10 +62,6 @@ abstract final class OpenHandPaths {
     return p.join(homeDirectoryPath(), '.openhand', 'openhand.db');
   }
 
-  static String defaultSessionAttachmentsDirectoryPath() {
-    return p.join(defaultSessionsDirectoryPath(), 'attachments');
-  }
-
   /// Root directory used for all OpenHand on-disk artifacts (`~/.openhand`).
   /// Centralising this path keeps the data-cleanup module aligned with the
   /// rest of the storage layout and avoids ad-hoc `p.join(home, '.openhand')`

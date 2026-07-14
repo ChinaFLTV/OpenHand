@@ -41,9 +41,7 @@ enum BashCommandApprovalDecision {
   rejected,
   dismissed,
   timedOut,
-  cancelled;
-
-  bool get isApproved => this == BashCommandApprovalDecision.approved;
+  cancelled,
 }
 
 String bashCommandApprovalDecisionValue(BashCommandApprovalDecision decision) {
@@ -1777,10 +1775,6 @@ class AiBashToolService {
       return _CmdWriteCommandAnalyzer(normalized).analyze();
     }
     return _ShellWriteCommandAnalyzer(normalized).analyze();
-  }
-
-  bool isLikelyWriteCommand(String command) {
-    return analyzeWriteCommand(command).isWrite;
   }
 
   BashWriteAnalysis? _fastPathWriteAnalysis(String command) {

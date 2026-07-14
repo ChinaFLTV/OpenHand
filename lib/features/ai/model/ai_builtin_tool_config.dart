@@ -534,16 +534,6 @@ class AiBuiltinToolConfig {
     return nullIfBlank(displayName) ?? kind.name;
   }
 
-  /// 生效的描述。
-  String get effectiveDescription {
-    final base = isCustom ? nullIfBlank(customDescription) : null;
-    final prompt = nullIfBlank(promptOverride);
-    if (base != null && prompt != null) {
-      return '$base\n\n$prompt';
-    }
-    return base ?? prompt ?? '';
-  }
-
   AiBuiltinToolConfig copyWith({
     AiBuiltinToolKind? kind,
     bool? enabled,

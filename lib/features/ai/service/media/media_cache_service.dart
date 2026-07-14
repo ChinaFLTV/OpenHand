@@ -11,7 +11,6 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:crypto/crypto.dart';
-import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:path/path.dart' as p;
 
 import '../../../../app/support/openhand_paths.dart';
@@ -43,31 +42,14 @@ class MediaCacheStats {
 }
 
 class MediaCacheService {
-  MediaCacheService._({
-    String Function()? cacheDirectoryPathProvider,
-    HttpClient Function(Duration connectionTimeout)? createHttpClient,
-    int validatedPathCacheMaxEntries = _validatedPathCacheMaxEntries,
-  }) : _validatedCachePaths = LifecycleLruCache<bool>(
-         maxEntries: validatedPathCacheMaxEntries,
-       ),
-       _cacheDirectoryPathProvider =
-           cacheDirectoryPathProvider ??
-           OpenHandPaths.defaultMediaCacheDirectoryPath,
-       _createHttpClient =
-           createHttpClient ??
-           ((connectionTimeout) => SystemProxyResolver.instance
-               .createRawHttpClient(connectionTimeout: connectionTimeout));
-
-  @visibleForTesting
-  MediaCacheService.forTesting({
-    required String cacheDirectoryPath,
-    HttpClient Function(Duration connectionTimeout)? createHttpClient,
-    int validatedPathCacheMaxEntries = _validatedPathCacheMaxEntries,
-  }) : this._(
-         cacheDirectoryPathProvider: () => cacheDirectoryPath,
-         createHttpClient: createHttpClient,
-         validatedPathCacheMaxEntries: validatedPathCacheMaxEntries,
-       );
+  MediaCacheService._()
+    : _validatedCachePaths = LifecycleLruCache<bool>(
+        maxEntries: _validatedPathCacheMaxEntries,
+      ),
+      _cacheDirectoryPathProvider =
+          OpenHandPaths.defaultMediaCacheDirectoryPath,
+      _createHttpClient = ((connectionTimeout) => SystemProxyResolver.instance
+          .createRawHttpClient(connectionTimeout: connectionTimeout));
 
   static final MediaCacheService instance = MediaCacheService._();
 

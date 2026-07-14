@@ -1,8 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:flutter/foundation.dart';
-
 import '../../../app/state/settings_controller.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../shared/util/async_concurrency.dart';
@@ -74,7 +72,7 @@ class ThrottleAutoSyncService {
     if (_started || _disposed) return;
     _started = true;
     _settingsController.addListener(_onSettingsChanged);
-    _lastConfigSignature = signatureForConfig(
+    _lastConfigSignature = _signatureForConfig(
       _settingsController.exportAiStreamThrottleConfig(),
     );
     _lastSyncTarget = _readSyncTarget();
@@ -149,7 +147,7 @@ class ThrottleAutoSyncService {
       }
     }
 
-    final signature = signatureForConfig(
+    final signature = _signatureForConfig(
       _settingsController.exportAiStreamThrottleConfig(),
     );
     if (signature == _lastConfigSignature) return;
@@ -240,8 +238,8 @@ class ThrottleAutoSyncService {
         return;
       }
 
-      final remoteSignature = signatureForConfig(result.config!);
-      final localSignature = signatureForConfig(
+      final remoteSignature = _signatureForConfig(result.config!);
+      final localSignature = _signatureForConfig(
         _settingsController.exportAiStreamThrottleConfig(),
       );
       if (remoteSignature == localSignature) {
@@ -277,7 +275,7 @@ class ThrottleAutoSyncService {
         );
         return;
       }
-      _lastConfigSignature = signatureForConfig(
+      _lastConfigSignature = _signatureForConfig(
         _settingsController.exportAiStreamThrottleConfig(),
       );
     } catch (error, stack) {
@@ -343,8 +341,7 @@ class ThrottleAutoSyncService {
 
   /// Produces escaped canonical JSON so delimiters inside values cannot make
   /// two different configurations share a signature.
-  @visibleForTesting
-  static String signatureForConfig(Map<String, Object?> config) {
+  static String _signatureForConfig(Map<String, Object?> config) {
     final keys =
         config.keys
             .where((key) => !_signatureMetadataKeys.contains(key))

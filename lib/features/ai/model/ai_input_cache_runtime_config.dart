@@ -1,5 +1,3 @@
-import '../../../shared/util/input_value_parsing.dart';
-
 /// 输入缓存运行时配置。
 ///
 /// 由 [AiSessionController] 在每轮请求开始时根据 SettingsController 与
@@ -51,8 +49,4 @@ class AiInputCacheRuntimeConfig {
   final String promptCacheKey;
 
   bool get isEffectivelyEnabled => enabled && breakpointCount > 0;
-
-  bool get hasCacheAffinityId => nullIfBlank(cacheAffinityId) != null;
-
-  bool get hasPromptCacheKey => nullIfBlank(promptCacheKey) != null;
 }

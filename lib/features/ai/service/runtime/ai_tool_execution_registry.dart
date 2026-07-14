@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../../../../app/support/silent_log.dart';
+import '../../../../shared/util/async_concurrency.dart';
 
 /// 工具调用执行登记中心 —— 全应用单例。
 ///
@@ -12,22 +13,20 @@ import '../../../../app/support/silent_log.dart';
 ///   * **可中断性**：每条记录都关联一个 killer 闭包；调用 [cancelToolCall] 可独立
 ///     终止某一条工具调用，调用 [cancelSession] 可级联终止某会话名下全部工具调用，
 ///     互不干扰，避免 per-session cancel Future "一刀切"误杀并行兄弟。
-///   * **统计**：执行结束后由 [unregister] 写入收尾时间，外部消费者可据此做埋点。
 ///
 /// 该模块只负责"注册-观察-取消"，不直接派生子进程；具体进程派生与信号语义由
 /// `AiBashToolService._killProcess` / MCP 实现 / 技能脚本各自负责。
 class AiToolExecutionRegistry with ChangeNotifier {
   AiToolExecutionRegistry._internal();
 
+  static const Duration _cancelTimeout = Duration(seconds: 3);
+  static const int _cancelConcurrency = 4;
+
   static final AiToolExecutionRegistry instance =
       AiToolExecutionRegistry._internal();
 
   /// toolCallId → 内部条目（含可变 killer / pid）。
   final Map<String, _RegisteredEntry> _entries = <String, _RegisteredEntry>{};
-
-  /// 本次应用生命周期内累计执行过的工具调用数（不含未注册的）。
-  int _lifetimeCount = 0;
-  int get lifetimeCount => _lifetimeCount;
 
   /// 当前全部进行中的执行记录，按起始时间升序。
   ///
@@ -42,8 +41,8 @@ class AiToolExecutionRegistry with ChangeNotifier {
   AiToolExecutionRecord? recordOf(String toolCallId) =>
       _entries[toolCallId]?.record;
 
-  /// 注册一条新的工具调用执行；若 [toolCallId] 已存在则替换（旧 killer 会先被丢弃，
-  /// **不会主动调用**——避免新的 register 误杀仍然在用的 process 句柄）。
+  /// 注册一条新的工具调用执行；若 [toolCallId] 已存在，先异步回收旧执行，
+  /// 避免替换记录后丢失旧进程的 killer。
   ///
   /// 默认 [killer] 为 no-op；具体实现（如 Bash 工具）可在派生 Process 后通过
   /// [attachKiller] 替换为真正的进程终止函数。[attachPid] 可在拿到 pid 后补登。
@@ -57,6 +56,10 @@ class AiToolExecutionRegistry with ChangeNotifier {
     if (toolCallId.isEmpty) {
       return;
     }
+    final previous = _entries[toolCallId];
+    if (previous != null) {
+      unawaited(_cancelEntry(previous, 'replace duplicate $toolCallId'));
+    }
     _entries[toolCallId] = _RegisteredEntry(
       killer: killer ?? () => Future<void>.value(),
       record: AiToolExecutionRecord(
@@ -67,7 +70,6 @@ class AiToolExecutionRegistry with ChangeNotifier {
         startedAt: DateTime.now(),
       ),
     );
-    _lifetimeCount += 1;
     notifyListeners();
   }
 
@@ -98,11 +100,7 @@ class AiToolExecutionRegistry with ChangeNotifier {
   Future<void> cancelToolCall(String toolCallId) async {
     final entry = _entries[toolCallId];
     if (entry == null) return;
-    try {
-      await entry.killer();
-    } catch (error, stack) {
-      silentLog('ai_tool_exec_registry', 'cancel $toolCallId', error, stack);
-    }
+    await _cancelEntry(entry, 'cancel $toolCallId');
   }
 
   /// 级联取消某 sessionId 名下全部进行中的工具调用。
@@ -110,18 +108,23 @@ class AiToolExecutionRegistry with ChangeNotifier {
     final targets = _entries.values
         .where((entry) => entry.record.sessionId == sessionId)
         .toList(growable: false);
-    for (final entry in targets) {
-      try {
-        await entry.killer();
-      } catch (error, stack) {
-        silentLog(
-          'ai_tool_exec_registry',
-          'cancel-session ${entry.record.toolCallId}',
-          error,
-          stack,
-        );
-      }
-    }
+    await forEachIndexWithConcurrencyLimit(
+      itemCount: targets.length,
+      maxConcurrency: _cancelConcurrency,
+      task: (index) {
+        final entry = targets[index];
+        return _cancelEntry(entry, 'cancel-session ${entry.record.toolCallId}');
+      },
+    );
+  }
+
+  Future<void> _cancelEntry(_RegisteredEntry entry, String action) async {
+    await runAsyncCleanupBounded(
+      entry.killer,
+      timeout: _cancelTimeout,
+      onError: (error, stack) =>
+          silentLog('ai_tool_exec_registry', action, error, stack),
+    );
   }
 }
 

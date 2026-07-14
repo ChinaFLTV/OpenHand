@@ -113,99 +113,21 @@ Future<Process> _startMcpStdioProcess(
   );
 }
 
-Duration _positiveDuration(String name, Duration value) {
-  if (value <= Duration.zero) {
-    throw ArgumentError.value(value, name, 'must be greater than zero');
-  }
-  return value;
-}
-
-Duration _nonNegativeDuration(String name, Duration value) {
-  if (value < Duration.zero) {
-    throw ArgumentError.value(value, name, 'must not be negative');
-  }
-  return value;
-}
-
-int _positiveLimit(String name, int value) {
-  if (value <= 0) {
-    throw ArgumentError.value(value, name, 'must be greater than zero');
-  }
-  return value;
-}
-
 /// 管理 STDIO 类型 MCP 服务的进程生命周期。
 ///
 /// 每个 STDIO MCP 服务可以独立启动/停止，进程日志实时收集，
 /// 应用退出时自动终止所有子进程。
 class McpStdioProcessManager extends ChangeNotifier {
-  McpStdioProcessManager._({
-    McpStdioProcessStarter processStarter = _startMcpStdioProcess,
-    Duration stdinCloseTimeout = _defaultStdinCloseTimeout,
-    Duration gracefulStopTimeout = _defaultGracefulStopTimeout,
-    Duration forceStopTimeout = _defaultForceStopTimeout,
-    Duration processStartTimeout = _defaultProcessStartTimeout,
-    Duration subscriptionCancelTimeout = _defaultSubscriptionCancelTimeout,
-    Duration initializeStartupDelay = _defaultInitializeStartupDelay,
-    Duration initializeResponseTimeout = _defaultInitializeResponseTimeout,
-    int responseBufferLimit = _defaultResponseBufferLimit,
-  }) : _processStarter = processStarter,
-       _stdinCloseTimeout = _positiveDuration(
-         'stdinCloseTimeout',
-         stdinCloseTimeout,
-       ),
-       _gracefulStopTimeout = _positiveDuration(
-         'gracefulStopTimeout',
-         gracefulStopTimeout,
-       ),
-       _forceStopTimeout = _positiveDuration(
-         'forceStopTimeout',
-         forceStopTimeout,
-       ),
-       _processStartTimeout = _positiveDuration(
-         'processStartTimeout',
-         processStartTimeout,
-       ),
-       _subscriptionCancelTimeout = _positiveDuration(
-         'subscriptionCancelTimeout',
-         subscriptionCancelTimeout,
-       ),
-       _initializeStartupDelay = _nonNegativeDuration(
-         'initializeStartupDelay',
-         initializeStartupDelay,
-       ),
-       _initializeResponseTimeout = _positiveDuration(
-         'initializeResponseTimeout',
-         initializeResponseTimeout,
-       ),
-       _responseBufferLimit = _positiveLimit(
-         'responseBufferLimit',
-         responseBufferLimit,
-       );
-
-  /// Creates an isolated manager with deterministic process dependencies.
-  /// Production code should use [instance].
-  McpStdioProcessManager.forTesting({
-    required McpStdioProcessStarter processStarter,
-    Duration stdinCloseTimeout = const Duration(milliseconds: 10),
-    Duration gracefulStopTimeout = const Duration(milliseconds: 10),
-    Duration forceStopTimeout = const Duration(milliseconds: 10),
-    Duration processStartTimeout = const Duration(milliseconds: 100),
-    Duration subscriptionCancelTimeout = const Duration(milliseconds: 20),
-    Duration initializeStartupDelay = Duration.zero,
-    Duration initializeResponseTimeout = const Duration(milliseconds: 100),
-    int responseBufferLimit = _defaultResponseBufferLimit,
-  }) : this._(
-         processStarter: processStarter,
-         stdinCloseTimeout: stdinCloseTimeout,
-         gracefulStopTimeout: gracefulStopTimeout,
-         forceStopTimeout: forceStopTimeout,
-         processStartTimeout: processStartTimeout,
-         subscriptionCancelTimeout: subscriptionCancelTimeout,
-         initializeStartupDelay: initializeStartupDelay,
-         initializeResponseTimeout: initializeResponseTimeout,
-         responseBufferLimit: responseBufferLimit,
-       );
+  McpStdioProcessManager._()
+    : _processStarter = _startMcpStdioProcess,
+      _stdinCloseTimeout = _defaultStdinCloseTimeout,
+      _gracefulStopTimeout = _defaultGracefulStopTimeout,
+      _forceStopTimeout = _defaultForceStopTimeout,
+      _processStartTimeout = _defaultProcessStartTimeout,
+      _subscriptionCancelTimeout = _defaultSubscriptionCancelTimeout,
+      _initializeStartupDelay = _defaultInitializeStartupDelay,
+      _initializeResponseTimeout = _defaultInitializeResponseTimeout,
+      _responseBufferLimit = _defaultResponseBufferLimit;
 
   static final McpStdioProcessManager instance = McpStdioProcessManager._();
 

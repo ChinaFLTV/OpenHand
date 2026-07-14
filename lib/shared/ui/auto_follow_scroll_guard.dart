@@ -74,8 +74,6 @@ class AutoFollowScrollGuard {
   /// True while the user holds an active scroll gesture.
   bool get isUserScrolling => _userScrolling;
 
-  bool get isProgrammaticScrolling => _programmaticScroll.active;
-
   /// Wire this into a `NotificationListener<ScrollNotification>.onNotification`.
   /// Returns `false` so other listeners can still process the notification.
   bool handleNotification(ScrollNotification notification) {

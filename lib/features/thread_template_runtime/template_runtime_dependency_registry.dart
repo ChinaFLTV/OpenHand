@@ -478,12 +478,4 @@ class TemplateRuntimeDependencyRegistry {
     }
     return false;
   }
-
-  static List<String> uniquePluginIdsForReverseTemplates() {
-    final ids = <String>{};
-    for (final spec in reverseEngineeringSpecs) {
-      ids.addAll(spec.pluginIds);
-    }
-    return List<String>.unmodifiable(ids);
-  }
 }

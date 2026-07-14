@@ -469,12 +469,6 @@ class AiToolUtils {
     return p.normalize(normalizedInput);
   }
 
-  static String? requireAbsoluteDirectoryPath(String rawPath) {
-    final normalizedInput = rawPath.trim();
-    if (normalizedInput.isEmpty || !p.isAbsolute(normalizedInput)) return null;
-    return p.normalize(normalizedInput);
-  }
-
   static int? readInt(Object? value) {
     return optionalIntegralIntFromValue(value);
   }
@@ -1764,11 +1758,6 @@ class AiToolUtils {
     }
 
     return null;
-  }
-
-  /// 检查 ripgrep 是否可用。
-  static Future<bool> isRipgrepAvailable() async {
-    return await resolveRipgrepPath() != null;
   }
 
   /// 执行进程，正确处理异常并返回统一的 ProcessResult。

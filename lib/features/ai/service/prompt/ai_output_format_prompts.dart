@@ -32,14 +32,8 @@ class AiOutputFormatPrompts {
   static bool _loaded = false;
   static Future<void>? _loading;
 
-  /// 默认 balanced；调用方应优先使用 [htmlFor]。
-  static String get html => _htmlBalanced;
-  static String get htmlBalanced => _htmlBalanced;
-  static String get htmlRich => _htmlRich;
-  static String get htmlVivid => _htmlVivid;
   static String get plainText => _plainText;
   static String get gptChatRules => _gptChatRules;
-  static bool get isLoaded => _loaded;
 
   static String htmlFor(AiHtmlContentRichness richness) {
     switch (richness) {
