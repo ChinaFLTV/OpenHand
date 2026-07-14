@@ -24,6 +24,39 @@ enum AiLspBackendAvailability {
 }
 
 const int _maxLspDocumentBytes = 16 * 1024 * 1024;
+const int _maxLspSessions = 8;
+const int _maxConcurrentLspSessionStarts = 4;
+const Duration _lspSessionStartupTimeout = Duration(seconds: 30);
+
+int _validateLspDocumentText(String filePath, String text) {
+  var bytes = 0;
+  final units = text.codeUnits;
+  for (var index = 0; index < units.length; index++) {
+    final unit = units[index];
+    if (unit <= 0x7F) {
+      bytes += 1;
+    } else if (unit <= 0x7FF) {
+      bytes += 2;
+    } else if (unit >= 0xD800 &&
+        unit <= 0xDBFF &&
+        index + 1 < units.length &&
+        units[index + 1] >= 0xDC00 &&
+        units[index + 1] <= 0xDFFF) {
+      bytes += 4;
+      index++;
+    } else {
+      bytes += 3;
+    }
+    if (bytes > _maxLspDocumentBytes) {
+      throw BoundedFileReadException(
+        filePath: filePath,
+        maxBytes: _maxLspDocumentBytes,
+        failure: BoundedFileReadFailure.tooLarge,
+      );
+    }
+  }
+  return bytes;
+}
 
 class AiLspBackendResolution {
   const AiLspBackendResolution({
@@ -335,7 +368,8 @@ class AiLspClientService {
       _initializationSettleDelay = _defaultInitializationSettleDelay,
       _shutdownRequestDelay = _defaultShutdownRequestDelay,
       _shutdownExitDelay = _defaultShutdownExitDelay,
-      _startupDisposeWait = _defaultStartupDisposeWait;
+      _startupDisposeWait = _defaultStartupDisposeWait,
+      _sessionStartupTimeout = _lspSessionStartupTimeout;
 
   static final AiLspClientService instance = AiLspClientService._();
   static final RegExp _markdownFenceStartPattern = RegExp(r'^```[\w-]*\n');
@@ -361,6 +395,9 @@ class AiLspClientService {
   final Map<String, _AiLspSession> _sessions = <String, _AiLspSession>{};
   final Map<String, _AiLspSessionStart> _sessionStarts =
       <String, _AiLspSessionStart>{};
+  final Set<_AiLspSession> _trackedSessions = HashSet<_AiLspSession>.identity();
+  final Set<_AiLspSession> _startingSessions =
+      HashSet<_AiLspSession>.identity();
   final Map<String, String?> _commandPathCache = <String, String?>{};
   final AiLspProcessLauncher _processLauncher;
   final Duration _requestTimeout;
@@ -368,6 +405,7 @@ class AiLspClientService {
   final Duration _shutdownRequestDelay;
   final Duration _shutdownExitDelay;
   final Duration _startupDisposeWait;
+  final Duration _sessionStartupTimeout;
   int _sessionGeneration = 0;
   Map<String, AiLspLanguageSettings> _baseLanguageSettings =
       const <String, AiLspLanguageSettings>{};
@@ -535,6 +573,9 @@ class AiLspClientService {
     String? language,
     String? documentText,
   }) async {
+    if (documentText != null) {
+      _validateLspDocumentText(filePath, documentText);
+    }
     final backend = await resolveBackendForFile(
       filePath: filePath,
       language: language,
@@ -626,6 +667,9 @@ class AiLspClientService {
     String? language,
     String? documentText,
   }) async {
+    if (documentText != null) {
+      _validateLspDocumentText(filePath, documentText);
+    }
     final backend = await resolveBackendForFile(
       filePath: filePath,
       language: language,
@@ -655,6 +699,9 @@ class AiLspClientService {
     String? language,
     String? documentText,
   }) async {
+    if (documentText != null) {
+      _validateLspDocumentText(filePath, documentText);
+    }
     final backend = await resolveBackendForFile(
       filePath: filePath,
       language: language,
@@ -704,6 +751,9 @@ class AiLspClientService {
     String? triggerCharacter,
     bool isRetrigger = false,
   }) async {
+    if (documentText != null) {
+      _validateLspDocumentText(filePath, documentText);
+    }
     final backend = await resolveBackendForFile(
       filePath: filePath,
       language: language,
@@ -736,6 +786,9 @@ class AiLspClientService {
     String? triggerCharacter,
     bool isRetrigger = false,
   }) async {
+    if (documentText != null) {
+      _validateLspDocumentText(filePath, documentText);
+    }
     final backend = await resolveBackendForFile(
       filePath: filePath,
       language: language,
@@ -782,6 +835,9 @@ class AiLspClientService {
     String? language,
     String? documentText,
   }) async {
+    if (documentText != null) {
+      _validateLspDocumentText(filePath, documentText);
+    }
     final backend = await resolveBackendForFile(
       filePath: filePath,
       language: language,
@@ -810,6 +866,9 @@ class AiLspClientService {
     String? documentText,
     bool insertSpaces = true,
   }) async {
+    if (documentText != null) {
+      _validateLspDocumentText(filePath, documentText);
+    }
     final backend = await resolveBackendForFile(
       filePath: filePath,
       language: language,
@@ -894,6 +953,7 @@ class AiLspClientService {
     required String documentText,
     String? language,
   }) async {
+    _validateLspDocumentText(filePath, documentText);
     final backend = await resolveBackendForFile(
       filePath: filePath,
       language: language,
@@ -915,6 +975,9 @@ class AiLspClientService {
     String? documentText,
     bool waitForPublish = true,
   }) async {
+    if (documentText != null) {
+      _validateLspDocumentText(filePath, documentText);
+    }
     final backend = await resolveBackendForFile(
       filePath: filePath,
       language: language,
@@ -965,10 +1028,7 @@ class AiLspClientService {
 
   Future<void> disposeAll() async {
     _sessionGeneration += 1;
-    final sessions = <_AiLspSession>{
-      ..._sessions.values,
-      ..._sessionStarts.values.map((start) => start.session),
-    };
+    final sessions = <_AiLspSession>{..._trackedSessions, ..._startingSessions};
     final starts = List<_AiLspSessionStart>.of(_sessionStarts.values);
     _sessions.clear();
     _sessionStarts.clear();
@@ -1015,6 +1075,24 @@ class AiLspClientService {
     if (inFlight != null) {
       return inFlight.future;
     }
+    if (_startingSessions.any(
+      (session) => session.backend.cacheKey == cacheKey,
+    )) {
+      throw StateError(
+        'The previous LSP session for this workspace is still stopping.',
+      );
+    }
+    if (_startingSessions.length >= _maxConcurrentLspSessionStarts) {
+      throw StateError(
+        'LSP startup limit reached ($_maxConcurrentLspSessionStarts).',
+      );
+    }
+    final reservedSessions = HashSet<_AiLspSession>.identity()
+      ..addAll(_trackedSessions)
+      ..addAll(_startingSessions);
+    if (reservedSessions.length >= _maxLspSessions) {
+      throw StateError('LSP session limit reached ($_maxLspSessions).');
+    }
 
     final generation = _sessionGeneration;
     late final _AiLspSession session;
@@ -1028,25 +1106,32 @@ class AiLspClientService {
       workspaceEditHandlerProvider: () => _workspaceEditHandler,
       diagnosticsPushCallbackProvider: () => _diagnosticsPushCallback,
       onTerminated: () {
+        _trackedSessions.remove(session);
         if (identical(_sessions[cacheKey], session)) {
           _sessions.remove(cacheKey);
         }
       },
     );
-    final future = _initializeSession(
+    _trackedSessions.add(session);
+    _startingSessions.add(session);
+    final rawFuture = _initializeSession(
       cacheKey: cacheKey,
       generation: generation,
       session: session,
     );
+    final future = rawFuture.timeout(
+      _sessionStartupTimeout,
+      onTimeout: () {
+        unawaited(session.shutdown());
+        throw TimeoutException(
+          'LSP session startup timed out.',
+          _sessionStartupTimeout,
+        );
+      },
+    );
     final start = _AiLspSessionStart(session: session, future: future);
     _sessionStarts[cacheKey] = start;
-    try {
-      return await future;
-    } finally {
-      if (identical(_sessionStarts[cacheKey], start)) {
-        _sessionStarts.remove(cacheKey);
-      }
-    }
+    return future;
   }
 
   Future<_AiLspSession> _initializeSession({
@@ -1071,6 +1156,12 @@ class AiLspClientService {
     } catch (_) {
       await session.shutdown();
       rethrow;
+    } finally {
+      _startingSessions.remove(session);
+      final start = _sessionStarts[cacheKey];
+      if (start != null && identical(start.session, session)) {
+        _sessionStarts.remove(cacheKey);
+      }
     }
   }
 
@@ -1857,6 +1948,7 @@ class _AiLspSession {
   final List<int> _responseBuffer = <int>[];
   final Map<String, _AiLspOpenDocument> _openDocuments =
       <String, _AiLspOpenDocument>{};
+  int _openDocumentBytes = 0;
   final Map<String, List<AiLspDiagnostic>> _diagnosticsByUri =
       <String, List<AiLspDiagnostic>>{};
   final Map<String, Completer<List<AiLspDiagnostic>>> _pendingDiagnostics =
@@ -1877,6 +1969,8 @@ class _AiLspSession {
   // grows beyond this bound. Each request is ≤15s so under normal load it
   // is exceedingly unlikely to reach this ceiling.
   static const int _maxPendingRequests = 256;
+  static const int _maxOpenDocuments = 64;
+  static const int _maxOpenDocumentBytes = 32 * 1024 * 1024;
   static const int _maxLspFrameBytes = 8 * 1024 * 1024;
   static const int _maxLspHeaderBytes = 64 * 1024;
   static const int _maxMessagesPerDrain = 64;
@@ -2076,6 +2170,9 @@ class _AiLspSession {
     required String language,
     String? text,
   }) async {
+    if (text != null) {
+      _validateLspDocumentText(filePath, text);
+    }
     _ensureActive();
     final uri = Uri.file(filePath).toString();
     final currentText =
@@ -2084,15 +2181,23 @@ class _AiLspSession {
           File(filePath),
           maxBytes: _maxLspDocumentBytes,
         );
+    final currentBytes = _validateLspDocumentText(filePath, currentText);
     _ensureActive();
     final existing = _openDocuments[uri];
     if (existing == null) {
+      _ensureOpenDocumentCapacity(
+        uri: uri,
+        requiredBytes: currentBytes,
+        addsDocument: true,
+      );
       _openDocuments[uri] = _AiLspOpenDocument(
         uri: uri,
         language: language,
         text: currentText,
+        byteLength: currentBytes,
         version: 1,
       );
+      _openDocumentBytes += currentBytes;
       _sendNotification('textDocument/didOpen', <String, Object?>{
         'textDocument': <String, Object?>{
           'uri': uri,
@@ -2107,12 +2212,21 @@ class _AiLspSession {
       return true;
     }
     if (existing.text == currentText) {
+      _touchOpenDocument(uri, existing);
       touch();
       return false;
     }
+    _ensureOpenDocumentCapacity(
+      uri: uri,
+      requiredBytes: currentBytes,
+      addsDocument: false,
+    );
+    _openDocumentBytes += currentBytes - existing.byteLength;
     existing
       ..text = currentText
+      ..byteLength = currentBytes
       ..version += 1;
+    _touchOpenDocument(uri, existing);
     _sendNotification('textDocument/didChange', <String, Object?>{
       'textDocument': <String, Object?>{
         'uri': uri,
@@ -2129,6 +2243,47 @@ class _AiLspSession {
     return true;
   }
 
+  void _ensureOpenDocumentCapacity({
+    required String uri,
+    required int requiredBytes,
+    required bool addsDocument,
+  }) {
+    final replacedBytes = _openDocuments[uri]?.byteLength ?? 0;
+    while ((addsDocument && _openDocuments.length >= _maxOpenDocuments) ||
+        _openDocumentBytes - replacedBytes + requiredBytes >
+            _maxOpenDocumentBytes) {
+      final candidate = _openDocuments.keys.firstWhere(
+        (key) => key != uri,
+        orElse: () => '',
+      );
+      if (candidate.isEmpty) {
+        throw StateError('LSP open-document capacity is exhausted.');
+      }
+      _removeOpenDocument(candidate, notifyServer: true);
+    }
+  }
+
+  void _touchOpenDocument(String uri, _AiLspOpenDocument document) {
+    _openDocuments.remove(uri);
+    _openDocuments[uri] = document;
+  }
+
+  void _removeOpenDocument(String uri, {required bool notifyServer}) {
+    final removed = _openDocuments.remove(uri);
+    if (removed == null) return;
+    _openDocumentBytes = math.max(0, _openDocumentBytes - removed.byteLength);
+    _diagnosticsByUri.remove(uri);
+    final pendingDiagnostics = _pendingDiagnostics.remove(uri);
+    if (pendingDiagnostics != null && !pendingDiagnostics.isCompleted) {
+      pendingDiagnostics.complete(const <AiLspDiagnostic>[]);
+    }
+    if (notifyServer && isAlive) {
+      _sendNotification('textDocument/didClose', <String, Object?>{
+        'textDocument': <String, Object?>{'uri': uri},
+      });
+    }
+  }
+
   Future<void> closeDocument(String filePath) async {
     if (!isAlive) {
       return;
@@ -2137,15 +2292,7 @@ class _AiLspSession {
     if (!_openDocuments.containsKey(uri)) {
       return;
     }
-    _openDocuments.remove(uri);
-    _diagnosticsByUri.remove(uri);
-    final pendingDiagnostics = _pendingDiagnostics.remove(uri);
-    if (pendingDiagnostics != null && !pendingDiagnostics.isCompleted) {
-      pendingDiagnostics.complete(const <AiLspDiagnostic>[]);
-    }
-    _sendNotification('textDocument/didClose', <String, Object?>{
-      'textDocument': <String, Object?>{'uri': uri},
-    });
+    _removeOpenDocument(uri, notifyServer: true);
     touch();
   }
 
@@ -2916,6 +3063,7 @@ class _AiLspSession {
     _pendingDiagnostics.clear();
     _serverRequestQueue.clear();
     _openDocuments.clear();
+    _openDocumentBytes = 0;
     _diagnosticsByUri.clear();
     _responseBuffer.clear();
     _bufferDrainScheduled = false;
@@ -2976,12 +3124,14 @@ class _AiLspOpenDocument {
     required this.uri,
     required this.language,
     required this.text,
+    required this.byteLength,
     required this.version,
   });
 
   final String uri;
   final String language;
   String text;
+  int byteLength;
   int version;
 }
 
