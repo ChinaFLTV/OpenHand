@@ -10,6 +10,7 @@ import 'package:path/path.dart' as p;
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../app/support/system_proxy.dart';
+import '../../../shared/net/abortable_http_request.dart';
 import '../../../shared/net/http_redirect_utils.dart';
 import '../../../shared/net/http_response_utils.dart';
 import '../../../shared/net/http_status_utils.dart';
@@ -1553,7 +1554,11 @@ Future<http.StreamedResponse> _sendRequestWithRedirects({
       request.body = currentBody;
     }
 
-    final response = await client.send(request).timeout(requestTimeout);
+    final response = await sendAbortableHttpRequest(
+      client: client,
+      request: request,
+      connectionTimeout: requestTimeout,
+    );
     if (!isRedirectStatusCode(response.statusCode)) {
       return response;
     }

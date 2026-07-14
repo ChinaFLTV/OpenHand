@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 import '../../../app/state/settings_controller.dart'
     show aiStreamThrottleConfigSchemaVersion, migrateAiStreamThrottleConfig;
 import '../../../app/support/silent_log.dart';
+import '../../../shared/net/abortable_http_request.dart';
 import '../../../shared/net/http_response_utils.dart';
 import '../../../shared/net/http_status_utils.dart';
 import '../../../shared/util/async_concurrency.dart';
@@ -367,7 +368,11 @@ class ThrottleCloudSyncService {
     }
     final request = http.Request(method, uri)..headers.addAll(headers);
     if (bodyBytes != null) request.bodyBytes = bodyBytes;
-    final response = await client.send(request);
+    final response = await sendAbortableHttpRequest(
+      client: client,
+      request: request,
+      connectionTimeout: _remoteRequestTimeout,
+    );
     final body = await readBoundedByteStreamText(
       response.stream,
       maxBytes: _maxResponseBytes,

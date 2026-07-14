@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 
 import '../../../app/support/silent_log.dart';
 import '../../../app/support/system_proxy.dart';
+import '../../../shared/net/abortable_http_request.dart';
 import '../../../shared/net/http_response_utils.dart';
 import '../../../shared/net/http_status_utils.dart';
 import '../../../shared/util/byte_size_format.dart';
@@ -131,7 +132,11 @@ class SkillMarketClient {
     request.headers[HttpHeaders.acceptHeader] =
         'application/zip, application/octet-stream, */*';
 
-    final response = await _client.send(request).timeout(_requestTimeout);
+    final response = await sendAbortableHttpRequest(
+      client: _client,
+      request: request,
+      connectionTimeout: _requestTimeout,
+    );
     if (isHttpFailureStatus(response.statusCode)) {
       // Drain the body before throwing so the underlying connection can be
       // returned to the pool / closed cleanly instead of leaking.
@@ -391,7 +396,11 @@ class SkillMarketClient {
   Future<Map<String, Object?>> _getJson(Uri uri) async {
     final request = http.Request('GET', uri)
       ..headers[HttpHeaders.acceptHeader] = 'application/json';
-    final response = await _client.send(request).timeout(_requestTimeout);
+    final response = await sendAbortableHttpRequest(
+      client: _client,
+      request: request,
+      connectionTimeout: _requestTimeout,
+    );
     if (isHttpFailureStatus(response.statusCode)) {
       await _drainResponseStreamBestEffort(
         response.stream,
