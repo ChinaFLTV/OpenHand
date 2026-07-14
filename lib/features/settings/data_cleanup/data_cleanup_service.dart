@@ -278,32 +278,6 @@ class DataCleanupService {
     );
   }
 
-  /// 所有分类合计。计算独立分支的并集，**不会**重复加和。
-  Future<DataCleanupSizeReport> measureAll() async {
-    final results = await Future.wait<DataCleanupSizeReport>(
-      <Future<DataCleanupSizeReport>>[
-        measureMultimedia(),
-        measureSessions(),
-        measureAppCache(),
-        measureLogs(),
-        measureUserMemory(),
-        measureMcpConfig(),
-        measureMcpOpsCache(),
-        measureWebGatewayOpsCache(),
-        measureHooks(),
-        measureCrons(),
-        measureInstructions(),
-        measureSkillsDirectory(),
-        measureLspDirectory(),
-        measureMutationLedger(),
-      ],
-    );
-    return results.fold<DataCleanupSizeReport>(
-      DataCleanupSizeReport.empty,
-      (acc, item) => acc + item,
-    );
-  }
-
   // 清理动作
   /// 删除所有附件目录里的文件 + 网络多媒体缓存。会话行本身保留——
   /// 附件引用变成"找不到文件"，UI 层会自动降级展示。

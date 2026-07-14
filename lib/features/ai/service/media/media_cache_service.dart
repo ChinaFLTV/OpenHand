@@ -410,10 +410,6 @@ class MediaCacheService {
     return persistent + legacy;
   }
 
-  static Future<int> totalCacheBytes() async {
-    return (await measureCache()).bytes;
-  }
-
   static Future<void> clearCache() async {
     instance._validatedCachePaths.clear();
     await Future.wait(<Future<void>>[

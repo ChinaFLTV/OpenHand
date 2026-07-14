@@ -2,11 +2,13 @@ import 'dart:io';
 import 'dart:ui' show Locale;
 
 import '../../app/support/safe_subprocess.dart';
+import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/localized_text.dart';
 
 const Duration _kToolchainProbeTimeout = Duration(seconds: 5);
 const Duration _kToolchainCommandTimeout = Duration(minutes: 10);
+const int _kToolchainProbeMaxConcurrency = 4;
 
 const Map<String, String> androidReverseToolchainPluginIds = <String, String>{
   'keytool': 'java',
@@ -324,7 +326,11 @@ probeAndroidReverseToolchain() async {
         )
         .toList(growable: false);
   }
-  return Future.wait(androidReverseToolchainProbes.map(_runToolchainProbe));
+  return runOrderedWithConcurrencyLimit<AndroidReverseToolchainProbeResult>(
+    itemCount: androidReverseToolchainProbes.length,
+    maxConcurrency: _kToolchainProbeMaxConcurrency,
+    task: (index) => _runToolchainProbe(androidReverseToolchainProbes[index]),
+  );
 }
 
 Future<AndroidReverseToolchainCommandResult> runAndroidReverseToolchainCommand(
