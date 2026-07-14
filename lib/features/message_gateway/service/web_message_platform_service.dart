@@ -257,6 +257,8 @@ class WebMessagePlatformService {
       <WebGatewayCleanupResult>[];
   final Map<String, _WebGatewayAuthSession> _authSessions =
       <String, _WebGatewayAuthSession>{};
+  final Map<String, List<DateTime>> _loginAttemptsByRemoteAddress =
+      <String, List<DateTime>>{};
   final Map<String, _WebWriteApprovalRequest> _pendingWriteApprovals =
       <String, _WebWriteApprovalRequest>{};
   final Map<String, Map<String, DateTime>> _queuedGoalYieldLeasesBySessionId =
@@ -321,6 +323,19 @@ class WebMessagePlatformService {
   static const int _connectivityProbeMinTimeoutMs = 500;
   static const int _connectivityProbeMaxTimeoutMs = 10000;
   static const Duration _queuedGoalYieldLeaseDuration = Duration(minutes: 15);
+  static const Duration _authSessionTtl = Duration(hours: 24);
+  static const Duration _loginRateLimitWindow = Duration(minutes: 1);
+  static const int _maxAuthSessions = 128;
+  static const int _maxTrackedLoginAddresses = 256;
+  static const int _maxLoginAttemptsPerWindow = 12;
+  static const int _maxLoginBodyBytes = 16 * 1024;
+  static const int _maxAuthCredentialCharacters = 4096;
+  static const int _maxAuthTokenCharacters = 128;
+  static const int _maxAuthDeviceIdCharacters = 128;
+  static const int _maxAuthMetadataCharacters = 256;
+  static const int _maxAuthUserAgentCharacters = 512;
+  static const int _maxQueuedGoalYieldLeaseSessions = 256;
+  static const int _maxQueuedGoalYieldLeasesPerSession = 16;
   static const Set<AiBuiltinToolKind> _knowledgeBaseBuiltinToolKinds =
       <AiBuiltinToolKind>{
         AiBuiltinToolKind.knowledgeSearch,
@@ -618,19 +633,9 @@ class WebMessagePlatformService {
   }
 
   bool _hasQueuedGoalInterruption(String sessionId) {
+    _pruneQueuedGoalYieldLeases(DateTime.now().toUtc());
     final leases = _queuedGoalYieldLeasesBySessionId[sessionId];
-    if (leases == null || leases.isEmpty) {
-      return false;
-    }
-    final cutoff = DateTime.now().toUtc().subtract(
-      _queuedGoalYieldLeaseDuration,
-    );
-    leases.removeWhere((_, updatedAt) => updatedAt.isBefore(cutoff));
-    if (leases.isEmpty) {
-      _queuedGoalYieldLeasesBySessionId.remove(sessionId);
-      return false;
-    }
-    return true;
+    return leases != null && leases.isNotEmpty;
   }
 
   void _setQueuedGoalInterruption({
@@ -639,6 +644,8 @@ class WebMessagePlatformService {
     required bool hasPendingQueue,
   }) {
     final authKey = auth.token.trim().isEmpty ? 'anonymous' : auth.token.trim();
+    final now = DateTime.now().toUtc();
+    _pruneQueuedGoalYieldLeases(now);
     if (!hasPendingQueue) {
       final leases = _queuedGoalYieldLeasesBySessionId[sessionId];
       leases?.remove(authKey);
@@ -647,11 +654,131 @@ class WebMessagePlatformService {
       }
       return;
     }
+    if (!_queuedGoalYieldLeasesBySessionId.containsKey(sessionId) &&
+        _queuedGoalYieldLeasesBySessionId.length >=
+            _maxQueuedGoalYieldLeaseSessions) {
+      String? oldestSessionId;
+      DateTime? oldestUpdatedAt;
+      for (final entry in _queuedGoalYieldLeasesBySessionId.entries) {
+        final latestUpdatedAt = entry.value.values.reduce(
+          (left, right) => left.isAfter(right) ? left : right,
+        );
+        if (oldestUpdatedAt == null ||
+            latestUpdatedAt.isBefore(oldestUpdatedAt)) {
+          oldestSessionId = entry.key;
+          oldestUpdatedAt = latestUpdatedAt;
+        }
+      }
+      if (oldestSessionId != null) {
+        _queuedGoalYieldLeasesBySessionId.remove(oldestSessionId);
+      }
+    }
     final leases = _queuedGoalYieldLeasesBySessionId.putIfAbsent(
       sessionId,
       () => <String, DateTime>{},
     );
-    leases[authKey] = DateTime.now().toUtc();
+    if (!leases.containsKey(authKey) &&
+        leases.length >= _maxQueuedGoalYieldLeasesPerSession) {
+      final oldestKey = leases.entries
+          .reduce(
+            (left, right) => left.value.isBefore(right.value) ? left : right,
+          )
+          .key;
+      leases.remove(oldestKey);
+    }
+    leases[authKey] = now;
+  }
+
+  void _pruneQueuedGoalYieldLeases(DateTime now) {
+    final cutoff = now.subtract(_queuedGoalYieldLeaseDuration);
+    _queuedGoalYieldLeasesBySessionId.removeWhere((_, leases) {
+      leases.removeWhere((_, updatedAt) => updatedAt.isBefore(cutoff));
+      return leases.isEmpty;
+    });
+  }
+
+  String _boundedAuthText(Object? value, int maxCharacters) {
+    return clipText(_string(value, '').trim(), maxCharacters, suffix: '');
+  }
+
+  String _requestRemoteAddress(shelf.Request request) {
+    return _boundedAuthText(
+      (request.context['shelf.io.connection_info'] as HttpConnectionInfo?)
+              ?.remoteAddress
+              .address ??
+          'unknown',
+      _maxAuthMetadataCharacters,
+    );
+  }
+
+  bool _admitLoginAttempt(String remoteAddress, DateTime now) {
+    final cutoff = now.subtract(_loginRateLimitWindow);
+    _loginAttemptsByRemoteAddress.removeWhere((_, attempts) {
+      attempts.removeWhere((attempt) => attempt.isBefore(cutoff));
+      return attempts.isEmpty;
+    });
+    if (!_loginAttemptsByRemoteAddress.containsKey(remoteAddress) &&
+        _loginAttemptsByRemoteAddress.length >= _maxTrackedLoginAddresses) {
+      _loginAttemptsByRemoteAddress.remove(
+        _loginAttemptsByRemoteAddress.keys.first,
+      );
+    }
+    final attempts = _loginAttemptsByRemoteAddress.putIfAbsent(
+      remoteAddress,
+      () => <DateTime>[],
+    );
+    if (attempts.length >= _maxLoginAttemptsPerWindow) return false;
+    attempts.add(now);
+    return true;
+  }
+
+  void _removeAuthSession(String token) {
+    if (_authSessions.remove(token) == null) return;
+    _queuedGoalYieldLeasesBySessionId.removeWhere((_, leases) {
+      leases.remove(token);
+      return leases.isEmpty;
+    });
+  }
+
+  void _pruneAuthSessions(DateTime now) {
+    final cutoff = now.subtract(_authSessionTtl);
+    final expiredTokens = _authSessions.entries
+        .where((entry) => entry.value.loginAt.isBefore(cutoff))
+        .map((entry) => entry.key)
+        .toList(growable: false);
+    for (final token in expiredTokens) {
+      _removeAuthSession(token);
+    }
+    while (_authSessions.length > _maxAuthSessions) {
+      _removeAuthSession(_authSessions.keys.first);
+    }
+  }
+
+  _WebGatewayAuthSession? _authSessionForToken(String token) {
+    _pruneAuthSessions(DateTime.now().toUtc());
+    final session = _authSessions.remove(token);
+    if (session == null) return null;
+    _authSessions[token] = session;
+    return session;
+  }
+
+  void _storeAuthSession(_WebGatewayAuthSession session) {
+    _pruneAuthSessions(DateTime.now().toUtc());
+    final replacedTokens = _authSessions.entries
+        .where(
+          (entry) =>
+              entry.value.source == session.source &&
+              entry.value.deviceId == session.deviceId,
+        )
+        .map((entry) => entry.key)
+        .toList(growable: false);
+    for (final token in replacedTokens) {
+      _removeAuthSession(token);
+    }
+    while (_authSessions.length >= _maxAuthSessions) {
+      _removeAuthSession(_authSessions.keys.first);
+    }
+    _authSessions[session.token] = session;
   }
 
   void updateTheme(WebGatewayThemeSnapshot theme) {
@@ -795,6 +922,7 @@ class WebMessagePlatformService {
       _state = WebGatewayRuntimeState.stopped;
       _startedAt = null;
       _authSessions.clear();
+      _loginAttemptsByRemoteAddress.clear();
       _queuedGoalYieldLeasesBySessionId.clear();
       _log(WebGatewayLogLevel.success, 'OPS', 'Web 服务已停止');
       return;
@@ -818,10 +946,18 @@ class WebMessagePlatformService {
         config.enabled != _config.enabled ||
         config.listenHost != _config.listenHost ||
         config.listenPort != _config.listenPort;
+    final authChanged =
+        config.authEnabled != _config.authEnabled ||
+        config.username != _config.username ||
+        config.password != _config.password;
     if (needsRestart) {
       await restart(config);
     } else {
       _config = config;
+      if (authChanged) {
+        _authSessions.clear();
+        _queuedGoalYieldLeasesBySessionId.clear();
+      }
     }
     _log(WebGatewayLogLevel.info, 'OPS', '配置已重新加载');
   }
@@ -1615,6 +1751,7 @@ class WebMessagePlatformService {
     router.get('/api/health', _apiHealth);
     router.get('/api/meta', _apiMeta);
     router.post('/api/login', _login);
+    router.post('/api/logout', (shelf.Request r) => _withAuth(r, _logout));
     router.get(
       '/api/tts/playback',
       (shelf.Request r) => _withAuth(r, _getTtsPlaybackState),
@@ -2895,28 +3032,43 @@ class WebMessagePlatformService {
   }
 
   Future<shelf.Response> _login(shelf.Request request) async {
-    final body = await _readJsonBody(request);
+    final now = DateTime.now().toUtc();
+    final remoteAddress = _requestRemoteAddress(request);
+    if (!_admitLoginAttempt(remoteAddress, now)) {
+      _log(WebGatewayLogLevel.warn, 'AUTH', '登录请求触发频率限制', <String, Object?>{
+        'remote_ip': remoteAddress,
+        'limit': _maxLoginAttemptsPerWindow,
+      });
+      return _json(HttpStatus.tooManyRequests, const <String, Object?>{
+        'error': 'login_rate_limited',
+      }).change(headers: const <String, String>{'retry-after': '60'});
+    }
+    final body = await _readJsonBody(request, maxBytes: _maxLoginBodyBytes);
     final source = WebGatewayLoginSource.fromStorage(
-      _string(body['source'], 'WEB_PC'),
+      _boundedAuthText(body['source'], _maxAuthMetadataCharacters),
     );
-    final deviceId = _string(body['device_id'], '').trim();
-    if (deviceId.isEmpty) {
+    final rawDeviceId = _string(body['device_id'], '').trim();
+    final deviceId = _boundedAuthText(rawDeviceId, _maxAuthDeviceIdCharacters);
+    if (deviceId.isEmpty || deviceId != rawDeviceId) {
       return _json(HttpStatus.badRequest, <String, Object?>{
-        'error': 'device_id_required',
+        'error': deviceId.isEmpty ? 'device_id_required' : 'device_id_too_long',
       });
     }
     if (_config.authEnabled) {
       final username = _string(body['username'], '').trim();
       final password = _string(body['password'], '');
-      if (username != _config.username || password != _config.password) {
+      final credentialsTooLong =
+          clipText(username, _maxAuthCredentialCharacters, suffix: '') !=
+              username ||
+          clipText(password, _maxAuthCredentialCharacters, suffix: '') !=
+              password;
+      if (credentialsTooLong ||
+          username != _config.username ||
+          password != _config.password) {
         _log(WebGatewayLogLevel.warn, 'AUTH', '登录失败', <String, Object?>{
-          'username': username,
+          'username': _boundedAuthText(username, _maxAuthMetadataCharacters),
           'device_id': deviceId,
-          'remote_ip':
-              (request.context['shelf.io.connection_info']
-                      as HttpConnectionInfo?)
-                  ?.remoteAddress
-                  .address,
+          'remote_ip': remoteAddress,
         });
         return _json(HttpStatus.unauthorized, <String, Object?>{
           'error': 'invalid_credentials',
@@ -2928,32 +3080,63 @@ class WebMessagePlatformService {
       token: token,
       source: source,
       deviceId: deviceId,
-      deviceMacAddress: _string(body['device_mac_address'], ''),
-      deviceName: _string(body['device_name'], ''),
-      devicePlatform: _string(body['device_platform'], ''),
-      osName: _string(body['os_name'], ''),
-      osVersion: _string(body['os_version'], ''),
-      browserName: _string(body['browser_name'], ''),
-      browserVersion: _string(body['browser_version'], ''),
-      webClientVersion: _string(body['web_client_version'], ''),
-      locale: _string(body['locale'], ''),
-      timezone: _string(body['timezone'], ''),
-      screenClass: _string(body['screen_class'], ''),
-      loginAt: DateTime.now().toUtc(),
-      remoteAddress:
-          (request.context['shelf.io.connection_info'] as HttpConnectionInfo?)
-              ?.remoteAddress
-              .address ??
-          '',
-      userAgent: request.headers[HttpHeaders.userAgentHeader] ?? '',
+      deviceMacAddress: _boundedAuthText(
+        body['device_mac_address'],
+        _maxAuthMetadataCharacters,
+      ),
+      deviceName: _boundedAuthText(
+        body['device_name'],
+        _maxAuthMetadataCharacters,
+      ),
+      devicePlatform: _boundedAuthText(
+        body['device_platform'],
+        _maxAuthMetadataCharacters,
+      ),
+      osName: _boundedAuthText(body['os_name'], _maxAuthMetadataCharacters),
+      osVersion: _boundedAuthText(
+        body['os_version'],
+        _maxAuthMetadataCharacters,
+      ),
+      browserName: _boundedAuthText(
+        body['browser_name'],
+        _maxAuthMetadataCharacters,
+      ),
+      browserVersion: _boundedAuthText(
+        body['browser_version'],
+        _maxAuthMetadataCharacters,
+      ),
+      webClientVersion: _boundedAuthText(
+        body['web_client_version'],
+        _maxAuthMetadataCharacters,
+      ),
+      locale: _boundedAuthText(body['locale'], _maxAuthMetadataCharacters),
+      timezone: _boundedAuthText(body['timezone'], _maxAuthMetadataCharacters),
+      screenClass: _boundedAuthText(
+        body['screen_class'],
+        _maxAuthMetadataCharacters,
+      ),
+      loginAt: now,
+      remoteAddress: remoteAddress,
+      userAgent: _boundedAuthText(
+        request.headers[HttpHeaders.userAgentHeader],
+        _maxAuthUserAgentCharacters,
+      ),
     );
-    _authSessions[token] = session;
+    _storeAuthSession(session);
     _log(WebGatewayLogLevel.success, 'AUTH', '登录成功', session.toMetadata());
     return _json(HttpStatus.ok, <String, Object?>{
       'token': token,
-      'expires_in': null,
+      'expires_in': _authSessionTtl.inSeconds,
       'profile': session.toMetadata(),
     });
+  }
+
+  Future<shelf.Response> _logout(
+    shelf.Request _,
+    _WebGatewayAuthSession auth,
+  ) async {
+    _removeAuthSession(auth.token);
+    return _json(HttpStatus.ok, const <String, Object?>{'ok': true});
   }
 
   Future<shelf.Response> _listSessions(
@@ -5002,6 +5185,16 @@ class WebMessagePlatformService {
 
     late void Function() dispose;
 
+    bool authStillValid() {
+      if (!_config.authEnabled) return auth.token == 'anonymous';
+      return identical(_authSessionForToken(auth.token), auth);
+    }
+
+    void closeUnauthorizedStream() {
+      emit('unauthorized', const <String, Object?>{'error': 'unauthorized'});
+      Future<void>.microtask(dispose);
+    }
+
     void scheduleSnapshot() {
       if (disposed) return;
       throttleTimer?.cancel();
@@ -5015,6 +5208,10 @@ class WebMessagePlatformService {
           }
           snapshotInFlight = true;
           try {
+            if (!authStillValid()) {
+              closeUnauthorizedStream();
+              return;
+            }
             final live = _findAuthorizedSession(auth, sessionId);
             if (live == null) {
               emit('session_deleted', <String, Object?>{
@@ -5027,6 +5224,10 @@ class WebMessagePlatformService {
             }
             final snapshot = await buildSnapshot(live);
             if (disposed) return;
+            if (!authStillValid()) {
+              closeUnauthorizedStream();
+              return;
+            }
             final sessionPayload = snapshot['session'] as Map<String, Object?>;
             final throttlePayload =
                 snapshot['effective_stream_throttle'] as Map<String, Object?>?;
@@ -5086,6 +5287,10 @@ class WebMessagePlatformService {
       const Duration(seconds: 25),
       (_) {
         if (disposed || controller.isClosed) return;
+        if (!authStillValid()) {
+          closeUnauthorizedStream();
+          return;
+        }
         try {
           controller.add(utf8.encode(':keepalive\n\n'));
         } catch (error, stack) {
@@ -5396,18 +5601,28 @@ class WebMessagePlatformService {
       // 匿名模式下 EventSource 无法带自定义 header，因此 query string 是
       // `/events` 的首选身份来源；手写 HTTP 调用仍可回落到 header。
       final qp = request.requestedUri.queryParameters;
-      String pick(String queryKey, String headerKey, String fallback) {
+      String pick(
+        String queryKey,
+        String headerKey,
+        String fallback, {
+        int maxCharacters = _maxAuthMetadataCharacters,
+      }) {
         final queryValue = qp[queryKey]?.trim();
-        if (queryValue != null && queryValue.isNotEmpty) return queryValue;
+        if (queryValue != null && queryValue.isNotEmpty) {
+          return _boundedAuthText(queryValue, maxCharacters);
+        }
         final headerValue = request.headers[headerKey]?.trim();
-        if (headerValue != null && headerValue.isNotEmpty) return headerValue;
-        return fallback;
+        if (headerValue != null && headerValue.isNotEmpty) {
+          return _boundedAuthText(headerValue, maxCharacters);
+        }
+        return _boundedAuthText(fallback, maxCharacters);
       }
 
       final deviceId = pick(
         'device_id',
         'x-openhand-device-id',
         'anonymous-web',
+        maxCharacters: _maxAuthDeviceIdCharacters,
       );
       return _WebGatewayAuthSession(
         token: 'anonymous',
@@ -5447,19 +5662,18 @@ class WebMessagePlatformService {
         timezone: pick('timezone', 'x-openhand-timezone', ''),
         screenClass: pick('screen_class', 'x-openhand-screen-class', ''),
         loginAt: DateTime.now().toUtc(),
-        remoteAddress:
-            (request.context['shelf.io.connection_info'] as HttpConnectionInfo?)
-                ?.remoteAddress
-                .address ??
-            '',
-        userAgent: request.headers[HttpHeaders.userAgentHeader] ?? '',
+        remoteAddress: _requestRemoteAddress(request),
+        userAgent: _boundedAuthText(
+          request.headers[HttpHeaders.userAgentHeader],
+          _maxAuthUserAgentCharacters,
+        ),
       );
     }
     final fromHeader = _authorize(request);
     if (fromHeader != null) return fromHeader;
     final token = request.requestedUri.queryParameters['token']?.trim() ?? '';
-    if (token.isEmpty) return null;
-    return _authSessions[token];
+    if (token.isEmpty || token.length > _maxAuthTokenCharacters) return null;
+    return _authSessionForToken(token);
   }
 
   Future<shelf.Response> _listLogs(shelf.Request request) async {
@@ -5820,40 +6034,52 @@ class WebMessagePlatformService {
 
   _WebGatewayAuthSession? _authorize(shelf.Request request) {
     if (!_config.authEnabled) {
-      final deviceId =
-          request.headers['x-openhand-device-id'] ?? 'anonymous-web';
+      String header(
+        String name, {
+        String fallback = '',
+        int maxCharacters = _maxAuthMetadataCharacters,
+      }) {
+        return _boundedAuthText(
+          request.headers[name] ?? fallback,
+          maxCharacters,
+        );
+      }
+
+      final deviceId = header(
+        'x-openhand-device-id',
+        fallback: 'anonymous-web',
+        maxCharacters: _maxAuthDeviceIdCharacters,
+      );
       return _WebGatewayAuthSession(
         token: 'anonymous',
         source: WebGatewayLoginSource.fromStorage(
-          request.headers['x-openhand-source'] ?? 'WEB_PC',
+          header('x-openhand-source', fallback: 'WEB_PC'),
         ),
         deviceId: deviceId,
-        deviceMacAddress: request.headers['x-openhand-device-mac'] ?? '',
-        deviceName: request.headers['x-openhand-device-name'] ?? '',
-        devicePlatform: request.headers['x-openhand-device-platform'] ?? '',
-        osName: request.headers['x-openhand-os-name'] ?? '',
-        osVersion: request.headers['x-openhand-os-version'] ?? '',
-        browserName: request.headers['x-openhand-browser-name'] ?? '',
-        browserVersion: request.headers['x-openhand-browser-version'] ?? '',
-        webClientVersion:
-            request.headers['x-openhand-web-client-version'] ?? '',
-        locale: request.headers['x-openhand-locale'] ?? '',
-        timezone: request.headers['x-openhand-timezone'] ?? '',
-        screenClass: request.headers['x-openhand-screen-class'] ?? '',
+        deviceMacAddress: header('x-openhand-device-mac'),
+        deviceName: header('x-openhand-device-name'),
+        devicePlatform: header('x-openhand-device-platform'),
+        osName: header('x-openhand-os-name'),
+        osVersion: header('x-openhand-os-version'),
+        browserName: header('x-openhand-browser-name'),
+        browserVersion: header('x-openhand-browser-version'),
+        webClientVersion: header('x-openhand-web-client-version'),
+        locale: header('x-openhand-locale'),
+        timezone: header('x-openhand-timezone'),
+        screenClass: header('x-openhand-screen-class'),
         loginAt: DateTime.now().toUtc(),
-        remoteAddress:
-            (request.context['shelf.io.connection_info'] as HttpConnectionInfo?)
-                ?.remoteAddress
-                .address ??
-            '',
-        userAgent: request.headers[HttpHeaders.userAgentHeader] ?? '',
+        remoteAddress: _requestRemoteAddress(request),
+        userAgent: header(
+          HttpHeaders.userAgentHeader,
+          maxCharacters: _maxAuthUserAgentCharacters,
+        ),
       );
     }
     final authHeader = request.headers[HttpHeaders.authorizationHeader] ?? '';
     if (!authHeader.startsWith('Bearer ')) return null;
     final token = authHeader.substring('Bearer '.length).trim();
-    if (token.isEmpty) return null;
-    return _authSessions[token];
+    if (token.isEmpty || token.length > _maxAuthTokenCharacters) return null;
+    return _authSessionForToken(token);
   }
 
   AiSession? _findAuthorizedSession(

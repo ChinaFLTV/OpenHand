@@ -513,12 +513,6 @@ abstract class AppLocalizations {
   /// **'OpenHand Skeleton'**
   String get modelLabel;
 
-  /// No description provided for @platformLabel.
-  ///
-  /// In zh, this message translates to:
-  /// **'桌面端'**
-  String get platformLabel;
-
   /// No description provided for @permissionLabel.
   ///
   /// In zh, this message translates to:
@@ -4853,12 +4847,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'位置'**
   String get imageEditorWatermarkPositionLabel;
-
-  /// No description provided for @imageEditorWatermarkColorLight.
-  ///
-  /// In zh, this message translates to:
-  /// **'浅色'**
-  String get imageEditorWatermarkColorLight;
 
   /// No description provided for @imageEditorAdvancedApplyHint.
   ///
@@ -12778,12 +12766,6 @@ abstract class AppLocalizations {
   /// **'name 必填'**
   String get webReverseCookieEditorNameRequired;
 
-  /// web_reverse: Cookie editor · fetchfailed
-  ///
-  /// In zh, this message translates to:
-  /// **'失败：{error}'**
-  String webReverseCookieEditorFetchFailed(String error);
-
   /// web_reverse: Cookie editor · cookiecount
   ///
   /// In zh, this message translates to:
@@ -13749,12 +13731,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'反查命中 {count}：包含调用「{name}」的函数'**
   String webReverseCallgraphHitsHeader(int count, String name);
-
-  /// web_reverse: SW debug · enabling
-  ///
-  /// In zh, this message translates to:
-  /// **'启用 ServiceWorker 域...'**
-  String get webReverseSwDebugEnabling;
 
   /// web_reverse: SW debug · fetchingregs
   ///
@@ -17894,12 +17870,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'好的'**
   String get commonOk;
-
-  /// OpenHand localized UI text.
-  ///
-  /// In zh, this message translates to:
-  /// **'完成'**
-  String get commonDone;
 
   /// OpenHand localized UI text.
   ///

@@ -85,7 +85,6 @@
     }
   },
   "modelLabel": "OpenHand Skeleton",
-  "platformLabel": "Desktop",
   "permissionLabel": "Full Access",
   "settingsCategoryGeneral": "General",
   "settingsCategoryAi": "AI",
@@ -1550,7 +1549,6 @@
   "imageEditorWatermarkSizeLabel": "Text size",
   "imageEditorWatermarkOpacityLabel": "Opacity",
   "imageEditorWatermarkPositionLabel": "Position",
-  "imageEditorWatermarkColorLight": "Light",
   "imageEditorAdvancedApplyHint": "Adjustments in expanded panels are applied to the original image when you save.",
   "skillsEditorSave": "Save",
   "skillsEditorCancel": "Cancel",
@@ -4240,15 +4238,6 @@
   "@webReverseCookieEditorNameRequired": {
     "description": "web_reverse: Cookie editor · namerequired"
   },
-  "webReverseCookieEditorFetchFailed": "Failed: {error}",
-  "@webReverseCookieEditorFetchFailed": {
-    "description": "web_reverse: Cookie editor · fetchfailed",
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
   "webReverseCookieEditorCookieCount": "{count} cookies",
   "@webReverseCookieEditorCookieCount": {
     "description": "web_reverse: Cookie editor · cookiecount",
@@ -5024,10 +5013,6 @@
         "type": "String"
       }
     }
-  },
-  "webReverseSwDebugEnabling": "Enable ServiceWorker...",
-  "@webReverseSwDebugEnabling": {
-    "description": "web_reverse: SW debug · enabling"
   },
   "webReverseSwDebugFetchingRegs": "Fetching registrations...",
   "@webReverseSwDebugFetchingRegs": {
@@ -7905,10 +7890,6 @@
   },
   "commonOk": "OK",
   "@commonOk": {
-    "description": "OpenHand localized UI text."
-  },
-  "commonDone": "Done",
-  "@commonDone": {
     "description": "OpenHand localized UI text."
   },
   "commonExport": "Export",

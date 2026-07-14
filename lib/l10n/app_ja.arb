@@ -85,7 +85,6 @@
     }
   },
   "modelLabel": "OpenHand スケルトン",
-  "platformLabel": "デスクトップ",
   "permissionLabel": "フルアクセス",
   "settingsCategoryGeneral": "一般",
   "settingsCategoryAi": "AI",
@@ -1550,7 +1549,6 @@
   "imageEditorWatermarkSizeLabel": "テキストサイズ",
   "imageEditorWatermarkOpacityLabel": "不透明度",
   "imageEditorWatermarkPositionLabel": "位置",
-  "imageEditorWatermarkColorLight": "ライト",
   "imageEditorAdvancedApplyHint": "展開パネル内の調整は、保存時に元の画像へ適用されます。",
   "skillsEditorSave": "保存",
   "skillsEditorCancel": "キャンセル",
@@ -4238,15 +4236,6 @@
   "@webReverseCookieEditorNameRequired": {
     "description": "web_reverse: Cookie editor · namerequired"
   },
-  "webReverseCookieEditorFetchFailed": "Failed: {error}",
-  "@webReverseCookieEditorFetchFailed": {
-    "description": "web_reverse: Cookie editor · fetchfailed",
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
   "webReverseCookieEditorCookieCount": "{count} cookies",
   "@webReverseCookieEditorCookieCount": {
     "description": "web_reverse: Cookie editor · cookiecount",
@@ -5022,10 +5011,6 @@
         "type": "String"
       }
     }
-  },
-  "webReverseSwDebugEnabling": "Enable ServiceWorker...",
-  "@webReverseSwDebugEnabling": {
-    "description": "web_reverse: SW debug · enabling"
   },
   "webReverseSwDebugFetchingRegs": "Fetching registrations...",
   "@webReverseSwDebugFetchingRegs": {
@@ -7903,10 +7888,6 @@
   },
   "commonOk": "OK",
   "@commonOk": {
-    "description": "OpenHand localized UI text."
-  },
-  "commonDone": "完了",
-  "@commonDone": {
     "description": "OpenHand localized UI text."
   },
   "commonExport": "エクスポート",

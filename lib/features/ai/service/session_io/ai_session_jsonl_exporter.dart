@@ -829,20 +829,6 @@ int _metadataListLength(Object? value) {
   return 0;
 }
 
-String encodeAiSessionToJsonlText({
-  required AiSession session,
-  AiSessionExportConfig config = AiSessionExportConfig.defaults,
-}) {
-  final buffer = StringBuffer();
-  for (final line in _encodeAiSessionJsonlLines(
-    session: session,
-    config: config,
-  )) {
-    buffer.writeln(line);
-  }
-  return buffer.toString();
-}
-
 /// Streams a session export one JSONL line at a time so Web responses do not
 /// retain a second full-session string while the client downloads it.
 Stream<List<int>> encodeAiSessionToJsonlByteStream({

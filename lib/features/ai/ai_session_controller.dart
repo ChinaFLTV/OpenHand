@@ -1392,14 +1392,20 @@ class AiSessionController extends ChangeNotifier {
     _sessionCacheStatsHydrationTasks.removeWhere(
       (sessionId, _) => !liveSessionIds.contains(sessionId),
     );
+    final previousThrottleOverrideCount =
+        _sessionStreamThrottleOverrides.length;
+    _sessionStreamThrottleOverrides.removeWhere(
+      (sessionId, _) => !liveSessionIds.contains(sessionId),
+    );
+    if (_sessionStreamThrottleOverrides.length !=
+        previousThrottleOverrideCount) {
+      _sessionStreamThrottleSignal.value++;
+    }
     _sessionHeaderMutationGenerations.removeWhere(
       (sessionId, _) =>
           !liveSessionIds.contains(sessionId) &&
           !_sessionHeaderOperationQueues.containsKey(sessionId),
     );
-    // Remove stale entries from _deletedSessionIds that no longer have
-    // in-flight operations.  An entry is safe to remove when no session
-    // operation queue is pending for that id.
     _deletedSessionIds.removeWhere(
       (sessionId) => !_sessionOperationQueues.containsKey(sessionId),
     );
@@ -4414,6 +4420,15 @@ class AiSessionController extends ChangeNotifier {
     required String sessionId,
     required AiSession? deletedSession,
   }) async {
+    await runAsyncCleanupBounded(
+      () => _bashToolService.closeSession(sessionId),
+      onError: (error, stack) => silentLog(
+        'ai_session_controller',
+        'close persistent bash session after delete',
+        error,
+        stack,
+      ),
+    );
     if (!_sessionOperationQueues.containsKey(sessionId)) {
       _clearSessionExecutionState(sessionId);
       _sessionOperationQueues.remove(sessionId);

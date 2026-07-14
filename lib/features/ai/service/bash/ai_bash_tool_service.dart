@@ -535,14 +535,22 @@ class _PersistentBashSession {
 
   final Process process;
   String currentWorkingDirectory;
+  int lastUsedSerial = 0;
   StreamSubscription<String>? stdoutSubscription;
   StreamSubscription<String>? stderrSubscription;
   _PersistentBashExecution? activeExecution;
+  Timer? idleTimer;
   Future<void>? cleanupFuture;
+  bool starting = true;
+  bool inUse = false;
 }
 
 class _CancelledPersistentBashExecution implements Exception {
   const _CancelledPersistentBashExecution();
+}
+
+class _PersistentBashSessionBusy implements Exception {
+  const _PersistentBashSessionBusy();
 }
 
 class AiBashToolService {
@@ -550,6 +558,9 @@ class AiBashToolService {
 
   static const int defaultTimeoutMs = 120000;
   static const Duration _subscriptionCancelTimeout = Duration(seconds: 1);
+  static const int _maxPersistentSessions = 8;
+  static const Duration _persistentSessionIdleTimeout = Duration(minutes: 5);
+  static const Duration _persistentShutdownTimeout = Duration(seconds: 5);
   // 2026-05 — `bashOutputMaxBytes` 设置项：从 SettingsController 注入。
   // 旧默认 32000；放宽到 200_000，与 snapshot.defaultBashOutputMaxBytes 对齐。
   int maxCapturedCharacters = 200000;
@@ -560,10 +571,14 @@ class AiBashToolService {
       <String, _PersistentBashSession>{};
   final Map<String, Future<_PersistentBashSession>> _persistentSessionStarts =
       <String, Future<_PersistentBashSession>>{};
+  final Map<String, Future<void>> _persistentSessionCloses =
+      <String, Future<void>>{};
   int _persistentMarkerCounter = 0;
+  int _persistentUsageSerial = 0;
   int _lastSeenProxyRevision = SystemProxyResolver.instance.revision.value;
   bool _proxyListenerRegistered = false;
   bool _disposed = false;
+  Future<void>? _shutdownFuture;
 
   /// Lazy 注册：仅当本实例真的会启动 shell 子进程（execute / 持久 session）
   /// 才订阅代理变更。`AiPromptBuilder._bashWriteAnalyzer` 这种只用 analyze
@@ -579,9 +594,21 @@ class AiBashToolService {
     if (next == _lastSeenProxyRevision) return;
     _lastSeenProxyRevision = next;
     // Snapshot keys：在异步关闭过程中可能新增 session。
-    final ids = _persistentSessions.keys.toList(growable: false);
+    final ids = <String>{
+      ..._persistentSessions.keys,
+      ..._persistentSessionStarts.keys,
+    };
     for (final id in ids) {
-      unawaited(_closePersistentSession(id));
+      unawaited(
+        closeSession(id).catchError((Object error, StackTrace stack) {
+          silentLog(
+            'ai_bash_tool_service',
+            'close persistent session after proxy change',
+            error,
+            stack,
+          );
+        }),
+      );
     }
   }
 
@@ -862,16 +889,18 @@ class AiBashToolService {
         timeoutMs: timeoutMs,
         toolCallId: toolCallId,
       );
-      // If the persistent session died unexpectedly, retry with a one-shot
-      // subprocess so the user doesn't see a bare "bad state" error.
-      if (persistentResult.exitCode == -1 &&
-          persistentResult.status == BashToolExecutionStatus.failed &&
-          persistentResult.stderr.contains(
-            'persistent bash session exited unexpectedly',
-          )) {
-        // Fall through to the one-shot execution below.
-      } else {
-        return persistentResult;
+      if (persistentResult != null) {
+        // If the persistent session died unexpectedly, retry with a one-shot
+        // subprocess so the user doesn't see a bare "bad state" error.
+        if (persistentResult.exitCode == -1 &&
+            persistentResult.status == BashToolExecutionStatus.failed &&
+            persistentResult.stderr.contains(
+              'persistent bash session exited unexpectedly',
+            )) {
+          // Fall through to the one-shot execution below.
+        } else {
+          return persistentResult;
+        }
       }
     }
 
@@ -1120,7 +1149,7 @@ class AiBashToolService {
     );
   }
 
-  Future<BashToolExecutionResult> _executeWithPersistentSession({
+  Future<BashToolExecutionResult?> _executeWithPersistentSession({
     required String sessionId,
     required String command,
     required String requestedWorkingDirectory,
@@ -1134,11 +1163,22 @@ class AiBashToolService {
     final fallbackWorkingDirectory = requestedWorkingDirectory.isEmpty
         ? OpenHandPaths.applicationDirectoryPath()
         : requestedWorkingDirectory;
-    late final _PersistentBashSession session;
+    final _PersistentBashSession? claimedSession;
     try {
-      session = await _ensurePersistentSession(
+      claimedSession = await _ensurePersistentSession(
         sessionId: sessionId,
         initialWorkingDirectory: fallbackWorkingDirectory,
+      );
+    } on _PersistentBashSessionBusy {
+      return BashToolExecutionResult(
+        status: BashToolExecutionStatus.failed,
+        command: command,
+        workingDirectory: fallbackWorkingDirectory,
+        stdout: '',
+        stderr: 'Another bash command is already running for this session.',
+        durationMs: 0,
+        isWriteCommand: isWriteCommand,
+        writeAnalysisReason: writeAnalysisReason,
       );
     } on ProcessException catch (error) {
       return BashToolExecutionResult(
@@ -1151,11 +1191,25 @@ class AiBashToolService {
         isWriteCommand: isWriteCommand,
         writeAnalysisReason: writeAnalysisReason,
       );
+    } on StateError catch (error) {
+      return BashToolExecutionResult(
+        status: BashToolExecutionStatus.cancelled,
+        command: command,
+        workingDirectory: fallbackWorkingDirectory,
+        stdout: '',
+        stderr: '$error',
+        durationMs: 0,
+        isWriteCommand: isWriteCommand,
+        writeAnalysisReason: writeAnalysisReason,
+      );
     }
+    if (claimedSession == null) return null;
+    final session = claimedSession;
     final effectiveWorkingDirectory = requestedWorkingDirectory.isEmpty
         ? session.currentWorkingDirectory
         : requestedWorkingDirectory;
     if (session.activeExecution != null) {
+      _releasePersistentSession(sessionId, session);
       return BashToolExecutionResult(
         status: BashToolExecutionStatus.failed,
         command: command,
@@ -1179,30 +1233,30 @@ class AiBashToolService {
       stopwatch: Stopwatch()..start(),
       onUpdate: onUpdate,
     );
-    session.activeExecution = execution;
-    execution.emitUpdate(phase: BashToolExecutionPhase.running, force: true);
-    execution.startStallWatcher();
-    final progressTimer = startSafePeriodicTimer(const Duration(seconds: 1), (
-      _,
-    ) {
-      execution.emitUpdate(phase: BashToolExecutionPhase.running, force: true);
-    });
-
-    // 持久 session 路径接入登记中心：kill 时关闭整个 shell；下次同 sessionId 的
-    // 调用会经 _ensurePersistentSession 自动重建，不影响后续执行。
-    final registeredToolCallId = toolCallId;
-    if (registeredToolCallId != null && registeredToolCallId.isNotEmpty) {
-      AiToolExecutionRegistry.instance.attachPid(
-        registeredToolCallId,
-        session.process.pid,
-      );
-      AiToolExecutionRegistry.instance.attachKiller(
-        registeredToolCallId,
-        () async => _closePersistentSession(sessionId, expected: session),
-      );
-    }
-
+    Timer? progressTimer;
     try {
+      session.activeExecution = execution;
+      execution.emitUpdate(phase: BashToolExecutionPhase.running, force: true);
+      execution.startStallWatcher();
+      progressTimer = startSafePeriodicTimer(const Duration(seconds: 1), (_) {
+        execution.emitUpdate(
+          phase: BashToolExecutionPhase.running,
+          force: true,
+        );
+      });
+
+      final registeredToolCallId = toolCallId;
+      if (registeredToolCallId != null && registeredToolCallId.isNotEmpty) {
+        AiToolExecutionRegistry.instance.attachPid(
+          registeredToolCallId,
+          session.process.pid,
+        );
+        AiToolExecutionRegistry.instance.attachKiller(
+          registeredToolCallId,
+          () async => _closePersistentSession(sessionId, expected: session),
+        );
+      }
+
       session.process.stdin.write(
         _buildPersistentCommandScript(
           command: command,
@@ -1317,11 +1371,12 @@ class AiBashToolService {
         writeAnalysisReason: writeAnalysisReason,
       );
     } finally {
-      progressTimer.cancel();
+      progressTimer?.cancel();
       execution.cancelStallWatcher();
       if (identical(session.activeExecution, execution)) {
         session.activeExecution = null;
       }
+      _releasePersistentSession(sessionId, session);
     }
   }
 
@@ -1410,13 +1465,40 @@ class AiBashToolService {
     );
   }
 
-  Future<_PersistentBashSession> _ensurePersistentSession({
+  Future<_PersistentBashSession?> _ensurePersistentSession({
     required String sessionId,
     required String initialWorkingDirectory,
   }) async {
     if (_disposed) {
       throw StateError('AiBashToolService has been disposed.');
     }
+    if (_persistentSessionCloses.containsKey(sessionId)) {
+      throw StateError('The persistent bash session is closing.');
+    }
+    final session = await _getOrStartPersistentSession(
+      sessionId: sessionId,
+      initialWorkingDirectory: initialWorkingDirectory,
+    );
+    if (session == null) return null;
+    if (_disposed ||
+        _persistentSessionCloses.containsKey(sessionId) ||
+        !identical(_persistentSessions[sessionId], session)) {
+      throw StateError('The persistent bash session is no longer available.');
+    }
+    if (session.inUse) throw const _PersistentBashSessionBusy();
+    session
+      ..starting = false
+      ..inUse = true
+      ..lastUsedSerial = ++_persistentUsageSerial;
+    session.idleTimer?.cancel();
+    session.idleTimer = null;
+    return session;
+  }
+
+  Future<_PersistentBashSession?> _getOrStartPersistentSession({
+    required String sessionId,
+    required String initialWorkingDirectory,
+  }) async {
     final existing = _persistentSessions[sessionId];
     if (existing != null) {
       return existing;
@@ -1425,10 +1507,28 @@ class AiBashToolService {
     if (inFlight != null) {
       return inFlight;
     }
-    final startFuture = _startPersistentSession(
-      sessionId: sessionId,
-      initialWorkingDirectory: initialWorkingDirectory,
-    );
+    _PersistentBashSession? evicted;
+    if (_persistentSessions.length + _persistentSessionStarts.length >=
+        _maxPersistentSessions) {
+      evicted = _oldestIdlePersistentSession();
+      if (evicted == null) return null;
+      _persistentSessions.removeWhere((_, value) => identical(value, evicted));
+      evicted.idleTimer?.cancel();
+      evicted.idleTimer = null;
+    }
+    final sessionToEvict = evicted;
+    final startFuture = () async {
+      if (sessionToEvict != null) {
+        await _disposePersistentSession(sessionToEvict);
+      }
+      if (_disposed || _persistentSessionCloses.containsKey(sessionId)) {
+        throw StateError('The persistent bash session is closing.');
+      }
+      return _startPersistentSession(
+        sessionId: sessionId,
+        initialWorkingDirectory: initialWorkingDirectory,
+      );
+    }();
     _persistentSessionStarts[sessionId] = startFuture;
     try {
       return await startFuture;
@@ -1437,6 +1537,21 @@ class AiBashToolService {
         _persistentSessionStarts.remove(sessionId);
       }
     }
+  }
+
+  _PersistentBashSession? _oldestIdlePersistentSession() {
+    _PersistentBashSession? oldest;
+    for (final session in _persistentSessions.values) {
+      if (session.starting ||
+          session.inUse ||
+          session.activeExecution != null) {
+        continue;
+      }
+      if (oldest == null || session.lastUsedSerial < oldest.lastUsedSerial) {
+        oldest = session;
+      }
+    }
+    return oldest;
   }
 
   Future<_PersistentBashSession> _startPersistentSession({
@@ -1451,7 +1566,7 @@ class AiBashToolService {
         : const <String>[];
     // 持久 shell 是会话级长寿对象。启动时把当前用户级代理注入为环境变量，
     // 让会话内的 curl / wget / git / npm / pip 等命令默认走代理；切换代理
-    // 设置时通过 _restartPersistentSessionForProxyChange 重启 shell。
+    // 设置变化时关闭现有 shell，下一条命令会按新代理环境重建。
     final proxyEnv = SystemProxyResolver.instance
         .resolveSubprocessEnvironment();
     final mergedEnvironment = proxyEnv.isEmpty
@@ -1475,7 +1590,7 @@ class AiBashToolService {
       currentWorkingDirectory: initialWorkingDirectory,
     );
     try {
-      if (_disposed) {
+      if (_disposed || _persistentSessionCloses.containsKey(sessionId)) {
         throw StateError(
           'AiBashToolService was disposed during shell startup.',
         );
@@ -1540,6 +1655,11 @@ class AiBashToolService {
           _persistentSessions.remove(sessionId);
         }
       });
+      if (_disposed || _persistentSessionCloses.containsKey(sessionId)) {
+        throw StateError(
+          'AiBashToolService was disposed during shell startup.',
+        );
+      }
       _persistentSessions[sessionId] = session;
       return session;
     } catch (_) {
@@ -1706,6 +1826,73 @@ class AiBashToolService {
     return "'${value.replaceAll("'", r"'\''")}'";
   }
 
+  void _releasePersistentSession(
+    String sessionId,
+    _PersistentBashSession session,
+  ) {
+    session
+      ..inUse = false
+      ..lastUsedSerial = ++_persistentUsageSerial;
+    if (_disposed || !identical(_persistentSessions[sessionId], session)) {
+      return;
+    }
+    session.idleTimer?.cancel();
+    session.idleTimer = startSafeTimer(_persistentSessionIdleTimeout, () {
+      session.idleTimer = null;
+      if (_disposed ||
+          session.inUse ||
+          session.activeExecution != null ||
+          !identical(_persistentSessions[sessionId], session)) {
+        return;
+      }
+      unawaited(
+        _closePersistentSession(sessionId, expected: session).catchError((
+          Object error,
+          StackTrace stack,
+        ) {
+          silentLog(
+            'ai_bash_tool_service',
+            'close idle persistent session',
+            error,
+            stack,
+          );
+        }),
+      );
+    });
+  }
+
+  Future<void> closeSession(String sessionId) {
+    final normalizedSessionId = sessionId.trim();
+    if (normalizedSessionId.isEmpty) return Future<void>.value();
+    final active = _persistentSessionCloses[normalizedSessionId];
+    if (active != null) return active;
+    late final Future<void> closeFuture;
+    closeFuture = _closeSessionResources(normalizedSessionId).whenComplete(() {
+      if (identical(
+        _persistentSessionCloses[normalizedSessionId],
+        closeFuture,
+      )) {
+        _persistentSessionCloses.remove(normalizedSessionId);
+      }
+    });
+    _persistentSessionCloses[normalizedSessionId] = closeFuture;
+    return closeFuture;
+  }
+
+  Future<void> _closeSessionResources(String sessionId) async {
+    final session = _persistentSessions.remove(sessionId);
+    session?.idleTimer?.cancel();
+    final start = _persistentSessionStarts[sessionId];
+    await Future.wait<void>(<Future<void>>[
+      if (session != null) _disposePersistentSession(session),
+      if (start != null)
+        start.then<void>(
+          (lateSession) => _disposePersistentSession(lateSession),
+          onError: (Object _, StackTrace _) {},
+        ),
+    ]);
+  }
+
   Future<void> _closePersistentSession(
     String sessionId, {
     _PersistentBashSession? expected,
@@ -1716,10 +1903,13 @@ class AiBashToolService {
       return;
     }
     _persistentSessions.remove(sessionId);
+    session.idleTimer?.cancel();
     await _disposePersistentSession(session);
   }
 
   Future<void> _disposePersistentSession(_PersistentBashSession session) {
+    session.idleTimer?.cancel();
+    session.idleTimer = null;
     final activeCleanup = session.cleanupFuture;
     if (activeCleanup != null) return activeCleanup;
     final cleanup = _performPersistentSessionCleanup(session);
@@ -1815,8 +2005,9 @@ class AiBashToolService {
         command.contains('>&');
   }
 
-  void dispose() {
-    if (_disposed) return;
+  Future<void> shutdown() {
+    final active = _shutdownFuture;
+    if (active != null) return active;
     _disposed = true;
     if (_proxyListenerRegistered) {
       SystemProxyResolver.instance.revision.removeListener(
@@ -1824,14 +2015,34 @@ class AiBashToolService {
       );
       _proxyListenerRegistered = false;
     }
-    final sessionIds = _persistentSessions.keys.toList(growable: false);
-    for (final sessionId in sessionIds) {
-      final session = _persistentSessions.remove(sessionId);
-      if (session == null) {
-        continue;
-      }
-      unawaited(_disposePersistentSession(session));
+    final sessions = _persistentSessions.values.toList(growable: false);
+    _persistentSessions.clear();
+    final starts = _persistentSessionStarts.values.toList(growable: false);
+    final closes = _persistentSessionCloses.values.toList(growable: false);
+    for (final session in sessions) {
+      session.idleTimer?.cancel();
     }
+    return _shutdownFuture =
+        Future.wait<void>(<Future<void>>[
+              for (final session in sessions)
+                _disposePersistentSession(session),
+              ...closes,
+              for (final start in starts)
+                start.then<void>(
+                  (lateSession) => _disposePersistentSession(lateSession),
+                  onError: (Object _, StackTrace _) {},
+                ),
+            ])
+            .timeout(_persistentShutdownTimeout, onTimeout: () => <void>[])
+            .then<void>((_) {});
+  }
+
+  void dispose() {
+    unawaited(
+      shutdown().catchError((Object error, StackTrace stack) {
+        silentLog('ai_bash_tool_service', 'shutdown', error, stack);
+      }),
+    );
   }
 
   /// Kill a process in a platform-safe way.

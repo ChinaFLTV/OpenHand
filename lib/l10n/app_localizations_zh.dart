@@ -217,9 +217,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get modelLabel => 'OpenHand Skeleton';
 
   @override
-  String get platformLabel => '桌面端';
-
-  @override
   String get permissionLabel => '完全访问权限';
 
   @override
@@ -2652,9 +2649,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get imageEditorWatermarkPositionLabel => '位置';
-
-  @override
-  String get imageEditorWatermarkColorLight => '浅色';
 
   @override
   String get imageEditorAdvancedApplyHint => '展开面板中的调整会在“保存”时一次性应用到原图。';
@@ -7004,11 +6998,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get webReverseCookieEditorNameRequired => 'name 必填';
 
   @override
-  String webReverseCookieEditorFetchFailed(String error) {
-    return '失败：$error';
-  }
-
-  @override
   String webReverseCookieEditorCookieCount(int count) {
     return '共 $count 条';
   }
@@ -7538,9 +7527,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String webReverseCallgraphHitsHeader(int count, String name) {
     return '反查命中 $count：包含调用「$name」的函数';
   }
-
-  @override
-  String get webReverseSwDebugEnabling => '启用 ServiceWorker 域...';
 
   @override
   String get webReverseSwDebugFetchingRegs => '拉取注册列表...';
@@ -9824,9 +9810,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get commonOk => '好的';
 
   @override
-  String get commonDone => '完成';
-
-  @override
   String get commonExport => '导出';
 
   @override
@@ -10866,9 +10849,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get modelLabel => 'OpenHand Skeleton';
-
-  @override
-  String get platformLabel => '桌面端';
 
   @override
   String get permissionLabel => '完全訪問權限';
@@ -13305,9 +13285,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get imageEditorWatermarkPositionLabel => '位置';
-
-  @override
-  String get imageEditorWatermarkColorLight => '淺色';
 
   @override
   String get imageEditorAdvancedApplyHint => '展開面板中的調整會在“儲存”時一次性套用到原圖。';
@@ -17654,11 +17631,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get webReverseCookieEditorNameRequired => 'name 必填';
 
   @override
-  String webReverseCookieEditorFetchFailed(String error) {
-    return '失败：$error';
-  }
-
-  @override
   String webReverseCookieEditorCookieCount(int count) {
     return '共 $count 条';
   }
@@ -18188,9 +18160,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String webReverseCallgraphHitsHeader(int count, String name) {
     return '反查命中 $count：包含调用「$name」的函数';
   }
-
-  @override
-  String get webReverseSwDebugEnabling => '启用 ServiceWorker 域...';
 
   @override
   String get webReverseSwDebugFetchingRegs => '拉取注册列表...';
@@ -20472,9 +20441,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get commonOk => '好的';
-
-  @override
-  String get commonDone => '完成';
 
   @override
   String get commonExport => '匯出';

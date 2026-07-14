@@ -1547,6 +1547,9 @@ Future<T?> showAnimatedModalSheet<T>({
   return showAnimatedDialog<T>(
     context: context,
     settings: settings,
+    transitionProfile: const OpenHandAnimationTransitionProfile(
+      alignment: Alignment.bottomCenter,
+    ),
     barrierDismissible: barrierDismissible,
     dismissOnEscape: dismissOnEscape,
     barrierLabel: barrierLabel,

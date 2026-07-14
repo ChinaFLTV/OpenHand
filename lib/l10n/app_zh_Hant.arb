@@ -85,7 +85,6 @@
     }
   },
   "modelLabel": "OpenHand Skeleton",
-  "platformLabel": "桌面端",
   "permissionLabel": "完全訪問權限",
   "settingsCategoryGeneral": "常規",
   "settingsCategoryAi": "AI",
@@ -1550,7 +1549,6 @@
   "imageEditorWatermarkSizeLabel": "文字大小",
   "imageEditorWatermarkOpacityLabel": "不透明度",
   "imageEditorWatermarkPositionLabel": "位置",
-  "imageEditorWatermarkColorLight": "淺色",
   "imageEditorAdvancedApplyHint": "展開面板中的調整會在“儲存”時一次性套用到原圖。",
   "skillsEditorSave": "儲存",
   "skillsEditorCancel": "取消",
@@ -4240,15 +4238,6 @@
   "@webReverseCookieEditorNameRequired": {
     "description": "web_reverse: Cookie editor · namerequired"
   },
-  "webReverseCookieEditorFetchFailed": "失败：{error}",
-  "@webReverseCookieEditorFetchFailed": {
-    "description": "web_reverse: Cookie editor · fetchfailed",
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
   "webReverseCookieEditorCookieCount": "共 {count} 条",
   "@webReverseCookieEditorCookieCount": {
     "description": "web_reverse: Cookie editor · cookiecount",
@@ -5024,10 +5013,6 @@
         "type": "String"
       }
     }
-  },
-  "webReverseSwDebugEnabling": "启用 ServiceWorker 域...",
-  "@webReverseSwDebugEnabling": {
-    "description": "web_reverse: SW debug · enabling"
   },
   "webReverseSwDebugFetchingRegs": "拉取注册列表...",
   "@webReverseSwDebugFetchingRegs": {
@@ -7905,10 +7890,6 @@
   },
   "commonOk": "好的",
   "@commonOk": {
-    "description": "OpenHand localized UI text."
-  },
-  "commonDone": "完成",
-  "@commonDone": {
     "description": "OpenHand localized UI text."
   },
   "commonExport": "匯出",

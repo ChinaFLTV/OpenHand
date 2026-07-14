@@ -714,15 +714,12 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     }
   }
 
-  DialogAnimationSettings _resolveDialogAnimationSettingsSafe() {
-    return openHandMotionSettingsOf(
-      context,
-      OpenHandMotionSettingsScope.dialog,
-    );
+  DialogAnimationSettings _resolveMenuAnimationSettings() {
+    return openHandMotionSettingsOf(context, OpenHandMotionSettingsScope.menu);
   }
 
   void _showAtMentionOverlay() {
-    final animationSettings = _resolveDialogAnimationSettingsSafe();
+    final animationSettings = _resolveMenuAnimationSettings();
     _atMentionOverlay.show(
       overlay: Overlay.of(context, rootOverlay: true),
       builder: (context, visibility, onExitCompleted) {
@@ -987,7 +984,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
   }
 
   void _showSkillPickerOverlay() {
-    final animationSettings = _resolveDialogAnimationSettingsSafe();
+    final animationSettings = _resolveMenuAnimationSettings();
     _skillPickerOverlay.show(
       overlay: Overlay.of(context, rootOverlay: true),
       builder: (context, visibility, onExitCompleted) {

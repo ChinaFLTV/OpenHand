@@ -35,8 +35,8 @@ export function TopBar(props: TopBarProps) {
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
 
   const confirmLogout = () => {
-    logout();
     setLogoutConfirmOpen(false);
+    logout();
     showSnackbar(t('common.logout.ok', '已退出登录'), { tone: 'success' });
     if (auth.authRequired) location.route('/login', true);
   };

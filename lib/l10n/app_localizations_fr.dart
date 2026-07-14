@@ -224,9 +224,6 @@ class AppLocalizationsFr extends AppLocalizations {
   String get modelLabel => 'Squelette OpenHand';
 
   @override
-  String get platformLabel => 'Bureau';
-
-  @override
   String get permissionLabel => 'Accès complet';
 
   @override
@@ -2762,9 +2759,6 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get imageEditorWatermarkPositionLabel => 'Position';
-
-  @override
-  String get imageEditorWatermarkColorLight => 'Clair';
 
   @override
   String get imageEditorAdvancedApplyHint =>
@@ -7356,11 +7350,6 @@ class AppLocalizationsFr extends AppLocalizations {
   String get webReverseCookieEditorNameRequired => 'name required';
 
   @override
-  String webReverseCookieEditorFetchFailed(String error) {
-    return 'Failed: $error';
-  }
-
-  @override
   String webReverseCookieEditorCookieCount(int count) {
     return '$count cookies';
   }
@@ -7899,9 +7888,6 @@ class AppLocalizationsFr extends AppLocalizations {
   String webReverseCallgraphHitsHeader(int count, String name) {
     return '$count hits calling \"$name\"';
   }
-
-  @override
-  String get webReverseSwDebugEnabling => 'Enable ServiceWorker...';
 
   @override
   String get webReverseSwDebugFetchingRegs => 'Fetching registrations...';
@@ -10265,9 +10251,6 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get commonOk => 'OK';
-
-  @override
-  String get commonDone => 'Terminé';
 
   @override
   String get commonExport => 'Exporter';

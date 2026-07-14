@@ -4,6 +4,7 @@
 // 直接用 module-scoped subscribers 列表做最轻量的发布订阅。
 
 import { useEffect, useState } from 'preact/hooks';
+import { apiRequest } from '../api/client';
 import { fetchApiMeta, type ApiMetaResponse } from '../api/meta';
 import { applyThemeTokens, defaultThemeTokens, type M3ThemeTokens } from '../theme/tokens';
 import { metaThemeToTokens } from '../api/meta';
@@ -37,6 +38,7 @@ const initialState: AuthState = {
 let current: AuthState = initialState;
 const subscribers = new Set<(s: AuthState) => void>();
 const FOREGROUND_META_REFRESH_MIN_INTERVAL_MS = 2000;
+const LOGOUT_REQUEST_TIMEOUT_MS = 2000;
 
 function emit(next: AuthState): void {
   current = next;
@@ -131,12 +133,19 @@ export function markLoggedIn(profile: AuthProfile): void {
 }
 
 export function logout(): void {
+  const revokeRequest = readToken()
+    ? apiRequest('/api/logout', {
+      method: 'POST',
+      timeoutMs: LOGOUT_REQUEST_TIMEOUT_MS,
+    }).catch(ignoreError)
+    : null;
   clearAuthStorage();
   emit({
     ...current,
     isAuthenticated: !current.authRequired,
     profile: null,
   });
+  if (revokeRequest) void revokeRequest;
 }
 
 /// 显式刷新一次 /api/meta（例如桌面端切换了主题色后）。

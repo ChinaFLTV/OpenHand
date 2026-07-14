@@ -262,12 +262,9 @@ class _TokenPopupCacheHitTrendChartState
     });
   }
 
-  /// Hover tooltip follows the global dialog motion in both directions.
+  /// Hover tooltip follows the global menu motion in both directions.
   DialogAnimationSettings _hoverSettingsFor(BuildContext context) {
-    return openHandMotionSettingsOf(
-      context,
-      OpenHandMotionSettingsScope.dialog,
-    );
+    return openHandMotionSettingsOf(context, OpenHandMotionSettingsScope.menu);
   }
 
   void _handleHoverAnimationStatus(AnimationStatus status) {

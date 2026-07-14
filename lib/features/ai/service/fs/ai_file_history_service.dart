@@ -20,7 +20,6 @@ import '../../../../shared/util/text_clip.dart';
 /// 核心机制：
 /// 1. 每次 Edit/Write 前保存文件当前内容的快照
 /// 2. 每个文件保留最近 N 个版本
-/// 3. 支持回滚到指定版本
 class AiFileHistoryService {
   AiFileHistoryService({String? historyDirectory, this.maxVersionsPerFile = 10})
     : _historyDirectory = historyDirectory == null
@@ -220,47 +219,6 @@ class AiFileHistoryService {
       return versions.take(maxVersionsPerFile).toList(growable: false);
     } catch (_) {
       return const <FileVersionInfo>[];
-    }
-  }
-
-  /// 回滚到指定版本
-  Future<RollbackResult> rollbackToVersion({
-    required String filePath,
-    required String versionId,
-  }) async {
-    if (!_isSafeVersionId(versionId)) {
-      return const RollbackResult.failure('Invalid version ID');
-    }
-    try {
-      final (historicContent, _) = await readVersionContent(
-        filePath: filePath,
-        versionId: versionId,
-      );
-      if (historicContent == null) {
-        return const RollbackResult.failure('Version not found');
-      }
-
-      final location = await _resolveFileHistoryLocation(filePath);
-      final targetFile = File(location.normalizedPath);
-      if (await targetFile.exists()) {
-        final backupId = await saveVersion(
-          filePath: filePath,
-          sessionId: 'rollback-backup',
-          toolCallId: 'pre-rollback-${DateTime.now().millisecondsSinceEpoch}',
-        );
-        if (backupId == null) {
-          return const RollbackResult.failure(
-            'Could not save the current file before rollback',
-          );
-        }
-      }
-
-      // 恢复历史版本
-      await writeFileAtomically(targetFile, historicContent);
-
-      return RollbackResult.success(versionId);
-    } catch (e) {
-      return RollbackResult.failure('Rollback failed: $e');
     }
   }
 
@@ -574,18 +532,4 @@ FileVersionInfo? _decodeVersionInfo(String content) {
   if (decoded is! Map) return null;
   final info = FileVersionInfo.fromJson(stringKeyedMapFromValue(decoded));
   return info.versionId.isEmpty ? null : info;
-}
-
-/// 回滚结果
-class RollbackResult {
-  const RollbackResult.success(this.versionId)
-    : success = true,
-      errorMessage = '';
-  const RollbackResult.failure(this.errorMessage)
-    : success = false,
-      versionId = '';
-
-  final bool success;
-  final String versionId;
-  final String errorMessage;
 }

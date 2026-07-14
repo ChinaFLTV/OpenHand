@@ -218,9 +218,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get modelLabel => 'OpenHand スケルトン';
 
   @override
-  String get platformLabel => 'デスクトップ';
-
-  @override
   String get permissionLabel => 'フルアクセス';
 
   @override
@@ -2684,9 +2681,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get imageEditorWatermarkPositionLabel => '位置';
-
-  @override
-  String get imageEditorWatermarkColorLight => 'ライト';
 
   @override
   String get imageEditorAdvancedApplyHint => '展開パネル内の調整は、保存時に元の画像へ適用されます。';
@@ -7100,11 +7094,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get webReverseCookieEditorNameRequired => 'name required';
 
   @override
-  String webReverseCookieEditorFetchFailed(String error) {
-    return 'Failed: $error';
-  }
-
-  @override
   String webReverseCookieEditorCookieCount(int count) {
     return '$count cookies';
   }
@@ -7643,9 +7632,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String webReverseCallgraphHitsHeader(int count, String name) {
     return '$count hits calling \"$name\"';
   }
-
-  @override
-  String get webReverseSwDebugEnabling => 'Enable ServiceWorker...';
 
   @override
   String get webReverseSwDebugFetchingRegs => 'Fetching registrations...';
@@ -9935,9 +9921,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get commonOk => 'OK';
-
-  @override
-  String get commonDone => '完了';
 
   @override
   String get commonExport => 'エクスポート';

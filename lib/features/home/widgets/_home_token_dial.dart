@@ -88,6 +88,10 @@ class _TokenDialState extends State<_TokenDial>
     );
   }
 
+  DialogAnimationSettings _menuSettings(BuildContext context) {
+    return openHandMotionSettingsOf(context, OpenHandMotionSettingsScope.menu);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -100,7 +104,7 @@ class _TokenDialState extends State<_TokenDial>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final settings = _dialogSettings(context);
+    final settings = _menuSettings(context);
     _transitionController
       ..duration = settings.entranceDuration
       ..reverseDuration = settings.exitDuration;
@@ -211,7 +215,7 @@ class _TokenDialState extends State<_TokenDial>
         return _TokenDialPopupOverlay(
           anchorKey: _anchorKey,
           animation: _transitionController,
-          settings: _dialogSettings(overlayContext),
+          settings: _menuSettings(overlayContext),
           onEnter: _showPopup,
           onExit: () {
             if (!_webClickPinned) _schedulePopupHide();

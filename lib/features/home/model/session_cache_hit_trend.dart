@@ -2,13 +2,6 @@ import '../../../shared/util/input_value_parsing.dart';
 import '../../ai/index.dart';
 import 'cache_hit_ratio.dart';
 
-enum SessionCacheMissKind {
-  normal,
-  ttlSuspected,
-  prefixDrift,
-  automaticProviderMiss,
-}
-
 /// 过期异常判定：距离上一轮请求超过 30 分钟，且本轮缓存命中率不足 3%。
 const int kCacheHitExpiryIdleGapSeconds = 1800; // 30 分钟
 const double kCacheHitExpiryHitRatioThreshold = 0.03; // 3%
@@ -87,15 +80,6 @@ class SessionCacheHitTurnPoint {
   final bool automaticProviderMissSuspected;
 
   bool get isFirstRequest => turnIndex <= 1;
-
-  SessionCacheMissKind get missKind {
-    if (ttlSuspected) return SessionCacheMissKind.ttlSuspected;
-    if (prefixDriftSuspected) return SessionCacheMissKind.prefixDrift;
-    if (automaticProviderMissSuspected) {
-      return SessionCacheMissKind.automaticProviderMiss;
-    }
-    return SessionCacheMissKind.normal;
-  }
 
   AiSessionCacheHitTrendPoint toStatisticsPoint() {
     return AiSessionCacheHitTrendPoint(
