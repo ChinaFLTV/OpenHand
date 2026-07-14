@@ -1679,39 +1679,89 @@ String _resolveEditorLanguage({
   return 'plaintext';
 }
 
-// Workspace root inference is a hot path: the file explorer calls it from
-// display-path formatting and other build-tree utilities. Walking up the
-// directory tree doing 5 `existsSync()` per level is expensive per frame. We
-// cache results by directory — if dir A resolves to root R, every file under
-// A also resolves to R until the cache is invalidated by a manual flush.
 const int _workspaceRootCacheCap = 512;
+const int _workspaceRootAncestorLimit = 128;
+const Duration _workspaceRootProbeIdleTimeout = Duration(milliseconds: 500);
+const Duration _workspaceRootProbeTotalTimeout = Duration(seconds: 5);
+const List<String> _workspaceRootMarkers = <String>[
+  'pubspec.yaml',
+  '.git',
+  'package.json',
+  'go.mod',
+  'Cargo.toml',
+];
 final Map<String, String> _workspaceRootCache = <String, String>{};
+final Map<String, Future<String>> _workspaceRootProbes =
+    <String, Future<String>>{};
 
 String _inferWorkspaceRoot(String filePath) {
   final startDir = p.dirname(filePath);
   final cached = _workspaceRootCache[startDir];
   if (cached != null) return cached;
-
   final visited = ancestorDirectoriesFrom(startDir);
+  return visited.isEmpty ? startDir : visited.last;
+}
+
+Future<String> _inferWorkspaceRootAsync(String filePath) {
+  final startDir = p.dirname(filePath);
+  final cached = _workspaceRootCache[startDir];
+  if (cached != null) return Future<String>.value(cached);
+  final active = _workspaceRootProbes[startDir];
+  if (active != null) return active;
+  late final Future<String> tracked;
+  tracked = _probeWorkspaceRoot(startDir).whenComplete(() {
+    if (identical(_workspaceRootProbes[startDir], tracked)) {
+      _workspaceRootProbes.remove(startDir);
+    }
+  });
+  _workspaceRootProbes[startDir] = tracked;
+  return tracked;
+}
+
+Future<String> _probeWorkspaceRoot(String startDir) async {
+  final visited = ancestorDirectoriesFrom(
+    startDir,
+  ).take(_workspaceRootAncestorLimit).toList(growable: false);
+  final fallbackRoot = visited.isEmpty ? startDir : visited.last;
+  final stopwatch = Stopwatch()..start();
+  var root = fallbackRoot;
+  search:
   for (final directory in visited) {
-    if (File(p.join(directory, 'pubspec.yaml')).existsSync() ||
-        Directory(p.join(directory, '.git')).existsSync() ||
-        File(p.join(directory, 'package.json')).existsSync() ||
-        File(p.join(directory, 'go.mod')).existsSync() ||
-        File(p.join(directory, 'Cargo.toml')).existsSync()) {
-      final root = directory;
-      for (final v in visited) {
-        _workspaceRootCache[v] = root;
+    for (final marker in _workspaceRootMarkers) {
+      final remainingMicroseconds =
+          _workspaceRootProbeTotalTimeout.inMicroseconds -
+          stopwatch.elapsedMicroseconds;
+      if (remainingMicroseconds <= 0) break search;
+      final remaining = Duration(microseconds: remainingMicroseconds);
+      final timeout = remaining < _workspaceRootProbeIdleTimeout
+          ? remaining
+          : _workspaceRootProbeIdleTimeout;
+      try {
+        final type = await FileSystemEntity.type(
+          p.join(directory, marker),
+          followLinks: false,
+        ).timeout(timeout);
+        if (type != FileSystemEntityType.notFound) {
+          root = directory;
+          break search;
+        }
+      } on FileSystemException {
+        // Continue with the remaining bounded marker candidates.
+      } on TimeoutException {
+        // Continue until the shared total probe budget is exhausted.
       }
-      if (_workspaceRootCache.length > _workspaceRootCacheCap) {
-        _workspaceRootCache.clear();
-      }
-      return root;
     }
   }
-  final root = visited.isEmpty ? startDir : visited.last;
-  for (final v in visited) {
-    _workspaceRootCache[v] = root;
+  final rootIndex = visited.indexOf(root);
+  final cacheEntries = rootIndex < 0
+      ? visited
+      : visited.take(rootIndex + 1).toList(growable: false);
+  if (_workspaceRootCache.length + cacheEntries.length >
+      _workspaceRootCacheCap) {
+    _workspaceRootCache.clear();
+  }
+  for (final directory in cacheEntries) {
+    _workspaceRootCache[directory] = root;
   }
   return root;
 }
@@ -1924,6 +1974,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         _handlePushedDiagnostics;
     _syncProjectLspOverrideSettings();
     unawaited(_ensureLspBackend(widget.activeFilePath));
+    unawaited(_refreshInferredWorkspaceRoot(widget.activeFilePath));
   }
 
   @override
@@ -1961,6 +2012,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     unawaited(
       _ensureLspBackend(widget.activeFilePath, force: projectLspConfigChanged),
     );
+    unawaited(_refreshInferredWorkspaceRoot(widget.activeFilePath));
     final controller = _textControllers[widget.activeFilePath];
     if (controller != null) {
       _updateCursorPosition(controller);
@@ -5442,6 +5494,12 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       );
     }
     return filePath;
+  }
+
+  Future<void> _refreshInferredWorkspaceRoot(String filePath) async {
+    await _inferWorkspaceRootAsync(filePath);
+    if (!mounted || widget.activeFilePath != filePath) return;
+    setState(() {});
   }
 
   String _displayPathForLspLocation(AiLspLocation location) {
@@ -9824,7 +9882,8 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     final workspaceRoot =
         _lspResolutionForFile(filePath)?.rootPath.isNotEmpty == true
         ? _lspResolutionForFile(filePath)!.rootPath
-        : _inferWorkspaceRoot(filePath);
+        : await _inferWorkspaceRootAsync(filePath);
+    if (!mounted) return;
     String relativeFromWorkspace = filePath;
     try {
       final candidate = p.relative(filePath, from: workspaceRoot);

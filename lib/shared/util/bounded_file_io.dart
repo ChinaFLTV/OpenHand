@@ -411,6 +411,33 @@ Future<bool> isRegularFilePath(
   String path, {
   Duration timeout = defaultBoundedFileReadIdleTimeout,
   bool followLinks = false,
+}) {
+  return _isFileSystemEntityPathType(
+    path,
+    expected: FileSystemEntityType.file,
+    timeout: timeout,
+    followLinks: followLinks,
+  );
+}
+
+Future<bool> isDirectoryPath(
+  String path, {
+  Duration timeout = defaultBoundedFileReadIdleTimeout,
+  bool followLinks = false,
+}) {
+  return _isFileSystemEntityPathType(
+    path,
+    expected: FileSystemEntityType.directory,
+    timeout: timeout,
+    followLinks: followLinks,
+  );
+}
+
+Future<bool> _isFileSystemEntityPathType(
+  String path, {
+  required FileSystemEntityType expected,
+  required Duration timeout,
+  required bool followLinks,
 }) async {
   if (path.trim().isEmpty) return false;
   if (timeout <= Duration.zero) {
@@ -421,7 +448,7 @@ Future<bool> isRegularFilePath(
           path,
           followLinks: followLinks,
         ).timeout(timeout) ==
-        FileSystemEntityType.file;
+        expected;
   } on FileSystemException {
     return false;
   } on TimeoutException {

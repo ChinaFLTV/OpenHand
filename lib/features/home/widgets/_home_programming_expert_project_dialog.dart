@@ -147,6 +147,10 @@ class _ProgrammingExpertProjectDialogState
   String _autoSelectedSdkPath = '';
   String _autoSelectedLspPath = '';
   String _selectedLanguage = 'mixed';
+  String _validatedProjectRoot = '';
+  bool _projectRootExists = false;
+  String _validatedCurrentWorkspacePath = '';
+  bool _currentWorkspaceExists = false;
 
   @override
   void initState() {
@@ -154,6 +158,15 @@ class _ProgrammingExpertProjectDialogState
     _pathController.addListener(_handleProjectRootTextChanged);
     _sdkController.addListener(_handleToolchainDraftChanged);
     _lspController.addListener(_handleToolchainDraftChanged);
+    unawaited(_refreshCurrentWorkspaceExists());
+  }
+
+  @override
+  void didUpdateWidget(covariant _ProgrammingExpertProjectDialog oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.currentWorkspacePath != widget.currentWorkspacePath) {
+      unawaited(_refreshCurrentWorkspaceExists());
+    }
   }
 
   @override
@@ -234,6 +247,14 @@ class _ProgrammingExpertProjectDialogState
     );
     if (normalized.isEmpty) {
       _invalidateProjectLanguageProbe();
+      _validatedProjectRoot = '';
+      _projectRootExists = false;
+      setState(() {});
+      return;
+    }
+    final detectedLanguage = await _probeCurrentProjectLanguage(normalized);
+    if (detectedLanguage == null) return;
+    if (!_projectRootExists) {
       setState(() {});
       return;
     }
@@ -241,10 +262,6 @@ class _ProgrammingExpertProjectDialogState
     if (_canAutoBackfillProjectDefaults && recentConfig != null) {
       _invalidateProjectLanguageProbe();
       _applyProjectConfig(recentConfig, syncProjectRoot: false);
-      return;
-    }
-    final detectedLanguage = await _probeCurrentProjectLanguage(normalized);
-    if (detectedLanguage == null) {
       return;
     }
     if (_canAutoBackfillProjectDefaults && detectedLanguage != 'mixed') {
@@ -256,6 +273,27 @@ class _ProgrammingExpertProjectDialogState
       return;
     }
     setState(() {});
+  }
+
+  Future<void> _refreshCurrentWorkspaceExists() async {
+    final normalized = OpenHandPaths.normalizeOptionalPath(
+      widget.currentWorkspacePath,
+    );
+    if (normalized.isEmpty) {
+      _validatedCurrentWorkspacePath = '';
+      _currentWorkspaceExists = false;
+      return;
+    }
+    final exists = await isDirectoryPath(normalized);
+    if (!mounted ||
+        OpenHandPaths.normalizeOptionalPath(widget.currentWorkspacePath) !=
+            normalized) {
+      return;
+    }
+    setState(() {
+      _validatedCurrentWorkspacePath = normalized;
+      _currentWorkspaceExists = exists;
+    });
   }
 
   Future<void> _pickProjectDirectory() async {
@@ -347,6 +385,20 @@ class _ProgrammingExpertProjectDialogState
   Future<String?> _probeCurrentProjectLanguage(String projectRoot) async {
     final normalized = OpenHandPaths.normalizeOptionalPath(projectRoot);
     final generation = ++_projectLanguageProbeGeneration;
+    final exists = await isDirectoryPath(normalized);
+    if (!mounted ||
+        generation != _projectLanguageProbeGeneration ||
+        OpenHandPaths.normalizeOptionalPath(_pathController.text) !=
+            normalized) {
+      return null;
+    }
+    _validatedProjectRoot = normalized;
+    _projectRootExists = exists;
+    if (!exists) {
+      _detectedProjectRoot = normalized;
+      _detectedProjectLanguage = 'mixed';
+      return 'mixed';
+    }
     final detected = await _detectProjectLanguage(normalized);
     if (!mounted ||
         generation != _projectLanguageProbeGeneration ||
@@ -720,14 +772,15 @@ class _ProgrammingExpertProjectDialogState
       return;
     }
     _setProjectRootText(normalized);
+    final detectedLanguage = await _probeCurrentProjectLanguage(normalized);
+    if (detectedLanguage == null || !_projectRootExists) {
+      if (mounted) setState(() {});
+      return;
+    }
     final recentConfig = _recentConfigForProjectRoot(normalized);
     if (_canAutoBackfillProjectDefaults && recentConfig != null) {
       _invalidateProjectLanguageProbe();
       _applyProjectConfig(recentConfig);
-      return;
-    }
-    final detectedLanguage = await _probeCurrentProjectLanguage(normalized);
-    if (detectedLanguage == null) {
       return;
     }
     if (_canAutoBackfillProjectDefaults && detectedLanguage != 'mixed') {
@@ -754,16 +807,17 @@ class _ProgrammingExpertProjectDialogState
     );
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     final path = _pathController.text.trim();
     if (path.isEmpty) {
       return;
     }
     final normalizedProjectRoot = OpenHandPaths.normalizeOptionalPath(path);
     if (normalizedProjectRoot.isEmpty ||
-        !Directory(normalizedProjectRoot).existsSync()) {
+        !await isDirectoryPath(normalizedProjectRoot)) {
       return;
     }
+    if (!mounted) return;
     Navigator.of(context).pop(
       _ProgrammingExpertConfig(
         projectRoot: normalizedProjectRoot,
@@ -816,10 +870,11 @@ class _ProgrammingExpertProjectDialogState
     );
     final projectRootExists =
         normalizedProjectRoot.isEmpty ||
-        Directory(normalizedProjectRoot).existsSync();
+        (_validatedProjectRoot == normalizedProjectRoot && _projectRootExists);
     final currentWorkspaceExists =
         currentWorkspacePath.isNotEmpty &&
-        Directory(currentWorkspacePath).existsSync();
+        _validatedCurrentWorkspacePath == currentWorkspacePath &&
+        _currentWorkspaceExists;
     final currentWorkspaceMatchesProjectRoot =
         currentWorkspacePath.isNotEmpty &&
         currentWorkspacePath == normalizedProjectRoot;
@@ -1647,9 +1702,10 @@ class _ProgrammingExpertProjectDialogState
             );
             final hasValue =
                 normalizedPath.isNotEmpty &&
-                Directory(normalizedPath).existsSync();
+                _validatedProjectRoot == normalizedPath &&
+                _projectRootExists;
             return OpenHandDialogActionButton.primary(
-              onPressed: hasValue ? _submit : null,
+              onPressed: hasValue ? () => unawaited(_submit()) : null,
               label: text(
                 zh: '确定',
                 zhHant: '確定',

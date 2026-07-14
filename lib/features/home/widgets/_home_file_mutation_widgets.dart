@@ -2222,7 +2222,10 @@ Future<void> _revealFileMutationPath(
 
   var target = rawPath;
   try {
-    final type = FileSystemEntity.typeSync(target, followLinks: false);
+    final type = await FileSystemEntity.type(
+      target,
+      followLinks: false,
+    ).timeout(defaultBoundedFileReadIdleTimeout);
     if (type == FileSystemEntityType.notFound) {
       final parent = File(target).parent.path.trim();
       if (parent.isNotEmpty && parent != '.') {

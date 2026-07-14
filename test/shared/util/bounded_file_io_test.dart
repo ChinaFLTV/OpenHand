@@ -92,4 +92,17 @@ void main() {
       isFalse,
     );
   });
+
+  test('directory probe rejects files and symbolic links', () async {
+    final directory = Directory('${temporaryDirectory.path}/directory');
+    await directory.create();
+    final file = File('${temporaryDirectory.path}/file.txt');
+    await file.writeAsString('content');
+    final link = Link('${temporaryDirectory.path}/linked-directory');
+    await link.create(directory.path);
+
+    expect(await isDirectoryPath(directory.path), isTrue);
+    expect(await isDirectoryPath(file.path), isFalse);
+    expect(await isDirectoryPath(link.path), isFalse);
+  });
 }
