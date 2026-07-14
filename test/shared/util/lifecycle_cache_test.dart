@@ -39,4 +39,15 @@ void main() {
     expect(cache.get('other'), '3');
     expect(cache.get('new'), '4');
   });
+
+  test('containsKey distinguishes cached null from a missing entry', () {
+    final cache = LifecycleLruCache<String?>(maxEntries: 2);
+
+    cache.put('missing-result', null);
+
+    expect(cache.containsKey('missing-result'), isTrue);
+    expect(cache.get('missing-result'), isNull);
+    expect(cache.containsKey('missing-result'), isTrue);
+    expect(cache.containsKey('never-added'), isFalse);
+  });
 }

@@ -21,6 +21,9 @@ class LifecycleLruCache<V> {
       LinkedHashMap<String, _LifecycleCacheEntry<V>>();
   int _totalCost = 0;
 
+  /// Distinguishes a cached nullable value from an absent entry.
+  bool containsKey(String key) => _entries.containsKey(key);
+
   V? get(String key) {
     final entry = _entries.remove(key);
     if (entry == null) return null;

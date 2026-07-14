@@ -17,6 +17,7 @@ import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/util/bounded_xfile_io.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
+import '../../../shared/util/lifecycle_cache.dart';
 import '../../../shared/util/localized_text.dart';
 import '../../ai/index.dart';
 import '../service/tool_search_history_export_prefs.dart';
@@ -24,6 +25,7 @@ import '../service/tool_search_history_serializer.dart';
 import 'mcp_dialog_utils.dart';
 
 const int _toolSearchHistoryImportMaxBytes = 8 * kBytesPerMiB;
+const int _mcpGroupExpansionCacheMaxEntries = 128;
 
 Future<void> showToolSearchLoadedDialog(
   BuildContext context, {
@@ -85,7 +87,9 @@ class _ToolGroup {
 
 /// 进程级缓存，记录用户对每个分组的折叠/展开偏好。
 /// 跨次打开 dialog 保留；进程重启后回到默认展开。
-final Map<String, bool> _mcpGroupExpansionCache = <String, bool>{};
+final LifecycleLruCache<bool> _mcpGroupExpansionCache = LifecycleLruCache<bool>(
+  maxEntries: _mcpGroupExpansionCacheMaxEntries,
+);
 
 /// 将完整工具名拆出 `SERVER` 段。
 /// 形如 `mcp__SERVER__tool_name` 返回 `SERVER`；其它返回 `null`。
@@ -862,9 +866,10 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
       data: theme.copyWith(dividerColor: Colors.transparent),
       child: ExpansionTile(
         key: PageStorageKey<String>('mcpToolGroup:${group.persistKey}'),
-        initiallyExpanded: _mcpGroupExpansionCache[group.persistKey] ?? true,
+        initiallyExpanded:
+            _mcpGroupExpansionCache.get(group.persistKey) ?? true,
         onExpansionChanged: (expanded) {
-          _mcpGroupExpansionCache[group.persistKey] = expanded;
+          _mcpGroupExpansionCache.put(group.persistKey, expanded);
         },
         tilePadding: const EdgeInsets.symmetric(horizontal: 12),
         childrenPadding: const EdgeInsets.only(left: 8, bottom: 4),

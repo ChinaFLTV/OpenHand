@@ -8,7 +8,9 @@ import 'package:flutter/foundation.dart';
 import '../../app/support/safe_subprocess.dart';
 import '../../app/support/silent_log.dart';
 import '../../shared/util/async_concurrency.dart';
+import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/input_value_parsing.dart';
+import '../../shared/util/lifecycle_cache.dart';
 import '../../shared/util/localized_text.dart';
 import '../../shared/util/text_clip.dart';
 import '../../shared/util/timer_safety.dart';
@@ -138,6 +140,13 @@ class WebReverseSessionController extends ChangeNotifier {
   static const int _maxImportedUrlChars = 16 * 1024;
   static const int _maxImportedBodyChars = 2 * 1024 * 1024;
   static const int _maxImportedHeaderValueChars = 16 * 1024;
+  static const int _maxSourceMapCacheEntries = 16;
+  static const int _maxSourceMapCacheChars = 32 * kBytesPerMiB;
+  static const int _maxSourceMapResponseBytes = 16 * kBytesPerMiB;
+  static const int _maxSourceMapResultChars =
+      _maxSourceMapResponseBytes + 64 * kBytesPerKiB;
+  static const int _maxSourceMapListEntries = 100000;
+  static const Duration _sourceMapFetchTimeout = Duration(seconds: 25);
   static const double _maxFullPageScreenshotCssPixels = 32 * 1000 * 1000;
   static const double _maxFullPageScreenshotCssSide = 32767;
   static final RegExp _rawCdpMethodPattern = RegExp(
@@ -3528,6 +3537,7 @@ class WebReverseSessionController extends ChangeNotifier {
       );
     }
     _pageCdp = null;
+    _sourceMapCache.clear();
     try {
       await _browserCdp?.close();
     } catch (error, stack) {
@@ -3659,6 +3669,7 @@ class WebReverseSessionController extends ChangeNotifier {
       );
     }
     _pageCdp = null;
+    _sourceMapCache.clear();
     try {
       await _browserCdp?.close();
     } catch (error, stack) {
@@ -7670,39 +7681,116 @@ class WebReverseSessionController extends ChangeNotifier {
   }
 
   // ─── Source Map 解析（Slice 3：源码板块集成） ───
-  // 缓存 key 用脚本 URL；命中后避免重复 fetch（map 经常 1-10 MB）。
+  // 缓存 key 用脚本 URL；map 经常达到数 MB，因此同时限制条目数与估算字符数。
   // null 表示「尝试过但失败 / 没有 sourceMappingURL」，避免反复重试。
-  final Map<String, WebReverseSourceMapInfo?> _sourceMapCache =
-      <String, WebReverseSourceMapInfo?>{};
+  final LifecycleLruCache<WebReverseSourceMapInfo?> _sourceMapCache =
+      LifecycleLruCache<WebReverseSourceMapInfo?>(
+        maxEntries: _maxSourceMapCacheEntries,
+        maxCost: _maxSourceMapCacheChars,
+        costOf: (value) => value?.estimatedRetainedChars ?? 1,
+      );
 
   /// 从已 parsed 脚本的 URL 抓取并解析 source map：先 fetch 文件文本拿
   /// `//# sourceMappingURL=` 注释，再 fetch map JSON，最后 Dart 端 VLQ
   /// 解码 mappings 为 segments（按行索引）。
   /// 返回 null：网络失败 / map 不存在 / JSON 解析失败。
   Future<WebReverseSourceMapInfo?> fetchSourceMapForUrl(String url) async {
-    if (url.isEmpty) return null;
-    if (_sourceMapCache.containsKey(url)) return _sourceMapCache[url];
+    if (url.isEmpty || url.length > _maxImportedUrlChars) return null;
+    if (_sourceMapCache.containsKey(url)) return _sourceMapCache.get(url);
     if (_browserCdp == null || _pageSessionId == null) return null;
     try {
       final js =
           '''
 (async () => {
+  const maxBytes = $_maxSourceMapResponseBytes;
+  const maxUrlChars = $_maxImportedUrlChars;
+  const controller = new AbortController();
+  const timer = setTimeout(
+    () => controller.abort('timeout'),
+    ${_sourceMapFetchTimeout.inMilliseconds},
+  );
+  const readText = async (response) => {
+    const declared = Number(response.headers.get('content-length'));
+    if (Number.isFinite(declared) && declared > maxBytes) {
+      throw new Error('response exceeds source map size limit');
+    }
+    const reader = response.body && response.body.getReader
+      ? response.body.getReader()
+      : null;
+    if (!reader) throw new Error('streaming response body unavailable');
+    const chunks = [];
+    let total = 0;
+    try {
+      while (true) {
+        const part = await reader.read();
+        if (part.done) break;
+        const value = part.value || new Uint8Array();
+        if (total + value.byteLength > maxBytes) {
+          try { await reader.cancel(); } catch (_) {}
+          throw new Error('response exceeds source map size limit');
+        }
+        chunks.push(value);
+        total += value.byteLength;
+      }
+    } finally {
+      try { reader.releaseLock(); } catch (_) {}
+    }
+    const bytes = new Uint8Array(total);
+    let offset = 0;
+    for (const chunk of chunks) {
+      bytes.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+    return new TextDecoder('utf-8').decode(bytes);
+  };
   try {
-    const r = await fetch(${jsonEncode(url)});
-    const text = await r.text();
+    const r = await fetch(${jsonEncode(url)}, { signal: controller.signal });
+    if (!r.ok) throw new Error('script fetch failed: HTTP ' + r.status);
+    const text = await readText(r);
     const m = /[#@]\\s*sourceMappingURL=(\\S+)/.exec(text);
     if (!m) return JSON.stringify({ error: 'no sourceMappingURL' });
     let mapUrl = m[1];
+    let mapText;
     if (mapUrl.startsWith('data:')) {
-      const b64 = mapUrl.slice(mapUrl.indexOf('base64,') + 7);
-      return JSON.stringify({ map: atob(b64), mapUrl: '<inline>' });
+      const comma = mapUrl.indexOf(',');
+      if (comma < 0) throw new Error('invalid inline source map URL');
+      const metadata = mapUrl.slice(0, comma).toLowerCase();
+      const payload = mapUrl.slice(comma + 1);
+      if (metadata.includes(';base64')) {
+        const binary = atob(payload);
+        if (binary.length > maxBytes) {
+          throw new Error('inline source map exceeds size limit');
+        }
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i += 1) {
+          bytes[i] = binary.charCodeAt(i);
+        }
+        mapText = new TextDecoder('utf-8').decode(bytes);
+      } else {
+        mapText = decodeURIComponent(payload);
+      }
+      mapUrl = '<inline>';
+    } else {
+      mapUrl = new URL(mapUrl, ${jsonEncode(url)}).toString();
+      if (mapUrl.length > maxUrlChars) {
+        throw new Error('source map URL exceeds size limit');
+      }
+      const mr = await fetch(mapUrl, { signal: controller.signal });
+      if (!mr.ok) throw new Error('source map fetch failed: HTTP ' + mr.status);
+      mapText = await readText(mr);
     }
-    mapUrl = new URL(mapUrl, ${jsonEncode(url)}).toString();
-    const mr = await fetch(mapUrl);
-    const mt = await mr.text();
-    return JSON.stringify({ map: mt, mapUrl });
+    if (mapText.length > maxBytes) {
+      throw new Error('source map exceeds size limit');
+    }
+    const map = JSON.parse(mapText);
+    if (!map || typeof map !== 'object' || Array.isArray(map)) {
+      throw new Error('source map root must be an object');
+    }
+    return JSON.stringify({ map, mapUrl });
   } catch (err) {
     return JSON.stringify({ error: String(err) });
+  } finally {
+    clearTimeout(timer);
   }
 })()
 ''';
@@ -7713,30 +7801,39 @@ class WebReverseSessionController extends ChangeNotifier {
           'awaitPromise': true,
           'returnByValue': true,
         }),
+        timeout: _sourceMapFetchTimeout + const Duration(seconds: 2),
       );
       final raw = cdpStringResultValue(r);
-      if (raw == null) {
-        _sourceMapCache[url] = null;
-        return null;
+      if (raw == null || raw.length > _maxSourceMapResultChars) {
+        return _cacheSourceMap(url, null);
       }
       final wrap = decodeStringKeyedJsonMap(raw);
-      if (wrap == null || wrap['error'] != null || wrap['map'] is! String) {
-        _sourceMapCache[url] = null;
-        return null;
+      if (wrap == null || wrap['error'] != null || wrap['map'] is! Map) {
+        return _cacheSourceMap(url, null);
       }
-      final mapJson = decodeStringKeyedJsonMap('${wrap['map']}');
-      if (mapJson == null) {
-        _sourceMapCache[url] = null;
-        return null;
+      final mapJson = stringKeyedMapFromValue(wrap['map']);
+      final rawSources = mapJson['sources'];
+      final rawNames = mapJson['names'];
+      final rawSourcesContent = mapJson['sourcesContent'];
+      if (rawSources is! List ||
+          rawSources.length > _maxSourceMapListEntries ||
+          (rawNames is List && rawNames.length > _maxSourceMapListEntries) ||
+          (rawSourcesContent is List &&
+              rawSourcesContent.length > _maxSourceMapListEntries)) {
+        return _cacheSourceMap(url, null);
       }
-      final sources = stringListFromValue(mapJson['sources']);
-      final names = stringListFromValue(mapJson['names']);
-      final sourcesContent =
-          (mapJson['sourcesContent'] as List?)
-              ?.cast<Object?>()
-              .map((e) => e == null ? null : '$e')
-              .toList(growable: false) ??
-          List<String?>.filled(sources.length, null);
+      final sources = stringListFromValue(rawSources);
+      final names = stringListFromValue(rawNames);
+      final sourcesContent = List<String?>.filled(sources.length, null);
+      if (rawSourcesContent is List) {
+        final copyLength = rawSourcesContent.length < sources.length
+            ? rawSourcesContent.length
+            : sources.length;
+        for (var i = 0; i < copyLength; i += 1) {
+          final value = rawSourcesContent[i];
+          sourcesContent[i] = value == null ? null : '$value';
+        }
+      }
       final sourceRoot = '${mapJson['sourceRoot'] ?? ''}';
       final mappings = '${mapJson['mappings'] ?? ''}';
       final info = WebReverseSourceMapInfo(
@@ -7748,8 +7845,7 @@ class WebReverseSessionController extends ChangeNotifier {
         sourceRoot: sourceRoot,
         mappings: mappings,
       );
-      _sourceMapCache[url] = info;
-      return info;
+      return _cacheSourceMap(url, info);
     } catch (e, st) {
       silentLog(
         'web_reverse_session_controller',
@@ -7757,9 +7853,16 @@ class WebReverseSessionController extends ChangeNotifier {
         e,
         st,
       );
-      _sourceMapCache[url] = null;
-      return null;
+      return _cacheSourceMap(url, null);
     }
+  }
+
+  WebReverseSourceMapInfo? _cacheSourceMap(
+    String url,
+    WebReverseSourceMapInfo? value,
+  ) {
+    _sourceMapCache.put(url, value);
+    return value;
   }
 
   /// 清除某个脚本的 sourcemap 缓存（用户主动「重新抓取」时调）。
@@ -8320,6 +8423,19 @@ class WebReverseSourceMapInfo {
 
   /// 原始 mappings 字符串（按 `;` 分行，按 `,` 分段，每段 VLQ 编码）。
   final String mappings;
+
+  /// Approximate retained UTF-16 character count used by the session LRU.
+  int get estimatedRetainedChars =>
+      scriptUrl.length +
+      mapUrl.length +
+      sourceRoot.length +
+      mappings.length +
+      sources.fold<int>(0, (total, value) => total + value.length) +
+      sourcesContent.fold<int>(
+        0,
+        (total, value) => total + (value?.length ?? 0),
+      ) +
+      names.fold<int>(0, (total, value) => total + value.length);
 
   /// 通过 sourceRoot 拼出最终展示用的 source URL。
   String resolveSource(int sourceIndex) {
