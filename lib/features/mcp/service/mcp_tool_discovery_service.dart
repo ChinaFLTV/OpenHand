@@ -7,7 +7,6 @@ import 'package:flutter/foundation.dart' show ChangeNotifier;
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 
-import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../app/support/system_proxy.dart';
@@ -15,25 +14,32 @@ import '../../../shared/net/http_redirect_utils.dart';
 import '../../../shared/net/http_response_utils.dart';
 import '../../../shared/net/http_status_utils.dart';
 import '../../../shared/util/async_concurrency.dart';
-import '../../../shared/util/bounded_directory_io.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
-import '../../../shared/util/node_package_manifest.dart';
 import '../../../shared/util/text_clip.dart';
 import '../../ai/index.dart';
 import '../model/mcp_http_headers.dart';
 import '../model/mcp_server.dart';
 import '../model/mcp_server_health.dart';
 import '../model/mcp_tool.dart';
+import 'mcp_node_package_resolver.dart';
+import 'mcp_stdio_cache.dart';
 import 'mcp_stdio_io_utils.dart';
 import 'mcp_stdio_mirror_policy.dart';
 import 'mcp_stdio_process_manager.dart';
+import 'mcp_tool_discovery_exception.dart';
+
+export 'mcp_stdio_cache.dart' show mcpStdioIsolatedCacheRoot;
+export 'mcp_tool_discovery_exception.dart'
+    show
+        McpToolDiscoveryException,
+        isExpectedMcpToolDiscoveryLifecycleError,
+        kMcpStdioSessionClosingMessage;
 
 final RegExp _shellWhitespacePattern = RegExp(r'\s');
 final RegExp _stdioLineBreakPattern = RegExp(r'[\r\n]');
 final RegExp _stdioLineBreaksPattern = RegExp(r'[\r\n]+');
-final RegExp _npxPackageVersionSuffixPattern = RegExp(r'@[^/]*$');
 
 // 国内最稳的 npm / PyPI 镜像源。集中定义，避免注入逻辑与多语言提示文案
 // 各处硬编码不一致。
@@ -1592,32 +1598,6 @@ void _stripSensitiveRedirectHeaders(
   );
 }
 
-const String kMcpStdioSessionClosingMessage =
-    'Tool scan stopped because the stdio MCP session is closing.';
-
-bool isExpectedMcpToolDiscoveryLifecycleError(Object error) {
-  if (error is McpToolDiscoveryException) {
-    return error.isExpectedLifecycleCancellation;
-  }
-  final message = error.toString();
-  return message.contains(kMcpStdioSessionClosingMessage) ||
-      (message.contains('Stdio MCP server "') &&
-          message.contains(' is stopping.'));
-}
-
-class McpToolDiscoveryException implements Exception {
-  const McpToolDiscoveryException(
-    this.message, {
-    this.isExpectedLifecycleCancellation = false,
-  });
-
-  final String message;
-  final bool isExpectedLifecycleCancellation;
-
-  @override
-  String toString() => message;
-}
-
 String _httpResponseDetail(String body) {
   final normalized = nullIfBlank(body);
   return normalized == null ? '' : ': $normalized';
@@ -1969,14 +1949,7 @@ Future<String> _probeLoginShellPath() {
     try {
       // `-i` 让 zsh 当成交互式 (会读 .zshrc)，`-l` 当成登录 shell (读 .zprofile)。
       // 加 `-i` 并不会真的等待终端输入，因为我们重定向到 stdout / stdin 的管道。
-      final shell = Platform.environment['SHELL']?.trim();
-      final fallbackShells = <String>{
-        if (shell != null && shell.isNotEmpty) shell,
-        '/bin/zsh',
-        '/bin/bash',
-      };
-      for (final candidate in fallbackShells) {
-        if (!File(candidate).existsSync()) continue;
+      for (final candidate in await existingMcpLoginShells()) {
         try {
           final probe = await runProcessWithTimeout(
             candidate,
@@ -2097,7 +2070,10 @@ Future<_ResolvedStdioLaunch> _resolveStdioLaunch(McpServer server) async {
   final packageArgIndex = isNpxCommand ? _firstNpxPackageArgIndex(args) : -1;
   if (isNpxCommand && packageArgIndex >= 0 && !Platform.isWindows) {
     final packageName = args[packageArgIndex];
-    final resolved = await _resolveNpxPackageDirectly(packageName, home);
+    final resolved = await resolveInstalledMcpNodePackage(
+      packageName,
+      homeDirectory: home,
+    );
     if (resolved != null) {
       final extraArgs = packageArgIndex + 1 < args.length
           ? args.sublist(packageArgIndex + 1)
@@ -2156,11 +2132,11 @@ Future<_ResolvedStdioLaunch> _resolveStdioLaunch(McpServer server) async {
       //    多套一层 wait。args 用 `"$@"` 透传，避免引号 / 空格灾难。
       final shellArgs = <String>[
         '-lc',
-        'exec ${_shellSingleQuote(rawCommand)} "\$@"',
+        'exec ${quoteMcpShellToken(rawCommand)} "\$@"',
         '_', // $0 占位，保证 args 从 $1 开始。
         ...args,
       ];
-      executable = _pickShell();
+      executable = await resolveMcpLoginShell();
       args = shellArgs;
     }
   }
@@ -2257,16 +2233,21 @@ bool _shouldInjectChinaMirror() {
   return shouldInjectMcpChinaMirror();
 }
 
-/// stdio MCP 隔离包缓存根目录：~/.openhand/mcp/package-cache。
-/// 公开给设置页「一键重置」按钮、诊断文案、内部 env 注入三方共用。
-String mcpStdioIsolatedCacheRoot() =>
-    p.join(OpenHandPaths.defaultMcpDirectoryPath(), 'package-cache');
-
-/// 同步删除整个隔离缓存目录；目录不存在视为成功。
+/// 删除整个隔离缓存目录；目录不存在视为成功。
 /// 失败抛 [FileSystemException]，调用方负责 toast。
 Future<void> resetMcpStdioIsolatedCache() async {
   final dir = Directory(mcpStdioIsolatedCacheRoot());
-  if (!dir.existsSync()) return;
+  final type = await FileSystemEntity.type(
+    dir.path,
+    followLinks: false,
+  ).timeout(_mcpStdioFileOperationTimeout);
+  if (type == FileSystemEntityType.notFound) return;
+  if (type != FileSystemEntityType.directory) {
+    throw FileSystemException(
+      'MCP package cache is not a directory.',
+      dir.path,
+    );
+  }
   await dir.delete(recursive: true);
 }
 
@@ -2298,22 +2279,6 @@ class McpStdioBootstrapStatus extends ChangeNotifier {
       notifyListeners();
     }
   }
-}
-
-String _pickShell() {
-  final preferred = Platform.environment['SHELL']?.trim();
-  if (preferred != null &&
-      preferred.isNotEmpty &&
-      File(preferred).existsSync()) {
-    return preferred;
-  }
-  if (File('/bin/zsh').existsSync()) return '/bin/zsh';
-  return '/bin/bash';
-}
-
-String _shellSingleQuote(String s) {
-  // POSIX-safe 单引号转义：'foo' → "'foo'"，包含单引号则改成 'foo'\''bar'
-  return "'${s.replaceAll("'", "'\\''")}'";
 }
 
 /// 把 stdio MCP server stderr 关键词翻译成「现象 / 原因 / 建议」式中文提示。
@@ -3238,133 +3203,6 @@ void _setHeaderIgnoreCase(
     headers.remove(existingKey);
   }
   headers[name] = value;
-}
-
-/// 直接扫描 nvm/volta 目录定位 npx 包的入口脚本，不依赖 shell 环境。
-class _NpxPackageResolution {
-  const _NpxPackageResolution({
-    required this.nodeBin,
-    required this.entryScript,
-  });
-  final String nodeBin;
-  final String entryScript;
-}
-
-Future<_NpxPackageResolution?> _resolveNpxPackageDirectly(
-  String packageName,
-  String? home,
-) async {
-  if (home == null || home.isEmpty) return null;
-  // 清理包名（移除 @version 后缀，如 @playwright/mcp@latest → @playwright/mcp）
-  final cleanName = packageName.replaceAll(_npxPackageVersionSuffixPattern, '');
-  if (cleanName.isEmpty) return null;
-
-  // 策略 1：扫描 nvm 目录
-  final nvmDir = Platform.environment['NVM_DIR'] ?? '$home/.nvm';
-  final versionsDir = Directory('$nvmDir/versions/node');
-  if (versionsDir.existsSync()) {
-    final versions = <String>[];
-    try {
-      final listing = await listDirectoryBounded(versionsDir, maxEntries: 256);
-      for (final entity in listing.entries) {
-        if (entity is Directory &&
-            entity.path.split('/').last.startsWith('v')) {
-          versions.add(entity.path.split('/').last);
-        }
-      }
-    } catch (error, stack) {
-      silentLog(
-        'mcp_tool_discovery_service',
-        'list nvm versions',
-        error,
-        stack,
-      );
-    }
-    // 按版本号降序排列，优先使用最新版本
-    versions.sort((a, b) {
-      final ap = _nvmVersionSegments(a);
-      final bp = _nvmVersionSegments(b);
-      for (int i = 0; i < 3; i++) {
-        final av = i < ap.length ? ap[i] : 0;
-        final bv = i < bp.length ? bp[i] : 0;
-        if (av != bv) return bv.compareTo(av); // 降序
-      }
-      return 0;
-    });
-    for (final version in versions) {
-      final nodeBin = '$nvmDir/versions/node/$version/bin/node';
-      final packageDir =
-          '$nvmDir/versions/node/$version/lib/node_modules/$cleanName';
-      if (File(nodeBin).existsSync() && Directory(packageDir).existsSync()) {
-        final entry = resolveNodePackageBinEntry(packageDir);
-        if (entry != null) {
-          return _NpxPackageResolution(nodeBin: nodeBin, entryScript: entry);
-        }
-      }
-    }
-  }
-
-  // 策略 2：检查 fnm
-  final fnmDir = '$home/Library/Application Support/fnm/node-versions';
-  if (Directory(fnmDir).existsSync()) {
-    try {
-      final listing = await listDirectoryBounded(
-        Directory(fnmDir),
-        maxEntries: 256,
-      );
-      for (final entity in listing.entries) {
-        if (entity is Directory) {
-          final nodeBin = '${entity.path}/installation/bin/node';
-          final packageDir =
-              '${entity.path}/installation/lib/node_modules/$cleanName';
-          if (File(nodeBin).existsSync() &&
-              Directory(packageDir).existsSync()) {
-            final entry = resolveNodePackageBinEntry(packageDir);
-            if (entry != null) {
-              return _NpxPackageResolution(
-                nodeBin: nodeBin,
-                entryScript: entry,
-              );
-            }
-          }
-        }
-      }
-    } catch (error, stack) {
-      silentLog(
-        'mcp_tool_discovery_service',
-        'scan fnm packages',
-        error,
-        stack,
-      );
-    }
-  }
-
-  // 策略 3：检查系统全局
-  const systemPaths = ['/usr/local/lib/node_modules', '/usr/lib/node_modules'];
-  for (final globalRoot in systemPaths) {
-    final packageDir = '$globalRoot/$cleanName';
-    if (Directory(packageDir).existsSync()) {
-      const systemNodes = ['/usr/local/bin/node', '/usr/bin/node'];
-      for (final nodeBin in systemNodes) {
-        if (File(nodeBin).existsSync()) {
-          final entry = resolveNodePackageBinEntry(packageDir);
-          if (entry != null) {
-            return _NpxPackageResolution(nodeBin: nodeBin, entryScript: entry);
-          }
-        }
-      }
-    }
-  }
-
-  return null;
-}
-
-List<int> _nvmVersionSegments(String version) {
-  final normalized = version.startsWith('v') ? version.substring(1) : version;
-  return normalized
-      .split('.')
-      .map((segment) => optionalIntFromValue(segment) ?? 0)
-      .toList(growable: false);
 }
 
 /// 把 MCP 服务发现 / 健康检查阶段的底层异常翻译成「现象 / 原因 / 建议」

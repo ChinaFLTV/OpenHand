@@ -29,7 +29,7 @@ void main() {
       }),
     );
 
-    expect(resolveNodePackageBinEntry(packageDirectory.path), entry.path);
+    expect(await resolveNodePackageBinEntry(packageDirectory.path), entry.path);
   });
 
   test('rejects a bin entry outside the package directory', () async {
@@ -39,7 +39,7 @@ void main() {
       '${packageDirectory.path}/package.json',
     ).writeAsString(jsonEncode(<String, Object?>{'bin': '../outside.js'}));
 
-    expect(resolveNodePackageBinEntry(packageDirectory.path), isNull);
+    expect(await resolveNodePackageBinEntry(packageDirectory.path), isNull);
   });
 
   test('rejects an oversized package manifest', () async {
@@ -48,8 +48,23 @@ void main() {
     ).writeAsString('{"bin":"bin/start.js"}');
 
     expect(
-      resolveNodePackageBinEntry(packageDirectory.path, maxManifestBytes: 8),
+      await resolveNodePackageBinEntry(
+        packageDirectory.path,
+        maxManifestBytes: 8,
+      ),
       isNull,
     );
+  });
+
+  test('rejects a symbolic-link bin entry', () async {
+    final outside = File('${temporaryDirectory.path}/outside.js');
+    await outside.writeAsString('');
+    final linkedEntry = Link('${packageDirectory.path}/bin/start.js');
+    await linkedEntry.create(outside.path);
+    await File(
+      '${packageDirectory.path}/package.json',
+    ).writeAsString(jsonEncode(<String, Object?>{'bin': 'bin/start.js'}));
+
+    expect(await resolveNodePackageBinEntry(packageDirectory.path), isNull);
   });
 }

@@ -12,15 +12,14 @@ import '../../../shared/util/bounded_directory_io.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
-import '../../../shared/util/node_package_manifest.dart';
 import '../../../shared/util/text_clip.dart';
-import '../../../shared/util/version_compare.dart';
 import '../model/mcp_server.dart';
+import 'mcp_node_package_resolver.dart';
+import 'mcp_stdio_cache.dart';
 import 'mcp_stdio_io_utils.dart';
-import 'mcp_tool_discovery_service.dart';
+import 'mcp_tool_discovery_exception.dart';
 
 final RegExp _stdioCommandTokenSeparatorPattern = RegExp(r'\s+');
-final RegExp _npxPackageVersionSuffixPattern = RegExp(r'@[^/]*$');
 const int _jsonRpcMalformedLinePreviewChars = 200;
 const int _jsonRpcCompactLinePreviewChars = 120;
 const int _jsonRpcToolDescriptionPreviewChars = 60;
@@ -1475,7 +1474,7 @@ Future<_DirectLaunch> _resolveDirectLaunch(McpServer server) async {
         ? allArgs.sublist(packageArgIndex + 1)
         : const <String>[];
 
-    // 尝试通过 login shell 定位已安装包的实际路径
+    // 优先在受支持的本地 Node 版本管理器中定位已安装包。
     final resolved = await _resolveNpxPackagePath(packageName);
     if (resolved != null) {
       return _DirectLaunch(
@@ -1486,13 +1485,17 @@ Future<_DirectLaunch> _resolveDirectLaunch(McpServer server) async {
   }
 
   // 回退：通过 login shell 执行原始命令
-  final shell = _pickShellForLaunch();
-  final cmdLine = [
-    executable,
-    ...allArgs,
-  ].map((p) => p.contains(' ') ? "'$p'" : p).join(' ');
+  final shell = await resolveMcpLoginShell();
   // 使用 exec 替换 shell 进程，确保 stdin 直接连接到目标进程
-  return _DirectLaunch(executable: shell, args: ['-l', '-c', 'exec $cmdLine']);
+  return _DirectLaunch(
+    executable: shell,
+    args: <String>[
+      '-lc',
+      'exec ${quoteMcpShellToken(executable)} "\$@"',
+      '_',
+      ...allArgs,
+    ],
+  );
 }
 
 int _firstNpxPackageArgIndex(List<String> args) {
@@ -1509,79 +1512,22 @@ int _firstNpxPackageArgIndex(List<String> args) {
   return -1;
 }
 
-class _ResolvedNpxPackage {
-  const _ResolvedNpxPackage({required this.nodeBin, required this.entryScript});
-  final String nodeBin;
-  final String entryScript;
-}
-
 /// 通过多种策略定位 npx 包的实际安装路径和入口脚本。
-Future<_ResolvedNpxPackage?> _resolveNpxPackagePath(String packageName) async {
-  // 解析包名（处理 @scope/name@version 格式）
-  final cleanName = packageName.replaceAll(_npxPackageVersionSuffixPattern, '');
-
-  // 策略 1：直接扫描 nvm 目录（最可靠，GUI 应用中 nvm 是最常见的 node 管理器）
+Future<McpNodePackageResolution?> _resolveNpxPackagePath(
+  String packageName,
+) async {
+  final cleanName = normalizeMcpNodePackageName(packageName);
+  if (cleanName == null) return null;
   final home = Platform.environment['HOME'] ?? '';
-  if (home.isNotEmpty) {
-    final nvmDir = Platform.environment['NVM_DIR'] ?? '$home/.nvm';
-    final versionsDir = Directory('$nvmDir/versions/node');
-    if (versionsDir.existsSync()) {
-      // 找到最新版本的 node
-      final versions = <String>[];
-      try {
-        final listing = await listDirectoryBounded(
-          versionsDir,
-          maxEntries: 256,
-        );
-        for (final entity in listing.entries) {
-          if (entity is Directory &&
-              entity.path.split('/').last.startsWith('v')) {
-            versions.add(entity.path.split('/').last);
-          }
-        }
-      } catch (error, stack) {
-        silentLog(
-          'mcp_stdio_process_manager',
-          'list nvm versions',
-          error,
-          stack,
-        );
-      }
-      versions.sort(compareSemanticVersions);
-      // 从最新版本开始查找包
-      for (final version in versions.reversed) {
-        final nodeBin = '$nvmDir/versions/node/$version/bin/node';
-        final packageDir =
-            '$nvmDir/versions/node/$version/lib/node_modules/$cleanName';
-        if (File(nodeBin).existsSync() && Directory(packageDir).existsSync()) {
-          final entry = resolveNodePackageBinEntry(packageDir);
-          if (entry != null) {
-            return _ResolvedNpxPackage(nodeBin: nodeBin, entryScript: entry);
-          }
-        }
-      }
-    }
+  final installed = await resolveInstalledMcpNodePackage(
+    cleanName,
+    homeDirectory: home,
+  );
+  if (installed != null) return installed;
 
-    // 策略 2：检查 volta
-    final voltaDir = '$home/.volta/tools/image/packages';
-    if (Directory(voltaDir).existsSync()) {
-      // volta 的全局包在 ~/.volta/tools/image/packages/<name>/
-      final voltaPkgDir = '$voltaDir/$cleanName';
-      if (Directory(voltaPkgDir).existsSync()) {
-        final voltaNode = '$home/.volta/bin/node';
-        if (File(voltaNode).existsSync()) {
-          final entry = resolveNodePackageBinEntry(voltaPkgDir);
-          if (entry != null) {
-            return _ResolvedNpxPackage(nodeBin: voltaNode, entryScript: entry);
-          }
-        }
-      }
-    }
-  }
-
-  // 策略 3：通过 login shell 查询（兜底）
+  // 通过 login shell 查询包管理器的动态全局目录（兜底）。
   try {
-    final shell = _pickShellForLaunch();
+    final shell = await resolveMcpLoginShell();
     final result = await runTrackedProcessOrFailed(
       shell,
       ['-l', '-c', 'which node && npm root -g'],
@@ -1593,16 +1539,11 @@ Future<_ResolvedNpxPackage?> _resolveNpxPackagePath(String packageName) async {
       if (lines.length >= 2) {
         final nodeBin = lines[0].trim();
         final globalRoot = lines[1].trim();
-        if (nodeBin.isNotEmpty &&
-            globalRoot.isNotEmpty &&
-            File(nodeBin).existsSync()) {
-          final packageDir = '$globalRoot/$cleanName';
-          if (Directory(packageDir).existsSync()) {
-            final entry = resolveNodePackageBinEntry(packageDir);
-            if (entry != null) {
-              return _ResolvedNpxPackage(nodeBin: nodeBin, entryScript: entry);
-            }
-          }
+        if (nodeBin.isNotEmpty && globalRoot.isNotEmpty) {
+          return resolveMcpNodePackageCandidate(
+            nodeBin: nodeBin,
+            packageDirectory: '$globalRoot/$cleanName',
+          );
         }
       }
     }
@@ -1616,16 +1557,4 @@ Future<_ResolvedNpxPackage?> _resolveNpxPackagePath(String packageName) async {
   }
 
   return null;
-}
-
-/// 选择 login shell。
-String _pickShellForLaunch() {
-  final preferred = Platform.environment['SHELL']?.trim();
-  if (preferred != null &&
-      preferred.isNotEmpty &&
-      File(preferred).existsSync()) {
-    return preferred;
-  }
-  if (File('/bin/zsh').existsSync()) return '/bin/zsh';
-  return '/bin/bash';
 }
