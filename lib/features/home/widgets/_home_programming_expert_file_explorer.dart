@@ -1679,91 +1679,12 @@ String _resolveEditorLanguage({
   return 'plaintext';
 }
 
-const int _workspaceRootCacheCap = 512;
-const int _workspaceRootAncestorLimit = 128;
-const Duration _workspaceRootProbeIdleTimeout = Duration(milliseconds: 500);
-const Duration _workspaceRootProbeTotalTimeout = Duration(seconds: 5);
-const List<String> _workspaceRootMarkers = <String>[
-  'pubspec.yaml',
-  '.git',
-  'package.json',
-  'go.mod',
-  'Cargo.toml',
-];
-final Map<String, String> _workspaceRootCache = <String, String>{};
-final Map<String, Future<String>> _workspaceRootProbes =
-    <String, Future<String>>{};
-
 String _inferWorkspaceRoot(String filePath) {
-  final startDir = p.dirname(filePath);
-  final cached = _workspaceRootCache[startDir];
-  if (cached != null) return cached;
-  final visited = ancestorDirectoriesFrom(startDir);
-  return visited.isEmpty ? startDir : visited.last;
+  return standardWorkspaceRootResolver.cachedOrFallback(filePath);
 }
 
 Future<String> _inferWorkspaceRootAsync(String filePath) {
-  final startDir = p.dirname(filePath);
-  final cached = _workspaceRootCache[startDir];
-  if (cached != null) return Future<String>.value(cached);
-  final active = _workspaceRootProbes[startDir];
-  if (active != null) return active;
-  late final Future<String> tracked;
-  tracked = _probeWorkspaceRoot(startDir).whenComplete(() {
-    if (identical(_workspaceRootProbes[startDir], tracked)) {
-      _workspaceRootProbes.remove(startDir);
-    }
-  });
-  _workspaceRootProbes[startDir] = tracked;
-  return tracked;
-}
-
-Future<String> _probeWorkspaceRoot(String startDir) async {
-  final visited = ancestorDirectoriesFrom(
-    startDir,
-  ).take(_workspaceRootAncestorLimit).toList(growable: false);
-  final fallbackRoot = visited.isEmpty ? startDir : visited.last;
-  final stopwatch = Stopwatch()..start();
-  var root = fallbackRoot;
-  search:
-  for (final directory in visited) {
-    for (final marker in _workspaceRootMarkers) {
-      final remainingMicroseconds =
-          _workspaceRootProbeTotalTimeout.inMicroseconds -
-          stopwatch.elapsedMicroseconds;
-      if (remainingMicroseconds <= 0) break search;
-      final remaining = Duration(microseconds: remainingMicroseconds);
-      final timeout = remaining < _workspaceRootProbeIdleTimeout
-          ? remaining
-          : _workspaceRootProbeIdleTimeout;
-      try {
-        final type = await FileSystemEntity.type(
-          p.join(directory, marker),
-          followLinks: false,
-        ).timeout(timeout);
-        if (type != FileSystemEntityType.notFound) {
-          root = directory;
-          break search;
-        }
-      } on FileSystemException {
-        // Continue with the remaining bounded marker candidates.
-      } on TimeoutException {
-        // Continue until the shared total probe budget is exhausted.
-      }
-    }
-  }
-  final rootIndex = visited.indexOf(root);
-  final cacheEntries = rootIndex < 0
-      ? visited
-      : visited.take(rootIndex + 1).toList(growable: false);
-  if (_workspaceRootCache.length + cacheEntries.length >
-      _workspaceRootCacheCap) {
-    _workspaceRootCache.clear();
-  }
-  for (final directory in cacheEntries) {
-    _workspaceRootCache[directory] = root;
-  }
-  return root;
+  return standardWorkspaceRootResolver.resolve(filePath);
 }
 
 enum _EditorTabMenuAction {

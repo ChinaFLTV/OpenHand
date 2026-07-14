@@ -12,8 +12,8 @@ import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/bounded_file_io.dart';
 import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/input_value_parsing.dart';
-import '../../../../shared/util/path_safety.dart';
 import '../../../../shared/util/timer_safety.dart';
+import '../../../../shared/util/workspace_root_resolver.dart';
 import '../../model/ai_lsp_backend_catalog.dart';
 import '../../model/ai_lsp_language_settings.dart';
 
@@ -377,6 +377,10 @@ class AiLspClientService {
   static const Duration _defaultShutdownExitDelay = Duration(milliseconds: 80);
   static const Duration _defaultStartupDisposeWait = Duration(seconds: 3);
   static const Duration _commandPathLookupTimeout = Duration(seconds: 3);
+  static const Duration _configuredRootProbeIdleTimeout = Duration(
+    milliseconds: 500,
+  );
+  static const Duration _configuredRootProbeTotalTimeout = Duration(seconds: 3);
   static const int _commandPathMaxStdoutBytes = 64 * kBytesPerKiB;
   static const int _commandPathMaxStderrBytes = 16 * kBytesPerKiB;
 
@@ -463,71 +467,6 @@ class AiLspClientService {
     unawaited(disposeAll());
   }
 
-  // Directory → workspace root cache so that repeated LSP resolutions for
-  // files under the same project do not re-walk the filesystem each time.
-  // Cap is generous enough to cover a multi-project workspace.
-  static const int _workspaceRootCacheCap = 512;
-  static final Map<String, String> _workspaceRootCache = <String, String>{};
-
-  static const List<String> _workspaceRootMarkerFiles = <String>[
-    'pubspec.yaml',
-    'package.json',
-    'go.mod',
-    'Cargo.toml',
-    'pom.xml',
-    'build.gradle',
-    'build.gradle.kts',
-    'mix.exs',
-    'Gemfile',
-    'build.sbt',
-    'deno.json',
-    'deno.jsonc',
-    'gleam.toml',
-    'build.zig',
-    'Project.toml',
-    'composer.json',
-    'requirements.txt',
-    'pyproject.toml',
-    'setup.py',
-  ];
-
-  static String inferWorkspaceRoot(String filePath) {
-    final startDir = p.dirname(filePath);
-    final cached = _workspaceRootCache[startDir];
-    if (cached != null) return cached;
-
-    final visited = ancestorDirectoriesFrom(startDir);
-    for (final directory in visited) {
-      if (Directory(p.join(directory, '.git')).existsSync()) {
-        return _memoizeWorkspaceRoot(visited, directory);
-      }
-      var hit = false;
-      for (final marker in _workspaceRootMarkerFiles) {
-        if (File(p.join(directory, marker)).existsSync()) {
-          hit = true;
-          break;
-        }
-      }
-      if (hit) {
-        return _memoizeWorkspaceRoot(visited, directory);
-      }
-    }
-    return _memoizeWorkspaceRoot(
-      visited,
-      visited.isEmpty ? startDir : visited.last,
-    );
-  }
-
-  static String _memoizeWorkspaceRoot(List<String> visited, String root) {
-    for (final v in visited) {
-      _workspaceRootCache[v] = root;
-    }
-    if (_workspaceRootCache.length > _workspaceRootCacheCap) {
-      _workspaceRootCache.clear();
-    }
-    return root;
-  }
-
   Future<AiLspBackendResolution> resolveBackendForFile({
     required String filePath,
     String? language,
@@ -535,7 +474,7 @@ class AiLspClientService {
     final resolvedLanguage = normalizeAiLspLanguage(
       language ?? _languageFromPath(filePath),
     );
-    final rootPath = inferWorkspaceRoot(filePath);
+    final rootPath = await standardWorkspaceRootResolver.resolve(filePath);
     final configuredSettings = _effectiveLanguageSettings[resolvedLanguage];
     final candidate = _candidateForLanguage(
       resolvedLanguage,
@@ -552,10 +491,11 @@ class AiLspClientService {
     final configuredSdk = nullIfBlank(configuredSettings?.sdkPath);
     final configuredVersion = nullIfBlank(configuredSettings?.version);
     if (configuredRoot != null) {
-      final configuredExecutablePath = _resolveExecutablePathFromConfiguredRoot(
-        executable: candidate.executable,
-        configuredRoot: configuredRoot,
-      );
+      final configuredExecutablePath =
+          await _resolveExecutablePathFromConfiguredRoot(
+            executable: candidate.executable,
+            configuredRoot: configuredRoot,
+          );
       if (configuredExecutablePath != null) {
         return AiLspBackendResolution(
           availability: AiLspBackendAvailability.available,
@@ -1291,22 +1231,37 @@ class AiLspClientService {
     return null;
   }
 
-  static String? _resolveExecutablePathFromConfiguredRoot({
+  static Future<String?> _resolveExecutablePathFromConfiguredRoot({
     required String executable,
     required String configuredRoot,
-  }) {
+  }) async {
     final trimmedRoot = nullIfBlank(configuredRoot);
     if (trimmedRoot == null) {
       return null;
     }
-
-    final directFile = File(trimmedRoot);
-    if (directFile.existsSync()) {
-      return p.normalize(directFile.path);
+    final stopwatch = Stopwatch()..start();
+    Future<FileSystemEntityType> probeType(String path) async {
+      final remaining = _configuredRootProbeTotalTimeout - stopwatch.elapsed;
+      if (remaining <= Duration.zero) {
+        return FileSystemEntityType.notFound;
+      }
+      final timeout = remaining < _configuredRootProbeIdleTimeout
+          ? remaining
+          : _configuredRootProbeIdleTimeout;
+      try {
+        return await FileSystemEntity.type(path).timeout(timeout);
+      } on FileSystemException {
+        return FileSystemEntityType.notFound;
+      } on TimeoutException {
+        return FileSystemEntityType.notFound;
+      }
     }
 
-    final rootDirectory = Directory(trimmedRoot);
-    if (!rootDirectory.existsSync()) {
+    final rootType = await probeType(trimmedRoot);
+    if (rootType == FileSystemEntityType.file) {
+      return p.normalize(trimmedRoot);
+    }
+    if (rootType != FileSystemEntityType.directory) {
       return null;
     }
 
@@ -1328,7 +1283,7 @@ class AiLspClientService {
     for (final directoryPath in candidateDirectories) {
       for (final executableName in executableNames) {
         final candidatePath = p.join(directoryPath, executableName);
-        if (File(candidatePath).existsSync()) {
+        if (await probeType(candidatePath) == FileSystemEntityType.file) {
           return p.normalize(candidatePath);
         }
       }

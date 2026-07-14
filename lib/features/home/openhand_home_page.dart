@@ -106,6 +106,7 @@ import '../../shared/util/tool_name_normalization.dart';
 import '../../shared/util/transcript_list_windowing.dart';
 import '../../shared/util/unified_diff.dart'
     show unifiedDiffLines, unifiedDiffLinesFromText;
+import '../../shared/util/workspace_root_resolver.dart';
 import '../../shared/util/xml_escape.dart';
 import '../agents/index.dart';
 import '../ai/index.dart';
