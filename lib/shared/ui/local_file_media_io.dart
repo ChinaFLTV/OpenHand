@@ -27,13 +27,3 @@ Widget buildLocalRasterImage(
     errorBuilder: (context, error, stackTrace) => fallback,
   );
 }
-
-bool localFileExists(String path) {
-  try {
-    return io.File(path).existsSync();
-  } on io.FileSystemException {
-    return false;
-  } on ArgumentError {
-    return false;
-  }
-}

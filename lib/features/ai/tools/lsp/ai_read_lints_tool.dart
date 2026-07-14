@@ -80,9 +80,10 @@ class AiReadLintsTool extends AiTool {
     String? toolCallId,
   }) async {
     // Determine whether to use flutter analyze or dart analyze
+    final pubspecPath = p.join(workingDirectory, 'pubspec.yaml');
     final usesFlutter =
-        File(p.join(workingDirectory, 'pubspec.yaml')).existsSync() &&
-        _pubspecMentionsFlutter(p.join(workingDirectory, 'pubspec.yaml'));
+        await isRegularFilePath(pubspecPath, followLinks: true) &&
+        await _pubspecMentionsFlutter(pubspecPath);
 
     final executable = usesFlutter ? 'flutter' : 'dart';
     final analyzeArgs = <String>[
@@ -149,9 +150,9 @@ class AiReadLintsTool extends AiTool {
         : p.normalize(p.join(workingDirectory, trimmed));
   }
 
-  bool _pubspecMentionsFlutter(String pubspecPath) {
+  Future<bool> _pubspecMentionsFlutter(String pubspecPath) async {
     try {
-      final content = readBoundedFileStringSync(
+      final content = await readBoundedFileString(
         File(pubspecPath),
         maxBytes: _maxPubspecBytes,
       );

@@ -104,5 +104,13 @@ void main() {
     expect(await isDirectoryPath(directory.path), isTrue);
     expect(await isDirectoryPath(file.path), isFalse);
     expect(await isDirectoryPath(link.path), isFalse);
+    expect(
+      await probeFileSystemEntityType(link.path, followLinks: true),
+      FileSystemEntityType.directory,
+    );
+    expect(
+      await probeFileSystemEntityType('', followLinks: true),
+      FileSystemEntityType.notFound,
+    );
   });
 }

@@ -10,6 +10,7 @@ import 'package:path/path.dart' as p;
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../util/async_concurrency.dart';
+import '../util/bounded_file_io.dart';
 import '../util/input_value_parsing.dart';
 import '../util/timer_safety.dart';
 import 'animated_menu.dart';
@@ -724,11 +725,7 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
     final mimeType = widget.source.mimeType;
     final filePath = widget.source.filePath;
     if (filePath != null && filePath.trim().isNotEmpty) {
-      final file = File(filePath);
-      if (!file.existsSync()) {
-        throw FileSystemException('Audio source file is missing.', filePath);
-      }
-      return _NativeAudioResolvedSource(filePath: filePath, mimeType: mimeType);
+      return _resolveLocalAudioSource(filePath, mimeType: mimeType);
     }
     final url = widget.source.networkUrl;
     if (url != null && url.trim().isNotEmpty) {
@@ -739,10 +736,7 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
         throw FormatException('Unsupported audio URL: $url');
       }
       if (scheme == 'file') {
-        return _NativeAudioResolvedSource(
-          filePath: uri.toFilePath(),
-          mimeType: mimeType,
-        );
+        return _resolveLocalAudioSource(uri.toFilePath(), mimeType: mimeType);
       }
       return _NativeAudioResolvedSource(
         networkUrl: url.trim(),
@@ -768,6 +762,20 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
       return _NativeAudioResolvedSource(bytes: bytes, mimeType: mimeType);
     }
     throw const FileSystemException('Audio source is unavailable.');
+  }
+
+  Future<_NativeAudioResolvedSource> _resolveLocalAudioSource(
+    String filePath, {
+    String? mimeType,
+  }) async {
+    if (!await isRegularFilePath(
+      filePath,
+      timeout: kNativeAudioControlTimeout,
+      followLinks: true,
+    )) {
+      throw FileSystemException('Audio source file is missing.', filePath);
+    }
+    return _NativeAudioResolvedSource(filePath: filePath, mimeType: mimeType);
   }
 
   void _handleLoadFailure(Object error, StackTrace stack, int serial) {

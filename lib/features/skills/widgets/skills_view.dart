@@ -603,8 +603,7 @@ class _EditSkillDialogState extends State<_EditSkillDialog> {
     _selectedEmoji = widget.skill.hasEmojiIcon ? widget.skill.emojiIcon : null;
     if (_selectedEmoji == null &&
         widget.skill.hasIcon &&
-        widget.skill.iconPath != null &&
-        localFileExists(widget.skill.iconPath!)) {
+        widget.skill.iconPath != null) {
       _existingIconPath = widget.skill.iconPath;
       _existingIconKind = widget.skill.iconKind;
     }
@@ -897,8 +896,7 @@ class _EditSkillDialogState extends State<_EditSkillDialog> {
         widget.skill.emojiIcon == null &&
         widget.skill.hasIcon &&
         widget.skill.iconPath != null &&
-        widget.skill.iconKind != null &&
-        localFileExists(widget.skill.iconPath!);
+        widget.skill.iconKind != null;
     if (_selectedImageBytes != null) {
       return true;
     }

@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/util/bounded_file_io.dart';
 import '../../shared/util/input_value_parsing.dart';
 import 'safe_subprocess.dart';
 
@@ -250,8 +251,7 @@ $notifier.Show($toast)
       OpenHandNotificationLevel.info => 'Funk',
     };
     final soundPath = '/System/Library/Sounds/$soundName.aiff';
-    final file = File(soundPath);
-    if (file.existsSync()) {
+    if (await isRegularFilePath(soundPath, followLinks: true)) {
       final result = await runProcessWithTimeout(
         'afplay',
         [soundPath],

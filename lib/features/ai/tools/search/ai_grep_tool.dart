@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+import '../../../../shared/util/bounded_file_io.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../service/bash/ai_bash_tool_service.dart';
 import '../../service/runtime/ai_tool_runtime_service.dart';
@@ -46,7 +47,7 @@ class AiGrepTool extends AiTool {
                 ));
 
     // 验证路径存在性
-    final pathType = FileSystemEntity.typeSync(path);
+    final pathType = await probeFileSystemEntityType(path, followLinks: true);
     if (pathType == FileSystemEntityType.notFound) {
       return AiToolUtils.invalidResult('Grep', 'Path does not exist: $path');
     }

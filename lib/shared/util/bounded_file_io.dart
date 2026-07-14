@@ -411,51 +411,49 @@ Future<bool> isRegularFilePath(
   String path, {
   Duration timeout = defaultBoundedFileReadIdleTimeout,
   bool followLinks = false,
-}) {
-  return _isFileSystemEntityPathType(
-    path,
-    expected: FileSystemEntityType.file,
-    timeout: timeout,
-    followLinks: followLinks,
-  );
+}) async {
+  return await probeFileSystemEntityType(
+        path,
+        timeout: timeout,
+        followLinks: followLinks,
+      ) ==
+      FileSystemEntityType.file;
+}
+
+Future<FileSystemEntityType> probeFileSystemEntityType(
+  String path, {
+  Duration timeout = defaultBoundedFileReadIdleTimeout,
+  bool followLinks = false,
+}) async {
+  if (path.trim().isEmpty) return FileSystemEntityType.notFound;
+  if (timeout <= Duration.zero) {
+    throw ArgumentError.value(timeout, 'timeout', 'Must be positive.');
+  }
+  try {
+    return await FileSystemEntity.type(
+      path,
+      followLinks: followLinks,
+    ).timeout(timeout);
+  } on FileSystemException {
+    return FileSystemEntityType.notFound;
+  } on TimeoutException {
+    return FileSystemEntityType.notFound;
+  } on ArgumentError {
+    return FileSystemEntityType.notFound;
+  }
 }
 
 Future<bool> isDirectoryPath(
   String path, {
   Duration timeout = defaultBoundedFileReadIdleTimeout,
   bool followLinks = false,
-}) {
-  return _isFileSystemEntityPathType(
-    path,
-    expected: FileSystemEntityType.directory,
-    timeout: timeout,
-    followLinks: followLinks,
-  );
-}
-
-Future<bool> _isFileSystemEntityPathType(
-  String path, {
-  required FileSystemEntityType expected,
-  required Duration timeout,
-  required bool followLinks,
 }) async {
-  if (path.trim().isEmpty) return false;
-  if (timeout <= Duration.zero) {
-    throw ArgumentError.value(timeout, 'timeout', 'Must be positive.');
-  }
-  try {
-    return await FileSystemEntity.type(
-          path,
-          followLinks: followLinks,
-        ).timeout(timeout) ==
-        expected;
-  } on FileSystemException {
-    return false;
-  } on TimeoutException {
-    return false;
-  } on ArgumentError {
-    return false;
-  }
+  return await probeFileSystemEntityType(
+        path,
+        timeout: timeout,
+        followLinks: followLinks,
+      ) ==
+      FileSystemEntityType.directory;
 }
 
 Future<void> _closeLateFile(Future<RandomAccessFile> openFuture) async {

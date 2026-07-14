@@ -15,5 +15,3 @@ Widget buildLocalRasterImage(
 }) {
   return fallback;
 }
-
-bool localFileExists(String path) => false;
