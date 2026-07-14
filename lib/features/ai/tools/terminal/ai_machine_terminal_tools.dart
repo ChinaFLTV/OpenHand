@@ -107,10 +107,6 @@ class AiMachineTerminalWriteTool extends AiMachineTerminalToolBase {
   bool get isDestructive => true;
 
   @override
-  AiToolInterruptBehavior get interruptBehavior =>
-      AiToolInterruptBehavior.cancel;
-
-  @override
   Future<AiToolExecutionResult> execute(AiToolExecutionContext context) async {
     final service = terminalService(context);
     if (service == null) return missingServiceResult('MachineTerminalWrite');
@@ -170,10 +166,6 @@ class AiMachineTerminalExecTool extends AiMachineTerminalToolBase {
 
   @override
   bool get isDestructive => true;
-
-  @override
-  AiToolInterruptBehavior get interruptBehavior =>
-      AiToolInterruptBehavior.cancel;
 
   @override
   Future<AiToolExecutionResult> execute(AiToolExecutionContext context) async {
@@ -243,10 +235,6 @@ class AiMachineTerminalControlTool extends AiMachineTerminalToolBase {
 
   @override
   bool get isDestructive => true;
-
-  @override
-  AiToolInterruptBehavior get interruptBehavior =>
-      AiToolInterruptBehavior.cancel;
 
   @override
   Future<AiToolExecutionResult> execute(AiToolExecutionContext context) async {

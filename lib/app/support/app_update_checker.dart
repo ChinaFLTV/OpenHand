@@ -6,6 +6,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
+import '../../shared/net/http_redirect_utils.dart';
 import '../../shared/net/http_response_utils.dart';
 import '../../shared/util/bounded_delete.dart';
 import '../../shared/util/input_value_parsing.dart';
@@ -21,6 +22,8 @@ const Duration _kUpdateCheckTotalTimeout = Duration(seconds: 45);
 const Duration _kUpdateDownloadTotalTimeout = Duration(minutes: 30);
 const int _kUpdateMetadataMaxBytes = 2 * 1024 * 1024;
 const int _kUpdateMaxDownloadBytes = 2 * 1024 * 1024 * 1024;
+const int _kUpdateMaxRedirects = 5;
+const Duration _kUpdateRedirectDrainTimeout = Duration(seconds: 2);
 const String _kGitHubReleaseAcceptHeader = 'application/vnd.github.v3+json';
 const String _kUpdateCheckerUserAgent = 'OpenHand-UpdateChecker';
 const String _kFallbackUpdateFileName = 'openhand-update';
@@ -86,6 +89,7 @@ abstract class AppUpdateDataSource {
     AppReleaseInfo release, {
     required ValueChanged<double> onProgress,
     required ValueChanged<String> onFilePath,
+    Future<void>? cancelSignal,
   });
 }
 
@@ -114,14 +118,16 @@ class GitHubReleaseDataSource implements AppUpdateDataSource {
   Future<AppUpdateCheckResult> checkForUpdate(String currentVersion) async {
     final client = _createHttpClient(_kUpdateCheckConnectionTimeout);
     try {
-      final request = await client
-          .getUrl(Uri.parse(_apiUrl))
-          .timeout(_kUpdateCheckConnectionTimeout);
-      request.headers.set('Accept', _kGitHubReleaseAcceptHeader);
-      request.headers.set('User-Agent', _kUpdateCheckerUserAgent);
-      final response = await request.close().timeout(
-        _kUpdateResponseHeaderTimeout,
+      final result = await _getFollowingSecureRedirects(
+        client: client,
+        initialUri: Uri.parse(_apiUrl),
+        connectionTimeout: _kUpdateCheckConnectionTimeout,
+        headers: const <String, String>{
+          'Accept': _kGitHubReleaseAcceptHeader,
+          'User-Agent': _kUpdateCheckerUserAgent,
+        },
       );
+      final response = result.response;
       final body = await readBoundedHttpResponseText(
         response,
         maxBytes: _kUpdateMetadataMaxBytes,
@@ -158,30 +164,43 @@ class GitHubReleaseDataSource implements AppUpdateDataSource {
     AppReleaseInfo release, {
     required ValueChanged<double> onProgress,
     required ValueChanged<String> onFilePath,
+    Future<void>? cancelSignal,
   }) async {
     if (release.downloadUrl.isEmpty) {
       throw Exception('No download URL available.');
     }
-    final downloadUri = Uri.tryParse(release.downloadUrl);
-    if (downloadUri == null ||
-        downloadUri.scheme.toLowerCase() != 'https' ||
-        downloadUri.host.trim().isEmpty ||
-        downloadUri.userInfo.isNotEmpty) {
+    final initialDownloadUri = Uri.tryParse(release.downloadUrl);
+    if (initialDownloadUri == null) {
       throw const FormatException('Update download URL must use HTTPS.');
     }
+    _validateSecureUpdateUri(initialDownloadUri);
     if (release.downloadSize > _kUpdateMaxDownloadBytes) {
       throw const FileSystemException('Update package is too large.');
     }
     final client = _createHttpClient(_kUpdateDownloadConnectionTimeout);
+    var finished = false;
+    if (cancelSignal != null) {
+      unawaited(
+        cancelSignal.then<void>(
+          (_) {
+            if (!finished) client.close(force: true);
+          },
+          onError: (Object _, StackTrace _) {
+            if (!finished) client.close(force: true);
+          },
+        ),
+      );
+    }
     Directory? downloadDirectory;
     try {
-      final request = await client
-          .getUrl(downloadUri)
-          .timeout(_kUpdateDownloadConnectionTimeout);
-      request.headers.set('User-Agent', _kUpdateCheckerUserAgent);
-      final response = await request.close().timeout(
-        _kUpdateResponseHeaderTimeout,
+      final result = await _getFollowingSecureRedirects(
+        client: client,
+        initialUri: initialDownloadUri,
+        connectionTimeout: _kUpdateDownloadConnectionTimeout,
+        headers: const <String, String>{'User-Agent': _kUpdateCheckerUserAgent},
       );
+      final response = result.response;
+      final downloadUri = result.uri;
       if (response.statusCode != 200) {
         final body = await readBoundedHttpResponseText(
           response,
@@ -202,7 +221,7 @@ class GitHubReleaseDataSource implements AppUpdateDataSource {
       downloadDirectory = await Directory.systemTemp.createTemp(
         'openhand-update-',
       );
-      final fileName = _safeUpdateFileName(downloadUri);
+      final fileName = _safeUpdateFileName(initialDownloadUri);
       final filePath = p.join(downloadDirectory.path, fileName);
       final partialFile = File('$filePath.part');
       final sink = partialFile.openWrite();
@@ -258,7 +277,48 @@ class GitHubReleaseDataSource implements AppUpdateDataSource {
       }
       rethrow;
     } finally {
+      finished = true;
       client.close(force: true);
+    }
+  }
+
+  Future<({HttpClientResponse response, Uri uri})>
+  _getFollowingSecureRedirects({
+    required HttpClient client,
+    required Uri initialUri,
+    required Duration connectionTimeout,
+    required Map<String, String> headers,
+  }) async {
+    var uri = initialUri;
+    for (var redirects = 0; ; redirects += 1) {
+      _validateSecureUpdateUri(uri);
+      final request = await client.getUrl(uri).timeout(connectionTimeout);
+      request
+        ..followRedirects = false
+        ..maxRedirects = 0;
+      for (final header in headers.entries) {
+        request.headers.set(header.key, header.value);
+      }
+      final response = await request.close().timeout(
+        _kUpdateResponseHeaderTimeout,
+      );
+      if (!isRedirectStatusCode(response.statusCode)) {
+        return (response: response, uri: uri);
+      }
+      if (redirects >= _kUpdateMaxRedirects) {
+        throw HttpException(
+          'Update request exceeded redirect limit.',
+          uri: uri,
+        );
+      }
+      final location = response.headers.value(HttpHeaders.locationHeader);
+      if (location == null || location.trim().isEmpty) {
+        throw HttpException('Update redirect is missing Location.', uri: uri);
+      }
+      final nextUri = uri.resolve(location.trim());
+      _validateSecureUpdateUri(nextUri);
+      await response.drain<void>().timeout(_kUpdateRedirectDrainTimeout);
+      uri = nextUri;
     }
   }
 
@@ -269,6 +329,14 @@ class GitHubReleaseDataSource implements AppUpdateDataSource {
     if (Platform.isAndroid) return '.apk';
     if (Platform.isIOS) return '.ipa';
     return '';
+  }
+}
+
+void _validateSecureUpdateUri(Uri uri) {
+  if (uri.scheme.toLowerCase() != 'https' ||
+      uri.host.trim().isEmpty ||
+      uri.userInfo.isNotEmpty) {
+    throw const FormatException('Update URL must use HTTPS.');
   }
 }
 

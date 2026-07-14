@@ -2668,6 +2668,8 @@ class SettingsController extends ChangeNotifier {
     _selfLearningStreamFlushIntervalMs =
         snapshot.selfLearningStreamFlushIntervalMs;
     _showSelfLearningMessages = snapshot.showSelfLearningMessages;
+    _cronAutoCleanupEnabled = snapshot.cronAutoCleanupEnabled;
+    _cronAutoCleanupRetentionDays = snapshot.cronAutoCleanupRetentionDays;
     _harnessToolSearchHistoryMaxPhases =
         snapshot.harnessToolSearchHistoryMaxPhases;
     _toolSearchReplayCancelWindowSeconds =
@@ -2751,12 +2753,13 @@ class SettingsController extends ChangeNotifier {
           );
         })
         .then((_) async {
+          AppSettingsSnapshot? previousSnapshot;
           try {
             if (_isDisposed) {
               completer.complete(false);
               return;
             }
-            final previousSnapshot = _snapshot();
+            previousSnapshot = _snapshot();
             final disposition = mutation();
             if (disposition == _MutationDisposition.successNoChange) {
               completer.complete(true);
@@ -2782,18 +2785,7 @@ class SettingsController extends ChangeNotifier {
               }
               completer.complete(true);
             } catch (error) {
-              try {
-                _applySnapshot(previousSnapshot);
-              } catch (rollbackError, rollbackStack) {
-                silentLog(
-                  'settings_controller',
-                  'rollback settings snapshot',
-                  rollbackError,
-                  rollbackStack,
-                );
-                // Rollback itself failed – snapshot is inconsistent but we must
-                // still complete the completer to avoid hanging the queue.
-              }
+              _restoreSnapshot(previousSnapshot);
               _persistenceIssue = SettingsPersistenceIssue(
                 kind: SettingsPersistenceIssueKind.saveFailed,
                 filePath: _store.settingsFilePath,
@@ -2803,6 +2795,10 @@ class SettingsController extends ChangeNotifier {
               completer.complete(false);
             }
           } catch (error, stack) {
+            if (previousSnapshot != null) {
+              _restoreSnapshot(previousSnapshot);
+              notifyListeners();
+            }
             silentLog(
               'settings_controller',
               'commit settings mutation',
@@ -2816,6 +2812,19 @@ class SettingsController extends ChangeNotifier {
           }
         });
     return completer.future;
+  }
+
+  void _restoreSnapshot(AppSettingsSnapshot snapshot) {
+    try {
+      _applySnapshot(snapshot);
+    } catch (error, stack) {
+      silentLog(
+        'settings_controller',
+        'rollback settings snapshot',
+        error,
+        stack,
+      );
+    }
   }
 
   List<RecentModelSelection> _sanitizeRecentModelSelections(

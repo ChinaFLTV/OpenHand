@@ -1092,9 +1092,24 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
   void _scheduleSave(LedgerConfig next) {
     setState(() => _config = next);
     _saveDebounce.schedule(() async {
-      await _ledger.saveConfig(next);
-      if (!mounted) return;
-      await _refreshStats();
+      try {
+        await _ledger.saveConfig(next);
+        if (!mounted) return;
+        await _refreshStats();
+      } catch (error, stack) {
+        silentLog('ledger_config', 'save', error, stack);
+        final persisted = await _ledger.loadConfig();
+        if (!mounted) return;
+        setState(() => _config = persisted);
+        showOpenHandErrorSnack(
+          context,
+          openHandLocalizedText(
+            context,
+            zh: '文件历史设置保存失败：$error',
+            en: 'Failed to save file-history settings: $error',
+          ),
+        );
+      }
     });
   }
 

@@ -1904,6 +1904,10 @@ class AiToolUtils {
             (_) => const _WriteConfirmationOutcome.fromDecision(
               BashCommandApprovalDecision.cancelled,
             ),
+            onError: (Object _, StackTrace _) =>
+                const _WriteConfirmationOutcome.fromDecision(
+                  BashCommandApprovalDecision.cancelled,
+                ),
           ),
         ]);
       }

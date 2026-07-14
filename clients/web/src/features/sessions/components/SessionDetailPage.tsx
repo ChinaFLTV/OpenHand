@@ -253,6 +253,8 @@ const SSE_FAIL_THRESHOLD = 3;
 const DEFAULT_ATTACHMENT_MAX_BYTES = 10 * 1024 * 1024;
 const DEFAULT_ATTACHMENT_MAX_TOTAL_BYTES = 16 * 1024 * 1024;
 const DEFAULT_ATTACHMENT_MAX_COUNT = 20;
+const COMPOSER_QUEUE_MAX_MESSAGES = 32;
+const COMPOSER_QUEUE_MAX_ATTACHMENT_BYTES = 64 * 1024 * 1024;
 const ATTACHMENT_RESTORE_TIMEOUT_MS = 30_000;
 const COMPOSER_ITEM_EXIT_MS = 190;
 const QUEUE_SEND_SETTLE_MS = 600;
@@ -2635,20 +2637,42 @@ function deriveMessageWindowView(items: SessionMessage[]): SessionMessageWindowV
   };
 }
 
-function messageWindowShapeKey(sessionId: string, windowOffset: number, ordered: SessionMessage[]): string {
-  const count = ordered.length;
-  if (count === 0) return `${sessionId}|${windowOffset}|0`;
-  return [
-    sessionId,
-    windowOffset,
-    count,
-    ordered[0]!.id,
-    ordered[count - 1]!.id,
-  ].join('|');
+interface MessageWindowMembershipTracker {
+  revision: number;
+  sessionId: string;
+  windowOffset: number;
+  messageIds: string[];
+}
+
+function updateMessageWindowMembership(
+  tracker: MessageWindowMembershipTracker,
+  sessionId: string,
+  windowOffset: number,
+  messages: SessionMessage[],
+): string {
+  let changed = tracker.sessionId !== sessionId ||
+    tracker.windowOffset !== windowOffset ||
+    tracker.messageIds.length !== messages.length;
+  if (!changed) {
+    for (let index = 0; index < messages.length; index += 1) {
+      if (tracker.messageIds[index] !== messages[index]?.id) {
+        changed = true;
+        break;
+      }
+    }
+  }
+  if (changed) {
+    tracker.revision += 1;
+    tracker.sessionId = sessionId;
+    tracker.windowOffset = windowOffset;
+    tracker.messageIds = messages.map((message) => message.id);
+  }
+  return `${sessionId}|${tracker.revision}`;
 }
 
 interface VirtualMessageListProps {
   messages: SessionMessage[];
+  membershipKey: string;
   scrollContainerRef: { current: HTMLElement | null };
   renderMessage: (message: SessionMessage) => ComponentChildren;
 }
@@ -2698,6 +2722,7 @@ function MeasuredMessageRow({
 
 function VirtualMessageList({
   messages,
+  membershipKey,
   scrollContainerRef,
   renderMessage,
 }: VirtualMessageListProps) {
@@ -2713,12 +2738,18 @@ function VirtualMessageList({
     initialVirtualMessageRange(messages.length),
   );
 
+  // Streaming updates replace message objects while preserving the window's
+  // ids. Keep the height index stable until membership actually changes.
+  const messageIds = useMemo(
+    () => messages.map((message) => message.id),
+    [membershipKey],
+  );
   const estimatedHeights = useMemo(
-    () => messages.map((message) =>
-      measuredHeightsRef.current.get(message.id) ??
+    () => messageIds.map((messageId) =>
+      measuredHeightsRef.current.get(messageId) ??
       MESSAGE_LIST_ESTIMATED_ROW_HEIGHT_PX,
     ),
-    [heightRevision, messages],
+    [heightRevision, messageIds],
   );
   const heightPrefix = useMemo(
     () => buildHeightPrefix(estimatedHeights),
@@ -2844,11 +2875,11 @@ function VirtualMessageList({
   }, []);
 
   useEffect(() => {
-    const liveIds = new Set(messages.map((message) => message.id));
+    const liveIds = new Set(messageIds);
     for (const id of measuredHeightsRef.current.keys()) {
       if (!liveIds.has(id)) measuredHeightsRef.current.delete(id);
     }
-  }, [messages]);
+  }, [messageIds]);
 
   if (!virtualized) {
     return (
@@ -2895,8 +2926,14 @@ function VirtualMessageList({
 }
 
 function messagesWindowLooksIdentical(prev: SessionMessage[], next: SessionMessage[], prevOffset: number, nextOffset: number): boolean {
+  if (prev === next) return prevOffset === nextOffset;
   if (prevOffset !== nextOffset || prev.length !== next.length) return false;
-  for (let index = 0; index < next.length; index += 1) {
+  if (next.length === 0) return true;
+  const tailIndex = next.length - 1;
+  if (!messagesEquivalentForRender(prev[tailIndex]!, next[tailIndex]!)) {
+    return false;
+  }
+  for (let index = 0; index < tailIndex; index += 1) {
     const a = prev[index];
     const b = next[index];
     if (!a || !b) return false;
@@ -4504,9 +4541,18 @@ export function SessionDetailPage() {
   const goalModeAvailable = Boolean(session && isGoalModeAllowedForTemplate(session.template_id));
   const routeMessages = detailBelongsToRoute ? messages : EMPTY_SESSION_MESSAGES;
   const messageWindowView = useMemo(() => deriveMessageWindowView(routeMessages), [routeMessages]);
-  const messageMembershipKey = useMemo(() => {
-    return messageWindowShapeKey(sessionId, windowOffset, messageWindowView.ordered);
-  }, [messageWindowView.ordered, sessionId, windowOffset]);
+  const messageMembershipTrackerRef = useRef<MessageWindowMembershipTracker>({
+    revision: 0,
+    sessionId: '',
+    windowOffset: -1,
+    messageIds: [],
+  });
+  const messageMembershipKey = updateMessageWindowMembership(
+    messageMembershipTrackerRef.current,
+    sessionId,
+    windowOffset,
+    messageWindowView.ordered,
+  );
   const visibleMessageIdSet = useMemo(() => {
     return new Set(messageWindowView.ordered.map((message) => message.id));
   }, [messageMembershipKey]);
@@ -4967,6 +5013,7 @@ export function SessionDetailPage() {
       const currentMessages = messagesRef.current;
       const existing = new Set(currentMessages.map((item) => item.id));
       const incoming = m.items.filter((item) => !existing.has(item.id));
+      markMessagesAsAppeared(incoming.map((item) => item.id));
       setOlderRenderSettlingValue(incoming.length > 0);
       const nextMessages = [...incoming, ...currentMessages];
       replaceMessageWindow(nextMessages, m.offset);
@@ -5261,6 +5308,30 @@ export function SessionDetailPage() {
       setComposerError(validation);
       return false;
     }
+    const currentQueue = queuedComposerMessagesRef.current;
+    if (currentQueue.length >= COMPOSER_QUEUE_MAX_MESSAGES) {
+      setComposerError(
+        `${t('composer.queue.countLimit', '等待队列已达上限')} (${COMPOSER_QUEUE_MAX_MESSAGES})`,
+      );
+      return false;
+    }
+    const queuedAttachmentBytes = currentQueue.reduce(
+      (queueTotal, item) => queueTotal + item.attachments.reduce(
+        (itemTotal, attachment) => itemTotal + decodedBase64Size(attachment.data_base64),
+        0,
+      ),
+      0,
+    );
+    const nextAttachmentBytes = attachments.reduce(
+      (total, attachment) => total + decodedBase64Size(attachment.data_base64),
+      0,
+    );
+    if (queuedAttachmentBytes + nextAttachmentBytes > COMPOSER_QUEUE_MAX_ATTACHMENT_BYTES) {
+      setComposerError(
+        `${t('composer.queue.attachmentLimit', '等待队列附件总大小已达上限')} (${COMPOSER_QUEUE_MAX_ATTACHMENT_BYTES / (1024 * 1024)} MiB)`,
+      );
+      return false;
+    }
     const queued: QueuedComposerMessage = {
       id: nextQueuedMessageId(),
       content: text,
@@ -5274,7 +5345,9 @@ export function SessionDetailPage() {
       createdAt: Date.now(),
     };
     clearQueuedMessageRetryBlock();
-    setQueuedComposerMessages((prev) => [...prev, queued]);
+    const nextQueue = [...currentQueue, queued];
+    queuedComposerMessagesRef.current = nextQueue;
+    setQueuedComposerMessages(nextQueue);
     setQueuedListMotionGeneration((value) => value + 1);
     setComposerError(null);
     clearComposerAfterQueue();
@@ -7093,6 +7166,7 @@ export function SessionDetailPage() {
                     {session ? <PlanTimeline session={session} modelKey={composerModelKey} /> : null}
                     <VirtualMessageList
                       messages={visibleSortedMessages}
+                      membershipKey={messageMembershipKey}
                       scrollContainerRef={mainRef}
                       renderMessage={renderSessionMessage}
                     />

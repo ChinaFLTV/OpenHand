@@ -337,6 +337,7 @@ class AiWebSearchTool extends AiTool {
             AiChatTurn(role: AiChatRole.system, content: prompt.system),
             AiChatTurn(role: AiChatRole.user, content: prompt.user),
           ],
+          cancelSignal: context.cancelSignal,
         ),
         cancelSignal: context.cancelSignal,
       );

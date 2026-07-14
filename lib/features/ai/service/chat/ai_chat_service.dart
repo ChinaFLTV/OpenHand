@@ -600,35 +600,46 @@ class AiChatService implements AiChatClient {
     required AiCreationRequest creationRequest,
     required Duration timeout,
     List<String> requestFallbacks = const <String>[],
+    Future<void>? cancelSignal,
   }) async {
     final prompt = _latestUserPromptFromTurns(messages);
     final referenceImages = _latestUserImagePartsFromTurns(messages);
-    final result = switch (creationRequest.mode) {
-      AiCreationMode.image => await _imageService.generateImage(
-        model: model,
-        prompt: prompt,
-        options: creationRequest.options,
-        referenceImages: referenceImages,
-        timeout: timeout,
-      ),
-      AiCreationMode.video => await _imageService.generateVideo(
-        model: model,
-        prompt: prompt,
-        options: creationRequest.options,
-        referenceImages: referenceImages,
-        timeout: timeout,
-      ),
-      AiCreationMode.audio => await _imageService.generateAudio(
-        model: model,
-        prompt: prompt,
-        options: creationRequest.options,
-        timeout: timeout,
-      ),
-      AiCreationMode.none ||
-      AiCreationMode.deepResearch => throw const AiMediaGenerationException(
-        'No media generation mode was requested.',
-      ),
-    };
+    final AiMediaGenerationResult result;
+    try {
+      result = switch (creationRequest.mode) {
+        AiCreationMode.image => await _imageService.generateImage(
+          model: model,
+          prompt: prompt,
+          options: creationRequest.options,
+          referenceImages: referenceImages,
+          timeout: timeout,
+          cancelSignal: cancelSignal,
+        ),
+        AiCreationMode.video => await _imageService.generateVideo(
+          model: model,
+          prompt: prompt,
+          options: creationRequest.options,
+          referenceImages: referenceImages,
+          timeout: timeout,
+          cancelSignal: cancelSignal,
+        ),
+        AiCreationMode.audio => await _imageService.generateAudio(
+          model: model,
+          prompt: prompt,
+          options: creationRequest.options,
+          timeout: timeout,
+          cancelSignal: cancelSignal,
+        ),
+        AiCreationMode.none ||
+        AiCreationMode.deepResearch => throw const AiMediaGenerationException(
+          'No media generation mode was requested.',
+        ),
+      };
+    } on AiMediaGenerationCancelledException {
+      throw const AiChatCancelledException();
+    } on http.RequestAbortedException {
+      throw const AiChatCancelledException();
+    }
     return AiChatCompletion(
       reply: result.markdown,
       rawResponse: result.rawResponseBody,
@@ -678,6 +689,7 @@ class AiChatService implements AiChatClient {
                 : null,
             timeout: timeout,
             inputCacheConfig: inputCacheConfig,
+            cancelSignal: cancelSignal,
             onRequestStarted: (request) {
               onRequestStarted?.call(
                 AiChatRequestTelemetry(
@@ -747,6 +759,7 @@ class AiChatService implements AiChatClient {
             creationRequest: creationRequest,
             timeout: timeout,
             requestFallbacks: routeFallbacks,
+            cancelSignal: cancelSignal,
           ),
           cancelSignal,
         );
@@ -1164,7 +1177,7 @@ class AiChatService implements AiChatClient {
         }
         final firstResult = await Future.any<Object?>(<Future<Object?>>[
           streamedResponseFuture,
-          cancelSignal.then((_) => _cancelledStreamSentinel),
+          _cancelSignalSentinel(cancelSignal, _cancelledStreamSentinel),
         ]);
         if (!identical(firstResult, _cancelledStreamSentinel)) {
           return firstResult as http.StreamedResponse;
@@ -1726,7 +1739,7 @@ class AiChatService implements AiChatClient {
       }
       final firstResult = await Future.any(<Future<Object?>>[
         streamedResponseFuture,
-        cancelSignal.then((_) => _cancelledStreamSentinel),
+        _cancelSignalSentinel(cancelSignal, _cancelledStreamSentinel),
       ]);
       if (identical(firstResult, _cancelledStreamSentinel)) {
         unawaited(
@@ -2203,13 +2216,15 @@ class AiChatService implements AiChatClient {
   }) async {
     final controller = StreamController<AiChatStreamEvent>(sync: true);
     final completer = Completer<AiChatStreamResult>();
-    // Internal cancel signal so `cancel()` can release the wrapper even
-    // when the caller did not supply an external `cancelSignal`. The
-    // underlying `sendMessage` HTTP cannot actually be aborted (the
-    // `http.Client` API used here is non-cancellable), but at minimum
-    // we stop *waiting* on it and surface a cancelled result immediately
-    // so UI / controller code can move on.
+    // Internal cancel signal so `cancel()` releases both the wrapper and the
+    // underlying abortable request when no external signal was supplied.
     final internalCancelCompleter = Completer<void>();
+    final effectiveCancelSignal = cancelSignal == null
+        ? internalCancelCompleter.future
+        : Future.any<void>(<Future<void>>[
+            internalCancelCompleter.future,
+            cancelSignal,
+          ]);
     var cancelled = false;
 
     void completeCancelled() {
@@ -2242,6 +2257,7 @@ class AiChatService implements AiChatClient {
             messages: messages,
             creationRequest: creationRequest,
             timeout: timeout,
+            cancelSignal: effectiveCancelSignal,
           );
         } else {
           completionFuture = sendMessage(
@@ -2253,18 +2269,17 @@ class AiChatService implements AiChatClient {
             timeout: timeout,
             onRequestStarted: onRequestStarted,
             inputCacheConfig: inputCacheConfig,
+            cancelSignal: effectiveCancelSignal,
           );
         }
-        // Race the actual completion against (a) the caller's cancel
-        // signal, and (b) our internal signal raised by `cancel()`.
-        // Either branch resolves immediately so the synthetic stream
-        // wrapper can close even if the HTTP keeps running in the
-        // background.
+        // Keep the wrapper race so non-abortable provider-specific paths still
+        // release their UI state immediately.
         final raceFutures = <Future<Object?>>[
           completionFuture,
-          internalCancelCompleter.future.then((_) => _cancelledStreamSentinel),
-          if (cancelSignal != null)
-            cancelSignal.then((_) => _cancelledStreamSentinel),
+          _cancelSignalSentinel(
+            effectiveCancelSignal,
+            _cancelledStreamSentinel,
+          ),
         ];
         final completion = await Future.any(raceFutures).then((value) {
           if (identical(value, _cancelledStreamSentinel)) {
@@ -2338,7 +2353,7 @@ class AiChatService implements AiChatClient {
     }
     final firstResult = await Future.any<Object?>(<Future<Object?>>[
       future.then<Object?>((value) => value),
-      cancelSignal.then<Object?>((_) => _cancelledRequestSentinel),
+      _cancelSignalSentinel(cancelSignal, _cancelledRequestSentinel),
     ]);
     if (identical(firstResult, _cancelledRequestSentinel)) {
       unawaited(
@@ -2422,6 +2437,16 @@ class AiChatService implements AiChatClient {
 
 const Object _cancelledRequestSentinel = Object();
 const Object _cancelledStreamSentinel = Object();
+
+Future<Object?> _cancelSignalSentinel(
+  Future<void> cancelSignal,
+  Object sentinel,
+) {
+  return cancelSignal.then<Object?>(
+    (_) => sentinel,
+    onError: (Object _, StackTrace _) => sentinel,
+  );
+}
 
 class _SyntheticStreamCancelledException implements Exception {}
 

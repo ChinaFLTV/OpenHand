@@ -285,8 +285,6 @@ class AiToolRegistry {
 
   AiTool? getTool(AiBuiltinToolKind kind) => _tools[kind];
 
-  bool supports(AiBuiltinToolKind kind) => _tools.containsKey(kind);
-
   /// 通过别名字符串查找对应的 [AiBuiltinToolKind]。
   /// 若无匹配别名则返回 null。
   ///

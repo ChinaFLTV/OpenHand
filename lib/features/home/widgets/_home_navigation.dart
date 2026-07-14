@@ -1,5 +1,35 @@
 part of '../openhand_home_page.dart';
 
+@immutable
+class _NavigationSessionSnapshot {
+  const _NavigationSessionSnapshot({
+    required this.sessions,
+    required this.sendPhases,
+    required this.currentSessionId,
+  });
+
+  final List<AiSession> sessions;
+  final Map<String, AiSendPhase> sendPhases;
+  final String? currentSessionId;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is _NavigationSessionSnapshot &&
+          identical(sessions, other.sessions) &&
+          currentSessionId == other.currentSessionId &&
+          mapEquals(sendPhases, other.sendPhases);
+
+  @override
+  int get hashCode => Object.hash(
+    identityHashCode(sessions),
+    currentSessionId,
+    Object.hashAll(
+      sendPhases.entries.map((entry) => Object.hash(entry.key, entry.value)),
+    ),
+  );
+}
+
 class _NavigationPane extends StatefulWidget {
   const _NavigationPane({
     required this.selectedSection,
@@ -250,131 +280,148 @@ class _NavigationPaneState extends State<_NavigationPane> {
         ? liveHeStatus
         : widget.harnessSessionRecord!.status;
 
-    final threadCount = widget.sessions.length +
-        (widget.harnessSessionRecord == null ? 0 : 1);
+    final threadCount =
+        widget.sessions.length + (widget.harnessSessionRecord == null ? 0 : 1);
     final hasThreads = threadCount > 0;
     final colorScheme = theme.colorScheme;
+    final threadTiles = _buildMergedThreadTiles(
+      heRecord: widget.harnessSessionRecord,
+      heStatus: heStatusForTile,
+      heAwaitingApproval: heAwaitingApprovalForTile,
+    );
+    final threadTileIndexByKey = <Key, int>{
+      for (var index = 0; index < threadTiles.length; index++)
+        if (threadTiles[index].key case final key?) key: index,
+    };
 
     return Card(
       clipBehavior: Clip.antiAlias,
-      child: ListView(
-        padding: EdgeInsets.zero,
-        children: [
-          const SizedBox(height: 18),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: MicroPressFeedback(
-              child: SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: widget.onCreateThreadRequested,
-                  icon: const Icon(Icons.add_comment_rounded),
-                  label: Text(l10n.newThread),
+      child: CustomScrollView(
+        slivers: [
+          SliverList(
+            delegate: SliverChildListDelegate(<Widget>[
+              const SizedBox(height: 18),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: MicroPressFeedback(
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: widget.onCreateThreadRequested,
+                      icon: const Icon(Icons.add_comment_rounded),
+                      label: Text(l10n.newThread),
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          for (final destination in _kSystemNavigationDestinations)
-            _AdaptiveNavigationDestination(
-              destination: destination,
-              isSelected: widget.selectedSection == destination.section,
-              onSelected: widget.onSectionSelected,
-            ),
-          // 系统导航与线程列表的分区：细分割 + 轻量区头，避免「大标题压卡片堆」的土气感。
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
-            child: Divider(
-              height: 1,
-              thickness: 1,
-              color: colorScheme.outlineVariant.withValues(alpha: 0.55),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 14, 16, 8),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.forum_outlined,
-                  size: 15,
-                  color: colorScheme.onSurfaceVariant.withValues(alpha: 0.88),
+              const SizedBox(height: 12),
+              for (final destination in _kSystemNavigationDestinations)
+                _AdaptiveNavigationDestination(
+                  destination: destination,
+                  isSelected: widget.selectedSection == destination.section,
+                  onSelected: widget.onSectionSelected,
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    l10n.threads,
-                    style: theme.textTheme.labelLarge?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.3,
-                    ),
-                  ),
+              // 系统导航与线程列表的分区：细分割 + 轻量区头，避免「大标题压卡片堆」的土气感。
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+                child: Divider(
+                  height: 1,
+                  thickness: 1,
+                  color: colorScheme.outlineVariant.withValues(alpha: 0.55),
                 ),
-                if (hasThreads)
-                  Container(
-                    constraints: const BoxConstraints(minWidth: 22),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 3,
-                    ),
-                    decoration: BoxDecoration(
-                      color: colorScheme.surfaceContainerHighest
-                          .withValues(alpha: 0.72),
-                      borderRadius: _borderRadius999,
-                    ),
-                    child: Text(
-                      '$threadCount',
-                      textAlign: TextAlign.center,
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w700,
-                        fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 14, 16, 8),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.forum_outlined,
+                      size: 15,
+                      color: colorScheme.onSurfaceVariant.withValues(
+                        alpha: 0.88,
                       ),
                     ),
-                  ),
-              ],
-            ),
-          ),
-          // Unified thread list: merge AI sessions and HE session,
-          // sorted by updatedAt descending (most recently updated first).
-          if (!hasThreads)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: colorScheme.surfaceContainerLowest
-                      .withValues(alpha: 0.55),
-                  borderRadius: _borderRadius18,
-                  border: Border.all(
-                    color: colorScheme.outlineVariant.withValues(alpha: 0.45),
-                  ),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(14, 16, 14, 16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        l10n.threadsEmptyBody,
-                        style: theme.textTheme.bodySmall?.copyWith(
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        l10n.threads,
+                        style: theme.textTheme.labelLarge?.copyWith(
                           color: colorScheme.onSurfaceVariant,
-                          height: 1.45,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.3,
                         ),
                       ),
-                    ],
+                    ),
+                    if (hasThreads)
+                      Container(
+                        constraints: const BoxConstraints(minWidth: 22),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: colorScheme.surfaceContainerHighest.withValues(
+                            alpha: 0.72,
+                          ),
+                          borderRadius: _borderRadius999,
+                        ),
+                        child: Text(
+                          '$threadCount',
+                          textAlign: TextAlign.center,
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                            fontWeight: FontWeight.w700,
+                            fontFeatures: const [FontFeature.tabularFigures()],
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ]),
+          ),
+          if (!hasThreads)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: colorScheme.surfaceContainerLowest.withValues(
+                      alpha: 0.55,
+                    ),
+                    borderRadius: _borderRadius18,
+                    border: Border.all(
+                      color: colorScheme.outlineVariant.withValues(alpha: 0.45),
+                    ),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(14, 16, 14, 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          l10n.threadsEmptyBody,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                            height: 1.45,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
             )
           else
-            Padding(
+            SliverPadding(
               padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: _buildMergedThreadTiles(
-                  heRecord: widget.harnessSessionRecord,
-                  heStatus: heStatusForTile,
-                  heAwaitingApproval: heAwaitingApprovalForTile,
+              sliver: SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (_, index) => threadTiles[index],
+                  childCount: threadTiles.length,
+                  addAutomaticKeepAlives: false,
+                  addRepaintBoundaries: false,
+                  findChildIndexCallback: (key) => threadTileIndexByKey[key],
                 ),
               ),
             ),

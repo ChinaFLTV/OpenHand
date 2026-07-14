@@ -2503,6 +2503,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       child: _MessageBubble(
         key: ValueKey<String>(message.id),
         message: message,
+        sessionId: session.id,
         sessionTitle: session.title,
         sessionEnvironment: session.environment,
         showReasoningSweep:

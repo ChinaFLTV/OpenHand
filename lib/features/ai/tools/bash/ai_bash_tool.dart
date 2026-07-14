@@ -32,10 +32,6 @@ class AiBashTool extends AiTool {
 
   /// 用户发送新消息时取消正在运行的 Bash 命令（避免并发写冲突）。
   @override
-  AiToolInterruptBehavior get interruptBehavior =>
-      AiToolInterruptBehavior.cancel;
-
-  @override
   Future<AiToolExecutionResult> execute(AiToolExecutionContext context) async {
     final args = context.decodedArguments;
     final cancelSignal = context.cancelSignal;

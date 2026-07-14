@@ -429,6 +429,9 @@ class AiSessionController extends ChangeNotifier {
     milliseconds: 160,
   );
   static const Duration _toolExecutionHeartbeatInterval = Duration(seconds: 1);
+  static const Duration _sessionDeletionCancellationTimeout = Duration(
+    seconds: 2,
+  );
   static const AiResolvedToolCatalog _emptyToolCatalog = AiResolvedToolCatalog(
     definitions: <AiToolDefinition>[],
     toolsByName: <String, AiResolvedTool>{},
@@ -777,6 +780,7 @@ class AiSessionController extends ChangeNotifier {
   AiPromptTemplateRepository get templateRepository => _templateRepository;
 
   bool _isDisposed = false;
+  StateError get _disposedError => StateError('$runtimeType is disposed');
   bool _isLoading = false;
   // Header refresh keeps the sidebar responsive; selected transcripts hydrate
   // messages on demand via [_hydratingSessionMessageIds]. This legacy global
@@ -785,6 +789,9 @@ class AiSessionController extends ChangeNotifier {
   final Map<String, AiSendPhase> _sessionSendPhases = <String, AiSendPhase>{};
   final Map<String, Future<void>> _sessionOperationQueues =
       <String, Future<void>>{};
+  final Map<String, Future<void>> _sessionHeaderOperationQueues =
+      <String, Future<void>>{};
+  final Map<String, int> _sessionHeaderMutationGenerations = <String, int>{};
   final Set<String> _sessionPendingSendOperationIds = <String>{};
   final Map<String, Future<AiSession?>> _sessionMessageHydrationTasks =
       <String, Future<AiSession?>>{};
@@ -1372,6 +1379,11 @@ class AiSessionController extends ChangeNotifier {
     _sessionCacheStatsHydrationTasks.removeWhere(
       (sessionId, _) => !liveSessionIds.contains(sessionId),
     );
+    _sessionHeaderMutationGenerations.removeWhere(
+      (sessionId, _) =>
+          !liveSessionIds.contains(sessionId) &&
+          !_sessionHeaderOperationQueues.containsKey(sessionId),
+    );
     // Remove stale entries from _deletedSessionIds that no longer have
     // in-flight operations.  An entry is safe to remove when no session
     // operation queue is pending for that id.
@@ -1393,13 +1405,28 @@ class AiSessionController extends ChangeNotifier {
       _persistenceIssues = const <AiSessionPersistenceIssue>[];
       notifyListeners();
       try {
+        final pendingHeaderSessionIds = _sessionHeaderOperationQueues.keys
+            .toSet();
+        final headerMutationGenerations = Map<String, int>.from(
+          _sessionHeaderMutationGenerations,
+        );
         // Keep refresh lightweight: session headers are enough for the
         // sidebar, while the selected transcript hydrates its own messages on
         // demand. This avoids a cold-start load of every historical message
         // row and keeps existing hydrated sessions alive across header
         // refreshes such as pin/archive reorder.
         final headerLoad = await _store.loadAllHeaders();
-        _setSessions(_mergeHeaderSessionsWithLiveMessages(headerLoad.sessions));
+        final preserveLiveHeaderSessionIds = <String>{
+          ...pendingHeaderSessionIds,
+          for (final entry in _sessionHeaderMutationGenerations.entries)
+            if (headerMutationGenerations[entry.key] != entry.value) entry.key,
+        };
+        _setSessions(
+          _mergeHeaderSessionsWithLiveMessages(
+            headerLoad.sessions,
+            preserveLiveHeaderSessionIds: preserveLiveHeaderSessionIds,
+          ),
+        );
         _persistenceIssues = headerLoad.issues;
         _pruneSessionScopedSendState();
         // 把每个 session.metadata['stream_throttle_override'] 重新灌进
@@ -2343,21 +2370,10 @@ class AiSessionController extends ChangeNotifier {
       metadata: nextMetadata,
       updatedAt: _clock().toUtc(),
     );
-    final effectiveSession = _replaceSessionHeaderInMemory(updatedSession);
-    if (effectiveSession == null) {
-      return false;
-    }
-    try {
-      await _store.saveSessionHeader(effectiveSession);
-    } catch (error, stack) {
-      silentLog(
-        'ai_session_controller',
-        'persist metadata patch',
-        error,
-        stack,
-      );
-    }
-    return true;
+    return _replaceSessionHeaderInMemoryAndPersist(
+      updatedSession,
+      logOperation: 'persist metadata patch',
+    );
   }
 
   Future<void> _persistMachineTerminalMetadata(
@@ -3480,7 +3496,6 @@ class AiSessionController extends ChangeNotifier {
         _lastErrorMessagesBySession,
       );
       final deletedSession = _sessionById(sessionId);
-      final wasSending = _sessionSendPhases.containsKey(sessionId);
       final cancelHandler = _sessionCancelHandlers[sessionId];
       final deletionNotice = deletedSession == null
           ? null
@@ -3531,11 +3546,22 @@ class AiSessionController extends ChangeNotifier {
         );
       }
       try {
+        await _requestSessionExecutionCancellation(
+          sessionId,
+          cancelHandler: cancelHandler,
+        ).timeout(_sessionDeletionCancellationTimeout);
+      } catch (error, stack) {
+        silentLog(
+          'ai_session_controller',
+          'cancel session before delete',
+          error,
+          stack,
+        );
+      }
+      try {
         await _store.delete(sessionId);
         await _finalizeDeletedSession(
           sessionId: sessionId,
-          wasSending: wasSending,
-          cancelHandler: cancelHandler,
           deletedSession: deletedSession,
         );
         _publishDeletionNotice(deletionNotice);
@@ -3558,8 +3584,6 @@ class AiSessionController extends ChangeNotifier {
         if (!stillExists) {
           await _finalizeDeletedSession(
             sessionId: sessionId,
-            wasSending: wasSending,
-            cancelHandler: cancelHandler,
             deletedSession: deletedSession,
           );
           _publishDeletionNotice(deletionNotice);
@@ -3575,6 +3599,7 @@ class AiSessionController extends ChangeNotifier {
         _lastErrorMessagesBySession
           ..clear()
           ..addAll(previousLastErrorMessagesBySession);
+        _clearSessionExecutionState(sessionId);
         _lastErrorMessage = _friendlyAiSessionPersistenceError(
           error,
           operation: 'delete',
@@ -4374,27 +4399,11 @@ class AiSessionController extends ChangeNotifier {
 
   Future<void> _finalizeDeletedSession({
     required String sessionId,
-    required bool wasSending,
-    required Future<void> Function()? cancelHandler,
     required AiSession? deletedSession,
   }) async {
-    if (wasSending) {
-      final stopSignal = _sessionStopSignals.putIfAbsent(
-        sessionId,
-        Completer<void>.new,
-      );
-      if (!stopSignal.isCompleted) {
-        stopSignal.complete();
-      }
-    }
-    if (!wasSending) {
+    if (!_sessionOperationQueues.containsKey(sessionId)) {
       _clearSessionExecutionState(sessionId);
       _sessionOperationQueues.remove(sessionId);
-    }
-    if (cancelHandler != null) {
-      unawaited(
-        cancelHandler().catchError((Object _, StackTrace stackTrace) {}),
-      );
     }
     if (deletedSession != null) {
       await _emitSessionEndHook(session: deletedSession, reason: 'other');
@@ -4711,13 +4720,6 @@ class AiSessionController extends ChangeNotifier {
     if (!canStopResponding(sessionId)) {
       return;
     }
-    final stopSignal = _sessionStopSignals.putIfAbsent(
-      sessionId,
-      Completer<void>.new,
-    );
-    if (!stopSignal.isCompleted) {
-      stopSignal.complete();
-    }
     _clearSessionSendPhase(sessionId);
     _approvalPreviousPhases.remove(sessionId);
     _previewCancelledPendingToolCalls(sessionId);
@@ -4726,12 +4728,13 @@ class AiSessionController extends ChangeNotifier {
     // 让 Bash / 其他派生子进程能即刻收到 SIGTERM（500ms 后 SIGKILL）。
     // 这是会话级 cancel Future 的"硬件级"补充——前者只解开 Dart Future 等待，
     // 后者真正向 OS 发信号杀掉子进程，避免后台残留 awk/python 等进程。
-    unawaited(
-      AiToolExecutionRegistry.instance
-          .cancelSession(sessionId)
-          .catchError((Object _, StackTrace stackTrace) {}),
-    );
     final cancelHandler = _sessionCancelHandlers[sessionId];
+    unawaited(
+      _requestSessionExecutionCancellation(
+        sessionId,
+        cancelHandler: cancelHandler,
+      ),
+    );
     if (cancelHandler == null) {
       if (!_sessionOperationQueues.containsKey(sessionId)) {
         _clearSessionExecutionState(sessionId);
@@ -4739,7 +4742,26 @@ class AiSessionController extends ChangeNotifier {
       }
       return;
     }
-    unawaited(cancelHandler().catchError((Object _, StackTrace stackTrace) {}));
+  }
+
+  Future<void> _requestSessionExecutionCancellation(
+    String sessionId, {
+    Future<void> Function()? cancelHandler,
+  }) async {
+    final stopSignal = _sessionStopSignals.putIfAbsent(
+      sessionId,
+      Completer<void>.new,
+    );
+    if (!stopSignal.isCompleted) {
+      stopSignal.complete();
+    }
+    await Future.wait<void>(<Future<void>>[
+      AiToolExecutionRegistry.instance
+          .cancelSession(sessionId)
+          .catchError((Object _, StackTrace _) {}),
+      if (cancelHandler != null)
+        cancelHandler().catchError((Object _, StackTrace _) {}),
+    ]);
   }
 
   Future<bool> pauseGoal(String sessionId) async {
@@ -7548,7 +7570,10 @@ class AiSessionController extends ChangeNotifier {
         }
         final winner = await Future.any<Object?>(<Future<Object?>>[
           drainFuture.then<Object?>((_) => true),
-          stopSignal.then<Object?>((_) => false),
+          stopSignal.then<Object?>(
+            (_) => false,
+            onError: (Object _, StackTrace _) => false,
+          ),
         ]);
         if (winner == false) {
           didCancelStreamEarly = true;
@@ -10061,6 +10086,7 @@ class AiSessionController extends ChangeNotifier {
             model: model,
             messages: compressionPrompt,
             timeout: Duration(seconds: runtimeContext.responseTimeoutSeconds),
+            cancelSignal: _stopSignalForSession(session.id),
           );
           break;
         } catch (error) {
@@ -10205,6 +10231,8 @@ class AiSessionController extends ChangeNotifier {
       return committed
           ? _sessionById(session.id) ?? compressedSession
           : session;
+    } on AiChatCancelledException {
+      return _sessionById(session.id) ?? session;
     } catch (error) {
       final nextFailureCount =
           (_compressionFailureCountsBySession[session.id] ?? 0) + 1;
@@ -11079,6 +11107,13 @@ $tail''';
     required String logOperation,
     bool keepCurrentIfUnset = false,
   }) async {
+    if (_isDisposed || _deletedSessionIds.contains(session.id)) {
+      return false;
+    }
+    final previousSession = _sessionById(session.id);
+    if (previousSession == null) {
+      return false;
+    }
     final effectiveSession = _replaceSessionHeaderInMemory(
       session,
       keepCurrentIfUnset: keepCurrentIfUnset,
@@ -11086,12 +11121,109 @@ $tail''';
     if (effectiveSession == null) {
       return false;
     }
+    final generation = (_sessionHeaderMutationGenerations[session.id] ?? 0) + 1;
+    _sessionHeaderMutationGenerations[session.id] = generation;
+    return _enqueueSessionHeaderOperation(session.id, () async {
+      if (_isDisposed || _deletedSessionIds.contains(session.id)) {
+        return false;
+      }
+      try {
+        await _store.saveSessionHeader(effectiveSession);
+        return true;
+      } catch (error, stack) {
+        silentLog('ai_session_controller', logOperation, error, stack);
+        if (_sessionHeaderMutationGenerations[session.id] == generation) {
+          await _restoreHeaderAfterSaveFailure(
+            sessionId: session.id,
+            previousSession: previousSession,
+            failedSession: effectiveSession,
+          );
+        }
+        _lastErrorMessage = _friendlyAiSessionPersistenceError(
+          error,
+          operation: 'save header',
+        );
+        notifyListeners();
+        return false;
+      }
+    });
+  }
+
+  Future<T> _enqueueSessionHeaderOperation<T>(
+    String sessionId,
+    Future<T> Function() operation,
+  ) {
+    final completer = Completer<T>();
+    final previousQueue =
+        _sessionHeaderOperationQueues[sessionId] ?? Future<void>.value();
+    late final Future<void> nextQueue;
+    nextQueue = previousQueue
+        .catchError((_) {})
+        .then((_) async {
+          try {
+            completer.complete(await operation());
+          } catch (error, stack) {
+            completer.completeError(error, stack);
+          }
+        })
+        .whenComplete(() {
+          if (identical(_sessionHeaderOperationQueues[sessionId], nextQueue)) {
+            _sessionHeaderOperationQueues.remove(sessionId);
+            if (!_sessionsById.containsKey(sessionId)) {
+              _sessionHeaderMutationGenerations.remove(sessionId);
+            }
+          }
+        });
+    _sessionHeaderOperationQueues[sessionId] = nextQueue;
+    return completer.future;
+  }
+
+  Future<void> _restoreHeaderAfterSaveFailure({
+    required String sessionId,
+    required AiSession previousSession,
+    required AiSession failedSession,
+  }) async {
+    AiSession restoredHeader = previousSession;
     try {
-      await _store.saveSessionHeader(effectiveSession);
+      restoredHeader = await _store.loadHeader(sessionId) ?? previousSession;
     } catch (error, stack) {
-      silentLog('ai_session_controller', logOperation, error, stack);
+      silentLog(
+        'ai_session_controller',
+        'reload header after save failure',
+        error,
+        stack,
+      );
     }
-    return true;
+    if (_deletedSessionIds.contains(sessionId)) return;
+    final liveSession = _sessionById(sessionId);
+    if (liveSession == null) return;
+    final runtimeAdvanced =
+        !identical(liveSession.messages, failedSession.messages) ||
+        !identical(liveSession.statistics, failedSession.statistics);
+    final restoredSession = restoredHeader.copyWith(
+      messages: liveSession.messages,
+      statistics: runtimeAdvanced
+          ? liveSession.statistics
+          : restoredHeader.statistics,
+      environment: runtimeAdvanced
+          ? liveSession.environment
+          : restoredHeader.environment,
+      updatedAt:
+          runtimeAdvanced &&
+              liveSession.updatedAt.isAfter(restoredHeader.updatedAt)
+          ? liveSession.updatedAt
+          : restoredHeader.updatedAt,
+      latestCompressionCheckpointMessageId: runtimeAdvanced
+          ? liveSession.latestCompressionCheckpointMessageId
+          : restoredHeader.latestCompressionCheckpointMessageId,
+      latestCompressionAt: runtimeAdvanced
+          ? liveSession.latestCompressionAt
+          : restoredHeader.latestCompressionAt,
+      messageLoadState: liveSession.messageLoadState,
+      messageWindowStartIndex: liveSession.messageWindowStartIndex,
+      messageTotalCount: liveSession.messageTotalCount,
+    );
+    _replaceSessionHeaderInMemory(restoredSession);
   }
 
   Future<bool> _commitSessionLocked(AiSession session) async {
@@ -11170,14 +11302,19 @@ $tail''';
   }
 
   List<AiSession> _mergeHeaderSessionsWithLiveMessages(
-    List<AiSession> headers,
-  ) {
+    List<AiSession> headers, {
+    Set<String> preserveLiveHeaderSessionIds = const <String>{},
+  }) {
     if (headers.isEmpty || _sessionsById.isEmpty) {
       return headers;
     }
     return headers
         .map((header) {
           final live = _sessionsById[header.id];
+          if (live != null &&
+              preserveLiveHeaderSessionIds.contains(header.id)) {
+            return live;
+          }
           if (live == null ||
               live.messages.isEmpty ||
               header.messages.isNotEmpty) {
@@ -12552,9 +12689,15 @@ $tail''';
   }
 
   Future<T> _enqueueOperation<T>(Future<T> Function() operation) {
+    if (_isDisposed) {
+      return Future<T>.error(_disposedError);
+    }
     final completer = Completer<T>();
     _operationQueue = _operationQueue.catchError((_) {}).then((_) async {
       try {
+        if (_isDisposed) {
+          throw _disposedError;
+        }
         completer.complete(await operation());
       } catch (error, stackTrace) {
         completer.completeError(error, stackTrace);
@@ -12567,6 +12710,9 @@ $tail''';
     String sessionId,
     Future<T> Function() operation,
   ) {
+    if (_isDisposed) {
+      return Future<T>.error(_disposedError);
+    }
     final completer = Completer<T>();
     final previousQueue =
         _sessionOperationQueues[sessionId] ?? Future<void>.value();
@@ -12575,6 +12721,9 @@ $tail''';
         .catchError((_) {})
         .then((_) async {
           try {
+            if (_isDisposed) {
+              throw _disposedError;
+            }
             completer.complete(await operation());
           } catch (error, stackTrace) {
             completer.completeError(error, stackTrace);

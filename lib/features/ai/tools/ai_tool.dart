@@ -1,15 +1,6 @@
 import '../service/runtime/ai_tool_runtime_service.dart';
 import 'ai_tool_execution_context.dart';
 
-/// 工具中断行为：用户发送新消息时当前工具的处理方式。
-enum AiToolInterruptBehavior {
-  /// 继续运行，新消息排队等待。（默认，安全）
-  block,
-
-  /// 取消工具执行并丢弃结果。
-  cancel,
-}
-
 /// 工具权限校验结果。
 ///
 /// 由 [AiTool.checkPermissions] 返回，[AiToolRegistry] 在 `execute()` 前检查。
@@ -44,11 +35,6 @@ abstract class AiTool {
   /// 默认 false（fail-closed）。破坏性工具应覆盖返回 true。
   bool get isDestructive => false;
 
-  /// 用户发送新消息时工具的中断行为。
-  /// 默认 [AiToolInterruptBehavior.block]（fail-closed，不丢弃进行中的操作）。
-  AiToolInterruptBehavior get interruptBehavior =>
-      AiToolInterruptBehavior.block;
-
   /// 工具执行前的权限校验钩子。
   ///
   /// 在 [execute] 被调用前由 [AiToolRegistry.tryExecute] 自动调用。
@@ -72,7 +58,4 @@ abstract class AiTool {
   /// Releases resources owned by this tool. Implementations must be
   /// idempotent because runtime shutdown can be requested more than once.
   Future<void> dispose() => Future<void>.value();
-
-  /// Determines if the tool supports the kind.
-  bool supports(AiBuiltinToolKind kind) => this.kind == kind;
 }

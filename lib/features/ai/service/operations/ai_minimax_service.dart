@@ -399,10 +399,18 @@ class AiMiniMaxService {
     );
     WebSocket? socket;
     try {
-      socket = await WebSocket.connect(
-        uri.toString(),
-        headers: headers,
-      ).timeout(_webSocketConnectTimeout);
+      final connectFuture = WebSocket.connect(uri.toString(), headers: headers);
+      try {
+        socket = await connectFuture.timeout(_webSocketConnectTimeout);
+      } on TimeoutException {
+        unawaited(
+          connectFuture.then<void>(
+            _closeWebSocketBestEffort,
+            onError: (Object _, StackTrace _) {},
+          ),
+        );
+        rethrow;
+      }
       socket.pingInterval = const Duration(seconds: 15);
       return await _consumeSpeechWebSocket(
         socket: socket,
@@ -417,12 +425,16 @@ class AiMiniMaxService {
       );
     } finally {
       if (socket != null) {
-        try {
-          await socket.close().timeout(_resourceCloseTimeout);
-        } catch (_) {
-          socket.close();
-        }
+        await _closeWebSocketBestEffort(socket);
       }
+    }
+  }
+
+  static Future<void> _closeWebSocketBestEffort(WebSocket socket) async {
+    try {
+      await socket.close().timeout(_resourceCloseTimeout);
+    } catch (_) {
+      unawaited(socket.close().catchError((Object _) {}));
     }
   }
 

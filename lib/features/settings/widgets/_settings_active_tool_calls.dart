@@ -172,7 +172,10 @@ class _ActiveToolCallsPanelState extends State<_ActiveToolCallsPanel> {
                           ),
                         ),
                         onPressed: () async {
-                          await _registry.cancelToolCall(record.toolCallId);
+                          await _registry.cancelToolCall(
+                            sessionId: record.sessionId,
+                            toolCallId: record.toolCallId,
+                          );
                         },
                         icon: const Icon(Icons.stop_circle_outlined, size: 16),
                         label: Text(l10n.settingsActiveToolCallsCancel),

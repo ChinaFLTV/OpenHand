@@ -4,6 +4,7 @@ class _MessageBubble extends StatefulWidget {
   const _MessageBubble({
     super.key,
     required this.message,
+    required this.sessionId,
     required this.sessionTitle,
     required this.sessionEnvironment,
     required this.showReasoningSweep,
@@ -39,6 +40,7 @@ class _MessageBubble extends StatefulWidget {
   });
 
   final AiSessionMessage message;
+  final String sessionId;
   final String sessionTitle;
   final AiSessionEnvironment sessionEnvironment;
   final bool showReasoningSweep;
@@ -950,7 +952,11 @@ class _MessageBubbleState extends State<_MessageBubble> {
                           scrollStateKey: reasoningBodyScrollStateKey,
                         )
                 else if (isToolCall)
-                  _ToolCallBody(message: message, selectable: true)
+                  _ToolCallBody(
+                    message: message,
+                    sessionId: widget.sessionId,
+                    selectable: true,
+                  )
                 else if (isSelfLearning)
                   ClipRect(child: _SelfLearningCard(message: message))
                 else if (goalMessageView != null)

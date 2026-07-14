@@ -5,7 +5,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:uuid/uuid.dart';
 
-import '../../../app/support/openhand_paths.dart';
+import '../../../app/support/silent_log.dart';
 import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/input_value_parsing.dart';
@@ -21,6 +21,7 @@ import 'knowledge_document_parser.dart';
 import 'knowledge_embedding_service.dart';
 import 'knowledge_indexing_control.dart';
 import 'knowledge_reader_conversion_service.dart';
+import 'knowledge_source_storage.dart';
 import 'knowledge_vector_store.dart';
 
 class KnowledgeIngestionService {
@@ -140,7 +141,21 @@ class KnowledgeIngestionService {
         ...parsed.metadata,
       },
     );
-    await _store.upsertSource(source);
+    try {
+      await _store.upsertSource(source);
+    } catch (error, stack) {
+      try {
+        await deleteManagedKnowledgeSourceFile(source);
+      } catch (cleanupError, cleanupStack) {
+        silentLog(
+          'knowledge_ingestion_service',
+          'clean staged source after initial upsert failure',
+          cleanupError,
+          cleanupStack,
+        );
+      }
+      Error.throwWithStackTrace(error, stack);
+    }
     try {
       cancelToken?.throwIfCancelled();
       report(
@@ -341,9 +356,7 @@ class KnowledgeIngestionService {
     String sourceId, {
     required int maxBytes,
   }) async {
-    final root = Directory(
-      '${OpenHandPaths.homeDirectoryPath()}/.openhand/knowledge/sources',
-    );
+    final root = Directory(knowledgeManagedSourcesDirectoryPath);
     if (!await root.exists()) {
       await root.create(recursive: true);
     }

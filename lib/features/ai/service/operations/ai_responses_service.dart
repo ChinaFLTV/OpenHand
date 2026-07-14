@@ -558,6 +558,7 @@ class AiResponsesService {
     String? user,
     AiInputCacheRuntimeConfig? inputCacheConfig,
     AiResponsesRequestStarted? onRequestStarted,
+    Future<void>? cancelSignal,
   }) {
     return createResponseFromRequest(
       request: buildRequest(
@@ -579,6 +580,7 @@ class AiResponsesService {
       ),
       timeout: timeout,
       onRequestStarted: onRequestStarted,
+      cancelSignal: cancelSignal,
     );
   }
 
@@ -590,6 +592,7 @@ class AiResponsesService {
     Duration timeout = AiOperationHttp.defaultRequestTimeout,
     AiInputCacheRuntimeConfig? inputCacheConfig,
     AiResponsesRequestStarted? onRequestStarted,
+    Future<void>? cancelSignal,
   }) async {
     return createResponseFromRequest(
       request: await buildChatRequest(
@@ -601,6 +604,7 @@ class AiResponsesService {
       ),
       timeout: timeout,
       onRequestStarted: onRequestStarted,
+      cancelSignal: cancelSignal,
     );
   }
 
@@ -648,6 +652,7 @@ class AiResponsesService {
     required AiResponsesRequestBlueprint request,
     Duration timeout = AiOperationHttp.defaultRequestTimeout,
     AiResponsesRequestStarted? onRequestStarted,
+    Future<void>? cancelSignal,
   }) async {
     final startedAt = DateTime.now().toUtc();
     final requestFallbacks = <String>[];
@@ -660,6 +665,7 @@ class AiResponsesService {
         headers: request.headers,
         body: request.body,
         timeout: timeout,
+        cancelSignal: cancelSignal,
       );
     }
 

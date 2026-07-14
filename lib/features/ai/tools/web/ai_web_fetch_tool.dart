@@ -335,6 +335,7 @@ class AiWebFetchTool extends AiTool {
                   'Fetched content:\n${winner.content}',
             ),
           ],
+          cancelSignal: context.cancelSignal,
         ),
         cancelSignal: context.cancelSignal,
       );

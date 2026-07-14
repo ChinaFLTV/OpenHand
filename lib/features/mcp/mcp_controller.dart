@@ -1162,8 +1162,10 @@ class McpController extends ChangeNotifier {
       displayName: tool.name,
     );
     unawaited(
-      context.cancelSignal.then(
+      context.cancelSignal.then<void>(
         (_) => registry.cancelRegistration(registration),
+        onError: (Object _, StackTrace _) =>
+            registry.cancelRegistration(registration),
       ),
     );
     final effectiveCancelSignal = registration == null

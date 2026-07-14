@@ -57,6 +57,7 @@ class AiFileHistoryService {
   static const int _maxSessionClearEntries = 100000;
   static const Duration _historyScanTimeout = Duration(seconds: 10);
   static const Duration _sessionClearTimeout = Duration(seconds: 30);
+  static const Duration _orphanContentGracePeriod = Duration(hours: 1);
 
   final String? _historyDirectory;
   final int maxVersionsPerFile;
@@ -149,7 +150,16 @@ class AiFileHistoryService {
       final metadataFile = File(
         p.join(fileHistoryDir.path, '$versionId.meta.json'),
       );
-      await writeFileAtomically(metadataFile, jsonEncode(versionMetadata));
+      try {
+        await writeFileAtomically(metadataFile, jsonEncode(versionMetadata));
+      } catch (_) {
+        try {
+          if (await contentFile.exists()) await contentFile.delete();
+        } on FileSystemException {
+          // Preserve the metadata write failure as the primary result.
+        }
+        rethrow;
+      }
 
       // 清理旧版本
       await _pruneOldVersions(fileHistoryDir);
@@ -173,12 +183,15 @@ class AiFileHistoryService {
       }
 
       final versions = <FileVersionInfo>[];
+      final metaFiles = <File>[];
+      final contentFiles = <File>[];
       final listing = await listDirectoryBounded(
         fileHistoryDir,
         maxEntries: _maxHistoryDirectoryEntries,
       );
       for (final entity in listing.entries) {
         if (entity is File && entity.path.endsWith('.meta.json')) {
+          metaFiles.add(entity);
           try {
             final metaContent = await readBoundedFileString(
               entity,
@@ -194,7 +207,12 @@ class AiFileHistoryService {
           } catch (_) {
             // 跳过损坏的元数据文件
           }
+        } else if (entity is File && entity.path.endsWith('.content')) {
+          contentFiles.add(entity);
         }
+      }
+      if (!listing.truncated) {
+        await _deleteStaleOrphanContentFiles(metaFiles, contentFiles);
       }
 
       // 按时间倒序排列
@@ -250,6 +268,7 @@ class AiFileHistoryService {
   Future<void> _pruneOldVersions(Directory fileHistoryDir) async {
     try {
       final metaFiles = <File>[];
+      final contentFiles = <File>[];
       final listing = await listDirectoryBounded(
         fileHistoryDir,
         maxEntries: _maxHistoryDirectoryEntries,
@@ -258,8 +277,11 @@ class AiFileHistoryService {
       for (final entity in listing.entries) {
         if (entity is File && entity.path.endsWith('.meta.json')) {
           metaFiles.add(entity);
+        } else if (entity is File && entity.path.endsWith('.content')) {
+          contentFiles.add(entity);
         }
       }
+      await _deleteStaleOrphanContentFiles(metaFiles, contentFiles);
 
       if (metaFiles.length <= maxVersionsPerFile) return;
 
@@ -287,6 +309,49 @@ class AiFileHistoryService {
       }
     } catch (_) {
       // 清理失败不影响主流程
+    }
+  }
+
+  Future<void> _deleteStaleOrphanContentFiles(
+    List<File> metaFiles,
+    List<File> contentFiles,
+  ) async {
+    final metadataVersionIds = metaFiles.map((file) {
+      final name = p.basename(file.path);
+      return name.substring(0, name.length - '.meta.json'.length);
+    }).toSet();
+    final orphanCutoff = DateTime.now().subtract(_orphanContentGracePeriod);
+    final contentVersionIds = <String>{
+      for (final file in contentFiles)
+        p
+            .basename(file.path)
+            .substring(0, p.basename(file.path).length - '.content'.length),
+    };
+    for (final contentFile in contentFiles) {
+      final name = p.basename(contentFile.path);
+      final versionId = name.substring(0, name.length - '.content'.length);
+      if (metadataVersionIds.contains(versionId)) continue;
+      try {
+        final stat = await contentFile.stat();
+        if (stat.modified.isBefore(orphanCutoff)) {
+          await contentFile.delete();
+        }
+      } on FileSystemException {
+        // Bounded orphan cleanup is best effort.
+      }
+    }
+    for (final metaFile in metaFiles) {
+      final name = p.basename(metaFile.path);
+      final versionId = name.substring(0, name.length - '.meta.json'.length);
+      if (contentVersionIds.contains(versionId)) continue;
+      try {
+        final stat = await metaFile.stat();
+        if (stat.modified.isBefore(orphanCutoff)) {
+          await metaFile.delete();
+        }
+      } on FileSystemException {
+        // Bounded orphan cleanup is best effort.
+      }
     }
   }
 

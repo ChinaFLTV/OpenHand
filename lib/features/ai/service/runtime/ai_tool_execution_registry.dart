@@ -27,8 +27,9 @@ class AiToolExecutionRegistry with ChangeNotifier {
   static final AiToolExecutionRegistry instance =
       AiToolExecutionRegistry._internal();
 
-  /// toolCallId → 内部条目（含可变 killer / pid）。
-  final Map<String, _RegisteredEntry> _entries = <String, _RegisteredEntry>{};
+  /// (sessionId, toolCallId) → 内部条目（含可变 killer / pid）。
+  final Map<({String sessionId, String toolCallId}), _RegisteredEntry>
+  _entries = <({String sessionId, String toolCallId}), _RegisteredEntry>{};
 
   /// 当前全部进行中的执行记录，按起始时间升序。
   ///
@@ -40,8 +41,11 @@ class AiToolExecutionRegistry with ChangeNotifier {
     return List<AiToolExecutionRecord>.unmodifiable(list);
   }
 
-  AiToolExecutionRecord? recordOf(String toolCallId) =>
-      _entries[toolCallId.trim()]?.record;
+  AiToolExecutionRecord? recordOf({
+    required String sessionId,
+    required String toolCallId,
+  }) => _entries[(sessionId: sessionId.trim(), toolCallId: toolCallId.trim())]
+      ?.record;
 
   /// 注册一条新的工具调用执行；若 [toolCallId] 已存在，先异步回收旧执行，
   /// 避免替换记录后丢失旧进程的 killer。
@@ -56,8 +60,15 @@ class AiToolExecutionRegistry with ChangeNotifier {
     Future<void> Function()? killer,
   }) {
     final normalizedToolCallId = toolCallId.trim();
-    if (normalizedToolCallId.isEmpty) return null;
-    final previous = _entries[normalizedToolCallId];
+    final normalizedSessionId = sessionId.trim();
+    if (normalizedToolCallId.isEmpty || normalizedSessionId.isEmpty) {
+      return null;
+    }
+    final key = (
+      sessionId: normalizedSessionId,
+      toolCallId: normalizedToolCallId,
+    );
+    final previous = _entries[key];
     if (previous != null) {
       unawaited(
         _cancelEntry(previous, 'replace duplicate $normalizedToolCallId'),
@@ -67,15 +78,15 @@ class AiToolExecutionRegistry with ChangeNotifier {
       killer: killer ?? () => Future<void>.value(),
       record: AiToolExecutionRecord(
         toolCallId: normalizedToolCallId,
-        sessionId: sessionId,
+        sessionId: normalizedSessionId,
         kind: kind,
         displayName: displayName,
         startedAt: DateTime.now(),
       ),
     );
-    _entries[normalizedToolCallId] = entry;
+    _entries[key] = entry;
     notifyListeners();
-    return AiToolExecutionRegistration._(normalizedToolCallId, entry);
+    return AiToolExecutionRegistration._(key, entry);
   }
 
   void attachPid(String toolCallId, int pid) {
@@ -109,8 +120,8 @@ class AiToolExecutionRegistry with ChangeNotifier {
 
   /// 注销令牌对应的工具调用；已被同 ID 新执行替换时保持新记录不变。
   void unregister(AiToolExecutionRegistration registration) {
-    if (identical(_entries[registration.toolCallId], registration._entry)) {
-      _entries.remove(registration.toolCallId);
+    if (identical(_entries[registration._key], registration._entry)) {
+      _entries.remove(registration._key);
       notifyListeners();
     }
   }
@@ -119,9 +130,17 @@ class AiToolExecutionRegistry with ChangeNotifier {
   ///
   /// 调用方应在 UI 的"工具卡片右上角 X 按钮"或全局命令面板里触发。
   /// 真正的进程信号由注册时附带的 killer 决定（Bash 工具会发 SIGTERM→SIGKILL）。
-  Future<void> cancelToolCall(String toolCallId) async {
+  Future<void> cancelToolCall({
+    required String sessionId,
+    required String toolCallId,
+  }) async {
+    final normalizedSessionId = sessionId.trim();
     final normalizedToolCallId = toolCallId.trim();
-    final entry = _entries[normalizedToolCallId];
+    final entry =
+        _entries[(
+          sessionId: normalizedSessionId,
+          toolCallId: normalizedToolCallId,
+        )];
     if (entry == null) return;
     await _cancelEntry(entry, 'cancel $normalizedToolCallId');
   }
@@ -174,24 +193,34 @@ class AiToolExecutionRegistry with ChangeNotifier {
   _RegisteredEntry? _entryForMutation(String toolCallId) {
     final normalizedToolCallId = toolCallId.trim();
     if (normalizedToolCallId.isEmpty) return null;
-    final entry = _entries[normalizedToolCallId];
     final registration =
         Zone.current[_registrationZoneKey] as AiToolExecutionRegistration?;
-    if (registration == null) return entry;
-    if (registration.toolCallId != normalizedToolCallId) return null;
-    // A replaced execution still owns its detached entry. This lets a process
-    // that finishes launching after cancellation attach its killer and be
-    // terminated without ever mutating the newer same-ID record.
-    return registration._entry;
+    if (registration != null) {
+      if (registration.toolCallId != normalizedToolCallId) return null;
+      // A replaced execution still owns its detached entry. This lets a
+      // process that finishes launching after cancellation attach its killer
+      // without ever mutating the newer same-ID record.
+      return registration._entry;
+    }
+    _RegisteredEntry? match;
+    for (final entry in _entries.values) {
+      if (entry.record.toolCallId != normalizedToolCallId) continue;
+      if (match != null) return null;
+      match = entry;
+    }
+    return match;
   }
 }
 
 /// 单次工具执行的不可伪造注册令牌。
 class AiToolExecutionRegistration {
-  const AiToolExecutionRegistration._(this.toolCallId, this._entry);
+  const AiToolExecutionRegistration._(this._key, this._entry);
 
-  final String toolCallId;
+  final ({String sessionId, String toolCallId}) _key;
   final _RegisteredEntry _entry;
+
+  String get sessionId => _key.sessionId;
+  String get toolCallId => _key.toolCallId;
 
   Future<void> get cancelSignal => _entry.cancelCompleter.future;
   bool get isCancellationRequested => _entry.cancelRequested;

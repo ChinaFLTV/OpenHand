@@ -5,10 +5,12 @@ import 'package:flutter/material.dart';
 
 import '../../app/model/app_info.dart';
 import '../../app/support/app_update_checker.dart';
+import '../../app/support/safe_subprocess.dart';
 import '../../l10n/app_localizations.dart';
 import '../util/byte_size_format.dart';
 import '../util/date_time_format.dart';
 import '../util/input_value_parsing.dart';
+import '../util/localized_text.dart';
 import 'animated_dialog.dart';
 import 'motion_preference.dart';
 import 'openhand_dialog_action_button.dart';
@@ -56,6 +58,7 @@ class _AppUpdateDialogContentState extends State<_AppUpdateDialogContent>
   AppReleaseInfo? _release;
   String _errorMessage = '';
   String? _downloadedFilePath;
+  Completer<void>? _downloadCancellation;
 
   late final AnimationController _progressAnimController;
   late Animation<double> _progressAnimation;
@@ -79,6 +82,10 @@ class _AppUpdateDialogContentState extends State<_AppUpdateDialogContent>
 
   @override
   void dispose() {
+    final cancellation = _downloadCancellation;
+    if (cancellation != null && !cancellation.isCompleted) {
+      cancellation.complete();
+    }
     _progressAnimController.dispose();
     super.dispose();
   }
@@ -117,6 +124,8 @@ class _AppUpdateDialogContentState extends State<_AppUpdateDialogContent>
     setState(() {
       _phase = _UpdatePhase.downloading;
     });
+    final cancellation = Completer<void>();
+    _downloadCancellation = cancellation;
     try {
       await widget.dataSource.downloadUpdate(
         release,
@@ -128,6 +137,7 @@ class _AppUpdateDialogContentState extends State<_AppUpdateDialogContent>
           if (!mounted) return;
           setState(() => _downloadedFilePath = path);
         },
+        cancelSignal: cancellation.future,
       );
       if (!mounted) return;
       _animateProgressTo(1.0);
@@ -137,7 +147,19 @@ class _AppUpdateDialogContentState extends State<_AppUpdateDialogContent>
         _phase = _UpdatePhase.error;
         _errorMessage = '$error';
       });
+    } finally {
+      if (identical(_downloadCancellation, cancellation)) {
+        _downloadCancellation = null;
+      }
     }
+  }
+
+  void _cancelDownload() {
+    final cancellation = _downloadCancellation;
+    if (cancellation != null && !cancellation.isCompleted) {
+      cancellation.complete();
+    }
+    Navigator.of(context).pop();
   }
 
   void _animateProgressTo(double target) {
@@ -164,6 +186,28 @@ class _AppUpdateDialogContentState extends State<_AppUpdateDialogContent>
   void _settleProgressAnimation() {
     _progressAnimController.stop();
     _progressAnimation = AlwaysStoppedAnimation<double>(_targetProgress);
+  }
+
+  Future<void> _revealDownloadedUpdate() async {
+    final path = _downloadedFilePath;
+    if (path == null) return;
+    final revealed = await revealLocalPathInSystemFileManager(
+      path,
+      tag: 'app_update_dialog.reveal_download',
+    );
+    if (!mounted) return;
+    if (revealed) {
+      Navigator.of(context).pop();
+      return;
+    }
+    setState(() {
+      _phase = _UpdatePhase.error;
+      _errorMessage = openHandLocalizedText(
+        context,
+        zh: '无法在文件管理器中显示更新文件。',
+        en: 'Could not reveal the update file in the file manager.',
+      );
+    });
   }
 
   @override
@@ -466,13 +510,17 @@ class _AppUpdateDialogContentState extends State<_AppUpdateDialogContent>
       _UpdatePhase.downloading => [
         if (_downloadedFilePath != null)
           OpenHandDialogActionButton.primary(
-            onPressed: () => Navigator.of(context).pop(),
-            label: l10n.commonDone,
-          )
-        else
+            onPressed: _revealDownloadedUpdate,
+            label: openHandLocalizedText(
+              context,
+              zh: '在文件夹中显示',
+              en: 'Show in folder',
+            ),
+          ),
+        if (_downloadedFilePath == null)
           OpenHandDialogActionButton.secondary(
-            onPressed: () => Navigator.of(context).pop(),
-            label: l10n.appUpdateBackground,
+            onPressed: _cancelDownload,
+            label: l10n.commonCancel,
           ),
       ],
       _UpdatePhase.error => [

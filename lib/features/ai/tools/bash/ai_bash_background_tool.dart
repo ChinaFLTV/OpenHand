@@ -86,10 +86,6 @@ class AiBashBackgroundTool extends AiTool {
 
   // 用户取消时不强杀后台进程，只取消当前 read 等待；后台进程靠 stop action 清理。
   @override
-  AiToolInterruptBehavior get interruptBehavior =>
-      AiToolInterruptBehavior.cancel;
-
-  @override
   Future<void> dispose() {
     final existing = _disposeFuture;
     if (existing != null) return existing;

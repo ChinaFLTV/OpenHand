@@ -114,6 +114,7 @@ class AiTransportClient {
     required Object? body,
     required Duration timeout,
     int maxResponseBytes = defaultAiTransportResponseMaxBytes,
+    Future<void>? cancelSignal,
   }) async {
     _requirePositive(maxResponseBytes, 'maxResponseBytes');
     final encodedBody = jsonEncode(body);
@@ -132,7 +133,7 @@ class AiTransportClient {
         timeout: timeout,
         maxResponseBytes: maxResponseBytes,
       );
-    });
+    }, cancelSignal: cancelSignal);
   }
 
   Future<http.Response> sendForm({
@@ -142,6 +143,7 @@ class AiTransportClient {
     required Map<String, String> body,
     required Duration timeout,
     int maxResponseBytes = defaultAiTransportResponseMaxBytes,
+    Future<void>? cancelSignal,
   }) async {
     _requirePositive(maxResponseBytes, 'maxResponseBytes');
     return _runAbortable((abort) {
@@ -159,7 +161,7 @@ class AiTransportClient {
         timeout: timeout,
         maxResponseBytes: maxResponseBytes,
       );
-    });
+    }, cancelSignal: cancelSignal);
   }
 
   Future<http.Response> sendText({
@@ -170,6 +172,7 @@ class AiTransportClient {
     required Duration timeout,
     Encoding encoding = utf8,
     int maxResponseBytes = defaultAiTransportResponseMaxBytes,
+    Future<void>? cancelSignal,
   }) async {
     _requirePositive(maxResponseBytes, 'maxResponseBytes');
     return _runAbortable((abort) {
@@ -189,7 +192,7 @@ class AiTransportClient {
         timeout: timeout,
         maxResponseBytes: maxResponseBytes,
       );
-    });
+    }, cancelSignal: cancelSignal);
   }
 
   /// Sends JSON and lets [consume] process a bounded successful response
@@ -207,6 +210,7 @@ class AiTransportClient {
       Stream<List<int>> stream,
     )
     consume,
+    Future<void>? cancelSignal,
   }) async {
     _requirePositive(maxResponseBytes, 'maxResponseBytes');
     final encodedBody = jsonEncode(body);
@@ -263,7 +267,7 @@ class AiTransportClient {
           }
         },
       );
-    });
+    }, cancelSignal: cancelSignal);
   }
 
   Future<http.Response> sendMultipart({
@@ -276,6 +280,7 @@ class AiTransportClient {
     int maxFileBytes = defaultAiMultipartFileMaxBytes,
     int maxTotalBytes = defaultAiMultipartTotalMaxBytes,
     int maxFiles = defaultAiMultipartMaxFiles,
+    Future<void>? cancelSignal,
   }) async {
     _requirePositive(maxResponseBytes, 'maxResponseBytes');
     _requirePositive(maxFileBytes, 'maxFileBytes');
@@ -436,7 +441,7 @@ class AiTransportClient {
         preparation.stop();
         await _closeMultipartFileLeases(fileLeases);
       }
-    });
+    }, cancelSignal: cancelSignal);
   }
 
   void _validateMultipartFileLength(
@@ -618,12 +623,14 @@ class AiTransportClient {
     required Map<String, String> headers,
     required Duration timeout,
     int maxResponseBytes = defaultAiTransportResponseMaxBytes,
+    Future<void>? cancelSignal,
   }) async {
     return _get(
       uri: uri,
       headers: headers,
       timeout: timeout,
       maxResponseBytes: maxResponseBytes,
+      cancelSignal: cancelSignal,
     );
   }
 
@@ -632,12 +639,14 @@ class AiTransportClient {
     required Map<String, String> headers,
     required Duration timeout,
     int maxBytes = defaultAiTransportDownloadMaxBytes,
+    Future<void>? cancelSignal,
   }) async {
     final response = await _get(
       uri: uri,
       headers: headers,
       timeout: timeout,
       maxResponseBytes: maxBytes,
+      cancelSignal: cancelSignal,
     );
     if (isHttpFailureStatus(response.statusCode)) {
       throw HttpException('HTTP ${response.statusCode}');
@@ -655,6 +664,7 @@ class AiTransportClient {
     required File destination,
     int maxBytes = defaultAiTransportFileDownloadMaxBytes,
     int maxJsonBytes = defaultAiTransportResponseMaxBytes,
+    Future<void>? cancelSignal,
   }) {
     _requirePositive(maxBytes, 'maxBytes');
     _requirePositive(maxJsonBytes, 'maxJsonBytes');
@@ -710,7 +720,7 @@ class AiTransportClient {
           );
         },
       );
-    });
+    }, cancelSignal: cancelSignal);
   }
 
   Future<http.Response> _send(
@@ -819,6 +829,7 @@ class AiTransportClient {
     required Map<String, String> headers,
     required Duration timeout,
     required int maxResponseBytes,
+    Future<void>? cancelSignal,
   }) {
     return _runAbortable((abort) {
       final request = http.AbortableRequest(
@@ -832,7 +843,7 @@ class AiTransportClient {
         timeout: timeout,
         maxResponseBytes: maxResponseBytes,
       );
-    });
+    }, cancelSignal: cancelSignal);
   }
 
   Future<int> _writeResponseToFile(
@@ -1023,9 +1034,18 @@ class AiTransportClient {
   }
 
   Future<T> _runAbortable<T>(
-    Future<T> Function(Completer<void> abort) operation,
-  ) async {
+    Future<T> Function(Completer<void> abort) operation, {
+    Future<void>? cancelSignal,
+  }) async {
     final abort = _createAbort();
+    if (cancelSignal != null) {
+      unawaited(
+        cancelSignal.then<void>(
+          (_) => _abort(abort),
+          onError: (Object _, StackTrace _) => _abort(abort),
+        ),
+      );
+    }
     try {
       return await operation(abort);
     } finally {

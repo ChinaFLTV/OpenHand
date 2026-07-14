@@ -9,6 +9,7 @@ import '../../../../app/support/silent_log.dart';
 import '../../../../shared/net/http_error_message.dart';
 import '../../../../shared/net/http_response_utils.dart';
 import '../../../../shared/net/http_status_utils.dart';
+import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/bounded_file_io.dart';
 import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/input_value_parsing.dart';
@@ -112,6 +113,10 @@ class AiMediaGenerationException implements Exception {
   final String? rawResponseBody;
   @override
   String toString() => message;
+}
+
+class AiMediaGenerationCancelledException implements Exception {
+  const AiMediaGenerationCancelledException();
 }
 
 /// Service that routes image, video and audio generation requests to the
@@ -318,6 +323,7 @@ class AiImageGenerationService {
     AiCreationOptions options = AiCreationOptions.empty,
     List<AiChatContentPart> referenceImages = const <AiChatContentPart>[],
     Duration timeout = const Duration(seconds: 120),
+    Future<void>? cancelSignal,
   }) async {
     if (!supportsImageGenerationForModel(model)) {
       throw AiMediaGenerationException(
@@ -385,7 +391,10 @@ class AiImageGenerationService {
         body: body,
         timeout: timeout,
         maxResponseBytes: _imageResponseMaxBytes,
+        cancelSignal: cancelSignal,
       );
+    } on http.RequestAbortedException {
+      throw const AiMediaGenerationCancelledException();
     } on TimeoutException {
       throw AiMediaGenerationException(
         _MediaErrorMessages.timeout(_GeneratedMediaKind.image, timeout),
@@ -432,6 +441,7 @@ class AiImageGenerationService {
     final markdown = await _buildMarkdownFromResponse(
       decoded: decoded,
       altText: trimmedPrompt,
+      cancelSignal: cancelSignal,
     );
     if (markdown.isEmpty) {
       throw AiMediaGenerationException(
@@ -456,6 +466,7 @@ class AiImageGenerationService {
     AiCreationOptions options = AiCreationOptions.empty,
     List<AiChatContentPart> referenceImages = const <AiChatContentPart>[],
     Duration timeout = const Duration(minutes: 15),
+    Future<void>? cancelSignal,
   }) {
     return _generateMedia(
       kind: _GeneratedMediaKind.video,
@@ -464,6 +475,7 @@ class AiImageGenerationService {
       options: options,
       referenceImages: referenceImages,
       timeout: timeout,
+      cancelSignal: cancelSignal,
     );
   }
 
@@ -472,6 +484,7 @@ class AiImageGenerationService {
     required String prompt,
     AiCreationOptions options = AiCreationOptions.empty,
     Duration timeout = const Duration(minutes: 3),
+    Future<void>? cancelSignal,
   }) {
     return _generateMedia(
       kind: _GeneratedMediaKind.audio,
@@ -479,6 +492,7 @@ class AiImageGenerationService {
       prompt: prompt,
       options: options,
       timeout: timeout,
+      cancelSignal: cancelSignal,
     );
   }
 
@@ -489,6 +503,7 @@ class AiImageGenerationService {
     required AiCreationOptions options,
     List<AiChatContentPart> referenceImages = const <AiChatContentPart>[],
     required Duration timeout,
+    Future<void>? cancelSignal,
   }) async {
     final supported = switch (kind) {
       _GeneratedMediaKind.image => supportsImageGenerationForModel(model),
@@ -601,6 +616,7 @@ class AiImageGenerationService {
           body: body,
           timeout: timeout,
           maxResponseBytes: _maxResponseBytesFor(kind),
+          cancelSignal: cancelSignal,
         );
       } else {
         response = await _transport.sendJson(
@@ -610,8 +626,11 @@ class AiImageGenerationService {
           body: body,
           timeout: timeout,
           maxResponseBytes: _maxResponseBytesFor(kind),
+          cancelSignal: cancelSignal,
         );
       }
+    } on http.RequestAbortedException {
+      throw const AiMediaGenerationCancelledException();
     } on TimeoutException {
       throw AiMediaGenerationException(
         _MediaErrorMessages.timeout(kind, timeout),
@@ -681,6 +700,7 @@ class AiImageGenerationService {
       decoded: decoded,
       kind: kind,
       label: trimmedPrompt,
+      cancelSignal: cancelSignal,
     );
     if (initialMarkdown.isNotEmpty) {
       return AiMediaGenerationResult(
@@ -704,6 +724,7 @@ class AiImageGenerationService {
       requestHeaders: headers,
       timeout: timeout,
       startedAt: startedAt,
+      cancelSignal: cancelSignal,
     );
     if (polled.markdown.isEmpty) {
       throw AiMediaGenerationException(
@@ -1701,6 +1722,7 @@ class AiImageGenerationService {
   Future<String> _buildMarkdownFromResponse({
     required Map<String, Object?> decoded,
     required String altText,
+    Future<void>? cancelSignal,
   }) async {
     final raw = decoded['data'];
     final List<Object?> entries;
@@ -1744,7 +1766,7 @@ class AiImageGenerationService {
       }
       final url = optionalStringFromValue(map['url']);
       if (url != null) {
-        final bytes = await _downloadBytes(url);
+        final bytes = await _downloadBytes(url, cancelSignal: cancelSignal);
         if (bytes != null && bytes.isNotEmpty) {
           final md = await saveInlineMediaToMarkdown(
             AiInlineMedia(
@@ -1774,9 +1796,14 @@ class AiImageGenerationService {
     required Map<String, Object?> decoded,
     required _GeneratedMediaKind kind,
     required String label,
+    Future<void>? cancelSignal,
   }) async {
     if (kind.isImage) {
-      return _buildMarkdownFromResponse(decoded: decoded, altText: label);
+      return _buildMarkdownFromResponse(
+        decoded: decoded,
+        altText: label,
+        cancelSignal: cancelSignal,
+      );
     }
     final entries = _extractMediaEntries(decoded, kind);
     if (entries.isEmpty) return '';
@@ -1999,6 +2026,7 @@ class AiImageGenerationService {
     required Map<String, String> requestHeaders,
     required Duration timeout,
     required DateTime startedAt,
+    Future<void>? cancelSignal,
   }) async {
     final operationUrl = _resolveOperationUrl(
       initialUrl,
@@ -2026,7 +2054,7 @@ class AiImageGenerationService {
       // well before the deadline.
       final wait = _pollDelayForAttempt(attempt);
       if (wait < remaining) {
-        await Future<void>.delayed(wait);
+        await _delayOrThrowCancelled(wait, cancelSignal);
       }
       final requestRemaining = deadline.difference(DateTime.now().toUtc());
       // Guard against `.timeout(near-zero)` which would instantly throw
@@ -2044,6 +2072,7 @@ class AiImageGenerationService {
         headers: pollingHeaders,
         timeout: effectiveTimeout,
         maxResponseBytes: _mediaJsonResponseMaxBytes,
+        cancelSignal: cancelSignal,
       );
       lastBody = response.body;
       if (isHttpFailureStatus(response.statusCode)) {
@@ -2055,7 +2084,7 @@ class AiImageGenerationService {
               retryAfter ?? _transientPollBackoffDelay(transientFailures);
           final budget = deadline.difference(DateTime.now().toUtc());
           if (backoff < budget) {
-            await Future<void>.delayed(backoff);
+            await _delayOrThrowCancelled(backoff, cancelSignal);
             continue;
           }
         }
@@ -2091,6 +2120,7 @@ class AiImageGenerationService {
               fileId: fileId,
               requestHeaders: requestHeaders,
               effectiveTimeout: effectiveTimeout,
+              cancelSignal: cancelSignal,
             );
             if (downloadUrl != null) {
               final safeLabel = sanitizeMarkdownAltText(label);
@@ -2106,6 +2136,7 @@ class AiImageGenerationService {
         decoded: decoded,
         kind: kind,
         label: label,
+        cancelSignal: cancelSignal,
       );
       if (markdown.isNotEmpty) {
         return _PolledMediaResult(
@@ -2128,6 +2159,7 @@ class AiImageGenerationService {
           requestHeaders: requestHeaders,
           effectiveTimeout: effectiveTimeout,
           label: label,
+          cancelSignal: cancelSignal,
         );
         if (contentMarkdown.isNotEmpty) {
           return _PolledMediaResult(
@@ -2155,6 +2187,7 @@ class AiImageGenerationService {
     required Map<String, String> requestHeaders,
     required Duration effectiveTimeout,
     required String label,
+    Future<void>? cancelSignal,
   }) async {
     final contentUri = Uri.parse(operationUrl).replace(
       pathSegments: <String>[
@@ -2181,6 +2214,7 @@ class AiImageGenerationService {
       destination: destination,
       maxBytes: _videoDownloadMaxBytes,
       maxJsonBytes: _mediaJsonResponseMaxBytes,
+      cancelSignal: cancelSignal,
     );
     if (!response.isSuccess) {
       throw AiMediaGenerationException(
@@ -2231,6 +2265,7 @@ class AiImageGenerationService {
     required String fileId,
     required Map<String, String> requestHeaders,
     required Duration effectiveTimeout,
+    Future<void>? cancelSignal,
   }) async {
     final base = Uri.parse(initialUrl);
     final segments = base.pathSegments
@@ -2255,6 +2290,7 @@ class AiImageGenerationService {
         headers: pollingHeaders,
         timeout: effectiveTimeout,
         maxResponseBytes: _mediaJsonResponseMaxBytes,
+        cancelSignal: cancelSignal,
       );
       if (isHttpSuccessStatus(response.statusCode)) break;
       if (!_isTransientPollStatus(response.statusCode) ||
@@ -2264,8 +2300,9 @@ class AiImageGenerationService {
       // Single retry with jitter to absorb a brief 5xx/429 without
       // dropping a successful video task on the floor.
       final retryAfter = _parseRetryAfter(response.headers['retry-after']);
-      await Future<void>.delayed(
+      await _delayOrThrowCancelled(
         retryAfter ?? _miniMaxFileRetrieveBackoffDelay(),
+        cancelSignal,
       );
     }
     if (response == null || isHttpFailureStatus(response.statusCode)) {
@@ -2621,13 +2658,19 @@ class AiImageGenerationService {
     };
   }
 
-  Future<List<int>?> _downloadBytes(String url) async {
+  Future<List<int>?> _downloadBytes(
+    String url, {
+    Future<void>? cancelSignal,
+  }) async {
     try {
       return await _transport.downloadBytes(
         uri: Uri.parse(url),
         headers: const <String, String>{},
         timeout: _remoteMediaDownloadTimeout,
+        cancelSignal: cancelSignal,
       );
+    } on http.RequestAbortedException {
+      throw const AiMediaGenerationCancelledException();
     } catch (error, stack) {
       silentLog(
         'ai_image_generation_service',
@@ -2637,6 +2680,15 @@ class AiImageGenerationService {
       );
     }
     return null;
+  }
+
+  Future<void> _delayOrThrowCancelled(
+    Duration delay,
+    Future<void>? cancelSignal,
+  ) async {
+    if (await delayUntilCancelled(delay, cancelSignal: cancelSignal)) {
+      throw const AiMediaGenerationCancelledException();
+    }
   }
 
   String _mimeFromUrl(String url) {

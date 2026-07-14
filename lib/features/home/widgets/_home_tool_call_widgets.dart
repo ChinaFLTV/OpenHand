@@ -12,9 +12,14 @@ const Curve _kToolCardMotionCurve = Curves.easeOutCubic;
 const int _kToolFullContentMaxBytes = 32 * 1024 * 1024;
 
 class _ToolCallBody extends StatefulWidget {
-  const _ToolCallBody({required this.message, required this.selectable});
+  const _ToolCallBody({
+    required this.message,
+    required this.sessionId,
+    required this.selectable,
+  });
 
   final AiSessionMessage message;
+  final String sessionId;
   final bool selectable;
 
   @override
@@ -424,6 +429,7 @@ class _ToolCallBodyState extends State<_ToolCallBody>
                   // 当工具调用仍登记在执行中心时，提供独立 Stop 按钮：
                   // 单击只杀本调用（区别于全局"停止响应"，不影响并行的兄弟工具）。
                   _ToolCancelButton(
+                    sessionId: widget.sessionId,
                     toolCallId: '${message.metadata['tool_call_id'] ?? ''}',
                   ),
                 ],
@@ -2109,8 +2115,9 @@ class _ToolExecutionChip extends StatelessWidget {
 /// [AiToolExecutionRegistry] 时显现。点击只终止本调用，不影响并行执行的
 /// 兄弟工具，区别于全局的"停止响应"。
 class _ToolCancelButton extends StatefulWidget {
-  const _ToolCancelButton({required this.toolCallId});
+  const _ToolCancelButton({required this.sessionId, required this.toolCallId});
 
+  final String sessionId;
   final String toolCallId;
 
   @override
@@ -2142,7 +2149,10 @@ class _ToolCancelButtonState extends State<_ToolCancelButton> {
     _markToolCardInteractiveTap(context);
     setState(() => _busy = true);
     try {
-      await AiToolExecutionRegistry.instance.cancelToolCall(widget.toolCallId);
+      await AiToolExecutionRegistry.instance.cancelToolCall(
+        sessionId: widget.sessionId,
+        toolCallId: widget.toolCallId,
+      );
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -2152,7 +2162,10 @@ class _ToolCancelButtonState extends State<_ToolCancelButton> {
   Widget build(BuildContext context) {
     final id = widget.toolCallId.trim();
     if (id.isEmpty) return const SizedBox.shrink();
-    final record = AiToolExecutionRegistry.instance.recordOf(id);
+    final record = AiToolExecutionRegistry.instance.recordOf(
+      sessionId: widget.sessionId,
+      toolCallId: id,
+    );
     if (record == null) return const SizedBox.shrink();
     final theme = Theme.of(context);
     final cs = theme.colorScheme;

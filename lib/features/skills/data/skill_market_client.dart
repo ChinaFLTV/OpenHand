@@ -182,7 +182,7 @@ class SkillMarketClient {
         idleTimeout: _downloadIdleTimeout,
         totalTimeout: _downloadTotalTimeout,
       );
-    } on HttpException {
+    } on ByteStreamSizeLimitException {
       throw const SkillMarketException('Skill archive is too large.');
     }
     if (bytes.isEmpty) {
@@ -353,7 +353,7 @@ class SkillMarketClient {
             totalTimeout: _requestTimeout,
             allowMalformed: true,
           );
-        } on HttpException {
+        } on ByteStreamSizeLimitException {
           throw const SkillMarketException('Skill file response is too large.');
         }
       },
@@ -452,7 +452,7 @@ class SkillMarketClient {
         idleTimeout: _requestTimeout,
         totalTimeout: _requestTimeout,
       );
-    } on HttpException {
+    } on ByteStreamSizeLimitException {
       throw const SkillMarketException('Skill market response is too large.');
     }
     final decoded = jsonDecode(utf8.decode(body));

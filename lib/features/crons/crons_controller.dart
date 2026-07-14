@@ -12,6 +12,7 @@ import '../../app/support/silent_log.dart';
 import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/localized_text.dart';
+import '../../shared/util/serial_task_queue.dart';
 import '../../shared/util/timer_safety.dart';
 import '../mcp/index.dart';
 import 'data/crons_store.dart';
@@ -270,7 +271,7 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
   bool _isDisposed = false;
   bool _isShuttingDown = false;
   AppLifecycleState _appLifecycleState = AppLifecycleState.resumed;
-  Future<void> _mutationQueue = Future<void>.value();
+  final SerialTaskQueue _mutationQueue = SerialTaskQueue();
 
   /// Active timers keyed by cron job id.
   final Map<String, Timer> _scheduledTimers = {};
@@ -404,7 +405,16 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
       await _store.saveAll(_entries);
       _cancelTimer(id);
       _historyCache.remove(id);
-      await _store.deleteHistoryForCron(id);
+      try {
+        await _store.deleteHistoryForCron(id);
+      } catch (error, stack) {
+        silentLog(
+          'crons_controller',
+          'delete history for removed cron',
+          error,
+          stack,
+        );
+      }
       return true;
     });
   }
@@ -625,14 +635,18 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
   /// 同步取消调度、清理历史缓存，返回受影响条目数。
   Future<int> clearAllNonSystemCrons() async {
     int removed = 0;
-    await _commitMutation(() async {
+    final committed = await _commitMutation(() async {
       final preserved = _entries
           .where((entry) => entry.tags.contains(systemTag))
           .toList();
       removed = _entries.length - preserved.length;
       if (removed == 0) return true;
-      for (final entry in _entries) {
-        if (entry.tags.contains(systemTag)) continue;
+      final removedEntries = _entries
+          .where((entry) => !entry.tags.contains(systemTag))
+          .toList(growable: false);
+      await _store.saveAll(preserved);
+      _setEntries(preserved);
+      for (final entry in removedEntries) {
         _cancelTimer(entry.id);
         _historyCache.remove(entry.id);
         try {
@@ -646,18 +660,20 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
           );
         }
       }
-      _setEntries(preserved);
-      await _store.saveAll(preserved);
       return true;
     });
-    return removed;
+    return committed ? removed : 0;
   }
 
   Future<void> refresh() async {
-    final entries = await _store.loadAll();
-    _setEntries(entries);
-    _restartScheduler();
-    notifyListeners();
+    await _mutationQueue.enqueue(() async {
+      if (_isDisposed) return;
+      final entries = await _store.loadAll();
+      if (_isDisposed) return;
+      _setEntries(entries);
+      _restartScheduler();
+      notifyListeners();
+    });
   }
 
   /// Scan system users available on this machine.
@@ -1113,18 +1129,22 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
 
   // Mutation queue
   Future<bool> _commitMutation(Future<bool> Function() mutation) {
-    final completer = Completer<bool>();
-    _mutationQueue = _mutationQueue.then((_) async {
+    if (_isDisposed) return Future<bool>.value(false);
+    return _mutationQueue.enqueue(() async {
+      if (_isDisposed) return false;
+      final previousEntries = List<CronEntry>.from(_entries);
       try {
         final result = await mutation();
         notifyListeners();
-        completer.complete(result);
+        return result;
       } catch (error, stack) {
+        _setEntries(previousEntries);
+        _restartScheduler();
         silentLog('crons_controller', 'commit cron mutation', error, stack);
-        completer.complete(false);
+        notifyListeners();
+        return false;
       }
     });
-    return completer.future;
   }
 }
 

@@ -30,6 +30,7 @@ import '../../../../shared/util/bounded_file_io.dart';
 import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/lifecycle_cache.dart';
+import '../../../../shared/util/serial_task_queue.dart';
 import '../../../../shared/util/unified_diff.dart' as unified_diff;
 
 const int _fileMutationRecordIdMaxCharacters = 512;
@@ -104,6 +105,12 @@ class FileMutationRecord {
       afterSize: nonNegativeIntFromValue(json['after_size'], fallback: 0),
     );
   }
+}
+
+final class _LedgerSessionMutationLane {
+  final SerialTaskQueue queue = SerialTaskQueue();
+  int pending = 0;
+  Future<void> tail = Future<void>.value();
 }
 
 Iterable<String> _ledgerLines(String content) sync* {
@@ -356,10 +363,7 @@ String unifiedDiffLineSummary(
 }
 
 class AiFileMutationLedger {
-  AiFileMutationLedger({String? rootDirectory})
-    : _rootDirectory = rootDirectory == null
-          ? null
-          : p.normalize(rootDirectory.trim()) {
+  factory AiFileMutationLedger({String? rootDirectory}) {
     if (rootDirectory != null && nullIfBlank(rootDirectory) == null) {
       throw ArgumentError.value(
         rootDirectory,
@@ -367,7 +371,19 @@ class AiFileMutationLedger {
         'Must not be blank.',
       );
     }
+    final root = p.normalize(
+      p.absolute(
+        rootDirectory?.trim() ??
+            p.join(OpenHandPaths.defaultRootDirectoryPath(), 'file_history'),
+      ),
+    );
+    return _instances.putIfAbsent(root, () => AiFileMutationLedger._(root));
   }
+
+  AiFileMutationLedger._(this._rootDirectory);
+
+  static final Map<String, AiFileMutationLedger> _instances =
+      <String, AiFileMutationLedger>{};
 
   static final RegExp _sha256HexPattern = RegExp(r'^[0-9a-f]{64}$');
   static final RegExp _unsafeSessionIdCharPattern = RegExp(r'[^a-zA-Z0-9_\-.]');
@@ -388,6 +404,7 @@ class AiFileMutationLedger {
   static const int _maxCachedUndoneIds = 12000;
   static const int _maxCachedLineDeltas = 2048;
   static const int _maxRecordsPerLedger = 100000;
+  static const int _maxMalformedLedgerLines = 256;
   static const int _maxSearchResults = 2000;
   static const int _maxExportSessions = 1000;
   static const int _maxExportRecords = 10000;
@@ -415,11 +432,14 @@ class AiFileMutationLedger {
   static const int _maxLegacyBlobRecoveryMisses = 4096;
 
   final Random _rand = Random.secure();
-  final String? _rootDirectory;
+  final String _rootDirectory;
   Future<void>? _initializationFuture;
   bool _initialized = false;
   Map<String, String>? _legacyBlobPathIndex;
   final Set<String> _legacyBlobRecoveryMisses = <String>{};
+  final Map<String, _LedgerSessionMutationLane> _sessionMutationLanes =
+      <String, _LedgerSessionMutationLane>{};
+  Completer<void>? _maintenanceGate;
 
   // Per-session in-memory caches for records and undone set. The session
   // ledger / state files are mutated only through this class, so we can
@@ -460,9 +480,55 @@ class AiFileMutationLedger {
     _lineDeltaCache.clear();
   }
 
-  String get _root =>
-      _rootDirectory ??
-      p.join(OpenHandPaths.defaultRootDirectoryPath(), 'file_history');
+  Future<T> _enqueueSessionMutation<T>(
+    String sessionId,
+    Future<T> Function() mutation, {
+    bool waitForMaintenance = true,
+    bool ensureInitialized = false,
+  }) async {
+    if (waitForMaintenance) {
+      while (_maintenanceGate != null) {
+        await _maintenanceGate!.future;
+      }
+    }
+    if (ensureInitialized) await _ensureInitialized();
+    final key = _safeSessionId(sessionId);
+    final lane = _sessionMutationLanes.putIfAbsent(
+      key,
+      _LedgerSessionMutationLane.new,
+    );
+    lane.pending += 1;
+    final future = lane.queue.enqueue(mutation);
+    lane.tail = future.then<void>((_) {}, onError: (Object _, StackTrace _) {});
+    return future.whenComplete(() {
+      lane.pending -= 1;
+      if (lane.pending == 0 && identical(_sessionMutationLanes[key], lane)) {
+        _sessionMutationLanes.remove(key);
+      }
+    });
+  }
+
+  Future<T> _runExclusiveMaintenance<T>(Future<T> Function() operation) async {
+    while (_maintenanceGate != null) {
+      await _maintenanceGate!.future;
+    }
+    final maintenance = Completer<void>();
+    _maintenanceGate = maintenance;
+    final pendingMutations = _sessionMutationLanes.values
+        .map((lane) => lane.tail)
+        .toList(growable: false);
+    try {
+      await Future.wait<void>(pendingMutations);
+      return await operation();
+    } finally {
+      if (!maintenance.isCompleted) maintenance.complete();
+      if (identical(_maintenanceGate, maintenance)) {
+        _maintenanceGate = null;
+      }
+    }
+  }
+
+  String get _root => _rootDirectory;
 
   Directory _blobsDir() => Directory(p.join(_root, 'blobs'));
   Directory _sessionsDir() => Directory(p.join(_root, 'sessions'));
@@ -526,12 +592,13 @@ class AiFileMutationLedger {
   }
 
   Future<void> saveConfig(LedgerConfig config) async {
-    _cachedConfig = config;
     try {
       await _ensureInitialized();
       await writeFileAtomically(_configFile(), jsonEncode(config.toJson()));
+      _cachedConfig = config;
     } catch (error, stack) {
       silentLog('ai_file_mutation_ledger', 'saveConfig', error, stack);
+      rethrow;
     }
   }
 
@@ -572,16 +639,12 @@ class AiFileMutationLedger {
       final config = await loadConfig();
       var shouldCollectBlobs = false;
       if (config.autoCleanupDays > 0) {
-        await _pruneOlderThan(
-          Duration(days: config.autoCleanupDays),
-          collectBlobs: false,
-        );
+        await _pruneOlderThan(Duration(days: config.autoCleanupDays));
         shouldCollectBlobs = true;
       }
       if (config.maxVersionsPerFile > 0) {
         await _pruneToMaxVersionsPerFile(
           config.maxVersionsPerFile,
-          collectBlobs: false,
           initializeRecordReads: false,
         );
         shouldCollectBlobs = true;
@@ -656,6 +719,30 @@ class AiFileMutationLedger {
     required FileMutationKind kind,
     required String? beforeContent,
     required String? afterContent,
+  }) {
+    return _enqueueSessionMutation(
+      sessionId,
+      () => _recordMutationLocked(
+        sessionId: sessionId,
+        toolCallId: toolCallId,
+        toolName: toolName,
+        filePath: filePath,
+        kind: kind,
+        beforeContent: beforeContent,
+        afterContent: afterContent,
+      ),
+      ensureInitialized: true,
+    );
+  }
+
+  Future<FileMutationRecord?> _recordMutationLocked({
+    required String sessionId,
+    required String toolCallId,
+    required String toolName,
+    required String filePath,
+    required FileMutationKind kind,
+    required String? beforeContent,
+    required String? afterContent,
   }) async {
     final normalizedSessionId = nullIfBlank(sessionId);
     final normalizedFilePath = nullIfBlank(filePath);
@@ -664,7 +751,6 @@ class AiFileMutationLedger {
     }
     final normalizedToolCallId = nullIfBlank(toolCallId) ?? '';
     final normalizedToolName = nullIfBlank(toolName) ?? '';
-    await _ensureInitialized();
     try {
       final sessionDir = _sessionDir(normalizedSessionId);
       if (!await sessionDir.exists()) await sessionDir.create(recursive: true);
@@ -749,6 +835,9 @@ class AiFileMutationLedger {
         maxBytes: _maxLedgerBytes,
       );
       var hitRecordLimit = false;
+      var malformedLines = 0;
+      Object? firstMalformedError;
+      StackTrace? firstMalformedStack;
       for (final raw in _ledgerLines(content)) {
         final trimmed = nullIfBlank(raw);
         if (trimmed == null) continue;
@@ -767,16 +856,26 @@ class AiFileMutationLedger {
             records.add(record);
           }
         } catch (error, stack) {
-          silentLog(
-            'ai_file_mutation_ledger',
-            'parse ledger line',
-            error,
-            stack,
-          );
+          malformedLines += 1;
+          firstMalformedError ??= error;
+          firstMalformedStack ??= stack;
+          if (malformedLines >= _maxMalformedLedgerLines) {
+            throw const FormatException(
+              'Ledger malformed record limit exceeded.',
+            );
+          }
         }
       }
       if (hitRecordLimit) {
         throw const FormatException('Ledger record limit exceeded.');
+      }
+      if (malformedLines > 0) {
+        silentLog(
+          'ai_file_mutation_ledger',
+          'ignored $malformedLines malformed ledger records',
+          firstMalformedError!,
+          firstMalformedStack,
+        );
       }
     } on FileSystemException catch (error, stack) {
       if (!_isMissingFileSystemException(error)) {
@@ -1029,8 +1128,18 @@ class AiFileMutationLedger {
   Future<FileMutationOutcome> undoRecord({
     required String sessionId,
     required String recordId,
+  }) {
+    return _enqueueSessionMutation(
+      sessionId,
+      () => _undoRecordLocked(sessionId: sessionId, recordId: recordId),
+      ensureInitialized: true,
+    );
+  }
+
+  Future<FileMutationOutcome> _undoRecordLocked({
+    required String sessionId,
+    required String recordId,
   }) async {
-    await _ensureInitialized();
     try {
       final all = await recordsForSession(sessionId);
       final target = all.where((r) => r.recordId == recordId).firstOrNull;
@@ -1090,8 +1199,18 @@ class AiFileMutationLedger {
   Future<FileMutationOutcome> redoRecord({
     required String sessionId,
     required String recordId,
+  }) {
+    return _enqueueSessionMutation(
+      sessionId,
+      () => _redoRecordLocked(sessionId: sessionId, recordId: recordId),
+      ensureInitialized: true,
+    );
+  }
+
+  Future<FileMutationOutcome> _redoRecordLocked({
+    required String sessionId,
+    required String recordId,
   }) async {
-    await _ensureInitialized();
     try {
       final all = await recordsForSession(sessionId);
       final target = all.where((r) => r.recordId == recordId).firstOrNull;
@@ -1263,6 +1382,11 @@ class AiFileMutationLedger {
   }
 
   Future<void> clearAll() async {
+    await _ensureInitialized();
+    return _runExclusiveMaintenance(_clearAllExclusive);
+  }
+
+  Future<void> _clearAllExclusive() async {
     try {
       await _initializationFuture;
       final root = Directory(_root);
@@ -1273,6 +1397,7 @@ class AiFileMutationLedger {
       );
     } catch (error, stack) {
       silentLog('ai_file_mutation_ledger', 'clearAll', error, stack);
+      rethrow;
     } finally {
       _invalidateAllCaches();
       _cachedConfig = null;
@@ -1284,6 +1409,15 @@ class AiFileMutationLedger {
   }
 
   Future<void> clearSession(String sessionId) async {
+    await _enqueueSessionMutation(
+      sessionId,
+      () => _clearSessionLocked(sessionId),
+      ensureInitialized: true,
+    );
+    await gcUnreferencedBlobs();
+  }
+
+  Future<void> _clearSessionLocked(String sessionId) async {
     final normalizedSessionId = nullIfBlank(sessionId);
     if (normalizedSessionId == null) return;
     try {
@@ -1296,13 +1430,14 @@ class AiFileMutationLedger {
       // 不主动 GC blobs，避免影响其他会话引用；总清理时统一处理。
     } catch (error, stack) {
       silentLog('ai_file_mutation_ledger', 'clearSession', error, stack);
+      rethrow;
     }
     _invalidateSessionCache(normalizedSessionId);
-    await gcUnreferencedBlobs();
   }
 
   /// 清理所有非 [keepSessionIds] 列出的会话目录。
   Future<int> clearSessionsExcept(Set<String> keepSessionIds) async {
+    await _ensureInitialized();
     var removed = 0;
     try {
       final sessions = _sessionsDir();
@@ -1311,12 +1446,17 @@ class AiFileMutationLedger {
       final listing = await _listSessionEntries();
       for (final entity in listing.entries) {
         if (entity is! Directory) continue;
-        if (keep.contains(p.basename(entity.path))) continue;
+        final sessionId = p.basename(entity.path);
+        if (keep.contains(sessionId)) continue;
         try {
-          await deletePathBounded(
-            p.absolute(entity.path),
-            policy: _ledgerTreeDeletePolicy,
-            allowedRoot: p.absolute(sessions.path),
+          await _enqueueSessionMutation(
+            sessionId,
+            () => deletePathBounded(
+              p.absolute(entity.path),
+              policy: _ledgerTreeDeletePolicy,
+              allowedRoot: p.absolute(sessions.path),
+            ),
+            ensureInitialized: true,
           );
           removed++;
         } catch (error, stack) {
@@ -1339,13 +1479,12 @@ class AiFileMutationLedger {
   /// 删除最早 `now - retention` 之前的全部会话 ledger（同时回收 blob）。
   Future<int> pruneOlderThan(Duration retention) async {
     await _ensureInitialized();
-    return _pruneOlderThan(retention, collectBlobs: true);
+    final removed = await _pruneOlderThan(retention);
+    await gcUnreferencedBlobs();
+    return removed;
   }
 
-  Future<int> _pruneOlderThan(
-    Duration retention, {
-    required bool collectBlobs,
-  }) async {
+  Future<int> _pruneOlderThan(Duration retention) async {
     var removed = 0;
     final pruned = <String>{};
     try {
@@ -1355,15 +1494,20 @@ class AiFileMutationLedger {
       final listing = await _listSessionEntries();
       for (final entity in listing.entries) {
         if (entity is! Directory) continue;
+        final sessionId = p.basename(entity.path);
         try {
-          final stat = await entity.stat();
-          if (stat.modified.isBefore(cutoff)) {
-            pruned.add(p.basename(entity.path));
+          final didPrune = await _enqueueSessionMutation(sessionId, () async {
+            final stat = await entity.stat();
+            if (!stat.modified.isBefore(cutoff)) return false;
             await deletePathBounded(
               p.absolute(entity.path),
               policy: _ledgerTreeDeletePolicy,
               allowedRoot: p.absolute(sessions.path),
             );
+            return true;
+          });
+          if (didPrune) {
+            pruned.add(sessionId);
             removed++;
           }
         } catch (error, stack) {
@@ -1375,9 +1519,6 @@ class AiFileMutationLedger {
     }
     for (final sid in pruned) {
       _invalidateSessionCache(sid);
-    }
-    if (collectBlobs) {
-      await _gcUnreferencedBlobs(initializeRecordReads: true);
     }
     return removed;
   }
@@ -1427,21 +1568,20 @@ class AiFileMutationLedger {
   /// 引用；老记录从 ledger 中物理移除。返回被移除的记录条数。
   Future<int> pruneToMaxVersionsPerFile(int maxVersionsPerFile) async {
     await _ensureInitialized();
-    return _pruneToMaxVersionsPerFile(
+    final removed = await _pruneToMaxVersionsPerFile(
       maxVersionsPerFile,
-      collectBlobs: true,
       initializeRecordReads: true,
     );
+    await gcUnreferencedBlobs();
+    return removed;
   }
 
   Future<int> _pruneToMaxVersionsPerFile(
     int maxVersionsPerFile, {
-    required bool collectBlobs,
     required bool initializeRecordReads,
   }) async {
     if (maxVersionsPerFile <= 0) return 0;
     var removed = 0;
-    var allSessionsReadable = true;
     try {
       final sessions = _sessionsDir();
       if (!await sessions.exists()) return 0;
@@ -1449,47 +1589,14 @@ class AiFileMutationLedger {
       for (final entity in listing.entries) {
         if (entity is! Directory) continue;
         final sessionId = p.basename(entity.path);
-        final loaded = await _recordsForSessionResult(
+        removed += await _enqueueSessionMutation(
           sessionId,
-          initialize: initializeRecordReads,
+          () => _pruneSessionToMaxVersionsLocked(
+            sessionId,
+            maxVersionsPerFile,
+            initializeRecordReads: initializeRecordReads,
+          ),
         );
-        if (!loaded.succeeded) {
-          allSessionsReadable = false;
-          continue;
-        }
-        final records = loaded.records;
-        // 按文件分组，按时间倒序保留前 N 条。
-        final byFile = <String, List<FileMutationRecord>>{};
-        for (final r in records) {
-          byFile.putIfAbsent(r.filePath, () => <FileMutationRecord>[]).add(r);
-        }
-        final keepIds = <String>{};
-        byFile.forEach((_, list) {
-          list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-          for (final r in list.take(maxVersionsPerFile)) {
-            keepIds.add(r.recordId);
-          }
-        });
-        final survivors = records
-            .where((r) => keepIds.contains(r.recordId))
-            .toList();
-        removed += records.length - survivors.length;
-        // 重写 ledger
-        final ledger = _ledgerFile(sessionId);
-        if (survivors.isEmpty) {
-          await _deleteFileIfPresent(ledger, 'prune ledger');
-        } else {
-          final buffer = StringBuffer();
-          for (final r in survivors) {
-            buffer.writeln(jsonEncode(r.toJson()));
-          }
-          await writeFileAtomically(ledger, buffer.toString());
-        }
-        _invalidateSessionCache(sessionId);
-        // 同步精简 undone 集合
-        final undone = await _loadUndoneSet(sessionId);
-        undone.removeWhere((id) => !keepIds.contains(id));
-        await _saveUndoneSet(sessionId, undone);
       }
     } catch (error, stack) {
       silentLog(
@@ -1499,17 +1606,60 @@ class AiFileMutationLedger {
         stack,
       );
     }
-    if (collectBlobs && allSessionsReadable) {
-      await _gcUnreferencedBlobs(initializeRecordReads: initializeRecordReads);
-    }
     return removed;
+  }
+
+  Future<int> _pruneSessionToMaxVersionsLocked(
+    String sessionId,
+    int maxVersionsPerFile, {
+    required bool initializeRecordReads,
+  }) async {
+    final loaded = await _recordsForSessionResult(
+      sessionId,
+      initialize: initializeRecordReads,
+    );
+    if (!loaded.succeeded) return 0;
+    final records = loaded.records;
+    final byFile = <String, List<FileMutationRecord>>{};
+    for (final record in records) {
+      byFile
+          .putIfAbsent(record.filePath, () => <FileMutationRecord>[])
+          .add(record);
+    }
+    final keepIds = <String>{};
+    byFile.forEach((_, records) {
+      records.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      keepIds.addAll(
+        records.take(maxVersionsPerFile).map((record) => record.recordId),
+      );
+    });
+    final survivors = records
+        .where((record) => keepIds.contains(record.recordId))
+        .toList(growable: false);
+    final ledger = _ledgerFile(sessionId);
+    if (survivors.isEmpty) {
+      await _deleteFileIfPresent(ledger, 'prune ledger');
+    } else {
+      final buffer = StringBuffer();
+      for (final record in survivors) {
+        buffer.writeln(jsonEncode(record.toJson()));
+      }
+      await writeFileAtomically(ledger, buffer.toString());
+    }
+    _invalidateSessionCache(sessionId);
+    final undone = await _loadUndoneSet(sessionId);
+    undone.removeWhere((id) => !keepIds.contains(id));
+    await _saveUndoneSet(sessionId, undone);
+    return records.length - survivors.length;
   }
 
   /// 删除没有任何 ledger 引用的 blob。容错：失败仅日志，不抛出。
   /// 返回 (removed, bytesFreed) 以便 UI 展示统计。
   Future<({int removed, int bytesFreed})> gcUnreferencedBlobs() async {
     await _ensureInitialized();
-    return _gcUnreferencedBlobs(initializeRecordReads: true);
+    return _runExclusiveMaintenance(
+      () => _gcUnreferencedBlobs(initializeRecordReads: true),
+    );
   }
 
   Future<({int removed, int bytesFreed})> _gcUnreferencedBlobs({
@@ -2148,6 +2298,10 @@ class AiFileMutationLedger {
   /// session 粒度容错继续。
   Future<int> importBundleJson(String json) async {
     await _ensureInitialized();
+    return _runExclusiveMaintenance(() => _importBundleJsonExclusive(json));
+  }
+
+  Future<int> _importBundleJsonExclusive(String json) async {
     var imported = 0;
     if (json.length > _maxBundleJsonCharacters) return 0;
     Map<String, Object?> parsed;
@@ -2212,73 +2366,76 @@ class AiFileMutationLedger {
       final records = sessionEntry['records'];
       if (records is! List) continue;
       try {
-        final dir = _sessionDir(sid);
-        if (!await dir.exists()) await dir.create(recursive: true);
-        final ledger = _ledgerFile(sid);
-        final loaded = await _recordsForSessionResult(sid);
-        if (!loaded.succeeded) continue;
-        final existingIds = loaded.records.map((r) => r.recordId).toSet();
-        final buffer = StringBuffer();
-        try {
-          if (await ledger.exists()) {
-            final existing = await readBoundedFileString(
-              ledger,
-              maxBytes: _maxLedgerBytes,
-            );
-            buffer.write(existing);
-            if (!existing.endsWith('\n') && existing.isNotEmpty) {
-              buffer.writeln();
+        final sessionImported = await _enqueueSessionMutation(sid, () async {
+          final dir = _sessionDir(sid);
+          if (!await dir.exists()) await dir.create(recursive: true);
+          final ledger = _ledgerFile(sid);
+          final loaded = await _recordsForSessionResult(sid);
+          if (!loaded.succeeded) return 0;
+          final existingIds = loaded.records.map((r) => r.recordId).toSet();
+          final buffer = StringBuffer();
+          try {
+            if (await ledger.exists()) {
+              final existing = await readBoundedFileString(
+                ledger,
+                maxBytes: _maxLedgerBytes,
+              );
+              buffer.write(existing);
+              if (!existing.endsWith('\n') && existing.isNotEmpty) {
+                buffer.writeln();
+              }
             }
-          }
-        } on FileSystemException catch (error, stack) {
-          if (!_isMissingFileSystemException(error)) {
+          } on FileSystemException catch (error, stack) {
+            if (!_isMissingFileSystemException(error)) {
+              silentLog(
+                'ai_file_mutation_ledger',
+                'importBundle read existing ledger',
+                error,
+                stack,
+              );
+            }
+            return 0;
+          } catch (error, stack) {
             silentLog(
               'ai_file_mutation_ledger',
               'importBundle read existing ledger',
               error,
               stack,
             );
+            return 0;
           }
-          continue;
-        } catch (error, stack) {
-          silentLog(
-            'ai_file_mutation_ledger',
-            'importBundle read existing ledger',
-            error,
-            stack,
-          );
-          continue;
-        }
-        var sessionImported = 0;
-        for (final raw in records) {
-          if (raw is! Map) continue;
-          final record = FileMutationRecord.tryFromJson(
-            stringKeyedMapFromValue(raw),
-            sessionId: sid,
-          );
-          if (record == null || existingIds.contains(record.recordId)) continue;
-          buffer.writeln(jsonEncode(record.toJson()));
-          existingIds.add(record.recordId);
-          sessionImported += 1;
-        }
-        final updatedLedger = buffer.toString();
-        if (utf8.encode(updatedLedger).length > _maxLedgerBytes) {
-          continue;
-        }
-        await writeFileAtomically(ledger, updatedLedger);
-        imported += sessionImported;
-        _invalidateSessionCache(sid);
-        // 还原 undone 集合：合并存在的 undone 列表。
-        final undoneList = sessionEntry['undone'];
-        if (undoneList is List) {
-          final cur = await _loadUndoneSet(sid);
-          for (final item in undoneList) {
-            if (item is String && existingIds.contains(item)) {
-              cur.add(item);
+          var added = 0;
+          for (final raw in records) {
+            if (raw is! Map) continue;
+            final record = FileMutationRecord.tryFromJson(
+              stringKeyedMapFromValue(raw),
+              sessionId: sid,
+            );
+            if (record == null || existingIds.contains(record.recordId)) {
+              continue;
             }
+            buffer.writeln(jsonEncode(record.toJson()));
+            existingIds.add(record.recordId);
+            added += 1;
           }
-          await _saveUndoneSet(sid, cur);
-        }
+          final updatedLedger = buffer.toString();
+          if (utf8.encode(updatedLedger).length > _maxLedgerBytes) return 0;
+          await writeFileAtomically(ledger, updatedLedger);
+          _invalidateSessionCache(sid);
+          // 还原 undone 集合：合并存在的 undone 列表。
+          final undoneList = sessionEntry['undone'];
+          if (undoneList is List) {
+            final cur = await _loadUndoneSet(sid);
+            for (final item in undoneList) {
+              if (item is String && existingIds.contains(item)) {
+                cur.add(item);
+              }
+            }
+            await _saveUndoneSet(sid, cur);
+          }
+          return added;
+        }, waitForMaintenance: false);
+        imported += sessionImported;
       } catch (error, stack) {
         silentLog(
           'ai_file_mutation_ledger',

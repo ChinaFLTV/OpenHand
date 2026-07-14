@@ -317,6 +317,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   static const Duration _queuedMessageDispatchDebounce = Duration(
     milliseconds: 600,
   );
+  static const int _maxQueuedMessagesPerSession = 32;
   static const Duration _composerClipboardReadTimeout = Duration(seconds: 2);
   static const Duration _composerAttachmentReadIdleTimeout = Duration(
     seconds: 10,
@@ -413,6 +414,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   bool _fileExplorerVisible = false;
   final Set<String> _visibleMachineTerminalPanelSessionIds = <String>{};
   final List<String> _openFilePaths = [];
+  static const int _maxOpenEditorTabs = 24;
   String? _activeFilePath;
   String? _editorTabsSessionId;
   late final OpenHandDebouncer _editorTabsSaveDebouncer = OpenHandDebouncer(
@@ -457,6 +459,18 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   }
 
   void _openFileInEditor(String filePath) {
+    if (!_openFilePaths.contains(filePath) &&
+        _openFilePaths.length >= _maxOpenEditorTabs) {
+      showHomeInfoSnack(
+        context,
+        openHandLocalizedText(
+          context,
+          zh: '编辑器最多同时打开 $_maxOpenEditorTabs 个文件，请先关闭一个标签页。',
+          en: 'The editor can keep up to $_maxOpenEditorTabs files open. Close a tab first.',
+        ),
+      );
+      return;
+    }
     setState(() {
       if (!_openFilePaths.contains(filePath)) {
         _openFilePaths.add(filePath);
@@ -531,6 +545,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         whereArgs: <Object?>['editor_tabs_$sessionId'],
         limit: 1,
       );
+      if (!mounted || _editorTabsSessionId != sessionId) return;
       if (rows.isEmpty) return;
       final jsonStr = rows.first['value'] as String?;
       if (jsonStr == null || jsonStr.isEmpty) return;
@@ -540,10 +555,14 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       final activeFile = decoded['active_file'] as String?;
       if (openFiles is List) {
         final validFiles = <String>[];
+        final seenFiles = <String>{};
         for (final item in openFiles) {
-          if (item is String && item.isNotEmpty) {
+          if (item is String && item.isNotEmpty && seenFiles.add(item)) {
             validFiles.add(item);
           }
+        }
+        if (validFiles.length > _maxOpenEditorTabs) {
+          validFiles.removeRange(0, validFiles.length - _maxOpenEditorTabs);
         }
         if (validFiles.isNotEmpty) {
           setState(() {
@@ -6028,6 +6047,18 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     required List<String> additionalSystemReminders,
     required Map<String, Object?>? selectedSkillMetadata,
   }) {
+    final queue = _queuedMessagesBySessionId[sessionId];
+    if ((queue?.length ?? 0) >= _maxQueuedMessagesPerSession) {
+      showHomeInfoSnack(
+        context,
+        openHandLocalizedText(
+          context,
+          zh: '等待队列最多保留 $_maxQueuedMessagesPerSession 条消息。',
+          en: 'The waiting queue can hold up to $_maxQueuedMessagesPerSession messages.',
+        ),
+      );
+      return;
+    }
     final queued = _QueuedMessage(
       id: _nextQueuedMessageId(),
       text: prompt,
@@ -6037,7 +6068,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       skillMetadata: selectedSkillMetadata,
     );
     setState(() {
-      final q = _queuedMessagesBySessionId[sessionId] ?? <_QueuedMessage>[];
+      final q = queue ?? <_QueuedMessage>[];
       q.add(queued);
       _queuedMessagesBySessionId[sessionId] = q;
       _replaceComposerText('');
@@ -9157,7 +9188,31 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final palette = theme.extension<OpenHandPalette>()!;
-    final sessionController = context.watch<AiSessionController>();
+    final workspaceSessionLayout = context
+        .select<
+          AiSessionController,
+          ({
+            String? currentSessionId,
+            String? projectRoot,
+            String? machineTerminalSessionId,
+            String projectLanguage,
+            String projectSdkPath,
+            String projectLspPath,
+          })
+        >((controller) {
+          final session = controller.currentSession;
+          return (
+            currentSessionId: session?.id,
+            projectRoot: _programmingExpertProjectRoot(session),
+            machineTerminalSessionId:
+                session?.templateId == kMachineExpertTemplateId
+                ? session!.id
+                : null,
+            projectLanguage: _programmingExpertLanguage(session),
+            projectSdkPath: _programmingExpertSdkPath(session),
+            projectLspPath: _programmingExpertLspPath(session),
+          );
+        });
     // 顶层注入滚动活动信号：让 transcript 子树里的 `_HtmlBubbleWebView`
     // 通过安全 helper 订阅，滚动期间冻结
     // 高度应用，滚动结束再一次性应用累积的最新值。
@@ -9185,56 +9240,64 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
                         _stackedNavigationMaxHeight,
                       )
                       .toDouble();
-                  final sessionSendPhases = _navigationSendPhases(
-                    sessionController,
-                  );
-                  final navigationPane = _NavigationPane(
-                    selectedSection: _selectedSection,
-                    sessions: sessionController.sessions,
-                    sessionSendPhases: sessionSendPhases,
-                    currentSessionId: sessionController.currentSessionId,
-                    onCreateThreadRequested: _createSessionFromDialog,
-                    onSessionSelected: _activateSession,
-                    onRenameSession: _renameSession,
-                    onDeleteSession: _deleteSession,
-                    onExportSession: _exportSession,
-                    onGenerateTitleForSession: _generateTitleForSession,
-                    onSectionSelected: _selectSection,
-                    activeHarnessOrchestrator: _activeHarnessOrchestrator,
-                    harnessSessionRecord: _persistedHarnessSession,
-                    onHarnessSessionSelected:
-                        _persistedHarnessSession != null ||
-                            _activeHarnessOrchestrator != null
-                        ? () => _selectSection(AppSection.harnessSession)
-                        : null,
-                    onRenameHarnessSession: _persistedHarnessSession != null
-                        ? _renameHarnessSession
-                        : null,
-                    onDeleteHarnessSession: _persistedHarnessSession != null
-                        ? _deleteHarnessSession
-                        : null,
-                    onExportHarnessSession: _persistedHarnessSession != null
-                        ? _exportHarnessSession
-                        : null,
-                  );
+                  final navigationPane =
+                      Selector<AiSessionController, _NavigationSessionSnapshot>(
+                        selector: (_, sessionController) =>
+                            _NavigationSessionSnapshot(
+                              sessions: sessionController.sessions,
+                              sendPhases: _navigationSendPhases(
+                                sessionController,
+                              ),
+                              currentSessionId:
+                                  sessionController.currentSessionId,
+                            ),
+                        builder: (context, snapshot, _) => _NavigationPane(
+                          selectedSection: _selectedSection,
+                          sessions: snapshot.sessions,
+                          sessionSendPhases: snapshot.sendPhases,
+                          currentSessionId: snapshot.currentSessionId,
+                          onCreateThreadRequested: _createSessionFromDialog,
+                          onSessionSelected: _activateSession,
+                          onRenameSession: _renameSession,
+                          onDeleteSession: _deleteSession,
+                          onExportSession: _exportSession,
+                          onGenerateTitleForSession: _generateTitleForSession,
+                          onSectionSelected: _selectSection,
+                          activeHarnessOrchestrator: _activeHarnessOrchestrator,
+                          harnessSessionRecord: _persistedHarnessSession,
+                          onHarnessSessionSelected:
+                              _persistedHarnessSession != null ||
+                                  _activeHarnessOrchestrator != null
+                              ? () => _selectSection(AppSection.harnessSession)
+                              : null,
+                          onRenameHarnessSession:
+                              _persistedHarnessSession != null
+                              ? _renameHarnessSession
+                              : null,
+                          onDeleteHarnessSession:
+                              _persistedHarnessSession != null
+                              ? _deleteHarnessSession
+                              : null,
+                          onExportHarnessSession:
+                              _persistedHarnessSession != null
+                              ? _exportHarnessSession
+                              : null,
+                        ),
+                      );
 
                   // Swap left pane to file explorer when toggled for
                   // programming_expert sessions.
-                  final currentSession = sessionController.currentSession;
-                  final projectRoot = _programmingExpertProjectRoot(
-                    currentSession,
-                  );
                   final machineTerminalSessionId =
-                      currentSession?.templateId == kMachineExpertTemplateId
-                      ? currentSession!.id
-                      : null;
+                      workspaceSessionLayout.machineTerminalSessionId;
                   final showFileExplorer =
                       _fileExplorerVisible &&
-                      projectRoot != null &&
+                      workspaceSessionLayout.projectRoot != null &&
                       _selectedSection == AppSection.workspace;
                   final showMachineTerminal =
                       machineTerminalSessionId != null &&
-                      _machineTerminalPanelVisibleFor(currentSession) &&
+                      _visibleMachineTerminalPanelSessionIds.contains(
+                        machineTerminalSessionId,
+                      ) &&
                       _selectedSection == AppSection.workspace;
                   final panelSettings = openHandMotionSettingsOf(
                     context,
@@ -9283,9 +9346,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
                             )
                           : showFileExplorer
                           ? _ContentPane(
-                              key: const ValueKey<String>('file-explorer-pane'),
+                              key: ValueKey<String>(
+                                'file-explorer-pane:${workspaceSessionLayout.projectRoot}',
+                              ),
                               child: _FileExplorerPanel(
-                                rootPath: projectRoot,
+                                rootPath: workspaceSessionLayout.projectRoot!,
                                 onFileSelected: _openFileInEditor,
                                 activeFilePath: _activeFilePath,
                                 onCloseRequested: _toggleFileExplorer,
@@ -9301,6 +9366,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
                   // Swap right pane to code editor when files are open.
                   final showEditor =
                       _selectedSection == AppSection.workspace &&
+                      workspaceSessionLayout.currentSessionId != null &&
+                      _editorTabsSessionId ==
+                          workspaceSessionLayout.currentSessionId &&
                       _activeFilePath != null &&
                       _openFilePaths.isNotEmpty;
                   final pageSettings = openHandMotionSettingsOf(
@@ -9342,15 +9410,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
                               child: _CodeEditorView(
                                 openFiles: _openFilePaths,
                                 activeFilePath: _activeFilePath!,
-                                projectLanguage: _programmingExpertLanguage(
-                                  currentSession,
-                                ),
-                                projectSdkPath: _programmingExpertSdkPath(
-                                  currentSession,
-                                ),
-                                projectLspPath: _programmingExpertLspPath(
-                                  currentSession,
-                                ),
+                                projectLanguage:
+                                    workspaceSessionLayout.projectLanguage,
+                                projectSdkPath:
+                                    workspaceSessionLayout.projectSdkPath,
+                                projectLspPath:
+                                    workspaceSessionLayout.projectLspPath,
                                 onOpenFile: _openFileInEditor,
                                 onTabSelected: _selectFileTab,
                                 onTabClosed: _closeFileTab,
@@ -9358,6 +9423,18 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
                                 onReorderTabs: _reorderFileTabs,
                                 fileExplorerVisible: _fileExplorerVisible,
                                 onToggleFileExplorer: _toggleFileExplorer,
+                              ),
+                            )
+                          : _selectedSection == AppSection.workspace
+                          ? Consumer<AiSessionController>(
+                              key: ValueKey<String>(
+                                'section-${_selectedSection.name}',
+                              ),
+                              builder: (context, _, _) => _ContentPane(
+                                child: _buildSectionContent(
+                                  context,
+                                  section: AppSection.workspace,
+                                ),
                               ),
                             )
                           : _ContentPane(
@@ -9440,9 +9517,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     );
   }
 
-  Widget _buildSectionContent(BuildContext context) {
+  Widget _buildSectionContent(BuildContext context, {AppSection? section}) {
     final l10n = AppLocalizations.of(context)!;
-    final workspaceSelected = _selectedSection == AppSection.workspace;
+    final effectiveSection = section ?? _selectedSection;
+    final workspaceSelected = effectiveSection == AppSection.workspace;
     final settingsController = workspaceSelected
         ? context.watch<SettingsController>()
         : context.read<SettingsController>();
@@ -9489,7 +9567,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       }
     }
 
-    return switch (_selectedSection) {
+    return switch (effectiveSection) {
       AppSection.workspace => _WorkspaceView(
         draftController: _composerController,
         messageScrollController: _messageScrollController,

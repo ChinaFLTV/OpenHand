@@ -720,6 +720,8 @@ class AiBashToolService {
               approvalFuture,
               cancelSignal.then(
                 (_) => const _WriteConfirmationOutcome.cancelled(),
+                onError: (Object _, StackTrace _) =>
+                    const _WriteConfirmationOutcome.cancelled(),
               ),
             ]);
           }
@@ -1021,18 +1023,23 @@ class AiBashToolService {
         },
       );
       if (cancelSignal != null) {
+        Future<int> cancelAndKillProcess() async {
+          cancelled = true;
+          _killProcess(process);
+          try {
+            await process.exitCode.timeout(const Duration(seconds: 2));
+          } catch (_) {
+            // Ignore cleanup failures after forcing termination.
+          }
+          return -2;
+        }
+
         exitCode = await Future.any<int>([
           waitForExit,
-          cancelSignal.then((_) async {
-            cancelled = true;
-            _killProcess(process);
-            try {
-              await process.exitCode.timeout(const Duration(seconds: 2));
-            } catch (_) {
-              // Ignore cleanup failures after forcing termination.
-            }
-            return -2;
-          }),
+          cancelSignal.then<int>(
+            (_) => cancelAndKillProcess(),
+            onError: (Object _, StackTrace _) => cancelAndKillProcess(),
+          ),
         ]);
       } else {
         exitCode = await waitForExit;
@@ -1219,6 +1226,8 @@ class AiBashToolService {
           waitForCompletion,
           cancelSignal.then(
             (_) => throw const _CancelledPersistentBashExecution(),
+            onError: (Object _, StackTrace _) =>
+                throw const _CancelledPersistentBashExecution(),
           ),
         ]);
       }

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
@@ -13,6 +14,7 @@ import '../../../shared/util/bounded_delete.dart';
 import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
+import '../../../shared/util/serial_task_queue.dart';
 import '../../knowledge_base/index.dart';
 import '../model/ai_session.dart';
 import '../model/ai_session_message.dart';
@@ -123,8 +125,24 @@ class AiSessionStore {
 
   static const int _compactMemoryMarkdownMaxBytes = 16 * kBytesPerMiB;
   static const int _compactMemoryMetadataMaxBytes = 2 * kBytesPerMiB;
+  static const String _compactMemoryGenerationPrefix = '- generation: ';
+  static const int _maxPendingSessionCleanups = 2048;
+  static const int _pendingSessionCleanupRetryBatchSize = 4;
+  static const int _pendingSessionCleanupMaxBytes = 256 * kBytesPerKiB;
+  static const String _pendingSessionCleanupSettingPrefix =
+      'ai_session_cleanup:';
+  static const BoundedDeletePolicy _pendingSessionCleanupDeletePolicy =
+      BoundedDeletePolicy(
+        maxEntries: 100000,
+        maxDepth: 128,
+        directoryIdleTimeout: Duration(seconds: 2),
+        operationTimeout: Duration(seconds: 5),
+        totalTimeout: Duration(seconds: 10),
+      );
 
   final String _sessionsDirectoryPath;
+  final SerialTaskQueue _sessionCleanupQueue = SerialTaskQueue();
+  Future<void>? _pendingSessionCleanupRetry;
 
   String get sessionsDirectoryPath => _sessionsDirectoryPath;
 
@@ -184,6 +202,8 @@ class AiSessionStore {
   }) async {
     final markdownPath = sessionCompactMemoryMarkdownPath(session.id);
     final metadataPath = sessionCompactMemoryMetadataPath(session.id);
+    final generation =
+        '${checkpoint.id}:${DateTime.now().toUtc().microsecondsSinceEpoch}';
     final metadata = <String, Object?>{
       'schema': 'openhand.compact_memory.v1',
       'session_id': session.id,
@@ -193,6 +213,7 @@ class AiSessionStore {
       'checkpoint_created_at': checkpoint.createdAt.toUtc().toIso8601String(),
       'checkpoint_character_count': checkpoint.characterCount,
       'checkpoint_metadata': checkpoint.metadata,
+      'generation': generation,
       'updated_at': DateTime.now().toUtc().toIso8601String(),
     };
     final markdown =
@@ -204,6 +225,7 @@ class AiSessionStore {
               ..writeln('- session_title: ${session.title}')
               ..writeln('- template_id: ${session.templateId}')
               ..writeln('- checkpoint_message_id: ${checkpoint.id}')
+              ..writeln('$_compactMemoryGenerationPrefix$generation')
               ..writeln(
                 '- checkpoint_created_at: ${checkpoint.createdAt.toUtc().toIso8601String()}',
               )
@@ -267,12 +289,34 @@ class AiSessionStore {
         );
       }
     }
+    final markdownGeneration = _compactMemoryMarkdownGeneration(markdown);
+    final metadataGeneration = '${metadata['generation'] ?? ''}'.trim();
+    if ((markdownGeneration.isNotEmpty || metadataGeneration.isNotEmpty) &&
+        markdownGeneration != metadataGeneration) {
+      silentLog(
+        'ai_session_store',
+        'load compact memory sidecar',
+        const FormatException('Compact memory sidecar generation mismatch.'),
+        StackTrace.current,
+      );
+      return null;
+    }
     return AiSessionCompactMemorySidecar(
       markdownPath: markdownPath,
       metadataPath: metadataPath,
       markdown: markdown,
       metadata: metadata,
     );
+  }
+
+  String _compactMemoryMarkdownGeneration(String markdown) {
+    for (final line in const LineSplitter().convert(markdown)) {
+      if (line.startsWith(_compactMemoryGenerationPrefix)) {
+        return line.substring(_compactMemoryGenerationPrefix.length).trim();
+      }
+      if (line == '## Summary') break;
+    }
+    return '';
   }
 
   Future<AiSession> restoreCompressionCheckpointFromSidecar(
@@ -462,7 +506,38 @@ class AiSessionStore {
       }
     }
 
+    _schedulePendingSessionCleanupRetry();
     return AiSessionLoadResult(sessions: sessions, issues: issues);
+  }
+
+  Future<AiSession?> loadHeader(String sessionId) async {
+    final normalizedSessionId = _requireSafeStorageIdentifier(
+      sessionId,
+      label: 'session id',
+    );
+    final rows = await _db.query(
+      'sessions',
+      where: 'id = ?',
+      whereArgs: <Object?>[normalizedSessionId],
+      limit: 1,
+    );
+    if (rows.isEmpty) return null;
+    final countRows = await _db.rawQuery(
+      'SELECT COUNT(*) AS message_count FROM messages WHERE session_id = ?',
+      <Object?>[normalizedSessionId],
+    );
+    final messageCount = countRows.isEmpty
+        ? 0
+        : nonNegativeIntFromValue(
+            countRows.first['message_count'],
+            fallback: 0,
+          );
+    return _sessionFromRow(
+      rows.first,
+      const <Map<String, Object?>>[],
+      messageLoadState: AiSessionMessageLoadState.header,
+      messageTotalCount: messageCount,
+    );
   }
 
   /// Default ordering for the sessions table.
@@ -971,17 +1046,21 @@ class AiSessionStore {
   Future<void> saveSessionHeader(AiSession session) async {
     _validateSessionForStorage(session);
     final row = _sessionToRow(session);
-    await _db.insert(
-      'sessions',
-      row,
-      conflictAlgorithm: ConflictAlgorithm.ignore,
-    );
-    await _db.update(
-      'sessions',
-      row,
-      where: 'id = ?',
-      whereArgs: <Object?>[session.id],
-    );
+    await _db.transaction((txn) async {
+      final updated = await txn.update(
+        'sessions',
+        row,
+        where: 'id = ?',
+        whereArgs: <Object?>[session.id],
+      );
+      if (updated == 0) {
+        await txn.insert(
+          'sessions',
+          row,
+          conflictAlgorithm: ConflictAlgorithm.ignore,
+        );
+      }
+    });
   }
 
   /// Updates only one message's metadata. This keeps small UI-only changes
@@ -1015,27 +1094,199 @@ class AiSessionStore {
       sessionId,
       label: 'session id',
     );
-    // Database CASCADE will remove messages automatically.
-    await _db.delete(
-      'sessions',
-      where: 'id = ?',
-      whereArgs: <Object?>[sessionId],
-    );
+    await _sessionCleanupQueue.enqueue(() async {
+      await _db.transaction((txn) async {
+        final markerKey = _pendingSessionCleanupSettingKey(normalizedSessionId);
+        final existing = await txn.query(
+          'app_settings',
+          columns: const <String>['key'],
+          where: 'key = ?',
+          whereArgs: <Object?>[markerKey],
+          limit: 1,
+        );
+        if (existing.isEmpty) {
+          final countRows = await txn.rawQuery(
+            'SELECT COUNT(*) AS marker_count FROM app_settings '
+            'WHERE key GLOB ?',
+            <Object?>['$_pendingSessionCleanupSettingPrefix*'],
+          );
+          final count = countRows.isEmpty
+              ? 0
+              : nonNegativeIntFromValue(
+                  countRows.first['marker_count'],
+                  fallback: 0,
+                );
+          if (count >= _maxPendingSessionCleanups) {
+            throw StateError('Too many pending session cleanups.');
+          }
+          await txn.insert('app_settings', <String, Object?>{
+            'key': markerKey,
+            'value': normalizedSessionId,
+          }, conflictAlgorithm: ConflictAlgorithm.ignore);
+        }
+        // Database CASCADE will remove messages automatically.
+        await txn.delete(
+          'sessions',
+          where: 'id = ?',
+          whereArgs: <Object?>[normalizedSessionId],
+        );
+      });
+      await _deleteSessionArtifacts(normalizedSessionId);
+      await _deletePendingSessionCleanup(normalizedSessionId);
+    });
+  }
 
-    // Remove legacy attachments and modern per-session artifacts
-    // (`attachments/`, `tool-results/`, compact memory sidecars, etc.).
-    final modernSessionDirectoryPath = sessionDirectoryPath(
-      normalizedSessionId,
+  Future<void> retryPendingSessionCleanups() {
+    return _sessionCleanupQueue.enqueue(() async {
+      try {
+        await _migratePendingSessionCleanupFile();
+        final pending = await _loadPendingSessionCleanups();
+        if (pending.isEmpty) return;
+        for (final sessionId in pending) {
+          try {
+            if (await exists(sessionId)) {
+              await _deletePendingSessionCleanup(sessionId);
+              continue;
+            }
+            await _deleteSessionArtifacts(
+              sessionId,
+              policy: _pendingSessionCleanupDeletePolicy,
+            );
+            await _deletePendingSessionCleanup(sessionId);
+          } catch (error, stack) {
+            silentLog(
+              'ai_session_store',
+              'retry pending session cleanup',
+              error,
+              stack,
+            );
+          }
+        }
+      } catch (error, stack) {
+        silentLog(
+          'ai_session_store',
+          'process pending session cleanups',
+          error,
+          stack,
+        );
+      }
+    });
+  }
+
+  void _schedulePendingSessionCleanupRetry() {
+    if (_pendingSessionCleanupRetry != null) return;
+    final future = retryPendingSessionCleanups();
+    _pendingSessionCleanupRetry = future;
+    unawaited(
+      future.whenComplete(() {
+        if (identical(_pendingSessionCleanupRetry, future)) {
+          _pendingSessionCleanupRetry = null;
+        }
+      }),
     );
+  }
+
+  File get _pendingSessionCleanupFile =>
+      File(p.join(_sessionsDirectoryPath, '.cleanup-pending.json'));
+
+  String _pendingSessionCleanupSettingKey(String sessionId) =>
+      '$_pendingSessionCleanupSettingPrefix$sessionId';
+
+  Future<List<String>> _loadPendingSessionCleanups() async {
+    final rows = await _db.query(
+      'app_settings',
+      columns: const <String>['key', 'value'],
+      where: 'key GLOB ?',
+      whereArgs: <Object?>['$_pendingSessionCleanupSettingPrefix*'],
+      orderBy: 'key ASC',
+      limit: _maxPendingSessionCleanups,
+    );
+    final sessionIds = <String>[];
+    for (final row in rows) {
+      final key = row['key'];
+      final value = row['value'];
+      final sessionId = value is String ? value.trim() : '';
+      if (!_isSafeStorageIdentifier(sessionId) ||
+          key != _pendingSessionCleanupSettingKey(sessionId)) {
+        if (key is String) {
+          await _db.delete(
+            'app_settings',
+            where: 'key = ?',
+            whereArgs: <Object?>[key],
+          );
+        }
+        continue;
+      }
+      if (sessionIds.length < _pendingSessionCleanupRetryBatchSize) {
+        sessionIds.add(sessionId);
+      }
+    }
+    return sessionIds;
+  }
+
+  Future<void> _deletePendingSessionCleanup(String sessionId) {
+    return _db.delete(
+      'app_settings',
+      where: 'key = ?',
+      whereArgs: <Object?>[_pendingSessionCleanupSettingKey(sessionId)],
+    );
+  }
+
+  Future<void> _migratePendingSessionCleanupFile() async {
+    final file = _pendingSessionCleanupFile;
+    try {
+      await recoverAtomicWriteBackupIfNeeded(file);
+      if (!await file.exists()) return;
+      final decoded = jsonDecode(
+        await readBoundedFileString(
+          file,
+          maxBytes: _pendingSessionCleanupMaxBytes,
+        ),
+      );
+      final rawIds = decoded is Map ? decoded['session_ids'] : null;
+      if (rawIds is! List) {
+        await file.delete();
+        return;
+      }
+      final sessionIds = <String>{
+        for (final value in rawIds.take(_maxPendingSessionCleanups))
+          if (value is String && _isSafeStorageIdentifier(value.trim()))
+            value.trim(),
+      };
+      await _db.transaction((txn) async {
+        for (final sessionId in sessionIds) {
+          await txn.insert('app_settings', <String, Object?>{
+            'key': _pendingSessionCleanupSettingKey(sessionId),
+            'value': sessionId,
+          }, conflictAlgorithm: ConflictAlgorithm.ignore);
+        }
+      });
+      await file.delete();
+    } catch (error, stack) {
+      silentLog(
+        'ai_session_store',
+        'migrate pending session cleanups',
+        error,
+        stack,
+      );
+    }
+  }
+
+  Future<void> _deleteSessionArtifacts(
+    String sessionId, {
+    BoundedDeletePolicy policy = defaultBoundedDeletePolicy,
+  }) async {
+    final modernSessionDirectoryPath = sessionDirectoryPath(sessionId);
     final paths = <String>[
-      sessionAttachmentsDirectoryPath(normalizedSessionId),
+      sessionAttachmentsDirectoryPath(sessionId),
       if (!p.equals(modernSessionDirectoryPath, attachmentsDirectoryPath))
         modernSessionDirectoryPath,
-      sessionFilePath(normalizedSessionId),
+      sessionFilePath(sessionId),
     ];
     for (final path in paths) {
       await deletePathBounded(
         p.absolute(path),
+        policy: policy,
         allowedRoot: p.absolute(_sessionsDirectoryPath),
       );
     }

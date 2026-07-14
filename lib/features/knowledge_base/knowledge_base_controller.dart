@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
 import '../../app/support/openhand_paths.dart';
+import '../../app/support/silent_log.dart';
 import '../../shared/db/atomic_file_operations.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../ai/index.dart';
@@ -23,6 +24,7 @@ import 'service/knowledge_embedding_service.dart';
 import 'service/knowledge_indexing_control.dart';
 import 'service/knowledge_ingestion_service.dart';
 import 'service/knowledge_retrieval_service.dart';
+import 'service/knowledge_source_storage.dart';
 import 'service/knowledge_vector_store.dart';
 import 'service/qdrant_admin_service.dart';
 import 'service/qdrant_knowledge_vector_store.dart';
@@ -74,6 +76,10 @@ class KnowledgeBaseController extends ChangeNotifier {
     try {
       _settings = await _settingsStore.load();
       _sources = await _store.loadSources();
+      schedulePendingKnowledgeSourceFileCleanups(
+        sourceExists: (sourceId) async =>
+            await _store.loadSource(sourceId) != null,
+      );
       _error = null;
     } catch (error) {
       _error = '$error';
@@ -321,16 +327,44 @@ class KnowledgeBaseController extends ChangeNotifier {
     _busy = true;
     _error = null;
     notifyListeners();
+    var sourceDeleted = false;
     try {
+      await stageManagedKnowledgeSourceFileCleanup(source);
       final vectorStore = QdrantKnowledgeVectorStore(settings: _settings);
       await vectorStore.deleteBySource(
         collectionName: _settings.effectiveCollectionName,
         sourceId: source.id,
       );
       await _store.deleteSource(source.id);
+      sourceDeleted = true;
+      try {
+        await completeManagedKnowledgeSourceFileCleanup(source);
+      } catch (error, stack) {
+        silentLog(
+          'knowledge_base_controller',
+          'delete managed source file',
+          error,
+          stack,
+        );
+      }
       _sources = await _store.loadSources(query: _query);
       return true;
-    } catch (error) {
+    } catch (error, stack) {
+      if (!sourceDeleted) {
+        try {
+          if (await _store.loadSource(source.id) != null) {
+            await cancelManagedKnowledgeSourceFileCleanup(source);
+          }
+        } catch (cleanupError, cleanupStack) {
+          silentLog(
+            'knowledge_base_controller',
+            'cancel managed source cleanup',
+            cleanupError,
+            cleanupStack,
+          );
+        }
+      }
+      silentLog('knowledge_base_controller', 'delete source', error, stack);
       _error = '$error';
       return false;
     } finally {

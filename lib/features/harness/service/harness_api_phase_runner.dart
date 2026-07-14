@@ -494,6 +494,7 @@ class HarnessApiPhaseRunner {
                 ? phaseToolCatalog.definitions
                 : const <AiToolDefinition>[],
             timeout: const Duration(minutes: 10),
+            cancelSignal: cancelSignal,
           );
         } catch (e) {
           final safeError = _sanitizeError('$e', model);
@@ -934,6 +935,7 @@ class HarnessApiPhaseRunner {
         messages: handoffConversation,
         tools: const <AiToolDefinition>[],
         timeout: const Duration(minutes: 5),
+        cancelSignal: cancelSignal,
       );
       handoffDocContent = completion.reply.trim();
     } catch (e) {

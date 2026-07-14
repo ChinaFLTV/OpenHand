@@ -580,10 +580,6 @@ class AiToolRuntimeService {
     final effectiveConfigs = configs.isEmpty
         ? AiBuiltinToolConfig.defaults()
         : configs;
-    final configByKind = <AiBuiltinToolKind, AiBuiltinToolConfig>{};
-    for (final c in effectiveConfigs) {
-      configByKind[c.kind] = c;
-    }
     // Build list respecting configs' sort order.
     final sortedConfigs = List<AiBuiltinToolConfig>.from(effectiveConfigs)
       ..sort((a, b) {
@@ -1126,6 +1122,37 @@ class AiToolRuntimeService {
       }
     }
 
+    Future<bool> waitForRetryBackoff(Duration backoff) async {
+      final registration = AiToolExecutionRegistry.instance.register(
+        toolCallId: toolCall.id,
+        sessionId: sessionId,
+        kind: registryKind,
+        displayName: resolvedTool.name,
+      );
+      executionRegistration = registration;
+      try {
+        final signals = <Future<void>>[
+          if (cancelSignal != null) cancelSignal,
+          if (registration != null) registration.cancelSignal,
+        ];
+        return delayUntilCancelled(
+          backoff,
+          cancelSignal: signals.isEmpty
+              ? null
+              : signals.length == 1
+              ? signals.single
+              : Future.any<void>(signals),
+        );
+      } finally {
+        if (registration != null) {
+          AiToolExecutionRegistry.instance.unregister(registration);
+        }
+        if (identical(executionRegistration, registration)) {
+          executionRegistration = null;
+        }
+      }
+    }
+
     AiToolExecutionResult? attemptResult;
     var attempts = 0;
     try {
@@ -1169,10 +1196,7 @@ class AiToolRuntimeService {
         if (builtinCfg != null) {
           final backoff = builtinCfg.retryBackoffFor(attempts);
           if (backoff > Duration.zero) {
-            final cancelled = await delayUntilCancelled(
-              backoff,
-              cancelSignal: cancelSignal,
-            );
+            final cancelled = await waitForRetryBackoff(backoff);
             if (cancelled) {
               attemptResult = cancelledResult();
               break;
@@ -1726,7 +1750,7 @@ class AiToolRuntimeService {
       if (dispatchMetadata.isEmpty) return registryResult;
       return AiToolUtils.withMergedMetadata(registryResult, dispatchMetadata);
     }
-    // 所有工具均已通过 Registry 注册，此路径不可达。
+    // Registry may be disposed or an optional handler may be unavailable.
     return _invalidToolResult(
       toolCall.name,
       'No registered handler found for builtin tool: ${kind.name}',

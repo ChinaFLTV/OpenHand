@@ -243,6 +243,7 @@ class AiTaskTool extends AiTool {
             model: context.model,
             messages: turns,
             tools: subagentCatalog.definitions,
+            cancelSignal: context.cancelSignal,
           ),
           cancelSignal: context.cancelSignal,
         );

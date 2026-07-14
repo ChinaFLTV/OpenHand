@@ -1878,12 +1878,17 @@ class _LegacySseSession {
     if (cancelSignal == null) return responseFuture;
     return Future.any<Map<String, Object?>?>(<Future<Map<String, Object?>?>>[
       responseFuture,
-      cancelSignal.then<Map<String, Object?>?>((_) {
-        throw const McpToolDiscoveryException(
+      cancelSignal.then<Map<String, Object?>?>(
+        (_) => throw const McpToolDiscoveryException(
           'MCP request was cancelled.',
           isExpectedLifecycleCancellation: true,
-        );
-      }),
+        ),
+        onError: (Object _, StackTrace _) =>
+            throw const McpToolDiscoveryException(
+              'MCP request was cancelled.',
+              isExpectedLifecycleCancellation: true,
+            ),
+      ),
     ]);
   }
 
