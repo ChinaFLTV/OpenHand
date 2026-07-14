@@ -120,24 +120,28 @@ class AiReadTool extends AiTool {
         },
       );
     }
-    final renderedRead = await _renderer.render(
-      file,
-      actualFilePath,
-      offset: effectiveOffset,
-      limit: limit,
-      pdfPages: pdfPages,
-    );
-    final rawContent = renderedRead.content;
-
-    if (renderedRead.lineAddressable) {
-      await fileTracker?.recordReadResult(
-        filePath: actualFilePath,
+    late final RenderedReadContent renderedRead;
+    try {
+      Future<RenderedReadContent> render() => _renderer.render(
+        file,
+        actualFilePath,
         offset: effectiveOffset,
         limit: limit,
+        pdfPages: pdfPages,
       );
-    } else {
-      await fileTracker?.recordFileRead(actualFilePath);
+      renderedRead = fileTracker == null
+          ? await render()
+          : await fileTracker.readConsistently<RenderedReadContent>(
+              filePath: actualFilePath,
+              offset: effectiveOffset,
+              limit: limit,
+              read: render,
+              trackResultRange: (value) => value.lineAddressable,
+            );
+    } on AiFileChangedDuringReadException catch (error) {
+      return AiToolUtils.invalidResult('Read', '$error');
     }
+    final rawContent = renderedRead.content;
 
     if (rawContent.isEmpty && renderedRead.fileEmpty) {
       return AiToolUtils.simpleSuccessResult(

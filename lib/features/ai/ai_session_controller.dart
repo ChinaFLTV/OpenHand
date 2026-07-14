@@ -1356,6 +1356,7 @@ class AiSessionController extends ChangeNotifier {
 
   void _pruneSessionScopedSendState() {
     final liveSessionIds = _sessions.map((session) => session.id).toSet();
+    _toolRuntimeService.pruneSessionFileTracking(liveSessionIds);
     _didCompressInLastSendBySession.removeWhere(
       (sessionId, _) => !liveSessionIds.contains(sessionId),
     );
@@ -2098,8 +2099,6 @@ class AiSessionController extends ChangeNotifier {
     }
     final now = _clock().toUtc();
     _lastErrorMessage = null;
-    // 创建新会话时清理文件追踪器，避免跨会话的脏写检测误判
-    _toolRuntimeService.fileTracker.clearAllTracking();
     final sessionMetadata = metadata == null
         ? await _buildDefaultSessionMetadata(runtimeContext)
         : Map<String, Object?>.of(stringKeyedMapFromValue(metadata));
@@ -4440,6 +4439,7 @@ class AiSessionController extends ChangeNotifier {
       await _machineTerminalService?.disposeWorkspace(sessionId);
     }
     await _toolRuntimeService.fileHistory.clearSessionHistory(sessionId);
+    _toolRuntimeService.removeSessionFileTracking(sessionId);
     _clearSessionScopedSendState(sessionId);
   }
 
@@ -10223,7 +10223,7 @@ class AiSessionController extends ChangeNotifier {
       );
       final committed = await _commitSessionLocked(compressedSession);
       if (committed) {
-        _toolRuntimeService.fileTracker.clearReadResultTracking();
+        _toolRuntimeService.clearSessionReadResultTracking(session.id);
         try {
           await _store.saveCompressionMemorySidecar(
             session: compressedSession,
@@ -10620,6 +10620,7 @@ $tail''';
     required AiModelConfig model,
     bool allowRetryAfterIdle = true,
   }) async {
+    if (_isDisposed) return;
     final session = _sessionById(sessionId);
     if (session == null || session.isTitleManuallyEdited) {
       return;
@@ -10629,6 +10630,7 @@ $tail''';
       return;
     }
     final autoTitleSystemPrompt = await _resolveAutoTitleSystemPrompt();
+    if (_isDisposed) return;
     final promptMessages = <AiChatTurn>[
       AiChatTurn(role: AiChatRole.system, content: autoTitleSystemPrompt),
       AiChatTurn(
@@ -10653,6 +10655,7 @@ $tail''';
           messages: promptMessages,
           timeout: _autoTitleRequestTimeout,
         );
+        if (_isDisposed) return;
         final generatedTitle = _sanitizeGeneratedTitle(completion.reply);
         final acceptedGeneratedTitle = _isMeaningfulAutoTitle(generatedTitle)
             ? generatedTitle
@@ -10724,6 +10727,7 @@ $tail''';
             sessionId: sessionId,
             sourceMessageId: sourceMessageId,
           );
+          if (_isDisposed) return;
           if (waitedForIdle) {
             return _generateAutoTitle(
               sessionId: sessionId,
@@ -10742,6 +10746,7 @@ $tail''';
     if (lastError == null) {
       return;
     }
+    if (_isDisposed) return;
     // All API attempts failed — derive a title from user content as fallback.
     final fallbackTitle = _deriveReadableTitleFromContent(
       sourceContent,
@@ -11255,6 +11260,7 @@ $tail''';
   }
 
   Future<bool> _commitSessionLocked(AiSession session) async {
+    if (_isDisposed) return false;
     if (_deletedSessionIds.contains(session.id)) {
       return true;
     }

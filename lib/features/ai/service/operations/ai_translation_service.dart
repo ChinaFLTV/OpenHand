@@ -66,7 +66,7 @@ class AiTranslationService {
       LifecycleLruCache<AiTranslationResult>(
         maxEntries: _translationCacheMaxEntries,
       );
-  static final Map<String, Future<AiTranslationResult>> _translationInFlight =
+  final Map<String, Future<AiTranslationResult>> _translationInFlight =
       <String, Future<AiTranslationResult>>{};
 
   final AiTransportClient _transport;
@@ -876,6 +876,7 @@ class AiTranslationService {
   }
 
   void dispose() {
+    _translationInFlight.clear();
     _transport.dispose();
     if (_ownsChatClient) {
       _chatClient.dispose();

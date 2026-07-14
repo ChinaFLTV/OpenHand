@@ -14,6 +14,7 @@ import '../../../../shared/util/bounded_directory_io.dart';
 import '../../../../shared/util/bounded_file_io.dart';
 import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/input_value_parsing.dart';
+import '../../../../shared/util/lifecycle_cache.dart';
 import '../../../../shared/util/path_safety.dart';
 import '../../../../shared/util/tool_name_normalization.dart';
 import '../../../agents/index.dart';
@@ -47,6 +48,7 @@ enum AiRuntimeToolSource { builtin, mcp, skill }
 const int _maxPostHocLedgerCaptureBytes = 16 * kBytesPerMiB;
 const int _maxSkillLinkedResources = 32;
 const int _maxSkillLinkedDirectoryEntries = 256;
+const int _maxSessionFileTrackers = 128;
 const int _minToolOutputTruncationPayloadChars = 40;
 const String _toolResultsSubdirectoryName = 'tool-results';
 const String _toolOutputTruncationStrategyHeadTail = 'head_tail';
@@ -320,7 +322,6 @@ class AiToolRuntimeService {
     required AiChatClient backgroundChatClient,
     http.Client? httpClient,
     Future<List<InternetAddress>> Function(String host)? hostLookup,
-    AiFileTrackerService? fileTrackerService,
     AiFileHistoryService? fileHistoryService,
     AiFileMutationLedger? mutationLedger,
     String Function()? skillsDirProvider,
@@ -340,7 +341,6 @@ class AiToolRuntimeService {
        _ownsHttpClient = httpClient == null,
        _scraplingBridge = WebFetchScraplingBridge(),
        _hostLookup = hostLookup ?? ((host) => InternetAddress.lookup(host)),
-       _fileTracker = fileTrackerService ?? AiFileTrackerService(),
        _fileHistory = fileHistoryService ?? AiFileHistoryService(),
        _mutationLedger = mutationLedger ?? AiFileMutationLedger(),
        _agentsControllerProvider = agentsControllerProvider,
@@ -418,15 +418,33 @@ class AiToolRuntimeService {
   AiToolRegistry get toolRegistry => _toolRegistry;
 
   // 文件追踪和历史版本服务
-  final AiFileTrackerService _fileTracker;
+  final LifecycleLruCache<AiFileTrackerService> _fileTrackers =
+      LifecycleLruCache<AiFileTrackerService>(
+        maxEntries: _maxSessionFileTrackers,
+      );
   final AiFileHistoryService _fileHistory;
   final AiFileMutationLedger _mutationLedger;
   final AgentsControllerProvider? _agentsControllerProvider;
   final MachineTerminalService? _machineTerminalService;
   final String Function(String sessionId)? _toolOutputDirectoryProvider;
 
-  /// 获取文件追踪服务（供外部访问，如会话重置时清理）
-  AiFileTrackerService get fileTracker => _fileTracker;
+  AiFileTrackerService _fileTrackerForSession(String sessionId) {
+    return _fileTrackers.putIfAbsent(sessionId, AiFileTrackerService.new);
+  }
+
+  void clearSessionReadResultTracking(String sessionId) {
+    _fileTrackers.get(sessionId)?.clearReadResultTracking();
+  }
+
+  void removeSessionFileTracking(String sessionId) {
+    _fileTrackers.remove(sessionId);
+  }
+
+  void pruneSessionFileTracking(Set<String> liveSessionIds) {
+    _fileTrackers.removeWhere(
+      (sessionId, _) => !liveSessionIds.contains(sessionId),
+    );
+  }
 
   /// 获取文件历史服务（供外部访问，如回滚功能）
   AiFileHistoryService get fileHistory => _fileHistory;
@@ -1733,7 +1751,7 @@ class AiToolRuntimeService {
       onBashUpdate: onBashUpdate,
       metadata: <String, Object?>{
         ...metadata,
-        'file_tracker': _fileTracker,
+        'file_tracker': _fileTrackerForSession(sessionId),
         'file_history': _fileHistory,
         'mutation_ledger': _mutationLedger,
         if (_machineTerminalService != null)
@@ -2460,6 +2478,7 @@ class AiToolRuntimeService {
   }
 
   void dispose() {
+    _fileTrackers.clear();
     unawaited(
       _toolRegistry.dispose().catchError((Object error, StackTrace stack) {
         silentLog(

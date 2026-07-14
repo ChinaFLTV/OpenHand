@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as p;
 
+import '../../../../shared/util/lifecycle_cache.dart';
+
 /// 文件追踪器服务，用于检测脏写（dirty write）
 ///
 /// 核心机制：
@@ -14,17 +16,18 @@ class AiFileTrackerService {
 
   static const Duration _timestampTolerance = Duration(seconds: 2);
   static const int _maxFingerprintBytes = 4 * 1024 * 1024;
+  static const int _maxTrackedFiles = 4096;
 
   /// 文件路径 → 读取时的文件快照
-  final Map<String, _TrackedFileSnapshot> _readSnapshots =
-      <String, _TrackedFileSnapshot>{};
+  final LifecycleLruCache<_TrackedFileSnapshot> _readSnapshots =
+      LifecycleLruCache<_TrackedFileSnapshot>(maxEntries: _maxTrackedFiles);
 
   /// 文件路径 → 最近一次 Read 工具返回的范围快照。
   ///
   /// 仅用于重复 Read 去重；Edit/Write 后会清除，避免把模型指向旧的
   /// Read tool_result。
-  final Map<String, _TrackedReadResult> _readResultSnapshots =
-      <String, _TrackedReadResult>{};
+  final LifecycleLruCache<_TrackedReadResult> _readResultSnapshots =
+      LifecycleLruCache<_TrackedReadResult>(maxEntries: _maxTrackedFiles);
 
   /// 记录文件读取快照
   ///
@@ -33,26 +36,41 @@ class AiFileTrackerService {
     final normalizedPath = p.normalize(filePath);
     final file = File(normalizedPath);
     if (!await file.exists()) return;
-    _readSnapshots[normalizedPath] = await _snapshotFile(file);
+    _readSnapshots.put(normalizedPath, await _snapshotFile(file));
     _readResultSnapshots.remove(normalizedPath);
   }
 
-  /// 记录 Read 工具成功返回的文件范围快照。
-  Future<void> recordReadResult({
+  /// 在读取前后校验文件快照，仅记录与实际返回内容一致的版本。
+  Future<T> readConsistently<T>({
     required String filePath,
     required int offset,
     required int limit,
+    required Future<T> Function() read,
+    required bool Function(T value) trackResultRange,
   }) async {
     final normalizedPath = p.normalize(filePath);
     final file = File(normalizedPath);
-    if (!await file.exists()) return;
-    final snapshot = await _snapshotFile(file);
-    _readSnapshots[normalizedPath] = snapshot;
-    _readResultSnapshots[normalizedPath] = _TrackedReadResult(
-      offset: offset,
-      limit: limit,
-      snapshot: snapshot,
-    );
+    final before = await _snapshotFile(file);
+    final value = await read();
+    late final _TrackedFileSnapshot after;
+    try {
+      after = await _snapshotFile(file);
+    } on FileSystemException {
+      throw AiFileChangedDuringReadException(filePath);
+    }
+    if (!before.hasSameObservedStateAs(after)) {
+      throw AiFileChangedDuringReadException(filePath);
+    }
+    _readSnapshots.put(normalizedPath, after);
+    if (trackResultRange(value)) {
+      _readResultSnapshots.put(
+        normalizedPath,
+        _TrackedReadResult(offset: offset, limit: limit, snapshot: after),
+      );
+    } else {
+      _readResultSnapshots.remove(normalizedPath);
+    }
+    return value;
   }
 
   /// 如果同一 Read 范围自上次读取后未变化，返回 true。
@@ -62,7 +80,7 @@ class AiFileTrackerService {
     required int limit,
   }) async {
     final normalizedPath = p.normalize(filePath);
-    final previousRead = _readResultSnapshots[normalizedPath];
+    final previousRead = _readResultSnapshots.get(normalizedPath);
     if (previousRead == null ||
         previousRead.offset != offset ||
         previousRead.limit != limit) {
@@ -87,11 +105,9 @@ class AiFileTrackerService {
     if (!await file.exists()) return null;
 
     // 从未读取过 → 不应该直接修改
-    final lastRead = _readSnapshots[normalizedPath];
+    final lastRead = _readSnapshots.get(normalizedPath);
     if (lastRead == null) {
-      // 这个检查由 previouslyReadFiles 机制处理
-      // 这里只处理陈旧快照检查
-      return null;
+      return 'File tracking snapshot is unavailable. Re-read the file before editing: $filePath';
     }
 
     final current = await _snapshotFile(file);
@@ -120,12 +136,6 @@ class AiFileTrackerService {
   /// 历史压缩后，之前的完整 Read tool_result 可能已经不在 prompt 中，
   /// 因此不能继续返回“refer to earlier Read result”的短提示。
   void clearReadResultTracking() {
-    _readResultSnapshots.clear();
-  }
-
-  /// 清除所有追踪记录（会话重置时调用）
-  void clearAllTracking() {
-    _readSnapshots.clear();
     _readResultSnapshots.clear();
   }
 
@@ -200,6 +210,21 @@ class _TrackedFileSnapshot {
   bool hasSameContentAs(_TrackedFileSnapshot other) {
     return canCompareContentWith(other) && sha256Digest == other.sha256Digest;
   }
+
+  bool hasSameObservedStateAs(_TrackedFileSnapshot other) {
+    if (canCompareContentWith(other)) return hasSameContentAs(other);
+    return size == other.size && modified == other.modified;
+  }
+}
+
+class AiFileChangedDuringReadException implements Exception {
+  const AiFileChangedDuringReadException(this.filePath);
+
+  final String filePath;
+
+  @override
+  String toString() =>
+      'File changed while it was being read. Retry Read before editing: $filePath';
 }
 
 class _TrackedReadResult {
