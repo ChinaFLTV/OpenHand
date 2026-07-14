@@ -14,8 +14,10 @@ import 'package:flutter/material.dart';
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
+import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/date_time_format.dart';
 import '../../shared/util/input_value_parsing.dart';
+import '../../shared/util/text_clip.dart';
 import '../../shared/util/timer_safety.dart';
 import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_pure_helpers.dart';
@@ -74,6 +76,13 @@ class _JwtRefreshDialogState extends State<_JwtRefreshDialog> {
   static const int _minRefreshThresholdSeconds = 0;
   static const int _maxRefreshThresholdSeconds = 86400;
   static const int _maxRefreshLogs = 40;
+  static const int _maxJwtSamples = 128;
+  static const int _maxJwtScanValueChars = 256 * kBytesPerKiB;
+  static const int _maxJwtTokenChars = 32 * kBytesPerKiB;
+  static const int _maxJwtKeyChars = 512;
+  static const int _maxJwtClaimChars = 1024;
+  static const int _maxJwtSnapshotChars = 5 * kBytesPerMiB;
+  static const int _maxRefreshLogDetailChars = 4096;
 
   final TextEditingController _refreshExpr = TextEditingController(
     text:
@@ -112,9 +121,26 @@ class _JwtRefreshDialogState extends State<_JwtRefreshDialog> {
     super.dispose();
   }
 
+  String? _boundedOptionalJwtClaim(Object? value) {
+    final claim = optionalStringFromValue(value);
+    return claim == null
+        ? null
+        : clipText(claim, _maxJwtClaimChars, suffix: '');
+  }
+
   Future<List<_JwtSample>> _scan() async {
-    const js = r"""
+    final js =
+        r"""
 (function(){
+  var MAX_ITEMS = __MAX_ITEMS__;
+  var MAX_SCAN_CHARS = __MAX_SCAN_CHARS__;
+  var MAX_TOKEN_CHARS = __MAX_TOKEN_CHARS__;
+  var MAX_KEY_CHARS = __MAX_KEY_CHARS__;
+  var MAX_CLAIM_CHARS = __MAX_CLAIM_CHARS__;
+  function text(v, max){
+    if (v === null || v === undefined) return null;
+    return String(v).slice(0, max);
+  }
   function decode(seg){
     try {
       var s = seg.replace(/-/g,'+').replace(/_/g,'/');
@@ -126,38 +152,53 @@ class _JwtRefreshDialogState extends State<_JwtRefreshDialog> {
   }
   function classify(v){
     if (typeof v !== 'string') return null;
+    if (v.length > MAX_SCAN_CHARS) return null;
     var m = v.match(/[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{0,}/);
     if (!m) return null;
+    if (m[0].length > MAX_TOKEN_CHARS) return null;
     var parts = m[0].split('.');
     if (parts.length < 2) return null;
     var p = decode(parts[1]);
     if (!p) return null;
-    return {raw: m[0], exp: p.exp || null, iat: p.iat || null, iss: p.iss || null, sub: p.sub || null};
+    return {raw: m[0], exp: p.exp || null, iat: p.iat || null, iss: text(p.iss, MAX_CLAIM_CHARS), sub: text(p.sub, MAX_CLAIM_CHARS)};
   }
   var out = [];
-  document.cookie.split(/;\s*/).forEach(function(c){
-    var eq = c.indexOf('=');
-    if (eq < 0) return;
-    var k = c.slice(0, eq);
-    var v = decodeURIComponent(c.slice(eq+1) || '');
-    var info = classify(v);
-    if (info) out.push({source:'cookie', key:k, value:info.raw, exp:info.exp, iat:info.iat, iss:info.iss, sub:info.sub});
-  });
-  for (var i=0; i<localStorage.length; i++){
-    var k = localStorage.key(i);
-    var v = localStorage.getItem(k);
-    var info = classify(v||'');
-    if (info) out.push({source:'localStorage', key:k, value:info.raw, exp:info.exp, iat:info.iat, iss:info.iss, sub:info.sub});
+  function push(source, key, info){
+    if (!info || out.length >= MAX_ITEMS) return;
+    out.push({source:source, key:text(key, MAX_KEY_CHARS) || '', value:info.raw, exp:info.exp, iat:info.iat, iss:info.iss, sub:info.sub});
   }
-  for (var i=0; i<sessionStorage.length; i++){
-    var k = sessionStorage.key(i);
-    var v = sessionStorage.getItem(k);
-    var info = classify(v||'');
-    if (info) out.push({source:'sessionStorage', key:k, value:info.raw, exp:info.exp, iat:info.iat, iss:info.iss, sub:info.sub});
-  }
+  try {
+    document.cookie.split(/;\s*/).forEach(function(c){
+      var eq = c.indexOf('=');
+      if (eq < 0) return;
+      var k = c.slice(0, eq);
+      var v = c.slice(eq+1) || '';
+      try { v = decodeURIComponent(v); } catch (_) {}
+      push('cookie', k, classify(v));
+    });
+  } catch (_) {}
+  try {
+    for (var i=0; i<localStorage.length && out.length<MAX_ITEMS; i++){
+      var k = localStorage.key(i);
+      var v = localStorage.getItem(k);
+      push('localStorage', k, classify(v||''));
+    }
+  } catch (_) {}
+  try {
+    for (var i=0; i<sessionStorage.length && out.length<MAX_ITEMS; i++){
+      var k = sessionStorage.key(i);
+      var v = sessionStorage.getItem(k);
+      push('sessionStorage', k, classify(v||''));
+    }
+  } catch (_) {}
   return JSON.stringify(out);
 })()
-""";
+"""
+            .replaceAll('__MAX_ITEMS__', '$_maxJwtSamples')
+            .replaceAll('__MAX_SCAN_CHARS__', '$_maxJwtScanValueChars')
+            .replaceAll('__MAX_TOKEN_CHARS__', '$_maxJwtTokenChars')
+            .replaceAll('__MAX_KEY_CHARS__', '$_maxJwtKeyChars')
+            .replaceAll('__MAX_CLAIM_CHARS__', '$_maxJwtClaimChars');
     final r = await widget.controller.sendRawCdp(
       method: 'Runtime.evaluate',
       paramsJson: jsonEncode({
@@ -170,19 +211,35 @@ class _JwtRefreshDialogState extends State<_JwtRefreshDialog> {
     if (r == null) return const <_JwtSample>[];
     final value = cdpStringResultValue(r);
     if (value == null) return const <_JwtSample>[];
+    if (value.length > _maxJwtSnapshotChars) {
+      return const <_JwtSample>[];
+    }
     try {
       final entries = decodeStringKeyedJsonMapList(value);
       if (entries == null) return const <_JwtSample>[];
       return entries
+          .take(_maxJwtSamples)
           .map(
             (entry) => _JwtSample(
-              source: stringFromValue(entry['source']),
-              key: stringFromValue(entry['key']),
-              value: stringFromValue(entry['value']),
+              source: clipText(
+                stringFromValue(entry['source']),
+                32,
+                suffix: '',
+              ),
+              key: clipText(
+                stringFromValue(entry['key']),
+                _maxJwtKeyChars,
+                suffix: '',
+              ),
+              value: clipText(
+                stringFromValue(entry['value']),
+                _maxJwtTokenChars,
+                suffix: '',
+              ),
               exp: jwtNumericDateFromValue(entry['exp']),
               iat: jwtNumericDateFromValue(entry['iat']),
-              iss: optionalStringFromValue(entry['iss']),
-              sub: optionalStringFromValue(entry['sub']),
+              iss: _boundedOptionalJwtClaim(entry['iss']),
+              sub: _boundedOptionalJwtClaim(entry['sub']),
             ),
           )
           .toList(growable: false);
@@ -207,6 +264,10 @@ class _JwtRefreshDialogState extends State<_JwtRefreshDialog> {
   Future<bool> _runRefresh() async {
     final expr = _refreshExpr.text.trim();
     if (expr.isEmpty) return false;
+    if (expr.length > WebReverseSessionController.maxDebuggerExpressionChars) {
+      _addRefreshLog(ok: false, detail: 'refresh expression exceeds limit');
+      return false;
+    }
     try {
       final r = await widget.controller.sendRawCdp(
         method: 'Runtime.evaluate',
@@ -287,7 +348,14 @@ class _JwtRefreshDialogState extends State<_JwtRefreshDialog> {
   );
 
   void _addRefreshLog({required bool ok, required String detail}) {
-    _logs.insert(0, _RefreshLog(at: DateTime.now(), ok: ok, detail: detail));
+    _logs.insert(
+      0,
+      _RefreshLog(
+        at: DateTime.now(),
+        ok: ok,
+        detail: clipText(detail, _maxRefreshLogDetailChars, suffix: '…'),
+      ),
+    );
     if (_logs.length > _maxRefreshLogs) {
       _logs.removeRange(_maxRefreshLogs, _logs.length);
     }
@@ -415,6 +483,8 @@ class _JwtRefreshDialogState extends State<_JwtRefreshDialog> {
                   const SizedBox(height: 12),
                   TextField(
                     controller: _refreshExpr,
+                    maxLength:
+                        WebReverseSessionController.maxDebuggerExpressionChars,
                     maxLines: 3,
                     style: const TextStyle(
                       fontFamily: 'monospace',

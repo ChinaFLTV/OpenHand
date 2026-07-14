@@ -22,7 +22,9 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
+import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/input_value_parsing.dart';
+import '../../shared/util/text_clip.dart';
 import 'web_reverse_clipboard.dart';
 import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_pure_helpers.dart';
@@ -71,6 +73,11 @@ class _AnimationRow {
 }
 
 class _AnimationsDialogState extends State<_AnimationsDialog> {
+  static const int _maxAnimationRows = 1000;
+  static const int _maxAnimationNameChars = 512;
+  static const int _maxAnimationSelectorChars = 2048;
+  static const int _maxAnimationSnapshotChars = 2 * kBytesPerMiB;
+
   bool _busy = false;
   String _status = '';
   double _playbackRate = 1.0;
@@ -121,10 +128,11 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
 
   // 浏览器侧脚本：把当前活跃动画落到 window.__oh_anims 数组，并 stringify
   // 返回出来。把每条 animation 保存原引用，方便后续按 index cancel/pause。
-  static const String _snapshotExpr = r'''
+  static const String _snapshotExpr =
+      '''
 (function(){
   try {
-    const anims = document.getAnimations({ subtree: true });
+    const anims = document.getAnimations({ subtree: true }).slice(0, $_maxAnimationRows);
     window.__oh_anims = anims;
     const cssEsc = (s) => (window.CSS && CSS.escape) ? CSS.escape(s) : s;
     function selectorOf(el){
@@ -140,7 +148,7 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
         parts.unshift(p);
         cur = cur.parentElement; depth++;
       }
-      return parts.join(' > ');
+      return parts.join(' > ').slice(0, $_maxAnimationSelectorChars);
     }
     const out = anims.map((a, i) => {
       let dur = 0, iters = 1, name = '';
@@ -150,14 +158,14 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
           const t = eff.getComputedTiming ? eff.getComputedTiming() : {};
           dur = Number(t.duration) || 0;
           iters = Number(t.iterations) || 1;
-          name = (a.animationName || (eff.target && eff.target.tagName) || '') + '';
+          name = ((a.animationName || (eff.target && eff.target.tagName) || '') + '').slice(0, $_maxAnimationNameChars);
         }
       } catch (_) {}
       let tgt = '';
       try { tgt = selectorOf(a.effect && a.effect.target); } catch (_) {}
       return {
         handle: i,
-        id: (a.id || '') + '',
+        id: ((a.id || '') + '').slice(0, $_maxAnimationNameChars),
         animationName: name,
         playState: (a.playState || 'idle') + '',
         currentTime: Number(a.currentTime) || 0,
@@ -197,6 +205,14 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
         });
         return;
       }
+      if (value.length > _maxAnimationSnapshotChars) {
+        setState(() {
+          _busy = false;
+          _status = 'animation snapshot exceeds the safety limit';
+          _rows = const [];
+        });
+        return;
+      }
       final error = decodeStringKeyedJsonMap(value);
       if (error != null && error['__err'] != null) {
         setState(() {
@@ -224,18 +240,34 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
         return;
       }
       final rows = <_AnimationRow>[];
-      for (final item in entries) {
+      for (final item in entries.take(_maxAnimationRows)) {
         rows.add(
           _AnimationRow(
             handle: nonNegativeIntFromValue(item['handle'], fallback: 0),
-            id: stringFromValue(item['id']),
-            animationName: stringFromValue(item['animationName']),
-            playState: stringFromValue(item['playState'], fallback: 'idle'),
+            id: clipText(
+              stringFromValue(item['id']),
+              _maxAnimationNameChars,
+              suffix: '',
+            ),
+            animationName: clipText(
+              stringFromValue(item['animationName']),
+              _maxAnimationNameChars,
+              suffix: '',
+            ),
+            playState: clipText(
+              stringFromValue(item['playState'], fallback: 'idle'),
+              32,
+              suffix: '',
+            ),
             currentTime: doubleFromValue(item['currentTime'], fallback: 0),
             duration: doubleFromValue(item['duration'], fallback: 0),
             playbackRate: doubleFromValue(item['playbackRate'], fallback: 1),
             iterations: doubleFromValue(item['iterations'], fallback: 1),
-            targetSelector: stringFromValue(item['target']),
+            targetSelector: clipText(
+              stringFromValue(item['target']),
+              _maxAnimationSelectorChars,
+              suffix: '',
+            ),
           ),
         );
       }

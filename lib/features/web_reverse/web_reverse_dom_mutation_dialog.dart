@@ -11,6 +11,7 @@
 library;
 
 import 'dart:async';
+import 'dart:collection';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -19,21 +20,39 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
+import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/date_time_format.dart';
 import '../../shared/util/input_value_parsing.dart';
+import '../../shared/util/text_clip.dart';
 import '../../shared/util/timer_safety.dart';
 import 'web_reverse_clipboard.dart';
 import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_pure_helpers.dart';
 import 'web_reverse_session_controller.dart';
 
-const String _kInstallScript = r'''
+const int _kMaxMutationRecords = 5000;
+const int _kMaxMutationRetainedChars = 8 * kBytesPerMiB;
+const int _kMaxMutationDrainRecords = 500;
+const int _kMaxMutationDrainJsonChars = 2 * kBytesPerMiB;
+const int _kMaxMutationTargetChars = 512;
+const int _kMaxMutationValueChars = 1024;
+const int _kMaxMutationChildNodes = 8;
+
+final String _kInstallScript =
+    r'''
 (function(){
   if (window.__OH_DOM_MUT_INSTALLED__) return;
   window.__OH_DOM_MUT_INSTALLED__ = true;
   window.__OH_DOM_MUT_BUF__ = [];
   window.__OH_DOM_MUT_SEQ__ = 0;
-  var maxBuf = 5000;
+  var maxBuf = __MAX_BUFFER__;
+  var maxTargetChars = __MAX_TARGET_CHARS__;
+  var maxValueChars = __MAX_VALUE_CHARS__;
+  var maxChildNodes = __MAX_CHILD_NODES__;
+  function cap(v, max){
+    if (v === null || v === undefined) return null;
+    return String(v).slice(0, max);
+  }
   function describe(node){
     if (!node) return '';
     if (node.nodeType === 1) {
@@ -42,7 +61,7 @@ const String _kInstallScript = r'''
       var cls = (node.className && typeof node.className === 'string')
         ? ('.' + node.className.trim().split(/\s+/).slice(0,3).join('.'))
         : '';
-      return n + id + cls;
+      return (n + id + cls).slice(0, maxTargetChars);
     }
     if (node.nodeType === 3) {
       var t = (node.nodeValue || '').slice(0, 60);
@@ -67,11 +86,11 @@ const String _kInstallScript = r'''
         target: describe(m.target)
       };
       if (m.type === 'attributes') {
-        rec.attr = m.attributeName;
-        try { rec.oldValue = m.oldValue; } catch(e) {}
+        rec.attr = cap(m.attributeName, 256);
+        try { rec.oldValue = cap(m.oldValue, maxValueChars); } catch(e) {}
         try {
           rec.newValue = (m.target && m.target.getAttribute)
-            ? m.target.getAttribute(m.attributeName) : null;
+            ? cap(m.target.getAttribute(m.attributeName), maxValueChars) : null;
         } catch(e) {}
       } else if (m.type === 'characterData') {
         try { rec.oldValue = (m.oldValue||'').slice(0,120); } catch(e) {}
@@ -79,8 +98,8 @@ const String _kInstallScript = r'''
       } else if (m.type === 'childList') {
         rec.added = [];
         rec.removed = [];
-        for (var k = 0; k < m.addedNodes.length && k < 8; k++) rec.added.push(describe(m.addedNodes[k]));
-        for (var k2 = 0; k2 < m.removedNodes.length && k2 < 8; k2++) rec.removed.push(describe(m.removedNodes[k2]));
+        for (var k = 0; k < m.addedNodes.length && k < maxChildNodes; k++) rec.added.push(describe(m.addedNodes[k]));
+        for (var k2 = 0; k2 < m.removedNodes.length && k2 < maxChildNodes; k2++) rec.removed.push(describe(m.removedNodes[k2]));
       }
       push(rec);
     }
@@ -106,13 +125,82 @@ const String _kInstallScript = r'''
     try { obs.disconnect(); } catch(e) {}
     window.__OH_DOM_MUT_INSTALLED__ = false;
   };
-  window.__OH_DOM_MUT_DRAIN__ = function(){
+  window.__OH_DOM_MUT_DRAIN__ = function(max){
     var b = window.__OH_DOM_MUT_BUF__;
-    window.__OH_DOM_MUT_BUF__ = [];
-    return b;
+    var count = Math.max(1, Math.min(Number(max) || 1, b.length));
+    return b.splice(0, count);
   };
 })();
-''';
+'''
+        .replaceAll('__MAX_BUFFER__', '$_kMaxMutationRecords')
+        .replaceAll('__MAX_TARGET_CHARS__', '$_kMaxMutationTargetChars')
+        .replaceAll('__MAX_VALUE_CHARS__', '$_kMaxMutationValueChars')
+        .replaceAll('__MAX_CHILD_NODES__', '$_kMaxMutationChildNodes');
+
+Map<String, Object?>? _normalizeMutationRecord(Map<String, Object?> raw) {
+  final kind = '${raw['kind'] ?? ''}';
+  if (kind != 'attributes' && kind != 'characterData' && kind != 'childList') {
+    return null;
+  }
+  String bounded(Object? value, int maxChars) =>
+      clipText('${value ?? ''}', maxChars, suffix: '');
+  String? boundedOptional(Object? value, int maxChars) =>
+      value == null ? null : clipText('$value', maxChars, suffix: '');
+
+  final normalized = <String, Object?>{
+    'kind': kind,
+    'target': bounded(raw['target'], _kMaxMutationTargetChars),
+  };
+  final sequence = optionalIntegralIntFromValue(raw['seq']);
+  final timestamp = optionalIntegralIntFromValue(raw['t']);
+  if (sequence != null) normalized['seq'] = sequence;
+  if (timestamp != null) normalized['t'] = timestamp;
+  if (kind == 'attributes') {
+    normalized['attr'] = bounded(raw['attr'], 256);
+    normalized['oldValue'] = boundedOptional(
+      raw['oldValue'],
+      _kMaxMutationValueChars,
+    );
+    normalized['newValue'] = boundedOptional(
+      raw['newValue'],
+      _kMaxMutationValueChars,
+    );
+  } else if (kind == 'characterData') {
+    normalized['oldValue'] = boundedOptional(
+      raw['oldValue'],
+      _kMaxMutationValueChars,
+    );
+    normalized['newValue'] = boundedOptional(
+      raw['newValue'],
+      _kMaxMutationValueChars,
+    );
+  } else {
+    for (final field in const <String>['added', 'removed']) {
+      normalized[field] = stringListFromValue(raw[field])
+          .take(_kMaxMutationChildNodes)
+          .map((value) => bounded(value, _kMaxMutationTargetChars))
+          .toList(growable: false);
+    }
+  }
+  return Map<String, Object?>.unmodifiable(normalized);
+}
+
+int _estimatedMutationRecordChars(Map<String, Object?> record) {
+  var total = 48;
+  for (final value in record.values) {
+    if (value is String) {
+      total += value.length;
+    } else if (value is List) {
+      total += value.whereType<String>().fold<int>(
+        0,
+        (sum, item) => sum + item.length,
+      );
+    } else {
+      total += 8;
+    }
+  }
+  return total;
+}
 
 Future<void> showWebReverseDomMutationDialog(
   BuildContext context, {
@@ -136,10 +224,11 @@ class _DomMutationDialogState extends State<_DomMutationDialog> {
   bool _recording = false;
   String? _scriptIdentifier;
   Timer? _drainTimer;
-  final List<Map<String, Object?>> _records = <Map<String, Object?>>[];
+  final ListQueue<Map<String, Object?>> _records =
+      ListQueue<Map<String, Object?>>();
+  int _retainedRecordChars = 0;
   String _filter = '';
   String _kindFilter = 'all'; // all|attributes|characterData|childList
-  static const int _maxLocal = 5000;
   final ScrollController _scroll = ScrollController();
   bool _autoFollow = true;
 
@@ -208,6 +297,30 @@ class _DomMutationDialogState extends State<_DomMutationDialog> {
 
   Future<void> _stop() => _cleanupInstalledScript();
 
+  void _clearRecords() {
+    _records.clear();
+    _retainedRecordChars = 0;
+  }
+
+  bool _appendRecord(Map<String, Object?> raw) {
+    final normalized = _normalizeMutationRecord(raw);
+    if (normalized == null) return false;
+    final cost = _estimatedMutationRecordChars(normalized);
+    while (_records.isNotEmpty &&
+        (_records.length >= _kMaxMutationRecords ||
+            _retainedRecordChars + cost > _kMaxMutationRetainedChars)) {
+      _retainedRecordChars -= _estimatedMutationRecordChars(
+        _records.removeFirst(),
+      );
+    }
+    if (_retainedRecordChars + cost > _kMaxMutationRetainedChars) {
+      return false;
+    }
+    _records.addLast(normalized);
+    _retainedRecordChars += cost;
+    return true;
+  }
+
   Future<void> _cleanupInstalledScript({bool notify = true}) async {
     _drainTimer?.cancel();
     _drainTimer = null;
@@ -246,23 +359,17 @@ class _DomMutationDialogState extends State<_DomMutationDialog> {
         method: 'Runtime.evaluate',
         paramsJson: jsonEncode({
           'expression':
-              '(window.__OH_DOM_MUT_DRAIN__ && JSON.stringify(window.__OH_DOM_MUT_DRAIN__())) || "[]"',
+              '(window.__OH_DOM_MUT_DRAIN__ && JSON.stringify(window.__OH_DOM_MUT_DRAIN__($_kMaxMutationDrainRecords))) || "[]"',
           'returnByValue': true,
         }),
       );
       final v = cdpStringResultValue(r);
-      if (v == null) return;
-      final list = jsonDecode(v);
-      if (list is! List) return;
+      if (v == null || v.length > _kMaxMutationDrainJsonChars) return;
+      final list = decodeStringKeyedJsonMapList(v);
+      if (list == null) return;
       bool dirty = false;
-      for (final item in list) {
-        if (item is Map) {
-          _records.add(stringKeyedMapFromValue(item));
-          dirty = true;
-        }
-      }
-      while (_records.length > _maxLocal) {
-        _records.removeAt(0);
+      for (final item in list.take(_kMaxMutationDrainRecords)) {
+        dirty = _appendRecord(item) || dirty;
       }
       if (dirty && mounted) {
         setState(() {});
@@ -283,7 +390,7 @@ class _DomMutationDialogState extends State<_DomMutationDialog> {
     final loc = AppLocalizations.of(context);
     await copyWebReverseTextToClipboard(
       context: context,
-      text: prettyPrintJson(_records),
+      text: prettyPrintJson(_records.toList(growable: false)),
       successBase:
           loc?.webReverseDomMutCopiedRecords(_records.length) ??
           'Copied ${_records.length} records',
@@ -358,7 +465,7 @@ class _DomMutationDialogState extends State<_DomMutationDialog> {
                 OutlinedButton.icon(
                   onPressed: _records.isEmpty
                       ? null
-                      : () => setState(_records.clear),
+                      : () => setState(_clearRecords),
                   icon: const Icon(Icons.cleaning_services_rounded, size: 16),
                   label: Text(loc?.webReverseDomMutClear ?? 'Clear'),
                 ),
