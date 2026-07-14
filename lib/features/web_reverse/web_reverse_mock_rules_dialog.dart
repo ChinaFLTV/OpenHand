@@ -5,7 +5,6 @@
 /// 层，浏览器侧看到的就是 mock 出的响应。也展示最近 200 次命中记录。
 library;
 
-
 import 'package:flutter/material.dart';
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
@@ -63,6 +62,10 @@ class _MockRulesDialogState extends State<_MockRulesDialog> {
 
   void _commit() {
     widget.controller.setMockRules(_draft);
+    setState(() {
+      _draft = List<WebReverseMockRule>.from(widget.controller.mockRules);
+      if (_selected >= _draft.length) _selected = _draft.length - 1;
+    });
     final loc = AppLocalizations.of(context);
     showWebReverseSuccessSnack(
       context,
@@ -72,6 +75,7 @@ class _MockRulesDialogState extends State<_MockRulesDialog> {
   }
 
   void _addRule() {
+    if (_draft.length >= WebReverseSessionController.maxMockRules) return;
     final loc = AppLocalizations.of(context);
     setState(() {
       _draft.add(
@@ -108,11 +112,15 @@ class _MockRulesDialogState extends State<_MockRulesDialog> {
     final loc = AppLocalizations.of(context);
     try {
       final text = await getOpenHandClipboardText() ?? '';
+      if (text.length > WebReverseSessionController.maxRuleImportChars) {
+        throw const FormatException('rules JSON exceeds import limit');
+      }
       final entries = decodeStringKeyedJsonMapList(text);
       if (entries == null) throw const FormatException('expected array');
       if (!mounted) return;
       setState(() {
         _draft = entries
+            .take(WebReverseSessionController.maxMockRules)
             .map(WebReverseMockRule.fromJson)
             .toList(growable: false);
         _selected = _draft.isEmpty ? -1 : 0;
@@ -187,7 +195,11 @@ class _MockRulesDialogState extends State<_MockRulesDialog> {
                             const Spacer(),
                             IconButton(
                               tooltip: loc?.webReverseMockRulesAdd ?? 'Add',
-                              onPressed: _addRule,
+                              onPressed:
+                                  _draft.length >=
+                                      WebReverseSessionController.maxMockRules
+                                  ? null
+                                  : _addRule,
                               icon: const Icon(Icons.add_rounded),
                             ),
                           ],
@@ -483,6 +495,7 @@ class _RuleEditorState extends State<_RuleEditor> {
         children: [
           TextField(
             controller: _name,
+            maxLength: WebReverseSessionController.maxRuleNameChars,
             onChanged: (_) => _push(),
             decoration: InputDecoration(
               labelText: loc?.webReverseMockRulesRuleName ?? 'Name',
@@ -493,6 +506,7 @@ class _RuleEditorState extends State<_RuleEditor> {
           const SizedBox(height: 10),
           TextField(
             controller: _pattern,
+            maxLength: WebReverseSessionController.maxBreakpointTextChars,
             onChanged: (_) => _push(),
             style: const TextStyle(fontFamily: 'monospace'),
             decoration: InputDecoration(
@@ -509,6 +523,7 @@ class _RuleEditorState extends State<_RuleEditor> {
                 width: 130,
                 child: TextField(
                   controller: _method,
+                  maxLength: WebReverseSessionController.maxRuleMethodChars,
                   onChanged: (_) => _push(),
                   decoration: InputDecoration(
                     labelText:
@@ -537,6 +552,8 @@ class _RuleEditorState extends State<_RuleEditor> {
               Expanded(
                 child: TextField(
                   controller: _contentType,
+                  maxLength:
+                      WebReverseSessionController.maxRuleContentTypeChars,
                   onChanged: (_) => _push(),
                   decoration: const InputDecoration(
                     labelText: 'Content-Type',
@@ -550,6 +567,7 @@ class _RuleEditorState extends State<_RuleEditor> {
           const SizedBox(height: 10),
           TextField(
             controller: _headers,
+            maxLength: WebReverseSessionController.maxRuleHeadersChars,
             onChanged: (_) => _push(),
             minLines: 2,
             maxLines: 4,
@@ -565,6 +583,7 @@ class _RuleEditorState extends State<_RuleEditor> {
           const SizedBox(height: 10),
           TextField(
             controller: _body,
+            maxLength: WebReverseSessionController.maxMockBodyChars,
             onChanged: (_) => _push(),
             minLines: 8,
             maxLines: 18,

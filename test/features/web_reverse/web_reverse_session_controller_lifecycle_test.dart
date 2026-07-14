@@ -127,6 +127,137 @@ void main() {
     );
     expect(controller.accountSnapshots.first.id, '2');
 
+    controller.setInterceptRules(<WebReverseInterceptRule>[
+      WebReverseInterceptRule(
+        urlPattern:
+            '*' * (WebReverseSessionController.maxBreakpointTextChars + 1),
+        replaceUrl:
+            'r' * (WebReverseSessionController.maxBreakpointTextChars + 1),
+        headerOverrides: <String, String>{
+          for (
+            var i = 0;
+            i < WebReverseSessionController.maxRuleHeaderEntries + 1;
+            i++
+          )
+            'header-$i':
+                'v' * (WebReverseSessionController.maxRuleHeaderValueChars + 1),
+        },
+      ),
+    ]);
+    final interceptRule = controller.interceptRules.single;
+    expect(interceptRule.urlPattern, '*');
+    expect(
+      interceptRule.replaceUrl,
+      hasLength(WebReverseSessionController.maxBreakpointTextChars),
+    );
+    expect(
+      interceptRule.headerOverrides.length,
+      lessThanOrEqualTo(WebReverseSessionController.maxRuleHeaderEntries),
+    );
+
+    controller.setMockRules(<WebReverseMockRule>[
+      WebReverseMockRule(
+        id: 'duplicate',
+        name: ' n ' * WebReverseSessionController.maxRuleNameChars,
+        urlPattern: 'https://example.com/***',
+        body: 'b' * (WebReverseSessionController.maxMockBodyChars + 1),
+      ),
+      const WebReverseMockRule(
+        id: 'duplicate',
+        name: 'second',
+        urlPattern: 'https://example.com/*',
+      ),
+    ]);
+    expect(controller.mockRules, hasLength(2));
+    expect(controller.mockRules.first.urlPattern, 'https://example.com/*');
+    expect(
+      controller.mockRules.first.body,
+      hasLength(WebReverseSessionController.maxMockBodyChars),
+    );
+    expect(controller.mockRules[1].id, isNot(controller.mockRules.first.id));
+
+    controller.setRequestBreakpoints(<WebReverseRequestBreakpoint>[
+      WebReverseRequestBreakpoint(
+        id: 'request',
+        name: ' request ',
+        enabled: true,
+        methodFilter: ' post ',
+        urlContains:
+            'u' * (WebReverseSessionController.maxBreakpointTextChars + 1),
+        bodyContains:
+            'b' * (WebReverseSessionController.maxDebuggerExpressionChars + 1),
+        evalExpression:
+            'e' * (WebReverseSessionController.maxDebuggerExpressionChars + 1),
+      ),
+    ]);
+    final requestBreakpoint = controller.requestBreakpoints.single;
+    expect(requestBreakpoint.methodFilter, 'POST');
+    expect(
+      requestBreakpoint.urlContains,
+      hasLength(WebReverseSessionController.maxBreakpointTextChars),
+    );
+    expect(
+      requestBreakpoint.evalExpression,
+      hasLength(WebReverseSessionController.maxDebuggerExpressionChars),
+    );
+
+    controller.setAccountSnapshots(<WebReverseAccountSnapshot>[
+      WebReverseAccountSnapshot(
+        id: 'bounded',
+        name: 'account',
+        origin: 'https://example.com',
+        capturedAt: DateTime.fromMillisecondsSinceEpoch(1),
+        cookies: <Map<String, Object?>>[
+          for (
+            var i = 0;
+            i < WebReverseSessionController.maxAccountSnapshotCookies + 1;
+            i++
+          )
+            <String, Object?>{
+              'name': 'cookie-$i',
+              'value': i == 0
+                  ? 'v' *
+                        (WebReverseSessionController
+                                .maxAccountSnapshotValueChars +
+                            1)
+                  : 'value',
+              'unexpected': <String, String>{'nested': 'value'},
+            },
+        ],
+        localStorage: <String, String>{
+          for (
+            var i = 0;
+            i <
+                WebReverseSessionController.maxAccountSnapshotStorageEntries +
+                    1;
+            i++
+          )
+            'key-$i': 'value-$i',
+        },
+        sessionStorage: const <String, String>{},
+      ),
+    ]);
+    final snapshot = controller.accountSnapshots.single;
+    expect(
+      snapshot.cookies,
+      hasLength(WebReverseSessionController.maxAccountSnapshotCookies),
+    );
+    expect(
+      snapshot.cookies.first['value'],
+      isA<String>().having(
+        (value) => value.length,
+        'length',
+        WebReverseSessionController.maxAccountSnapshotValueChars,
+      ),
+    );
+    expect(snapshot.cookies.first, isNot(contains('unexpected')));
+    expect(
+      snapshot.localStorage.length,
+      lessThanOrEqualTo(
+        WebReverseSessionController.maxAccountSnapshotStorageEntries,
+      ),
+    );
+
     await controller.shutdown();
     controller.dispose();
     await deleteTestDirectory(tempDir);

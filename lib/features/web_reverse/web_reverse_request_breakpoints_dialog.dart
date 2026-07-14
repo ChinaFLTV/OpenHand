@@ -49,6 +49,10 @@ class _RequestBreakpointsDialogState extends State<_RequestBreakpointsDialog> {
   }
 
   void _add() {
+    if (widget.controller.requestBreakpoints.length >=
+        WebReverseSessionController.maxRequestBreakpoints) {
+      return;
+    }
     final id = 'bp_${DateTime.now().microsecondsSinceEpoch}';
     final bp = WebReverseRequestBreakpoint(
       id: id,
@@ -175,7 +179,11 @@ class _RequestBreakpointsDialogState extends State<_RequestBreakpointsDialog> {
             ),
           IconButton(
             tooltip: loc?.webReverseReqBpAdd ?? 'Add',
-            onPressed: _add,
+            onPressed:
+                ctrl.requestBreakpoints.length >=
+                    WebReverseSessionController.maxRequestBreakpoints
+                ? null
+                : _add,
             icon: const Icon(Icons.add_rounded),
           ),
           IconButton(
@@ -467,6 +475,7 @@ class _BreakpointEditorState extends State<_BreakpointEditor> {
         children: [
           TextField(
             controller: _nameCtrl,
+            maxLength: WebReverseSessionController.maxRuleNameChars,
             decoration: InputDecoration(
               labelText: loc?.webReverseReqBpNameField ?? 'Name',
               border: const OutlineInputBorder(),
@@ -501,6 +510,7 @@ class _BreakpointEditorState extends State<_BreakpointEditor> {
           const SizedBox(height: 12),
           TextField(
             controller: _urlCtrl,
+            maxLength: WebReverseSessionController.maxBreakpointTextChars,
             decoration: InputDecoration(
               labelText: loc?.webReverseReqBpUrlContains ?? 'URL contains',
               hintText: '/api/v1/sign',
@@ -512,6 +522,7 @@ class _BreakpointEditorState extends State<_BreakpointEditor> {
           const SizedBox(height: 12),
           TextField(
             controller: _bodyCtrl,
+            maxLength: WebReverseSessionController.maxDebuggerExpressionChars,
             decoration: InputDecoration(
               labelText: loc?.webReverseReqBpBodyContains ?? 'Body contains',
               hintText: '"action":"login"',
@@ -530,6 +541,7 @@ class _BreakpointEditorState extends State<_BreakpointEditor> {
           const SizedBox(height: 6),
           TextField(
             controller: _evalCtrl,
+            maxLength: WebReverseSessionController.maxDebuggerExpressionChars,
             minLines: 4,
             maxLines: 10,
             style: const TextStyle(fontFamily: 'monospace', fontSize: 12),

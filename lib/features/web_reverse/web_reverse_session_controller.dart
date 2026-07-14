@@ -164,6 +164,26 @@ class WebReverseSessionController extends ChangeNotifier {
   static const int maxRequestBreakpoints = 256;
   static const int maxBreakpointTextChars = 16 * kBytesPerKiB;
   static const int maxDebuggerExpressionChars = 64 * kBytesPerKiB;
+  static const int maxRuleIdChars = 256;
+  static const int maxRuleNameChars = 256;
+  static const int maxRuleMethodChars = 32;
+  static const int maxRuleContentTypeChars = 512;
+  static const int maxRuleHeaderEntries = 128;
+  static const int maxRuleHeaderNameChars = 256;
+  static const int maxRuleHeaderValueChars = 16 * kBytesPerKiB;
+  static const int maxRuleHeadersChars = 256 * kBytesPerKiB;
+  static const int maxMockBodyChars = 2 * kBytesPerMiB;
+  static const int maxRuleCollectionChars = 16 * kBytesPerMiB;
+  static const int maxRuleImportChars = 16 * kBytesPerMiB;
+  static const int maxAccountSnapshotNameChars = 256;
+  static const int maxAccountSnapshotCookies = 512;
+  static const int maxAccountSnapshotStorageEntries = 2048;
+  static const int maxAccountSnapshotValueChars = 256 * kBytesPerKiB;
+  static const int maxAccountSnapshotChars = 4 * kBytesPerMiB;
+  static const int maxAccountSnapshotsTotalChars = 16 * kBytesPerMiB;
+  static const int _accountSnapshotRestoreConcurrency = 4;
+  static const Duration _accountSnapshotCommandTimeout = Duration(seconds: 3);
+  static const Duration _accountSnapshotRestoreTimeout = Duration(seconds: 45);
   static const double _maxFullPageScreenshotCssPixels = 32 * 1000 * 1000;
   static const double _maxFullPageScreenshotCssSide = 32767;
   static final RegExp _rawCdpMethodPattern = RegExp(
@@ -5319,9 +5339,18 @@ class WebReverseSessionController extends ChangeNotifier {
       List<WebReverseInterceptRule>.unmodifiable(_interceptRules);
 
   void setInterceptRules(List<WebReverseInterceptRule> rules) {
+    final bounded = <WebReverseInterceptRule>[];
+    var retainedChars = 0;
+    for (final rule in rules.take(maxInterceptRules)) {
+      final normalized = _normalizeInterceptRule(rule);
+      final cost = _estimatedInterceptRuleChars(normalized);
+      if (retainedChars + cost > maxRuleCollectionChars) break;
+      bounded.add(normalized);
+      retainedChars += cost;
+    }
     _interceptRules
       ..clear()
-      ..addAll(rules.take(maxInterceptRules));
+      ..addAll(bounded);
     _safeNotify();
   }
 
@@ -5345,9 +5374,27 @@ class WebReverseSessionController extends ChangeNotifier {
       List<WebReverseMockHit>.unmodifiable(_mockHits);
 
   void setMockRules(List<WebReverseMockRule> rules) {
+    final bounded = <WebReverseMockRule>[];
+    final usedIds = <String>{};
+    var retainedChars = 0;
+    for (final indexed in rules.take(maxMockRules).indexed) {
+      final normalized = _normalizeMockRule(
+        indexed.$2,
+        id: _uniqueBoundedRuleId(
+          indexed.$2.id,
+          prefix: 'mock',
+          index: indexed.$1,
+          used: usedIds,
+        ),
+      );
+      final cost = _estimatedMockRuleChars(normalized);
+      if (retainedChars + cost > maxRuleCollectionChars) break;
+      bounded.add(normalized);
+      retainedChars += cost;
+    }
     _mockRules
       ..clear()
-      ..addAll(rules.take(maxMockRules));
+      ..addAll(bounded);
     _safeNotify();
   }
 
@@ -7602,9 +7649,27 @@ class WebReverseSessionController extends ChangeNotifier {
   static const int _kBreakpointHitsCap = 200;
 
   void setRequestBreakpoints(List<WebReverseRequestBreakpoint> list) {
+    final bounded = <WebReverseRequestBreakpoint>[];
+    final usedIds = <String>{};
+    var retainedChars = 0;
+    for (final indexed in list.take(maxRequestBreakpoints).indexed) {
+      final normalized = _normalizeRequestBreakpoint(
+        indexed.$2,
+        id: _uniqueBoundedRuleId(
+          indexed.$2.id,
+          prefix: 'breakpoint',
+          index: indexed.$1,
+          used: usedIds,
+        ),
+      );
+      final cost = _estimatedRequestBreakpointChars(normalized);
+      if (retainedChars + cost > maxRuleCollectionChars) break;
+      bounded.add(normalized);
+      retainedChars += cost;
+    }
     _requestBreakpoints
       ..clear()
-      ..addAll(list.take(maxRequestBreakpoints));
+      ..addAll(bounded);
     _safeNotify();
   }
 
@@ -7691,12 +7756,21 @@ class WebReverseSessionController extends ChangeNotifier {
       List<WebReverseAccountSnapshot>.unmodifiable(_accountSnapshots);
 
   void setAccountSnapshots(List<WebReverseAccountSnapshot> list) {
+    final bounded = <WebReverseAccountSnapshot>[];
+    var retainedChars = 0;
     final start = list.length > maxAccountSnapshots
         ? list.length - maxAccountSnapshots
         : 0;
+    for (var i = list.length - 1; i >= start; i--) {
+      final normalized = _normalizeAccountSnapshot(list[i]);
+      final cost = _estimatedAccountSnapshotChars(normalized);
+      if (retainedChars + cost > maxAccountSnapshotsTotalChars) continue;
+      bounded.add(normalized);
+      retainedChars += cost;
+    }
     _accountSnapshots
       ..clear()
-      ..addAll(list.skip(start));
+      ..addAll(bounded.reversed);
     _safeNotify();
   }
 
@@ -7736,22 +7810,28 @@ class WebReverseSessionController extends ChangeNotifier {
       ls = await listDomStorage(origin: origin, isLocalStorage: true);
       ss = await listDomStorage(origin: origin, isLocalStorage: false);
     }
-    final snap = WebReverseAccountSnapshot(
-      id: 'acct_${DateTime.now().microsecondsSinceEpoch}',
-      name: name.isEmpty ? 'snapshot' : name,
-      origin: origin ?? '',
-      capturedAt: DateTime.now(),
-      cookies: cookies
-          .map((c) => Map<String, Object?>.from(c))
-          .toList(growable: false),
-      localStorage: <String, String>{for (final e in ls) e.key: e.value},
-      sessionStorage: <String, String>{for (final e in ss) e.key: e.value},
+    final snap = _normalizeAccountSnapshot(
+      WebReverseAccountSnapshot(
+        id: 'acct_${DateTime.now().microsecondsSinceEpoch}',
+        name: name.isEmpty ? 'snapshot' : name,
+        origin: origin ?? '',
+        capturedAt: DateTime.now(),
+        cookies: cookies
+            .map((c) => Map<String, Object?>.from(c))
+            .toList(growable: false),
+        localStorage: <String, String>{for (final e in ls) e.key: e.value},
+        sessionStorage: <String, String>{for (final e in ss) e.key: e.value},
+      ),
     );
     _accountSnapshots.add(snap);
-    if (_accountSnapshots.length > maxAccountSnapshots) {
-      _accountSnapshots.removeRange(
-        0,
-        _accountSnapshots.length - maxAccountSnapshots,
+    var retainedChars = _accountSnapshots.fold<int>(
+      0,
+      (total, item) => total + _estimatedAccountSnapshotChars(item),
+    );
+    while (_accountSnapshots.length > maxAccountSnapshots ||
+        retainedChars > maxAccountSnapshotsTotalChars) {
+      retainedChars -= _estimatedAccountSnapshotChars(
+        _accountSnapshots.removeAt(0),
       );
     }
     _safeNotify();
@@ -7767,45 +7847,127 @@ class WebReverseSessionController extends ChangeNotifier {
   /// 调用方负责刷新页面让 JS 重新读取 storage / cookies。
   Future<bool> restoreAccountSnapshot(WebReverseAccountSnapshot snap) async {
     final cdp = _browserCdp;
-    if (cdp == null || _pageSessionId == null) return false;
-    try {
-      await cdp.send('Network.clearBrowserCookies', sessionId: _pageSessionId);
-    } catch (e, st) {
-      silentLog('web_reverse_session_controller', 'clearBrowserCookies', e, st);
-    }
-    for (final c in snap.cookies) {
-      await setCookie(
-        name: '${c['name'] ?? ''}',
-        value: '${c['value'] ?? ''}',
-        domain: c['domain'] is String ? c['domain'] as String : null,
-        path: c['path'] is String ? c['path'] as String : null,
-        secure: c['secure'] == true,
-        httpOnly: c['httpOnly'] == true,
-        sameSite: c['sameSite'] is String ? c['sameSite'] as String : null,
-        expires: c['expires'] is num ? (c['expires'] as num).toInt() : null,
+    final pageSessionId = _pageSessionId;
+    if (cdp == null || pageSessionId == null) return false;
+    final boundedSnapshot = _normalizeAccountSnapshot(snap);
+    var restoreActive = true;
+    bool canContinue() =>
+        restoreActive &&
+        !_disposed &&
+        identical(_browserCdp, cdp) &&
+        _pageSessionId == pageSessionId;
+
+    Future<bool> applySnapshot() async {
+      try {
+        await cdp.send(
+          'Network.clearBrowserCookies',
+          sessionId: pageSessionId,
+          timeout: _accountSnapshotCommandTimeout,
+        );
+      } catch (error, stack) {
+        silentLog(
+          'web_reverse_session_controller',
+          'clearBrowserCookies',
+          error,
+          stack,
+        );
+        return false;
+      }
+      if (boundedSnapshot.cookies.isNotEmpty) {
+        try {
+          await cdp.send(
+            'Network.setCookies',
+            params: <String, Object?>{'cookies': boundedSnapshot.cookies},
+            sessionId: pageSessionId,
+            timeout: _accountSnapshotCommandTimeout,
+          );
+        } catch (error, stack) {
+          silentLog(
+            'web_reverse_session_controller',
+            'restore account snapshot cookies',
+            error,
+            stack,
+          );
+          return false;
+        }
+      }
+      if (!canContinue()) return false;
+
+      final origin = boundedSnapshot.origin;
+      if (origin.isEmpty) return true;
+      final storageEntries =
+          <({bool isLocalStorage, String key, String value})>[
+            for (final entry in boundedSnapshot.localStorage.entries)
+              (isLocalStorage: true, key: entry.key, value: entry.value),
+            for (final entry in boundedSnapshot.sessionStorage.entries)
+              (isLocalStorage: false, key: entry.key, value: entry.value),
+          ];
+      try {
+        await cdp.send(
+          'DOMStorage.enable',
+          sessionId: pageSessionId,
+          timeout: _accountSnapshotCommandTimeout,
+        );
+      } catch (error, stack) {
+        silentLog(
+          'web_reverse_session_controller',
+          'enable DOM storage for account snapshot',
+          error,
+          stack,
+        );
+        return false;
+      }
+      await forEachIndexWithConcurrencyLimit(
+        itemCount: storageEntries.length,
+        maxConcurrency: _accountSnapshotRestoreConcurrency,
+        shouldContinue: canContinue,
+        task: (index) async {
+          final entry = storageEntries[index];
+          try {
+            await cdp.send(
+              'DOMStorage.setDOMStorageItem',
+              params: <String, Object?>{
+                'storageId': <String, Object?>{
+                  'securityOrigin': origin,
+                  'isLocalStorage': entry.isLocalStorage,
+                },
+                'key': entry.key,
+                'value': entry.value,
+              },
+              sessionId: pageSessionId,
+              timeout: _accountSnapshotCommandTimeout,
+            );
+          } catch (error, stack) {
+            restoreActive = false;
+            silentLog(
+              'web_reverse_session_controller',
+              'restore account snapshot storage',
+              error,
+              stack,
+            );
+          }
+        },
       );
+      return canContinue();
     }
-    final origin = snap.origin;
-    if (origin.isNotEmpty) {
-      for (final e in snap.localStorage.entries) {
-        await setDomStorageItem(
-          origin: origin,
-          isLocalStorage: true,
-          key: e.key,
-          value: e.value,
-        );
-      }
-      for (final e in snap.sessionStorage.entries) {
-        await setDomStorageItem(
-          origin: origin,
-          isLocalStorage: false,
-          key: e.key,
-          value: e.value,
-        );
-      }
+
+    try {
+      final succeeded = await applySnapshot().timeout(
+        _accountSnapshotRestoreTimeout,
+      );
+      if (succeeded) _safeNotify();
+      return succeeded;
+    } on TimeoutException catch (error, stack) {
+      silentLog(
+        'web_reverse_session_controller',
+        'restore account snapshot timeout',
+        error,
+        stack,
+      );
+      return false;
+    } finally {
+      restoreActive = false;
     }
-    _safeNotify();
-    return true;
   }
 
   // ─── Source Map 解析（Slice 3：源码板块集成） ───
@@ -8213,6 +8375,303 @@ int _normalizeCronInterval(int seconds) {
     return WebReverseSessionController.maxCronIntervalSeconds;
   }
   return seconds;
+}
+
+String _normalizeWildcardPattern(String pattern) {
+  final clipped = _capPlainWebReverseText(
+    pattern.trim(),
+    WebReverseSessionController.maxBreakpointTextChars,
+  );
+  if (!clipped.contains('**')) return clipped;
+  final normalized = StringBuffer();
+  var previousWasStar = false;
+  for (final rune in clipped.runes) {
+    final isStar = rune == 0x2A;
+    if (!isStar || !previousWasStar) normalized.writeCharCode(rune);
+    previousWasStar = isStar;
+  }
+  return normalized.toString();
+}
+
+final RegExp _webReverseHeaderNamePattern = RegExp(
+  r"^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$",
+);
+
+Map<String, String> _normalizeRuleHeaders(Map<String, String> headers) {
+  final normalized = <String, String>{};
+  var remainingChars = WebReverseSessionController.maxRuleHeadersChars;
+  for (final entry in headers.entries) {
+    if (normalized.length >= WebReverseSessionController.maxRuleHeaderEntries ||
+        remainingChars <= 0) {
+      break;
+    }
+    final name = _capPlainWebReverseText(
+      entry.key.trim(),
+      WebReverseSessionController.maxRuleHeaderNameChars,
+    );
+    if (!_webReverseHeaderNamePattern.hasMatch(name) ||
+        name.length > remainingChars) {
+      continue;
+    }
+    remainingChars -= name.length;
+    final valueLimit =
+        remainingChars < WebReverseSessionController.maxRuleHeaderValueChars
+        ? remainingChars
+        : WebReverseSessionController.maxRuleHeaderValueChars;
+    final value = _capPlainWebReverseText(
+      entry.value.trim(),
+      valueLimit,
+    ).replaceAll('\r', ' ').replaceAll('\n', ' ');
+    normalized[name] = value;
+    remainingChars -= value.length;
+  }
+  return Map<String, String>.unmodifiable(normalized);
+}
+
+int _estimatedHeaderChars(Map<String, String> headers) =>
+    headers.entries.fold<int>(
+      0,
+      (total, entry) => total + entry.key.length + entry.value.length,
+    );
+
+WebReverseInterceptRule _normalizeInterceptRule(WebReverseInterceptRule rule) {
+  final replacement = _capPlainWebReverseText(
+    rule.replaceUrl?.trim() ?? '',
+    WebReverseSessionController.maxBreakpointTextChars,
+  );
+  return WebReverseInterceptRule(
+    urlPattern: _normalizeWildcardPattern(rule.urlPattern),
+    enabled: rule.enabled,
+    block: rule.block,
+    replaceUrl: replacement.isEmpty ? null : replacement,
+    headerOverrides: _normalizeRuleHeaders(rule.headerOverrides),
+  );
+}
+
+int _estimatedInterceptRuleChars(WebReverseInterceptRule rule) =>
+    rule.urlPattern.length +
+    (rule.replaceUrl?.length ?? 0) +
+    _estimatedHeaderChars(rule.headerOverrides);
+
+String _uniqueBoundedRuleId(
+  String raw, {
+  required String prefix,
+  required int index,
+  required Set<String> used,
+}) {
+  var base = _capPlainWebReverseText(
+    raw.trim(),
+    WebReverseSessionController.maxRuleIdChars,
+  );
+  if (base.isEmpty) base = '${prefix}_$index';
+  if (used.add(base)) return base;
+  for (var suffix = 2; ; suffix++) {
+    final suffixText = '_$suffix';
+    final baseLimit =
+        WebReverseSessionController.maxRuleIdChars - suffixText.length;
+    final candidate = '${_capPlainWebReverseText(base, baseLimit)}$suffixText';
+    if (used.add(candidate)) return candidate;
+  }
+}
+
+WebReverseMockRule _normalizeMockRule(
+  WebReverseMockRule rule, {
+  required String id,
+}) {
+  final contentType = _capPlainWebReverseText(
+    rule.contentType.trim(),
+    WebReverseSessionController.maxRuleContentTypeChars,
+  );
+  final status = rule.statusCode < 100
+      ? 100
+      : rule.statusCode > 599
+      ? 599
+      : rule.statusCode;
+  return WebReverseMockRule(
+    id: id,
+    name: _capPlainWebReverseText(
+      rule.name.trim(),
+      WebReverseSessionController.maxRuleNameChars,
+    ),
+    urlPattern: _normalizeWildcardPattern(rule.urlPattern),
+    enabled: rule.enabled,
+    methodFilter: _capPlainWebReverseText(
+      rule.methodFilter.trim().toUpperCase(),
+      WebReverseSessionController.maxRuleMethodChars,
+    ),
+    statusCode: status,
+    contentType: contentType.isEmpty
+        ? 'application/json; charset=utf-8'
+        : contentType,
+    body: _capPlainWebReverseText(
+      rule.body,
+      WebReverseSessionController.maxMockBodyChars,
+    ),
+    extraHeaders: _normalizeRuleHeaders(rule.extraHeaders),
+  );
+}
+
+int _estimatedMockRuleChars(WebReverseMockRule rule) =>
+    rule.id.length +
+    rule.name.length +
+    rule.urlPattern.length +
+    rule.methodFilter.length +
+    rule.contentType.length +
+    rule.body.length +
+    _estimatedHeaderChars(rule.extraHeaders);
+
+WebReverseRequestBreakpoint _normalizeRequestBreakpoint(
+  WebReverseRequestBreakpoint breakpoint, {
+  required String id,
+}) {
+  return WebReverseRequestBreakpoint(
+    id: id,
+    name: _capPlainWebReverseText(
+      breakpoint.name.trim(),
+      WebReverseSessionController.maxRuleNameChars,
+    ),
+    enabled: breakpoint.enabled,
+    methodFilter: _capPlainWebReverseText(
+      breakpoint.methodFilter.trim().toUpperCase(),
+      WebReverseSessionController.maxRuleMethodChars,
+    ),
+    urlContains: _capPlainWebReverseText(
+      breakpoint.urlContains.trim(),
+      WebReverseSessionController.maxBreakpointTextChars,
+    ),
+    bodyContains: _capPlainWebReverseText(
+      breakpoint.bodyContains,
+      WebReverseSessionController.maxDebuggerExpressionChars,
+    ),
+    evalExpression: _capPlainWebReverseText(
+      breakpoint.evalExpression,
+      WebReverseSessionController.maxDebuggerExpressionChars,
+    ),
+  );
+}
+
+int _estimatedRequestBreakpointChars(WebReverseRequestBreakpoint breakpoint) =>
+    breakpoint.id.length +
+    breakpoint.name.length +
+    breakpoint.methodFilter.length +
+    breakpoint.urlContains.length +
+    breakpoint.bodyContains.length +
+    breakpoint.evalExpression.length;
+
+WebReverseAccountSnapshot _normalizeAccountSnapshot(
+  WebReverseAccountSnapshot snapshot,
+) {
+  var remainingChars = WebReverseSessionController.maxAccountSnapshotChars;
+
+  String takeText(Object? raw, int maxChars) {
+    if (remainingChars <= 0) return '';
+    final limit = remainingChars < maxChars ? remainingChars : maxChars;
+    final value = _capPlainWebReverseText('${raw ?? ''}', limit);
+    remainingChars -= value.length;
+    return value;
+  }
+
+  final id = takeText(
+    snapshot.id.trim(),
+    WebReverseSessionController.maxRuleIdChars,
+  );
+  final name = takeText(
+    snapshot.name.trim(),
+    WebReverseSessionController.maxAccountSnapshotNameChars,
+  );
+  final origin = takeText(
+    snapshot.origin.trim(),
+    WebReverseSessionController.maxBreakpointTextChars,
+  );
+  final cookies = <Map<String, Object?>>[];
+  for (final raw in snapshot.cookies) {
+    if (cookies.length >=
+            WebReverseSessionController.maxAccountSnapshotCookies ||
+        remainingChars <= 0) {
+      break;
+    }
+    final rawName = '${raw['name'] ?? ''}'.trim();
+    if (rawName.isEmpty) continue;
+    final cookie = <String, Object?>{
+      'name': takeText(
+        rawName,
+        WebReverseSessionController.maxRuleHeaderNameChars,
+      ),
+      'value': takeText(
+        raw['value'],
+        WebReverseSessionController.maxAccountSnapshotValueChars,
+      ),
+    };
+    final domain = takeText(
+      raw['domain'],
+      WebReverseSessionController.maxBreakpointTextChars,
+    );
+    final path = takeText(
+      raw['path'],
+      WebReverseSessionController.maxBreakpointTextChars,
+    );
+    final sameSite = takeText(raw['sameSite'], 64);
+    if (domain.isNotEmpty) cookie['domain'] = domain;
+    if (path.isNotEmpty) cookie['path'] = path;
+    if (const <String>{'Strict', 'Lax', 'None'}.contains(sameSite)) {
+      cookie['sameSite'] = sameSite;
+    }
+    if (raw['secure'] == true) cookie['secure'] = true;
+    if (raw['httpOnly'] == true) cookie['httpOnly'] = true;
+    final expires = raw['expires'];
+    if (expires is num && expires.isFinite) cookie['expires'] = expires;
+    cookies.add(Map<String, Object?>.unmodifiable(cookie));
+  }
+
+  Map<String, String> normalizeStorage(Map<String, String> storage) {
+    final normalized = <String, String>{};
+    for (final entry in storage.entries) {
+      if (normalized.length >=
+              WebReverseSessionController.maxAccountSnapshotStorageEntries ||
+          remainingChars <= 0) {
+        break;
+      }
+      final key = takeText(
+        entry.key,
+        WebReverseSessionController.maxBreakpointTextChars,
+      );
+      final value = takeText(
+        entry.value,
+        WebReverseSessionController.maxAccountSnapshotValueChars,
+      );
+      normalized[key] = value;
+    }
+    return Map<String, String>.unmodifiable(normalized);
+  }
+
+  return WebReverseAccountSnapshot(
+    id: id,
+    name: name,
+    origin: origin,
+    capturedAt: snapshot.capturedAt,
+    cookies: List<Map<String, Object?>>.unmodifiable(cookies),
+    localStorage: normalizeStorage(snapshot.localStorage),
+    sessionStorage: normalizeStorage(snapshot.sessionStorage),
+  );
+}
+
+int _estimatedAccountSnapshotChars(WebReverseAccountSnapshot snapshot) {
+  var total =
+      snapshot.id.length + snapshot.name.length + snapshot.origin.length;
+  for (final cookie in snapshot.cookies) {
+    for (final value in cookie.values) {
+      if (value is String) total += value.length;
+    }
+  }
+  for (final storage in <Map<String, String>>[
+    snapshot.localStorage,
+    snapshot.sessionStorage,
+  ]) {
+    for (final entry in storage.entries) {
+      total += entry.key.length + entry.value.length;
+    }
+  }
+  return total;
 }
 
 /// CDP 网络节流预设，对标 DevTools 的 Throttling 下拉。

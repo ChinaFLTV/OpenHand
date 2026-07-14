@@ -137,16 +137,22 @@ class _AccountSnapshotsDialogState extends State<_AccountSnapshotsDialog> {
       }
       final entries = decodeStringKeyedJsonMapList(text);
       if (entries == null) throw const FormatException('expect JSON array');
+      final start =
+          entries.length > WebReverseSessionController.maxAccountSnapshots
+          ? entries.length - WebReverseSessionController.maxAccountSnapshots
+          : 0;
+      final importedEntries = entries.skip(start);
       final merged = <WebReverseAccountSnapshot>[
         ...widget.controller.accountSnapshots,
-        for (final raw in entries) WebReverseAccountSnapshot.fromJson(raw),
+        for (final raw in importedEntries)
+          WebReverseAccountSnapshot.fromJson(raw),
       ];
       widget.controller.setAccountSnapshots(merged);
       if (!mounted) return;
       showWebReverseSuccessSnack(
         context,
-        loc?.webReverseAccountSnapImportedCount(entries.length) ??
-            'Imported ${entries.length} snapshots',
+        loc?.webReverseAccountSnapImportedCount(entries.length - start) ??
+            'Imported ${entries.length - start} snapshots',
       );
     } catch (e, st) {
       silentLog('web_reverse_account_snapshots_dialog', 'import', e, st);
@@ -185,6 +191,8 @@ class _AccountSnapshotsDialogState extends State<_AccountSnapshotsDialog> {
                     Expanded(
                       child: TextField(
                         controller: _nameCtrl,
+                        maxLength: WebReverseSessionController
+                            .maxAccountSnapshotNameChars,
                         decoration: InputDecoration(
                           labelText:
                               loc?.webReverseAccountSnapNameLabel ??

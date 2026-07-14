@@ -3779,6 +3779,10 @@ class _InterceptRulesDialogState extends State<_InterceptRulesDialog> {
   }
 
   Future<void> _editRule(int? index) async {
+    if (index == null &&
+        _rules.length >= WebReverseSessionController.maxInterceptRules) {
+      return;
+    }
     final initial = index == null
         ? const WebReverseInterceptRule(urlPattern: '')
         : _rules[index];
@@ -3821,7 +3825,11 @@ class _InterceptRulesDialogState extends State<_InterceptRulesDialog> {
             ),
             actions: [
               TextButton.icon(
-                onPressed: () => _editRule(null),
+                onPressed:
+                    _rules.length >=
+                        WebReverseSessionController.maxInterceptRules
+                    ? null
+                    : () => _editRule(null),
                 icon: const Icon(Icons.add_rounded, size: 16),
                 label: Text(
                   openHandLocalizedText(
@@ -4074,6 +4082,7 @@ class _InterceptRuleEditorState extends State<_InterceptRuleEditor> {
             children: [
               TextField(
                 controller: _patternCtrl,
+                maxLength: WebReverseSessionController.maxBreakpointTextChars,
                 decoration: InputDecoration(
                   labelText: openHandLocalizedText(
                     context,
@@ -4120,6 +4129,7 @@ class _InterceptRuleEditorState extends State<_InterceptRuleEditor> {
               const SizedBox(height: 10),
               TextField(
                 controller: _replaceCtrl,
+                maxLength: WebReverseSessionController.maxBreakpointTextChars,
                 decoration: InputDecoration(
                   labelText: openHandLocalizedText(
                     context,
@@ -4136,6 +4146,7 @@ class _InterceptRuleEditorState extends State<_InterceptRuleEditor> {
               const SizedBox(height: 10),
               TextField(
                 controller: _headersCtrl,
+                maxLength: WebReverseSessionController.maxRuleHeadersChars,
                 maxLines: 5,
                 decoration: InputDecoration(
                   labelText: openHandLocalizedText(
