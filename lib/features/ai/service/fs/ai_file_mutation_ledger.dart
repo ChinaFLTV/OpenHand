@@ -799,14 +799,101 @@ class AiFileMutationLedger {
   }) async {
     final normalizedToolCallId = nullIfBlank(toolCallId);
     if (normalizedToolCallId == null) return const <FileMutationView>[];
+    final viewsByToolCall = await viewsForToolCalls(
+      sessionId: sessionId,
+      toolCallIds: <String>[normalizedToolCallId],
+    );
+    return viewsByToolCall[normalizedToolCallId] ?? const <FileMutationView>[];
+  }
+
+  /// Counts mutation records for the requested tool calls with one ledger
+  /// scan. IDs that have no records are omitted from the result.
+  Future<Map<String, int>> recordCountsForToolCalls({
+    required String sessionId,
+    required Iterable<String> toolCallIds,
+  }) async {
     final all = await recordsForSession(sessionId);
-    final undone = await _loadUndoneSet(sessionId);
+    if (all.isEmpty) return const <String, int>{};
+    final countsByToolCall = <String, int>{};
+    for (final record in all) {
+      final toolCallId = nullIfBlank(record.toolCallId);
+      if (toolCallId == null) continue;
+      countsByToolCall.update(
+        toolCallId,
+        (count) => count + 1,
+        ifAbsent: () => 1,
+      );
+    }
+    if (countsByToolCall.isEmpty) return const <String, int>{};
+
+    final requestedCounts = <String, int>{};
+    for (final rawToolCallId in toolCallIds) {
+      final toolCallId = nullIfBlank(rawToolCallId);
+      if (toolCallId == null || requestedCounts.containsKey(toolCallId)) {
+        continue;
+      }
+      final count = countsByToolCall[toolCallId];
+      if (count != null) requestedCounts[toolCallId] = count;
+    }
+    return Map<String, int>.unmodifiable(requestedCounts);
+  }
+
+  /// Builds mutation views for multiple tool calls with one ledger/state read.
+  /// Requested IDs and their views retain ledger order; IDs without records
+  /// are omitted. Line-delta work remains bounded by [_lineDeltaConcurrency].
+  Future<Map<String, List<FileMutationView>>> viewsForToolCalls({
+    required String sessionId,
+    required Iterable<String> toolCallIds,
+  }) async {
+    final all = await recordsForSession(sessionId);
+    if (all.isEmpty) return const <String, List<FileMutationView>>{};
+    final availableToolCallIds = <String>{
+      for (final record in all)
+        if (nullIfBlank(record.toolCallId) case final toolCallId?) toolCallId,
+    };
+    if (availableToolCallIds.isEmpty) {
+      return const <String, List<FileMutationView>>{};
+    }
+
+    final requestedToolCallIds = <String>[];
+    final requestedToolCallIdSet = <String>{};
+    for (final rawToolCallId in toolCallIds) {
+      final toolCallId = nullIfBlank(rawToolCallId);
+      if (toolCallId != null &&
+          availableToolCallIds.contains(toolCallId) &&
+          requestedToolCallIdSet.add(toolCallId)) {
+        requestedToolCallIds.add(toolCallId);
+      }
+    }
+    if (requestedToolCallIds.isEmpty) {
+      return const <String, List<FileMutationView>>{};
+    }
+
     final matching = all
-        .where((record) => record.toolCallId == normalizedToolCallId)
+        .where(
+          (record) =>
+              requestedToolCallIdSet.contains(nullIfBlank(record.toolCallId)),
+        )
         .toList(growable: false);
-    if (matching.isEmpty) return const <FileMutationView>[];
+    final undone = await _loadUndoneSet(sessionId);
     final undoStates = _buildUndoStates(all, undone);
-    return _buildViewsWithLineDeltas(matching, undoStates);
+    final views = await _buildViewsWithLineDeltas(matching, undoStates);
+    final mutableViewsByToolCall = <String, List<FileMutationView>>{
+      for (final toolCallId in requestedToolCallIds)
+        toolCallId: <FileMutationView>[],
+    };
+    for (final view in views) {
+      final toolCallId = nullIfBlank(view.record.toolCallId);
+      if (toolCallId != null) {
+        mutableViewsByToolCall[toolCallId]?.add(view);
+      }
+    }
+    return Map<String, List<FileMutationView>>.unmodifiable(
+      <String, List<FileMutationView>>{
+        for (final entry in mutableViewsByToolCall.entries)
+          entry.key: List<FileMutationView>.unmodifiable(entry.value),
+      },
+    );
   }
 
   Future<FileMutationView?> viewForRecord({

@@ -11,6 +11,7 @@
 /// 本模块的职责边界：
 /// * 查询候选会话（最近 7 天 + Hermes Talker 模板）。
 /// * 排除已有未完成 selfLearning 或正在学习中的会话。
+/// * 按稳定游标分批水合候选，避免历史增长导致单轮内存无上限。
 /// * 通过共享 FIFO 信号量限制最大并发数（默认 5）。
 /// * 收集每轮 tick 的统计结果 [SelfLearningTickResult]。
 ///
@@ -107,6 +108,8 @@ class SelfLearningScheduler {
   final int minMessagesRequired;
 
   OpenHandAsyncSemaphore _semaphore;
+  AiSessionTemplateCursor? _nextCandidateCursor;
+  Future<SelfLearningTickResult>? _tickInFlight;
 
   /// 调整并发度（例如在用户修改设置时调用）。
   /// 正在运行的任务不会被抢占，但新提交的任务会遵循新的上限。
@@ -122,7 +125,20 @@ class SelfLearningScheduler {
   /// 扫描候选会话并派发自我学习任务。
   ///
   /// 返回统计结果；无论个别会话成功与否，本方法都不会抛出异常。
-  Future<SelfLearningTickResult> tick() async {
+  Future<SelfLearningTickResult> tick() {
+    final active = _tickInFlight;
+    if (active != null) return active;
+    late final Future<SelfLearningTickResult> current;
+    current = _runTick().whenComplete(() {
+      if (identical(_tickInFlight, current)) {
+        _tickInFlight = null;
+      }
+    });
+    _tickInFlight = current;
+    return current;
+  }
+
+  Future<SelfLearningTickResult> _runTick() async {
     if (!settingsController.selfLearningEnabled) {
       return const SelfLearningTickResult(
         scanned: 0,
@@ -134,12 +150,22 @@ class SelfLearningScheduler {
 
     final cutoff = DateTime.now().toUtc().subtract(lookbackDuration);
 
-    List<AiSession> candidates;
+    AiSessionTemplatePage candidatePage;
     try {
-      candidates = await sessionStore.loadSessionsByTemplate(
+      final activeCursor = _nextCandidateCursor;
+      candidatePage = await sessionStore.loadSessionPageByTemplate(
         templateId: templateId,
         minCreatedAt: cutoff,
+        after: activeCursor,
       );
+      if (activeCursor != null &&
+          candidatePage.sessions.isEmpty &&
+          candidatePage.nextCursor == null) {
+        candidatePage = await sessionStore.loadSessionPageByTemplate(
+          templateId: templateId,
+          minCreatedAt: cutoff,
+        );
+      }
     } catch (_) {
       return const SelfLearningTickResult(
         scanned: 0,
@@ -148,6 +174,8 @@ class SelfLearningScheduler {
         errors: 1,
       );
     }
+    _nextCandidateCursor = candidatePage.nextCursor;
+    final candidates = candidatePage.sessions;
 
     int triggered = 0;
     int skipped = 0;

@@ -833,24 +833,53 @@ String encodeAiSessionToJsonlText({
   required AiSession session,
   AiSessionExportConfig config = AiSessionExportConfig.defaults,
 }) {
+  final buffer = StringBuffer();
+  for (final line in _encodeAiSessionJsonlLines(
+    session: session,
+    config: config,
+  )) {
+    buffer.writeln(line);
+  }
+  return buffer.toString();
+}
+
+/// Streams a session export one JSONL line at a time so Web responses do not
+/// retain a second full-session string while the client downloads it.
+Stream<List<int>> encodeAiSessionToJsonlByteStream({
+  required AiSession session,
+  AiSessionExportConfig config = AiSessionExportConfig.defaults,
+}) async* {
+  var emittedLines = 0;
+  for (final line in _encodeAiSessionJsonlLines(
+    session: session,
+    config: config,
+  )) {
+    yield utf8.encode('$line\n');
+    emittedLines += 1;
+    if (emittedLines % _flushEvery == 0) {
+      await _yieldToEventLoop();
+    }
+  }
+}
+
+Iterable<String> _encodeAiSessionJsonlLines({
+  required AiSession session,
+  required AiSessionExportConfig config,
+}) sync* {
   final selection = _selectAiSessionMessages(session: session, config: config);
   final exportedAt = DateTime.now().toUtc().toIso8601String();
-  final buffer = StringBuffer();
-  buffer.writeln(
-    _encodePayload(
-      _buildAiSessionHeaderPayload(
-        session: session,
-        fullMessages: selection.fullMessages,
-        messages: selection.messages,
-        config: config,
-        exportedAt: exportedAt,
-      ),
+  yield _encodePayload(
+    _buildAiSessionHeaderPayload(
+      session: session,
+      fullMessages: selection.fullMessages,
+      messages: selection.messages,
+      config: config,
+      exportedAt: exportedAt,
     ),
   );
   for (final selected in selection.messages) {
-    buffer.writeln(_encodePayload(_buildAiSessionMessagePayload(selected)));
+    yield _encodePayload(_buildAiSessionMessagePayload(selected));
   }
-  return buffer.toString();
 }
 
 String normalizeJsonlExportFilename(String input) {

@@ -3399,24 +3399,17 @@ class _RoundFileMutationSummaryCardState
       final ids = _toolCallIds;
       final rows = <_RoundSummaryRow>[];
       final seen = <String>{}; // (filePath|toolCallId) dedup
-      final entries = await Future.wait(
-        ids.map((tcId) async {
-          try {
-            final views = await ledger.viewsForToolCall(
-              sessionId: sessionId,
-              toolCallId: tcId,
-            );
-            return MapEntry<String, List<FileMutationView>>(tcId, views);
-          } catch (error, stack) {
-            silentLog('round_summary_card', 'viewsForToolCall', error, stack);
-            return MapEntry<String, List<FileMutationView>>(
-              tcId,
-              const <FileMutationView>[],
-            );
-          }
-        }),
-      );
-      for (final entry in entries) {
+      Map<String, List<FileMutationView>> viewsByToolCall;
+      try {
+        viewsByToolCall = await ledger.viewsForToolCalls(
+          sessionId: sessionId,
+          toolCallIds: ids,
+        );
+      } catch (error, stack) {
+        silentLog('round_summary_card', 'viewsForToolCalls', error, stack);
+        return const <_RoundSummaryRow>[];
+      }
+      for (final entry in viewsByToolCall.entries) {
         final tcId = entry.key;
         final views = entry.value;
         // 同 toolCall + 同文件 多次 ⇒ 取最后一条（最终态）。

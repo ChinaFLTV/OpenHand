@@ -160,6 +160,7 @@ import {
 import { WebReverseDashboardDialog } from '../../../components/WebReverseDashboardDialog';
 import { AndroidReverseDashboardDialog } from '../../../components/AndroidReverseDashboardDialog';
 import { copyTextToClipboard } from '../../../utils/clipboard';
+import { readResponseBlobBounded } from '../../../utils/bounded_response';
 import { buildSessionAssetUrl } from '../../../utils/session_asset';
 import { createTimedAbortController } from '../../../utils/timed_abort';
 import { PopMenu } from '../../../components/PopMenu';
@@ -6084,10 +6085,10 @@ export function SessionDetailPage() {
           signal: timed.controller.signal,
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const blob = await res.blob();
-        if (blob.size > attachmentMaxBytes) {
-          throw new Error(t('composer.attachment.tooLarge', '附件超过 ') + (attachmentMaxBytes / (1024 * 1024)).toFixed(0) + ' MiB');
-        }
+        const blob = await readResponseBlobBounded(res, {
+          maxBytes: attachmentMaxBytes,
+          signal: timed.controller.signal,
+        });
         if (restoredBytes + blob.size > attachmentMaxTotalBytes) {
           throw new Error(t('composer.error.attachmentTotalLimit', '单条消息附件总大小已达上限'));
         }
@@ -6105,7 +6106,7 @@ export function SessionDetailPage() {
       } catch {
         failed += 1;
       } finally {
-        timed.clear();
+        timed.dispose();
       }
     }
     if (!ownsSessionAsyncResult(requestSessionId) || editingDraftMessageRef.current?.id !== message.id) return;

@@ -7,7 +7,6 @@ import { isAbortError } from '../shared/util/errors';
 export interface TimedAbortController {
   controller: AbortController;
   timeoutMs: number;
-  clear: () => void;
   abort: () => void;
   dispose: () => void;
   readonly timedOut: boolean;
@@ -126,7 +125,6 @@ export function createTimedAbortController(
   return {
     controller,
     timeoutMs: effectiveTimeoutMs,
-    clear,
     abort,
     dispose,
     get timedOut() {

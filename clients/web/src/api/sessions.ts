@@ -18,6 +18,7 @@ import { jsonlExportPickerSuggestedName, normalizeJsonlExportFilename } from '..
 import { filenameFromContentDisposition, saveBlobWithPicker } from '../utils/save_blob';
 import { isAbortError } from '../shared/util/errors';
 import { createTimedAbortController } from '../utils/timed_abort';
+import { readResponseBlobBounded } from '../utils/bounded_response';
 
 export interface SessionTodoItem {
   id: string;
@@ -932,7 +933,8 @@ export interface ExportDownloadResult {
 }
 
 export const EXPORT_SESSION_TIMEOUT_ERROR = 'EXPORT_SESSION_TIMEOUT';
-const EXPORT_SESSION_TIMEOUT_MS = 15_000;
+const EXPORT_SESSION_TIMEOUT_MS = 120_000;
+const EXPORT_SESSION_MAX_BYTES = 256 * 1024 * 1024;
 
 export async function exportSessionDownload(
   sessionId: string,
@@ -946,30 +948,32 @@ export async function exportSessionDownload(
   const token = readToken();
   if (token) headers.Authorization = `Bearer ${token}`;
   const timed = createTimedAbortController(EXPORT_SESSION_TIMEOUT_MS);
-  let res: Response;
+  let filename = normalizeJsonlExportFilename(`${fallbackName}.jsonl`);
+  let blob: Blob;
   try {
-    res = await fetch(`/api/sessions/${encodeURIComponent(sessionId)}/export`, {
+    const res = await fetch(`/api/sessions/${encodeURIComponent(sessionId)}/export`, {
       method: 'GET',
       headers,
       credentials: 'same-origin',
       signal: timed.controller.signal,
     });
+    await throwIfApiResponseFailed(res);
+    const parsedFilename = filenameFromContentDisposition(res.headers.get('Content-Disposition'));
+    if (parsedFilename) {
+      filename = normalizeJsonlExportFilename(parsedFilename);
+    }
+    blob = await readResponseBlobBounded(res, {
+      maxBytes: EXPORT_SESSION_MAX_BYTES,
+      signal: timed.controller.signal,
+    });
   } catch (error) {
-    if (isAbortError(error)) {
+    if (timed.timedOut || isAbortError(error)) {
       throw new Error(EXPORT_SESSION_TIMEOUT_ERROR);
     }
     throw error;
   } finally {
-    timed.clear();
+    timed.dispose();
   }
-  await throwIfApiResponseFailed(res);
-  // 优先用响应里 Content-Disposition 的 filename；缺失时 fallback 到调用方给的名字。
-  let filename = normalizeJsonlExportFilename(`${fallbackName}.jsonl`);
-  const parsedFilename = filenameFromContentDisposition(res.headers.get('Content-Disposition'));
-  if (parsedFilename) {
-    filename = normalizeJsonlExportFilename(parsedFilename);
-  }
-  const blob = await res.blob();
   await saveBlobWithPicker(
     blob,
     filename,

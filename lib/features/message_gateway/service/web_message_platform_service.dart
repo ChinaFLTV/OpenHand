@@ -3643,7 +3643,6 @@ class WebMessagePlatformService {
       });
     }
     final exportSession = await _loadExportSessionSnapshot(session);
-    final bodyText = encodeAiSessionToJsonlText(session: exportSession);
     final safeTitle =
         (exportSession.title.isEmpty ? 'session' : exportSession.title)
             .replaceAll(RegExp(r'[^\w\u4e00-\u9fff\-\.]+'), '_');
@@ -3651,7 +3650,7 @@ class WebMessagePlatformService {
       '${safeTitle}_${exportSession.id}.jsonl',
     );
     return shelf.Response.ok(
-      bodyText,
+      encodeAiSessionToJsonlByteStream(session: exportSession),
       headers: <String, String>{
         HttpHeaders.contentTypeHeader: 'application/x-ndjson; charset=utf-8',
         'content-disposition': _attachmentContentDisposition(filename),

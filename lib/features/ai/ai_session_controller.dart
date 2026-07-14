@@ -9499,29 +9499,25 @@ class AiSessionController extends ChangeNotifier {
       }
     }
 
-    final mutationCounts = await Future.wait(
-      orderedToolCallIds.map((toolCallId) async {
-        try {
-          final views = await ledger.viewsForToolCall(
-            sessionId: session.id,
-            toolCallId: toolCallId,
-          );
-          return MapEntry<String, int>(toolCallId, views.length);
-        } catch (error, stack) {
-          silentLog(
-            'ai_session_controller',
-            '_maybeEmitRoundFileMutationSummary',
-            error,
-            stack,
-          );
-          return MapEntry<String, int>(toolCallId, 0);
-        }
-      }),
-    );
+    Map<String, int> mutationCounts;
+    try {
+      mutationCounts = await ledger.recordCountsForToolCalls(
+        sessionId: session.id,
+        toolCallIds: orderedToolCallIds,
+      );
+    } catch (error, stack) {
+      silentLog(
+        'ai_session_controller',
+        '_maybeEmitRoundFileMutationSummary',
+        error,
+        stack,
+      );
+      return null;
+    }
 
     final affectedToolCallIds = <String>[];
     var totalRecords = 0;
-    for (final entry in mutationCounts) {
+    for (final entry in mutationCounts.entries) {
       if (entry.value > 0) {
         affectedToolCallIds.add(entry.key);
         totalRecords += entry.value;

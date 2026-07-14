@@ -2,17 +2,18 @@
 //   GET /api/logs?offset=&limit= — 分页拉取（service 内存日志环；max 2000 / page）
 //   GET /api/logs/export         — 整包 JSON 下载（含 memory + disk 日志）
 
-import {
-  DEFAULT_API_REQUEST_TIMEOUT_MS,
-  apiRequest,
-  throwIfApiResponseFailed,
-} from './client';
+import { apiRequest, throwIfApiResponseFailed } from './client';
 import { readToken, ensureDeviceId } from '../state/storage';
 import { clientEnvironmentHeaders } from '../utils/client_env';
 import { downloadBlobWithAnchor } from '../utils/save_blob';
-import { createTimedAbortController } from '../utils/timed_abort';
+import {
+  OperationTimeoutError,
+  createTimedAbortController,
+} from '../utils/timed_abort';
+import { readResponseBlobBounded } from '../utils/bounded_response';
 
-const EXPORT_LOGS_TIMEOUT_MS = DEFAULT_API_REQUEST_TIMEOUT_MS;
+const EXPORT_LOGS_TIMEOUT_MS = 120_000;
+const EXPORT_LOGS_MAX_BYTES = 256 * 1024 * 1024;
 
 export interface LogEntry {
   id: number;
@@ -51,9 +52,9 @@ export function listLogs(options: ListLogsOptions = {}): Promise<ListLogsRespons
 export async function exportLogsBundle(): Promise<void> {
   const token = readToken();
   const timed = createTimedAbortController(EXPORT_LOGS_TIMEOUT_MS);
-  let res: Response;
+  let blob: Blob;
   try {
-    res = await fetch('/api/logs/export', {
+    const res = await fetch('/api/logs/export', {
       method: 'GET',
       headers: {
         'x-openhand-device-id': ensureDeviceId(),
@@ -62,10 +63,18 @@ export async function exportLogsBundle(): Promise<void> {
       },
       signal: timed.controller.signal,
     });
+    await throwIfApiResponseFailed(res);
+    blob = await readResponseBlobBounded(res, {
+      maxBytes: EXPORT_LOGS_MAX_BYTES,
+      signal: timed.controller.signal,
+    });
+  } catch (error) {
+    if (timed.timedOut) {
+      throw new OperationTimeoutError(timed.timeoutMs);
+    }
+    throw error;
   } finally {
-    timed.clear();
+    timed.dispose();
   }
-  await throwIfApiResponseFailed(res);
-  const blob = await res.blob();
   downloadBlobWithAnchor(blob, 'openhand-web-gateway-logs.json');
 }

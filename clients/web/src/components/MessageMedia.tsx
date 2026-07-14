@@ -23,6 +23,7 @@ import {
 } from '../utils/save_blob';
 import { buildSessionAssetUrl } from '../utils/session_asset';
 import { createTimedAbortController } from '../utils/timed_abort';
+import { readResponseBlobBounded } from '../utils/bounded_response';
 import {
   DIALOG_OVERLAY_TOP_Z_INDEX,
   DialogFrame,
@@ -64,6 +65,7 @@ const REMOTE_MEDIA_CACHE_MAX_BYTES: Record<MediaKind, number> = {
   video: 512 * 1024 * 1024,
   file: 0,
 };
+const MEDIA_FILE_DOWNLOAD_MAX_BYTES = 512 * 1024 * 1024;
 const PREVIEW_VIEWPORT_GAP = 16;
 const PREVIEW_CONTENT_PADDING = 12;
 const PREVIEW_HEADER_ESTIMATE = 66;
@@ -457,16 +459,31 @@ async function saveMediaAsset(item: MediaItem, url: string, signal?: AbortSignal
   if (!res.ok) {
     throw new Error(`HTTP ${res.status}`);
   }
-  const blob = await res.blob();
+  const blob = await readResponseBlobBounded(res, {
+    maxBytes: mediaDownloadMaxBytes(item.kind),
+    signal,
+  });
   await saveBlobWithPicker(blob, item.name, pickerTypesForMedia(item));
 }
 
-async function fetchMediaBlob(url: string, signal?: AbortSignal): Promise<Blob> {
+async function fetchMediaBlob(
+  item: MediaItem,
+  url: string,
+  signal?: AbortSignal,
+): Promise<Blob> {
   const res = await fetch(url, { credentials: 'same-origin', signal });
   if (!res.ok) {
     throw new Error(`HTTP ${res.status}`);
   }
-  return res.blob();
+  return readResponseBlobBounded(res, {
+    maxBytes: mediaDownloadMaxBytes(item.kind),
+    signal,
+  });
+}
+
+function mediaDownloadMaxBytes(kind: MediaKind): number {
+  const cacheLimit = REMOTE_MEDIA_CACHE_MAX_BYTES[kind];
+  return cacheLimit > 0 ? cacheLimit : MEDIA_FILE_DOWNLOAD_MAX_BYTES;
 }
 
 function mediaKindLabel(kind: MediaKind): string {
@@ -510,8 +527,12 @@ function isCacheableMediaResponse(item: MediaItem, response: Response): boolean 
 async function objectUrlFromCachedResponse(
   item: MediaItem,
   response: Response,
+  signal: AbortSignal,
 ): Promise<string | null> {
-  const blob = await response.blob();
+  const blob = await readResponseBlobBounded(response, {
+    maxBytes: REMOTE_MEDIA_CACHE_MAX_BYTES[item.kind],
+    signal,
+  });
   if (blob.size <= 0 || blob.size > REMOTE_MEDIA_CACHE_MAX_BYTES[item.kind]) {
     return null;
   }
@@ -527,14 +548,17 @@ async function resolveBrowserCachedMediaUrl(
   const cache = await window.caches.open(REMOTE_MEDIA_CACHE_NAME);
   const cached = await cache.match(url);
   if (cached) {
-    return objectUrlFromCachedResponse(item, cached);
+    return objectUrlFromCachedResponse(item, cached, signal);
   }
 
   const response = await fetch(url, { credentials: 'same-origin', signal });
   if (!response.ok || !isCacheableMediaResponse(item, response)) {
     return null;
   }
-  const blob = await response.blob();
+  const blob = await readResponseBlobBounded(response, {
+    maxBytes: REMOTE_MEDIA_CACHE_MAX_BYTES[item.kind],
+    signal,
+  });
   if (signal.aborted || blob.size <= 0 || blob.size > REMOTE_MEDIA_CACHE_MAX_BYTES[item.kind]) {
     return null;
   }
@@ -1237,7 +1261,7 @@ export function MediaPreviewDialog({ item, url, onClose }: MediaPreviewDialogPro
         { tone: 'error' },
       );
     } finally {
-      timed.clear();
+      timed.dispose();
       if (saveAbortRef.current === timed.controller) {
         saveAbortRef.current = null;
         if (!timed.controller.signal.aborted) setSaving(false);
@@ -1252,14 +1276,14 @@ export function MediaPreviewDialog({ item, url, onClose }: MediaPreviewDialogPro
     setCopying(true);
     let richCopied = false;
     try {
-      const blob = await fetchMediaBlob(url, timed.controller.signal);
+      const blob = await fetchMediaBlob(item, url, timed.controller.signal);
       if (!timed.controller.signal.aborted) {
         richCopied = await copyBlobToClipboard(blob);
       }
     } catch {
       richCopied = false;
     } finally {
-      timed.clear();
+      timed.dispose();
     }
     if (timed.controller.signal.aborted) {
       if (copyAbortRef.current === timed.controller) copyAbortRef.current = null;
@@ -1481,7 +1505,7 @@ export function MessageMedia({ message, sessionId, presentation = 'auto' }: Mess
       timedControllers.push(timed);
       resolveBrowserCachedMediaUrl(entry.item, entry.url, timed.controller.signal)
         .then((objectUrl) => {
-          timed.clear();
+          timed.dispose();
           if (!objectUrl) return;
           if (disposed) {
             revokeObjectUrlQuietly(objectUrl);
@@ -1499,7 +1523,7 @@ export function MessageMedia({ message, sessionId, presentation = 'auto' }: Mess
           ));
         })
         .catch(() => {
-          timed.clear();
+          timed.dispose();
         });
     }
     return () => {

@@ -52,6 +52,26 @@ class AiSessionMessagePage {
   final bool hasMore;
 }
 
+class AiSessionTemplateCursor {
+  const AiSessionTemplateCursor({
+    required this.createdAtText,
+    required this.sessionId,
+  });
+
+  final String createdAtText;
+  final String sessionId;
+}
+
+class AiSessionTemplatePage {
+  const AiSessionTemplatePage({
+    required this.sessions,
+    required this.nextCursor,
+  });
+
+  final List<AiSession> sessions;
+  final AiSessionTemplateCursor? nextCursor;
+}
+
 class AiSessionCompactMemorySidecar {
   const AiSessionCompactMemorySidecar({
     required this.markdownPath,
@@ -382,6 +402,8 @@ class AiSessionStore {
   static const int _kMessageBatchSize = 500;
   static const int _kMessageDecodeYieldBatchSize = 96;
   static const int _kSessionDecodeYieldBatchSize = 8;
+  static const int defaultTemplateSessionPageSize = 50;
+  static const int maxTemplateSessionPageSize = 200;
   static const int _kKnowledgeBaseAssociationBackwardScanLimit = 200;
   // 协作式解码的字节预算：仅按"条数"让步在首屏尾窗（≤24 条）下永不触发，
   // 一旦窗口里夹着大消息（长工具结果 / 大 metadata），整窗会在一帧内同步
@@ -803,30 +825,56 @@ class AiSessionStore {
         (usage is String ? usage.length : 0);
   }
 
-  /// Loads all sessions (with messages) that belong to the given [templateId]
-  /// AND whose `created_at` is on or after [minCreatedAt].
+  /// Loads a bounded, stable page of sessions (with messages) that belong to
+  /// [templateId] and whose `created_at` is on or after [minCreatedAt].
   ///
-  /// Ordered most-recently-updated first so the self-learning scheduler
-  /// prioritises active sessions when concurrency is capped.
-  Future<List<AiSession>> loadSessionsByTemplate({
+  /// Keyset pagination uses the immutable `created_at + id` pair so updates
+  /// performed by a scheduler cannot reorder rows underneath its next page.
+  Future<AiSessionTemplatePage> loadSessionPageByTemplate({
     required String templateId,
     required DateTime minCreatedAt,
+    AiSessionTemplateCursor? after,
+    int pageSize = defaultTemplateSessionPageSize,
   }) async {
+    final effectivePageSize = pageSize.clamp(1, maxTemplateSessionPageSize);
+    var where = 'template_id = ? AND created_at >= ?';
+    final whereArgs = <Object?>[
+      templateId,
+      minCreatedAt.toUtc().toIso8601String(),
+    ];
+    if (after != null) {
+      where += ' AND (created_at < ? OR (created_at = ? AND id < ?))';
+      whereArgs.addAll(<Object?>[
+        after.createdAtText,
+        after.createdAtText,
+        after.sessionId,
+      ]);
+    }
     final rows = await _db.query(
       'sessions',
-      where: 'template_id = ? AND created_at >= ?',
-      whereArgs: <Object?>[templateId, minCreatedAt.toUtc().toIso8601String()],
-      orderBy: _sessionsOrderBy,
+      where: where,
+      whereArgs: whereArgs,
+      orderBy: 'created_at DESC, id DESC',
+      limit: effectivePageSize + 1,
     );
-    if (rows.isEmpty) return const <AiSession>[];
+    if (rows.isEmpty) {
+      return const AiSessionTemplatePage(
+        sessions: <AiSession>[],
+        nextCursor: null,
+      );
+    }
+    final hasMore = rows.length > effectivePageSize;
+    final selectedRows = hasMore
+        ? rows.take(effectivePageSize).toList(growable: false)
+        : rows;
     // 同 loadAll：批量 IN (...) 拉取所有 session 的 messages，避免 N+1。
     final ids = <String>[
-      for (final row in rows)
+      for (final row in selectedRows)
         if (row['id'] is String) row['id'] as String,
     ];
     final messagesBySessionId = await _loadMessagesBySessionIds(ids);
     final sessions = <AiSession>[];
-    for (final row in rows) {
+    for (final row in selectedRows) {
       try {
         final sessionId = row['id'] as String;
         final messageRows =
@@ -845,7 +893,22 @@ class AiSessionStore {
         // persistence issues for the UI — the scheduler should stay silent.
       }
     }
-    return sessions;
+    AiSessionTemplateCursor? nextCursor;
+    if (hasMore && selectedRows.isNotEmpty) {
+      final lastRow = selectedRows.last;
+      final createdAtText = '${lastRow['created_at'] ?? ''}'.trim();
+      final sessionId = '${lastRow['id'] ?? ''}'.trim();
+      if (createdAtText.isNotEmpty && sessionId.isNotEmpty) {
+        nextCursor = AiSessionTemplateCursor(
+          createdAtText: createdAtText,
+          sessionId: sessionId,
+        );
+      }
+    }
+    return AiSessionTemplatePage(
+      sessions: List<AiSession>.unmodifiable(sessions),
+      nextCursor: nextCursor,
+    );
   }
 
   /// Loads a page of messages for a session (for lazy / paginated loading).
