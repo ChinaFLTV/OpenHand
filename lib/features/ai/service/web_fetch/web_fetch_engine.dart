@@ -4,6 +4,7 @@ import '../../../../shared/util/text_clip.dart';
 import '../../model/ai_model_config.dart';
 import '../../model/ai_web_fetch_settings.dart';
 import '../web_engine/web_engine_base.dart';
+import '../web_engine/web_engine_http_utils.dart';
 import '../web_engine/web_engine_value_parsing.dart';
 import 'web_fetch_scrapling_bridge.dart';
 
@@ -94,10 +95,12 @@ abstract class WebFetchEngine
           WebFetchEngineContent,
           WebFetchEngineRequest,
           WebFetchEngineResult
-        > {
+        >
+    with BoundedWebEngineHttpClient {
   WebFetchEngine({required this.config, required this.httpClient});
 
   final AiWebFetchEngineConfig config;
+  @override
   final http.Client httpClient;
 
   @override

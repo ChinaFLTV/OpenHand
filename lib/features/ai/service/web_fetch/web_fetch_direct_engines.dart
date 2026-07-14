@@ -6,8 +6,8 @@ import '../../../../app/support/silent_log.dart';
 import '../../../../shared/net/http_response_utils.dart';
 import '../../model/ai_web_fetch_settings.dart';
 import '../../tools/ai_tool_utils.dart';
+import '../web_engine/web_engine_http_utils.dart';
 import 'web_fetch_engine.dart';
-import 'web_fetch_http_utils.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 无 key 直连兜底引擎：duckduckgo / bing。
@@ -46,7 +46,7 @@ class WebFetchDirectHttpEngine extends WebFetchEngine {
       await _discardResponse(response.stream);
       throw WebEngineHttpException('${kind.name} HTTP $status');
     }
-    final boundedResponse = await collectBoundedWebFetchResponse(
+    final boundedResponse = await collectBoundedWebEngineResponse(
       response,
       responseTimeout: Duration(seconds: config.responseTimeoutSeconds),
     );

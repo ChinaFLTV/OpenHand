@@ -29,7 +29,8 @@ class WebSearchDuckDuckGoEngine extends WebSearchEngine {
   @override
   Future<List<WebSearchEngineHit>> fetch(WebSearchEngineRequest req) async {
     final uri = Uri.https('duckduckgo.com', '/html/', {'q': req.query});
-    final response = await httpClient.get(
+    final response = await sendWebEngineHttpRequest(
+      'GET',
       uri,
       headers: const {
         'user-agent':
@@ -107,7 +108,8 @@ class WebSearchBingEngine extends WebSearchEngine {
       'q': req.query,
       'form': 'QBLH',
     });
-    final response = await httpClient.get(
+    final response = await sendWebEngineHttpRequest(
+      'GET',
       uri,
       headers: const {
         'user-agent':
@@ -158,7 +160,8 @@ class WebSearchSearxngEngine extends WebSearchEngine {
     final uri = Uri.parse('$cleaned/search').replace(
       queryParameters: {'q': req.query, 'format': 'json', 'language': 'auto'},
     );
-    final response = await httpClient.get(
+    final response = await sendWebEngineHttpRequest(
+      'GET',
       uri,
       headers: const {'user-agent': 'OpenHand/1.0 (+websearch)'},
     );

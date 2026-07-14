@@ -5,8 +5,8 @@ import 'package:http/http.dart' as http;
 
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../model/ai_web_fetch_settings.dart';
+import '../web_engine/web_engine_http_utils.dart';
 import 'web_fetch_engine.dart';
-import 'web_fetch_http_utils.dart';
 import 'web_fetch_scrapling_bridge.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -40,7 +40,7 @@ class WebFetchFirecrawlEngine extends WebFetchEngine {
         'onlyMainContent': true,
         'timeout': 25000,
       });
-    final response = await sendBoundedWebFetchRequest(
+    final response = await sendBoundedWebEngineRequest(
       client: httpClient,
       request: request,
       connectionTimeout: Duration(seconds: config.connectionTimeoutSeconds),
@@ -147,7 +147,7 @@ class WebFetchJinaReaderEngine extends WebFetchEngine {
         'accept': 'text/markdown,text/plain,*/*;q=0.8',
         'user-agent': 'OpenHand-WebFetch/1.0',
       });
-    final response = await sendBoundedWebFetchRequest(
+    final response = await sendBoundedWebEngineRequest(
       client: httpClient,
       request: request,
       connectionTimeout: Duration(seconds: config.connectionTimeoutSeconds),
@@ -225,7 +225,7 @@ class WebFetchTavilyEngine extends WebFetchEngine {
             'urls': [req.url],
             'extract_depth': 'advanced',
           });
-    final response = await sendBoundedWebFetchRequest(
+    final response = await sendBoundedWebEngineRequest(
       client: httpClient,
       request: request,
       connectionTimeout: Duration(seconds: config.connectionTimeoutSeconds),
@@ -276,7 +276,7 @@ class WebFetchExaEngine extends WebFetchEngine {
             'text': {'maxCharacters': req.maxChars, 'includeHtmlTags': false},
             'livecrawl': 'always',
           });
-    final response = await sendBoundedWebFetchRequest(
+    final response = await sendBoundedWebEngineRequest(
       client: httpClient,
       request: request,
       connectionTimeout: Duration(seconds: config.connectionTimeoutSeconds),

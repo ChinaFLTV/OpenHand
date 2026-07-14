@@ -31,7 +31,8 @@ class WebFetchKimiEngine extends WebFetchEngine {
 
   @override
   Future<List<WebFetchEngineContent>> fetch(WebFetchEngineRequest req) async {
-    final response = await httpClient.post(
+    final response = await sendWebEngineHttpRequest(
+      'POST',
       Uri.parse('https://api.moonshot.cn/v1/chat/completions'),
       headers: {
         'authorization': 'Bearer $_key',
@@ -55,7 +56,7 @@ class WebFetchKimiEngine extends WebFetchEngine {
     );
     if (response.statusCode != 200) {
       throw WebEngineHttpException(
-        'Kimi ${response.statusCode}: ${response.body}',
+        'Kimi ${response.statusCode}: ${response.errorPreview()}',
       );
     }
     final body = decodeJsonObjectBytes(
@@ -94,7 +95,8 @@ class WebFetchBaiduEngine extends WebFetchEngine {
 
   @override
   Future<List<WebFetchEngineContent>> fetch(WebFetchEngineRequest req) async {
-    final response = await httpClient.post(
+    final response = await sendWebEngineHttpRequest(
+      'POST',
       Uri.parse('https://qianfan.baidubce.com/v2/ai_search'),
       headers: {
         'authorization': 'Bearer ${config.apiKey}',
@@ -112,7 +114,7 @@ class WebFetchBaiduEngine extends WebFetchEngine {
     );
     if (response.statusCode != 200) {
       throw WebEngineHttpException(
-        'Baidu ${response.statusCode}: ${response.body}',
+        'Baidu ${response.statusCode}: ${response.errorPreview()}',
       );
     }
     final body = decodeJsonObjectBytes(
@@ -145,7 +147,8 @@ class WebFetchLinkupEngine extends WebFetchEngine {
 
   @override
   Future<List<WebFetchEngineContent>> fetch(WebFetchEngineRequest req) async {
-    final response = await httpClient.post(
+    final response = await sendWebEngineHttpRequest(
+      'POST',
       Uri.parse('https://api.linkup.so/v1/search'),
       headers: {
         'authorization': 'Bearer ${config.apiKey}',
@@ -160,7 +163,7 @@ class WebFetchLinkupEngine extends WebFetchEngine {
     );
     if (response.statusCode != 200) {
       throw WebEngineHttpException(
-        'Linkup ${response.statusCode}: ${response.body}',
+        'Linkup ${response.statusCode}: ${response.errorPreview()}',
       );
     }
     final body = decodeJsonObjectBytes(
@@ -190,7 +193,8 @@ class WebFetchBochaEngine extends WebFetchEngine {
 
   @override
   Future<List<WebFetchEngineContent>> fetch(WebFetchEngineRequest req) async {
-    final response = await httpClient.post(
+    final response = await sendWebEngineHttpRequest(
+      'POST',
       Uri.parse('https://api.bochaai.com/v1/web-search'),
       headers: {
         'authorization': 'Bearer ${config.apiKey}',
@@ -200,7 +204,7 @@ class WebFetchBochaEngine extends WebFetchEngine {
     );
     if (response.statusCode != 200) {
       throw WebEngineHttpException(
-        'Bocha ${response.statusCode}: ${response.body}',
+        'Bocha ${response.statusCode}: ${response.errorPreview()}',
       );
     }
     final body = decodeJsonObjectBytes(
@@ -245,7 +249,8 @@ class WebFetchGrokEngine extends WebFetchEngine {
 
   @override
   Future<List<WebFetchEngineContent>> fetch(WebFetchEngineRequest req) async {
-    final response = await httpClient.post(
+    final response = await sendWebEngineHttpRequest(
+      'POST',
       Uri.parse('https://api.x.ai/v1/chat/completions'),
       headers: {
         'authorization': 'Bearer $_key',
@@ -273,7 +278,7 @@ class WebFetchGrokEngine extends WebFetchEngine {
     );
     if (response.statusCode != 200) {
       throw WebEngineHttpException(
-        'Grok ${response.statusCode}: ${response.body}',
+        'Grok ${response.statusCode}: ${response.errorPreview()}',
       );
     }
     final body = decodeJsonObjectBytes(
@@ -312,7 +317,8 @@ class WebFetchGeminiEngine extends WebFetchEngine {
       'https://generativelanguage.googleapis.com/v1beta/'
       'models/gemini-2.0-flash:generateContent?key=$_key',
     );
-    final response = await httpClient.post(
+    final response = await sendWebEngineHttpRequest(
+      'POST',
       uri,
       headers: const {'content-type': 'application/json'},
       body: jsonEncode({
@@ -330,7 +336,7 @@ class WebFetchGeminiEngine extends WebFetchEngine {
     );
     if (response.statusCode != 200) {
       throw WebEngineHttpException(
-        'Gemini ${response.statusCode}: ${response.body}',
+        'Gemini ${response.statusCode}: ${response.errorPreview()}',
       );
     }
     final body = decodeJsonObjectBytes(

@@ -26,7 +26,8 @@ class WebSearchTavilyEngine extends WebSearchEngine {
 
   @override
   Future<List<WebSearchEngineHit>> fetch(WebSearchEngineRequest req) async {
-    final response = await httpClient.post(
+    final response = await sendWebEngineHttpRequest(
+      'POST',
       Uri.parse('https://api.tavily.com/search'),
       headers: const {'content-type': 'application/json'},
       body: jsonEncode({
@@ -40,7 +41,7 @@ class WebSearchTavilyEngine extends WebSearchEngine {
     );
     if (response.statusCode != 200) {
       throw WebEngineHttpException(
-        'Tavily ${response.statusCode}: ${response.body}',
+        'Tavily ${response.statusCode}: ${response.errorPreview()}',
       );
     }
     final body = decodeJsonObjectBytes(
@@ -72,7 +73,8 @@ class WebSearchExaEngine extends WebSearchEngine {
 
   @override
   Future<List<WebSearchEngineHit>> fetch(WebSearchEngineRequest req) async {
-    final response = await httpClient.post(
+    final response = await sendWebEngineHttpRequest(
+      'POST',
       Uri.parse('https://api.exa.ai/search'),
       headers: {
         'content-type': 'application/json',
@@ -89,7 +91,7 @@ class WebSearchExaEngine extends WebSearchEngine {
     );
     if (response.statusCode != 200) {
       throw WebEngineHttpException(
-        'Exa ${response.statusCode}: ${response.body}',
+        'Exa ${response.statusCode}: ${response.errorPreview()}',
       );
     }
     final body = decodeJsonObjectBytes(
@@ -123,7 +125,8 @@ class WebSearchLinkupEngine extends WebSearchEngine {
 
   @override
   Future<List<WebSearchEngineHit>> fetch(WebSearchEngineRequest req) async {
-    final response = await httpClient.post(
+    final response = await sendWebEngineHttpRequest(
+      'POST',
       Uri.parse('https://api.linkup.so/v1/search'),
       headers: {
         'authorization': 'Bearer ${config.apiKey}',
@@ -137,7 +140,7 @@ class WebSearchLinkupEngine extends WebSearchEngine {
     );
     if (response.statusCode != 200) {
       throw WebEngineHttpException(
-        'Linkup ${response.statusCode}: ${response.body}',
+        'Linkup ${response.statusCode}: ${response.errorPreview()}',
       );
     }
     final body = decodeJsonObjectBytes(
@@ -169,7 +172,8 @@ class WebSearchBochaEngine extends WebSearchEngine {
 
   @override
   Future<List<WebSearchEngineHit>> fetch(WebSearchEngineRequest req) async {
-    final response = await httpClient.post(
+    final response = await sendWebEngineHttpRequest(
+      'POST',
       Uri.parse('https://api.bochaai.com/v1/web-search'),
       headers: {
         'authorization': 'Bearer ${config.apiKey}',
@@ -183,7 +187,7 @@ class WebSearchBochaEngine extends WebSearchEngine {
     );
     if (response.statusCode != 200) {
       throw WebEngineHttpException(
-        'Bocha ${response.statusCode}: ${response.body}',
+        'Bocha ${response.statusCode}: ${response.errorPreview()}',
       );
     }
     final body = decodeJsonObjectBytes(
@@ -218,7 +222,8 @@ class WebSearchBaiduEngine extends WebSearchEngine {
 
   @override
   Future<List<WebSearchEngineHit>> fetch(WebSearchEngineRequest req) async {
-    final response = await httpClient.post(
+    final response = await sendWebEngineHttpRequest(
+      'POST',
       Uri.parse('https://qianfan.baidubce.com/v2/ai_search'),
       headers: {
         'authorization': 'Bearer ${config.apiKey}',
@@ -236,7 +241,7 @@ class WebSearchBaiduEngine extends WebSearchEngine {
     );
     if (response.statusCode != 200) {
       throw WebEngineHttpException(
-        'Baidu ${response.statusCode}: ${response.body}',
+        'Baidu ${response.statusCode}: ${response.errorPreview()}',
       );
     }
     final body = decodeJsonObjectBytes(
@@ -286,7 +291,8 @@ class WebSearchKimiEngine extends WebSearchEngine {
   Future<List<WebSearchEngineHit>> fetch(WebSearchEngineRequest req) async {
     // 通过 Moonshot chat completions + 内置 web_search tool 拉取结果
     // （Moonshot 的工具响应会塞在 message.references 数组里）
-    final response = await httpClient.post(
+    final response = await sendWebEngineHttpRequest(
+      'POST',
       Uri.parse('https://api.moonshot.cn/v1/chat/completions'),
       headers: {
         'authorization': 'Bearer $_key',
@@ -307,7 +313,7 @@ class WebSearchKimiEngine extends WebSearchEngine {
     );
     if (response.statusCode != 200) {
       throw WebEngineHttpException(
-        'Kimi ${response.statusCode}: ${response.body}',
+        'Kimi ${response.statusCode}: ${response.errorPreview()}',
       );
     }
     final body = decodeJsonObjectBytes(

@@ -34,7 +34,8 @@ class WebSearchGrokEngine extends WebSearchEngine {
 
   @override
   Future<List<WebSearchEngineHit>> fetch(WebSearchEngineRequest req) async {
-    final response = await httpClient.post(
+    final response = await sendWebEngineHttpRequest(
+      'POST',
       Uri.parse('https://api.x.ai/v1/chat/completions'),
       headers: {
         'authorization': 'Bearer $_key',
@@ -59,7 +60,7 @@ class WebSearchGrokEngine extends WebSearchEngine {
     );
     if (response.statusCode != 200) {
       throw WebEngineHttpException(
-        'Grok ${response.statusCode}: ${response.body}',
+        'Grok ${response.statusCode}: ${response.errorPreview()}',
       );
     }
     final body = decodeJsonObjectBytes(
@@ -119,7 +120,8 @@ class WebSearchGeminiEngine extends WebSearchEngine {
       'https://generativelanguage.googleapis.com/v1beta/'
       'models/gemini-2.0-flash:generateContent?key=$_key',
     );
-    final response = await httpClient.post(
+    final response = await sendWebEngineHttpRequest(
+      'POST',
       uri,
       headers: const {'content-type': 'application/json'},
       body: jsonEncode({
@@ -137,7 +139,7 @@ class WebSearchGeminiEngine extends WebSearchEngine {
     );
     if (response.statusCode != 200) {
       throw WebEngineHttpException(
-        'Gemini ${response.statusCode}: ${response.body}',
+        'Gemini ${response.statusCode}: ${response.errorPreview()}',
       );
     }
     final body = decodeJsonObjectBytes(
