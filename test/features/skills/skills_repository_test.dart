@@ -64,4 +64,37 @@ description: $name description
       expect(skills.map((skill) => skill.name), <String>['Healthy']);
     },
   );
+
+  test('directory import copies a complete external skill', () async {
+    final sourceDirectory = await Directory.systemTemp.createTemp(
+      'openhand-external-skill-',
+    );
+    try {
+      await File('${sourceDirectory.path}/SKILL.md').writeAsString('''
+---
+name: Imported
+description: Imported description
+---
+
+# Imported
+''');
+      final assetDirectory = Directory('${sourceDirectory.path}/assets');
+      await assetDirectory.create();
+      await File('${assetDirectory.path}/example.txt').writeAsString('example');
+
+      final skill = await SkillsRepository().importSkillDirectory(
+        storageDirectory.path,
+        sourceDirectory.path,
+      );
+
+      expect(skill.name, 'Imported');
+      expect(await File('${skill.directoryPath}/SKILL.md').exists(), isTrue);
+      expect(
+        await File('${skill.directoryPath}/assets/example.txt').readAsString(),
+        'example',
+      );
+    } finally {
+      await sourceDirectory.delete(recursive: true);
+    }
+  });
 }

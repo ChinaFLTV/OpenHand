@@ -28,21 +28,23 @@ void main() {
     final temporaryDirectory = await Directory.systemTemp.createTemp(
       'openhand-machine-terminal-',
     );
-    final service = MachineTerminalService(
+    final services = <MachineTerminalService>[];
+    final firstService = MachineTerminalService(
       sessionsDirectoryPath: temporaryDirectory.path,
     );
+    services.add(firstService);
     addTearDown(() async {
-      await service.shutdown();
-      service.dispose();
+      for (final service in services) {
+        await service.shutdown();
+        service.dispose();
+      }
       await temporaryDirectory.delete(recursive: true);
     });
 
-    service.ensureWorkspace(sessionId: 'session', start: false);
-    final terminal = await service.newTerminal(
-      sessionId: 'session',
-      start: false,
-    );
-    await Future<void>.delayed(const Duration(milliseconds: 800));
+    firstService.ensureWorkspace(sessionId: 'session', start: false);
+    await firstService.newTerminal(sessionId: 'session', start: false);
+    await firstService.shutdown();
+    firstService.dispose();
     final historyFile = File(
       p.join(
         temporaryDirectory.path,
@@ -51,11 +53,24 @@ void main() {
       ),
     );
     expect(await historyFile.exists(), isTrue);
-    final firstModified = (await historyFile.stat()).modified;
+    final sentinelModified = DateTime.utc(2001, 2, 3, 4, 5, 6);
+    await historyFile.setLastModified(sentinelModified);
+    final storedSentinelModified = (await historyFile.stat()).modified;
 
-    await service.selectTerminal(sessionId: 'session', terminalId: terminal.id);
-    await Future<void>.delayed(const Duration(milliseconds: 800));
+    final restoredService = MachineTerminalService(
+      sessionsDirectoryPath: temporaryDirectory.path,
+    );
+    services.add(restoredService);
+    final restored = restoredService.ensureWorkspace(
+      sessionId: 'session',
+      start: false,
+    );
+    await restoredService.selectTerminal(
+      sessionId: 'session',
+      terminalId: restored.activeTerminalId,
+    );
+    await restoredService.shutdown();
 
-    expect((await historyFile.stat()).modified, firstModified);
+    expect((await historyFile.stat()).modified, storedSentinelModified);
   });
 }

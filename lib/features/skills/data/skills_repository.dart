@@ -11,6 +11,7 @@ import 'package:yaml/yaml.dart';
 import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../shared/db/atomic_file_operations.dart';
+import '../../../shared/util/bounded_copy.dart';
 import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/directory_cleanup.dart';
@@ -37,6 +38,12 @@ class SkillsRepository {
   static const Duration _skillScanTotalTimeout = Duration(seconds: 20);
   static const int _maxMetadataBytes = 512 * kBytesPerKiB;
   static const int _maxOptionalAssetBytes = 32 * kBytesPerMiB;
+  static const BoundedCopyPolicy _directoryImportCopyPolicy = BoundedCopyPolicy(
+    maxEntries: _maxArchiveEntries,
+    maxBytes: _maxExtractedArchiveBytes,
+    maxDepth: _maxSkillScanDepth,
+    totalTimeout: Duration(minutes: 1),
+  );
   static final RegExp _whitespacePattern = RegExp(r'\s+');
   static final RegExp _windowsDrivePrefixPattern = RegExp(r'^[a-zA-Z]:');
   static final RegExp _titleSegmentSeparatorPattern = RegExp(r'[-_]+');
@@ -206,7 +213,12 @@ class SkillsRepository {
       preferredSlug: _slugify(OpenHandPaths.basename(sourceDirectory.path)),
     );
     try {
-      await _copyDirectory(sourceDirectory, targetDirectory);
+      await copyDirectoryBounded(
+        sourceDirectory,
+        targetDirectory,
+        policy: _directoryImportCopyPolicy,
+        allowExistingEmptyTarget: true,
+      );
       return _parseSkill(
         File(p.join(targetDirectory.path, _manifestFileName)),
         storagePath,
@@ -950,24 +962,6 @@ class SkillsRepository {
     throw const FileSystemException(
       'Unable to allocate a new skill directory.',
     );
-  }
-
-  Future<void> _copyDirectory(Directory source, Directory target) async {
-    await for (final entity in source.list(followLinks: false)) {
-      final targetPath = p.join(
-        target.path,
-        OpenHandPaths.basename(entity.path),
-      );
-      if (entity is Directory) {
-        final childDirectory = Directory(targetPath);
-        await childDirectory.create(recursive: true);
-        await _copyDirectory(entity, childDirectory);
-        continue;
-      }
-      if (entity is File) {
-        await entity.copy(targetPath);
-      }
-    }
   }
 
   Future<void> _extractSkillArchive(

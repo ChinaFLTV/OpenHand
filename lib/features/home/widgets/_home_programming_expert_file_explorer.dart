@@ -16,6 +16,14 @@ const int _kFileExplorerPopupEntryLimit = 500;
 const int _kFileExplorerSearchEntryLimit = 20000;
 const int _kProgrammingExplorerMaxEditableFileBytes = 2 * 1024 * 1024;
 const int _kProgrammingExplorerLspPreviewMaxBytes = 4 * 1024 * 1024;
+const BoundedCopyPolicy _kProgrammingExplorerCopyPolicy = BoundedCopyPolicy(
+  maxEntries: 100000,
+  maxBytes: 4 * kBytesPerGiB,
+  maxDepth: 128,
+  directoryIdleTimeout: Duration(seconds: 5),
+  operationTimeout: Duration(minutes: 2),
+  totalTimeout: Duration(minutes: 5),
+);
 
 class _DirectoryScanBudget {
   _DirectoryScanBudget(this.remaining);
@@ -722,40 +730,89 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
     final targetDir = node.isDirectory ? node.path : p.dirname(node.path);
     final name = p.basename(sourcePath);
     final targetPath = p.join(targetDir, name);
-    if (targetPath == sourcePath) return;
+    if (p.equals(p.normalize(targetPath), p.normalize(sourcePath))) return;
     try {
-      final sourceEntity = FileSystemEntity.typeSync(sourcePath);
+      final sourceEntity = await FileSystemEntity.type(
+        sourcePath,
+        followLinks: false,
+      ).timeout(_kProgrammingExplorerCopyPolicy.operationTimeout);
       if (sourceEntity == FileSystemEntityType.notFound) return;
+      if (sourceEntity != FileSystemEntityType.directory &&
+          sourceEntity != FileSystemEntityType.file) {
+        throw FileSystemException(
+          'Only regular files and directories can be pasted.',
+          sourcePath,
+        );
+      }
+      if (sourceEntity == FileSystemEntityType.directory &&
+          p.isWithin(p.normalize(sourcePath), p.normalize(targetPath))) {
+        throw FileSystemException(
+          'A directory cannot be pasted into itself.',
+          targetPath,
+        );
+      }
+      if (sourceEntity == FileSystemEntityType.directory &&
+          _clipboardIsCut &&
+          await isPhysicalPathWithinOrEqual(
+            sourcePath,
+            targetPath,
+          ).timeout(_kProgrammingExplorerCopyPolicy.operationTimeout)) {
+        throw FileSystemException(
+          'A directory cannot be moved into itself.',
+          targetPath,
+        );
+      }
+      if (await FileSystemEntity.type(
+            targetPath,
+            followLinks: false,
+          ).timeout(_kProgrammingExplorerCopyPolicy.operationTimeout) !=
+          FileSystemEntityType.notFound) {
+        throw FileSystemException('Paste target already exists.', targetPath);
+      }
       if (_clipboardIsCut) {
         if (sourceEntity == FileSystemEntityType.directory) {
-          await Directory(sourcePath).rename(targetPath);
+          await Directory(sourcePath)
+              .rename(targetPath)
+              .timeout(_kProgrammingExplorerCopyPolicy.operationTimeout);
         } else {
-          await File(sourcePath).rename(targetPath);
+          await File(sourcePath)
+              .rename(targetPath)
+              .timeout(_kProgrammingExplorerCopyPolicy.operationTimeout);
         }
         _clipboardPath = null;
         _clipboardIsCut = false;
       } else {
         if (sourceEntity == FileSystemEntityType.directory) {
-          await _copyDirectory(Directory(sourcePath), Directory(targetPath));
+          await copyDirectoryBounded(
+            Directory(sourcePath),
+            Directory(targetPath),
+            policy: _kProgrammingExplorerCopyPolicy,
+          );
         } else {
-          await File(sourcePath).copy(targetPath);
+          await copyFileBounded(
+            File(sourcePath),
+            File(targetPath),
+            policy: _kProgrammingExplorerCopyPolicy,
+          );
         }
       }
       await _refreshRoot();
     } catch (error, stack) {
       silentLog('file_explorer', 'paste node', error, stack);
-    }
-  }
-
-  Future<void> _copyDirectory(Directory source, Directory target) async {
-    await target.create(recursive: true);
-    await for (final entity in source.list()) {
-      final name = p.basename(entity.path);
-      if (entity is Directory) {
-        await _copyDirectory(entity, Directory(p.join(target.path, name)));
-      } else if (entity is File) {
-        await entity.copy(p.join(target.path, name));
-      }
+      if (!mounted) return;
+      showHomeErrorSnack(
+        context,
+        openHandLocalizedText(
+          context,
+          zh: '粘贴失败：$error',
+          zhHant: '貼上失敗：$error',
+          en: 'Paste failed: $error',
+          fr: 'Échec du collage : $error',
+          de: 'Einfügen fehlgeschlagen: $error',
+          ja: '貼り付けに失敗しました: $error',
+        ),
+        maxLines: 3,
+      );
     }
   }
 
