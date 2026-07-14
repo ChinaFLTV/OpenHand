@@ -27,6 +27,7 @@ import '../../shared/util/bounded_file_io.dart';
 import '../../shared/util/directory_cleanup.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/stable_hash.dart';
+import '../../shared/util/text_clip.dart';
 import '../../shared/util/text_normalization.dart';
 import '../../shared/util/timer_safety.dart';
 import '../agents/agents_controller.dart';
@@ -418,6 +419,10 @@ class AiSessionController extends ChangeNotifier {
   static const Duration _autoTitleRetryWaitTimeout = Duration(seconds: 45);
   static const Duration _autoTitleRetryPollInterval = Duration(
     milliseconds: 250,
+  );
+  static const int _transientModelRequestMaxRetries = 1;
+  static const Duration _transientModelRequestRetryDelay = Duration(
+    milliseconds: 500,
   );
   static const Duration _streamPreviewThrottle = Duration(milliseconds: 72);
   static const Duration _reasoningStreamPreviewThrottle = Duration(
@@ -6574,6 +6579,37 @@ class AiSessionController extends ChangeNotifier {
     );
     var toolRoundCount = 0;
     var toolCallCount = 0;
+    var transientModelRequestRetryCount = 0;
+    Future<bool> retryTransientModelRequest(
+      Object error, {
+      required bool inputCacheEnabled,
+    }) async {
+      if (!inputCacheEnabled ||
+          transientModelRequestRetryCount >= _transientModelRequestMaxRetries ||
+          _isStopRequestedForSession(workingSession.id) ||
+          !AiTransportDiagnosticMessages.isRetryableTransportError(error)) {
+        return false;
+      }
+      transientModelRequestRetryCount += 1;
+      workingSession = _recordTransientModelRequestRetry(
+        session: workingSession,
+        messageId: activeRoundAnchorMessageId,
+        error: error,
+        attempt: transientModelRequestRetryCount,
+      );
+      _previewSession(workingSession);
+      final stopSignal = _stopSignalForSession(workingSession.id);
+      if (stopSignal == null) {
+        await Future<void>.delayed(_transientModelRequestRetryDelay);
+      } else {
+        await Future.any<void>(<Future<void>>[
+          Future<void>.delayed(_transientModelRequestRetryDelay),
+          stopSignal,
+        ]);
+      }
+      return !_isStopRequestedForSession(workingSession.id);
+    }
+
     final singleRoundToolCallLimit = math.max(
       1,
       runtimeContext.singleRoundToolCallLimit,
@@ -6622,6 +6658,7 @@ class AiSessionController extends ChangeNotifier {
         memoryEntries: runtimeContext.memoryEntries,
         sessionMessages: sessionMessagesForPrompt,
         latestUserMessageId: activeLatestUserMessageId,
+        runtimeContextAnchorMessageId: activeRoundAnchorMessageId,
         availableTools: toolsForRound,
         resolvedToolsByName: toolCatalogForRound.toolsByName,
         mcpServerInstructionsByName:
@@ -6638,15 +6675,14 @@ class AiSessionController extends ChangeNotifier {
       var preStreamTelemetryPreviewed = false;
       final telemetryAnchorMessageId =
           activeLatestUserMessageId ?? activeRoundAnchorMessageId;
-      if (activeLatestUserMessageId != null) {
-        final reminderSession =
-            _applyPromptInlinedRuntimeRemindersToUserMessage(
-              session: workingSession,
-              promptResult: promptResult,
-              userMessageId: activeLatestUserMessageId,
-            );
-        if (!identical(reminderSession, workingSession)) {
-          workingSession = reminderSession;
+      if (telemetryAnchorMessageId != null) {
+        final snapshottedSession = _applyPromptRuntimeTailSnapshotToMessage(
+          session: workingSession,
+          promptResult: promptResult,
+          messageId: telemetryAnchorMessageId,
+        );
+        if (!identical(snapshottedSession, workingSession)) {
+          workingSession = snapshottedSession;
           _previewSession(workingSession);
         }
       }
@@ -6739,6 +6775,15 @@ class AiSessionController extends ChangeNotifier {
           onRequestStarted: previewRequestStartTelemetry,
         );
       } catch (error) {
+        if (_isStopRequestedForSession(workingSession.id)) {
+          return true;
+        }
+        if (await retryTransientModelRequest(
+          error,
+          inputCacheEnabled: inputCachePolicy.stablePromptPrefixEnabled,
+        )) {
+          continue;
+        }
         if (_isStopRequestedForSession(workingSession.id)) {
           return true;
         }
@@ -7557,6 +7602,25 @@ class AiSessionController extends ChangeNotifier {
         materializePendingReasoningPreview();
         streamedSession = setReasoningStreamingState(streamedSession, false);
         flushPreview();
+        final hasObservableModelOutput =
+            assistantRawBuffer.isNotEmpty ||
+            reasoningRawBuffer.isNotEmpty ||
+            assistantMessageId != null ||
+            reasoningMessageId != null ||
+            toolCallMessageIds.isNotEmpty ||
+            streamedUsage != null;
+        if (!hasObservableModelOutput) {
+          workingSession = streamedSession;
+          if (await retryTransientModelRequest(
+            error,
+            inputCacheEnabled: inputCachePolicy.stablePromptPrefixEnabled,
+          )) {
+            continue;
+          }
+          if (_isStopRequestedForSession(workingSession.id)) {
+            return true;
+          }
+        }
         await _emitStopFailureHook(
           sessionId: workingSession.id,
           stage: 'chat_stream',
@@ -7587,6 +7651,7 @@ class AiSessionController extends ChangeNotifier {
         notifyListeners();
         return false;
       }
+      transientModelRequestRetryCount = 0;
       _setSessionCancelHandler(workingSession.id, null);
       var didCancelStreamEarly =
           result.wasCancelled || _isStopRequestedForSession(workingSession.id);
@@ -13243,6 +13308,35 @@ $tail''';
     );
   }
 
+  AiSession _recordTransientModelRequestRetry({
+    required AiSession session,
+    required String? messageId,
+    required Object error,
+    required int attempt,
+  }) {
+    final normalizedMessageId = messageId?.trim() ?? '';
+    if (normalizedMessageId.isEmpty) return session;
+    final updatedMessages = List<AiSessionMessage>.from(session.messages);
+    final index = updatedMessages.indexWhere(
+      (message) => message.id == normalizedMessageId,
+    );
+    if (index < 0) return session;
+    final message = updatedMessages[index];
+    final retriedAt = _clock().toUtc();
+    updatedMessages[index] = message.copyWith(
+      metadata: <String, Object?>{
+        ...message.metadata,
+        'transient_model_request_retry_count': attempt,
+        'transient_model_request_retry_last_error': clipTextWithEllipsis(
+          '$error'.trim(),
+          1200,
+        ),
+        'transient_model_request_retry_last_at': retriedAt.toIso8601String(),
+      },
+    );
+    return session.copyWith(messages: updatedMessages, updatedAt: retriedAt);
+  }
+
   Map<String, Object?> _buildRequestStartTelemetryMetadata({
     required AiChatRequestTelemetry telemetry,
     required AiSessionRuntimeContext runtimeContext,
@@ -13654,6 +13748,11 @@ $tail''';
       'tool_result_prompt_head_tail_chars',
       'dynamic_session_state_delivery',
       'prompt_assembly_layout',
+      'runtime_tail_anchor_message_id',
+      'runtime_tail_snapshot_reused',
+      'runtime_tail_replayed_from_history',
+      'runtime_tail_snapshot_turn_count',
+      'runtime_tail_snapshot_character_count',
       'cache_affinity_key_scope',
       'stable_prefix_hash',
       'previous_stable_prefix_hash',
@@ -13704,34 +13803,30 @@ $tail''';
     return index;
   }
 
-  AiSession _applyPromptInlinedRuntimeRemindersToUserMessage({
+  AiSession _applyPromptRuntimeTailSnapshotToMessage({
     required AiSession session,
     required AiPromptBuildResult promptResult,
-    required String userMessageId,
+    required String messageId,
   }) {
-    if (userMessageId.isEmpty) return session;
-    final reminders = _readStringList(
-      promptResult.metadata['latest_user_inlined_runtime_system_reminders'],
-    );
-    if (reminders.isEmpty) return session;
+    if (messageId.isEmpty) return session;
+    final rawSnapshot =
+        promptResult.metadata[aiPromptRuntimeTailSnapshotMetadataKey];
+    if (rawSnapshot is! List) return session;
+    final snapshot = rawSnapshot
+        .whereType<Map>()
+        .map(stringKeyedMapFromValue)
+        .map(Map<String, Object?>.unmodifiable)
+        .toList(growable: false);
+    if (snapshot.length != rawSnapshot.length) return session;
     final updatedMessages = <AiSessionMessage>[];
     var changed = false;
     for (final message in session.messages) {
-      if (message.id != userMessageId) {
+      if (message.id != messageId) {
         updatedMessages.add(message);
         continue;
       }
-      final existing = _readStringList(
-        message.metadata[aiHookSystemRemindersMetadataKey],
-      );
-      final merged = <String>[...existing];
-      final seen = existing.toSet();
-      for (final reminder in reminders) {
-        if (seen.add(reminder)) {
-          merged.add(reminder);
-        }
-      }
-      if (merged.length == existing.length) {
+      final existing = message.metadata[aiPromptRuntimeTailSnapshotMetadataKey];
+      if (_runtimeTailSnapshotMatches(existing, snapshot)) {
         updatedMessages.add(message);
         continue;
       }
@@ -13739,7 +13834,7 @@ $tail''';
         message.copyWith(
           metadata: <String, Object?>{
             ...message.metadata,
-            aiHookSystemRemindersMetadataKey: merged,
+            aiPromptRuntimeTailSnapshotMetadataKey: snapshot,
           },
         ),
       );
@@ -13750,6 +13845,24 @@ $tail''';
       messages: updatedMessages,
       updatedAt: _clock().toUtc(),
     );
+  }
+
+  bool _runtimeTailSnapshotMatches(
+    Object? existing,
+    List<Map<String, Object?>> snapshot,
+  ) {
+    if (existing is! List || existing.length != snapshot.length) return false;
+    for (var index = 0; index < snapshot.length; index += 1) {
+      final current = existing[index];
+      if (current is! Map) return false;
+      final currentMap = stringKeyedMapFromValue(current);
+      final expected = snapshot[index];
+      if (currentMap['role'] != expected['role'] ||
+          currentMap['content'] != expected['content']) {
+        return false;
+      }
+    }
+    return true;
   }
 
   /// Phase-1 (pre-stream) telemetry: attaches the composed prompt, prompt

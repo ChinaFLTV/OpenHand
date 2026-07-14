@@ -754,6 +754,7 @@ enum AiPromptCacheAffinityKind {
   grokConversationHeader('grok_conversation_header'),
   openRouterSession('openrouter_session'),
   openAiPromptCacheKey('openai_prompt_cache_key'),
+  openAiCompatibleGateway('openai_compatible_gateway'),
   grokCompatibleGateway('grok_compatible_gateway');
 
   const AiPromptCacheAffinityKind(this.storageValue);
@@ -799,6 +800,7 @@ class AiPromptCacheAffinity {
     return switch (kind) {
       AiPromptCacheAffinityKind.openAiPromptCacheKey =>
         _bodyPromptCacheKey.isNotEmpty,
+      AiPromptCacheAffinityKind.openAiCompatibleGateway ||
       AiPromptCacheAffinityKind.grokCompatibleGateway =>
         id.isNotEmpty || _bodyPromptCacheKey.isNotEmpty,
       AiPromptCacheAffinityKind.openRouterSession ||
@@ -841,12 +843,14 @@ class AiPromptCacheAffinity {
     if (_modelIdLooksLikeGrok(model.modelId)) {
       return AiPromptCacheAffinityKind.grokCompatibleGateway;
     }
-    if (model.providerKind == AiProviderKind.openai ||
-        _isOpenAiEndpoint(model.baseUrl)) {
+    if (_isOpenAiEndpoint(model.baseUrl)) {
       return AiPromptCacheAffinityKind.openAiPromptCacheKey;
     }
+    if (model.providerKind == AiProviderKind.openai) {
+      return AiPromptCacheAffinityKind.openAiCompatibleGateway;
+    }
     if (_usesRemoteOpenAiCompatibleChatProtocol(model.protocolType)) {
-      return AiPromptCacheAffinityKind.openAiPromptCacheKey;
+      return AiPromptCacheAffinityKind.openAiCompatibleGateway;
     }
     return AiPromptCacheAffinityKind.none;
   }
@@ -869,6 +873,14 @@ class AiPromptCacheAffinity {
           // round-robin credential pools can defeat an otherwise byte-stable
           // prompt cache before the request reaches xAI.
           _putHeaderIfAbsent(headers, grokConversationHeader, id);
+          _putHeaderIfAbsent(headers, standardSessionAffinityHeader, id);
+        }
+      case AiPromptCacheAffinityKind.openAiCompatibleGateway:
+        if (id.isNotEmpty) {
+          // Third-party OpenAI-compatible gateways may rotate upstream
+          // credentials or workers before forwarding prompt_cache_key. Keep
+          // one OpenHand thread on the same gateway route as well as the same
+          // upstream prompt-cache partition.
           _putHeaderIfAbsent(headers, standardSessionAffinityHeader, id);
         }
       case AiPromptCacheAffinityKind.openRouterSession:
@@ -894,6 +906,7 @@ class AiPromptCacheAffinity {
           id,
         );
       case AiPromptCacheAffinityKind.openAiPromptCacheKey:
+      case AiPromptCacheAffinityKind.openAiCompatibleGateway:
       case AiPromptCacheAffinityKind.grokCompatibleGateway:
         final bodyKey = _bodyPromptCacheKey;
         if (bodyKey.isEmpty) return body;
@@ -912,6 +925,7 @@ class AiPromptCacheAffinity {
     return switch (kind) {
       AiPromptCacheAffinityKind.openRouterSession ||
       AiPromptCacheAffinityKind.openAiPromptCacheKey ||
+      AiPromptCacheAffinityKind.openAiCompatibleGateway ||
       AiPromptCacheAffinityKind.grokCompatibleGateway => applies,
       AiPromptCacheAffinityKind.grokConversationHeader ||
       AiPromptCacheAffinityKind.none => false,
@@ -922,6 +936,7 @@ class AiPromptCacheAffinity {
     return switch (kind) {
       AiPromptCacheAffinityKind.openRouterSession ||
       AiPromptCacheAffinityKind.openAiPromptCacheKey ||
+      AiPromptCacheAffinityKind.openAiCompatibleGateway ||
       AiPromptCacheAffinityKind.grokCompatibleGateway => true,
       AiPromptCacheAffinityKind.grokConversationHeader ||
       AiPromptCacheAffinityKind.none => false,
@@ -930,7 +945,8 @@ class AiPromptCacheAffinity {
 
   static bool kindRequiresGatewayForwarding(AiPromptCacheAffinityKind kind) {
     return switch (kind) {
-      AiPromptCacheAffinityKind.grokCompatibleGateway => true,
+      AiPromptCacheAffinityKind.grokCompatibleGateway ||
+      AiPromptCacheAffinityKind.openAiCompatibleGateway => true,
       AiPromptCacheAffinityKind.none ||
       AiPromptCacheAffinityKind.grokConversationHeader ||
       AiPromptCacheAffinityKind.openRouterSession ||
@@ -939,12 +955,7 @@ class AiPromptCacheAffinity {
   }
 
   static bool requiresGatewayForwardingForModel(AiModelConfig model) {
-    final kind = kindForModel(model);
-    if (kindRequiresGatewayForwarding(kind)) {
-      return true;
-    }
-    return kind == AiPromptCacheAffinityKind.openAiPromptCacheKey &&
-        !_isOpenAiEndpoint(model.baseUrl);
+    return kindRequiresGatewayForwarding(kindForModel(model));
   }
 
   static bool requestHasMarker({

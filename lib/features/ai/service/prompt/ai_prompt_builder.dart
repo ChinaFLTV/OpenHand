@@ -43,6 +43,9 @@ import 'ai_prompt_sections.dart';
 import 'ai_prompt_template_assembly.dart';
 import 'ai_prompt_template_repository.dart';
 
+const String aiPromptRuntimeTailSnapshotMetadataKey =
+    'prompt_runtime_tail_snapshot';
+
 class AiPromptBuildResult {
   const AiPromptBuildResult({
     required this.messages,
@@ -96,9 +99,11 @@ class AiPromptBuilder {
   const AiPromptBuilder();
 
   static const String _promptAssemblyLayout =
-      'stable_prefix.runtime_prefix.history.latest_user.volatile_tail.v1';
+      'stable_prefix.runtime_prefix.history.round_anchor_tail.v2';
   static const String _promptCacheAffinityKeyScope =
       'session_template_model.v1';
+  static const int _runtimeTailSnapshotMaxTurns = 8;
+  static const int _runtimeTailSnapshotMaxCharacters = 64 * 1024;
   static final AiBashToolService _bashWriteAnalyzer = AiBashToolService();
   static const JsonEncoder _promptJsonEncoder = kPrettyJsonEncoder;
   static const int _microCompactKeepRecentToolResults = 2;
@@ -188,6 +193,7 @@ class AiPromptBuilder {
       memoryEntries: memoryEntries,
       sessionMessages: sessionMessages,
       latestUserMessageId: latestUserMessage.id,
+      runtimeContextAnchorMessageId: latestUserMessage.id,
       availableTools: availableTools,
       resolvedToolsByName: resolvedToolsByName,
       mcpServerInstructionsByName: mcpServerInstructionsByName,
@@ -203,6 +209,7 @@ class AiPromptBuilder {
     required List<UserMemoryEntry> memoryEntries,
     required List<AiSessionMessage> sessionMessages,
     String? latestUserMessageId,
+    String? runtimeContextAnchorMessageId,
     List<AiToolDefinition> availableTools = const <AiToolDefinition>[],
     Map<String, AiResolvedTool> resolvedToolsByName =
         const <String, AiResolvedTool>{},
@@ -237,6 +244,10 @@ class AiPromptBuilder {
               !_shouldOmitPausedGoalQueueMessageFromPrompt(session, item),
         )
         .toList(growable: false);
+    final runtimeContextAnchor = _messageById(
+      visibleSessionMessages,
+      runtimeContextAnchorMessageId,
+    );
     AiSessionMessage? latestUserMessage;
     final historyMessages = <AiSessionMessage>[];
     // 若 latestUser 之后已经有助手 / 工具消息（即
@@ -546,10 +557,11 @@ class AiPromptBuilder {
       ),
       // Prefix-extension cache 架构将 Session State 拆成静态/动态两部分：
       // - [3s] Static（session 标识、环境、限制、workspace_instructions）— 会话内不变。
-      // - [3d] Dynamic（todos、plan、mode）— 仅包含会话内真正可变字段，留在
-      //   latest user 之后的 volatile tail。
+      // - [3d] Dynamic（todos、plan、mode）— 仅包含会话内真正可变字段，绑定
+      //   到触发本次请求的 user/tool round anchor 之后。
       //   date/git 已移至 [3s] 或移除：跨天/每次写文件后改变 hash 破坏 prefix-cache。
-      // 静态块固定在 history 之前，动态块固定在 latest user 之后。
+      // 静态块固定在 history 之前；动态块首次生成后随 round anchor 持久化，
+      // 后续历史在同一位置逐字重放，避免新 assistant/tool 内容插入时改写旧前缀。
       // 相邻轮次尽量满足 "Turn N+1 = Turn N tokens ++ [asst_N][user_N+1]"
       // 的前缀扩展性质；真正会变的提醒只污染当前轮尾部。Hook system-reminder
       // （从用户消息中提取、每轮不同）同样保留在 prompt 尾部。
@@ -628,7 +640,7 @@ class AiPromptBuilder {
         ),
       ),
     ];
-    final volatileTailTurns = <AiChatTurn>[
+    final generatedRuntimeTailTurns = <AiChatTurn>[
       if (includeDynamicSessionState)
         _jsonRuntimeContextSectionTurn(
           AiPromptSectionHeaders.dynamicSessionState,
@@ -653,21 +665,34 @@ class AiPromptBuilder {
       // 保留在 prompt 最尾部。
       ...latestUserSystemTurns.map(_runtimeContextTurnFromSystemTurn),
     ];
+    final persistedRuntimeTailTurns = _readPersistedRuntimeTailTurns(
+      runtimeContextAnchor?.metadata[aiPromptRuntimeTailSnapshotMetadataKey],
+    );
+    final runtimeTailSnapshotTurns =
+        persistedRuntimeTailTurns ?? generatedRuntimeTailTurns;
+    final runtimeTailReplayedFromHistory =
+        persistedRuntimeTailTurns != null &&
+        historyMessages.any(
+          (message) => message.id == runtimeContextAnchor?.id,
+        );
+    final runtimeTailTurns = runtimeTailReplayedFromHistory
+        ? const <AiChatTurn>[]
+        : runtimeTailSnapshotTurns;
     // ─────────────────────────────────────────────────────────────
     // Cache-friendly unified assembly:
     //   stable core prefix → runtime catalog prefix → persisted history
-    //   → latest user → volatile tail.
+    //   → current round anchor → persisted runtime tail.
     // All templates share this same skeleton. The cache affinity key is derived
     // from the actual leading request prefix (stable core + runtime catalog).
-    // Truly per-turn state stays after the latest user and is omitted when it
-    // only carries default/static values.
+    // Per-turn state is snapshotted on the round anchor and replayed from that
+    // exact location on later requests, including tool continuations.
     // ─────────────────────────────────────────────────────────────
     final promptAssembly = _PromptAssemblyPlan(
       stablePrefixTurns: stablePrefixTurns,
       runtimePrefixTurns: runtimePrefixTurns,
       historyTurns: historyTurns,
       latestUserTurns: latestUserNonSystemTurns,
-      volatileTailTurns: volatileTailTurns,
+      volatileTailTurns: runtimeTailTurns,
     );
     final messages = promptAssembly.materialize();
     final systemMessageCount = messages
@@ -683,7 +708,7 @@ class AiPromptBuilder {
     final runtimePrefixMessageCount = runtimePrefixTurns.length;
     final historyMessageCount = historyTurns.length;
     final latestUserMessageCount = latestUserNonSystemTurns.length;
-    final volatileTailMessageCount = volatileTailTurns.length;
+    final volatileTailMessageCount = runtimeTailTurns.length;
     final stablePrefixHash = _promptFingerprint(
       stablePrefixTurns.map(_fingerprintTurn).join('\n\n'),
     );
@@ -796,11 +821,23 @@ class AiPromptBuilder {
           historyToolCompressionConfig.thresholdChars
       ..['tool_result_prompt_head_tail_chars'] =
           historyToolCompressionConfig.headTailWindowChars
-      ..['dynamic_session_state_delivery'] = includeDynamicSessionState
-          ? 'user_turn_tail'
+      ..['dynamic_session_state_delivery'] = runtimeTailReplayedFromHistory
+          ? 'round_anchor_history'
+          : includeDynamicSessionState
+          ? 'round_anchor_tail'
           : dynamicSessionState.isNotEmpty
           ? 'omitted_for_tool_continuation'
           : 'empty'
+      ..['runtime_tail_anchor_message_id'] =
+          runtimeContextAnchorMessageId?.trim() ?? ''
+      ..['runtime_tail_snapshot_reused'] = persistedRuntimeTailTurns != null
+      ..['runtime_tail_replayed_from_history'] = runtimeTailReplayedFromHistory
+      ..['runtime_tail_snapshot_turn_count'] = runtimeTailSnapshotTurns.length
+      ..['runtime_tail_snapshot_character_count'] = runtimeTailSnapshotTurns
+          .fold<int>(0, (sum, turn) => sum + turn.promptCharacterCount)
+      ..[aiPromptRuntimeTailSnapshotMetadataKey] = _serializeRuntimeTailTurns(
+        runtimeTailSnapshotTurns,
+      )
       ..['cache_affinity_key_scope'] = _promptCacheAffinityKeyScope
       ..['stable_cache_key'] = promptCacheAffinityKey
       ..['previous_stable_cache_key'] =
@@ -910,6 +947,48 @@ class AiPromptBuilder {
       turn.reasoningContent ?? '',
       turn.content,
     ].join('\u001d');
+  }
+
+  AiSessionMessage? _messageById(
+    List<AiSessionMessage> messages,
+    String? messageId,
+  ) {
+    final normalizedId = messageId?.trim() ?? '';
+    if (normalizedId.isEmpty) return null;
+    for (final message in messages.reversed) {
+      if (message.id == normalizedId) return message;
+    }
+    return null;
+  }
+
+  List<Map<String, String>> _serializeRuntimeTailTurns(List<AiChatTurn> turns) {
+    return turns
+        .map(
+          (turn) => <String, String>{
+            'role': turn.roleName,
+            'content': turn.content,
+          },
+        )
+        .toList(growable: false);
+  }
+
+  List<AiChatTurn>? _readPersistedRuntimeTailTurns(Object? value) {
+    if (value is! List || value.length > _runtimeTailSnapshotMaxTurns) {
+      return null;
+    }
+    final turns = <AiChatTurn>[];
+    var characterCount = 0;
+    for (final item in value) {
+      if (item is! Map) return null;
+      final entry = stringKeyedMapFromValue(item);
+      if ('${entry['role'] ?? ''}'.trim() != 'user') return null;
+      final content = entry['content'];
+      if (content is! String || content.isEmpty) return null;
+      characterCount += content.length;
+      if (characterCount > _runtimeTailSnapshotMaxCharacters) return null;
+      turns.add(AiChatTurn(role: AiChatRole.user, content: content));
+    }
+    return List<AiChatTurn>.unmodifiable(turns);
   }
 
   String _jsonCodeBlock(Object? value) {
@@ -3037,9 +3116,15 @@ $identity''';
         preferInlineSystemReminders: preferInlineSystemReminders,
         preferInlineSystemArtifacts: preferInlineSystemArtifacts,
       );
-      if (mapped.isNotEmpty) {
+      final mappedWithRuntimeTail = <AiChatTurn>[
+        ...mapped,
+        ...?_readPersistedRuntimeTailTurns(
+          message.metadata[aiPromptRuntimeTailSnapshotMetadataKey],
+        ),
+      ];
+      if (mappedWithRuntimeTail.isNotEmpty) {
         final attachedTurns = _attachReasoningToAssistantTurns(
-          mapped,
+          mappedWithRuntimeTail,
           roundReasoning,
         );
         turns.addAll(attachedTurns);
@@ -3212,6 +3297,8 @@ $identity''';
         toolCalls: groupedToolCalls,
       ),
     ];
+    AiSessionMessage? runtimeTailAnchor;
+    var runtimeTailAnchorIndex = -1;
     for (final toolCall in groupedToolCalls) {
       final toolMessage = toolMessagesByCallId[toolCall.id]!;
       final toolMessageIndex = toolMessageIndexByCallId[toolCall.id]!;
@@ -3228,6 +3315,22 @@ $identity''';
           ),
           inlineSystemReminders: true,
         ),
+      );
+      if (toolMessage.metadata.containsKey(
+            aiPromptRuntimeTailSnapshotMetadataKey,
+          ) &&
+          toolMessageIndex > runtimeTailAnchorIndex) {
+        runtimeTailAnchor = toolMessage;
+        runtimeTailAnchorIndex = toolMessageIndex;
+      }
+    }
+    if (runtimeTailAnchor != null) {
+      turns.addAll(
+        _readPersistedRuntimeTailTurns(
+              runtimeTailAnchor
+                  .metadata[aiPromptRuntimeTailSnapshotMetadataKey],
+            ) ??
+            const <AiChatTurn>[],
       );
     }
     return _MappedToolExchange(turns: turns, nextIndex: cursor);
