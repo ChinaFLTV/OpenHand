@@ -112,10 +112,6 @@ abstract final class OpenHandPaths {
     return p.join(defaultMemoryDirectoryPath(), 'user-memory.json');
   }
 
-  static String defaultUserMemoryFileLabel() {
-    return shortenHomePath(defaultUserMemoryFilePath());
-  }
-
   static String normalizeUserPath(String? rawPath) {
     return normalizePath(rawPath, defaultPath: defaultSkillsDirectoryPath());
   }

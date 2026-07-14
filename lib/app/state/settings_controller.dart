@@ -423,12 +423,6 @@ class SettingsController extends ChangeNotifier {
     );
   }
 
-  String defaultEditorLspRootLabel(String language) {
-    return OpenHandPaths.defaultLspDirectoryLabelForLanguage(
-      normalizeAiLspLanguage(language),
-    );
-  }
-
   int get aiMessageCompressionThresholdChars =>
       _aiMessageCompressionThresholdChars;
   int get aiToolResultCompressionThresholdChars =>
@@ -556,12 +550,6 @@ class SettingsController extends ChangeNotifier {
   AiAutoTitleFetchMode get aiAutoTitleFetchMode => _aiAutoTitleFetchMode;
   String get aiDefaultSessionMode => _aiDefaultSessionMode;
   bool get aiDefaultFullAccessPermission => _aiDefaultFullAccessPermission;
-  String get displayUserMemoryFilePath =>
-      OpenHandPaths.shortenHomePath(_userMemoryFilePath);
-  String get defaultUserMemoryFilePath =>
-      OpenHandPaths.defaultUserMemoryFilePath();
-  String get defaultUserMemoryFileLabel =>
-      OpenHandPaths.defaultUserMemoryFileLabel();
   String get settingsFilePath => _store.settingsFilePath;
   String get displaySettingsFilePath =>
       OpenHandPaths.shortenHomePath(_store.settingsFilePath);
@@ -866,20 +854,6 @@ class SettingsController extends ChangeNotifier {
         return _MutationDisposition.successNoChange;
       }
       _memoryEnabled = value;
-      return _MutationDisposition.apply;
-    });
-  }
-
-  Future<bool> updateUserMemoryFilePath(String value) async {
-    final normalizedPath = OpenHandPaths.normalizePath(
-      value,
-      defaultPath: OpenHandPaths.defaultUserMemoryFilePath(),
-    );
-    return _commitMutation(() {
-      if (_userMemoryFilePath == normalizedPath) {
-        return _MutationDisposition.successNoChange;
-      }
-      _userMemoryFilePath = normalizedPath;
       return _MutationDisposition.apply;
     });
   }
@@ -1254,207 +1228,6 @@ class SettingsController extends ChangeNotifier {
     });
   }
 
-  Future<bool> updateAiMaxToolOutputChars(int value) async {
-    final clamped = AppSettingsSnapshot.normalizeAiMaxToolOutputChars(value);
-    return _commitMutation(() {
-      if (_aiMaxToolOutputChars == clamped) {
-        return _MutationDisposition.successNoChange;
-      }
-      _aiMaxToolOutputChars = clamped;
-      return _MutationDisposition.apply;
-    });
-  }
-
-  Future<bool> updateAiWriteConfirmationTimeoutMs(int value) async {
-    final clamped = AppSettingsSnapshot.normalizeAiWriteConfirmationTimeoutMs(
-      value,
-    );
-    return _commitMutation(() {
-      if (_aiWriteConfirmationTimeoutMs == clamped) {
-        return _MutationDisposition.successNoChange;
-      }
-      _aiWriteConfirmationTimeoutMs = clamped;
-      return _MutationDisposition.apply;
-    });
-  }
-
-  Future<bool> updateAiFastPathWriteAnalysisThreshold(int value) async {
-    final clamped =
-        AppSettingsSnapshot.normalizeAiFastPathWriteAnalysisThreshold(value);
-    return _commitMutation(() {
-      if (_aiFastPathWriteAnalysisThreshold == clamped) {
-        return _MutationDisposition.successNoChange;
-      }
-      _aiFastPathWriteAnalysisThreshold = clamped;
-      return _MutationDisposition.apply;
-    });
-  }
-
-  Future<bool> updateAiMaxHookTextCharacters(int value) async {
-    final clamped = AppSettingsSnapshot.normalizeAiMaxHookTextCharacters(value);
-    return _commitMutation(() {
-      if (_aiMaxHookTextCharacters == clamped) {
-        return _MutationDisposition.successNoChange;
-      }
-      _aiMaxHookTextCharacters = clamped;
-      return _MutationDisposition.apply;
-    });
-  }
-
-  Future<bool> updateAiAttachmentMaxInlineImageDimension(int value) async {
-    final clamped = value.clamp(
-      AppSettingsSnapshot.minAiAttachmentMaxInlineImageDimension,
-      AppSettingsSnapshot.maxAiAttachmentMaxInlineImageDimension,
-    );
-    return _commitMutation(() {
-      if (_aiAttachmentMaxInlineImageDimension == clamped) {
-        return _MutationDisposition.successNoChange;
-      }
-      _aiAttachmentMaxInlineImageDimension = clamped;
-      return _MutationDisposition.apply;
-    });
-  }
-
-  Future<bool> updateAiAttachmentMaxTextRawBytes(int value) async {
-    final clamped = value.clamp(
-      AppSettingsSnapshot.minAiAttachmentMaxTextRawBytes,
-      AppSettingsSnapshot.maxAiAttachmentMaxTextRawBytes,
-    );
-    return _commitMutation(() {
-      if (_aiAttachmentMaxTextRawBytes == clamped) {
-        return _MutationDisposition.successNoChange;
-      }
-      _aiAttachmentMaxTextRawBytes = clamped;
-      return _MutationDisposition.apply;
-    });
-  }
-
-  Future<bool> updateAiAttachmentMaxPdfRawBytes(int value) async {
-    final clamped = value.clamp(
-      AppSettingsSnapshot.minAiAttachmentMaxPdfRawBytes,
-      AppSettingsSnapshot.maxAiAttachmentMaxPdfRawBytes,
-    );
-    return _commitMutation(() {
-      if (_aiAttachmentMaxPdfRawBytes == clamped) {
-        return _MutationDisposition.successNoChange;
-      }
-      _aiAttachmentMaxPdfRawBytes = clamped;
-      return _MutationDisposition.apply;
-    });
-  }
-
-  Future<bool> updateAiAttachmentMaxImageRawBytes(int value) async {
-    final clamped = value.clamp(
-      AppSettingsSnapshot.minAiAttachmentMaxImageRawBytes,
-      AppSettingsSnapshot.maxAiAttachmentMaxImageRawBytes,
-    );
-    return _commitMutation(() {
-      if (_aiAttachmentMaxImageRawBytes == clamped) {
-        return _MutationDisposition.successNoChange;
-      }
-      _aiAttachmentMaxImageRawBytes = clamped;
-      return _MutationDisposition.apply;
-    });
-  }
-
-  Future<bool> updateAiChatMaxStreamLineBufferBytes(int value) async {
-    final clamped = value.clamp(
-      AppSettingsSnapshot.minAiChatMaxStreamLineBufferBytes,
-      AppSettingsSnapshot.maxAiChatMaxStreamLineBufferBytes,
-    );
-    return _commitMutation(() {
-      if (_aiChatMaxStreamLineBufferBytes == clamped) {
-        return _MutationDisposition.successNoChange;
-      }
-      _aiChatMaxStreamLineBufferBytes = clamped;
-      return _MutationDisposition.apply;
-    });
-  }
-
-  Future<bool> updateAiFallbackTitleMaxCharacters(int value) async {
-    final clamped = value.clamp(
-      AppSettingsSnapshot.minAiFallbackTitleMaxCharacters,
-      AppSettingsSnapshot.maxAiFallbackTitleMaxCharacters,
-    );
-    return _commitMutation(() {
-      if (_aiFallbackTitleMaxCharacters == clamped) {
-        return _MutationDisposition.successNoChange;
-      }
-      _aiFallbackTitleMaxCharacters = clamped;
-      return _MutationDisposition.apply;
-    });
-  }
-
-  Future<bool> updateAiGeneratedTitleMaxCharacters(int value) async {
-    final clamped = value.clamp(
-      AppSettingsSnapshot.minAiGeneratedTitleMaxCharacters,
-      AppSettingsSnapshot.maxAiGeneratedTitleMaxCharacters,
-    );
-    return _commitMutation(() {
-      if (_aiGeneratedTitleMaxCharacters == clamped) {
-        return _MutationDisposition.successNoChange;
-      }
-      _aiGeneratedTitleMaxCharacters = clamped;
-      return _MutationDisposition.apply;
-    });
-  }
-
-  Future<bool> updateAiMinimumMeaningfulTitleCharacters(int value) async {
-    final clamped = value.clamp(
-      AppSettingsSnapshot.minAiMinimumMeaningfulTitleCharacters,
-      AppSettingsSnapshot.maxAiMinimumMeaningfulTitleCharacters,
-    );
-    return _commitMutation(() {
-      if (_aiMinimumMeaningfulTitleCharacters == clamped) {
-        return _MutationDisposition.successNoChange;
-      }
-      _aiMinimumMeaningfulTitleCharacters = clamped;
-      return _MutationDisposition.apply;
-    });
-  }
-
-  Future<bool> updateAiMinimumMeaningfulLatinTitleWords(int value) async {
-    final clamped = value.clamp(
-      AppSettingsSnapshot.minAiMinimumMeaningfulLatinTitleWords,
-      AppSettingsSnapshot.maxAiMinimumMeaningfulLatinTitleWords,
-    );
-    return _commitMutation(() {
-      if (_aiMinimumMeaningfulLatinTitleWords == clamped) {
-        return _MutationDisposition.successNoChange;
-      }
-      _aiMinimumMeaningfulLatinTitleWords = clamped;
-      return _MutationDisposition.apply;
-    });
-  }
-
-  Future<bool> updateAiMaxSkillContentLength(int value) async {
-    final clamped = value.clamp(
-      AppSettingsSnapshot.minAiMaxSkillContentLength,
-      AppSettingsSnapshot.maxAiMaxSkillContentLength,
-    );
-    return _commitMutation(() {
-      if (_aiMaxSkillContentLength == clamped) {
-        return _MutationDisposition.successNoChange;
-      }
-      _aiMaxSkillContentLength = clamped;
-      return _MutationDisposition.apply;
-    });
-  }
-
-  Future<bool> updateAiMaxWorkspaceDocumentCharacters(int value) async {
-    final clamped = value.clamp(
-      AppSettingsSnapshot.minAiMaxWorkspaceDocumentCharacters,
-      AppSettingsSnapshot.maxAiMaxWorkspaceDocumentCharacters,
-    );
-    return _commitMutation(() {
-      if (_aiMaxWorkspaceDocumentCharacters == clamped) {
-        return _MutationDisposition.successNoChange;
-      }
-      _aiMaxWorkspaceDocumentCharacters = clamped;
-      return _MutationDisposition.apply;
-    });
-  }
-
   /// Updates the per-image attachment size cap (bytes).
   ///
   /// Values outside
@@ -1499,28 +1272,6 @@ class SettingsController extends ChangeNotifier {
     );
   }
 
-  Future<bool> updateAiTranslationProviderSettings(
-    AiTranslationProvider provider,
-    AiTranslationProviderSettings value,
-  ) async {
-    final providers =
-        Map<AiTranslationProvider, AiTranslationProviderSettings>.from(
-          _aiTranslationSettings.providers,
-        );
-    providers[provider] = value.normalized();
-    return updateAiTranslationSettings(
-      _aiTranslationSettings.copyWith(providers: providers),
-    );
-  }
-
-  Future<bool> updateAiTranslationProviderPriority(
-    List<AiTranslationProvider> value,
-  ) async {
-    return updateAiTranslationSettings(
-      _aiTranslationSettings.copyWith(providerPriority: value),
-    );
-  }
-
   Future<bool> updateAiTtsSettings(AiTtsSettings value) async {
     final normalized = value.normalized();
     return _commitMutation(() {
@@ -1535,23 +1286,6 @@ class SettingsController extends ChangeNotifier {
 
   Future<bool> updateAiTtsEnabled(bool value) async {
     return updateAiTtsSettings(_aiTtsSettings.copyWith(enabled: value));
-  }
-
-  Future<bool> updateAiTtsProviderSettings(
-    AiTtsProvider provider,
-    AiTtsProviderSettings value,
-  ) async {
-    final providers = Map<AiTtsProvider, AiTtsProviderSettings>.from(
-      _aiTtsSettings.providers,
-    );
-    providers[provider] = value.normalized();
-    return updateAiTtsSettings(_aiTtsSettings.copyWith(providers: providers));
-  }
-
-  Future<bool> updateAiTtsProviderPriority(List<AiTtsProvider> value) async {
-    return updateAiTtsSettings(
-      _aiTtsSettings.copyWith(providerPriority: value),
-    );
   }
 
   Future<bool> updateAiWriteCommandConfirmationEnabled(bool value) async {
@@ -2149,44 +1883,6 @@ class SettingsController extends ChangeNotifier {
     });
   }
 
-  /// Updates the available model IDs list for a specific provider config.
-  Future<bool> updateProviderAvailableModels(
-    String providerConfigId,
-    List<String> availableModelIds,
-  ) async {
-    return _commitMutation(() {
-      final index = _aiModels.indexWhere((item) => item.id == providerConfigId);
-      if (index == -1) {
-        return _MutationDisposition.reject;
-      }
-      final updatedModels = List<AiModelConfig>.from(_aiModels);
-      final current = updatedModels[index];
-      final normalizedAvailableModelIds = AiModelConfig.normalizeModelIds(
-        availableModelIds,
-      );
-      final normalizedModelId = current.modelId.trim().isNotEmpty
-          ? current.modelId.trim()
-          : (normalizedAvailableModelIds.isNotEmpty
-                ? normalizedAvailableModelIds.first
-                : '');
-      updatedModels[index] = current.copyWith(
-        availableModelIds: AiModelConfig.normalizeModelIds(<String>[
-          ...normalizedAvailableModelIds,
-          if (normalizedModelId.isNotEmpty) normalizedModelId,
-        ]),
-        modelId: normalizedModelId,
-      );
-      _aiModels = updatedModels;
-      _cachedAiModelsView = null;
-      _recentModelSelections = _sanitizeRecentModelSelections(
-        _recentModelSelections,
-        updatedModels,
-      );
-      _cachedRecentModelSelectionsView = null;
-      return _MutationDisposition.apply;
-    });
-  }
-
   Future<bool> addRecentModelSelection(String configId, String modelId) async {
     final normalizedConfigId = configId.trim();
     final normalizedModelId = modelId.trim();
@@ -2421,20 +2117,6 @@ class SettingsController extends ChangeNotifier {
         return _MutationDisposition.successNoChange;
       }
       _telemetryCaptureEnvironment = value;
-      return _MutationDisposition.apply;
-    });
-  }
-
-  Future<bool> updateTelemetryMaxPayloadChars(int value) async {
-    final clamped = value.clamp(
-      AppSettingsSnapshot.minTelemetryMaxPayloadChars,
-      AppSettingsSnapshot.maxTelemetryMaxPayloadChars,
-    );
-    return _commitMutation(() {
-      if (_telemetryMaxPayloadChars == clamped) {
-        return _MutationDisposition.successNoChange;
-      }
-      _telemetryMaxPayloadChars = clamped;
       return _MutationDisposition.apply;
     });
   }

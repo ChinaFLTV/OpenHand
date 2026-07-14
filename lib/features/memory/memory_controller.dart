@@ -109,18 +109,6 @@ class MemoryController extends ManagedChangeNotifier {
     await _enqueueOperation(_loadLocked);
   }
 
-  /// Retained for backward compatibility. With DB backing, this simply
-  /// refreshes from the database (the file path is ignored).
-  Future<bool> reloadFromFilePath(String filePath) async {
-    return _enqueueOperation(() async {
-      await _loadLocked();
-      final didLoadFail =
-          _errorMessage != null ||
-          _persistenceIssue?.kind == MemoryPersistenceIssueKind.saveFailed;
-      return !didLoadFail;
-    });
-  }
-
   Future<bool> createMemory({
     required String content,
     required List<String> tags,
