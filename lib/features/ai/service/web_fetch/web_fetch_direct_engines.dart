@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:http/http.dart' as http;
 
 import '../../../../app/support/silent_log.dart';
+import '../../../../shared/net/abortable_http_request.dart';
 import '../../../../shared/net/http_response_utils.dart';
 import '../../model/ai_web_fetch_settings.dart';
 import '../../tools/ai_tool_utils.dart';
@@ -81,7 +82,7 @@ class WebFetchDirectHttpEngine extends WebFetchEngine {
       request.followRedirects = false;
       request.headers['user-agent'] = userAgent;
       request.headers['accept'] = 'text/html,application/xhtml+xml,*/*;q=0.8';
-      final stream = await sendWebEngineStreamRequest(
+      final stream = await sendAbortableHttpRequest(
         client: httpClient,
         request: request,
         connectionTimeout: Duration(seconds: config.connectionTimeoutSeconds),

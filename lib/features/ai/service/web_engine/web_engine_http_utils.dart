@@ -1,9 +1,9 @@
-import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 
+import '../../../../shared/net/abortable_http_request.dart';
 import '../../../../shared/net/http_response_utils.dart';
 import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/text_clip.dart';
@@ -71,7 +71,7 @@ Future<BoundedWebEngineHttpResponse> sendBoundedWebEngineRequest({
   Future<void>? cancelSignal,
   int maxBytes = defaultWebEngineResponseMaxBytes,
 }) async {
-  final streamed = await sendWebEngineStreamRequest(
+  final streamed = await sendAbortableHttpRequest(
     client: client,
     request: request,
     connectionTimeout: connectionTimeout,
@@ -82,62 +82,6 @@ Future<BoundedWebEngineHttpResponse> sendBoundedWebEngineRequest({
     responseTimeout: responseTimeout,
     maxBytes: maxBytes,
   );
-}
-
-Future<http.StreamedResponse> sendWebEngineStreamRequest({
-  required http.Client client,
-  required http.Request request,
-  required Duration connectionTimeout,
-  Future<void>? cancelSignal,
-}) async {
-  if (connectionTimeout <= Duration.zero) {
-    throw ArgumentError.value(
-      connectionTimeout,
-      'connectionTimeout',
-      'Must be positive.',
-    );
-  }
-  if (request.finalized) {
-    throw StateError('Cannot send an already finalized HTTP request.');
-  }
-
-  final connectionTimeoutAbort = Completer<void>();
-  final normalizedCancelSignal = cancelSignal?.then<void>(
-    (_) {},
-    onError: (Object _, StackTrace _) {},
-  );
-  final abortTrigger = normalizedCancelSignal == null
-      ? connectionTimeoutAbort.future
-      : Future.any<void>([
-          normalizedCancelSignal,
-          connectionTimeoutAbort.future,
-        ]);
-  final abortableRequest =
-      http.AbortableRequest(
-          request.method,
-          request.url,
-          abortTrigger: abortTrigger,
-        )
-        ..headers.addAll(request.headers)
-        ..followRedirects = request.followRedirects
-        ..maxRedirects = request.maxRedirects
-        ..persistentConnection = request.persistentConnection
-        ..bodyBytes = request.bodyBytes;
-
-  return client
-      .send(abortableRequest)
-      .timeout(
-        connectionTimeout,
-        onTimeout: () {
-          if (!connectionTimeoutAbort.isCompleted) {
-            connectionTimeoutAbort.complete();
-          }
-          throw TimeoutException(
-            'HTTP connection exceeded its time limit.',
-            connectionTimeout,
-          );
-        },
-      );
 }
 
 Future<BoundedWebEngineHttpResponse> collectBoundedWebEngineResponse(

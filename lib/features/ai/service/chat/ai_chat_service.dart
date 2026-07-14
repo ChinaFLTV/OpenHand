@@ -7,6 +7,7 @@ import 'package:path/path.dart' as p;
 
 import '../../../../app/support/silent_log.dart';
 import '../../../../app/support/system_proxy.dart';
+import '../../../../shared/net/abortable_http_request.dart';
 import '../../../../shared/net/http_error_message.dart';
 import '../../../../shared/net/http_redirect_utils.dart';
 import '../../../../shared/net/http_response_utils.dart';
@@ -810,7 +811,11 @@ class AiChatService implements AiChatClient {
               headers: blueprint.headers,
               body: jsonEncode(blueprint.body),
               timeout: timeout,
-            ).then(http.Response.fromStream),
+              cancelSignal: cancelSignal,
+            ).then(
+              (response) =>
+                  _collectBoundedChatHttpResponse(response, timeout: timeout),
+            ),
             cancelSignal,
           );
         } on AiChatCancelledException {
@@ -1144,16 +1149,14 @@ class AiChatService implements AiChatClient {
           requestFallbacks: List<String>.unmodifiable(requestFallbacks),
         ),
       );
-      final request = http.Request(effectiveMethod, Uri.parse(blueprint.url))
-        ..headers.addAll(blueprint.headers)
-        ..body = jsonEncode(blueprint.body);
       final streamedResponseFuture = _sendHttpRequestWithRedirects(
         client: _client,
-        method: request.method,
-        uri: request.url,
-        headers: request.headers,
-        body: request.body,
+        method: effectiveMethod,
+        uri: Uri.parse(blueprint.url),
+        headers: blueprint.headers,
+        body: jsonEncode(blueprint.body),
         timeout: timeout,
+        cancelSignal: cancelSignal,
       );
       try {
         if (cancelSignal == null) {
@@ -1434,9 +1437,7 @@ class AiChatService implements AiChatClient {
         ),
       );
       if (!eventController.isClosed) {
-        if (!eventController.isClosed) {
-          unawaited(eventController.close());
-        }
+        unawaited(eventController.close());
       }
     }
 
@@ -1718,6 +1719,7 @@ class AiChatService implements AiChatClient {
         headers: request.headers,
         body: jsonEncode(request.body),
         timeout: timeout,
+        cancelSignal: cancelSignal,
       );
       if (cancelSignal == null) {
         return streamedResponseFuture;
@@ -3008,6 +3010,7 @@ class _MutableToolCall {
 
 const int _maxAiChatRedirects = 4;
 const int _maxChatHttpErrorBytes = kBytesPerMiB;
+const int _maxChatHttpResponseBytes = 16 * kBytesPerMiB;
 const int _maxRetainedStreamResponseCharacters = 16 * kBytesPerMiB;
 const Duration _maxStreamCancellationWait = Duration(seconds: 1);
 const Duration _maxRedirectDrainWait = Duration(seconds: 3);
@@ -3017,6 +3020,39 @@ bool _tryAppendRawStreamEvent(StringBuffer buffer, String data) {
   if (remaining <= 1 || data.length > remaining - 1) return false;
   buffer.writeln(data);
   return true;
+}
+
+Future<http.Response> _collectBoundedChatHttpResponse(
+  http.StreamedResponse response, {
+  required Duration timeout,
+}) async {
+  final isFailure = isHttpFailureStatus(response.statusCode);
+  final maxBytes = isFailure
+      ? _maxChatHttpErrorBytes
+      : _maxChatHttpResponseBytes;
+  if (!isFailure && (response.contentLength ?? 0) > maxBytes) {
+    await _cancelLateStreamedResponse(
+      response,
+      timeout: _boundedStreamCancellationTimeout(timeout),
+    );
+    throw ByteStreamSizeLimitException(maxBytes);
+  }
+  final bodyBytes = await readBoundedByteStream(
+    response.stream,
+    maxBytes: maxBytes,
+    idleTimeout: timeout,
+    totalTimeout: timeout,
+    truncateOnOverflow: isFailure,
+  );
+  return http.Response.bytes(
+    bodyBytes,
+    response.statusCode,
+    request: response.request,
+    headers: response.headers,
+    isRedirect: response.isRedirect,
+    persistentConnection: response.persistentConnection,
+    reasonPhrase: response.reasonPhrase,
+  );
 }
 
 Future<String> _readChatHttpErrorBody(
@@ -3114,6 +3150,7 @@ Future<http.StreamedResponse> _sendHttpRequestWithRedirects({
   required Map<String, String> headers,
   String? body,
   required Duration timeout,
+  Future<void>? cancelSignal,
 }) async {
   var currentMethod = method;
   var currentUri = uri;
@@ -3128,7 +3165,12 @@ Future<http.StreamedResponse> _sendHttpRequestWithRedirects({
       request.body = currentBody;
     }
 
-    final response = await client.send(request).timeout(timeout);
+    final response = await sendAbortableHttpRequest(
+      client: client,
+      request: request,
+      connectionTimeout: timeout,
+      cancelSignal: cancelSignal,
+    );
     if (!isRedirectStatusCode(response.statusCode)) {
       return response;
     }
