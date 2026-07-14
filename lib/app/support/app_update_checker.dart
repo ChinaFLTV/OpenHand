@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
 import '../../shared/net/http_response_utils.dart';
+import '../../shared/util/bounded_delete.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/version_compare.dart';
 import 'silent_log.dart';
@@ -23,6 +24,12 @@ const int _kUpdateMaxDownloadBytes = 2 * 1024 * 1024 * 1024;
 const String _kGitHubReleaseAcceptHeader = 'application/vnd.github.v3+json';
 const String _kUpdateCheckerUserAgent = 'OpenHand-UpdateChecker';
 const String _kFallbackUpdateFileName = 'openhand-update';
+const BoundedDeletePolicy _kUpdateCleanupPolicy = BoundedDeletePolicy(
+  maxEntries: 16,
+  maxDepth: 2,
+  operationTimeout: Duration(seconds: 5),
+  totalTimeout: Duration(seconds: 15),
+);
 
 /// 应用版本更新信息。
 class AppReleaseInfo {
@@ -235,7 +242,10 @@ class GitHubReleaseDataSource implements AppUpdateDataSource {
       if (directory != null) {
         try {
           if (await directory.exists()) {
-            await directory.delete(recursive: true);
+            await deletePathBounded(
+              p.absolute(directory.path),
+              policy: _kUpdateCleanupPolicy,
+            );
           }
         } catch (error, stack) {
           silentLog(

@@ -6,6 +6,7 @@ import 'package:path/path.dart' as p;
 
 import '../../../../app/support/openhand_paths.dart';
 import '../../../../shared/db/atomic_file_operations.dart';
+import '../../../../shared/util/bounded_delete.dart';
 import '../../../../shared/util/bounded_directory_io.dart';
 import '../../../../shared/util/bounded_file_io.dart';
 import '../../../../shared/util/input_value_parsing.dart';
@@ -15,6 +16,13 @@ import '../../model/ai_lsp_language_settings.dart';
 const String _managedInstallManifestFileName =
     '.openhand-lsp-managed-install.json';
 const int _managedInstallManifestMaxBytes = 64 * 1024;
+const BoundedDeletePolicy _managedInstallDeletePolicy = BoundedDeletePolicy(
+  maxEntries: 500000,
+  maxDepth: 256,
+  directoryIdleTimeout: Duration(seconds: 5),
+  operationTimeout: Duration(seconds: 30),
+  totalTimeout: Duration(minutes: 10),
+);
 
 class AiLspManagedInstallPlan {
   const AiLspManagedInstallPlan({
@@ -271,7 +279,10 @@ abstract final class AiLspManagedInstallService {
       );
     }
     final directory = Directory(normalizedRoot);
-    await directory.delete(recursive: true);
+    await deletePathBounded(
+      p.absolute(directory.path),
+      policy: _managedInstallDeletePolicy,
+    );
     _manifestReads.remove(normalizedRoot);
     _storeCachedManifest(normalizedRoot, null);
   }

@@ -8,6 +8,7 @@ import 'package:path/path.dart' as p;
 import 'package:xml/xml.dart' as xml;
 
 import '../../../../app/support/silent_log.dart';
+import '../../../../shared/util/bounded_delete.dart';
 import '../../../../shared/util/bounded_directory_io.dart';
 import '../../../../shared/util/bounded_file_io.dart';
 import '../../../../shared/util/byte_size_format.dart';
@@ -42,6 +43,11 @@ class AiAttachmentService {
   static const int _maxSpreadsheetArchiveBytes = 8 * kBytesPerMiB;
   static const int _maxZipEntryBytes = 4 * kBytesPerMiB;
   static const int _maxAttachmentCleanupEntries = 100000;
+  static const BoundedDeletePolicy _attachmentDeletePolicy =
+      BoundedDeletePolicy(
+        maxEntries: _maxAttachmentCleanupEntries,
+        maxDepth: 64,
+      );
   static final RegExp _pdfTextSpanPattern = RegExp(r'\(([^()]{2,})\)\s*Tj');
   static final RegExp _pdfFallbackUnsupportedCharsPattern = RegExp(
     r'[^\x20-\x7E\u4E00-\u9FFF\r\n\t]+',
@@ -815,10 +821,11 @@ class AiAttachmentService {
   }
 
   Future<void> _deleteDirectoryIfExists(Directory directory) async {
-    if (!await directory.exists()) {
-      return;
-    }
-    await directory.delete(recursive: true);
+    await deletePathBounded(
+      p.absolute(directory.path),
+      policy: _attachmentDeletePolicy,
+      allowedRoot: p.absolute(_attachmentsDirectoryPath),
+    );
     await deleteEmptyAncestorDirectories(
       start: directory.parent,
       stopAt: Directory(_attachmentsDirectoryPath),

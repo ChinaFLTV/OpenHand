@@ -9,6 +9,7 @@ import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/db/database_service.dart';
+import '../../../shared/util/bounded_delete.dart';
 import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
@@ -1019,18 +1020,10 @@ class AiSessionStore {
       sessionFilePath(normalizedSessionId),
     ];
     for (final path in paths) {
-      final type = await FileSystemEntity.type(path, followLinks: false);
-      switch (type) {
-        case FileSystemEntityType.directory:
-          await Directory(path).delete(recursive: true);
-        case FileSystemEntityType.file:
-        case FileSystemEntityType.link:
-        case FileSystemEntityType.pipe:
-        case FileSystemEntityType.unixDomainSock:
-          await File(path).delete();
-        case FileSystemEntityType.notFound:
-          break;
-      }
+      await deletePathBounded(
+        p.absolute(path),
+        allowedRoot: p.absolute(_sessionsDirectoryPath),
+      );
     }
   }
 
@@ -1053,7 +1046,10 @@ class AiSessionStore {
       // missing parent (the per-session writers `mkdir` on first use, but
       // some callers — e.g. `openStorageDirectory()` — still need a real
       // directory to open).
-      await root.delete(recursive: true);
+      await deletePathBounded(
+        p.absolute(root.path),
+        allowedRoot: p.absolute(_sessionsDirectoryPath),
+      );
       await root.create(recursive: true);
     }
   }

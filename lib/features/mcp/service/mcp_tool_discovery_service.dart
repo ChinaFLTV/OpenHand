@@ -14,6 +14,7 @@ import '../../../shared/net/http_redirect_utils.dart';
 import '../../../shared/net/http_response_utils.dart';
 import '../../../shared/net/http_status_utils.dart';
 import '../../../shared/util/async_concurrency.dart';
+import '../../../shared/util/bounded_delete.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
@@ -53,6 +54,13 @@ const Duration _mcpHttpDiscardTimeout = Duration(seconds: 3);
 const Duration _mcpStreamCleanupTimeout = Duration(milliseconds: 500);
 const Duration _mcpStdioFileOperationTimeout = Duration(seconds: 3);
 const int _mcpStdioPathProbeLimit = 256;
+const BoundedDeletePolicy _mcpCacheDeletePolicy = BoundedDeletePolicy(
+  maxEntries: 500000,
+  maxDepth: 256,
+  directoryIdleTimeout: Duration(seconds: 5),
+  operationTimeout: Duration(seconds: 30),
+  totalTimeout: Duration(minutes: 10),
+);
 
 Future<String> _readMcpHttpResponseBody(
   http.StreamedResponse response, {
@@ -2248,7 +2256,7 @@ Future<void> resetMcpStdioIsolatedCache() async {
       dir.path,
     );
   }
-  await dir.delete(recursive: true);
+  await deletePathBounded(p.absolute(dir.path), policy: _mcpCacheDeletePolicy);
 }
 
 /// 全局可监听：每个 stdio MCP server 当前 bootstrap 进度行（通常是 npm /

@@ -6,6 +6,7 @@ import 'package:yaml/yaml.dart';
 
 import '../../../../app/support/silent_log.dart';
 import '../../../../shared/db/atomic_file_operations.dart';
+import '../../../../shared/util/bounded_delete.dart';
 import '../../../../shared/util/bounded_file_io.dart';
 import '../../../../shared/util/directory_cleanup.dart';
 import '../../../../shared/util/path_safety.dart';
@@ -37,6 +38,11 @@ class AiSkillManagerTool extends AiTool {
   static const int _maxNameLength = 64;
   static const int _maxDescriptionLength = 1024;
   static const int _maxSkillScanEntities = 5000;
+  static const BoundedDeletePolicy _skillDeletePolicy = BoundedDeletePolicy(
+    maxEntries: _maxSkillScanEntities,
+    maxDepth: 64,
+    totalTimeout: Duration(minutes: 1),
+  );
   static const Duration _skillScanIdleTimeout = Duration(seconds: 3);
   static const Duration _skillScanTotalTimeout = Duration(seconds: 10);
   static const int _maxSidecarContentLength = 2 * 1024 * 1024;
@@ -242,7 +248,12 @@ class AiSkillManagerTool extends AiTool {
       );
     }
 
-    await skillDir.delete(recursive: true);
+    await deletePathBounded(
+      p.absolute(skillDir.path),
+      policy: _skillDeletePolicy,
+      allowMissing: false,
+      allowedRoot: p.absolute(skillsRoot),
+    );
     await _deleteEmptyAncestorDirs(
       start: skillDir.parent,
       stopAt: Directory(skillsRoot),

@@ -18,6 +18,7 @@ import '../../../../app/support/openhand_paths.dart';
 import '../../../../app/support/silent_log.dart';
 import '../../../../app/support/system_proxy.dart';
 import '../../../../shared/net/http_status_utils.dart';
+import '../../../../shared/util/bounded_delete.dart';
 import '../../../../shared/util/bounded_directory_io.dart';
 import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/input_value_parsing.dart';
@@ -70,6 +71,13 @@ class MediaCacheService {
   static const Duration _cleanupTimeout = Duration(seconds: 5);
   static const Duration _cacheScanTimeout = Duration(seconds: 15);
   static const int _maxCacheScanEntries = 100000;
+  static const BoundedDeletePolicy _cacheDeletePolicy = BoundedDeletePolicy(
+    maxEntries: _maxCacheScanEntries + 1,
+    maxDepth: 16,
+    directoryIdleTimeout: _cleanupTimeout,
+    operationTimeout: _cleanupTimeout,
+    totalTimeout: _cacheScanTimeout,
+  );
   static const Duration _imageDownloadDeadline = Duration(minutes: 5);
   static const Duration _audioDownloadDeadline = Duration(minutes: 8);
   static const Duration _videoDownloadDeadline = Duration(minutes: 20);
@@ -426,18 +434,10 @@ class MediaCacheService {
   }
 
   static Future<void> _clearDirectoryContents(Directory dir) async {
-    if (!await dir.exists()) return;
     try {
-      final listing = await listDirectoryBounded(
-        dir,
-        maxEntries: _maxCacheScanEntries,
-        totalTimeout: _cacheScanTimeout,
-      );
-      for (final entity in listing.entries) {
-        await _deleteEntity(entity, 'delete cached media entity');
-      }
+      await deletePathBounded(p.absolute(dir.path), policy: _cacheDeletePolicy);
     } catch (error, stack) {
-      silentLog('media_cache', 'list cache directory clear', error, stack);
+      silentLog('media_cache', 'clear cache directory', error, stack);
     }
   }
 
@@ -446,9 +446,10 @@ class MediaCacheService {
     String where,
   ) async {
     try {
-      if (await entity.exists().timeout(_cleanupTimeout)) {
-        await entity.delete(recursive: true).timeout(_cleanupTimeout);
-      }
+      await deletePathBounded(
+        p.absolute(entity.path),
+        policy: _cacheDeletePolicy,
+      );
     } catch (error, stack) {
       silentLog('media_cache', where, error, stack);
     }

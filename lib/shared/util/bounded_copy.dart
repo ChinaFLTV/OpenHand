@@ -4,13 +4,13 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+import 'bounded_delete.dart';
 import 'bounded_directory_io.dart';
 import 'bounded_file_io.dart';
 import 'path_safety.dart';
 import 'physical_path_safety.dart';
 
 const String _boundedCopyStagingPrefix = '.openhand-copy-';
-const Duration _boundedCopyCleanupTimeout = Duration(seconds: 10);
 
 final class BoundedCopyPolicy {
   const BoundedCopyPolicy({
@@ -537,11 +537,7 @@ void _cleanupAfterLateFileRename(
 
 Future<void> _deleteDirectoryQuietly(Directory directory) async {
   try {
-    if (await directory.exists()) {
-      await directory
-          .delete(recursive: true)
-          .timeout(_boundedCopyCleanupTimeout);
-    }
+    await deletePathBounded(p.absolute(directory.path));
   } catch (_) {
     // Staging cleanup must not replace the primary copy failure.
   }

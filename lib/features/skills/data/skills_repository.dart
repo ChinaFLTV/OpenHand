@@ -12,6 +12,7 @@ import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/util/bounded_copy.dart';
+import '../../../shared/util/bounded_delete.dart';
 import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/directory_cleanup.dart';
@@ -41,6 +42,11 @@ class SkillsRepository {
   static const BoundedCopyPolicy _directoryImportCopyPolicy = BoundedCopyPolicy(
     maxEntries: _maxArchiveEntries,
     maxBytes: _maxExtractedArchiveBytes,
+    maxDepth: _maxSkillScanDepth,
+    totalTimeout: Duration(minutes: 1),
+  );
+  static const BoundedDeletePolicy _skillDeletePolicy = BoundedDeletePolicy(
+    maxEntries: _maxInstalledSkillScanEntries,
     maxDepth: _maxSkillScanDepth,
     totalTimeout: Duration(minutes: 1),
   );
@@ -110,7 +116,10 @@ class SkillsRepository {
       return _parseSkill(manifestFile, storagePath);
     } catch (error, stack) {
       silentLog('skills_repository', 'create skill template', error, stack);
-      await _deleteDirectoryIfExists(targetDirectory);
+      await _deleteDirectoryIfExists(
+        targetDirectory,
+        storageRootPath: storagePath,
+      );
       rethrow;
     }
   }
@@ -175,7 +184,10 @@ class SkillsRepository {
       return _parseSkill(manifestFile, storagePath);
     } catch (error, stack) {
       silentLog('skills_repository', 'create skill', error, stack);
-      await _deleteDirectoryIfExists(targetDirectory);
+      await _deleteDirectoryIfExists(
+        targetDirectory,
+        storageRootPath: storagePath,
+      );
       rethrow;
     }
   }
@@ -225,7 +237,10 @@ class SkillsRepository {
       );
     } catch (error, stack) {
       silentLog('skills_repository', 'import skill directory', error, stack);
-      await _deleteDirectoryIfExists(targetDirectory);
+      await _deleteDirectoryIfExists(
+        targetDirectory,
+        storageRootPath: storagePath,
+      );
       rethrow;
     }
   }
@@ -255,7 +270,10 @@ class SkillsRepository {
       return _parseSkill(manifestFile, storagePath);
     } catch (error, stack) {
       silentLog('skills_repository', 'install skill archive', error, stack);
-      await _deleteDirectoryIfExists(targetDirectory);
+      await _deleteDirectoryIfExists(
+        targetDirectory,
+        storageRootPath: storagePath,
+      );
       rethrow;
     }
   }
@@ -438,7 +456,12 @@ class SkillsRepository {
       );
     }
 
-    await directory.delete(recursive: true);
+    await deletePathBounded(
+      p.absolute(directory.path),
+      policy: _skillDeletePolicy,
+      allowMissing: false,
+      allowedRoot: p.absolute(storagePath),
+    );
   }
 
   Future<void> openDirectory(String path) async {
@@ -1157,10 +1180,15 @@ class SkillsRepository {
     }
   }
 
-  Future<void> _deleteDirectoryIfExists(Directory directory) async {
-    if (await directory.exists()) {
-      await directory.delete(recursive: true);
-    }
+  Future<void> _deleteDirectoryIfExists(
+    Directory directory, {
+    required String storageRootPath,
+  }) {
+    return deletePathBounded(
+      p.absolute(directory.path),
+      policy: _skillDeletePolicy,
+      allowedRoot: p.absolute(storageRootPath),
+    );
   }
 
   Future<void> _deleteOptionalFileIfExists(String filePath) async {
