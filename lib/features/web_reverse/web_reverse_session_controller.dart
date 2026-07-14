@@ -180,6 +180,10 @@ class WebReverseSessionController extends ChangeNotifier {
   static const int maxRecorderStepTextChars = 64 * kBytesPerKiB;
   static const int maxRecorderCollectionChars = 16 * kBytesPerMiB;
   static const int maxRecorderImportBytes = 16 * kBytesPerMiB;
+  static const int maxPendingFetchRequests = 200;
+  static const int fetchInterceptPendingTimeoutSeconds = 60;
+  static const int maxEditedRequestBodyChars = 2 * kBytesPerMiB;
+  static const int maxEditedRequestBodyBase64Chars = 8 * kBytesPerMiB;
   static const int maxAccountSnapshotNameChars = 256;
   static const int maxAccountSnapshotCookies = 512;
   static const int maxAccountSnapshotStorageEntries = 2048;
@@ -189,6 +193,22 @@ class WebReverseSessionController extends ChangeNotifier {
   static const int _accountSnapshotRestoreConcurrency = 4;
   static const Duration _accountSnapshotCommandTimeout = Duration(seconds: 3);
   static const Duration _accountSnapshotRestoreTimeout = Duration(seconds: 45);
+  static const Set<String> _fetchErrorReasons = <String>{
+    'Failed',
+    'Aborted',
+    'TimedOut',
+    'AccessDenied',
+    'ConnectionClosed',
+    'ConnectionReset',
+    'ConnectionRefused',
+    'ConnectionAborted',
+    'ConnectionFailed',
+    'NameNotResolved',
+    'InternetDisconnected',
+    'AddressUnreachable',
+    'BlockedByClient',
+    'BlockedByResponse',
+  };
   static const double _maxFullPageScreenshotCssPixels = 32 * 1000 * 1000;
   static const double _maxFullPageScreenshotCssSide = 32767;
   static final RegExp _rawCdpMethodPattern = RegExp(
@@ -554,6 +574,7 @@ class WebReverseSessionController extends ChangeNotifier {
     final cdp = _browserCdp!;
     // 切换前主动 detach 旧 session（如果有），避免事件流叠加。
     if (_pageSessionId != null) {
+      _clearPendingFetchRequests();
       try {
         await cdp.send(
           'Target.detachFromTarget',
@@ -788,6 +809,7 @@ class WebReverseSessionController extends ChangeNotifier {
         // 重连彻底失败：浏览器可能已经被用户手动关掉。把 screencast 状态
         // 复位、清掉缓存帧、通知 UI 切到"已断开 / 可重启"占位。
         _resetScreencastRuntimeState(resetRefCount: false);
+        _clearPendingFetchRequests(resetEnabled: true);
         _errorMessage = '浏览器已断开（CDP 自动重连失败），可点击「重启浏览器」恢复。';
         _safeNotify();
         return;
@@ -3610,6 +3632,7 @@ class WebReverseSessionController extends ChangeNotifier {
       }
     }
     _resetScreencastRuntimeState(resetRefCount: false);
+    _clearPendingFetchRequests(resetEnabled: true);
     await _cancelRuntimeSubscription(_pageEventsSub, 'stop page events');
     _pageEventsSub = null;
     _pageSessionId = null;
@@ -3742,6 +3765,7 @@ class WebReverseSessionController extends ChangeNotifier {
       }
     }
     _resetScreencastRuntimeState(resetRefCount: true);
+    _clearPendingFetchRequests(resetEnabled: true);
     await _cancelRuntimeSubscription(_pageEventsSub, 'shutdown page events');
     await _closeAuxiliaryServices();
     _pageEventsSub = null;
@@ -5156,13 +5180,14 @@ class WebReverseSessionController extends ChangeNotifier {
 
   /// 通过 Fetch 域拦截全部请求。每次拦到都通过 [_pendingFetchRequests] 暴露
   /// 给 dashboard，用户可手动 continue / abort / 修改延迟。
-  /// 启用后所有请求都需要 dashboard 显式放行；适合反爬调试与超时模拟，
-  /// 不建议默认开。
+  /// 达到容量上限的新请求直接放行，超时未处理的请求也会自动放行，避免
+  /// 调试面板无人操作时把页面永久挂死。适合反爬调试与超时模拟，不建议默认开。
   bool _fetchInterceptEnabled = false;
   bool get isFetchInterceptEnabled =>
       _fetchInterceptEnabled; // 请求 ID -> 暂存的元信息（method / url），等用户决策。
   final Map<String, Map<String, Object?>> _pendingFetchRequests =
       <String, Map<String, Object?>>{};
+  Timer? _pendingFetchSweepTimer;
   List<({String requestId, String method, String url})>
   get pendingFetchRequests => _pendingFetchRequests.entries
       .map(
@@ -5173,6 +5198,62 @@ class WebReverseSessionController extends ChangeNotifier {
         ),
       )
       .toList(growable: false);
+
+  void _clearPendingFetchRequests({bool resetEnabled = false}) {
+    _pendingFetchSweepTimer?.cancel();
+    _pendingFetchSweepTimer = null;
+    _pendingFetchRequests.clear();
+    if (resetEnabled) _fetchInterceptEnabled = false;
+  }
+
+  Map<String, Object?>? _removePendingFetchRequest(String requestId) {
+    final removed = _pendingFetchRequests.remove(requestId);
+    if (_pendingFetchRequests.isEmpty) {
+      _pendingFetchSweepTimer?.cancel();
+      _pendingFetchSweepTimer = null;
+    }
+    return removed;
+  }
+
+  void _ensurePendingFetchSweepTimer() {
+    if (_pendingFetchSweepTimer != null || _pendingFetchRequests.isEmpty) {
+      return;
+    }
+    _pendingFetchSweepTimer = startNonOverlappingPeriodicTimer(
+      const Duration(seconds: 5),
+      (_) async {
+        if (_disposed ||
+            !_fetchInterceptEnabled ||
+            _pendingFetchRequests.isEmpty) {
+          _clearPendingFetchRequests();
+          return;
+        }
+        final cutoff =
+            DateTime.now().millisecondsSinceEpoch -
+            fetchInterceptPendingTimeoutSeconds * 1000;
+        final expired = _pendingFetchRequests.entries
+            .where(
+              (entry) =>
+                  intFromValue(entry.value['createdAtMs'], fallback: cutoff) <=
+                  cutoff,
+            )
+            .map((entry) => entry.key)
+            .toList(growable: false);
+        if (expired.isEmpty) return;
+        final sessionId = _pageSessionId;
+        await forEachIndexWithConcurrencyLimit(
+          itemCount: expired.length,
+          maxConcurrency: 8,
+          shouldContinue: () =>
+              !_disposed &&
+              _fetchInterceptEnabled &&
+              _pageSessionId == sessionId,
+          task: (index) => continueFetchRequest(expired[index], notify: false),
+        );
+        _safeNotify();
+      },
+    );
+  }
 
   Future<bool> setFetchInterceptEnabled(bool enabled) async {
     final cdp = _browserCdp;
@@ -5190,7 +5271,7 @@ class WebReverseSessionController extends ChangeNotifier {
         );
       } else {
         await cdp.send('Fetch.disable', sessionId: _pageSessionId);
-        _pendingFetchRequests.clear();
+        _clearPendingFetchRequests();
       }
       _fetchInterceptEnabled = enabled;
       _safeNotify();
@@ -5206,15 +5287,24 @@ class WebReverseSessionController extends ChangeNotifier {
     }
   }
 
-  Future<void> continueFetchRequest(String requestId) async {
+  Future<void> continueFetchRequest(
+    String requestId, {
+    bool notify = true,
+  }) async {
     final cdp = _browserCdp;
-    if (cdp == null) return;
-    _pendingFetchRequests.remove(requestId);
+    final pending = _removePendingFetchRequest(requestId);
+    final sessionId = pending?['sessionId'] is String
+        ? pending!['sessionId'] as String
+        : _pageSessionId;
+    if (cdp == null || sessionId == null) {
+      if (notify) _safeNotify();
+      return;
+    }
     try {
       await cdp.send(
         'Fetch.continueRequest',
         params: <String, Object?>{'requestId': requestId},
-        sessionId: _pageSessionId,
+        sessionId: sessionId,
       );
     } catch (error, stack) {
       silentLog(
@@ -5224,7 +5314,7 @@ class WebReverseSessionController extends ChangeNotifier {
         stack,
       );
     }
-    _safeNotify();
+    if (notify) _safeNotify();
   }
 
   /// 改写后再放行：可覆盖 url / method / headers / postData。
@@ -5236,15 +5326,35 @@ class WebReverseSessionController extends ChangeNotifier {
     Map<String, String>? headers,
     String? postDataBase64,
   }) async {
+    final normalizedUrl = url?.trim();
+    final normalizedMethod = method?.trim().toUpperCase();
+    if ((normalizedUrl?.length ?? 0) > maxBreakpointTextChars ||
+        (normalizedMethod?.length ?? 0) > maxRuleMethodChars ||
+        (postDataBase64?.length ?? 0) > maxEditedRequestBodyBase64Chars) {
+      return;
+    }
+    final normalizedHeaders = headers == null
+        ? null
+        : _normalizeRuleHeaders(headers);
     final cdp = _browserCdp;
-    if (cdp == null) return;
-    _pendingFetchRequests.remove(requestId);
+    final pending = _removePendingFetchRequest(requestId);
+    final sessionId = pending?['sessionId'] is String
+        ? pending!['sessionId'] as String
+        : _pageSessionId;
+    if (cdp == null || sessionId == null) {
+      _safeNotify();
+      return;
+    }
     try {
       final params = <String, Object?>{'requestId': requestId};
-      if (url != null && url.isNotEmpty) params['url'] = url;
-      if (method != null && method.isNotEmpty) params['method'] = method;
-      if (headers != null) {
-        params['headers'] = headers.entries
+      if (normalizedUrl != null && normalizedUrl.isNotEmpty) {
+        params['url'] = normalizedUrl;
+      }
+      if (normalizedMethod != null && normalizedMethod.isNotEmpty) {
+        params['method'] = normalizedMethod;
+      }
+      if (normalizedHeaders != null) {
+        params['headers'] = normalizedHeaders.entries
             .map((e) => <String, Object?>{'name': e.key, 'value': e.value})
             .toList(growable: false);
       }
@@ -5252,7 +5362,7 @@ class WebReverseSessionController extends ChangeNotifier {
       await cdp.send(
         'Fetch.continueRequest',
         params: params,
-        sessionId: _pageSessionId,
+        sessionId: sessionId,
       );
     } catch (error, stack) {
       silentLog(
@@ -5271,16 +5381,25 @@ class WebReverseSessionController extends ChangeNotifier {
     String reason = 'Aborted',
   }) async {
     final cdp = _browserCdp;
-    if (cdp == null) return;
-    _pendingFetchRequests.remove(requestId);
+    final pending = _removePendingFetchRequest(requestId);
+    final sessionId = pending?['sessionId'] is String
+        ? pending!['sessionId'] as String
+        : _pageSessionId;
+    if (cdp == null || sessionId == null) {
+      _safeNotify();
+      return;
+    }
+    final normalizedReason = _fetchErrorReasons.contains(reason)
+        ? reason
+        : 'Aborted';
     try {
       await cdp.send(
         'Fetch.failRequest',
         params: <String, Object?>{
           'requestId': requestId,
-          'errorReason': reason,
+          'errorReason': normalizedReason,
         },
-        sessionId: _pageSessionId,
+        sessionId: sessionId,
       );
     } catch (error, stack) {
       silentLog(
@@ -5296,15 +5415,24 @@ class WebReverseSessionController extends ChangeNotifier {
   /// 全部放行已暂存请求。
   Future<void> continueAllFetch() async {
     final ids = _pendingFetchRequests.keys.toList();
-    for (final id in ids) {
-      await continueFetchRequest(id);
-    }
+    final sessionId = _pageSessionId;
+    await forEachIndexWithConcurrencyLimit(
+      itemCount: ids.length,
+      maxConcurrency: 8,
+      shouldContinue: () => !_disposed && _pageSessionId == sessionId,
+      task: (index) => continueFetchRequest(ids[index], notify: false),
+    );
+    _safeNotify();
   }
 
   void _onFetchRequestPaused(Map<String, Object?> p) {
     final requestId = '${p['requestId']}';
     final request = p['request'] as Map?;
     if (requestId.isEmpty || request == null) return;
+    if (requestId.length > maxRuleIdChars) {
+      unawaited(continueFetchRequest(requestId, notify: false));
+      return;
+    }
     final url = '${request['url'] ?? ''}';
     final reqMethod = '${request['method'] ?? 'GET'}';
     // Local Mock：最高优先级。命中 mock 规则 → 用 Fetch.fulfillRequest
@@ -5356,11 +5484,21 @@ class WebReverseSessionController extends ChangeNotifier {
     if (bp != null) {
       unawaited(_onRequestBreakpointHit(bp, method, url, postData));
     }
+    if (!_pendingFetchRequests.containsKey(requestId) &&
+        _pendingFetchRequests.length >= maxPendingFetchRequests) {
+      unawaited(continueFetchRequest(requestId, notify: false));
+      return;
+    }
     _pendingFetchRequests[requestId] = <String, Object?>{
-      'method': request['method'],
-      'url': request['url'],
-      'ts': DateTime.now().toUtc().toIso8601String(),
+      'method': _capPlainWebReverseText(
+        '${request['method'] ?? 'GET'}'.trim().toUpperCase(),
+        maxRuleMethodChars,
+      ),
+      'url': _capPlainWebReverseText(url, maxBreakpointTextChars),
+      'createdAtMs': DateTime.now().millisecondsSinceEpoch,
+      'sessionId': _pageSessionId,
     };
+    _ensurePendingFetchSweepTimer();
     _safeNotify();
   }
 
@@ -6856,9 +6994,10 @@ class WebReverseSessionController extends ChangeNotifier {
     final sessionId = _pageSessionId;
     if (cdp == null || sessionId == null) return;
 
-    Future<void> send(String method, {Map<String, Object?>? params}) async {
+    Future<bool> send(String method, {Map<String, Object?>? params}) async {
       try {
         await cdp.send(method, params: params, sessionId: sessionId);
+        return true;
       } catch (error, stack) {
         silentLog(
           'web_reverse_session_controller',
@@ -6866,6 +7005,7 @@ class WebReverseSessionController extends ChangeNotifier {
           error,
           stack,
         );
+        return false;
       }
     }
 
@@ -6888,6 +7028,17 @@ class WebReverseSessionController extends ChangeNotifier {
         'Network.emulateNetworkConditions',
         params: _networkConditions.cdpParams,
       );
+    }
+    if (_fetchInterceptEnabled) {
+      final restored = await send(
+        'Fetch.enable',
+        params: const <String, Object?>{
+          'patterns': [
+            <String, Object?>{'requestStage': 'Request'},
+          ],
+        },
+      );
+      if (!restored) _fetchInterceptEnabled = false;
     }
   }
 

@@ -1184,12 +1184,13 @@ class _PendingFetchBanner extends StatelessWidget {
             child: Text(
               openHandLocalizedText(
                 context,
-                zh: '请求拦截已启用：${pending.length} 个请求待决策（点击下方继续/中止）。',
-                zhHant: '請求攔截已啟用：${pending.length} 個請求待決策（點擊下方繼續/中止）。',
-                en: 'Request intercept on: ${pending.length} pending.',
-                fr: 'Interception activée : ${pending.length} requêtes en attente.',
-                de: 'Request-Interception aktiv: ${pending.length} ausstehend.',
-                ja: 'リクエスト傍受中: ${pending.length} 件が保留中です。',
+                zh: '请求拦截已启用：${pending.length} 个请求待决策，超过 ${WebReverseSessionController.fetchInterceptPendingTimeoutSeconds} 秒自动放行。',
+                zhHant:
+                    '請求攔截已啟用：${pending.length} 個請求待決策，超過 ${WebReverseSessionController.fetchInterceptPendingTimeoutSeconds} 秒自動放行。',
+                en: 'Request intercept on: ${pending.length} pending; auto-continue after ${WebReverseSessionController.fetchInterceptPendingTimeoutSeconds}s.',
+                fr: 'Interception activée : ${pending.length} en attente ; poursuite automatique après ${WebReverseSessionController.fetchInterceptPendingTimeoutSeconds} s.',
+                de: 'Request-Interception aktiv: ${pending.length} ausstehend; nach ${WebReverseSessionController.fetchInterceptPendingTimeoutSeconds} s automatisch fortsetzen.',
+                ja: 'リクエスト傍受中: ${pending.length} 件。${WebReverseSessionController.fetchInterceptPendingTimeoutSeconds} 秒後に自動続行します。',
               ),
               style: theme.textTheme.bodySmall?.copyWith(
                 color: cs.onTertiaryContainer,
@@ -1391,18 +1392,21 @@ class _PendingFetchBanner extends StatelessWidget {
               children: [
                 TextField(
                   controller: urlCtrl,
+                  maxLength: WebReverseSessionController.maxBreakpointTextChars,
                   decoration: const InputDecoration(labelText: 'URL'),
                   style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
                 ),
                 const SizedBox(height: 8),
                 TextField(
                   controller: methodCtrl,
+                  maxLength: WebReverseSessionController.maxRuleMethodChars,
                   decoration: const InputDecoration(labelText: 'Method'),
                   style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
                 ),
                 const SizedBox(height: 8),
                 TextField(
                   controller: headersCtrl,
+                  maxLength: WebReverseSessionController.maxRuleHeadersChars,
                   maxLines: 6,
                   minLines: 3,
                   decoration: InputDecoration(
@@ -1421,6 +1425,8 @@ class _PendingFetchBanner extends StatelessWidget {
                 const SizedBox(height: 8),
                 TextField(
                   controller: bodyCtrl,
+                  maxLength:
+                      WebReverseSessionController.maxEditedRequestBodyChars,
                   maxLines: 6,
                   minLines: 3,
                   decoration: InputDecoration(
