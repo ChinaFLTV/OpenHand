@@ -4,6 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:openhand/features/ai/model/ai_model_config.dart';
 import 'package:openhand/features/ai/service/chat/ai_protocol_adapter.dart';
 
+import '../../support/test_directory.dart';
+
 void main() {
   late Directory temporaryDirectory;
 
@@ -37,9 +39,7 @@ void main() {
     );
   });
 
-  tearDown(() async {
-    await temporaryDirectory.delete(recursive: true);
-  });
+  tearDown(() => deleteTestDirectory(temporaryDirectory));
 
   test('accepts a regular non-empty Responses image', () async {
     final image = File('${temporaryDirectory.path}/image.png');

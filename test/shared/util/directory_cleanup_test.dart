@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:openhand/shared/util/directory_cleanup.dart';
 
+import '../../support/test_directory.dart';
+
 void main() {
   late Directory temporaryDirectory;
 
@@ -12,9 +14,7 @@ void main() {
     );
   });
 
-  tearDown(() async {
-    await temporaryDirectory.delete(recursive: true);
-  });
+  tearDown(() => deleteTestDirectory(temporaryDirectory));
 
   test(
     'empty-directory check distinguishes empty and populated directories',

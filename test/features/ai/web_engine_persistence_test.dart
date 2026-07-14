@@ -6,6 +6,8 @@ import 'package:openhand/features/ai/service/web_engine/web_engine_cache_store_b
 import 'package:openhand/features/ai/service/web_engine/web_engine_persistence_io.dart';
 import 'package:openhand/features/ai/service/web_engine/web_engine_telemetry_store_base.dart';
 
+import '../../support/test_directory.dart';
+
 void main() {
   late Directory temporaryDirectory;
 
@@ -15,9 +17,7 @@ void main() {
     );
   });
 
-  tearDown(() async {
-    await temporaryDirectory.delete(recursive: true);
-  });
+  tearDown(() => deleteTestDirectory(temporaryDirectory));
 
   test('cache lookup and store accept only bounded SHA-256 entries', () async {
     final cache = _TestCacheStore('${temporaryDirectory.path}/cache');

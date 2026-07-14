@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:openhand/features/skills/data/skills_repository.dart';
 
+import '../../support/test_directory.dart';
+
 void main() {
   late Directory storageDirectory;
 
@@ -12,9 +14,7 @@ void main() {
     );
   });
 
-  tearDown(() async {
-    await storageDirectory.delete(recursive: true);
-  });
+  tearDown(() => deleteTestDirectory(storageDirectory));
 
   Future<void> writeManifest(String relativeDirectory, String name) async {
     final directory = Directory('${storageDirectory.path}/$relativeDirectory');
@@ -94,7 +94,7 @@ description: Imported description
         'example',
       );
     } finally {
-      await sourceDirectory.delete(recursive: true);
+      await deleteTestDirectory(sourceDirectory);
     }
   });
 }

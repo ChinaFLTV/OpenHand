@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:openhand/features/settings/data_cleanup/data_cleanup_service.dart';
 
+import '../../support/test_directory.dart';
+
 void main() {
   late Directory temporaryDirectory;
   late Directory retainedDirectory;
@@ -21,11 +23,7 @@ void main() {
     await File('${removedDirectory.path}/remove.txt').writeAsString('remove');
   });
 
-  tearDown(() async {
-    if (await temporaryDirectory.exists()) {
-      await temporaryDirectory.delete(recursive: true);
-    }
-  });
+  tearDown(() => deleteTestDirectory(temporaryDirectory));
 
   test('measures directory contents with an exclusion', () async {
     final complete = await DataCleanupFileWorker.measureDirectory(

@@ -6,6 +6,8 @@ import 'package:openhand/features/mcp/model/mcp_server.dart';
 import 'package:openhand/features/mcp/model/mcp_tool.dart';
 import 'package:openhand/features/mcp/service/mcp_keyword_index.dart';
 
+import '../../support/test_directory.dart';
+
 void main() {
   late Directory temporaryDirectory;
   late File indexFile;
@@ -17,9 +19,7 @@ void main() {
     indexFile = File('${temporaryDirectory.path}/keyword_index.json');
   });
 
-  tearDown(() async {
-    await temporaryDirectory.delete(recursive: true);
-  });
+  tearDown(() => deleteTestDirectory(temporaryDirectory));
 
   test('loads a valid persisted keyword index', () async {
     await indexFile.writeAsString(jsonEncode(McpKeywordIndex.empty.toJson()));

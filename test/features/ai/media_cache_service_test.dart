@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:openhand/features/ai/service/media/media_cache_service.dart';
 
+import '../../support/test_directory.dart';
+
 void main() {
   late Directory temporaryDirectory;
   late Directory cacheDirectory;
@@ -14,9 +16,7 @@ void main() {
     cacheDirectory = Directory('${temporaryDirectory.path}/cache');
   });
 
-  tearDown(() async {
-    await temporaryDirectory.delete(recursive: true);
-  });
+  tearDown(() => deleteTestDirectory(temporaryDirectory));
 
   test(
     'persisted cache is validated asynchronously before hot-path use',

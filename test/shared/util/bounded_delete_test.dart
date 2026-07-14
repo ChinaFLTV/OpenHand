@@ -4,6 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:openhand/shared/util/bounded_delete.dart';
 import 'package:path/path.dart' as p;
 
+import '../../support/test_directory.dart';
+
 const BoundedDeletePolicy _testPolicy = BoundedDeletePolicy(
   maxEntries: 16,
   maxDepth: 4,
@@ -21,11 +23,7 @@ void main() {
     );
   });
 
-  tearDown(() async {
-    if (await temporaryDirectory.exists()) {
-      await temporaryDirectory.delete(recursive: true);
-    }
-  });
+  tearDown(() => deleteTestDirectory(temporaryDirectory));
 
   test('deletes a complete directory tree in post-order', () async {
     final target = Directory('${temporaryDirectory.path}/target');

@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:openhand/shared/util/bounded_file_io.dart';
 
+import '../../support/test_directory.dart';
+
 void main() {
   late Directory temporaryDirectory;
 
@@ -12,9 +14,7 @@ void main() {
     );
   });
 
-  tearDown(() async {
-    await temporaryDirectory.delete(recursive: true);
-  });
+  tearDown(() => deleteTestDirectory(temporaryDirectory));
 
   test('bounded string reader decodes a regular UTF-8 file', () async {
     final file = File('${temporaryDirectory.path}/config.json');

@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:openhand/shared/util/bounded_copy.dart';
 
+import '../../support/test_directory.dart';
+
 const BoundedCopyPolicy _testPolicy = BoundedCopyPolicy(
   maxEntries: 16,
   maxBytes: 1024,
@@ -21,9 +23,7 @@ void main() {
     );
   });
 
-  tearDown(() async {
-    await temporaryDirectory.delete(recursive: true);
-  });
+  tearDown(() => deleteTestDirectory(temporaryDirectory));
 
   test('directory copy publishes a complete nested tree', () async {
     final source = Directory('${temporaryDirectory.path}/source');

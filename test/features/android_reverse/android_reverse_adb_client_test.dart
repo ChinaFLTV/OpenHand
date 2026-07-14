@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:openhand/features/android_reverse/android_reverse_adb_client.dart';
 
+import '../../support/test_directory.dart';
+
 void main() {
   late Directory temporaryDirectory;
 
@@ -12,11 +14,7 @@ void main() {
     );
   });
 
-  tearDown(() async {
-    if (await temporaryDirectory.exists()) {
-      await temporaryDirectory.delete(recursive: true);
-    }
-  });
+  tearDown(() => deleteTestDirectory(temporaryDirectory));
 
   test(
     'preserves stdout and stderr for a non-zero adb exit',

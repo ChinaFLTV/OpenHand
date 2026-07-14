@@ -5,6 +5,8 @@ import 'package:openhand/features/web_reverse/web_reverse_browser_kind.dart';
 import 'package:openhand/features/web_reverse/web_reverse_session_config.dart';
 import 'package:openhand/features/web_reverse/web_reverse_session_controller.dart';
 
+import '../../support/test_directory.dart';
+
 void main() {
   test('shutdown is idempotent and rejects browser restart', () async {
     final tempDir = await Directory.systemTemp.createTemp(
@@ -31,6 +33,6 @@ void main() {
     await expectLater(controller.restartBrowser(), throwsStateError);
     await expectLater(controller.start(), throwsStateError);
     expect(controller.dispose, returnsNormally);
-    await tempDir.delete(recursive: true);
+    await deleteTestDirectory(tempDir);
   });
 }

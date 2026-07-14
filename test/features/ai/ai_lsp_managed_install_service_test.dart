@@ -5,6 +5,8 @@ import 'package:openhand/features/ai/model/ai_lsp_backend_catalog.dart';
 import 'package:openhand/features/ai/model/ai_lsp_language_settings.dart';
 import 'package:openhand/features/ai/service/lsp/ai_lsp_managed_install_service.dart';
 
+import '../../support/test_directory.dart';
+
 const _backend = AiLspBackendDescriptor(
   id: 'test-backend',
   displayName: 'Test Backend',
@@ -34,11 +36,7 @@ void main() {
     );
   });
 
-  tearDown(() async {
-    if (await temporaryDirectory.exists()) {
-      await temporaryDirectory.delete(recursive: true);
-    }
-  });
+  tearDown(() => deleteTestDirectory(temporaryDirectory));
 
   AiLspLanguageSettings settingsFor(String rootPath) =>
       AiLspLanguageSettings(backendId: _backend.id, rootPath: rootPath);

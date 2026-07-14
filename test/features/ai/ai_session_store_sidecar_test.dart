@@ -5,6 +5,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:openhand/features/ai/data/ai_session_store.dart';
 import 'package:openhand/shared/util/bounded_file_io.dart';
 
+import '../../support/test_directory.dart';
+
 void main() {
   late Directory temporaryDirectory;
   late AiSessionStore store;
@@ -16,9 +18,7 @@ void main() {
     store = AiSessionStore(sessionsDirectoryPath: temporaryDirectory.path);
   });
 
-  tearDown(() async {
-    await temporaryDirectory.delete(recursive: true);
-  });
+  tearDown(() => deleteTestDirectory(temporaryDirectory));
 
   Future<void> writeSidecar({required String metadata}) async {
     final markdown = File(store.sessionCompactMemoryMarkdownPath('session-1'));

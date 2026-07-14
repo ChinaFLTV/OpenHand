@@ -4,6 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:openhand/features/plugin_service/service/plugin_environment_probe.dart';
 import 'package:path/path.dart' as p;
 
+import '../../support/test_directory.dart';
+
 void main() {
   late Directory temporaryDirectory;
 
@@ -13,11 +15,7 @@ void main() {
     );
   });
 
-  tearDown(() async {
-    if (await temporaryDirectory.exists()) {
-      await temporaryDirectory.delete(recursive: true);
-    }
-  });
+  tearDown(() => deleteTestDirectory(temporaryDirectory));
 
   test('detects a pyenv executable under the selected home', () async {
     final executable = File(

@@ -4,6 +4,8 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:openhand/shared/util/node_package_manifest.dart';
 
+import '../../support/test_directory.dart';
+
 void main() {
   late Directory temporaryDirectory;
   late Directory packageDirectory;
@@ -16,9 +18,7 @@ void main() {
     await Directory('${packageDirectory.path}/bin').create(recursive: true);
   });
 
-  tearDown(() async {
-    await temporaryDirectory.delete(recursive: true);
-  });
+  tearDown(() => deleteTestDirectory(temporaryDirectory));
 
   test('resolves a package-local bin entry', () async {
     final entry = File('${packageDirectory.path}/bin/start.js');

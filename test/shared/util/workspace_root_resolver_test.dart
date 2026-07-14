@@ -4,6 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:openhand/shared/util/workspace_root_resolver.dart';
 import 'package:path/path.dart' as p;
 
+import '../../support/test_directory.dart';
+
 void main() {
   late Directory temporaryDirectory;
 
@@ -13,11 +15,7 @@ void main() {
     );
   });
 
-  tearDown(() async {
-    if (await temporaryDirectory.exists()) {
-      await temporaryDirectory.delete(recursive: true);
-    }
-  });
+  tearDown(() => deleteTestDirectory(temporaryDirectory));
 
   test('resolves and caches the nearest workspace marker', () async {
     final root = Directory(p.join(temporaryDirectory.path, 'project'));

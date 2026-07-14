@@ -5,6 +5,8 @@ import 'package:openhand/features/ai/model/ai_lsp_language_settings.dart';
 import 'package:openhand/features/ai/service/lsp/lsp_client_service.dart';
 import 'package:path/path.dart' as p;
 
+import '../../support/test_directory.dart';
+
 Future<Process> _unusedProcessLauncher({
   required AiLspBackendResolution backend,
   Map<String, String>? environment,
@@ -30,9 +32,7 @@ void main() {
 
   tearDown(() async {
     await service.disposeAll();
-    if (await temporaryDirectory.exists()) {
-      await temporaryDirectory.delete(recursive: true);
-    }
+    await deleteTestDirectory(temporaryDirectory);
   });
 
   test('configured executable file resolves asynchronously', () async {

@@ -4,6 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:openhand/features/web_reverse/web_reverse_profile_cleaner.dart';
 import 'package:path/path.dart' as p;
 
+import '../../support/test_directory.dart';
+
 void main() {
   late Directory temporaryDirectory;
 
@@ -13,11 +15,7 @@ void main() {
     );
   });
 
-  tearDown(() async {
-    if (await temporaryDirectory.exists()) {
-      await temporaryDirectory.delete(recursive: true);
-    }
-  });
+  tearDown(() => deleteTestDirectory(temporaryDirectory));
 
   test('detects and removes regular profile locks', () async {
     final lock = File(p.join(temporaryDirectory.path, 'Default', 'lockfile'));

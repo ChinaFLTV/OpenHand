@@ -5,6 +5,8 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:openhand/features/ai/service/fs/ai_file_mutation_ledger.dart';
 
+import '../../support/test_directory.dart';
+
 void main() {
   late Directory temporaryDirectory;
   late Directory ledgerDirectory;
@@ -18,9 +20,7 @@ void main() {
     ledger = AiFileMutationLedger(rootDirectory: ledgerDirectory.path);
   });
 
-  tearDown(() async {
-    await temporaryDirectory.delete(recursive: true);
-  });
+  tearDown(() => deleteTestDirectory(temporaryDirectory));
 
   Future<FileMutationRecord> record(String sessionId, String content) async {
     final result = await ledger.recordMutation(

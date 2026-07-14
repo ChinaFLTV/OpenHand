@@ -5,6 +5,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:openhand/features/mcp/service/mcp_node_package_resolver.dart';
 import 'package:path/path.dart' as p;
 
+import '../../support/test_directory.dart';
+
 void main() {
   late Directory temporaryDirectory;
   late Directory homeDirectory;
@@ -19,9 +21,7 @@ void main() {
     await nvmDirectory.create(recursive: true);
   });
 
-  tearDown(() async {
-    await temporaryDirectory.delete(recursive: true);
-  });
+  tearDown(() => deleteTestDirectory(temporaryDirectory));
 
   test('normalizes package versions and rejects path traversal', () {
     expect(normalizeMcpNodePackageName('example@latest'), 'example');

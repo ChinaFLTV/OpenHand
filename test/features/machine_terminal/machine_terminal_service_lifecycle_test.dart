@@ -4,6 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:openhand/features/machine_terminal/machine_terminal_service.dart';
 import 'package:path/path.dart' as p;
 
+import '../../support/test_directory.dart';
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -38,7 +40,7 @@ void main() {
         await service.shutdown();
         service.dispose();
       }
-      await temporaryDirectory.delete(recursive: true);
+      await deleteTestDirectory(temporaryDirectory);
     });
 
     await firstService.ensureWorkspace(sessionId: 'session', start: false);
@@ -89,7 +91,7 @@ void main() {
     addTearDown(() async {
       await service.shutdown();
       service.dispose();
-      await temporaryDirectory.delete(recursive: true);
+      await deleteTestDirectory(temporaryDirectory);
     });
 
     final snapshots = await Future.wait<MachineTerminalWorkspaceSnapshot>(

@@ -5,6 +5,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:openhand/features/ai/service/fs/ai_file_history_service.dart';
 import 'package:openhand/shared/util/rolling_hash.dart';
 
+import '../../support/test_directory.dart';
+
 void main() {
   late Directory temporaryDirectory;
   late Directory historyDirectory;
@@ -18,9 +20,7 @@ void main() {
     sourceFile = File('${temporaryDirectory.path}/source.txt');
   });
 
-  tearDown(() async {
-    await temporaryDirectory.delete(recursive: true);
-  });
+  tearDown(() => deleteTestDirectory(temporaryDirectory));
 
   test(
     'saved versions use safe unique IDs and report UTF-8 byte size',

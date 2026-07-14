@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:openhand/features/ai/service/workspace/ai_workspace_instruction_service.dart';
 
+import '../../support/test_directory.dart';
+
 void main() {
   late Directory temporaryDirectory;
   late Directory projectDirectory;
@@ -15,9 +17,7 @@ void main() {
     await projectDirectory.create();
   });
 
-  tearDown(() async {
-    await temporaryDirectory.delete(recursive: true);
-  });
+  tearDown(() => deleteTestDirectory(temporaryDirectory));
 
   test('loads and truncates a bounded workspace instruction', () async {
     final instructionFile = File('${projectDirectory.path}/AGENTS.md');
