@@ -10,6 +10,7 @@ import 'package:path/path.dart' as p;
 import '../../../../app/support/system_proxy.dart';
 import '../../../../shared/net/http_response_utils.dart';
 import '../../../../shared/net/http_status_utils.dart';
+import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/bounded_file_io.dart';
 import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/input_value_parsing.dart';
@@ -1052,11 +1053,7 @@ class AiTransportClient {
         null,
         onError: (Object _, StackTrace _) {},
       );
-      unawaited(
-        subscription.cancel().catchError((Object _, StackTrace _) {
-          // Cleanup failures must not replace the response-size error.
-        }),
-      );
+      unawaited(cancelStreamSubscriptionBounded<List<int>>(subscription));
     } catch (_) {
       // The response has already been aborted; a synchronous listen failure
       // carries no additional actionable information.

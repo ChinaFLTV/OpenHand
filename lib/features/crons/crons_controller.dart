@@ -9,6 +9,7 @@ import '../../app/model/cron_config.dart';
 import '../../app/support/openhand_notification_service.dart';
 import '../../app/support/safe_subprocess.dart';
 import '../../app/support/silent_log.dart';
+import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/localized_text.dart';
 import '../../shared/util/timer_safety.dart';
@@ -318,9 +319,28 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
     }
     _isDisposed = true;
     _shutdownSchedulersAndJobs();
-    _sigTermWatcher?.cancel();
-    _sigIntWatcher?.cancel();
+    final sigTermWatcher = _sigTermWatcher;
+    final sigIntWatcher = _sigIntWatcher;
+    _sigTermWatcher = null;
+    _sigIntWatcher = null;
+    unawaited(_cancelSignalWatcher(sigTermWatcher, 'SIGTERM'));
+    unawaited(_cancelSignalWatcher(sigIntWatcher, 'SIGINT'));
     super.dispose();
+  }
+
+  Future<void> _cancelSignalWatcher(
+    StreamSubscription<ProcessSignal>? subscription,
+    String signalName,
+  ) async {
+    await cancelStreamSubscriptionBounded<ProcessSignal>(
+      subscription,
+      onError: (error, stack) => silentLog(
+        'crons_controller',
+        'cancel $signalName watcher',
+        error,
+        stack,
+      ),
+    );
   }
 
   @override

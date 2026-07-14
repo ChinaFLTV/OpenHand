@@ -7,6 +7,7 @@ import '../../app/model/app_info.dart';
 import '../../app/state/settings_controller.dart';
 import '../../app/support/silent_log.dart';
 import '../../shared/core/managed_change_notifier.dart';
+import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/timer_safety.dart';
 import '../agents/index.dart';
@@ -125,6 +126,7 @@ class MessageGatewayController extends ManagedChangeNotifier {
     delay: _logNotifyDelay,
   );
   static const Duration _logNotifyDelay = Duration(milliseconds: 120);
+  static const Duration _shutdownTimeout = Duration(seconds: 15);
 
   WebMessagePlatformConfig _config = const WebMessagePlatformConfig();
   bool _isLoading = true;
@@ -571,8 +573,8 @@ class MessageGatewayController extends ManagedChangeNotifier {
     _service.pluginServiceController = controller;
   }
 
-  /// Disposes the notifier and waits for the HTTP server, subscriptions, and
-  /// owned media services to release their resources. Safe to call repeatedly.
+  /// Disposes the notifier and performs a bounded best-effort shutdown of the
+  /// HTTP server, subscriptions, and owned media services. Safe to repeat.
   Future<void> shutdown() {
     if (!_disposed) dispose();
     return _shutdownFuture ?? Future<void>.value();
@@ -585,14 +587,19 @@ class MessageGatewayController extends ManagedChangeNotifier {
     _logNotifyDebouncer.dispose();
     _saveSuccessPulse.dispose();
     _shutdownFuture = () async {
-      try {
-        await Future.wait<void>(<Future<void>>[
-          _logSub.cancel(),
-          _service.dispose(),
-        ]);
-      } catch (error, stack) {
-        silentLog('message_gateway', 'shutdown', error, stack);
-      }
+      await Future.wait<bool>(<Future<bool>>[
+        cancelStreamSubscriptionBounded<WebGatewayLogEntry>(
+          _logSub,
+          onError: (error, stack) =>
+              silentLog('message_gateway', 'cancel log stream', error, stack),
+        ),
+        runAsyncCleanupBounded(
+          _service.dispose,
+          timeout: _shutdownTimeout,
+          onError: (error, stack) =>
+              silentLog('message_gateway', 'dispose service', error, stack),
+        ),
+      ]);
     }();
     super.dispose();
   }

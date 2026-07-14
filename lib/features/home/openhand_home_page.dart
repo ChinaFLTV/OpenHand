@@ -934,11 +934,29 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       _observedMessageGatewayController,
       messageGatewayController,
     )) {
-      _writeApprovalSubscription?.cancel();
+      _cancelWriteApprovalSubscription('replace write approval stream');
       _observedMessageGatewayController = messageGatewayController;
       _writeApprovalSubscription = messageGatewayController
           ?.pendingWriteApprovalsStream
-          .listen(_handlePendingWriteApprovalsChanged);
+          .listen(
+            (approvals) {
+              if (!identical(
+                _observedMessageGatewayController,
+                messageGatewayController,
+              )) {
+                return;
+              }
+              _handlePendingWriteApprovalsChanged(approvals);
+            },
+            onError: (Object error, StackTrace stack) {
+              if (identical(
+                _observedMessageGatewayController,
+                messageGatewayController,
+              )) {
+                silentLog('home', 'write approval stream', error, stack);
+              }
+            },
+          );
       _handlePendingWriteApprovalsChanged(
         messageGatewayController?.pendingWriteApprovals ??
             const <WebWriteApprovalRequest>[],
@@ -994,8 +1012,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     _observedSessionController?.toolSearchLoadedSignal.removeListener(
       _handleToolSearchLoadedSignal,
     );
-    _writeApprovalSubscription?.cancel();
-    _writeApprovalSubscription = null;
+    _observedMessageGatewayController = null;
+    _cancelWriteApprovalSubscription('dispose write approval stream');
     _suppressWriteApprovalDialogResponse = true;
     final writeApprovalSession = _writeApprovalSession;
     _writeApprovalSession = null;
@@ -1007,7 +1025,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         ),
       );
     }
-    _observedMessageGatewayController = null;
     _messageScrollController.removeListener(_handleMessageScroll);
     HardwareKeyboard.instance.removeHandler(_handleGlobalShortcutKeyEvent);
     _disposeAskUserChoicePresenter?.call();
@@ -1023,6 +1040,18 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     _userScrollGraceDebouncer.dispose();
     _transcriptScrollActivity.dispose();
     super.dispose();
+  }
+
+  void _cancelWriteApprovalSubscription(String action) {
+    final subscription = _writeApprovalSubscription;
+    _writeApprovalSubscription = null;
+    if (subscription == null) return;
+    unawaited(
+      cancelStreamSubscriptionBounded<List<WebWriteApprovalRequest>>(
+        subscription,
+        onError: (error, stack) => silentLog('home', action, error, stack),
+      ),
+    );
   }
 
   void _clearPendingAutoFollowState() {
