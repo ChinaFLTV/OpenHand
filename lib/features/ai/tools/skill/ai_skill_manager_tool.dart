@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
@@ -36,6 +37,8 @@ class AiSkillManagerTool extends AiTool {
   static const int _maxNameLength = 64;
   static const int _maxDescriptionLength = 1024;
   static const int _maxSkillScanEntities = 5000;
+  static const Duration _skillScanIdleTimeout = Duration(seconds: 3);
+  static const Duration _skillScanTotalTimeout = Duration(seconds: 10);
   static const int _maxSidecarContentLength = 2 * 1024 * 1024;
   static const List<String> _supportedActions = <String>[
     'create',
@@ -512,11 +515,17 @@ class AiSkillManagerTool extends AiTool {
     if (!await rootDir.exists()) return const _SkillFileSearchResult();
 
     var scanned = 0;
+    final stopwatch = Stopwatch()..start();
     try {
-      await for (final entity in rootDir.list(
-        recursive: true,
-        followLinks: false,
-      )) {
+      await for (final entity
+          in rootDir
+              .list(recursive: true, followLinks: false)
+              .timeout(_skillScanIdleTimeout)) {
+        if (stopwatch.elapsed >= _skillScanTotalTimeout) {
+          return _SkillFileSearchResult(
+            error: 'Skill scan timed out under $skillsRoot.',
+          );
+        }
         scanned += 1;
         if (scanned > _maxSkillScanEntities) {
           return _SkillFileSearchResult(
@@ -529,10 +538,16 @@ class AiSkillManagerTool extends AiTool {
         final dirName = p.basename(p.dirname(entity.path));
         if (dirName == name) return _SkillFileSearchResult(file: entity);
       }
+    } on TimeoutException {
+      return _SkillFileSearchResult(
+        error: 'Skill scan timed out under $skillsRoot.',
+      );
     } on FileSystemException catch (error) {
       return _SkillFileSearchResult(
         error: 'Unable to scan skills directory $skillsRoot: ${error.message}',
       );
+    } finally {
+      stopwatch.stop();
     }
     return const _SkillFileSearchResult();
   }

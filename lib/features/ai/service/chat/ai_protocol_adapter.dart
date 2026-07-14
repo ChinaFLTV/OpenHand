@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
@@ -6,6 +7,7 @@ import 'package:path/path.dart' as p;
 
 import '../../../../app/support/silent_log.dart';
 import '../../../../shared/net/http_error_message.dart';
+import '../../../../shared/util/bounded_directory_io.dart';
 import '../../../../shared/util/bounded_file_io.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/text_normalization.dart';
@@ -23,6 +25,10 @@ final RegExp _dataUriMimePattern = RegExp(r'data:([^;]+)');
 final RegExp _markdownSeparatorTailPattern = RegExp(r'-+$');
 const Duration _inlineImageReadIdleTimeout = Duration(seconds: 15);
 const Duration _inlineImageReadTotalTimeout = Duration(minutes: 1);
+const int _inlineMediaCacheScanLimit = 10000;
+const int _inlineMediaCacheDeleteLimit = 2000;
+const Duration _inlineMediaCacheIdleTimeout = Duration(seconds: 2);
+const Duration _inlineMediaCacheCleanupTimeout = Duration(seconds: 15);
 
 abstract final class AiThinkingRequestPolicy {
   static const int _defaultThinkingBudget = 8192;
@@ -4430,23 +4436,55 @@ Future<Directory> _ensureInlineMediaDir() async {
 /// Best-effort removal of inline media files older than 7 days. Safe to call
 /// repeatedly and never throws.
 Future<void> pruneInlineMediaCache() async {
+  final stopwatch = Stopwatch()..start();
+  Duration remaining() {
+    final microseconds =
+        _inlineMediaCacheCleanupTimeout.inMicroseconds -
+        stopwatch.elapsedMicroseconds;
+    if (microseconds <= 0) {
+      throw TimeoutException('Inline media cache cleanup timed out.');
+    }
+    return Duration(microseconds: microseconds);
+  }
+
+  Duration nextOperationTimeout() {
+    final remainingTime = remaining();
+    return remainingTime < _inlineMediaCacheIdleTimeout
+        ? remainingTime
+        : _inlineMediaCacheIdleTimeout;
+  }
+
   try {
     final dir = Directory(p.join(Directory.systemTemp.path, 'openhand_media'));
-    if (!await dir.exists()) return;
+    if (!await dir.exists().timeout(nextOperationTimeout())) return;
     final cutoff = DateTime.now().subtract(const Duration(days: 7));
-    await for (final entity in dir.list(followLinks: false)) {
+    final remainingTime = remaining();
+    final listing = await listDirectoryBounded(
+      dir,
+      maxEntries: _inlineMediaCacheScanLimit,
+      idleTimeout: nextOperationTimeout(),
+      totalTimeout: remainingTime,
+    );
+    var deleted = 0;
+    for (final entity in listing.entries) {
+      if (deleted >= _inlineMediaCacheDeleteLimit) break;
       if (entity is! File) continue;
       try {
-        final stat = await entity.stat();
+        final stat = await entity.stat().timeout(nextOperationTimeout());
         if (stat.modified.isBefore(cutoff)) {
-          await entity.delete();
+          await entity.delete().timeout(nextOperationTimeout());
+          deleted += 1;
         }
       } on FileSystemException {
         // Skip files we cannot stat or delete.
       }
     }
+  } on TimeoutException {
+    // Cleanup is best effort and strictly bounded.
   } on FileSystemException {
     // Swallow — cleanup failures are never fatal.
+  } finally {
+    stopwatch.stop();
   }
 }
 

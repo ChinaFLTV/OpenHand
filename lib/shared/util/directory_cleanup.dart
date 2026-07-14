@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+import 'bounded_directory_io.dart';
 import 'path_safety.dart';
 
 typedef DirectoryCleanupErrorHandler =
@@ -13,11 +14,17 @@ typedef DirectoryCleanupErrorHandler =
     );
 
 Future<bool> isDirectoryEmpty(Directory directory) async {
-  if (!await directory.exists()) return false;
-  await for (final _ in directory.list(followLinks: false)) {
+  try {
+    final type = await FileSystemEntity.type(
+      directory.path,
+      followLinks: false,
+    ).timeout(defaultBoundedDirectoryIdleTimeout);
+    if (type != FileSystemEntityType.directory) return false;
+  } on TimeoutException {
     return false;
   }
-  return true;
+  final listing = await listDirectoryBounded(directory, maxEntries: 1);
+  return !listing.truncated && listing.entries.isEmpty;
 }
 
 Future<void> deleteEmptyAncestorDirectories({

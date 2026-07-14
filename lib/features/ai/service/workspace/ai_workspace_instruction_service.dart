@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+import '../../../../shared/util/bounded_directory_io.dart';
 import '../../../../shared/util/bounded_file_io.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/lifecycle_cache.dart';
@@ -18,6 +19,7 @@ class AiWorkspaceInstructionService {
   int maxDocumentCharacters = 16000;
   static const int _maxDocumentBytes = 256 * 1024;
   static const int _maxRuleFilesPerDirectory = 128;
+  static const int _maxRuleDirectoryScanEntries = 512;
   static const int _maxDocuments = 256;
   static const int _maxCacheEntries = 64;
   static const int _maxCachedCharacters = 2 * 1024 * 1024;
@@ -181,7 +183,11 @@ class AiWorkspaceInstructionService {
       return;
     }
     final ruleFiles = <String>[];
-    await for (final item in rulesDirectory.list()) {
+    final listing = await listDirectoryBounded(
+      rulesDirectory,
+      maxEntries: _maxRuleDirectoryScanEntries,
+    );
+    for (final item in listing.entries) {
       if (item is! File) continue;
       final normalizedPath = p.normalize(item.path);
       if (normalizedPath.toLowerCase().endsWith('.md')) {

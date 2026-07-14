@@ -8,6 +8,7 @@ import 'package:path/path.dart' as p;
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../shared/util/async_concurrency.dart';
+import '../../../shared/util/bounded_directory_io.dart';
 import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
@@ -88,8 +89,26 @@ class AiToolUtils {
     final normalizedMissingPath = p.normalize(missingPath);
     final parentPath = p.dirname(normalizedMissingPath);
     final parent = Directory(parentPath);
+    final stopwatch = Stopwatch()..start();
+    Duration remaining() {
+      final microseconds =
+          fileTreeScanTotalTimeout.inMicroseconds -
+          stopwatch.elapsedMicroseconds;
+      if (microseconds <= 0) {
+        throw TimeoutException('Sibling suggestion scan timed out.');
+      }
+      return Duration(microseconds: microseconds);
+    }
+
+    Duration nextOperationTimeout() {
+      final remainingTime = remaining();
+      return remainingTime < fileTreeScanIdleTimeout
+          ? remainingTime
+          : fileTreeScanIdleTimeout;
+    }
+
     try {
-      if (!await parent.exists()) return null;
+      if (!await parent.exists().timeout(nextOperationTimeout())) return null;
       final targetName = p.basename(normalizedMissingPath);
       final targetNameLower = targetName.toLowerCase();
       final targetBaseLower = p
@@ -97,13 +116,20 @@ class AiToolUtils {
           .toLowerCase();
       final targetExtensionLower = p.extension(targetName).toLowerCase();
       _MissingPathSuggestion? best;
-      var scannedEntries = 0;
-      await for (final entity in parent.list(followLinks: false)) {
-        if (scannedEntries >= maxMissingPathSuggestionScanEntries) break;
-        scannedEntries += 1;
+      final remainingTime = remaining();
+      final listing = await listDirectoryBounded(
+        parent,
+        maxEntries: maxMissingPathSuggestionScanEntries,
+        idleTimeout: nextOperationTimeout(),
+        totalTimeout: remainingTime,
+      );
+      for (final entity in listing.entries) {
         final candidatePath = p.normalize(entity.path);
         if (candidatePath == normalizedMissingPath) continue;
-        final type = await FileSystemEntity.type(candidatePath);
+        final type = await FileSystemEntity.type(
+          candidatePath,
+          followLinks: false,
+        ).timeout(nextOperationTimeout());
         if (type == FileSystemEntityType.directory ||
             type == FileSystemEntityType.notFound) {
           continue;
@@ -133,6 +159,8 @@ class AiToolUtils {
     } catch (error, stack) {
       silentLog('ai_tool_utils', 'suggest missing sibling path', error, stack);
       return null;
+    } finally {
+      stopwatch.stop();
     }
   }
 
