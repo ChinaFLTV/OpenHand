@@ -102,4 +102,64 @@ void main() {
 
     expect(await validate(link.path), contains('symbolic link'));
   });
+
+  test(
+    'manifest cache refreshes asynchronously and rejects corruption',
+    () async {
+      await AiLspManagedInstallService.writeManifest(
+        rootPath: temporaryDirectory.path,
+        language: 'dart',
+        backend: _backend,
+        version: '1.2.3',
+      );
+
+      final cached = AiLspManagedInstallService.peekManifest(
+        temporaryDirectory.path,
+      );
+      expect(cached?.backendId, _backend.id);
+      expect(cached?.version, '1.2.3');
+
+      await File(
+        AiLspManagedInstallManifest.manifestPathForRoot(
+          temporaryDirectory.path,
+        ),
+      ).writeAsString('{invalid');
+      expect(
+        (await AiLspManagedInstallService.readManifest(
+          temporaryDirectory.path,
+        ))?.version,
+        '1.2.3',
+      );
+      expect(
+        await AiLspManagedInstallService.readManifest(
+          temporaryDirectory.path,
+          forceRefresh: true,
+        ),
+        isNull,
+      );
+      expect(
+        AiLspManagedInstallService.peekManifest(temporaryDirectory.path),
+        isNull,
+      );
+    },
+  );
+
+  test('managed deletion clears the manifest cache', () async {
+    await AiLspManagedInstallService.writeManifest(
+      rootPath: temporaryDirectory.path,
+      language: 'dart',
+      backend: _backend,
+      version: 'latest',
+    );
+
+    await AiLspManagedInstallService.deleteManagedInstall(
+      temporaryDirectory.path,
+    );
+
+    expect(await temporaryDirectory.exists(), isFalse);
+    expect(
+      AiLspManagedInstallService.peekManifest(temporaryDirectory.path),
+      isNull,
+    );
+  });
 }

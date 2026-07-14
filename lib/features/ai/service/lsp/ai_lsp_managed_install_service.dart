@@ -1,3 +1,4 @@
+import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
 
@@ -60,18 +61,15 @@ class AiLspManagedInstallManifest {
     return p.join(rootPath, _managedInstallManifestFileName);
   }
 
-  static AiLspManagedInstallManifest? tryRead(String rootPath) {
+  static Future<AiLspManagedInstallManifest?> tryRead(String rootPath) async {
     try {
       final normalizedRoot = OpenHandPaths.normalizeOptionalPath(rootPath);
       if (normalizedRoot.isEmpty) {
         return null;
       }
       final manifestFile = File(manifestPathForRoot(normalizedRoot));
-      if (!manifestFile.existsSync()) {
-        return null;
-      }
       final decoded = jsonDecode(
-        readBoundedFileStringSync(
+        await readBoundedFileString(
           manifestFile,
           maxBytes: _managedInstallManifestMaxBytes,
         ),
@@ -102,6 +100,14 @@ class AiLspManagedInstallManifest {
 
 abstract final class AiLspManagedInstallService {
   static final String _currentArchitecture = _detectArchitecture();
+  static const int _manifestCacheMaxEntries = 128;
+  static const int _manifestMaxPendingReads = 64;
+  static const Duration _manifestCacheTtl = Duration(minutes: 1);
+  static final Stopwatch _manifestCacheClock = Stopwatch()..start();
+  static final LinkedHashMap<String, _AiLspManifestCacheEntry> _manifestCache =
+      LinkedHashMap<String, _AiLspManifestCacheEntry>();
+  static final Map<String, Future<AiLspManagedInstallManifest?>>
+  _manifestReads = <String, Future<AiLspManagedInstallManifest?>>{};
 
   static bool supportsManagedInstall(AiLspBackendDescriptor backend) {
     return switch (backend.install.kind) {
@@ -116,8 +122,47 @@ abstract final class AiLspManagedInstallService {
     };
   }
 
-  static AiLspManagedInstallManifest? readManifest(String rootPath) {
-    return AiLspManagedInstallManifest.tryRead(rootPath);
+  static AiLspManagedInstallManifest? peekManifest(String rootPath) {
+    final normalizedRoot = OpenHandPaths.normalizeOptionalPath(rootPath);
+    if (normalizedRoot.isEmpty) return null;
+    return _readCachedManifest(normalizedRoot).manifest;
+  }
+
+  static Future<AiLspManagedInstallManifest?> readManifest(
+    String rootPath, {
+    bool forceRefresh = false,
+  }) {
+    final normalizedRoot = OpenHandPaths.normalizeOptionalPath(rootPath);
+    if (normalizedRoot.isEmpty) {
+      return Future<AiLspManagedInstallManifest?>.value();
+    }
+    final cached = _readCachedManifest(normalizedRoot);
+    if (!forceRefresh && cached.found) {
+      return Future<AiLspManagedInstallManifest?>.value(cached.manifest);
+    }
+    final active = _manifestReads[normalizedRoot];
+    if (active != null) return active;
+    if (_manifestReads.length >= _manifestMaxPendingReads) {
+      return forceRefresh
+          ? Future<AiLspManagedInstallManifest?>.value()
+          : Future<AiLspManagedInstallManifest?>.value(cached.manifest);
+    }
+
+    late final Future<AiLspManagedInstallManifest?> tracked;
+    tracked = AiLspManagedInstallManifest.tryRead(normalizedRoot)
+        .then((manifest) {
+          if (identical(_manifestReads[normalizedRoot], tracked)) {
+            _storeCachedManifest(normalizedRoot, manifest);
+          }
+          return manifest;
+        })
+        .whenComplete(() {
+          if (identical(_manifestReads[normalizedRoot], tracked)) {
+            _manifestReads.remove(normalizedRoot);
+          }
+        });
+    _manifestReads[normalizedRoot] = tracked;
+    return tracked;
   }
 
   static Future<String?> validateInstallRoot({
@@ -150,7 +195,7 @@ abstract final class AiLspManagedInstallService {
     if (_isDangerousInstallRoot(normalizedRoot, language: language)) {
       return 'Choose a dedicated subdirectory for this LSP install instead of a shared or top-level folder.';
     }
-    final manifest = readManifest(normalizedRoot);
+    final manifest = await readManifest(normalizedRoot, forceRefresh: true);
     if (entityType == FileSystemEntityType.notFound) {
       return null;
     }
@@ -204,6 +249,8 @@ abstract final class AiLspManagedInstallService {
       File(AiLspManagedInstallManifest.manifestPathForRoot(normalizedRoot)),
       jsonEncode(manifest.toJson()),
     );
+    _manifestReads.remove(normalizedRoot);
+    _storeCachedManifest(normalizedRoot, manifest);
   }
 
   static Future<void> deleteManagedInstall(String rootPath) async {
@@ -217,7 +264,7 @@ abstract final class AiLspManagedInstallService {
         'The selected path is not a real managed-install directory.',
       );
     }
-    final manifest = readManifest(normalizedRoot);
+    final manifest = await readManifest(normalizedRoot, forceRefresh: true);
     if (manifest == null) {
       throw StateError(
         'The selected folder is not an OpenHand-managed LSP install.',
@@ -225,6 +272,8 @@ abstract final class AiLspManagedInstallService {
     }
     final directory = Directory(normalizedRoot);
     await directory.delete(recursive: true);
+    _manifestReads.remove(normalizedRoot);
+    _storeCachedManifest(normalizedRoot, null);
   }
 
   static AiLspManagedInstallPlan? buildInstallPlan(
@@ -1155,10 +1204,35 @@ abstract final class AiLspManagedInstallService {
         return 'x64';
       }
     }
-    if (Platform.isMacOS && Directory('/opt/homebrew/bin').existsSync()) {
-      return 'arm64';
-    }
     return '';
+  }
+
+  static ({bool found, AiLspManagedInstallManifest? manifest})
+  _readCachedManifest(String normalizedRoot) {
+    final entry = _manifestCache.remove(normalizedRoot);
+    if (entry == null) return (found: false, manifest: null);
+    if (entry.expiresAtMicroseconds <=
+        _manifestCacheClock.elapsedMicroseconds) {
+      return (found: false, manifest: null);
+    }
+    _manifestCache[normalizedRoot] = entry;
+    return (found: true, manifest: entry.manifest);
+  }
+
+  static void _storeCachedManifest(
+    String normalizedRoot,
+    AiLspManagedInstallManifest? manifest,
+  ) {
+    _manifestCache.remove(normalizedRoot);
+    _manifestCache[normalizedRoot] = _AiLspManifestCacheEntry(
+      manifest: manifest,
+      expiresAtMicroseconds:
+          _manifestCacheClock.elapsedMicroseconds +
+          _manifestCacheTtl.inMicroseconds,
+    );
+    while (_manifestCache.length > _manifestCacheMaxEntries) {
+      _manifestCache.remove(_manifestCache.keys.first);
+    }
   }
 
   static String _quotePosix(String value) {
@@ -1169,4 +1243,14 @@ abstract final class AiLspManagedInstallService {
     final escaped = value.replaceAll('"', '""');
     return '"$escaped"';
   }
+}
+
+final class _AiLspManifestCacheEntry {
+  const _AiLspManifestCacheEntry({
+    required this.manifest,
+    required this.expiresAtMicroseconds,
+  });
+
+  final AiLspManagedInstallManifest? manifest;
+  final int expiresAtMicroseconds;
 }

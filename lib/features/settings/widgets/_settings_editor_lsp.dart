@@ -335,9 +335,7 @@ extension on _SettingsViewState {
     final normalizedRoot = OpenHandPaths.normalizeOptionalPath(
       settings.rootPath,
     );
-    final managedInstallManifest = normalizedRoot.isEmpty
-        ? null
-        : AiLspManagedInstallService.readManifest(normalizedRoot);
+    final managedInstallManifest = _editorLspManagedManifest(normalizedRoot);
 
     return _EditorLspLanguageRow(
       key: ValueKey<String>('editor-lsp-row-$language'),
@@ -364,9 +362,7 @@ extension on _SettingsViewState {
     final normalizedRoot = OpenHandPaths.normalizeOptionalPath(
       settings.rootPath,
     );
-    final managedInstallManifest = normalizedRoot.isEmpty
-        ? null
-        : AiLspManagedInstallService.readManifest(normalizedRoot);
+    final managedInstallManifest = _editorLspManagedManifest(normalizedRoot);
 
     if (settings.isEmpty) {
       return openHandLocalizedText(
@@ -400,6 +396,32 @@ extension on _SettingsViewState {
         ),
     ];
     return segments.join('  •  ');
+  }
+
+  AiLspManagedInstallManifest? _editorLspManagedManifest(String rootPath) {
+    if (rootPath.isEmpty) return null;
+    unawaited(_ensureEditorLspManifestLoaded(rootPath));
+    return AiLspManagedInstallService.peekManifest(rootPath);
+  }
+
+  Future<void> _ensureEditorLspManifestLoaded(String rootPath) {
+    final active = _editorLspManifestRefreshes[rootPath];
+    if (active != null) return active;
+    final before = AiLspManagedInstallService.peekManifest(rootPath);
+    late final Future<void> tracked;
+    tracked = AiLspManagedInstallService.readManifest(rootPath)
+        .then<void>((manifest) {
+          if (!identical(before, manifest)) {
+            _refreshEditorLspManifestState();
+          }
+        })
+        .whenComplete(() {
+          if (identical(_editorLspManifestRefreshes[rootPath], tracked)) {
+            _editorLspManifestRefreshes.remove(rootPath);
+          }
+        });
+    _editorLspManifestRefreshes[rootPath] = tracked;
+    return tracked;
   }
 
   Future<void> _openEditorLspConfigDialog(
@@ -645,7 +667,11 @@ extension on _SettingsViewState {
     final normalizedRoot = OpenHandPaths.normalizeOptionalPath(
       targetRoot ?? current.rootPath,
     );
-    final manifest = AiLspManagedInstallService.readManifest(normalizedRoot);
+    final manifest = await AiLspManagedInstallService.readManifest(
+      normalizedRoot,
+      forceRefresh: true,
+    );
+    if (!context.mounted) return;
     if (manifest == null) {
       flashOpenHandSnack(
         context,
@@ -1013,10 +1039,14 @@ class _DetectedSdkVersion {
   final String display;
 }
 
-String? _resolveSdkExecutable(
+const Duration _sdkExecutableProbeIdleTimeout = Duration(milliseconds: 500);
+const Duration _sdkExecutableProbeTotalTimeout = Duration(seconds: 3);
+
+Future<String?> _resolveSdkExecutable(
   String sdkPath,
   List<List<String>> candidateRelativePaths,
-) {
+) async {
+  final stopwatch = Stopwatch()..start();
   for (final segments in candidateRelativePaths) {
     if (segments.isEmpty) {
       continue;
@@ -1036,7 +1066,16 @@ String? _resolveSdkExecutable(
       final candidatePath = p.normalize(
         p.joinAll(<String>[sdkPath, ...parentSegments, executableName]),
       );
-      if (File(candidatePath).existsSync()) {
+      final remaining = _sdkExecutableProbeTotalTimeout - stopwatch.elapsed;
+      if (remaining <= Duration.zero) return null;
+      final timeout = remaining < _sdkExecutableProbeIdleTimeout
+          ? remaining
+          : _sdkExecutableProbeIdleTimeout;
+      if (await isRegularFilePath(
+        candidatePath,
+        timeout: timeout,
+        followLinks: true,
+      )) {
         return candidatePath;
       }
     }
@@ -1051,7 +1090,10 @@ Future<_DetectedSdkVersion?> _detectCommandSdkVersion({
   required RegExp versionPattern,
   required String Function(String version, String output) displayBuilder,
 }) async {
-  final executablePath = _resolveSdkExecutable(sdkPath, candidateRelativePaths);
+  final executablePath = await _resolveSdkExecutable(
+    sdkPath,
+    candidateRelativePaths,
+  );
   if (executablePath == null) {
     return null;
   }
@@ -1087,10 +1129,13 @@ Future<_DetectedSdkVersion?> _detectCommandSdkVersion({
 }
 
 Future<_DetectedSdkVersion?> _detectDartSdkVersion(String sdkPath) async {
-  final flutterExecutable = _resolveSdkExecutable(sdkPath, const <List<String>>[
-    <String>['bin', 'flutter'],
-    <String>['flutter'],
-  ]);
+  final flutterExecutable = await _resolveSdkExecutable(
+    sdkPath,
+    const <List<String>>[
+      <String>['bin', 'flutter'],
+      <String>['flutter'],
+    ],
+  );
   if (flutterExecutable != null) {
     try {
       final result = await runProcessWithTimeout(
@@ -1178,7 +1223,8 @@ Future<_DetectedSdkVersion?> _detectSdkVersionForLanguage({
 }) async {
   final normalizedLanguage = normalizeAiLspLanguage(language);
   final normalizedSdkPath = OpenHandPaths.normalizeOptionalPath(sdkPath);
-  if (normalizedSdkPath.isEmpty || !Directory(normalizedSdkPath).existsSync()) {
+  if (normalizedSdkPath.isEmpty ||
+      !await isDirectoryPath(normalizedSdkPath, followLinks: true)) {
     return null;
   }
 
@@ -1343,6 +1389,8 @@ class _EditorLspConfigDialogState extends State<_EditorLspConfigDialog> {
   int _installRootValidationGeneration = 0;
   bool _installRootValidationPending = true;
   String? _installRootValidationMessage;
+  String _managedInstallManifestRoot = '';
+  AiLspManagedInstallManifest? _managedInstallManifest;
   bool _sdkVersionDetecting = false;
   bool _sdkVersionDetectionFailed = false;
   bool _sdkVersionAppliedToLspVersion = false;
@@ -1429,8 +1477,12 @@ class _EditorLspConfigDialogState extends State<_EditorLspConfigDialog> {
   }
 
   Future<void> _refreshInstallRootValidation(int generation) async {
+    final normalizedEnteredRoot = OpenHandPaths.normalizeOptionalPath(
+      _pathController.text,
+    );
     final backend = aiLspBackendById(_selectedBackendId);
     String? message;
+    AiLspManagedInstallManifest? managedInstallManifest;
     if (backend != null &&
         AiLspManagedInstallService.supportsManagedInstall(backend)) {
       final rootPath = _pathController.text.trim().isEmpty
@@ -1446,6 +1498,13 @@ class _EditorLspConfigDialogState extends State<_EditorLspConfigDialog> {
           version: _versionController.text.trim(),
         ),
       );
+      managedInstallManifest = AiLspManagedInstallService.peekManifest(
+        normalizedEnteredRoot,
+      );
+    } else if (normalizedEnteredRoot.isNotEmpty) {
+      managedInstallManifest = await AiLspManagedInstallService.readManifest(
+        normalizedEnteredRoot,
+      );
     }
     if (!mounted || generation != _installRootValidationGeneration) {
       return;
@@ -1453,6 +1512,8 @@ class _EditorLspConfigDialogState extends State<_EditorLspConfigDialog> {
     setState(() {
       _installRootValidationPending = false;
       _installRootValidationMessage = message;
+      _managedInstallManifestRoot = normalizedEnteredRoot;
+      _managedInstallManifest = managedInstallManifest;
     });
   }
 
@@ -1669,9 +1730,9 @@ class _EditorLspConfigDialogState extends State<_EditorLspConfigDialog> {
     final normalizedSdkPath = OpenHandPaths.normalizeOptionalPath(
       _sdkController.text,
     );
-    final managedInstallManifest = normalizedRoot.isEmpty
-        ? null
-        : AiLspManagedInstallService.readManifest(normalizedRoot);
+    final managedInstallManifest = _managedInstallManifestRoot == normalizedRoot
+        ? _managedInstallManifest
+        : null;
     final effectiveInstallRoot = normalizedRoot.isEmpty
         ? widget.defaultInstallRoot
         : normalizedRoot;

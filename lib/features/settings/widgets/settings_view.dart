@@ -55,6 +55,7 @@ import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/persistence_issue_card.dart';
 import '../../../shared/ui/rolling_text.dart';
 import '../../../shared/util/async_concurrency.dart';
+import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/bounded_xfile_io.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
@@ -328,8 +329,14 @@ class _SettingsViewState extends State<SettingsView> {
   GlobalKey<AnimatedListState> _aiModelListKey = GlobalKey<AnimatedListState>();
   final Set<String> _mutatingAiModelIds = <String>{};
   final List<AiModelConfig> _animatedAiModels = <AiModelConfig>[];
+  final Map<String, Future<void>> _editorLspManifestRefreshes =
+      <String, Future<void>>{};
   final AiTtsPlaybackService _ttsSettingsPlaybackService =
       AiTtsPlaybackService();
+
+  void _refreshEditorLspManifestState() {
+    if (mounted) setState(() {});
+  }
 
   @override
   void initState() {
