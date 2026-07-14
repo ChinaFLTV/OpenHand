@@ -1911,20 +1911,12 @@ Future<Uint8List> _downloadClipboardBytes(
         uri: uri,
       );
     }
-    final contentLength = response.contentLength;
-    if (contentLength > maxBytes) {
-      throw HttpException('Response is too large for clipboard.', uri: uri);
-    }
-    final bytes = BytesBuilder(copy: false);
-    var received = 0;
-    await for (final chunk in response.timeout(_mediaClipboardNetworkTimeout)) {
-      received += chunk.length;
-      if (received > maxBytes) {
-        throw HttpException('Response is too large for clipboard.', uri: uri);
-      }
-      bytes.add(chunk);
-    }
-    return bytes.takeBytes();
+    return readBoundedHttpResponseBytes(
+      response,
+      maxBytes: maxBytes,
+      idleTimeout: _mediaClipboardNetworkTimeout,
+      totalTimeout: _mediaClipboardNetworkTimeout,
+    );
   } finally {
     client.close(force: true);
   }

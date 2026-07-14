@@ -493,7 +493,14 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
       });
       // Drain body (small responses only).
       var bodyBytes = 0;
+      final bodyReadDeadline = DateTime.now().add(_httpRequestTimeout);
       await for (final chunk in response.timeout(_httpRequestTimeout)) {
+        if (DateTime.now().isAfter(bodyReadDeadline)) {
+          throw TimeoutException(
+            'HTTP response body probe exceeded its total time limit.',
+            _httpRequestTimeout,
+          );
+        }
         bodyBytes += chunk.length;
         if (bodyBytes > _maxHttpBodyProbeBytes) break;
       }
