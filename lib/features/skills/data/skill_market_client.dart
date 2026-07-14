@@ -12,6 +12,7 @@ import '../../../shared/net/http_response_utils.dart';
 import '../../../shared/net/http_status_utils.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
+import '../../../shared/util/lifecycle_cache.dart';
 import '../model/skill_market.dart';
 
 class SkillMarketException implements Exception {
@@ -32,6 +33,11 @@ class SkillMarketClient {
   static const int defaultPageSize = 24;
   static const int _maxDownloadBytes = 48 * kBytesPerMiB;
   static const int _maxJsonResponseBytes = 4 * kBytesPerMiB;
+  static const int _maxTextResponseBytes = 4 * kBytesPerMiB;
+  static const int _maxSearchCacheEntries = 32;
+  static const int _maxMetadataCacheEntries = 128;
+  static const int _maxFileContentCacheEntries = 128;
+  static const int _maxBundleCacheEntries = 64;
   static const Duration _requestTimeout = Duration(seconds: 14);
   static const Duration _downloadIdleTimeout = Duration(seconds: 18);
   static const Duration _downloadTotalTimeout = Duration(minutes: 5);
@@ -41,20 +47,33 @@ class SkillMarketClient {
 
   final http.Client _client;
   final bool _ownsClient;
-  final Map<String, Future<SkillMarketSearchResult>> _searchCache =
-      <String, Future<SkillMarketSearchResult>>{};
-  final Map<String, Future<SkillMarketDetail>> _detailCache =
-      <String, Future<SkillMarketDetail>>{};
-  final Map<String, Future<SkillMarketVersionsResult>> _versionsCache =
-      <String, Future<SkillMarketVersionsResult>>{};
-  final Map<String, Future<SkillMarketFilesResult>> _filesCache =
-      <String, Future<SkillMarketFilesResult>>{};
-  final Map<String, Future<String>> _fileContentCache =
-      <String, Future<String>>{};
-  final Map<String, Future<SkillMarketBundle>> _bundleCache =
-      <String, Future<SkillMarketBundle>>{};
+  final LifecycleLruCache<Future<SkillMarketSearchResult>> _searchCache =
+      LifecycleLruCache<Future<SkillMarketSearchResult>>(
+        maxEntries: _maxSearchCacheEntries,
+      );
+  final LifecycleLruCache<Future<SkillMarketDetail>> _detailCache =
+      LifecycleLruCache<Future<SkillMarketDetail>>(
+        maxEntries: _maxMetadataCacheEntries,
+      );
+  final LifecycleLruCache<Future<SkillMarketVersionsResult>> _versionsCache =
+      LifecycleLruCache<Future<SkillMarketVersionsResult>>(
+        maxEntries: _maxMetadataCacheEntries,
+      );
+  final LifecycleLruCache<Future<SkillMarketFilesResult>> _filesCache =
+      LifecycleLruCache<Future<SkillMarketFilesResult>>(
+        maxEntries: _maxMetadataCacheEntries,
+      );
+  final LifecycleLruCache<Future<String>> _fileContentCache =
+      LifecycleLruCache<Future<String>>(
+        maxEntries: _maxFileContentCacheEntries,
+      );
+  final LifecycleLruCache<Future<SkillMarketBundle>> _bundleCache =
+      LifecycleLruCache<Future<SkillMarketBundle>>(
+        maxEntries: _maxBundleCacheEntries,
+      );
 
   void close() {
+    _clearCaches();
     if (_ownsClient) {
       _client.close();
     }
@@ -73,7 +92,7 @@ class SkillMarketClient {
     final normalizedPage = page < 1 ? 1 : page;
     final normalizedPageSize = pageSize < 1 ? defaultPageSize : pageSize;
     final cacheKey = '$normalizedPage|$normalizedPageSize|$normalizedKeyword';
-    final cached = _searchCache[cacheKey];
+    final cached = _searchCache.get(cacheKey);
     if (cached != null) {
       return cached;
     }
@@ -87,7 +106,7 @@ class SkillMarketClient {
           _searchCache.remove(cacheKey);
           Error.throwWithStackTrace(error, stackTrace);
         });
-    _searchCache[cacheKey] = future;
+    _searchCache.put(cacheKey, future);
     return future;
   }
 
@@ -100,7 +119,7 @@ class SkillMarketClient {
     }
     final normalizedVersion = _normalizeVersion(version);
     final cacheKey = '$normalizedSlug|$normalizedVersion';
-    final cached = _bundleCache[cacheKey];
+    final cached = _bundleCache.get(cacheKey);
     if (cached != null) {
       return cached;
     }
@@ -113,7 +132,7 @@ class SkillMarketClient {
           _bundleCache.remove(cacheKey);
           Error.throwWithStackTrace(error, stackTrace);
         });
-    _bundleCache[cacheKey] = future;
+    _bundleCache.put(cacheKey, future);
     return future;
   }
 
@@ -303,23 +322,40 @@ class SkillMarketClient {
       _fileContentCache,
       '$normalizedSlug|$normalizedVersion|$normalizedPath',
       () async {
-        final response = await _client
-            .get(
-              Uri.https(
-                _host,
-                '/api/v1/skills/$normalizedSlug/file',
-                <String, String>{
-                  'path': normalizedPath,
-                  'version': normalizedVersion,
-                },
-              ),
-              headers: <String, String>{
-                HttpHeaders.acceptHeader: 'text/plain, */*',
-              },
-            )
-            .timeout(_requestTimeout);
+        final request = http.Request(
+          'GET',
+          Uri.https(
+            _host,
+            '/api/v1/skills/$normalizedSlug/file',
+            <String, String>{
+              'path': normalizedPath,
+              'version': normalizedVersion,
+            },
+          ),
+        )..headers[HttpHeaders.acceptHeader] = 'text/plain, */*';
+        final response = await sendAbortableHttpRequest(
+          client: _client,
+          request: request,
+          connectionTimeout: _requestTimeout,
+        );
+        if (isHttpFailureStatus(response.statusCode)) {
+          await _drainResponseStreamBestEffort(
+            response.stream,
+            reason: 'drain skill file error response',
+          );
+        }
         _throwHttpFailure(response.statusCode, 'while fetching skill file');
-        return utf8.decode(response.bodyBytes, allowMalformed: true);
+        try {
+          return await readBoundedByteStreamText(
+            response.stream,
+            maxBytes: _maxTextResponseBytes,
+            idleTimeout: _requestTimeout,
+            totalTimeout: _requestTimeout,
+            allowMalformed: true,
+          );
+        } on HttpException {
+          throw const SkillMarketException('Skill file response is too large.');
+        }
       },
     );
   }
@@ -461,12 +497,21 @@ class SkillMarketClient {
     throw SkillMarketException('HTTP $statusCode $context.');
   }
 
+  void _clearCaches() {
+    _searchCache.clear();
+    _detailCache.clear();
+    _versionsCache.clear();
+    _filesCache.clear();
+    _fileContentCache.clear();
+    _bundleCache.clear();
+  }
+
   Future<T> _cached<T>(
-    Map<String, Future<T>> cache,
+    LifecycleLruCache<Future<T>> cache,
     String key,
     Future<T> Function() loader,
   ) {
-    final cached = cache[key];
+    final cached = cache.get(key);
     if (cached != null) {
       return cached;
     }
@@ -474,7 +519,7 @@ class SkillMarketClient {
       cache.remove(key);
       Error.throwWithStackTrace(error, stackTrace);
     });
-    cache[key] = future;
+    cache.put(key, future);
     return future;
   }
 }
