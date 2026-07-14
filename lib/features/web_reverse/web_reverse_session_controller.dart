@@ -131,6 +131,9 @@ class WebReverseSessionController extends ChangeNotifier {
   static const int _maxReplHistoryExpressionChars = 64 * 1024;
   static const int _maxReplPreviewChars = 2048;
   static const int _maxConsoleTextChars = 64 * 1024;
+  static const int _maxSecurityExplanationsChars = 64 * kBytesPerKiB;
+  static const double _minMemorySamplingInterval = 1024;
+  static const double _maxMemorySamplingInterval = 16.0 * kBytesPerMiB;
   static const int maxSavedScriptCodeChars = maxReplExpressionChars;
   static const int maxSavedScriptNameChars = 120;
   static const int maxSavedSnippets = 200;
@@ -575,6 +578,7 @@ class WebReverseSessionController extends ChangeNotifier {
     // 切换前主动 detach 旧 session（如果有），避免事件流叠加。
     if (_pageSessionId != null) {
       _clearPendingFetchRequests();
+      _samplingProfileRunning = false;
       try {
         await cdp.send(
           'Target.detachFromTarget',
@@ -810,6 +814,7 @@ class WebReverseSessionController extends ChangeNotifier {
         // 复位、清掉缓存帧、通知 UI 切到"已断开 / 可重启"占位。
         _resetScreencastRuntimeState(resetRefCount: false);
         _clearPendingFetchRequests(resetEnabled: true);
+        _samplingProfileRunning = false;
         _errorMessage = '浏览器已断开（CDP 自动重连失败），可点击「重启浏览器」恢复。';
         _safeNotify();
         return;
@@ -1608,11 +1613,15 @@ class WebReverseSessionController extends ChangeNotifier {
   }
 
   void _onSecurityStateChanged(Map<String, Object?> p) {
-    _securityState = '${p['securityState'] ?? ''}';
+    _securityState = _capPlainWebReverseText('${p['securityState'] ?? ''}', 32);
     final explanations = p['explanations'];
-    if (explanations != null) {
-      _securityExplanationsJson = jsonEncode(explanations);
-    }
+    _securityExplanationsJson = explanations == null
+        ? null
+        : _capWebReverseText(
+            jsonEncode(explanations),
+            _maxSecurityExplanationsChars,
+            'security explanations',
+          );
     _safeNotify();
   }
 
@@ -3633,6 +3642,7 @@ class WebReverseSessionController extends ChangeNotifier {
     }
     _resetScreencastRuntimeState(resetRefCount: false);
     _clearPendingFetchRequests(resetEnabled: true);
+    _samplingProfileRunning = false;
     await _cancelRuntimeSubscription(_pageEventsSub, 'stop page events');
     _pageEventsSub = null;
     _pageSessionId = null;
@@ -3766,6 +3776,7 @@ class WebReverseSessionController extends ChangeNotifier {
     }
     _resetScreencastRuntimeState(resetRefCount: true);
     _clearPendingFetchRequests(resetEnabled: true);
+    _samplingProfileRunning = false;
     await _cancelRuntimeSubscription(_pageEventsSub, 'shutdown page events');
     await _closeAuxiliaryServices();
     _pageEventsSub = null;
@@ -5049,11 +5060,16 @@ class WebReverseSessionController extends ChangeNotifier {
     final cdp = _browserCdp;
     if (cdp == null || _pageSessionId == null) return false;
     if (_samplingProfileRunning) return true;
+    final normalizedInterval = samplingInterval.isFinite
+        ? samplingInterval
+              .clamp(_minMemorySamplingInterval, _maxMemorySamplingInterval)
+              .toDouble()
+        : 32768.0;
     try {
       await cdp.send('HeapProfiler.enable', sessionId: _pageSessionId);
       await cdp.send(
         'HeapProfiler.startSampling',
-        params: <String, Object?>{'samplingInterval': samplingInterval},
+        params: <String, Object?>{'samplingInterval': normalizedInterval},
         sessionId: _pageSessionId,
       );
       _samplingProfileRunning = true;
@@ -5083,56 +5099,9 @@ class WebReverseSessionController extends ChangeNotifier {
         sessionId: _pageSessionId,
         timeout: const Duration(seconds: 10),
       );
-      _samplingProfileRunning = false;
-      _safeNotify();
       final profile = stringKeyedMapFromValue(r['profile']);
       if (profile.isEmpty) return null;
-      // V8 SamplingHeapProfile 的 head 是火焰图根，递归累加 selfSize 并保留
-      // 完整 callFrame 链。点击下钻看 stack 时直接读 entry.stack。
-      final tally = <String, ({int size, List<String> stack})>{};
-      var total = 0;
-      void walk(Map<String, Object?> node, List<String> parentStack) {
-        final cf = stringKeyedMapFromValue(node['callFrame']);
-        final fnName = '${cf['functionName'] ?? '(anon)'}';
-        final url = '${cf['url'] ?? ''}';
-        final line = intFromValue(cf['lineNumber'], fallback: 0);
-        final col = intFromValue(cf['columnNumber'], fallback: 0);
-        final stackEntry = url.isEmpty
-            ? fnName
-            : '${fnName.isEmpty ? "(anonymous)" : fnName} @ $url:${line + 1}:${col + 1}';
-        final stack = [...parentStack, stackEntry];
-        final self = nonNegativeIntFromValue(node['selfSize'], fallback: 0);
-        total += self;
-        final old = tally[fnName];
-        if (old == null) {
-          tally[fnName] = (size: self, stack: stack);
-        } else {
-          tally[fnName] = (size: old.size + self, stack: old.stack);
-        }
-        final children = node['children'] as List?;
-        if (children != null) {
-          for (final c in children.whereType<Map>()) {
-            walk(stringKeyedMapFromValue(c), stack);
-          }
-        }
-      }
-
-      final head = stringKeyedMapFromValue(profile['head']);
-      if (head.isEmpty) return null;
-      walk(head, const []);
-      final entries = tally.entries.toList()
-        ..sort((a, b) => b.value.size.compareTo(a.value.size));
-      final top = entries
-          .take(15)
-          .map(
-            (e) => (
-              label: e.key.isEmpty ? '(anonymous)' : e.key,
-              size: e.value.size,
-              stack: e.value.stack,
-            ),
-          )
-          .toList(growable: false);
-      return (totalSize: total, top: top);
+      return summarizeSamplingHeapProfile(profile['head']);
     } catch (error, stack) {
       silentLog(
         'web_reverse_session_controller',
@@ -5141,6 +5110,11 @@ class WebReverseSessionController extends ChangeNotifier {
         stack,
       );
       return null;
+    } finally {
+      if (_samplingProfileRunning) {
+        _samplingProfileRunning = false;
+        _safeNotify();
+      }
     }
   }
 

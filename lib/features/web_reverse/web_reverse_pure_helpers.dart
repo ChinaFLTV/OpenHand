@@ -5,6 +5,7 @@ library;
 import 'dart:convert';
 
 import '../../shared/util/input_value_parsing.dart';
+import '../../shared/util/text_clip.dart';
 
 const String _vlqAlphabet =
     'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
@@ -17,6 +18,125 @@ final RegExp _consoleLongNumberPattern = RegExp(r'\b\d{3,}\b');
 final RegExp _consolePathHashPattern = RegExp(r'/[A-Fa-f0-9]{8,}');
 final RegExp _consoleLocationTailPattern = RegExp(r':\d+:\d+\)');
 final RegExp _consoleWhitespacePattern = RegExp(r'\s+');
+
+class _SamplingStackPath {
+  const _SamplingStackPath(this.entry, this.parent);
+
+  final String entry;
+  final _SamplingStackPath? parent;
+
+  List<String> materialize() {
+    final reversed = <String>[];
+    _SamplingStackPath? current = this;
+    while (current != null) {
+      reversed.add(current.entry);
+      current = current.parent;
+    }
+    return reversed.reversed.toList(growable: false);
+  }
+}
+
+/// Iteratively summarizes a V8 SamplingHeapProfile head node.
+///
+/// Traversal, retained stack depth, aggregate buckets and frame text are all
+/// bounded so a malformed or unusually deep profile cannot overflow the Dart
+/// stack or retain an unbounded call tree.
+({int totalSize, List<({String label, int size, List<String> stack})> top})?
+summarizeSamplingHeapProfile(
+  Object? rawHead, {
+  int maxNodes = 100000,
+  int maxStackDepth = 256,
+  int maxFunctionBuckets = 20000,
+  int maxTopEntries = 15,
+  int maxFunctionNameChars = 512,
+  int maxUrlChars = 16 * 1024,
+}) {
+  if (maxNodes <= 0 ||
+      maxStackDepth <= 0 ||
+      maxFunctionBuckets <= 0 ||
+      maxTopEntries <= 0 ||
+      maxFunctionNameChars <= 0 ||
+      maxUrlChars <= 0) {
+    throw ArgumentError('Sampling profile limits must be positive.');
+  }
+  final head = stringKeyedMapFromValue(rawHead);
+  if (head.isEmpty) return null;
+  final work =
+      <({Map<String, Object?> node, _SamplingStackPath? parent, int depth})>[
+        (node: head, parent: null, depth: 0),
+      ];
+  final tally = <String, ({int size, _SamplingStackPath path})>{};
+  const overflowBucket = '(other)';
+  var visited = 0;
+  var total = 0;
+
+  while (work.isNotEmpty && visited < maxNodes) {
+    final current = work.removeLast();
+    visited++;
+    final callFrame = stringKeyedMapFromValue(current.node['callFrame']);
+    final functionName = clipText(
+      '${callFrame['functionName'] ?? '(anonymous)'}',
+      maxFunctionNameChars,
+      suffix: '',
+    );
+    final url = clipText('${callFrame['url'] ?? ''}', maxUrlChars, suffix: '');
+    final line = intFromValue(callFrame['lineNumber'], fallback: 0);
+    final column = intFromValue(callFrame['columnNumber'], fallback: 0);
+    final frame = url.isEmpty
+        ? (functionName.isEmpty ? '(anonymous)' : functionName)
+        : '${functionName.isEmpty ? "(anonymous)" : functionName} @ $url:${line + 1}:${column + 1}';
+    final path = current.depth < maxStackDepth
+        ? _SamplingStackPath(frame, current.parent)
+        : current.parent ?? const _SamplingStackPath('[stack truncated]', null);
+    final selfSize = nonNegativeIntFromValue(
+      current.node['selfSize'],
+      fallback: 0,
+    );
+    total += selfSize;
+    final rawBucket = functionName.isEmpty ? '(anonymous)' : functionName;
+    final bucket =
+        tally.containsKey(rawBucket) || tally.length < maxFunctionBuckets - 1
+        ? rawBucket
+        : overflowBucket;
+    final previous = tally[bucket];
+    tally[bucket] = (
+      size: (previous?.size ?? 0) + selfSize,
+      path: previous?.path ?? path,
+    );
+
+    final children = current.node['children'];
+    if (children is! List) continue;
+    var remainingSlots = maxNodes - visited - work.length;
+    for (
+      var index = children.length - 1;
+      index >= 0 && remainingSlots > 0;
+      index--
+    ) {
+      final child = children[index];
+      if (child is! Map) continue;
+      work.add((
+        node: stringKeyedMapFromValue(child),
+        parent: path,
+        depth: current.depth + 1,
+      ));
+      remainingSlots--;
+    }
+  }
+
+  final entries = tally.entries.toList()
+    ..sort((left, right) => right.value.size.compareTo(left.value.size));
+  final top = entries
+      .take(maxTopEntries)
+      .map(
+        (entry) => (
+          label: entry.key,
+          size: entry.value.size,
+          stack: entry.value.path.materialize(),
+        ),
+      )
+      .toList(growable: false);
+  return (totalSize: total, top: top);
+}
 
 /// 解码 source-map 中的 Base64 VLQ 段（不含 `,` 与 `;` 分隔符），
 /// 返回该段内全部带符号整数。空串返回空列表，未知字符直接跳过。
