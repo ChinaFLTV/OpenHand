@@ -8,6 +8,7 @@ import 'package:path/path.dart' as p;
 import 'package:xml/xml.dart' as xml;
 
 import '../../../../app/support/silent_log.dart';
+import '../../../../shared/util/bounded_directory_io.dart';
 import '../../../../shared/util/bounded_file_io.dart';
 import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/directory_cleanup.dart';
@@ -40,6 +41,7 @@ class AiAttachmentService {
   static const int _maxSpreadsheetRowsPerSheet = 32;
   static const int _maxSpreadsheetArchiveBytes = 8 * kBytesPerMiB;
   static const int _maxZipEntryBytes = 4 * kBytesPerMiB;
+  static const int _maxAttachmentCleanupEntries = 100000;
   static final RegExp _pdfTextSpanPattern = RegExp(r'\(([^()]{2,})\)\s*Tj');
   static final RegExp _pdfFallbackUnsupportedCharsPattern = RegExp(
     r'[^\x20-\x7E\u4E00-\u9FFF\r\n\t]+',
@@ -96,7 +98,11 @@ class AiAttachmentService {
       final sessionDir = Directory(sessionDirPath);
       if (await sessionDir.exists()) {
         final prefix = '$normalizedMessageId-';
-        await for (final entity in sessionDir.list(followLinks: false)) {
+        final listing = await listDirectoryBounded(
+          sessionDir,
+          maxEntries: _maxAttachmentCleanupEntries,
+        );
+        for (final entity in listing.entries) {
           if (entity is! File) {
             continue;
           }

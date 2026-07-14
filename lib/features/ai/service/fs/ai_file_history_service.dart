@@ -7,6 +7,7 @@ import 'package:path/path.dart' as p;
 import '../../../../app/support/openhand_paths.dart';
 import '../../../../app/support/silent_log.dart';
 import '../../../../shared/db/atomic_file_operations.dart';
+import '../../../../shared/util/bounded_directory_io.dart';
 import '../../../../shared/util/bounded_file_io.dart';
 import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/input_value_parsing.dart';
@@ -51,6 +52,11 @@ class AiFileHistoryService {
   static const int _maxMetadataIdentifierCharacters = 512;
   static const int _maxHistoryContentBytes = 16 * kBytesPerMiB;
   static const int _maxHistoryMetadataBytes = 64 * kBytesPerKiB;
+  static const int _maxHistoryDirectoryEntries = 4096;
+  static const int _maxHistoryRootDirectories = 10000;
+  static const int _maxSessionClearEntries = 100000;
+  static const Duration _historyScanTimeout = Duration(seconds: 10);
+  static const Duration _sessionClearTimeout = Duration(seconds: 30);
 
   final String? _historyDirectory;
   final int maxVersionsPerFile;
@@ -167,7 +173,11 @@ class AiFileHistoryService {
       }
 
       final versions = <FileVersionInfo>[];
-      await for (final entity in fileHistoryDir.list(followLinks: false)) {
+      final listing = await listDirectoryBounded(
+        fileHistoryDir,
+        maxEntries: _maxHistoryDirectoryEntries,
+      );
+      for (final entity in listing.entries) {
         if (entity is File && entity.path.endsWith('.meta.json')) {
           try {
             final metaContent = await readBoundedFileString(
@@ -189,7 +199,7 @@ class AiFileHistoryService {
 
       // 按时间倒序排列
       versions.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-      return versions;
+      return versions.take(maxVersionsPerFile).toList(growable: false);
     } catch (_) {
       return const <FileVersionInfo>[];
     }
@@ -240,7 +250,12 @@ class AiFileHistoryService {
   Future<void> _pruneOldVersions(Directory fileHistoryDir) async {
     try {
       final metaFiles = <File>[];
-      await for (final entity in fileHistoryDir.list(followLinks: false)) {
+      final listing = await listDirectoryBounded(
+        fileHistoryDir,
+        maxEntries: _maxHistoryDirectoryEntries,
+      );
+      if (listing.truncated) return;
+      for (final entity in listing.entries) {
         if (entity is File && entity.path.endsWith('.meta.json')) {
           metaFiles.add(entity);
         }
@@ -383,9 +398,30 @@ class AiFileHistoryService {
   Future<void> clearSessionHistory(String sessionId) async {
     try {
       final historyDir = await _getHistoryDir();
-      await for (final pathDir in historyDir.list()) {
+      final rootListing = await listDirectoryBounded(
+        historyDir,
+        maxEntries: _maxHistoryRootDirectories,
+      );
+      final stopwatch = Stopwatch()..start();
+      var scannedEntries = 0;
+      for (final pathDir in rootListing.entries) {
+        if (scannedEntries >= _maxSessionClearEntries ||
+            stopwatch.elapsed >= _sessionClearTimeout) {
+          break;
+        }
         if (pathDir is! Directory) continue;
-        await for (final file in pathDir.list()) {
+        final remaining = _sessionClearTimeout - stopwatch.elapsed;
+        if (remaining <= Duration.zero) break;
+        final listing = await listDirectoryBounded(
+          pathDir,
+          maxEntries: _maxHistoryDirectoryEntries,
+          totalTimeout: remaining < _historyScanTimeout
+              ? remaining
+              : _historyScanTimeout,
+        );
+        for (final file in listing.entries) {
+          scannedEntries += 1;
+          if (scannedEntries > _maxSessionClearEntries) break;
           if (file is! File || !file.path.endsWith('.meta.json')) continue;
           try {
             final content = await readBoundedFileString(

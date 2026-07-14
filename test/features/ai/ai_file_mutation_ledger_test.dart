@@ -93,6 +93,23 @@ void main() {
     );
   });
 
+  test('bounded bundle export and import preserve records and blobs', () async {
+    final original = await record('session-a', 'payload');
+    final bundle = await ledger.exportBundleJson();
+    final importedLedger = AiFileMutationLedger(
+      rootDirectory: '${temporaryDirectory.path}/imported-ledger',
+    );
+
+    expect(await importedLedger.importBundleJson(bundle), 1);
+    final importedRecords = await importedLedger.recordsForSession('session-a');
+    expect(importedRecords, hasLength(1));
+    expect(importedRecords.single.recordId, original.recordId);
+    expect(
+      await importedLedger.readBlob(importedRecords.single.afterSha!),
+      'payload',
+    );
+  });
+
   test('oversized ledgers are never pruned or used for blob GC', () async {
     await record('session-a', 'content');
     await ledger.saveConfig(
