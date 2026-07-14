@@ -5102,7 +5102,10 @@ class _RecorderPanelState extends State<_RecorderPanel> {
     }
     if (file == null) return;
     try {
-      final read = await readWebReverseTextFile(file);
+      final read = await readWebReverseTextFile(
+        file,
+        maxBytes: WebReverseSessionController.maxRecorderImportBytes,
+      );
       if (!mounted) return;
       if (read.isTooLarge) {
         showWebReverseErrorSnack(
@@ -5110,6 +5113,7 @@ class _RecorderPanelState extends State<_RecorderPanel> {
           webReverseTextFileTooLargeMessage(
             read.tooLargeBytes!,
             context: context,
+            maxBytes: WebReverseSessionController.maxRecorderImportBytes,
           ),
           duration: const Duration(seconds: 2),
         );
@@ -5121,16 +5125,17 @@ class _RecorderPanelState extends State<_RecorderPanel> {
       final steps = stringKeyedMapListFromValue(decoded);
       widget.controller.setRecorderSteps(steps);
       if (!mounted) return;
+      final importedCount = widget.controller.recorderSteps.length;
       showWebReverseSuccessSnack(
         context,
         openHandLocalizedText(
           context,
-          zh: '已导入 ${steps.length} 步',
-          zhHant: '已匯入 ${steps.length} 步',
-          en: 'Imported ${steps.length} steps',
-          fr: '${steps.length} étapes importées',
-          de: '${steps.length} Schritte importiert',
-          ja: '${steps.length} ステップをインポートしました',
+          zh: '已导入 $importedCount 步',
+          zhHant: '已匯入 $importedCount 步',
+          en: 'Imported $importedCount steps',
+          fr: '$importedCount étapes importées',
+          de: '$importedCount Schritte importiert',
+          ja: '$importedCount ステップをインポートしました',
         ),
       );
     } catch (error, stack) {

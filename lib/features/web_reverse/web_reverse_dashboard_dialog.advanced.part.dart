@@ -1490,6 +1490,7 @@ Future<void> _showExtraHeadersDialog(
             const SizedBox(height: 8),
             TextField(
               controller: ctrlText,
+              maxLength: WebReverseSessionController.maxRuleHeadersChars,
               maxLines: 10,
               minLines: 5,
               style: const TextStyle(fontFamily: 'monospace', fontSize: 12.5),
@@ -1504,16 +1505,17 @@ Future<void> _showExtraHeadersDialog(
     final saved = await ctrl.setExtraHttpHeaders(headers);
     if (!context.mounted) return;
     if (saved) {
+      final savedCount = ctrl.extraHeaders.length;
       showWebReverseSuccessSnack(
         context,
         openHandLocalizedText(
           context,
-          zh: '已注入 ${headers.length} 个 Header',
-          zhHant: '已注入 ${headers.length} 個 Header',
-          en: 'Injected ${headers.length} headers',
-          fr: '${headers.length} headers injectes',
-          de: '${headers.length} Header injiziert',
-          ja: '${headers.length} 個の Header を注入しました',
+          zh: '已注入 $savedCount 个 Header',
+          zhHant: '已注入 $savedCount 個 Header',
+          en: 'Injected $savedCount headers',
+          fr: '$savedCount headers injectes',
+          de: '$savedCount Header injiziert',
+          ja: '$savedCount 個の Header を注入しました',
         ),
       );
     } else {

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' show Locale;
@@ -175,6 +176,10 @@ class WebReverseSessionController extends ChangeNotifier {
   static const int maxMockBodyChars = 2 * kBytesPerMiB;
   static const int maxRuleCollectionChars = 16 * kBytesPerMiB;
   static const int maxRuleImportChars = 16 * kBytesPerMiB;
+  static const int maxRecorderSteps = 5000;
+  static const int maxRecorderStepTextChars = 64 * kBytesPerKiB;
+  static const int maxRecorderCollectionChars = 16 * kBytesPerMiB;
+  static const int maxRecorderImportBytes = 16 * kBytesPerMiB;
   static const int maxAccountSnapshotNameChars = 256;
   static const int maxAccountSnapshotCookies = 512;
   static const int maxAccountSnapshotStorageEntries = 2048;
@@ -1596,7 +1601,9 @@ class WebReverseSessionController extends ChangeNotifier {
 
   bool _recording = false;
   String? _recorderScriptIdentifier;
-  final List<Map<String, Object?>> _recorderSteps = <Map<String, Object?>>[];
+  final ListQueue<Map<String, Object?>> _recorderSteps =
+      ListQueue<Map<String, Object?>>();
+  int _recorderStepsChars = 0;
   List<Map<String, Object?>> get recorderSteps =>
       List<Map<String, Object?>>.unmodifiable(_recorderSteps);
   bool get isRecording => _recording;
@@ -1772,6 +1779,7 @@ class WebReverseSessionController extends ChangeNotifier {
         sessionId: _pageSessionId,
       );
       _recorderSteps.clear();
+      _recorderStepsChars = 0;
       _recording = true;
       _safeNotify();
     } catch (error, stack) {
@@ -1839,7 +1847,10 @@ class WebReverseSessionController extends ChangeNotifier {
     if (cdp == null || _pageSessionId == null) {
       return (executed: 0, failed: 0);
     }
-    final steps = _recorderSteps;
+    final steps = List<Map<String, Object?>>.of(
+      _recorderSteps,
+      growable: false,
+    );
     if (steps.isEmpty) return (executed: 0, failed: 0);
 
     // 在执行真正交互前先等元素可见，避免 click 太快撞 DOM 还没渲染。
@@ -2033,26 +2044,49 @@ class WebReverseSessionController extends ChangeNotifier {
     required String selector,
     String? expected,
   }) {
-    _recorderSteps.add(<String, Object?>{
+    _appendRecorderStep(<String, Object?>{
       'type': type,
       'selector': selector,
       if (expected != null) 'expected': expected,
       'ts': DateTime.now().millisecondsSinceEpoch,
     });
-    _safeNotify();
   }
 
   /// 替换当前 step 列表（导入 JSON 用）。
   void setRecorderSteps(List<Map<String, Object?>> steps) {
-    _recorderSteps
-      ..clear()
-      ..addAll(steps);
+    _recorderSteps.clear();
+    _recorderStepsChars = 0;
+    final start = steps.length > maxRecorderSteps
+        ? steps.length - maxRecorderSteps
+        : 0;
+    for (final step in steps.skip(start)) {
+      _appendRecorderStep(step, notify: false);
+    }
     _safeNotify();
+  }
+
+  bool _appendRecorderStep(Map<String, Object?> step, {bool notify = true}) {
+    final normalized = _normalizeRecorderStep(step);
+    if (normalized == null) return false;
+    final cost = _estimatedRecorderStepChars(normalized);
+    while (_recorderSteps.isNotEmpty &&
+        (_recorderSteps.length >= maxRecorderSteps ||
+            _recorderStepsChars + cost > maxRecorderCollectionChars)) {
+      _recorderStepsChars -= _estimatedRecorderStepChars(
+        _recorderSteps.removeFirst(),
+      );
+    }
+    if (_recorderStepsChars + cost > maxRecorderCollectionChars) return false;
+    _recorderSteps.add(normalized);
+    _recorderStepsChars += cost;
+    if (notify) _safeNotify();
+    return true;
   }
 
   /// 清空 step 列表。
   void clearRecorderSteps() {
     _recorderSteps.clear();
+    _recorderStepsChars = 0;
     _safeNotify();
   }
 
@@ -2476,8 +2510,7 @@ class WebReverseSessionController extends ChangeNotifier {
         // 去掉首尾可能的引号，再 JSON.decode。
         final decoded = jsonDecode(raw);
         if (decoded is Map) {
-          _recorderSteps.add(stringKeyedMapFromValue(decoded));
-          _safeNotify();
+          _appendRecorderStep(stringKeyedMapFromValue(decoded));
         }
       } catch (error, stack) {
         silentLog(
@@ -3512,13 +3545,14 @@ class WebReverseSessionController extends ChangeNotifier {
       case 'Network.setExtraHTTPHeaders':
         final headers = params['headers'];
         if (headers is Map) {
+          final normalized = _normalizeRuleHeaders(
+            stringKeyedMapFromValue(
+              headers,
+            ).map((key, value) => MapEntry(key, '${value ?? ''}')),
+          );
           _extraHeaders
             ..clear()
-            ..addEntries(
-              stringKeyedMapFromValue(headers).entries
-                  .where((entry) => nullIfBlank(entry.key) != null)
-                  .map((entry) => MapEntry(entry.key, '${entry.value}')),
-            );
+            ..addAll(normalized);
           changed = true;
         }
         break;
@@ -6860,15 +6894,16 @@ class WebReverseSessionController extends ChangeNotifier {
   Future<bool> setExtraHttpHeaders(Map<String, String> headers) async {
     final cdp = _browserCdp;
     if (cdp == null || _pageSessionId == null) return false;
+    final normalized = _normalizeRuleHeaders(headers);
     try {
       await cdp.send(
         'Network.setExtraHTTPHeaders',
-        params: <String, Object?>{'headers': headers},
+        params: <String, Object?>{'headers': normalized},
         sessionId: _pageSessionId,
       );
       _extraHeaders
         ..clear()
-        ..addAll(headers);
+        ..addAll(normalized);
       _safeNotify();
       return true;
     } catch (error, stack) {
@@ -8557,6 +8592,82 @@ int _estimatedRequestBreakpointChars(WebReverseRequestBreakpoint breakpoint) =>
     breakpoint.urlContains.length +
     breakpoint.bodyContains.length +
     breakpoint.evalExpression.length;
+
+const Set<String> _webReverseRecorderStepTypes = <String>{
+  'navigate',
+  'click',
+  'input',
+  'change',
+  'assertText',
+  'assertVisible',
+};
+
+Map<String, Object?>? _normalizeRecorderStep(Map<String, Object?> step) {
+  final type = _capPlainWebReverseText('${step['type'] ?? ''}'.trim(), 32);
+  if (!_webReverseRecorderStepTypes.contains(type)) return null;
+  final normalized = <String, Object?>{'type': type};
+  final timestamp = optionalIntegralIntFromValue(step['ts']);
+  if (timestamp != null) normalized['ts'] = timestamp;
+
+  if (type == 'navigate') {
+    final url = _capPlainWebReverseText(
+      '${step['url'] ?? ''}'.trim(),
+      WebReverseSessionController.maxBreakpointTextChars,
+    );
+    if (url.isEmpty) return null;
+    normalized['url'] = url;
+    return Map<String, Object?>.unmodifiable(normalized);
+  }
+
+  final selector = _capPlainWebReverseText(
+    '${step['selector'] ?? ''}'.trim(),
+    WebReverseSessionController.maxBreakpointTextChars,
+  );
+  if (selector.isEmpty) return null;
+  normalized['selector'] = selector;
+  switch (type) {
+    case 'click':
+      final text = _capPlainWebReverseText(
+        '${step['text'] ?? ''}',
+        WebReverseSessionController.maxRecorderStepTextChars,
+      );
+      if (text.isNotEmpty) normalized['text'] = text;
+      if (step['doubleClick'] == true) normalized['doubleClick'] = true;
+      break;
+    case 'input':
+      normalized['value'] = _capPlainWebReverseText(
+        '${step['value'] ?? ''}',
+        WebReverseSessionController.maxRecorderStepTextChars,
+      );
+      break;
+    case 'change':
+      final value = step['value'];
+      normalized['value'] = value == null || value is bool || value is num
+          ? value
+          : _capPlainWebReverseText(
+              '$value',
+              WebReverseSessionController.maxRecorderStepTextChars,
+            );
+      break;
+    case 'assertText':
+      normalized['expected'] = _capPlainWebReverseText(
+        '${step['expected'] ?? ''}',
+        WebReverseSessionController.maxRecorderStepTextChars,
+      );
+      break;
+    case 'assertVisible':
+      break;
+    case 'navigate':
+      break;
+  }
+  return Map<String, Object?>.unmodifiable(normalized);
+}
+
+int _estimatedRecorderStepChars(Map<String, Object?> step) =>
+    step.values.fold<int>(
+      32,
+      (total, value) => total + (value is String ? value.length : 8),
+    );
 
 WebReverseAccountSnapshot _normalizeAccountSnapshot(
   WebReverseAccountSnapshot snapshot,

@@ -134,6 +134,7 @@ void main() {
         replaceUrl:
             'r' * (WebReverseSessionController.maxBreakpointTextChars + 1),
         headerOverrides: <String, String>{
+          'invalid\nheader': 'value',
           for (
             var i = 0;
             i < WebReverseSessionController.maxRuleHeaderEntries + 1;
@@ -154,6 +155,7 @@ void main() {
       interceptRule.headerOverrides.length,
       lessThanOrEqualTo(WebReverseSessionController.maxRuleHeaderEntries),
     );
+    expect(interceptRule.headerOverrides, isNot(contains('invalid\nheader')));
 
     controller.setMockRules(<WebReverseMockRule>[
       WebReverseMockRule(
@@ -255,6 +257,50 @@ void main() {
       snapshot.localStorage.length,
       lessThanOrEqualTo(
         WebReverseSessionController.maxAccountSnapshotStorageEntries,
+      ),
+    );
+
+    controller.setRecorderSteps(<Map<String, Object?>>[
+      for (var i = 0; i < WebReverseSessionController.maxRecorderSteps + 2; i++)
+        <String, Object?>{
+          'type': 'navigate',
+          'url': 'https://example.com/$i',
+          'ts': i,
+          'untrusted': <String, Object?>{'nested': true},
+        },
+    ]);
+    expect(
+      controller.recorderSteps,
+      hasLength(WebReverseSessionController.maxRecorderSteps),
+    );
+    expect(controller.recorderSteps.first['url'], 'https://example.com/2');
+    expect(controller.recorderSteps.first, isNot(contains('untrusted')));
+
+    controller.setRecorderSteps(<Map<String, Object?>>[
+      <String, Object?>{
+        'type': 'input',
+        'selector':
+            's' * (WebReverseSessionController.maxBreakpointTextChars + 1),
+        'value':
+            'v' * (WebReverseSessionController.maxRecorderStepTextChars + 1),
+      },
+      const <String, Object?>{'type': 'unknown', 'selector': '#ignored'},
+    ]);
+    final recorderStep = controller.recorderSteps.single;
+    expect(
+      recorderStep['selector'],
+      isA<String>().having(
+        (value) => value.length,
+        'length',
+        WebReverseSessionController.maxBreakpointTextChars,
+      ),
+    );
+    expect(
+      recorderStep['value'],
+      isA<String>().having(
+        (value) => value.length,
+        'length',
+        WebReverseSessionController.maxRecorderStepTextChars,
       ),
     );
 
