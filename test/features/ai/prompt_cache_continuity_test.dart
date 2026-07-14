@@ -1,7 +1,18 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:openhand/features/ai/index.dart';
+import 'package:openhand/features/ai/model/ai_input_cache_runtime_config.dart';
+import 'package:openhand/features/ai/model/ai_model_config.dart';
+import 'package:openhand/features/ai/model/ai_session.dart';
+import 'package:openhand/features/ai/model/ai_session_message.dart';
+import 'package:openhand/features/ai/model/ai_session_runtime_context.dart';
+import 'package:openhand/features/ai/model/ai_thread_template.dart';
+import 'package:openhand/features/ai/service/chat/ai_chat_service.dart';
+import 'package:openhand/features/ai/service/chat/ai_protocol_adapter.dart';
+import 'package:openhand/features/ai/service/chat/ai_transport_diagnostic_messages.dart';
+import 'package:openhand/features/ai/service/prompt/ai_prompt_builder.dart';
+import 'package:openhand/features/ai/service/prompt/ai_prompt_template_assembly.dart';
+import 'package:openhand/features/ai/service/prompt/ai_prompt_template_repository.dart';
 import 'package:openhand/features/memory/index.dart';
 
 void main() {
