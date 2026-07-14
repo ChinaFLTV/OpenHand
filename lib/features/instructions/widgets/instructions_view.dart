@@ -682,7 +682,7 @@ class _InstructionEditorDialogState extends State<_InstructionEditorDialog> {
   Widget build(BuildContext context) {
     final isEdit = widget.source != null;
     final l10n = AppLocalizations.of(context)!;
-    return buildOpenHandResponsiveDialogShell(
+    final dialog = buildOpenHandResponsiveDialogShell(
       context: context,
       maxWidth: 760,
       safeAreaMinimum: kOpenHandDialogDefaultInsetPadding,
@@ -834,6 +834,7 @@ class _InstructionEditorDialogState extends State<_InstructionEditorDialog> {
         ),
       ),
     );
+    return PopScope(canPop: !_saving, child: dialog);
   }
 
   Widget _buildHeader(

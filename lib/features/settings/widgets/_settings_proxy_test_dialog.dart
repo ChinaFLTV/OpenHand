@@ -596,7 +596,7 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
     final hMin = math.min(560.0, mediaSize.height - 96);
     final wMax = mediaSize.width - 24;
     final hMax = mediaSize.height - 32;
-    return TweenAnimationBuilder<double>(
+    final dialog = TweenAnimationBuilder<double>(
       tween: Tween<double>(end: _maximized ? 1.0 : 0.0),
       duration: _settingsMotionDuration(
         context,
@@ -652,6 +652,7 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
         );
       },
     );
+    return PopScope(canPop: !_running, child: dialog);
   }
 
   Widget _buildHeader(BuildContext context) {

@@ -160,7 +160,7 @@ class _QdrantAdminDialogState extends State<QdrantAdminDialog> {
   Widget build(BuildContext context) {
     final controller = context.watch<KnowledgeBaseController>();
     final isChineseLayout = openHandIsChineseLocale(context);
-    return buildOpenHandAlertDialog(
+    final dialog = buildOpenHandAlertDialog(
       title: Text(
         openHandLocalizedText(
           context,
@@ -374,6 +374,7 @@ class _QdrantAdminDialogState extends State<QdrantAdminDialog> {
         ),
       ],
     );
+    return PopScope(canPop: !_busy, child: dialog);
   }
 }
 

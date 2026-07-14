@@ -23,7 +23,6 @@ class _ScraplingRuntimeDialogState extends State<_ScraplingRuntimeDialog> {
 
   bool _running = true;
   bool _success = false;
-  final bool _cancelled = false;
   String? _errorMessage;
   bool _pulsedOutcome = false;
 
@@ -155,7 +154,7 @@ class _ScraplingRuntimeDialogState extends State<_ScraplingRuntimeDialog> {
         _pulsedOutcome = true;
         if (_success) {
           _successPulse.value = _successPulse.value + 1;
-        } else if (!_cancelled) {
+        } else {
           _errorPulse.value = _errorPulse.value + 1;
         }
       });
@@ -186,7 +185,7 @@ class _ScraplingRuntimeDialogState extends State<_ScraplingRuntimeDialog> {
               : l10n.settingsScraplingRuntimeUninstalled)
         : l10n.settingsScraplingRuntimeFailed;
 
-    return buildOpenHandAlertDialog(
+    final dialog = buildOpenHandAlertDialog(
       title: Row(
         children: [
           Icon(
@@ -332,6 +331,7 @@ class _ScraplingRuntimeDialogState extends State<_ScraplingRuntimeDialog> {
         ),
       ],
     );
+    return PopScope(canPop: !_running, child: dialog);
   }
 }
 

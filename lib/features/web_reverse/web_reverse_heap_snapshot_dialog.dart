@@ -116,7 +116,7 @@ class _HeapDialogState extends State<_HeapDialog> {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final loc = AppLocalizations.of(context);
-    return buildOpenHandToolDialogShell(
+    final dialog = buildOpenHandToolDialogShell(
       context: context,
       maxWidth: _kHeapDialogMaxWidth,
       backgroundColor: cs.surfaceContainer,
@@ -187,5 +187,6 @@ class _HeapDialogState extends State<_HeapDialog> {
         ],
       ),
     );
+    return PopScope(canPop: !_busy, child: dialog);
   }
 }

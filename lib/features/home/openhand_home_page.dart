@@ -962,7 +962,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         // Cancel debounced timer and flush immediately.
         _harnessSessionSaveDebouncer.cancel();
         unawaited(
-          _harnessSessionStore.save(pendingHarnessRecord).catchError((_) {}),
+          _harnessSessionStore
+              .save(pendingHarnessRecord)
+              .catchError(_logHarnessSessionSaveError),
         );
       }
     }
@@ -1066,12 +1068,14 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     _editorTabsSaveDebouncer.cancel();
     // Flush pending editor tabs before disposal.
     if (_editorTabsSessionId != null) {
-      unawaited(_persistEditorTabs().catchError((_) {}));
+      unawaited(_persistEditorTabs());
     }
     final pendingHarnessRecord = _persistedHarnessSession;
     if (pendingHarnessRecord != null) {
       unawaited(
-        _harnessSessionStore.save(pendingHarnessRecord).catchError((_) {}),
+        _harnessSessionStore
+            .save(pendingHarnessRecord)
+            .catchError(_logHarnessSessionSaveError),
       );
     }
     WidgetsBinding.instance.removeObserver(this);
@@ -3586,24 +3590,19 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       if (!mounted || config == null) {
         return false;
       }
-      // Initialize persistence directory structure (non-blocking on error).
       try {
         await config.initializePersistenceDirectories();
       } catch (error, stack) {
-        silentLog(
-          'openhand_home_page',
-          'initialize HE persistence directories',
-          error,
-          stack,
+        _reportHarnessPersistenceError(
+          operation: 'initialize HE persistence directories',
+          error: error,
+          stack: stack,
+          zhAction: '无法初始化 Harness 持久化目录',
+          enAction: 'Failed to initialize Harness storage',
         );
+        return false;
       }
       if (!mounted) return false;
-      // Launch the program-driven HE session inside the app's content pane
-      // instead of a full-screen modal, so the navigation sidebar stays
-      // visible and the user can switch between sections freely.
-      _activeHarnessOrchestrator?.removeListener(_onHarnessOrchestratorChanged);
-      _activeHarnessOrchestrator?.cancel();
-      _activeHarnessOrchestrator?.dispose();
       final orchestrator = HarnessOrchestrator(config);
       orchestrator.fullAccessPermission = _heFullAccessPermission;
       orchestrator.onPhaseApprovalRequired = _handlePhaseApprovalRequired;
@@ -3617,14 +3616,32 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         createdAt: now,
         updatedAt: now,
       );
-      // Await initial save to ensure the record is persisted
-      // before starting the orchestrator, preventing data loss if the app
-      // closes before the async save completes.
+      final previousOrchestrator = _activeHarnessOrchestrator;
+      previousOrchestrator?.removeListener(_onHarnessOrchestratorChanged);
+      _harnessSessionSaveDebouncer.cancel();
       try {
         await _harnessSessionStore.save(record);
-      } catch (_) {
-        // Log but continue - failing to persist should not block execution.
+      } catch (error, stack) {
+        previousOrchestrator?.addListener(_onHarnessOrchestratorChanged);
+        if (previousOrchestrator != null) {
+          _onHarnessOrchestratorChanged();
+        }
+        orchestrator.dispose();
+        _reportHarnessPersistenceError(
+          operation: 'save initial HE session',
+          error: error,
+          stack: stack,
+          zhAction: '无法保存 Harness 会话',
+          enAction: 'Failed to save the Harness session',
+        );
+        return false;
       }
+      if (!mounted) {
+        orchestrator.dispose();
+        return false;
+      }
+      previousOrchestrator?.cancel();
+      previousOrchestrator?.dispose();
       orchestrator.addListener(_onHarnessOrchestratorChanged);
       _cacheHarnessShellState(orchestrator);
       setState(() {
@@ -5090,11 +5107,19 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   }) {
     _harnessSessionSaveDebouncer.cancel();
     if (immediate) {
-      unawaited(_harnessSessionStore.save(record).catchError((_) {}));
+      unawaited(
+        _harnessSessionStore
+            .save(record)
+            .catchError(_logHarnessSessionSaveError),
+      );
       return;
     }
     _harnessSessionSaveDebouncer.schedule(() {
-      unawaited(_harnessSessionStore.save(record).catchError((_) {}));
+      unawaited(
+        _harnessSessionStore
+            .save(record)
+            .catchError(_logHarnessSessionSaveError),
+      );
     });
   }
 
@@ -5210,8 +5235,15 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         _activeHarnessConfig = effectiveRecord.config;
         _activeHarnessOrchestrator = restoredOrchestrator;
       });
-    } catch (e) {
-      // Silently fail on restore errors
+    } catch (error, stack) {
+      _reportHarnessPersistenceError(
+        operation: 'restore harness session',
+        error: error,
+        stack: stack,
+        zhAction: '恢复 Harness 会话失败',
+        enAction: 'Failed to restore the Harness session',
+        postFrame: true,
+      );
     }
   }
 
@@ -5275,7 +5307,23 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (updatedRecord != null) {
       _scheduleHarnessSessionSave(updatedRecord);
     }
-    unawaited(newConfig.initializePersistenceDirectories().catchError((_) {}));
+    unawaited(_initializeHarnessPersistenceDirectories(newConfig));
+  }
+
+  Future<void> _initializeHarnessPersistenceDirectories(
+    HarnessSessionConfig config,
+  ) async {
+    try {
+      await config.initializePersistenceDirectories();
+    } catch (error, stack) {
+      _reportHarnessPersistenceError(
+        operation: 'update HE persistence directories',
+        error: error,
+        stack: stack,
+        zhAction: '无法更新 Harness 持久化目录',
+        enAction: 'Failed to update Harness storage',
+      );
+    }
   }
 
   static final RegExp _legacyHeAutoModelRewritePattern = RegExp(
@@ -5408,10 +5456,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         title: generatedTitle,
         updatedAt: DateTime.now().toUtc(),
       );
-      unawaited(_harnessSessionStore.save(updated).catchError((_) {}));
       setState(() {
         _persistedHarnessSession = updated;
       });
+      await _harnessSessionStore.save(updated);
     } catch (error, stack) {
       silentLog('openhand_home_page', 'generate HE auto title', error, stack);
     }
@@ -8566,6 +8614,34 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     );
   }
 
+  void _reportHarnessPersistenceError({
+    required String operation,
+    required Object error,
+    required StackTrace stack,
+    required String zhAction,
+    required String enAction,
+    bool postFrame = false,
+  }) {
+    silentLog('openhand_home_page', operation, error, stack);
+    if (!mounted) return;
+    final message = openHandLocalizedText(
+      context,
+      zh: '$zhAction：$error',
+      en: '$enAction: $error',
+    );
+    if (postFrame) {
+      flashHomeSnack(
+        context,
+        message,
+        kind: OpenHandSnackKind.error,
+        maxLines: 2,
+        postFrame: true,
+      );
+      return;
+    }
+    showHomeErrorSnack(context, message, maxLines: 2);
+  }
+
   Future<void> _renameHarnessSession() async {
     final record = _persistedHarnessSession;
     if (record == null) return;
@@ -8590,14 +8666,37 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     }
     final updated = record.copyWith(
       title: submitted,
-      updatedAt: DateTime.now(),
+      updatedAt: DateTime.now().toUtc(),
     );
+    final orchestrator = _activeHarnessOrchestrator;
+    orchestrator?.removeListener(_onHarnessOrchestratorChanged);
+    _harnessSessionSaveDebouncer.cancel();
+    void resumeOrchestratorObservation() {
+      if (!identical(_activeHarnessOrchestrator, orchestrator)) return;
+      orchestrator?.addListener(_onHarnessOrchestratorChanged);
+      if (orchestrator != null) _onHarnessOrchestratorChanged();
+    }
+
+    try {
+      await _harnessSessionStore.save(updated);
+    } catch (error, stack) {
+      resumeOrchestratorObservation();
+      _reportHarnessPersistenceError(
+        operation: 'rename harness session',
+        error: error,
+        stack: stack,
+        zhAction: '重命名 Harness 会话失败',
+        enAction: 'Failed to rename the Harness session',
+      );
+      return;
+    }
+    if (!mounted) return;
+    if (_persistedHarnessSession?.id != record.id) {
+      resumeOrchestratorObservation();
+      return;
+    }
     setState(() => _persistedHarnessSession = updated);
-    unawaited(
-      _harnessSessionStore
-          .save(updated)
-          .catchError(_logHarnessSessionSaveError),
-    );
+    resumeOrchestratorObservation();
   }
 
   Future<void> _deleteHarnessSession() async {
@@ -8618,9 +8717,24 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (confirmed != true || !mounted) {
       return;
     }
-    _activeHarnessOrchestrator?.removeListener(_onHarnessOrchestratorChanged);
-    _activeHarnessOrchestrator?.dispose();
+    final orchestrator = _activeHarnessOrchestrator;
+    orchestrator?.removeListener(_onHarnessOrchestratorChanged);
     _harnessSessionSaveDebouncer.cancel();
+    try {
+      await _harnessSessionStore.clear();
+    } catch (error, stack) {
+      orchestrator?.addListener(_onHarnessOrchestratorChanged);
+      _reportHarnessPersistenceError(
+        operation: 'delete harness session',
+        error: error,
+        stack: stack,
+        zhAction: '删除 Harness 会话失败',
+        enAction: 'Failed to delete the Harness session',
+      );
+      return;
+    }
+    if (!mounted) return;
+    orchestrator?.dispose();
     setState(() {
       _activeHarnessOrchestrator = null;
       _activeHarnessConfig = null;
@@ -8629,7 +8743,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         _selectedSection = AppSection.workspace;
       }
     });
-    unawaited(_harnessSessionStore.clear().catchError((_) {}));
   }
 
   /// Sanitises a session title for use in a default filename. Strips path

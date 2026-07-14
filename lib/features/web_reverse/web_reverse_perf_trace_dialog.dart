@@ -74,6 +74,11 @@ class _PerfTraceDialogState extends State<_PerfTraceDialog> {
 
   @override
   void dispose() {
+    final earlyStop = _earlyStop;
+    if (earlyStop != null && !earlyStop.isCompleted) {
+      earlyStop.complete();
+    }
+    _earlyStop = null;
     _ticker?.cancel();
     super.dispose();
   }
@@ -188,7 +193,7 @@ class _PerfTraceDialogState extends State<_PerfTraceDialog> {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final loc = AppLocalizations.of(context);
-    return buildOpenHandToolDialogShell(
+    final dialog = buildOpenHandToolDialogShell(
       context: context,
       maxWidth: 720,
       maxHeight: 700,
@@ -302,5 +307,6 @@ class _PerfTraceDialogState extends State<_PerfTraceDialog> {
         ],
       ),
     );
+    return PopScope(canPop: !_busy, child: dialog);
   }
 }

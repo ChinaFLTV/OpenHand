@@ -373,7 +373,7 @@ class _QdrantStatusDialogState extends State<QdrantStatusDialog> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final height = math.min(MediaQuery.sizeOf(context).height * 0.82, 760.0);
-    return buildOpenHandAlertDialog(
+    final dialog = buildOpenHandAlertDialog(
       title: Text(l10n.qdrantStatusTitle),
       content: buildOpenHandDialogConstrainedContent(
         width: _qdrantOpsDialogWidth,
@@ -468,6 +468,7 @@ class _QdrantStatusDialogState extends State<QdrantStatusDialog> {
         ),
       ],
     );
+    return PopScope(canPop: !_operating, child: dialog);
   }
 }
 
