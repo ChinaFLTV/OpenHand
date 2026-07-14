@@ -430,5 +430,4 @@ Future<AndroidReverseToolchainProbeResult> _runToolchainProbe(
   }
 }
 
-bool get androidReverseToolchainDiagnosticsSupported =>
-    !Platform.isWindows || File('/bin/sh').existsSync();
+bool get androidReverseToolchainDiagnosticsSupported => !Platform.isWindows;

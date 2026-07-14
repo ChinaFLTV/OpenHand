@@ -552,7 +552,7 @@ class HarnessOrchestrator extends ChangeNotifier {
     _queuedManualPhaseInput = null;
     _userReviewVerdict = null;
 
-    final firstRun = config.isFirstRun();
+    final firstRun = await config.isFirstRun();
     final phases = firstRun
         ? [
             HarnessPhase.metaCollection,

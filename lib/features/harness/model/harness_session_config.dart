@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../service/harness_cli_catalog.dart';
 import 'harness_role_config.dart';
@@ -92,7 +93,7 @@ class HarnessSessionConfig {
 
   /// Builds the initial user message that seeds the HE session with config.
   /// Includes the CLI executable explicitly so the orchestrator never guesses.
-  String toInitialPrompt() {
+  Future<String> toInitialPrompt() async {
     String fmt(HarnessRoleConfig cfg, String roleZh, String roleEn) {
       if (cfg.isUrlMode) {
         return '- $roleZh($roleEn)：模式=URL/API, 模型配置ID=${cfg.aiModelConfigId ?? '(未配置)'}';
@@ -111,10 +112,11 @@ class HarnessSessionConfig {
       fmt(reviewerConfig, '验收者', 'reviewer'),
     ];
 
+    final firstRun = await isFirstRun();
     return '''[HARNESS_CONFIG]
 工作目录：$workingDirectory
 持久化根目录：$persistenceDirectory
-首次运行：${isFirstRun()}
+首次运行：$firstRun
 角色配置（⚠️ 请严格按照「可执行文件」字段调用对应 CLI，不得自行推断）：
 ${roleLines.join('\n')}
 
@@ -141,20 +143,23 @@ $task
     final configFile = File(
       p.join(persistenceDirectory, 'steering', 'meta', 'harness_config.json'),
     );
-    await configFile.writeAsString(
-      prettyPrintJson(toJson()),
-    );
+    await configFile.writeAsString(prettyPrintJson(toJson()));
   }
 
   /// Returns true if meta files (architecture.md / conventions.md) are missing,
   /// indicating a first-run in this context (profiler phase required).
-  bool isFirstRun() {
-    final archFile = File(
-      p.join(persistenceDirectory, 'steering', 'meta', 'architecture.md'),
-    );
-    final convFile = File(
-      p.join(persistenceDirectory, 'steering', 'meta', 'conventions.md'),
-    );
-    return !archFile.existsSync() || !convFile.existsSync();
+  Future<bool> isFirstRun() async {
+    final metaDirectory = p.join(persistenceDirectory, 'steering', 'meta');
+    final results = await Future.wait<bool>(<Future<bool>>[
+      isRegularFilePath(
+        p.join(metaDirectory, 'architecture.md'),
+        followLinks: true,
+      ),
+      isRegularFilePath(
+        p.join(metaDirectory, 'conventions.md'),
+        followLinks: true,
+      ),
+    ]);
+    return results.any((exists) => !exists);
   }
 }

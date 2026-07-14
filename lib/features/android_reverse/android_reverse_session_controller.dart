@@ -15,6 +15,8 @@ import 'android_reverse_session_config.dart';
 import 'android_reverse_toolchain_diagnostics.dart';
 
 const String _kTag = 'android_reverse_session_controller';
+const String _kAndroidReverseBashExecutable = 'bash';
+const String _kAndroidReverseChmodExecutable = 'chmod';
 const Duration _kDeviceWatchdogInterval = Duration(seconds: 8);
 const Duration _kDeviceReportTimeout = Duration(seconds: 18);
 const Duration _kPackageReportTimeout = Duration(seconds: 12);
@@ -857,7 +859,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
     String? packageName,
     Duration timeout = _kStaticQuickScanTimeout,
   }) async {
-    if (Platform.isWindows || !File('/bin/sh').existsSync()) {
+    if (Platform.isWindows) {
       return const AdbCommandResult(
         args: <String>['static-quick-scan'],
         exitCode: -1,
@@ -979,9 +981,8 @@ class AndroidReverseSessionController extends ChangeNotifier {
         ).writeAsString(_networkProxyProbeScript),
       ]);
       if (!Platform.isWindows) {
-        final chmod = File('/bin/chmod').existsSync() ? '/bin/chmod' : 'chmod';
         await runTrackedProcessOrFailed(
-          chmod,
+          _kAndroidReverseChmodExecutable,
           <String>['+x', networkProxyProbeScriptPath],
           timeout: _kArtifactChmodTimeout,
           tag: 'android_reverse.network_probe_chmod',
@@ -1021,9 +1022,8 @@ class AndroidReverseSessionController extends ChangeNotifier {
         File(certsReadmePath).writeAsString(_certificateReadme(pkg)),
       ]);
       if (!Platform.isWindows) {
-        final chmod = File('/bin/chmod').existsSync() ? '/bin/chmod' : 'chmod';
         await runTrackedProcessOrFailed(
-          chmod,
+          _kAndroidReverseChmodExecutable,
           <String>[
             '+x',
             installMitmCaRootScriptPath,
@@ -1078,9 +1078,8 @@ class AndroidReverseSessionController extends ChangeNotifier {
       if (!await File(evidenceBundleScriptPath).exists()) {
         await _writeMcpLinkageArtifacts(updateError: true);
       }
-      final bash = File('/bin/bash').existsSync() ? '/bin/bash' : 'bash';
       final result = await runTrackedProcessOrFailed(
-        bash,
+        _kAndroidReverseBashExecutable,
         <String>[evidenceBundleScriptPath],
         timeout: _kEvidenceBundleTimeout,
         tag: 'android_reverse.evidence_bundle',
@@ -1099,7 +1098,8 @@ class AndroidReverseSessionController extends ChangeNotifier {
             ? 'Evidence bundle command timed out or failed to start within ${_kEvidenceBundleTimeout.inSeconds} seconds.'
             : stderrText,
         timedOut: failedWithoutOutput,
-        displayCommand: '$bash $evidenceBundleScriptPath',
+        displayCommand:
+            '$_kAndroidReverseBashExecutable $evidenceBundleScriptPath',
       );
     } catch (e, st) {
       silentLog(_kTag, 'makeEvidenceBundleToArtifacts failed', e, st);
@@ -1141,9 +1141,8 @@ class AndroidReverseSessionController extends ChangeNotifier {
       );
     }
     try {
-      final bash = File('/bin/bash').existsSync() ? '/bin/bash' : 'bash';
       final result = await runTrackedProcessOrFailed(
-        bash,
+        _kAndroidReverseBashExecutable,
         <String>[scriptPath, ...args],
         timeout: timeout,
         tag: tag,
@@ -1164,7 +1163,9 @@ class AndroidReverseSessionController extends ChangeNotifier {
             : stderrText,
         timedOut: timedOut,
         displayCommand:
-            displayCommand ?? '$bash $scriptPath ${args.join(' ')}'.trim(),
+            displayCommand ??
+            '$_kAndroidReverseBashExecutable $scriptPath ${args.join(' ')}'
+                .trim(),
       );
     } catch (e, st) {
       silentLog(_kTag, 'runLocalArtifactScriptDetailed failed', e, st);
@@ -1637,7 +1638,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
     required String? displayCommand,
     required String tag,
   }) async {
-    if (Platform.isWindows || !File('/bin/sh').existsSync()) {
+    if (Platform.isWindows) {
       return AdbCommandResult(
         args: <String>[actionName],
         exitCode: -1,
@@ -1840,9 +1841,8 @@ class AndroidReverseSessionController extends ChangeNotifier {
         File(dynamicProbeScriptPath).writeAsString(_androidDynamicProbeScript),
       ]);
       if (!Platform.isWindows) {
-        final chmod = File('/bin/chmod').existsSync() ? '/bin/chmod' : 'chmod';
         await runTrackedProcessOrFailed(
-          chmod,
+          _kAndroidReverseChmodExecutable,
           <String>[
             '+x',
             adbOneShotScriptPath,

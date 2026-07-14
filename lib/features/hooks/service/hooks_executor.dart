@@ -11,6 +11,7 @@ import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../app/support/system_proxy.dart';
 import '../../../shared/util/bounded_directory_io.dart';
+import '../../../shared/util/platform_shell.dart';
 import '../../../shared/util/text_clip.dart';
 import '../hooks_controller.dart';
 
@@ -490,15 +491,8 @@ class HooksExecutor {
         arguments: <String>['/C', content],
       );
     }
-    final zsh = File('/bin/zsh');
-    if (zsh.existsSync()) {
-      return _ShellCommand(
-        executable: zsh.path,
-        arguments: <String>['-lc', content],
-      );
-    }
     return _ShellCommand(
-      executable: '/bin/sh',
+      executable: preferredPosixShellExecutable(),
       arguments: <String>['-lc', content],
     );
   }
@@ -525,15 +519,8 @@ class HooksExecutor {
       );
     }
     // macOS / Linux — execute as shell script.
-    final zsh = File('/bin/zsh');
-    if (zsh.existsSync()) {
-      return _ShellCommand(
-        executable: zsh.path,
-        arguments: <String>['-l', scriptPath],
-      );
-    }
     return _ShellCommand(
-      executable: '/bin/sh',
+      executable: preferredPosixShellExecutable(),
       arguments: <String>[scriptPath],
     );
   }

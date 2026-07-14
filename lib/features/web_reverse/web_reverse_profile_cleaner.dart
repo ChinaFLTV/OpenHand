@@ -1,7 +1,25 @@
 import 'dart:io';
 
 import '../../app/support/silent_log.dart';
+import '../../shared/util/bounded_file_io.dart';
 import '../../shared/util/input_value_parsing.dart';
+
+const List<String> _webReverseProfileLockNames = <String>[
+  'SingletonLock',
+  'SingletonSocket',
+  'SingletonCookie',
+  'lockfile',
+  'parent.lock',
+];
+
+Iterable<String> _webReverseProfileLockPaths(Directory root) sync* {
+  for (final name in _webReverseProfileLockNames) {
+    yield '${root.path}/$name';
+  }
+  for (final name in _webReverseProfileLockNames) {
+    yield '${root.path}/Default/$name';
+  }
+}
 
 /// 清理 Chrome 系浏览器的 Profile 锁文件（关闭浏览器后用），
 /// 让被卡住的 user-data-dir 重新可用。
@@ -31,39 +49,23 @@ Future<({int deleted, List<String> messages})> cleanWebReverseProfileLocks(
   // 仅清理 Chrome 已知的锁文件，避免误删用户数据。
   // 顺序：根目录的 SingletonLock 最常见，先动；Default/ 下的 lockfile
   // 是 LevelDB 锁，必须 Chrome 完全退出后才安全。
-  const lockNames = <String>[
-    'SingletonLock',
-    'SingletonSocket',
-    'SingletonCookie',
-    'lockfile',
-    'parent.lock',
-  ];
-  // 探测 Default 子目录是否还在；不存在时只清根目录即可。
-  final candidates = <File>[
-    for (final n in lockNames) File('${root.path}/$n'),
-    for (final n in lockNames) File('${root.path}/Default/$n'),
-  ];
-  for (final f in candidates) {
+  for (final path in _webReverseProfileLockPaths(root)) {
     try {
-      if (!await f.exists()) continue;
-      // SingletonLock 在 macOS / Linux 是符号链接，stat 会跟着走；
-      // 用 FileSystemEntity.typeSync(followLinks:false) 区分。
-      final type = FileSystemEntity.typeSync(f.path, followLinks: false);
+      final type = await probeFileSystemEntityType(path);
+      if (type == FileSystemEntityType.notFound) continue;
       if (type == FileSystemEntityType.link) {
-        await Link(f.path).delete();
+        await Link(path).delete();
+      } else if (type == FileSystemEntityType.file) {
+        await File(path).delete();
       } else {
-        await f.delete();
+        messages.add('跳过（不是锁文件或符号链接）：$path');
+        continue;
       }
       deleted++;
-      messages.add('删除：${f.path}');
+      messages.add('删除：$path');
     } catch (error, stack) {
-      silentLog(
-        'web_reverse_profile_cleaner',
-        'delete ${f.path}',
-        error,
-        stack,
-      );
-      messages.add('跳过（删除失败）：${f.path} — $error');
+      silentLog('web_reverse_profile_cleaner', 'delete $path', error, stack);
+      messages.add('跳过（删除失败）：$path — $error');
     }
   }
   if (deleted == 0) {
@@ -79,15 +81,12 @@ Future<bool> hasWebReverseProfileLocks(String userDataDir) async {
   if (normalizedUserDataDir == null) return false;
   final root = Directory(normalizedUserDataDir);
   if (!await root.exists()) return false;
-  for (final n in const <String>[
-    'SingletonLock',
-    'SingletonSocket',
-    'SingletonCookie',
-    'lockfile',
-    'parent.lock',
-  ]) {
-    if (await File('${root.path}/$n').exists()) return true;
-    if (await File('${root.path}/Default/$n').exists()) return true;
+  for (final path in _webReverseProfileLockPaths(root)) {
+    final type = await probeFileSystemEntityType(path);
+    if (type == FileSystemEntityType.file ||
+        type == FileSystemEntityType.link) {
+      return true;
+    }
   }
   return false;
 }

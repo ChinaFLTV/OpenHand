@@ -2,7 +2,10 @@ import 'dart:io';
 
 import '../../app/support/safe_subprocess.dart';
 import '../../app/support/silent_log.dart';
+import '../../shared/util/bounded_file_io.dart';
 import 'web_reverse_browser_kind.dart';
+
+const Duration _browserExecutableProbeTimeout = Duration(milliseconds: 500);
 
 /// 探测结果：[browser] 命中即可启动；为 null 表示用户未安装任何同核浏览器。
 class WebReverseBrowserProbeResult {
@@ -58,11 +61,13 @@ class WebReverseBrowserDetector {
       final exe = await resolver(kind);
       if (exe == null) continue;
       final version = await _readVersion(exe);
-      out.add(WebReverseBrowserProbeResult(
-        browser: kind,
-        executablePath: exe,
-        versionLine: version,
-      ));
+      out.add(
+        WebReverseBrowserProbeResult(
+          browser: kind,
+          executablePath: exe,
+          versionLine: version,
+        ),
+      );
     }
     return out;
   }
@@ -76,17 +81,19 @@ class WebReverseBrowserDetector {
       timeout: const Duration(seconds: 3),
       tag: 'web_reverse_browser_detector',
     );
-    final firstAppPath = mdfind?.stdout.toString().split('\n').firstWhere(
-      (line) => line.trim().endsWith('.app'),
-      orElse: () => '',
-    );
+    final firstAppPath = mdfind?.stdout
+        .toString()
+        .split('\n')
+        .firstWhere((line) => line.trim().endsWith('.app'), orElse: () => '');
     if (firstAppPath != null && firstAppPath.isNotEmpty) {
-      final exe = _appPathToExecutable(firstAppPath, kind);
-      if (exe != null && File(exe).existsSync()) return exe;
+      final exe = _appPathToExecutable(firstAppPath.trim(), kind);
+      if (exe != null && await _isExecutableFile(exe)) return exe;
     }
     // 2) 默认安装路径
     final defaultExe = _appPathToExecutable(kind.macAppPath, kind);
-    if (defaultExe != null && File(defaultExe).existsSync()) return defaultExe;
+    if (defaultExe != null && await _isExecutableFile(defaultExe)) {
+      return defaultExe;
+    }
     // 3) PATH 上的 cli 入口（Chromium / google-chrome）
     final cliCandidate = switch (kind) {
       WebReverseBrowserKind.chromium => 'chromium',
@@ -101,7 +108,9 @@ class WebReverseBrowserDetector {
         tag: 'web_reverse_browser_detector',
       );
       final raw = which?.stdout.toString().trim();
-      if (raw != null && raw.isNotEmpty && File(raw).existsSync()) return raw;
+      if (raw != null && raw.isNotEmpty && await _isExecutableFile(raw)) {
+        return raw;
+      }
     }
     return null;
   }
@@ -120,7 +129,7 @@ class WebReverseBrowserDetector {
   // ── Windows 单 kind 解析（默认路径 → reg App Paths） ───────────────
   Future<String?> _findExecutableWindows(WebReverseBrowserKind kind) async {
     for (final candidate in kind.windowsExecutableCandidates) {
-      if (File(candidate).existsSync()) return candidate;
+      if (await _isExecutableFile(candidate)) return candidate;
     }
     final exeName = switch (kind) {
       WebReverseBrowserKind.chrome ||
@@ -140,10 +149,14 @@ class WebReverseBrowserDetector {
       tag: 'web_reverse_browser_detector',
     );
     final raw = reg?.stdout.toString() ?? '';
-    final match = RegExp(r'REG_SZ\s+(.+\.exe)', caseSensitive: false)
-        .firstMatch(raw);
+    final match = RegExp(
+      r'REG_SZ\s+(.+\.exe)',
+      caseSensitive: false,
+    ).firstMatch(raw);
     final regPath = match?.group(1)?.trim();
-    if (regPath != null && regPath.isNotEmpty && File(regPath).existsSync()) {
+    if (regPath != null &&
+        regPath.isNotEmpty &&
+        await _isExecutableFile(regPath)) {
       return regPath;
     }
     return null;
@@ -159,7 +172,9 @@ class WebReverseBrowserDetector {
         tag: 'web_reverse_browser_detector',
       );
       final raw = which?.stdout.toString().trim();
-      if (raw != null && raw.isNotEmpty && File(raw).existsSync()) return raw;
+      if (raw != null && raw.isNotEmpty && await _isExecutableFile(raw)) {
+        return raw;
+      }
     }
     return null;
   }
@@ -183,5 +198,13 @@ class WebReverseBrowserDetector {
       );
     }
     return null;
+  }
+
+  Future<bool> _isExecutableFile(String path) {
+    return isRegularFilePath(
+      path,
+      timeout: _browserExecutableProbeTimeout,
+      followLinks: true,
+    );
   }
 }
