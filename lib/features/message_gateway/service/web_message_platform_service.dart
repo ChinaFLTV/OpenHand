@@ -23,6 +23,7 @@ import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/net/http_response_utils.dart';
 import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/bounded_base64.dart';
+import '../../../shared/util/bounded_delete.dart';
 import '../../../shared/util/bounded_directory_io.dart';
 import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/date_time_format.dart';
@@ -306,6 +307,13 @@ class WebMessagePlatformService {
   static const int _maxUploadDirectoryCleanupCandidates = 4096;
   static const Duration _uploadCacheScanIdleTimeout = Duration(seconds: 3);
   static const Duration _uploadCacheScanTotalTimeout = Duration(seconds: 30);
+  static const BoundedDeletePolicy _uploadCacheDeletePolicy =
+      BoundedDeletePolicy(
+        maxEntries: _maxUploadCacheScanEntries + 1,
+        maxDepth: 32,
+        directoryIdleTimeout: Duration(seconds: 5),
+        totalTimeout: _uploadCacheScanTotalTimeout,
+      );
   static const Duration _networkInterfaceListTimeout = Duration(seconds: 3);
   static const int _maxLocalAddresses = 64;
   static const Duration _requestBodyIdleTimeout = Duration(seconds: 30);
@@ -7494,7 +7502,11 @@ class WebMessagePlatformService {
       if (usage.truncated) {
         _logUploadCacheScanLimit('measure before full cleanup');
       }
-      await root.delete(recursive: true);
+      await deletePathBounded(
+        p.absolute(root.path),
+        policy: _uploadCacheDeletePolicy,
+        allowedRoot: p.absolute(_cacheDirectoryPath),
+      );
       return stats.copyWith(deletedDirectories: stats.deletedDirectories + 1);
     }
     final cutoff = DateTime.now().subtract(

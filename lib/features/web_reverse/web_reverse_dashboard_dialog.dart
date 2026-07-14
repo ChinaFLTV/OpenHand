@@ -10,6 +10,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image/image.dart' as img;
+import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 
 import '../../app/support/input_repair_service.dart';
@@ -28,6 +29,7 @@ import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_editor_scroll_behavior.dart';
 import '../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../shared/ui/resizable_splitter.dart';
+import '../../shared/util/bounded_delete.dart';
 import '../../shared/util/bounded_directory_io.dart';
 import '../../shared/util/bounded_file_io.dart';
 import '../../shared/util/date_time_format.dart';

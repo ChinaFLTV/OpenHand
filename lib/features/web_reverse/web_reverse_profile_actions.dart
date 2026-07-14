@@ -1,10 +1,11 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
+import 'package:path/path.dart' as p;
 
+import '../../app/support/openhand_paths.dart';
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
+import '../../shared/util/bounded_delete.dart';
 import '../../shared/util/input_value_parsing.dart';
 import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_profile_cleaner.dart';
@@ -29,9 +30,18 @@ enum ProgressiveProfileOutcome {
 
 enum _ProfileToastTone { info, success, error }
 
+const BoundedDeletePolicy _profileDeletePolicy = BoundedDeletePolicy(
+  maxEntries: 500000,
+  maxDepth: 128,
+  directoryIdleTimeout: Duration(seconds: 5),
+  operationTimeout: Duration(seconds: 30),
+  totalTimeout: Duration(minutes: 5),
+);
+
 /// 渐进式：先 [cleanWebReverseProfileLocks]，再 [hasWebReverseProfileLocks]
 /// 二次校验；只要还有锁就弹窗询问用户是否「重置整个 profile」。重置只对
-/// 含有 `web_reverse` 关键词且长度 ≥ 16 的路径放行，规避误删用户其他目录。
+/// 物理路径位于 OpenHand `web_reverse` 根目录内时才允许重置，规避符号链接
+/// 或相似目录名导致的越界删除。
 ///
 /// 该函数会自行弹反馈 SnackBar，调用方拿到 outcome 即可。
 Future<ProgressiveProfileOutcome> runProgressiveProfileResolve(
@@ -126,14 +136,15 @@ Future<ProgressiveProfileOutcome> runProgressiveProfileResolve(
   }
 
   try {
-    if (!normalizedUserDataDir.contains('web_reverse') ||
-        normalizedUserDataDir.length < 16) {
-      throw const FileSystemException('安全策略拒绝：路径不在 OpenHand web_reverse 子目录中');
-    }
-    final d = Directory(normalizedUserDataDir);
-    if (await d.exists()) {
-      await d.delete(recursive: true);
-    }
+    final webReverseRoot = p.join(
+      OpenHandPaths.defaultRootDirectoryPath(),
+      'web_reverse',
+    );
+    await deletePathBounded(
+      p.absolute(normalizedUserDataDir),
+      policy: _profileDeletePolicy,
+      allowedRoot: p.absolute(webReverseRoot),
+    );
     if (!context.mounted) return ProgressiveProfileOutcome.reset;
     toast(
       text:

@@ -24,6 +24,14 @@ const BoundedCopyPolicy _kProgrammingExplorerCopyPolicy = BoundedCopyPolicy(
   operationTimeout: Duration(minutes: 2),
   totalTimeout: Duration(minutes: 5),
 );
+const BoundedDeletePolicy _kProgrammingExplorerDeletePolicy =
+    BoundedDeletePolicy(
+      maxEntries: 100000,
+      maxDepth: 128,
+      directoryIdleTimeout: Duration(seconds: 5),
+      operationTimeout: Duration(seconds: 30),
+      totalTimeout: Duration(minutes: 5),
+    );
 
 class _DirectoryScanBudget {
   _DirectoryScanBudget(this.remaining);
@@ -712,11 +720,12 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
     );
     if (confirmed != true) return;
     try {
-      if (node.isDirectory) {
-        await Directory(node.path).delete(recursive: true);
-      } else {
-        await File(node.path).delete();
-      }
+      await deletePathBounded(
+        p.absolute(node.path),
+        policy: _kProgrammingExplorerDeletePolicy,
+        allowMissing: false,
+        allowedRoot: p.absolute(widget.rootPath),
+      );
       final parent = _findParentNode(_rootNode, node.path) ?? _rootNode;
       await _refreshNode(parent);
     } catch (error, stack) {
@@ -12499,7 +12508,10 @@ class _BreadcrumbSegment extends StatelessWidget {
         initialValue: currentInitialValue,
       );
       if (selected == null || !context.mounted) return;
-      if (FileSystemEntity.isDirectorySync(selected)) {
+      final selectedIsDirectory = filtered.any(
+        (entry) => entry is Directory && p.equals(entry.path, selected),
+      );
+      if (selectedIsDirectory) {
         currentDirectoryPath = selected;
         currentInitialValue = null;
         continue;

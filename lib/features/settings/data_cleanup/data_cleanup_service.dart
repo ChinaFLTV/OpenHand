@@ -21,6 +21,7 @@ import '../../../app/state/settings_controller.dart';
 import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../shared/db/database_service.dart';
+import '../../../shared/util/bounded_delete.dart';
 import '../../ai/index.dart';
 import '../../crons/crons_controller.dart';
 import '../../hooks/hooks_controller.dart';
@@ -570,6 +571,7 @@ abstract final class DataCleanupFileWorker {
 /// 在 isolate 内统计 sessions 目录下所有 `attachments/` 子目录的体积与
 /// 文件数。
 const int _maxDataCleanupScanEntries = 1000000;
+const int _maxDataCleanupDeleteDepth = 256;
 const Duration _dataCleanupScanIdleTimeout = Duration(seconds: 10);
 const Duration _dataCleanupScanTotalTimeout = Duration(minutes: 2);
 const String _dataCleanupPartialScanError =
@@ -589,11 +591,22 @@ class _DataCleanupScanBudget {
       remainingEntries <= 0 ||
       stopwatch.elapsed >= _dataCleanupScanTotalTimeout;
 
+  bool get exhausted =>
+      remainingEntries <= 0 ||
+      stopwatch.elapsed >= _dataCleanupScanTotalTimeout;
+
   void markInterrupted() {
     _interrupted = true;
   }
 
   Duration nextOperationTimeout() {
+    final remainingDuration = remainingDurationForOperation();
+    return remainingDuration < _dataCleanupScanIdleTimeout
+        ? remainingDuration
+        : _dataCleanupScanIdleTimeout;
+  }
+
+  Duration remainingDurationForOperation() {
     final remaining =
         _dataCleanupScanTotalTimeout.inMicroseconds -
         stopwatch.elapsedMicroseconds;
@@ -601,10 +614,12 @@ class _DataCleanupScanBudget {
       _interrupted = true;
       throw TimeoutException('Data cleanup scan timed out.');
     }
-    final remainingDuration = Duration(microseconds: remaining);
-    return remainingDuration < _dataCleanupScanIdleTimeout
-        ? remainingDuration
-        : _dataCleanupScanIdleTimeout;
+    return Duration(microseconds: remaining);
+  }
+
+  void consumeEntries(int count) {
+    if (count <= 0) return;
+    remainingEntries -= count;
   }
 
   bool takeEntry() {
@@ -805,20 +820,32 @@ Future<void> _isolateDeleteAttachments(String sessionsRoot) async {
   if (!await root.exists()) {
     return;
   }
+  final budget = _DataCleanupScanBudget();
   try {
     await for (final entity
         in root.list(followLinks: false).timeout(_dataCleanupScanIdleTimeout)) {
+      if (!budget.takeEntry()) break;
       if (entity is! Directory) {
         continue;
       }
       final name = p.basename(entity.path);
       if (name == 'attachments') {
-        await _safeDeleteDirectoryAndRecreate(entity);
+        await _safeDeleteDirectoryAndRecreate(
+          entity,
+          budget: budget,
+          allowedRoot: root.path,
+        );
+        if (budget.incomplete) break;
         continue;
       }
       final perSession = Directory(p.join(entity.path, 'attachments'));
       if (await perSession.exists()) {
-        await _safeDeleteDirectoryAndRecreate(perSession);
+        await _safeDeleteDirectoryAndRecreate(
+          perSession,
+          budget: budget,
+          allowedRoot: root.path,
+        );
+        if (budget.incomplete) break;
       }
     }
   } catch (error, stack) {
@@ -835,24 +862,7 @@ Future<void> _isolateDeleteDirectoryContents(String dir) async {
   if (!await root.exists()) {
     return;
   }
-  try {
-    await for (final entity
-        in root.list(followLinks: false).timeout(_dataCleanupScanIdleTimeout)) {
-      try {
-        if (entity is Directory) {
-          await entity.delete(recursive: true);
-        } else {
-          await entity.delete();
-        }
-      } catch (error, stack) {
-        // 单个文件删除失败：忽略，继续下一个。
-        silentLog('data_cleanup', 'delete dir entry', error, stack);
-      }
-    }
-  } catch (error, stack) {
-    // 列表失败：忽略。
-    silentLog('data_cleanup', 'list dir contents', error, stack);
-  }
+  await _safeDeleteDirectoryAndRecreate(root);
 }
 
 Future<void> _isolateDeleteDirectoryContentsExcluding(List<String> args) async {
@@ -866,25 +876,7 @@ Future<void> _isolateDeleteDirectoryContentsExcluding(List<String> args) async {
     return;
   }
   final excludedRoots = args.skip(1).map(p.normalize).toList(growable: false);
-  try {
-    await for (final entity
-        in root.list(followLinks: false).timeout(_dataCleanupScanIdleTimeout)) {
-      if (_isExcludedPath(entity.path, excludedRoots)) {
-        continue;
-      }
-      try {
-        if (entity is Directory) {
-          await _deleteDirectoryTreeExcluding(entity, excludedRoots);
-        } else {
-          await entity.delete();
-        }
-      } catch (error, stack) {
-        silentLog('data_cleanup', 'delete dir entry excluding', error, stack);
-      }
-    }
-  } catch (error, stack) {
-    silentLog('data_cleanup', 'list dir contents excluding', error, stack);
-  }
+  await _deleteDirectoryContentsExcludingBounded(root, excludedRoots);
 }
 
 /// 防误删兜底：拒绝任何看起来像系统根 / HOME 根 / OpenHand 根的路径。
@@ -930,9 +922,18 @@ bool _isSafeDeleteTarget(String path) {
   return true;
 }
 
-Future<void> _safeDeleteDirectoryAndRecreate(Directory dir) async {
+Future<void> _safeDeleteDirectoryAndRecreate(
+  Directory dir, {
+  _DataCleanupScanBudget? budget,
+  String? allowedRoot,
+}) async {
+  final activeBudget = budget ?? _DataCleanupScanBudget();
   try {
-    await dir.delete(recursive: true);
+    await _deletePathWithinCleanupBudget(
+      dir.path,
+      allowedRoot: allowedRoot ?? dir.path,
+      budget: activeBudget,
+    );
   } catch (error, stack) {
     // 删除失败时仍尝试 recreate：保持调用方期望的"目录存在"语义。
     silentLog('data_cleanup', 'delete dir', error, stack);
@@ -942,6 +943,44 @@ Future<void> _safeDeleteDirectoryAndRecreate(Directory dir) async {
   } catch (error, stack) {
     // recreate 失败也不抛——下游写入时会自行重试。
     silentLog('data_cleanup', 'recreate dir', error, stack);
+  }
+}
+
+Future<BoundedDeleteResult> _deletePathWithinCleanupBudget(
+  String path, {
+  required String allowedRoot,
+  required _DataCleanupScanBudget budget,
+}) async {
+  if (budget.exhausted) {
+    budget.markInterrupted();
+    throw TimeoutException('Data cleanup delete budget is exhausted.');
+  }
+  final remaining = budget.remainingDurationForOperation();
+  final operationTimeout = remaining < _dataCleanupScanIdleTimeout
+      ? remaining
+      : _dataCleanupScanIdleTimeout;
+  try {
+    final result = await deletePathBounded(
+      p.absolute(path),
+      policy: BoundedDeletePolicy(
+        maxEntries: budget.remainingEntries,
+        maxDepth: _maxDataCleanupDeleteDepth,
+        directoryIdleTimeout: operationTimeout,
+        operationTimeout: operationTimeout,
+        totalTimeout: remaining,
+      ),
+      allowedRoot: p.absolute(allowedRoot),
+    );
+    budget.consumeEntries(result.plannedEntries);
+    return result;
+  } on BoundedDeleteException catch (error) {
+    budget.consumeEntries(error.plannedEntries);
+    if (error.reason == BoundedDeleteFailureReason.entryLimitExceeded ||
+        error.reason == BoundedDeleteFailureReason.depthLimitExceeded ||
+        error.reason == BoundedDeleteFailureReason.timeout) {
+      budget.markInterrupted();
+    }
+    rethrow;
   }
 }
 
@@ -1014,24 +1053,41 @@ bool _containsExcludedPath(Directory dir, List<String> excludedRoots) {
   return false;
 }
 
-Future<void> _deleteDirectoryTreeExcluding(
-  Directory dir,
+Future<void> _deleteDirectoryContentsExcludingBounded(
+  Directory root,
   List<String> excludedRoots,
 ) async {
-  if (_isExcludedPath(dir.path, excludedRoots)) return;
-  if (!_containsExcludedPath(dir, excludedRoots)) {
-    await dir.delete(recursive: true);
-    return;
-  }
-  await for (final entity
-      in dir.list(followLinks: false).timeout(_dataCleanupScanIdleTimeout)) {
-    if (_isExcludedPath(entity.path, excludedRoots)) {
-      continue;
-    }
-    if (entity is Directory) {
-      await _deleteDirectoryTreeExcluding(entity, excludedRoots);
-    } else {
-      await entity.delete();
+  final budget = _DataCleanupScanBudget();
+  final pending = <Directory>[root];
+  while (pending.isNotEmpty && !budget.exhausted) {
+    final directory = pending.removeLast();
+    try {
+      await for (final entity
+          in directory
+              .list(followLinks: false)
+              .timeout(budget.nextOperationTimeout())) {
+        if (!budget.takeEntry()) return;
+        if (_isExcludedPath(entity.path, excludedRoots)) continue;
+        if (entity is Directory &&
+            _containsExcludedPath(entity, excludedRoots)) {
+          pending.add(entity);
+          continue;
+        }
+        try {
+          await _deletePathWithinCleanupBudget(
+            entity.path,
+            allowedRoot: root.path,
+            budget: budget,
+          );
+        } catch (error, stack) {
+          silentLog('data_cleanup', 'delete dir entry excluding', error, stack);
+          if (budget.incomplete) return;
+        }
+      }
+    } catch (error, stack) {
+      budget.markInterrupted();
+      silentLog('data_cleanup', 'list dir contents excluding', error, stack);
+      return;
     }
   }
 }

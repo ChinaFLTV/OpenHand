@@ -5,6 +5,12 @@ part of 'web_reverse_dashboard_dialog.dart';
 const int _kWebcrackMaxInputChars = 2 * 1024 * 1024;
 const int _kWebcrackMaxOutputBytes = 8 * 1024 * 1024;
 const int _kWebcrackMaxOutputEntries = 512;
+const BoundedDeletePolicy _kWebcrackTempDeletePolicy = BoundedDeletePolicy(
+  maxEntries: 4096,
+  maxDepth: 32,
+  operationTimeout: Duration(seconds: 5),
+  totalTimeout: Duration(seconds: 30),
+);
 
 String _advancedTextForLocale(
   Locale locale, {
@@ -3701,7 +3707,11 @@ Future<String> _runWebcrack(String src, {required Locale locale}) async {
     );
   } finally {
     try {
-      await tmpDir.delete(recursive: true);
+      await deletePathBounded(
+        p.absolute(tmpDir.path),
+        policy: _kWebcrackTempDeletePolicy,
+        allowedRoot: p.absolute(Directory.systemTemp.path),
+      );
     } catch (error, stack) {
       silentLog(
         'web_reverse_dashboard_dialog',

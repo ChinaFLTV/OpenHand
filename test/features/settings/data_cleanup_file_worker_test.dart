@@ -53,6 +53,35 @@ void main() {
     expect(await File('${temporaryDirectory.path}/root.txt').exists(), isFalse);
   });
 
+  test('deletes all contents and recreates an empty root', () async {
+    await DataCleanupFileWorker.deleteDirectoryContents(
+      temporaryDirectory.path,
+    );
+
+    expect(await temporaryDirectory.exists(), isTrue);
+    expect(await temporaryDirectory.list().toList(), isEmpty);
+  });
+
+  test(
+    'directory cleanup deletes a link without following its target',
+    () async {
+      final target = Directory('${temporaryDirectory.path}/target');
+      final outside = Directory('${temporaryDirectory.path}/outside');
+      await target.create();
+      await outside.create();
+      final outsideFile = File('${outside.path}/keep.txt');
+      await outsideFile.writeAsString('keep');
+      await Link('${target.path}/outside-link').create(outside.path);
+
+      await DataCleanupFileWorker.deleteDirectoryContents(target.path);
+
+      expect(await target.exists(), isTrue);
+      expect(await target.list().toList(), isEmpty);
+      expect(await outsideFile.readAsString(), 'keep');
+    },
+    skip: Platform.isWindows ? 'Symbolic links can require elevation.' : false,
+  );
+
   test('safe deletion rejects relative and root-like targets', () {
     expect(DataCleanupFileWorker.isSafeDeleteTarget('relative/path'), isFalse);
     expect(DataCleanupFileWorker.isSafeDeleteTarget('/'), isFalse);

@@ -24,6 +24,7 @@ import '../../../../app/support/silent_log.dart';
 import '../../../../shared/db/atomic_file_operations.dart';
 import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/bounded_base64.dart';
+import '../../../../shared/util/bounded_delete.dart';
 import '../../../../shared/util/bounded_directory_io.dart';
 import '../../../../shared/util/bounded_file_io.dart';
 import '../../../../shared/util/byte_size_format.dart';
@@ -396,6 +397,17 @@ class AiFileMutationLedger {
   static const int _maxBlobScanEntries = 100000;
   static const int _maxLegacyMigrationEntries = 10000;
   static const Duration _ledgerTreeScanTimeout = Duration(seconds: 30);
+  static const BoundedDeletePolicy _ledgerTreeDeletePolicy =
+      BoundedDeletePolicy(
+        maxEntries: _maxSessionScanEntries + _maxBlobScanEntries,
+        maxDepth: 32,
+      );
+  static const BoundedDeletePolicy _legacyTreeDeletePolicy =
+      BoundedDeletePolicy(
+        maxEntries: _maxLegacyMigrationEntries + 1,
+        maxDepth: 32,
+        totalTimeout: _ledgerTreeScanTimeout,
+      );
 
   /// Upper bound for the negative-cache of blob shas that failed legacy
   /// recovery. Keeps the set from growing without limit across long sessions
@@ -616,7 +628,11 @@ class AiFileMutationLedger {
       }
       if (!listing.truncated) {
         try {
-          await legacyDir.delete(recursive: true);
+          await deletePathBounded(
+            p.absolute(legacyDir.path),
+            policy: _legacyTreeDeletePolicy,
+            allowedRoot: p.absolute(Directory.systemTemp.path),
+          );
         } catch (error, stack) {
           silentLog(
             'ai_file_mutation_ledger',
@@ -1163,9 +1179,11 @@ class AiFileMutationLedger {
     try {
       await _initializationFuture;
       final root = Directory(_root);
-      if (await root.exists()) {
-        await root.delete(recursive: true);
-      }
+      await deletePathBounded(
+        p.absolute(root.path),
+        policy: _ledgerTreeDeletePolicy,
+        allowedRoot: p.absolute(_root),
+      );
     } catch (error, stack) {
       silentLog('ai_file_mutation_ledger', 'clearAll', error, stack);
     } finally {
@@ -1183,7 +1201,11 @@ class AiFileMutationLedger {
     if (normalizedSessionId == null) return;
     try {
       final dir = _sessionDir(normalizedSessionId);
-      if (await dir.exists()) await dir.delete(recursive: true);
+      await deletePathBounded(
+        p.absolute(dir.path),
+        policy: _ledgerTreeDeletePolicy,
+        allowedRoot: p.absolute(_sessionsDir().path),
+      );
       // 不主动 GC blobs，避免影响其他会话引用；总清理时统一处理。
     } catch (error, stack) {
       silentLog('ai_file_mutation_ledger', 'clearSession', error, stack);
@@ -1204,7 +1226,11 @@ class AiFileMutationLedger {
         if (entity is! Directory) continue;
         if (keep.contains(p.basename(entity.path))) continue;
         try {
-          await entity.delete(recursive: true);
+          await deletePathBounded(
+            p.absolute(entity.path),
+            policy: _ledgerTreeDeletePolicy,
+            allowedRoot: p.absolute(sessions.path),
+          );
           removed++;
         } catch (error, stack) {
           silentLog(
@@ -1246,7 +1272,11 @@ class AiFileMutationLedger {
           final stat = await entity.stat();
           if (stat.modified.isBefore(cutoff)) {
             pruned.add(p.basename(entity.path));
-            await entity.delete(recursive: true);
+            await deletePathBounded(
+              p.absolute(entity.path),
+              policy: _ledgerTreeDeletePolicy,
+              allowedRoot: p.absolute(sessions.path),
+            );
             removed++;
           }
         } catch (error, stack) {

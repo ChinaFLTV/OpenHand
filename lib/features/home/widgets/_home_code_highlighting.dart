@@ -13,6 +13,13 @@ const int _highlightSkipThresholdChars = 80 * 1024;
 /// （首帧纯文本，后续帧补色），避免多 tool_call 同帧 mount 时把主线程撑爆。
 /// _buildCodeBody 的 null 回退确保即使 span 为 null 也能显示内容。
 const int _highlightDeferThresholdChars = 256;
+const Duration _tempPreviewCleanupTotalTimeout = Duration(seconds: 20);
+const BoundedDeletePolicy _tempPreviewDeletePolicy = BoundedDeletePolicy(
+  maxEntries: 128,
+  maxDepth: 8,
+  operationTimeout: Duration(seconds: 3),
+  totalTimeout: Duration(seconds: 10),
+);
 
 /// Process-wide LRU cache for parsed code-block `TextSpan`s. The same code
 /// snippet (e.g. a tool result, a generated diff) frequently appears in
@@ -2349,16 +2356,24 @@ class _HtmlPreviewDialogState extends State<_HtmlPreviewDialog> {
     try {
       final tempDir = Directory.systemTemp;
       int deletedCount = 0;
+      final cleanupStopwatch = Stopwatch()..start();
       final listing = await listDirectoryBounded(
         tempDir,
         maxEntries: _maxTempHtmlCleanupEntries,
         totalTimeout: const Duration(seconds: 3),
       );
       for (final entity in listing.entries) {
+        if (cleanupStopwatch.elapsed >= _tempPreviewCleanupTotalTimeout) {
+          break;
+        }
         if (entity is Directory &&
             p.basename(entity.path).startsWith('openhand_html_')) {
           try {
-            await entity.delete(recursive: true);
+            await deletePathBounded(
+              p.absolute(entity.path),
+              policy: _tempPreviewDeletePolicy,
+              allowedRoot: p.absolute(tempDir.path),
+            );
             deletedCount++;
           } catch (error, stack) {
             silentLog(
@@ -2876,9 +2891,11 @@ class _HtmlWebViewPreviewState extends State<_HtmlWebViewPreview> {
     if (_tempFilePath != null) {
       try {
         final file = File(_tempFilePath!);
-        if (await file.exists()) {
-          await file.parent.delete(recursive: true);
-        }
+        await deletePathBounded(
+          p.absolute(file.parent.path),
+          policy: _tempPreviewDeletePolicy,
+          allowedRoot: p.absolute(Directory.systemTemp.path),
+        );
       } catch (error, stack) {
         silentLog(
           'home_code_highlighting',
@@ -3206,7 +3223,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
         mermaidJs,
       );
       if (Platform.isMacOS || Platform.isLinux || Platform.isWindows) {
-        final tempDir = Directory.systemTemp.createTempSync(
+        final tempDir = await Directory.systemTemp.createTemp(
           'openhand_mermaid_',
         );
         final tempFile = File(p.join(tempDir.path, 'index.html'));
@@ -3265,9 +3282,11 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
       Future<void>(() async {
         try {
           final file = File(tempPath);
-          if (await file.exists()) await file.delete();
-          final parent = file.parent;
-          if (await parent.exists()) await parent.delete(recursive: true);
+          await deletePathBounded(
+            p.absolute(file.parent.path),
+            policy: _tempPreviewDeletePolicy,
+            allowedRoot: p.absolute(Directory.systemTemp.path),
+          );
         } catch (error, stack) {
           silentLog(
             'home_code_highlighting',
@@ -3663,7 +3682,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
     String? savedPath;
     try {
       final ts = DateTime.now().millisecondsSinceEpoch;
-      final tempDir = Directory.systemTemp.createTempSync('openhand_svg_');
+      final tempDir = await Directory.systemTemp.createTemp('openhand_svg_');
       final tempFile = File(p.join(tempDir.path, 'mermaid_$ts.svg'));
       await tempFile.writeAsString(svg);
       savedPath = tempFile.path;

@@ -31,6 +31,7 @@ import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_inline_notice.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/persistence_issue_card.dart';
+import '../../../shared/util/bounded_delete.dart';
 import '../../../shared/util/bounded_directory_io.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
@@ -71,6 +72,11 @@ const double _mcpToolDebugMenuItemRadius = 10;
 const Duration _mcpForceProbeResetDelay = Duration(milliseconds: 200);
 const Duration _mcpToolPreviewExpandDuration = Duration(milliseconds: 220);
 const int _mcpNpxCacheCleanupMaxEntries = 20000;
+const BoundedDeletePolicy _mcpNpxCacheDeletePolicy = BoundedDeletePolicy(
+  maxEntries: _mcpNpxCacheCleanupMaxEntries,
+  maxDepth: 128,
+  operationTimeout: Duration(seconds: 30),
+);
 
 Duration _mcpMotionDuration(BuildContext context, Duration duration) {
   return openHandMotionDuration(context, duration);
@@ -662,7 +668,11 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
             );
           }
           for (final rootPath in installRoots) {
-            await Directory(rootPath).delete(recursive: true);
+            await deletePathBounded(
+              p.absolute(rootPath),
+              policy: _mcpNpxCacheDeletePolicy,
+              allowedRoot: p.absolute(cacheRoot),
+            );
           }
         } catch (error, stack) {
           silentLog(
