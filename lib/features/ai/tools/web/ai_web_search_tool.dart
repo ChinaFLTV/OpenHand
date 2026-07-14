@@ -13,6 +13,7 @@ import '../../service/chat/ai_chat_service.dart';
 import '../../service/chat/ai_protocol_adapter.dart';
 import '../../service/chat/ai_transport_diagnostic_messages.dart';
 import '../../service/runtime/ai_tool_runtime_service.dart';
+import '../../service/web_engine/web_engine_health_alert_tracker.dart';
 import '../../service/web_engine/web_engine_quality.dart';
 import '../../service/web_search/web_search_cache_store.dart';
 import '../../service/web_search/web_search_orchestrator.dart';
@@ -581,46 +582,46 @@ language. Honor detail=<<DETAIL>>, style=<<STYLE>>, char bounds
 [<<MIN_CHARS>>, <<MAX_CHARS>>].
 ''';
 
-  // 进程内已经发过告警的 (engine, reason)，避免连续刷屏。重启进程后清空。
-  final Set<String> _alertedKeys = <String>{};
+  final WebEngineHealthAlertTracker _healthAlertTracker =
+      WebEngineHealthAlertTracker();
 
   /// 健康度告警：在每次 recordCall 之后扫一遍当前 engineStats，命中阈值
-  /// 触发系统通知（同一 key 进程内只发一次，重启 / clearLogs 后重新生效）。
+  /// 触发系统通知；同一异常持续期间只提醒一次，恢复后再次恶化才重新提醒。
   Future<void> _maybeFireHealthAlerts(AiWebSearchSettings settings) async {
     final pctTh = settings.alertSuccessRatePct;
     final avgTh = settings.alertAvgDurationMs;
-    if (pctTh <= 0 && avgTh <= 0) return;
+    if (pctTh <= 0 && avgTh <= 0) {
+      _healthAlertTracker.reset();
+      return;
+    }
     try {
       final stats = await WebSearchTelemetryStore.instance.engineStats();
+      _healthAlertTracker.retainEngines(
+        stats.keys.map((engine) => engine.name),
+      );
       for (final entry in stats.entries) {
         final s = entry.value;
-        // 数据太少时不告警，避免 1 次失败就触发。
-        if (s.totalCalls < 5) continue;
-        if (pctTh > 0) {
-          final pct = (s.successRate * 100).round();
-          if (pct < pctTh) {
-            final key = '${entry.key.name}::low-success::$pct';
-            if (_alertedKeys.add(key)) {
-              await OpenHandNotificationService.showInApp(
-                title: 'WebSearch · ${entry.key.name}',
-                body: '成功率 $pct% < 阈值 $pctTh%（共 ${s.totalCalls} 次调用）',
-                level: OpenHandNotificationLevel.warning,
-              );
-            }
-          }
-        }
-        if (avgTh > 0) {
-          final avg = s.avgDurationMs.round();
-          if (avg > avgTh) {
-            final key = '${entry.key.name}::slow::$avg';
-            if (_alertedKeys.add(key)) {
-              await OpenHandNotificationService.showInApp(
-                title: 'WebSearch · ${entry.key.name}',
-                body: '平均耗时 ${avg}ms > 阈值 ${avgTh}ms',
-                level: OpenHandNotificationLevel.warning,
-              );
-            }
-          }
+        final alerts = _healthAlertTracker.update(
+          engineName: entry.key.name,
+          totalCalls: s.totalCalls,
+          successRate: s.successRate,
+          averageDurationMs: s.avgDurationMs,
+          successRateThresholdPct: pctTh,
+          averageDurationThresholdMs: avgTh,
+        );
+        for (final alert in alerts) {
+          final body = switch (alert.kind) {
+            WebEngineHealthAlertKind.lowSuccessRate =>
+              '成功率 ${alert.actualValue}% < 阈值 ${alert.threshold}%'
+                  '（共 ${s.totalCalls} 次调用）',
+            WebEngineHealthAlertKind.slowAverageDuration =>
+              '平均耗时 ${alert.actualValue}ms > 阈值 ${alert.threshold}ms',
+          };
+          await OpenHandNotificationService.showInApp(
+            title: 'WebSearch · ${alert.engineName}',
+            body: body,
+            level: OpenHandNotificationLevel.warning,
+          );
         }
       }
     } catch (error, stack) {

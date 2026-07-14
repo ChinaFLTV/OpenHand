@@ -58,4 +58,53 @@ void main() {
       );
     },
   );
+
+  test('validated path hot cache evicts the least recently used URL', () async {
+    final source = File('${temporaryDirectory.path}/source.png');
+    await source.writeAsBytes(<int>[1, 2, 3, 4]);
+    final service = MediaCacheService.forTesting(
+      cacheDirectoryPath: cacheDirectory.path,
+      validatedPathCacheMaxEntries: 2,
+    );
+    const firstUrl = 'https://example.com/generated/first.png';
+    const secondUrl = 'https://example.com/generated/second.png';
+    const thirdUrl = 'https://example.com/generated/third.png';
+
+    final first = await service.importFile(
+      firstUrl,
+      source.path,
+      kind: MediaCacheKind.image,
+    );
+    final second = await service.importFile(
+      secondUrl,
+      source.path,
+      kind: MediaCacheKind.image,
+    );
+    expect(first, isNotNull);
+    expect(second, isNotNull);
+    expect(
+      service.cachedPathForUrl(firstUrl, kind: MediaCacheKind.image),
+      first,
+    );
+
+    final third = await service.importFile(
+      thirdUrl,
+      source.path,
+      kind: MediaCacheKind.image,
+    );
+
+    expect(third, isNotNull);
+    expect(
+      service.cachedPathForUrl(secondUrl, kind: MediaCacheKind.image),
+      isNull,
+    );
+    expect(
+      service.cachedPathForUrl(firstUrl, kind: MediaCacheKind.image),
+      first,
+    );
+    expect(
+      service.cachedPathForUrl(thirdUrl, kind: MediaCacheKind.image),
+      third,
+    );
+  });
 }

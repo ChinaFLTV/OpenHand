@@ -22,6 +22,7 @@ import '../../../../shared/util/bounded_delete.dart';
 import '../../../../shared/util/bounded_directory_io.dart';
 import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/input_value_parsing.dart';
+import '../../../../shared/util/lifecycle_cache.dart';
 
 enum MediaCacheKind { image, video, audio }
 
@@ -45,7 +46,11 @@ class MediaCacheService {
   MediaCacheService._({
     String Function()? cacheDirectoryPathProvider,
     HttpClient Function(Duration connectionTimeout)? createHttpClient,
-  }) : _cacheDirectoryPathProvider =
+    int validatedPathCacheMaxEntries = _validatedPathCacheMaxEntries,
+  }) : _validatedCachePaths = LifecycleLruCache<bool>(
+         maxEntries: validatedPathCacheMaxEntries,
+       ),
+       _cacheDirectoryPathProvider =
            cacheDirectoryPathProvider ??
            OpenHandPaths.defaultMediaCacheDirectoryPath,
        _createHttpClient =
@@ -57,9 +62,11 @@ class MediaCacheService {
   MediaCacheService.forTesting({
     required String cacheDirectoryPath,
     HttpClient Function(Duration connectionTimeout)? createHttpClient,
+    int validatedPathCacheMaxEntries = _validatedPathCacheMaxEntries,
   }) : this._(
          cacheDirectoryPathProvider: () => cacheDirectoryPath,
          createHttpClient: createHttpClient,
+         validatedPathCacheMaxEntries: validatedPathCacheMaxEntries,
        );
 
   static final MediaCacheService instance = MediaCacheService._();
@@ -84,6 +91,7 @@ class MediaCacheService {
   static const int _maxImageCacheBytes = 64 * kBytesPerMiB;
   static const int _maxAudioCacheBytes = 512 * kBytesPerMiB;
   static const int _maxVideoCacheBytes = 2 * kBytesPerGiB;
+  static const int _validatedPathCacheMaxEntries = 2048;
 
   static const Set<String> _imageExtensions = <String>{
     '.png',
@@ -113,7 +121,7 @@ class MediaCacheService {
   };
 
   final Map<String, Future<String?>> _inflight = <String, Future<String?>>{};
-  final Set<String> _validatedCachePaths = <String>{};
+  final LifecycleLruCache<bool> _validatedCachePaths;
   final String Function() _cacheDirectoryPathProvider;
   final HttpClient Function(Duration connectionTimeout) _createHttpClient;
   Directory? _cacheDir;
@@ -146,7 +154,7 @@ class MediaCacheService {
       _cacheDirectoryPathProvider(),
       kind,
     );
-    return _validatedCachePaths.contains(path) ? path : null;
+    return _validatedCachePaths.get(path) == true ? path : null;
   }
 
   /// Ensures [url] has a local cached copy and returns the file path. Failures
@@ -247,7 +255,7 @@ class MediaCacheService {
       mimeType: mimeType,
       bytes: await File(destPath).length(),
     );
-    _validatedCachePaths.add(destPath);
+    _validatedCachePaths.put(destPath, true);
     return destPath;
   }
 
@@ -333,7 +341,7 @@ class MediaCacheService {
         mimeType: contentType?.mimeType,
         bytes: await savedFile.length().timeout(_fileOperationTimeout),
       );
-      _validatedCachePaths.add(destPath);
+      _validatedCachePaths.put(destPath, true);
       return destPath;
     } on TimeoutException catch (error, stack) {
       silentLog('media_cache', 'download timeout', error, stack);
@@ -495,9 +503,9 @@ class MediaCacheService {
     MediaCacheKind? kind,
   }) async {
     final path = _cacheFilePathForUrl(url, _cacheDirectoryPathProvider(), kind);
-    if (_validatedCachePaths.contains(path)) return path;
+    if (_validatedCachePaths.get(path) == true) return path;
     if (await _looksUsableFile(File(path))) {
-      _validatedCachePaths.add(path);
+      _validatedCachePaths.put(path, true);
       return path;
     }
     _validatedCachePaths.remove(path);
