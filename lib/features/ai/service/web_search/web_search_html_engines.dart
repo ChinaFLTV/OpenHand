@@ -38,6 +38,7 @@ class WebSearchDuckDuckGoEngine extends WebSearchEngine {
             'AppleWebKit/605.1.15 (KHTML, like Gecko) '
             'Version/17.0 Safari/605.1.15',
       },
+      cancelSignal: req.cancelSignal,
     );
     if (isHttpFailureStatus(response.statusCode)) {
       throw WebEngineHttpException('DuckDuckGo ${response.statusCode}');
@@ -117,6 +118,7 @@ class WebSearchBingEngine extends WebSearchEngine {
             'AppleWebKit/537.36 (KHTML, like Gecko) '
             'Chrome/121.0 Safari/537.36',
       },
+      cancelSignal: req.cancelSignal,
     );
     if (isHttpFailureStatus(response.statusCode)) {
       throw WebEngineHttpException('Bing ${response.statusCode}');
@@ -164,6 +166,7 @@ class WebSearchSearxngEngine extends WebSearchEngine {
       'GET',
       uri,
       headers: const {'user-agent': 'OpenHand/1.0 (+websearch)'},
+      cancelSignal: req.cancelSignal,
     );
     if (isHttpFailureStatus(response.statusCode)) {
       throw WebEngineHttpException('SearXNG ${response.statusCode}');

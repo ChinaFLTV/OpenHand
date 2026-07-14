@@ -44,6 +44,7 @@ mixin BoundedWebEngineHttpClient {
     Uri uri, {
     Map<String, String> headers = const <String, String>{},
     String? body,
+    Future<void>? cancelSignal,
     int maxBytes = defaultWebEngineResponseMaxBytes,
   }) {
     final request = http.Request(method, uri)..headers.addAll(headers);
@@ -56,6 +57,7 @@ mixin BoundedWebEngineHttpClient {
       request: request,
       connectionTimeout: connectionTimeout,
       responseTimeout: fetchTimeout,
+      cancelSignal: cancelSignal,
       maxBytes: maxBytes,
     );
   }
@@ -63,10 +65,30 @@ mixin BoundedWebEngineHttpClient {
 
 Future<BoundedWebEngineHttpResponse> sendBoundedWebEngineRequest({
   required http.Client client,
-  required http.BaseRequest request,
+  required http.Request request,
   required Duration connectionTimeout,
   required Duration responseTimeout,
+  Future<void>? cancelSignal,
   int maxBytes = defaultWebEngineResponseMaxBytes,
+}) async {
+  final streamed = await sendWebEngineStreamRequest(
+    client: client,
+    request: request,
+    connectionTimeout: connectionTimeout,
+    cancelSignal: cancelSignal,
+  );
+  return collectBoundedWebEngineResponse(
+    streamed,
+    responseTimeout: responseTimeout,
+    maxBytes: maxBytes,
+  );
+}
+
+Future<http.StreamedResponse> sendWebEngineStreamRequest({
+  required http.Client client,
+  required http.Request request,
+  required Duration connectionTimeout,
+  Future<void>? cancelSignal,
 }) async {
   if (connectionTimeout <= Duration.zero) {
     throw ArgumentError.value(
@@ -75,12 +97,47 @@ Future<BoundedWebEngineHttpResponse> sendBoundedWebEngineRequest({
       'Must be positive.',
     );
   }
-  final streamed = await client.send(request).timeout(connectionTimeout);
-  return collectBoundedWebEngineResponse(
-    streamed,
-    responseTimeout: responseTimeout,
-    maxBytes: maxBytes,
+  if (request.finalized) {
+    throw StateError('Cannot send an already finalized HTTP request.');
+  }
+
+  final connectionTimeoutAbort = Completer<void>();
+  final normalizedCancelSignal = cancelSignal?.then<void>(
+    (_) {},
+    onError: (Object _, StackTrace _) {},
   );
+  final abortTrigger = normalizedCancelSignal == null
+      ? connectionTimeoutAbort.future
+      : Future.any<void>([
+          normalizedCancelSignal,
+          connectionTimeoutAbort.future,
+        ]);
+  final abortableRequest =
+      http.AbortableRequest(
+          request.method,
+          request.url,
+          abortTrigger: abortTrigger,
+        )
+        ..headers.addAll(request.headers)
+        ..followRedirects = request.followRedirects
+        ..maxRedirects = request.maxRedirects
+        ..persistentConnection = request.persistentConnection
+        ..bodyBytes = request.bodyBytes;
+
+  return client
+      .send(abortableRequest)
+      .timeout(
+        connectionTimeout,
+        onTimeout: () {
+          if (!connectionTimeoutAbort.isCompleted) {
+            connectionTimeoutAbort.complete();
+          }
+          throw TimeoutException(
+            'HTTP connection exceeded its time limit.',
+            connectionTimeout,
+          );
+        },
+      );
 }
 
 Future<BoundedWebEngineHttpResponse> collectBoundedWebEngineResponse(

@@ -38,6 +38,7 @@ class WebSearchTavilyEngine extends WebSearchEngine {
         'include_raw_content': false,
         'search_depth': 'advanced',
       }),
+      cancelSignal: req.cancelSignal,
     );
     if (response.statusCode != 200) {
       throw WebEngineHttpException(
@@ -88,6 +89,7 @@ class WebSearchExaEngine extends WebSearchEngine {
           'text': {'maxCharacters': 1500},
         },
       }),
+      cancelSignal: req.cancelSignal,
     );
     if (response.statusCode != 200) {
       throw WebEngineHttpException(
@@ -137,6 +139,7 @@ class WebSearchLinkupEngine extends WebSearchEngine {
         'depth': 'standard',
         'outputType': 'searchResults',
       }),
+      cancelSignal: req.cancelSignal,
     );
     if (response.statusCode != 200) {
       throw WebEngineHttpException(
@@ -184,6 +187,7 @@ class WebSearchBochaEngine extends WebSearchEngine {
         'count': req.maxResults,
         'summary': true,
       }),
+      cancelSignal: req.cancelSignal,
     );
     if (response.statusCode != 200) {
       throw WebEngineHttpException(
@@ -238,6 +242,7 @@ class WebSearchBaiduEngine extends WebSearchEngine {
           {'type': 'web', 'top_k': req.maxResults},
         ],
       }),
+      cancelSignal: req.cancelSignal,
     );
     if (response.statusCode != 200) {
       throw WebEngineHttpException(
@@ -310,6 +315,7 @@ class WebSearchKimiEngine extends WebSearchEngine {
           },
         ],
       }),
+      cancelSignal: req.cancelSignal,
     );
     if (response.statusCode != 200) {
       throw WebEngineHttpException(

@@ -10,7 +10,7 @@ import '../../../../shared/util/exponential_backoff.dart';
 abstract class WebEngineRequest {
   const WebEngineRequest({this.cancelSignal});
 
-  /// 调用方可在执行中通过 complete 该 future 通知引擎取消（最近一次重试后生效）。
+  /// 调用方可通过完成该 future 中止当前请求及后续重试。
   final Future<void>? cancelSignal;
 }
 

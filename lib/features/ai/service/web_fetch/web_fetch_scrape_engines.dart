@@ -45,6 +45,7 @@ class WebFetchFirecrawlEngine extends WebFetchEngine {
       request: request,
       connectionTimeout: Duration(seconds: config.connectionTimeoutSeconds),
       responseTimeout: Duration(seconds: config.responseTimeoutSeconds),
+      cancelSignal: req.cancelSignal,
     );
     if (response.statusCode != 200) {
       throw WebEngineHttpException(
@@ -152,6 +153,7 @@ class WebFetchJinaReaderEngine extends WebFetchEngine {
       request: request,
       connectionTimeout: Duration(seconds: config.connectionTimeoutSeconds),
       responseTimeout: Duration(seconds: config.responseTimeoutSeconds),
+      cancelSignal: req.cancelSignal,
     );
     final status = response.statusCode;
     if (status < 200 || status >= 400) {
@@ -230,6 +232,7 @@ class WebFetchTavilyEngine extends WebFetchEngine {
       request: request,
       connectionTimeout: Duration(seconds: config.connectionTimeoutSeconds),
       responseTimeout: Duration(seconds: config.responseTimeoutSeconds),
+      cancelSignal: req.cancelSignal,
     );
     if (response.statusCode != 200) {
       throw WebEngineHttpException(
@@ -281,6 +284,7 @@ class WebFetchExaEngine extends WebFetchEngine {
       request: request,
       connectionTimeout: Duration(seconds: config.connectionTimeoutSeconds),
       responseTimeout: Duration(seconds: config.responseTimeoutSeconds),
+      cancelSignal: req.cancelSignal,
     );
     if (response.statusCode != 200) {
       throw WebEngineHttpException(

@@ -57,6 +57,7 @@ class WebSearchGrokEngine extends WebSearchEngine {
           'return_citations': true,
         },
       }),
+      cancelSignal: req.cancelSignal,
     );
     if (response.statusCode != 200) {
       throw WebEngineHttpException(
@@ -136,6 +137,7 @@ class WebSearchGeminiEngine extends WebSearchEngine {
           {'googleSearch': {}},
         ],
       }),
+      cancelSignal: req.cancelSignal,
     );
     if (response.statusCode != 200) {
       throw WebEngineHttpException(

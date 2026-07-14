@@ -53,6 +53,7 @@ class WebFetchKimiEngine extends WebFetchEngine {
           },
         ],
       }),
+      cancelSignal: req.cancelSignal,
     );
     if (response.statusCode != 200) {
       throw WebEngineHttpException(
@@ -111,6 +112,7 @@ class WebFetchBaiduEngine extends WebFetchEngine {
           {'type': 'web', 'top_k': 3},
         ],
       }),
+      cancelSignal: req.cancelSignal,
     );
     if (response.statusCode != 200) {
       throw WebEngineHttpException(
@@ -160,6 +162,7 @@ class WebFetchLinkupEngine extends WebFetchEngine {
         'outputType': 'searchResults',
         'includeImages': false,
       }),
+      cancelSignal: req.cancelSignal,
     );
     if (response.statusCode != 200) {
       throw WebEngineHttpException(
@@ -201,6 +204,7 @@ class WebFetchBochaEngine extends WebFetchEngine {
         'content-type': 'application/json',
       },
       body: jsonEncode({'query': req.url, 'count': 5, 'summary': true}),
+      cancelSignal: req.cancelSignal,
     );
     if (response.statusCode != 200) {
       throw WebEngineHttpException(
@@ -275,6 +279,7 @@ class WebFetchGrokEngine extends WebFetchEngine {
           'return_citations': true,
         },
       }),
+      cancelSignal: req.cancelSignal,
     );
     if (response.statusCode != 200) {
       throw WebEngineHttpException(
@@ -333,6 +338,7 @@ class WebFetchGeminiEngine extends WebFetchEngine {
           {'googleSearch': {}},
         ],
       }),
+      cancelSignal: req.cancelSignal,
     );
     if (response.statusCode != 200) {
       throw WebEngineHttpException(

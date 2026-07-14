@@ -40,6 +40,7 @@ class WebFetchDirectHttpEngine extends WebFetchEngine {
     final response = await _followRedirects(
       Uri.parse(req.url),
       maxRedirects: 5,
+      cancelSignal: req.cancelSignal,
     );
     final status = response.statusCode;
     if (status < 200 || status >= 400) {
@@ -72,6 +73,7 @@ class WebFetchDirectHttpEngine extends WebFetchEngine {
   Future<http.StreamedResponse> _followRedirects(
     Uri uri, {
     required int maxRedirects,
+    Future<void>? cancelSignal,
   }) async {
     var current = uri;
     for (var i = 0; i < maxRedirects; i++) {
@@ -79,9 +81,12 @@ class WebFetchDirectHttpEngine extends WebFetchEngine {
       request.followRedirects = false;
       request.headers['user-agent'] = userAgent;
       request.headers['accept'] = 'text/html,application/xhtml+xml,*/*;q=0.8';
-      final stream = await httpClient
-          .send(request)
-          .timeout(Duration(seconds: config.connectionTimeoutSeconds));
+      final stream = await sendWebEngineStreamRequest(
+        client: httpClient,
+        request: request,
+        connectionTimeout: Duration(seconds: config.connectionTimeoutSeconds),
+        cancelSignal: cancelSignal,
+      );
       if (stream.statusCode >= 300 && stream.statusCode < 400) {
         final loc = stream.headers['location'];
         await _discardResponse(stream.stream);

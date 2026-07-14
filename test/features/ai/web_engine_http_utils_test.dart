@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -98,4 +99,75 @@ void main() {
     );
     expect(requestCount, 0);
   });
+
+  test('aborts an in-flight request when cancellation is signalled', () async {
+    final client = _AbortAwareClient();
+    final cancelled = Completer<void>();
+
+    final pending = sendBoundedWebEngineRequest(
+      client: client,
+      request: http.Request('GET', Uri.parse('https://example.com/cancel')),
+      connectionTimeout: _timeout,
+      responseTimeout: _timeout,
+      cancelSignal: cancelled.future,
+    );
+    await client.started.future.timeout(_timeout);
+    cancelled.complete();
+
+    await expectLater(pending, throwsA(isA<http.RequestAbortedException>()));
+    await client.aborted.future.timeout(_timeout);
+  });
+
+  test('connection timeout aborts the underlying request', () async {
+    final client = _AbortAwareClient();
+
+    await expectLater(
+      sendBoundedWebEngineRequest(
+        client: client,
+        request: http.Request('GET', Uri.parse('https://example.com/timeout')),
+        connectionTimeout: const Duration(milliseconds: 20),
+        responseTimeout: _timeout,
+      ),
+      throwsA(isA<TimeoutException>()),
+    );
+    await client.aborted.future.timeout(_timeout);
+  });
+}
+
+class _AbortAwareClient extends http.BaseClient {
+  final Completer<void> started = Completer<void>();
+  final Completer<void> aborted = Completer<void>();
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) {
+    if (!started.isCompleted) started.complete();
+    final response = Completer<http.StreamedResponse>();
+    final abortTrigger = request is http.Abortable
+        ? request.abortTrigger
+        : null;
+    if (abortTrigger == null) {
+      response.completeError(
+        StateError('Expected an abortable request.'),
+        StackTrace.current,
+      );
+      return response.future;
+    }
+    abortTrigger.then<void>(
+      (_) {
+        if (!aborted.isCompleted) aborted.complete();
+        response.completeError(
+          http.RequestAbortedException(request.url),
+          StackTrace.current,
+        );
+      },
+      onError: (Object _, StackTrace _) {
+        if (!aborted.isCompleted) aborted.complete();
+        response.completeError(
+          http.RequestAbortedException(request.url),
+          StackTrace.current,
+        );
+      },
+    );
+    return response.future;
+  }
 }
