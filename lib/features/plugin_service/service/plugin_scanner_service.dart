@@ -10,6 +10,7 @@ import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/version_compare.dart';
 import '../model/plugin_info.dart';
+import 'plugin_environment_probe.dart';
 import 'plugin_toolchain_shell.dart';
 
 Map<String, Object?>? _qdrantInspectMetadataFromDecoded(Object? decoded) {
@@ -160,18 +161,16 @@ class PluginScannerService {
     );
   }
 
-  String _readNvmDefaultAlias() {
+  Future<String> _readNvmDefaultAlias() async {
     final home = Platform.environment['HOME'] ?? '';
     final nvmDir = Platform.environment['NVM_DIR'] ?? '$home/.nvm';
     try {
       final aliasFile = File('$nvmDir/alias/default');
-      if (aliasFile.existsSync()) {
-        final alias = readBoundedFileStringSync(
-          aliasFile,
-          maxBytes: _nvmAliasMaxBytes,
-        ).trim();
-        if (alias.isNotEmpty) return alias;
-      }
+      final alias = (await readBoundedFileString(
+        aliasFile,
+        maxBytes: _nvmAliasMaxBytes,
+      )).trim();
+      if (alias.isNotEmpty) return alias;
     } catch (error, stack) {
       silentLog('plugin_scanner', 'read nvm default alias', error, stack);
     }
@@ -184,7 +183,9 @@ class PluginScannerService {
     final home = Platform.environment['HOME'] ?? '';
     final nvmDir = Platform.environment['NVM_DIR'] ?? '$home/.nvm';
     final versionsDir = Directory('$nvmDir/versions/node');
-    if (!versionsDir.existsSync()) return null;
+    if (!await isDirectoryPath(versionsDir.path, followLinks: true)) {
+      return null;
+    }
 
     final versions = <String>[];
     try {
@@ -202,7 +203,7 @@ class PluginScannerService {
     if (versions.isEmpty) return null;
     versions.sort(compareSemanticVersions);
 
-    final alias = _readNvmDefaultAlias();
+    final alias = await _readNvmDefaultAlias();
 
     String resolvedVersion;
     if (alias == 'node' || alias == 'stable' || alias == 'current') {
@@ -227,7 +228,7 @@ class PluginScannerService {
 
     final nodeBin = '$nvmDir/versions/node/$resolvedVersion/bin/node';
     final npmBin = '$nvmDir/versions/node/$resolvedVersion/bin/npm';
-    if (!File(nodeBin).existsSync()) return null;
+    if (!await isRegularFilePath(nodeBin, followLinks: true)) return null;
     return (version: resolvedVersion, nodeBin: nodeBin, npmBin: npmBin);
   }
 
@@ -350,8 +351,7 @@ class PluginScannerService {
   }
 
   Future<bool> _isPyenvAvailable() async {
-    final home = Platform.environment['HOME'] ?? '';
-    if (File('$home/.pyenv/bin/pyenv').existsSync()) return true;
+    if (await pluginPyenvInstallationExists()) return true;
     final result = await _shellRun('command -v pyenv');
     return result.exitCode == 0;
   }
@@ -721,7 +721,7 @@ class PluginScannerService {
             : nvm.version;
         final latestVersion = await _queryLatestNodeVersion(
           installedVersion: version,
-          releaseHint: _readNvmDefaultAlias(),
+          releaseHint: await _readNvmDefaultAlias(),
         );
         return PluginInfo(
           id: 'nodejs',
@@ -1010,7 +1010,8 @@ class PluginScannerService {
       );
       if (commandScan.isInstalled) return commandScan;
       for (final path in _anythingAnalyzerAppCandidates()) {
-        if (Directory(path).existsSync() || File(path).existsSync()) {
+        if (await probeFileSystemEntityType(path, followLinks: true) !=
+            FileSystemEntityType.notFound) {
           return PluginInfo(
             id: 'anything_analyzer',
             name: 'Anything Analyzer',
@@ -1027,12 +1028,7 @@ class PluginScannerService {
   Future<PluginInfo> scanDocker() async {
     try {
       final pathResult = await _shellRun('command -v docker');
-      final desktopAppExists =
-          Platform.isMacOS &&
-          (Directory('/Applications/Docker.app').existsSync() ||
-              Directory(
-                '${Platform.environment['HOME'] ?? ''}/Applications/Docker.app',
-              ).existsSync());
+      final desktopAppExists = await pluginDockerDesktopInstallationExists();
       if (pathResult.exitCode != 0) {
         if (desktopAppExists) {
           return const PluginInfo(

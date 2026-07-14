@@ -5,14 +5,17 @@ import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../app/support/system_proxy.dart';
+import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
 import '../../../shared/util/text_clip.dart';
 import '../../../shared/util/version_compare.dart';
+import 'plugin_environment_probe.dart';
 import 'plugin_toolchain_shell.dart';
 
 const Duration _pluginLifecycleDefaultTimeout = Duration(minutes: 3);
 const Duration _pluginLifecycleProbeTimeout = Duration(seconds: 5);
+const Duration _pluginLifecycleTlsProbeTimeout = Duration(milliseconds: 500);
 const Duration _pluginLifecycleVerifyTimeout = Duration(seconds: 8);
 const Duration _pluginLifecycleStreamDrainTimeout = Duration(milliseconds: 800);
 const int _pluginLifecycleMaxCapturedLines = 500;
@@ -774,12 +777,11 @@ fi
   Future<bool> _isNvmAvailable() async {
     final home = Platform.environment['HOME'] ?? '';
     final nvmSh = File('$home/.nvm/nvm.sh');
-    return nvmSh.existsSync();
+    return isRegularFilePath(nvmSh.path, followLinks: true);
   }
 
   Future<bool> _isPyenvAvailable() async {
-    final home = Platform.environment['HOME'] ?? '';
-    if (File('$home/.pyenv/bin/pyenv').existsSync()) return true;
+    if (await pluginPyenvInstallationExists()) return true;
     final result = await runTrackedProcessOrFailed(
       _pickShell(),
       ['-c', '${_pythonShellPrefix()}command -v pyenv'],
@@ -1665,7 +1667,14 @@ fi
   Future<String?> _detectTlsBundleAfterFailure(String output) async {
     if (!_pluginLifecycleOutputHasPyPiTlsFailure(output)) return null;
     final certifi = await _probeCertifiBundle();
-    if (certifi != null && File(certifi).existsSync()) return certifi;
+    if (certifi != null &&
+        await isRegularFilePath(
+          certifi,
+          timeout: _pluginLifecycleTlsProbeTimeout,
+          followLinks: true,
+        )) {
+      return certifi;
+    }
     for (final candidate in const <String>[
       '/etc/ssl/cert.pem',
       '/private/etc/ssl/cert.pem',
@@ -1673,7 +1682,13 @@ fi
       '/opt/homebrew/etc/openssl@3/cert.pem',
       '/usr/local/etc/openssl@3/cert.pem',
     ]) {
-      if (File(candidate).existsSync()) return candidate;
+      if (await isRegularFilePath(
+        candidate,
+        timeout: _pluginLifecycleTlsProbeTimeout,
+        followLinks: true,
+      )) {
+        return candidate;
+      }
     }
     return null;
   }
@@ -2025,11 +2040,7 @@ printf 'asset=%s\\nshim=%s\\n' "\$ASSET" ${_pluginShellQuote(shimPath)}
           message: 'Docker CLI 与 daemon 已就绪。',
         );
       }
-      if (Platform.isMacOS &&
-          (Directory('/Applications/Docker.app').existsSync() ||
-              Directory(
-                '${Platform.environment['HOME'] ?? ''}/Applications/Docker.app',
-              ).existsSync())) {
+      if (await pluginDockerDesktopInstallationExists()) {
         onProgress?.call('Docker Desktop 已安装，正在尝试启动…');
         await _runWithProgress(
           'open',
