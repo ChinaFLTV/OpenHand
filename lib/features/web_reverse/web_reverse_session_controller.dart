@@ -147,6 +147,11 @@ class WebReverseSessionController extends ChangeNotifier {
       _maxSourceMapResponseBytes + 64 * kBytesPerKiB;
   static const int _maxSourceMapListEntries = 100000;
   static const Duration _sourceMapFetchTimeout = Duration(seconds: 25);
+  static const int _maxParsedScripts = 4096;
+  static const int _maxScriptSourceChars = 6 * kBytesPerMiB;
+  static const int _maxScriptSourceCacheEntries = 32;
+  static const int _maxScriptSourceCacheChars = 16 * kBytesPerMiB;
+  static const int _maxTargetBufferSourceChars = 32 * kBytesPerMiB;
   static const double _maxFullPageScreenshotCssPixels = 32 * 1000 * 1000;
   static const double _maxFullPageScreenshotCssSide = 32767;
   static final RegExp _rawCdpMethodPattern = RegExp(
@@ -442,7 +447,7 @@ class WebReverseSessionController extends ChangeNotifier {
       parsedScripts: Map<String, ({String url, bool isModule})>.from(
         _parsedScripts,
       ),
-      scriptSources: Map<String, String>.from(_scriptSources),
+      scriptSources: _scriptSources.snapshot(),
       bpIdByKey: Map<String, String>.from(_bpIdByKey),
       lastUsedAt: DateTime.now(),
     );
@@ -464,21 +469,32 @@ class WebReverseSessionController extends ChangeNotifier {
     _parsedScripts
       ..clear()
       ..addAll(saved.parsedScripts);
-    _scriptSources
-      ..clear()
-      ..addAll(saved.scriptSources);
+    _scriptSources.clear();
+    for (final entry in saved.scriptSources.entries) {
+      _scriptSources.put(entry.key, entry.value);
+    }
     _bpIdByKey
       ..clear()
       ..addAll(saved.bpIdByKey);
   }
 
   void _evictOldestTargetBuffers() {
-    if (_targetBuffers.length <= _kTargetBufferLruCap) return;
+    var sourceChars = _targetBuffers.values.fold<int>(
+      0,
+      (total, buffer) => total + buffer.scriptSourceChars,
+    );
+    if (_targetBuffers.length <= _kTargetBufferLruCap &&
+        sourceChars <= _maxTargetBufferSourceChars) {
+      return;
+    }
     final entries = _targetBuffers.entries.toList()
       ..sort((a, b) => a.value.lastUsedAt.compareTo(b.value.lastUsedAt));
-    while (_targetBuffers.length > _kTargetBufferLruCap && entries.isNotEmpty) {
+    while ((_targetBuffers.length > _kTargetBufferLruCap ||
+            sourceChars > _maxTargetBufferSourceChars) &&
+        entries.isNotEmpty) {
       final oldest = entries.removeAt(0);
-      _targetBuffers.remove(oldest.key);
+      final removed = _targetBuffers.remove(oldest.key);
+      if (removed != null) sourceChars -= removed.scriptSourceChars;
     }
   }
 
@@ -5538,14 +5554,24 @@ class WebReverseSessionController extends ChangeNotifier {
       <String, ({String url, bool isModule})>{};
   Map<String, ({String url, bool isModule})> get parsedScripts =>
       Map<String, ({String url, bool isModule})>.unmodifiable(_parsedScripts);
-  final Map<String, String> _scriptSources = <String, String>{};
+  final LifecycleLruCache<String> _scriptSources = LifecycleLruCache<String>(
+    maxEntries: _maxScriptSourceCacheEntries,
+    maxCost: _maxScriptSourceCacheChars,
+    costOf: (source) => source.length,
+  );
 
   void _onScriptParsed(Map<String, Object?> p) {
     final id = p['scriptId'] as String?;
     if (id == null || id.isEmpty) return;
     final url = '${p['url'] ?? ''}';
-    if (url.isEmpty) return;
+    if (url.isEmpty || url.length > _maxImportedUrlChars) return;
+    _parsedScripts.remove(id);
     _parsedScripts[id] = (url: url, isModule: p['isModule'] == true);
+    while (_parsedScripts.length > _maxParsedScripts) {
+      final oldestId = _parsedScripts.keys.first;
+      _parsedScripts.remove(oldestId);
+      _scriptSources.remove(oldestId);
+    }
   }
 
   /// 在 page 上启用 Debugger domain；调用后 [_onScriptParsed] 会陆续填充 [_parsedScripts]。
@@ -5600,7 +5626,7 @@ class WebReverseSessionController extends ChangeNotifier {
   /// 拉取脚本源码。CDP `Debugger.getScriptSource`。
   /// 命中过的脚本缓存到 [_scriptSources]，重复点同一个 URL 不再发请求。
   Future<String?> getScriptSource(String scriptId) async {
-    final cached = _scriptSources[scriptId];
+    final cached = _scriptSources.get(scriptId);
     if (cached != null) return cached;
     final cdp = _browserCdp;
     if (cdp == null || _pageSessionId == null) return null;
@@ -5611,9 +5637,15 @@ class WebReverseSessionController extends ChangeNotifier {
         sessionId: _pageSessionId,
         timeout: const Duration(seconds: 15),
       );
-      final src = r['scriptSource'] as String?;
-      if (src != null) _scriptSources[scriptId] = src;
-      return src;
+      final source = r['scriptSource'] as String?;
+      if (source == null) return null;
+      final boundedSource = _capWebReverseText(
+        source,
+        _maxScriptSourceChars,
+        'script source',
+      );
+      _scriptSources.put(scriptId, boundedSource);
+      return boundedSource;
     } catch (error, stack) {
       silentLog(
         'web_reverse_session_controller',
@@ -8624,6 +8656,11 @@ class _PerTargetBuffer {
   final Map<String, String> scriptSources;
   final Map<String, String> bpIdByKey;
   final DateTime lastUsedAt;
+
+  int get scriptSourceChars => scriptSources.values.fold<int>(
+    0,
+    (total, source) => total + source.length,
+  );
 }
 
 /// 用户保存的 JS 片段（脚本注入库）。`runReplExpression` 执行后结果

@@ -73,6 +73,11 @@ class LifecycleLruCache<V> {
     _totalCost = 0;
   }
 
+  /// Returns an immutable insertion-ordered copy without changing recency.
+  Map<String, V> snapshot() => Map<String, V>.unmodifiable(<String, V>{
+    for (final entry in _entries.entries) entry.key: entry.value.value,
+  });
+
   int _entryCost(V value) {
     final cost = _costOf?.call(value) ?? _defaultLifecycleCacheEntryCost;
     return cost.clamp(0, _maxLifecycleCacheEntryCost);

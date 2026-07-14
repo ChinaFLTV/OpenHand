@@ -50,4 +50,16 @@ void main() {
     expect(cache.containsKey('missing-result'), isTrue);
     expect(cache.containsKey('never-added'), isFalse);
   });
+
+  test('snapshot is immutable and preserves least-to-most-recent order', () {
+    final cache = LifecycleLruCache<String>(maxEntries: 3);
+    cache.put('one', '1');
+    cache.put('two', '2');
+    cache.get('one');
+
+    final snapshot = cache.snapshot();
+
+    expect(snapshot.keys, <String>['two', 'one']);
+    expect(() => snapshot['three'] = '3', throwsUnsupportedError);
+  });
 }
