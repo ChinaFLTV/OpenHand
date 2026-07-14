@@ -29,10 +29,12 @@ bool _runStreamThrottleCallback(void Function() callback, String where) {
 ///   * UI 放出侧：节流器真正放出 grapheme 时记录，供内部诊断保留。
 class _StreamThroughputSampler {
   static const int defaultWindowSeconds = 30;
-  static const int retentionSeconds = 6 * 60 * 60;
+  static const int retentionSeconds = 60 * 60;
+  static const int _maxBucketValue = 0xFFFFFFFF;
 
-  final List<int> _buckets = List<int>.filled(retentionSeconds, 0);
-  int _bucketSecond = 0;
+  final Uint32List _buckets = Uint32List(retentionSeconds);
+  int? _bucketSecond;
+  int _currentBucketIndex = 0;
 
   void recordText(String value) {
     if (value.isEmpty) return;
@@ -46,49 +48,64 @@ class _StreamThroughputSampler {
 
   void recordGraphemesAt(int graphemes, int epochSecond) {
     if (graphemes <= 0) return;
-    if (_bucketSecond == 0) {
+    final bucketSecond = _bucketSecond;
+    if (bucketSecond == null) {
       _bucketSecond = epochSecond;
-      _buckets[0] = graphemes;
+      _addToCurrentBucket(graphemes);
       return;
     }
-    final delta = epochSecond - _bucketSecond;
+    final delta = epochSecond - bucketSecond;
     if (delta <= 0) {
-      _buckets[0] += graphemes;
+      _addToCurrentBucket(graphemes);
       return;
     }
     _advanceBy(delta);
     _bucketSecond = epochSecond;
-    _buckets[0] = graphemes;
+    _addToCurrentBucket(graphemes);
   }
 
-  List<int> snapshot({int windowSeconds = defaultWindowSeconds}) {
-    _advanceByWallClock();
+  List<int> snapshot({
+    int windowSeconds = defaultWindowSeconds,
+    int? epochSecond,
+  }) {
+    _advanceTo(epochSecond ?? DateTime.now().millisecondsSinceEpoch ~/ 1000);
     final window = windowSeconds.clamp(1, retentionSeconds).toInt();
-    return List<int>.unmodifiable(_buckets.take(window));
+    return List<int>.unmodifiable(
+      Iterable<int>.generate(
+        window,
+        (offset) =>
+            _buckets[(_currentBucketIndex - offset + retentionSeconds) %
+                retentionSeconds],
+      ),
+    );
   }
 
-  void _advanceByWallClock() {
-    if (_bucketSecond == 0) return;
-    final nowSec = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-    final delta = nowSec - _bucketSecond;
+  void _advanceTo(int epochSecond) {
+    final bucketSecond = _bucketSecond;
+    if (bucketSecond == null) return;
+    final delta = epochSecond - bucketSecond;
     if (delta <= 0) return;
     _advanceBy(delta);
-    _bucketSecond = nowSec;
+    _bucketSecond = epochSecond;
   }
 
   void _advanceBy(int delta) {
     if (delta >= retentionSeconds) {
-      for (var i = 0; i < retentionSeconds; i++) {
-        _buckets[i] = 0;
-      }
+      _buckets.fillRange(0, retentionSeconds, 0);
+      _currentBucketIndex = 0;
       return;
     }
-    for (var i = retentionSeconds - 1; i >= delta; i--) {
-      _buckets[i] = _buckets[i - delta];
-    }
     for (var i = 0; i < delta; i++) {
-      _buckets[i] = 0;
+      _currentBucketIndex = (_currentBucketIndex + 1) % retentionSeconds;
+      _buckets[_currentBucketIndex] = 0;
     }
+  }
+
+  void _addToCurrentBucket(int graphemes) {
+    final current = _buckets[_currentBucketIndex];
+    _buckets[_currentBucketIndex] = graphemes >= _maxBucketValue - current
+        ? _maxBucketValue
+        : current + graphemes;
   }
 }
 
@@ -286,7 +303,7 @@ class _StreamCharThrottle {
     return _emittedGraphemes;
   }
 
-  // ── 显示侧吞吐采样：保留最近 30 秒 grapheme 放出量，O(1) 更新。
+  // ── 显示侧吞吐采样：最长保留一小时，默认读取最近 30 秒。
   final _displayThroughput = _StreamThroughputSampler();
 
   void _recordEmission(int graphemes, {int? epochSecond}) {
@@ -297,10 +314,13 @@ class _StreamCharThrottle {
     _displayThroughput.recordGraphemesAt(graphemes, epochSecond);
   }
 
-  /// 最近 30 秒的每秒 grapheme 放出快照，桶 0 =
-  /// 当前秒，越往后越旧。返回不可变副本，UI 可直接喂给 painter。
-  List<int> throughputSnapshot({int windowSeconds = 30}) {
-    return _displayThroughput.snapshot(windowSeconds: windowSeconds);
+  /// 每秒 grapheme 放出快照，默认最近 30 秒，桶 0 = 当前秒，越往后越旧。
+  /// 返回不可变副本，UI 可直接喂给 painter。
+  List<int> throughputSnapshot({int windowSeconds = 30, int? epochSecond}) {
+    return _displayThroughput.snapshot(
+      windowSeconds: windowSeconds,
+      epochSecond: epochSecond,
+    );
   }
 
   void _scheduleDrain() {

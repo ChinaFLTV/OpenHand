@@ -9,6 +9,7 @@ import 'dart:io'
         NetworkInterface,
         Platform;
 import 'dart:math' as math;
+import 'dart:typed_data';
 import 'dart:ui' show FlutterView, PlatformDispatcher;
 
 import 'package:characters/characters.dart';
@@ -92,6 +93,7 @@ part 'state/_ai_session_stream_throttle.dart';
 part 'state/_ai_session_utils.dart';
 
 const int _deviceIdFileMaxBytes = 4 * 1024;
+const int _maxCachedStreamThroughputSessions = 64;
 final RegExp _deviceIdPattern = RegExp(r'^[A-Za-z0-9._:-]{1,256}$');
 
 typedef WriteCommandConfirmationCallback =
@@ -110,21 +112,28 @@ class AiStreamThroughputSnapshot {
 }
 
 class _CachedStreamThroughputSnapshot {
-  _CachedStreamThroughputSnapshot(List<int> samples)
-    : samples = List<int>.unmodifiable(samples),
-      capturedAt = DateTime.now();
+  _CachedStreamThroughputSnapshot(List<int> samples, {int? capturedEpochSecond})
+    : samples = List<int>.unmodifiable(_trimTrailingZeros(samples)),
+      capturedEpochSecond =
+          capturedEpochSecond ?? DateTime.now().millisecondsSinceEpoch ~/ 1000;
 
   final List<int> samples;
-  final DateTime capturedAt;
+  final int capturedEpochSecond;
+
+  static List<int> _trimTrailingZeros(List<int> source) {
+    var end = source.length;
+    while (end > 0 && source[end - 1] == 0) {
+      end--;
+    }
+    return end == source.length ? source : source.sublist(0, end);
+  }
 
   List<int> window(int windowSeconds) {
     final window = windowSeconds
         .clamp(1, _StreamThroughputSampler.retentionSeconds)
         .toInt();
-    final elapsedSeconds = math.max(
-      0,
-      DateTime.now().difference(capturedAt).inSeconds,
-    );
+    final nowEpochSecond = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    final elapsedSeconds = math.max(0, nowEpochSecond - capturedEpochSecond);
     if (elapsedSeconds >= window) {
       return List<int>.unmodifiable(List<int>.filled(window, 0));
     }
@@ -970,8 +979,6 @@ class AiSessionController extends ChangeNotifier {
       windowSeconds: _StreamThroughputSampler.defaultWindowSeconds,
     );
     if (active != null) return active;
-    final throttle = _activeCharThrottles[sessionId];
-    if (throttle != null) return throttle.throughputSnapshot();
     final last = _lastCharThroughputSnapshot[sessionId];
     if (last != null) {
       return last.window(_StreamThroughputSampler.defaultWindowSeconds);
@@ -983,16 +990,22 @@ class AiSessionController extends ChangeNotifier {
     String sessionId, {
     int windowSeconds = _StreamThroughputSampler.retentionSeconds,
   }) {
+    final snapshotEpochSecond = DateTime.now().millisecondsSinceEpoch ~/ 1000;
     final window = windowSeconds
         .clamp(1, _StreamThroughputSampler.retentionSeconds)
         .toInt();
     final displaySamples =
-        _sessionDisplayThroughputSnapshot(sessionId, windowSeconds: window) ??
+        _sessionDisplayThroughputSnapshot(
+          sessionId,
+          windowSeconds: window,
+          epochSecond: snapshotEpochSecond,
+        ) ??
         (_lastCharThroughputSnapshot[sessionId]?.window(window) ??
             _zeroThroughputWindow(window));
     final rawSamples =
         _activeAiThroughputSamplers[sessionId]?.snapshot(
           windowSeconds: window,
+          epochSecond: snapshotEpochSecond,
         ) ??
         (_lastRawCharThroughputSnapshot[sessionId]?.window(window) ??
             _zeroThroughputWindow(window));
@@ -1005,15 +1018,20 @@ class AiSessionController extends ChangeNotifier {
   List<int>? _sessionDisplayThroughputSnapshot(
     String sessionId, {
     required int windowSeconds,
+    int? epochSecond,
   }) {
     final assistant = _activeCharThrottles[sessionId];
     final reasoning = _activeReasoningCharThrottles[sessionId];
     if (assistant == null && reasoning == null) return null;
+    final snapshotEpochSecond =
+        epochSecond ?? DateTime.now().millisecondsSinceEpoch ~/ 1000;
     final assistantSamples = assistant?.throughputSnapshot(
       windowSeconds: windowSeconds,
+      epochSecond: snapshotEpochSecond,
     );
     final reasoningSamples = reasoning?.throughputSnapshot(
       windowSeconds: windowSeconds,
+      epochSecond: snapshotEpochSecond,
     );
     return _sumThroughputWindows(
       assistantSamples,
@@ -1058,6 +1076,49 @@ class AiSessionController extends ChangeNotifier {
         .clamp(1, _StreamThroughputSampler.retentionSeconds)
         .toInt();
     return List<int>.unmodifiable(List<int>.filled(window, 0));
+  }
+
+  void _cacheStreamThroughputSnapshots(
+    String sessionId,
+    _StreamThroughputSampler rawSampler,
+  ) {
+    final snapshotEpochSecond = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    final displaySamples = _sessionDisplayThroughputSnapshot(
+      sessionId,
+      windowSeconds: _StreamThroughputSampler.retentionSeconds,
+      epochSecond: snapshotEpochSecond,
+    );
+    _storeStreamThroughputSnapshot(
+      _lastCharThroughputSnapshot,
+      sessionId,
+      displaySamples ?? const <int>[],
+      capturedEpochSecond: snapshotEpochSecond,
+    );
+    _storeStreamThroughputSnapshot(
+      _lastRawCharThroughputSnapshot,
+      sessionId,
+      rawSampler.snapshot(
+        windowSeconds: _StreamThroughputSampler.retentionSeconds,
+        epochSecond: snapshotEpochSecond,
+      ),
+      capturedEpochSecond: snapshotEpochSecond,
+    );
+  }
+
+  static void _storeStreamThroughputSnapshot(
+    Map<String, _CachedStreamThroughputSnapshot> cache,
+    String sessionId,
+    List<int> samples, {
+    required int capturedEpochSecond,
+  }) {
+    cache.remove(sessionId);
+    cache[sessionId] = _CachedStreamThroughputSnapshot(
+      samples,
+      capturedEpochSecond: capturedEpochSecond,
+    );
+    while (cache.length > _maxCachedStreamThroughputSessions) {
+      cache.remove(cache.keys.first);
+    }
   }
 
   /// 当前会话的字符节流"持续时长"是否已耗尽。
@@ -7497,20 +7558,7 @@ class AiSessionController extends ChangeNotifier {
         throttleExpiryTimer = null;
         // 释放限速器：先放开字符余量、再回放 pending 卡片，避免错误后
         // 还在后台尝试推进 UI。
-        _lastCharThroughputSnapshot[workingSession
-            .id] = _CachedStreamThroughputSnapshot(
-          _sessionDisplayThroughputSnapshot(
-                workingSession.id,
-                windowSeconds: _StreamThroughputSampler.retentionSeconds,
-              ) ??
-              _zeroThroughputWindow(_StreamThroughputSampler.retentionSeconds),
-        );
-        _lastRawCharThroughputSnapshot[workingSession.id] =
-            _CachedStreamThroughputSnapshot(
-              aiThroughputSampler.snapshot(
-                windowSeconds: _StreamThroughputSampler.retentionSeconds,
-              ),
-            );
+        _cacheStreamThroughputSnapshots(workingSession.id, aiThroughputSampler);
         charThrottle.release();
         reasoningCharThrottle.release();
         cardThrottle.releaseAll();
@@ -7693,20 +7741,7 @@ class AiSessionController extends ChangeNotifier {
           : null;
       // 流正常结束：此处应已按显示侧节流排空字符队列；release 只负责
       // 清理计时器和活跃 throttle 记录。取消/错误路径才允许立即放开余量。
-      _lastCharThroughputSnapshot[workingSession
-          .id] = _CachedStreamThroughputSnapshot(
-        _sessionDisplayThroughputSnapshot(
-              workingSession.id,
-              windowSeconds: _StreamThroughputSampler.retentionSeconds,
-            ) ??
-            _zeroThroughputWindow(_StreamThroughputSampler.retentionSeconds),
-      );
-      _lastRawCharThroughputSnapshot[workingSession.id] =
-          _CachedStreamThroughputSnapshot(
-            aiThroughputSampler.snapshot(
-              windowSeconds: _StreamThroughputSampler.retentionSeconds,
-            ),
-          );
+      _cacheStreamThroughputSnapshots(workingSession.id, aiThroughputSampler);
       charThrottle.release();
       reasoningCharThrottle.release();
       if (didCancelStream) {

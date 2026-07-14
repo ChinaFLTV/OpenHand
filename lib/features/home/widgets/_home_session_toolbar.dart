@@ -4180,7 +4180,7 @@ class _StreamThrottleSessionDialogState
 ///
 /// 主曲线使用节流器真正放给 UI 的 grapheme 数，原始模型流入只作为辅助
 /// 统计展示。这样阈值 30/s 时，模型瞬时回吐 300+/s 不会被误读成节流
-/// 失效；长窗口按秒保留 6h，绘制前降采样到固定点数，避免大窗口卡顿。
+/// 失效；长窗口按秒保留 1h，绘制前降采样到固定点数，避免大窗口卡顿。
 class _StreamThroughputMiniGauge extends StatefulWidget {
   const _StreamThroughputMiniGauge({
     required this.sessionId,
