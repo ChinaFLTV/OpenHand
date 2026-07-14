@@ -24,6 +24,7 @@ const String kHarnessOrchestratorDisplayVersion = '1.0.0';
 const int _kMaxHarnessPhaseLogLines = 4000;
 const int _kMaxHarnessLogLineCharacters = 4000;
 const Duration _kHarnessProcessStartTimeout = Duration(seconds: 10);
+const Duration _kHarnessArtifactIoTimeout = Duration(seconds: 3);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Phase-level status & log
@@ -2418,7 +2419,10 @@ class HarnessOrchestrator extends ChangeNotifier {
 
     if (!shouldRetainPrompt) {
       try {
-        promptFile?.deleteSync();
+        if (promptFile != null &&
+            await promptFile.exists().timeout(_kHarnessArtifactIoTimeout)) {
+          await promptFile.delete().timeout(_kHarnessArtifactIoTimeout);
+        }
       } catch (error, stack) {
         silentLog('harness_orchestrator', 'cleanup prompt file', error, stack);
       }

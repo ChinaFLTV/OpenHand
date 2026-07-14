@@ -105,6 +105,7 @@ class MediaCacheService {
   };
 
   final Map<String, Future<String?>> _inflight = <String, Future<String?>>{};
+  final Set<String> _validatedCachePaths = <String>{};
   final String Function() _cacheDirectoryPathProvider;
   final HttpClient Function(Duration connectionTimeout) _createHttpClient;
   Directory? _cacheDir;
@@ -127,9 +128,8 @@ class MediaCacheService {
     return dir;
   }
 
-  /// Returns an existing valid cache file for [url], or null when the cache is
-  /// missing / invalid. This method is synchronous because it is used inside
-  /// hot widget build paths; it only probes a deterministic file path.
+  /// Returns a cache path already validated by an asynchronous cache operation.
+  /// This synchronous hot-path query performs no filesystem I/O.
   String? cachedPathForUrl(String url, {MediaCacheKind? kind}) {
     final uri = _httpUriOrNull(url);
     if (uri == null) return null;
@@ -138,12 +138,7 @@ class MediaCacheService {
       _cacheDirectoryPathProvider(),
       kind,
     );
-    final file = File(path);
-    if (!_looksUsableFile(file)) {
-      _deleteInvalidCachePair(path);
-      return null;
-    }
-    return path;
+    return _validatedCachePaths.contains(path) ? path : null;
   }
 
   /// Ensures [url] has a local cached copy and returns the file path. Failures
@@ -156,7 +151,7 @@ class MediaCacheService {
       final uri = _httpUriOrNull(url);
       if (uri == null) return null;
       final normalizedUrl = uri.toString();
-      final cached = cachedPathForUrl(normalizedUrl, kind: kind);
+      final cached = await _validatedCachedPath(normalizedUrl, kind: kind);
       if (cached != null) return cached;
       final cacheKey = _inflightKey(normalizedUrl, kind);
       final active = _inflight[cacheKey];
@@ -208,7 +203,7 @@ class MediaCacheService {
     final normalizedSourcePath = nullIfBlank(sourcePath);
     if (uri == null || normalizedSourcePath == null) return null;
     final sourceFile = File(normalizedSourcePath);
-    if (!_looksUsableFile(sourceFile)) return null;
+    if (!await _looksUsableFile(sourceFile)) return null;
     final normalizedUrl = uri.toString();
     final cacheKind = kind ?? _kindFromUrl(normalizedUrl);
     final maxBytes = _maxBytesForKind(cacheKind);
@@ -218,7 +213,7 @@ class MediaCacheService {
     final dir = await _ensureCacheDir();
     final destPath = _cacheFilePathForUrl(normalizedUrl, dir.path, cacheKind);
     final destFile = File(destPath);
-    if (!_looksUsableFile(destFile)) {
+    if (!await _looksUsableFile(destFile)) {
       final tempFile = File('$destPath.part');
       try {
         await tempFile.parent.create(recursive: true);
@@ -244,6 +239,7 @@ class MediaCacheService {
       mimeType: mimeType,
       bytes: await File(destPath).length(),
     );
+    _validatedCachePaths.add(destPath);
     return destPath;
   }
 
@@ -321,7 +317,7 @@ class MediaCacheService {
         await tempFile.rename(destPath).timeout(_fileOperationTimeout);
       }
       final savedFile = File(destPath);
-      if (!_looksUsableFile(savedFile)) return null;
+      if (!await _looksUsableFile(savedFile)) return null;
       await _writeMetadata(
         mediaPath: destPath,
         url: normalizedUrl,
@@ -329,6 +325,7 @@ class MediaCacheService {
         mimeType: contentType?.mimeType,
         bytes: await savedFile.length().timeout(_fileOperationTimeout),
       );
+      _validatedCachePaths.add(destPath);
       return destPath;
     } on TimeoutException catch (error, stack) {
       silentLog('media_cache', 'download timeout', error, stack);
@@ -402,6 +399,7 @@ class MediaCacheService {
   }
 
   static Future<void> clearCache() async {
+    instance._validatedCachePaths.clear();
     await Future.wait(<Future<void>>[
       _clearDirectoryContents(Directory(cacheDirectoryPath)),
       _clearDirectoryContents(Directory(legacyInlineMediaDirectoryPath)),
@@ -491,24 +489,48 @@ class MediaCacheService {
     return '$stem.json';
   }
 
-  static bool _looksUsableFile(File file) {
+  Future<String?> _validatedCachedPath(
+    String url, {
+    MediaCacheKind? kind,
+  }) async {
+    final path = _cacheFilePathForUrl(url, _cacheDirectoryPathProvider(), kind);
+    if (_validatedCachePaths.contains(path)) return path;
+    if (await _looksUsableFile(File(path))) {
+      _validatedCachePaths.add(path);
+      return path;
+    }
+    _validatedCachePaths.remove(path);
+    await _deleteInvalidCachePair(path);
+    return null;
+  }
+
+  static Future<bool> _looksUsableFile(File file) async {
     try {
-      return file.existsSync() && file.lengthSync() > 0;
+      final type = await FileSystemEntity.type(
+        file.path,
+        followLinks: false,
+      ).timeout(_fileOperationTimeout);
+      if (type != FileSystemEntityType.file) return false;
+      return (await file.stat().timeout(_fileOperationTimeout)).size > 0;
     } catch (_) {
       return false;
     }
   }
 
-  static void _deleteInvalidCachePair(String mediaPath) {
+  static Future<void> _deleteInvalidCachePair(String mediaPath) async {
     try {
       final file = File(mediaPath);
-      if (file.existsSync()) file.deleteSync();
+      if (await file.exists().timeout(_cleanupTimeout)) {
+        await file.delete().timeout(_cleanupTimeout);
+      }
     } catch (error, stack) {
       silentLog('media_cache', 'delete invalid cached media', error, stack);
     }
     try {
       final sidecar = File(_metadataPathForMediaPath(mediaPath));
-      if (sidecar.existsSync()) sidecar.deleteSync();
+      if (await sidecar.exists().timeout(_cleanupTimeout)) {
+        await sidecar.delete().timeout(_cleanupTimeout);
+      }
     } catch (error, stack) {
       silentLog(
         'media_cache',

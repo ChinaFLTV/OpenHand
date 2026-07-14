@@ -2506,7 +2506,7 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
         urlString,
         kind: MediaCacheKind.image,
       );
-      if (cachedPath != null && _cachedMarkdownImageFileExists(cachedPath)) {
+      if (cachedPath != null) {
         return _wrapMarkdownImageTap(
           semanticsLabel: previewTitle,
           onTap: () {

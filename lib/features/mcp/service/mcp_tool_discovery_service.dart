@@ -45,6 +45,8 @@ const int _mcpLegacySseMaxLineBytes = 4 * kBytesPerMiB;
 const int _mcpLegacySseMaxEventBytes = 4 * kBytesPerMiB;
 const Duration _mcpHttpDiscardTimeout = Duration(seconds: 3);
 const Duration _mcpStreamCleanupTimeout = Duration(milliseconds: 500);
+const Duration _mcpStdioFileOperationTimeout = Duration(seconds: 3);
+const int _mcpStdioPathProbeLimit = 256;
 
 Future<String> _readMcpHttpResponseBody(
   http.StreamedResponse response, {
@@ -2126,14 +2128,16 @@ Future<_ResolvedStdioLaunch> _resolveStdioLaunch(McpServer server) async {
       }
     }
     String? hit;
-    for (final dir in mergedSegments) {
+    for (final dir in mergedSegments.take(_mcpStdioPathProbeLimit)) {
       for (final candidate in candidates) {
         final full = dir.endsWith(Platform.pathSeparator)
             ? '$dir$candidate'
             : '$dir${Platform.pathSeparator}$candidate';
         try {
           // 同时接受普通文件和指向文件的 symlink (nvm 的 npx 是 symlink → JS)。
-          final type = FileSystemEntity.typeSync(full);
+          final type = await FileSystemEntity.type(
+            full,
+          ).timeout(_mcpStdioFileOperationTimeout);
           if (type == FileSystemEntityType.file) {
             hit = full;
             break;
@@ -2169,7 +2173,7 @@ Future<_ResolvedStdioLaunch> _resolveStdioLaunch(McpServer server) async {
       // 把 npm / pnpm / yarn / bun / uv / pip 的缓存目录隔离到 ~/.openhand/mcp/package-cache，
       // 避开用户 ~/.npm 因历史 sudo install 留下的 root 属主文件 (典型症状：
       // EACCES rename / EEXIST / ENOTEMPTY)。所有目录懒创建，存在则复用。
-      ...mcpStdioIsolatedCacheEnv(),
+      ...await mcpStdioIsolatedCacheEnv(),
     },
     augmentedPath: mergedPath,
   );
@@ -2178,10 +2182,9 @@ Future<_ResolvedStdioLaunch> _resolveStdioLaunch(McpServer server) async {
 /// 构建 stdio MCP 隔离包缓存的环境变量映射。
 /// 自动创建所需目录，注入 npm/pnpm/yarn/bun/deno/uv/pip 的缓存隔离路径。
 /// 公开给 process manager 复用，避免路径不一致。
-Map<String, String> mcpStdioIsolatedCacheEnv() {
+Future<Map<String, String>> mcpStdioIsolatedCacheEnv() async {
   try {
     final root = mcpStdioIsolatedCacheRoot();
-    Directory(root).createSync(recursive: true);
     final npmCache = p.join(root, 'npm');
     final npmPrefix = p.join(root, 'npm-prefix');
     final uvCache = p.join(root, 'uv');
@@ -2190,10 +2193,25 @@ Map<String, String> mcpStdioIsolatedCacheEnv() {
     final denoDir = p.join(root, 'deno');
     final pnpmStore = p.join(root, 'pnpm-store');
     final yarnCache = p.join(root, 'yarn');
-    Directory(npmCache).createSync(recursive: true);
-    Directory(npmPrefix).createSync(recursive: true);
-    // npm/npx 需要 prefix/lib 目录存在，否则 lstat 报 ENOENT
-    Directory(p.join(npmPrefix, 'lib')).createSync(recursive: true);
+    await Future.wait<Directory>(
+      <String>[
+        root,
+        npmCache,
+        npmPrefix,
+        // npm/npx 需要 prefix/lib 目录存在，否则 lstat 报 ENOENT。
+        p.join(npmPrefix, 'lib'),
+        uvCache,
+        pipCache,
+        bunInstall,
+        denoDir,
+        pnpmStore,
+        yarnCache,
+      ].map(
+        (path) => Directory(
+          path,
+        ).create(recursive: true).timeout(_mcpStdioFileOperationTimeout),
+      ),
+    );
     final env = <String, String>{
       // npm / npx 系列
       'npm_config_cache': npmCache,
