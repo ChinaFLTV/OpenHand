@@ -13,7 +13,10 @@ class DatabaseService {
   DatabaseService._();
 
   static DatabaseService? _instance;
+  static Future<DatabaseService>? _initializationFuture;
+  static Future<void>? _closingFuture;
   Database? _database;
+  RandomAccessFile? _instanceLock;
 
   static const int schemaVersion = 9;
   static const String _databaseFileName = 'openhand.db';
@@ -95,9 +98,32 @@ class DatabaseService {
     String? databasePath,
     bool useNoIsolateFactory = false,
   }) async {
+    final closing = _closingFuture;
+    if (closing != null) await closing;
     if (_instance != null) {
       return _instance!;
     }
+    final pending = _initializationFuture;
+    if (pending != null) return pending;
+    late final Future<DatabaseService> initialization;
+    initialization =
+        _initialize(
+          databasePath: databasePath,
+          useNoIsolateFactory: useNoIsolateFactory,
+        ).whenComplete(() {
+          if (identical(_initializationFuture, initialization)) {
+            _initializationFuture = null;
+          }
+        });
+    _initializationFuture = initialization;
+    return initialization;
+  }
+
+  static Future<DatabaseService> _initialize({
+    required String? databasePath,
+    required bool useNoIsolateFactory,
+  }) async {
+    if (_instance != null) return _instance!;
 
     // Initialize FFI for desktop platforms.
     sqfliteFfiInit();
@@ -112,24 +138,71 @@ class DatabaseService {
     }
 
     final service = DatabaseService._();
-    service._database = await effectiveFactory.openDatabase(
-      effectivePath,
-      options: OpenDatabaseOptions(
-        version: schemaVersion,
-        onCreate: _onCreate,
-        onUpgrade: _onUpgrade,
-        onConfigure: _onConfigure,
-      ),
-    );
-    _instance = service;
-    return service;
+    final lock = await File('$effectivePath.lock').open(mode: FileMode.append);
+    try {
+      await lock.lock();
+      service._instanceLock = lock;
+      service._database = await effectiveFactory.openDatabase(
+        effectivePath,
+        options: OpenDatabaseOptions(
+          version: schemaVersion,
+          onCreate: _onCreate,
+          onUpgrade: _onUpgrade,
+          onConfigure: _onConfigure,
+        ),
+      );
+      _instance = service;
+      return service;
+    } catch (error) {
+      try {
+        await lock.close();
+      } catch (_) {
+        // Preserve the initialization error.
+      }
+      if (service._instanceLock == null && error is FileSystemException) {
+        throw StateError(
+          'Another OpenHand instance is already using $effectivePath.',
+        );
+      }
+      rethrow;
+    }
   }
 
   /// Close the database and release the singleton.
-  Future<void> close() async {
-    await _database?.close();
-    _database = null;
-    _instance = null;
+  Future<void> close() {
+    if (!identical(_instance, this)) return Future<void>.value();
+    final pending = _closingFuture;
+    if (pending != null) return pending;
+    late final Future<void> closing;
+    closing = _close().whenComplete(() {
+      if (identical(_closingFuture, closing)) {
+        _closingFuture = null;
+      }
+    });
+    _closingFuture = closing;
+    return closing;
+  }
+
+  Future<void> _close() async {
+    final database = _database;
+    final lock = _instanceLock;
+    try {
+      await database?.close();
+    } finally {
+      try {
+        if (lock != null) {
+          try {
+            await lock.unlock();
+          } finally {
+            await lock.close();
+          }
+        }
+      } finally {
+        _database = null;
+        _instanceLock = null;
+        if (identical(_instance, this)) _instance = null;
+      }
+    }
   }
 
   // Schema

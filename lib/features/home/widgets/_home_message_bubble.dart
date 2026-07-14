@@ -8188,11 +8188,11 @@ class _VideoThumbnailCaptureHostState extends State<_VideoThumbnailCaptureHost>
 
   Future<void> _start() async {
     await _VideoThumbnailManager._acquireSlot();
-    _slotHeld = true;
-    if (!mounted) {
-      _finish(null);
+    if (_done || !mounted) {
+      _VideoThumbnailManager._releaseSlot();
       return;
     }
+    _slotHeld = true;
     try {
       final dir = p.dirname(widget.videoPath);
       final tempName =

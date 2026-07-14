@@ -114,7 +114,7 @@ class _HarnessSessionTile extends StatelessWidget {
         if (action == null) {
           return;
         }
-        _scheduleOverlayActionAfterMenuDismissal(context, action);
+        action();
       },
       child: AnimatedContainer(
         duration: tileMotionDuration,
@@ -146,8 +146,9 @@ class _HarnessSessionTile extends StatelessWidget {
                       text: title,
                       style: theme.textTheme.titleSmall?.copyWith(
                         color: titleColor,
-                        fontWeight:
-                            isSelected ? FontWeight.w700 : FontWeight.w600,
+                        fontWeight: isSelected
+                            ? FontWeight.w700
+                            : FontWeight.w600,
                         height: 1.25,
                       ),
                     ),
@@ -360,7 +361,9 @@ class _ThreadTile extends StatelessWidget {
     final iconColor = isSelected
         ? colorScheme.onPrimaryContainer
         : colorScheme.onSurfaceVariant;
-    final templateIcon = AiThreadTemplateIcons.resolve(session.templateIconName);
+    final templateIcon = AiThreadTemplateIcons.resolve(
+      session.templateIconName,
+    );
     final isActive = sendPhase != AiSendPhase.idle;
     final tileMotionDuration = openHandMotionDuration(
       context,
@@ -451,7 +454,7 @@ class _ThreadTile extends StatelessWidget {
         if (action == null) {
           return;
         }
-        _scheduleOverlayActionAfterMenuDismissal(context, action);
+        action();
       },
       child: AnimatedContainer(
         duration: tileMotionDuration,
@@ -472,11 +475,7 @@ class _ThreadTile extends StatelessWidget {
               padding: _kThreadTileContentPadding,
               child: Row(
                 children: [
-                  Icon(
-                    templateIcon,
-                    size: 16,
-                    color: iconColor,
-                  ),
+                  Icon(templateIcon, size: 16, color: iconColor),
                   const SizedBox(width: 10),
                   Expanded(
                     child: TweenAnimationBuilder<Color?>(
@@ -488,8 +487,9 @@ class _ThreadTile extends StatelessWidget {
                           text: session.title,
                           style: theme.textTheme.titleSmall?.copyWith(
                             color: animatedColor ?? titleColor,
-                            fontWeight:
-                                isSelected ? FontWeight.w700 : FontWeight.w600,
+                            fontWeight: isSelected
+                                ? FontWeight.w700
+                                : FontWeight.w600,
                             height: 1.25,
                           ),
                         );

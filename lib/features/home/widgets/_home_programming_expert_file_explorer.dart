@@ -1509,9 +1509,7 @@ class _FileTreeTile extends StatelessWidget {
           ],
         );
         if (selected == null || !context.mounted) return;
-        _scheduleOverlayActionAfterMenuDismissal(context, () {
-          onContextMenuAction(selected, lastTapPosition!);
-        });
+        onContextMenuAction(selected, lastTapPosition!);
       },
       child: Material(
         color: Colors.transparent,
@@ -4291,9 +4289,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     if (selectedAction.isDisabled) {
       return;
     }
-    _scheduleOverlayActionAfterMenuDismissal(context, () {
-      unawaited(_applyCodeAction(selectedAction));
-    });
+    unawaited(_applyCodeAction(selectedAction));
   }
 
   Future<void> _showCodeActionsForDiagnosticLine(
@@ -10004,9 +10000,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         );
         return;
       case _EditorTabMenuAction.copyPathReference:
-        _scheduleOverlayActionAfterMenuDismissal(context, () {
-          unawaited(_showEditorFileCopyPathMenu(filePath, globalPosition));
-        });
+        unawaited(_showEditorFileCopyPathMenu(filePath, globalPosition));
         return;
     }
   }
@@ -10455,17 +10449,11 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       case _ctxHoverInfo:
         unawaited(_showHoverAtCursor());
       case _ctxRefactorSubmenu:
-        _scheduleOverlayActionAfterMenuDismissal(context, () {
-          unawaited(_showRefactorSubmenu(filePath, globalPosition));
-        });
+        unawaited(_showRefactorSubmenu(filePath, globalPosition));
       case _ctxNavigateSubmenu:
-        _scheduleOverlayActionAfterMenuDismissal(context, () {
-          unawaited(_showNavigateSubmenu(filePath, globalPosition));
-        });
+        unawaited(_showNavigateSubmenu(filePath, globalPosition));
       case _ctxFoldingSubmenu:
-        _scheduleOverlayActionAfterMenuDismissal(context, () {
-          unawaited(_showFoldingSubmenu(filePath, globalPosition));
-        });
+        unawaited(_showFoldingSubmenu(filePath, globalPosition));
       case _ctxCut:
         _editorClipboardCut(filePath);
       case _ctxCopy:
@@ -10481,9 +10469,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       case _ctxOpenInExplorer:
         unawaited(_openFileInSystemExplorer(filePath));
       case _ctxCopyPath:
-        _scheduleOverlayActionAfterMenuDismissal(context, () {
-          unawaited(_showEditorFileCopyPathMenu(filePath, globalPosition));
-        });
+        unawaited(_showEditorFileCopyPathMenu(filePath, globalPosition));
     }
   }
 
@@ -12569,9 +12555,7 @@ class _BreadcrumbSegment extends StatelessWidget {
         currentInitialValue = null;
         continue;
       }
-      _scheduleOverlayActionAfterMenuDismissal(context, () {
-        onNavigateToFile?.call(selected);
-      });
+      onNavigateToFile?.call(selected);
       return;
     }
   }

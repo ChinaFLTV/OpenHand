@@ -266,58 +266,25 @@ class CronsStore {
     final batch = _db.batch();
     batch.delete(_tableName);
     for (var i = 0; i < entries.length; i++) {
-      final e = entries[i];
-      batch.insert(_tableName, <String, Object?>{
-        'id': e.id,
-        'name': e.name,
-        'description': e.description,
-        'script_type': e.scriptType.storageValue,
-        'script_path': e.scriptPath ?? '',
-        'script_content': e.scriptContent ?? '',
-        'cron_expression': e.cronExpression,
-        'retry_count': e.retryCount,
-        'timeout_seconds': e.timeoutSeconds,
-        'run_as_user': e.runAsUser ?? '',
-        'tags': e.tags.join(','),
-        'enabled': e.enabled ? 1 : 0,
-        'status': e.status.storageValue,
-        'on_success_notify': e.onSuccessNotify.storageValue,
-        'on_failure_notify': e.onFailureNotify.storageValue,
-        'on_timeout_notify': e.onTimeoutNotify.storageValue,
-        'on_success_severity': e.onSuccessSeverity.storageValue,
-        'on_failure_severity': e.onFailureSeverity.storageValue,
-        'on_timeout_severity': e.onTimeoutSeverity.storageValue,
-        'on_success_play_sound': e.onSuccessPlaySound ? 1 : 0,
-        'on_failure_play_sound': e.onFailurePlaySound ? 1 : 0,
-        'on_timeout_play_sound': e.onTimeoutPlaySound ? 1 : 0,
-        'on_success_vibrate': e.onSuccessVibrate ? 1 : 0,
-        'on_failure_vibrate': e.onFailureVibrate ? 1 : 0,
-        'on_timeout_vibrate': e.onTimeoutVibrate ? 1 : 0,
-        'on_success_message': e.onSuccessMessage ?? '',
-        'on_failure_message': e.onFailureMessage ?? '',
-        'on_timeout_message': e.onTimeoutMessage ?? '',
-        'collect_app_metadata': e.collectAppMetadata ? 1 : 0,
-        'collect_host_metadata': e.collectHostMetadata ? 1 : 0,
-        'collect_environment_snapshot': e.collectEnvironmentSnapshot ? 1 : 0,
-        'working_directory': e.workingDirectory ?? '',
-        'environment': e.environment.entries
-            .map((en) => '${en.key}=${en.value}')
-            .join('\n'),
-        'max_retry_delay_seconds': e.maxRetryDelaySeconds,
-        'last_run_at': e.lastRunAt?.toIso8601String() ?? '',
-        'next_run_at': e.nextRunAt?.toIso8601String() ?? '',
-        'last_exit_code': e.lastExitCode,
-        'consecutive_failures': e.consecutiveFailures,
-        'created_at': e.createdAt?.toIso8601String() ?? '',
-        'updated_at': e.updatedAt?.toIso8601String() ?? '',
-        'sort_order': i,
-      });
+      batch.insert(_tableName, _entryToRow(entries[i], sortOrder: i));
     }
     await batch.commit(noResult: true);
   }
 
   Future<void> updateOne(CronEntry entry) async {
-    final json = <String, Object?>{
+    final updated = await _db.update(
+      _tableName,
+      _entryToRow(entry),
+      where: 'id = ?',
+      whereArgs: <Object?>[entry.id],
+    );
+    if (updated != 1) {
+      throw StateError('Cron no longer exists: ${entry.id}');
+    }
+  }
+
+  Map<String, Object?> _entryToRow(CronEntry entry, {int? sortOrder}) {
+    return <String, Object?>{
       'id': entry.id,
       'name': entry.name,
       'description': entry.description,
@@ -360,12 +327,8 @@ class CronsStore {
       'consecutive_failures': entry.consecutiveFailures,
       'created_at': entry.createdAt?.toIso8601String() ?? '',
       'updated_at': entry.updatedAt?.toIso8601String() ?? '',
+      if (sortOrder != null) 'sort_order': sortOrder,
     };
-    await _db.insert(
-      _tableName,
-      json,
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
   }
 
   Future<void> delete(String id) async {

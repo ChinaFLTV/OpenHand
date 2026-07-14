@@ -575,16 +575,12 @@ class OpenHandDialogSession<T extends Object?> {
   VoidCallback? _deferredDismissListener;
   bool _deferredDismissPopScheduled = false;
 
-  /// Whether the dialog future has already completed.
+  /// Whether the reverse transition finished and the route overlay is gone.
   bool get isClosed => _closed;
 
   bool get isDismissRequested => _dismissRequested;
 
   Future<T?> get result => _result;
-
-  Future<void> get future async {
-    await _result;
-  }
 
   Future<void> get closed => _closedSignal.future;
 
@@ -748,6 +744,7 @@ class OpenHandDialogSession<T extends Object?> {
       }
       try {
         await _result;
+        await closed;
       } catch (error, stack) {
         silentLog(logTag, logAction, error, stack);
       }
@@ -978,30 +975,59 @@ Future<T?> _pushOpenHandDialogRoute<T>({
         MaterialLocalizations,
       )?.modalBarrierDismissLabel ??
       'Dismiss';
-  return navigator.push<T>(
-    _OpenHandRawDialogRoute<T>(
-      pageBuilder: (routeContext, animation, secondaryAnimation) =>
-          capturedThemes.wrap(builder(routeContext)),
-      transitionBuilder: (routeContext, animation, secondaryAnimation, child) {
-        if (openHandMotionDisabled(settings)) return child;
-        return buildAnimationStyleTransition(
-          animation: animation,
-          settings: settings,
-          profile: transitionProfile,
-          child: child,
-        );
-      },
-      entranceDuration: settings.entranceDuration,
-      exitDuration: settings.exitDuration,
-      barrierDismissible: barrierDismissible,
-      barrierLabel: resolvedBarrierLabel,
-      barrierColor: resolveAnimatedDialogBarrierColor(
-        sourceContext,
-        override: barrierColor,
-      ),
-      settings: routeSettings,
+  final route = _OpenHandRawDialogRoute<T>(
+    pageBuilder: (routeContext, animation, secondaryAnimation) =>
+        capturedThemes.wrap(builder(routeContext)),
+    transitionBuilder: (routeContext, animation, secondaryAnimation, child) {
+      if (openHandMotionDisabled(settings)) return child;
+      return buildAnimationStyleTransition(
+        animation: animation,
+        settings: settings,
+        profile: transitionProfile,
+        child: child,
+      );
+    },
+    entranceDuration: settings.entranceDuration,
+    exitDuration: settings.exitDuration,
+    barrierDismissible: barrierDismissible,
+    barrierLabel: resolvedBarrierLabel,
+    barrierColor: resolveAnimatedDialogBarrierColor(
+      sourceContext,
+      override: barrierColor,
     ),
+    settings: routeSettings,
   );
+  return pushOpenHandTransitionRoute(navigator, route);
+}
+
+final Expando<List<TransitionRoute<dynamic>>> _openHandRoutesByNavigator =
+    Expando<List<TransitionRoute<dynamic>>>('openHandRoutesByNavigator');
+
+/// Pushes an animated route and resolves only after its reverse transition
+/// finishes and all overlay entries are removed.
+Future<T?> pushOpenHandTransitionRoute<T>(
+  NavigatorState navigator,
+  TransitionRoute<T> route,
+) async {
+  final routes = _openHandRoutesByNavigator[navigator] ??=
+      <TransitionRoute<dynamic>>[];
+  if (routes.isNotEmpty) {
+    final previous = routes.last;
+    final status = previous.animation?.status;
+    if (!previous.isCurrent &&
+        (status == AnimationStatus.reverse ||
+            status == AnimationStatus.dismissed)) {
+      await previous.completed;
+    }
+  }
+  final popped = navigator.push<T>(route);
+  routes.add(route);
+  try {
+    return await popped;
+  } finally {
+    await route.completed;
+    routes.remove(route);
+  }
 }
 
 class _OpenHandRawDialogRoute<T> extends RawDialogRoute<T> {

@@ -105,12 +105,17 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
   late final TextEditingController _maxPromptTokens;
   late final TextEditingController _qdrantMetricsRefreshSeconds;
   late final TextEditingController _qdrantLogRetainLines;
+  late bool _knowledgeBuiltinToolsEnabled;
+  bool _saving = false;
   Future<void>? _dependencyRefreshFuture;
 
   @override
   void initState() {
     super.initState();
     _settings = context.read<KnowledgeBaseController>().settings;
+    _knowledgeBuiltinToolsEnabled = context
+        .read<SettingsController>()
+        .knowledgeBuiltinToolsEnabled;
     _dimensions = TextEditingController(text: '${_settings.dimensions}');
     _maxInputTokens = TextEditingController(
       text: '${_settings.maxInputTokens}',
@@ -574,26 +579,53 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
         KnowledgeBaseSettingRanges.qdrantLogRetainLines,
         _settings.qdrantLogRetainLines,
       ),
-      exposeReadonlyTools: settingsController.knowledgeBuiltinToolsEnabled,
     );
-    await settingsController.setKnowledgeBuiltinToolsEnabled(
-      next.exposeReadonlyTools,
-    );
-    await knowledgeController.updateSettings(next);
-    if (!mounted) return;
-    Navigator.of(context).pop();
-    showKnowledgeBaseSuccessSnack(
-      context,
-      openHandLocalizedText(
+    if (_saving) return;
+    setState(() => _saving = true);
+    final previousSettings = knowledgeController.settings;
+    var knowledgeSettingsSaved = false;
+    try {
+      await knowledgeController.updateSettings(next);
+      knowledgeSettingsSaved = true;
+      final toolsSaved = await settingsController
+          .setKnowledgeBuiltinToolsEnabled(_knowledgeBuiltinToolsEnabled);
+      if (!toolsSaved) {
+        throw StateError('Failed to save Knowledge Base tool access.');
+      }
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      showKnowledgeBaseSuccessSnack(
         context,
-        zh: '知识库配置已保存。',
-        zhHant: '知識庫設定已儲存。',
-        en: 'Knowledge Base settings saved.',
-        fr: 'Paramètres de la base de connaissances enregistrés.',
-        de: 'Wissensdatenbank-Einstellungen gespeichert.',
-        ja: 'ナレッジベース設定を保存しました。',
-      ),
-    );
+        openHandLocalizedText(
+          context,
+          zh: '知识库配置已保存。',
+          zhHant: '知識庫設定已儲存。',
+          en: 'Knowledge Base settings saved.',
+          fr: 'Paramètres de la base de connaissances enregistrés.',
+          de: 'Wissensdatenbank-Einstellungen gespeichert.',
+          ja: 'ナレッジベース設定を保存しました。',
+        ),
+      );
+    } catch (error, stack) {
+      if (knowledgeSettingsSaved) {
+        try {
+          await knowledgeController.updateSettings(previousSettings);
+        } catch (rollbackError, rollbackStack) {
+          silentLog(
+            'knowledge_base_config_dialog',
+            'rollback settings',
+            rollbackError,
+            rollbackStack,
+          );
+        }
+      }
+      silentLog('knowledge_base_config_dialog', 'save settings', error, stack);
+      if (mounted) {
+        showKnowledgeBaseErrorSnack(context, '$error');
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 
   @override
@@ -631,8 +663,6 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
       );
     }
 
-    final knowledgeBuiltinToolsEnabled =
-        settingsController.knowledgeBuiltinToolsEnabled;
     final embeddingModelSupportsRerank =
         _selectedEmbeddingProfile(embeddingModels)?.supportsRerank == true;
     final skipModelRerankEffective =
@@ -2095,18 +2125,9 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                       de: 'Integrierte Wissensdatenbank-Tools verfügbar machen',
                       ja: 'ナレッジベース内蔵ツールを公開',
                     ),
-                    knowledgeBuiltinToolsEnabled,
+                    _knowledgeBuiltinToolsEnabled,
                     (value) {
-                      setState(
-                        () => _settings = _settings.copyWith(
-                          exposeReadonlyTools: value,
-                        ),
-                      );
-                      unawaited(
-                        settingsController.setKnowledgeBuiltinToolsEnabled(
-                          value,
-                        ),
-                      );
+                      setState(() => _knowledgeBuiltinToolsEnabled = value);
                     },
                     subtitle: t(
                       zh: '开启后 KnowledgeSearch / KnowledgeRead 会直接出现在工具目录，由 AI 自主检索和读取；关闭后两个工具同时禁用。',
@@ -2185,7 +2206,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
       ),
       actions: [
         OpenHandDialogActionButton.secondary(
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: _saving ? null : () => Navigator.of(context).pop(),
           label: t(
             zh: '取消',
             zhHant: '取消',
@@ -2196,8 +2217,9 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
           ),
         ),
         OpenHandDialogActionButton.primary(
-          onPressed: _save,
+          onPressed: _saving ? null : _save,
           icon: Icons.save_rounded,
+          busy: _saving,
           label: t(
             zh: '保存',
             zhHant: '儲存',

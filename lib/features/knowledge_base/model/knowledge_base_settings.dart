@@ -496,7 +496,6 @@ class KnowledgeBaseSettings {
     this.continueWhenNoHits = true,
     this.showPreviewBeforeSend = false,
     this.cacheQueryEmbedding = true,
-    this.exposeReadonlyTools = true,
     this.qdrantMetricsRefreshSeconds =
         KnowledgeBaseSettingRanges.defaultQdrantMetricsRefreshSeconds,
     this.qdrantLogRetainLines =
@@ -712,7 +711,6 @@ class KnowledgeBaseSettings {
       continueWhenNoHits: _bool(json['continue_when_no_hits'], true),
       showPreviewBeforeSend: _bool(json['show_preview_before_send']),
       cacheQueryEmbedding: _bool(json['cache_query_embedding'], true),
-      exposeReadonlyTools: _bool(json['expose_readonly_tools'], true),
       qdrantMetricsRefreshSeconds: KnowledgeBaseSettingRanges
           .qdrantMetricsRefreshSeconds
           .fromValue(json['qdrant_metrics_refresh_seconds']),
@@ -804,7 +802,6 @@ class KnowledgeBaseSettings {
   final bool continueWhenNoHits;
   final bool showPreviewBeforeSend;
   final bool cacheQueryEmbedding;
-  final bool exposeReadonlyTools;
   final int qdrantMetricsRefreshSeconds;
   final int qdrantLogRetainLines;
   final bool enableDangerousAdminOperations;
@@ -922,7 +919,6 @@ class KnowledgeBaseSettings {
     bool? continueWhenNoHits,
     bool? showPreviewBeforeSend,
     bool? cacheQueryEmbedding,
-    bool? exposeReadonlyTools,
     int? qdrantMetricsRefreshSeconds,
     int? qdrantLogRetainLines,
     bool? enableDangerousAdminOperations,
@@ -1109,7 +1105,6 @@ class KnowledgeBaseSettings {
       showPreviewBeforeSend:
           showPreviewBeforeSend ?? this.showPreviewBeforeSend,
       cacheQueryEmbedding: cacheQueryEmbedding ?? this.cacheQueryEmbedding,
-      exposeReadonlyTools: exposeReadonlyTools ?? this.exposeReadonlyTools,
       qdrantMetricsRefreshSeconds: KnowledgeBaseSettingRanges
           .qdrantMetricsRefreshSeconds
           .normalize(
@@ -1209,7 +1204,6 @@ class KnowledgeBaseSettings {
       'continue_when_no_hits': continueWhenNoHits,
       'show_preview_before_send': showPreviewBeforeSend,
       'cache_query_embedding': cacheQueryEmbedding,
-      'expose_readonly_tools': exposeReadonlyTools,
       'qdrant_metrics_refresh_seconds': qdrantMetricsRefreshSeconds,
       'qdrant_log_retain_lines': qdrantLogRetainLines,
       'enable_dangerous_admin_operations': enableDangerousAdminOperations,
@@ -1220,12 +1214,16 @@ class KnowledgeBaseSettings {
 
   static KnowledgeBaseSettings decode(String value) {
     final text = nullIfBlank(value);
-    if (text == null) return const KnowledgeBaseSettings();
-    try {
-      return KnowledgeBaseSettings.fromJson(stringKeyedMapFromJsonText(text));
-    } catch (_) {
-      return const KnowledgeBaseSettings();
+    if (text == null) {
+      throw const FormatException('Knowledge Base settings are empty.');
     }
+    final decoded = jsonDecode(text);
+    if (decoded is! Map) {
+      throw const FormatException(
+        'Knowledge Base settings must be a JSON object.',
+      );
+    }
+    return KnowledgeBaseSettings.fromJson(stringKeyedMapFromValue(decoded));
   }
 
   static String _string(Object? value, [String fallback = '']) {

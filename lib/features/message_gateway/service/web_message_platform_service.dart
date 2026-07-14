@@ -336,6 +336,9 @@ class WebMessagePlatformService {
   static const int _maxAuthUserAgentCharacters = 512;
   static const int _maxQueuedGoalYieldLeaseSessions = 256;
   static const int _maxQueuedGoalYieldLeasesPerSession = 16;
+  static const int _maxActiveSseSubscriptions = 64;
+  static const int _maxSseSubscriptionsPerClient = 8;
+  static const int _maxSseSubscriptionsPerSession = 8;
   static const Set<AiBuiltinToolKind> _knowledgeBaseBuiltinToolKinds =
       <AiBuiltinToolKind>{
         AiBuiltinToolKind.knowledgeSearch,
@@ -384,6 +387,9 @@ class WebMessagePlatformService {
   /// onCancel 时 -1）。Ops 面板用它判断"是否有人在看活跃流"，并辅助识别
   /// 客户端泄漏（断网后未释放的悬挂连接）。
   int _activeSseSubscriptions = 0;
+  final Map<String, int> _activeSseSubscriptionsByClient = <String, int>{};
+  final Map<String, int> _activeSseSubscriptionsBySession = <String, int>{};
+  final Set<void Function()> _activeSseDisposers = <void Function()>{};
 
   /// 最近 N 次 4xx/5xx 请求的环形缓冲。Ops 面板按时间倒序展示，便于"刚出错就能看到"。
   /// 每条 ≤ 256B（path 截 80, error 截 160），整体内存占用上限 ≈ 5KB。
@@ -900,6 +906,13 @@ class WebMessagePlatformService {
   Future<void> stop() async {
     await ensurePersistedOpsDataLoaded();
     await _ttsPlaybackService.stop();
+    for (final dispose in List<void Function()>.from(_activeSseDisposers)) {
+      dispose();
+    }
+    _activeSseDisposers.clear();
+    _activeSseSubscriptions = 0;
+    _activeSseSubscriptionsByClient.clear();
+    _activeSseSubscriptionsBySession.clear();
     final server = _server;
     if (server == null) {
       _state = WebGatewayRuntimeState.stopped;
@@ -5081,6 +5094,20 @@ class WebMessagePlatformService {
         'error': 'session_deleted_or_not_found',
       });
     }
+    final clientKey = _config.authEnabled
+        ? auth.token
+        : _requestRemoteAddress(request);
+    if (_activeSseSubscriptions >= _maxActiveSseSubscriptions ||
+        (_activeSseSubscriptionsByClient[clientKey] ?? 0) >=
+            _maxSseSubscriptionsPerClient ||
+        (_activeSseSubscriptionsBySession[session.id] ?? 0) >=
+            _maxSseSubscriptionsPerSession) {
+      return _json(
+        HttpStatus.tooManyRequests,
+        const <String, Object?>{'error': 'sse_subscription_limit_reached'},
+        headers: const <String, String>{'retry-after': '5'},
+      );
+    }
 
     String? lastSnapshotHash;
     Timer? throttleTimer;
@@ -5088,6 +5115,7 @@ class WebMessagePlatformService {
     var disposed = false;
     var snapshotInFlight = false;
     var snapshotQueued = false;
+    var paused = false;
 
     Future<Map<String, Object?>> buildSnapshot(AiSession live) async {
       final _WebSessionMessageWindow messageWindow;
@@ -5173,7 +5201,7 @@ class WebMessagePlatformService {
     final controller = StreamController<List<int>>();
 
     void emit(String event, Object payload) {
-      if (disposed || controller.isClosed) return;
+      if (disposed || paused || controller.isClosed) return;
       try {
         final body = jsonEncode(payload);
         final frame = 'event: $event\ndata: $body\n\n';
@@ -5197,6 +5225,10 @@ class WebMessagePlatformService {
 
     void scheduleSnapshot() {
       if (disposed) return;
+      if (paused) {
+        snapshotQueued = true;
+        return;
+      }
       throttleTimer?.cancel();
       throttleTimer = startSafeTimer(
         const Duration(milliseconds: 80),
@@ -5264,6 +5296,15 @@ class WebMessagePlatformService {
 
     void controllerListener() => scheduleSnapshot();
 
+    void decrementSubscriptionCount(Map<String, int> counts, String key) {
+      final next = (counts[key] ?? 1) - 1;
+      if (next <= 0) {
+        counts.remove(key);
+      } else {
+        counts[key] = next;
+      }
+    }
+
     dispose = () {
       if (disposed) return;
       disposed = true;
@@ -5276,7 +5317,10 @@ class WebMessagePlatformService {
       if (!controller.isClosed) {
         controller.close();
       }
+      _activeSseDisposers.remove(dispose);
       _activeSseSubscriptions = math.max(0, _activeSseSubscriptions - 1);
+      decrementSubscriptionCount(_activeSseSubscriptionsByClient, clientKey);
+      decrementSubscriptionCount(_activeSseSubscriptionsBySession, session.id);
     };
 
     _sessionController.addListener(controllerListener);
@@ -5291,6 +5335,7 @@ class WebMessagePlatformService {
           closeUnauthorizedStream();
           return;
         }
+        if (paused) return;
         try {
           controller.add(utf8.encode(':keepalive\n\n'));
         } catch (error, stack) {
@@ -5303,7 +5348,32 @@ class WebMessagePlatformService {
     );
 
     controller.onCancel = dispose;
+    controller.onPause = () {
+      if (disposed) return;
+      paused = true;
+      throttleTimer?.cancel();
+      throttleTimer = null;
+      snapshotQueued = true;
+    };
+    controller.onResume = () {
+      if (disposed) return;
+      paused = false;
+      snapshotQueued = false;
+      lastSnapshotHash = null;
+      scheduleSnapshot();
+    };
     _activeSseSubscriptions += 1;
+    _activeSseSubscriptionsByClient.update(
+      clientKey,
+      (count) => count + 1,
+      ifAbsent: () => 1,
+    );
+    _activeSseSubscriptionsBySession.update(
+      session.id,
+      (count) => count + 1,
+      ifAbsent: () => 1,
+    );
+    _activeSseDisposers.add(dispose);
 
     // 立即推送首帧，避免前端等待第一次 notifyListeners。
     Future<void>.microtask(() {
@@ -7987,14 +8057,19 @@ class WebMessagePlatformService {
   }
 
   /// 构造 JSON 响应。`Cache-Control: no-store` 避免浏览器/CDN 缓存敏感数据。
-  shelf.Response _json(int statusCode, Map<String, Object?> payload) {
+  shelf.Response _json(
+    int statusCode,
+    Map<String, Object?> payload, {
+    Map<String, String> headers = const <String, String>{},
+  }) {
     final body = jsonEncode(payload);
     return shelf.Response(
       statusCode,
       body: body,
-      headers: const <String, String>{
+      headers: <String, String>{
         HttpHeaders.contentTypeHeader: 'application/json; charset=utf-8',
         HttpHeaders.cacheControlHeader: 'no-store',
+        ...headers,
       },
     );
   }

@@ -1353,7 +1353,11 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
   ) {
     showWebReverseToolDialog<void>(
       context: context,
-      builder: (_) => _AdvancedMenuDialog(controller: ctrl, isZh: isZh),
+      builder: (_) => _AdvancedMenuDialog(
+        controller: ctrl,
+        isZh: isZh,
+        hostContext: context,
+      ),
     );
   }
 }

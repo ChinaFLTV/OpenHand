@@ -257,24 +257,7 @@ Duration _effectiveSwitchDuration(
         _workspaceSwitchMaxDurationMs,
       )
       .toInt();
-  return Duration(
-    milliseconds: math.max(clamped, minimumAnimatedDurationMs),
-  );
-}
-
-void _scheduleOverlayActionAfterMenuDismissal(
-  BuildContext context,
-  VoidCallback action,
-) {
-  // Popup menu results resolve before the route is fully torn down. Defer the
-  // follow-up dialog to the next frame so two overlay routes do not overlap
-  // during teardown/build-scope transitions.
-  WidgetsBinding.instance.addPostFrameCallback((_) {
-    if (!context.mounted) {
-      return;
-    }
-    action();
-  });
+  return Duration(milliseconds: math.max(clamped, minimumAnimatedDurationMs));
 }
 
 Future<void> _awaitEndOfFrame() async {

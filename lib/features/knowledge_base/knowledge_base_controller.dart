@@ -54,6 +54,7 @@ class KnowledgeBaseController extends ChangeNotifier {
   bool _busy = false;
   String _query = '';
   String? _error;
+  bool _hasTrustedSettings = false;
   bool _isDisposed = false;
 
   KnowledgeBaseSettings get settings => _settings;
@@ -75,14 +76,20 @@ class KnowledgeBaseController extends ChangeNotifier {
     notifyListeners();
     try {
       _settings = await _settingsStore.load();
+      _hasTrustedSettings = true;
+      _error = null;
+    } catch (error) {
+      _hasTrustedSettings = false;
+      _error = '$error';
+    }
+    try {
       _sources = await _store.loadSources();
       schedulePendingKnowledgeSourceFileCleanups(
         sourceExists: (sourceId) async =>
             await _store.loadSource(sourceId) != null,
       );
-      _error = null;
     } catch (error) {
-      _error = '$error';
+      _error ??= '$error';
     } finally {
       _loading = false;
       notifyListeners();
@@ -94,6 +101,11 @@ class KnowledgeBaseController extends ChangeNotifier {
   }
 
   Future<void> updateSettings(KnowledgeBaseSettings settings) async {
+    if (!_hasTrustedSettings) {
+      throw StateError(
+        'Knowledge Base settings are unavailable; existing data was kept.',
+      );
+    }
     await _settingsStore.save(settings);
     _settings = settings;
     _qdrantAdminService.trimLogs(settings.qdrantLogRetainLines);

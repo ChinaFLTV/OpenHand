@@ -31,13 +31,19 @@ String _advancedTextForLocale(
 );
 
 class _AdvancedMenuDialog extends StatelessWidget {
-  const _AdvancedMenuDialog({required this.controller, required this.isZh});
+  const _AdvancedMenuDialog({
+    required this.controller,
+    required this.isZh,
+    required this.hostContext,
+  });
 
   final WebReverseSessionController controller;
   final bool isZh;
+  final BuildContext hostContext;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext dialogContext) {
+    final context = hostContext;
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     String tr({

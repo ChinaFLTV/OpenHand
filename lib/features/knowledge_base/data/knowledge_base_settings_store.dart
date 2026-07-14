@@ -21,11 +21,7 @@ class KnowledgeBaseSettingsStore {
     );
     if (rows.isEmpty) return const KnowledgeBaseSettings();
     final value = '${rows.first['value'] ?? ''}';
-    try {
-      return KnowledgeBaseSettings.decode(value);
-    } catch (_) {
-      return const KnowledgeBaseSettings();
-    }
+    return KnowledgeBaseSettings.decode(value);
   }
 
   Future<void> save(KnowledgeBaseSettings settings) async {

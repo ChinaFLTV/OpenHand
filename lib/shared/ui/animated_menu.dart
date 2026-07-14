@@ -43,25 +43,24 @@ Future<T?> showAnimatedMenu<T>({
   if (items.isEmpty) return Future<T?>.value();
   final effectiveSettings = _resolveAnimatedMenuSettings(context, settings);
   final navigator = Navigator.of(context, rootNavigator: useRootNavigator);
-  return navigator.push<T>(
-    _AnimatedPopupMenuRoute<T>(
-      position: position,
-      items: items,
-      initialValue: initialValue,
-      elevation: elevation,
-      color: color,
-      shape: shape,
-      constraints: constraints,
-      animationSettings: effectiveSettings,
-      enableBidirectionalScroll: enableBidirectionalScroll,
-      barrierDismissible: barrierDismissible,
-      barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
-      capturedThemes: InheritedTheme.capture(
-        from: context,
-        to: navigator.context,
-      ),
+  final route = _AnimatedPopupMenuRoute<T>(
+    position: position,
+    items: items,
+    initialValue: initialValue,
+    elevation: elevation,
+    color: color,
+    shape: shape,
+    constraints: constraints,
+    animationSettings: effectiveSettings,
+    enableBidirectionalScroll: enableBidirectionalScroll,
+    barrierDismissible: barrierDismissible,
+    barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
+    capturedThemes: InheritedTheme.capture(
+      from: context,
+      to: navigator.context,
     ),
   );
+  return pushOpenHandTransitionRoute(navigator, route);
 }
 
 /// Shows arbitrary interactive content in an anchored popup route while
@@ -98,20 +97,19 @@ Future<T?> showAnimatedAnchoredMenu<T>({
     Offset.zero & overlayObject.size,
   );
   final effectiveSettings = _resolveAnimatedMenuSettings(context, settings);
-  return navigator.push<T>(
-    _AnimatedAnchoredMenuRoute<T>(
-      position: relativePosition,
-      animationSettings: effectiveSettings,
-      textDirection: Directionality.of(context),
-      barrierDismissible: barrierDismissible,
-      barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
-      capturedThemes: InheritedTheme.capture(
-        from: context,
-        to: navigator.context,
-      ),
-      builder: builder,
+  final route = _AnimatedAnchoredMenuRoute<T>(
+    position: relativePosition,
+    animationSettings: effectiveSettings,
+    textDirection: Directionality.of(context),
+    barrierDismissible: barrierDismissible,
+    barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
+    capturedThemes: InheritedTheme.capture(
+      from: context,
+      to: navigator.context,
     ),
+    builder: builder,
   );
+  return pushOpenHandTransitionRoute(navigator, route);
 }
 
 class _AnimatedAnchoredMenuRoute<T> extends PopupRoute<T> {
