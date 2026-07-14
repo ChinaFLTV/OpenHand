@@ -8,6 +8,11 @@ const Duration _kCreationFailureExitDuration = Duration(milliseconds: 240);
 const double _kTranscriptListCacheExtent = 560;
 const double _kTranscriptEstimatedMessageSpacing = 14;
 const int _kScrollToMessageMaterializeFrameLimit = 8;
+const Duration _kTranscriptTargetScrollDuration = Duration(milliseconds: 520);
+const Duration _kTranscriptTargetHighlightDuration = Duration(
+  milliseconds: 1400,
+);
+const Curve _kTranscriptTargetScrollCurve = Cubic(0.22, 0.92, 0.28, 1);
 const String _kTranscriptEntryKeyPrefix = 'transcript-entry-';
 const String _kTranscriptLoadEarlierKey = 'transcript-load-earlier';
 const String _kTranscriptPendingCreationKey = 'transcript-pending-creation';
@@ -408,6 +413,7 @@ final RegExp _transcriptHtmlMediaSrcPattern = RegExp(
 class _SessionTranscriptState extends State<_SessionTranscript> {
   String? _selectedMessageId;
   String? _highlightedMessageId;
+  Timer? _targetHighlightTimer;
   String? _visibleErrorId;
   String? _pendingPresentedErrorId;
   final Set<String> _dismissedErrorIds = <String>{};
@@ -592,6 +598,8 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   void _resetSessionScopedState() {
     _selectedMessageId = null;
     _highlightedMessageId = null;
+    _targetHighlightTimer?.cancel();
+    _targetHighlightTimer = null;
     _visibleErrorId = null;
     _pendingPresentedErrorId = null;
     _dismissedErrorIds.clear();
@@ -623,6 +631,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     _prependAnchorCorrectionQueued = false;
     _pendingRevealRestore = null;
     _activeRevealOlderFuture = null;
+    _scrollRequestGeneration += 1;
     _activeScrollFuture = null;
     _activeScrollTargetId = null;
   }
@@ -1176,6 +1185,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   @override
   void dispose() {
     _retiringCreationPlaceholderTimer?.cancel();
+    _targetHighlightTimer?.cancel();
     _scrollActivity?.removeListener(_handleRevealScrollActivityChanged);
     _scrollActivity = null;
     _warmupGeneration += 1;
@@ -1199,8 +1209,13 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     if (existing != null && _activeScrollTargetId == messageId) {
       return existing;
     }
-    final future = _runScrollToMessageId(messageId, highlight: highlight)
-        .whenComplete(() {
+    final generation = ++_scrollRequestGeneration;
+    final future =
+        _runScrollToMessageId(
+          messageId,
+          highlight: highlight,
+          generation: generation,
+        ).whenComplete(() {
           if (_activeScrollTargetId == messageId) {
             _activeScrollFuture = null;
             _activeScrollTargetId = null;
@@ -1214,38 +1229,72 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   Future<bool> _runScrollToMessageId(
     String messageId, {
     bool highlight = false,
+    required int generation,
   }) async {
-    if (!mounted) return false;
+    bool requestIsCurrent() =>
+        mounted && generation == _scrollRequestGeneration;
+    if (!requestIsCurrent()) return false;
     void flashTarget() {
       if (!highlight || !mounted) return;
+      _targetHighlightTimer?.cancel();
       setState(() => _highlightedMessageId = messageId);
+      _targetHighlightTimer = startSafeTimer(
+        _kTranscriptTargetHighlightDuration,
+        () {
+          _targetHighlightTimer = null;
+          if (!mounted || _highlightedMessageId != messageId) return;
+          setState(() => _highlightedMessageId = null);
+        },
+      );
     }
 
     Future<bool> tryEnsureVisible() async {
+      if (!requestIsCurrent()) return false;
       final ctx = _bubbleRegistry.contextOf(messageId);
       if (ctx == null) return false;
-      await Scrollable.ensureVisible(ctx, alignment: 0.18);
+      await Scrollable.ensureVisible(
+        ctx,
+        alignment: 0.18,
+        duration: openHandMotionDuration(
+          context,
+          _kTranscriptTargetScrollDuration,
+        ),
+        curve: _kTranscriptTargetScrollCurve,
+      );
+      if (!requestIsCurrent()) return false;
       flashTarget();
       return true;
     }
 
     if (await tryEnsureVisible()) return true;
+    if (!requestIsCurrent()) return false;
 
-    // 目标尚未物化。先看看它在 displayMessages 中是否存在 / 位置。
-    final display = widget.session.displayMessages;
-    final targetDisplayIndex = display.indexWhere((m) => m.id == messageId);
-    if (targetDisplayIndex < 0) return false;
-
-    // 反复 reveal-older 直到 _windowStartIndex 把目标囊括进来。
+    // 目标可能尚未从持久层载入，也可能只是在当前渲染窗口之前。统一通过
+    // reveal-older 有界推进：先加载缺失的历史批次，再把目标纳入物化窗口。
+    var display = widget.session.displayMessages;
+    var targetDisplayIndex = display.indexWhere((m) => m.id == messageId);
     var safety = math.max(
       32,
-      (display.length / _transcriptWindowIncrement).ceil() + 2,
+      (math.max(widget.session.messageTotalCount, display.length) /
+                      _transcriptWindowIncrement)
+                  .ceil() *
+              2 +
+          8,
     );
-    while (mounted && targetDisplayIndex < _windowStartIndex && safety-- > 0) {
+    while (requestIsCurrent() && safety-- > 0) {
+      final targetNeedsWindowReveal =
+          targetDisplayIndex >= 0 && targetDisplayIndex < _windowStartIndex;
+      final targetNeedsHydration =
+          targetDisplayIndex < 0 && widget.session.hasMoreHistoricalMessages;
+      if (!targetNeedsWindowReveal && !targetNeedsHydration) break;
       await _revealOlderMessages();
       await WidgetsBinding.instance.endOfFrame;
       if (await tryEnsureVisible()) return true;
+      if (!requestIsCurrent()) return false;
+      display = widget.session.displayMessages;
+      targetDisplayIndex = display.indexWhere((m) => m.id == messageId);
     }
+    if (targetDisplayIndex < 0) return false;
     if (await tryEnsureVisible()) return true;
 
     final renderIndex = _renderEntries.indexWhere((e) => e.id == messageId);
@@ -1324,6 +1373,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
 
   Future<bool>? _activeScrollFuture;
   String? _activeScrollTargetId;
+  int _scrollRequestGeneration = 0;
 
   void _handleRevealScrollActivityChanged() {
     final activity = _scrollActivity;

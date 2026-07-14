@@ -12,6 +12,62 @@ const Duration _kSessionToolbarCenterScrollDuration = Duration(
   milliseconds: 520,
 );
 
+Future<void> _jumpToCacheHitTurn(
+  BuildContext context, {
+  required AiSession session,
+  required SessionCacheHitTurnPoint point,
+  required bool claudeStyle,
+}) async {
+  final controller = context.read<AiSessionController>();
+  var targetMessageId = point.starterMessageId.trim();
+  if (targetMessageId.isEmpty) {
+    // Older persisted trend points did not carry the round starter id. Do the
+    // one-time full hydration only for that legacy shape, then rebuild the
+    // trend to recover the same turn without guessing from list positions.
+    final hydrated = await controller.ensureSessionMessagesHydrated(session.id);
+    final source = hydrated ?? controller.sessionById(session.id) ?? session;
+    final rebuiltTrend = SessionCacheHitTrend.fromSession(
+      source,
+      claudeStyle: claudeStyle,
+    );
+    targetMessageId = rebuiltTrend.points
+        .where((candidate) => candidate.turnIndex == point.turnIndex)
+        .map((candidate) => candidate.starterMessageId.trim())
+        .firstWhere((id) => id.isNotEmpty, orElse: () => '')
+        .trim();
+  }
+  if (targetMessageId.isEmpty) {
+    if (context.mounted) {
+      showHomeInfoSnack(
+        context,
+        openHandLocalizedText(
+          context,
+          zh: '该轮次暂时没有可定位的消息。',
+          en: 'This round does not have a message to reveal yet.',
+        ),
+        duration: const Duration(milliseconds: 2200),
+      );
+    }
+    return;
+  }
+  final ok = await _TranscriptScrollDispatcher.instance.scrollToMessage(
+    session.id,
+    targetMessageId,
+    highlight: true,
+  );
+  if (!ok && context.mounted) {
+    showHomeInfoSnack(
+      context,
+      openHandLocalizedText(
+        context,
+        zh: '未能定位该轮次消息，可能已被删除或尚未加载。',
+        en: 'Could not reveal this round; the message may be deleted or not loaded yet.',
+      ),
+      duration: const Duration(milliseconds: 2400),
+    );
+  }
+}
+
 class _SessionToolbar extends StatelessWidget {
   const _SessionToolbar({
     required this.session,
@@ -262,6 +318,16 @@ class _SessionToolbar extends StatelessWidget {
                 statistics: session.statistics,
                 activeProfile: activeProfile,
                 claudeStyle: claudeStyle,
+                onCacheHitTrendPointSelected: (point) {
+                  unawaited(
+                    _jumpToCacheHitTurn(
+                      context,
+                      session: session,
+                      point: point,
+                      claudeStyle: claudeStyle,
+                    ),
+                  );
+                },
               ),
             ],
           ),

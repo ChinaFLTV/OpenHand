@@ -152,12 +152,17 @@ class TokenPopupCacheHitTrendChart extends StatefulWidget {
     this.height = 168,
     this.displayMode = SessionCacheHitDisplayMode.excludeExpiredMisses,
     this.onDisplayModeChanged,
+    this.onPointSelected,
   });
 
   final SessionCacheHitTrend trend;
   final double height;
   final SessionCacheHitDisplayMode displayMode;
   final ValueChanged<SessionCacheHitDisplayMode>? onDisplayModeChanged;
+
+  /// Called after a concrete trend point is tapped/clicked. The point keeps
+  /// the round starter message id so callers can reveal the matching turn.
+  final ValueChanged<SessionCacheHitTurnPoint>? onPointSelected;
 
   @override
   State<TokenPopupCacheHitTrendChart> createState() =>
@@ -335,6 +340,53 @@ class _TokenPopupCacheHitTrendChartState
     setState(() {
       _viewport = _viewport.panBy(deltaPoints);
     });
+  }
+
+  void _selectPoint({
+    required int index,
+    required List<SessionCacheHitTurnPoint> visiblePoints,
+  }) {
+    if (index < 0 || index >= visiblePoints.length) return;
+    final point = visiblePoints[index];
+    final wasHovering = _hoveredPointIndex != null;
+    setState(() {
+      _hoveredPointIndex = index;
+      _displayedPointIndex = index;
+    });
+    if (!wasHovering) {
+      _hoverMotionGeneration += 1;
+      _hoverController.forward();
+    }
+    widget.onPointSelected?.call(point);
+  }
+
+  int? _pointIndexAtPosition({
+    required Offset position,
+    required Rect chartRect,
+    required List<SessionCacheHitTurnPoint> visiblePoints,
+  }) {
+    if (visiblePoints.isEmpty || !chartRect.contains(position)) return null;
+    final step = visiblePoints.length <= 1
+        ? 0.0
+        : chartRect.width / (visiblePoints.length - 1);
+    var nearest = 0;
+    var nearestDistance = double.infinity;
+    for (var index = 0; index < visiblePoints.length; index += 1) {
+      final x = visiblePoints.length <= 1
+          ? chartRect.center.dx
+          : chartRect.left + step * index;
+      final y =
+          chartRect.bottom -
+          chartRect.height * clampUnitInterval(visiblePoints[index].hitRatio);
+      final distance = (position - Offset(x, y)).distance;
+      if (distance < nearestDistance) {
+        nearest = index;
+        nearestDistance = distance;
+      }
+    }
+    // Keep the touch target forgiving while avoiding accidental selections
+    // from taps on the axis labels or surrounding controls.
+    return nearestDistance <= 30 ? nearest : null;
   }
 
   @override
@@ -584,6 +636,21 @@ class _TokenPopupCacheHitTrendChartState
                     },
                     child: GestureDetector(
                       behavior: HitTestBehavior.opaque,
+                      onTapUp: (details) {
+                        final index = _pointIndexAtPosition(
+                          position: details.localPosition,
+                          chartRect: chartRect,
+                          visiblePoints: visiblePoints,
+                        );
+                        if (index == null) {
+                          _hideHoverTooltip();
+                          return;
+                        }
+                        _selectPoint(
+                          index: index,
+                          visiblePoints: visiblePoints,
+                        );
+                      },
                       onScaleStart: (_) {
                         _gestureAppliedScale = 1;
                       },

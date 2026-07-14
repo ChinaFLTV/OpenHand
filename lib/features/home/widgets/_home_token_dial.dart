@@ -6,12 +6,14 @@ class _TokenDial extends StatefulWidget {
     required this.statistics,
     this.activeProfile,
     this.claudeStyle = true,
+    this.onCacheHitTrendPointSelected,
   });
 
   final AiSession session;
   final AiSessionStatistics statistics;
   final AiModelProfile? activeProfile;
   final bool claudeStyle;
+  final ValueChanged<SessionCacheHitTurnPoint>? onCacheHitTrendPointSelected;
 
   int get totalTokens => statistics.totalTokens ?? 0;
   int? get cacheReadTokens => statistics.cacheReadTokens;
@@ -148,10 +150,12 @@ class _TokenDialState extends State<_TokenDial>
   }
 
   Future<void> _showTouchPopupSheet() async {
+    SessionCacheHitTurnPoint? selectedPoint;
+    var dismissQueued = false;
     await showAnimatedModalSheet<void>(
       context: context,
       settings: _dialogSettings(context),
-      builder: (_) => Padding(
+      builder: (sheetContext) => Padding(
         padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
         child: _TokenDialPopup(
           session: widget.session,
@@ -160,9 +164,32 @@ class _TokenDialState extends State<_TokenDial>
           claudeStyle: widget.claudeStyle,
           cacheHitRatio: widget.cacheHitRatio,
           compact: false,
+          onCacheHitTrendPointSelected: (point) {
+            selectedPoint = point;
+            if (dismissQueued) return;
+            dismissQueued = true;
+            unawaited(_dismissTouchPopupAfterPointSelection(sheetContext));
+          },
         ),
       ),
     );
+    if (selectedPoint != null && mounted) {
+      widget.onCacheHitTrendPointSelected?.call(selectedPoint!);
+    }
+  }
+
+  Future<void> _dismissTouchPopupAfterPointSelection(
+    BuildContext sheetContext,
+  ) async {
+    final settings = _dialogSettings(sheetContext);
+    final delay = settings.entranceDisabled
+        ? Duration.zero
+        : settings.entranceDuration + const Duration(milliseconds: 80);
+    if (delay > Duration.zero) {
+      await Future<void>.delayed(delay);
+    }
+    if (!sheetContext.mounted) return;
+    await Navigator.of(sheetContext).maybePop();
   }
 
   @override
@@ -198,6 +225,7 @@ class _TokenDialState extends State<_TokenDial>
             maxHeight: metrics.maxHeight,
             minWidth: metrics.minWidth,
             maxWidth: metrics.maxWidth,
+            onCacheHitTrendPointSelected: widget.onCacheHitTrendPointSelected,
           ),
         );
       },
@@ -502,6 +530,7 @@ class _TokenDialPopup extends StatefulWidget {
     this.maxHeight,
     this.minWidth,
     this.maxWidth,
+    this.onCacheHitTrendPointSelected,
   });
 
   final AiSession session;
@@ -513,6 +542,7 @@ class _TokenDialPopup extends StatefulWidget {
   final double? maxHeight;
   final double? minWidth;
   final double? maxWidth;
+  final ValueChanged<SessionCacheHitTurnPoint>? onCacheHitTrendPointSelected;
 
   @override
   State<_TokenDialPopup> createState() => _TokenDialPopupState();
@@ -736,6 +766,7 @@ class _TokenDialPopupState extends State<_TokenDialPopup> {
                 _displayMode = mode;
               });
             },
+            onPointSelected: widget.onCacheHitTrendPointSelected,
             height: widget.compact ? 176 : 220,
           ),
         ] else if (cacheRead > 0) ...[

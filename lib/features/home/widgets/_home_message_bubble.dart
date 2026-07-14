@@ -790,7 +790,12 @@ class _MessageBubbleState extends State<_MessageBubble> {
         : null;
     final isScrollHighlighted = widget.isScrollHighlighted;
     final highlightBorderColor = colorScheme.primary.withValues(alpha: 0.78);
-    final bubbleCard = Container(
+    final bubbleCard = AnimatedContainer(
+      duration: openHandMotionDuration(
+        context,
+        const Duration(milliseconds: 260),
+      ),
+      curve: kCardMotionCurve,
       decoration: BoxDecoration(
         color: backgroundColor,
         borderRadius: borderRadius,
