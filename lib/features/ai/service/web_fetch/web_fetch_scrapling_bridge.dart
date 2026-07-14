@@ -11,6 +11,7 @@ import '../../../../app/support/safe_subprocess.dart';
 import '../../../../app/support/silent_log.dart';
 import '../../../../app/support/system_proxy.dart';
 import '../../../../shared/util/async_concurrency.dart';
+import '../../../../shared/util/bounded_file_io.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/text_clip.dart';
 import '../../model/ai_web_fetch_settings.dart';
@@ -25,6 +26,8 @@ enum WebFetchScraplingRuntimeEventType {
   success,
   warning,
 }
+
+const Duration _tlsBundleProbeTimeout = Duration(milliseconds: 500);
 
 class WebFetchScraplingRuntimeEvent {
   const WebFetchScraplingRuntimeEvent({required this.type, required this.line});
@@ -992,14 +995,27 @@ class WebFetchScraplingBridge {
     final combined = '${result.stdout}\n${result.stderr}'.toLowerCase();
     if (!combined.contains('certificate_verify_failed')) return null;
     final certifi = await _probeCertifiBundle();
-    if (certifi != null && File(certifi).existsSync()) return certifi;
+    if (certifi != null &&
+        await isRegularFilePath(
+          certifi,
+          timeout: _tlsBundleProbeTimeout,
+          followLinks: true,
+        )) {
+      return certifi;
+    }
     for (final candidate in <String>[
       '/etc/ssl/cert.pem',
       '/private/etc/ssl/cert.pem',
       '/etc/ssl/certs/ca-certificates.crt',
       '/opt/homebrew/etc/openssl@3/cert.pem',
     ]) {
-      if (File(candidate).existsSync()) return candidate;
+      if (await isRegularFilePath(
+        candidate,
+        timeout: _tlsBundleProbeTimeout,
+        followLinks: true,
+      )) {
+        return candidate;
+      }
     }
     return null;
   }

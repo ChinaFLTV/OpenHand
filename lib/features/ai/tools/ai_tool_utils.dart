@@ -1070,7 +1070,7 @@ class AiToolUtils {
       await file.writeAsString(content, flush: true);
       return;
     }
-    final tempFile = _uniqueSafeWriteArtifact(file, 'tmp');
+    final tempFile = await _uniqueSafeWriteArtifact(file, 'tmp');
     await tempFile.writeAsString(content, flush: true);
     if (await file.exists()) await _copyExistingFileMode(file, tempFile);
     try {
@@ -1201,7 +1201,10 @@ class AiToolUtils {
     }
   }
 
-  static File _uniqueSafeWriteArtifact(File targetFile, String role) {
+  static Future<File> _uniqueSafeWriteArtifact(
+    File targetFile,
+    String role,
+  ) async {
     for (var attempt = 0; attempt < 16; attempt++) {
       final counter = _safeWriteArtifactCounter =
           (_safeWriteArtifactCounter + 1) & 0x3fffffff;
@@ -1211,7 +1214,13 @@ class AiToolUtils {
         '${DateTime.now().microsecondsSinceEpoch}.$counter.$role',
       );
       final candidate = File(path);
-      if (!candidate.existsSync()) return candidate;
+      final type = await FileSystemEntity.type(
+        path,
+        followLinks: false,
+      ).timeout(defaultBoundedFileReadIdleTimeout);
+      if (type == FileSystemEntityType.notFound) {
+        return candidate;
+      }
     }
     throw FileSystemException(
       'Unable to allocate a unique temporary write artifact.',
@@ -1240,7 +1249,7 @@ class AiToolUtils {
     var movedExistingFile = false;
     try {
       if (await targetFile.exists()) {
-        backupFile = _uniqueSafeWriteArtifact(targetFile, 'bak');
+        backupFile = await _uniqueSafeWriteArtifact(targetFile, 'bak');
         await targetFile.rename(backupFile.path);
         movedExistingFile = true;
       }
@@ -1537,7 +1546,7 @@ class AiToolUtils {
     }
 
     // 回退:Homebrew 在 Apple Silicon 上默认安装到 /opt/homebrew
-    return Directory('/opt/homebrew/bin').existsSync();
+    return isDirectoryPath('/opt/homebrew/bin', followLinks: true);
   }
 
   /// 获取应用内嵌入的 ripgrep 路径。
@@ -1573,7 +1582,7 @@ class AiToolUtils {
       // 开发模式：直接使用项目目录
       // 项目结构：OpenHand/vendor/ripgrep/...
       // 可执行文件在：OpenHand/build/macos/Build/Products/Debug/openhand.app/...
-      final projectRoot = _findProjectRoot(executableDir);
+      final projectRoot = await _findProjectRoot(executableDir);
       if (projectRoot != null) {
         candidates.add(
           p.join(projectRoot, 'vendor', 'ripgrep', platformDir, rgName),
@@ -1587,7 +1596,7 @@ class AiToolUtils {
       );
 
       // 开发模式
-      final projectRoot = _findProjectRoot(executableDir);
+      final projectRoot = await _findProjectRoot(executableDir);
       if (projectRoot != null) {
         candidates.add(
           p.join(projectRoot, 'vendor', 'ripgrep', platformDir, rgName),
@@ -1599,7 +1608,7 @@ class AiToolUtils {
         p.join(executableDir, 'vendor', 'ripgrep', platformDir, rgName),
       );
 
-      final projectRoot = _findProjectRoot(executableDir);
+      final projectRoot = await _findProjectRoot(executableDir);
       if (projectRoot != null) {
         candidates.add(
           p.join(projectRoot, 'vendor', 'ripgrep', platformDir, rgName),
@@ -1656,10 +1665,12 @@ class AiToolUtils {
   }
 
   /// 查找项目根目录（通过向上查找 pubspec.yaml）。
-  static String? _findProjectRoot(String startDir) {
+  static Future<String?> _findProjectRoot(String startDir) async {
     for (final directory in ancestorDirectoriesFrom(startDir, maxDepth: 10)) {
-      final pubspec = File(p.join(directory, 'pubspec.yaml'));
-      if (pubspec.existsSync()) {
+      if (await isRegularFilePath(
+        p.join(directory, 'pubspec.yaml'),
+        followLinks: true,
+      )) {
         return directory;
       }
     }

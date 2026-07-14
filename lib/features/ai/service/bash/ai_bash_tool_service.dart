@@ -8,6 +8,7 @@ import '../../../../app/support/silent_log.dart';
 import '../../../../app/support/system_proxy.dart';
 import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/input_value_parsing.dart';
+import '../../../../shared/util/platform_shell.dart';
 import '../../../../shared/util/timer_safety.dart';
 import '../../model/ai_deny_command_rule.dart';
 import '../runtime/ai_tool_execution_registry.dart';
@@ -1746,17 +1747,7 @@ class AiBashToolService {
   }
 
   String _resolveShellExecutable() {
-    final environmentShell = Platform.environment['SHELL']?.trim() ?? '';
-    if (environmentShell.isNotEmpty) {
-      return environmentShell;
-    }
-    const shellCandidates = <String>['/bin/zsh', '/bin/bash', '/bin/sh'];
-    for (final candidate in shellCandidates) {
-      if (File(candidate).existsSync()) {
-        return candidate;
-      }
-    }
-    return '/bin/sh';
+    return preferredPosixShellExecutable();
   }
 
   void _appendChunk(StringBuffer buffer, String chunk) {

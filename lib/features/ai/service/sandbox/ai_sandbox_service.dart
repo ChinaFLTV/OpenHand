@@ -5,8 +5,8 @@ import 'package:path/path.dart' as p;
 
 import '../../../../app/support/openhand_paths.dart';
 import '../../../../app/support/safe_subprocess.dart';
-import '../../../../app/support/silent_log.dart';
 import '../../../../app/support/system_proxy.dart';
+import '../../../../shared/util/bounded_file_io.dart';
 import '../../model/ai_deny_command_rule.dart';
 import '../../model/ai_sandbox_settings.dart';
 import 'ai_sandbox_proxy_service.dart';
@@ -50,6 +50,9 @@ class AiSandboxEnvironmentStatus {
     };
   }
 }
+
+const Duration _sandboxPathProbeIdleTimeout = Duration(milliseconds: 500);
+const Duration _sandboxPathProbeTotalTimeout = Duration(seconds: 5);
 
 class AiSandboxActionResult {
   const AiSandboxActionResult({
@@ -401,7 +404,7 @@ class AiSandboxService {
       );
     }
 
-    if (!Directory(normalizedWorkingDirectory).existsSync()) {
+    if (!await isDirectoryPath(normalizedWorkingDirectory, followLinks: true)) {
       return AiSandboxLaunchSpec.blocked(
         executable: shellExecutable,
         arguments: shellArguments,
@@ -517,7 +520,7 @@ class AiSandboxService {
     }
 
     if (Platform.isLinux) {
-      final args = _buildLinuxBubblewrapArgs(
+      final args = await _buildLinuxBubblewrapArgs(
         shellExecutable: shellExecutable,
         shellArguments: shellArguments,
         workingDirectory: normalizedWorkingDirectory,
@@ -566,7 +569,7 @@ class AiSandboxService {
         ? const <String>['/usr/bin/bwrap', '/usr/local/bin/bwrap']
         : const <String>[];
     for (final candidate in directCandidates) {
-      if (File(candidate).existsSync()) return true;
+      if (await isRegularFilePath(candidate, followLinks: true)) return true;
     }
     final result = await runProcessWithTimeout(
       Platform.isWindows ? 'where' : '/usr/bin/env',
@@ -634,11 +637,11 @@ class AiSandboxService {
     return buffer.toString().trimRight();
   }
 
-  List<String> _buildLinuxBubblewrapArgs({
+  Future<List<String>> _buildLinuxBubblewrapArgs({
     required String shellExecutable,
     required List<String> shellArguments,
     required String workingDirectory,
-  }) {
+  }) async {
     final args = <String>[
       '--die-with-parent',
       '--ro-bind',
@@ -658,17 +661,25 @@ class AiSandboxService {
     }
     final writableBinds = <String>{workingDirectory};
     final readOnlyBinds = <String>{};
+    final probeStopwatch = Stopwatch()..start();
     for (final rule in settings.filesystemRules) {
+      if (probeStopwatch.elapsed >= _sandboxPathProbeTotalTimeout) break;
       if (rule.matchMode == AiDenyCommandMatchMode.regex) continue;
       final resolved = _resolveFilesystemPath(rule.path, workingDirectory);
       if (rule.accessMode == AiSandboxFileAccessMode.readWrite) {
-        final existing = _existingWritableBindPath(resolved);
+        final existing = await _existingWritableBindPath(
+          resolved,
+          stopwatch: probeStopwatch,
+        );
         if (existing == null) continue;
         if (_isSafeWritableWorkspaceRoot(existing)) {
           writableBinds.add(existing);
         }
       } else {
-        final existing = _existingExactPath(resolved);
+        final existing = await _existingExactPath(
+          resolved,
+          stopwatch: probeStopwatch,
+        );
         if (existing == null) continue;
         readOnlyBinds.add(existing);
       }
@@ -705,36 +716,60 @@ class AiSandboxService {
     return p.normalize(p.join(workingDirectory, trimmed));
   }
 
-  String? _existingWritableBindPath(String resolved) {
-    try {
-      final type = FileSystemEntity.typeSync(resolved, followLinks: false);
-      if (type != FileSystemEntityType.notFound) return resolved;
-      final parent = p.dirname(resolved);
-      if (Directory(parent).existsSync()) return parent;
-    } catch (error, stack) {
-      silentLog(
-        'ai_sandbox_service',
-        'resolve bind path $resolved',
-        error,
-        stack,
-      );
+  Future<String?> _existingWritableBindPath(
+    String resolved, {
+    required Stopwatch stopwatch,
+  }) async {
+    final type = await _probeSandboxPathType(resolved, stopwatch: stopwatch);
+    if (type == null) return null;
+    if (type != FileSystemEntityType.notFound) return resolved;
+    final parent = p.dirname(resolved);
+    final parentType = await _probeSandboxPathType(
+      parent,
+      stopwatch: stopwatch,
+      followLinks: true,
+    );
+    if (parentType == FileSystemEntityType.directory) {
+      return parent;
     }
     return null;
   }
 
-  String? _existingExactPath(String resolved) {
+  Future<String?> _existingExactPath(
+    String resolved, {
+    required Stopwatch stopwatch,
+  }) async {
+    final type = await _probeSandboxPathType(resolved, stopwatch: stopwatch);
+    return type == null || type == FileSystemEntityType.notFound
+        ? null
+        : resolved;
+  }
+
+  Future<FileSystemEntityType?> _probeSandboxPathType(
+    String path, {
+    required Stopwatch stopwatch,
+    bool followLinks = false,
+  }) async {
     try {
-      final type = FileSystemEntity.typeSync(resolved, followLinks: false);
-      if (type != FileSystemEntityType.notFound) return resolved;
-    } catch (error, stack) {
-      silentLog(
-        'ai_sandbox_service',
-        'resolve exact path $resolved',
-        error,
-        stack,
-      );
+      return await FileSystemEntity.type(
+        path,
+        followLinks: followLinks,
+      ).timeout(_nextSandboxPathProbeTimeout(stopwatch));
+    } on FileSystemException {
+      return null;
+    } on TimeoutException {
+      return null;
+    } on ArgumentError {
+      return null;
     }
-    return null;
+  }
+
+  Duration _nextSandboxPathProbeTimeout(Stopwatch stopwatch) {
+    final remaining = _sandboxPathProbeTotalTimeout - stopwatch.elapsed;
+    if (remaining <= Duration.zero) return const Duration(microseconds: 1);
+    return remaining < _sandboxPathProbeIdleTimeout
+        ? remaining
+        : _sandboxPathProbeIdleTimeout;
   }
 
   bool _isSafeWritableWorkspaceRoot(String value) {

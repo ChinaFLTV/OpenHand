@@ -9,6 +9,7 @@ import '../../../../shared/util/bounded_file_io.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/lifecycle_cache.dart';
 import '../../../../shared/util/path_safety.dart';
+import '../../../../shared/util/platform_shell.dart';
 import '../../../../shared/util/text_clip.dart';
 import '../../model/ai_tool_execution_limit_policy.dart';
 
@@ -104,7 +105,7 @@ class AiClaudeHookService {
     String? matcherValue,
     String? cwd,
   }) async {
-    final workingDirectory = _normalizeDirectory(
+    final workingDirectory = await _normalizeDirectory(
       cwd ?? _applicationDirectoryPath(),
     );
     if (!await _hasAnyHookConfigFile(workingDirectory)) {
@@ -359,7 +360,10 @@ class AiClaudeHookService {
       }
     }
 
-    final homeDirectory = _normalizeDirectory(_homeDirectoryPath());
+    final rawHomeDirectory = _homeDirectoryPath().trim();
+    final homeDirectory = p.normalize(
+      rawHomeDirectory.isEmpty ? _applicationDirectoryPath() : rawHomeDirectory,
+    );
     addPath(p.join(homeDirectory, '.claude', 'settings.json'));
     addPath(p.join(homeDirectory, '.claude', 'settings.local.json'));
 
@@ -541,25 +545,22 @@ class AiClaudeHookService {
         arguments: <String>['/C', command],
       );
     }
-    final zsh = File('/bin/zsh');
-    if (zsh.existsSync()) {
-      return _AiShellCommand(
-        executable: zsh.path,
-        arguments: <String>['-lc', command],
-      );
-    }
     return _AiShellCommand(
-      executable: '/bin/sh',
+      executable: preferredPosixShellExecutable(),
       arguments: <String>['-lc', command],
     );
   }
 
-  String _normalizeDirectory(String rawPath) {
-    final normalized = p.normalize(rawPath.trim());
-    if (normalized.isEmpty) {
+  Future<String> _normalizeDirectory(String rawPath) async {
+    final trimmed = rawPath.trim();
+    if (trimmed.isEmpty) {
       return OpenHandPaths.applicationDirectoryPath();
     }
-    final entityType = FileSystemEntity.typeSync(normalized);
+    final normalized = p.normalize(trimmed);
+    final entityType = await probeFileSystemEntityType(
+      normalized,
+      followLinks: true,
+    );
     if (entityType == FileSystemEntityType.file) {
       return p.dirname(normalized);
     }
