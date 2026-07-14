@@ -1,18 +1,28 @@
 import 'package:sqflite_common/sqlite_api.dart';
 
 import '../../../app/model/cron_config.dart';
-import '../../../app/support/silent_log.dart';
 import '../../../shared/db/database_service.dart';
 import '../../../shared/util/input_value_parsing.dart';
+import '../model/cron_parser.dart';
 
 /// Persistence layer for cron jobs and execution history using SQLite.
 class CronsStore {
-  CronsStore();
+  CronsStore({Database? database}) : _database = database;
 
   static const String _tableName = 'cron_jobs';
   static const String _historyTable = 'cron_execution_history';
+  static const int _maxStoredCounter = 0x7fffffff;
+  static const Set<String> _historyStatuses = <String>{
+    'success',
+    'failed',
+    'timed_out',
+    'running',
+    'killed',
+  };
 
-  Database get _db => DatabaseService.instance.database;
+  final Database? _database;
+
+  Database get _db => _database ?? DatabaseService.instance.database;
 
   /// Ensures both tables exist. Call once at startup.
   Future<void> ensureTable() async {
@@ -164,117 +174,229 @@ class CronsStore {
       orderBy: 'sort_order ASC, rowid ASC',
     );
     final entries = <CronEntry>[];
+    final seenIds = <String>{};
     for (final row in rows) {
-      try {
-        entries.add(
-          CronEntry(
-            id: '${row['id']}'.trim(),
-            name: '${row['name'] ?? ''}'.trim(),
-            description: '${row['description'] ?? ''}'.trim(),
-            scriptType:
-                CronScriptType.fromStorage('${row['script_type'] ?? ''}') ??
-                CronScriptType.command,
-            scriptPath: nullIfBlank('${row['script_path'] ?? ''}'),
-            scriptContent: nullIfBlank('${row['script_content'] ?? ''}'),
-            cronExpression: '${row['cron_expression'] ?? '* * * * *'}'.trim(),
-            retryCount: (row['retry_count'] as int?) ?? kCronDefaultRetryCount,
-            timeoutSeconds:
-                (row['timeout_seconds'] as int?) ?? kCronDefaultTimeoutSeconds,
-            runAsUser: nullIfBlank('${row['run_as_user'] ?? ''}'),
-            tags: _parseTags('${row['tags'] ?? ''}'),
-            enabled: boolFromValue(row['enabled']),
-            status: CronJobStatus.fromStorage('${row['status'] ?? ''}'),
-            onSuccessNotify: CronNotifyType.fromStorage(
-              '${row['on_success_notify'] ?? ''}',
-            ),
-            onFailureNotify: CronNotifyType.fromStorage(
-              '${row['on_failure_notify'] ?? ''}',
-            ),
-            onTimeoutNotify: CronNotifyType.fromStorage(
-              '${row['on_timeout_notify'] ?? ''}',
-            ),
-            onSuccessSeverity: CronNotifySeverity.fromStorage(
-              '${row['on_success_severity'] ?? ''}',
-              fallback: CronNotifySeverity.success,
-            ),
-            onFailureSeverity: CronNotifySeverity.fromStorage(
-              '${row['on_failure_severity'] ?? ''}',
-              fallback: CronNotifySeverity.error,
-            ),
-            onTimeoutSeverity: CronNotifySeverity.fromStorage(
-              '${row['on_timeout_severity'] ?? ''}',
-              fallback: CronNotifySeverity.warning,
-            ),
-            onSuccessPlaySound: boolFromValue(row['on_success_play_sound']),
-            onFailurePlaySound: boolFromValue(
-              row['on_failure_play_sound'],
-              defaultValue: true,
-            ),
-            onTimeoutPlaySound: boolFromValue(
-              row['on_timeout_play_sound'],
-              defaultValue: true,
-            ),
-            onSuccessVibrate: boolFromValue(row['on_success_vibrate']),
-            onFailureVibrate: boolFromValue(
-              row['on_failure_vibrate'],
-              defaultValue: true,
-            ),
-            onTimeoutVibrate: boolFromValue(
-              row['on_timeout_vibrate'],
-              defaultValue: true,
-            ),
-            onSuccessMessage: nullIfBlank('${row['on_success_message'] ?? ''}'),
-            onFailureMessage: nullIfBlank('${row['on_failure_message'] ?? ''}'),
-            onTimeoutMessage: nullIfBlank('${row['on_timeout_message'] ?? ''}'),
-            collectAppMetadata: boolFromValue(
-              row['collect_app_metadata'],
-              defaultValue: true,
-            ),
-            collectHostMetadata: boolFromValue(
-              row['collect_host_metadata'],
-              defaultValue: true,
-            ),
-            collectEnvironmentSnapshot: boolFromValue(
-              row['collect_environment_snapshot'],
-            ),
-            workingDirectory: nullIfBlank('${row['working_directory'] ?? ''}'),
-            environment: _parseEnv('${row['environment'] ?? ''}'),
-            maxRetryDelaySeconds:
-                (row['max_retry_delay_seconds'] as int?) ??
-                kCronDefaultRetryDelaySeconds,
-            lastRunAt: _parseDateTime(row['last_run_at']),
-            nextRunAt: _parseDateTime(row['next_run_at']),
-            lastExitCode: row['last_exit_code'] as int?,
-            consecutiveFailures: (row['consecutive_failures'] as int?) ?? 0,
-            createdAt: _parseDateTime(row['created_at']),
-            updatedAt: _parseDateTime(row['updated_at']),
-          ),
-        );
-      } catch (error, stack) {
-        silentLog(
-          'crons_store',
-          'skipped malformed cron row id=${row['id']}',
-          error,
-          stack,
-        );
+      final entry = _rowToEntry(row);
+      if (!seenIds.add(entry.id)) {
+        throw FormatException('Duplicate cron id: ${entry.id}');
       }
+      entries.add(entry);
     }
     return entries;
   }
 
+  CronEntry _rowToEntry(Map<String, Object?> row) {
+    final id = _canonicalText(row, 'id');
+    final name = _canonicalText(row, 'name');
+    final cronExpression = _canonicalText(row, 'cron_expression');
+    if (id.isEmpty || name.isEmpty || !CronParser.isValid(cronExpression)) {
+      throw FormatException('Invalid cron row: $id');
+    }
+    final tagsText = _text(row, 'tags');
+    final tags = _parseTags(tagsText);
+    final environmentText = _text(row, 'environment');
+    final environment = _parseEnv(environmentText);
+    if (tags.join(',') != tagsText ||
+        _encodeEnv(environment) != environmentText) {
+      throw FormatException('Invalid cron metadata: $id');
+    }
+    _intInRange(row, 'sort_order', 0, _maxStoredCounter);
+    return CronEntry(
+      id: id,
+      name: name,
+      description: _text(row, 'description'),
+      scriptType: _enumValue(
+        row,
+        'script_type',
+        CronScriptType.values,
+        (value) => value.storageValue,
+      ),
+      scriptPath: _optionalText(row, 'script_path'),
+      scriptContent: _optionalText(row, 'script_content'),
+      cronExpression: cronExpression,
+      retryCount: _intInRange(
+        row,
+        'retry_count',
+        kCronMinRetryCount,
+        kCronMaxRetryCount,
+      ),
+      timeoutSeconds: _intInRange(
+        row,
+        'timeout_seconds',
+        kCronMinTimeoutSeconds,
+        kCronMaxTimeoutSeconds,
+      ),
+      runAsUser: _optionalText(row, 'run_as_user'),
+      tags: tags,
+      enabled: _bool(row, 'enabled'),
+      status: _enumValue(
+        row,
+        'status',
+        CronJobStatus.values,
+        (value) => value.storageValue,
+      ),
+      onSuccessNotify: _notifyType(row, 'on_success_notify'),
+      onFailureNotify: _notifyType(row, 'on_failure_notify'),
+      onTimeoutNotify: _notifyType(row, 'on_timeout_notify'),
+      onSuccessSeverity: _severity(row, 'on_success_severity'),
+      onFailureSeverity: _severity(row, 'on_failure_severity'),
+      onTimeoutSeverity: _severity(row, 'on_timeout_severity'),
+      onSuccessPlaySound: _bool(row, 'on_success_play_sound'),
+      onFailurePlaySound: _bool(row, 'on_failure_play_sound'),
+      onTimeoutPlaySound: _bool(row, 'on_timeout_play_sound'),
+      onSuccessVibrate: _bool(row, 'on_success_vibrate'),
+      onFailureVibrate: _bool(row, 'on_failure_vibrate'),
+      onTimeoutVibrate: _bool(row, 'on_timeout_vibrate'),
+      onSuccessMessage: _optionalText(row, 'on_success_message'),
+      onFailureMessage: _optionalText(row, 'on_failure_message'),
+      onTimeoutMessage: _optionalText(row, 'on_timeout_message'),
+      collectAppMetadata: _bool(row, 'collect_app_metadata'),
+      collectHostMetadata: _bool(row, 'collect_host_metadata'),
+      collectEnvironmentSnapshot: _bool(row, 'collect_environment_snapshot'),
+      workingDirectory: _optionalText(row, 'working_directory'),
+      environment: environment,
+      maxRetryDelaySeconds: _intInRange(
+        row,
+        'max_retry_delay_seconds',
+        kCronMinRetryDelaySeconds,
+        kCronMaxRetryDelaySeconds,
+      ),
+      lastRunAt: _dateTime(row, 'last_run_at'),
+      nextRunAt: _dateTime(row, 'next_run_at'),
+      lastExitCode: _optionalInt(row, 'last_exit_code'),
+      consecutiveFailures: _intInRange(
+        row,
+        'consecutive_failures',
+        0,
+        _maxStoredCounter,
+      ),
+      createdAt: _dateTime(row, 'created_at'),
+      updatedAt: _dateTime(row, 'updated_at'),
+    );
+  }
+
+  String _text(Map<String, Object?> row, String key) {
+    final value = row[key];
+    if (value is String) return value;
+    throw FormatException('Cron field $key must be text.');
+  }
+
+  String _canonicalText(Map<String, Object?> row, String key) {
+    final value = _text(row, key);
+    if (value != value.trim()) {
+      throw FormatException('Cron field $key is not canonical.');
+    }
+    return value;
+  }
+
+  String? _optionalText(Map<String, Object?> row, String key) {
+    final value = _text(row, key);
+    return value.isEmpty ? null : value;
+  }
+
+  bool _bool(Map<String, Object?> row, String key) {
+    return switch (row[key]) {
+      0 => false,
+      1 => true,
+      _ => throw FormatException('Cron field $key must be 0 or 1.'),
+    };
+  }
+
+  int _intInRange(
+    Map<String, Object?> row,
+    String key,
+    int minimum,
+    int maximum,
+  ) {
+    final value = row[key];
+    if (value is! int || value < minimum || value > maximum) {
+      throw FormatException('Cron field $key is out of range.');
+    }
+    return value;
+  }
+
+  int? _optionalInt(Map<String, Object?> row, String key) {
+    final value = row[key];
+    if (value == null || value is int) return value as int?;
+    throw FormatException('Cron field $key must be an integer.');
+  }
+
+  DateTime? _dateTime(Map<String, Object?> row, String key) {
+    final raw = _text(row, key);
+    if (raw.isEmpty) return null;
+    final parsed = DateTime.tryParse(raw);
+    if (parsed == null || parsed.toIso8601String() != raw) {
+      throw FormatException('Cron field $key is invalid.');
+    }
+    return parsed;
+  }
+
+  T _enumValue<T extends Enum>(
+    Map<String, Object?> row,
+    String key,
+    Iterable<T> values,
+    String Function(T value) storageValue,
+  ) {
+    final value = enumByStorageValue(values, _text(row, key), storageValue);
+    if (value == null) {
+      throw FormatException('Cron field $key has an unknown value.');
+    }
+    return value;
+  }
+
+  CronNotifyType _notifyType(Map<String, Object?> row, String key) {
+    return _enumValue(
+      row,
+      key,
+      CronNotifyType.values,
+      (value) => value.storageValue,
+    );
+  }
+
+  CronNotifySeverity _severity(Map<String, Object?> row, String key) {
+    return _enumValue(
+      row,
+      key,
+      CronNotifySeverity.values,
+      (value) => value.storageValue,
+    );
+  }
+
   Future<void> saveAll(List<CronEntry> entries) async {
+    final rows = <Map<String, Object?>>[];
+    final seenIds = <String>{};
+    for (var index = 0; index < entries.length; index++) {
+      final row = _entryToRow(entries[index], sortOrder: index);
+      final validated = _rowToEntry(row);
+      if (!seenIds.add(validated.id)) {
+        throw FormatException('Duplicate cron id: ${validated.id}');
+      }
+      rows.add(row);
+    }
     final batch = _db.batch();
     batch.delete(_tableName);
-    for (var i = 0; i < entries.length; i++) {
-      batch.insert(_tableName, _entryToRow(entries[i], sortOrder: i));
+    for (final row in rows) {
+      batch.insert(_tableName, row);
     }
     await batch.commit(noResult: true);
   }
 
-  Future<void> updateOne(CronEntry entry) async {
+  Future<void> updateRuntimeState(CronEntry entry) async {
+    if (entry.id.trim() != entry.id ||
+        entry.id.isEmpty ||
+        entry.consecutiveFailures < 0) {
+      throw const FormatException('Invalid cron runtime state.');
+    }
     final updated = await _db.update(
       _tableName,
-      _entryToRow(entry),
+      <String, Object?>{
+        'status': entry.status.storageValue,
+        'last_run_at': entry.lastRunAt?.toIso8601String() ?? '',
+        'next_run_at': entry.nextRunAt?.toIso8601String() ?? '',
+        'last_exit_code': entry.lastExitCode,
+        'consecutive_failures': entry.consecutiveFailures,
+        'updated_at': entry.updatedAt?.toIso8601String() ?? '',
+      },
       where: 'id = ?',
       whereArgs: <Object?>[entry.id],
     );
@@ -317,9 +439,7 @@ class CronsStore {
       'collect_host_metadata': entry.collectHostMetadata ? 1 : 0,
       'collect_environment_snapshot': entry.collectEnvironmentSnapshot ? 1 : 0,
       'working_directory': entry.workingDirectory ?? '',
-      'environment': entry.environment.entries
-          .map((en) => '${en.key}=${en.value}')
-          .join('\n'),
+      'environment': _encodeEnv(entry.environment),
       'max_retry_delay_seconds': entry.maxRetryDelaySeconds,
       'last_run_at': entry.lastRunAt?.toIso8601String() ?? '',
       'next_run_at': entry.nextRunAt?.toIso8601String() ?? '',
@@ -378,41 +498,68 @@ class CronsStore {
     );
     final records = <CronExecutionRecord>[];
     for (final row in rows) {
-      try {
-        records.add(
-          CronExecutionRecord(
-            id: '${row['id']}'.trim(),
-            cronId: '${row['cron_id']}'.trim(),
-            startedAt: _parseDateTime(row['started_at']) ?? DateTime.now(),
-            finishedAt: _parseDateTime(row['finished_at']),
-            status: '${row['status'] ?? 'unknown'}'.trim(),
-            exitCode: row['exit_code'] as int?,
-            stdout: '${row['stdout'] ?? ''}'.trim(),
-            stderr: '${row['stderr'] ?? ''}'.trim(),
-            errorMessage: nullIfBlank('${row['error_message'] ?? ''}'),
-            elapsedMs: (row['elapsed_ms'] as int?) ?? 0,
-            retryAttempt: (row['retry_attempt'] as int?) ?? 0,
-            runAsUser: nullIfBlank('${row['run_as_user'] ?? ''}'),
-            workingDirectory: nullIfBlank('${row['working_directory'] ?? ''}'),
-            environment: _parseEnv('${row['environment'] ?? ''}'),
-            appContext: _parseEnv('${row['app_context'] ?? ''}'),
-            environmentSnapshot: _parseEnv(
-              '${row['environment_snapshot'] ?? ''}',
-            ),
-            pid: row['pid'] as int?,
-            triggerType: '${row['trigger_type'] ?? 'scheduled'}'.trim(),
-          ),
-        );
-      } catch (error, stack) {
-        silentLog(
-          'crons_store',
-          'skipped malformed history row id=${row['id']}',
-          error,
-          stack,
-        );
-      }
+      records.add(_historyRowToRecord(row));
     }
     return records;
+  }
+
+  CronExecutionRecord _historyRowToRecord(Map<String, Object?> row) {
+    final id = _canonicalText(row, 'id');
+    final cronId = _canonicalText(row, 'cron_id');
+    final status = _canonicalText(row, 'status');
+    final triggerType = _canonicalText(row, 'trigger_type');
+    if (id.isEmpty ||
+        cronId.isEmpty ||
+        !_historyStatuses.contains(status) ||
+        triggerType.isEmpty) {
+      throw FormatException('Invalid cron history row: $id');
+    }
+    final environment = _historyEnvironment(row, 'environment');
+    final appContext = _historyEnvironment(row, 'app_context');
+    final environmentSnapshot = _historyEnvironment(
+      row,
+      'environment_snapshot',
+    );
+    return CronExecutionRecord(
+      id: id,
+      cronId: cronId,
+      startedAt: _requiredDateTime(row, 'started_at'),
+      finishedAt: _dateTime(row, 'finished_at'),
+      status: status,
+      exitCode: _optionalInt(row, 'exit_code'),
+      stdout: _text(row, 'stdout'),
+      stderr: _text(row, 'stderr'),
+      errorMessage: _optionalText(row, 'error_message'),
+      elapsedMs: _intInRange(row, 'elapsed_ms', 0, _maxStoredCounter),
+      retryAttempt: _intInRange(row, 'retry_attempt', 0, _maxStoredCounter),
+      runAsUser: _optionalText(row, 'run_as_user'),
+      workingDirectory: _optionalText(row, 'working_directory'),
+      environment: environment,
+      appContext: appContext,
+      environmentSnapshot: environmentSnapshot,
+      pid: _optionalInt(row, 'pid'),
+      triggerType: triggerType,
+    );
+  }
+
+  Map<String, String> _historyEnvironment(
+    Map<String, Object?> row,
+    String key,
+  ) {
+    final raw = _text(row, key);
+    final parsed = _parseEnv(raw);
+    if (_encodeEnv(parsed) != raw) {
+      throw FormatException('Cron history field $key is invalid.');
+    }
+    return parsed;
+  }
+
+  DateTime _requiredDateTime(Map<String, Object?> row, String key) {
+    final value = _dateTime(row, key);
+    if (value == null) {
+      throw FormatException('Cron history field $key is required.');
+    }
+    return value;
   }
 
   Future<void> deleteHistoryForCron(String cronId) async {
@@ -517,6 +664,8 @@ Map<String, String> _parseEnv(String raw) {
   return keyValueMapFromValue(raw);
 }
 
-DateTime? _parseDateTime(Object? raw) {
-  return dateTimeFromValue(raw);
+String _encodeEnv(Map<String, String> environment) {
+  return environment.entries
+      .map((entry) => '${entry.key}=${entry.value}')
+      .join('\n');
 }

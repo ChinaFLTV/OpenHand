@@ -18,21 +18,9 @@ class CronParser {
   /// Safety: bails out after scanning 366 days to prevent infinite loops.
   static DateTime? nextRun(String expression, {DateTime? after}) {
     final fields = expression.trim().split(_fieldSeparatorPattern);
-    if (fields.length != 5) return null;
-
-    final minutes = _parseField(fields[0], 0, 59);
-    final hours = _parseField(fields[1], 0, 23);
-    final daysOfMonth = _parseField(fields[2], 1, 31);
-    final months = _parseField(fields[3], 1, 12);
-    final daysOfWeek = _parseField(fields[4], 0, 7); // 0 & 7 = Sunday
-
-    if (minutes == null ||
-        hours == null ||
-        daysOfMonth == null ||
-        months == null ||
-        daysOfWeek == null) {
-      return null;
-    }
+    final parsed = _parseExpressionFields(fields);
+    if (parsed == null) return null;
+    final (minutes, hours, daysOfMonth, months, daysOfWeek) = parsed;
 
     // Normalize day-of-week: convert 7 → 0 (both mean Sunday).
     final normalizedDow = daysOfWeek.map((d) => d == 7 ? 0 : d).toSet();
@@ -59,6 +47,31 @@ class CronParser {
       candidate = candidate.add(const Duration(minutes: 1));
     }
     return null;
+  }
+
+  static bool isValid(String expression) {
+    return _parseExpressionFields(
+          expression.trim().split(_fieldSeparatorPattern),
+        ) !=
+        null;
+  }
+
+  static (Set<int>, Set<int>, Set<int>, Set<int>, Set<int>)?
+  _parseExpressionFields(List<String> fields) {
+    if (fields.length != 5) return null;
+    final minutes = _parseField(fields[0], 0, 59);
+    final hours = _parseField(fields[1], 0, 23);
+    final daysOfMonth = _parseField(fields[2], 1, 31);
+    final months = _parseField(fields[3], 1, 12);
+    final daysOfWeek = _parseField(fields[4], 0, 7);
+    if (minutes == null ||
+        hours == null ||
+        daysOfMonth == null ||
+        months == null ||
+        daysOfWeek == null) {
+      return null;
+    }
+    return (minutes, hours, daysOfMonth, months, daysOfWeek);
   }
 
   /// Validates a 5-field cron expression. Returns null if valid, or a

@@ -15,6 +15,7 @@ import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/animated_menu.dart';
 import '../../../shared/ui/ansi_text.dart';
 import '../../../shared/ui/appear_once.dart';
+import '../../../shared/ui/feature_state_card.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/util/date_time_format.dart';
@@ -31,12 +32,18 @@ class CronsView extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final entries = context.select<CronsController, List<CronEntry>>(
-      (controller) => controller.entries,
-    );
-    final isLoading = context.select<CronsController, bool>(
-      (controller) => controller.isLoading,
-    );
+    final snapshot = context
+        .select<
+          CronsController,
+          ({bool isLoading, String? errorMessage, List<CronEntry> entries})
+        >(
+          (controller) => (
+            isLoading: controller.isLoading,
+            errorMessage: controller.errorMessage,
+            entries: controller.entries,
+          ),
+        );
+    final entries = snapshot.entries;
     final controller = context.read<CronsController>();
     final l10n = AppLocalizations.of(context)!;
 
@@ -63,13 +70,36 @@ class CronsView extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 16),
-            FilledButton.icon(
-              onPressed: () => _showCronEditorDialog(context, null),
-              icon: const Icon(Icons.add_rounded),
-              label: Text(l10n.cronsNewCronJob),
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: [
+                if (snapshot.errorMessage != null)
+                  FilledButton.tonalIcon(
+                    onPressed: snapshot.isLoading ? null : controller.refresh,
+                    icon: const Icon(Icons.refresh_rounded),
+                    label: Text(l10n.commonRetry),
+                  ),
+                FilledButton.icon(
+                  onPressed: snapshot.isLoading || snapshot.errorMessage != null
+                      ? null
+                      : () => _showCronEditorDialog(context, null),
+                  icon: const Icon(Icons.add_rounded),
+                  label: Text(l10n.cronsNewCronJob),
+                ),
+              ],
             ),
           ],
         ),
+        if (snapshot.errorMessage != null && entries.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          FeatureStateCard.inline(
+            icon: Icons.error_outline_rounded,
+            tone: FeatureStateTone.error,
+            title: l10n.settingsPersistenceLoadFailedTitle,
+            body: snapshot.errorMessage!,
+          ),
+        ],
         const SizedBox(height: 24),
         // Content — three states fade across smoothly so the list does not
         // pop when entries arrive or are removed.
@@ -81,10 +111,18 @@ class CronsView extends StatelessWidget {
             ),
             switchInCurve: Curves.easeOutCubic,
             switchOutCurve: Curves.easeInCubic,
-            child: (isLoading && entries.isEmpty)
+            child: (snapshot.isLoading && entries.isEmpty)
                 ? const Center(
                     key: ValueKey<String>('loading'),
                     child: CircularProgressIndicator(),
+                  )
+                : snapshot.errorMessage != null && entries.isEmpty
+                ? FeatureStateCard.centered(
+                    key: const ValueKey<String>('error'),
+                    icon: Icons.error_outline_rounded,
+                    tone: FeatureStateTone.error,
+                    title: l10n.settingsPersistenceLoadFailedTitle,
+                    body: snapshot.errorMessage!,
                   )
                 : entries.isEmpty
                 ? const KeyedSubtree(
@@ -613,6 +651,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
   late bool _collectHostMetadata;
   late bool _collectEnvironmentSnapshot;
 
+  bool _saving = false;
   String? _cronError;
   String? _formError;
 
@@ -1214,11 +1253,11 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
       actions: [
         OpenHandDialogActionButton.secondary(
           label: l10n.commonCancel,
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: _saving ? null : () => Navigator.of(context).pop(),
         ),
         OpenHandDialogActionButton.primary(
           label: l10n.commonSave,
-          onPressed: _save,
+          onPressed: _saving ? null : _save,
         ),
       ],
     );
@@ -1427,7 +1466,8 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
     }
   }
 
-  void _save() {
+  Future<void> _save() async {
+    if (_saving) return;
     final name = _nameController.text.trim();
     final validationError = _validateForm(name);
     if (validationError != null) {
@@ -1509,13 +1549,24 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
       maxRetryDelaySeconds: maxRetryDelay,
     );
 
-    final controller = context.read<CronsController>();
-    if (_isEditing) {
-      controller.updateCron(entry);
-    } else {
-      controller.addCron(entry);
+    setState(() => _saving = true);
+    try {
+      final controller = context.read<CronsController>();
+      final saved = _isEditing
+          ? await controller.updateCron(entry)
+          : await controller.addCron(entry);
+      if (!mounted) return;
+      if (saved) {
+        Navigator.of(context).pop();
+      } else {
+        setState(() {
+          _formError =
+              controller.errorMessage ?? l10n.settingsPersistenceSaveFailedBody;
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
     }
-    Navigator.of(context).pop();
   }
 
   String? _validateForm(String name) {

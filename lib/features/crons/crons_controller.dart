@@ -49,6 +49,7 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   static const Uuid _uuid = Uuid();
+  static const int _maxConcurrentExecutions = 8;
 
   static Future<CronsController> create({CronsStore? store}) async {
     final controller = CronsController.uninitialized(store: store);
@@ -61,11 +62,36 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
   /// observer + signal watcher registration, and scheduler startup. Safe to
   /// invoke at most once — subsequent calls are no-ops.
   Future<void> initialize() async {
-    if (_isDisposed || _hasInitialized) return;
-    _hasInitialized = true;
+    if (_isDisposed) return;
+    await _mutationQueue.enqueue(() async {
+      if (_isDisposed || _hasInitialized) return;
+      await _loadConfigurationLocked();
+    });
+  }
+
+  Future<void> _loadConfigurationLocked() async {
+    _isLoading = true;
+    _hasTrustedSnapshot = false;
+    _errorMessage = null;
+    _runtimeGeneration++;
+    _cancelScheduledTimers();
+    for (final job in _runningJobs.values) {
+      job.cancel();
+    }
+    notifyListeners();
     try {
       await _store.ensureTable();
       final entries = await _store.loadAll();
+      var needsSave = false;
+      for (var index = 0; index < entries.length; index++) {
+        final entry = entries[index];
+        if (entry.status == CronJobStatus.running) {
+          entries[index] = entry.copyWith(
+            status: entry.enabled ? CronJobStatus.idle : CronJobStatus.paused,
+          );
+          needsSave = true;
+        }
+      }
       // Seed the Hermes Talker self-learning system entry if needed, then
       // refresh only system-managed display/scheduling fields. User-toggleable
       // fields and runtime state are preserved.
@@ -74,7 +100,7 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
       );
       if (existingIndex == -1) {
         entries.add(_buildSelfLearningSystemEntry());
-        await _store.saveAll(entries);
+        needsSave = true;
       } else {
         final existing = entries[existingIndex];
         final canonical = _buildSelfLearningSystemEntry();
@@ -94,10 +120,14 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
             existing.description != refreshed.description ||
             existing.scriptType != refreshed.scriptType ||
             existing.cronExpression != refreshed.cronExpression ||
-            existing.timeoutSeconds != refreshed.timeoutSeconds;
+            existing.timeoutSeconds != refreshed.timeoutSeconds ||
+            !listEquals(existing.tags, refreshed.tags) ||
+            existing.onSuccessNotify != refreshed.onSuccessNotify ||
+            existing.onFailureNotify != refreshed.onFailureNotify ||
+            existing.onTimeoutNotify != refreshed.onTimeoutNotify;
         if (needsRefresh) {
           entries[existingIndex] = refreshed;
-          await _store.saveAll(entries);
+          needsSave = true;
         }
       }
       // MCP 关键词倒排索引重建系统条目。该条目「特殊」在：
@@ -127,17 +157,29 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
         if (existing.name != refreshed.name ||
             existing.description != refreshed.description ||
             existing.scriptType != refreshed.scriptType ||
-            existing.timeoutSeconds != refreshed.timeoutSeconds) {
+            existing.timeoutSeconds != refreshed.timeoutSeconds ||
+            !listEquals(existing.tags, refreshed.tags) ||
+            existing.onSuccessNotify != refreshed.onSuccessNotify ||
+            existing.onFailureNotify != refreshed.onFailureNotify ||
+            existing.onTimeoutNotify != refreshed.onTimeoutNotify) {
           entries[keywordIndex] = refreshed;
-          await _store.saveAll(entries);
+          needsSave = true;
         }
       }
+      if (needsSave) await _store.saveAll(entries);
       if (_isDisposed) return;
-      _entries = entries;
-      _entriesView = List<CronEntry>.unmodifiable(entries);
-      WidgetsBinding.instance.addObserver(this);
-      _bindProcessSignalWatchers();
+      _setEntries(entries);
+      _hasTrustedSnapshot = true;
+      if (!_hasInitialized) {
+        WidgetsBinding.instance.addObserver(this);
+        _bindProcessSignalWatchers();
+        _hasInitialized = true;
+      }
       _startScheduler();
+    } catch (error, stack) {
+      _hasTrustedSnapshot = false;
+      _errorMessage = '$error';
+      silentLog('crons_controller', 'load cron configuration', error, stack);
     } finally {
       _isLoading = false;
       if (!_isDisposed) {
@@ -211,19 +253,17 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
     required McpKeywordIndexIntervalUnit intervalUnit,
     required String scheduledTimeOfDay,
   }) async {
-    if (!_hasInitialized) return;
     await _commitMutation(() async {
       final index = _entries.indexWhere(
         (e) => e.id == mcpKeywordIndexSystemEntryId,
       );
       if (mode == McpKeywordIndexUpdateMode.coldStart) {
         if (index == -1) return false;
-        final removed = _entries[index];
-        _setEntries(
-          _entries.where((e) => e.id != mcpKeywordIndexSystemEntryId).toList(),
-        );
-        await _store.saveAll(_entries);
-        _cancelTimer(removed.id);
+        final next = _entries
+            .where((entry) => entry.id != mcpKeywordIndexSystemEntryId)
+            .toList();
+        await _store.saveAll(next);
+        _setEntries(next);
         return true;
       }
       final cronExpression = buildMcpKeywordIndexCronExpression(
@@ -238,9 +278,9 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
           cronExpression: cronExpression,
           enabled: true,
         );
-        _setEntries(<CronEntry>[..._entries, created]);
-        await _store.saveAll(_entries);
-        _scheduleJob(created);
+        final next = <CronEntry>[..._entries, created];
+        await _store.saveAll(next);
+        _setEntries(next);
         return true;
       }
       final existing = _entries[index];
@@ -251,14 +291,13 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
         cronExpression: cronExpression,
         enabled: true,
       );
-      _setEntries(<CronEntry>[
+      final next = <CronEntry>[
         ..._entries.sublist(0, index),
         refreshed,
         ..._entries.sublist(index + 1),
-      ]);
-      await _store.saveAll(_entries);
-      _cancelTimer(refreshed.id);
-      _scheduleJob(refreshed);
+      ];
+      await _store.saveAll(next);
+      _setEntries(next);
       return true;
     });
   }
@@ -268,8 +307,12 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
   List<CronEntry> _entriesView;
   bool _isLoading;
   bool _hasInitialized = false;
+  bool _hasTrustedSnapshot = false;
+  String? _errorMessage;
   bool _isDisposed = false;
   bool _isShuttingDown = false;
+  int _runtimeGeneration = 0;
+  int _activeExecutionCount = 0;
   AppLifecycleState _appLifecycleState = AppLifecycleState.resumed;
   final SerialTaskQueue _mutationQueue = SerialTaskQueue();
 
@@ -301,6 +344,7 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
   /// notifyListeners 时序一致。
   CronsStore get store => _store;
   bool get isLoading => _isLoading;
+  String? get errorMessage => _errorMessage;
   List<String> get systemUsers => _systemUsers;
 
   List<CronExecutionRecord> historyFor(String cronId) {
@@ -361,52 +405,66 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
   Future<bool> addCron(CronEntry entry) async {
     return _commitMutation(() async {
       final now = DateTime.now();
-      final newEntry = entry.copyWith(
-        id: entry.id.isEmpty ? _uuid.v4() : null,
-        createdAt: now,
-        updatedAt: now,
-      );
-      _setEntries(<CronEntry>[..._entries, newEntry]);
-      await _store.saveAll(_entries);
-      _scheduleJob(newEntry);
+      final requestedId = entry.id.trim();
+      final id = requestedId.isEmpty ? _uuid.v4() : requestedId;
+      if (_entries.any((item) => item.id == id)) return false;
+      final newEntry = entry.copyWith(id: id, createdAt: now, updatedAt: now);
+      final next = <CronEntry>[..._entries, newEntry];
+      await _store.saveAll(next);
+      _setEntries(next);
       return true;
     });
   }
 
   Future<bool> updateCron(CronEntry updated) async {
+    final id = updated.id.trim();
+    if (id.isEmpty || id != updated.id) return false;
     return _commitMutation(() async {
-      final index = _entries.indexWhere((item) => item.id == updated.id);
+      final index = _entries.indexWhere((item) => item.id == id);
       if (index < 0) return false;
+      final current = _entries[index];
       final entry = updated.copyWith(updatedAt: DateTime.now());
-      _setEntries(<CronEntry>[
+      final preserved = entry.copyWith(
+        status: current.status,
+        lastRunAt: current.lastRunAt,
+        nextRunAt: current.nextRunAt,
+        lastExitCode: current.lastExitCode,
+        consecutiveFailures: current.consecutiveFailures,
+        createdAt: current.createdAt,
+        clearLastRunAt: current.lastRunAt == null,
+        clearNextRunAt: current.nextRunAt == null,
+        clearLastExitCode: current.lastExitCode == null,
+      );
+      final next = <CronEntry>[
         ..._entries.sublist(0, index),
-        entry,
+        preserved,
         ..._entries.sublist(index + 1),
-      ]);
-      await _store.saveAll(_entries);
-      _cancelTimer(entry.id);
-      _scheduleJob(entry);
+      ];
+      await _store.saveAll(next);
+      _setEntries(next);
       return true;
     });
   }
 
   Future<bool> deleteCron(String id) async {
+    final normalizedId = id.trim();
+    if (normalizedId.isEmpty) return false;
     return _commitMutation(() async {
       final before = _entries.length;
       final target = _entries.firstWhere(
-        (item) => item.id == id,
+        (item) => item.id == normalizedId,
         orElse: () => _missingSentinel,
       );
       if (identical(target, _missingSentinel)) return false;
       // System-managed entries are not user-deletable.
       if (target.tags.contains(systemTag)) return false;
-      _setEntries(_entries.where((item) => item.id != id).toList());
-      if (_entries.length == before) return false;
-      await _store.saveAll(_entries);
-      _cancelTimer(id);
-      _historyCache.remove(id);
+      final next = _entries.where((item) => item.id != normalizedId).toList();
+      if (next.length == before) return false;
+      await _store.saveAll(next);
+      _setEntries(next);
+      _historyCache.remove(normalizedId);
       try {
-        await _store.deleteHistoryForCron(id);
+        await _store.deleteHistoryForCron(normalizedId);
       } catch (error, stack) {
         silentLog(
           'crons_controller',
@@ -447,24 +505,40 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
     _agentHandler = handler;
   }
 
-  Future<void> _executeAgentJob(
+  Future<bool> _executeAgentJob(
     CronEntry entry, {
     required String triggerType,
+    required int generation,
   }) async {
     final startedAt = DateTime.now();
     String stdout = '';
     Map<String, String> appContext = const <String, String>{};
     String status = 'success';
     String? errorMessage;
+    var completed = true;
     try {
       final handler = _agentHandler;
       if (handler == null) {
         stdout = 'noop: agent handler not registered';
       } else {
-        final result = await handler(entry);
+        final pending = handler(entry);
+        late final AgentHandlerResult result;
+        try {
+          result = await pending.timeout(
+            Duration(seconds: entry.timeoutSeconds),
+          );
+        } on TimeoutException {
+          completed = false;
+          status = 'timed_out';
+          errorMessage = 'Agent cron timed out after ${entry.timeoutSeconds}s.';
+          _watchTimedOutAgentCompletion(entry.id, pending);
+          rethrow;
+        }
         stdout = result.stdout;
         appContext = result.appContext;
       }
+    } on TimeoutException {
+      // The original handler remains guarded until it actually completes.
     } catch (error) {
       status = 'failed';
       errorMessage = '$error';
@@ -482,6 +556,7 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
       triggerType: triggerType,
       appContext: appContext,
     );
+    if (!_isCurrentRuntime(generation)) return completed;
     try {
       await _store.insertHistory(record);
       await _store.pruneHistory(entry.id);
@@ -491,61 +566,66 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
     }
     final cached = _historyCache[entry.id] ?? <CronExecutionRecord>[];
     _historyCache[entry.id] = [record, ...cached].take(50).toList();
-
-    _updateEntry(
+    await _commitRuntimeEntry(
       entry.id,
       (e) => e.copyWith(
-        status: status == 'success' ? CronJobStatus.idle : CronJobStatus.failed,
+        status: switch (status) {
+          'success' => CronJobStatus.idle,
+          'timed_out' => CronJobStatus.error,
+          _ => CronJobStatus.failed,
+        },
         lastRunAt: startedAt,
         consecutiveFailures: status == 'success'
             ? 0
-            : entry.consecutiveFailures + 1,
+            : e.consecutiveFailures + 1,
         updatedAt: DateTime.now(),
       ),
+      generation: generation,
     );
-    try {
-      final updated = _entries.firstWhere(
-        (e) => e.id == entry.id,
-        orElse: () => entry,
-      );
-      await _store.updateOne(updated);
-    } catch (error, stack) {
-      silentLog(
-        'crons_controller',
-        'persist entry after run completion',
-        error,
-        stack,
-      );
-    }
-    // Re-schedule next run.
-    final current = _entries.firstWhere(
-      (e) => e.id == entry.id,
-      orElse: () => entry,
-    );
-    _scheduleJob(current);
     notifyListeners();
+    return completed;
+  }
+
+  void _watchTimedOutAgentCompletion(
+    String id,
+    Future<AgentHandlerResult> pending,
+  ) {
+    unawaited(() async {
+      try {
+        await pending;
+      } catch (error, stack) {
+        silentLog(
+          'crons_controller',
+          'late agent cron completion',
+          error,
+          stack,
+        );
+      } finally {
+        _runningAgentJobIds.remove(id);
+        if (_activeExecutionCount > 0) _activeExecutionCount--;
+        _scheduleCurrentEntry(id);
+      }
+    }());
   }
 
   Future<bool> toggleCronEnabled(String id, {required bool enabled}) async {
+    final normalizedId = id.trim();
+    if (normalizedId.isEmpty) return false;
     return _commitMutation(() async {
-      final index = _entries.indexWhere((item) => item.id == id);
+      final index = _entries.indexWhere((item) => item.id == normalizedId);
       if (index < 0) return false;
       final entry = _entries[index].copyWith(
         enabled: enabled,
         status: enabled ? CronJobStatus.idle : CronJobStatus.paused,
         updatedAt: DateTime.now(),
       );
-      _setEntries(<CronEntry>[
+      final next = <CronEntry>[
         ..._entries.sublist(0, index),
         entry,
         ..._entries.sublist(index + 1),
-      ]);
-      await _store.saveAll(_entries);
-      if (enabled) {
-        _scheduleJob(entry);
-      } else {
-        _cancelTimer(id);
-      }
+      ];
+      await _store.saveAll(next);
+      _setEntries(next);
       return true;
     });
   }
@@ -563,28 +643,40 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> loadHistory(String cronId) async {
-    final records = await _store.loadHistory(cronId);
-    _historyCache[cronId] = records;
-    notifyListeners();
+    await _enqueueHistoryOperation<void>('loadHistory', null, () async {
+      final records = await _store.loadHistory(cronId);
+      _historyCache[cronId] = records;
+      notifyListeners();
+    });
   }
 
   Future<bool> clearHistoryForCron(String cronId) async {
-    return _commitMutation(() async {
-      await _store.deleteHistoryForCron(cronId);
-      _historyCache.remove(cronId);
-      return true;
-    });
+    return _enqueueHistoryOperation<bool>(
+      'clearHistoryForCron',
+      false,
+      () async {
+        await _store.deleteHistoryForCron(cronId);
+        _historyCache.remove(cronId);
+        notifyListeners();
+        return true;
+      },
+    );
   }
 
   Future<bool> deleteHistoryRecord(String cronId, String recordId) async {
-    return _commitMutation(() async {
-      await _store.deleteHistoryRecord(recordId);
-      final cached = _historyCache[cronId];
-      if (cached != null) {
-        cached.removeWhere((r) => r.id == recordId);
-      }
-      return true;
-    });
+    return _enqueueHistoryOperation<bool>(
+      'deleteHistoryRecord',
+      false,
+      () async {
+        await _store.deleteHistoryRecord(recordId);
+        final cached = _historyCache[cronId];
+        if (cached != null) {
+          cached.removeWhere((r) => r.id == recordId);
+        }
+        notifyListeners();
+        return true;
+      },
+    );
   }
 
   /// 删除所有 [cutoff] 之前的执行历史，返回受影响的行数。
@@ -592,42 +684,31 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
   /// 这是一个"尽力而为"的清理，调用方负责自身的异常兜底；
   /// 失败时返回 0，不抛异常。
   Future<int> purgeHistoryOlderThan(DateTime cutoff) async {
-    int affected = 0;
-    try {
-      affected = await _store.deleteHistoryOlderThan(cutoff);
-    } catch (error, stack) {
-      silentLog('crons_controller', 'purgeHistoryOlderThan', error, stack);
-      return 0;
-    }
-    if (affected == 0) return 0;
-    final cutoffKey = cutoff;
-    for (final cronId in _historyCache.keys.toList()) {
-      final cached = _historyCache[cronId];
-      if (cached == null) continue;
-      _historyCache[cronId] = cached
-          .where((r) => r.startedAt.isAfter(cutoffKey))
-          .toList(growable: false);
-    }
-    notifyListeners();
-    return affected;
+    return _enqueueHistoryOperation<int>('purgeHistoryOlderThan', 0, () async {
+      final affected = await _store.deleteHistoryOlderThan(cutoff);
+      if (affected == 0) return 0;
+      for (final cronId in _historyCache.keys.toList()) {
+        final cached = _historyCache[cronId];
+        if (cached == null) continue;
+        _historyCache[cronId] = cached
+            .where((record) => record.startedAt.isAfter(cutoff))
+            .toList(growable: false);
+      }
+      notifyListeners();
+      return affected;
+    });
   }
 
   /// 清空全部 cron 执行历史。返回受影响行数；失败返回 0
   /// 并 silentLog，不抛异常。仅由全局设置中的"日志清理 / 全部数据清空"
   /// 触发，调用方负责弹窗二次确认。
   Future<int> clearAllHistory() async {
-    int affected = 0;
-    try {
-      affected = await _store.deleteAllHistory();
-    } catch (error, stack) {
-      silentLog('crons_controller', 'clearAllHistory', error, stack);
-      return 0;
-    }
-    if (_historyCache.isNotEmpty) {
+    return _enqueueHistoryOperation<int>('clearAllHistory', 0, () async {
+      final affected = await _store.deleteAllHistory();
       _historyCache.clear();
-    }
-    notifyListeners();
-    return affected;
+      notifyListeners();
+      return affected;
+    });
   }
 
   /// 清空全部"非系统"cron 任务（保留 Hermes Talker / MCP
@@ -647,7 +728,6 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
       await _store.saveAll(preserved);
       _setEntries(preserved);
       for (final entry in removedEntries) {
-        _cancelTimer(entry.id);
         _historyCache.remove(entry.id);
         try {
           await _store.deleteHistoryForCron(entry.id);
@@ -668,11 +748,7 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
   Future<void> refresh() async {
     await _mutationQueue.enqueue(() async {
       if (_isDisposed) return;
-      final entries = await _store.loadAll();
-      if (_isDisposed) return;
-      _setEntries(entries);
-      _restartScheduler();
-      notifyListeners();
+      await _loadConfigurationLocked();
     });
   }
 
@@ -728,6 +804,8 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
 
   bool get _canExecuteInCurrentState {
     return !_isDisposed &&
+        _hasInitialized &&
+        _hasTrustedSnapshot &&
         !_isShuttingDown &&
         _appLifecycleState != AppLifecycleState.detached;
   }
@@ -735,10 +813,8 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
   void _shutdownSchedulersAndJobs() {
     if (_isShuttingDown) return;
     _isShuttingDown = true;
-    for (final timer in _scheduledTimers.values) {
-      timer.cancel();
-    }
-    _scheduledTimers.clear();
+    _runtimeGeneration++;
+    _cancelScheduledTimers();
     for (final job in _runningJobs.values) {
       job.cancel();
     }
@@ -757,11 +833,15 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
 
   void _restartScheduler() {
     if (!_canExecuteInCurrentState) return;
+    _cancelScheduledTimers();
+    _startScheduler();
+  }
+
+  void _cancelScheduledTimers() {
     for (final timer in _scheduledTimers.values) {
       timer.cancel();
     }
     _scheduledTimers.clear();
-    _startScheduler();
   }
 
   void _cancelTimer(String id) {
@@ -833,47 +913,59 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
     String triggerType = 'scheduled',
   }) async {
     if (!_canExecuteInCurrentState) return;
-    // Prevent overlapping executions of the same job.
-    if (_runningJobs.containsKey(entry.id)) return;
-
-    // Mark as running.
+    if (_runningJobs.containsKey(entry.id) ||
+        _runningAgentJobIds.contains(entry.id) ||
+        _activeExecutionCount >= _maxConcurrentExecutions) {
+      _scheduleCurrentEntry(entry.id);
+      return;
+    }
+    final generation = _runtimeGeneration;
+    _activeExecutionCount++;
     _updateEntryStatus(entry.id, CronJobStatus.running);
 
     // System agent entries dispatch to an injected handler rather than a
     // spawned process. If bootstrap has not registered the handler yet, the job
     // is reported as a no-op success so the scheduler can retry on the next tick.
     if (entry.scriptType == CronScriptType.agent) {
-      if (_runningAgentJobIds.contains(entry.id)) return;
       _runningAgentJobIds.add(entry.id);
+      var completed = true;
       try {
-        await _executeAgentJob(entry, triggerType: triggerType);
+        completed = await _executeAgentJob(
+          entry,
+          triggerType: triggerType,
+          generation: generation,
+        );
       } finally {
-        _runningAgentJobIds.remove(entry.id);
+        if (completed) {
+          _runningAgentJobIds.remove(entry.id);
+          if (_activeExecutionCount > 0) _activeExecutionCount--;
+        }
+        _scheduleCurrentEntry(entry.id);
       }
       return;
     }
 
-    final executionHandle = CronExecutor.start(
-      entry,
-      triggerType: triggerType,
-      runtimeContext: <String, String>{
-        'app.lifecycle': _appLifecycleState.name,
-      },
-    );
-    _runningJobs[entry.id] = executionHandle;
-
     try {
+      final executionHandle = CronExecutor.start(
+        entry,
+        triggerType: triggerType,
+        runtimeContext: <String, String>{
+          'app.lifecycle': _appLifecycleState.name,
+        },
+      );
+      _runningJobs[entry.id] = executionHandle;
       final record = await executionHandle.result;
+      if (!_isCurrentRuntime(generation)) return;
 
-      // Persist execution record.
-      await _store.insertHistory(record);
-      await _store.pruneHistory(entry.id);
+      try {
+        await _store.insertHistory(record);
+        await _store.pruneHistory(entry.id);
+      } catch (error, stack) {
+        silentLog('crons_controller', 'persist cron history', error, stack);
+      }
 
-      // Update cache.
       final cached = _historyCache[entry.id] ?? <CronExecutionRecord>[];
       _historyCache[entry.id] = [record, ...cached].take(50).toList();
-
-      // Update entry status based on result.
       final newStatus = switch (record.status) {
         'success' => CronJobStatus.idle,
         'timed_out' => CronJobStatus.error,
@@ -882,39 +974,41 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
         _ => CronJobStatus.error,
       };
 
-      final consecutiveFailures = switch (record.status) {
-        'success' => 0,
-        'killed' => entry.consecutiveFailures,
-        _ => entry.consecutiveFailures + 1,
-      };
-
-      _updateEntry(
+      await _commitRuntimeEntry(
         entry.id,
-        (e) => e.copyWith(
+        (current) => current.copyWith(
           status: newStatus,
           lastRunAt: record.startedAt,
           lastExitCode: record.exitCode,
-          consecutiveFailures: consecutiveFailures,
+          consecutiveFailures: switch (record.status) {
+            'success' => 0,
+            'killed' => current.consecutiveFailures,
+            _ => current.consecutiveFailures + 1,
+          },
           updatedAt: DateTime.now(),
         ),
+        generation: generation,
       );
-      await _store.updateOne(
-        _entries.firstWhere((e) => e.id == entry.id, orElse: () => entry),
-      );
-
-      await _sendExecutionNotification(entry, record);
-
-      // Re-schedule next run.
-      final current = _entries.firstWhere(
-        (e) => e.id == entry.id,
-        orElse: () => entry,
-      );
-      _scheduleJob(current);
+      try {
+        await _sendExecutionNotification(entry, record);
+      } catch (error, stack) {
+        silentLog('crons_controller', 'send cron notification', error, stack);
+      }
     } catch (error, stack) {
       silentLog('crons_controller', 'execute cron job', error, stack);
-      _updateEntryStatus(entry.id, CronJobStatus.error);
+      await _commitRuntimeEntry(
+        entry.id,
+        (current) => current.copyWith(
+          status: CronJobStatus.error,
+          consecutiveFailures: current.consecutiveFailures + 1,
+          updatedAt: DateTime.now(),
+        ),
+        generation: generation,
+      );
     } finally {
       _runningJobs.remove(entry.id);
+      if (_activeExecutionCount > 0) _activeExecutionCount--;
+      _scheduleCurrentEntry(entry.id);
       notifyListeners();
     }
   }
@@ -927,11 +1021,42 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
-  void _updateEntry(String id, CronEntry Function(CronEntry) updater) {
-    final index = _entries.indexWhere((e) => e.id == id);
-    if (index < 0) return;
-    _entries[index] = updater(_entries[index]);
-    _refreshEntriesView();
+  bool _isCurrentRuntime(int generation) {
+    return generation == _runtimeGeneration && _canExecuteInCurrentState;
+  }
+
+  Future<bool> _commitRuntimeEntry(
+    String id,
+    CronEntry Function(CronEntry current) update, {
+    required int generation,
+  }) {
+    return _mutationQueue.enqueue(() async {
+      if (!_isCurrentRuntime(generation)) return false;
+      final index = _entries.indexWhere((entry) => entry.id == id);
+      if (index < 0) return false;
+      final updated = update(_entries[index]);
+      try {
+        await _store.updateRuntimeState(updated);
+      } catch (error, stack) {
+        silentLog(
+          'crons_controller',
+          'persist cron runtime state',
+          error,
+          stack,
+        );
+        return false;
+      }
+      _entries[index] = updated;
+      _refreshEntriesView();
+      notifyListeners();
+      return true;
+    });
+  }
+
+  void _scheduleCurrentEntry(String id) {
+    if (!_canExecuteInCurrentState) return;
+    final index = _entries.indexWhere((entry) => entry.id == id);
+    if (index >= 0) _scheduleJob(_entries[index]);
   }
 
   void _setEntries(List<CronEntry> entries) {
@@ -1128,23 +1253,55 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   // Mutation queue
+  Future<T> _enqueueHistoryOperation<T>(
+    String tag,
+    T fallback,
+    Future<T> Function() operation,
+  ) {
+    if (_isDisposed) return Future<T>.value(fallback);
+    return _mutationQueue.enqueue(() async {
+      if (_isDisposed) return fallback;
+      try {
+        await _store.ensureTable();
+        return await operation();
+      } catch (error, stack) {
+        silentLog('crons_controller', tag, error, stack);
+        return fallback;
+      }
+    });
+  }
+
   Future<bool> _commitMutation(Future<bool> Function() mutation) {
     if (_isDisposed) return Future<bool>.value(false);
     return _mutationQueue.enqueue(() async {
       if (_isDisposed) return false;
+      if (!await _ensureReadyLocked()) return false;
       final previousEntries = List<CronEntry>.from(_entries);
+      _hasTrustedSnapshot = false;
+      _errorMessage = null;
+      _cancelScheduledTimers();
+      notifyListeners();
       try {
         final result = await mutation();
+        _hasTrustedSnapshot = true;
+        _restartScheduler();
         notifyListeners();
         return result;
       } catch (error, stack) {
         _setEntries(previousEntries);
-        _restartScheduler();
+        _hasTrustedSnapshot = false;
+        _errorMessage = '$error';
         silentLog('crons_controller', 'commit cron mutation', error, stack);
         notifyListeners();
         return false;
       }
     });
+  }
+
+  Future<bool> _ensureReadyLocked() async {
+    if (_hasInitialized && _hasTrustedSnapshot) return true;
+    await _loadConfigurationLocked();
+    return _hasInitialized && _hasTrustedSnapshot;
   }
 }
 
