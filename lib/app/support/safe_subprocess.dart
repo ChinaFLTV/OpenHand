@@ -329,57 +329,13 @@ Future<void> _runWindowsTaskkillTree(
   required bool force,
 }) async {
   if (processId <= 0) return;
-  final launchFuture = startTrackedProcess('taskkill', <String>[
-    '/PID',
-    '$processId',
-    '/T',
-    if (force) '/F',
-  ]);
-  Process? taskkill;
-  StreamSubscription<List<int>>? stdoutSub;
-  StreamSubscription<List<int>>? stderrSub;
-  try {
-    taskkill = await launchFuture.timeout(_windowsTaskkillTimeout);
-    stdoutSub = taskkill.stdout.listen(
-      (_) {},
-      onError: (Object error, StackTrace stack) {
-        silentLog('safe_subprocess', 'taskkill stdout', error, stack);
-      },
-      cancelOnError: true,
-    );
-    stderrSub = taskkill.stderr.listen(
-      (_) {},
-      onError: (Object error, StackTrace stack) {
-        silentLog('safe_subprocess', 'taskkill stderr', error, stack);
-      },
-      cancelOnError: true,
-    );
-    await taskkill.exitCode.timeout(
-      _windowsTaskkillTimeout,
-      onTimeout: () {
-        taskkill?.kill(ProcessSignal.sigkill);
-        return -1;
-      },
-    );
-  } on TimeoutException {
-    unawaited(
-      launchFuture.then<void>((lateProcess) {
-        lateProcess.kill(ProcessSignal.sigkill);
-      }, onError: (Object _, StackTrace _) {}),
-    );
-  } catch (error, stack) {
-    silentLog('safe_subprocess', 'taskkill process tree', error, stack);
-    try {
-      taskkill?.kill(ProcessSignal.sigkill);
-    } catch (killError, killStack) {
-      silentLog('safe_subprocess', 'kill stuck taskkill', killError, killStack);
-    }
-  } finally {
-    await Future.wait<void>(<Future<void>>[
-      _cancelProcessSubscription(stdoutSub, 'safe_subprocess', 'taskkill out'),
-      _cancelProcessSubscription(stderrSub, 'safe_subprocess', 'taskkill err'),
-    ]);
-  }
+  await runBinaryProcessWithTimeout(
+    'taskkill',
+    <String>['/PID', '$processId', '/T', if (force) '/F'],
+    timeout: _windowsTaskkillTimeout,
+    maxStdoutBytes: 0,
+    tag: 'safe_subprocess.taskkill',
+  );
 }
 
 Future<List<int>> _collectDescendantPids(int rootPid) async {
@@ -398,10 +354,15 @@ Future<List<int>> _collectDescendantPids(int rootPid) async {
     if (remaining <= Duration.zero) break;
     final parentPid = pendingParents.removeFirst();
     try {
-      final result = await Process.run(pgrep, <String>[
-        '-P',
-        '$parentPid',
-      ]).timeout(remaining);
+      final result = await runBinaryProcessWithTimeout(
+        pgrep,
+        <String>['-P', '$parentPid'],
+        timeout: remaining,
+        maxStdoutBytes: 64 * 1024,
+        maxStderrBytes: 8 * 1024,
+        tag: 'safe_subprocess.pgrep_descendants',
+      );
+      if (result == null) break;
       if (result.exitCode != 0) continue;
       for (final childPid in _parseChildPids(
         result.stdout,
@@ -530,10 +491,14 @@ Future<_ProcessGroupLauncher?> _resolveProcessGroupLauncher() {
 Future<void> _sendSignalToProcessGroup(int pid, String signal) async {
   if (Platform.isWindows) return;
   try {
-    await Process.run('/bin/kill', <String>[
-      '-$signal',
-      '-$pid',
-    ]).timeout(const Duration(seconds: 2));
+    await runBinaryProcessWithTimeout(
+      '/bin/kill',
+      <String>['-$signal', '-$pid'],
+      timeout: const Duration(seconds: 2),
+      maxStdoutBytes: 0,
+      maxStderrBytes: 8 * 1024,
+      tag: 'safe_subprocess.kill_group',
+    );
   } catch (error, stack) {
     silentLog('safe_subprocess', 'kill -$signal -$pid', error, stack);
   }
@@ -551,46 +516,63 @@ Future<int> killAllDirectChildren() async {
   try {
     final myPid = pid;
     if (Platform.isMacOS || Platform.isLinux) {
-      final result = await Process.run('pgrep', [
-        '-P',
-        '$myPid',
-      ]).timeout(_directChildEnumerationTimeout);
-      if (result.exitCode == 0) {
+      final result = await runBinaryProcessWithTimeout(
+        'pgrep',
+        <String>['-P', '$myPid'],
+        timeout: _directChildEnumerationTimeout,
+        maxStdoutBytes: 64 * 1024,
+        maxStderrBytes: 8 * 1024,
+        tag: 'safe_subprocess.pgrep_direct_children',
+      );
+      if (result?.exitCode == 0) {
         killed += await _terminatePidSet(
-          _parseChildPids(result.stdout, parentPid: myPid),
+          _parseChildPids(result?.stdout, parentPid: myPid),
           tag: 'kill direct child pid',
         );
       }
       // 第二遍补漏：pgrep 与逐个 kill 之间可能又 fork 出新的直接子进程。
       try {
-        final r2 = await Process.run('pkill', [
-          '-TERM',
-          '-P',
-          '$myPid',
-        ]).timeout(_directChildEnumerationTimeout);
-        if (r2.exitCode == 0) {
+        final termResult = await runBinaryProcessWithTimeout(
+          'pkill',
+          <String>['-TERM', '-P', '$myPid'],
+          timeout: _directChildEnumerationTimeout,
+          maxStdoutBytes: 0,
+          maxStderrBytes: 8 * 1024,
+          tag: 'safe_subprocess.pkill_term_children',
+        );
+        if (termResult?.exitCode == 0) {
           await Future<void>.delayed(_directChildTerminateGrace);
-          await Process.run('pkill', [
-            '-KILL',
-            '-P',
-            '$myPid',
-          ]).timeout(_directChildEnumerationTimeout);
+          await runBinaryProcessWithTimeout(
+            'pkill',
+            <String>['-KILL', '-P', '$myPid'],
+            timeout: _directChildEnumerationTimeout,
+            maxStdoutBytes: 0,
+            maxStderrBytes: 8 * 1024,
+            tag: 'safe_subprocess.pkill_force_children',
+          );
           killed = killed + 1; // pkill 本身不报数，保守计 1。
         }
       } catch (error, stack) {
         silentLog('safe_subprocess', 'pkill -P fallback', error, stack);
       }
     } else if (Platform.isWindows) {
-      final result = await Process.run('wmic', [
-        'process',
-        'where',
-        '(ParentProcessId=$myPid)',
-        'get',
-        'ProcessId',
-      ]).timeout(_directChildEnumerationTimeout);
-      if (result.exitCode == 0) {
+      final result = await runBinaryProcessWithTimeout(
+        'wmic',
+        <String>[
+          'process',
+          'where',
+          '(ParentProcessId=$myPid)',
+          'get',
+          'ProcessId',
+        ],
+        timeout: _directChildEnumerationTimeout,
+        maxStdoutBytes: 64 * 1024,
+        maxStderrBytes: 8 * 1024,
+        tag: 'safe_subprocess.wmic_children',
+      );
+      if (result?.exitCode == 0) {
         killed += await _terminatePidSet(
-          _parseChildPids(result.stdout, parentPid: myPid),
+          _parseChildPids(result?.stdout, parentPid: myPid),
           tag: 'kill windows child pid',
         );
       }
@@ -602,12 +584,24 @@ Future<int> killAllDirectChildren() async {
 }
 
 Set<int> _parseChildPids(Object? stdout, {required int parentPid}) {
-  return '$stdout'
+  final output = switch (stdout) {
+    final List<int> bytes => _decodeProcessManagementOutput(bytes),
+    _ => '$stdout',
+  };
+  return output
       .split(RegExp(r'\s+'))
       .map(optionalIntFromValue)
       .whereType<int>()
       .where((childPid) => childPid > 0 && childPid != parentPid)
       .toSet();
+}
+
+String _decodeProcessManagementOutput(List<int> bytes) {
+  try {
+    return systemEncoding.decode(bytes);
+  } catch (_) {
+    return const Utf8Decoder(allowMalformed: true).convert(bytes);
+  }
 }
 
 Future<int> _terminatePidSet(Set<int> pids, {required String tag}) async {
@@ -1325,6 +1319,8 @@ Future<ProcessResult?> runBinaryProcessWithTimeout(
   bool runInShell = false,
   bool includeParentEnvironment = true,
 }) async {
+  final effectiveTimeout = timeout.isNegative ? Duration.zero : timeout;
+  final stopwatch = Stopwatch()..start();
   Process? process;
   StreamSubscription<List<int>>? stdoutSub;
   StreamSubscription<List<int>>? stderrSub;
@@ -1347,8 +1343,17 @@ Future<ProcessResult?> runBinaryProcessWithTimeout(
     }
   }
 
+  Duration remainingTimeout() {
+    final remainingMicroseconds =
+        effectiveTimeout.inMicroseconds - stopwatch.elapsedMicroseconds;
+    if (remainingMicroseconds <= 0) {
+      throw TimeoutException('Binary process exceeded its time limit.');
+    }
+    return Duration(microseconds: remainingMicroseconds);
+  }
+
   try {
-    process = await Process.start(
+    final launchFuture = Process.start(
       executable,
       arguments,
       workingDirectory: workingDirectory,
@@ -1356,6 +1361,12 @@ Future<ProcessResult?> runBinaryProcessWithTimeout(
       runInShell: runInShell,
       includeParentEnvironment: includeParentEnvironment,
     );
+    try {
+      process = await launchFuture.timeout(remainingTimeout());
+    } on TimeoutException {
+      _terminateLateBinaryProcess(launchFuture, tag: tag);
+      return null;
+    }
     _registerTrackedChild(process);
     stdoutSub = process.stdout.listen(
       (chunk) => collectLimited(stdoutBytes, chunk, maxStdoutBytes),
@@ -1386,20 +1397,16 @@ Future<ProcessResult?> runBinaryProcessWithTimeout(
           await stdinFuture;
           return process!.exitCode;
         })().timeout(
-          timeout,
+          remainingTimeout(),
           onTimeout: () {
             process?.kill(ProcessSignal.sigkill);
             return -1;
           },
         );
-    await stdoutDone.future.timeout(
-      const Duration(milliseconds: 200),
-      onTimeout: () {},
-    );
-    await stderrDone.future.timeout(
-      const Duration(milliseconds: 200),
-      onTimeout: () {},
-    );
+    await Future.wait<void>(<Future<void>>[
+      stdoutDone.future,
+      stderrDone.future,
+    ]).timeout(_processStreamCleanupTimeout, onTimeout: () => const <void>[]);
     if (exitCode == -1) return null;
     return ProcessResult(
       process.pid,
@@ -1423,11 +1430,57 @@ Future<ProcessResult?> runBinaryProcessWithTimeout(
     }
     return null;
   } finally {
+    stopwatch.stop();
     await Future.wait<void>(<Future<void>>[
       _cancelProcessSubscription(stdoutSub, tag, 'stdout'),
       _cancelProcessSubscription(stderrSub, tag, 'stderr'),
     ]);
   }
+}
+
+void _terminateLateBinaryProcess(
+  Future<Process> launchFuture, {
+  required String tag,
+}) {
+  unawaited(
+    launchFuture.then<void>(
+      (lateProcess) async {
+        StreamSubscription<List<int>>? stdoutSub;
+        StreamSubscription<List<int>>? stderrSub;
+        try {
+          stdoutSub = lateProcess.stdout.listen(
+            (_) {},
+            onError: (Object _, StackTrace _) {},
+            cancelOnError: true,
+          );
+          stderrSub = lateProcess.stderr.listen(
+            (_) {},
+            onError: (Object _, StackTrace _) {},
+            cancelOnError: true,
+          );
+          unawaited(
+            lateProcess.stdin.close().catchError((Object _, StackTrace _) {}),
+          );
+          lateProcess.kill(ProcessSignal.sigkill);
+          await lateProcess.exitCode.timeout(_processTreeFinalWait);
+        } catch (error, stack) {
+          if (!_isMissingExecutableProcessException(error)) {
+            silentLog(tag, 'terminate late binary process', error, stack);
+          }
+        } finally {
+          await Future.wait<void>(<Future<void>>[
+            _cancelProcessSubscription(stdoutSub, tag, 'late binary stdout'),
+            _cancelProcessSubscription(stderrSub, tag, 'late binary stderr'),
+          ]);
+        }
+      },
+      onError: (Object error, StackTrace stack) {
+        if (!_isMissingExecutableProcessException(error)) {
+          silentLog(tag, 'late binary process start', error, stack);
+        }
+      },
+    ),
+  );
 }
 
 /// 跨平台「拉起系统 GUI 应用打开 URL / 文件 / 目录」专用通道。

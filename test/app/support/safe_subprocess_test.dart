@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -73,4 +74,33 @@ void main() {
       expect(failure, isA<ProcessException>());
     },
   );
+
+  test(
+    'binary runner retains only its configured output prefix',
+    () async {
+      final result = await runBinaryProcessWithTimeout(
+        '/bin/sh',
+        const <String>['-c', 'printf abcdef'],
+        timeout: const Duration(seconds: 2),
+        maxStdoutBytes: 3,
+      );
+
+      expect(result?.exitCode, 0);
+      expect(utf8.decode(result?.stdout as List<int>), 'abc');
+    },
+    skip: Platform.isWindows,
+  );
+
+  test('binary runner kills a direct child at its deadline', () async {
+    final stopwatch = Stopwatch()..start();
+
+    final result = await runBinaryProcessWithTimeout(
+      '/bin/sleep',
+      const <String>['30'],
+      timeout: const Duration(milliseconds: 100),
+    );
+
+    expect(result, isNull);
+    expect(stopwatch.elapsed, lessThan(const Duration(seconds: 2)));
+  }, skip: Platform.isWindows);
 }
