@@ -1337,7 +1337,9 @@ Future<void> _openOfficialDevToolsForController(
       idleTimeout: _kDevToolsDiscoveryTimeout,
     );
     try {
-      final req = await client.getUrl(webReverseCdpHttpUri(port, '/json/list'));
+      final req = await client
+          .getUrl(webReverseCdpHttpUri(port, '/json/list'))
+          .timeout(_kDevToolsDiscoveryTimeout);
       final res = await req.close().timeout(_kDevToolsDiscoveryTimeout);
       final body = await readBoundedHttpResponseText(
         res,

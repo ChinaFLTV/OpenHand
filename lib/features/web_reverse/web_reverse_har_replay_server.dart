@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import '../../app/support/silent_log.dart';
+import '../../shared/net/bounded_server_bind.dart';
 import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/text_clip.dart';
@@ -35,6 +36,7 @@ class WebReverseHarReplayServer {
   static const int _maxReplayHeaderValueChars = 8192;
   static const int _maxReplayBodyBytes = 5 * 1024 * 1024;
   static const int _maxConcurrentRequests = 64;
+  static const Duration _bindTimeout = Duration(seconds: 3);
   static const Duration _closeTimeout = Duration(seconds: 2);
   static const Set<String> _hopByHopHeaders = <String>{
     'connection',
@@ -135,9 +137,10 @@ class WebReverseHarReplayServer {
     }
     HttpServer server;
     try {
-      server = await HttpServer.bind(
+      server = await bindHttpServerBounded(
         InternetAddress.loopbackIPv4,
         requestedPort,
+        timeout: _bindTimeout,
       );
     } catch (error, stack) {
       silentLog('web_reverse_har_replay_server', 'bind', error, stack);

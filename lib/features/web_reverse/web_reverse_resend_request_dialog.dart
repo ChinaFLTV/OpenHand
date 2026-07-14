@@ -297,8 +297,20 @@ class _ResendRequestDialogState extends State<_ResendRequestDialog> {
       ..idleTimeout = const Duration(seconds: 6);
     _activeClient = client;
     final sw = Stopwatch()..start();
+
+    Duration remainingRequestTime() {
+      final remainingMicroseconds =
+          _kRequestTimeout.inMicroseconds - sw.elapsedMicroseconds;
+      if (remainingMicroseconds <= 0) {
+        throw TimeoutException('Request exceeded its total time limit.');
+      }
+      return Duration(microseconds: remainingMicroseconds);
+    }
+
     try {
-      final req = await client.openUrl(_method, uri);
+      final req = await client
+          .openUrl(_method, uri)
+          .timeout(remainingRequestTime());
       // 默认不自动补 Host/Content-Length/Content-Type；由用户在 headers 里
       // 显式控制。仅当用户没写 Content-Length 且有 body 时由 HttpClient 自动加。
       req.followRedirects = false;
@@ -314,18 +326,21 @@ class _ResendRequestDialogState extends State<_ResendRequestDialog> {
       if (body != null && body.isNotEmpty) {
         req.add(utf8.encode(body));
       }
-      final resp = await req.close().timeout(_kRequestTimeout);
+      final resp = await req.close().timeout(remainingRequestTime());
       final bodyBytes = <int>[];
       var truncated = false;
-      final readDeadline = DateTime.now().add(_kRequestTimeout);
-      await for (final chunk in resp.timeout(_kResponseReadIdleTimeout)) {
+      final remainingReadTime = remainingRequestTime();
+      final readIdleTimeout = remainingReadTime < _kResponseReadIdleTimeout
+          ? remainingReadTime
+          : _kResponseReadIdleTimeout;
+      await for (final chunk in resp.timeout(readIdleTimeout)) {
         bodyBytes.addAll(chunk);
         if (bodyBytes.length > _kMaxResponseBytes) {
           bodyBytes.removeRange(_kMaxResponseBytes, bodyBytes.length);
           truncated = true;
           break;
         }
-        if (DateTime.now().isAfter(readDeadline)) {
+        if (sw.elapsed >= _kRequestTimeout) {
           truncated = true;
           break;
         }

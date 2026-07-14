@@ -6,6 +6,7 @@ import 'package:http/io_client.dart' as http_io;
 
 import '../../app/support/safe_subprocess.dart';
 import '../../app/support/silent_log.dart';
+import '../../shared/net/bounded_server_bind.dart';
 import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/input_value_parsing.dart';
 import 'web_reverse_browser_kind.dart';
@@ -45,6 +46,7 @@ class WebReverseBrowserLauncher {
   static const int _firstCdpPort = 9222;
   static const int _lastCdpPortExclusive = 9322;
   static const Duration _handshakeTimeout = Duration(seconds: 30);
+  static const Duration _portProbeTimeout = Duration(milliseconds: 400);
   static const Duration _streamCleanupTimeout = Duration(seconds: 1);
 
   /// 创建一个**强制绕过任何系统/用户级代理**的 HTTP 客户端。
@@ -70,7 +72,7 @@ class WebReverseBrowserLauncher {
         try {
           final resp = await probeClient
               .get(webReverseCdpHttpUri(port, '/json/version'))
-              .timeout(const Duration(milliseconds: 400));
+              .timeout(_portProbeTimeout);
           if (resp.statusCode >= 200 && resp.statusCode < 500) {
             // 端口活着且响应——大概率是别的浏览器实例占用，跳过。
             continue;
@@ -80,9 +82,10 @@ class WebReverseBrowserLauncher {
         }
         // 2) 本进程能否 bind？
         try {
-          final server = await ServerSocket.bind(
+          final server = await bindServerSocketBounded(
             InternetAddress.loopbackIPv4,
             port,
+            timeout: _portProbeTimeout,
           );
           await server.close();
           return port;

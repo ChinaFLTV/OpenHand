@@ -5,6 +5,7 @@ import 'dart:typed_data';
 
 import '../../app/support/safe_subprocess.dart';
 import '../../app/support/silent_log.dart';
+import '../../shared/net/bounded_server_bind.dart';
 import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/input_value_parsing.dart';
 
@@ -54,6 +55,7 @@ class WebReverseMitmproxyBridge {
 
   static const int _kMaxMitmBodyBytes = 256 * 1024;
   static const int _kMaxCallbackPayloadBytes = 2 * 1024 * 1024;
+  static const Duration _kBindTimeout = Duration(seconds: 5);
   static const Duration _kCallbackBodyIdleTimeout = Duration(seconds: 5);
   static const Duration _kCallbackBodyTotalTimeout = Duration(seconds: 20);
 
@@ -105,9 +107,10 @@ class WebReverseMitmproxyBridge {
 
     HttpServer cbServer;
     try {
-      cbServer = await HttpServer.bind(
+      cbServer = await bindHttpServerBounded(
         InternetAddress.loopbackIPv4,
         callbackPort,
+        timeout: _kBindTimeout,
       );
     } catch (error, stack) {
       silentLog('web_reverse_mitmproxy_bridge', 'cb bind', error, stack);

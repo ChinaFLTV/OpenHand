@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import '../../../../app/support/silent_log.dart';
+import '../../../../shared/net/bounded_server_bind.dart';
 import '../../../../shared/net/tcp_port_utils.dart';
 import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/byte_size_format.dart';
@@ -240,9 +241,10 @@ class _SandboxProxyInstance {
   }
 
   Future<ServerSocket> _bind(int requestedPort) {
-    return ServerSocket.bind(
+    return bindServerSocketBounded(
       InternetAddress.loopbackIPv4,
       requestedPort > 0 ? requestedPort : 0,
+      timeout: limits.connectionTimeout,
     );
   }
 
