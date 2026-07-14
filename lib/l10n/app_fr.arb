@@ -13,6 +13,10 @@
   },
   "settings": "Paramètres",
   "threads": "Fils",
+  "threadsLoadMore": "Charger plus de fils",
+  "@threadsLoadMore": {
+    "description": "Button that expands the thread list."
+  },
   "composerHint": "Demandez n'importe quoi à OpenHand, utilisez / pour les actions et @ pour le contexte",
   "composerSend": "Envoyer",
   "chatSending": "Envoi",
@@ -7974,10 +7978,6 @@
   },
   "appUpdateDownload": "Télécharger",
   "@appUpdateDownload": {
-    "description": "OpenHand localized UI text."
-  },
-  "appUpdateBackground": "En arrière-plan",
-  "@appUpdateBackground": {
     "description": "OpenHand localized UI text."
   },
   "exportRangeInvalid": "Saisissez une plage valide (1 ≤ début ≤ fin)",

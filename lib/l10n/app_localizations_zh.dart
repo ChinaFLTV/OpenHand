@@ -33,6 +33,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get threads => '线程';
 
   @override
+  String get threadsLoadMore => '加载更多线程';
+
+  @override
   String get composerHint => '询问 OpenHand 任何内容，使用 / 触发动作，使用 @ 引用上下文';
 
   @override
@@ -9876,9 +9879,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get appUpdateDownload => '下载更新';
 
   @override
-  String get appUpdateBackground => '后台下载';
-
-  @override
   String get exportRangeInvalid => '请输入有效区间 (1 ≤ 起始 ≤ 结束)';
 
   @override
@@ -10682,6 +10682,9 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get threads => '執行緒';
+
+  @override
+  String get threadsLoadMore => '載入更多執行緒';
 
   @override
   String get composerHint => '詢問 OpenHand 任何內容，使用 / 觸發動作，使用 @ 引用上下文';
@@ -20524,9 +20527,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get appUpdateDownload => '下載更新';
-
-  @override
-  String get appUpdateBackground => '背景下載';
 
   @override
   String get exportRangeInvalid => '請輸入有效區間 (1 ≤ 起始 ≤ 結束)';

@@ -923,6 +923,19 @@ class AiSessionController extends ChangeNotifier {
   }
 
   List<AiSession> get sessions => _sessionsView;
+  Set<String> get activeSessionIds {
+    final ids = <String>{
+      ..._sessionSendPhases.keys,
+      ..._sessionPendingSendOperationIds,
+    };
+    for (final entry in _sessionStopSignals.entries) {
+      if (!entry.value.isCompleted) {
+        ids.add(entry.key);
+      }
+    }
+    return ids;
+  }
+
   List<AiThreadTemplate> get templates => _templateRepository.templates;
   List<AiThreadTemplate> get availableTemplates =>
       _templateRepository.templatesForPlatform();

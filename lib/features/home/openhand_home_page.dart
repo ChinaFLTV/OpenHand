@@ -206,6 +206,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   /// 通过它取到 [_buildRuntimeContext]、[AiSessionController] 等私有 API。
   /// 同一时刻只会存在一个 OpenHand home page。
   static _OpenHandHomePageState? _activeHomeState;
+  static const int _navigationSessionPageSize = 64;
   static const int _androidReverseMcpToolSearchLimit = 8;
   static const List<String> _androidReverseMcpKeywords = <String>[
     ...TemplateRuntimeDependencyRegistry.androidReverseMcpKeywords,
@@ -250,6 +251,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       WebReverseCdpMcpBridge();
 
   AppSection _selectedSection = AppSection.workspace;
+  int _navigationSessionLimit = _navigationSessionPageSize;
   _CreationMode _creationMode = _CreationMode.none;
   // macOS native menu bridge — see [_initNativeMenuChannel]. Only initialised
   // on macOS, where the system menu bar's "Settings…" item should drive the
@@ -726,13 +728,65 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         _activeSubmissionSerialsBySessionId.containsKey(sessionId);
   }
 
+  List<AiSession> _navigationSessions(AiSessionController sessionController) {
+    final sessions = sessionController.sessions;
+    if (sessions.length <= _navigationSessionLimit) {
+      return sessions;
+    }
+    final visible = sessions
+        .take(_navigationSessionLimit)
+        .toList(growable: true);
+    final visibleIds = visible.map((session) => session.id).toSet();
+    final retainedIds = <String>{
+      ...sessionController.activeSessionIds,
+      ..._activeSubmissionSerialsBySessionId.keys,
+      if (_submittingSessionId case final sessionId?) sessionId,
+      if (sessionController.currentSessionId case final sessionId?) sessionId,
+    };
+    final retained = <AiSession>[];
+    for (final sessionId in retainedIds) {
+      if (visibleIds.contains(sessionId)) continue;
+      final session = sessionController.sessionById(sessionId);
+      if (session == null) continue;
+      final isCurrent = sessionId == sessionController.currentSessionId;
+      if (isCurrent ||
+          _displaySendPhaseForSession(sessionController, sessionId) !=
+              AiSendPhase.idle) {
+        retained.add(session);
+      }
+    }
+    retained.sort((left, right) => right.updatedAt.compareTo(left.updatedAt));
+    return List<AiSession>.unmodifiable(<AiSession>[...visible, ...retained]);
+  }
+
   Map<String, AiSendPhase> _navigationSendPhases(
     AiSessionController sessionController,
+    List<AiSession> sessions,
   ) {
     return <String, AiSendPhase>{
-      for (final session in sessionController.sessions)
+      for (final session in sessions)
         session.id: _displaySendPhaseForSession(sessionController, session.id),
     };
+  }
+
+  int _navigationHarnessInsertionIndex(List<AiSession> sessions) {
+    final harnessUpdatedAt = _persistedHarnessSession?.updatedAt;
+    if (harnessUpdatedAt == null) return -1;
+    for (var index = 0; index < sessions.length; index++) {
+      if (!sessions[index].updatedAt.isAfter(harnessUpdatedAt)) return index;
+    }
+    return sessions.length;
+  }
+
+  void _loadMoreNavigationSessions() {
+    final sessionCount = context.read<AiSessionController>().sessions.length;
+    if (_navigationSessionLimit >= sessionCount) return;
+    setState(() {
+      _navigationSessionLimit = math.min(
+        sessionCount,
+        _navigationSessionLimit + _navigationSessionPageSize,
+      );
+    });
   }
 
   bool _isPlanTimelineCollapsed(String? sessionId) {
@@ -9242,20 +9296,35 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
                       .toDouble();
                   final navigationPane =
                       Selector<AiSessionController, _NavigationSessionSnapshot>(
-                        selector: (_, sessionController) =>
-                            _NavigationSessionSnapshot(
-                              sessions: sessionController.sessions,
-                              sendPhases: _navigationSendPhases(
-                                sessionController,
-                              ),
-                              currentSessionId:
-                                  sessionController.currentSessionId,
+                        selector: (_, sessionController) {
+                          final sessions = _navigationSessions(
+                            sessionController,
+                          );
+                          return _NavigationSessionSnapshot(
+                            sessions: sessions,
+                            sendPhases: _navigationSendPhases(
+                              sessionController,
+                              sessions,
                             ),
+                            currentSessionId:
+                                sessionController.currentSessionId,
+                            totalSessionCount:
+                                sessionController.sessions.length,
+                            harnessInsertionIndex:
+                                _navigationHarnessInsertionIndex(sessions),
+                          );
+                        },
                         builder: (context, snapshot, _) => _NavigationPane(
                           selectedSection: _selectedSection,
                           sessions: snapshot.sessions,
+                          sessionLimit: _navigationSessionLimit,
+                          totalSessionCount: snapshot.totalSessionCount,
+                          hasMoreSessions:
+                              _navigationSessionLimit <
+                              snapshot.totalSessionCount,
                           sessionSendPhases: snapshot.sendPhases,
                           currentSessionId: snapshot.currentSessionId,
+                          onLoadMoreSessions: _loadMoreNavigationSessions,
                           onCreateThreadRequested: _createSessionFromDialog,
                           onSessionSelected: _activateSession,
                           onRenameSession: _renameSession,

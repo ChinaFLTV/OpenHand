@@ -15,6 +15,12 @@ const int _maxPendingKnowledgeSourceCleanups = 2048;
 const int _pendingKnowledgeSourceCleanupRetryBatch = 4;
 const int _knowledgeSourceIdMaxCharacters = 512;
 const Duration _pendingKnowledgeSourceDeleteTimeout = Duration(seconds: 5);
+const Duration _pendingKnowledgeSourceLookupTimeout = Duration(seconds: 5);
+const Duration _pendingKnowledgeSourceRetryTimeout = Duration(seconds: 15);
+const Duration _staleKnowledgeSourceCleanupIntentAge = Duration(days: 1);
+const Duration _knowledgeSourceCleanupFutureClockTolerance = Duration(
+  minutes: 5,
+);
 const String _pendingKnowledgeSourceCleanupSettingPrefix =
     'knowledge_source_cleanup:';
 final SerialTaskQueue _knowledgeSourceCleanupQueue = SerialTaskQueue();
@@ -38,9 +44,10 @@ Future<void> stageManagedKnowledgeSourceFileCleanup(
 Future<void> cancelManagedKnowledgeSourceFileCleanup(
   KnowledgeSource source,
 ) async {
-  if (source.metadata['copied_to_openhand_storage'] != true) return;
+  final entry = _managedKnowledgeSourceCleanupEntry(source);
+  if (entry == null) return;
   await _knowledgeSourceCleanupQueue.enqueue(
-    () => _deleteCleanupMarker(source.id),
+    () => _deleteCleanupMarker(entry.sourceId),
   );
 }
 
@@ -85,11 +92,25 @@ Future<void> retryPendingKnowledgeSourceFileCleanups({
     try {
       final pending = await _loadPendingKnowledgeSourceCleanups();
       var attempted = 0;
+      final now = DateTime.now().toUtc();
+      final retryStopwatch = Stopwatch()..start();
       for (final entry in pending) {
+        final remaining =
+            _pendingKnowledgeSourceRetryTimeout - retryStopwatch.elapsed;
+        if (remaining <= Duration.zero) break;
         try {
-          // A staged marker may belong to a deletion that has not committed
-          // yet. Keep it until the source row is gone.
-          if (await sourceExists(entry.sourceId)) continue;
+          // Retain recent markers while deletion may still be in progress;
+          // expire abandoned intents so they cannot occupy capacity forever.
+          final lookupTimeout = remaining < _pendingKnowledgeSourceLookupTimeout
+              ? remaining
+              : _pendingKnowledgeSourceLookupTimeout;
+          if (await sourceExists(entry.sourceId).timeout(lookupTimeout)) {
+            if (now.difference(entry.createdAt) >=
+                _staleKnowledgeSourceCleanupIntentAge) {
+              await _deleteCleanupMarker(entry.sourceId);
+            }
+            continue;
+          }
           if (attempted >= _pendingKnowledgeSourceCleanupRetryBatch) break;
           attempted += 1;
           await _deleteManagedKnowledgeSourcePath(entry.path);
@@ -101,6 +122,7 @@ Future<void> retryPendingKnowledgeSourceFileCleanups({
             error,
             stack,
           );
+          if (error is TimeoutException) break;
         }
       }
     } catch (error, stack) {
@@ -143,12 +165,13 @@ Future<void> _stageCleanup(({String sourceId, String path}) entry) async {
       'value': jsonEncode(<String, String>{
         'source_id': entry.sourceId,
         'path': entry.path,
+        'created_at': DateTime.now().toUtc().toIso8601String(),
       }),
     }, conflictAlgorithm: ConflictAlgorithm.replace);
   });
 }
 
-Future<List<({String sourceId, String path})>>
+Future<List<({DateTime createdAt, String sourceId, String path})>>
 _loadPendingKnowledgeSourceCleanups() async {
   final db = DatabaseService.instance.database;
   final rows = await db.query(
@@ -160,7 +183,10 @@ _loadPendingKnowledgeSourceCleanups() async {
     limit: _maxPendingKnowledgeSourceCleanups,
   );
   final root = p.absolute(knowledgeManagedSourcesDirectoryPath);
-  final entries = <({String sourceId, String path})>[];
+  final entries = <({DateTime createdAt, String sourceId, String path})>[];
+  final latestAllowedTimestamp = DateTime.now().toUtc().add(
+    _knowledgeSourceCleanupFutureClockTolerance,
+  );
   for (final row in rows) {
     final markerKey = row['key'];
     try {
@@ -168,13 +194,23 @@ _loadPendingKnowledgeSourceCleanups() async {
       if (decoded is! Map) throw const FormatException('Invalid marker.');
       final sourceId = '${decoded['source_id'] ?? ''}'.trim();
       final path = p.absolute('${decoded['path'] ?? ''}'.trim());
+      final createdAtText = '${decoded['created_at'] ?? ''}'.trim();
+      final parsedCreatedAt = createdAtText.isEmpty
+          ? DateTime.fromMillisecondsSinceEpoch(0, isUtc: true)
+          : DateTime.tryParse(createdAtText)?.toUtc();
+      final createdAt =
+          parsedCreatedAt != null &&
+              parsedCreatedAt.isAfter(latestAllowedTimestamp)
+          ? DateTime.fromMillisecondsSinceEpoch(0, isUtc: true)
+          : parsedCreatedAt;
       if (sourceId.isEmpty ||
           sourceId.length > _knowledgeSourceIdMaxCharacters ||
+          createdAt == null ||
           markerKey != _cleanupMarkerKey(sourceId) ||
           !p.isWithin(root, path)) {
         throw const FormatException('Invalid marker fields.');
       }
-      entries.add((sourceId: sourceId, path: path));
+      entries.add((createdAt: createdAt, sourceId: sourceId, path: path));
     } catch (error, stack) {
       silentLog(
         'knowledge_source_storage',

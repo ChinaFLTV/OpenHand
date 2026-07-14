@@ -6,12 +6,14 @@
 import assert from 'node:assert/strict';
 import {
   MESSAGE_LIST_VIRTUALIZATION_THRESHOLD,
+  boundLiveMessageWindow,
   buildHeightPrefix,
   clampMessageRowHeight,
   firstVirtualMessageAfter,
   firstVirtualMessageIntersecting,
   initialVirtualMessageRange,
   resolveVirtualMessageRange,
+  remainingNewerMessageCount,
   shouldVirtualizeMessageList,
   virtualMessageTop,
   virtualMessageTotalHeight,
@@ -31,6 +33,19 @@ function test(name, fn) {
 test('shouldVirtualize only after threshold', () => {
   assert.equal(shouldVirtualizeMessageList(MESSAGE_LIST_VIRTUALIZATION_THRESHOLD), false);
   assert.equal(shouldVirtualizeMessageList(MESSAGE_LIST_VIRTUALIZATION_THRESHOLD + 1), true);
+});
+
+test('live window stays bounded while retaining the latest tail', () => {
+  const underLimit = [1, 2, 3];
+  const unchanged = boundLiveMessageWindow(underLimit, 7, 3);
+  assert.equal(unchanged.items, underLimit);
+  assert.equal(unchanged.offset, 7);
+  assert.deepEqual(
+    boundLiveMessageWindow([1, 2, 3, 4, 5], 7, 3),
+    { items: [3, 4, 5], offset: 9 },
+  );
+  assert.equal(remainingNewerMessageCount(100, 20, 50), 30);
+  assert.equal(remainingNewerMessageCount(10, 0, 20), 0);
 });
 
 test('initial range mounts full list below threshold', () => {

@@ -174,11 +174,14 @@ import {
   MESSAGE_LIST_DEFAULT_PAGE_SIZE,
   MESSAGE_LIST_ESTIMATED_ROW_HEIGHT_PX,
   MESSAGE_LIST_GAP_PX,
+  MESSAGE_LIST_MAX_LOADED_MESSAGES,
   MESSAGE_LIST_VIRTUALIZATION_OVERSCAN_PX,
+  boundLiveMessageWindow,
   buildHeightPrefix,
   clampMessageRowHeight,
   initialVirtualMessageRange,
   resolveVirtualMessageRange,
+  remainingNewerMessageCount,
   shouldVirtualizeMessageList,
   virtualMessageTop,
   virtualMessageTotalHeight,
@@ -2714,7 +2717,11 @@ function MeasuredMessageRow({
   }, [message.id, onHeightChange]);
 
   return (
-    <li ref={rowRef} class="oh-session-message-row">
+    <li
+      ref={rowRef}
+      class="oh-session-message-row"
+      data-message-id={message.id}
+    >
       {children}
     </li>
   );
@@ -2885,7 +2892,11 @@ function VirtualMessageList({
     return (
       <ul class="oh-session-message-list flex flex-col gap-3">
         {messages.map((message) => (
-          <li key={message.id} class="oh-session-message-row">
+          <li
+            key={message.id}
+            class="oh-session-message-row"
+            data-message-id={message.id}
+          >
             {renderMessage(message)}
           </li>
         ))}
@@ -3287,6 +3298,7 @@ export function SessionDetailPage() {
   const messagesRef = useRef<SessionMessage[]>([]);
   const associatedKnowledgeBaseCacheRef = useRef(new Map<string, AssociatedKnowledgeBaseCacheEntry>());
   const windowOffsetRef = useRef(0);
+  const totalKnownRef = useRef(0);
 
   const [detail, setDetail] = useState<SessionDetailResponse | null>(null);
   const [messages, setMessages] = useState<SessionMessage[]>([]);
@@ -4805,8 +4817,30 @@ export function SessionDetailPage() {
     setWindowOffset(offset);
   }
 
+  function replaceBoundedMessageWindow(items: SessionMessage[], offset: number): void {
+    const bounded = boundLiveMessageWindow(items, offset);
+    replaceMessageWindow(bounded.items, bounded.offset);
+  }
+
   function updateTotalKnown(value: number): void {
+    totalKnownRef.current = value;
     setTotalKnown((current) => (current === value ? current : value));
+  }
+
+  function messageWindowHasNewerMessages(): boolean {
+    return remainingNewerMessageCount(
+      totalKnownRef.current,
+      windowOffsetRef.current,
+      messagesRef.current.length,
+    ) > 0;
+  }
+
+  function renderedMessageRow(messageId: string): HTMLElement | null {
+    const container = messagesContentRef.current;
+    if (!container || !messageId) return null;
+    return Array.from(
+      container.querySelectorAll<HTMLElement>('[data-message-id]'),
+    ).find((element) => element.dataset['messageId'] === messageId) ?? null;
   }
 
   function updateSendPhaseValue(value: string): void {
@@ -4856,7 +4890,7 @@ export function SessionDetailPage() {
 
   function applyServerMessageWindow(latest: SessionMessage[], nextOffset: number, options: MergeServerWindowOptions = {}): void {
     const result = mergeServerWindowResult(messagesRef.current, latest, windowOffsetRef.current, nextOffset, options);
-    replaceMessageWindow(result.items, result.offset);
+    replaceBoundedMessageWindow(result.items, result.offset);
   }
 
   async function refreshAutoTitleSummary(): Promise<boolean> {
@@ -4933,7 +4967,7 @@ export function SessionDetailPage() {
         // 历史会话首批消息直接标记为已入场，绕过 CSS 入场 + 高度量动画的
         // 并发开销；后续流式 / SSE 真正新增的消息仍会正常入场。
         markMessagesAsAppeared(m.items.map((it) => it.id));
-        replaceMessageWindow([...m.items], m.offset);
+        replaceBoundedMessageWindow(m.items, m.offset);
         updateTotalKnown(m.total);
         updateSendPhaseValue(m.send_phase || d.runtime.send_phase || 'idle');
         updateLastErrorValue(m.last_error ?? d.runtime.last_error ?? null);
@@ -4952,9 +4986,25 @@ export function SessionDetailPage() {
       });
   }
 
-  async function refresh(): Promise<void> {
-    if (!sessionId || refreshing || messagesAbortRef.current) return;
+  async function refresh({
+    replaceWithLatest = false,
+  }: { replaceWithLatest?: boolean } = {}): Promise<void> {
+    if (!sessionId) return;
     const requestSessionId = sessionId;
+    const shouldReplaceWindow = replaceWithLatest || messageWindowHasNewerMessages();
+    if (messagesAbortRef.current) {
+      if (!shouldReplaceWindow) return;
+      messagesAbortRef.current.abort();
+      messagesAbortRef.current = null;
+      setRefreshing(false);
+    }
+    if (olderMessagesAbortRef.current) {
+      if (!shouldReplaceWindow) return;
+      olderMessagesAbortRef.current.abort();
+      olderMessagesAbortRef.current = null;
+      setLoadingOlder(false);
+      setOlderRenderSettlingValue(false);
+    }
     const ctrl = new AbortController();
     messagesAbortRef.current = ctrl;
     setRefreshing(true);
@@ -4965,14 +5015,22 @@ export function SessionDetailPage() {
         signal: ctrl.signal,
       });
       if (ctrl.signal.aborted || !ownsSessionAsyncResult(requestSessionId)) return;
-      applyServerMessageWindow(m.items, m.offset, {
-        preserveLocalStreamingTail: isRunningPhase(m.send_phase) || isRunningPhase(sendPhase),
-      });
+      if (shouldReplaceWindow) {
+        markMessagesAsAppeared(m.items.map((item) => item.id));
+        replaceBoundedMessageWindow(m.items, m.offset);
+      } else {
+        applyServerMessageWindow(m.items, m.offset, {
+          preserveLocalStreamingTail: isRunningPhase(m.send_phase) || isRunningPhase(sendPhase),
+        });
+      }
       updateTotalKnown(m.total);
       updateSendPhaseValue(m.send_phase);
       updateLastErrorValue(m.last_error);
       updatePendingWriteApprovalValue(m.pending_write_approval);
       if (m.session) mergeSessionSummaryFromPolling(m.session);
+      if (shouldReplaceWindow) {
+        schedulePostRenderFrame(() => scheduleAutoFollowToBottom('auto'));
+      }
     } catch (e: unknown) {
       if (ctrl.signal.aborted || !ownsSessionAsyncResult(requestSessionId)) return;
       if (handleAuthError(e)) return;
@@ -4990,11 +5048,13 @@ export function SessionDetailPage() {
     if (
       loadingOlder ||
       olderRenderSettlingRef.current ||
-      olderMessagesAbortRef.current
+      olderMessagesAbortRef.current ||
+      messagesAbortRef.current
     ) {
       return;
     }
-    if (windowOffset <= 0) return;
+    const currentOffset = windowOffsetRef.current;
+    if (currentOffset <= 0) return;
     const requestSessionId = sessionId;
     const ctrl = new AbortController();
     olderMessagesAbortRef.current = ctrl;
@@ -5002,21 +5062,26 @@ export function SessionDetailPage() {
     const scroller = mainRef.current;
     const beforeHeight = scroller?.scrollHeight ?? 0;
     const beforeY = scroller?.scrollTop ?? 0;
+    const currentMessages = messagesRef.current;
+    const anchorId = currentMessages[0]?.id ?? '';
+    const anchorTop = renderedMessageRow(anchorId)?.getBoundingClientRect().top;
     try {
-      const offset = Math.max(0, windowOffset - PAGE_SIZE);
+      const offset = Math.max(0, currentOffset - PAGE_SIZE);
+      const requestedLimit = Math.min(
+        MESSAGE_LIST_MAX_LOADED_MESSAGES,
+        currentMessages.length + (currentOffset - offset),
+      );
       const m = await listMessages(requestSessionId, {
-        limit: Math.max(1, windowOffset - offset),
+        limit: Math.max(1, requestedLimit),
         offset,
         signal: ctrl.signal,
       });
       if (ctrl.signal.aborted || !ownsSessionAsyncResult(requestSessionId)) return;
-      const currentMessages = messagesRef.current;
       const existing = new Set(currentMessages.map((item) => item.id));
       const incoming = m.items.filter((item) => !existing.has(item.id));
       markMessagesAsAppeared(incoming.map((item) => item.id));
       setOlderRenderSettlingValue(incoming.length > 0);
-      const nextMessages = [...incoming, ...currentMessages];
-      replaceMessageWindow(nextMessages, m.offset);
+      replaceBoundedMessageWindow(m.items, m.offset);
       updateTotalKnown(m.total);
       updateSendPhaseValue(m.send_phase);
       updateLastErrorValue(m.last_error);
@@ -5026,6 +5091,14 @@ export function SessionDetailPage() {
         if (!ownsSessionAsyncResult(requestSessionId)) return;
         const el = mainRef.current;
         if (!el) return;
+        const anchoredRow = renderedMessageRow(anchorId);
+        if (anchoredRow != null && anchorTop != null) {
+          el.scrollBy({
+            top: anchoredRow.getBoundingClientRect().top - anchorTop,
+            behavior: 'auto',
+          });
+          return;
+        }
         const delta = el.scrollHeight - beforeHeight;
         el.scrollTo({ top: beforeY + delta, behavior: 'auto' });
       });
@@ -5102,7 +5175,7 @@ export function SessionDetailPage() {
         const snapOffset = snap.message_window?.offset ?? Math.max(0, (snap.session.message_count ?? snap.messages.length) - snap.messages.length);
         const snapTotal = snap.message_window?.total ?? snap.session.message_count ?? snap.messages.length;
         const emptyWindowWouldHideLoadedHistory = snap.messages.length === 0 && snapTotal > 0 && messagesRef.current.length > 0;
-        if (!emptyWindowWouldHideLoadedHistory) {
+        if (!emptyWindowWouldHideLoadedHistory && !messageWindowHasNewerMessages()) {
           applyServerMessageWindow(snap.messages, snapOffset, {
             preserveLocalStreamingTail: isRunningPhase(snap.send_phase),
           });
@@ -5418,6 +5491,7 @@ export function SessionDetailPage() {
       return false;
     }
     const dispatchSessionId = sessionId;
+    const returnToLatestAfterSend = messageWindowHasNewerMessages();
     setComposerError(null);
     lastLocalSendAtRef.current = Date.now();
     try {
@@ -5433,7 +5507,11 @@ export function SessionDetailPage() {
       if (!ownsSessionAsyncResult(dispatchSessionId)) return false;
       removeQueuedMessageAfterSend(next.id);
       updateSendPhaseValue(res.send_phase || 'sendingMessage');
-      if (!sseLive) void refresh();
+      if (returnToLatestAfterSend) {
+        void returnToLatest();
+      } else if (!sseLive) {
+        void refresh();
+      }
       if (shouldWatchAutoTitleAfterSend(next.content)) scheduleAutoTitleFollowUp();
       return true;
     } catch (e: unknown) {
@@ -5608,9 +5686,11 @@ export function SessionDetailPage() {
         const offset = m.offset ?? Math.max(0, m.total - m.items.length);
         if (shouldApplyPollingMessageWindow(sseLive, m.send_phase)) {
           // 只合并最新窗口；不动「加载更早」拉过来的历史前缀。
-          applyServerMessageWindow(m.items, offset, {
-            preserveLocalStreamingTail: isRunningPhase(m.send_phase) || isRunningPhase(sendPhase),
-          });
+          if (!messageWindowHasNewerMessages()) {
+            applyServerMessageWindow(m.items, offset, {
+              preserveLocalStreamingTail: isRunningPhase(m.send_phase) || isRunningPhase(sendPhase),
+            });
+          }
           updateTotalKnown(m.total);
           updateSendPhaseValue(m.send_phase);
           updateLastErrorValue(m.last_error);
@@ -6427,6 +6507,7 @@ export function SessionDetailPage() {
     lastLocalSendAtRef.current = Date.now();
     const requestSessionId = sessionId;
     const editTarget = editingDraftMessage;
+    const returnToLatestAfterSend = messageWindowHasNewerMessages();
     let cascadeDeleted = false;
     try {
       if (editTarget) {
@@ -6437,10 +6518,11 @@ export function SessionDetailPage() {
           const idx = currentMessages.findIndex((item) => item.id === editTarget.id);
           if (idx >= 0) {
             replaceMessageWindow(currentMessages.slice(0, idx), windowOffsetRef.current);
+            updateTotalKnown(Math.min(
+              totalKnownRef.current,
+              windowOffsetRef.current + idx,
+            ));
           }
-          setTotalKnown((prev) => {
-            return idx >= 0 ? Math.min(prev, windowOffsetRef.current + idx) : prev;
-          });
         }
       }
       const res = await sendMessage(requestSessionId, {
@@ -6498,7 +6580,11 @@ export function SessionDetailPage() {
       updateSendPhaseValue(res.send_phase || 'sendingMessage');
       // SSE 通道在 service 端立即推送 user 消息落库；若 SSE 不可用，refresh()
       // 兜底拉一次让 user 消息出现在尾部。
-      if (!sseLive) void refresh();
+      if (returnToLatestAfterSend) {
+        void returnToLatest();
+      } else if (!sseLive) {
+        void refresh();
+      }
       if (shouldTrackAutoTitle) scheduleAutoTitleFollowUp();
     } catch (e: unknown) {
       if (!ownsSessionAsyncResult(requestSessionId)) return;
@@ -6569,7 +6655,7 @@ export function SessionDetailPage() {
       if (!ownsSessionAsyncResult(requestSessionId)) return;
       updateSendPhaseValue(res.send_phase || 'idle');
       // 拉一次让 finalize 后的内容立刻可见
-      void refresh();
+      void returnToLatest();
     } catch (e: unknown) {
       if (!ownsSessionAsyncResult(requestSessionId)) return;
       if (handleAuthError(e)) return;
@@ -6725,6 +6811,11 @@ export function SessionDetailPage() {
     }
   }
   const remainingOlder = windowOffset;
+  const remainingNewer = remainingNewerMessageCount(
+    totalKnown,
+    windowOffset,
+    messages.length,
+  );
   const sessionCapsules = useMemo<SessionToolbarCapsule[]>(() => {
     if (!session) return [];
     const templateLabel = session.template_name || session.template_id;
@@ -6893,6 +6984,8 @@ export function SessionDetailPage() {
     onRefresh: async () => {
       if (remainingOlder > 0) {
         await loadOlder();
+      } else if (remainingNewer > 0) {
+        await returnToLatest();
       } else {
         await refresh();
       }
@@ -6944,7 +7037,19 @@ export function SessionDetailPage() {
     [visibleSortedMessages],
   );
 
+  const returnToLatest = async () => {
+    setAutoFollowEnabled(true);
+    setAutoFollowPausedValue(false);
+    clearUnreadCount();
+    isNearBottomRef.current = true;
+    await refresh({ replaceWithLatest: true });
+  };
+
   const resumeToLatest = () => {
+    if (remainingNewer > 0) {
+      void returnToLatest();
+      return;
+    }
     setAutoFollowEnabled(true);
     setAutoFollowPausedValue(false);
     clearUnreadCount();
@@ -7091,7 +7196,7 @@ export function SessionDetailPage() {
           trailing={
             <button
               type="button"
-              onClick={refresh}
+              onClick={() => void (remainingNewer > 0 ? returnToLatest() : refresh())}
               disabled={refreshing || effectiveLoadingDetail}
               class="oh-tap-press oh-icon-button oh-session-refresh-button flex-none disabled:opacity-50"
               style={{
@@ -7170,6 +7275,19 @@ export function SessionDetailPage() {
                       scrollContainerRef={mainRef}
                       renderMessage={renderSessionMessage}
                     />
+                    {remainingNewer > 0 ? (
+                      <div class="text-center mt-3">
+                        <button
+                          type="button"
+                          onClick={() => void returnToLatest()}
+                          disabled={refreshing}
+                          class="oh-session-load-older-button oh-tap-press disabled:opacity-50"
+                        >
+                          <ComposerIcon name="follow" size={13} />
+                          {t('detail.returnToLatest', '回到最新消息') + ` (${remainingNewer})`}
+                        </button>
+                      </div>
+                    ) : null}
                     <MediaGeneratingPlaceholderTransition
                       mode={responseRunning ? messageWindowView.lastCreationModeAwaitingAssistant : null}
                       className="mt-3"

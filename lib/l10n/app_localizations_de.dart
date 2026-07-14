@@ -34,6 +34,9 @@ class AppLocalizationsDe extends AppLocalizations {
   String get threads => 'Konversationen';
 
   @override
+  String get threadsLoadMore => 'Weitere Konversationen laden';
+
+  @override
   String get composerHint =>
       'Frage OpenHand alles, nutze / für Aktionen und @ für Kontext';
 
@@ -10285,9 +10288,6 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get appUpdateDownload => 'Herunterladen';
-
-  @override
-  String get appUpdateBackground => 'Im Hintergrund';
 
   @override
   String get exportRangeInvalid =>

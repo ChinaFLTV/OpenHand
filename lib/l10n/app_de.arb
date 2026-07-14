@@ -13,6 +13,10 @@
   },
   "settings": "Einstellungen",
   "threads": "Konversationen",
+  "threadsLoadMore": "Weitere Konversationen laden",
+  "@threadsLoadMore": {
+    "description": "Button that expands the thread list."
+  },
   "composerHint": "Frage OpenHand alles, nutze / für Aktionen und @ für Kontext",
   "composerSend": "Senden",
   "chatSending": "Senden",
@@ -7974,10 +7978,6 @@
   },
   "appUpdateDownload": "Herunterladen",
   "@appUpdateDownload": {
-    "description": "OpenHand localized UI text."
-  },
-  "appUpdateBackground": "Im Hintergrund",
-  "@appUpdateBackground": {
     "description": "OpenHand localized UI text."
   },
   "exportRangeInvalid": "Gültigen Bereich eingeben (1 ≤ Start ≤ Ende)",

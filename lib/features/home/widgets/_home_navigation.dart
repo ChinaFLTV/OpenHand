@@ -6,26 +6,53 @@ class _NavigationSessionSnapshot {
     required this.sessions,
     required this.sendPhases,
     required this.currentSessionId,
+    required this.totalSessionCount,
+    required this.harnessInsertionIndex,
   });
 
   final List<AiSession> sessions;
   final Map<String, AiSendPhase> sendPhases;
   final String? currentSessionId;
+  final int totalSessionCount;
+  final int harnessInsertionIndex;
 
   @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is _NavigationSessionSnapshot &&
-          identical(sessions, other.sessions) &&
-          currentSessionId == other.currentSessionId &&
-          mapEquals(sendPhases, other.sendPhases);
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    if (other is! _NavigationSessionSnapshot ||
+        currentSessionId != other.currentSessionId ||
+        totalSessionCount != other.totalSessionCount ||
+        harnessInsertionIndex != other.harnessInsertionIndex ||
+        sessions.length != other.sessions.length) {
+      return false;
+    }
+    for (var index = 0; index < sessions.length; index++) {
+      final session = sessions[index];
+      final otherSession = other.sessions[index];
+      if (session.id != otherSession.id ||
+          session.title != otherSession.title ||
+          session.templateIconName != otherSession.templateIconName ||
+          sendPhases[session.id] != other.sendPhases[otherSession.id]) {
+        return false;
+      }
+    }
+    return true;
+  }
 
   @override
   int get hashCode => Object.hash(
-    identityHashCode(sessions),
     currentSessionId,
+    totalSessionCount,
+    harnessInsertionIndex,
     Object.hashAll(
-      sendPhases.entries.map((entry) => Object.hash(entry.key, entry.value)),
+      sessions.map(
+        (session) => Object.hash(
+          session.id,
+          session.title,
+          session.templateIconName,
+          sendPhases[session.id],
+        ),
+      ),
     ),
   );
 }
@@ -34,8 +61,12 @@ class _NavigationPane extends StatefulWidget {
   const _NavigationPane({
     required this.selectedSection,
     required this.sessions,
+    required this.sessionLimit,
+    required this.totalSessionCount,
+    required this.hasMoreSessions,
     required this.sessionSendPhases,
     required this.currentSessionId,
+    required this.onLoadMoreSessions,
     required this.onCreateThreadRequested,
     required this.onSessionSelected,
     required this.onRenameSession,
@@ -53,8 +84,12 @@ class _NavigationPane extends StatefulWidget {
 
   final AppSection selectedSection;
   final List<AiSession> sessions;
+  final int sessionLimit;
+  final int totalSessionCount;
+  final bool hasMoreSessions;
   final Map<String, AiSendPhase> sessionSendPhases;
   final String? currentSessionId;
+  final VoidCallback onLoadMoreSessions;
   final Future<void> Function() onCreateThreadRequested;
   final Future<void> Function(String sessionId) onSessionSelected;
   final Future<void> Function(AiSession session) onRenameSession;
@@ -74,21 +109,29 @@ class _NavigationPane extends StatefulWidget {
 }
 
 class _NavigationPaneState extends State<_NavigationPane> {
-  // Per-tile widget cache keyed by session id.  When none of the fields
-  // contributing to the tile's visual state (title / updatedAt / sendPhase /
-  // isSelected) change, we reuse the exact Widget instance so Flutter's
-  // Element.update short-circuits and skips rebuilding 60+ unrelated tiles
-  // whenever the user opens a different thread or a single session's send
-  // phase ticks during streaming.
+  // Reuse tiles while their visible state is unchanged.
   final Map<String, _ThreadTileCacheEntry> _threadTileCache =
       <String, _ThreadTileCacheEntry>{};
   _HarnessTileCacheEntry? _harnessTileCache;
 
-  // Tracks which thread ids have already appeared in the sidebar at
-  // least once. Newly appended sessions (or a freshly created HE record)
-  // get an AppearOnce entrance the first time they show up; the existing
-  // list does NOT animate on initial mount.
   final AppearTracker _threadAppear = AppearTracker();
+
+  @override
+  void didUpdateWidget(covariant _NavigationPane oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.sessionLimit > oldWidget.sessionLimit) {
+      for (final session in widget.sessions) {
+        _threadAppear.markSeen('ai-${session.id}');
+      }
+    }
+  }
+
+  AiSession? _visibleSession(String sessionId) {
+    for (final session in widget.sessions) {
+      if (session.id == sessionId) return session;
+    }
+    return null;
+  }
 
   /// Builds an interleaved list of AI thread tiles and the optional HE session
   /// tile, sorted by [updatedAt] descending.  The incoming [widget.sessions]
@@ -176,17 +219,9 @@ class _NavigationPaneState extends State<_NavigationPane> {
           widget.selectedSection == AppSection.workspace &&
           widget.currentSessionId == session.id;
       final cached = _threadTileCache[session.id];
-      // Note: we intentionally do NOT identity-check the callbacks. Method
-      // tear-offs (e.g. `_activateSession`) are not guaranteed to be
-      // `identical` across rebuilds in Dart — every parent rebuild was
-      // busting the cache and forcing all 60+ tiles to re-render. The
-      // cached closure captures `widget.onSessionSelected` lazily via
-      // the State's `widget` getter, so even if the parent swaps the
-      // callback the next tap will still reach the current one.
       if (cached != null &&
           cached.title == session.title &&
           cached.templateIconName == session.templateIconName &&
-          cached.updatedAtMs == session.updatedAt.millisecondsSinceEpoch &&
           cached.sendPhase == sendPhase &&
           cached.isSelected == isSelected) {
         tiles.add(cached.widget);
@@ -202,11 +237,24 @@ class _NavigationPaneState extends State<_NavigationPane> {
             sendPhase: sendPhase,
             isSelected: isSelected,
             onTap: () => widget.onSessionSelected(sessionId),
-            onRename: () => widget.onRenameSession(session),
-            onDelete: () => widget.onDeleteSession(session),
-            onExport: () => widget.onExportSession(session),
-            onGenerateTitle: () =>
-                widget.onGenerateTitleForSession?.call(session),
+            onRename: () {
+              final latest = _visibleSession(sessionId);
+              if (latest != null) widget.onRenameSession(latest);
+            },
+            onDelete: () {
+              final latest = _visibleSession(sessionId);
+              if (latest != null) widget.onDeleteSession(latest);
+            },
+            onExport: () {
+              final latest = _visibleSession(sessionId);
+              if (latest != null) widget.onExportSession(latest);
+            },
+            onGenerateTitle: () {
+              final latest = _visibleSession(sessionId);
+              if (latest != null) {
+                widget.onGenerateTitleForSession?.call(latest);
+              }
+            },
           ),
         ),
       );
@@ -228,7 +276,6 @@ class _NavigationPaneState extends State<_NavigationPane> {
       _threadTileCache[sessionId] = _ThreadTileCacheEntry(
         title: session.title,
         templateIconName: session.templateIconName,
-        updatedAtMs: session.updatedAt.millisecondsSinceEpoch,
         sendPhase: sendPhase,
         isSelected: isSelected,
         widget: aiDisplayed,
@@ -247,15 +294,6 @@ class _NavigationPaneState extends State<_NavigationPane> {
         (sessionId, _) => !activeSessionIds.contains(sessionId),
       );
     }
-    // Drop seen-id markers so a future re-creation of a deleted thread
-    // (or, in tests, a freshly-restored snapshot) is treated as new and
-    // re-animates. Build the union of all currently-rendered ids first.
-    final liveKeys = <String>{
-      for (final id in activeSessionIds) 'ai-$id',
-      if (heRecord != null) 'he-${heRecord.id}',
-    };
-    _threadAppear.retainOnly(liveKeys);
-
     _threadAppear.markInitialBuildDone();
 
     return tiles;
@@ -281,7 +319,8 @@ class _NavigationPaneState extends State<_NavigationPane> {
         : widget.harnessSessionRecord!.status;
 
     final threadCount =
-        widget.sessions.length + (widget.harnessSessionRecord == null ? 0 : 1);
+        widget.totalSessionCount +
+        (widget.harnessSessionRecord == null ? 0 : 1);
     final hasThreads = threadCount > 0;
     final colorScheme = theme.colorScheme;
     final threadTiles = _buildMergedThreadTiles(
@@ -411,8 +450,8 @@ class _NavigationPaneState extends State<_NavigationPane> {
                   ),
                 ),
               ),
-            )
-          else
+            ),
+          if (hasThreads)
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
               sliver: SliverList(
@@ -422,6 +461,22 @@ class _NavigationPaneState extends State<_NavigationPane> {
                   addAutomaticKeepAlives: false,
                   addRepaintBoundaries: false,
                   findChildIndexCallback: (key) => threadTileIndexByKey[key],
+                ),
+              ),
+            ),
+          if (widget.hasMoreSessions)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                child: MicroPressFeedback(
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: TextButton.icon(
+                      onPressed: widget.onLoadMoreSessions,
+                      icon: const Icon(Icons.expand_more_rounded),
+                      label: Text(l10n.threadsLoadMore),
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -714,7 +769,6 @@ class _ThreadTileCacheEntry {
   const _ThreadTileCacheEntry({
     required this.title,
     required this.templateIconName,
-    required this.updatedAtMs,
     required this.sendPhase,
     required this.isSelected,
     required this.widget,
@@ -722,7 +776,6 @@ class _ThreadTileCacheEntry {
 
   final String title;
   final String templateIconName;
-  final int updatedAtMs;
   final AiSendPhase sendPhase;
   final bool isSelected;
   final Widget widget;

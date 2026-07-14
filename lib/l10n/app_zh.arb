@@ -13,6 +13,10 @@
   },
   "settings": "设置",
   "threads": "线程",
+  "threadsLoadMore": "加载更多线程",
+  "@threadsLoadMore": {
+    "description": "Button that expands the thread list."
+  },
   "composerHint": "询问 OpenHand 任何内容，使用 / 触发动作，使用 @ 引用上下文",
   "composerSend": "发送",
   "chatSending": "发送中",
@@ -8043,10 +8047,6 @@
   },
   "appUpdateDownload": "下载更新",
   "@appUpdateDownload": {
-    "description": "OpenHand localized UI text."
-  },
-  "appUpdateBackground": "后台下载",
-  "@appUpdateBackground": {
     "description": "OpenHand localized UI text."
   },
   "exportRangeInvalid": "请输入有效区间 (1 ≤ 起始 ≤ 结束)",

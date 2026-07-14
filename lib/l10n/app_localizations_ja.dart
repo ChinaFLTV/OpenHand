@@ -33,6 +33,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get threads => 'スレッド';
 
   @override
+  String get threadsLoadMore => 'さらにスレッドを読み込む';
+
+  @override
   String get composerHint => 'OpenHand に質問し、/ でアクション、@ でコンテキストを指定します';
 
   @override
@@ -9987,9 +9990,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get appUpdateDownload => 'ダウンロード';
-
-  @override
-  String get appUpdateBackground => 'バックグラウンド';
 
   @override
   String get exportRangeInvalid => '有効な範囲を入力してください (1 ≤ 開始 ≤ 終了)';

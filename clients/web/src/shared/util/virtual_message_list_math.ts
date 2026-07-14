@@ -5,6 +5,7 @@
 
 export const MESSAGE_LIST_DEFAULT_PAGE_SIZE = 20;
 export const MESSAGE_LIST_DEFAULT_INITIAL_PAGE_SIZE = 10;
+export const MESSAGE_LIST_MAX_LOADED_MESSAGES = 200;
 export const MESSAGE_LIST_VIRTUALIZATION_THRESHOLD = 24;
 export const MESSAGE_LIST_VIRTUALIZATION_OVERSCAN_PX = 560;
 export const MESSAGE_LIST_ESTIMATED_ROW_HEIGHT_PX = 188;
@@ -18,6 +19,34 @@ const MESSAGE_LIST_INITIAL_OVERSCAN_ROWS = 4;
 export interface VirtualMessageRange {
   start: number;
   end: number;
+}
+
+export function boundLiveMessageWindow<T>(
+  messages: T[],
+  windowOffset: number,
+  maxMessages = MESSAGE_LIST_MAX_LOADED_MESSAGES,
+): { items: T[]; offset: number } {
+  const limit = Math.max(1, Math.floor(maxMessages));
+  const safeOffset = Math.max(0, Math.floor(windowOffset));
+  if (messages.length <= limit) {
+    return { items: messages, offset: safeOffset };
+  }
+  const dropped = messages.length - limit;
+  return {
+    items: messages.slice(dropped),
+    offset: safeOffset + dropped,
+  };
+}
+
+export function remainingNewerMessageCount(
+  total: number,
+  windowOffset: number,
+  loadedCount: number,
+): number {
+  const safeTotal = Math.max(0, Math.floor(total));
+  const safeOffset = Math.max(0, Math.floor(windowOffset));
+  const safeLoadedCount = Math.max(0, Math.floor(loadedCount));
+  return Math.max(0, safeTotal - safeOffset - safeLoadedCount);
 }
 
 export function clampMessageRowHeight(

@@ -153,6 +153,12 @@ abstract class AppLocalizations {
   /// **'线程'**
   String get threads;
 
+  /// Button that expands the thread list.
+  ///
+  /// In zh, this message translates to:
+  /// **'加载更多线程'**
+  String get threadsLoadMore;
+
   /// No description provided for @composerHint.
   ///
   /// In zh, this message translates to:
@@ -17978,12 +17984,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'下载更新'**
   String get appUpdateDownload;
-
-  /// OpenHand localized UI text.
-  ///
-  /// In zh, this message translates to:
-  /// **'后台下载'**
-  String get appUpdateBackground;
 
   /// OpenHand localized UI text.
   ///

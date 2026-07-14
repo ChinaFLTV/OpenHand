@@ -13,6 +13,10 @@
   },
   "settings": "Settings",
   "threads": "Threads",
+  "threadsLoadMore": "Load More Threads",
+  "@threadsLoadMore": {
+    "description": "Button that expands the thread list."
+  },
   "composerHint": "Ask OpenHand anything, use / for actions, and @ for context",
   "composerSend": "Send",
   "chatSending": "Sending",
@@ -7976,10 +7980,6 @@
   },
   "appUpdateDownload": "Download",
   "@appUpdateDownload": {
-    "description": "OpenHand localized UI text."
-  },
-  "appUpdateBackground": "Background",
-  "@appUpdateBackground": {
     "description": "OpenHand localized UI text."
   },
   "exportRangeInvalid": "Enter a valid range (1 ≤ start ≤ end)",

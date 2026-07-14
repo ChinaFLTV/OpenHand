@@ -13,6 +13,10 @@
   },
   "settings": "設定",
   "threads": "執行緒",
+  "threadsLoadMore": "載入更多執行緒",
+  "@threadsLoadMore": {
+    "description": "Button that expands the thread list."
+  },
   "composerHint": "詢問 OpenHand 任何內容，使用 / 觸發動作，使用 @ 引用上下文",
   "composerSend": "送出",
   "chatSending": "傳送中",
@@ -7976,10 +7980,6 @@
   },
   "appUpdateDownload": "下載更新",
   "@appUpdateDownload": {
-    "description": "OpenHand localized UI text."
-  },
-  "appUpdateBackground": "背景下載",
-  "@appUpdateBackground": {
     "description": "OpenHand localized UI text."
   },
   "exportRangeInvalid": "請輸入有效區間 (1 ≤ 起始 ≤ 結束)",

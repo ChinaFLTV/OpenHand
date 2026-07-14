@@ -33,6 +33,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get threads => 'Threads';
 
   @override
+  String get threadsLoadMore => 'Load More Threads';
+
+  @override
   String get composerHint =>
       'Ask OpenHand anything, use / for actions, and @ for context';
 
@@ -10193,9 +10196,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get appUpdateDownload => 'Download';
-
-  @override
-  String get appUpdateBackground => 'Background';
 
   @override
   String get exportRangeInvalid => 'Enter a valid range (1 ≤ start ≤ end)';

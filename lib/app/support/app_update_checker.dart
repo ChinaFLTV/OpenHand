@@ -179,15 +179,17 @@ class GitHubReleaseDataSource implements AppUpdateDataSource {
     }
     final client = _createHttpClient(_kUpdateDownloadConnectionTimeout);
     var finished = false;
+    var cancelled = false;
+    void cancelDownload() {
+      cancelled = true;
+      if (!finished) client.close(force: true);
+    }
+
     if (cancelSignal != null) {
       unawaited(
         cancelSignal.then<void>(
-          (_) {
-            if (!finished) client.close(force: true);
-          },
-          onError: (Object _, StackTrace _) {
-            if (!finished) client.close(force: true);
-          },
+          (_) => cancelDownload(),
+          onError: (Object _, StackTrace _) => cancelDownload(),
         ),
       );
     }
@@ -218,6 +220,19 @@ class GitHubReleaseDataSource implements AppUpdateDataSource {
       if (contentLength > _kUpdateMaxDownloadBytes) {
         throw const FileSystemException('Update package is too large.');
       }
+      if (contentLength > 0 &&
+          release.downloadSize > 0 &&
+          contentLength != release.downloadSize) {
+        throw const FileSystemException(
+          'Update package size does not match release metadata.',
+        );
+      }
+      final expectedLength = contentLength > 0
+          ? contentLength
+          : release.downloadSize;
+      if (expectedLength <= 0) {
+        throw const FileSystemException('Update package size is unknown.');
+      }
       downloadDirectory = await Directory.systemTemp.createTemp(
         'openhand-update-',
       );
@@ -231,6 +246,9 @@ class GitHubReleaseDataSource implements AppUpdateDataSource {
         await for (final chunk in response.timeout(
           _kUpdateResponseIdleTimeout,
         )) {
+          if (cancelled) {
+            throw const HttpException('Update download was cancelled.');
+          }
           if (DateTime.now().isAfter(deadline)) {
             throw TimeoutException('Update download exceeded time limit.');
           }
@@ -239,21 +257,33 @@ class GitHubReleaseDataSource implements AppUpdateDataSource {
           if (received > _kUpdateMaxDownloadBytes) {
             throw const FileSystemException('Update package is too large.');
           }
-          if (contentLength > 0) {
-            onProgress(unitRatio(received, contentLength));
+          if (received > expectedLength) {
+            throw const FileSystemException(
+              'Update package size does not match release metadata.',
+            );
           }
+          onProgress(unitRatio(received, expectedLength));
+        }
+        if (cancelled) {
+          throw const HttpException('Update download was cancelled.');
         }
         if (received <= 0) {
           throw const FileSystemException('Downloaded update is empty.');
         }
-        if (contentLength > 0 && received != contentLength) {
+        if (received != expectedLength) {
           throw const FileSystemException('Update download is incomplete.');
         }
         await sink.flush();
       } finally {
         await sink.close();
       }
+      if (cancelled) {
+        throw const HttpException('Update download was cancelled.');
+      }
       await partialFile.rename(filePath);
+      if (cancelled) {
+        throw const HttpException('Update download was cancelled.');
+      }
       onProgress(1.0);
       onFilePath(filePath);
     } catch (_) {

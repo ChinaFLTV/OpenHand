@@ -13,6 +13,10 @@
   },
   "settings": "設定",
   "threads": "スレッド",
+  "threadsLoadMore": "さらにスレッドを読み込む",
+  "@threadsLoadMore": {
+    "description": "Button that expands the thread list."
+  },
   "composerHint": "OpenHand に質問し、/ でアクション、@ でコンテキストを指定します",
   "composerSend": "送信",
   "chatSending": "送信中",
@@ -7974,10 +7978,6 @@
   },
   "appUpdateDownload": "ダウンロード",
   "@appUpdateDownload": {
-    "description": "OpenHand localized UI text."
-  },
-  "appUpdateBackground": "バックグラウンド",
-  "@appUpdateBackground": {
     "description": "OpenHand localized UI text."
   },
   "exportRangeInvalid": "有効な範囲を入力してください (1 ≤ 開始 ≤ 終了)",

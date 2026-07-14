@@ -34,6 +34,9 @@ class AppLocalizationsFr extends AppLocalizations {
   String get threads => 'Fils';
 
   @override
+  String get threadsLoadMore => 'Charger plus de fils';
+
+  @override
   String get composerHint =>
       'Demandez n\'importe quoi à OpenHand, utilisez / pour les actions et @ pour le contexte';
 
@@ -10317,9 +10320,6 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get appUpdateDownload => 'Télécharger';
-
-  @override
-  String get appUpdateBackground => 'En arrière-plan';
 
   @override
   String get exportRangeInvalid =>
