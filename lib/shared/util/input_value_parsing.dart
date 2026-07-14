@@ -275,6 +275,44 @@ Map<String, Object?> stringKeyedMapFromValue(Object? value) {
   return value.map((key, item) => MapEntry('$key', item));
 }
 
+void validateCanonicalJsonSubset(
+  Object? source,
+  Object? canonical, {
+  String path = 'value',
+}) {
+  if (source is Map) {
+    if (canonical is! Map) throw FormatException('$path must be an object.');
+    for (final entry in source.entries) {
+      final key = '${entry.key}';
+      if (!canonical.containsKey(key)) {
+        throw FormatException('$path contains unsupported field $key.');
+      }
+      validateCanonicalJsonSubset(
+        entry.value,
+        canonical[key],
+        path: '$path.$key',
+      );
+    }
+    return;
+  }
+  if (source is List) {
+    if (canonical is! List || source.length != canonical.length) {
+      throw FormatException('$path contains invalid items.');
+    }
+    for (var index = 0; index < source.length; index++) {
+      validateCanonicalJsonSubset(
+        source[index],
+        canonical[index],
+        path: '$path[$index]',
+      );
+    }
+    return;
+  }
+  if (source.runtimeType != canonical.runtimeType || source != canonical) {
+    throw FormatException('$path contains an invalid value.');
+  }
+}
+
 List<Map<String, Object?>> stringKeyedMapListFromValue(Object? value) {
   if (value is! List) return const <Map<String, Object?>>[];
   final out = <Map<String, Object?>>[];

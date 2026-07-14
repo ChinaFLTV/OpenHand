@@ -339,6 +339,7 @@ class WebMessagePlatformService {
   static const int _maxActiveSseSubscriptions = 64;
   static const int _maxSseSubscriptionsPerClient = 8;
   static const int _maxSseSubscriptionsPerSession = 8;
+  static const int _maxOpsPersistenceErrorCharacters = 1000;
   static const Set<AiBuiltinToolKind> _knowledgeBaseBuiltinToolKinds =
       <AiBuiltinToolKind>{
         AiBuiltinToolKind.knowledgeSearch,
@@ -380,8 +381,13 @@ class WebMessagePlatformService {
       stack,
     ),
   );
+  final SerialTaskQueue _opsPersistenceQueue = SerialTaskQueue();
   Future<void>? _opsDataLoadFuture;
   bool _opsDataLoaded = false;
+  bool _opsDataTrusted = false;
+  ({Object error, StackTrace stack})? _opsDataLoadFailure;
+  bool _opsMutationInProgress = false;
+  bool _opsPersistencePending = false;
 
   /// 当前活跃的 SSE 订阅数（每个 `/api/sessions/<id>/events` 长连接 +1，
   /// onCancel 时 -1）。Ops 面板用它判断"是否有人在看活跃流"，并辅助识别
@@ -437,68 +443,132 @@ class WebMessagePlatformService {
     return ensurePersistedOpsDataLoaded();
   }
 
-  Future<void> ensurePersistedOpsDataLoaded() {
-    if (_opsDataLoaded) {
-      return Future<void>.value();
+  Future<void> ensurePersistedOpsDataLoaded({
+    bool requireTrusted = false,
+  }) async {
+    if (_opsDataLoaded && (_opsDataTrusted || !requireTrusted)) {
+      return;
     }
     final pending = _opsDataLoadFuture;
     if (pending != null) {
-      return pending;
+      await pending;
+      _throwIfOpsDataUntrusted(requireTrusted);
+      return;
     }
-    final future = _loadPersistedOpsDataLocked();
-    _opsDataLoadFuture = future.whenComplete(() {
-      if (identical(_opsDataLoadFuture, future)) {
-        _opsDataLoadFuture = null;
-      }
-    });
-    return _opsDataLoadFuture!;
+    late final Future<void> tracked;
+    tracked = _opsPersistenceQueue
+        .enqueue(_loadPersistedOpsDataLocked)
+        .whenComplete(() {
+          if (identical(_opsDataLoadFuture, tracked)) {
+            _opsDataLoadFuture = null;
+          }
+        });
+    _opsDataLoadFuture = tracked;
+    await tracked;
+    _throwIfOpsDataUntrusted(requireTrusted);
   }
 
   Future<void> _loadPersistedOpsDataLocked() async {
-    final data = await _opsStore.load();
-    final liveSnapshots = List<WebGatewayOpsSnapshotRecord>.from(
-      _persistedSnapshots,
-    );
-    final liveLogs = List<WebGatewayLogEntry>.from(_memoryLogs);
-    final liveCleanupHistory = List<WebGatewayCleanupResult>.from(
-      _cleanupHistory,
-    );
-    _persistedSnapshots
-      ..clear()
-      ..addAll(_mergeSnapshotRecords(data.snapshots, liveSnapshots));
-    _memoryLogs
-      ..clear()
-      ..addAll(_mergeLogs(data.logs, liveLogs));
-    _cleanupHistory
-      ..clear()
-      ..addAll(_mergeCleanupHistory(data.cleanupHistory, liveCleanupHistory));
-    _nextLogId =
-        _memoryLogs.fold<int>(0, (maxId, entry) => math.max(maxId, entry.id)) +
-        1;
-    if (_persistedSnapshots.isNotEmpty) {
-      _hydrateMetricsFromSnapshot(_persistedSnapshots.last.snapshot);
+    try {
+      final data = await _opsStore.load();
+      final liveSnapshots = List<WebGatewayOpsSnapshotRecord>.from(
+        _persistedSnapshots,
+      );
+      final liveLogs = List<WebGatewayLogEntry>.from(_memoryLogs);
+      final liveCleanupHistory = List<WebGatewayCleanupResult>.from(
+        _cleanupHistory,
+      );
+      _persistedSnapshots
+        ..clear()
+        ..addAll(_mergeSnapshotRecords(data.snapshots, liveSnapshots));
+      _memoryLogs
+        ..clear()
+        ..addAll(_mergeLogs(data.logs, liveLogs));
+      _cleanupHistory
+        ..clear()
+        ..addAll(_mergeCleanupHistory(data.cleanupHistory, liveCleanupHistory));
+      _nextLogId =
+          _memoryLogs.fold<int>(
+            0,
+            (maxId, entry) => math.max(maxId, entry.id),
+          ) +
+          1;
+      if (_persistedSnapshots.isNotEmpty) {
+        _hydrateMetricsFromSnapshot(_persistedSnapshots.last.snapshot);
+      }
+      _opsDataTrusted = true;
+      _opsDataLoadFailure = null;
+    } catch (error, stack) {
+      _markOpsDataUntrusted(error, stack);
+    } finally {
+      _opsDataLoaded = true;
     }
-    _opsDataLoaded = true;
+  }
+
+  void _throwIfOpsDataUntrusted(bool required) {
+    if (!required || _opsDataTrusted) return;
+    final failure = _opsDataLoadFailure;
+    if (failure != null) {
+      Error.throwWithStackTrace(failure.error, failure.stack);
+    }
+    throw StateError('Web gateway ops history has no trusted snapshot.');
   }
 
   Future<WebGatewayOpsPersistenceReport> measurePersistedOpsData() async {
-    await ensurePersistedOpsDataLoaded();
-    return _opsStore.measure();
+    await ensurePersistedOpsDataLoaded(requireTrusted: true);
+    return _opsPersistenceQueue.enqueue(_measureOpsHistoryLocked);
   }
 
   Future<WebGatewayOpsPersistenceReport> clearPersistedOpsData({
     DateTime? startUtc,
     DateTime? endUtc,
   }) async {
-    await ensurePersistedOpsDataLoaded();
-    final before = await _opsStore.measure();
     final clearsAll = startUtc == null && endUtc == null;
     if (clearsAll) {
-      _persistedSnapshots.clear();
-      _memoryLogs.clear();
-      _cleanupHistory.clear();
-      _resetHydratedMetricCounters();
-    } else {
+      return _clearAllPersistedOpsData();
+    }
+    await ensurePersistedOpsDataLoaded(requireTrusted: true);
+    _opsMutationInProgress = true;
+    _opsPersistencePending = false;
+    _opsPersistDebouncer.cancel();
+    try {
+      final before = await _opsPersistenceQueue.enqueue(
+        _measureOpsHistoryLocked,
+      );
+      final initialItemCount =
+          _persistedSnapshots.length +
+          _memoryLogs.length +
+          _cleanupHistory.length;
+      final next = WebGatewayOpsHistoryData(
+        snapshots: _persistedSnapshots
+            .where(
+              (record) => !_webGatewayOpsTimestampInRange(
+                record.timestamp,
+                startUtc: startUtc,
+                endUtc: endUtc,
+              ),
+            )
+            .toList(growable: false),
+        logs: _memoryLogs
+            .where(
+              (entry) => !_webGatewayOpsTimestampInRange(
+                entry.timestamp,
+                startUtc: startUtc,
+                endUtc: endUtc,
+              ),
+            )
+            .toList(growable: false),
+        cleanupHistory: _cleanupHistory
+            .where(
+              (entry) => !_webGatewayOpsTimestampInRange(
+                entry.timestamp,
+                startUtc: startUtc,
+                endUtc: endUtc,
+              ),
+            )
+            .toList(growable: false),
+      );
+      await _persistOpsHistoryData(next);
       _persistedSnapshots.removeWhere(
         (record) => _webGatewayOpsTimestampInRange(
           record.timestamp,
@@ -525,10 +595,60 @@ class WebMessagePlatformService {
       } else {
         _resetHydratedMetricCounters();
       }
+      final after = await _opsPersistenceQueue.enqueue(
+        _measureOpsHistoryLocked,
+      );
+      return WebGatewayOpsPersistenceReport(
+        bytes: math.max(0, before.bytes - after.bytes),
+        itemCount: math.max(0, initialItemCount - next.itemCount),
+      );
+    } finally {
+      _opsMutationInProgress = false;
+      final shouldPersist = _opsPersistencePending && _opsDataTrusted;
+      _opsPersistencePending = false;
+      if (shouldPersist) {
+        _scheduleOpsPersistence();
+      }
     }
+  }
+
+  Future<WebGatewayOpsPersistenceReport> _clearAllPersistedOpsData() async {
+    final knownItemCount =
+        _persistedSnapshots.length +
+        _memoryLogs.length +
+        _cleanupHistory.length;
+    _opsMutationInProgress = true;
+    _opsPersistencePending = false;
+    _opsDataTrusted = false;
     _opsPersistDebouncer.cancel();
-    await _persistOpsHistory();
-    return before;
+    try {
+      final before = await _opsPersistenceQueue.enqueue(() async {
+        try {
+          final report = await _opsStore.measure();
+          return WebGatewayOpsPersistenceReport(
+            bytes: report.bytes,
+            itemCount: math.max(report.itemCount, knownItemCount),
+          );
+        } catch (_) {
+          return WebGatewayOpsPersistenceReport(
+            bytes: await _opsStore.measureBytesOnly(),
+            itemCount: knownItemCount,
+          );
+        }
+      });
+      await _opsPersistenceQueue.enqueue(_opsStore.clear);
+      _persistedSnapshots.clear();
+      _memoryLogs.clear();
+      _cleanupHistory.clear();
+      _resetHydratedMetricCounters();
+      _opsDataLoaded = true;
+      _opsDataTrusted = true;
+      _opsDataLoadFailure = null;
+      return before;
+    } finally {
+      _opsMutationInProgress = false;
+      _opsPersistencePending = false;
+    }
   }
 
   void _recordOpsSnapshot(WebGatewayRuntimeSnapshot snapshot) {
@@ -607,17 +727,62 @@ class WebMessagePlatformService {
   }
 
   void _scheduleOpsPersistence() {
+    if (!_opsDataTrusted) return;
+    if (_opsMutationInProgress) {
+      _opsPersistencePending = true;
+      return;
+    }
     _opsPersistDebouncer.schedule(_persistOpsHistory);
   }
 
   Future<void> _persistOpsHistory() {
-    return _opsStore.save(
-      WebGatewayOpsHistoryData(
+    if (!_opsDataTrusted) return Future<void>.value();
+    return _opsPersistenceQueue.enqueue(() {
+      final data = WebGatewayOpsHistoryData(
         snapshots: _trimSnapshotRecords(_persistedSnapshots),
         logs: _trimLogs(_memoryLogs),
         cleanupHistory: _trimCleanupHistory(_cleanupHistory),
-      ),
-    );
+      );
+      return _saveOpsHistoryLocked(data);
+    });
+  }
+
+  Future<void> _persistOpsHistoryData(WebGatewayOpsHistoryData data) {
+    return _opsPersistenceQueue.enqueue(() => _saveOpsHistoryLocked(data));
+  }
+
+  Future<void> _saveOpsHistoryLocked(WebGatewayOpsHistoryData data) async {
+    if (!_opsDataTrusted) return;
+    try {
+      await _opsStore.save(data);
+    } catch (error, stack) {
+      _markOpsDataUntrusted(error, stack);
+      rethrow;
+    }
+  }
+
+  Future<WebGatewayOpsPersistenceReport> _measureOpsHistoryLocked() async {
+    try {
+      return await _opsStore.measure();
+    } catch (error, stack) {
+      _markOpsDataUntrusted(error, stack);
+      rethrow;
+    }
+  }
+
+  void _markOpsDataUntrusted(Object error, StackTrace stack) {
+    final retainedError = error is FormatException
+        ? FormatException(error.message, null, error.offset)
+        : error;
+    final previous = _opsDataLoadFailure?.error;
+    final changed = previous == null || '$previous' != '$retainedError';
+    _opsDataTrusted = false;
+    _opsDataLoadFailure = (error: retainedError, stack: stack);
+    if (changed) {
+      _log(WebGatewayLogLevel.error, 'OPS', '运维历史不可用，持久化已暂停', <String, Object?>{
+        'error': clipText('$retainedError', _maxOpsPersistenceErrorCharacters),
+      });
+    }
   }
 
   List<int> _latencySamplesFromStats(WebGatewayLatencyStats stats) {
@@ -1611,8 +1776,11 @@ class WebMessagePlatformService {
     );
     if (target != 'none') {
       _cleanupHistory.add(result);
-      if (_cleanupHistory.length > 50) {
-        _cleanupHistory.removeRange(0, _cleanupHistory.length - 50);
+      if (_cleanupHistory.length > webGatewayOpsMaxCleanupHistory) {
+        _cleanupHistory.removeRange(
+          0,
+          _cleanupHistory.length - webGatewayOpsMaxCleanupHistory,
+        );
       }
       _scheduleOpsPersistence();
       _log(
@@ -8218,8 +8386,11 @@ class WebMessagePlatformService {
       data: data,
     );
     _memoryLogs.add(entry);
-    if (_memoryLogs.length > 5000) {
-      _memoryLogs.removeRange(0, _memoryLogs.length - 5000);
+    if (_memoryLogs.length > webGatewayOpsMaxPersistedLogs) {
+      _memoryLogs.removeRange(
+        0,
+        _memoryLogs.length - webGatewayOpsMaxPersistedLogs,
+      );
     }
     if (!_logStreamController.isClosed) {
       _logStreamController.add(entry);
@@ -8657,24 +8828,58 @@ List<WebGatewayOpsSnapshotRecord> _mergeSnapshotRecords(
   Iterable<WebGatewayOpsSnapshotRecord> persisted,
   Iterable<WebGatewayOpsSnapshotRecord> live,
 ) {
-  return _trimSnapshotRecords(<WebGatewayOpsSnapshotRecord>[
-    ...persisted,
-    ...live,
-  ]);
+  final merged = <int, WebGatewayOpsSnapshotRecord>{};
+  for (final item in <WebGatewayOpsSnapshotRecord>[...persisted, ...live]) {
+    merged[item.timestamp.toUtc().microsecondsSinceEpoch] = item;
+  }
+  return _trimSnapshotRecords(merged.values);
 }
 
 List<WebGatewayLogEntry> _mergeLogs(
   Iterable<WebGatewayLogEntry> persisted,
   Iterable<WebGatewayLogEntry> live,
 ) {
-  return _trimLogs(<WebGatewayLogEntry>[...persisted, ...live]);
+  final merged = <int, WebGatewayLogEntry>{};
+  for (final item in persisted) {
+    merged[item.id] = item;
+  }
+  var nextId = merged.keys.fold<int>(0, math.max) + 1;
+  for (final item in live) {
+    final existing = merged[item.id];
+    if (existing == null) {
+      merged[item.id] = item;
+      continue;
+    }
+    if (jsonEncode(existing.toJson()) == jsonEncode(item.toJson())) {
+      continue;
+    }
+    while (merged.containsKey(nextId)) {
+      nextId++;
+    }
+    merged[nextId] = WebGatewayLogEntry(
+      id: nextId++,
+      timestamp: item.timestamp,
+      level: item.level,
+      tag: item.tag,
+      message: item.message,
+      data: item.data,
+    );
+  }
+  return _trimLogs(merged.values);
 }
 
 List<WebGatewayCleanupResult> _mergeCleanupHistory(
   Iterable<WebGatewayCleanupResult> persisted,
   Iterable<WebGatewayCleanupResult> live,
 ) {
-  return _trimCleanupHistory(<WebGatewayCleanupResult>[...persisted, ...live]);
+  final merged = <String, WebGatewayCleanupResult>{};
+  for (final item in <WebGatewayCleanupResult>[...persisted, ...live]) {
+    final key =
+        '${item.timestamp.toUtc().microsecondsSinceEpoch}:'
+        '${item.target}:${item.expiredOnly}';
+    merged[key] = item;
+  }
+  return _trimCleanupHistory(merged.values);
 }
 
 List<WebGatewayOpsSnapshotRecord> _trimSnapshotRecords(

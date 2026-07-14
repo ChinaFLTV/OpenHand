@@ -43,7 +43,11 @@ class MessageGatewayStore {
     }
     final source = stringKeyedMapFromValue(decoded);
     final config = WebMessagePlatformConfig.fromJson(source);
-    _validateCanonicalFields(source, config.toJson(), 'message_gateway');
+    validateCanonicalJsonSubset(
+      source,
+      config.toJson(),
+      path: 'message_gateway',
+    );
     _expectedContent = raw;
     _hasLoadedSnapshot = true;
     return config;
@@ -79,39 +83,5 @@ class MessageGatewayStore {
     }
     await writeFileAtomically(file, content);
     _expectedContent = content;
-  }
-
-  void _validateCanonicalFields(
-    Object? source,
-    Object? canonical,
-    String path,
-  ) {
-    if (source is Map) {
-      if (canonical is! Map) throw FormatException('$path must be an object.');
-      for (final entry in source.entries) {
-        final key = '${entry.key}';
-        if (!canonical.containsKey(key)) {
-          throw FormatException('$path contains unsupported field $key.');
-        }
-        _validateCanonicalFields(entry.value, canonical[key], '$path.$key');
-      }
-      return;
-    }
-    if (source is List) {
-      if (canonical is! List || source.length != canonical.length) {
-        throw FormatException('$path contains invalid items.');
-      }
-      for (var index = 0; index < source.length; index++) {
-        _validateCanonicalFields(
-          source[index],
-          canonical[index],
-          '$path[$index]',
-        );
-      }
-      return;
-    }
-    if (source.runtimeType != canonical.runtimeType || source != canonical) {
-      throw FormatException('$path contains an invalid value.');
-    }
   }
 }

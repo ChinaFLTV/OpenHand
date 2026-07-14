@@ -434,19 +434,21 @@ class MessageGatewayController extends ManagedChangeNotifier {
   }
 
   Future<WebGatewayOpsPersistenceReport> measureOpsCache() {
-    return _service.measurePersistedOpsData();
+    return enqueueOperation(_service.measurePersistedOpsData);
   }
 
   Future<WebGatewayOpsPersistenceReport> cleanupOpsCache({
     DateTime? startUtc,
     DateTime? endUtc,
-  }) async {
-    final result = await _service.clearPersistedOpsData(
-      startUtc: startUtc,
-      endUtc: endUtc,
-    );
-    notifyListeners();
-    return result;
+  }) {
+    return enqueueOperation(() async {
+      final result = await _service.clearPersistedOpsData(
+        startUtc: startUtc,
+        endUtc: endUtc,
+      );
+      notifyListeners();
+      return result;
+    });
   }
 
   Future<WebGatewayCleanupResult> cleanupExpiredArtifacts() async {

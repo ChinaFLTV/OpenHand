@@ -753,9 +753,7 @@ Map<String, int> _webGatewayStringIntMapFromValue(Object? raw) {
     final key = entry.key.trim();
     if (key.isEmpty) continue;
     final value = nonNegativeIntFromValue(entry.value, fallback: 0);
-    if (value > 0) {
-      result[key] = value;
-    }
+    result[key] = value;
   }
   return Map<String, int>.unmodifiable(result);
 }

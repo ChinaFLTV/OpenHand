@@ -4,7 +4,6 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 
 import '../../../app/support/openhand_paths.dart';
-import '../../../app/support/silent_log.dart';
 import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/byte_size_format.dart';
@@ -31,59 +30,204 @@ class WebGatewayOpsStore {
   static const int _maxStoreBytes = 32 * kBytesPerMiB;
 
   final String filePath;
+  String? _expectedContent;
+  bool _hasTrustedSnapshot = false;
 
   Future<WebGatewayOpsHistoryData> load() async {
+    _hasTrustedSnapshot = false;
     final file = File(filePath);
     await recoverAtomicWriteBackupIfNeeded(file);
     if (!await file.exists()) {
+      _expectedContent = null;
+      _hasTrustedSnapshot = true;
       return const WebGatewayOpsHistoryData();
     }
-    try {
-      final decoded = optionalStringKeyedMapFromJsonText(
-        await readBoundedFileString(file, maxBytes: _maxStoreBytes),
-      );
-      if (decoded == null) {
-        return const WebGatewayOpsHistoryData();
-      }
-      return WebGatewayOpsHistoryData.fromJson(decoded);
-    } catch (error, stack) {
-      silentLog('web_gateway_ops_store', 'load', error, stack);
-      return const WebGatewayOpsHistoryData();
-    }
+    final raw = await readBoundedFileString(file, maxBytes: _maxStoreBytes);
+    final data = _decode(raw);
+    _expectedContent = raw;
+    _hasTrustedSnapshot = true;
+    return data;
   }
 
   Future<void> save(WebGatewayOpsHistoryData data) async {
-    final file = File(filePath);
-    try {
-      if (data.itemCount <= 0) {
-        if (await file.exists()) {
-          await file.delete();
-        }
-        return;
-      }
-      await file.parent.create(recursive: true);
-      await writeFileAtomically(file, '${prettyPrintJson(data.toJson())}\n');
-    } catch (error, stack) {
-      silentLog('web_gateway_ops_store', 'save', error, stack);
-      rethrow;
+    if (!_hasTrustedSnapshot) {
+      throw StateError('Web gateway ops history has no trusted snapshot.');
     }
+    final file = File(filePath);
+    await _verifySourceUnchanged(file);
+    if (data.itemCount <= 0) {
+      await deleteFileAtomically(file);
+      _expectedContent = null;
+      return;
+    }
+    final content = '${prettyPrintJson(data.toJson())}\n';
+    if (utf8.encode(content).length > _maxStoreBytes) {
+      throw const FileSystemException(
+        'Web gateway ops history exceeds size limit.',
+      );
+    }
+    await writeFileAtomically(file, content);
+    _expectedContent = content;
+  }
+
+  Future<void> clear() async {
+    await deleteFileAtomically(File(filePath));
+    _expectedContent = null;
+    _hasTrustedSnapshot = true;
   }
 
   Future<WebGatewayOpsPersistenceReport> measure() async {
+    if (!_hasTrustedSnapshot) {
+      throw StateError('Web gateway ops history has no trusted snapshot.');
+    }
     final file = File(filePath);
     if (!await file.exists()) {
+      if (_expectedContent != null) {
+        throw StateError('Web gateway ops history was removed externally.');
+      }
       return WebGatewayOpsPersistenceReport.empty;
     }
-    try {
-      final stat = await file.stat();
-      final data = await load();
-      return WebGatewayOpsPersistenceReport(
-        bytes: stat.size,
-        itemCount: data.itemCount,
-      );
-    } catch (error, stack) {
-      silentLog('web_gateway_ops_store', 'measure', error, stack);
-      return WebGatewayOpsPersistenceReport.empty;
+    final raw = await readBoundedFileString(file, maxBytes: _maxStoreBytes);
+    if (_expectedContent == null || raw != _expectedContent) {
+      throw StateError('Web gateway ops history changed externally.');
+    }
+    return WebGatewayOpsPersistenceReport(
+      bytes: utf8.encode(raw).length,
+      itemCount: _decode(raw).itemCount,
+    );
+  }
+
+  Future<int> measureBytesOnly() async {
+    final file = File(filePath);
+    return await file.exists() ? (await file.stat()).size : 0;
+  }
+
+  WebGatewayOpsHistoryData _decode(String raw) {
+    final decoded = jsonDecode(raw);
+    if (decoded is! Map) {
+      throw const FormatException('Web gateway ops root must be an object.');
+    }
+    final source = stringKeyedMapFromValue(decoded);
+    _requireList(source, _snapshotsKey, webGatewayOpsMaxPersistedSnapshots);
+    _requireList(source, _logsKey, webGatewayOpsMaxPersistedLogs);
+    _requireList(source, _cleanupHistoryKey, webGatewayOpsMaxCleanupHistory);
+    _requireTimestamp(source, _updatedAtKey, 'web_gateway_ops');
+    _validateItems(source);
+    final data = WebGatewayOpsHistoryData.fromJson(source);
+    final canonical = data.toJson()..[_updatedAtKey] = source[_updatedAtKey];
+    validateCanonicalJsonSubset(source, canonical, path: 'web_gateway_ops');
+    return data;
+  }
+
+  void _validateItems(Map<String, Object?> source) {
+    final snapshots = source[_snapshotsKey]! as List;
+    for (var index = 0; index < snapshots.length; index++) {
+      final path = 'web_gateway_ops.$_snapshotsKey[$index]';
+      final item = _requireMap(snapshots[index], path);
+      _requireFields(item, const <String>['timestamp', 'snapshot'], path);
+      _requireTimestamp(item, 'timestamp', path);
+      final snapshot = _requireMap(item['snapshot'], '$path.snapshot');
+      _requireFields(snapshot, const <String>[
+        'state',
+        'started_at',
+        'uptime_ms',
+        'bound_url',
+        'accessible_urls',
+        'active_requests',
+        'total_requests',
+        'total_errors',
+        'total_bytes_in',
+        'total_bytes_out',
+        'crash_count',
+        'restart_count',
+        'process',
+        'open_session_count',
+        'last_error',
+      ], '$path.snapshot');
+    }
+    final logs = source[_logsKey]! as List;
+    final logIds = <int>{};
+    for (var index = 0; index < logs.length; index++) {
+      final path = 'web_gateway_ops.$_logsKey[$index]';
+      final item = _requireMap(logs[index], path);
+      _requireFields(item, const <String>[
+        'id',
+        'timestamp',
+        'level',
+        'tag',
+        'message',
+      ], path);
+      _requireTimestamp(item, 'timestamp', path);
+      final id = item['id'];
+      if (id is! int || id <= 0 || !logIds.add(id)) {
+        throw FormatException('$path.id must be a unique positive integer.');
+      }
+    }
+    final history = source[_cleanupHistoryKey]! as List;
+    for (var index = 0; index < history.length; index++) {
+      final path = 'web_gateway_ops.$_cleanupHistoryKey[$index]';
+      final item = _requireMap(history[index], path);
+      _requireFields(item, const <String>[
+        'timestamp',
+        'target',
+        'expired_only',
+        'deleted_files',
+        'deleted_directories',
+        'bytes_freed',
+        'memory_log_entries_cleared',
+      ], path);
+      _requireTimestamp(item, 'timestamp', path);
+    }
+  }
+
+  void _requireList(Map<String, Object?> source, String key, int maxItems) {
+    final value = source[key];
+    if (value is! List) {
+      throw FormatException('web_gateway_ops.$key must be a list.');
+    }
+    if (value.length > maxItems) {
+      throw FormatException('web_gateway_ops.$key exceeds item limit.');
+    }
+  }
+
+  Map<String, Object?> _requireMap(Object? value, String path) {
+    if (value is! Map) throw FormatException('$path must be an object.');
+    return stringKeyedMapFromValue(value);
+  }
+
+  void _requireFields(
+    Map<String, Object?> source,
+    List<String> fields,
+    String path,
+  ) {
+    for (final field in fields) {
+      if (!source.containsKey(field)) {
+        throw FormatException('$path is missing $field.');
+      }
+    }
+  }
+
+  void _requireTimestamp(Map<String, Object?> source, String key, String path) {
+    final value = source[key];
+    if (value is! String || DateTime.tryParse(value) == null) {
+      throw FormatException('$path.$key must be an ISO-8601 timestamp.');
+    }
+  }
+
+  Future<void> _verifySourceUnchanged(File file) async {
+    final exists = await file.exists();
+    if (_expectedContent == null) {
+      if (exists) {
+        throw StateError('Web gateway ops history changed externally.');
+      }
+      return;
+    }
+    if (!exists) {
+      throw StateError('Web gateway ops history was removed externally.');
+    }
+    final current = await readBoundedFileString(file, maxBytes: _maxStoreBytes);
+    if (current != _expectedContent) {
+      throw StateError('Web gateway ops history changed externally.');
     }
   }
 
@@ -122,10 +266,6 @@ class WebGatewayOpsHistoryData {
           .map((item) => item.toJson())
           .toList(growable: false),
     );
-  }
-
-  int estimateBytes() {
-    return utf8.encode(prettyPrintJson(toJson())).length;
   }
 
   static WebGatewayOpsHistoryData fromJson(Object? raw) {

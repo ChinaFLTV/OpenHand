@@ -111,6 +111,28 @@ Future<void> writeFileAtomically(File targetFile, String content) {
   );
 }
 
+/// Deletes a file and every recovery artifact under the same atomic-write
+/// lock, preventing a later startup from resurrecting deliberately cleared
+/// data from a stale backup or completed temp file.
+Future<void> deleteFileAtomically(File targetFile) {
+  return _runWithAtomicWriteLock(targetFile, (targetFile) async {
+    final artifacts = <File>[
+      ...await _atomicTempArtifacts(
+        targetFile,
+        includeIncomplete: true,
+        requireComplete: true,
+      ),
+      targetFile,
+      _atomicBackupFile(targetFile),
+    ];
+    for (final artifact in artifacts) {
+      if (await artifact.exists()) {
+        await artifact.delete();
+      }
+    }
+  });
+}
+
 /// Copies [sourceFile] to [targetFile] without materializing the source in
 /// memory, while preserving the same atomic rename and rollback guarantees as
 /// the write helpers. [maxBytes] is enforced while streaming, so a source that
@@ -730,6 +752,7 @@ Future<void> _deleteStaleAtomicTempArtifacts(File targetFile) async {
 Future<List<File>> _atomicTempArtifacts(
   File targetFile, {
   bool includeIncomplete = false,
+  bool requireComplete = false,
 }) async {
   final parent = targetFile.parent;
   if (!await parent.exists()) {
@@ -745,6 +768,12 @@ Future<List<File>> _atomicTempArtifacts(
       maxEntries: _atomicArtifactScanMaxEntries,
       totalTimeout: _atomicArtifactScanTimeout,
     );
+    if (requireComplete && listing.truncated) {
+      throw FileSystemException(
+        'Atomic artifact scan did not complete.',
+        parent.path,
+      );
+    }
     for (final entity in listing.entries) {
       if (entity is! File) {
         continue;
@@ -759,6 +788,9 @@ Future<List<File>> _atomicTempArtifacts(
       }
     }
   } on FileSystemException {
+    if (requireComplete) {
+      rethrow;
+    }
     return const <File>[];
   }
   return artifacts;
