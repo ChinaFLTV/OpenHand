@@ -23,6 +23,7 @@ final RegExp _stdioCommandTokenSeparatorPattern = RegExp(r'\s+');
 const int _jsonRpcMalformedLinePreviewChars = 200;
 const int _jsonRpcCompactLinePreviewChars = 120;
 const int _jsonRpcToolDescriptionPreviewChars = 60;
+const int _stopAllConcurrency = 8;
 
 Map<String, Object?>? _parseMcpStdioJsonRpcLine(String line) {
   final trimmed = nullIfBlank(line);
@@ -715,7 +716,11 @@ class McpStdioProcessManager extends ChangeNotifier {
         .where((entry) => !entry.value.info.isStopped)
         .map((entry) => entry.key)
         .toList(growable: false);
-    await Future.wait(names.map(stopServer));
+    await forEachIndexWithConcurrencyLimit(
+      itemCount: names.length,
+      maxConcurrency: _stopAllConcurrency,
+      task: (index) => stopServer(names[index]),
+    );
   }
 
   /// 清除指定服务的日志。

@@ -350,54 +350,6 @@ class AiSessionStore {
     return rows.isNotEmpty;
   }
 
-  /// Loads all sessions **with their messages** (backward-compatible API).
-  /// By default, sessions flagged as `archived` are excluded so the
-  /// sidebar does not surface long-shelved threads. Pass
-  /// [includeArchived] to load every row regardless of archive state
-  /// (used by the Thread Session Management dialog).
-  Future<AiSessionLoadResult> loadAll({bool includeArchived = false}) async {
-    final issues = <AiSessionPersistenceIssue>[];
-    final sessionRows = await _db.query(
-      'sessions',
-      where: includeArchived ? null : 'archived = 0',
-      orderBy: _sessionsOrderBy,
-    );
-    if (sessionRows.isEmpty) {
-      return AiSessionLoadResult(sessions: const <AiSession>[], issues: issues);
-    }
-
-    // 批量拉取所有 session 的 messages：原先 N+1 次小查询（60 个会话即 60 次
-    // round trip）改为按 _kMessageBatchSize 分批 IN (...) 拉取，常见情况一两个
-    // 批次拿完。结果按 session_id 分组后保持 sort_order ASC，与原行为等价。
-    final ids = <String>[
-      for (final row in sessionRows)
-        if (row['id'] is String) row['id'] as String,
-    ];
-    final messagesBySessionId = await _loadMessagesBySessionIds(ids);
-
-    final sessions = <AiSession>[];
-    for (final row in sessionRows) {
-      try {
-        final sessionId = row['id'] as String;
-        final messageRows =
-            messagesBySessionId[sessionId] ?? const <Map<String, Object?>>[];
-        final session = await _sessionFromRowCooperatively(row, messageRows);
-        sessions.add(await restoreCompressionCheckpointFromSidecar(session));
-        await _yieldAfterSessionDecodeIfNeeded(sessions.length);
-      } catch (error) {
-        issues.add(
-          AiSessionPersistenceIssue(
-            kind: AiSessionPersistenceIssueKind.recoveredInvalidFile,
-            filePath: 'session id: ${row['id']}',
-            detail: '$error',
-          ),
-        );
-      }
-    }
-
-    return AiSessionLoadResult(sessions: sessions, issues: issues);
-  }
-
   /// SQLite 单条语句的参数上限默认 999，保守取 500 以兼顾各平台 ffi 配置。
   static const int _kMessageBatchSize = 500;
   static const int _kMessageDecodeYieldBatchSize = 96;
@@ -468,9 +420,8 @@ class AiSessionStore {
     return rows;
   }
 
-  /// Loads **only session metadata** (no messages).  Much faster for building
-  /// the sidebar session list. Like [loadAll], excludes archived rows by
-  /// default.
+  /// Loads **only session metadata** (no messages). Much faster and safer for
+  /// building the sidebar session list. Excludes archived rows by default.
   Future<AiSessionLoadResult> loadAllHeaders({
     bool includeArchived = false,
   }) async {
@@ -889,8 +840,8 @@ class AiSessionStore {
           error,
           stack,
         );
-        // Skip rows that fail to decode; the main loadAll() path surfaces
-        // persistence issues for the UI — the scheduler should stay silent.
+        // Skip rows that fail to decode; loadAllHeaders() surfaces persistence
+        // issues for the UI — the scheduler should stay silent.
       }
     }
     AiSessionTemplateCursor? nextCursor;
