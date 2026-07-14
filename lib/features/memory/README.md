@@ -15,5 +15,5 @@
 
 ## 不变量
 - 同一 id 在 entries 内唯一
-- 持久化串行化由 MemoryStore.mutationQueue 保证
+- 增删改由 `MemoryController` 操作队列串行化，并使用 SQLite 行级原子写入
 - 启动不阻塞主线程，首次访问前 entries 为空

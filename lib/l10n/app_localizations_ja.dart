@@ -1555,25 +1555,25 @@ class AppLocalizationsJa extends AppLocalizations {
   String get settingsMemorySubtitle => 'ユーザーメモリのスイッチと永続化ファイルパスを管理します。';
 
   @override
-  String get settingsPersistenceRecoveredTitle => '設定ファイルを復旧しました';
+  String get settingsPersistenceInvalidTitle => '設定データが破損しています';
 
   @override
-  String get settingsPersistenceRecoveredBody =>
-      '設定ファイルの破損または改ざんを検出したため、バックアップを作成し、安全なデフォルトに復元しました。';
+  String get settingsPersistenceInvalidBody =>
+      'データベースのレコードを解析できません。元のデータを上書きせず、安全な既定値を表示します。';
 
   @override
-  String get settingsPersistenceSanitizedTitle => '設定内容をサニタイズしました';
+  String get settingsPersistenceLoadFailedTitle => '設定の読み込みに失敗しました';
 
   @override
-  String get settingsPersistenceSanitizedBody =>
-      '無効な設定項目を検出したため、それらを無視し、有効な設定を書き直しました。';
+  String get settingsPersistenceLoadFailedBody =>
+      'ローカルデータベースを読み込めません。既存データを保護するため、一時的に既定値を表示し保存を停止します。';
 
   @override
   String get settingsPersistenceSaveFailedTitle => '設定の保存に失敗';
 
   @override
   String get settingsPersistenceSaveFailedBody =>
-      '設定ファイルの書き込みに失敗しました。UI は最後に有効だった設定にロールバックされています。ファイルの権限やディスクの状態を確認してください。';
+      '設定データベースへの書き込みに失敗しました。UI は最後に有効だった設定へ戻されました。データベースのアクセス権とディスク状態を確認してください。';
 
   @override
   String get settingsPersistenceDismiss => '閉じる';
@@ -2828,8 +2828,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get memoryPageTitle => 'メモリ';
 
   @override
-  String get memoryPageSubtitle =>
-      '編集可能なユーザーメモリを一括管理します。エントリはローカルの JSON ファイルに永続化されます。';
+  String get memoryPageSubtitle => 'ローカルデータベースに保存されたユーザーメモリを管理します。';
 
   @override
   String get memoryRefresh => '更新';
@@ -2841,10 +2840,10 @@ class AppLocalizationsJa extends AppLocalizations {
   String get memoryEmptyTitle => 'まだユーザーメモリがありません';
 
   @override
-  String get memoryEmptyBody => 'ユーザーメモリを追加すると、OpenHand が現在のメモリファイルに永続化します。';
+  String get memoryEmptyBody => 'ユーザーメモリを追加すると、ローカルデータベースに保存されます。';
 
   @override
-  String get memoryLoadFailedTitle => 'メモリファイルの読み込みに失敗';
+  String get memoryLoadFailedTitle => 'メモリデータの読み込みに失敗';
 
   @override
   String get memoryOperationFailed => 'メモリ操作に失敗しました。もう一度お試しください。';
@@ -2893,17 +2892,16 @@ class AppLocalizationsJa extends AppLocalizations {
       '無効にすると、保存済みのユーザーメモリはディスク上に残りますが、実行時には使用されません。';
 
   @override
-  String get userMemoryFileLabel => 'ユーザーメモリファイル';
+  String get userMemoryFileLabel => 'メモリデータベース';
 
   @override
-  String get memoryFileBody =>
-      'ユーザーメモリに使用する JSON ファイルを設定します。デフォルトではアプリディレクトリ配下の .openhand/memory/user-memory.json が指定されます。';
+  String get memoryFileBody => 'ユーザーメモリは OpenHand のローカル SQLite データベースに保存されます。';
 
   @override
-  String get memoryFileDefaultPath => '既定のファイル';
+  String get memoryFileDefaultPath => 'データベースの場所';
 
   @override
-  String get memoryOpenDirectory => 'ディレクトリを開く';
+  String get memoryOpenDirectory => 'データベースフォルダを開く';
 
   @override
   String get memoryDisabledTitle => 'メモリは現在無効です';
@@ -2916,25 +2914,18 @@ class AppLocalizationsJa extends AppLocalizations {
   String get memoryCreatedAtLabel => '作成日時';
 
   @override
-  String get memoryPersistenceRecoveredTitle => 'メモリファイルを復旧しました';
-
-  @override
-  String get memoryPersistenceRecoveredBody =>
-      'メモリファイルの破損または改ざんを検出したため、バックアップを作成し、空のリストに復元しました。';
-
-  @override
-  String get memoryPersistenceSanitizedTitle => 'メモリ内容をサニタイズしました';
+  String get memoryPersistenceSanitizedTitle => '無効なメモリ行を無視しました';
 
   @override
   String get memoryPersistenceSanitizedBody =>
-      '無効なメモリ項目を検出したため、不正なエントリを無視し、有効な内容を書き直しました。';
+      '保存元に無効な記録があります。読み込み時に無視され、元データは変更されていません。';
 
   @override
   String get memoryPersistenceSaveFailedTitle => 'メモリの保存に失敗';
 
   @override
   String get memoryPersistenceSaveFailedBody =>
-      'メモリファイルの書き込みに失敗しました。UI は最後の有効な内容にロールバックされています。ファイルの権限やディスクの状態を確認してください。';
+      'メモリデータベースへの書き込みに失敗しました。UI は直前の有効な内容へ戻されました。データベースのアクセス権とディスク状態を確認してください。';
 
   @override
   String get mcpPageTitle => 'MCP';

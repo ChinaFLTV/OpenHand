@@ -1538,25 +1538,24 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsMemorySubtitle => '管理用户记忆开关与持久化文件位置。';
 
   @override
-  String get settingsPersistenceRecoveredTitle => '设置文件已自动恢复';
+  String get settingsPersistenceInvalidTitle => '设置数据损坏';
 
   @override
-  String get settingsPersistenceRecoveredBody =>
-      '检测到设置文件内容损坏或被篡改，OpenHand 已备份异常文件并恢复为安全默认值。';
+  String get settingsPersistenceInvalidBody => '数据库记录无法解析。当前仅展示安全默认值，不会覆盖原始数据。';
 
   @override
-  String get settingsPersistenceSanitizedTitle => '设置内容已自动修正';
+  String get settingsPersistenceLoadFailedTitle => '设置读取失败';
 
   @override
-  String get settingsPersistenceSanitizedBody =>
-      '检测到部分设置内容无效，OpenHand 已忽略异常字段并重新写回有效配置。';
+  String get settingsPersistenceLoadFailedBody =>
+      '无法读取本地数据库。当前临时展示默认值并暂停保存，以保护已有数据。';
 
   @override
   String get settingsPersistenceSaveFailedTitle => '设置保存失败';
 
   @override
   String get settingsPersistenceSaveFailedBody =>
-      '设置文件写入失败，界面已回滚到上一次有效配置，请检查文件权限或磁盘状态。';
+      '设置数据库写入失败，界面已回滚到上一次有效配置，请检查数据库访问权限或磁盘状态。';
 
   @override
   String get settingsPersistenceDismiss => '关闭提示';
@@ -2794,7 +2793,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get memoryPageTitle => '记忆';
 
   @override
-  String get memoryPageSubtitle => '统一维护用户可编辑记忆，所有条目会持久化到本地 JSON 文件。';
+  String get memoryPageSubtitle => '统一维护存储在本地数据库中的用户记忆。';
 
   @override
   String get memoryRefresh => '刷新';
@@ -2806,10 +2805,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get memoryEmptyTitle => '还没有任何用户记忆';
 
   @override
-  String get memoryEmptyBody => '新增一条用户记忆后，它会持久化保存到当前配置的记忆文件中。';
+  String get memoryEmptyBody => '新增用户记忆后，它会持久化保存到本地数据库。';
 
   @override
-  String get memoryLoadFailedTitle => '记忆文件读取失败';
+  String get memoryLoadFailedTitle => '记忆数据读取失败';
 
   @override
   String get memoryOperationFailed => '记忆操作失败，请稍后重试。';
@@ -2857,17 +2856,16 @@ class AppLocalizationsZh extends AppLocalizations {
   String get memoryEnabledBody => '关闭后不会在运行时使用用户记忆，但仍然保留已保存的记忆内容。';
 
   @override
-  String get userMemoryFileLabel => '用户记忆文件';
+  String get userMemoryFileLabel => '记忆数据库';
 
   @override
-  String get memoryFileBody =>
-      '配置用户记忆 JSON 文件位置。默认会使用当前程序目录下的 .openhand/memory/user-memory.json。';
+  String get memoryFileBody => '用户记忆统一存储在 OpenHand 本地 SQLite 数据库中。';
 
   @override
-  String get memoryFileDefaultPath => '默认文件';
+  String get memoryFileDefaultPath => '数据库位置';
 
   @override
-  String get memoryOpenDirectory => '打开目录';
+  String get memoryOpenDirectory => '打开数据库目录';
 
   @override
   String get memoryDisabledTitle => '记忆能力当前已关闭';
@@ -2879,25 +2877,17 @@ class AppLocalizationsZh extends AppLocalizations {
   String get memoryCreatedAtLabel => '创建时间';
 
   @override
-  String get memoryPersistenceRecoveredTitle => '记忆文件已自动恢复';
+  String get memoryPersistenceSanitizedTitle => '已忽略异常记忆记录';
 
   @override
-  String get memoryPersistenceRecoveredBody =>
-      '检测到记忆文件内容损坏或被篡改，OpenHand 已备份异常文件并恢复为空列表。';
+  String get memoryPersistenceSanitizedBody => '存储源中存在无效记录，本次加载已忽略；原始数据未被改写。';
 
   @override
-  String get memoryPersistenceSanitizedTitle => '记忆内容已自动修正';
-
-  @override
-  String get memoryPersistenceSanitizedBody =>
-      '检测到部分记忆字段无效，OpenHand 已忽略异常条目并重新写回有效内容。';
-
-  @override
-  String get memoryPersistenceSaveFailedTitle => '记忆文件保存失败';
+  String get memoryPersistenceSaveFailedTitle => '记忆数据保存失败';
 
   @override
   String get memoryPersistenceSaveFailedBody =>
-      '写入记忆文件失败，界面已回滚到上一次有效内容，请检查文件权限或磁盘状态。';
+      '记忆数据库写入失败，界面已回滚到上一次有效内容，请检查数据库访问权限或磁盘状态。';
 
   @override
   String get mcpPageTitle => 'MCP';
@@ -12174,25 +12164,24 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get settingsMemorySubtitle => '管理用戶記憶開關與持久化檔案位置。';
 
   @override
-  String get settingsPersistenceRecoveredTitle => '設定檔案已自動恢復';
+  String get settingsPersistenceInvalidTitle => '設定資料損壞';
 
   @override
-  String get settingsPersistenceRecoveredBody =>
-      '檢測到設定檔案內容損壞或被竄改，OpenHand 已備份異常檔案并恢復為安全預設值。';
+  String get settingsPersistenceInvalidBody => '資料庫記錄無法解析。目前僅顯示安全預設值，不會覆寫原始資料。';
 
   @override
-  String get settingsPersistenceSanitizedTitle => '設定內容已自動修正';
+  String get settingsPersistenceLoadFailedTitle => '設定讀取失敗';
 
   @override
-  String get settingsPersistenceSanitizedBody =>
-      '檢測到部分設定內容無效，OpenHand 已忽略異常欄位并重新寫回有效配置。';
+  String get settingsPersistenceLoadFailedBody =>
+      '無法讀取本機資料庫。目前暫時顯示預設值並暫停儲存，以保護既有資料。';
 
   @override
   String get settingsPersistenceSaveFailedTitle => '設定儲存失敗';
 
   @override
   String get settingsPersistenceSaveFailedBody =>
-      '設定檔案寫入失敗，界面已回復到上一次有效配置，請檢查檔案權限或磁碟狀態。';
+      '設定資料庫寫入失敗，介面已回復到上一次有效設定，請檢查資料庫存取權限或磁碟狀態。';
 
   @override
   String get settingsPersistenceDismiss => '關閉提示';
@@ -13430,7 +13419,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get memoryPageTitle => '記憶';
 
   @override
-  String get memoryPageSubtitle => '統一維護用戶可編輯記憶，所有條目會持久化到本機 JSON 檔案。';
+  String get memoryPageSubtitle => '統一維護儲存在本機資料庫中的用戶記憶。';
 
   @override
   String get memoryRefresh => '重新整理';
@@ -13442,10 +13431,10 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get memoryEmptyTitle => '還沒有任何用戶記憶';
 
   @override
-  String get memoryEmptyBody => '新增一條用戶記憶後，它會持久化儲存到目前配置的記憶檔案中。';
+  String get memoryEmptyBody => '新增用戶記憶後，它會持久化儲存到本機資料庫。';
 
   @override
-  String get memoryLoadFailedTitle => '記憶檔案讀取失敗';
+  String get memoryLoadFailedTitle => '記憶資料讀取失敗';
 
   @override
   String get memoryOperationFailed => '記憶操作失敗，請稍後重試。';
@@ -13493,17 +13482,16 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get memoryEnabledBody => '關閉後不會在運行時使用用戶記憶，但仍然保留已儲存的記憶內容。';
 
   @override
-  String get userMemoryFileLabel => '用戶記憶檔案';
+  String get userMemoryFileLabel => '記憶資料庫';
 
   @override
-  String get memoryFileBody =>
-      '配置用戶記憶 JSON 檔案位置。預設會使用目前程序目錄下的 .openhand/memory/user-memory.json。';
+  String get memoryFileBody => '用戶記憶統一儲存在 OpenHand 本機 SQLite 資料庫中。';
 
   @override
-  String get memoryFileDefaultPath => '預設檔案';
+  String get memoryFileDefaultPath => '資料庫位置';
 
   @override
-  String get memoryOpenDirectory => '打開目錄';
+  String get memoryOpenDirectory => '開啟資料庫目錄';
 
   @override
   String get memoryDisabledTitle => '記憶能力目前已關閉';
@@ -13515,25 +13503,17 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get memoryCreatedAtLabel => '建立時間';
 
   @override
-  String get memoryPersistenceRecoveredTitle => '記憶檔案已自動恢復';
+  String get memoryPersistenceSanitizedTitle => '已忽略異常記憶記錄';
 
   @override
-  String get memoryPersistenceRecoveredBody =>
-      '檢測到記憶檔案內容損壞或被竄改，OpenHand 已備份異常檔案并恢復為空列表。';
+  String get memoryPersistenceSanitizedBody => '儲存來源中存在無效記錄，本次載入已忽略；原始資料未被改寫。';
 
   @override
-  String get memoryPersistenceSanitizedTitle => '記憶內容已自動修正';
-
-  @override
-  String get memoryPersistenceSanitizedBody =>
-      '檢測到部分記憶欄位無效，OpenHand 已忽略異常條目并重新寫回有效內容。';
-
-  @override
-  String get memoryPersistenceSaveFailedTitle => '記憶檔案儲存失敗';
+  String get memoryPersistenceSaveFailedTitle => '記憶資料儲存失敗';
 
   @override
   String get memoryPersistenceSaveFailedBody =>
-      '寫入記憶檔案失敗，界面已回復到上一次有效內容，請檢查檔案權限或磁碟狀態。';
+      '記憶資料庫寫入失敗，介面已回復到上一次有效內容，請檢查資料庫存取權限或磁碟狀態。';
 
   @override
   String get mcpPageTitle => 'MCP';

@@ -1581,25 +1581,25 @@ class AppLocalizationsEn extends AppLocalizations {
       'Manage the user-memory switch and the persistence file path.';
 
   @override
-  String get settingsPersistenceRecoveredTitle => 'Settings File Recovered';
+  String get settingsPersistenceInvalidTitle => 'Settings Data Is Invalid';
 
   @override
-  String get settingsPersistenceRecoveredBody =>
-      'OpenHand detected that the settings file was damaged or tampered with, backed it up, and restored safe defaults.';
+  String get settingsPersistenceInvalidBody =>
+      'The database record cannot be parsed. Safe defaults are shown without overwriting the original data.';
 
   @override
-  String get settingsPersistenceSanitizedTitle => 'Settings Content Sanitized';
+  String get settingsPersistenceLoadFailedTitle => 'Settings Read Failed';
 
   @override
-  String get settingsPersistenceSanitizedBody =>
-      'OpenHand detected invalid settings fields, ignored them, and rewrote a valid configuration.';
+  String get settingsPersistenceLoadFailedBody =>
+      'The local database could not be read. Defaults are shown temporarily and saving is paused to protect existing data.';
 
   @override
   String get settingsPersistenceSaveFailedTitle => 'Settings Save Failed';
 
   @override
   String get settingsPersistenceSaveFailedBody =>
-      'Writing the settings file failed. The UI has been rolled back to the last valid configuration. Check file permissions or disk state.';
+      'Writing the settings database failed. The UI was rolled back to the last valid configuration. Check database access and disk state.';
 
   @override
   String get settingsPersistenceDismiss => 'Dismiss';
@@ -2883,7 +2883,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get memoryPageSubtitle =>
-      'Manage editable user memories in one place. Every entry is persisted to a local JSON file.';
+      'Manage editable user memories stored in the local database.';
 
   @override
   String get memoryRefresh => 'Refresh';
@@ -2896,10 +2896,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get memoryEmptyBody =>
-      'Add a user memory and OpenHand will persist it into the current memory file.';
+      'Add a user memory and OpenHand will persist it in the local database.';
 
   @override
-  String get memoryLoadFailedTitle => 'Failed to load memory file';
+  String get memoryLoadFailedTitle => 'Failed to load memory data';
 
   @override
   String get memoryOperationFailed =>
@@ -2950,17 +2950,17 @@ class AppLocalizationsEn extends AppLocalizations {
       'When disabled, saved user memories stay on disk but are not used at runtime.';
 
   @override
-  String get userMemoryFileLabel => 'User Memory File';
+  String get userMemoryFileLabel => 'Memory Database';
 
   @override
   String get memoryFileBody =>
-      'Configure the JSON file used for user memories. By default it points to .openhand/memory/user-memory.json under the current app directory.';
+      'User memories are stored in OpenHand\'s local SQLite database.';
 
   @override
-  String get memoryFileDefaultPath => 'Default File';
+  String get memoryFileDefaultPath => 'Database Location';
 
   @override
-  String get memoryOpenDirectory => 'Open Directory';
+  String get memoryOpenDirectory => 'Open Database Folder';
 
   @override
   String get memoryDisabledTitle => 'Memory is currently disabled';
@@ -2973,25 +2973,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get memoryCreatedAtLabel => 'Created At';
 
   @override
-  String get memoryPersistenceRecoveredTitle => 'Memory File Recovered';
-
-  @override
-  String get memoryPersistenceRecoveredBody =>
-      'OpenHand detected that the memory file was damaged or tampered with, backed it up, and restored an empty list.';
-
-  @override
-  String get memoryPersistenceSanitizedTitle => 'Memory Content Sanitized';
+  String get memoryPersistenceSanitizedTitle => 'Invalid Memory Rows Ignored';
 
   @override
   String get memoryPersistenceSanitizedBody =>
-      'OpenHand detected invalid memory fields, ignored the bad entries, and rewrote valid content.';
+      'The storage source contains invalid entries. They were ignored while loading without changing the original data.';
 
   @override
   String get memoryPersistenceSaveFailedTitle => 'Memory Save Failed';
 
   @override
   String get memoryPersistenceSaveFailedBody =>
-      'Writing the memory file failed. The UI has been rolled back to the last valid content. Check file permissions or disk state.';
+      'Writing the memory database failed. The UI was rolled back to the last valid content. Check database access and disk state.';
 
   @override
   String get mcpPageTitle => 'MCP';

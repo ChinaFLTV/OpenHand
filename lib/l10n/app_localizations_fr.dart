@@ -1591,20 +1591,20 @@ class AppLocalizationsFr extends AppLocalizations {
       'Gérer le commutateur de mémoire utilisateur et le chemin du fichier de persistance.';
 
   @override
-  String get settingsPersistenceRecoveredTitle =>
-      'Fichier de paramètres récupéré';
+  String get settingsPersistenceInvalidTitle =>
+      'Données de paramètres invalides';
 
   @override
-  String get settingsPersistenceRecoveredBody =>
-      'OpenHand a détecté que le fichier de paramètres était endommagé ou modifié, l’a sauvegardé et a restauré des valeurs par défaut sûres.';
+  String get settingsPersistenceInvalidBody =>
+      'L’enregistrement de la base de données est illisible. Les valeurs par défaut sont affichées sans écraser les données d’origine.';
 
   @override
-  String get settingsPersistenceSanitizedTitle =>
-      'Contenu des paramètres assaini';
+  String get settingsPersistenceLoadFailedTitle =>
+      'Échec de lecture des paramètres';
 
   @override
-  String get settingsPersistenceSanitizedBody =>
-      'OpenHand a détecté des champs de paramètres invalides, les a ignorés et a réécrit une configuration valide.';
+  String get settingsPersistenceLoadFailedBody =>
+      'La base locale est inaccessible. Les valeurs par défaut sont affichées temporairement et l’enregistrement est suspendu.';
 
   @override
   String get settingsPersistenceSaveFailedTitle =>
@@ -1612,7 +1612,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get settingsPersistenceSaveFailedBody =>
-      'L’écriture du fichier de paramètres a échoué. L’interface est revenue à la dernière configuration valide. Vérifiez les autorisations du fichier ou l’état du disque.';
+      'L’écriture dans la base de paramètres a échoué. L’interface est revenue à la dernière configuration valide. Vérifiez l’accès à la base et le disque.';
 
   @override
   String get settingsPersistenceDismiss => 'Ignorer';
@@ -2918,7 +2918,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get memoryPageSubtitle =>
-      'Gérez en un seul endroit les mémoires utilisateur modifiables. Chaque entrée est enregistrée dans un fichier JSON local.';
+      'Gérez les mémoires utilisateur stockées dans la base de données locale.';
 
   @override
   String get memoryRefresh => 'Actualiser';
@@ -2931,11 +2931,10 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get memoryEmptyBody =>
-      'Ajoutez une mémoire utilisateur et OpenHand l’enregistrera dans le fichier de mémoire actuel.';
+      'Ajoutez une mémoire utilisateur et OpenHand l’enregistrera dans la base locale.';
 
   @override
-  String get memoryLoadFailedTitle =>
-      'Échec du chargement du fichier de mémoire';
+  String get memoryLoadFailedTitle => 'Échec du chargement des mémoires';
 
   @override
   String get memoryOperationFailed =>
@@ -2987,17 +2986,17 @@ class AppLocalizationsFr extends AppLocalizations {
       'Lorsque désactivé, les mémoires utilisateur enregistrées restent sur le disque mais ne sont pas utilisées à l’exécution.';
 
   @override
-  String get userMemoryFileLabel => 'Fichier de mémoire utilisateur';
+  String get userMemoryFileLabel => 'Base des mémoires';
 
   @override
   String get memoryFileBody =>
-      'Configurez le fichier JSON utilisé pour les mémoires utilisateur. Par défaut, il pointe vers .openhand/memory/user-memory.json dans le dossier d’application actuel.';
+      'Les mémoires utilisateur sont stockées dans la base SQLite locale d’OpenHand.';
 
   @override
-  String get memoryFileDefaultPath => 'Fichier par défaut';
+  String get memoryFileDefaultPath => 'Emplacement de la base';
 
   @override
-  String get memoryOpenDirectory => 'Ouvrir le dossier';
+  String get memoryOpenDirectory => 'Ouvrir le dossier de la base';
 
   @override
   String get memoryDisabledTitle => 'La mémoire est actuellement désactivée';
@@ -3010,18 +3009,12 @@ class AppLocalizationsFr extends AppLocalizations {
   String get memoryCreatedAtLabel => 'Créé le';
 
   @override
-  String get memoryPersistenceRecoveredTitle => 'Fichier de mémoire récupéré';
-
-  @override
-  String get memoryPersistenceRecoveredBody =>
-      'OpenHand a détecté que le fichier de mémoire était endommagé ou modifié, l’a sauvegardé et a restauré une liste vide.';
-
-  @override
-  String get memoryPersistenceSanitizedTitle => 'Contenu de la mémoire assaini';
+  String get memoryPersistenceSanitizedTitle =>
+      'Lignes de mémoire invalides ignorées';
 
   @override
   String get memoryPersistenceSanitizedBody =>
-      'OpenHand a détecté des champs de mémoire invalides, a ignoré les entrées défectueuses et a réécrit un contenu valide.';
+      'La source de stockage contient des entrées invalides. Elles ont été ignorées au chargement sans modifier les données d’origine.';
 
   @override
   String get memoryPersistenceSaveFailedTitle =>
@@ -3029,7 +3022,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get memoryPersistenceSaveFailedBody =>
-      'L’écriture du fichier de mémoire a échoué. L’interface est revenue au dernier contenu valide. Vérifiez les autorisations du fichier ou l’état du disque.';
+      'L’écriture dans la base des mémoires a échoué. L’interface est revenue au dernier contenu valide. Vérifiez l’accès et le disque.';
 
   @override
   String get mcpPageTitle => 'MCP';

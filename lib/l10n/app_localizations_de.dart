@@ -1587,20 +1587,20 @@ class AppLocalizationsDe extends AppLocalizations {
       'Schalter für Nutzer-Speicher und Persistenz-Dateipfad verwalten.';
 
   @override
-  String get settingsPersistenceRecoveredTitle =>
-      'Einstellungsdatei wiederhergestellt';
+  String get settingsPersistenceInvalidTitle =>
+      'Einstellungsdaten sind ungültig';
 
   @override
-  String get settingsPersistenceRecoveredBody =>
-      'OpenHand hat erkannt, dass die Einstellungsdatei beschädigt oder manipuliert wurde, ein Backup erstellt und sichere Standardwerte wiederhergestellt.';
+  String get settingsPersistenceInvalidBody =>
+      'Der Datenbankeintrag kann nicht gelesen werden. Standardwerte werden angezeigt, ohne die Originaldaten zu überschreiben.';
 
   @override
-  String get settingsPersistenceSanitizedTitle =>
-      'Einstellungsinhalt bereinigt';
+  String get settingsPersistenceLoadFailedTitle =>
+      'Einstellungen konnten nicht gelesen werden';
 
   @override
-  String get settingsPersistenceSanitizedBody =>
-      'OpenHand hat ungültige Einstellungsfelder erkannt, ignoriert und eine gültige Konfiguration neu geschrieben.';
+  String get settingsPersistenceLoadFailedBody =>
+      'Die lokale Datenbank ist nicht lesbar. Standardwerte werden vorübergehend angezeigt und das Speichern wird pausiert.';
 
   @override
   String get settingsPersistenceSaveFailedTitle =>
@@ -1608,7 +1608,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get settingsPersistenceSaveFailedBody =>
-      'Das Schreiben der Einstellungsdatei ist fehlgeschlagen. Die Oberfläche wurde auf die letzte gültige Konfiguration zurückgesetzt. Dateiberechtigungen oder Festplattenzustand prüfen.';
+      'Das Schreiben in die Einstellungsdatenbank ist fehlgeschlagen. Die Oberfläche wurde zurückgesetzt. Datenbankzugriff und Festplattenzustand prüfen.';
 
   @override
   String get settingsPersistenceDismiss => 'Schließen';
@@ -2910,7 +2910,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get memoryPageSubtitle =>
-      'Bearbeitbare Nutzer-Erinnerungen an einem Ort verwalten. Jeder Eintrag wird in einer lokalen JSON-Datei gespeichert.';
+      'Verwalten Sie Nutzer-Erinnerungen in der lokalen Datenbank.';
 
   @override
   String get memoryRefresh => 'Aktualisieren';
@@ -2923,11 +2923,11 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get memoryEmptyBody =>
-      'Fügen Sie eine Nutzer-Erinnerung hinzu, und OpenHand speichert sie in der aktuellen Speicherdatei.';
+      'Fügen Sie eine Nutzer-Erinnerung hinzu; OpenHand speichert sie lokal.';
 
   @override
   String get memoryLoadFailedTitle =>
-      'Speicherdatei konnte nicht geladen werden';
+      'Erinnerungsdaten konnten nicht geladen werden';
 
   @override
   String get memoryOperationFailed =>
@@ -2978,17 +2978,17 @@ class AppLocalizationsDe extends AppLocalizations {
       'Wenn deaktiviert, bleiben gespeicherte Nutzer-Erinnerungen auf der Festplatte, werden zur Laufzeit jedoch nicht verwendet.';
 
   @override
-  String get userMemoryFileLabel => 'Nutzer-Speicherdatei';
+  String get userMemoryFileLabel => 'Erinnerungsdatenbank';
 
   @override
   String get memoryFileBody =>
-      'Konfigurieren Sie die JSON-Datei für Nutzer-Erinnerungen. Standardmäßig zeigt sie auf .openhand/memory/user-memory.json im aktuellen App-Verzeichnis.';
+      'Nutzer-Erinnerungen werden in OpenHands lokaler SQLite-Datenbank gespeichert.';
 
   @override
-  String get memoryFileDefaultPath => 'Standarddatei';
+  String get memoryFileDefaultPath => 'Datenbankspeicherort';
 
   @override
-  String get memoryOpenDirectory => 'Verzeichnis öffnen';
+  String get memoryOpenDirectory => 'Datenbankordner öffnen';
 
   @override
   String get memoryDisabledTitle => 'Speicher ist derzeit deaktiviert';
@@ -3001,19 +3001,12 @@ class AppLocalizationsDe extends AppLocalizations {
   String get memoryCreatedAtLabel => 'Erstellt am';
 
   @override
-  String get memoryPersistenceRecoveredTitle =>
-      'Speicherdatei wiederhergestellt';
-
-  @override
-  String get memoryPersistenceRecoveredBody =>
-      'OpenHand hat erkannt, dass die Speicherdatei beschädigt oder manipuliert wurde, ein Backup erstellt und eine leere Liste wiederhergestellt.';
-
-  @override
-  String get memoryPersistenceSanitizedTitle => 'Speicherinhalt bereinigt';
+  String get memoryPersistenceSanitizedTitle =>
+      'Ungültige Erinnerungszeilen ignoriert';
 
   @override
   String get memoryPersistenceSanitizedBody =>
-      'OpenHand hat ungültige Speicherfelder erkannt, fehlerhafte Einträge ignoriert und gültigen Inhalt neu geschrieben.';
+      'Die Speicherquelle enthält ungültige Einträge. Sie wurden beim Laden ignoriert, ohne die Originaldaten zu ändern.';
 
   @override
   String get memoryPersistenceSaveFailedTitle =>
@@ -3021,7 +3014,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get memoryPersistenceSaveFailedBody =>
-      'Das Schreiben der Speicherdatei ist fehlgeschlagen. Die Oberfläche wurde auf den letzten gültigen Inhalt zurückgesetzt. Dateiberechtigungen oder Festplattenzustand prüfen.';
+      'Das Schreiben in die Erinnerungsdatenbank ist fehlgeschlagen. Die Oberfläche wurde zurückgesetzt. Datenbankzugriff und Festplatte prüfen.';
 
   @override
   String get mcpPageTitle => 'MCP';

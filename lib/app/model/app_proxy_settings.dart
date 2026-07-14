@@ -1,6 +1,6 @@
 // Proxy configuration model. Backs the new "系统 / System"
 // settings card and is consumed by `SystemProxyResolver`. Persisted as
-// a JSON object under the `proxy` key in `app_settings.json`.
+// a JSON object under the `proxy` key in the app settings database record.
 // Privacy: the password field is stored verbatim in the settings file
 // (same JSON shape as every other secret in this app today). If the
 // surrounding storage strategy ever upgrades to keychain-backed

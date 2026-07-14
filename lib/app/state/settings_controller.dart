@@ -80,6 +80,7 @@ class SettingsController extends ChangeNotifier {
   SettingsController._({
     required SettingsStore store,
     required AppSettingsSnapshot snapshot,
+    required bool canPersist,
     SettingsPersistenceIssue? persistenceIssue,
   }) : _store = store,
        _themeMode = snapshot.themeMode,
@@ -228,7 +229,8 @@ class SettingsController extends ChangeNotifier {
        _subprocessGracefulShutdownMs = snapshot.subprocessGracefulShutdownMs,
        _bashOutputMaxBytes = snapshot.bashOutputMaxBytes,
        _maxConcurrentTools = snapshot.maxConcurrentTools,
-       _persistenceIssue = persistenceIssue;
+       _persistenceIssue = persistenceIssue,
+       _canPersistSettings = canPersist;
 
   static const int _maxRecentModelSelections = 10;
   static const Uuid _uuid = Uuid();
@@ -244,6 +246,7 @@ class SettingsController extends ChangeNotifier {
     return SettingsController._(
       store: effectiveStore,
       snapshot: loadResult.snapshot,
+      canPersist: loadResult.canPersist,
       persistenceIssue: loadResult.issue,
     );
   }
@@ -361,6 +364,7 @@ class SettingsController extends ChangeNotifier {
   int _bashOutputMaxBytes;
   int _maxConcurrentTools;
   SettingsPersistenceIssue? _persistenceIssue;
+  bool _canPersistSettings;
   bool _isDisposed = false;
   Future<void> _mutationQueue = Future<void>.value();
 
@@ -2759,6 +2763,10 @@ class SettingsController extends ChangeNotifier {
               completer.complete(false);
               return;
             }
+            if (!_canPersistSettings && !await _reloadTrustedSnapshot()) {
+              completer.complete(false);
+              return;
+            }
             previousSnapshot = _snapshot();
             final disposition = mutation();
             if (disposition == _MutationDisposition.successNoChange) {
@@ -2772,6 +2780,7 @@ class SettingsController extends ChangeNotifier {
             notifyListeners();
             try {
               await _store.save(_snapshot());
+              _canPersistSettings = true;
               if (_persistenceIssue != null) {
                 _persistenceIssue = null;
                 notifyListeners();
@@ -2812,6 +2821,19 @@ class SettingsController extends ChangeNotifier {
           }
         });
     return completer.future;
+  }
+
+  Future<bool> _reloadTrustedSnapshot() async {
+    final result = await _store.load();
+    _persistenceIssue = result.issue;
+    if (!result.canPersist) {
+      notifyListeners();
+      return false;
+    }
+    _applySnapshot(result.snapshot);
+    _canPersistSettings = true;
+    notifyListeners();
+    return true;
   }
 
   void _restoreSnapshot(AppSettingsSnapshot snapshot) {

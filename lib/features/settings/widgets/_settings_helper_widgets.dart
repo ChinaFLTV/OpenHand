@@ -4974,13 +4974,13 @@ class _SettingsPersistenceIssueCard extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     final shortPath = OpenHandPaths.shortenHomePath(issue.filePath);
     final (title, body) = switch (issue.kind) {
-      SettingsPersistenceIssueKind.recoveredInvalidFile => (
-        l10n.settingsPersistenceRecoveredTitle,
-        '${l10n.settingsPersistenceRecoveredBody}\n$shortPath',
+      SettingsPersistenceIssueKind.loadFailed => (
+        l10n.settingsPersistenceLoadFailedTitle,
+        '${l10n.settingsPersistenceLoadFailedBody}\n$shortPath',
       ),
-      SettingsPersistenceIssueKind.sanitizedInvalidContent => (
-        l10n.settingsPersistenceSanitizedTitle,
-        '${l10n.settingsPersistenceSanitizedBody}\n$shortPath',
+      SettingsPersistenceIssueKind.invalidContent => (
+        l10n.settingsPersistenceInvalidTitle,
+        '${l10n.settingsPersistenceInvalidBody}\n$shortPath',
       ),
       SettingsPersistenceIssueKind.saveFailed => (
         l10n.settingsPersistenceSaveFailedTitle,

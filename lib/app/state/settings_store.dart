@@ -17,6 +17,7 @@ import '../../features/mcp/model/mcp_keyword_index_update_mode.dart';
 import '../../features/mcp/model/mcp_lazy_loading_mode.dart';
 import '../../features/mcp/model/mcp_stdio_mirror_mode.dart';
 import '../../shared/db/database_service.dart';
+import '../../shared/db/legacy_persistence.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../model/app_language.dart';
 import '../model/app_proxy_settings.dart';
@@ -31,11 +32,7 @@ import '../support/silent_log.dart';
 import '../support/url_validation.dart';
 import '../theme/openhand_theme_preset.dart';
 
-enum SettingsPersistenceIssueKind {
-  recoveredInvalidFile,
-  sanitizedInvalidContent,
-  saveFailed,
-}
+enum SettingsPersistenceIssueKind { loadFailed, invalidContent, saveFailed }
 
 class SettingsPersistenceIssue {
   const SettingsPersistenceIssue({
@@ -50,9 +47,14 @@ class SettingsPersistenceIssue {
 }
 
 class SettingsLoadResult {
-  const SettingsLoadResult({required this.snapshot, this.issue});
+  const SettingsLoadResult({
+    required this.snapshot,
+    required this.canPersist,
+    this.issue,
+  });
 
   final AppSettingsSnapshot snapshot;
+  final bool canPersist;
   final SettingsPersistenceIssue? issue;
 }
 
@@ -60,6 +62,7 @@ class SettingsStore {
   SettingsStore();
 
   static const String _dbSettingsKey = 'app_settings_json';
+  static const String _legacyMigrationKey = 'legacy_settings_toml_v1';
   static const int _currentSchemaVersion = 5;
 
   /// Retained for backward compatibility with controllers that expose a path.
@@ -77,44 +80,44 @@ class SettingsStore {
       );
 
       if (rows.isNotEmpty) {
-        final jsonStr = rows.first['value'] as String?;
-        if (jsonStr != null && jsonStr.isNotEmpty) {
-          try {
-            final decoded = jsonDecode(jsonStr);
-            if (decoded is Map) {
-              final snapshot = _snapshotFromJson(
-                stringKeyedMapFromValue(decoded),
-              );
-              return SettingsLoadResult(snapshot: snapshot);
-            }
-          } catch (error, stack) {
-            silentLog('settings_store', 'decode db settings', error, stack);
-            // DB data is corrupt; fall through to defaults.
+        try {
+          final jsonStr = rows.first['value'];
+          if (jsonStr is! String || jsonStr.trim().isEmpty) {
+            throw const FormatException('Settings JSON is empty.');
           }
+          final decoded = jsonDecode(jsonStr);
+          if (decoded is! Map) {
+            throw const FormatException('Settings JSON must be an object.');
+          }
+          final snapshot = _snapshotFromJson(stringKeyedMapFromValue(decoded));
+          try {
+            await _markLegacyMigrationSatisfied();
+          } catch (error, stack) {
+            silentLog('settings_store', 'mark legacy migration', error, stack);
+          }
+          return SettingsLoadResult(snapshot: snapshot, canPersist: true);
+        } catch (error, stack) {
+          silentLog('settings_store', 'decode db settings', error, stack);
+          return SettingsLoadResult(
+            snapshot: AppSettingsSnapshot.defaults(),
+            canPersist: false,
+            issue: SettingsPersistenceIssue(
+              kind: SettingsPersistenceIssueKind.invalidContent,
+              filePath: settingsFilePath,
+              detail: '$error',
+            ),
+          );
         }
       }
 
-      // No settings in DB yet — use defaults and persist them.
-      final snapshot = AppSettingsSnapshot.defaults();
-      try {
-        await save(snapshot);
-        return SettingsLoadResult(snapshot: snapshot);
-      } catch (error) {
-        return SettingsLoadResult(
-          snapshot: snapshot,
-          issue: SettingsPersistenceIssue(
-            kind: SettingsPersistenceIssueKind.saveFailed,
-            filePath: 'db://app_settings',
-            detail: '$error',
-          ),
-        );
-      }
+      return _initializeMissingSettings();
     } catch (error) {
       return SettingsLoadResult(
         snapshot: AppSettingsSnapshot.defaults(),
+        canPersist: false,
         issue: SettingsPersistenceIssue(
-          kind: SettingsPersistenceIssueKind.saveFailed,
-          filePath: 'db://app_settings',
+          kind: SettingsPersistenceIssueKind.loadFailed,
+          filePath: settingsFilePath,
           detail: '$error',
         ),
       );
@@ -127,6 +130,153 @@ class SettingsStore {
       'key': _dbSettingsKey,
       'value': jsonStr,
     }, conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  Future<SettingsLoadResult> _initializeMissingSettings() async {
+    var issuePath = settingsFilePath;
+    try {
+      final markerRows = await _db.query(
+        'migration_meta',
+        where: 'key = ?',
+        whereArgs: <Object?>[_legacyMigrationKey],
+        limit: 1,
+      );
+      final markerExisted = markerRows.isNotEmpty;
+      final legacyFile = markerExisted ? null : await findLegacySettingsFile();
+      issuePath = legacyFile?.path ?? settingsFilePath;
+
+      LegacySettingsDocument? document;
+      var candidate = AppSettingsSnapshot.defaults();
+      if (legacyFile != null) {
+        document = await readLegacySettingsDocument(legacyFile);
+        if (optionalIntegralIntFromValue(document.rootValues['version']) != 1) {
+          throw const FormatException(
+            'Legacy settings version is missing or unsupported.',
+          );
+        }
+        candidate = _snapshotFromJson(_legacySettingsJson(document));
+      }
+
+      final persisted = await _db.transaction<AppSettingsSnapshot?>((
+        txn,
+      ) async {
+        final currentRows = await txn.query(
+          'app_settings',
+          columns: const <String>['value'],
+          where: 'key = ?',
+          whereArgs: <Object?>[_dbSettingsKey],
+          limit: 1,
+        );
+        if (currentRows.isNotEmpty) return null;
+
+        final currentMarkerRows = await txn.query(
+          'migration_meta',
+          columns: const <String>['value'],
+          where: 'key = ?',
+          whereArgs: <Object?>[_legacyMigrationKey],
+          limit: 1,
+        );
+        final markerAppeared = !markerExisted && currentMarkerRows.isNotEmpty;
+        final snapshot = markerAppeared
+            ? AppSettingsSnapshot.defaults()
+            : candidate;
+        await txn.insert('app_settings', <String, Object?>{
+          'key': _dbSettingsKey,
+          'value': jsonEncode(_snapshotToJson(snapshot)),
+        }, conflictAlgorithm: ConflictAlgorithm.abort);
+        if (currentMarkerRows.isEmpty) {
+          await txn.insert('migration_meta', <String, Object?>{
+            'key': _legacyMigrationKey,
+            'value': jsonEncode(<String, Object?>{
+              'status': legacyFile == null ? 'not_found' : 'imported',
+              if (legacyFile != null) 'source_path': legacyFile.path,
+              if (document?.configuredMemoryFilePath case final path?)
+                'memory_file_path': path,
+              'completed_at': DateTime.now().toUtc().toIso8601String(),
+            }),
+          }, conflictAlgorithm: ConflictAlgorithm.abort);
+        }
+        return snapshot;
+      });
+      if (persisted != null) {
+        return SettingsLoadResult(snapshot: persisted, canPersist: true);
+      }
+
+      final racedRows = await _db.query(
+        'app_settings',
+        columns: const <String>['value'],
+        where: 'key = ?',
+        whereArgs: <Object?>[_dbSettingsKey],
+        limit: 1,
+      );
+      if (racedRows.isEmpty) {
+        throw StateError('Settings initialization lost its target row.');
+      }
+      final raw = racedRows.first['value'];
+      if (raw is! String || raw.trim().isEmpty) {
+        throw const FormatException('Settings JSON is empty.');
+      }
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map) {
+        throw const FormatException('Settings JSON must be an object.');
+      }
+      return SettingsLoadResult(
+        snapshot: _snapshotFromJson(stringKeyedMapFromValue(decoded)),
+        canPersist: true,
+      );
+    } on FormatException catch (error) {
+      return SettingsLoadResult(
+        snapshot: AppSettingsSnapshot.defaults(),
+        canPersist: false,
+        issue: SettingsPersistenceIssue(
+          kind: SettingsPersistenceIssueKind.invalidContent,
+          filePath: issuePath,
+          detail: '$error',
+        ),
+      );
+    } catch (error) {
+      return SettingsLoadResult(
+        snapshot: AppSettingsSnapshot.defaults(),
+        canPersist: false,
+        issue: SettingsPersistenceIssue(
+          kind: SettingsPersistenceIssueKind.loadFailed,
+          filePath: issuePath,
+          detail: '$error',
+        ),
+      );
+    }
+  }
+
+  Future<void> _markLegacyMigrationSatisfied() async {
+    await _db.insert('migration_meta', <String, Object?>{
+      'key': _legacyMigrationKey,
+      'value': jsonEncode(<String, Object?>{
+        'status': 'target_present',
+        'completed_at': DateTime.now().toUtc().toIso8601String(),
+      }),
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
+  }
+
+  static Map<String, Object?> _legacySettingsJson(
+    LegacySettingsDocument document,
+  ) {
+    final json = Map<String, Object?>.from(document.rootValues)
+      ..['ai_models'] = document.modelValues
+      ..['user_memory_file_path'] = OpenHandPaths.defaultDatabasePath();
+    for (final key in const <String>[
+      'shortcut_bindings',
+      'dialog_animation_settings',
+      'menu_animation_settings',
+    ]) {
+      final value = json[key];
+      if (value is! String || value.trim().isEmpty) continue;
+      try {
+        json[key] = jsonDecode(value);
+      } on FormatException {
+        // Current parsing will apply the field's production default.
+      }
+    }
+    return json;
   }
 
   // JSON serialization for AppSettingsSnapshot
@@ -396,10 +546,7 @@ class SettingsStore {
       json['memory_enabled'],
       defaultValue: true,
     );
-    final userMemoryFilePath = OpenHandPaths.normalizePath(
-      '${json['user_memory_file_path'] ?? ''}',
-      defaultPath: OpenHandPaths.defaultUserMemoryFilePath(),
-    );
+    final userMemoryFilePath = OpenHandPaths.defaultDatabasePath();
     final editorWordWrap = boolFromValue(
       json['editor_word_wrap'],
       defaultValue: true,
@@ -724,8 +871,8 @@ class SettingsStore {
           json['ai_stream_max_message_cards_per_second'],
         );
     // v3 schema 起，按线程模板覆盖节流参数已下线。
-    // 老 settings.json 上仍可能携带 `ai_stream_throttle_template_overrides`
-    // 字段（v1/v2 残留），这里完全忽略：不再读、不再透传给 snapshot，
+    // 旧设置记录仍可能携带 `ai_stream_throttle_template_overrides` 字段
+    //（v1/v2 残留），这里完全忽略：不再读、不再透传给 snapshot，
     // write 路径也不会再写出。任何形状的旧 value（Map/null/异常类型）都
     // 必须被静默丢弃，保证 `load()` 不抛。
     final aiStreamThrottleEnabled = boolFromValue(

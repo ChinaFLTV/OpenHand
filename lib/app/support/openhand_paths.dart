@@ -100,14 +100,6 @@ abstract final class OpenHandPaths {
     return p.normalize(Directory.current.path);
   }
 
-  static String defaultMemoryDirectoryPath() {
-    return p.join(homeDirectoryPath(), '.openhand', 'memory');
-  }
-
-  static String defaultUserMemoryFilePath() {
-    return p.join(defaultMemoryDirectoryPath(), 'user-memory.json');
-  }
-
   static String normalizeUserPath(String? rawPath) {
     return normalizePath(rawPath, defaultPath: defaultSkillsDirectoryPath());
   }

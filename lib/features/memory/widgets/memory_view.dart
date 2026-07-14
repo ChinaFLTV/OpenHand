@@ -912,10 +912,6 @@ class _MemoryPersistenceIssueCard extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     final shortPath = OpenHandPaths.shortenHomePath(issue.filePath);
     final (title, body) = switch (issue.kind) {
-      MemoryPersistenceIssueKind.recoveredInvalidFile => (
-        l10n.memoryPersistenceRecoveredTitle,
-        '${l10n.memoryPersistenceRecoveredBody}\n$shortPath',
-      ),
       MemoryPersistenceIssueKind.sanitizedInvalidContent => (
         l10n.memoryPersistenceSanitizedTitle,
         '${l10n.memoryPersistenceSanitizedBody}\n$shortPath',

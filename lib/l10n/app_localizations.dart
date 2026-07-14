@@ -2725,29 +2725,29 @@ abstract class AppLocalizations {
   /// **'管理用户记忆开关与持久化文件位置。'**
   String get settingsMemorySubtitle;
 
-  /// No description provided for @settingsPersistenceRecoveredTitle.
+  /// No description provided for @settingsPersistenceInvalidTitle.
   ///
   /// In zh, this message translates to:
-  /// **'设置文件已自动恢复'**
-  String get settingsPersistenceRecoveredTitle;
+  /// **'设置数据损坏'**
+  String get settingsPersistenceInvalidTitle;
 
-  /// No description provided for @settingsPersistenceRecoveredBody.
+  /// No description provided for @settingsPersistenceInvalidBody.
   ///
   /// In zh, this message translates to:
-  /// **'检测到设置文件内容损坏或被篡改，OpenHand 已备份异常文件并恢复为安全默认值。'**
-  String get settingsPersistenceRecoveredBody;
+  /// **'数据库记录无法解析。当前仅展示安全默认值，不会覆盖原始数据。'**
+  String get settingsPersistenceInvalidBody;
 
-  /// No description provided for @settingsPersistenceSanitizedTitle.
+  /// No description provided for @settingsPersistenceLoadFailedTitle.
   ///
   /// In zh, this message translates to:
-  /// **'设置内容已自动修正'**
-  String get settingsPersistenceSanitizedTitle;
+  /// **'设置读取失败'**
+  String get settingsPersistenceLoadFailedTitle;
 
-  /// No description provided for @settingsPersistenceSanitizedBody.
+  /// No description provided for @settingsPersistenceLoadFailedBody.
   ///
   /// In zh, this message translates to:
-  /// **'检测到部分设置内容无效，OpenHand 已忽略异常字段并重新写回有效配置。'**
-  String get settingsPersistenceSanitizedBody;
+  /// **'无法读取本地数据库。当前临时展示默认值并暂停保存，以保护已有数据。'**
+  String get settingsPersistenceLoadFailedBody;
 
   /// No description provided for @settingsPersistenceSaveFailedTitle.
   ///
@@ -2758,7 +2758,7 @@ abstract class AppLocalizations {
   /// No description provided for @settingsPersistenceSaveFailedBody.
   ///
   /// In zh, this message translates to:
-  /// **'设置文件写入失败，界面已回滚到上一次有效配置，请检查文件权限或磁盘状态。'**
+  /// **'设置数据库写入失败，界面已回滚到上一次有效配置，请检查数据库访问权限或磁盘状态。'**
   String get settingsPersistenceSaveFailedBody;
 
   /// No description provided for @settingsPersistenceDismiss.
@@ -5133,7 +5133,7 @@ abstract class AppLocalizations {
   /// No description provided for @memoryPageSubtitle.
   ///
   /// In zh, this message translates to:
-  /// **'统一维护用户可编辑记忆，所有条目会持久化到本地 JSON 文件。'**
+  /// **'统一维护存储在本地数据库中的用户记忆。'**
   String get memoryPageSubtitle;
 
   /// No description provided for @memoryRefresh.
@@ -5157,13 +5157,13 @@ abstract class AppLocalizations {
   /// No description provided for @memoryEmptyBody.
   ///
   /// In zh, this message translates to:
-  /// **'新增一条用户记忆后，它会持久化保存到当前配置的记忆文件中。'**
+  /// **'新增用户记忆后，它会持久化保存到本地数据库。'**
   String get memoryEmptyBody;
 
   /// No description provided for @memoryLoadFailedTitle.
   ///
   /// In zh, this message translates to:
-  /// **'记忆文件读取失败'**
+  /// **'记忆数据读取失败'**
   String get memoryLoadFailedTitle;
 
   /// No description provided for @memoryOperationFailed.
@@ -5259,25 +5259,25 @@ abstract class AppLocalizations {
   /// No description provided for @userMemoryFileLabel.
   ///
   /// In zh, this message translates to:
-  /// **'用户记忆文件'**
+  /// **'记忆数据库'**
   String get userMemoryFileLabel;
 
   /// No description provided for @memoryFileBody.
   ///
   /// In zh, this message translates to:
-  /// **'配置用户记忆 JSON 文件位置。默认会使用当前程序目录下的 .openhand/memory/user-memory.json。'**
+  /// **'用户记忆统一存储在 OpenHand 本地 SQLite 数据库中。'**
   String get memoryFileBody;
 
   /// No description provided for @memoryFileDefaultPath.
   ///
   /// In zh, this message translates to:
-  /// **'默认文件'**
+  /// **'数据库位置'**
   String get memoryFileDefaultPath;
 
   /// No description provided for @memoryOpenDirectory.
   ///
   /// In zh, this message translates to:
-  /// **'打开目录'**
+  /// **'打开数据库目录'**
   String get memoryOpenDirectory;
 
   /// No description provided for @memoryDisabledTitle.
@@ -5298,40 +5298,28 @@ abstract class AppLocalizations {
   /// **'创建时间'**
   String get memoryCreatedAtLabel;
 
-  /// No description provided for @memoryPersistenceRecoveredTitle.
-  ///
-  /// In zh, this message translates to:
-  /// **'记忆文件已自动恢复'**
-  String get memoryPersistenceRecoveredTitle;
-
-  /// No description provided for @memoryPersistenceRecoveredBody.
-  ///
-  /// In zh, this message translates to:
-  /// **'检测到记忆文件内容损坏或被篡改，OpenHand 已备份异常文件并恢复为空列表。'**
-  String get memoryPersistenceRecoveredBody;
-
   /// No description provided for @memoryPersistenceSanitizedTitle.
   ///
   /// In zh, this message translates to:
-  /// **'记忆内容已自动修正'**
+  /// **'已忽略异常记忆记录'**
   String get memoryPersistenceSanitizedTitle;
 
   /// No description provided for @memoryPersistenceSanitizedBody.
   ///
   /// In zh, this message translates to:
-  /// **'检测到部分记忆字段无效，OpenHand 已忽略异常条目并重新写回有效内容。'**
+  /// **'存储源中存在无效记录，本次加载已忽略；原始数据未被改写。'**
   String get memoryPersistenceSanitizedBody;
 
   /// No description provided for @memoryPersistenceSaveFailedTitle.
   ///
   /// In zh, this message translates to:
-  /// **'记忆文件保存失败'**
+  /// **'记忆数据保存失败'**
   String get memoryPersistenceSaveFailedTitle;
 
   /// No description provided for @memoryPersistenceSaveFailedBody.
   ///
   /// In zh, this message translates to:
-  /// **'写入记忆文件失败，界面已回滚到上一次有效内容，请检查文件权限或磁盘状态。'**
+  /// **'记忆数据库写入失败，界面已回滚到上一次有效内容，请检查数据库访问权限或磁盘状态。'**
   String get memoryPersistenceSaveFailedBody;
 
   /// MCP settings page title. Acronym; keep as "MCP" untranslated.

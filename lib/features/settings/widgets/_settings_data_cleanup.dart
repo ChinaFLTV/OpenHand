@@ -867,13 +867,14 @@ String _categorySubtitle(BuildContext context, DataCleanupCategory category) {
       return openHandLocalizedText(
         context,
         zh:
-            '一次性清理上述所有分类的数据。不会删除 sqlite 数据库文件本身或'
-            ' settings.json，否则会让正在运行的进程崩溃；如需彻底重置，请手动'
-            '删除 ~/.openhand。',
+            '一次性清理上述所有分类的数据。不会删除含当前设置的 sqlite 数据库文件，'
+            '否则会让正在运行的进程崩溃；如需彻底重置，请退出应用后手动删除 '
+            '~/.openhand。',
         en:
-            'Cleans every category above in one shot. The sqlite DB file and '
-            'settings.json are not removed (would crash the running '
-            'process); remove ~/.openhand manually for a full reset.',
+            'Cleans every category above in one shot. The sqlite database '
+            'containing current settings is retained because deleting it '
+            'would crash the running process. Quit the app before manually '
+            'removing ~/.openhand for a full reset.',
       );
   }
 }
@@ -924,9 +925,13 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
   }
 
   Future<void> _refreshStats() async {
-    final stats = await _ledger.statsSnapshot();
-    if (!mounted) return;
-    setState(() => _stats = stats);
+    try {
+      final stats = await _ledger.statsSnapshot();
+      if (!mounted) return;
+      setState(() => _stats = stats);
+    } catch (error, stack) {
+      silentLog('ledger_stats', 'refresh', error, stack);
+    }
   }
 
   /// 按当前 days/maxVersions 手动执行一次 ledger 维护并刷新统计。
@@ -960,6 +965,18 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
         );
       }
       await _refreshStats();
+    } catch (error, stack) {
+      silentLog('ledger_prune', 'prune', error, stack);
+      if (mounted) {
+        showOpenHandErrorSnack(
+          context,
+          openHandLocalizedText(
+            context,
+            zh: '文件历史清理失败：$error',
+            en: 'Failed to prune file history: $error',
+          ),
+        );
+      }
     } finally {
       if (mounted) setState(() => _pruneNowBusy = false);
     }

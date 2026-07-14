@@ -1,0 +1,217 @@
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:path/path.dart' as p;
+
+import '../../app/support/openhand_paths.dart';
+import '../util/bounded_file_io.dart';
+
+const int maxLegacySettingsBytes = 8 * 1024 * 1024;
+const int maxLegacyMemoryBytes = 64 * 1024 * 1024;
+
+class LegacySettingsDocument {
+  const LegacySettingsDocument({
+    required this.rootValues,
+    required this.modelValues,
+  });
+
+  final Map<String, Object?> rootValues;
+  final List<Map<String, Object?>> modelValues;
+
+  String? get configuredMemoryFilePath {
+    final raw = '${rootValues['user_memory_file'] ?? ''}'.trim();
+    if (raw.isEmpty) return null;
+    return OpenHandPaths.normalizePath(
+      raw,
+      defaultPath: defaultLegacyMemoryFilePath(),
+    );
+  }
+}
+
+String defaultLegacySettingsFilePath() {
+  return p.join(
+    OpenHandPaths.defaultRootDirectoryPath(),
+    'settings',
+    'SETTINGS.toml',
+  );
+}
+
+String defaultLegacyMemoryFilePath() {
+  return p.join(
+    OpenHandPaths.defaultRootDirectoryPath(),
+    'memory',
+    'user-memory.json',
+  );
+}
+
+Future<File?> findLegacySettingsFile() async {
+  final candidates = <String>[defaultLegacySettingsFilePath()];
+  if (Platform.isMacOS) {
+    final rawHome = Platform.environment['HOME']?.trim();
+    if (rawHome != null && rawHome.isNotEmpty) {
+      candidates.add(p.join(rawHome, '.openhand', 'settings', 'SETTINGS.toml'));
+    }
+  }
+  return _firstExistingFile(candidates);
+}
+
+Future<LegacySettingsDocument> readLegacySettingsDocument(File file) async {
+  final raw = await readBoundedFileString(
+    file,
+    maxBytes: maxLegacySettingsBytes,
+  );
+  return parseLegacySettingsDocument(raw);
+}
+
+Future<String?> readLegacyConfiguredMemoryFilePath(File file) async {
+  final raw = await readBoundedFileString(
+    file,
+    maxBytes: maxLegacySettingsBytes,
+  );
+  for (final rawLine in const LineSplitter().convert(raw)) {
+    final trimmed = rawLine.trimLeft();
+    if (trimmed == '[[ai_models]]') break;
+    if (!trimmed.startsWith('user_memory_file')) continue;
+    final line = _stripInlineComment(rawLine).trim();
+    final separatorIndex = line.indexOf('=');
+    if (separatorIndex <= 0 ||
+        line.substring(0, separatorIndex).trim() != 'user_memory_file') {
+      continue;
+    }
+    final value = _parseLegacySettingValue(
+      line.substring(separatorIndex + 1).trim(),
+    );
+    if (value is! String || value.trim().isEmpty) return null;
+    return OpenHandPaths.normalizePath(
+      value,
+      defaultPath: defaultLegacyMemoryFilePath(),
+    );
+  }
+  return null;
+}
+
+LegacySettingsDocument parseLegacySettingsDocument(String rawContent) {
+  final rootValues = <String, Object?>{};
+  final modelValues = <Map<String, Object?>>[];
+  Map<String, Object?>? currentModel;
+
+  for (final rawLine in const LineSplitter().convert(rawContent)) {
+    final line = _stripInlineComment(rawLine).trim();
+    if (line.isEmpty) continue;
+    if (line == '[[ai_models]]') {
+      currentModel = <String, Object?>{};
+      modelValues.add(currentModel);
+      continue;
+    }
+    if (line.startsWith('[') || line.endsWith(']')) {
+      throw const FormatException('Unsupported legacy settings section.');
+    }
+
+    final separatorIndex = line.indexOf('=');
+    if (separatorIndex <= 0) {
+      throw FormatException('Invalid legacy setting entry: $line');
+    }
+    final key = line.substring(0, separatorIndex).trim();
+    if (key.isEmpty) {
+      throw FormatException('Invalid legacy setting entry: $line');
+    }
+    final value = _parseLegacySettingValue(
+      line.substring(separatorIndex + 1).trim(),
+    );
+    (currentModel ?? rootValues)[key] = value;
+  }
+
+  return LegacySettingsDocument(
+    rootValues: rootValues,
+    modelValues: modelValues,
+  );
+}
+
+List<File> legacyMemoryFileCandidates({String? configuredPath}) {
+  final paths = <String>[
+    if (configuredPath != null && configuredPath.trim().isNotEmpty)
+      configuredPath,
+    defaultLegacyMemoryFilePath(),
+    p.join(
+      OpenHandPaths.applicationDirectoryPath(),
+      '.openhand',
+      'memory',
+      'user-memory.json',
+    ),
+  ];
+  final databasePath = p.normalize(
+    p.absolute(OpenHandPaths.defaultDatabasePath()),
+  );
+  final seen = <String>{};
+  return <File>[
+    for (final path in paths)
+      if (seen.add(p.normalize(p.absolute(path))) &&
+          !p.equals(p.normalize(p.absolute(path)), databasePath))
+        File(path),
+  ];
+}
+
+Future<File?> findLegacyMemoryFile({String? configuredPath}) {
+  return _firstExistingFile(
+    legacyMemoryFileCandidates(
+      configuredPath: configuredPath,
+    ).map((file) => file.path),
+  );
+}
+
+Future<File?> _firstExistingFile(Iterable<String> paths) async {
+  final seen = <String>{};
+  for (final path in paths) {
+    final normalized = p.normalize(p.absolute(path));
+    if (!seen.add(normalized)) continue;
+    final file = File(path);
+    final stat = await file.stat();
+    if (stat.type == FileSystemEntityType.notFound) continue;
+    if (stat.type != FileSystemEntityType.file) {
+      throw FileSystemException('Legacy source is not a regular file.', path);
+    }
+    return file;
+  }
+  return null;
+}
+
+Object? _parseLegacySettingValue(String rawValue) {
+  if (rawValue.startsWith('"') && rawValue.endsWith('"')) {
+    return jsonDecode(rawValue);
+  }
+  final intValue = int.tryParse(rawValue);
+  if (intValue != null) return intValue;
+  if (rawValue == 'true') return true;
+  if (rawValue == 'false') return false;
+  throw FormatException('Unsupported legacy setting value: $rawValue');
+}
+
+String _stripInlineComment(String rawLine) {
+  final buffer = StringBuffer();
+  var inString = false;
+  var escaping = false;
+  for (final rune in rawLine.runes) {
+    final char = String.fromCharCode(rune);
+    if (escaping) {
+      buffer.write(char);
+      escaping = false;
+      continue;
+    }
+    if (char == r'\') {
+      buffer.write(char);
+      escaping = true;
+      continue;
+    }
+    if (char == '"') {
+      inString = !inString;
+      buffer.write(char);
+      continue;
+    }
+    if (char == '#' && !inString) break;
+    buffer.write(char);
+  }
+  if (inString || escaping) {
+    throw const FormatException('Unterminated legacy settings string.');
+  }
+  return buffer.toString();
+}

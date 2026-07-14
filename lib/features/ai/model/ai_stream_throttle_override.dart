@@ -8,7 +8,7 @@ import 'ai_stream_throttle_policy.dart';
 /// 设置面板里给该模板写一份覆盖；运行时按 templateId 查表，命中即用，
 /// 未命中或字段为空时回退到全局值。
 ///
-/// 持久化时只写非 null 字段，避免 noise 撑大 settings.json。
+/// 持久化时只写非 null 字段，避免无效数据撑大设置记录。
 class AiStreamThrottleOverride {
   const AiStreamThrottleOverride({
     this.charsPerSecond,

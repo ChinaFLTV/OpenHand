@@ -49,7 +49,7 @@ class AppSettingsSnapshot {
       mcpKeywordIndexScheduledTimeOfDay:
           defaultMcpKeywordIndexScheduledTimeOfDay,
       memoryEnabled: true,
-      userMemoryFilePath: OpenHandPaths.defaultUserMemoryFilePath(),
+      userMemoryFilePath: OpenHandPaths.defaultDatabasePath(),
       editorWordWrap: true,
       editorIndentSpaces: defaultEditorIndentSpaces,
       editorCodeTheme: EditorCodeTheme.materialYou,

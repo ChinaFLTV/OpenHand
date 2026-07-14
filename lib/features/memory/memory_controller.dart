@@ -57,6 +57,7 @@ class MemoryController extends ManagedChangeNotifier {
   List<UserMemoryEntry> _entries = const <UserMemoryEntry>[];
   List<UserMemoryEntry> _entriesView = const <UserMemoryEntry>[];
   MemoryPersistenceIssue? _persistenceIssue;
+  bool _hasTrustedSnapshot = false;
   final ChangePulse _saveSuccessPulse = ChangePulse();
 
   /// Increments after each successful `_store.save`. UI may listen via
@@ -121,18 +122,20 @@ class MemoryController extends ManagedChangeNotifier {
     final normalizedTags = UserMemoryEntry.normalizeTags(tags);
     final normalizedTitle = UserMemoryEntry.normalizeTitle(title);
     return _enqueueOperation(() async {
-      final nextEntries = <UserMemoryEntry>[
-        UserMemoryEntry(
-          id: _idGenerator(),
-          type: UserMemoryEntry.userType,
-          createdAt: _clock().toUtc(),
-          content: normalizedContent,
-          tags: normalizedTags,
-          title: normalizedTitle,
-        ),
-        ..._entries,
-      ];
-      return _commitSaveLocked(nextEntries);
+      if (!await _ensureTrustedSnapshotLocked()) return false;
+      final entry = UserMemoryEntry(
+        id: _idGenerator(),
+        type: UserMemoryEntry.userType,
+        createdAt: _clock().toUtc(),
+        content: normalizedContent,
+        tags: normalizedTags,
+        title: normalizedTitle,
+      );
+      final nextEntries = <UserMemoryEntry>[entry, ..._entries];
+      return _commitMutationLocked(
+        nextEntries,
+        () => _store.insertEntry(entry),
+      );
     });
   }
 
@@ -152,47 +155,72 @@ class MemoryController extends ManagedChangeNotifier {
         ? null
         : UserMemoryEntry.normalizeTitle(title);
     return _enqueueOperation(() async {
+      if (!await _ensureTrustedSnapshotLocked()) return false;
       final index = _entries.indexWhere((item) => item.id == entry.id);
       if (index == -1) {
         return false;
       }
       final nextEntries = List<UserMemoryEntry>.from(_entries);
-      nextEntries[index] = nextEntries[index].copyWith(
+      final nextEntry = nextEntries[index].copyWith(
         content: normalizedContent,
         tags: normalizedTags,
         type: UserMemoryEntry.userType,
         title: normalizedTitle,
       );
-      return _commitSaveLocked(nextEntries);
+      nextEntries[index] = nextEntry;
+      return _commitMutationLocked(
+        nextEntries,
+        () => _store.updateEntry(nextEntry),
+      );
     });
   }
 
-  /// Upserts the single user_profile entry via the store, then refreshes
-  /// the in-memory snapshot. Goes through the operation queue so UI edits
-  /// and self-learning writes cannot interleave.
+  /// Upserts the single user_profile entry and updates the trusted in-memory
+  /// snapshot. The operation queue prevents UI and self-learning writes from
+  /// interleaving.
   Future<UserMemoryEntry> upsertUserProfile({
     required String content,
     List<String> tags = const <String>[],
   }) {
     return _enqueueOperation(() async {
+      if (!await _ensureTrustedSnapshotLocked()) {
+        throw StateError('Unable to load memories before updating profile.');
+      }
       final entry = await _store.upsertUserProfile(
         content: content,
         tags: tags,
       );
-      await _loadLocked();
+      _setEntries(
+        <UserMemoryEntry>[
+          entry,
+          ..._entries.where(
+            (item) => item.type != UserMemoryEntry.userProfileType,
+          ),
+        ]..sort((left, right) => right.createdAt.compareTo(left.createdAt)),
+      );
+      _errorMessage = null;
+      if (_persistenceIssue?.kind == MemoryPersistenceIssueKind.saveFailed) {
+        _persistenceIssue = null;
+      }
+      _saveSuccessPulse.emit();
+      notifyListeners();
       return entry;
     });
   }
 
   Future<bool> deleteMemory(UserMemoryEntry entry) async {
     return _enqueueOperation(() async {
+      if (!await _ensureTrustedSnapshotLocked()) return false;
       final nextEntries = _entries
           .where((item) => item.id != entry.id)
           .toList(growable: false);
       if (nextEntries.length == _entries.length) {
         return true;
       }
-      return _commitSaveLocked(nextEntries);
+      return _commitMutationLocked(
+        nextEntries,
+        () => _store.deleteEntry(entry.id),
+      );
     });
   }
 
@@ -210,8 +238,9 @@ class MemoryController extends ManagedChangeNotifier {
       final loadResult = await _store.load();
       _setEntries(loadResult.entries);
       _persistenceIssue = loadResult.issue;
+      _hasTrustedSnapshot = true;
     } catch (error) {
-      _setEntries(const <UserMemoryEntry>[]);
+      _hasTrustedSnapshot = false;
       _errorMessage = '$error';
     } finally {
       _isLoading = false;
@@ -219,7 +248,11 @@ class MemoryController extends ManagedChangeNotifier {
     }
   }
 
-  Future<bool> _commitSaveLocked(List<UserMemoryEntry> nextEntries) async {
+  Future<bool> _commitMutationLocked(
+    List<UserMemoryEntry> nextEntries,
+    Future<void> Function() persist,
+  ) async {
+    if (!_hasTrustedSnapshot) return false;
     final previousEntries = List<UserMemoryEntry>.from(_entries);
     _setEntries(
       List<UserMemoryEntry>.from(nextEntries)
@@ -228,8 +261,9 @@ class MemoryController extends ManagedChangeNotifier {
     _errorMessage = null;
     notifyListeners();
     try {
-      await _store.save(_entries);
-      if (_persistenceIssue != null) {
+      await persist();
+      _hasTrustedSnapshot = true;
+      if (_persistenceIssue?.kind == MemoryPersistenceIssueKind.saveFailed) {
         _persistenceIssue = null;
         notifyListeners();
       }
@@ -245,6 +279,12 @@ class MemoryController extends ManagedChangeNotifier {
       notifyListeners();
       return false;
     }
+  }
+
+  Future<bool> _ensureTrustedSnapshotLocked() async {
+    if (_hasTrustedSnapshot) return true;
+    await _loadLocked();
+    return _hasTrustedSnapshot;
   }
 
   void _setEntries(List<UserMemoryEntry> entries) {

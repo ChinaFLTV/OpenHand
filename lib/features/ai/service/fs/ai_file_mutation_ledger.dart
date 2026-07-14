@@ -8,8 +8,7 @@
 // before/after 两份内容；撤销 X 时把磁盘文件恢复为 X.before 并把"X 之后所
 // 有发生在同一文件上的记录"标记为 undone（级联）；重做 X 时把磁盘文件恢
 // 复为 X.after 并仅清除 X 自己的 undone 标志。
-// 该服务对底层备份缺失/损坏/IO 失败等做兜底：所有读写都走 silentLog，对
-// 调用方暴露 success 标志而非抛出，UI 据此显示降级提示。
+// 可恢复的记录级失败返回降级结果；初始化与配置写入失败向调用方传播。
 
 import 'dart:async';
 import 'dart:convert';
@@ -28,6 +27,7 @@ import '../../../../shared/util/bounded_delete.dart';
 import '../../../../shared/util/bounded_directory_io.dart';
 import '../../../../shared/util/bounded_file_io.dart';
 import '../../../../shared/util/byte_size_format.dart';
+import '../../../../shared/util/exponential_backoff.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/lifecycle_cache.dart';
 import '../../../../shared/util/serial_task_queue.dart';
@@ -388,6 +388,8 @@ class AiFileMutationLedger {
   static final RegExp _sha256HexPattern = RegExp(r'^[0-9a-f]{64}$');
   static final RegExp _unsafeSessionIdCharPattern = RegExp(r'[^a-zA-Z0-9_\-.]');
   static const Duration _staleAtomicArtifactAge = Duration(days: 1);
+  static const int _initializationRetryBaseMs = 1000;
+  static const int _initializationRetryCapMs = 60000;
   static const int _legacyBlobRecoveryMaxFiles = 2000;
   static const int _blobRecoveryMaxBytes = 16 * kBytesPerMiB;
   static const int _maxConfigBytes = 64 * kBytesPerKiB;
@@ -435,6 +437,10 @@ class AiFileMutationLedger {
   final String _rootDirectory;
   Future<void>? _initializationFuture;
   bool _initialized = false;
+  Object? _initializationError;
+  StackTrace? _initializationErrorStack;
+  DateTime? _nextInitializationRetryAt;
+  int _initializationFailureCount = 0;
   Map<String, String>? _legacyBlobPathIndex;
   final Set<String> _legacyBlobRecoveryMisses = <String>{};
   final Map<String, _LedgerSessionMutationLane> _sessionMutationLanes =
@@ -602,20 +608,29 @@ class AiFileMutationLedger {
     }
   }
 
-  Future<void> _ensureInitialized() {
-    if (_initialized) return Future<void>.value();
+  Future<void> _ensureInitialized() async {
+    if (_initialized) return;
     final pending = _initializationFuture;
     if (pending != null) return pending;
+    final retryAt = _nextInitializationRetryAt;
+    final previousError = _initializationError;
+    if (retryAt != null &&
+        previousError != null &&
+        DateTime.now().toUtc().isBefore(retryAt)) {
+      Error.throwWithStackTrace(
+        previousError,
+        _initializationErrorStack ?? StackTrace.current,
+      );
+    }
     final future = _initializeOnce();
     _initializationFuture = future;
-    unawaited(
-      future.whenComplete(() {
-        if (!_initialized && identical(_initializationFuture, future)) {
-          _initializationFuture = null;
-        }
-      }),
-    );
-    return future;
+    try {
+      await future;
+    } finally {
+      if (identical(_initializationFuture, future)) {
+        _initializationFuture = null;
+      }
+    }
   }
 
   Future<void> _initializeOnce() async {
@@ -627,9 +642,30 @@ class AiFileMutationLedger {
       await _migrateLegacyTempStorage();
       await _runAutoCleanupOnce();
       _initialized = true;
+      _resetInitializationFailure();
     } catch (error, stack) {
+      _initializationFailureCount++;
+      _initializationError = error;
+      _initializationErrorStack = stack;
+      _nextInitializationRetryAt = DateTime.now().toUtc().add(
+        Duration(
+          milliseconds: exponentialBackoffMs(
+            attempt: _initializationFailureCount,
+            baseMs: _initializationRetryBaseMs,
+            capMs: _initializationRetryCapMs,
+          ),
+        ),
+      );
       silentLog('ai_file_mutation_ledger', 'init', error, stack);
+      Error.throwWithStackTrace(error, stack);
     }
+  }
+
+  void _resetInitializationFailure() {
+    _initializationError = null;
+    _initializationErrorStack = null;
+    _nextInitializationRetryAt = null;
+    _initializationFailureCount = 0;
   }
 
   /// 初始化时按 [LedgerConfig.autoCleanupDays] 清理过期记录，再按
@@ -1405,6 +1441,7 @@ class AiFileMutationLedger {
       _legacyBlobRecoveryMisses.clear();
       _initialized = false;
       _initializationFuture = null;
+      _resetInitializationFailure();
     }
   }
 
