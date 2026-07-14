@@ -43,7 +43,9 @@ typedef _LogFileSnapshot = ({File file, FileStat stat});
 /// - `clear` 删除目录下所有 `web-platform*` 文件；`prune` 仅删除超期或超出
 ///   `maxFiles` 上限的归档文件，当前正在写入的 `web-platform.log` 不动。
 /// - `readBundle` 把所有日志文件按修改时间倒序读出，供离线导出/Web 端 ops 拉取。
-/// - 所有 IO 异常通过 `silentLog` 静默——日志系统自身崩溃不能拖垮 Web 服务。
+/// - 文件写入有条数与字节双上限；慢盘时拒绝新增写入并在下一条落盘日志中
+///   汇总丢弃数量，避免异步任务链无限增长。
+/// - 所有 IO 异常通过 `silentLog` 记录，日志系统自身故障不拖垮 Web 服务。
 class _WebGatewayRotatingLogger {
   _WebGatewayRotatingLogger({String? logsDirectoryPath})
     : directoryPath = p.join(
@@ -54,6 +56,13 @@ class _WebGatewayRotatingLogger {
   final String directoryPath;
   final SerialTaskQueue _operations = SerialTaskQueue();
   int _currentSizeBytes = 0;
+  int _pendingWriteCount = 0;
+  int _pendingWriteBytes = 0;
+  int _droppedWriteCount = 0;
+  int _unreportedDroppedWrites = 0;
+  bool _closing = false;
+  Future<void>? _closeFuture;
+  WebGatewayLogConfig _lastConfig = const WebGatewayLogConfig();
 
   static const int _maxExportFiles = 16;
   static const int _maxDirectoryEntries = 1024;
@@ -63,29 +72,122 @@ class _WebGatewayRotatingLogger {
   static const Duration _exportReadTotalTimeout = Duration(seconds: 10);
   static const Duration _metadataTimeout = Duration(seconds: 2);
   static const Duration _metadataTotalTimeout = Duration(seconds: 10);
+  static const int _maxPendingWrites = 1024;
+  static const int _maxPendingWriteBytes = 4 * 1024 * 1024;
+  static const Duration _closeTimeout = Duration(seconds: 5);
+  static const String _droppedBeforeKey = 'file_logger_dropped_before';
 
   String get filePath => p.join(directoryPath, 'web-platform.log');
 
   int get currentSizeBytes => _currentSizeBytes;
+  int get pendingWriteCount => _pendingWriteCount;
+  int get pendingWriteBytes => _pendingWriteBytes;
+  int get droppedWriteCount => _droppedWriteCount;
 
   Future<void> write(WebGatewayLogEntry entry, WebGatewayLogConfig config) {
-    return _operations.enqueue(() => _write(entry, config));
+    _lastConfig = config;
+    if (_closing) {
+      _recordDroppedWrite();
+      return Future<void>.value();
+    }
+    if (_pendingWriteCount >= _maxPendingWrites ||
+        _pendingWriteBytes >= _maxPendingWriteBytes) {
+      _recordDroppedWrite();
+      return Future<void>.value();
+    }
+    Uint8List bytes;
+    try {
+      bytes = _encodeEntry(entry);
+    } catch (error, stack) {
+      _recordDroppedWrite();
+      silentLog('web_gateway_logger', 'encode', error, stack);
+      return Future<void>.value();
+    }
+    if (!_canAccept(bytes.length)) {
+      _recordDroppedWrite();
+      return Future<void>.value();
+    }
+    final droppedBefore = _unreportedDroppedWrites;
+    if (droppedBefore > 0) {
+      final annotated = _encodeEntry(entry, droppedBefore: droppedBefore);
+      if (_canAccept(annotated.length)) {
+        bytes = annotated;
+        _unreportedDroppedWrites = 0;
+      }
+    }
+    _pendingWriteCount++;
+    _pendingWriteBytes += bytes.length;
+    final byteCount = bytes.length;
+    return _operations.enqueue(() => _writeBytes(bytes, config)).whenComplete(
+      () {
+        _pendingWriteCount--;
+        _pendingWriteBytes -= byteCount;
+      },
+    );
   }
 
-  Future<void> _write(
-    WebGatewayLogEntry entry,
-    WebGatewayLogConfig config,
-  ) async {
+  Future<void> _writeBytes(Uint8List bytes, WebGatewayLogConfig config) async {
     try {
       final dir = Directory(directoryPath);
       await dir.create(recursive: true);
       await _rotateIfNeeded(config);
-      final line = '${entry.toLogLine()}\n';
-      await File(filePath).writeAsString(line, mode: FileMode.append);
-      _currentSizeBytes += utf8.encode(line).length;
+      await File(filePath).writeAsBytes(bytes, mode: FileMode.append);
+      _currentSizeBytes += bytes.length;
     } catch (error, stack) {
       silentLog('web_gateway_logger', 'write', error, stack);
     }
+  }
+
+  bool _canAccept(int bytes) {
+    return bytes <= _maxPendingWriteBytes &&
+        _pendingWriteCount < _maxPendingWrites &&
+        _pendingWriteBytes + bytes <= _maxPendingWriteBytes;
+  }
+
+  Uint8List _encodeEntry(WebGatewayLogEntry entry, {int droppedBefore = 0}) {
+    final json = entry.toJson();
+    if (droppedBefore > 0) {
+      json['data'] = <String, Object?>{
+        ...stringKeyedMapFromValue(json['data']),
+        _droppedBeforeKey: droppedBefore,
+      };
+    }
+    return Uint8List.fromList(utf8.encode('${jsonEncode(json)}\n'));
+  }
+
+  void _recordDroppedWrite() {
+    _droppedWriteCount++;
+    _unreportedDroppedWrites++;
+  }
+
+  Future<void> close() {
+    final active = _closeFuture;
+    if (active != null) return active;
+    _closing = true;
+    final drain = _operations.enqueue(_flushDroppedWrites);
+    final close = runAsyncCleanupBounded(
+      () => drain,
+      timeout: _closeTimeout,
+      onError: (error, stack) =>
+          silentLog('web_gateway_logger', 'close', error, stack),
+    ).then<void>((_) {});
+    _closeFuture = close;
+    return close;
+  }
+
+  Future<void> _flushDroppedWrites() async {
+    final dropped = _unreportedDroppedWrites;
+    if (dropped <= 0) return;
+    _unreportedDroppedWrites = 0;
+    final summary = WebGatewayLogEntry(
+      id: 0,
+      timestamp: DateTime.now().toUtc(),
+      level: WebGatewayLogLevel.warn,
+      tag: 'LOGGER',
+      message: '文件日志写入达到容量上限',
+      data: <String, Object?>{'dropped_count': dropped},
+    );
+    await _writeBytes(_encodeEntry(summary), _lastConfig);
   }
 
   Future<_CleanupStats> clear() {

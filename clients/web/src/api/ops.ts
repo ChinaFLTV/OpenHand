@@ -80,6 +80,9 @@ export interface OpsRuntimeSnapshot {
   recent_errors?: OpsRecentError[];
   log_level_breakdown?: Record<string, number>;
   memory_log_count?: number;
+  file_log_pending_writes?: number;
+  file_log_pending_bytes?: number;
+  file_log_dropped_writes?: number;
   send_phase_breakdown?: Record<string, number>;
   allowed_model_count?: number;
   model_provider_count?: number;

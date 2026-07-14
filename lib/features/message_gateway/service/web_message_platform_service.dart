@@ -1148,6 +1148,7 @@ class WebMessagePlatformService {
     _sessionController.removeGoalContinuationYieldPredicate(
       _hasQueuedGoalInterruption,
     );
+    await _fileLogger.close();
     _translationService.dispose();
     await _ttsPlaybackService.dispose();
     await _logStreamController.close();
@@ -1217,6 +1218,9 @@ class WebMessagePlatformService {
       ),
       logLevelBreakdown: _computeLogLevelBreakdown(),
       memoryLogCount: _memoryLogs.length,
+      fileLogPendingWrites: _fileLogger.pendingWriteCount,
+      fileLogPendingBytes: _fileLogger.pendingWriteBytes,
+      fileLogDroppedWrites: _fileLogger.droppedWriteCount,
       sendPhaseBreakdown: _computeSendPhaseBreakdown(),
       allowedModelCount: _allowedModels().length,
       modelProviderCount: _settingsController.aiModels.length,
@@ -8395,7 +8399,8 @@ class WebMessagePlatformService {
     if (!_logStreamController.isClosed) {
       _logStreamController.add(entry);
     }
-    if (_config.loggingEnabled) {
+    if (_config.loggingEnabled &&
+        _config.logConfig.levels.contains(level.name)) {
       unawaited(_fileLogger.write(entry, _config.logConfig));
     }
     _scheduleOpsPersistence();

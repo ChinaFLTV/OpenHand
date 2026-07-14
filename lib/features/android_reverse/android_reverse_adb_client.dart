@@ -184,15 +184,13 @@ class AndroidReverseAdbClient {
     return devices;
   }
 
-  Future<AdbDevice?> onlineDevice() async {
+  AdbDevice? selectOnlineDevice(Iterable<AdbDevice> devices) {
     if (deviceSerial != null) {
-      final all = await listDevices();
-      return all
+      return devices
           .where((d) => d.serial == deviceSerial && d.isOnline)
           .firstOrNull;
     }
-    final all = await listDevices();
-    final online = all.where((d) => d.isOnline).toList(growable: false);
+    final online = devices.where((d) => d.isOnline).toList(growable: false);
     return online.length == 1 ? online.first : null;
   }
 

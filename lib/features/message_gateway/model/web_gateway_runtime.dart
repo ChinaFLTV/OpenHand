@@ -382,6 +382,9 @@ class WebGatewayRuntimeSnapshot {
     this.recentErrors = const <Map<String, Object?>>[],
     this.logLevelBreakdown = const <String, int>{},
     this.memoryLogCount = 0,
+    this.fileLogPendingWrites = 0,
+    this.fileLogPendingBytes = 0,
+    this.fileLogDroppedWrites = 0,
     this.sendPhaseBreakdown = const <String, int>{},
     this.allowedModelCount = 0,
     this.modelProviderCount = 0,
@@ -451,6 +454,9 @@ class WebGatewayRuntimeSnapshot {
   /// 进程内内存日志按级别统计，便于快速判断错误/警告是否在持续增长。
   final Map<String, int> logLevelBreakdown;
   final int memoryLogCount;
+  final int fileLogPendingWrites;
+  final int fileLogPendingBytes;
+  final int fileLogDroppedWrites;
 
   /// 当前所有会话按发送阶段分布。
   final Map<String, int> sendPhaseBreakdown;
@@ -520,6 +526,9 @@ class WebGatewayRuntimeSnapshot {
       'recent_errors': recentErrors,
       'log_level_breakdown': logLevelBreakdown,
       'memory_log_count': memoryLogCount,
+      'file_log_pending_writes': fileLogPendingWrites,
+      'file_log_pending_bytes': fileLogPendingBytes,
+      'file_log_dropped_writes': fileLogDroppedWrites,
       'send_phase_breakdown': sendPhaseBreakdown,
       'allowed_model_count': allowedModelCount,
       'model_provider_count': modelProviderCount,
@@ -628,6 +637,18 @@ class WebGatewayRuntimeSnapshot {
       ),
       memoryLogCount: nonNegativeIntFromValue(
         map['memory_log_count'],
+        fallback: 0,
+      ),
+      fileLogPendingWrites: nonNegativeIntFromValue(
+        map['file_log_pending_writes'],
+        fallback: 0,
+      ),
+      fileLogPendingBytes: nonNegativeIntFromValue(
+        map['file_log_pending_bytes'],
+        fallback: 0,
+      ),
+      fileLogDroppedWrites: nonNegativeIntFromValue(
+        map['file_log_dropped_writes'],
         fallback: 0,
       ),
       sendPhaseBreakdown: _webGatewayStringIntMapFromValue(

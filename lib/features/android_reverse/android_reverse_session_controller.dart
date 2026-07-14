@@ -200,6 +200,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
   StreamSubscription<String>? _networkCaptureStderrSub;
   Future<AdbCommandResult>? _networkCaptureStartFuture;
   Future<void>? _networkCaptureStopFuture;
+  Future<void>? _deviceRefreshFuture;
   Future<void>? _shutdownFuture;
 
   bool get isRunning => _state == AndroidReverseSessionState.running;
@@ -220,9 +221,10 @@ class AndroidReverseSessionController extends ChangeNotifier {
     await _refreshDevices();
     if (_state == AndroidReverseSessionState.stopped || _disposed) return;
     _state = AndroidReverseSessionState.running;
-    _watchdogTimer = startSafePeriodicTimer(_kDeviceWatchdogInterval, (_) {
-      if (!_disposed) _scheduleRefresh();
-    });
+    _watchdogTimer = startNonOverlappingPeriodicTimer(
+      _kDeviceWatchdogInterval,
+      (_) => _refreshDevices(),
+    );
     _safeNotify();
   }
 
@@ -252,6 +254,15 @@ class AndroidReverseSessionController extends ChangeNotifier {
               timeout: _kRuntimeCleanupTimeout,
               onError: (error, stack) =>
                   silentLog(_kTag, 'await network capture start', error, stack),
+            );
+          }
+          final refreshing = _deviceRefreshFuture;
+          if (refreshing != null) {
+            await runAsyncCleanupBounded(
+              () => refreshing,
+              timeout: _kRuntimeCleanupTimeout,
+              onError: (error, stack) =>
+                  silentLog(_kTag, 'await device refresh', error, stack),
             );
           }
           await _stopNetworkCaptureResources();
@@ -1905,19 +1916,25 @@ class AndroidReverseSessionController extends ChangeNotifier {
     }
   }
 
-  void _scheduleRefresh() {
-    unawaited(
-      _refreshDevices().catchError((Object e, StackTrace st) {
-        silentLog(_kTag, '_scheduleRefresh', e, st);
-      }),
-    );
+  Future<void> _refreshDevices() {
+    final active = _deviceRefreshFuture;
+    if (active != null) return active;
+    late final Future<void> tracked;
+    tracked = _refreshDevicesOnce().whenComplete(() {
+      if (identical(_deviceRefreshFuture, tracked)) {
+        _deviceRefreshFuture = null;
+      }
+    });
+    _deviceRefreshFuture = tracked;
+    return tracked;
   }
 
-  Future<void> _refreshDevices() async {
+  Future<void> _refreshDevicesOnce() async {
     try {
       final devices = await _adbClient.listDevices();
+      if (_disposed || _state == AndroidReverseSessionState.stopped) return;
       _allDevices = devices;
-      _connectedDevice = await _adbClient.onlineDevice();
+      _connectedDevice = _adbClient.selectOnlineDevice(devices);
       if (_state == AndroidReverseSessionState.running &&
           _connectedDevice == null &&
           devices.isNotEmpty) {
@@ -1929,6 +1946,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
       _errorMessage = null;
     } catch (e, st) {
       silentLog(_kTag, '_refreshDevices failed', e, st);
+      if (_disposed || _state == AndroidReverseSessionState.stopped) return;
       _errorMessage = '$e';
     }
     _safeNotify();

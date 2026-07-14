@@ -51,6 +51,20 @@ const int kWebGatewayMaxLogMaxFiles = 100;
 const int kWebGatewayDefaultLogLazyReadPageSize = 300;
 const int kWebGatewayMinLogLazyReadPageSize = 50;
 const int kWebGatewayMaxLogLazyReadPageSize = 5000;
+const List<String> kWebGatewayDefaultFileLogLevels = <String>[
+  'info',
+  'warn',
+  'error',
+  'debug',
+];
+const Set<String> kWebGatewaySupportedFileLogLevels = <String>{
+  'info',
+  'success',
+  'warn',
+  'error',
+  'debug',
+  'telemetry',
+};
 const IntValueRange _listenPortRange = IntValueRange(
   fallback: kWebGatewayDefaultListenPort,
   min: kWebGatewayMinListenPort,
@@ -315,7 +329,7 @@ class WebGatewayLogConfig {
     this.fileMaxBytes = kWebGatewayDefaultLogFileMaxBytes,
     this.rotationDays = kWebGatewayDefaultLogRotationDays,
     this.maxFiles = kWebGatewayDefaultLogMaxFiles,
-    this.levels = const <String>['info', 'warn', 'error', 'debug'],
+    this.levels = kWebGatewayDefaultFileLogLevels,
     this.lazyReadPageSize = kWebGatewayDefaultLogLazyReadPageSize,
   });
 
@@ -324,10 +338,7 @@ class WebGatewayLogConfig {
       fileMaxBytes: _logFileMaxBytesRange.fromValue(json['file_max_bytes']),
       rotationDays: _logRotationDaysRange.fromValue(json['rotation_days']),
       maxFiles: _logMaxFilesRange.fromValue(json['max_files']),
-      levels: _stringList(
-        json['levels'],
-        fallback: const <String>['info', 'warn', 'error', 'debug'],
-      ),
+      levels: _normalizeFileLogLevels(json['levels']),
       lazyReadPageSize: _logLazyReadPageSizeRange.fromValue(
         json['lazy_read_page_size'],
       ),
@@ -361,7 +372,7 @@ class WebGatewayLogConfig {
       fileMaxBytes: _logFileMaxBytesRange.normalize(fileMaxBytes),
       rotationDays: _logRotationDaysRange.normalize(rotationDays),
       maxFiles: _logMaxFilesRange.normalize(maxFiles),
-      levels: _stringList(levels),
+      levels: _normalizeFileLogLevels(levels),
       lazyReadPageSize: _logLazyReadPageSizeRange.normalize(lazyReadPageSize),
     );
   }
@@ -843,6 +854,13 @@ List<String> _stringList(
     if (seen.add(text.toLowerCase())) values.add(text);
   }
   return values;
+}
+
+List<String> _normalizeFileLogLevels(Object? raw) {
+  return _stringList(raw, fallback: kWebGatewayDefaultFileLogLevels)
+      .map((level) => level.toLowerCase())
+      .where(kWebGatewaySupportedFileLogLevels.contains)
+      .toList(growable: false);
 }
 
 Map<String, String> _stringMap(Object? raw) {

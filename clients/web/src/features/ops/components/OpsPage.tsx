@@ -515,7 +515,11 @@ export function OpsPage() {
                 )}
                 {snapshot.log_level_breakdown && (
                   <BreakdownBlock
-                    title={`${t('ops.section.logLevelBreakdown', '日志级别分布')} · ${snapshot.memory_log_count ?? 0}`}
+                    title={[
+                      `${t('ops.section.logLevelBreakdown', '日志级别分布')} · ${snapshot.memory_log_count ?? 0}`,
+                      `${t('ops.fileLogPending', '待写')} ${snapshot.file_log_pending_writes ?? 0}`,
+                      `${t('ops.fileLogDropped', '丢弃')} ${snapshot.file_log_dropped_writes ?? 0}`,
+                    ].join(' / ')}
                     data={snapshot.log_level_breakdown}
                     dangerKeys={['error', 'warn']}
                   />
