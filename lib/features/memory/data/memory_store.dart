@@ -140,15 +140,6 @@ class MemoryStore {
     });
   }
 
-  /// Inserts a single entry without replacing the entire table.
-  Future<void> insertEntry(UserMemoryEntry entry) async {
-    await _db.insert(
-      _table,
-      _entryToRow(entry),
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
-  }
-
   /// Deletes a single entry by id.
   Future<void> deleteEntry(String id) async {
     await _db.delete(_table, where: 'id = ?', whereArgs: <Object?>[id]);
@@ -162,33 +153,6 @@ class MemoryStore {
       where: 'id = ?',
       whereArgs: <Object?>[entry.id],
     );
-  }
-
-  /// Returns the single user profile entry, or null if none exists.
-  Future<UserMemoryEntry?> loadUserProfile() async {
-    final entries = (await load()).entries;
-    for (final entry in entries) {
-      if (entry.type == UserMemoryEntry.userProfileType) {
-        return entry;
-      }
-    }
-    return null;
-  }
-
-  /// Returns all entries that carry [tag] (case-insensitive match).
-  ///
-  /// Complexity: O(n) over all stored entries. Tag filtering happens in
-  /// Dart because tags are JSON-encoded in a single column; acceptable at
-  /// the expected scale (<~1000 entries). Revisit if the table grows.
-  Future<List<UserMemoryEntry>> loadByTag(String tag) async {
-    final target = tag.trim().toLowerCase();
-    if (target.isEmpty) {
-      return const <UserMemoryEntry>[];
-    }
-    final entries = (await load()).entries;
-    return entries
-        .where((entry) => entry.tags.any((t) => t.toLowerCase() == target))
-        .toList();
   }
 
   /// Upserts the single user profile entry. Keeps at most one profile row.

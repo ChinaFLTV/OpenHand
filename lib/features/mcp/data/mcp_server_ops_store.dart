@@ -21,8 +21,6 @@ class McpServerOpsStore {
   final String _filePath;
   final SerialTaskQueue _writeQueue = SerialTaskQueue();
 
-  String get filePath => _filePath;
-
   Future<McpOpsConfig> loadConfig() async {
     final decoded = await _readRoot();
     if (decoded == null) {
@@ -74,20 +72,6 @@ class McpServerOpsStore {
     }
     final bytes = prettyPrintJson(data.toJson()).length;
     return McpOpsPersistenceReport(bytes: bytes, itemCount: data.itemCount);
-  }
-
-  Future<void> clearRuntimeData() async {
-    await _enqueueWrite(() async {
-      final decoded = await _readRoot() ?? const <String, Object?>{};
-      final config = McpOpsConfig.fromJson(decoded[_configKey]);
-      final next = <String, Object?>{
-        ...decoded,
-        _configKey: config.toJson(),
-        _runtimeKey: const McpOpsPersistedRuntimeData().toJson(),
-        _updatedAtKey: DateTime.now().toUtc().toIso8601String(),
-      };
-      await _writeRoot(next);
-    });
   }
 
   Future<T> _enqueueWrite<T>(Future<T> Function() task) {

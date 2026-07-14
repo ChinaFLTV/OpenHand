@@ -74,13 +74,6 @@ class AiFileTrackerService {
     return previousRead.snapshot.hasSameContentAs(current);
   }
 
-  /// 批量记录文件读取快照
-  Future<void> recordFilesRead(Iterable<String> filePaths) async {
-    for (final path in filePaths) {
-      await recordFileRead(path);
-    }
-  }
-
   /// 检查文件是否可以安全写入（未被外部修改）
   ///
   /// 返回值：

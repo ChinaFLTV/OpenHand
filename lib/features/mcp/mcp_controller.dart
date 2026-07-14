@@ -299,20 +299,11 @@ class McpController extends ChangeNotifier {
     return result;
   }
 
-  /// 删除已构建的索引（设置项关闭等场景）。
-  Future<void> clearKeywordIndex() async {
-    await _keywordIndexService.deleteFromDisk();
-    if (_isDisposed) return;
-    _keywordIndex = null;
-    notifyListeners();
-  }
-
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
   List<McpServer> get servers => _serversView;
   String get serversFilePath => _store.serversFilePath;
   String get storageDirectoryPath => _store.storageDirectoryPath;
-  String get opsConfigFilePath => _opsStore.filePath;
   McpPersistenceIssue? get persistenceIssue => _persistenceIssue;
   McpOpsConfig get opsConfig => _opsConfig;
   McpOpsRuntimeSnapshot get opsSnapshot => _opsSnapshot;
@@ -1400,28 +1391,6 @@ class McpController extends ChangeNotifier {
       refreshServerTools(normalizedServerName),
       checkServerHealth(normalizedServerName),
     ]);
-  }
-
-  /// 批量重连「需要处理」的服务（连续失败 ≥ 3 次或最近一次探测明确不健康）。
-  /// 仅作用于已启用服务；返回参与本次重连的服务名列表，调用方据此显示进度/反馈。
-  Future<List<String>> reconnectFailingServers() async {
-    final candidates = <String>[
-      for (final server in _servers)
-        if (server.enabled)
-          if (() {
-            final health = healthStatusFor(server.name);
-            return health.needsAttention ||
-                health.status == McpServerHealthStatus.unhealthy;
-          }())
-            server.name,
-    ];
-    if (candidates.isEmpty) {
-      return const <String>[];
-    }
-    await Future.wait<void>(<Future<void>>[
-      for (final name in candidates) reconnectServer(name),
-    ]);
-    return candidates;
   }
 
   Future<void> refreshServerTools(

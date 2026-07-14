@@ -975,24 +975,6 @@ List<Map<String, Object?>> compactWebReverseWebRtcLog(
   return List<Map<String, Object?>>.unmodifiable(result);
 }
 
-List<int> normalizeWebReverseWebRtcConnections(
-  Object? rawConnections, {
-  int maxEntries = kWebReverseMaxWebRtcConnections,
-}) {
-  _validatePositiveWebReverseLimits([maxEntries]);
-  if (rawConnections is! Iterable) return const <int>[];
-  final result = <int>[];
-  final seen = <int>{};
-  var inspected = 0;
-  for (final raw in rawConnections) {
-    if (inspected++ >= maxEntries * 4 || result.length >= maxEntries) break;
-    if (raw is! num || !raw.isFinite || raw < 1) continue;
-    final id = raw.toInt();
-    if (seen.add(id)) result.add(id);
-  }
-  return List<int>.unmodifiable(result);
-}
-
 /// Bounds one tracing event before it enters the session's aggregate buffer.
 /// Trace `args` can contain arbitrary nested objects, so the generic JSON-like
 /// sanitizer is applied before the caller estimates the event cost.

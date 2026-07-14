@@ -518,29 +518,6 @@ class DataCleanupService {
   }
 }
 
-@visibleForTesting
-abstract final class DataCleanupFileWorker {
-  static Future<DataCleanupSizeReport> measureDirectory(String path) {
-    return _isolateMeasureDirectory(path);
-  }
-
-  static Future<DataCleanupSizeReport> measureDirectoryExcluding(
-    List<String> paths,
-  ) {
-    return _isolateMeasureDirectoryExcluding(paths);
-  }
-
-  static Future<void> deleteDirectoryContents(String path) {
-    return _isolateDeleteDirectoryContents(path);
-  }
-
-  static Future<void> deleteDirectoryContentsExcluding(List<String> paths) {
-    return _isolateDeleteDirectoryContentsExcluding(paths);
-  }
-
-  static bool isSafeDeleteTarget(String path) => _isSafeDeleteTarget(path);
-}
-
 // Isolate worker functions（必须是顶层或静态以便序列化）
 /// 在 isolate 内统计 sessions 目录下所有 `attachments/` 子目录的体积与
 /// 文件数。

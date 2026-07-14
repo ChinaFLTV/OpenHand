@@ -246,12 +246,6 @@ class McpStdioProcessManager extends ChangeNotifier {
     return _processes[serverName]?.info ?? const StdioProcessInfo();
   }
 
-  /// 获取所有正在运行的服务名列表。
-  List<String> get runningServers => _processes.entries
-      .where((e) => e.value.info.isRunning)
-      .map((e) => e.key)
-      .toList(growable: false);
-
   /// 启动指定 STDIO MCP 服务进程。
   Future<void> startServer(McpServer server) async {
     if (server.type != McpServerType.stdio) return;

@@ -493,39 +493,6 @@ class KnowledgeBaseController extends ChangeNotifier {
     return null;
   }
 
-  List<AiModelConfig> embeddingCapableModels(List<AiModelConfig> models) {
-    return models
-        .where(
-          (model) => model.allModelIds.any(
-            (id) => model
-                .profileFor(id)
-                .capabilities
-                .contains(AiModelCapability.embeddingGeneration),
-          ),
-        )
-        .toList(growable: false);
-  }
-
-  List<AiModelConfig> rerankCapableModels(List<AiModelConfig> models) {
-    return models
-        .where(
-          (model) => model.allModelIds.any(
-            (id) => model.profileFor(id).supportsRerank,
-          ),
-        )
-        .toList(growable: false);
-  }
-
-  List<AiModelConfig> readerCapableModels(List<AiModelConfig> models) {
-    return models
-        .where(
-          (model) => model.allModelIds.any(
-            (id) => model.profileFor(id).supportsReaderConversion,
-          ),
-        )
-        .toList(growable: false);
-  }
-
   @override
   void notifyListeners() {
     if (_isDisposed) return;

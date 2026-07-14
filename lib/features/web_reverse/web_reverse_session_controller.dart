@@ -317,13 +317,9 @@ class WebReverseSessionController extends ChangeNotifier {
   int _screencastHeight = _screencastDefaultMaxHeight;
   int _screencastQuality = _screencastDefaultQuality;
   DateTime? _screencastStartedAt;
-  DateTime? _lastScreencastFrameAt;
 
   /// 当前最新一帧（JPEG 字节）；切到浏览器 tab 后 widget 用 [Image.memory] 渲染。
   Uint8List? get latestScreencastFrame => _latestScreencastFrame;
-
-  /// 帧序号（自增），widget 用作 key 触发 [Image.memory] 重绘。
-  int get screencastFrameSeq => _screencastFrameSeq;
 
   /// 当前帧的浏览器视口尺寸（CSS 像素）。
   int get screencastWidth => _screencastWidth;
@@ -333,9 +329,6 @@ class WebReverseSessionController extends ChangeNotifier {
 
   /// 最近一次成功发送 `Page.startScreencast` 的时间。
   DateTime? get screencastStartedAt => _screencastStartedAt;
-
-  /// 上次帧到达时间，UI 用来判断"是否长时间无帧"以提示用户。
-  DateTime? get lastScreencastFrameAt => _lastScreencastFrameAt;
 
   // ── 生命周期 ─────────────────────────────────────────────────────────
 
@@ -780,7 +773,6 @@ class WebReverseSessionController extends ChangeNotifier {
       }
       _screencastActive = false;
       _screencastStartedAt = null;
-      _lastScreencastFrameAt = null;
     }
     try {
       await _attachToTargetInternal(normalizedTargetId);
@@ -2957,7 +2949,6 @@ class WebReverseSessionController extends ChangeNotifier {
       try {
         _latestScreencastFrame = base64Decode(data);
         _screencastFrameSeq++;
-        _lastScreencastFrameAt = DateTime.now();
         final meta = p['metadata'] as Map?;
         final w = (meta?['deviceWidth'] as num?)?.round();
         final h = (meta?['deviceHeight'] as num?)?.round();
@@ -4901,39 +4892,6 @@ class WebReverseSessionController extends ChangeNotifier {
     }
   }
 
-  /// 列出当前页活跃的 RTCPeerConnection id 列表。供调试面板挑选。
-  Future<List<int>> listWebRtcConnections() async {
-    final cdp = _browserCdp;
-    final sessionId = _pageSessionId;
-    if (cdp == null || sessionId == null) return const [];
-    try {
-      final r = await cdp.send(
-        'Runtime.evaluate',
-        params: const <String, Object?>{
-          'expression':
-              '(()=>{const m=window.__oh_rtc_reg;if(!m)return "[]";return JSON.stringify(Array.from(m.keys()));})()',
-          'returnByValue': true,
-        },
-        sessionId: sessionId,
-        timeout: const Duration(seconds: 5),
-      );
-      if (_pageSessionId != sessionId) return const [];
-      final raw = cdpStringResultValue(r);
-      if (raw == null || raw.isEmpty) return const [];
-      final decoded = jsonDecode(raw);
-      if (decoded is! List) return const [];
-      return normalizeWebReverseWebRtcConnections(decoded);
-    } catch (error, stack) {
-      silentLog(
-        'web_reverse_session_controller',
-        'list WebRTC connections',
-        error,
-        stack,
-      );
-      return const [];
-    }
-  }
-
   /// 读取 page 当前 FPS 值；installFpsCounter 应先调用。
   Future<double?> readFps() async {
     final cdp = _browserCdp;
@@ -5061,7 +5019,6 @@ class WebReverseSessionController extends ChangeNotifier {
     _latestScreencastFrame = null;
     _screencastFrameSeq = 0;
     _screencastStartedAt = null;
-    _lastScreencastFrameAt = null;
     if (!_disposed) {
       // 帧序号 +1 而不是只写 0，让 ValueListenableBuilder 一定能 rebuild
       // 拿到 null 帧切换到 placeholder。
@@ -6311,11 +6268,6 @@ class WebReverseSessionController extends ChangeNotifier {
 
   Future<void> unblockUrl(String pattern) async {
     if (!_blockedUrls.remove(pattern.trim())) return;
-    await _flushBlockedUrls();
-  }
-
-  Future<void> clearBlockedUrls() async {
-    _blockedUrls.clear();
     await _flushBlockedUrls();
   }
 
@@ -8083,17 +8035,6 @@ class WebReverseSessionController extends ChangeNotifier {
     }
   }
 
-  /// 立即导出当前 HAR 草稿。返回写出路径或 null。
-  /// 调用后 in-memory drafts 仍保留，stop() 时会再导一份；用户从 dashboard 手动触发用。
-  Future<String?> exportHarNow() async {
-    final path = await _artifacts.exportHar();
-    if (path != null) {
-      _lastHarPath = path;
-      _safeNotify();
-    }
-    return path;
-  }
-
   /// 把当前 HAR 写到用户选定路径（来自 file_selector）；返回写出路径或 null。
   Future<String?> exportHarToPath(String destPath) async {
     final src = await _artifacts.exportHar();
@@ -9045,11 +8986,6 @@ class WebReverseSessionController extends ChangeNotifier {
   ) {
     _sourceMapCache.put(url, value);
     return value;
-  }
-
-  /// 清除某个脚本的 sourcemap 缓存（用户主动「重新抓取」时调）。
-  void invalidateSourceMapForUrl(String url) {
-    _sourceMapCache.remove(url);
   }
 }
 

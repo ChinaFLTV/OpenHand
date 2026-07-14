@@ -568,39 +568,6 @@ class AiSessionController extends ChangeNotifier {
     }
   }
 
-  /// Web gateway 用：暴露 background chat client 供手动标题生成使用。
-  AiChatClient get backgroundChatClientForWeb => _backgroundChatClient;
-
-  /// Web gateway 用：解析自动标题系统提示词。
-  Future<String> resolveAutoTitleSystemPromptForWeb({
-    required int maxTitleCharacters,
-  }) async {
-    return _templateRepository.loadAutoTitleSystemPrompt(
-      maxTitleCharacters: maxTitleCharacters,
-      fallback: _autoTitleSystemPromptFallback.replaceAll(
-        '{{MAX_TITLE_CHARACTERS}}',
-        maxTitleCharacters.toString(),
-      ),
-    );
-  }
-
-  /// Web gateway 用：更新会话标题（手动触发的 AI 摘要标题）。
-  Future<void> updateSessionTitleFromWeb({
-    required String sessionId,
-    required String title,
-  }) async {
-    final session = _sessionById(sessionId);
-    if (session == null) return;
-    final now = DateTime.now().toUtc();
-    final updatedSession = session.copyWith(
-      title: title,
-      updatedAt: now,
-      autoTitleAcquired: true,
-      autoTitleGeneratedAt: now,
-    );
-    await _commitSessionLocked(updatedSession);
-  }
-
   /// APP 端用：根据会话解析应使用的模型配置。
   AiModelConfig? resolveModelForSession(AiSession session) {
     if (session.lastUsedModelId != null) {
@@ -934,20 +901,6 @@ class AiSessionController extends ChangeNotifier {
   bool get isMessagesHydrating => _isMessagesHydrating;
   bool get isSending => _sessionSendPhases.isNotEmpty;
   AiSendPhase get sendPhase => sendPhaseForSession(_currentSessionId);
-  String? get activeSendSessionId {
-    final currentSessionId = _currentSessionId;
-    if (currentSessionId != null &&
-        _sessionSendPhases.containsKey(currentSessionId)) {
-      return currentSessionId;
-    }
-    if (_sessionSendPhases.isEmpty) {
-      return null;
-    }
-    return _sessionSendPhases.keys.first;
-  }
-
-  bool get didCompressInLastSend =>
-      didCompressInLastSendForSession(_currentSessionId);
   String? get currentSessionId => _currentSessionId;
   AiSessionDeletionNotice? get lastDeletionNotice => _lastDeletionNotice;
   String? get editingMessageId => _editingMessageId;
@@ -963,8 +916,6 @@ class AiSessionController extends ChangeNotifier {
   }
 
   List<AiSession> get sessions => _sessionsView;
-  List<AiSessionPersistenceIssue> get persistenceIssues =>
-      List<AiSessionPersistenceIssue>.unmodifiable(_persistenceIssues);
   List<AiThreadTemplate> get templates => _templateRepository.templates;
   List<AiThreadTemplate> get availableTemplates =>
       _templateRepository.templatesForPlatform();
@@ -1243,38 +1194,9 @@ class AiSessionController extends ChangeNotifier {
     }
   }
 
-  /// 解析有效字符限速：优先级 session > global。
-  int effectiveStreamCharsPerSecond({
-    required String sessionId,
-    required AiSessionRuntimeContext runtimeContext,
-  }) {
-    final session = _sessionStreamThrottleOverrides[sessionId];
-    if (session?.charsPerSecond != null) return session!.charsPerSecond!;
-    return runtimeContext.effectiveStreamMaxCharsPerSecond();
-  }
-
-  /// 解析有效卡片限速：优先级 session > global。
-  int effectiveStreamCardsPerSecond({
-    required String sessionId,
-    required AiSessionRuntimeContext runtimeContext,
-  }) {
-    final session = _sessionStreamThrottleOverrides[sessionId];
-    if (session?.cardsPerSecond != null) return session!.cardsPerSecond!;
-    return runtimeContext.effectiveStreamMaxMessageCardsPerSecond();
-  }
-
   /// Read-only accessor used by the self-learning scheduler to query
   /// sessions by template without reaching into private state.
   AiSessionStore get store => _store;
-
-  void setGoalContinuationYieldPredicate(
-    AiGoalContinuationYieldPredicate? predicate,
-  ) {
-    _goalContinuationYieldPredicates.clear();
-    if (predicate != null) {
-      _goalContinuationYieldPredicates.add(predicate);
-    }
-  }
 
   void addGoalContinuationYieldPredicate(
     AiGoalContinuationYieldPredicate predicate,
@@ -1378,20 +1300,6 @@ class AiSessionController extends ChangeNotifier {
     return null;
   }
 
-  void clearLastError() {
-    final currentSessionId = _currentSessionId;
-    if (currentSessionId != null &&
-        _lastErrorMessagesBySession.remove(currentSessionId) != null) {
-      notifyListeners();
-      return;
-    }
-    if (_lastErrorMessage == null) {
-      return;
-    }
-    _lastErrorMessage = null;
-    notifyListeners();
-  }
-
   void _resetLastSendOutcome(String sessionId) {
     _didCompressInLastSendBySession[sessionId] = false;
     _lastErrorMessagesBySession.remove(sessionId);
@@ -1470,14 +1378,6 @@ class AiSessionController extends ChangeNotifier {
     _deletedSessionIds.removeWhere(
       (sessionId) => !_sessionOperationQueues.containsKey(sessionId),
     );
-  }
-
-  void clearPersistenceIssues() {
-    if (_persistenceIssues.isEmpty) {
-      return;
-    }
-    _persistenceIssues = const <AiSessionPersistenceIssue>[];
-    notifyListeners();
   }
 
   Future<void> refresh() async {
@@ -4502,6 +4402,7 @@ class AiSessionController extends ChangeNotifier {
     if (deletedSession?.templateId == kMachineExpertTemplateId) {
       await _machineTerminalService?.disposeWorkspace(sessionId);
     }
+    await _toolRuntimeService.fileHistory.clearSessionHistory(sessionId);
     _clearSessionScopedSendState(sessionId);
   }
 
@@ -4874,23 +4775,6 @@ class AiSessionController extends ChangeNotifier {
     }
     await stopResponding(sessionId);
     return true;
-  }
-
-  Future<bool> deferGoalForQueuedMessages(String sessionId) async {
-    return _enqueueSessionOperation(sessionId, () async {
-      final session = _sessionById(sessionId);
-      if (session == null) {
-        return false;
-      }
-      final updatedSession = _deferGoalForQueuedMessages(session);
-      if (identical(updatedSession, session)) {
-        return true;
-      }
-      return _replaceSessionHeaderInMemoryAndPersist(
-        updatedSession,
-        logOperation: 'persist queued-message goal deferral',
-      );
-    });
   }
 
   AiSession _deferGoalForQueuedMessages(AiSession session) {

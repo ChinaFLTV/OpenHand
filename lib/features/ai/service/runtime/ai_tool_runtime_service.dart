@@ -443,18 +443,10 @@ class AiToolRuntimeService {
     required AiWebFetchScraplingSettings settings,
   }) => _scraplingBridge.installRuntimeStreaming(settings: settings);
 
-  Future<void> installWebFetchScraplingRuntime({
-    required AiWebFetchScraplingSettings settings,
-  }) => _scraplingBridge.installRuntime(settings: settings);
-
   Stream<WebFetchScraplingRuntimeEvent>
   uninstallWebFetchScraplingRuntimeStreaming({
     required AiWebFetchScraplingSettings settings,
   }) => _scraplingBridge.uninstallRuntimeStreaming(settings: settings);
-
-  Future<void> uninstallWebFetchScraplingRuntime({
-    required AiWebFetchScraplingSettings settings,
-  }) => _scraplingBridge.uninstallRuntime(settings: settings);
 
   Future<void> resetWebFetchScrapling() => _scraplingBridge.dispose();
 

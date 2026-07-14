@@ -311,23 +311,6 @@ class AiTtsPlaybackService {
     state.dispose();
   }
 
-  @visibleForTesting
-  Future<void> releaseTrackedFileForTesting(RandomAccessFile file) async {
-    final operation = _AiTtsOperation(
-      timeout: _resourceCloseTimeout,
-      transport: _transportFactory(),
-    );
-    try {
-      final acquired = await operation.acquireFile(
-        Future<RandomAccessFile>.value(file),
-        timeout: _resourceCloseTimeout,
-      );
-      await operation.releaseFile(acquired);
-    } finally {
-      await operation.close();
-    }
-  }
-
   static bool supportsAudioGenerationModel(
     AiModelConfig config,
     String modelId,
@@ -2050,21 +2033,6 @@ class AiTtsPlaybackService {
       _validateMimoMp3Audio(bytes);
     }
     return bytes;
-  }
-
-  @visibleForTesting
-  static Uint8List decodeMimoAudioPayloadForTesting({
-    required String body,
-    String format = aiMimoDefaultAudioFormat,
-    int sampleRate = _defaultAiTtsSampleRate,
-    int maxAudioBytes = _maxAudioResponseBytes,
-  }) {
-    return _decodeMimoAudioPayload(<String, Object?>{
-      'body': body,
-      'format': format,
-      'sample_rate': sampleRate,
-      'max_audio_bytes': maxAudioBytes,
-    });
   }
 
   static String _chatCompletionAudioData(

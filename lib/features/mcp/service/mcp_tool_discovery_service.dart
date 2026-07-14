@@ -2278,9 +2278,6 @@ class McpStdioBootstrapStatus extends ChangeNotifier {
   /// 取某个 server 的最新进度行；不存在返回 null。
   String? statusOf(String serverId) => _byServer[serverId];
 
-  /// 是否处于 bootstrap 中（有任意进度行残留）。
-  bool isBootstrapping(String serverId) => _byServer.containsKey(serverId);
-
   void update(String serverId, String line) {
     if (_byServer[serverId] == line) return;
     _byServer[serverId] = line;

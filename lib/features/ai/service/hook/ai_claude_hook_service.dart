@@ -47,13 +47,6 @@ class AiClaudeHookInvocationResult {
   final int executedHookCount;
   final List<String> executedCommands;
   final List<String> loadedConfigPaths;
-
-  bool get hasVisibleEffects {
-    return blocked ||
-        userFeedback.isNotEmpty ||
-        systemReminders.isNotEmpty ||
-        executedHookCount > 0;
-  }
 }
 
 class AiNoopClaudeHookService extends AiClaudeHookService {

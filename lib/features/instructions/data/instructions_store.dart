@@ -51,10 +51,6 @@ class InstructionsStore {
     );
   }
 
-  Future<void> deleteById(String id) async {
-    await _db.delete(_table, where: 'id = ?', whereArgs: <Object?>[id]);
-  }
-
   Map<String, Object?> _entryToRow(UserInstructionEntry entry) {
     return <String, Object?>{
       'id': entry.id,

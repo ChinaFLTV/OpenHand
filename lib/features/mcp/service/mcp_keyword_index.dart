@@ -386,13 +386,4 @@ class McpKeywordIndexService {
       return null;
     }
   }
-
-  /// 删除落盘文件（设置项「关闭索引」时使用）。
-  Future<void> deleteFromDisk() async {
-    try {
-      if (await _file.exists()) await _file.delete();
-    } catch (e, s) {
-      silentLog('mcp_keyword_index', 'deleteFromDisk', e, s);
-    }
-  }
 }

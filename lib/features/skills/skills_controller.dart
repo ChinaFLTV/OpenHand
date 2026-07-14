@@ -55,7 +55,6 @@ class SkillsController extends ManagedChangeNotifier {
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
   List<LocalSkill> get skills => List<LocalSkill>.unmodifiable(_skills);
-  int get installedCount => _skills.length;
 
   Future<void> refresh() async {
     await _enqueueOperation(_refreshLocked);

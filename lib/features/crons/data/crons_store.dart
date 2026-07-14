@@ -402,23 +402,6 @@ class CronsStore {
     });
   }
 
-  Future<void> updateHistory(CronExecutionRecord record) async {
-    await _db.update(
-      _historyTable,
-      <String, Object?>{
-        'finished_at': record.finishedAt?.toIso8601String() ?? '',
-        'status': record.status,
-        'exit_code': record.exitCode,
-        'stdout': record.stdout,
-        'stderr': record.stderr,
-        'error_message': record.errorMessage ?? '',
-        'elapsed_ms': record.elapsedMs,
-      },
-      where: 'id = ?',
-      whereArgs: <Object?>[record.id],
-    );
-  }
-
   Future<List<CronExecutionRecord>> loadHistory(
     String cronId, {
     int limit = 50,

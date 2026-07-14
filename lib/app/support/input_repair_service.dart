@@ -123,8 +123,6 @@ class _InputRepairParticipant {
 ///      避免外部误用（比如我们自己 `_replaceComposerText` 写入了带陈旧
 ///      selection 的值）把越界状态推给 framework 后再被
 ///      `TextEditingValue.fromJSON` 断言打回；
-///   2. 可选地记录"上一次文本被外部短化"的事件，供上层在需要时主动触发
-///      IME 软恢复（[InputRepairService.triggerSoftRecovery]）。
 ///
 /// 与 framework 自身的 `Range start ... is out of text of length ...` 断言
 /// 配合：本类负责把越界值拦在 app 层，framework 负责把平台 IME 反向
@@ -132,24 +130,9 @@ class _InputRepairParticipant {
 class SafeTextEditingController extends TextEditingController {
   SafeTextEditingController({super.text});
 
-  bool _lastShrunkExternally = false;
-
-  /// 仅在 [SafeTextEditingController.value] setter 检测到文本比上一次短、
-  /// 且调用方没有显式声明期望长度时被置 true；外部可读后自行复位。
-  bool consumeShrunkExternally() {
-    final v = _lastShrunkExternally;
-    _lastShrunkExternally = false;
-    return v;
-  }
-
   @override
   set value(TextEditingValue newValue) {
-    final clamped = _clampValue(newValue);
-    final prevLen = value.text.length;
-    super.value = clamped;
-    if (prevLen > clamped.text.length) {
-      _lastShrunkExternally = true;
-    }
+    super.value = _clampValue(newValue);
   }
 
   static TextEditingValue _clampValue(TextEditingValue raw) {
@@ -203,9 +186,6 @@ class InputRepairService {
 
   final Map<Object, _InputRepairParticipant> _participants =
       <Object, _InputRepairParticipant>{};
-
-  InputRepairReport? _lastReport;
-  InputRepairReport? get lastReport => _lastReport;
 
   // 软恢复钩子：用于在不重建 IME 连接的前提下，对 composer
   // 文本输入做一次轻量级"重置 + 复位"（典型做法：临时 unfocus 再
@@ -458,7 +438,6 @@ class InputRepairService {
       primaryFocusAfterLabel: _focusLabel(FocusManager.instance.primaryFocus),
       restoredFocusLabel: _focusLabel(restoredFocus),
     );
-    _lastReport = report;
     return report;
   }
 

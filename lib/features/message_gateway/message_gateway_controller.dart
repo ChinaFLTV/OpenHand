@@ -133,7 +133,6 @@ class MessageGatewayController extends ManagedChangeNotifier {
   bool _isSaving = false;
   String? _errorMessage;
   bool _hasPendingRuntimeConfig = false;
-  WebGatewayHealthResult? _lastHealthResult;
   final ChangePulse _saveSuccessPulse = ChangePulse();
   static const Set<AiBuiltinToolKind> _knowledgeBaseBuiltinToolKinds =
       <AiBuiltinToolKind>{
@@ -144,7 +143,6 @@ class MessageGatewayController extends ManagedChangeNotifier {
   WebMessagePlatformConfig get config => _config;
   ValueListenable<int> get saveSuccessSignal => _saveSuccessPulse.listenable;
   bool get isLoading => _isLoading;
-  bool get isSaving => _isSaving;
   bool get isOperating =>
       _isLoading ||
       _isSaving ||
@@ -152,7 +150,6 @@ class MessageGatewayController extends ManagedChangeNotifier {
       _service.state == WebGatewayRuntimeState.stopping;
   bool get hasPendingRuntimeConfig => _hasPendingRuntimeConfig;
   String? get errorMessage => _errorMessage;
-  WebGatewayHealthResult? get lastHealthResult => _lastHealthResult;
   WebGatewayRuntimeState get runtimeState => _service.state;
   bool get isRunning => _service.isRunning;
   String get webUrl => _service.boundUrl;
@@ -384,12 +381,7 @@ class MessageGatewayController extends ManagedChangeNotifier {
     return enqueueOperation(_reloadConfigLocked);
   }
 
-  Future<WebGatewayHealthResult> runHealthCheck() async {
-    final result = await _service.runHealthCheck();
-    _lastHealthResult = result;
-    notifyListeners();
-    return result;
-  }
+  Future<WebGatewayHealthResult> runHealthCheck() => _service.runHealthCheck();
 
   Future<WebGatewayConnectivityTestResult> runConnectivityTest() async {
     final result = await _service.runConnectivityTest();

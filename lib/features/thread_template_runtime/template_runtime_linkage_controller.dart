@@ -69,19 +69,6 @@ class TemplateRuntimeLinkageController extends ChangeNotifier {
       <String, TemplateRuntimeSessionLinkage>{};
   String _signature = '';
 
-  List<TemplateRuntimeSessionLinkage> get sessions =>
-      List<TemplateRuntimeSessionLinkage>.unmodifiable(_sessions.values);
-
-  List<TemplateRuntimeSessionLinkage> sessionsForTemplate(String templateId) {
-    final normalizedTemplateId = nullIfBlank(templateId);
-    if (normalizedTemplateId == null) {
-      return const <TemplateRuntimeSessionLinkage>[];
-    }
-    return _sessions.values
-        .where((session) => session.templateId == normalizedTemplateId)
-        .toList(growable: false);
-  }
-
   TemplateRuntimeCapabilityState? latestCapabilityState(
     String templateId,
     String capabilityId,

@@ -133,7 +133,6 @@ class AndroidReverseSessionController extends ChangeNotifier {
   String get logsDir => '$artifactsRootDir/logs';
 
   final AndroidReverseAdbClient _adbClient;
-  AndroidReverseAdbClient get adbClient => _adbClient;
 
   AndroidReverseSessionState _state = AndroidReverseSessionState.idle;
   AndroidReverseSessionState get state => _state;
@@ -158,7 +157,6 @@ class AndroidReverseSessionController extends ChangeNotifier {
   bool get networkCaptureRunning => _networkCaptureProcess != null;
 
   DateTime? _networkCaptureStartedAt;
-  DateTime? get networkCaptureStartedAt => _networkCaptureStartedAt;
 
   final StringBuffer _networkCaptureStdout = StringBuffer();
   final StringBuffer _networkCaptureStderr = StringBuffer();
