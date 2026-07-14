@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:openhand/features/web_reverse/web_reverse_pure_helpers.dart';
 
@@ -372,5 +374,26 @@ void main() {
     expect((events.first['sdp'] as String).length, lessThan(4096));
     expect(events.first['huge'], isNull);
     expect(normalizeWebReverseWebRtcConnections([1, 1, 0, -1, 2]), [1, 2]);
+  });
+
+  test('trace event compaction bounds nested payloads', () {
+    final event = compactWebReverseTraceEvent(
+      <String, Object?>{
+        'name': 'RunTask',
+        'args': <String, Object?>{
+          'nested': <String, Object?>{'text': 'x' * 10000},
+          'unused': <Object?>[for (var i = 0; i < 200; i++) i],
+        },
+      },
+      maxChars: 2048,
+      maxFields: 8,
+    );
+    expect(event, isNotNull);
+    expect(jsonEncode(event).length, lessThanOrEqualTo(2048));
+    expect((event!['args'] as Map)['unused'], isA<List<Object?>>());
+    expect(
+      () => compactWebReverseTraceEvent(<String, Object?>{}, maxChars: 0),
+      throwsArgumentError,
+    );
   });
 }

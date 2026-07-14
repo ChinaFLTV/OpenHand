@@ -28,6 +28,7 @@ class _RequestDetailPanelState extends State<_RequestDetailPanel> {
   bool _bodyLoading = false;
   String? _bodyText;
   bool _bodyBase64 = false;
+  int _bodyLoadSerial = 0;
 
   @override
   void initState() {
@@ -40,11 +41,18 @@ class _RequestDetailPanelState extends State<_RequestDetailPanel> {
   void didUpdateWidget(covariant _RequestDetailPanel old) {
     super.didUpdateWidget(old);
     if (old.entry.requestId != widget.entry.requestId) {
+      _bodyLoadSerial++;
       _bodyText = null;
       _bodyBase64 = false;
       _bodyLoading = false;
       _ensureBody();
     }
+  }
+
+  @override
+  void dispose() {
+    _bodyLoadSerial++;
+    super.dispose();
   }
 
   Future<void> _ensureBody() async {
@@ -55,11 +63,15 @@ class _RequestDetailPanelState extends State<_RequestDetailPanel> {
       if (mounted) setState(() {});
       return;
     }
+    final serial = ++_bodyLoadSerial;
+    final requestId = widget.entry.requestId;
     setState(() => _bodyLoading = true);
-    final result = await widget.controller.fetchResponseBody(
-      widget.entry.requestId,
-    );
-    if (!mounted) return;
+    final result = await widget.controller.fetchResponseBody(requestId);
+    if (!mounted ||
+        serial != _bodyLoadSerial ||
+        widget.entry.requestId != requestId) {
+      return;
+    }
     setState(() {
       _bodyLoading = false;
       _bodyText = result?.$1;

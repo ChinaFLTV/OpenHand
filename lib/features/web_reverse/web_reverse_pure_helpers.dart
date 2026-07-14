@@ -53,6 +53,8 @@ const int kWebReverseMaxWebRtcLogChars = 4 * 1024 * 1024;
 const int kWebReverseMaxWebRtcConnections = 128;
 const int kWebReverseMaxLongTasks = 200;
 const int kWebReverseMaxLongTaskAttributionChars = 1024;
+const int kWebReverseMaxTraceEventChars = 256 * 1024;
+const int kWebReverseMaxTraceEventFields = 128;
 final RegExp _consoleIsoTimestampPattern = RegExp(
   r'\b\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[^\s]*',
 );
@@ -989,6 +991,36 @@ List<int> normalizeWebReverseWebRtcConnections(
     if (seen.add(id)) result.add(id);
   }
   return List<int>.unmodifiable(result);
+}
+
+/// Bounds one tracing event before it enters the session's aggregate buffer.
+/// Trace `args` can contain arbitrary nested objects, so the generic JSON-like
+/// sanitizer is applied before the caller estimates the event cost.
+Map<String, Object?>? compactWebReverseTraceEvent(
+  Object? raw, {
+  int maxChars = kWebReverseMaxTraceEventChars,
+  int maxFields = kWebReverseMaxTraceEventFields,
+}) {
+  _validatePositiveWebReverseLimits([maxChars, maxFields]);
+  if (raw is! Map) return null;
+  final compact = <String, Object?>{};
+  var fields = 0;
+  for (final entry in raw.entries) {
+    if (fields++ >= maxFields || entry.key is! String) break;
+    final key = _boundedWebReverseText(entry.key, 256);
+    if (key.isEmpty) continue;
+    final value = _compactWebReverseJsonValue(
+      entry.value,
+      maxStringChars: maxChars ~/ 2,
+    );
+    if (value != null) compact[key] = value;
+  }
+  try {
+    if (jsonEncode(compact).length > maxChars) return null;
+  } catch (_) {
+    return null;
+  }
+  return Map<String, Object?>.unmodifiable(compact);
 }
 
 class _SamplingStackPath {

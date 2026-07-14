@@ -9,6 +9,7 @@ import 'package:flutter/foundation.dart';
 import '../../app/support/safe_subprocess.dart';
 import '../../app/support/silent_log.dart';
 import '../../shared/util/async_concurrency.dart';
+import '../../shared/util/bounded_base64.dart';
 import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/lifecycle_cache.dart';
@@ -125,12 +126,22 @@ class WebReverseSessionController extends ChangeNotifier {
   static const int _maxHeapSnapshotChars = 120 * 1024 * 1024;
   static const int _maxTraceEvents = 120000;
   static const int _maxTracePayloadChars = 48 * 1024 * 1024;
+  static const Duration _maxTraceDuration = Duration(minutes: 5);
   static const int _maxScreenshotBase64Chars = 64 * 1024 * 1024;
   static const int _maxRawCdpParamsJsonChars = 2 * 1024 * 1024;
   static const int maxReplExpressionChars = 2 * 1024 * 1024;
   static const int _maxReplHistoryExpressionChars = 64 * 1024;
   static const int _maxReplPreviewChars = 2048;
   static const int _maxConsoleTextChars = 64 * 1024;
+  static const int _maxNetworkHeaderEntries = 256;
+  static const int _maxNetworkHeadersChars = 2 * kBytesPerMiB;
+  static const int _maxNetworkRequestBodyChars = 512 * kBytesPerKiB;
+  static const int _maxCachedResponseBodyChars = 4 * kBytesPerMiB;
+  static const int _maxMitmDecodedBodyBytes = 256 * kBytesPerKiB;
+  static const int _maxImportedHarBytes = 64 * kBytesPerMiB;
+  static const int _maxRedirectSteps = 64;
+  static const int _maxInitiatorFrames = 256;
+  static const int _maxInitiatorFrameChars = 8 * 1024;
   static const int _maxSecurityExplanationsChars = 64 * kBytesPerKiB;
   static const double _minMemorySamplingInterval = 1024;
   static const double _maxMemorySamplingInterval = 16.0 * kBytesPerMiB;
@@ -1121,6 +1132,11 @@ class WebReverseSessionController extends ChangeNotifier {
   }) async {
     final cdp = _browserCdp;
     if (cdp == null) return null; // tracing 用 root session
+    final effectiveDuration = duration <= Duration.zero
+        ? Duration.zero
+        : duration > _maxTraceDuration
+        ? _maxTraceDuration
+        : duration;
     final events = <Map<String, Object?>>[];
     var seenEvents = 0;
     var droppedEvents = 0;
@@ -1139,8 +1155,12 @@ class WebReverseSessionController extends ChangeNotifier {
                 droppedEvents += 1;
                 continue;
               }
-              final mapped = stringKeyedMapFromValue(item);
-              final estimatedChars = mapped.toString().length;
+              final mapped = compactWebReverseTraceEvent(item);
+              if (mapped == null) {
+                droppedEvents += 1;
+                continue;
+              }
+              final estimatedChars = jsonEncode(mapped).length;
               if (events.length >= _maxTraceEvents ||
                   tracePayloadChars + estimatedChars > _maxTracePayloadChars) {
                 traceCapped = true;
@@ -1162,7 +1182,7 @@ class WebReverseSessionController extends ChangeNotifier {
           'transferMode': 'ReportEvents',
         },
       );
-      final timeout = Future<void>.delayed(duration);
+      final timeout = Future<void>.delayed(effectiveDuration);
       if (earlyStop != null) {
         await Future.any(<Future<void>>[timeout, earlyStop]);
       } else {
@@ -2537,12 +2557,22 @@ class WebReverseSessionController extends ChangeNotifier {
   }
 
   void _onRequestWillBeSent(Map<String, Object?> p) {
-    final requestId = '${p['requestId']}';
+    final requestId = _validatedNetworkRequestId(p['requestId']);
+    if (requestId == null) return;
     final request = p['request'] as Map?;
     if (request == null) return;
-    final url = '${request['url'] ?? ''}';
-    final method = '${request['method'] ?? 'GET'}';
+    final url = _capPlainWebReverseText(
+      '${request['url'] ?? ''}',
+      _maxImportedUrlChars,
+    );
+    final method = _capPlainWebReverseText('${request['method'] ?? 'GET'}', 32);
     final headers = _flattenHeaders(request['headers']);
+    final requestPostData = request['postData'] is String
+        ? _capPlainWebReverseText(
+            request['postData'] as String,
+            _maxNetworkRequestBodyChars,
+          )
+        : null;
     // 同一个 requestId 出现重定向时，CDP 会再次发 requestWillBeSent 并带上
     // `redirectResponse`（前一次响应的状态/URL/headers）。把它累加到 chain
     // 里给前端的 Initiator → Request Initiator Chain 区段展示，对齐 Chrome
@@ -2556,16 +2586,24 @@ class WebReverseSessionController extends ChangeNotifier {
         ..url = url
         ..method = method
         ..requestHeaders = headers
-        ..requestPostData = request['postData'] as String?;
+        ..requestPostData = requestPostData;
       entry.redirectChain.add(
         CdpRedirectStep(
-          url: '${redirect['url'] ?? ''}',
+          url: _capPlainWebReverseText(
+            '${redirect['url'] ?? ''}',
+            _maxImportedUrlChars,
+          ),
           status: optionalIntFromValue(redirect['status']),
-          statusText: redirect['statusText'] as String?,
+          statusText: redirect['statusText'] is String
+              ? _capPlainWebReverseText(redirect['statusText'] as String, 512)
+              : null,
           responseHeaders: _flattenHeaders(redirect['headers']),
           at: DateTime.now(),
         ),
       );
+      while (entry.redirectChain.length > _maxRedirectSteps) {
+        entry.redirectChain.removeAt(0);
+      }
     } else {
       entry =
           CdpNetworkEntry(
@@ -2573,15 +2611,25 @@ class WebReverseSessionController extends ChangeNotifier {
               url: url,
               method: method,
               timestamp: DateTime.now(),
-              resourceType: '${p['type'] ?? 'Other'}',
+              resourceType: _capPlainWebReverseText(
+                '${p['type'] ?? 'Other'}',
+                64,
+              ),
             )
             ..requestHeaders = headers
-            ..requestPostData = request['postData'] as String?;
+            ..requestPostData = requestPostData;
     }
     final initiator = stringKeyedMapFromValue(p['initiator']);
     if (initiator.isNotEmpty) {
-      entry.initiatorType = initiator['type'] as String?;
-      entry.initiatorUrl = initiator['url'] as String?;
+      entry.initiatorType = initiator['type'] is String
+          ? _capPlainWebReverseText(initiator['type'] as String, 64)
+          : null;
+      entry.initiatorUrl = initiator['url'] is String
+          ? _capPlainWebReverseText(
+              initiator['url'] as String,
+              _maxImportedUrlChars,
+            )
+          : null;
       entry.initiatorLineNumber = optionalIntFromValue(initiator['lineNumber']);
       entry.initiatorColumnNumber = optionalIntFromValue(
         initiator['columnNumber'],
@@ -2589,20 +2637,23 @@ class WebReverseSessionController extends ChangeNotifier {
       final stack = stringKeyedMapFromValue(initiator['stack']);
       final frames = stack['callFrames'] as List?;
       if (frames != null) {
-        entry.initiatorStack = frames
-            .whereType<Map>()
-            .map((f) => Map<String, Object?>.from(f))
-            .toList(growable: false);
+        final compactFrames = <Map<String, Object?>>[];
+        for (final frame in frames) {
+          if (compactFrames.length >= _maxInitiatorFrames) break;
+          final compact = compactWebReverseTraceEvent(
+            frame,
+            maxChars: _maxInitiatorFrameChars,
+            maxFields: 32,
+          );
+          if (compact != null) compactFrames.add(compact);
+        }
+        entry.initiatorStack = compactFrames;
       }
     }
     if (existing == null) {
       _networkByRequestId[requestId] = entry;
       _networkRequests.add(entry);
-      while (_networkRequests.length > _maxNetworkEntries) {
-        final old = _networkRequests.removeAt(0);
-        _networkByRequestId.remove(old.requestId);
-        _artifacts.evictHarDraft(old.requestId);
-      }
+      _trimNetworkEntries();
     }
     _artifacts
       ..appendNetwork(<String, Object?>{
@@ -2624,21 +2675,26 @@ class WebReverseSessionController extends ChangeNotifier {
   }
 
   void _onResponseReceived(Map<String, Object?> p) {
-    final requestId = '${p['requestId']}';
+    final requestId = _validatedNetworkRequestId(p['requestId']);
+    if (requestId == null) return;
     final response = stringKeyedMapFromValue(p['response']);
     if (response.isEmpty) return;
     final entry = _networkByRequestId[requestId];
     if (entry == null) return;
     final status = optionalIntFromValue(response['status']);
-    final mime = '${response['mimeType'] ?? ''}';
+    final mime = _capPlainWebReverseText('${response['mimeType'] ?? ''}', 256);
     final headers = _flattenHeaders(response['headers']);
     entry
       ..statusCode = status
-      ..statusText = response['statusText'] as String?
+      ..statusText = response['statusText'] is String
+          ? _capPlainWebReverseText(response['statusText'] as String, 512)
+          : null
       ..mimeType = mime
       ..responseHeaders = headers
       ..remoteAddress = _formatRemoteAddress(response)
-      ..protocol = response['protocol'] as String?
+      ..protocol = response['protocol'] is String
+          ? _capPlainWebReverseText(response['protocol'] as String, 128)
+          : null
       ..encodedDataLength = optionalNonNegativeIntFromValue(
         response['encodedDataLength'],
       )
@@ -2654,9 +2710,12 @@ class WebReverseSessionController extends ChangeNotifier {
     final timing = response['timing'];
     if (timing is Map) {
       final snapshot = <String, num>{};
-      timing.forEach((k, v) {
-        if (v is num) snapshot['$k'] = v;
-      });
+      for (final timingEntry in timing.entries.take(64)) {
+        final value = timingEntry.value;
+        if (value is num && value.isFinite) {
+          snapshot[_capPlainWebReverseText('${timingEntry.key}', 64)] = value;
+        }
+      }
       if (snapshot.isNotEmpty) entry.resourceTiming = snapshot;
     }
     _artifacts
@@ -2680,10 +2739,14 @@ class WebReverseSessionController extends ChangeNotifier {
   }
 
   void _onLoadingFailed(Map<String, Object?> p) {
-    final requestId = '${p['requestId']}';
+    final requestId = _validatedNetworkRequestId(p['requestId']);
+    if (requestId == null) return;
     final entry = _networkByRequestId[requestId];
     if (entry == null) return;
-    final err = '${p['errorText'] ?? 'failed'}';
+    final err = _capPlainWebReverseText(
+      '${p['errorText'] ?? 'failed'}',
+      _maxConsoleTextChars,
+    );
     entry.failed = true;
     entry.errorText = err;
     entry.loadingFinishedAt = DateTime.now();
@@ -2699,7 +2762,8 @@ class WebReverseSessionController extends ChangeNotifier {
   }
 
   void _onLoadingFinished(Map<String, Object?> p) {
-    final requestId = '${p['requestId']}';
+    final requestId = _validatedNetworkRequestId(p['requestId']);
+    if (requestId == null) return;
     final entry = _networkByRequestId[requestId];
     if (entry == null) return;
     entry.loadingFinishedAt = DateTime.now();
@@ -2710,9 +2774,13 @@ class WebReverseSessionController extends ChangeNotifier {
   }
 
   void _onWebSocketCreated(Map<String, Object?> p) {
-    final requestId = '${p['requestId']}';
+    final requestId = _validatedNetworkRequestId(p['requestId']);
+    if (requestId == null) return;
     if (_networkByRequestId.containsKey(requestId)) return;
-    final url = '${p['url'] ?? ''}';
+    final url = _capPlainWebReverseText(
+      '${p['url'] ?? ''}',
+      _maxImportedUrlChars,
+    );
     final entry = CdpNetworkEntry(
       requestId: requestId,
       url: url,
@@ -2722,11 +2790,7 @@ class WebReverseSessionController extends ChangeNotifier {
     );
     _networkByRequestId[requestId] = entry;
     _networkRequests.add(entry);
-    while (_networkRequests.length > _maxNetworkEntries) {
-      final old = _networkRequests.removeAt(0);
-      _networkByRequestId.remove(old.requestId);
-      _artifacts.evictHarDraft(old.requestId);
-    }
+    _trimNetworkEntries();
     _safeNotify();
   }
 
@@ -2734,7 +2798,8 @@ class WebReverseSessionController extends ChangeNotifier {
     Map<String, Object?> p,
     CdpWebSocketDirection direction,
   ) {
-    final requestId = '${p['requestId']}';
+    final requestId = _validatedNetworkRequestId(p['requestId']);
+    if (requestId == null) return;
     final entry = _networkByRequestId[requestId];
     if (entry == null) return;
     final response = stringKeyedMapFromValue(p['response']);
@@ -2752,7 +2817,10 @@ class WebReverseSessionController extends ChangeNotifier {
         mask: mask,
         payload: payload,
         errorMessage: direction == CdpWebSocketDirection.error
-            ? '${p['errorMessage'] ?? ''}'
+            ? _capPlainWebReverseText(
+                '${p['errorMessage'] ?? ''}',
+                _maxConsoleTextChars,
+              )
             : null,
       ),
     );
@@ -2934,30 +3002,92 @@ class WebReverseSessionController extends ChangeNotifier {
   static Map<String, String> _flattenHeaders(Object? raw) {
     if (raw is! Map) return const <String, String>{};
     final out = <String, String>{};
+    var retainedChars = 0;
     for (final entry in raw.entries) {
-      out['${entry.key}'] = '${entry.value}';
+      if (out.length >= _maxNetworkHeaderEntries) break;
+      final name = _capPlainWebReverseText('${entry.key}', 256).trim();
+      if (name.isEmpty) continue;
+      final value = _capPlainWebReverseText(
+        '${entry.value}',
+        _maxImportedHeaderValueChars,
+      );
+      if (retainedChars + name.length + value.length >
+          _maxNetworkHeadersChars) {
+        break;
+      }
+      out[name] = value;
+      retainedChars += name.length + value.length;
     }
     return out;
+  }
+
+  static Map<String, String> _flattenHeaderPairs(Object? raw) {
+    if (raw is! Iterable) return const <String, String>{};
+    final out = <String, String>{};
+    var retainedChars = 0;
+    var inspected = 0;
+    for (final item in raw) {
+      if (inspected++ >= _maxNetworkHeaderEntries * 4 ||
+          out.length >= _maxNetworkHeaderEntries) {
+        break;
+      }
+      if (item is! List || item.length < 2) continue;
+      final name = _capPlainWebReverseText('${item[0]}', 256).trim();
+      if (name.isEmpty) continue;
+      final value = _capPlainWebReverseText(
+        '${item[1]}',
+        _maxImportedHeaderValueChars,
+      );
+      if (retainedChars + name.length + value.length >
+          _maxNetworkHeadersChars) {
+        break;
+      }
+      out[name] = value;
+      retainedChars += name.length + value.length;
+    }
+    return out;
+  }
+
+  static String? _validatedNetworkRequestId(Object? raw) {
+    if (raw is! String || raw.isEmpty || raw.length > 512) return null;
+    return raw;
+  }
+
+  void _trimNetworkEntries() {
+    while (_networkRequests.length > _maxNetworkEntries) {
+      final removed = _networkRequests.removeAt(0);
+      _networkByRequestId.remove(removed.requestId);
+      _artifacts.evictHarDraft(removed.requestId);
+    }
   }
 
   static String? _formatRemoteAddress(Map response) {
     final ip = response['remoteIPAddress'];
     final port = response['remotePort'];
     if (ip == null) return null;
-    if (port == null) return '$ip';
-    return '$ip:$port';
+    if (port == null) return _capPlainWebReverseText('$ip', 1024);
+    return _capPlainWebReverseText('$ip:$port', 1024);
   }
 
   void _onConsoleApi(Map<String, Object?> p) {
-    final type = '${p['type'] ?? 'log'}';
+    final type = _capPlainWebReverseText('${p['type'] ?? 'log'}', 64);
     final args = p['args'] as List? ?? const <Object?>[];
-    final text = args
-        .whereType<Map>()
-        .map((a) {
-          final v = a['value'];
-          return v == null ? (a['description'] ?? '').toString() : v.toString();
-        })
-        .join(' ');
+    final textBuffer = StringBuffer();
+    for (final arg in args.take(256)) {
+      if (arg is! Map) continue;
+      final value = arg['value'];
+      final part = _capPlainWebReverseText(
+        value == null ? '${arg['description'] ?? ''}' : '$value',
+        _maxConsoleTextChars,
+      );
+      if (part.isEmpty) continue;
+      if (textBuffer.isNotEmpty) textBuffer.write(' ');
+      final remaining = _maxConsoleTextChars - textBuffer.length;
+      if (remaining <= 0) break;
+      textBuffer.write(clipText(part, remaining, suffix: ''));
+      if (textBuffer.length >= _maxConsoleTextChars) break;
+    }
+    final text = textBuffer.toString();
     // 拦截 recorder 标记，转为 step 列表（不影响 console 列表本身）。
     if (_recording && text.startsWith('__OH_REC__ ')) {
       try {
@@ -5691,33 +5821,15 @@ class WebReverseSessionController extends ChangeNotifier {
   /// 拉一次 V8 内存上报（不停止采样）：JSHeapUsedSize / JSHeapTotalSize。
   /// 用于面板的实时折线，避免 stopSampling 中断采样数据。
   Future<({double used, double total})?> readJsHeap() async {
-    final cdp = _browserCdp;
-    if (cdp == null || _pageSessionId == null) return null;
-    try {
-      final r = await cdp.send(
-        'Performance.getMetrics',
-        sessionId: _pageSessionId,
-      );
-      final list = r['metrics'] as List?;
-      if (list == null) return null;
-      double used = 0;
-      double tot = 0;
-      for (final m in list.whereType<Map>()) {
-        final name = '${m['name']}';
-        final v = optionalNonNegativeDoubleFromValue(m['value']) ?? 0;
-        if (name == 'JSHeapUsedSize') used = v;
-        if (name == 'JSHeapTotalSize') tot = v;
-      }
-      return (used: used, total: tot);
-    } catch (error, stack) {
-      silentLog(
-        'web_reverse_session_controller',
-        'read js heap usage',
-        error,
-        stack,
-      );
-      return null;
+    final metrics = await performanceMetrics();
+    if (metrics.isEmpty) return null;
+    var used = 0.0;
+    var total = 0.0;
+    for (final (name, value) in metrics) {
+      if (name == 'JSHeapUsedSize') used = value < 0 ? 0 : value;
+      if (name == 'JSHeapTotalSize') total = value < 0 ? 0 : value;
     }
+    return (used: used, total: total);
   }
 
   // ── Network: Fetch 域代理（throttle / abort） ─────────────────────────
@@ -7766,49 +7878,46 @@ class WebReverseSessionController extends ChangeNotifier {
       _mitmCount++;
       // 把 mitmproxy 流量也注入 dashboard 的网络列表，统一观察口径。
       // 这里只取核心字段做轻量适配；body 已 base64 缓存到 cachedBody 备查。
-      final kind = '${m['kind'] ?? ''}';
-      final url = '${m['url'] ?? ''}';
+      final kind = _capPlainWebReverseText('${m['kind'] ?? ''}', 32);
+      final url = _capPlainWebReverseText(
+        '${m['url'] ?? ''}',
+        _maxImportedUrlChars,
+      );
       if (url.isEmpty) return;
       if (kind == 'request') {
         final entry = CdpNetworkEntry(
-          requestId: 'mitm-${m['ts'] ?? _mitmCount}',
+          requestId: _capPlainWebReverseText(
+            'mitm-$_mitmCount-${m['ts'] ?? ''}',
+            512,
+          ),
           url: url,
-          method: '${m['method'] ?? 'GET'}',
+          method: _capPlainWebReverseText('${m['method'] ?? 'GET'}', 32),
           timestamp: DateTime.now(),
           resourceType: 'mitmproxy',
         );
-        final headers = (m['headers'] as List?) ?? const [];
-        for (final h in headers.whereType<List>()) {
-          if (h.length >= 2) {
-            entry.requestHeaders['${h[0]}'] = '${h[1]}';
-          }
-        }
+        entry.requestHeaders.addAll(_flattenHeaderPairs(m['headers']));
         final bodyB64 = m['body_b64'] as String?;
         if (bodyB64 != null && bodyB64.isNotEmpty) {
           try {
-            entry.requestPostData = utf8.decode(base64Decode(bodyB64));
-          } catch (error, stack) {
-            silentLog(
-              'web_reverse_session_controller',
-              'decode mitm body',
-              error,
-              stack,
+            entry.requestPostData = utf8.decode(
+              decodeBase64Bounded(
+                bodyB64,
+                maxDecodedBytes: _maxMitmDecodedBodyBytes,
+              ),
             );
-          }
+          } catch (_) {}
         }
         _networkRequests.add(entry);
         _networkByRequestId[entry.requestId] = entry;
-        while (_networkRequests.length > _maxNetworkEntries) {
-          final removed = _networkRequests.removeAt(0);
-          _networkByRequestId.remove(removed.requestId);
-          _artifacts.evictHarDraft(removed.requestId);
-        }
       } else if (kind == 'response') {
         // 找最近一条同 url 的 mitm 请求并补响应。
         final match = _networkRequests.lastWhere(
           (e) => e.url == url && e.requestId.startsWith('mitm-'),
           orElse: () => CdpNetworkEntry(
-            requestId: 'mitm-resp-${m['ts'] ?? _mitmCount}',
+            requestId: _capPlainWebReverseText(
+              'mitm-resp-$_mitmCount-${m['ts'] ?? ''}',
+              512,
+            ),
             url: url,
             method: 'GET',
             timestamp: DateTime.now(),
@@ -7816,24 +7925,26 @@ class WebReverseSessionController extends ChangeNotifier {
           )..requestHeaders.clear(),
         );
         match.statusCode = optionalIntFromValue(m['status']);
-        final headers = (m['headers'] as List?) ?? const [];
-        for (final h in headers.whereType<List>()) {
-          if (h.length >= 2) {
-            match.responseHeaders['${h[0]}'] = '${h[1]}';
-          }
-        }
+        match.responseHeaders.addAll(_flattenHeaderPairs(m['headers']));
         match.responseReceivedAt = DateTime.now();
         match.loadingFinishedAt = match.responseReceivedAt;
         final bodyB64 = m['body_b64'] as String?;
         if (bodyB64 != null && bodyB64.isNotEmpty) {
-          match.cachedBody = bodyB64;
-          match.cachedBodyBase64 = true;
+          try {
+            decodeBase64Bounded(
+              bodyB64,
+              maxDecodedBytes: _maxMitmDecodedBodyBytes,
+            );
+            match.cachedBody = bodyB64;
+            match.cachedBodyBase64 = true;
+          } catch (_) {}
         }
         if (!_networkByRequestId.containsKey(match.requestId)) {
           _networkRequests.add(match);
           _networkByRequestId[match.requestId] = match;
         }
       }
+      _trimNetworkEntries();
       _safeNotify();
     });
     _safeNotify();
@@ -7919,28 +8030,52 @@ class WebReverseSessionController extends ChangeNotifier {
   /// 自动缓存到 entry.cachedBody，重复点击不再发请求。
   /// 文本类返回 (body, false)，二进制类返回 (base64, true)；失败返回 null。
   Future<(String, bool)?> fetchResponseBody(String requestId) async {
-    final entry = _networkByRequestId[requestId];
+    final normalizedRequestId = _validatedNetworkRequestId(requestId);
+    if (normalizedRequestId == null) return null;
+    final entry = _networkByRequestId[normalizedRequestId];
     if (entry == null) return null;
     if (entry.cachedBody != null) {
       return (entry.cachedBody!, entry.cachedBodyBase64);
     }
     final cdp = _browserCdp;
-    if (cdp == null || _pageSessionId == null) return null;
+    final sessionId = _pageSessionId;
+    if (cdp == null || sessionId == null) return null;
     try {
       final result = await cdp.send(
         'Network.getResponseBody',
-        params: <String, Object?>{'requestId': requestId},
-        sessionId: _pageSessionId,
+        params: <String, Object?>{'requestId': normalizedRequestId},
+        sessionId: sessionId,
+        timeout: const Duration(seconds: 10),
       );
-      final body = '${result['body'] ?? ''}';
-      final base64 = result['base64Encoded'] == true;
+      if (_pageSessionId != sessionId ||
+          _networkByRequestId[normalizedRequestId] != entry) {
+        return null;
+      }
+      final rawBody = result['body'];
+      if (rawBody is! String) return null;
+      var base64 = result['base64Encoded'] == true;
+      late final String body;
+      if (base64 && rawBody.length > _maxCachedResponseBodyChars) {
+        body =
+            '[OpenHand omitted oversized binary response: '
+            '${rawBody.length} Base64 chars]';
+        base64 = false;
+      } else {
+        body = base64
+            ? rawBody
+            : _capWebReverseText(
+                rawBody,
+                _maxCachedResponseBodyChars,
+                'response body',
+              );
+      }
       entry.cachedBody = body;
       entry.cachedBodyBase64 = base64;
       return (body, base64);
     } catch (error, stack) {
       silentLog(
         'web_reverse_session_controller',
-        'fetchResponseBody $requestId',
+        'fetchResponseBody $normalizedRequestId',
         error,
         stack,
       );
@@ -7987,6 +8122,9 @@ class WebReverseSessionController extends ChangeNotifier {
     List<int> bytes, {
     bool merge = false,
   }) {
+    if (bytes.length > _maxImportedHarBytes) {
+      return (loaded: 0, skipped: 1);
+    }
     try {
       final raw = utf8.decode(bytes);
       final har = decodeStringKeyedJsonMap(raw);
