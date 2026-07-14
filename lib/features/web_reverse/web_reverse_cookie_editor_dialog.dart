@@ -1,13 +1,11 @@
-/// Cookie 编辑器：通过 `Network.getCookies` / `Network.setCookie` /
-/// `Network.deleteCookies` 完成全量 CRUD。按 domain 分组展示，
+/// Cookie 编辑器：通过控制器封装的 `Network.getCookies` / `Network.setCookie` /
+/// `Network.deleteCookies` 完成常用字段 CRUD。按 domain 分组展示，
 /// 双击行直接进入编辑面板，新增亦走同一个面板。
 ///
 /// 与「应用」tab 的 Cookies 视图互补：那里偏批量浏览，这里偏精修。
 library;
 
 import 'dart:async';
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 
 import '../../l10n/app_localizations.dart';
@@ -40,6 +38,10 @@ class _CookieRow {
   bool get secure => raw['secure'] == true;
   String get sameSite => (raw['sameSite'] as String?) ?? '';
   num? get expires => raw['expires'] as num?;
+  bool get canMutate => raw['partitionKeyOpaque'] != true;
+  Map<String, Object?>? get partitionKey => raw['partitionKey'] is Map
+      ? stringKeyedMapFromValue(raw['partitionKey'])
+      : null;
 }
 
 class _CookieEditorDialog extends StatefulWidget {
@@ -69,22 +71,10 @@ class _CookieEditorDialogState extends State<_CookieEditorDialog> {
       _status = loc0?.webReverseCookieEditorFetching ?? 'Fetching cookies...';
     });
     try {
-      final r = await widget.controller.sendRawCdp(
-        method: 'Network.getCookies',
-        paramsJson: '{}',
-      );
+      final cookies = await widget.controller.listCookies(all: false);
       if (!mounted) return;
       final loc1 = AppLocalizations.of(context);
-      if (r == null || r['error'] != null) {
-        final err = (r?['error'] ?? 'unknown').toString();
-        setState(() {
-          _status =
-              loc1?.webReverseCookieEditorFetchFailed(err) ?? 'Failed: $err';
-        });
-        return;
-      }
-      final list = (r['cookies'] as List?) ?? const [];
-      _all = stringKeyedMapListFromValue(list).map(_CookieRow.new).toList()
+      _all = cookies.map(_CookieRow.new).toList()
         ..sort((a, b) {
           final d = a.domain.compareTo(b.domain);
           if (d != 0) return d;
@@ -114,17 +104,15 @@ class _CookieEditorDialogState extends State<_CookieEditorDialog> {
   }
 
   Future<void> _delete(_CookieRow row) async {
-    final r = await widget.controller.sendRawCdp(
-      method: 'Network.deleteCookies',
-      paramsJson: jsonEncode({
-        'name': row.name,
-        'domain': row.domain,
-        'path': row.path,
-      }),
+    final success = await widget.controller.deleteCookie(
+      name: row.name,
+      domain: row.domain,
+      path: row.path,
+      partitionKey: row.partitionKey,
     );
     if (!mounted) return;
     final loc1 = AppLocalizations.of(context);
-    if (r == null || r['error'] != null) {
+    if (!success) {
       showWebReverseErrorSnack(
         context,
         loc1?.webReverseCookieEditorDeleteFailed ?? 'Delete failed',
@@ -144,13 +132,23 @@ class _CookieEditorDialogState extends State<_CookieEditorDialog> {
       builder: (_) => _CookieEditPanel(row: row),
     );
     if (result == null || !mounted) return;
-    final r = await widget.controller.sendRawCdp(
-      method: 'Network.setCookie',
-      paramsJson: jsonEncode(result),
+    final success = await widget.controller.setCookie(
+      name: '${result['name'] ?? ''}',
+      value: '${result['value'] ?? ''}',
+      url: result['url'] as String?,
+      domain: result['domain'] as String?,
+      path: result['path'] as String?,
+      partitionKey: result['partitionKey'] is Map
+          ? stringKeyedMapFromValue(result['partitionKey'])
+          : null,
+      httpOnly: result['httpOnly'] as bool?,
+      secure: result['secure'] as bool?,
+      sameSite: result['sameSite'] as String?,
+      expires: result['expires'] as num?,
     );
     if (!mounted) return;
     final loc = AppLocalizations.of(context);
-    if (r == null || r['error'] != null || r['success'] == false) {
+    if (!success) {
       showWebReverseErrorSnack(
         context,
         loc?.webReverseCookieEditorWriteFailed ?? 'Write failed',
@@ -194,7 +192,7 @@ class _CookieEditorDialogState extends State<_CookieEditorDialog> {
             title: loc?.webReverseCookieEditorTitle ?? 'Cookie Editor',
             subtitle:
                 loc?.webReverseCookieEditorSubtitle ??
-                'Network.getCookies / setCookie / deleteCookies — full CRUD',
+                'Network.getCookies / setCookie / deleteCookies — common fields',
             actions: [
               IconButton(
                 tooltip: loc?.webReverseCookieEditorRefresh ?? 'Refresh',
@@ -215,12 +213,14 @@ class _CookieEditorDialogState extends State<_CookieEditorDialog> {
               children: [
                 Expanded(
                   child: TextField(
+                    maxLength: 512,
                     decoration: InputDecoration(
                       hintText:
                           loc?.webReverseCookieEditorFilterHint ??
                           'Filter name / domain / value',
                       prefixIcon: const Icon(Icons.search_rounded, size: 18),
                       isDense: true,
+                      counterText: '',
                       border: const OutlineInputBorder(),
                     ),
                     onChanged: (v) => setState(() => _filter = v),
@@ -300,16 +300,18 @@ class _CookieEditorDialogState extends State<_CookieEditorDialog> {
                             if (c.secure) _badge(theme, 'Secure', cs.primary),
                             if (c.sameSite.isNotEmpty)
                               _badge(theme, c.sameSite, cs.secondary),
+                            if (!c.canMutate)
+                              _badge(theme, 'Opaque partition', cs.outline),
                             IconButton(
                               tooltip:
                                   loc?.webReverseCookieEditorEdit ?? 'Edit',
-                              onPressed: () => _edit(c),
+                              onPressed: c.canMutate ? () => _edit(c) : null,
                               icon: const Icon(Icons.edit_rounded, size: 16),
                             ),
                             IconButton(
                               tooltip:
                                   loc?.webReverseCookieEditorDelete ?? 'Delete',
-                              onPressed: () => _delete(c),
+                              onPressed: c.canMutate ? () => _delete(c) : null,
                               icon: const Icon(
                                 Icons.delete_outline_rounded,
                                 size: 16,
@@ -317,7 +319,7 @@ class _CookieEditorDialogState extends State<_CookieEditorDialog> {
                             ),
                           ],
                         ),
-                        onTap: () => _edit(c),
+                        onTap: c.canMutate ? () => _edit(c) : null,
                       );
                     },
                   ),
@@ -417,6 +419,8 @@ class _CookieEditPanelState extends State<_CookieEditPanel> {
       if (_httpOnly) 'httpOnly': true,
       if (_secure) 'secure': true,
       if (_sameSite.isNotEmpty) 'sameSite': _sameSite,
+      if (widget.row?.partitionKey case final partitionKey?)
+        'partitionKey': partitionKey,
     };
     final exp = optionalDoubleFromValue(_expires.text);
     if (exp != null) out['expires'] = exp;
@@ -457,28 +461,38 @@ class _CookieEditPanelState extends State<_CookieEditPanel> {
                   _field(
                     loc?.webReverseCookieEditorFieldName ?? 'name *',
                     _name,
+                    maxLength: WebReverseSessionController.maxCookieNameChars,
                   ),
                   _field(
                     loc?.webReverseCookieEditorFieldValue ?? 'value',
                     _value,
                     maxLines: 4,
+                    maxLength: WebReverseSessionController.maxCookieValueChars,
                   ),
                   _field(
                     loc?.webReverseCookieEditorFieldDomain ?? 'domain',
                     _domain,
                     hint: '.example.com',
+                    maxLength: WebReverseSessionController.maxCookieDomainChars,
                   ),
-                  _field(loc?.webReverseCookieEditorFieldPath ?? 'path', _path),
+                  _field(
+                    loc?.webReverseCookieEditorFieldPath ?? 'path',
+                    _path,
+                    maxLength: WebReverseSessionController.maxCookiePathChars,
+                  ),
                   _field(
                     loc?.webReverseCookieEditorFieldUrl ?? 'URL (optional)',
                     _url,
                     hint: 'https://...',
+                    maxLength:
+                        WebReverseSessionController.maxPageTargetUrlChars,
                   ),
                   _field(
                     loc?.webReverseCookieEditorFieldExpires ??
                         'expires (unix sec)',
                     _expires,
                     hint: '1700000000',
+                    maxLength: 32,
                   ),
                   const SizedBox(height: 6),
                   Row(
@@ -559,16 +573,19 @@ class _CookieEditPanelState extends State<_CookieEditPanel> {
     TextEditingController c, {
     String? hint,
     int maxLines = 1,
+    int? maxLength,
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: TextField(
         controller: c,
         maxLines: maxLines,
+        maxLength: maxLength,
         decoration: InputDecoration(
           labelText: label,
           hintText: hint,
           isDense: true,
+          counterText: '',
           border: const OutlineInputBorder(),
         ),
         style: const TextStyle(fontFamily: 'monospace', fontSize: 12.5),

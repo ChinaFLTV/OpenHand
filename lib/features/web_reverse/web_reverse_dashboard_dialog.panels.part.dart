@@ -2842,6 +2842,11 @@ enum _AppTab {
 }
 
 class _ApplicationPanelState extends State<_ApplicationPanel> {
+  static const int _indexedDbDescribeConcurrency = 4;
+  static const Duration _indexedDbDescribeTotalTimeout = Duration(seconds: 30);
+  static const int _indexedDbMaxDescribedStores = 4096;
+  static const int _indexedDbMaxSchemaChars = 4 * 1024 * 1024;
+
   _AppTab _tab = _AppTab.cookies;
   String? _origin;
   List<Map<String, Object?>> _cookies = const [];
@@ -2852,6 +2857,8 @@ class _ApplicationPanelState extends State<_ApplicationPanel> {
   List<String> _cacheNames = const [];
   List<Map<String, Object?>> _swVersions = const [];
   bool _loading = false;
+  bool _refreshQueued = false;
+  Future<void>? _refreshTask;
 
   @override
   void initState() {
@@ -2859,11 +2866,33 @@ class _ApplicationPanelState extends State<_ApplicationPanel> {
     _refresh();
   }
 
-  Future<void> _refresh() async {
-    if (_loading) return;
-    setState(() => _loading = true);
-    final origin = await widget.controller.currentOrigin();
+  Future<void> _refresh() {
+    _refreshQueued = true;
+    final pending = _refreshTask;
+    if (pending != null) return pending;
+    late final Future<void> task;
+    task = _drainRefreshQueue().whenComplete(() {
+      if (identical(_refreshTask, task)) _refreshTask = null;
+    });
+    _refreshTask = task;
+    return task;
+  }
+
+  Future<void> _drainRefreshQueue() async {
+    if (mounted) setState(() => _loading = true);
+    try {
+      while (mounted && _refreshQueued) {
+        _refreshQueued = false;
+        await _refreshOnce();
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _refreshOnce() async {
     final tab = _tab;
+    final origin = await widget.controller.currentOrigin();
     List<Map<String, Object?>> cookies = const [];
     List<({String key, String value})> storage = const [];
     List<String> idbNames = const [];
@@ -2882,28 +2911,58 @@ class _ApplicationPanelState extends State<_ApplicationPanel> {
     } else if (tab == _AppTab.indexedDb) {
       idbNames = await widget.controller.listIndexedDbNames();
       final acc = <String, ({int version, List<String> stores})>{};
-      for (final name in idbNames) {
-        final info = await widget.controller.describeIndexedDb(name);
-        if (info != null) {
-          acc[name] = (version: info.version, stores: info.stores);
-        }
-      }
+      var retainedStores = 0;
+      var retainedSchemaChars = 0;
+      final stopwatch = Stopwatch()..start();
+      await forEachIndexWithConcurrencyLimit(
+        itemCount: idbNames.length,
+        maxConcurrency: _indexedDbDescribeConcurrency,
+        shouldContinue: () =>
+            mounted &&
+            _tab == tab &&
+            stopwatch.elapsed < _indexedDbDescribeTotalTimeout &&
+            retainedStores < _indexedDbMaxDescribedStores &&
+            retainedSchemaChars < _indexedDbMaxSchemaChars,
+        task: (index) async {
+          final name = idbNames[index];
+          final info = await widget.controller.describeIndexedDb(name);
+          if (info != null) {
+            final schemaChars =
+                name.length +
+                info.stores.fold<int>(
+                  0,
+                  (total, store) => total + store.length,
+                );
+            if (retainedStores + info.stores.length >
+                    _indexedDbMaxDescribedStores ||
+                retainedSchemaChars + schemaChars > _indexedDbMaxSchemaChars) {
+              return;
+            }
+            retainedStores += info.stores.length;
+            retainedSchemaChars += schemaChars;
+            acc[name] = (version: info.version, stores: info.stores);
+          }
+        },
+      );
       idbDescribed = acc;
     } else if (tab == _AppTab.cacheStorage) {
       cacheNames = await widget.controller.listCacheStorage();
     } else if (tab == _AppTab.serviceWorkers) {
       swVersions = await widget.controller.listServiceWorkers();
     }
-    if (!mounted) return;
+    if (!mounted || tab != _tab) return;
     setState(() {
       _origin = origin;
-      _cookies = cookies;
-      _storage = storage;
-      _idbNames = idbNames;
-      _idbDescribed = idbDescribed;
-      _cacheNames = cacheNames;
-      _swVersions = swVersions;
-      _loading = false;
+      if (tab == _AppTab.cookies) _cookies = cookies;
+      if (tab == _AppTab.localStorage || tab == _AppTab.sessionStorage) {
+        _storage = storage;
+      }
+      if (tab == _AppTab.indexedDb) {
+        _idbNames = idbNames;
+        _idbDescribed = idbDescribed;
+      }
+      if (tab == _AppTab.cacheStorage) _cacheNames = cacheNames;
+      if (tab == _AppTab.serviceWorkers) _swVersions = swVersions;
     });
   }
 
@@ -3081,6 +3140,9 @@ class _CookiesTableState extends State<_CookiesTable> {
           ? null
           : '${saved['domain']}',
       path: '${saved['path'] ?? ''}'.trim().isEmpty ? null : '${saved['path']}',
+      partitionKey: saved['partitionKey'] is Map
+          ? stringKeyedMapFromValue(saved['partitionKey'])
+          : null,
     );
     if (ok && mounted) await widget.onChanged();
   }
@@ -3095,6 +3157,9 @@ class _CookiesTableState extends State<_CookiesTable> {
           ? null
           : '${saved['domain']}',
       path: '${saved['path'] ?? ''}'.trim().isEmpty ? null : '${saved['path']}',
+      partitionKey: saved['partitionKey'] is Map
+          ? stringKeyedMapFromValue(saved['partitionKey'])
+          : null,
     );
     if (ok && mounted) await widget.onChanged();
   }
@@ -3104,6 +3169,9 @@ class _CookiesTableState extends State<_CookiesTable> {
       name: '${c['name'] ?? ''}',
       domain: '${c['domain'] ?? ''}'.trim().isEmpty ? null : '${c['domain']}',
       path: '${c['path'] ?? ''}'.trim().isEmpty ? null : '${c['path']}',
+      partitionKey: c['partitionKey'] is Map
+          ? stringKeyedMapFromValue(c['partitionKey'])
+          : null,
     );
     if (mounted) await widget.onChanged();
   }
@@ -3123,12 +3191,12 @@ class _CookiesTableState extends State<_CookiesTable> {
       ),
       message: openHandLocalizedText(
         context,
-        zh: '将删除当前页可见的 ${widget.cookies.length} 条 cookie，无法撤销。',
-        zhHant: '將刪除目前頁面可見的 ${widget.cookies.length} 筆 cookie，無法復原。',
-        en: 'Will delete ${widget.cookies.length} cookies. This cannot be undone.',
-        fr: 'Supprime ${widget.cookies.length} cookies. Cette action est irréversible.',
-        de: 'Löscht ${widget.cookies.length} Cookies. Dies kann nicht rückgängig gemacht werden.',
-        ja: '${widget.cookies.length} 件の cookie を削除します。元に戻せません。',
+        zh: '将清空当前浏览器会话中的全部 cookie，无法撤销。',
+        zhHant: '將清空目前瀏覽器工作階段中的全部 cookie，無法復原。',
+        en: 'This clears all cookies in the current browser session and cannot be undone.',
+        fr: 'Tous les cookies de la session actuelle seront supprimés. Cette action est irréversible.',
+        de: 'Alle Cookies der aktuellen Browsersitzung werden gelöscht. Dies kann nicht rückgängig gemacht werden.',
+        ja: '現在のブラウザーセッションのすべての cookie を消去します。元に戻せません。',
       ),
       cancelLabel: openHandLocalizedText(
         context,
@@ -3151,14 +3219,8 @@ class _CookiesTableState extends State<_CookiesTable> {
       destructive: true,
     );
     if (!ok || !mounted) return;
-    for (final c in List<Map<String, Object?>>.from(widget.cookies)) {
-      await widget.controller.deleteCookie(
-        name: '${c['name'] ?? ''}',
-        domain: '${c['domain'] ?? ''}'.trim().isEmpty ? null : '${c['domain']}',
-        path: '${c['path'] ?? ''}'.trim().isEmpty ? null : '${c['path']}',
-      );
-    }
-    if (mounted) await widget.onChanged();
+    final cleared = await widget.controller.clearAllCookies();
+    if (cleared && mounted) await widget.onChanged();
   }
 
   Future<void> _exportJson() async {
@@ -3320,7 +3382,10 @@ class _CookiesTableState extends State<_CookiesTable> {
                                           minWidth: 28,
                                           minHeight: 28,
                                         ),
-                                        onPressed: () => _editCookie(c),
+                                        onPressed:
+                                            c['partitionKeyOpaque'] == true
+                                            ? null
+                                            : () => _editCookie(c),
                                         icon: const Icon(Icons.edit_rounded),
                                       ),
                                       const SizedBox(width: 4),
@@ -3341,7 +3406,10 @@ class _CookiesTableState extends State<_CookiesTable> {
                                           minWidth: 28,
                                           minHeight: 28,
                                         ),
-                                        onPressed: () => _deleteCookie(c),
+                                        onPressed:
+                                            c['partitionKeyOpaque'] == true
+                                            ? null
+                                            : () => _deleteCookie(c),
                                         icon: Icon(
                                           Icons.delete_outline_rounded,
                                           color: cs.error,
@@ -3429,6 +3497,8 @@ Future<Map<String, Object?>?> _showCookieEditor(
         'value': value.text,
         'domain': domain.text.trim(),
         'path': path.text.trim(),
+        if (initial['partitionKey'] case final partitionKey?)
+          'partitionKey': partitionKey,
       },
       contentBuilder: (_) => SizedBox(
         width: 360,
@@ -3437,23 +3507,39 @@ Future<Map<String, Object?>?> _showCookieEditor(
           children: [
             TextField(
               controller: name,
-              decoration: const InputDecoration(labelText: 'Name'),
+              maxLength: WebReverseSessionController.maxCookieNameChars,
+              decoration: const InputDecoration(
+                labelText: 'Name',
+                counterText: '',
+              ),
             ),
             const SizedBox(height: 10),
             TextField(
               controller: value,
               maxLines: 3,
-              decoration: const InputDecoration(labelText: 'Value'),
+              maxLength: WebReverseSessionController.maxCookieValueChars,
+              decoration: const InputDecoration(
+                labelText: 'Value',
+                counterText: '',
+              ),
             ),
             const SizedBox(height: 10),
             TextField(
               controller: domain,
-              decoration: const InputDecoration(labelText: 'Domain'),
+              maxLength: WebReverseSessionController.maxCookieDomainChars,
+              decoration: const InputDecoration(
+                labelText: 'Domain',
+                counterText: '',
+              ),
             ),
             const SizedBox(height: 10),
             TextField(
               controller: path,
-              decoration: const InputDecoration(labelText: 'Path'),
+              maxLength: WebReverseSessionController.maxCookiePathChars,
+              decoration: const InputDecoration(
+                labelText: 'Path',
+                counterText: '',
+              ),
             ),
           ],
         ),
@@ -3589,14 +3675,11 @@ class _StorageTableState extends State<_StorageTable> {
       destructive: true,
     );
     if (!ok || !mounted) return;
-    for (final r in List<({String key, String value})>.from(widget.rows)) {
-      await widget.controller.removeDomStorageItem(
-        origin: origin,
-        isLocalStorage: widget.isLocalStorage,
-        key: r.key,
-      );
-    }
-    if (mounted) await widget.onChanged();
+    final cleared = await widget.controller.clearDomStorage(
+      origin: origin,
+      isLocalStorage: widget.isLocalStorage,
+    );
+    if (cleared && mounted) await widget.onChanged();
   }
 
   Future<void> _exportJson() async {
@@ -3833,14 +3916,22 @@ Future<({String key, String value})?> _showStorageEditor(
           children: [
             TextField(
               controller: keyCtrl,
-              decoration: const InputDecoration(labelText: 'Key'),
+              maxLength: WebReverseSessionController.maxStorageKeyChars,
+              decoration: const InputDecoration(
+                labelText: 'Key',
+                counterText: '',
+              ),
             ),
             const SizedBox(height: 10),
             TextField(
               controller: valueCtrl,
               maxLines: 6,
               minLines: 2,
-              decoration: const InputDecoration(labelText: 'Value'),
+              maxLength: WebReverseSessionController.maxStorageValueChars,
+              decoration: const InputDecoration(
+                labelText: 'Value',
+                counterText: '',
+              ),
             ),
           ],
         ),
@@ -3878,6 +3969,7 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
   ({String db, String store})? _selected;
   List<Map<String, Object?>> _entries = const [];
   bool _hasMore = false;
+  bool _entriesCapped = false;
   int _skipCount = 0;
   bool _loading = false;
 
@@ -3888,6 +3980,7 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
       _entries = const [];
       _skipCount = 0;
       _hasMore = false;
+      _entriesCapped = false;
       _loading = true;
     });
     final r = await widget.controller.readIndexedDbStore(
@@ -3898,24 +3991,51 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
     setState(() {
       _entries = r?.entries ?? const [];
       _hasMore = r?.hasMore ?? false;
-      _skipCount = _entries.length;
+      _entriesCapped =
+          _hasMore &&
+          _entries.length >=
+              WebReverseSessionController.maxIndexedDbRetainedEntries;
+      if (_entriesCapped) _hasMore = false;
+      _skipCount = WebReverseSessionController.defaultIndexedDbPageSize;
       _loading = false;
     });
   }
 
   Future<void> _loadMore() async {
     if (_loading || !_hasMore || _selected == null) return;
+    final remaining =
+        WebReverseSessionController.maxIndexedDbRetainedEntries -
+        _entries.length;
+    if (remaining <= 0) {
+      setState(() {
+        _hasMore = false;
+        _entriesCapped = true;
+      });
+      return;
+    }
     setState(() => _loading = true);
+    final requestPageSize =
+        remaining < WebReverseSessionController.defaultIndexedDbPageSize
+        ? remaining
+        : WebReverseSessionController.defaultIndexedDbPageSize;
     final r = await widget.controller.readIndexedDbStore(
       dbName: _selected!.db,
       storeName: _selected!.store,
       skipCount: _skipCount,
+      pageSize: requestPageSize,
     );
     if (!mounted) return;
     setState(() {
-      _entries = [..._entries, ...?r?.entries];
-      _hasMore = r?.hasMore ?? false;
-      _skipCount = _entries.length;
+      final nextEntries = r?.entries ?? const <Map<String, Object?>>[];
+      _entries = [..._entries, ...nextEntries.take(remaining)];
+      final serverHasMore = r?.hasMore ?? false;
+      _entriesCapped =
+          serverHasMore &&
+          (nextEntries.isEmpty ||
+              _entries.length >=
+                  WebReverseSessionController.maxIndexedDbRetainedEntries);
+      _hasMore = serverHasMore && nextEntries.isNotEmpty && !_entriesCapped;
+      _skipCount += requestPageSize;
       _loading = false;
     });
   }
@@ -4392,7 +4512,7 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
                             ),
                           ),
                           Text(
-                            '${_entries.length}${_hasMore ? "+" : ""}',
+                            '${_entries.length}${_hasMore || _entriesCapped ? "+" : ""}',
                             style: theme.textTheme.labelSmall?.copyWith(
                               color: cs.onSurfaceVariant,
                               fontFamily: 'monospace',

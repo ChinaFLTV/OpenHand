@@ -803,12 +803,12 @@ class _AdvancedMenuDialog extends StatelessWidget {
           ja: 'Cookie エディタ',
         ),
         subtitle: tr(
-          zh: 'Network.getCookies / setCookie / deleteCookies 精修级 CRUD',
-          zhHant: 'Network.getCookies / setCookie / deleteCookies 精修級 CRUD',
-          en: 'Network.getCookies / setCookie / deleteCookies — fine CRUD',
-          fr: 'CRUD precis via Network.getCookies / setCookie / deleteCookies',
-          de: 'Feines CRUD mit Network.getCookies / setCookie / deleteCookies',
-          ja: 'Network.getCookies / setCookie / deleteCookies による詳細 CRUD',
+          zh: 'Network.getCookies / setCookie / deleteCookies 常用字段编辑',
+          zhHant: 'Network.getCookies / setCookie / deleteCookies 常用欄位編輯',
+          en: 'Edit common cookie fields via Network.getCookies / setCookie / deleteCookies',
+          fr: 'Modifier les champs courants via Network.getCookies / setCookie / deleteCookies',
+          de: 'Gängige Cookie-Felder über Network.getCookies / setCookie / deleteCookies bearbeiten',
+          ja: 'Network.getCookies / setCookie / deleteCookies で一般的な Cookie フィールドを編集',
         ),
         onTap: () async {
           Navigator.of(context).pop();

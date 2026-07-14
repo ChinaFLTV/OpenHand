@@ -191,6 +191,22 @@ class WebReverseSessionController extends ChangeNotifier {
   static const int maxPageTargetTitleChars = kWebReverseMaxPageTitleChars;
   static const int maxServiceWorkers = kWebReverseMaxServiceWorkers;
   static const int maxCacheStorageNames = kWebReverseMaxCacheStorageNames;
+  static const int maxCookies = kWebReverseMaxCookies;
+  static const int maxCookieNameChars = kWebReverseMaxCookieNameChars;
+  static const int maxCookieValueChars = kWebReverseMaxCookieValueChars;
+  static const int maxCookieDomainChars = kWebReverseMaxCookieDomainChars;
+  static const int maxCookiePathChars = kWebReverseMaxCookiePathChars;
+  static const int maxDomStorageEntries = kWebReverseMaxDomStorageEntries;
+  static const int maxStorageKeyChars = kWebReverseMaxStorageKeyChars;
+  static const int maxStorageValueChars = kWebReverseMaxStorageValueChars;
+  static const int maxIndexedDbNames = kWebReverseMaxIndexedDbNames;
+  static const int maxIndexedDbStores = kWebReverseMaxIndexedDbStores;
+  static const int maxIndexedDbNameChars = kWebReverseMaxIndexedDbNameChars;
+  static const int defaultIndexedDbPageSize =
+      kWebReverseDefaultIndexedDbPageSize;
+  static const int maxIndexedDbPageSize = kWebReverseMaxIndexedDbPageSize;
+  static const int maxIndexedDbRetainedEntries =
+      kWebReverseMaxIndexedDbRetainedEntries;
   static const int maxEditedRequestBodyChars = 2 * kBytesPerMiB;
   static const int maxEditedRequestBodyBase64Chars = 8 * kBytesPerMiB;
   static const int maxAccountSnapshotNameChars = 256;
@@ -485,6 +501,28 @@ class WebReverseSessionController extends ChangeNotifier {
       return null;
     }
     return normalized;
+  }
+
+  String? _validatedCommandText(
+    String raw,
+    int maxChars, {
+    bool allowEmpty = false,
+    bool trim = true,
+  }) {
+    final normalized = trim ? raw.trim() : raw;
+    if ((!allowEmpty && normalized.isEmpty) || normalized.length > maxChars) {
+      return null;
+    }
+    return normalized;
+  }
+
+  String? _validatedIndexedDbIdentity(String raw) {
+    return _validatedCommandText(
+      raw,
+      maxIndexedDbNameChars,
+      allowEmpty: true,
+      trim: false,
+    );
   }
 
   /// 多标签页：dashboard 浏览器面板的 tab strip 数据源。每条 entry 反映一个
@@ -1150,18 +1188,15 @@ class WebReverseSessionController extends ChangeNotifier {
 
   // ── Application: Cookies / Storage ───────────────────────────────────
 
-  Future<List<Map<String, Object?>>> listCookies() async {
+  Future<List<Map<String, Object?>>> listCookies({bool all = true}) async {
     final cdp = _browserCdp;
     if (cdp == null || _pageSessionId == null) return const [];
     try {
       final r = await cdp.send(
-        'Network.getAllCookies',
+        all ? 'Network.getAllCookies' : 'Network.getCookies',
         sessionId: _pageSessionId,
       );
-      final list = r['cookies'] as List?;
-      return list == null
-          ? const <Map<String, Object?>>[]
-          : stringKeyedMapListFromValue(list);
+      return compactWebReverseCookies(r['cookies']);
     } catch (error, stack) {
       silentLog('web_reverse_session_controller', 'listCookies', error, stack);
       return const [];
@@ -1174,25 +1209,24 @@ class WebReverseSessionController extends ChangeNotifier {
   }) async {
     final cdp = _browserCdp;
     if (cdp == null || _pageSessionId == null) return const [];
+    final normalizedOrigin = _validatedCommandText(
+      origin,
+      maxPageTargetUrlChars,
+    );
+    if (normalizedOrigin == null) return const [];
     try {
       await cdp.send('DOMStorage.enable', sessionId: _pageSessionId);
       final r = await cdp.send(
         'DOMStorage.getDOMStorageItems',
         params: <String, Object?>{
           'storageId': <String, Object?>{
-            'securityOrigin': origin,
+            'securityOrigin': normalizedOrigin,
             'isLocalStorage': isLocalStorage,
           },
         },
         sessionId: _pageSessionId,
       );
-      final entries = r['entries'] as List?;
-      if (entries == null) return const [];
-      return entries
-          .whereType<List>()
-          .where((p) => p.length >= 2)
-          .map((p) => (key: '${p[0]}', value: '${p[1]}'))
-          .toList(growable: false);
+      return normalizeWebReverseDomStorageEntries(r['entries']);
     } catch (error, stack) {
       silentLog(
         'web_reverse_session_controller',
@@ -1209,16 +1243,49 @@ class WebReverseSessionController extends ChangeNotifier {
     required String name,
     String? domain,
     String? path,
+    Map<String, Object?>? partitionKey,
   }) async {
     final cdp = _browserCdp;
     if (cdp == null || _pageSessionId == null) return false;
+    final normalizedName = _validatedCommandText(
+      name,
+      maxCookieNameChars,
+      trim: false,
+    );
+    final normalizedDomain = domain == null
+        ? null
+        : _validatedCommandText(
+            domain,
+            maxCookieDomainChars,
+            allowEmpty: true,
+            trim: false,
+          );
+    final normalizedPath = path == null
+        ? null
+        : _validatedCommandText(
+            path,
+            maxCookiePathChars,
+            allowEmpty: true,
+            trim: false,
+          );
+    final normalizedPartitionKey = _normalizeCookiePartitionKey(partitionKey);
+    if (normalizedName == null ||
+        (domain != null && normalizedDomain == null) ||
+        (path != null && normalizedPath == null) ||
+        (partitionKey != null && normalizedPartitionKey == null)) {
+      return false;
+    }
     try {
       await cdp.send(
         'Network.deleteCookies',
         params: <String, Object?>{
-          'name': name,
-          if (domain != null) 'domain': domain,
-          if (path != null) 'path': path,
+          'name': normalizedName,
+          if (normalizedDomain != null && normalizedDomain.isNotEmpty)
+            'domain': normalizedDomain,
+          if (normalizedPath != null && normalizedPath.isNotEmpty)
+            'path': normalizedPath,
+          if (normalizedPartitionKey != null)
+            'partitionKey': normalizedPartitionKey,
         },
         sessionId: _pageSessionId,
       );
@@ -1238,26 +1305,86 @@ class WebReverseSessionController extends ChangeNotifier {
   Future<bool> setCookie({
     required String name,
     required String value,
+    String? url,
     String? domain,
     String? path,
+    Map<String, Object?>? partitionKey,
     bool? secure,
     bool? httpOnly,
     String? sameSite,
-    int? expires,
+    num? expires,
   }) async {
     final cdp = _browserCdp;
     if (cdp == null || _pageSessionId == null) return false;
+    final normalizedName = _validatedCommandText(
+      name,
+      maxCookieNameChars,
+      trim: false,
+    );
+    final normalizedValue = _validatedCommandText(
+      value,
+      maxCookieValueChars,
+      allowEmpty: true,
+      trim: false,
+    );
+    final normalizedUrl = url == null ? null : _validatedPageUrlInput(url);
+    final normalizedDomain = domain == null
+        ? null
+        : _validatedCommandText(
+            domain,
+            maxCookieDomainChars,
+            allowEmpty: true,
+            trim: false,
+          );
+    final normalizedPath = path == null
+        ? null
+        : _validatedCommandText(
+            path,
+            maxCookiePathChars,
+            allowEmpty: true,
+            trim: false,
+          );
+    final normalizedPartitionKey = _normalizeCookiePartitionKey(partitionKey);
+    final normalizedSameSite = sameSite?.trim();
+    if (normalizedName == null ||
+        normalizedValue == null ||
+        (url != null && normalizedUrl == null) ||
+        (domain != null && normalizedDomain == null) ||
+        (path != null && normalizedPath == null) ||
+        (partitionKey != null && normalizedPartitionKey == null) ||
+        (normalizedSameSite != null &&
+            normalizedSameSite.isNotEmpty &&
+            !const <String>{
+              'Strict',
+              'Lax',
+              'None',
+            }.contains(normalizedSameSite)) ||
+        (expires != null && !expires.isFinite)) {
+      return false;
+    }
+    var effectiveUrl = normalizedUrl;
+    if (effectiveUrl == null &&
+        (normalizedDomain == null || normalizedDomain.isEmpty)) {
+      effectiveUrl = await currentUrl();
+      if (effectiveUrl == null) return false;
+    }
     try {
       await cdp.send(
         'Network.setCookie',
         params: <String, Object?>{
-          'name': name,
-          'value': value,
-          if (domain != null) 'domain': domain,
-          if (path != null) 'path': path,
+          'name': normalizedName,
+          'value': normalizedValue,
+          if (effectiveUrl != null) 'url': effectiveUrl,
+          if (normalizedDomain != null && normalizedDomain.isNotEmpty)
+            'domain': normalizedDomain,
+          if (normalizedPath != null && normalizedPath.isNotEmpty)
+            'path': normalizedPath,
+          if (normalizedPartitionKey != null)
+            'partitionKey': normalizedPartitionKey,
           if (secure != null) 'secure': secure,
           if (httpOnly != null) 'httpOnly': httpOnly,
-          if (sameSite != null) 'sameSite': sameSite,
+          if (normalizedSameSite != null && normalizedSameSite.isNotEmpty)
+            'sameSite': normalizedSameSite,
           if (expires != null) 'expires': expires,
         },
         sessionId: _pageSessionId,
@@ -1274,6 +1401,37 @@ class WebReverseSessionController extends ChangeNotifier {
     }
   }
 
+  Map<String, Object?>? _normalizeCookiePartitionKey(
+    Map<String, Object?>? raw,
+  ) {
+    if (raw == null) return null;
+    final topLevelSite = raw['topLevelSite'];
+    if (topLevelSite is! String) return null;
+    final normalizedSite = _validatedPageUrlInput(topLevelSite);
+    if (normalizedSite == null) return null;
+    return <String, Object?>{
+      'topLevelSite': normalizedSite,
+      'hasCrossSiteAncestor': raw['hasCrossSiteAncestor'] == true,
+    };
+  }
+
+  Future<bool> clearAllCookies() async {
+    final cdp = _browserCdp;
+    if (cdp == null || _pageSessionId == null) return false;
+    try {
+      await cdp.send('Network.clearBrowserCookies', sessionId: _pageSessionId);
+      return true;
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_session_controller',
+        'clearAllCookies',
+        error,
+        stack,
+      );
+      return false;
+    }
+  }
+
   /// `DOMStorage.setDOMStorageItem` —— 写 / 改一条 storage 项。
   Future<bool> setDomStorageItem({
     required String origin,
@@ -1283,17 +1441,38 @@ class WebReverseSessionController extends ChangeNotifier {
   }) async {
     final cdp = _browserCdp;
     if (cdp == null || _pageSessionId == null) return false;
+    final normalizedOrigin = _validatedCommandText(
+      origin,
+      maxPageTargetUrlChars,
+    );
+    final normalizedKey = _validatedCommandText(
+      key,
+      maxStorageKeyChars,
+      allowEmpty: true,
+      trim: false,
+    );
+    final normalizedValue = _validatedCommandText(
+      value,
+      maxStorageValueChars,
+      allowEmpty: true,
+      trim: false,
+    );
+    if (normalizedOrigin == null ||
+        normalizedKey == null ||
+        normalizedValue == null) {
+      return false;
+    }
     try {
       await cdp.send('DOMStorage.enable', sessionId: _pageSessionId);
       await cdp.send(
         'DOMStorage.setDOMStorageItem',
         params: <String, Object?>{
           'storageId': <String, Object?>{
-            'securityOrigin': origin,
+            'securityOrigin': normalizedOrigin,
             'isLocalStorage': isLocalStorage,
           },
-          'key': key,
-          'value': value,
+          'key': normalizedKey,
+          'value': normalizedValue,
         },
         sessionId: _pageSessionId,
       );
@@ -1316,16 +1495,27 @@ class WebReverseSessionController extends ChangeNotifier {
   }) async {
     final cdp = _browserCdp;
     if (cdp == null || _pageSessionId == null) return false;
+    final normalizedOrigin = _validatedCommandText(
+      origin,
+      maxPageTargetUrlChars,
+    );
+    final normalizedKey = _validatedCommandText(
+      key,
+      maxStorageKeyChars,
+      allowEmpty: true,
+      trim: false,
+    );
+    if (normalizedOrigin == null || normalizedKey == null) return false;
     try {
       await cdp.send('DOMStorage.enable', sessionId: _pageSessionId);
       await cdp.send(
         'DOMStorage.removeDOMStorageItem',
         params: <String, Object?>{
           'storageId': <String, Object?>{
-            'securityOrigin': origin,
+            'securityOrigin': normalizedOrigin,
             'isLocalStorage': isLocalStorage,
           },
-          'key': key,
+          'key': normalizedKey,
         },
         sessionId: _pageSessionId,
       );
@@ -1334,6 +1524,41 @@ class WebReverseSessionController extends ChangeNotifier {
       silentLog(
         'web_reverse_session_controller',
         'removeDomStorageItem',
+        error,
+        stack,
+      );
+      return false;
+    }
+  }
+
+  Future<bool> clearDomStorage({
+    required String origin,
+    required bool isLocalStorage,
+  }) async {
+    final cdp = _browserCdp;
+    if (cdp == null || _pageSessionId == null) return false;
+    final normalizedOrigin = _validatedCommandText(
+      origin,
+      maxPageTargetUrlChars,
+    );
+    if (normalizedOrigin == null) return false;
+    try {
+      await cdp.send('DOMStorage.enable', sessionId: _pageSessionId);
+      await cdp.send(
+        'DOMStorage.clear',
+        params: <String, Object?>{
+          'storageId': <String, Object?>{
+            'securityOrigin': normalizedOrigin,
+            'isLocalStorage': isLocalStorage,
+          },
+        },
+        sessionId: _pageSessionId,
+      );
+      return true;
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_session_controller',
+        'clearDomStorage',
         error,
         stack,
       );
@@ -1355,7 +1580,8 @@ class WebReverseSessionController extends ChangeNotifier {
         sessionId: _pageSessionId,
       );
       final value = cdpResultValue(r);
-      return value is String ? value : null;
+      if (value is! String) return null;
+      return _validatedCommandText(value, maxPageTargetUrlChars);
     } catch (error, stack) {
       silentLog(
         'web_reverse_session_controller',
@@ -1380,8 +1606,7 @@ class WebReverseSessionController extends ChangeNotifier {
         params: <String, Object?>{'securityOrigin': origin},
         sessionId: _pageSessionId,
       );
-      final list = r['databaseNames'] as List?;
-      return list?.whereType<String>().toList() ?? const [];
+      return normalizeWebReverseIndexedDbNames(r['databaseNames']);
     } catch (error, stack) {
       silentLog(
         'web_reverse_session_controller',
@@ -1400,6 +1625,8 @@ class WebReverseSessionController extends ChangeNotifier {
   ) async {
     final cdp = _browserCdp;
     if (cdp == null || _pageSessionId == null) return null;
+    final normalizedDbName = _validatedIndexedDbIdentity(dbName);
+    if (normalizedDbName == null) return null;
     try {
       final origin = await currentOrigin();
       if (origin == null) return null;
@@ -1407,20 +1634,15 @@ class WebReverseSessionController extends ChangeNotifier {
         'IndexedDB.requestDatabase',
         params: <String, Object?>{
           'securityOrigin': origin,
-          'databaseName': dbName,
+          'databaseName': normalizedDbName,
         },
         sessionId: _pageSessionId,
       );
-      final db = stringKeyedMapFromValue(r['databaseWithObjectStores']);
-      if (db.isEmpty) return null;
+      final db = r['databaseWithObjectStores'];
+      if (db is! Map) return null;
       final version = nonNegativeIntFromValue(db['version'], fallback: 0);
-      final stores =
-          (db['objectStores'] as List?)
-              ?.whereType<Map>()
-              .map((m) => '${m['name'] ?? ''}')
-              .toList(growable: false) ??
-          const <String>[];
-      return (name: dbName, version: version, stores: stores);
+      final stores = normalizeWebReverseIndexedDbStoreNames(db['objectStores']);
+      return (name: normalizedDbName, version: version, stores: stores);
     } catch (error, stack) {
       silentLog(
         'web_reverse_session_controller',
@@ -1439,10 +1661,15 @@ class WebReverseSessionController extends ChangeNotifier {
     required String dbName,
     required String storeName,
     int skipCount = 0,
-    int pageSize = 50,
+    int pageSize = defaultIndexedDbPageSize,
   }) async {
     final cdp = _browserCdp;
     if (cdp == null || _pageSessionId == null) return null;
+    final normalizedDbName = _validatedIndexedDbIdentity(dbName);
+    final normalizedStoreName = _validatedIndexedDbIdentity(storeName);
+    if (normalizedDbName == null || normalizedStoreName == null) return null;
+    final normalizedSkipCount = skipCount.clamp(0, 0x7fffffff);
+    final normalizedPageSize = pageSize.clamp(1, maxIndexedDbPageSize);
     try {
       final origin = await currentOrigin();
       if (origin == null) return null;
@@ -1450,18 +1677,20 @@ class WebReverseSessionController extends ChangeNotifier {
         'IndexedDB.requestData',
         params: <String, Object?>{
           'securityOrigin': origin,
-          'databaseName': dbName,
-          'objectStoreName': storeName,
+          'databaseName': normalizedDbName,
+          'objectStoreName': normalizedStoreName,
           'indexName': '',
-          'skipCount': skipCount,
-          'pageSize': pageSize,
+          'skipCount': normalizedSkipCount,
+          'pageSize': normalizedPageSize,
         },
         sessionId: _pageSessionId,
         timeout: const Duration(seconds: 10),
       );
-      final list = r['objectStoreDataEntries'] as List?;
       final hasMore = r['hasMore'] == true;
-      final entries = stringKeyedMapListFromValue(list);
+      final entries = compactWebReverseIndexedDbEntries(
+        r['objectStoreDataEntries'],
+        maxEntries: normalizedPageSize,
+      );
       return (entries: entries, hasMore: hasMore);
     } catch (error, stack) {
       silentLog(
@@ -1481,6 +1710,9 @@ class WebReverseSessionController extends ChangeNotifier {
   }) async {
     final cdp = _browserCdp;
     if (cdp == null || _pageSessionId == null) return false;
+    final normalizedDbName = _validatedIndexedDbIdentity(dbName);
+    final normalizedStoreName = _validatedIndexedDbIdentity(storeName);
+    if (normalizedDbName == null || normalizedStoreName == null) return false;
     try {
       final origin = await currentOrigin();
       if (origin == null) return false;
@@ -1488,8 +1720,8 @@ class WebReverseSessionController extends ChangeNotifier {
         'IndexedDB.clearObjectStore',
         params: <String, Object?>{
           'securityOrigin': origin,
-          'databaseName': dbName,
-          'objectStoreName': storeName,
+          'databaseName': normalizedDbName,
+          'objectStoreName': normalizedStoreName,
         },
         sessionId: _pageSessionId,
         timeout: const Duration(seconds: 10),
@@ -1509,7 +1741,7 @@ class WebReverseSessionController extends ChangeNotifier {
   /// `IndexedDB.deleteObjectStoreEntries` —— 删除指定 key 的单条记录。
   /// CDP 协议要求 keyRange 用 `{lower, upper, lowerOpen, upperOpen}` 结构；
   /// 这里构造为 `[key, key]` 闭区间精准命中一条。
-  /// key 走 IndexedDB.Key 结构：`{type: 'string'|'number'|'date'|'array', value, ...}`。
+  /// 仅接受 UI 当前支持的 string / number key，拒绝任意嵌套对象。
   Future<bool> deleteIndexedDbEntry({
     required String dbName,
     required String storeName,
@@ -1517,6 +1749,14 @@ class WebReverseSessionController extends ChangeNotifier {
   }) async {
     final cdp = _browserCdp;
     if (cdp == null || _pageSessionId == null) return false;
+    final normalizedDbName = _validatedIndexedDbIdentity(dbName);
+    final normalizedStoreName = _validatedIndexedDbIdentity(storeName);
+    final normalizedKey = _normalizeIndexedDbKey(key);
+    if (normalizedDbName == null ||
+        normalizedStoreName == null ||
+        normalizedKey == null) {
+      return false;
+    }
     try {
       final origin = await currentOrigin();
       if (origin == null) return false;
@@ -1524,11 +1764,11 @@ class WebReverseSessionController extends ChangeNotifier {
         'IndexedDB.deleteObjectStoreEntries',
         params: <String, Object?>{
           'securityOrigin': origin,
-          'databaseName': dbName,
-          'objectStoreName': storeName,
+          'databaseName': normalizedDbName,
+          'objectStoreName': normalizedStoreName,
           'keyRange': <String, Object?>{
-            'lower': key,
-            'upper': key,
+            'lower': normalizedKey,
+            'upper': normalizedKey,
             'lowerOpen': false,
             'upperOpen': false,
           },
@@ -1548,10 +1788,27 @@ class WebReverseSessionController extends ChangeNotifier {
     }
   }
 
+  Map<String, Object?>? _normalizeIndexedDbKey(Map<String, Object?> raw) {
+    final type = raw['type'];
+    if (type == 'string') {
+      final value = raw['string'];
+      if (value is! String || value.length > maxStorageKeyChars) return null;
+      return <String, Object?>{'type': 'string', 'string': value};
+    }
+    if (type == 'number') {
+      final value = raw['number'];
+      if (value is! num || !value.isFinite) return null;
+      return <String, Object?>{'type': 'number', 'number': value};
+    }
+    return null;
+  }
+
   /// `IndexedDB.deleteDatabase` —— 删除整个数据库。
   Future<bool> deleteIndexedDb(String dbName) async {
     final cdp = _browserCdp;
     if (cdp == null || _pageSessionId == null) return false;
+    final normalizedDbName = _validatedIndexedDbIdentity(dbName);
+    if (normalizedDbName == null) return false;
     try {
       final origin = await currentOrigin();
       if (origin == null) return false;
@@ -1559,7 +1816,7 @@ class WebReverseSessionController extends ChangeNotifier {
         'IndexedDB.deleteDatabase',
         params: <String, Object?>{
           'securityOrigin': origin,
-          'databaseName': dbName,
+          'databaseName': normalizedDbName,
         },
         sessionId: _pageSessionId,
         timeout: const Duration(seconds: 10),
@@ -8988,27 +9245,63 @@ WebReverseAccountSnapshot _normalizeAccountSnapshot(
         remainingChars <= 0) {
       break;
     }
-    final rawName = '${raw['name'] ?? ''}'.trim();
-    if (rawName.isEmpty) continue;
+    if (raw['partitionKeyOpaque'] == true) continue;
+    if (raw['name'] is! String ||
+        (raw['value'] != null && raw['value'] is! String) ||
+        (raw['domain'] != null && raw['domain'] is! String) ||
+        (raw['path'] != null && raw['path'] is! String) ||
+        (raw['sameSite'] != null && raw['sameSite'] is! String)) {
+      continue;
+    }
+    final rawName = raw['name'] as String;
+    final rawValue = (raw['value'] as String?) ?? '';
+    final rawDomain = (raw['domain'] as String?) ?? '';
+    final rawPath = (raw['path'] as String?) ?? '';
+    final rawSameSite = (raw['sameSite'] as String?) ?? '';
+    final rawPartitionKey = raw['partitionKey'];
+    final rawTopLevelSite =
+        rawPartitionKey is Map && rawPartitionKey['topLevelSite'] is String
+        ? rawPartitionKey['topLevelSite'] as String
+        : '';
+    if (rawPartitionKey != null && rawTopLevelSite.isEmpty) continue;
+    if (rawName.isEmpty ||
+        rawName.length > WebReverseSessionController.maxRuleHeaderNameChars ||
+        rawValue.length >
+            WebReverseSessionController.maxAccountSnapshotValueChars ||
+        rawDomain.length > WebReverseSessionController.maxBreakpointTextChars ||
+        rawPath.length > WebReverseSessionController.maxBreakpointTextChars ||
+        rawSameSite.length > 64 ||
+        rawTopLevelSite.length >
+            WebReverseSessionController.maxPageTargetUrlChars) {
+      continue;
+    }
+    final cookieChars =
+        rawName.length +
+        rawValue.length +
+        rawDomain.length +
+        rawPath.length +
+        rawSameSite.length +
+        rawTopLevelSite.length;
+    if (cookieChars > remainingChars) break;
     final cookie = <String, Object?>{
       'name': takeText(
         rawName,
         WebReverseSessionController.maxRuleHeaderNameChars,
       ),
       'value': takeText(
-        raw['value'],
+        rawValue,
         WebReverseSessionController.maxAccountSnapshotValueChars,
       ),
     };
     final domain = takeText(
-      raw['domain'],
+      rawDomain,
       WebReverseSessionController.maxBreakpointTextChars,
     );
     final path = takeText(
-      raw['path'],
+      rawPath,
       WebReverseSessionController.maxBreakpointTextChars,
     );
-    final sameSite = takeText(raw['sameSite'], 64);
+    final sameSite = takeText(rawSameSite, 64);
     if (domain.isNotEmpty) cookie['domain'] = domain;
     if (path.isNotEmpty) cookie['path'] = path;
     if (const <String>{'Strict', 'Lax', 'None'}.contains(sameSite)) {
@@ -9018,6 +9311,19 @@ WebReverseAccountSnapshot _normalizeAccountSnapshot(
     if (raw['httpOnly'] == true) cookie['httpOnly'] = true;
     final expires = raw['expires'];
     if (expires is num && expires.isFinite) cookie['expires'] = expires;
+    if (rawPartitionKey is Map && rawTopLevelSite.isNotEmpty) {
+      final topLevelSite = takeText(
+        rawTopLevelSite,
+        WebReverseSessionController.maxPageTargetUrlChars,
+      );
+      if (topLevelSite.isNotEmpty) {
+        cookie['partitionKey'] = <String, Object?>{
+          'topLevelSite': topLevelSite,
+          'hasCrossSiteAncestor':
+              rawPartitionKey['hasCrossSiteAncestor'] == true,
+        };
+      }
+    }
     cookies.add(Map<String, Object?>.unmodifiable(cookie));
   }
 
@@ -9029,15 +9335,16 @@ WebReverseAccountSnapshot _normalizeAccountSnapshot(
           remainingChars <= 0) {
         break;
       }
-      final key = takeText(
-        entry.key,
-        WebReverseSessionController.maxBreakpointTextChars,
-      );
-      final value = takeText(
-        entry.value,
-        WebReverseSessionController.maxAccountSnapshotValueChars,
-      );
-      normalized[key] = value;
+      if (entry.key.length >
+              WebReverseSessionController.maxBreakpointTextChars ||
+          entry.value.length >
+              WebReverseSessionController.maxAccountSnapshotValueChars) {
+        continue;
+      }
+      final entryChars = entry.key.length + entry.value.length;
+      if (entryChars > remainingChars) break;
+      remainingChars -= entryChars;
+      normalized[entry.key] = entry.value;
     }
     return Map<String, String>.unmodifiable(normalized);
   }
@@ -9059,6 +9366,11 @@ int _estimatedAccountSnapshotChars(WebReverseAccountSnapshot snapshot) {
   for (final cookie in snapshot.cookies) {
     for (final value in cookie.values) {
       if (value is String) total += value.length;
+      if (value is Map) {
+        for (final nested in value.values) {
+          if (nested is String) total += nested.length;
+        }
+      }
     }
   }
   for (final storage in <Map<String, String>>[
@@ -9885,7 +10197,10 @@ class WebReverseAccountSnapshot {
       capturedAt: timestampMs == null
           ? DateTime.now()
           : DateTime.fromMillisecondsSinceEpoch(timestampMs),
-      cookies: stringKeyedMapListFromValue(j['cookies']),
+      cookies: compactWebReverseCookies(
+        j['cookies'],
+        maxEntries: WebReverseSessionController.maxAccountSnapshotCookies,
+      ),
       localStorage: _accountSnapshotStorageFromValue(j['localStorage']),
       sessionStorage: _accountSnapshotStorageFromValue(j['sessionStorage']),
     );
@@ -9911,11 +10226,20 @@ class WebReverseAccountSnapshot {
 }
 
 Map<String, String> _accountSnapshotStorageFromValue(Object? value) {
-  final raw = stringKeyedMapFromValue(value);
-  if (raw.isEmpty) return const <String, String>{};
-  return Map<String, String>.unmodifiable(
-    raw.map((key, item) => MapEntry(key, item?.toString() ?? '')),
-  );
+  if (value is! Map) return const <String, String>{};
+  final result = <String, String>{};
+  var inspected = 0;
+  for (final entry in value.entries) {
+    if (inspected++ >=
+            WebReverseSessionController.maxAccountSnapshotStorageEntries * 4 ||
+        result.length >=
+            WebReverseSessionController.maxAccountSnapshotStorageEntries) {
+      break;
+    }
+    if (entry.key is! String || entry.value is! String) continue;
+    result[entry.key as String] = entry.value as String;
+  }
+  return Map<String, String>.unmodifiable(result);
 }
 
 /// 本地 Mock 规则：URL 通配命中即用 Fetch.fulfillRequest 直接回 [statusCode]

@@ -18,6 +18,23 @@ const int kWebReverseMaxServiceWorkers = 512;
 const int kWebReverseMaxServiceWorkerStatusChars = 128;
 const int kWebReverseMaxCacheStorageNames = 1024;
 const int kWebReverseMaxCacheStorageNameChars = 4 * 1024;
+const int kWebReverseMaxCookies = 4096;
+const int kWebReverseMaxCookieNameChars = 4096;
+const int kWebReverseMaxCookieValueChars = 256 * 1024;
+const int kWebReverseMaxCookieDomainChars = 1024;
+const int kWebReverseMaxCookiePathChars = 4 * 1024;
+const int kWebReverseMaxCookieCollectionChars = 4 * 1024 * 1024;
+const int kWebReverseMaxDomStorageEntries = 4096;
+const int kWebReverseMaxStorageKeyChars = 16 * 1024;
+const int kWebReverseMaxStorageValueChars = 256 * 1024;
+const int kWebReverseMaxStorageCollectionChars = 8 * 1024 * 1024;
+const int kWebReverseMaxIndexedDbNames = 256;
+const int kWebReverseMaxIndexedDbStores = 512;
+const int kWebReverseMaxIndexedDbNameChars = 4 * 1024;
+const int kWebReverseDefaultIndexedDbPageSize = 50;
+const int kWebReverseMaxIndexedDbPageSize = 200;
+const int kWebReverseMaxIndexedDbRetainedEntries = 200;
+const int kWebReverseMaxIndexedDbRemoteTextChars = 16 * 1024;
 final RegExp _consoleIsoTimestampPattern = RegExp(
   r'\b\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[^\s]*',
 );
@@ -39,9 +56,9 @@ String _boundedWebReverseText(
   return clipText(text, maxChars, suffix: '');
 }
 
-String _validatedWebReverseId(Object? value, int maxChars) {
+String _validatedWebReverseId(Object? value, int maxChars, {bool trim = true}) {
   if (value is! String) return '';
-  final text = value.trim();
+  final text = trim ? value.trim() : value;
   return text.isEmpty || text.length > maxChars ? '' : text;
 }
 
@@ -238,6 +255,273 @@ List<String> normalizeWebReverseTabRestoreUrls(
     if (urls.length >= maxEntries) break;
   }
   return List<String>.unmodifiable(urls);
+}
+
+/// Retains only the cookie fields used by the application surfaces and
+/// account snapshots. Identity fields are rejected rather than clipped so a
+/// subsequent edit/delete command cannot target a different cookie.
+List<Map<String, Object?>> compactWebReverseCookies(
+  Object? rawCookies, {
+  int maxEntries = kWebReverseMaxCookies,
+  int maxNameChars = kWebReverseMaxCookieNameChars,
+  int maxValueChars = kWebReverseMaxCookieValueChars,
+  int maxDomainChars = kWebReverseMaxCookieDomainChars,
+  int maxPathChars = kWebReverseMaxCookiePathChars,
+  int maxTotalChars = kWebReverseMaxCookieCollectionChars,
+}) {
+  _validatePositiveWebReverseLimits([
+    maxEntries,
+    maxNameChars,
+    maxValueChars,
+    maxDomainChars,
+    maxPathChars,
+    maxTotalChars,
+  ]);
+  if (rawCookies is! Iterable) return const <Map<String, Object?>>[];
+  final result = <Map<String, Object?>>[];
+  var retainedChars = 0;
+  var inspected = 0;
+  for (final raw in rawCookies) {
+    if (inspected++ >= maxEntries * 4 || result.length >= maxEntries) break;
+    if (raw is! Map) continue;
+    final name = _validatedWebReverseId(raw['name'], maxNameChars, trim: false);
+    if (name.isEmpty) continue;
+    if (raw['value'] != null && raw['value'] is! String) continue;
+    if (raw['domain'] is! String || raw['path'] is! String) continue;
+    final domain = _validatedWebReverseId(
+      raw['domain'],
+      maxDomainChars,
+      trim: false,
+    );
+    final path = _validatedWebReverseId(raw['path'], maxPathChars, trim: false);
+    if (domain.isEmpty || path.isEmpty) continue;
+    final value = _boundedWebReverseText(raw['value'], maxValueChars);
+    final sameSite = raw['sameSite'] is String
+        ? _boundedWebReverseText(raw['sameSite'], 16)
+        : '';
+    final priority = raw['priority'] is String
+        ? _boundedWebReverseText(raw['priority'], 16)
+        : '';
+    final sourceScheme = raw['sourceScheme'] is String
+        ? _boundedWebReverseText(raw['sourceScheme'], 16)
+        : '';
+    final partitionKey = _compactWebReverseCookiePartitionKey(
+      raw['partitionKey'],
+      maxUrlChars: kWebReverseMaxPageUrlChars,
+    );
+    if (raw['partitionKey'] != null && partitionKey == null) continue;
+    final cookie = <String, Object?>{
+      'name': name,
+      'value': value,
+      if (domain.isNotEmpty) 'domain': domain,
+      if (path.isNotEmpty) 'path': path,
+      if (raw['expires'] is num && (raw['expires'] as num).isFinite)
+        'expires': raw['expires'],
+      if (raw['size'] is num && (raw['size'] as num).isFinite)
+        'size': raw['size'],
+      'httpOnly': raw['httpOnly'] == true,
+      'secure': raw['secure'] == true,
+      'session': raw['session'] == true,
+      if (const <String>{'Strict', 'Lax', 'None'}.contains(sameSite))
+        'sameSite': sameSite,
+      if (priority.isNotEmpty) 'priority': priority,
+      if (raw['sameParty'] == true) 'sameParty': true,
+      if (sourceScheme.isNotEmpty) 'sourceScheme': sourceScheme,
+      if (raw['sourcePort'] is int) 'sourcePort': raw['sourcePort'],
+      if (partitionKey != null) 'partitionKey': partitionKey,
+      if (raw['partitionKeyOpaque'] == true) 'partitionKeyOpaque': true,
+    };
+    final cost =
+        name.length +
+        value.length +
+        domain.length +
+        path.length +
+        sameSite.length +
+        priority.length +
+        sourceScheme.length +
+        (partitionKey?['topLevelSite'] as String? ?? '').length;
+    if (retainedChars + cost > maxTotalChars) break;
+    retainedChars += cost;
+    result.add(Map<String, Object?>.unmodifiable(cookie));
+  }
+  return List<Map<String, Object?>>.unmodifiable(result);
+}
+
+Map<String, Object?>? _compactWebReverseCookiePartitionKey(
+  Object? raw, {
+  required int maxUrlChars,
+}) {
+  if (raw == null) return null;
+  if (raw is! Map || raw['topLevelSite'] is! String) return null;
+  final topLevelSite = (raw['topLevelSite'] as String).trim();
+  if (topLevelSite.isEmpty || topLevelSite.length > maxUrlChars) return null;
+  return Map<String, Object?>.unmodifiable(<String, Object?>{
+    'topLevelSite': topLevelSite,
+    'hasCrossSiteAncestor': raw['hasCrossSiteAncestor'] == true,
+  });
+}
+
+List<({String key, String value})> normalizeWebReverseDomStorageEntries(
+  Object? rawEntries, {
+  int maxEntries = kWebReverseMaxDomStorageEntries,
+  int maxKeyChars = kWebReverseMaxStorageKeyChars,
+  int maxValueChars = kWebReverseMaxStorageValueChars,
+  int maxTotalChars = kWebReverseMaxStorageCollectionChars,
+}) {
+  _validatePositiveWebReverseLimits([
+    maxEntries,
+    maxKeyChars,
+    maxValueChars,
+    maxTotalChars,
+  ]);
+  if (rawEntries is! Iterable) {
+    return const <({String key, String value})>[];
+  }
+  final result = <({String key, String value})>[];
+  var retainedChars = 0;
+  var inspected = 0;
+  for (final raw in rawEntries) {
+    if (inspected++ >= maxEntries * 4 || result.length >= maxEntries) break;
+    if (raw is! List || raw.length < 2 || raw[0] is! String) continue;
+    if (raw[1] != null && raw[1] is! String) continue;
+    final key = raw[0] as String;
+    if (key.length > maxKeyChars) continue;
+    final value = _boundedWebReverseText(raw[1], maxValueChars);
+    final cost = key.length + value.length;
+    if (retainedChars + cost > maxTotalChars) break;
+    retainedChars += cost;
+    result.add((key: key, value: value));
+  }
+  return List<({String key, String value})>.unmodifiable(result);
+}
+
+List<String> normalizeWebReverseIndexedDbNames(
+  Object? rawNames, {
+  int maxEntries = kWebReverseMaxIndexedDbNames,
+  int maxNameChars = kWebReverseMaxIndexedDbNameChars,
+}) => _normalizeWebReverseIdentityStrings(
+  rawNames,
+  maxEntries: maxEntries,
+  maxChars: maxNameChars,
+  allowEmpty: true,
+  trim: false,
+);
+
+List<String> normalizeWebReverseIndexedDbStoreNames(
+  Object? rawStores, {
+  int maxEntries = kWebReverseMaxIndexedDbStores,
+  int maxNameChars = kWebReverseMaxIndexedDbNameChars,
+}) {
+  if (rawStores is! Iterable) return const <String>[];
+  final names = <Object?>[];
+  var inspected = 0;
+  for (final raw in rawStores) {
+    if (inspected++ >= maxEntries * 4) break;
+    names.add(raw is Map ? raw['name'] : null);
+  }
+  return _normalizeWebReverseIdentityStrings(
+    names,
+    maxEntries: maxEntries,
+    maxChars: maxNameChars,
+    allowEmpty: true,
+    trim: false,
+  );
+}
+
+List<String> _normalizeWebReverseIdentityStrings(
+  Object? rawValues, {
+  required int maxEntries,
+  required int maxChars,
+  bool allowEmpty = false,
+  bool trim = true,
+}) {
+  _validatePositiveWebReverseLimits([maxEntries, maxChars]);
+  if (rawValues is! Iterable) return const <String>[];
+  final result = <String>[];
+  final seen = <String>{};
+  var inspected = 0;
+  for (final raw in rawValues) {
+    if (inspected++ >= maxEntries * 4 || result.length >= maxEntries) break;
+    if (raw is! String) continue;
+    final value = trim ? raw.trim() : raw;
+    if (value.length > maxChars || (!allowEmpty && value.isEmpty)) continue;
+    if (seen.add(value)) result.add(value);
+  }
+  return List<String>.unmodifiable(result);
+}
+
+Map<String, Object?>? _compactIndexedDbRemoteObject(
+  Object? raw, {
+  required int maxTextChars,
+  required bool identity,
+}) {
+  if (raw is! Map) return null;
+  if (raw['type'] is! String) return null;
+  final type = _boundedWebReverseText(raw['type'], 32);
+  if (type.isEmpty) return null;
+  final value = raw['value'];
+  if (identity && value is String && value.length > maxTextChars) return null;
+  final compact = <String, Object?>{
+    'type': type,
+    if (raw['subtype'] is String)
+      'subtype': _boundedWebReverseText(raw['subtype'], 32),
+    if (raw['className'] is String)
+      'className': _boundedWebReverseText(raw['className'], 256),
+    if (value is String)
+      'value': _boundedWebReverseText(value, maxTextChars)
+    else if (value is num || value is bool || value == null)
+      'value': value,
+    if (raw['unserializableValue'] is String)
+      'unserializableValue': _boundedWebReverseText(
+        raw['unserializableValue'],
+        512,
+      ),
+    if (raw['description'] is String)
+      'description': _boundedWebReverseText(raw['description'], maxTextChars),
+  };
+  return Map<String, Object?>.unmodifiable(compact);
+}
+
+/// Compacts IndexedDB data entries to the three RemoteObjects consumed by the
+/// UI. Protocol previews/object IDs and arbitrary nested extension fields are
+/// discarded so pagination cannot retain complete remote object graphs.
+List<Map<String, Object?>> compactWebReverseIndexedDbEntries(
+  Object? rawEntries, {
+  int maxEntries = kWebReverseMaxIndexedDbPageSize,
+  int maxTextChars = kWebReverseMaxIndexedDbRemoteTextChars,
+}) {
+  _validatePositiveWebReverseLimits([maxEntries, maxTextChars]);
+  if (rawEntries is! Iterable) return const <Map<String, Object?>>[];
+  final result = <Map<String, Object?>>[];
+  var inspected = 0;
+  for (final raw in rawEntries) {
+    if (inspected++ >= maxEntries * 4 || result.length >= maxEntries) break;
+    if (raw is! Map) continue;
+    final key = _compactIndexedDbRemoteObject(
+      raw['key'],
+      maxTextChars: maxTextChars,
+      identity: true,
+    );
+    if (key == null) continue;
+    final primaryKey = _compactIndexedDbRemoteObject(
+      raw['primaryKey'],
+      maxTextChars: maxTextChars,
+      identity: true,
+    );
+    final value = _compactIndexedDbRemoteObject(
+      raw['value'],
+      maxTextChars: maxTextChars,
+      identity: false,
+    );
+    result.add(
+      Map<String, Object?>.unmodifiable(<String, Object?>{
+        'key': key,
+        if (primaryKey != null) 'primaryKey': primaryKey,
+        if (value != null) 'value': value,
+      }),
+    );
+  }
+  return List<Map<String, Object?>>.unmodifiable(result);
 }
 
 class _SamplingStackPath {

@@ -257,14 +257,8 @@ void main() {
       snapshot.cookies,
       hasLength(WebReverseSessionController.maxAccountSnapshotCookies),
     );
-    expect(
-      snapshot.cookies.first['value'],
-      isA<String>().having(
-        (value) => value.length,
-        'length',
-        WebReverseSessionController.maxAccountSnapshotValueChars,
-      ),
-    );
+    expect(snapshot.cookies.first['name'], 'cookie-1');
+    expect(snapshot.cookies.first['value'], 'value');
     expect(snapshot.cookies.first, isNot(contains('unexpected')));
     expect(
       snapshot.localStorage.length,

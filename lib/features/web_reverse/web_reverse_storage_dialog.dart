@@ -76,7 +76,7 @@ class _StorageDialogState extends State<_StorageDialog>
     if (mounted) setState(() => _loading = true);
 
     try {
-      final resolvedOrigin = _origin ?? await widget.controller.currentOrigin();
+      final resolvedOrigin = await widget.controller.currentOrigin();
       List<Map<String, Object?>>? cookies;
       List<({String key, String value})>? local;
       List<({String key, String value})>? session;
@@ -109,7 +109,15 @@ class _StorageDialogState extends State<_StorageDialog>
 
       if (!mounted || generation != _refreshGeneration) return;
       setState(() {
+        final originChanged = _origin != resolvedOrigin;
         _origin = resolvedOrigin;
+        if (originChanged) {
+          _idbDb = null;
+          _idbStores = const [];
+          _idbStore = null;
+          _idbEntries = const [];
+          _idbHasMore = false;
+        }
         if (cookies != null) _cookies = cookies;
         if (local != null) _local = local;
         if (session != null) _session = session;
@@ -120,6 +128,7 @@ class _StorageDialogState extends State<_StorageDialog>
             _idbStores = const [];
             _idbStore = null;
             _idbEntries = const [];
+            _idbHasMore = false;
           }
         }
         _loading = false;
@@ -138,17 +147,18 @@ class _StorageDialogState extends State<_StorageDialog>
       _idbDb = db;
       _idbStore = null;
       _idbEntries = const [];
+      _idbHasMore = false;
     });
     try {
       final desc = await widget.controller.describeIndexedDb(db);
-      if (!mounted) return;
+      if (!mounted || _idbDb != db) return;
       setState(() {
         _idbStores = desc?.stores ?? const [];
         _loading = false;
       });
     } catch (error, stack) {
       silentLog('web_reverse_storage_dialog', 'select indexeddb', error, stack);
-      if (!mounted) return;
+      if (!mounted || _idbDb != db) return;
       setState(() {
         _idbStores = const [];
         _loading = false;
@@ -162,13 +172,15 @@ class _StorageDialogState extends State<_StorageDialog>
     setState(() {
       _loading = true;
       _idbStore = store;
+      _idbEntries = const [];
+      _idbHasMore = false;
     });
     try {
       final res = await widget.controller.readIndexedDbStore(
         dbName: db,
         storeName: store,
       );
-      if (!mounted) return;
+      if (!mounted || _idbDb != db || _idbStore != store) return;
       setState(() {
         _idbEntries = res?.entries ?? const [];
         _idbHasMore = res?.hasMore ?? false;
@@ -181,7 +193,7 @@ class _StorageDialogState extends State<_StorageDialog>
         error,
         stack,
       );
-      if (!mounted) return;
+      if (!mounted || _idbDb != db || _idbStore != store) return;
       setState(() {
         _idbEntries = const [];
         _idbHasMore = false;
@@ -225,8 +237,10 @@ class _StorageDialogState extends State<_StorageDialog>
               children: [
                 TextField(
                   controller: nameCtl,
+                  maxLength: WebReverseSessionController.maxCookieNameChars,
                   decoration: const InputDecoration(
                     labelText: 'name',
+                    counterText: '',
                     border: OutlineInputBorder(),
                     isDense: true,
                   ),
@@ -234,8 +248,10 @@ class _StorageDialogState extends State<_StorageDialog>
                 const SizedBox(height: 8),
                 TextField(
                   controller: valueCtl,
+                  maxLength: WebReverseSessionController.maxCookieValueChars,
                   decoration: const InputDecoration(
                     labelText: 'value',
+                    counterText: '',
                     border: OutlineInputBorder(),
                     isDense: true,
                   ),
@@ -243,8 +259,10 @@ class _StorageDialogState extends State<_StorageDialog>
                 const SizedBox(height: 8),
                 TextField(
                   controller: domainCtl,
+                  maxLength: WebReverseSessionController.maxCookieDomainChars,
                   decoration: const InputDecoration(
                     labelText: 'domain (optional)',
+                    counterText: '',
                     border: OutlineInputBorder(),
                     isDense: true,
                   ),
@@ -252,8 +270,10 @@ class _StorageDialogState extends State<_StorageDialog>
                 const SizedBox(height: 8),
                 TextField(
                   controller: pathCtl,
+                  maxLength: WebReverseSessionController.maxCookiePathChars,
                   decoration: const InputDecoration(
                     labelText: 'path',
+                    counterText: '',
                     border: OutlineInputBorder(),
                     isDense: true,
                   ),
@@ -339,8 +359,10 @@ class _StorageDialogState extends State<_StorageDialog>
               TextField(
                 controller: keyCtl,
                 enabled: key0 == null,
+                maxLength: WebReverseSessionController.maxStorageKeyChars,
                 decoration: const InputDecoration(
                   labelText: 'key',
+                  counterText: '',
                   border: OutlineInputBorder(),
                   isDense: true,
                 ),
@@ -349,8 +371,10 @@ class _StorageDialogState extends State<_StorageDialog>
               TextField(
                 controller: valueCtl,
                 maxLines: 6,
+                maxLength: WebReverseSessionController.maxStorageValueChars,
                 decoration: const InputDecoration(
                   labelText: 'value',
+                  counterText: '',
                   border: OutlineInputBorder(),
                 ),
               ),
@@ -433,14 +457,21 @@ class _StorageDialogState extends State<_StorageDialog>
                               color: cs.error,
                             ),
                             tooltip: loc?.webReverseStorageDelete ?? 'Delete',
-                            onPressed: () async {
-                              await widget.controller.deleteCookie(
-                                name: '${c['name']}',
-                                domain: c['domain'] as String?,
-                                path: c['path'] as String?,
-                              );
-                              await _refreshActive();
-                            },
+                            onPressed: c['partitionKeyOpaque'] == true
+                                ? null
+                                : () async {
+                                    await widget.controller.deleteCookie(
+                                      name: '${c['name']}',
+                                      domain: c['domain'] as String?,
+                                      path: c['path'] as String?,
+                                      partitionKey: c['partitionKey'] is Map
+                                          ? stringKeyedMapFromValue(
+                                              c['partitionKey'],
+                                            )
+                                          : null,
+                                    );
+                                    await _refreshActive();
+                                  },
                           ),
                         ],
                       ),

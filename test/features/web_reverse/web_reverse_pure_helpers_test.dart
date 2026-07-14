@@ -129,6 +129,90 @@ void main() {
     expect(restoreUrls, ['https://example.com/', 'https://example.com/']);
   });
 
+  test('application data compaction bounds cookies and DOM storage', () {
+    final cookies = compactWebReverseCookies(
+      <Object?>[
+        <String, Object?>{
+          'name': 'session',
+          'value': 'v' * 32,
+          'domain': 'example.com',
+          'path': '/',
+          'secure': true,
+          'partitionKey': <String, Object?>{
+            'topLevelSite': 'https://top.example',
+            'hasCrossSiteAncestor': true,
+            'unexpected': 'discarded',
+          },
+          'unexpected': 'discarded',
+        },
+        <String, Object?>{'name': 'x' * 20, 'value': 'ignored'},
+      ],
+      maxValueChars: 8,
+      maxNameChars: 12,
+      maxTotalChars: 64,
+    );
+    final storage = normalizeWebReverseDomStorageEntries(
+      <Object?>[
+        <Object?>['key', 'v' * 20],
+        <Object?>['k' * 20, 'ignored'],
+        <Object?>['second', 'value'],
+      ],
+      maxKeyChars: 8,
+      maxValueChars: 8,
+      maxTotalChars: 32,
+    );
+
+    expect(cookies, hasLength(1));
+    expect(cookies.single['value'], 'v' * 8);
+    expect(cookies.single, isNot(contains('unexpected')));
+    expect(cookies.single['partitionKey'], <String, Object?>{
+      'topLevelSite': 'https://top.example',
+      'hasCrossSiteAncestor': true,
+    });
+    expect(storage, hasLength(2));
+    expect(storage.first.value, 'v' * 8);
+    expect(storage.last.key, 'second');
+  });
+
+  test('indexedDB compaction bounds names, remote objects and page size', () {
+    final names = normalizeWebReverseIndexedDbNames(
+      <Object?>[' db-a ', ' db-a ', 'n' * 20, 'db-b'],
+      maxEntries: 2,
+      maxNameChars: 8,
+    );
+    final stores = normalizeWebReverseIndexedDbStoreNames(<Object?>[
+      <String, Object?>{'name': 'store-a'},
+      <String, Object?>{'name': 'store-b'},
+    ], maxEntries: 1);
+    final entries = compactWebReverseIndexedDbEntries(
+      <Object?>[
+        <String, Object?>{
+          'key': <String, Object?>{
+            'type': 'string',
+            'value': 'key',
+            'objectId': 'discarded',
+          },
+          'value': <String, Object?>{
+            'type': 'object',
+            'description': 'd' * 20,
+            'preview': <String, Object?>{'overflow': true},
+          },
+        },
+        <String, Object?>{
+          'key': <String, Object?>{'type': 'string', 'value': 'k' * 100},
+        },
+      ],
+      maxEntries: 2,
+      maxTextChars: 8,
+    );
+
+    expect(names, [' db-a ', 'db-b']);
+    expect(stores, ['store-a']);
+    expect(entries, hasLength(1));
+    expect(entries.single['key'], isA<Map<String, Object?>>());
+    expect(entries.single['value'], isNot(contains('preview')));
+  });
+
   test(
     'sampling profile summary aggregates functions and preserves top stack',
     () {
