@@ -2404,7 +2404,15 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
   final Map<int, _RtcSeries> _series = <int, _RtcSeries>{};
   final List<Map<String, Object?>> _events = <Map<String, Object?>>[];
   static const int _maxEvents = 200;
+  static const int _maxConnections = kWebReverseMaxWebRtcConnections;
+  static const int _maxIceEntriesPerConnection = 200;
+  static const int _maxSdpChars = 128 * 1024;
+  static const int _maxSdpTotalChars = 2 * 1024 * 1024;
+  final List<int> _connectionOrder = <int>[];
+  int _sdpChars = 0;
   bool _disposed = false;
+  bool _pollInFlight = false;
+  String? _targetId;
   int _selected = 0;
   // 0 = 图表，1 = ICE 拓扑，2 = SDP Diff，3 = 事件流。
   int _tab = 0;
@@ -2436,16 +2444,46 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
   }
 
   Future<void> _poll() async {
-    final entries = await widget.controller.readWebRtcLog();
-    if (_disposed || !mounted || entries.isEmpty) {
-      if (mounted) setState(() {});
+    if (_pollInFlight || _disposed) return;
+    _pollInFlight = true;
+    try {
+      await _pollOnce();
+    } finally {
+      _pollInFlight = false;
+    }
+  }
+
+  Future<void> _pollOnce() async {
+    final controller = widget.controller;
+    final targetId = controller.currentPageTargetId;
+    if (targetId == null) return;
+    final targetChanged = _targetId != targetId;
+    if (targetChanged) {
+      if (!mounted) return;
+      setState(() {
+        _targetId = targetId;
+        _selected = 0;
+        _connectionOrder.clear();
+        _series.clear();
+        _events.clear();
+        _iceLog.clear();
+        _sdps.clear();
+        _sdpChars = 0;
+      });
+    }
+    if (targetChanged && !await controller.installWebRtcCapture()) return;
+    final entries = await controller.readWebRtcLog();
+    if (_disposed || !mounted || controller.currentPageTargetId != targetId) {
       return;
     }
+    if (!targetChanged && entries.isEmpty) return;
     setState(() {
       for (final e in entries) {
         final kind = '${e['kind'] ?? ''}';
         if (kind == 'stats') {
           final id = nonNegativeIntFromValue(e['id'], fallback: 0);
+          if (id <= 0) continue;
+          _retainConnection(id);
           final s = _series.putIfAbsent(id, () => _RtcSeries());
           s.push(
             bytesSent: optionalNonNegativeDoubleFromValue(e['bytesSent']) ?? 0,
@@ -2465,28 +2503,27 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
           // 流 tab 用。
           final id = nonNegativeIntFromValue(e['id'], fallback: 0);
           if (id > 0) {
+            _retainConnection(id);
             if (kind == 'icecandidate' ||
                 kind == 'pc.create' ||
                 kind == 'track' ||
                 kind == 'datachannel' ||
                 kind == 'connectionstatechange' ||
                 kind == 'iceconnectionstatechange') {
-              _iceLog
-                  .putIfAbsent(id, () => <_IceEntry>[])
-                  .add(_IceEntry(kind: kind, payload: e));
+              final iceEntries = _iceLog.putIfAbsent(id, () => <_IceEntry>[]);
+              iceEntries.add(_IceEntry(kind: kind, payload: e));
+              if (iceEntries.length > _maxIceEntriesPerConnection) {
+                iceEntries.removeRange(
+                  0,
+                  iceEntries.length - _maxIceEntriesPerConnection,
+                );
+              }
             }
             if (kind == 'setLocalDescription:result' ||
                 kind == 'setRemoteDescription:result') {
               final sdp = e['sdp'] is String ? e['sdp'] as String : '';
               final type = '${e['type'] ?? ''}';
-              final pair = _sdps.putIfAbsent(id, () => _SdpPair());
-              if (kind == 'setLocalDescription:result') {
-                pair.prevLocal = pair.local;
-                pair.local = _SdpVersion(type: type, sdp: sdp);
-              } else {
-                pair.prevRemote = pair.remote;
-                pair.remote = _SdpVersion(type: type, sdp: sdp);
-              }
+              _updateSdp(id: id, kind: kind, type: type, sdp: sdp);
             }
           }
           _events.add(e);
@@ -2496,6 +2533,56 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
         }
       }
     });
+  }
+
+  void _retainConnection(int id) {
+    _connectionOrder.remove(id);
+    _connectionOrder.add(id);
+    while (_connectionOrder.length > _maxConnections) {
+      final removed = _connectionOrder.removeAt(0);
+      _series.remove(removed);
+      _iceLog.remove(removed);
+      final pair = _sdps.remove(removed);
+      if (pair != null) _sdpChars -= _sdpPairChars(pair);
+      if (_selected == removed) _selected = 0;
+    }
+  }
+
+  void _updateSdp({
+    required int id,
+    required String kind,
+    required String type,
+    required String sdp,
+  }) {
+    final pair = _sdps.putIfAbsent(id, () => _SdpPair());
+    _sdpChars -= _sdpPairChars(pair);
+    final version = _SdpVersion(
+      type: clipText(type, 32, suffix: ''),
+      sdp: clipText(sdp, _maxSdpChars, suffix: ''),
+    );
+    if (kind == 'setLocalDescription:result') {
+      pair.prevLocal = pair.local;
+      pair.local = version;
+    } else {
+      pair.prevRemote = pair.remote;
+      pair.remote = version;
+    }
+    _sdpChars += _sdpPairChars(pair);
+    while (_sdpChars > _maxSdpTotalChars && _sdps.isNotEmpty) {
+      final evictId = _connectionOrder.firstWhere(
+        _sdps.containsKey,
+        orElse: () => _sdps.keys.first,
+      );
+      final evicted = _sdps.remove(evictId);
+      if (evicted != null) _sdpChars -= _sdpPairChars(evicted);
+    }
+  }
+
+  int _sdpPairChars(_SdpPair pair) {
+    return (pair.local?.sdp.length ?? 0) +
+        (pair.prevLocal?.sdp.length ?? 0) +
+        (pair.remote?.sdp.length ?? 0) +
+        (pair.prevRemote?.sdp.length ?? 0);
   }
 
   /// 把当前 _series 的全部 PC 拼成 CSV 并交给 file_selector 落盘。
@@ -3039,7 +3126,7 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
       case 'pc.create':
         return 'pc.create · cfg=${jsonEncode(p['config'])}';
       case 'track':
-        return 'track · ${p['kind']} state=${p['readyState']} '
+        return 'track · ${p['trackKind']} state=${p['readyState']} '
             'streams=${p['streamIds']}';
       case 'datachannel':
         return 'datachannel · label=${p['label']} ordered=${p['ordered']}';

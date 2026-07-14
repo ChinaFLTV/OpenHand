@@ -2676,22 +2676,48 @@ class _ScopeSectionState extends State<_ScopeSection> {
   bool _expanded = false;
   bool _loading = false;
   List<Map<String, Object?>>? _props;
+  int _loadSerial = 0;
+
+  @override
+  void didUpdateWidget(covariant _ScopeSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final oldObjectId = (oldWidget.scope['object'] as Map?)?['objectId'];
+    final objectId = (widget.scope['object'] as Map?)?['objectId'];
+    if (!identical(oldWidget.controller, widget.controller) ||
+        oldObjectId != objectId) {
+      _loadSerial++;
+      _expanded = false;
+      _loading = false;
+      _props = null;
+    }
+  }
 
   Future<void> _toggle() async {
     if (_expanded) {
-      setState(() => _expanded = false);
+      _loadSerial++;
+      setState(() {
+        _expanded = false;
+        _loading = false;
+      });
       return;
     }
     setState(() => _expanded = true);
     if (_props != null) return;
     final obj = widget.scope['object'] as Map?;
     final objectId = obj?['objectId'] as String?;
-    if (objectId == null) return;
+    if (objectId == null || objectId.isEmpty) {
+      setState(() => _loading = false);
+      return;
+    }
+    final serial = ++_loadSerial;
+    final scope = widget.scope;
     setState(() => _loading = true);
     final list = await widget.controller.runtimeGetProperties(
       objectId: objectId,
     );
-    if (!mounted) return;
+    if (!mounted || serial != _loadSerial || !identical(widget.scope, scope)) {
+      return;
+    }
     setState(() {
       _loading = false;
       _props = list;

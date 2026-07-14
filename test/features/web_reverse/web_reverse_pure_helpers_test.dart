@@ -264,4 +264,113 @@ void main() {
       throwsArgumentError,
     );
   });
+
+  test('DOM compaction bounds depth, children and arbitrary fields', () {
+    final raw = <String, Object?>{
+      'nodeId': 1,
+      'nodeName': 'DIV',
+      'nodeValue': 'x' * 100,
+      'attributes': <Object?>['id', 'a', 'class', 'b', 'ignored', 'c'],
+      'unused': <Object?>[for (var i = 0; i < 100; i++) i],
+      'children': <Object?>[
+        <String, Object?>{
+          'nodeId': 2,
+          'nodeName': 'SPAN',
+          'children': <Object?>[
+            <String, Object?>{'nodeId': 3, 'nodeName': 'B'},
+          ],
+        },
+      ],
+    };
+    final compact = compactWebReverseDomNode(
+      raw,
+      maxDepth: 1,
+      maxNodes: 2,
+      maxFieldChars: 8,
+      maxAttributes: 4,
+    );
+    expect(compact, isNotNull);
+    expect(compact!['nodeValue'], 'xxxxxxxx');
+    expect(compact['unused'], isNull);
+    expect((compact['children'] as List).length, 1);
+    expect((compact['children']!.first as Map)['children'], isNull);
+    expect(compactWebReverseDomNode(raw, maxDepth: 0)!['children'], isNull);
+  });
+
+  test('performance, style, listener and runtime records stay compact', () {
+    final metrics = normalizeWebReversePerformanceMetrics(<Object?>[
+      <String, Object?>{'name': 'Task', 'value': 1},
+      <String, Object?>{'name': 'Task', 'value': 2},
+      <String, Object?>{'name': 'bad', 'value': double.nan},
+    ]);
+    expect(metrics, [("Task", 2.0)]);
+
+    final styles = compactWebReverseComputedStyles(<Object?>[
+      <String, Object?>{'name': 'color', 'value': 'red'},
+      <String, Object?>{'name': 'color', 'value': 'blue'},
+    ]);
+    expect(styles, [
+      <String, String>{'name': 'color', 'value': 'red'},
+    ]);
+
+    final listeners = compactWebReverseDomEventListeners(<Object?>[
+      <String, Object?>{
+        'type': 'click',
+        'useCapture': true,
+        'handler': <String, Object?>{
+          'type': 'function',
+          'description': 'fn',
+          'preview': 'discarded',
+        },
+      },
+    ]);
+    expect(listeners.single['type'], 'click');
+    expect((listeners.single['handler'] as Map)['description'], 'fn');
+    expect((listeners.single['handler'] as Map)['preview'], isNull);
+
+    final properties = compactWebReverseRuntimeProperties(<Object?>[
+      <String, Object?>{
+        'name': 'value',
+        'value': <String, Object?>{
+          'type': 'string',
+          'value': 'ok',
+          'preview': <String, Object?>{'overflow': true},
+        },
+      },
+    ]);
+    expect((properties.single['value'] as Map)['value'], 'ok');
+    expect((properties.single['value'] as Map)['preview'], isNull);
+  });
+
+  test('long task and WebRTC drains are bounded and typed', () {
+    final tasks = compactWebReverseLongTasks(<Object?>[
+      <String, Object?>{
+        'start': 1,
+        'duration': 20,
+        'attribution': <String, Object?>{
+          'containerName': 'widget',
+          'unused': 'discarded',
+        },
+      },
+    ]);
+    expect(tasks.single['startTime'], 1.0);
+    expect(tasks.single['duration'], 20.0);
+    expect((tasks.single['attribution'] as Map)['unused'], isNull);
+
+    final events = compactWebReverseWebRtcLog(<Object?>[
+      <String, Object?>{
+        'kind': 'track',
+        'id': 1,
+        'trackKind': 'video',
+        'sdp': 's' * 100000,
+        'huge': 'discarded',
+      },
+      <String, Object?>{'kind': 'stats', 'id': 1, 'bytesSent': 2},
+    ], maxEventChars: 4096);
+    expect(events, hasLength(2));
+    expect(events.first['kind'], 'track');
+    expect((events.first['sdp'] as String).length, lessThan(4096));
+    expect(events.first['huge'], isNull);
+    expect(normalizeWebReverseWebRtcConnections([1, 1, 0, -1, 2]), [1, 2]);
+  });
 }

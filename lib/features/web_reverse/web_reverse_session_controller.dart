@@ -695,6 +695,9 @@ class WebReverseSessionController extends ChangeNotifier {
     }
     // 新 page 上 finder 还没注入；切完 target 第一次 findInPage 会按需注入。
     _finderInstalled = false;
+    _performanceEnabled = false;
+    _cssEnabled = false;
+    _fpsCounterInstalled = false;
     _longTaskObserverInstalled = false;
     _rtcInstalled = false;
     _zoomScriptId = null;
@@ -1008,27 +1011,32 @@ class WebReverseSessionController extends ChangeNotifier {
 
   // ── Performance / Memory / Application / Security / Recorder API ─────
 
+  bool _performanceEnabled = false;
+
   /// 拉取 `Performance.getMetrics`：返回每个指标 (name, value)。失败返回空。
   Future<List<(String, double)>> performanceMetrics() async {
     final cdp = _browserCdp;
-    if (cdp == null || _pageSessionId == null) return const [];
+    final sessionId = _pageSessionId;
+    if (cdp == null || sessionId == null) return const [];
     try {
-      await cdp.send('Performance.enable', sessionId: _pageSessionId);
+      if (!_performanceEnabled) {
+        await cdp.send(
+          'Performance.enable',
+          sessionId: sessionId,
+          timeout: const Duration(seconds: 4),
+        );
+        if (_pageSessionId != sessionId) return const [];
+        _performanceEnabled = true;
+      }
       final r = await cdp.send(
         'Performance.getMetrics',
-        sessionId: _pageSessionId,
+        sessionId: sessionId,
+        timeout: const Duration(seconds: 6),
       );
-      final metrics = r['metrics'] as List?;
-      if (metrics == null) return const [];
-      return metrics
-          .whereType<Map>()
-          .map((m) {
-            final n = '${m['name'] ?? ''}';
-            final v = doubleFromValue(m['value'], fallback: 0);
-            return (n, v);
-          })
-          .toList(growable: false);
+      if (_pageSessionId != sessionId) return const [];
+      return normalizeWebReversePerformanceMetrics(r['metrics']);
     } catch (error, stack) {
+      _performanceEnabled = false;
       silentLog(
         'web_reverse_session_controller',
         'performanceMetrics',
@@ -3585,22 +3593,27 @@ class WebReverseSessionController extends ChangeNotifier {
 
   // ─── DOM Inspector (Elements 面板) ───────────────────────────────────
   // 直接走 CDP `DOM.*` / `CSS.*` / `DOMDebugger.*` 协议；所有方法返回
-  // 解码后的原始 JSON（Map / List），上层 UI 自己拼树。无副作用，不持
-  // 久化。失败统一返回 null / 空集合并写一行 console error 便于排查。
+  // 经边界裁剪的 Map / List，上层 UI 自己拼树。无副作用，不持久化。
+  // 失败统一返回 null / 空集合并写一行 console error 便于排查。
 
-  /// `DOM.getDocument` — 拿到当前页面 root node（一次性 depth 控制深度，
-  /// -1 表示完整树，但对大页面会卡，默认 2 层；UI 用 lazy expand 补深度）。
+  bool _cssEnabled = false;
+
+  /// `DOM.getDocument` — 拿到当前页面 root node。深度限制为 0..4，默认
+  /// 2 层；UI 用 lazy expand 补深度，避免一次保留完整的大型 DOM 树。
   Future<Map<String, dynamic>?> domGetDocument({int depth = 2}) async {
     final cdp = _browserCdp;
-    if (cdp == null || _pageSessionId == null) return null;
+    final sessionId = _pageSessionId;
+    if (cdp == null || sessionId == null) return null;
     try {
+      final safeDepth = depth.clamp(0, kWebReverseMaxDomDepth);
       final r = await cdp.send(
         'DOM.getDocument',
-        params: <String, Object?>{'depth': depth, 'pierce': false},
-        sessionId: _pageSessionId,
+        params: <String, Object?>{'depth': safeDepth, 'pierce': false},
+        sessionId: sessionId,
       );
+      if (_pageSessionId != sessionId) return null;
       final root = r['root'];
-      return root is Map<String, dynamic> ? root : null;
+      return compactWebReverseDomNode(root, maxDepth: safeDepth);
     } catch (e, st) {
       silentLog('web_reverse_session_controller', 'domGetDocument', e, st);
       return null;
@@ -3613,16 +3626,19 @@ class WebReverseSessionController extends ChangeNotifier {
     int depth = 1,
   }) async {
     final cdp = _browserCdp;
-    if (cdp == null || _pageSessionId == null) return null;
+    final sessionId = _pageSessionId;
+    if (cdp == null || sessionId == null || nodeId <= 0) return null;
     try {
+      final safeDepth = depth.clamp(0, 2);
       final r = await cdp.send(
         'DOM.describeNode',
-        params: <String, Object?>{'nodeId': nodeId, 'depth': depth},
-        sessionId: _pageSessionId,
+        params: <String, Object?>{'nodeId': nodeId, 'depth': safeDepth},
+        sessionId: sessionId,
         timeout: const Duration(seconds: 6),
       );
+      if (_pageSessionId != sessionId) return null;
       final node = r['node'];
-      return node is Map<String, dynamic> ? node : null;
+      return compactWebReverseDomNode(node, maxDepth: safeDepth);
     } catch (e, st) {
       silentLog('web_reverse_session_controller', 'domDescribeNode', e, st);
       return null;
@@ -3633,28 +3649,28 @@ class WebReverseSessionController extends ChangeNotifier {
   /// CSS domain；首次调用会自动 enable）。
   Future<List<Map<String, String>>> domGetComputedStyle(int nodeId) async {
     final cdp = _browserCdp;
-    if (cdp == null || _pageSessionId == null) return const [];
+    final sessionId = _pageSessionId;
+    if (cdp == null || sessionId == null || nodeId <= 0) return const [];
     try {
-      await cdp.send(
-        'CSS.enable',
-        sessionId: _pageSessionId,
-        timeout: const Duration(seconds: 3),
-      );
+      if (!_cssEnabled) {
+        await cdp.send(
+          'CSS.enable',
+          sessionId: sessionId,
+          timeout: const Duration(seconds: 3),
+        );
+        if (_pageSessionId != sessionId) return const [];
+        _cssEnabled = true;
+      }
       final r = await cdp.send(
         'CSS.getComputedStyleForNode',
         params: <String, Object?>{'nodeId': nodeId},
-        sessionId: _pageSessionId,
+        sessionId: sessionId,
         timeout: const Duration(seconds: 6),
       );
-      final list = r['computedStyle'];
-      if (list is! List) return const [];
-      return stringKeyedMapListFromValue(list).map((e) {
-        return <String, String>{
-          'name': '${e['name']}',
-          'value': '${e['value']}',
-        };
-      }).toList();
+      if (_pageSessionId != sessionId) return const [];
+      return compactWebReverseComputedStyles(r['computedStyle']);
     } catch (e, st) {
+      _cssEnabled = false;
       silentLog('web_reverse_session_controller', 'domGetComputedStyle', e, st);
       return const [];
     }
@@ -3665,27 +3681,34 @@ class WebReverseSessionController extends ChangeNotifier {
   /// once,scriptId,lineNumber,columnNumber,handler:{description}}] 列表。
   Future<List<Map<String, dynamic>>> domGetEventListeners(int nodeId) async {
     final cdp = _browserCdp;
-    if (cdp == null || _pageSessionId == null) return const [];
+    final sessionId = _pageSessionId;
+    if (cdp == null || sessionId == null || nodeId <= 0) return const [];
+    String? objectId;
     try {
       final resolved = await cdp.send(
         'DOM.resolveNode',
         params: <String, Object?>{'nodeId': nodeId},
-        sessionId: _pageSessionId,
+        sessionId: sessionId,
         timeout: const Duration(seconds: 5),
       );
+      if (_pageSessionId != sessionId) return const [];
       final obj = resolved['object'];
       if (obj is! Map) return const [];
-      final objectId = obj['objectId'];
-      if (objectId is! String) return const [];
+      final rawObjectId = obj['objectId'];
+      if (rawObjectId is! String ||
+          rawObjectId.isEmpty ||
+          rawObjectId.length > 1024) {
+        return const [];
+      }
+      objectId = rawObjectId;
       final r = await cdp.send(
         'DOMDebugger.getEventListeners',
         params: <String, Object?>{'objectId': objectId, 'depth': 1},
-        sessionId: _pageSessionId,
+        sessionId: sessionId,
         timeout: const Duration(seconds: 6),
       );
-      final list = r['listeners'];
-      if (list is! List) return const [];
-      return list.whereType<Map<String, dynamic>>().toList();
+      if (_pageSessionId != sessionId) return const [];
+      return compactWebReverseDomEventListeners(r['listeners']);
     } catch (e, st) {
       silentLog(
         'web_reverse_session_controller',
@@ -3694,6 +3717,24 @@ class WebReverseSessionController extends ChangeNotifier {
         st,
       );
       return const [];
+    } finally {
+      if (objectId != null && _pageSessionId == sessionId) {
+        try {
+          await cdp.send(
+            'Runtime.releaseObject',
+            params: <String, Object?>{'objectId': objectId},
+            sessionId: sessionId,
+            timeout: const Duration(seconds: 3),
+          );
+        } catch (error, stack) {
+          silentLog(
+            'web_reverse_session_controller',
+            'release DOM listener object',
+            error,
+            stack,
+          );
+        }
+      }
     }
   }
 
@@ -3965,9 +4006,27 @@ class WebReverseSessionController extends ChangeNotifier {
         timeout: timeout,
       );
       _syncRawCdpNetworkState(trimmedMethod, params);
+      if (useSession) _syncRawCdpDomainState(trimmedMethod);
       return result;
     } catch (error) {
       return <String, Object?>{'error': '$error'};
+    }
+  }
+
+  void _syncRawCdpDomainState(String method) {
+    switch (method) {
+      case 'CSS.enable':
+        _cssEnabled = true;
+        break;
+      case 'CSS.disable':
+        _cssEnabled = false;
+        break;
+      case 'Performance.enable':
+        _performanceEnabled = true;
+        break;
+      case 'Performance.disable':
+        _performanceEnabled = false;
+        break;
     }
   }
 
@@ -4317,9 +4376,13 @@ class WebReverseSessionController extends ChangeNotifier {
 
   /// 安装一个轻量 FPS 计数器到 page：基于 requestAnimationFrame 的滚动计数。
   /// 之后通过 [readFps] 拉取最近 1 秒的 FPS 值。
-  Future<void> installFpsCounter() async {
+  bool _fpsCounterInstalled = false;
+
+  Future<bool> installFpsCounter() async {
     final cdp = _browserCdp;
-    if (cdp == null || _pageSessionId == null) return;
+    final sessionId = _pageSessionId;
+    if (cdp == null || sessionId == null) return false;
+    if (_fpsCounterInstalled) return true;
     const js = r'''
 (() => {
   if (window.__oh_fps_installed) return;
@@ -4343,10 +4406,20 @@ class WebReverseSessionController extends ChangeNotifier {
 ''';
     try {
       await cdp.send(
+        'Page.addScriptToEvaluateOnNewDocument',
+        params: const <String, Object?>{'source': js},
+        sessionId: sessionId,
+        timeout: const Duration(seconds: 5),
+      );
+      await cdp.send(
         'Runtime.evaluate',
         params: const <String, Object?>{'expression': js},
-        sessionId: _pageSessionId,
+        sessionId: sessionId,
+        timeout: const Duration(seconds: 5),
       );
+      if (_pageSessionId != sessionId) return false;
+      _fpsCounterInstalled = true;
+      return true;
     } catch (error, stack) {
       silentLog(
         'web_reverse_session_controller',
@@ -4354,6 +4427,7 @@ class WebReverseSessionController extends ChangeNotifier {
         error,
         stack,
       );
+      return false;
     }
   }
 
@@ -4362,10 +4436,11 @@ class WebReverseSessionController extends ChangeNotifier {
   /// 之后 [readLongTasks] 拉取并清空。
   bool _longTaskObserverInstalled = false;
 
-  Future<void> installLongTaskObserver() async {
+  Future<bool> installLongTaskObserver() async {
     final cdp = _browserCdp;
-    if (cdp == null || _pageSessionId == null) return;
-    if (_longTaskObserverInstalled) return;
+    final sessionId = _pageSessionId;
+    if (cdp == null || sessionId == null) return false;
+    if (_longTaskObserverInstalled) return true;
     const js = r'''
 (() => {
   if (window.__oh_longtask_installed) return;
@@ -4377,7 +4452,7 @@ class WebReverseSessionController extends ChangeNotifier {
         const attrib = (entry.attribution && entry.attribution[0]) || null;
         window.__oh_long_tasks.push({
           name: entry.name,
-          start: entry.startTime,
+          startTime: entry.startTime,
           duration: entry.duration,
           ts: Date.now(),
           attribution: attrib ? {
@@ -4402,14 +4477,18 @@ class WebReverseSessionController extends ChangeNotifier {
       await cdp.send(
         'Page.addScriptToEvaluateOnNewDocument',
         params: <String, Object?>{'source': js},
-        sessionId: _pageSessionId,
+        sessionId: sessionId,
+        timeout: const Duration(seconds: 5),
       );
       await cdp.send(
         'Runtime.evaluate',
         params: const <String, Object?>{'expression': js},
-        sessionId: _pageSessionId,
+        sessionId: sessionId,
+        timeout: const Duration(seconds: 5),
       );
+      if (_pageSessionId != sessionId) return false;
       _longTaskObserverInstalled = true;
+      return true;
     } catch (error, stack) {
       silentLog(
         'web_reverse_session_controller',
@@ -4417,13 +4496,15 @@ class WebReverseSessionController extends ChangeNotifier {
         error,
         stack,
       );
+      return false;
     }
   }
 
   /// 拉取 long task 列表并 drain。failure 时返回空列表。
   Future<List<Map<String, Object?>>> readLongTasks() async {
     final cdp = _browserCdp;
-    if (cdp == null || _pageSessionId == null) return const [];
+    final sessionId = _pageSessionId;
+    if (cdp == null || sessionId == null) return const [];
     try {
       final r = await cdp.send(
         'Runtime.evaluate',
@@ -4432,13 +4513,15 @@ class WebReverseSessionController extends ChangeNotifier {
               '(()=>{const a=window.__oh_long_tasks||[];window.__oh_long_tasks=[];return JSON.stringify(a);})()',
           'returnByValue': true,
         },
-        sessionId: _pageSessionId,
+        sessionId: sessionId,
+        timeout: const Duration(seconds: 5),
       );
+      if (_pageSessionId != sessionId) return const [];
       final raw = cdpStringResultValue(r);
       if (raw == null || raw.isEmpty) return const [];
       final decoded = jsonDecode(raw);
       if (decoded is! List) return const [];
-      return stringKeyedMapListFromValue(decoded);
+      return compactWebReverseLongTasks(decoded);
     } catch (error, stack) {
       silentLog(
         'web_reverse_session_controller',
@@ -4457,16 +4540,42 @@ class WebReverseSessionController extends ChangeNotifier {
   bool _rtcInstalled = false;
   Future<bool> installWebRtcCapture() async {
     final cdp = _browserCdp;
-    if (cdp == null || _pageSessionId == null) return false;
+    final sessionId = _pageSessionId;
+    if (cdp == null || sessionId == null) return false;
     if (_rtcInstalled) return true;
     const js = r'''
 (() => {
   if (window.__oh_rtc_installed) return;
   window.__oh_rtc_installed = true;
+  const sanitize = (value, depth = 0, seen = new WeakSet()) => {
+    if (value == null || typeof value === 'boolean') return value;
+    if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+    if (typeof value === 'string') return value.slice(0, 131072);
+    if (typeof value !== 'object') return String(value).slice(0, 4096);
+    if (depth >= 4) return '[Max depth]';
+    if (seen.has(value)) return '[Circular]';
+    seen.add(value);
+    try {
+      if (Array.isArray(value)) {
+        return value.slice(0, 64).map(v => sanitize(v, depth + 1, seen));
+      }
+      const out = {};
+      for (const key of Object.keys(value).slice(0, 64)) {
+        try { out[key.slice(0, 256)] = sanitize(value[key], depth + 1, seen); }
+        catch (_) { out[key.slice(0, 256)] = '[Unreadable]'; }
+      }
+      return out;
+    } finally {
+      seen.delete(value);
+    }
+  };
   const log = (kind, payload) => {
     try {
       const buf = window.__oh_rtc_log = window.__oh_rtc_log || [];
-      buf.push({ kind, ts: Date.now(), ...payload });
+      // Keep the event discriminator authoritative.  Track events use
+      // `trackKind` for the media kind so a payload cannot overwrite `kind`.
+      const clean = sanitize(payload);
+      buf.push({ ...(clean || {}), kind, ts: Date.now() });
       if (buf.length > 800) buf.splice(0, buf.length - 800);
     } catch (_) {}
   };
@@ -4479,16 +4588,42 @@ class WebReverseSessionController extends ChangeNotifier {
     const pc = new Orig(...args);
     const id = nextId++;
     reg.set(id, pc);
+    if (reg.size > 128) reg.delete(reg.keys().next().value);
     log('pc.create', { id, config: args[0] || null });
+    const serializeArg = (value) => {
+      try {
+        return value && typeof value.toJSON === 'function'
+          ? value.toJSON()
+          : value;
+      } catch (_) {
+        return String(value);
+      }
+    };
     const wrap = (name) => {
       const m = pc[name];
       if (typeof m !== 'function') return;
       pc[name] = async function(...a) {
-        log(name + ':call', { id, args: a.map(x => (x && x.toJSON) ? x.toJSON() : x) });
+        log(name + ':call', {
+          id,
+          args: a.map(serializeArg),
+        });
         try {
           const r = await m.apply(pc, a);
           if (r && (r.sdp || r.type)) {
             log(name + ':result', { id, sdp: r.sdp, type: r.type });
+          }
+          if (name === 'setLocalDescription' || name === 'setRemoteDescription') {
+            const description = a[0] || r ||
+              (name === 'setLocalDescription'
+                ? pc.localDescription
+                : pc.remoteDescription);
+            if (description && (description.sdp || description.type)) {
+              log(name + ':result', {
+                id,
+                sdp: description.sdp || '',
+                type: description.type || '',
+              });
+            }
           }
           return r;
         } catch (e) {
@@ -4511,7 +4646,7 @@ class WebReverseSessionController extends ChangeNotifier {
     pc.addEventListener('track', (ev) => {
       log('track', {
         id,
-        kind: ev.track.kind,
+        trackKind: ev.track.kind,
         readyState: ev.track.readyState,
         muted: ev.track.muted,
         streamIds: (ev.streams || []).map(s => s.id),
@@ -4543,27 +4678,34 @@ class WebReverseSessionController extends ChangeNotifier {
   // outbound-rtp / inbound-rtp 的 bytesSent/bytesReceived/packetsLost,
   // remote-candidate-pair 的 currentRoundTripTime。
   if (!window.__oh_rtc_stats_timer) {
+    let statsBusy = false;
     window.__oh_rtc_stats_timer = setInterval(async () => {
-      for (const [id, pc] of reg) {
-        try {
-          if (!pc || pc.connectionState === 'closed') { reg.delete(id); continue; }
-          const stats = await pc.getStats(null);
-          const sample = { id, bytesSent: 0, bytesReceived: 0, packetsLost: 0, packetsSent: 0, packetsReceived: 0, rtt: null, jitter: null };
-          stats.forEach((r) => {
-            if (r.type === 'outbound-rtp') {
-              sample.bytesSent += r.bytesSent || 0;
-              sample.packetsSent += r.packetsSent || 0;
-            } else if (r.type === 'inbound-rtp') {
-              sample.bytesReceived += r.bytesReceived || 0;
-              sample.packetsReceived += r.packetsReceived || 0;
-              sample.packetsLost += r.packetsLost || 0;
-              if (typeof r.jitter === 'number') sample.jitter = r.jitter;
-            } else if (r.type === 'candidate-pair' && r.state === 'succeeded' && r.nominated) {
-              if (typeof r.currentRoundTripTime === 'number') sample.rtt = r.currentRoundTripTime;
-            }
-          });
-          log('stats', sample);
-        } catch (_) {}
+      if (statsBusy) return;
+      statsBusy = true;
+      try {
+        for (const [id, pc] of reg) {
+          try {
+            if (!pc || pc.connectionState === 'closed') { reg.delete(id); continue; }
+            const stats = await pc.getStats(null);
+            const sample = { id, bytesSent: 0, bytesReceived: 0, packetsLost: 0, packetsSent: 0, packetsReceived: 0, rtt: null, jitter: null };
+            stats.forEach((r) => {
+              if (r.type === 'outbound-rtp') {
+                sample.bytesSent += r.bytesSent || 0;
+                sample.packetsSent += r.packetsSent || 0;
+              } else if (r.type === 'inbound-rtp') {
+                sample.bytesReceived += r.bytesReceived || 0;
+                sample.packetsReceived += r.packetsReceived || 0;
+                sample.packetsLost += r.packetsLost || 0;
+                if (typeof r.jitter === 'number') sample.jitter = r.jitter;
+              } else if (r.type === 'candidate-pair' && r.state === 'succeeded' && r.nominated) {
+                if (typeof r.currentRoundTripTime === 'number') sample.rtt = r.currentRoundTripTime;
+              }
+            });
+            log('stats', sample);
+          } catch (_) {}
+        }
+      } finally {
+        statsBusy = false;
       }
     }, 1000);
   }
@@ -4573,13 +4715,16 @@ class WebReverseSessionController extends ChangeNotifier {
       await cdp.send(
         'Page.addScriptToEvaluateOnNewDocument',
         params: const <String, Object?>{'source': js},
-        sessionId: _pageSessionId,
+        sessionId: sessionId,
+        timeout: const Duration(seconds: 5),
       );
       await cdp.send(
         'Runtime.evaluate',
         params: const <String, Object?>{'expression': js},
-        sessionId: _pageSessionId,
+        sessionId: sessionId,
+        timeout: const Duration(seconds: 5),
       );
+      if (_pageSessionId != sessionId) return false;
       _rtcInstalled = true;
       return true;
     } catch (error, stack) {
@@ -4596,7 +4741,8 @@ class WebReverseSessionController extends ChangeNotifier {
   /// 拉取 WebRTC 日志并 drain。
   Future<List<Map<String, Object?>>> readWebRtcLog() async {
     final cdp = _browserCdp;
-    if (cdp == null || _pageSessionId == null) return const [];
+    final sessionId = _pageSessionId;
+    if (cdp == null || sessionId == null) return const [];
     try {
       final r = await cdp.send(
         'Runtime.evaluate',
@@ -4605,13 +4751,15 @@ class WebReverseSessionController extends ChangeNotifier {
               '(()=>{const a=window.__oh_rtc_log||[];window.__oh_rtc_log=[];return JSON.stringify(a);})()',
           'returnByValue': true,
         },
-        sessionId: _pageSessionId,
+        sessionId: sessionId,
+        timeout: const Duration(seconds: 6),
       );
+      if (_pageSessionId != sessionId) return const [];
       final raw = cdpStringResultValue(r);
       if (raw == null || raw.isEmpty) return const [];
       final decoded = jsonDecode(raw);
       if (decoded is! List) return const [];
-      return stringKeyedMapListFromValue(decoded);
+      return compactWebReverseWebRtcLog(decoded);
     } catch (error, stack) {
       silentLog(
         'web_reverse_session_controller',
@@ -4626,7 +4774,8 @@ class WebReverseSessionController extends ChangeNotifier {
   /// 列出当前页活跃的 RTCPeerConnection id 列表。供调试面板挑选。
   Future<List<int>> listWebRtcConnections() async {
     final cdp = _browserCdp;
-    if (cdp == null || _pageSessionId == null) return const [];
+    final sessionId = _pageSessionId;
+    if (cdp == null || sessionId == null) return const [];
     try {
       final r = await cdp.send(
         'Runtime.evaluate',
@@ -4635,16 +4784,15 @@ class WebReverseSessionController extends ChangeNotifier {
               '(()=>{const m=window.__oh_rtc_reg;if(!m)return "[]";return JSON.stringify(Array.from(m.keys()));})()',
           'returnByValue': true,
         },
-        sessionId: _pageSessionId,
+        sessionId: sessionId,
+        timeout: const Duration(seconds: 5),
       );
+      if (_pageSessionId != sessionId) return const [];
       final raw = cdpStringResultValue(r);
       if (raw == null || raw.isEmpty) return const [];
       final decoded = jsonDecode(raw);
       if (decoded is! List) return const [];
-      return decoded
-          .whereType<num>()
-          .map((n) => n.toInt())
-          .toList(growable: false);
+      return normalizeWebReverseWebRtcConnections(decoded);
     } catch (error, stack) {
       silentLog(
         'web_reverse_session_controller',
@@ -4659,7 +4807,8 @@ class WebReverseSessionController extends ChangeNotifier {
   /// 读取 page 当前 FPS 值；installFpsCounter 应先调用。
   Future<double?> readFps() async {
     final cdp = _browserCdp;
-    if (cdp == null || _pageSessionId == null) return null;
+    final sessionId = _pageSessionId;
+    if (cdp == null || sessionId == null) return null;
     try {
       final r = await cdp.send(
         'Runtime.evaluate',
@@ -4667,8 +4816,10 @@ class WebReverseSessionController extends ChangeNotifier {
           'expression': 'window.__oh_fps || 0',
           'returnByValue': true,
         },
-        sessionId: _pageSessionId,
+        sessionId: sessionId,
+        timeout: const Duration(seconds: 4),
       );
+      if (_pageSessionId != sessionId) return null;
       final v = cdpResultValue(r);
       return v is num ? v.toDouble() : null;
     } catch (error, stack) {
@@ -6942,7 +7093,13 @@ class WebReverseSessionController extends ChangeNotifier {
     bool generatePreview = true,
   }) async {
     final cdp = _browserCdp;
-    if (cdp == null || _pageSessionId == null) return const [];
+    final sessionId = _pageSessionId;
+    if (cdp == null ||
+        sessionId == null ||
+        objectId.isEmpty ||
+        objectId.length > 1024) {
+      return const [];
+    }
     try {
       final r = await cdp.send(
         'Runtime.getProperties',
@@ -6951,14 +7108,11 @@ class WebReverseSessionController extends ChangeNotifier {
           'ownProperties': ownProperties,
           'generatePreview': generatePreview,
         },
-        sessionId: _pageSessionId,
+        sessionId: sessionId,
+        timeout: const Duration(seconds: 6),
       );
-      final list = r['result'] as List?;
-      if (list == null) return const [];
-      return list
-          .whereType<Map>()
-          .map(Map<String, Object?>.from)
-          .toList(growable: false);
+      if (_pageSessionId != sessionId) return const [];
+      return compactWebReverseRuntimeProperties(r['result']);
     } catch (e, st) {
       silentLog(
         'web_reverse_session_controller',
@@ -6976,29 +7130,32 @@ class WebReverseSessionController extends ChangeNotifier {
   // type/useCapture/passive/once/scriptId/lineNumber/columnNumber。
   Future<List<Map<String, Object?>>> listGlobalEventListeners() async {
     final cdp = _browserCdp;
-    if (cdp == null || _pageSessionId == null) return const [];
+    final sessionId = _pageSessionId;
+    if (cdp == null || sessionId == null) return const [];
+    const objectGroup = 'oh_global_listeners';
     try {
       final win = await cdp.send(
         'Runtime.evaluate',
-        params: <String, Object?>{
+        params: const <String, Object?>{
           'expression': 'window',
-          'objectGroup': 'oh_global_listeners',
+          'objectGroup': objectGroup,
         },
-        sessionId: _pageSessionId,
+        sessionId: sessionId,
+        timeout: const Duration(seconds: 5),
       );
+      if (_pageSessionId != sessionId) return const [];
       final objectId = (win['result'] as Map?)?['objectId'] as String?;
-      if (objectId == null) return const [];
+      if (objectId == null || objectId.isEmpty || objectId.length > 1024) {
+        return const [];
+      }
       final r = await cdp.send(
         'DOMDebugger.getEventListeners',
         params: <String, Object?>{'objectId': objectId, 'depth': 1},
-        sessionId: _pageSessionId,
+        sessionId: sessionId,
+        timeout: const Duration(seconds: 6),
       );
-      final list = r['listeners'] as List?;
-      if (list == null) return const [];
-      return list
-          .whereType<Map>()
-          .map(Map<String, Object?>.from)
-          .toList(growable: false);
+      if (_pageSessionId != sessionId) return const [];
+      return compactWebReverseDomEventListeners(r['listeners']);
     } catch (e, st) {
       silentLog(
         'web_reverse_session_controller',
@@ -7007,6 +7164,24 @@ class WebReverseSessionController extends ChangeNotifier {
         st,
       );
       return const [];
+    } finally {
+      if (_pageSessionId == sessionId) {
+        try {
+          await cdp.send(
+            'Runtime.releaseObjectGroup',
+            params: const <String, Object?>{'objectGroup': objectGroup},
+            sessionId: sessionId,
+            timeout: const Duration(seconds: 3),
+          );
+        } catch (error, stack) {
+          silentLog(
+            'web_reverse_session_controller',
+            'release global listener objects',
+            error,
+            stack,
+          );
+        }
+      }
     }
   }
 

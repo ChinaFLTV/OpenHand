@@ -25,6 +25,9 @@ class _PerformancePanelState extends State<_PerformancePanel> {
   // 关键指标的滑动窗口（最近 60 个采样点 ≈ 2 分钟）。
   final Map<String, List<double>> _history = <String, List<double>>{};
   static const int _historyLen = 60;
+  String? _metricsTargetId;
+  int _refreshSerial = 0;
+  bool _refreshInFlight = false;
   bool _tracing = false;
   Duration _traceDuration = const Duration(seconds: 5);
   // 录制提前停止信号；非空表示当前在录，点击 Stop 时 complete 即可让
@@ -44,11 +47,13 @@ class _PerformancePanelState extends State<_PerformancePanel> {
   Timer? _fpsTimer;
   final List<double> _fpsHistory = <double>[];
   bool _fpsBootstrapped = false;
+  String? _fpsTargetId;
 
   // Long task：浏览器 PerformanceObserver 推到 window.__oh_long_tasks，
   // 每 1s 拉一次清空，dashboard 展示最近 50 条。
   Timer? _longTaskTimer;
   bool _longTaskBootstrapped = false;
+  String? _longTaskTargetId;
   final List<Map<String, Object?>> _longTasks = <Map<String, Object?>>[];
   static const int _longTasksMax = 50;
 
@@ -89,8 +94,26 @@ class _PerformancePanelState extends State<_PerformancePanel> {
   }
 
   Future<void> _refresh() async {
-    final m = await widget.controller.performanceMetrics();
-    if (!mounted) return;
+    if (_refreshInFlight) return;
+    _refreshInFlight = true;
+    try {
+      await _refreshOnce();
+    } finally {
+      _refreshInFlight = false;
+    }
+  }
+
+  Future<void> _refreshOnce() async {
+    final serial = ++_refreshSerial;
+    final controller = widget.controller;
+    final targetId = controller.currentPageTargetId;
+    final m = await controller.performanceMetrics();
+    if (!mounted || serial != _refreshSerial) return;
+    if (controller.currentPageTargetId != targetId) return;
+    if (_metricsTargetId != targetId) {
+      _metricsTargetId = targetId;
+      _history.clear();
+    }
     for (final (name, value) in m) {
       final list = _history.putIfAbsent(name, () => <double>[]);
       list.add(value);
@@ -105,12 +128,20 @@ class _PerformancePanelState extends State<_PerformancePanel> {
   Future<void> _sampleFps() async {
     final cdp = widget.controller;
     if (!cdp.isRunning) return;
+    final targetId = cdp.currentPageTargetId;
+    if (_fpsTargetId != targetId) {
+      _fpsTargetId = targetId;
+      _fpsBootstrapped = false;
+      _fpsHistory.clear();
+    }
     if (!_fpsBootstrapped) {
+      final installed = await cdp.installFpsCounter();
+      if (!mounted || cdp.currentPageTargetId != targetId) return;
+      if (!installed) return;
       _fpsBootstrapped = true;
-      await cdp.installFpsCounter();
     }
     final fps = await cdp.readFps();
-    if (!mounted || fps == null) return;
+    if (!mounted || cdp.currentPageTargetId != targetId || fps == null) return;
     setState(() {
       _fpsHistory.add(fps);
       while (_fpsHistory.length > _historyLen) {
@@ -123,12 +154,22 @@ class _PerformancePanelState extends State<_PerformancePanel> {
   Future<void> _sampleLongTasks() async {
     final cdp = widget.controller;
     if (!cdp.isRunning) return;
+    final targetId = cdp.currentPageTargetId;
+    if (_longTaskTargetId != targetId) {
+      _longTaskTargetId = targetId;
+      _longTaskBootstrapped = false;
+      _longTasks.clear();
+    }
     if (!_longTaskBootstrapped) {
+      final installed = await cdp.installLongTaskObserver();
+      if (!mounted || cdp.currentPageTargetId != targetId) return;
+      if (!installed) return;
       _longTaskBootstrapped = true;
-      await cdp.installLongTaskObserver();
     }
     final fresh = await cdp.readLongTasks();
-    if (!mounted || fresh.isEmpty) return;
+    if (!mounted || cdp.currentPageTargetId != targetId || fresh.isEmpty) {
+      return;
+    }
     setState(() {
       _longTasks.addAll(fresh);
       while (_longTasks.length > _longTasksMax) {

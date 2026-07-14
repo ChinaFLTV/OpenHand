@@ -20,9 +20,12 @@ class _ElementsBodyState extends State<_ElementsBody> {
   Map<String, dynamic>? _root;
   bool _loading = false;
   String? _loadError;
+  int _documentSerial = 0;
+  int _selectionSerial = 0;
 
   /// nodeId -> 是否已展开。
   final Map<int, bool> _expanded = <int, bool>{};
+  final Map<int, int> _expandSerial = <int, int>{};
 
   /// nodeId -> 节点数据（含 children）。子树懒加载时填充进来。
   final Map<int, Map<String, dynamic>> _byNodeId =
@@ -43,13 +46,29 @@ class _ElementsBodyState extends State<_ElementsBody> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadDocument());
   }
 
+  @override
+  void dispose() {
+    _documentSerial++;
+    _selectionSerial++;
+    unawaited(widget.controller.domHideHighlight());
+    super.dispose();
+  }
+
   Future<void> _loadDocument() async {
+    final serial = ++_documentSerial;
+    _selectionSerial++;
+    final controller = widget.controller;
+    final targetId = controller.currentPageTargetId;
     setState(() {
       _loading = true;
       _loadError = null;
     });
-    final root = await widget.controller.domGetDocument();
-    if (!mounted) return;
+    final root = await controller.domGetDocument();
+    if (!mounted || serial != _documentSerial) return;
+    if (controller.currentPageTargetId != targetId) {
+      setState(() => _loading = false);
+      return;
+    }
     if (root == null) {
       final loc = AppLocalizations.of(context);
       setState(() {
@@ -62,6 +81,7 @@ class _ElementsBodyState extends State<_ElementsBody> {
     }
     _byNodeId.clear();
     _expanded.clear();
+    _expandSerial.clear();
     _indexNode(root);
     setState(() {
       _root = root;
@@ -84,6 +104,7 @@ class _ElementsBodyState extends State<_ElementsBody> {
   Future<void> _toggleExpand(int nodeId) async {
     final isOpen = _expanded[nodeId] ?? false;
     if (isOpen) {
+      _expandSerial[nodeId] = (_expandSerial[nodeId] ?? 0) + 1;
       setState(() => _expanded[nodeId] = false);
       return;
     }
@@ -91,8 +112,13 @@ class _ElementsBodyState extends State<_ElementsBody> {
     final children = node?['children'];
     if (children is! List || children.isEmpty) {
       // 拉一层
-      final fresh = await widget.controller.domDescribeNode(nodeId);
-      if (!mounted) return;
+      final serial = (_expandSerial[nodeId] ?? 0) + 1;
+      _expandSerial[nodeId] = serial;
+      final controller = widget.controller;
+      final targetId = controller.currentPageTargetId;
+      final fresh = await controller.domDescribeNode(nodeId);
+      if (!mounted || _expandSerial[nodeId] != serial) return;
+      if (controller.currentPageTargetId != targetId) return;
       if (fresh != null) {
         _byNodeId[nodeId] = fresh;
         _indexNode(fresh);
@@ -103,6 +129,9 @@ class _ElementsBodyState extends State<_ElementsBody> {
   }
 
   Future<void> _select(int nodeId) async {
+    final serial = ++_selectionSerial;
+    final controller = widget.controller;
+    final targetId = controller.currentPageTargetId;
     setState(() {
       _selectedNodeId = nodeId;
       _loadingDetails = true;
@@ -115,9 +144,18 @@ class _ElementsBodyState extends State<_ElementsBody> {
         attrs['${attrArr[i]}'] = '${attrArr[i + 1]}';
       }
     }
-    final computed = await widget.controller.domGetComputedStyle(nodeId);
-    final listeners = await widget.controller.domGetEventListeners(nodeId);
-    if (!mounted) return;
+    final computed = await controller.domGetComputedStyle(nodeId);
+    if (!mounted || serial != _selectionSerial) return;
+    if (controller.currentPageTargetId != targetId) {
+      setState(() => _loadingDetails = false);
+      return;
+    }
+    final listeners = await controller.domGetEventListeners(nodeId);
+    if (!mounted || serial != _selectionSerial) return;
+    if (controller.currentPageTargetId != targetId) {
+      setState(() => _loadingDetails = false);
+      return;
+    }
     setState(() {
       _attrs = attrs;
       _computed = computed;
@@ -125,10 +163,12 @@ class _ElementsBodyState extends State<_ElementsBody> {
       _loadingDetails = false;
     });
     // 视觉反馈：在页面里画高亮框（1.5s 自动隐藏）。
-    await widget.controller.domHighlightNode(nodeId);
-    Future<void>.delayed(const Duration(milliseconds: 1500), () {
-      widget.controller.domHideHighlight();
-    });
+    await controller.domHighlightNode(nodeId);
+    await Future<void>.delayed(const Duration(milliseconds: 1500));
+    if (!mounted || serial != _selectionSerial) return;
+    if (controller.currentPageTargetId == targetId) {
+      await controller.domHideHighlight();
+    }
   }
 
   Future<void> _copySelector() async {

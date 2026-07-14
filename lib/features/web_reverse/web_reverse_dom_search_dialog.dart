@@ -12,6 +12,7 @@ import 'package:flutter/material.dart';
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
+import '../../shared/util/async_concurrency.dart';
 import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_session_controller.dart';
 
@@ -40,12 +41,19 @@ class _Hit {
 }
 
 class _DomSearchDialogState extends State<_DomSearchDialog> {
+  static const int _maxQueryChars = 16 * 1024;
+  static const int _maxSearchIdChars = 1024;
+  static const int _maxResults = 200;
+  static const int _describeConcurrency = 4;
+  static const Duration _commandTimeout = Duration(seconds: 6);
+  static const Duration _describeWindow = Duration(seconds: 30);
+
   final _queryCtrl = TextEditingController();
   String _status = '';
   bool _busy = false;
   List<_Hit> _hits = [];
-  String? _searchId;
   int _resultCount = 0;
+  int _searchSerial = 0;
 
   @override
   void dispose() {
@@ -57,19 +65,30 @@ class _DomSearchDialogState extends State<_DomSearchDialog> {
     final loc = AppLocalizations.of(context);
     final q = _queryCtrl.text.trim();
     if (q.isEmpty) return;
+    if (q.length > _maxQueryChars) {
+      setState(() => _status = 'Query is too long.');
+      return;
+    }
+    final serial = ++_searchSerial;
+    final targetId = widget.controller.currentPageTargetId;
+    String? activeSearchId;
     setState(() {
       _busy = true;
       _status = loc?.webReverseDomSearchSearching ?? 'Searching...';
       _hits = [];
     });
     try {
-      await widget.controller.sendRawCdp(method: 'DOM.enable');
+      await widget.controller.sendRawCdp(
+        method: 'DOM.enable',
+        timeout: _commandTimeout,
+      );
       final r = await widget.controller.sendRawCdp(
         method: 'DOM.performSearch',
         paramsJson: jsonEncode({
           'query': q,
           'includeUserAgentShadowDOM': false,
         }),
+        timeout: _commandTimeout,
       );
       if (r == null || r['error'] != null) {
         if (!mounted) return;
@@ -81,11 +100,14 @@ class _DomSearchDialogState extends State<_DomSearchDialog> {
         });
         return;
       }
-      _searchId = '${r['searchId'] ?? ''}';
+      activeSearchId = '${r['searchId'] ?? ''}'.trim();
       _resultCount = (r['resultCount'] is num)
           ? (r['resultCount'] as num).toInt()
           : 0;
-      if (_searchId == null || _searchId!.isEmpty || _resultCount == 0) {
+      if (activeSearchId.isEmpty ||
+          activeSearchId.length > _maxSearchIdChars ||
+          _resultCount <= 0) {
+        if (activeSearchId.length > _maxSearchIdChars) activeSearchId = null;
         if (!mounted) return;
         setState(() {
           _busy = false;
@@ -93,15 +115,15 @@ class _DomSearchDialogState extends State<_DomSearchDialog> {
         });
         return;
       }
-      // 拉前 200 条结果，避免一次过载。
-      final toIndex = _resultCount > 200 ? 200 : _resultCount;
+      final toIndex = _resultCount > _maxResults ? _maxResults : _resultCount;
       final batch = await widget.controller.sendRawCdp(
         method: 'DOM.getSearchResults',
         paramsJson: jsonEncode({
-          'searchId': _searchId,
+          'searchId': activeSearchId,
           'fromIndex': 0,
           'toIndex': toIndex,
         }),
+        timeout: _commandTimeout,
       );
       if (batch == null || batch['error'] != null) {
         if (!mounted) return;
@@ -114,61 +136,87 @@ class _DomSearchDialogState extends State<_DomSearchDialog> {
         return;
       }
       final ids = <int>[];
+      final seenIds = <int>{};
       final raw = batch['nodeIds'];
       if (raw is List) {
         for (final v in raw) {
-          if (v is num) ids.add(v.toInt());
+          if (v is num && v.isFinite) {
+            final id = v.toInt();
+            if (id > 0 && seenIds.add(id)) ids.add(id);
+          }
         }
       }
-      final hits = <_Hit>[];
-      for (final id in ids) {
-        try {
-          final desc = await widget.controller.domDescribeNode(id);
-          if (desc == null) continue;
-          final node = desc['node'] as Map?;
-          if (node == null) continue;
-          final nodeName = (node['nodeName'] ?? '?').toString().toLowerCase();
-          final attrs = node['attributes'];
-          final attrMap = <String, String>{};
-          if (attrs is List) {
-            for (var i = 0; i + 1 < attrs.length; i += 2) {
-              attrMap['${attrs[i]}'] = '${attrs[i + 1]}';
+      final results = List<_Hit?>.filled(ids.length, null);
+      final deadline = DateTime.now().add(_describeWindow);
+      await forEachIndexWithConcurrencyLimit(
+        itemCount: ids.length,
+        maxConcurrency: _describeConcurrency,
+        shouldContinue: () =>
+            mounted &&
+            serial == _searchSerial &&
+            widget.controller.currentPageTargetId == targetId &&
+            DateTime.now().isBefore(deadline),
+        task: (index) async {
+          final id = ids[index];
+          try {
+            final desc = await widget.controller.domDescribeNode(id);
+            if (desc == null) return;
+            final node = desc;
+            final nodeName = (node['nodeName'] ?? '?').toString().toLowerCase();
+            final attrs = node['attributes'];
+            final attrMap = <String, String>{};
+            if (attrs is List) {
+              for (var i = 0; i + 1 < attrs.length; i += 2) {
+                attrMap['${attrs[i]}'] = '${attrs[i + 1]}';
+              }
             }
+            final idAttr = attrMap['id'];
+            final classAttr = attrMap['class'];
+            final label = StringBuffer('<$nodeName');
+            if (idAttr != null && idAttr.isNotEmpty) {
+              label.write(' id="$idAttr"');
+            }
+            if (classAttr != null && classAttr.isNotEmpty) {
+              final cls = classAttr.length > 60
+                  ? '${classAttr.substring(0, 60)}…'
+                  : classAttr;
+              label.write(' class="$cls"');
+            }
+            label.write('>');
+            final detail = attrMap.entries
+                .where((e) => e.key != 'id' && e.key != 'class')
+                .take(4)
+                .map((e) {
+                  final v = e.value.length > 40
+                      ? '${e.value.substring(0, 40)}…'
+                      : e.value;
+                  return '${e.key}="$v"';
+                })
+                .join(' ');
+            results[index] = _Hit(
+              nodeId: id,
+              label: label.toString(),
+              detail: detail,
+            );
+          } catch (e, st) {
+            silentLog(
+              'web_reverse_dom_search_dialog',
+              'dom-search.describe',
+              e,
+              st,
+            );
           }
-          final idAttr = attrMap['id'];
-          final classAttr = attrMap['class'];
-          final label = StringBuffer('<$nodeName');
-          if (idAttr != null && idAttr.isNotEmpty) {
-            label.write(' id="$idAttr"');
-          }
-          if (classAttr != null && classAttr.isNotEmpty) {
-            final cls = classAttr.length > 60
-                ? '${classAttr.substring(0, 60)}…'
-                : classAttr;
-            label.write(' class="$cls"');
-          }
-          label.write('>');
-          final detail = attrMap.entries
-              .where((e) => e.key != 'id' && e.key != 'class')
-              .take(4)
-              .map((e) {
-                final v = e.value.length > 40
-                    ? '${e.value.substring(0, 40)}…'
-                    : e.value;
-                return '${e.key}="$v"';
-              })
-              .join(' ');
-          hits.add(_Hit(nodeId: id, label: label.toString(), detail: detail));
-        } catch (e, st) {
-          silentLog(
-            'web_reverse_dom_search_dialog',
-            'dom-search.describe',
-            e,
-            st,
-          );
-        }
+        },
+      );
+      if (!mounted || serial != _searchSerial) return;
+      if (widget.controller.currentPageTargetId != targetId) {
+        setState(() {
+          _busy = false;
+          _status = 'Page changed. Run the search again.';
+        });
+        return;
       }
-      if (!mounted) return;
+      final hits = results.whereType<_Hit>().toList(growable: false);
       setState(() {
         _busy = false;
         _hits = hits;
@@ -183,6 +231,14 @@ class _DomSearchDialogState extends State<_DomSearchDialog> {
         _busy = false;
         _status = 'Error: $e';
       });
+    } finally {
+      if (activeSearchId != null && activeSearchId.isNotEmpty) {
+        await widget.controller.sendRawCdp(
+          method: 'DOM.discardSearchResults',
+          paramsJson: jsonEncode(<String, Object?>{'searchId': activeSearchId}),
+          timeout: _commandTimeout,
+        );
+      }
     }
   }
 

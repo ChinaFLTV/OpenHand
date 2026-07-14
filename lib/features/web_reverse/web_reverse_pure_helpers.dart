@@ -35,6 +35,24 @@ const int kWebReverseDefaultIndexedDbPageSize = 50;
 const int kWebReverseMaxIndexedDbPageSize = 200;
 const int kWebReverseMaxIndexedDbRetainedEntries = 200;
 const int kWebReverseMaxIndexedDbRemoteTextChars = 16 * 1024;
+const int kWebReverseMaxDomNodes = 4096;
+const int kWebReverseMaxDomChildren = 512;
+const int kWebReverseMaxDomDepth = 4;
+const int kWebReverseMaxDomFieldChars = 16 * 1024;
+const int kWebReverseMaxDomAttributes = 512;
+const int kWebReverseMaxPerformanceMetrics = 256;
+const int kWebReverseMaxPerformanceMetricNameChars = 128;
+const int kWebReverseMaxComputedStyles = 512;
+const int kWebReverseMaxComputedStyleNameChars = 256;
+const int kWebReverseMaxComputedStyleValueChars = 16 * 1024;
+const int kWebReverseMaxDomEventListeners = 512;
+const int kWebReverseMaxRuntimeProperties = 512;
+const int kWebReverseMaxWebRtcEvents = 800;
+const int kWebReverseMaxWebRtcEventChars = 64 * 1024;
+const int kWebReverseMaxWebRtcLogChars = 4 * 1024 * 1024;
+const int kWebReverseMaxWebRtcConnections = 128;
+const int kWebReverseMaxLongTasks = 200;
+const int kWebReverseMaxLongTaskAttributionChars = 1024;
 final RegExp _consoleIsoTimestampPattern = RegExp(
   r'\b\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[^\s]*',
 );
@@ -522,6 +540,455 @@ List<Map<String, Object?>> compactWebReverseIndexedDbEntries(
     );
   }
   return List<Map<String, Object?>>.unmodifiable(result);
+}
+
+/// Compacts a DOM node tree returned by CDP.  DOM responses can contain a
+/// complete page, arbitrary attribute values and deeply nested child lists;
+/// only fields rendered by the Elements panel are retained and all three
+/// dimensions (depth, node count and child count) are bounded.
+Map<String, dynamic>? compactWebReverseDomNode(
+  Object? raw, {
+  int maxDepth = kWebReverseMaxDomDepth,
+  int maxNodes = kWebReverseMaxDomNodes,
+  int maxChildren = kWebReverseMaxDomChildren,
+  int maxFieldChars = kWebReverseMaxDomFieldChars,
+  int maxAttributes = kWebReverseMaxDomAttributes,
+}) {
+  if (maxDepth < 0) throw ArgumentError.value(maxDepth, 'maxDepth');
+  _validatePositiveWebReverseLimits([
+    maxNodes,
+    maxChildren,
+    maxFieldChars,
+    maxAttributes,
+  ]);
+  var remainingNodes = maxNodes;
+
+  int? boundedInt(Object? value) {
+    if (value is! num || !value.isFinite) return null;
+    final integer = value.toInt();
+    return integer < 0 ? null : integer;
+  }
+
+  String? boundedString(Object? value) {
+    if (value is! String) return null;
+    return _boundedWebReverseText(value, maxFieldChars);
+  }
+
+  Map<String, dynamic>? visit(Object? value, int depth) {
+    if (remainingNodes <= 0 || value is! Map) return null;
+    remainingNodes--;
+    final out = <String, dynamic>{};
+    for (final key in const <String>[
+      'nodeId',
+      'backendNodeId',
+      'nodeType',
+      'childNodeCount',
+    ]) {
+      final source = value[key];
+      final integer = boundedInt(source);
+      if (integer != null) out[key] = integer;
+    }
+    if (value['isSVG'] is bool) out['isSVG'] = value['isSVG'];
+    for (final key in const <String>[
+      'nodeName',
+      'localName',
+      'nodeValue',
+      'documentURL',
+      'baseURL',
+      'publicId',
+      'systemId',
+      'internalSubset',
+      'xmlVersion',
+      'pseudoType',
+      'shadowRootType',
+      'frameId',
+    ]) {
+      final text = boundedString(value[key]);
+      if (text != null && text.isNotEmpty) out[key] = text;
+    }
+    final rawAttributes = value['attributes'];
+    if (rawAttributes is Iterable) {
+      final attributes = <String>[];
+      final candidates = rawAttributes.take(maxAttributes * 4).toList();
+      for (
+        var i = 0;
+        i + 1 < candidates.length && attributes.length + 2 <= maxAttributes;
+        i += 2
+      ) {
+        final name = boundedString(candidates[i]);
+        final value = boundedString(candidates[i + 1]);
+        if (name == null || value == null) continue;
+        attributes
+          ..add(name)
+          ..add(value);
+      }
+      if (attributes.isNotEmpty) out['attributes'] = attributes;
+    }
+    if (depth >= maxDepth) return out;
+    final rawChildren = value['children'];
+    if (rawChildren is Iterable) {
+      final children = <Map<String, dynamic>>[];
+      var inspected = 0;
+      for (final child in rawChildren) {
+        if (inspected++ >= maxChildren || children.length >= maxChildren) {
+          break;
+        }
+        final compact = visit(child, depth + 1);
+        if (compact != null) children.add(compact);
+      }
+      if (children.isNotEmpty) out['children'] = children;
+    }
+    return out;
+  }
+
+  return visit(raw, 0);
+}
+
+/// Normalizes `Performance.getMetrics` into finite, uniquely named samples.
+List<(String, double)> normalizeWebReversePerformanceMetrics(
+  Object? rawMetrics, {
+  int maxEntries = kWebReverseMaxPerformanceMetrics,
+  int maxNameChars = kWebReverseMaxPerformanceMetricNameChars,
+}) {
+  _validatePositiveWebReverseLimits([maxEntries, maxNameChars]);
+  if (rawMetrics is! Iterable) return const <(String, double)>[];
+  final result = <(String, double)>[];
+  final indexByName = <String, int>{};
+  var inspected = 0;
+  for (final raw in rawMetrics) {
+    if (inspected++ >= maxEntries * 4) break;
+    if (raw is! Map || raw['name'] is! String || raw['value'] is! num) {
+      continue;
+    }
+    final name = (raw['name'] as String).trim();
+    final value = (raw['value'] as num).toDouble();
+    if (name.isEmpty || name.length > maxNameChars || !value.isFinite) {
+      continue;
+    }
+    final existing = indexByName[name];
+    final sample = (name, value);
+    if (existing != null) {
+      result[existing] = sample;
+    } else if (result.length < maxEntries) {
+      indexByName[name] = result.length;
+      result.add(sample);
+    }
+  }
+  return List<(String, double)>.unmodifiable(result);
+}
+
+/// Compacts the `{name,value}` records returned by
+/// `CSS.getComputedStyleForNode`.
+List<Map<String, String>> compactWebReverseComputedStyles(
+  Object? rawStyles, {
+  int maxEntries = kWebReverseMaxComputedStyles,
+  int maxNameChars = kWebReverseMaxComputedStyleNameChars,
+  int maxValueChars = kWebReverseMaxComputedStyleValueChars,
+}) {
+  _validatePositiveWebReverseLimits([maxEntries, maxNameChars, maxValueChars]);
+  if (rawStyles is! Iterable) return const <Map<String, String>>[];
+  final result = <Map<String, String>>[];
+  final seen = <String>{};
+  var inspected = 0;
+  for (final raw in rawStyles) {
+    if (inspected++ >= maxEntries * 4 || result.length >= maxEntries) break;
+    if (raw is! Map || raw['name'] is! String || raw['value'] is! String) {
+      continue;
+    }
+    final name = (raw['name'] as String).trim();
+    if (name.isEmpty || name.length > maxNameChars || !seen.add(name)) continue;
+    result.add(<String, String>{
+      'name': name,
+      'value': _boundedWebReverseText(raw['value'], maxValueChars),
+    });
+  }
+  return List<Map<String, String>>.unmodifiable(result);
+}
+
+Map<String, Object?>? _compactWebReverseRemoteObject(
+  Object? raw, {
+  required int maxTextChars,
+}) {
+  if (raw is! Map || raw['type'] is! String) return null;
+  final type = _boundedWebReverseText(raw['type'], 32, trim: true);
+  if (type.isEmpty) return null;
+  final compact = <String, Object?>{'type': type};
+  for (final key in const <String>['subtype', 'className', 'description']) {
+    final value = raw[key];
+    if (value is String && value.isNotEmpty) {
+      compact[key] = _boundedWebReverseText(value, maxTextChars);
+    }
+  }
+  final objectId = raw['objectId'];
+  if (objectId is String && objectId.isNotEmpty && objectId.length <= 1024) {
+    compact['objectId'] = objectId;
+  }
+  final unserializable = raw['unserializableValue'];
+  if (unserializable is String && unserializable.length <= 1024) {
+    compact['unserializableValue'] = unserializable;
+  }
+  final value = raw['value'];
+  if (value == null || value is num || value is bool) {
+    compact['value'] = value;
+  } else if (value is String) {
+    compact['value'] = _boundedWebReverseText(value, maxTextChars);
+  }
+  return Map<String, Object?>.unmodifiable(compact);
+}
+
+/// Compacts `Runtime.getProperties` records used by the Scope/Watch panel.
+List<Map<String, Object?>> compactWebReverseRuntimeProperties(
+  Object? rawProperties, {
+  int maxEntries = kWebReverseMaxRuntimeProperties,
+  int maxTextChars = kWebReverseMaxIndexedDbRemoteTextChars,
+}) {
+  _validatePositiveWebReverseLimits([maxEntries, maxTextChars]);
+  if (rawProperties is! Iterable) return const <Map<String, Object?>>[];
+  final result = <Map<String, Object?>>[];
+  var inspected = 0;
+  for (final raw in rawProperties) {
+    if (inspected++ >= maxEntries * 4 || result.length >= maxEntries) break;
+    if (raw is! Map || raw['name'] is! String) continue;
+    final name = _boundedWebReverseText(raw['name'], 1024);
+    if (name.isEmpty) continue;
+    final compact = <String, Object?>{'name': name};
+    for (final key in const <String>[
+      'isOwn',
+      'configurable',
+      'enumerable',
+      'writable',
+    ]) {
+      if (raw[key] is bool) compact[key] = raw[key];
+    }
+    for (final key in const <String>['value', 'get', 'set']) {
+      final value = _compactWebReverseRemoteObject(
+        raw[key],
+        maxTextChars: maxTextChars,
+      );
+      if (value != null) compact[key] = value;
+    }
+    result.add(Map<String, Object?>.unmodifiable(compact));
+  }
+  return List<Map<String, Object?>>.unmodifiable(result);
+}
+
+/// Compacts `DOMDebugger.getEventListeners` records and handler descriptions.
+List<Map<String, Object?>> compactWebReverseDomEventListeners(
+  Object? rawListeners, {
+  int maxEntries = kWebReverseMaxDomEventListeners,
+  int maxTextChars = kWebReverseMaxComputedStyleValueChars,
+}) {
+  _validatePositiveWebReverseLimits([maxEntries, maxTextChars]);
+  if (rawListeners is! Iterable) return const <Map<String, Object?>>[];
+  final result = <Map<String, Object?>>[];
+  var inspected = 0;
+  for (final raw in rawListeners) {
+    if (inspected++ >= maxEntries * 4 || result.length >= maxEntries) break;
+    if (raw is! Map) continue;
+    final compact = <String, Object?>{};
+    final type = raw['type'];
+    if (type is! String || type.isEmpty || type.length > 256) continue;
+    compact['type'] = type;
+    for (final key in const <String>[
+      'useCapture',
+      'passive',
+      'once',
+      'removed',
+    ]) {
+      if (raw[key] is bool) compact[key] = raw[key];
+    }
+    for (final key in const <String>['scriptId', 'backendNodeId']) {
+      final value = raw[key];
+      if (value is String && value.length <= 1024) compact[key] = value;
+      if (value is num && value.isFinite) compact[key] = value.toInt();
+    }
+    for (final key in const <String>['lineNumber', 'columnNumber']) {
+      final value = raw[key];
+      if (value is num && value.isFinite) compact[key] = value.toInt();
+    }
+    final handler = _compactWebReverseRemoteObject(
+      raw['handler'],
+      maxTextChars: maxTextChars,
+    );
+    if (handler != null) compact['handler'] = handler;
+    result.add(Map<String, Object?>.unmodifiable(compact));
+  }
+  return List<Map<String, Object?>>.unmodifiable(result);
+}
+
+/// Compacts browser-side `PerformanceObserver` long-task records.
+List<Map<String, Object?>> compactWebReverseLongTasks(
+  Object? rawTasks, {
+  int maxEntries = kWebReverseMaxLongTasks,
+  int maxTextChars = kWebReverseMaxLongTaskAttributionChars,
+}) {
+  _validatePositiveWebReverseLimits([maxEntries, maxTextChars]);
+  if (rawTasks is! Iterable) return const <Map<String, Object?>>[];
+  final result = <Map<String, Object?>>[];
+  var inspected = 0;
+  for (final raw in rawTasks) {
+    if (inspected++ >= maxEntries * 4 || result.length >= maxEntries) break;
+    if (raw is! Map) continue;
+    final compact = <String, Object?>{};
+    for (final key in const <String>['startTime', 'duration']) {
+      final value = key == 'startTime'
+          ? raw['startTime'] ?? raw['start']
+          : raw[key];
+      if (value is num && value.isFinite && value >= 0) {
+        compact[key] = value.toDouble();
+      }
+    }
+    final name = raw['name'];
+    if (name is String && name.isNotEmpty) {
+      compact['name'] = _boundedWebReverseText(name, maxTextChars);
+    }
+    final attribution = raw['attribution'];
+    if (attribution is Map) {
+      final compactAttribution = <String, Object?>{};
+      for (final key in const <String>[
+        'name',
+        'containerType',
+        'containerSrc',
+        'containerId',
+        'containerName',
+      ]) {
+        final value = attribution[key];
+        if (value is String && value.isNotEmpty) {
+          compactAttribution[key] = _boundedWebReverseText(value, maxTextChars);
+        }
+      }
+      if (compactAttribution.isNotEmpty) {
+        compact['attribution'] = compactAttribution;
+      }
+    }
+    if (compact.isNotEmpty) {
+      result.add(Map<String, Object?>.unmodifiable(compact));
+    }
+  }
+  return List<Map<String, Object?>>.unmodifiable(result);
+}
+
+Object? _compactWebReverseJsonValue(
+  Object? value, {
+  int depth = 0,
+  int maxStringChars = kWebReverseMaxWebRtcEventChars ~/ 2,
+}) {
+  if (depth > 4) return null;
+  if (value == null || value is num || value is bool) return value;
+  if (value is String) return _boundedWebReverseText(value, maxStringChars);
+  if (value is List) {
+    return [
+      for (final item in value.take(64))
+        _compactWebReverseJsonValue(
+          item,
+          depth: depth + 1,
+          maxStringChars: maxStringChars,
+        ),
+    ];
+  }
+  if (value is Map) {
+    final result = <String, Object?>{};
+    var count = 0;
+    for (final entry in value.entries) {
+      if (count++ >= 64 || entry.key is! String) break;
+      result[_boundedWebReverseText(
+        entry.key,
+        256,
+      )] = _compactWebReverseJsonValue(
+        entry.value,
+        depth: depth + 1,
+        maxStringChars: maxStringChars,
+      );
+    }
+    return result;
+  }
+  return _boundedWebReverseText(value, 256);
+}
+
+/// Compacts and bounds the drain from `window.__oh_rtc_log`.
+List<Map<String, Object?>> compactWebReverseWebRtcLog(
+  Object? rawEvents, {
+  int maxEntries = kWebReverseMaxWebRtcEvents,
+  int maxEventChars = kWebReverseMaxWebRtcEventChars,
+  int maxTotalChars = kWebReverseMaxWebRtcLogChars,
+}) {
+  _validatePositiveWebReverseLimits([maxEntries, maxEventChars, maxTotalChars]);
+  if (rawEvents is! Iterable) return const <Map<String, Object?>>[];
+  final result = <Map<String, Object?>>[];
+  var retainedChars = 0;
+  var inspected = 0;
+  for (final raw in rawEvents) {
+    if (inspected++ >= maxEntries * 4 || result.length >= maxEntries) break;
+    if (raw is! Map || raw['kind'] is! String) continue;
+    final kind = (raw['kind'] as String).trim();
+    if (kind.isEmpty || kind.length > 128) continue;
+    final event = <String, Object?>{'kind': kind};
+    final ts = raw['ts'];
+    if (ts is num && ts.isFinite && ts >= 0) event['ts'] = ts.toInt();
+    final id = raw['id'];
+    if (id is num && id.isFinite && id >= 0 && id <= 0x7fffffff) {
+      event['id'] = id.toInt();
+    }
+    for (final key in const <String>[
+      'config',
+      'args',
+      'sdp',
+      'type',
+      'error',
+      'candidate',
+      'sdpMid',
+      'sdpMLineIndex',
+      'trackKind',
+      'readyState',
+      'muted',
+      'streamIds',
+      'label',
+      'protocol',
+      'ordered',
+      'state',
+      'bytesSent',
+      'bytesReceived',
+      'packetsLost',
+      'packetsSent',
+      'packetsReceived',
+      'rtt',
+      'jitter',
+    ]) {
+      if (!raw.containsKey(key)) continue;
+      final compact = _compactWebReverseJsonValue(
+        raw[key],
+        maxStringChars: maxEventChars ~/ 2,
+      );
+      if (compact != null) event[key] = compact;
+    }
+    try {
+      final cost = jsonEncode(event).length;
+      if (cost > maxEventChars || retainedChars + cost > maxTotalChars) break;
+      retainedChars += cost;
+      result.add(Map<String, Object?>.unmodifiable(event));
+    } catch (_) {
+      // Ignore one malformed event and continue draining later entries.
+    }
+  }
+  return List<Map<String, Object?>>.unmodifiable(result);
+}
+
+List<int> normalizeWebReverseWebRtcConnections(
+  Object? rawConnections, {
+  int maxEntries = kWebReverseMaxWebRtcConnections,
+}) {
+  _validatePositiveWebReverseLimits([maxEntries]);
+  if (rawConnections is! Iterable) return const <int>[];
+  final result = <int>[];
+  final seen = <int>{};
+  var inspected = 0;
+  for (final raw in rawConnections) {
+    if (inspected++ >= maxEntries * 4 || result.length >= maxEntries) break;
+    if (raw is! num || !raw.isFinite || raw < 1) continue;
+    final id = raw.toInt();
+    if (seen.add(id)) result.add(id);
+  }
+  return List<int>.unmodifiable(result);
 }
 
 class _SamplingStackPath {
