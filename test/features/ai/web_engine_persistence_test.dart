@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:openhand/features/ai/service/web_engine/web_engine_cache_store_base.dart';
+import 'package:openhand/features/ai/service/web_engine/web_engine_persistence_io.dart';
 import 'package:openhand/features/ai/service/web_engine/web_engine_telemetry_store_base.dart';
 
 void main() {
@@ -106,6 +107,43 @@ void main() {
       (await telemetry.rawEngineStats())[_TestKind.engine.name]?['total_calls'],
       3,
     );
+  });
+
+  test(
+    'cache and telemetry clear nested contents without following links',
+    () async {
+      final cache = _TestCacheStore('${temporaryDirectory.path}/cache');
+      final telemetry = _TestTelemetryStore(
+        '${temporaryDirectory.path}/telemetry',
+      );
+      final outside = File('${temporaryDirectory.path}/outside.txt');
+      await outside.writeAsString('keep');
+      await Directory('${cache.path}/nested').create(recursive: true);
+      await File('${cache.path}/nested/payload.txt').writeAsString('payload');
+      if (!Platform.isWindows) {
+        await Link('${cache.path}/outside-link').create(outside.path);
+      }
+      await Directory('${telemetry.path}/nested').create(recursive: true);
+      await File('${telemetry.path}/nested/history.json').writeAsString('{}');
+
+      await cache.clearAll();
+      await telemetry.clearAll();
+
+      expect(await Directory(cache.path).list().isEmpty, isTrue);
+      expect(await Directory(telemetry.path).list().isEmpty, isTrue);
+      expect(await outside.readAsString(), 'keep');
+    },
+  );
+
+  test('cache index normalization rejects unsafe keys', () {
+    final validKey = List<String>.filled(64, 'd').join();
+
+    final entries = webEngineCacheEntriesFromValue(<String, Object?>{
+      validKey: const <String, Object?>{'value': 1},
+      '../escape': const <String, Object?>{'value': 2},
+    });
+
+    expect(entries.keys, <String>[validKey]);
   });
 }
 

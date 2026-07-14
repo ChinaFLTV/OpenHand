@@ -24,6 +24,7 @@ import '../../shared/db/atomic_file_operations.dart';
 import '../../shared/ui/structured_error_text.dart';
 import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/bounded_file_io.dart';
+import '../../shared/util/directory_cleanup.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/stable_hash.dart';
 import '../../shared/util/text_normalization.dart';
@@ -4754,13 +4755,9 @@ class AiSessionController extends ChangeNotifier {
 
   Future<void> _deleteDirectoryIfEmpty(Directory directory) async {
     try {
-      if (!await directory.exists()) {
-        return;
+      if (await isDirectoryEmpty(directory)) {
+        await directory.delete();
       }
-      await for (final _ in directory.list(followLinks: false)) {
-        return;
-      }
-      await directory.delete();
     } catch (error, stack) {
       silentLog(
         'ai_session_controller',

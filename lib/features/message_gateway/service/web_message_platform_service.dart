@@ -26,6 +26,7 @@ import '../../../shared/util/bounded_base64.dart';
 import '../../../shared/util/bounded_directory_io.dart';
 import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/date_time_format.dart';
+import '../../../shared/util/directory_cleanup.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/lifecycle_cache.dart';
 import '../../../shared/util/path_safety.dart';
@@ -302,6 +303,8 @@ class WebMessagePlatformService {
   static const int _maxUploadDirectoryCleanupCandidates = 4096;
   static const Duration _uploadCacheScanIdleTimeout = Duration(seconds: 3);
   static const Duration _uploadCacheScanTotalTimeout = Duration(seconds: 30);
+  static const Duration _networkInterfaceListTimeout = Duration(seconds: 3);
+  static const int _maxLocalAddresses = 64;
   static const Duration _requestBodyIdleTimeout = Duration(seconds: 30);
   static const Duration _requestBodyTotalTimeout = Duration(minutes: 2);
   static const int _connectivityProbeMinTimeoutMs = 500;
@@ -685,7 +688,7 @@ class WebMessagePlatformService {
       _lastErrorPath = '';
       _state = WebGatewayRuntimeState.running;
       // 启动后立刻探测一次主机 IP 列表，使 BOOT 日志可同时打出 LAN URL；
-      // NetworkInterface.list 内部毫秒级，且失败仅 silentLog，不阻塞 boot。
+      // 枚举有显式超时，异常系统服务不会无限阻塞启动。
       await _refreshLocalAddressesIfStale(ttl: Duration.zero);
       final urls = accessibleUrls;
       if (bindResult.usedFallbackPort) {
@@ -1185,13 +1188,15 @@ class WebMessagePlatformService {
     try {
       final interfaces = await NetworkInterface.list(
         type: InternetAddressType.IPv4,
-      );
-      final addrs = <String>[];
+      ).timeout(_networkInterfaceListTimeout);
+      final addrs = <String>{};
       for (final iface in interfaces) {
         for (final addr in iface.addresses) {
           final value = addr.address.trim();
           if (value.isNotEmpty) addrs.add(value);
+          if (addrs.length >= _maxLocalAddresses) break;
         }
+        if (addrs.length >= _maxLocalAddresses) break;
       }
       _localAddressesCache = List<String>.unmodifiable(addrs);
       _localAddressesAt = DateTime.now().toUtc();
@@ -5756,7 +5761,7 @@ class WebMessagePlatformService {
     }
     if (type == FileSystemEntityType.directory) {
       // 不递归：让用户明确清空再删（避免一次误调清掉整棵子树）。
-      if (!await Directory(resolved).list(followLinks: false).isEmpty) {
+      if (!await isDirectoryEmpty(Directory(resolved))) {
         return _json(HttpStatus.conflict, <String, Object?>{
           'error': 'directory_not_empty',
         });
@@ -7645,8 +7650,7 @@ class WebMessagePlatformService {
       if (!p.isWithin(normalizedRoot, normalizedPath)) continue;
       final directory = Directory(normalizedPath);
       try {
-        if (await directory.exists() &&
-            await directory.list(followLinks: false).isEmpty) {
+        if (await isDirectoryEmpty(directory)) {
           await directory.delete();
           deletedDirectories += 1;
         }

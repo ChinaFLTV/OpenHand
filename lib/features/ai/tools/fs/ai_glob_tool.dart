@@ -25,7 +25,18 @@ class AiGlobTool extends AiTool {
     final rootPath = AiToolUtils.resolvePath(
       AiToolUtils.readString(args['path']),
     );
-    final rootEntity = FileSystemEntity.typeSync(rootPath);
+    FileSystemEntityType rootEntity;
+    try {
+      rootEntity = await FileSystemEntity.type(
+        rootPath,
+        followLinks: false,
+      ).timeout(AiToolUtils.fileTreeScanIdleTimeout);
+    } on TimeoutException {
+      return AiToolUtils.invalidResult(
+        'Glob',
+        'Directory metadata lookup timed out: $rootPath',
+      );
+    }
     if (rootEntity == FileSystemEntityType.notFound) {
       return AiToolUtils.invalidResult(
         'Glob',
@@ -64,7 +75,21 @@ class AiGlobTool extends AiTool {
         if (AiToolUtils.globMatches(relativePath, pattern)) {
           DateTime modified;
           try {
-            modified = (await FileStat.stat(normalizedPath)).modified;
+            final remaining =
+                AiToolUtils.fileTreeScanTotalTimeout - scanStopwatch.elapsed;
+            if (remaining <= Duration.zero) {
+              hitScanLimit = true;
+              break;
+            }
+            final statTimeout = remaining < AiToolUtils.fileTreeScanIdleTimeout
+                ? remaining
+                : AiToolUtils.fileTreeScanIdleTimeout;
+            modified = (await FileStat.stat(
+              normalizedPath,
+            ).timeout(statTimeout)).modified;
+          } on TimeoutException {
+            hitScanLimit = true;
+            break;
           } catch (_) {
             modified = DateTime.fromMillisecondsSinceEpoch(0);
           }

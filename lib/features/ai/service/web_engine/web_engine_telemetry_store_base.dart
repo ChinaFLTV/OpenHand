@@ -214,8 +214,11 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
       final dir = Directory(defaultDirectoryPath());
       if (!await dir.exists()) return;
       try {
-        await for (final entity in dir.list(followLinks: false)) {
-          await entity.delete(recursive: true);
+        final complete = await clearWebEngineDirectoryBounded(dir);
+        if (!complete) {
+          throw StateError(
+            'Web engine telemetry cleanup reached its safety limit.',
+          );
         }
       } catch (error, stack) {
         silentLog(logTag, 'clearAll', error, stack);

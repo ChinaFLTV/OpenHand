@@ -11,6 +11,8 @@ import '../model/mcp_server_ops.dart';
 /// 无 Flutter 依赖：可被 controller / widget / runtime 共同引用。
 const String mcpOpsWildcardIpv4Host = '0.0.0.0';
 const String mcpOpsWildcardIpv6Host = '::';
+const Duration mcpOpsInterfaceDiscoveryTimeout = Duration(seconds: 3);
+const int mcpOpsMaxDiscoveredHosts = 64;
 
 /// 运维入口实际生效的端口：优先取已绑定端口，未启动时回落到配置端口。
 int mcpOpsEffectivePort(McpOpsRuntimeSnapshot snapshot, McpOpsConfig config) {
@@ -91,14 +93,16 @@ Future<List<String>> mcpOpsDiscoverAdvertisedHosts(String listenHost) async {
   try {
     final interfaces = await NetworkInterface.list(
       type: InternetAddressType.IPv4,
-    );
+    ).timeout(mcpOpsInterfaceDiscoveryTimeout);
     final hosts = <String>{};
     for (final interface in interfaces) {
       for (final address in interface.addresses) {
         if (_isAdvertisableAddress(address)) {
           hosts.add(address.address);
         }
+        if (hosts.length >= mcpOpsMaxDiscoveredHosts) break;
       }
+      if (hosts.length >= mcpOpsMaxDiscoveredHosts) break;
     }
     final sorted = hosts.toList(growable: false)
       ..sort((left, right) {

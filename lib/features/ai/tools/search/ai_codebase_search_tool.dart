@@ -429,10 +429,10 @@ class AiCodebaseSearchTool extends AiTool {
     // Use glob-style file search
     final lowerKeyword = keyword.toLowerCase();
     final results = <String>[];
+    final stopwatch = Stopwatch()..start();
 
     try {
       final dir = Directory(searchRoot);
-      final stopwatch = Stopwatch()..start();
       var scannedEntries = 0;
       await for (final entity
           in dir
@@ -470,6 +470,8 @@ class AiCodebaseSearchTool extends AiTool {
         error,
         stack,
       );
+    } finally {
+      stopwatch.stop();
     }
 
     return results;
