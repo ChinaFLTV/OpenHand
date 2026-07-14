@@ -340,7 +340,9 @@ class DataCleanupService {
   /// 重新加载（变成空列表）。
   Future<void> cleanHooks() async {
     try {
-      await _hooksController.clearAll();
+      if (!await _hooksController.clearAll()) {
+        throw StateError('Hooks controller rejected the cleanup.');
+      }
     } catch (error, stack) {
       silentLog('data_cleanup', 'cleanHooks', error, stack);
       // controller 路径异常时兜底直接走 DB，再 refresh 一次。
@@ -368,7 +370,9 @@ class DataCleanupService {
   /// 清空全部用户自定义指令条目。
   Future<void> cleanInstructions() async {
     try {
-      await _instructionsController.clearAll();
+      if (!await _instructionsController.clearAll()) {
+        throw StateError('Instructions controller rejected the cleanup.');
+      }
     } catch (error, stack) {
       silentLog('data_cleanup', 'cleanInstructions', error, stack);
       // controller 路径异常时兜底直接走 DB，再 refresh 一次。

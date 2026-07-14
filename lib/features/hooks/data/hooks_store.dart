@@ -1,17 +1,17 @@
 import 'package:sqflite_common/sqlite_api.dart';
 
 import '../../../app/model/hook_config.dart';
-import '../../../app/support/silent_log.dart';
 import '../../../shared/db/database_service.dart';
-import '../../../shared/util/input_value_parsing.dart';
 
 /// Persistence layer for hooks configuration using SQLite.
 class HooksStore {
-  HooksStore();
+  HooksStore({Database? database}) : _database = database;
 
   static const String _tableName = 'hooks';
 
-  Database get _db => DatabaseService.instance.database;
+  final Database? _database;
+
+  Database get _db => _database ?? DatabaseService.instance.database;
 
   /// Ensures the hooks table exists. Call once at startup.
   Future<void> ensureTable() async {
@@ -35,41 +35,49 @@ class HooksStore {
       orderBy: 'sort_order ASC, rowid ASC',
     );
     final entries = <HookEntry>[];
+    final seenIds = <String>{};
     for (final row in rows) {
-      try {
-        entries.add(
-          HookEntry(
-            id: '${row['id']}'.trim(),
-            event:
-                HookEvent.fromStorage('${row['event']}') ??
-                HookEvent.sessionStart,
-            label: '${row['label'] ?? ''}'.trim(),
-            scriptPath: nullIfBlank('${row['script_path'] ?? ''}'),
-            scriptContent: nullIfBlank('${row['script_content'] ?? ''}'),
-            enabled: boolFromValue(row['enabled']),
-            timeoutSeconds: HookEntry.timeoutSecondsFromValue(
-              row['timeout_seconds'],
-            ),
-          ),
-        );
-      } catch (error, stack) {
-        silentLog(
-          'hooks_store',
-          'skipped malformed row id=${row['id']}',
-          error,
-          stack,
-        );
+      final rawId = _text(row, 'id');
+      final id = rawId.trim();
+      final event = HookEvent.fromStorage(_text(row, 'event'));
+      final enabledValue = row['enabled'];
+      final enabled = enabledValue == 1
+          ? true
+          : enabledValue == 0
+          ? false
+          : null;
+      final timeoutSeconds = row['timeout_seconds'];
+      final sortOrder = row['sort_order'];
+      if (id.isEmpty ||
+          id != rawId ||
+          !seenIds.add(id) ||
+          event == null ||
+          enabled == null ||
+          timeoutSeconds is! int ||
+          timeoutSeconds < HookEntry.minTimeoutSeconds ||
+          timeoutSeconds > HookEntry.maxTimeoutSeconds ||
+          sortOrder is! int ||
+          sortOrder < 0) {
+        throw FormatException('Invalid hook row: $id');
       }
+      final scriptPath = _text(row, 'script_path');
+      if (scriptPath != scriptPath.trim()) {
+        throw FormatException('Invalid hook script path: $id');
+      }
+      final scriptContent = _text(row, 'script_content');
+      entries.add(
+        HookEntry(
+          id: id,
+          event: event,
+          label: _text(row, 'label'),
+          scriptPath: scriptPath.isEmpty ? null : scriptPath,
+          scriptContent: scriptContent.isEmpty ? null : scriptContent,
+          enabled: enabled,
+          timeoutSeconds: timeoutSeconds,
+        ),
+      );
     }
     return entries;
-  }
-
-  Future<void> save(HookEntry entry, int sortOrder) async {
-    await _db.insert(
-      _tableName,
-      _entryValues(entry, sortOrder),
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
   }
 
   Future<void> saveAll(List<HookEntry> entries) async {
@@ -82,8 +90,10 @@ class HooksStore {
     await batch.commit(noResult: true);
   }
 
-  Future<void> delete(String id) async {
-    await _db.delete(_tableName, where: 'id = ?', whereArgs: <Object?>[id]);
+  String _text(Map<String, Object?> row, String key) {
+    final value = row[key];
+    if (value is String) return value;
+    throw FormatException('Hook field $key must be text.');
   }
 
   Map<String, Object?> _entryValues(HookEntry entry, int sortOrder) {

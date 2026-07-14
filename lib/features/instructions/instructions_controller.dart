@@ -53,6 +53,7 @@ class InstructionsController extends ManagedChangeNotifier {
   String? _errorMessage;
   List<UserInstructionEntry> _entries = const <UserInstructionEntry>[];
   List<UserInstructionEntry> _entriesView = const <UserInstructionEntry>[];
+  bool _hasTrustedSnapshot = false;
 
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
@@ -60,8 +61,9 @@ class InstructionsController extends ManagedChangeNotifier {
 
   /// 当前所有 enabled 的指令，按 sortOrder 升序。供 prompt builder /
   /// composer 调用。
-  List<UserInstructionEntry> get enabledEntries =>
-      _entriesView.where((entry) => entry.enabled).toList(growable: false);
+  List<UserInstructionEntry> get enabledEntries => _hasTrustedSnapshot
+      ? _entriesView.where((entry) => entry.enabled).toList(growable: false)
+      : const <UserInstructionEntry>[];
 
   final ChangePulse _saveSuccessPulse = ChangePulse();
 
@@ -112,19 +114,27 @@ class InstructionsController extends ManagedChangeNotifier {
       maxItemLength: 64,
       dedupeCaseInsensitive: true,
     );
-    return _enqueueOperation(() async {
-      final now = _clock();
+    return _enqueueMutation(() async {
+      final now = _clock().toUtc();
+      final id = _idGenerator().trim();
+      if (id.isEmpty || _entries.any((entry) => entry.id == id)) return false;
       // 新指令排到末尾。
       final maxOrder = _entries.isEmpty
           ? -1
           : _entries.map((e) => e.sortOrder).reduce((a, b) => a > b ? a : b);
       final next = UserInstructionEntry(
-        id: _idGenerator(),
+        id: id,
         name: normalizedName,
         body: normalizedBody,
-        description: description,
+        description: UserInstructionEntry.normalizeOneLine(
+          description,
+          UserInstructionEntry.maxDescriptionLength,
+        ),
         version: UserInstructionEntry.normalizeVersion(version),
-        applyTo: applyTo,
+        applyTo: UserInstructionEntry.normalizeOneLine(
+          applyTo,
+          UserInstructionEntry.maxApplyToLength,
+        ),
         notes: normalizedNotes,
         taskTypes: normalizedTaskTypes,
         keywords: normalizedKeywords,
@@ -149,17 +159,34 @@ class InstructionsController extends ManagedChangeNotifier {
     List<String>? keywords,
     bool? enabled,
   }) async {
-    return _enqueueOperation(() async {
+    return _enqueueMutation(() async {
       final index = _entries.indexWhere((e) => e.id == source.id);
       if (index < 0) return false;
+      final normalizedName = name == null
+          ? _entries[index].name
+          : UserInstructionEntry.normalizeName(name);
+      final normalizedBody = body == null
+          ? _entries[index].body
+          : UserInstructionEntry.normalizeBody(body);
+      if (normalizedName.isEmpty || normalizedBody.isEmpty) return false;
       final updated = _entries[index].copyWith(
-        name: name == null ? null : UserInstructionEntry.normalizeName(name),
-        body: body == null ? null : UserInstructionEntry.normalizeBody(body),
-        description: description,
+        name: normalizedName,
+        body: normalizedBody,
+        description: description == null
+            ? null
+            : UserInstructionEntry.normalizeOneLine(
+                description,
+                UserInstructionEntry.maxDescriptionLength,
+              ),
         version: version == null
             ? null
             : UserInstructionEntry.normalizeVersion(version),
-        applyTo: applyTo,
+        applyTo: applyTo == null
+            ? null
+            : UserInstructionEntry.normalizeOneLine(
+                applyTo,
+                UserInstructionEntry.maxApplyToLength,
+              ),
         notes: notes == null
             ? null
             : UserInstructionEntry.normalizeStringList(
@@ -184,7 +211,7 @@ class InstructionsController extends ManagedChangeNotifier {
                 dedupeCaseInsensitive: true,
               ),
         enabled: enabled,
-        updatedAt: _clock(),
+        updatedAt: _clock().toUtc(),
       );
       final next = List<UserInstructionEntry>.from(_entries);
       next[index] = updated;
@@ -193,18 +220,21 @@ class InstructionsController extends ManagedChangeNotifier {
   }
 
   Future<bool> setEnabled(String id, bool enabled) async {
-    return _enqueueOperation(() async {
+    return _enqueueMutation(() async {
       final index = _entries.indexWhere((e) => e.id == id);
       if (index < 0) return false;
       if (_entries[index].enabled == enabled) return true;
       final next = List<UserInstructionEntry>.from(_entries);
-      next[index] = next[index].copyWith(enabled: enabled, updatedAt: _clock());
+      next[index] = next[index].copyWith(
+        enabled: enabled,
+        updatedAt: _clock().toUtc(),
+      );
       return _commitSaveLocked(next);
     });
   }
 
   Future<bool> deleteEntry(String id) async {
-    return _enqueueOperation(() async {
+    return _enqueueMutation(() async {
       final next = _entries.where((e) => e.id != id).toList();
       if (next.length == _entries.length) return false;
       return _commitSaveLocked(next);
@@ -213,7 +243,7 @@ class InstructionsController extends ManagedChangeNotifier {
 
   /// 清空全部指令条目（数据清理面板使用）。单次批量提交。
   Future<bool> clearAll() async {
-    return _enqueueOperation(() async {
+    return _enqueueMutation(() async {
       if (_entries.isEmpty) return true;
       return _commitSaveLocked(const <UserInstructionEntry>[]);
     });
@@ -222,7 +252,7 @@ class InstructionsController extends ManagedChangeNotifier {
   /// 整体重排：新顺序由调用方按 UI 拖拽结果给出（id 列表）。
   /// 列表中缺失或重复的 id 会被忽略，未列出的尾随项会保持在末尾。
   Future<bool> reorder(List<String> orderedIds) async {
-    return _enqueueOperation(() async {
+    return _enqueueMutation(() async {
       if (_entries.isEmpty) return true;
       final indexById = <String, int>{};
       for (int i = 0; i < orderedIds.length; i++) {
@@ -235,7 +265,7 @@ class InstructionsController extends ManagedChangeNotifier {
         final bi = indexById[b.id] ?? (orderedIds.length + b.sortOrder);
         return ai.compareTo(bi);
       });
-      final now = _clock();
+      final now = _clock().toUtc();
       for (int i = 0; i < reordered.length; i++) {
         if (reordered[i].sortOrder != i) {
           reordered[i] = reordered[i].copyWith(sortOrder: i, updatedAt: now);
@@ -249,13 +279,15 @@ class InstructionsController extends ManagedChangeNotifier {
 
   Future<void> _loadLocked() async {
     _isLoading = true;
+    _hasTrustedSnapshot = false;
     _errorMessage = null;
     notifyListeners();
     try {
       final loaded = await _store.loadAll();
       _setEntries(loaded);
+      _hasTrustedSnapshot = true;
     } catch (error) {
-      _setEntries(const <UserInstructionEntry>[]);
+      _hasTrustedSnapshot = false;
       _errorMessage = '$error';
     } finally {
       _isLoading = false;
@@ -264,7 +296,7 @@ class InstructionsController extends ManagedChangeNotifier {
   }
 
   Future<bool> _commitSaveLocked(List<UserInstructionEntry> next) async {
-    final previous = List<UserInstructionEntry>.from(_entries);
+    if (!_hasTrustedSnapshot) return false;
     // 再次按 sortOrder 稳定排序。
     final sorted = List<UserInstructionEntry>.from(next)
       ..sort((a, b) {
@@ -272,15 +304,16 @@ class InstructionsController extends ManagedChangeNotifier {
         if (cmp != 0) return cmp;
         return a.createdAt.compareTo(b.createdAt);
       });
-    _setEntries(sorted);
+    _hasTrustedSnapshot = false;
     _errorMessage = null;
     notifyListeners();
     try {
-      await _store.saveAll(_entries);
+      await _store.saveAll(sorted);
+      _setEntries(sorted);
+      _hasTrustedSnapshot = true;
       _saveSuccessPulse.emit();
       return true;
     } catch (error) {
-      _setEntries(previous);
       _errorMessage = '$error';
       notifyListeners();
       return false;
@@ -294,5 +327,18 @@ class InstructionsController extends ManagedChangeNotifier {
 
   Future<T> _enqueueOperation<T>(Future<T> Function() operation) {
     return enqueueOperation(operation);
+  }
+
+  Future<bool> _enqueueMutation(Future<bool> Function() mutation) {
+    return _enqueueOperation(() async {
+      if (!await _ensureTrustedSnapshotLocked()) return false;
+      return mutation();
+    });
+  }
+
+  Future<bool> _ensureTrustedSnapshotLocked() async {
+    if (_hasTrustedSnapshot) return true;
+    await _loadLocked();
+    return _hasTrustedSnapshot;
   }
 }

@@ -6,7 +6,6 @@ import 'dart:convert';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import '../../../shared/db/database_service.dart';
-import '../../../shared/util/input_value_parsing.dart';
 import '../model/user_instruction_entry.dart';
 
 class InstructionsStore {
@@ -23,13 +22,13 @@ class InstructionsStore {
       orderBy: 'sort_order ASC, created_at ASC',
     );
     final result = <UserInstructionEntry>[];
+    final seenIds = <String>{};
     for (final row in rows) {
-      try {
-        result.add(_rowToEntry(row));
-      } catch (_) {
-        // Skip corrupt rows; never blow up controller load.
-        continue;
+      final entry = _rowToEntry(row);
+      if (!seenIds.add(entry.id)) {
+        throw FormatException('Duplicate instruction id: ${entry.id}');
       }
+      result.add(entry);
     }
     return result;
   }
@@ -41,14 +40,6 @@ class InstructionsStore {
       batch.insert(_table, _entryToRow(entry));
     }
     await batch.commit(noResult: true);
-  }
-
-  Future<void> upsert(UserInstructionEntry entry) async {
-    await _db.insert(
-      _table,
-      _entryToRow(entry),
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
   }
 
   Map<String, Object?> _entryToRow(UserInstructionEntry entry) {
@@ -96,6 +87,47 @@ class InstructionsStore {
   }
 
   UserInstructionEntry _rowToEntry(Map<String, Object?> row) {
+    final rawId = _text(row, 'id');
+    final id = rawId.trim();
+    final rawName = _text(row, 'name');
+    final rawBody = _text(row, 'body');
+    final rawDescription = _text(row, 'description');
+    final rawVersion = _text(row, 'version');
+    final rawApplyTo = _text(row, 'apply_to');
+    final name = UserInstructionEntry.normalizeName(rawName);
+    final body = UserInstructionEntry.normalizeBody(rawBody);
+    final description = UserInstructionEntry.normalizeOneLine(
+      rawDescription,
+      UserInstructionEntry.maxDescriptionLength,
+    );
+    final version = UserInstructionEntry.normalizeVersion(rawVersion);
+    final applyTo = UserInstructionEntry.normalizeOneLine(
+      rawApplyTo,
+      UserInstructionEntry.maxApplyToLength,
+    );
+    final enabledValue = row['enabled'];
+    final enabled = enabledValue == 1
+        ? true
+        : enabledValue == 0
+        ? false
+        : null;
+    final sortOrder = row['sort_order'];
+    final createdAt = _dateTime(row, 'created_at');
+    final updatedAt = _dateTime(row, 'updated_at');
+    if (id.isEmpty ||
+        id != rawId ||
+        name.isEmpty ||
+        body.isEmpty ||
+        name != rawName ||
+        body != rawBody ||
+        description != rawDescription ||
+        version != rawVersion ||
+        applyTo != rawApplyTo ||
+        enabled == null ||
+        sortOrder is! int ||
+        sortOrder < 0) {
+      throw FormatException('Invalid instruction row: $id');
+    }
     final notes = _decodeStringList(
       row['notes_json'],
       maxItems: UserInstructionEntry.maxNotes,
@@ -113,28 +145,18 @@ class InstructionsStore {
       maxItemLength: 64,
       dedupeCaseInsensitive: true,
     );
-    final createdAt = dateTimeFromValue(row['created_at']) ?? DateTime.now();
-    final updatedAt = dateTimeFromValue(row['updated_at']) ?? createdAt;
     return UserInstructionEntry(
-      id: '${row['id'] ?? ''}',
-      name: UserInstructionEntry.normalizeName('${row['name'] ?? ''}'),
-      body: UserInstructionEntry.normalizeBody('${row['body'] ?? ''}'),
-      description: UserInstructionEntry.normalizeOneLine(
-        '${row['description'] ?? ''}',
-        UserInstructionEntry.maxDescriptionLength,
-      ),
-      version: UserInstructionEntry.normalizeVersion(
-        '${row['version'] ?? '1.0'}',
-      ),
-      applyTo: UserInstructionEntry.normalizeOneLine(
-        '${row['apply_to'] ?? ''}',
-        UserInstructionEntry.maxApplyToLength,
-      ),
+      id: id,
+      name: name,
+      body: body,
+      description: description,
+      version: version,
+      applyTo: applyTo,
       notes: notes,
       taskTypes: taskTypes,
       keywords: keywords,
-      enabled: boolFromValue(row['enabled'], defaultValue: true),
-      sortOrder: intFromValue(row['sort_order'], fallback: 0),
+      enabled: enabled,
+      sortOrder: sortOrder,
       createdAt: createdAt,
       updatedAt: updatedAt,
     );
@@ -146,12 +168,45 @@ class InstructionsStore {
     required int maxItemLength,
     bool dedupeCaseInsensitive = false,
   }) {
-    if (raw is! String || raw.isEmpty) return const <String>[];
-    return UserInstructionEntry.normalizeStringList(
-      stringListFromJsonText(raw),
+    if (raw is! String) {
+      throw const FormatException('Instruction list field must be JSON text.');
+    }
+    final decoded = jsonDecode(raw);
+    if (decoded is! List || decoded.any((item) => item is! String)) {
+      throw const FormatException('Instruction list field must be an array.');
+    }
+    final normalized = UserInstructionEntry.normalizeStringList(
+      decoded.cast<String>(),
       maxItems: maxItems,
       maxItemLength: maxItemLength,
       dedupeCaseInsensitive: dedupeCaseInsensitive,
     );
+    if (!_sameStrings(decoded.cast<String>(), normalized)) {
+      throw const FormatException('Instruction list field is not canonical.');
+    }
+    return normalized;
+  }
+
+  String _text(Map<String, Object?> row, String key) {
+    final value = row[key];
+    if (value is String) return value;
+    throw FormatException('Instruction field $key must be text.');
+  }
+
+  DateTime _dateTime(Map<String, Object?> row, String key) {
+    final raw = _text(row, key);
+    final parsed = DateTime.tryParse(raw);
+    if (parsed == null || parsed.toUtc().toIso8601String() != raw) {
+      throw FormatException('Instruction field $key is invalid.');
+    }
+    return parsed;
+  }
+
+  bool _sameStrings(List<String> source, List<String> normalized) {
+    if (source.length != normalized.length) return false;
+    for (var index = 0; index < source.length; index++) {
+      if (source[index] != normalized[index]) return false;
+    }
+    return true;
   }
 }

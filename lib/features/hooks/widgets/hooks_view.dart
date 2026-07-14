@@ -20,16 +20,39 @@ class HooksView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final entries = context.select<HooksController, List<HookEntry>>(
-      (controller) => controller.entries,
-    );
+    final snapshot = context
+        .select<
+          HooksController,
+          ({bool isLoading, String? errorMessage, List<HookEntry> entries})
+        >(
+          (controller) => (
+            isLoading: controller.isLoading,
+            errorMessage: controller.errorMessage,
+            entries: controller.entries,
+          ),
+        );
     final hooksController = context.read<HooksController>();
     final l10n = AppLocalizations.of(context)!;
 
-    final actions = FilledButton.icon(
-      onPressed: () => _showHookEditorDialog(context, null),
-      icon: const Icon(Icons.add_rounded),
-      label: Text(l10n.hooksNew),
+    final actions = Wrap(
+      spacing: 12,
+      runSpacing: 12,
+      alignment: WrapAlignment.end,
+      children: [
+        if (snapshot.errorMessage != null)
+          FilledButton.tonalIcon(
+            onPressed: snapshot.isLoading ? null : hooksController.refresh,
+            icon: const Icon(Icons.refresh_rounded),
+            label: Text(l10n.commonRetry),
+          ),
+        FilledButton.icon(
+          onPressed: snapshot.isLoading || snapshot.errorMessage != null
+              ? null
+              : () => _showHookEditorDialog(context, null),
+          icon: const Icon(Icons.add_rounded),
+          label: Text(l10n.hooksNew),
+        ),
+      ],
     );
 
     return FeaturePageShell(
@@ -37,7 +60,29 @@ class HooksView extends StatelessWidget {
       subtitle: l10n.hooksSubtitle,
       actions: actions,
       successSignal: hooksController.saveSuccessSignal,
-      body: entries.isEmpty
+      notices: [
+        if (snapshot.errorMessage != null && snapshot.entries.isNotEmpty)
+          FeatureStateCard.inline(
+            icon: Icons.error_outline_rounded,
+            tone: FeatureStateTone.error,
+            title: l10n.settingsPersistenceLoadFailedTitle,
+            body: snapshot.errorMessage!,
+          ),
+      ],
+      body: snapshot.isLoading && snapshot.entries.isEmpty
+          ? const Center(
+              key: ValueKey<String>('loading'),
+              child: CircularProgressIndicator(),
+            )
+          : snapshot.errorMessage != null && snapshot.entries.isEmpty
+          ? FeatureStateCard.centered(
+              key: const ValueKey<String>('error'),
+              icon: Icons.error_outline_rounded,
+              tone: FeatureStateTone.error,
+              title: l10n.settingsPersistenceLoadFailedTitle,
+              body: snapshot.errorMessage!,
+            )
+          : snapshot.entries.isEmpty
           ? const SizedBox.expand(
               key: ValueKey<String>('empty'),
               child: _EmptyState(),
@@ -49,10 +94,10 @@ class HooksView extends StatelessWidget {
               ).copyWith(scrollbars: false),
               child: ListView.separated(
                 padding: const EdgeInsets.only(top: 2),
-                itemCount: entries.length,
+                itemCount: snapshot.entries.length,
                 separatorBuilder: (_, _) => const SizedBox(height: 12),
                 itemBuilder: (context, index) {
-                  final entry = entries[index];
+                  final entry = snapshot.entries[index];
                   return AppearOnce(
                     key: ValueKey<String>('hook-entry-${entry.id}'),
                     child: _HookEntryCard(
@@ -262,6 +307,7 @@ class _HookEditorDialogState extends State<_HookEditorDialog> {
   late final TextEditingController _timeoutController;
   late _HookScriptSource _scriptSource;
   late bool _enabled;
+  bool _saving = false;
   String? _formError;
 
   @override
@@ -474,11 +520,11 @@ class _HookEditorDialogState extends State<_HookEditorDialog> {
       actions: [
         OpenHandDialogActionButton.secondary(
           label: l10n.commonCancel,
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: _saving ? null : () => Navigator.of(context).pop(),
         ),
         OpenHandDialogActionButton.primary(
           label: l10n.commonSave,
-          onPressed: _save,
+          onPressed: _saving ? null : _save,
         ),
       ],
     );
@@ -512,7 +558,8 @@ class _HookEditorDialogState extends State<_HookEditorDialog> {
     }
   }
 
-  void _save() {
+  Future<void> _save() async {
+    if (_saving) return;
     final l10n = AppLocalizations.of(context)!;
     final label = _labelController.text.trim();
     final validationError = _validateForm(label, l10n);
@@ -536,13 +583,24 @@ class _HookEditorDialogState extends State<_HookEditorDialog> {
       timeoutSeconds: timeout,
     );
 
-    final controller = context.read<HooksController>();
-    if (_isEditing) {
-      controller.updateHook(entry);
-    } else {
-      controller.addHook(entry);
+    setState(() => _saving = true);
+    try {
+      final controller = context.read<HooksController>();
+      final saved = _isEditing
+          ? await controller.updateHook(entry)
+          : await controller.addHook(entry);
+      if (!mounted) return;
+      if (saved) {
+        Navigator.of(context).pop();
+      } else {
+        setState(() {
+          _formError =
+              controller.errorMessage ?? l10n.settingsPersistenceSaveFailedBody;
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
     }
-    Navigator.of(context).pop();
   }
 
   String? _validateForm(String label, AppLocalizations l10n) {

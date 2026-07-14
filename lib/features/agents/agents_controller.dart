@@ -48,12 +48,15 @@ class AgentsController extends ManagedChangeNotifier {
   List<AgentProfile> _agentsView;
   bool _isLoading;
   String? _errorMessage;
+  bool _hasTrustedSnapshot = false;
   AgentRuntimeAvailabilityProvider? _runtimeAvailabilityProvider;
   final ChangePulse _saveSuccessPulse = ChangePulse();
 
   List<AgentProfile> get agents => _agentsView;
   List<AgentProfile> get enabledAgents {
-    if (!runtimeAvailability.canRun) return const <AgentProfile>[];
+    if (!_hasTrustedSnapshot || !runtimeAvailability.canRun) {
+      return const <AgentProfile>[];
+    }
     return _agentsView.where((agent) => agent.enabled).toList(growable: false);
   }
 
@@ -76,6 +79,7 @@ class AgentsController extends ManagedChangeNotifier {
   }
 
   AgentProfile? agentById(String id) {
+    if (!_hasTrustedSnapshot) return null;
     final normalized = id.trim();
     for (final agent in _agents) {
       if (agent.id == normalized) return agent;
@@ -87,6 +91,7 @@ class AgentsController extends ManagedChangeNotifier {
     String rawIdentifier, {
     bool includeDisabled = false,
   }) {
+    if (!_hasTrustedSnapshot) return null;
     final identifier = rawIdentifier.trim();
     if (identifier.isEmpty) return null;
     final normalized = identifier.toLowerCase();
@@ -111,20 +116,7 @@ class AgentsController extends ManagedChangeNotifier {
   }
 
   Future<void> refresh() {
-    return enqueueOperation(() async {
-      _isLoading = true;
-      _errorMessage = null;
-      notifyListeners();
-      try {
-        final loaded = await _store.load();
-        _setAgents(loaded.map(_normalizeAgent).toList(growable: false));
-      } catch (error) {
-        _errorMessage = '$error';
-      } finally {
-        _isLoading = false;
-        notifyListeners();
-      }
-    });
+    return enqueueOperation(_loadLocked);
   }
 
   Future<bool> saveAgent(AgentProfile draft) {
@@ -155,10 +147,10 @@ class AgentsController extends ManagedChangeNotifier {
     final normalizedId = id.trim();
     if (normalizedId.isEmpty) return Future<bool>.value(false);
     return _commitMutation(() async {
-      final before = _agents.length;
-      _setAgents(_agents.where((agent) => agent.id != normalizedId).toList());
-      if (_agents.length == before) return false;
-      await _store.save(_agents);
+      final next = _agents.where((agent) => agent.id != normalizedId).toList();
+      if (next.length == _agents.length) return false;
+      await _store.save(next);
+      _setAgents(next);
       return true;
     });
   }
@@ -836,6 +828,7 @@ class AgentsController extends ManagedChangeNotifier {
     final normalizedAgentId = agentId.trim();
     if (normalizedAgentId.isEmpty) return Future<bool>.value(false);
     return enqueueOperation(() async {
+      if (!_hasTrustedSnapshot) return false;
       final index = _agentIndexById(normalizedAgentId);
       if (index < 0) return false;
       final agent = _agents[index];
@@ -1006,19 +999,48 @@ class AgentsController extends ManagedChangeNotifier {
 
   Future<bool> _commitMutation(Future<bool> Function() mutation) {
     return enqueueOperation(() async {
+      if (!await _ensureTrustedSnapshotLocked()) return false;
       final previous = List<AgentProfile>.from(_agents);
+      _hasTrustedSnapshot = false;
+      _errorMessage = null;
+      notifyListeners();
       try {
         final changed = await mutation();
+        _hasTrustedSnapshot = true;
         if (changed) _saveSuccessPulse.emit();
         notifyListeners();
         return changed;
       } catch (error) {
         _setAgents(previous);
+        _hasTrustedSnapshot = false;
         _errorMessage = '$error';
         notifyListeners();
         return false;
       }
     });
+  }
+
+  Future<void> _loadLocked() async {
+    _isLoading = true;
+    _hasTrustedSnapshot = false;
+    _errorMessage = null;
+    notifyListeners();
+    try {
+      _setAgents(await _store.load());
+      _hasTrustedSnapshot = true;
+    } catch (error) {
+      _hasTrustedSnapshot = false;
+      _errorMessage = '$error';
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> _ensureTrustedSnapshotLocked() async {
+    if (_hasTrustedSnapshot) return true;
+    await _loadLocked();
+    return _hasTrustedSnapshot;
   }
 
   void _setAgents(List<AgentProfile> value) {
@@ -1041,18 +1063,26 @@ class AgentsController extends ManagedChangeNotifier {
   }
 
   Future<void> _replaceAgentAtAndSave(int index, AgentProfile agent) async {
-    _replaceAgentAt(index, agent);
-    await _store.save(_agents);
+    final next = <AgentProfile>[
+      ..._agents.sublist(0, index),
+      agent,
+      ..._agents.sublist(index + 1),
+    ];
+    await _store.save(next);
+    _setAgents(next);
   }
 
   Future<void> _upsertAgentAndSave(AgentProfile agent) async {
     final index = _agentIndexById(agent.id);
-    if (index < 0) {
-      _setAgents(<AgentProfile>[agent, ..._agents]);
-    } else {
-      _replaceAgentAt(index, agent);
-    }
-    await _store.save(_agents);
+    final next = index < 0
+        ? <AgentProfile>[agent, ..._agents]
+        : <AgentProfile>[
+            ..._agents.sublist(0, index),
+            agent,
+            ..._agents.sublist(index + 1),
+          ];
+    await _store.save(next);
+    _setAgents(next);
   }
 
   AgentProfile _normalizeAgent(AgentProfile agent) {
