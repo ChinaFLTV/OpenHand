@@ -844,7 +844,9 @@ class _WebReverseDashboardDialogState
     }
     // 行断点（含 condition）。旧格式只有 url/line 时 condition 缺省。
     if (rawBps is List) {
-      for (final item in rawBps) {
+      for (final item in rawBps.take(
+        WebReverseSessionController.maxSourceBreakpoints,
+      )) {
         if (item is! Map) continue;
         final url = '${item['url'] ?? ''}';
         final line = intFromValue(item['line'], fallback: -1);
@@ -867,7 +869,9 @@ class _WebReverseDashboardDialogState
       }
     }
     if (rawXhr is List) {
-      for (final s in rawXhr) {
+      for (final s in rawXhr.take(
+        WebReverseSessionController.maxXhrBreakpoints,
+      )) {
         if (s is! String) continue;
         try {
           await c.addXhrBreakpoint(s);
@@ -882,7 +886,9 @@ class _WebReverseDashboardDialogState
       }
     }
     if (rawEvent is List) {
-      for (final s in rawEvent) {
+      for (final s in rawEvent.take(
+        WebReverseSessionController.maxEventListenerBreakpoints,
+      )) {
         if (s is! String || s.isEmpty) continue;
         try {
           await c.setEventListenerBreakpoint(s);
@@ -897,7 +903,9 @@ class _WebReverseDashboardDialogState
       }
     }
     if (rawDom is List) {
-      for (final item in rawDom) {
+      for (final item in rawDom.take(
+        WebReverseSessionController.maxDomBreakpoints,
+      )) {
         if (item is! Map) continue;
         final sel = '${item['selector'] ?? ''}';
         final t = '${item['type'] ?? ''}';
@@ -916,7 +924,7 @@ class _WebReverseDashboardDialogState
     }
     if (rawCsp is List) {
       final types = <String>{};
-      for (final s in rawCsp) {
+      for (final s in rawCsp.take(2)) {
         if (s is String && s.isNotEmpty) types.add(s);
       }
       if (types.isNotEmpty) {

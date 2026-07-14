@@ -152,6 +152,18 @@ class WebReverseSessionController extends ChangeNotifier {
   static const int _maxScriptSourceCacheEntries = 32;
   static const int _maxScriptSourceCacheChars = 16 * kBytesPerMiB;
   static const int _maxTargetBufferSourceChars = 32 * kBytesPerMiB;
+  static const int maxBlockedUrlPatterns = 512;
+  static const int maxSourceBreakpoints = 512;
+  static const int maxXhrBreakpoints = 256;
+  static const int maxEventListenerBreakpoints = 256;
+  static const int maxDomBreakpoints = 256;
+  static const int maxWatchExpressions = 256;
+  static const int maxAccountSnapshots = 16;
+  static const int maxInterceptRules = 256;
+  static const int maxMockRules = 256;
+  static const int maxRequestBreakpoints = 256;
+  static const int maxBreakpointTextChars = 16 * kBytesPerKiB;
+  static const int maxDebuggerExpressionChars = 64 * kBytesPerKiB;
   static const double _maxFullPageScreenshotCssPixels = 32 * 1000 * 1000;
   static const double _maxFullPageScreenshotCssSide = 32767;
   static final RegExp _rawCdpMethodPattern = RegExp(
@@ -3493,9 +3505,15 @@ class WebReverseSessionController extends ChangeNotifier {
       case 'Network.setBlockedURLs':
         final urls = params['urls'];
         if (urls is List) {
+          final normalized = stringListFromValue(urls)
+              .map((url) => url.trim())
+              .where(
+                (url) => url.isNotEmpty && url.length <= maxBreakpointTextChars,
+              )
+              .take(maxBlockedUrlPatterns);
           _blockedUrls
             ..clear()
-            ..addAll(stringListFromValue(urls));
+            ..addAll(normalized);
           changed = true;
         }
         break;
@@ -5303,7 +5321,7 @@ class WebReverseSessionController extends ChangeNotifier {
   void setInterceptRules(List<WebReverseInterceptRule> rules) {
     _interceptRules
       ..clear()
-      ..addAll(rules);
+      ..addAll(rules.take(maxInterceptRules));
     _safeNotify();
   }
 
@@ -5329,7 +5347,7 @@ class WebReverseSessionController extends ChangeNotifier {
   void setMockRules(List<WebReverseMockRule> rules) {
     _mockRules
       ..clear()
-      ..addAll(rules);
+      ..addAll(rules.take(maxMockRules));
     _safeNotify();
   }
 
@@ -5404,13 +5422,20 @@ class WebReverseSessionController extends ChangeNotifier {
   Set<String> get blockedUrls => Set<String>.unmodifiable(_blockedUrls);
 
   Future<void> blockUrl(String pattern) async {
-    if (pattern.isEmpty) return;
-    _blockedUrls.add(pattern);
+    final normalized = pattern.trim();
+    if (normalized.isEmpty || normalized.length > maxBreakpointTextChars) {
+      return;
+    }
+    if (_blockedUrls.contains(normalized) ||
+        _blockedUrls.length >= maxBlockedUrlPatterns) {
+      return;
+    }
+    _blockedUrls.add(normalized);
     await _flushBlockedUrls();
   }
 
   Future<void> unblockUrl(String pattern) async {
-    _blockedUrls.remove(pattern);
+    if (!_blockedUrls.remove(pattern.trim())) return;
     await _flushBlockedUrls();
   }
 
@@ -5687,16 +5712,41 @@ class WebReverseSessionController extends ChangeNotifier {
     int columnNumber = 0,
     String? condition,
   }) async {
+    final normalizedUrl = url.trim();
+    final normalizedCondition = condition?.trim() ?? '';
+    if (normalizedUrl.isEmpty ||
+        normalizedUrl.length > maxBreakpointTextChars ||
+        normalizedCondition.length > maxDebuggerExpressionChars ||
+        lineNumber < 0 ||
+        columnNumber < 0) {
+      return null;
+    }
+    final key = '$normalizedUrl#$lineNumber';
+    final existingId = _bpIdByKey[key];
+    if (existingId != null &&
+        (_bpConditions[key] ?? '') == normalizedCondition) {
+      return existingId;
+    }
+    if (!_userBreakpoints.any(
+          (item) => item.url == normalizedUrl && item.line == lineNumber,
+        ) &&
+        _userBreakpoints.length >= maxSourceBreakpoints) {
+      return null;
+    }
+    if (existingId != null && !await removeBreakpoint(existingId)) {
+      return null;
+    }
     final cdp = _browserCdp;
     if (cdp == null || _pageSessionId == null) return null;
     try {
       final params = <String, Object?>{
-        'url': url,
+        'url': normalizedUrl,
         'lineNumber': lineNumber,
         'columnNumber': columnNumber,
       };
-      final c = condition?.trim() ?? '';
-      if (c.isNotEmpty) params['condition'] = c;
+      if (normalizedCondition.isNotEmpty) {
+        params['condition'] = normalizedCondition;
+      }
       final r = await cdp.send(
         'Debugger.setBreakpointByUrl',
         params: params,
@@ -5704,12 +5754,12 @@ class WebReverseSessionController extends ChangeNotifier {
       );
       final bp = r['breakpointId'] as String?;
       if (bp != null) {
-        _userBreakpoints.add((url: url, line: lineNumber));
-        _bpIdByKey['$url#$lineNumber'] = bp;
-        if (c.isEmpty) {
-          _bpConditions.remove('$url#$lineNumber');
+        _userBreakpoints.add((url: normalizedUrl, line: lineNumber));
+        _bpIdByKey[key] = bp;
+        if (normalizedCondition.isEmpty) {
+          _bpConditions.remove(key);
         } else {
-          _bpConditions['$url#$lineNumber'] = c;
+          _bpConditions[key] = normalizedCondition;
         }
         _safeNotify();
       }
@@ -5732,19 +5782,31 @@ class WebReverseSessionController extends ChangeNotifier {
     required int line,
     required String condition,
   }) async {
-    final key = '$url#$line';
+    final normalizedUrl = url.trim();
+    final normalizedCondition = condition.trim();
+    if (normalizedUrl.isEmpty ||
+        normalizedUrl.length > maxBreakpointTextChars ||
+        normalizedCondition.length > maxDebuggerExpressionChars ||
+        line < 0) {
+      return null;
+    }
+    final key = '$normalizedUrl#$line';
     final oldId = _bpIdByKey[key];
     if (oldId != null) {
-      await removeBreakpoint(oldId);
+      if (!await removeBreakpoint(oldId)) return null;
     }
-    return setBreakpointByUrl(url: url, lineNumber: line, condition: condition);
+    return setBreakpointByUrl(
+      url: normalizedUrl,
+      lineNumber: line,
+      condition: normalizedCondition,
+    );
   }
 
   /// 持久化数据下发：恢复之前持久化的断点（dashboard 启动 / 浏览器重启用）。
   Future<void> restoreBreakpoints(
     Iterable<({String url, int line})> bps,
   ) async {
-    for (final b in bps) {
+    for (final b in bps.take(maxSourceBreakpoints)) {
       await setBreakpointByUrl(url: b.url, lineNumber: b.line);
     }
   }
@@ -5839,15 +5901,19 @@ class WebReverseSessionController extends ChangeNotifier {
   }
 
   Future<bool> addXhrBreakpoint(String urlSubstring) async {
+    final normalized = urlSubstring.trim();
+    if (normalized.length > maxBreakpointTextChars) return false;
+    if (_xhrBreakpoints.contains(normalized)) return true;
+    if (_xhrBreakpoints.length >= maxXhrBreakpoints) return false;
     final cdp = _browserCdp;
     if (cdp == null || _pageSessionId == null) return false;
     try {
       await cdp.send(
         'DOMDebugger.setXHRBreakpoint',
-        params: <String, Object?>{'url': urlSubstring},
+        params: <String, Object?>{'url': normalized},
         sessionId: _pageSessionId,
       );
-      _xhrBreakpoints.add(urlSubstring);
+      _xhrBreakpoints.add(normalized);
       _safeNotify();
       return true;
     } catch (e, st) {
@@ -5857,15 +5923,16 @@ class WebReverseSessionController extends ChangeNotifier {
   }
 
   Future<bool> removeXhrBreakpoint(String urlSubstring) async {
+    final normalized = urlSubstring.trim();
     final cdp = _browserCdp;
     if (cdp == null || _pageSessionId == null) return false;
     try {
       await cdp.send(
         'DOMDebugger.removeXHRBreakpoint',
-        params: <String, Object?>{'url': urlSubstring},
+        params: <String, Object?>{'url': normalized},
         sessionId: _pageSessionId,
       );
-      _xhrBreakpoints.remove(urlSubstring);
+      _xhrBreakpoints.remove(normalized);
       _safeNotify();
       return true;
     } catch (e, st) {
@@ -5989,11 +6056,14 @@ class WebReverseSessionController extends ChangeNotifier {
   List<String> get watchExpressions =>
       List<String>.unmodifiable(_watchExpressions);
 
-  void addWatchExpression(String expr) {
+  bool addWatchExpression(String expr) {
     final e = expr.trim();
-    if (e.isEmpty || _watchExpressions.contains(e)) return;
+    if (e.isEmpty || e.length > maxDebuggerExpressionChars) return false;
+    if (_watchExpressions.contains(e)) return true;
+    if (_watchExpressions.length >= maxWatchExpressions) return false;
     _watchExpressions.add(e);
     _safeNotify();
+    return true;
   }
 
   void removeWatchExpression(String expr) {
@@ -6049,15 +6119,23 @@ class WebReverseSessionController extends ChangeNotifier {
       Set<String>.unmodifiable(_eventListenerBreakpoints);
 
   Future<bool> setEventListenerBreakpoint(String eventName) async {
+    final normalized = eventName.trim();
+    if (normalized.isEmpty || normalized.length > maxBreakpointTextChars) {
+      return false;
+    }
+    if (_eventListenerBreakpoints.contains(normalized)) return true;
+    if (_eventListenerBreakpoints.length >= maxEventListenerBreakpoints) {
+      return false;
+    }
     final cdp = _browserCdp;
     if (cdp == null || _pageSessionId == null) return false;
     try {
       await cdp.send(
         'DOMDebugger.setEventListenerBreakpoint',
-        params: <String, Object?>{'eventName': eventName},
+        params: <String, Object?>{'eventName': normalized},
         sessionId: _pageSessionId,
       );
-      _eventListenerBreakpoints.add(eventName);
+      _eventListenerBreakpoints.add(normalized);
       _safeNotify();
       return true;
     } catch (e, st) {
@@ -6072,15 +6150,16 @@ class WebReverseSessionController extends ChangeNotifier {
   }
 
   Future<bool> removeEventListenerBreakpoint(String eventName) async {
+    final normalized = eventName.trim();
     final cdp = _browserCdp;
     if (cdp == null || _pageSessionId == null) return false;
     try {
       await cdp.send(
         'DOMDebugger.removeEventListenerBreakpoint',
-        params: <String, Object?>{'eventName': eventName},
+        params: <String, Object?>{'eventName': normalized},
         sessionId: _pageSessionId,
       );
-      _eventListenerBreakpoints.remove(eventName);
+      _eventListenerBreakpoints.remove(normalized);
       _safeNotify();
       return true;
     } catch (e, st) {
@@ -6110,6 +6189,11 @@ class WebReverseSessionController extends ChangeNotifier {
     required String selector,
     required String type,
   }) async {
+    final normalizedSelector = selector.trim();
+    if (normalizedSelector.isEmpty ||
+        normalizedSelector.length > maxBreakpointTextChars) {
+      return false;
+    }
     final cdp = _browserCdp;
     if (cdp == null || _pageSessionId == null) return false;
     if (type != 'subtree-modified' &&
@@ -6117,11 +6201,18 @@ class WebReverseSessionController extends ChangeNotifier {
         type != 'node-removed') {
       return false;
     }
+    if (_domBreakpoints.any(
+      (item) => item.selector == normalizedSelector && item.type == type,
+    )) {
+      return true;
+    }
+    if (_domBreakpoints.length >= maxDomBreakpoints) return false;
     try {
       final eval = await cdp.send(
         'Runtime.evaluate',
         params: <String, Object?>{
-          'expression': 'document.querySelector(${jsonEncode(selector)})',
+          'expression':
+              'document.querySelector(${jsonEncode(normalizedSelector)})',
           'objectGroup': 'oh_dombp',
         },
         sessionId: _pageSessionId,
@@ -6142,11 +6233,7 @@ class WebReverseSessionController extends ChangeNotifier {
         sessionId: _pageSessionId,
       );
       // selector 同 type 重复添加时合并去重。
-      if (!_domBreakpoints.any(
-        (b) => b.selector == selector && b.type == type,
-      )) {
-        _domBreakpoints.add((selector: selector, type: type));
-      }
+      _domBreakpoints.add((selector: normalizedSelector, type: type));
       _safeNotify();
       return true;
     } catch (e, st) {
@@ -7517,7 +7604,7 @@ class WebReverseSessionController extends ChangeNotifier {
   void setRequestBreakpoints(List<WebReverseRequestBreakpoint> list) {
     _requestBreakpoints
       ..clear()
-      ..addAll(list);
+      ..addAll(list.take(maxRequestBreakpoints));
     _safeNotify();
   }
 
@@ -7604,9 +7691,12 @@ class WebReverseSessionController extends ChangeNotifier {
       List<WebReverseAccountSnapshot>.unmodifiable(_accountSnapshots);
 
   void setAccountSnapshots(List<WebReverseAccountSnapshot> list) {
+    final start = list.length > maxAccountSnapshots
+        ? list.length - maxAccountSnapshots
+        : 0;
     _accountSnapshots
       ..clear()
-      ..addAll(list);
+      ..addAll(list.skip(start));
     _safeNotify();
   }
 
@@ -7658,6 +7748,12 @@ class WebReverseSessionController extends ChangeNotifier {
       sessionStorage: <String, String>{for (final e in ss) e.key: e.value},
     );
     _accountSnapshots.add(snap);
+    if (_accountSnapshots.length > maxAccountSnapshots) {
+      _accountSnapshots.removeRange(
+        0,
+        _accountSnapshots.length - maxAccountSnapshots,
+      );
+    }
     _safeNotify();
     return snap;
   }

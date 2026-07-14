@@ -59,4 +59,76 @@ void main() {
     expect(controller.dispose, returnsNormally);
     await deleteTestDirectory(tempDir);
   });
+
+  test('user-managed local collections enforce deterministic limits', () async {
+    final tempDir = await Directory.systemTemp.createTemp(
+      'openhand-web-reverse-collections-',
+    );
+    final controller = WebReverseSessionController(
+      config: WebReverseSessionConfig(
+        targetUrl: 'https://example.com',
+        objective: 'test',
+        cdpPort: 9222,
+        userDataDir: '${tempDir.path}/profile',
+        browserKind: WebReverseBrowserKind.chromium,
+      ),
+      executablePath: '/missing-browser',
+      artifactsRootDir: '${tempDir.path}/artifacts',
+    );
+
+    await controller.blockUrl('  https://example.com/blocked  ');
+    for (
+      var i = 1;
+      i <= WebReverseSessionController.maxBlockedUrlPatterns;
+      i++
+    ) {
+      await controller.blockUrl('https://example.com/blocked/$i');
+    }
+    expect(
+      controller.blockedUrls,
+      hasLength(WebReverseSessionController.maxBlockedUrlPatterns),
+    );
+    expect(controller.blockedUrls, contains('https://example.com/blocked'));
+
+    for (var i = 0; i < WebReverseSessionController.maxWatchExpressions; i++) {
+      expect(controller.addWatchExpression('value_$i'), isTrue);
+    }
+    expect(controller.addWatchExpression('overflow'), isFalse);
+    expect(
+      controller.addWatchExpression(
+        'x' * (WebReverseSessionController.maxDebuggerExpressionChars + 1),
+      ),
+      isFalse,
+    );
+    expect(
+      controller.watchExpressions,
+      hasLength(WebReverseSessionController.maxWatchExpressions),
+    );
+
+    controller.setAccountSnapshots(<WebReverseAccountSnapshot>[
+      for (
+        var i = 0;
+        i < WebReverseSessionController.maxAccountSnapshots + 2;
+        i++
+      )
+        WebReverseAccountSnapshot(
+          id: '$i',
+          name: 'snapshot $i',
+          origin: 'https://example.com',
+          capturedAt: DateTime.fromMillisecondsSinceEpoch(i),
+          cookies: const <Map<String, Object?>>[],
+          localStorage: const <String, String>{},
+          sessionStorage: const <String, String>{},
+        ),
+    ]);
+    expect(
+      controller.accountSnapshots,
+      hasLength(WebReverseSessionController.maxAccountSnapshots),
+    );
+    expect(controller.accountSnapshots.first.id, '2');
+
+    await controller.shutdown();
+    controller.dispose();
+    await deleteTestDirectory(tempDir);
+  });
 }

@@ -2248,7 +2248,22 @@ class _DebuggerSideRailState extends State<_DebuggerSideRail> {
   Future<void> _addWatch() async {
     final v = _watchCtrl.text.trim();
     if (v.isEmpty) return;
-    widget.controller.addWatchExpression(v);
+    if (!widget.controller.addWatchExpression(v)) {
+      if (!mounted) return;
+      showWebReverseErrorSnack(
+        context,
+        openHandLocalizedText(
+          context,
+          zh: 'Watch 表达式过长或数量已达上限',
+          zhHant: 'Watch 運算式過長或數量已達上限',
+          en: 'The watch expression is too long or the limit was reached',
+          fr: 'L’expression Watch est trop longue ou la limite est atteinte',
+          de: 'Der Watch-Ausdruck ist zu lang oder das Limit ist erreicht',
+          ja: 'Watch 式が長すぎるか、上限に達しています',
+        ),
+      );
+      return;
+    }
     _watchCtrl.clear();
     final r = await widget.controller.evaluateWatch(v);
     if (!mounted) return;

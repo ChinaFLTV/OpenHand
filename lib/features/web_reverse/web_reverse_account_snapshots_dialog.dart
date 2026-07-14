@@ -4,7 +4,6 @@
 /// "应用" 即清空当前 cookies 并回放保存值。导出/导入 JSON 跨设备同步。
 library;
 
-
 import 'package:flutter/material.dart';
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
@@ -20,6 +19,7 @@ import 'web_reverse_session_controller.dart';
 
 const double _kAccountSnapshotsDialogMaxWidth = 720;
 const double _kAccountSnapshotsDialogMaxHeight = 620;
+const int _kAccountSnapshotImportMaxChars = 8 * 1024 * 1024;
 
 Future<void> showWebReverseAccountSnapshotsDialog(
   BuildContext context, {
@@ -132,6 +132,9 @@ class _AccountSnapshotsDialogState extends State<_AccountSnapshotsDialog> {
     if (text.isEmpty) return;
     if (!mounted) return;
     try {
+      if (text.length > _kAccountSnapshotImportMaxChars) {
+        throw const FormatException('snapshot JSON exceeds import limit');
+      }
       final entries = decodeStringKeyedJsonMapList(text);
       if (entries == null) throw const FormatException('expect JSON array');
       final merged = <WebReverseAccountSnapshot>[
