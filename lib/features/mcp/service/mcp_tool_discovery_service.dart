@@ -161,7 +161,7 @@ class McpToolCallResult {
 }
 
 class _McpToolCallGuard {
-  _McpToolCallGuard({required Duration timeout, Future<void>? cancelSignal})
+  _McpToolCallGuard({required Duration timeout, this.cancelSignal})
     : _timeout = timeout,
       _stopwatch = Stopwatch()..start() {
     cancelSignal?.then(
@@ -172,6 +172,7 @@ class _McpToolCallGuard {
 
   final Duration _timeout;
   final Stopwatch _stopwatch;
+  final Future<void>? cancelSignal;
   bool _cancelled = false;
 
   Duration get remaining {
@@ -474,7 +475,11 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     Map<String, String>? customHeaders,
   }) async {
     guard.throwIfExpired();
-    final session = await _initializeStreamableHttpSession(server);
+    final session = await _initializeStreamableHttpSession(
+      server,
+      customHeaders: customHeaders,
+      cancelSignal: guard.cancelSignal,
+    );
     guard.throwIfExpired();
     final response = await _postJsonRpc(
       server: server,
@@ -489,6 +494,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
       requestTimeout: guard.remaining,
       expectResponse: true,
       customHeaders: customHeaders,
+      cancelSignal: guard.cancelSignal,
     );
     return _extractResult(response.message);
   }
@@ -504,6 +510,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     final session = await _initializeLegacySseSession(
       server,
       customHeaders: customHeaders,
+      cancelSignal: guard.cancelSignal,
     );
     try {
       guard.throwIfExpired();
@@ -515,6 +522,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
             params: <String, Object?>{'name': toolName, 'arguments': arguments},
           ),
           timeout: guard.remaining,
+          cancelSignal: guard.cancelSignal,
         ),
       );
     } finally {
@@ -564,7 +572,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     final managedSession = await McpStdioProcessManager.instance
         .borrowSessionForDiscovery(server.name);
     if (managedSession != null) {
-      // 注册 kill 回调（如果有 toolCallId）
+      final requestId = _nextId();
       if (toolCallId != null && toolCallId.isNotEmpty) {
         final pid = McpStdioProcessManager.instance.infoFor(server.name).pid;
         if (pid != null) {
@@ -572,7 +580,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
         }
         AiToolExecutionRegistry.instance.attachKiller(
           toolCallId,
-          () => McpStdioProcessManager.instance.stopServer(server.name),
+          () => managedSession.cancelRequest(requestId),
         );
       }
       try {
@@ -580,7 +588,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
         return _extractResult(
           await managedSession.sendRequest(
             _jsonRpcRequest(
-              id: _nextId(),
+              id: requestId,
               method: 'tools/call',
               params: <String, Object?>{
                 'name': toolName,
@@ -671,8 +679,10 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
   }
 
   Future<_InitializedStreamableHttpSession> _initializeStreamableHttpSession(
-    McpServer server,
-  ) async {
+    McpServer server, {
+    Map<String, String>? customHeaders,
+    Future<void>? cancelSignal,
+  }) async {
     final uri = _parseServerUri(server.url);
     final initializeResponse = await _postJsonRpc(
       server: server,
@@ -683,6 +693,8 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
         protocolVersion: _streamableHttpProtocolVersion,
       ),
       expectResponse: true,
+      customHeaders: customHeaders,
+      cancelSignal: cancelSignal,
     );
     final initializeResult = _extractResult(initializeResponse.message);
     final protocolVersion = _readText(initializeResult['protocolVersion']);
@@ -699,6 +711,8 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
       sessionId: initializeResponse.sessionId,
       payload: _jsonRpcNotification('notifications/initialized'),
       expectResponse: false,
+      customHeaders: customHeaders,
+      cancelSignal: cancelSignal,
     );
     return _InitializedStreamableHttpSession(
       uri: resolvedUri,
@@ -711,6 +725,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
   Future<_LegacySseSession> _initializeLegacySseSession(
     McpServer server, {
     Map<String, String>? customHeaders,
+    Future<void>? cancelSignal,
   }) async {
     final session = await _LegacySseSession.connect(
       client: _client,
@@ -721,6 +736,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
       ),
       endpointTimeout: _legacyEndpointTimeout,
       requestTimeout: _requestTimeout,
+      cancelSignal: cancelSignal,
     );
     try {
       final initializeResult = _extractResult(
@@ -729,11 +745,13 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
             id: _nextId(),
             protocolVersion: _legacySseProtocolVersion,
           ),
+          cancelSignal: cancelSignal,
         ),
       );
       session.instructions = _readText(initializeResult['instructions']);
       await session.sendNotification(
         _jsonRpcNotification('notifications/initialized'),
+        cancelSignal: cancelSignal,
       );
       return session;
     } catch (_) {
@@ -949,6 +967,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     Duration? requestTimeout,
     required bool expectResponse,
     Map<String, String>? customHeaders,
+    Future<void>? cancelSignal,
   }) async {
     final headers = _mergeRequestHeaders(
       baseHeaders: const <String, String>{
@@ -984,6 +1003,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
       additionalSensitiveHeaderNames: _sensitiveHeaderNames(
         customHeaders ?? server.headers,
       ),
+      cancelSignal: cancelSignal,
     );
     final responseUri = response.request?.url ?? uri;
     final responseSessionId = _readHeader(response.headers, 'mcp-session-id');
@@ -1540,6 +1560,7 @@ Future<http.StreamedResponse> _sendRequestWithRedirects({
   required Duration requestTimeout,
   required int maxRedirects,
   Set<String> additionalSensitiveHeaderNames = const <String>{},
+  Future<void>? cancelSignal,
 }) async {
   var currentMethod = method;
   var currentUri = uri;
@@ -1558,6 +1579,7 @@ Future<http.StreamedResponse> _sendRequestWithRedirects({
       client: client,
       request: request,
       connectionTimeout: requestTimeout,
+      cancelSignal: cancelSignal,
     );
     if (!isRedirectStatusCode(response.statusCode)) {
       return response;
@@ -1695,6 +1717,7 @@ class _LegacySseSession {
     required Set<String> sensitiveHeaderNames,
     required Duration endpointTimeout,
     required Duration requestTimeout,
+    Future<void>? cancelSignal,
   }) async {
     final response = await _sendRequestWithRedirects(
       client: client,
@@ -1708,6 +1731,7 @@ class _LegacySseSession {
       requestTimeout: requestTimeout,
       maxRedirects: DefaultMcpToolDiscoveryService._maxRedirects,
       additionalSensitiveHeaderNames: sensitiveHeaderNames,
+      cancelSignal: cancelSignal,
     );
     final resolvedSseUri = response.request?.url ?? sseUri;
     if (isHttpFailureStatus(response.statusCode)) {
@@ -1835,6 +1859,7 @@ class _LegacySseSession {
   Future<Map<String, Object?>?> sendRequest(
     Map<String, Object?> payload, {
     Duration? timeout,
+    Future<void>? cancelSignal,
   }) async {
     final requestIdText = '${payload['id']}';
     final responseFuture = _messages.stream
@@ -1848,15 +1873,32 @@ class _LegacySseSession {
           ),
         )
         .timeout(timeout ?? _requestTimeout);
-    await _post(payload, timeout: timeout);
-    return responseFuture;
+    observeMcpPendingFuture(responseFuture);
+    await _post(payload, timeout: timeout, cancelSignal: cancelSignal);
+    if (cancelSignal == null) return responseFuture;
+    return Future.any<Map<String, Object?>?>(<Future<Map<String, Object?>?>>[
+      responseFuture,
+      cancelSignal.then<Map<String, Object?>?>((_) {
+        throw const McpToolDiscoveryException(
+          'MCP request was cancelled.',
+          isExpectedLifecycleCancellation: true,
+        );
+      }),
+    ]);
   }
 
-  Future<void> sendNotification(Map<String, Object?> payload) async {
-    await _post(payload);
+  Future<void> sendNotification(
+    Map<String, Object?> payload, {
+    Future<void>? cancelSignal,
+  }) async {
+    await _post(payload, cancelSignal: cancelSignal);
   }
 
-  Future<void> _post(Map<String, Object?> payload, {Duration? timeout}) async {
+  Future<void> _post(
+    Map<String, Object?> payload, {
+    Duration? timeout,
+    Future<void>? cancelSignal,
+  }) async {
     final effectiveTimeout = timeout ?? _requestTimeout;
     final response = await _sendRequestWithRedirects(
       client: _client,
@@ -1871,6 +1913,7 @@ class _LegacySseSession {
       requestTimeout: effectiveTimeout,
       maxRedirects: DefaultMcpToolDiscoveryService._maxRedirects,
       additionalSensitiveHeaderNames: _sensitiveHeaderNames,
+      cancelSignal: cancelSignal,
     );
     if (isHttpFailureStatus(response.statusCode)) {
       final body = await _readMcpHttpErrorBodyBestEffort(
@@ -2512,8 +2555,19 @@ class _StdioSession {
     Duration? timeout,
   }) async {
     final requestIdText = '${payload['id']}';
+    if (_pendingResponses.containsKey(requestIdText)) {
+      throw McpToolDiscoveryException(
+        'Duplicate MCP stdio request id: $requestIdText.',
+      );
+    }
+    if (_pendingResponses.length >= kMcpStdioMaxPendingRequests) {
+      throw McpToolDiscoveryException(
+        'MCP stdio has too many pending requests '
+        '(${_pendingResponses.length}/$kMcpStdioMaxPendingRequests).',
+      );
+    }
     final completer = Completer<Map<String, Object?>?>();
-    observeMcpStdioPendingFuture(completer.future);
+    observeMcpPendingFuture(completer.future);
     _pendingResponses[requestIdText] = completer;
     try {
       await _write(payload);

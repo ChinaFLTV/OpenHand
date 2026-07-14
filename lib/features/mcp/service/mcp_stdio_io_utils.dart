@@ -4,6 +4,8 @@ import 'dart:io';
 
 import '../../../app/support/silent_log.dart';
 
+const int kMcpStdioMaxPendingRequests = 256;
+
 /// Serializes writes to an MCP stdio stdin pipe.
 ///
 /// `IOSink.flush` can temporarily bind the sink to an internal stream. Closing
@@ -43,11 +45,11 @@ class McpStdioWriteQueue {
   }
 }
 
-void observeMcpStdioPendingFuture<T>(Future<T> future) {
-  unawaited(_ignoreMcpStdioPendingFuture(future));
+void observeMcpPendingFuture<T>(Future<T> future) {
+  unawaited(_ignoreMcpPendingFuture(future));
 }
 
-Future<void> _ignoreMcpStdioPendingFuture<T>(Future<T> future) async {
+Future<void> _ignoreMcpPendingFuture<T>(Future<T> future) async {
   try {
     await future;
   } catch (_) {

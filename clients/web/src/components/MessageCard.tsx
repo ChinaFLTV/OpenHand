@@ -1789,16 +1789,17 @@ function reserveMessageAppearStaggerIndex(): number {
   return index;
 }
 
-// 限制集合大小，防止长时间运行时内存泄漏。
-// 当集合超过 500 条时，清除最早的一半。
+function trimAppearedMessageIds(): void {
+  while (appearedMessageIds.size > MESSAGE_UI_STATE_CACHE_LIMIT) {
+    const oldest = appearedMessageIds.values().next();
+    if (oldest.done) break;
+    appearedMessageIds.delete(oldest.value);
+  }
+}
+
 function trackMessageAppeared(id: string): void {
   appearedMessageIds.add(id);
-  if (appearedMessageIds.size > 500) {
-    const entries = [...appearedMessageIds];
-    for (let i = 0; i < 250; i++) {
-      appearedMessageIds.delete(entries[i]!);
-    }
-  }
+  trimAppearedMessageIds();
 }
 
 function rememberMessageUiState(
@@ -1856,12 +1857,7 @@ export function markMessagesAsAppeared(ids: readonly string[]): void {
   for (const id of ids) {
     if (id) appearedMessageIds.add(id);
   }
-  if (appearedMessageIds.size > 500) {
-    const entries = [...appearedMessageIds];
-    for (let i = 0; i < Math.min(250, entries.length - 250); i++) {
-      appearedMessageIds.delete(entries[i]!);
-    }
-  }
+  trimAppearedMessageIds();
 }
 
 // 判定 reasoning 正文是否超过「5-6 行」：

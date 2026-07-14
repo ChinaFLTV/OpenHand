@@ -47,6 +47,7 @@ const int _maxReplayOutputCharacters = _maxRetainedHistoryCharacters;
 const int _maxCommandHistoryEntries = 80;
 const int _maxCommandHistoryOutputCharacters = 40000;
 const int _maxPersistedTerminalSnapshots = 48;
+const int _maxTerminalSessionsPerWorkspace = _maxPersistedTerminalSnapshots;
 const Duration _commandPollInterval = Duration(milliseconds: 80);
 const Duration _metadataPersistDebounce = Duration(milliseconds: 700);
 const Duration _historyPersistDebounce = Duration(milliseconds: 650);
@@ -650,7 +651,12 @@ class MachineTerminalService extends ChangeNotifier {
       workingDirectory:
           nullIfBlank(workingDirectory) ?? workspace.defaultWorkingDirectory,
     );
-    workspace.add(terminal);
+    try {
+      workspace.add(terminal);
+    } catch (_) {
+      terminal.dispose();
+      rethrow;
+    }
     _notifyListenersSafely();
     if (start) {
       _startTerminalSoon(terminal);
@@ -2088,6 +2094,17 @@ class _MachineTerminalWorkspace {
       terminals.where((terminal) => terminal.attached).toList(growable: false);
 
   void add(MachineTerminalSession terminal, {bool activate = true}) {
+    if (terminals.length >= _maxTerminalSessionsPerWorkspace) {
+      final evictedIndex = terminals.indexWhere((item) => !item.attached);
+      if (evictedIndex < 0) {
+        throw StateError(
+          'A workspace can retain at most '
+          '$_maxTerminalSessionsPerWorkspace terminal sessions. Close or '
+          'delete an old terminal before creating another.',
+        );
+      }
+      terminals.removeAt(evictedIndex).dispose();
+    }
     terminals.add(terminal);
     if (terminal.attached && (activate || activeTerminalId.isEmpty)) {
       activeTerminalId = terminal.id;

@@ -3,6 +3,7 @@
 // 和请求超时均优雅降级，不影响 Sources 面板的基础功能。
 
 import 'dart:async';
+import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
 
@@ -30,6 +31,8 @@ final RegExp _lspContentLengthPattern = RegExp(
   r'Content-Length:\s*(\d+)',
   caseSensitive: false,
 );
+const int _kMaxPendingLspRequests = 256;
+const int _kMaxOpenLspDocuments = 256;
 final int _maxLspContentLengthDigits = _kMaxLspFrameBytes.toString().length;
 
 typedef WebReverseLspProcessStarter =
@@ -104,7 +107,8 @@ class WebReverseLspClient {
   WebReverseLspStatus status = WebReverseLspStatus.idle;
   String? lastError;
   // 每个服务端会话独立维护文档版本；新会话必须重新发送 didOpen。
-  final Map<String, int> _documentVersions = <String, int>{};
+  final LinkedHashMap<String, int> _documentVersions =
+      LinkedHashMap<String, int>();
   // initialize 完成 future，避免任何请求在 server 还没握手前就发。
   Completer<bool>? _initDone;
   int _lifecycleGeneration = 0;
@@ -282,7 +286,7 @@ class WebReverseLspClient {
       _completeInitialization(initDone, false);
       return false;
     }
-    await _notify('initialized', <String, Object?>{});
+    _notify('initialized', <String, Object?>{});
     if (generation != _lifecycleGeneration || !identical(_proc, process)) {
       _completeInitialization(initDone, false);
       return false;
@@ -494,24 +498,38 @@ class WebReverseLspClient {
     if (status != WebReverseLspStatus.ready) return;
     final previousVersion = _documentVersions[uri];
     if (previousVersion == null) {
-      _documentVersions[uri] = 1;
-      await _notify('textDocument/didOpen', <String, Object?>{
+      while (_documentVersions.length >= _kMaxOpenLspDocuments) {
+        final oldestUri = _documentVersions.keys.first;
+        _documentVersions.remove(oldestUri);
+        if (!_notify('textDocument/didClose', <String, Object?>{
+          'textDocument': <String, Object?>{'uri': oldestUri},
+        })) {
+          return;
+        }
+      }
+      if (!_notify('textDocument/didOpen', <String, Object?>{
         'textDocument': <String, Object?>{
           'uri': uri,
           'languageId': languageId,
           'version': 1,
           'text': text,
         },
-      });
+      })) {
+        return;
+      }
+      _documentVersions[uri] = 1;
     } else {
       final version = previousVersion + 1;
-      _documentVersions[uri] = version;
-      await _notify('textDocument/didChange', <String, Object?>{
+      if (!_notify('textDocument/didChange', <String, Object?>{
         'textDocument': <String, Object?>{'uri': uri, 'version': version},
         'contentChanges': <Object?>[
           <String, Object?>{'text': text},
         ],
-      });
+      })) {
+        return;
+      }
+      _documentVersions.remove(uri);
+      _documentVersions[uri] = version;
     }
   }
 
@@ -606,6 +624,12 @@ class WebReverseLspClient {
     Duration? timeout,
   }) async {
     final effectiveTimeout = timeout ?? _requestTimeout;
+    if (_pending.length >= _kMaxPendingLspRequests) {
+      lastError =
+          'LSP has too many pending requests '
+          '(${_pending.length}/$_kMaxPendingLspRequests).';
+      return null;
+    }
     final id = _nextId++;
     final completer = Completer<Map<String, Object?>>();
     _pending[id] = completer;
@@ -629,8 +653,8 @@ class WebReverseLspClient {
     }
   }
 
-  Future<void> _notify(String method, Map<String, Object?> params) async {
-    _send(<String, Object?>{
+  bool _notify(String method, Map<String, Object?> params) {
+    return _send(<String, Object?>{
       'jsonrpc': '2.0',
       'method': method,
       'params': params,

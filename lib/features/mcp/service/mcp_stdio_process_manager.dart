@@ -1161,6 +1161,7 @@ class ManagedStdioSession {
 
   final Process _process;
   final _ManagedResponseRouter _responseRouter;
+  final Set<String> _cancelledRequestIds = <String>{};
   String instructions = '';
 
   static const Duration _requestTimeout = Duration(seconds: 8);
@@ -1170,8 +1171,14 @@ class ManagedStdioSession {
     Duration? timeout,
   }) async {
     final requestIdText = '${payload['id']}';
+    if (_cancelledRequestIds.remove(requestIdText)) {
+      throw const McpToolDiscoveryException(
+        'MCP stdio request was cancelled.',
+        isExpectedLifecycleCancellation: true,
+      );
+    }
     final completer = Completer<Map<String, Object?>?>();
-    observeMcpStdioPendingFuture(completer.future);
+    observeMcpPendingFuture(completer.future);
     try {
       _responseRouter.register(requestIdText, completer);
     } catch (error, stack) {
@@ -1208,8 +1215,19 @@ class ManagedStdioSession {
       }
       throw error;
     } finally {
+      _cancelledRequestIds.remove(requestIdText);
       _responseRouter.unregister(requestIdText);
     }
+  }
+
+  Future<void> cancelRequest(Object? requestId) async {
+    final requestIdText = '$requestId';
+    _cancelledRequestIds.add(requestIdText);
+    await _responseRouter.cancelRequest(
+      _process.stdin,
+      requestId: requestId,
+      requestIdText: requestIdText,
+    );
   }
 }
 
@@ -1233,6 +1251,15 @@ class _ManagedResponseRouter {
     if (closedError != null) {
       throw closedError;
     }
+    if (_pending.containsKey(id)) {
+      throw StateError('Duplicate MCP stdio request id: $id.');
+    }
+    if (_pending.length >= kMcpStdioMaxPendingRequests) {
+      throw StateError(
+        'MCP stdio has too many pending requests '
+        '(${_pending.length}/$kMcpStdioMaxPendingRequests).',
+      );
+    }
     _pending[id] = completer;
   }
 
@@ -1241,6 +1268,32 @@ class _ManagedResponseRouter {
     if (_pending.isEmpty) {
       _lineBuffer.clear();
     }
+  }
+
+  Future<void> cancelRequest(
+    IOSink stdin, {
+    required Object? requestId,
+    required String requestIdText,
+  }) async {
+    final completer = _pending.remove(requestIdText);
+    if (completer == null) return;
+    if (_pending.isEmpty) _lineBuffer.clear();
+    if (!completer.isCompleted) {
+      completer.completeError(
+        const McpToolDiscoveryException(
+          'MCP stdio request was cancelled.',
+          isExpectedLifecycleCancellation: true,
+        ),
+      );
+    }
+    await writeMessage(stdin, <String, Object?>{
+      'jsonrpc': '2.0',
+      'method': 'notifications/cancelled',
+      'params': <String, Object?>{
+        'requestId': requestId,
+        'reason': 'Cancelled by user.',
+      },
+    });
   }
 
   Future<void> writeMessage(IOSink stdin, Map<String, Object?> payload) {

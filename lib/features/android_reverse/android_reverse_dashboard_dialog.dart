@@ -14,6 +14,7 @@ import '../../shared/ui/animated_menu.dart';
 import '../../shared/ui/ansi_text.dart';
 import '../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/localized_text.dart';
 import '../../shared/util/structured_text_format.dart';
@@ -56,6 +57,7 @@ const int _kShellHistoryLimit = 6;
 const int _kPackageDumpsysSummaryMaxLines = 160;
 const int _kDefaultScreenRecordSeconds = 10;
 const int _kMcpToolPreviewLimit = 8;
+const int _kMcpReconnectConcurrency = 4;
 const Duration _kInteractiveShellTimeout = Duration(seconds: 8);
 const Duration _kPackageDumpsysTimeout = Duration(seconds: 12);
 const Duration _kDeviceSnapshotTimeout = Duration(seconds: 8);
@@ -6702,8 +6704,10 @@ fi
   Future<void> _refreshAndroidMcpCapability(List<McpServer> servers) async {
     if (servers.isEmpty) return;
     final controller = context.read<McpController>();
-    await Future.wait<void>(
-      servers.map((server) => controller.reconnectServer(server.name)),
+    await forEachIndexWithConcurrencyLimit(
+      itemCount: servers.length,
+      maxConcurrency: _kMcpReconnectConcurrency,
+      task: (index) => controller.reconnectServer(servers[index].name),
     );
     if (!mounted) return;
     _showSnack(

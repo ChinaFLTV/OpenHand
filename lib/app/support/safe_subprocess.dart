@@ -657,11 +657,11 @@ Future<int> _terminatePidSet(Set<int> pids, {required String tag}) async {
 /// tools may supply [SystemEncoding.decoder] without duplicating collection.
 ///
 /// **Tool-execution registry integration**: when [toolCallId] is provided
-/// and non-empty, the spawned process registers its pid + a SIGTERM→SIGKILL
+/// and non-empty, the spawned process attaches its pid + a SIGTERM→SIGKILL
 /// killer with [AiToolExecutionRegistry], enabling the per-call Stop UX.
-/// The registration is automatically cleaned up on return (success / timeout
-/// / exception). Pass null when the call site has no AiToolExecutionContext
-/// in scope (e.g. boot-time CLI probes).
+/// The owning tool runtime removes the registration after the complete tool
+/// call. Pass null when no AiToolExecutionContext is in scope (e.g. boot-time
+/// CLI probes).
 Future<ProcessResult?> runProcessWithTimeout(
   String executable,
   List<String> arguments, {

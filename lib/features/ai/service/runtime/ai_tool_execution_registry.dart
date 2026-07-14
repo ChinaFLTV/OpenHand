@@ -5,6 +5,8 @@ import 'package:flutter/foundation.dart';
 import '../../../../app/support/silent_log.dart';
 import '../../../../shared/util/async_concurrency.dart';
 
+final Object _registrationZoneKey = Object();
+
 /// 工具调用执行登记中心 —— 全应用单例。
 ///
 /// 设计目的（参考 Claude Code `AppState.tasks` + `killTask`）：
@@ -39,56 +41,76 @@ class AiToolExecutionRegistry with ChangeNotifier {
   }
 
   AiToolExecutionRecord? recordOf(String toolCallId) =>
-      _entries[toolCallId]?.record;
+      _entries[toolCallId.trim()]?.record;
 
   /// 注册一条新的工具调用执行；若 [toolCallId] 已存在，先异步回收旧执行，
   /// 避免替换记录后丢失旧进程的 killer。
   ///
   /// 默认 [killer] 为 no-op；具体实现（如 Bash 工具）可在派生 Process 后通过
   /// [attachKiller] 替换为真正的进程终止函数。[attachPid] 可在拿到 pid 后补登。
-  void register({
+  AiToolExecutionRegistration? register({
     required String toolCallId,
     required String sessionId,
     required AiToolExecutionKind kind,
     required String displayName,
     Future<void> Function()? killer,
   }) {
-    if (toolCallId.isEmpty) {
-      return;
-    }
-    final previous = _entries[toolCallId];
+    final normalizedToolCallId = toolCallId.trim();
+    if (normalizedToolCallId.isEmpty) return null;
+    final previous = _entries[normalizedToolCallId];
     if (previous != null) {
-      unawaited(_cancelEntry(previous, 'replace duplicate $toolCallId'));
+      unawaited(
+        _cancelEntry(previous, 'replace duplicate $normalizedToolCallId'),
+      );
     }
-    _entries[toolCallId] = _RegisteredEntry(
+    final entry = _RegisteredEntry(
       killer: killer ?? () => Future<void>.value(),
       record: AiToolExecutionRecord(
-        toolCallId: toolCallId,
+        toolCallId: normalizedToolCallId,
         sessionId: sessionId,
         kind: kind,
         displayName: displayName,
         startedAt: DateTime.now(),
       ),
     );
+    _entries[normalizedToolCallId] = entry;
     notifyListeners();
+    return AiToolExecutionRegistration._(normalizedToolCallId, entry);
   }
 
   void attachPid(String toolCallId, int pid) {
-    final entry = _entries[toolCallId];
-    if (entry == null) return;
+    final entry = _entryForMutation(toolCallId);
+    if (entry == null || entry.cancelRequested) return;
     entry.record = entry.record.copyWith(pid: pid);
     notifyListeners();
   }
 
   void attachKiller(String toolCallId, Future<void> Function() killer) {
-    final entry = _entries[toolCallId];
+    final entry = _entryForMutation(toolCallId);
     if (entry == null) return;
+    if (entry.cancelRequested) {
+      unawaited(_runKiller(killer, 'cancel late ${entry.record.toolCallId}'));
+      return;
+    }
     entry.killer = killer;
   }
 
-  /// 注销一条工具调用执行；幂等。
-  void unregister(String toolCallId) {
-    if (_entries.remove(toolCallId) != null) {
+  /// 在注册令牌对应的异步 Zone 中执行，防止重复 ID 的旧执行污染新记录。
+  Future<T> runRegistered<T>(
+    AiToolExecutionRegistration? registration,
+    Future<T> Function() action,
+  ) {
+    if (registration == null) return action();
+    return runZoned(
+      action,
+      zoneValues: <Object?, Object?>{_registrationZoneKey: registration},
+    );
+  }
+
+  /// 注销令牌对应的工具调用；已被同 ID 新执行替换时保持新记录不变。
+  void unregister(AiToolExecutionRegistration registration) {
+    if (identical(_entries[registration.toolCallId], registration._entry)) {
+      _entries.remove(registration.toolCallId);
       notifyListeners();
     }
   }
@@ -98,9 +120,21 @@ class AiToolExecutionRegistry with ChangeNotifier {
   /// 调用方应在 UI 的"工具卡片右上角 X 按钮"或全局命令面板里触发。
   /// 真正的进程信号由注册时附带的 killer 决定（Bash 工具会发 SIGTERM→SIGKILL）。
   Future<void> cancelToolCall(String toolCallId) async {
-    final entry = _entries[toolCallId];
+    final normalizedToolCallId = toolCallId.trim();
+    final entry = _entries[normalizedToolCallId];
     if (entry == null) return;
-    await _cancelEntry(entry, 'cancel $toolCallId');
+    await _cancelEntry(entry, 'cancel $normalizedToolCallId');
+  }
+
+  /// 仅取消令牌对应的执行，避免旧执行超时后误杀同 ID 的新执行。
+  Future<void> cancelRegistration(
+    AiToolExecutionRegistration? registration,
+  ) async {
+    if (registration == null) return;
+    await _cancelEntry(
+      registration._entry,
+      'cancel ${registration.toolCallId}',
+    );
   }
 
   /// 级联取消某 sessionId 名下全部进行中的工具调用。
@@ -119,13 +153,48 @@ class AiToolExecutionRegistry with ChangeNotifier {
   }
 
   Future<void> _cancelEntry(_RegisteredEntry entry, String action) async {
+    entry.cancelRequested = true;
+    if (!entry.cancelCompleter.isCompleted) entry.cancelCompleter.complete();
+    final active = entry.cancelFuture;
+    if (active != null) return active;
+    final future = _runKiller(entry.killer, action);
+    entry.cancelFuture = future;
+    await future;
+  }
+
+  Future<void> _runKiller(Future<void> Function() killer, String action) async {
     await runAsyncCleanupBounded(
-      entry.killer,
+      killer,
       timeout: _cancelTimeout,
       onError: (error, stack) =>
           silentLog('ai_tool_exec_registry', action, error, stack),
     );
   }
+
+  _RegisteredEntry? _entryForMutation(String toolCallId) {
+    final normalizedToolCallId = toolCallId.trim();
+    if (normalizedToolCallId.isEmpty) return null;
+    final entry = _entries[normalizedToolCallId];
+    final registration =
+        Zone.current[_registrationZoneKey] as AiToolExecutionRegistration?;
+    if (registration == null) return entry;
+    if (registration.toolCallId != normalizedToolCallId) return null;
+    // A replaced execution still owns its detached entry. This lets a process
+    // that finishes launching after cancellation attach its killer and be
+    // terminated without ever mutating the newer same-ID record.
+    return registration._entry;
+  }
+}
+
+/// 单次工具执行的不可伪造注册令牌。
+class AiToolExecutionRegistration {
+  const AiToolExecutionRegistration._(this.toolCallId, this._entry);
+
+  final String toolCallId;
+  final _RegisteredEntry _entry;
+
+  Future<void> get cancelSignal => _entry.cancelCompleter.future;
+  bool get isCancellationRequested => _entry.cancelRequested;
 }
 
 /// 工具调用类别。
@@ -169,4 +238,7 @@ class _RegisteredEntry {
 
   Future<void> Function() killer;
   AiToolExecutionRecord record;
+  final Completer<void> cancelCompleter = Completer<void>();
+  bool cancelRequested = false;
+  Future<void>? cancelFuture;
 }

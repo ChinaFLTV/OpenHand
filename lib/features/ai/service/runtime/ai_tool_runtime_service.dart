@@ -9,6 +9,7 @@ import 'package:path/path.dart' as p;
 import '../../../../app/support/openhand_paths.dart';
 import '../../../../app/support/silent_log.dart';
 import '../../../../app/support/system_proxy.dart';
+import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/bounded_directory_io.dart';
 import '../../../../shared/util/bounded_file_io.dart';
 import '../../../../shared/util/byte_size_format.dart';
@@ -935,15 +936,7 @@ class AiToolRuntimeService {
       AiRuntimeToolSource.mcp => AiToolExecutionKind.mcp,
       AiRuntimeToolSource.skill => AiToolExecutionKind.skill,
     };
-    final shouldRegister = toolCall.id.isNotEmpty;
-    if (shouldRegister) {
-      AiToolExecutionRegistry.instance.register(
-        toolCallId: toolCall.id,
-        sessionId: sessionId,
-        kind: registryKind,
-        displayName: resolvedTool.name,
-      );
-    }
+    AiToolExecutionRegistration? executionRegistration;
     late AiToolExecutionResult rawResult;
     // 用户层 timeout / retry 策略包裹真正的 dispatch。
     // 仅当工具来自 builtin 且携带 [builtinConfig] 时启用：
@@ -964,38 +957,61 @@ class AiToolRuntimeService {
       defaultMcpTimeout: defaultMcpTimeout,
     );
     final maxRetries = builtinCfg?.effectiveMaxRetries ?? 0;
+
+    Future<bool> cancellationRequested(
+      AiToolExecutionRegistration? registration,
+    ) async {
+      if (registration?.isCancellationRequested == true) return true;
+      return isCancelSignalCompleted(cancelSignal);
+    }
+
+    AiToolExecutionResult cancelledResult([Object? error]) {
+      return _cancelledToolExecutionResult(
+        _toolExecutionErrorResult(
+          tool: resolvedTool,
+          fallbackWorkingDirectory: hookWorkingDirectory,
+          error: error ?? 'Tool execution was cancelled.',
+          durationMs: rawExecutionStartedAt.elapsedMilliseconds,
+        ),
+      );
+    }
+
     Future<AiToolExecutionResult> dispatchOnce(
       Future<void>? effectiveCancelSignal,
+      AiToolExecutionRegistration? registration,
     ) async {
-      return switch (resolvedTool.source) {
-        AiRuntimeToolSource.builtin => _executeBuiltinTool(
-          sessionId: sessionId,
-          catalog: catalog,
-          tool: resolvedTool,
-          toolCall: toolCall,
-          decodedArguments: decodedArguments,
-          model: model,
-          previouslyReadFiles: previouslyReadFiles,
-          denyCommandRules: denyCommandRules,
-          requireWriteCommandConfirmation: requireWriteCommandConfirmation,
-          confirmWriteCommand: confirmWriteCommand,
-          cancelSignal: effectiveCancelSignal,
-          onBashUpdate: onBashUpdate,
-          metadata: metadata,
-        ),
-        AiRuntimeToolSource.mcp => _executeMcpTool(
-          tool: resolvedTool,
-          toolCall: toolCall,
-          decodedArguments: decodedArguments,
-          cancelSignal: effectiveCancelSignal,
-          metadata: metadata,
-        ),
-        AiRuntimeToolSource.skill => _executeSkillTool(
-          tool: resolvedTool,
-          toolCall: toolCall,
-          decodedArguments: decodedArguments,
-        ),
-      };
+      return AiToolExecutionRegistry.instance.runRegistered(
+        registration,
+        () async => switch (resolvedTool.source) {
+          AiRuntimeToolSource.builtin => _executeBuiltinTool(
+            sessionId: sessionId,
+            catalog: catalog,
+            tool: resolvedTool,
+            toolCall: toolCall,
+            decodedArguments: decodedArguments,
+            model: model,
+            previouslyReadFiles: previouslyReadFiles,
+            denyCommandRules: denyCommandRules,
+            requireWriteCommandConfirmation: requireWriteCommandConfirmation,
+            confirmWriteCommand: confirmWriteCommand,
+            cancelSignal: effectiveCancelSignal,
+            onBashUpdate: onBashUpdate,
+            metadata: metadata,
+          ),
+          AiRuntimeToolSource.mcp => _executeMcpTool(
+            tool: resolvedTool,
+            toolCall: toolCall,
+            decodedArguments: decodedArguments,
+            cancelSignal: effectiveCancelSignal,
+            metadata: metadata,
+          ),
+          AiRuntimeToolSource.skill => _executeSkillTool(
+            tool: resolvedTool,
+            toolCall: toolCall,
+            decodedArguments: decodedArguments,
+          ),
+        },
+      );
     }
 
     bool isRetryableResult(AiToolExecutionResult r) {
@@ -1022,17 +1038,28 @@ class AiToolRuntimeService {
       }
     }
 
-    Future<AiToolExecutionResult> dispatchWithTimeout() async {
+    Future<AiToolExecutionResult> dispatchWithTimeout(
+      AiToolExecutionRegistration? registration,
+    ) async {
+      Future<void>? combinedCancelSignal([Future<void>? timeoutSignal]) {
+        final signals = <Future<void>>[
+          if (cancelSignal != null) cancelSignal,
+          if (registration != null) registration.cancelSignal,
+          if (timeoutSignal != null) timeoutSignal,
+        ];
+        if (signals.isEmpty) return null;
+        return signals.length == 1 ? signals.single : Future.any<void>(signals);
+      }
+
       final localTimeout = timeoutDuration;
-      if (localTimeout == null) return dispatchOnce(cancelSignal);
+      if (localTimeout == null) {
+        return dispatchOnce(combinedCancelSignal(), registration);
+      }
       final timeoutCancellation = Completer<void>();
-      final effectiveCancelSignal = cancelSignal == null
-          ? timeoutCancellation.future
-          : Future.any<void>(<Future<void>>[
-              cancelSignal,
-              timeoutCancellation.future,
-            ]);
-      final f = dispatchOnce(effectiveCancelSignal);
+      final effectiveCancelSignal = combinedCancelSignal(
+        timeoutCancellation.future,
+      );
+      final f = dispatchOnce(effectiveCancelSignal, registration);
 
       AiToolExecutionResult timedOutResult() => AiToolExecutionResult(
         status: BashToolExecutionStatus.timedOut,
@@ -1051,8 +1078,7 @@ class AiToolRuntimeService {
         if (!timeoutCancellation.isCompleted) {
           timeoutCancellation.complete();
         }
-        if (!shouldRegister) return;
-        await AiToolExecutionRegistry.instance.cancelToolCall(toolCall.id);
+        await AiToolExecutionRegistry.instance.cancelRegistration(registration);
       }
 
       try {
@@ -1069,13 +1095,44 @@ class AiToolRuntimeService {
       }
     }
 
+    Future<AiToolExecutionResult> dispatchAttempt() async {
+      if (await cancellationRequested(null)) return cancelledResult();
+      final registration = AiToolExecutionRegistry.instance.register(
+        toolCallId: toolCall.id,
+        sessionId: sessionId,
+        kind: registryKind,
+        displayName: resolvedTool.name,
+      );
+      executionRegistration = registration;
+      try {
+        final result = await dispatchWithTimeout(registration);
+        if (result.status != BashToolExecutionStatus.timedOut &&
+            await cancellationRequested(registration)) {
+          return _cancelledToolExecutionResult(result);
+        }
+        return result;
+      } catch (error) {
+        if (await cancellationRequested(registration)) {
+          return cancelledResult(error);
+        }
+        rethrow;
+      } finally {
+        if (registration != null) {
+          AiToolExecutionRegistry.instance.unregister(registration);
+        }
+        if (identical(executionRegistration, registration)) {
+          executionRegistration = null;
+        }
+      }
+    }
+
     AiToolExecutionResult? attemptResult;
     var attempts = 0;
     try {
       while (true) {
         attempts += 1;
         try {
-          attemptResult = await dispatchWithTimeout();
+          attemptResult = await dispatchAttempt();
           if (!isRetryableResult(attemptResult) || attempts > maxRetries) {
             attemptResult = _annotateRetrySuppressionIfNeeded(
               tool: resolvedTool,
@@ -1112,7 +1169,14 @@ class AiToolRuntimeService {
         if (builtinCfg != null) {
           final backoff = builtinCfg.retryBackoffFor(attempts);
           if (backoff > Duration.zero) {
-            await Future<void>.delayed(backoff);
+            final cancelled = await delayUntilCancelled(
+              backoff,
+              cancelSignal: cancelSignal,
+            );
+            if (cancelled) {
+              attemptResult = cancelledResult();
+              break;
+            }
           }
         }
       }
@@ -1168,8 +1232,9 @@ class AiToolRuntimeService {
         toolCallId: toolCall.id,
       );
     } finally {
-      if (shouldRegister) {
-        AiToolExecutionRegistry.instance.unregister(toolCall.id);
+      final activeRegistration = executionRegistration;
+      if (activeRegistration != null) {
+        AiToolExecutionRegistry.instance.unregister(activeRegistration);
       }
     }
   }
@@ -2309,6 +2374,31 @@ class AiToolRuntimeService {
       durationMs: durationMs,
       resultText: 'status: failed\nerror: $error',
       metadata: _toolExecutionMetadata(tool),
+    );
+  }
+
+  AiToolExecutionResult _cancelledToolExecutionResult(
+    AiToolExecutionResult result,
+  ) {
+    if (result.status == BashToolExecutionStatus.cancelled) return result;
+    const message = 'Tool execution was cancelled.';
+    return AiToolExecutionResult(
+      status: BashToolExecutionStatus.cancelled,
+      command: result.command,
+      workingDirectory: result.workingDirectory,
+      stdout: result.stdout,
+      stderr: result.stderr.trim().isEmpty ? message : result.stderr,
+      durationMs: result.durationMs,
+      resultText: 'status: cancelled\nerror: $message',
+      exitCode: result.exitCode,
+      matchedRuleId: result.matchedRuleId,
+      matchedRulePattern: result.matchedRulePattern,
+      isWriteCommand: result.isWriteCommand,
+      writeAnalysisReason: result.writeAnalysisReason,
+      metadata: <String, Object?>{
+        ...result.metadata,
+        'execution_cancelled': true,
+      },
     );
   }
 

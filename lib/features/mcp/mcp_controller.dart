@@ -1155,7 +1155,7 @@ class McpController extends ChangeNotifier {
     McpOpsToolInvocationContext context,
   ) async {
     final registry = AiToolExecutionRegistry.instance;
-    registry.register(
+    final registration = registry.register(
       toolCallId: context.invocationId,
       sessionId: _opsBuiltinSessionId,
       kind: AiToolExecutionKind.mcp,
@@ -1163,16 +1163,25 @@ class McpController extends ChangeNotifier {
     );
     unawaited(
       context.cancelSignal.then(
-        (_) => registry.cancelToolCall(context.invocationId),
+        (_) => registry.cancelRegistration(registration),
       ),
     );
+    final effectiveCancelSignal = registration == null
+        ? context.cancelSignal
+        : Future.any<void>(<Future<void>>[
+            context.cancelSignal,
+            registration.cancelSignal,
+          ]);
     try {
-      final result = await callTool(
-        serverName: tool.itemId,
-        toolName: tool.endpointId,
-        arguments: arguments,
-        toolCallId: context.invocationId,
-        cancelSignal: context.cancelSignal,
+      final result = await registry.runRegistered(
+        registration,
+        () => callTool(
+          serverName: tool.itemId,
+          toolName: tool.endpointId,
+          arguments: arguments,
+          toolCallId: context.invocationId,
+          cancelSignal: effectiveCancelSignal,
+        ),
       );
       return McpOpsToolInvocationResult(
         text: result.outputText,
@@ -1183,7 +1192,7 @@ class McpController extends ChangeNotifier {
         },
       );
     } finally {
-      registry.unregister(context.invocationId);
+      if (registration != null) registry.unregister(registration);
     }
   }
 
