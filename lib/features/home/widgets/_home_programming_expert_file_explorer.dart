@@ -1794,6 +1794,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
   final Map<String, String?> _fileContents = {};
   final Map<String, bool> _fileLoading = {};
   final Map<String, bool> _fileDirty = {};
+  final Map<String, int> _fileLoadGenerations = <String, int>{};
   final Map<String, ScrollController> _scrollControllers = {};
   final Map<String, _HighlightingTextController> _textControllers = {};
   final Map<String, FocusNode> _focusNodes = {};
@@ -1804,6 +1805,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
   final Map<String, Future<AiLspBackendResolution>> _lspBackendRequests =
       <String, Future<AiLspBackendResolution>>{};
   final Map<String, Timer> _lspDiagnosticsTimers = <String, Timer>{};
+  int _nextFileLoadGeneration = 0;
 
   /// Mutable font size for pinch / Cmd+scroll zoom.
   double _fontSize = _editorFontSizeDefault;
@@ -1922,12 +1924,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       if (widget.openFiles.contains(removedFile)) {
         continue;
       }
-      _lspDiagnosticsTimers.remove(removedFile)?.cancel();
-      _lspBackendRequests.remove(removedFile);
-      _lspBackendByFile.remove(removedFile);
-      _diagnosticsByFile.remove(removedFile);
-      _diagnosticsStaleFiles.remove(removedFile);
-      _diagnosticsPendingRefresh.remove(removedFile);
+      _releaseFileResources(removedFile);
       unawaited(
         AiLspClientService.instance.closeDocument(
           filePath: removedFile,
@@ -1963,6 +1960,40 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         _symbolsUsingLsp = false;
         _symbolHintMessage = null;
       });
+    }
+  }
+
+  void _releaseFileResources(String filePath) {
+    _fileLoadGenerations.remove(filePath);
+    _fileContents.remove(filePath);
+    _fileLoading.remove(filePath);
+    _fileDirty.remove(filePath);
+    final scrollController = _scrollControllers.remove(filePath);
+    final textController = _textControllers.remove(filePath);
+    final focusNode = _focusNodes.remove(filePath);
+    if (scrollController != null ||
+        textController != null ||
+        focusNode != null) {
+      // The old EditableText subtree is unmounted after didUpdateWidget.
+      // Defer disposal until that frame finishes so it can detach listeners.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        scrollController?.dispose();
+        textController?.dispose();
+        focusNode?.dispose();
+      });
+    }
+    _forcedFullEditorFiles.remove(filePath);
+    _foldedRegions.remove(filePath);
+    _lspDiagnosticsTimers.remove(filePath)?.cancel();
+    _lspBackendRequests.remove(filePath);
+    _lspBackendByFile.remove(filePath);
+    _lspBackendLoadingFiles.remove(filePath);
+    _diagnosticsByFile.remove(filePath);
+    _diagnosticsLoadingFiles.remove(filePath);
+    _diagnosticsStaleFiles.remove(filePath);
+    _diagnosticsPendingRefresh.remove(filePath);
+    if (_pendingNavigationLocation?.filePath == filePath) {
+      _pendingNavigationLocation = null;
     }
   }
 
@@ -2103,7 +2134,8 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       return cached;
     }
     final completer = Completer<AiLspBackendResolution>();
-    _lspBackendRequests[filePath] = completer.future;
+    final request = completer.future;
+    _lspBackendRequests[filePath] = request;
 
     Future<void> resolveBackend() async {
       _lspBackendLoadingFiles.add(filePath);
@@ -2113,7 +2145,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
               filePath: filePath,
               language: _resolvedLanguageForFile(filePath),
             );
-        if (!mounted) {
+        if (!mounted ||
+            !widget.openFiles.contains(filePath) ||
+            !identical(_lspBackendRequests[filePath], request)) {
           _lspBackendLoadingFiles.remove(filePath);
           completer.complete(resolution);
           return;
@@ -2127,7 +2161,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         _lspBackendLoadingFiles.remove(filePath);
         completer.completeError(error, stackTrace);
       } finally {
-        if (identical(_lspBackendRequests[filePath], completer.future)) {
+        if (identical(_lspBackendRequests[filePath], request)) {
           _lspBackendRequests.remove(filePath);
         }
       }
@@ -4347,6 +4381,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       return;
     }
     final resolution = await _ensureLspBackend(filePath);
+    if (!mounted || !widget.openFiles.contains(filePath)) return;
     if (!resolution.isAvailable) {
       return;
     }
@@ -4361,10 +4396,8 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       return;
     }
     final resolution = await _ensureLspBackend(filePath);
+    if (!mounted || !widget.openFiles.contains(filePath)) return;
     if (!resolution.isAvailable) {
-      if (!mounted) {
-        return;
-      }
       setState(() {
         _diagnosticsByFile.remove(filePath);
         _diagnosticsStaleFiles.remove(filePath);
@@ -4381,7 +4414,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         language: resolution.language,
         documentText: controller?.text,
       );
-      if (!mounted) {
+      if (!mounted || !widget.openFiles.contains(filePath)) {
         return;
       }
       setState(() {
@@ -4412,7 +4445,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         _diagnosticsStaleFiles.remove(filePath);
       });
     } catch (_) {
-      if (!mounted) {
+      if (!mounted || !widget.openFiles.contains(filePath)) {
         return;
       }
       setState(() {
@@ -4422,7 +4455,8 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     }
 
     // If new changes arrived while we were busy, immediately re-fetch.
-    if (_diagnosticsPendingRefresh.remove(filePath)) {
+    if (widget.openFiles.contains(filePath) &&
+        _diagnosticsPendingRefresh.remove(filePath)) {
       unawaited(_refreshDiagnostics(filePath));
     }
   }
@@ -4905,6 +4939,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
 
   @override
   void dispose() {
+    _fileLoadGenerations.clear();
     _zoomCommitTimer?.cancel();
     _completionDebounceTimer?.cancel();
     _signatureHelpDebounceTimer?.cancel();
@@ -9612,21 +9647,28 @@ class _CodeEditorViewState extends State<_CodeEditorView>
   }
 
   Future<void> _loadFile(String filePath) async {
-    if (_fileContents.containsKey(filePath)) return;
+    if (!widget.openFiles.contains(filePath) ||
+        _fileContents.containsKey(filePath) ||
+        _fileLoading[filePath] == true) {
+      return;
+    }
+    final generation = ++_nextFileLoadGeneration;
+    _fileLoadGenerations[filePath] = generation;
     _fileLoading[filePath] = true;
     try {
       final file = File(filePath);
-      if (await file.exists()) {
+      if (await file.exists() && _isCurrentFileLoad(filePath, generation)) {
         final stat = await file.stat();
+        if (!_isCurrentFileLoad(filePath, generation)) return;
         if (stat.size > _kProgrammingExplorerMaxEditableFileBytes) {
           _fileContents[filePath] = null;
-          if (mounted) setState(() => _fileLoading[filePath] = false);
           return;
         }
         final content = await readBoundedFileString(
           file,
           maxBytes: _kProgrammingExplorerMaxEditableFileBytes,
         );
+        if (!_isCurrentFileLoad(filePath, generation)) return;
         _fileContents[filePath] = content;
         final controller = _HighlightingTextController(
           initialText: content,
@@ -9643,13 +9685,24 @@ class _CodeEditorViewState extends State<_CodeEditorView>
           _maybeApplyPendingNavigation();
           unawaited(_maybeRefreshDiagnostics(filePath));
         }
-      } else {
+      } else if (_isCurrentFileLoad(filePath, generation)) {
         _fileContents[filePath] = null;
       }
     } catch (_) {
-      _fileContents[filePath] = null;
+      if (_isCurrentFileLoad(filePath, generation)) {
+        _fileContents[filePath] = null;
+      }
+    } finally {
+      if (_isCurrentFileLoad(filePath, generation)) {
+        setState(() => _fileLoading[filePath] = false);
+      }
     }
-    if (mounted) setState(() => _fileLoading[filePath] = false);
+  }
+
+  bool _isCurrentFileLoad(String filePath, int generation) {
+    return mounted &&
+        widget.openFiles.contains(filePath) &&
+        _fileLoadGenerations[filePath] == generation;
   }
 
   Future<void> _saveFile(String filePath) async {

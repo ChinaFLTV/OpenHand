@@ -6,6 +6,7 @@ import 'package:path/path.dart' as p;
 import '../../../../app/support/safe_subprocess.dart';
 import '../../../../app/support/system_proxy.dart';
 import '../../../../shared/util/input_value_parsing.dart';
+import '../../../../shared/util/lifecycle_cache.dart';
 import '../../model/ai_session_runtime_context.dart';
 
 typedef AiProcessRunner =
@@ -21,17 +22,20 @@ class AiGitSnapshotService {
     DateTime Function()? clock,
     Duration cacheTtl = const Duration(seconds: 3),
     Duration commandTimeout = const Duration(seconds: 2),
+    int cacheMaxEntries = 64,
   }) : _processRunner = processRunner,
        _clock = clock ?? DateTime.now,
        _cacheTtl = cacheTtl,
-       _commandTimeout = commandTimeout;
+       _commandTimeout = commandTimeout,
+       _snapshotCache = LifecycleLruCache<_CachedGitSnapshot>(
+         maxEntries: cacheMaxEntries,
+       );
 
   final AiProcessRunner? _processRunner;
   final DateTime Function() _clock;
   final Duration _cacheTtl;
   final Duration _commandTimeout;
-  final Map<String, _CachedGitSnapshot> _snapshotCache =
-      <String, _CachedGitSnapshot>{};
+  final LifecycleLruCache<_CachedGitSnapshot> _snapshotCache;
   final Map<String, Future<AiRepositorySnapshot>> _pendingLoads =
       <String, Future<AiRepositorySnapshot>>{};
 
@@ -60,7 +64,7 @@ class AiGitSnapshotService {
     if (_cacheTtl <= Duration.zero) {
       return null;
     }
-    final cached = _snapshotCache[workingDirectory];
+    final cached = _snapshotCache.get(workingDirectory);
     if (cached == null) {
       return null;
     }
@@ -146,9 +150,9 @@ class AiGitSnapshotService {
 
   AiRepositorySnapshot _cacheSnapshot(AiRepositorySnapshot snapshot) {
     if (_cacheTtl > Duration.zero) {
-      _snapshotCache[snapshot.workingDirectory] = _CachedGitSnapshot(
-        snapshot: snapshot,
-        cachedAt: _clock().toUtc(),
+      _snapshotCache.put(
+        snapshot.workingDirectory,
+        _CachedGitSnapshot(snapshot: snapshot, cachedAt: _clock().toUtc()),
       );
     }
     return snapshot;
