@@ -475,6 +475,10 @@ Future<void> _bootstrap() async {
     WebFetchCacheStore.instance.prewarm(),
     'prewarm WebFetch cache',
   );
+  _runMainBackgroundTask(
+    MediaCacheService.instance.prewarm(),
+    'prewarm media cache',
+  );
   final templateRuntimeLinkageController = TemplateRuntimeLinkageController();
   final throttleAutoSyncService = ThrottleAutoSyncService(
     settingsController: settingsController,
@@ -501,6 +505,7 @@ Future<void> _bootstrap() async {
     ..register('self-learning chat client', selfLearningChatClient.dispose)
     ..register('AI session controller', aiSessionController.dispose)
     ..register('AI LSP sessions', AiLspClientService.instance.disposeAll)
+    ..register('media cache', MediaCacheService.instance.shutdown)
     ..register('machine terminal service', () async {
       await machineTerminalService.shutdown();
       machineTerminalService.dispose();

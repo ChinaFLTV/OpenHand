@@ -3474,6 +3474,7 @@ class _GeneratedMediaLinkCardState extends State<_GeneratedMediaLinkCard>
   bool _videoCaptureRequested = false;
   _GeneratedMediaSource? _cachedSource;
   int _cacheRequestSerial = 0;
+  final Completer<void> _disposeSignal = Completer<void>();
 
   _GeneratedMediaSource get _effectiveSource => _cachedSource ?? widget.source;
 
@@ -3487,6 +3488,7 @@ class _GeneratedMediaLinkCardState extends State<_GeneratedMediaLinkCard>
 
   @override
   void dispose() {
+    _disposeSignal.complete();
     _revealController.dispose();
     super.dispose();
   }
@@ -3552,19 +3554,25 @@ class _GeneratedMediaLinkCardState extends State<_GeneratedMediaLinkCard>
     }
     final serial = ++_cacheRequestSerial;
     unawaited(
-      MediaCacheService.instance.ensureCached(url, kind: cacheKind).then((
-        cachedPath,
-      ) {
-        if (!mounted || serial != _cacheRequestSerial || cachedPath == null) {
-          return;
-        }
-        setState(() {
-          _cachedSource = _cachedGeneratedMediaSource(source, cachedPath);
-          _videoThumbPath = null;
-          _videoCaptureRequested = false;
-        });
-        _initVideoThumbnail();
-      }),
+      MediaCacheService.instance
+          .ensureCached(
+            url,
+            kind: cacheKind,
+            cancelSignal: _disposeSignal.future,
+          )
+          .then((cachedPath) {
+            if (!mounted ||
+                serial != _cacheRequestSerial ||
+                cachedPath == null) {
+              return;
+            }
+            setState(() {
+              _cachedSource = _cachedGeneratedMediaSource(source, cachedPath);
+              _videoThumbPath = null;
+              _videoCaptureRequested = false;
+            });
+            _initVideoThumbnail();
+          }),
     );
   }
 
@@ -3620,7 +3628,11 @@ class _GeneratedMediaLinkCardState extends State<_GeneratedMediaLinkCard>
     final cacheKind = _mediaCacheKindForGeneratedMedia(source.kind);
     final cachedPath =
         MediaCacheService.instance.cachedPathForUrl(url, kind: cacheKind) ??
-        await MediaCacheService.instance.ensureCached(url, kind: cacheKind);
+        await MediaCacheService.instance.ensureCached(
+          url,
+          kind: cacheKind,
+          cancelSignal: _disposeSignal.future,
+        );
     if (cachedPath == null || !mounted) return source;
     final cachedSource = _cachedGeneratedMediaSource(source, cachedPath);
     if (mounted) {

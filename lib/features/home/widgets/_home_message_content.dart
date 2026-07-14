@@ -2515,8 +2515,33 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
               fit: BoxFit.contain,
               cacheWidth: 1280,
               frameBuilder: _fadeInImageFrameBuilder,
-              errorBuilder: (_, _, _) =>
-                  _brokenImagePlaceholder(context, previewTitle),
+              errorBuilder: (_, _, _) {
+                MediaCacheService.instance.invalidate(
+                  urlString,
+                  kind: MediaCacheKind.image,
+                );
+                return Image.network(
+                  urlString,
+                  fit: BoxFit.contain,
+                  cacheWidth: 1280,
+                  frameBuilder: (context, child, frame, loadedSynchronously) {
+                    if (frame != null) {
+                      MediaCacheService.instance.cacheInBackground(
+                        urlString,
+                        kind: MediaCacheKind.image,
+                      );
+                    }
+                    return _fadeInImageFrameBuilder(
+                      context,
+                      child,
+                      frame,
+                      loadedSynchronously,
+                    );
+                  },
+                  errorBuilder: (_, _, _) =>
+                      _brokenImagePlaceholder(context, previewTitle),
+                );
+              },
             ),
           ),
         );

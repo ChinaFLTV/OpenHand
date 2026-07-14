@@ -17,6 +17,7 @@ import '../../../../app/support/openhand_paths.dart';
 import '../../../../app/support/silent_log.dart';
 import '../../../../app/support/system_proxy.dart';
 import '../../../../shared/net/http_status_utils.dart';
+import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/bounded_delete.dart';
 import '../../../../shared/util/bounded_directory_io.dart';
 import '../../../../shared/util/byte_size_format.dart';
@@ -43,7 +44,7 @@ class MediaCacheStats {
 
 class MediaCacheService {
   MediaCacheService._()
-    : _validatedCachePaths = LifecycleLruCache<bool>(
+    : _validatedCachePaths = LifecycleLruCache<DateTime>(
         maxEntries: _validatedPathCacheMaxEntries,
       ),
       _cacheDirectoryPathProvider =
@@ -73,7 +74,14 @@ class MediaCacheService {
   static const int _maxImageCacheBytes = 64 * kBytesPerMiB;
   static const int _maxAudioCacheBytes = 512 * kBytesPerMiB;
   static const int _maxVideoCacheBytes = 2 * kBytesPerGiB;
+  static const int _maxTotalCacheBytes = 4 * kBytesPerGiB;
+  static const int _maxCachedMediaFiles = 2048;
+  static const int _maxConcurrentDownloads = 4;
+  static const int _maxPendingDownloads = 64;
+  static const int _maxPendingInvalidations = 4096;
   static const int _validatedPathCacheMaxEntries = 2048;
+  static const Duration _validatedPathTtl = Duration(seconds: 5);
+  static const Duration _staleTempFileAge = Duration(minutes: 30);
 
   static const Set<String> _imageExtensions = <String>{
     '.png',
@@ -103,16 +111,43 @@ class MediaCacheService {
   };
 
   final Map<String, Future<String?>> _inflight = <String, Future<String?>>{};
-  final LifecycleLruCache<bool> _validatedCachePaths;
+  final LifecycleLruCache<DateTime> _validatedCachePaths;
+  final OpenHandAsyncSemaphore _downloadSemaphore = OpenHandAsyncSemaphore(
+    _maxConcurrentDownloads,
+  );
+  final OpenHandAsyncSemaphore _commitSemaphore = OpenHandAsyncSemaphore(1);
+  final Set<HttpClient> _activeClients = <HttpClient>{};
+  final Set<Future<void>> _activeImports = <Future<void>>{};
+  final Set<String> _pendingInvalidations = <String>{};
   final String Function() _cacheDirectoryPathProvider;
   final HttpClient Function(Duration connectionTimeout) _createHttpClient;
   Directory? _cacheDir;
+  int _generation = 0;
+  int _tempFileSerial = 0;
+  bool _clearing = false;
+  bool _disposed = false;
+  Future<void>? _clearFuture;
+  Future<void>? _invalidationWorker;
+  Future<void>? _prewarmFuture;
+  Future<void>? _shutdownFuture;
 
   static String get cacheDirectoryPath =>
       OpenHandPaths.defaultMediaCacheDirectoryPath();
 
   static String get legacyInlineMediaDirectoryPath =>
       p.join(Directory.systemTemp.path, 'openhand_media');
+
+  Future<void> prewarm() {
+    final active = _prewarmFuture;
+    if (active != null) return active;
+    return _prewarmFuture = _commitSemaphore.withPermit<void>(() async {
+      if (_disposed || _clearing) return;
+      final directory = Directory(_cacheDirectoryPathProvider());
+      if (await directory.exists().timeout(_fileOperationTimeout)) {
+        await _pruneCacheDirectory(directory);
+      }
+    });
+  }
 
   Future<Directory> _ensureCacheDir() async {
     final existing = _cacheDir;
@@ -131,42 +166,145 @@ class MediaCacheService {
   String? cachedPathForUrl(String url, {MediaCacheKind? kind}) {
     final uri = _httpUriOrNull(url);
     if (uri == null) return null;
+    final normalizedUrl = uri.toString();
+    final effectiveKind = kind ?? _kindFromUrl(normalizedUrl);
     final path = _cacheFilePathForUrl(
-      uri.toString(),
+      normalizedUrl,
       _cacheDirectoryPathProvider(),
-      kind,
+      effectiveKind,
     );
-    return _validatedCachePaths.get(path) == true ? path : null;
+    final validatedAt = _validatedCachePaths.get(path);
+    final age = validatedAt == null
+        ? null
+        : DateTime.now().toUtc().difference(validatedAt);
+    if (age == null || age.isNegative || age > _validatedPathTtl) {
+      _validatedCachePaths.remove(path);
+      return null;
+    }
+    return path;
+  }
+
+  void invalidate(String url, {MediaCacheKind? kind}) {
+    if (_disposed || _clearing) return;
+    final uri = _httpUriOrNull(url);
+    if (uri == null) return;
+    final normalizedUrl = uri.toString();
+    final effectiveKind = kind ?? _kindFromUrl(normalizedUrl);
+    final path = _cacheFilePathForUrl(
+      normalizedUrl,
+      _cacheDirectoryPathProvider(),
+      effectiveKind,
+    );
+    _validatedCachePaths.remove(path);
+    if (_pendingInvalidations.length >= _maxPendingInvalidations &&
+        !_pendingInvalidations.contains(path)) {
+      _pendingInvalidations.remove(_pendingInvalidations.first);
+    }
+    _pendingInvalidations.add(path);
+    _startInvalidationWorker();
+  }
+
+  void _startInvalidationWorker() {
+    if (_invalidationWorker != null ||
+        _pendingInvalidations.isEmpty ||
+        _disposed ||
+        _clearing) {
+      return;
+    }
+    _invalidationWorker = _drainInvalidations();
+  }
+
+  Future<void> _drainInvalidations() async {
+    try {
+      while (_pendingInvalidations.isNotEmpty && !_disposed && !_clearing) {
+        final path = _pendingInvalidations.first;
+        await _commitSemaphore.withPermit<void>(() async {
+          if (_disposed || _clearing || !_pendingInvalidations.remove(path)) {
+            return;
+          }
+          await _deleteInvalidCachePair(path);
+        });
+      }
+    } catch (error, stack) {
+      silentLog('media_cache', 'invalidate cached media', error, stack);
+    } finally {
+      _invalidationWorker = null;
+      if (_pendingInvalidations.isNotEmpty && !_disposed && !_clearing) {
+        _startInvalidationWorker();
+      }
+    }
   }
 
   /// Ensures [url] has a local cached copy and returns the file path. Failures
   /// are logged and returned as null so callers can fall back to the original
   /// network URL without breaking playback.
-  Future<String?> ensureCached(String url, {MediaCacheKind? kind}) async {
-    String? ownedCacheKey;
-    Future<String?>? ownedFuture;
+  Future<String?> ensureCached(
+    String url, {
+    MediaCacheKind? kind,
+    Future<void>? cancelSignal,
+  }) async {
     try {
+      if (_disposed || _clearing) return null;
       final uri = _httpUriOrNull(url);
       if (uri == null) return null;
       final normalizedUrl = uri.toString();
-      final cached = await _validatedCachedPath(normalizedUrl, kind: kind);
+      final effectiveKind = kind ?? _kindFromUrl(normalizedUrl);
+      final generation = _generation;
+      final cached = await _validatedCachedPath(
+        normalizedUrl,
+        kind: effectiveKind,
+        generation: generation,
+      );
+      if (_disposed || _clearing || generation != _generation) return null;
       if (cached != null) return cached;
-      final cacheKey = _inflightKey(normalizedUrl, kind);
+      final cacheKey = _inflightKey(normalizedUrl, effectiveKind);
       final active = _inflight[cacheKey];
-      if (active != null) return await active;
-      final future = _downloadAndCache(uri, kind: kind);
+      if (active != null) {
+        final result = await awaitWithCancelSignal<String?>(
+          active,
+          cancelSignal: cancelSignal,
+        );
+        if (_disposed || _clearing || generation != _generation) return null;
+        return result;
+      }
+      if (_inflight.length + _activeImports.length >=
+          _maxConcurrentDownloads + _maxPendingDownloads) {
+        return null;
+      }
+      final future = _downloadSemaphore.withPermit<String?>(() {
+        if (_disposed || _clearing || generation != _generation) {
+          return Future<String?>.value();
+        }
+        return _downloadAndCache(
+          uri,
+          kind: effectiveKind,
+          generation: generation,
+        );
+      });
       _inflight[cacheKey] = future;
-      ownedCacheKey = cacheKey;
-      ownedFuture = future;
-      return await future;
+      unawaited(
+        future.then<void>(
+          (_) {
+            if (identical(_inflight[cacheKey], future)) {
+              _inflight.remove(cacheKey);
+            }
+          },
+          onError: (Object _, StackTrace _) {
+            if (identical(_inflight[cacheKey], future)) {
+              _inflight.remove(cacheKey);
+            }
+          },
+        ),
+      );
+      final result = await awaitWithCancelSignal<String?>(
+        future,
+        cancelSignal: cancelSignal,
+      );
+      if (_disposed || _clearing || generation != _generation) return null;
+      return result;
     } catch (error, stack) {
       silentLog('media_cache', 'ensure cached media', error, stack);
       return null;
-    } finally {
-      if (ownedCacheKey != null &&
-          identical(_inflight[ownedCacheKey], ownedFuture)) {
-        _inflight.remove(ownedCacheKey);
-      }
     }
   }
 
@@ -174,18 +312,7 @@ class MediaCacheService {
   void cacheInBackground(String url, {MediaCacheKind? kind}) {
     final uri = _httpUriOrNull(url);
     if (uri == null) return;
-    unawaited(_cacheSafelyInBackground(uri.toString(), kind: kind));
-  }
-
-  Future<void> _cacheSafelyInBackground(
-    String url, {
-    MediaCacheKind? kind,
-  }) async {
-    try {
-      await ensureCached(url, kind: kind);
-    } catch (error, stack) {
-      silentLog('media_cache', 'background cache', error, stack);
-    }
+    unawaited(ensureCached(uri.toString(), kind: kind));
   }
 
   /// Imports an already downloaded local file into the deterministic cache.
@@ -197,6 +324,44 @@ class MediaCacheService {
     MediaCacheKind? kind,
     String? mimeType,
   }) async {
+    if (_disposed || _clearing) return null;
+    if (_inflight.length + _activeImports.length >=
+        _maxConcurrentDownloads + _maxPendingDownloads) {
+      return null;
+    }
+    final completer = Completer<void>();
+    final operation = completer.future;
+    final generation = _generation;
+    _activeImports.add(operation);
+    try {
+      return await _downloadSemaphore.withPermit<String?>(() {
+        if (_disposed || _clearing || generation != _generation) {
+          return Future<String?>.value();
+        }
+        return _importFile(
+          url,
+          sourcePath,
+          kind: kind,
+          mimeType: mimeType,
+          generation: generation,
+        );
+      });
+    } catch (error, stack) {
+      silentLog('media_cache', 'import local file', error, stack);
+      return null;
+    } finally {
+      completer.complete();
+      _activeImports.remove(operation);
+    }
+  }
+
+  Future<String?> _importFile(
+    String url,
+    String sourcePath, {
+    required MediaCacheKind? kind,
+    required String? mimeType,
+    required int generation,
+  }) async {
     final uri = _httpUriOrNull(url);
     final normalizedSourcePath = nullIfBlank(sourcePath);
     if (uri == null || normalizedSourcePath == null) return null;
@@ -204,54 +369,57 @@ class MediaCacheService {
     if (!await _looksUsableFile(sourceFile)) return null;
     final normalizedUrl = uri.toString();
     final cacheKind = kind ?? _kindFromUrl(normalizedUrl);
+    final cached = await _validatedCachedPath(
+      normalizedUrl,
+      kind: cacheKind,
+      generation: generation,
+    );
+    if (_disposed || _clearing || generation != _generation) return null;
+    if (cached != null) return cached;
     final maxBytes = _maxBytesForKind(cacheKind);
-    final bytes = await sourceFile.length();
+    final bytes = await sourceFile.length().timeout(_fileOperationTimeout);
     if (bytes <= 0 || bytes > maxBytes) return null;
 
     final dir = await _ensureCacheDir();
+    if (_disposed || _clearing || generation != _generation) return null;
     final destPath = _cacheFilePathForUrl(normalizedUrl, dir.path, cacheKind);
-    final destFile = File(destPath);
-    if (!await _looksUsableFile(destFile)) {
-      final tempFile = File('$destPath.part');
-      try {
-        await tempFile.parent.create(recursive: true);
-        await sourceFile.copy(tempFile.path);
-        if (await destFile.exists()) {
-          await _deleteEntity(
-            tempFile,
-            'delete duplicate imported media temp file',
-          );
-        } else {
-          await tempFile.rename(destPath);
-        }
-      } catch (error, stack) {
-        silentLog('media_cache', 'import local file', error, stack);
-        await _deleteEntity(tempFile, 'delete failed imported media temp file');
-        return null;
-      }
+    final tempFile = _uniqueTempFile(destPath, generation);
+    try {
+      await tempFile.parent
+          .create(recursive: true)
+          .timeout(_fileOperationTimeout);
+      await sourceFile.copy(tempFile.path).timeout(_fileOperationTimeout);
+      return await _commitTempFile(
+        tempFile: tempFile,
+        destPath: destPath,
+        url: normalizedUrl,
+        kind: cacheKind,
+        mimeType: mimeType,
+        generation: generation,
+      );
+    } catch (error, stack) {
+      silentLog('media_cache', 'import local file', error, stack);
+      await _deleteEntity(tempFile, 'delete failed imported media temp file');
+      return null;
     }
-    await _writeMetadata(
-      mediaPath: destPath,
-      url: normalizedUrl,
-      kind: cacheKind,
-      mimeType: mimeType,
-      bytes: await File(destPath).length(),
-    );
-    _validatedCachePaths.put(destPath, true);
-    return destPath;
   }
 
-  Future<String?> _downloadAndCache(Uri uri, {MediaCacheKind? kind}) async {
+  Future<String?> _downloadAndCache(
+    Uri uri, {
+    required MediaCacheKind? kind,
+    required int generation,
+  }) async {
     final normalizedUrl = uri.toString();
     final cacheKind = kind ?? _kindFromUrl(normalizedUrl);
     File? tempFile;
     HttpClient? client;
     try {
       final dir = await _ensureCacheDir();
+      if (_disposed || _clearing || generation != _generation) return null;
       final destPath = _cacheFilePathForUrl(normalizedUrl, dir.path, cacheKind);
-      tempFile = File('$destPath.part');
-      final destFile = File(destPath);
+      tempFile = _uniqueTempFile(destPath, generation);
       client = _createHttpClient(_requestOpenTimeout);
+      _activeClients.add(client);
       final request = await client.getUrl(uri).timeout(_requestOpenTimeout);
       final response = await request.close().timeout(_responseHeaderTimeout);
       if (isHttpFailureStatus(response.statusCode)) {
@@ -279,6 +447,9 @@ class MediaCacheService {
             .timeout(_fileOperationTimeout);
         output = openedOutput;
         await for (final chunk in response.timeout(_responseChunkTimeout)) {
+          if (_disposed || _clearing || generation != _generation) {
+            throw const _MediaCacheCancelled();
+          }
           if (downloadWatch.elapsed > _deadlineForKind(cacheKind)) {
             throw TimeoutException('Media cache download exceeded time limit.');
           }
@@ -306,25 +477,22 @@ class MediaCacheService {
         return null;
       }
 
-      if (await destFile.exists().timeout(_fileOperationTimeout)) {
-        await _deleteEntity(
-          tempFile,
-          'delete duplicate cached media temp file',
-        );
-      } else {
-        await tempFile.rename(destPath).timeout(_fileOperationTimeout);
-      }
-      final savedFile = File(destPath);
-      if (!await _looksUsableFile(savedFile)) return null;
-      await _writeMetadata(
-        mediaPath: destPath,
+      return await _commitTempFile(
+        tempFile: tempFile,
+        destPath: destPath,
         url: normalizedUrl,
         kind: cacheKind,
         mimeType: contentType?.mimeType,
-        bytes: await savedFile.length().timeout(_fileOperationTimeout),
+        generation: generation,
       );
-      _validatedCachePaths.put(destPath, true);
-      return destPath;
+    } on _MediaCacheCancelled {
+      if (tempFile != null) {
+        await _deleteEntity(
+          tempFile,
+          'delete cancelled cached media temp file',
+        );
+      }
+      return null;
     } on TimeoutException catch (error, stack) {
       silentLog('media_cache', 'download timeout', error, stack);
       if (tempFile != null) {
@@ -341,12 +509,142 @@ class MediaCacheService {
       }
       return null;
     } finally {
+      if (client != null) _activeClients.remove(client);
       try {
         client?.close(force: true);
       } catch (error, stack) {
         silentLog('media_cache', 'close download client', error, stack);
       }
     }
+  }
+
+  File _uniqueTempFile(String destPath, int generation) {
+    final serial = _tempFileSerial++;
+    return File('$destPath.part.$generation.$serial');
+  }
+
+  Future<String?> _commitTempFile({
+    required File tempFile,
+    required String destPath,
+    required String url,
+    required MediaCacheKind? kind,
+    required String? mimeType,
+    required int generation,
+  }) {
+    return _commitSemaphore.withPermit<String?>(() async {
+      if (_disposed || _clearing || generation != _generation) {
+        await _deleteEntity(tempFile, 'delete stale cached media temp file');
+        return null;
+      }
+      final destFile = File(destPath);
+      if (await _looksUsableFile(destFile)) {
+        await _deleteEntity(
+          tempFile,
+          'delete duplicate cached media temp file',
+        );
+      } else {
+        await _deleteInvalidCachePair(destPath);
+        await tempFile.rename(destPath).timeout(_fileOperationTimeout);
+      }
+      if (!await _looksUsableFile(destFile)) return null;
+      final bytes = await destFile.length().timeout(_fileOperationTimeout);
+      await _writeMetadata(
+        mediaPath: destPath,
+        url: url,
+        kind: kind,
+        mimeType: mimeType,
+        bytes: bytes,
+      );
+      await _pruneCacheDirectory(destFile.parent);
+      if (!await _looksUsableFile(destFile)) return null;
+      if (_disposed ||
+          _clearing ||
+          generation != _generation ||
+          _pendingInvalidations.contains(destPath)) {
+        _validatedCachePaths.remove(destPath);
+        return null;
+      }
+      _validatedCachePaths.put(destPath, DateTime.now().toUtc());
+      return destPath;
+    });
+  }
+
+  Future<void> _pruneCacheDirectory(Directory directory) async {
+    if (!await directory.exists().timeout(_cleanupTimeout)) return;
+    final entries = <_MediaCacheEntry>[];
+    final sidecars = <File>[];
+    var totalBytes = 0;
+    var scannedEntries = 0;
+    final stopwatch = Stopwatch()..start();
+    await for (final entity
+        in directory.list(followLinks: false).timeout(_cleanupTimeout)) {
+      if (++scannedEntries > _maxCacheScanEntries ||
+          stopwatch.elapsed > _cacheScanTimeout) {
+        throw StateError('Media cache scan exceeded its safety limit.');
+      }
+      if (entity is! File) continue;
+      final name = p.basename(entity.path);
+      if (name.endsWith('.json')) {
+        sidecars.add(entity);
+        continue;
+      }
+      if (name.endsWith('.part') || name.contains('.part.')) {
+        final stat = await _statFileIfPresent(entity);
+        if (stat == null) continue;
+        if (DateTime.now().difference(stat.modified) > _staleTempFileAge) {
+          await _deleteEntity(entity, 'delete stale media cache temp file');
+        }
+        continue;
+      }
+      final stat = await _statFileIfPresent(entity);
+      if (stat == null) continue;
+      if (stat.type != FileSystemEntityType.file) continue;
+      if (stat.size <= 0) {
+        await _deleteInvalidCachePair(entity.path);
+        continue;
+      }
+      entries.add(
+        _MediaCacheEntry(
+          path: entity.path,
+          bytes: stat.size,
+          modified: stat.modified,
+        ),
+      );
+      totalBytes += stat.size;
+    }
+    final expectedSidecars = entries
+        .map((entry) => _metadataPathForMediaPath(entry.path))
+        .toSet();
+    for (final sidecar in sidecars) {
+      if (stopwatch.elapsed > _cacheScanTimeout) {
+        throw StateError('Media cache prune exceeded its time limit.');
+      }
+      if (!expectedSidecars.contains(sidecar.path)) {
+        await _deleteEntity(sidecar, 'delete orphan media cache metadata');
+      }
+    }
+    if (entries.length <= _maxCachedMediaFiles &&
+        totalBytes <= _maxTotalCacheBytes) {
+      return;
+    }
+    entries.sort((left, right) => left.modified.compareTo(right.modified));
+    var remainingFiles = entries.length;
+    for (final entry in entries) {
+      if (stopwatch.elapsed > _cacheScanTimeout) {
+        throw StateError('Media cache prune exceeded its time limit.');
+      }
+      if (remainingFiles <= _maxCachedMediaFiles &&
+          totalBytes <= _maxTotalCacheBytes) {
+        break;
+      }
+      await _deleteInvalidCachePair(entry.path);
+      if (!await File(entry.path).exists().timeout(_cleanupTimeout)) {
+        totalBytes -= entry.bytes;
+        remainingFiles--;
+        _validatedCachePaths.remove(entry.path);
+      }
+    }
+    stopwatch.stop();
   }
 
   static Future<void> _closeOutput(RandomAccessFile output) async {
@@ -393,38 +691,98 @@ class MediaCacheService {
   }
 
   static Future<void> clearCache() async {
-    instance._validatedCachePaths.clear();
-    await Future.wait(<Future<void>>[
-      _clearDirectoryContents(Directory(cacheDirectoryPath)),
-      _clearDirectoryContents(Directory(legacyInlineMediaDirectoryPath)),
-    ]);
+    await instance._clearCacheResources();
+  }
+
+  Future<void> shutdown() {
+    final active = _shutdownFuture;
+    if (active != null) return active;
+    _disposed = true;
+    return _shutdownFuture = _performShutdown();
+  }
+
+  Future<void> _performShutdown() async {
+    _clearing = true;
+    _generation++;
+    _validatedCachePaths.clear();
+    _pendingInvalidations.clear();
+    try {
+      await _cancelActiveOperations();
+      await _commitSemaphore.withPermit<void>(() async {});
+    } finally {
+      _clearing = false;
+    }
+  }
+
+  Future<void> _clearCacheResources() {
+    final active = _clearFuture;
+    if (active != null) return active;
+    late final Future<void> future;
+    future = _performCacheClear().whenComplete(() {
+      if (identical(_clearFuture, future)) _clearFuture = null;
+    });
+    _clearFuture = future;
+    return future;
+  }
+
+  Future<void> _performCacheClear() async {
+    _clearing = true;
+    _generation++;
+    _validatedCachePaths.clear();
+    _pendingInvalidations.clear();
+    _cacheDir = null;
+    try {
+      await _cancelActiveOperations();
+      await _commitSemaphore.withPermit<void>(() async {
+        await Future.wait(<Future<void>>[
+          _clearDirectoryContents(Directory(cacheDirectoryPath)),
+          _clearDirectoryContents(Directory(legacyInlineMediaDirectoryPath)),
+        ]);
+        _cacheDir = null;
+        _validatedCachePaths.clear();
+        _pendingInvalidations.clear();
+      });
+    } finally {
+      _clearing = false;
+    }
+  }
+
+  Future<void> _cancelActiveOperations() async {
+    for (final client in _activeClients.toList(growable: false)) {
+      try {
+        client.close(force: true);
+      } catch (error, stack) {
+        silentLog('media_cache', 'cancel active download', error, stack);
+      }
+    }
+    final pending = <Future<void>>[
+      for (final operation in _inflight.values)
+        operation.then<void>((_) {}, onError: (Object _, StackTrace _) {}),
+      for (final operation in _activeImports)
+        operation.then<void>((_) {}, onError: (Object _, StackTrace _) {}),
+    ];
+    if (pending.isNotEmpty) {
+      await Future.wait<void>(
+        pending,
+      ).timeout(_cleanupTimeout, onTimeout: () => <void>[]);
+    }
   }
 
   static Future<MediaCacheStats> _measureDirectory(Directory dir) async {
-    if (!await dir.exists()) return MediaCacheStats.empty;
-    try {
-      final usage = await measureDirectoryBounded(
-        dir,
-        maxEntries: _maxCacheScanEntries,
-        totalTimeout: _cacheScanTimeout,
-        operationTimeout: _cleanupTimeout,
-      );
-      return MediaCacheStats(
-        bytes: usage.totalBytes,
-        fileCount: usage.fileCount,
-      );
-    } catch (error, stack) {
-      silentLog('media_cache', 'list cache directory size', error, stack);
+    if (!await dir.exists().timeout(_cleanupTimeout)) {
       return MediaCacheStats.empty;
     }
+    final usage = await measureDirectoryBounded(
+      dir,
+      maxEntries: _maxCacheScanEntries,
+      totalTimeout: _cacheScanTimeout,
+      operationTimeout: _cleanupTimeout,
+    );
+    return MediaCacheStats(bytes: usage.totalBytes, fileCount: usage.fileCount);
   }
 
   static Future<void> _clearDirectoryContents(Directory dir) async {
-    try {
-      await deletePathBounded(p.absolute(dir.path), policy: _cacheDeletePolicy);
-    } catch (error, stack) {
-      silentLog('media_cache', 'clear cache directory', error, stack);
-    }
+    await deletePathBounded(p.absolute(dir.path), policy: _cacheDeletePolicy);
   }
 
   static Future<void> _deleteEntity(
@@ -478,17 +836,37 @@ class MediaCacheService {
 
   Future<String?> _validatedCachedPath(
     String url, {
-    MediaCacheKind? kind,
-  }) async {
+    required MediaCacheKind? kind,
+    required int generation,
+  }) {
     final path = _cacheFilePathForUrl(url, _cacheDirectoryPathProvider(), kind);
-    if (_validatedCachePaths.get(path) == true) return path;
-    if (await _looksUsableFile(File(path))) {
-      _validatedCachePaths.put(path, true);
-      return path;
-    }
-    _validatedCachePaths.remove(path);
-    await _deleteInvalidCachePair(path);
-    return null;
+    return _commitSemaphore.withPermit<String?>(() async {
+      if (_disposed || _clearing || generation != _generation) return null;
+      if (_pendingInvalidations.remove(path)) {
+        await _deleteInvalidCachePair(path);
+      }
+      if (_disposed || _clearing || generation != _generation) return null;
+      final file = File(path);
+      if (await _looksUsableFile(file)) {
+        final now = DateTime.now().toUtc();
+        try {
+          await file.setLastModified(now).timeout(_fileOperationTimeout);
+        } on FileSystemException {
+          // Cache validity does not depend on access-time refresh support.
+        }
+        if (_disposed ||
+            _clearing ||
+            generation != _generation ||
+            _pendingInvalidations.contains(path)) {
+          return null;
+        }
+        _validatedCachePaths.put(path, now);
+        return path;
+      }
+      _validatedCachePaths.remove(path);
+      await _deleteInvalidCachePair(path);
+      return null;
+    });
   }
 
   static Future<bool> _looksUsableFile(File file) async {
@@ -501,6 +879,15 @@ class MediaCacheService {
       return (await file.stat().timeout(_fileOperationTimeout)).size > 0;
     } catch (_) {
       return false;
+    }
+  }
+
+  static Future<FileStat?> _statFileIfPresent(File file) async {
+    try {
+      return await file.stat().timeout(_cleanupTimeout);
+    } on FileSystemException {
+      if (!await file.exists().timeout(_cleanupTimeout)) return null;
+      rethrow;
     }
   }
 
@@ -594,4 +981,20 @@ class MediaCacheService {
             _audioExtensions.contains(ext),
     };
   }
+}
+
+class _MediaCacheEntry {
+  const _MediaCacheEntry({
+    required this.path,
+    required this.bytes,
+    required this.modified,
+  });
+
+  final String path;
+  final int bytes;
+  final DateTime modified;
+}
+
+class _MediaCacheCancelled implements Exception {
+  const _MediaCacheCancelled();
 }
