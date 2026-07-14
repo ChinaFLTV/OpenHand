@@ -6,6 +6,7 @@ import 'dart:typed_data';
 
 import '../../features/ai/service/runtime/ai_tool_execution_registry.dart';
 import '../../shared/util/async_concurrency.dart';
+import '../../shared/util/bounded_file_io.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/text_clip.dart';
 import '../../shared/util/timer_safety.dart';
@@ -38,6 +39,7 @@ const Duration _directChildTerminateGrace = Duration(milliseconds: 120);
 const Duration _processTreeFinalWait = Duration(milliseconds: 250);
 const Duration _processStreamCleanupTimeout = Duration(milliseconds: 500);
 const Duration _windowsTaskkillTimeout = Duration(seconds: 2);
+const Duration _processExecutableProbeTimeout = Duration(milliseconds: 500);
 const int _maxDescendantProcesses = 256;
 
 bool _isMissingExecutableProcessException(Object error) {
@@ -384,9 +386,9 @@ Future<List<int>> _collectDescendantPids(int rootPid) async {
   if ((!Platform.isMacOS && !Platform.isLinux) || rootPid <= 0) {
     return const <int>[];
   }
-  final pgrep = File('/usr/bin/pgrep').existsSync()
-      ? '/usr/bin/pgrep'
-      : 'pgrep';
+  final pgrep =
+      await _firstExistingProcessExecutable(const <String>['/usr/bin/pgrep']) ??
+      'pgrep';
   final pendingParents = ListQueue<int>()..add(rootPid);
   final descendants = <int>{};
   final stopwatch = Stopwatch()..start();
@@ -488,10 +490,9 @@ Future<_ProcessGroupLauncher?> _resolveProcessGroupLauncher() {
       '/usr/local/bin/setsid',
       '/opt/homebrew/bin/setsid',
     ];
-    for (final candidate in candidates) {
-      if (File(candidate).existsSync()) {
-        return _ProcessGroupLauncher(candidate);
-      }
+    final directLauncher = await _firstExistingProcessExecutable(candidates);
+    if (directLauncher != null) {
+      return _ProcessGroupLauncher(directLauncher);
     }
     try {
       final result = await runTrackedProcessOrFailed(
@@ -502,7 +503,7 @@ Future<_ProcessGroupLauncher?> _resolveProcessGroupLauncher() {
         startInNewProcessGroup: false,
       );
       final path = nullIfBlank(result.stdout as String);
-      if (path != null && File(path).existsSync()) {
+      if (path != null && await _isProcessExecutableFile(path)) {
         return _ProcessGroupLauncher(path);
       }
     } catch (error, stack) {
@@ -512,7 +513,7 @@ Future<_ProcessGroupLauncher?> _resolveProcessGroupLauncher() {
     // syscall, so use a direct argv-preserving exec shim rather than silently
     // losing process-tree cleanup on the primary desktop platform.
     const perl = '/usr/bin/perl';
-    if (Platform.isMacOS && File(perl).existsSync()) {
+    if (Platform.isMacOS && await _isProcessExecutableFile(perl)) {
       return const _ProcessGroupLauncher(perl, <String>[
         '-MPOSIX',
         '-e',
@@ -1621,7 +1622,7 @@ Future<bool> revealLocalPathInSystemFileManager(
     return runDetachedSystemOpen('open', <String>['-R', target], tag: tag);
   }
   if (Platform.isWindows) {
-    final type = FileSystemEntity.typeSync(target, followLinks: false);
+    final type = await probeFileSystemEntityType(target);
     if (type == FileSystemEntityType.directory) {
       return runDetachedSystemOpen('explorer.exe', <String>[target], tag: tag);
     }
@@ -1631,7 +1632,7 @@ Future<bool> revealLocalPathInSystemFileManager(
   }
   if (Platform.isLinux) {
     return runDetachedSystemOpen('xdg-open', <String>[
-      _directoryForReveal(target),
+      await _directoryForReveal(target),
     ], tag: tag);
   }
   return false;
@@ -1679,12 +1680,25 @@ String? _safeMailtoUriArgument(Uri uri) {
 bool _isWindowsDrivePath(String value) =>
     RegExp(r'^[A-Za-z]:([\\/]|$)').hasMatch(value);
 
-String _directoryForReveal(String target) {
-  try {
-    final type = FileSystemEntity.typeSync(target, followLinks: false);
-    if (type == FileSystemEntityType.directory) return target;
-  } catch (error, stack) {
-    silentLog('safe_subprocess', 'resolve reveal directory', error, stack);
-  }
+Future<String> _directoryForReveal(String target) async {
+  final type = await probeFileSystemEntityType(target);
+  if (type == FileSystemEntityType.directory) return target;
   return File(target).parent.path;
+}
+
+Future<String?> _firstExistingProcessExecutable(
+  Iterable<String> candidates,
+) async {
+  for (final candidate in candidates) {
+    if (await _isProcessExecutableFile(candidate)) return candidate;
+  }
+  return null;
+}
+
+Future<bool> _isProcessExecutableFile(String path) {
+  return isRegularFilePath(
+    path,
+    timeout: _processExecutableProbeTimeout,
+    followLinks: true,
+  );
 }
