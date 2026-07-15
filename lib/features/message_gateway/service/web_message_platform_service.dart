@@ -270,11 +270,14 @@ class WebMessagePlatformService {
   WebMessagePlatformConfig _config = const WebMessagePlatformConfig();
   WebGatewayThemeSnapshot _theme = const WebGatewayThemeSnapshot();
   DateTime? _startedAt;
+  int _inFlightRequests = 0;
   int _activeRequests = 0;
   int _totalRequests = 0;
   int _totalErrors = 0;
+  int _blockedRequests = 0;
   int _totalBytesIn = 0;
   int _totalBytesOut = 0;
+  int _fileMutationCount = 0;
   int _crashCount = 0;
   int _restartCount = 0;
   int _nextLogId = 1;
@@ -283,9 +286,12 @@ class WebMessagePlatformService {
   // latency / traffic / errors / saturation 全部在进程内轻量采样，路由使用
   // 低基数字段，避免被 query 或动态 ID 撑爆。
   static const int _maxRouteEntries = 32;
+  static const int _maxMetricDistributionKeys = 128;
+  static const int _maxMetricKeyCharacters = 96;
+  static const String _metricOverflowKey = 'other';
+  static const int _maxTrafficLatencySamplesPerMinute = 512;
+  static const Duration _opsSnapshotPersistenceInterval = Duration(seconds: 15);
   static const int _maxLatencyBuffer = 256;
-  static const int _maxTimestampBuffer = 600;
-  static const int _maxObservationBuffer = 600;
   static const int _maxMessageWindowLimit = 200;
   static const int _sseMessageWindowSize = 20;
   static const int _sessionSummaryMessageWindowSize = 6;
@@ -359,10 +365,12 @@ class WebMessagePlatformService {
   };
   final Map<String, int> _methodCounts = <String, int>{};
   final Map<String, int> _routeCounts = <String, int>{};
+  final Map<String, int> _ipDistribution = <String, int>{};
+  final Map<String, int> _clientDistribution = <String, int>{};
+  final Map<String, int> _protocolDistribution = <String, int>{};
+  final Map<DateTime, _WebGatewayMinuteBucket> _trafficBuckets =
+      <DateTime, _WebGatewayMinuteBucket>{};
   final List<int> _latencyBuffer = <int>[];
-  final List<int> _recentRequestEpochMs = <int>[];
-  final List<_RequestObservation> _recentRequestObservations =
-      <_RequestObservation>[];
   DateTime? _lastErrorAt;
   String _lastErrorPath = '';
   String _slowestRecentPath = '';
@@ -592,11 +600,6 @@ class WebMessagePlatformService {
           endUtc: endUtc,
         ),
       );
-      if (_persistedSnapshots.isNotEmpty) {
-        _hydrateMetricsFromSnapshot(_persistedSnapshots.last.snapshot);
-      } else {
-        _resetHydratedMetricCounters();
-      }
       final after = await _opsPersistenceQueue.enqueue(
         _measureOpsHistoryLocked,
       );
@@ -615,6 +618,7 @@ class WebMessagePlatformService {
   }
 
   Future<WebGatewayOpsPersistenceReport> _clearAllPersistedOpsData() async {
+    final cutoff = DateTime.now().toUtc();
     final knownItemCount =
         _persistedSnapshots.length +
         _memoryLogs.length +
@@ -623,6 +627,7 @@ class WebMessagePlatformService {
     _opsPersistencePending = false;
     _opsDataTrusted = false;
     _opsPersistDebouncer.cancel();
+    var shouldPersistRetainedItems = false;
     try {
       final before = await _opsPersistenceQueue.enqueue(() async {
         try {
@@ -639,10 +644,15 @@ class WebMessagePlatformService {
         }
       });
       await _opsPersistenceQueue.enqueue(_opsStore.clear);
-      _persistedSnapshots.clear();
-      _memoryLogs.clear();
-      _cleanupHistory.clear();
-      _resetHydratedMetricCounters();
+      _persistedSnapshots.removeWhere(
+        (item) => !item.timestamp.isAfter(cutoff),
+      );
+      _memoryLogs.removeWhere((item) => !item.timestamp.isAfter(cutoff));
+      _cleanupHistory.removeWhere((item) => !item.timestamp.isAfter(cutoff));
+      shouldPersistRetainedItems =
+          _persistedSnapshots.isNotEmpty ||
+          _memoryLogs.isNotEmpty ||
+          _cleanupHistory.isNotEmpty;
       _opsDataLoaded = true;
       _opsDataTrusted = true;
       _opsDataLoadFailure = null;
@@ -650,16 +660,37 @@ class WebMessagePlatformService {
     } finally {
       _opsMutationInProgress = false;
       _opsPersistencePending = false;
+      if (shouldPersistRetainedItems && _opsDataTrusted) {
+        _scheduleOpsPersistence();
+      }
     }
   }
 
   void _recordOpsSnapshot(WebGatewayRuntimeSnapshot snapshot) {
-    _persistedSnapshots.add(
-      WebGatewayOpsSnapshotRecord(
-        timestamp: DateTime.now().toUtc(),
-        snapshot: snapshot,
-      ),
+    final now = DateTime.now().toUtc();
+    if (_persistedSnapshots.isNotEmpty) {
+      final last = _persistedSnapshots.last;
+      final elapsed = now.difference(last.timestamp);
+      if (!elapsed.isNegative && elapsed < _opsSnapshotPersistenceInterval) {
+        return;
+      }
+    }
+    final record = WebGatewayOpsSnapshotRecord(
+      timestamp: now,
+      snapshot: snapshot,
     );
+    if (_persistedSnapshots.isNotEmpty &&
+        now.isBefore(_persistedSnapshots.last.timestamp)) {
+      final index = _persistedSnapshots.indexWhere(
+        (item) => item.timestamp.isAfter(now),
+      );
+      _persistedSnapshots.insert(
+        index < 0 ? _persistedSnapshots.length : index,
+        record,
+      );
+    } else {
+      _persistedSnapshots.add(record);
+    }
     if (_persistedSnapshots.length > webGatewayOpsMaxPersistedSnapshots) {
       _persistedSnapshots.removeRange(
         0,
@@ -672,8 +703,10 @@ class WebMessagePlatformService {
   void _hydrateMetricsFromSnapshot(WebGatewayRuntimeSnapshot snapshot) {
     _totalRequests = snapshot.totalRequests;
     _totalErrors = snapshot.totalErrors;
+    _blockedRequests = snapshot.blockedRequests;
     _totalBytesIn = snapshot.totalBytesIn;
     _totalBytesOut = snapshot.totalBytesOut;
+    _fileMutationCount = snapshot.fileMutationCount;
     _crashCount = snapshot.crashCount;
     _restartCount = snapshot.restartCount;
     _statusBuckets
@@ -684,7 +717,30 @@ class WebMessagePlatformService {
       ..addAll(snapshot.methodBreakdown);
     _routeCounts
       ..clear()
-      ..addEntries(snapshot.topRoutes);
+      ..addAll(
+        snapshot.requestDistribution.isEmpty
+            ? Map<String, int>.fromEntries(snapshot.topRoutes)
+            : snapshot.requestDistribution,
+      );
+    _ipDistribution
+      ..clear()
+      ..addAll(snapshot.ipDistribution);
+    _clientDistribution
+      ..clear()
+      ..addAll(snapshot.clientDistribution);
+    _protocolDistribution
+      ..clear()
+      ..addAll(snapshot.protocolDistribution);
+    _trafficBuckets
+      ..clear()
+      ..addEntries(
+        snapshot.trafficSeries.map(
+          (sample) => MapEntry<DateTime, _WebGatewayMinuteBucket>(
+            _webGatewayMinuteStart(sample.minute),
+            _WebGatewayMinuteBucket.fromSample(sample),
+          ),
+        ),
+      );
     _recentErrors
       ..clear()
       ..addAll(snapshot.recentErrors.take(_maxRecentErrors));
@@ -702,30 +758,6 @@ class WebMessagePlatformService {
     _latencyBuffer
       ..clear()
       ..addAll(_latencySamplesFromStats(snapshot.latencyStats));
-  }
-
-  void _resetHydratedMetricCounters() {
-    _totalRequests = 0;
-    _totalErrors = 0;
-    _totalBytesIn = 0;
-    _totalBytesOut = 0;
-    _crashCount = 0;
-    _restartCount = 0;
-    _statusBuckets.updateAll((_, _) => 0);
-    _methodCounts.clear();
-    _routeCounts.clear();
-    _latencyBuffer.clear();
-    _recentRequestEpochMs.clear();
-    _recentRequestObservations.clear();
-    _recentErrors.clear();
-    _lastError = '';
-    _lastErrorAt = null;
-    _lastErrorPath = '';
-    _slowestRecentPath = '';
-    _slowestRecentMethod = '';
-    _slowestRecentDurationMs = 0;
-    _slowestRecentStatus = 0;
-    _slowestRecentAt = null;
   }
 
   void _scheduleOpsPersistence() {
@@ -1169,14 +1201,17 @@ class WebMessagePlatformService {
       boundUrl: boundUrl,
       accessibleUrls: accessibleUrls,
       activeRequests: _activeRequests,
+      currentConnections: _activeRequests + _activeSseSubscriptions,
       maxConcurrentRequests: _config.maxConcurrentRequests,
       activeRequestRatio: _config.maxConcurrentRequests <= 0
           ? 0
           : _activeRequests / _config.maxConcurrentRequests,
       totalRequests: _totalRequests,
       totalErrors: _totalErrors,
+      blockedRequests: _blockedRequests,
       totalBytesIn: _totalBytesIn,
       totalBytesOut: _totalBytesOut,
+      fileMutationCount: _fileMutationCount,
       crashCount: _crashCount,
       restartCount: _restartCount,
       currentRssBytes: ProcessInfo.currentRss,
@@ -1196,8 +1231,8 @@ class WebMessagePlatformService {
       latencyBuckets: _computeLatencyBuckets(),
       requestsPerMinute: _computeRequestsPerMinute(),
       errorsPerMinute: _computeErrorsPerMinute(),
-      bytesInPerMinute: _computeBytesPerMinute((item) => item.requestBytes),
-      bytesOutPerMinute: _computeBytesPerMinute((item) => item.responseBytes),
+      bytesInPerMinute: _computeBytesPerMinute(inbound: true),
+      bytesOutPerMinute: _computeBytesPerMinute(inbound: false),
       slowestRecent: _slowestRecentDurationMs > 0
           ? WebGatewayRecentSlowRequest(
               path: _slowestRecentPath,
@@ -1238,6 +1273,13 @@ class WebMessagePlatformService {
           .where((s) => s.enabled)
           .length,
       mcpServerTotalCount: _mcpController.runtimeServers.length,
+      ipDistribution: Map<String, int>.unmodifiable(_ipDistribution),
+      clientDistribution: Map<String, int>.unmodifiable(_clientDistribution),
+      requestDistribution: Map<String, int>.unmodifiable(_routeCounts),
+      protocolDistribution: Map<String, int>.unmodifiable(
+        _protocolDistribution,
+      ),
+      trafficSeries: _trafficSnapshot(),
     );
   }
 
@@ -1250,6 +1292,9 @@ class WebMessagePlatformService {
     required int durationMs,
     required int requestBytes,
     required int responseBytes,
+    required String remoteAddress,
+    required String clientName,
+    required String protocol,
     String? errorPath,
     String? errorMessage,
   }) {
@@ -1282,8 +1327,8 @@ class WebMessagePlatformService {
           ? upperMethod
           : 'OTHER';
       _methodCounts[methodKey] = (_methodCounts[methodKey] ?? 0) + 1;
-      // 路由分布：保留前缀，规避 query string；超过容量后按计数最少裁剪一个，避免无界增长。
-      final routeKey = path.isEmpty ? '/' : path;
+      // 路由分布：模板化动态 ID 与静态资源，超过容量后淘汰最低频项。
+      final routeKey = webGatewayNormalizeMetricRoute(path);
       _routeCounts[routeKey] = (_routeCounts[routeKey] ?? 0) + 1;
       if (_routeCounts.length > _maxRouteEntries) {
         final smallest = _routeCounts.entries.reduce(
@@ -1291,33 +1336,19 @@ class WebMessagePlatformService {
         );
         _routeCounts.remove(smallest.key);
       }
+      _incrementMetricDistribution(_ipDistribution, remoteAddress);
+      _incrementMetricDistribution(_clientDistribution, clientName);
+      _incrementMetricDistribution(_protocolDistribution, protocol);
+      _recordTrafficOutcome(
+        statusCode,
+        durationMs,
+        requestBytes: requestBytes,
+        responseBytes: responseBytes,
+      );
       // 延迟环形缓冲：达到容量就 FIFO 出队。
       _latencyBuffer.add(durationMs);
       if (_latencyBuffer.length > _maxLatencyBuffer) {
         _latencyBuffer.removeAt(0);
-      }
-      // RPS 时间戳环形缓冲：用 ms-epoch 节省内存；查询时按"最近 60s"过滤计算。
-      final nowMs = DateTime.now().toUtc().millisecondsSinceEpoch;
-      _recentRequestEpochMs.add(nowMs);
-      if (_recentRequestEpochMs.length > _maxTimestampBuffer) {
-        _recentRequestEpochMs.removeAt(0);
-      }
-      _recentRequestObservations.add(
-        _RequestObservation(
-          atMs: nowMs,
-          method: methodKey,
-          path: routeKey,
-          statusCode: statusCode,
-          durationMs: durationMs,
-          requestBytes: requestBytes,
-          responseBytes: responseBytes,
-        ),
-      );
-      if (_recentRequestObservations.length > _maxObservationBuffer) {
-        _recentRequestObservations.removeRange(
-          0,
-          _recentRequestObservations.length - _maxObservationBuffer,
-        );
       }
       // 慢请求记录：保留近期最慢的一次（不是历史最慢），便于发现新近退化。
       if (durationMs >= _slowestRecentDurationMs) {
@@ -1358,6 +1389,106 @@ class WebMessagePlatformService {
     }
   }
 
+  void _incrementMetricDistribution(Map<String, int> values, String rawKey) {
+    var key = rawKey.trim().replaceAll(RegExp(r'\s+'), ' ');
+    if (key.isEmpty) key = 'unknown';
+    if (key.length > _maxMetricKeyCharacters) {
+      key = key.substring(0, _maxMetricKeyCharacters);
+    }
+    final count = values[key];
+    if (count != null) {
+      values[key] = count + 1;
+    } else if (values.length < _maxMetricDistributionKeys - 1) {
+      values[key] = 1;
+    } else {
+      values[_metricOverflowKey] = (values[_metricOverflowKey] ?? 0) + 1;
+    }
+  }
+
+  void _recordTrafficOutcome(
+    int statusCode,
+    int durationMs, {
+    required int requestBytes,
+    required int responseBytes,
+  }) {
+    final bucket = _currentTrafficBucket();
+    switch (webGatewayRequestOutcomeForStatus(statusCode)) {
+      case WebGatewayRequestOutcome.success:
+        bucket.success += 1;
+      case WebGatewayRequestOutcome.blocked:
+        bucket.blocked += 1;
+      case WebGatewayRequestOutcome.failed:
+        bucket.failed += 1;
+    }
+    bucket.inboundBytes += math.max(0, requestBytes);
+    bucket.outboundBytes += math.max(0, responseBytes);
+    bucket.addLatency(
+      math.max(0, durationMs),
+      _maxTrafficLatencySamplesPerMinute,
+    );
+  }
+
+  _WebGatewayMinuteBucket _currentTrafficBucket() {
+    final minute = _webGatewayMinuteStart(DateTime.now().toUtc());
+    final bucket = _trafficBuckets.putIfAbsent(
+      minute,
+      () => _WebGatewayMinuteBucket(minute),
+    );
+    if (_trafficBuckets.length > webGatewayOpsTrafficWindowMinutes * 3) {
+      final cutoff = minute.subtract(
+        const Duration(minutes: webGatewayOpsTrafficWindowMinutes * 3),
+      );
+      _trafficBuckets.removeWhere((key, _) => key.isBefore(cutoff));
+    }
+    return bucket;
+  }
+
+  List<WebGatewayTrafficSample> _trafficSnapshot() {
+    final latest = _webGatewayMinuteStart(DateTime.now().toUtc());
+    return List<WebGatewayTrafficSample>.unmodifiable(
+      List<WebGatewayTrafficSample>.generate(
+        webGatewayOpsTrafficWindowMinutes,
+        (index) {
+          final minute = latest.subtract(
+            Duration(minutes: webGatewayOpsTrafficWindowMinutes - index - 1),
+          );
+          return _trafficBuckets[minute]?.toSample() ??
+              WebGatewayTrafficSample(minute: minute);
+        },
+        growable: false,
+      ),
+    );
+  }
+
+  String _requestMetricClientName(shelf.Request request) {
+    final browser = nullIfBlank(request.headers['x-openhand-browser-name']);
+    final source = nullIfBlank(request.headers['x-openhand-source']);
+    final platform = nullIfBlank(request.headers['x-openhand-device-platform']);
+    if (browser != null) {
+      return platform == null ? browser : '$browser · $platform';
+    }
+    if (source != null) return source;
+    final userAgent = request.headers[HttpHeaders.userAgentHeader] ?? '';
+    final lower = userAgent.toLowerCase();
+    if (lower.contains('edg/')) return 'Edge';
+    if (lower.contains('chrome/') || lower.contains('chromium/')) {
+      return 'Chrome';
+    }
+    if (lower.contains('firefox/')) return 'Firefox';
+    if (lower.contains('safari/') && lower.contains('version/')) {
+      return 'Safari';
+    }
+    if (lower.contains('curl/')) return 'curl';
+    if (lower.contains('postmanruntime/')) return 'Postman';
+    return nullIfBlank(userAgent) ?? 'unknown';
+  }
+
+  String _requestMetricProtocol(shelf.Request request) {
+    if (request.requestedUri.path.endsWith('/events')) return 'SSE';
+    final scheme = nullIfBlank(request.requestedUri.scheme) ?? 'http';
+    return scheme.toUpperCase();
+  }
+
   // 取 routeCounts 排名前 [limit] 的条目，按计数降序。
   List<MapEntry<String, int>> _topRoutes({int limit = 8}) {
     final entries = _routeCounts.entries.toList(growable: false)
@@ -1395,45 +1526,40 @@ class WebMessagePlatformService {
     );
   }
 
-  // 估算"最近 60 秒"内 RPS（每分钟请求数）。
-  // 时间窗口固定 60s；落在窗口内的事件计数除以"实际窗口长度（秒）"再 ×60。
-  // 当只观测到极短窗口时（启动一两秒），仍能给出收敛较好的瞬时速率，避免长时间显示 0。
+  // 当前 UTC 分钟桶的实时累计值，与 12 分钟趋势使用同一数据源。
   double _computeRequestsPerMinute() {
-    if (_recentRequestEpochMs.isEmpty) return 0;
-    final nowMs = DateTime.now().toUtc().millisecondsSinceEpoch;
-    const windowMs = 60 * 1000;
-    final cutoff = nowMs - windowMs;
-    final inWindow = _recentRequestEpochMs
-        .where((t) => t >= cutoff)
-        .toList(growable: false);
-    if (inWindow.isEmpty) return 0;
-    final spanMs = math.max(1, nowMs - inWindow.first);
-    final actualWindowMs = math.min(spanMs, windowMs);
-    return inWindow.length * (60 * 1000) / actualWindowMs;
+    return (_trafficBuckets[_webGatewayMinuteStart(DateTime.now().toUtc())]
+                ?.total ??
+            0)
+        .toDouble();
   }
 
   double _computeErrorsPerMinute() {
-    final items = _observationsInWindow(const Duration(minutes: 1));
-    if (items.isEmpty) return 0;
-    return items.where((item) => item.statusCode >= 400).length.toDouble();
+    final bucket =
+        _trafficBuckets[_webGatewayMinuteStart(DateTime.now().toUtc())];
+    return ((bucket?.blocked ?? 0) + (bucket?.failed ?? 0)).toDouble();
   }
 
-  double _computeBytesPerMinute(int Function(_RequestObservation) read) {
-    final items = _observationsInWindow(const Duration(minutes: 1));
-    if (items.isEmpty) return 0;
-    var total = 0;
-    for (final item in items) {
-      total += read(item);
+  double _computeBytesPerMinute({required bool inbound}) {
+    final bucket =
+        _trafficBuckets[_webGatewayMinuteStart(DateTime.now().toUtc())];
+    if (bucket == null) return 0;
+    return (inbound ? bucket.inboundBytes : bucket.outboundBytes).toDouble();
+  }
+
+  void _recordStreamingOutboundBytes(int bytes) {
+    if (bytes <= 0) return;
+    _totalBytesOut += bytes;
+    _currentTrafficBucket().outboundBytes += bytes;
+  }
+
+  Stream<List<int>> _observeOutboundByteStream(
+    Stream<List<int>> source,
+  ) async* {
+    await for (final chunk in source) {
+      _recordStreamingOutboundBytes(chunk.length);
+      yield chunk;
     }
-    return total.toDouble();
-  }
-
-  List<_RequestObservation> _observationsInWindow(Duration window) {
-    final nowMs = DateTime.now().toUtc().millisecondsSinceEpoch;
-    final cutoff = nowMs - window.inMilliseconds;
-    return _recentRequestObservations
-        .where((item) => item.atMs >= cutoff)
-        .toList(growable: false);
   }
 
   Map<String, int> _computeLatencyBuckets() {
@@ -2320,49 +2446,85 @@ class WebMessagePlatformService {
   shelf.Middleware _telemetryAndLimitMiddleware() {
     return (innerHandler) {
       return (shelf.Request request) async {
-        _totalRequests++;
-        final requestBytes = request.contentLength ?? 0;
-        _totalBytesIn += requestBytes;
+        final connectionInfo =
+            request.context['shelf.io.connection_info'] as HttpConnectionInfo?;
+        final remoteAddress =
+            connectionInfo?.remoteAddress.address ?? 'unknown';
+        final clientName = _requestMetricClientName(request);
+        final protocol = _requestMetricProtocol(request);
+        var collectMetrics = !webGatewayIsOpsSnapshotRequest(
+          request.method,
+          request.requestedUri.path,
+        );
+        var requestBytes = request.contentLength ?? 0;
+        final observedRequest = request.contentLength == null
+            ? request.change(
+                body: request.read().map((chunk) {
+                  requestBytes += chunk.length;
+                  return chunk;
+                }),
+              )
+            : request;
+        if (collectMetrics) {
+          _totalRequests++;
+        }
         final stopwatch = Stopwatch()..start();
-        if (_activeRequests >= _config.maxConcurrentRequests) {
-          _totalErrors++;
+        if (_inFlightRequests >= _config.maxConcurrentRequests) {
           stopwatch.stop();
           final limited = _json(
             HttpStatus.tooManyRequests,
             const <String, Object?>{'error': 'too_many_requests'},
           );
           final responseBytes = limited.contentLength ?? 0;
-          _totalBytesOut += responseBytes;
-          _observeRequestMetrics(
-            method: request.method,
-            path: request.requestedUri.path,
-            statusCode: HttpStatus.tooManyRequests,
-            durationMs: stopwatch.elapsedMilliseconds,
-            requestBytes: requestBytes,
-            responseBytes: responseBytes,
-            errorPath: request.requestedUri.path,
-            errorMessage: 'too_many_requests',
-          );
-          _log(WebGatewayLogLevel.warn, 'HTTP', '请求被并发限制拒绝', <String, Object?>{
-            'path': request.requestedUri.path,
-            'active_requests': _activeRequests,
-            'limit': _config.maxConcurrentRequests,
-          });
+          if (!collectMetrics) {
+            collectMetrics = true;
+            _totalRequests++;
+          }
+          if (collectMetrics) {
+            _totalErrors++;
+            _blockedRequests++;
+            _totalBytesIn += requestBytes;
+            _totalBytesOut += responseBytes;
+            _observeRequestMetrics(
+              method: request.method,
+              path: request.requestedUri.path,
+              statusCode: HttpStatus.tooManyRequests,
+              durationMs: stopwatch.elapsedMilliseconds,
+              requestBytes: requestBytes,
+              responseBytes: responseBytes,
+              remoteAddress: remoteAddress,
+              clientName: clientName,
+              protocol: protocol,
+              errorPath: request.requestedUri.path,
+              errorMessage: 'too_many_requests',
+            );
+            _log(
+              WebGatewayLogLevel.warn,
+              'HTTP',
+              '请求被并发限制拒绝',
+              <String, Object?>{
+                'path': request.requestedUri.path,
+                'active_requests': _activeRequests,
+                'limit': _config.maxConcurrentRequests,
+              },
+            );
+          }
           return limited;
         }
-        _activeRequests++;
+        _inFlightRequests++;
+        final countedActiveRequest = collectMetrics;
+        if (countedActiveRequest) _activeRequests++;
         var statusCode = 0;
         var responseBytes = 0;
         String? errorText;
         try {
-          final response = await innerHandler(request);
+          final response = await innerHandler(observedRequest);
           statusCode = response.statusCode;
           responseBytes = response.contentLength ?? 0;
           return response;
         } on _WebGatewayRequestException catch (error) {
           statusCode = error.statusCode;
           errorText = error.errorCode;
-          _totalErrors++;
           final rejected = _json(statusCode, <String, Object?>{
             'error': error.errorCode,
           });
@@ -2371,7 +2533,6 @@ class WebMessagePlatformService {
         } catch (error, stack) {
           statusCode = HttpStatus.internalServerError;
           errorText = '$error';
-          _totalErrors++;
           _lastError = errorText;
           silentLog(
             'web_message_platform_service',
@@ -2386,54 +2547,75 @@ class WebMessagePlatformService {
           responseBytes = fallback.contentLength ?? 0;
           return fallback;
         } finally {
-          _activeRequests = math.max(0, _activeRequests - 1);
           stopwatch.stop();
-          _totalBytesOut += responseBytes;
-          // 在 telemetry 写日志前更新指标，确保 snapshot 与日志同源（同一窗口同一观察者）。
-          _observeRequestMetrics(
-            method: request.method,
-            path: request.requestedUri.path,
-            statusCode: statusCode,
-            durationMs: stopwatch.elapsedMilliseconds,
-            requestBytes: requestBytes,
-            responseBytes: responseBytes,
-            errorPath: errorText != null ? request.requestedUri.path : null,
-            errorMessage: errorText,
-          );
-          final connectionInfo =
-              request.context['shelf.io.connection_info']
-                  as HttpConnectionInfo?;
-          final level = statusCode >= 500
-              ? WebGatewayLogLevel.error
-              : statusCode >= 400
-              ? WebGatewayLogLevel.warn
-              : (_config.telemetryEnabled
-                    ? WebGatewayLogLevel.telemetry
-                    : WebGatewayLogLevel.info);
-          final shouldLog =
-              _config.loggingEnabled ||
-              _config.telemetryEnabled ||
-              statusCode >= 400;
-          if (shouldLog) {
-            _log(
-              level,
-              'HTTP',
-              '${request.method} ${request.requestedUri.path} -> $statusCode ${stopwatch.elapsedMilliseconds}ms',
-              <String, Object?>{
-                'method': request.method,
-                'path': request.requestedUri.path,
-                'query': request.requestedUri.queryParameters,
-                'status_code': statusCode,
-                'duration_ms': stopwatch.elapsedMilliseconds,
-                'remote_ip': connectionInfo?.remoteAddress.address,
-                'remote_port': connectionInfo?.remotePort,
-                'user_agent': request.headers[HttpHeaders.userAgentHeader],
-                'content_length': requestBytes,
-                'response_bytes': responseBytes,
-                'active_requests': _activeRequests,
-                if (errorText != null) 'error': errorText,
-              },
+          _inFlightRequests = math.max(0, _inFlightRequests - 1);
+          if (!collectMetrics &&
+              webGatewayShouldCollectRequestMetrics(
+                method: request.method,
+                path: request.requestedUri.path,
+                statusCode: statusCode,
+              )) {
+            collectMetrics = true;
+            _totalRequests++;
+          }
+          if (collectMetrics) {
+            if (countedActiveRequest) {
+              _activeRequests = math.max(0, _activeRequests - 1);
+            }
+            _totalBytesIn += requestBytes;
+            _totalBytesOut += responseBytes;
+            if (statusCode >= 400 || statusCode <= 0) {
+              _totalErrors++;
+              if (webGatewayIsBlockedStatusCode(statusCode)) {
+                _blockedRequests++;
+              }
+            }
+            // 在 telemetry 写日志前更新指标，确保 snapshot 与日志同源（同一窗口同一观察者）。
+            _observeRequestMetrics(
+              method: request.method,
+              path: request.requestedUri.path,
+              statusCode: statusCode,
+              durationMs: stopwatch.elapsedMilliseconds,
+              requestBytes: requestBytes,
+              responseBytes: responseBytes,
+              remoteAddress: remoteAddress,
+              clientName: clientName,
+              protocol: protocol,
+              errorPath: errorText != null ? request.requestedUri.path : null,
+              errorMessage: errorText,
             );
+            final level = statusCode >= 500
+                ? WebGatewayLogLevel.error
+                : statusCode >= 400
+                ? WebGatewayLogLevel.warn
+                : (_config.telemetryEnabled
+                      ? WebGatewayLogLevel.telemetry
+                      : WebGatewayLogLevel.info);
+            final shouldLog =
+                _config.loggingEnabled ||
+                _config.telemetryEnabled ||
+                statusCode >= 400;
+            if (shouldLog) {
+              _log(
+                level,
+                'HTTP',
+                '${request.method} ${request.requestedUri.path} -> $statusCode ${stopwatch.elapsedMilliseconds}ms',
+                <String, Object?>{
+                  'method': request.method,
+                  'path': request.requestedUri.path,
+                  'query': request.requestedUri.queryParameters,
+                  'status_code': statusCode,
+                  'duration_ms': stopwatch.elapsedMilliseconds,
+                  'remote_ip': connectionInfo?.remoteAddress.address,
+                  'remote_port': connectionInfo?.remotePort,
+                  'user_agent': request.headers[HttpHeaders.userAgentHeader],
+                  'content_length': requestBytes,
+                  'response_bytes': responseBytes,
+                  'active_requests': _activeRequests,
+                  if (errorText != null) 'error': errorText,
+                },
+              );
+            }
           }
         }
       };
@@ -4062,7 +4244,9 @@ class WebMessagePlatformService {
       '${safeTitle}_${exportSession.id}.jsonl',
     );
     return shelf.Response.ok(
-      encodeAiSessionToJsonlByteStream(session: exportSession),
+      _observeOutboundByteStream(
+        encodeAiSessionToJsonlByteStream(session: exportSession),
+      ),
       headers: <String, String>{
         HttpHeaders.contentTypeHeader: 'application/x-ndjson; charset=utf-8',
         'content-disposition': _attachmentContentDisposition(filename),
@@ -5452,7 +5636,9 @@ class WebMessagePlatformService {
       try {
         final body = jsonEncode(payload);
         final frame = 'event: $event\ndata: $body\n\n';
-        controller.add(utf8.encode(frame));
+        final bytes = utf8.encode(frame);
+        controller.add(bytes);
+        _recordStreamingOutboundBytes(bytes.length);
       } catch (error, stack) {
         silentLog('WebGateway', 'sse.emit', error, stack);
       }
@@ -5584,7 +5770,9 @@ class WebMessagePlatformService {
         }
         if (paused) return;
         try {
-          controller.add(utf8.encode(':keepalive\n\n'));
+          final bytes = utf8.encode(':keepalive\n\n');
+          controller.add(bytes);
+          _recordStreamingOutboundBytes(bytes.length);
         } catch (error, stack) {
           silentLog('WebGateway', 'sse.keepalive', error, stack);
         }
@@ -6013,6 +6201,11 @@ class WebMessagePlatformService {
   }
 
   Future<shelf.Response> _cleanupOps(shelf.Request request) async {
+    if (!_config.opsEnabled) {
+      return _json(HttpStatus.forbidden, const <String, Object?>{
+        'error': 'ops_disabled',
+      });
+    }
     final body = await _readJsonBody(request);
     final target = _string(body['target'], 'all').trim().toLowerCase();
     final expiredOnly = body['expired_only'] as bool? ?? false;
@@ -6032,12 +6225,17 @@ class WebMessagePlatformService {
   }
 
   Future<shelf.Response> _cleanupHistoryPayload() async {
+    if (!_config.opsEnabled) {
+      return _json(HttpStatus.forbidden, const <String, Object?>{
+        'error': 'ops_disabled',
+      });
+    }
     return _json(HttpStatus.ok, <String, Object?>{
       'items': _cleanupHistory.reversed
           .map((entry) => entry.toJson())
           .toList(growable: false),
       'total': _cleanupHistory.length,
-      'max_items': 50,
+      'max_items': webGatewayOpsMaxCleanupHistory,
     });
   }
 
@@ -6239,6 +6437,7 @@ class WebMessagePlatformService {
     }
     final file = File(filePath);
     await writeFileAtomically(file, content);
+    _fileMutationCount++;
     final stat = await file.stat();
     _log(WebGatewayLogLevel.warn, 'FILES', 'Web 写入项目文件', <String, Object?>{
       'path': _relativeWorkspacePath(filePath),
@@ -6281,6 +6480,7 @@ class WebMessagePlatformService {
       });
     }
     await Directory(dirPath).create(recursive: true);
+    if (type == FileSystemEntityType.notFound) _fileMutationCount++;
     final stat = await Directory(dirPath).stat();
     _log(WebGatewayLogLevel.warn, 'FILES', 'Web 创建项目目录', <String, Object?>{
       'path': _relativeWorkspacePath(dirPath),
@@ -6339,6 +6539,7 @@ class WebMessagePlatformService {
       }
       await File(resolved).delete();
     }
+    _fileMutationCount++;
     _log(WebGatewayLogLevel.warn, 'FILES', 'Web 删除项目文件', <String, Object?>{
       'path': _relativeWorkspacePath(resolved),
       'kind': type.toString(),
@@ -8819,24 +9020,75 @@ bool _truthy(String? raw) {
   return raw?.trim().toLowerCase() == 'tail';
 }
 
-class _RequestObservation {
-  const _RequestObservation({
-    required this.atMs,
-    required this.method,
-    required this.path,
-    required this.statusCode,
-    required this.durationMs,
-    required this.requestBytes,
-    required this.responseBytes,
-  });
+class _WebGatewayMinuteBucket {
+  _WebGatewayMinuteBucket(this.minute);
 
-  final int atMs;
-  final String method;
-  final String path;
-  final int statusCode;
-  final int durationMs;
-  final int requestBytes;
-  final int responseBytes;
+  factory _WebGatewayMinuteBucket.fromSample(WebGatewayTrafficSample sample) {
+    final bucket =
+        _WebGatewayMinuteBucket(_webGatewayMinuteStart(sample.minute))
+          ..success = sample.success
+          ..blocked = sample.blocked
+          ..failed = sample.failed
+          ..inboundBytes = sample.inboundBytes
+          ..outboundBytes = sample.outboundBytes;
+    if (sample.avgLatencyMs > 0) bucket.latencies.add(sample.avgLatencyMs);
+    if (sample.p95LatencyMs > 0 && sample.p95LatencyMs != sample.avgLatencyMs) {
+      bucket.latencies.add(sample.p95LatencyMs);
+    }
+    return bucket;
+  }
+
+  final DateTime minute;
+  int success = 0;
+  int blocked = 0;
+  int failed = 0;
+  int inboundBytes = 0;
+  int outboundBytes = 0;
+  final List<int> latencies = <int>[];
+  int _nextLatencyIndex = 0;
+
+  int get total => success + blocked + failed;
+
+  void addLatency(int value, int limit) {
+    if (limit <= 0) return;
+    if (latencies.length < limit) {
+      latencies.add(value);
+      return;
+    }
+    latencies[_nextLatencyIndex] = value;
+    _nextLatencyIndex = (_nextLatencyIndex + 1) % limit;
+  }
+
+  WebGatewayTrafficSample toSample() {
+    var avgLatencyMs = 0;
+    var p95LatencyMs = 0;
+    if (latencies.isNotEmpty) {
+      final sorted = List<int>.from(latencies)..sort();
+      avgLatencyMs =
+          (sorted.fold<int>(0, (sum, value) => sum + value) / sorted.length)
+              .round();
+      p95LatencyMs =
+          sorted[((sorted.length - 1) * .95).round().clamp(
+            0,
+            sorted.length - 1,
+          )];
+    }
+    return WebGatewayTrafficSample(
+      minute: minute,
+      success: success,
+      blocked: blocked,
+      failed: failed,
+      inboundBytes: inboundBytes,
+      outboundBytes: outboundBytes,
+      avgLatencyMs: avgLatencyMs,
+      p95LatencyMs: p95LatencyMs,
+    );
+  }
+}
+
+DateTime _webGatewayMinuteStart(DateTime value) {
+  final utc = value.toUtc();
+  return DateTime.utc(utc.year, utc.month, utc.day, utc.hour, utc.minute);
 }
 
 class _AllowedWebModel {

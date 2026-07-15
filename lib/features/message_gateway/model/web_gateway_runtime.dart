@@ -1,7 +1,10 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
 
 import '../../../shared/util/input_value_parsing.dart';
+
+const int webGatewayOpsTrafficWindowMinutes = 12;
 
 /// Runtime types for the Web 通用消息平台 service.
 ///
@@ -334,6 +337,58 @@ class WebGatewayCleanupResult {
   }
 }
 
+class WebGatewayTrafficSample {
+  const WebGatewayTrafficSample({
+    required this.minute,
+    this.success = 0,
+    this.blocked = 0,
+    this.failed = 0,
+    this.inboundBytes = 0,
+    this.outboundBytes = 0,
+    this.avgLatencyMs = 0,
+    this.p95LatencyMs = 0,
+  });
+
+  final DateTime minute;
+  final int success;
+  final int blocked;
+  final int failed;
+  final int inboundBytes;
+  final int outboundBytes;
+  final int avgLatencyMs;
+  final int p95LatencyMs;
+
+  int get total => success + blocked + failed;
+
+  Map<String, Object?> toJson() => <String, Object?>{
+    'minute': minute.toUtc().toIso8601String(),
+    'success': success,
+    'blocked': blocked,
+    'failed': failed,
+    'inbound_bytes': inboundBytes,
+    'outbound_bytes': outboundBytes,
+    'avg_latency_ms': avgLatencyMs,
+    'p95_latency_ms': p95LatencyMs,
+  };
+
+  static WebGatewayTrafficSample fromJson(Object? raw) {
+    final map = stringKeyedMapFromValue(raw);
+    return WebGatewayTrafficSample(
+      minute: utcDateTimeFromValue(map['minute']) ?? DateTime.now().toUtc(),
+      success: nonNegativeIntFromValue(map['success'], fallback: 0),
+      blocked: nonNegativeIntFromValue(map['blocked'], fallback: 0),
+      failed: nonNegativeIntFromValue(map['failed'], fallback: 0),
+      inboundBytes: nonNegativeIntFromValue(map['inbound_bytes'], fallback: 0),
+      outboundBytes: nonNegativeIntFromValue(
+        map['outbound_bytes'],
+        fallback: 0,
+      ),
+      avgLatencyMs: nonNegativeIntFromValue(map['avg_latency_ms'], fallback: 0),
+      p95LatencyMs: nonNegativeIntFromValue(map['p95_latency_ms'], fallback: 0),
+    );
+  }
+}
+
 /// 实时运行快照，作为 Ops 弹窗 / Web 端 ops API 的统一数据载体。
 class WebGatewayRuntimeSnapshot {
   const WebGatewayRuntimeSnapshot({
@@ -343,12 +398,15 @@ class WebGatewayRuntimeSnapshot {
     required this.boundUrl,
     required this.accessibleUrls,
     required this.activeRequests,
+    this.currentConnections = 0,
     this.maxConcurrentRequests = 0,
     this.activeRequestRatio = 0,
     required this.totalRequests,
     required this.totalErrors,
+    this.blockedRequests = 0,
     required this.totalBytesIn,
     required this.totalBytesOut,
+    this.fileMutationCount = 0,
     required this.crashCount,
     required this.restartCount,
     required this.currentRssBytes,
@@ -394,6 +452,11 @@ class WebGatewayRuntimeSnapshot {
     this.memoryEntryCount = 0,
     this.mcpServerEnabledCount = 0,
     this.mcpServerTotalCount = 0,
+    this.ipDistribution = const <String, int>{},
+    this.clientDistribution = const <String, int>{},
+    this.requestDistribution = const <String, int>{},
+    this.protocolDistribution = const <String, int>{},
+    this.trafficSeries = const <WebGatewayTrafficSample>[],
   });
 
   final WebGatewayRuntimeState state;
@@ -407,12 +470,15 @@ class WebGatewayRuntimeSnapshot {
   /// - 未启动时为空列表
   final List<String> accessibleUrls;
   final int activeRequests;
+  final int currentConnections;
   final int maxConcurrentRequests;
   final double activeRequestRatio;
   final int totalRequests;
   final int totalErrors;
+  final int blockedRequests;
   final int totalBytesIn;
   final int totalBytesOut;
+  final int fileMutationCount;
   final int crashCount;
   final int restartCount;
   final int currentRssBytes;
@@ -473,6 +539,19 @@ class WebGatewayRuntimeSnapshot {
   final int mcpServerEnabledCount;
   final int mcpServerTotalCount;
 
+  final Map<String, int> ipDistribution;
+  final Map<String, int> clientDistribution;
+  final Map<String, int> requestDistribution;
+  final Map<String, int> protocolDistribution;
+  final List<WebGatewayTrafficSample> trafficSeries;
+
+  int get successTotal => math.max(0, totalRequests - effectiveErrorTotal);
+  int get failedRequests =>
+      math.max(0, effectiveErrorTotal - effectiveBlockedTotal);
+  int get effectiveErrorTotal => math.min(totalRequests, totalErrors);
+  int get effectiveBlockedTotal =>
+      math.min(effectiveErrorTotal, blockedRequests);
+
   Map<String, Object?> toJson() {
     return <String, Object?>{
       'state': state.name,
@@ -481,12 +560,15 @@ class WebGatewayRuntimeSnapshot {
       'bound_url': boundUrl,
       'accessible_urls': accessibleUrls,
       'active_requests': activeRequests,
+      'current_connections': currentConnections,
       'max_concurrent_requests': maxConcurrentRequests,
       'active_request_ratio': activeRequestRatio,
       'total_requests': totalRequests,
       'total_errors': totalErrors,
+      'blocked_requests': blockedRequests,
       'total_bytes_in': totalBytesIn,
       'total_bytes_out': totalBytesOut,
+      'file_mutation_count': fileMutationCount,
       'crash_count': crashCount,
       'restart_count': restartCount,
       'process': <String, Object?>{
@@ -538,6 +620,13 @@ class WebGatewayRuntimeSnapshot {
       'memory_entry_count': memoryEntryCount,
       'mcp_server_enabled_count': mcpServerEnabledCount,
       'mcp_server_total_count': mcpServerTotalCount,
+      'ip_distribution': ipDistribution,
+      'client_distribution': clientDistribution,
+      'request_distribution': requestDistribution,
+      'protocol_distribution': protocolDistribution,
+      'traffic_series': trafficSeries
+          .map((item) => item.toJson())
+          .toList(growable: false),
     };
   }
 
@@ -554,6 +643,15 @@ class WebGatewayRuntimeSnapshot {
         map['active_requests'],
         fallback: 0,
       ),
+      currentConnections: nonNegativeIntFromValue(
+        map['current_connections'],
+        fallback:
+            nonNegativeIntFromValue(map['active_requests'], fallback: 0) +
+            nonNegativeIntFromValue(
+              map['active_sse_subscriptions'],
+              fallback: 0,
+            ),
+      ),
       maxConcurrentRequests: nonNegativeIntFromValue(
         map['max_concurrent_requests'],
         fallback: 0,
@@ -567,9 +665,17 @@ class WebGatewayRuntimeSnapshot {
         fallback: 0,
       ),
       totalErrors: nonNegativeIntFromValue(map['total_errors'], fallback: 0),
+      blockedRequests: nonNegativeIntFromValue(
+        map['blocked_requests'],
+        fallback: 0,
+      ),
       totalBytesIn: nonNegativeIntFromValue(map['total_bytes_in'], fallback: 0),
       totalBytesOut: nonNegativeIntFromValue(
         map['total_bytes_out'],
+        fallback: 0,
+      ),
+      fileMutationCount: nonNegativeIntFromValue(
+        map['file_mutation_count'],
         fallback: 0,
       ),
       crashCount: nonNegativeIntFromValue(map['crash_count'], fallback: 0),
@@ -686,6 +792,17 @@ class WebGatewayRuntimeSnapshot {
         map['mcp_server_total_count'],
         fallback: 0,
       ),
+      ipDistribution: _webGatewayStringIntMapFromValue(map['ip_distribution']),
+      clientDistribution: _webGatewayStringIntMapFromValue(
+        map['client_distribution'],
+      ),
+      requestDistribution: _webGatewayStringIntMapFromValue(
+        map['request_distribution'],
+      ),
+      protocolDistribution: _webGatewayStringIntMapFromValue(
+        map['protocol_distribution'],
+      ),
+      trafficSeries: _webGatewayTrafficSeriesFromValue(map['traffic_series']),
     );
   }
 }
@@ -766,16 +883,126 @@ class WebGatewayRecentSlowRequest {
   }
 }
 
+bool webGatewayIsBlockedStatusCode(int statusCode) =>
+    statusCode == HttpStatus.unauthorized ||
+    statusCode == HttpStatus.forbidden ||
+    statusCode == HttpStatus.tooManyRequests;
+
+enum WebGatewayRequestOutcome { success, blocked, failed }
+
+WebGatewayRequestOutcome webGatewayRequestOutcomeForStatus(int statusCode) {
+  if (webGatewayIsBlockedStatusCode(statusCode)) {
+    return WebGatewayRequestOutcome.blocked;
+  }
+  if (statusCode <= 0 || statusCode >= 400) {
+    return WebGatewayRequestOutcome.failed;
+  }
+  return WebGatewayRequestOutcome.success;
+}
+
+bool webGatewayIsOpsSnapshotRequest(String method, String path) =>
+    method.toUpperCase() == 'GET' && path == '/api/ops';
+
+bool webGatewayShouldCollectRequestMetrics({
+  required String method,
+  required String path,
+  required int statusCode,
+}) =>
+    !webGatewayIsOpsSnapshotRequest(method, path) ||
+    statusCode != HttpStatus.ok;
+
+String webGatewayNormalizeMetricRoute(String path) {
+  if (path.isEmpty || path == '/') return '/';
+  final segments = path.split('/').where((item) => item.isNotEmpty).toList();
+  if (segments.isEmpty) return '/';
+  if (segments.first == 'chunks' || segments.first == 'assets') {
+    return '/${segments.first}/:asset';
+  }
+  if (segments.first == 'threads') {
+    if (segments.length > 1 &&
+        (segments[1] == 'chunks' || segments[1] == 'assets')) {
+      return '/threads/${segments[1]}/:asset';
+    }
+    if (segments.length > 1 &&
+        !const <String>{
+          'app.js',
+          'app.css',
+          'favicon.ico',
+          'manifest.webmanifest',
+          'openhand_logo.png',
+          'sw.js',
+        }.contains(segments[1])) {
+      return '/threads/:threadId';
+    }
+  }
+  if (segments.length > 2 &&
+      segments[0] == 'api' &&
+      segments[1] == 'sessions') {
+    segments[2] = ':sessionId';
+    if (segments.length > 4 && segments[3] == 'messages') {
+      segments[4] = ':messageId';
+    } else if (segments.length > 4 && segments[3] == 'write-approvals') {
+      segments[4] = ':approvalId';
+    }
+  }
+  return '/${segments.join('/')}';
+}
+
+List<MapEntry<String, int>> webGatewayCompactDistribution(
+  Map<String, int> values, {
+  required String otherLabel,
+  int limit = 5,
+}) {
+  if (limit <= 0) return const <MapEntry<String, int>>[];
+  var overflow = 0;
+  final sorted = values.entries.where((entry) {
+    if (entry.value <= 0) return false;
+    if (entry.key.trim().toLowerCase() == 'other' || entry.key == otherLabel) {
+      overflow += entry.value;
+      return false;
+    }
+    return true;
+  }).toList()..sort((a, b) => b.value.compareTo(a.value));
+  if (sorted.length + (overflow > 0 ? 1 : 0) <= limit) {
+    return List<MapEntry<String, int>>.unmodifiable(<MapEntry<String, int>>[
+      ...sorted,
+      if (overflow > 0) MapEntry<String, int>(otherLabel, overflow),
+    ]);
+  }
+  final visibleCount = math.max(0, limit - 1);
+  return List<MapEntry<String, int>>.unmodifiable(<MapEntry<String, int>>[
+    ...sorted.take(visibleCount),
+    MapEntry<String, int>(
+      otherLabel,
+      overflow +
+          sorted
+              .skip(visibleCount)
+              .fold<int>(0, (sum, entry) => sum + entry.value),
+    ),
+  ]);
+}
+
 Map<String, int> _webGatewayStringIntMapFromValue(Object? raw) {
+  const maxKeys = 256;
+  const maxKeyCharacters = 96;
   final source = stringKeyedMapFromValue(raw);
   if (source.isEmpty) return const <String, int>{};
   final result = <String, int>{};
+  var overflow = 0;
   for (final entry in source.entries) {
-    final key = entry.key.trim();
+    var key = entry.key.trim().replaceAll(RegExp(r'\s+'), ' ');
     if (key.isEmpty) continue;
     final value = nonNegativeIntFromValue(entry.value, fallback: 0);
-    result[key] = value;
+    if (key.length > maxKeyCharacters) {
+      key = key.substring(0, maxKeyCharacters);
+    }
+    if (result.containsKey(key) || result.length < maxKeys - 1) {
+      result[key] = (result[key] ?? 0) + value;
+    } else {
+      overflow += value;
+    }
   }
+  if (overflow > 0) result['other'] = (result['other'] ?? 0) + overflow;
   return Map<String, int>.unmodifiable(result);
 }
 
@@ -783,7 +1010,7 @@ List<MapEntry<String, int>> _webGatewayTopRoutesFromValue(Object? raw) {
   final rows = stringKeyedMapListFromValue(raw);
   if (rows.isEmpty) return const <MapEntry<String, int>>[];
   final routes = <MapEntry<String, int>>[];
-  for (final row in rows) {
+  for (final row in rows.take(32)) {
     final path = stringFromValue(row['path']);
     if (path.isEmpty) continue;
     routes.add(
@@ -791,4 +1018,12 @@ List<MapEntry<String, int>> _webGatewayTopRoutesFromValue(Object? raw) {
     );
   }
   return List<MapEntry<String, int>>.unmodifiable(routes);
+}
+
+List<WebGatewayTrafficSample> _webGatewayTrafficSeriesFromValue(Object? raw) {
+  final rows = stringKeyedMapListFromValue(raw);
+  final start = math.max(0, rows.length - webGatewayOpsTrafficWindowMinutes);
+  return List<WebGatewayTrafficSample>.unmodifiable(
+    rows.skip(start).map(WebGatewayTrafficSample.fromJson),
+  );
 }

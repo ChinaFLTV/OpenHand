@@ -55,11 +55,21 @@ function buildOpsHealth(snapshot: OpsRuntimeSnapshot): OpsHealthSummary {
   const recommendations: string[] = [];
   const alerts: OpsHealthAlert[] = [];
   const totalRequests = Math.max(snapshot.total_requests, 0);
-  const errorRate = totalRequests > 0 ? snapshot.total_errors / totalRequests : 0;
+  const totalErrors = Math.min(Math.max(snapshot.total_errors, 0), totalRequests);
+  const blockedRequests = Math.min(
+    Math.max(snapshot.blocked_requests ?? 0, 0),
+    totalErrors,
+  );
+  const failedRequests = totalErrors - blockedRequests;
+  const errorRate = totalRequests > 0 ? failedRequests / totalRequests : 0;
   const saturation = snapshot.active_request_ratio ?? 0;
   const p95 = snapshot.latency_stats?.p95_ms ?? 0;
   const p99 = snapshot.latency_stats?.p99_ms ?? 0;
-  const errorsPerMinute = snapshot.errors_per_minute ?? 0;
+  const trafficSeries = snapshot.traffic_series;
+  const latestTraffic = trafficSeries && trafficSeries.length > 0
+    ? trafficSeries[trafficSeries.length - 1]
+    : undefined;
+  const failuresPerMinute = latestTraffic?.failed ?? snapshot.errors_per_minute ?? 0;
   const logErrors = snapshot.log_level_breakdown?.error ?? snapshot.log_level_breakdown?.ERROR ?? 0;
 
   if (snapshot.state === 'crashed') {
@@ -80,9 +90,9 @@ function buildOpsHealth(snapshot: OpsRuntimeSnapshot): OpsHealthSummary {
     alerts.push({ label: t('ops.alert.errorRate', '错误率'), threshold: '>= 1 %', actual: percent(errorRate), severity: 'warn' });
     recommendations.push(t('ops.health.fixErrorRateWarn', '错误率超过 1%，建议核对请求来源、模型服务和文件权限。'));
   }
-  if (errorsPerMinute > 0) {
-    score -= Math.min(15, 5 + errorsPerMinute * 2);
-    alerts.push({ label: t('ops.alert.errorsPerMinute', '错误/min'), threshold: '> 0', actual: errorsPerMinute.toFixed(1), severity: 'warn' });
+  if (failuresPerMinute > 0) {
+    score -= Math.min(15, 5 + failuresPerMinute * 2);
+    alerts.push({ label: t('ops.alert.errorsPerMinute', '失败/min'), threshold: '> 0', actual: failuresPerMinute.toFixed(1), severity: 'warn' });
     recommendations.push(t('ops.health.fixRecentErrors', '最近 1 分钟仍有错误增长，观察错误是否持续并检查对应路由。'));
   }
   if (saturation >= 0.85) {
@@ -132,7 +142,7 @@ function buildOpsHealth(snapshot: OpsRuntimeSnapshot): OpsHealthSummary {
       { label: t('ops.health.signal.p95', 'P95 延迟'), value: p95 > 0 ? `${p95} ms` : '—', tone: p95 >= 3000 ? 'error' : p95 >= 1000 ? 'warn' : 'ok' },
       { label: t('ops.health.signal.p99', 'P99 延迟'), value: p99 > 0 ? `${p99} ms` : '—', tone: p99 >= 5000 ? 'error' : p99 >= 2000 ? 'warn' : 'ok' },
       { label: t('ops.health.signal.saturation', '并发水位'), value: percent(saturation), tone: saturation >= 0.85 ? 'error' : saturation >= 0.6 ? 'warn' : 'ok' },
-      { label: t('ops.health.signal.errorsPerMin', '错误/min'), value: (snapshot.errors_per_minute ?? 0).toFixed(1), tone: errorsPerMinute > 0 ? 'warn' : 'ok' },
+      { label: t('ops.health.signal.errorsPerMin', '失败/min'), value: failuresPerMinute.toFixed(1), tone: failuresPerMinute > 0 ? 'warn' : 'ok' },
       { label: t('ops.health.signal.sse', 'SSE'), value: String(snapshot.active_sse_subscriptions ?? 0), tone: 'neutral' },
     ],
   };
@@ -244,6 +254,17 @@ export function OpsPage() {
 
   const stateBadge = useMemo(() => snapshot?.state ?? 'stopped', [snapshot?.state]);
   const health = useMemo(() => snapshot ? buildOpsHealth(snapshot) : null, [snapshot]);
+  const totalRequests = Math.max(snapshot?.total_requests ?? 0, 0);
+  const totalErrors = Math.min(
+    Math.max(snapshot?.total_errors ?? 0, 0),
+    totalRequests,
+  );
+  const blockedRequests = Math.min(
+    Math.max(snapshot?.blocked_requests ?? 0, 0),
+    totalErrors,
+  );
+  const failedRequests = totalErrors - blockedRequests;
+  const successfulRequests = totalRequests - totalErrors;
   const subtitle = snapshot
     ? `${t('ops.metric.uptime', '运行时长')} ${tDuration(snapshot.uptime_ms)} · ${t('ops.metric.totalReq', '总请求')} ${snapshot.total_requests}`
     : snapLoading
@@ -308,6 +329,9 @@ export function OpsPage() {
               <Metric label={t('ops.metric.uptime', '运行时长')} value={tDuration(snapshot.uptime_ms)} />
               <Metric label={t('ops.metric.bound', '监听 URL')} value={snapshot.bound_url || '—'} mono />
               <Metric label={t('ops.metric.openSessions', '在线会话')} value={String(snapshot.open_session_count)} />
+              {typeof snapshot.current_connections === 'number' && (
+                <Metric label={t('ops.metric.connections', '当前连接数')} value={String(snapshot.current_connections)} />
+              )}
               <Metric label={t('ops.metric.activeReq', '正在处理')} value={String(snapshot.active_requests)} />
               {typeof snapshot.max_concurrent_requests === 'number' && snapshot.max_concurrent_requests > 0 && (
                 <Metric
@@ -324,7 +348,12 @@ export function OpsPage() {
                   value={`${snapshot.mcp_server_enabled_count ?? 0} / ${snapshot.mcp_server_total_count}`} />
               )}
               <Metric label={t('ops.metric.totalReq', '总请求')} value={String(snapshot.total_requests)} />
-              <Metric label={t('ops.metric.totalErr', '总错误')} value={String(snapshot.total_errors)} />
+              <Metric label={t('ops.metric.succeeded', '成功数量')} value={String(successfulRequests)} />
+              <Metric label={t('ops.metric.blocked', '拦截数量')} value={String(blockedRequests)} />
+              <Metric label={t('ops.metric.failed', '失败数量')} value={String(failedRequests)} />
+              {typeof snapshot.file_mutation_count === 'number' && (
+                <Metric label={t('ops.metric.fileMutations', '文件变动')} value={String(snapshot.file_mutation_count)} />
+              )}
               <Metric label={t('ops.metric.bytesIO', '字节 IN / OUT')}
                 value={`${tBytes(snapshot.total_bytes_in)} / ${tBytes(snapshot.total_bytes_out)}`} />
               <Metric label={t('ops.metric.crash', '崩溃 / 重启')} value={`${snapshot.crash_count} / ${snapshot.restart_count}`} />
@@ -362,8 +391,8 @@ export function OpsPage() {
                 />
               )}
               {snapshot.total_requests > 0 && (
-                <Metric label={t('ops.metric.errorRate', '错误率')}
-                  value={`${((snapshot.total_errors / snapshot.total_requests) * 100).toFixed(2)} %`} />
+                <Metric label={t('ops.metric.errorRate', '失败率')}
+                  value={`${((failedRequests / snapshot.total_requests) * 100).toFixed(2)} %`} />
               )}
               {typeof snapshot.allowed_model_count === 'number' && (
                 <Metric
@@ -442,6 +471,29 @@ export function OpsPage() {
                       ))}
                     </div>
                   </div>
+                )}
+              </section>
+            )}
+
+            {(snapshot.ip_distribution
+              || snapshot.client_distribution
+              || snapshot.request_distribution
+              || snapshot.protocol_distribution) && (
+              <section
+                class="oh-appear-up rounded-m3-md p-4 mb-3 grid grid-cols-1 md:grid-cols-2 gap-4"
+                style={{ backgroundColor: 'var(--m3-surface-container)' }}
+              >
+                {snapshot.ip_distribution && (
+                  <BreakdownBlock title={t('ops.section.peerMix', '请求来源分布')} data={snapshot.ip_distribution} />
+                )}
+                {snapshot.client_distribution && (
+                  <BreakdownBlock title={t('ops.section.clientMix', '客户端分布')} data={snapshot.client_distribution} />
+                )}
+                {snapshot.request_distribution && (
+                  <BreakdownBlock title={t('ops.section.requestMix', '请求分布')} data={snapshot.request_distribution} />
+                )}
+                {snapshot.protocol_distribution && (
+                  <BreakdownBlock title={t('ops.section.protocolMix', '协议分布')} data={snapshot.protocol_distribution} />
                 )}
               </section>
             )}
@@ -927,7 +979,7 @@ function BreakdownBlock({
   data: Record<string, number>;
   dangerKeys?: string[];
 }) {
-  const entries = Object.entries(data).sort((a, b) => b[1] - a[1]);
+  const entries = Object.entries(data).sort((a, b) => b[1] - a[1]).slice(0, 12);
   if (entries.length === 0) {
     return (
       <div>

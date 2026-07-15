@@ -1,6 +1,6 @@
 // Ops 仪表盘 + 清理 API。对应 service：
-//   GET  /api/ops                       — 实时运行快照（30s TTL，由 service 内部缓存）
-//   GET  /api/ops/cleanup/history        — 已成功清理的历史记录（最多 50 条）
+//   GET  /api/ops                       — 实时运行快照（进程诊断 2s 内复用）
+//   GET  /api/ops/cleanup/history        — 已成功清理的历史记录（最多 80 条）
 //   POST /api/ops/cleanup body {target,expired_only} — 触发清理
 //
 // 注意：runtime snapshot 字段 process.* 是嵌套对象，前端按 `OpsRuntimeProcess` 解构。
@@ -45,6 +45,17 @@ interface OpsRecentSlowRequest {
   at: string | null;
 }
 
+export interface OpsTrafficSample {
+  minute: string;
+  success: number;
+  blocked: number;
+  failed: number;
+  inbound_bytes: number;
+  outbound_bytes: number;
+  avg_latency_ms: number;
+  p95_latency_ms: number;
+}
+
 export interface OpsRuntimeSnapshot {
   state: 'stopped' | 'starting' | 'running' | 'stopping' | 'crashed';
   started_at: string | null;
@@ -52,12 +63,15 @@ export interface OpsRuntimeSnapshot {
   bound_url: string;
   accessible_urls: string[];
   active_requests: number;
+  current_connections?: number;
   max_concurrent_requests?: number;
   active_request_ratio?: number;
   total_requests: number;
   total_errors: number;
+  blocked_requests?: number;
   total_bytes_in: number;
   total_bytes_out: number;
+  file_mutation_count?: number;
   crash_count: number;
   restart_count: number;
   process: OpsRuntimeProcess;
@@ -92,6 +106,11 @@ export interface OpsRuntimeSnapshot {
   memory_entry_count?: number;
   mcp_server_enabled_count?: number;
   mcp_server_total_count?: number;
+  ip_distribution?: Record<string, number>;
+  client_distribution?: Record<string, number>;
+  request_distribution?: Record<string, number>;
+  protocol_distribution?: Record<string, number>;
+  traffic_series?: OpsTrafficSample[];
 }
 
 interface OpsRecentError {

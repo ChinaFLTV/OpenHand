@@ -180,6 +180,7 @@ String webGatewayNormalizeWorkspaceFileExtension(String value) {
 enum WebGatewayLoginSource {
   webPc('WEB_PC'),
   webMobile('WEB_MOBILE'),
+  webTablet('WEB_TABLET'),
   appPc('APP_PC'),
   appMobile('APP_MOBILE'),
   appTablet('APP_TABLET');

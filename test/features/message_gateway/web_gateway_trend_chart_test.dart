@@ -21,4 +21,15 @@ void main() {
     expect(chart.contains(plot.topLeft), isTrue);
     expect(chart.contains(plot.bottomRight), isTrue);
   });
+
+  test('运维细粒度网格在窄窗降为单列', () {
+    expect(webGatewayOpsFineMetricColumnCount(340), 1);
+    expect(webGatewayOpsFineMetricColumnCount(560), 2);
+    expect(webGatewayOpsFineMetricColumnCount(900), 4);
+  });
+
+  test('环形分布在窄内容区切换为上下布局', () {
+    expect(webGatewayOpsShouldStackDistribution(180), isTrue);
+    expect(webGatewayOpsShouldStackDistribution(320), isFalse);
+  });
 }
