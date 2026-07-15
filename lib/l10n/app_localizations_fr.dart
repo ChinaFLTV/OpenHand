@@ -2937,6 +2937,17 @@ class AppLocalizationsFr extends AppLocalizations {
   String get memoryLoadFailedTitle => 'Échec du chargement des mémoires';
 
   @override
+  String get memoryLoadFailedBody =>
+      'Les données sont invalides ou indisponibles. Réparez ou effacez le stockage, puis réessayez.';
+
+  @override
+  String get memoryQuotaRecoveryTitle => 'Le stockage dépasse le quota';
+
+  @override
+  String get memoryQuotaRecoveryBody =>
+      'Seul un aperçu limité est affiché. Supprimez ou réduisez des entrées ; les nouvelles entrées sont temporairement désactivées.';
+
+  @override
   String get memoryOperationFailed =>
       'L’action de mémoire a échoué. Veuillez réessayer.';
 
@@ -2958,6 +2969,10 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get memoryTagsHint =>
       'Saisissez une étiquette et appuyez sur Entrée pour l’ajouter';
+
+  @override
+  String get memoryTagLimitExceeded =>
+      'Une mémoire peut contenir au maximum 32 tags.';
 
   @override
   String get memoryDeleteConfirmTitle => 'Supprimer la mémoire utilisateur';
@@ -3009,20 +3024,12 @@ class AppLocalizationsFr extends AppLocalizations {
   String get memoryCreatedAtLabel => 'Créé le';
 
   @override
-  String get memoryPersistenceSanitizedTitle =>
-      'Lignes de mémoire invalides ignorées';
-
-  @override
-  String get memoryPersistenceSanitizedBody =>
-      'La source de stockage contient des entrées invalides. Elles ont été ignorées au chargement sans modifier les données d’origine.';
-
-  @override
   String get memoryPersistenceSaveFailedTitle =>
       'Échec de l’enregistrement de la mémoire';
 
   @override
   String get memoryPersistenceSaveFailedBody =>
-      'L’écriture dans la base des mémoires a échoué. L’interface est revenue au dernier contenu valide. Vérifiez l’accès et le disque.';
+      'L’écriture dans la base des mémoires a échoué. Aucune modification non validée n’a été appliquée. Vérifiez l’accès et le disque.';
 
   @override
   String get mcpPageTitle => 'MCP';

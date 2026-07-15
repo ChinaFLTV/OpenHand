@@ -22,6 +22,7 @@ import '../../../instructions/instructions_controller.dart';
 import '../../../knowledge_base/knowledge_base_controller.dart';
 import '../../../machine_terminal/index.dart';
 import '../../../mcp/index.dart';
+import '../../../memory/index.dart';
 import '../../../skills/index.dart';
 import '../../model/ai_builtin_tool_config.dart';
 import '../../model/ai_deny_command_rule.dart';
@@ -4737,7 +4738,7 @@ class AiToolRuntimeService {
       description:
           'Manage the user memory store (Hermes Talker self-learning only). '
           'Supported actions: `list` (optional tag filter), `append` '
-          '(insert a new memory), `upsert_profile` (create or replace the '
+          '(insert a new memory), `upsert_profile` (create or update the '
           'single user_profile entry), `update` (by id), `delete` (by id). '
           'ANTI-FRAGMENTATION: before `append` or `upsert_profile`, call '
           '`list` (or scan injected memory context) and prefer `update` to '
@@ -4767,35 +4768,48 @@ class AiToolRuntimeService {
           },
           'id': <String, Object?>{
             'type': 'string',
+            'maxLength': UserMemoryEntry.maxIdCharacters,
             'description': 'Required for `update`/`delete`.',
           },
           'content': <String, Object?>{
             'type': 'string',
+            'maxLength': UserMemoryEntry.maxContentCharacters,
             'description':
                 'Memory content. Required for `append`/`upsert_profile`/'
                 '`update`.',
           },
           'title': <String, Object?>{
             'type': 'string',
+            'maxLength': UserMemoryEntry.maxTitleLength,
             'description':
-                'Optional short title (≤80 chars) for the memory entry. '
+                'Optional short title for append/update. '
                 'Used by the UI as the card heading; falls back to a '
                 'preview of `content` when omitted. For `update`, omit to '
                 'keep the existing title, pass an empty string to clear it.',
           },
           'tags': <String, Object?>{
             'anyOf': <Object?>[
-              <String, Object?>{'type': 'string'},
+              <String, Object?>{
+                'type': 'string',
+                'maxLength':
+                    UserMemoryEntry.maxTags *
+                    (UserMemoryEntry.maxTagCharacters + 1),
+              },
               <String, Object?>{
                 'type': 'array',
-                'items': <String, Object?>{'type': 'string'},
+                'maxItems': UserMemoryEntry.maxTags,
+                'items': <String, Object?>{
+                  'type': 'string',
+                  'maxLength': UserMemoryEntry.maxTagCharacters,
+                },
               },
             ],
             'description':
-                'Optional tags to attach to the entry. Accepts an array, comma-separated text, or JSON array text.',
+                'Optional tags: array, comma-separated text, or JSON array text. Omit on update/upsert_profile to preserve; [] clears.',
           },
           'tag': <String, Object?>{
             'type': 'string',
+            'maxLength': UserMemoryEntry.maxTagCharacters,
             'description':
                 'Optional filter for `list`. Matches case-insensitively.',
           },

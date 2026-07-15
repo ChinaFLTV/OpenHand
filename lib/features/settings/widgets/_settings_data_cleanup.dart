@@ -233,8 +233,8 @@ class _DataCleanupSectionState extends State<_DataCleanupSection> {
     );
     final genericFailureTemplate = openHandLocalizedText(
       context,
-      zh: '清理失败：{error}',
-      en: 'Clean failed: {error}',
+      zh: '清理失败，请稍后重试。',
+      en: 'Clean failed. Please try again.',
     );
     final categoryTitle = _categoryTitle(context, category);
     final successText = openHandLocalizedText(
@@ -296,7 +296,7 @@ class _DataCleanupSectionState extends State<_DataCleanupSection> {
       }
     } catch (error, stack) {
       silentLog('data_cleanup', 'clean/${category.name}', error, stack);
-      errorText = genericFailureTemplate.replaceAll('{error}', '$error');
+      errorText = genericFailureTemplate;
     } finally {
       if (mounted) {
         setState(() {

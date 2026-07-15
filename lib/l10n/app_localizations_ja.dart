@@ -2846,6 +2846,17 @@ class AppLocalizationsJa extends AppLocalizations {
   String get memoryLoadFailedTitle => 'メモリデータの読み込みに失敗';
 
   @override
+  String get memoryLoadFailedBody =>
+      'メモリデータが無効か利用できません。保存内容を修復または消去してから再試行してください。';
+
+  @override
+  String get memoryQuotaRecoveryTitle => 'メモリストレージが上限を超えています';
+
+  @override
+  String get memoryQuotaRecoveryBody =>
+      '制限されたスナップショットのみ表示しています。項目を削除または縮小してください。新規追加は一時的に無効です。';
+
+  @override
   String get memoryOperationFailed => 'メモリ操作に失敗しました。もう一度お試しください。';
 
   @override
@@ -2865,6 +2876,9 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get memoryTagsHint => 'タグを入力して Enter キーで追加';
+
+  @override
+  String get memoryTagLimitExceeded => '1 件のメモリに追加できるタグは最大 32 個です。';
 
   @override
   String get memoryDeleteConfirmTitle => 'ユーザーメモリを削除';
@@ -2914,18 +2928,11 @@ class AppLocalizationsJa extends AppLocalizations {
   String get memoryCreatedAtLabel => '作成日時';
 
   @override
-  String get memoryPersistenceSanitizedTitle => '無効なメモリ行を無視しました';
-
-  @override
-  String get memoryPersistenceSanitizedBody =>
-      '保存元に無効な記録があります。読み込み時に無視され、元データは変更されていません。';
-
-  @override
   String get memoryPersistenceSaveFailedTitle => 'メモリの保存に失敗';
 
   @override
   String get memoryPersistenceSaveFailedBody =>
-      'メモリデータベースへの書き込みに失敗しました。UI は直前の有効な内容へ戻されました。データベースのアクセス権とディスク状態を確認してください。';
+      'メモリデータベースへの書き込みに失敗しました。未確定の変更は適用されていません。データベースのアクセス権とディスク状態を確認してください。';
 
   @override
   String get mcpPageTitle => 'MCP';

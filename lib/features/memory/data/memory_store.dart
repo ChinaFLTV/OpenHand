@@ -9,28 +9,19 @@ import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/db/database_service.dart';
 import '../../../shared/db/legacy_persistence.dart';
 import '../../../shared/util/bounded_file_io.dart';
-import '../../../shared/util/input_value_parsing.dart';
 import '../model/user_memory_entry.dart';
 
-enum MemoryPersistenceIssueKind { sanitizedInvalidContent, saveFailed }
-
 class MemoryPersistenceIssue {
-  const MemoryPersistenceIssue({
-    required this.kind,
-    required this.filePath,
-    this.detail,
-  });
+  const MemoryPersistenceIssue({required this.filePath});
 
-  final MemoryPersistenceIssueKind kind;
   final String filePath;
-  final String? detail;
 }
 
 class MemoryLoadResult {
-  const MemoryLoadResult({required this.entries, this.issue});
+  const MemoryLoadResult({required this.entries, required this.isOverQuota});
 
   final List<UserMemoryEntry> entries;
-  final MemoryPersistenceIssue? issue;
+  final bool isOverQuota;
 }
 
 class MemoryStore {
@@ -39,12 +30,22 @@ class MemoryStore {
   final Database? _database;
 
   static const String _table = 'memories';
-  static const String _storageUri = 'db://memories';
   static const String _legacyMigrationKey = 'legacy_user_memory_json_v1';
   static const String _settingsMigrationKey = 'legacy_settings_toml_v1';
+  static const int _snapshotPageSize = 64;
+  static const int _maxTagsJsonBytes =
+      UserMemoryEntry.maxTags * (UserMemoryEntry.maxTagCharacters * 6 + 3) + 2;
+  static const int maxEntries = 1024;
+  static const int maxTotalPayloadBytes = 16 * 1024 * 1024;
   static const Set<String> _allowedTypes = <String>{
     UserMemoryEntry.userType,
     UserMemoryEntry.userProfileType,
+  };
+  static const Set<String> _legacyMigrationStatuses = <String>{
+    'not_found',
+    'imported',
+    'target_present',
+    'explicit_clear',
   };
 
   Database get _db => _database ?? DatabaseService.instance.database;
@@ -53,12 +54,31 @@ class MemoryStore {
   String get storageDirectoryPath => p.dirname(userMemoryFilePath);
 
   Future<MemoryLoadResult> load() async {
-    var rows = await _db.query(_table, orderBy: 'created_at DESC');
-    if (rows.isEmpty) {
+    final initialUsage = await _queryUsage(_db);
+    if (initialUsage.entryCount == 0) {
       final migrated = await _migrateLegacyMemories();
       if (migrated != null) return migrated;
-      rows = await _db.query(_table, orderBy: 'created_at DESC');
-    } else {
+    }
+
+    final snapshot = await _readBoundedSnapshot();
+    final entries = <UserMemoryEntry>[];
+    final seenIds = <String>{};
+    var hasProfile = false;
+    for (final row in snapshot.rows) {
+      final entry = _parseStoredEntry(row);
+      if (!seenIds.add(entry.id)) {
+        throw FormatException('Duplicate memory id: ${entry.id}');
+      }
+      if (entry.isUserProfile) {
+        if (hasProfile) {
+          throw const FormatException('Multiple user profiles are stored.');
+        }
+        hasProfile = true;
+      }
+      entries.add(entry);
+    }
+
+    if (entries.isNotEmpty) {
       try {
         await _markLegacyMigrationSatisfied();
       } catch (error, stack) {
@@ -66,83 +86,80 @@ class MemoryStore {
       }
     }
 
-    final entries = <UserMemoryEntry>[];
-    final seenIds = <String>{};
-    var didSanitize = false;
+    return MemoryLoadResult(
+      entries: entries,
+      isOverQuota: snapshot.isOverQuota,
+    );
+  }
 
-    for (final row in rows) {
-      final id = stringFromValue(row['id']);
-      if (id.isEmpty || !seenIds.add(id)) {
-        didSanitize = true;
-        continue;
-      }
-
-      final createdAt = dateTimeFromValue(row['created_at']);
-      if (createdAt == null) {
-        didSanitize = true;
-        continue;
-      }
-
-      final content = UserMemoryEntry.normalizeContent(
-        stringFromValue(row['content']),
+  Future<_MemoryRowsSnapshot> _readBoundedSnapshot() {
+    return _db.transaction<_MemoryRowsSnapshot>((txn) async {
+      final usage = await _queryUsage(txn);
+      final rows = <Map<String, Object?>>[];
+      var payloadBytes = 0;
+      final profileRows = await txn.query(
+        _table,
+        where: 'type = ?',
+        whereArgs: const <Object?>[UserMemoryEntry.userProfileType],
+        limit: 1,
       );
-      if (content.isEmpty) {
-        didSanitize = true;
-        continue;
+      if (profileRows.isNotEmpty) {
+        final profileBytes = _rowPayloadBytes(profileRows.single);
+        rows.add(profileRows.single);
+        payloadBytes = profileBytes;
       }
-
-      final rawType = stringFromValue(row['type']);
-      final String type;
-      if (_allowedTypes.contains(rawType)) {
-        type = rawType;
-      } else {
-        type = UserMemoryEntry.userType;
-        didSanitize = true;
+      var offset = 0;
+      while (rows.length < maxEntries) {
+        final remaining = maxEntries - rows.length;
+        final limit = remaining < _snapshotPageSize
+            ? remaining
+            : _snapshotPageSize;
+        final page = await txn.query(
+          _table,
+          where: 'type != ?',
+          whereArgs: const <Object?>[UserMemoryEntry.userProfileType],
+          orderBy: 'created_at DESC, id ASC',
+          limit: limit,
+          offset: offset,
+        );
+        if (page.isEmpty) break;
+        for (final row in page) {
+          final rowBytes = _rowPayloadBytes(row);
+          if (payloadBytes + rowBytes > maxTotalPayloadBytes) {
+            return _MemoryRowsSnapshot(rows: rows, isOverQuota: true);
+          }
+          rows.add(row);
+          payloadBytes += rowBytes;
+        }
+        offset += page.length;
+        if (page.length < limit) break;
       }
-
-      final parsedTags = _parseTags(row['tags_json']);
-      didSanitize = didSanitize || parsedTags.didSanitize;
-
-      entries.add(
-        UserMemoryEntry(
-          id: id,
-          type: type,
-          createdAt: createdAt.toUtc(),
-          content: content,
-          tags: parsedTags.tags,
-          title: UserMemoryEntry.normalizeTitle(stringFromValue(row['title'])),
-        ),
+      return _MemoryRowsSnapshot(
+        rows: rows,
+        isOverQuota: rows.length < usage.entryCount,
       );
-    }
-
-    if (didSanitize) {
-      return MemoryLoadResult(
-        entries: entries,
-        issue: const MemoryPersistenceIssue(
-          kind: MemoryPersistenceIssueKind.sanitizedInvalidContent,
-          filePath: _storageUri,
-        ),
-      );
-    }
-
-    return MemoryLoadResult(entries: entries);
+    });
   }
 
   Future<MemoryLoadResult?> _migrateLegacyMemories() async {
     final markerRows = await _db.query(
       'migration_meta',
+      columns: const <String>['value'],
       where: 'key = ?',
       whereArgs: <Object?>[_legacyMigrationKey],
       limit: 1,
     );
-    if (markerRows.isNotEmpty) return null;
+    if (markerRows.isNotEmpty) {
+      _validateLegacyMigrationMarker(markerRows.single);
+      return null;
+    }
 
     final configuredPath = await _legacyConfiguredMemoryPath();
     final sourceFile = await findLegacyMemoryFile(
       configuredPath: configuredPath,
     );
 
-    _LegacyMemoryParseResult? parsed;
+    List<UserMemoryEntry>? parsed;
     if (sourceFile != null) {
       final raw = await readBoundedFileString(
         sourceFile,
@@ -154,20 +171,23 @@ class MemoryStore {
     final didMigrate = await _db.transaction<bool>((txn) async {
       final currentMarkerRows = await txn.query(
         'migration_meta',
-        columns: const <String>['key'],
+        columns: const <String>['value'],
         where: 'key = ?',
         whereArgs: <Object?>[_legacyMigrationKey],
         limit: 1,
       );
-      if (currentMarkerRows.isNotEmpty) return false;
-      final countRows = await txn.rawQuery('SELECT COUNT(*) FROM $_table');
-      final count = countRows.isEmpty
-          ? 0
-          : intFromValue(countRows.first.values.first, fallback: 0);
-      if (count != 0) return false;
+      if (currentMarkerRows.isNotEmpty) {
+        _validateLegacyMigrationMarker(currentMarkerRows.single);
+        return false;
+      }
+      final usage = await _queryUsage(txn);
+      if (usage.entryCount != 0) return false;
+
+      final entries = parsed ?? const <UserMemoryEntry>[];
+      _validateWriteCollection(entries);
 
       final batch = txn.batch();
-      for (final entry in parsed?.entries ?? const <UserMemoryEntry>[]) {
+      for (final entry in entries) {
         batch.insert(
           _table,
           _entryToRow(entry),
@@ -187,15 +207,7 @@ class MemoryStore {
     });
 
     if (!didMigrate || parsed == null) return null;
-    return MemoryLoadResult(
-      entries: parsed.entries,
-      issue: parsed.didSanitize
-          ? MemoryPersistenceIssue(
-              kind: MemoryPersistenceIssueKind.sanitizedInvalidContent,
-              filePath: sourceFile!.path,
-            )
-          : null,
-    );
+    return MemoryLoadResult(entries: parsed, isOverQuota: false);
   }
 
   Future<String?> _legacyConfiguredMemoryPath() async {
@@ -215,8 +227,14 @@ class MemoryStore {
       if (decoded is! Map) {
         throw const FormatException('Settings migration marker is invalid.');
       }
-      final path = optionalStringFromValue(decoded['memory_file_path']);
-      if (path != null) return path;
+      final rawPath = decoded['memory_file_path'];
+      if (rawPath != null) {
+        if (rawPath is! String) {
+          throw const FormatException('Settings memory path is invalid.');
+        }
+        final path = rawPath.trim();
+        if (path.isNotEmpty) return path;
+      }
     }
 
     final settingsFile = await findLegacySettingsFile();
@@ -231,10 +249,10 @@ class MemoryStore {
         'status': 'target_present',
         'completed_at': DateTime.now().toUtc().toIso8601String(),
       }),
-    }, conflictAlgorithm: ConflictAlgorithm.ignore);
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
-  _LegacyMemoryParseResult _parseLegacyMemories(Object? decoded) {
+  List<UserMemoryEntry> _parseLegacyMemories(Object? decoded) {
     if (decoded is! List) {
       throw const FormatException('Legacy memory root must be a JSON array.');
     }
@@ -242,70 +260,39 @@ class MemoryStore {
     final entries = <UserMemoryEntry>[];
     final seenIds = <String>{};
     var hasProfile = false;
-    var didSanitize = false;
     for (final raw in decoded) {
       if (raw is! Map) {
-        didSanitize = true;
-        continue;
+        throw const FormatException('Legacy memory entry must be an object.');
       }
-      final id = stringFromValue(raw['id']).trim();
-      final createdAt = dateTimeFromValue(raw['created_at']);
-      final content = UserMemoryEntry.normalizeContent(
-        stringFromValue(raw['content']),
-      );
-      if (id.isEmpty ||
-          createdAt == null ||
-          content.isEmpty ||
-          !seenIds.add(id)) {
-        didSanitize = true;
-        continue;
+      final entry = _parseLegacyEntry(raw);
+      if (!seenIds.add(entry.id)) {
+        throw FormatException('Duplicate legacy memory id: ${entry.id}');
       }
-
-      final rawType = stringFromValue(raw['type']).trim();
-      final type = _allowedTypes.contains(rawType)
-          ? rawType
-          : UserMemoryEntry.userType;
-      if (type != rawType) didSanitize = true;
-      if (type == UserMemoryEntry.userProfileType && hasProfile) {
-        didSanitize = true;
-        continue;
+      if (entry.isUserProfile) {
+        if (hasProfile) {
+          throw const FormatException(
+            'Legacy memory contains multiple user profiles.',
+          );
+        }
+        hasProfile = true;
       }
-      hasProfile = hasProfile || type == UserMemoryEntry.userProfileType;
-
-      final rawTags = raw['tags'];
-      final tags = rawTags is List
-          ? UserMemoryEntry.normalizeTags(
-              rawTags.map((value) => stringFromValue(value)),
-            )
-          : const <String>[];
-      if (rawTags != null && rawTags is! List ||
-          rawTags is List && tags.length != rawTags.length) {
-        didSanitize = true;
-      }
-      entries.add(
-        UserMemoryEntry(
-          id: id,
-          type: type,
-          createdAt: createdAt.toUtc(),
-          content: content,
-          title: UserMemoryEntry.normalizeTitle(stringFromValue(raw['title'])),
-          tags: tags,
-        ),
-      );
-    }
-    if (decoded.isNotEmpty && entries.isEmpty) {
-      throw const FormatException('Legacy memory contains no valid entries.');
+      entries.add(entry);
     }
     entries.sort((left, right) => right.createdAt.compareTo(left.createdAt));
-    return _LegacyMemoryParseResult(entries: entries, didSanitize: didSanitize);
+    return entries;
   }
 
   Future<void> insertEntry(UserMemoryEntry entry) async {
-    await _db.insert(
-      _table,
-      _entryToRow(entry),
-      conflictAlgorithm: ConflictAlgorithm.abort,
-    );
+    _validateEntryForWrite(entry);
+    final row = _entryToRow(entry);
+    await _db.transaction<void>((txn) async {
+      final usage = await _queryUsage(txn);
+      _ensureInsertWithinQuota(usage, _rowPayloadBytes(row));
+      if (entry.isUserProfile) {
+        await _ensureNoOtherProfile(txn, excludingId: entry.id);
+      }
+      await txn.insert(_table, row, conflictAlgorithm: ConflictAlgorithm.abort);
+    });
   }
 
   /// Deletes a single entry by id.
@@ -315,21 +302,57 @@ class MemoryStore {
 
   /// Updates a single entry.
   Future<void> updateEntry(UserMemoryEntry entry) async {
-    final updated = await _db.update(
-      _table,
-      _entryToRow(entry),
-      where: 'id = ?',
-      whereArgs: <Object?>[entry.id],
-    );
-    if (updated != 1) {
-      throw StateError('Memory no longer exists: ${entry.id}');
-    }
+    _validateEntryForWrite(entry);
+    final row = _entryToRow(entry);
+    await _db.transaction<void>((txn) async {
+      final existingRows = await txn.query(
+        _table,
+        where: 'id = ?',
+        whereArgs: <Object?>[entry.id],
+        limit: 1,
+      );
+      if (existingRows.isEmpty) {
+        throw StateError('Memory no longer exists: ${entry.id}');
+      }
+      final existing = _parseStoredEntry(existingRows.single);
+      if (existing.type != entry.type) {
+        throw StateError('Memory type cannot be changed: ${entry.id}');
+      }
+      final usage = await _queryUsage(txn);
+      _ensureUpdateWithinQuota(
+        usage,
+        previousBytes: _rowPayloadBytes(existingRows.single),
+        nextBytes: _rowPayloadBytes(row),
+      );
+      final updated = await txn.update(
+        _table,
+        row,
+        where: 'id = ?',
+        whereArgs: <Object?>[entry.id],
+      );
+      if (updated != 1) {
+        throw StateError('Memory no longer exists: ${entry.id}');
+      }
+    });
   }
 
-  /// Upserts the single user profile entry. Keeps at most one profile row.
+  Future<void> clearAll() async {
+    await _db.transaction<void>((txn) async {
+      await txn.delete(_table);
+      await txn.insert('migration_meta', <String, Object?>{
+        'key': _legacyMigrationKey,
+        'value': jsonEncode(<String, Object?>{
+          'status': 'explicit_clear',
+          'completed_at': DateTime.now().toUtc().toIso8601String(),
+        }),
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
+    });
+  }
+
+  /// Creates or updates the unique user profile entry.
   Future<UserMemoryEntry> upsertUserProfile({
     required String content,
-    List<String> tags = const <String>[],
+    List<String>? tags,
   }) async {
     final normalizedContent = UserMemoryEntry.normalizeContent(content);
     if (normalizedContent.isEmpty) {
@@ -339,10 +362,6 @@ class MemoryStore {
         'Profile content cannot be empty.',
       );
     }
-    final normalizedTags = UserMemoryEntry.normalizeTags(tags);
-
-    // Wrap the read-modify-write in a transaction so concurrent callers
-    // cannot race between the SELECT, DELETE-extras, and INSERT steps.
     return _db.transaction<UserMemoryEntry>((txn) async {
       final existingRows = await txn.query(
         _table,
@@ -350,35 +369,50 @@ class MemoryStore {
         whereArgs: <Object?>[UserMemoryEntry.userProfileType],
       );
 
-      String entryId;
-      if (existingRows.isEmpty) {
-        entryId = UserMemoryEntry.userProfileEntryId;
-      } else {
-        entryId =
-            (existingRows.first['id'] as String?) ??
-            UserMemoryEntry.userProfileEntryId;
-        if (existingRows.length > 1) {
-          await txn.delete(
-            _table,
-            where: 'type = ? AND id != ?',
-            whereArgs: <Object?>[UserMemoryEntry.userProfileType, entryId],
-          );
-        }
+      if (existingRows.length > 1) {
+        throw const FormatException('Multiple user profiles are stored.');
       }
+      final existing = existingRows.isEmpty
+          ? null
+          : _parseStoredEntry(existingRows.single);
+      final normalizedTags = tags == null
+          ? existing?.tags ?? const <String>[]
+          : UserMemoryEntry.normalizeTags(tags);
 
       final entry = UserMemoryEntry(
-        id: entryId,
+        id: existing?.id ?? UserMemoryEntry.userProfileEntryId,
         type: UserMemoryEntry.userProfileType,
-        createdAt: DateTime.now().toUtc(),
+        createdAt: existing?.createdAt ?? DateTime.now().toUtc(),
         content: normalizedContent,
         tags: normalizedTags,
       );
+      _validateEntryForWrite(entry);
+      final row = _entryToRow(entry);
+      final usage = await _queryUsage(txn);
 
-      await txn.insert(
-        _table,
-        _entryToRow(entry),
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
+      if (existing == null) {
+        _ensureInsertWithinQuota(usage, _rowPayloadBytes(row));
+        await txn.insert(
+          _table,
+          row,
+          conflictAlgorithm: ConflictAlgorithm.abort,
+        );
+      } else {
+        _ensureUpdateWithinQuota(
+          usage,
+          previousBytes: _rowPayloadBytes(existingRows.single),
+          nextBytes: _rowPayloadBytes(row),
+        );
+        final updated = await txn.update(
+          _table,
+          row,
+          where: 'id = ?',
+          whereArgs: <Object?>[existing.id],
+        );
+        if (updated != 1) {
+          throw StateError('User profile no longer exists: ${existing.id}');
+        }
+      }
 
       return entry;
     });
@@ -399,25 +433,347 @@ class MemoryStore {
     };
   }
 
-  ({List<String> tags, bool didSanitize}) _parseTags(Object? raw) {
-    final tagsJson = optionalStringFromValue(raw);
-    if (tagsJson == null) {
-      return (tags: const <String>[], didSanitize: false);
+  UserMemoryEntry _parseStoredEntry(Map<String, Object?> row) {
+    return _parseEntry(
+      id: row['id'],
+      type: row['type'],
+      createdAt: row['created_at'],
+      content: row['content'],
+      title: row['title'],
+      tags: _decodeTagsJson(row['tags_json']),
+      source: 'Stored memory',
+    );
+  }
+
+  UserMemoryEntry _parseLegacyEntry(Map<dynamic, dynamic> row) {
+    final rawTitle = row.containsKey('title') ? row['title'] : '';
+    final rawTags = row.containsKey('tags') ? row['tags'] : const <Object?>[];
+    if (rawTags is! List) {
+      throw const FormatException('Legacy memory tags must be an array.');
     }
-    final tags = optionalStringListFromJsonText(tagsJson, requireList: true);
-    if (tags == null) {
-      return (tags: const <String>[], didSanitize: true);
+    return _parseEntry(
+      id: row['id'],
+      type: row['type'],
+      createdAt: row['created_at'],
+      content: row['content'],
+      title: rawTitle,
+      tags: rawTags,
+      source: 'Legacy memory',
+    );
+  }
+
+  UserMemoryEntry _parseEntry({
+    required Object? id,
+    required Object? type,
+    required Object? createdAt,
+    required Object? content,
+    required Object? title,
+    required List<dynamic> tags,
+    required String source,
+  }) {
+    if (id is! String ||
+        id.isEmpty ||
+        id.trim() != id ||
+        id.length > UserMemoryEntry.maxIdCharacters) {
+      throw FormatException('$source id is invalid.');
     }
-    return (tags: UserMemoryEntry.normalizeTags(tags), didSanitize: false);
+    if (type is! String || !_allowedTypes.contains(type)) {
+      throw FormatException('$source type is invalid: $id');
+    }
+    if (createdAt is! String) {
+      throw FormatException('$source timestamp is invalid: $id');
+    }
+    final parsedCreatedAt = DateTime.tryParse(createdAt);
+    if (parsedCreatedAt == null ||
+        !parsedCreatedAt.isUtc ||
+        parsedCreatedAt.toIso8601String() != createdAt) {
+      throw FormatException('$source timestamp is not canonical UTC: $id');
+    }
+    if (content is! String ||
+        content.isEmpty ||
+        UserMemoryEntry.normalizeContent(content) != content ||
+        content.length > UserMemoryEntry.maxContentCharacters) {
+      throw FormatException('$source content is invalid: $id');
+    }
+    if (title is! String || UserMemoryEntry.normalizeTitle(title) != title) {
+      throw FormatException('$source title is invalid: $id');
+    }
+    final parsedTags = <String>[];
+    for (final tag in tags) {
+      if (tag is! String) {
+        throw FormatException('$source tags are invalid: $id');
+      }
+      parsedTags.add(tag);
+    }
+    final normalizedTags = UserMemoryEntry.normalizeTags(parsedTags);
+    if (!_sameStrings(parsedTags, normalizedTags) ||
+        parsedTags.length > UserMemoryEntry.maxTags ||
+        parsedTags.any(
+          (tag) => tag.length > UserMemoryEntry.maxTagCharacters,
+        )) {
+      throw FormatException('$source tags are not canonical: $id');
+    }
+    return UserMemoryEntry(
+      id: id,
+      type: type,
+      createdAt: parsedCreatedAt,
+      content: content,
+      tags: normalizedTags,
+      title: title,
+    );
+  }
+
+  List<dynamic> _decodeTagsJson(Object? raw) {
+    if (raw is! String) {
+      throw const FormatException('Stored memory tags must be JSON text.');
+    }
+    final Object? decoded;
+    try {
+      decoded = jsonDecode(raw);
+    } on FormatException {
+      throw const FormatException('Stored memory tags JSON is invalid.');
+    }
+    if (decoded is! List) {
+      throw const FormatException('Stored memory tags must be a JSON array.');
+    }
+    return decoded;
+  }
+
+  void _validateWriteCollection(List<UserMemoryEntry> entries) {
+    if (entries.length > maxEntries) {
+      throw StateError('Memory entry limit exceeded ($maxEntries).');
+    }
+    var totalBytes = 0;
+    for (final entry in entries) {
+      _validateEntryForWrite(entry);
+      totalBytes += _rowPayloadBytes(_entryToRow(entry));
+      if (totalBytes > maxTotalPayloadBytes) {
+        throw StateError(
+          'Memory payload limit exceeded ($maxTotalPayloadBytes bytes).',
+        );
+      }
+    }
+  }
+
+  void _validateEntryForWrite(UserMemoryEntry entry) {
+    if (entry.id.isEmpty ||
+        entry.id.trim() != entry.id ||
+        entry.id.length > UserMemoryEntry.maxIdCharacters) {
+      throw ArgumentError.value(entry.id, 'id', 'Memory id is invalid.');
+    }
+    if (!_allowedTypes.contains(entry.type)) {
+      throw ArgumentError.value(entry.type, 'type', 'Memory type is invalid.');
+    }
+    if (!entry.createdAt.isUtc) {
+      throw ArgumentError.value(
+        entry.createdAt,
+        'createdAt',
+        'Memory timestamp must be UTC.',
+      );
+    }
+    if (entry.content.isEmpty ||
+        UserMemoryEntry.normalizeContent(entry.content) != entry.content ||
+        entry.content.length > UserMemoryEntry.maxContentCharacters) {
+      throw ArgumentError.value(
+        entry.content,
+        'content',
+        'Memory content is invalid or too long.',
+      );
+    }
+    if (UserMemoryEntry.normalizeTitle(entry.title) != entry.title) {
+      throw ArgumentError.value(
+        entry.title,
+        'title',
+        'Memory title is invalid.',
+      );
+    }
+    final normalizedTags = UserMemoryEntry.normalizeTags(entry.tags);
+    if (!_sameStrings(entry.tags, normalizedTags) ||
+        entry.tags.length > UserMemoryEntry.maxTags ||
+        entry.tags.any(
+          (tag) => tag.length > UserMemoryEntry.maxTagCharacters,
+        )) {
+      throw ArgumentError.value(entry.tags, 'tags', 'Memory tags are invalid.');
+    }
+  }
+
+  Future<_MemoryUsage> _queryUsage(DatabaseExecutor executor) async {
+    final rows = await executor.rawQuery('''
+      SELECT COUNT(*) AS entry_count,
+             COALESCE(SUM(
+               LENGTH(CAST(IFNULL(id, '') AS BLOB)) +
+               LENGTH(CAST(IFNULL(type, '') AS BLOB)) +
+               LENGTH(CAST(IFNULL(created_at, '') AS BLOB)) +
+               LENGTH(CAST(IFNULL(content, '') AS BLOB)) +
+               LENGTH(CAST(IFNULL(title, '') AS BLOB)) +
+               LENGTH(CAST(IFNULL(tags_json, '') AS BLOB))
+             ), 0) AS total_bytes,
+             COALESCE(SUM(CASE WHEN
+               TYPEOF(id) != 'text' OR LENGTH(id) > ${UserMemoryEntry.maxIdCharacters} OR
+               TYPEOF(type) != 'text' OR LENGTH(type) > 32 OR
+               TYPEOF(created_at) != 'text' OR LENGTH(created_at) > 64 OR
+               TYPEOF(content) != 'text' OR LENGTH(content) > ${UserMemoryEntry.maxContentCharacters} OR
+               TYPEOF(title) != 'text' OR LENGTH(title) > ${UserMemoryEntry.maxTitleLength} OR
+               TYPEOF(tags_json) != 'text' OR
+                 LENGTH(CAST(tags_json AS BLOB)) > $_maxTagsJsonBytes
+             THEN 1 ELSE 0 END), 0) AS invalid_count,
+             COALESCE(SUM(CASE WHEN type = '${UserMemoryEntry.userProfileType}'
+               THEN 1 ELSE 0 END), 0) AS profile_count
+      FROM $_table
+    ''');
+    if (rows.length != 1) {
+      throw const FormatException('Memory usage query returned no result.');
+    }
+    final entryCount = rows.single['entry_count'];
+    final totalBytes = rows.single['total_bytes'];
+    final invalidCount = rows.single['invalid_count'];
+    final profileCount = rows.single['profile_count'];
+    if (entryCount is! int ||
+        totalBytes is! int ||
+        invalidCount is! int ||
+        profileCount is! int) {
+      throw const FormatException('Memory usage metadata is invalid.');
+    }
+    if (invalidCount != 0) {
+      throw const FormatException('Memory storage contains invalid fields.');
+    }
+    if (profileCount > 1) {
+      throw const FormatException('Multiple user profiles are stored.');
+    }
+    return _MemoryUsage(entryCount: entryCount, totalBytes: totalBytes);
+  }
+
+  void _validateLegacyMigrationMarker(Map<String, Object?> row) {
+    final value = row['value'];
+    if (value is! String) {
+      throw const FormatException('Memory migration marker is invalid.');
+    }
+    final Object? decoded;
+    try {
+      decoded = jsonDecode(value);
+    } on FormatException {
+      throw const FormatException('Memory migration marker is invalid.');
+    }
+    if (decoded is! Map<String, dynamic> || jsonEncode(decoded) != value) {
+      throw const FormatException('Memory migration marker is not canonical.');
+    }
+    final status = decoded['status'];
+    final completedAt = decoded['completed_at'];
+    if (status is! String ||
+        !_legacyMigrationStatuses.contains(status) ||
+        completedAt is! String) {
+      throw const FormatException('Memory migration marker is invalid.');
+    }
+    final parsedCompletedAt = DateTime.tryParse(completedAt);
+    if (parsedCompletedAt == null ||
+        !parsedCompletedAt.isUtc ||
+        parsedCompletedAt.toIso8601String() != completedAt) {
+      throw const FormatException('Memory migration marker time is invalid.');
+    }
+    final expectedKeys = <String>{'status', 'completed_at'};
+    if (status == 'imported') {
+      final sourcePath = decoded['source_path'];
+      if (sourcePath is! String ||
+          sourcePath.isEmpty ||
+          sourcePath.trim() != sourcePath) {
+        throw const FormatException('Memory migration source path is invalid.');
+      }
+      expectedKeys.add('source_path');
+    }
+    if (decoded.length != expectedKeys.length ||
+        !expectedKeys.every(decoded.containsKey)) {
+      throw const FormatException(
+        'Memory migration marker fields are invalid.',
+      );
+    }
+  }
+
+  void _ensureInsertWithinQuota(_MemoryUsage usage, int payloadBytes) {
+    if (usage.entryCount >= maxEntries) {
+      throw StateError('Memory entry limit exceeded ($maxEntries).');
+    }
+    if (usage.totalBytes + payloadBytes > maxTotalPayloadBytes) {
+      throw StateError(
+        'Memory payload limit exceeded ($maxTotalPayloadBytes bytes).',
+      );
+    }
+  }
+
+  void _ensureUpdateWithinQuota(
+    _MemoryUsage usage, {
+    required int previousBytes,
+    required int nextBytes,
+  }) {
+    final isHistoricallyOverLimit =
+        usage.entryCount > maxEntries ||
+        usage.totalBytes > maxTotalPayloadBytes;
+    if (isHistoricallyOverLimit) {
+      if (nextBytes >= previousBytes) {
+        throw StateError('Over-limit memory updates must reduce payload size.');
+      }
+      return;
+    }
+    if (usage.totalBytes - previousBytes + nextBytes > maxTotalPayloadBytes) {
+      throw StateError(
+        'Memory payload limit exceeded ($maxTotalPayloadBytes bytes).',
+      );
+    }
+  }
+
+  Future<void> _ensureNoOtherProfile(
+    DatabaseExecutor executor, {
+    required String excludingId,
+  }) async {
+    final rows = await executor.query(
+      _table,
+      columns: const <String>['id'],
+      where: 'type = ? AND id != ?',
+      whereArgs: <Object?>[UserMemoryEntry.userProfileType, excludingId],
+      limit: 1,
+    );
+    if (rows.isNotEmpty) {
+      throw StateError('A user profile already exists.');
+    }
+  }
+
+  int _rowPayloadBytes(Map<String, Object?> row) {
+    var total = 0;
+    for (final key in const <String>[
+      'id',
+      'type',
+      'created_at',
+      'content',
+      'title',
+      'tags_json',
+    ]) {
+      final value = row[key];
+      if (value is! String) {
+        throw FormatException('Memory $key is not text.');
+      }
+      total += utf8.encode(value).length;
+    }
+    return total;
+  }
+
+  bool _sameStrings(List<String> left, List<String> right) {
+    if (left.length != right.length) return false;
+    for (var index = 0; index < left.length; index++) {
+      if (left[index] != right[index]) return false;
+    }
+    return true;
   }
 }
 
-class _LegacyMemoryParseResult {
-  const _LegacyMemoryParseResult({
-    required this.entries,
-    required this.didSanitize,
-  });
+class _MemoryUsage {
+  const _MemoryUsage({required this.entryCount, required this.totalBytes});
 
-  final List<UserMemoryEntry> entries;
-  final bool didSanitize;
+  final int entryCount;
+  final int totalBytes;
+}
+
+class _MemoryRowsSnapshot {
+  const _MemoryRowsSnapshot({required this.rows, required this.isOverQuota});
+
+  final List<Map<String, Object?>> rows;
+  final bool isOverQuota;
 }

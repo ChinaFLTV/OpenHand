@@ -2930,6 +2930,18 @@ class AppLocalizationsDe extends AppLocalizations {
       'Erinnerungsdaten konnten nicht geladen werden';
 
   @override
+  String get memoryLoadFailedBody =>
+      'Die Speicherdaten sind ungültig oder nicht verfügbar. Reparieren oder löschen Sie den Speicher und versuchen Sie es erneut.';
+
+  @override
+  String get memoryQuotaRecoveryTitle =>
+      'Der Speicher überschreitet das Kontingent';
+
+  @override
+  String get memoryQuotaRecoveryBody =>
+      'Es wird nur ein begrenzter Ausschnitt angezeigt. Löschen oder verkleinern Sie Einträge; neue Einträge sind vorübergehend deaktiviert.';
+
+  @override
   String get memoryOperationFailed =>
       'Speicheraktion fehlgeschlagen. Bitte erneut versuchen.';
 
@@ -2950,6 +2962,10 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get memoryTagsHint => 'Tag eingeben und mit Enter hinzufügen';
+
+  @override
+  String get memoryTagLimitExceeded =>
+      'Eine Erinnerung kann höchstens 32 Tags haben.';
 
   @override
   String get memoryDeleteConfirmTitle => 'Nutzer-Erinnerung löschen';
@@ -3001,20 +3017,12 @@ class AppLocalizationsDe extends AppLocalizations {
   String get memoryCreatedAtLabel => 'Erstellt am';
 
   @override
-  String get memoryPersistenceSanitizedTitle =>
-      'Ungültige Erinnerungszeilen ignoriert';
-
-  @override
-  String get memoryPersistenceSanitizedBody =>
-      'Die Speicherquelle enthält ungültige Einträge. Sie wurden beim Laden ignoriert, ohne die Originaldaten zu ändern.';
-
-  @override
   String get memoryPersistenceSaveFailedTitle =>
       'Speichern der Erinnerung fehlgeschlagen';
 
   @override
   String get memoryPersistenceSaveFailedBody =>
-      'Das Schreiben in die Erinnerungsdatenbank ist fehlgeschlagen. Die Oberfläche wurde zurückgesetzt. Datenbankzugriff und Festplatte prüfen.';
+      'Das Schreiben in die Erinnerungsdatenbank ist fehlgeschlagen. Nicht bestätigte Änderungen wurden nicht angewendet. Datenbankzugriff und Festplatte prüfen.';
 
   @override
   String get mcpPageTitle => 'MCP';

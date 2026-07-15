@@ -2811,6 +2811,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get memoryLoadFailedTitle => '记忆数据读取失败';
 
   @override
+  String get memoryLoadFailedBody => '记忆数据无效或暂不可用，请修复或清空存储后重试。';
+
+  @override
+  String get memoryQuotaRecoveryTitle => '记忆存储已超出配额';
+
+  @override
+  String get memoryQuotaRecoveryBody => '当前仅展示受限快照。请删除条目或缩减内容直至恢复限额；期间禁止新增条目。';
+
+  @override
   String get memoryOperationFailed => '记忆操作失败，请稍后重试。';
 
   @override
@@ -2830,6 +2839,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get memoryTagsHint => '输入一个标签后按回车添加';
+
+  @override
+  String get memoryTagLimitExceeded => '每条记忆最多可添加 32 个标签。';
 
   @override
   String get memoryDeleteConfirmTitle => '删除用户记忆';
@@ -2877,17 +2889,11 @@ class AppLocalizationsZh extends AppLocalizations {
   String get memoryCreatedAtLabel => '创建时间';
 
   @override
-  String get memoryPersistenceSanitizedTitle => '已忽略异常记忆记录';
-
-  @override
-  String get memoryPersistenceSanitizedBody => '存储源中存在无效记录，本次加载已忽略；原始数据未被改写。';
-
-  @override
   String get memoryPersistenceSaveFailedTitle => '记忆数据保存失败';
 
   @override
   String get memoryPersistenceSaveFailedBody =>
-      '记忆数据库写入失败，界面已回滚到上一次有效内容，请检查数据库访问权限或磁盘状态。';
+      '记忆数据库写入失败，未提交的变更未被应用，请检查数据库访问权限或磁盘状态。';
 
   @override
   String get mcpPageTitle => 'MCP';
@@ -13423,6 +13429,15 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get memoryLoadFailedTitle => '記憶資料讀取失敗';
 
   @override
+  String get memoryLoadFailedBody => '記憶資料無效或暫時無法使用，請修復或清空儲存後重試。';
+
+  @override
+  String get memoryQuotaRecoveryTitle => '記憶儲存已超出配額';
+
+  @override
+  String get memoryQuotaRecoveryBody => '目前僅顯示受限快照。請刪除項目或縮減內容直到恢復限額；期間禁止新增項目。';
+
+  @override
   String get memoryOperationFailed => '記憶操作失敗，請稍後重試。';
 
   @override
@@ -13442,6 +13457,9 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get memoryTagsHint => '輸入一個標簽後按回車添加';
+
+  @override
+  String get memoryTagLimitExceeded => '每條記憶最多可新增 32 個標籤。';
 
   @override
   String get memoryDeleteConfirmTitle => '刪除用戶記憶';
@@ -13489,17 +13507,11 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get memoryCreatedAtLabel => '建立時間';
 
   @override
-  String get memoryPersistenceSanitizedTitle => '已忽略異常記憶記錄';
-
-  @override
-  String get memoryPersistenceSanitizedBody => '儲存來源中存在無效記錄，本次載入已忽略；原始資料未被改寫。';
-
-  @override
   String get memoryPersistenceSaveFailedTitle => '記憶資料儲存失敗';
 
   @override
   String get memoryPersistenceSaveFailedBody =>
-      '記憶資料庫寫入失敗，介面已回復到上一次有效內容，請檢查資料庫存取權限或磁碟狀態。';
+      '記憶資料庫寫入失敗，未提交的變更未被套用，請檢查資料庫存取權限或磁碟狀態。';
 
   @override
   String get mcpPageTitle => 'MCP';

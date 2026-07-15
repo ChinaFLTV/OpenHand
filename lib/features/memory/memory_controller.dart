@@ -58,9 +58,10 @@ class MemoryController extends ManagedChangeNotifier {
   List<UserMemoryEntry> _entriesView = const <UserMemoryEntry>[];
   MemoryPersistenceIssue? _persistenceIssue;
   bool _hasTrustedSnapshot = false;
+  bool _isQuotaRecoveryMode = false;
   final ChangePulse _saveSuccessPulse = ChangePulse();
 
-  /// Increments after each successful `_store.save`. UI may listen via
+  /// Increments after each successful persistent mutation. UI may listen via
   /// `HighlightPulse` to flash on commit.
   ValueListenable<int> get saveSuccessSignal => _saveSuccessPulse.listenable;
 
@@ -70,6 +71,7 @@ class MemoryController extends ManagedChangeNotifier {
   String get userMemoryFilePath => _store.userMemoryFilePath;
   String get storageDirectoryPath => _store.storageDirectoryPath;
   MemoryPersistenceIssue? get persistenceIssue => _persistenceIssue;
+  bool get isQuotaRecoveryMode => _isQuotaRecoveryMode;
 
   /// Returns the single user profile entry in memory, or null if none.
   UserMemoryEntry? get userProfile {
@@ -123,6 +125,7 @@ class MemoryController extends ManagedChangeNotifier {
     final normalizedTitle = UserMemoryEntry.normalizeTitle(title);
     return _enqueueOperation(() async {
       if (!await _ensureTrustedSnapshotLocked()) return false;
+      if (_isQuotaRecoveryMode) return false;
       final entry = UserMemoryEntry(
         id: _idGenerator(),
         type: UserMemoryEntry.userType,
@@ -142,14 +145,16 @@ class MemoryController extends ManagedChangeNotifier {
   Future<bool> updateMemory(
     UserMemoryEntry entry, {
     required String content,
-    required List<String> tags,
+    List<String>? tags,
     String? title,
   }) async {
     final normalizedContent = UserMemoryEntry.normalizeContent(content);
     if (normalizedContent.isEmpty) {
       return false;
     }
-    final normalizedTags = UserMemoryEntry.normalizeTags(tags);
+    final normalizedTags = tags == null
+        ? null
+        : UserMemoryEntry.normalizeTags(tags);
     // null = 不变（保留旧值）；空串/非空串 = 显式覆盖（含清空）。
     final normalizedTitle = title == null
         ? null
@@ -164,7 +169,6 @@ class MemoryController extends ManagedChangeNotifier {
       final nextEntry = nextEntries[index].copyWith(
         content: normalizedContent,
         tags: normalizedTags,
-        type: UserMemoryEntry.userType,
         title: normalizedTitle,
       );
       nextEntries[index] = nextEntry;
@@ -180,31 +184,32 @@ class MemoryController extends ManagedChangeNotifier {
   /// interleaving.
   Future<UserMemoryEntry> upsertUserProfile({
     required String content,
-    List<String> tags = const <String>[],
+    List<String>? tags,
   }) {
     return _enqueueOperation(() async {
       if (!await _ensureTrustedSnapshotLocked()) {
         throw StateError('Unable to load memories before updating profile.');
       }
-      final entry = await _store.upsertUserProfile(
-        content: content,
-        tags: tags,
-      );
-      _setEntries(
-        <UserMemoryEntry>[
-          entry,
-          ..._entries.where(
-            (item) => item.type != UserMemoryEntry.userProfileType,
-          ),
-        ]..sort((left, right) => right.createdAt.compareTo(left.createdAt)),
-      );
-      _errorMessage = null;
-      if (_persistenceIssue?.kind == MemoryPersistenceIssueKind.saveFailed) {
-        _persistenceIssue = null;
+      try {
+        final entry = await _store.upsertUserProfile(
+          content: content,
+          tags: tags,
+        );
+        if (_isQuotaRecoveryMode) {
+          await _reloadAfterRecoveryMutation();
+        } else {
+          _publishSuccessfulMutation(<UserMemoryEntry>[
+            entry,
+            ..._entries.where(
+              (item) => item.type != UserMemoryEntry.userProfileType,
+            ),
+          ]);
+        }
+        return entry;
+      } catch (_) {
+        _publishSaveFailure();
+        rethrow;
       }
-      _saveSuccessPulse.emit();
-      notifyListeners();
-      return entry;
     });
   }
 
@@ -224,6 +229,19 @@ class MemoryController extends ManagedChangeNotifier {
     });
   }
 
+  Future<bool> clearAll() {
+    return _enqueueOperation(() async {
+      try {
+        await _store.clearAll();
+        _publishSuccessfulMutation(const <UserMemoryEntry>[]);
+        return true;
+      } catch (_) {
+        _publishSaveFailure();
+        return false;
+      }
+    });
+  }
+
   Future<void> openStorageDirectory() {
     return _store.openStorageDirectory();
   }
@@ -237,10 +255,11 @@ class MemoryController extends ManagedChangeNotifier {
     try {
       final loadResult = await _store.load();
       _setEntries(loadResult.entries);
-      _persistenceIssue = loadResult.issue;
       _hasTrustedSnapshot = true;
+      _isQuotaRecoveryMode = loadResult.isOverQuota;
     } catch (error) {
       _hasTrustedSnapshot = false;
+      _isQuotaRecoveryMode = false;
       _errorMessage = '$error';
     } finally {
       _isLoading = false;
@@ -253,32 +272,61 @@ class MemoryController extends ManagedChangeNotifier {
     Future<void> Function() persist,
   ) async {
     if (!_hasTrustedSnapshot) return false;
-    final previousEntries = List<UserMemoryEntry>.from(_entries);
-    _setEntries(
-      List<UserMemoryEntry>.from(nextEntries)
-        ..sort((left, right) => right.createdAt.compareTo(left.createdAt)),
-    );
-    _errorMessage = null;
-    notifyListeners();
     try {
       await persist();
-      _hasTrustedSnapshot = true;
-      if (_persistenceIssue?.kind == MemoryPersistenceIssueKind.saveFailed) {
-        _persistenceIssue = null;
-        notifyListeners();
-      }
-      _saveSuccessPulse.emit();
-      return true;
-    } catch (error) {
-      _setEntries(previousEntries);
-      _persistenceIssue = MemoryPersistenceIssue(
-        kind: MemoryPersistenceIssueKind.saveFailed,
-        filePath: _store.userMemoryFilePath,
-        detail: '$error',
-      );
-      notifyListeners();
+    } catch (_) {
+      _publishSaveFailure();
       return false;
     }
+    if (_isQuotaRecoveryMode) {
+      await _reloadAfterRecoveryMutation();
+    } else {
+      _publishSuccessfulMutation(nextEntries);
+    }
+    return true;
+  }
+
+  Future<void> _reloadAfterRecoveryMutation() async {
+    try {
+      final loadResult = await _store.load();
+      _publishSuccessfulMutation(
+        loadResult.entries,
+        isQuotaRecoveryMode: loadResult.isOverQuota,
+      );
+    } catch (error) {
+      _hasTrustedSnapshot = false;
+      _isQuotaRecoveryMode = false;
+      _errorMessage = '$error';
+      _persistenceIssue = null;
+      _saveSuccessPulse.emit();
+      notifyListeners();
+    }
+  }
+
+  void _publishSuccessfulMutation(
+    List<UserMemoryEntry> entries, {
+    bool isQuotaRecoveryMode = false,
+  }) {
+    _setEntries(
+      List<UserMemoryEntry>.from(entries)
+        ..sort((left, right) => right.createdAt.compareTo(left.createdAt)),
+    );
+    _hasTrustedSnapshot = true;
+    _isQuotaRecoveryMode = isQuotaRecoveryMode;
+    _errorMessage = null;
+    if (_persistenceIssue != null) {
+      _persistenceIssue = null;
+    }
+    _saveSuccessPulse.emit();
+    notifyListeners();
+  }
+
+  void _publishSaveFailure() {
+    _hasTrustedSnapshot = false;
+    _persistenceIssue = MemoryPersistenceIssue(
+      filePath: _store.userMemoryFilePath,
+    );
+    notifyListeners();
   }
 
   Future<bool> _ensureTrustedSnapshotLocked() async {

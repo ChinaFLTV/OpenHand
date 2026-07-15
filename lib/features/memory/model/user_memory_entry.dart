@@ -1,19 +1,24 @@
 final RegExp _memoryWhitespacePattern = RegExp(r'\s+');
 
 class UserMemoryEntry {
-  const UserMemoryEntry({
+  UserMemoryEntry({
     required this.id,
     required this.type,
     required this.createdAt,
     required this.content,
-    required this.tags,
+    required List<String> tags,
     this.title = '',
-  });
+  }) : tags = List<String>.unmodifiable(tags);
 
   static const String userType = 'user';
   static const String userProfileType = 'user_profile';
   static const String autoLearnedTag = '自主学习';
   static const String userProfileEntryId = 'system:user-profile';
+  static const int maxIdCharacters = 256;
+  static const int maxContentCharacters = 16 * 1024;
+  static const int maxTags = 32;
+  static const int maxTagCharacters = 80;
+  static const int maxTitleLength = 80;
 
   bool get isUserProfile => type == userProfileType;
   bool get isAutoLearned {
@@ -89,8 +94,6 @@ class UserMemoryEntry {
     if (flat.length <= maxTitleLength) return flat;
     return flat.substring(0, maxTitleLength);
   }
-
-  static const int maxTitleLength = 80;
 
   static List<String> normalizeTags(Iterable<String> values) {
     final normalized = <String>[];

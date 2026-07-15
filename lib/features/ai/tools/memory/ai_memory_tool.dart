@@ -155,7 +155,9 @@ class AiMemoryTool extends AiTool {
     Stopwatch sw,
   ) async {
     final content = '${args['content'] ?? ''}';
-    final tags = stringListFromValueOrJsonText(args['tags']);
+    final tags = args.containsKey('tags')
+        ? stringListFromValueOrJsonText(args['tags'])
+        : null;
     if (content.trim().isEmpty) {
       return AiToolUtils.invalidResult(
         _toolName,
@@ -181,7 +183,9 @@ class AiMemoryTool extends AiTool {
   ) async {
     final id = AiToolUtils.readString(args['id']);
     final content = '${args['content'] ?? ''}';
-    final tags = stringListFromValueOrJsonText(args['tags']);
+    final tags = args.containsKey('tags')
+        ? stringListFromValueOrJsonText(args['tags'])
+        : null;
     final titleArg = args['title'];
     final String? title = titleArg == null ? null : '$titleArg';
     if (id.isEmpty) {

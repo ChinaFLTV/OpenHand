@@ -272,6 +272,7 @@ class _UserProfileEditorDialogState extends State<_UserProfileEditorDialog> {
                       controller: _contentController,
                       enabled: !_isSaving,
                       expands: true,
+                      maxLength: UserMemoryEntry.maxContentCharacters,
                       maxLines: null,
                       textAlignVertical: TextAlignVertical.top,
                       decoration: InputDecoration(
@@ -368,6 +369,11 @@ class _UserProfileEditorDialogState extends State<_UserProfileEditorDialog> {
 
   Future<void> _handleSave() async {
     final content = _contentController.text;
+    final failureMessage = openHandLocalizedText(
+      context,
+      zh: '保存用户画像失败，请稍后重试。',
+      en: 'Failed to save the profile. Please try again.',
+    );
     if (content.trim().isEmpty) {
       setState(() {
         _errorMessage = openHandLocalizedText(
@@ -387,11 +393,11 @@ class _UserProfileEditorDialogState extends State<_UserProfileEditorDialog> {
       await context.read<MemoryController>().upsertUserProfile(
         content: content,
       );
-    } catch (error) {
+    } catch (_) {
       if (!mounted) return;
       setState(() {
         _isSaving = false;
-        _errorMessage = '$error';
+        _errorMessage = failureMessage;
       });
       _errorPulse.value++;
       return;
@@ -407,17 +413,40 @@ class _UserProfileEditorDialogState extends State<_UserProfileEditorDialog> {
       Navigator.of(context).pop(false);
       return;
     }
+    final failureMessage = openHandLocalizedText(
+      context,
+      zh: '清空画像失败。',
+      en: 'Failed to clear the profile.',
+    );
+    final confirmed = await showOpenHandConfirmDialog(
+      context: context,
+      title: openHandLocalizedText(
+        context,
+        zh: '清空用户画像？',
+        en: 'Clear user profile?',
+      ),
+      message: openHandLocalizedText(
+        context,
+        zh: '此操作将永久删除当前用户画像。',
+        en: 'This permanently deletes the current user profile.',
+      ),
+      cancelLabel: openHandLocalizedText(context, zh: '取消', en: 'Cancel'),
+      confirmLabel: openHandLocalizedText(context, zh: '清空', en: 'Clear'),
+      destructive: true,
+    );
+    if (!confirmed || !mounted) return;
     setState(() {
       _isSaving = true;
       _errorMessage = null;
     });
     try {
-      await controller.deleteMemory(entry);
-    } catch (error) {
+      final deleted = await controller.deleteMemory(entry);
+      if (!deleted) throw StateError(failureMessage);
+    } catch (_) {
       if (!mounted) return;
       setState(() {
         _isSaving = false;
-        _errorMessage = '$error';
+        _errorMessage = failureMessage;
       });
       _errorPulse.value++;
       return;

@@ -2902,6 +2902,17 @@ class AppLocalizationsEn extends AppLocalizations {
   String get memoryLoadFailedTitle => 'Failed to load memory data';
 
   @override
+  String get memoryLoadFailedBody =>
+      'Memory data is invalid or unavailable. Repair or clear the storage, then retry.';
+
+  @override
+  String get memoryQuotaRecoveryTitle => 'Memory storage is over quota';
+
+  @override
+  String get memoryQuotaRecoveryBody =>
+      'A bounded snapshot is shown. Delete entries or reduce their content until usage is within limits; new entries are disabled.';
+
+  @override
   String get memoryOperationFailed =>
       'The memory action failed. Please try again.';
 
@@ -2922,6 +2933,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get memoryTagsHint => 'Type a tag and press Enter to add it';
+
+  @override
+  String get memoryTagLimitExceeded => 'A memory can have up to 32 tags.';
 
   @override
   String get memoryDeleteConfirmTitle => 'Delete User Memory';
@@ -2973,18 +2987,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get memoryCreatedAtLabel => 'Created At';
 
   @override
-  String get memoryPersistenceSanitizedTitle => 'Invalid Memory Rows Ignored';
-
-  @override
-  String get memoryPersistenceSanitizedBody =>
-      'The storage source contains invalid entries. They were ignored while loading without changing the original data.';
-
-  @override
   String get memoryPersistenceSaveFailedTitle => 'Memory Save Failed';
 
   @override
   String get memoryPersistenceSaveFailedBody =>
-      'Writing the memory database failed. The UI was rolled back to the last valid content. Check database access and disk state.';
+      'Writing the memory database failed. No uncommitted changes were applied. Check database access and disk state.';
 
   @override
   String get mcpPageTitle => 'MCP';

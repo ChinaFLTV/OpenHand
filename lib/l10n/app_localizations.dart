@@ -5166,6 +5166,24 @@ abstract class AppLocalizations {
   /// **'记忆数据读取失败'**
   String get memoryLoadFailedTitle;
 
+  /// No description provided for @memoryLoadFailedBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'记忆数据无效或暂不可用，请修复或清空存储后重试。'**
+  String get memoryLoadFailedBody;
+
+  /// No description provided for @memoryQuotaRecoveryTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'记忆存储已超出配额'**
+  String get memoryQuotaRecoveryTitle;
+
+  /// No description provided for @memoryQuotaRecoveryBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前仅展示受限快照。请删除条目或缩减内容直至恢复限额；期间禁止新增条目。'**
+  String get memoryQuotaRecoveryBody;
+
   /// No description provided for @memoryOperationFailed.
   ///
   /// In zh, this message translates to:
@@ -5207,6 +5225,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'输入一个标签后按回车添加'**
   String get memoryTagsHint;
+
+  /// No description provided for @memoryTagLimitExceeded.
+  ///
+  /// In zh, this message translates to:
+  /// **'每条记忆最多可添加 32 个标签。'**
+  String get memoryTagLimitExceeded;
 
   /// No description provided for @memoryDeleteConfirmTitle.
   ///
@@ -5298,18 +5322,6 @@ abstract class AppLocalizations {
   /// **'创建时间'**
   String get memoryCreatedAtLabel;
 
-  /// No description provided for @memoryPersistenceSanitizedTitle.
-  ///
-  /// In zh, this message translates to:
-  /// **'已忽略异常记忆记录'**
-  String get memoryPersistenceSanitizedTitle;
-
-  /// No description provided for @memoryPersistenceSanitizedBody.
-  ///
-  /// In zh, this message translates to:
-  /// **'存储源中存在无效记录，本次加载已忽略；原始数据未被改写。'**
-  String get memoryPersistenceSanitizedBody;
-
   /// No description provided for @memoryPersistenceSaveFailedTitle.
   ///
   /// In zh, this message translates to:
@@ -5319,7 +5331,7 @@ abstract class AppLocalizations {
   /// No description provided for @memoryPersistenceSaveFailedBody.
   ///
   /// In zh, this message translates to:
-  /// **'记忆数据库写入失败，界面已回滚到上一次有效内容，请检查数据库访问权限或磁盘状态。'**
+  /// **'记忆数据库写入失败，未提交的变更未被应用，请检查数据库访问权限或磁盘状态。'**
   String get memoryPersistenceSaveFailedBody;
 
   /// MCP settings page title. Acronym; keep as "MCP" untranslated.

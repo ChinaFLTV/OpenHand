@@ -71,7 +71,7 @@ import '../../harness/index.dart';
 import '../../hooks/hooks_controller.dart';
 import '../../instructions/instructions_controller.dart';
 import '../../mcp/index.dart';
-import '../../memory/memory_controller.dart';
+import '../../memory/index.dart';
 import '../../message_gateway/index.dart' show MessageGatewayController;
 import '../../skills/skills_controller.dart';
 import '../data_cleanup/data_cleanup_models.dart';

@@ -116,9 +116,12 @@ class DataCleanupService {
       final rows = await db.rawQuery(
         'SELECT COUNT(*) AS cnt, '
         'COALESCE(SUM('
-        'LENGTH(IFNULL(content, \'\')) '
-        '+ LENGTH(IFNULL(title, \'\')) '
-        '+ LENGTH(IFNULL(tags_json, \'\'))'
+        'LENGTH(CAST(id AS BLOB)) '
+        '+ LENGTH(CAST(type AS BLOB)) '
+        '+ LENGTH(CAST(created_at AS BLOB)) '
+        '+ LENGTH(CAST(content AS BLOB)) '
+        '+ LENGTH(CAST(title AS BLOB)) '
+        '+ LENGTH(CAST(tags_json AS BLOB))'
         '), 0) AS bytes '
         'FROM memories',
       );
@@ -320,19 +323,11 @@ class DataCleanupService {
     );
   }
 
-  /// 清空用户记忆条目（含用户画像）。直接走数据库整表删除，然后让
-  /// controller 重新加载，避免逐行 delete 的 N 次 IO。
+  /// 清空用户记忆条目（含用户画像）。由 controller 串行化整表删除，
+  /// 防止与 AI/UI 写入交错，并同步更新可信内存快照。
   Future<void> cleanUserMemory() async {
-    try {
-      final db = DatabaseService.instance.database;
-      await db.delete('memories');
-    } catch (error, stack) {
-      silentLog('data_cleanup', 'cleanUserMemory/delete', error, stack);
-    }
-    try {
-      await _memoryController.refresh();
-    } catch (error, stack) {
-      silentLog('data_cleanup', 'cleanUserMemory/refresh', error, stack);
+    if (!await _memoryController.clearAll()) {
+      throw StateError('Memory controller rejected the cleanup.');
     }
   }
 

@@ -52,6 +52,7 @@ class MemoryView extends StatelessWidget {
             String? errorMessage,
             List<UserMemoryEntry> entries,
             MemoryPersistenceIssue? persistenceIssue,
+            bool isQuotaRecoveryMode,
           })
         >((controller) {
           return (
@@ -59,6 +60,7 @@ class MemoryView extends StatelessWidget {
             errorMessage: controller.errorMessage,
             entries: controller.entries,
             persistenceIssue: controller.persistenceIssue,
+            isQuotaRecoveryMode: controller.isQuotaRecoveryMode,
           );
         });
     final memoryController = context.read<MemoryController>();
@@ -84,7 +86,10 @@ class MemoryView extends StatelessWidget {
           label: Text(l10n.memoryOpenDirectory),
         ),
         FilledButton.icon(
-          onPressed: () => _showMemoryDialog(context),
+          onPressed:
+              memorySnapshot.isLoading || memorySnapshot.isQuotaRecoveryMode
+              ? null
+              : () => _showMemoryDialog(context),
           icon: const Icon(Icons.add_rounded),
           label: Text(l10n.memoryNewEntry),
         ),
@@ -103,6 +108,13 @@ class MemoryView extends StatelessWidget {
             tone: FeatureStateTone.secondary,
             title: l10n.memoryDisabledTitle,
             body: l10n.memoryDisabledBody,
+          ),
+        if (memorySnapshot.isQuotaRecoveryMode)
+          FeatureStateCard.inline(
+            icon: Icons.warning_amber_rounded,
+            tone: FeatureStateTone.secondary,
+            title: l10n.memoryQuotaRecoveryTitle,
+            body: l10n.memoryQuotaRecoveryBody,
           ),
         if (memorySnapshot.persistenceIssue != null)
           _MemoryPersistenceIssueCard(
@@ -135,7 +147,7 @@ class MemoryView extends StatelessWidget {
         icon: Icons.error_outline_rounded,
         tone: FeatureStateTone.error,
         title: l10n.memoryLoadFailedTitle,
-        body: errorMessage,
+        body: l10n.memoryLoadFailedBody,
         action: OpenHandDialogActionButton.primary(
           onPressed: () => context.read<MemoryController>().refresh(),
           label: l10n.memoryRefresh,
@@ -281,15 +293,12 @@ class MemoryView extends StatelessWidget {
     UserMemoryEntry entry,
   ) async {
     final l10n = AppLocalizations.of(context)!;
-    final isProfile = entry.isUserProfile;
     final confirmed = await showOpenHandConfirmDialog(
       context: context,
       title: l10n.memoryDeleteConfirmTitle,
-      message: isProfile
-          ? '用户画像将被删除。Self-learning will recreate this on next cycle.'
-          : l10n.memoryDeleteConfirmBody,
+      message: l10n.memoryDeleteConfirmBody,
       cancelLabel: l10n.commonCancel,
-      confirmLabel: isProfile ? 'Delete anyway' : l10n.commonDelete,
+      confirmLabel: l10n.commonDelete,
       destructive: true,
     );
     if (!confirmed || !context.mounted) {
@@ -415,6 +424,7 @@ class _MemoryEditorDialogState extends State<_MemoryEditorDialog> {
                           controller: _contentController,
                           minLines: 7,
                           maxLines: 12,
+                          maxLength: UserMemoryEntry.maxContentCharacters,
                           enabled: !_isSaving,
                           decoration: InputDecoration(
                             labelText: l10n.memoryContentField,
@@ -434,6 +444,7 @@ class _MemoryEditorDialogState extends State<_MemoryEditorDialog> {
                           controller: _tagInputController,
                           focusNode: _tagInputFocusNode,
                           enabled: !_isSaving,
+                          maxLength: UserMemoryEntry.maxTagCharacters,
                           textInputAction: TextInputAction.done,
                           onChanged: _handleTagInputChanged,
                           onSubmitted: (_) => _addTagsFromInput(),
@@ -547,7 +558,14 @@ class _MemoryEditorDialogState extends State<_MemoryEditorDialog> {
     if (!(_formKey.currentState?.validate() ?? false)) {
       return;
     }
-    final tags = _commitPendingTags();
+    final pendingTags = _mergedTagsWithInput();
+    if (pendingTags.length > UserMemoryEntry.maxTags) {
+      setState(() {
+        _errorMessage = l10n.memoryTagLimitExceeded;
+      });
+      return;
+    }
+    final tags = _commitPendingTags(pendingTags);
     FocusManager.instance.primaryFocus?.unfocus();
     setState(() {
       _isSaving = true;
@@ -566,9 +584,6 @@ class _MemoryEditorDialogState extends State<_MemoryEditorDialog> {
           tags: tags,
           title: title,
         );
-      } else if (widget.initialEntry!.isUserProfile) {
-        await controller.upsertUserProfile(content: content, tags: tags);
-        saved = true;
       } else {
         saved = await controller.updateMemory(
           widget.initialEntry!,
@@ -605,6 +620,12 @@ class _MemoryEditorDialogState extends State<_MemoryEditorDialog> {
       return;
     }
     final nextTags = _mergedTagsWithInput();
+    if (nextTags.length > UserMemoryEntry.maxTags) {
+      setState(() {
+        _errorMessage = AppLocalizations.of(context)!.memoryTagLimitExceeded;
+      });
+      return;
+    }
     if (_tagInputController.text.trim().isEmpty &&
         nextTags.length == _tags.length) {
       return;
@@ -628,8 +649,7 @@ class _MemoryEditorDialogState extends State<_MemoryEditorDialog> {
     });
   }
 
-  List<String> _commitPendingTags() {
-    final nextTags = _mergedTagsWithInput();
+  List<String> _commitPendingTags(List<String> nextTags) {
     final shouldRefreshUi =
         _tagInputController.text.trim().isNotEmpty ||
         nextTags.length != _tags.length;
@@ -911,20 +931,10 @@ class _MemoryPersistenceIssueCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final shortPath = OpenHandPaths.shortenHomePath(issue.filePath);
-    final (title, body) = switch (issue.kind) {
-      MemoryPersistenceIssueKind.sanitizedInvalidContent => (
-        l10n.memoryPersistenceSanitizedTitle,
-        '${l10n.memoryPersistenceSanitizedBody}\n$shortPath',
-      ),
-      MemoryPersistenceIssueKind.saveFailed => (
-        l10n.memoryPersistenceSaveFailedTitle,
-        '${l10n.memoryPersistenceSaveFailedBody}\n$shortPath',
-      ),
-    };
 
     return PersistenceIssueCard(
-      title: title,
-      body: body,
+      title: l10n.memoryPersistenceSaveFailedTitle,
+      body: '${l10n.memoryPersistenceSaveFailedBody}\n$shortPath',
       dismissLabel: l10n.settingsPersistenceDismiss,
       onDismiss: onDismiss,
     );
