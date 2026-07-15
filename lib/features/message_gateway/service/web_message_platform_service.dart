@@ -289,6 +289,7 @@ class WebMessagePlatformService {
   static const int _maxMetricDistributionKeys = 128;
   static const int _maxMetricKeyCharacters = 96;
   static const String _metricOverflowKey = 'other';
+  static final RegExp _metricWhitespacePattern = RegExp(r'\s+');
   static const int _maxTrafficLatencySamplesPerMinute = 512;
   static const Duration _opsSnapshotPersistenceInterval = Duration(seconds: 15);
   static const int _maxLatencyBuffer = 256;
@@ -366,6 +367,7 @@ class WebMessagePlatformService {
   final Map<String, int> _methodCounts = <String, int>{};
   final Map<String, int> _routeCounts = <String, int>{};
   final Map<String, int> _ipDistribution = <String, int>{};
+  final Map<String, int> _peerDistribution = <String, int>{};
   final Map<String, int> _clientDistribution = <String, int>{};
   final Map<String, int> _protocolDistribution = <String, int>{};
   final Map<DateTime, _WebGatewayMinuteBucket> _trafficBuckets =
@@ -725,6 +727,9 @@ class WebMessagePlatformService {
     _ipDistribution
       ..clear()
       ..addAll(snapshot.ipDistribution);
+    _peerDistribution
+      ..clear()
+      ..addAll(snapshot.peerDistribution);
     _clientDistribution
       ..clear()
       ..addAll(snapshot.clientDistribution);
@@ -1274,6 +1279,7 @@ class WebMessagePlatformService {
           .length,
       mcpServerTotalCount: _mcpController.runtimeServers.length,
       ipDistribution: Map<String, int>.unmodifiable(_ipDistribution),
+      peerDistribution: Map<String, int>.unmodifiable(_peerDistribution),
       clientDistribution: Map<String, int>.unmodifiable(_clientDistribution),
       requestDistribution: Map<String, int>.unmodifiable(_routeCounts),
       protocolDistribution: Map<String, int>.unmodifiable(
@@ -1293,6 +1299,7 @@ class WebMessagePlatformService {
     required int requestBytes,
     required int responseBytes,
     required String remoteAddress,
+    required String remoteEndpoint,
     required String clientName,
     required String protocol,
     String? errorPath,
@@ -1337,6 +1344,11 @@ class WebMessagePlatformService {
         _routeCounts.remove(smallest.key);
       }
       _incrementMetricDistribution(_ipDistribution, remoteAddress);
+      _incrementMetricDistribution(
+        _peerDistribution,
+        remoteEndpoint,
+        rotateLowFrequencyKeys: true,
+      );
       _incrementMetricDistribution(_clientDistribution, clientName);
       _incrementMetricDistribution(_protocolDistribution, protocol);
       _recordTrafficOutcome(
@@ -1389,8 +1401,12 @@ class WebMessagePlatformService {
     }
   }
 
-  void _incrementMetricDistribution(Map<String, int> values, String rawKey) {
-    var key = rawKey.trim().replaceAll(RegExp(r'\s+'), ' ');
+  void _incrementMetricDistribution(
+    Map<String, int> values,
+    String rawKey, {
+    bool rotateLowFrequencyKeys = false,
+  }) {
+    var key = rawKey.trim().replaceAll(_metricWhitespacePattern, ' ');
     if (key.isEmpty) key = 'unknown';
     if (key.length > _maxMetricKeyCharacters) {
       key = key.substring(0, _maxMetricKeyCharacters);
@@ -1400,6 +1416,30 @@ class WebMessagePlatformService {
       values[key] = count + 1;
     } else if (values.length < _maxMetricDistributionKeys - 1) {
       values[key] = 1;
+    } else if (rotateLowFrequencyKeys) {
+      var overflow = 0;
+      final reservedSlots = values.containsKey(_metricOverflowKey) ? 1 : 2;
+      while (values.length > _maxMetricDistributionKeys - reservedSlots) {
+        MapEntry<String, int>? smallest;
+        for (final entry in values.entries) {
+          if (entry.key == _metricOverflowKey) continue;
+          if (smallest == null || entry.value < smallest.value) {
+            smallest = entry;
+          }
+        }
+        if (smallest == null) break;
+        values.remove(smallest.key);
+        overflow += smallest.value;
+      }
+      if (overflow > 0) {
+        values[_metricOverflowKey] =
+            (values[_metricOverflowKey] ?? 0) + overflow;
+      }
+      if (values.length < _maxMetricDistributionKeys) {
+        values[key] = 1;
+      } else {
+        values[_metricOverflowKey] = (values[_metricOverflowKey] ?? 0) + 1;
+      }
     } else {
       values[_metricOverflowKey] = (values[_metricOverflowKey] ?? 0) + 1;
     }
@@ -1461,26 +1501,15 @@ class WebMessagePlatformService {
   }
 
   String _requestMetricClientName(shelf.Request request) {
-    final browser = nullIfBlank(request.headers['x-openhand-browser-name']);
-    final source = nullIfBlank(request.headers['x-openhand-source']);
-    final platform = nullIfBlank(request.headers['x-openhand-device-platform']);
-    if (browser != null) {
-      return platform == null ? browser : '$browser · $platform';
-    }
-    if (source != null) return source;
-    final userAgent = request.headers[HttpHeaders.userAgentHeader] ?? '';
-    final lower = userAgent.toLowerCase();
-    if (lower.contains('edg/')) return 'Edge';
-    if (lower.contains('chrome/') || lower.contains('chromium/')) {
-      return 'Chrome';
-    }
-    if (lower.contains('firefox/')) return 'Firefox';
-    if (lower.contains('safari/') && lower.contains('version/')) {
-      return 'Safari';
-    }
-    if (lower.contains('curl/')) return 'curl';
-    if (lower.contains('postmanruntime/')) return 'Postman';
-    return nullIfBlank(userAgent) ?? 'unknown';
+    return webGatewaySummarizeClientUserAgent(
+      userAgent: request.headers[HttpHeaders.userAgentHeader] ?? '',
+      browserName: request.headers['x-openhand-browser-name'] ?? '',
+      browserVersion: request.headers['x-openhand-browser-version'] ?? '',
+      osName: request.headers['x-openhand-os-name'] ?? '',
+      osVersion: request.headers['x-openhand-os-version'] ?? '',
+      platform: request.headers['x-openhand-device-platform'] ?? '',
+      source: request.headers['x-openhand-source'] ?? '',
+    );
   }
 
   String _requestMetricProtocol(shelf.Request request) {
@@ -2450,6 +2479,10 @@ class WebMessagePlatformService {
             request.context['shelf.io.connection_info'] as HttpConnectionInfo?;
         final remoteAddress =
             connectionInfo?.remoteAddress.address ?? 'unknown';
+        final remoteEndpoint = webGatewayFormatRemoteEndpoint(
+          remoteAddress,
+          connectionInfo?.remotePort,
+        );
         final clientName = _requestMetricClientName(request);
         final protocol = _requestMetricProtocol(request);
         var collectMetrics = !webGatewayIsOpsSnapshotRequest(
@@ -2493,6 +2526,7 @@ class WebMessagePlatformService {
               requestBytes: requestBytes,
               responseBytes: responseBytes,
               remoteAddress: remoteAddress,
+              remoteEndpoint: remoteEndpoint,
               clientName: clientName,
               protocol: protocol,
               errorPath: request.requestedUri.path,
@@ -2579,6 +2613,7 @@ class WebMessagePlatformService {
               requestBytes: requestBytes,
               responseBytes: responseBytes,
               remoteAddress: remoteAddress,
+              remoteEndpoint: remoteEndpoint,
               clientName: clientName,
               protocol: protocol,
               errorPath: errorText != null ? request.requestedUri.path : null,

@@ -4685,27 +4685,27 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                             _WebOpsDistributionPanel(
                               title: openHandLocalizedText(
                                 context,
-                                zh: '请求来源分布',
-                                zhHant: '請求來源分布',
-                                en: 'Peer mix',
-                                fr: 'Répartition des sources',
-                                de: 'Quellenverteilung',
-                                ja: 'リクエスト元分布',
+                                zh: '来源端点（IP:端口）',
+                                zhHant: '來源端點（IP:連接埠）',
+                                en: 'Source endpoints',
+                                fr: 'Points de terminaison source',
+                                de: 'Quellendpunkte',
+                                ja: '送信元エンドポイント',
                               ),
                               icon: Icons.public_rounded,
-                              values: snapshot.ipDistribution,
+                              values: snapshot.effectivePeerDistribution,
                               onTap: () =>
                                   _showOpsInsight(_WebOpsInsightKind.peerMix),
                             ),
                             _WebOpsDistributionPanel(
                               title: openHandLocalizedText(
                                 context,
-                                zh: '客户端分布',
-                                zhHant: '用戶端分布',
-                                en: 'Client mix',
-                                fr: 'Répartition des clients',
-                                de: 'Clientverteilung',
-                                ja: 'クライアント分布',
+                                zh: '客户端 UA 分布',
+                                zhHant: '用戶端 UA 分布',
+                                en: 'Client UA mix',
+                                fr: 'Répartition des UA clients',
+                                de: 'Client-UA-Verteilung',
+                                ja: 'クライアント UA 分布',
                               ),
                               icon: Icons.devices_other_rounded,
                               values: snapshot.clientDistribution,
@@ -5700,11 +5700,11 @@ class _WebOpsInsightDialog extends StatelessWidget {
         icon: Icons.donut_small_rounded,
       ),
       _WebOpsInsightKind.peerMix => (
-        title: text('请求来源分布', 'Peer mix'),
+        title: text('来源端点（IP:端口）', 'Source endpoints'),
         icon: Icons.public_rounded,
       ),
       _WebOpsInsightKind.clientMix => (
-        title: text('客户端分布', 'Client mix'),
+        title: text('客户端 UA 分布', 'Client UA mix'),
         icon: Icons.devices_other_rounded,
       ),
       _WebOpsInsightKind.requestMix => (
@@ -5785,13 +5785,21 @@ class _WebOpsInsightDialog extends StatelessWidget {
         values: stats.statusDistribution(context, snapshot),
       ),
       _WebOpsInsightKind.peerMix => _WebOpsDistributionPanel(
-        title: openHandLocalizedText(context, zh: '请求来源分布', en: 'Peer mix'),
+        title: openHandLocalizedText(
+          context,
+          zh: '来源端点（IP:端口）',
+          en: 'Source endpoints',
+        ),
         icon: Icons.public_rounded,
-        values: snapshot.ipDistribution,
+        values: snapshot.effectivePeerDistribution,
       ),
       _WebOpsInsightKind.clientMix ||
       _WebOpsInsightKind.connections => _WebOpsDistributionPanel(
-        title: openHandLocalizedText(context, zh: '客户端分布', en: 'Client mix'),
+        title: openHandLocalizedText(
+          context,
+          zh: '客户端 UA 分布',
+          en: 'Client UA mix',
+        ),
         icon: Icons.devices_other_rounded,
         values: snapshot.clientDistribution,
       ),
@@ -5811,9 +5819,13 @@ class _WebOpsInsightDialog extends StatelessWidget {
       _WebOpsInsightKind.overview => _WebOpsPanelGrid(
         children: [
           _WebOpsDistributionPanel(
-            title: openHandLocalizedText(context, zh: '请求来源分布', en: 'Peer mix'),
+            title: openHandLocalizedText(
+              context,
+              zh: '来源端点（IP:端口）',
+              en: 'Source endpoints',
+            ),
             icon: Icons.public_rounded,
-            values: snapshot.ipDistribution,
+            values: snapshot.effectivePeerDistribution,
           ),
           _WebOpsDistributionPanel(
             title: openHandLocalizedText(
@@ -7390,11 +7402,14 @@ class _WebOpsDistributionRow extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.labelMedium,
+                child: Tooltip(
+                  message: label,
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelMedium,
+                  ),
                 ),
               ),
               const SizedBox(width: 8),

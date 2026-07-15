@@ -453,6 +453,7 @@ class WebGatewayRuntimeSnapshot {
     this.mcpServerEnabledCount = 0,
     this.mcpServerTotalCount = 0,
     this.ipDistribution = const <String, int>{},
+    this.peerDistribution = const <String, int>{},
     this.clientDistribution = const <String, int>{},
     this.requestDistribution = const <String, int>{},
     this.protocolDistribution = const <String, int>{},
@@ -540,6 +541,9 @@ class WebGatewayRuntimeSnapshot {
   final int mcpServerTotalCount;
 
   final Map<String, int> ipDistribution;
+
+  /// 来源网络端点分布。IPv4 为 `IP:port`，IPv6 为 `[IP]:port`；历史记录端口为 `*`。
+  final Map<String, int> peerDistribution;
   final Map<String, int> clientDistribution;
   final Map<String, int> requestDistribution;
   final Map<String, int> protocolDistribution;
@@ -551,6 +555,9 @@ class WebGatewayRuntimeSnapshot {
   int get effectiveErrorTotal => math.min(totalRequests, totalErrors);
   int get effectiveBlockedTotal =>
       math.min(effectiveErrorTotal, blockedRequests);
+  Map<String, int> get effectivePeerDistribution => peerDistribution.isEmpty
+      ? _webGatewayLegacyPeerDistribution(ipDistribution)
+      : peerDistribution;
 
   Map<String, Object?> toJson() {
     return <String, Object?>{
@@ -621,6 +628,7 @@ class WebGatewayRuntimeSnapshot {
       'mcp_server_enabled_count': mcpServerEnabledCount,
       'mcp_server_total_count': mcpServerTotalCount,
       'ip_distribution': ipDistribution,
+      'peer_distribution': peerDistribution,
       'client_distribution': clientDistribution,
       'request_distribution': requestDistribution,
       'protocol_distribution': protocolDistribution,
@@ -633,6 +641,13 @@ class WebGatewayRuntimeSnapshot {
   static WebGatewayRuntimeSnapshot fromJson(Object? raw) {
     final map = stringKeyedMapFromValue(raw);
     final process = stringKeyedMapFromValue(map['process']);
+    final ipDistribution = _webGatewayStringIntMapFromValue(
+      map['ip_distribution'],
+    );
+    final peerDistribution = _webGatewayStringIntMapFromValue(
+      map['peer_distribution'],
+      maxKeys: 128,
+    );
     return WebGatewayRuntimeSnapshot(
       state: webGatewayRuntimeStateFromValue(map['state']),
       startedAt: utcDateTimeFromValue(map['started_at']),
@@ -792,7 +807,10 @@ class WebGatewayRuntimeSnapshot {
         map['mcp_server_total_count'],
         fallback: 0,
       ),
-      ipDistribution: _webGatewayStringIntMapFromValue(map['ip_distribution']),
+      ipDistribution: ipDistribution,
+      peerDistribution: peerDistribution.isEmpty
+          ? _webGatewayLegacyPeerDistribution(ipDistribution)
+          : peerDistribution,
       clientDistribution: _webGatewayStringIntMapFromValue(
         map['client_distribution'],
       ),
@@ -911,6 +929,123 @@ bool webGatewayShouldCollectRequestMetrics({
     !webGatewayIsOpsSnapshotRequest(method, path) ||
     statusCode != HttpStatus.ok;
 
+String webGatewayFormatRemoteEndpoint(String address, int? port) {
+  final host = address.trim();
+  if (host.isEmpty) return 'unknown';
+  if (port == null || port <= 0 || port > 65535) return host;
+  return '${_webGatewayFormatRemoteHost(host)}:$port';
+}
+
+String webGatewaySummarizeClientUserAgent({
+  required String userAgent,
+  String browserName = '',
+  String browserVersion = '',
+  String osName = '',
+  String osVersion = '',
+  String platform = '',
+  String source = '',
+}) {
+  final ua = _webGatewayCompactMetricText(userAgent, maxCharacters: 512);
+  var browser = _webGatewayMatchUaComponent(ua, _webGatewayBrowserUaRules);
+  if (browser.isEmpty) {
+    final name = _webGatewayCompactMetricText(browserName);
+    final version = _webGatewayCompactMetricText(browserVersion);
+    browser = <String>[
+      name,
+      version,
+    ].where((item) => item.isNotEmpty).join(' ');
+  }
+
+  var os = _webGatewayMatchUaComponent(ua, _webGatewayOperatingSystemUaRules);
+  os = os.replaceAll('_', '.');
+  if (os.isEmpty) {
+    final name = _webGatewayCompactMetricText(osName);
+    final version = _webGatewayCompactMetricText(osVersion);
+    os = <String>[name, version].where((item) => item.isNotEmpty).join(' ');
+  }
+
+  final fallback = _webGatewayCompactMetricText(
+    platform.isNotEmpty ? platform : source,
+  );
+  final parts = <String>[
+    if (browser.isNotEmpty) browser,
+    if (os.isNotEmpty) os,
+    if (browser.isEmpty && os.isEmpty && fallback.isNotEmpty) fallback,
+  ];
+  if (parts.isNotEmpty) return parts.join(' · ');
+  return ua.isEmpty ? 'unknown' : ua;
+}
+
+String _webGatewayCompactMetricText(String value, {int maxCharacters = 48}) {
+  final compact = value.trim().replaceAll(_webGatewayWhitespacePattern, ' ');
+  return compact.length <= maxCharacters
+      ? compact
+      : compact.substring(0, maxCharacters);
+}
+
+Map<String, int> _webGatewayLegacyPeerDistribution(Map<String, int> values) {
+  if (values.isEmpty) return const <String, int>{};
+  return _webGatewayStringIntMapFromValue(<String, int>{
+    for (final entry in values.entries)
+      (entry.key == 'other'
+              ? entry.key
+              : '${_webGatewayFormatRemoteHost(entry.key)}:*'):
+          entry.value,
+  }, maxKeys: 128);
+}
+
+String _webGatewayFormatRemoteHost(String host) =>
+    host.contains(':') && !host.startsWith('[') ? '[$host]' : host;
+
+String _webGatewayMatchUaComponent(
+  String userAgent,
+  List<(String, RegExp)> rules,
+) {
+  for (final (name, pattern) in rules) {
+    final match = pattern.firstMatch(userAgent);
+    if (match == null) continue;
+    final version = match.groupCount == 0
+        ? ''
+        : _webGatewayCompactMetricText(match.group(1) ?? '');
+    return version.isEmpty ? name : '$name $version';
+  }
+  return '';
+}
+
+final RegExp _webGatewayWhitespacePattern = RegExp(r'\s+');
+final List<(String, RegExp)> _webGatewayBrowserUaRules = <(String, RegExp)>[
+  ('Edge', RegExp(r'(?:Edg|EdgA|EdgiOS)/([\d.]+)', caseSensitive: false)),
+  ('Opera', RegExp(r'(?:OPR|Opera)/([\d.]+)', caseSensitive: false)),
+  (
+    'Samsung Internet',
+    RegExp(r'SamsungBrowser/([\d.]+)', caseSensitive: false),
+  ),
+  ('Electron', RegExp(r'Electron/([\d.]+)', caseSensitive: false)),
+  ('Headless Chrome', RegExp(r'HeadlessChrome/([\d.]+)', caseSensitive: false)),
+  (
+    'Chrome',
+    RegExp(r'(?:Chrome|Chromium|CriOS)/([\d.]+)', caseSensitive: false),
+  ),
+  ('Firefox', RegExp(r'(?:Firefox|FxiOS)/([\d.]+)', caseSensitive: false)),
+  ('Safari', RegExp(r'Version/([\d.]+).*Safari/', caseSensitive: false)),
+  ('Postman', RegExp(r'PostmanRuntime/([\d.]+)', caseSensitive: false)),
+  ('curl', RegExp(r'curl/([\d.]+)', caseSensitive: false)),
+  ('Dart', RegExp(r'Dart/([\d.]+)', caseSensitive: false)),
+  ('okhttp', RegExp(r'okhttp/([\d.]+)', caseSensitive: false)),
+];
+final List<(String, RegExp)> _webGatewayOperatingSystemUaRules =
+    <(String, RegExp)>[
+      (
+        'iOS',
+        RegExp(r'(?:iPhone|iPad|iPod).*OS ([\d_]+)', caseSensitive: false),
+      ),
+      ('Android', RegExp(r'Android[ /]([\d.]+)', caseSensitive: false)),
+      ('macOS', RegExp(r'Mac OS X[ /]([\d_]+)', caseSensitive: false)),
+      ('Windows NT', RegExp(r'Windows NT[ /]([\d.]+)', caseSensitive: false)),
+      ('ChromeOS', RegExp(r'CrOS [^; )]+[ /]([\d.]+)', caseSensitive: false)),
+      ('Linux', RegExp(r'(?:X11; )?Linux(?: [^;)]+)?', caseSensitive: false)),
+    ];
+
 String webGatewayNormalizeMetricRoute(String path) {
   if (path.isEmpty || path == '/') return '/';
   final segments = path.split('/').where((item) => item.isNotEmpty).toList();
@@ -982,9 +1117,12 @@ List<MapEntry<String, int>> webGatewayCompactDistribution(
   ]);
 }
 
-Map<String, int> _webGatewayStringIntMapFromValue(Object? raw) {
-  const maxKeys = 256;
+Map<String, int> _webGatewayStringIntMapFromValue(
+  Object? raw, {
+  int maxKeys = 256,
+}) {
   const maxKeyCharacters = 96;
+  if (maxKeys < 2) return const <String, int>{};
   final source = stringKeyedMapFromValue(raw);
   if (source.isEmpty) return const <String, int>{};
   final result = <String, int>{};

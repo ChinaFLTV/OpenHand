@@ -35,7 +35,10 @@ void main() {
       'blocked_requests': 4,
       'file_mutation_count': 3,
       'ip_distribution': <String, int>{'127.0.0.1': 10},
-      'client_distribution': <String, int>{'Chrome · macOS': 8},
+      'peer_distribution': <String, int>{'127.0.0.1:52140': 10},
+      'client_distribution': <String, int>{
+        'Chrome 138.0.0.0 · macOS 10.15.7': 8,
+      },
       'request_distribution': <String, int>{'/api/sessions/:sessionId': 7},
       'protocol_distribution': <String, int>{'HTTP': 9, 'SSE': 1},
       'traffic_series': <Map<String, Object?>>[
@@ -56,7 +59,11 @@ void main() {
     expect(restored.failedRequests, 2);
     expect(restored.fileMutationCount, 3);
     expect(restored.ipDistribution, <String, int>{'127.0.0.1': 10});
-    expect(restored.clientDistribution, <String, int>{'Chrome · macOS': 8});
+    expect(restored.peerDistribution, <String, int>{'127.0.0.1:52140': 10});
+    expect(restored.effectivePeerDistribution, restored.peerDistribution);
+    expect(restored.clientDistribution, <String, int>{
+      'Chrome 138.0.0.0 · macOS 10.15.7': 8,
+    });
     expect(restored.requestDistribution, <String, int>{
       '/api/sessions/:sessionId': 7,
     });
@@ -73,12 +80,18 @@ void main() {
         'total_requests': 10,
         'total_errors': 12,
         'blocked_requests': 20,
+        'ip_distribution': <String, int>{'127.0.0.1': 8, '::1': 2},
       });
 
       expect(snapshot.currentConnections, 5);
       expect(snapshot.successTotal, 0);
       expect(snapshot.effectiveBlockedTotal, 10);
       expect(snapshot.failedRequests, 0);
+      expect(snapshot.peerDistribution, <String, int>{
+        '127.0.0.1:*': 8,
+        '[::1]:*': 2,
+      });
+      expect(snapshot.effectivePeerDistribution, snapshot.peerDistribution);
       expect(snapshot.trafficSeries, isEmpty);
     },
   );
@@ -149,13 +162,19 @@ void main() {
     final values = <String, int>{
       for (var index = 0; index < 300; index++) 'client-$index': 1,
     };
+    final peers = <String, int>{
+      for (var index = 0; index < 300; index++) '127.0.0.1:${10000 + index}': 1,
+    };
 
     final snapshot = WebGatewayRuntimeSnapshot.fromJson(<String, Object?>{
       'client_distribution': values,
+      'peer_distribution': peers,
     });
 
     expect(snapshot.clientDistribution, hasLength(256));
     expect(snapshot.clientDistribution['other'], 45);
+    expect(snapshot.peerDistribution, hasLength(128));
+    expect(snapshot.peerDistribution['other'], 173);
   });
 
   test('blocked status classification matches access and capacity policy', () {
@@ -210,6 +229,46 @@ void main() {
     expect(
       WebGatewayLoginSource.fromStorage('WEB_TABLET'),
       WebGatewayLoginSource.webTablet,
+    );
+  });
+
+  test('source endpoint includes ports and brackets IPv6 safely', () {
+    expect(
+      webGatewayFormatRemoteEndpoint('127.0.0.1', 52140),
+      '127.0.0.1:52140',
+    );
+    expect(webGatewayFormatRemoteEndpoint('::1', 52140), '[::1]:52140');
+    expect(webGatewayFormatRemoteEndpoint('10.0.0.8', 0), '10.0.0.8');
+    expect(webGatewayFormatRemoteEndpoint('', 52140), 'unknown');
+  });
+
+  test('client UA summary keeps browser and operating system versions', () {
+    expect(
+      webGatewaySummarizeClientUserAgent(
+        userAgent:
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) '
+            'AppleWebKit/537.36 (KHTML, like Gecko) '
+            'Chrome/138.0.0.0 Safari/537.36',
+      ),
+      'Chrome 138.0.0.0 · macOS 10.15.7',
+    );
+    expect(
+      webGatewaySummarizeClientUserAgent(
+        userAgent:
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+            'AppleWebKit/537.36 Chrome/138.0.0.0 Safari/537.36 '
+            'Edg/138.0.0.0',
+      ),
+      'Edge 138.0.0.0 · Windows NT 10.0',
+    );
+    expect(
+      webGatewaySummarizeClientUserAgent(
+        userAgent: '',
+        browserName: 'Firefox',
+        browserVersion: '140.0',
+        osName: 'Linux',
+      ),
+      'Firefox 140.0 · Linux',
     );
   });
 }

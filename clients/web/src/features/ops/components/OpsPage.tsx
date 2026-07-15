@@ -265,6 +265,10 @@ export function OpsPage() {
   );
   const failedRequests = totalErrors - blockedRequests;
   const successfulRequests = totalRequests - totalErrors;
+  const peerDistribution = snapshot?.peer_distribution
+    && Object.keys(snapshot.peer_distribution).length > 0
+    ? snapshot.peer_distribution
+    : snapshot?.ip_distribution;
   const subtitle = snapshot
     ? `${t('ops.metric.uptime', '运行时长')} ${tDuration(snapshot.uptime_ms)} · ${t('ops.metric.totalReq', '总请求')} ${snapshot.total_requests}`
     : snapLoading
@@ -475,7 +479,7 @@ export function OpsPage() {
               </section>
             )}
 
-            {(snapshot.ip_distribution
+            {(peerDistribution
               || snapshot.client_distribution
               || snapshot.request_distribution
               || snapshot.protocol_distribution) && (
@@ -483,11 +487,11 @@ export function OpsPage() {
                 class="oh-appear-up rounded-m3-md p-4 mb-3 grid grid-cols-1 md:grid-cols-2 gap-4"
                 style={{ backgroundColor: 'var(--m3-surface-container)' }}
               >
-                {snapshot.ip_distribution && (
-                  <BreakdownBlock title={t('ops.section.peerMix', '请求来源分布')} data={snapshot.ip_distribution} />
+                {peerDistribution && (
+                  <BreakdownBlock title={t('ops.section.peerMix', '来源端点（IP:端口）')} data={peerDistribution} />
                 )}
                 {snapshot.client_distribution && (
-                  <BreakdownBlock title={t('ops.section.clientMix', '客户端分布')} data={snapshot.client_distribution} />
+                  <BreakdownBlock title={t('ops.section.clientMix', '客户端 UA 分布')} data={snapshot.client_distribution} />
                 )}
                 {snapshot.request_distribution && (
                   <BreakdownBlock title={t('ops.section.requestMix', '请求分布')} data={snapshot.request_distribution} />

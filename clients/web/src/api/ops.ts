@@ -107,6 +107,7 @@ export interface OpsRuntimeSnapshot {
   mcp_server_enabled_count?: number;
   mcp_server_total_count?: number;
   ip_distribution?: Record<string, number>;
+  peer_distribution?: Record<string, number>;
   client_distribution?: Record<string, number>;
   request_distribution?: Record<string, number>;
   protocol_distribution?: Record<string, number>;
