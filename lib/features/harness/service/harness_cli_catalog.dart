@@ -6,6 +6,7 @@ import 'dart:ui' show Locale;
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../app/support/system_proxy.dart';
+import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
@@ -14,6 +15,7 @@ enum HarnessCliAuthProbeMode { commandExitCode, localStateFile }
 
 final RegExp _nodeMajorVersionPattern = RegExp(r'^v?(\d+)');
 const int _localAuthStateMaxBytes = 2 * 1024 * 1024;
+const int _harnessCliProbeConcurrency = 4;
 
 /// Describes a known AI CLI client usable in Harness Engineering.
 class HarnessCli {
@@ -498,11 +500,13 @@ List<String> suggestedHarnessCliModels(HarnessCli cli, {int max = 3}) {
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
-/// Scans all known CLIs in parallel. Installed headless-capable CLIs appear
-/// first; uninstalled ones last.
+/// Scans known CLIs with bounded parallelism. Installed headless-capable CLIs
+/// appear first; uninstalled ones last.
 Future<List<CliScanEntry>> scanInstalledClis() async {
-  final results = await Future.wait(
-    kHarnessCliCatalog.map(probeCliInstallation),
+  final results = await runOrderedWithConcurrencyLimit<CliScanEntry>(
+    itemCount: kHarnessCliCatalog.length,
+    maxConcurrency: _harnessCliProbeConcurrency,
+    task: (index) => probeCliInstallation(kHarnessCliCatalog[index]),
   );
   // Installed & headless first; uninstalled last.
   final installedHeadless = results
@@ -513,6 +517,14 @@ Future<List<CliScanEntry>> scanInstalledClis() async {
       .toList();
   final notInstalled = results.where((r) => !r.installed).toList();
   return [...installedHeadless, ...installedGui, ...notInstalled];
+}
+
+Future<List<bool?>> probeCliAuthBatch(List<CliScanEntry> entries) {
+  return runOrderedWithConcurrencyLimit<bool?>(
+    itemCount: entries.length,
+    maxConcurrency: _harnessCliProbeConcurrency,
+    task: (index) => probeCliAuth(entries[index]),
+  );
 }
 
 /// Probes a single CLI installation.

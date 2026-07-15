@@ -171,7 +171,7 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
       _isCheckingAuth = false;
     });
 
-    // Phase 1 — fast install probe (parallel)
+    // Phase 1 — fast install probe (bounded parallelism)
     final results = await scanInstalledClis();
     if (!mounted || requestId != _scanRequestId) return;
     final hasCheckable = results.any((e) => e.installed && e.cli.hasLoginCheck);
@@ -183,8 +183,8 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
 
     if (!hasCheckable) return;
 
-    // Phase 2 — auth probe for installed CLIs (parallel, slower)
-    final authResults = await Future.wait(results.map(probeCliAuth));
+    // Phase 2 — auth probe for installed CLIs (bounded parallelism, slower)
+    final authResults = await probeCliAuthBatch(results);
     if (!mounted || requestId != _scanRequestId) return;
     setState(() {
       _scanResults = [

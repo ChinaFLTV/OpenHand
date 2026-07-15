@@ -107,6 +107,10 @@ class _HarnessCliInstallDialogState extends State<HarnessCliInstallDialog> {
       }
     }
     _pendingLogLines.add(line);
+    final pendingOverflow = _pendingLogLines.length - _maxLogLines;
+    if (pendingOverflow > 0) {
+      _pendingLogLines.removeRange(0, pendingOverflow);
+    }
     _logFlushTimer ??= startSafeTimer(
       kOpenHandFramePeriodicTimerInterval,
       _flushPendingLogLines,
