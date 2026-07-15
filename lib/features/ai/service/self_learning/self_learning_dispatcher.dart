@@ -10,6 +10,7 @@ import '../../model/ai_token_usage.dart';
 import '../../tools/ai_tool_utils.dart';
 import '../../tools/memory/ai_memory_tool.dart';
 import '../../tools/skill/ai_skill_manager_tool.dart';
+import '../bash/ai_bash_tool_service.dart';
 import '../chat/ai_chat_service.dart';
 import '../chat/ai_protocol_adapter.dart';
 import '../runtime/ai_tool_runtime_service.dart';
@@ -395,36 +396,45 @@ SelfLearningLlmDispatcher buildSelfLearningDispatcher({
         var ok = false;
         try {
           if (normalizedName == 'memory') {
-            final r = await memoryTool.run(args);
-            resultText = r.resultText;
-            ok = r.stderr.isEmpty;
-            if (ok) {
-              memoryCallsOk += 1;
-              final action = AiToolUtils.readString(
-                args['action'],
-              ).toLowerCase();
-              final content = '${args['content'] ?? ''}';
-              final id = AiToolUtils.readString(args['id']);
-              final summary = _summariseMemoryArgs(action, content);
-              if (action == 'upsert_profile') {
-                profileChanges.add(<String, Object?>{
-                  'id': id.isEmpty ? 'user_profile' : id,
-                  'summary': summary,
-                  'action': action,
-                });
-              } else if (action == 'append' ||
-                  action == 'update' ||
-                  action == 'delete') {
-                memoryChanges.add(<String, Object?>{
-                  'id': id.isEmpty
-                      ? (action == 'append' ? '(new)' : '(unknown)')
-                      : id,
-                  'summary': summary,
-                  'action': action,
-                });
-              }
-            } else {
+            final action = AiToolUtils.readString(args['action']).toLowerCase();
+            if (context.userProfileTruncated && action == 'upsert_profile') {
+              resultText =
+                  'status: failed\nerror: user profile snapshot is truncated; '
+                  'upsert_profile is disabled for this run.';
               memoryCallsError += 1;
+            } else {
+              final r = await memoryTool.run(
+                args,
+                requireUnchangedProfile: action == 'upsert_profile',
+                expectedUserProfile: context.userProfileSnapshot,
+              );
+              resultText = r.resultText;
+              ok = r.status == BashToolExecutionStatus.success;
+              if (ok) {
+                memoryCallsOk += 1;
+                final content = '${args['content'] ?? ''}';
+                final id = AiToolUtils.readString(args['id']);
+                final summary = _summariseMemoryArgs(action, content);
+                if (action == 'upsert_profile') {
+                  profileChanges.add(<String, Object?>{
+                    'id': id.isEmpty ? 'user_profile' : id,
+                    'summary': summary,
+                    'action': action,
+                  });
+                } else if (action == 'append' ||
+                    action == 'update' ||
+                    action == 'delete') {
+                  memoryChanges.add(<String, Object?>{
+                    'id': id.isEmpty
+                        ? (action == 'append' ? '(new)' : '(unknown)')
+                        : id,
+                    'summary': summary,
+                    'action': action,
+                  });
+                }
+              } else {
+                memoryCallsError += 1;
+              }
             }
           } else if (normalizedName == 'skillmanager' ||
               normalizedName == 'skill_manager') {

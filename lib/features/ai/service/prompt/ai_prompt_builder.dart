@@ -45,6 +45,11 @@ import 'ai_prompt_template_repository.dart';
 
 const String aiPromptRuntimeTailSnapshotMetadataKey =
     'prompt_runtime_tail_snapshot';
+const int _userProfilePromptMaxCharacters = 8 * 1024;
+const int _userMemoryPromptMaxEntries = 64;
+const int _userMemoryPromptEntryMaxCharacters = 2 * 1024;
+const int _userMemoryPromptTagsMaxCharacters = 320;
+const int _userMemoryPromptMaxCharacters = 24 * 1024;
 
 class AiPromptBuildResult {
   const AiPromptBuildResult({
@@ -568,7 +573,7 @@ class AiPromptBuilder {
       _systemSectionTurn(
         AiPromptSectionHeaders.userMemory,
         'Long-term user facts and preferences.\n\n'
-        '${_renderUserProfileSection(promptMemoryEntries, runtimeContext.memoryEnabled, compact: true)}'
+        '${_renderUserProfileSection(promptMemoryEntries, runtimeContext.memoryEnabled)}'
         '${_renderUserMemory(promptMemoryEntries, runtimeContext.memoryEnabled)}',
       ),
       // 【指令】模块注入。
@@ -4022,15 +4027,51 @@ $tail''';
     if (filtered.isEmpty) {
       return 'No saved user memory entries.';
     }
-    return filtered
-        .map((entry) {
-          final promptTags = _memoryTagsForPrompt(entry);
-          final tags = promptTags.isEmpty
-              ? ''
-              : ' (tags: ${promptTags.join(', ')})';
-          return '- ${entry.content.trim()}$tags';
-        })
-        .join('\n');
+    final lines = <String>[];
+    var renderedCharacters = 0;
+    final candidateCount = math.min(
+      filtered.length,
+      _userMemoryPromptMaxEntries,
+    );
+    for (var index = 0; index < candidateCount; index++) {
+      final entry = filtered[index];
+      final promptTags = _memoryTagsForPrompt(entry);
+      final tags = promptTags.isEmpty
+          ? ''
+          : ' (tags: ${clipTextWithOmissionMarker(promptTags.join(', '), maxCodeUnits: _userMemoryPromptTagsMaxCharacters, marker: 'memory_tags_truncated').text})';
+      final contentBudget =
+          _userMemoryPromptEntryMaxCharacters - 2 - tags.length;
+      final content = clipTextWithOmissionMarker(
+        entry.content,
+        maxCodeUnits: math.max(1, contentBudget),
+        marker: 'memory_content_truncated',
+      ).text;
+      final line = '- $content$tags';
+      final separatorCharacters = lines.isEmpty ? 0 : 1;
+      if (renderedCharacters + separatorCharacters + line.length >
+          _userMemoryPromptMaxCharacters) {
+        break;
+      }
+      lines.add(line);
+      renderedCharacters += separatorCharacters + line.length;
+    }
+    while (true) {
+      final omitted = filtered.length - lines.length;
+      if (omitted <= 0) break;
+      final marker = '[memory_entries_omitted: $omitted entries]';
+      final separatorCharacters = lines.isEmpty ? 0 : 1;
+      if (renderedCharacters + separatorCharacters + marker.length <=
+          _userMemoryPromptMaxCharacters) {
+        lines.add(marker);
+        break;
+      }
+      if (lines.isEmpty) return marker;
+      final removed = lines.removeLast();
+      renderedCharacters -= removed.length + (lines.isEmpty ? 0 : 1);
+    }
+    final rendered = lines.join('\n');
+    assert(rendered.length <= _userMemoryPromptMaxCharacters);
+    return rendered;
   }
 
   List<UserMemoryEntry> _memoryEntriesForPrompt(
@@ -4055,7 +4096,12 @@ $tail''';
     if (createdAtCompare != 0) return createdAtCompare;
     final idCompare = _comparePromptText(a.id, b.id);
     if (idCompare != 0) return idCompare;
-    return _comparePromptText(a.content, b.content);
+    final contentCompare = _comparePromptText(a.content, b.content);
+    if (contentCompare != 0) return contentCompare;
+    return _comparePromptText(
+      jsonEncode(_memoryTagsForPrompt(a)),
+      jsonEncode(_memoryTagsForPrompt(b)),
+    );
   }
 
   int _memoryTypeRank(String type) {
@@ -4128,13 +4174,11 @@ $tail''';
   /// 渲染用户画像独立子段。当 user_profile 为空 / memory 被关闭时返回空字符串
   /// （连同后续 `_renderUserMemory` 一起就只剩通用记忆段，不破坏原有结构）。
   ///
-  /// 紧凑模板下省略冗长的解释性文字以节省 token；完整模板下提供更明确的指
-  /// 引，告知模型该段是稳定的长期画像，应当无痕融入回复风格。
+  /// 保持固定短模板，避免稳定画像段自身浪费上下文。
   String _renderUserProfileSection(
     List<UserMemoryEntry> memoryEntries,
-    bool memoryEnabled, {
-    required bool compact,
-  }) {
+    bool memoryEnabled,
+  ) {
     if (!memoryEnabled) return '';
     UserMemoryEntry? profile;
     for (final entry in memoryEntries) {
@@ -4143,19 +4187,18 @@ $tail''';
         break;
       }
     }
-    final content = profile?.content.trim() ?? '';
+    const prefix = '## User Profile\n';
+    const suffix = '\n\n';
+    final content = clipTextWithOmissionMarker(
+      profile?.content ?? '',
+      maxCodeUnits:
+          _userProfilePromptMaxCharacters - prefix.length - suffix.length,
+      marker: 'user_profile_truncated',
+    ).text;
     if (content.isEmpty) return '';
-    if (compact) {
-      return '## User Profile\n$content\n\n';
-    }
-    return '## User Profile\n'
-        'The following describes the user\'s stable long-term preferences, '
-        'communication style, and focus areas. Treat this as the baseline '
-        'persona context for the entire conversation: every reply should '
-        'feel naturally aligned with this profile (tone, depth, vocabulary, '
-        'topics of interest), without ever paraphrasing or referencing the '
-        'profile itself.\n\n'
-        '$content\n\n';
+    final rendered = '$prefix$content$suffix';
+    assert(rendered.length <= _userProfilePromptMaxCharacters);
+    return rendered;
   }
 
   /// 渲染【指令】模块正文。仅返回正文，不包含 section header / 提示文本，

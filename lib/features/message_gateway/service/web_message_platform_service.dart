@@ -3482,7 +3482,7 @@ class WebMessagePlatformService {
     });
     final ok = await _sessionController.createSession(
       templateId: templateId,
-      runtimeContext: _buildRuntimeContext(templateId: templateId),
+      runtimeContext: await _buildRuntimeContext(templateId: templateId),
       mode: mode,
       metadata: metadata,
       awaitStartHook: false,
@@ -4324,6 +4324,18 @@ class WebMessagePlatformService {
           'model_key': _modelKey(model.id, model.modelId),
           'attachment_count': attachments.length,
         });
+    final runtimeContext = await _buildRuntimeContext(
+      templateId: session.templateId,
+      skippedInstructionIds: skippedInstructionIds,
+    );
+    final phaseBeforeSend = _sessionController.sendPhaseForSession(session.id);
+    if (phaseBeforeSend != AiSendPhase.idle) {
+      await _deleteMaterializedAttachments(attachments);
+      return _json(HttpStatus.conflict, <String, Object?>{
+        'error': 'session_busy',
+        'send_phase': phaseBeforeSend.name,
+      });
+    }
     // 关键：不能 await 整轮助手对话完成。原实现 `await sendMessage(...)` 会
     // 卡住 HTTP 响应直到 30s 后整轮回复结束，导致 web 端长时间「发送中」+
     // 一次性 dump 所有消息（无法看到流式）。改为 fire-and-forget：
@@ -4338,10 +4350,7 @@ class WebMessagePlatformService {
             sessionId: session.id,
             content: content,
             model: model,
-            runtimeContext: _buildRuntimeContext(
-              templateId: session.templateId,
-              skippedInstructionIds: skippedInstructionIds,
-            ),
+            runtimeContext: runtimeContext,
             attachmentFilePaths: attachments,
             responseModalities: responseModalities,
             creationRequest: creationRequest,
@@ -4691,15 +4700,25 @@ class WebMessagePlatformService {
         'error': 'model_not_configured',
       });
     }
+    final runtimeContext = await _buildRuntimeContext(
+      templateId: session.templateId,
+    );
+    final phaseBeforeRegeneration = _sessionController.sendPhaseForSession(
+      session.id,
+    );
+    if (phaseBeforeRegeneration != AiSendPhase.idle) {
+      return _json(HttpStatus.conflict, <String, Object?>{
+        'error': 'session_busy',
+        'send_phase': phaseBeforeRegeneration.name,
+      });
+    }
     unawaited(
       _sessionController
           .regenerateAssistantMessageVariant(
             sessionId: session.id,
             messageId: message.id,
             model: model,
-            runtimeContext: _buildRuntimeContext(
-              templateId: session.templateId,
-            ),
+            runtimeContext: runtimeContext,
             denyCommandRules: _settingsController.aiDenyCommandRules,
             requireWriteCommandConfirmation: session.fullAccessPermission
                 ? false
@@ -4867,14 +4886,24 @@ class WebMessagePlatformService {
         'send_phase': currentPhase.name,
       });
     }
+    final runtimeContext = await _buildRuntimeContext(
+      templateId: session.templateId,
+    );
+    final phaseBeforeResume = _sessionController.sendPhaseForSession(
+      session.id,
+    );
+    if (phaseBeforeResume != AiSendPhase.idle) {
+      return _json(HttpStatus.conflict, <String, Object?>{
+        'error': 'session_busy',
+        'send_phase': phaseBeforeResume.name,
+      });
+    }
     unawaited(
       _sessionController
           .resumeGoal(
             sessionId: session.id,
             model: model,
-            runtimeContext: _buildRuntimeContext(
-              templateId: session.templateId,
-            ),
+            runtimeContext: runtimeContext,
             denyCommandRules: _settingsController.aiDenyCommandRules,
             requireWriteCommandConfirmation: session.fullAccessPermission
                 ? false
@@ -4993,7 +5022,9 @@ class WebMessagePlatformService {
     final result = await _sessionController.requestManualCompaction(
       sessionId: session.id,
       model: model,
-      runtimeContext: _buildRuntimeContext(templateId: session.templateId),
+      runtimeContext: await _buildRuntimeContext(
+        templateId: session.templateId,
+      ),
     );
     final updated = _findAuthorizedSession(auth, sessionId) ?? session;
     final statusName = switch (result.status) {
@@ -7435,10 +7466,15 @@ class WebMessagePlatformService {
     return 'dark';
   }
 
-  AiSessionRuntimeContext _buildRuntimeContext({
+  Future<AiSessionRuntimeContext> _buildRuntimeContext({
     required String templateId,
     Set<String> skippedInstructionIds = const <String>{},
-  }) {
+  }) async {
+    final memoryEnabled = _settingsController.memoryEnabled;
+    final memoryEntries = memoryEnabled
+        ? await _memoryController.trustedEntriesSnapshot() ??
+              const <UserMemoryEntry>[]
+        : const <UserMemoryEntry>[];
     final now = DateTime.now().toLocal();
     final mcpToolCatalogsByServerName = <String, McpToolCatalog>{
       for (final server in _mcpController.runtimeServers)
@@ -7469,10 +7505,8 @@ class WebMessagePlatformService {
           _settingsController.aiMinimumMeaningfulTitleCharacters,
       minimumMeaningfulLatinTitleWords:
           _settingsController.aiMinimumMeaningfulLatinTitleWords,
-      memoryEnabled: _settingsController.memoryEnabled,
-      memoryEntries: _settingsController.memoryEnabled
-          ? _memoryController.entries
-          : const [],
+      memoryEnabled: memoryEnabled,
+      memoryEntries: memoryEntries,
       templateId: templateId,
       platformName: Platform.operatingSystem,
       workingDirectory: OpenHandPaths.applicationDirectoryPath(),

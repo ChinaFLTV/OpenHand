@@ -5584,6 +5584,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         cdpMcpBridgeDiagnostic: webReverseCdpMcpSnapshot.diagnostic,
       );
     }
+    final memoryEnabled = settingsController.memoryEnabled;
+    final memoryEntries = memoryEnabled
+        ? await memoryController.trustedEntriesSnapshot() ??
+              const <UserMemoryEntry>[]
+        : const <UserMemoryEntry>[];
     final now = DateTime.now().toLocal();
     return AiSessionRuntimeContext(
       localeTag: settingsController.locale.toLanguageTag(),
@@ -5646,7 +5651,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       chatMaxStreamLineBufferBytes:
           settingsController.aiChatMaxStreamLineBufferBytes,
       imageSizeLimitBytes: settingsController.aiImageSizeLimitBytes,
-      memoryEnabled: settingsController.memoryEnabled,
+      memoryEnabled: memoryEnabled,
       mcpLazyLoadingMode: settingsController.mcpLazyLoadingMode,
       mcpLazyLoadingThresholdTokens:
           settingsController.mcpLazyLoadingThresholdTokens,
@@ -5677,9 +5682,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}',
       timeZoneName: now.timeZoneName,
       repositorySnapshot: gitSnapshot,
-      memoryEntries: settingsController.memoryEnabled
-          ? memoryController.entries
-          : const [],
+      memoryEntries: memoryEntries,
       allowCommandRules: settingsController.aiAllowCommandRules,
       sandboxSettings: settingsController.aiSandboxSettings,
       availableSkills: skillsController.skills,

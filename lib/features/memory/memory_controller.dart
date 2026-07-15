@@ -112,6 +112,16 @@ class MemoryController extends ManagedChangeNotifier {
     await _enqueueOperation(_loadLocked);
   }
 
+  Future<bool> ensureLoaded() =>
+      _enqueueOperation(_ensureTrustedSnapshotLocked);
+
+  Future<List<UserMemoryEntry>?> trustedEntriesSnapshot() {
+    return _enqueueOperation(() async {
+      if (!await _ensureTrustedSnapshotLocked()) return null;
+      return _entriesView;
+    });
+  }
+
   Future<bool> createMemory({
     required String content,
     required List<String> tags,
@@ -162,7 +172,7 @@ class MemoryController extends ManagedChangeNotifier {
     return _enqueueOperation(() async {
       if (!await _ensureTrustedSnapshotLocked()) return false;
       final index = _entries.indexWhere((item) => item.id == entry.id);
-      if (index == -1) {
+      if (index == -1 || !identical(_entries[index], entry)) {
         return false;
       }
       final nextEntries = List<UserMemoryEntry>.from(_entries);
@@ -185,10 +195,40 @@ class MemoryController extends ManagedChangeNotifier {
   Future<UserMemoryEntry> upsertUserProfile({
     required String content,
     List<String>? tags,
+  }) async {
+    final entry = await _upsertUserProfile(
+      content: content,
+      tags: tags,
+      requireUnchangedProfile: false,
+    );
+    return entry!;
+  }
+
+  Future<UserMemoryEntry?> upsertUserProfileIfUnchanged({
+    required String content,
+    required UserMemoryEntry? expectedProfile,
+    List<String>? tags,
+  }) {
+    return _upsertUserProfile(
+      content: content,
+      tags: tags,
+      requireUnchangedProfile: true,
+      expectedProfile: expectedProfile,
+    );
+  }
+
+  Future<UserMemoryEntry?> _upsertUserProfile({
+    required String content,
+    required bool requireUnchangedProfile,
+    UserMemoryEntry? expectedProfile,
+    List<String>? tags,
   }) {
     return _enqueueOperation(() async {
       if (!await _ensureTrustedSnapshotLocked()) {
         throw StateError('Unable to load memories before updating profile.');
+      }
+      if (requireUnchangedProfile && !identical(userProfile, expectedProfile)) {
+        return null;
       }
       try {
         final entry = await _store.upsertUserProfile(
@@ -216,12 +256,10 @@ class MemoryController extends ManagedChangeNotifier {
   Future<bool> deleteMemory(UserMemoryEntry entry) async {
     return _enqueueOperation(() async {
       if (!await _ensureTrustedSnapshotLocked()) return false;
-      final nextEntries = _entries
-          .where((item) => item.id != entry.id)
-          .toList(growable: false);
-      if (nextEntries.length == _entries.length) {
-        return true;
-      }
+      final index = _entries.indexWhere((item) => item.id == entry.id);
+      if (index == -1) return true;
+      if (!identical(_entries[index], entry)) return false;
+      final nextEntries = List<UserMemoryEntry>.from(_entries)..removeAt(index);
       return _commitMutationLocked(
         nextEntries,
         () => _store.deleteEntry(entry.id),

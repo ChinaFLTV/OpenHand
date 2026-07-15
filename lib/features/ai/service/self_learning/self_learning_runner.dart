@@ -3,11 +3,18 @@ library;
 import 'dart:async';
 
 import '../../../../app/support/silent_log.dart';
+import '../../../../shared/util/text_clip.dart';
 import '../../../../shared/util/timer_safety.dart';
 import '../../../memory/index.dart';
 import '../../ai_session_controller.dart';
 import '../../model/ai_session.dart';
 import '../../model/ai_session_message.dart';
+
+const int _selfLearningProfileMaxCharacters = 8 * 1024;
+const int _selfLearningHistoryMaxCharacters = 16 * 1024;
+const int _selfLearningHistoryMaxEntries = 64;
+const int _selfLearningHistoryEntryMaxCharacters = 2 * 1024;
+const String _selfLearningProfileTruncatedWarning = '[画像已截断：本轮禁止修改或删除画像。]';
 
 /// 由 bootstrap 注入的 LLM 驱动回调签名。
 ///
@@ -32,9 +39,8 @@ class SelfLearningContext {
   const SelfLearningContext({
     required this.session,
     required this.prompt,
-    required this.userProfileContent,
-    required this.autoLearnedMemoriesSummary,
-    required this.conversationSlice,
+    required this.userProfileSnapshot,
+    required this.userProfileTruncated,
     this.placeholderMessageId,
     this.onProgress,
   });
@@ -44,14 +50,8 @@ class SelfLearningContext {
   /// 完整的中文系统提示（已经插入了 userProfile / 记忆 / 对话切片占位符）。
   final String prompt;
 
-  /// 当前 user_profile 条目内容（空时为空字符串）。
-  final String userProfileContent;
-
-  /// 当前带 '自主学习' 标签的记忆的文本摘要。
-  final String autoLearnedMemoriesSummary;
-
-  /// 对话切片纯文本（按 "user: ... / assistant: ..." 逐行拼接）。
-  final String conversationSlice;
+  final UserMemoryEntry? userProfileSnapshot;
+  final bool userProfileTruncated;
 
   /// 由运行器预创建的占位 selfLearning 卡片消息 id，派发器可据此自行
   /// 调用 [AiSessionController.updateSelfLearningMessage] 进行更高级的
@@ -192,10 +192,9 @@ class SelfLearningRunner {
     });
 
     try {
-      final latest = sessionController.sessionById(session.id) ?? session;
+      var latest = sessionController.sessionById(session.id) ?? session;
 
       // 2) 构造上下文。
-      final slice = _buildConversationSlice(latest);
       final sliceMessageCount = _countSliceMessages(latest);
       if (sliceMessageCount < minConversationTurns) {
         // 门槛未满足时不得写入占位卡片，否则它会成为新的 checkpoint，
@@ -209,13 +208,71 @@ class SelfLearningRunner {
         return null;
       }
 
-      final userProfileContent = memoryController.userProfile?.content ?? '';
-      final autoLearned = memoryController
-          .memoriesWithTag(autoLearnedMemoriesTag)
-          .map((e) => '- ${e.content}')
-          .join('\n');
+      final dispatcher = llmDispatcher;
+      if (dispatcher == null) {
+        silentLog(
+          'self_learning_runner',
+          'runForSession.skipped (no dispatcher)',
+          'session=${session.id}',
+        );
+        return null;
+      }
+
+      if (!await memoryController.ensureLoaded()) {
+        silentLog(
+          'self_learning_runner',
+          'runForSession.skipped (memory unavailable)',
+          'session=${session.id}',
+        );
+        return null;
+      }
+
+      latest = sessionController.sessionById(session.id) ?? latest;
+      final refreshedSliceMessageCount = _countSliceMessages(latest);
+      if (refreshedSliceMessageCount < minConversationTurns) {
+        silentLog(
+          'self_learning_runner',
+          'runForSession.skipped (conversation changed)',
+          'turns=$refreshedSliceMessageCount min=$minConversationTurns '
+              'session=${session.id}',
+        );
+        return null;
+      }
+
+      final userProfileEntry = memoryController.userProfile;
+      final rawUserProfileContent = userProfileEntry?.content ?? '';
+      final autoLearnedEntries =
+          memoryController
+              .memoriesWithTag(autoLearnedMemoriesTag)
+              .where((entry) => entry.type == UserMemoryEntry.userType)
+              .toList(growable: false)
+            ..sort((left, right) {
+              final createdAtCompare = right.createdAt.compareTo(
+                left.createdAt,
+              );
+              if (createdAtCompare != 0) return createdAtCompare;
+              return left.id.compareTo(right.id);
+            });
+
+      final profileNeedsTruncation =
+          rawUserProfileContent.trim().length >
+          _selfLearningProfileMaxCharacters;
+      final profileBudget = profileNeedsTruncation
+          ? _selfLearningProfileMaxCharacters -
+                _selfLearningProfileTruncatedWarning.length -
+                1
+          : _selfLearningProfileMaxCharacters;
+      final profileSnapshot = clipTextWithOmissionMarker(
+        rawUserProfileContent,
+        maxCodeUnits: profileBudget,
+        marker: 'user_profile_truncated',
+      );
+      final userProfileContent = profileSnapshot.text;
+      final autoLearned = _renderBoundedAutoLearnedHistory(autoLearnedEntries);
+      final slice = _buildConversationSlice(latest);
       final prompt = _buildPrompt(
         userProfile: userProfileContent,
+        userProfileTruncated: profileSnapshot.truncated,
         autoLearned: autoLearned,
         slice: slice,
       );
@@ -223,26 +280,11 @@ class SelfLearningRunner {
       final context = SelfLearningContext(
         session: latest,
         prompt: prompt,
-        userProfileContent: userProfileContent,
-        autoLearnedMemoriesSummary: autoLearned,
-        conversationSlice: slice,
+        userProfileSnapshot: userProfileEntry,
+        userProfileTruncated: profileSnapshot.truncated,
       );
 
       // 3) 派发给 LLM 驱动层（可选）。
-      final dispatcher = llmDispatcher;
-      if (dispatcher == null) {
-        // 同样的 checkpoint-poisoning 风险：dispatcher 缺失只是配置问题，
-        // 不应消费用户的真实对话进度。仅记日志后返回。
-        silentLog(
-          'self_learning_runner',
-          'runForSession.skipped (no dispatcher)',
-          'session=${session.id} '
-              'profile_present=${userProfileContent.isNotEmpty} '
-              'auto_learned=${memoryController.memoriesWithTag(autoLearnedMemoriesTag).length}',
-        );
-        return null;
-      }
-
       // 4a) 预先创建 status='streaming' 的占位卡片，供派发器流式追加。
       final placeholderId = await sessionController.appendSelfLearningMessage(
         sessionId: session.id,
@@ -305,9 +347,8 @@ class SelfLearningRunner {
       final streamingContext = SelfLearningContext(
         session: context.session,
         prompt: context.prompt,
-        userProfileContent: context.userProfileContent,
-        autoLearnedMemoriesSummary: context.autoLearnedMemoriesSummary,
-        conversationSlice: context.conversationSlice,
+        userProfileSnapshot: context.userProfileSnapshot,
+        userProfileTruncated: context.userProfileTruncated,
         placeholderMessageId: placeholderId,
         onProgress: placeholderId == null ? null : onProgress,
       );
@@ -519,6 +560,7 @@ class SelfLearningRunner {
 
   String _buildPrompt({
     required String userProfile,
+    required bool userProfileTruncated,
     required String autoLearned,
     required String slice,
   }) {
@@ -581,6 +623,7 @@ S5. 输出自然、零痕迹 — 不要向用户提及"记忆/画像/技能"这�
 
 ## 当前用户画像
 $profileSection
+${userProfileTruncated ? _selfLearningProfileTruncatedWarning : ''}
 
 ## 最近的自主学习记忆
 $autoLearnedSection
@@ -593,5 +636,44 @@ $slice
 为何接受或放弃"。如果全部信号都被 H1–H5 拒绝，**直接返回"无变更"** —
 这本身就是合格的输出，比强行新增更好。]
 ''';
+  }
+
+  static String _renderBoundedAutoLearnedHistory(
+    List<UserMemoryEntry> entries,
+  ) {
+    final lines = <String>[];
+    var renderedCharacters = 0;
+    for (final entry in entries.take(_selfLearningHistoryMaxEntries)) {
+      final content = clipTextWithOmissionMarker(
+        entry.content,
+        maxCodeUnits: _selfLearningHistoryEntryMaxCharacters - 2,
+        marker: 'memory_content_truncated',
+      ).text;
+      final line = '- $content';
+      final separatorCharacters = lines.isEmpty ? 0 : 1;
+      if (renderedCharacters + separatorCharacters + line.length >
+          _selfLearningHistoryMaxCharacters) {
+        break;
+      }
+      lines.add(line);
+      renderedCharacters += separatorCharacters + line.length;
+    }
+    while (true) {
+      final omitted = entries.length - lines.length;
+      if (omitted <= 0) break;
+      final marker = '[auto_learned_memories_omitted: $omitted entries]';
+      final separatorCharacters = lines.isEmpty ? 0 : 1;
+      if (renderedCharacters + separatorCharacters + marker.length <=
+          _selfLearningHistoryMaxCharacters) {
+        lines.add(marker);
+        break;
+      }
+      if (lines.isEmpty) return marker;
+      final removed = lines.removeLast();
+      renderedCharacters -= removed.length + (lines.isEmpty ? 0 : 1);
+    }
+    final rendered = lines.join('\n');
+    assert(rendered.length <= _selfLearningHistoryMaxCharacters);
+    return rendered;
   }
 }
