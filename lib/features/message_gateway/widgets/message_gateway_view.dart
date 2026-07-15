@@ -10104,7 +10104,6 @@ class _TrendLineChartState extends State<_TrendLineChart> {
                       values: values,
                       minValue: minValue,
                       maxValue: maxValue,
-                      progress: 1,
                       lineColor: colorScheme.primary,
                       gridColor: colorScheme.outlineVariant.withValues(
                         alpha: .72,
@@ -10134,12 +10133,33 @@ List<double> _lerpSeries(List<double> from, List<double> to, double progress) {
   }, growable: false);
 }
 
+const double _trendLineStrokeWidth = 2.6;
+const double _trendPlotHorizontalPadding = 4;
+const double _trendPlotVerticalPadding = 6;
+
+@visibleForTesting
+Rect webGatewayTrendPlotRect(Rect chart) {
+  final horizontalInset = math.min(
+    _trendPlotHorizontalPadding,
+    math.max(0, (chart.width - 1) / 2),
+  );
+  final verticalInset = math.min(
+    _trendPlotVerticalPadding,
+    math.max(0, (chart.height - 1) / 2),
+  );
+  return Rect.fromLTRB(
+    chart.left + horizontalInset,
+    chart.top + verticalInset,
+    chart.right - horizontalInset,
+    chart.bottom - verticalInset,
+  );
+}
+
 class _TrendLinePainter extends CustomPainter {
   const _TrendLinePainter({
     required this.values,
     required this.minValue,
     required this.maxValue,
-    required this.progress,
     required this.lineColor,
     required this.gridColor,
     required this.labelColor,
@@ -10149,7 +10169,6 @@ class _TrendLinePainter extends CustomPainter {
   final List<double> values;
   final double minValue;
   final double maxValue;
-  final double progress;
   final Color lineColor;
   final Color gridColor;
   final Color labelColor;
@@ -10167,6 +10186,7 @@ class _TrendLinePainter extends CustomPainter {
       math.max(1, size.width - left - right),
       math.max(1, size.height - top - bottom),
     );
+    final plot = webGatewayTrendPlotRect(chart);
     final axisPaint = Paint()
       ..color = gridColor
       ..strokeWidth = 1;
@@ -10202,9 +10222,9 @@ class _TrendLinePainter extends CustomPainter {
     final span = math.max(1.0, maxValue - minValue);
     final points = <Offset>[];
     for (var i = 0; i < values.length; i++) {
-      final x = chart.left + chart.width * i / (values.length - 1);
+      final x = plot.left + plot.width * i / (values.length - 1);
       final normalized = finiteUnitInterval((values[i] - minValue) / span);
-      final y = chart.bottom - chart.height * normalized;
+      final y = plot.bottom - plot.height * normalized;
       points.add(Offset(x, y));
     }
     final path = Path()..moveTo(points.first.dx, points.first.dy);
@@ -10222,11 +10242,8 @@ class _TrendLinePainter extends CustomPainter {
       ..lineTo(points.last.dx, chart.bottom)
       ..lineTo(points.first.dx, chart.bottom)
       ..close();
-    final visibleRight = chart.left + chart.width * clampUnitInterval(progress);
     canvas.save();
-    canvas.clipRect(
-      Rect.fromLTRB(chart.left, chart.top, visibleRight, chart.bottom),
-    );
+    canvas.clipRect(chart);
     canvas.drawPath(
       fillPath,
       Paint()
@@ -10244,7 +10261,7 @@ class _TrendLinePainter extends CustomPainter {
       Paint()
         ..color = lineColor
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.6
+        ..strokeWidth = _trendLineStrokeWidth
         ..strokeCap = StrokeCap.round
         ..strokeJoin = StrokeJoin.round,
     );
@@ -10272,7 +10289,6 @@ class _TrendLinePainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _TrendLinePainter oldDelegate) {
     return oldDelegate.values != values ||
-        oldDelegate.progress != progress ||
         oldDelegate.minValue != minValue ||
         oldDelegate.maxValue != maxValue ||
         oldDelegate.lineColor != lineColor ||
