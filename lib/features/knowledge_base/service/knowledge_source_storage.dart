@@ -8,6 +8,8 @@ import 'package:sqflite_common/sqlite_api.dart';
 import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../shared/db/database_service.dart';
+import '../../../shared/util/path_safety.dart';
+import '../../../shared/util/physical_path_safety.dart';
 import '../../../shared/util/serial_task_queue.dart';
 import '../model/knowledge_source.dart';
 
@@ -239,10 +241,46 @@ Future<void> _deleteCleanupMarker(String sourceId) {
 }
 
 Future<void> _deleteManagedKnowledgeSourcePath(String path) async {
-  final file = File(path);
-  if (await file.exists()) {
-    await file.delete().timeout(_pendingKnowledgeSourceDeleteTimeout);
+  final root = p.absolute(knowledgeManagedSourcesDirectoryPath);
+  final candidate = p.absolute(path);
+  if (!isPathWithinOrEqual(root, candidate)) {
+    throw FileSystemException(
+      'Refusing to delete a knowledge source outside managed storage.',
+      candidate,
+    );
   }
+  final type = await FileSystemEntity.type(
+    candidate,
+    followLinks: false,
+  ).timeout(_pendingKnowledgeSourceDeleteTimeout);
+  if (type == FileSystemEntityType.notFound) return;
+  if (type == FileSystemEntityType.link) {
+    final isParentContained = await isPhysicalPathWithinOrEqual(
+      root,
+      p.dirname(candidate),
+    ).timeout(_pendingKnowledgeSourceDeleteTimeout, onTimeout: () => false);
+    if (!isParentContained) {
+      throw FileSystemException(
+        'Refusing to delete an invalid managed knowledge source link.',
+        candidate,
+      );
+    }
+    await Link(
+      candidate,
+    ).delete().timeout(_pendingKnowledgeSourceDeleteTimeout);
+    return;
+  }
+  if (type != FileSystemEntityType.file ||
+      !await isPhysicalPathWithinOrEqual(
+        root,
+        candidate,
+      ).timeout(_pendingKnowledgeSourceDeleteTimeout, onTimeout: () => false)) {
+    throw FileSystemException(
+      'Refusing to delete an invalid managed knowledge source.',
+      candidate,
+    );
+  }
+  await File(candidate).delete().timeout(_pendingKnowledgeSourceDeleteTimeout);
 }
 
 Future<void> _completeCleanup(({String sourceId, String path}) entry) async {

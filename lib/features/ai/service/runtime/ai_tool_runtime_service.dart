@@ -16,6 +16,7 @@ import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/lifecycle_cache.dart';
 import '../../../../shared/util/path_safety.dart';
+import '../../../../shared/util/physical_path_safety.dart';
 import '../../../../shared/util/tool_name_normalization.dart';
 import '../../../agents/index.dart';
 import '../../../instructions/instructions_controller.dart';
@@ -49,6 +50,7 @@ enum AiRuntimeToolSource { builtin, mcp, skill }
 const int _maxPostHocLedgerCaptureBytes = 16 * kBytesPerMiB;
 const int _maxSkillLinkedResources = 32;
 const int _maxSkillLinkedDirectoryEntries = 256;
+const Duration _skillLinkedResourcePathCheckTimeout = Duration(seconds: 2);
 const int _maxSessionFileTrackers = 128;
 const int _minToolOutputTruncationPayloadChars = 40;
 const String _toolResultsSubdirectoryName = 'tool-results';
@@ -2241,7 +2243,14 @@ class AiToolRuntimeService {
         continue;
       }
       final resolvedPath = p.normalize(p.join(skillDirectoryPath, linkedPath));
-      if (!isPathWithinOrEqual(skillDirectoryPath, resolvedPath)) {
+      if (!isPathWithinOrEqual(skillDirectoryPath, resolvedPath) ||
+          !await isPhysicalPathWithinOrEqual(
+            skillDirectoryPath,
+            resolvedPath,
+          ).timeout(
+            _skillLinkedResourcePathCheckTimeout,
+            onTimeout: () => false,
+          )) {
         continue;
       }
       final entityType = await FileSystemEntity.type(

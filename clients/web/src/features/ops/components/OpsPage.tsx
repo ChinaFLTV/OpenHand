@@ -20,7 +20,7 @@ import { ConfirmDialog } from '../../../components/ConfirmDialog';
 import { showSnackbar } from '../../../components/Snackbar';
 import { TopBar } from '../../../components/TopBar';
 import { describeApiError } from '../../../utils/api_error';
-import { clampNumber } from '../../../shared/util/number';
+import { clampNumber, normalizeInteger } from '../../../shared/util/number';
 
 const REFRESH_INTERVAL_MS = 5_000;
 
@@ -154,6 +154,7 @@ export function OpsPage() {
   const [snapError, setSnapError] = useState<string | null>(null);
   const [snapLoading, setSnapLoading] = useState(false);
   const [history, setHistory] = useState<CleanupHistoryEntry[]>([]);
+  const [historyCapacity, setHistoryCapacity] = useState<number | null>(null);
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [cleanupTarget, setCleanupTarget] = useState<'all' | 'logs' | 'uploads'>('all');
@@ -189,6 +190,11 @@ export function OpsPage() {
       const h = await getCleanupHistory({ signal });
       if (!isActive()) return;
       setHistory(h.items);
+      setHistoryCapacity(normalizeInteger(h.max_items, {
+        fallback: h.items.length,
+        min: h.items.length,
+        max: 10_000,
+      }));
     } catch (err) {
       if (isActive()) setHistoryError(describeApiError(err));
     }
@@ -197,11 +203,13 @@ export function OpsPage() {
   // 初次加载
   useEffect(() => {
     let stopped = false;
+    const controller = new AbortController();
     const isActive = () => !stopped;
-    void refreshSnapshot(isActive);
-    void refreshHistory(isActive);
+    void refreshSnapshot(isActive, controller.signal);
+    void refreshHistory(isActive, controller.signal);
     return () => {
       stopped = true;
+      controller.abort();
     };
   }, []);
 
@@ -332,7 +340,7 @@ export function OpsPage() {
               <Metric label={t('ops.metric.startedAt', '启动时间')} value={tDateTime(snapshot.started_at)} />
               <Metric label={t('ops.metric.uptime', '运行时长')} value={tDuration(snapshot.uptime_ms)} />
               <Metric label={t('ops.metric.bound', '监听 URL')} value={snapshot.bound_url || '—'} mono />
-              <Metric label={t('ops.metric.openSessions', '在线会话')} value={String(snapshot.open_session_count)} />
+              <Metric label={t('ops.metric.openSessions', '会话总数')} value={String(snapshot.open_session_count)} />
               {typeof snapshot.current_connections === 'number' && (
                 <Metric label={t('ops.metric.connections', '当前连接数')} value={String(snapshot.current_connections)} />
               )}
@@ -806,7 +814,13 @@ export function OpsPage() {
         <section class="oh-appear-up oh-ops-panel">
           <div class="flex items-center justify-between mb-3">
             <h2 class="text-base font-semibold" style={{ color: 'var(--m3-on-surface)' }}>
-              {t('ops.cleanup.history', '清理历史（最近 50 条）')}
+              {historyCapacity == null
+                ? t('ops.cleanup.historyTitle', '清理历史')
+                : tFmt(
+                    'ops.cleanup.history',
+                    { count: historyCapacity },
+                    '清理历史（最多 {count} 条）',
+                  )}
             </h2>
             <button
               type="button"

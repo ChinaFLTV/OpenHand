@@ -1128,7 +1128,7 @@ Map<String, int> _webGatewayStringIntMapFromValue(
   final result = <String, int>{};
   var overflow = 0;
   for (final entry in source.entries) {
-    var key = entry.key.trim().replaceAll(RegExp(r'\s+'), ' ');
+    var key = entry.key.trim().replaceAll(_webGatewayWhitespacePattern, ' ');
     if (key.isEmpty) continue;
     final value = nonNegativeIntFromValue(entry.value, fallback: 0);
     if (key.length > maxKeyCharacters) {

@@ -20,6 +20,7 @@ import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../shared/db/atomic_file_operations.dart';
+import '../../../shared/net/http_redirect_utils.dart';
 import '../../../shared/net/http_response_utils.dart';
 import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/bounded_base64.dart';
@@ -31,6 +32,8 @@ import '../../../shared/util/directory_cleanup.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/lifecycle_cache.dart';
 import '../../../shared/util/path_safety.dart';
+import '../../../shared/util/physical_path_safety.dart';
+import '../../../shared/util/sensitive_data.dart';
 import '../../../shared/util/serial_task_queue.dart';
 import '../../../shared/util/text_clip.dart';
 import '../../../shared/util/text_fingerprint.dart';
@@ -347,6 +350,7 @@ class WebMessagePlatformService {
   static const int _maxActiveSseSubscriptions = 64;
   static const int _maxSseSubscriptionsPerClient = 8;
   static const int _maxSseSubscriptionsPerSession = 8;
+  static const int _maxPendingWriteApprovals = 128;
   static const int _maxOpsPersistenceErrorCharacters = 1000;
   static const Set<AiBuiltinToolKind> _knowledgeBaseBuiltinToolKinds =
       <AiBuiltinToolKind>{
@@ -1019,8 +1023,8 @@ class WebMessagePlatformService {
     try {
       final address = _bindAddress(config.listenHost);
       final pipeline = const shelf.Pipeline()
-          .addMiddleware(_corsMiddleware())
-          .addMiddleware(_telemetryAndLimitMiddleware());
+          .addMiddleware(_telemetryAndLimitMiddleware())
+          .addMiddleware(_corsMiddleware());
       final handler = pipeline.addHandler(_buildRouter().call);
       final bindResult = await _serveGateway(
         handler: handler,
@@ -1108,6 +1112,10 @@ class WebMessagePlatformService {
   }
 
   Future<void> stop() async {
+    _resolvePendingWriteApprovals(
+      decision: BashCommandApprovalDecision.cancelled,
+      source: 'service_stop',
+    );
     await ensurePersistedOpsDataLoaded();
     await _ttsPlaybackService.stop();
     for (final dispose in List<void Function()>.from(_activeSseDisposers)) {
@@ -1120,6 +1128,7 @@ class WebMessagePlatformService {
     final server = _server;
     if (server == null) {
       _state = WebGatewayRuntimeState.stopped;
+      _clearStoppedRuntimeState();
       return;
     }
     _state = WebGatewayRuntimeState.stopping;
@@ -1137,10 +1146,7 @@ class WebMessagePlatformService {
         _server = null;
       }
       _state = WebGatewayRuntimeState.stopped;
-      _startedAt = null;
-      _authSessions.clear();
-      _loginAttemptsByRemoteAddress.clear();
-      _queuedGoalYieldLeasesBySessionId.clear();
+      _clearStoppedRuntimeState();
       _log(WebGatewayLogLevel.success, 'OPS', 'Web 服务已停止');
       return;
     }
@@ -1180,9 +1186,8 @@ class WebMessagePlatformService {
   }
 
   Future<void> dispose() async {
-    await ensurePersistedOpsDataLoaded();
     await stop();
-    _opsPersistDebouncer.cancel();
+    _opsPersistDebouncer.dispose();
     await _persistOpsHistory();
     _sessionController.removeGoalContinuationYieldPredicate(
       _hasQueuedGoalInterruption,
@@ -1192,6 +1197,13 @@ class WebMessagePlatformService {
     await _ttsPlaybackService.dispose();
     await _logStreamController.close();
     await _pendingWriteApprovalStreamController.close();
+  }
+
+  void _clearStoppedRuntimeState() {
+    _startedAt = null;
+    _authSessions.clear();
+    _loginAttemptsByRemoteAddress.clear();
+    _queuedGoalYieldLeasesBySessionId.clear();
   }
 
   WebGatewayRuntimeSnapshot runtimeSnapshot() {
@@ -2452,19 +2464,36 @@ class WebMessagePlatformService {
 
   /// CORS 头 + OPTIONS 预检统一处理。
   shelf.Middleware _corsMiddleware() {
-    const corsHeaders = <String, String>{
-      'access-control-allow-origin': '*',
+    const baseHeaders = <String, String>{
       'access-control-allow-methods': 'GET,POST,PUT,PATCH,DELETE,OPTIONS',
       'access-control-allow-headers':
           'authorization,content-type,x-openhand-device-id,x-openhand-source,x-openhand-device-mac,x-openhand-device-name,x-openhand-device-platform,x-openhand-os-name,x-openhand-os-version,x-openhand-browser-name,x-openhand-browser-version,x-openhand-web-client-version,x-openhand-locale,x-openhand-timezone,x-openhand-screen-class',
     };
     return (innerHandler) {
       return (shelf.Request request) async {
+        final origin = request.headers['origin']?.trim();
+        final hasOrigin = origin != null && origin.isNotEmpty;
+        final allowsOrigin =
+            hasOrigin && isSameHttpOrigin(request.requestedUri, origin);
+        if (hasOrigin && !allowsOrigin) {
+          return _json(HttpStatus.forbidden, const <String, Object?>{
+            'error': 'cross_origin_request_blocked',
+          });
+        }
+        final corsHeaders = allowsOrigin
+            ? <String, String>{
+                ...baseHeaders,
+                'access-control-allow-origin': origin,
+                'vary': 'Origin',
+              }
+            : const <String, String>{};
         if (request.method == 'OPTIONS') {
           return shelf.Response(HttpStatus.noContent, headers: corsHeaders);
         }
         final response = await innerHandler(request);
-        return response.change(headers: corsHeaders);
+        return corsHeaders.isEmpty
+            ? response
+            : response.change(headers: corsHeaders);
       };
     };
   }
@@ -2566,7 +2595,11 @@ class WebMessagePlatformService {
           return rejected;
         } catch (error, stack) {
           statusCode = HttpStatus.internalServerError;
-          errorText = '$error';
+          errorText = clipText(
+            '$error',
+            _maxOpsPersistenceErrorCharacters,
+            suffix: '',
+          );
           _lastError = errorText;
           silentLog(
             'web_message_platform_service',
@@ -2576,7 +2609,7 @@ class WebMessagePlatformService {
           );
           final fallback = _json(
             HttpStatus.internalServerError,
-            <String, Object?>{'error': 'internal_error', 'message': errorText},
+            const <String, Object?>{'error': 'internal_error'},
           );
           responseBytes = fallback.contentLength ?? 0;
           return fallback;
@@ -2638,12 +2671,18 @@ class WebMessagePlatformService {
                 <String, Object?>{
                   'method': request.method,
                   'path': request.requestedUri.path,
-                  'query': request.requestedUri.queryParameters,
+                  'query': redactSensitiveStringMap(
+                    request.requestedUri.queryParameters,
+                  ),
                   'status_code': statusCode,
                   'duration_ms': stopwatch.elapsedMilliseconds,
                   'remote_ip': connectionInfo?.remoteAddress.address,
                   'remote_port': connectionInfo?.remotePort,
-                  'user_agent': request.headers[HttpHeaders.userAgentHeader],
+                  'user_agent': clipNullableText(
+                    request.headers[HttpHeaders.userAgentHeader],
+                    _maxAuthUserAgentCharacters,
+                    suffix: '',
+                  ),
                   'content_length': requestBytes,
                   'response_bytes': responseBytes,
                   'active_requests': _activeRequests,
@@ -5008,8 +5047,9 @@ class WebMessagePlatformService {
       });
     }
     _resolvePendingWriteApprovals(
-      session.id,
+      sessionId: session.id,
       decision: BashCommandApprovalDecision.cancelled,
+      source: 'session_stop',
     );
     await _sessionController.stopResponding(session.id);
     _log(
@@ -6307,7 +6347,7 @@ class WebMessagePlatformService {
     final extensionFilter = _workspaceExtensionsForQuery(
       request.requestedUri.queryParameters['extensions'],
     );
-    final dir = _resolveWorkspacePath(relative);
+    final dir = await _resolveWorkspacePath(relative);
     if (dir == null || !await FileSystemEntity.isDirectory(dir)) {
       return _json(HttpStatus.notFound, <String, Object?>{
         'error': 'directory_not_found',
@@ -6394,7 +6434,7 @@ class WebMessagePlatformService {
 
   Future<shelf.Response> _readWorkspaceFile(shelf.Request request) async {
     final relative = request.requestedUri.queryParameters['path'] ?? '';
-    final filePath = _resolveWorkspacePath(relative);
+    final filePath = await _resolveWorkspacePath(relative);
     if (filePath == null || !await FileSystemEntity.isFile(filePath)) {
       return _json(HttpStatus.notFound, <String, Object?>{
         'error': 'file_not_found',
@@ -6459,7 +6499,7 @@ class WebMessagePlatformService {
         'limit_bytes': _config.workspaceFileMaxBytes,
       });
     }
-    final filePath = _resolveWorkspacePath(relative);
+    final filePath = await _resolveWorkspacePath(relative);
     if (filePath == null) {
       return _json(HttpStatus.badRequest, <String, Object?>{
         'error': 'path_outside_workspace',
@@ -6502,7 +6542,7 @@ class WebMessagePlatformService {
         'error': 'path_required',
       });
     }
-    final dirPath = _resolveWorkspacePath(relative);
+    final dirPath = await _resolveWorkspacePath(relative);
     if (dirPath == null) {
       return _json(HttpStatus.badRequest, <String, Object?>{
         'error': 'path_outside_workspace',
@@ -6543,7 +6583,7 @@ class WebMessagePlatformService {
         'error': 'path_required',
       });
     }
-    final resolved = _resolveWorkspacePath(relative);
+    final resolved = await _resolveWorkspacePath(relative);
     if (resolved == null) {
       return _json(HttpStatus.badRequest, <String, Object?>{
         'error': 'path_outside_workspace',
@@ -6931,6 +6971,19 @@ class WebMessagePlatformService {
     BashCommandApprovalRequest request, {
     required String source,
   }) async {
+    if (_pendingWriteApprovals.length >= _maxPendingWriteApprovals) {
+      _log(
+        WebGatewayLogLevel.warn,
+        'APPROVAL',
+        '待确认写操作已达上限，取消新请求',
+        <String, Object?>{
+          'session_id': sessionId,
+          'source': source,
+          'limit': _maxPendingWriteApprovals,
+        },
+      );
+      return BashCommandApprovalDecision.cancelled;
+    }
     final createdAt = DateTime.now().toUtc();
     final timeoutMs = _settingsController.aiWriteConfirmationTimeoutMs;
     final timeout = Duration(milliseconds: timeoutMs);
@@ -6966,7 +7019,12 @@ class WebMessagePlatformService {
     } finally {
       timer.cancel();
       _pendingWriteApprovals.remove(approval.id);
-      _sessionController.clearSessionAwaitingApproval(sessionId);
+      final hasRemainingApproval = _pendingWriteApprovals.values.any(
+        (item) => item.sessionId == sessionId && !item.completer.isCompleted,
+      );
+      if (!hasRemainingApproval) {
+        _sessionController.clearSessionAwaitingApproval(sessionId);
+      }
       _notifyPendingWriteApprovals();
     }
   }
@@ -7003,16 +7061,17 @@ class WebMessagePlatformService {
     return true;
   }
 
-  void _resolvePendingWriteApprovals(
-    String sessionId, {
+  void _resolvePendingWriteApprovals({
+    String? sessionId,
     required BashCommandApprovalDecision decision,
+    required String source,
   }) {
     for (final approval in _pendingWriteApprovals.values.toList()) {
-      if (approval.sessionId == sessionId) {
+      if (sessionId == null || approval.sessionId == sessionId) {
         _completePendingWriteApproval(
           approval,
           decision: decision,
-          source: 'session_stop',
+          source: source,
         );
       }
     }
@@ -8607,6 +8666,9 @@ class WebMessagePlatformService {
     String key,
     String contentType,
   ) async {
+    if (!key.startsWith('assets/web/') || safeRelativePathError(key) != null) {
+      return shelf.Response.notFound('asset_not_found');
+    }
     try {
       final data = await rootBundle.load(key);
       final bytes = data.buffer.asUint8List(
@@ -8817,13 +8879,17 @@ class WebMessagePlatformService {
     return normalized;
   }
 
-  String? _resolveWorkspacePath(String rawPath) {
+  Future<String?> _resolveWorkspacePath(String rawPath) async {
     final root = _workspaceDirectoryPath;
     final normalizedInput = rawPath.trim().replaceAll('\\', '/');
     if (normalizedInput.startsWith('/')) return null;
     final resolved = p.normalize(p.join(root, normalizedInput));
-    if (resolved == root || p.isWithin(root, resolved)) return resolved;
-    return null;
+    if (resolved != root && !p.isWithin(root, resolved)) return null;
+    final isContained = await isPhysicalPathWithinOrEqual(
+      root,
+      resolved,
+    ).timeout(_workspaceMetadataTimeout, onTimeout: () => false);
+    return isContained ? resolved : null;
   }
 
   String _relativeWorkspacePath(String absolutePath) {

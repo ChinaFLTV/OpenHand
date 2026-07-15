@@ -15,6 +15,7 @@ import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/path_safety.dart';
 import '../../../shared/util/physical_path_safety.dart';
+import '../../../shared/util/sensitive_data.dart';
 import '../../../shared/util/serial_task_queue.dart';
 import '../model/mcp_http_headers.dart';
 import '../model/mcp_server_ops.dart';
@@ -1729,11 +1730,13 @@ class McpServerOpsRuntime {
         environment: <String, Object?>{
           'method': request.method,
           'path': request.requestedUri.path,
-          'query': request.requestedUri.query,
+          'query': redactSensitiveStringMap(
+            request.requestedUri.queryParameters,
+          ),
           'user_agent': request.headers['user-agent'],
           'mcp_protocol_version': request.headers['mcp-protocol-version'],
-          'origin': request.headers['origin'],
-          'referer': request.headers['referer'],
+          'origin': redactSensitiveUriForLogging(request.headers['origin']),
+          'referer': redactSensitiveUriForLogging(request.headers['referer']),
           'peer_ip': peer.ipAddress,
           if (peer.port != null) 'peer_port': peer.port,
           'write_mode': _config.writeMode.storageValue,

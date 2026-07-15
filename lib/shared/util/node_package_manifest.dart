@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 
 import 'bounded_file_io.dart';
+import 'physical_path_safety.dart';
 
 const int kNodePackageManifestMaxBytes = 2 * 1024 * 1024;
 const Duration kNodePackageManifestIoTimeout = Duration(seconds: 3);
@@ -74,7 +75,13 @@ Future<String?> resolveNodePackageBinEntry(
     if (relativeEntry.isEmpty || p.isAbsolute(relativeEntry)) return null;
 
     final resolved = p.normalize(p.join(packageRoot, relativeEntry));
-    if (!p.isWithin(packageRoot, resolved)) return null;
+    if (!p.isWithin(packageRoot, resolved) ||
+        !await isPhysicalPathWithinOrEqual(
+          packageRoot,
+          resolved,
+        ).timeout(nextOperationTimeout())) {
+      return null;
+    }
     final entryType = await FileSystemEntity.type(
       resolved,
       followLinks: false,

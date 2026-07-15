@@ -22,6 +22,28 @@ bool isCrossOriginRedirect(Uri source, Uri target) {
       effectivePort(source) != effectivePort(target);
 }
 
+/// Validates a browser `Origin` header and compares it with [requestUri].
+/// Only HTTP(S) origins without credentials, query, or fragment are accepted.
+bool isSameHttpOrigin(Uri requestUri, String? rawOrigin) {
+  final value = rawOrigin?.trim() ?? '';
+  final origin = value.isEmpty ? null : Uri.tryParse(value);
+  if (!_isValidHttpOrigin(requestUri) ||
+      origin == null ||
+      !_isValidHttpOrigin(origin) ||
+      origin.userInfo.isNotEmpty ||
+      origin.hasQuery ||
+      origin.hasFragment ||
+      (origin.path.isNotEmpty && origin.path != '/')) {
+    return false;
+  }
+  return !isCrossOriginRedirect(requestUri, origin);
+}
+
+bool _isValidHttpOrigin(Uri uri) {
+  final scheme = uri.scheme.toLowerCase();
+  return (scheme == 'http' || scheme == 'https') && uri.host.isNotEmpty;
+}
+
 String _normalizedOriginScheme(Uri uri) => uri.scheme.toLowerCase();
 
 String _normalizedOriginHost(Uri uri) => uri.host.toLowerCase();

@@ -6,6 +6,7 @@ import 'dart:io'
         File,
         FileSystemEntity,
         FileSystemEntityType,
+        Link,
         NetworkInterface,
         Platform;
 import 'dart:math' as math;
@@ -27,6 +28,8 @@ import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/bounded_file_io.dart';
 import '../../shared/util/directory_cleanup.dart';
 import '../../shared/util/input_value_parsing.dart';
+import '../../shared/util/physical_path_safety.dart';
+import '../../shared/util/sensitive_data.dart';
 import '../../shared/util/stable_hash.dart';
 import '../../shared/util/text_clip.dart';
 import '../../shared/util/text_normalization.dart';
@@ -218,6 +221,9 @@ class AiSessionController extends ChangeNotifier {
   static const String _toolCallIdMetadataKey = 'tool_call_id';
   static const String _toolOutputPersistedPathMetadataKey =
       'tool_output_persisted_path';
+  static const Duration _toolOutputCleanupPathCheckTimeout = Duration(
+    seconds: 3,
+  );
   static const String _telemetryInFlightKey = 'telemetry_in_flight';
   static const Set<String> _forkSingleMessageIdMetadataKeys = <String>{
     _editRollbackMarkerKey,
@@ -4699,12 +4705,16 @@ class AiSessionController extends ChangeNotifier {
     );
     final targetPaths = candidatePaths.difference(retainedPaths).toList()
       ..sort();
-    for (final path in targetPaths) {
-      await _deletePersistedToolOutputPath(path);
-    }
-    await _deleteDirectoryIfEmpty(
-      Directory(_store.sessionToolResultsDirectoryPath(sessionId)),
+    final toolOutputDirectory = _store.sessionToolResultsDirectoryPath(
+      sessionId,
     );
+    for (final path in targetPaths) {
+      await _deletePersistedToolOutputPath(
+        path,
+        allowedRoot: toolOutputDirectory,
+      );
+    }
+    await _deleteDirectoryIfEmpty(Directory(toolOutputDirectory));
   }
 
   Set<String> _sessionOwnedPersistedToolOutputPaths({
@@ -4731,13 +4741,27 @@ class AiSessionController extends ChangeNotifier {
     return paths;
   }
 
-  Future<void> _deletePersistedToolOutputPath(String path) async {
+  Future<void> _deletePersistedToolOutputPath(
+    String path, {
+    required String allowedRoot,
+  }) async {
     try {
       final type = await FileSystemEntity.type(path, followLinks: false);
       switch (type) {
         case FileSystemEntityType.file:
-        case FileSystemEntityType.link:
+          final isContained = await isPhysicalPathWithinOrEqual(
+            allowedRoot,
+            path,
+          ).timeout(_toolOutputCleanupPathCheckTimeout, onTimeout: () => false);
+          if (!isContained) return;
           await File(path).delete();
+        case FileSystemEntityType.link:
+          final isParentContained = await isPhysicalPathWithinOrEqual(
+            allowedRoot,
+            p.dirname(path),
+          ).timeout(_toolOutputCleanupPathCheckTimeout, onTimeout: () => false);
+          if (!isParentContained) return;
+          await Link(path).delete();
         case FileSystemEntityType.directory:
         case FileSystemEntityType.pipe:
         case FileSystemEntityType.unixDomainSock:
@@ -12865,19 +12889,6 @@ $tail''';
     return _stableTelemetryStringMap(headers, redactSensitive: true);
   }
 
-  bool _isSensitiveTelemetryKey(String key) {
-    final normalized = key.trim().toLowerCase();
-    return normalized == 'authorization' ||
-        normalized == 'cookie' ||
-        normalized == 'proxy-authorization' ||
-        normalized == 'api-key' ||
-        normalized == 'x-api-key' ||
-        normalized.contains('token') ||
-        normalized.contains('secret') ||
-        normalized.contains('password') ||
-        normalized.contains('credential');
-  }
-
   Map<String, String> _stableTelemetryStringMap(
     Map<String, String> values, {
     required bool redactSensitive,
@@ -12887,8 +12898,8 @@ $tail''';
       ..sort((left, right) => _compareRuntimeMetadataText(left.key, right.key));
     final result = <String, String>{};
     for (final entry in entries) {
-      result[entry.key] = redactSensitive && _isSensitiveTelemetryKey(entry.key)
-          ? '[redacted]'
+      result[entry.key] = redactSensitive && isSensitiveDataKey(entry.key)
+          ? kOpenHandRedactedValue
           : entry.value;
     }
     return result;
@@ -12923,8 +12934,8 @@ $tail''';
     String? key,
     bool preserveMapOrder = false,
   }) {
-    if (key != null && _isSensitiveTelemetryKey(key)) {
-      return '[redacted]';
+    if (key != null && isSensitiveDataKey(key)) {
+      return kOpenHandRedactedValue;
     }
     if (value == null || value is num || value is bool) {
       return value;

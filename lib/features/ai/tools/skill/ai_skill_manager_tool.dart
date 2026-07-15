@@ -10,6 +10,7 @@ import '../../../../shared/util/bounded_delete.dart';
 import '../../../../shared/util/bounded_file_io.dart';
 import '../../../../shared/util/directory_cleanup.dart';
 import '../../../../shared/util/path_safety.dart';
+import '../../../../shared/util/physical_path_safety.dart';
 import '../../service/runtime/ai_tool_runtime_service.dart';
 import '../ai_tool.dart';
 import '../ai_tool_execution_context.dart';
@@ -169,6 +170,16 @@ class AiSkillManagerTool extends AiTool {
         'Skill already exists at $skillDir.',
       );
     }
+    await Directory(skillsRoot).create(recursive: true);
+    if (!await isPhysicalPathWithinOrEqual(
+      skillsRoot,
+      skillFile.path,
+    ).timeout(_skillScanIdleTimeout, onTimeout: () => false)) {
+      return AiToolUtils.invalidResult(
+        _toolName,
+        'Skill path resolves outside the configured skills directory.',
+      );
+    }
 
     await writeFileAtomically(skillFile, content);
 
@@ -311,7 +322,7 @@ class AiSkillManagerTool extends AiTool {
       targetFile = skillContext.skillFile;
       patchingSkillMd = true;
     } else {
-      final resolved = _resolveSkillSubFile(skillContext, filePathArg);
+      final resolved = await _resolveSkillSubFile(skillContext, filePathArg);
       if (resolved.error != null) {
         return AiToolUtils.invalidResult(_toolName, resolved.error!);
       }
@@ -563,10 +574,10 @@ class AiSkillManagerTool extends AiTool {
     return const _SkillFileSearchResult();
   }
 
-  _SkillSubFileResolution _resolveSkillSubFile(
+  Future<_SkillSubFileResolution> _resolveSkillSubFile(
     _SkillFileContext skillContext,
     String relativePath,
-  ) {
+  ) async {
     final validationError = _validateSkillSubPath(relativePath);
     if (validationError != null) {
       return _SkillSubFileResolution(error: validationError);
@@ -583,6 +594,14 @@ class AiSkillManagerTool extends AiTool {
     if (p.equals(resolved, skillContext.skillFile.path)) {
       return const _SkillSubFileResolution(
         error: 'Use edit/patch/delete for SKILL.md.',
+      );
+    }
+    if (!await isPhysicalPathWithinOrEqual(
+      skillContext.skillDir.path,
+      resolved,
+    ).timeout(_skillScanIdleTimeout, onTimeout: () => false)) {
+      return const _SkillSubFileResolution(
+        error: 'file_path resolves outside the skill directory.',
       );
     }
     return _SkillSubFileResolution(file: File(resolved));
@@ -605,7 +624,7 @@ class AiSkillManagerTool extends AiTool {
       );
     }
     final context = contextResult.context!;
-    final fileResult = _resolveSkillSubFile(context, relativePath);
+    final fileResult = await _resolveSkillSubFile(context, relativePath);
     if (fileResult.error != null) {
       return _SkillSubFileTargetResult(
         relativePath: relativePath,
