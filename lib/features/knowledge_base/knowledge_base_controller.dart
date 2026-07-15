@@ -8,6 +8,7 @@ import '../../app/support/openhand_paths.dart';
 import '../../app/support/silent_log.dart';
 import '../../shared/db/atomic_file_operations.dart';
 import '../../shared/util/input_value_parsing.dart';
+import '../../shared/util/timer_safety.dart';
 import '../ai/index.dart';
 import '../plugin_service/index.dart';
 import 'data/knowledge_base_settings_store.dart';
@@ -30,6 +31,9 @@ import 'service/qdrant_admin_service.dart';
 import 'service/qdrant_knowledge_vector_store.dart';
 import 'service/qdrant_monitoring_service.dart';
 
+const Duration _knowledgeSourceSearchDelay = Duration(milliseconds: 180);
+const int _knowledgeNoteFileStemMaxCharacters = 64;
+
 class KnowledgeBaseController extends ChangeNotifier {
   KnowledgeBaseController({
     KnowledgeBaseSettingsStore? settingsStore,
@@ -47,6 +51,9 @@ class KnowledgeBaseController extends ChangeNotifier {
   final KnowledgeEmbeddingService _embeddingService;
   final KnowledgeDependencyService _dependencyService;
   final QdrantAdminService _qdrantAdminService = QdrantAdminService();
+  final OpenHandDebouncer _sourceSearchDebouncer = OpenHandDebouncer(
+    delay: _knowledgeSourceSearchDelay,
+  );
 
   KnowledgeBaseSettings _settings = const KnowledgeBaseSettings();
   List<KnowledgeSource> _sources = const <KnowledgeSource>[];
@@ -56,6 +63,8 @@ class KnowledgeBaseController extends ChangeNotifier {
   String? _error;
   bool _hasTrustedSettings = false;
   bool _isDisposed = false;
+  int _sourceLoadGeneration = 0;
+  Future<void>? _initializeFuture;
 
   KnowledgeBaseSettings get settings => _settings;
   List<KnowledgeSource> get sources => _sources;
@@ -71,7 +80,21 @@ class KnowledgeBaseController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> initialize() async {
+  Future<void> initialize() {
+    final active = _initializeFuture;
+    if (active != null) return active;
+    if (_busy || _isDisposed) return Future<void>.value();
+    late final Future<void> current;
+    current = _initialize().whenComplete(() {
+      if (identical(_initializeFuture, current)) {
+        _initializeFuture = null;
+      }
+    });
+    _initializeFuture = current;
+    return current;
+  }
+
+  Future<void> _initialize() async {
     _loading = true;
     notifyListeners();
     try {
@@ -83,7 +106,7 @@ class KnowledgeBaseController extends ChangeNotifier {
       _error = '$error';
     }
     try {
-      _sources = await _store.loadSources();
+      await _reloadSources();
       schedulePendingKnowledgeSourceFileCleanups(
         sourceExists: (sourceId) async =>
             await _store.loadSource(sourceId) != null,
@@ -112,10 +135,22 @@ class KnowledgeBaseController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> searchSources(String query) async {
+  void searchSources(String query) {
+    if (_isDisposed) return;
     _query = query;
-    _sources = await _store.loadSources(query: query);
-    notifyListeners();
+    final generation = ++_sourceLoadGeneration;
+    _sourceSearchDebouncer.schedule(() async {
+      try {
+        final sources = await _store.loadSources(query: query);
+        if (_isDisposed || generation != _sourceLoadGeneration) return;
+        _sources = sources;
+        notifyListeners();
+      } catch (error) {
+        if (_isDisposed || generation != _sourceLoadGeneration) return;
+        _error = '$error';
+        notifyListeners();
+      }
+    });
   }
 
   Future<KnowledgeSource?> importFile({
@@ -125,10 +160,28 @@ class KnowledgeBaseController extends ChangeNotifier {
     List<String> tags = const <String>[],
     KnowledgeIndexingCancelToken? cancelToken,
     KnowledgeIndexingProgressCallback? onProgress,
+  }) {
+    return _runExclusiveMutation<KnowledgeSource?>(
+      busyResult: null,
+      operation: () => _importFile(
+        filePath: filePath,
+        embeddingModel: embeddingModel,
+        readerModels: readerModels,
+        tags: tags,
+        cancelToken: cancelToken,
+        onProgress: onProgress,
+      ),
+    );
+  }
+
+  Future<KnowledgeSource?> _importFile({
+    required String filePath,
+    required AiModelConfig embeddingModel,
+    required List<AiModelConfig> readerModels,
+    required List<String> tags,
+    required KnowledgeIndexingCancelToken? cancelToken,
+    required KnowledgeIndexingProgressCallback? onProgress,
   }) async {
-    _busy = true;
-    _error = null;
-    notifyListeners();
     try {
       final vectorStore = QdrantKnowledgeVectorStore(settings: _settings);
       final ingestion = KnowledgeIngestionService(
@@ -150,18 +203,15 @@ class KnowledgeBaseController extends ChangeNotifier {
       } finally {
         ingestion.dispose();
       }
-      _sources = await _store.loadSources(query: _query);
+      await _reloadSources();
       return source;
     } on KnowledgeIndexingCancelledException {
       _error = null;
-      _sources = await _store.loadSources(query: _query);
+      await _reloadSources();
       return null;
     } catch (error) {
       _error = '$error';
       return null;
-    } finally {
-      _busy = false;
-      notifyListeners();
     }
   }
 
@@ -172,6 +222,27 @@ class KnowledgeBaseController extends ChangeNotifier {
     List<String> tags = const <String>[],
     KnowledgeIndexingCancelToken? cancelToken,
     KnowledgeIndexingProgressCallback? onProgress,
+  }) {
+    return _runExclusiveMutation<KnowledgeSource?>(
+      busyResult: null,
+      operation: () => _importNote(
+        title: title,
+        content: content,
+        embeddingModel: embeddingModel,
+        tags: tags,
+        cancelToken: cancelToken,
+        onProgress: onProgress,
+      ),
+    );
+  }
+
+  Future<KnowledgeSource?> _importNote({
+    required String title,
+    required String content,
+    required AiModelConfig embeddingModel,
+    required List<String> tags,
+    required KnowledgeIndexingCancelToken? cancelToken,
+    required KnowledgeIndexingProgressCallback? onProgress,
   }) async {
     cancelToken?.throwIfCancelled();
     final normalizedTitle = title.trim().isEmpty
@@ -196,10 +267,15 @@ class KnowledgeBaseController extends ChangeNotifier {
         .replaceAll(RegExp(r'[^a-zA-Z0-9\u4e00-\u9fa5._-]+'), '_')
         .replaceAll(RegExp(r'_+'), '_')
         .trim();
+    final fileStem = safeTitle.isEmpty
+        ? 'note'
+        : safeTitle.length <= _knowledgeNoteFileStemMaxCharacters
+        ? safeTitle
+        : safeTitle.substring(0, _knowledgeNoteFileStemMaxCharacters);
     final file = File(
       p.join(
         notesDir.path,
-        '${safeTitle.isEmpty ? 'note' : safeTitle}_${DateTime.now().millisecondsSinceEpoch}.md',
+        '${fileStem}_${DateTime.now().microsecondsSinceEpoch}.md',
       ),
     );
     await writeFileAtomically(
@@ -207,9 +283,10 @@ class KnowledgeBaseController extends ChangeNotifier {
       '# $normalizedTitle\n\n$normalizedContent\n',
     );
     cancelToken?.throwIfCancelled();
-    return importFile(
+    return _importFile(
       filePath: file.path,
       embeddingModel: embeddingModel,
+      readerModels: const <AiModelConfig>[],
       tags: tags,
       cancelToken: cancelToken,
       onProgress: onProgress,
@@ -335,10 +412,14 @@ class KnowledgeBaseController extends ChangeNotifier {
     return _store.loadStats();
   }
 
-  Future<bool> deleteSource(KnowledgeSource source) async {
-    _busy = true;
-    _error = null;
-    notifyListeners();
+  Future<bool> deleteSource(KnowledgeSource source) {
+    return _runExclusiveMutation<bool>(
+      busyResult: false,
+      operation: () => _deleteSource(source),
+    );
+  }
+
+  Future<bool> _deleteSource(KnowledgeSource source) async {
     var sourceDeleted = false;
     try {
       await stageManagedKnowledgeSourceFileCleanup(source);
@@ -359,7 +440,7 @@ class KnowledgeBaseController extends ChangeNotifier {
           stack,
         );
       }
-      _sources = await _store.loadSources(query: _query);
+      await _reloadSources();
       return true;
     } catch (error, stack) {
       if (!sourceDeleted) {
@@ -379,10 +460,31 @@ class KnowledgeBaseController extends ChangeNotifier {
       silentLog('knowledge_base_controller', 'delete source', error, stack);
       _error = '$error';
       return false;
+    }
+  }
+
+  Future<T> _runExclusiveMutation<T>({
+    required T busyResult,
+    required Future<T> Function() operation,
+  }) async {
+    if (_busy || _isDisposed) return busyResult;
+    _busy = true;
+    _error = null;
+    notifyListeners();
+    try {
+      return await operation();
     } finally {
       _busy = false;
       notifyListeners();
     }
+  }
+
+  Future<void> _reloadSources() async {
+    _sourceSearchDebouncer.cancel();
+    final generation = ++_sourceLoadGeneration;
+    final sources = await _store.loadSources(query: _query);
+    if (_isDisposed || generation != _sourceLoadGeneration) return;
+    _sources = sources;
   }
 
   Future<QdrantMonitoringSnapshot> loadMonitoringSnapshot() {
@@ -450,10 +552,16 @@ class KnowledgeBaseController extends ChangeNotifier {
         limit: limit,
         offset: offset,
       );
-      samples.addAll(page.points);
-      offset = page.nextPageOffset;
-      hasMore = offset != null;
-      if (page.points.isEmpty || offset == null) break;
+      final acceptedPoints = page.points.take(limit).toList(growable: false);
+      samples.addAll(acceptedPoints);
+      final nextOffset = page.nextPageOffset;
+      final paginationStalled = nextOffset != null && nextOffset == offset;
+      offset = nextOffset;
+      hasMore =
+          nextOffset != null || page.points.length > acceptedPoints.length;
+      if (acceptedPoints.isEmpty || nextOffset == null || paginationStalled) {
+        break;
+      }
     }
     final chunkIds = stringListFromValue(
       samples.map((point) => point.payload['chunk_id']).toList(growable: false),
@@ -549,6 +657,7 @@ class KnowledgeBaseController extends ChangeNotifier {
   void dispose() {
     if (_isDisposed) return;
     _isDisposed = true;
+    _sourceSearchDebouncer.dispose();
     _embeddingService.dispose();
     super.dispose();
   }

@@ -24,6 +24,9 @@ import 'knowledge_reader_conversion_service.dart';
 import 'knowledge_source_storage.dart';
 import 'knowledge_vector_store.dart';
 
+const int kKnowledgeTagMaxCount = 64;
+const int kKnowledgeTagMaxCharacters = 128;
+
 class KnowledgeIngestionService {
   KnowledgeIngestionService({
     required KnowledgeBaseStore store,
@@ -71,6 +74,7 @@ class KnowledgeIngestionService {
     }
 
     final file = File(filePath);
+    final normalizedTags = _normalizeKnowledgeTags(tags);
     final initialTitle = p.basename(file.path);
     report(KnowledgeIndexingProgress(sourceTitle: initialTitle));
     cancelToken?.throwIfCancelled();
@@ -96,7 +100,7 @@ class KnowledgeIngestionService {
       file: file,
       settings: settings,
       stat: stat,
-      tags: tags,
+      tags: normalizedTags,
     );
     final parsed = await _parseWithReaderIfConfigured(
       request: parseRequest,
@@ -133,7 +137,7 @@ class KnowledgeIngestionService {
       createdAt: now,
       updatedAt: now,
       metadata: <String, Object?>{
-        'tags': tags,
+        'tags': normalizedTags,
         'copied_to_openhand_storage': settings.copyImportedFiles,
         'parser_id': parsed.parserId,
         'parsed_text_char_count': parsed.text.length,
@@ -168,7 +172,7 @@ class KnowledgeIngestionService {
         source: source,
         text: parsed.text,
         settings: settings,
-        tags: tags,
+        tags: normalizedTags,
       );
       if (chunks.isEmpty) {
         throw StateError('文档解析后没有可索引内容。');
@@ -188,7 +192,9 @@ class KnowledgeIngestionService {
         distance: settings.distanceMetric,
         cancelSignal: cancelToken?.whenCancelled,
       );
-      final batchSize = settings.batchSize <= 0 ? 1 : settings.batchSize;
+      final batchSize = KnowledgeBaseSettingRanges.batchSize.normalize(
+        settings.batchSize,
+      );
       for (var start = 0; start < chunks.length; start += batchSize) {
         cancelToken?.throwIfCancelled();
         final end = (start + batchSize).clamp(0, chunks.length);
@@ -515,4 +521,23 @@ class KnowledgeIngestionService {
 
 String _titleOrFallback(String? title, String fallback) {
   return nullIfBlank(title) ?? fallback;
+}
+
+List<String> _normalizeKnowledgeTags(List<String> tags) {
+  final normalized = <String>[];
+  final seen = <String>{};
+  for (final rawTag in tags) {
+    final tag = rawTag.trim();
+    if (tag.isEmpty || !seen.add(tag.toLowerCase())) continue;
+    if (tag.length > kKnowledgeTagMaxCharacters) {
+      throw StateError(
+        'Knowledge tag exceeds $kKnowledgeTagMaxCharacters characters.',
+      );
+    }
+    if (normalized.length >= kKnowledgeTagMaxCount) {
+      throw StateError('Knowledge note has too many tags.');
+    }
+    normalized.add(tag);
+  }
+  return List<String>.unmodifiable(normalized);
 }

@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:markdown/markdown.dart' as md;
 import 'package:provider/provider.dart';
@@ -13,6 +14,7 @@ import '../../../shared/util/localized_text.dart';
 import '../knowledge_base_controller.dart';
 import '../model/knowledge_source.dart';
 import '../service/knowledge_indexing_control.dart';
+import '../service/knowledge_ingestion_service.dart';
 import 'knowledge_base_dialog_utils.dart';
 import 'knowledge_dialog_widgets.dart';
 import 'knowledge_indexing_progress_dialog.dart';
@@ -56,6 +58,21 @@ class _KnowledgeImportDialogState extends State<KnowledgeImportDialog> {
       (item) => item.toLowerCase() == value.toLowerCase(),
     );
     if (!exists) {
+      if (_tags.length >= kKnowledgeTagMaxCount) {
+        showKnowledgeBaseErrorSnack(
+          context,
+          openHandLocalizedText(
+            context,
+            zh: '最多添加 $kKnowledgeTagMaxCount 个标签。',
+            zhHant: '最多新增 $kKnowledgeTagMaxCount 個標籤。',
+            en: 'Add up to $kKnowledgeTagMaxCount tags.',
+            fr: 'Ajoutez au maximum $kKnowledgeTagMaxCount étiquettes.',
+            de: 'Fügen Sie höchstens $kKnowledgeTagMaxCount Tags hinzu.',
+            ja: 'タグは最大 $kKnowledgeTagMaxCount 個まで追加できます。',
+          ),
+        );
+        return;
+      }
       setState(() => _tags.add(value));
     }
     _tagInput.clear();
@@ -656,6 +673,11 @@ class _KnowledgeNoteEditor extends StatelessWidget {
               Expanded(
                 child: TextField(
                   controller: tagInput,
+                  inputFormatters: <TextInputFormatter>[
+                    LengthLimitingTextInputFormatter(
+                      kKnowledgeTagMaxCharacters,
+                    ),
+                  ],
                   onSubmitted: (_) => onAddTag(),
                   decoration: knowledgeDialogInputDecoration(
                     context,
