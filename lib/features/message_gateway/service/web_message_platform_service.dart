@@ -2980,6 +2980,8 @@ class WebMessagePlatformService {
         'message': 'Plugin service not available',
       });
     }
+    final busyResponse = _pluginBusyResponse(controller);
+    if (busyResponse != null) return busyResponse;
     final success = await controller.installPlugin(pluginId);
     return _json(HttpStatus.ok, <String, Object?>{
       'success': success,
@@ -3004,6 +3006,8 @@ class WebMessagePlatformService {
         'message': 'Plugin service not available',
       });
     }
+    final busyResponse = _pluginBusyResponse(controller);
+    if (busyResponse != null) return busyResponse;
     final success = await controller.updatePlugin(pluginId);
     return _json(HttpStatus.ok, <String, Object?>{
       'success': success,
@@ -3028,6 +3032,8 @@ class WebMessagePlatformService {
         'message': 'Plugin service not available',
       });
     }
+    final busyResponse = _pluginBusyResponse(controller);
+    if (busyResponse != null) return busyResponse;
     final success = await controller.uninstallPlugin(pluginId);
     return _json(HttpStatus.ok, <String, Object?>{
       'success': success,
@@ -3040,6 +3046,8 @@ class WebMessagePlatformService {
     if (controller == null) {
       return _json(HttpStatus.ok, <String, Object?>{'items': <Object?>[]});
     }
+    final busyResponse = _pluginBusyResponse(controller);
+    if (busyResponse != null) return busyResponse;
     await controller.rescan();
     final items = controller.plugins
         .map(_pluginPayload)
@@ -3065,6 +3073,8 @@ class WebMessagePlatformService {
         'message': 'Plugin service not available',
       });
     }
+    final busyResponse = _pluginBusyResponse(controller);
+    if (busyResponse != null) return busyResponse;
     final plugin = await controller.checkPluginUpdate(pluginId);
     if (plugin == null) {
       return _json(HttpStatus.notFound, <String, Object?>{
@@ -3076,6 +3086,14 @@ class WebMessagePlatformService {
       'success': true,
       'message': controller.errorMessage,
       'item': _pluginPayload(controller.pluginById(pluginId) ?? plugin),
+    });
+  }
+
+  shelf.Response? _pluginBusyResponse(PluginServiceController controller) {
+    if (!controller.isBusy) return null;
+    return _json(HttpStatus.conflict, <String, Object?>{
+      'success': false,
+      'message': 'Another plugin operation is already in progress',
     });
   }
 

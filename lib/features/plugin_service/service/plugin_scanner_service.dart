@@ -5,6 +5,7 @@ import 'dart:io';
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../app/support/system_proxy.dart';
+import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/bounded_directory_io.dart';
 import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/input_value_parsing.dart';
@@ -67,6 +68,7 @@ class PluginScannerService {
   static const String qdrantContainerName = 'openhand-qdrant';
   static const int qdrantRestPort = 6333;
   static const int qdrantGrpcPort = 6334;
+  static const int _maxConcurrentScans = 4;
   static const int _nvmAliasMaxBytes = 4 * 1024;
   static final RegExp _nvmMajorAliasPattern = RegExp(r'^v?\d+$');
   static final RegExp _nvmFullVersionAliasPattern = RegExp(
@@ -1412,20 +1414,25 @@ class PluginScannerService {
   ];
 
   Future<List<PluginInfo>> scanAll() async {
-    final nodeFuture = scanNodeJs();
-    final playwrightFuture = scanPlaywright();
-    final hermesAgentFuture = scanHermesAgent();
-    final javaFuture = scanJava();
-    final fridaFuture = scanFrida();
-    final mitmproxyFuture = scanMitmproxy();
-    final apktoolFuture = scanApktool();
-    final jadxFuture = scanJadx();
-    final radare2Future = scanRadare2();
-    final blutterFuture = scanBlutter();
-    final doldrumsFuture = scanDoldrums();
-    final anythingAnalyzerFuture = scanAnythingAnalyzer();
-    final dockerFuture = scanDocker();
-    final pythonRuntimeFuture = _resolvePythonRuntime();
+    final scanGate = OpenHandAsyncSemaphore(_maxConcurrentScans);
+    Future<T> runScan<T>(Future<T> Function() scan) {
+      return scanGate.withPermit(scan);
+    }
+
+    final nodeFuture = runScan(scanNodeJs);
+    final playwrightFuture = runScan(scanPlaywright);
+    final hermesAgentFuture = runScan(scanHermesAgent);
+    final javaFuture = runScan(scanJava);
+    final fridaFuture = runScan(scanFrida);
+    final mitmproxyFuture = runScan(scanMitmproxy);
+    final apktoolFuture = runScan(scanApktool);
+    final jadxFuture = runScan(scanJadx);
+    final radare2Future = runScan(scanRadare2);
+    final blutterFuture = runScan(scanBlutter);
+    final doldrumsFuture = runScan(scanDoldrums);
+    final anythingAnalyzerFuture = runScan(scanAnythingAnalyzer);
+    final dockerFuture = runScan(scanDocker);
+    final pythonRuntimeFuture = runScan(_resolvePythonRuntime);
     final nodeJs = await nodeFuture;
     final playwright = await playwrightFuture;
     final hermesAgent = await hermesAgentFuture;

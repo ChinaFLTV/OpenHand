@@ -451,9 +451,6 @@ class AppLocalizationsDe extends AppLocalizations {
   String get pluginServiceCompleted => 'Abgeschlossen';
 
   @override
-  String get pluginServiceForceClose => 'Schließen erzwingen';
-
-  @override
   String get pluginServiceVersion => 'Version';
 
   @override

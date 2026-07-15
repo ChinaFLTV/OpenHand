@@ -883,12 +883,6 @@ abstract class AppLocalizations {
   /// **'操作完成'**
   String get pluginServiceCompleted;
 
-  /// No description provided for @pluginServiceForceClose.
-  ///
-  /// In zh, this message translates to:
-  /// **'强制关闭'**
-  String get pluginServiceForceClose;
-
   /// No description provided for @pluginServiceVersion.
   ///
   /// In zh, this message translates to:

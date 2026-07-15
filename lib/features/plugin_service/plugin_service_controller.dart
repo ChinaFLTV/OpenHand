@@ -52,6 +52,7 @@ class PluginServiceController extends ManagedChangeNotifier {
   List<PluginInfo> get plugins => _plugins;
   bool get isLoading => _isLoading;
   bool get isOperating => _isOperating;
+  bool get isBusy => _isLoading || _isOperating || _checkingPluginId != null;
   String? get checkingPluginId => _checkingPluginId;
   String? get errorMessage => _errorMessage;
   List<String> get operationLogs => _operationLogs.snapshot();
@@ -73,6 +74,11 @@ class PluginServiceController extends ManagedChangeNotifier {
 
   /// 重新扫描所有插件状态。
   Future<void> rescan() {
+    final active = _refreshAllPluginsFuture;
+    if (active != null) return active;
+    if (_isOperating || _checkingPluginId != null) {
+      return Future<void>.value();
+    }
     return _refreshAllPlugins();
   }
 
@@ -160,7 +166,7 @@ class PluginServiceController extends ManagedChangeNotifier {
   /// 检查单个插件的最新状态与可更新版本。
   Future<PluginInfo?> checkPluginUpdate(String pluginId) async {
     final plugin = pluginById(pluginId);
-    if (plugin == null) return null;
+    if (plugin == null || isBusy) return null;
     _errorMessage = null;
     _checkingPluginId = pluginId;
     notifyListeners();
@@ -377,6 +383,7 @@ class PluginServiceController extends ManagedChangeNotifier {
     required PluginStatus transientStatus,
     required Future<PluginOperationResult> Function() operation,
   }) async {
+    if (isBusy) return false;
     _isOperating = true;
     _operationLogs.clear();
     _updatePluginStatus(pluginId, transientStatus);
@@ -385,7 +392,7 @@ class PluginServiceController extends ManagedChangeNotifier {
       final result = await operation();
       if (result.success) {
         _operationSuccessPulse.emit();
-        await rescan();
+        await _refreshAllPlugins();
         return true;
       }
       _updatePluginStatus(
@@ -450,18 +457,6 @@ class PluginServiceController extends ManagedChangeNotifier {
       _errorMessage = null;
     }
     notifyListeners();
-  }
-
-  /// 强制取消当前操作（用户关闭进度弹窗时调用）。
-  /// 重置操作状态并触发重新扫描以恢复真实状态。
-  void forceCancel() {
-    _isOperating = false;
-    _plugins = [
-      for (final p in _plugins)
-        if (p.isBusy) p.copyWith(status: PluginStatus.installed) else p,
-    ];
-    notifyListeners();
-    rescan();
   }
 
   PluginStatus _restoredStatusAfterFailedOperation(PluginInfo plugin) {

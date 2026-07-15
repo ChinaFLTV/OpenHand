@@ -450,9 +450,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get pluginServiceCompleted => 'Completed';
 
   @override
-  String get pluginServiceForceClose => 'Force Close';
-
-  @override
   String get pluginServiceVersion => 'Version';
 
   @override

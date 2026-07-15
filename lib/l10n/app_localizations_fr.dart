@@ -453,9 +453,6 @@ class AppLocalizationsFr extends AppLocalizations {
   String get pluginServiceCompleted => 'Terminé';
 
   @override
-  String get pluginServiceForceClose => 'Forcer la fermeture';
-
-  @override
   String get pluginServiceVersion => 'Version';
 
   @override

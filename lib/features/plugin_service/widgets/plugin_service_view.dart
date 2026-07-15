@@ -156,7 +156,7 @@ class _PluginServiceViewState extends State<PluginServiceView> {
       alignment: WrapAlignment.end,
       children: [
         FilledButton.tonalIcon(
-          onPressed: controller.isOperating ? null : controller.rescan,
+          onPressed: controller.isBusy ? null : controller.rescan,
           icon: const Icon(Icons.refresh_rounded),
           label: Text(l10n.pluginServiceRescan),
         ),
@@ -445,7 +445,7 @@ class _PluginCard extends StatelessWidget {
   Widget _buildActions(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final isCheckingUpdate = controller.checkingPluginId == plugin.id;
-    final isBusy = plugin.isBusy || controller.isOperating || isCheckingUpdate;
+    final isBusy = plugin.isBusy || controller.isBusy;
     final hasMcp = plugin.id == 'playwright';
 
     return Wrap(
@@ -947,18 +947,9 @@ class _PluginOperationProgressDialogState
                   ),
                 ),
                 TextButton.icon(
-                  onPressed: () {
-                    if (isOperating) {
-                      widget.controller.forceCancel();
-                    }
-                    Navigator.of(context).pop();
-                  },
+                  onPressed: () => Navigator.of(context).pop(),
                   icon: Icon(isOperating ? Icons.close : Icons.done, size: 16),
-                  label: Text(
-                    isOperating
-                        ? l10n.pluginServiceForceClose
-                        : l10n.commonClose,
-                  ),
+                  label: Text(l10n.commonClose),
                 ),
               ],
             ),

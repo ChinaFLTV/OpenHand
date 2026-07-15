@@ -235,7 +235,6 @@
   "pluginServiceWaitingForOutput": "出力待ち…",
   "pluginServiceExecuting": "実行中…",
   "pluginServiceCompleted": "完了",
-  "pluginServiceForceClose": "強制終了",
   "pluginServiceVersion": "バージョン",
   "pluginServiceUpdateAvailable": "更新先",
   "pluginServiceDependsOn": "依存先",

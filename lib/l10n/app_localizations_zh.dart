@@ -442,9 +442,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get pluginServiceCompleted => '操作完成';
 
   @override
-  String get pluginServiceForceClose => '强制关闭';
-
-  @override
   String get pluginServiceVersion => '版本';
 
   @override
@@ -11056,9 +11053,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get pluginServiceCompleted => '操作完成';
-
-  @override
-  String get pluginServiceForceClose => '強制關閉';
 
   @override
   String get pluginServiceVersion => '版本';

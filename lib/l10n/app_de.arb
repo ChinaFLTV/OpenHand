@@ -235,7 +235,6 @@
   "pluginServiceWaitingForOutput": "Warte auf Ausgabe…",
   "pluginServiceExecuting": "Wird ausgeführt…",
   "pluginServiceCompleted": "Abgeschlossen",
-  "pluginServiceForceClose": "Schließen erzwingen",
   "pluginServiceVersion": "Version",
   "pluginServiceUpdateAvailable": "Update verfügbar",
   "pluginServiceDependsOn": "Hängt ab von",

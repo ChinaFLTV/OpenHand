@@ -443,9 +443,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get pluginServiceCompleted => '完了';
 
   @override
-  String get pluginServiceForceClose => '強制終了';
-
-  @override
   String get pluginServiceVersion => 'バージョン';
 
   @override

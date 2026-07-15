@@ -6065,8 +6065,7 @@ fi
             ],
             actions: [
               _DashboardActionButton(
-                onPressed:
-                    pluginController.isLoading || pluginController.isOperating
+                onPressed: pluginController.isBusy
                     ? null
                     : () => unawaited(pluginController.rescan()),
                 icon: pluginController.isLoading
@@ -6929,10 +6928,7 @@ fi
     final version = plugin.installedVersion?.trim();
     final path = plugin.installPath?.trim();
     final actions = _runtimePluginActions(plugin);
-    final actionBusy =
-        plugin.isBusy ||
-        pluginController.isOperating ||
-        pluginController.checkingPluginId == plugin.id;
+    final actionBusy = plugin.isBusy || pluginController.isBusy;
     return Container(
       padding: const EdgeInsets.fromLTRB(10, 8, 8, 8),
       decoration: BoxDecoration(

@@ -235,7 +235,6 @@
   "pluginServiceWaitingForOutput": "等待输出…",
   "pluginServiceExecuting": "正在执行…",
   "pluginServiceCompleted": "操作完成",
-  "pluginServiceForceClose": "强制关闭",
   "pluginServiceVersion": "版本",
   "pluginServiceUpdateAvailable": "可更新到",
   "pluginServiceDependsOn": "依赖",
