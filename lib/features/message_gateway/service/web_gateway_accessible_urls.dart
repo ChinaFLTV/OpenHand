@@ -26,8 +26,9 @@ List<String> computeWebGatewayAccessibleUrls({
   }
   final urls = <String>{'http://localhost:$port', 'http://127.0.0.1:$port'};
   for (final addr in localIPv4Addresses) {
-    if (addr.isEmpty) continue;
-    urls.add('http://$addr:$port');
+    final normalizedAddress = addr.trim();
+    if (normalizedAddress.isEmpty) continue;
+    urls.add('http://$normalizedAddress:$port');
   }
   return List<String>.unmodifiable(urls);
 }

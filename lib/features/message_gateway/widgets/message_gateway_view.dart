@@ -95,11 +95,69 @@ class MessageGatewayView extends StatefulWidget {
   State<MessageGatewayView> createState() => _MessageGatewayViewState();
 }
 
-class _MessageGatewayViewState extends State<MessageGatewayView> {
+class _MessageGatewayViewState extends State<MessageGatewayView>
+    with WidgetsBindingObserver {
+  static const Duration _addressRefreshInterval = Duration(seconds: 30);
+  static const Duration _addressRefreshTimeout = Duration(seconds: 5);
+
+  MessageGatewayController? _controller;
+  Timer? _addressRefreshTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    context.read<MessageGatewayController>().updateTheme(Theme.of(context));
+    final controller = context.read<MessageGatewayController>();
+    controller.updateTheme(Theme.of(context));
+    if (!identical(_controller, controller)) {
+      _controller = controller;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) unawaited(_refreshAccessibleUrls(force: true));
+      });
+      _startAddressRefreshTimer();
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_refreshAccessibleUrls(force: true));
+      _startAddressRefreshTimer();
+      return;
+    }
+    _addressRefreshTimer?.cancel();
+    _addressRefreshTimer = null;
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _addressRefreshTimer?.cancel();
+    super.dispose();
+  }
+
+  void _startAddressRefreshTimer() {
+    _addressRefreshTimer?.cancel();
+    final lifecycle = WidgetsBinding.instance.lifecycleState;
+    if (lifecycle != null && lifecycle != AppLifecycleState.resumed) return;
+    _addressRefreshTimer = startNonOverlappingPeriodicTimer(
+      _addressRefreshInterval,
+      (_) => _refreshAccessibleUrls(),
+      callbackTimeout: _addressRefreshTimeout,
+      onError: (error, stack) =>
+          silentLog('message_gateway', 'refresh accessible urls', error, stack),
+    );
+  }
+
+  Future<void> _refreshAccessibleUrls({bool force = false}) async {
+    final controller = _controller;
+    if (!mounted || controller == null || !controller.isRunning) return;
+    await controller.refreshAccessibleUrls(force: force);
   }
 
   @override

@@ -317,6 +317,7 @@ class WebMessagePlatformService {
         totalTimeout: _uploadCacheScanTotalTimeout,
       );
   static const Duration _networkInterfaceListTimeout = Duration(seconds: 3);
+  static const Duration _localAddressesCacheTtl = Duration(seconds: 30);
   static const int _maxLocalAddresses = 64;
   static const Duration _requestBodyIdleTimeout = Duration(seconds: 30);
   static const Duration _requestBodyTotalTimeout = Duration(minutes: 2);
@@ -404,9 +405,10 @@ class WebMessagePlatformService {
 
   /// 缓存当前主机非环回 IPv4 地址列表，作为 `accessibleUrls` 在
   /// 监听 `0.0.0.0` / `::` 时枚举局域网 URL 的数据源。`start()` 后填充，
-  /// `runtimeSnapshotAsync()` 触发时按 30s TTL 刷新。
+  /// 消息网关页面与运维快照按 30s TTL 刷新。
   List<String> _localAddressesCache = const <String>[];
   DateTime? _localAddressesAt;
+  Future<bool>? _localAddressesRefreshFuture;
 
   Stream<WebGatewayLogEntry> get logStream => _logStreamController.stream;
   Stream<List<WebWriteApprovalRequest>> get pendingWriteApprovalsStream =>
@@ -998,7 +1000,7 @@ class WebMessagePlatformService {
       _state = WebGatewayRuntimeState.running;
       // 启动后立刻探测一次主机 IP 列表，使 BOOT 日志可同时打出 LAN URL；
       // 枚举有显式超时，异常系统服务不会无限阻塞启动。
-      await _refreshLocalAddressesIfStale(ttl: Duration.zero);
+      await refreshAccessibleUrls(force: true);
       final urls = accessibleUrls;
       if (bindResult.usedFallbackPort) {
         _log(
@@ -1499,21 +1501,40 @@ class WebMessagePlatformService {
   Future<WebGatewayRuntimeSnapshot> runtimeSnapshotAsync() async {
     await ensurePersistedOpsDataLoaded();
     await _refreshProcessDiagnosticsIfStale();
-    await _refreshLocalAddressesIfStale();
+    await refreshAccessibleUrls();
     final snapshot = runtimeSnapshot();
     _recordOpsSnapshot(snapshot);
     return snapshot;
   }
 
-  /// 刷新主机非环回 IPv4 地址列表，30 s TTL。失败不抛，仅 silentLog——
-  /// 缓存保持上一次结果（启动期为空列表，UI 仍能显示 localhost/127.0.0.1）。
-  Future<void> _refreshLocalAddressesIfStale({
-    Duration ttl = const Duration(seconds: 30),
-  }) async {
+  /// 刷新通配符监听对应的可访问 IPv4 地址。失败时保留上次结果。
+  Future<bool> refreshAccessibleUrls({bool force = false}) {
+    if (_server == null || !_isWildcardListenHost(_config.listenHost)) {
+      return Future<bool>.value(false);
+    }
+    return _refreshLocalAddressesIfStale(
+      ttl: force ? Duration.zero : _localAddressesCacheTtl,
+    );
+  }
+
+  Future<bool> _refreshLocalAddressesIfStale({required Duration ttl}) {
     final stamp = _localAddressesAt;
     if (stamp != null && DateTime.now().toUtc().difference(stamp) < ttl) {
-      return;
+      return Future<bool>.value(false);
     }
+    final pending = _localAddressesRefreshFuture;
+    if (pending != null) return pending;
+    late final Future<bool> refresh;
+    refresh = _refreshLocalAddresses().whenComplete(() {
+      if (identical(_localAddressesRefreshFuture, refresh)) {
+        _localAddressesRefreshFuture = null;
+      }
+    });
+    _localAddressesRefreshFuture = refresh;
+    return refresh;
+  }
+
+  Future<bool> _refreshLocalAddresses() async {
     try {
       final interfaces = await NetworkInterface.list(
         type: InternetAddressType.IPv4,
@@ -1522,13 +1543,17 @@ class WebMessagePlatformService {
       for (final iface in interfaces) {
         for (final addr in iface.addresses) {
           final value = addr.address.trim();
-          if (value.isNotEmpty) addrs.add(value);
+          if (value.isEmpty || addr.isLoopback || value == '0.0.0.0') continue;
+          addrs.add(value);
           if (addrs.length >= _maxLocalAddresses) break;
         }
         if (addrs.length >= _maxLocalAddresses) break;
       }
-      _localAddressesCache = List<String>.unmodifiable(addrs);
+      final next = addrs.toList(growable: false)..sort();
+      final changed = !_sameStringList(_localAddressesCache, next);
+      if (changed) _localAddressesCache = List<String>.unmodifiable(next);
       _localAddressesAt = DateTime.now().toUtc();
+      return changed;
     } catch (error, stack) {
       silentLog(
         'web_message_platform_service',
@@ -1536,6 +1561,7 @@ class WebMessagePlatformService {
         error,
         stack,
       );
+      return false;
     }
   }
 
@@ -1625,7 +1651,7 @@ class WebMessagePlatformService {
       return result;
     }
 
-    await _refreshLocalAddressesIfStale(ttl: Duration.zero);
+    await refreshAccessibleUrls(force: true);
     final targets = <String>{...accessibleUrls}.toList(growable: false);
     addLog('发现 ${targets.length} 个当前可访问入口。');
     final timeout = Duration(
@@ -8474,6 +8500,14 @@ class WebMessagePlatformService {
         normalized == '0.0.0.0' ||
         normalized == '::' ||
         normalized == '::0';
+  }
+
+  bool _sameStringList(List<String> left, List<String> right) {
+    if (left.length != right.length) return false;
+    for (var i = 0; i < left.length; i++) {
+      if (left[i] != right[i]) return false;
+    }
+    return true;
   }
 
   InternetAddress _bindAddress(String host) {

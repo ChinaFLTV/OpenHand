@@ -173,6 +173,12 @@ class MessageGatewayController extends ManagedChangeNotifier {
     return snapshot;
   }
 
+  Future<void> refreshAccessibleUrls({bool force = false}) async {
+    if (_disposed || !_service.isRunning) return;
+    final changed = await _service.refreshAccessibleUrls(force: force);
+    if (changed && !_disposed) notifyListeners();
+  }
+
   Future<BashCommandApprovalDecision> requestWriteApproval({
     required String sessionId,
     required BashCommandApprovalRequest request,
