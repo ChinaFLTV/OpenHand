@@ -9,12 +9,7 @@ import '../web_engine/web_engine_value_parsing.dart';
 
 export '../web_engine/web_engine_base.dart' show WebEngineRequest;
 export '../web_engine/web_engine_json_utils.dart'
-    show
-        decodeJsonObjectBytes,
-        jsonObjectOf,
-        stringOf,
-        readJsonPath,
-        maybeJsonDecode;
+    show decodeJsonObjectBytes, jsonObjectOf, stringOf, readJsonPath;
 
 /// 单条搜索命中结果（统一抽象）。
 class WebSearchEngineHit {
@@ -187,15 +182,6 @@ class WebSearchEngineContext {
     if (configId == null || configId.isEmpty) return null;
     for (final m in availableModels) {
       if (m.id == configId) return m.token.isEmpty ? null : m.token;
-    }
-    return null;
-  }
-
-  /// 解析复用 provider 的 BaseURL（同上）。
-  String? resolveProviderBaseUrl(String? configId) {
-    if (configId == null || configId.isEmpty) return null;
-    for (final m in availableModels) {
-      if (m.id == configId) return m.baseUrl.isEmpty ? null : m.baseUrl;
     }
     return null;
   }

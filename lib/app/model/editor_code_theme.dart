@@ -22,18 +22,6 @@ enum EditorCodeTheme {
 
   String get storageValue => name;
 
-  String labelZh(bool darkSurface) {
-    return switch (this) {
-      EditorCodeTheme.materialYou => 'Material You（默认）',
-      EditorCodeTheme.monokai => 'Monokai',
-      EditorCodeTheme.solarized =>
-        darkSurface ? 'Solarized Dark' : 'Solarized Light',
-      EditorCodeTheme.oneDark => 'One Dark',
-      EditorCodeTheme.github => darkSurface ? 'GitHub Dark' : 'GitHub Light',
-      EditorCodeTheme.dracula => 'Dracula',
-    };
-  }
-
   String labelEn(bool darkSurface) {
     return switch (this) {
       EditorCodeTheme.materialYou => 'Material You (Default)',

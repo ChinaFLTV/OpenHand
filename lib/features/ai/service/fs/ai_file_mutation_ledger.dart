@@ -1031,24 +1031,8 @@ class AiFileMutationLedger {
     );
   }
 
-  Future<FileMutationView?> viewForRecord({
-    required String sessionId,
-    required String recordId,
-  }) async {
-    final all = await recordsForSession(sessionId);
-    final record = all.where((r) => r.recordId == recordId).firstOrNull;
-    if (record == null) return null;
-    final undone = await _loadUndoneSet(sessionId);
-    final undoStates = _buildUndoStates(all, undone);
-    return _buildView(
-      record,
-      undoStates[record.recordId]!,
-      lineDelta: await _lineDeltaForRecord(record),
-    );
-  }
-
   /// 会话级 history inspector 用：一次性返回当前会话所有记录
-  /// 的 view。比"对每条 record 调 viewForRecord"少一次磁盘扫一次 ledger。
+  /// 的 view，一次完成磁盘扫描和 ledger 读取。
   Future<List<FileMutationView>> viewsForSession(String sessionId) async {
     final all = await recordsForSession(sessionId);
     if (all.isEmpty) return const <FileMutationView>[];
@@ -1296,8 +1280,6 @@ class AiFileMutationLedger {
     }
   }
 
-  Future<String?> readBlob(String sha) => _readBlob(sha);
-
   /// Reads both ledger snapshots with conservative recovery:
   ///
   /// - primary source: content-addressed blobs;
@@ -1399,24 +1381,6 @@ class AiFileMutationLedger {
     );
   }
 
-  Future<int> totalSizeBytes() async {
-    await _ensureInitialized();
-    var total = 0;
-    try {
-      final root = Directory(_root);
-      if (!await root.exists()) return 0;
-      final usage = await measureDirectoryBounded(
-        root,
-        maxEntries: _maxSessionScanEntries + _maxBlobScanEntries,
-        totalTimeout: _ledgerTreeScanTimeout,
-      );
-      total = usage.totalBytes;
-    } catch (error, stack) {
-      silentLog('ai_file_mutation_ledger', 'totalSizeBytes', error, stack);
-    }
-    return total;
-  }
-
   Future<void> clearAll() async {
     await _ensureInitialized();
     return _runExclusiveMaintenance(_clearAllExclusive);
@@ -1470,47 +1434,6 @@ class AiFileMutationLedger {
       rethrow;
     }
     _invalidateSessionCache(normalizedSessionId);
-  }
-
-  /// 清理所有非 [keepSessionIds] 列出的会话目录。
-  Future<int> clearSessionsExcept(Set<String> keepSessionIds) async {
-    await _ensureInitialized();
-    var removed = 0;
-    try {
-      final sessions = _sessionsDir();
-      if (!await sessions.exists()) return 0;
-      final keep = keepSessionIds.map(_safeSessionId).toSet();
-      final listing = await _listSessionEntries();
-      for (final entity in listing.entries) {
-        if (entity is! Directory) continue;
-        final sessionId = p.basename(entity.path);
-        if (keep.contains(sessionId)) continue;
-        try {
-          await _enqueueSessionMutation(
-            sessionId,
-            () => deletePathBounded(
-              p.absolute(entity.path),
-              policy: _ledgerTreeDeletePolicy,
-              allowedRoot: p.absolute(sessions.path),
-            ),
-            ensureInitialized: true,
-          );
-          removed++;
-        } catch (error, stack) {
-          silentLog(
-            'ai_file_mutation_ledger',
-            'clearSessionsExcept',
-            error,
-            stack,
-          );
-        }
-      }
-    } catch (error, stack) {
-      silentLog('ai_file_mutation_ledger', 'clearSessionsExcept', error, stack);
-    }
-    _invalidateAllCaches();
-    await gcUnreferencedBlobs();
-    return removed;
   }
 
   /// 删除最早 `now - retention` 之前的全部会话 ledger（同时回收 blob）。

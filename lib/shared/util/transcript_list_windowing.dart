@@ -8,6 +8,7 @@ abstract final class TranscriptListWindowing {
   static const int defaultInitialWindowSize = 8;
   static const int defaultWindowIncrement = 6;
   static const int defaultWindowingThreshold = 12;
+
   /// Soft upper bound for UI-materialized rows after repeated reveal-older.
   /// Beyond this, older rows stay in the data model but leave the active
   /// render window until the user reveals them again (via load-earlier).
@@ -40,12 +41,6 @@ abstract final class TranscriptListWindowing {
       return count;
     }
     return windowStart;
-  }
-
-  static int visibleCount(int messageCount, int windowStart) {
-    final count = messageCount < 0 ? 0 : messageCount;
-    final start = clampWindowStart(windowStart, count);
-    return math.max(0, count - start);
   }
 
   /// After prepending [addedDisplayCount] older messages at the front of the

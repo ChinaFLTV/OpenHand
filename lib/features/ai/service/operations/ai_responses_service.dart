@@ -71,18 +71,6 @@ class AiResponsesResult {
   final List<String> requestFallbacks;
 }
 
-class AiResponsesInputTokensResult {
-  const AiResponsesInputTokensResult({
-    required this.inputTokens,
-    required this.rawResponse,
-    required this.payload,
-  });
-
-  final int inputTokens;
-  final String rawResponse;
-  final Map<String, Object?> payload;
-}
-
 class AiResponsesHttpException implements Exception {
   const AiResponsesHttpException({
     required this.statusCode,
@@ -409,94 +397,6 @@ class AiResponsesService {
     }
   }
 
-  Future<AiResponsesInputTokensResult> estimateInputTokens({
-    required AiModelConfig model,
-    required Object input,
-    Duration timeout = AiOperationHttp.defaultRequestTimeout,
-    String? instructions,
-    Object? reasoning,
-    Object? text,
-    Object? tools,
-    Object? toolChoice,
-  }) async {
-    const family = AiApiFamily.responses;
-    final endpoint = _router.resolve(
-      model,
-      family,
-      fallbackPath: 'v1/responses',
-    );
-    final body = AiOperationHttp.mergeBodyExtras(
-      model,
-      family,
-      <String, Object?>{
-        'model': model.resolveOperationModelId(family),
-        if (nullIfBlank(instructions) case final value?) 'instructions': value,
-        if (tools != null) 'tools': tools,
-        if (toolChoice != null) 'tool_choice': toolChoice,
-        if (text != null) 'text': text,
-        if (reasoning != null)
-          'reasoning': reasoning
-        else if (AiThinkingRequestPolicy.responsesReasoningFor(model) != null)
-          'reasoning': AiThinkingRequestPolicy.responsesReasoningFor(model),
-        'input': input,
-      },
-    );
-    final uri = AiOperationHttp.uriWithExtraQuery(
-      _responsesInputTokensUrl(endpoint.url),
-      model,
-      family,
-    );
-    final response = await _transport.sendJson(
-      uri: uri,
-      method: endpoint.method,
-      headers: AiOperationHttp.buildHeaders(
-        model: model,
-        endpointHeaders: endpoint.headers,
-        family: family,
-        acceptJson: true,
-      ),
-      body: body,
-      timeout: timeout,
-    );
-    final payload = AiOperationHttp.decodeSuccessfulJsonMap(
-      statusCode: response.statusCode,
-      body: response.body,
-      contextHint: 'responses/input_tokens',
-    );
-    AiOperationHttp.throwIfProviderFailed(
-      payload,
-      contextHint: 'responses/input_tokens',
-    );
-    final inputTokens = optionalNonNegativeIntFromValue(
-      payload['input_tokens'],
-    );
-    if (inputTokens == null) {
-      throw const AiResponsesPayloadException(
-        'Responses input-token API returned no valid token count.',
-      );
-    }
-    return AiResponsesInputTokensResult(
-      inputTokens: inputTokens,
-      rawResponse: response.body,
-      payload: Map<String, Object?>.unmodifiable(payload),
-    );
-  }
-
-  String _responsesInputTokensUrl(String responsesUrl) {
-    final uri = Uri.parse(responsesUrl);
-    final segments = uri.pathSegments
-        .where((segment) => segment.isNotEmpty)
-        .toList(growable: true);
-    if (segments.isNotEmpty && segments.last == 'input_tokens') {
-      return uri.toString();
-    }
-    if (segments.isEmpty || segments.last != 'responses') {
-      segments.add('responses');
-    }
-    segments.add('input_tokens');
-    return uri.replace(pathSegments: segments).toString();
-  }
-
   Future<AiResponsesRequestBlueprint> buildChatRequest({
     required AiModelConfig model,
     required List<AiChatTurn> messages,
@@ -537,50 +437,6 @@ class AiResponsesService {
           ? null
           : 'auto',
       inputCacheConfig: inputCacheConfig,
-    );
-  }
-
-  Future<AiResponsesResult> createResponse({
-    required AiModelConfig model,
-    required Object input,
-    Duration timeout = AiOperationHttp.defaultRequestTimeout,
-    String? instructions,
-    String? previousResponseId,
-    bool? store,
-    Map<String, Object?>? metadata,
-    double? temperature,
-    int? maxOutputTokens,
-    double? topP,
-    Object? reasoning,
-    Object? text,
-    Object? tools,
-    Object? toolChoice,
-    String? user,
-    AiInputCacheRuntimeConfig? inputCacheConfig,
-    AiResponsesRequestStarted? onRequestStarted,
-    Future<void>? cancelSignal,
-  }) {
-    return createResponseFromRequest(
-      request: buildRequest(
-        model: model,
-        input: input,
-        instructions: instructions,
-        previousResponseId: previousResponseId,
-        store: store,
-        metadata: metadata,
-        temperature: temperature,
-        maxOutputTokens: maxOutputTokens,
-        topP: topP,
-        reasoning: reasoning,
-        text: text,
-        tools: tools,
-        toolChoice: toolChoice,
-        user: user,
-        inputCacheConfig: inputCacheConfig,
-      ),
-      timeout: timeout,
-      onRequestStarted: onRequestStarted,
-      cancelSignal: cancelSignal,
     );
   }
 

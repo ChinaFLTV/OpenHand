@@ -148,25 +148,6 @@ class AiEmbeddingsService {
     );
   }
 
-  Future<AiEmbeddingResult> createEngineEmbedding({
-    required AiModelConfig model,
-    required Object content,
-    Duration timeout = AiOperationHttp.defaultRequestTimeout,
-    String taskType = '',
-    String title = '',
-  }) async {
-    final plan = const _GeminiEmbeddingStrategy().build(
-      _EmbeddingRequestContext(
-        model: model,
-        input: content,
-        taskType: taskType,
-        title: title,
-        forceSingle: true,
-      ),
-    );
-    return _sendPlan(model: model, plan: plan, timeout: timeout);
-  }
-
   _EmbeddingRequestPlan _buildRequestPlan({
     required AiModelConfig model,
     required Object input,
@@ -469,7 +450,6 @@ class _EmbeddingRequestContext {
     this.user,
     this.taskType = '',
     this.title = '',
-    this.forceSingle = false,
   }) : modelId = model.resolveOperationModelId(AiApiFamily.embeddings),
        profile = model.profileFor(
          model.resolveOperationModelId(AiApiFamily.embeddings),
@@ -485,7 +465,6 @@ class _EmbeddingRequestContext {
   final String? user;
   final String taskType;
   final String title;
-  final bool forceSingle;
   final String modelId;
   final AiModelProfile profile;
 
@@ -871,9 +850,7 @@ class _GeminiEmbeddingStrategy extends _EmbeddingRequestStrategy {
   _EmbeddingRequestPlan build(_EmbeddingRequestContext context) {
     const family = AiApiFamily.embeddings;
     final modelName = 'models/${context.modelId}';
-    final textBatch = context.forceSingle
-        ? null
-        : _stringBatchOrNull(context.input);
+    final textBatch = _stringBatchOrNull(context.input);
     final isBatch = textBatch != null && textBatch.length > 1;
     final Map<String, Object?> body;
     if (isBatch) {

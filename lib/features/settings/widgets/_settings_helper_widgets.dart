@@ -2189,10 +2189,10 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
   Future<void> _loadMiniMaxVoices(AiModelConfig model) async {
     if (_loadingMiniMaxVoices) return;
     setState(() => _loadingMiniMaxVoices = true);
-    final service = AiMiniMaxService();
+    final service = AiMiniMaxVoiceService();
     try {
-      final response = await service.getVoices(model: model);
-      final options = _miniMaxVoiceOptionsFromPayload(response.payload);
+      final payload = await service.loadVoices(model: model);
+      final options = _miniMaxVoiceOptionsFromPayload(payload);
       if (options.isEmpty) {
         throw StateError('MiniMax returned no available voices.');
       }

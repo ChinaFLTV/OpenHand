@@ -448,11 +448,6 @@ abstract final class MachineTerminalSessionMetadata {
     };
   }
 
-  static int? schemaVersionFrom(Object? metadata) {
-    final raw = stringKeyedMapFromValue(metadata);
-    return optionalIntFromValue(raw['schema_version']);
-  }
-
   static String? createdAtFrom(Object? metadata) {
     final raw = stringKeyedMapFromValue(metadata);
     return _isoTimeFromValue(raw['created_at']);

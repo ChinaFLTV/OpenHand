@@ -4,7 +4,6 @@ import 'package:path/path.dart' as p;
 
 import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/input_value_parsing.dart';
-import '../service/harness_cli_catalog.dart';
 import 'harness_role_config.dart';
 
 class HarnessSessionConfig {
@@ -78,53 +77,6 @@ class HarnessSessionConfig {
 
   static Map<String, Object?> _requireMap(Object? value) {
     return stringKeyedMapFromValue(value);
-  }
-
-  /// Looks up the CLI executable binary name from the catalog by display name.
-  /// Falls back to the first word of the name lowercased if not found.
-  static String _executableFor(String cliName) {
-    for (final c in kHarnessCliCatalog) {
-      if (c.name == cliName) return c.executable;
-    }
-    // Fallback: lowercase first token
-    final first = cliName.split(' ').first.toLowerCase();
-    return first.isEmpty ? cliName : first;
-  }
-
-  /// Builds the initial user message that seeds the HE session with config.
-  /// Includes the CLI executable explicitly so the orchestrator never guesses.
-  Future<String> toInitialPrompt() async {
-    String fmt(HarnessRoleConfig cfg, String roleZh, String roleEn) {
-      if (cfg.isUrlMode) {
-        return '- $roleZh($roleEn)：模式=URL/API, 模型配置ID=${cfg.aiModelConfigId ?? '(未配置)'}';
-      }
-      final exe = _executableFor(cfg.cliName);
-      final cli = findHarnessCliByName(cfg.cliName);
-      final modelLabel = describeHarnessCliModel(cli, cfg.modelId, isZh: true);
-      return '- $roleZh($roleEn)：CLI名称=${cfg.cliName}, 可执行文件=$exe, 模型=$modelLabel';
-    }
-
-    final roleLines = <String>[
-      fmt(profilerConfig, '探档者', 'profiler'),
-      fmt(readerConfig, '调查者', 'reader'),
-      fmt(plannerConfig, '规划者', 'planner'),
-      fmt(implementerConfig, '实施者', 'implementer'),
-      fmt(reviewerConfig, '验收者', 'reviewer'),
-    ];
-
-    final firstRun = await isFirstRun();
-    return '''[HARNESS_CONFIG]
-工作目录：$workingDirectory
-持久化根目录：$persistenceDirectory
-首次运行：$firstRun
-角色配置（⚠️ 请严格按照「可执行文件」字段调用对应 CLI，不得自行推断）：
-${roleLines.join('\n')}
-
-语言要求：所有角色提示词、分析报告、执行计划、项目结构/架构文档、约定文档、feedback、handoff、lesson 等 Markdown 文档必须使用简体中文；仅代码、命令、路径、文件名、接口名、配置键名、日志原文以及 PASS/FAIL 等技术标识可保留原文。
-
-任务需求：
-$task
-[/HARNESS_CONFIG]''';
   }
 
   /// Initializes the persistence directory structure.

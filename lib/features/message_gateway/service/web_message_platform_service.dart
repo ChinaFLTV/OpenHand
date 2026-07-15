@@ -6791,7 +6791,7 @@ class WebMessagePlatformService {
     shelf.Request request,
     Map<String, Object?> extra,
   ) {
-    return buildLegacyWebGatewayRequestMetadata(
+    return buildWebGatewayRequestMetadata(
       authMetadata: auth.toMetadata(),
       requestMethod: request.method,
       requestPath: request.requestedUri.path,

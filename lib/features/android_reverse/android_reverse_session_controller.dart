@@ -936,47 +936,6 @@ class AndroidReverseSessionController extends ChangeNotifier {
     return commandResult;
   }
 
-  Future<int> appendLogcatLines(
-    Iterable<String> lines, {
-    String? tag,
-    String? level,
-    String? packageName,
-    String? pid,
-    String? serial,
-  }) async {
-    final normalized = trimRightNonEmptyLines(lines);
-    if (normalized.isEmpty) return 0;
-    try {
-      await Directory(logsDir).create(recursive: true);
-      final sink = File(logcatJsonlPath).openWrite(mode: FileMode.append);
-      final capturedAt = DateTime.now().toUtc().toIso8601String();
-      for (final line in normalized) {
-        sink.writeln(
-          jsonEncode(<String, Object?>{
-            'captured_at': capturedAt,
-            'line': line,
-            if (tag != null && tag.trim().isNotEmpty) 'tag': tag.trim(),
-            if (level != null && level.trim().isNotEmpty)
-              'level_filter': level.trim().toUpperCase(),
-            if (packageName != null && packageName.trim().isNotEmpty)
-              'package_name': packageName.trim(),
-            if (pid != null && pid.trim().isNotEmpty) 'pid': pid.trim(),
-            if (serial != null && serial.trim().isNotEmpty)
-              'device_serial': serial.trim(),
-          }),
-        );
-      }
-      await sink.flush();
-      await sink.close();
-      return normalized.length;
-    } catch (e, st) {
-      silentLog(_kTag, 'appendLogcatLines failed', e, st);
-      _errorMessage = '$e';
-      _safeNotify();
-      return 0;
-    }
-  }
-
   Future<String> ensureMitmproxyJsonlAddon() async {
     try {
       await Directory(networkDir).create(recursive: true);

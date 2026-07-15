@@ -4,8 +4,8 @@ part of 'web_message_platform_service.dart';
 ///
 /// - `token`：随机 32 字节 base64url 字符串；当 `authEnabled=false` 时使用
 ///   常量 `'anonymous'` 直连。
-/// - `toMetadata()` 输出 web 端来源信息，最终通过
-///   [WebGatewaySessionMetadata.wrapForSession] 写入到 AiSession 的 metadata。
+/// - `toMetadata()` 输出 Web 端来源信息，最终由请求元数据构建器写入
+///   `AiSession.metadata`。
 /// - `source/deviceId` 在跨请求授权时用于二次校验：匿名模式下 token 共享，
 ///   `_authCanAccessAllSessions` 才会决定是否要求 device 一致。
 class _WebGatewayAuthSession {

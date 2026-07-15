@@ -12,7 +12,6 @@ const Duration _kAdbCommandTimeout = Duration(seconds: 30);
 const Duration _kAdbInstallTimeout = Duration(minutes: 3);
 const Duration _kAdbTransferTimeout = Duration(minutes: 5);
 const Duration _kAdbPidLookupTimeout = Duration(seconds: 3);
-const Duration _kAdbShellQuickReadTimeout = Duration(seconds: 6);
 const Duration _kAdbShellReadTimeout = Duration(seconds: 8);
 const Duration _kAdbShellDumpsysTimeout = Duration(seconds: 12);
 const int _kMaxAdbStdoutBytes = 4 * kBytesPerMiB;
@@ -208,10 +207,6 @@ class AndroidReverseAdbClient {
     return _runDeviceDetailed(args, timeout: timeout);
   }
 
-  Future<String?> shellLines(List<String> args) async {
-    return _runDevice(<String>['shell', ...args]);
-  }
-
   // ── APP 管理 ──────────────────────────────────────────────────────────
 
   Future<List<String>> listPackages({bool thirdParty = true}) async {
@@ -323,15 +318,6 @@ class AndroidReverseAdbClient {
     return props;
   }
 
-  Future<bool> installApk(String localApkPath) async {
-    final result = await _runDevice(<String>[
-      'install',
-      '-r',
-      localApkPath,
-    ], timeout: _kAdbInstallTimeout);
-    return result != null && result.contains('Success');
-  }
-
   Future<AdbCommandResult> installApkDetailed(
     String localApkPath, {
     bool grantRuntimePermissions = true,
@@ -353,14 +339,6 @@ class AndroidReverseAdbClient {
       if (grantRuntimePermissions) '-g',
       path,
     ], timeout: _kAdbInstallTimeout);
-  }
-
-  Future<bool> forceStopApp(String packageName) async {
-    final result = await shell(
-      'am force-stop $packageName',
-      timeout: _kAdbShellQuickReadTimeout,
-    );
-    return result != null;
   }
 
   Future<AdbCommandResult> forceStopAppDetailed(String packageName) {
@@ -410,26 +388,6 @@ class AndroidReverseAdbClient {
       if (keepData) '-k',
       packageName,
     ], timeout: _kAdbInstallTimeout);
-  }
-
-  Future<bool> startActivity(String packageName, {String? activity}) async {
-    if (!_looksLikePackageName(packageName)) return false;
-    final activityValue = nullIfBlank(activity);
-    if (activityValue == null) {
-      final result = await startPackageDetailed(packageName);
-      return result.ok || result.partialOk;
-    }
-    final component = activityValue.contains('/')
-        ? activityValue
-        : '$packageName/$activityValue';
-    if (!_looksLikeActivityComponent(component)) return false;
-    final result = _normalizeLaunchResult(
-      await shellDetailed(
-        'am start -W -n $component',
-        timeout: const Duration(seconds: 12),
-      ),
-    );
-    return result.ok || result.partialOk;
   }
 
   Future<AdbCommandResult> startPackageDetailed(String packageName) async {
@@ -1000,14 +958,6 @@ class AndroidReverseAdbClient {
     return RegExp(
       r'^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)+$',
     ).hasMatch(packageName);
-  }
-
-  bool _looksLikeActivityComponent(String value) {
-    final component = nullIfBlank(value);
-    if (component == null || component.length > 320) return false;
-    return RegExp(
-      r'^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)+/(\.[A-Za-z0-9_.$]+|[A-Za-z][A-Za-z0-9_.$]*)$',
-    ).hasMatch(component);
   }
 
   String? _launcherActivityFromResolveOutput(String raw, String packageName) {

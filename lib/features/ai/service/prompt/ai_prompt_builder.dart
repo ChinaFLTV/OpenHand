@@ -172,40 +172,6 @@ class AiPromptBuilder {
       '</openhand_runtime_context>';
   static const String _runtimeContextEnvelopeIntro =
       'OpenHand runtime context for this turn; follow it unless higher-priority instructions conflict.';
-  Future<AiPromptBuildResult> buildConversationPrompt({
-    required AiPromptTemplateBundle templateBundle,
-    required AiSession session,
-    required AiModelConfig model,
-    required AiSessionRuntimeContext runtimeContext,
-    required List<UserMemoryEntry> memoryEntries,
-    required List<AiSessionMessage> historyMessages,
-    required AiSessionMessage latestUserMessage,
-    List<AiToolDefinition> availableTools = const <AiToolDefinition>[],
-    Map<String, AiResolvedTool> resolvedToolsByName =
-        const <String, AiResolvedTool>{},
-    Map<String, String> mcpServerInstructionsByName = const <String, String>{},
-    bool useDsmlToolCalls = false,
-  }) async {
-    final sessionMessages = <AiSessionMessage>[
-      ...historyMessages,
-      latestUserMessage,
-    ];
-    return buildSessionPrompt(
-      templateBundle: templateBundle,
-      session: session,
-      model: model,
-      runtimeContext: runtimeContext,
-      memoryEntries: memoryEntries,
-      sessionMessages: sessionMessages,
-      latestUserMessageId: latestUserMessage.id,
-      runtimeContextAnchorMessageId: latestUserMessage.id,
-      availableTools: availableTools,
-      resolvedToolsByName: resolvedToolsByName,
-      mcpServerInstructionsByName: mcpServerInstructionsByName,
-      useDsmlToolCalls: useDsmlToolCalls,
-    );
-  }
-
   Future<AiPromptBuildResult> buildSessionPrompt({
     required AiPromptTemplateBundle templateBundle,
     required AiSession session,

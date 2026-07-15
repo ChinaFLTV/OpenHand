@@ -855,9 +855,6 @@ class AiPromptCacheAffinity {
     return AiPromptCacheAffinityKind.none;
   }
 
-  static bool supportsModel(AiModelConfig model) =>
-      kindForModel(model) != AiPromptCacheAffinityKind.none;
-
   void applyToHeaders(Map<String, String> headers) {
     if (!applies) return;
     switch (kind) {

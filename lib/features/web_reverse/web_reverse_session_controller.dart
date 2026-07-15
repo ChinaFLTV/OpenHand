@@ -9936,8 +9936,6 @@ class CdpPageTargetSnapshot {
 }
 
 /// 抓取并解析后的 Source Map 信息，供源码板块「跳到原始源」使用。
-/// 这里只保留浏览器侧返回的字段；mappings 解码是按需进行的：调用
-/// [decodeOriginalLocation] 才会扫到目标段。
 class WebReverseSourceMapInfo {
   WebReverseSourceMapInfo({
     required this.scriptUrl,
@@ -9989,56 +9987,6 @@ class WebReverseSourceMapInfo {
     final rel = sources[sourceIndex];
     if (sourceRoot.isEmpty) return rel;
     return sourceRoot.endsWith('/') ? '$sourceRoot$rel' : '$sourceRoot/$rel';
-  }
-
-  /// 把 (生成文件行, 生成文件列) 反查到 (sourceIndex, origLine, origCol,
-  /// nameIndex?)。0-based。命中不到返回 null。
-  /// 实现与独立 SourceMap 对话框等价，但内联到模型里便于复用。
-  Map<String, int?>? decodeOriginalLocation({
-    required int generatedLine,
-    required int generatedColumn,
-  }) {
-    final lines = mappings.split(';');
-    if (generatedLine < 0 || generatedLine >= lines.length) return null;
-    var srcIdx = 0;
-    var origLine = 0;
-    var origCol = 0;
-    var nameIdx = 0;
-    for (var li = 0; li < generatedLine; li += 1) {
-      for (final seg in lines[li].split(',')) {
-        if (seg.isEmpty) continue;
-        final nums = vlqDecode(seg);
-        if (nums.length >= 4) {
-          srcIdx += nums[1];
-          origLine += nums[2];
-          origCol += nums[3];
-          if (nums.length >= 5) nameIdx += nums[4];
-        }
-      }
-    }
-    final lineStr = lines[generatedLine];
-    if (lineStr.isEmpty) return null;
-    var genCol = 0;
-    Map<String, int?>? best;
-    for (final seg in lineStr.split(',')) {
-      if (seg.isEmpty) continue;
-      final nums = vlqDecode(seg);
-      genCol += nums[0];
-      if (nums.length >= 4) {
-        srcIdx += nums[1];
-        origLine += nums[2];
-        origCol += nums[3];
-        if (nums.length >= 5) nameIdx += nums[4];
-      }
-      if (genCol > generatedColumn) break;
-      best = <String, int?>{
-        'source': srcIdx,
-        'origLine': origLine,
-        'origCol': origCol,
-        'name': nums.length >= 5 ? nameIdx : null,
-      };
-    }
-    return best;
   }
 }
 

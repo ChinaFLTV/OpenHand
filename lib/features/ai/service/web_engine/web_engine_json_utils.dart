@@ -50,17 +50,3 @@ T? readJsonPath<T>(Object? root, List<Object> path) {
   }
   return cur is T ? cur : null;
 }
-
-/// JSON 解析帮手 — 输入是 String 时直接 jsonDecode；否则原样返回。
-Object? maybeJsonDecode(Object? raw) {
-  if (raw is String) {
-    final trimmed = raw.trim();
-    if (trimmed.isEmpty) return null;
-    try {
-      return jsonDecode(trimmed);
-    } catch (_) {
-      return null;
-    }
-  }
-  return raw;
-}

@@ -193,19 +193,6 @@ List<String> stringListFromValue(
   return const <String>[];
 }
 
-List<String> stringListFromJsonText(
-  String value, {
-  Pattern separator = ',',
-  bool requireList = false,
-}) {
-  return optionalStringListFromJsonText(
-        value,
-        separator: separator,
-        requireList: requireList,
-      ) ??
-      const <String>[];
-}
-
 List<String>? optionalStringListFromJsonText(
   String value, {
   Pattern separator = ',',

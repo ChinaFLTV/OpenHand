@@ -57,22 +57,6 @@ class AiPromptTemplateRepository {
     return _templatesById[resolvedId] ?? _templatesById[_defaultTemplateId]!;
   }
 
-  AiThreadTemplate resolveTemplateForPlatform(
-    String templateId, {
-    TargetPlatform? platform,
-  }) {
-    final resolved = resolveTemplate(templateId);
-    final effectivePlatform = platform ?? defaultTargetPlatform;
-    if (resolved.isSupportedOnPlatform(effectivePlatform)) {
-      return resolved;
-    }
-    final supportedTemplates = templatesForPlatform(effectivePlatform);
-    if (supportedTemplates.isNotEmpty) {
-      return supportedTemplates.first;
-    }
-    return _templatesById[_defaultTemplateId]!;
-  }
-
   Future<AiPromptTemplateBundle> loadBundle(String templateId) async {
     final resolvedTemplateId = resolveTemplate(templateId).id;
     final cached = _bundleCache[resolvedTemplateId];

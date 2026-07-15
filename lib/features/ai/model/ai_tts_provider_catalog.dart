@@ -53,14 +53,6 @@ class AiTtsProviderCatalogs {
     return _catalogs[provider]!;
   }
 
-  static List<AiTtsCatalogOption> voices(AiTtsProvider provider) {
-    return of(provider).voiceOptions;
-  }
-
-  static List<AiTtsCatalogOption> languages(AiTtsProvider provider) {
-    return of(provider).languageOptions;
-  }
-
   static List<AiTtsCatalogOption> voiceOptionsForAiModel({
     required AiProtocolType protocol,
     required String modelId,

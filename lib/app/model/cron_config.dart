@@ -339,18 +339,6 @@ class CronEntry {
       (scriptPath != null && scriptPath!.isNotEmpty) ||
       (scriptContent != null && scriptContent!.isNotEmpty);
 
-  /// Human-readable cron schedule description.
-  String scheduleLabel(AppLocalizations l10n) {
-    final parts = cronExpression.trim().split(RegExp(r'\s+'));
-    if (parts.length != 5) {
-      return l10n.cronScheduleInvalidExpression;
-    }
-    if (parts.every((p) => p == '*')) {
-      return l10n.cronScheduleEveryMinute;
-    }
-    return cronExpression;
-  }
-
   CronEntry copyWith({
     String? id,
     String? name,

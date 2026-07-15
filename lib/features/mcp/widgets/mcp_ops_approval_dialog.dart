@@ -20,21 +20,6 @@ const int _approvalPayloadPreviewItemsPerLevel = 12;
 const int _approvalPayloadMaxItemsPerLevel = 80;
 const int _approvalPayloadExpandedMaxChars = 12000;
 
-Future<bool?> showMcpOpsWriteApprovalDialog(
-  BuildContext context, {
-  required McpOpsApprovalRequest request,
-}) {
-  return _showMcpOpsWriteApprovalSession(
-    request: request,
-    present: (builder) => showTrackedAnimatedDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      dismissOnEscape: false,
-      builder: builder,
-    ),
-  ).result;
-}
-
 OpenHandDialogSession<bool> showMcpOpsWriteApprovalDialogOnNavigator(
   NavigatorState navigator, {
   required BuildContext context,

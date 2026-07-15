@@ -294,6 +294,10 @@ class _NavigationPaneState extends State<_NavigationPane> {
         (sessionId, _) => !activeSessionIds.contains(sessionId),
       );
     }
+    _threadAppear.retainOnly(<String>{
+      for (final sessionId in activeSessionIds) 'ai-$sessionId',
+      if (heRecord != null) 'he-${heRecord.id}',
+    });
     _threadAppear.markInitialBuildDone();
 
     return tiles;

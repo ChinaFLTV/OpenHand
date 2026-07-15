@@ -1,10 +1,8 @@
 import 'dart:io';
-import 'dart:ui' show Locale;
 
 import '../../app/support/safe_subprocess.dart';
 import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/input_value_parsing.dart';
-import '../../shared/util/localized_text.dart';
 
 const Duration _kToolchainProbeTimeout = Duration(seconds: 5);
 const Duration _kToolchainCommandTimeout = Duration(minutes: 10);
@@ -109,12 +107,6 @@ class AndroidReverseToolchainProbeResult {
     if (text != null) return text;
     return nullIfBlank(stderr) ?? 'NOT_FOUND';
   }
-
-  String installHintForLocale(Locale locale) => openHandLocalizedTextForLocale(
-    locale,
-    zh: probe.installHintZh,
-    en: probe.installHintEn,
-  );
 }
 
 const List<AndroidReverseToolchainProbe>
