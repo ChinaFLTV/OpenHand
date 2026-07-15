@@ -4,6 +4,91 @@ const Duration _kHomeSidebarTileMotionDuration = Duration(milliseconds: 220);
 const Duration _kHomeSidebarPulseDuration = Duration(milliseconds: 1200);
 const Curve _kHomeSidebarTileMotionCurve = Curves.easeOutCubic;
 
+Future<void> _showSidebarThreadContextMenu(
+  BuildContext context,
+  TapDownDetails details, {
+  required VoidCallback onRename,
+  required VoidCallback onDelete,
+  required VoidCallback onExport,
+  VoidCallback? onGenerateTitle,
+}) async {
+  final selected = await showAnimatedMenu<String>(
+    context: context,
+    position: RelativeRect.fromLTRB(
+      details.globalPosition.dx,
+      details.globalPosition.dy,
+      details.globalPosition.dx,
+      details.globalPosition.dy,
+    ),
+    items: [
+      PopupMenuItem<String>(
+        value: 'rename',
+        child: Row(
+          children: [
+            const Icon(Icons.edit_outlined, size: 18),
+            const SizedBox(width: 8),
+            Text(
+              openHandLocalizedText(context, zh: '重命名线程', en: 'Rename Thread'),
+            ),
+          ],
+        ),
+      ),
+      PopupMenuItem<String>(
+        value: 'delete',
+        child: Row(
+          children: [
+            const Icon(Icons.delete_outline_rounded, size: 18),
+            const SizedBox(width: 8),
+            Text(AppLocalizations.of(context)!.commonDelete),
+          ],
+        ),
+      ),
+      PopupMenuItem<String>(
+        value: 'export',
+        child: Row(
+          children: [
+            const Icon(Icons.file_download_outlined, size: 18),
+            const SizedBox(width: 8),
+            Text(
+              openHandLocalizedText(
+                context,
+                zh: '导出会话数据',
+                en: 'Export Session Data',
+              ),
+            ),
+          ],
+        ),
+      ),
+      if (onGenerateTitle != null)
+        PopupMenuItem<String>(
+          value: 'generate_title',
+          child: Row(
+            children: [
+              const Icon(Icons.auto_awesome_outlined, size: 18),
+              const SizedBox(width: 8),
+              Text(
+                openHandLocalizedText(
+                  context,
+                  zh: '获取 AI 摘要标题',
+                  en: 'Generate AI Title',
+                ),
+              ),
+            ],
+          ),
+        ),
+    ],
+  );
+  if (!context.mounted) return;
+  final action = switch (selected) {
+    'rename' => onRename,
+    'delete' => onDelete,
+    'export' => onExport,
+    'generate_title' => onGenerateTitle,
+    _ => null,
+  };
+  action?.call();
+}
+
 class _HarnessSessionTile extends StatelessWidget {
   const _HarnessSessionTile({
     required this.title,
@@ -49,72 +134,13 @@ class _HarnessSessionTile extends StatelessWidget {
 
     return GestureDetector(
       onSecondaryTapDown: (details) async {
-        final selected = await showAnimatedMenu<String>(
-          context: context,
-          position: RelativeRect.fromLTRB(
-            details.globalPosition.dx,
-            details.globalPosition.dy,
-            details.globalPosition.dx,
-            details.globalPosition.dy,
-          ),
-          items: [
-            PopupMenuItem<String>(
-              value: 'rename',
-              child: Row(
-                children: [
-                  const Icon(Icons.edit_outlined, size: 18),
-                  const SizedBox(width: 8),
-                  Text(
-                    openHandLocalizedText(
-                      context,
-                      zh: '重命名线程',
-                      en: 'Rename Thread',
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            PopupMenuItem<String>(
-              value: 'delete',
-              child: Row(
-                children: [
-                  const Icon(Icons.delete_outline_rounded, size: 18),
-                  const SizedBox(width: 8),
-                  Text(AppLocalizations.of(context)!.commonDelete),
-                ],
-              ),
-            ),
-            PopupMenuItem<String>(
-              value: 'export',
-              child: Row(
-                children: [
-                  const Icon(Icons.file_download_outlined, size: 18),
-                  const SizedBox(width: 8),
-                  Text(
-                    openHandLocalizedText(
-                      context,
-                      zh: '导出会话数据',
-                      en: 'Export Session Data',
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
+        await _showSidebarThreadContextMenu(
+          context,
+          details,
+          onRename: onRename,
+          onDelete: onDelete,
+          onExport: onExport,
         );
-        if (!context.mounted || selected == null) {
-          return;
-        }
-        final VoidCallback? action = switch (selected) {
-          'rename' => onRename,
-          'delete' => onDelete,
-          'export' => onExport,
-          _ => null,
-        };
-        if (action == null) {
-          return;
-        }
-        action();
       },
       child: AnimatedContainer(
         duration: tileMotionDuration,
@@ -371,90 +397,14 @@ class _ThreadTile extends StatelessWidget {
     );
     return GestureDetector(
       onSecondaryTapDown: (details) async {
-        final selected = await showAnimatedMenu<String>(
-          context: context,
-          position: RelativeRect.fromLTRB(
-            details.globalPosition.dx,
-            details.globalPosition.dy,
-            details.globalPosition.dx,
-            details.globalPosition.dy,
-          ),
-          items: [
-            PopupMenuItem<String>(
-              value: 'rename',
-              child: Row(
-                children: [
-                  const Icon(Icons.edit_outlined, size: 18),
-                  const SizedBox(width: 8),
-                  Text(
-                    openHandLocalizedText(
-                      context,
-                      zh: '重命名线程',
-                      en: 'Rename Thread',
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            PopupMenuItem<String>(
-              value: 'delete',
-              child: Row(
-                children: [
-                  const Icon(Icons.delete_outline_rounded, size: 18),
-                  const SizedBox(width: 8),
-                  Text(AppLocalizations.of(context)!.commonDelete),
-                ],
-              ),
-            ),
-            PopupMenuItem<String>(
-              value: 'export',
-              child: Row(
-                children: [
-                  const Icon(Icons.file_download_outlined, size: 18),
-                  const SizedBox(width: 8),
-                  Text(
-                    openHandLocalizedText(
-                      context,
-                      zh: '导出会话数据',
-                      en: 'Export Session Data',
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            if (onGenerateTitle != null)
-              PopupMenuItem<String>(
-                value: 'generate_title',
-                child: Row(
-                  children: [
-                    const Icon(Icons.auto_awesome_outlined, size: 18),
-                    const SizedBox(width: 8),
-                    Text(
-                      openHandLocalizedText(
-                        context,
-                        zh: '获取 AI 摘要标题',
-                        en: 'Generate AI Title',
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-          ],
+        await _showSidebarThreadContextMenu(
+          context,
+          details,
+          onRename: onRename,
+          onDelete: onDelete,
+          onExport: onExport,
+          onGenerateTitle: onGenerateTitle,
         );
-        if (!context.mounted || selected == null) {
-          return;
-        }
-        final VoidCallback? action = switch (selected) {
-          'rename' => onRename,
-          'delete' => onDelete,
-          'export' => onExport,
-          'generate_title' => onGenerateTitle,
-          _ => null,
-        };
-        if (action == null) {
-          return;
-        }
-        action();
       },
       child: AnimatedContainer(
         duration: tileMotionDuration,

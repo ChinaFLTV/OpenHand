@@ -9,7 +9,7 @@ export interface SaveBlobPickerType {
   accept: Record<string, string[]>;
 }
 
-export interface SaveBlobResult {
+interface SaveBlobResult {
   filename: string;
   picked: boolean;
 }

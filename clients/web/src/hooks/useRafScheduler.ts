@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from 'preact/hooks';
 
-export interface RafScheduler {
+interface RafScheduler {
   schedule: () => void;
   flush: () => void;
   cancel: () => void;

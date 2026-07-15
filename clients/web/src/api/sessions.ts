@@ -245,7 +245,7 @@ export interface MachineTerminalWorkspace {
   active_terminal?: MachineTerminalSnapshot | null;
 }
 
-export interface MachineTerminalResponse {
+interface MachineTerminalResponse {
   terminal: MachineTerminalWorkspace;
 }
 
@@ -339,7 +339,7 @@ export interface SessionCacheHitTrendPoint {
   idle_gap_seconds?: number | null;
 }
 
-export interface SessionMessagesResponse {
+interface SessionMessagesResponse {
   session?: SessionSummary;
   items: SessionMessage[];
   offset: number;
@@ -354,7 +354,7 @@ export interface SessionMessagesResponse {
   pending_write_approval?: PendingWriteApproval | null;
 }
 
-export interface ListSessionsOptions extends ApiRequestSignalOptions {
+interface ListSessionsOptions extends ApiRequestSignalOptions {
   page?: number;
   pageSize?: number;
   source?: string;
@@ -404,7 +404,7 @@ export function createSession(
   });
 }
 
-export interface SessionRequestOptions {
+interface SessionRequestOptions {
   signal?: AbortSignal;
 }
 
@@ -532,7 +532,7 @@ export function deleteSession(
   );
 }
 
-export interface ListMessagesOptions {
+interface ListMessagesOptions {
   limit?: number;
   offset?: number;
   tail?: boolean;
@@ -554,7 +554,7 @@ export function listMessages(
   );
 }
 
-export interface SessionTitleSourceMessagesResponse {
+interface SessionTitleSourceMessagesResponse {
   ok: boolean;
   items: SessionMessage[];
   total: number;
@@ -603,7 +603,7 @@ export interface SendMessageAttachment {
   data_base64: string;
 }
 
-export interface SendMessageResponse {
+interface SendMessageResponse {
   ok: boolean;
   send_phase: string;
 }
@@ -674,7 +674,7 @@ export function terminateGoal(
   );
 }
 
-export interface StopMessageResponse {
+interface StopMessageResponse {
   ok: boolean;
   send_phase: string;
   reason?: string;
@@ -687,7 +687,7 @@ export function stopMessage(sessionId: string): Promise<StopMessageResponse> {
   );
 }
 
-export interface GenerateSessionTitleResponse {
+interface GenerateSessionTitleResponse {
   title: string;
 }
 
@@ -744,7 +744,7 @@ export function compactSession(
   );
 }
 
-export type WriteApprovalDecision = 'approved' | 'rejected' | 'dismissed';
+type WriteApprovalDecision = 'approved' | 'rejected' | 'dismissed';
 
 export function respondWriteApproval(
   sessionId: string,
@@ -928,7 +928,7 @@ export async function clearSessionThrottle(
 
 /// 触发会话 JSON 导出保存。在 service 端附带 Content-Disposition: attachment，
 /// 这里抓 blob 后优先打开系统保存面板；不绕过鉴权（带上 token）。
-export interface ExportDownloadResult {
+interface ExportDownloadResult {
   filename: string;
 }
 

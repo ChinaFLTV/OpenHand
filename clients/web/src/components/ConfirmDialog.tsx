@@ -27,7 +27,7 @@ function ConfirmIcon({ danger }: { danger: boolean }) {
     : <svg {...common}><path d="m5 12 4 4 10-10" /></svg>;
 }
 
-export interface ConfirmDialogProps {
+interface ConfirmDialogProps {
   title: string;
   body?: ComponentChildren;
   confirmLabel: string;

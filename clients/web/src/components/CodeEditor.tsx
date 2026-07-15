@@ -131,7 +131,7 @@ function languageFromFilename(name: string): string {
   return 'plaintext';
 }
 
-export interface CodeEditorProps {
+interface CodeEditorProps {
   value: string;
   onChange?(next: string): void;
   filename?: string;

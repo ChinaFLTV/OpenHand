@@ -6,9 +6,9 @@ import {
 } from '../shared/util/number';
 import { OverlayPortal } from './OverlayPortal';
 
-export type SnackbarTone = 'default' | 'success' | 'warning' | 'error';
+type SnackbarTone = 'default' | 'success' | 'warning' | 'error';
 
-export interface SnackbarOptions {
+interface SnackbarOptions {
   tone?: SnackbarTone;
   durationMs?: number;
 }

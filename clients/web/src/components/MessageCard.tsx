@@ -2420,7 +2420,7 @@ function GoalMessageBulletList({
   );
 }
 
-export interface MessageCardProps {
+interface MessageCardProps {
   message: SessionMessage;
   /// 由详情页受控的点击选中态；只有选中的卡片显示操作栏。
   active?: boolean;

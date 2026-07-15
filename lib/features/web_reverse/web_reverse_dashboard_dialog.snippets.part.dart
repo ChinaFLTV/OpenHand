@@ -374,7 +374,9 @@ class _SnippetsBodyState extends State<_SnippetsBody> {
                         ),
                         const SizedBox(height: 10),
                         Expanded(
-                          child: CallbackShortcuts(
+                          child: _DashboardScriptCodeEditor(
+                            controller: _codeCtrl,
+                            focusNode: _codeFocus,
                             bindings: <ShortcutActivator, VoidCallback>{
                               const SingleActivator(
                                 LogicalKeyboardKey.keyR,
@@ -401,85 +403,9 @@ class _SnippetsBodyState extends State<_SnippetsBody> {
                                 if (_dirty) _save();
                               },
                             },
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: cs.surface,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: cs.outlineVariant),
-                              ),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 8,
-                              ),
-                              child: TextField(
-                                controller: _codeCtrl,
-                                focusNode: _codeFocus,
-                                maxLines: null,
-                                expands: true,
-                                maxLength: WebReverseSessionController
-                                    .maxSavedScriptCodeChars,
-                                maxLengthEnforcement:
-                                    MaxLengthEnforcement.enforced,
-                                buildCounter: _hideTextFieldCounter,
-                                textAlignVertical: TextAlignVertical.top,
-                                style: const TextStyle(
-                                  fontFamily: 'monospace',
-                                  fontSize: 13,
-                                ),
-                                decoration: const InputDecoration(
-                                  border: InputBorder.none,
-                                  isDense: true,
-                                ),
-                              ),
-                            ),
                           ),
                         ),
-                        AnimatedSize(
-                          duration: reduceMotion
-                              ? Duration.zero
-                              : _kSwitchDuration,
-                          curve: _kSwitchInCurve,
-                          child: _lastResultPreview == null
-                              ? const SizedBox.shrink()
-                              : Padding(
-                                  padding: const EdgeInsets.only(top: 10),
-                                  child: Container(
-                                    width: double.infinity,
-                                    padding: const EdgeInsets.all(10),
-                                    decoration: BoxDecoration(
-                                      color: cs.primary.withValues(alpha: 0.06),
-                                      borderRadius: BorderRadius.circular(10),
-                                      border: Border.all(
-                                        color: cs.primary.withValues(
-                                          alpha: 0.25,
-                                        ),
-                                      ),
-                                    ),
-                                    child: Row(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Icon(
-                                          Icons.check_circle_outline_rounded,
-                                          size: 14,
-                                          color: cs.primary,
-                                        ),
-                                        const SizedBox(width: 6),
-                                        Expanded(
-                                          child: SelectableText(
-                                            _lastResultPreview!,
-                                            maxLines: 6,
-                                            style: const TextStyle(
-                                              fontFamily: 'monospace',
-                                              fontSize: 12,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                        ),
+                        _DashboardScriptResultPreview(text: _lastResultPreview),
                       ],
                     ),
             ),

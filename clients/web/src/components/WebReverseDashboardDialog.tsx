@@ -25,7 +25,7 @@ import {
   stringListFromUnknown,
 } from '../shared/util/value';
 
-export interface WebReverseDashboardDialogProps {
+interface WebReverseDashboardDialogProps {
   session: SessionSummary;
   onClose: () => void;
 }

@@ -5,7 +5,7 @@ import {
   stringFromUnknown,
 } from './value';
 
-export interface KnowledgeBaseUsageMatchOptions {
+interface KnowledgeBaseUsageMatchOptions {
   hitKey?: (hit: Record<string, unknown>) => string;
   coerceValues?: boolean;
 }

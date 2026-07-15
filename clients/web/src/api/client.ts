@@ -12,7 +12,7 @@ import {
   type TimedAbortController,
 } from '../utils/timed_abort';
 
-export const DEFAULT_API_REQUEST_TIMEOUT_MS = 120_000;
+const DEFAULT_API_REQUEST_TIMEOUT_MS = 120_000;
 export const LONG_API_REQUEST_TIMEOUT_MS = 300_000;
 
 export class ApiError extends Error {

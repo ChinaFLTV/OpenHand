@@ -28,7 +28,7 @@ import {
   DashboardTabPill,
 } from './ReverseDashboardPrimitives';
 
-export interface AndroidReverseDashboardDialogProps {
+interface AndroidReverseDashboardDialogProps {
   session: SessionSummary;
   onClose: () => void;
 }

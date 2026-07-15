@@ -33,7 +33,7 @@ interface PopMenuItem {
   selected?: boolean;
 }
 
-export interface PopMenuProps {
+interface PopMenuProps {
   items?: PopMenuItem[];
   /** 自定义面板内容；复用同一套锚定、外部关闭与全局进退场动画。 */
   content?: (actions: { close: () => void }) => ComponentChildren;

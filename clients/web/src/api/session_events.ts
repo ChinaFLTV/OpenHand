@@ -65,7 +65,7 @@ interface SessionDeletedEvent {
   served_at: string;
 }
 
-export interface SessionEventsHandlers {
+interface SessionEventsHandlers {
   onSnapshot(snapshot: SessionEventSnapshot): void;
   onDeleted?(event: SessionDeletedEvent): void;
   onError(err: Event): void;

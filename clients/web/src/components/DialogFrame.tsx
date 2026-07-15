@@ -96,7 +96,7 @@ interface DialogFrameAppearanceOptions {
   panelStyleOverrides?: JSX.CSSProperties;
 }
 
-export interface StandardDialogFrameAppearanceOptions
+interface StandardDialogFrameAppearanceOptions
   extends DialogFrameAppearanceOptions {
   overlayTone?: DialogOverlayTone;
   overlayZIndex?: number;
@@ -104,7 +104,7 @@ export interface StandardDialogFrameAppearanceOptions
   panelBorder?: DialogPanelBorder;
 }
 
-export interface DialogFrameProps {
+interface DialogFrameProps {
   children: ComponentChildren;
   closing: boolean;
   onRequestClose?: () => void;
@@ -118,7 +118,7 @@ export interface DialogFrameProps {
   ariaLabelledBy?: string;
 }
 
-export type DialogFrameAppearance = Pick<
+type DialogFrameAppearance = Pick<
   DialogFrameProps,
   'overlayClassName' | 'overlayStyle' | 'panelClassName' | 'panelStyle'
 >;
@@ -336,7 +336,7 @@ export function DialogCloseButton({
   );
 }
 
-export interface DialogHeaderProps {
+interface DialogHeaderProps {
   title: ComponentChildren;
   subtitle?: ComponentChildren;
   icon?: ComponentChildren;
@@ -359,7 +359,7 @@ type DialogActionButtonTone =
   | 'ghost'
   | 'danger';
 
-export interface DialogActionButtonProps {
+interface DialogActionButtonProps {
   children: ComponentChildren;
   type?: 'button' | 'submit' | 'reset';
   tone?: DialogActionButtonTone;

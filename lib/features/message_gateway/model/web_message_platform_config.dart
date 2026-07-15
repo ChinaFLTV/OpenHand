@@ -5,9 +5,6 @@ const String webMessagePlatformBuiltinId = 'builtin_web_message_platform';
 const String webMessagePlatformBuiltinName = 'Web通用消息平台';
 
 const String webGatewayMetadataKey = 'web_gateway_context';
-const String webGatewayLoginSourceKey = 'login_source';
-const String webGatewayDeviceIdKey = 'device_id';
-const String webGatewayDeviceMacKey = 'device_mac_address';
 const String webGatewayDenyAllSelectionMarker = '__openhand_deny_all__';
 const int kWebGatewayDefaultListenPort = 8848;
 const int kWebGatewayMinListenPort = kTcpPortMin;

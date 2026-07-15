@@ -1,4 +1,4 @@
-export type ClassNameValue = string | null | undefined | false;
+type ClassNameValue = string | null | undefined | false;
 
 export function classNames(...values: ClassNameValue[]): string {
   return values

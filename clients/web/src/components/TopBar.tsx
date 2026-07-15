@@ -13,7 +13,7 @@ import { ConfirmDialog } from './ConfirmDialog';
 import { showSnackbar } from './Snackbar';
 import { useAnimatedLocation } from '../hooks/useAnimatedLocation';
 
-export interface TopBarProps {
+interface TopBarProps {
   /// 主标题；缺省 → 走 i18n `app.brand`
   title?: string;
   /// 副标题；缺省 → 走 i18n `home.subtitle`

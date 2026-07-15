@@ -163,6 +163,214 @@ Map<String, String> _parseHeaderLines(String text) {
   return headers;
 }
 
+class _DashboardScriptCodeEditor extends StatelessWidget {
+  const _DashboardScriptCodeEditor({
+    required this.controller,
+    required this.focusNode,
+    required this.bindings,
+  });
+
+  final TextEditingController controller;
+  final FocusNode focusNode;
+  final Map<ShortcutActivator, VoidCallback> bindings;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return CallbackShortcuts(
+      bindings: bindings,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: cs.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: cs.outlineVariant),
+        ),
+        child: TextField(
+          controller: controller,
+          focusNode: focusNode,
+          maxLines: null,
+          expands: true,
+          maxLength: WebReverseSessionController.maxSavedScriptCodeChars,
+          maxLengthEnforcement: MaxLengthEnforcement.enforced,
+          buildCounter: _hideTextFieldCounter,
+          textAlignVertical: TextAlignVertical.top,
+          style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
+          decoration: const InputDecoration(
+            border: InputBorder.none,
+            isDense: true,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DashboardScriptResultPreview extends StatelessWidget {
+  const _DashboardScriptResultPreview({required this.text});
+
+  final String? text;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return AnimatedSize(
+      duration: _wrMotionEnabled(context) ? _kSwitchDuration : Duration.zero,
+      curve: _kSwitchInCurve,
+      child: text == null
+          ? const SizedBox.shrink()
+          : Padding(
+              padding: const EdgeInsets.only(top: 10),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: cs.primary.withValues(alpha: 0.06),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: cs.primary.withValues(alpha: 0.25)),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                      Icons.check_circle_outline_rounded,
+                      size: 14,
+                      color: cs.primary,
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: SelectableText(
+                        text!,
+                        maxLines: 6,
+                        style: const TextStyle(
+                          fontFamily: 'monospace',
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+    );
+  }
+}
+
+class _DashboardToggleTile extends StatefulWidget {
+  const _DashboardToggleTile({
+    required this.title,
+    required this.enabled,
+    required this.selected,
+    required this.onTap,
+    required this.onToggle,
+    this.subtitle,
+  });
+
+  final String title;
+  final String? subtitle;
+  final bool enabled;
+  final bool selected;
+  final VoidCallback onTap;
+  final ValueChanged<bool> onToggle;
+
+  @override
+  State<_DashboardToggleTile> createState() => _DashboardToggleTileState();
+}
+
+class _DashboardToggleTileState extends State<_DashboardToggleTile> {
+  bool _hover = false;
+
+  void _setHovered(bool value) {
+    if (_hover == value) return;
+    _hover = value;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final background = widget.selected
+        ? cs.primary.withValues(alpha: 0.12)
+        : (_hover ? cs.surfaceContainerHighest : Colors.transparent);
+    final border = widget.selected
+        ? cs.primary.withValues(alpha: 0.45)
+        : cs.outlineVariant.withValues(alpha: 0);
+    final title = Text(
+      widget.title,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: theme.textTheme.bodySmall?.copyWith(
+        fontWeight: FontWeight.w600,
+        color: widget.enabled ? cs.onSurface : cs.onSurfaceVariant,
+      ),
+    );
+    return MouseRegion(
+      onEnter: (_) => _setHovered(true),
+      onExit: (_) => _setHovered(false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        behavior: HitTestBehavior.opaque,
+        child: AnimatedContainer(
+          duration: _wrMotionEnabled(context)
+              ? const Duration(milliseconds: 160)
+              : Duration.zero,
+          curve: Curves.easeOutCubic,
+          margin: const EdgeInsets.symmetric(horizontal: 6),
+          padding: const EdgeInsets.fromLTRB(10, 6, 6, 6),
+          decoration: BoxDecoration(
+            color: background,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: border),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: widget.enabled
+                      ? Colors.green.shade400
+                      : cs.outlineVariant,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: widget.subtitle == null
+                    ? title
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          title,
+                          Text(
+                            widget.subtitle!,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: cs.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+              ),
+              Transform.scale(
+                scale: 0.75,
+                child: Switch(
+                  value: widget.enabled,
+                  onChanged: widget.onToggle,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// Web 逆向 CDP 仪表盘弹窗。
 ///
 /// 核心 tab：

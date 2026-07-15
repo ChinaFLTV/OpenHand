@@ -70,7 +70,7 @@ export function pushRecentModel(modelKey: string): void {
   writeBrowserStorage(RECENT_KEY, JSON.stringify(next));
 }
 
-export interface ModelPickerDialogProps {
+interface ModelPickerDialogProps {
   models: ApiMetaModel[];
   selectedKey: string;
   onSelect(key: string): void;

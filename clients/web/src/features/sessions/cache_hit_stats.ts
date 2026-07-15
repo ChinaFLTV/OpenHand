@@ -14,7 +14,7 @@ export interface CacheHitTrendPoint {
 
 export type CacheHitDisplayMode = 'excludeExpiredMisses' | 'includeExpiredMisses';
 
-export interface CacheHitDisplayData {
+interface CacheHitDisplayData {
   points: CacheHitTrendPoint[];
   averageRatio: number;
   cacheReadTokens: number;

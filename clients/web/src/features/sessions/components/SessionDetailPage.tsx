@@ -539,7 +539,7 @@ interface MergeServerWindowOptions {
   preserveLocalStreamingTail?: boolean;
 }
 
-export interface MergeServerWindowResult {
+interface MergeServerWindowResult {
   items: SessionMessage[];
   offset: number;
 }

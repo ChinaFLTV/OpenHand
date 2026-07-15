@@ -101,7 +101,7 @@ function TemplateIcon({ template }: { template: ApiMetaTemplate }) {
   );
 }
 
-export interface TemplatePickerDialogProps {
+interface TemplatePickerDialogProps {
   templates: ApiMetaTemplate[];
   onPick: (template: ApiMetaTemplate) => void;
   onClose: () => void;
@@ -172,7 +172,7 @@ export function TemplatePickerDialog({ templates, onPick, onClose }: TemplatePic
   );
 }
 
-export interface TemplateConfigDialogProps {
+interface TemplateConfigDialogProps {
   template: ApiMetaTemplate;
   models: ApiMetaModel[];
   defaultModelKey?: string;

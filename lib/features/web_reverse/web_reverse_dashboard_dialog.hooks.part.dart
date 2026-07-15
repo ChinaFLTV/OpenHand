@@ -271,8 +271,9 @@ class _HooksBodyState extends State<_HooksBody> {
                             itemBuilder: (_, i) {
                               final h = list[i];
                               final selected = h.id == _selectedId;
-                              return _HookTile(
-                                hook: h,
+                              return _DashboardToggleTile(
+                                title: h.name,
+                                enabled: h.enabled,
                                 selected: selected,
                                 onTap: () => _select(h),
                                 onToggle: (v) => _toggle(h, v),
@@ -349,7 +350,9 @@ class _HooksBodyState extends State<_HooksBody> {
                         ),
                         const SizedBox(height: 10),
                         Expanded(
-                          child: CallbackShortcuts(
+                          child: _DashboardScriptCodeEditor(
+                            controller: _codeCtrl,
+                            focusNode: _codeFocus,
                             bindings: <ShortcutActivator, VoidCallback>{
                               const SingleActivator(
                                 LogicalKeyboardKey.keyS,
@@ -364,37 +367,6 @@ class _HooksBodyState extends State<_HooksBody> {
                                 if (_dirty) _save();
                               },
                             },
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: cs.surface,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: cs.outlineVariant),
-                              ),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 8,
-                              ),
-                              child: TextField(
-                                controller: _codeCtrl,
-                                focusNode: _codeFocus,
-                                maxLines: null,
-                                expands: true,
-                                maxLength: WebReverseSessionController
-                                    .maxSavedScriptCodeChars,
-                                maxLengthEnforcement:
-                                    MaxLengthEnforcement.enforced,
-                                buildCounter: _hideTextFieldCounter,
-                                textAlignVertical: TextAlignVertical.top,
-                                style: const TextStyle(
-                                  fontFamily: 'monospace',
-                                  fontSize: 13,
-                                ),
-                                decoration: const InputDecoration(
-                                  border: InputBorder.none,
-                                  isDense: true,
-                                ),
-                              ),
-                            ),
                           ),
                         ),
                         const SizedBox(height: 10),
@@ -434,107 +406,6 @@ class _HooksBodyState extends State<_HooksBody> {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _HookTile extends StatefulWidget {
-  const _HookTile({
-    required this.hook,
-    required this.selected,
-    required this.onTap,
-    required this.onToggle,
-  });
-  final WebReverseHook hook;
-  final bool selected;
-  final VoidCallback onTap;
-  final ValueChanged<bool> onToggle;
-
-  @override
-  State<_HookTile> createState() => _HookTileState();
-}
-
-class _HookTileState extends State<_HookTile> {
-  bool _hover = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    final reduceMotion = !_wrMotionEnabled(context);
-    final bg = widget.selected
-        ? cs.primary.withValues(alpha: 0.12)
-        : (_hover ? cs.surfaceContainerHighest : Colors.transparent);
-    final border = widget.selected
-        ? cs.primary.withValues(alpha: 0.45)
-        : cs.outlineVariant.withValues(alpha: 0.0);
-    return MouseRegion(
-      onEnter: (_) {
-        if (_hover) return;
-        _hover = true;
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) setState(() {});
-        });
-      },
-      onExit: (_) {
-        if (!_hover) return;
-        _hover = false;
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) setState(() {});
-        });
-      },
-      child: GestureDetector(
-        onTap: widget.onTap,
-        behavior: HitTestBehavior.opaque,
-        child: AnimatedContainer(
-          duration: reduceMotion
-              ? Duration.zero
-              : const Duration(milliseconds: 160),
-          curve: Curves.easeOutCubic,
-          margin: const EdgeInsets.symmetric(horizontal: 6),
-          padding: const EdgeInsets.fromLTRB(10, 6, 6, 6),
-          decoration: BoxDecoration(
-            color: bg,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: border),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 6,
-                height: 6,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: widget.hook.enabled
-                      ? Colors.green.shade400
-                      : cs.outlineVariant,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  widget.hook.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: widget.hook.enabled
-                        ? cs.onSurface
-                        : cs.onSurfaceVariant,
-                  ),
-                ),
-              ),
-              Transform.scale(
-                scale: 0.75,
-                child: Switch(
-                  value: widget.hook.enabled,
-                  onChanged: widget.onToggle,
-                ),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }

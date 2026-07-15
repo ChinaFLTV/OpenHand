@@ -1159,13 +1159,13 @@ function MessageAudioResultCard({ item, url, onPreview }: MessageAudioResultCard
   );
 }
 
-export interface MessageMediaProps {
+interface MessageMediaProps {
   message: SessionMessage;
   sessionId: string;
   presentation?: 'auto' | 'preview' | 'attachmentList';
 }
 
-export interface MediaPreviewDialogProps {
+interface MediaPreviewDialogProps {
   item: MediaItem;
   url: string;
   onClose: () => void;

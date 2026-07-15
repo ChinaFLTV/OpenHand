@@ -21,7 +21,7 @@ import { useEffect, useState } from 'preact/hooks';
 import type { JSX } from 'preact';
 import { useReducedMotion } from '../hooks/useReducedMotion';
 
-export interface RollingTextProps {
+interface RollingTextProps {
   text: string;
   className?: string;
   style?: JSX.CSSProperties;

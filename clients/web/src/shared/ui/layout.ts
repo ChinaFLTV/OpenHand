@@ -14,7 +14,7 @@ export const MESSAGE_BUBBLE_MAX_WIDTH = {
   assistant: 'min(94%, 1360px)',
 } as const;
 
-export type MessageBubbleWidthKey = keyof typeof MESSAGE_BUBBLE_MAX_WIDTH;
+type MessageBubbleWidthKey = keyof typeof MESSAGE_BUBBLE_MAX_WIDTH;
 
 export function messageBubbleMaxWidth(
   key: MessageBubbleWidthKey,

@@ -124,7 +124,7 @@ function TopBarIcon({ name, size = 16 }: { name: TopBarIconName; size?: number }
   }
 }
 
-export interface SessionTopBarProps {
+interface SessionTopBarProps {
   title: string;
   subtitle?: string;
   titleGenerating?: boolean;

@@ -24,7 +24,7 @@ export interface LogEntry {
   data?: Record<string, unknown>;
 }
 
-export interface ListLogsResponse {
+interface ListLogsResponse {
   items: LogEntry[];
   offset: number;
   limit: number;
@@ -32,7 +32,7 @@ export interface ListLogsResponse {
   has_more: boolean;
 }
 
-export interface ListLogsOptions {
+interface ListLogsOptions {
   offset?: number;
   limit?: number;
   signal?: AbortSignal;

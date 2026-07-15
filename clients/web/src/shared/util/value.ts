@@ -1,6 +1,6 @@
 import { normalizeInteger } from './number';
 
-export interface StringFromUnknownOptions {
+interface StringFromUnknownOptions {
   coerce?: boolean;
 }
 

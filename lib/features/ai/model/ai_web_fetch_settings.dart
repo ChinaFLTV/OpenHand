@@ -1,5 +1,6 @@
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
+import 'ai_web_engine_resilience.dart';
 
 /// 受支持的 WebFetch 数据源种类。和 WebSearch 平行——很多源既能搜也能抓
 /// （firecrawl / tavily-extract / exa-contents 是真正的 URL 抓取，
@@ -345,25 +346,34 @@ class AiWebFetchSettings {
   static const int minCacheMaxBytes = 0;
   static const int maxCacheMaxBytes = 2 * kBytesPerGiB;
 
-  // ===== 失败自动降级（cooldown）阈值，三档可调。=====
-  static const int defaultCooldownTier1Failures = 3;
-  static const int defaultCooldownTier1Seconds = 60;
-  static const int defaultCooldownTier2Failures = 5;
-  static const int defaultCooldownTier2Seconds = 300;
-  static const int defaultCooldownTier3Failures = 7;
-  static const int defaultCooldownTier3Seconds = 900;
-  static const int defaultCooldownQuotaSeconds = 300;
-  static const int minCooldownFailures = 2;
-  static const int maxCooldownFailures = 50;
-  static const int minCooldownSeconds = 5;
-  static const int maxCooldownSeconds = 24 * 60 * 60;
-
-  // ===== 告警阈值。0 = 关闭。=====
-  static const int maxAlertSuccessRatePct = 100;
-  static const int maxAlertAvgDurationMs = 600 * 1000;
-
-  // ===== 每引擎每分钟节流上限。0 = 不限。=====
-  static const int maxThrottlePerMinute = 600;
+  static const int defaultCooldownTier1Failures =
+      AiWebEngineResiliencePolicy.defaultCooldownTier1Failures;
+  static const int defaultCooldownTier1Seconds =
+      AiWebEngineResiliencePolicy.defaultCooldownTier1Seconds;
+  static const int defaultCooldownTier2Failures =
+      AiWebEngineResiliencePolicy.defaultCooldownTier2Failures;
+  static const int defaultCooldownTier2Seconds =
+      AiWebEngineResiliencePolicy.defaultCooldownTier2Seconds;
+  static const int defaultCooldownTier3Failures =
+      AiWebEngineResiliencePolicy.defaultCooldownTier3Failures;
+  static const int defaultCooldownTier3Seconds =
+      AiWebEngineResiliencePolicy.defaultCooldownTier3Seconds;
+  static const int defaultCooldownQuotaSeconds =
+      AiWebEngineResiliencePolicy.defaultCooldownQuotaSeconds;
+  static const int minCooldownFailures =
+      AiWebEngineResiliencePolicy.minCooldownFailures;
+  static const int maxCooldownFailures =
+      AiWebEngineResiliencePolicy.maxCooldownFailures;
+  static const int minCooldownSeconds =
+      AiWebEngineResiliencePolicy.minCooldownSeconds;
+  static const int maxCooldownSeconds =
+      AiWebEngineResiliencePolicy.maxCooldownSeconds;
+  static const int maxAlertSuccessRatePct =
+      AiWebEngineResiliencePolicy.maxAlertSuccessRatePct;
+  static const int maxAlertAvgDurationMs =
+      AiWebEngineResiliencePolicy.maxAlertAvgDurationMs;
+  static const int maxThrottlePerMinute =
+      AiWebEngineResiliencePolicy.maxThrottlePerMinute;
   static const IntValueRange _resultCountRange = IntValueRange(
     fallback: defaultResultCount,
     min: minResultCount,
@@ -384,57 +394,6 @@ class AiWebFetchSettings {
     min: minCacheMaxBytes,
     max: maxCacheMaxBytes,
   );
-  static const IntValueRange _cooldownTier1FailuresRange = IntValueRange(
-    fallback: defaultCooldownTier1Failures,
-    min: minCooldownFailures,
-    max: maxCooldownFailures,
-  );
-  static const IntValueRange _cooldownTier2FailuresRange = IntValueRange(
-    fallback: defaultCooldownTier2Failures,
-    min: minCooldownFailures,
-    max: maxCooldownFailures,
-  );
-  static const IntValueRange _cooldownTier3FailuresRange = IntValueRange(
-    fallback: defaultCooldownTier3Failures,
-    min: minCooldownFailures,
-    max: maxCooldownFailures,
-  );
-  static const IntValueRange _cooldownTier1SecondsRange = IntValueRange(
-    fallback: defaultCooldownTier1Seconds,
-    min: minCooldownSeconds,
-    max: maxCooldownSeconds,
-  );
-  static const IntValueRange _cooldownTier2SecondsRange = IntValueRange(
-    fallback: defaultCooldownTier2Seconds,
-    min: minCooldownSeconds,
-    max: maxCooldownSeconds,
-  );
-  static const IntValueRange _cooldownTier3SecondsRange = IntValueRange(
-    fallback: defaultCooldownTier3Seconds,
-    min: minCooldownSeconds,
-    max: maxCooldownSeconds,
-  );
-  static const IntValueRange _cooldownQuotaSecondsRange = IntValueRange(
-    fallback: defaultCooldownQuotaSeconds,
-    min: minCooldownSeconds,
-    max: maxCooldownSeconds,
-  );
-  static const IntValueRange _alertSuccessRatePctRange = IntValueRange(
-    fallback: 0,
-    min: 0,
-    max: maxAlertSuccessRatePct,
-  );
-  static const IntValueRange _alertAvgDurationMsRange = IntValueRange(
-    fallback: 0,
-    min: 0,
-    max: maxAlertAvgDurationMs,
-  );
-  static const IntValueRange _throttlePerMinuteRange = IntValueRange(
-    fallback: 0,
-    min: 0,
-    max: maxThrottlePerMinute,
-  );
-
   final List<AiWebFetchEngineConfig> engines;
   final int resultCount;
   final bool parallel;
@@ -555,6 +514,7 @@ class AiWebFetchSettings {
         engines.add(AiWebFetchEngineConfig(kind: kind));
       }
     }
+    final resilience = AiWebEngineResiliencePolicy.valuesFromJson(json);
 
     return AiWebFetchSettings(
       engines: engines,
@@ -570,36 +530,16 @@ class AiWebFetchSettings {
         json['cache_ttl_seconds'],
       ),
       cacheMaxBytes: _cacheMaxBytesRange.fromValue(json['cache_max_bytes']),
-      cooldownTier1Failures: _cooldownTier1FailuresRange.fromValue(
-        json['cooldown_tier1_failures'],
-      ),
-      cooldownTier1Seconds: _cooldownTier1SecondsRange.fromValue(
-        json['cooldown_tier1_seconds'],
-      ),
-      cooldownTier2Failures: _cooldownTier2FailuresRange.fromValue(
-        json['cooldown_tier2_failures'],
-      ),
-      cooldownTier2Seconds: _cooldownTier2SecondsRange.fromValue(
-        json['cooldown_tier2_seconds'],
-      ),
-      cooldownTier3Failures: _cooldownTier3FailuresRange.fromValue(
-        json['cooldown_tier3_failures'],
-      ),
-      cooldownTier3Seconds: _cooldownTier3SecondsRange.fromValue(
-        json['cooldown_tier3_seconds'],
-      ),
-      cooldownQuotaSeconds: _cooldownQuotaSecondsRange.fromValue(
-        json['cooldown_quota_seconds'],
-      ),
-      alertSuccessRatePct: _alertSuccessRatePctRange.fromValue(
-        json['alert_success_rate_pct'],
-      ),
-      alertAvgDurationMs: _alertAvgDurationMsRange.fromValue(
-        json['alert_avg_duration_ms'],
-      ),
-      throttlePerMinute: _throttlePerMinuteRange.fromValue(
-        json['throttle_per_minute'],
-      ),
+      cooldownTier1Failures: resilience.cooldownTier1Failures,
+      cooldownTier1Seconds: resilience.cooldownTier1Seconds,
+      cooldownTier2Failures: resilience.cooldownTier2Failures,
+      cooldownTier2Seconds: resilience.cooldownTier2Seconds,
+      cooldownTier3Failures: resilience.cooldownTier3Failures,
+      cooldownTier3Seconds: resilience.cooldownTier3Seconds,
+      cooldownQuotaSeconds: resilience.cooldownQuotaSeconds,
+      alertSuccessRatePct: resilience.alertSuccessRatePct,
+      alertAvgDurationMs: resilience.alertAvgDurationMs,
+      throttlePerMinute: resilience.throttlePerMinute,
     );
   }
 }

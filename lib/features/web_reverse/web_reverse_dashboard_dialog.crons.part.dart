@@ -515,10 +515,11 @@ class _CronsBodyState extends State<_CronsBody> {
                             itemBuilder: (_, i) {
                               final c = list[i];
                               final selected = c.id == _selectedId;
-                              return _CronTile(
-                                cron: c,
+                              return _DashboardToggleTile(
+                                title: c.name,
+                                subtitle: _cronStatusLabel(c),
+                                enabled: c.enabled,
                                 selected: selected,
-                                statusLabel: _cronStatusLabel(c),
                                 onTap: () => _select(c),
                                 onToggle: (v) => _toggle(c, v),
                               );
@@ -681,7 +682,9 @@ class _CronsBodyState extends State<_CronsBody> {
                         ),
                         const SizedBox(height: 10),
                         Expanded(
-                          child: CallbackShortcuts(
+                          child: _DashboardScriptCodeEditor(
+                            controller: _codeCtrl,
+                            focusNode: _codeFocus,
                             bindings: <ShortcutActivator, VoidCallback>{
                               const SingleActivator(
                                 LogicalKeyboardKey.keyS,
@@ -708,206 +711,14 @@ class _CronsBodyState extends State<_CronsBody> {
                                 if (!_runningNow) _runNow();
                               },
                             },
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: cs.surface,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: cs.outlineVariant),
-                              ),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 8,
-                              ),
-                              child: TextField(
-                                controller: _codeCtrl,
-                                focusNode: _codeFocus,
-                                maxLines: null,
-                                expands: true,
-                                maxLength: WebReverseSessionController
-                                    .maxSavedScriptCodeChars,
-                                maxLengthEnforcement:
-                                    MaxLengthEnforcement.enforced,
-                                buildCounter: _hideTextFieldCounter,
-                                textAlignVertical: TextAlignVertical.top,
-                                style: const TextStyle(
-                                  fontFamily: 'monospace',
-                                  fontSize: 13,
-                                ),
-                                decoration: const InputDecoration(
-                                  border: InputBorder.none,
-                                  isDense: true,
-                                ),
-                              ),
-                            ),
                           ),
                         ),
-                        AnimatedSize(
-                          duration: reduceMotion
-                              ? Duration.zero
-                              : _kSwitchDuration,
-                          curve: _kSwitchInCurve,
-                          child: _lastResultPreview == null
-                              ? const SizedBox.shrink()
-                              : Padding(
-                                  padding: const EdgeInsets.only(top: 10),
-                                  child: Container(
-                                    width: double.infinity,
-                                    padding: const EdgeInsets.all(10),
-                                    decoration: BoxDecoration(
-                                      color: cs.primary.withValues(alpha: 0.06),
-                                      borderRadius: BorderRadius.circular(10),
-                                      border: Border.all(
-                                        color: cs.primary.withValues(
-                                          alpha: 0.25,
-                                        ),
-                                      ),
-                                    ),
-                                    child: Row(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Icon(
-                                          Icons.check_circle_outline_rounded,
-                                          size: 14,
-                                          color: cs.primary,
-                                        ),
-                                        const SizedBox(width: 6),
-                                        Expanded(
-                                          child: SelectableText(
-                                            _lastResultPreview!,
-                                            maxLines: 6,
-                                            style: const TextStyle(
-                                              fontFamily: 'monospace',
-                                              fontSize: 12,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                        ),
+                        _DashboardScriptResultPreview(text: _lastResultPreview),
                       ],
                     ),
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _CronTile extends StatefulWidget {
-  const _CronTile({
-    required this.cron,
-    required this.selected,
-    required this.statusLabel,
-    required this.onTap,
-    required this.onToggle,
-  });
-  final WebReverseCron cron;
-  final bool selected;
-  final String statusLabel;
-  final VoidCallback onTap;
-  final ValueChanged<bool> onToggle;
-
-  @override
-  State<_CronTile> createState() => _CronTileState();
-}
-
-class _CronTileState extends State<_CronTile> {
-  bool _hover = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    final reduceMotion = !_wrMotionEnabled(context);
-    final bg = widget.selected
-        ? cs.primary.withValues(alpha: 0.12)
-        : (_hover ? cs.surfaceContainerHighest : Colors.transparent);
-    final border = widget.selected
-        ? cs.primary.withValues(alpha: 0.45)
-        : cs.outlineVariant.withValues(alpha: 0.0);
-    return MouseRegion(
-      onEnter: (_) {
-        if (_hover) return;
-        _hover = true;
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) setState(() {});
-        });
-      },
-      onExit: (_) {
-        if (!_hover) return;
-        _hover = false;
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) setState(() {});
-        });
-      },
-      child: GestureDetector(
-        onTap: widget.onTap,
-        behavior: HitTestBehavior.opaque,
-        child: AnimatedContainer(
-          duration: reduceMotion
-              ? Duration.zero
-              : const Duration(milliseconds: 160),
-          curve: Curves.easeOutCubic,
-          margin: const EdgeInsets.symmetric(horizontal: 6),
-          padding: const EdgeInsets.fromLTRB(10, 6, 6, 6),
-          decoration: BoxDecoration(
-            color: bg,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: border),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 6,
-                height: 6,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: widget.cron.enabled
-                      ? Colors.green.shade400
-                      : cs.outlineVariant,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      widget.cron.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: widget.cron.enabled
-                            ? cs.onSurface
-                            : cs.onSurfaceVariant,
-                      ),
-                    ),
-                    Text(
-                      widget.statusLabel,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: cs.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Transform.scale(
-                scale: 0.75,
-                child: Switch(
-                  value: widget.cron.enabled,
-                  onChanged: widget.onToggle,
-                ),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }

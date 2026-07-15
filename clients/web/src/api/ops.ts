@@ -133,13 +133,13 @@ export interface CleanupHistoryEntry {
   memory_log_entries_cleared: number;
 }
 
-export interface CleanupHistoryResponse {
+interface CleanupHistoryResponse {
   items: CleanupHistoryEntry[];
   total: number;
   max_items: number;
 }
 
-export interface RunCleanupInput {
+interface RunCleanupInput {
   target: 'all' | 'logs' | 'uploads';
   expired_only?: boolean;
 }

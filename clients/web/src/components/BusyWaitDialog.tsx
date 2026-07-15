@@ -5,7 +5,7 @@ import {
   createStandardDialogFrameAppearance,
 } from './DialogFrame';
 
-export interface BusyWaitDialogProps {
+interface BusyWaitDialogProps {
   open: boolean;
   title: string;
   body?: string;

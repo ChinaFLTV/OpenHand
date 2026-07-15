@@ -3,7 +3,7 @@ import { useTimeoutController } from './useTimeoutController';
 
 const DEFAULT_TRANSIENT_FEEDBACK_RESET_MS = 1600;
 
-export interface TransientFlagController {
+interface TransientFlagController {
   active: boolean;
   trigger: () => void;
   reset: () => void;

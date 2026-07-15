@@ -4,7 +4,7 @@ import {
   normalizeDurationMs,
 } from '../shared/util/number';
 
-export interface TimeoutController {
+interface TimeoutController {
   clearTimer: () => void;
   scheduleTimer: (callback: () => void, delayMs?: number | null) => void;
 }

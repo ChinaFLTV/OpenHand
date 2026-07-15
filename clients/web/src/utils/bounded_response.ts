@@ -1,9 +1,9 @@
-export interface BoundedResponseBlobOptions {
+interface BoundedResponseBlobOptions {
   maxBytes: number;
   signal?: AbortSignal;
 }
 
-export class ResponseBodySizeLimitError extends Error {
+class ResponseBodySizeLimitError extends Error {
   readonly maxBytes: number;
 
   constructor(maxBytes: number) {

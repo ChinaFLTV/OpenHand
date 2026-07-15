@@ -4,7 +4,7 @@ interface DismissibleOverlayTarget {
   readonly current: HTMLElement | null;
 }
 
-export interface UseDismissibleOverlayOptions {
+interface UseDismissibleOverlayOptions {
   active: boolean;
   targets: ReadonlyArray<DismissibleOverlayTarget>;
   onDismiss: () => void;

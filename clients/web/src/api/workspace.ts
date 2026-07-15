@@ -36,27 +36,27 @@ export interface WorkspaceListResponse {
   allowed_extensions: string[];
 }
 
-export interface WorkspaceReadResponse {
+interface WorkspaceReadResponse {
   path: string;
   content: string;
   size: number;
   modified_at: string;
 }
 
-export interface WorkspaceWriteResponse {
+interface WorkspaceWriteResponse {
   ok: boolean;
   path: string;
   size: number;
   modified_at: string;
 }
 
-export interface WorkspaceDirectoryResponse {
+interface WorkspaceDirectoryResponse {
   ok: boolean;
   path: string;
   modified_at: string;
 }
 
-export interface ListFilesOptions {
+interface ListFilesOptions {
   path?: string;
   q?: string;
   type?: 'all' | 'file' | 'directory';
@@ -102,7 +102,7 @@ export function createWorkspaceDirectory(path: string): Promise<WorkspaceDirecto
   });
 }
 
-export interface WorkspaceDeleteResponse {
+interface WorkspaceDeleteResponse {
   ok: boolean;
   path: string;
 }

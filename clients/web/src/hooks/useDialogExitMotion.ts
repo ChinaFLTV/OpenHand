@@ -3,14 +3,14 @@ import { normalizeDialogExitDurationMs } from './useDialogMotionSettings';
 import { useReducedMotion } from './useReducedMotion';
 import { useTimeoutController } from './useTimeoutController';
 
-export interface DialogExitMotionOptions {
+interface DialogExitMotionOptions {
   exitMs?: number;
   closeOnEscape?: boolean;
   active?: boolean;
   onBeforeClose?: (reason?: string) => void;
 }
 
-export interface DialogExitMotionController<Reason extends string = string> {
+interface DialogExitMotionController<Reason extends string = string> {
   closing: boolean;
   requestClose: () => void;
   requestCloseWithReason: (reason?: Reason) => void;

@@ -132,7 +132,7 @@ export interface ApiReasoningEffortOption {
   label: string;
 }
 
-export interface UpdateModelReasoningEffortResponse {
+interface UpdateModelReasoningEffortResponse {
   model_key: string;
   reasoning_effort: string;
 }

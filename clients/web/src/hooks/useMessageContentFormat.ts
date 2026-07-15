@@ -7,7 +7,7 @@ import { useEffect, useState } from 'preact/hooks';
 import { readBrowserStorage, writeBrowserStorage } from '../shared/util/browser_storage';
 
 export type MessageContentFormat = 'markdown' | 'plain_text' | 'html';
-export type HtmlRenderFallback = 'markdown' | 'plain_text';
+type HtmlRenderFallback = 'markdown' | 'plain_text';
 
 const FORMAT_KEY = 'openhand_message_content_format';
 const FALLBACK_KEY = 'openhand_html_render_fallback';

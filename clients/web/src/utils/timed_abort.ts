@@ -26,19 +26,19 @@ export class OperationTimeoutError extends Error {
   }
 }
 
-export class OperationAbortedError extends Error {
+class OperationAbortedError extends Error {
   constructor() {
     super('Operation aborted');
     this.name = 'OperationAbortedError';
   }
 }
 
-export interface RunWithTimeoutOptions {
+interface RunWithTimeoutOptions {
   timeoutMs?: number;
   createTimeoutError?: (timeoutMs: number) => unknown;
 }
 
-export interface RunWithAbortableTimeoutOptions extends RunWithTimeoutOptions {
+interface RunWithAbortableTimeoutOptions extends RunWithTimeoutOptions {
   signal?: AbortSignal;
 }
 

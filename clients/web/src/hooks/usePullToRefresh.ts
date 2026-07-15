@@ -29,7 +29,7 @@ const PULL_TO_REFRESH_INTERACTIVE_SELECTOR = [
   '[data-pull-refresh-ignore="true"]',
 ].join(',');
 
-export interface PullToRefreshOptions {
+interface PullToRefreshOptions {
   onRefresh: () => Promise<void> | void;
   /// 触发刷新的最小拖拽像素数。默认 80。
   activationDistance?: number;
@@ -39,7 +39,7 @@ export interface PullToRefreshOptions {
   enabled?: boolean;
 }
 
-export interface PullToRefreshState {
+interface PullToRefreshState {
   /// 当前下拉位移（0 ~ maxDistance）。
   pulled: number;
   /// onRefresh 执行期间为 true。

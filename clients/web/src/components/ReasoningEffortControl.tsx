@@ -4,7 +4,7 @@ import type { ApiMetaModel, ApiReasoningEffortOption } from '../api/meta';
 import { useReducedMotion } from '../hooks/useReducedMotion';
 import { PopMenu } from './PopMenu';
 
-export interface ReasoningEffortControlProps {
+interface ReasoningEffortControlProps {
   model?: ApiMetaModel;
   disabled?: boolean;
   saving?: boolean;

@@ -6,7 +6,7 @@ import { useTimeoutController } from '../hooks/useTimeoutController';
 
 const TITLE_TEXT_EXIT_MS = 220;
 
-export interface AnimatedTitleTextProps {
+interface AnimatedTitleTextProps {
   text: string;
   className?: string;
   style?: JSX.CSSProperties;

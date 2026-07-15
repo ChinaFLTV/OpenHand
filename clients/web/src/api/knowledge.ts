@@ -29,7 +29,7 @@ export interface KnowledgeVectorDistributionDto {
   points?: KnowledgeVectorDistributionPointDto[];
 }
 
-export interface KnowledgeVectorDistributionResponse {
+interface KnowledgeVectorDistributionResponse {
   distribution?: KnowledgeVectorDistributionDto;
 }
 
@@ -73,7 +73,7 @@ export interface KnowledgeChunkDto {
   tags?: string[];
 }
 
-export interface KnowledgeHitDetailResponse {
+interface KnowledgeHitDetailResponse {
   source?: KnowledgeSourceDto;
   chunk?: KnowledgeChunkDto;
 }

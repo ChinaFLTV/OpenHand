@@ -14,7 +14,7 @@ import { syncRemoteDialogMotionSettings } from '../hooks/useDialogMotionSettings
 import { syncLangFromAppPreferences } from '../i18n';
 import { ignoreError } from '../shared/util/errors';
 
-export interface AuthState {
+interface AuthState {
   meta: ApiMetaResponse | null;
   loading: boolean;
   authRequired: boolean;

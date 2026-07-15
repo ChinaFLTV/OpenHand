@@ -1,11 +1,11 @@
-export interface NormalizeDurationMsOptions {
+interface NormalizeDurationMsOptions {
   fallback: number;
   min?: number;
   max?: number;
   zeroDisables?: boolean;
 }
 
-export interface NormalizeIntegerOptions {
+interface NormalizeIntegerOptions {
   fallback: number;
   min?: number;
   max?: number;

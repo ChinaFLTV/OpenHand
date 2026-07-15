@@ -22,7 +22,7 @@ class AsyncPollingTimeoutError extends Error {
   }
 }
 
-export interface AsyncPollingOptions {
+interface AsyncPollingOptions {
   enabled?: boolean;
   immediate?: boolean;
   intervalMs: number;

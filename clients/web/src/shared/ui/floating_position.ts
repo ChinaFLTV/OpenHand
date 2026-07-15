@@ -3,14 +3,14 @@ import { clampNumber } from '../util/number';
 type FloatingHorizontalAlign = 'left' | 'right';
 export type FloatingVerticalPlacement = 'auto' | 'above' | 'below';
 
-export interface AnchoredMenuPosition {
+interface AnchoredMenuPosition {
   top: number;
   left: number;
   width: number;
   placedAbove: boolean;
 }
 
-export interface AnchoredMenuPositionOptions {
+interface AnchoredMenuPositionOptions {
   anchor: HTMLElement | null;
   preferredWidth?: number;
   minWidth?: number;

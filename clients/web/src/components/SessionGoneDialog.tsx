@@ -11,7 +11,7 @@ import {
   createStandardDialogFrameAppearance,
 } from './DialogFrame';
 
-export interface SessionGoneDialogProps {
+interface SessionGoneDialogProps {
   open: boolean;
   onBeforeNavigate?: () => Promise<void> | void;
 }

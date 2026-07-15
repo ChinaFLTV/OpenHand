@@ -7,17 +7,17 @@ import {
   normalizeDurationMs,
 } from '../shared/util/number';
 
-export interface DelayedVisibilityOptions {
+interface DelayedVisibilityOptions {
   exitMs?: number;
   initiallyOpen?: boolean;
 }
 
-export interface ControlledDelayedVisibilityOptions {
+interface ControlledDelayedVisibilityOptions {
   enterDelayMs?: number;
   exitMs?: number;
 }
 
-export interface DelayedVisibilityController {
+interface DelayedVisibilityController {
   open: boolean;
   closing: boolean;
   visible: boolean;
@@ -26,7 +26,7 @@ export interface DelayedVisibilityController {
   toggle: () => void;
 }
 
-export interface ControlledDelayedVisibilityState {
+interface ControlledDelayedVisibilityState {
   visible: boolean;
   closing: boolean;
 }

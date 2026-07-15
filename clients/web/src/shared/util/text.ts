@@ -1,6 +1,6 @@
 import { normalizeInteger } from './number';
 
-export interface TruncateEndTextOptions {
+interface TruncateEndTextOptions {
   ellipsis?: string;
   trimEnd?: boolean;
 }

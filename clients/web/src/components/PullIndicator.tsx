@@ -12,7 +12,7 @@ import { clampNumber } from '../shared/util/number';
 const PULL_INDICATOR_MIN_HEIGHT_PX = 8;
 const PULL_INDICATOR_MAX_HEIGHT_PX = 180;
 
-export interface PullIndicatorProps {
+interface PullIndicatorProps {
   pulled: number;
   refreshing: boolean;
   willRelease: boolean;

@@ -363,7 +363,7 @@ function normalizeMarkdownMathDelimiters(source: string): string {
   return out.join('\n');
 }
 
-export interface MarkdownProps {
+interface MarkdownProps {
   /// 原始 Markdown 文本.
   source: string;
   /// 是否禁用 markdown 解析 (例如 user 消息或工具输出原文需 mono 显示).

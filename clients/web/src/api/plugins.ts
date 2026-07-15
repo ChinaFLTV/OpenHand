@@ -38,13 +38,13 @@ interface TemplateAssociation {
   label_en?: string;
 }
 
-export interface PluginActionResult {
+interface PluginActionResult {
   success: boolean;
   message: string | null;
   new_version: string | null;
 }
 
-export interface PluginCheckUpdateResult {
+interface PluginCheckUpdateResult {
   success: boolean;
   message: string | null;
   item: PluginSummary;

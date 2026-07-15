@@ -1,6 +1,6 @@
 const WEB_CLIENT_VERSION = '0.1.0';
 
-export interface ClientEnvironment {
+interface ClientEnvironment {
   source: 'WEB_PC' | 'WEB_MOBILE' | 'WEB_TABLET';
   deviceName: string;
   devicePlatform: string;
