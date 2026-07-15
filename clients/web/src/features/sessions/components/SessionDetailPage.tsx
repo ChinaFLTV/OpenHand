@@ -5250,7 +5250,6 @@ export function SessionDetailPage() {
   const shortcutBindings = useMemo(() => meta?.shortcut_bindings ?? {}, [meta]);
   const selectedModel = useMemo(() => allowedModels.find((model) => model.key === composerModelKey), [allowedModels, composerModelKey]);
   const selectedModelName = selectedModel?.model_id || selectedModel?.label || '';
-  const selectedModelProvider = selectedModel ? (selectedModel.protocol ? `${selectedModel.provider} · ${selectedModel.protocol}` : selectedModel.provider) : '';
   const titleSummaryDefaultModelKey = useMemo(() => {
     const sessionModelKey = detail?.session.last_model_key ?? '';
     return resolveDefaultTitleModelKey(
@@ -7344,10 +7343,9 @@ export function SessionDetailPage() {
                   />
                 ) : null}
 
-                <button type="button" onClick={() => setShowComposerModelPicker(true)} disabled={composerSending || allowedModels.length === 0} class="oh-composer-control oh-composer-model-control oh-tap-press disabled:opacity-50 min-w-0" title={selectedModelName && selectedModelProvider ? `${selectedModelName} · ${selectedModelProvider}` : t('composer.model', '模型')}>
+                <button type="button" onClick={() => setShowComposerModelPicker(true)} disabled={composerSending || allowedModels.length === 0} class="oh-composer-control oh-composer-model-control oh-tap-press disabled:opacity-50 min-w-0" title={selectedModelName || t('composer.model', '模型')}>
                   <span class="truncate">
                     {selectedModelName || t('composer.modelEmpty', '主控制台未配置模型')}
-                    {selectedModelProvider ? <span class="oh-composer-model-provider"> · {selectedModelProvider}</span> : null}
                   </span>
                 </button>
 

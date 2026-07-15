@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { t } from '../i18n';
 import type { ApiMetaModel, ApiReasoningEffortOption } from '../api/meta';
 import { useReducedMotion } from '../hooks/useReducedMotion';
@@ -514,6 +514,24 @@ export function ReasoningEffortControl({
   const tooltip = supported
     ? t('composer.reasoning.adjust', '调整当前模型的推理强度')
     : t('composer.reasoning.disabled', '当前模型未启用或不支持推理强度控制');
+  const controlRef = useRef<HTMLButtonElement | null>(null);
+  const labelRef = useRef<HTMLSpanElement | null>(null);
+  const [controlWidth, setControlWidth] = useState<number>();
+
+  useLayoutEffect(() => {
+    const control = controlRef.current;
+    const labelElement = labelRef.current;
+    if (!control || !labelElement) return;
+    const style = getComputedStyle(control);
+    const chromeWidth = [
+      style.paddingLeft,
+      style.paddingRight,
+      style.borderLeftWidth,
+      style.borderRightWidth,
+    ].reduce((total, value) => total + (Number.parseFloat(value) || 0), 0);
+    const nextWidth = Math.ceil(labelElement.offsetWidth + chromeWidth);
+    setControlWidth((current) => (current === nextWidth ? current : nextWidth));
+  }, [label]);
 
   return (
     <PopMenu
@@ -532,15 +550,17 @@ export function ReasoningEffortControl({
       )}
       trigger={({ open, toggle }) => (
         <button
+          ref={controlRef}
           type="button"
           onClick={toggle}
           disabled={disabled || saving || !supported}
           class={`oh-composer-control oh-composer-reasoning-control oh-tap-press ${supported ? 'is-tonal' : 'is-muted'}`}
+          style={controlWidth == null ? undefined : { '--oh-reasoning-control-width': `${controlWidth}px` }}
           aria-expanded={supported ? open : undefined}
           aria-haspopup={supported ? 'dialog' : undefined}
           title={tooltip}
         >
-          <span key={label} class="oh-soft-replace">{label}</span>
+          <span ref={labelRef} key={label} class="oh-soft-replace">{label}</span>
         </button>
       )}
     />

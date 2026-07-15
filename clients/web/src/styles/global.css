@@ -5059,10 +5059,32 @@ button.oh-message-context-capsule {
   flex: 0 0 auto;
 }
 .oh-composer-reasoning-control {
+  width: var(--oh-reasoning-control-width, auto);
+  transition:
+    width var(--oh-motion-duration-slow) var(--oh-motion-spring),
+    background-color 260ms var(--oh-motion-emphasized),
+    border-color 260ms var(--oh-motion-emphasized),
+    color 220ms var(--oh-motion-emphasized),
+    transform 260ms var(--oh-motion-spring),
+    box-shadow 260ms var(--oh-motion-emphasized);
+}
+.oh-composer-control.oh-composer-reasoning-control {
   position: relative;
-  min-width: 92px;
+  min-width: 48px;
+  justify-content: center;
+  padding-inline: 12px;
+  text-align: center;
   overflow: hidden;
   isolation: isolate;
+}
+.oh-composer-reasoning-control > span {
+  width: max-content;
+  height: 100%;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.2;
 }
 .oh-composer-reasoning-control::after {
   content: '';
@@ -5563,10 +5585,6 @@ button.oh-message-context-capsule {
   syntax: '<angle>';
   inherits: false;
   initial-value: 0deg;
-}
-.oh-composer-model-provider {
-  color: var(--m3-on-surface-variant);
-  font-weight: 650;
 }
 .oh-composer-mode-control {
   padding-right: 8px;
