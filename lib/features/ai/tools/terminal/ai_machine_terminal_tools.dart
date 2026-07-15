@@ -124,14 +124,27 @@ class AiMachineTerminalWriteTool extends AiMachineTerminalToolBase {
       );
     }
     final stopwatch = Stopwatch()..start();
-    await service.writeInput(
-      sessionId: context.sessionId,
-      terminalId: readTerminalId(args),
-      data: data,
-      appendNewline:
-          AiToolUtils.readBool(args['append_newline']) == true ||
-          AiToolUtils.readBool(args['enter']) == true,
-    );
+    try {
+      await service.writeInput(
+        sessionId: context.sessionId,
+        terminalId: readTerminalId(args),
+        data: data,
+        appendNewline:
+            AiToolUtils.readBool(args['append_newline']) == true ||
+            AiToolUtils.readBool(args['enter']) == true,
+      );
+    } catch (error, stack) {
+      silentLog('ai_machine_terminal_tools', 'write', error, stack);
+      return AiToolExecutionResult(
+        status: BashToolExecutionStatus.failed,
+        command: 'MachineTerminalWrite',
+        workingDirectory: AiToolUtils.defaultWorkingDirectory(),
+        stdout: '',
+        stderr: 'Machine terminal write failed.',
+        durationMs: stopwatch.elapsedMilliseconds,
+        resultText: 'status: failed\nerror: Machine terminal write failed.',
+      );
+    }
     final snapshot = service.snapshot(context.sessionId)?.activeTerminal;
     final output =
         'terminal_id: ${snapshot?.terminalId ?? ''}\n'

@@ -819,13 +819,12 @@ class MachineTerminalService extends ChangeNotifier {
     bool appendNewline = false,
   }) async {
     final terminal = await _requireTerminal(sessionId, terminalId);
-    var started = false;
-    if (!terminal.isRunningOrStarting) {
-      await terminal.start();
-      started = true;
+    final wasRunning = terminal.status == MachineTerminalStatus.running;
+    if (!await terminal.ensureRunning()) {
+      throw StateError('Machine terminal failed to start.');
     }
     terminal.writeInput(appendNewline ? '$data\n' : data);
-    if (started) {
+    if (!wasRunning) {
       _scheduleMetadataPersist(terminal.sessionId);
     }
     _scheduleHistoryPersist(terminal.sessionId);
@@ -838,9 +837,6 @@ class MachineTerminalService extends ChangeNotifier {
     Duration timeout = kMachineTerminalDefaultCommandTimeout,
   }) async {
     final terminal = await _requireTerminal(sessionId, terminalId);
-    if (!terminal.isRunningOrStarting) {
-      await terminal.start();
-    }
     final trimmed = command.trimRight();
     if (trimmed.isEmpty) {
       return MachineTerminalCommandResult(
@@ -850,6 +846,16 @@ class MachineTerminalService extends ChangeNotifier {
         status: terminal.status,
         durationMs: 0,
         error: 'Command is empty.',
+      );
+    }
+    if (!await terminal.ensureRunning()) {
+      return MachineTerminalCommandResult(
+        terminalId: terminal.id,
+        command: command,
+        output: '',
+        status: terminal.status,
+        durationMs: 0,
+        error: 'Machine terminal failed to start.',
       );
     }
     final counter = ++_commandCounter;
@@ -1577,6 +1583,7 @@ class MachineTerminalSession {
   final Terminal terminal;
 
   Pty? _pty;
+  Future<void>? _startFuture;
   StreamSubscription<String>? _outputSubscription;
   DateTime _startedAt = DateTime.now();
   DateTime _updatedAt = DateTime.now();
@@ -1712,8 +1719,30 @@ class MachineTerminalSession {
     _touch();
   }
 
-  Future<void> start() async {
-    if (isRunningOrStarting) return;
+  Future<void> start() {
+    if (_status == MachineTerminalStatus.running && _pty != null) {
+      return Future<void>.value();
+    }
+    final activeStart = _startFuture;
+    if (activeStart != null) return activeStart;
+
+    late final Future<void> startFuture;
+    startFuture = _startPty().whenComplete(() {
+      if (identical(_startFuture, startFuture)) {
+        _startFuture = null;
+      }
+    });
+    _startFuture = startFuture;
+    return startFuture;
+  }
+
+  Future<bool> ensureRunning() async {
+    await start();
+    return _status == MachineTerminalStatus.running && _pty != null;
+  }
+
+  Future<void> _startPty() async {
+    if (_status == MachineTerminalStatus.running && _pty != null) return;
     final generation = ++_startGeneration;
     _status = MachineTerminalStatus.starting;
     _errorMessage = null;
@@ -1793,6 +1822,10 @@ class MachineTerminalSession {
 
   Future<void> stop({bool force = false}) async {
     _startGeneration += 1;
+    final pendingStart = _startFuture;
+    if (pendingStart != null) {
+      await pendingStart;
+    }
     final pty = _pty;
     if (pty == null) {
       _status = MachineTerminalStatus.stopped;
