@@ -560,9 +560,10 @@ class AiSessionStore {
   static const String _sessionsOrderBy =
       'pinned DESC, '
       '(display_order IS NULL) DESC, '
-      'updated_at DESC, '
       'display_order ASC, '
-      'created_at DESC';
+      'updated_at DESC, '
+      'created_at DESC, '
+      'id ASC';
 
   /// Persist a manual ordering of the supplied [orderedSessionIds]. The
   /// first id receives `display_order = 0`, the second `1`, etc. Any

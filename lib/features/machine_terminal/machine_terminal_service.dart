@@ -1925,7 +1925,7 @@ class MachineTerminalSession {
           _plainText(_outputSince(startOffset)).trimRight(),
         ),
         durationMs: stopwatch.elapsedMilliseconds,
-        error: '$error',
+        error: 'Command execution failed.',
       );
     }
   }

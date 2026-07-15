@@ -1,3 +1,4 @@
+import '../../../../app/support/silent_log.dart';
 import '../../../machine_terminal/index.dart';
 import '../../service/bash/ai_bash_tool_service.dart';
 import '../../service/runtime/ai_tool_runtime_service.dart';
@@ -85,7 +86,7 @@ class AiMachineTerminalReadTool extends AiMachineTerminalToolBase {
       durationMs: stopwatch.elapsedMilliseconds,
       resultText: output,
       metadata: <String, Object?>{
-        'machine_terminal_snapshot': snapshot.toJson(),
+        'machine_terminal_snapshot': _snapshotMetadata(snapshot),
         'machine_terminal_metadata': terminalMetadata,
         'terminal_id': active.terminalId,
       },
@@ -262,15 +263,21 @@ class AiMachineTerminalControlTool extends AiMachineTerminalToolBase {
         columns: AiToolUtils.readInt(args['columns']),
         rows: AiToolUtils.readInt(args['rows']),
       );
-    } catch (error) {
+    } on ArgumentError {
+      return AiToolUtils.invalidResult(
+        'MachineTerminalControl',
+        'Invalid terminal control arguments.',
+      );
+    } catch (error, stack) {
+      silentLog('ai_machine_terminal_tools', 'control', error, stack);
       return AiToolExecutionResult(
         status: BashToolExecutionStatus.failed,
         command: 'MachineTerminalControl',
         workingDirectory: AiToolUtils.defaultWorkingDirectory(),
         stdout: '',
-        stderr: '$error',
+        stderr: 'Machine terminal control failed.',
         durationMs: stopwatch.elapsedMilliseconds,
-        resultText: 'status: failed\nerror: $error',
+        resultText: 'status: failed\nerror: Machine terminal control failed.',
       );
     }
     final active = snapshot.activeTerminal;
@@ -289,7 +296,7 @@ class AiMachineTerminalControlTool extends AiMachineTerminalToolBase {
       durationMs: stopwatch.elapsedMilliseconds,
       resultText: output,
       metadata: <String, Object?>{
-        'machine_terminal_snapshot': snapshot.toJson(),
+        'machine_terminal_snapshot': _snapshotMetadata(snapshot),
         'machine_terminal_metadata': service.sessionMetadata(
           sessionId: context.sessionId,
           existingMetadata: context.metadata[kMachineTerminalMetadataKey],
@@ -298,6 +305,21 @@ class AiMachineTerminalControlTool extends AiMachineTerminalToolBase {
       },
     );
   }
+}
+
+Map<String, Object?> _snapshotMetadata(
+  MachineTerminalWorkspaceSnapshot snapshot,
+) {
+  final activeTerminal = snapshot.activeTerminal;
+  return <String, Object?>{
+    'session_id': snapshot.sessionId,
+    'active_terminal_id': snapshot.activeTerminalId,
+    'terminals': snapshot.terminals
+        .map((terminal) => terminal.toMetadataJson())
+        .toList(growable: false),
+    if (activeTerminal != null)
+      'active_terminal': activeTerminal.toMetadataJson(),
+  };
 }
 
 MachineTerminalSnapshot? _terminalById(

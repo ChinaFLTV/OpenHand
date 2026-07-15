@@ -69,6 +69,7 @@ class _ThreadSessionManagementDialogState
   // pin/archive toggle.
   Map<String, ({bool pinned, bool archived})> _flags =
       const <String, ({bool pinned, bool archived})>{};
+  int _flagsRefreshGeneration = 0;
 
   // Sessions flagged as `archived`. The controller's `sessions` list
   // already excludes them (sidebar default), so the dialog loads them
@@ -142,13 +143,15 @@ class _ThreadSessionManagementDialogState
   }
 
   Future<void> _refreshFlags() async {
+    final generation = ++_flagsRefreshGeneration;
+    final showArchived = _showArchived;
     try {
       final controller = context.read<AiSessionController>();
       final flags = await controller.store.loadSessionFlags();
       // If "show archived" is on, also pull the archived sessions so we
       // can merge them into the visible list.
       List<AiSession> archived = const <AiSession>[];
-      if (_showArchived) {
+      if (showArchived) {
         final result = await controller.store.loadAllHeaders(
           includeArchived: true,
         );
@@ -156,7 +159,11 @@ class _ThreadSessionManagementDialogState
             .where((s) => flags[s.id]?.archived == true)
             .toList(growable: false);
       }
-      if (!mounted) return;
+      if (!mounted ||
+          generation != _flagsRefreshGeneration ||
+          showArchived != _showArchived) {
+        return;
+      }
       setState(() {
         _flags = flags;
         _archivedSessions = archived;
