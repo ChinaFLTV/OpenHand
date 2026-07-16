@@ -389,7 +389,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   final HarnessSessionPaneController _harnessSessionPaneController =
       HarnessSessionPaneController();
 
-  // Persisted record for the last HE session (survives app restarts).
+  // 最近一次 Harness 会话的持久化快照，用于应用重启后恢复。
   final HarnessSessionStore _harnessSessionStore = HarnessSessionStore();
   HarnessSessionRecord? _persistedHarnessSession;
   late final OpenHandDebouncer _harnessSessionSaveDebouncer = OpenHandDebouncer(
@@ -953,22 +953,16 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (state == AppLifecycleState.detached) {
       unawaited(_ttsPlaybackService.stop());
     }
-    // Flush pending Harness session state to disk whenever the
-    // app enters background / inactive states. This ensures the session record
-    // survives if the OS terminates the process before dispose() runs.
+    // 进入后台或失活时立即保存 Harness 会话，避免系统终止进程时丢失状态。
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.inactive ||
         state == AppLifecycleState.hidden ||
         state == AppLifecycleState.detached) {
       final pendingHarnessRecord = _persistedHarnessSession;
       if (pendingHarnessRecord != null) {
-        // Cancel debounced timer and flush immediately.
+        // 取消延迟任务并立即保存最新快照。
         _harnessSessionSaveDebouncer.cancel();
-        unawaited(
-          _harnessSessionStore
-              .save(pendingHarnessRecord)
-              .catchError(_logHarnessSessionSaveError),
-        );
+        unawaited(_persistHarnessSessionBestEffort(pendingHarnessRecord));
       }
     }
     if (state != AppLifecycleState.resumed) {
@@ -1067,7 +1061,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     }
     _androidReverseControllers.clear();
     _androidReverseRuntimeMetadataSignatures.clear();
-    _harnessSessionSaveDebouncer.cancel();
+    _harnessSessionSaveDebouncer.dispose();
     _editorTabsSaveDebouncer.cancel();
     // Flush pending editor tabs before disposal.
     if (_editorTabsSessionId != null) {
@@ -1075,11 +1069,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     }
     final pendingHarnessRecord = _persistedHarnessSession;
     if (pendingHarnessRecord != null) {
-      unawaited(
-        _harnessSessionStore
-            .save(pendingHarnessRecord)
-            .catchError(_logHarnessSessionSaveError),
-      );
+      unawaited(_persistHarnessSessionBestEffort(pendingHarnessRecord));
     }
     WidgetsBinding.instance.removeObserver(this);
     final goalYieldPredicate = _goalContinuationYieldPredicate;
@@ -5107,20 +5097,24 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   }) {
     _harnessSessionSaveDebouncer.cancel();
     if (immediate) {
-      unawaited(
-        _harnessSessionStore
-            .save(record)
-            .catchError(_logHarnessSessionSaveError),
-      );
+      unawaited(_persistHarnessSessionBestEffort(record));
       return;
     }
-    _harnessSessionSaveDebouncer.schedule(() {
-      unawaited(
-        _harnessSessionStore
-            .save(record)
-            .catchError(_logHarnessSessionSaveError),
-      );
-    });
+    _harnessSessionSaveDebouncer.schedule(
+      () => _persistHarnessSessionBestEffort(record),
+    );
+  }
+
+  Future<void> _persistHarnessSessionBestEffort(
+    HarnessSessionRecord record,
+  ) async {
+    if (!DatabaseService.isInitialized) return;
+    try {
+      await _harnessSessionStore.save(record);
+    } catch (error, stack) {
+      if (!DatabaseService.isInitialized) return;
+      silentLog('openhand_home_page', '保存 Harness 会话元数据', error, stack);
+    }
   }
 
   HarnessSessionRecord _normalizeRestoredHarnessRecord(
@@ -8607,15 +8601,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       context,
       controller.lastErrorMessage ??
           openHandLocalizedText(context, zh: '线程删除失败。', en: 'Delete failed.'),
-    );
-  }
-
-  void _logHarnessSessionSaveError(Object error, StackTrace stack) {
-    silentLog(
-      'openhand_home_page',
-      'save harness session metadata',
-      error,
-      stack,
     );
   }
 

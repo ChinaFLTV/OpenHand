@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -114,6 +115,108 @@ void main() {
     expect(catalog.status, McpToolCatalogStatus.ready);
     expect(catalog.warningMessage, contains('tool-response-actual-42'));
     expect(closeRequests, 1);
+    service.dispose();
+  });
+
+  test('工具列表响应完成后才关闭 Streamable HTTP 会话', () async {
+    final events = <String>[];
+    final service = DefaultMcpToolDiscoveryService(
+      client: MockClient((request) async {
+        if (request.method == 'DELETE') {
+          events.add('关闭会话');
+          return http.Response('', 204);
+        }
+        final payload = jsonDecode(request.body) as Map<String, Object?>;
+        final method = payload['method'];
+        if (method == 'notifications/initialized') {
+          return http.Response('', 202);
+        }
+        if (method == 'tools/list') {
+          await Future<void>.delayed(const Duration(milliseconds: 20));
+          events.add('工具列表完成');
+        }
+        return http.Response(
+          jsonEncode(<String, Object?>{
+            'jsonrpc': '2.0',
+            'id': payload['id'],
+            'result': method == 'initialize'
+                ? <String, Object?>{
+                    'protocolVersion': '2025-11-25',
+                    'capabilities': <String, Object?>{},
+                  }
+                : <String, Object?>{'tools': <Object?>[]},
+          }),
+          200,
+          headers: <String, String>{
+            'content-type': 'application/json',
+            if (method == 'initialize') 'mcp-session-id': 'ordered-session',
+          },
+        );
+      }),
+    );
+
+    final catalog = await service.discoverTools(_server);
+
+    expect(catalog.status, McpToolCatalogStatus.ready);
+    expect(events, <String>['工具列表完成', '关闭会话']);
+    service.dispose();
+  });
+
+  test('工具列表 HTTP 500 转为失败目录且不会逃逸到 Zone', () async {
+    const rawResponse =
+        '{"jsonrpc":"2.0","id":"server-error","error":'
+        '{"code":-32600,"message":"Error processing request: No response received"}}';
+    final events = <String>[];
+    final uncaughtErrors = <Object>[];
+    final service = DefaultMcpToolDiscoveryService(
+      client: MockClient((request) async {
+        if (request.method == 'DELETE') {
+          events.add('关闭会话');
+          return http.Response('', 204);
+        }
+        final payload = jsonDecode(request.body) as Map<String, Object?>;
+        final method = payload['method'];
+        if (method == 'notifications/initialized') {
+          return http.Response('', 202);
+        }
+        if (method == 'tools/list') {
+          await Future<void>.delayed(const Duration(milliseconds: 20));
+          events.add('工具列表失败');
+          return http.Response(
+            rawResponse,
+            500,
+            headers: const {'content-type': 'application/json'},
+          );
+        }
+        return http.Response(
+          jsonEncode(<String, Object?>{
+            'jsonrpc': '2.0',
+            'id': payload['id'],
+            'result': <String, Object?>{
+              'protocolVersion': '2025-11-25',
+              'capabilities': <String, Object?>{},
+            },
+          }),
+          200,
+          headers: const <String, String>{
+            'content-type': 'application/json',
+            'mcp-session-id': 'failed-session',
+          },
+        );
+      }),
+    );
+    late McpToolCatalog catalog;
+
+    await runZonedGuarded<Future<void>>(() async {
+      catalog = await service.discoverTools(_server);
+    }, (error, _) => uncaughtErrors.add(error));
+    await Future<void>.delayed(Duration.zero);
+
+    expect(catalog.status, McpToolCatalogStatus.failed);
+    expect(catalog.errorMessage, contains('HTTP 500'));
+    expect(catalog.errorMessage, contains('No response received'));
+    expect(events, <String>['工具列表失败', '关闭会话']);
+    expect(uncaughtErrors, isEmpty);
     service.dispose();
   });
 }

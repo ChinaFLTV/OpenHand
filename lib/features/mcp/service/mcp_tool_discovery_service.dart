@@ -375,7 +375,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
   Future<_DiscoveredTools> _discoverOverStreamableHttp(McpServer server) async {
     final session = await _initializeStreamableHttpSession(server);
     try {
-      return _listTools(
+      return await _listTools(
         (cursor) => _postJsonRpc(
           server: server,
           uri: session.uri,
@@ -398,7 +398,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
   Future<_DiscoveredTools> _discoverOverLegacySse(McpServer server) async {
     final session = await _initializeLegacySseSession(server);
     try {
-      return _listTools(
+      return await _listTools(
         (cursor) => session.sendRequest(
           _jsonRpcRequest(
             id: _nextId(),
@@ -438,7 +438,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
         .borrowSessionForDiscovery(server.name);
     if (managedSession != null) {
       try {
-        return _listTools(
+        return await _listTools(
           (cursor) => managedSession.sendRequest(
             _jsonRpcRequest(
               id: _nextId(),
@@ -458,7 +458,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     // 兜底：borrowSession 失败（进程启动失败/握手超时），回退到独立进程。
     final session = await _initializeStdioSession(server);
     try {
-      return _listTools(
+      return await _listTools(
         (cursor) => session.sendRequest(
           _jsonRpcRequest(
             id: _nextId(),
