@@ -4316,8 +4316,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get snackToolSearchLoadedGroupOther => 'Andere (kein Server-Präfix)';
 
   @override
-  String get snackToolSearchLoadedCopyGroupAction =>
-      'Gesamte Gruppe als select:… kopieren';
+  String get snackToolSearchLoadedCopyGroupAction => 'Gesamte Gruppe kopieren';
 
   @override
   String get snackToolSearchLoadedTabLoaded => 'Geladen';

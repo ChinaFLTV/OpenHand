@@ -2282,7 +2282,7 @@
   "snackToolSearchLoadedClearAction": "Clear loaded list",
   "snackToolSearchLoadedClearedToast": "Loaded list cleared",
   "snackToolSearchLoadedGroupOther": "Other (no server prefix)",
-  "snackToolSearchLoadedCopyGroupAction": "Copy entire group as select:…",
+  "snackToolSearchLoadedCopyGroupAction": "Copy entire group",
   "snackToolSearchLoadedTabLoaded": "Loaded",
   "snackToolSearchLoadedTabHistory": "Load history",
   "snackToolSearchLoadedHistoryEmpty": "No ToolSearch loads in this session yet",

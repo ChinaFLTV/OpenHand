@@ -2282,7 +2282,7 @@
   "snackToolSearchLoadedClearAction": "ロード済み一覧をクリア",
   "snackToolSearchLoadedClearedToast": "ロード済み一覧をクリアしました",
   "snackToolSearchLoadedGroupOther": "その他（server 不明）",
-  "snackToolSearchLoadedCopyGroupAction": "グループ全体を select: でコピー",
+  "snackToolSearchLoadedCopyGroupAction": "グループ全体をコピー",
   "snackToolSearchLoadedTabLoaded": "ロード済み",
   "snackToolSearchLoadedTabHistory": "履歴",
   "snackToolSearchLoadedHistoryEmpty": "このセッションにはまだ ToolSearch の履歴がありません",

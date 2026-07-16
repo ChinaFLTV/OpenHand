@@ -4328,8 +4328,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get snackToolSearchLoadedGroupOther => 'Autre (sans préfixe serveur)';
 
   @override
-  String get snackToolSearchLoadedCopyGroupAction =>
-      'Copier le groupe entier en select:…';
+  String get snackToolSearchLoadedCopyGroupAction => 'Copier tout le groupe';
 
   @override
   String get snackToolSearchLoadedTabLoaded => 'Chargés';

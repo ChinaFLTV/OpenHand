@@ -2340,7 +2340,7 @@
   "snackToolSearchLoadedClearAction": "清空已加载列表",
   "snackToolSearchLoadedClearedToast": "已清空已加载列表",
   "snackToolSearchLoadedGroupOther": "其他（未识别 server）",
-  "snackToolSearchLoadedCopyGroupAction": "复制本组全部 select:",
+  "snackToolSearchLoadedCopyGroupAction": "复制本组全部",
   "snackToolSearchLoadedTabLoaded": "已加载",
   "snackToolSearchLoadedTabHistory": "加载历史",
   "snackToolSearchLoadedHistoryEmpty": "本会话还没有 ToolSearch 加载记录",

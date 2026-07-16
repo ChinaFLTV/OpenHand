@@ -2282,7 +2282,7 @@
   "snackToolSearchLoadedClearAction": "Vider la liste chargée",
   "snackToolSearchLoadedClearedToast": "Liste chargée vidée",
   "snackToolSearchLoadedGroupOther": "Autre (sans préfixe serveur)",
-  "snackToolSearchLoadedCopyGroupAction": "Copier le groupe entier en select:…",
+  "snackToolSearchLoadedCopyGroupAction": "Copier tout le groupe",
   "snackToolSearchLoadedTabLoaded": "Chargés",
   "snackToolSearchLoadedTabHistory": "Historique",
   "snackToolSearchLoadedHistoryEmpty": "Aucun chargement ToolSearch dans cette session",

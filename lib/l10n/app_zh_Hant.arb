@@ -2283,7 +2283,7 @@
   "snackToolSearchLoadedClearAction": "清空已載入清單",
   "snackToolSearchLoadedClearedToast": "已清空已載入清單",
   "snackToolSearchLoadedGroupOther": "其他（未識別 server）",
-  "snackToolSearchLoadedCopyGroupAction": "複製本組全部 select:",
+  "snackToolSearchLoadedCopyGroupAction": "複製本組全部",
   "snackToolSearchLoadedTabLoaded": "已載入",
   "snackToolSearchLoadedTabHistory": "載入歷史",
   "snackToolSearchLoadedHistoryEmpty": "本會話尚無 ToolSearch 載入紀錄",

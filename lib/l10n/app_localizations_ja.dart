@@ -4171,7 +4171,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get snackToolSearchLoadedGroupOther => 'その他（server 不明）';
 
   @override
-  String get snackToolSearchLoadedCopyGroupAction => 'グループ全体を select: でコピー';
+  String get snackToolSearchLoadedCopyGroupAction => 'グループ全体をコピー';
 
   @override
   String get snackToolSearchLoadedTabLoaded => 'ロード済み';

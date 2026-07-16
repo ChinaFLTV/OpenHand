@@ -12,9 +12,11 @@ void main() {
     List<AiToolSearchLoadHistoryEntry> history =
         const <AiToolSearchLoadHistoryEntry>[],
     VoidCallback? onClear,
+    Locale? locale,
   }) {
     return MaterialApp(
       theme: OpenHandTheme.light(OpenHandThemePreset.tundraGreen),
+      locale: locale,
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       home: Scaffold(
@@ -61,17 +63,21 @@ void main() {
 
   testWidgets('标题操作、标签指示器与分组按钮保持统一几何样式', (tester) async {
     await tester.pumpWidget(
-      buildDialog(const <String>[
-        'mcp__HowToCook__search_recipe',
-        'mcp__HowToCook__get_recipe',
-      ], onClear: () {}),
+      buildDialog(
+        const <String>[
+          'mcp__HowToCook__search_recipe',
+          'mcp__HowToCook__get_recipe',
+        ],
+        onClear: () {},
+        locale: const Locale('zh'),
+      ),
     );
     await tester.pump();
 
     final clearButton = find.byKey(
       const ValueKey<String>('toolSearchClearAction'),
     );
-    final closeButton = find.byTooltip('Close');
+    final closeButton = find.byTooltip('关闭');
     final clearRect = tester.getRect(clearButton);
     final closeRect = tester.getRect(closeButton);
     expect(closeRect.left - clearRect.right, greaterThanOrEqualTo(8));
@@ -88,8 +94,29 @@ void main() {
     final groupExpand = find.byKey(
       const ValueKey<String>('mcpToolGroupExpand:server:HowToCook'),
     );
-    expect(tester.getSize(groupCopy), const Size.square(48));
-    expect(tester.getSize(groupExpand), const Size.square(48));
+    final toolCopy = find.byKey(
+      const ValueKey<String>('mcpToolCopy:mcp__HowToCook__get_recipe'),
+    );
+    final actionButtons = <Finder>[groupCopy, groupExpand, toolCopy];
+    for (final finder in actionButtons) {
+      expect(tester.getSize(finder), const Size.square(48));
+      final button = tester.widget<IconButton>(finder);
+      expect(
+        button.style?.shape?.resolve(<WidgetState>{}),
+        isA<CircleBorder>(),
+      );
+    }
+    final actionColors = actionButtons
+        .map(
+          (finder) => tester
+              .widget<IconButton>(finder)
+              .style
+              ?.backgroundColor
+              ?.resolve(<WidgetState>{}),
+        )
+        .toSet();
+    expect(actionColors, hasLength(1));
+    expect(find.byTooltip('复制本组全部'), findsOneWidget);
     AnimatedRotation expansionRotation() => tester.widget<AnimatedRotation>(
       find.descendant(of: groupExpand, matching: find.byType(AnimatedRotation)),
     );

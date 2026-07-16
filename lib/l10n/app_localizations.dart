@@ -7581,7 +7581,7 @@ abstract class AppLocalizations {
   /// No description provided for @snackToolSearchLoadedCopyGroupAction.
   ///
   /// In zh, this message translates to:
-  /// **'复制本组全部 select:'**
+  /// **'复制本组全部'**
   String get snackToolSearchLoadedCopyGroupAction;
 
   /// No description provided for @snackToolSearchLoadedTabLoaded.

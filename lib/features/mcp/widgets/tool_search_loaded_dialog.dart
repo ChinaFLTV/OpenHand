@@ -28,8 +28,16 @@ import 'mcp_dialog_utils.dart';
 const int _toolSearchHistoryImportMaxBytes = 8 * kBytesPerMiB;
 const int _mcpGroupExpansionCacheMaxEntries = 128;
 const double _toolSearchDialogMaxWidth = 720;
-const double _toolSearchGroupActionExtent = 48;
+const double _toolSearchActionExtent = 48;
 const double _toolSearchToolbarBreakpoint = 520;
+
+ButtonStyle _toolSearchCircularActionStyle(ColorScheme colorScheme) {
+  return IconButton.styleFrom(
+    backgroundColor: colorScheme.surfaceContainerHigh,
+    foregroundColor: colorScheme.onSurfaceVariant,
+    shape: const CircleBorder(),
+  );
+}
 
 Future<void> showToolSearchLoadedDialog(
   BuildContext context, {
@@ -1164,9 +1172,7 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
     final colorScheme = theme.colorScheme;
     final expanded = _mcpGroupExpansionCache.get(group.persistKey) ?? true;
     final actionColor = colorScheme.surfaceContainerHigh;
-    final actionShape = RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(18),
-    );
+    final actionStyle = _toolSearchCircularActionStyle(colorScheme);
     final expansionTooltip = openHandLocalizedText(
       context,
       zh: expanded ? '收起工具组' : '展开工具组',
@@ -1261,14 +1267,10 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
                 icon: const Icon(Icons.copy_all_rounded, size: 17),
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints.tightFor(
-                  width: _toolSearchGroupActionExtent,
-                  height: _toolSearchGroupActionExtent,
+                  width: _toolSearchActionExtent,
+                  height: _toolSearchActionExtent,
                 ),
-                style: IconButton.styleFrom(
-                  backgroundColor: actionColor,
-                  foregroundColor: colorScheme.onSurfaceVariant,
-                  shape: actionShape,
-                ),
+                style: actionStyle,
                 onPressed: () => _handleCopyGroup(group),
               ),
             ],
@@ -1279,14 +1281,10 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
               tooltip: expansionTooltip,
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints.tightFor(
-                width: _toolSearchGroupActionExtent,
-                height: _toolSearchGroupActionExtent,
+                width: _toolSearchActionExtent,
+                height: _toolSearchActionExtent,
               ),
-              style: IconButton.styleFrom(
-                backgroundColor: actionColor,
-                foregroundColor: colorScheme.onSurfaceVariant,
-                shape: actionShape,
-              ),
+              style: actionStyle,
               onPressed: () {
                 final controller = ExpansibleController.of(trailingContext);
                 if (expanded) {
@@ -1369,10 +1367,15 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
             ),
             const SizedBox(width: 8),
             IconButton(
+              key: ValueKey<String>('mcpToolCopy:$name'),
               tooltip: '${l10n.snackToolSearchLoadedCopyAction}$name',
               icon: const Icon(Icons.copy_rounded, size: 17),
               padding: EdgeInsets.zero,
-              constraints: const BoxConstraints.tightFor(width: 36, height: 36),
+              constraints: const BoxConstraints.tightFor(
+                width: _toolSearchActionExtent,
+                height: _toolSearchActionExtent,
+              ),
+              style: _toolSearchCircularActionStyle(colorScheme),
               onPressed: () => _handleCopy(name),
             ),
           ],

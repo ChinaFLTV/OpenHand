@@ -4124,7 +4124,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get snackToolSearchLoadedGroupOther => '其他（未识别 server）';
 
   @override
-  String get snackToolSearchLoadedCopyGroupAction => '复制本组全部 select:';
+  String get snackToolSearchLoadedCopyGroupAction => '复制本组全部';
 
   @override
   String get snackToolSearchLoadedTabLoaded => '已加载';
@@ -14739,7 +14739,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get snackToolSearchLoadedGroupOther => '其他（未識別 server）';
 
   @override
-  String get snackToolSearchLoadedCopyGroupAction => '複製本組全部 select:';
+  String get snackToolSearchLoadedCopyGroupAction => '複製本組全部';
 
   @override
   String get snackToolSearchLoadedTabLoaded => '已載入';
