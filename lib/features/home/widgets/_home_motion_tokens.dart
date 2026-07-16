@@ -11,11 +11,13 @@ part of '../openhand_home_page.dart';
 /// 设计依据：design.md Bug 5 / requirements.md 6.1—6.3。
 ///   * 时长 ∈ [220ms, 320ms]，按 expand / collapse 方向各自固定。
 ///   * 曲线统一为 `Cubic(0.22, 1.22, 0.36, 1)`（轻微 overshoot 的 Q 弹回弹）。
+///   * 阴影、边框等装饰插值使用同曲线的有界版本，避免超调产生非法数值。
 ///   * 全局禁动或当前 [TickerMode] 暂停时降为 `Duration.zero`。
 
 const Duration kCardMotionDurationExpand = Duration(milliseconds: 280);
 const Duration kCardMotionDurationCollapse = Duration(milliseconds: 220);
 const Curve kCardMotionCurve = Cubic(0.22, 1.22, 0.36, 1);
+const Curve kCardDecorationMotionCurve = OpenHandBoundedCurve(kCardMotionCurve);
 
 /// 单一来源：根据展开方向返回卡片折叠/展开动画时长。
 ///

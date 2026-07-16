@@ -797,7 +797,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
         context,
         const Duration(milliseconds: 260),
       ),
-      curve: kCardMotionCurve,
+      curve: kCardDecorationMotionCurve,
       decoration: BoxDecoration(
         color: backgroundColor,
         borderRadius: borderRadius,

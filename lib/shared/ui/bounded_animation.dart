@@ -3,6 +3,18 @@ import 'package:flutter/animation.dart';
 const double kOpenHandAnimationProgressMin = 0.0;
 const double kOpenHandAnimationProgressMax = 1.0;
 
+/// 将允许超调的动效曲线限制在 0..1，供阴影、边框等不接受越界插值的属性使用。
+class OpenHandBoundedCurve extends Curve {
+  const OpenHandBoundedCurve(this.curve);
+
+  final Curve curve;
+
+  @override
+  double transformInternal(double t) {
+    return openHandBoundedProgress(curve.transform(t));
+  }
+}
+
 /// Bounds animation progress before it reaches Flutter primitives that require
 /// a strict 0..1 value, such as opacity, sizeFactor, or another Curve.
 class OpenHandBoundedDoubleAnimation extends Animation<double>

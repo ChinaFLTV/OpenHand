@@ -308,7 +308,7 @@ class _ResponseMetaRowState extends State<_ResponseMetaRow>
           )
         : AnimatedContainer(
             duration: cardMotionDurationFor(context, expanding: false),
-            curve: kCardMotionCurve,
+            curve: kCardDecorationMotionCurve,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
               color: palette.backgroundColor,
