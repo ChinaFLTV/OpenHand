@@ -28,13 +28,16 @@ import 'mcp_dialog_utils.dart';
 const int _toolSearchHistoryImportMaxBytes = 8 * kBytesPerMiB;
 const int _mcpGroupExpansionCacheMaxEntries = 128;
 const double _toolSearchDialogMaxWidth = 720;
-const double _toolSearchActionExtent = 48;
+const double _toolSearchCardActionExtent = 36;
 const double _toolSearchToolbarBreakpoint = 520;
 
 ButtonStyle _toolSearchCircularActionStyle(ColorScheme colorScheme) {
   return IconButton.styleFrom(
     backgroundColor: colorScheme.surfaceContainerHigh,
     foregroundColor: colorScheme.onSurfaceVariant,
+    minimumSize: const Size.square(_toolSearchCardActionExtent),
+    fixedSize: const Size.square(_toolSearchCardActionExtent),
+    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
     shape: const CircleBorder(),
   );
 }
@@ -1076,8 +1079,8 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
                     ),
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints.tightFor(
-                      width: 36,
-                      height: 36,
+                      width: _toolSearchCardActionExtent,
+                      height: _toolSearchCardActionExtent,
                     ),
                     onPressed: canReplay
                         ? () => _handleReplayHistoryEntry(entry)
@@ -1267,8 +1270,8 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
                 icon: const Icon(Icons.copy_all_rounded, size: 17),
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints.tightFor(
-                  width: _toolSearchActionExtent,
-                  height: _toolSearchActionExtent,
+                  width: _toolSearchCardActionExtent,
+                  height: _toolSearchCardActionExtent,
                 ),
                 style: actionStyle,
                 onPressed: () => _handleCopyGroup(group),
@@ -1281,8 +1284,8 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
               tooltip: expansionTooltip,
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints.tightFor(
-                width: _toolSearchActionExtent,
-                height: _toolSearchActionExtent,
+                width: _toolSearchCardActionExtent,
+                height: _toolSearchCardActionExtent,
               ),
               style: actionStyle,
               onPressed: () {
@@ -1372,8 +1375,8 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
               icon: const Icon(Icons.copy_rounded, size: 17),
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints.tightFor(
-                width: _toolSearchActionExtent,
-                height: _toolSearchActionExtent,
+                width: _toolSearchCardActionExtent,
+                height: _toolSearchCardActionExtent,
               ),
               style: _toolSearchCircularActionStyle(colorScheme),
               onPressed: () => _handleCopy(name),

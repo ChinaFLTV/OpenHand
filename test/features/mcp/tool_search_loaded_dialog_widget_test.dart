@@ -62,12 +62,21 @@ void main() {
   });
 
   testWidgets('标题操作、标签指示器与分组按钮保持统一几何样式', (tester) async {
+    final history = <AiToolSearchLoadHistoryEntry>[
+      AiToolSearchLoadHistoryEntry(
+        timestamp: DateTime.utc(2026, 7, 17),
+        query: 'HowToCook',
+        addedNames: const <String>['mcp__HowToCook__get_recipe'],
+        totalDeferred: 2,
+      ),
+    ];
     await tester.pumpWidget(
       buildDialog(
         const <String>[
           'mcp__HowToCook__search_recipe',
           'mcp__HowToCook__get_recipe',
         ],
+        history: history,
         onClear: () {},
         locale: const Locale('zh'),
       ),
@@ -98,8 +107,9 @@ void main() {
       const ValueKey<String>('mcpToolCopy:mcp__HowToCook__get_recipe'),
     );
     final actionButtons = <Finder>[groupCopy, groupExpand, toolCopy];
+    final loadedActionSize = tester.getSize(groupCopy);
     for (final finder in actionButtons) {
-      expect(tester.getSize(finder), const Size.square(48));
+      expect(tester.getSize(finder), const Size.square(36));
       final button = tester.widget<IconButton>(finder);
       expect(
         button.style?.shape?.resolve(<WidgetState>{}),
@@ -130,6 +140,11 @@ void main() {
       find.byKey(const ValueKey<String>('mcpToolGroupCount:server:HowToCook')),
     );
     expect(countRect.left - nameRect.right, lessThanOrEqualTo(9));
+
+    await tester.tap(find.byIcon(Icons.history_rounded));
+    await tester.pumpAndSettle();
+    final historyReplay = find.byTooltip('把本次复制为 select:…');
+    expect(tester.getSize(historyReplay), loadedActionSize);
     expect(tester.takeException(), isNull);
   });
 
