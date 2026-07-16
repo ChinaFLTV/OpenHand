@@ -319,12 +319,8 @@ class AiResponsesService {
     );
     cacheAffinity.applyToHeaders(headers);
     final body = AiPromptCacheAffinity.withConversationInputLast(
-      AiOpenAiPromptCacheControl.applyToBody(
-        model: model,
-        inputCacheConfig: inputCacheConfig,
-        body: cacheAffinity.applyToBody(
-          AiOperationHttp.mergeBodyExtras(model, family, baseBody),
-        ),
+      cacheAffinity.applyToBody(
+        AiOperationHttp.mergeBodyExtras(model, family, baseBody),
       ),
     );
     if (mimo) _normalizeMimoRequestBody(body);
@@ -530,19 +526,6 @@ class AiResponsesService {
     }
 
     var response = await send();
-    if (isHttpFailureStatus(response.statusCode) &&
-        AiOpenAiPromptCacheControl.shouldRetryWithoutMarkers(
-          statusCode: response.statusCode,
-          errorBody: response.body,
-          requestBody: request.body,
-        )) {
-      _addRequestFallback(
-        requestFallbacks,
-        aiChatRequestFallbackPromptCacheControlRejected,
-      );
-      request = _withoutPromptCacheControlMarkers(request);
-      response = await send();
-    }
     if (isHttpFailureStatus(response.statusCode) &&
         AiPromptCacheAffinity.shouldRetryWithoutMarkers(
           statusCode: response.statusCode,
@@ -837,17 +820,6 @@ class AiResponsesService {
       method: request.method,
       headers: AiPromptCacheAffinity.withoutHeaderMarkers(request.headers),
       body: AiPromptCacheAffinity.withoutBodyMarkers(request.body),
-    );
-  }
-
-  AiResponsesRequestBlueprint _withoutPromptCacheControlMarkers(
-    AiResponsesRequestBlueprint request,
-  ) {
-    return AiResponsesRequestBlueprint(
-      url: request.url,
-      method: request.method,
-      headers: request.headers,
-      body: AiOpenAiPromptCacheControl.withoutMarkers(request.body),
     );
   }
 

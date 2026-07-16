@@ -5936,7 +5936,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get settingsReduceTokenCostsByFreezingThe =>
-      'Réduisez les coûts en stabilisant le préfixe du prompt et les contrôles de cache du protocole. Le fournisseur et le modèle de la session sont verrouillés ; Prompt Builder garde les instructions système, les outils, la mémoire et les instructions utilisateur stables au début ; Anthropic injecte cache_control, GPT-5.6+ utilise prompt_cache_key avec un TTL de 30 minutes et des points explicites, et les autres requêtes compatibles OpenAI utilisent une affinité stable.';
+      'Réduisez les coûts en jetons en stabilisant le préfixe statique du prompt et en appliquant des indices de cache au niveau du protocole. Si activé, le fournisseur et le modèle sont verrouillés après le premier message utilisateur ; Prompt Builder garde autant que possible les instructions système, le catalogue d’outils, la mémoire et les instructions utilisateur en sections stables au début ; Anthropic injecte les points cache_control, et les requêtes compatibles OpenAI utilisent une affinité de cache stable avec un corps où messages reste en dernier.';
 
   @override
   String get settingsEnableInputCache => 'Activer le cache d’entrée';
@@ -5981,7 +5981,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get settingsDefault4Range14Anthropic =>
-      'Par défaut 4, plage 1-4. Anthropic et GPT-5.6+ prennent en charge jusqu’à 4 points de cache explicites par requête ; les autres fournisseurs compatibles OpenAI utilisent ce réglage uniquement pour l’affinité du cache.';
+      'Par défaut 4, plage 1-4. Anthropic prend en charge jusqu’à 4 points d’arrêt cache_control par requête. Les fournisseurs compatibles OpenAI utilisent ce réglage uniquement comme force d’affinité de cache ; aucun marqueur cache_control incompatible n’est ajouté à leurs messages.';
 
   @override
   String get settingsCommandSafety => 'Sécurité des commandes';

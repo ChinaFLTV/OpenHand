@@ -1396,9 +1396,6 @@ class AiModelConfig {
   static final RegExp _reasoningModelIdSeparatorPattern = RegExp(r'[^a-z0-9]+');
   static final RegExp _reasoningModelIdRepeatedDashPattern = RegExp(r'-+');
   static final RegExp _reasoningModelIdEdgeDashPattern = RegExp(r'^-|-$');
-  static final RegExp _openAiPromptCacheModelPattern = RegExp(
-    r'(?:^|-)gpt-(\d+)(?:-(\d+))?(?:-|$)',
-  );
   static final RegExp _officialWebsiteWhitespacePattern = RegExp(r'\s');
   static const Set<String> _thinkingParameterNames = <String>{
     'reasoning',
@@ -2076,31 +2073,10 @@ class AiModelConfig {
 
   bool get supportsExplicitPromptCacheControl =>
       protocolType == AiProtocolType.claude ||
-      apiDialect == AiApiDialect.anthropicNative ||
-      supportsOpenAiPromptCacheBreakpoints;
-
-  bool get supportsOpenAiPromptCacheBreakpoints =>
-      supportsOpenAiPromptCacheBreakpointsFor(
-        modelId: modelId,
-        apiDialect: apiDialect,
-      );
-
-  static bool supportsOpenAiPromptCacheBreakpointsFor({
-    required String modelId,
-    required AiApiDialect apiDialect,
-  }) {
-    if (apiDialect != AiApiDialect.openAiCompat) return false;
-    final normalized = _normalizeReasoningModelId(modelId);
-    final match = _openAiPromptCacheModelPattern.firstMatch(normalized);
-    if (match == null) return false;
-    final major = int.tryParse(match.group(1) ?? '') ?? 0;
-    final minor = int.tryParse(match.group(2) ?? '') ?? 0;
-    return major > 5 || (major == 5 && minor >= 6);
-  }
+      apiDialect == AiApiDialect.anthropicNative;
 
   bool get effectiveExplicitPromptCacheEnabled =>
-      supportsOpenAiPromptCacheBreakpoints ||
-      (supportsExplicitPromptCacheControl && explicitPromptCacheEnabled);
+      supportsExplicitPromptCacheControl && explicitPromptCacheEnabled;
 
   bool get resolvedSupportsThinking {
     final trimmedModelId = nullIfBlank(modelId) ?? '';

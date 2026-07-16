@@ -5637,7 +5637,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get settingsReduceTokenCostsByFreezingThe =>
-      '通过稳定 Prompt 静态前缀与协议层缓存提示来降低 token 成本。开启后会锁定会话服务商与模型；Prompt Builder 统一保持系统提示、工具目录、记忆和指令稳定前置；Anthropic 注入 cache_control，GPT-5.6+ 使用 prompt_cache_key、30 分钟 TTL 与显式断点，其他 OpenAI-compatible 请求使用稳定缓存亲和键。';
+      '通过稳定 Prompt 静态前缀与协议层缓存提示来降低 token 成本。开启后：用户发出首条消息后会锁定服务商与模型；Prompt Builder 会尽量保持系统提示、工具目录、记忆、指令等稳定前置；Anthropic 协议会注入 cache_control 断点，OpenAI-compatible 请求会使用稳定缓存亲和键与 messages 末尾布局。';
 
   @override
   String get settingsEnableInputCache => '启用输入缓存';
@@ -5677,7 +5677,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get settingsDefault4Range14Anthropic =>
-      '默认 4，范围 1-4。Anthropic 与 GPT-5.6+ 每个请求最多支持 4 个显式缓存断点；其他 OpenAI-compatible 服务商仅将该设置作为缓存亲和强度参考。';
+      '默认 4，范围 1-4。Anthropic 协议每个请求最多支持 4 个 cache_control 断点。OpenAI-compatible 服务商仅将该设置作为缓存亲和强度参考，不会向消息内容注入不兼容的 cache_control 标记。';
 
   @override
   String get settingsCommandSafety => '命令安全';
@@ -16252,7 +16252,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get settingsReduceTokenCostsByFreezingThe =>
-      '透過穩定 Prompt 靜態前綴與協議層快取提示來降低 token 成本。開啟後會鎖定會話服務商與模型；Prompt Builder 統一保持系統提示、工具目錄、記憶和指令穩定前置；Anthropic 注入 cache_control，GPT-5.6+ 使用 prompt_cache_key、30 分鐘 TTL 與顯式斷點，其他 OpenAI-compatible 請求使用穩定快取親和鍵。';
+      '透過穩定 Prompt 靜態前綴與協議層快取提示來降低 token 成本。開啟後：使用者送出第一則訊息後會鎖定服務商與模型；Prompt Builder 會盡量保持系統提示、工具目錄、記憶、指令等穩定前置；Anthropic 協議會注入 cache_control 斷點，OpenAI-compatible 請求會使用穩定快取親和鍵與 messages 置尾布局。';
 
   @override
   String get settingsEnableInputCache => '启用输入缓存';
@@ -16292,7 +16292,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get settingsDefault4Range14Anthropic =>
-      '預設 4，範圍 1-4。Anthropic 與 GPT-5.6+ 每個請求最多支援 4 個顯式快取斷點；其他 OpenAI-compatible 服務商僅將此設定作為快取親和強度參考。';
+      '預設 4，範圍 1-4。Anthropic 協議每個請求最多支援 4 個 cache_control 斷點。OpenAI-compatible 服務商僅將此設定作為快取親和強度參考，不會向訊息內容注入不相容的 cache_control 標記。';
 
   @override
   String get settingsCommandSafety => '命令安全';

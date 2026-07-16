@@ -34,8 +34,6 @@ import 'ai_transport_diagnostic_messages.dart';
 
 const String aiChatRequestFallbackCacheAffinityRejected =
     'cache_affinity_rejected';
-const String aiChatRequestFallbackPromptCacheControlRejected =
-    'prompt_cache_control_rejected';
 const String aiChatRequestFallbackThinkingMarkersRejected =
     'thinking_markers_rejected';
 const String aiChatRequestFallbackResponsesUnsupported =
@@ -513,16 +511,6 @@ class AiChatService implements AiChatClient {
     );
   }
 
-  AiRequestBlueprint _withoutPromptCacheControlMarkers(
-    AiRequestBlueprint blueprint,
-  ) {
-    return AiRequestBlueprint(
-      url: blueprint.url,
-      headers: blueprint.headers,
-      body: AiOpenAiPromptCacheControl.withoutMarkers(blueprint.body),
-    );
-  }
-
   AiRequestBlueprint _withoutThinkingMarkers(AiRequestBlueprint blueprint) {
     return AiRequestBlueprint(
       url: blueprint.url,
@@ -865,21 +853,6 @@ class AiChatService implements AiChatClient {
 
       var response = await sendBlueprint(blueprint);
       var endedAt = DateTime.now().toUtc();
-      if (isHttpFailureStatus(response.statusCode) &&
-          AiOpenAiPromptCacheControl.shouldRetryWithoutMarkers(
-            statusCode: response.statusCode,
-            errorBody: response.body,
-            requestBody: blueprint.body,
-          )) {
-        _addRequestFallback(
-          requestFallbacks,
-          aiChatRequestFallbackPromptCacheControlRejected,
-        );
-        response = await sendBlueprint(
-          _withoutPromptCacheControlMarkers(blueprint),
-        );
-        endedAt = DateTime.now().toUtc();
-      }
       if (isHttpFailureStatus(response.statusCode)) {
         if (AiPromptCacheAffinity.shouldRetryWithoutMarkers(
           statusCode: response.statusCode,
@@ -1273,45 +1246,12 @@ class AiChatService implements AiChatClient {
         timeout: streamIdleTimeout,
       );
       var finalErrorBody = initialErrorBody;
-      if (AiOpenAiPromptCacheControl.shouldRetryWithoutMarkers(
+      if (AiPromptCacheAffinity.shouldRetryWithoutMarkers(
         statusCode: streamedResponse.statusCode,
-        errorBody: finalErrorBody,
+        errorBody: initialErrorBody,
         requestBody: blueprint.body,
+        requestHeaders: blueprint.headers,
       )) {
-        _addRequestFallback(
-          requestFallbacks,
-          aiChatRequestFallbackPromptCacheControlRejected,
-        );
-        streamedResponse = await openStream(
-          _withoutPromptCacheControlMarkers(blueprint),
-        );
-        if (streamedResponse == null) {
-          return AiChatStreamingResponse(
-            events: const Stream<AiChatStreamEvent>.empty(),
-            result: Future<AiChatStreamResult>.value(
-              const AiChatStreamResult(
-                reply: '',
-                reasoning: '',
-                toolCalls: <AiToolCall>[],
-                wasCancelled: true,
-              ),
-            ),
-          );
-        }
-        if (isHttpFailureStatus(streamedResponse.statusCode)) {
-          finalErrorBody = await _readChatHttpErrorBody(
-            streamedResponse,
-            timeout: streamIdleTimeout,
-          );
-        }
-      }
-      if (isHttpFailureStatus(streamedResponse.statusCode) &&
-          AiPromptCacheAffinity.shouldRetryWithoutMarkers(
-            statusCode: streamedResponse.statusCode,
-            errorBody: finalErrorBody,
-            requestBody: blueprint.body,
-            requestHeaders: blueprint.headers,
-          )) {
         _addRequestFallback(
           requestFallbacks,
           aiChatRequestFallbackCacheAffinityRejected,
@@ -1837,49 +1777,12 @@ class AiChatService implements AiChatClient {
         streamedResponse,
         timeout: streamIdleTimeout,
       );
-      if (AiOpenAiPromptCacheControl.shouldRetryWithoutMarkers(
+      if (AiPromptCacheAffinity.shouldRetryWithoutMarkers(
         statusCode: streamedResponse.statusCode,
         errorBody: responsesErrorBody,
         requestBody: request.body,
+        requestHeaders: request.headers,
       )) {
-        _addRequestFallback(
-          requestFallbacks,
-          aiChatRequestFallbackPromptCacheControlRejected,
-        );
-        final retryRequest = AiResponsesRequestBlueprint(
-          url: request.url,
-          method: request.method,
-          headers: request.headers,
-          body: AiOpenAiPromptCacheControl.withoutMarkers(request.body),
-        );
-        streamedResponse = await openResponsesStream(retryRequest);
-        if (streamedResponse == null) {
-          return AiChatStreamingResponse(
-            events: const Stream<AiChatStreamEvent>.empty(),
-            result: Future<AiChatStreamResult>.value(
-              const AiChatStreamResult(
-                reply: '',
-                reasoning: '',
-                toolCalls: <AiToolCall>[],
-                wasCancelled: true,
-              ),
-            ),
-          );
-        }
-        responsesErrorBody = isHttpSuccessStatus(streamedResponse.statusCode)
-            ? null
-            : await _readChatHttpErrorBody(
-                streamedResponse,
-                timeout: streamIdleTimeout,
-              );
-      }
-      if (isHttpFailureStatus(streamedResponse.statusCode) &&
-          AiPromptCacheAffinity.shouldRetryWithoutMarkers(
-            statusCode: streamedResponse.statusCode,
-            errorBody: responsesErrorBody ?? '',
-            requestBody: request.body,
-            requestHeaders: request.headers,
-          )) {
         _addRequestFallback(
           requestFallbacks,
           aiChatRequestFallbackCacheAffinityRejected,

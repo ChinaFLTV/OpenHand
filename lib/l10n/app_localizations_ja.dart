@@ -5718,7 +5718,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get settingsReduceTokenCostsByFreezingThe =>
-      '安定した Prompt プレフィックスとプロトコルレベルのキャッシュ制御で token コストを削減します。セッションのプロバイダーとモデルを固定し、Prompt Builder はシステム指示、ツール、メモリ、ユーザー指示を先頭で安定させます。Anthropic は cache_control、GPT-5.6+ は prompt_cache_key、30 分 TTL、明示的ブレークポイントを使用し、その他の OpenAI 互換リクエストは安定したキャッシュアフィニティを使用します。';
+      'Prompt の静的プレフィックスを安定させ、プロトコルレベルのキャッシュヒントを適用して token コストを削減します。有効にすると、最初のユーザーメッセージ後にプロバイダーとモデルをロックし、Prompt Builder はシステム指示、ツールカタログ、メモリ、ユーザー指示を可能な限り安定した先頭セクションに保ちます。Anthropic は cache_control ブレークポイントを注入し、OpenAI 互換リクエストは安定したキャッシュアフィニティと messages を末尾に置く body レイアウトを使います。';
 
   @override
   String get settingsEnableInputCache => '入力キャッシュを有効化';
@@ -5758,7 +5758,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get settingsDefault4Range14Anthropic =>
-      '既定値 4、範囲 1-4。Anthropic と GPT-5.6+ はリクエストごとに最大 4 つの明示的キャッシュブレークポイントをサポートし、その他の OpenAI 互換プロバイダーではキャッシュアフィニティの強さとしてのみ使用します。';
+      '既定値 4、範囲 1-4。Anthropic はリクエストごとに最大 4 つの cache_control ブレークポイントをサポートします。OpenAI 互換プロバイダーでは、この設定はキャッシュアフィニティの強さとしてのみ扱われ、互換性のない cache_control マーカーはメッセージに追加されません。';
 
   @override
   String get settingsCommandSafety => 'コマンドセーフティ';
