@@ -5920,7 +5920,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get settingsReduceTokenCostsByFreezingThe =>
-      'Reduzieren Sie Token-Kosten, indem Sie das statische Prompt-Präfix stabilisieren und Cache-Hinweise auf Protokollebene anwenden. Wenn aktiviert, werden Anbieter und Modell nach der ersten Benutzernachricht gesperrt; der Prompt Builder hält Systemanweisungen, Werkzeugkatalog, Speicher und Nutzeranweisungen möglichst stabil am Anfang; Anthropic injiziert cache_control-Breakpoints, OpenAI-kompatible Anfragen nutzen stabile Cache-Affinität und ein messages-last Body-Layout.';
+      'Reduzieren Sie Token-Kosten durch ein stabiles Prompt-Präfix und protokollnahe Cache-Steuerung. Anbieter und Modell der Sitzung werden gesperrt; der Prompt Builder hält Systemanweisungen, Werkzeuge, Speicher und Nutzeranweisungen stabil am Anfang; Anthropic injiziert cache_control, GPT-5.6+ nutzt prompt_cache_key mit 30 Minuten TTL und expliziten Breakpoints, andere OpenAI-kompatible Anfragen stabile Cache-Affinität.';
 
   @override
   String get settingsEnableInputCache => 'Eingabecache aktivieren';
@@ -5964,7 +5964,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get settingsDefault4Range14Anthropic =>
-      'Standard 4, Bereich 1-4. Anthropic unterstützt bis zu 4 cache_control-Breakpoints pro Anfrage. OpenAI-kompatible Anbieter verwenden diese Einstellung nur als Cache-Affinitätsstärke; ihren Nachrichten werden keine inkompatiblen cache_control-Marker hinzugefügt.';
+      'Standard 4, Bereich 1-4. Anthropic und GPT-5.6+ unterstützen bis zu 4 explizite Cache-Breakpoints pro Anfrage; andere OpenAI-kompatible Anbieter nutzen diese Einstellung nur für die Cache-Affinität.';
 
   @override
   String get settingsCommandSafety => 'Befehlssicherheit';

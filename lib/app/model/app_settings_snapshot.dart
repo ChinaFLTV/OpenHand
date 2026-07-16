@@ -398,14 +398,14 @@ class AppSettingsSnapshot {
 
   /// 成本控制：是否启用输入缓存优化。开启后，Prompt
   /// Builder 统一保持静态前缀（系统指令/工具/技能/MCP/记忆/指令）稳定
-  /// 前置；Anthropic native 注入 cache_control 断点，OpenAI-compatible
-  /// 请求注入稳定的会话/Prompt 亲和键并保持 messages 位于请求体末尾，
-  /// 同时在用户首条消息发出后锁定服务商/模型选择，降低跨轮缓存击穿概率。
+  /// 前置；Anthropic native 注入 cache_control 断点，GPT-5.6+ 注入
+  /// prompt_cache_options 与显式断点，其他 OpenAI-compatible 请求使用
+  /// 稳定亲和键；同时锁定会话服务商/模型，降低跨轮缓存击穿概率。
   ///
   /// 默认为 `true`。Claude 协议会在对应 provider 开关开启时注入
-  /// `cache_control: {type: ephemeral}` 断点；OpenAI-compatible 协议会使用
-  /// 稳定亲和键与请求体顺序优化。少数场景需要关闭时再在"输入缓存"设置里
-  /// 手动关闭。
+  /// `cache_control: {type: ephemeral}` 断点；GPT-5.6+ 使用 30 分钟 TTL
+  /// 与显式缓存断点；其他 OpenAI-compatible 协议使用稳定亲和键与请求体
+  /// 顺序优化。少数场景需要关闭时再在"输入缓存"设置里手动关闭。
   static const bool defaultAiInputCacheEnabled = true;
 
   /// 缓存断点更新模式：allMessages | userMessages | tokens。
@@ -427,7 +427,7 @@ class AppSettingsSnapshot {
   static const int minAiInputCacheUpdateInterval = 1;
   static const int maxAiInputCacheUpdateInterval = 200000;
 
-  /// Anthropic cache_control 断点数量上限（协议侧硬上限 4）。
+  /// Anthropic 与 GPT-5.6+ 显式缓存断点数量上限（协议侧硬上限 4）。
   /// 第 N 个断点固定用于动态消息侧，前 N-1 个用于静态前缀切片。
   static const int defaultAiInputCacheBreakpointCount = 4;
   static const int minAiInputCacheBreakpointCount = 1;
@@ -898,8 +898,8 @@ class AppSettingsSnapshot {
   /// 压缩摘要中提取的文件路径条数上限。
   final int aiToolResultCompressionMaxPathHits;
 
-  /// 成本控制：是否启用输入缓存优化（稳定静态前缀 + 模型锁
-  /// + Claude cache_control + OpenAI-compatible 稳定亲和键/请求体顺序优化）。
+  /// 成本控制：是否启用输入缓存优化（稳定静态前缀、模型锁、Claude
+  /// cache_control、GPT-5.6+ 显式断点、兼容协议缓存亲和）。
   final bool aiInputCacheEnabled;
 
   /// 缓存断点更新模式（allMessages / userMessages / tokens）。

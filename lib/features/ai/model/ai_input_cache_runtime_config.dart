@@ -3,7 +3,8 @@
 /// 由 [AiSessionController] 在每轮请求开始时根据 SettingsController 与
 /// [AiSessionRuntimeContext] 装配，向下传递到 [AiChatClient.sendMessageStream]
 /// 与 [AiProtocolAdapter.buildBody]。协议适配器可将其翻译为 Claude native
-/// `cache_control` 标记，或 OpenAI-compatible provider 的会话亲和键。
+/// `cache_control`、GPT-5.6+ `prompt_cache_breakpoint`，或兼容服务商的
+/// 会话亲和键。
 ///
 /// `enabled=false` 时，所有适配器应表现为完全无行为变化（空操作）。
 class AiInputCacheRuntimeConfig {
@@ -15,6 +16,7 @@ class AiInputCacheRuntimeConfig {
     this.breakpointPositions = const <double>[],
     this.cacheAffinityId = '',
     this.promptCacheKey = '',
+    this.stablePrefixMessageCount = 0,
   });
 
   /// 一个明确的"无缓存"哨兵；适配器收到 null 或 disabled 都走旧路径。
@@ -31,7 +33,7 @@ class AiInputCacheRuntimeConfig {
   final String mode;
   final int updateInterval;
 
-  /// Anthropic 上限就是 4，超过会报 400。
+  /// Anthropic 与 GPT-5.6+ 每次请求最多写入 4 个显式缓存断点。
   final int breakpointCount;
 
   /// 用户自定义的前 N-1 个静态缓存点位置（百分比 0..1，升序）。
@@ -47,6 +49,10 @@ class AiInputCacheRuntimeConfig {
   /// 稳定 Prompt 前缀缓存键。仅用于 `prompt_cache_key` 这类显式缓存键字段；
   /// 不用于带会话语义的 header / `session_id`，避免跨线程共享会话状态。
   final String promptCacheKey;
+
+  /// Prompt Builder 生成的稳定前缀消息数。GPT-5.6+ Responses 协议据此在
+  /// 静态核心与运行时工具目录之间放置统一断点；其他协议忽略该值。
+  final int stablePrefixMessageCount;
 
   bool get isEffectivelyEnabled => enabled && breakpointCount > 0;
 }

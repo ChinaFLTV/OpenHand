@@ -6787,6 +6787,10 @@ class AiSessionController extends ChangeNotifier {
             cacheAffinityId: workingSession.id,
             promptCacheKey: '${promptResult.metadata['stable_cache_key'] ?? ''}'
                 .trim(),
+            stablePrefixMessageCount: intFromValue(
+              promptResult.metadata['stable_prefix_message_count'],
+              fallback: 0,
+            ),
           ),
           onRequestStarted: previewRequestStartTelemetry,
         );
@@ -13151,6 +13155,9 @@ $tail''';
         'cache_affinity_degraded': result.requestFallbacks.contains(
           aiChatRequestFallbackCacheAffinityRejected,
         ),
+        'prompt_cache_control_degraded': result.requestFallbacks.contains(
+          aiChatRequestFallbackPromptCacheControlRejected,
+        ),
         'thinking_markers_degraded': result.requestFallbacks.contains(
           aiChatRequestFallbackThinkingMarkersRejected,
         ),
@@ -13218,6 +13225,9 @@ $tail''';
         'request_fallbacks': telemetry.requestFallbacks,
         'cache_affinity_degraded': telemetry.requestFallbacks.contains(
           aiChatRequestFallbackCacheAffinityRejected,
+        ),
+        'prompt_cache_control_degraded': telemetry.requestFallbacks.contains(
+          aiChatRequestFallbackPromptCacheControlRejected,
         ),
         'thinking_markers_degraded': telemetry.requestFallbacks.contains(
           aiChatRequestFallbackThinkingMarkersRejected,
@@ -13474,6 +13484,9 @@ $tail''';
         'cache_affinity_degraded': telemetry.requestFallbacks.contains(
           aiChatRequestFallbackCacheAffinityRejected,
         ),
+        'prompt_cache_control_degraded': telemetry.requestFallbacks.contains(
+          aiChatRequestFallbackPromptCacheControlRejected,
+        ),
         'thinking_markers_degraded': telemetry.requestFallbacks.contains(
           aiChatRequestFallbackThinkingMarkersRejected,
         ),
@@ -13725,7 +13738,8 @@ $tail''';
         for (final entry in _sortedTelemetryMapEntries(value)) {
           final key = entry.key;
           final childPath = path.isEmpty ? key : '$path.$key';
-          if (key == 'cache_control') {
+          if (key == 'cache_control' ||
+              key == AiOpenAiPromptCacheControl.breakpointField) {
             paths.add(path.isEmpty ? key : path);
             continue;
           }
@@ -13742,10 +13756,20 @@ $tail''';
 
     visit(body, '');
     paths.sort(_compareRuntimeMetadataText);
+    final promptCacheOptions = stringKeyedMapFromValue(
+      body[AiOpenAiPromptCacheControl.optionsBodyField],
+    );
     return <String, Object?>{
       'request_cache_control_marker_count': paths.length,
       if (paths.isNotEmpty)
         'request_cache_control_marker_paths': paths.take(8).toList(),
+      if (promptCacheOptions.isNotEmpty)
+        'request_prompt_cache_mode': '${promptCacheOptions['mode'] ?? ''}',
+      if (promptCacheOptions.isNotEmpty)
+        'request_prompt_cache_ttl': '${promptCacheOptions['ttl'] ?? ''}',
+      'request_legacy_prompt_cache_retention_present': body.containsKey(
+        AiOpenAiPromptCacheControl.legacyRetentionBodyField,
+      ),
     };
   }
 
@@ -13882,9 +13906,13 @@ $tail''';
       'request_cache_affinity_marker_paths',
       'request_fallbacks',
       'cache_affinity_degraded',
+      'prompt_cache_control_degraded',
       'thinking_markers_degraded',
       'request_cache_control_marker_count',
       'request_cache_control_marker_paths',
+      'request_prompt_cache_mode',
+      'request_prompt_cache_ttl',
+      'request_legacy_prompt_cache_retention_present',
       'request_payload_lcp_chars',
       'request_payload_lcp_previous_ratio',
       'request_payload_prefix_continuity',

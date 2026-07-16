@@ -10431,7 +10431,7 @@ abstract class AppLocalizations {
   /// No description provided for @settingsReduceTokenCostsByFreezingThe.
   ///
   /// In zh, this message translates to:
-  /// **'通过稳定 Prompt 静态前缀与协议层缓存提示来降低 token 成本。开启后：用户发出首条消息后会锁定服务商与模型；Prompt Builder 会尽量保持系统提示、工具目录、记忆、指令等稳定前置；Anthropic 协议会注入 cache_control 断点，OpenAI-compatible 请求会使用稳定缓存亲和键与 messages 末尾布局。'**
+  /// **'通过稳定 Prompt 静态前缀与协议层缓存提示来降低 token 成本。开启后会锁定会话服务商与模型；Prompt Builder 统一保持系统提示、工具目录、记忆和指令稳定前置；Anthropic 注入 cache_control，GPT-5.6+ 使用 prompt_cache_key、30 分钟 TTL 与显式断点，其他 OpenAI-compatible 请求使用稳定缓存亲和键。'**
   String get settingsReduceTokenCostsByFreezingThe;
 
   /// No description provided for @settingsEnableInputCache.
@@ -10503,7 +10503,7 @@ abstract class AppLocalizations {
   /// No description provided for @settingsDefault4Range14Anthropic.
   ///
   /// In zh, this message translates to:
-  /// **'默认 4，范围 1-4。Anthropic 协议每个请求最多支持 4 个 cache_control 断点。OpenAI-compatible 服务商仅将该设置作为缓存亲和强度参考，不会向消息内容注入不兼容的 cache_control 标记。'**
+  /// **'默认 4，范围 1-4。Anthropic 与 GPT-5.6+ 每个请求最多支持 4 个显式缓存断点；其他 OpenAI-compatible 服务商仅将该设置作为缓存亲和强度参考。'**
   String get settingsDefault4Range14Anthropic;
 
   /// No description provided for @settingsCommandSafety.
