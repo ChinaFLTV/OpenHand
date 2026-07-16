@@ -252,6 +252,7 @@ class McpController extends ChangeNotifier {
   final McpKeywordIndexService _keywordIndexService = McpKeywordIndexService();
   McpKeywordIndex? _keywordIndex;
   bool _keywordIndexLoadedFromDisk = false;
+  int _keywordIndexRevision = 0;
 
   /// 当前最近一次构建（或落盘加载）的关键词倒排索引。从未构建则为 null。
   McpKeywordIndex? get keywordIndex => _keywordIndex;
@@ -263,8 +264,9 @@ class McpController extends ChangeNotifier {
   Future<void> ensureKeywordIndexLoaded() async {
     if (_keywordIndexLoadedFromDisk) return;
     _keywordIndexLoadedFromDisk = true;
+    final revision = _keywordIndexRevision;
     final loaded = await _keywordIndexService.loadFromDisk();
-    if (_isDisposed) return;
+    if (_isDisposed || revision != _keywordIndexRevision) return;
     if (loaded != null) {
       _keywordIndex = loaded;
       notifyListeners();
@@ -280,6 +282,7 @@ class McpController extends ChangeNotifier {
     if (!_hasTrustedSnapshot) {
       throw StateError('MCP configuration is not available.');
     }
+    final revision = _keywordIndexRevision;
     final snapshot = List<McpServer>.unmodifiable(runtimeServers);
     final result = await _keywordIndexService.build(
       servers: snapshot,
@@ -296,11 +299,29 @@ class McpController extends ChangeNotifier {
       },
       onProgress: onProgress ?? (_) {},
     );
-    if (!_isDisposed) {
+    if (!_isDisposed && revision == _keywordIndexRevision) {
       _keywordIndex = result.index;
       notifyListeners();
     }
     return result;
+  }
+
+  void _replaceKeywordIndexServerTools(String serverName, List<McpTool> tools) {
+    _keywordIndexRevision += 1;
+    final current = _keywordIndex;
+    if (current != null) {
+      _keywordIndex = current.replaceServerTools(
+        serverName: serverName,
+        tools: tools,
+      );
+    }
+    _runDetached(
+      _keywordIndexService.replacePersistedServerTools(
+        serverName: serverName,
+        tools: tools,
+      ),
+      '更新 MCP 关键词索引',
+    );
   }
 
   bool get isLoading => _isLoading;
@@ -455,7 +476,7 @@ class McpController extends ChangeNotifier {
       if (_isDisposed || !_isPageActive) {
         return;
       }
-      _autoRefreshEnabledServerTools();
+      _autoRefreshEnabledServerTools(force: true);
       _autoCheckEnabledServerHealth(force: true);
     });
   }
@@ -1432,9 +1453,11 @@ class McpController extends ChangeNotifier {
     ]);
   }
 
+  /// 手动刷新默认先清空旧目录；自动刷新可保留当前可用目录，成功后原子替换。
   Future<void> refreshServerTools(
     String serverName, {
     bool requirePageActive = false,
+    bool clearCachedTools = true,
   }) async {
     if (_isDisposed || requirePageActive && !_isPageActive) {
       return;
@@ -1446,6 +1469,26 @@ class McpController extends ChangeNotifier {
     final server = _serverByName(normalizedServerName);
     if (server == null) {
       return;
+    }
+
+    final nextGeneration =
+        (_toolRefreshGenerationByServerName[normalizedServerName] ?? 0) + 1;
+    _toolRefreshGenerationByServerName[normalizedServerName] = nextGeneration;
+    final previousCatalog = toolCatalogFor(normalizedServerName);
+    final preserveDuringRefresh =
+        !clearCachedTools &&
+        previousCatalog.status == McpToolCatalogStatus.ready;
+    if (!preserveDuringRefresh) {
+      _toolCatalogByServerName[normalizedServerName] = const McpToolCatalog(
+        status: McpToolCatalogStatus.loading,
+      );
+      if (clearCachedTools) {
+        _replaceKeywordIndexServerTools(
+          normalizedServerName,
+          const <McpTool>[],
+        );
+      }
+      notifyListeners();
     }
 
     // 对 stdio 类型服务，确保 process manager 中有运行中的进程。
@@ -1465,16 +1508,6 @@ class McpController extends ChangeNotifier {
       if (current == null || !_sameServerConnection(server, current)) return;
     }
 
-    final nextGeneration =
-        (_toolRefreshGenerationByServerName[normalizedServerName] ?? 0) + 1;
-    _toolRefreshGenerationByServerName[normalizedServerName] = nextGeneration;
-    final previousCatalog = toolCatalogFor(normalizedServerName);
-    _toolCatalogByServerName[normalizedServerName] = previousCatalog.copyWith(
-      status: McpToolCatalogStatus.loading,
-      clearErrorMessage: true,
-    );
-    notifyListeners();
-
     try {
       final discoveredCatalog = await _toolDiscoveryService.discoverTools(
         server,
@@ -1487,14 +1520,21 @@ class McpController extends ChangeNotifier {
         return;
       }
       if (_isLifecycleCancelledCatalog(discoveredCatalog)) {
-        _toolCatalogByServerName[normalizedServerName] = previousCatalog;
+        _toolCatalogByServerName[normalizedServerName] = preserveDuringRefresh
+            ? previousCatalog
+            : const McpToolCatalog();
         notifyListeners();
         return;
       }
-      _toolCatalogByServerName[normalizedServerName] = _resolvedRefreshCatalog(
-        previousCatalog: previousCatalog,
-        discoveredCatalog: discoveredCatalog,
-      );
+      _toolCatalogByServerName[normalizedServerName] = discoveredCatalog;
+      final discoveredTools =
+          discoveredCatalog.status == McpToolCatalogStatus.ready
+          ? discoveredCatalog.tools
+          : const <McpTool>[];
+      if (clearCachedTools ||
+          !_sameKeywordIndexToolData(previousCatalog.tools, discoveredTools)) {
+        _replaceKeywordIndexServerTools(normalizedServerName, discoveredTools);
+      }
       notifyListeners();
     } catch (error) {
       if (_isDisposed ||
@@ -1505,18 +1545,18 @@ class McpController extends ChangeNotifier {
         return;
       }
       if (isExpectedMcpToolDiscoveryLifecycleError(error)) {
-        _toolCatalogByServerName[normalizedServerName] = previousCatalog;
+        _toolCatalogByServerName[normalizedServerName] = preserveDuringRefresh
+            ? previousCatalog
+            : const McpToolCatalog();
         notifyListeners();
         return;
       }
-      _toolCatalogByServerName[normalizedServerName] = _resolvedRefreshCatalog(
-        previousCatalog: previousCatalog,
-        discoveredCatalog: McpToolCatalog(
-          status: McpToolCatalogStatus.failed,
-          errorMessage: '$error',
-          lastScannedAt: DateTime.now().toUtc(),
-        ),
+      _toolCatalogByServerName[normalizedServerName] = McpToolCatalog(
+        status: McpToolCatalogStatus.failed,
+        errorMessage: '$error',
+        lastScannedAt: DateTime.now().toUtc(),
       );
+      _replaceKeywordIndexServerTools(normalizedServerName, const <McpTool>[]);
       notifyListeners();
     }
   }
@@ -1840,17 +1880,23 @@ class McpController extends ChangeNotifier {
           continue;
         }
         final catalog = toolCatalogFor(server.name);
+        if (catalog.isLoading) {
+          continue;
+        }
         if (!force &&
-            (catalog.isLoading ||
-                catalog.status == McpToolCatalogStatus.ready &&
-                    catalog.lastScannedAt != null)) {
+            catalog.status == McpToolCatalogStatus.ready &&
+            catalog.lastScannedAt != null) {
           continue;
         }
         targets.add(server);
       }
       await _runAutoProbeWorkerPool(
         targets,
-        (server) => refreshServerTools(server.name, requirePageActive: true),
+        (server) => refreshServerTools(
+          server.name,
+          requirePageActive: true,
+          clearCachedTools: false,
+        ),
       );
     } finally {
       _autoToolRefreshInProgress = false;
@@ -2037,6 +2083,7 @@ class McpController extends ChangeNotifier {
       return;
     }
     _healthCheckTimer = startSafePeriodicTimer(_healthCheckInterval, (_) {
+      _autoRefreshEnabledServerTools(force: true);
       _autoCheckEnabledServerHealth();
     });
   }
@@ -2072,6 +2119,23 @@ class McpController extends ChangeNotifier {
     return serverName.trim();
   }
 
+  bool _sameKeywordIndexToolData(List<McpTool> left, List<McpTool> right) {
+    if (left.length != right.length) return false;
+    String signature(McpTool tool) {
+      final searchHint =
+          tool.annotations['searchHint'] ??
+          tool.annotations['search_hint'] ??
+          tool.rawMetadata['searchHint'] ??
+          tool.rawMetadata['search_hint'];
+      return '${tool.id}\u0000${tool.name}\u0000${tool.description}\u0000$searchHint';
+    }
+
+    final leftSignatures = left.map(signature).toList(growable: false)..sort();
+    final rightSignatures = right.map(signature).toList(growable: false)
+      ..sort();
+    return listEquals(leftSignatures, rightSignatures);
+  }
+
   void _invalidateToolRefreshGeneration(String serverName) {
     _toolRefreshGenerationByServerName[serverName] =
         (_toolRefreshGenerationByServerName[serverName] ?? 0) + 1;
@@ -2087,27 +2151,6 @@ class McpController extends ChangeNotifier {
       return defaultAutoProbeConcurrency;
     }
     return value.clamp(_minAutoProbeConcurrency, _maxAutoProbeConcurrency);
-  }
-
-  McpToolCatalog _resolvedRefreshCatalog({
-    required McpToolCatalog previousCatalog,
-    required McpToolCatalog discoveredCatalog,
-  }) {
-    if (_isLifecycleCancelledCatalog(discoveredCatalog)) {
-      return previousCatalog;
-    }
-    if (discoveredCatalog.status != McpToolCatalogStatus.failed ||
-        previousCatalog.tools.isEmpty) {
-      return discoveredCatalog;
-    }
-    return previousCatalog.copyWith(
-      status: discoveredCatalog.status,
-      errorMessage: discoveredCatalog.errorMessage,
-      clearErrorMessage: discoveredCatalog.errorMessage == null,
-      warningMessage: discoveredCatalog.warningMessage,
-      clearWarningMessage: discoveredCatalog.warningMessage == null,
-      lastScannedAt: discoveredCatalog.lastScannedAt,
-    );
   }
 
   bool _isLifecycleCancelledCatalog(McpToolCatalog catalog) {

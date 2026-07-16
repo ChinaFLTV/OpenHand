@@ -10231,8 +10231,12 @@ class _McpServerCardState extends State<_McpServerCard> {
                                 Tooltip(
                                   message: _localizedText(
                                     context,
-                                    zh: '刷新 Tool 检测',
-                                    en: 'Refresh Tool Scan',
+                                    zh: '清空旧 Tool 数据并重新拉取',
+                                    en: 'Clear cached Tools and fetch a fresh catalog',
+                                    zhHant: '清空舊 Tool 資料並重新拉取',
+                                    fr: 'Effacer les anciens Tools et recharger le catalogue',
+                                    de: 'Alte Tools löschen und den Katalog neu laden',
+                                    ja: '古い Tool データを消去して再取得',
                                   ),
                                   child: SizedBox(
                                     width: 44,

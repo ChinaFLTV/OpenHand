@@ -37,6 +37,11 @@ void main() {
   test('JSON-RPC 错误完整展示错误数据', () async {
     final service = DefaultMcpToolDiscoveryService(
       client: MockClient((request) async {
+        expect(
+          request.headers['cache-control'],
+          'no-cache, no-store, max-age=0',
+        );
+        expect(request.headers['pragma'], 'no-cache');
         final payload = jsonDecode(request.body) as Map<String, Object?>;
         return http.Response(
           jsonEncode(<String, Object?>{
@@ -63,8 +68,14 @@ void main() {
   });
 
   test('工具元数据告警附带对应服务端响应', () async {
+    var closeRequests = 0;
     final service = DefaultMcpToolDiscoveryService(
       client: MockClient((request) async {
+        if (request.method == 'DELETE') {
+          closeRequests += 1;
+          expect(request.headers['mcp-session-id'], 'fresh-session');
+          return http.Response('', 204);
+        }
         final payload = jsonDecode(request.body) as Map<String, Object?>;
         final method = payload['method'];
         if (method == 'notifications/initialized') {
@@ -90,7 +101,10 @@ void main() {
             'result': result,
           }),
           200,
-          headers: const {'content-type': 'application/json'},
+          headers: <String, String>{
+            'content-type': 'application/json',
+            if (method == 'initialize') 'mcp-session-id': 'fresh-session',
+          },
         );
       }),
     );
@@ -99,6 +113,7 @@ void main() {
 
     expect(catalog.status, McpToolCatalogStatus.ready);
     expect(catalog.warningMessage, contains('tool-response-actual-42'));
+    expect(closeRequests, 1);
     service.dispose();
   });
 }

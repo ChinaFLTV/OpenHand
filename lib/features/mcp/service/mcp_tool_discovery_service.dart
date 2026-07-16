@@ -51,8 +51,13 @@ const int _mcpLegacySseMaxLineBytes = 4 * kBytesPerMiB;
 const int _mcpLegacySseMaxEventBytes = 4 * kBytesPerMiB;
 const Duration _mcpHttpDiscardTimeout = Duration(seconds: 3);
 const Duration _mcpStreamCleanupTimeout = Duration(milliseconds: 500);
+const Duration _mcpSessionCloseTimeout = Duration(seconds: 2);
 const Duration _mcpStdioFileOperationTimeout = mcpStdioFileOperationTimeout;
 const int _mcpStdioPathProbeLimit = 256;
+const Map<String, String> _mcpFreshRequestHeaders = <String, String>{
+  'cache-control': 'no-cache, no-store, max-age=0',
+  'pragma': 'no-cache',
+};
 const BoundedDeletePolicy _mcpCacheDeletePolicy = BoundedDeletePolicy(
   maxEntries: 500000,
   maxDepth: 256,
@@ -369,22 +374,25 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
 
   Future<_DiscoveredTools> _discoverOverStreamableHttp(McpServer server) async {
     final session = await _initializeStreamableHttpSession(server);
-
-    return _listTools(
-      (cursor) => _postJsonRpc(
-        server: server,
-        uri: session.uri,
-        protocolVersion: session.protocolVersion,
-        sessionId: session.sessionId,
-        payload: _jsonRpcRequest(
-          id: _nextId(),
-          method: 'tools/list',
-          params: cursor == null ? null : <String, Object?>{'cursor': cursor},
-        ),
-        expectResponse: true,
-      ).then((response) => response.message),
-      serverInstructions: session.instructions,
-    );
+    try {
+      return _listTools(
+        (cursor) => _postJsonRpc(
+          server: server,
+          uri: session.uri,
+          protocolVersion: session.protocolVersion,
+          sessionId: session.sessionId,
+          payload: _jsonRpcRequest(
+            id: _nextId(),
+            method: 'tools/list',
+            params: cursor == null ? null : <String, Object?>{'cursor': cursor},
+          ),
+          expectResponse: true,
+        ).then((response) => response.message),
+        serverInstructions: session.instructions,
+      );
+    } finally {
+      await _closeStreamableHttpSession(server, session);
+    }
   }
 
   Future<_DiscoveredTools> _discoverOverLegacySse(McpServer server) async {
@@ -478,23 +486,31 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
       customHeaders: customHeaders,
       cancelSignal: guard.cancelSignal,
     );
-    guard.throwIfExpired();
-    final response = await _postJsonRpc(
-      server: server,
-      uri: session.uri,
-      protocolVersion: session.protocolVersion,
-      sessionId: session.sessionId,
-      payload: _jsonRpcRequest(
-        id: _nextId(),
-        method: 'tools/call',
-        params: <String, Object?>{'name': toolName, 'arguments': arguments},
-      ),
-      requestTimeout: guard.remaining,
-      expectResponse: true,
-      customHeaders: customHeaders,
-      cancelSignal: guard.cancelSignal,
-    );
-    return _extractResult(response.message);
+    try {
+      guard.throwIfExpired();
+      final response = await _postJsonRpc(
+        server: server,
+        uri: session.uri,
+        protocolVersion: session.protocolVersion,
+        sessionId: session.sessionId,
+        payload: _jsonRpcRequest(
+          id: _nextId(),
+          method: 'tools/call',
+          params: <String, Object?>{'name': toolName, 'arguments': arguments},
+        ),
+        requestTimeout: guard.remaining,
+        expectResponse: true,
+        customHeaders: customHeaders,
+        cancelSignal: guard.cancelSignal,
+      );
+      return _extractResult(response.message);
+    } finally {
+      await _closeStreamableHttpSession(
+        server,
+        session,
+        customHeaders: customHeaders,
+      );
+    }
   }
 
   Future<Map<String, Object?>> _callToolOverLegacySse(
@@ -632,7 +648,8 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
   }
 
   Future<void> _checkStreamableHttpHealth(McpServer server) async {
-    await _initializeStreamableHttpSession(server);
+    final session = await _initializeStreamableHttpSession(server);
+    await _closeStreamableHttpSession(server, session);
   }
 
   Future<void> _checkLegacySseHealth(McpServer server) async {
@@ -718,6 +735,52 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
       sessionId: initializeResponse.sessionId,
       instructions: instructions,
     );
+  }
+
+  Future<void> _closeStreamableHttpSession(
+    McpServer server,
+    _InitializedStreamableHttpSession session, {
+    Map<String, String>? customHeaders,
+  }) async {
+    final sessionId = nullIfBlank(session.sessionId);
+    if (sessionId == null) return;
+    final headers = _mergeRequestHeaders(
+      baseHeaders: const <String, String>{
+        'accept': 'application/json',
+        ..._mcpFreshRequestHeaders,
+      },
+      extraHeaders: customHeaders ?? server.headers,
+      protectedHeaderNames: const <String>{
+        'accept',
+        'cache-control',
+        'pragma',
+        'mcp-protocol-version',
+        'mcp-session-id',
+      },
+    );
+    headers['mcp-protocol-version'] = session.protocolVersion;
+    headers['mcp-session-id'] = sessionId;
+    try {
+      final response = await _sendRequestWithRedirects(
+        client: _client,
+        method: 'DELETE',
+        uri: session.uri,
+        headers: headers,
+        requestTimeout: _mcpSessionCloseTimeout,
+        maxRedirects: _maxRedirects,
+        additionalSensitiveHeaderNames: _sensitiveHeaderNames(
+          customHeaders ?? server.headers,
+        ),
+      );
+      await _drainMcpHttpResponse(response, timeout: _mcpSessionCloseTimeout);
+    } catch (error, stack) {
+      silentLog(
+        'mcp_tool_discovery_service',
+        '关闭 Streamable HTTP 会话',
+        error,
+        stack,
+      );
+    }
   }
 
   Future<_LegacySseSession> _initializeLegacySseSession(
@@ -987,6 +1050,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
       baseHeaders: const <String, String>{
         'content-type': 'application/json',
         'accept': 'application/json, text/event-stream',
+        ..._mcpFreshRequestHeaders,
       },
       extraHeaders: customHeaders ?? server.headers,
       protectedHeaderNames: const <String>{
@@ -994,6 +1058,8 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
         'accept',
         'mcp-protocol-version',
         'mcp-session-id',
+        'cache-control',
+        'pragma',
       },
     );
     final normalizedProtocolVersion = nullIfBlank(protocolVersion);
@@ -1797,9 +1863,16 @@ class _LegacySseSession {
       method: 'GET',
       uri: sseUri,
       headers: _mergeRequestHeaders(
-        baseHeaders: const <String, String>{'accept': 'text/event-stream'},
+        baseHeaders: const <String, String>{
+          'accept': 'text/event-stream',
+          ..._mcpFreshRequestHeaders,
+        },
         extraHeaders: headers,
-        protectedHeaderNames: const <String>{'accept'},
+        protectedHeaderNames: const <String>{
+          'accept',
+          'cache-control',
+          'pragma',
+        },
       ),
       requestTimeout: requestTimeout,
       maxRedirects: DefaultMcpToolDiscoveryService._maxRedirects,
@@ -2003,9 +2076,16 @@ class _LegacySseSession {
       method: 'POST',
       uri: _endpointUri,
       headers: _mergeRequestHeaders(
-        baseHeaders: const <String, String>{'content-type': 'application/json'},
+        baseHeaders: const <String, String>{
+          'content-type': 'application/json',
+          ..._mcpFreshRequestHeaders,
+        },
         extraHeaders: _headers,
-        protectedHeaderNames: const <String>{'content-type'},
+        protectedHeaderNames: const <String>{
+          'content-type',
+          'cache-control',
+          'pragma',
+        },
       ),
       body: jsonEncode(payload),
       requestTimeout: effectiveTimeout,

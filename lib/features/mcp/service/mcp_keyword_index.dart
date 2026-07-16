@@ -9,6 +9,7 @@ import '../../../app/support/silent_log.dart';
 import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/input_value_parsing.dart';
+import '../../../shared/util/serial_task_queue.dart';
 import '../model/mcp_server.dart';
 import '../model/mcp_tool.dart';
 import 'mcp_keyword_tokenizer.dart';
@@ -127,6 +128,85 @@ class McpKeywordIndex {
       return null;
     }
   }
+
+  McpKeywordIndex replaceServerTools({
+    required String serverName,
+    required List<McpTool> tools,
+  }) {
+    final normalizedServerName = serverName.trim();
+    if (normalizedServerName.isEmpty) return this;
+
+    Map<String, List<McpToolRef>> withoutServer(
+      Map<String, List<McpToolRef>> source,
+    ) {
+      final result = <String, List<McpToolRef>>{};
+      for (final entry in source.entries) {
+        final retained = entry.value
+            .where((ref) => ref.serverName != normalizedServerName)
+            .toList(growable: true);
+        if (retained.isNotEmpty) result[entry.key] = retained;
+      }
+      return result;
+    }
+
+    final nextByName = withoutServer(byName);
+    final nextByDescription = withoutServer(byDescription);
+    final nextBySearchHint = withoutServer(bySearchHint);
+    void ingest(
+      Map<String, List<McpToolRef>> bucket,
+      Set<String> tokens,
+      McpToolRef ref,
+    ) {
+      for (final token in tokens) {
+        bucket.putIfAbsent(token, () => <McpToolRef>[]).add(ref);
+      }
+    }
+
+    for (final tool in tools) {
+      final ref = McpToolRef(
+        serverName: normalizedServerName,
+        toolId: tool.id,
+        toolName: tool.name,
+      );
+      ingest(nextByName, tokenizeForMcpKeywordIndex(tool.name), ref);
+      ingest(
+        nextByDescription,
+        tokenizeForMcpKeywordIndex(tool.description),
+        ref,
+      );
+      final hint = _mcpToolSearchHint(tool);
+      if (hint != null) {
+        ingest(nextBySearchHint, tokenizeForMcpKeywordIndex(hint), ref);
+      }
+    }
+
+    final indexedTools = <McpToolRef>{
+      for (final refs in nextByName.values) ...refs,
+    };
+    return McpKeywordIndex(
+      byName: nextByName,
+      byDescription: nextByDescription,
+      bySearchHint: nextBySearchHint,
+      totalTools: indexedTools.length,
+      totalServers: indexedTools.map((ref) => ref.serverName).toSet().length,
+      builtAt: DateTime.now().toUtc(),
+      durationMs: 0,
+    );
+  }
+}
+
+String? _mcpToolSearchHint(McpTool tool) {
+  Object? raw = tool.annotations['searchHint'];
+  raw ??= tool.annotations['search_hint'];
+  raw ??= tool.rawMetadata['searchHint'];
+  raw ??= tool.rawMetadata['search_hint'];
+  if (raw == null) return null;
+  if (raw is String) return nullIfBlank(raw);
+  if (raw is List) {
+    final joined = trimmedNonEmptyStrings(raw.whereType<String>()).join(' ');
+    return joined.isEmpty ? null : joined;
+  }
+  return null;
 }
 
 /// 构建过程中向 UI 推送的进度事件。
@@ -194,7 +274,9 @@ class McpKeywordIndexService {
 
   final Directory _storageDir;
   final int _maxPersistedBytes;
+  final SerialTaskQueue _persistenceQueue = SerialTaskQueue();
   Future<McpKeywordIndexBuildResult>? _inflight;
+  int _persistenceRevision = 0;
 
   static const String _fileName = 'keyword_index.json';
   static const int _defaultMaxPersistedBytes = 32 * 1024 * 1024;
@@ -210,10 +292,12 @@ class McpKeywordIndexService {
   }) {
     final existing = _inflight;
     if (existing != null) return existing;
+    final persistenceRevision = _persistenceRevision;
     final fut = _doBuild(
       servers: servers,
       resolveTools: resolveTools,
       onProgress: onProgress,
+      persistenceRevision: persistenceRevision,
     );
     _inflight = fut;
     unawaited(
@@ -236,6 +320,7 @@ class McpKeywordIndexService {
     required List<McpServer> servers,
     required McpServerToolsResolver resolveTools,
     required void Function(McpKeywordIndexProgress) onProgress,
+    required int persistenceRevision,
   }) async {
     final stopwatch = Stopwatch()..start();
     final byName = <String, List<McpToolRef>>{};
@@ -283,7 +368,7 @@ class McpKeywordIndexService {
           tokenizeForMcpKeywordIndex(tool.description),
           ref,
         );
-        final hint = _extractSearchHint(tool);
+        final hint = _mcpToolSearchHint(tool);
         if (hint != null) {
           _ingest(
             dedupHint,
@@ -319,7 +404,11 @@ class McpKeywordIndexService {
       builtAt: DateTime.now(),
       durationMs: stopwatch.elapsedMilliseconds,
     );
-    await _persist(index);
+    await _persistenceQueue.enqueue(() async {
+      if (persistenceRevision == _persistenceRevision) {
+        await _persist(index);
+      }
+    });
     return McpKeywordIndexBuildResult(
       index: index,
       skippedServers: skipped,
@@ -341,20 +430,6 @@ class McpKeywordIndexService {
     }
   }
 
-  String? _extractSearchHint(McpTool tool) {
-    Object? raw = tool.annotations['searchHint'];
-    raw ??= tool.annotations['search_hint'];
-    raw ??= tool.rawMetadata['searchHint'];
-    raw ??= tool.rawMetadata['search_hint'];
-    if (raw == null) return null;
-    if (raw is String) return nullIfBlank(raw);
-    if (raw is List) {
-      final joined = trimmedNonEmptyStrings(raw.whereType<String>()).join(' ');
-      return joined.isEmpty ? null : joined;
-    }
-    return null;
-  }
-
   Future<void> _persist(McpKeywordIndex index) async {
     try {
       if (!await _storageDir.exists()) {
@@ -370,8 +445,26 @@ class McpKeywordIndexService {
     }
   }
 
+  Future<void> replacePersistedServerTools({
+    required String serverName,
+    required List<McpTool> tools,
+  }) {
+    _persistenceRevision += 1;
+    return _persistenceQueue.enqueue(() async {
+      final current = await _loadFromDisk();
+      if (current == null) return;
+      await _persist(
+        current.replaceServerTools(serverName: serverName, tools: tools),
+      );
+    });
+  }
+
   /// 启动期惰性加载已落盘的索引。文件不存在 / 解析失败时返回 null。
-  Future<McpKeywordIndex?> loadFromDisk() async {
+  Future<McpKeywordIndex?> loadFromDisk() {
+    return _persistenceQueue.enqueue(_loadFromDisk);
+  }
+
+  Future<McpKeywordIndex?> _loadFromDisk() async {
     try {
       if (!await _file.exists()) return null;
       final raw = await readBoundedFileString(
