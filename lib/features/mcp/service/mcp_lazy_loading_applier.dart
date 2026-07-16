@@ -14,6 +14,7 @@ class McpLazyLoadingApplier {
     required AiSessionRuntimeContext runtimeContext,
     AiToolRuntimeService? toolRuntimeService,
     bool keepToolSearchWhenIdle = false,
+    Set<String> promotedToolNames = const <String>{},
   }) {
     final mode = runtimeContext.mcpLazyLoadingMode;
     final mcpEntries = catalog.toolsByName.entries
@@ -52,8 +53,14 @@ class McpLazyLoadingApplier {
       return keepToolSearchWhenIdle ? catalog : _stripToolSearch(catalog);
     }
 
-    final deferredEntries = mcpEntries.toList(growable: true)
-      ..sort((a, b) => compareToolNamesForAiRequest(a.key, b.key));
+    final deferredEntries =
+        mcpEntries
+            .where(
+              (entry) =>
+                  !promotedToolNames.contains(entry.value.definition.name),
+            )
+            .toList(growable: true)
+          ..sort((a, b) => compareToolNamesForAiRequest(a.key, b.key));
     final deferredDefinitions = <String, AiToolDefinition>{
       for (final entry in deferredEntries)
         entry.key: stableToolDefinitionForAiRequest(entry.value.definition),

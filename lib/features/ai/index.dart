@@ -83,6 +83,7 @@ export 'service/runtime/ai_endpoint_router.dart';
 export 'service/runtime/ai_plan_approval_detector.dart';
 export 'service/runtime/ai_tool_execution_registry.dart';
 export 'service/runtime/ai_tool_runtime_service.dart';
+export 'service/runtime/ai_tool_usage_promotion_store.dart';
 export 'service/sandbox/ai_sandbox_proxy_service.dart';
 export 'service/sandbox/ai_sandbox_service.dart';
 export 'service/self_learning/self_learning_dispatcher.dart';

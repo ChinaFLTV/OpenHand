@@ -24,14 +24,19 @@ class AiBuiltinToolLazyLoadingApplier {
     required AiBuiltinToolLazyLoadingMode mode,
     required int thresholdTokens,
     required int charsPerToken,
+    Set<String> promotedToolNames = const <String>{},
   }) {
     if (_findToolSearchEntry(catalog) == null) return false;
     return _shouldDeferAllEligible(
-      catalog,
-      mode: mode,
-      thresholdTokens: thresholdTokens,
-      charsPerToken: charsPerToken,
-    );
+          catalog,
+          mode: mode,
+          thresholdTokens: thresholdTokens,
+          charsPerToken: charsPerToken,
+        ) &&
+        _deferredBuiltinEntries(
+          catalog,
+          promotedToolNames: promotedToolNames,
+        ).isNotEmpty;
   }
 
   static AiResolvedToolCatalog apply({
@@ -41,6 +46,7 @@ class AiBuiltinToolLazyLoadingApplier {
     required int thresholdTokens,
     required int charsPerToken,
     AiToolRuntimeService? toolRuntimeService,
+    Set<String> promotedToolNames = const <String>{},
   }) {
     final toolSearchEntry =
         _findToolSearchEntry(catalog) ?? _findToolSearchEntry(sourceCatalog);
@@ -57,7 +63,10 @@ class AiBuiltinToolLazyLoadingApplier {
       return catalog;
     }
 
-    final deferredEntries = _deferredBuiltinEntries(catalog);
+    final deferredEntries = _deferredBuiltinEntries(
+      catalog,
+      promotedToolNames: promotedToolNames,
+    );
     if (deferredEntries.isEmpty) {
       return catalog;
     }
@@ -178,11 +187,13 @@ class AiBuiltinToolLazyLoadingApplier {
   }
 
   static List<MapEntry<String, AiResolvedTool>> _deferredBuiltinEntries(
-    AiResolvedToolCatalog catalog,
-  ) {
+    AiResolvedToolCatalog catalog, {
+    Set<String> promotedToolNames = const <String>{},
+  }) {
     final entries = catalog.toolsByName.entries
         .where((entry) {
           final tool = entry.value;
+          if (promotedToolNames.contains(tool.definition.name)) return false;
           if (tool.source != AiRuntimeToolSource.builtin) return false;
           if (tool.builtinKind == null ||
               tool.builtinKind == AiBuiltinToolKind.toolSearch) {

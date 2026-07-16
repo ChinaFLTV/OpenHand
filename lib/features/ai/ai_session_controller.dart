@@ -78,6 +78,7 @@ import 'service/runtime/ai_plan_approval_detector.dart';
 import 'service/runtime/ai_plan_mode_tool_gate.dart';
 import 'service/runtime/ai_tool_execution_registry.dart';
 import 'service/runtime/ai_tool_runtime_service.dart';
+import 'service/runtime/ai_tool_usage_promotion_store.dart';
 import 'service/session_io/ai_token_usage_parser.dart';
 import 'tools/memory/ai_memory_tool.dart' show MemoryControllerProvider;
 import 'tools/planning/ai_task_tool.dart';
@@ -159,6 +160,7 @@ class AiSessionController extends ChangeNotifier {
     required AiBashToolService bashToolService,
     required AiClaudeHookService hookService,
     required AiToolRuntimeService toolRuntimeService,
+    required AiToolUsagePromotionStore toolUsagePromotionStore,
     required AiAttachmentService attachmentService,
     required bool ownsChatClient,
     required bool ownsBackgroundChatClient,
@@ -177,6 +179,7 @@ class AiSessionController extends ChangeNotifier {
        _bashToolService = bashToolService,
        _hookService = hookService,
        _toolRuntimeService = toolRuntimeService,
+       _toolUsagePromotionStore = toolUsagePromotionStore,
        _attachmentService = attachmentService,
        _ownsChatClient = ownsChatClient,
        _ownsBackgroundChatClient = ownsBackgroundChatClient,
@@ -302,6 +305,7 @@ class AiSessionController extends ChangeNotifier {
     AiBashToolService? bashToolService,
     AiClaudeHookService? hookService,
     AiToolRuntimeService? toolRuntimeService,
+    AiToolUsagePromotionStore? toolUsagePromotionStore,
     AiAttachmentService? attachmentService,
     McpToolDiscoveryService? mcpToolService,
     HooksExecutor? userHooksExecutor,
@@ -325,6 +329,9 @@ class AiSessionController extends ChangeNotifier {
     final resolvedMcpToolService = toolRuntimeService != null
         ? null
         : (mcpToolService ?? DefaultMcpToolDiscoveryService());
+    final resolvedToolUsagePromotionStore =
+        toolUsagePromotionStore ?? AiToolUsagePromotionStore.shared;
+    await resolvedToolUsagePromotionStore.initialize();
     final controller = AiSessionController._(
       store: resolvedStore,
       chatClient: resolvedChatClient,
@@ -351,6 +358,7 @@ class AiSessionController extends ChangeNotifier {
             toolOutputDirectoryProvider:
                 resolvedStore.sessionToolResultsDirectoryPath,
           ),
+      toolUsagePromotionStore: resolvedToolUsagePromotionStore,
       attachmentService:
           attachmentService ??
           AiAttachmentService(
@@ -767,6 +775,7 @@ class AiSessionController extends ChangeNotifier {
   final AiClaudeHookService _hookService;
   final HooksExecutor? _userHooksExecutor;
   final AiToolRuntimeService _toolRuntimeService;
+  final AiToolUsagePromotionStore _toolUsagePromotionStore;
   final AiAttachmentService _attachmentService;
   final bool _ownsChatClient;
   final bool _ownsBackgroundChatClient;
@@ -784,6 +793,9 @@ class AiSessionController extends ChangeNotifier {
   /// Exposes the tool runtime service for subsystems that run their own
   /// agentic tool loops outside the standard session controller.
   AiToolRuntimeService get toolRuntimeService => _toolRuntimeService;
+
+  AiToolUsagePromotionStore get toolUsagePromotionStore =>
+      _toolUsagePromotionStore;
 
   /// Exposes the prompt template repository for subsystems that need to
   /// load template bundles (system instructions, developer instructions, etc.).
@@ -6441,6 +6453,14 @@ class AiSessionController extends ChangeNotifier {
   @override
   void dispose() {
     _isDisposed = true;
+    unawaited(
+      _toolUsagePromotionStore.flush().catchError((
+        Object error,
+        StackTrace stack,
+      ) {
+        silentLog('ai_session_controller', '刷新工具调用统计失败', error, stack);
+      }),
+    );
     _machineTerminalService?.configureMetadataPersister(null);
     for (final stopSignal in _sessionStopSignals.values) {
       if (!stopSignal.isCompleted) {
@@ -6525,6 +6545,9 @@ class AiSessionController extends ChangeNotifier {
     final templateBundle = bootstrapResults[0] as AiPromptTemplateBundle;
     final fullCatalog = bootstrapResults[1] as AiResolvedToolCatalog;
     var workingSession = session;
+    var promotedToolNames = _toolUsagePromotionStore.promotedToolIdsForSession(
+      session.id,
+    );
     AiResolvedToolCatalog applyRuntimeLazyLoading() {
       final builtinLazyLoadingThresholdTokens =
           AiBuiltinToolLazyLoadingApplier.effectiveAutoThresholdTokens(
@@ -6536,6 +6559,7 @@ class AiSessionController extends ChangeNotifier {
             mode: runtimeContext.builtinToolLazyLoadingMode,
             thresholdTokens: builtinLazyLoadingThresholdTokens,
             charsPerToken: runtimeContext.estimatedCharactersPerToken,
+            promotedToolNames: promotedToolNames,
           );
       final mcpCatalog = McpLazyLoadingApplier.apply(
         catalog: fullCatalog,
@@ -6544,6 +6568,7 @@ class AiSessionController extends ChangeNotifier {
         keepToolSearchWhenIdle:
             runtimeContext.mcpLazyLoadingMode != McpLazyLoadingMode.disabled ||
             keepToolSearchForBuiltins,
+        promotedToolNames: promotedToolNames,
       );
       return AiBuiltinToolLazyLoadingApplier.apply(
         catalog: mcpCatalog,
@@ -6552,10 +6577,11 @@ class AiSessionController extends ChangeNotifier {
         thresholdTokens: builtinLazyLoadingThresholdTokens,
         charsPerToken: runtimeContext.estimatedCharactersPerToken,
         toolRuntimeService: _toolRuntimeService,
+        promotedToolNames: promotedToolNames,
       );
     }
 
-    final toolCatalog = applyRuntimeLazyLoading();
+    var toolCatalog = applyRuntimeLazyLoading();
     var activeLatestUserMessageId = latestUserMessageId;
     var activeRoundAnchorMessageId = latestUserMessageId;
     // 阶段⑰：累积当前轮次（非 AI 侧消息：用户显式消息或
@@ -8242,6 +8268,13 @@ class AiSessionController extends ChangeNotifier {
         return false;
       }
       workingSession = executedSession;
+      final latestPromotedToolNames = _toolUsagePromotionStore
+          .promotedToolIdsForSession(workingSession.id);
+      if (latestPromotedToolNames.length != promotedToolNames.length ||
+          !latestPromotedToolNames.containsAll(promotedToolNames)) {
+        promotedToolNames = latestPromotedToolNames;
+        toolCatalog = applyRuntimeLazyLoading();
+      }
       final nextRoundAnchor = _latestNonAiSideRoundAnchorMessageId(
         workingSession.messages.skip(beforeToolExecutionMessageCount),
       );
@@ -8391,6 +8424,12 @@ class AiSessionController extends ChangeNotifier {
       } finally {
         heartbeat.dispose();
       }
+      await _recordExecutedToolCall(
+        sessionId: workingSession.id,
+        catalog: workingToolCatalog,
+        toolCall: toolCall,
+        result: result,
+      );
       workingSession = _syncToolCallExecutionMessage(
         session: workingSession,
         messageId: toolCallMessageId,
@@ -8608,6 +8647,14 @@ class AiSessionController extends ChangeNotifier {
       },
     );
     for (var index = 0; index < runningStates.length; index++) {
+      await _recordExecutedToolCall(
+        sessionId: workingSession.id,
+        catalog: toolCatalog,
+        toolCall: runningStates[index].toolCall,
+        result: results[index],
+      );
+    }
+    for (var index = 0; index < runningStates.length; index++) {
       final state = runningStates[index];
       final result = results[index];
       workingSession = _syncToolCallExecutionMessage(
@@ -8751,6 +8798,24 @@ class AiSessionController extends ChangeNotifier {
       totalDeferredRaw: result.metadata['tool_search_total_deferred'],
       queryRaw: result.metadata['tool_search_query'],
     );
+  }
+
+  Future<void> _recordExecutedToolCall({
+    required String sessionId,
+    required AiResolvedToolCatalog catalog,
+    required AiToolCall toolCall,
+    required AiToolExecutionResult result,
+  }) async {
+    try {
+      await _toolUsagePromotionStore.recordToolCall(
+        sessionId: sessionId,
+        catalog: catalog,
+        toolCall: toolCall,
+        resultMetadata: result.metadata,
+      );
+    } catch (error, stack) {
+      silentLog('ai_session_controller', '记录工具调用统计失败', error, stack);
+    }
   }
 
   Future<AiToolExecutionResult> _executeSingleToolCall({

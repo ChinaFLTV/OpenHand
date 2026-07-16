@@ -137,16 +137,19 @@ class HarnessApiPhaseRunner {
   HarnessApiPhaseRunner({
     required AiChatClient chatClient,
     required AiToolRuntimeService toolRuntimeService,
+    required AiToolUsagePromotionStore toolUsagePromotionStore,
     required AiPromptTemplateRepository templateRepository,
     this.confirmWriteCommand,
     this.onToolSearchLoaded,
     this.onPhaseEnded,
   }) : _chatClient = chatClient,
        _toolRuntimeService = toolRuntimeService,
+       _toolUsagePromotionStore = toolUsagePromotionStore,
        _templateRepository = templateRepository;
 
   final AiChatClient _chatClient;
   final AiToolRuntimeService _toolRuntimeService;
+  final AiToolUsagePromotionStore _toolUsagePromotionStore;
   final AiPromptTemplateRepository _templateRepository;
   final Future<BashCommandApprovalDecision> Function(
     BashCommandApprovalRequest request,
@@ -210,9 +213,8 @@ class HarnessApiPhaseRunner {
     required bool requireWriteCommandConfirmation,
     Future<void>? cancelSignal,
   }) async {
-    final phaseSessionId = phase == HarnessPhase.reviewing
-        ? 'harness-reviewer-isolated-${DateTime.now().millisecondsSinceEpoch}'
-        : 'harness-phase-${phase.storageValue}';
+    final phaseSessionId =
+        'harness-phase-${phase.storageValue}-${DateTime.now().microsecondsSinceEpoch}';
     try {
       return await _runPhaseInner(
         model: model,
@@ -261,15 +263,23 @@ class HarnessApiPhaseRunner {
     final rawToolCatalog = await _toolRuntimeService.resolveCatalog(
       runtimeContext: runtimeContext,
     );
+    var promotedToolNames = _toolUsagePromotionStore.promotedToolIdsForSession(
+      phaseSessionId,
+    );
 
     // 先统一折叠延迟工具，再按阶段权限过滤；延迟工具始终通过固定网关执行。
     AiResolvedToolCatalog applyRuntimeLazyLoadingForPhase() {
+      final builtinLazyLoadingThresholdTokens =
+          AiBuiltinToolLazyLoadingApplier.effectiveAutoThresholdTokens(
+            runtimeContext.mcpLazyLoadingThresholdTokens,
+          );
       final keepToolSearchForBuiltins =
           AiBuiltinToolLazyLoadingApplier.hasDeferredCandidates(
             catalog: rawToolCatalog,
             mode: runtimeContext.builtinToolLazyLoadingMode,
-            thresholdTokens: runtimeContext.mcpLazyLoadingThresholdTokens,
+            thresholdTokens: builtinLazyLoadingThresholdTokens,
             charsPerToken: runtimeContext.estimatedCharactersPerToken,
+            promotedToolNames: promotedToolNames,
           );
       final mcpCatalog = McpLazyLoadingApplier.apply(
         catalog: rawToolCatalog,
@@ -278,14 +288,16 @@ class HarnessApiPhaseRunner {
         keepToolSearchWhenIdle:
             runtimeContext.mcpLazyLoadingMode != McpLazyLoadingMode.disabled ||
             keepToolSearchForBuiltins,
+        promotedToolNames: promotedToolNames,
       );
       return AiBuiltinToolLazyLoadingApplier.apply(
         catalog: mcpCatalog,
         sourceCatalog: rawToolCatalog,
         mode: runtimeContext.builtinToolLazyLoadingMode,
-        thresholdTokens: runtimeContext.mcpLazyLoadingThresholdTokens,
+        thresholdTokens: builtinLazyLoadingThresholdTokens,
         charsPerToken: runtimeContext.estimatedCharactersPerToken,
         toolRuntimeService: _toolRuntimeService,
+        promotedToolNames: promotedToolNames,
       );
     }
 
@@ -299,8 +311,8 @@ class HarnessApiPhaseRunner {
       );
     }
 
-    final toolCatalog = applyRuntimeLazyLoadingForPhase();
-    final phaseToolCatalog = filterToolsForCurrentPhase(toolCatalog);
+    var toolCatalog = applyRuntimeLazyLoadingForPhase();
+    var phaseToolCatalog = filterToolsForCurrentPhase(toolCatalog);
 
     if (toolCatalog.notices.isNotEmpty) {
       for (final notice in toolCatalog.notices) {
@@ -397,7 +409,7 @@ class HarnessApiPhaseRunner {
       return systemContent.toString();
     }
 
-    final currentSystemContent = buildSystemContent(phaseToolCatalog);
+    var currentSystemContent = buildSystemContent(phaseToolCatalog);
 
     final conversation = <AiChatTurn>[
       AiChatTurn(role: AiChatRole.system, content: currentSystemContent),
@@ -583,6 +595,16 @@ class HarnessApiPhaseRunner {
             confirmWriteCommand: confirmWriteCommand,
             cancelSignal: cancelSignal,
           );
+          try {
+            await _toolUsagePromotionStore.recordToolCall(
+              sessionId: phaseSessionId,
+              catalog: phaseToolCatalog,
+              toolCall: toolCall,
+              resultMetadata: result.metadata,
+            );
+          } catch (error, stack) {
+            silentLog('harness_api_phase_runner', '记录工具调用统计失败', error, stack);
+          }
 
           // Track read files for deduplication.
           if (toolCall.name.toLowerCase().contains('read')) {
@@ -663,6 +685,20 @@ class HarnessApiPhaseRunner {
               content: toolOutput,
               toolCallId: toolCall.id,
             ),
+          );
+        }
+
+        final latestPromotedToolNames = _toolUsagePromotionStore
+            .promotedToolIdsForSession(phaseSessionId);
+        if (latestPromotedToolNames.length != promotedToolNames.length ||
+            !latestPromotedToolNames.containsAll(promotedToolNames)) {
+          promotedToolNames = latestPromotedToolNames;
+          toolCatalog = applyRuntimeLazyLoadingForPhase();
+          phaseToolCatalog = filterToolsForCurrentPhase(toolCatalog);
+          currentSystemContent = buildSystemContent(phaseToolCatalog);
+          conversation[0] = AiChatTurn(
+            role: AiChatRole.system,
+            content: currentSystemContent,
           );
         }
 

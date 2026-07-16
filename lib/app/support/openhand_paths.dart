@@ -62,6 +62,10 @@ abstract final class OpenHandPaths {
     return p.join(homeDirectoryPath(), '.openhand', 'openhand.db');
   }
 
+  static String defaultToolUsagePromotionFilePath() {
+    return p.join(defaultRootDirectoryPath(), 'tool_usage_promotion.json');
+  }
+
   /// Root directory used for all OpenHand on-disk artifacts (`~/.openhand`).
   /// Centralising this path keeps the data-cleanup module aligned with the
   /// rest of the storage layout and avoids ad-hoc `p.join(home, '.openhand')`

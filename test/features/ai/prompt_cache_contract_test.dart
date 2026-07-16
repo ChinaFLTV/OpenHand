@@ -187,6 +187,17 @@ void main() {
       runtimeContext: _runtimeContext,
     );
     expect(catalogWithoutGateway.definitions.single.name, toolName);
+    final promotedCatalog = McpLazyLoadingApplier.apply(
+      catalog: catalog,
+      runtimeContext: _runtimeContext,
+      keepToolSearchWhenIdle: true,
+      promotedToolNames: const <String>{toolName},
+    );
+    expect(promotedCatalog.definitions.map((tool) => tool.name), <String>[
+      'ToolSearch',
+      toolName,
+    ]);
+    expect(promotedCatalog.findDeferredTool(toolName), isNull);
 
     final result = await AiToolSearchTool().execute(
       AiToolExecutionContext(
@@ -266,6 +277,34 @@ void main() {
       implementingCatalog.findDeferredTool('mcp__server__write_remote'),
       same(deferredTool),
     );
+    final promotedCatalog = AiResolvedToolCatalog(
+      definitions: <AiToolDefinition>[
+        toolSearch.definition,
+        deferredTool.definition,
+      ],
+      toolsByName: <String, AiResolvedTool>{
+        'ToolSearch': toolSearch,
+        deferredTool.name: deferredTool,
+      },
+    );
+    expect(
+      builder
+          .filterToolsForPhase(
+            phase: HarnessPhase.reading,
+            catalog: promotedCatalog,
+          )
+          .find(deferredTool.name),
+      isNull,
+    );
+    expect(
+      builder
+          .filterToolsForPhase(
+            phase: HarnessPhase.implementing,
+            catalog: promotedCatalog,
+          )
+          .find(deferredTool.name),
+      same(deferredTool),
+    );
 
     final searchTool = AiToolSearchTool()
       ..setDeferredToolSnapshot(toolSearch.toolSearchDeferredToolDefinitions);
@@ -288,6 +327,70 @@ void main() {
     );
     final payload = jsonDecode(result.resultText) as Map<String, dynamic>;
     expect(payload['loaded_tools'], isEmpty);
+  });
+
+  test('晋升的内置工具进入原生目录且不再保留延迟副本', () {
+    const toolName = 'WebFetch';
+    const toolSearch = AiResolvedTool(
+      name: 'ToolSearch',
+      definition: AiToolDefinition(
+        name: 'ToolSearch',
+        description: '固定工具网关。',
+        parameters: <String, Object?>{'type': 'object'},
+      ),
+      source: AiRuntimeToolSource.builtin,
+      builtinKind: AiBuiltinToolKind.toolSearch,
+    );
+    const deferredTool = AiResolvedTool(
+      name: toolName,
+      definition: AiToolDefinition(
+        name: toolName,
+        description: '读取网页。',
+        parameters: <String, Object?>{'type': 'object'},
+      ),
+      source: AiRuntimeToolSource.builtin,
+      builtinKind: AiBuiltinToolKind.webFetch,
+      builtinConfig: AiBuiltinToolConfig(
+        kind: AiBuiltinToolKind.webFetch,
+        loadStrategy: AiBuiltinToolLoadStrategy.lazy,
+      ),
+    );
+    final sourceCatalog = AiResolvedToolCatalog(
+      definitions: <AiToolDefinition>[
+        toolSearch.definition,
+        deferredTool.definition,
+      ],
+      toolsByName: <String, AiResolvedTool>{
+        'ToolSearch': toolSearch,
+        toolName: deferredTool,
+      },
+    );
+
+    final lazyCatalog = AiBuiltinToolLazyLoadingApplier.apply(
+      catalog: sourceCatalog,
+      sourceCatalog: sourceCatalog,
+      mode: AiBuiltinToolLazyLoadingMode.enabled,
+      thresholdTokens: 1,
+      charsPerToken: 4,
+    );
+    final promotedCatalog = AiBuiltinToolLazyLoadingApplier.apply(
+      catalog: sourceCatalog,
+      sourceCatalog: sourceCatalog,
+      mode: AiBuiltinToolLazyLoadingMode.enabled,
+      thresholdTokens: 1,
+      charsPerToken: 4,
+      promotedToolNames: const <String>{toolName},
+    );
+
+    expect(lazyCatalog.definitions.map((tool) => tool.name), <String>[
+      'ToolSearch',
+    ]);
+    expect(lazyCatalog.findDeferredTool(toolName), same(deferredTool));
+    expect(promotedCatalog.definitions.map((tool) => tool.name), <String>[
+      'ToolSearch',
+      toolName,
+    ]);
+    expect(promotedCatalog.findDeferredTool(toolName), isNull);
   });
 }
 

@@ -5181,6 +5181,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     orchestrator.apiPhaseRunner = HarnessApiPhaseRunner(
       chatClient: aiCtrl.chatClient,
       toolRuntimeService: aiCtrl.toolRuntimeService,
+      toolUsagePromotionStore: aiCtrl.toolUsagePromotionStore,
       templateRepository: aiCtrl.templateRepository,
       confirmWriteCommand: _confirmHarnessApiWriteCommand,
       onToolSearchLoaded: _handleHarnessToolSearchLoaded,
