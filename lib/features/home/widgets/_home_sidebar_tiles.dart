@@ -168,7 +168,7 @@ class _HarnessSessionTile extends StatelessWidget {
                   ),
                   const SizedBox(width: 10),
                   Expanded(
-                    child: _AnimatedSessionTitleText(
+                    child: OpenHandAnimatedTitleText(
                       text: title,
                       style: theme.textTheme.titleSmall?.copyWith(
                         color: titleColor,
@@ -433,7 +433,7 @@ class _ThreadTile extends StatelessWidget {
                       duration: tileMotionDuration,
                       curve: _kHomeSidebarTileMotionCurve,
                       builder: (context, animatedColor, _) {
-                        return _AnimatedSessionTitleText(
+                        return OpenHandAnimatedTitleText(
                           text: session.title,
                           style: theme.textTheme.titleSmall?.copyWith(
                             color: animatedColor ?? titleColor,

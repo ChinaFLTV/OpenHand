@@ -277,10 +277,18 @@ export function SessionsPage() {
     }
     patchRow(item.id, { busy: true, error: undefined });
     try {
-      await renameSession(item.id, draft);
+      const result = await renameSession(item.id, draft);
+      setData((prev) => prev
+        ? {
+            ...prev,
+            items: prev.items.map((entry) =>
+              entry.id === item.id ? result.session : entry,
+            ),
+          }
+        : prev,
+      );
       patchRow(item.id, { draftTitle: null, busy: false });
       showSnackbar(t('topbar.rename.ok', '已重命名会话'), { tone: 'success' });
-      void refresh();
     } catch (e: unknown) {
       reportRowActionError(item, e, t('topbar.rename.failed', '重命名失败'));
     }
@@ -491,6 +499,17 @@ export function SessionsPage() {
                   >
                     <div class="flex items-start justify-between gap-3">
                       <div class="flex-1 min-w-0">
+                        <AnimatedTitleText
+                          text={
+                            item.title ||
+                            t('sessions.untitled', '未命名会话')
+                          }
+                          className="text-base font-medium text-left truncate w-full"
+                          style={{
+                            color: 'var(--m3-on-surface)',
+                            display: editing ? 'none' : 'block',
+                          }}
+                        />
                         {editing ? (
                           <div class="flex items-center gap-2">
                             <input
@@ -543,16 +562,7 @@ export function SessionsPage() {
                               {t('common.cancel', '取消')}
                             </button>
                           </div>
-                        ) : (
-                          <AnimatedTitleText
-                            text={
-                              item.title ||
-                              t('sessions.untitled', '未命名会话')
-                            }
-                            className="text-base font-medium text-left truncate block w-full"
-                            style={{ color: 'var(--m3-on-surface)' }}
-                          />
-                        )}
+                        ) : null}
                         <p
                           class="text-xs mt-1 truncate"
                           style={{ color: 'var(--m3-on-surface-variant)' }}

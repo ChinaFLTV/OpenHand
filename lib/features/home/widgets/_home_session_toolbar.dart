@@ -137,7 +137,7 @@ class _SessionToolbar extends StatelessWidget {
                 child: Row(
                   children: [
                     Expanded(
-                      child: _AnimatedSessionTitleText(
+                      child: OpenHandAnimatedTitleText(
                         text: session.title,
                         style: theme.textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.w800,

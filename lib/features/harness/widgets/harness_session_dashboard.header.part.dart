@@ -188,56 +188,10 @@ class _HePaneHeader extends StatelessWidget {
             child: Row(
               children: [
                 Expanded(
-                  child: AnimatedSwitcher(
-                    duration: _harnessMotionDuration(
-                      context,
-                      const Duration(milliseconds: 380),
-                    ),
-                    switchInCurve: Curves.easeOutCubic,
-                    switchOutCurve: Curves.easeInCubic,
-                    layoutBuilder: (currentChild, previousChildren) {
-                      return Stack(
-                        alignment: Alignment.centerLeft,
-                        children: <Widget>[
-                          ...previousChildren,
-                          ...?(currentChild == null
-                              ? null
-                              : <Widget>[currentChild]),
-                        ],
-                      );
-                    },
-                    transitionBuilder: (child, animation) {
-                      final curved = CurvedAnimation(
-                        parent: animation,
-                        curve: Curves.easeOutCubic,
-                        reverseCurve: Curves.easeInCubic,
-                      );
-                      final slide = Tween<Offset>(
-                        begin: const Offset(0, 0.35),
-                        end: Offset.zero,
-                      ).animate(curved);
-                      final scale = Tween<double>(
-                        begin: 0.96,
-                        end: 1,
-                      ).animate(curved);
-                      return ClipRect(
-                        child: FadeTransition(
-                          opacity: curved,
-                          child: SlideTransition(
-                            position: slide,
-                            child: ScaleTransition(scale: scale, child: child),
-                          ),
-                        ),
-                      );
-                    },
-                    child: Text(
-                      effectiveTitle,
-                      key: ValueKey<String>(effectiveTitle),
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                      maxLines: 1,
+                  child: OpenHandAnimatedTitleText(
+                    text: effectiveTitle,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
                 ),

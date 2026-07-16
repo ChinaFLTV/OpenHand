@@ -113,6 +113,8 @@ html, body, #root {
   --oh-motion-duration-base: 240ms;
   --oh-motion-duration-slow: 320ms;
   --oh-motion-stagger-step: 60ms;
+  --oh-title-text-enter-duration: 340ms;
+  --oh-title-text-exit-duration: 220ms;
   --oh-dialog-duration: 360ms;
   --oh-dialog-curve: cubic-bezier(0.215, 0.61, 0.355, 1);
   --oh-dialog-exit-curve: cubic-bezier(0.55, 0.055, 0.675, 0.19);
@@ -302,17 +304,15 @@ html, body, #root {
   text-overflow: ellipsis;
   transform-origin: left center;
 }
-.oh-animated-title-text-current {
-  will-change: transform, opacity;
-}
 .oh-animated-title-text-enter {
-  animation: oh-title-text-enter 340ms var(--oh-motion-spring) both;
+  animation: oh-title-text-enter var(--oh-title-text-enter-duration) var(--oh-motion-spring) both;
+  will-change: transform, opacity;
 }
 .oh-animated-title-text-exit {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  animation: oh-title-text-exit 220ms var(--oh-motion-emphasized) both;
+  animation: oh-title-text-exit var(--oh-title-text-exit-duration) var(--oh-motion-emphasized) both;
   will-change: transform, opacity;
 }
 

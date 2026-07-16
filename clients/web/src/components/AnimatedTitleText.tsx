@@ -2,9 +2,6 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import type { JSX } from 'preact';
 import { useReducedMotion } from '../hooks/useReducedMotion';
 import { classNames } from '../shared/util/class_names';
-import { useTimeoutController } from '../hooks/useTimeoutController';
-
-const TITLE_TEXT_EXIT_MS = 220;
 
 interface AnimatedTitleTextProps {
   text: string;
@@ -20,7 +17,6 @@ export function AnimatedTitleText({
   title,
 }: AnimatedTitleTextProps) {
   const reducedMotion = useReducedMotion();
-  const { clearTimer, scheduleTimer } = useTimeoutController();
   const currentRef = useRef(text);
   const [current, setCurrent] = useState(text);
   const [exiting, setExiting] = useState<string | null>(null);
@@ -28,23 +24,18 @@ export function AnimatedTitleText({
 
   useEffect(() => {
     if (reducedMotion) {
-      clearTimer();
       currentRef.current = text;
       setCurrent(text);
       setExiting(null);
       return;
     }
     if (text === currentRef.current) return;
-    clearTimer();
     const previous = currentRef.current;
     currentRef.current = text;
     setExiting(previous);
     setCurrent(text);
     setTick((value) => value + 1);
-    scheduleTimer(() => {
-      setExiting(null);
-    }, TITLE_TEXT_EXIT_MS);
-  }, [clearTimer, text, reducedMotion, scheduleTimer]);
+  }, [text, reducedMotion]);
 
   const rootClass = classNames('oh-animated-title-text', className);
   const label = (reducedMotion ? text : current).trim() || undefined;
@@ -79,6 +70,11 @@ export function AnimatedTitleText({
           ? 'oh-animated-title-text-current'
           : 'oh-animated-title-text-current oh-animated-title-text-enter'}
         aria-hidden="true"
+        onAnimationEnd={(event) => {
+          if (event.animationName === 'oh-title-text-enter') {
+            setExiting(null);
+          }
+        }}
       >
         {current}
       </span>

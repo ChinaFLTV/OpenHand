@@ -28,6 +28,7 @@ import '../../../shared/ui/markdown_math.dart';
 import '../../../shared/ui/model_search_selector.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/oh_pill.dart';
+import '../../../shared/ui/openhand_animated_title_text.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_sweep_shimmer.dart';
