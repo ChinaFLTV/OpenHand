@@ -29,6 +29,7 @@ const int _toolSearchHistoryImportMaxBytes = 8 * kBytesPerMiB;
 const int _mcpGroupExpansionCacheMaxEntries = 128;
 const double _toolSearchDialogMaxWidth = 720;
 const double _toolSearchCardActionExtent = 36;
+const double _toolSearchActionSpacing = 6;
 const double _toolSearchToolbarBreakpoint = 520;
 
 ButtonStyle _toolSearchCircularActionStyle(ColorScheme colorScheme) {
@@ -878,7 +879,7 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
           onSelected: _handleExportHistory,
           itemBuilder: (context) => _buildHistoryExportItems(l10n),
         ),
-        const SizedBox(width: 6),
+        const SizedBox(width: _toolSearchActionSpacing),
         IconButton(
           tooltip: l10n.toolSearchLoadedHistoryImportTooltip,
           icon: const Icon(Icons.file_open_rounded, size: 18),
@@ -886,7 +887,7 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
           constraints: const BoxConstraints.tightFor(width: 38, height: 38),
           onPressed: _handleImportHistoryFromJson,
         ),
-        const SizedBox(width: 6),
+        const SizedBox(width: _toolSearchActionSpacing),
         IconButton(
           tooltip: l10n.snackToolSearchLoadedHistoryClearAction,
           icon: const Icon(Icons.delete_sweep_rounded, size: 18),
@@ -1224,87 +1225,83 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
           ),
           title: Row(
             children: [
-              Expanded(
-                child: Row(
-                  children: [
-                    Flexible(
-                      child: Text(
-                        headerLabel,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          fontFamily: 'monospace',
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 7),
-                    Container(
-                      key: ValueKey<String>(
-                        'mcpToolGroupCount:${group.persistKey}',
-                      ),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 3,
-                      ),
-                      decoration: BoxDecoration(
-                        color: actionColor,
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: Text(
-                        '${group.names.length}',
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                          fontWeight: FontWeight.w700,
-                          fontFeatures: const [FontFeature.tabularFigures()],
-                        ),
-                      ),
-                    ),
-                  ],
+              Flexible(
+                child: Text(
+                  headerLabel,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontFamily: 'monospace',
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
-              const SizedBox(width: 6),
-              IconButton(
-                key: ValueKey<String>('mcpToolGroupCopy:${group.persistKey}'),
-                tooltip: l10n.snackToolSearchLoadedCopyGroupAction,
-                icon: const Icon(Icons.copy_all_rounded, size: 17),
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints.tightFor(
-                  width: _toolSearchCardActionExtent,
-                  height: _toolSearchCardActionExtent,
+              const SizedBox(width: 7),
+              Container(
+                key: ValueKey<String>('mcpToolGroupCount:${group.persistKey}'),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: actionColor,
+                  borderRadius: BorderRadius.circular(999),
                 ),
-                style: actionStyle,
-                onPressed: () => _handleCopyGroup(group),
+                child: Text(
+                  '${group.names.length}',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
               ),
             ],
           ),
           trailing: Builder(
-            builder: (trailingContext) => IconButton(
-              key: ValueKey<String>('mcpToolGroupExpand:${group.persistKey}'),
-              tooltip: expansionTooltip,
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints.tightFor(
-                width: _toolSearchCardActionExtent,
-                height: _toolSearchCardActionExtent,
-              ),
-              style: actionStyle,
-              onPressed: () {
-                final controller = ExpansibleController.of(trailingContext);
-                if (expanded) {
-                  controller.collapse();
-                } else {
-                  controller.expand();
-                }
-              },
-              icon: AnimatedRotation(
-                turns: expanded ? 0.5 : 0,
-                duration: openHandMotionDuration(
-                  context,
-                  const Duration(milliseconds: 180),
+            builder: (trailingContext) => Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  key: ValueKey<String>('mcpToolGroupCopy:${group.persistKey}'),
+                  tooltip: l10n.snackToolSearchLoadedCopyGroupAction,
+                  icon: const Icon(Icons.copy_all_rounded, size: 17),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints.tightFor(
+                    width: _toolSearchCardActionExtent,
+                    height: _toolSearchCardActionExtent,
+                  ),
+                  style: actionStyle,
+                  onPressed: () => _handleCopyGroup(group),
                 ),
-                curve: Curves.easeOutCubic,
-                child: const Icon(Icons.expand_more_rounded, size: 19),
-              ),
+                const SizedBox(width: _toolSearchActionSpacing),
+                IconButton(
+                  key: ValueKey<String>(
+                    'mcpToolGroupExpand:${group.persistKey}',
+                  ),
+                  tooltip: expansionTooltip,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints.tightFor(
+                    width: _toolSearchCardActionExtent,
+                    height: _toolSearchCardActionExtent,
+                  ),
+                  style: actionStyle,
+                  onPressed: () {
+                    final controller = ExpansibleController.of(trailingContext);
+                    if (expanded) {
+                      controller.collapse();
+                    } else {
+                      controller.expand();
+                    }
+                  },
+                  icon: AnimatedRotation(
+                    turns: expanded ? 0.5 : 0,
+                    duration: openHandMotionDuration(
+                      context,
+                      const Duration(milliseconds: 180),
+                    ),
+                    curve: Curves.easeOutCubic,
+                    child: const Icon(Icons.expand_more_rounded, size: 19),
+                  ),
+                ),
+              ],
             ),
           ),
           children: [

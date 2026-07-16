@@ -116,6 +116,9 @@ void main() {
         isA<CircleBorder>(),
       );
     }
+    final groupCopyRect = tester.getRect(groupCopy);
+    final groupExpandRect = tester.getRect(groupExpand);
+    expect(groupExpandRect.left - groupCopyRect.right, 6);
     final actionColors = actionButtons
         .map(
           (finder) => tester
