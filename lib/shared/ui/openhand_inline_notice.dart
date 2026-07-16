@@ -18,6 +18,7 @@ class OpenHandInlineNotice extends StatefulWidget {
     this.showCopyAction = true,
     this.showCloseAction = true,
     this.messageStyle,
+    this.maxMessageHeight,
   });
 
   final IconData icon;
@@ -29,6 +30,7 @@ class OpenHandInlineNotice extends StatefulWidget {
   final bool showCopyAction;
   final bool showCloseAction;
   final TextStyle? messageStyle;
+  final double? maxMessageHeight;
 
   @override
   State<OpenHandInlineNotice> createState() => _OpenHandInlineNoticeState();
@@ -107,15 +109,20 @@ class _OpenHandInlineNoticeState extends State<OpenHandInlineNotice> {
           Icon(widget.icon, color: widget.foregroundColor),
           const SizedBox(width: 10),
           Expanded(
-            child: SingleChildScrollView(
-              primary: false,
-              child: SelectableText(
-                widget.message,
-                style:
-                    widget.messageStyle ??
-                    Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: widget.foregroundColor,
-                    ),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: widget.maxMessageHeight ?? double.infinity,
+              ),
+              child: SingleChildScrollView(
+                primary: false,
+                child: SelectableText(
+                  widget.message,
+                  style:
+                      widget.messageStyle ??
+                      Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: widget.foregroundColor,
+                      ),
+                ),
               ),
             ),
           ),
@@ -145,6 +152,7 @@ class OpenHandInlineNoticeFactory {
     bool showCopyAction = true,
     bool showCloseAction = true,
     TextStyle? messageStyle,
+    double? maxMessageHeight,
   }) {
     final scheme = Theme.of(context).colorScheme;
     return OpenHandInlineNotice(
@@ -157,6 +165,7 @@ class OpenHandInlineNoticeFactory {
       showCopyAction: showCopyAction,
       showCloseAction: showCloseAction,
       messageStyle: messageStyle,
+      maxMessageHeight: maxMessageHeight,
     );
   }
 
@@ -168,6 +177,7 @@ class OpenHandInlineNoticeFactory {
     bool showCopyAction = true,
     bool showCloseAction = true,
     TextStyle? messageStyle,
+    double? maxMessageHeight,
   }) {
     final scheme = Theme.of(context).colorScheme;
     return OpenHandInlineNotice(
@@ -180,6 +190,7 @@ class OpenHandInlineNoticeFactory {
       showCopyAction: showCopyAction,
       showCloseAction: showCloseAction,
       messageStyle: messageStyle,
+      maxMessageHeight: maxMessageHeight,
     );
   }
 }

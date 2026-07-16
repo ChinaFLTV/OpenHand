@@ -67,6 +67,7 @@ const double _mcpToolDebugMenuGap = 8;
 const double _mcpToolDebugMenuMinWidth = 240;
 const double _mcpToolDebugMenuMaxWidth = 520;
 const double _mcpToolDebugMenuMaxHeight = 360;
+const double _mcpNoticeMaxMessageHeight = 320;
 const double _mcpToolDebugMenuItemInset = 8;
 const double _mcpToolDebugMenuItemRadius = 10;
 const Duration _mcpForceProbeResetDelay = Duration(milliseconds: 200);
@@ -10568,6 +10569,7 @@ class _McpServerCardState extends State<_McpServerCard> {
                             child: OpenHandInlineNoticeFactory.error(
                               context,
                               healthStatus.errorMessage!,
+                              maxMessageHeight: _mcpNoticeMaxMessageHeight,
                             ),
                           )
                         : null,
@@ -10579,6 +10581,7 @@ class _McpServerCardState extends State<_McpServerCard> {
                             child: OpenHandInlineNoticeFactory.error(
                               context,
                               toolCatalog.errorMessage!,
+                              maxMessageHeight: _mcpNoticeMaxMessageHeight,
                             ),
                           )
                         : null,
@@ -10590,6 +10593,7 @@ class _McpServerCardState extends State<_McpServerCard> {
                             child: OpenHandInlineNoticeFactory.warning(
                               context,
                               toolCatalog.warningMessage!,
+                              maxMessageHeight: _mcpNoticeMaxMessageHeight,
                             ),
                           )
                         : null,

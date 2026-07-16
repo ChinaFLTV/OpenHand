@@ -865,6 +865,21 @@ export async function stopMessageTtsPlayback(): Promise<{
   );
 }
 
+export function stopMessageTtsPlaybackOnPageExit(): void {
+  const headers: Record<string, string> = {
+    'x-openhand-device-id': ensureDeviceId(),
+    ...clientEnvironmentHeaders(),
+  };
+  const token = readToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
+  void fetch('/api/tts/stop', {
+    method: 'POST',
+    headers,
+    credentials: 'same-origin',
+    keepalive: true,
+  }).catch(() => {});
+}
+
 export async function toggleMessageTtsPlayback(
   sessionId: string,
   messageId: string,

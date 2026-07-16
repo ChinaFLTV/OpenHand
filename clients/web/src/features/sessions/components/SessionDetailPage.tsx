@@ -253,6 +253,7 @@ const SSE_PHASE_GUARD_INTERVAL_MS = 2500;
 const SESSION_PHASE_POLL_TIMEOUT_MS = 15_000;
 const TTS_PLAYBACK_POLL_INTERVAL_MS = 1000;
 const TTS_PLAYBACK_POLL_TIMEOUT_MS = 10_000;
+let lastMessageTtsSessionId: string | null = null;
 
 // SSE 连续失败 N 次以上才彻底切到 polling，避免短暂网络抖动造成体验切换。
 const SSE_FAIL_THRESHOLD = 3;
@@ -3582,9 +3583,22 @@ export function SessionDetailPage() {
 
   useEffect(() => {
     setTtsPlayback(EMPTY_TTS_PLAYBACK);
-    void stopMessageTtsPlayback()
-      .then((result) => applyTtsPlayback(result.playback))
-      .catch(ignoreError);
+    const previousTtsSessionId = lastMessageTtsSessionId;
+    if (sessionId) lastMessageTtsSessionId = sessionId;
+    if (sessionId) {
+      const requestSessionId = sessionId;
+      const playbackRequest = previousTtsSessionId != null &&
+          previousTtsSessionId !== requestSessionId
+        ? stopMessageTtsPlayback()
+        : fetchMessageTtsPlayback();
+      void playbackRequest
+        .then((result) => {
+          if (mountedRef.current && sessionIdRef.current === requestSessionId) {
+            applyTtsPlayback(result.playback);
+          }
+        })
+        .catch(ignoreError);
+    }
     queueDispatchingRef.current = false;
     queueGuidanceDispatchingRef.current = false;
     blockedQueuedMessageIdRef.current = null;
@@ -3634,10 +3648,6 @@ export function SessionDetailPage() {
     // 避免上一会话的跳过状态泄漏到新会话。
     setSkippedInstructionIds(new Set());
   }, [applyTtsPlayback, sessionId]);
-
-  useEffect(() => () => {
-    void stopMessageTtsPlayback().catch(ignoreError);
-  }, []);
 
   useAsyncPolling(
     async (isActive, signal) => {

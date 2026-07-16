@@ -46,6 +46,7 @@ final RegExp _stdioLineBreaksPattern = RegExp(r'[\r\n]+');
 const String _kNpmMirrorRegistry = mcpNpmMirrorRegistry;
 const int _mcpHttpMaxResponseBytes = 16 * kBytesPerMiB;
 const int _mcpHttpMaxErrorBytes = 64 * kBytesPerKiB;
+const int _mcpServerResponseDisplayMaxCharacters = 64 * kBytesPerKiB;
 const int _mcpLegacySseMaxLineBytes = 4 * kBytesPerMiB;
 const int _mcpLegacySseMaxEventBytes = 4 * kBytesPerMiB;
 const Duration _mcpHttpDiscardTimeout = Duration(seconds: 3);
@@ -821,16 +822,23 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     var invalidTools = 0;
     var duplicateTools = 0;
     var metadataWarnings = 0;
+    Map<String, Object?>? warningResponse;
+    Map<String, Object?>? lastEnvelope;
 
     for (var pageIndex = 0; pageIndex < _maxToolPages; pageIndex++) {
       final envelope = await sendRequest(cursor.isEmpty ? null : cursor);
+      lastEnvelope = envelope;
       final result = _extractResult(envelope);
       final rawTools = result['tools'];
       if (rawTools is! List) {
-        throw const McpToolDiscoveryException(
-          'Tool scan failed because the server returned an invalid tools list.',
+        throw McpToolDiscoveryException(
+          'Tool scan failed because the server returned an invalid tools list.'
+          '${_mcpServerResponseDetail(envelope)}',
         );
       }
+      final invalidBefore = invalidTools;
+      final duplicateBefore = duplicateTools;
+      final metadataBefore = metadataWarnings;
       for (final rawTool in rawTools) {
         final parsedTool = _parseTool(rawTool);
         if (parsedTool == null) {
@@ -846,6 +854,11 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
         }
         tools.add(parsedTool);
       }
+      if (invalidTools != invalidBefore ||
+          duplicateTools != duplicateBefore ||
+          metadataWarnings != metadataBefore) {
+        warningResponse = envelope;
+      }
       final nextCursor = _readText(result['nextCursor']);
       if (nextCursor.isEmpty) {
         cursor = '';
@@ -858,6 +871,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
       warnings.add(
         'Tool scan stopped after $_maxToolPages pages. The tool list may be incomplete.',
       );
+      warningResponse = lastEnvelope;
     }
     if (invalidTools > 0) {
       warnings.add(
@@ -877,7 +891,9 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
 
     return _DiscoveredTools(
       tools: tools,
-      warningMessage: warnings.isEmpty ? null : warnings.join(' '),
+      warningMessage: warnings.isEmpty
+          ? null
+          : '${warnings.join(' ')}${_mcpServerResponseDetail(warningResponse)}',
       serverInstructions: serverInstructions,
     );
   }
@@ -1011,7 +1027,8 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
         timeout: effectiveRequestTimeout,
       );
       throw McpToolDiscoveryException(
-        'Tool scan request failed with HTTP ${response.statusCode}${_httpResponseDetail(responseBody)}',
+        'Tool scan request failed with HTTP ${response.statusCode}'
+        '${_mcpServerResponseDetail(responseBody)}',
       );
     }
     if (!expectResponse) {
@@ -1029,6 +1046,12 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     );
     if (contentType.contains('text/event-stream')) {
       final message = _firstSseJsonRpcMessage(body, payload['id']);
+      if (message == null) {
+        throw McpToolDiscoveryException(
+          'Tool scan failed because the MCP server returned an invalid JSON-RPC response.'
+          '${_mcpServerResponseDetail(body)}',
+        );
+      }
       return _JsonRpcHttpResponse(
         message: message,
         sessionId: responseSessionId,
@@ -1036,11 +1059,20 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
       );
     }
 
-    final decoded = jsonDecode(body);
+    late final Object? decoded;
+    try {
+      decoded = jsonDecode(body);
+    } on FormatException {
+      throw McpToolDiscoveryException(
+        'Tool scan failed because the MCP server returned content that is not valid JSON.'
+        '${_mcpServerResponseDetail(body)}',
+      );
+    }
     final message = _firstJsonRpcMessageForRequestId(decoded, payload['id']);
     if (message == null) {
-      throw const McpToolDiscoveryException(
-        'Tool scan failed because the MCP server returned an invalid JSON-RPC response.',
+      throw McpToolDiscoveryException(
+        'Tool scan failed because the MCP server returned an invalid JSON-RPC response.'
+        '${_mcpServerResponseDetail(body)}',
       );
     }
     return _JsonRpcHttpResponse(
@@ -1135,15 +1167,15 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     if (error != null) {
       final message = _readText(error['message']);
       throw McpToolDiscoveryException(
-        message.isEmpty
-            ? 'Tool scan failed because the MCP server returned an error.'
-            : message,
+        '${message.isEmpty ? 'Tool scan failed because the MCP server returned an error.' : message}'
+        '${_mcpServerResponseDetail(envelope)}',
       );
     }
     final result = _asMap(envelope['result']);
     if (result == null) {
-      throw const McpToolDiscoveryException(
-        'Tool scan failed because the MCP server returned an invalid result payload.',
+      throw McpToolDiscoveryException(
+        'Tool scan failed because the MCP server returned an invalid result payload.'
+        '${_mcpServerResponseDetail(envelope)}',
       );
     }
     return result;
@@ -1593,7 +1625,8 @@ Future<http.StreamedResponse> _sendRequestWithRedirects({
         timeout: requestTimeout,
       );
       throw McpToolDiscoveryException(
-        'Tool scan request followed too many redirects (${maxRedirects + 1})${_httpResponseDetail(responseBody)}',
+        'Tool scan request followed too many redirects (${maxRedirects + 1})'
+        '${_mcpServerResponseDetail(responseBody)}',
       );
     }
 
@@ -1631,9 +1664,51 @@ void _stripSensitiveRedirectHeaders(
   );
 }
 
-String _httpResponseDetail(String body) {
-  final normalized = nullIfBlank(body);
-  return normalized == null ? '' : ': $normalized';
+String _mcpServerResponseDetail(Object? response) {
+  String raw;
+  if (response is String) {
+    raw = response.trim();
+  } else if (response == null) {
+    raw = '';
+  } else {
+    try {
+      raw = const JsonEncoder.withIndent('  ').convert(response);
+    } catch (_) {
+      raw = '$response';
+    }
+  }
+  final label = _mcpDiscoveryText(
+    zh: '服务端原始响应',
+    zhHant: '服務端原始回應',
+    en: 'Raw server response',
+    fr: 'Réponse brute du serveur',
+    de: 'Unverarbeitete Serverantwort',
+    ja: 'サーバーの生レスポンス',
+  );
+  final empty = _mcpDiscoveryText(
+    zh: '（空响应）',
+    zhHant: '（空回應）',
+    en: '(empty response)',
+    fr: '(réponse vide)',
+    de: '(leere Antwort)',
+    ja: '（空のレスポンス）',
+  );
+  final truncated = _mcpDiscoveryText(
+    zh: '…（响应过长，已截断）',
+    zhHant: '…（回應過長，已截斷）',
+    en: '… (response truncated)',
+    fr: '… (réponse tronquée)',
+    de: '… (Antwort gekürzt)',
+    ja: '…（レスポンスを省略）',
+  );
+  final content = raw.isEmpty
+      ? empty
+      : clipText(
+          raw,
+          _mcpServerResponseDisplayMaxCharacters,
+          suffix: '\n$truncated',
+        );
+  return '\n\n$label:\n$content';
 }
 
 class _DiscoveredTools {
@@ -1738,7 +1813,8 @@ class _LegacySseSession {
         timeout: requestTimeout,
       );
       throw McpToolDiscoveryException(
-        'Tool scan could not connect to the SSE endpoint (HTTP ${response.statusCode})${_httpResponseDetail(body)}',
+        'Tool scan could not connect to the SSE endpoint (HTTP ${response.statusCode})'
+        '${_mcpServerResponseDetail(body)}',
       );
     }
     final contentType = readResponseHeader(response.headers, 'content-type');
@@ -1748,7 +1824,8 @@ class _LegacySseSession {
         timeout: requestTimeout,
       );
       throw McpToolDiscoveryException(
-        'Tool scan could not connect to the SSE endpoint because the server did not return an event stream${_httpResponseDetail(body)}',
+        'Tool scan could not connect to the SSE endpoint because the server did not return an event stream'
+        '${_mcpServerResponseDetail(body)}',
       );
     }
 
@@ -1768,19 +1845,37 @@ class _LegacySseSession {
       } else if (event.name.isEmpty || event.name == 'message') {
         try {
           final decoded = jsonDecode(event.data);
-          for (final message in _jsonRpcMessagesFromDecoded(decoded)) {
+          final decodedMessages = _jsonRpcMessagesFromDecoded(
+            decoded,
+          ).toList(growable: false);
+          if (decodedMessages.isEmpty) {
+            throw McpToolDiscoveryException(
+              'Tool scan failed because the SSE endpoint returned an invalid JSON-RPC message.'
+              '${_mcpServerResponseDetail(event.data)}',
+            );
+          }
+          for (final message in decodedMessages) {
             if (messages.isClosed) {
               break;
             }
             messages.add(message);
           }
         } catch (error, stack) {
+          final surfacedError = error is McpToolDiscoveryException
+              ? error
+              : McpToolDiscoveryException(
+                  'Tool scan failed because the SSE endpoint returned content that is not valid JSON.'
+                  '${_mcpServerResponseDetail(event.data)}',
+                );
           silentLog(
             'mcp_tool_discovery_service',
             'decode SSE event payload',
-            error,
+            surfacedError,
             stack,
           );
+          if (!messages.isClosed) {
+            messages.addError(surfacedError, stack);
+          }
         }
       }
     }
@@ -1924,7 +2019,8 @@ class _LegacySseSession {
         timeout: effectiveTimeout,
       );
       throw McpToolDiscoveryException(
-        'Tool scan request failed with HTTP ${response.statusCode}${_httpResponseDetail(body)}',
+        'Tool scan request failed with HTTP ${response.statusCode}'
+        '${_mcpServerResponseDetail(body)}',
       );
     }
     await _drainMcpHttpResponse(response, timeout: effectiveTimeout);
@@ -2491,8 +2587,25 @@ class _StdioSession {
       if (payload.isEmpty) {
         continue;
       }
-      final decoded = jsonDecode(payload);
-      for (final message in _jsonRpcMessagesFromDecoded(decoded)) {
+      Object? decoded;
+      try {
+        decoded = jsonDecode(payload);
+      } on FormatException {
+        throw McpToolDiscoveryException(
+          'Tool scan failed because the stdio MCP server returned content that is not valid JSON.'
+          '${_mcpServerResponseDetail(payload)}',
+        );
+      }
+      final decodedMessages = _jsonRpcMessagesFromDecoded(
+        decoded,
+      ).toList(growable: false);
+      if (decodedMessages.isEmpty) {
+        throw McpToolDiscoveryException(
+          'Tool scan failed because the stdio MCP server returned an invalid JSON-RPC message.'
+          '${_mcpServerResponseDetail(payload)}',
+        );
+      }
+      for (final message in decodedMessages) {
         final messageIdText = _messageIdText(message['id']);
         _appendTrace(
           'stdout:message:${messageIdText.isEmpty ? message['method'] ?? 'unknown' : messageIdText}',

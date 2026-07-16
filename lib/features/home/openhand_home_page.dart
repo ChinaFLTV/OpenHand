@@ -949,6 +949,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     _appLifecycleState = state;
+    // 窗口失焦、最小化或进入后台时继续朗读；仅在应用真正退出时停止。
+    if (state == AppLifecycleState.detached) {
+      unawaited(_ttsPlaybackService.stop());
+    }
     // Flush pending Harness session state to disk whenever the
     // app enters background / inactive states. This ensures the session record
     // survives if the OS terminates the process before dispose() runs.
@@ -956,7 +960,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         state == AppLifecycleState.inactive ||
         state == AppLifecycleState.hidden ||
         state == AppLifecycleState.detached) {
-      unawaited(_ttsPlaybackService.stop());
       final pendingHarnessRecord = _persistedHarnessSession;
       if (pendingHarnessRecord != null) {
         // Cancel debounced timer and flush immediately.
@@ -2765,9 +2768,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   }
 
   void _selectSection(AppSection section) {
-    if (section != AppSection.workspace) {
-      unawaited(_ttsPlaybackService.stop());
-    }
     setState(() {
       _selectedSection = section;
       // 切回 workspace 板块时强制清掉残留的「转换中」遮罩。
