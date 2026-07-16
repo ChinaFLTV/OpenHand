@@ -44,8 +44,11 @@ class LifecycleLruCache<V> {
   }
 
   V putIfAbsent(String key, V Function() create) {
-    final cached = get(key);
-    if (cached != null) return cached;
+    final cached = _entries.remove(key);
+    if (cached != null) {
+      _entries[key] = cached;
+      return cached.value;
+    }
     final value = create();
     put(key, value);
     return value;

@@ -1,28 +1,26 @@
 import 'package:flutter/foundation.dart';
 
-/// Debug-only logger for non-critical, intentionally swallowed errors.
+/// 仅在调试模式记录可安全忽略的非关键异常。
 ///
-/// Use this instead of silent empty catch blocks when you want observability
-/// during development without leaking noise into release builds.  In release
-/// builds the call is a no-op (and the constant
-/// `kDebugMode` allows the compiler to tree-shake the body).
+/// 用它替代空 catch，保留开发期可观测性，同时避免在发布版本产生噪声。
+/// 发布构建中该方法为空操作，编译器可通过 `kDebugMode` 移除方法体。
 ///
-/// Example:
+/// 示例：
 /// ```
 /// try {
 ///   await _store.save(updatedSession);
 /// } catch (error, stack) {
-///   silentLog('ai_session_controller', 'persist updated session', error, stack);
+///   silentLog('ai_session_controller', '持久化更新后的会话', error, stack);
 /// }
 /// ```
 @pragma('vm:prefer-inline')
-void silentLog(String tag, String where, Object error, [StackTrace? stack]) {
+void silentLog(String tag, String action, Object error, [StackTrace? stack]) {
   if (!kDebugMode) {
     return;
   }
   if (stack != null) {
-    debugPrint('[$tag] swallowed: $where -> $error\n$stack');
+    debugPrint('[$tag] 已忽略异常：$action -> $error\n$stack');
   } else {
-    debugPrint('[$tag] swallowed: $where -> $error');
+    debugPrint('[$tag] 已忽略异常：$action -> $error');
   }
 }

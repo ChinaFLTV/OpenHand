@@ -434,7 +434,7 @@ Future<String?> showOpenHandTextInputDialog({
               ? field
               : buildOpenHandDialogConstrainedContent(
                   child: field,
-                  width: resolvedMaxWidth,
+                  maxWidth: resolvedMaxWidth,
                 ),
           actions: <Widget>[
             OpenHandDialogActionButton.secondary(
@@ -457,9 +457,7 @@ Future<String?> showOpenHandTextInputDialog({
     );
     return submitted == null ? null : normalize(submitted);
   } finally {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      textController.dispose();
-    });
+    textController.dispose();
   }
 }
 
@@ -570,7 +568,7 @@ class OpenHandDialogSession<T extends Object?> {
   T? _dismissResult;
   Future<bool>? _dismissInFlight;
   String _dismissLogTag = 'dialog';
-  String _dismissLogAction = 'dismissTrackedDialog';
+  String _dismissLogAction = '关闭跟踪弹窗';
   Animation<double>? _deferredDismissAnimation;
   VoidCallback? _deferredDismissListener;
   bool _deferredDismissPopScheduled = false;
@@ -676,15 +674,11 @@ class OpenHandDialogSession<T extends Object?> {
   Future<bool> dismiss({
     T? result,
     String logTag = 'dialog',
-    String logAction = 'dismissTrackedDialog',
+    String logAction = '关闭跟踪弹窗',
     Duration attachTimeout = kOpenHandDialogRouteAttachTimeout,
   }) {
     if (attachTimeout <= Duration.zero) {
-      throw ArgumentError.value(
-        attachTimeout,
-        'attachTimeout',
-        'Must be positive.',
-      );
+      throw ArgumentError.value(attachTimeout, 'attachTimeout', '必须大于零。');
     }
     if (_closed) return Future<bool>.value(false);
     final activeDismiss = _dismissInFlight;
@@ -882,9 +876,8 @@ Future<T?> showAnimatedDialog<T>({
   RouteSettings? routeSettings,
   AlignmentGeometry alignment = Alignment.center,
 }) {
-  dismissOpenHandTooltipsSafely(
-    debugLabel: 'OpenHand.showAnimatedDialog.dismissTooltips',
-  );
+  if (!context.mounted) return Future<T?>.value();
+  dismissOpenHandTooltipsSafely(debugLabel: '显示弹窗前收起工具提示');
   final themedBuilder = _wrapDialogBuilderWithTheme(
     builder,
     dismissOnEscape: dismissOnEscape,
@@ -925,12 +918,10 @@ Future<T?> showAnimatedDialogOnNavigator<T>({
   RouteSettings? routeSettings,
   AlignmentGeometry alignment = Alignment.center,
 }) {
-  if (!navigator.mounted) {
+  if (!navigator.mounted || !context.mounted) {
     return Future<T?>.value();
   }
-  dismissOpenHandTooltipsSafely(
-    debugLabel: 'OpenHand.showAnimatedDialogOnNavigator.dismissTooltips',
-  );
+  dismissOpenHandTooltipsSafely(debugLabel: '通过导航器显示弹窗前收起工具提示');
   final themedBuilder = _wrapDialogBuilderWithTheme(
     builder,
     dismissOnEscape: dismissOnEscape,
@@ -974,7 +965,7 @@ Future<T?> _pushOpenHandDialogRoute<T>({
         sourceContext,
         MaterialLocalizations,
       )?.modalBarrierDismissLabel ??
-      'Dismiss';
+      '关闭弹窗';
   final route = _OpenHandRawDialogRoute<T>(
     pageBuilder: (routeContext, animation, secondaryAnimation) =>
         capturedThemes.wrap(builder(routeContext)),
@@ -1569,7 +1560,7 @@ Future<T?> showAnimatedModalSheet<T>({
   ShapeBorder? shape,
   EdgeInsetsGeometry margin = const EdgeInsets.fromLTRB(8, 0, 8, 8),
 }) {
-  assert(elevation >= 0, 'Modal sheet elevation must be non-negative.');
+  assert(elevation >= 0, '底部弹窗阴影高度不能为负数。');
   return showAnimatedDialog<T>(
     context: context,
     settings: settings,
@@ -1794,14 +1785,13 @@ class _ModalSheetDragHandle extends StatelessWidget {
   }
 }
 
-/// Adds Escape-to-dismiss to a dialog without stealing focus from descendant
-/// inputs. Uses a [HardwareKeyboard] handler as the primary path:
-/// `Focus(autofocus: true)` and `FocusScope(autofocus: true)` both regress
-/// macOS IMK and leave every `TextField` unable to receive input/copy/paste;
-/// the HW handler does not request focus and pops the route directly, guarded
-/// by `ModalRoute.isCurrent` so nested dialogs don't double-pop. Standard
-/// [Shortcuts]/[Actions] are layered in as a secondary path for focused dialog
-/// controls that dispatch [DismissIntent] themselves.
+/// 为弹窗提供 ESC 关闭能力，且不抢占子输入控件焦点。
+///
+/// 主路径使用 [HardwareKeyboard] 监听；`Focus(autofocus: true)` 与
+/// `FocusScope(autofocus: true)` 会破坏 macOS IMK，导致 `TextField`
+/// 无法输入、复制或粘贴。硬件键盘监听不请求焦点，并通过
+/// `ModalRoute.isCurrent` 防止嵌套弹窗重复出栈。[Shortcuts] 与 [Actions]
+/// 作为焦点控件主动分发 [DismissIntent] 时的备用路径。
 class _EscapeDismissDialogScope extends StatefulWidget {
   const _EscapeDismissDialogScope({required this.child});
 
@@ -1850,8 +1840,8 @@ class _EscapeDismissDialogScopeState extends State<_EscapeDismissDialogScope> {
     unawaited(
       navigator
           .maybePop()
-          .then((popped) {
-            if (!popped) {
+          .then((handled) {
+            if (!handled || route.isCurrent) {
               _dismissRequested = false;
             }
           })
@@ -1861,8 +1851,8 @@ class _EscapeDismissDialogScopeState extends State<_EscapeDismissDialogScope> {
               FlutterErrorDetails(
                 exception: error,
                 stack: stackTrace,
-                library: 'openhand dialog',
-                context: ErrorDescription('while dismissing a dialog'),
+                library: 'OpenHand 弹窗',
+                context: ErrorDescription('关闭弹窗时'),
               ),
             );
           }),

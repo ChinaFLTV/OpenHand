@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -7,6 +6,7 @@ import '../../../../app/support/silent_log.dart';
 import '../../../../shared/db/atomic_file_operations.dart';
 import '../../../../shared/util/bounded_file_io.dart';
 import '../../../../shared/util/serial_task_queue.dart';
+import '../../../../shared/util/timer_safety.dart';
 import '../chat/ai_protocol_adapter.dart';
 import 'ai_tool_runtime_service.dart';
 
@@ -54,7 +54,15 @@ final class AiToolUsagePromotionStore {
          filePath ?? OpenHandPaths.defaultToolUsagePromotionFilePath(),
        ),
        _clock = clock ?? DateTime.now,
-       _persistDebounce = persistDebounce;
+       _persistDebouncer = OpenHandDebouncer(
+         delay: persistDebounce,
+         onError: (error, stack) => silentLog(
+           'ai_tool_usage_promotion_store',
+           '持久化工具调用统计',
+           error,
+           stack,
+         ),
+       );
 
   static final AiToolUsagePromotionStore shared = AiToolUsagePromotionStore();
 
@@ -68,13 +76,12 @@ final class AiToolUsagePromotionStore {
 
   final File _file;
   final DateTime Function() _clock;
-  final Duration _persistDebounce;
+  final OpenHandDebouncer _persistDebouncer;
   final SerialTaskQueue _operations = SerialTaskQueue();
   final Map<String, _SessionUsage> _sessions = <String, _SessionUsage>{};
   _PeriodUsage _day = _PeriodUsage(period: '', counts: <String, int>{});
   _PeriodUsage _month = _PeriodUsage(period: '', counts: <String, int>{});
   _PeriodUsage _year = _PeriodUsage(period: '', counts: <String, int>{});
-  Timer? _persistTimer;
   bool _initialized = false;
   bool _dirty = false;
 
@@ -351,25 +358,11 @@ final class AiToolUsagePromotionStore {
   }
 
   void _schedulePersist() {
-    _persistTimer?.cancel();
-    _persistTimer = Timer(_persistDebounce, () {
-      _persistTimer = null;
-      unawaited(
-        flush().catchError((Object error, StackTrace stack) {
-          silentLog(
-            'ai_tool_usage_promotion_store',
-            '持久化工具调用统计失败',
-            error,
-            stack,
-          );
-        }),
-      );
-    });
+    _persistDebouncer.schedule(flush);
   }
 
   Future<void> _flushLocked() async {
-    _persistTimer?.cancel();
-    _persistTimer = null;
+    _persistDebouncer.cancel();
     if (!_dirty) return;
     var content = _encodeState();
     while (utf8.encode(content).length > _maxStoreBytes &&

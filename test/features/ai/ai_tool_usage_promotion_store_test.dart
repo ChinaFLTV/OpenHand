@@ -189,6 +189,32 @@ void main() {
     expect(await file.length(), lessThan(4 * 1024 * 1024));
     expect(oversizedStore.sessionSnapshot('session-2')!.totalCallCount, 1);
   });
+
+  test('非法负数防抖延迟会归一化并自动持久化', () async {
+    final store = AiToolUsagePromotionStore(
+      filePath: filePath,
+      persistDebounce: const Duration(milliseconds: -1),
+    );
+    await store.initialize();
+    await store.record(sessionId: 'session-1', toolId: 'Read');
+
+    final file = File(filePath);
+    final deadline = DateTime.now().add(const Duration(seconds: 2));
+    var persisted = false;
+    while (DateTime.now().isBefore(deadline)) {
+      if (await file.exists() &&
+          (await file.readAsString()).contains('"session-1"')) {
+        persisted = true;
+        break;
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+    }
+
+    expect(persisted, isTrue);
+    final restored = AiToolUsagePromotionStore(filePath: filePath);
+    await restored.initialize();
+    expect(restored.sessionSnapshot('session-1')?.totalCallCount, 1);
+  });
 }
 
 const String _deferredToolName = 'mcp__server__remote_action';
