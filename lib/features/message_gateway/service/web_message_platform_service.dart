@@ -4147,12 +4147,23 @@ class WebMessagePlatformService {
     final tail =
         _truthy(request.requestedUri.queryParameters['tail']) ||
         request.requestedUri.queryParameters['window'] == 'tail';
-    final window = await _loadStoredMessageWindow(
-      session,
-      limit: limit,
-      offset: rawOffset,
-      tail: tail,
-    );
+    final revealMessageId =
+        request.requestedUri.queryParameters['reveal_message_id']?.trim() ?? '';
+    final revealAnchor = revealMessageId.isEmpty || revealMessageId.length > 200
+        ? null
+        : await _resolveTranscriptRevealAnchor(session, revealMessageId);
+    final window = revealAnchor == null
+        ? await _loadStoredMessageWindow(
+            session,
+            limit: limit,
+            offset: rawOffset,
+            tail: tail,
+          )
+        : await _loadTranscriptRevealWindow(
+            session,
+            anchor: revealAnchor,
+            limit: limit,
+          );
     final lastMessage = window.messages.isEmpty ? null : window.messages.last;
     return _json(HttpStatus.ok, <String, Object?>{
       'session': _sessionSummary(
@@ -4169,6 +4180,8 @@ class WebMessagePlatformService {
       'has_older': window.hasOlder,
       'has_newer': window.hasNewer,
       'window': window.window,
+      if (revealAnchor != null)
+        'resolved_reveal_message_id': revealAnchor.messageId,
       'send_phase': _sessionController.sendPhaseForSession(session.id).name,
       'last_error': _sessionController.lastErrorMessageForSession(session.id),
       'pending_write_approval': _pendingWriteApprovalJson(session.id),
@@ -7425,6 +7438,79 @@ class WebMessagePlatformService {
         tail: tail,
       );
     }
+  }
+
+  Future<_WebSessionMessageWindow> _loadTranscriptRevealWindow(
+    AiSession session, {
+    required ({String messageId, int offset}) anchor,
+    required int limit,
+  }) async {
+    if (session.hasCompleteMessages &&
+        session.messages.length <= _inMemoryMessageWindowDirectLimit) {
+      final displayOffset = session.displayMessages.indexWhere(
+        (message) => message.id == anchor.messageId,
+      );
+      if (displayOffset >= 0) {
+        return _messageWindowFromDisplayMessages(
+          session.displayMessages,
+          limit: limit,
+          offset: math.max(0, displayOffset - 8),
+        );
+      }
+    }
+    return _loadStoredMessageWindow(
+      session,
+      limit: limit,
+      offset: math.max(0, anchor.offset - 8),
+    );
+  }
+
+  Future<({String messageId, int offset})?> _resolveTranscriptRevealAnchor(
+    AiSession session,
+    String messageId,
+  ) async {
+    final storedOffset = await _sessionController.store.messageOffset(
+      session.id,
+      messageId,
+    );
+    if (storedOffset != null) {
+      final contextOffset = math.max(
+        0,
+        storedOffset - _maxMessageWindowLimit ~/ 2,
+      );
+      final page = await _sessionController.store.loadMessages(
+        session.id,
+        limit: _maxMessageWindowLimit,
+        offset: contextOffset,
+      );
+      final scopedSession = session.copyWith(
+        messages: page.messages,
+        messageLoadState: contextOffset == 0 && !page.hasMore
+            ? AiSessionMessageLoadState.complete
+            : AiSessionMessageLoadState.windowed,
+        messageWindowStartIndex: contextOffset,
+        messageTotalCount: page.totalCount,
+      );
+      final anchor = scopedSession.transcriptAnchorForRoundStarter(messageId);
+      if (anchor == null) return null;
+      final localOffset = page.messages.indexWhere(
+        (candidate) => candidate.id == anchor.id,
+      );
+      if (localOffset < 0) return null;
+      return (messageId: anchor.id, offset: contextOffset + localOffset);
+    }
+
+    final anchor = session.transcriptAnchorForRoundStarter(messageId);
+    if (anchor == null) return null;
+    final localOffset = session.messages.indexWhere(
+      (candidate) => candidate.id == anchor.id,
+    );
+    if (localOffset < 0) return null;
+    final offset =
+        session.messageLoadState == AiSessionMessageLoadState.windowed
+        ? session.messageWindowStartIndex + localOffset
+        : localOffset;
+    return (messageId: anchor.id, offset: offset);
   }
 
   _WebSessionMessageWindow _boundedStoredMessageWindow({

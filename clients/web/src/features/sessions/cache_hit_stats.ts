@@ -9,6 +9,7 @@ export interface CacheHitTrendPoint {
   starterMessageId?: string | null;
   starterMessageKind?: string | null;
   starterOrigin?: string | null;
+  anchorMessageId?: string | null;
   idleGapSeconds?: number | null;
 }
 

@@ -17,6 +17,7 @@ interface CacheHitTrendChartProps {
   height?: number;
   displayMode?: CacheHitDisplayMode;
   onDisplayModeChange?: (mode: CacheHitDisplayMode) => void;
+  onPointSelected?: (point: CacheHitTrendPoint) => void;
   t?: (key: string, fallback: string) => string;
 }
 
@@ -145,6 +146,7 @@ export default function CacheHitTrendChart({
   height = 168,
   displayMode = DEFAULT_CACHE_HIT_DISPLAY_MODE,
   onDisplayModeChange,
+  onPointSelected,
   t = (_k: string, fallback: string) => fallback,
 }: CacheHitTrendChartProps) {
   const t2 = useCallback((k: string, fb: string) => t(k, fb), [t]);
@@ -822,6 +824,37 @@ export default function CacheHitTrendChart({
               {lastTurn}
             </text>
           ) : null}
+
+          {onPointSelected
+            ? layoutPoints.map((point, index) => {
+                const source = visiblePoints[index];
+                if (!source) return null;
+                const label = t2('sessMeta.cacheHitPoint', '第 {{n}} 轮')
+                  .replace('{{n}}', String(point.turnIndex));
+                return (
+                  <circle
+                    key={`select-${point.turnIndex}-${index}`}
+                    cx={point.x}
+                    cy={point.y}
+                    r="12"
+                    fill="transparent"
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`${label} · ${Math.round(point.hitRatio * 100)}%`}
+                    style={{ cursor: 'pointer' }}
+                    onMouseEnter={() => setHoverIdx(index)}
+                    onFocus={() => setHoverIdx(index)}
+                    onBlur={() => setHoverIdx(-1)}
+                    onClick={() => onPointSelected(source)}
+                    onKeyDown={(event) => {
+                      if (event.key !== 'Enter' && event.key !== ' ') return;
+                      event.preventDefault();
+                      onPointSelected(source);
+                    }}
+                  />
+                );
+              })
+            : null}
         </svg>
 
         {/* Hover overlay: glowing circle + tooltip */}

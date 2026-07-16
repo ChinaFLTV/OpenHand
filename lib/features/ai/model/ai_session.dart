@@ -532,7 +532,7 @@ class AiSession {
   final AiSessionMessageLoadState messageLoadState;
   final int messageWindowStartIndex;
   final int messageTotalCount;
-  // 派生自 [messages] 的三个 O(N) 缓存。刻意不用 `late final` 字段初始化器：
+  // 派生自 [messages] 的 O(N) 缓存。刻意不用 `late final` 字段初始化器：
   // 那样每个 copyWith 产出的新实例都会在首次访问时重跑全量扫描，而
   // 绝大多数 copyWith（改标题 / 统计 / 错误 / 流式节流等）并不改动
   // messages 引用。改为惰性 memo + copyWith 在 messages 引用未变时透传，
@@ -545,6 +545,9 @@ class AiSession {
   int? _latestCompressionPointIndexCache;
   List<AiSessionMessage>? _visibleMessagesCache;
   List<AiSessionMessage>? _displayMessagesCache;
+  Map<String, int>? _messageIndexByIdCache;
+  Map<String, AiSessionMessage>? _displayMessageByIdCache;
+  Map<String, AiSessionMessage>? _displayToolCallByCallIdCache;
 
   AiSession copyWith({
     String? title,
@@ -654,8 +657,8 @@ class AiSession {
       messageWindowStartIndex: nextWindowStartIndex,
       messageTotalCount: nextTotalCount,
     );
-    // messages 引用未变时透传派生缓存：displayMessages / visibleMessages /
-    // 压缩点索引只依赖 messages，可安全复用，省掉一轮 O(N) 重扫；同时保持
+    // messages 引用未变时透传全部派生缓存；它们只依赖 messages，可安全
+    // 复用，省掉 O(N) 重扫；同时保持
     // displayMessages 的 identity 稳定，让下游 `identical` memo 继续命中。
     if (identical(nextMessages, this.messages)) {
       next._seedDerivedCachesFrom(this);
@@ -714,6 +717,56 @@ class AiSession {
     return _displayMessagesCache ??= _computeDisplayMessages();
   }
 
+  int _messageIndexOf(String messageId) {
+    return (_messageIndexByIdCache ??= <String, int>{
+          for (var index = 0; index < messages.length; index += 1)
+            messages[index].id: index,
+        })[messageId] ??
+        -1;
+  }
+
+  /// 将一次模型请求的起始消息解析为线程中实际渲染的卡片。
+  ///
+  /// 工具结果与对应 tool-call 合并展示时，结果消息本身不会进入
+  /// [displayMessages]，此时返回承载该结果的 tool-call。没有配对卡片时，
+  /// 回退到同一请求内首条可展示消息。
+  AiSessionMessage? transcriptAnchorForRoundStarter(String starterMessageId) {
+    final normalizedId = starterMessageId.trim();
+    if (normalizedId.isEmpty) return null;
+    final starterIndex = _messageIndexOf(normalizedId);
+    if (starterIndex < 0 || messages[starterIndex].isDeleted) return null;
+
+    final displayById = _displayMessageByIdCache ??= <String, AiSessionMessage>{
+      for (final message in displayMessages) message.id: message,
+    };
+    final direct = displayById[normalizedId];
+    if (direct != null) return direct;
+
+    final starter = messages[starterIndex];
+    final toolCallId = _messageMetadataText(starter, 'tool_call_id');
+    if (_isTranscriptToolResultKind(starter.kind) && toolCallId.isNotEmpty) {
+      final toolCallsById = _displayToolCallByCallIdCache ??=
+          <String, AiSessionMessage>{
+            for (final message in displayMessages)
+              if (message.kind == AiSessionMessageKind.toolCall &&
+                  _messageMetadataText(message, 'tool_call_id').isNotEmpty)
+                _messageMetadataText(message, 'tool_call_id'): message,
+          };
+      final toolCall = toolCallsById[toolCallId];
+      if (toolCall != null && _messageIndexOf(toolCall.id) < starterIndex) {
+        return toolCall;
+      }
+    }
+
+    for (var index = starterIndex + 1; index < messages.length; index += 1) {
+      final candidate = messages[index];
+      if (candidate.startsConversationRound) break;
+      final visible = displayById[candidate.id];
+      if (visible != null) return visible;
+    }
+    return null;
+  }
+
   /// 当 messages 引用未变时，把【已经算过】的派生缓存透传给 copyWith
   /// 产出的新实例，避免大会话在无关字段更新后被迫重跑全量扫描。
   /// 只搬运 source 上已物化的缓存，绝不主动触发计算——从未展示过的
@@ -730,6 +783,15 @@ class AiSession {
     }
     if (source._displayMessagesCache != null) {
       _displayMessagesCache = source._displayMessagesCache;
+    }
+    if (source._messageIndexByIdCache != null) {
+      _messageIndexByIdCache = source._messageIndexByIdCache;
+    }
+    if (source._displayMessageByIdCache != null) {
+      _displayMessageByIdCache = source._displayMessageByIdCache;
+    }
+    if (source._displayToolCallByCallIdCache != null) {
+      _displayToolCallByCallIdCache = source._displayToolCallByCallIdCache;
     }
   }
 
@@ -1472,6 +1534,7 @@ class AiSessionCacheHitTrendPoint {
     this.starterMessageId,
     this.starterMessageKind,
     this.starterOrigin,
+    this.anchorMessageId,
     this.idleGapSeconds,
   });
 
@@ -1486,6 +1549,7 @@ class AiSessionCacheHitTrendPoint {
       starterMessageId: _readString(json[starterMessageIdJsonKey]),
       starterMessageKind: _readString(json[starterMessageKindJsonKey]),
       starterOrigin: _readString(json[starterOriginJsonKey]),
+      anchorMessageId: _readString(json[anchorMessageIdJsonKey]),
       idleGapSeconds: _readNullableNonNegativeInt(json[idleGapSecondsJsonKey]),
     );
   }
@@ -1498,6 +1562,7 @@ class AiSessionCacheHitTrendPoint {
   static const String starterMessageIdJsonKey = 'starter_message_id';
   static const String starterMessageKindJsonKey = 'starter_message_kind';
   static const String starterOriginJsonKey = 'starter_origin';
+  static const String anchorMessageIdJsonKey = 'anchor_message_id';
   static const String idleGapSecondsJsonKey = 'idle_gap_seconds';
 
   final int turnIndex;
@@ -1508,6 +1573,7 @@ class AiSessionCacheHitTrendPoint {
   final String? starterMessageId;
   final String? starterMessageKind;
   final String? starterOrigin;
+  final String? anchorMessageId;
   final int? idleGapSeconds;
 
   Map<String, Object?> toJson() => <String, Object?>{
@@ -1520,6 +1586,7 @@ class AiSessionCacheHitTrendPoint {
     if (starterMessageKind != null)
       starterMessageKindJsonKey: starterMessageKind,
     if (starterOrigin != null) starterOriginJsonKey: starterOrigin,
+    if (anchorMessageId != null) anchorMessageIdJsonKey: anchorMessageId,
     if (idleGapSeconds != null) idleGapSecondsJsonKey: idleGapSeconds,
   };
 

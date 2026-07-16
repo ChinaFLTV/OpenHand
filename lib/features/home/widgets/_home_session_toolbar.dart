@@ -19,7 +19,10 @@ Future<void> _jumpToCacheHitTurn(
   required bool claudeStyle,
 }) async {
   final controller = context.read<AiSessionController>();
-  var targetMessageId = point.starterMessageId.trim();
+  var targetMessageId = point.anchorMessageId.trim();
+  targetMessageId = targetMessageId.isNotEmpty
+      ? targetMessageId
+      : point.starterMessageId.trim();
   if (targetMessageId.isEmpty) {
     // Older persisted trend points did not carry the round starter id. Do the
     // one-time full hydration only for that legacy shape, then rebuild the
@@ -30,11 +33,13 @@ Future<void> _jumpToCacheHitTurn(
       source,
       claudeStyle: claudeStyle,
     );
-    targetMessageId = rebuiltTrend.points
+    final rebuiltPoint = rebuiltTrend.points
         .where((candidate) => candidate.turnIndex == point.turnIndex)
-        .map((candidate) => candidate.starterMessageId.trim())
-        .firstWhere((id) => id.isNotEmpty, orElse: () => '')
-        .trim();
+        .firstOrNull;
+    targetMessageId = rebuiltPoint?.anchorMessageId.trim() ?? '';
+    targetMessageId = targetMessageId.isNotEmpty
+        ? targetMessageId
+        : rebuiltPoint?.starterMessageId.trim() ?? '';
   }
   if (targetMessageId.isEmpty) {
     if (context.mounted) {
@@ -60,8 +65,8 @@ Future<void> _jumpToCacheHitTurn(
       context,
       openHandLocalizedText(
         context,
-        zh: '未能定位该轮次消息，可能已被删除或尚未加载。',
-        en: 'Could not reveal this round; the message may be deleted or not loaded yet.',
+        zh: '未能定位该轮次消息，消息可能已被删除或没有可展示内容。',
+        en: 'Could not reveal this round; its message may be deleted or have no visible content.',
       ),
       duration: const Duration(milliseconds: 2400),
     );

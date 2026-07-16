@@ -5,7 +5,7 @@
 //   GET    /api/sessions/:id
 //   PATCH  /api/sessions/:id {title}
 //   DELETE /api/sessions/:id
-//   GET    /api/sessions/:id/messages?limit=&offset=
+//   GET    /api/sessions/:id/messages?limit=&offset=&reveal_message_id=
 //   POST   /api/sessions/:id/messages/:messageId/fork
 //
 // 任何接口的 401 都会被 apiRequest 自动转成 UnauthorizedError + 清理本地 token。
@@ -336,6 +336,7 @@ export interface SessionCacheHitTrendPoint {
   starter_message_id?: string | null;
   starter_message_kind?: string | null;
   starter_origin?: string | null;
+  anchor_message_id?: string | null;
   idle_gap_seconds?: number | null;
 }
 
@@ -352,6 +353,7 @@ interface SessionMessagesResponse {
   send_phase: string;
   last_error: string | null;
   pending_write_approval?: PendingWriteApproval | null;
+  resolved_reveal_message_id?: string | null;
 }
 
 interface ListSessionsOptions extends ApiRequestSignalOptions {
@@ -536,6 +538,7 @@ interface ListMessagesOptions {
   limit?: number;
   offset?: number;
   tail?: boolean;
+  revealMessageId?: string;
   signal?: AbortSignal;
 }
 
@@ -547,6 +550,9 @@ export function listMessages(
   if (options.limit != null) params.set('limit', String(options.limit));
   if (options.offset != null) params.set('offset', String(options.offset));
   if (options.tail) params.set('tail', '1');
+  if (options.revealMessageId) {
+    params.set('reveal_message_id', options.revealMessageId);
+  }
   const qs = params.toString();
   return apiRequest<SessionMessagesResponse>(
     `/api/sessions/${encodeURIComponent(sessionId)}/messages${qs ? `?${qs}` : ''}`,

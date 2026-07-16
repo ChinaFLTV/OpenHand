@@ -52,6 +52,7 @@ class SessionCacheHitTurnPoint {
     required this.starterMessageId,
     required this.starterMessageKind,
     required this.starterOrigin,
+    required this.anchorMessageId,
     required this.timestamp,
     required this.hitRatio,
     required this.averageHitRatio,
@@ -68,6 +69,7 @@ class SessionCacheHitTurnPoint {
   final String starterMessageId;
   final String starterMessageKind;
   final String starterOrigin;
+  final String anchorMessageId;
   final DateTime timestamp;
   final double hitRatio;
   final double averageHitRatio;
@@ -91,6 +93,7 @@ class SessionCacheHitTurnPoint {
       starterMessageId: starterMessageId,
       starterMessageKind: starterMessageKind,
       starterOrigin: starterOrigin,
+      anchorMessageId: anchorMessageId,
       idleGapSeconds: idleGapSeconds,
     );
   }
@@ -316,12 +319,14 @@ class SessionCacheHitTrend {
         hitRatio: hitRatio,
         requiresExplicitCacheControls: claudeStyle,
       );
+      final anchor = session.transcriptAnchorForRoundStarter(message.id);
       points.add(
         SessionCacheHitTurnPoint(
           turnIndex: turnIndex,
           starterMessageId: message.id,
           starterMessageKind: message.kind.storageValue,
           starterOrigin: message.senderOrigin,
+          anchorMessageId: anchor?.id ?? '',
           timestamp: telemetryMessage.createdAt,
           hitRatio: hitRatio,
           averageHitRatio: averageHitRatio,
@@ -403,6 +408,7 @@ class SessionCacheHitTrend {
           starterMessageId: point.starterMessageId ?? '',
           starterMessageKind: point.starterMessageKind ?? '',
           starterOrigin: point.starterOrigin ?? '',
+          anchorMessageId: point.anchorMessageId ?? '',
           timestamp: fallbackTimestamp,
           hitRatio: hitRatio,
           averageHitRatio: averageHitRatio,

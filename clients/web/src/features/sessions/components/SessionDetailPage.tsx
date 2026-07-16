@@ -11,7 +11,7 @@
 //
 // 服务端契约：
 //   GET   /api/sessions/:id
-//   GET   /api/sessions/:id/messages?limit=&offset=&tail= → {session, items, offset, limit, total, has_more, send_phase, last_error}
+//   GET   /api/sessions/:id/messages?limit=&offset=&tail=&reveal_message_id= → 分页或定点消息窗口
 //   POST  /api/sessions/:id/messages  body {content, mode, model_key, attachments}
 //   POST  /api/sessions/:id/stop     body {}
 
@@ -184,6 +184,7 @@ import {
   remainingNewerMessageCount,
   shouldVirtualizeMessageList,
   virtualMessageTop,
+  virtualMessageRangeAroundIndex,
   virtualMessageTotalHeight,
   type VirtualMessageRange,
 } from '../../../shared/util/virtual_message_list_math';
@@ -191,6 +192,9 @@ import {
 // 首屏加载最近一页消息；更早历史只在用户点击“加载更早”时进入当前滚动范围。
 const PAGE_SIZE = MESSAGE_LIST_DEFAULT_PAGE_SIZE;
 const INITIAL_PAGE_SIZE = MESSAGE_LIST_DEFAULT_INITIAL_PAGE_SIZE;
+const CACHE_HIT_REVEAL_MATERIALIZE_FRAMES = 12;
+const CACHE_HIT_REVEAL_HIGHLIGHT_MS = 1400;
+const CACHE_HIT_REVEAL_SCROLL_GUARD_MS = 1800;
 
 function supportsTitleGeneration(model: ApiMetaModel | undefined): boolean {
   return !!model && model.supports_text_title_generation !== false;
@@ -2677,16 +2681,20 @@ interface VirtualMessageListProps {
   messages: SessionMessage[];
   membershipKey: string;
   scrollContainerRef: { current: HTMLElement | null };
+  revealTarget: { messageId: string; generation: number } | null;
+  highlightedMessageId: string | null;
   renderMessage: (message: SessionMessage) => ComponentChildren;
 }
 
 function MeasuredMessageRow({
   message,
   onHeightChange,
+  highlighted,
   children,
 }: {
   message: SessionMessage;
   onHeightChange: (messageId: string, height: number) => void;
+  highlighted: boolean;
   children: ComponentChildren;
 }) {
   const rowRef = useRef<HTMLLIElement | null>(null);
@@ -2719,7 +2727,7 @@ function MeasuredMessageRow({
   return (
     <li
       ref={rowRef}
-      class="oh-session-message-row"
+      class={`oh-session-message-row${highlighted ? ' is-cache-hit-target' : ''}`}
       data-message-id={message.id}
     >
       {children}
@@ -2731,6 +2739,8 @@ function VirtualMessageList({
   messages,
   membershipKey,
   scrollContainerRef,
+  revealTarget,
+  highlightedMessageId,
   renderMessage,
 }: VirtualMessageListProps) {
   const virtualized = shouldVirtualizeMessageList(messages.length);
@@ -2751,6 +2761,9 @@ function VirtualMessageList({
     () => messages.map((message) => message.id),
     [membershipKey],
   );
+  const revealIndex = revealTarget == null
+    ? -1
+    : messageIds.indexOf(revealTarget.messageId);
   const estimatedHeights = useMemo(
     () => messageIds.map((messageId) =>
       measuredHeightsRef.current.get(messageId) ??
@@ -2811,6 +2824,21 @@ function VirtualMessageList({
       );
       return;
     }
+    if (revealIndex >= 0) {
+      const seed = initialVirtualMessageRange(messages.length);
+      const span = Math.max(1, seed.end - seed.start);
+      const next = virtualMessageRangeAroundIndex(
+        messages.length,
+        revealIndex,
+        span,
+      );
+      setRange((current) =>
+        current.start === next.start && current.end === next.end
+          ? current
+          : next,
+      );
+      return;
+    }
     const scroller = scrollContainerRef.current;
     const list = listRef.current;
     if (!scroller || !list || messages.length === 0) {
@@ -2842,7 +2870,7 @@ function VirtualMessageList({
         ? current
         : next,
     );
-  }, [estimatedHeights, heightPrefix, messages.length, scrollContainerRef, virtualized]);
+  }, [estimatedHeights, heightPrefix, messages.length, revealIndex, revealTarget?.generation, scrollContainerRef, virtualized]);
 
   const scheduleRangeUpdate = useCallback(() => {
     if (rangeFrameRef.current != null) return;
@@ -2894,7 +2922,7 @@ function VirtualMessageList({
         {messages.map((message) => (
           <li
             key={message.id}
-            class="oh-session-message-row"
+            class={`oh-session-message-row${highlightedMessageId === message.id ? ' is-cache-hit-target' : ''}`}
             data-message-id={message.id}
           >
             {renderMessage(message)}
@@ -2926,6 +2954,7 @@ function VirtualMessageList({
             key={message.id}
             message={message}
             onHeightChange={handleHeightChange}
+            highlighted={highlightedMessageId === message.id}
           >
             {renderMessage(message)}
           </MeasuredMessageRow>
@@ -3305,6 +3334,11 @@ export function SessionDetailPage() {
   // 当前本地 messages[0] 在服务端 oldest-first 序列里的 offset；0 表示历史已加载到头。
   const [windowOffset, setWindowOffset] = useState(0);
   const [totalKnown, setTotalKnown] = useState(0);
+  const [transcriptRevealTarget, setTranscriptRevealTarget] = useState<{
+    messageId: string;
+    generation: number;
+  } | null>(null);
+  const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(true);
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [olderRenderSettling, setOlderRenderSettling] = useState(false);
@@ -3464,6 +3498,9 @@ export function SessionDetailPage() {
   const lastTailSignatureRef = useRef<string>('');
   const lastFollowSignatureRef = useRef<string>('');
   const olderRenderSettlingRef = useRef(false);
+  const cacheHitRevealAbortRef = useRef<AbortController | null>(null);
+  const cacheHitRevealGenerationRef = useRef(0);
+  const cacheHitHighlightTimerRef = useRef<number | null>(null);
   const lastLocalSendAtRef = useRef<number>(0);
   const [unreadCount, setUnreadCount] = useState<number>(0);
   const [remoteRunning, setRemoteRunning] = useState<boolean>(false);
@@ -5115,6 +5152,124 @@ export function SessionDetailPage() {
     }
   }
 
+  async function revealCacheHitTurn(point: CacheHitTrendPoint): Promise<void> {
+    const anchorMessageId = point.anchorMessageId?.trim() ?? '';
+    const starterMessageId = point.starterMessageId?.trim() ?? '';
+    let targetMessageId = anchorMessageId || starterMessageId;
+    if (!targetMessageId) {
+      showSnackbar(t('tokenPopup.revealUnavailable', '该轮次暂时没有可定位的消息。'));
+      return;
+    }
+
+    cacheHitRevealAbortRef.current?.abort();
+    if (cacheHitHighlightTimerRef.current != null) {
+      window.clearTimeout(cacheHitHighlightTimerRef.current);
+      cacheHitHighlightTimerRef.current = null;
+    }
+    setTranscriptRevealTarget(null);
+    setHighlightedMessageId(null);
+    const ctrl = new AbortController();
+    cacheHitRevealAbortRef.current = ctrl;
+    const generation = ++cacheHitRevealGenerationRef.current;
+    const requestSessionId = sessionId;
+    const requestIsCurrent = () =>
+      !ctrl.signal.aborted &&
+      cacheHitRevealGenerationRef.current === generation &&
+      ownsSessionAsyncResult(requestSessionId);
+
+    try {
+      let targetFound = messagesRef.current.some(
+        (message) => message.id === targetMessageId,
+      );
+      let pageResult: Awaited<ReturnType<typeof listMessages>> | null = null;
+
+      if (!targetFound) {
+        pageResult = await listMessages(requestSessionId, {
+          limit: MESSAGE_LIST_MAX_LOADED_MESSAGES,
+          revealMessageId: starterMessageId || targetMessageId,
+          signal: ctrl.signal,
+        });
+        if (!requestIsCurrent()) return;
+        const resolvedMessageId =
+          pageResult.resolved_reveal_message_id?.trim() ?? '';
+        if (resolvedMessageId) targetMessageId = resolvedMessageId;
+        targetFound = pageResult.items.some(
+          (message) => message.id === targetMessageId,
+        );
+      }
+
+      if (!targetFound || !requestIsCurrent()) {
+        showSnackbar(
+          t(
+            'tokenPopup.revealFailed',
+            '未能定位该轮次消息，消息可能已被删除或没有可展示内容。',
+          ),
+        );
+        return;
+      }
+
+      if (pageResult != null) {
+        markMessagesAsAppeared(pageResult.items.map((message) => message.id));
+        replaceMessageWindow(pageResult.items, pageResult.offset);
+        updateTotalKnown(pageResult.total);
+        updateSendPhaseValue(pageResult.send_phase);
+        updateLastErrorValue(pageResult.last_error);
+        updatePendingWriteApprovalValue(pageResult.pending_write_approval);
+        if (pageResult.session) mergeSessionSummaryFromPolling(pageResult.session);
+      }
+
+      setAutoFollowEnabled(false);
+      clearUnreadCount();
+      extendProgrammaticScrollWindow(CACHE_HIT_REVEAL_SCROLL_GUARD_MS);
+      setTranscriptRevealTarget({ messageId: targetMessageId, generation });
+      setHighlightedMessageId(targetMessageId);
+
+      let row: HTMLElement | null = null;
+      for (let attempt = 0; attempt < CACHE_HIT_REVEAL_MATERIALIZE_FRAMES; attempt += 1) {
+        await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
+        if (!requestIsCurrent()) return;
+        row = renderedMessageRow(targetMessageId);
+        if (row) break;
+      }
+      if (!row) {
+        setTranscriptRevealTarget(null);
+        setHighlightedMessageId(null);
+        showSnackbar(
+          t('tokenPopup.revealFailed', '未能定位该轮次消息，消息可能已被删除或没有可展示内容。'),
+        );
+        return;
+      }
+
+      row.scrollIntoView({
+        block: 'center',
+        inline: 'nearest',
+        behavior: reduceMotion ? 'auto' : 'smooth',
+      });
+      if (cacheHitHighlightTimerRef.current != null) {
+        window.clearTimeout(cacheHitHighlightTimerRef.current);
+      }
+      cacheHitHighlightTimerRef.current = window.setTimeout(() => {
+        cacheHitHighlightTimerRef.current = null;
+        if (cacheHitRevealGenerationRef.current !== generation) return;
+        setTranscriptRevealTarget(null);
+        setHighlightedMessageId(null);
+      }, CACHE_HIT_REVEAL_HIGHLIGHT_MS);
+    } catch (error: unknown) {
+      if (!requestIsCurrent() || isAbortError(error)) return;
+      if (handleAuthError(error) || handleSessionGoneError(error)) return;
+      showSnackbar(
+        `${t('tokenPopup.revealFailed', '未能定位该轮次消息')}：${
+          error instanceof Error ? error.message : String(error)
+        }`,
+        { tone: 'error' },
+      );
+    } finally {
+      if (cacheHitRevealAbortRef.current === ctrl) {
+        cacheHitRevealAbortRef.current = null;
+      }
+    }
+  }
+
   useEffect(() => {
     if (auth.loading) return;
     if (!sessionId) return;
@@ -5126,6 +5281,13 @@ export function SessionDetailPage() {
       messagesAbortRef.current = null;
       olderMessagesAbortRef.current?.abort();
       olderMessagesAbortRef.current = null;
+      cacheHitRevealAbortRef.current?.abort();
+      cacheHitRevealAbortRef.current = null;
+      cacheHitRevealGenerationRef.current += 1;
+      if (cacheHitHighlightTimerRef.current != null) {
+        window.clearTimeout(cacheHitHighlightTimerRef.current);
+        cacheHitHighlightTimerRef.current = null;
+      }
       sseCloseRef.current?.();
       sseCloseRef.current = null;
       clearAutoTitleRefreshTimers();
@@ -7272,6 +7434,8 @@ export function SessionDetailPage() {
                       messages={visibleSortedMessages}
                       membershipKey={messageMembershipKey}
                       scrollContainerRef={mainRef}
+                      revealTarget={transcriptRevealTarget}
+                      highlightedMessageId={highlightedMessageId}
                       renderMessage={renderSessionMessage}
                     />
                     {remainingNewer > 0 ? (
@@ -7901,7 +8065,13 @@ export function SessionDetailPage() {
       {sessionAuditOpen && detail ? <SessionAuditDialog detail={detail} messages={sortedMessages} onClose={() => setSessionAuditOpen(false)} /> : null}
       {sessionMetadataOpen && detail ? <SessionMetadataDialog detail={detail} messages={sortedMessages} onClose={() => setSessionMetadataOpen(false)} /> : null}
       {goalDetailsOpen && session ? <GoalDetailsDialog session={session} onClose={() => setGoalDetailsOpen(false)} /> : null}
-      {tokenStatsOpen && detail ? <SessionTokenStatsDialog detail={detail} onClose={() => setTokenStatsOpen(false)} /> : null}
+      {tokenStatsOpen && detail ? (
+        <SessionTokenStatsDialog
+          detail={detail}
+          onClose={() => setTokenStatsOpen(false)}
+          onPointSelected={(point) => void revealCacheHitTurn(point)}
+        />
+      ) : null}
       {contextStatsOpen && detail ? (
         <SessionContextStatsDialog
           detail={detail}
@@ -8645,10 +8815,12 @@ function SessionTokenStatsContent({
   stats,
   trendDisplayMode,
   onTrendDisplayModeChange,
+  onPointSelected,
 }: {
   stats: SessionTokenStatsViewModel;
   trendDisplayMode: CacheHitDisplayMode;
   onTrendDisplayModeChange: (mode: CacheHitDisplayMode) => void;
+  onPointSelected?: (point: CacheHitTrendPoint) => void;
 }) {
   const {
     promptTokens,
@@ -8735,7 +8907,7 @@ function SessionTokenStatsContent({
             <CacheHitBar readWeight={activeReadWeight} writeWeight={activeWriteWeight} missWeight={activeMissWeight} />
             {trendData && trendData.points.length > 0 ? (
               <div style={{ marginTop: '8px' }}>
-                <CacheHitTrendChart points={trendData.points} averageRatio={trendData.averageRatio} claudeStyle={claudeStyle} height={136} displayMode={trendDisplayMode} onDisplayModeChange={onTrendDisplayModeChange} t={t} />
+                <CacheHitTrendChart points={trendData.points} averageRatio={trendData.averageRatio} claudeStyle={claudeStyle} height={136} displayMode={trendDisplayMode} onDisplayModeChange={onTrendDisplayModeChange} onPointSelected={onPointSelected} t={t} />
               </div>
             ) : null}
           </>
@@ -8750,7 +8922,15 @@ function SessionTokenStatsContent({
   );
 }
 
-function SessionTokenStatsDialog({ detail, onClose }: { detail: SessionDetailResponse; onClose: () => void }) {
+function SessionTokenStatsDialog({
+  detail,
+  onClose,
+  onPointSelected,
+}: {
+  detail: SessionDetailResponse;
+  onClose: () => void;
+  onPointSelected: (point: CacheHitTrendPoint) => void;
+}) {
   const [trendDisplayMode, setTrendDisplayMode] = useState<CacheHitDisplayMode>(DEFAULT_CACHE_HIT_DISPLAY_MODE);
   const { closing, requestClose } = useDialogExitMotion(onClose);
   const session = detail.session;
@@ -8780,7 +8960,15 @@ function SessionTokenStatsDialog({ detail, onClose }: { detail: SessionDetailRes
         </DialogActionButton>
       </header>
       <div class="min-h-0 flex-1 space-y-4 overflow-y-auto" style={{ scrollbarWidth: 'thin', overscrollBehavior: 'contain' }}>
-        <SessionTokenStatsContent stats={tokenStats} trendDisplayMode={trendDisplayMode} onTrendDisplayModeChange={setTrendDisplayMode} />
+        <SessionTokenStatsContent
+          stats={tokenStats}
+          trendDisplayMode={trendDisplayMode}
+          onTrendDisplayModeChange={setTrendDisplayMode}
+          onPointSelected={(point) => {
+            requestClose();
+            onPointSelected(point);
+          }}
+        />
       </div>
     </DialogFrame>
   );
@@ -9260,6 +9448,7 @@ function buildSessionCacheHitDisplay(
     starterMessageId: p.starter_message_id ?? null,
     starterMessageKind: p.starter_message_kind ?? null,
     starterOrigin: p.starter_origin ?? null,
+    anchorMessageId: p.anchor_message_id ?? null,
     idleGapSeconds: p.idle_gap_seconds ?? null,
   })) ?? [];
   const defaultDisplay = trendPoints.length > 0

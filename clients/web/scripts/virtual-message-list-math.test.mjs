@@ -16,6 +16,7 @@ import {
   remainingNewerMessageCount,
   shouldVirtualizeMessageList,
   virtualMessageTop,
+  virtualMessageRangeAroundIndex,
   virtualMessageTotalHeight,
 } from '../src/shared/util/virtual_message_list_math.ts';
 
@@ -60,6 +61,21 @@ test('initial range for large N is a bounded latest tail', () => {
   assert.ok(range.start > 0);
   assert.ok(range.end - range.start <= 20);
   assert.ok(range.end - range.start >= 8);
+});
+
+test('target range materializes first, middle, and last messages', () => {
+  assert.deepEqual(virtualMessageRangeAroundIndex(1000, 0, 16), {
+    start: 0,
+    end: 16,
+  });
+  assert.deepEqual(virtualMessageRangeAroundIndex(1000, 500, 16), {
+    start: 492,
+    end: 508,
+  });
+  assert.deepEqual(virtualMessageRangeAroundIndex(1000, 999, 16), {
+    start: 984,
+    end: 1000,
+  });
 });
 
 test('clampMessageRowHeight bounds and fallbacks', () => {

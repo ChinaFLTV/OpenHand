@@ -170,6 +170,22 @@ export function initialVirtualMessageRange(
   return { start: count - windowSize, end: count };
 }
 
+export function virtualMessageRangeAroundIndex(
+  messageCount: number,
+  targetIndex: number,
+  windowSize: number,
+): VirtualMessageRange {
+  const count = Math.max(0, Math.floor(messageCount));
+  if (count === 0) return { start: 0, end: 0 };
+  const size = Math.max(1, Math.min(count, Math.floor(windowSize)));
+  const index = Math.max(0, Math.min(count - 1, Math.floor(targetIndex)));
+  const start = Math.max(
+    0,
+    Math.min(count - size, index - Math.floor(size / 2)),
+  );
+  return { start, end: start + size };
+}
+
 export function resolveVirtualMessageRange(params: {
   messageCount: number;
   prefix: number[];

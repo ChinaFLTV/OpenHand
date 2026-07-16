@@ -4450,6 +4450,47 @@ button.oh-message-context-capsule {
 }
 .oh-session-message-row {
   overflow-anchor: none;
+  position: relative;
+  border-radius: var(--m3-shape-large, 16px);
+}
+.oh-session-message-row.is-cache-hit-target::after {
+  content: '';
+  position: absolute;
+  inset: -5px;
+  z-index: 2;
+  pointer-events: none;
+  border: 2px solid color-mix(in srgb, var(--m3-primary) 74%, transparent);
+  border-radius: inherit;
+  animation: oh-cache-hit-target-pulse 1400ms cubic-bezier(0.22, 0.92, 0.28, 1) both;
+}
+@keyframes oh-cache-hit-target-pulse {
+  0% {
+    opacity: 0;
+    transform: scale(0.985);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--m3-primary) 0%, transparent);
+  }
+  22% {
+    opacity: 1;
+    transform: scale(1);
+    box-shadow: 0 0 0 7px color-mix(in srgb, var(--m3-primary) 15%, transparent);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.008);
+    box-shadow: 0 0 0 14px color-mix(in srgb, var(--m3-primary) 0%, transparent);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .oh-session-message-row.is-cache-hit-target::after {
+    animation: none;
+    opacity: 1;
+    box-shadow: 0 0 0 5px color-mix(in srgb, var(--m3-primary) 12%, transparent);
+  }
+}
+[data-motion='reduced'] .oh-session-message-row.is-cache-hit-target::after {
+  animation: none;
+  opacity: 1;
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--m3-primary) 12%, transparent);
 }
 .oh-session-virtual-message-list {
   overflow-anchor: none;

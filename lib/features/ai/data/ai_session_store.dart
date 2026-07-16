@@ -998,6 +998,26 @@ class AiSessionStore {
     return _messageFromRow(rows.first);
   }
 
+  /// 返回消息在会话持久化顺序中的零基偏移，不加载消息正文。
+  Future<int?> messageOffset(String sessionId, String messageId) async {
+    final normalizedSessionId = sessionId.trim();
+    final normalizedMessageId = messageId.trim();
+    if (!_isSafeStorageIdentifier(normalizedSessionId) ||
+        !_isSafeStorageIdentifier(normalizedMessageId)) {
+      return null;
+    }
+    final rows = await _db.query(
+      'messages',
+      columns: const <String>['sort_order'],
+      where: 'session_id = ? AND id = ?',
+      whereArgs: <Object?>[normalizedSessionId, normalizedMessageId],
+      limit: 1,
+    );
+    if (rows.isEmpty) return null;
+    final offset = rows.first['sort_order'];
+    return offset is int ? math.max(0, offset) : null;
+  }
+
   /// Returns the stored message count without decoding any message rows.
   Future<int> countMessages(String sessionId) => _countMessages(sessionId);
 

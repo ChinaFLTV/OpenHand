@@ -1234,23 +1234,24 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     bool requestIsCurrent() =>
         mounted && generation == _scrollRequestGeneration;
     if (!requestIsCurrent()) return false;
-    void flashTarget() {
+    void flashTarget(String anchorMessageId) {
       if (!highlight || !mounted) return;
       _targetHighlightTimer?.cancel();
-      setState(() => _highlightedMessageId = messageId);
+      setState(() => _highlightedMessageId = anchorMessageId);
       _targetHighlightTimer = startSafeTimer(
         _kTranscriptTargetHighlightDuration,
         () {
           _targetHighlightTimer = null;
-          if (!mounted || _highlightedMessageId != messageId) return;
+          if (!mounted || _highlightedMessageId != anchorMessageId) return;
           setState(() => _highlightedMessageId = null);
         },
       );
     }
 
-    Future<bool> tryEnsureVisible() async {
+    Future<bool> tryEnsureVisible(String? anchorMessageId) async {
+      if (anchorMessageId == null) return false;
       if (!requestIsCurrent()) return false;
-      final ctx = _bubbleRegistry.contextOf(messageId);
+      final ctx = _bubbleRegistry.contextOf(anchorMessageId);
       if (ctx == null) return false;
       await Scrollable.ensureVisible(
         ctx,
@@ -1262,17 +1263,23 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         curve: _kTranscriptTargetScrollCurve,
       );
       if (!requestIsCurrent()) return false;
-      flashTarget();
+      flashTarget(anchorMessageId);
       return true;
     }
 
-    if (await tryEnsureVisible()) return true;
+    String? resolveAnchor() =>
+        widget.session.transcriptAnchorForRoundStarter(messageId)?.id;
+
+    var anchorMessageId = resolveAnchor();
+    if (await tryEnsureVisible(anchorMessageId)) return true;
     if (!requestIsCurrent()) return false;
 
     // 目标可能尚未从持久层载入，也可能只是在当前渲染窗口之前。统一通过
     // reveal-older 有界推进：先加载缺失的历史批次，再把目标纳入物化窗口。
     var display = widget.session.displayMessages;
-    var targetDisplayIndex = display.indexWhere((m) => m.id == messageId);
+    var targetDisplayIndex = anchorMessageId == null
+        ? -1
+        : display.indexWhere((m) => m.id == anchorMessageId);
     var safety = math.max(
       32,
       (math.max(widget.session.messageTotalCount, display.length) /
@@ -1289,15 +1296,20 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       if (!targetNeedsWindowReveal && !targetNeedsHydration) break;
       await _revealOlderMessages();
       await WidgetsBinding.instance.endOfFrame;
-      if (await tryEnsureVisible()) return true;
+      anchorMessageId = resolveAnchor();
+      if (await tryEnsureVisible(anchorMessageId)) return true;
       if (!requestIsCurrent()) return false;
       display = widget.session.displayMessages;
-      targetDisplayIndex = display.indexWhere((m) => m.id == messageId);
+      targetDisplayIndex = anchorMessageId == null
+          ? -1
+          : display.indexWhere((m) => m.id == anchorMessageId);
     }
-    if (targetDisplayIndex < 0) return false;
-    if (await tryEnsureVisible()) return true;
+    if (targetDisplayIndex < 0 || anchorMessageId == null) return false;
+    if (await tryEnsureVisible(anchorMessageId)) return true;
 
-    final renderIndex = _renderEntries.indexWhere((e) => e.id == messageId);
+    final renderIndex = _renderEntries.indexWhere(
+      (entry) => entry.id == anchorMessageId,
+    );
     if (renderIndex < 0) return false;
     // 惰性列表中，目标虽然已进入 render entries，但离视口较远时尚未
     // mount，因此先按 index + 已挂载气泡高度估算滚到附近，再由
@@ -1309,7 +1321,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       attempt += 1
     ) {
       await WidgetsBinding.instance.endOfFrame;
-      if (await tryEnsureVisible()) return true;
+      if (await tryEnsureVisible(anchorMessageId)) return true;
       if (!mounted) return false;
       if (attempt == 2) {
         _scrollNearRenderEntryIndex(renderIndex);
