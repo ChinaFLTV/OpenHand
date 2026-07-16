@@ -26,6 +26,8 @@ import 'mcp_dialog_utils.dart';
 
 const int _toolSearchHistoryImportMaxBytes = 8 * kBytesPerMiB;
 const int _mcpGroupExpansionCacheMaxEntries = 128;
+const double _toolSearchDialogMaxWidth = 720;
+const double _toolSearchToolbarBreakpoint = 520;
 
 Future<void> showToolSearchLoadedDialog(
   BuildContext context, {
@@ -82,7 +84,7 @@ class _ToolGroup {
   final String? server;
   final List<String> names;
 
-  String get persistKey => server ?? '_misc';
+  String get persistKey => server == null ? 'misc' : 'server:$server';
 }
 
 /// 进程级缓存，记录用户对每个分组的折叠/展开偏好。
@@ -129,9 +131,20 @@ List<_ToolGroup> _groupByServer(List<String> names) {
   return groups;
 }
 
+List<String> _normalizeToolNames(Iterable<String> names) {
+  final normalized = <String>{};
+  for (final name in names) {
+    final value = name.trim();
+    if (value.isNotEmpty) normalized.add(value);
+  }
+  final result = normalized.toList(growable: false)..sort();
+  return List<String>.unmodifiable(result);
+}
+
 class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
     with SingleTickerProviderStateMixin {
-  late List<String> _names = List<String>.unmodifiable(widget.initialNames);
+  late List<String> _names = _normalizeToolNames(widget.initialNames);
+  late List<_ToolGroup> _groups = _groupByServer(_names);
   late List<AiToolSearchLoadHistoryEntry> _history =
       List<AiToolSearchLoadHistoryEntry>.unmodifiable(widget.initialHistory);
   late final TabController _tabController = TabController(
@@ -164,6 +177,7 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
     onClear();
     setState(() {
       _names = const <String>[];
+      _groups = const <_ToolGroup>[];
     });
     final l10n = AppLocalizations.of(context);
     if (l10n == null) return;
@@ -176,7 +190,7 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
       context: context,
       text: 'select:$name',
       successMessage: l10n?.snackToolSearchLoadedCopiedToast,
-      logAction: 'copy tool search selection',
+      logAction: '复制 ToolSearch 工具选择',
     );
   }
 
@@ -188,7 +202,7 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
       context: context,
       text: payload,
       successMessage: l10n?.snackToolSearchLoadedCopiedToast,
-      logAction: 'copy tool search group',
+      logAction: '复制 ToolSearch 工具组',
     );
   }
 
@@ -211,7 +225,7 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
       context: context,
       text: payload,
       successMessage: l10n?.snackToolSearchLoadedCopiedToast,
-      logAction: 'copy tool search history replay',
+      logAction: '复制 ToolSearch 历史选择',
     );
   }
 
@@ -225,7 +239,7 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
     flashOpenHandSnack(context, l10n.snackToolSearchLoadedHistoryClearedToast);
   }
 
-  /// 把当前 [_history]（应用 [_historyFilterQuery]、[_historyFilterSource] 之后）
+  /// 把当前 [_history]（应用 [_historyFilterQuery]、[_historySourceFilter] 之后）
   /// 序列化为 CSV 或 Markdown，并按 [action] 选择目的地：
   ///   - copy: 写入系统剪贴板，Toast 行数；
   ///   - save: 调 file_selector 让用户挑文件，写盘后 Toast 路径。
@@ -255,11 +269,11 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
         successMessage: l10n.snackToolSearchLoadedHistoryExportedToast(
           entries.length,
         ),
-        logAction: 'copy tool search history export',
+        logAction: '复制 ToolSearch 历史导出内容',
       );
       return;
     }
-    // Save-to-file branch.
+    // 保存到文件。
     final ext = isCsv ? 'csv' : (isJson ? 'json' : 'md');
     final stamp = DateTime.now()
         .toIso8601String()
@@ -314,7 +328,7 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
     }
     if (!mounted) return;
     final savedPath = location.path;
-    // Remember the directory for next export.
+    // 记录目录，供下次导出使用。
     unawaited(ToolSearchHistoryExportPrefs.writeLastDir(p.dirname(savedPath)));
     flashOpenHandSnack(
       context,
@@ -444,60 +458,129 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final groups = _groupByServer(_names);
-    return buildOpenHandAlertDialog(
-      title: Row(
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return buildOpenHandResponsiveDialogShell(
+      context: context,
+      maxWidth: _toolSearchDialogMaxWidth,
+      maxWidthFraction: 0.94,
+      maxHeightFraction: 0.9,
+      minAvailableWidth: 320,
+      minAvailableHeight: 420,
+      horizontalMargin: 24,
+      verticalMargin: 40,
+      safeAreaMinimum: const EdgeInsets.all(12),
+      backgroundColor: colorScheme.surfaceContainer,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      expandToMax: true,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Expanded(child: Text(l10n.snackToolSearchLoadedDialogTitle)),
-          if (widget.onClear != null && _names.isNotEmpty)
-            TextButton.icon(
-              onPressed: _handleClear,
-              icon: const Icon(Icons.delete_sweep_rounded, size: 16),
-              label: Text(l10n.snackToolSearchLoadedClearAction),
+          buildOpenHandToolDialogHeader(
+            context: context,
+            icon: Icons.extension_rounded,
+            iconSize: 22,
+            title: l10n.snackToolSearchLoadedDialogTitle,
+            subtitle: l10n.snackToolSearchLoadedSummary(
+              _history.length,
+              _names.length,
             ),
-        ],
-      ),
-      content: SizedBox(
-        width: 480,
-        height: 480,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildSummaryStrip(context, l10n),
-            TabBar(
-              controller: _tabController,
-              tabs: [
-                Tab(
-                  icon: const Icon(Icons.checklist_rounded, size: 18),
-                  text:
-                      '${l10n.snackToolSearchLoadedTabLoaded} (${_names.length})',
+            actions: [
+              if (widget.onClear != null)
+                IconButton(
+                  tooltip: l10n.snackToolSearchLoadedClearAction,
+                  onPressed: _names.isEmpty ? null : _handleClear,
+                  icon: const Icon(Icons.delete_sweep_rounded, size: 19),
                 ),
-                Tab(
-                  icon: const Icon(Icons.history_rounded, size: 18),
-                  text:
-                      '${l10n.snackToolSearchLoadedTabHistory} (${_history.length})',
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Expanded(
+            ],
+            closeTooltip: l10n.snackToolSearchLoadedDialogClose,
+          ),
+          Divider(height: 1, color: colorScheme.outlineVariant),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+            child: _buildTabBar(context, l10n),
+          ),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
               child: TabBarView(
                 controller: _tabController,
                 children: [
-                  _buildLoadedTab(context, l10n, groups),
+                  _buildLoadedTab(context, l10n, _groups),
                   _buildHistoryTab(context, l10n),
                 ],
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
-      actions: [
-        OpenHandDialogActionButton.primary(
-          onPressed: () => Navigator.of(context).pop(),
-          label: l10n.snackToolSearchLoadedDialogClose,
+    );
+  }
+
+  Widget _buildTabBar(BuildContext context, AppLocalizations l10n) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return Container(
+      height: 48,
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.72),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: colorScheme.outlineVariant),
+      ),
+      child: TabBar(
+        controller: _tabController,
+        dividerColor: Colors.transparent,
+        indicatorSize: TabBarIndicatorSize.tab,
+        indicator: BoxDecoration(
+          color: colorScheme.primaryContainer,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: colorScheme.primary.withValues(alpha: 0.24),
+          ),
         ),
-      ],
+        labelColor: colorScheme.onPrimaryContainer,
+        unselectedLabelColor: colorScheme.onSurfaceVariant,
+        labelStyle: theme.textTheme.labelLarge?.copyWith(
+          fontWeight: FontWeight.w700,
+        ),
+        tabs: [
+          Tab(
+            height: 40,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.checklist_rounded, size: 18),
+                const SizedBox(width: 7),
+                Flexible(
+                  child: Text(
+                    '${l10n.snackToolSearchLoadedTabLoaded} · ${_names.length}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Tab(
+            height: 40,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.history_rounded, size: 18),
+                const SizedBox(width: 7),
+                Flexible(
+                  child: Text(
+                    '${l10n.snackToolSearchLoadedTabHistory} · ${_history.length}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -507,44 +590,50 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
     List<_ToolGroup> groups,
   ) {
     if (_names.isEmpty) {
-      return Align(
-        alignment: Alignment.topLeft,
-        child: Text('—', style: Theme.of(context).textTheme.bodyMedium),
+      return _buildEmptyState(
+        context,
+        icon: Icons.extension_off_rounded,
+        title: openHandLocalizedText(
+          context,
+          zh: '尚未加载 MCP 工具',
+          zhHant: '尚未載入 MCP 工具',
+          en: 'No MCP tools loaded',
+          fr: 'Aucun outil MCP chargé',
+          de: 'Keine MCP-Tools geladen',
+          ja: 'MCP ツールはまだロードされていません',
+        ),
       );
     }
     final filtered = _filterGroups(groups);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        TextField(
+        _buildSearchField(
           controller: _filterController,
-          decoration: InputDecoration(
-            isDense: true,
-            prefixIcon: const Icon(Icons.search_rounded, size: 18),
-            hintText: l10n.snackToolSearchLoadedFilterHint,
-            suffixIcon: _filterQuery.isEmpty
-                ? null
-                : IconButton(
-                    icon: const Icon(Icons.close_rounded, size: 16),
-                    visualDensity: VisualDensity.compact,
-                    onPressed: () {
-                      _filterController.clear();
-                      setState(() => _filterQuery = '');
-                    },
-                  ),
-            border: const OutlineInputBorder(),
-          ),
+          query: _filterQuery,
+          hintText: l10n.snackToolSearchLoadedFilterHint,
           onChanged: (v) => setState(() => _filterQuery = v),
+          onClear: () {
+            _filterController.clear();
+            setState(() => _filterQuery = '');
+          },
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 12),
         Expanded(
           child: filtered.isEmpty
-              ? Align(
-                  alignment: Alignment.topLeft,
-                  child: Text(
-                    '—',
-                    style: Theme.of(context).textTheme.bodyMedium,
+              ? _buildEmptyState(
+                  context,
+                  icon: Icons.search_off_rounded,
+                  title: openHandLocalizedText(
+                    context,
+                    zh: '没有匹配的工具',
+                    zhHant: '沒有符合的工具',
+                    en: 'No matching tools',
+                    fr: 'Aucun outil correspondant',
+                    de: 'Keine passenden Tools',
+                    ja: '一致するツールはありません',
                   ),
+                  description: l10n.snackToolSearchLoadedFilterHint,
                 )
               : PrimaryScrollController.none(
                   child: OpenHandSafeScrollbar(
@@ -552,7 +641,7 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
                     child: ListView.builder(
                       controller: _groupsScrollController,
                       primary: false,
-                      shrinkWrap: true,
+                      padding: const EdgeInsets.only(bottom: 4),
                       itemCount: filtered.length,
                       itemBuilder: (_, index) =>
                           _buildGroup(context, filtered[index], l10n),
@@ -564,160 +653,146 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
     );
   }
 
+  Widget _buildSearchField({
+    required TextEditingController controller,
+    required String query,
+    required String hintText,
+    required ValueChanged<String> onChanged,
+    required VoidCallback onClear,
+  }) {
+    return SizedBox(
+      height: 46,
+      child: TextField(
+        controller: controller,
+        textInputAction: TextInputAction.search,
+        decoration: InputDecoration(
+          isDense: true,
+          prefixIcon: const Icon(Icons.search_rounded, size: 19),
+          prefixIconConstraints: const BoxConstraints(minWidth: 44),
+          hintText: hintText,
+          contentPadding: const EdgeInsets.symmetric(vertical: 12),
+          suffixIcon: query.isEmpty
+              ? null
+              : IconButton(
+                  tooltip: MaterialLocalizations.of(context).clearButtonTooltip,
+                  icon: const Icon(Icons.close_rounded, size: 17),
+                  visualDensity: VisualDensity.compact,
+                  onPressed: onClear,
+                ),
+          suffixIconConstraints: const BoxConstraints(minWidth: 42),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: BorderSide(
+              color: Theme.of(context).colorScheme.outlineVariant,
+            ),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: BorderSide(
+              color: Theme.of(context).colorScheme.primary,
+              width: 1.5,
+            ),
+          ),
+        ),
+        onChanged: onChanged,
+      ),
+    );
+  }
+
+  Widget _buildEmptyState(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    String? description,
+  }) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 360),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  color: colorScheme.primaryContainer.withValues(alpha: 0.7),
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: Icon(icon, color: colorScheme.onPrimaryContainer),
+              ),
+              const SizedBox(height: 14),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              if (description != null && description.isNotEmpty) ...[
+                const SizedBox(height: 5),
+                Text(
+                  description,
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    height: 1.35,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildHistoryTab(BuildContext context, AppLocalizations l10n) {
     if (_history.isEmpty) {
-      return Align(
-        alignment: Alignment.topLeft,
-        child: Text(
-          l10n.snackToolSearchLoadedHistoryEmpty,
-          style: Theme.of(context).textTheme.bodyMedium,
-        ),
+      return _buildEmptyState(
+        context,
+        icon: Icons.history_toggle_off_rounded,
+        title: l10n.snackToolSearchLoadedHistoryEmpty,
       );
     }
-    // Show newest first.
+    // 最新记录优先，减少用户查找刚完成操作的成本。
     final reversed = _history.reversed.toList(growable: false);
     final filtered = _filterHistory(reversed);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: _historyFilterController,
-                decoration: InputDecoration(
-                  isDense: true,
-                  prefixIcon: const Icon(Icons.search_rounded, size: 18),
-                  hintText: l10n.snackToolSearchLoadedHistoryFilterHint,
-                  suffixIcon: _historyFilterQuery.isEmpty
-                      ? null
-                      : IconButton(
-                          icon: const Icon(Icons.close_rounded, size: 16),
-                          visualDensity: VisualDensity.compact,
-                          onPressed: () {
-                            _historyFilterController.clear();
-                            setState(() => _historyFilterQuery = '');
-                          },
-                        ),
-                  border: const OutlineInputBorder(),
-                ),
-                onChanged: (v) => setState(() => _historyFilterQuery = v),
-              ),
-            ),
-            const SizedBox(width: 8),
-            AnimatedPopupMenuButton<_HistoryExportAction>(
-              tooltip: l10n.snackToolSearchLoadedHistoryExportTooltip,
-              icon: const Icon(Icons.ios_share_rounded, size: 18),
-              padding: EdgeInsets.zero,
-              onSelected: _handleExportHistory,
-              itemBuilder: (context) => <PopupMenuEntry<_HistoryExportAction>>[
-                PopupMenuItem<_HistoryExportAction>(
-                  value: _HistoryExportAction.copyCsv,
-                  child: Tooltip(
-                    message: l10n.snackToolSearchLoadedHistoryExportCsvHint,
-                    child: Text(l10n.snackToolSearchLoadedHistoryExportCsv),
-                  ),
-                ),
-                PopupMenuItem<_HistoryExportAction>(
-                  value: _HistoryExportAction.copyMarkdown,
-                  child: Tooltip(
-                    message:
-                        l10n.snackToolSearchLoadedHistoryExportMarkdownHint,
-                    child: Text(
-                      l10n.snackToolSearchLoadedHistoryExportMarkdown,
-                    ),
-                  ),
-                ),
-                PopupMenuItem<_HistoryExportAction>(
-                  value: _HistoryExportAction.copyJson,
-                  child: Tooltip(
-                    message: l10n.snackToolSearchLoadedHistoryExportJsonHint,
-                    child: Text(l10n.snackToolSearchLoadedHistoryExportJson),
-                  ),
-                ),
-                const PopupMenuDivider(),
-                PopupMenuItem<_HistoryExportAction>(
-                  value: _HistoryExportAction.saveCsv,
-                  child: Tooltip(
-                    message: l10n.snackToolSearchLoadedHistoryExportCsvHint,
-                    child: Text(l10n.snackToolSearchLoadedHistoryExportSaveCsv),
-                  ),
-                ),
-                PopupMenuItem<_HistoryExportAction>(
-                  value: _HistoryExportAction.saveMarkdown,
-                  child: Tooltip(
-                    message:
-                        l10n.snackToolSearchLoadedHistoryExportMarkdownHint,
-                    child: Text(
-                      l10n.snackToolSearchLoadedHistoryExportSaveMarkdown,
-                    ),
-                  ),
-                ),
-                PopupMenuItem<_HistoryExportAction>(
-                  value: _HistoryExportAction.saveJson,
-                  child: Tooltip(
-                    message: l10n.snackToolSearchLoadedHistoryExportJsonHint,
-                    child: Text(
-                      l10n.snackToolSearchLoadedHistoryExportSaveJson,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(width: 4),
-            IconButton(
-              tooltip: l10n.toolSearchLoadedHistoryImportTooltip,
-              icon: const Icon(Icons.file_open_rounded, size: 18),
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-              onPressed: _handleImportHistoryFromJson,
-            ),
-            const SizedBox(width: 4),
-            TextButton.icon(
-              onPressed: _handleClearHistory,
-              icon: const Icon(Icons.delete_sweep_rounded, size: 16),
-              label: Text(l10n.snackToolSearchLoadedHistoryClearAction),
-            ),
-          ],
+        _buildSearchField(
+          controller: _historyFilterController,
+          query: _historyFilterQuery,
+          hintText: l10n.snackToolSearchLoadedHistoryFilterHint,
+          onChanged: (v) => setState(() => _historyFilterQuery = v),
+          onClear: () {
+            _historyFilterController.clear();
+            setState(() => _historyFilterQuery = '');
+          },
         ),
-        const SizedBox(height: 6),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: SegmentedButton<AiToolSearchLoadSource?>(
-            showSelectedIcon: false,
-            style: const ButtonStyle(
-              visualDensity: VisualDensity.compact,
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            ),
-            segments: <ButtonSegment<AiToolSearchLoadSource?>>[
-              ButtonSegment(
-                value: null,
-                label: Text(l10n.snackToolSearchLoadedSourceFilterAll),
-              ),
-              ButtonSegment(
-                value: AiToolSearchLoadSource.aiSession,
-                label: Text(l10n.snackToolSearchLoadedSourceFilterAi),
-              ),
-              ButtonSegment(
-                value: AiToolSearchLoadSource.harnessPhase,
-                label: Text(l10n.snackToolSearchLoadedSourceFilterHarness),
-              ),
-            ],
-            selected: <AiToolSearchLoadSource?>{_historySourceFilter},
-            onSelectionChanged: (selection) {
-              setState(() => _historySourceFilter = selection.first);
-            },
-          ),
-        ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 10),
+        _buildHistoryToolbar(context, l10n),
+        const SizedBox(height: 12),
         Expanded(
           child: filtered.isEmpty
-              ? Align(
-                  alignment: Alignment.topLeft,
-                  child: Text(
-                    l10n.snackToolSearchLoadedHistoryEmpty,
-                    style: Theme.of(context).textTheme.bodyMedium,
+              ? _buildEmptyState(
+                  context,
+                  icon: Icons.search_off_rounded,
+                  title: openHandLocalizedText(
+                    context,
+                    zh: '没有匹配的历史记录',
+                    zhHant: '沒有符合的歷史紀錄',
+                    en: 'No matching history',
+                    fr: 'Aucun historique correspondant',
+                    de: 'Kein passender Verlauf',
+                    ja: '一致する履歴はありません',
                   ),
+                  description: l10n.snackToolSearchLoadedHistoryFilterHint,
                 )
               : PrimaryScrollController.none(
                   child: OpenHandSafeScrollbar(
@@ -725,9 +800,9 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
                     child: ListView.separated(
                       controller: _historyScrollController,
                       primary: false,
-                      shrinkWrap: true,
+                      padding: const EdgeInsets.only(bottom: 4),
                       itemCount: filtered.length,
-                      separatorBuilder: (_, _) => const Divider(height: 1),
+                      separatorBuilder: (_, _) => const SizedBox(height: 10),
                       itemBuilder: (_, index) =>
                           _buildHistoryEntry(context, l10n, filtered[index]),
                     ),
@@ -736,6 +811,141 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
         ),
       ],
     );
+  }
+
+  Widget _buildHistoryToolbar(BuildContext context, AppLocalizations l10n) {
+    final sourceFilter = SegmentedButton<AiToolSearchLoadSource?>(
+      showSelectedIcon: false,
+      style: const ButtonStyle(
+        minimumSize: WidgetStatePropertyAll(Size(0, 38)),
+        visualDensity: VisualDensity.compact,
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      ),
+      segments: <ButtonSegment<AiToolSearchLoadSource?>>[
+        ButtonSegment(
+          value: null,
+          label: Text(l10n.snackToolSearchLoadedSourceFilterAll),
+        ),
+        ButtonSegment(
+          value: AiToolSearchLoadSource.aiSession,
+          label: Text(l10n.snackToolSearchLoadedSourceFilterAi),
+        ),
+        ButtonSegment(
+          value: AiToolSearchLoadSource.harnessPhase,
+          label: Text(l10n.snackToolSearchLoadedSourceFilterHarness),
+        ),
+      ],
+      selected: <AiToolSearchLoadSource?>{_historySourceFilter},
+      onSelectionChanged: (selection) {
+        setState(() => _historySourceFilter = selection.first);
+      },
+    );
+    final actions = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        AnimatedPopupMenuButton<_HistoryExportAction>(
+          tooltip: l10n.snackToolSearchLoadedHistoryExportTooltip,
+          icon: const Icon(Icons.ios_share_rounded, size: 18),
+          padding: EdgeInsets.zero,
+          buttonConstraints: const BoxConstraints.tightFor(
+            width: 38,
+            height: 38,
+          ),
+          onSelected: _handleExportHistory,
+          itemBuilder: (context) => _buildHistoryExportItems(l10n),
+        ),
+        const SizedBox(width: 6),
+        IconButton(
+          tooltip: l10n.toolSearchLoadedHistoryImportTooltip,
+          icon: const Icon(Icons.file_open_rounded, size: 18),
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints.tightFor(width: 38, height: 38),
+          onPressed: _handleImportHistoryFromJson,
+        ),
+        const SizedBox(width: 6),
+        IconButton(
+          tooltip: l10n.snackToolSearchLoadedHistoryClearAction,
+          icon: const Icon(Icons.delete_sweep_rounded, size: 18),
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints.tightFor(width: 38, height: 38),
+          onPressed: _handleClearHistory,
+        ),
+      ],
+    );
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < _toolSearchToolbarBreakpoint) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Align(alignment: Alignment.centerLeft, child: sourceFilter),
+              const SizedBox(height: 8),
+              Align(alignment: Alignment.centerRight, child: actions),
+            ],
+          );
+        }
+        return Row(
+          children: [
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 420),
+              child: sourceFilter,
+            ),
+            const Spacer(),
+            actions,
+          ],
+        );
+      },
+    );
+  }
+
+  List<PopupMenuEntry<_HistoryExportAction>> _buildHistoryExportItems(
+    AppLocalizations l10n,
+  ) {
+    return <PopupMenuEntry<_HistoryExportAction>>[
+      PopupMenuItem<_HistoryExportAction>(
+        value: _HistoryExportAction.copyCsv,
+        child: Tooltip(
+          message: l10n.snackToolSearchLoadedHistoryExportCsvHint,
+          child: Text(l10n.snackToolSearchLoadedHistoryExportCsv),
+        ),
+      ),
+      PopupMenuItem<_HistoryExportAction>(
+        value: _HistoryExportAction.copyMarkdown,
+        child: Tooltip(
+          message: l10n.snackToolSearchLoadedHistoryExportMarkdownHint,
+          child: Text(l10n.snackToolSearchLoadedHistoryExportMarkdown),
+        ),
+      ),
+      PopupMenuItem<_HistoryExportAction>(
+        value: _HistoryExportAction.copyJson,
+        child: Tooltip(
+          message: l10n.snackToolSearchLoadedHistoryExportJsonHint,
+          child: Text(l10n.snackToolSearchLoadedHistoryExportJson),
+        ),
+      ),
+      const PopupMenuDivider(),
+      PopupMenuItem<_HistoryExportAction>(
+        value: _HistoryExportAction.saveCsv,
+        child: Tooltip(
+          message: l10n.snackToolSearchLoadedHistoryExportCsvHint,
+          child: Text(l10n.snackToolSearchLoadedHistoryExportSaveCsv),
+        ),
+      ),
+      PopupMenuItem<_HistoryExportAction>(
+        value: _HistoryExportAction.saveMarkdown,
+        child: Tooltip(
+          message: l10n.snackToolSearchLoadedHistoryExportMarkdownHint,
+          child: Text(l10n.snackToolSearchLoadedHistoryExportSaveMarkdown),
+        ),
+      ),
+      PopupMenuItem<_HistoryExportAction>(
+        value: _HistoryExportAction.saveJson,
+        child: Tooltip(
+          message: l10n.snackToolSearchLoadedHistoryExportJsonHint,
+          child: Text(l10n.snackToolSearchLoadedHistoryExportSaveJson),
+        ),
+      ),
+    ];
   }
 
   /// 按 [_historyFilterQuery] 同时匹配 entry.query 与 entry.addedNames，
@@ -763,89 +973,167 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
     AiToolSearchLoadHistoryEntry entry,
   ) {
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     final localTime = entry.timestamp.toLocal();
     final timestampLabel = formatYearMonthDayHms(localTime);
     final queryLabel = entry.query.isEmpty ? '—' : entry.query;
-    return InkWell(
-      onTap: entry.addedNames.isEmpty
-          ? null
-          : () => _handleReplayHistoryEntry(entry),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(
-                  Icons.bolt_rounded,
-                  size: 16,
-                  color: theme.colorScheme.primary,
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  timestampLabel,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  '+${entry.addedCount} / ${entry.totalDeferred}',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: theme.colorScheme.primary,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                _buildSourceChip(theme, l10n, entry.source),
-                const Spacer(),
-                IconButton(
-                  tooltip: l10n.snackToolSearchLoadedHistoryReplayAction,
-                  icon: const Icon(Icons.copy_all_rounded, size: 16),
-                  visualDensity: VisualDensity.compact,
-                  onPressed: entry.addedNames.isEmpty
-                      ? null
-                      : () => _handleReplayHistoryEntry(entry),
-                ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            SelectableText.rich(
-              TextSpan(
+    final canReplay = entry.addedNames.isNotEmpty;
+    return Material(
+      color: colorScheme.surfaceContainerLow,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: colorScheme.outlineVariant),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: canReplay ? () => _handleReplayHistoryEntry(entry) : null,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 12, 10, 13),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
                 children: [
-                  TextSpan(
-                    text: l10n.snackToolSearchLoadedHistoryQueryPrefix,
-                    style: theme.textTheme.bodySmall,
-                  ),
-                  TextSpan(
-                    text: queryLabel,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      fontFamily: 'monospace',
+                  Expanded(
+                    child: Wrap(
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 8,
+                      runSpacing: 6,
+                      children: [
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.schedule_rounded,
+                              size: 15,
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                            const SizedBox(width: 5),
+                            Text(
+                              timestampLabel,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: colorScheme.onSurfaceVariant,
+                                fontFeatures: const [
+                                  FontFeature.tabularFigures(),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: colorScheme.primaryContainer,
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Text(
+                            '+${entry.addedCount} / ${entry.totalDeferred}',
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: colorScheme.onPrimaryContainer,
+                              fontWeight: FontWeight.w700,
+                              fontFeatures: const [
+                                FontFeature.tabularFigures(),
+                              ],
+                            ),
+                          ),
+                        ),
+                        _buildSourceChip(theme, l10n, entry.source),
+                      ],
                     ),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    tooltip: l10n.snackToolSearchLoadedHistoryReplayAction,
+                    icon: Icon(
+                      widget.onReplayBatch == null
+                          ? Icons.copy_all_rounded
+                          : Icons.replay_rounded,
+                      size: 18,
+                    ),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints.tightFor(
+                      width: 36,
+                      height: 36,
+                    ),
+                    onPressed: canReplay
+                        ? () => _handleReplayHistoryEntry(entry)
+                        : null,
                   ),
                 ],
               ),
-            ),
-            const SizedBox(height: 4),
-            Wrap(
-              spacing: 4,
-              runSpacing: 4,
-              children: [
+              const SizedBox(height: 10),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 11,
+                  vertical: 9,
+                ),
+                decoration: BoxDecoration(
+                  color: colorScheme.surfaceContainerHighest.withValues(
+                    alpha: 0.68,
+                  ),
+                  borderRadius: BorderRadius.circular(11),
+                ),
+                child: SelectableText.rich(
+                  TextSpan(
+                    children: [
+                      TextSpan(
+                        text: l10n.snackToolSearchLoadedHistoryQueryPrefix,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      TextSpan(
+                        text: queryLabel,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          fontFamily: 'monospace',
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              if (entry.addedNames.isNotEmpty) ...[
+                const SizedBox(height: 9),
                 for (final name in entry.addedNames)
-                  Chip(
-                    visualDensity: VisualDensity.compact,
-                    label: Text(
-                      name,
-                      style: const TextStyle(
-                        fontFamily: 'monospace',
-                        fontSize: 11,
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Tooltip(
+                      message: name,
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.only(top: 2),
+                            child: Icon(
+                              Icons.extension_rounded,
+                              size: 14,
+                              color: colorScheme.primary,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              name,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                fontFamily: 'monospace',
+                                height: 1.35,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
               ],
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -859,103 +1147,154 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
     final headerLabel = group.server == null
         ? l10n.snackToolSearchLoadedGroupOther
         : group.server!;
-    final countSuffix = ' (${group.names.length})';
     final theme = Theme.of(context);
-    return Theme(
-      // 隐藏 ExpansionTile 默认上下分割线，让组与组之间更紧凑。
-      data: theme.copyWith(dividerColor: Colors.transparent),
-      child: ExpansionTile(
-        key: PageStorageKey<String>('mcpToolGroup:${group.persistKey}'),
-        initiallyExpanded:
-            _mcpGroupExpansionCache.get(group.persistKey) ?? true,
-        onExpansionChanged: (expanded) {
-          _mcpGroupExpansionCache.put(group.persistKey, expanded);
-        },
-        tilePadding: const EdgeInsets.symmetric(horizontal: 12),
-        childrenPadding: const EdgeInsets.only(left: 8, bottom: 4),
-        leading: Icon(
-          group.server == null
-              ? Icons.extension_off_outlined
-              : Icons.dns_rounded,
-          size: 18,
-        ),
-        title: Row(
-          children: [
-            Flexible(
-              child: Text(
-                '$headerLabel$countSuffix',
-                style: const TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontFamily: 'monospace',
+    final colorScheme = theme.colorScheme;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: colorScheme.outlineVariant),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Theme(
+        data: theme.copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          // 折叠状态由有界缓存维护，避免与可选文本的内部滚动状态串槽。
+          key: ValueKey<String>('mcpToolGroup:${group.persistKey}'),
+          initiallyExpanded:
+              _mcpGroupExpansionCache.get(group.persistKey) ?? true,
+          onExpansionChanged: (expanded) {
+            _mcpGroupExpansionCache.put(group.persistKey, expanded);
+          },
+          tilePadding: const EdgeInsets.fromLTRB(12, 4, 10, 4),
+          childrenPadding: EdgeInsets.zero,
+          minTileHeight: 58,
+          leading: Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: colorScheme.primaryContainer.withValues(alpha: 0.72),
+              borderRadius: BorderRadius.circular(11),
+            ),
+            child: Icon(
+              group.server == null
+                  ? Icons.extension_off_outlined
+                  : Icons.dns_rounded,
+              size: 18,
+              color: colorScheme.onPrimaryContainer,
+            ),
+          ),
+          title: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  headerLabel,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontFamily: 'monospace',
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
-                overflow: TextOverflow.ellipsis,
               ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  '${group.names.length}',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+              IconButton(
+                tooltip: l10n.snackToolSearchLoadedCopyGroupAction,
+                icon: const Icon(Icons.copy_all_rounded, size: 17),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints.tightFor(
+                  width: 34,
+                  height: 34,
+                ),
+                onPressed: () => _handleCopyGroup(group),
+              ),
+            ],
+          ),
+          children: [
+            Divider(
+              height: 1,
+              indent: 12,
+              endIndent: 12,
+              color: colorScheme.outlineVariant,
             ),
-            const SizedBox(width: 4),
-            IconButton(
-              tooltip: l10n.snackToolSearchLoadedCopyGroupAction,
-              icon: const Icon(Icons.copy_all_rounded, size: 16),
-              visualDensity: VisualDensity.compact,
-              onPressed: () => _handleCopyGroup(group),
-            ),
+            for (var index = 0; index < group.names.length; index++) ...[
+              _buildToolRow(context, group.names[index], l10n),
+              if (index < group.names.length - 1)
+                Divider(
+                  height: 1,
+                  indent: 54,
+                  endIndent: 12,
+                  color: colorScheme.outlineVariant.withValues(alpha: 0.7),
+                ),
+            ],
           ],
         ),
-        children: [
-          for (final name in group.names)
-            ListTile(
-              dense: true,
-              leading: const Icon(Icons.extension_rounded, size: 18),
-              title: SelectableText(
-                name,
-                style: const TextStyle(fontFamily: 'monospace'),
-              ),
-              trailing: IconButton(
-                tooltip: '${l10n.snackToolSearchLoadedCopyAction}$name',
-                icon: const Icon(Icons.copy_rounded, size: 18),
-                onPressed: () => _handleCopy(name),
-              ),
-            ),
-        ],
       ),
     );
   }
 
-  /// 弹窗顶部 sticky 概要：当前 dialog 内可见的 MCP 工具数 + 历史里
-  /// 累计的查询条数，让用户在不切到 history tab 的情况下即可掌握总量。
-  Widget _buildSummaryStrip(BuildContext context, AppLocalizations l10n) {
+  Widget _buildToolRow(
+    BuildContext context,
+    String name,
+    AppLocalizations l10n,
+  ) {
     final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: theme.colorScheme.primaryContainer.withValues(alpha: 0.35),
-          borderRadius: BorderRadius.circular(6),
-          border: Border.all(
-            color: theme.colorScheme.primary.withValues(alpha: 0.25),
-            width: 0.5,
-          ),
-        ),
+    final colorScheme = theme.colorScheme;
+    return Tooltip(
+      message: name,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 9, 10, 9),
         child: Row(
           children: [
-            Icon(
-              Icons.summarize_rounded,
-              size: 16,
-              color: theme.colorScheme.primary,
+            Container(
+              width: 30,
+              height: 30,
+              decoration: BoxDecoration(
+                color: colorScheme.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(9),
+              ),
+              child: Icon(
+                Icons.extension_rounded,
+                size: 15,
+                color: colorScheme.onSurfaceVariant,
+              ),
             ),
-            const SizedBox(width: 6),
+            const SizedBox(width: 11),
             Expanded(
-              child: Text(
-                l10n.snackToolSearchLoadedSummary(
-                  _history.length,
-                  _names.length,
-                ),
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.primary,
-                  fontWeight: FontWeight.w600,
+              child: SelectableText(
+                name,
+                maxLines: 2,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontFamily: 'monospace',
+                  fontSize: 12.5,
+                  height: 1.35,
                 ),
               ),
+            ),
+            const SizedBox(width: 8),
+            IconButton(
+              tooltip: '${l10n.snackToolSearchLoadedCopyAction}$name',
+              icon: const Icon(Icons.copy_rounded, size: 17),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints.tightFor(width: 36, height: 36),
+              onPressed: () => _handleCopy(name),
             ),
           ],
         ),
@@ -978,10 +1317,10 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
         ? theme.colorScheme.tertiary
         : theme.colorScheme.secondary;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: BorderRadius.circular(999),
         border: Border.all(color: color.withValues(alpha: 0.4), width: 0.5),
       ),
       child: Text(
@@ -1018,7 +1357,7 @@ enum _HistoryExportAction {
   final _HistoryExportDestination destination;
 }
 
-/// 只读 preview dialog：把 [ToolSearchHistorySerializer.fromJson] 反解出的
+/// 只读预览弹窗：把 [ToolSearchHistorySerializer.fromJson] 反解出的
 /// 一组 entry 以列表形式展示，方便用户检查 JSON 转储是否符合预期。
 /// 不写回任何 tracker；纯检视用途。
 class _ToolSearchHistoryImportPreviewDialog extends StatelessWidget {
@@ -1058,16 +1397,20 @@ class _ToolSearchHistoryImportPreviewDialog extends StatelessWidget {
                       separatorBuilder: (_, _) => const Divider(height: 1),
                       itemBuilder: (ctx, i) {
                         final e = entries[i];
+                        final sourceLabel =
+                            e.source == AiToolSearchLoadSource.harnessPhase
+                            ? l10n.snackToolSearchLoadedSourceHarness
+                            : l10n.snackToolSearchLoadedSourceAi;
                         return ListTile(
                           dense: true,
                           title: Text(
-                            e.query.isEmpty ? '(no query)' : e.query,
+                            e.query.isEmpty ? '—' : e.query,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
                           subtitle: Text(
-                            '${e.timestamp.toIso8601String()} · '
-                            '${e.source.name} · +${e.addedCount} / '
+                            '${formatYearMonthDayHms(e.timestamp.toLocal())} · '
+                            '$sourceLabel · +${e.addedCount} / '
                             '${e.totalDeferred}',
                             style: theme.textTheme.bodySmall,
                           ),
