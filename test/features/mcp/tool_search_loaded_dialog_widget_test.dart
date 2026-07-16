@@ -59,6 +59,53 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('标题操作、标签指示器与分组按钮保持统一几何样式', (tester) async {
+    await tester.pumpWidget(
+      buildDialog(const <String>[
+        'mcp__HowToCook__search_recipe',
+        'mcp__HowToCook__get_recipe',
+      ], onClear: () {}),
+    );
+    await tester.pump();
+
+    final clearButton = find.byKey(
+      const ValueKey<String>('toolSearchClearAction'),
+    );
+    final closeButton = find.byTooltip('Close');
+    final clearRect = tester.getRect(clearButton);
+    final closeRect = tester.getRect(closeButton);
+    expect(closeRect.left - clearRect.right, greaterThanOrEqualTo(8));
+
+    final tabBar = tester.widget<TabBar>(find.byType(TabBar));
+    expect(tabBar.indicator, isA<ShapeDecoration>());
+    expect(tabBar.indicatorAnimation, TabIndicatorAnimation.linear);
+    expect(tabBar.splashFactory, same(NoSplash.splashFactory));
+    expect(tabBar.overlayColor?.resolve(<WidgetState>{}), Colors.transparent);
+
+    final groupCopy = find.byKey(
+      const ValueKey<String>('mcpToolGroupCopy:server:HowToCook'),
+    );
+    final groupExpand = find.byKey(
+      const ValueKey<String>('mcpToolGroupExpand:server:HowToCook'),
+    );
+    expect(tester.getSize(groupCopy), const Size.square(48));
+    expect(tester.getSize(groupExpand), const Size.square(48));
+    AnimatedRotation expansionRotation() => tester.widget<AnimatedRotation>(
+      find.descendant(of: groupExpand, matching: find.byType(AnimatedRotation)),
+    );
+    expect(expansionRotation().turns, 0.5);
+    await tester.tap(groupExpand);
+    await tester.pumpAndSettle();
+    expect(expansionRotation().turns, 0);
+
+    final nameRect = tester.getRect(find.text('HowToCook'));
+    final countRect = tester.getRect(
+      find.byKey(const ValueKey<String>('mcpToolGroupCount:server:HowToCook')),
+    );
+    expect(countRect.left - nameRect.right, lessThanOrEqualTo(9));
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('窄窗口可稳定展示长工具名与历史工具栏', (tester) async {
     tester.view.physicalSize = const Size(420, 620);
     tester.view.devicePixelRatio = 1;

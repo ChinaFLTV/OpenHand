@@ -11,6 +11,7 @@ import '../../../app/support/silent_log.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/animated_menu.dart';
+import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
@@ -27,6 +28,7 @@ import 'mcp_dialog_utils.dart';
 const int _toolSearchHistoryImportMaxBytes = 8 * kBytesPerMiB;
 const int _mcpGroupExpansionCacheMaxEntries = 128;
 const double _toolSearchDialogMaxWidth = 720;
+const double _toolSearchGroupActionExtent = 48;
 const double _toolSearchToolbarBreakpoint = 520;
 
 Future<void> showToolSearchLoadedDialog(
@@ -487,10 +489,14 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
             ),
             actions: [
               if (widget.onClear != null)
-                IconButton(
-                  tooltip: l10n.snackToolSearchLoadedClearAction,
-                  onPressed: _names.isEmpty ? null : _handleClear,
-                  icon: const Icon(Icons.delete_sweep_rounded, size: 19),
+                Padding(
+                  padding: const EdgeInsetsDirectional.only(end: 8),
+                  child: IconButton(
+                    key: const ValueKey<String>('toolSearchClearAction'),
+                    tooltip: l10n.snackToolSearchLoadedClearAction,
+                    onPressed: _names.isEmpty ? null : _handleClear,
+                    icon: const Icon(Icons.delete_sweep_rounded, size: 19),
+                  ),
                 ),
             ],
             closeTooltip: l10n.snackToolSearchLoadedDialogClose,
@@ -528,17 +534,24 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: colorScheme.outlineVariant),
       ),
+      clipBehavior: Clip.antiAlias,
       child: TabBar(
         controller: _tabController,
         dividerColor: Colors.transparent,
         indicatorSize: TabBarIndicatorSize.tab,
-        indicator: BoxDecoration(
+        indicatorAnimation: TabIndicatorAnimation.linear,
+        indicator: ShapeDecoration(
           color: colorScheme.primaryContainer,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: colorScheme.primary.withValues(alpha: 0.24),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(
+              color: colorScheme.primary.withValues(alpha: 0.24),
+            ),
           ),
         ),
+        splashFactory: NoSplash.splashFactory,
+        splashBorderRadius: BorderRadius.circular(12),
+        overlayColor: const WidgetStatePropertyAll<Color>(Colors.transparent),
         labelColor: colorScheme.onPrimaryContainer,
         unselectedLabelColor: colorScheme.onSurfaceVariant,
         labelStyle: theme.textTheme.labelLarge?.copyWith(
@@ -1149,6 +1162,20 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
         : group.server!;
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final expanded = _mcpGroupExpansionCache.get(group.persistKey) ?? true;
+    final actionColor = colorScheme.surfaceContainerHigh;
+    final actionShape = RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(18),
+    );
+    final expansionTooltip = openHandLocalizedText(
+      context,
+      zh: expanded ? '收起工具组' : '展开工具组',
+      zhHant: expanded ? '收合工具組' : '展開工具組',
+      en: expanded ? 'Collapse tool group' : 'Expand tool group',
+      fr: expanded ? 'Réduire le groupe' : 'Développer le groupe',
+      de: expanded ? 'Tool-Gruppe einklappen' : 'Tool-Gruppe ausklappen',
+      ja: expanded ? 'ツールグループを折りたたむ' : 'ツールグループを展開',
+    );
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
@@ -1162,10 +1189,11 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
         child: ExpansionTile(
           // 折叠状态由有界缓存维护，避免与可选文本的内部滚动状态串槽。
           key: ValueKey<String>('mcpToolGroup:${group.persistKey}'),
-          initiallyExpanded:
-              _mcpGroupExpansionCache.get(group.persistKey) ?? true,
-          onExpansionChanged: (expanded) {
-            _mcpGroupExpansionCache.put(group.persistKey, expanded);
+          initiallyExpanded: expanded,
+          onExpansionChanged: (nextExpanded) {
+            setState(() {
+              _mcpGroupExpansionCache.put(group.persistKey, nextExpanded);
+            });
           },
           tilePadding: const EdgeInsets.fromLTRB(12, 4, 10, 4),
           childrenPadding: EdgeInsets.zero,
@@ -1188,44 +1216,95 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
           title: Row(
             children: [
               Expanded(
-                child: Text(
-                  headerLabel,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontFamily: 'monospace',
-                    fontWeight: FontWeight.w700,
-                  ),
+                child: Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        headerLabel,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontFamily: 'monospace',
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 7),
+                    Container(
+                      key: ValueKey<String>(
+                        'mcpToolGroupCount:${group.persistKey}',
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: actionColor,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        '${group.names.length}',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w700,
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: colorScheme.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Text(
-                  '${group.names.length}',
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w700,
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
-                ),
-              ),
-              const SizedBox(width: 4),
+              const SizedBox(width: 6),
               IconButton(
+                key: ValueKey<String>('mcpToolGroupCopy:${group.persistKey}'),
                 tooltip: l10n.snackToolSearchLoadedCopyGroupAction,
                 icon: const Icon(Icons.copy_all_rounded, size: 17),
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints.tightFor(
-                  width: 34,
-                  height: 34,
+                  width: _toolSearchGroupActionExtent,
+                  height: _toolSearchGroupActionExtent,
+                ),
+                style: IconButton.styleFrom(
+                  backgroundColor: actionColor,
+                  foregroundColor: colorScheme.onSurfaceVariant,
+                  shape: actionShape,
                 ),
                 onPressed: () => _handleCopyGroup(group),
               ),
             ],
+          ),
+          trailing: Builder(
+            builder: (trailingContext) => IconButton(
+              key: ValueKey<String>('mcpToolGroupExpand:${group.persistKey}'),
+              tooltip: expansionTooltip,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints.tightFor(
+                width: _toolSearchGroupActionExtent,
+                height: _toolSearchGroupActionExtent,
+              ),
+              style: IconButton.styleFrom(
+                backgroundColor: actionColor,
+                foregroundColor: colorScheme.onSurfaceVariant,
+                shape: actionShape,
+              ),
+              onPressed: () {
+                final controller = ExpansibleController.of(trailingContext);
+                if (expanded) {
+                  controller.collapse();
+                } else {
+                  controller.expand();
+                }
+              },
+              icon: AnimatedRotation(
+                turns: expanded ? 0.5 : 0,
+                duration: openHandMotionDuration(
+                  context,
+                  const Duration(milliseconds: 180),
+                ),
+                curve: Curves.easeOutCubic,
+                child: const Icon(Icons.expand_more_rounded, size: 19),
+              ),
+            ),
           ),
           children: [
             Divider(
