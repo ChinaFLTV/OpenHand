@@ -289,6 +289,7 @@ class McpKeywordIndexService {
     required List<McpServer> servers,
     required McpServerToolsResolver resolveTools,
     required void Function(McpKeywordIndexProgress) onProgress,
+    McpKeywordIndex? baseIndex,
   }) {
     final existing = _inflight;
     if (existing != null) return existing;
@@ -298,6 +299,7 @@ class McpKeywordIndexService {
       resolveTools: resolveTools,
       onProgress: onProgress,
       persistenceRevision: persistenceRevision,
+      baseIndex: baseIndex,
     );
     _inflight = fut;
     unawaited(
@@ -321,18 +323,40 @@ class McpKeywordIndexService {
     required McpServerToolsResolver resolveTools,
     required void Function(McpKeywordIndexProgress) onProgress,
     required int persistenceRevision,
+    required McpKeywordIndex? baseIndex,
   }) async {
     final stopwatch = Stopwatch()..start();
+    final eligible = servers.where((s) => s.enabled).toList(growable: false);
+    final eligibleNames = eligible.map((server) => server.name).toSet();
     final byName = <String, List<McpToolRef>>{};
     final byDescription = <String, List<McpToolRef>>{};
     final bySearchHint = <String, List<McpToolRef>>{};
     final dedupName = <String, Set<McpToolRef>>{};
     final dedupDesc = <String, Set<McpToolRef>>{};
     final dedupHint = <String, Set<McpToolRef>>{};
+    void seed(
+      Map<String, List<McpToolRef>> source,
+      Map<String, List<McpToolRef>> bucket,
+      Map<String, Set<McpToolRef>> dedup,
+    ) {
+      for (final entry in source.entries) {
+        final retained = entry.value
+            .where((ref) => eligibleNames.contains(ref.serverName))
+            .toSet();
+        if (retained.isEmpty) continue;
+        dedup[entry.key] = retained;
+        bucket[entry.key] = retained.toList(growable: true);
+      }
+    }
+
+    if (baseIndex != null) {
+      seed(baseIndex.byName, byName, dedupName);
+      seed(baseIndex.byDescription, byDescription, dedupDesc);
+      seed(baseIndex.bySearchHint, bySearchHint, dedupHint);
+    }
     final errors = <String>[];
     var skipped = 0;
     var total = 0;
-    final eligible = servers.where((s) => s.enabled).toList(growable: false);
     for (var i = 0; i < eligible.length; i++) {
       final server = eligible[i];
       List<McpTool> tools;
@@ -354,6 +378,23 @@ class McpKeywordIndexService {
         );
         continue;
       }
+      if (tools.isEmpty) {
+        skipped++;
+        onProgress(
+          McpKeywordIndexProgress(
+            serverIndex: i + 1,
+            serverCount: eligible.length,
+            serverName: server.name,
+            toolsScanned: 0,
+            totalToolsScanned: total,
+            skipped: skipped,
+          ),
+        );
+        continue;
+      }
+      _removeServerRefs(byName, dedupName, server.name);
+      _removeServerRefs(byDescription, dedupDesc, server.name);
+      _removeServerRefs(bySearchHint, dedupHint, server.name);
       var localScanned = 0;
       for (final tool in tools) {
         final ref = McpToolRef(
@@ -395,12 +436,17 @@ class McpKeywordIndexService {
       await Future<void>.delayed(Duration.zero);
     }
     stopwatch.stop();
+    final indexedTools = <McpToolRef>{
+      for (final refs in byName.values) ...refs,
+      for (final refs in byDescription.values) ...refs,
+      for (final refs in bySearchHint.values) ...refs,
+    };
     final index = McpKeywordIndex(
       byName: byName,
       byDescription: byDescription,
       bySearchHint: bySearchHint,
-      totalTools: total,
-      totalServers: eligible.length,
+      totalTools: indexedTools.length,
+      totalServers: indexedTools.map((ref) => ref.serverName).toSet().length,
       builtAt: DateTime.now(),
       durationMs: stopwatch.elapsedMilliseconds,
     );
@@ -426,6 +472,21 @@ class McpKeywordIndexService {
       final set = dedup.putIfAbsent(tk, () => <McpToolRef>{});
       if (set.add(ref)) {
         bucket.putIfAbsent(tk, () => <McpToolRef>[]).add(ref);
+      }
+    }
+  }
+
+  void _removeServerRefs(
+    Map<String, List<McpToolRef>> bucket,
+    Map<String, Set<McpToolRef>> dedup,
+    String serverName,
+  ) {
+    for (final token in bucket.keys.toList(growable: false)) {
+      bucket[token]!.removeWhere((ref) => ref.serverName == serverName);
+      dedup[token]?.removeWhere((ref) => ref.serverName == serverName);
+      if (bucket[token]!.isEmpty) {
+        bucket.remove(token);
+        dedup.remove(token);
       }
     }
   }

@@ -5522,6 +5522,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final appInfo = context.read<AppInfo>();
     final sessionController = context.read<AiSessionController>();
     final effectiveBrightness = _resolveEffectiveBrightness(context);
+    final mcpRuntimeReadyFuture = mcpController.ensureRuntimeToolCatalogs();
     sessionController.updateAvailableModelsForWebSearch(
       settingsController.aiModels,
     );
@@ -5540,6 +5541,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           startDirectory: OpenHandPaths.applicationDirectoryPath(),
           homeDirectory: OpenHandPaths.homeDirectoryPath(),
         );
+    await mcpRuntimeReadyFuture;
     final baseMcpServers = mcpController.runtimeServers;
     final currentSession = sessionController.currentSession;
     final currentWebReverseController = currentSession == null

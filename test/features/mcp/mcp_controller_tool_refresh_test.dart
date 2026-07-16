@@ -164,33 +164,302 @@ void main() {
     expect(loaded.byName, contains('全新目录'));
     expect(loaded.byName, contains('保留目录'));
   });
+
+  test('关键词索引重建会保留暂未就绪服务的旧目录', () async {
+    final directory = await Directory.systemTemp.createTemp(
+      'openhand_mcp_index_fallback_',
+    );
+    addTearDown(() => directory.delete(recursive: true));
+    final service = McpKeywordIndexService(storageDir: directory);
+    const otherServer = McpServer(
+      name: '暂未就绪服务',
+      type: McpServerType.streamableHttp,
+      enabled: true,
+      url: 'https://pending.example.test/v1',
+    );
+    final initial = await service.build(
+      servers: const <McpServer>[_server, otherServer],
+      resolveTools: (server) => <McpTool>[
+        McpTool(
+          id: server.name,
+          name: server.name == _server.name ? '旧目标目录' : '应保留目录',
+          description: '',
+          inputSchema: const <String, Object?>{'type': 'object'},
+        ),
+      ],
+      onProgress: (_) {},
+    );
+    await Future<void>.delayed(Duration.zero);
+    final rebuilt = await service.build(
+      servers: const <McpServer>[_server, otherServer],
+      baseIndex: initial.index,
+      resolveTools: (server) => server.name == _server.name
+          ? const <McpTool>[
+              McpTool(
+                id: 'new',
+                name: '新目标目录',
+                description: '',
+                inputSchema: <String, Object?>{'type': 'object'},
+              ),
+            ]
+          : const <McpTool>[],
+      onProgress: (_) {},
+    );
+
+    expect(rebuilt.index.byName, isNot(contains('旧目标目录')));
+    expect(rebuilt.index.byName, contains('新目标目录'));
+    expect(rebuilt.index.byName, contains('应保留目录'));
+    expect(rebuilt.skippedServers, 1);
+  });
+
+  test('完整工具目录跨重启恢复且无需重新扫描', () async {
+    final directory = await Directory.systemTemp.createTemp(
+      'openhand_mcp_restart_',
+    );
+    addTearDown(() => directory.delete(recursive: true));
+    final filePath = '${directory.path}/mcp.json';
+    final store = McpStore(serversFilePath: filePath);
+    await store.load();
+    await store.save(const <McpServer>[_server]);
+
+    final firstDiscovery = _FakeDiscoveryService()
+      ..nextCatalog = _catalogWithParameter('已缓存参数');
+    final firstController = await McpController.create(
+      initialFilePath: filePath,
+      store: store,
+      toolDiscoveryService: firstDiscovery,
+    );
+    await firstController.refreshServerTools(_server.name);
+    firstController.dispose();
+
+    final restartedDiscovery = _FakeDiscoveryService();
+    final restartedController = await McpController.create(
+      initialFilePath: filePath,
+      toolDiscoveryService: restartedDiscovery,
+    );
+    addTearDown(restartedController.dispose);
+    final restored = restartedController.toolCatalogFor(_server.name);
+
+    expect(restored.status, McpToolCatalogStatus.ready);
+    expect(_parameterNames(restored), {'已缓存参数'});
+    expect(restartedDiscovery.discoverCallCount, 0);
+  });
+
+  test('扫描失败不会删除上次完整工具目录缓存', () async {
+    final directory = await Directory.systemTemp.createTemp(
+      'openhand_mcp_failure_cache_',
+    );
+    addTearDown(() => directory.delete(recursive: true));
+    final filePath = '${directory.path}/mcp.json';
+    final store = McpStore(serversFilePath: filePath);
+    await store.load();
+    await store.save(const <McpServer>[_server]);
+    final discovery = _FakeDiscoveryService()
+      ..nextCatalog = _catalogWithParameter('完整参数');
+    final controller = await McpController.create(
+      initialFilePath: filePath,
+      store: store,
+      toolDiscoveryService: discovery,
+    );
+    await controller.refreshServerTools(_server.name);
+    discovery.nextCatalog = const McpToolCatalog(
+      status: McpToolCatalogStatus.failed,
+      errorMessage: '临时失败',
+    );
+    await controller.refreshServerTools(_server.name);
+    controller.dispose();
+
+    final restartedController = await McpController.create(
+      initialFilePath: filePath,
+      toolDiscoveryService: _FakeDiscoveryService(),
+    );
+    addTearDown(restartedController.dispose);
+
+    expect(_parameterNames(restartedController.toolCatalogFor(_server.name)), {
+      '完整参数',
+    });
+  });
+
+  test('不完整扫描不会降级覆盖当前目录或落盘缓存', () async {
+    final directory = await Directory.systemTemp.createTemp(
+      'openhand_mcp_partial_cache_',
+    );
+    addTearDown(() => directory.delete(recursive: true));
+    final filePath = '${directory.path}/mcp.json';
+    final store = McpStore(serversFilePath: filePath);
+    await store.load();
+    await store.save(const <McpServer>[_server]);
+    final discovery = _FakeDiscoveryService()
+      ..nextCatalog = _catalogWithParameters(const ['参数一', '参数二']);
+    final controller = await McpController.create(
+      initialFilePath: filePath,
+      store: store,
+      toolDiscoveryService: discovery,
+    );
+    await controller.refreshServerTools(_server.name);
+    discovery.nextCatalog = _catalogWithParameters(const [
+      '参数一',
+    ], isComplete: false);
+    await controller.refreshServerTools(_server.name);
+
+    expect(_parameterNames(controller.toolCatalogFor(_server.name)), {
+      '参数一',
+      '参数二',
+    });
+    controller.dispose();
+    final restartedController = await McpController.create(
+      initialFilePath: filePath,
+      toolDiscoveryService: _FakeDiscoveryService(),
+    );
+    addTearDown(restartedController.dispose);
+    expect(_parameterNames(restartedController.toolCatalogFor(_server.name)), {
+      '参数一',
+      '参数二',
+    });
+  });
+
+  test('连接配置变化后不会恢复旧服务的工具目录', () async {
+    final directory = await Directory.systemTemp.createTemp(
+      'openhand_mcp_signature_',
+    );
+    addTearDown(() => directory.delete(recursive: true));
+    final filePath = '${directory.path}/mcp.json';
+    final store = McpStore(serversFilePath: filePath);
+    await store.load();
+    await store.save(const <McpServer>[_server]);
+    final discovery = _FakeDiscoveryService()
+      ..nextCatalog = _catalogWithParameter('旧连接参数');
+    final controller = await McpController.create(
+      initialFilePath: filePath,
+      store: store,
+      toolDiscoveryService: discovery,
+    );
+    await controller.refreshServerTools(_server.name);
+    controller.dispose();
+
+    final changedStore = McpStore(serversFilePath: filePath);
+    await changedStore.load();
+    await changedStore.save(const <McpServer>[
+      McpServer(
+        name: '刷新测试服务',
+        type: McpServerType.streamableHttp,
+        enabled: true,
+        url: 'https://changed.example.test/v1',
+      ),
+    ]);
+    final restartedController = await McpController.create(
+      initialFilePath: filePath,
+      toolDiscoveryService: _FakeDiscoveryService(),
+    );
+    addTearDown(restartedController.dispose);
+
+    expect(
+      restartedController.toolCatalogFor(_server.name).status,
+      McpToolCatalogStatus.idle,
+    );
+  });
+
+  test('并发启动恢复共享同一个服务器加载任务', () async {
+    final directory = await Directory.systemTemp.createTemp(
+      'openhand_mcp_singleflight_',
+    );
+    addTearDown(() => directory.delete(recursive: true));
+    final filePath = '${directory.path}/mcp.json';
+    final initialStore = McpStore(serversFilePath: filePath);
+    await initialStore.load();
+    await initialStore.save(const <McpServer>[_server]);
+    final countingStore = _CountingMcpStore(filePath);
+    final controller = McpController.uninitialized(
+      initialFilePath: filePath,
+      store: countingStore,
+      toolDiscoveryService: _FakeDiscoveryService(),
+    );
+    addTearDown(controller.dispose);
+
+    await Future.wait<void>(<Future<void>>[
+      controller.ensureRuntimeReady(),
+      controller.ensureRuntimeReady(),
+      controller.ensureRuntimeReady(),
+    ]);
+
+    expect(countingStore.loadCount, 1);
+  });
+
+  test('冷启动无缓存时并发对话只预热一次工具目录', () async {
+    final directory = await Directory.systemTemp.createTemp(
+      'openhand_mcp_warmup_',
+    );
+    addTearDown(() => directory.delete(recursive: true));
+    final filePath = '${directory.path}/mcp.json';
+    final store = McpStore(serversFilePath: filePath);
+    await store.load();
+    await store.save(const <McpServer>[_server]);
+    final discovery = _FakeDiscoveryService()
+      ..nextCatalog = _catalogWithParameter('即时参数');
+    final controller = await McpController.create(
+      initialFilePath: filePath,
+      store: store,
+      toolDiscoveryService: discovery,
+    );
+    addTearDown(controller.dispose);
+
+    await Future.wait<void>(<Future<void>>[
+      controller.ensureRuntimeToolCatalogs(),
+      controller.ensureRuntimeToolCatalogs(),
+    ]);
+
+    expect(discovery.discoverCallCount, 1);
+    expect(_parameterNames(controller.toolCatalogFor(_server.name)), {'即时参数'});
+  });
 }
 
 McpToolCatalog _catalogWithParameter(String parameterName) {
+  return _catalogWithParameters(<String>[parameterName]);
+}
+
+McpToolCatalog _catalogWithParameters(
+  List<String> parameterNames, {
+  bool isComplete = true,
+}) {
   return McpToolCatalog(
     status: McpToolCatalogStatus.ready,
+    isComplete: isComplete,
     tools: <McpTool>[
-      McpTool(
-        id: 'query',
-        name: 'query',
-        description: '查询工具',
-        inputSchema: <String, Object?>{
-          'type': 'object',
-          'properties': <String, Object?>{
-            parameterName: <String, Object?>{'type': 'string'},
+      for (final parameterName in parameterNames)
+        McpTool(
+          id: 'query_$parameterName',
+          name: 'query_$parameterName',
+          description: '查询工具',
+          inputSchema: <String, Object?>{
+            'type': 'object',
+            'properties': <String, Object?>{
+              parameterName: <String, Object?>{'type': 'string'},
+            },
           },
-        },
-      ),
+        ),
     ],
     lastScannedAt: DateTime.now().toUtc(),
   );
 }
 
 Set<String> _parameterNames(McpToolCatalog catalog) {
-  final properties = catalog.tools.single.inputSchema['properties'];
-  return properties is Map
-      ? properties.keys.map((key) => '$key').toSet()
-      : const <String>{};
+  return <String>{
+    for (final tool in catalog.tools)
+      if (tool.inputSchema['properties'] case final Map properties)
+        ...properties.keys.map((key) => '$key'),
+  };
+}
+
+class _CountingMcpStore extends McpStore {
+  _CountingMcpStore(String filePath) : super(serversFilePath: filePath);
+
+  int loadCount = 0;
+
+  @override
+  Future<McpLoadResult> load() {
+    loadCount += 1;
+    return super.load();
+  }
 }
 
 class _ControllerFixture {
@@ -234,9 +503,11 @@ class _ControllerFixture {
 class _FakeDiscoveryService implements McpToolDiscoveryService {
   McpToolCatalog nextCatalog = const McpToolCatalog();
   Completer<McpToolCatalog>? pendingCatalog;
+  int discoverCallCount = 0;
 
   @override
   Future<McpToolCatalog> discoverTools(McpServer server) {
+    discoverCallCount += 1;
     final pending = pendingCatalog;
     pendingCatalog = null;
     return pending?.future ?? Future<McpToolCatalog>.value(nextCatalog);

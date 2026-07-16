@@ -6,6 +6,7 @@ class McpToolCatalog {
   const McpToolCatalog({
     this.status = McpToolCatalogStatus.idle,
     this.tools = const <McpTool>[],
+    this.isComplete = true,
     this.errorMessage,
     this.warningMessage,
     this.serverInstructions = '',
@@ -14,6 +15,7 @@ class McpToolCatalog {
 
   final McpToolCatalogStatus status;
   final List<McpTool> tools;
+  final bool isComplete;
   final String? errorMessage;
   final String? warningMessage;
   final String serverInstructions;
@@ -28,6 +30,7 @@ class McpToolCatalog {
   McpToolCatalog copyWith({
     McpToolCatalogStatus? status,
     List<McpTool>? tools,
+    bool? isComplete,
     String? errorMessage,
     bool clearErrorMessage = false,
     String? warningMessage,
@@ -39,6 +42,7 @@ class McpToolCatalog {
     return McpToolCatalog(
       status: status ?? this.status,
       tools: tools ?? this.tools,
+      isComplete: isComplete ?? this.isComplete,
       errorMessage: clearErrorMessage
           ? null
           : errorMessage ?? this.errorMessage,

@@ -7869,6 +7869,7 @@ class WebMessagePlatformService {
     required String templateId,
     Set<String> skippedInstructionIds = const <String>{},
   }) async {
+    await _mcpController.ensureRuntimeToolCatalogs();
     final memoryEnabled = _settingsController.memoryEnabled;
     final memoryEntries = memoryEnabled
         ? await _memoryController.trustedEntriesSnapshot() ??

@@ -246,6 +246,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
       return McpToolCatalog(
         status: McpToolCatalogStatus.ready,
         tools: discovered.tools,
+        isComplete: discovered.isComplete,
         warningMessage: discovered.warningMessage,
         serverInstructions: discovered.serverInstructions,
         lastScannedAt: scannedAt,
@@ -954,6 +955,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
 
     return _DiscoveredTools(
       tools: tools,
+      isComplete: cursor.isEmpty && invalidTools == 0,
       warningMessage: warnings.isEmpty
           ? null
           : '${warnings.join(' ')}${_mcpServerResponseDetail(warningResponse)}',
@@ -1780,11 +1782,13 @@ String _mcpServerResponseDetail(Object? response) {
 class _DiscoveredTools {
   const _DiscoveredTools({
     required this.tools,
+    required this.isComplete,
     this.warningMessage,
     this.serverInstructions = '',
   });
 
   final List<McpTool> tools;
+  final bool isComplete;
   final String? warningMessage;
   final String serverInstructions;
 }

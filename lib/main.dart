@@ -261,7 +261,7 @@ Future<void> _bootstrap() async {
   final skills = await skillsModuleFuture;
   _runMainBackgroundTask(skills.controller.refresh(), 'refresh skills');
   final mcp = await mcpModuleFuture;
-  _runMainBackgroundTask(mcp.controller.refresh(), 'refresh MCP servers');
+  _runMainBackgroundTask(mcp.controller.ensureRuntimeReady(), '恢复 MCP 运行时');
   // MemoryController 只在用户动作路径使用，刷新放到后台以缩短冷启动关键路径。
   final memory = await memoryModuleFuture;
   _runMainBackgroundTask(memory.controller.refresh(), 'refresh memory');
@@ -387,10 +387,6 @@ Future<void> _bootstrap() async {
   SelfLearningRunner.streamFlushIntervalMs =
       settingsController.selfLearningStreamFlushIntervalMs;
   // agent handler 注册后再初始化 cron；启动期主动同步一次 MCP 关键词索引计划。
-  _runMainBackgroundTask(
-    mcp.controller.ensureKeywordIndexLoaded(),
-    'load MCP keyword index',
-  );
   _runMainBackgroundTask(() async {
     await cronsController.initialize();
     await cronsController.updateMcpKeywordIndexSchedule(

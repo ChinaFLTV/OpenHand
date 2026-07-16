@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:collection';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
@@ -39,6 +40,7 @@ import 'service/mcp_keyword_index.dart';
 import 'service/mcp_ops_endpoint.dart';
 import 'service/mcp_server_ops_runtime.dart';
 import 'service/mcp_stdio_process_manager.dart';
+import 'service/mcp_tool_catalog_cache.dart';
 import 'service/mcp_tool_discovery_service.dart';
 
 class McpOpsRuntimeBindings {
@@ -71,6 +73,8 @@ class McpController extends ChangeNotifier {
     required McpStore store,
     required McpServerOpsStore opsStore,
     required McpToolDiscoveryService toolDiscoveryService,
+    required McpKeywordIndexService keywordIndexService,
+    required McpToolCatalogCacheService toolCatalogCacheService,
     required bool ownsToolDiscoveryService,
     required Duration healthCheckInterval,
     required int autoProbeConcurrency,
@@ -78,6 +82,8 @@ class McpController extends ChangeNotifier {
   }) : _store = store,
        _opsStore = opsStore,
        _toolDiscoveryService = toolDiscoveryService,
+       _keywordIndexService = keywordIndexService,
+       _toolCatalogCacheService = toolCatalogCacheService,
        _ownsToolDiscoveryService = ownsToolDiscoveryService,
        _healthCheckInterval = healthCheckInterval,
        _autoProbeConcurrency = _normalizeAutoProbeConcurrency(
@@ -97,6 +103,8 @@ class McpController extends ChangeNotifier {
     required String initialFilePath,
     McpStore? store,
     McpToolDiscoveryService? toolDiscoveryService,
+    McpKeywordIndexService? keywordIndexService,
+    McpToolCatalogCacheService? toolCatalogCacheService,
     Duration healthCheckInterval = const Duration(seconds: 30),
     int autoProbeConcurrency = defaultAutoProbeConcurrency,
   }) {
@@ -108,6 +116,16 @@ class McpController extends ChangeNotifier {
       ),
       toolDiscoveryService:
           toolDiscoveryService ?? DefaultMcpToolDiscoveryService(),
+      keywordIndexService:
+          keywordIndexService ??
+          McpKeywordIndexService(
+            storageDir: Directory(effectiveStore.storageDirectoryPath),
+          ),
+      toolCatalogCacheService:
+          toolCatalogCacheService ??
+          McpToolCatalogCacheService(
+            storageDir: Directory(effectiveStore.storageDirectoryPath),
+          ),
       ownsToolDiscoveryService: toolDiscoveryService == null,
       healthCheckInterval: healthCheckInterval,
       autoProbeConcurrency: autoProbeConcurrency,
@@ -119,6 +137,8 @@ class McpController extends ChangeNotifier {
     required String initialFilePath,
     McpStore? store,
     McpToolDiscoveryService? toolDiscoveryService,
+    McpKeywordIndexService? keywordIndexService,
+    McpToolCatalogCacheService? toolCatalogCacheService,
     Duration healthCheckInterval = const Duration(seconds: 30),
     int autoProbeConcurrency = defaultAutoProbeConcurrency,
   }) async {
@@ -130,11 +150,21 @@ class McpController extends ChangeNotifier {
       ),
       toolDiscoveryService:
           toolDiscoveryService ?? DefaultMcpToolDiscoveryService(),
+      keywordIndexService:
+          keywordIndexService ??
+          McpKeywordIndexService(
+            storageDir: Directory(effectiveStore.storageDirectoryPath),
+          ),
+      toolCatalogCacheService:
+          toolCatalogCacheService ??
+          McpToolCatalogCacheService(
+            storageDir: Directory(effectiveStore.storageDirectoryPath),
+          ),
       ownsToolDiscoveryService: toolDiscoveryService == null,
       healthCheckInterval: healthCheckInterval,
       autoProbeConcurrency: autoProbeConcurrency,
     );
-    await controller.refresh();
+    await controller.ensureRuntimeReady();
     return controller;
   }
 
@@ -147,6 +177,8 @@ class McpController extends ChangeNotifier {
   final McpStore _store;
   final McpServerOpsStore _opsStore;
   final McpToolDiscoveryService _toolDiscoveryService;
+  final McpKeywordIndexService _keywordIndexService;
+  final McpToolCatalogCacheService _toolCatalogCacheService;
   final bool _ownsToolDiscoveryService;
   final Duration _healthCheckInterval;
   int _autoProbeConcurrency;
@@ -232,6 +264,9 @@ class McpController extends ChangeNotifier {
   );
 
   Future<void> _operationQueue = Future<void>.value();
+  Future<void>? _refreshFuture;
+  Future<void>? _runtimeReadyFuture;
+  Future<void>? _runtimeCatalogWarmupFuture;
   late final OpenHandDebouncer _pageActivationWorkDebouncer = OpenHandDebouncer(
     delay: _pageActivationWorkDelay,
   );
@@ -249,9 +284,11 @@ class McpController extends ChangeNotifier {
   ValueListenable<int> get saveSuccessSignal => _saveSuccessSignal;
 
   // ----- Keyword inverted index -----------------------------------------
-  final McpKeywordIndexService _keywordIndexService = McpKeywordIndexService();
   McpKeywordIndex? _keywordIndex;
-  bool _keywordIndexLoadedFromDisk = false;
+  Future<void>? _keywordIndexLoadFuture;
+  Future<void>? _toolCatalogCacheLoadFuture;
+  Map<String, McpCachedToolCatalog> _cachedToolCatalogs =
+      const <String, McpCachedToolCatalog>{};
   int _keywordIndexRevision = 0;
 
   /// 当前最近一次构建（或落盘加载）的关键词倒排索引。从未构建则为 null。
@@ -261,16 +298,105 @@ class McpController extends ChangeNotifier {
   bool get isBuildingKeywordIndex => _keywordIndexService.isBuilding;
 
   /// 启动期惰性加载落盘索引；幂等。
-  Future<void> ensureKeywordIndexLoaded() async {
-    if (_keywordIndexLoadedFromDisk) return;
-    _keywordIndexLoadedFromDisk = true;
+  Future<void> ensureKeywordIndexLoaded() {
+    final existing = _keywordIndexLoadFuture;
+    if (existing != null) return existing;
+    final future = _loadKeywordIndex();
+    _keywordIndexLoadFuture = future;
+    return future;
+  }
+
+  Future<void> _loadKeywordIndex() async {
     final revision = _keywordIndexRevision;
     final loaded = await _keywordIndexService.loadFromDisk();
-    if (_isDisposed || revision != _keywordIndexRevision) return;
-    if (loaded != null) {
-      _keywordIndex = loaded;
-      notifyListeners();
+    if (_isDisposed || revision != _keywordIndexRevision || loaded == null) {
+      return;
     }
+    _keywordIndex = loaded;
+    notifyListeners();
+  }
+
+  /// 等待服务器配置、关键词索引和上次完整工具目录完成本地恢复。
+  Future<void> ensureRuntimeReady() {
+    final existing = _runtimeReadyFuture;
+    if (existing != null) return existing;
+    final future =
+        Future.wait<void>(<Future<void>>[
+          refresh(),
+          ensureKeywordIndexLoaded(),
+          _ensureToolCatalogCacheLoaded(),
+        ]).then<void>((_) {
+          if (!_isDisposed) _restoreCachedToolCatalogs();
+        });
+    _runtimeReadyFuture = future;
+    return future;
+  }
+
+  /// 首次对话仅扫描本地缓存缺失的服务，并限制前台等待时间。
+  Future<void> ensureRuntimeToolCatalogs({
+    Duration maxWait = const Duration(seconds: 9),
+  }) async {
+    await ensureRuntimeReady();
+    if (_isDisposed || !_hasTrustedSnapshot) return;
+    var warmup = _runtimeCatalogWarmupFuture;
+    if (warmup == null) {
+      late final Future<void> pending;
+      pending = _warmRuntimeToolCatalogs().whenComplete(() {
+        if (identical(_runtimeCatalogWarmupFuture, pending)) {
+          _runtimeCatalogWarmupFuture = null;
+        }
+      });
+      _runtimeCatalogWarmupFuture = pending;
+      warmup = pending;
+    }
+    try {
+      await warmup.timeout(maxWait);
+    } on TimeoutException {
+      // 扫描继续在后台执行，本轮使用已恢复完成的目录。
+    }
+  }
+
+  Future<void> _warmRuntimeToolCatalogs() async {
+    final targets = runtimeServers
+        .where(
+          (server) =>
+              server.enabled &&
+              (toolCatalogFor(server.name).status !=
+                      McpToolCatalogStatus.ready ||
+                  !toolCatalogFor(server.name).isComplete) &&
+              !toolCatalogFor(server.name).isLoading,
+        )
+        .toList(growable: false);
+    await forEachIndexWithConcurrencyLimit(
+      itemCount: targets.length,
+      maxConcurrency: _autoProbeConcurrency,
+      shouldContinue: () => !_isDisposed && _hasTrustedSnapshot,
+      task: (index) async {
+        try {
+          await refreshServerTools(
+            targets[index].name,
+            clearCachedTools: false,
+          );
+        } catch (error, stack) {
+          silentLog('mcp', '预热工具目录', error, stack);
+        }
+      },
+    );
+  }
+
+  Future<void> _ensureToolCatalogCacheLoaded() {
+    final existing = _toolCatalogCacheLoadFuture;
+    if (existing != null) return existing;
+    final future = _loadToolCatalogCache();
+    _toolCatalogCacheLoadFuture = future;
+    return future;
+  }
+
+  Future<void> _loadToolCatalogCache() async {
+    final loaded = await _toolCatalogCacheService.load();
+    if (_isDisposed) return;
+    _cachedToolCatalogs = loaded;
+    if (_restoreCachedToolCatalogs()) notifyListeners();
   }
 
   /// 触发一次构建。`onProgress` 直接转发自服务层；构建完毕会更新
@@ -298,6 +424,7 @@ class McpController extends ChangeNotifier {
         return const <McpTool>[];
       },
       onProgress: onProgress ?? (_) {},
+      baseIndex: _keywordIndex,
     );
     if (!_isDisposed && revision == _keywordIndexRevision) {
       _keywordIndex = result.index;
@@ -481,7 +608,18 @@ class McpController extends ChangeNotifier {
     });
   }
 
-  Future<void> refresh() async {
+  Future<void> refresh() {
+    final existing = _refreshFuture;
+    if (existing != null) return existing;
+    late final Future<void> future;
+    future = _refresh().whenComplete(() {
+      if (identical(_refreshFuture, future)) _refreshFuture = null;
+    });
+    _refreshFuture = future;
+    return future;
+  }
+
+  Future<void> _refresh() async {
     await _enqueueOperation(_loadServersLocked);
     if (_hasTrustedSnapshot && _isPageActive) {
       _autoRefreshEnabledServerTools(force: true);
@@ -515,6 +653,7 @@ class McpController extends ChangeNotifier {
       await _reconcileStdioProcesses(previousServers, loadResult.servers);
       _setServers(loadResult.servers);
       _syncToolCatalogsWithServers(_servers);
+      _restoreCachedToolCatalogs();
       _syncHealthStatusesWithServers(_servers);
       _hasTrustedSnapshot = true;
       return true;
@@ -1477,38 +1616,34 @@ class McpController extends ChangeNotifier {
     final previousCatalog = toolCatalogFor(normalizedServerName);
     final preserveDuringRefresh =
         !clearCachedTools &&
-        previousCatalog.status == McpToolCatalogStatus.ready;
+        previousCatalog.status == McpToolCatalogStatus.ready &&
+        previousCatalog.isComplete;
     if (!preserveDuringRefresh) {
       _toolCatalogByServerName[normalizedServerName] = const McpToolCatalog(
         status: McpToolCatalogStatus.loading,
       );
-      if (clearCachedTools) {
-        _replaceKeywordIndexServerTools(
-          normalizedServerName,
-          const <McpTool>[],
-        );
-      }
       notifyListeners();
     }
 
-    // 对 stdio 类型服务，确保 process manager 中有运行中的进程。
-    // discovery service 会通过 borrowSessionForDiscovery 复用该进程发送
-    // tools/list，避免 Playwright 等单例 MCP 服务的多实例冲突。
-    // 必须 await startServer 完成后再继续，否则 borrowSession 会因
-    // _processes 中 entry 尚未创建而立即返回 null，回退到启动新进程。
-    if (server.type == McpServerType.stdio) {
-      final processInfo = McpStdioProcessManager.instance.infoFor(server.name);
-      if (processInfo.isStopped) {
-        await McpStdioProcessManager.instance.startServer(server);
-      }
-      if (_isDisposed || requirePageActive && !_isPageActive) {
-        return;
-      }
-      final current = _serverByName(normalizedServerName);
-      if (current == null || !_sameServerConnection(server, current)) return;
-    }
-
     try {
+      // 对 stdio 类型服务，确保 process manager 中有运行中的进程。
+      // discovery service 会通过 borrowSessionForDiscovery 复用该进程发送
+      // tools/list，避免 Playwright 等单例 MCP 服务的多实例冲突。
+      // 必须 await startServer 完成后再继续，否则 borrowSession 会因
+      // _processes 中 entry 尚未创建而立即返回 null，回退到启动新进程。
+      if (server.type == McpServerType.stdio) {
+        final processInfo = McpStdioProcessManager.instance.infoFor(
+          server.name,
+        );
+        if (processInfo.isStopped) {
+          await McpStdioProcessManager.instance.startServer(server);
+        }
+        if (_isDisposed || requirePageActive && !_isPageActive) {
+          return;
+        }
+        final current = _serverByName(normalizedServerName);
+        if (current == null || !_sameServerConnection(server, current)) return;
+      }
       final discoveredCatalog = await _toolDiscoveryService.discoverTools(
         server,
       );
@@ -1526,14 +1661,64 @@ class McpController extends ChangeNotifier {
         notifyListeners();
         return;
       }
+      if (discoveredCatalog.status != McpToolCatalogStatus.ready) {
+        _toolCatalogByServerName[normalizedServerName] = preserveDuringRefresh
+            ? previousCatalog.copyWith(
+                warningMessage:
+                    discoveredCatalog.errorMessage ??
+                    discoveredCatalog.warningMessage,
+                lastScannedAt: discoveredCatalog.lastScannedAt,
+              )
+            : discoveredCatalog;
+        notifyListeners();
+        return;
+      }
+      if (!discoveredCatalog.isComplete &&
+          previousCatalog.status == McpToolCatalogStatus.ready &&
+          previousCatalog.isComplete) {
+        _toolCatalogByServerName[normalizedServerName] = previousCatalog
+            .copyWith(
+              warningMessage: discoveredCatalog.warningMessage,
+              lastScannedAt: discoveredCatalog.lastScannedAt,
+            );
+        notifyListeners();
+        return;
+      }
       _toolCatalogByServerName[normalizedServerName] = discoveredCatalog;
-      final discoveredTools =
-          discoveredCatalog.status == McpToolCatalogStatus.ready
-          ? discoveredCatalog.tools
-          : const <McpTool>[];
-      if (clearCachedTools ||
-          !_sameKeywordIndexToolData(previousCatalog.tools, discoveredTools)) {
-        _replaceKeywordIndexServerTools(normalizedServerName, discoveredTools);
+      if (discoveredCatalog.isComplete) {
+        if (!_sameKeywordIndexToolData(
+          previousCatalog.tools,
+          discoveredCatalog.tools,
+        )) {
+          _replaceKeywordIndexServerTools(
+            normalizedServerName,
+            discoveredCatalog.tools,
+          );
+        }
+        try {
+          final cachedCatalog = _cachedToolCatalogs[normalizedServerName];
+          final catalogChanged =
+              cachedCatalog == null ||
+              cachedCatalog.connectionSignature !=
+                  mcpServerConnectionSignature(server) ||
+              mcpToolCatalogContentSignature(cachedCatalog.catalog) !=
+                  mcpToolCatalogContentSignature(discoveredCatalog);
+          if (catalogChanged) {
+            await _toolCatalogCacheService.replace(
+              server: server,
+              catalog: discoveredCatalog,
+            );
+          }
+          _cachedToolCatalogs = <String, McpCachedToolCatalog>{
+            ..._cachedToolCatalogs,
+            normalizedServerName: McpCachedToolCatalog(
+              connectionSignature: mcpServerConnectionSignature(server),
+              catalog: discoveredCatalog,
+            ),
+          };
+        } catch (error, stack) {
+          silentLog('mcp', '保存工具目录缓存', error, stack);
+        }
       }
       notifyListeners();
     } catch (error) {
@@ -1556,7 +1741,13 @@ class McpController extends ChangeNotifier {
         errorMessage: '$error',
         lastScannedAt: DateTime.now().toUtc(),
       );
-      _replaceKeywordIndexServerTools(normalizedServerName, const <McpTool>[]);
+      if (preserveDuringRefresh) {
+        _toolCatalogByServerName[normalizedServerName] = previousCatalog
+            .copyWith(
+              warningMessage: '$error',
+              lastScannedAt: DateTime.now().toUtc(),
+            );
+      }
       notifyListeners();
     }
   }
@@ -1718,6 +1909,18 @@ class McpController extends ChangeNotifier {
   }) async {
     if (!_hasTrustedSnapshot) return false;
     final previousServers = List<McpServer>.from(_servers);
+    final nextServersByName = <String, McpServer>{
+      for (final server in nextServers) server.name: server,
+    };
+    final staleCatalogServerNames = previousServers
+        .where((previous) {
+          final next = nextServersByName[previous.name];
+          return next == null ||
+              mcpServerConnectionSignature(previous) !=
+                  mcpServerConnectionSignature(next);
+        })
+        .map((server) => server.name)
+        .toSet();
     _hasTrustedSnapshot = false;
     _errorMessage = null;
     _invalidateToolRefreshGenerations();
@@ -1745,7 +1948,23 @@ class McpController extends ChangeNotifier {
         _healthByServerName[changedServerName] = const McpServerHealth();
         _invalidateHealthCheckGeneration(changedServerName);
       }
+      if (staleCatalogServerNames.isNotEmpty) {
+        _cachedToolCatalogs = <String, McpCachedToolCatalog>{
+          for (final entry in _cachedToolCatalogs.entries)
+            if (!staleCatalogServerNames.contains(entry.key))
+              entry.key: entry.value,
+        };
+        for (final serverName in staleCatalogServerNames) {
+          _replaceKeywordIndexServerTools(serverName, const <McpTool>[]);
+        }
+        try {
+          await _toolCatalogCacheService.remove(staleCatalogServerNames);
+        } catch (error, stack) {
+          silentLog('mcp', '移除失效工具目录缓存', error, stack);
+        }
+      }
       _hasTrustedSnapshot = true;
+      _restoreCachedToolCatalogs();
       _persistenceIssue = null;
       _saveSuccessSignal.value = _saveSuccessSignal.value + 1;
       _reconcileHealthCheckTimer();
@@ -1845,6 +2064,22 @@ class McpController extends ChangeNotifier {
     for (final server in servers) {
       _toolCatalogByServerName.putIfAbsent(server.name, McpToolCatalog.new);
     }
+  }
+
+  bool _restoreCachedToolCatalogs() {
+    var restored = false;
+    for (final server in _servers) {
+      final cached = _cachedToolCatalogs[server.name];
+      if (cached == null ||
+          cached.connectionSignature != mcpServerConnectionSignature(server)) {
+        continue;
+      }
+      final current = toolCatalogFor(server.name);
+      if (current.status != McpToolCatalogStatus.idle) continue;
+      _toolCatalogByServerName[server.name] = cached.catalog;
+      restored = true;
+    }
+    return restored;
   }
 
   void _syncHealthStatusesWithServers(List<McpServer> servers) {
