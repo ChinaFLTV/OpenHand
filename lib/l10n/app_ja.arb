@@ -741,7 +741,7 @@
   "mcpLazyLoadingThresholdBody": "自動モードで、MCPツール説明の推定総トークン数がこの値を超えた場合に遅延読み込みを有効化します。",
   "mcpLazyLoadingThresholdSave": "しきい値を保存",
   "mcpLazyLoadingThresholdSaved": "MCP遅延読み込みのしきい値を保存しました。",
-  "mcpLazyLoadingHowItWorks": "遅延読み込みが有効な間、MCP ツールの説明は名前インデックスに折りたたまれ、組み込みの ToolSearch ツールが必要に応じて完全な JSON Schema を取得します。3 つのクエリ形式に対応：\n• select:NAME（直接選択、空白区切りで複数指定可）\n• キーワード（name/description にスコアリング）\n• +KEYWORD（ノイズ除去のための必須語）\n解決済みツールはセッションのロード済みセットに追加され、次ターンでは追加検索なしで直接呼び出せます。",
+  "mcpLazyLoadingHowItWorks": "遅延読み込みが有効な間、MCP ツールの説明は名前インデックスに折りたたまれ、組み込みの ToolSearch ツールが必要に応じて完全な JSON Schema を取得します。3 つのクエリ形式に対応：\n• select:NAME（直接選択、空白区切りで複数指定可）\n• キーワード（name/description にスコアリング）\n• +KEYWORD（ノイズ除去のための必須語）\n一致後は、正確な tool_name と Schema に準拠した arguments を ToolSearch に渡します。ネイティブツール一覧は固定され、プロンプトキャッシュが維持されます。",
   "mcpLazyLoadingThresholdInvalid": "1000～1000000の整数を入力してください。",
   "settingsHarnessToolSearchHistoryCapLabel": "Harness ToolSearch 履歴の保持上限",
   "settingsHarnessToolSearchHistoryCapBody": "ToolSearch 読み込み済みダイアログが保持する Harness phase の最大件数。超えた分は LRU で逆出されます。",

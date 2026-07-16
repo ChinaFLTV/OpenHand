@@ -2590,7 +2590,7 @@ abstract class AppLocalizations {
   /// No description provided for @mcpLazyLoadingHowItWorks.
   ///
   /// In zh, this message translates to:
-  /// **'懒加载启用时：MCP 工具描述被折叠为名称索引，模型通过内置 ToolSearch 工具按需取回完整 JSON Schema。支持三种查询：\n• select:NAME（直接选取，可空格分隔多个）\n• 关键字（按 name/description 评分匹配）\n• +KEYWORD（必含词，用于过滤噪声）\n命中工具会写入当前会话已加载列表，下一轮即可直接调用，无需再次查询。'**
+  /// **'懒加载启用时：MCP 工具描述被折叠为名称索引，模型通过内置 ToolSearch 工具按需取回完整 JSON Schema。支持三种查询：\n• select:NAME（直接选取，可空格分隔多个）\n• 关键字（按 name/description 评分匹配）\n• +KEYWORD（必含词，用于过滤噪声）\n命中后继续通过 ToolSearch 提交精确 tool_name 和符合 Schema 的 arguments。原生工具目录保持固定，避免破坏提示词缓存。'**
   String get mcpLazyLoadingHowItWorks;
 
   /// No description provided for @settingsGeneralSubtitle.

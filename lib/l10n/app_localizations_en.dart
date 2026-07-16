@@ -1500,7 +1500,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get mcpLazyLoadingHowItWorks =>
-      'When lazy loading is active, MCP tool descriptions are folded into a name index. The built-in ToolSearch tool fetches full JSON Schema on demand via three query forms:\n• select:NAME (direct, space-separated for multi-select)\n• keyword (scored against name/description)\n• +KEYWORD (required term to filter noise)\nResolved tools are added to the per-session loaded set so the next turn calls them directly with no extra search.';
+      'When lazy loading is active, MCP tool descriptions are folded into a name index. The built-in ToolSearch tool fetches full JSON Schema on demand via three query forms:\n• select:NAME (direct, space-separated for multi-select)\n• keyword (scored against name/description)\n• +KEYWORD (required term to filter noise)\nAfter a match, call ToolSearch with the exact tool_name and schema-matching arguments. The native tool list stays fixed to preserve prompt-cache reuse.';
 
   @override
   String get settingsGeneralSubtitle =>

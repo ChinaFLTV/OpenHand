@@ -280,7 +280,7 @@ $_fallbackNotice
 # Web Reverse fallback minimum
 
 - Treat CDP as the source of truth for browser state, network, console, DOM, storage, screenshots, WebSocket/SSE, and HAR work.
-- Use exact CDP / Chrome DevTools / js-reverse MCP tool names from the runtime catalog. If absent but deferred, call ToolSearch first; if still absent, ask the user to recover prompt assets or refresh the CDP MCP catalog.
+- Use exact CDP / Chrome DevTools / js-reverse MCP names from the runtime catalog. If deferred, query and invoke them through ToolSearch; if absent, ask the user to recover prompt assets or refresh the CDP MCP catalog.
 - Live CDP requires the injected `cdp_runtime` to report `browser_alive=true` plus `cdp_http_endpoint` / `json_list_url` / `cdp_port`.
 - Observe before patching: collect target request, initiator, suspicious script, runtime values, first divergence, and local artifact paths.
 - Do not use Bash/WebFetch/WebSearch for target-origin capture. If live CDP is unavailable, use local jsonl/HAR artifacts or ask the user to restart the Web Reverse browser.
@@ -293,7 +293,7 @@ $_fallbackNotice
 # Android Reverse fallback minimum
 
 - Run `adb devices` first to confirm a device is online before any shell / file / Frida operation.
-- Use exact ADB MCP / Frida MCP tool names from the runtime catalog. If absent but deferred, call ToolSearch first.
+- Use exact ADB MCP / Frida MCP names from the runtime catalog. If deferred, query and invoke them through ToolSearch.
 - Static analysis (jadx / apktool / radare2) before dynamic hooking; hook scripts MUST be loaded from `assets/prompts/android_reverse_expert/snippets/`.
 - Do not fabricate class names, method signatures, or API paths. If the APK has not been decompiled, decompile it first.
 - Stop and report after 2 consecutive Frida / ADB failures on the same target.

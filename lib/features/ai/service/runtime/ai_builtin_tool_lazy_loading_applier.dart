@@ -11,8 +11,6 @@ class AiBuiltinToolLazyLoadingApplier {
 
   static const int defaultAutoThresholdTokens = 16000;
   static const int minAutoThresholdTokens = 1000;
-  static const int _deferredPreviewLimit = 80;
-  static const int _deferredPreviewDescriptionChars = 140;
 
   static int effectiveAutoThresholdTokens(int configuredThresholdTokens) {
     if (configuredThresholdTokens <= 0) {
@@ -26,7 +24,6 @@ class AiBuiltinToolLazyLoadingApplier {
     required AiBuiltinToolLazyLoadingMode mode,
     required int thresholdTokens,
     required int charsPerToken,
-    Set<String> alreadyLoadedNames = const <String>{},
   }) {
     if (_findToolSearchEntry(catalog) == null) return false;
     return _shouldDeferAllEligible(
@@ -34,7 +31,6 @@ class AiBuiltinToolLazyLoadingApplier {
       mode: mode,
       thresholdTokens: thresholdTokens,
       charsPerToken: charsPerToken,
-      alreadyLoadedNames: alreadyLoadedNames,
     );
   }
 
@@ -45,7 +41,6 @@ class AiBuiltinToolLazyLoadingApplier {
     required int thresholdTokens,
     required int charsPerToken,
     AiToolRuntimeService? toolRuntimeService,
-    Set<String> alreadyLoadedNames = const <String>{},
   }) {
     final toolSearchEntry =
         _findToolSearchEntry(catalog) ?? _findToolSearchEntry(sourceCatalog);
@@ -57,16 +52,12 @@ class AiBuiltinToolLazyLoadingApplier {
       mode: mode,
       thresholdTokens: thresholdTokens,
       charsPerToken: charsPerToken,
-      alreadyLoadedNames: alreadyLoadedNames,
     );
     if (!deferAllEligible) {
       return catalog;
     }
 
-    final deferredEntries = _deferredBuiltinEntries(
-      catalog,
-      alreadyLoadedNames: alreadyLoadedNames,
-    );
+    final deferredEntries = _deferredBuiltinEntries(catalog);
     if (deferredEntries.isEmpty) {
       return catalog;
     }
@@ -110,9 +101,8 @@ class AiBuiltinToolLazyLoadingApplier {
         keptEntries.add(
           MapEntry<String, AiResolvedTool>(
             entry.key,
-            _augmentToolSearchDefinition(
+            _attachDeferredTools(
               entry.value,
-              deferredEntries: deferredEntries,
               deferredDefinitions: deferredDefinitions,
               deferredTools: deferredTools,
             ),
@@ -127,9 +117,8 @@ class AiBuiltinToolLazyLoadingApplier {
       keptEntries.add(
         MapEntry<String, AiResolvedTool>(
           toolSearchEntry.key,
-          _augmentToolSearchDefinition(
+          _attachDeferredTools(
             toolSearchEntry.value,
-            deferredEntries: deferredEntries,
             deferredDefinitions: deferredDefinitions,
             deferredTools: deferredTools,
           ),
@@ -144,7 +133,7 @@ class AiBuiltinToolLazyLoadingApplier {
       toolsByName: Map<String, AiResolvedTool>.fromEntries(keptEntries),
       notices: <String>[
         ...catalog.notices,
-        'Built-in tool lazy loading active: ${deferredEntries.length} built-in tool(s) deferred. Use ToolSearch to load them on demand.',
+        'Built-in tool lazy loading active: ${deferredEntries.length} built-in tool(s) deferred. Search and invoke them through ToolSearch.',
       ],
       mcpServerInstructionsByName: catalog.mcpServerInstructionsByName,
     );
@@ -170,15 +159,11 @@ class AiBuiltinToolLazyLoadingApplier {
     required AiBuiltinToolLazyLoadingMode mode,
     required int thresholdTokens,
     required int charsPerToken,
-    required Set<String> alreadyLoadedNames,
   }) {
     if (mode == AiBuiltinToolLazyLoadingMode.disabled) {
       return false;
     }
-    final deferredEntries = _deferredBuiltinEntries(
-      catalog,
-      alreadyLoadedNames: alreadyLoadedNames,
-    );
+    final deferredEntries = _deferredBuiltinEntries(catalog);
     if (deferredEntries.isEmpty) {
       return false;
     }
@@ -193,9 +178,8 @@ class AiBuiltinToolLazyLoadingApplier {
   }
 
   static List<MapEntry<String, AiResolvedTool>> _deferredBuiltinEntries(
-    AiResolvedToolCatalog catalog, {
-    required Set<String> alreadyLoadedNames,
-  }) {
+    AiResolvedToolCatalog catalog,
+  ) {
     final entries = catalog.toolsByName.entries
         .where((entry) {
           final tool = entry.value;
@@ -208,11 +192,6 @@ class AiBuiltinToolLazyLoadingApplier {
             return false;
           }
           if (tool.builtinKind!.isAgentCoreCoordinationTool) {
-            return false;
-          }
-          if (alreadyLoadedNames.contains(entry.key) ||
-              alreadyLoadedNames.contains(tool.name) ||
-              alreadyLoadedNames.contains(tool.definition.name)) {
             return false;
           }
           final config = tool.builtinConfig;
@@ -272,38 +251,14 @@ class AiBuiltinToolLazyLoadingApplier {
         0;
   }
 
-  static AiResolvedTool _augmentToolSearchDefinition(
+  static AiResolvedTool _attachDeferredTools(
     AiResolvedTool original, {
-    required List<MapEntry<String, AiResolvedTool>> deferredEntries,
     required Map<String, AiToolDefinition> deferredDefinitions,
     required Map<String, AiResolvedTool> deferredTools,
   }) {
-    final lines = <String>[
-      '',
-      '## Deferred built-in tools (${deferredEntries.length})',
-    ];
-    for (final entry in deferredEntries.take(_deferredPreviewLimit)) {
-      final firstLine = entry.value.definition.description
-          .split('\n')
-          .first
-          .trim();
-      final clipped = firstLine.length > _deferredPreviewDescriptionChars
-          ? '${firstLine.substring(0, _deferredPreviewDescriptionChars - 3)}...'
-          : firstLine;
-      lines.add('- ${entry.key}${clipped.isEmpty ? '' : ' - $clipped'}');
-    }
-    if (deferredEntries.length > _deferredPreviewLimit) {
-      lines.add(
-        '- ... and ${deferredEntries.length - _deferredPreviewLimit} more.',
-      );
-    }
     return AiResolvedTool(
       name: original.name,
-      definition: AiToolDefinition(
-        name: original.definition.name,
-        description: '${original.definition.description}\n${lines.join('\n')}',
-        parameters: original.definition.parameters,
-      ),
+      definition: original.definition,
       source: original.source,
       builtinKind: original.builtinKind,
       mcpServer: original.mcpServer,

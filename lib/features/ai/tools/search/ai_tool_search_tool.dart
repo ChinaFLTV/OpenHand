@@ -1,4 +1,3 @@
-
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../service/chat/ai_protocol_adapter.dart';
 import '../../service/runtime/ai_tool_runtime_service.dart';
@@ -6,22 +5,11 @@ import '../ai_tool.dart';
 import '../ai_tool_execution_context.dart';
 import '../ai_tool_utils.dart';
 
-/// Built-in **ToolSearch** tool - analogous to Claude Code's `ToolSearchTool`.
+/// 内置 ToolSearch 固定网关。
 ///
-/// When MCP or built-in tool lazy loading is active, the session controller
-/// strips deferred tool schemas out of the per-turn catalog and leaves compact
-/// names plus summaries in this tool's description. The model invokes
-/// `ToolSearch` to fetch full JSON Schema for the tools it needs. Once a
-/// schema appears in the result, the controller promotes that tool into the
-/// session's exposed catalog for the next model request.
-///
-/// Query forms (mirrors Claude Code's three modes):
-///   - `select:Read,Edit,Grep` — direct multi-select by exact name.
-///   - `notebook jupyter`       — keyword search ranked by name/description.
-///   - `+slack send`            — `+TERM` makes that term required.
-///
-/// The tool is invisible when there is nothing to defer, so weak models don't
-/// see a useless extra entry.
+/// 懒加载启用后，完整工具 Schema 从原生目录折叠到此工具的旁路数据中。
+/// 模型先查询目标 Schema，再通过同一入口代理执行，避免轮次间改写缓存前缀。
+/// 支持精确 `select:`、关键词和 `+必含词` 三种查询方式。
 class AiToolSearchTool extends AiTool {
   AiToolSearchTool();
 
@@ -64,6 +52,7 @@ class AiToolSearchTool extends AiTool {
     final stopwatch = Stopwatch()..start();
     final args = context.decodedArguments;
     final query = AiToolUtils.readString(args['query']);
+    final toolName = AiToolUtils.readString(args['tool_name']);
     final maxResults = AiToolUtils.readClampedInt(
       args['max_results'],
       fallback: _defaultMaxResults,
@@ -73,20 +62,17 @@ class AiToolSearchTool extends AiTool {
     if (query.isEmpty) {
       return AiToolUtils.invalidResult(
         'ToolSearch',
-        'ToolSearch requires a non-empty `query` parameter. '
-            'Use `select:Name1,Name2` for direct selection or keywords '
-            '(e.g. `slack send`, `+github issues list`) for fuzzy search.',
+        toolName.isEmpty
+            ? 'ToolSearch 需要非空 `query`，或同时提供 `tool_name` 与 `arguments`。'
+            : 'ToolSearch 网关调用未被运行时分发，请重试。',
       );
     }
-    final catalogDefinitions = context.catalog
-        .find('ToolSearch')
-        ?.toolSearchDeferredToolDefinitions;
-    final definitionsByName =
-        catalogDefinitions == null || catalogDefinitions.isEmpty
+    final catalogTool = context.catalog.find('ToolSearch');
+    final definitionsByName = catalogTool == null
         ? deferredToolDefinitions
-        : catalogDefinitions;
+        : catalogTool.toolSearchDeferredToolDefinitions;
     final deferred =
-        (definitionsByName.isEmpty
+        (definitionsByName.isEmpty && catalogTool == null
                 ? deferredToolNames
                 : definitionsByName.keys.toList(growable: false))
             .toList(growable: false)
@@ -124,7 +110,7 @@ class AiToolSearchTool extends AiTool {
       functions: functions,
       message: matches.isEmpty
           ? 'No deferred tool matched. Try different keywords or select exact names.'
-          : 'Matched tools are callable by exact name from the next model request onward.',
+          : 'Call ToolSearch again with `tool_name` set to an exact matched name and `arguments` matching its schema.',
     );
     return AiToolUtils.simpleSuccessResult(
       command: 'ToolSearch query=$query',

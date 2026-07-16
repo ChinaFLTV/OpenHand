@@ -12,33 +12,36 @@ class McpLazyLoadingApplier {
   static AiResolvedToolCatalog apply({
     required AiResolvedToolCatalog catalog,
     required AiSessionRuntimeContext runtimeContext,
-    required AiToolRuntimeService toolRuntimeService,
-    Set<String> alreadyLoadedNames = const <String>{},
-    Set<String> forceVisibleNames = const <String>{},
+    AiToolRuntimeService? toolRuntimeService,
     bool keepToolSearchWhenIdle = false,
   }) {
     final mode = runtimeContext.mcpLazyLoadingMode;
     final mcpEntries = catalog.toolsByName.entries
         .where((entry) => entry.value.source == AiRuntimeToolSource.mcp)
         .toList(growable: false);
+    final hasToolSearch = catalog.toolsByName.values.any(
+      (tool) => tool.builtinKind == AiBuiltinToolKind.toolSearch,
+    );
 
-    final shouldLazy = switch (mode) {
-      McpLazyLoadingMode.disabled => false,
-      McpLazyLoadingMode.enabled => mcpEntries.isNotEmpty,
-      McpLazyLoadingMode.auto =>
-        mcpEntries.isNotEmpty &&
-            (mcpEntries.length >= _autoModeToolCountThreshold ||
-                _estimateMcpCatalogTokens(
-                      mcpEntries: mcpEntries,
-                      charsPerToken: math.max(
-                        1,
-                        runtimeContext.estimatedCharactersPerToken,
-                      ),
-                    ) >=
-                    runtimeContext.mcpLazyLoadingThresholdTokens),
-    };
+    final shouldLazy =
+        hasToolSearch &&
+        switch (mode) {
+          McpLazyLoadingMode.disabled => false,
+          McpLazyLoadingMode.enabled => mcpEntries.isNotEmpty,
+          McpLazyLoadingMode.auto =>
+            mcpEntries.isNotEmpty &&
+                (mcpEntries.length >= _autoModeToolCountThreshold ||
+                    _estimateMcpCatalogTokens(
+                          mcpEntries: mcpEntries,
+                          charsPerToken: math.max(
+                            1,
+                            runtimeContext.estimatedCharactersPerToken,
+                          ),
+                        ) >=
+                        runtimeContext.mcpLazyLoadingThresholdTokens),
+        };
 
-    final toolSearchTool = toolRuntimeService.toolRegistry.getTool(
+    final toolSearchTool = toolRuntimeService?.toolRegistry.getTool(
       AiBuiltinToolKind.toolSearch,
     );
 
@@ -49,32 +52,8 @@ class McpLazyLoadingApplier {
       return keepToolSearchWhenIdle ? catalog : _stripToolSearch(catalog);
     }
 
-    // 强可见名单按字典序排序，避免 MCP 服务器重连或
-    // 控制器刷新导致 `forceVisibleNames` 的 Set 迭代顺序漂移，进而让
-    // notice 文案在轮次间字节不一致、撕裂前缀缓存。
-    final forceVisibleEntryNames =
-        mcpEntries
-            .where((entry) => forceVisibleNames.contains(entry.key))
-            .map((entry) => entry.key)
-            .toList(growable: true)
-          ..sort(compareToolNamesForAiRequest);
-    final forceVisibleNotice = forceVisibleEntryNames.isEmpty
-        ? null
-        : 'MCP lazy loading policy kept ${forceVisibleEntryNames.length} MCP tool(s) directly visible: ${forceVisibleEntryNames.join(', ')}.';
-    // `deferredEntries` 直接喂给 ToolSearch 的 description
-    // 渲染（见 _augmentToolSearchDefinition），其遍历顺序决定了 [2] Tool
-    // Catalog 整段文本。改用按工具名字典序排列，确保即便上游 MCP catalog
-    // 的 Map 插入顺序漂移（服务器异步重连、刷新、单工具增删），描述区文本
-    // 仍然字节一致，前缀缓存命中率不会被这条隐藏漂移点踩破。
-    final deferredEntries =
-        mcpEntries
-            .where(
-              (entry) =>
-                  !alreadyLoadedNames.contains(entry.key) &&
-                  !forceVisibleNames.contains(entry.key),
-            )
-            .toList(growable: true)
-          ..sort((a, b) => compareToolNamesForAiRequest(a.key, b.key));
+    final deferredEntries = mcpEntries.toList(growable: true)
+      ..sort((a, b) => compareToolNamesForAiRequest(a.key, b.key));
     final deferredDefinitions = <String, AiToolDefinition>{
       for (final entry in deferredEntries)
         entry.key: stableToolDefinitionForAiRequest(entry.value.definition),
@@ -86,19 +65,7 @@ class McpLazyLoadingApplier {
       toolSearchTool.setDeferredToolSnapshot(deferredDefinitions);
     }
     if (deferredEntries.isEmpty) {
-      final strippedCatalog = keepToolSearchWhenIdle
-          ? catalog
-          : _stripToolSearch(catalog);
-      if (forceVisibleNotice == null) {
-        return strippedCatalog;
-      }
-      return AiResolvedToolCatalog(
-        definitions: strippedCatalog.definitions,
-        toolsByName: strippedCatalog.toolsByName,
-        notices: <String>[...strippedCatalog.notices, forceVisibleNotice],
-        mcpServerInstructionsByName:
-            strippedCatalog.mcpServerInstructionsByName,
-      );
+      return keepToolSearchWhenIdle ? catalog : _stripToolSearch(catalog);
     }
 
     final deferredKeys = deferredEntries.map((entry) => entry.key).toSet();
@@ -109,9 +76,8 @@ class McpLazyLoadingApplier {
         keptEntries.add(
           MapEntry<String, AiResolvedTool>(
             entry.key,
-            _augmentToolSearchDefinition(
+            _attachDeferredTools(
               entry.value,
-              deferredEntries: deferredEntries,
               deferredDefinitions: deferredDefinitions,
               deferredTools: deferredTools,
             ),
@@ -124,52 +90,25 @@ class McpLazyLoadingApplier {
     final notice =
         'MCP tool lazy loading active (${mode.storageValue}): '
         '${deferredEntries.length} of ${mcpEntries.length} MCP tool(s) '
-        'deferred. Use ToolSearch to load them on demand.';
+        'deferred. Search and invoke them through ToolSearch.';
     return AiResolvedToolCatalog(
       definitions: keptEntries
           .map((entry) => entry.value.definition)
           .toList(growable: false),
       toolsByName: Map<String, AiResolvedTool>.fromEntries(keptEntries),
-      notices: <String>[
-        ...catalog.notices,
-        notice,
-        if (forceVisibleNotice != null) forceVisibleNotice,
-      ],
+      notices: <String>[...catalog.notices, notice],
       mcpServerInstructionsByName: catalog.mcpServerInstructionsByName,
     );
   }
 
-  static AiResolvedTool _augmentToolSearchDefinition(
+  static AiResolvedTool _attachDeferredTools(
     AiResolvedTool original, {
-    required List<MapEntry<String, AiResolvedTool>> deferredEntries,
     required Map<String, AiToolDefinition> deferredDefinitions,
     required Map<String, AiResolvedTool> deferredTools,
   }) {
-    final lines = <String>[
-      '',
-      '## Deferred MCP tools (${deferredEntries.length})',
-    ];
-    final sample = deferredEntries.take(80);
-    for (final entry in sample) {
-      final summary = entry.value.definition.description;
-      final firstLine = summary.split('\n').first.trim();
-      final clipped = firstLine.length > 140
-          ? '${firstLine.substring(0, 137)}...'
-          : firstLine;
-      lines.add('- ${entry.key} — $clipped');
-    }
-    if (deferredEntries.length > 80) {
-      lines.add('- … and ${deferredEntries.length - 80} more.');
-    }
-    final newDescription =
-        '${original.definition.description}\n${lines.join('\n')}';
     return AiResolvedTool(
       name: original.name,
-      definition: AiToolDefinition(
-        name: original.definition.name,
-        description: newDescription,
-        parameters: original.definition.parameters,
-      ),
+      definition: original.definition,
       source: original.source,
       builtinKind: original.builtinKind,
       mcpServer: original.mcpServer,

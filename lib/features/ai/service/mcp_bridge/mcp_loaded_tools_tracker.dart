@@ -63,7 +63,7 @@ class AiToolSearchLoadHistoryEntry {
   int get addedCount => addedNames.length;
 }
 
-/// 跨调用累计每个会话已通过 `ToolSearch` 加载的工具名，并以
+/// 跨调用累计每个会话已通过 `ToolSearch` 匹配的工具名，并以
 /// [ValueListenable] 形式向 UI 广播一次性事件。
 class McpLoadedToolsTracker {
   final Map<String, Set<String>> _loadedBySession = <String, Set<String>>{};
@@ -90,14 +90,6 @@ class McpLoadedToolsTracker {
       return const <AiToolSearchLoadHistoryEntry>[];
     }
     return List<AiToolSearchLoadHistoryEntry>.unmodifiable(history);
-  }
-
-  /// 返回指定会话当前已加载的工具集合的只读快照（无序）。控制器在构造
-  /// runtime lazy loading 输入时需要 `Set<String>`。
-  Set<String> rawSetForSession(String sessionId) {
-    final names = _loadedBySession[sessionId];
-    if (names == null || names.isEmpty) return const <String>{};
-    return Set<String>.unmodifiable(_sortedToolNames(names));
   }
 
   /// 吸收 ToolSearch 工具结果中 `tool_search_loaded_names` 元数据，更新累计

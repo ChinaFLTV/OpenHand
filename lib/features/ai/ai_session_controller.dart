@@ -66,9 +66,7 @@ import 'service/dsml/ai_dsml_partial_stream_scanner.dart';
 import 'service/dsml/ai_dsml_tool_call_parser.dart';
 import 'service/fs/ai_attachment_service.dart';
 import 'service/hook/ai_claude_hook_service.dart';
-import 'service/mcp_bridge/android_reverse_mcp_tool_policy.dart';
 import 'service/mcp_bridge/mcp_loaded_tools_tracker.dart';
-import 'service/mcp_bridge/web_reverse_mcp_tool_policy.dart';
 import 'service/media/ai_image_summary_extractor.dart';
 import 'service/model_registry/ai_title_model_resolver.dart';
 import 'service/prompt/ai_prompt_builder.dart';
@@ -463,16 +461,15 @@ class AiSessionController extends ChangeNotifier {
   /// model completes normally or produces tool calls.
   var _truncationContinuationCount = 0;
 
-  /// ToolSearch 懒加载状态。键为 sessionId，值为该会话已通过
-  /// `ToolSearch` 主动加载并允许直接调用的 runtime tool 名称；同时承载
-  /// 向 UI 广播加载事件的 [ValueListenable]。
+  /// ToolSearch 会话状态。键为 sessionId，记录已匹配且可经固定网关调用的
+  /// runtime tool 名称；同时承载向 UI 广播匹配事件的 [ValueListenable]。
   /// 会话被 dispose 时清理。
   final McpLoadedToolsTracker _loadedMcpToolsTracker = McpLoadedToolsTracker();
 
   ValueListenable<AiToolSearchLoadedEvent?> get toolSearchLoadedSignal =>
       _loadedMcpToolsTracker.signal;
 
-  /// 返回指定会话已通过 `ToolSearch` 加载的工具名（按字母升序）。
+  /// 返回指定会话已通过 `ToolSearch` 匹配的工具名（按字母升序）。
   /// 供 UI 在 SnackBar action 中查询展示。
   List<String> loadedMcpToolNamesForSession(String sessionId) =>
       _loadedMcpToolsTracker.namesForSession(sessionId);
@@ -483,9 +480,7 @@ class AiSessionController extends ChangeNotifier {
     String sessionId,
   ) => _loadedMcpToolsTracker.historyForSession(sessionId);
 
-  /// 清空指定会话的 ToolSearch 已加载缓存：下一轮 runtime lazy loading
-  /// 将再次把这些工具从 catalog 中剔除，模型若需要必须重新调用 ToolSearch。
-  /// 返回被清除的工具数量。
+  /// 清空指定会话的 ToolSearch 匹配记录，返回被清除的工具数量。
   int clearLoadedMcpToolsForSession(String sessionId) =>
       _loadedMcpToolsTracker.clearSession(sessionId);
 
@@ -6529,17 +6524,8 @@ class AiSessionController extends ChangeNotifier {
         assistantBootstrapStopwatch.elapsedMilliseconds;
     final templateBundle = bootstrapResults[0] as AiPromptTemplateBundle;
     final fullCatalog = bootstrapResults[1] as AiResolvedToolCatalog;
-    final forceVisibleMcpToolNames = _forceVisibleMcpToolNamesForSession(
-      session: session,
-      catalog: fullCatalog,
-    );
     var workingSession = session;
-    AiResolvedToolCatalog applyRuntimeLazyLoadingForSessionId(
-      String sessionId,
-    ) {
-      final loadedToolNames = _loadedMcpToolsTracker.rawSetForSession(
-        sessionId,
-      );
+    AiResolvedToolCatalog applyRuntimeLazyLoading() {
       final builtinLazyLoadingThresholdTokens =
           AiBuiltinToolLazyLoadingApplier.effectiveAutoThresholdTokens(
             runtimeContext.mcpLazyLoadingThresholdTokens,
@@ -6550,15 +6536,14 @@ class AiSessionController extends ChangeNotifier {
             mode: runtimeContext.builtinToolLazyLoadingMode,
             thresholdTokens: builtinLazyLoadingThresholdTokens,
             charsPerToken: runtimeContext.estimatedCharactersPerToken,
-            alreadyLoadedNames: loadedToolNames,
           );
       final mcpCatalog = McpLazyLoadingApplier.apply(
         catalog: fullCatalog,
         runtimeContext: runtimeContext,
         toolRuntimeService: _toolRuntimeService,
-        alreadyLoadedNames: loadedToolNames,
-        forceVisibleNames: forceVisibleMcpToolNames,
-        keepToolSearchWhenIdle: keepToolSearchForBuiltins,
+        keepToolSearchWhenIdle:
+            runtimeContext.mcpLazyLoadingMode != McpLazyLoadingMode.disabled ||
+            keepToolSearchForBuiltins,
       );
       return AiBuiltinToolLazyLoadingApplier.apply(
         catalog: mcpCatalog,
@@ -6567,15 +6552,10 @@ class AiSessionController extends ChangeNotifier {
         thresholdTokens: builtinLazyLoadingThresholdTokens,
         charsPerToken: runtimeContext.estimatedCharactersPerToken,
         toolRuntimeService: _toolRuntimeService,
-        alreadyLoadedNames: loadedToolNames,
       );
     }
 
-    AiResolvedToolCatalog applyRuntimeLazyLoadingForCurrentSession() {
-      return applyRuntimeLazyLoadingForSessionId(workingSession.id);
-    }
-
-    var toolCatalog = applyRuntimeLazyLoadingForCurrentSession();
+    final toolCatalog = applyRuntimeLazyLoading();
     var activeLatestUserMessageId = latestUserMessageId;
     var activeRoundAnchorMessageId = latestUserMessageId;
     // 阶段⑰：累积当前轮次（非 AI 侧消息：用户显式消息或
@@ -6645,7 +6625,6 @@ class AiSessionController extends ChangeNotifier {
       if (_isStopRequestedForSession(workingSession.id)) {
         return true;
       }
-      toolCatalog = applyRuntimeLazyLoadingForCurrentSession();
       // 「等待计划批准」的轮次仍然要在 prompt 里渲染「完整目录」，
       // 但给 SDK / DSML 验证层的实际可用工具是空；避免全调用与 [2] 文本随
       // awaitingPlanApproval 反转而变动，从而保护 prefix cache。
@@ -8242,20 +8221,6 @@ class AiSessionController extends ChangeNotifier {
         requireWriteCommandConfirmation: requireWriteCommandConfirmation,
         confirmWriteCommand: confirmWriteCommand,
         planModeExecutionApprovedForSend: planModeExecutionApprovedForSend,
-        refreshToolCatalog: (currentSession) {
-          if (currentSession.awaitingPlanApproval) {
-            return const AiResolvedToolCatalog(
-              definitions: <AiToolDefinition>[],
-              toolsByName: <String, AiResolvedTool>{},
-            );
-          }
-          return _toolCatalogForRound(
-            session: currentSession,
-            baseCatalog: applyRuntimeLazyLoadingForSessionId(currentSession.id),
-            executionApprovedForSend: planModeExecutionApprovedForSend,
-            recoveryInspectionRequired: planModeRecoveryInspectionRequired,
-          );
-        },
       );
       // 阶段⑰：记录本轮全部工具调用 id（按出现顺序去重），供回合
       // 结束时回查 ledger 合成文件变动汇总卡。
@@ -8313,7 +8278,6 @@ class AiSessionController extends ChangeNotifier {
     required bool requireWriteCommandConfirmation,
     required WriteCommandConfirmationCallback? confirmWriteCommand,
     required bool planModeExecutionApprovedForSend,
-    AiResolvedToolCatalog Function(AiSession session)? refreshToolCatalog,
   }) async {
     if (_isStopRequestedForSession(session.id)) {
       return _commitCancelledPendingToolCalls(session);
@@ -8336,7 +8300,7 @@ class AiSessionController extends ChangeNotifier {
       );
     }
     var workingSession = session;
-    var workingToolCatalog = toolCatalog;
+    final workingToolCatalog = toolCatalog;
     for (final toolCall in toolCalls) {
       if (_isStopRequestedForSession(workingSession.id)) {
         return _commitCancelledPendingToolCalls(workingSession);
@@ -8500,13 +8464,10 @@ class AiSessionController extends ChangeNotifier {
         );
         return null;
       }
-      final loadedToolNames = _absorbToolSearchLoadedNames(
+      _absorbToolSearchLoadedNames(
         sessionId: workingSession.id,
         result: result,
       );
-      if (loadedToolNames.isNotEmpty && refreshToolCatalog != null) {
-        workingToolCatalog = refreshToolCatalog(workingSession);
-      }
       workingSession = await _runUserPostToolUseHook(
         session: workingSession,
         toolCall: toolCall,
@@ -8779,9 +8740,7 @@ class AiSessionController extends ChangeNotifier {
 
   /// When a `ToolSearch` invocation succeeds it stamps the
   /// matched runtime tool names into `result.metadata['tool_search_loaded_names']`.
-  /// Promote those names into the per-session loaded set so the current serial
-  /// batch can refresh its execution catalog and the next model request can
-  /// advertise the loaded tools directly.
+  /// 记录匹配结果并通知 UI。工具仍通过固定 ToolSearch 网关执行，原生目录不变。
   List<String> _absorbToolSearchLoadedNames({
     required String sessionId,
     required AiToolExecutionResult result,
@@ -8992,8 +8951,7 @@ class AiSessionController extends ChangeNotifier {
       case AiBuiltinToolKind.notebookEdit:
       case AiBuiltinToolKind.todoWrite:
       case AiBuiltinToolKind.deleteFile:
-      // ToolSearch mutates the lazy-loaded MCP catalog; keep it serial so any
-      // remaining calls in the batch can see the refreshed catalog.
+      // ToolSearch 网关可能代理有副作用的延迟工具，必须串行执行。
       case AiBuiltinToolKind.toolSearch:
       // Interactive dialog tool must run serially so its modal UI is not
       // interleaved with other tool invocations on the same turn.
@@ -9134,23 +9092,7 @@ class AiSessionController extends ChangeNotifier {
     );
   }
 
-  /// MCP lazy loading is delegated to
-  /// [McpLazyLoadingApplier.apply]. Built-in lazy/deferred tools are layered on
-  /// top in the assistant loop so already-pulled tools stay live across turns.
-
-  Set<String> _forceVisibleMcpToolNamesForSession({
-    required AiSession session,
-    required AiResolvedToolCatalog catalog,
-  }) {
-    final templatePolicy = AiPromptTemplatePolicies.resolve(session.templateId);
-    if (templatePolicy.usesWebReverseToolCatalog) {
-      return WebReverseMcpToolPolicy.forceVisibleToolNames(catalog);
-    }
-    if (templatePolicy.usesAndroidReverseToolCatalog) {
-      return AndroidReverseMcpToolPolicy.forceVisibleToolNames(catalog);
-    }
-    return const <String>{};
-  }
+  /// MCP 与内置延迟工具统一通过固定 ToolSearch 网关装配和执行。
 
   AiResolvedToolCatalog _toolCatalogForRound({
     required AiSession session,

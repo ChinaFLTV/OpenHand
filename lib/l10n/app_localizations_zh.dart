@@ -1464,7 +1464,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get mcpLazyLoadingHowItWorks =>
-      '懒加载启用时：MCP 工具描述被折叠为名称索引，模型通过内置 ToolSearch 工具按需取回完整 JSON Schema。支持三种查询：\n• select:NAME（直接选取，可空格分隔多个）\n• 关键字（按 name/description 评分匹配）\n• +KEYWORD（必含词，用于过滤噪声）\n命中工具会写入当前会话已加载列表，下一轮即可直接调用，无需再次查询。';
+      '懒加载启用时：MCP 工具描述被折叠为名称索引，模型通过内置 ToolSearch 工具按需取回完整 JSON Schema。支持三种查询：\n• select:NAME（直接选取，可空格分隔多个）\n• 关键字（按 name/description 评分匹配）\n• +KEYWORD（必含词，用于过滤噪声）\n命中后继续通过 ToolSearch 提交精确 tool_name 和符合 Schema 的 arguments。原生工具目录保持固定，避免破坏提示词缓存。';
 
   @override
   String get settingsGeneralSubtitle => '管理主题、语言与应用基础信息。';
@@ -12079,7 +12079,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get mcpLazyLoadingHowItWorks =>
-      '懶載入啟用時：MCP 工具描述被折疊為名稱索引，模型透過內建 ToolSearch 工具按需取回完整 JSON Schema。支援三種查詢：\n• select:NAME（直接選取，可空格分隔多個）\n• 關鍵字（按 name/description 評分配對）\n• +KEYWORD（必含詞，用於過濾雜訊）\n命中工具會寫入目前會話已載入清單，下一輪即可直接呼叫，無需再次查詢。';
+      '懶載入啟用時：MCP 工具描述被折疊為名稱索引，模型透過內建 ToolSearch 工具按需取回完整 JSON Schema。支援三種查詢：\n• select:NAME（直接選取，可空格分隔多個）\n• 關鍵字（按 name/description 評分配對）\n• +KEYWORD（必含詞，用於過濾雜訊）\n命中後繼續透過 ToolSearch 提交精確 tool_name 和符合 Schema 的 arguments。原生工具目錄保持固定，避免破壞提示詞快取。';
 
   @override
   String get settingsGeneralSubtitle => '管理主題、語言與應用基礎資訊。';

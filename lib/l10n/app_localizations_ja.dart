@@ -1479,7 +1479,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get mcpLazyLoadingHowItWorks =>
-      '遅延読み込みが有効な間、MCP ツールの説明は名前インデックスに折りたたまれ、組み込みの ToolSearch ツールが必要に応じて完全な JSON Schema を取得します。3 つのクエリ形式に対応：\n• select:NAME（直接選択、空白区切りで複数指定可）\n• キーワード（name/description にスコアリング）\n• +KEYWORD（ノイズ除去のための必須語）\n解決済みツールはセッションのロード済みセットに追加され、次ターンでは追加検索なしで直接呼び出せます。';
+      '遅延読み込みが有効な間、MCP ツールの説明は名前インデックスに折りたたまれ、組み込みの ToolSearch ツールが必要に応じて完全な JSON Schema を取得します。3 つのクエリ形式に対応：\n• select:NAME（直接選択、空白区切りで複数指定可）\n• キーワード（name/description にスコアリング）\n• +KEYWORD（ノイズ除去のための必須語）\n一致後は、正確な tool_name と Schema に準拠した arguments を ToolSearch に渡します。ネイティブツール一覧は固定され、プロンプトキャッシュが維持されます。';
 
   @override
   String get settingsGeneralSubtitle => 'テーマ、言語、アプリの基本情報を管理します。';

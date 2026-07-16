@@ -36,7 +36,7 @@ class WebReverseCdpFirstDecision {
     final override = nextActionOverride?.trim();
     if (override != null && override.isNotEmpty) return override;
     if (requiresToolSearch) {
-      return 'Call ToolSearch first to load the CDP / Chrome DevTools / js-reverse MCP tools, then inspect the live browser with those exact tool names.';
+      return 'Call ToolSearch to find the CDP / Chrome DevTools / js-reverse MCP schema, then invoke it through ToolSearch with the exact returned tool_name.';
     }
     return 'Use the exact callable CDP / Chrome DevTools / js-reverse MCP tools first: $toolText.';
   }

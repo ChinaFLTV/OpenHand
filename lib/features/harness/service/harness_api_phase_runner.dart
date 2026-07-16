@@ -153,9 +153,9 @@ class HarnessApiPhaseRunner {
   )?
   confirmWriteCommand;
 
-  /// 当 ToolSearch 在某个 phase 内成功拉取若干 MCP 工具时被回调。
-  /// `loadedNames`：本次新加入的完整工具名（已去重，按 ToolSearch 返回顺序）。
-  /// `totalLoadedSoFar`：phase 累计已加载工具数。
+  /// 当 ToolSearch 在某个 phase 内成功匹配若干工具时被回调。
+  /// `loadedNames`：本次新增的完整工具名（已去重，按 ToolSearch 返回顺序）。
+  /// `totalLoadedSoFar`：phase 累计已匹配工具数。
   /// `phaseSessionId`：所属 phase 会话 id，便于 UI 区分。
   final void Function({
     required String phaseSessionId,
@@ -171,9 +171,8 @@ class HarnessApiPhaseRunner {
   /// ToolSearch 加载历史时间线），避免长会话累积。
   final void Function({required String phaseSessionId})? onPhaseEnded;
 
-  /// Per-phase-session record of MCP tools that ToolSearch already pulled in,
-  /// keyed by `phaseSessionId`. Mirrors `AiSessionController._loadedMcpToolsBySession`.
-  final Map<String, Set<String>> _loadedMcpToolsBySession =
+  /// 按 phaseSessionId 记录 ToolSearch 已匹配的工具名，仅用于 UI 统计。
+  final Map<String, Set<String>> _matchedToolsBySession =
       <String, Set<String>>{};
 
   /// Rough characters-per-token estimate for context size tracking.
@@ -227,7 +226,7 @@ class HarnessApiPhaseRunner {
         phaseSessionId: phaseSessionId,
       );
     } finally {
-      _loadedMcpToolsBySession.remove(phaseSessionId);
+      _matchedToolsBySession.remove(phaseSessionId);
       onPhaseEnded?.call(phaseSessionId: phaseSessionId);
     }
   }
@@ -263,26 +262,22 @@ class HarnessApiPhaseRunner {
       runtimeContext: runtimeContext,
     );
 
-    // Apply runtime lazy-loading policy before phase-affinity filtering, so the
-    // deferred list reflects the full inventory and any subsequent ToolSearch
-    // hit becomes immediately callable in this phase.
+    // 先统一折叠延迟工具，再按阶段权限过滤；延迟工具始终通过固定网关执行。
     AiResolvedToolCatalog applyRuntimeLazyLoadingForPhase() {
-      final loadedToolNames =
-          _loadedMcpToolsBySession[phaseSessionId] ?? const <String>{};
       final keepToolSearchForBuiltins =
           AiBuiltinToolLazyLoadingApplier.hasDeferredCandidates(
             catalog: rawToolCatalog,
             mode: runtimeContext.builtinToolLazyLoadingMode,
             thresholdTokens: runtimeContext.mcpLazyLoadingThresholdTokens,
             charsPerToken: runtimeContext.estimatedCharactersPerToken,
-            alreadyLoadedNames: loadedToolNames,
           );
       final mcpCatalog = McpLazyLoadingApplier.apply(
         catalog: rawToolCatalog,
         runtimeContext: runtimeContext,
         toolRuntimeService: _toolRuntimeService,
-        alreadyLoadedNames: loadedToolNames,
-        keepToolSearchWhenIdle: keepToolSearchForBuiltins,
+        keepToolSearchWhenIdle:
+            runtimeContext.mcpLazyLoadingMode != McpLazyLoadingMode.disabled ||
+            keepToolSearchForBuiltins,
       );
       return AiBuiltinToolLazyLoadingApplier.apply(
         catalog: mcpCatalog,
@@ -291,7 +286,6 @@ class HarnessApiPhaseRunner {
         thresholdTokens: runtimeContext.mcpLazyLoadingThresholdTokens,
         charsPerToken: runtimeContext.estimatedCharactersPerToken,
         toolRuntimeService: _toolRuntimeService,
-        alreadyLoadedNames: loadedToolNames,
       );
     }
 
@@ -302,13 +296,11 @@ class HarnessApiPhaseRunner {
       return harnessPromptBuilder.filterToolsForPhase(
         phase: phase,
         catalog: catalog,
-        loadedMcpToolNames:
-            _loadedMcpToolsBySession[phaseSessionId] ?? const <String>{},
       );
     }
 
-    var toolCatalog = applyRuntimeLazyLoadingForPhase();
-    var phaseToolCatalog = filterToolsForCurrentPhase(toolCatalog);
+    final toolCatalog = applyRuntimeLazyLoadingForPhase();
+    final phaseToolCatalog = filterToolsForCurrentPhase(toolCatalog);
 
     if (toolCatalog.notices.isNotEmpty) {
       for (final notice in toolCatalog.notices) {
@@ -405,26 +397,12 @@ class HarnessApiPhaseRunner {
       return systemContent.toString();
     }
 
-    var currentSystemContent = buildSystemContent(phaseToolCatalog);
+    final currentSystemContent = buildSystemContent(phaseToolCatalog);
 
     final conversation = <AiChatTurn>[
       AiChatTurn(role: AiChatRole.system, content: currentSystemContent),
       AiChatTurn(role: AiChatRole.user, content: phasePrompt),
     ];
-
-    void refreshSystemTurn() {
-      currentSystemContent = buildSystemContent(phaseToolCatalog);
-      final turn = AiChatTurn(
-        role: AiChatRole.system,
-        content: currentSystemContent,
-      );
-      if (conversation.isNotEmpty &&
-          conversation.first.role == AiChatRole.system) {
-        conversation[0] = turn;
-      } else {
-        conversation.insert(0, turn);
-      }
-    }
 
     // Agentic tool loop — mirrors AiSessionController._runAssistantConversation.
     final maxToolRounds = math.max(1, runtimeContext.sequentialToolRoundLimit);
@@ -458,10 +436,6 @@ class HarnessApiPhaseRunner {
             // Not yet cancelled — continue.
           }
         }
-
-        toolCatalog = applyRuntimeLazyLoadingForPhase();
-        phaseToolCatalog = filterToolsForCurrentPhase(toolCatalog);
-        refreshSystemTurn();
 
         // Handoff if approaching context window limit: generate a handoff
         // document and restart the session instead of simple truncation.
@@ -621,11 +595,10 @@ class HarnessApiPhaseRunner {
             }
           }
 
-          // Absorb tool_search_loaded_names so subsequent tool calls and
-          // rounds in this phase see the just-pulled runtime tools as live.
+          // 记录 ToolSearch 匹配结果供 UI 展示，工具目录保持不变。
           final loadedNames = result.metadata['tool_search_loaded_names'];
           if (loadedNames is List && loadedNames.isNotEmpty) {
-            final bucket = _loadedMcpToolsBySession.putIfAbsent(
+            final bucket = _matchedToolsBySession.putIfAbsent(
               phaseSessionId,
               () => <String>{},
             );
@@ -653,11 +626,6 @@ class HarnessApiPhaseRunner {
                           : addedNames.length),
                 query: queryRaw is String ? queryRaw : '',
               );
-            }
-            if (addedNames.isNotEmpty) {
-              toolCatalog = applyRuntimeLazyLoadingForPhase();
-              phaseToolCatalog = filterToolsForCurrentPhase(toolCatalog);
-              refreshSystemTurn();
             }
           }
 

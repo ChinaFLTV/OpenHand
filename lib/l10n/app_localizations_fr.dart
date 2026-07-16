@@ -1509,7 +1509,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get mcpLazyLoadingHowItWorks =>
-      'Lorsque le chargement différé est actif, les descriptions des outils MCP sont repliées en un index de noms. L\'outil intégré ToolSearch récupère le schéma JSON complet à la demande via trois formes :\n• select:NAME (sélection directe, multi-sélection séparée par espaces)\n• mot-clé (scoré sur name/description)\n• +MOTCLE (terme requis pour filtrer le bruit)\nLes outils résolus sont ajoutés à l\'ensemble chargé de la session afin que le tour suivant les appelle directement.';
+      'Lorsque le chargement différé est actif, les descriptions des outils MCP sont repliées en un index de noms. L\'outil intégré ToolSearch récupère le schéma JSON complet à la demande via trois formes :\n• select:NAME (sélection directe, multi-sélection séparée par espaces)\n• mot-clé (scoré sur name/description)\n• +MOTCLE (terme requis pour filtrer le bruit)\nAprès une correspondance, ToolSearch est appelé avec le tool_name exact et des arguments conformes au schéma. La liste native reste fixe pour préserver le cache du prompt.';
 
   @override
   String get settingsGeneralSubtitle =>

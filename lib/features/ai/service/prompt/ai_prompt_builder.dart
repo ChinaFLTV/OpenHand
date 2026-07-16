@@ -164,8 +164,6 @@ class AiPromptBuilder {
   static const int _compressionUserManifestMaxChars = 12000;
   static const int _compressionUserManifestMaxCharsPerMessage = 1200;
   static const int _compressionResourceManifestMaxItems = 40;
-  static const int _dynamicToolCatalogPreviewLimit = 12;
-  static const int _dynamicToolCatalogPreviewLineMaxChars = 160;
   static const String _runtimeContextEnvelopeStart =
       '<openhand_runtime_context>';
   static const String _runtimeContextEnvelopeEnd =
@@ -1722,74 +1720,6 @@ class AiPromptBuilder {
         _renderToolEntry(buffer, tool, compact: compact);
       }
     }
-    // Lazy loading banner: ToolSearch may carry deferred MCP and/or built-in
-    // tool subsections. Surface a concise notice so the model knows schemas
-    // are intentionally folded and must be loaded by exact name or keywords.
-    final toolSearch = builtinTools.firstWhere(
-      (tool) => tool.name == 'ToolSearch',
-      orElse: () => const AiToolDefinition(
-        name: '',
-        description: '',
-        parameters: <String, Object?>{},
-      ),
-    );
-    final deferredMcpMatch = toolSearch.name.isEmpty
-        ? null
-        : RegExp(
-            r'## Deferred MCP tools \((\d+)\)',
-          ).firstMatch(toolSearch.description);
-    final deferredBuiltinMatch = toolSearch.name.isEmpty
-        ? null
-        : RegExp(
-            r'## Deferred built-in tools \((\d+)\)',
-          ).firstMatch(toolSearch.description);
-    if (deferredMcpMatch != null || deferredBuiltinMatch != null) {
-      final mcpCount = deferredMcpMatch?.group(1);
-      final builtinCount = deferredBuiltinMatch?.group(1);
-      final deferredPreviewLines = _deferredToolCatalogPreviewLines(
-        toolSearch.description,
-      );
-      final foldedKinds = <String>[
-        if (mcpCount != null) '$mcpCount MCP',
-        if (builtinCount != null) '$builtinCount built-in',
-      ].join(' + ');
-      buffer
-        ..writeln()
-        ..writeln(
-          compact
-              ? '## Dynamic Tools'
-              : '## Dynamic Tool Catalog (schemas deferred)',
-        )
-        ..writeln(
-          'Schemas for $foldedKinds deferred tool(s) are folded to save context. '
-          'Names and one-line summaries are inside the `ToolSearch` description. '
-          'To use a deferred tool, first call `ToolSearch` with '
-          '`select:<exact_name>` or keywords; the next model request receives '
-          'the full JSONSchema. Do not invent tool names.',
-        );
-      if (deferredPreviewLines.isNotEmpty) {
-        buffer.writeln('Deferred index preview:');
-        final renderedLines = deferredPreviewLines
-            .take(_dynamicToolCatalogPreviewLimit)
-            .toList(growable: false);
-        for (final line in renderedLines) {
-          buffer.writeln('- $line');
-        }
-        final omitted = deferredPreviewLines.length - renderedLines.length;
-        if (omitted > 0) {
-          buffer.writeln('- [deferred_tools_truncated: omitted $omitted]');
-        }
-      }
-      if (isWebReverse) {
-        buffer.writeln(
-          'For Web Reverse sessions, load and use CDP / Chrome DevTools / js-reverse MCP tools when present in the deferred list. Do not use non-CDP browser automation for target-origin capture; if live CDP is unavailable, use local jsonl/HAR artifacts or ask the user to restore CDP.',
-        );
-      } else if (isAndroidReverse) {
-        buffer.writeln(
-          'For Android Reverse sessions, load and use ADB / Frida / IDA Pro MCP tools when present in the deferred list. Do not fabricate tool names or skip ADB device confirmation.',
-        );
-      }
-    }
     if (mcpTools.isNotEmpty) {
       buffer
         ..writeln()
@@ -1871,41 +1801,6 @@ class AiPromptBuilder {
         );
     }
     return buffer.toString().trimRight();
-  }
-
-  List<String> _deferredToolCatalogPreviewLines(String toolSearchDescription) {
-    final grouped = <String, List<String>>{
-      'built-in': <String>[],
-      'MCP': <String>[],
-    };
-    String? activeGroup;
-    for (final rawLine in toolSearchDescription.split('\n')) {
-      final line = rawLine.trim();
-      final headingMatch = RegExp(
-        r'^## Deferred (MCP|built-in) tools \(\d+\)$',
-      ).firstMatch(line);
-      if (headingMatch != null) {
-        activeGroup = headingMatch.group(1);
-        continue;
-      }
-      if (line.startsWith('## ')) {
-        activeGroup = null;
-        continue;
-      }
-      if (activeGroup == null || !line.startsWith('- ')) {
-        continue;
-      }
-      final item = line.substring(2).trim();
-      if (item.isEmpty ||
-          item.startsWith('... and ') ||
-          item.startsWith('… and ')) {
-        continue;
-      }
-      grouped[activeGroup]!.add(
-        '[$activeGroup] ${_truncateToolDescription(item, maxCharacters: _dynamicToolCatalogPreviewLineMaxChars)}',
-      );
-    }
-    return <String>[...grouped['built-in']!, ...grouped['MCP']!];
   }
 
   void _renderToolEntry(
@@ -2502,8 +2397,8 @@ class AiPromptBuilder {
           'tool_search_recommended_query':
               'select:${deferredCdpMcpToolNames.take(8).join(',')}',
           'guidance': cdpRuntimeLive
-              ? 'CDP / Chrome DevTools / js-reverse MCP tools are present only as deferred ToolSearch entries. Before any live CDP action, call ToolSearch with tool_search_recommended_query, then use the exact loaded MCP names from the next model request onward.'
-              : 'CDP / Chrome DevTools / js-reverse MCP tools are present only as deferred ToolSearch entries, but live CDP actions are still blocked until cdp_runtime.browser_alive=true plus a current CDP endpoint/port. Use ToolSearch only to load schemas, and ask the user to restart/restore the Web Reverse browser before live CDP actions.',
+              ? 'CDP / Chrome DevTools / js-reverse MCP tools are deferred behind ToolSearch. Before any live CDP action, query with tool_search_recommended_query, then invoke the exact returned tool_name through ToolSearch.'
+              : 'CDP / Chrome DevTools / js-reverse MCP tools are deferred behind ToolSearch, but live CDP actions remain blocked until cdp_runtime.browser_alive=true plus a current CDP endpoint/port. Query schemas only after the runtime is restored.',
         } else if (cdpMcpToolNames.isEmpty)
           'warning': sessionCdpMcpEnabled
               ? 'No CDP / Chrome DevTools / js-reverse MCP tool is callable in # [2] Tool Catalog for this turn. Do not invent cdp_* or bare MCP names. The session has AI-side CDP MCP enabled, but the catalog is not ready; use local jsonl/HAR artifacts, or ask the user to refresh/disable-enable the Web Reverse MCP before live CDP actions.'

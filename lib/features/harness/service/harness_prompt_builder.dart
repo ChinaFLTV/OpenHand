@@ -108,7 +108,6 @@ class HarnessPromptBuilder {
   AiResolvedToolCatalog filterToolsForPhase({
     required HarnessPhase phase,
     required AiResolvedToolCatalog catalog,
-    Set<String> loadedMcpToolNames = const <String>{},
   }) {
     // Implementing phase gets full access
     if (phase == HarnessPhase.implementing) {
@@ -134,43 +133,34 @@ class HarnessPromptBuilder {
       if (!phaseNeedsWrite) AiBuiltinToolKind.write,
       AiBuiltinToolKind.notebookEdit,
     };
-    final loadedMcpNames = loadedMcpToolNames
-        .map((name) => name.trim())
-        .where((name) => name.isNotEmpty)
-        .toSet();
-
-    final filteredEntries = <MapEntry<String, AiResolvedTool>>[];
-    for (final entry in catalog.toolsByName.entries) {
-      final tool = entry.value;
-
-      if (tool.source == AiRuntimeToolSource.mcp &&
-          (loadedMcpNames.contains(entry.key) ||
-              loadedMcpNames.contains(tool.name))) {
-        filteredEntries.add(entry);
-        continue;
-      }
-
-      // Exclude write tools in read-only phases
+    bool isAllowed(AiResolvedTool tool) {
       if (tool.source == AiRuntimeToolSource.builtin &&
           readOnlyExcludeBuiltins.contains(tool.builtinKind)) {
-        continue;
+        return false;
       }
-
-      // Check phase affinity
       if (!isToolRelevantForPhase(phase: phase, tool: tool)) {
-        continue;
+        return false;
       }
-
-      // For read-only phases, exclude certain skills
       if (tool.source == AiRuntimeToolSource.skill) {
         final slug = tool.name.replaceFirst('skill__', '');
         if (_isReadOnlyPhase(phase) &&
             shouldExcludeSkillFromReadOnlyPhase(slug)) {
-          continue;
+          return false;
         }
       }
+      return true;
+    }
 
-      filteredEntries.add(entry);
+    final filteredEntries = <MapEntry<String, AiResolvedTool>>[];
+    for (final entry in catalog.toolsByName.entries) {
+      final tool = entry.value;
+      if (!isAllowed(tool)) continue;
+      filteredEntries.add(
+        MapEntry<String, AiResolvedTool>(
+          entry.key,
+          _filterToolSearchDeferredTools(tool, isAllowed),
+        ),
+      );
     }
 
     filteredEntries.sort(_compareResolvedToolEntries);
@@ -186,6 +176,37 @@ class HarnessPromptBuilder {
       toolsByName: filteredToolsByName,
       notices: catalog.notices,
       mcpServerInstructionsByName: catalog.mcpServerInstructionsByName,
+    );
+  }
+
+  AiResolvedTool _filterToolSearchDeferredTools(
+    AiResolvedTool tool,
+    bool Function(AiResolvedTool tool) isAllowed,
+  ) {
+    if (tool.builtinKind != AiBuiltinToolKind.toolSearch ||
+        tool.toolSearchDeferredTools.isEmpty) {
+      return tool;
+    }
+    final deferredEntries = tool.toolSearchDeferredTools.entries
+        .where((entry) => isAllowed(entry.value))
+        .toList(growable: false);
+    final allowedNames = deferredEntries.map((entry) => entry.key).toSet();
+    return AiResolvedTool(
+      name: tool.name,
+      definition: tool.definition,
+      source: tool.source,
+      builtinKind: tool.builtinKind,
+      mcpServer: tool.mcpServer,
+      mcpTool: tool.mcpTool,
+      skill: tool.skill,
+      builtinConfig: tool.builtinConfig,
+      toolSearchDeferredToolDefinitions: <String, AiToolDefinition>{
+        for (final entry in tool.toolSearchDeferredToolDefinitions.entries)
+          if (allowedNames.contains(entry.key)) entry.key: entry.value,
+      },
+      toolSearchDeferredTools: <String, AiResolvedTool>{
+        for (final entry in deferredEntries) entry.key: entry.value,
+      },
     );
   }
 

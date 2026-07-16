@@ -127,6 +127,25 @@ class AiResolvedToolCatalog {
     return null;
   }
 
+  AiResolvedTool? findDeferredTool(String name) {
+    final normalizedName = _normalizeToolLookupKey(name);
+    if (normalizedName.isEmpty) return null;
+    for (final tool in toolsByName.values) {
+      if (tool.builtinKind != AiBuiltinToolKind.toolSearch) continue;
+      final direct = tool.toolSearchDeferredTools[name];
+      if (direct != null) return direct;
+      for (final entry in tool.toolSearchDeferredTools.entries) {
+        if (_normalizeToolLookupKey(entry.key) == normalizedName ||
+            _normalizeToolLookupKey(entry.value.name) == normalizedName ||
+            _normalizeToolLookupKey(entry.value.definition.name) ==
+                normalizedName) {
+          return entry.value;
+        }
+      }
+    }
+    return null;
+  }
+
   /// Aggressive normalization for tool-name lookup so that PascalCase,
   /// camelCase, snake_case, kebab-case and even slightly garbled names
   /// (extra spaces / underscores / dashes) all resolve to the same tool.
@@ -914,6 +933,81 @@ class AiToolRuntimeService {
         },
       );
     }
+    if (resolvedTool.builtinKind == AiBuiltinToolKind.toolSearch) {
+      final gatewayArguments = AiToolUtils.decodeArguments(
+        toolCall.arguments,
+        parameters: resolvedTool.definition.parameters,
+      );
+      final deferredToolName = AiToolUtils.readString(
+        gatewayArguments['tool_name'],
+      );
+      if (deferredToolName.isNotEmpty) {
+        final deferredTool = catalog.findDeferredTool(deferredToolName);
+        if (deferredTool == null) {
+          return AiToolUtils.invalidResult(
+            'ToolSearch',
+            '延迟工具不可用：$deferredToolName。请先执行 ToolSearch 查询，并使用结果中的精确名称。',
+          );
+        }
+        final delegatedArguments = _toolSearchDelegatedArguments(
+          gatewayArguments['arguments'],
+        );
+        if (delegatedArguments == null) {
+          return AiToolUtils.invalidResult(
+            'ToolSearch',
+            '`arguments` 必须是符合目标工具 Schema 的 JSON 对象。',
+          );
+        }
+        final delegatedToolCall = AiToolCall(
+          id: toolCall.id,
+          name: deferredTool.definition.name,
+          arguments: jsonEncode(delegatedArguments),
+        );
+        final delegatedResult = await execute(
+          sessionId: sessionId,
+          catalog: AiResolvedToolCatalog(
+            definitions: <AiToolDefinition>[deferredTool.definition],
+            toolsByName: <String, AiResolvedTool>{
+              deferredTool.definition.name: deferredTool,
+            },
+            notices: catalog.notices,
+            mcpServerInstructionsByName: catalog.mcpServerInstructionsByName,
+          ),
+          toolCall: delegatedToolCall,
+          model: model,
+          previouslyReadFiles: previouslyReadFiles,
+          denyCommandRules: denyCommandRules,
+          requireWriteCommandConfirmation: requireWriteCommandConfirmation,
+          confirmWriteCommand: confirmWriteCommand,
+          cancelSignal: cancelSignal,
+          onBashUpdate: onBashUpdate,
+          metadata: <String, Object?>{
+            ...metadata,
+            'tool_search_gateway': true,
+            'tool_search_gateway_tool_name': deferredTool.definition.name,
+          },
+        );
+        return AiToolExecutionResult(
+          status: delegatedResult.status,
+          command: delegatedResult.command,
+          workingDirectory: delegatedResult.workingDirectory,
+          stdout: delegatedResult.stdout,
+          stderr: delegatedResult.stderr,
+          durationMs: delegatedResult.durationMs,
+          resultText: delegatedResult.resultText,
+          exitCode: delegatedResult.exitCode,
+          matchedRuleId: delegatedResult.matchedRuleId,
+          matchedRulePattern: delegatedResult.matchedRulePattern,
+          isWriteCommand: delegatedResult.isWriteCommand,
+          writeAnalysisReason: delegatedResult.writeAnalysisReason,
+          metadata: <String, Object?>{
+            ...delegatedResult.metadata,
+            'tool_search_gateway': true,
+            'tool_search_gateway_tool_name': deferredTool.definition.name,
+          },
+        );
+      }
+    }
     final decodedArguments = AiToolUtils.decodeArguments(
       toolCall.arguments,
       parameters: resolvedTool.definition.parameters,
@@ -1282,6 +1376,24 @@ class AiToolRuntimeService {
         AiToolExecutionRegistry.instance.unregister(activeRegistration);
       }
     }
+  }
+
+  Map<String, Object?>? _toolSearchDelegatedArguments(Object? value) {
+    if (value is Map<String, Object?>) {
+      return value;
+    }
+    if (value is Map) {
+      return stringKeyedMapFromValue(value);
+    }
+    if (value is String) {
+      try {
+        final decoded = jsonDecode(value);
+        if (decoded is Map) return stringKeyedMapFromValue(decoded);
+      } catch (_) {
+        return null;
+      }
+    }
+    return null;
   }
 
   // 工具输出 budget 保护。
@@ -3778,12 +3890,10 @@ class AiToolRuntimeService {
       kind: AiBuiltinToolKind.toolSearch,
       name: 'ToolSearch',
       description:
-          'Fetch full schema definitions for deferred runtime tools so they '
-          'become callable. Deferred tools may be MCP tools or built-in tools '
-          'whose load strategy is lazy/deferred. Their full schemas are '
-          'omitted from the prompt to save context; names and short summaries '
-          'appear in this description. Without ToolSearch, only already '
-          'visible tools are callable.\n\n'
+          'Search and invoke deferred runtime tools through one stable gateway. '
+          'Deferred MCP and built-in schemas stay out of the native tool list '
+          'to preserve prompt-cache reuse. Search by exact name when known or '
+          'by task keywords.\n\n'
           'Query forms:\n'
           '- `select:Name1,Name2` — fetch these exact tools by name (best '
           'when you already know the tool name).\n'
@@ -3791,13 +3901,12 @@ class AiToolRuntimeService {
           'matches against their name parts and descriptions.\n'
           '- `+github issues list` — prefix a term with `+` to make it '
           'required; remaining terms refine the ranking.\n\n'
-          'Result: matched tools are returned as structured JSON with a '
+          'Search result: matched tools are returned as structured JSON with a '
           '`functions` array. Each entry contains `name`, `description`, and '
-          '`parameters` using the same JSON Schema shape as visible tools. '
-          'Once a tool appears in that result, invoke it by exact name from '
-          'the next model request onward. Issuing the same query twice with '
-          'different keywords is fine; ToolSearch is read-only and side-effect '
-          'free.',
+          '`parameters`. To invoke one, call ToolSearch again with `tool_name` '
+          'set to the exact returned name and `arguments` matching its schema. '
+          'Do not call the deferred name as a native tool. Search mode is '
+          'read-only; gateway invocation has the selected tool\'s effects.',
       parameters: const <String, Object?>{
         'type': 'object',
         'properties': <String, Object?>{
@@ -3813,8 +3922,26 @@ class AiToolRuntimeService {
             'maximum': 50,
             'description': 'Maximum matches to return (default 5).',
           },
+          'tool_name': <String, Object?>{
+            'type': 'string',
+            'description':
+                'Exact deferred tool name returned by a previous ToolSearch query.',
+          },
+          'arguments': <String, Object?>{
+            'type': 'object',
+            'description':
+                'Arguments matching the selected deferred tool JSON Schema.',
+            'additionalProperties': true,
+          },
         },
-        'required': <String>['query'],
+        'anyOf': <Object?>[
+          <String, Object?>{
+            'required': <String>['query'],
+          },
+          <String, Object?>{
+            'required': <String>['tool_name', 'arguments'],
+          },
+        ],
         'additionalProperties': false,
       },
     ),

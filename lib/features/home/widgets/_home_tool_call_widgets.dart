@@ -3070,7 +3070,7 @@ String? _tryFormatLegacyToolSearchContent(String content) {
     'loaded_tools': loadedTools,
     'message': matchedCount == 0
         ? 'No deferred tool matched. Try different keywords or select exact names.'
-        : 'Matched tools are callable by exact name from the next model request onward.',
+        : 'Call ToolSearch with an exact matched tool_name and schema-matching arguments.',
     'functions': functions,
   });
 }
