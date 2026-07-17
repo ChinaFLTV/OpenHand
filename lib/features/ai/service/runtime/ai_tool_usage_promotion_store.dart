@@ -52,14 +52,122 @@ final class AiResourceUsageTrendPoint {
   const AiResourceUsageTrendPoint({
     required this.bucketKey,
     required this.totalCount,
+    required this.successCount,
+    required this.failureCount,
   });
 
   final String bucketKey;
   final int totalCount;
+  final int successCount;
+  final int failureCount;
 
   Map<String, Object?> toJson() => <String, Object?>{
     'bucket': bucketKey,
     'total': totalCount,
+    'successes': successCount,
+    'failures': failureCount,
+  };
+}
+
+final class AiResourceUsageResourceSnapshot {
+  const AiResourceUsageResourceSnapshot({
+    required this.resourceId,
+    required this.totalCount,
+    required this.successCount,
+    required this.failureCount,
+    required this.totalDurationMs,
+    required this.durationSampleCount,
+    required this.maxDurationMs,
+    required this.sessionCount,
+    required this.lastCalledAt,
+    required this.subResources,
+  });
+
+  final String resourceId;
+  final int totalCount;
+  final int successCount;
+  final int failureCount;
+  final int totalDurationMs;
+  final int durationSampleCount;
+  final int maxDurationMs;
+  final int sessionCount;
+  final DateTime? lastCalledAt;
+  final List<AiResourceUsageResourceSnapshot> subResources;
+
+  int get outcomeCount => successCount + failureCount;
+  double? get successRate =>
+      outcomeCount == 0 ? null : successCount / outcomeCount;
+  double get averageDurationMs =>
+      durationSampleCount == 0 ? 0 : totalDurationMs / durationSampleCount;
+
+  Map<String, Object?> toJson() => <String, Object?>{
+    'resource_id': resourceId,
+    'total': totalCount,
+    'successes': successCount,
+    'failures': failureCount,
+    'success_rate': successRate,
+    'average_duration_ms': averageDurationMs,
+    'duration_sample_count': durationSampleCount,
+    'max_duration_ms': maxDurationMs,
+    'session_count': sessionCount,
+    'last_called_at': lastCalledAt?.toUtc().toIso8601String(),
+    'sub_resources': subResources
+        .map((item) => item.toJson())
+        .toList(growable: false),
+  };
+}
+
+final class AiResourceUsageEvent {
+  const AiResourceUsageEvent({
+    required this.eventId,
+    required this.kind,
+    required this.resourceId,
+    required this.subResourceId,
+    required this.sessionId,
+    required this.toolCallId,
+    required this.toolName,
+    required this.occurredAt,
+    required this.status,
+    required this.durationMs,
+    required this.argumentsSummary,
+    required this.resultSummary,
+    required this.errorSummary,
+    required this.source,
+  });
+
+  final String eventId;
+  final AiResourceUsageKind kind;
+  final String resourceId;
+  final String subResourceId;
+  final String sessionId;
+  final String toolCallId;
+  final String toolName;
+  final DateTime occurredAt;
+  final String status;
+  final int durationMs;
+  final String argumentsSummary;
+  final String resultSummary;
+  final String errorSummary;
+  final String source;
+
+  bool get succeeded => status == 'success';
+
+  Map<String, Object?> toJson() => <String, Object?>{
+    'event_id': eventId,
+    'kind': kind.storageValue,
+    'resource_id': resourceId,
+    'sub_resource_id': subResourceId,
+    'session_id': sessionId,
+    'tool_call_id': toolCallId,
+    'tool_name': toolName,
+    'occurred_at': occurredAt.toUtc().toIso8601String(),
+    'status': status,
+    'succeeded': succeeded,
+    'duration_ms': durationMs,
+    'arguments_summary': argumentsSummary,
+    'result_summary': resultSummary,
+    'error_summary': errorSummary,
+    'source': source,
   };
 }
 
@@ -70,6 +178,15 @@ final class AiResourceUsageLevelSnapshot {
     required this.counts,
     required this.totalCount,
     required this.trend,
+    required this.successCount,
+    required this.failureCount,
+    required this.totalDurationMs,
+    required this.durationSampleCount,
+    required this.maxDurationMs,
+    required this.sessionCount,
+    required this.p95DurationMs,
+    required this.resources,
+    required this.recentEvents,
   });
 
   final AiResourceUsagePeriod period;
@@ -77,16 +194,42 @@ final class AiResourceUsageLevelSnapshot {
   final Map<String, int> counts;
   final int totalCount;
   final List<AiResourceUsageTrendPoint> trend;
+  final int successCount;
+  final int failureCount;
+  final int totalDurationMs;
+  final int durationSampleCount;
+  final int maxDurationMs;
+  final int sessionCount;
+  final int p95DurationMs;
+  final List<AiResourceUsageResourceSnapshot> resources;
+  final List<AiResourceUsageEvent> recentEvents;
 
   int get resourceCount => counts.length;
+  int get outcomeCount => successCount + failureCount;
+  double? get successRate =>
+      outcomeCount == 0 ? null : successCount / outcomeCount;
+  double get averageDurationMs =>
+      durationSampleCount == 0 ? 0 : totalDurationMs / durationSampleCount;
 
   Map<String, Object?> toJson() => <String, Object?>{
     'level': period.storageValue,
     'bucket': bucketKey,
     'total': totalCount,
     'resource_count': resourceCount,
+    'successes': successCount,
+    'failures': failureCount,
+    'success_rate': successRate,
+    'average_duration_ms': averageDurationMs,
+    'duration_sample_count': durationSampleCount,
+    'max_duration_ms': maxDurationMs,
+    'p95_duration_ms': p95DurationMs,
+    'session_count': sessionCount,
     'counts': counts,
     'trend': trend.map((item) => item.toJson()).toList(growable: false),
+    'resources': resources.map((item) => item.toJson()).toList(growable: false),
+    'recent_events': recentEvents
+        .map((item) => item.toJson())
+        .toList(growable: false),
   };
 }
 
@@ -109,6 +252,15 @@ final class AiResourceUsageSnapshot {
           counts: const <String, int>{},
           totalCount: 0,
           trend: const <AiResourceUsageTrendPoint>[],
+          successCount: 0,
+          failureCount: 0,
+          totalDurationMs: 0,
+          durationSampleCount: 0,
+          maxDurationMs: 0,
+          sessionCount: 0,
+          p95DurationMs: 0,
+          resources: const <AiResourceUsageResourceSnapshot>[],
+          recentEvents: const <AiResourceUsageEvent>[],
         );
   }
 
@@ -180,7 +332,8 @@ final class AiToolUsagePromotionStore {
 
   static final AiToolUsagePromotionStore shared = AiToolUsagePromotionStore();
 
-  static const int _version = 2;
+  static const int _version = 3;
+  static const int _aggregateVersion = 2;
   static const int _legacyVersion = 1;
   static const int _maxStoreBytes = 8 * 1024 * 1024;
   static const int _maxSessions = 256;
@@ -188,6 +341,11 @@ final class AiToolUsagePromotionStore {
   static const int _maxIdentifierLength = 512;
   static const int _maxCount = 0x3fffffff;
   static const int _sessionTrendLimit = 24;
+  static const int _maxRecentEvents = 384;
+  static const int _maxRecentEventsPerLevel = 80;
+  static const int _maxSubResourcesPerResource = 256;
+  static const int _maxSummaryLength = 720;
+  static const int _maxErrorSummaryLength = 480;
   static const Map<AiResourceUsagePeriod, int> _periodRetention =
       <AiResourceUsagePeriod, int>{
         AiResourceUsagePeriod.day: 90,
@@ -207,7 +365,9 @@ final class AiToolUsagePromotionStore {
     for (final period in _periodRetention.keys)
       period: SplayTreeMap<String, _UsageBucket>(),
   };
+  final List<AiResourceUsageEvent> _recentEvents = <AiResourceUsageEvent>[];
   final ValueNotifier<int> _revision = ValueNotifier<int>(0);
+  int _eventSequence = 0;
   bool _initialized = false;
   bool _dirty = false;
 
@@ -219,8 +379,9 @@ final class AiToolUsagePromotionStore {
     required String sessionId,
     required AiResolvedToolCatalog catalog,
     required AiToolCall toolCall,
-    required Map<String, Object?> resultMetadata,
+    required AiToolExecutionResult result,
   }) {
+    final resultMetadata = result.metadata;
     final gatewayToolId = _string(
       resultMetadata['tool_search_gateway_tool_name'],
     );
@@ -286,11 +447,34 @@ final class AiToolUsagePromotionStore {
     );
     _mergeExplicitResources(resources, resultMetadata['resource_usage_ids']);
 
+    final mcpToolId = _firstString(<Object?>[
+      resultMetadata['mcp_tool_name'],
+      resultMetadata['mcp_tool_id'],
+      if (source == 'mcp' || resolvedTool?.source == AiRuntimeToolSource.mcp)
+        logicalToolId,
+    ]);
+    final defaultSubResourceId = _firstString(<Object?>[
+      if (source == 'mcp' || resolvedTool?.source == AiRuntimeToolSource.mcp)
+        mcpToolId,
+      logicalToolId,
+    ]);
+
     return _recordBatch(
       sessionId: sessionId,
       resources: resources,
       toolId: logicalToolId,
       promotionEligible: isGatewayInvocation,
+      subResourceId: defaultSubResourceId,
+      toolCallId: toolCall.id,
+      toolName: logicalToolId,
+      status: result.status.storageValue,
+      durationMs: result.durationMs,
+      argumentsSummary: _summarizeArguments(toolCall.arguments),
+      resultSummary: _boundedSummary(result.resultText, _maxSummaryLength),
+      errorSummary: _boundedSummary(result.stderr, _maxErrorSummaryLength),
+      source: source.isEmpty
+          ? (resolvedTool?.source.name ?? 'unknown')
+          : source,
     );
   }
 
@@ -306,12 +490,24 @@ final class AiToolUsagePromotionStore {
       },
       toolId: toolId,
       promotionEligible: promotionEligible,
+      subResourceId: toolId,
+      toolName: toolId,
+      source: 'direct',
     );
   }
 
   Future<void> recordResources({
     required String sessionId,
     required Map<AiResourceUsageKind, Iterable<String>> resources,
+    String subResourceId = '',
+    String toolCallId = '',
+    String toolName = '',
+    String status = 'success',
+    int durationMs = 0,
+    String argumentsSummary = '',
+    String resultSummary = '',
+    String errorSummary = '',
+    String source = 'runtime',
   }) async {
     final normalized = <AiResourceUsageKind, Set<String>>{
       for (final entry in resources.entries)
@@ -321,7 +517,19 @@ final class AiToolUsagePromotionStore {
             .toSet(),
     }..removeWhere((_, ids) => ids.isEmpty);
     if (normalized.isEmpty) return;
-    await _recordBatch(sessionId: sessionId, resources: normalized);
+    await _recordBatch(
+      sessionId: sessionId,
+      resources: normalized,
+      subResourceId: subResourceId,
+      toolCallId: toolCallId,
+      toolName: toolName,
+      status: status,
+      durationMs: durationMs,
+      argumentsSummary: argumentsSummary,
+      resultSummary: resultSummary,
+      errorSummary: errorSummary,
+      source: source,
+    );
   }
 
   Future<AiToolUsageRecord> _recordBatch({
@@ -329,6 +537,15 @@ final class AiToolUsagePromotionStore {
     required Map<AiResourceUsageKind, Set<String>> resources,
     String toolId = '',
     bool promotionEligible = false,
+    String subResourceId = '',
+    String toolCallId = '',
+    String toolName = '',
+    String status = 'success',
+    int durationMs = 0,
+    String argumentsSummary = '',
+    String resultSummary = '',
+    String errorSummary = '',
+    String source = 'runtime',
   }) {
     return _operations.enqueue(() async {
       await _initializeLocked();
@@ -350,6 +567,12 @@ final class AiToolUsagePromotionStore {
       }
 
       final now = _clock();
+      final normalizedStatus = _normalizeStatus(status);
+      final normalizedDurationMs = durationMs.clamp(0, _maxCount);
+      final normalizedSubResourceId = _validIdentifier(subResourceId) ?? '';
+      final normalizedToolCallId = _validIdentifier(toolCallId) ?? '';
+      final normalizedToolName = _validIdentifier(toolName) ?? '';
+      final normalizedSource = _validIdentifier(source) ?? 'runtime';
       var session = _sessions[normalizedSessionId];
       if (session == null) {
         _evictOldestSessionIfNeeded();
@@ -361,10 +584,54 @@ final class AiToolUsagePromotionStore {
       ];
       for (final entry in normalizedResources.entries) {
         for (final resourceId in entry.value) {
-          session.increment(entry.key, resourceId);
+          final effectiveSubResourceId = entry.key == AiResourceUsageKind.tool
+              ? normalizedSource
+              : normalizedSubResourceId;
+          session.increment(
+            entry.key,
+            resourceId,
+            sessionId: normalizedSessionId,
+            subResourceId: effectiveSubResourceId,
+            status: normalizedStatus,
+            durationMs: normalizedDurationMs,
+            occurredAt: now,
+          );
           for (final bucket in periodBuckets) {
-            bucket.increment(entry.key, resourceId);
+            bucket.increment(
+              entry.key,
+              resourceId,
+              sessionId: normalizedSessionId,
+              subResourceId: effectiveSubResourceId,
+              status: normalizedStatus,
+              durationMs: normalizedDurationMs,
+              occurredAt: now,
+            );
           }
+          _appendEvent(
+            AiResourceUsageEvent(
+              eventId:
+                  '${now.toUtc().microsecondsSinceEpoch}-${_eventSequence++}',
+              kind: entry.key,
+              resourceId: resourceId,
+              subResourceId: effectiveSubResourceId,
+              sessionId: normalizedSessionId,
+              toolCallId: normalizedToolCallId,
+              toolName: normalizedToolName,
+              occurredAt: now.toUtc(),
+              status: normalizedStatus,
+              durationMs: normalizedDurationMs,
+              argumentsSummary: _boundedSummary(
+                argumentsSummary,
+                _maxSummaryLength,
+              ),
+              resultSummary: _boundedSummary(resultSummary, _maxSummaryLength),
+              errorSummary: _boundedSummary(
+                errorSummary,
+                _maxErrorSummaryLength,
+              ),
+              source: normalizedSource,
+            ),
+          );
         }
       }
       session.updatedAt = now.toUtc();
@@ -444,18 +711,18 @@ final class AiToolUsagePromotionStore {
         ? sessionEntries
         : sessionEntries.sublist(sessionEntries.length - _sessionTrendLimit);
     final levels = <AiResourceUsagePeriod, AiResourceUsageLevelSnapshot>{
-      AiResourceUsagePeriod.session: AiResourceUsageLevelSnapshot(
+      AiResourceUsagePeriod.session: _buildLevelSnapshot(
         period: AiResourceUsagePeriod.session,
         bucketKey: activeSession?.key ?? '',
-        counts: _sortedCounts(
-          activeSession?.value.countsFor(kind) ?? const <String, int>{},
-        ),
-        totalCount: activeSession?.value.totalFor(kind) ?? 0,
+        bucket: activeSession?.value,
+        kind: kind,
         trend: <AiResourceUsageTrendPoint>[
           for (final entry in sessionTrendEntries)
             AiResourceUsageTrendPoint(
               bucketKey: entry.key,
               totalCount: entry.value.totalFor(kind),
+              successCount: entry.value.successesFor(kind),
+              failureCount: entry.value.failuresFor(kind),
             ),
         ],
       ),
@@ -464,18 +731,18 @@ final class AiToolUsagePromotionStore {
       final buckets = _periods[period]!;
       final currentKey = _periodKey(period, _clock());
       final current = buckets[currentKey];
-      levels[period] = AiResourceUsageLevelSnapshot(
+      levels[period] = _buildLevelSnapshot(
         period: period,
         bucketKey: currentKey,
-        counts: _sortedCounts(
-          current?.countsFor(kind) ?? const <String, int>{},
-        ),
-        totalCount: current?.totalFor(kind) ?? 0,
+        bucket: current,
+        kind: kind,
         trend: <AiResourceUsageTrendPoint>[
           for (final entry in buckets.entries)
             AiResourceUsageTrendPoint(
               bucketKey: entry.key,
               totalCount: entry.value.totalFor(kind),
+              successCount: entry.value.successesFor(kind),
+              failureCount: entry.value.failuresFor(kind),
             ),
         ],
       );
@@ -487,6 +754,56 @@ final class AiToolUsagePromotionStore {
             levels,
           ),
       generatedAt: _clock().toUtc(),
+    );
+  }
+
+  AiResourceUsageLevelSnapshot _buildLevelSnapshot({
+    required AiResourceUsagePeriod period,
+    required String bucketKey,
+    required _UsageBucket? bucket,
+    required AiResourceUsageKind kind,
+    required List<AiResourceUsageTrendPoint> trend,
+  }) {
+    final events = _recentEvents
+        .where((event) {
+          if (event.kind != kind) return false;
+          return period == AiResourceUsagePeriod.session
+              ? event.sessionId == bucketKey
+              : _periodKey(period, event.occurredAt) == bucketKey;
+        })
+        .toList(growable: false);
+    final visibleEvents = events.length <= _maxRecentEventsPerLevel
+        ? events.reversed.toList(growable: false)
+        : events
+              .sublist(events.length - _maxRecentEventsPerLevel)
+              .reversed
+              .toList(growable: false);
+    final durations =
+        events
+            .map((event) => event.durationMs)
+            .where((duration) => duration >= 0)
+            .toList(growable: false)
+          ..sort();
+    final p95Index = durations.isEmpty
+        ? -1
+        : ((durations.length * 0.95).ceil() - 1).clamp(0, durations.length - 1);
+    return AiResourceUsageLevelSnapshot(
+      period: period,
+      bucketKey: bucketKey,
+      counts: _sortedCounts(bucket?.countsFor(kind) ?? const <String, int>{}),
+      totalCount: bucket?.totalFor(kind) ?? 0,
+      trend: List<AiResourceUsageTrendPoint>.unmodifiable(trend),
+      successCount: bucket?.successesFor(kind) ?? 0,
+      failureCount: bucket?.failuresFor(kind) ?? 0,
+      totalDurationMs: bucket?.durationFor(kind) ?? 0,
+      durationSampleCount: bucket?.durationSampleCountFor(kind) ?? 0,
+      maxDurationMs: bucket?.maxDurationFor(kind) ?? 0,
+      sessionCount: bucket?.sessionCountFor(kind) ?? 0,
+      p95DurationMs: p95Index < 0 ? 0 : durations[p95Index],
+      resources:
+          bucket?.resourceSnapshotsFor(kind) ??
+          const <AiResourceUsageResourceSnapshot>[],
+      recentEvents: visibleEvents,
     );
   }
 
@@ -511,6 +828,7 @@ final class AiToolUsagePromotionStore {
       }
     } catch (error, stack) {
       _sessions.clear();
+      _recentEvents.clear();
       for (final buckets in _periods.values) {
         buckets.clear();
       }
@@ -528,7 +846,7 @@ final class AiToolUsagePromotionStore {
       _schedulePersist();
       return;
     }
-    if (version != _version) return;
+    if (version != _version && version != _aggregateVersion) return;
     _restoreSessions(raw['sessions']);
     final rawPeriods = raw['periods'];
     if (rawPeriods is! Map) return;
@@ -546,6 +864,75 @@ final class AiToolUsagePromotionStore {
           validCount: _validCount,
         );
       }
+    }
+    if (version == _version) {
+      _restoreEvents(raw['recent_events']);
+    } else {
+      _dirty = true;
+      _schedulePersist();
+    }
+  }
+
+  void _restoreEvents(Object? rawEvents) {
+    if (rawEvents is! List) return;
+    final start = rawEvents.length > _maxRecentEvents
+        ? rawEvents.length - _maxRecentEvents
+        : 0;
+    for (var index = start; index < rawEvents.length; index++) {
+      final raw = rawEvents[index];
+      if (raw is! Map) continue;
+      final kind = AiResourceUsageKind.fromStorage(raw['kind']);
+      final resourceId = _validIdentifier('${raw['resource_id'] ?? ''}');
+      final sessionId = _validIdentifier('${raw['session_id'] ?? ''}');
+      final occurredAt = DateTime.tryParse(
+        '${raw['occurred_at'] ?? ''}',
+      )?.toUtc();
+      if (kind == null ||
+          resourceId == null ||
+          sessionId == null ||
+          occurredAt == null) {
+        continue;
+      }
+      final restoredEventId = _validIdentifier('${raw['event_id'] ?? ''}');
+      if (restoredEventId != null) {
+        final separator = restoredEventId.lastIndexOf('-');
+        final sequence = separator < 0
+            ? null
+            : int.tryParse(restoredEventId.substring(separator + 1));
+        if (sequence != null && sequence >= _eventSequence) {
+          _eventSequence = sequence + 1;
+        }
+      }
+      _recentEvents.add(
+        AiResourceUsageEvent(
+          eventId:
+              restoredEventId ??
+              '${occurredAt.microsecondsSinceEpoch}-${_eventSequence++}',
+          kind: kind,
+          resourceId: resourceId,
+          subResourceId:
+              _validIdentifier('${raw['sub_resource_id'] ?? ''}') ?? '',
+          sessionId: sessionId,
+          toolCallId: _validIdentifier('${raw['tool_call_id'] ?? ''}') ?? '',
+          toolName: _validIdentifier('${raw['tool_name'] ?? ''}') ?? '',
+          occurredAt: occurredAt,
+          status: _normalizeStatus('${raw['status'] ?? ''}'),
+          durationMs: _validCount(raw['duration_ms']),
+          argumentsSummary: _boundedSummary(
+            '${raw['arguments_summary'] ?? ''}',
+            _maxSummaryLength,
+          ),
+          resultSummary: _boundedSummary(
+            '${raw['result_summary'] ?? ''}',
+            _maxSummaryLength,
+          ),
+          errorSummary: _boundedSummary(
+            '${raw['error_summary'] ?? ''}',
+            _maxErrorSummaryLength,
+          ),
+          source: _validIdentifier('${raw['source'] ?? ''}') ?? 'runtime',
+        ),
+      );
     }
   }
 
@@ -716,6 +1103,9 @@ final class AiToolUsagePromotionStore {
   }
 
   void _pruneAll() {
+    while (_recentEvents.length > _maxRecentEvents) {
+      _recentEvents.removeAt(0);
+    }
     while (_sessions.length > _maxSessions) {
       _removeOldestSession();
     }
@@ -740,16 +1130,32 @@ final class AiToolUsagePromotionStore {
     _persistDebouncer.cancel();
     if (!_dirty) return;
     var content = _encodeState();
-    while (utf8.encode(content).length > _maxStoreBytes &&
-        _sessions.length > 1) {
-      _removeOldestSession();
+    var contentBytes = utf8.encode(content).length;
+    while (contentBytes > _maxStoreBytes && _recentEvents.isNotEmpty) {
+      final removeCount = (_recentEvents.length ~/ 4).clamp(
+        1,
+        _recentEvents.length,
+      );
+      _recentEvents.removeRange(0, removeCount);
       content = _encodeState();
+      contentBytes = utf8.encode(content).length;
     }
-    while (utf8.encode(content).length > _maxStoreBytes &&
-        _trimOldestPeriodBucket()) {
+    while (contentBytes > _maxStoreBytes && _sessions.length > 1) {
+      final removeCount = (_sessions.length ~/ 8).clamp(
+        1,
+        _sessions.length - 1,
+      );
+      for (var index = 0; index < removeCount; index++) {
+        _removeOldestSession();
+      }
       content = _encodeState();
+      contentBytes = utf8.encode(content).length;
     }
-    if (utf8.encode(content).length > _maxStoreBytes) {
+    while (contentBytes > _maxStoreBytes && _trimOldestPeriodBucket()) {
+      content = _encodeState();
+      contentBytes = utf8.encode(content).length;
+    }
+    if (contentBytes > _maxStoreBytes) {
       throw const FileSystemException('资源调用统计文件超过大小上限');
     }
     await writeFileAtomically(_file, content);
@@ -788,8 +1194,87 @@ final class AiToolUsagePromotionStore {
       'sessions': <String, Object?>{
         for (final entry in sessions) entry.key: entry.value.toJson(),
       },
+      'recent_events': _recentEvents
+          .map((event) => event.toJson())
+          .toList(growable: false),
     });
   }
+
+  void _appendEvent(AiResourceUsageEvent event) {
+    if (_recentEvents.length >= _maxRecentEvents) {
+      _recentEvents.removeAt(0);
+    }
+    _recentEvents.add(event);
+  }
+
+  static String _normalizeStatus(String value) {
+    final normalized = value.trim().toLowerCase();
+    return normalized.isEmpty ? 'success' : normalized;
+  }
+
+  static String _summarizeArguments(String arguments) {
+    final normalized = arguments.trim();
+    if (normalized.isEmpty) return '';
+    try {
+      return _boundedSummary(
+        jsonEncode(_redactSummaryValue(jsonDecode(normalized))),
+        _maxSummaryLength,
+      );
+    } catch (_) {
+      return _boundedSummary(normalized, _maxSummaryLength);
+    }
+  }
+
+  static Object? _redactSummaryValue(Object? value, [int depth = 0]) {
+    if (depth >= 4) return '…';
+    if (value is Map) {
+      final result = <String, Object?>{};
+      for (final entry in value.entries.take(32)) {
+        final key = '${entry.key}';
+        result[key] = _sensitiveKeyPattern.hasMatch(key)
+            ? '[已脱敏]'
+            : _redactSummaryValue(entry.value, depth + 1);
+      }
+      return result;
+    }
+    if (value is Iterable) {
+      return value
+          .take(24)
+          .map((item) => _redactSummaryValue(item, depth + 1))
+          .toList(growable: false);
+    }
+    return value;
+  }
+
+  static String _boundedSummary(String value, int limit) {
+    final normalized = value
+        .replaceAllMapped(
+          _sensitiveValuePattern,
+          (match) => '${match.group(1) ?? ''}[已脱敏]',
+        )
+        .replaceAllMapped(
+          _bearerTokenPattern,
+          (match) => '${match.group(1) ?? ''}[已脱敏]',
+        )
+        .replaceAll(RegExp(r'[\r\n\t]+'), ' ')
+        .replaceAll(RegExp(r' {2,}'), ' ')
+        .trim();
+    if (normalized.length <= limit) return normalized;
+    return '${normalized.substring(0, limit - 1)}…';
+  }
+
+  static final RegExp _sensitiveKeyPattern = RegExp(
+    r'(password|passwd|token|secret|api[_-]?key|authorization|cookie|credential)',
+    caseSensitive: false,
+  );
+  static final RegExp _sensitiveValuePattern = RegExp(
+    r'''((?:"|'|\b)(?:password|passwd|token|secret|api[_-]?key|authorization|cookie|credential)(?:"|'|\b)\s*[:=]\s*)(?:"[^"]*"|'[^']*'|\S+)''',
+    caseSensitive: false,
+  );
+  static final RegExp _bearerTokenPattern = RegExp(
+    r'(bearer\s+)[a-z0-9._~+/=-]+',
+    caseSensitive: false,
+  );
 
   static String _string(Object? value) => value is String ? value.trim() : '';
 
@@ -885,8 +1370,11 @@ class _UsageBucket {
   _UsageBucket({
     Map<AiResourceUsageKind, Map<String, int>>? counts,
     Map<AiResourceUsageKind, int>? totals,
+    Map<AiResourceUsageKind, Map<String, _ResourceMetric>>? metrics,
   }) : counts = counts ?? <AiResourceUsageKind, Map<String, int>>{},
-       totals = totals ?? <AiResourceUsageKind, int>{};
+       totals = totals ?? <AiResourceUsageKind, int>{},
+       metrics =
+           metrics ?? <AiResourceUsageKind, Map<String, _ResourceMetric>>{};
 
   factory _UsageBucket.fromJson(
     Object? raw, {
@@ -922,6 +1410,29 @@ class _UsageBucket {
         if (kind != null && total > 0) bucket.totals[kind] = total;
       }
     }
+    final rawMetrics = raw['metrics'];
+    if (rawMetrics is Map) {
+      for (final kindEntry in rawMetrics.entries) {
+        final kind = AiResourceUsageKind.fromStorage(kindEntry.key);
+        if (kind == null || kindEntry.value is! Map) continue;
+        final kindMetrics = <String, _ResourceMetric>{};
+        for (final entry in (kindEntry.value as Map).entries) {
+          if (kindMetrics.length >=
+                  AiToolUsagePromotionStore._maxResourcesPerKind ||
+              entry.key is! String) {
+            break;
+          }
+          final id = validIdentifier(entry.key as String);
+          if (id == null || entry.value is! Map) continue;
+          kindMetrics[id] = _ResourceMetric.fromJson(
+            entry.value,
+            validIdentifier: validIdentifier,
+            validCount: validCount,
+          );
+        }
+        if (kindMetrics.isNotEmpty) bucket.metrics[kind] = kindMetrics;
+      }
+    }
     for (final entry in bucket.counts.entries) {
       final sum = entry.value.values.fold<int>(
         0,
@@ -929,14 +1440,33 @@ class _UsageBucket {
             (total + count).clamp(0, AiToolUsagePromotionStore._maxCount),
       );
       if ((bucket.totals[entry.key] ?? 0) < sum) bucket.totals[entry.key] = sum;
+      final kindMetrics = bucket.metrics.putIfAbsent(
+        entry.key,
+        () => <String, _ResourceMetric>{},
+      );
+      for (final countEntry in entry.value.entries) {
+        kindMetrics.putIfAbsent(
+          countEntry.key,
+          () => _ResourceMetric(callCount: countEntry.value),
+        );
+      }
     }
     return bucket;
   }
 
   final Map<AiResourceUsageKind, Map<String, int>> counts;
   final Map<AiResourceUsageKind, int> totals;
+  final Map<AiResourceUsageKind, Map<String, _ResourceMetric>> metrics;
 
-  void increment(AiResourceUsageKind kind, String resourceId) {
+  void increment(
+    AiResourceUsageKind kind,
+    String resourceId, {
+    required String sessionId,
+    required String subResourceId,
+    required String status,
+    required int durationMs,
+    required DateTime occurredAt,
+  }) {
     totals[kind] = _incrementCount(totals[kind] ?? 0);
     final kindCounts = counts.putIfAbsent(kind, () => <String, int>{});
     if (!kindCounts.containsKey(resourceId) &&
@@ -944,6 +1474,19 @@ class _UsageBucket {
       return;
     }
     kindCounts[resourceId] = _incrementCount(kindCounts[resourceId] ?? 0);
+    final kindMetrics = metrics.putIfAbsent(
+      kind,
+      () => <String, _ResourceMetric>{},
+    );
+    kindMetrics
+        .putIfAbsent(resourceId, _ResourceMetric.new)
+        .increment(
+          sessionId: sessionId,
+          subResourceId: subResourceId,
+          status: status,
+          durationMs: durationMs,
+          occurredAt: occurredAt,
+        );
   }
 
   Map<String, int> countsFor(AiResourceUsageKind kind) =>
@@ -952,6 +1495,68 @@ class _UsageBucket {
   int countFor(AiResourceUsageKind kind, String id) => counts[kind]?[id] ?? 0;
 
   int totalFor(AiResourceUsageKind kind) => totals[kind] ?? 0;
+
+  int successesFor(AiResourceUsageKind kind) =>
+      metrics[kind]?.values.fold<int>(
+        0,
+        (total, metric) => _boundedAdd(total, metric.successCount),
+      ) ??
+      0;
+
+  int failuresFor(AiResourceUsageKind kind) =>
+      metrics[kind]?.values.fold<int>(
+        0,
+        (total, metric) => _boundedAdd(total, metric.failureCount),
+      ) ??
+      0;
+
+  int durationFor(AiResourceUsageKind kind) =>
+      metrics[kind]?.values.fold<int>(
+        0,
+        (total, metric) => _boundedAdd(total, metric.totalDurationMs),
+      ) ??
+      0;
+
+  int durationSampleCountFor(AiResourceUsageKind kind) =>
+      metrics[kind]?.values.fold<int>(
+        0,
+        (total, metric) => _boundedAdd(total, metric.durationSampleCount),
+      ) ??
+      0;
+
+  int maxDurationFor(AiResourceUsageKind kind) =>
+      metrics[kind]?.values.fold<int>(
+        0,
+        (maximum, metric) =>
+            metric.maxDurationMs > maximum ? metric.maxDurationMs : maximum,
+      ) ??
+      0;
+
+  int sessionCountFor(AiResourceUsageKind kind) {
+    final sessions = <String>{};
+    for (final metric in metrics[kind]?.values ?? const <_ResourceMetric>[]) {
+      sessions.addAll(metric.sessionIds);
+    }
+    return sessions.length;
+  }
+
+  List<AiResourceUsageResourceSnapshot> resourceSnapshotsFor(
+    AiResourceUsageKind kind,
+  ) {
+    final snapshots =
+        <AiResourceUsageResourceSnapshot>[
+          for (final entry
+              in metrics[kind]?.entries ??
+                  const <MapEntry<String, _ResourceMetric>>[])
+            entry.value.snapshot(entry.key),
+        ]..sort((left, right) {
+          final countCompare = right.totalCount.compareTo(left.totalCount);
+          return countCompare != 0
+              ? countCompare
+              : left.resourceId.compareTo(right.resourceId);
+        });
+    return List<AiResourceUsageResourceSnapshot>.unmodifiable(snapshots);
+  }
 
   Map<String, Object?> toJson() => <String, Object?>{
     'counts': <String, Object?>{
@@ -963,7 +1568,177 @@ class _UsageBucket {
       for (final kind in AiResourceUsageKind.values)
         if ((totals[kind] ?? 0) > 0) kind.storageValue: totals[kind]!,
     },
+    'metrics': <String, Object?>{
+      for (final kind in AiResourceUsageKind.values)
+        if (metrics[kind]?.isNotEmpty ?? false)
+          kind.storageValue: <String, Object?>{
+            for (final entry in metrics[kind]!.entries)
+              entry.key: entry.value.toJson(),
+          },
+    },
   };
+}
+
+class _ResourceMetric {
+  _ResourceMetric({
+    this.callCount = 0,
+    this.successCount = 0,
+    this.failureCount = 0,
+    this.totalDurationMs = 0,
+    this.durationSampleCount = 0,
+    this.maxDurationMs = 0,
+    this.lastCalledAt,
+    Set<String>? sessionIds,
+    Map<String, _ResourceMetric>? subResources,
+  }) : sessionIds = sessionIds ?? <String>{},
+       subResources = subResources ?? <String, _ResourceMetric>{};
+
+  factory _ResourceMetric.fromJson(
+    Object? raw, {
+    required String? Function(String value) validIdentifier,
+    required int Function(Object? value) validCount,
+    int depth = 0,
+  }) {
+    if (raw is! Map) return _ResourceMetric();
+    final sessionIds = <String>{};
+    final rawSessions = raw['session_ids'];
+    if (rawSessions is List) {
+      for (final value in rawSessions) {
+        if (sessionIds.length >= AiToolUsagePromotionStore._maxSessions) break;
+        final id = validIdentifier('$value');
+        if (id != null) sessionIds.add(id);
+      }
+    }
+    final subResources = <String, _ResourceMetric>{};
+    final rawSubResources = raw['sub_resources'];
+    if (depth == 0 && rawSubResources is Map) {
+      for (final entry in rawSubResources.entries) {
+        if (subResources.length >=
+                AiToolUsagePromotionStore._maxSubResourcesPerResource ||
+            entry.key is! String ||
+            entry.value is! Map) {
+          break;
+        }
+        final id = validIdentifier(entry.key as String);
+        if (id != null) {
+          subResources[id] = _ResourceMetric.fromJson(
+            entry.value,
+            validIdentifier: validIdentifier,
+            validCount: validCount,
+            depth: depth + 1,
+          );
+        }
+      }
+    }
+    return _ResourceMetric(
+      callCount: validCount(raw['calls']),
+      successCount: validCount(raw['successes']),
+      failureCount: validCount(raw['failures']),
+      totalDurationMs: validCount(raw['duration_ms']),
+      durationSampleCount: validCount(raw['duration_sample_count']),
+      maxDurationMs: validCount(raw['max_duration_ms']),
+      lastCalledAt: DateTime.tryParse(
+        '${raw['last_called_at'] ?? ''}',
+      )?.toUtc(),
+      sessionIds: sessionIds,
+      subResources: subResources,
+    );
+  }
+
+  int callCount;
+  int successCount;
+  int failureCount;
+  int totalDurationMs;
+  int durationSampleCount;
+  int maxDurationMs;
+  DateTime? lastCalledAt;
+  final Set<String> sessionIds;
+  final Map<String, _ResourceMetric> subResources;
+
+  void increment({
+    required String sessionId,
+    required String subResourceId,
+    required String status,
+    required int durationMs,
+    required DateTime occurredAt,
+    bool includeSubResource = true,
+  }) {
+    callCount = _incrementCount(callCount);
+    if (status == 'success') {
+      successCount = _incrementCount(successCount);
+    } else {
+      failureCount = _incrementCount(failureCount);
+    }
+    totalDurationMs = _boundedAdd(totalDurationMs, durationMs);
+    durationSampleCount = _incrementCount(durationSampleCount);
+    if (durationMs > maxDurationMs) maxDurationMs = durationMs;
+    lastCalledAt = occurredAt.toUtc();
+    if (sessionIds.length < AiToolUsagePromotionStore._maxSessions ||
+        sessionIds.contains(sessionId)) {
+      sessionIds.add(sessionId);
+    }
+    if (!includeSubResource || subResourceId.isEmpty) return;
+    if (!subResources.containsKey(subResourceId) &&
+        subResources.length >=
+            AiToolUsagePromotionStore._maxSubResourcesPerResource) {
+      return;
+    }
+    subResources
+        .putIfAbsent(subResourceId, _ResourceMetric.new)
+        .increment(
+          sessionId: sessionId,
+          subResourceId: '',
+          status: status,
+          durationMs: durationMs,
+          occurredAt: occurredAt,
+          includeSubResource: false,
+        );
+  }
+
+  AiResourceUsageResourceSnapshot snapshot(String resourceId) {
+    final children =
+        <AiResourceUsageResourceSnapshot>[
+          for (final entry in subResources.entries)
+            entry.value.snapshot(entry.key),
+        ]..sort((left, right) {
+          final countCompare = right.totalCount.compareTo(left.totalCount);
+          return countCompare != 0
+              ? countCompare
+              : left.resourceId.compareTo(right.resourceId);
+        });
+    return AiResourceUsageResourceSnapshot(
+      resourceId: resourceId,
+      totalCount: callCount,
+      successCount: successCount,
+      failureCount: failureCount,
+      totalDurationMs: totalDurationMs,
+      durationSampleCount: durationSampleCount,
+      maxDurationMs: maxDurationMs,
+      sessionCount: sessionIds.length,
+      lastCalledAt: lastCalledAt,
+      subResources: List<AiResourceUsageResourceSnapshot>.unmodifiable(
+        children,
+      ),
+    );
+  }
+
+  Map<String, Object?> toJson() {
+    final sessions = sessionIds.toList(growable: false)..sort();
+    return <String, Object?>{
+      'calls': callCount,
+      'successes': successCount,
+      'failures': failureCount,
+      'duration_ms': totalDurationMs,
+      'duration_sample_count': durationSampleCount,
+      'max_duration_ms': maxDurationMs,
+      'last_called_at': lastCalledAt?.toUtc().toIso8601String(),
+      'session_ids': sessions,
+      'sub_resources': <String, Object?>{
+        for (final entry in subResources.entries)
+          entry.key: entry.value.toJson(),
+      },
+    };
+  }
 }
 
 final class _SessionUsage extends _UsageBucket {
@@ -971,6 +1746,7 @@ final class _SessionUsage extends _UsageBucket {
     required this.updatedAt,
     super.counts,
     super.totals,
+    super.metrics,
     Set<String>? promotedToolIds,
   }) : promotedToolIds = promotedToolIds ?? <String>{};
 
@@ -999,6 +1775,7 @@ final class _SessionUsage extends _UsageBucket {
           : DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
       counts: bucket.counts,
       totals: bucket.totals,
+      metrics: bucket.metrics,
       promotedToolIds: promoted,
     );
   }
@@ -1021,6 +1798,10 @@ int _incrementCount(int value) {
   return value >= AiToolUsagePromotionStore._maxCount
       ? AiToolUsagePromotionStore._maxCount
       : value + 1;
+}
+
+int _boundedAdd(int left, int right) {
+  return (left + right).clamp(0, AiToolUsagePromotionStore._maxCount);
 }
 
 Map<String, int> _sortedCounts(Map<String, int> source) {

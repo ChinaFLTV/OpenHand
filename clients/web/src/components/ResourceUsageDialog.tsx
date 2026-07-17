@@ -5,6 +5,8 @@ import {
   type ResourceUsageKind,
   type ResourceUsageLevel,
   type ResourceUsageLevelSnapshot,
+  type ResourceUsageEvent,
+  type ResourceUsageResourceSnapshot,
   type ResourceUsageSnapshot,
 } from '../api/toolbox';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
@@ -22,6 +24,7 @@ const DONUT_CENTER = DONUT_SIZE / 2;
 const DONUT_RADIUS = 62;
 const DONUT_CIRCUMFERENCE = 2 * Math.PI * DONUT_RADIUS;
 const DONUT_SEGMENT_GAP = 4;
+const LIVE_REFRESH_INTERVAL_MS = 2000;
 
 interface ResourceUsageDialogProps {
   kind: ResourceUsageKind;
@@ -52,6 +55,21 @@ function sortedEntries(level: ResourceUsageLevelSnapshot): Array<[string, number
     .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0]));
 }
 
+function formatDuration(milliseconds: number): string {
+  if (!Number.isFinite(milliseconds) || milliseconds < 0) return '—';
+  if (milliseconds < 1000) return `${Math.round(milliseconds)} ms`;
+  if (milliseconds < 60000) return `${(milliseconds / 1000).toFixed(1)} s`;
+  return `${(milliseconds / 60000).toFixed(1)} min`;
+}
+
+function formatTimestamp(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '—';
+  return new Intl.DateTimeFormat(undefined, {
+    month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit',
+  }).format(date);
+}
+
 export function ResourceUsageDialog({ kind, labels = {}, onClose }: ResourceUsageDialogProps) {
   const { closing, requestClose } = useDialogExitMotion(onClose);
   const [snapshot, setSnapshot] = useState<ResourceUsageSnapshot | null>(null);
@@ -59,15 +77,32 @@ export function ResourceUsageDialog({ kind, labels = {}, onClose }: ResourceUsag
   const [error, setError] = useState('');
 
   useEffect(() => {
-    const controller = new AbortController();
-    void getResourceUsage(kind, { signal: controller.signal })
-      .then((value) => {
-        if (!controller.signal.aborted) setSnapshot(value);
-      })
-      .catch((reason) => {
-        if (!controller.signal.aborted) setError(describeApiError(reason));
-      });
-    return () => controller.abort();
+    let disposed = false;
+    let inFlight = false;
+    let controller: AbortController | null = null;
+    const refresh = async () => {
+      if (disposed || inFlight) return;
+      inFlight = true;
+      controller = new AbortController();
+      try {
+        const value = await getResourceUsage(kind, { signal: controller.signal });
+        if (!disposed) {
+          setSnapshot(value);
+          setError('');
+        }
+      } catch (reason) {
+        if (!disposed && !controller.signal.aborted) setError(describeApiError(reason));
+      } finally {
+        inFlight = false;
+      }
+    };
+    void refresh();
+    const timer = window.setInterval(() => void refresh(), LIVE_REFRESH_INTERVAL_MS);
+    return () => {
+      disposed = true;
+      window.clearInterval(timer);
+      controller?.abort();
+    };
   }, [kind]);
 
   const level = snapshot?.levels?.[levelKey] ?? null;
@@ -99,8 +134,9 @@ export function ResourceUsageDialog({ kind, labels = {}, onClose }: ResourceUsag
         </span>
         <div class="min-w-0 flex-1">
           <h2>{kindLabel(kind)} {t('resourceUsage.title', '使用统计')}</h2>
-          <p>{t('resourceUsage.subtitle', '从会话到年度，洞察调用结构、占比与变化趋势')}</p>
+          <p>{t('resourceUsage.subtitle', '细粒度调用、状态、耗时与会话洞察')}</p>
         </div>
+        <span class="oh-resource-usage-live"><i />{snapshot ? formatTimestamp(snapshot.generated_at) : t('common.loading', '加载中…')}</span>
         <button type="button" class="oh-resource-usage-close oh-tap-press" onClick={requestClose} aria-label={t('common.close', '关闭')}>
           <svg viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18" /></svg>
         </button>
@@ -128,9 +164,11 @@ export function ResourceUsageDialog({ kind, labels = {}, onClose }: ResourceUsag
           <>
             <section class="oh-resource-usage-summary">
               <SummaryCard icon="↗" label={t('resourceUsage.total', '调用总量')} value={String(level.total ?? 0)} />
-              <SummaryCard icon="◇" label={t('resourceUsage.active', '活跃资源')} value={String(level.resource_count ?? entries.length)} />
+              <SummaryCard icon="✓" label={t('resourceUsage.success', '成功调用')} value={String(level.successes ?? 0)} detail={level.success_rate == null ? '—' : `${(level.success_rate * 100).toFixed(1)}%`} />
+              <SummaryCard icon="!" label={t('resourceUsage.failure', '失败调用')} value={String(level.failures ?? 0)} tone={level.failures > 0 ? 'error' : 'normal'} />
+              <SummaryCard icon="◷" label={t('resourceUsage.latency', '平均 / P95 耗时')} value={formatDuration(level.average_duration_ms ?? 0)} detail={formatDuration(level.p95_duration_ms ?? 0)} />
+              <SummaryCard icon="◇" label={t('resourceUsage.sessions', '活跃会话 / 资源')} value={String(level.session_count ?? 0)} detail={String(level.resource_count ?? entries.length)} />
               <SummaryCard icon="★" label={t('resourceUsage.top', '首位资源')} value={top ? (labels[top[0]] || top[0]) : '—'} detail={`${(topShare * 100).toFixed(1)}%`} />
-              <SummaryCard icon="▣" label={t('resourceUsage.bucket', '当前周期')} value={shortBucket(level.bucket)} />
             </section>
 
             <section class="oh-resource-usage-charts">
@@ -145,6 +183,12 @@ export function ResourceUsageDialog({ kind, labels = {}, onClose }: ResourceUsag
             <AnalyticsPanel title={t('resourceUsage.map', '资源调用映射')} subtitle={`${levelLabel(levelKey)} · ${level.bucket || '—'}`}>
               <Ranking entries={entries} labels={labels} />
             </AnalyticsPanel>
+            <AnalyticsPanel title={t('resourceUsage.details', '资源与子资源明细')} subtitle={kind === 'mcp' ? t('resourceUsage.mcpDetails', '按 MCP 服务展开实际调用的 Tool') : t('resourceUsage.detailsSubtitle', '成功率、耗时、会话与子动作明细')}>
+              <ResourceDetails resources={level.resources ?? []} labels={labels} />
+            </AnalyticsPanel>
+            <AnalyticsPanel title={t('resourceUsage.recent', '最近调用记录')} subtitle={t('resourceUsage.recentSubtitle', '实时更新 · 参数与结果已脱敏并限制长度')}>
+              <RecentEvents events={level.recent_events ?? []} />
+            </AnalyticsPanel>
           </>
         ) : null}
       </div>
@@ -152,9 +196,9 @@ export function ResourceUsageDialog({ kind, labels = {}, onClose }: ResourceUsag
   );
 }
 
-function SummaryCard(props: { icon: string; label: string; value: string; detail?: string }) {
+function SummaryCard(props: { icon: string; label: string; value: string; detail?: string; tone?: 'normal' | 'error' }) {
   return (
-    <article class="oh-resource-usage-summary-card">
+    <article class={`oh-resource-usage-summary-card${props.tone === 'error' ? ' is-error' : ''}`}>
       <span aria-hidden="true">{props.icon}</span>
       <div>
         <p>{props.label}</p>
@@ -194,19 +238,38 @@ function TrendChart({ level }: { level: ResourceUsageLevelSnapshot }) {
     const y = insetY + chartHeight * (1 - point.total / max);
     return { x, y, point };
   });
-  const line = coordinates.map((point) => `${point.x},${point.y}`).join(' ');
-  const area = `${insetX},${insetY + chartHeight} ${line} ${coordinates.at(-1)?.x ?? insetX},${insetY + chartHeight}`;
+  const line = smoothPath(coordinates);
+  const first = coordinates[0];
+  const last = coordinates.at(-1) ?? first;
+  const area = `${line} L ${last.x} ${insetY + chartHeight} L ${first.x} ${insetY + chartHeight} Z`;
   return (
     <div class="oh-resource-usage-trend">
       <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" role="img" aria-label={t('resourceUsage.trend', '调用趋势')}>
         {[0, 1, 2, 3, 4].map((row) => <line key={row} x1={insetX} x2={width - insetX} y1={insetY + chartHeight * row / 4} y2={insetY + chartHeight * row / 4} class="oh-resource-usage-gridline" />)}
-        <polygon points={area} class="oh-resource-usage-area" />
-        <polyline points={line} class="oh-resource-usage-line" />
+        <path d={area} class="oh-resource-usage-area" />
+        <path d={line} class="oh-resource-usage-line" />
         {coordinates.map(({ x, y, point }) => <circle key={point.bucket} cx={x} cy={y} r="4" class="oh-resource-usage-dot"><title>{point.bucket}: {point.total}</title></circle>)}
       </svg>
       <div><span>{shortBucket(points[0].bucket)}</span><span>{shortBucket(points.at(-1)?.bucket ?? '')}</span></div>
     </div>
   );
+}
+
+function smoothPath(points: Array<{ x: number; y: number }>): string {
+  if (points.length === 0) return '';
+  let path = `M ${points[0].x} ${points[0].y}`;
+  for (let index = 0; index < points.length - 1; index++) {
+    const previous = points[Math.max(0, index - 1)];
+    const current = points[index];
+    const next = points[index + 1];
+    const afterNext = points[Math.min(points.length - 1, index + 2)];
+    const control1X = current.x + (next.x - previous.x) / 6;
+    const control1Y = current.y + (next.y - previous.y) / 6;
+    const control2X = next.x - (afterNext.x - current.x) / 6;
+    const control2Y = next.y - (afterNext.y - current.y) / 6;
+    path += ` C ${control1X} ${control1Y}, ${control2X} ${control2Y}, ${next.x} ${next.y}`;
+  }
+  return path;
 }
 
 function Distribution(props: { entries: Array<[string, number]>; labels: Record<string, string>; total: number }) {
@@ -272,4 +335,88 @@ function Ranking(props: { entries: Array<[string, number]>; labels: Record<strin
       {props.entries.length > visible.length ? <p>{t('resourceUsage.more', '另有 {count} 项低频资源').replace('{count}', String(props.entries.length - visible.length))}</p> : null}
     </ol>
   );
+}
+
+function ResourceDetails(props: { resources: ResourceUsageResourceSnapshot[]; labels: Record<string, string> }) {
+  if (props.resources.length === 0) return <EmptyChart label={t('resourceUsage.emptyDetails', '当前周期暂无资源明细')} />;
+  return (
+    <div class="oh-resource-usage-details">
+      {props.resources.slice(0, 30).map((resource) => {
+        const label = props.labels[resource.resource_id] || resource.resource_id;
+        return (
+          <article key={resource.resource_id} class="oh-resource-usage-detail-card">
+            <header>
+              <span aria-hidden="true">{resource.sub_resources.length > 0 ? '⌘' : '◇'}</span>
+              <div><strong title={label}>{label}</strong>{label !== resource.resource_id ? <small>{resource.resource_id}</small> : null}</div>
+              <b>{resource.total}</b>
+            </header>
+            <div class="oh-resource-usage-detail-metrics">
+              <MetricPill label={`✓ ${resource.successes} · ${resource.success_rate == null ? '—' : `${(resource.success_rate * 100).toFixed(1)}%`}`} />
+              <MetricPill label={`! ${resource.failures}`} error={resource.failures > 0} />
+              <MetricPill label={`◷ ${formatDuration(resource.average_duration_ms)}`} />
+              <MetricPill label={`◇ ${resource.session_count}`} />
+              {resource.last_called_at ? <MetricPill label={`◴ ${formatTimestamp(resource.last_called_at)}`} /> : null}
+            </div>
+            {resource.sub_resources.length > 0 ? (
+              <div class="oh-resource-usage-subresources">
+                {resource.sub_resources.slice(0, 16).map((subResource) => (
+                  <div key={subResource.resource_id}>
+                    <span title={subResource.resource_id}>↳ {subResource.resource_id}</span>
+                    <small>{subResource.successes} / {subResource.failures}</small>
+                    <em>{formatDuration(subResource.average_duration_ms)}</em>
+                    <b>{subResource.total}</b>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </article>
+        );
+      })}
+    </div>
+  );
+}
+
+function MetricPill({ label, error = false }: { label: string; error?: boolean }) {
+  return <span class={`oh-resource-usage-metric${error ? ' is-error' : ''}`}>{label}</span>;
+}
+
+function RecentEvents({ events }: { events: ResourceUsageEvent[] }) {
+  if (events.length === 0) return <EmptyChart label={t('resourceUsage.emptyRecent', '当前周期暂无详细调用记录')} />;
+  return (
+    <div class="oh-resource-usage-events">
+      {events.map((event) => (
+        <article key={event.event_id} class={`oh-resource-usage-event${event.succeeded ? '' : ' is-error'}`}>
+          <header>
+            <i />
+            <strong title={`${event.resource_id}/${event.sub_resource_id}`}>{event.resource_id}{event.sub_resource_id ? ` / ${event.sub_resource_id}` : ''}</strong>
+            <b>{statusLabel(event.status)}</b>
+          </header>
+          <div class="oh-resource-usage-event-meta">
+            <span>◴ {formatTimestamp(event.occurred_at)}</span>
+            <span>◷ {formatDuration(event.duration_ms)}</span>
+            <span title={event.session_id}>◇ {shortBucket(event.session_id)}</span>
+            {event.source ? <span>↗ {event.source}</span> : null}
+          </div>
+          {event.arguments_summary ? <EventSummary label={t('resourceUsage.arguments', '参数')} value={event.arguments_summary} /> : null}
+          {event.error_summary
+            ? <EventSummary label={t('resourceUsage.error', '错误')} value={event.error_summary} error />
+            : event.result_summary
+              ? <EventSummary label={t('resourceUsage.result', '结果')} value={event.result_summary} />
+              : null}
+        </article>
+      ))}
+    </div>
+  );
+}
+
+function EventSummary({ label, value, error = false }: { label: string; value: string; error?: boolean }) {
+  return <p class={`oh-resource-usage-event-summary${error ? ' is-error' : ''}`}><b>{label}</b><span>{value}</span></p>;
+}
+
+function statusLabel(status: string): string {
+  if (status === 'success') return t('resourceUsage.statusSuccess', '成功');
+  if (status === 'cancelled') return t('resourceUsage.statusCancelled', '已取消');
+  if (status === 'timed_out') return t('resourceUsage.statusTimedOut', '超时');
+  if (status === 'denied' || status === 'rejected') return t('resourceUsage.statusDenied', '已拒绝');
+  return t('resourceUsage.statusFailed', '失败');
 }

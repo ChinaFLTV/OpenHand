@@ -600,7 +600,7 @@ class HarnessApiPhaseRunner {
               sessionId: phaseSessionId,
               catalog: phaseToolCatalog,
               toolCall: toolCall,
-              resultMetadata: result.metadata,
+              result: result,
             );
           } catch (error, stack) {
             silentLog('harness_api_phase_runner', '记录工具调用统计失败', error, stack);

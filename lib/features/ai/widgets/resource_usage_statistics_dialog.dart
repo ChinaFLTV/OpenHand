@@ -151,7 +151,7 @@ class _ResourceUsageStatisticsDialogState
               );
               return Column(
                 children: [
-                  _buildHeader(context, kindLabel),
+                  _buildHeader(context, kindLabel, snapshot.generatedAt),
                   Expanded(
                     child: SingleChildScrollView(
                       padding: const EdgeInsets.fromLTRB(24, 22, 24, 28),
@@ -167,7 +167,11 @@ class _ResourceUsageStatisticsDialogState
     );
   }
 
-  Widget _buildHeader(BuildContext context, String kindLabel) {
+  Widget _buildHeader(
+    BuildContext context,
+    String kindLabel,
+    DateTime generatedAt,
+  ) {
     final colorScheme = Theme.of(context).colorScheme;
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -212,19 +216,59 @@ class _ResourceUsageStatisticsDialogState
                     ),
                   ),
                   const SizedBox(height: 5),
-                  Text(
-                    openHandLocalizedText(
-                      context,
-                      zh: '从会话到年度，洞察调用结构、占比与变化趋势',
-                      zhHant: '從會話到年度，洞察呼叫結構、占比與變化趨勢',
-                      en: 'Explore call mix, share, and trends from session to year',
-                      fr: 'Structure, part et tendance de la session à l’année',
-                      de: 'Aufrufmix, Anteile und Trends von Sitzung bis Jahr',
-                      ja: 'セッションから年次までの構成・比率・推移',
-                    ),
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                    ),
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          openHandLocalizedText(
+                            context,
+                            zh: '细粒度调用、状态、耗时与会话洞察',
+                            zhHant: '細粒度呼叫、狀態、耗時與會話洞察',
+                            en: 'Live calls, outcomes, latency, and sessions',
+                            fr: 'Appels, états, latence et sessions en direct',
+                            de: 'Live-Aufrufe, Status, Latenz und Sitzungen',
+                            ja: '呼び出し・状態・所要時間・セッション',
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(color: colorScheme.onSurfaceVariant),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: colorScheme.primaryContainer,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 6,
+                              height: 6,
+                              decoration: BoxDecoration(
+                                color: colorScheme.primary,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: 5),
+                            Text(
+                              _formatTimestamp(generatedAt),
+                              style: Theme.of(context).textTheme.labelSmall
+                                  ?.copyWith(
+                                    color: colorScheme.onPrimaryContainer,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -253,13 +297,11 @@ class _ResourceUsageStatisticsDialogState
         ),
         const SizedBox(height: 18),
         _SummaryGrid(
-          totalCount: level.totalCount,
-          resourceCount: level.resourceCount,
+          level: level,
           topLabel: top == null ? '—' : _labelFor(top.key),
           topShare: top == null || level.totalCount <= 0
               ? 0
               : top.value / level.totalCount,
-          bucketLabel: _shortBucket(level.bucketKey),
         ),
         const SizedBox(height: 18),
         LayoutBuilder(
@@ -336,6 +378,59 @@ class _ResourceUsageStatisticsDialogState
             labels: widget.resourceLabels,
           ),
         ),
+        const SizedBox(height: 18),
+        _AnalyticsPanel(
+          title: openHandLocalizedText(
+            context,
+            zh: '资源与子资源明细',
+            zhHant: '資源與子資源明細',
+            en: 'Resource details',
+            fr: 'Détails des ressources',
+            de: 'Ressourcendetails',
+            ja: 'リソース詳細',
+          ),
+          subtitle: openHandLocalizedText(
+            context,
+            zh: widget.kind == AiResourceUsageKind.mcp
+                ? '按 MCP 服务展开实际调用的 Tool'
+                : '成功率、耗时、会话与子动作明细',
+            zhHant: widget.kind == AiResourceUsageKind.mcp
+                ? '依 MCP 服務展開實際呼叫的 Tool'
+                : '成功率、耗時、會話與子動作明細',
+            en: widget.kind == AiResourceUsageKind.mcp
+                ? 'MCP servers and their invoked tools'
+                : 'Success, latency, sessions, and sub-actions',
+            fr: 'Succès, latence, sessions et sous-actions',
+            de: 'Erfolg, Latenz, Sitzungen und Unteraktionen',
+            ja: '成功率、所要時間、セッション、サブ操作',
+          ),
+          child: _ResourceDetails(
+            resources: level.resources,
+            labels: widget.resourceLabels,
+          ),
+        ),
+        const SizedBox(height: 18),
+        _AnalyticsPanel(
+          title: openHandLocalizedText(
+            context,
+            zh: '最近调用记录',
+            zhHant: '最近呼叫記錄',
+            en: 'Recent calls',
+            fr: 'Appels récents',
+            de: 'Letzte Aufrufe',
+            ja: '最近の呼び出し',
+          ),
+          subtitle: openHandLocalizedText(
+            context,
+            zh: '实时更新 · 参数与结果已脱敏并限制长度',
+            zhHant: '即時更新 · 參數與結果已脫敏並限制長度',
+            en: 'Live · arguments and results are redacted and bounded',
+            fr: 'Temps réel · contenu protégé et limité',
+            de: 'Live · Inhalte geschützt und begrenzt',
+            ja: 'リアルタイム · 内容はマスク・制限済み',
+          ),
+          child: _RecentUsageEvents(events: level.recentEvents),
+        ),
       ],
     );
   }
@@ -380,18 +475,14 @@ class _PeriodSelector extends StatelessWidget {
 
 class _SummaryGrid extends StatelessWidget {
   const _SummaryGrid({
-    required this.totalCount,
-    required this.resourceCount,
+    required this.level,
     required this.topLabel,
     required this.topShare,
-    required this.bucketLabel,
   });
 
-  final int totalCount;
-  final int resourceCount;
+  final AiResourceUsageLevelSnapshot level;
   final String topLabel;
   final double topShare;
-  final String bucketLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -407,23 +498,67 @@ class _SummaryGrid extends StatelessWidget {
           de: 'Aufrufe gesamt',
           ja: '総呼び出し数',
         ),
-        value: '$totalCount',
+        value: '${level.totalCount}',
       ),
       _SummaryCard(
-        icon: Icons.hub_rounded,
+        icon: Icons.check_circle_outline_rounded,
         label: openHandLocalizedText(
           context,
-          zh: '活跃资源',
-          zhHant: '活躍資源',
-          en: 'Active resources',
-          fr: 'Ressources actives',
-          de: 'Aktive Ressourcen',
-          ja: 'アクティブ',
+          zh: '成功调用',
+          zhHant: '成功呼叫',
+          en: 'Succeeded',
+          fr: 'Réussis',
+          de: 'Erfolgreich',
+          ja: '成功',
         ),
-        value: '$resourceCount',
+        value: '${level.successCount}',
+        detail: level.successRate == null
+            ? '—'
+            : '${(level.successRate! * 100).toStringAsFixed(1)}%',
       ),
       _SummaryCard(
-        icon: Icons.workspace_premium_rounded,
+        icon: Icons.error_outline_rounded,
+        label: openHandLocalizedText(
+          context,
+          zh: '失败调用',
+          zhHant: '失敗呼叫',
+          en: 'Failed',
+          fr: 'Échoués',
+          de: 'Fehlgeschlagen',
+          ja: '失敗',
+        ),
+        value: '${level.failureCount}',
+      ),
+      _SummaryCard(
+        icon: Icons.timer_outlined,
+        label: openHandLocalizedText(
+          context,
+          zh: '平均 / P95 耗时',
+          zhHant: '平均 / P95 耗時',
+          en: 'Average / P95',
+          fr: 'Moyenne / P95',
+          de: 'Mittel / P95',
+          ja: '平均 / P95',
+        ),
+        value: _formatDuration(level.averageDurationMs.round()),
+        detail: _formatDuration(level.p95DurationMs),
+      ),
+      _SummaryCard(
+        icon: Icons.forum_outlined,
+        label: openHandLocalizedText(
+          context,
+          zh: '活跃会话 / 资源',
+          zhHant: '活躍會話 / 資源',
+          en: 'Sessions / resources',
+          fr: 'Sessions / ressources',
+          de: 'Sitzungen / Ressourcen',
+          ja: 'セッション / リソース',
+        ),
+        value: '${level.sessionCount}',
+        detail: '${level.resourceCount}',
+      ),
+      _SummaryCard(
+        icon: Icons.workspace_premium_outlined,
         label: openHandLocalizedText(
           context,
           zh: '首位资源',
@@ -436,25 +571,12 @@ class _SummaryGrid extends StatelessWidget {
         value: topLabel,
         detail: '${(topShare * 100).toStringAsFixed(1)}%',
       ),
-      _SummaryCard(
-        icon: Icons.calendar_today_rounded,
-        label: openHandLocalizedText(
-          context,
-          zh: '当前周期',
-          zhHant: '目前週期',
-          en: 'Current bucket',
-          fr: 'Période actuelle',
-          de: 'Aktueller Zeitraum',
-          ja: '現在期間',
-        ),
-        value: bucketLabel,
-      ),
     ];
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.maxWidth;
         final columns = width >= 900
-            ? 4
+            ? 3
             : width >= 520
             ? 2
             : 1;
@@ -670,8 +792,6 @@ class _TrendPainter extends CustomPainter {
       1,
       (current, point) => math.max(current, point.totalCount),
     );
-    final line = Path();
-    final area = Path();
     final offsets = <Offset>[];
     for (var index = 0; index < points.length; index++) {
       final x = points.length == 1
@@ -680,18 +800,28 @@ class _TrendPainter extends CustomPainter {
       final y = top + height * (1 - points[index].totalCount / maxValue);
       final point = Offset(x, y);
       offsets.add(point);
-      if (index == 0) {
-        line.moveTo(x, y);
-        area
-          ..moveTo(x, top + height)
-          ..lineTo(x, y);
-      } else {
-        line.lineTo(x, y);
-        area.lineTo(x, y);
-      }
     }
+    final line = Path()..moveTo(offsets.first.dx, offsets.first.dy);
+    for (var index = 0; index < offsets.length - 1; index++) {
+      final previous = index == 0 ? offsets[index] : offsets[index - 1];
+      final current = offsets[index];
+      final next = offsets[index + 1];
+      final afterNext = index + 2 < offsets.length ? offsets[index + 2] : next;
+      final control1 = current + (next - previous) / 6;
+      final control2 = next - (afterNext - current) / 6;
+      line.cubicTo(
+        control1.dx,
+        control1.dy,
+        control2.dx,
+        control2.dy,
+        next.dx,
+        next.dy,
+      );
+    }
+    final area = Path.from(line);
     area
       ..lineTo(offsets.last.dx, top + height)
+      ..lineTo(offsets.first.dx, top + height)
       ..close();
     canvas.drawPath(
       area,
@@ -1040,6 +1170,475 @@ class _ResourceRanking extends StatelessWidget {
   }
 }
 
+class _ResourceDetails extends StatelessWidget {
+  const _ResourceDetails({required this.resources, required this.labels});
+
+  final List<AiResourceUsageResourceSnapshot> resources;
+  final Map<String, String> labels;
+
+  @override
+  Widget build(BuildContext context) {
+    if (resources.isEmpty) {
+      return _EmptyAnalytics(
+        icon: Icons.account_tree_outlined,
+        label: openHandLocalizedText(
+          context,
+          zh: '当前周期暂无资源明细',
+          zhHant: '目前週期暫無資源明細',
+          en: 'No resource details in this bucket',
+          fr: 'Aucun détail pour cette période',
+          de: 'Keine Details für diesen Zeitraum',
+          ja: 'この期間の詳細はありません',
+        ),
+      );
+    }
+    final visible = resources.take(30).toList(growable: false);
+    return Column(
+      children: [
+        for (var index = 0; index < visible.length; index++) ...[
+          _ResourceDetailCard(
+            resource: visible[index],
+            label: labels[visible[index].resourceId],
+          ),
+          if (index != visible.length - 1) const SizedBox(height: 10),
+        ],
+      ],
+    );
+  }
+}
+
+class _ResourceDetailCard extends StatelessWidget {
+  const _ResourceDetailCard({required this.resource, this.label});
+
+  final AiResourceUsageResourceSnapshot resource;
+  final String? label;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final displayLabel = label?.trim().isNotEmpty == true
+        ? label!.trim()
+        : resource.resourceId;
+    final children = resource.subResources.take(16).toList(growable: false);
+    return Container(
+      padding: const EdgeInsets.all(15),
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: colors.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: colors.primaryContainer,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  children.isEmpty
+                      ? Icons.extension_outlined
+                      : Icons.hub_outlined,
+                  size: 20,
+                  color: colors.onPrimaryContainer,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      displayLabel,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    if (displayLabel != resource.resourceId)
+                      Text(
+                        resource.resourceId,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: colors.onSurfaceVariant,
+                          fontFamily: 'monospace',
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              Text(
+                '${resource.totalCount}',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  color: colors.primary,
+                  fontWeight: FontWeight.w800,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _MetricPill(
+                icon: Icons.check_rounded,
+                label:
+                    '${resource.successCount} · ${resource.successRate == null ? '—' : '${(resource.successRate! * 100).toStringAsFixed(1)}%'}',
+              ),
+              _MetricPill(
+                icon: Icons.close_rounded,
+                label: '${resource.failureCount}',
+                error: resource.failureCount > 0,
+              ),
+              _MetricPill(
+                icon: Icons.timer_outlined,
+                label: _formatDuration(resource.averageDurationMs.round()),
+              ),
+              _MetricPill(
+                icon: Icons.forum_outlined,
+                label: '${resource.sessionCount}',
+              ),
+              if (resource.lastCalledAt != null)
+                _MetricPill(
+                  icon: Icons.schedule_rounded,
+                  label: _formatTimestamp(resource.lastCalledAt!),
+                ),
+            ],
+          ),
+          if (children.isNotEmpty) ...[
+            const SizedBox(height: 13),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: colors.surfaceContainerLowest,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: colors.outlineVariant),
+              ),
+              child: Column(
+                children: [
+                  for (var index = 0; index < children.length; index++) ...[
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.subdirectory_arrow_right_rounded,
+                            size: 17,
+                            color: colors.primary,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              children[index].resourceId,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                          Text(
+                            '${children[index].successCount} / ${children[index].failureCount}',
+                            style: Theme.of(context).textTheme.labelSmall
+                                ?.copyWith(color: colors.onSurfaceVariant),
+                          ),
+                          const SizedBox(width: 12),
+                          SizedBox(
+                            width: 62,
+                            child: Text(
+                              _formatDuration(
+                                children[index].averageDurationMs.round(),
+                              ),
+                              textAlign: TextAlign.end,
+                              style: Theme.of(context).textTheme.labelSmall,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          SizedBox(
+                            width: 38,
+                            child: Text(
+                              '${children[index].totalCount}',
+                              textAlign: TextAlign.end,
+                              style: Theme.of(context).textTheme.labelLarge
+                                  ?.copyWith(fontWeight: FontWeight.w800),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (index != children.length - 1)
+                      Divider(height: 1, color: colors.outlineVariant),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _MetricPill extends StatelessWidget {
+  const _MetricPill({
+    required this.icon,
+    required this.label,
+    this.error = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool error;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final color = error ? colors.error : colors.onSurfaceVariant;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+      decoration: BoxDecoration(
+        color: error ? colors.errorContainer : colors.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RecentUsageEvents extends StatelessWidget {
+  const _RecentUsageEvents({required this.events});
+
+  final List<AiResourceUsageEvent> events;
+
+  @override
+  Widget build(BuildContext context) {
+    if (events.isEmpty) {
+      return _EmptyAnalytics(
+        icon: Icons.history_rounded,
+        label: openHandLocalizedText(
+          context,
+          zh: '当前周期暂无详细调用记录',
+          zhHant: '目前週期暫無詳細呼叫記錄',
+          en: 'No detailed calls in this bucket',
+          fr: 'Aucun appel détaillé sur cette période',
+          de: 'Keine detaillierten Aufrufe',
+          ja: 'この期間の詳細な記録はありません',
+        ),
+      );
+    }
+    return Column(
+      children: [
+        for (var index = 0; index < events.length; index++) ...[
+          _UsageEventCard(event: events[index]),
+          if (index != events.length - 1) const SizedBox(height: 9),
+        ],
+      ],
+    );
+  }
+}
+
+class _UsageEventCard extends StatelessWidget {
+  const _UsageEventCard({required this.event});
+
+  final AiResourceUsageEvent event;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final succeeded = event.succeeded;
+    final statusColor = succeeded ? colors.primary : colors.error;
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(17),
+        border: Border.all(color: colors.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 9,
+                height: 9,
+                decoration: BoxDecoration(
+                  color: statusColor,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 9),
+              Expanded(
+                child: Text(
+                  event.subResourceId.isEmpty
+                      ? event.resourceId
+                      : '${event.resourceId}  /  ${event.subResourceId}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700),
+                ),
+              ),
+              Text(
+                _statusLabel(context, event.status),
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: statusColor,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 12,
+            runSpacing: 6,
+            children: [
+              _EventMeta(
+                icon: Icons.schedule_rounded,
+                text: _formatTimestamp(event.occurredAt),
+              ),
+              _EventMeta(
+                icon: Icons.timer_outlined,
+                text: _formatDuration(event.durationMs),
+              ),
+              _EventMeta(
+                icon: Icons.forum_outlined,
+                text: _shortIdentifier(event.sessionId),
+              ),
+              if (event.source.isNotEmpty)
+                _EventMeta(icon: Icons.route_outlined, text: event.source),
+            ],
+          ),
+          if (event.argumentsSummary.isNotEmpty)
+            _EventSummaryLine(
+              label: openHandLocalizedText(
+                context,
+                zh: '参数',
+                zhHant: '參數',
+                en: 'Arguments',
+                fr: 'Arguments',
+                de: 'Argumente',
+                ja: '引数',
+              ),
+              value: event.argumentsSummary,
+            ),
+          if (event.errorSummary.isNotEmpty)
+            _EventSummaryLine(
+              label: openHandLocalizedText(
+                context,
+                zh: '错误',
+                zhHant: '錯誤',
+                en: 'Error',
+                fr: 'Erreur',
+                de: 'Fehler',
+                ja: 'エラー',
+              ),
+              value: event.errorSummary,
+              error: true,
+            )
+          else if (event.resultSummary.isNotEmpty)
+            _EventSummaryLine(
+              label: openHandLocalizedText(
+                context,
+                zh: '结果',
+                zhHant: '結果',
+                en: 'Result',
+                fr: 'Résultat',
+                de: 'Ergebnis',
+                ja: '結果',
+              ),
+              value: event.resultSummary,
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EventMeta extends StatelessWidget {
+  const _EventMeta({required this.icon, required this.text});
+
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = Theme.of(context).colorScheme.onSurfaceVariant;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 14, color: color),
+        const SizedBox(width: 4),
+        Text(
+          text,
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(color: color),
+        ),
+      ],
+    );
+  }
+}
+
+class _EventSummaryLine extends StatelessWidget {
+  const _EventSummaryLine({
+    required this.label,
+    required this.value,
+    this.error = false,
+  });
+
+  final String label;
+  final String value;
+  final bool error;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Text.rich(
+        TextSpan(
+          children: [
+            TextSpan(
+              text: '$label  ',
+              style: TextStyle(
+                color: error ? colors.error : colors.primary,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            TextSpan(text: value),
+          ],
+        ),
+        maxLines: 3,
+        overflow: TextOverflow.ellipsis,
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+          color: colors.onSurfaceVariant,
+          height: 1.45,
+        ),
+      ),
+    );
+  }
+}
+
 class _EmptyAnalytics extends StatelessWidget {
   const _EmptyAnalytics({required this.icon, required this.label});
 
@@ -1165,4 +1764,79 @@ String _shortBucket(String value) {
   if (trimmed.isEmpty) return '—';
   if (trimmed.length <= 14) return trimmed;
   return '…${trimmed.substring(trimmed.length - 12)}';
+}
+
+String _shortIdentifier(String value) {
+  final trimmed = value.trim();
+  if (trimmed.length <= 16) return trimmed;
+  return '…${trimmed.substring(trimmed.length - 14)}';
+}
+
+String _formatDuration(int milliseconds) {
+  if (milliseconds < 1000) return '$milliseconds ms';
+  if (milliseconds < 60000) {
+    return '${(milliseconds / 1000).toStringAsFixed(1)} s';
+  }
+  return '${(milliseconds / 60000).toStringAsFixed(1)} min';
+}
+
+String _formatTimestamp(DateTime value) {
+  final local = value.toLocal();
+  final date =
+      '${local.year.toString().padLeft(4, '0')}-${local.month.toString().padLeft(2, '0')}-${local.day.toString().padLeft(2, '0')}';
+  final time =
+      '${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}:${local.second.toString().padLeft(2, '0')}';
+  return '$date $time';
+}
+
+String _statusLabel(BuildContext context, String status) {
+  if (status == 'success') {
+    return openHandLocalizedText(
+      context,
+      zh: '成功',
+      zhHant: '成功',
+      en: 'Success',
+      fr: 'Réussi',
+      de: 'Erfolgreich',
+      ja: '成功',
+    );
+  }
+  return switch (status) {
+    'cancelled' => openHandLocalizedText(
+      context,
+      zh: '已取消',
+      zhHant: '已取消',
+      en: 'Cancelled',
+      fr: 'Annulé',
+      de: 'Abgebrochen',
+      ja: 'キャンセル',
+    ),
+    'timed_out' => openHandLocalizedText(
+      context,
+      zh: '超时',
+      zhHant: '逾時',
+      en: 'Timed out',
+      fr: 'Expiré',
+      de: 'Zeitüberschreitung',
+      ja: 'タイムアウト',
+    ),
+    'denied' || 'rejected' => openHandLocalizedText(
+      context,
+      zh: '已拒绝',
+      zhHant: '已拒絕',
+      en: 'Denied',
+      fr: 'Refusé',
+      de: 'Abgelehnt',
+      ja: '拒否',
+    ),
+    _ => openHandLocalizedText(
+      context,
+      zh: '失败',
+      zhHant: '失敗',
+      en: 'Failed',
+      fr: 'Échoué',
+      de: 'Fehlgeschlagen',
+      ja: '失敗',
+    ),
+  };
 }

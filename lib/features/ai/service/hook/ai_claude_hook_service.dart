@@ -50,6 +50,24 @@ class AiClaudeHookInvocationResult {
   final List<String> loadedConfigPaths;
 }
 
+class AiClaudeHookUsageRecord {
+  const AiClaudeHookUsageRecord({
+    required this.hookId,
+    required this.eventName,
+    required this.status,
+    required this.durationMs,
+    required this.resultSummary,
+    required this.errorSummary,
+  });
+
+  final String hookId;
+  final String eventName;
+  final String status;
+  final int durationMs;
+  final String resultSummary;
+  final String errorSummary;
+}
+
 class AiNoopClaudeHookService extends AiClaudeHookService {
   AiNoopClaudeHookService();
 
@@ -91,11 +109,18 @@ class AiClaudeHookService {
       LifecycleLruCache<_AiCachedHookConfigPresence>(
         maxEntries: _maxAiHookPresenceCacheEntries,
       );
-  Future<void> Function(String sessionId, Iterable<String> hookIds)?
+  Future<void> Function(
+    String sessionId,
+    Iterable<AiClaudeHookUsageRecord> records,
+  )?
   _usageRecorder;
 
   void configureUsageRecorder(
-    Future<void> Function(String sessionId, Iterable<String> hookIds)? recorder,
+    Future<void> Function(
+      String sessionId,
+      Iterable<AiClaudeHookUsageRecord> records,
+    )?
+    recorder,
   ) {
     _usageRecorder = recorder;
   }
@@ -135,14 +160,14 @@ class AiClaudeHookService {
     final userFeedback = <String>[];
     final systemReminders = <String>[];
     final executedCommands = <String>[];
-    final executedHookIds = <String>[];
+    final usageRecords = <AiClaudeHookUsageRecord>[];
     String? blockReason;
     var executedHookCount = 0;
 
     for (final entry in configuredHooks.entries) {
       executedHookCount += 1;
       executedCommands.add(entry.command);
-      executedHookIds.add(entry.id);
+      final stopwatch = Stopwatch()..start();
       try {
         final commandResult = await _runCommand(
           command: entry.command,
@@ -152,6 +177,23 @@ class AiClaudeHookService {
         final parsed = _parseHookCommandResult(
           commandResult: commandResult,
           eventName: eventName,
+        );
+        stopwatch.stop();
+        usageRecords.add(
+          AiClaudeHookUsageRecord(
+            hookId: entry.id,
+            eventName: eventName,
+            status: commandResult.timedOut
+                ? 'timed_out'
+                : commandResult.exitCode != 0
+                ? 'failed'
+                : parsed.blockReason?.trim().isNotEmpty == true
+                ? 'blocked'
+                : 'success',
+            durationMs: stopwatch.elapsedMilliseconds,
+            resultSummary: commandResult.stdout,
+            errorSummary: commandResult.stderr,
+          ),
         );
         if (parsed.userFeedback.isNotEmpty) {
           userFeedback.addAll(parsed.userFeedback);
@@ -164,14 +206,25 @@ class AiClaudeHookService {
           break;
         }
       } catch (error) {
+        stopwatch.stop();
+        usageRecords.add(
+          AiClaudeHookUsageRecord(
+            hookId: entry.id,
+            eventName: eventName,
+            status: 'failed',
+            durationMs: stopwatch.elapsedMilliseconds,
+            resultSummary: '',
+            errorSummary: '$error',
+          ),
+        );
         systemReminders.add('Hook command failed to start: $error');
       }
     }
 
     final recorder = _usageRecorder;
-    if (recorder != null && executedHookIds.isNotEmpty) {
+    if (recorder != null && usageRecords.isNotEmpty) {
       try {
-        await recorder(sessionId, executedHookIds);
+        await recorder(sessionId, usageRecords);
       } catch (error, stack) {
         silentLog(
           'ai_claude_hook_service',

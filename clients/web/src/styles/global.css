@@ -2830,6 +2830,26 @@ button.oh-message-context-capsule {
   color: var(--m3-on-surface-variant);
   font-size: 13px;
 }
+.oh-resource-usage-live {
+  min-height: 28px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  padding: 5px 9px;
+  border-radius: 999px;
+  color: var(--m3-on-primary-container);
+  background: var(--m3-primary-container);
+  font-size: 10px;
+  font-weight: 760;
+}
+.oh-resource-usage-live i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--m3-primary);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--m3-primary) 13%, transparent);
+}
 .oh-resource-usage-close {
   width: 40px;
   height: 40px;
@@ -2897,9 +2917,16 @@ button.oh-message-context-capsule {
 }
 .oh-resource-usage-summary {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
   margin: 18px 0;
+}
+.oh-resource-usage-summary-card.is-error > span {
+  color: var(--m3-on-error-container);
+  background: var(--m3-error-container);
+}
+.oh-resource-usage-summary-card.is-error em {
+  color: var(--m3-error);
 }
 .oh-resource-usage-summary-card {
   min-width: 0;
@@ -2975,6 +3002,9 @@ button.oh-message-context-capsule {
   border: 1px solid var(--m3-outline-variant);
   border-radius: 22px;
   background: var(--m3-surface-container-lowest, var(--m3-surface));
+}
+.oh-resource-usage-scroll > .oh-resource-usage-panel + .oh-resource-usage-panel {
+  margin-top: 16px;
 }
 .oh-resource-usage-panel > h3 {
   margin: 0;
@@ -3176,6 +3206,177 @@ button.oh-message-context-capsule {
   font-size: 11px;
   text-align: center;
 }
+.oh-resource-usage-details,
+.oh-resource-usage-events {
+  display: grid;
+  gap: 10px;
+}
+.oh-resource-usage-detail-card,
+.oh-resource-usage-event {
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--m3-outline-variant);
+  border-radius: 18px;
+  background: var(--m3-surface-container-low);
+}
+.oh-resource-usage-detail-card > header {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 11px;
+}
+.oh-resource-usage-detail-card > header > span {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  color: var(--m3-on-primary-container);
+  background: var(--m3-primary-container);
+  font-size: 18px;
+  font-weight: 800;
+}
+.oh-resource-usage-detail-card header div,
+.oh-resource-usage-detail-card header strong,
+.oh-resource-usage-detail-card header small {
+  min-width: 0;
+}
+.oh-resource-usage-detail-card header strong,
+.oh-resource-usage-detail-card header small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.oh-resource-usage-detail-card header strong {
+  color: var(--m3-on-surface);
+  font-size: 13px;
+  font-weight: 760;
+}
+.oh-resource-usage-detail-card header small {
+  margin-top: 2px;
+  color: var(--m3-on-surface-variant);
+  font: 9px ui-monospace, 'SFMono-Regular', 'Menlo', monospace;
+}
+.oh-resource-usage-detail-card > header > b {
+  color: var(--m3-primary);
+  font-size: 21px;
+  font-variant-numeric: tabular-nums;
+}
+.oh-resource-usage-detail-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 11px;
+}
+.oh-resource-usage-metric {
+  padding: 5px 8px;
+  border-radius: 999px;
+  color: var(--m3-on-surface-variant);
+  background: var(--m3-surface-container-high);
+  font-size: 10px;
+  font-weight: 720;
+}
+.oh-resource-usage-metric.is-error {
+  color: var(--m3-on-error-container);
+  background: var(--m3-error-container);
+}
+.oh-resource-usage-subresources {
+  margin-top: 12px;
+  padding: 5px 11px;
+  border: 1px solid var(--m3-outline-variant);
+  border-radius: 14px;
+  background: var(--m3-surface-container-lowest, var(--m3-surface));
+}
+.oh-resource-usage-subresources > div {
+  min-height: 38px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 64px 70px 38px;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1px solid var(--m3-outline-variant);
+  font-size: 10px;
+}
+.oh-resource-usage-subresources > div:last-child {
+  border-bottom: 0;
+}
+.oh-resource-usage-subresources span {
+  overflow: hidden;
+  color: var(--m3-on-surface);
+  font-weight: 680;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.oh-resource-usage-subresources small,
+.oh-resource-usage-subresources em {
+  color: var(--m3-on-surface-variant);
+  font-size: 9px;
+  font-style: normal;
+  text-align: right;
+}
+.oh-resource-usage-subresources b {
+  color: var(--m3-on-surface);
+  font-size: 11px;
+  text-align: right;
+}
+.oh-resource-usage-event > header {
+  display: grid;
+  grid-template-columns: 9px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+}
+.oh-resource-usage-event > header i {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--m3-primary);
+}
+.oh-resource-usage-event > header strong {
+  overflow: hidden;
+  color: var(--m3-on-surface);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.oh-resource-usage-event > header b {
+  color: var(--m3-primary);
+  font-size: 10px;
+}
+.oh-resource-usage-event.is-error > header i {
+  background: var(--m3-error);
+}
+.oh-resource-usage-event.is-error > header b {
+  color: var(--m3-error);
+}
+.oh-resource-usage-event-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 13px;
+  margin-top: 8px;
+  color: var(--m3-on-surface-variant);
+  font-size: 9px;
+}
+.oh-resource-usage-event-summary {
+  display: flex;
+  gap: 8px;
+  margin: 8px 0 0;
+  color: var(--m3-on-surface-variant);
+  font-size: 10px;
+  line-height: 1.45;
+}
+.oh-resource-usage-event-summary b {
+  flex: none;
+  color: var(--m3-primary);
+}
+.oh-resource-usage-event-summary.is-error b {
+  color: var(--m3-error);
+}
+.oh-resource-usage-event-summary span {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
 .oh-resource-usage-empty {
   min-height: 210px;
   display: flex;
@@ -3214,6 +3415,9 @@ button.oh-message-context-capsule {
   .oh-resource-usage-head p {
     display: none;
   }
+  .oh-resource-usage-live {
+    display: none;
+  }
   .oh-resource-usage-scroll {
     padding: 16px 14px 20px;
   }
@@ -3235,6 +3439,13 @@ button.oh-message-context-capsule {
   .oh-resource-usage-summary-card strong {
     font-size: 17px;
   }
+  .oh-resource-usage-summary-card > div > div {
+    display: block;
+  }
+  .oh-resource-usage-summary-card em {
+    display: block;
+    margin-top: 2px;
+  }
   .oh-resource-usage-distribution {
     grid-template-columns: 1fr;
     justify-items: center;
@@ -3247,6 +3458,13 @@ button.oh-message-context-capsule {
     gap: 8px;
   }
   .oh-resource-usage-rank-bar {
+    display: none;
+  }
+  .oh-resource-usage-subresources > div {
+    grid-template-columns: minmax(0, 1fr) 40px;
+  }
+  .oh-resource-usage-subresources small,
+  .oh-resource-usage-subresources em {
     display: none;
   }
 }

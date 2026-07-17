@@ -368,24 +368,42 @@ class AiSessionController extends ChangeNotifier {
         sessionId: rootUsageSessionId(parentContext.sessionId),
         catalog: subContext.catalog,
         toolCall: subContext.toolCall,
-        resultMetadata: result.metadata,
+        result: result,
       );
     });
-    resolvedHookService.configureUsageRecorder((sessionId, hookIds) {
-      return resolvedToolUsagePromotionStore.recordResources(
-        sessionId: rootUsageSessionId(sessionId),
-        resources: <AiResourceUsageKind, Iterable<String>>{
-          AiResourceUsageKind.hook: hookIds,
-        },
-      );
+    resolvedHookService.configureUsageRecorder((sessionId, records) async {
+      for (final record in records) {
+        await resolvedToolUsagePromotionStore.recordResources(
+          sessionId: rootUsageSessionId(sessionId),
+          resources: <AiResourceUsageKind, Iterable<String>>{
+            AiResourceUsageKind.hook: <String>[record.hookId],
+          },
+          subResourceId: record.eventName,
+          toolName: record.eventName,
+          status: record.status,
+          durationMs: record.durationMs,
+          resultSummary: record.resultSummary,
+          errorSummary: record.errorSummary,
+          source: 'claude_hook',
+        );
+      }
     });
-    userHooksExecutor?.configureUsageRecorder((sessionId, hookIds) {
-      return resolvedToolUsagePromotionStore.recordResources(
-        sessionId: rootUsageSessionId(sessionId),
-        resources: <AiResourceUsageKind, Iterable<String>>{
-          AiResourceUsageKind.hook: hookIds,
-        },
-      );
+    userHooksExecutor?.configureUsageRecorder((sessionId, records) async {
+      for (final record in records) {
+        await resolvedToolUsagePromotionStore.recordResources(
+          sessionId: rootUsageSessionId(sessionId),
+          resources: <AiResourceUsageKind, Iterable<String>>{
+            AiResourceUsageKind.hook: <String>[record.hookId],
+          },
+          subResourceId: record.eventName,
+          toolName: record.eventName,
+          status: record.status,
+          durationMs: record.durationMs,
+          resultSummary: record.resultSummary,
+          errorSummary: record.errorSummary,
+          source: 'user_hook',
+        );
+      }
     });
     final controller = AiSessionController._(
       store: resolvedStore,
@@ -6426,6 +6444,8 @@ class AiSessionController extends ChangeNotifier {
                 if ('${selectedSkillMetadata[key] ?? ''}'.trim().isNotEmpty)
                   '${selectedSkillMetadata[key]}'.trim(),
             ].take(1),
+            subResourceId: 'prompt_selection',
+            source: 'prompt',
           );
         }
 
@@ -6822,6 +6842,8 @@ class AiSessionController extends ChangeNotifier {
           sessionId: workingSession.id,
           kind: AiResourceUsageKind.memory,
           resourceIds: promptResult.memoryResourceIds,
+          subResourceId: 'prompt_context',
+          source: 'prompt',
         );
         streamResponse = await _chatClient.sendMessageStream(
           model: model,
@@ -8867,7 +8889,7 @@ class AiSessionController extends ChangeNotifier {
         sessionId: sessionId,
         catalog: catalog,
         toolCall: toolCall,
-        resultMetadata: result.metadata,
+        result: result,
       );
     } catch (error, stack) {
       silentLog('ai_session_controller', '记录工具调用统计失败', error, stack);
@@ -8878,6 +8900,8 @@ class AiSessionController extends ChangeNotifier {
     required String sessionId,
     required AiResourceUsageKind kind,
     required Iterable<String> resourceIds,
+    String subResourceId = '',
+    String source = 'runtime',
   }) async {
     final ids = resourceIds
         .map((id) => id.trim())
@@ -8888,6 +8912,9 @@ class AiSessionController extends ChangeNotifier {
       await _toolUsagePromotionStore.recordResources(
         sessionId: sessionId,
         resources: <AiResourceUsageKind, Iterable<String>>{kind: ids},
+        subResourceId: subResourceId,
+        toolName: subResourceId,
+        source: source,
       );
     } catch (error, stack) {
       silentLog('ai_session_controller', '记录资源调用统计失败', error, stack);

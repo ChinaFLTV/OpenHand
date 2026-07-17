@@ -108,6 +108,40 @@ export type ResourceUsageLevel = 'session' | 'day' | 'week' | 'month' | 'quarter
 export interface ResourceUsageTrendPoint {
   bucket: string;
   total: number;
+  successes: number;
+  failures: number;
+}
+
+export interface ResourceUsageResourceSnapshot {
+  resource_id: string;
+  total: number;
+  successes: number;
+  failures: number;
+  success_rate: number | null;
+  average_duration_ms: number;
+  duration_sample_count: number;
+  max_duration_ms: number;
+  session_count: number;
+  last_called_at: string | null;
+  sub_resources: ResourceUsageResourceSnapshot[];
+}
+
+export interface ResourceUsageEvent {
+  event_id: string;
+  kind: ResourceUsageKind;
+  resource_id: string;
+  sub_resource_id: string;
+  session_id: string;
+  tool_call_id: string;
+  tool_name: string;
+  occurred_at: string;
+  status: string;
+  succeeded: boolean;
+  duration_ms: number;
+  arguments_summary: string;
+  result_summary: string;
+  error_summary: string;
+  source: string;
 }
 
 export interface ResourceUsageLevelSnapshot {
@@ -115,8 +149,18 @@ export interface ResourceUsageLevelSnapshot {
   bucket: string;
   total: number;
   resource_count: number;
+  successes: number;
+  failures: number;
+  success_rate: number | null;
+  average_duration_ms: number;
+  duration_sample_count: number;
+  max_duration_ms: number;
+  p95_duration_ms: number;
+  session_count: number;
   counts: Record<string, number>;
   trend: ResourceUsageTrendPoint[];
+  resources: ResourceUsageResourceSnapshot[];
+  recent_events: ResourceUsageEvent[];
 }
 
 export interface ResourceUsageSnapshot {

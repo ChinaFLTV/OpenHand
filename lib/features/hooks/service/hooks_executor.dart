@@ -109,6 +109,24 @@ class HookEntryResult {
   final String? scriptContent;
 }
 
+class HookUsageRecord {
+  const HookUsageRecord({
+    required this.hookId,
+    required this.eventName,
+    required this.status,
+    required this.durationMs,
+    required this.resultSummary,
+    required this.errorSummary,
+  });
+
+  final String hookId;
+  final String eventName;
+  final String status;
+  final int durationMs;
+  final String resultSummary;
+  final String errorSummary;
+}
+
 /// Public executor that runs hooks for a given event. Designed to be called
 /// from AI session controllers and other orchestration layers.
 ///
@@ -121,11 +139,12 @@ class HooksExecutor {
 
   static const Uuid _uuid = Uuid();
   final List<HookEntry> Function(HookEvent event) _enabledHooksForEvent;
-  Future<void> Function(String sessionId, Iterable<String> hookIds)?
+  Future<void> Function(String sessionId, Iterable<HookUsageRecord> records)?
   _usageRecorder;
 
   void configureUsageRecorder(
-    Future<void> Function(String sessionId, Iterable<String> hookIds)? recorder,
+    Future<void> Function(String sessionId, Iterable<HookUsageRecord> records)?
+    recorder,
   ) {
     _usageRecorder = recorder;
   }
@@ -309,9 +328,23 @@ class HooksExecutor {
     }
 
     final recorder = _usageRecorder;
-    if (recorder != null && executedHookIds.isNotEmpty) {
+    if (recorder != null && hookResults.isNotEmpty) {
       try {
-        await recorder(sessionId, executedHookIds);
+        await recorder(sessionId, <HookUsageRecord>[
+          for (
+            var index = 0;
+            index < hookResults.length && index < executedHookIds.length;
+            index++
+          )
+            HookUsageRecord(
+              hookId: executedHookIds[index],
+              eventName: hookResults[index].hookEvent.storageValue,
+              status: hookResults[index].status,
+              durationMs: hookResults[index].elapsedMs,
+              resultSummary: hookResults[index].stdout,
+              errorSummary: hookResults[index].stderr,
+            ),
+        ]);
       } catch (error, stack) {
         silentLog('hooks_executor', '记录 Hook 调用统计', error, stack);
       }
