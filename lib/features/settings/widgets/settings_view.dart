@@ -229,6 +229,466 @@ String _csvRow(Iterable<Object?> values) {
   return values.map(_csvCell).join(',');
 }
 
+const int _maxToolTelemetryCallRows = 20;
+
+List<Widget> _buildToolTelemetryHeader({
+  required BuildContext context,
+  required String description,
+  required bool hasData,
+  required bool hasCalls,
+  required bool loading,
+  required bool clearing,
+  required bool exporting,
+  required VoidCallback onExportJson,
+  required VoidCallback onExportCsv,
+  required VoidCallback onRefresh,
+  required VoidCallback onClear,
+}) {
+  final theme = Theme.of(context);
+  final colorScheme = theme.colorScheme;
+  final exportEnabled = !loading && !clearing && !exporting && hasCalls;
+  return <Widget>[
+    Text(
+      openHandLocalizedText(
+        context,
+        zh: '调用日志 / 引擎健康度',
+        en: 'Call History / Engine Health',
+      ),
+      style: theme.textTheme.titleSmall,
+    ),
+    const SizedBox(height: 4),
+    Text(
+      description,
+      style: theme.textTheme.bodySmall?.copyWith(
+        color: colorScheme.onSurfaceVariant,
+      ),
+    ),
+    const SizedBox(height: 8),
+    Row(
+      children: [
+        const Spacer(),
+        TextButton.icon(
+          onPressed: exportEnabled ? onExportJson : null,
+          icon: const Icon(Icons.code, size: 16),
+          label: Text(
+            openHandLocalizedText(context, zh: '导出 JSON', en: 'Export JSON'),
+          ),
+        ),
+        const SizedBox(width: 4),
+        TextButton.icon(
+          onPressed: exportEnabled ? onExportCsv : null,
+          icon: exporting
+              ? const SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.table_chart, size: 16),
+          label: Text(
+            openHandLocalizedText(context, zh: '导出 CSV', en: 'Export CSV'),
+          ),
+        ),
+        const SizedBox(width: 4),
+        TextButton.icon(
+          onPressed: loading || clearing ? null : onRefresh,
+          icon: loading
+              ? const SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.refresh, size: 16),
+          label: Text(openHandLocalizedText(context, zh: '刷新', en: 'Refresh')),
+        ),
+        const SizedBox(width: 4),
+        TextButton.icon(
+          onPressed: !hasData || clearing ? null : onClear,
+          icon: clearing
+              ? const SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : Icon(Icons.delete_sweep, size: 16, color: colorScheme.error),
+          label: Text(
+            openHandLocalizedText(
+              context,
+              zh: clearing ? '清空中…' : '清空记录',
+              en: clearing ? 'Clearing…' : 'Clear Logs',
+            ),
+            style: TextStyle(color: colorScheme.error),
+          ),
+        ),
+      ],
+    ),
+  ];
+}
+
+List<Widget> _buildToolTelemetryBody({
+  required BuildContext context,
+  required bool loading,
+  required String emptyMessage,
+  required List<Widget> engineRows,
+  required List<Widget> callRows,
+  required int totalCallCount,
+}) {
+  final theme = Theme.of(context);
+  final colorScheme = theme.colorScheme;
+  if (engineRows.isEmpty && callRows.isEmpty && !loading) {
+    return <Widget>[
+      Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: Text(
+          emptyMessage,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ),
+    ];
+  }
+  return <Widget>[
+    if (engineRows.isNotEmpty) ...[
+      Text(
+        openHandLocalizedText(context, zh: '引擎健康度', en: 'Engine Health'),
+        style: theme.textTheme.bodyMedium?.copyWith(
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+      const SizedBox(height: 6),
+      ...engineRows,
+      const SizedBox(height: 12),
+    ],
+    if (callRows.isNotEmpty) ...[
+      Text(
+        openHandLocalizedText(context, zh: '最近调用', en: 'Recent Calls'),
+        style: theme.textTheme.bodyMedium?.copyWith(
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+      const SizedBox(height: 6),
+      ...callRows,
+      if (totalCallCount > callRows.length)
+        Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: Text(
+            openHandLocalizedText(
+              context,
+              zh: '… 还有 ${totalCallCount - callRows.length} 条更早记录',
+              en: '… ${totalCallCount - callRows.length} older entries',
+            ),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+    ],
+  ];
+}
+
+Widget _buildToolCacheActions({
+  required BuildContext context,
+  required int? bytesOnDisk,
+  required bool clearing,
+  required VoidCallback onRefresh,
+  required VoidCallback onClear,
+}) {
+  final theme = Theme.of(context);
+  final colorScheme = theme.colorScheme;
+  return Row(
+    children: [
+      Expanded(
+        child: Text(
+          openHandLocalizedText(
+            context,
+            zh: '当前已占用：${formatNullableByteSize(bytesOnDisk, pendingLabel: '…')}',
+            en: 'On disk: ${formatNullableByteSize(bytesOnDisk, pendingLabel: '…')}',
+          ),
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ),
+      const SizedBox(width: 12),
+      TextButton.icon(
+        onPressed: clearing ? null : onRefresh,
+        icon: const Icon(Icons.refresh, size: 16),
+        label: Text(openHandLocalizedText(context, zh: '刷新', en: 'Refresh')),
+      ),
+      const SizedBox(width: 4),
+      FilledButton.tonalIcon(
+        style: FilledButton.styleFrom(
+          foregroundColor: colorScheme.onPrimary,
+          disabledForegroundColor: colorScheme.onSurface.withValues(
+            alpha: 0.38,
+          ),
+        ),
+        onPressed: clearing ? null : onClear,
+        icon: clearing
+            ? SizedBox(
+                width: 14,
+                height: 14,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: colorScheme.onPrimary,
+                ),
+              )
+            : Icon(Icons.delete_sweep, size: 16, color: colorScheme.onPrimary),
+        label: Text(
+          openHandLocalizedText(
+            context,
+            zh: clearing ? '清理中…' : '清理缓存',
+            en: clearing ? 'Clearing…' : 'Clear Cache',
+          ),
+        ),
+      ),
+    ],
+  );
+}
+
+List<Widget> _buildToolEngineStatusDetails<T>({
+  required BuildContext context,
+  required bool inCooldown,
+  required int? cooldownUntilMs,
+  required String? quotaError,
+  required VoidCallback onResetCooldown,
+  required List<T> samples,
+  required int Function(T sample) durationOf,
+  required bool Function(T sample) successOf,
+}) {
+  final theme = Theme.of(context);
+  final colorScheme = theme.colorScheme;
+  return <Widget>[
+    if (inCooldown || quotaError != null)
+      Padding(
+        padding: const EdgeInsets.only(top: 4, left: 98),
+        child: Row(
+          children: [
+            if (inCooldown) ...[
+              _SettingsStatusChip(
+                icon: Icons.pause_circle_outline,
+                label: openHandLocalizedText(
+                  context,
+                  zh: '降级中 · 剩余 ${_settingsFormatRemainingUntilMs(cooldownUntilMs)}',
+                  en: 'cooldown · ${_settingsFormatRemainingUntilMs(cooldownUntilMs)} left',
+                ),
+                backgroundColor: colorScheme.errorContainer,
+                foregroundColor: colorScheme.onErrorContainer,
+              ),
+              const SizedBox(width: 6),
+              InkWell(
+                onTap: onResetCooldown,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
+                  child: Text(
+                    openHandLocalizedText(context, zh: '重置', en: 'Reset'),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colorScheme.primary,
+                      decoration: TextDecoration.underline,
+                      fontSize: 11,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+            if (quotaError != null) ...[
+              if (inCooldown) const SizedBox(width: 6),
+              Tooltip(
+                message: quotaError,
+                child: _SettingsStatusChip(
+                  icon: Icons.speed,
+                  label: openHandLocalizedText(
+                    context,
+                    zh: '配额/限流',
+                    en: 'rate limit',
+                  ),
+                  backgroundColor: colorScheme.tertiaryContainer,
+                  foregroundColor: colorScheme.onTertiaryContainer,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    if (samples.length >= 2)
+      Padding(
+        padding: const EdgeInsets.only(top: 4, left: 98),
+        child: SizedBox(
+          width: 240,
+          height: 28,
+          child: CustomPaint(
+            painter: _ToolTelemetrySparklinePainter<T>(
+              samples: samples,
+              durationOf: durationOf,
+              successOf: successOf,
+              successColor: Colors.green.shade600,
+              failureColor: colorScheme.error,
+              lineColor: colorScheme.primary.withValues(alpha: 0.6),
+            ),
+          ),
+        ),
+      ),
+  ];
+}
+
+(Color, Color, String) _toolCacheStatusStyle(
+  ColorScheme colorScheme,
+  String status,
+) {
+  return switch (status) {
+    'hit' => (
+      colorScheme.primaryContainer,
+      colorScheme.onPrimaryContainer,
+      'cache hit',
+    ),
+    'miss-stored' => (
+      colorScheme.tertiaryContainer,
+      colorScheme.onTertiaryContainer,
+      'fresh',
+    ),
+    'miss-empty' => (
+      colorScheme.surfaceContainerHighest,
+      colorScheme.onSurfaceVariant,
+      'empty',
+    ),
+    'disabled' => (
+      colorScheme.surfaceContainerHighest,
+      colorScheme.onSurfaceVariant,
+      'cache off',
+    ),
+    'bypass' => (
+      colorScheme.errorContainer,
+      colorScheme.onErrorContainer,
+      'bypass',
+    ),
+    _ => (
+      colorScheme.surfaceContainerHighest,
+      colorScheme.onSurfaceVariant,
+      status,
+    ),
+  };
+}
+
+class _ToolAdvancedNumberRow extends StatelessWidget {
+  const _ToolAdvancedNumberRow({
+    required this.label,
+    required this.value,
+    required this.min,
+    required this.max,
+    required this.onChanged,
+  });
+
+  final String label;
+  final int value;
+  final int min;
+  final int max;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(label, style: Theme.of(context).textTheme.bodySmall),
+          ),
+          SizedBox(
+            width: 100,
+            child: _SettingsIntField(
+              value: value,
+              min: min,
+              max: max,
+              onChanged: onChanged,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ToolTelemetrySparklinePainter<T> extends CustomPainter {
+  const _ToolTelemetrySparklinePainter({
+    required this.samples,
+    required this.durationOf,
+    required this.successOf,
+    required this.successColor,
+    required this.failureColor,
+    required this.lineColor,
+  });
+
+  static const int _maxSamples = 50;
+  static const double _verticalInset = 2;
+  static const double _lineWidth = 1.2;
+  static const double _dotRadius = 1.6;
+
+  final List<T> samples;
+  final int Function(T sample) durationOf;
+  final bool Function(T sample) successOf;
+  final Color successColor;
+  final Color failureColor;
+  final Color lineColor;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (samples.length < 2) return;
+    final tail = samples.length > _maxSamples
+        ? samples.sublist(samples.length - _maxSamples)
+        : samples;
+    final maxDuration = tail.fold<int>(0, (current, sample) {
+      final duration = durationOf(sample);
+      return duration > current ? duration : current;
+    });
+    final scaleY = maxDuration == 0
+        ? 0.0
+        : (size.height - _verticalInset * 2) / maxDuration;
+    final stepX = size.width / (tail.length - 1);
+
+    Offset pointAt(int index) => Offset(
+      index * stepX,
+      size.height - _verticalInset - durationOf(tail[index]) * scaleY,
+    );
+
+    final firstPoint = pointAt(0);
+    final path = Path()..moveTo(firstPoint.dx, firstPoint.dy);
+    for (var index = 1; index < tail.length; index++) {
+      final point = pointAt(index);
+      path.lineTo(point.dx, point.dy);
+    }
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = lineColor
+        ..strokeWidth = _lineWidth
+        ..style = PaintingStyle.stroke,
+    );
+
+    final successPaint = Paint()..color = successColor;
+    final failurePaint = Paint()..color = failureColor;
+    for (var index = 0; index < tail.length; index++) {
+      canvas.drawCircle(
+        pointAt(index),
+        _dotRadius,
+        successOf(tail[index]) ? successPaint : failurePaint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _ToolTelemetrySparklinePainter<T> old) {
+    return old.samples != samples ||
+        old.durationOf != durationOf ||
+        old.successOf != successOf ||
+        old.successColor != successColor ||
+        old.failureColor != failureColor ||
+        old.lineColor != lineColor;
+  }
+}
+
 enum _SettingsSection {
   header,
   general,

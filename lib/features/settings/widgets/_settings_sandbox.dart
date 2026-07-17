@@ -848,6 +848,30 @@ class _SandboxRuleTile extends StatelessWidget {
   }
 }
 
+Widget _buildSandboxMatchModeField(
+  BuildContext context, {
+  required AiDenyCommandMatchMode value,
+  required ValueChanged<AiDenyCommandMatchMode> onChanged,
+}) {
+  return AnimatedDropdownButtonFormField<AiDenyCommandMatchMode>(
+    initialValue: value,
+    decoration: InputDecoration(
+      labelText: openHandLocalizedText(context, zh: '匹配模式', en: 'Match Mode'),
+    ),
+    items: [
+      DropdownMenuItem(
+        value: AiDenyCommandMatchMode.simple,
+        child: Text(openHandLocalizedText(context, zh: '简单匹配', en: 'Simple')),
+      ),
+      DropdownMenuItem(
+        value: AiDenyCommandMatchMode.regex,
+        child: Text(openHandLocalizedText(context, zh: '正则匹配', en: 'Regex')),
+      ),
+    ],
+    onChanged: (next) => onChanged(next ?? AiDenyCommandMatchMode.simple),
+  );
+}
+
 class _SandboxFileRuleDialog extends StatefulWidget {
   const _SandboxFileRuleDialog({this.initialRule});
 
@@ -943,32 +967,10 @@ class _SandboxFileRuleDialogState extends State<_SandboxFileRuleDialog> {
                 }),
               ),
               const SizedBox(height: 14),
-              AnimatedDropdownButtonFormField<AiDenyCommandMatchMode>(
-                initialValue: _matchMode,
-                decoration: InputDecoration(
-                  labelText: openHandLocalizedText(
-                    context,
-                    zh: '匹配模式',
-                    en: 'Match Mode',
-                  ),
-                ),
-                items: [
-                  DropdownMenuItem(
-                    value: AiDenyCommandMatchMode.simple,
-                    child: Text(
-                      openHandLocalizedText(context, zh: '简单匹配', en: 'Simple'),
-                    ),
-                  ),
-                  DropdownMenuItem(
-                    value: AiDenyCommandMatchMode.regex,
-                    child: Text(
-                      openHandLocalizedText(context, zh: '正则匹配', en: 'Regex'),
-                    ),
-                  ),
-                ],
-                onChanged: (value) => setState(() {
-                  _matchMode = value ?? AiDenyCommandMatchMode.simple;
-                }),
+              _buildSandboxMatchModeField(
+                context,
+                value: _matchMode,
+                onChanged: (value) => setState(() => _matchMode = value),
               ),
               const SizedBox(height: 14),
               TextFormField(
@@ -1078,32 +1080,10 @@ class _SandboxPatternRuleDialogState extends State<_SandboxPatternRuleDialog> {
                     : null,
               ),
               const SizedBox(height: 14),
-              AnimatedDropdownButtonFormField<AiDenyCommandMatchMode>(
-                initialValue: _matchMode,
-                decoration: InputDecoration(
-                  labelText: openHandLocalizedText(
-                    context,
-                    zh: '匹配模式',
-                    en: 'Match Mode',
-                  ),
-                ),
-                items: [
-                  DropdownMenuItem(
-                    value: AiDenyCommandMatchMode.simple,
-                    child: Text(
-                      openHandLocalizedText(context, zh: '简单匹配', en: 'Simple'),
-                    ),
-                  ),
-                  DropdownMenuItem(
-                    value: AiDenyCommandMatchMode.regex,
-                    child: Text(
-                      openHandLocalizedText(context, zh: '正则匹配', en: 'Regex'),
-                    ),
-                  ),
-                ],
-                onChanged: (value) => setState(() {
-                  _matchMode = value ?? AiDenyCommandMatchMode.simple;
-                }),
+              _buildSandboxMatchModeField(
+                context,
+                value: _matchMode,
+                onChanged: (value) => setState(() => _matchMode = value),
               ),
               const SizedBox(height: 14),
               TextFormField(

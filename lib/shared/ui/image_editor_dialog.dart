@@ -24,16 +24,12 @@ import 'openhand_clipboard.dart';
 import 'openhand_dialog_action_button.dart';
 import 'openhand_snack_bar.dart';
 
-/// Result returned by [showImageEditorDialog] when the user confirms.
-///
-/// [bytes] always carries the encoded image (PNG when the editor opted into
-/// transparency for circular crops, otherwise JPEG with the editor's
-/// configured quality).
+/// 图片编辑结果。圆形裁剪使用透明 PNG，其余场景按编辑器配置编码。
 class ImageEditorResult {
   const ImageEditorResult({required this.bytes, required this.format});
 
   final Uint8List bytes;
-  final String format; // 'png' | 'jpg'
+  final String format;
 }
 
 typedef PickedImageEditorResult = ({
@@ -53,8 +49,7 @@ const int _imageEditorMaxOutputLongSide = 2048;
 const int _imageEditorMaxSourceDimension = 32768;
 const int _imageEditorMaxSourcePixels = 64 * 1024 * 1024;
 
-/// Selects, bounds, and edits an image through the shared animated editor.
-/// Callers only apply the returned domain-specific state update.
+/// 选择并限制源图片大小，然后通过统一动画弹窗完成编辑。
 Future<PickedImageEditorResult?> pickAndEditImage(
   BuildContext context, {
   List<String> acceptedExtensions = kImageEditorSupportedExtensions,
@@ -82,7 +77,6 @@ Future<PickedImageEditorResult?> pickAndEditImage(
   return (sourceFile: sourceFile, editedImage: editedImage);
 }
 
-/// Available crop aspect ratios.
 enum _CropAspect {
   freeform,
   original,
@@ -91,10 +85,9 @@ enum _CropAspect {
   threeByFour,
   sixteenByNine,
   nineBySixteen,
-  circle, // square crop with rounded mask + PNG transparency on save
+  circle,
 }
 
-/// Anchor positions for the optional text watermark.
 enum _WatermarkPosition {
   topLeft,
   topCenter,
@@ -107,10 +100,7 @@ enum _WatermarkPosition {
   bottomRight,
 }
 
-/// Opens the in-app image editor on top of [imageBytes].
-///
-/// When [imageSizeLimitBytes] is provided the editor will progressively
-/// compress its JPEG output to fit within the cap.
+/// 打开图片编辑弹窗；指定 [imageSizeLimitBytes] 后会逐步压缩输出。
 Future<ImageEditorResult?> showImageEditorDialog(
   BuildContext context, {
   required Uint8List imageBytes,
@@ -145,18 +135,14 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
   static const double _previewHeight = 420;
   static const double _minCropSide = 64;
 
-  /// Width / height of the oriented source image. All actual pixel data
-  /// lives exclusively in [_previewBytes] (PNG-encoded) and is only decoded
-  /// inside background isolates — never on the UI thread.
+  /// 校正方向后的图片尺寸；像素数据仅在后台 Isolate 中解码。
   int _imageWidth = 0;
   int _imageHeight = 0;
 
-  /// PNG bytes of the current source image, used for on-screen preview
-  /// via [Image.memory] and as the input for every isolate render call.
+  /// 当前预览 PNG，同时作为后台渲染输入。
   Uint8List? _previewBytes;
 
-  /// Original oriented source (never mutated after initial load). Used by
-  /// hold-to-compare and reset-all.
+  /// 初始化后不再修改的原始预览，用于对比与重置。
   Uint8List? _originalPreviewBytes;
   int _originalImageWidth = 0;
   int _originalImageHeight = 0;
@@ -164,41 +150,38 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
   Rect? _cropRect;
   Size _previewSize = Size.zero;
 
-  // Color adjustments (preview applied via ColorFilter; full quality applied on save).
-  double _brightness = 1.0; // 0.5..1.5
-  double _contrast = 1.0; // 0.6..1.6
-  double _saturation = 1.0; // 0.0..2.0
-  double _exposure = 0.0; // -1.0..1.0 (extra brightness offset)
-  double _hue = 0.0; // -180..180 degrees
-  double _vignette = 0.0; // 0.0..1.0 (strength)
-  double _rotation = 0.0; // -180..180 degrees, free rotation
+  double _brightness = 1.0;
+  double _contrast = 1.0;
+  double _saturation = 1.0;
+  double _exposure = 0.0;
+  double _hue = 0.0;
+  double _vignette = 0.0;
+  double _rotation = 0.0;
   bool _flipHorizontal = false;
   bool _flipVertical = false;
   _CropAspect _aspect = _CropAspect.freeform;
 
-  // ── Advanced adjustments (applied at save-time through package:image) ──
-  double _temperature = 0.0; // -100..100 (warm/cool)
-  double _tint = 0.0; // -100..100 (green/magenta)
-  double _gamma = 1.0; // 0.5..2.0 (tone curve)
-  double _shadowHue = 210.0; // 0..360 degrees
-  double _shadowStrength = 0.0; // 0..100
-  double _highlightHue = 45.0; // 0..360 degrees
-  double _highlightStrength = 0.0; // 0..100
-  double _clarity = 0.0; // 0..100 (unsharp-like via convolution)
-  double _sharpness = 0.0; // 0..100 (convolution sharpen)
-  double _denoise = 0.0; // 0..100 (gaussian blur radius)
-  double _grain = 0.0; // 0..100 (noise sigma)
-  double _dispersion = 0.0; // 0..20 px channel shift
-  double _distort = 0.0; // -100..100 (negative=stretch, positive=bulge)
+  double _temperature = 0.0;
+  double _tint = 0.0;
+  double _gamma = 1.0;
+  double _shadowHue = 210.0;
+  double _shadowStrength = 0.0;
+  double _highlightHue = 45.0;
+  double _highlightStrength = 0.0;
+  double _clarity = 0.0;
+  double _sharpness = 0.0;
+  double _denoise = 0.0;
+  double _grain = 0.0;
+  double _dispersion = 0.0;
+  double _distort = 0.0;
 
-  // Watermark / text mark.
   final TextEditingController _watermarkController = TextEditingController();
-  double _watermarkSize = 48.0; // 12..160 px (rendered size on output)
+  double _watermarkSize = 48.0;
   double _watermarkOpacity = 0.85;
   _WatermarkPosition _watermarkPosition = _WatermarkPosition.bottomRight;
-  double _watermarkHue = 0.0; // 0..360
-  double _watermarkSaturation = 0.0; // 0..1
-  double _watermarkLightness = 0.94; // 0..1
+  double _watermarkHue = 0.0;
+  double _watermarkSaturation = 0.0;
+  double _watermarkLightness = 0.94;
 
   bool _isSaving = false;
   bool _isProcessing = false;
@@ -208,7 +191,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
   String? _errorMessage;
   String? _statusMessage;
 
-  /// Undo stack: stores (previewBytes, width, height) snapshots.
+  /// 撤销栈保存预览字节和尺寸快照。
   final List<(Uint8List, int, int)> _undoStack = [];
   static const int _maxUndoDepth = 20;
 
@@ -217,22 +200,17 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
   Offset? _resizeDragStartGlobalPosition;
   Rect? _resizeDragStartRect;
 
-  /// Key for the local [ScaffoldMessenger] inside this dialog so that
-  /// snackbars appear within the dialog surface, not behind it.
+  /// 弹窗内消息键，避免提示显示在弹窗后方。
   final GlobalKey<ScaffoldMessengerState> _messengerKey =
       GlobalKey<ScaffoldMessengerState>();
 
-  /// Increments after each significant in-dialog action lands (currently
-  /// reset-all + reset-adjustments). Drives the top-edge [HighlightPulse]
-  /// to confirm the user's action without an extra SnackBar.
+  /// 操作成功信号，用于驱动顶部反馈动画。
   final ValueNotifier<int> _actionPulse = ValueNotifier<int>(0);
 
-  /// Increments after every successful SnackBar confirmation; drives the
-  /// green top-edge confirmation flash.
+  /// 成功提示信号。
   final ValueNotifier<int> _successPulse = ValueNotifier<int>(0);
 
-  /// Increments after every error SnackBar; drives the red top-edge
-  /// failure flash.
+  /// 错误提示信号。
   final ValueNotifier<int> _errorPulse = ValueNotifier<int>(0);
 
   void _firePulse() => _actionPulse.value = _actionPulse.value + 1;
@@ -270,11 +248,6 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
           key: _messengerKey,
           child: Scaffold(
             backgroundColor: colorScheme.surfaceContainerHigh,
-            // 2026-05 — Stack the Scaffold body with a top-edge
-            // HighlightPulse so user-triggered "important" actions
-            // (currently reset-all / reset-adjustments) get a brief
-            // primary-tinted confirmation flash. Honors reduceMotion
-            // via the pulse widget itself.
             body: Stack(
               children: [
                 Padding(
@@ -377,8 +350,6 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
     );
   }
 
-  // ───────────────────────────────────────────────────────── UI sections ─────
-
   Widget _buildAspectChips(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final entries = <_CropAspect, String>{
@@ -417,9 +388,6 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
 
   Widget _buildTransformActions(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    // Uniform pill-style button styling so every capsule in the row shares
-    // the exact same height, padding and shape, matching the outlined chips
-    // above and giving the whole bar a consistent rhythm.
     final pillStyle = OutlinedButton.styleFrom(
       minimumSize: const Size(0, 40),
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -550,8 +518,6 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
       ],
     );
   }
-
-  // ─────────────────────────────────────────────────── Advanced panels ─────
 
   Widget _buildAdvancedPanels(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
@@ -746,7 +712,6 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
           style: theme.textTheme.titleSmall,
         ),
         const SizedBox(height: 8),
-        // 3×3 position grid.
         Column(
           children: [
             for (final row in const <List<_WatermarkPosition>>[
@@ -855,10 +820,6 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
 
   Widget _buildActionBar(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    // Keep the left secondary actions and the right primary actions on the
-    // same vertical rhythm: shared height, shared padding, shared stadium
-    // shape for the outlined pair, and a fixed sized slot for each button so
-    // the whole bar looks like one consistent capsule row.
     const double barHeight = 52;
     final secondaryStyle = OutlinedButton.styleFrom(
       minimumSize: const Size(0, barHeight),
@@ -935,8 +896,6 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
       ],
     );
   }
-
-  // ───────────────────────────────────────────────────── Preview panel ─────
 
   Widget _buildPreviewPanel(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
@@ -1203,17 +1162,13 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
     );
   }
 
-  // ────────────────────────────────────────────────── State / behaviour ─────
-
   bool get _canEdit =>
       _previewBytes != null && _imageWidth > 0 && !_isProcessing;
 
   bool get _canResetAll =>
       _hasBakedChanges || _undoStack.isNotEmpty || _hasUnappliedEdits;
 
-  /// Shows a brief [SnackBar] notification at the bottom of the dialog
-  /// using the green / red `OpenHandSnackBar` variants and pulses the
-  /// corresponding top-edge HighlightPulse.
+  /// 在弹窗底部显示提示并触发对应的顶部反馈动画。
   void _showSnackBar(String message, {bool isError = false}) {
     if (!mounted) return;
     final messengerContext = _messengerKey.currentContext ?? context;
@@ -1268,7 +1223,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
         _resetAdjustmentControls(clearMessages: false);
       });
     } catch (error, stack) {
-      silentLog('image_editor', 'load image', error, stack);
+      silentLog('image_editor', '加载图片', error, stack);
       if (mounted) {
         setState(() {
           _errorMessage = AppLocalizations.of(context)!.imageEditorLoadFailed;
@@ -1318,7 +1273,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
         _statusMessage = null;
       });
     } catch (error, stack) {
-      silentLog('image_editor', 'rotate image', error, stack);
+      silentLog('image_editor', '旋转图片', error, stack);
       if (mounted) {
         setState(() {
           _errorMessage = AppLocalizations.of(
@@ -1409,8 +1364,6 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
     _hasBakedChanges = !listEquals(current, original);
   }
 
-  // ─────────────── Processing overlay (shown during heavy image ops) ──────
-
   OpenHandDialogSession<void>? _processingDialogSession;
 
   void _showProcessingOverlay() {
@@ -1442,17 +1395,10 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
   void _dismissProcessingOverlay() {
     final session = _processingDialogSession;
     if (session == null || session.isDismissRequested) return;
-    unawaited(
-      session.dismiss(
-        logTag: 'image_editor',
-        logAction: 'dismissProcessingOverlay',
-      ),
-    );
+    unawaited(session.dismiss(logTag: 'image_editor', logAction: '关闭处理弹窗'));
   }
 
-  // ──────────────────────────────── Apply (bake edits) / Undo ────────────
-
-  /// Whether there are non-default adjustments to bake into the preview.
+  /// 是否存在尚未应用的编辑。
   bool get _hasUnappliedEdits =>
       _cropRect != null ||
       _aspect != _CropAspect.freeform ||
@@ -1478,8 +1424,59 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
       _distort.abs() > 1 ||
       _watermarkController.text.trim().isNotEmpty;
 
-  /// Bake all current adjustments + crop into the preview image, reset sliders,
-  /// push the previous state onto [_undoStack].
+  _IsolateRenderParams _buildRenderParams({
+    required Uint8List imageBytes,
+    required String watermarkText,
+    required bool forcePng,
+    int? maxOutputLongSide,
+    int? imageSizeLimitBytes,
+  }) {
+    final previewSize = _previewSize == Size.zero
+        ? const Size(_previewMaxWidth, _previewHeight)
+        : _previewSize;
+    return _IsolateRenderParams(
+      imageBytes: imageBytes,
+      previewWidth: previewSize.width,
+      previewHeight: previewSize.height,
+      hasCropRect: _cropRect != null,
+      cropLeft: _cropRect?.left ?? 0,
+      cropTop: _cropRect?.top ?? 0,
+      cropWidth: _cropRect?.width ?? 0,
+      cropHeight: _cropRect?.height ?? 0,
+      rotation: _rotation,
+      flipHorizontal: _flipHorizontal,
+      flipVertical: _flipVertical,
+      brightness: _brightness,
+      contrast: _contrast,
+      saturation: _saturation,
+      exposure: _exposure,
+      hue: _hue,
+      gamma: _gamma,
+      temperature: _temperature,
+      tint: _tint,
+      shadowHue: _shadowHue,
+      shadowStrength: _shadowStrength,
+      highlightHue: _highlightHue,
+      highlightStrength: _highlightStrength,
+      clarity: _clarity,
+      sharpness: _sharpness,
+      denoise: _denoise,
+      grain: _grain,
+      dispersion: _dispersion,
+      distort: _distort,
+      vignette: _vignette,
+      watermarkText: watermarkText,
+      watermarkSize: _watermarkSize,
+      watermarkOpacity: _watermarkOpacity,
+      watermarkPositionIndex: _watermarkPosition.index,
+      watermarkColorArgb: _currentWatermarkColor.toARGB32(),
+      isCircle: _aspect == _CropAspect.circle,
+      forcePng: forcePng,
+      maxOutputLongSide: maxOutputLongSide,
+      imageSizeLimitBytes: imageSizeLimitBytes,
+    );
+  }
+
   Future<void> _handleApply() async {
     final l10n = AppLocalizations.of(context)!;
     final previewBytes = _previewBytes;
@@ -1492,54 +1489,14 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
     final watermarkTextDirection =
         Directionality.maybeOf(context) ?? TextDirection.ltr;
 
-    final effectivePreviewSize = _previewSize == Size.zero
-        ? const Size(_previewMaxWidth, _previewHeight)
-        : _previewSize;
-
     setState(() => _isProcessing = true);
     _showProcessingOverlay();
 
     try {
-      final params = _IsolateRenderParams(
+      final params = _buildRenderParams(
         imageBytes: previewBytes,
-        previewWidth: effectivePreviewSize.width,
-        previewHeight: effectivePreviewSize.height,
-        hasCropRect: _cropRect != null,
-        cropLeft: _cropRect?.left ?? 0,
-        cropTop: _cropRect?.top ?? 0,
-        cropWidth: _cropRect?.width ?? 0,
-        cropHeight: _cropRect?.height ?? 0,
-        rotation: _rotation,
-        flipHorizontal: _flipHorizontal,
-        flipVertical: _flipVertical,
-        brightness: _brightness,
-        contrast: _contrast,
-        saturation: _saturation,
-        exposure: _exposure,
-        hue: _hue,
-        gamma: _gamma,
-        temperature: _temperature,
-        tint: _tint,
-        shadowHue: _shadowHue,
-        shadowStrength: _shadowStrength,
-        highlightHue: _highlightHue,
-        highlightStrength: _highlightStrength,
-        clarity: _clarity,
-        sharpness: _sharpness,
-        denoise: _denoise,
-        grain: _grain,
-        dispersion: _dispersion,
-        distort: _distort,
-        vignette: _vignette,
-        watermarkText: _watermarkController.text.trim(),
-        watermarkSize: _watermarkSize,
-        watermarkOpacity: _watermarkOpacity,
-        watermarkPositionIndex: _watermarkPosition.index,
-        watermarkColorArgb: _currentWatermarkColor.toARGB32(),
-        isCircle: _aspect == _CropAspect.circle,
-        forcePng: true, // Apply always keeps PNG to avoid JPEG quality loss
-        maxOutputLongSide: null,
-        imageSizeLimitBytes: null,
+        watermarkText: watermarkText,
+        forcePng: true,
       );
 
       final result = await _runRenderInIsolate(params);
@@ -1572,8 +1529,6 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
 
       if (!mounted) return;
 
-      // Push undo snapshot AFTER successful render (not before) so a failed
-      // apply doesn't leave a phantom entry in the undo stack.
       if (_undoStack.length >= _maxUndoDepth) {
         _undoStack.removeAt(0);
       }
@@ -1591,7 +1546,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
       });
       _showSnackBar(l10n.imageEditorApplySuccess);
     } catch (error, stack) {
-      silentLog('image_editor', 'apply edits', error, stack);
+      silentLog('image_editor', '应用编辑', error, stack);
       if (mounted) {
         setState(() => _errorMessage = l10n.imageEditorProcessFailed);
         _showSnackBar(l10n.imageEditorProcessFailed, isError: true);
@@ -1628,7 +1583,6 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
   Rect _initialCropRect(Rect imageRect) {
     final ratio = _targetAspectRatio();
     if (ratio == null) {
-      // Freeform / original — fill image rect.
       return imageRect;
     }
     final maxWidth = imageRect.width;
@@ -1644,10 +1598,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
     );
   }
 
-  /// Returns `null` for freeform (caller treats as "any ratio").
-  /// For [_CropAspect.original] returns the source image's aspect ratio so the
-  /// crop matches the original frame. For [_CropAspect.circle] returns `1.0`
-  /// (square) — the round mask is applied at save-time.
+  /// 返回裁剪比例；自由裁剪返回 `null`，圆形裁剪返回正方形比例。
   double? _targetAspectRatio() {
     switch (_aspect) {
       case _CropAspect.freeform:
@@ -1911,7 +1862,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
         imageSizeLimitBytes: imageSizeLimitBytes,
       );
     } catch (error, stack) {
-      silentLog('image_editor', 'compose watermark', error, stack);
+      silentLog('image_editor', '合成水印', error, stack);
       return null;
     } finally {
       codec?.dispose();
@@ -2006,7 +1957,6 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
     width = width.clamp(_minCropSide, maxWidth);
     height = height.clamp(_minCropSide, maxHeight);
     if (ratio != null) {
-      // Re-derive height from width to keep the requested ratio.
       height = width / ratio;
       if (height > maxHeight) {
         height = maxHeight;
@@ -2043,22 +1993,15 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
     return Rect.fromLTWH(startRect.left, startRect.top, width, height);
   }
 
-  /// Builds the 4x5 ColorFilter matrix used purely for the on-screen preview.
-  ///
-  /// Approximates: brightness + exposure → uniform offset; contrast → scale
-  /// then re-center; saturation → blend with luminance; hue → simple
-  /// rotation. This is intentionally not perfectly identical to the
-  /// `package:image` adjustments applied on save: it just gives a "good
-  /// enough" feedback so the user can dial in values quickly.
+  /// 构建仅用于屏幕预览的 4×5 颜色矩阵。
   List<double> _buildPreviewColorMatrix() {
     final brightness = _brightness;
     final contrast = _contrast;
     final saturation = _saturation;
     final hue = _hue;
-    final exposure = _exposure * 80; // map -1..1 to roughly ±80 lumi offset
+    final exposure = _exposure * 80;
     final translate = (1 - contrast) * 128 + (brightness - 1) * 255 + exposure;
 
-    // Saturation matrix: weights chosen for perceived luminance.
     const lumR = 0.2126;
     const lumG = 0.7152;
     const lumB = 0.0722;
@@ -2066,13 +2009,10 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
     final sg = (1 - saturation) * lumG;
     final sb = (1 - saturation) * lumB;
 
-    // Hue rotation matrix (approximation).
     final hueRad = hue * math.pi / 180.0;
     final cosH = math.cos(hueRad);
     final sinH = math.sin(hueRad);
 
-    // Combine: we apply contrast scale + brightness offset on top of hue
-    // and saturation. Pre-compute per-channel coefficients.
     double r1 = (sr + saturation) * contrast;
     double r2 = sg * contrast;
     double r3 = sb * contrast;
@@ -2083,7 +2023,6 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
     double b2 = sg * contrast;
     double b3 = (sb + saturation) * contrast;
 
-    // Apply hue rotation onto chroma channels (simplified).
     final hr1 = r1 * cosH + r2 * sinH;
     final hr2 = r2 * cosH - r1 * sinH;
     final hg1 = g1 * cosH + g2 * sinH;
@@ -2116,8 +2055,6 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
       0,
     ];
   }
-
-  // ──────────────────────────────────────────────────────── Save flows ─────
 
   Future<void> _handleConfirmSave() async {
     final outputBytes = await _renderOutput();
@@ -2183,9 +2120,6 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
       return;
     }
     try {
-      // Write a temp file so we can both share its path via the regular
-      // Flutter clipboard AND, on macOS, push the bitmap into the system
-      // clipboard via osascript so users can paste into image-aware apps.
       final tempDir = await Directory.systemTemp.createTemp('openhand_clip_');
       final ext = _aspect == _CropAspect.circle ? 'png' : 'jpg';
       final tempFile = File(p.join(tempDir.path, 'image.$ext'));
@@ -2193,9 +2127,6 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
 
       var bitmapCopied = false;
       if (Platform.isMacOS) {
-        // Use the safe subprocess wrapper so a hung osascript cannot leak
-        // and corrupt the host app's input-method context (which would
-        // surface as TextFields no longer accepting input/paste).
         final result = await runProcessWithTimeout('osascript', <String>[
           '-e',
           'set the clipboard to (read POSIX file "${tempFile.path.replaceAll('"', r'\"')}") as ${ext == 'png' ? 'picture' : 'JPEG picture'}',
@@ -2203,8 +2134,6 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
         bitmapCopied = result?.exitCode == 0;
       }
 
-      // Always also push the file path so non-image-aware paste targets get
-      // something useful.
       await setOpenHandClipboardText(tempFile.path);
 
       if (!mounted) {
@@ -2232,8 +2161,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
     }
   }
 
-  /// Materialises the final image. Returns `null` on failure (and updates
-  /// [_errorMessage] in-place).
+  /// 生成最终图片，失败时返回 `null` 并更新错误状态。
   Future<Uint8List?> _renderOutput() async {
     final l10n = AppLocalizations.of(context)!;
     final previewBytes = _previewBytes;
@@ -2245,9 +2173,6 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
       return null;
     }
 
-    final effectivePreviewSize = _previewSize == Size.zero
-        ? const Size(_previewMaxWidth, _previewHeight)
-        : _previewSize;
     final watermarkText = _watermarkController.text.trim();
     final watermarkSize = _watermarkSize;
     final watermarkOpacity = _watermarkOpacity;
@@ -2265,43 +2190,9 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
     _showProcessingOverlay();
 
     try {
-      final params = _IsolateRenderParams(
+      final params = _buildRenderParams(
         imageBytes: previewBytes,
-        previewWidth: effectivePreviewSize.width,
-        previewHeight: effectivePreviewSize.height,
-        hasCropRect: _cropRect != null,
-        cropLeft: _cropRect?.left ?? 0,
-        cropTop: _cropRect?.top ?? 0,
-        cropWidth: _cropRect?.width ?? 0,
-        cropHeight: _cropRect?.height ?? 0,
-        rotation: _rotation,
-        flipHorizontal: _flipHorizontal,
-        flipVertical: _flipVertical,
-        brightness: _brightness,
-        contrast: _contrast,
-        saturation: _saturation,
-        exposure: _exposure,
-        hue: _hue,
-        gamma: _gamma,
-        temperature: _temperature,
-        tint: _tint,
-        shadowHue: _shadowHue,
-        shadowStrength: _shadowStrength,
-        highlightHue: _highlightHue,
-        highlightStrength: _highlightStrength,
-        clarity: _clarity,
-        sharpness: _sharpness,
-        denoise: _denoise,
-        grain: _grain,
-        dispersion: _dispersion,
-        distort: _distort,
-        vignette: _vignette,
-        watermarkText: _watermarkController.text.trim(),
-        watermarkSize: _watermarkSize,
-        watermarkOpacity: _watermarkOpacity,
-        watermarkPositionIndex: _watermarkPosition.index,
-        watermarkColorArgb: _currentWatermarkColor.toARGB32(),
-        isCircle: _aspect == _CropAspect.circle,
+        watermarkText: watermarkText,
         forcePng: false,
         maxOutputLongSide: _imageEditorMaxOutputLongSide,
         imageSizeLimitBytes: hasWatermark ? null : widget.imageSizeLimitBytes,
@@ -2340,7 +2231,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
 
       return composedBytes;
     } catch (error, stack) {
-      silentLog('image_editor', 'render output', error, stack);
+      silentLog('image_editor', '渲染输出', error, stack);
       if (!mounted) return null;
       setState(() {
         _errorMessage = l10n.imageEditorProcessFailed;
@@ -2397,9 +2288,7 @@ class _EditorSlider extends StatelessWidget {
   }
 }
 
-/// Collapsible advanced-adjustments section used underneath the basic
-/// sliders. Uses an [ExpansionTile] so the dialog remains scrollable and
-/// each group can be opened independently.
+/// 可独立展开的高级调整区。
 class _AdvancedSection extends StatelessWidget {
   const _AdvancedSection({required this.title, required this.children});
 
@@ -2498,12 +2387,7 @@ class _CropOverlayPainter extends CustomPainter {
   }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-//  Isolate-safe rendering pipeline
-// ═══════════════════════════════════════════════════════════════════════════
-
-/// Decodes only the first frame, rejects pathological dimensions before pixel
-/// allocation, and normalizes the working image to the editor's output bound.
+/// 仅解码首帧，在分配像素前拒绝异常尺寸，并限制工作图像大小。
 (Uint8List, int, int)? _prepareImage(Uint8List sourceBytes) {
   final decoder = img.findDecoderForData(sourceBytes);
   if (decoder == null) return null;
@@ -2540,8 +2424,7 @@ Future<(Uint8List, int, int)?> _runPrepareImageInIsolate(
   });
 }
 
-/// Top-level isolate-safe helper: decode PNG bytes, rotate by [angle]
-/// degrees, re-encode as PNG and return `(pngBytes, width, height)`.
+/// 在 Isolate 中旋转 PNG 并返回字节和尺寸。
 (Uint8List, int, int)? _rotatePng(Uint8List sourceBytes, int angle) {
   final decoded = img.decodePng(sourceBytes);
   if (decoded == null) return null;
@@ -2550,7 +2433,7 @@ Future<(Uint8List, int, int)?> _runPrepareImageInIsolate(
   return (pngBytes, rotated.width, rotated.height);
 }
 
-/// Runs rotation in a background isolate using a pure message payload.
+/// 通过纯消息载荷在后台 Isolate 中旋转图片。
 Future<(Uint8List, int, int)?> _runRotateInIsolate({
   required Uint8List sourceBytes,
   required int angle,
@@ -2567,7 +2450,7 @@ Future<(Uint8List, int, int)?> _runRotateInIsolate({
   return _rotatePng(sourceBytes, angle);
 }
 
-/// Runs the full render pipeline in a background isolate from a map payload.
+/// 通过映射消息在后台 Isolate 中执行完整渲染。
 Future<(Uint8List, int, int)?> _runRenderInIsolate(
   _IsolateRenderParams params,
 ) {
@@ -2584,8 +2467,7 @@ Future<(Uint8List, int, int)?> _runRenderInIsolate(
   return params == null ? null : _renderInIsolate(params);
 }
 
-/// All the parameters needed to render an image in a background isolate.
-/// Every field is a primitive / enum / Uint8List — no Widgets or BuildContext.
+/// 后台渲染参数，仅包含可跨 Isolate 传递的数据。
 class _IsolateRenderParams {
   _IsolateRenderParams({
     required this.imageBytes,
@@ -2793,15 +2675,14 @@ class _IsolateRenderParams {
   }
 }
 
-/// Top-level function that runs entirely inside an [Isolate].
-/// Returns (encoded bytes, width, height) or null on failure.
+/// 在 [Isolate] 中执行渲染，失败时返回 `null`。
 (Uint8List, int, int)? _renderInIsolate(_IsolateRenderParams p) {
   final orientedImage = img.decodeImage(p.imageBytes);
   if (orientedImage == null) return null;
 
   final previewSize = Size(p.previewWidth, p.previewHeight);
 
-  // 1) Compute crop in source-image coordinates from preview-space.
+  // 1. 将预览坐标转换为源图裁剪坐标。
   final imageRect = _computeImageRectStatic(previewSize, orientedImage);
   final cropRect = p.hasCropRect
       ? Rect.fromLTWH(p.cropLeft, p.cropTop, p.cropWidth, p.cropHeight)
@@ -2826,7 +2707,7 @@ class _IsolateRenderParams {
     orientedImage.height - cropY,
   );
 
-  // 2) Apply free rotation first (if any), then flips, then crop.
+  // 2. 依次应用旋转、翻转和裁剪。
   img.Image working = orientedImage;
   if (p.rotation.abs() > 0.01) {
     working = img.copyRotate(working, angle: p.rotation);
@@ -2838,7 +2719,7 @@ class _IsolateRenderParams {
     working = img.flipVertical(working);
   }
 
-  // Re-derive crop region against the (possibly rotated/flipped) working image.
+  // 基于变换后的工作图像重新约束裁剪区域。
   final sx = working.width / orientedImage.width;
   final sy = working.height / orientedImage.height;
   final cx = (cropX * sx).round().clamp(0, working.width - 1);
@@ -2847,7 +2728,7 @@ class _IsolateRenderParams {
   final ch = (cropH * sy).round().clamp(1, working.height - cy);
   working = img.copyCrop(working, x: cx, y: cy, width: cw, height: ch);
 
-  // 3) Color adjustments.
+  // 3. 调整颜色。
   working = img.adjustColor(
     working,
     brightness: p.brightness,
@@ -2864,7 +2745,7 @@ class _IsolateRenderParams {
         : null,
   );
 
-  // 3a) Temperature / tint via per-channel offset.
+  // 3.1 通过通道偏移调整色温和色调。
   if (p.temperature.abs() > 0.5 || p.tint.abs() > 0.5) {
     working = img.colorOffset(
       working,
@@ -2874,14 +2755,13 @@ class _IsolateRenderParams {
     );
   }
 
-  // 3b) Denoise → clarity → sharpness → grain → chromatic aberration → distort → vignette.
+  // 3.2 依次应用降噪、清晰度、锐化、颗粒、色散、畸变和暗角。
   if (p.denoise > 0) {
     final radius = (p.denoise / 100 * 3).round().clamp(1, 4);
     working = img.gaussianBlur(working, radius: radius);
   }
   if (p.clarity > 0) {
-    // Clarity targets mid-frequency local contrast. We use a wider 5x5
-    // unsharp-like kernel for a softer, more natural result.
+    // 使用 5×5 卷积核调整中频局部对比度。
     final amount = clampUnitInterval(p.clarity / 100);
     working = img.convolution(
       working,
@@ -2917,9 +2797,7 @@ class _IsolateRenderParams {
     );
   }
   if (p.sharpness > 0) {
-    // Standard 3×3 sharpen kernel. The `amount` parameter (0..1) blends
-    // between the original image and the sharpened result; at 1.0 the
-    // convolution is fully applied.
+    // 使用 3×3 锐化核，并按强度混合结果。
     final amount = clampUnitInterval(p.sharpness / 100);
     working = img.convolution(
       working,
@@ -2929,7 +2807,7 @@ class _IsolateRenderParams {
     );
   }
   if (p.grain > 0) {
-    // `noise` sigma is in pixel-value space (0..255). Scale 0..100 → 0..25.
+    // 将 0～100 的颗粒强度映射到 0～25 的像素噪声标准差。
     working = img.noise(working, p.grain / 100 * 25);
   }
   if (p.dispersion > 0.5) {
@@ -2952,15 +2830,14 @@ class _IsolateRenderParams {
     working = img.vignette(working, amount: p.vignette);
   }
 
-  // 3c) Watermark text is composed on the UI isolate with Flutter text
-  // rendering so Unicode/CJK text and arbitrary colors always render.
+  // 3.3 水印由 UI Isolate 合成，确保 Unicode 文本正常渲染。
 
-  // 4) Optional circular mask.
+  // 4. 按需应用圆形蒙版。
   if (p.isCircle) {
     working = _applyCircularMaskStatic(working);
   }
 
-  // 5) Cap longest side.
+  // 5. 限制最长边。
   final maxSide = p.maxOutputLongSide;
   if (maxSide != null) {
     final longSide = math.max(working.width, working.height);
@@ -2973,7 +2850,7 @@ class _IsolateRenderParams {
     }
   }
 
-  // 6) Encode + optionally compress to limit.
+  // 6. 编码并按需压缩到大小限制内。
   Uint8List outputBytes;
   if (p.isCircle || p.forcePng) {
     outputBytes = Uint8List.fromList(img.encodePng(working));
@@ -2997,10 +2874,6 @@ class _IsolateRenderParams {
   }
   return (outputBytes, working.width, working.height);
 }
-
-// ═══════════════════════════════════════════════════════════════════════════
-//  Top-level helper functions (isolate-safe — no `this`, no `BuildContext`)
-// ═══════════════════════════════════════════════════════════════════════════
 
 Rect _computeImageRectStatic(Size previewSize, img.Image image) {
   final scale = math.min(
@@ -3072,11 +2945,7 @@ img.Color _hueToColorStatic(double hueDeg, double strength) {
   );
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-//  Processing dialog
-// ═══════════════════════════════════════════════════════════════════════════
-
-/// A compact themed progress dialog used during heavy image processing.
+/// 图片处理进度弹窗。
 class _ProcessingDialog extends StatelessWidget {
   const _ProcessingDialog({required this.message});
 

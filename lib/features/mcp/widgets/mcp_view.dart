@@ -1295,7 +1295,7 @@ class _McpServerEditorDialogState extends State<_McpServerEditorDialog> {
           ? ''
           : widget.initialServer!.args.join('\n'),
     );
-    _headerRows = _buildInitialHeaderRows(widget.initialServer?.headers);
+    _headerRows = _createEditableHeaderRows(widget.initialServer?.headers);
     _type = widget.initialServer?.type ?? McpServerType.streamableHttp;
     _enabled = widget.initialServer?.enabled ?? true;
   }
@@ -1730,18 +1730,6 @@ class _McpServerEditorDialogState extends State<_McpServerEditorDialog> {
     );
   }
 
-  List<_EditableHeaderRow> _buildInitialHeaderRows(
-    Map<String, String>? headers,
-  ) {
-    final entries = headers?.entries.toList(growable: false) ?? const [];
-    if (entries.isEmpty) {
-      return <_EditableHeaderRow>[_EditableHeaderRow()];
-    }
-    return entries
-        .map((entry) => _EditableHeaderRow(name: entry.key, value: entry.value))
-        .toList();
-  }
-
   void _addHeaderRow() {
     setState(() {
       _headerRows.add(_EditableHeaderRow());
@@ -1752,12 +1740,7 @@ class _McpServerEditorDialogState extends State<_McpServerEditorDialog> {
   void _removeHeaderRow(int index) {
     setState(() {
       _headerErrorMessage = null;
-      if (_headerRows.length == 1) {
-        _headerRows.single.clear();
-        return;
-      }
-      final removedRow = _headerRows.removeAt(index);
-      removedRow.dispose();
+      _removeEditableHeaderRow(_headerRows, index);
     });
   }
 
@@ -1880,6 +1863,26 @@ class _EditableHeaderRow {
     nameController.dispose();
     valueController.dispose();
   }
+}
+
+List<_EditableHeaderRow> _createEditableHeaderRows(
+  Map<String, String>? headers,
+) {
+  final entries = headers?.entries;
+  if (entries == null || entries.isEmpty) {
+    return <_EditableHeaderRow>[_EditableHeaderRow()];
+  }
+  return entries
+      .map((entry) => _EditableHeaderRow(name: entry.key, value: entry.value))
+      .toList(growable: true);
+}
+
+void _removeEditableHeaderRow(List<_EditableHeaderRow> rows, int index) {
+  if (rows.length == 1) {
+    rows.single.clear();
+    return;
+  }
+  rows.removeAt(index).dispose();
 }
 
 const double _mcpOpsDialogMaxWidth = 1180;
@@ -13159,7 +13162,7 @@ class _McpToolDebugDialogState extends State<_McpToolDebugDialog> {
           ? '{}'
           : _suggestedArgumentsJson(_selectedTool!),
     );
-    _headerRows = _buildInitialHeaderRows(widget.server.headers);
+    _headerRows = _createEditableHeaderRows(widget.server.headers);
   }
 
   @override
@@ -13169,18 +13172,6 @@ class _McpToolDebugDialogState extends State<_McpToolDebugDialog> {
       row.dispose();
     }
     super.dispose();
-  }
-
-  List<_EditableHeaderRow> _buildInitialHeaderRows(
-    Map<String, String>? headers,
-  ) {
-    final entries = headers?.entries.toList(growable: false) ?? const [];
-    if (entries.isEmpty) {
-      return <_EditableHeaderRow>[_EditableHeaderRow()];
-    }
-    return entries
-        .map((entry) => _EditableHeaderRow(name: entry.key, value: entry.value))
-        .toList();
   }
 
   void _addHeaderRow() {
@@ -13193,12 +13184,7 @@ class _McpToolDebugDialogState extends State<_McpToolDebugDialog> {
   void _removeHeaderRow(int index) {
     setState(() {
       _headerErrorMessage = null;
-      if (_headerRows.length == 1) {
-        _headerRows.single.clear();
-        return;
-      }
-      final removedRow = _headerRows.removeAt(index);
-      removedRow.dispose();
+      _removeEditableHeaderRow(_headerRows, index);
     });
   }
 

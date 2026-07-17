@@ -798,6 +798,7 @@ class _AiTranslationProviderCardState
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final provider = widget.provider;
+    final providerLabel = _translationProviderLabel(context, provider);
     final providerSettings = _effectiveProviderSettings;
     final readiness = providerSettings.enabled
         ? _translationProviderReadinessError(
@@ -828,12 +829,14 @@ class _AiTranslationProviderCardState
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _AiTranslationDragHandle(
-                provider: provider,
-                priorityIndex: widget.priorityIndex,
-                label: _translationProviderLabel(context, provider),
-                enabled: providerSettings.enabled,
-                feedbackWidth: _ttsDragFeedbackWidth(context),
+              _AiProviderDragHandle<AiTranslationProvider>(
+                data: provider,
+                feedback: _AiTranslationProviderDragFeedbackCard(
+                  label: providerLabel,
+                  priorityIndex: widget.priorityIndex,
+                  enabled: providerSettings.enabled,
+                  width: _ttsDragFeedbackWidth(context),
+                ),
                 onDragStarted: widget.onDragStarted,
                 onDragEnded: widget.onDragEnded,
               ),
@@ -848,7 +851,7 @@ class _AiTranslationProviderCardState
                       children: [
                         _AiTtsPriorityBadge(index: widget.priorityIndex),
                         Text(
-                          _translationProviderLabel(context, provider),
+                          providerLabel,
                           style: theme.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.w800,
                           ),
@@ -990,7 +993,7 @@ class _AiTranslationProviderCardState
     } catch (error, stack) {
       silentLog(
         'translation-settings',
-        'test ${widget.provider.storageKey}',
+        '测试 ${widget.provider.storageKey}',
         error,
         stack,
       );
@@ -1240,39 +1243,34 @@ class _AiTranslationProviderCardState
   }
 }
 
-class _AiTranslationDragHandle extends StatefulWidget {
-  const _AiTranslationDragHandle({
-    required this.provider,
-    required this.priorityIndex,
-    required this.label,
-    required this.enabled,
-    required this.feedbackWidth,
+class _AiProviderDragHandle<T extends Object> extends StatefulWidget {
+  const _AiProviderDragHandle({
+    required this.data,
+    required this.feedback,
     required this.onDragStarted,
     required this.onDragEnded,
   });
 
-  final AiTranslationProvider provider;
-  final int priorityIndex;
-  final String label;
-  final bool enabled;
-  final double feedbackWidth;
+  final T data;
+  final Widget feedback;
   final VoidCallback onDragStarted;
   final void Function(DraggableDetails details) onDragEnded;
 
   @override
-  State<_AiTranslationDragHandle> createState() =>
-      _AiTranslationDragHandleState();
+  State<_AiProviderDragHandle<T>> createState() =>
+      _AiProviderDragHandleState<T>();
 }
 
-class _AiTranslationDragHandleState extends State<_AiTranslationDragHandle> {
+class _AiProviderDragHandleState<T extends Object>
+    extends State<_AiProviderDragHandle<T>> {
   bool _dragging = false;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final handle = _buildHandle(context, opacity: _dragging ? 0.42 : 1);
-    return Draggable<AiTranslationProvider>(
-      data: widget.provider,
+    final handle = _buildHandle(opacity: _dragging ? 0.42 : 1);
+    return Draggable<T>(
+      data: widget.data,
       maxSimultaneousDrags: 1,
       dragAnchorStrategy: pointerDragAnchorStrategy,
       onDragStarted: _startDrag,
@@ -1281,23 +1279,15 @@ class _AiTranslationDragHandleState extends State<_AiTranslationDragHandle> {
         textDirection: Directionality.of(context),
         child: Theme(
           data: theme,
-          child: Material(
-            color: Colors.transparent,
-            child: _AiTranslationProviderDragFeedbackCard(
-              label: widget.label,
-              priorityIndex: widget.priorityIndex,
-              enabled: widget.enabled,
-              width: widget.feedbackWidth,
-            ),
-          ),
+          child: Material(color: Colors.transparent, child: widget.feedback),
         ),
       ),
-      childWhenDragging: _buildHandle(context, opacity: 0.42),
+      childWhenDragging: _buildHandle(opacity: 0.42),
       child: handle,
     );
   }
 
-  Widget _buildHandle(BuildContext context, {required double opacity}) {
+  Widget _buildHandle({required double opacity}) {
     return _AiProviderDragHandleFrame(opacity: opacity);
   }
 
@@ -1312,8 +1302,6 @@ class _AiTranslationDragHandleState extends State<_AiTranslationDragHandle> {
     if (!_dragging) return;
     if (mounted) {
       setState(() => _dragging = false);
-    } else {
-      _dragging = false;
     }
     widget.onDragEnded(details);
   }
@@ -1675,6 +1663,7 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final provider = widget.provider;
+    final providerLabel = _ttsProviderLabel(context, provider);
     final providerSettings = _effectiveProviderSettings;
     final catalog = AiTtsProviderCatalogs.of(provider);
     final card = Container(
@@ -1699,12 +1688,14 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _AiTtsDragHandle(
-                provider: provider,
-                priorityIndex: widget.priorityIndex,
-                label: _ttsProviderLabel(context, provider),
-                enabled: providerSettings.enabled,
-                feedbackWidth: _ttsDragFeedbackWidth(context),
+              _AiProviderDragHandle<AiTtsProvider>(
+                data: provider,
+                feedback: _AiTtsProviderDragFeedbackCard(
+                  priorityIndex: widget.priorityIndex,
+                  label: providerLabel,
+                  enabled: providerSettings.enabled,
+                  width: _ttsDragFeedbackWidth(context),
+                ),
                 onDragStarted: widget.onDragStarted,
                 onDragEnded: widget.onDragEnded,
               ),
@@ -1719,7 +1710,7 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
                       children: [
                         _AiTtsPriorityBadge(index: widget.priorityIndex),
                         Text(
-                          _ttsProviderLabel(context, provider),
+                          providerLabel,
                           style: theme.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.w800,
                           ),
@@ -2210,7 +2201,7 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
         ),
       );
     } catch (error, stack) {
-      silentLog('tts-settings', 'sync MiniMax voices', error, stack);
+      silentLog('tts-settings', '同步 MiniMax 音色', error, stack);
       if (!mounted) return;
       _showSettingsTestErrorDialog(
         context: context,
@@ -2552,7 +2543,7 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
       if (!isAiTtsConfigurationError(error)) {
         silentLog(
           'tts-settings',
-          'test ${widget.provider.storageKey}',
+          '测试 ${widget.provider.storageKey}',
           error,
           stack,
         );
@@ -2654,84 +2645,6 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
         latestModels,
       ),
     );
-  }
-}
-
-class _AiTtsDragHandle extends StatefulWidget {
-  const _AiTtsDragHandle({
-    required this.provider,
-    required this.priorityIndex,
-    required this.label,
-    required this.enabled,
-    required this.feedbackWidth,
-    required this.onDragStarted,
-    required this.onDragEnded,
-  });
-
-  final AiTtsProvider provider;
-  final int priorityIndex;
-  final String label;
-  final bool enabled;
-  final double feedbackWidth;
-  final VoidCallback onDragStarted;
-  final void Function(DraggableDetails details) onDragEnded;
-
-  @override
-  State<_AiTtsDragHandle> createState() => _AiTtsDragHandleState();
-}
-
-class _AiTtsDragHandleState extends State<_AiTtsDragHandle> {
-  bool _dragging = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final handle = _buildHandle(context, opacity: _dragging ? 0.42 : 1);
-    return Draggable<AiTtsProvider>(
-      data: widget.provider,
-      maxSimultaneousDrags: 1,
-      dragAnchorStrategy: pointerDragAnchorStrategy,
-      onDragStarted: _startDrag,
-      onDragEnd: _finishDrag,
-      feedback: Directionality(
-        textDirection: Directionality.of(context),
-        child: Theme(
-          data: theme,
-          child: Material(
-            color: Colors.transparent,
-            child: _AiTtsProviderDragFeedbackCard(
-              priorityIndex: widget.priorityIndex,
-              label: widget.label,
-              enabled: widget.enabled,
-              width: widget.feedbackWidth,
-            ),
-          ),
-        ),
-      ),
-      childWhenDragging: _buildHandle(context, opacity: 0.42),
-      child: handle,
-    );
-  }
-
-  Widget _buildHandle(BuildContext context, {required double opacity}) {
-    return _AiProviderDragHandleFrame(opacity: opacity);
-  }
-
-  void _startDrag() {
-    if (_dragging) return;
-    setState(() => _dragging = true);
-    HapticFeedback.selectionClick();
-    widget.onDragStarted();
-  }
-
-  void _finishDrag(DraggableDetails details) {
-    if (!_dragging) return;
-    if (mounted) {
-      setState(() => _dragging = false);
-    } else {
-      _dragging = false;
-    }
-    widget.onDragEnded(details);
   }
 }
 
@@ -5071,10 +4984,7 @@ class _AiProviderModelChip extends StatelessWidget {
     final effectiveOnDeleted = enabled ? onDeleted : null;
     final iconSize = compact ? 14.0 : 16.0;
 
-    // Resolve background color: InputChip's _RenderChip swallows taps from
-    // GestureDetectors nested inside its label, preventing action icons from
-    // firing.  A plain Material + InkWell avoids that gesture-arena conflict
-    // while preserving the same visual appearance.
+    // 使用 Material 和 InkWell，避免 InputChip 吞掉标签内操作按钮的点击。
     final baseColor = enabled
         ? (isActive ? activeBaseColor : inactiveBaseColor)
         : (isActive
@@ -5711,9 +5621,7 @@ class _AiModelTileState extends State<_AiModelTile> {
                       ),
                   ],
                 ),
-                // Show available models as small chips; active model is highlighted.
-                // When a provider has many models, truncate to avoid excessive
-                // card height and reduce widget-build cost during scrolling.
+                // 限制模型胶囊数量，避免卡片过高和滚动时重复构建过多控件。
                 if (allModels.isNotEmpty) ...[
                   const SizedBox(height: 10),
                   RepaintBoundary(
@@ -5822,14 +5730,7 @@ class _AiModelTileState extends State<_AiModelTile> {
   }
 }
 
-/// A 4 px primary-tinted bar at the top edge of the settings pane that
-/// fades+slides in for ~140 ms and then drains over ~520 ms each time
-/// the controller's [SettingsController.saveSuccessSignal] increments.
-/// Provides positive confirmation that "your tweak landed" without
-/// stealing focus or layout space (overlaid via Stack/IgnorePointer).
-/// Thin settings-panel adapter around the shared `HighlightPulse`.
-/// Pre-existing call sites pass a `ValueListenable<int>` (the
-/// controller's `saveSuccessSignal`) and expect a 3 px top-edge bar.
+/// 设置保存反馈对共享 [HighlightPulse] 的轻量适配。
 class _SettingsSavePulse extends StatelessWidget {
   const _SettingsSavePulse({required this.signal});
 

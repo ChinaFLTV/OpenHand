@@ -188,7 +188,7 @@ export default function CacheHitTrendChart({
     setViewport(viewportFull(filteredPoints.length));
   }, [filteredPoints.length]);
 
-  // Entrance animation
+  // 进场动画。
   const [animProgress, setAnimProgress] = useState(0);
   useEffect(() => {
     const start = performance.now();
@@ -204,7 +204,7 @@ export default function CacheHitTrendChart({
     return () => cancelAnimationFrame(raf);
   }, [filteredPoints.length]);
 
-  // Hover state
+  // 悬停动画。
   const [hoverIdx, setHoverIdx] = useState(-1);
   const [hoverAnim, setHoverAnim] = useState(0);
   useEffect(() => {
@@ -351,6 +351,42 @@ export default function CacheHitTrendChart({
     [viewport, chartW, totalW],
   );
 
+  const renderModeButtons = (pointCount: number) =>
+    modeOptions.map(([key, label]) => {
+      const selected = displayMode === key;
+      return (
+        <button
+          key={key}
+          type="button"
+          onClick={() => {
+            setViewport(viewportFull(pointCount));
+            onDisplayModeChange?.(key);
+          }}
+          style={{
+            borderRadius: 999,
+            padding: '5px 10px',
+            fontSize: 11,
+            fontWeight: 700,
+            whiteSpace: 'nowrap',
+            flexShrink: 0,
+            border: selected
+              ? '1px solid color-mix(in srgb, var(--m3-primary) 50%, transparent)'
+              : '1px solid var(--m3-outline-variant)',
+            background: selected
+              ? 'color-mix(in srgb, var(--m3-primary) 12%, transparent)'
+              : 'color-mix(in srgb, var(--m3-surface-container-highest) 50%, transparent)',
+            color: selected
+              ? 'var(--m3-primary)'
+              : 'var(--m3-on-surface-variant)',
+            cursor: 'pointer',
+            transition: 'all 220ms cubic-bezier(0.33, 1, 0.68, 1)',
+          }}
+        >
+          {label}
+        </button>
+      );
+    });
+
   if (!hasDrawablePoints) {
     return (
       <div
@@ -408,40 +444,7 @@ export default function CacheHitTrendChart({
             class="flex items-center"
             style={{ gap: 8, flexWrap: 'nowrap', overflowX: 'auto' }}
           >
-            {modeOptions.map(([key, label]) => {
-              const selected = displayMode === key;
-              return (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => {
-                    setViewport(viewportFull(points.length));
-                    onDisplayModeChange?.(key);
-                  }}
-                  style={{
-                    borderRadius: 999,
-                    padding: '5px 10px',
-                    fontSize: 11,
-                    fontWeight: 700,
-                    whiteSpace: 'nowrap',
-                    flexShrink: 0,
-                    border: selected
-                      ? '1px solid color-mix(in srgb, var(--m3-primary) 50%, transparent)'
-                      : '1px solid var(--m3-outline-variant)',
-                    background: selected
-                      ? 'color-mix(in srgb, var(--m3-primary) 12%, transparent)'
-                      : 'color-mix(in srgb, var(--m3-surface-container-highest) 50%, transparent)',
-                    color: selected
-                      ? 'var(--m3-primary)'
-                      : 'var(--m3-on-surface-variant)',
-                    cursor: 'pointer',
-                    transition: 'all 220ms cubic-bezier(0.33, 1, 0.68, 1)',
-                  }}
-                >
-                  {label}
-                </button>
-              );
-            })}
+            {renderModeButtons(points.length)}
           </div>
           <div style={{ flex: 1 }} />
           {exclusionHint ? (
@@ -470,7 +473,7 @@ export default function CacheHitTrendChart({
         padding: '10px 12px 12px 12px',
       }}
     >
-      {/* Header row */}
+      {/* 标题栏。 */}
       <div
         class="flex items-center"
         style={{ gap: 8, marginBottom: 8 }}
@@ -536,7 +539,7 @@ export default function CacheHitTrendChart({
         ) : null}
       </div>
 
-      {/* Mode chips row */}
+      {/* 展示模式。 */}
       <div
         class="flex items-center"
         style={{ gap: 8, marginBottom: 10 }}
@@ -545,40 +548,7 @@ export default function CacheHitTrendChart({
           class="flex items-center"
           style={{ gap: 8, flexWrap: 'nowrap', overflowX: 'auto' }}
         >
-          {modeOptions.map(([key, label]) => {
-            const selected = displayMode === key;
-            return (
-              <button
-                key={key}
-                type="button"
-                onClick={() => {
-                  setViewport(viewportFull(filteredPoints.length));
-                  onDisplayModeChange?.(key);
-                }}
-                style={{
-                  borderRadius: 999,
-                  padding: '5px 10px',
-                  fontSize: 11,
-                  fontWeight: 700,
-                  whiteSpace: 'nowrap',
-                  flexShrink: 0,
-                  border: selected
-                    ? '1px solid color-mix(in srgb, var(--m3-primary) 50%, transparent)'
-                    : '1px solid var(--m3-outline-variant)',
-                  background: selected
-                    ? 'color-mix(in srgb, var(--m3-primary) 12%, transparent)'
-                    : 'color-mix(in srgb, var(--m3-surface-container-highest) 50%, transparent)',
-                  color: selected
-                    ? 'var(--m3-primary)'
-                    : 'var(--m3-on-surface-variant)',
-                  cursor: 'pointer',
-                  transition: 'all 220ms cubic-bezier(0.33, 1, 0.68, 1)',
-                }}
-              >
-                {label}
-              </button>
-            );
-          })}
+          {renderModeButtons(filteredPoints.length)}
         </div>
         <div style={{ flex: 1 }} />
         {exclusionHint ? (
@@ -591,7 +561,7 @@ export default function CacheHitTrendChart({
         ) : null}
       </div>
 
-      {/* Chart canvas */}
+      {/* 图表画布。 */}
       <div
         style={{ position: 'relative', height, width: '100%' }}
         onWheel={onWheel as unknown as (e: Event) => void}
@@ -605,7 +575,7 @@ export default function CacheHitTrendChart({
           height={height}
           style={{ display: 'block', overflow: 'visible', cursor: 'crosshair' }}
         >
-          {/* 5 horizontal grid lines */}
+          {/* 五条水平网格线。 */}
           {[0, 0.25, 0.5, 0.75, 1].map((frac) => {
             const y = PAD_TOP + chartH - chartH * frac;
             return (
@@ -622,7 +592,7 @@ export default function CacheHitTrendChart({
             );
           })}
 
-          {/* Y axis labels: 0% bottom-left, 100% top-left */}
+          {/* Y 轴标签。 */}
           <text
             x={PAD_LEFT - 8}
             y={PAD_TOP + chartH + 4}
@@ -644,7 +614,7 @@ export default function CacheHitTrendChart({
             100%
           </text>
 
-          {/* Average dashed line */}
+          {/* 平均值虚线。 */}
           <line
             x1={PAD_LEFT}
             x2={PAD_LEFT + chartW}
@@ -656,7 +626,7 @@ export default function CacheHitTrendChart({
             stroke-dasharray="5 4"
           />
 
-          {/* Fill + line (smooth cubic bezier) */}
+          {/* 平滑曲线及填充。 */}
           <defs>
             <linearGradient id="cht-fill" x1="0" y1="0" x2="0" y2="1">
               <stop
@@ -684,7 +654,7 @@ export default function CacheHitTrendChart({
             />
           ) : null}
 
-          {/* First request marker: visible in "include expired" mode, but excluded from averages. */}
+          {/* 首轮请求标记仅展示，不计入平均值。 */}
           {layoutPoints
             .filter((point) => point.firstRequest)
             .map((point) => {
@@ -750,7 +720,7 @@ export default function CacheHitTrendChart({
               );
             })}
 
-          {/* Last point dot */}
+          {/* 末端数据点。 */}
           {animatedLayoutPoints.length > 0
             ? (() => {
                 const last =
@@ -767,7 +737,7 @@ export default function CacheHitTrendChart({
               })()
             : null}
 
-          {/* "平均" label floating on right end of avg line */}
+          {/* 平均值标签。 */}
           <rect
             x={PAD_LEFT + chartW - 38}
             y={avgY - 9}
@@ -789,7 +759,7 @@ export default function CacheHitTrendChart({
             {t2('sessMeta.cacheHitAvg', '平均')}
           </text>
 
-          {/* X axis labels: first, middle (if distinct), last */}
+          {/* X 轴标签。 */}
           <text
             x={singlePoint ? PAD_LEFT + chartW / 2 : PAD_LEFT}
             y={PAD_TOP + chartH + 14}
@@ -857,7 +827,7 @@ export default function CacheHitTrendChart({
             : null}
         </svg>
 
-        {/* Hover overlay: glowing circle + tooltip */}
+        {/* 悬停高亮与提示。 */}
         {hoverIdx >= 0 && hoverIdx < layoutPoints.length && hoverAnim > 0.01
           ? (() => {
               const point = layoutPoints[hoverIdx];

@@ -1,7 +1,7 @@
 part of 'settings_view.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// WebSearch tool — sub-agent / engines / summary configuration editor.
+// WebSearch 工具的子代理、引擎和摘要设置。
 // 仅当 _BuiltinToolEditorDialog 编辑的是 AiBuiltinToolKind.webSearch 时挂载。
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -76,7 +76,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
       if (!mounted) return;
       setState(() => _cacheBytesOnDisk = bytes);
     } catch (e, st) {
-      silentLog('settings.websearch', '_refreshCacheBytesOnDisk', e, st);
+      silentLog('settings.websearch', '刷新磁盘缓存大小', e, st);
       if (!mounted) return;
       setState(() => _cacheBytesOnDisk = 0);
     }
@@ -86,8 +86,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
     if (_telemetryLoading) return;
     setState(() => _telemetryLoading = true);
     try {
-      // Three independent reads on the same store: parallelize so the
-      // refresh latency is bounded by max(read) instead of sum(read).
+      // 并行读取三组独立数据，降低刷新等待时间。
       final results = await Future.wait<Object>([
         WebSearchTelemetryStore.instance.recentCalls(),
         WebSearchTelemetryStore.instance.engineStats(),
@@ -106,7 +105,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
         _telemetryLoading = false;
       });
     } catch (e, st) {
-      silentLog('settings.websearch', '_refreshTelemetry', e, st);
+      silentLog('settings.websearch', '刷新遥测数据', e, st);
       if (!mounted) return;
       setState(() => _telemetryLoading = false);
     }
@@ -123,7 +122,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
     try {
       await WebSearchTelemetryStore.instance.clearAll();
     } catch (e, st) {
-      silentLog('settings.websearch', '_confirmAndClearTelemetry', e, st);
+      silentLog('settings.websearch', '清空遥测数据', e, st);
     }
     if (!mounted) return;
     setState(() => _clearingTelemetry = false);
@@ -145,7 +144,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
         encodeCsv: _callsToCsv,
       );
     } catch (e, st) {
-      silentLog('settings.websearch', '_exportTelemetry', e, st);
+      silentLog('settings.websearch', '导出遥测数据', e, st);
       if (!mounted) return;
       _showSettingsErrorSnack(
         context,
@@ -202,7 +201,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
     try {
       await WebSearchTelemetryStore.instance.clearEngineCooldown(kind);
     } catch (e, st) {
-      silentLog('settings.websearch', '_resetEngineCooldown', e, st);
+      silentLog('settings.websearch', '重置引擎冷却状态', e, st);
     }
     await _refreshTelemetry();
   }
@@ -282,7 +281,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
     try {
       await WebSearchCacheStore.instance.clearAll();
     } catch (e, st) {
-      silentLog('settings.websearch', '_confirmAndClearCache', e, st);
+      silentLog('settings.websearch', '清空本地缓存', e, st);
     }
     if (!mounted) return;
     setState(() => _clearingCache = false);
@@ -391,7 +390,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
         ),
         const SizedBox(height: 14),
 
-        // ── Sub-agent model ──
+        // 子代理模型。
         Text(
           openHandLocalizedText(context, zh: 'Summary 模型', en: 'Summary Model'),
           style: theme.textTheme.titleSmall,
@@ -455,7 +454,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
         ],
         const SizedBox(height: 14),
 
-        // ── Result count ──
+        // 结果数量。
         TextField(
           controller: _resultCountController,
           keyboardType: TextInputType.number,
@@ -497,7 +496,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
         ),
         const SizedBox(height: 14),
 
-        // ── Parallel switch + workers ──
+        // 并行开关与工作数。
         Row(
           children: [
             Expanded(
@@ -565,7 +564,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
         ),
         const SizedBox(height: 14),
 
-        // ── Summary detail / style ──
+        // 摘要细节与风格。
         Row(
           children: [
             Expanded(
@@ -778,65 +777,16 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
           ],
         ),
         const SizedBox(height: 10),
-        // ── 当前已落盘大小 + 显式清理按钮 ──
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                openHandLocalizedText(
-                  context,
-                  zh: '当前已占用：${formatNullableByteSize(_cacheBytesOnDisk, pendingLabel: '…')}',
-                  en: 'On disk: ${formatNullableByteSize(_cacheBytesOnDisk, pendingLabel: '…')}',
-                ),
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            TextButton.icon(
-              onPressed: _clearingCache ? null : _refreshCacheBytesOnDisk,
-              icon: const Icon(Icons.refresh, size: 16),
-              label: Text(
-                openHandLocalizedText(context, zh: '刷新', en: 'Refresh'),
-              ),
-            ),
-            const SizedBox(width: 4),
-            FilledButton.tonalIcon(
-              style: FilledButton.styleFrom(
-                foregroundColor: colorScheme.onPrimary,
-                disabledForegroundColor: colorScheme.onSurface.withValues(
-                  alpha: 0.38,
-                ),
-              ),
-              onPressed: _clearingCache ? null : _confirmAndClearCache,
-              icon: _clearingCache
-                  ? SizedBox(
-                      width: 14,
-                      height: 14,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: colorScheme.onPrimary,
-                      ),
-                    )
-                  : Icon(
-                      Icons.delete_sweep,
-                      size: 16,
-                      color: colorScheme.onPrimary,
-                    ),
-              label: Text(
-                openHandLocalizedText(
-                  context,
-                  zh: _clearingCache ? '清理中…' : '清理缓存',
-                  en: _clearingCache ? 'Clearing…' : 'Clear Cache',
-                ),
-              ),
-            ),
-          ],
+        _buildToolCacheActions(
+          context: context,
+          bytesOnDisk: _cacheBytesOnDisk,
+          clearing: _clearingCache,
+          onRefresh: _refreshCacheBytesOnDisk,
+          onClear: _confirmAndClearCache,
         ),
         const SizedBox(height: 16),
 
-        // ── Engines list ──
+        // 引擎列表。
         Text(
           openHandLocalizedText(context, zh: '搜索引擎', en: 'Search Engines'),
           style: theme.textTheme.titleSmall,
@@ -950,7 +900,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
             _updateAdvanced(v.copyWith(cooldownTier3Seconds: n)),
       ),
       const SizedBox(height: 4),
-      _AdvancedNumberRow(
+      _ToolAdvancedNumberRow(
         label: openHandLocalizedText(
           context,
           zh: '配额/限流冷却（秒）',
@@ -974,7 +924,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
         ),
       ),
       const SizedBox(height: 6),
-      _AdvancedNumberRow(
+      _ToolAdvancedNumberRow(
         label: openHandLocalizedText(
           context,
           zh: '成功率低于（%）',
@@ -985,7 +935,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
         max: AiWebSearchSettings.maxAlertSuccessRatePct,
         onChanged: (n) => _updateAdvanced(v.copyWith(alertSuccessRatePct: n)),
       ),
-      _AdvancedNumberRow(
+      _ToolAdvancedNumberRow(
         label: openHandLocalizedText(
           context,
           zh: '平均耗时高于（毫秒）',
@@ -997,7 +947,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
         onChanged: (n) => _updateAdvanced(v.copyWith(alertAvgDurationMs: n)),
       ),
       const SizedBox(height: 12),
-      // throttle
+      // 速率限制。
       Text(
         openHandLocalizedText(
           context,
@@ -1009,7 +959,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
         ),
       ),
       const SizedBox(height: 6),
-      _AdvancedNumberRow(
+      _ToolAdvancedNumberRow(
         label: openHandLocalizedText(context, zh: '上限', en: 'Cap'),
         value: v.throttlePerMinute,
         min: 0,
@@ -1034,17 +984,9 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
   ) {
     final hasData = _recentCalls.isNotEmpty || _engineStats.isNotEmpty;
     return [
-      Text(
-        openHandLocalizedText(
-          context,
-          zh: '调用日志 / 引擎健康度',
-          en: 'Call History / Engine Health',
-        ),
-        style: theme.textTheme.titleSmall,
-      ),
-      const SizedBox(height: 4),
-      Text(
-        openHandLocalizedText(
+      ..._buildToolTelemetryHeader(
+        context: context,
+        description: openHandLocalizedText(
           context,
           zh:
               '近期 50 条 WebSearch 调用与每引擎累计成功率、平均耗时、命中数；'
@@ -1054,152 +996,44 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
               'success-rate / avg latency / total hits. Persisted under '
               '~/.openhand/cache/web_search/telemetry/.',
         ),
-        style: theme.textTheme.bodySmall?.copyWith(
-          color: colorScheme.onSurfaceVariant,
+        hasData: hasData,
+        hasCalls: _recentCalls.isNotEmpty,
+        loading: _telemetryLoading,
+        clearing: _clearingTelemetry,
+        exporting: _exportingTelemetry,
+        onExportJson: () => _exportTelemetry(asCsv: false),
+        onExportCsv: () => _exportTelemetry(asCsv: true),
+        onRefresh: _refreshTelemetry,
+        onClear: _confirmAndClearTelemetry,
+      ),
+      const SizedBox(height: 8),
+      ..._buildToolTelemetryBody(
+        context: context,
+        loading: _telemetryLoading,
+        emptyMessage: openHandLocalizedText(
+          context,
+          zh: '暂无调用记录。下一次 WebSearch 调用结束后会自动记录。',
+          en:
+              'No calls recorded yet. The next WebSearch invocation '
+              'will be logged automatically.',
         ),
-      ),
-      const SizedBox(height: 8),
-      Row(
-        children: [
-          const Spacer(),
-          TextButton.icon(
-            onPressed:
-                _telemetryLoading ||
-                    _clearingTelemetry ||
-                    _exportingTelemetry ||
-                    _recentCalls.isEmpty
-                ? null
-                : () => _exportTelemetry(asCsv: false),
-            icon: const Icon(Icons.code, size: 16),
-            label: Text(
-              openHandLocalizedText(context, zh: '导出 JSON', en: 'Export JSON'),
-            ),
-          ),
-          const SizedBox(width: 4),
-          TextButton.icon(
-            onPressed:
-                _telemetryLoading ||
-                    _clearingTelemetry ||
-                    _exportingTelemetry ||
-                    _recentCalls.isEmpty
-                ? null
-                : () => _exportTelemetry(asCsv: true),
-            icon: _exportingTelemetry
-                ? const SizedBox(
-                    width: 14,
-                    height: 14,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.table_chart, size: 16),
-            label: Text(
-              openHandLocalizedText(context, zh: '导出 CSV', en: 'Export CSV'),
-            ),
-          ),
-          const SizedBox(width: 4),
-          TextButton.icon(
-            onPressed: _telemetryLoading || _clearingTelemetry
-                ? null
-                : _refreshTelemetry,
-            icon: _telemetryLoading
-                ? const SizedBox(
-                    width: 14,
-                    height: 14,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.refresh, size: 16),
-            label: Text(
-              openHandLocalizedText(context, zh: '刷新', en: 'Refresh'),
-            ),
-          ),
-          const SizedBox(width: 4),
-          TextButton.icon(
-            onPressed: !hasData || _clearingTelemetry
-                ? null
-                : _confirmAndClearTelemetry,
-            icon: _clearingTelemetry
-                ? const SizedBox(
-                    width: 14,
-                    height: 14,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : Icon(Icons.delete_sweep, size: 16, color: colorScheme.error),
-            label: Text(
-              openHandLocalizedText(
+        engineRows: _engineStats.entries
+            .map(
+              (entry) => _buildEngineStatRow(
                 context,
-                zh: _clearingTelemetry ? '清空中…' : '清空记录',
-                en: _clearingTelemetry ? 'Clearing…' : 'Clear Logs',
+                theme,
+                colorScheme,
+                entry.key,
+                entry.value,
               ),
-              style: TextStyle(color: colorScheme.error),
-            ),
-          ),
-        ],
+            )
+            .toList(growable: false),
+        callRows: _recentCalls
+            .take(_maxToolTelemetryCallRows)
+            .map((call) => _buildCallLogRow(context, theme, colorScheme, call))
+            .toList(growable: false),
+        totalCallCount: _recentCalls.length,
       ),
-      const SizedBox(height: 8),
-      if (!hasData && !_telemetryLoading)
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          child: Text(
-            openHandLocalizedText(
-              context,
-              zh: '暂无调用记录。下一次 WebSearch 调用结束后会自动记录。',
-              en:
-                  'No calls recorded yet. The next WebSearch invocation '
-                  'will be logged automatically.',
-            ),
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-            ),
-          ),
-        )
-      else ...[
-        if (_engineStats.isNotEmpty) ...[
-          Text(
-            openHandLocalizedText(context, zh: '引擎健康度', en: 'Engine Health'),
-            style: theme.textTheme.bodyMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 6),
-          ..._engineStats.entries
-              .toList(growable: false)
-              .map(
-                (e) => _buildEngineStatRow(
-                  context,
-                  theme,
-                  colorScheme,
-                  e.key,
-                  e.value,
-                ),
-              ),
-          const SizedBox(height: 12),
-        ],
-        if (_recentCalls.isNotEmpty) ...[
-          Text(
-            openHandLocalizedText(context, zh: '最近调用', en: 'Recent Calls'),
-            style: theme.textTheme.bodyMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 6),
-          ..._recentCalls
-              .take(20)
-              .map((c) => _buildCallLogRow(context, theme, colorScheme, c)),
-          if (_recentCalls.length > 20)
-            Padding(
-              padding: const EdgeInsets.only(top: 4),
-              child: Text(
-                openHandLocalizedText(
-                  context,
-                  zh: '… 还有 ${_recentCalls.length - 20} 条更早记录',
-                  en: '… ${_recentCalls.length - 20} older entries',
-                ),
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ),
-        ],
-      ],
     ];
   }
 
@@ -1292,76 +1126,16 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
                 ),
             ],
           ),
-          if (inCooldown || stat.lastQuotaError != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 4, left: 92 + 6),
-              child: Row(
-                children: [
-                  if (inCooldown) ...[
-                    _SettingsStatusChip(
-                      icon: Icons.pause_circle_outline,
-                      label: openHandLocalizedText(
-                        context,
-                        zh: '降级中 · 剩余 ${_settingsFormatRemainingUntilMs(stat.cooldownUntilMs)}',
-                        en: 'cooldown · ${_settingsFormatRemainingUntilMs(stat.cooldownUntilMs)} left',
-                      ),
-                      backgroundColor: colorScheme.errorContainer,
-                      foregroundColor: colorScheme.onErrorContainer,
-                    ),
-                    const SizedBox(width: 6),
-                    InkWell(
-                      onTap: () => _resetEngineCooldown(kind),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 2,
-                        ),
-                        child: Text(
-                          openHandLocalizedText(context, zh: '重置', en: 'Reset'),
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: colorScheme.primary,
-                            decoration: TextDecoration.underline,
-                            fontSize: 11,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                  if (stat.lastQuotaError != null) ...[
-                    if (inCooldown) const SizedBox(width: 6),
-                    Tooltip(
-                      message: stat.lastQuotaError ?? '',
-                      child: _SettingsStatusChip(
-                        icon: Icons.speed,
-                        label: openHandLocalizedText(
-                          context,
-                          zh: '配额/限流',
-                          en: 'rate limit',
-                        ),
-                        backgroundColor: colorScheme.tertiaryContainer,
-                        foregroundColor: colorScheme.onTertiaryContainer,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          if (samples.length >= 2)
-            Padding(
-              padding: const EdgeInsets.only(top: 4, left: 92 + 6),
-              child: SizedBox(
-                width: 240,
-                height: 28,
-                child: CustomPaint(
-                  painter: _WebSearchSparklinePainter(
-                    samples: samples,
-                    successColor: Colors.green.shade600,
-                    failureColor: colorScheme.error,
-                    lineColor: colorScheme.primary.withValues(alpha: 0.6),
-                  ),
-                ),
-              ),
-            ),
+          ..._buildToolEngineStatusDetails<WebSearchEngineSample>(
+            context: context,
+            inCooldown: inCooldown,
+            cooldownUntilMs: stat.cooldownUntilMs,
+            quotaError: stat.lastQuotaError,
+            onResetCooldown: () => _resetEngineCooldown(kind),
+            samples: samples,
+            durationOf: _webSearchSampleDuration,
+            successOf: _webSearchSampleSucceeded,
+          ),
         ],
       ),
     );
@@ -1374,38 +1148,10 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
     WebSearchCallLog call,
   ) {
     final timeStr = _settingsFormatMonthDayHmsFromEpochMs(call.timestampMs);
-    final (chipBg, chipFg, chipLabel) = switch (call.cacheStatus) {
-      'hit' => (
-        colorScheme.primaryContainer,
-        colorScheme.onPrimaryContainer,
-        'cache hit',
-      ),
-      'miss-stored' => (
-        colorScheme.tertiaryContainer,
-        colorScheme.onTertiaryContainer,
-        'fresh',
-      ),
-      'miss-empty' => (
-        colorScheme.surfaceContainerHighest,
-        colorScheme.onSurfaceVariant,
-        'empty',
-      ),
-      'disabled' => (
-        colorScheme.surfaceContainerHighest,
-        colorScheme.onSurfaceVariant,
-        'cache off',
-      ),
-      'bypass' => (
-        colorScheme.errorContainer,
-        colorScheme.onErrorContainer,
-        'bypass',
-      ),
-      _ => (
-        colorScheme.surfaceContainerHighest,
-        colorScheme.onSurfaceVariant,
-        call.cacheStatus,
-      ),
-    };
+    final (chipBg, chipFg, chipLabel) = _toolCacheStatusStyle(
+      colorScheme,
+      call.cacheStatus,
+    );
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 3),
       child: Row(
@@ -1563,109 +1309,9 @@ class _AdvancedCooldownTierRow extends StatelessWidget {
   }
 }
 
-class _AdvancedNumberRow extends StatelessWidget {
-  const _AdvancedNumberRow({
-    required this.label,
-    required this.value,
-    required this.min,
-    required this.max,
-    required this.onChanged,
-  });
+int _webSearchSampleDuration(WebSearchEngineSample sample) => sample.durationMs;
 
-  final String label;
-  final int value;
-  final int min;
-  final int max;
-  final ValueChanged<int> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Row(
-        children: [
-          Expanded(child: Text(label, style: theme.textTheme.bodySmall)),
-          SizedBox(
-            width: 100,
-            child: _SettingsIntField(
-              value: value,
-              min: min,
-              max: max,
-              onChanged: onChanged,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _WebSearchSparklinePainter extends CustomPainter {
-  _WebSearchSparklinePainter({
-    required this.samples,
-    required this.successColor,
-    required this.failureColor,
-    required this.lineColor,
-  });
-
-  final List<WebSearchEngineSample> samples;
-  final Color successColor;
-  final Color failureColor;
-  final Color lineColor;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (samples.length < 2) return;
-    // 取最近 50 个样本，duration 归一化成 y。
-    final tail = samples.length > 50
-        ? samples.sublist(samples.length - 50)
-        : samples;
-    final maxDur = tail.fold<int>(
-      0,
-      (m, s) => s.durationMs > m ? s.durationMs : m,
-    );
-    final scaleY = maxDur == 0 ? 0.0 : (size.height - 4) / maxDur;
-    final stepX = tail.length == 1
-        ? size.width
-        : size.width / (tail.length - 1);
-
-    final linePaint = Paint()
-      ..color = lineColor
-      ..strokeWidth = 1.2
-      ..style = PaintingStyle.stroke;
-    final path = Path();
-    for (var i = 0; i < tail.length; i++) {
-      final x = i * stepX;
-      final y = size.height - 2 - tail[i].durationMs * scaleY;
-      if (i == 0) {
-        path.moveTo(x, y);
-      } else {
-        path.lineTo(x, y);
-      }
-    }
-    canvas.drawPath(path, linePaint);
-
-    final dotSuccess = Paint()..color = successColor;
-    final dotFailure = Paint()..color = failureColor;
-    for (var i = 0; i < tail.length; i++) {
-      final x = i * stepX;
-      final y = size.height - 2 - tail[i].durationMs * scaleY;
-      canvas.drawCircle(
-        Offset(x, y),
-        1.6,
-        tail[i].success ? dotSuccess : dotFailure,
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _WebSearchSparklinePainter old) =>
-      old.samples != samples ||
-      old.successColor != successColor ||
-      old.failureColor != failureColor ||
-      old.lineColor != lineColor;
-}
+bool _webSearchSampleSucceeded(WebSearchEngineSample sample) => sample.success;
 
 String _summaryDetailLabel(BuildContext context, AiWebSearchSummaryDetail d) {
   return switch (d) {

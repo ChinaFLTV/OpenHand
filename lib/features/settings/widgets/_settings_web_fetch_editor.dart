@@ -1,7 +1,7 @@
 part of 'settings_view.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// WebFetch tool — engines / cache / telemetry configuration editor.
+// WebFetch 工具的引擎、缓存和遥测设置。
 // 仅当 _BuiltinToolEditorDialog 编辑的是 AiBuiltinToolKind.webFetch 时挂载。
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -81,7 +81,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
       if (!mounted) return;
       setState(() => _cacheBytesOnDisk = bytes);
     } catch (e, st) {
-      silentLog('settings.webfetch', '_refreshCacheBytesOnDisk', e, st);
+      silentLog('settings.webfetch', '刷新磁盘缓存大小', e, st);
       if (!mounted) return;
       setState(() => _cacheBytesOnDisk = 0);
     }
@@ -91,8 +91,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
     if (_telemetryLoading) return;
     setState(() => _telemetryLoading = true);
     try {
-      // Parallelize three independent reads—bound by max(read) instead
-      // of their sum (used to be ~3× disk read latency on cold open).
+      // 并行读取三组独立数据，降低冷启动等待时间。
       final results = await Future.wait<Object>([
         WebFetchTelemetryStore.instance.recentCalls(),
         WebFetchTelemetryStore.instance.engineStats(),
@@ -110,7 +109,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
         _telemetryLoading = false;
       });
     } catch (e, st) {
-      silentLog('settings.webfetch', '_refreshTelemetry', e, st);
+      silentLog('settings.webfetch', '刷新遥测数据', e, st);
       if (!mounted) return;
       setState(() => _telemetryLoading = false);
     }
@@ -133,7 +132,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
         _scraplingProbeLoading = false;
       });
     } catch (e, st) {
-      silentLog('settings.webfetch', '_refreshScraplingProbe', e, st);
+      silentLog('settings.webfetch', '刷新 Scrapling 探测状态', e, st);
       if (!mounted) return;
       setState(() {
         _scraplingProbe = WebFetchScraplingProbeStatus(
@@ -154,7 +153,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
           .toolRuntimeService
           .resetWebFetchScrapling();
     } catch (e, st) {
-      silentLog('settings.webfetch', '_resetScraplingRuntime', e, st);
+      silentLog('settings.webfetch', '重置 Scrapling 运行时', e, st);
     }
     await _refreshScraplingProbe();
   }
@@ -183,7 +182,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
         );
       }
     } catch (e, st) {
-      silentLog('settings.webfetch', '_installScraplingRuntime', e, st);
+      silentLog('settings.webfetch', '安装 Scrapling 运行时', e, st);
       if (!mounted) return;
       _showSettingsErrorSnack(
         context,
@@ -236,7 +235,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
         );
       }
     } catch (e, st) {
-      silentLog('settings.webfetch', '_uninstallScraplingRuntime', e, st);
+      silentLog('settings.webfetch', '卸载 Scrapling 运行时', e, st);
       if (!mounted) return;
       _showSettingsErrorSnack(
         context,
@@ -263,7 +262,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
     try {
       await WebFetchTelemetryStore.instance.clearAll();
     } catch (e, st) {
-      silentLog('settings.webfetch', '_confirmAndClearTelemetry', e, st);
+      silentLog('settings.webfetch', '清空遥测数据', e, st);
     }
     if (!mounted) return;
     setState(() => _clearingTelemetry = false);
@@ -285,7 +284,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
         encodeCsv: _callsToCsv,
       );
     } catch (e, st) {
-      silentLog('settings.webfetch', '_exportTelemetry', e, st);
+      silentLog('settings.webfetch', '导出遥测数据', e, st);
       if (!mounted) return;
       _showSettingsErrorSnack(
         context,
@@ -339,7 +338,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
     try {
       await WebFetchTelemetryStore.instance.clearEngineCooldown(kind);
     } catch (e, st) {
-      silentLog('settings.webfetch', '_resetEngineCooldown', e, st);
+      silentLog('settings.webfetch', '重置引擎冷却状态', e, st);
     }
     await _refreshTelemetry();
   }
@@ -403,7 +402,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
     try {
       await WebFetchCacheStore.instance.clearAll();
     } catch (e, st) {
-      silentLog('settings.webfetch', '_confirmAndClearCache', e, st);
+      silentLog('settings.webfetch', '清空本地缓存', e, st);
     }
     if (!mounted) return;
     setState(() => _clearingCache = false);
@@ -471,7 +470,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
         ),
         const SizedBox(height: 14),
 
-        // ── Result count ──
+        // 结果数量。
         TextField(
           controller: _resultCountController,
           keyboardType: TextInputType.number,
@@ -513,7 +512,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
         ),
         const SizedBox(height: 14),
 
-        // ── Parallel switch + workers ──
+        // 并行开关与工作数。
         Row(
           children: [
             Expanded(
@@ -672,65 +671,16 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
           ],
         ),
         const SizedBox(height: 10),
-        // ── 当前已落盘大小 + 显式清理按钮 ──
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                openHandLocalizedText(
-                  context,
-                  zh: '当前已占用：${formatNullableByteSize(_cacheBytesOnDisk, pendingLabel: '…')}',
-                  en: 'On disk: ${formatNullableByteSize(_cacheBytesOnDisk, pendingLabel: '…')}',
-                ),
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            TextButton.icon(
-              onPressed: _clearingCache ? null : _refreshCacheBytesOnDisk,
-              icon: const Icon(Icons.refresh, size: 16),
-              label: Text(
-                openHandLocalizedText(context, zh: '刷新', en: 'Refresh'),
-              ),
-            ),
-            const SizedBox(width: 4),
-            FilledButton.tonalIcon(
-              style: FilledButton.styleFrom(
-                foregroundColor: colorScheme.onPrimary,
-                disabledForegroundColor: colorScheme.onSurface.withValues(
-                  alpha: 0.38,
-                ),
-              ),
-              onPressed: _clearingCache ? null : _confirmAndClearCache,
-              icon: _clearingCache
-                  ? SizedBox(
-                      width: 14,
-                      height: 14,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: colorScheme.onPrimary,
-                      ),
-                    )
-                  : Icon(
-                      Icons.delete_sweep,
-                      size: 16,
-                      color: colorScheme.onPrimary,
-                    ),
-              label: Text(
-                openHandLocalizedText(
-                  context,
-                  zh: _clearingCache ? '清理中…' : '清理缓存',
-                  en: _clearingCache ? 'Clearing…' : 'Clear Cache',
-                ),
-              ),
-            ),
-          ],
+        _buildToolCacheActions(
+          context: context,
+          bytesOnDisk: _cacheBytesOnDisk,
+          clearing: _clearingCache,
+          onRefresh: _refreshCacheBytesOnDisk,
+          onClear: _confirmAndClearCache,
         ),
         const SizedBox(height: 16),
 
-        // ── Engines list ──
+        // 引擎列表。
         Text(
           openHandLocalizedText(context, zh: '抓取引擎', en: 'Fetch Engines'),
           style: theme.textTheme.titleSmall,
@@ -865,7 +815,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
             _updateAdvanced(v.copyWith(cooldownTier3Seconds: n)),
       ),
       const SizedBox(height: 4),
-      _FetchAdvancedNumberRow(
+      _ToolAdvancedNumberRow(
         label: openHandLocalizedText(
           context,
           zh: '配额/限流冷却（秒）',
@@ -889,7 +839,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
         ),
       ),
       const SizedBox(height: 6),
-      _FetchAdvancedNumberRow(
+      _ToolAdvancedNumberRow(
         label: openHandLocalizedText(
           context,
           zh: '成功率低于（%）',
@@ -900,7 +850,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
         max: AiWebFetchSettings.maxAlertSuccessRatePct,
         onChanged: (n) => _updateAdvanced(v.copyWith(alertSuccessRatePct: n)),
       ),
-      _FetchAdvancedNumberRow(
+      _ToolAdvancedNumberRow(
         label: openHandLocalizedText(
           context,
           zh: '平均耗时高于（毫秒）',
@@ -912,7 +862,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
         onChanged: (n) => _updateAdvanced(v.copyWith(alertAvgDurationMs: n)),
       ),
       const SizedBox(height: 12),
-      // throttle
+      // 速率限制。
       Text(
         openHandLocalizedText(
           context,
@@ -924,7 +874,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
         ),
       ),
       const SizedBox(height: 6),
-      _FetchAdvancedNumberRow(
+      _ToolAdvancedNumberRow(
         label: openHandLocalizedText(context, zh: '上限', en: 'Cap'),
         value: v.throttlePerMinute,
         min: 0,
@@ -949,17 +899,9 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
   ) {
     final hasData = _recentCalls.isNotEmpty || _engineStats.isNotEmpty;
     return [
-      Text(
-        openHandLocalizedText(
-          context,
-          zh: '调用日志 / 引擎健康度',
-          en: 'Call History / Engine Health',
-        ),
-        style: theme.textTheme.titleSmall,
-      ),
-      const SizedBox(height: 4),
-      Text(
-        openHandLocalizedText(
+      ..._buildToolTelemetryHeader(
+        context: context,
+        description: openHandLocalizedText(
           context,
           zh:
               '近期 50 条 WebFetch 调用与每引擎累计成功率、平均耗时、累计字节；'
@@ -969,152 +911,44 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
               'success-rate / avg latency / total hits. Persisted under '
               '~/.openhand/cache/web_fetch/telemetry/.',
         ),
-        style: theme.textTheme.bodySmall?.copyWith(
-          color: colorScheme.onSurfaceVariant,
+        hasData: hasData,
+        hasCalls: _recentCalls.isNotEmpty,
+        loading: _telemetryLoading,
+        clearing: _clearingTelemetry,
+        exporting: _exportingTelemetry,
+        onExportJson: () => _exportTelemetry(asCsv: false),
+        onExportCsv: () => _exportTelemetry(asCsv: true),
+        onRefresh: _refreshTelemetry,
+        onClear: _confirmAndClearTelemetry,
+      ),
+      const SizedBox(height: 8),
+      ..._buildToolTelemetryBody(
+        context: context,
+        loading: _telemetryLoading,
+        emptyMessage: openHandLocalizedText(
+          context,
+          zh: '暂无调用记录。下一次 WebFetch 调用结束后会自动记录。',
+          en:
+              'No calls recorded yet. The next WebFetch invocation '
+              'will be logged automatically.',
         ),
-      ),
-      const SizedBox(height: 8),
-      Row(
-        children: [
-          const Spacer(),
-          TextButton.icon(
-            onPressed:
-                _telemetryLoading ||
-                    _clearingTelemetry ||
-                    _exportingTelemetry ||
-                    _recentCalls.isEmpty
-                ? null
-                : () => _exportTelemetry(asCsv: false),
-            icon: const Icon(Icons.code, size: 16),
-            label: Text(
-              openHandLocalizedText(context, zh: '导出 JSON', en: 'Export JSON'),
-            ),
-          ),
-          const SizedBox(width: 4),
-          TextButton.icon(
-            onPressed:
-                _telemetryLoading ||
-                    _clearingTelemetry ||
-                    _exportingTelemetry ||
-                    _recentCalls.isEmpty
-                ? null
-                : () => _exportTelemetry(asCsv: true),
-            icon: _exportingTelemetry
-                ? const SizedBox(
-                    width: 14,
-                    height: 14,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.table_chart, size: 16),
-            label: Text(
-              openHandLocalizedText(context, zh: '导出 CSV', en: 'Export CSV'),
-            ),
-          ),
-          const SizedBox(width: 4),
-          TextButton.icon(
-            onPressed: _telemetryLoading || _clearingTelemetry
-                ? null
-                : _refreshTelemetry,
-            icon: _telemetryLoading
-                ? const SizedBox(
-                    width: 14,
-                    height: 14,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.refresh, size: 16),
-            label: Text(
-              openHandLocalizedText(context, zh: '刷新', en: 'Refresh'),
-            ),
-          ),
-          const SizedBox(width: 4),
-          TextButton.icon(
-            onPressed: !hasData || _clearingTelemetry
-                ? null
-                : _confirmAndClearTelemetry,
-            icon: _clearingTelemetry
-                ? const SizedBox(
-                    width: 14,
-                    height: 14,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : Icon(Icons.delete_sweep, size: 16, color: colorScheme.error),
-            label: Text(
-              openHandLocalizedText(
+        engineRows: _engineStats.entries
+            .map(
+              (entry) => _buildEngineStatRow(
                 context,
-                zh: _clearingTelemetry ? '清空中…' : '清空记录',
-                en: _clearingTelemetry ? 'Clearing…' : 'Clear Logs',
+                theme,
+                colorScheme,
+                entry.key,
+                entry.value,
               ),
-              style: TextStyle(color: colorScheme.error),
-            ),
-          ),
-        ],
+            )
+            .toList(growable: false),
+        callRows: _recentCalls
+            .take(_maxToolTelemetryCallRows)
+            .map((call) => _buildCallLogRow(context, theme, colorScheme, call))
+            .toList(growable: false),
+        totalCallCount: _recentCalls.length,
       ),
-      const SizedBox(height: 8),
-      if (!hasData && !_telemetryLoading)
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          child: Text(
-            openHandLocalizedText(
-              context,
-              zh: '暂无调用记录。下一次 WebFetch 调用结束后会自动记录。',
-              en:
-                  'No calls recorded yet. The next WebFetch invocation '
-                  'will be logged automatically.',
-            ),
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-            ),
-          ),
-        )
-      else ...[
-        if (_engineStats.isNotEmpty) ...[
-          Text(
-            openHandLocalizedText(context, zh: '引擎健康度', en: 'Engine Health'),
-            style: theme.textTheme.bodyMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 6),
-          ..._engineStats.entries
-              .toList(growable: false)
-              .map(
-                (e) => _buildEngineStatRow(
-                  context,
-                  theme,
-                  colorScheme,
-                  e.key,
-                  e.value,
-                ),
-              ),
-          const SizedBox(height: 12),
-        ],
-        if (_recentCalls.isNotEmpty) ...[
-          Text(
-            openHandLocalizedText(context, zh: '最近调用', en: 'Recent Calls'),
-            style: theme.textTheme.bodyMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 6),
-          ..._recentCalls
-              .take(20)
-              .map((c) => _buildCallLogRow(context, theme, colorScheme, c)),
-          if (_recentCalls.length > 20)
-            Padding(
-              padding: const EdgeInsets.only(top: 4),
-              child: Text(
-                openHandLocalizedText(
-                  context,
-                  zh: '… 还有 ${_recentCalls.length - 20} 条更早记录',
-                  en: '… ${_recentCalls.length - 20} older entries',
-                ),
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ),
-        ],
-      ],
     ];
   }
 
@@ -1207,76 +1041,16 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
                 ),
             ],
           ),
-          if (inCooldown || stat.lastQuotaError != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 4, left: 92 + 6),
-              child: Row(
-                children: [
-                  if (inCooldown) ...[
-                    _SettingsStatusChip(
-                      icon: Icons.pause_circle_outline,
-                      label: openHandLocalizedText(
-                        context,
-                        zh: '降级中 · 剩余 ${_settingsFormatRemainingUntilMs(stat.cooldownUntilMs)}',
-                        en: 'cooldown · ${_settingsFormatRemainingUntilMs(stat.cooldownUntilMs)} left',
-                      ),
-                      backgroundColor: colorScheme.errorContainer,
-                      foregroundColor: colorScheme.onErrorContainer,
-                    ),
-                    const SizedBox(width: 6),
-                    InkWell(
-                      onTap: () => _resetEngineCooldown(kind),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 2,
-                        ),
-                        child: Text(
-                          openHandLocalizedText(context, zh: '重置', en: 'Reset'),
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: colorScheme.primary,
-                            decoration: TextDecoration.underline,
-                            fontSize: 11,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                  if (stat.lastQuotaError != null) ...[
-                    if (inCooldown) const SizedBox(width: 6),
-                    Tooltip(
-                      message: stat.lastQuotaError ?? '',
-                      child: _SettingsStatusChip(
-                        icon: Icons.speed,
-                        label: openHandLocalizedText(
-                          context,
-                          zh: '配额/限流',
-                          en: 'rate limit',
-                        ),
-                        backgroundColor: colorScheme.tertiaryContainer,
-                        foregroundColor: colorScheme.onTertiaryContainer,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          if (samples.length >= 2)
-            Padding(
-              padding: const EdgeInsets.only(top: 4, left: 92 + 6),
-              child: SizedBox(
-                width: 240,
-                height: 28,
-                child: CustomPaint(
-                  painter: _WebFetchSparklinePainter(
-                    samples: samples,
-                    successColor: Colors.green.shade600,
-                    failureColor: colorScheme.error,
-                    lineColor: colorScheme.primary.withValues(alpha: 0.6),
-                  ),
-                ),
-              ),
-            ),
+          ..._buildToolEngineStatusDetails<WebFetchEngineSample>(
+            context: context,
+            inCooldown: inCooldown,
+            cooldownUntilMs: stat.cooldownUntilMs,
+            quotaError: stat.lastQuotaError,
+            onResetCooldown: () => _resetEngineCooldown(kind),
+            samples: samples,
+            durationOf: _webFetchSampleDuration,
+            successOf: _webFetchSampleSucceeded,
+          ),
         ],
       ),
     );
@@ -1289,38 +1063,10 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
     WebFetchCallLog call,
   ) {
     final timeStr = _settingsFormatMonthDayHmsFromEpochMs(call.timestampMs);
-    final (chipBg, chipFg, chipLabel) = switch (call.cacheStatus) {
-      'hit' => (
-        colorScheme.primaryContainer,
-        colorScheme.onPrimaryContainer,
-        'cache hit',
-      ),
-      'miss-stored' => (
-        colorScheme.tertiaryContainer,
-        colorScheme.onTertiaryContainer,
-        'fresh',
-      ),
-      'miss-empty' => (
-        colorScheme.surfaceContainerHighest,
-        colorScheme.onSurfaceVariant,
-        'empty',
-      ),
-      'disabled' => (
-        colorScheme.surfaceContainerHighest,
-        colorScheme.onSurfaceVariant,
-        'cache off',
-      ),
-      'bypass' => (
-        colorScheme.errorContainer,
-        colorScheme.onErrorContainer,
-        'bypass',
-      ),
-      _ => (
-        colorScheme.surfaceContainerHighest,
-        colorScheme.onSurfaceVariant,
-        call.cacheStatus,
-      ),
-    };
+    final (chipBg, chipFg, chipLabel) = _toolCacheStatusStyle(
+      colorScheme,
+      call.cacheStatus,
+    );
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 3),
       child: Row(
@@ -1959,109 +1705,9 @@ class _FetchAdvancedCooldownTierRow extends StatelessWidget {
   }
 }
 
-class _FetchAdvancedNumberRow extends StatelessWidget {
-  const _FetchAdvancedNumberRow({
-    required this.label,
-    required this.value,
-    required this.min,
-    required this.max,
-    required this.onChanged,
-  });
+int _webFetchSampleDuration(WebFetchEngineSample sample) => sample.durationMs;
 
-  final String label;
-  final int value;
-  final int min;
-  final int max;
-  final ValueChanged<int> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Row(
-        children: [
-          Expanded(child: Text(label, style: theme.textTheme.bodySmall)),
-          SizedBox(
-            width: 100,
-            child: _SettingsIntField(
-              value: value,
-              min: min,
-              max: max,
-              onChanged: onChanged,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _WebFetchSparklinePainter extends CustomPainter {
-  _WebFetchSparklinePainter({
-    required this.samples,
-    required this.successColor,
-    required this.failureColor,
-    required this.lineColor,
-  });
-
-  final List<WebFetchEngineSample> samples;
-  final Color successColor;
-  final Color failureColor;
-  final Color lineColor;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (samples.length < 2) return;
-    // 取最近 50 个样本，duration 归一化成 y。
-    final tail = samples.length > 50
-        ? samples.sublist(samples.length - 50)
-        : samples;
-    final maxDur = tail.fold<int>(
-      0,
-      (m, s) => s.durationMs > m ? s.durationMs : m,
-    );
-    final scaleY = maxDur == 0 ? 0.0 : (size.height - 4) / maxDur;
-    final stepX = tail.length == 1
-        ? size.width
-        : size.width / (tail.length - 1);
-
-    final linePaint = Paint()
-      ..color = lineColor
-      ..strokeWidth = 1.2
-      ..style = PaintingStyle.stroke;
-    final path = Path();
-    for (var i = 0; i < tail.length; i++) {
-      final x = i * stepX;
-      final y = size.height - 2 - tail[i].durationMs * scaleY;
-      if (i == 0) {
-        path.moveTo(x, y);
-      } else {
-        path.lineTo(x, y);
-      }
-    }
-    canvas.drawPath(path, linePaint);
-
-    final dotSuccess = Paint()..color = successColor;
-    final dotFailure = Paint()..color = failureColor;
-    for (var i = 0; i < tail.length; i++) {
-      final x = i * stepX;
-      final y = size.height - 2 - tail[i].durationMs * scaleY;
-      canvas.drawCircle(
-        Offset(x, y),
-        1.6,
-        tail[i].success ? dotSuccess : dotFailure,
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _WebFetchSparklinePainter old) =>
-      old.samples != samples ||
-      old.successColor != successColor ||
-      old.failureColor != failureColor ||
-      old.lineColor != lineColor;
-}
+bool _webFetchSampleSucceeded(WebFetchEngineSample sample) => sample.success;
 
 String _fetchEngineDisplayName(AiWebFetchEngineKind kind) {
   return switch (kind) {
