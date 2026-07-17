@@ -404,6 +404,33 @@ class AiSessionStore {
   static const int maxTemplateSessionPageSize = 200;
   static const int _kTranscriptToolPairContextBatchSize = 8;
   static const int _kTranscriptToolPairContextMaxMessages = 96;
+  static const String _kPromptMetadataKey = 'prompt_metadata';
+  static const List<String> _kStatisticsMetadataKeys = <String>[
+    aiSessionMessageSenderOriginJsonKey,
+    aiSessionGoalEvaluationMessageMetadataKey,
+    'plan_mode_approved',
+    'idle_gap_seconds',
+    'stable_prefix_hash',
+    'previous_stable_prefix_hash',
+    'tool_catalog_hash',
+    'previous_tool_catalog_hash',
+    'cache_enabled',
+    'input_cache_enabled',
+    'cache_control_strategy',
+    'cache_provider_automatic_cache_protected',
+    'cache_provider_automatic_cache_best_effort',
+    'cache_affinity_enabled',
+    'cache_protocol_controlled',
+    'request_cache_control_marker_count',
+    'request_cache_affinity_marker_count',
+    'cache_affinity_degraded',
+    'request_payload_prefix_continuity',
+    'request_payload_prefix_probe_complete',
+  ];
+  static const Set<String> _kStatisticsBooleanMetadataKeys = <String>{
+    aiSessionGoalEvaluationMessageMetadataKey,
+    'plan_mode_approved',
+  };
   static const List<String> _kMessageRowColumnsWithoutMetadata = <String>[
     'id',
     'session_id',
@@ -418,16 +445,45 @@ class AiSessionStore {
     'model_label',
     'usage_json',
   ];
+  static const List<String> _kStatisticsMessageRowColumnsWithoutMetadata =
+      <String>[
+        'id',
+        'session_id',
+        'sort_order',
+        'kind',
+        'role',
+        "CASE WHEN content = '' THEN '' ELSE '1' END AS content",
+        'created_at',
+        'character_count',
+        'is_deleted',
+        'model_id',
+        'model_label',
+        'usage_json',
+      ];
   static final String _kDeferredTelemetryMetadataProjection =
       'json_remove(metadata_json, '
       '${aiSessionMessageDeferredTelemetryMetadataKeys.map((key) => "'\$.$key'").join(', ')}) '
       'AS metadata_json';
+  static final String _kStatisticsMetadataProjection =
+      'json_object('
+      '${_kStatisticsMetadataKeys.map(_statisticsMetadataColumn).join(', ')}'
+      ') AS metadata_json';
   // 协作式解码的字节预算：仅按"条数"让步在首屏尾窗（≤24 条）下永不触发，
   // 一旦窗口里夹着大消息（长工具结果 / 大 metadata），整窗会在一帧内同步
   // jsonDecode + 模型构建，直接撑爆帧预算造成卡死 / ANR。改为额外按累计
   // 解码成本让步：每累积约 16KB 字符就让出一次事件循环，使 UI 能在重负载
   // 消息之间稳定绘制水合占位帧，把首屏开销摊到多帧而非一帧。
   static const int _kMessageDecodeYieldCostBudget = 16000;
+
+  static String _statisticsMetadataColumn(String key) {
+    if (_kStatisticsBooleanMetadataKeys.contains(key)) {
+      return "'$key', CASE json_type(metadata_json, '\$.$key') "
+          "WHEN 'true' THEN json('true') "
+          "WHEN 'false' THEN json('false') END";
+    }
+    return "'$key', COALESCE(json_extract(metadata_json, '\$.$key'), "
+        "json_extract(metadata_json, '\$.$_kPromptMetadataKey.$key'))";
+  }
 
   /// 按 session id 列表批量拉取 messages，结果按 session_id 分桶；
   /// 每个桶内保持 sort_order ASC 顺序。空列表入参 → 空 map。
@@ -746,6 +802,28 @@ class AiSessionStore {
     return restoreCompressionCheckpointFromSidecar(session);
   }
 
+  /// 加载统计修复所需的轻量会话快照，不传输完整正文与审计大字段。
+  Future<AiSession?> loadSessionStatisticsSnapshot(String sessionId) async {
+    final normalizedId = sessionId.trim();
+    if (!_isSafeStorageIdentifier(normalizedId)) return null;
+    final rows = await _db.query(
+      'sessions',
+      where: 'id = ?',
+      whereArgs: <Object?>[normalizedId],
+      limit: 1,
+    );
+    if (rows.isEmpty) return null;
+    final messageRows = await _queryMessageRows(
+      columnsWithoutMetadata: _kStatisticsMessageRowColumnsWithoutMetadata,
+      where: 'session_id = ?',
+      whereArgs: <Object?>[normalizedId],
+      orderBy: 'sort_order ASC',
+      deferTelemetryMetadata: true,
+      statisticsMetadataOnly: true,
+    );
+    return _sessionFromRowCooperatively(rows.first, messageRows);
+  }
+
   /// Loads a single session with only the newest [limit] message rows.
   ///
   /// This is the fast path used by the APP transcript when opening an
@@ -865,11 +943,14 @@ class AiSessionStore {
     int? limit,
     int? offset,
     bool deferTelemetryMetadata = false,
+    bool statisticsMetadataOnly = false,
   }) async {
     final columns = <String>[
       ...columnsWithoutMetadata,
       if (deferTelemetryMetadata)
-        _kDeferredTelemetryMetadataProjection
+        statisticsMetadataOnly
+            ? _kStatisticsMetadataProjection
+            : _kDeferredTelemetryMetadataProjection
       else
         'metadata_json',
       if (deferTelemetryMetadata)
@@ -887,10 +968,21 @@ class AiSessionStore {
       );
     } on DatabaseException catch (error, stack) {
       if (!deferTelemetryMetadata) rethrow;
-      silentLog('ai_session_store', '轻量消息元数据查询失败，回退完整元数据', error, stack);
+      silentLog(
+        'ai_session_store',
+        statisticsMetadataOnly ? '统计元数据投影失败，回退空元数据' : '轻量消息元数据查询失败，回退完整元数据',
+        error,
+        stack,
+      );
       return _db.query(
         'messages',
-        columns: <String>[...columnsWithoutMetadata, 'metadata_json'],
+        columns: <String>[
+          ...columnsWithoutMetadata,
+          if (statisticsMetadataOnly)
+            "'{}' AS metadata_json"
+          else
+            'metadata_json',
+        ],
         where: where,
         whereArgs: whereArgs,
         orderBy: orderBy,

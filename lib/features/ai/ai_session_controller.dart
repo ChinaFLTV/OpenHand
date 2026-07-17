@@ -1844,7 +1844,7 @@ class AiSessionController extends ChangeNotifier {
       }
       final fullSession = liveBeforeLoad.hasCompleteMessages
           ? liveBeforeLoad
-          : await _store.loadSession(sessionId);
+          : await _store.loadSessionStatisticsSnapshot(sessionId);
       if (fullSession == null || _deletedSessionIds.contains(sessionId)) {
         return null;
       }

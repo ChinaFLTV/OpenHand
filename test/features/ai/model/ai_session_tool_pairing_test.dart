@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:openhand/features/ai/data/ai_session_store.dart';
 import 'package:openhand/features/ai/model/ai_session.dart';
 import 'package:openhand/features/ai/model/ai_session_message.dart';
+import 'package:openhand/features/ai/model/ai_token_usage.dart';
 import 'package:openhand/shared/db/database_service.dart';
 import 'package:path/path.dart' as p;
 
@@ -233,6 +234,70 @@ void main() {
       aiSessionMessageHasDeferredTelemetryMetadata(full.metadata),
       isFalse,
     );
+  });
+
+  test('统计快照不加载完整正文与审计大字段', () async {
+    final heavyPayload = List<String>.filled(200000, 'x').join();
+    await store.save(
+      session(
+        <AiSessionMessage>[
+          AiSessionMessage.user(
+            id: 'statistics-user',
+            content: heavyPayload,
+            createdAt: createdAt,
+            metadata: <String, Object?>{
+              'request_payload': heavyPayload,
+              'composed_prompt_text': heavyPayload,
+              aiSessionGoalEvaluationMessageMetadataKey: true,
+              'prompt_metadata': <String, Object?>{'cache_enabled': true},
+            },
+          ),
+          AiSessionMessage.assistant(
+            id: 'statistics-assistant',
+            content: heavyPayload,
+            createdAt: createdAt,
+            usage: const AiTokenUsage(
+              promptTokens: 100,
+              completionTokens: 20,
+              totalTokens: 120,
+              cacheReadTokens: 80,
+            ),
+            metadata: <String, Object?>{
+              'response_raw': heavyPayload,
+              'composed_prompt_turns': <String>[heavyPayload],
+              'plan_mode_approved': true,
+              'prompt_metadata': <String, Object?>{'cache_enabled': true},
+            },
+          ),
+        ],
+        loadState: AiSessionMessageLoadState.complete,
+        id: 'statistics-heavy-session',
+      ),
+    );
+
+    final loaded = await store.loadSessionStatisticsSnapshot(
+      'statistics-heavy-session',
+    );
+
+    expect(loaded, isNotNull);
+    expect(loaded!.messages, hasLength(2));
+    for (final message in loaded.messages) {
+      expect(message.content, '1');
+      expect(message.characterCount, heavyPayload.length);
+      expect(
+        aiSessionMessageHasDeferredTelemetryMetadata(message.metadata),
+        isTrue,
+      );
+      expect(message.metadata, isNot(contains('request_payload')));
+      expect(message.metadata, isNot(contains('response_raw')));
+      expect(message.metadata, isNot(contains('composed_prompt_turns')));
+      expect(message.metadata, isNot(contains('composed_prompt_text')));
+      expect(message.metadata['prompt_metadata'], isNull);
+      expect(message.metadata['cache_enabled'], isNotNull);
+    }
+    expect(loaded.messages.first.isGoalEvaluationMessage, isTrue);
+    expect(loaded.messages.last.metadata['plan_mode_approved'], isTrue);
+    expect(loaded.messages.last.usage?.cacheReadTokens, 80);
   });
 
   test('首屏知识库继承只读取最近会话边界', () async {
