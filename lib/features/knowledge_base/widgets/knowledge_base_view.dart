@@ -260,9 +260,7 @@ class _KnowledgeToolbarActions extends StatelessWidget {
     this.onOpenPlugins,
   });
 
-  static const double _spacing = 8;
   static const double _compactBreakpoint = 560;
-  static const Size _iconButtonSize = Size.square(40);
 
   final KnowledgeBaseController controller;
   final AiModelConfig? embeddingModel;
@@ -349,247 +347,176 @@ class _KnowledgeToolbarActions extends StatelessWidget {
     );
 
     if (compact) {
-      return _KnowledgeToolbarRows(
-        rows: [
-          [refreshButton, importButton, configButton, usageButton],
-          [
-            _KnowledgeToolbarIconButton(
-              tooltip: openHandLocalizedText(
-                context,
-                zh: '新建笔记',
-                zhHant: '新增筆記',
-                en: 'New Note',
-                fr: 'Nouvelle note',
-                de: 'Neue Notiz',
-                ja: '新規ノート',
-              ),
-              icon: Icons.note_add_outlined,
-              onPressed: controller.busy
-                  ? null
-                  : () => showKnowledgeImportDialog(context),
-            ),
-            _KnowledgeToolbarIconButton(
-              tooltip: openHandLocalizedText(
-                context,
-                zh: '向量分布',
-                zhHant: '向量分布',
-                en: 'Vector Map',
-                fr: 'Carte vectorielle',
-                de: 'Vektorkarte',
-                ja: 'ベクトルマップ',
-              ),
-              icon: Icons.scatter_plot_rounded,
-              onPressed: controller.loading || controller.busy
-                  ? null
-                  : () => showKnowledgeVectorDistributionDialog(context),
-            ),
-            _KnowledgeToolbarIconButton(
-              tooltip: openHandLocalizedText(
-                context,
-                zh: '重建索引',
-                zhHant: '重建索引',
-                en: 'Reindex',
-                fr: 'Réindexer',
-                de: 'Neu indexieren',
-                ja: '再インデックス',
-              ),
-              icon: Icons.manage_search_rounded,
-              onPressed: () => KnowledgeBaseView._showReindexNotice(context),
-            ),
-            _KnowledgeToolbarIconButton(
-              tooltip: openHandLocalizedText(
-                context,
-                zh: 'Qdrant 运维',
-                zhHant: 'Qdrant 維運',
-                en: 'Qdrant Ops',
-                fr: 'Ops Qdrant',
-                de: 'Qdrant-Betrieb',
-                ja: 'Qdrant 運用',
-              ),
-              icon: Icons.monitor_heart_outlined,
-              onPressed: () => showQdrantStatusDialog(context),
-            ),
-            _KnowledgeToolbarIconButton(
-              tooltip: openHandLocalizedText(
-                context,
-                zh: 'Qdrant 管理',
-                zhHant: 'Qdrant 管理',
-                en: 'Qdrant Admin',
-                fr: 'Admin Qdrant',
-                de: 'Qdrant-Admin',
-                ja: 'Qdrant 管理',
-              ),
-              icon: Icons.storage_outlined,
-              onPressed: () => showQdrantAdminDialog(context),
-            ),
-          ],
-        ],
-      );
-    }
-
-    return _KnowledgeToolbarRows(
-      rows: [
-        [
+      return FeaturePageToolbar(
+        primaryActions: [
           refreshButton,
-          OutlinedButton.icon(
-            onPressed: () => showQdrantStatusDialog(context),
-            icon: const Icon(Icons.monitor_heart_outlined),
-            label: Text(
-              openHandLocalizedText(
-                context,
-                zh: 'Qdrant 运维',
-                zhHant: 'Qdrant 維運',
-                en: 'Qdrant Ops',
-                fr: 'Ops Qdrant',
-                de: 'Qdrant-Betrieb',
-                ja: 'Qdrant 運用',
-              ),
-            ),
-          ),
-          OutlinedButton.icon(
-            onPressed: () => showQdrantAdminDialog(context),
-            icon: const Icon(Icons.storage_outlined),
-            label: Text(
-              openHandLocalizedText(
-                context,
-                zh: 'Qdrant 管理',
-                zhHant: 'Qdrant 管理',
-                en: 'Qdrant Admin',
-                fr: 'Admin Qdrant',
-                de: 'Qdrant-Admin',
-                ja: 'Qdrant 管理',
-              ),
-            ),
-          ),
-          OutlinedButton.icon(
-            onPressed: controller.loading || controller.busy
-                ? null
-                : () => showKnowledgeVectorDistributionDialog(context),
-            icon: const Icon(Icons.scatter_plot_rounded),
-            label: Text(
-              openHandLocalizedText(
-                context,
-                zh: '向量分布',
-                zhHant: '向量分布',
-                en: 'Vector Map',
-                fr: 'Carte vectorielle',
-                de: 'Vektorkarte',
-                ja: 'ベクトルマップ',
-              ),
-            ),
-          ),
-        ],
-        [
-          OutlinedButton.icon(
-            onPressed: () => KnowledgeBaseView._showReindexNotice(context),
-            icon: const Icon(Icons.manage_search_rounded),
-            label: Text(
-              openHandLocalizedText(
-                context,
-                zh: '重建索引',
-                zhHant: '重建索引',
-                en: 'Reindex',
-                fr: 'Réindexer',
-                de: 'Neu indexieren',
-                ja: '再インデックス',
-              ),
-            ),
-          ),
-          FilledButton.tonalIcon(
-            onPressed: controller.busy
-                ? null
-                : () => showKnowledgeImportDialog(context),
-            icon: const Icon(Icons.note_add_outlined),
-            label: Text(
-              openHandLocalizedText(
-                context,
-                zh: '新建笔记',
-                zhHant: '新增筆記',
-                en: 'New Note',
-                fr: 'Nouvelle note',
-                de: 'Neue Notiz',
-                ja: '新規ノート',
-              ),
-            ),
-          ),
           importButton,
           configButton,
           usageButton,
         ],
-      ],
-    );
-  }
-}
-
-class _KnowledgeToolbarRows extends StatelessWidget {
-  const _KnowledgeToolbarRows({required this.rows});
-
-  final List<List<Widget>> rows;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        for (var index = 0; index < rows.length; index++) ...[
-          _KnowledgeToolbarRow(children: rows[index]),
-          if (index != rows.length - 1)
-            const SizedBox(height: _KnowledgeToolbarActions._spacing),
+        secondaryActions: [
+          FeaturePageToolbarIconButton(
+            tooltip: openHandLocalizedText(
+              context,
+              zh: '新建笔记',
+              zhHant: '新增筆記',
+              en: 'New Note',
+              fr: 'Nouvelle note',
+              de: 'Neue Notiz',
+              ja: '新規ノート',
+            ),
+            icon: Icons.note_add_outlined,
+            onPressed: controller.busy
+                ? null
+                : () => showKnowledgeImportDialog(context),
+          ),
+          FeaturePageToolbarIconButton(
+            tooltip: openHandLocalizedText(
+              context,
+              zh: '向量分布',
+              zhHant: '向量分布',
+              en: 'Vector Map',
+              fr: 'Carte vectorielle',
+              de: 'Vektorkarte',
+              ja: 'ベクトルマップ',
+            ),
+            icon: Icons.scatter_plot_rounded,
+            onPressed: controller.loading || controller.busy
+                ? null
+                : () => showKnowledgeVectorDistributionDialog(context),
+          ),
+          FeaturePageToolbarIconButton(
+            tooltip: openHandLocalizedText(
+              context,
+              zh: '重建索引',
+              zhHant: '重建索引',
+              en: 'Reindex',
+              fr: 'Réindexer',
+              de: 'Neu indexieren',
+              ja: '再インデックス',
+            ),
+            icon: Icons.manage_search_rounded,
+            onPressed: () => KnowledgeBaseView._showReindexNotice(context),
+          ),
+          FeaturePageToolbarIconButton(
+            tooltip: openHandLocalizedText(
+              context,
+              zh: 'Qdrant 运维',
+              zhHant: 'Qdrant 維運',
+              en: 'Qdrant Ops',
+              fr: 'Ops Qdrant',
+              de: 'Qdrant-Betrieb',
+              ja: 'Qdrant 運用',
+            ),
+            icon: Icons.monitor_heart_outlined,
+            onPressed: () => showQdrantStatusDialog(context),
+          ),
+          FeaturePageToolbarIconButton(
+            tooltip: openHandLocalizedText(
+              context,
+              zh: 'Qdrant 管理',
+              zhHant: 'Qdrant 管理',
+              en: 'Qdrant Admin',
+              fr: 'Admin Qdrant',
+              de: 'Qdrant-Admin',
+              ja: 'Qdrant 管理',
+            ),
+            icon: Icons.storage_outlined,
+            onPressed: () => showQdrantAdminDialog(context),
+          ),
         ],
-      ],
-    );
-  }
-}
+      );
+    }
 
-class _KnowledgeToolbarRow extends StatelessWidget {
-  const _KnowledgeToolbarRow({required this.children});
-
-  final List<Widget> children;
-
-  @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      reverse: true,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          for (var index = 0; index < children.length; index++) ...[
-            if (index > 0)
-              const SizedBox(width: _KnowledgeToolbarActions._spacing),
-            children[index],
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _KnowledgeToolbarIconButton extends StatelessWidget {
-  const _KnowledgeToolbarIconButton({
-    required this.tooltip,
-    required this.icon,
-    required this.onPressed,
-  });
-
-  final String tooltip;
-  final IconData icon;
-  final VoidCallback? onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final child = SizedBox.fromSize(
-      size: _KnowledgeToolbarActions._iconButtonSize,
-      child: IconButton(
-        onPressed: onPressed,
-        icon: Icon(icon),
-        style: IconButton.styleFrom(
-          side: BorderSide(color: Theme.of(context).colorScheme.outline),
+    return FeaturePageToolbar(
+      primaryActions: [
+        refreshButton,
+        OutlinedButton.icon(
+          onPressed: () => showQdrantStatusDialog(context),
+          icon: const Icon(Icons.monitor_heart_outlined),
+          label: Text(
+            openHandLocalizedText(
+              context,
+              zh: 'Qdrant 运维',
+              zhHant: 'Qdrant 維運',
+              en: 'Qdrant Ops',
+              fr: 'Ops Qdrant',
+              de: 'Qdrant-Betrieb',
+              ja: 'Qdrant 運用',
+            ),
+          ),
         ),
-      ),
+        OutlinedButton.icon(
+          onPressed: () => showQdrantAdminDialog(context),
+          icon: const Icon(Icons.storage_outlined),
+          label: Text(
+            openHandLocalizedText(
+              context,
+              zh: 'Qdrant 管理',
+              zhHant: 'Qdrant 管理',
+              en: 'Qdrant Admin',
+              fr: 'Admin Qdrant',
+              de: 'Qdrant-Admin',
+              ja: 'Qdrant 管理',
+            ),
+          ),
+        ),
+        OutlinedButton.icon(
+          onPressed: controller.loading || controller.busy
+              ? null
+              : () => showKnowledgeVectorDistributionDialog(context),
+          icon: const Icon(Icons.scatter_plot_rounded),
+          label: Text(
+            openHandLocalizedText(
+              context,
+              zh: '向量分布',
+              zhHant: '向量分布',
+              en: 'Vector Map',
+              fr: 'Carte vectorielle',
+              de: 'Vektorkarte',
+              ja: 'ベクトルマップ',
+            ),
+          ),
+        ),
+      ],
+      secondaryActions: [
+        OutlinedButton.icon(
+          onPressed: () => KnowledgeBaseView._showReindexNotice(context),
+          icon: const Icon(Icons.manage_search_rounded),
+          label: Text(
+            openHandLocalizedText(
+              context,
+              zh: '重建索引',
+              zhHant: '重建索引',
+              en: 'Reindex',
+              fr: 'Réindexer',
+              de: 'Neu indexieren',
+              ja: '再インデックス',
+            ),
+          ),
+        ),
+        FilledButton.tonalIcon(
+          onPressed: controller.busy
+              ? null
+              : () => showKnowledgeImportDialog(context),
+          icon: const Icon(Icons.note_add_outlined),
+          label: Text(
+            openHandLocalizedText(
+              context,
+              zh: '新建笔记',
+              zhHant: '新增筆記',
+              en: 'New Note',
+              fr: 'Nouvelle note',
+              de: 'Neue Notiz',
+              ja: '新規ノート',
+            ),
+          ),
+        ),
+        importButton,
+        configButton,
+        usageButton,
+      ],
     );
-    return Tooltip(message: tooltip, child: child);
   }
 }
 

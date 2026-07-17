@@ -177,3 +177,87 @@ class FeaturePageHeader extends StatelessWidget {
     );
   }
 }
+
+class FeaturePageToolbar extends StatelessWidget {
+  const FeaturePageToolbar({
+    super.key,
+    required this.primaryActions,
+    this.secondaryActions = const <Widget>[],
+    this.spacing = 8,
+  });
+
+  final List<Widget> primaryActions;
+  final List<Widget> secondaryActions;
+  final double spacing;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        _FeaturePageToolbarRow(actions: primaryActions, spacing: spacing),
+        if (secondaryActions.isNotEmpty) ...[
+          SizedBox(height: spacing),
+          _FeaturePageToolbarRow(actions: secondaryActions, spacing: spacing),
+        ],
+      ],
+    );
+  }
+}
+
+class FeaturePageToolbarIconButton extends StatelessWidget {
+  const FeaturePageToolbarIconButton({
+    super.key,
+    required this.tooltip,
+    required this.icon,
+    required this.onPressed,
+    this.size = 40,
+  });
+
+  final String tooltip;
+  final IconData icon;
+  final VoidCallback? onPressed;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: SizedBox.square(
+        dimension: size,
+        child: IconButton(
+          onPressed: onPressed,
+          icon: Icon(icon),
+          style: IconButton.styleFrom(
+            side: BorderSide(color: Theme.of(context).colorScheme.outline),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _FeaturePageToolbarRow extends StatelessWidget {
+  const _FeaturePageToolbarRow({required this.actions, required this.spacing});
+
+  final List<Widget> actions;
+  final double spacing;
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      reverse: true,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (var index = 0; index < actions.length; index++) ...[
+            if (index > 0) SizedBox(width: spacing),
+            actions[index],
+          ],
+        ],
+      ),
+    );
+  }
+}

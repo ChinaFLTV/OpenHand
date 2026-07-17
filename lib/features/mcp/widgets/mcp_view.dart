@@ -339,17 +339,26 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
       (controller) => controller.mcpEnabled,
     );
 
-    final actions = Wrap(
-      spacing: 12,
-      runSpacing: 12,
-      alignment: WrapAlignment.end,
-      children: [
+    final actions = FeaturePageToolbar(
+      primaryActions: [
         FilledButton.tonalIcon(
           onPressed: mcpSnapshot.isLoading
               ? null
               : () => mcpController.refresh(),
           icon: const Icon(Icons.refresh_rounded),
           label: Text(l10n.mcpRefresh),
+        ),
+        FilledButton.tonalIcon(
+          onPressed: () => _showMcpOpsDialog(context),
+          icon: const Icon(Icons.dns_rounded),
+          label: Text(_localizedText(context, zh: 'MCP服务器', en: 'MCP Server')),
+        ),
+        FilledButton.icon(
+          onPressed: mcpSnapshot.errorMessage == null
+              ? () => _showServerDialog(context)
+              : null,
+          icon: const Icon(Icons.add_rounded),
+          label: Text(l10n.mcpNewServer),
         ),
         resourceUsageStatisticsButton(
           context,
@@ -362,48 +371,36 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
             },
           ),
         ),
-        FilledButton.tonalIcon(
-          onPressed: () => _showMcpOpsDialog(context),
-          icon: const Icon(Icons.dns_rounded),
-          label: Text(_localizedText(context, zh: 'MCP服务器', en: 'MCP Server')),
-        ),
-        OutlinedButton.icon(
+      ],
+      secondaryActions: [
+        FeaturePageToolbarIconButton(
+          tooltip: l10n.mcpOpenDirectory,
+          icon: Icons.folder_open_rounded,
           onPressed: () => _openDirectory(context),
-          icon: const Icon(Icons.folder_open_rounded),
-          label: Text(l10n.mcpOpenDirectory),
         ),
-        OutlinedButton.icon(
+        FeaturePageToolbarIconButton(
+          tooltip: _localizedText(context, zh: '导出快照', en: 'Export snapshot'),
+          icon: Icons.ios_share_rounded,
           onPressed: mcpSnapshot.errorMessage == null
               ? () => _showSnapshotExportMenu(context)
               : null,
-          icon: const Icon(Icons.ios_share_rounded),
-          label: Text(
-            _localizedText(context, zh: '导出快照', en: 'Export snapshot'),
-          ),
         ),
-        OutlinedButton.icon(
+        FeaturePageToolbarIconButton(
+          tooltip: l10n.mcpBuildKeywordIndex,
+          icon: Icons.travel_explore_rounded,
           onPressed:
               mcpSnapshot.errorMessage != null ||
                   mcpController.isBuildingKeywordIndex
               ? null
               : () => _buildKeywordIndex(context),
-          icon: const Icon(Icons.travel_explore_rounded),
-          label: Text(l10n.mcpBuildKeywordIndex),
         ),
-        OutlinedButton.icon(
+        FeaturePageToolbarIconButton(
+          tooltip: _localizedText(context, zh: '探测详情', en: 'Probe Details'),
+          icon: Icons.radar_rounded,
           onPressed:
               mcpSnapshot.errorMessage != null || mcpSnapshot.servers.isEmpty
               ? null
               : () => _showProbeDetailsDialog(context),
-          icon: const Icon(Icons.radar_rounded),
-          label: Text(_localizedText(context, zh: '探测详情', en: 'Probe Details')),
-        ),
-        FilledButton.icon(
-          onPressed: mcpSnapshot.errorMessage == null
-              ? () => _showServerDialog(context)
-              : null,
-          icon: const Icon(Icons.add_rounded),
-          label: Text(l10n.mcpNewServer),
         ),
       ],
     );
