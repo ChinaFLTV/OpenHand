@@ -65,9 +65,10 @@ void main() {
   AiSession session(
     List<AiSessionMessage> messages, {
     required AiSessionMessageLoadState loadState,
+    String id = 'session',
   }) {
     return AiSession(
-      id: 'session',
+      id: id,
       title: '测试会话',
       templateId: 'default',
       templateName: '默认助手',
@@ -173,5 +174,112 @@ void main() {
       'call-two',
       'after',
     ]);
+  });
+
+  test('首屏消息延迟审计重字段并保留渲染元数据', () async {
+    final metadata = <String, Object?>{
+      'request_payload': <String, Object?>{
+        'messages': List<String>.filled(128, '大段请求内容'),
+      },
+      'response_raw': List<String>.filled(128, '大段响应内容').join(),
+      'composed_prompt_turns': List<String>.filled(64, '提示词轮次'),
+      'composed_prompt_text': List<String>.filled(64, '完整提示词').join(),
+      'prompt_metadata': <String, Object?>{'cache_enabled': true},
+      aiSessionMessageContentFormatKey: 'html',
+      'tool_name': 'MachineTerminalExec',
+    };
+    await store.save(
+      session(
+        <AiSessionMessage>[
+          AiSessionMessage.assistant(
+            id: 'heavy-message',
+            content: '<p>结果</p>',
+            createdAt: createdAt,
+            metadata: metadata,
+          ),
+        ],
+        loadState: AiSessionMessageLoadState.complete,
+        id: 'heavy-session',
+      ),
+    );
+
+    final loaded = await store.loadSessionTailWindow(
+      'heavy-session',
+      limit: 8,
+      characterBudget: 14000,
+    );
+    final page = await store.loadMessages(
+      'heavy-session',
+      deferTelemetryMetadata: true,
+    );
+    final full = await store.loadMessage('heavy-session', 'heavy-message');
+
+    for (final compact in <AiSessionMessage>[
+      loaded!.messages.single,
+      page.messages.single,
+    ]) {
+      expect(
+        aiSessionMessageHasDeferredTelemetryMetadata(compact.metadata),
+        isTrue,
+      );
+      expect(compact.metadata, isNot(contains('request_payload')));
+      expect(compact.metadata, isNot(contains('response_raw')));
+      expect(compact.metadata[aiSessionMessageContentFormatKey], 'html');
+      expect(compact.metadata['tool_name'], 'MachineTerminalExec');
+    }
+    expect(full!.metadata['request_payload'], isNotNull);
+    expect(full.metadata['response_raw'], isNotNull);
+    expect(
+      aiSessionMessageHasDeferredTelemetryMetadata(full.metadata),
+      isFalse,
+    );
+  });
+
+  test('首屏知识库继承只读取最近会话边界', () async {
+    final knowledgeMetadata = <String, Object?>{
+      'knowledge_base': <String, Object?>{
+        'enabled': true,
+        'status': 'success',
+        'results': <Object?>[
+          <String, Object?>{'chunk_id': 'chunk-1', 'content': '知识内容'},
+        ],
+      },
+      'request_payload': List<String>.filled(128, '大段请求内容').join(),
+    };
+    await store.save(
+      session(
+        <AiSessionMessage>[
+          AiSessionMessage.user(
+            id: 'knowledge-user',
+            content: '查询知识',
+            createdAt: createdAt,
+            metadata: knowledgeMetadata,
+          ),
+          AiSessionMessage.reasoning(
+            id: 'knowledge-reasoning',
+            content: '分析中',
+            createdAt: createdAt,
+          ),
+          AiSessionMessage.assistant(
+            id: 'knowledge-answer',
+            content: '知识回答',
+            createdAt: createdAt,
+          ),
+        ],
+        loadState: AiSessionMessageLoadState.complete,
+        id: 'knowledge-session',
+      ),
+    );
+
+    final loaded = await store.loadSessionTailWindow(
+      'knowledge-session',
+      limit: 2,
+      characterBudget: 14000,
+    );
+    final answer = loaded!.messages.singleWhere(
+      (message) => message.id == 'knowledge-answer',
+    );
+
+    expect(answer.metadata['knowledge_base'], isNotNull);
   });
 }

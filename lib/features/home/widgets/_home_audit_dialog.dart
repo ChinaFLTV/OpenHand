@@ -2087,12 +2087,38 @@ Future<void> _showMessageAuditDialog(
   required AiSession session,
   required AiSessionController controller,
   required bool claudeStyle,
-}) {
+}) async {
+  final relatedMessage = _auditRelatedTelemetryMessage(session, message);
+  final deferredMessageIds = <String>{
+    if (aiSessionMessageHasDeferredTelemetryMetadata(message.metadata))
+      message.id,
+    if (relatedMessage != null &&
+        aiSessionMessageHasDeferredTelemetryMetadata(relatedMessage.metadata))
+      relatedMessage.id,
+  };
+  final loadedMessages = await Future.wait(
+    deferredMessageIds.map(
+      (messageId) => controller.store.loadMessage(session.id, messageId),
+    ),
+  );
+  final fullMessages = <String, AiSessionMessage>{
+    for (final message in loadedMessages)
+      if (message != null) message.id: message,
+  };
+  if (!context.mounted) return;
+  final auditMessage = fullMessages[message.id] ?? message;
+  final auditSession = fullMessages.isEmpty
+      ? session
+      : session.copyWith(
+          messages: <AiSessionMessage>[
+            for (final item in session.messages) fullMessages[item.id] ?? item,
+          ],
+        );
   return showAnimatedDialog<void>(
     context: context,
     builder: (dialogContext) => _MessageAuditDialog(
-      message: message,
-      session: session,
+      message: auditMessage,
+      session: auditSession,
       controller: controller,
       claudeStyle: claudeStyle,
     ),

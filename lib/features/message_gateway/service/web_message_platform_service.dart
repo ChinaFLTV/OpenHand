@@ -2171,6 +2171,13 @@ class WebMessagePlatformService {
       (shelf.Request r, String sessionId) =>
           _withAuth(r, (req, auth) => _listMessages(req, auth, sessionId)),
     );
+    router.get(
+      '/api/sessions/<sessionId>/messages/<messageId>',
+      (shelf.Request r, String sessionId, String messageId) => _withAuth(
+        r,
+        (req, auth) => _getMessage(req, auth, sessionId, messageId),
+      ),
+    );
     router.post(
       '/api/sessions/<sessionId>/messages',
       (shelf.Request r, String sessionId) =>
@@ -4308,6 +4315,39 @@ class WebMessagePlatformService {
       'send_phase': _sessionController.sendPhaseForSession(session.id).name,
       'last_error': _sessionController.lastErrorMessageForSession(session.id),
       'pending_write_approval': _pendingWriteApprovalJson(session.id),
+    });
+  }
+
+  Future<shelf.Response> _getMessage(
+    shelf.Request _,
+    _WebGatewayAuthSession auth,
+    String sessionId,
+    String messageId,
+  ) async {
+    final session = _findAuthorizedSession(auth, sessionId);
+    if (session == null) {
+      return _json(HttpStatus.notFound, <String, Object?>{
+        'error': 'session_deleted_or_not_found',
+      });
+    }
+    AiSessionMessage? message;
+    try {
+      message = await _sessionController.store.loadMessage(
+        session.id,
+        messageId,
+      );
+    } on ArgumentError {
+      return _json(HttpStatus.badRequest, <String, Object?>{
+        'error': 'invalid_message_id',
+      });
+    }
+    if (message == null) {
+      return _json(HttpStatus.notFound, <String, Object?>{
+        'error': 'message_not_found',
+      });
+    }
+    return _json(HttpStatus.ok, <String, Object?>{
+      'message': _messageJson(message, includeTelemetryMetadata: true),
     });
   }
 
@@ -7505,6 +7545,7 @@ class WebMessagePlatformService {
           session.id,
           limit: scanLimit,
           offset: rawOffset,
+          deferTelemetryMetadata: true,
         );
         return _boundedStoredMessageWindow(
           session: session,
@@ -7606,6 +7647,7 @@ class WebMessagePlatformService {
         session.id,
         limit: _maxMessageWindowLimit,
         offset: contextOffset,
+        deferTelemetryMetadata: true,
       );
       final scopedSession = session.copyWith(
         messages: page.messages,
@@ -7941,8 +7983,16 @@ class WebMessagePlatformService {
     return session.latestCompressionPoint;
   }
 
-  Map<String, Object?> _messageJson(AiSessionMessage message) {
+  Map<String, Object?> _messageJson(
+    AiSessionMessage message, {
+    bool includeTelemetryMetadata = false,
+  }) {
     final usage = message.usage;
+    final metadata = includeTelemetryMetadata
+        ? aiSessionMessageMetadataWithoutDeferredTelemetryMarker(
+            message.metadata,
+          )
+        : aiSessionMessageTranscriptMetadata(message.metadata);
     return <String, Object?>{
       'id': message.id,
       'kind': message.kind.storageValue,
@@ -7955,7 +8005,7 @@ class WebMessagePlatformService {
       'feedback': message.feedback?.storageValue,
       if (usage != null) 'usage': usage.toJson(),
       ...message.derivedConversationJson(),
-      'metadata': message.metadata,
+      'metadata': metadata,
     };
   }
 

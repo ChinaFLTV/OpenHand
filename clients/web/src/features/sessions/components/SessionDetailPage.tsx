@@ -28,6 +28,7 @@ import {
   controlMachineTerminal,
   clearSessionThrottle,
   compactSession,
+  DEFERRED_MESSAGE_TELEMETRY_METADATA_KEY,
   deleteMessage,
   deleteMessageCascade,
   deleteSession,
@@ -38,6 +39,7 @@ import {
   generateSessionTitle,
   getMachineTerminal,
   getSession,
+  getSessionMessage,
   isGoalModeAllowedForTemplate,
   listMessages,
   listSessionTitleSourceMessages,
@@ -4452,7 +4454,17 @@ export function SessionDetailPage() {
   });
   const handleAuditMessage = useCallback((m: SessionMessage) => {
     setAuditMessage(m);
-  }, []);
+    if (m.metadata?.[DEFERRED_MESSAGE_TELEMETRY_METADATA_KEY] !== true) {
+      return;
+    }
+    const auditSessionId = sessionId;
+    void getSessionMessage(auditSessionId, m.id)
+      .then(({ message }) => {
+        if (!ownsSessionAsyncResult(auditSessionId)) return;
+        setAuditMessage((current) => current?.id === m.id ? message : current);
+      })
+      .catch(ignoreError);
+  }, [sessionId]);
   const handleMessageActiveChange = useCallback((message: SessionMessage, active: boolean) => {
     setActiveMessageId(active ? message.id : null);
   }, []);

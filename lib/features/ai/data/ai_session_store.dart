@@ -402,9 +402,26 @@ class AiSessionStore {
   static const int _kSessionDecodeYieldBatchSize = 8;
   static const int defaultTemplateSessionPageSize = 50;
   static const int maxTemplateSessionPageSize = 200;
-  static const int _kKnowledgeBaseAssociationBackwardScanLimit = 200;
   static const int _kTranscriptToolPairContextBatchSize = 8;
   static const int _kTranscriptToolPairContextMaxMessages = 96;
+  static const List<String> _kMessageRowColumnsWithoutMetadata = <String>[
+    'id',
+    'session_id',
+    'sort_order',
+    'kind',
+    'role',
+    'content',
+    'created_at',
+    'character_count',
+    'is_deleted',
+    'model_id',
+    'model_label',
+    'usage_json',
+  ];
+  static final String _kDeferredTelemetryMetadataProjection =
+      'json_remove(metadata_json, '
+      '${aiSessionMessageDeferredTelemetryMetadataKeys.map((key) => "'\$.$key'").join(', ')}) '
+      'AS metadata_json';
   // 协作式解码的字节预算：仅按"条数"让步在首屏尾窗（≤24 条）下永不触发，
   // 一旦窗口里夹着大消息（长工具结果 / 大 metadata），整窗会在一帧内同步
   // jsonDecode + 模型构建，直接撑爆帧预算造成卡死 / ANR。改为额外按累计
@@ -761,12 +778,13 @@ class AiSessionStore {
       requestedLimit: limit,
       totalCount: totalCount,
     );
-    final rawRows = await _db.query(
-      'messages',
+    final rawRows = await _queryMessageRows(
+      columnsWithoutMetadata: _kMessageRowColumnsWithoutMetadata,
       where: 'session_id = ?',
       whereArgs: <Object?>[normalizedId],
       orderBy: 'sort_order DESC',
       limit: effectiveLimit,
+      deferTelemetryMetadata: true,
     );
     final messageRows = _trimTailRowsToBudget(
       rawRows,
@@ -796,6 +814,7 @@ class AiSessionStore {
       normalizedId,
       messages: session.messages,
       offset: offset,
+      deferTelemetryMetadata: true,
     );
     if (expanded.offset != offset) {
       final expandedLoadState =
@@ -836,6 +855,49 @@ class AiSessionStore {
     }
     final sortOrder = rows.first['sort_order'];
     return sortOrder is int ? math.max(0, sortOrder) : fallback;
+  }
+
+  Future<List<Map<String, Object?>>> _queryMessageRows({
+    required List<String> columnsWithoutMetadata,
+    required String where,
+    required List<Object?> whereArgs,
+    required String orderBy,
+    int? limit,
+    int? offset,
+    bool deferTelemetryMetadata = false,
+  }) async {
+    final columns = <String>[
+      ...columnsWithoutMetadata,
+      if (deferTelemetryMetadata)
+        _kDeferredTelemetryMetadataProjection
+      else
+        'metadata_json',
+      if (deferTelemetryMetadata)
+        '1 AS $aiSessionMessageDeferredTelemetryMetadataKey',
+    ];
+    try {
+      return await _db.query(
+        'messages',
+        columns: columns,
+        where: where,
+        whereArgs: whereArgs,
+        orderBy: orderBy,
+        limit: limit,
+        offset: offset,
+      );
+    } on DatabaseException catch (error, stack) {
+      if (!deferTelemetryMetadata) rethrow;
+      silentLog('ai_session_store', '轻量消息元数据查询失败，回退完整元数据', error, stack);
+      return _db.query(
+        'messages',
+        columns: <String>[...columnsWithoutMetadata, 'metadata_json'],
+        where: where,
+        whereArgs: whereArgs,
+        orderBy: orderBy,
+        limit: limit,
+        offset: offset,
+      );
+    }
   }
 
   List<Map<String, Object?>> _trimTailRowsToBudget(
@@ -967,6 +1029,7 @@ class AiSessionStore {
     String sessionId, {
     int limit = 50,
     int offset = 0,
+    bool deferTelemetryMetadata = false,
   }) async {
     final totalCount = await _countMessages(sessionId);
     final safeOffset = math.min(math.max(0, offset), totalCount);
@@ -974,11 +1037,13 @@ class AiSessionStore {
       sessionId,
       limit: limit,
       offset: safeOffset,
+      deferTelemetryMetadata: deferTelemetryMetadata,
     );
     final expanded = await _prependTranscriptToolCallContext(
       sessionId,
       messages: messages,
       offset: safeOffset,
+      deferTelemetryMetadata: deferTelemetryMetadata,
     );
     final hasMore = expanded.offset + expanded.messages.length < totalCount;
 
@@ -994,14 +1059,16 @@ class AiSessionStore {
     String sessionId, {
     required int limit,
     required int offset,
+    bool deferTelemetryMetadata = false,
   }) async {
-    final rows = await _db.query(
-      'messages',
+    final rows = await _queryMessageRows(
+      columnsWithoutMetadata: _kMessageRowColumnsWithoutMetadata,
       where: 'session_id = ?',
       whereArgs: <Object?>[sessionId],
       orderBy: 'sort_order ASC',
       limit: limit > 0 ? limit : null,
       offset: offset,
+      deferTelemetryMetadata: deferTelemetryMetadata,
     );
 
     final leadingKnowledgeBaseMetadata =
@@ -1018,6 +1085,7 @@ class AiSessionStore {
     String sessionId, {
     required List<AiSessionMessage> messages,
     required int offset,
+    bool deferTelemetryMetadata = false,
   }) async {
     var resolvedOffset = math.max(0, offset);
     var remainingContext = _kTranscriptToolPairContextMaxMessages;
@@ -1035,6 +1103,7 @@ class AiSessionStore {
         sessionId,
         limit: batchSize,
         offset: previousOffset,
+        deferTelemetryMetadata: deferTelemetryMetadata,
       );
       if (previousMessages.isEmpty) break;
       expandedMessages = <AiSessionMessage>[
@@ -1497,25 +1566,28 @@ class AiSessionStore {
     if (messageRows.isEmpty) return null;
     final firstSortOrder = messageRows.first['sort_order'];
     if (firstSortOrder is! int || firstSortOrder <= 0) return null;
-    final rows = await _db.query(
-      'messages',
-      columns: const <String>['kind', 'content', 'metadata_json'],
-      where: 'session_id = ? AND sort_order < ?',
-      whereArgs: <Object?>[sessionId, firstSortOrder],
+    final rows = await _queryMessageRows(
+      columnsWithoutMetadata: const <String>['kind', 'content'],
+      where:
+          'session_id = ? AND sort_order < ? AND '
+          '(kind = ? OR (kind = ? AND TRIM(content) <> \'\'))',
+      whereArgs: <Object?>[
+        sessionId,
+        firstSortOrder,
+        AiSessionMessageKind.user.storageValue,
+        AiSessionMessageKind.assistant.storageValue,
+      ],
       orderBy: 'sort_order DESC',
-      limit: _kKnowledgeBaseAssociationBackwardScanLimit,
+      limit: 1,
+      deferTelemetryMetadata: true,
     );
-    for (final row in rows) {
-      final kind = AiSessionMessageKind.fromStorage('${row['kind'] ?? ''}');
-      if (kind == AiSessionMessageKind.user) {
-        return _knowledgeBaseReferenceMetadata(
-          _decodeJsonMap(row['metadata_json']),
-        );
-      }
-      if (kind == AiSessionMessageKind.assistant &&
-          '${row['content'] ?? ''}'.trim().isNotEmpty) {
-        return null;
-      }
+    if (rows.isEmpty) return null;
+    final row = rows.first;
+    final kind = AiSessionMessageKind.fromStorage('${row['kind'] ?? ''}');
+    if (kind == AiSessionMessageKind.user) {
+      return _knowledgeBaseReferenceMetadata(
+        _decodeJsonMap(row['metadata_json']),
+      );
     }
     return null;
   }
@@ -1733,6 +1805,13 @@ class AiSessionStore {
       }
     }
 
+    var metadata = _decodeJsonMap(row['metadata_json']);
+    if (row[aiSessionMessageDeferredTelemetryMetadataKey] == 1) {
+      metadata = <String, Object?>{
+        ...metadata,
+        aiSessionMessageDeferredTelemetryMetadataKey: true,
+      };
+    }
     return AiSessionMessage(
       id: (row['id'] as String?) ?? '',
       kind: AiSessionMessageKind.fromStorage((row['kind'] as String?) ?? ''),
@@ -1748,7 +1827,7 @@ class AiSessionStore {
       modelId: row['model_id'] as String?,
       modelLabel: row['model_label'] as String?,
       usage: usage,
-      metadata: _decodeJsonMap(row['metadata_json']),
+      metadata: metadata,
     );
   }
 

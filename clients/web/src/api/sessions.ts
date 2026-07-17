@@ -263,6 +263,8 @@ type SessionMessageConversationSide =
   | (string & {});
 
 export type SessionMessageFeedback = 'liked' | 'needs_improvement';
+export const DEFERRED_MESSAGE_TELEMETRY_METADATA_KEY =
+  '_openhand_deferred_telemetry';
 
 export interface SessionMessage {
   id: string;
@@ -557,6 +559,17 @@ export function listMessages(
   return apiRequest<SessionMessagesResponse>(
     `/api/sessions/${encodeURIComponent(sessionId)}/messages${qs ? `?${qs}` : ''}`,
     { signal: options.signal },
+  );
+}
+
+export function getSessionMessage(
+  sessionId: string,
+  messageId: string,
+  options: ApiRequestSignalOptions = {},
+): Promise<{ message: SessionMessage }> {
+  return apiRequest<{ message: SessionMessage }>(
+    `/api/sessions/${encodeURIComponent(sessionId)}/messages/${encodeURIComponent(messageId)}`,
+    { signal: options.signal, timeoutMs: options.timeoutMs },
   );
 }
 

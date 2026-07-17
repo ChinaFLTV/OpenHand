@@ -56,6 +56,17 @@ enum AiSessionMessageRole {
 }
 
 const String aiSessionMessageMetadataStreamingKey = 'streaming';
+const String aiSessionMessageDeferredTelemetryMetadataKey =
+    '_openhand_deferred_telemetry';
+const List<String> aiSessionMessageDeferredTelemetryMetadataKeys = <String>[
+  'request_payload',
+  'response_raw',
+  'composed_prompt_turns',
+  'composed_prompt_text',
+  'prompt_metadata',
+];
+final Set<String> _aiSessionMessageDeferredTelemetryMetadataKeySet =
+    aiSessionMessageDeferredTelemetryMetadataKeys.toSet();
 const String aiSessionMessageReasoningStartedAtKey = 'reasoning_started_at';
 const String aiSessionMessageReasoningEndedAtKey = 'reasoning_ended_at';
 const String aiSessionMessageReasoningElapsedMsKey = 'reasoning_elapsed_ms';
@@ -78,6 +89,43 @@ const String aiSessionGoalEvaluationMessageMetadataKey =
     'goal_evaluation_message';
 const String aiSessionGoalEvaluationMessageTypeMetadataKey =
     'goal_evaluation_message_type';
+
+bool aiSessionMessageHasDeferredTelemetryMetadata(
+  Map<String, Object?> metadata,
+) {
+  return metadata[aiSessionMessageDeferredTelemetryMetadataKey] == true;
+}
+
+Map<String, Object?> aiSessionMessageTranscriptMetadata(
+  Map<String, Object?> metadata,
+) {
+  final hasDeferredFields = aiSessionMessageDeferredTelemetryMetadataKeys.any(
+    metadata.containsKey,
+  );
+  if (!hasDeferredFields) {
+    return metadata;
+  }
+  return <String, Object?>{
+    for (final entry in metadata.entries)
+      if (!_aiSessionMessageDeferredTelemetryMetadataKeySet.contains(entry.key))
+        entry.key: entry.value,
+    aiSessionMessageDeferredTelemetryMetadataKey: true,
+  };
+}
+
+Map<String, Object?> aiSessionMessageMetadataWithoutDeferredTelemetryMarker(
+  Map<String, Object?> metadata,
+) {
+  if (!metadata.containsKey(aiSessionMessageDeferredTelemetryMetadataKey)) {
+    return metadata;
+  }
+  return <String, Object?>{
+    for (final entry in metadata.entries)
+      if (entry.key != aiSessionMessageDeferredTelemetryMetadataKey)
+        entry.key: entry.value,
+  };
+}
+
 const String aiSessionGoalEvaluationMessageTypeRequest = 'request';
 const String aiSessionGoalEvaluationMessageTypeResponse = 'response';
 const String aiSessionGoalEvaluationRoundIndexMetadataKey =
