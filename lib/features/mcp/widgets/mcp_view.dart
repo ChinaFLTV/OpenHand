@@ -11,6 +11,7 @@ import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 
+import '../../../app/model/dialog_animation_settings.dart';
 import '../../../app/state/settings_controller.dart';
 import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/safe_subprocess.dart';
@@ -19,6 +20,7 @@ import '../../../app/support/system_proxy.dart';
 import '../../../app/support/url_validation.dart';
 import '../../../app/theme/openhand_status_colors.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../../shared/ui/animated_appearance.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/animated_menu.dart';
 import '../../../shared/ui/appear_once.dart';
@@ -81,6 +83,158 @@ const BoundedDeletePolicy _mcpNpxCacheDeletePolicy = BoundedDeletePolicy(
 
 Duration _mcpMotionDuration(BuildContext context, Duration duration) {
   return openHandMotionDuration(context, duration);
+}
+
+typedef _McpServerItemBuilder =
+    Widget Function(
+      BuildContext context,
+      McpServer server,
+      McpServerHealth healthStatus,
+      McpToolCatalog toolCatalog,
+    );
+
+class _AnimatedMcpServerList extends StatefulWidget {
+  const _AnimatedMcpServerList({
+    super.key,
+    required this.servers,
+    required this.prefixChildren,
+    required this.emptyChild,
+    required this.itemBuilder,
+  });
+
+  final List<McpServer> servers;
+  final List<Widget> prefixChildren;
+  final Widget emptyChild;
+  final _McpServerItemBuilder itemBuilder;
+
+  @override
+  State<_AnimatedMcpServerList> createState() => _AnimatedMcpServerListState();
+}
+
+class _AnimatedMcpServerListState extends State<_AnimatedMcpServerList> {
+  late List<McpServer> _displayedServers;
+
+  @override
+  void initState() {
+    super.initState();
+    _displayedServers = List<McpServer>.from(widget.servers);
+  }
+
+  @override
+  void didUpdateWidget(covariant _AnimatedMcpServerList oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final currentNames = widget.servers.map((server) => server.name).toSet();
+    final nextDisplayed = List<McpServer>.from(widget.servers);
+    for (var index = 0; index < _displayedServers.length; index++) {
+      final previous = _displayedServers[index];
+      if (!currentNames.contains(previous.name)) {
+        nextDisplayed.insert(index.clamp(0, nextDisplayed.length), previous);
+      }
+    }
+    _displayedServers = nextDisplayed;
+  }
+
+  void _removeDismissedServer(String serverName) {
+    if (widget.servers.any((server) => server.name == serverName)) return;
+    setState(() {
+      _displayedServers.removeWhere((server) => server.name == serverName);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final settings = context.select(
+      (SettingsController controller) => controller.listItemAnimationSettings,
+    );
+    final currentNames = widget.servers.map((server) => server.name).toSet();
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(0, 2, 0, 12),
+      cacheExtent: 600,
+      children: [
+        ...widget.prefixChildren,
+        for (final server in _displayedServers)
+          _AnimatedMcpServerEntry(
+            key: ValueKey<String>('mcp-server-appearance-${server.name}'),
+            server: server,
+            settings: settings,
+            present: currentNames.contains(server.name),
+            onDismissed: () => _removeDismissedServer(server.name),
+            itemBuilder: widget.itemBuilder,
+          ),
+        AnimatedAppearance(
+          key: const ValueKey<String>('mcp-empty'),
+          settings: settings,
+          present: widget.servers.isEmpty,
+          child: widget.emptyChild,
+        ),
+      ],
+    );
+  }
+}
+
+class _AnimatedMcpServerEntry extends StatefulWidget {
+  const _AnimatedMcpServerEntry({
+    super.key,
+    required this.server,
+    required this.settings,
+    required this.present,
+    required this.onDismissed,
+    required this.itemBuilder,
+  });
+
+  final McpServer server;
+  final DialogAnimationSettings settings;
+  final bool present;
+  final VoidCallback onDismissed;
+  final _McpServerItemBuilder itemBuilder;
+
+  @override
+  State<_AnimatedMcpServerEntry> createState() =>
+      _AnimatedMcpServerEntryState();
+}
+
+class _AnimatedMcpServerEntryState extends State<_AnimatedMcpServerEntry> {
+  McpServerHealth _healthStatus = const McpServerHealth();
+  McpToolCatalog _toolCatalog = const McpToolCatalog();
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedAppearance(
+      settings: widget.settings,
+      present: widget.present,
+      onDismissed: widget.onDismissed,
+      child: IgnorePointer(
+        ignoring: !widget.present,
+        child:
+            Selector<
+              McpController,
+              ({McpServerHealth healthStatus, McpToolCatalog toolCatalog})
+            >(
+              selector: (context, controller) => (
+                healthStatus: controller.healthStatusFor(widget.server.name),
+                toolCatalog: controller.toolCatalogFor(widget.server.name),
+              ),
+              builder: (context, cardState, child) {
+                if (widget.present) {
+                  _healthStatus = cardState.healthStatus;
+                  _toolCatalog = cardState.toolCatalog;
+                }
+                return Column(
+                  children: [
+                    widget.itemBuilder(
+                      context,
+                      widget.server,
+                      _healthStatus,
+                      _toolCatalog,
+                    ),
+                    const SizedBox(height: 14),
+                  ],
+                );
+              },
+            ),
+      ),
+    );
+  }
 }
 
 class McpView extends StatefulWidget {
@@ -288,39 +442,10 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
         ),
       );
     }
-    if (servers.isEmpty) {
-      return ListView(
-        key: const ValueKey<String>('mcp-empty'),
-        padding: const EdgeInsets.fromLTRB(0, 2, 0, 12),
-        children: [
-          for (final entry in templateCandidates) ...[
-            _TemplateMcpCandidateCard(
-              spec: entry.spec,
-              capability: entry.capability,
-              linkageController: linkageController,
-              onRegister: entry.capability.hasSuggestedServer
-                  ? () => _registerTemplateMcpCapability(
-                      context,
-                      entry.capability,
-                    )
-                  : null,
-            ),
-            const SizedBox(height: 14),
-          ],
-          FeatureStateCard.inline(
-            icon: Icons.hub_outlined,
-            title: l10n.mcpEmptyTitle,
-            body: l10n.mcpEmptyBody,
-          ),
-        ],
-      );
-    }
-
-    return ListView(
+    return _AnimatedMcpServerList(
       key: const ValueKey<String>('mcp-list'),
-      padding: const EdgeInsets.fromLTRB(0, 2, 0, 12),
-      cacheExtent: 600,
-      children: [
+      servers: servers,
+      prefixChildren: [
         for (final entry in templateCandidates) ...[
           SettingsAwareAppearOnce(
             key: ValueKey<String>(
@@ -340,57 +465,41 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
           ),
           const SizedBox(height: 14),
         ],
-        for (final server in servers) ...[
-          SettingsAwareAppearOnce(
-            key: ValueKey<String>('mcp-server-appear-${server.name}'),
-            child: RepaintBoundary(
-              child:
-                  Selector<
-                    McpController,
-                    ({McpServerHealth healthStatus, McpToolCatalog toolCatalog})
-                  >(
-                    key: ValueKey<String>('mcp-server-${server.name}'),
-                    selector: (context, controller) => (
-                      healthStatus: controller.healthStatusFor(server.name),
-                      toolCatalog: controller.toolCatalogFor(server.name),
-                    ),
-                    builder: (context, cardState, child) {
-                      final controller = context.read<McpController>();
-                      return _McpServerCard(
-                        key: ValueKey<String>('mcp-server-card-${server.name}'),
-                        server: server,
-                        healthStatus: cardState.healthStatus,
-                        toolCatalog: cardState.toolCatalog,
-                        onTap: () =>
-                            _showServerDialog(context, initialServer: server),
-                        onToggleEnabled: (enabled) =>
-                            _updateServerEnabled(context, server.name, enabled),
-                        onCheckHealth: () =>
-                            controller.checkServerHealth(server.name),
-                        onRefreshTools: () =>
-                            controller.refreshServerTools(server.name),
-                        onReconnect: () =>
-                            controller.reconnectServer(server.name),
-                        onActionSelected: (action) {
-                          switch (action) {
-                            case _McpCardAction.edit:
-                              _showServerDialog(context, initialServer: server);
-                            case _McpCardAction.delete:
-                              _confirmDeleteServer(context, server);
-                            case _McpCardAction.viewHistory:
-                              _showHealthHistorySheet(context, server.name);
-                            case _McpCardAction.viewDetails:
-                              _showServerDetailsSheet(context, server);
-                          }
-                        },
-                      );
-                    },
-                  ),
-            ),
-          ),
-          const SizedBox(height: 14),
-        ],
       ],
+      emptyChild: FeatureStateCard.inline(
+        icon: Icons.hub_outlined,
+        title: l10n.mcpEmptyTitle,
+        body: l10n.mcpEmptyBody,
+      ),
+      itemBuilder: (context, server, healthStatus, toolCatalog) {
+        return RepaintBoundary(
+          key: ValueKey<String>('mcp-server-${server.name}'),
+          child: _McpServerCard(
+            key: ValueKey<String>('mcp-server-card-${server.name}'),
+            server: server,
+            healthStatus: healthStatus,
+            toolCatalog: toolCatalog,
+            onTap: () => _showServerDialog(context, initialServer: server),
+            onToggleEnabled: (enabled) =>
+                _updateServerEnabled(context, server.name, enabled),
+            onCheckHealth: () => controller.checkServerHealth(server.name),
+            onRefreshTools: () => controller.refreshServerTools(server.name),
+            onReconnect: () => controller.reconnectServer(server.name),
+            onActionSelected: (action) {
+              switch (action) {
+                case _McpCardAction.edit:
+                  _showServerDialog(context, initialServer: server);
+                case _McpCardAction.delete:
+                  _confirmDeleteServer(context, server);
+                case _McpCardAction.viewHistory:
+                  _showHealthHistorySheet(context, server.name);
+                case _McpCardAction.viewDetails:
+                  _showServerDetailsSheet(context, server);
+              }
+            },
+          ),
+        );
+      },
     );
   }
 

@@ -1929,7 +1929,6 @@ class McpController extends ChangeNotifier {
     notifyListeners();
     try {
       await _store.save(nextServers);
-      await _reconcileStdioProcesses(previousServers, nextServers);
       _setServers(nextServers);
       _syncToolCatalogsWithServers(nextServers);
       _syncHealthStatusesWithServers(nextServers);
@@ -1957,17 +1956,27 @@ class McpController extends ChangeNotifier {
         for (final serverName in staleCatalogServerNames) {
           _replaceKeywordIndexServerTools(serverName, const <McpTool>[]);
         }
-        try {
-          await _toolCatalogCacheService.remove(staleCatalogServerNames);
-        } catch (error, stack) {
-          silentLog('mcp', '移除失效工具目录缓存', error, stack);
-        }
       }
       _hasTrustedSnapshot = true;
       _restoreCachedToolCatalogs();
       _persistenceIssue = null;
       _saveSuccessSignal.value = _saveSuccessSignal.value + 1;
       _reconcileHealthCheckTimer();
+      notifyListeners();
+
+      // 配置落盘后立即更新页面，运行时与磁盘缓存收尾不阻塞列表变化。
+      try {
+        await _reconcileStdioProcesses(previousServers, nextServers);
+      } catch (error, stack) {
+        silentLog('mcp', '同步 STDIO 运行状态', error, stack);
+      }
+      if (staleCatalogServerNames.isNotEmpty) {
+        try {
+          await _toolCatalogCacheService.remove(staleCatalogServerNames);
+        } catch (error, stack) {
+          silentLog('mcp', '移除失效工具目录缓存', error, stack);
+        }
+      }
       if (_isPageActive &&
           shouldAutoRefreshTools &&
           changedServerName != null) {
