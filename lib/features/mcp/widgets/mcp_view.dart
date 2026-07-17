@@ -72,6 +72,12 @@ const double _mcpToolDebugMenuMaxHeight = 360;
 const double _mcpNoticeMaxMessageHeight = 320;
 const double _mcpToolDebugMenuItemInset = 8;
 const double _mcpToolDebugMenuItemRadius = 10;
+const double _mcpServerCardSpacing = 14;
+const double _mcpServerCardHoverClearance = 6;
+const EdgeInsets _mcpServerCardMotionPadding = EdgeInsets.only(
+  top: _mcpServerCardHoverClearance,
+  bottom: _mcpServerCardSpacing - _mcpServerCardHoverClearance,
+);
 const Duration _mcpForceProbeResetDelay = Duration(milliseconds: 200);
 const Duration _mcpToolPreviewExpandDuration = Duration(milliseconds: 220);
 const int _mcpNpxCacheCleanupMaxEntries = 20000;
@@ -219,16 +225,14 @@ class _AnimatedMcpServerEntryState extends State<_AnimatedMcpServerEntry> {
                   _healthStatus = cardState.healthStatus;
                   _toolCatalog = cardState.toolCatalog;
                 }
-                return Column(
-                  children: [
-                    widget.itemBuilder(
-                      context,
-                      widget.server,
-                      _healthStatus,
-                      _toolCatalog,
-                    ),
-                    const SizedBox(height: 14),
-                  ],
+                return Padding(
+                  padding: _mcpServerCardMotionPadding,
+                  child: widget.itemBuilder(
+                    context,
+                    widget.server,
+                    _healthStatus,
+                    _toolCatalog,
+                  ),
                 );
               },
             ),
