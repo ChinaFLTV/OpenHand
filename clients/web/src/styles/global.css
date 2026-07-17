@@ -8794,15 +8794,14 @@ button.oh-composer-pill:not(:disabled):hover {
   gap: 9px;
   width: min(100%, 620px);
   padding: 4px 0;
-  overflow: hidden;
-  border-radius: 8px;
-  background: color-mix(in srgb, currentColor 5%, transparent);
   contain: paint;
 }
 .oh-markdown-render-placeholder span {
+  position: relative;
   display: block;
   height: 12px;
   max-width: 100%;
+  overflow: hidden;
   border-radius: 999px;
   background: color-mix(in srgb, currentColor 12%, transparent);
 }
@@ -8877,14 +8876,13 @@ button.oh-composer-pill:not(:disabled):hover {
   width: 100%;
   min-height: 96px;
   padding: 6px 2px;
-  overflow: hidden;
-  border-radius: 8px;
-  background: color-mix(in srgb, currentColor 7%, transparent);
   contain: paint;
 }
 .oh-html-body-placeholder span {
+  position: relative;
   display: block;
   height: 12px;
+  overflow: hidden;
   border-radius: 999px;
   background: color-mix(in srgb, currentColor 12%, transparent);
 }
@@ -8892,8 +8890,8 @@ button.oh-composer-pill:not(:disabled):hover {
 .oh-html-body-placeholder span:nth-child(2) { width: 92%; }
 .oh-html-body-placeholder span:nth-child(3) { width: 68%; }
 .oh-html-body-placeholder span:nth-child(4) { width: 42%; }
-.oh-markdown-render-placeholder::after,
-.oh-html-body-placeholder::after {
+.oh-markdown-render-placeholder span::after,
+.oh-html-body-placeholder span::after {
   content: '';
   position: absolute;
   inset: -40% auto -40% -45%;
@@ -8913,13 +8911,13 @@ button.oh-composer-pill:not(:disabled):hover {
   to { transform: translate3d(420%, 0, 0); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .oh-markdown-render-placeholder::after,
-  .oh-html-body-placeholder::after {
+  .oh-markdown-render-placeholder span::after,
+  .oh-html-body-placeholder span::after {
     display: none;
   }
 }
-[data-motion='reduced'] .oh-markdown-render-placeholder::after,
-[data-motion='reduced'] .oh-html-body-placeholder::after {
+[data-motion='reduced'] .oh-markdown-render-placeholder span::after,
+[data-motion='reduced'] .oh-html-body-placeholder span::after {
   display: none;
 }
 .oh-html-body *,

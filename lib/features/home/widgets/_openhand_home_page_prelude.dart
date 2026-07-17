@@ -103,23 +103,35 @@ class _FrameTaskScheduler {
   _FrameTaskScheduler({required this.maxPerFrame});
 
   final int maxPerFrame;
-  final List<VoidCallback> _pending = <VoidCallback>[];
+  final Queue<_FrameTask> _priorityPending = Queue<_FrameTask>();
+  final Queue<_FrameTask> _pending = Queue<_FrameTask>();
   bool _draining = false;
   int _generation = 0;
 
-  void schedule(VoidCallback task) {
-    _pending.add(task);
+  void schedule(
+    VoidCallback task, {
+    bool priority = false,
+    bool Function()? isValid,
+  }) {
+    final entry = _FrameTask(task, isValid);
+    (priority ? _priorityPending : _pending).add(entry);
     if (_draining) {
       return;
     }
     _draining = true;
     final generation = _generation;
+    _scheduleDrain(generation);
+  }
+
+  void _scheduleDrain(int generation) {
     WidgetsBinding.instance.addPostFrameCallback(
       (timestamp) => _drain(timestamp, generation),
     );
+    WidgetsBinding.instance.ensureVisualUpdate();
   }
 
   void clear() {
+    _priorityPending.clear();
     _pending.clear();
     _draining = false;
     _generation += 1;
@@ -129,29 +141,32 @@ class _FrameTaskScheduler {
     if (generation != _generation) {
       return;
     }
-    if (_pending.isEmpty) {
+    if (_priorityPending.isEmpty && _pending.isEmpty) {
       _draining = false;
       return;
     }
     if (_transcriptScrollActive()) {
-      WidgetsBinding.instance.addPostFrameCallback(
-        (timestamp) => _drain(timestamp, generation),
-      );
+      _scheduleDrain(generation);
       return;
     }
-    final batchSize = math.min(_pending.length, math.max(1, maxPerFrame));
-    final batch = _pending.sublist(0, batchSize);
-    _pending.removeRange(0, batchSize);
-    for (final task in batch) {
-      task();
+    var completed = 0;
+    final batchSize = math.max(1, maxPerFrame);
+    while (completed < batchSize &&
+        (_priorityPending.isNotEmpty || _pending.isNotEmpty)) {
+      final entry = _priorityPending.isNotEmpty
+          ? _priorityPending.removeFirst()
+          : _pending.removeFirst();
+      if (!(entry.isValid?.call() ?? true)) {
+        continue;
+      }
+      entry.task();
+      completed += 1;
     }
-    if (_pending.isEmpty) {
+    if (_priorityPending.isEmpty && _pending.isEmpty) {
       _draining = false;
       return;
     }
-    WidgetsBinding.instance.addPostFrameCallback(
-      (timestamp) => _drain(timestamp, generation),
-    );
+    _scheduleDrain(generation);
   }
 
   bool _transcriptScrollActive() {
@@ -161,6 +176,13 @@ class _FrameTaskScheduler {
             .value ??
         false;
   }
+}
+
+class _FrameTask {
+  const _FrameTask(this.task, this.isValid);
+
+  final VoidCallback task;
+  final bool Function()? isValid;
 }
 
 Widget _buildWorkspaceSidebarTransition({

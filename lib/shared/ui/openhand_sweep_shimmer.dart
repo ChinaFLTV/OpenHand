@@ -11,12 +11,14 @@ class OpenHandSweepShimmer extends StatefulWidget {
     required this.sweepColor,
     this.duration = _kOpenHandSweepShimmerDuration,
     this.enabled = true,
+    this.maskToChildAlpha = false,
   });
 
   final Widget child;
   final Color sweepColor;
   final Duration duration;
   final bool enabled;
+  final bool maskToChildAlpha;
 
   @override
   State<OpenHandSweepShimmer> createState() => _OpenHandSweepShimmerState();
@@ -70,21 +72,23 @@ class _OpenHandSweepShimmerState extends State<OpenHandSweepShimmer>
       child: widget.child,
       builder: (context, child) {
         final progress = _controller.value;
+        final gradient = LinearGradient(
+          begin: Alignment(-1.8 + progress * 2.8, 0),
+          end: Alignment(-0.9 + progress * 2.8, 0),
+          colors: [Colors.transparent, widget.sweepColor, Colors.transparent],
+        );
+        if (widget.maskToChildAlpha) {
+          return ShaderMask(
+            shaderCallback: gradient.createShader,
+            blendMode: BlendMode.srcATop,
+            child: child,
+          );
+        }
         return Stack(
           children: [
             Positioned.fill(
               child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment(-1.8 + progress * 2.8, 0),
-                    end: Alignment(-0.9 + progress * 2.8, 0),
-                    colors: [
-                      Colors.transparent,
-                      widget.sweepColor,
-                      Colors.transparent,
-                    ],
-                  ),
-                ),
+                decoration: BoxDecoration(gradient: gradient),
               ),
             ),
             child ?? const SizedBox.shrink(),

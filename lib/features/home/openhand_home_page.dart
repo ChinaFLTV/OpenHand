@@ -3151,6 +3151,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     );
     try {
       final activationGeneration = ++_sessionActivationGeneration;
+      _userScrollGraceDebouncer.cancel();
+      _userScrollInProgress = false;
+      _lastPointerSignalScrollAt = null;
+      _lastScrollActivityAt = null;
+      _transcriptScrollActivity.markInactive();
       await _awaitEndOfFrame();
       if (!mounted || activationGeneration != _sessionActivationGeneration) {
         return;

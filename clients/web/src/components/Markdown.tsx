@@ -175,21 +175,18 @@ const htmlRenderReadyCache = new Map<string, true>();
 const htmlRenderProfileCache = new Map<string, HtmlRenderProfile>();
 
 class MarkdownFrameScheduler {
-  private pending: Array<() => void> = [];
+  private pending: Array<{ task: () => void; cancelled: boolean }> = [];
   private draining = false;
 
   schedule(task: () => void): () => void {
-    let cancelled = false;
-    const wrapped = () => {
-      if (!cancelled) task();
-    };
-    this.pending.push(wrapped);
+    const entry = { task, cancelled: false };
+    this.pending.push(entry);
     if (!this.draining) {
       this.draining = true;
       this.scheduleDrain();
     }
     return () => {
-      cancelled = true;
+      entry.cancelled = true;
     };
   }
 
@@ -199,13 +196,16 @@ class MarkdownFrameScheduler {
     // timeout 防止持续繁忙时彻底拖延 markdown 升级。Safari 不支持 rIC，
     // 自动退化到 rAF；rAF 也没有时退到 setTimeout。
     const cb = () => {
-      const batch = this.pending.splice(0, MARKDOWN_FRAME_BUDGET_PER_FRAME);
-      for (const task of batch) {
+      let completed = 0;
+      while (completed < MARKDOWN_FRAME_BUDGET_PER_FRAME && this.pending.length > 0) {
+        const entry = this.pending.shift();
+        if (entry == null || entry.cancelled) continue;
         try {
-          task();
+          entry.task();
         } catch (_e) {
           // 任务自身抛错不影响调度器继续 drain。
         }
+        completed += 1;
       }
       if (this.pending.length > 0) {
         this.scheduleDrain();

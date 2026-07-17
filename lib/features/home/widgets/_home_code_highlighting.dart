@@ -51,7 +51,11 @@ class _HighlightFrameScheduler {
   /// 配合 [_HighlightSpanCache] 第二次展开/滚回时仍能瞬时拉起。
   static const int _maxPerFrame = 1;
 
-  void schedule(VoidCallback task) => _scheduler.schedule(task);
+  void schedule(
+    VoidCallback task, {
+    bool priority = false,
+    bool Function()? isValid,
+  }) => _scheduler.schedule(task, priority: priority, isValid: isValid);
 }
 
 class _HighlightSpanCache {
@@ -1319,45 +1323,52 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
       return;
     }
     _highlightScheduled = true;
-    _HighlightFrameScheduler.instance.schedule(() {
-      if (!mounted) return;
-      if (_scrollActivity?.value ?? false) {
+    _HighlightFrameScheduler.instance.schedule(
+      () {
+        if (!mounted) return;
+        if (_scrollActivity?.value ?? false) {
+          _highlightScheduled = false;
+          _highlightPendingAfterScroll = true;
+          return;
+        }
         _highlightScheduled = false;
-        _highlightPendingAfterScroll = true;
-        return;
-      }
-      _highlightScheduled = false;
-      _highlightPendingAfterScroll = false;
-      final currentEffectiveLanguage = _normalizeCodeLanguage(widget.language);
-      final currentUseDarkPalette =
-          widget.forceDarkSurface || widget.theme.brightness == Brightness.dark;
-      final currentSignature = _highlightSignatureFor(
-        effectiveLanguage: currentEffectiveLanguage,
-        useDarkPalette: currentUseDarkPalette,
-      );
-      if (_highlightedSpan != null &&
-          _highlightSignature == currentSignature &&
-          !_highlightIsPlaceholder) {
-        return;
-      }
-      final span = widget.content.length > _highlightSkipThresholdChars
-          ? TextSpan(
-              text: widget.content,
-              style: _baseStyleForCurrentTheme(currentUseDarkPalette),
-            )
-          : _highlightSpanCache.get(currentSignature) ??
-                _runHighlight(
-                  currentEffectiveLanguage,
-                  currentUseDarkPalette,
-                  currentSignature,
-                );
-      if (!mounted) return;
-      setState(() {
-        _highlightedSpan = span;
-        _highlightSignature = currentSignature;
-        _highlightIsPlaceholder = false;
-      });
-    });
+        _highlightPendingAfterScroll = false;
+        final currentEffectiveLanguage = _normalizeCodeLanguage(
+          widget.language,
+        );
+        final currentUseDarkPalette =
+            widget.forceDarkSurface ||
+            widget.theme.brightness == Brightness.dark;
+        final currentSignature = _highlightSignatureFor(
+          effectiveLanguage: currentEffectiveLanguage,
+          useDarkPalette: currentUseDarkPalette,
+        );
+        if (_highlightedSpan != null &&
+            _highlightSignature == currentSignature &&
+            !_highlightIsPlaceholder) {
+          return;
+        }
+        final span = widget.content.length > _highlightSkipThresholdChars
+            ? TextSpan(
+                text: widget.content,
+                style: _baseStyleForCurrentTheme(currentUseDarkPalette),
+              )
+            : _highlightSpanCache.get(currentSignature) ??
+                  _runHighlight(
+                    currentEffectiveLanguage,
+                    currentUseDarkPalette,
+                    currentSignature,
+                  );
+        if (!mounted) return;
+        setState(() {
+          _highlightedSpan = span;
+          _highlightSignature = currentSignature;
+          _highlightIsPlaceholder = false;
+        });
+      },
+      priority: true,
+      isValid: () => mounted,
+    );
   }
 
   int _highlightSignatureFor({

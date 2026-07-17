@@ -1607,7 +1607,7 @@ class _SafeMarkdownBody extends StatefulWidget {
 
 // Larger Markdown bodies paint a cheap placeholder for one frame, then build
 // the rich widget tree under the shared frame budget.
-const int _markdownDeferredParseThresholdChars = 400;
+const int _markdownDeferredParseThresholdChars = 2 * 1024;
 
 // 流式追加时更早进入 deferred 路径，并把富文本树重建合并到稳定节奏；
 // 小公式 / 列表仍能尽快渲染，长回答不会按 token 频率反复解析整棵树。
@@ -1979,7 +1979,11 @@ class _MarkdownFrameScheduler {
   /// 单条带多代码块的长消息把帧预算撑爆触发 jank/ANR。
   static const int _maxPerFrame = 1;
 
-  void schedule(VoidCallback task) => _scheduler.schedule(task);
+  void schedule(
+    VoidCallback task, {
+    bool priority = false,
+    bool Function()? isValid,
+  }) => _scheduler.schedule(task, priority: priority, isValid: isValid);
 }
 
 class _MarkdownStabilizingPlaceholder extends StatelessWidget {
@@ -2042,6 +2046,7 @@ class _MarkdownStabilizingPlaceholder extends StatelessWidget {
         borderRadius: _borderRadius18,
         child: OpenHandSweepShimmer(
           sweepColor: color.withValues(alpha: 0.10),
+          maskToChildAlpha: true,
           child: LayoutBuilder(
             builder: (context, constraints) {
               final width = constraints.maxWidth.isFinite
@@ -2262,20 +2267,24 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
       }
     }
     _deferredParseScheduled = true;
-    _MarkdownFrameScheduler.instance.schedule(() {
-      if (!mounted) {
+    _MarkdownFrameScheduler.instance.schedule(
+      () {
+        if (!mounted) {
+          _deferredParseScheduled = false;
+          return;
+        }
+        if (_scrollActivity?.value ?? false) {
+          _deferredParseScheduled = false;
+          _deferredParsePendingAfterScroll = true;
+          return;
+        }
         _deferredParseScheduled = false;
-        return;
-      }
-      if (_scrollActivity?.value ?? false) {
-        _deferredParseScheduled = false;
-        _deferredParsePendingAfterScroll = true;
-        return;
-      }
-      _deferredParseScheduled = false;
-      _deferredParsePendingAfterScroll = false;
-      setState(_parseMarkdown);
-    });
+        _deferredParsePendingAfterScroll = false;
+        setState(_parseMarkdown);
+      },
+      priority: true,
+      isValid: () => mounted,
+    );
   }
 
   void _renderDeferredPlaceholder(
@@ -4361,6 +4370,7 @@ class _HtmlBubbleShimmer extends StatelessWidget {
     return OpenHandSweepShimmer(
       duration: _htmlBubbleShimmerDuration,
       sweepColor: cs.onSurface.withValues(alpha: 0.10),
+      maskToChildAlpha: true,
       child: _buildContent(baseColor),
     );
   }
@@ -4436,7 +4446,8 @@ class _HtmlWebViewFrameScheduler {
     maxPerFrame: _maxPerFrame,
   );
 
-  void schedule(VoidCallback task) => _scheduler.schedule(task);
+  void schedule(VoidCallback task, {bool Function()? isValid}) =>
+      _scheduler.schedule(task, priority: true, isValid: isValid);
 }
 
 final HtmlWebViewMountLimiter _htmlWebViewMountLimiter =
@@ -4589,7 +4600,7 @@ class _DeferredHtmlBubbleWebViewState
         return;
       }
       _tryMountWebView(generation);
-    });
+    }, isValid: () => mounted && generation == _generation && !_mountWebView);
   }
 
   void _tryMountWebView(int generation) {
