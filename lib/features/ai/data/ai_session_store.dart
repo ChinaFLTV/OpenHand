@@ -45,11 +45,13 @@ class AiSessionLoadResult {
 class AiSessionMessagePage {
   const AiSessionMessagePage({
     required this.messages,
+    required this.offset,
     required this.totalCount,
     required this.hasMore,
   });
 
   final List<AiSessionMessage> messages;
+  final int offset;
   final int totalCount;
   final bool hasMore;
 }
@@ -401,6 +403,8 @@ class AiSessionStore {
   static const int defaultTemplateSessionPageSize = 50;
   static const int maxTemplateSessionPageSize = 200;
   static const int _kKnowledgeBaseAssociationBackwardScanLimit = 200;
+  static const int _kTranscriptToolPairContextBatchSize = 8;
+  static const int _kTranscriptToolPairContextMaxMessages = 96;
   // 协作式解码的字节预算：仅按"条数"让步在首屏尾窗（≤24 条）下永不触发，
   // 一旦窗口里夹着大消息（长工具结果 / 大 metadata），整窗会在一帧内同步
   // jsonDecode + 模型构建，直接撑爆帧预算造成卡死 / ANR。改为额外按累计
@@ -780,7 +784,7 @@ class AiSessionStore {
     final loadState = offset == 0 && messageRows.length >= totalCount
         ? AiSessionMessageLoadState.complete
         : AiSessionMessageLoadState.windowed;
-    final session = await _sessionFromRowCooperatively(
+    var session = await _sessionFromRowCooperatively(
       rows.first,
       messageRows,
       messageLoadState: loadState,
@@ -788,6 +792,23 @@ class AiSessionStore {
       messageTotalCount: totalCount,
       leadingKnowledgeBaseMetadata: leadingKnowledgeBaseMetadata,
     );
+    final expanded = await _prependTranscriptToolCallContext(
+      normalizedId,
+      messages: session.messages,
+      offset: offset,
+    );
+    if (expanded.offset != offset) {
+      final expandedLoadState =
+          expanded.offset == 0 && expanded.messages.length >= totalCount
+          ? AiSessionMessageLoadState.complete
+          : AiSessionMessageLoadState.windowed;
+      session = session.copyWith(
+        messages: expanded.messages,
+        messageLoadState: expandedLoadState,
+        messageWindowStartIndex: expanded.offset,
+        messageTotalCount: totalCount,
+      );
+    }
     // Tail-window hydration is for first paint only. Restoring an older
     // compression sidecar into a partial tail would both add extra disk I/O to
     // the open path and place that historical checkpoint at the visible tail.
@@ -948,7 +969,32 @@ class AiSessionStore {
     int offset = 0,
   }) async {
     final totalCount = await _countMessages(sessionId);
+    final safeOffset = math.min(math.max(0, offset), totalCount);
+    final messages = await _loadMessageBatch(
+      sessionId,
+      limit: limit,
+      offset: safeOffset,
+    );
+    final expanded = await _prependTranscriptToolCallContext(
+      sessionId,
+      messages: messages,
+      offset: safeOffset,
+    );
+    final hasMore = expanded.offset + expanded.messages.length < totalCount;
 
+    return AiSessionMessagePage(
+      messages: expanded.messages,
+      offset: expanded.offset,
+      totalCount: totalCount,
+      hasMore: hasMore,
+    );
+  }
+
+  Future<List<AiSessionMessage>> _loadMessageBatch(
+    String sessionId, {
+    required int limit,
+    required int offset,
+  }) async {
     final rows = await _db.query(
       'messages',
       where: 'session_id = ?',
@@ -964,12 +1010,44 @@ class AiSessionStore {
       rows,
       leadingKnowledgeBaseMetadata: leadingKnowledgeBaseMetadata,
     );
-    final hasMore = offset + messages.length < totalCount;
+    return messages;
+  }
 
-    return AiSessionMessagePage(
-      messages: messages,
-      totalCount: totalCount,
-      hasMore: hasMore,
+  Future<({List<AiSessionMessage> messages, int offset})>
+  _prependTranscriptToolCallContext(
+    String sessionId, {
+    required List<AiSessionMessage> messages,
+    required int offset,
+  }) async {
+    var resolvedOffset = math.max(0, offset);
+    var remainingContext = _kTranscriptToolPairContextMaxMessages;
+    var expandedMessages = messages;
+    var unmatchedCallIds = unmatchedTranscriptToolCallIds(expandedMessages);
+    while (unmatchedCallIds.isNotEmpty &&
+        resolvedOffset > 0 &&
+        remainingContext > 0) {
+      final batchSize = math.min(
+        math.min(_kTranscriptToolPairContextBatchSize, resolvedOffset),
+        remainingContext,
+      );
+      final previousOffset = resolvedOffset - batchSize;
+      final previousMessages = await _loadMessageBatch(
+        sessionId,
+        limit: batchSize,
+        offset: previousOffset,
+      );
+      if (previousMessages.isEmpty) break;
+      expandedMessages = <AiSessionMessage>[
+        ...previousMessages,
+        ...expandedMessages,
+      ];
+      resolvedOffset = previousOffset;
+      remainingContext -= previousMessages.length;
+      unmatchedCallIds = unmatchedTranscriptToolCallIds(expandedMessages);
+    }
+    return (
+      messages: List<AiSessionMessage>.unmodifiable(expandedMessages),
+      offset: resolvedOffset,
     );
   }
 

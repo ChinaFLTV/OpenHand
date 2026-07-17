@@ -7510,7 +7510,7 @@ class WebMessagePlatformService {
           session: session,
           storedMessages: page.messages,
           liveMessages: liveMessages,
-          rawOffset: rawOffset,
+          rawOffset: page.offset,
           rawTotal: rawTotal,
           safeLimit: safeLimit,
           requestedOffset: requestedOffset,
@@ -7609,10 +7609,10 @@ class WebMessagePlatformService {
       );
       final scopedSession = session.copyWith(
         messages: page.messages,
-        messageLoadState: contextOffset == 0 && !page.hasMore
+        messageLoadState: page.offset == 0 && !page.hasMore
             ? AiSessionMessageLoadState.complete
             : AiSessionMessageLoadState.windowed,
-        messageWindowStartIndex: contextOffset,
+        messageWindowStartIndex: page.offset,
         messageTotalCount: page.totalCount,
       );
       final anchor = scopedSession.transcriptAnchorForRoundStarter(messageId);
@@ -7621,7 +7621,7 @@ class WebMessagePlatformService {
         (candidate) => candidate.id == anchor.id,
       );
       if (localOffset < 0) return null;
-      return (messageId: anchor.id, offset: contextOffset + localOffset);
+      return (messageId: anchor.id, offset: page.offset + localOffset);
     }
 
     final anchor = session.transcriptAnchorForRoundStarter(messageId);
@@ -7670,8 +7670,17 @@ class WebMessagePlatformService {
       }
     }
 
+    final scannedAllStoredMessages =
+        rawOffset == 0 && storedMessages.length >= rawTotal;
     final displayMessages = session
-        .copyWith(messages: mergedMessages)
+        .copyWith(
+          messages: mergedMessages,
+          messageLoadState: scannedAllStoredMessages
+              ? AiSessionMessageLoadState.complete
+              : AiSessionMessageLoadState.windowed,
+          messageWindowStartIndex: scannedAllStoredMessages ? 0 : rawOffset,
+          messageTotalCount: rawTotal,
+        )
         .displayMessages;
     final List<AiSessionMessage> selectedMessages;
     if (displayMessages.isEmpty) {

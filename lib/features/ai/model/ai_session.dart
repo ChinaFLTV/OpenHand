@@ -65,6 +65,24 @@ bool _isTranscriptToolResultKind(AiSessionMessageKind kind) {
       kind == AiSessionMessageKind.hook;
 }
 
+Set<String> unmatchedTranscriptToolCallIds(
+  Iterable<AiSessionMessage> messages,
+) {
+  final toolCallIds = <String>{};
+  final toolResultCallIds = <String>{};
+  for (final message in messages) {
+    if (!message.isTranscriptRenderable) continue;
+    final toolCallId = _messageMetadataText(message, 'tool_call_id');
+    if (toolCallId.isEmpty) continue;
+    if (message.kind == AiSessionMessageKind.toolCall) {
+      toolCallIds.add(toolCallId);
+    } else if (_isTranscriptToolResultKind(message.kind)) {
+      toolResultCallIds.add(toolCallId);
+    }
+  }
+  return toolResultCallIds..removeAll(toolCallIds);
+}
+
 bool _contentLooksLikeMachineTerminalOutput(String content) {
   final text = content.trimLeft();
   return text.startsWith('terminal_id:') &&
@@ -94,14 +112,17 @@ bool _isStandaloneMachineTerminalToolResult(AiSessionMessage message) {
 
 bool _shouldSuppressTranscriptToolResult(
   AiSessionMessage message,
-  Set<String> toolCallIds,
-) {
+  Set<String> toolCallIds, {
+  required bool suppressUnpairedToolResults,
+}) {
   if (!_isTranscriptToolResultKind(message.kind)) {
     return false;
   }
   final toolCallId = _messageMetadataText(message, 'tool_call_id');
-  if (toolCallId.isNotEmpty && toolCallIds.contains(toolCallId)) {
-    return true;
+  if (toolCallId.isNotEmpty) {
+    if (toolCallIds.contains(toolCallId) || suppressUnpairedToolResults) {
+      return true;
+    }
   }
   return _isStandaloneMachineTerminalToolResult(message);
 }
@@ -902,7 +923,11 @@ class AiSession {
       if (message.metadata['plan_mode_approved'] == true) {
         continue;
       }
-      if (_shouldSuppressTranscriptToolResult(message, toolCallIds)) {
+      if (_shouldSuppressTranscriptToolResult(
+        message,
+        toolCallIds,
+        suppressUnpairedToolResults: hasMoreHistoricalMessages,
+      )) {
         continue;
       }
       displayMessages.add(message);

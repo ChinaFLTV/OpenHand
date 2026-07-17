@@ -2585,8 +2585,11 @@ function creationModeFromMessage(message: SessionMessage): string {
   return mode;
 }
 
-function deriveMessageWindowView(items: SessionMessage[]): SessionMessageWindowView {
-  const ordered = displayableTranscriptMessages(items);
+function deriveMessageWindowView(
+  items: SessionMessage[],
+  hasHiddenOlderMessages: boolean,
+): SessionMessageWindowView {
+  const ordered = displayableTranscriptMessages(items, hasHiddenOlderMessages);
   let lastCreationModeAwaitingAssistant: AwaitingCreationMode | null = null;
   let hasUserMessage = false;
   let latestAssistantMessage: SessionMessage | null = null;
@@ -4599,7 +4602,10 @@ export function SessionDetailPage() {
   const hasRunnableQueuedMessages = queuedComposerMessages.length > 0 && blockedQueuedMessageId !== queuedComposerMessages[0]?.id;
   const goalModeAvailable = Boolean(session && isGoalModeAllowedForTemplate(session.template_id));
   const routeMessages = detailBelongsToRoute ? messages : EMPTY_SESSION_MESSAGES;
-  const messageWindowView = useMemo(() => deriveMessageWindowView(routeMessages), [routeMessages]);
+  const messageWindowView = useMemo(
+    () => deriveMessageWindowView(routeMessages, windowOffset > 0),
+    [routeMessages, windowOffset],
+  );
   const messageMembershipTrackerRef = useRef<MessageWindowMembershipTracker>({
     revision: 0,
     sessionId: '',

@@ -190,16 +190,20 @@ function isStandaloneMachineTerminalToolResult(message: SessionMessage): boolean
 function shouldSuppressTranscriptToolResult(
   message: SessionMessage,
   toolCallIds: ReadonlySet<string>,
+  suppressUnpairedToolResults: boolean,
 ): boolean {
   if (!TOOL_RESULT_KINDS.has(message.kind)) return false;
   const toolCallId = messageToolCallId(message);
-  if (toolCallId.length > 0 && toolCallIds.has(toolCallId)) {
-    return true;
+  if (toolCallId.length > 0) {
+    if (toolCallIds.has(toolCallId) || suppressUnpairedToolResults) return true;
   }
   return isStandaloneMachineTerminalToolResult(message);
 }
 
-export function displayableTranscriptMessages(items: SessionMessage[]): SessionMessage[] {
+export function displayableTranscriptMessages(
+  items: SessionMessage[],
+  suppressUnpairedToolResults = false,
+): SessionMessage[] {
   const ordered = messagesInDisplayOrder(items).filter(messageHasRenderableTranscriptOutput);
   const toolCallIds = new Set<string>();
   for (const message of ordered) {
@@ -207,5 +211,9 @@ export function displayableTranscriptMessages(items: SessionMessage[]): SessionM
     const toolCallId = messageToolCallId(message);
     if (toolCallId.length > 0) toolCallIds.add(toolCallId);
   }
-  return ordered.filter((message) => !shouldSuppressTranscriptToolResult(message, toolCallIds));
+  return ordered.filter((message) => !shouldSuppressTranscriptToolResult(
+    message,
+    toolCallIds,
+    suppressUnpairedToolResults,
+  ));
 }

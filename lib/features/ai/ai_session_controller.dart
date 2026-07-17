@@ -1967,7 +1967,7 @@ class AiSessionController extends ChangeNotifier {
         for (final message in live.messages)
           if (!seenIds.contains(message.id)) message,
       ];
-      final nextStart = offset;
+      final nextStart = page.offset;
       final nextTotal = math.max(page.totalCount, live.messageTotalCount);
       final nextLoadState = nextStart == 0 && mergedMessages.length >= nextTotal
           ? AiSessionMessageLoadState.complete
