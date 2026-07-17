@@ -1236,6 +1236,11 @@ class AppLocalizationsZh extends AppLocalizations {
       '[提示] CLI 尚未产生输出。可能正在初始化，或需要在外部浏览器中完成授权。\n';
 
   @override
+  String harnessCliLoginTimedOut(int minutes) {
+    return '登录等待超过 $minutes 分钟，已自动停止进程。';
+  }
+
+  @override
   String get harnessCliLoginTtyRequiredHint =>
       '[提示] 该 CLI 可能需要真实终端 (TTY) 才能完成交互式登录。\n请点击下方“在终端中打开”按钮，在系统终端中完成登录流程。\n';
 
@@ -11849,6 +11854,11 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   @override
   String get harnessCliLoginNoOutputHint =>
       '[提示] CLI 尚未產生輸出。可能正在初始化，或需要在外部瀏覽器中完成授權。\n';
+
+  @override
+  String harnessCliLoginTimedOut(int minutes) {
+    return '登入等待超過 $minutes 分鐘，已自動停止行程。';
+  }
 
   @override
   String get harnessCliLoginTtyRequiredHint =>

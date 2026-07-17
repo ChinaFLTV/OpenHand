@@ -775,6 +775,15 @@
   "@harnessCliLoginNoOutputHint": {
     "description": "Harness CLI login dialog terminal hint when no output arrives."
   },
+  "harnessCliLoginTimedOut": "登入等待超過 {minutes} 分鐘，已自動停止行程。",
+  "@harnessCliLoginTimedOut": {
+    "description": "CLI 登入流程逾時提示。",
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
   "harnessCliLoginTtyRequiredHint": "[提示] 此 CLI 可能需要真實終端機 (TTY) 才能完成互動式登入。\n請點選下方「在終端機中開啟」按鈕，在系統終端機中完成登入流程。\n",
   "@harnessCliLoginTtyRequiredHint": {
     "description": "Harness CLI login dialog terminal hint when a TTY may be required."

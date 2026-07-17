@@ -23,6 +23,7 @@ import '../../features/mcp/model/mcp_stdio_mirror_mode.dart';
 import '../../shared/fps/openhand_fps_monitor.dart';
 import '../../shared/net/tcp_port_utils.dart';
 import '../../shared/util/input_value_parsing.dart';
+import '../../shared/util/serial_task_queue.dart';
 import '../model/app_language.dart';
 import '../model/app_proxy_settings.dart';
 import '../model/app_settings_snapshot.dart';
@@ -366,7 +367,7 @@ class SettingsController extends ChangeNotifier {
   SettingsPersistenceIssue? _persistenceIssue;
   bool _canPersistSettings;
   bool _isDisposed = false;
-  Future<void> _mutationQueue = Future<void>.value();
+  final SerialTaskQueue _mutationQueue = SerialTaskQueue();
 
   /// Increments every time a mutation is successfully persisted to disk.
   /// Settings panels can listen on this to fire ephemeral feedback effects
@@ -2744,83 +2745,52 @@ class SettingsController extends ChangeNotifier {
     );
   }
 
-  Future<bool> _commitMutation(_MutationDisposition Function() mutation) async {
-    if (_isDisposed) return false;
-    final completer = Completer<bool>();
-    _mutationQueue = _mutationQueue
-        .catchError((Object error, StackTrace stack) {
-          silentLog(
-            'settings_controller',
-            'previous mutation queue',
-            error,
-            stack,
-          );
-        })
-        .then((_) async {
-          AppSettingsSnapshot? previousSnapshot;
-          try {
-            if (_isDisposed) {
-              completer.complete(false);
-              return;
-            }
-            if (!_canPersistSettings && !await _reloadTrustedSnapshot()) {
-              completer.complete(false);
-              return;
-            }
-            previousSnapshot = _snapshot();
-            final disposition = mutation();
-            if (disposition == _MutationDisposition.successNoChange) {
-              completer.complete(true);
-              return;
-            }
-            if (disposition == _MutationDisposition.reject) {
-              completer.complete(false);
-              return;
-            }
+  Future<bool> _commitMutation(_MutationDisposition Function() mutation) {
+    if (_isDisposed) return Future<bool>.value(false);
+    return _mutationQueue.enqueue(() async {
+      AppSettingsSnapshot? previousSnapshot;
+      try {
+        if (_isDisposed) return false;
+        if (!_canPersistSettings && !await _reloadTrustedSnapshot()) {
+          return false;
+        }
+        previousSnapshot = _snapshot();
+        final disposition = mutation();
+        if (disposition == _MutationDisposition.successNoChange) return true;
+        if (disposition == _MutationDisposition.reject) return false;
+
+        notifyListeners();
+        try {
+          await _store.save(_snapshot());
+          _canPersistSettings = true;
+          if (_persistenceIssue != null) {
+            _persistenceIssue = null;
             notifyListeners();
-            try {
-              await _store.save(_snapshot());
-              _canPersistSettings = true;
-              if (_persistenceIssue != null) {
-                _persistenceIssue = null;
-                notifyListeners();
-              }
-              // Successful persistence — fire the highlight-pulse signal
-              // so subscribed surfaces (currently the settings panel) can
-              // flash a soft confirmation without each `_save*` call site
-              // needing its own per-row notifier.
-              if (!_isDisposed) {
-                _saveSuccessSignal.value = _saveSuccessSignal.value + 1;
-              }
-              completer.complete(true);
-            } catch (error) {
-              _restoreSnapshot(previousSnapshot);
-              _persistenceIssue = SettingsPersistenceIssue(
-                kind: SettingsPersistenceIssueKind.saveFailed,
-                filePath: _store.settingsFilePath,
-                detail: '$error',
-              );
-              notifyListeners();
-              completer.complete(false);
-            }
-          } catch (error, stack) {
-            if (previousSnapshot != null) {
-              _restoreSnapshot(previousSnapshot);
-              notifyListeners();
-            }
-            silentLog(
-              'settings_controller',
-              'commit settings mutation',
-              error,
-              stack,
-            );
-            // mutation() itself threw – complete with false to unblock callers.
-            if (!completer.isCompleted) {
-              completer.complete(false);
-            }
           }
-        });
-    return completer.future;
+          // 持久化成功后统一触发柔和高亮，避免各设置项重复维护反馈状态。
+          if (!_isDisposed) {
+            _saveSuccessSignal.value = _saveSuccessSignal.value + 1;
+          }
+          return true;
+        } catch (error) {
+          _restoreSnapshot(previousSnapshot);
+          _persistenceIssue = SettingsPersistenceIssue(
+            kind: SettingsPersistenceIssueKind.saveFailed,
+            filePath: _store.settingsFilePath,
+            detail: '$error',
+          );
+          notifyListeners();
+          return false;
+        }
+      } catch (error, stack) {
+        if (previousSnapshot != null) {
+          _restoreSnapshot(previousSnapshot);
+          notifyListeners();
+        }
+        silentLog('settings_controller', '提交设置变更', error, stack);
+        return false;
+      }
+    });
   }
 
   Future<bool> _reloadTrustedSnapshot() async {

@@ -9,6 +9,7 @@ import 'package:flutter/scheduler.dart';
 import '../../app/support/silent_log.dart';
 import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/input_value_parsing.dart';
+import '../../shared/util/serial_task_queue.dart';
 import '../../shared/util/timer_safety.dart';
 import '../ai/index.dart'
     show
@@ -263,7 +264,7 @@ class McpController extends ChangeNotifier {
     protocolType: AiProtocolType.openai,
   );
 
-  Future<void> _operationQueue = Future<void>.value();
+  final SerialTaskQueue _operationQueue = SerialTaskQueue();
   Future<void>? _refreshFuture;
   Future<void>? _runtimeReadyFuture;
   Future<void>? _runtimeCatalogWarmupFuture;
@@ -2042,24 +2043,12 @@ class McpController extends ChangeNotifier {
     if (_isDisposed) {
       return Future<T>.error(StateError('McpController is disposed'));
     }
-    final completer = Completer<T>();
-    _operationQueue = _operationQueue.catchError((_) {}).then((_) async {
-      // Check disposed state before executing to avoid race conditions.
+    return _operationQueue.enqueue(() {
       if (_isDisposed) {
-        if (!completer.isCompleted) {
-          completer.completeError(StateError('McpController is disposed'));
-        }
-        return;
+        throw StateError('McpController is disposed');
       }
-      try {
-        completer.complete(await operation());
-      } catch (error, stackTrace) {
-        if (!completer.isCompleted) {
-          completer.completeError(error, stackTrace);
-        }
-      }
+      return operation();
     });
-    return completer.future;
   }
 
   void _syncToolCatalogsWithServers(List<McpServer> servers) {

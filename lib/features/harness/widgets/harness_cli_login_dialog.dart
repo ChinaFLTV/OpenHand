@@ -30,6 +30,7 @@ class HarnessCliLoginDialog extends StatefulWidget {
 class _HarnessCliLoginDialogState extends State<HarnessCliLoginDialog> {
   static const int _maxBufferedChars = 120000;
   static const Duration _noOutputHintDelay = Duration(seconds: 8);
+  static const Duration _loginTimeout = Duration(minutes: 15);
   static const Duration _processStopGracePeriod = Duration(milliseconds: 500);
   static const Duration _streamDrainTimeout = Duration(milliseconds: 500);
 
@@ -157,7 +158,7 @@ class _HarnessCliLoginDialogState extends State<HarnessCliLoginDialog> {
         _appendOutput(_l10n.harnessCliLoginNoOutputHint);
       });
 
-      final exitCode = await process.exitCode;
+      final exitCode = await process.exitCode.timeout(_loginTimeout);
       _noOutputTimer?.cancel();
       await _waitForOutputDrain(stdoutDone, stderrDone);
       if (identical(_process, process)) _process = null;
@@ -193,6 +194,19 @@ class _HarnessCliLoginDialogState extends State<HarnessCliLoginDialog> {
       } else {
         _errorPulse.value = _errorPulse.value + 1;
       }
+    } on TimeoutException {
+      if (!_isRunActive(generation)) return;
+      await _shutdownProcess();
+      if (!_isRunActive(generation)) return;
+      final message = _l10n.harnessCliLoginTimedOut(_loginTimeout.inMinutes);
+      _appendOutput('$message\n');
+      _flushPendingOutput();
+      setState(() {
+        _starting = false;
+        _finished = true;
+        _errorMessage = message;
+      });
+      _errorPulse.value = _errorPulse.value + 1;
     } on ProcessException catch (error) {
       if (startedProcess != null) await _shutdownProcess();
       if (!_isRunActive(generation)) return;

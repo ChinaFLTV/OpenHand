@@ -776,6 +776,15 @@
   "@harnessCliLoginNoOutputHint": {
     "description": "Harness CLI login dialog terminal hint when no output arrives."
   },
+  "harnessCliLoginTimedOut": "La connexion a expiré après {minutes} minutes. Le processus a été arrêté.",
+  "@harnessCliLoginTimedOut": {
+    "description": "Harness CLI login timeout message.",
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
   "harnessCliLoginTtyRequiredHint": "[Indice] Cette CLI peut nécessiter un vrai terminal (TTY) pour la connexion interactive.\nUtilisez le bouton « Ouvrir dans le terminal » ci-dessous pour terminer la connexion dans le terminal système.\n",
   "@harnessCliLoginTtyRequiredHint": {
     "description": "Harness CLI login dialog terminal hint when a TTY may be required."

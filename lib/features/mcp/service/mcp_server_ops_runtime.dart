@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
-import 'dart:typed_data';
 
 import 'package:path/path.dart' as p;
 import 'package:shelf/shelf.dart' as shelf;
@@ -135,125 +134,20 @@ bool _mcpOpsArgumentKeyLooksLikePath(String key) {
   return words.contains('workspace') && words.contains('root');
 }
 
-class McpOpsRequestBodyTooLargeException implements Exception {
-  const McpOpsRequestBodyTooLargeException({
-    required this.maxBytes,
-    required this.receivedBytes,
-  });
-
-  final int maxBytes;
-  final int receivedBytes;
-
-  @override
-  String toString() {
-    return 'MCP request body exceeded $maxBytes bytes '
-        '(received at least $receivedBytes bytes).';
-  }
-}
-
-/// Collects an MCP request body while enforcing independent byte, idle-time,
-/// and wall-clock limits. Once a limit wins, later chunks are ignored without
-/// being buffered. The owning HTTP handler closes the connection after writing
-/// its 408/413 response; cancelling a `dart:io` request stream before Shelf has
-/// written that response would abort the socket and hide the status from the
-/// client.
+/// 有界读取 MCP 请求体。失败时由响应头关闭连接；此处不提前取消 Shelf 请求流，
+/// 避免套接字在 408/413 响应写出前被中断。
 Future<String> readBoundedMcpOpsRequestBody(
   Stream<List<int>> stream, {
   required int maxBytes,
   required Duration idleTimeout,
   required Duration totalTimeout,
-}) {
-  if (maxBytes < 1) {
-    throw ArgumentError.value(maxBytes, 'maxBytes', 'Must be positive.');
-  }
-  if (idleTimeout <= Duration.zero) {
-    throw ArgumentError.value(idleTimeout, 'idleTimeout', 'Must be positive.');
-  }
-  if (totalTimeout <= Duration.zero) {
-    throw ArgumentError.value(
-      totalTimeout,
-      'totalTimeout',
-      'Must be positive.',
-    );
-  }
-
-  final completer = Completer<String>();
-  final bytes = BytesBuilder(copy: false);
-  Timer? idleTimer;
-  Timer? totalTimer;
-  var receivedBytes = 0;
-  var settled = false;
-
-  void cancelTimers() {
-    idleTimer?.cancel();
-    totalTimer?.cancel();
-    idleTimer = null;
-    totalTimer = null;
-  }
-
-  void fail(Object error, StackTrace stack) {
-    if (settled) return;
-    settled = true;
-    cancelTimers();
-    completer.completeError(error, stack);
-  }
-
-  void resetIdleTimer() {
-    idleTimer?.cancel();
-    idleTimer = Timer(
-      idleTimeout,
-      () => fail(
-        TimeoutException('MCP request body stalled.', idleTimeout),
-        StackTrace.current,
-      ),
-    );
-  }
-
-  totalTimer = Timer(
-    totalTimeout,
-    () => fail(
-      TimeoutException(
-        'MCP request body exceeded its total time limit.',
-        totalTimeout,
-      ),
-      StackTrace.current,
-    ),
-  );
-  stream.listen(
-    (chunk) {
-      if (settled) return;
-      resetIdleTimer();
-      receivedBytes += chunk.length;
-      if (receivedBytes > maxBytes) {
-        fail(
-          McpOpsRequestBodyTooLargeException(
-            maxBytes: maxBytes,
-            receivedBytes: receivedBytes,
-          ),
-          StackTrace.current,
-        );
-        return;
-      }
-      bytes.add(chunk);
-    },
-    onError: (Object error, StackTrace stack) => fail(error, stack),
-    onDone: () {
-      if (settled) return;
-      settled = true;
-      cancelTimers();
-      try {
-        completer.complete(utf8.decode(bytes.takeBytes()));
-      } catch (error, stack) {
-        completer.completeError(error, stack);
-      }
-    },
-    cancelOnError: true,
-  );
-  if (!settled) {
-    resetIdleTimer();
-  }
-  return completer.future;
-}
+}) => readBoundedByteStreamText(
+  stream,
+  maxBytes: maxBytes,
+  idleTimeout: idleTimeout,
+  totalTimeout: totalTimeout,
+  cancelOnFailure: false,
+);
 
 class McpOpsConnectivityResult {
   const McpOpsConnectivityResult({
@@ -967,7 +861,7 @@ class McpServerOpsRuntime {
         idleTimeout: _requestBodyIdleTimeout,
         totalTimeout: _requestBodyTotalTimeout,
       );
-    } on McpOpsRequestBodyTooLargeException {
+    } on ByteStreamSizeLimitException {
       return _requestBodyFailureResponse(
         HttpStatus.requestEntityTooLarge,
         'MCP request body is too large.',

@@ -1247,6 +1247,11 @@ class AppLocalizationsJa extends AppLocalizations {
       '[ヒント] CLI はまだ出力していません。初期化中か、外部ブラウザでの認証を待っている可能性があります。\n';
 
   @override
+  String harnessCliLoginTimedOut(int minutes) {
+    return 'ログインは $minutes 分後にタイムアウトしました。プロセスを停止しました。';
+  }
+
+  @override
   String get harnessCliLoginTtyRequiredHint =>
       '[ヒント] この CLI は対話型ログインに実端末 (TTY) が必要な場合があります。\n下の「ターミナルで開く」ボタンからシステムターミナルでログインを完了してください。\n';
 

@@ -30,6 +30,7 @@ import '../../shared/util/directory_cleanup.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/physical_path_safety.dart';
 import '../../shared/util/sensitive_data.dart';
+import '../../shared/util/serial_task_queue.dart';
 import '../../shared/util/stable_hash.dart';
 import '../../shared/util/text_clip.dart';
 import '../../shared/util/text_normalization.dart';
@@ -915,7 +916,7 @@ class AiSessionController extends ChangeNotifier {
   Map<String, AiSession> _sessionsById = const <String, AiSession>{};
   List<AiSessionPersistenceIssue> _persistenceIssues =
       const <AiSessionPersistenceIssue>[];
-  Future<void> _operationQueue = Future<void>.value();
+  final SerialTaskQueue _operationQueue = SerialTaskQueue();
   // Auto-title prompt cache. The asset is read once per (max-character cap)
   // value and reused for every subsequent title generation, so we don't pay
   // the rootBundle hit on each first-message turn. Cache key is the
@@ -12792,18 +12793,12 @@ $tail''';
     if (_isDisposed) {
       return Future<T>.error(_disposedError);
     }
-    final completer = Completer<T>();
-    _operationQueue = _operationQueue.catchError((_) {}).then((_) async {
-      try {
-        if (_isDisposed) {
-          throw _disposedError;
-        }
-        completer.complete(await operation());
-      } catch (error, stackTrace) {
-        completer.completeError(error, stackTrace);
+    return _operationQueue.enqueue(() {
+      if (_isDisposed) {
+        throw _disposedError;
       }
+      return operation();
     });
-    return completer.future;
   }
 
   Future<T> _enqueueSessionOperation<T>(

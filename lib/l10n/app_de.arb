@@ -776,6 +776,15 @@
   "@harnessCliLoginNoOutputHint": {
     "description": "Harness CLI login dialog terminal hint when no output arrives."
   },
+  "harnessCliLoginTimedOut": "Die Anmeldung wurde nach {minutes} Minuten wegen Zeitüberschreitung beendet. Der Prozess wurde gestoppt.",
+  "@harnessCliLoginTimedOut": {
+    "description": "Harness CLI login timeout message.",
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
   "harnessCliLoginTtyRequiredHint": "[Hinweis] Diese CLI benötigt für die interaktive Anmeldung möglicherweise ein echtes Terminal (TTY).\nVerwende unten „Im Terminal öffnen“, um die Anmeldung im Systemterminal abzuschließen.\n",
   "@harnessCliLoginTtyRequiredHint": {
     "description": "Harness CLI login dialog terminal hint when a TTY may be required."

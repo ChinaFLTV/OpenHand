@@ -63,18 +63,18 @@ Future<String> readBoundedHttpResponseText(
   return utf8.decode(bytes, allowMalformed: allowMalformed);
 }
 
-/// Collects a package:http or dart:io byte stream with explicit memory and
-/// timing bounds. The subscription is cancelled when any limit wins, so a
-/// timed-out producer cannot keep buffering in the background.
-/// When [truncateOnOverflow] is true, the byte limit returns a prefix instead
-/// of throwing and completes as soon as the limit is reached; this is intended
-/// for bounded diagnostic/error previews.
+/// 在明确的容量、空闲和总时限内读取字节流。任一限制触发后会取消订阅，
+/// 避免超时的数据源继续在后台缓冲。
+/// [truncateOnOverflow] 为 true 时返回限定长度的前缀，适用于错误信息预览。
+/// [cancelOnFailure] 仅供必须先写出错误响应的服务端请求流关闭；其他调用方
+/// 应保留默认值，确保失败后立即释放底层流。
 Future<Uint8List> readBoundedByteStream(
   Stream<List<int>> stream, {
   required int maxBytes,
   required Duration idleTimeout,
   Duration? totalTimeout,
   bool truncateOnOverflow = false,
+  bool cancelOnFailure = true,
 }) {
   return _consumeByteStream(
     stream,
@@ -83,6 +83,7 @@ Future<Uint8List> readBoundedByteStream(
     totalTimeout: totalTimeout,
     retainBytes: true,
     truncateOnOverflow: truncateOnOverflow,
+    cancelOnFailure: cancelOnFailure,
   );
 }
 
@@ -92,12 +93,14 @@ Future<String> readBoundedByteStreamText(
   required Duration idleTimeout,
   Duration? totalTimeout,
   bool allowMalformed = false,
+  bool cancelOnFailure = true,
 }) async {
   final bytes = await readBoundedByteStream(
     stream,
     maxBytes: maxBytes,
     idleTimeout: idleTimeout,
     totalTimeout: totalTimeout,
+    cancelOnFailure: cancelOnFailure,
   );
   return utf8.decode(bytes, allowMalformed: allowMalformed);
 }
@@ -271,6 +274,7 @@ Future<void> drainByteStreamWithTimeout(
     totalTimeout: totalTimeout,
     retainBytes: false,
     truncateOnOverflow: false,
+    cancelOnFailure: true,
   );
 }
 
@@ -281,6 +285,7 @@ Future<Uint8List> _consumeByteStream(
   Duration? totalTimeout,
   required bool retainBytes,
   required bool truncateOnOverflow,
+  required bool cancelOnFailure,
 }) {
   if (maxBytes != null && maxBytes < 1) {
     throw ArgumentError.value(maxBytes, 'maxBytes', 'Must be positive.');
@@ -326,7 +331,7 @@ Future<Uint8List> _consumeByteStream(
     if (settled) return;
     settled = true;
     cancelTimers();
-    cancelSubscription();
+    if (cancelOnFailure) cancelSubscription();
     completer.completeError(error, stack);
   }
 
@@ -392,7 +397,7 @@ Future<Uint8List> _consumeByteStream(
   } catch (error, stack) {
     fail(error, stack);
   }
-  if (settled) {
+  if (settled && cancelOnFailure) {
     cancelSubscription();
   }
   return completer.future;

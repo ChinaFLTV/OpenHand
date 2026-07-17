@@ -2233,6 +2233,12 @@ abstract class AppLocalizations {
   /// **'[提示] CLI 尚未产生输出。可能正在初始化，或需要在外部浏览器中完成授权。\n'**
   String get harnessCliLoginNoOutputHint;
 
+  /// CLI 登录流程超时提示。
+  ///
+  /// In zh, this message translates to:
+  /// **'登录等待超过 {minutes} 分钟，已自动停止进程。'**
+  String harnessCliLoginTimedOut(int minutes);
+
   /// Harness CLI login dialog terminal hint when a TTY may be required.
   ///
   /// In zh, this message translates to:

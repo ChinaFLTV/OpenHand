@@ -1272,6 +1272,11 @@ class AppLocalizationsFr extends AppLocalizations {
       '[Indice] La CLI n’a pas encore produit de sortie. Elle peut être en cours d’initialisation ou attendre une autorisation dans le navigateur.\n';
 
   @override
+  String harnessCliLoginTimedOut(int minutes) {
+    return 'La connexion a expiré après $minutes minutes. Le processus a été arrêté.';
+  }
+
+  @override
   String get harnessCliLoginTtyRequiredHint =>
       '[Indice] Cette CLI peut nécessiter un vrai terminal (TTY) pour la connexion interactive.\nUtilisez le bouton « Ouvrir dans le terminal » ci-dessous pour terminer la connexion dans le terminal système.\n';
 

@@ -6,6 +6,8 @@ import 'dart:math' as math;
 
 import 'package:path/path.dart' as p;
 
+import '../../../shared/util/bounded_file_io.dart';
+
 /// Safety limits shared by Harness prompt-context reads and workspace scans.
 class HarnessFileIoLimits {
   HarnessFileIoLimits({
@@ -330,76 +332,21 @@ class HarnessBoundedFileIo {
     File file,
     int byteLimit,
     Duration timeout,
-  ) {
-    final completer = Completer<HarnessTextFileRead?>();
-    final buffer = StringBuffer();
-    var byteCount = 0;
-    var settled = false;
-    Timer? timer;
-    StreamSubscription<String>? subscription;
-
-    void cancelSubscription() {
-      final current = subscription;
-      if (current == null) return;
-      try {
-        unawaited(
-          current
-              .cancel()
-              .timeout(timeout, onTimeout: () {})
-              .catchError((Object _, StackTrace _) {}),
-        );
-      } on Object {
-        // The read has settled; cancellation is best-effort cleanup.
-      }
-    }
-
-    void settle(HarnessTextFileRead? result, {bool cancel = false}) {
-      if (settled) return;
-      settled = true;
-      timer?.cancel();
-      if (cancel) cancelSubscription();
-      completer.complete(result);
-    }
-
-    final byteLimiter = StreamTransformer<List<int>, List<int>>.fromHandlers(
-      handleData: (chunk, sink) {
-        byteCount += chunk.length;
-        if (byteCount > byteLimit) {
-          sink.addError(const _HarnessFileByteLimitExceeded());
-          return;
-        }
-        sink.add(chunk);
-      },
-    );
-
+  ) async {
     try {
-      final createdSubscription = file
-          .openRead(0, byteLimit + 1)
-          .transform(byteLimiter)
-          .transform(utf8.decoder)
-          .listen(
-            (chunk) {
-              if (!settled) buffer.write(chunk);
-            },
-            onError: (Object _, StackTrace _) => settle(null, cancel: true),
-            onDone: () => settle(
-              HarnessTextFileRead(
-                text: buffer.toString(),
-                byteLength: byteCount,
-              ),
-            ),
-            cancelOnError: true,
-          );
-      subscription = createdSubscription;
-      if (settled) {
-        cancelSubscription();
-      } else {
-        timer = Timer(timeout, () => settle(null, cancel: true));
-      }
+      final bytes = await readBoundedFileBytes(
+        file,
+        maxBytes: byteLimit,
+        idleTimeout: timeout,
+        totalTimeout: timeout,
+      );
+      return HarnessTextFileRead(
+        text: utf8.decode(bytes),
+        byteLength: bytes.length,
+      );
     } on Object {
-      settle(null, cancel: true);
+      return null;
     }
-    return completer.future;
   }
 
   Future<_HarnessDirectoryEntries> _listDirectory(
@@ -475,8 +422,4 @@ class _HarnessDirectoryEntries {
 
   final List<FileSystemEntity> entries;
   final bool complete;
-}
-
-class _HarnessFileByteLimitExceeded implements Exception {
-  const _HarnessFileByteLimitExceeded();
 }

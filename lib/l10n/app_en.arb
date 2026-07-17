@@ -776,6 +776,15 @@
   "@harnessCliLoginNoOutputHint": {
     "description": "Harness CLI login dialog terminal hint when no output arrives."
   },
+  "harnessCliLoginTimedOut": "Login timed out after {minutes} minutes. The process was stopped.",
+  "@harnessCliLoginTimedOut": {
+    "description": "Harness CLI login timeout message.",
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
   "harnessCliLoginTtyRequiredHint": "[Hint] This CLI may require a real terminal (TTY) for interactive login.\nUse the \"Open in Terminal\" button below to complete login in the system terminal.\n",
   "@harnessCliLoginTtyRequiredHint": {
     "description": "Harness CLI login dialog terminal hint when a TTY may be required."

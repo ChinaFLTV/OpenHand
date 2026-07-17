@@ -1264,6 +1264,11 @@ class AppLocalizationsEn extends AppLocalizations {
       '[Hint] CLI has not produced output yet. It may be initializing, or waiting for browser-based authorization.\n';
 
   @override
+  String harnessCliLoginTimedOut(int minutes) {
+    return 'Login timed out after $minutes minutes. The process was stopped.';
+  }
+
+  @override
   String get harnessCliLoginTtyRequiredHint =>
       '[Hint] This CLI may require a real terminal (TTY) for interactive login.\nUse the \"Open in Terminal\" button below to complete login in the system terminal.\n';
 

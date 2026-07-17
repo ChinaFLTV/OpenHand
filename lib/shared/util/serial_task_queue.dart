@@ -1,7 +1,7 @@
 import 'dart:async';
 
-/// Runs asynchronous tasks in FIFO order without letting one failure poison
-/// the queue. Each caller still receives its own task result or error.
+/// 按 FIFO 顺序执行异步任务。单个任务失败不会阻断队列，调用方仍会收到
+/// 对应任务的结果或异常。
 final class SerialTaskQueue {
   Future<void> _tail = Future<void>.value();
 

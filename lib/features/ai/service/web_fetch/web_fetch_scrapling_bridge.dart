@@ -13,6 +13,7 @@ import '../../../../app/support/system_proxy.dart';
 import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/bounded_file_io.dart';
 import '../../../../shared/util/input_value_parsing.dart';
+import '../../../../shared/util/serial_task_queue.dart';
 import '../../../../shared/util/text_clip.dart';
 import '../../model/ai_web_fetch_settings.dart';
 import '../web_engine/web_engine_http_exception.dart';
@@ -152,7 +153,7 @@ class WebFetchScraplingBridge {
   final Duration _processKillTimeout;
 
   _ScraplingProcessRuntime? _runtime;
-  Future<void> _serial = Future<void>.value();
+  final SerialTaskQueue _operationQueue = SerialTaskQueue();
   String? _helperPath;
   int _requestSeq = 0;
   WebFetchScraplingProbeStatus _lastProbe = const WebFetchScraplingProbeStatus(
@@ -291,17 +292,8 @@ class WebFetchScraplingBridge {
 
   Future<void> dispose() => _runExclusive(_killProcess);
 
-  Future<T> _runExclusive<T>(Future<T> Function() action) {
-    final completer = Completer<T>();
-    _serial = _serial.then((_) async {
-      try {
-        completer.complete(await action());
-      } catch (error, stack) {
-        completer.completeError(error, stack);
-      }
-    });
-    return completer.future;
-  }
+  Future<T> _runExclusive<T>(Future<T> Function() action) =>
+      _operationQueue.enqueue(action);
 
   Future<String?> _resolvePythonExecutable(
     AiWebFetchScraplingSettings settings,

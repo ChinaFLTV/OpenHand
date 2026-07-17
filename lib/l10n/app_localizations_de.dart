@@ -1267,6 +1267,11 @@ class AppLocalizationsDe extends AppLocalizations {
       '[Hinweis] Die CLI hat noch keine Ausgabe erzeugt. Sie initialisiert möglicherweise noch oder wartet auf eine Autorisierung im Browser.\n';
 
   @override
+  String harnessCliLoginTimedOut(int minutes) {
+    return 'Die Anmeldung wurde nach $minutes Minuten wegen Zeitüberschreitung beendet. Der Prozess wurde gestoppt.';
+  }
+
+  @override
   String get harnessCliLoginTtyRequiredHint =>
       '[Hinweis] Diese CLI benötigt für die interaktive Anmeldung möglicherweise ein echtes Terminal (TTY).\nVerwende unten „Im Terminal öffnen“, um die Anmeldung im Systemterminal abzuschließen.\n';
 
