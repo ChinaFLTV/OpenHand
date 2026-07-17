@@ -232,6 +232,28 @@ enum AgentTaskStatus {
 
   final String storageValue;
 
+  bool get isTerminal => switch (this) {
+    AgentTaskStatus.completed ||
+    AgentTaskStatus.failed ||
+    AgentTaskStatus.canceled => true,
+    AgentTaskStatus.backlog ||
+    AgentTaskStatus.ready ||
+    AgentTaskStatus.running ||
+    AgentTaskStatus.waitingApproval ||
+    AgentTaskStatus.paused => false,
+  };
+
+  bool get isPendingExecution => switch (this) {
+    AgentTaskStatus.backlog ||
+    AgentTaskStatus.ready ||
+    AgentTaskStatus.running => true,
+    AgentTaskStatus.waitingApproval ||
+    AgentTaskStatus.paused ||
+    AgentTaskStatus.completed ||
+    AgentTaskStatus.failed ||
+    AgentTaskStatus.canceled => false,
+  };
+
   static AgentTaskStatus fromStorage(String? raw) {
     return enumByStorageValueOr(
       values,
@@ -548,6 +570,9 @@ class AgentTask {
   final Map<String, Object?> extra;
   final DateTime? createdAt;
   final DateTime? updatedAt;
+
+  bool get hasResult =>
+      status == AgentTaskStatus.completed && result.trim().isNotEmpty;
 
   AgentTask copyWith({
     String? id,
@@ -1165,8 +1190,15 @@ class AgentProfile {
   int get completedTaskCount =>
       tasks.where((item) => item.status == AgentTaskStatus.completed).length;
 
+  AgentWorker? workerById(String workerId) {
+    for (final worker in workers) {
+      if (worker.id == workerId) return worker;
+    }
+    return null;
+  }
+
   List<String> get normalizedWorkspaceScopePaths {
-    final structured = _dedupeNonEmptyStrings(workspaceScopePaths);
+    final structured = dedupeNonEmptyStrings(workspaceScopePaths);
     if (structured.isNotEmpty) return structured;
     return _workspaceScopePathsFromValue(null, legacyText: workspaceScope);
   }
@@ -1379,23 +1411,12 @@ List<String> _workspaceScopePathsFromValue(
     separator: _agentDelimitedTextSeparatorPattern,
     ignoreLiteralNull: true,
   );
-  if (structured.isNotEmpty) return _dedupeNonEmptyStrings(structured);
-  return _dedupeNonEmptyStrings(
+  if (structured.isNotEmpty) return dedupeNonEmptyStrings(structured);
+  return dedupeNonEmptyStrings(
     stringListFromValue(
       legacyText,
       separator: _agentDelimitedTextSeparatorPattern,
       ignoreLiteralNull: true,
     ),
   );
-}
-
-List<String> _dedupeNonEmptyStrings(Iterable<String> values) {
-  final seen = <String>{};
-  final result = <String>[];
-  for (final raw in values) {
-    final value = nullIfBlank(raw);
-    if (value == null) continue;
-    if (seen.add(value.toLowerCase())) result.add(value);
-  }
-  return result;
 }

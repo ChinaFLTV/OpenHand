@@ -1476,7 +1476,7 @@ Future<_DirectLaunch> _resolveDirectLaunch(McpServer server) async {
 
   final isNpx = executable == 'npx' || executable.endsWith('/npx');
 
-  final packageArgIndex = isNpx ? _firstNpxPackageArgIndex(allArgs) : -1;
+  final packageArgIndex = isNpx ? firstMcpNpxPackageArgIndex(allArgs) : -1;
   if (isNpx && packageArgIndex >= 0) {
     final packageName = allArgs[packageArgIndex].trim();
     final extraArgs = packageArgIndex + 1 < allArgs.length
@@ -1505,20 +1505,6 @@ Future<_DirectLaunch> _resolveDirectLaunch(McpServer server) async {
       ...allArgs,
     ],
   );
-}
-
-int _firstNpxPackageArgIndex(List<String> args) {
-  for (var i = 0; i < args.length; i++) {
-    final arg = args[i].trim();
-    if (arg.isEmpty) continue;
-    if (arg == '--') continue;
-    if (arg == '-y' || arg == '--yes' || arg == '--no-install') {
-      continue;
-    }
-    if (arg.startsWith('-')) continue;
-    return i;
-  }
-  return -1;
 }
 
 /// 通过多种策略定位 npx 包的实际安装路径和入口脚本。

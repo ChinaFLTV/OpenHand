@@ -452,7 +452,6 @@ String resolveHarnessCliInvocationModelId(HarnessCli cli, String modelId) {
 }
 
 String describeHarnessCliModel(
-  HarnessCli? cli,
   String modelId, {
   bool isZh = false,
   Locale? locale,

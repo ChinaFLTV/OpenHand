@@ -65,6 +65,7 @@ import '../service/mcp_stdio_process_manager.dart';
 import '../service/mcp_tool_discovery_service.dart';
 import 'mcp_dialog_utils.dart';
 import 'mcp_keyword_index_progress_dialog.dart';
+import 'mcp_payload_format.dart';
 import 'mcp_stdio_dialogs.dart';
 
 enum _McpCardAction { edit, delete, viewHistory, viewDetails }
@@ -7384,7 +7385,7 @@ class _SchemaEditorObjectScope {
   _SchemaEditorObjectScope({required this.baseSchema, required this.fields});
 
   factory _SchemaEditorObjectScope.fromSchema(Map<String, Object?> schema) {
-    final properties = _asMap(schema['properties']);
+    final properties = optionalStringKeyedMapFromValue(schema['properties']);
     final requiredFields = _requiredFieldNames(schema['required']);
     final fields = <_SchemaEditorFieldDraft>[];
     if (properties != null) {
@@ -7481,7 +7482,7 @@ class _SchemaEditorFieldDraft {
     required bool required,
   }) {
     final schemaMap =
-        _asMap(schema) ??
+        optionalStringKeyedMapFromValue(schema) ??
         <String, Object?>{'type': _schemaEditableType(schema)};
     final type = _schemaEditableType(schemaMap);
     var itemType = 'string';
@@ -7491,14 +7492,15 @@ class _SchemaEditorFieldDraft {
     if (type == 'object') {
       children = _SchemaEditorObjectScope.fromSchema(schemaMap);
     } else if (type == 'array') {
-      final itemsMap = _asMap(schemaMap['items']);
+      final itemsMap = optionalStringKeyedMapFromValue(schemaMap['items']);
       if (itemsMap != null) {
         itemBaseSchema = Map<String, Object?>.from(itemsMap);
         itemType = _schemaEditableType(itemsMap);
         if (!_mcpOpsSchemaArrayItemTypes.contains(itemType)) {
           itemType = 'object';
         }
-        if (itemType == 'object' || _asMap(itemsMap['properties']) != null) {
+        if (itemType == 'object' ||
+            optionalStringKeyedMapFromValue(itemsMap['properties']) != null) {
           children = _SchemaEditorObjectScope.fromSchema(itemsMap);
           itemType = 'object';
         }
@@ -8999,7 +9001,7 @@ class _McpOpsPayloadInspectorHeader extends StatelessWidget {
                   children: [
                     _McpOpsPayloadPill(
                       icon: Icons.schema_rounded,
-                      label: _mcpOpsPayloadShapeLabel(
+                      label: mcpPayloadShapeLabel(
                         context,
                         parsed.value,
                         parsed.structured,
@@ -9008,12 +9010,12 @@ class _McpOpsPayloadInspectorHeader extends StatelessWidget {
                     ),
                     _McpOpsPayloadPill(
                       icon: Icons.format_list_bulleted_rounded,
-                      label: _mcpOpsPayloadCountLabel(context, parsed.value),
+                      label: mcpPayloadCountLabel(context, parsed.value),
                       accent: cs.onSurfaceVariant,
                     ),
                     _McpOpsPayloadPill(
                       icon: Icons.notes_rounded,
-                      label: _mcpOpsPayloadSizeLabel(context, parsed.raw),
+                      label: mcpPayloadSizeLabel(context, parsed.raw),
                       accent: cs.onSurfaceVariant,
                     ),
                   ],
@@ -9165,7 +9167,7 @@ class _McpOpsStructuredField extends StatelessWidget {
     final tone = depth == 0 ? accent : cs.primary.withValues(alpha: 0.78);
     final child = _McpOpsStructuredNode(
       value: value,
-      raw: _mcpOpsPayloadScalarText(value),
+      raw: mcpPayloadScalarText(value),
       structured: nested,
       accent: accent,
       depth: depth + 1,
@@ -9301,7 +9303,7 @@ class _McpOpsPayloadFieldHeader extends StatelessWidget {
             borderRadius: BorderRadius.circular(9),
             border: Border.all(color: accent.withValues(alpha: 0.20)),
           ),
-          child: Icon(_mcpOpsPayloadValueIcon(value), size: 16, color: accent),
+          child: Icon(mcpPayloadValueIcon(value), size: 16, color: accent),
         ),
         const SizedBox(width: 9),
         Expanded(
@@ -9317,7 +9319,7 @@ class _McpOpsPayloadFieldHeader extends StatelessWidget {
         const SizedBox(width: 8),
         _McpOpsPayloadPill(
           icon: Icons.category_rounded,
-          label: _mcpOpsPayloadTypeLabel(context, value),
+          label: mcpPayloadTypeLabel(context, value),
           accent: cs.onSurfaceVariant,
         ),
       ],
@@ -9384,10 +9386,10 @@ class _McpOpsScalarPayload extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final fullText = _mcpOpsPayloadScalarText(value);
+    final fullText = mcpPayloadScalarText(value);
     final text = _truncateMcpOpsPayloadText(fullText);
     final muted = text.trim().isEmpty;
-    final mono = _mcpOpsPayloadPrefersMonospace(semanticKey, text);
+    final mono = mcpPayloadPrefersMonospace(semanticKey, text);
     final longText = text.length > 96 || text.contains('\n');
     if (!mono && !longText) {
       return SelectableText(
@@ -9431,7 +9433,7 @@ class _McpOpsScalarPayload extends StatelessWidget {
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    _mcpOpsPayloadContentLabel(context, semanticKey, mono),
+                    mcpPayloadContentLabel(context, semanticKey, mono),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.labelSmall?.copyWith(
@@ -9441,7 +9443,7 @@ class _McpOpsScalarPayload extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  _mcpOpsPayloadSizeLabel(context, fullText),
+                  mcpPayloadSizeLabel(context, fullText),
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: cs.onSurfaceVariant,
                     fontWeight: FontWeight.w800,
@@ -9476,79 +9478,10 @@ String _mcpOpsPayloadSubtitle(
   _McpOpsParsedPayload parsed,
 ) {
   return [
-    _mcpOpsPayloadShapeLabel(context, parsed.value, parsed.structured),
-    _mcpOpsPayloadCountLabel(context, parsed.value),
-    _mcpOpsPayloadSizeLabel(context, parsed.raw),
+    mcpPayloadShapeLabel(context, parsed.value, parsed.structured),
+    mcpPayloadCountLabel(context, parsed.value),
+    mcpPayloadSizeLabel(context, parsed.raw),
   ].join(' · ');
-}
-
-String _mcpOpsPayloadShapeLabel(
-  BuildContext context,
-  Object? value,
-  bool structured,
-) {
-  if (!structured) {
-    return _localizedText(context, zh: '原始文本', en: 'Plain text');
-  }
-  if (value is Map) return _localizedText(context, zh: '对象结构', en: 'Object');
-  if (value is List) return _localizedText(context, zh: '列表结构', en: 'Array');
-  return _localizedText(context, zh: '结构化', en: 'Structured');
-}
-
-String _mcpOpsPayloadCountLabel(BuildContext context, Object? value) {
-  if (value is Map) {
-    return _localizedText(
-      context,
-      zh: '${value.length} 个字段',
-      en: '${value.length} fields',
-    );
-  }
-  if (value is List) {
-    return _localizedText(
-      context,
-      zh: '${value.length} 项',
-      en: '${value.length} items',
-    );
-  }
-  return _localizedText(context, zh: '1 段内容', en: '1 segment');
-}
-
-String _mcpOpsPayloadSizeLabel(BuildContext context, String text) {
-  return _localizedText(
-    context,
-    zh: '${text.length} 字符',
-    en: '${text.length} chars',
-  );
-}
-
-String _mcpOpsPayloadContentLabel(
-  BuildContext context,
-  String semanticKey,
-  bool mono,
-) {
-  final key = semanticKey.toLowerCase();
-  if (key.contains('command')) {
-    return _localizedText(context, zh: 'Shell 命令', en: 'Shell command');
-  }
-  if (key.contains('stdout') || key.contains('stderr')) {
-    return _localizedText(context, zh: '终端输出', en: 'Terminal output');
-  }
-  if (key.contains('path')) {
-    return _localizedText(context, zh: '文件路径', en: 'File path');
-  }
-  if (mono) {
-    return _localizedText(context, zh: '等宽文本', en: 'Monospace text');
-  }
-  return _localizedText(context, zh: '长文本', en: 'Long text');
-}
-
-IconData _mcpOpsPayloadValueIcon(Object? value) {
-  if (value is Map) return Icons.data_object_rounded;
-  if (value is List) return Icons.data_array_rounded;
-  if (value is num) return Icons.pin_rounded;
-  if (value is bool) return Icons.toggle_on_rounded;
-  if (value == null) return Icons.block_rounded;
-  return Icons.short_text_rounded;
 }
 
 class _McpOpsParsedPayload {
@@ -9574,7 +9507,7 @@ _McpOpsParsedPayload _parseMcpOpsPayload(String text) {
   if (decoded is Map || decoded is List) {
     return _McpOpsParsedPayload(value: decoded, raw: raw, structured: true);
   }
-  final looseMap = _parseMcpOpsLooseMap(raw);
+  final looseMap = parseMcpLoosePayloadMap(raw);
   if (looseMap != null && looseMap.isNotEmpty) {
     return _McpOpsParsedPayload(value: looseMap, raw: raw, structured: true);
   }
@@ -9593,7 +9526,7 @@ Map<String, Object?>? _parseMcpOpsKeyValueLines(String text) {
   void flush() {
     final key = currentKey;
     if (key == null) return;
-    result[key] = _coerceMcpOpsPayloadValue(buffer.toString().trimRight());
+    result[key] = coerceMcpPayloadValue(buffer.toString().trimRight());
     currentKey = null;
     buffer.clear();
   }
@@ -9619,78 +9552,11 @@ Map<String, Object?>? _parseMcpOpsKeyValueLines(String text) {
   return result.isEmpty ? null : result;
 }
 
-Map<String, Object?>? _parseMcpOpsLooseMap(String text) {
-  if (!text.startsWith('{') || !text.endsWith('}')) {
-    return null;
-  }
-  final inner = text.substring(1, text.length - 1).trim();
-  if (inner.isEmpty) return const <String, Object?>{};
-  final matches = RegExp(
-    r'(?:^|,\s*)([A-Za-z_][A-Za-z0-9_.-]{0,64}):\s*',
-  ).allMatches(inner).toList(growable: false);
-  if (matches.isEmpty) return null;
-  final result = <String, Object?>{};
-  for (var index = 0; index < matches.length; index++) {
-    final match = matches[index];
-    final key = match.group(1)!.trim();
-    final end = index + 1 < matches.length
-        ? matches[index + 1].start
-        : inner.length;
-    var value = inner.substring(match.end, end).trim();
-    if (value.endsWith(',')) {
-      value = value.substring(0, value.length - 1).trimRight();
-    }
-    result[key] = _coerceMcpOpsPayloadValue(value);
-  }
-  return result;
-}
-
-Object? _coerceMcpOpsPayloadValue(String value) {
-  final trimmed = value.trim();
-  if (trimmed.isEmpty) return '';
-  final decoded = tryDecodeJson(trimmed);
-  if (decoded != null) return decoded;
-  final lower = trimmed.toLowerCase();
-  if (lower == 'true') return true;
-  if (lower == 'false') return false;
-  if (lower == 'null') return null;
-  return int.tryParse(trimmed) ?? double.tryParse(trimmed) ?? trimmed;
-}
-
-String _mcpOpsPayloadScalarText(Object? value) {
-  if (value == null) return 'null';
-  if (value is String) return value.trim();
-  if (value is num || value is bool) return '$value';
-  if (value is Map || value is List) return prettyPrintJson(value);
-  return '$value'.trim();
-}
-
 String _truncateMcpOpsPayloadText(String text) {
   if (text.length <= _mcpOpsPayloadMaxScalarChars) {
     return text;
   }
   return '${text.substring(0, _mcpOpsPayloadMaxScalarChars).trimRight()}\n...';
-}
-
-bool _mcpOpsPayloadPrefersMonospace(String key, String value) {
-  final normalizedKey = key.toLowerCase();
-  return normalizedKey.contains('command') ||
-      normalizedKey.contains('path') ||
-      normalizedKey.contains('stdout') ||
-      normalizedKey.contains('stderr') ||
-      normalizedKey.contains('code') ||
-      value.contains('\n') ||
-      value.contains('&&') ||
-      value.contains('://');
-}
-
-String _mcpOpsPayloadTypeLabel(BuildContext context, Object? value) {
-  if (value is Map) return _localizedText(context, zh: '对象', en: 'Object');
-  if (value is List) return _localizedText(context, zh: '列表', en: 'Array');
-  if (value is num) return _localizedText(context, zh: '数值', en: 'Number');
-  if (value is bool) return _localizedText(context, zh: '布尔', en: 'Boolean');
-  if (value == null) return _localizedText(context, zh: '空值', en: 'Null');
-  return _localizedText(context, zh: '文本', en: 'Text');
 }
 
 class _McpOpsApprovalPanel extends StatelessWidget {
@@ -14793,7 +14659,7 @@ List<_SchemaField> _schemaFields(Object? schema) {
     }
   }
 
-  final schemaMap = _asMap(schema);
+  final schemaMap = optionalStringKeyedMapFromValue(schema);
   if (schemaMap != null) {
     _collectSchemaFields(schemaMap, addField);
   }
@@ -14816,7 +14682,7 @@ void _collectSchemaFields(
   void Function(_SchemaField field) addField, {
   String prefix = '',
 }) {
-  final properties = _asMap(schema['properties']);
+  final properties = optionalStringKeyedMapFromValue(schema['properties']);
   if (properties != null && properties.isNotEmpty) {
     final requiredFields = _requiredFieldNames(schema['required']);
     for (final entry in properties.entries) {
@@ -14852,7 +14718,7 @@ void _collectSchemaFields(
       continue;
     }
     for (final variant in variants) {
-      final variantMap = _asMap(variant);
+      final variantMap = optionalStringKeyedMapFromValue(variant);
       if (variantMap != null) {
         _collectSchemaFields(variantMap, addField, prefix: prefix);
       }
@@ -14867,14 +14733,14 @@ void _collectSchemaFields(
       if (field != null) {
         addField(field);
       }
-      final itemMap = _asMap(item);
+      final itemMap = optionalStringKeyedMapFromValue(item);
       if (itemMap != null) {
         _collectSchemaFields(itemMap, addField, prefix: itemPrefix);
       }
     }
     return;
   }
-  final itemMap = _asMap(items);
+  final itemMap = optionalStringKeyedMapFromValue(items);
   if (itemMap != null) {
     _collectSchemaFields(itemMap, addField, prefix: itemPrefix);
   }
@@ -14894,7 +14760,7 @@ Set<String> _requiredFieldNames(Object? rawRequired) {
 }
 
 _SchemaField? _descriptorField(Object? value, {String prefix = ''}) {
-  final descriptor = _asMap(value);
+  final descriptor = optionalStringKeyedMapFromValue(value);
   if (descriptor == null) {
     return null;
   }
@@ -14927,7 +14793,7 @@ _SchemaField? _descriptorField(Object? value, {String prefix = ''}) {
 }
 
 String _schemaType(Object? schema) {
-  final schemaMap = _asMap(schema);
+  final schemaMap = optionalStringKeyedMapFromValue(schema);
   if (schemaMap == null) {
     if (schema is List) {
       return 'array';
@@ -14973,14 +14839,14 @@ String _schemaType(Object? schema) {
   if (schemaMap.containsKey('items')) {
     return 'array';
   }
-  if (_asMap(schemaMap['properties']) != null) {
+  if (optionalStringKeyedMapFromValue(schemaMap['properties']) != null) {
     return 'object';
   }
   return 'object';
 }
 
 String _schemaDescription(Object? schema) {
-  final schemaMap = _asMap(schema);
+  final schemaMap = optionalStringKeyedMapFromValue(schema);
   if (schemaMap == null) {
     return '';
   }
@@ -15175,8 +15041,10 @@ String _schemaSummary(
 }
 
 String _suggestedArgumentsJson(McpTool tool) {
-  final schemaMap = _asMap(tool.inputSchema);
-  final properties = schemaMap == null ? null : _asMap(schemaMap['properties']);
+  final schemaMap = optionalStringKeyedMapFromValue(tool.inputSchema);
+  final properties = schemaMap == null
+      ? null
+      : optionalStringKeyedMapFromValue(schemaMap['properties']);
   if (properties == null || properties.isEmpty) {
     return '{}';
   }
@@ -15188,7 +15056,7 @@ String _suggestedArgumentsJson(McpTool tool) {
 }
 
 Object? _schemaExampleValue(Object? schema) {
-  final schemaMap = _asMap(schema);
+  final schemaMap = optionalStringKeyedMapFromValue(schema);
   if (schemaMap == null) {
     return '';
   }
@@ -15289,16 +15157,6 @@ String _healthStatusDotTooltip(
       ? _localizedText(context, zh: '服务健康', en: 'Service Healthy')
       : _localizedText(context, zh: '服务异常', en: 'Service Unhealthy');
   return '$statusLabel · ${_formatStatusTime(context, checkedAt)}';
-}
-
-Map<String, Object?>? _asMap(Object? value) {
-  if (value is Map<String, Object?>) {
-    return value;
-  }
-  if (value is Map) {
-    return stringKeyedMapFromValue(value);
-  }
-  return null;
 }
 
 /// Deep equality for two JSON-shaped maps via canonical encoding. Used to tell

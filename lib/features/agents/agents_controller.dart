@@ -6,6 +6,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../shared/core/managed_change_notifier.dart';
 import '../../shared/util/input_value_parsing.dart';
+import '../../shared/util/text_normalization.dart';
 import 'data/agents_store.dart';
 import 'model/agent_models.dart';
 import 'service/agent_runtime_availability.dart';
@@ -1107,15 +1108,15 @@ class AgentsController extends ManagedChangeNotifier {
     final normalizedWorkers = _normalizeWorkersForScale(scaledAgent, workers);
     final normalized = scaledAgent.copyWith(
       name: agent.name.trim().isEmpty ? 'Unnamed Agent' : agent.name.trim(),
-      skillNames: _dedupe(agent.skillNames),
-      knowledgeSourceIds: _dedupe(agent.knowledgeSourceIds),
-      memoryIds: _dedupe(agent.memoryIds),
-      taskLabels: _dedupe(agent.taskLabels),
-      mcpServerNames: _dedupe(agent.mcpServerNames),
+      skillNames: dedupeNonEmptyStrings(agent.skillNames),
+      knowledgeSourceIds: dedupeNonEmptyStrings(agent.knowledgeSourceIds),
+      memoryIds: dedupeNonEmptyStrings(agent.memoryIds),
+      taskLabels: dedupeNonEmptyStrings(agent.taskLabels),
+      mcpServerNames: dedupeNonEmptyStrings(agent.mcpServerNames),
       builtinToolNames: normalizeAgentBuiltinToolNames(agent.builtinToolNames),
-      cronIds: _dedupe(agent.cronIds),
-      hookIds: _dedupe(agent.hookIds),
-      instructionIds: _dedupe(agent.instructionIds),
+      cronIds: dedupeNonEmptyStrings(agent.cronIds),
+      hookIds: dedupeNonEmptyStrings(agent.hookIds),
+      instructionIds: dedupeNonEmptyStrings(agent.instructionIds),
       activities: agent.activities.take(_maxActivityEvents).toList(),
       auditEvents: agent.auditEvents.take(_maxAuditEvents).toList(),
       workers: normalizedWorkers,
@@ -1397,7 +1398,7 @@ class AgentsController extends ManagedChangeNotifier {
         agentSchedulerPolicyOptions,
         agentSchedulerPolicyLeastBusy,
       ),
-      tags: _dedupe(settings.tags),
+      tags: dedupeNonEmptyStrings(settings.tags),
     );
   }
 
@@ -1408,18 +1409,6 @@ class AgentsController extends ManagedChangeNotifier {
   ) {
     final normalized = value.trim().toLowerCase();
     return allowedValues.contains(normalized) ? normalized : fallback;
-  }
-
-  List<String> _dedupe(List<String> values) {
-    final seen = <String>{};
-    final result = <String>[];
-    for (final raw in values) {
-      final value = raw.trim();
-      if (value.isEmpty) continue;
-      final key = value.toLowerCase();
-      if (seen.add(key)) result.add(value);
-    }
-    return result;
   }
 
   List<AgentActivityEvent> _prependActivity(

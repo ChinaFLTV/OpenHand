@@ -58,6 +58,7 @@ import {
   knowledgeBaseResultsUsedByAnswer,
 } from '../shared/util/knowledge';
 import { messageFeedbackValue } from '../shared/util/message_feedback';
+import { isTerminalToolExecutionStatus } from '../shared/util/session_transcript_messages';
 import {
   clampNumber,
   strictPositiveIntegerFromUnknown,
@@ -89,26 +90,6 @@ const TOOL_LIVE_ELAPSED_TICK_MS = 1000;
 function isLiveToolExecutionStatus(status: string): boolean {
   const s = status.toLowerCase();
   return s === 'running' || s === 'pending' || s === 'in_progress';
-}
-
-function isTerminalToolExecutionStatus(status: string): boolean {
-  const s = status.toLowerCase();
-  return (
-    s === 'success' ||
-    s === 'ok' ||
-    s === 'completed' ||
-    s === 'failed' ||
-    s === 'failure' ||
-    s === 'error' ||
-    s === 'denied' ||
-    s === 'rejected' ||
-    s === 'timed_out' ||
-    s === 'invalid_arguments' ||
-    s === 'cancelled' ||
-    s === 'canceled' ||
-    s === 'aborted' ||
-    s === 'blocked'
-  );
 }
 
 function timestampMsFromUnknown(value: unknown): number | null {

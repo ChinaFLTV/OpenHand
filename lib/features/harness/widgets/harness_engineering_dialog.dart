@@ -73,38 +73,6 @@ String _heEngineeringRoleLabel(BuildContext context, HarnessAgentRole role) {
   };
 }
 
-String _heEngineeringCliModelLabel(
-  BuildContext context,
-  HarnessCli? cli,
-  String modelId,
-) {
-  final normalizedModel = modelId.trim();
-  if (normalizedModel == kHarnessGeminiDefaultModelId ||
-      (cli != null && isHarnessCliDefaultModel(cli, normalizedModel))) {
-    return openHandLocalizedText(
-      context,
-      zh: 'Gemini CLI 默认（自动）',
-      zhHant: 'Gemini CLI 預設（自動）',
-      en: 'Gemini CLI default (auto)',
-      fr: 'Gemini CLI par défaut (auto)',
-      de: 'Gemini CLI-Standard (automatisch)',
-      ja: 'Gemini CLI デフォルト（自動）',
-    );
-  }
-  if (normalizedModel.isEmpty) {
-    return openHandLocalizedText(
-      context,
-      zh: '默认',
-      zhHant: '預設',
-      en: 'Default',
-      fr: 'Par défaut',
-      de: 'Standard',
-      ja: 'デフォルト',
-    );
-  }
-  return normalizedModel;
-}
-
 class HarnessEngineeringDialog extends StatefulWidget {
   const HarnessEngineeringDialog({super.key, this.settingsController});
 
@@ -419,7 +387,6 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
     final geminiRoleLabels = <String>[];
     var hasLoggedInGemini = false;
     var hasPinnedGeminiModel = false;
-    final geminiCli = findHarnessCliByName('Gemini CLI');
 
     for (final role in HarnessAgentRole.values) {
       final roleLabel = _heEngineeringRoleLabel(context, role);
@@ -455,15 +422,13 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
     final roleSummary = geminiRoleLabels.join(
       openHandIsChineseLocale(context) ? '、' : ', ',
     );
-    final defaultModelLabel = _heEngineeringCliModelLabel(
-      context,
-      geminiCli,
+    final defaultModelLabel = describeHarnessCliModel(
       kHarnessGeminiDefaultModelId,
+      locale: Localizations.localeOf(context),
     );
-    final flashModelLabel = _heEngineeringCliModelLabel(
-      context,
-      geminiCli,
+    final flashModelLabel = describeHarnessCliModel(
       'gemini-2.5-flash',
+      locale: Localizations.localeOf(context),
     );
 
     return [
@@ -1398,17 +1363,15 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
   }
 }
 
-String _harnessConfiguredModelLabel(
-  BuildContext context,
-  HarnessCli? cli,
-  String modelId,
-) {
-  return _heEngineeringCliModelLabel(context, cli, modelId);
+String _harnessConfiguredModelLabel(BuildContext context, String modelId) {
+  return describeHarnessCliModel(
+    modelId,
+    locale: Localizations.localeOf(context),
+  );
 }
 
 List<DropdownMenuItem<String>> _harnessModelDropdownItems({
   required BuildContext context,
-  required HarnessCli? cli,
   required List<String> availableModels,
   required String? configuredModel,
 }) {
@@ -1421,7 +1384,7 @@ List<DropdownMenuItem<String>> _harnessModelDropdownItems({
       DropdownMenuItem<String>(
         value: trimmedConfiguredModel,
         child: Text(
-          _harnessConfiguredModelLabel(context, cli, trimmedConfiguredModel),
+          _harnessConfiguredModelLabel(context, trimmedConfiguredModel),
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(fontSize: 13),
         ),
@@ -1433,7 +1396,10 @@ List<DropdownMenuItem<String>> _harnessModelDropdownItems({
       (modelId) => DropdownMenuItem<String>(
         value: modelId,
         child: Text(
-          _heEngineeringCliModelLabel(context, cli, modelId),
+          describeHarnessCliModel(
+            modelId,
+            locale: Localizations.localeOf(context),
+          ),
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(fontSize: 13),
         ),
@@ -1640,10 +1606,8 @@ class _RoleConfigRow extends StatelessWidget {
     final colorScheme = theme.colorScheme;
     final roleName = _heEngineeringRoleLabel(context, role);
     final isUrlMode = executionMode == HarnessExecutionMode.url;
-    final selectedCliEntry = _selectedEntry;
     final modelItems = _harnessModelDropdownItems(
       context: context,
-      cli: selectedCliEntry?.cli,
       availableModels: availableModels,
       configuredModel: selectedModel,
     );
@@ -2198,16 +2162,10 @@ class _QuickApplyBar extends StatelessWidget {
     // the IIFE anti-pattern (which creates new widget instances every build
     // and confuses Flutter's element reconciliation / MouseTracker).
     final cliModels = isUrlMode ? const <String>[] : modelsForCli(selectedCli);
-    final cliSelectedEntry = isUrlMode
-        ? null
-        : scanResults
-              .where((entry) => entry.cli.name == selectedCli)
-              .firstOrNull;
     final cliModelItems = isUrlMode
         ? const <DropdownMenuItem<String>>[]
         : _harnessModelDropdownItems(
             context: context,
-            cli: cliSelectedEntry?.cli,
             availableModels: cliModels,
             configuredModel: selectedModel,
           );

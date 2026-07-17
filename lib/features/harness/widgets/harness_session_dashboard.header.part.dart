@@ -880,7 +880,7 @@ class _HeSessionMetadataDialog extends StatelessWidget {
                             value: entry.$2.isUrlMode
                                 ? 'URL/API · ${_heDescribeAiModelConfig(context, aiModels, entry.$2.aiModelConfigId, urlModeModelId: entry.$2.urlModeModelId)}'
                                 : entry.$2.isConfigured
-                                ? '${entry.$2.cliName} · ${_heDescribeHarnessCliModel(context, findHarnessCliByName(entry.$2.cliName), entry.$2.modelId)}'
+                                ? '${entry.$2.cliName} · ${describeHarnessCliModel(entry.$2.modelId, locale: Localizations.localeOf(context))}'
                                 : _heHarnessNotConfiguredText(context),
                           ),
                       ],

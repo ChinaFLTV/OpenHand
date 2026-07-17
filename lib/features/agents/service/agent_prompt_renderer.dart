@@ -1,4 +1,3 @@
-
 import 'package:flutter/services.dart';
 
 import '../../../app/support/silent_log.dart';
@@ -246,7 +245,7 @@ Map<String, Object?> _operationalStateJson(AgentProfile agent) {
   final approvals = sortedAgentApprovalsForAttention(agent.approvals);
   final kpis = sortedAgentKpisForAttention(agent.kpis);
   final activeTasks = tasks
-      .where((task) => !_taskIsTerminal(task.status))
+      .where((task) => !task.status.isTerminal)
       .take(12)
       .map(_taskJson)
       .toList(growable: false);
@@ -256,7 +255,7 @@ Map<String, Object?> _operationalStateJson(AgentProfile agent) {
       .map(_taskJson)
       .toList(growable: false);
   final recentTerminalTasks = recentAgentTasks(agent.tasks)
-      .where((task) => _taskIsTerminal(task.status))
+      .where((task) => task.status.isTerminal)
       .take(6)
       .map(_taskJson)
       .toList(growable: false);
@@ -370,19 +369,6 @@ Map<String, Object?> _operationalStateJson(AgentProfile agent) {
           .take(10)
           .toList(growable: false),
     },
-  };
-}
-
-bool _taskIsTerminal(AgentTaskStatus status) {
-  return switch (status) {
-    AgentTaskStatus.completed ||
-    AgentTaskStatus.failed ||
-    AgentTaskStatus.canceled => true,
-    AgentTaskStatus.backlog ||
-    AgentTaskStatus.ready ||
-    AgentTaskStatus.running ||
-    AgentTaskStatus.waitingApproval ||
-    AgentTaskStatus.paused => false,
   };
 }
 
@@ -627,8 +613,7 @@ const Set<String> _agentPromptSensitiveMetadataKeys = <String>{
   'hidden_prompt',
 };
 
-String _json(Object? value) =>
-    prettyPrintJson(value);
+String _json(Object? value) => prettyPrintJson(value);
 
 String _agentCoordinationGuidance(
   AgentProfile agent, {

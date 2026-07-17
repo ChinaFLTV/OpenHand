@@ -21,6 +21,17 @@ String removeInlineWhitespace(String value) {
   return value.replaceAll(_inlineWhitespacePattern, '');
 }
 
+List<String> dedupeNonEmptyStrings(Iterable<String> values) {
+  final seen = <String>{};
+  final result = <String>[];
+  for (final raw in values) {
+    final value = raw.trim();
+    if (value.isEmpty) continue;
+    if (seen.add(value.toLowerCase())) result.add(value);
+  }
+  return result;
+}
+
 /// Normalizes names used for tolerant lookups by keeping only ASCII
 /// alphanumeric characters and lower-casing them.
 String normalizeAsciiLookupKey(String value) {

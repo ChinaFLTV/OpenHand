@@ -28,6 +28,13 @@ final class AiOperationHttp {
   static const String extrasQueryKey = 'query';
   static const String extrasHeadersKey = 'headers';
 
+  static bool isSparkBaseUrl(String baseUrl) {
+    final normalized = baseUrl.toLowerCase();
+    return normalized.contains('xf-yun.com') ||
+        normalized.contains('xfyun') ||
+        normalized.contains('xunfei');
+  }
+
   static Map<String, String> buildHeaders({
     required AiModelConfig model,
     required Map<String, String> endpointHeaders,

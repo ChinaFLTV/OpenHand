@@ -568,7 +568,9 @@ class _OpenAiCompatibleEmbeddingStrategy extends _EmbeddingRequestStrategy {
           : null,
       fallbackPath:
           context.profileEndpointPath ??
-          (_isSparkBaseUrl(context.model.baseUrl) ? 'embeddings' : null),
+          (AiOperationHttp.isSparkBaseUrl(context.model.baseUrl)
+              ? 'embeddings'
+              : null),
       contextHint: 'embeddings',
     );
   }
@@ -1260,11 +1262,4 @@ const Set<String> _deepMergeableEmbeddingBodyKeys = <String>{
 
 String? _trimmedOrNull(String? value) {
   return nullIfBlank(value);
-}
-
-bool _isSparkBaseUrl(String baseUrl) {
-  final normalized = baseUrl.toLowerCase();
-  return normalized.contains('xf-yun.com') ||
-      normalized.contains('xfyun') ||
-      normalized.contains('xunfei');
 }

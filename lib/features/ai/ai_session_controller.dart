@@ -670,7 +670,6 @@ class AiSessionController extends ChangeNotifier {
       ),
     ];
     final requestModels = _autoTitleRequestModels(model);
-    Object? lastError;
     for (
       var attemptIndex = 0;
       attemptIndex < requestModels.length;
@@ -700,8 +699,7 @@ class AiSessionController extends ChangeNotifier {
             return generatedTitle;
           }
         }
-      } catch (error) {
-        lastError = error;
+      } catch (_) {
         if (!isLastAttempt) {
           continue;
         }
@@ -713,9 +711,6 @@ class AiSessionController extends ChangeNotifier {
     );
     if (fallbackTitle.isNotEmpty) {
       return fallbackTitle;
-    }
-    if (lastError != null) {
-      return null;
     }
     return null;
   }
@@ -6007,7 +6002,7 @@ class AiSessionController extends ChangeNotifier {
       _PreparedUserTurn? preparedUserTurn;
       var userTurnAlreadyCommitted = false;
       final preflightSessionId = session.id;
-      bool preflightStopped(String stage) {
+      bool preflightStopped() {
         if (!_isStopRequestedForSession(preflightSessionId)) {
           return false;
         }
@@ -6024,7 +6019,7 @@ class AiSessionController extends ChangeNotifier {
           previousEnvironment: previousEnvironment,
           previousPromptMetadata: previousPromptMetadata,
         );
-        if (preflightStopped('runtime_compatibility_hooks')) {
+        if (preflightStopped()) {
           return true;
         }
         sendPreflightTimingsMs['runtime_compatibility_hooks'] =
@@ -6049,7 +6044,7 @@ class AiSessionController extends ChangeNotifier {
           sessionId: session.id,
           payload: <String, Object?>{'prompt': normalizedContent},
         );
-        if (preflightStopped('user_prompt_hooks')) {
+        if (preflightStopped()) {
           return true;
         }
         sendPreflightTimingsMs['user_prompt_hooks'] =
@@ -6199,7 +6194,7 @@ class AiSessionController extends ChangeNotifier {
             );
             return false;
           }
-          if (preflightStopped('plan_approval')) {
+          if (preflightStopped()) {
             return true;
           }
         }
@@ -6247,7 +6242,7 @@ class AiSessionController extends ChangeNotifier {
           _setSessionSendPhase(session.id, AiSendPhase.compressing);
           notifyListeners();
         }
-        if (preflightStopped('before_compression')) {
+        if (preflightStopped()) {
           return true;
         }
         final compressionStopwatch = Stopwatch()..start();
@@ -6256,7 +6251,7 @@ class AiSessionController extends ChangeNotifier {
           model: model,
           runtimeContext: runtimeContext,
         );
-        if (preflightStopped('compression')) {
+        if (preflightStopped()) {
           return true;
         }
         sendPreflightTimingsMs['compression'] =
@@ -6269,7 +6264,7 @@ class AiSessionController extends ChangeNotifier {
         }
 
         if (preparedUserTurn == null) {
-          if (preflightStopped('before_prepare_user_turn')) {
+          if (preflightStopped()) {
             return true;
           }
           final prepareUserTurnStopwatch = Stopwatch()..start();
@@ -6287,7 +6282,7 @@ class AiSessionController extends ChangeNotifier {
         } else {
           session = _sessionById(session.id) ?? session;
         }
-        if (preflightStopped('prepare_user_turn')) {
+        if (preflightStopped()) {
           if (!userTurnAlreadyCommitted &&
               preparedUserTurn.importedAttachments) {
             await _attachmentService.deleteMessageAttachments(
@@ -6332,7 +6327,7 @@ class AiSessionController extends ChangeNotifier {
         preparedUserTurn = preparedUserTurnWithMetadata;
         final persistUserTurnStopwatch = Stopwatch()..start();
         final userCommitted = await _commitSessionLocked(session);
-        if (preflightStopped('persist_user_turn')) {
+        if (preflightStopped()) {
           return true;
         }
         sendPreflightTimingsMs[userTurnAlreadyCommitted
@@ -6398,7 +6393,7 @@ class AiSessionController extends ChangeNotifier {
             runtimeContext.autoTitleFetchMode ==
                 AiAutoTitleFetchMode.synchronous;
         if (shouldFetchTitleSynchronously) {
-          if (preflightStopped('before_auto_title_sync')) {
+          if (preflightStopped()) {
             return true;
           }
           final syncTitleStopwatch = Stopwatch()..start();
@@ -6411,7 +6406,7 @@ class AiSessionController extends ChangeNotifier {
           );
           sendPreflightTimingsMs['auto_title_sync'] =
               syncTitleStopwatch.elapsedMilliseconds;
-          if (preflightStopped('auto_title_sync')) {
+          if (preflightStopped()) {
             return true;
           }
           session = _sessionById(session.id) ?? session;
@@ -9974,7 +9969,7 @@ class AiSessionController extends ChangeNotifier {
       if (status.isEmpty || status == 'running') {
         continue;
       }
-      if (!_isFailureTrackedPlanToolStatus(status)) {
+      if (!isAiPlanFailureToolStatus(status)) {
         return null;
       }
       final finishedAt =
@@ -9992,7 +9987,7 @@ class AiSessionController extends ChangeNotifier {
 
   DateTime? _latestTrackedPlanErrorFailureAt(AiSession session) {
     for (final error in session.recentErrors) {
-      if (_isTrackedPlanRelevantErrorStage(error.stage)) {
+      if (isAiPlanRelevantErrorStage(error.stage)) {
         return error.createdAt;
       }
     }

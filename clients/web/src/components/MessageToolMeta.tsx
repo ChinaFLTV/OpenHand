@@ -9,6 +9,7 @@
 
 import type { SessionMessage } from '../api/sessions';
 import { t } from '../i18n';
+import { isTerminalToolExecutionStatus } from '../shared/util/session_transcript_messages';
 import {
   booleanFromUnknown,
   finiteNumberFromUnknown,
@@ -182,26 +183,6 @@ function statusVisual(status: string): { color: string; label: string; icon: Too
   };
 }
 
-function isTerminalStatus(status: string): boolean {
-  const s = status.toLowerCase();
-  return (
-    s === 'success' ||
-    s === 'ok' ||
-    s === 'completed' ||
-    s === 'failed' ||
-    s === 'failure' ||
-    s === 'error' ||
-    s === 'denied' ||
-    s === 'rejected' ||
-    s === 'timed_out' ||
-    s === 'invalid_arguments' ||
-    s === 'cancelled' ||
-    s === 'canceled' ||
-    s === 'aborted' ||
-    s === 'blocked'
-  );
-}
-
 export function MessageToolMeta({ message }: { message: SessionMessage }) {
   const ex = extract(message.metadata as Record<string, unknown> | undefined);
   const kind = message.kind;
@@ -215,7 +196,7 @@ export function MessageToolMeta({ message }: { message: SessionMessage }) {
   if (!showCard) return null;
 
   const sv = ex.status ? statusVisual(ex.status) : null;
-  const argumentsStreaming = ex.argumentsStreaming && !isTerminalStatus(ex.status);
+  const argumentsStreaming = ex.argumentsStreaming && !isTerminalToolExecutionStatus(ex.status);
   const isFileMutation = kind === 'file_mutation_summary';
 
   return (

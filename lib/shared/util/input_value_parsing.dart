@@ -262,6 +262,10 @@ Map<String, Object?> stringKeyedMapFromValue(Object? value) {
   return value.map((key, item) => MapEntry('$key', item));
 }
 
+Map<String, Object?>? optionalStringKeyedMapFromValue(Object? value) {
+  return value is Map ? stringKeyedMapFromValue(value) : null;
+}
+
 void validateCanonicalJsonSubset(
   Object? source,
   Object? canonical, {
@@ -343,7 +347,8 @@ Map<String, Object?> stringKeyedMapFromValueOrJsonText(Object? value) {
 }
 
 Map<String, Object?>? optionalStringKeyedMapFromValueOrJsonText(Object? value) {
-  if (value is Map) return stringKeyedMapFromValue(value);
+  final map = optionalStringKeyedMapFromValue(value);
+  if (map != null) return map;
   if (value is String) return optionalStringKeyedMapFromJsonText(value);
   return null;
 }

@@ -313,10 +313,9 @@ class _HePhaseCardState extends State<_HePhaseCard> {
                   if (!roleConfig.isUrlMode && roleConfig.modelId.isNotEmpty)
                     _HeChip(
                       icon: Icons.layers_rounded,
-                      label: _heDescribeHarnessCliModel(
-                        context,
-                        findHarnessCliByName(roleConfig.cliName),
+                      label: describeHarnessCliModel(
                         roleConfig.modelId,
+                        locale: Localizations.localeOf(context),
                       ),
                     ),
                   if (log.exitCode != null)

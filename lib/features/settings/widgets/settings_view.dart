@@ -5470,52 +5470,6 @@ class _SettingsViewState extends State<SettingsView> {
     }
   }
 
-  /// 把 current 和 incoming 两份节流配置拍平后逐字段对
-  /// 比，返回 (label, current, next) 三元组。仅返回值发生变化的项；
-  /// 顺序固定（开关→自动→持续时间→字符→卡片）方便预览阅读。
-  List<_ThrottleDiffRow> _diffThrottleConfig(
-    Map<String, Object?> current,
-    Map<String, Object?> next,
-  ) {
-    final rows = <_ThrottleDiffRow>[];
-    void add(String label, Object? before, Object? after) {
-      if (before == after) return;
-      rows.add(
-        _ThrottleDiffRow(label, _formatValue(before), _formatValue(after)),
-      );
-    }
-
-    add(
-      'throttle_enabled',
-      current['throttle_enabled'],
-      next['throttle_enabled'],
-    );
-    add('auto_mode', current['auto_mode'], next['auto_mode']);
-    add(
-      'duration_seconds',
-      current['duration_seconds'],
-      next['duration_seconds'],
-    );
-    add(
-      'max_chars_per_second',
-      current['max_chars_per_second'],
-      next['max_chars_per_second'],
-    );
-    add(
-      'max_message_cards_per_second',
-      current['max_message_cards_per_second'],
-      next['max_message_cards_per_second'],
-    );
-    return rows;
-  }
-
-  String _formatValue(Object? v) {
-    if (v == null) return '—';
-    if (v is bool) return v ? 'on' : 'off';
-    if (v is Map) return jsonEncode(v);
-    return v.toString();
-  }
-
   Future<void> _saveCompressionThreshold(
     BuildContext context,
     String rawValue,
@@ -7246,6 +7200,37 @@ class _ThrottleDiffRow {
   final String after;
 }
 
+List<_ThrottleDiffRow> _diffThrottleConfig(
+  Map<String, Object?> current,
+  Map<String, Object?> next,
+) {
+  String format(Object? value) {
+    if (value == null) return '—';
+    if (value is bool) return value ? 'on' : 'off';
+    if (value is Map) return jsonEncode(value);
+    return value.toString();
+  }
+
+  final rows = <_ThrottleDiffRow>[];
+  void add(String key) {
+    final before = current[key];
+    final after = next[key];
+    if (before == after) return;
+    rows.add(_ThrottleDiffRow(key, format(before), format(after)));
+  }
+
+  for (final key in const <String>[
+    'throttle_enabled',
+    'auto_mode',
+    'duration_seconds',
+    'max_chars_per_second',
+    'max_message_cards_per_second',
+  ]) {
+    add(key);
+  }
+  return rows;
+}
+
 /// 节流配置 import 冲突预览弹窗：列出 diff，用户确认后再 apply。
 ///
 /// 直接 apply 容易让用户误覆盖未察觉的字段；先把所有差异
@@ -7554,7 +7539,7 @@ class _ThrottleCloudSyncEditorState extends State<_ThrottleCloudSyncEditor> {
       return;
     }
     final current = c.exportAiStreamThrottleConfig();
-    final diffs = _diffThrottleConfigPure(current, result.config!);
+    final diffs = _diffThrottleConfig(current, result.config!);
     setState(() => _busy = false);
     if (diffs.isEmpty) {
       setState(() {
@@ -7658,47 +7643,6 @@ class _ThrottleCloudSyncEditorState extends State<_ThrottleCloudSyncEditor> {
       case ThrottleCloudSyncProvider.custom:
         return '';
     }
-  }
-
-  static List<_ThrottleDiffRow> _diffThrottleConfigPure(
-    Map<String, Object?> current,
-    Map<String, Object?> next,
-  ) {
-    final rows = <_ThrottleDiffRow>[];
-    String fmt(Object? v) {
-      if (v == null) return '—';
-      if (v is bool) return v ? 'on' : 'off';
-      if (v is Map) return jsonEncode(v);
-      return v.toString();
-    }
-
-    void add(String label, Object? a, Object? b) {
-      if (a == b) return;
-      rows.add(_ThrottleDiffRow(label, fmt(a), fmt(b)));
-    }
-
-    add(
-      'throttle_enabled',
-      current['throttle_enabled'],
-      next['throttle_enabled'],
-    );
-    add('auto_mode', current['auto_mode'], next['auto_mode']);
-    add(
-      'duration_seconds',
-      current['duration_seconds'],
-      next['duration_seconds'],
-    );
-    add(
-      'max_chars_per_second',
-      current['max_chars_per_second'],
-      next['max_chars_per_second'],
-    );
-    add(
-      'max_message_cards_per_second',
-      current['max_message_cards_per_second'],
-      next['max_message_cards_per_second'],
-    );
-    return rows;
   }
 
   @override

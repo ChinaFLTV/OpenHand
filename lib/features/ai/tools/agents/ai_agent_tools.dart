@@ -1649,7 +1649,7 @@ class AiAgentTool extends AiTool {
         'allowed_tools': state['allowed_tools'],
         if (state['terminal_reason'] != null)
           'terminal_reason': state['terminal_reason'],
-        'result_available': _taskResultAvailable(task),
+        'result_available': task.hasResult,
         'handoff': _taskHandoffJson(
           task,
           agent: resolved.agent,
@@ -1711,7 +1711,7 @@ class AiAgentTool extends AiTool {
         'allowed_tools': state['allowed_tools'],
         if (state['terminal_reason'] != null)
           'terminal_reason': state['terminal_reason'],
-        'result_available': _taskResultAvailable(task),
+        'result_available': task.hasResult,
         if (_taskNextPollJson(
               task,
               agent: resolved.agent,
@@ -1894,12 +1894,12 @@ class AiAgentTool extends AiTool {
         'allowed_tools': state['allowed_tools'],
         if (state['terminal_reason'] != null)
           'terminal_reason': state['terminal_reason'],
-        'result_available': _taskResultAvailable(task),
+        'result_available': task.hasResult,
         'wait': <String, Object?>{
           'requested_ms': wait.maxMs,
           'poll_ms': wait.pollMs,
           'elapsed_ms': waitedMs,
-          'completed_during_wait': _taskResultAvailable(task),
+          'completed_during_wait': task.hasResult,
         },
         'handoff': _taskHandoffJson(
           task,
@@ -1937,7 +1937,7 @@ class AiAgentTool extends AiTool {
     if (_backgroundChatClient == null || _subToolExecutor == null) {
       return false;
     }
-    if (_taskIsTerminal(task.status)) return false;
+    if (task.status.isTerminal) return false;
     if (_agentWorkerWaitMs(args) <= 0) return false;
     final rawExtra = optionalStringKeyedMapFromValueOrJsonText(args['extra']);
     if (rawExtra != null &&
@@ -2377,7 +2377,7 @@ class AiAgentTool extends AiTool {
   }
 
   bool _taskResultTerminalEnough(AgentTask task) {
-    return _taskResultAvailable(task) ||
+    return task.hasResult ||
         task.status == AgentTaskStatus.failed ||
         task.status == AgentTaskStatus.canceled ||
         task.status == AgentTaskStatus.waitingApproval ||
@@ -3020,7 +3020,7 @@ class AiAgentTool extends AiTool {
         )
         .toList(growable: false);
     final activeBySession = bySession
-        .where((task) => !_taskIsTerminal(task.status))
+        .where((task) => !task.status.isTerminal)
         .toList(growable: false);
     if (activeBySession.length == 1) {
       return _RecoveredTask(
@@ -3039,7 +3039,7 @@ class AiAgentTool extends AiTool {
 
     final active = recentAgentTasks(
       agent.tasks,
-    ).where((task) => !_taskIsTerminal(task.status)).toList(growable: false);
+    ).where((task) => !task.status.isTerminal).toList(growable: false);
     if (active.length == 1) {
       return _RecoveredTask(
         task: active.single,
@@ -3562,7 +3562,7 @@ Map<String, Object?> _taskJson(
     agent: agent,
     callableAgentToolNames: callableAgentToolNames,
   );
-  final resultAvailable = _taskResultAvailable(task);
+  final resultAvailable = task.hasResult;
   return <String, Object?>{
     'id': task.id,
     'title': task.title,
@@ -3602,7 +3602,7 @@ Map<String, Object?> _taskStateJson(
   AgentProfile? agent,
   Set<String>? callableAgentToolNames,
 }) {
-  final terminal = _taskIsTerminal(task.status);
+  final terminal = task.status.isTerminal;
   final requiresAttention =
       task.status == AgentTaskStatus.waitingApproval ||
       task.status == AgentTaskStatus.paused ||
@@ -3636,11 +3636,6 @@ Map<String, Object?> _taskStateJson(
   };
 }
 
-bool _taskResultAvailable(AgentTask task) {
-  return task.status == AgentTaskStatus.completed &&
-      task.result.trim().isNotEmpty;
-}
-
 Map<String, Object?> _taskHandoffJson(
   AgentTask task, {
   AgentProfile? agent,
@@ -3651,7 +3646,7 @@ Map<String, Object?> _taskHandoffJson(
     agent: agent,
     callableAgentToolNames: callableAgentToolNames,
   );
-  final resultAvailable = _taskResultAvailable(task);
+  final resultAvailable = task.hasResult;
   return <String, Object?>{
     'result_available': resultAvailable,
     'message': _taskHandoffMessage(
@@ -3703,7 +3698,7 @@ String _taskHandoffMessage(
   AgentProfile? agent,
 }) {
   if (resultAvailable) return 'result_ready';
-  if (!_taskIsTerminal(task.status)) {
+  if (!task.status.isTerminal) {
     return switch (task.status) {
       AgentTaskStatus.waitingApproval => 'waiting_for_approval',
       AgentTaskStatus.paused => 'paused_requires_resume_or_cancel',
@@ -3738,7 +3733,7 @@ Map<String, Object?>? _taskNextPollJson(
   AgentProfile? agent,
   Set<String>? callableAgentToolNames,
 }) {
-  if (_taskIsTerminal(task.status) ||
+  if (task.status.isTerminal ||
       task.status == AgentTaskStatus.waitingApproval ||
       task.status == AgentTaskStatus.paused) {
     return null;
@@ -3787,7 +3782,7 @@ String _taskNextAction(
     AgentTaskStatus.waitingApproval => 'review_approval',
     AgentTaskStatus.paused => 'resume_or_cancel',
     AgentTaskStatus.completed =>
-      _taskResultAvailable(task) ? 'read_result' : 'inspect_missing_result',
+      task.hasResult ? 'read_result' : 'inspect_missing_result',
     AgentTaskStatus.failed =>
       _taskTerminalReason(task) == 'terminated' ? 'stop' : 'inspect_failure',
     AgentTaskStatus.canceled => 'stop',
@@ -3882,19 +3877,6 @@ String _taskStatusToolRejectedMessage(
   );
   final allowedText = allowedTools.isEmpty ? 'none' : allowedTools.join(', ');
   return '$toolName is not allowed when task status is ${task.status.storageValue}. allowed_tools: $allowedText.';
-}
-
-bool _taskIsTerminal(AgentTaskStatus status) {
-  return switch (status) {
-    AgentTaskStatus.completed ||
-    AgentTaskStatus.failed ||
-    AgentTaskStatus.canceled => true,
-    AgentTaskStatus.backlog ||
-    AgentTaskStatus.ready ||
-    AgentTaskStatus.running ||
-    AgentTaskStatus.waitingApproval ||
-    AgentTaskStatus.paused => false,
-  };
 }
 
 bool _taskMatchesListFilter(
@@ -4335,7 +4317,7 @@ Map<String, Object?> _workerExecutionReportJson(
   final workers =
       workerIds
           .map((workerId) {
-            final worker = _workerById(agent, workerId);
+            final worker = agent.workerById(workerId);
             final workerTasks = tasks
                 .where((task) => _taskAssignedToWorker(task, workerId))
                 .toList(growable: false);
@@ -4481,13 +4463,6 @@ int _workerExecutionCompare(
       );
   if (taskCompare != 0) return taskCompare;
   return '${left['id'] ?? ''}'.compareTo('${right['id'] ?? ''}');
-}
-
-AgentWorker? _workerById(AgentProfile agent, String workerId) {
-  for (final worker in agent.workers) {
-    if (worker.id == workerId) return worker;
-  }
-  return null;
 }
 
 DateTime? _latestDateTime(DateTime? left, DateTime? right) {

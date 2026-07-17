@@ -54,6 +54,22 @@ List<String> tokenizeMcpShellCommand(String input) {
   return tokens.isEmpty ? <String>[trimmed] : tokens;
 }
 
+int firstMcpNpxPackageArgIndex(List<String> args) {
+  for (var index = 0; index < args.length; index++) {
+    final arg = args[index].trim();
+    if (arg.isEmpty ||
+        arg == '--' ||
+        arg == '-y' ||
+        arg == '--yes' ||
+        arg == '--no-install' ||
+        arg.startsWith('-')) {
+      continue;
+    }
+    return index;
+  }
+  return -1;
+}
+
 /// Serializes writes to an MCP stdio stdin pipe.
 ///
 /// `IOSink.flush` can temporarily bind the sink to an internal stream. Closing

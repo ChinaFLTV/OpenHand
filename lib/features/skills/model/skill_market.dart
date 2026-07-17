@@ -138,7 +138,7 @@ class SkillMarketDetail {
       skill: SkillMarketDetailSkill.fromJson(_readMap(json['skill'])),
       owner: SkillMarketOwner.fromJson(_readMap(json['owner'])),
       latestVersion: SkillMarketVersion.fromJsonOrNull(
-        _readNullableMap(json['latestVersion']),
+        optionalStringKeyedMapFromValue(json['latestVersion']),
       ),
       securityReports: _readSecurityReports(json['securityReports']),
     );
@@ -396,21 +396,11 @@ Map<String, String> _readStringMap(Object? value) {
 }
 
 Map<String, Object?> _readMap(Object? value) {
-  final map = _readNullableMap(value);
+  final map = optionalStringKeyedMapFromValue(value);
   if (map == null) {
     return const <String, Object?>{};
   }
   return map;
-}
-
-Map<String, Object?>? _readNullableMap(Object? value) {
-  if (value is Map<String, Object?>) {
-    return value;
-  }
-  if (value is Map) {
-    return stringKeyedMapFromValue(value);
-  }
-  return null;
 }
 
 Map<String, SkillMarketSecurityReport> _readSecurityReports(Object? value) {

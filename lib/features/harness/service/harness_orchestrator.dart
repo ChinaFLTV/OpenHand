@@ -1445,7 +1445,6 @@ class HarnessOrchestrator extends ChangeNotifier {
 
     final configuredModelId = roleConfig.modelId.trim();
     final displayModelLabel = describeHarnessCliModel(
-      cliEntry,
       configuredModelId,
       isZh: true,
     );
@@ -2334,10 +2333,7 @@ class HarnessOrchestrator extends ChangeNotifier {
     }
 
     final suggestedModels = suggestedHarnessCliModels(cliEntry, max: 4)
-        .map(
-          (candidate) =>
-              describeHarnessCliModel(cliEntry, candidate, isZh: true),
-        )
+        .map((candidate) => describeHarnessCliModel(candidate, isZh: true))
         .join('、');
     if (log.lines.isNotEmpty && log.lines.last.isNotEmpty) {
       _appendLine(log, '');
@@ -2348,7 +2344,7 @@ class HarnessOrchestrator extends ChangeNotifier {
     );
     _appendLine(
       log,
-      '  当前请求模型：${describeHarnessCliModel(cliEntry, modelId, isZh: true)}',
+      '  当前请求模型：${describeHarnessCliModel(modelId, isZh: true)}',
     );
     if (suggestedModels.isNotEmpty) {
       _appendLine(log, '  可优先尝试：$suggestedModels');

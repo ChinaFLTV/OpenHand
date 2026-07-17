@@ -48,8 +48,8 @@ List<AgentApprovalRequest> sortedAgentApprovalsForAttention(
     ).compareTo(_approvalPendingRank(right.$2.status));
     if (pendingCompare != 0) return pendingCompare;
     final riskCompare = _approvalRiskRank(
-      _approvalRiskLevel(right.$2),
-    ).compareTo(_approvalRiskRank(_approvalRiskLevel(left.$2)));
+      agentApprovalRiskLevel(right.$2),
+    ).compareTo(_approvalRiskRank(agentApprovalRiskLevel(left.$2)));
     if (riskCompare != 0) return riskCompare;
     final timeCompare = _approvalSortTime(
       right.$2,
@@ -109,7 +109,7 @@ int _approvalPendingRank(AgentApprovalStatus status) {
   return status == AgentApprovalStatus.pending ? 0 : 1;
 }
 
-String _approvalRiskLevel(AgentApprovalRequest approval) {
+String agentApprovalRiskLevel(AgentApprovalRequest approval) {
   final raw =
       approval.extra['risk_level'] ??
       approval.extra['riskLevel'] ??

@@ -206,7 +206,7 @@ class _HookEntryCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Text(
-                _hookEventLabel(l10n, entry.event),
+                entry.event.label(l10n),
                 style: theme.textTheme.labelMedium?.copyWith(
                   color: entry.enabled
                       ? colorScheme.onPrimaryContainer
@@ -397,7 +397,7 @@ class _HookEditorDialogState extends State<_HookEditorDialog> {
                 children: HookEvent.values.map((event) {
                   final selected = event == _selectedEvent;
                   return ChoiceChip(
-                    label: Text(_hookEventLabel(l10n, event)),
+                    label: Text(event.label(l10n)),
                     selected: selected,
                     selectedColor: colorScheme.primaryContainer,
                     labelStyle: TextStyle(
@@ -632,19 +632,4 @@ class _HookEditorDialogState extends State<_HookEditorDialog> {
     }
     return null;
   }
-}
-
-String _hookEventLabel(AppLocalizations l10n, HookEvent event) {
-  return switch (event) {
-    HookEvent.sessionStart => l10n.hookEventSessionStart,
-    HookEvent.userPromptSubmit => l10n.hookEventUserPromptSubmit,
-    HookEvent.preToolUse => l10n.hookEventPreToolUse,
-    HookEvent.postToolUse => l10n.hookEventPostToolUse,
-    HookEvent.subagentStart => l10n.hookEventSubagentStart,
-    HookEvent.subagentStop => l10n.hookEventSubagentStop,
-    HookEvent.stop => l10n.hookEventStop,
-    HookEvent.preCompact => l10n.hookEventPreCompact,
-    HookEvent.sessionEnd => l10n.hookEventSessionEnd,
-    HookEvent.errorOccurred => l10n.hookEventErrorOccurred,
-  };
 }

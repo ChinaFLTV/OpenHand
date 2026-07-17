@@ -56,6 +56,7 @@ import '../../memory/index.dart';
 import '../../skills/index.dart';
 import '../agents_controller.dart';
 import '../model/agent_models.dart';
+import '../service/agent_ordering.dart';
 import '../service/agent_routing_metadata.dart';
 import '../service/agent_runtime_availability.dart';
 
@@ -1562,7 +1563,7 @@ class _AgentCapabilityLogDetailBody extends StatelessWidget {
     final taskId = _agentLogMetadataText(event.metadata, 'task_id');
     final workerId = _agentLogMetadataText(event.metadata, 'worker_id');
     final task = _agentTaskById(agent, taskId);
-    final worker = _agentWorkerById(agent, workerId);
+    final worker = agent.workerById(workerId);
 
     return _AgentTaskDetailSectionList(
       children: [
@@ -2357,11 +2358,9 @@ class _AgentApprovalsBody extends StatelessWidget {
         .length;
     final resolved = approvals.length - pending;
     final highRisk = approvals
-        .where(
-          (item) => _agentApprovalIsHighRisk(_agentApprovalRiskLevel(item)),
-        )
+        .where((item) => _agentApprovalIsHighRisk(agentApprovalRiskLevel(item)))
         .length;
-    final visibleApprovals = _sortedAgentApprovals(approvals);
+    final visibleApprovals = sortedAgentApprovalsForAttention(approvals);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -2403,42 +2402,6 @@ class _AgentApprovalsBody extends StatelessWidget {
   }
 }
 
-List<AgentApprovalRequest> _sortedAgentApprovals(
-  List<AgentApprovalRequest> approvals,
-) {
-  return List<AgentApprovalRequest>.from(approvals)..sort((left, right) {
-    final pendingCompare = _approvalPendingRank(
-      left.status,
-    ).compareTo(_approvalPendingRank(right.status));
-    if (pendingCompare != 0) return pendingCompare;
-    final riskCompare = _approvalRiskRank(
-      _agentApprovalRiskLevel(right),
-    ).compareTo(_approvalRiskRank(_agentApprovalRiskLevel(left)));
-    if (riskCompare != 0) return riskCompare;
-    return _approvalSortTime(right).compareTo(_approvalSortTime(left));
-  });
-}
-
-int _approvalPendingRank(AgentApprovalStatus status) {
-  return status == AgentApprovalStatus.pending ? 0 : 1;
-}
-
-int _approvalRiskRank(String riskLevel) {
-  return switch (riskLevel.toLowerCase()) {
-    'critical' => 4,
-    'high' => 3,
-    'medium' => 2,
-    'low' => 1,
-    _ => 0,
-  };
-}
-
-DateTime _approvalSortTime(AgentApprovalRequest approval) {
-  return approval.resolvedAt ??
-      approval.createdAt ??
-      DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
-}
-
 class _AgentApprovalRequestCard extends StatelessWidget {
   const _AgentApprovalRequestCard({
     required this.approval,
@@ -2456,7 +2419,7 @@ class _AgentApprovalRequestCard extends StatelessWidget {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final statusColor = _agentApprovalStatusColor(cs, approval.status);
-    final riskLevel = _agentApprovalRiskLevel(approval);
+    final riskLevel = agentApprovalRiskLevel(approval);
     final riskColor = _agentApprovalRiskColor(cs, riskLevel);
     final metadata = _agentApprovalMetadataChips(context, approval);
     final timeText = _agentApprovalTimeLabel(context, approval);
@@ -3175,7 +3138,7 @@ class _AgentClusterSettingsEditorState
       retryPolicy: _retryPolicy,
       maxRetries: maxRetries,
       schedulerPolicy: _schedulerPolicy,
-      tags: _dedupeClusterTags(_tags),
+      tags: dedupeNonEmptyStrings(_tags),
     );
   }
 
@@ -3247,17 +3210,6 @@ class _AgentClusterSettingsEditorState
     final item = _tags.removeAt(oldIndex);
     _tags.insert(targetIndex, item);
   }
-
-  List<String> _dedupeClusterTags(List<String> values) {
-    final seen = <String>{};
-    final result = <String>[];
-    for (final raw in values) {
-      final value = raw.trim();
-      if (value.isEmpty) continue;
-      if (seen.add(value.toLowerCase())) result.add(value);
-    }
-    return result;
-  }
 }
 
 Future<void> _showAgentTasksDialog(BuildContext context, AgentProfile agent) {
@@ -3306,9 +3258,7 @@ class _AgentTasksBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final active = tasks
-        .where((task) => _agentTaskIsActive(task.status))
-        .length;
+    final active = tasks.where((task) => !task.status.isTerminal).length;
     final completed = tasks
         .where((task) => task.status == AgentTaskStatus.completed)
         .length;
@@ -3318,7 +3268,7 @@ class _AgentTasksBody extends StatelessWidget {
                   tasks.length *
                   100)
               .round();
-    final visibleTasks = _sortedAgentTasks(tasks);
+    final visibleTasks = sortedAgentTasksForAttention(tasks);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -3361,35 +3311,6 @@ class _AgentTasksBody extends StatelessWidget {
       ],
     );
   }
-}
-
-List<AgentTask> _sortedAgentTasks(List<AgentTask> tasks) {
-  return List<AgentTask>.from(tasks)..sort((left, right) {
-    final statusCompare = _agentTaskStatusRank(
-      left.status,
-    ).compareTo(_agentTaskStatusRank(right.status));
-    if (statusCompare != 0) return statusCompare;
-    return _agentTaskSortTime(right).compareTo(_agentTaskSortTime(left));
-  });
-}
-
-int _agentTaskStatusRank(AgentTaskStatus status) {
-  return switch (status) {
-    AgentTaskStatus.waitingApproval => 0,
-    AgentTaskStatus.running => 1,
-    AgentTaskStatus.ready => 2,
-    AgentTaskStatus.backlog => 3,
-    AgentTaskStatus.paused => 4,
-    AgentTaskStatus.completed => 5,
-    AgentTaskStatus.failed => 6,
-    AgentTaskStatus.canceled => 7,
-  };
-}
-
-DateTime _agentTaskSortTime(AgentTask task) {
-  return task.updatedAt ??
-      task.createdAt ??
-      DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
 }
 
 class _AgentTaskCard extends StatelessWidget {
@@ -3692,9 +3613,8 @@ class _AgentTaskActions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final canPause = _agentTaskCanPause(task.status);
-    final canComplete = _agentTaskCanComplete(task.status);
-    final canStop = _agentTaskCanStop(task.status);
+    final canPauseOrComplete = task.status.isPendingExecution;
+    final canStop = !task.status.isTerminal;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -3725,7 +3645,7 @@ class _AgentTaskActions extends StatelessWidget {
               activityTitle: 'task_resumed',
             ),
           )
-        else if (canPause)
+        else if (canPauseOrComplete)
           _AgentSmallIconButton(
             icon: Icons.pause_rounded,
             tooltip: openHandLocalizedText(
@@ -3742,7 +3662,7 @@ class _AgentTaskActions extends StatelessWidget {
               activityTitle: 'task_paused',
             ),
           ),
-        if (canComplete) ...[
+        if (canPauseOrComplete) ...[
           const SizedBox(width: 6),
           _AgentSmallIconButton(
             icon: Icons.done_rounded,
@@ -3833,58 +3753,6 @@ class _AgentSmallIconButton extends StatelessWidget {
   }
 }
 
-bool _agentTaskCanPause(AgentTaskStatus status) {
-  return switch (status) {
-    AgentTaskStatus.backlog ||
-    AgentTaskStatus.ready ||
-    AgentTaskStatus.running => true,
-    AgentTaskStatus.waitingApproval ||
-    AgentTaskStatus.paused ||
-    AgentTaskStatus.completed ||
-    AgentTaskStatus.failed ||
-    AgentTaskStatus.canceled => false,
-  };
-}
-
-bool _agentTaskCanComplete(AgentTaskStatus status) {
-  return switch (status) {
-    AgentTaskStatus.backlog ||
-    AgentTaskStatus.ready ||
-    AgentTaskStatus.running => true,
-    AgentTaskStatus.waitingApproval ||
-    AgentTaskStatus.paused ||
-    AgentTaskStatus.completed ||
-    AgentTaskStatus.failed ||
-    AgentTaskStatus.canceled => false,
-  };
-}
-
-bool _agentTaskCanStop(AgentTaskStatus status) {
-  return switch (status) {
-    AgentTaskStatus.backlog ||
-    AgentTaskStatus.ready ||
-    AgentTaskStatus.running ||
-    AgentTaskStatus.waitingApproval ||
-    AgentTaskStatus.paused => true,
-    AgentTaskStatus.completed ||
-    AgentTaskStatus.failed ||
-    AgentTaskStatus.canceled => false,
-  };
-}
-
-bool _agentTaskIsActive(AgentTaskStatus status) {
-  return switch (status) {
-    AgentTaskStatus.backlog ||
-    AgentTaskStatus.ready ||
-    AgentTaskStatus.running ||
-    AgentTaskStatus.waitingApproval ||
-    AgentTaskStatus.paused => true,
-    AgentTaskStatus.completed ||
-    AgentTaskStatus.failed ||
-    AgentTaskStatus.canceled => false,
-  };
-}
-
 IconData _agentTaskStatusIcon(AgentTaskStatus status) {
   return switch (status) {
     AgentTaskStatus.backlog => Icons.inbox_rounded,
@@ -3948,7 +3816,7 @@ List<String> _agentTaskTrackingChips(
         en: 'Poll: ${summary.recommendedTool}',
       ),
     );
-  } else if (_agentTaskResultAvailable(task)) {
+  } else if (task.hasResult) {
     chips.add(
       openHandLocalizedText(
         context,
@@ -4005,7 +3873,7 @@ _AgentTaskTrackingSummary _agentTaskTrackingSummary(
       en: 'Resume or cancel',
     ),
     AgentTaskStatus.completed =>
-      _agentTaskResultAvailable(task)
+      task.hasResult
           ? openHandLocalizedText(context, zh: '读取结果', en: 'Read result')
           : openHandLocalizedText(context, zh: '结果缺失', en: 'Result missing'),
     AgentTaskStatus.failed =>
@@ -4030,7 +3898,7 @@ _AgentTaskTrackingSummary _agentTaskTrackingSummary(
       en: 'Task is paused; resume or cancel it',
     ),
     AgentTaskStatus.completed =>
-      _agentTaskResultAvailable(task)
+      task.hasResult
           ? openHandLocalizedText(context, zh: '结果已就绪', en: 'Result ready')
           : openHandLocalizedText(
               context,
@@ -4070,21 +3938,7 @@ _AgentTaskTrackingSummary _agentTaskTrackingSummary(
 }
 
 bool _agentTaskNeedsPolling(AgentTaskStatus status) {
-  return switch (status) {
-    AgentTaskStatus.backlog ||
-    AgentTaskStatus.ready ||
-    AgentTaskStatus.running => true,
-    AgentTaskStatus.waitingApproval ||
-    AgentTaskStatus.paused ||
-    AgentTaskStatus.completed ||
-    AgentTaskStatus.failed ||
-    AgentTaskStatus.canceled => false,
-  };
-}
-
-bool _agentTaskResultAvailable(AgentTask task) {
-  return task.status == AgentTaskStatus.completed &&
-      task.result.trim().isNotEmpty;
+  return status.isPendingExecution;
 }
 
 String _agentTaskRecommendedTool(
@@ -4105,10 +3959,10 @@ String _agentTaskRecommendedTool(
       en: 'Enable AgentTaskProgress or AgentTaskResult',
     );
   }
-  if (_agentTaskResultAvailable(task) &&
+  if (task.hasResult &&
       _agentTaskToolAvailable(agent, agentTaskResultToolName)) {
     return agentTaskResultToolName;
-  } else if (_agentTaskResultAvailable(task)) {
+  } else if (task.hasResult) {
     return openHandLocalizedText(
       context,
       zh: '需开启 AgentTaskResult',
@@ -4447,7 +4301,7 @@ class _AgentKpiBody extends StatelessWidget {
                   kpis.length *
                   100)
               .round();
-    final visibleKpis = _sortedAgentKpis(kpis);
+    final visibleKpis = sortedAgentKpisForAttention(kpis);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -4494,24 +4348,6 @@ class _AgentKpiBody extends StatelessWidget {
       ],
     );
   }
-}
-
-List<AgentKpiItem> _sortedAgentKpis(List<AgentKpiItem> kpis) {
-  return List<AgentKpiItem>.from(kpis)..sort((left, right) {
-    final statusCompare = agentKpiStatusRank(
-      left.status,
-    ).compareTo(agentKpiStatusRank(right.status));
-    if (statusCompare != 0) return statusCompare;
-    final progressCompare = left.progress.compareTo(right.progress);
-    if (progressCompare != 0) return progressCompare;
-    return _agentKpiSortTime(right).compareTo(_agentKpiSortTime(left));
-  });
-}
-
-DateTime _agentKpiSortTime(AgentKpiItem item) {
-  return item.updatedAt ??
-      item.createdAt ??
-      DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
 }
 
 class _AgentKpiCard extends StatelessWidget {
@@ -8207,14 +8043,6 @@ Color _agentApprovalStatusColor(ColorScheme cs, AgentApprovalStatus status) {
   };
 }
 
-String _agentApprovalRiskLevel(AgentApprovalRequest approval) {
-  final raw =
-      approval.extra['risk_level'] ??
-      approval.extra['riskLevel'] ??
-      approval.extra['risk'];
-  return '$raw'.trim().toLowerCase();
-}
-
 bool _agentApprovalIsHighRisk(String riskLevel) {
   return riskLevel == 'high' ||
       riskLevel == 'critical' ||
@@ -9051,7 +8879,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
                                   (h) => _Option(
                                     h.id,
                                     h.label,
-                                    _hookEventLabel(l10n, h.event),
+                                    h.event.label(l10n),
                                     enabled: h.enabled && h.hasScript,
                                   ),
                                 )
@@ -10459,8 +10287,8 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
     final maxWorkers = _normalizeAgentMaxWorkers(_maxWorkers);
     final minWorkers = _normalizeAgentMinWorkers(_minWorkers, maxWorkers);
     final maxRetries = _normalizeAgentMaxRetries(_maxRetries);
-    final taskLabels = _dedupeStrings(_taskLabelValues);
-    final workerTags = _dedupeStrings(_workerTagValues);
+    final taskLabels = dedupeNonEmptyStrings(_taskLabelValues);
+    final workerTags = dedupeNonEmptyStrings(_workerTagValues);
     final workspacePath = _normalizedWorkspacePath();
     final workspaceScopePaths = _normalizedWorkspaceScopePaths(workspacePath);
     final builtinToolNames = _normalizedBuiltinToolSelection(
@@ -10543,9 +10371,9 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
     }
     final description = _routeDescription.text.trim();
     if (description.isNotEmpty) data['description'] = description;
-    final keywords = _dedupeStrings(_routeKeywords);
-    final domains = _dedupeStrings(_routeDomains);
-    final intents = _dedupeStrings(_routeIntents);
+    final keywords = dedupeNonEmptyStrings(_routeKeywords);
+    final domains = dedupeNonEmptyStrings(_routeDomains);
+    final intents = dedupeNonEmptyStrings(_routeIntents);
     if (keywords.isNotEmpty) data['keywords'] = keywords;
     if (domains.isNotEmpty) data['domains'] = domains;
     if (intents.isNotEmpty) data['intents'] = intents;
@@ -10621,7 +10449,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
   }
 
   List<String> _routeStringsFromValues(Iterable<Object?> values) {
-    return _dedupeStrings(values.expand(_stringsFromStructuredValue));
+    return dedupeNonEmptyStrings(values.expand(_stringsFromStructuredValue));
   }
 
   List<String> _stringsFromStructuredValue(Object? raw) {
@@ -10638,17 +10466,6 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
         .map((item) => item.trim())
         .where((item) => item.isNotEmpty)
         .toList(growable: false);
-  }
-
-  List<String> _dedupeStrings(Iterable<String> values) {
-    final seen = <String>{};
-    final result = <String>[];
-    for (final raw in values) {
-      final value = raw.trim();
-      if (value.isEmpty) continue;
-      if (seen.add(value.toLowerCase())) result.add(value);
-    }
-    return result;
   }
 
   void _addUniqueString(List<String> values, String raw) {
@@ -13393,7 +13210,7 @@ List<_AgentAuditWorkerStat> _agentAuditWorkerStats(AgentProfile agent) {
   }
   final rows = workerIds
       .map((workerId) {
-        final worker = _agentWorkerById(agent, workerId);
+        final worker = agent.workerById(workerId);
         final assignedTasks = agent.tasks
             .where((task) => _agentTaskAssignedToWorker(task, workerId))
             .length;
@@ -13824,13 +13641,6 @@ Object _agentJsonDisplayString(String value) {
     'preview': clipText(value, _agentLogDetailMaxStringChars),
     'chars': value.length,
   };
-}
-
-AgentWorker? _agentWorkerById(AgentProfile agent, String workerId) {
-  for (final worker in agent.workers) {
-    if (worker.id == workerId) return worker;
-  }
-  return null;
 }
 
 bool _agentTaskAssignedToWorker(AgentTask task, String workerId) {
@@ -14987,20 +14797,5 @@ String _agentWorkerStatusLabel(
     AgentWorkerStatus.busy => l10n.agentWorkerStatusBusy,
     AgentWorkerStatus.draining => l10n.agentWorkerStatusDraining,
     AgentWorkerStatus.offline => l10n.agentWorkerStatusOffline,
-  };
-}
-
-String _hookEventLabel(AppLocalizations l10n, HookEvent event) {
-  return switch (event) {
-    HookEvent.sessionStart => l10n.hookEventSessionStart,
-    HookEvent.userPromptSubmit => l10n.hookEventUserPromptSubmit,
-    HookEvent.preToolUse => l10n.hookEventPreToolUse,
-    HookEvent.postToolUse => l10n.hookEventPostToolUse,
-    HookEvent.subagentStart => l10n.hookEventSubagentStart,
-    HookEvent.subagentStop => l10n.hookEventSubagentStop,
-    HookEvent.stop => l10n.hookEventStop,
-    HookEvent.preCompact => l10n.hookEventPreCompact,
-    HookEvent.sessionEnd => l10n.hookEventSessionEnd,
-    HookEvent.errorOccurred => l10n.hookEventErrorOccurred,
   };
 }

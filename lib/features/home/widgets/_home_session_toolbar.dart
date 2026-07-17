@@ -1479,7 +1479,7 @@ DateTime? _latestPlanToolFailureAt(AiSession session) {
     if (status.isEmpty || status == 'running') {
       continue;
     }
-    if (!_isFailurePlanTimelineToolStatus(status)) {
+    if (!isAiPlanFailureToolStatus(status)) {
       return null;
     }
     return _readToolExecutionFinishedAt(message) ?? message.createdAt;
@@ -1489,35 +1489,11 @@ DateTime? _latestPlanToolFailureAt(AiSession session) {
 
 DateTime? _latestPlanErrorFailureAt(AiSession session) {
   for (final error in session.recentErrors) {
-    if (_isPlanTimelineRelevantErrorStage(error.stage)) {
+    if (isAiPlanRelevantErrorStage(error.stage)) {
       return error.createdAt;
     }
   }
   return null;
-}
-
-bool _isFailurePlanTimelineToolStatus(String status) {
-  return switch (status) {
-    'failed' ||
-    'cancelled' ||
-    'denied' ||
-    'rejected' ||
-    'timed_out' ||
-    'invalid_arguments' => true,
-    _ => false,
-  };
-}
-
-bool _isPlanTimelineRelevantErrorStage(String stage) {
-  return switch (stage.trim().toLowerCase()) {
-    'chat_request' ||
-    'chat_continuation_request' ||
-    'chat_stream' ||
-    'follow_up_request' ||
-    'tool_execution' ||
-    'tool_loop' => true,
-    _ => false,
-  };
 }
 
 DateTime? _readToolExecutionFinishedAt(AiSessionMessage message) {

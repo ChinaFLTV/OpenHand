@@ -7275,15 +7275,6 @@ class WebReverseSessionController extends ChangeNotifier {
 
     void newline() {
       // 去掉本行末尾空格——避免缩进与之前残留空格叠加。
-      while (out.length > 0) {
-        final last = out.toString().codeUnitAt(out.length - 1);
-        if (last == 0x20 || last == 0x09) {
-          // O(N) 截断：写入一个新缓冲。下面 trimEndInPlace 替代。
-          break;
-        }
-        break;
-      }
-      // 用 _trimTrailingWhitespace 一次性裁剪当前行末。
       _trimTrailingWhitespace(out);
       out.write('\n');
       writeIndent();

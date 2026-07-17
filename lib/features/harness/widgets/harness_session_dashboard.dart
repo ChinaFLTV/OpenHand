@@ -265,38 +265,6 @@ String _heDescribeAiModelConfig(
   );
 }
 
-String _heDescribeHarnessCliModel(
-  BuildContext context,
-  HarnessCli? cli,
-  String modelId,
-) {
-  final normalizedModel = modelId.trim();
-  if (normalizedModel == kHarnessGeminiDefaultModelId ||
-      (cli != null && isHarnessCliDefaultModel(cli, normalizedModel))) {
-    return openHandLocalizedText(
-      context,
-      zh: 'Gemini CLI 默认（自动）',
-      zhHant: 'Gemini CLI 預設（自動）',
-      en: 'Gemini CLI default (auto)',
-      fr: 'Gemini CLI par défaut (auto)',
-      de: 'Gemini CLI-Standard (automatisch)',
-      ja: 'Gemini CLI デフォルト（自動）',
-    );
-  }
-  if (normalizedModel.isEmpty) {
-    return openHandLocalizedText(
-      context,
-      zh: '默认',
-      zhHant: '預設',
-      en: 'Default',
-      fr: 'Par défaut',
-      de: 'Standard',
-      ja: 'デフォルト',
-    );
-  }
-  return normalizedModel;
-}
-
 String? _hePreferredAiModelConfigId({
   required List<AiModelConfig> settingsModels,
   required String? configuredId,

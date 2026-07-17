@@ -1737,7 +1737,6 @@ class AiSessionStore {
   }
 }
 
-// Validation helpers (preserved from original)
 final RegExp _unsafeStorageIdentifierPattern = RegExp(
   r'[\u0000-\u001F\u007F/\\]',
 );

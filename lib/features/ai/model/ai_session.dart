@@ -4,6 +4,28 @@ import 'ai_session_message.dart';
 import 'ai_token_usage.dart';
 import 'ai_tool_call_limit_policy.dart';
 
+bool isAiPlanFailureToolStatus(String status) {
+  return const <String>{
+    'failed',
+    'cancelled',
+    'denied',
+    'rejected',
+    'timed_out',
+    'invalid_arguments',
+  }.contains(status);
+}
+
+bool isAiPlanRelevantErrorStage(String stage) {
+  return const <String>{
+    'chat_request',
+    'chat_continuation_request',
+    'chat_stream',
+    'follow_up_request',
+    'tool_execution',
+    'tool_loop',
+  }.contains(stage.trim().toLowerCase());
+}
+
 int _max3(int a, int b, int c) {
   var result = a > b ? a : b;
   if (c > result) {

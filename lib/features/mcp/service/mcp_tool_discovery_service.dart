@@ -964,7 +964,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
   }
 
   McpTool? _parseTool(Object? rawTool) {
-    final rawMap = _asMap(rawTool);
+    final rawMap = optionalStringKeyedMapFromValue(rawTool);
     if (rawMap == null) {
       return null;
     }
@@ -996,11 +996,14 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
       description,
     );
     final rawOutputSchema = resolvedOutputMetadata.rawSchema;
-    final inputSchema = _asMap(rawInputSchema);
-    final outputSchema = _asMap(rawOutputSchema);
+    final inputSchema = optionalStringKeyedMapFromValue(rawInputSchema);
+    final outputSchema = optionalStringKeyedMapFromValue(rawOutputSchema);
     final annotations =
-        _asMap(rawMap['annotations']) ?? const <String, Object?>{};
-    final execution = _asMap(rawMap['execution']) ?? const <String, Object?>{};
+        optionalStringKeyedMapFromValue(rawMap['annotations']) ??
+        const <String, Object?>{};
+    final execution =
+        optionalStringKeyedMapFromValue(rawMap['execution']) ??
+        const <String, Object?>{};
     final metadataWarnings = <String>[];
 
     final resolvedInputSchema =
@@ -1231,7 +1234,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
         'Tool scan failed because the MCP server did not return a response.',
       );
     }
-    final error = _asMap(envelope['error']);
+    final error = optionalStringKeyedMapFromValue(envelope['error']);
     if (error != null) {
       final message = _readText(error['message']);
       throw McpToolDiscoveryException(
@@ -1239,7 +1242,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
         '${_mcpServerResponseDetail(envelope)}',
       );
     }
-    final result = _asMap(envelope['result']);
+    final result = optionalStringKeyedMapFromValue(envelope['result']);
     if (result == null) {
       throw McpToolDiscoveryException(
         'Tool scan failed because the MCP server returned an invalid result payload.'
@@ -1309,7 +1312,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
   }
 
   String _renderToolCallContentItem(Object? rawItem) {
-    final item = _asMap(rawItem);
+    final item = optionalStringKeyedMapFromValue(rawItem);
     if (item == null) {
       return '$rawItem'.trim();
     }
@@ -1441,7 +1444,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
       'meta',
       'metadata',
     ]) {
-      final container = _asMap(rawMap[key]);
+      final container = optionalStringKeyedMapFromValue(rawMap[key]);
       if (container != null) {
         containers.add(container);
       }
@@ -1450,7 +1453,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
   }
 
   _ResolvedToolOutputMetadata _resolveOutputDescriptor(Object? descriptor) {
-    final descriptorMap = _asMap(descriptor);
+    final descriptorMap = optionalStringKeyedMapFromValue(descriptor);
     if (descriptorMap == null) {
       final description = _readText(descriptor);
       return _ResolvedToolOutputMetadata(
@@ -1508,7 +1511,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
   }
 
   String? _schemaDescription(Object? schema) {
-    final schemaMap = _asMap(schema);
+    final schemaMap = optionalStringKeyedMapFromValue(schema);
     if (schemaMap == null) {
       return null;
     }
@@ -1556,16 +1559,6 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
         normalized.contains('result');
   }
 
-  Map<String, Object?>? _asMap(Object? value) {
-    if (value is Map<String, Object?>) {
-      return value;
-    }
-    if (value is Map) {
-      return stringKeyedMapFromValue(value);
-    }
-    return null;
-  }
-
   List<_SseEvent> _parseSseEvents(String body) {
     final normalized = body.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
     final blocks = normalized.split('\n\n');
@@ -1607,20 +1600,10 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
   }
 }
 
-Map<String, Object?>? _jsonRpcMessageAsMap(Object? value) {
-  if (value is Map<String, Object?>) {
-    return value;
-  }
-  if (value is Map) {
-    return stringKeyedMapFromValue(value);
-  }
-  return null;
-}
-
 Iterable<Map<String, Object?>> _jsonRpcMessagesFromDecoded(
   Object? value,
 ) sync* {
-  final singleMessage = _jsonRpcMessageAsMap(value);
+  final singleMessage = optionalStringKeyedMapFromValue(value);
   if (singleMessage != null) {
     yield singleMessage;
     return;
@@ -1629,7 +1612,7 @@ Iterable<Map<String, Object?>> _jsonRpcMessagesFromDecoded(
     return;
   }
   for (final item in value) {
-    final message = _jsonRpcMessageAsMap(item);
+    final message = optionalStringKeyedMapFromValue(item);
     if (message != null) {
       yield message;
     }
@@ -2161,20 +2144,6 @@ const Duration _loginShellProbeTimeout = Duration(seconds: 3);
 const int _loginShellProbeMaxStdoutBytes = 64 * kBytesPerKiB;
 const int _loginShellProbeMaxStderrBytes = 16 * kBytesPerKiB;
 
-int _firstNpxPackageArgIndex(List<String> args) {
-  for (var i = 0; i < args.length; i++) {
-    final arg = args[i].trim();
-    if (arg.isEmpty) continue;
-    if (arg == '--') continue;
-    if (arg == '-y' || arg == '--yes' || arg == '--no-install') {
-      continue;
-    }
-    if (arg.startsWith('-')) continue;
-    return i;
-  }
-  return -1;
-}
-
 Future<String> _probeLoginShellPath() {
   if (_cachedLoginShellPath != null) {
     return Future.value(_cachedLoginShellPath!);
@@ -2306,7 +2275,7 @@ Future<_ResolvedStdioLaunch> _resolveStdioLaunch(McpServer server) async {
   // 快速路径：对 npx 命令，尝试直接定位已全局安装的包入口脚本用 node 执行。
   // 这避免了 npx 的启动开销和隔离缓存中的下载/兼容性问题。
   final isNpxCommand = rawCommand == 'npx' || rawCommand.endsWith('/npx');
-  final packageArgIndex = isNpxCommand ? _firstNpxPackageArgIndex(args) : -1;
+  final packageArgIndex = isNpxCommand ? firstMcpNpxPackageArgIndex(args) : -1;
   if (isNpxCommand && packageArgIndex >= 0 && !Platform.isWindows) {
     final packageName = args[packageArgIndex];
     final resolved = await resolveInstalledMcpNodePackage(

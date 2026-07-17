@@ -4,6 +4,7 @@ import 'package:yaml/yaml.dart';
 
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/text_clip.dart';
+import '../../../shared/util/text_normalization.dart';
 import '../model/agent_models.dart';
 
 class AgentRoutingMetadata {
@@ -142,7 +143,7 @@ List<String> _routingKeywords(
   }
   values.addAll(agent.taskLabels);
   values.addAll(agent.skillNames);
-  return _dedupe(values);
+  return dedupeNonEmptyStrings(values);
 }
 
 List<String> _stringsFromValue(Object? raw) {
@@ -151,17 +152,6 @@ List<String> _stringsFromValue(Object? raw) {
     return raw.expand(_stringsFromValue).toList(growable: false);
   }
   return splitTrimmedNonEmpty('$raw');
-}
-
-List<String> _dedupe(List<String> values) {
-  final seen = <String>{};
-  final result = <String>[];
-  for (final raw in values) {
-    final value = raw.trim();
-    if (value.isEmpty) continue;
-    if (seen.add(value.toLowerCase())) result.add(value);
-  }
-  return result;
 }
 
 String _stripQuotes(String value) {

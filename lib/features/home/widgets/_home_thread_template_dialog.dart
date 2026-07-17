@@ -505,7 +505,7 @@ Widget _buildHarnessConfigSection(BuildContext context, AiSession session) {
                 ja: '未設定',
               );
             }
-            return '${rc.cliName} · ${describeHarnessCliModel(findHarnessCliByName(rc.cliName), rc.modelId, locale: Localizations.localeOf(context))}';
+            return '${rc.cliName} · ${describeHarnessCliModel(rc.modelId, locale: Localizations.localeOf(context))}';
           }(),
         ),
     ],

@@ -1,6 +1,31 @@
 import 'package:flutter/material.dart';
 
+import '../util/localized_text.dart';
 import 'motion_preference.dart';
+
+String formatOpenHandAutoRejectCountdown(
+  BuildContext context,
+  Duration remaining,
+) {
+  final seconds = remaining.inSeconds;
+  if (seconds <= 0) {
+    return openHandLocalizedText(context, zh: '即将超时', en: 'Expiring now');
+  }
+  if (seconds < 60) {
+    return openHandLocalizedText(
+      context,
+      zh: '${seconds}s 后自动拒绝',
+      en: 'Auto-reject in ${seconds}s',
+    );
+  }
+  final minutes = seconds ~/ 60;
+  final tail = seconds % 60;
+  return openHandLocalizedText(
+    context,
+    zh: '${minutes}m ${tail}s 后自动拒绝',
+    en: 'Auto-reject in ${minutes}m ${tail}s',
+  );
+}
 
 class OpenHandCountdownProgressBar extends StatefulWidget {
   const OpenHandCountdownProgressBar({

@@ -27,30 +27,6 @@ bool _hasFailedTodoItems(List<AiSessionTodoItem> todoItems) {
   return AiSessionTodoState.hasFailure(todoItems);
 }
 
-bool _isFailureTrackedPlanToolStatus(String status) {
-  return switch (status) {
-    'failed' ||
-    'cancelled' ||
-    'denied' ||
-    'rejected' ||
-    'timed_out' ||
-    'invalid_arguments' => true,
-    _ => false,
-  };
-}
-
-bool _isTrackedPlanRelevantErrorStage(String stage) {
-  return switch (stage.trim().toLowerCase()) {
-    'chat_request' ||
-    'chat_continuation_request' ||
-    'chat_stream' ||
-    'follow_up_request' ||
-    'tool_execution' ||
-    'tool_loop' => true,
-    _ => false,
-  };
-}
-
 bool _isRetryableAutoTitleError(Object error) {
   return AiTransportDiagnosticMessages.isRetryableTransportError(error);
 }

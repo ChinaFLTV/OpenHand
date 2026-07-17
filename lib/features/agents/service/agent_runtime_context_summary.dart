@@ -1,3 +1,4 @@
+import '../../../shared/util/text_normalization.dart';
 import '../model/agent_models.dart';
 
 const List<(String normalized, String display)>
@@ -134,7 +135,7 @@ String? _agentBuiltinToolGroupName(String name) {
 Map<String, Object?> agentWorkspacePolicyJson(AgentProfile agent) {
   final workspacePath = agent.workspacePath.trim();
   final scopePaths = agent.normalizedWorkspaceScopePaths;
-  final allowedRoots = _dedupeNonEmptyStrings(<String>[
+  final allowedRoots = dedupeNonEmptyStrings(<String>[
     workspacePath,
     ...scopePaths,
   ]);
@@ -155,15 +156,4 @@ String _normalizeToolName(String value) {
     }
   }
   return buffer.toString();
-}
-
-List<String> _dedupeNonEmptyStrings(Iterable<String> values) {
-  final seen = <String>{};
-  final result = <String>[];
-  for (final raw in values) {
-    final value = raw.trim();
-    if (value.isEmpty) continue;
-    if (seen.add(value.toLowerCase())) result.add(value);
-  }
-  return result;
 }

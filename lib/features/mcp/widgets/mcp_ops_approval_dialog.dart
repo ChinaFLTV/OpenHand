@@ -14,6 +14,7 @@ import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
 import '../../../shared/util/timer_safety.dart';
 import '../model/mcp_server_ops.dart';
+import 'mcp_payload_format.dart';
 
 const int _approvalPayloadMaxDepth = 8;
 const int _approvalPayloadPreviewItemsPerLevel = 12;
@@ -251,7 +252,10 @@ class _McpOpsWriteApprovalDialogState
                   ),
                   _ApprovalChip(
                     icon: Icons.hourglass_top_rounded,
-                    label: _formatRemaining(context, _remaining),
+                    label: formatOpenHandAutoRejectCountdown(
+                      context,
+                      _remaining,
+                    ),
                     color: accent,
                   ),
                 ],
@@ -563,20 +567,21 @@ class _ApprovalPayloadPanel extends StatelessWidget {
                       children: [
                         _ApprovalPayloadPill(
                           icon: Icons.schema_rounded,
-                          label: _approvalPayloadShapeLabel(context, parsed),
+                          label: mcpPayloadShapeLabel(
+                            context,
+                            parsed.value,
+                            parsed.structured,
+                          ),
                           color: accent,
                         ),
                         _ApprovalPayloadPill(
                           icon: Icons.format_list_bulleted_rounded,
-                          label: _approvalPayloadCountLabel(
-                            context,
-                            parsed.value,
-                          ),
+                          label: mcpPayloadCountLabel(context, parsed.value),
                           color: cs.onSurfaceVariant,
                         ),
                         _ApprovalPayloadPill(
                           icon: Icons.notes_rounded,
-                          label: _approvalPayloadSizeLabel(context, parsed.raw),
+                          label: mcpPayloadSizeLabel(context, parsed.raw),
                           color: cs.onSurfaceVariant,
                         ),
                       ],
@@ -817,7 +822,7 @@ class _ApprovalPayloadField extends StatelessWidget {
                         border: Border.all(color: tone.withValues(alpha: 0.20)),
                       ),
                       child: Icon(
-                        _approvalPayloadValueIcon(value),
+                        mcpPayloadValueIcon(value),
                         size: 16,
                         color: tone,
                       ),
@@ -836,7 +841,7 @@ class _ApprovalPayloadField extends StatelessWidget {
                     const SizedBox(width: 8),
                     _ApprovalPayloadPill(
                       icon: Icons.category_rounded,
-                      label: _approvalPayloadTypeLabel(context, value),
+                      label: mcpPayloadTypeLabel(context, value),
                       color: cs.onSurfaceVariant,
                     ),
                   ],
@@ -844,7 +849,7 @@ class _ApprovalPayloadField extends StatelessWidget {
                 const SizedBox(height: 10),
                 _ApprovalPayloadNode(
                   value: value,
-                  raw: _approvalPayloadScalarText(value),
+                  raw: mcpPayloadScalarText(value),
                   structured: nested,
                   expanded: expanded,
                   accent: accent,
@@ -918,13 +923,13 @@ class _ApprovalPayloadScalar extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final rawText = _approvalPayloadScalarText(value);
+    final rawText = mcpPayloadScalarText(value);
     final text = _clipApprovalPayloadText(
       rawText,
       maxChars: expanded ? _approvalPayloadExpandedMaxChars : 260,
     );
     final muted = text.trim().isEmpty;
-    final mono = _approvalPayloadPrefersMonospace(semanticKey, rawText);
+    final mono = mcpPayloadPrefersMonospace(semanticKey, rawText);
     final block = mono || rawText.length > 96 || rawText.contains('\n');
     if (!block) {
       return SelectableText(
@@ -967,7 +972,7 @@ class _ApprovalPayloadScalar extends StatelessWidget {
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    _approvalPayloadContentLabel(context, semanticKey, mono),
+                    mcpPayloadContentLabel(context, semanticKey, mono),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.labelSmall?.copyWith(
@@ -977,7 +982,7 @@ class _ApprovalPayloadScalar extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  _approvalPayloadSizeLabel(context, rawText),
+                  mcpPayloadSizeLabel(context, rawText),
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: cs.onSurfaceVariant,
                     fontWeight: FontWeight.w800,
@@ -1145,185 +1150,15 @@ _ApprovalParsedPayload _parseApprovalPayload(String text) {
   if (decoded is Map || decoded is List) {
     return _ApprovalParsedPayload(value: decoded, raw: raw, structured: true);
   }
-  final looseMap = _parseApprovalLooseMap(raw);
+  final looseMap = parseMcpLoosePayloadMap(raw);
   if (looseMap != null && looseMap.isNotEmpty) {
     return _ApprovalParsedPayload(value: looseMap, raw: raw, structured: true);
   }
   return _ApprovalParsedPayload(value: raw, raw: raw, structured: false);
 }
 
-Map<String, Object?>? _parseApprovalLooseMap(String text) {
-  if (!text.startsWith('{') || !text.endsWith('}')) {
-    return null;
-  }
-  final inner = text.substring(1, text.length - 1).trim();
-  if (inner.isEmpty) return const <String, Object?>{};
-  final matches = RegExp(
-    r'(?:^|,\s*)([A-Za-z_][A-Za-z0-9_.-]{0,64}):\s*',
-  ).allMatches(inner).toList(growable: false);
-  if (matches.isEmpty) return null;
-  final result = <String, Object?>{};
-  for (var index = 0; index < matches.length; index++) {
-    final match = matches[index];
-    final key = match.group(1)!.trim();
-    final end = index + 1 < matches.length
-        ? matches[index + 1].start
-        : inner.length;
-    var value = inner.substring(match.end, end).trim();
-    if (value.endsWith(',')) {
-      value = value.substring(0, value.length - 1).trimRight();
-    }
-    result[key] = _coerceApprovalPayloadValue(value);
-  }
-  return result;
-}
-
-Object? _coerceApprovalPayloadValue(String value) {
-  final trimmed = value.trim();
-  if (trimmed.isEmpty) return '';
-  final decoded = tryDecodeJson(trimmed);
-  if (decoded != null) return decoded;
-  final lower = trimmed.toLowerCase();
-  if (lower == 'true') return true;
-  if (lower == 'false') return false;
-  if (lower == 'null') return null;
-  return int.tryParse(trimmed) ?? double.tryParse(trimmed) ?? trimmed;
-}
-
-String _approvalPayloadScalarText(Object? value) {
-  if (value == null) return 'null';
-  if (value is String) return value.trim();
-  if (value is num || value is bool) return '$value';
-  if (value is Map || value is List) return prettyPrintJson(value);
-  return '$value'.trim();
-}
-
 String _clipApprovalPayloadText(String text, {required int maxChars}) {
   final trimmed = text.trim();
   if (trimmed.length <= maxChars) return trimmed;
   return '${trimmed.substring(0, maxChars).trimRight()}...';
-}
-
-bool _approvalPayloadPrefersMonospace(String key, String value) {
-  final normalizedKey = key.toLowerCase();
-  return normalizedKey.contains('command') ||
-      normalizedKey.contains('path') ||
-      normalizedKey.contains('stdout') ||
-      normalizedKey.contains('stderr') ||
-      normalizedKey.contains('code') ||
-      value.contains('\n') ||
-      value.contains('&&') ||
-      value.contains('://');
-}
-
-String _approvalPayloadShapeLabel(
-  BuildContext context,
-  _ApprovalParsedPayload parsed,
-) {
-  if (!parsed.structured) {
-    return openHandLocalizedText(context, zh: '原始文本', en: 'Plain text');
-  }
-  if (parsed.value is Map) {
-    return openHandLocalizedText(context, zh: '对象结构', en: 'Object');
-  }
-  if (parsed.value is List) {
-    return openHandLocalizedText(context, zh: '列表结构', en: 'Array');
-  }
-  return openHandLocalizedText(context, zh: '结构化', en: 'Structured');
-}
-
-String _approvalPayloadCountLabel(BuildContext context, Object? value) {
-  if (value is Map) {
-    return openHandLocalizedText(
-      context,
-      zh: '${value.length} 个字段',
-      en: '${value.length} fields',
-    );
-  }
-  if (value is List) {
-    return openHandLocalizedText(
-      context,
-      zh: '${value.length} 项',
-      en: '${value.length} items',
-    );
-  }
-  return openHandLocalizedText(context, zh: '1 段内容', en: '1 segment');
-}
-
-String _approvalPayloadSizeLabel(BuildContext context, String text) {
-  return openHandLocalizedText(
-    context,
-    zh: '${text.length} 字符',
-    en: '${text.length} chars',
-  );
-}
-
-String _approvalPayloadTypeLabel(BuildContext context, Object? value) {
-  if (value is Map) {
-    return openHandLocalizedText(context, zh: '对象', en: 'Object');
-  }
-  if (value is List) {
-    return openHandLocalizedText(context, zh: '列表', en: 'Array');
-  }
-  if (value is num) {
-    return openHandLocalizedText(context, zh: '数值', en: 'Number');
-  }
-  if (value is bool) {
-    return openHandLocalizedText(context, zh: '布尔', en: 'Boolean');
-  }
-  if (value == null) {
-    return openHandLocalizedText(context, zh: '空值', en: 'Null');
-  }
-  return openHandLocalizedText(context, zh: '文本', en: 'Text');
-}
-
-String _approvalPayloadContentLabel(
-  BuildContext context,
-  String semanticKey,
-  bool mono,
-) {
-  final key = semanticKey.toLowerCase();
-  if (key.contains('command')) {
-    return openHandLocalizedText(context, zh: 'Shell 命令', en: 'Shell command');
-  }
-  if (key.contains('stdout') || key.contains('stderr')) {
-    return openHandLocalizedText(context, zh: '终端输出', en: 'Terminal output');
-  }
-  if (key.contains('path')) {
-    return openHandLocalizedText(context, zh: '文件路径', en: 'File path');
-  }
-  if (mono) {
-    return openHandLocalizedText(context, zh: '等宽文本', en: 'Monospace text');
-  }
-  return openHandLocalizedText(context, zh: '长文本', en: 'Long text');
-}
-
-IconData _approvalPayloadValueIcon(Object? value) {
-  if (value is Map) return Icons.data_object_rounded;
-  if (value is List) return Icons.data_array_rounded;
-  if (value is num) return Icons.pin_rounded;
-  if (value is bool) return Icons.toggle_on_rounded;
-  if (value == null) return Icons.block_rounded;
-  return Icons.short_text_rounded;
-}
-
-String _formatRemaining(BuildContext context, Duration remaining) {
-  final seconds = remaining.inSeconds;
-  if (seconds <= 0) {
-    return openHandLocalizedText(context, zh: '即将超时', en: 'Expiring now');
-  }
-  if (seconds < 60) {
-    return openHandLocalizedText(
-      context,
-      zh: '${seconds}s 后自动拒绝',
-      en: 'Auto-reject in ${seconds}s',
-    );
-  }
-  final minutes = seconds ~/ 60;
-  final tail = seconds % 60;
-  return openHandLocalizedText(
-    context,
-    zh: '${minutes}m ${tail}s 后自动拒绝',
-    en: 'Auto-reject in ${minutes}m ${tail}s',
-  );
 }

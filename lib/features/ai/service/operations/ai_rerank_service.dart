@@ -522,7 +522,9 @@ class _OpenAiCompatibleRerankStrategy extends _RerankRequestStrategy {
       body: body,
       fallbackPath:
           context.profileEndpointPath ??
-          (_isSparkBaseUrl(context.model.baseUrl) ? 'rerank' : null),
+          (AiOperationHttp.isSparkBaseUrl(context.model.baseUrl)
+              ? 'rerank'
+              : null),
       contextHint: 'rerank',
     );
   }
@@ -645,11 +647,4 @@ String _normalizeRerankRequestModelId(AiModelConfig model, String modelId) {
     return leaf;
   }
   return trimmed;
-}
-
-bool _isSparkBaseUrl(String baseUrl) {
-  final normalized = baseUrl.toLowerCase();
-  return normalized.contains('xf-yun.com') ||
-      normalized.contains('xfyun') ||
-      normalized.contains('xunfei');
 }

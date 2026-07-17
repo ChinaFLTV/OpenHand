@@ -49,7 +49,10 @@ class _HeModelDropdown extends StatelessWidget {
         DropdownMenuItem<String>(
           value: configuredModelId,
           child: Text(
-            _heDescribeHarnessCliModel(context, cli, configuredModelId),
+            describeHarnessCliModel(
+              configuredModelId,
+              locale: Localizations.localeOf(context),
+            ),
             style: theme.textTheme.bodySmall,
             overflow: TextOverflow.ellipsis,
           ),
@@ -84,7 +87,10 @@ class _HeModelDropdown extends StatelessWidget {
           return DropdownMenuItem(
             value: m,
             child: Text(
-              _heDescribeHarnessCliModel(context, cli, m),
+              describeHarnessCliModel(
+                m,
+                locale: Localizations.localeOf(context),
+              ),
               style: theme.textTheme.bodySmall,
               overflow: TextOverflow.ellipsis,
             ),

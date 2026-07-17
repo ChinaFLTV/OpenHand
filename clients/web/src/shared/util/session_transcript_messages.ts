@@ -1,4 +1,26 @@
 import type { SessionMessage } from '../../api/sessions';
+import { recordOrNullFromUnknown, stringFromUnknown } from './value';
+
+const TERMINAL_TOOL_EXECUTION_STATUSES = new Set([
+  'success',
+  'ok',
+  'completed',
+  'failed',
+  'failure',
+  'error',
+  'denied',
+  'rejected',
+  'timed_out',
+  'invalid_arguments',
+  'cancelled',
+  'canceled',
+  'aborted',
+  'blocked',
+]);
+
+export function isTerminalToolExecutionStatus(status: string): boolean {
+  return TERMINAL_TOOL_EXECUTION_STATUSES.has(status.toLowerCase());
+}
 
 const TRANSCRIPT_MEDIA_METADATA_KEYS = [
   'image_path',
@@ -67,17 +89,6 @@ const STANDALONE_TOOL_RESULT_SUPPRESSED_TOOL_NAMES = new Set([
   'machineterminalcontrol',
   'terminalcontrol',
 ]);
-
-function recordOrNullFromUnknown(value: unknown): Record<string, unknown> | null {
-  if (value != null && typeof value === 'object' && !Array.isArray(value)) {
-    return value as Record<string, unknown>;
-  }
-  return null;
-}
-
-function stringFromUnknown(value: unknown): string {
-  return value == null ? '' : String(value).trim();
-}
 
 function metadataHasRenderableValue(value: unknown): boolean {
   if (value == null) return false;

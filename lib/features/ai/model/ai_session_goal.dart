@@ -143,12 +143,12 @@ class AiSessionGoalEvaluationRecord {
   }
 
   static AiSessionGoalEvaluationRecord? fromJson(Object? raw) {
-    final json = _goalMap(raw);
+    final json = optionalStringKeyedMapFromValue(raw);
     if (json == null) return null;
     final id = _goalString(json['id']);
     if (id.isEmpty) return null;
     final now = DateTime.now().toUtc();
-    final usageJson = _goalMap(json['usage']);
+    final usageJson = optionalStringKeyedMapFromValue(json['usage']);
     return AiSessionGoalEvaluationRecord(
       id: id,
       createdAt: utcDateTimeFromValue(json['created_at']) ?? now,
@@ -319,7 +319,7 @@ class AiSessionGoalRecord {
   }
 
   static AiSessionGoalRecord? fromJson(Object? raw) {
-    final json = _goalMap(raw);
+    final json = optionalStringKeyedMapFromValue(raw);
     if (json == null) return null;
     final id = _goalString(json['id']);
     final objective = _goalString(json['objective']);
@@ -415,7 +415,7 @@ class AiSessionGoalState {
   }
 
   static AiSessionGoalState fromJson(Object? raw) {
-    final json = _goalMap(raw);
+    final json = optionalStringKeyedMapFromValue(raw);
     if (json == null) return empty;
     return AiSessionGoalState(
       current: AiSessionGoalRecord.fromJson(json['current']),
@@ -456,7 +456,7 @@ class AiSessionGoalStartOptions {
   }
 
   static AiSessionGoalStartOptions? fromJson(Object? raw) {
-    final json = _goalMap(raw);
+    final json = optionalStringKeyedMapFromValue(raw);
     if (json == null) return null;
     final evaluatorProviderConfigId = _goalString(
       json['evaluator_provider_config_id'] ?? json['provider_config_id'],
@@ -491,16 +491,6 @@ bool aiSessionGoalModeAllowedForTemplate(String templateId) {
     'web_reverse_expert',
     'android_reverse_expert',
   }.contains(templateId.trim());
-}
-
-Map<String, Object?>? _goalMap(Object? value) {
-  if (value is Map<String, Object?>) {
-    return value;
-  }
-  if (value is Map) {
-    return stringKeyedMapFromValue(value);
-  }
-  return null;
 }
 
 List<Object?> _goalList(Object? value) {
