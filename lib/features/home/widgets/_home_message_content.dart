@@ -2041,7 +2041,6 @@ class _MarkdownStabilizingPlaceholder extends StatelessWidget {
       child: ClipRRect(
         borderRadius: _borderRadius18,
         child: OpenHandSweepShimmer(
-          enabled: !_isTranscriptScrollActive(context),
           sweepColor: color.withValues(alpha: 0.10),
           child: LayoutBuilder(
             builder: (context, constraints) {
@@ -4351,107 +4350,33 @@ class _StreamingHtmlPlaceholderState extends State<_StreamingHtmlPlaceholder>
 /// 容器底色固定为 `Colors.transparent`：占位只会出现在消息卡片内部
 ///（assistant = surfaceContainerHigh / 工具结果 = surfaceContainerHighest），
 /// 不应再叠一层"更深一档"色块，否则会与卡片背景产生肉眼可见的色差。
-/// 高亮感由 shimmer 条带本身的 surfaceContainerLow 渐变承担。
-class _HtmlBubbleShimmer extends StatefulWidget {
+/// 高亮感由共享扫光层承担。
+class _HtmlBubbleShimmer extends StatelessWidget {
   const _HtmlBubbleShimmer();
-
-  @override
-  State<_HtmlBubbleShimmer> createState() => _HtmlBubbleShimmerState();
-}
-
-class _HtmlBubbleShimmerState extends State<_HtmlBubbleShimmer>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl;
-  TranscriptScrollActivity? _scrollActivity;
-  bool _transcriptScrolling = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: _htmlBubbleShimmerDuration,
-    );
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    final activity = _maybeTranscriptScrollActivityOf(context);
-    if (identical(activity, _scrollActivity)) {
-      return;
-    }
-    _scrollActivity?.removeListener(_handleScrollActivityChanged);
-    _scrollActivity = activity;
-    _transcriptScrolling = activity?.value ?? false;
-    activity?.addListener(_handleScrollActivityChanged);
-  }
-
-  void _handleScrollActivityChanged() {
-    final activity = _scrollActivity;
-    if (activity == null || !mounted) {
-      return;
-    }
-    final next = activity.value;
-    if (next == _transcriptScrolling) {
-      return;
-    }
-    setState(() {
-      _transcriptScrolling = next;
-    });
-  }
-
-  @override
-  void dispose() {
-    _scrollActivity?.removeListener(_handleScrollActivityChanged);
-    _scrollActivity = null;
-    _ctrl.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final baseColor = cs.onSurface.withValues(alpha: 0.08);
-    final highlightColor = cs.onSurface.withValues(alpha: 0.18);
-    final animationsEnabled =
-        openHandTickerMotionEnabled(context) && !_transcriptScrolling;
-    if (!animationsEnabled) {
-      _ctrl.stop();
-      return _buildContent(baseColor, highlightColor, 0.5);
-    }
-    if (!_ctrl.isAnimating) {
-      _ctrl.repeat();
-    }
-    return AnimatedBuilder(
-      animation: _ctrl,
-      builder: (context, child) {
-        return _buildContent(baseColor, highlightColor, _ctrl.value);
-      },
+    return OpenHandSweepShimmer(
+      duration: _htmlBubbleShimmerDuration,
+      sweepColor: cs.onSurface.withValues(alpha: 0.10),
+      child: _buildContent(baseColor),
     );
   }
 
-  Widget _buildBar(
-    Color base,
-    Color highlight,
-    double progress, {
-    double? width,
-  }) {
+  Widget _buildBar(Color color, {double? width}) {
     return Container(
       width: width ?? double.infinity,
       height: 12,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(6),
-        gradient: LinearGradient(
-          begin: Alignment(-1.0 + 2.0 * progress, 0),
-          end: Alignment(-1.0 + 2.0 * progress + 1.0, 0),
-          colors: [base, highlight, base],
-        ),
+        color: color,
       ),
     );
   }
 
-  Widget _buildContent(Color base, Color highlight, double progress) {
+  Widget _buildContent(Color color) {
     // 容器底色透明：避免在 assistant 卡片（surfaceContainerHigh）等
     // 任意底色之上再叠一块"更深一档"的色块导致色差。
     return Padding(
@@ -4459,13 +4384,13 @@ class _HtmlBubbleShimmerState extends State<_HtmlBubbleShimmer>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildBar(base, highlight, progress),
+          _buildBar(color),
           const SizedBox(height: 8),
-          _buildBar(base, highlight, progress),
+          _buildBar(color),
           const SizedBox(height: 8),
-          _buildBar(base, highlight, progress),
+          _buildBar(color),
           const SizedBox(height: 8),
-          _buildBar(base, highlight, progress, width: 180),
+          _buildBar(color, width: 180),
         ],
       ),
     );

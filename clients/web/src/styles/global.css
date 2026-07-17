@@ -8796,19 +8796,8 @@ button.oh-composer-pill:not(:disabled):hover {
   padding: 4px 0;
   overflow: hidden;
   border-radius: 8px;
-  background:
-    linear-gradient(
-      90deg,
-      color-mix(in srgb, currentColor 5%, transparent),
-      color-mix(in srgb, currentColor 11%, transparent),
-      color-mix(in srgb, currentColor 5%, transparent)
-    );
-  background-size: 220% 100%;
-  animation: oh-html-placeholder-sweep 1.4s ease-in-out infinite;
+  background: color-mix(in srgb, currentColor 5%, transparent);
   contain: paint;
-}
-[data-transcript-scroll-active='true'] .oh-markdown-render-placeholder {
-  animation: none;
 }
 .oh-markdown-render-placeholder span {
   display: block;
@@ -8890,18 +8879,8 @@ button.oh-composer-pill:not(:disabled):hover {
   padding: 6px 2px;
   overflow: hidden;
   border-radius: 8px;
-  background:
-    linear-gradient(
-      90deg,
-      color-mix(in srgb, currentColor 7%, transparent),
-      color-mix(in srgb, currentColor 13%, transparent),
-      color-mix(in srgb, currentColor 7%, transparent)
-    );
-  background-size: 220% 100%;
-  animation: oh-html-placeholder-sweep 1.4s ease-in-out infinite;
-}
-[data-transcript-scroll-active='true'] .oh-html-body-placeholder {
-  animation: none;
+  background: color-mix(in srgb, currentColor 7%, transparent);
+  contain: paint;
 }
 .oh-html-body-placeholder span {
   display: block;
@@ -8913,15 +8892,35 @@ button.oh-composer-pill:not(:disabled):hover {
 .oh-html-body-placeholder span:nth-child(2) { width: 92%; }
 .oh-html-body-placeholder span:nth-child(3) { width: 68%; }
 .oh-html-body-placeholder span:nth-child(4) { width: 42%; }
-@keyframes oh-html-placeholder-sweep {
-  from { background-position: 120% 0; }
-  to { background-position: -120% 0; }
+.oh-markdown-render-placeholder::after,
+.oh-html-body-placeholder::after {
+  content: '';
+  position: absolute;
+  inset: -40% auto -40% -45%;
+  width: 35%;
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, currentColor 12%, transparent),
+    transparent
+  );
+  transform: translate3d(0, 0, 0);
+  will-change: transform;
+  animation: oh-placeholder-sweep 1.4s ease-in-out infinite;
+}
+@keyframes oh-placeholder-sweep {
+  to { transform: translate3d(420%, 0, 0); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .oh-html-body-placeholder,
-  .oh-markdown-render-placeholder {
-    animation: none;
+  .oh-markdown-render-placeholder::after,
+  .oh-html-body-placeholder::after {
+    display: none;
   }
+}
+[data-motion='reduced'] .oh-markdown-render-placeholder::after,
+[data-motion='reduced'] .oh-html-body-placeholder::after {
+  display: none;
 }
 .oh-html-body *,
 .oh-html-body *::before,
