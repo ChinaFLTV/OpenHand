@@ -2794,9 +2794,7 @@ button.oh-message-context-capsule {
   align-items: center;
   gap: 16px;
   padding: 22px 20px 20px 24px;
-  background:
-    radial-gradient(circle at 86% -30%, color-mix(in srgb, var(--m3-tertiary) 18%, transparent), transparent 42%),
-    linear-gradient(125deg, var(--m3-primary-container), color-mix(in srgb, var(--m3-tertiary-container) 56%, var(--m3-surface-container-high)));
+  background: var(--m3-surface-container-low);
   border-bottom: 1px solid color-mix(in srgb, var(--m3-outline-variant) 72%, transparent);
 }
 .oh-resource-usage-head-icon {
@@ -2807,9 +2805,8 @@ button.oh-message-context-capsule {
   justify-content: center;
   flex: none;
   border-radius: 18px;
-  color: var(--m3-primary);
-  background: color-mix(in srgb, var(--m3-surface) 78%, transparent);
-  box-shadow: 0 14px 30px -20px color-mix(in srgb, var(--m3-shadow, #000) 42%, transparent);
+  color: var(--m3-on-primary-container);
+  background: var(--m3-primary-container);
 }
 .oh-resource-usage-head-icon svg,
 .oh-resource-usage-close svg {
@@ -2842,7 +2839,7 @@ button.oh-message-context-capsule {
   flex: none;
   border-radius: 14px;
   color: var(--m3-on-surface-variant);
-  background: color-mix(in srgb, var(--m3-surface) 66%, transparent);
+  background: var(--m3-surface-container-highest);
   transition: color 180ms ease, background 180ms ease, transform 220ms var(--oh-motion-spring);
 }
 .oh-resource-usage-close:hover {
@@ -3016,6 +3013,9 @@ button.oh-message-context-capsule {
   stroke-linejoin: round;
   vector-effect: non-scaling-stroke;
 }
+.oh-resource-usage-area {
+  fill: color-mix(in srgb, var(--m3-primary) 13%, transparent);
+}
 .oh-resource-usage-dot {
   fill: var(--m3-surface);
   stroke: var(--m3-primary);
@@ -3040,8 +3040,23 @@ button.oh-message-context-capsule {
   height: 154px;
   display: grid;
   place-items: center;
+  position: relative;
   border-radius: 50%;
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--m3-outline-variant) 60%, transparent);
+}
+.oh-resource-usage-donut > svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+.oh-resource-usage-donut-track,
+.oh-resource-usage-donut-segment {
+  fill: none;
+  stroke-width: 18;
+}
+.oh-resource-usage-donut-track {
+  stroke: var(--m3-surface-container-high);
 }
 .oh-resource-usage-donut > div {
   width: 108px;
@@ -3050,6 +3065,8 @@ button.oh-message-context-capsule {
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  position: relative;
+  z-index: 1;
   border-radius: 50%;
   background: var(--m3-surface);
   box-shadow: 0 8px 22px -18px color-mix(in srgb, var(--m3-shadow, #000) 38%, transparent);
@@ -3145,7 +3162,7 @@ button.oh-message-context-capsule {
   height: 100%;
   display: block;
   border-radius: inherit;
-  background: linear-gradient(90deg, var(--m3-primary), color-mix(in srgb, var(--m3-tertiary) 76%, var(--m3-primary)));
+  background: var(--m3-primary);
 }
 .oh-resource-usage-ranking li > b {
   color: var(--m3-on-surface);

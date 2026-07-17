@@ -17,6 +17,11 @@ import {
 
 const LEVELS: ResourceUsageLevel[] = ['session', 'day', 'week', 'month', 'quarter', 'year'];
 const CHART_COLORS = ['#6d5dfc', '#14b8a6', '#f59e0b', '#ec4899', '#38bdf8', '#94a3b8'];
+const DONUT_SIZE = 154;
+const DONUT_CENTER = DONUT_SIZE / 2;
+const DONUT_RADIUS = 62;
+const DONUT_CIRCUMFERENCE = 2 * Math.PI * DONUT_RADIUS;
+const DONUT_SEGMENT_GAP = 4;
 
 interface ResourceUsageDialogProps {
   kind: ResourceUsageKind;
@@ -194,9 +199,8 @@ function TrendChart({ level }: { level: ResourceUsageLevelSnapshot }) {
   return (
     <div class="oh-resource-usage-trend">
       <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" role="img" aria-label={t('resourceUsage.trend', '调用趋势')}>
-        <defs><linearGradient id="oh-usage-area" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--m3-primary)" stop-opacity=".28"/><stop offset="1" stop-color="var(--m3-primary)" stop-opacity="0"/></linearGradient></defs>
         {[0, 1, 2, 3, 4].map((row) => <line key={row} x1={insetX} x2={width - insetX} y1={insetY + chartHeight * row / 4} y2={insetY + chartHeight * row / 4} class="oh-resource-usage-gridline" />)}
-        <polygon points={area} fill="url(#oh-usage-area)" />
+        <polygon points={area} class="oh-resource-usage-area" />
         <polyline points={line} class="oh-resource-usage-line" />
         {coordinates.map(({ x, y, point }) => <circle key={point.bucket} cx={x} cy={y} r="4" class="oh-resource-usage-dot"><title>{point.bucket}: {point.total}</title></circle>)}
       </svg>
@@ -209,16 +213,36 @@ function Distribution(props: { entries: Array<[string, number]>; labels: Record<
   if (props.entries.length === 0 || props.total <= 0) return <EmptyChart label={t('resourceUsage.emptyShare', '暂无占比数据')} />;
   const visible = props.entries.slice(0, 5);
   const other = Math.max(0, props.total - visible.reduce((sum, entry) => sum + entry[1], 0));
+  const values = visible.map((entry, index) => ({ value: entry[1], color: CHART_COLORS[index] }));
+  if (other > 0) values.push({ value: other, color: CHART_COLORS[5] });
   let cursor = 0;
-  const segments = visible.map((entry, index) => {
-    const start = cursor;
-    cursor += entry[1] / props.total * 100;
-    return `${CHART_COLORS[index]} ${start}% ${cursor}%`;
+  const segments = values.map((item) => {
+    const ratio = item.value / props.total;
+    const offset = cursor;
+    cursor += ratio;
+    const length = Math.max(0, ratio * DONUT_CIRCUMFERENCE - DONUT_SEGMENT_GAP);
+    return { ...item, length, offset: -offset * DONUT_CIRCUMFERENCE };
   });
-  if (other > 0) segments.push(`${CHART_COLORS[5]} ${cursor}% 100%`);
   return (
     <div class="oh-resource-usage-distribution">
-      <div class="oh-resource-usage-donut" style={{ background: `conic-gradient(${segments.join(',')})` }}>
+      <div class="oh-resource-usage-donut">
+        <svg viewBox={`0 0 ${DONUT_SIZE} ${DONUT_SIZE}`} aria-hidden="true">
+          <circle class="oh-resource-usage-donut-track" cx={DONUT_CENTER} cy={DONUT_CENTER} r={DONUT_RADIUS} />
+          {segments.map((segment, index) => (
+            <circle
+              key={`${segment.color}-${index}`}
+              class="oh-resource-usage-donut-segment"
+              cx={DONUT_CENTER}
+              cy={DONUT_CENTER}
+              r={DONUT_RADIUS}
+              style={{
+                stroke: segment.color,
+                strokeDasharray: `${segment.length} ${DONUT_CIRCUMFERENCE - segment.length}`,
+                strokeDashoffset: String(segment.offset),
+              }}
+            />
+          ))}
+        </svg>
         <div><strong>{props.total}</strong><span>{t('resourceUsage.calls', '次调用')}</span></div>
       </div>
       <ul>

@@ -171,15 +171,8 @@ class _ResourceUsageStatisticsDialogState
     final colorScheme = Theme.of(context).colorScheme;
     return DecoratedBox(
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            colorScheme.primaryContainer.withValues(alpha: 0.82),
-            colorScheme.tertiaryContainer.withValues(alpha: 0.56),
-            colorScheme.surfaceContainerHighest.withValues(alpha: 0.72),
-          ],
-        ),
+        color: colorScheme.surfaceContainerLow,
+        border: Border(bottom: BorderSide(color: colorScheme.outlineVariant)),
       ),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(24, 22, 18, 20),
@@ -189,19 +182,12 @@ class _ResourceUsageStatisticsDialogState
               width: 52,
               height: 52,
               decoration: BoxDecoration(
-                color: colorScheme.surface.withValues(alpha: 0.78),
+                color: colorScheme.primaryContainer,
                 borderRadius: BorderRadius.circular(18),
-                boxShadow: [
-                  BoxShadow(
-                    color: colorScheme.shadow.withValues(alpha: 0.08),
-                    blurRadius: 20,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
               ),
               child: Icon(
                 Icons.query_stats_rounded,
-                color: colorScheme.primary,
+                color: colorScheme.onPrimaryContainer,
                 size: 28,
               ),
             ),
@@ -709,15 +695,7 @@ class _TrendPainter extends CustomPainter {
       ..close();
     canvas.drawPath(
       area,
-      Paint()
-        ..shader = LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            colorScheme.primary.withValues(alpha: 0.28),
-            colorScheme.primary.withValues(alpha: 0.02),
-          ],
-        ).createShader(Rect.fromLTWH(left, top, width, height)),
+      Paint()..color = colorScheme.primaryContainer.withValues(alpha: 0.48),
     );
     canvas.drawPath(
       line,
